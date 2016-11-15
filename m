@@ -1,65 +1,95 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit
- ethernet driver
-Date: Tue, 15 Nov 2016 14:39:13 -0800
-Message-ID: <41c0c732-0935-1625-b88d-c084e5000a6c@gmail.com>
-References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
- <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
- <20161113195544.GA18258@lunn.ch>
- <69558f55-824a-7063-d9b3-ccc0a6113b87@gmx.de>
- <4450caf4-e1cf-5187-1337-c46b81b08708@gmail.com>
- <0d1b4dee-11bb-3605-699c-ea417484cb68@gmx.de>
- <20161115215907.GF23231@lunn.ch>
- <86165d2b-f9d5-a380-9bb0-f77c12691eb6@gmx.de>
+From: Andrei Vagin <avagin@gmail.com>
+Subject: Re: linux-next: net->netns_ids is used after calling idr_destroy for it
+Date: Tue, 15 Nov 2016 14:45:25 -0800
+Message-ID: <CANaxB-ypW4cFxNTAaS-n6ehNHxGyxe9x0G8SJap6PBp8UJX9gA@mail.gmail.com>
+References: <CANaxB-x7FgxpAwpa-RgOvUptrCRUmAE6NFm3As+LuXUE=fHJyA@mail.gmail.com>
+ <CAM_iQpUQOCsVkaRPU3OkmNvyOLDtmRRK1G3uzvi9URSVEbapJQ@mail.gmail.com>
+ <CAM_iQpU=DXKEboYHi4yO3m6VuUm1RoDRD26ZK-pVY--yUE0wNA@mail.gmail.com>
+ <CANaxB-ysMU+QG=warwiQdC5pfXRjrSY7WOqJk0fcj-UMpipSZQ@mail.gmail.com>
+ <CAM_iQpXYvGnaf=AAD5EJYqQ7WApjRyUResN+0Z_Bq1Xt8G8zQQ@mail.gmail.com> <CANaxB-y0_veL0hfdskXrix66FzydTSQ=MXOkmw72RsFqcXj9Pw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
-        gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33223 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933544AbcKOWjR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 17:39:17 -0500
-In-Reply-To: <86165d2b-f9d5-a380-9bb0-f77c12691eb6@gmx.de>
+Received: from mail-it0-f44.google.com ([209.85.214.44]:32961 "EHLO
+        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932783AbcKOWp0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 17:45:26 -0500
+Received: by mail-it0-f44.google.com with SMTP id c20so29472677itb.0
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 14:45:26 -0800 (PST)
+In-Reply-To: <CANaxB-y0_veL0hfdskXrix66FzydTSQ=MXOkmw72RsFqcXj9Pw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2016 02:34 PM, Lino Sanfilippo wrote:
-> On 15.11.2016 22:59, Andrew Lunn wrote:
->>> The link state is retrieved by a command to the application processor that is running 
->>> on the network card. Also the register to set the phy configuration is write-only, so
->>> it is not even possible to do the usual mdio bit-banging in the Phy read() and write()
->>> functions (however there seems to be another application processor command reserved 
->>> for retrieving the PHY settings, but I have not tried it yet). 
+On Tue, Nov 15, 2016 at 2:21 PM, Andrei Vagin <avagin@gmail.com> wrote:
+> On Tue, Nov 15, 2016 at 1:07 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Tue, Nov 15, 2016 at 12:48 PM, Andrei Vagin <avagin@gmail.com> wrote:
+>>> On Tue, Nov 15, 2016 at 10:50 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>> On Tue, Nov 15, 2016 at 10:04 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>>> On Mon, Nov 14, 2016 at 10:23 PM, Andrei Vagin <avagin@gmail.com> wrote:
+>>>>>> Hi Nicolas,
+>>>>>>
+>>>>>> cleanup_net() calls idr_destroy(net->netns_ids) for network namespaces
+>>>>>> and then it calls unregister_netdevice_many() which calls
+>>>>>> idr_alloc(net0>netns_ids). It looks wrong, doesn't it?
+>>>>>>
+>>>>>
+>>>>> netns id is designed to allocate lazily, but yeah it makes no sense
+>>>>> to allocate id for the netns being destroyed, not to mention idr is freed.
+>>>>>
+>>>>> I will send a patch.
+>>>>
+>>>> Could you try the attached patch? I just did some quick netns creation/destroy
+>>>> tests.
+>>>
+>>> Here is another fail:
+>>>
+>>> unreferenced object 0xffff94153912a0c0 (size 2096):
+>>>   comm "ip", pid 29175, jiffies 4294954213 (age 137.624s)
+>>>   hex dump (first 32 bytes):
+>>>     00 00 00 00 00 00 00 00 00 b2 3b 1d 15 94 ff ff  ..........;.....
+>>>     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>>>   backtrace:
+>>>     [<ffffffffac865c1a>] kmemleak_alloc+0x4a/0xa0
+>>>     [<ffffffffac243b38>] kmem_cache_alloc+0x128/0x280
+>>>     [<ffffffffac42f5ab>] idr_layer_alloc+0x2b/0x90
+>>>     [<ffffffffac42f9cd>] idr_get_empty_slot+0x34d/0x370
+>>>     [<ffffffffac42fa4e>] idr_alloc+0x5e/0x110
+>>>     [<ffffffffac70ac3d>] __peernet2id_alloc+0x6d/0x90
+>>>     [<ffffffffac70bda5>] peernet2id_alloc+0x55/0xb0
+>>>     [<ffffffffac731246>] rtnl_fill_ifinfo+0xaa6/0x10a0
+>>>     [<ffffffffac7330a3>] rtmsg_ifinfo_build_skb+0x73/0xd0
+>>>     [<ffffffffac7125e1>] rollback_registered_many+0x2a1/0x3a0
+>>>     [<ffffffffac712779>] __unregister_netdevice_many+0x29/0x80
+>>>     [<ffffffffac7127e3>] unregister_netdevice_many+0x13/0x20
+>>>     [<ffffffffc02dc4ce>] macvlan_device_event+0x13e/0x235 [macvlan]
+>>>     [<ffffffffac0bef2a>] notifier_call_chain+0x4a/0x70
+>>>     [<ffffffffac0bf066>] raw_notifier_call_chain+0x16/0x20
+>>>     [<ffffffffac710205>] call_netdevice_notifiers_info+0x35/0x60
+>>>
 >>
->>>> +  			val = MII_BMCR << 16 | SLIC_PCR_AUTONEG |
->>>> +		     	         SLIC_PCR_AUTONEG_RST;
->>>> +			slic_write(sdev, SLIC_REG_WPHY, val);
+>> Oh, drivers send rtmsg in notifiers too, hmm.
 >>
->> This actually looks a lot like an MDIO write operation. The upper 16
->> bits are the register, and the lower 16 bits are the data. What you
->> don't have is the address. But maybe it is limited to one address.
+>>>
+>>> What do you think about calling idr_destroy() at the final step in
+>>> cleanup_net()? In this case we can avoid this sort of problems in a
+>>> future.
 >>
->> If the processor command reserved for read works in a similar way, you
->> have enough to do an MDIO bus.
+>> This was my first idea too, but it looks more risky than my approach.
 >>
-> 
-> Ok, I will give it a try. Reading values via the application processor
-> is a bit awkward though, since it requires an address to a dma area as part of
-> the command and then the AP informs the driver via irq that the dma memory has 
-> been written. So probably the irq handler will have to set some flag and
-> the mdio_read() function will have to poll for that flag in place of doing 
-> bit-banging a register. 
+>> Also, rtmsg is really not needed because the netns is being destroyed,
+>> no one cares about it here.
+>
+> I would like to agree with you here, but looks like sockets with
+> NETLINK_F_LISTEN_ALL_NSID are able to catch these messages.
 
-That's a bit unusual compared to typical controllers that are usually
-memory-mapped and that you can either write to, read/poll to know about
-completion. I suppose that you could still have a mdiobus implementation
-that is able to read to/from PHYs by submitting a command to the AP,
-wait on a completion structure, and have the interrupt handler do the
-completion of the command?
--- 
-Florian
+Actually I found that I was wrong.
+
+do_one_broadcast() sends a notification only if a device network
+namespace has an id in a socket netns. But cleanup_net() removes all
+id-s to a target namespace, so just ignore my last comment.
+
+Thanks,
+Andrei
