@@ -1,399 +1,265 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH v5 2/5] wcn36xx: Transition driver to SMD client
-Date: Mon, 14 Nov 2016 22:06:51 -0800
-Message-ID: <1479190014-11297-2-git-send-email-bjorn.andersson@linaro.org>
+From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH v5 3/5] wcn36xx: Implement firmware assisted scan
+Date: Mon, 14 Nov 2016 22:06:52 -0800
+Message-ID: <1479190014-11297-3-git-send-email-bjorn.andersson@linaro.org>
 References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
-Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org, Andy Gross <andy.gross@linaro.org>
-To: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andy Gross <andy.gross-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1479190014-11297-1-git-send-email-bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The wcn36xx wifi driver follows the life cycle of the WLAN_CTRL SMD
-channel, as such it should be a SMD client. This patch makes this
-transition, now that we have the necessary frameworks available.
+Using the software based channel scan mechanism from mac80211 keeps us
+offline for 10-15 second, we should instead issue a start_scan/end_scan
+on each channel reducing this time.
 
-Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 ---
 
 Changes since v4:
-- Added Kconfig dependency to handle dependencies compiled as modules
+- None
 
- drivers/net/wireless/ath/wcn36xx/Kconfig   |  2 +
- drivers/net/wireless/ath/wcn36xx/dxe.c     | 16 +++---
- drivers/net/wireless/ath/wcn36xx/main.c    | 79 ++++++++++++++++++++----------
- drivers/net/wireless/ath/wcn36xx/smd.c     | 31 +++++-------
- drivers/net/wireless/ath/wcn36xx/smd.h     |  5 ++
- drivers/net/wireless/ath/wcn36xx/wcn36xx.h | 21 +++-----
- 6 files changed, 88 insertions(+), 66 deletions(-)
+ drivers/net/wireless/ath/wcn36xx/main.c    | 64 +++++++++++++++++++++++++-----
+ drivers/net/wireless/ath/wcn36xx/smd.c     |  8 ++--
+ drivers/net/wireless/ath/wcn36xx/smd.h     |  4 +-
+ drivers/net/wireless/ath/wcn36xx/txrx.c    | 19 ++++++---
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  9 +++++
+ 5 files changed, 81 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/Kconfig b/drivers/net/wireless/ath/wcn36xx/Kconfig
-index 591ebaea8265..4b83e87f0b94 100644
---- a/drivers/net/wireless/ath/wcn36xx/Kconfig
-+++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
-@@ -1,6 +1,8 @@
- config WCN36XX
- 	tristate "Qualcomm Atheros WCN3660/3680 support"
- 	depends on MAC80211 && HAS_DMA
-+	depends on QCOM_WCNSS_CTRL || QCOM_WCNSS_CTRL=n
-+	depends on QCOM_SMD || QCOM_SMD=n
- 	---help---
- 	  This module adds support for wireless adapters based on
- 	  Qualcomm Atheros WCN3660 and WCN3680 mobile chipsets.
-diff --git a/drivers/net/wireless/ath/wcn36xx/dxe.c b/drivers/net/wireless/ath/wcn36xx/dxe.c
-index 231fd022f0f5..87dfdaf9044c 100644
---- a/drivers/net/wireless/ath/wcn36xx/dxe.c
-+++ b/drivers/net/wireless/ath/wcn36xx/dxe.c
-@@ -23,6 +23,7 @@
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
- #include <linux/interrupt.h>
-+#include <linux/soc/qcom/smem_state.h>
- #include "wcn36xx.h"
- #include "txrx.h"
- 
-@@ -151,9 +152,12 @@ int wcn36xx_dxe_alloc_ctl_blks(struct wcn36xx *wcn)
- 		goto out_err;
- 
- 	/* Initialize SMSM state  Clear TX Enable RING EMPTY STATE */
--	ret = wcn->ctrl_ops->smsm_change_state(
--		WCN36XX_SMSM_WLAN_TX_ENABLE,
--		WCN36XX_SMSM_WLAN_TX_RINGS_EMPTY);
-+	ret = qcom_smem_state_update_bits(wcn->tx_enable_state,
-+					  WCN36XX_SMSM_WLAN_TX_ENABLE |
-+					  WCN36XX_SMSM_WLAN_TX_RINGS_EMPTY,
-+					  WCN36XX_SMSM_WLAN_TX_RINGS_EMPTY);
-+	if (ret)
-+		goto out_err;
- 
- 	return 0;
- 
-@@ -678,9 +682,9 @@ int wcn36xx_dxe_tx_frame(struct wcn36xx *wcn,
- 	 * notify chip about new frame through SMSM bus.
- 	 */
- 	if (is_low &&  vif_priv->pw_state == WCN36XX_BMPS) {
--		wcn->ctrl_ops->smsm_change_state(
--				  0,
--				  WCN36XX_SMSM_WLAN_TX_ENABLE);
-+		qcom_smem_state_update_bits(wcn->tx_rings_empty_state,
-+					    WCN36XX_SMSM_WLAN_TX_ENABLE,
-+					    WCN36XX_SMSM_WLAN_TX_ENABLE);
- 	} else {
- 		/* indicate End Of Packet and generate interrupt on descriptor
- 		 * done.
 diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index e1d59da2ad20..3c2522b07c90 100644
+index 3c2522b07c90..96a9584edcbb 100644
 --- a/drivers/net/wireless/ath/wcn36xx/main.c
 +++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -21,6 +21,10 @@
- #include <linux/platform_device.h>
- #include <linux/of_address.h>
- #include <linux/of_device.h>
-+#include <linux/of_irq.h>
-+#include <linux/soc/qcom/smd.h>
-+#include <linux/soc/qcom/smem_state.h>
-+#include <linux/soc/qcom/wcnss_ctrl.h>
- #include "wcn36xx.h"
+@@ -568,23 +568,59 @@ static int wcn36xx_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 	return ret;
+ }
  
- unsigned int wcn36xx_dbg_mask;
-@@ -1058,8 +1062,7 @@ static int wcn36xx_platform_get_resources(struct wcn36xx *wcn,
- 	int ret;
- 
- 	/* Set TX IRQ */
--	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
--					   "wcnss_wlantx_irq");
-+	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "tx");
- 	if (!res) {
- 		wcn36xx_err("failed to get tx_irq\n");
- 		return -ENOENT;
-@@ -1067,14 +1070,29 @@ static int wcn36xx_platform_get_resources(struct wcn36xx *wcn,
- 	wcn->tx_irq = res->start;
- 
- 	/* Set RX IRQ */
--	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
--					   "wcnss_wlanrx_irq");
-+	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "rx");
- 	if (!res) {
- 		wcn36xx_err("failed to get rx_irq\n");
- 		return -ENOENT;
- 	}
- 	wcn->rx_irq = res->start;
- 
-+	/* Acquire SMSM tx enable handle */
-+	wcn->tx_enable_state = qcom_smem_state_get(&pdev->dev,
-+			"tx-enable", &wcn->tx_enable_state_bit);
-+	if (IS_ERR(wcn->tx_enable_state)) {
-+		wcn36xx_err("failed to get tx-enable state\n");
-+		return PTR_ERR(wcn->tx_enable_state);
-+	}
-+
-+	/* Acquire SMSM tx rings empty handle */
-+	wcn->tx_rings_empty_state = qcom_smem_state_get(&pdev->dev,
-+			"tx-rings-empty", &wcn->tx_rings_empty_state_bit);
-+	if (IS_ERR(wcn->tx_rings_empty_state)) {
-+		wcn36xx_err("failed to get tx-rings-empty state\n");
-+		return PTR_ERR(wcn->tx_rings_empty_state);
-+	}
-+
- 	mmio_node = of_parse_phandle(pdev->dev.parent->of_node, "qcom,mmio", 0);
- 	if (!mmio_node) {
- 		wcn36xx_err("failed to acquire qcom,mmio reference\n");
-@@ -1115,11 +1133,14 @@ static int wcn36xx_probe(struct platform_device *pdev)
+-static void wcn36xx_sw_scan_start(struct ieee80211_hw *hw,
+-				  struct ieee80211_vif *vif,
+-				  const u8 *mac_addr)
++static void wcn36xx_hw_scan_worker(struct work_struct *work)
  {
- 	struct ieee80211_hw *hw;
- 	struct wcn36xx *wcn;
-+	void *wcnss;
- 	int ret;
--	u8 addr[ETH_ALEN];
-+	const u8 *addr;
- 
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "platform probe\n");
- 
-+	wcnss = dev_get_drvdata(pdev->dev.parent);
+-	struct wcn36xx *wcn = hw->priv;
++	struct wcn36xx *wcn = container_of(work, struct wcn36xx, scan_work);
++	struct cfg80211_scan_request *req = wcn->scan_req;
++	u8 channels[WCN36XX_HAL_PNO_MAX_NETW_CHANNELS_EX];
++	struct cfg80211_scan_info scan_info = {};
++	int i;
 +
- 	hw = ieee80211_alloc_hw(sizeof(struct wcn36xx), &wcn36xx_ops);
- 	if (!hw) {
- 		wcn36xx_err("failed to alloc hw\n");
-@@ -1130,11 +1151,23 @@ static int wcn36xx_probe(struct platform_device *pdev)
- 	wcn = hw->priv;
++	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac80211 scan %d channels worker\n", req->n_channels);
++
++	for (i = 0; i < req->n_channels; i++)
++		channels[i] = req->channels[i]->hw_value;
++
++	wcn36xx_smd_update_scan_params(wcn, channels, req->n_channels);
+ 
+ 	wcn36xx_smd_init_scan(wcn, HAL_SYS_MODE_SCAN);
+-	wcn36xx_smd_start_scan(wcn);
++	for (i = 0; i < req->n_channels; i++) {
++		wcn->scan_freq = req->channels[i]->center_freq;
++		wcn->scan_band = req->channels[i]->band;
++
++		wcn36xx_smd_start_scan(wcn, req->channels[i]->hw_value);
++		msleep(30);
++		wcn36xx_smd_end_scan(wcn, req->channels[i]->hw_value);
++
++		wcn->scan_freq = 0;
++	}
++	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
++
++	scan_info.aborted = false;
++	ieee80211_scan_completed(wcn->hw, &scan_info);
++
++	mutex_lock(&wcn->scan_lock);
++	wcn->scan_req = NULL;
++	mutex_unlock(&wcn->scan_lock);
+ }
+ 
+-static void wcn36xx_sw_scan_complete(struct ieee80211_hw *hw,
+-				     struct ieee80211_vif *vif)
++static int wcn36xx_hw_scan(struct ieee80211_hw *hw,
++			   struct ieee80211_vif *vif,
++			   struct ieee80211_scan_request *hw_req)
+ {
+ 	struct wcn36xx *wcn = hw->priv;
+ 
+-	wcn36xx_smd_end_scan(wcn);
+-	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
++	mutex_lock(&wcn->scan_lock);
++	if (wcn->scan_req) {
++		mutex_unlock(&wcn->scan_lock);
++		return -EBUSY;
++	}
++	wcn->scan_req = &hw_req->req;
++	mutex_unlock(&wcn->scan_lock);
++
++	schedule_work(&wcn->scan_work);
++
++	return 0;
+ }
+ 
+ static void wcn36xx_update_allowed_rates(struct ieee80211_sta *sta,
+@@ -997,8 +1033,7 @@ static const struct ieee80211_ops wcn36xx_ops = {
+ 	.configure_filter       = wcn36xx_configure_filter,
+ 	.tx			= wcn36xx_tx,
+ 	.set_key		= wcn36xx_set_key,
+-	.sw_scan_start		= wcn36xx_sw_scan_start,
+-	.sw_scan_complete	= wcn36xx_sw_scan_complete,
++	.hw_scan		= wcn36xx_hw_scan,
+ 	.bss_info_changed	= wcn36xx_bss_info_changed,
+ 	.set_rts_threshold	= wcn36xx_set_rts_threshold,
+ 	.sta_add		= wcn36xx_sta_add,
+@@ -1023,6 +1058,7 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ 	ieee80211_hw_set(wcn->hw, SUPPORTS_PS);
+ 	ieee80211_hw_set(wcn->hw, SIGNAL_DBM);
+ 	ieee80211_hw_set(wcn->hw, HAS_RATE_CONTROL);
++	ieee80211_hw_set(wcn->hw, SINGLE_SCAN_ON_ALL_BANDS);
+ 
+ 	wcn->hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
+ 		BIT(NL80211_IFTYPE_AP) |
+@@ -1032,6 +1068,9 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+ 	wcn->hw->wiphy->bands[NL80211_BAND_2GHZ] = &wcn_band_2ghz;
+ 	wcn->hw->wiphy->bands[NL80211_BAND_5GHZ] = &wcn_band_5ghz;
+ 
++	wcn->hw->wiphy->max_scan_ssids = WCN36XX_MAX_SCAN_SSIDS;
++	wcn->hw->wiphy->max_scan_ie_len = WCN36XX_MAX_SCAN_IE_LEN;
++
+ 	wcn->hw->wiphy->cipher_suites = cipher_suites;
+ 	wcn->hw->wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
+ 
+@@ -1152,6 +1191,9 @@ static int wcn36xx_probe(struct platform_device *pdev)
  	wcn->hw = hw;
  	wcn->dev = &pdev->dev;
--	wcn->ctrl_ops = pdev->dev.platform_data;
--
  	mutex_init(&wcn->hal_mutex);
- 
--	if (!wcn->ctrl_ops->get_hw_mac(addr)) {
-+	wcn->smd_channel = qcom_wcnss_open_channel(wcnss, "WLAN_CTRL", wcn36xx_smd_rsp_process);
-+	if (IS_ERR(wcn->smd_channel)) {
-+		wcn36xx_err("failed to open WLAN_CTRL channel\n");
-+		ret = PTR_ERR(wcn->smd_channel);
-+		goto out_wq;
-+	}
++	mutex_init(&wcn->scan_lock);
 +
-+	qcom_smd_set_drvdata(wcn->smd_channel, hw);
-+
-+	addr = of_get_property(pdev->dev.of_node, "local-mac-address", &ret);
-+	if (addr && ret != ETH_ALEN) {
-+		wcn36xx_err("invalid local-mac-address\n");
-+		ret = -EINVAL;
-+		goto out_wq;
-+	} else if (addr) {
- 		wcn36xx_info("mac address: %pM\n", addr);
- 		SET_IEEE80211_PERM_ADDR(wcn->hw, addr);
- 	}
-@@ -1158,6 +1191,7 @@ static int wcn36xx_probe(struct platform_device *pdev)
- out_err:
- 	return ret;
- }
-+
- static int wcn36xx_remove(struct platform_device *pdev)
- {
- 	struct ieee80211_hw *hw = platform_get_drvdata(pdev);
-@@ -1168,42 +1202,33 @@ static int wcn36xx_remove(struct platform_device *pdev)
- 	mutex_destroy(&wcn->hal_mutex);
++	INIT_WORK(&wcn->scan_work, wcn36xx_hw_scan_worker);
  
- 	ieee80211_unregister_hw(hw);
-+
-+	qcom_smem_state_put(wcn->tx_enable_state);
-+	qcom_smem_state_put(wcn->tx_rings_empty_state);
-+
- 	iounmap(wcn->dxe_base);
- 	iounmap(wcn->ccu_base);
- 	ieee80211_free_hw(hw);
- 
- 	return 0;
- }
--static const struct platform_device_id wcn36xx_platform_id_table[] = {
--	{
--		.name = "wcn36xx",
--		.driver_data = 0
--	},
-+
-+static const struct of_device_id wcn36xx_of_match[] = {
-+	{ .compatible = "qcom,wcnss-wlan" },
- 	{}
- };
--MODULE_DEVICE_TABLE(platform, wcn36xx_platform_id_table);
-+MODULE_DEVICE_TABLE(of, wcn36xx_of_match);
- 
- static struct platform_driver wcn36xx_driver = {
- 	.probe      = wcn36xx_probe,
- 	.remove     = wcn36xx_remove,
- 	.driver         = {
- 		.name   = "wcn36xx",
-+		.of_match_table = wcn36xx_of_match,
- 	},
--	.id_table    = wcn36xx_platform_id_table,
- };
- 
--static int __init wcn36xx_init(void)
--{
--	platform_driver_register(&wcn36xx_driver);
--	return 0;
--}
--module_init(wcn36xx_init);
--
--static void __exit wcn36xx_exit(void)
--{
--	platform_driver_unregister(&wcn36xx_driver);
--}
--module_exit(wcn36xx_exit);
-+module_platform_driver(wcn36xx_driver);
- 
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_AUTHOR("Eugene Krasnikov k.eugene.e@gmail.com");
+ 	wcn->smd_channel = qcom_wcnss_open_channel(wcnss, "WLAN_CTRL", wcn36xx_smd_rsp_process);
+ 	if (IS_ERR(wcn->smd_channel)) {
 diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index a443992320f2..af0260add841 100644
+index af0260add841..be5e5ea1e5c3 100644
 --- a/drivers/net/wireless/ath/wcn36xx/smd.c
 +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -19,6 +19,7 @@
- #include <linux/etherdevice.h>
- #include <linux/firmware.h>
- #include <linux/bitops.h>
-+#include <linux/soc/qcom/smd.h>
- #include "smd.h"
- 
- struct wcn36xx_cfg_val {
-@@ -253,7 +254,7 @@ static int wcn36xx_smd_send_and_wait(struct wcn36xx *wcn, size_t len)
- 
- 	init_completion(&wcn->hal_rsp_compl);
- 	start = jiffies;
--	ret = wcn->ctrl_ops->tx(wcn->hal_buf, len);
-+	ret = qcom_smd_send(wcn->smd_channel, wcn->hal_buf, len);
- 	if (ret) {
- 		wcn36xx_err("HAL TX failed\n");
- 		goto out;
-@@ -2180,9 +2181,12 @@ int wcn36xx_smd_set_mc_list(struct wcn36xx *wcn,
+@@ -522,7 +522,7 @@ int wcn36xx_smd_init_scan(struct wcn36xx *wcn, enum wcn36xx_hal_sys_mode mode)
  	return ret;
  }
  
--static void wcn36xx_smd_rsp_process(struct wcn36xx *wcn, void *buf, size_t len)
-+int wcn36xx_smd_rsp_process(struct qcom_smd_channel *channel,
-+			    const void *buf, size_t len)
+-int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
++int wcn36xx_smd_start_scan(struct wcn36xx *wcn, u8 scan_channel)
  {
--	struct wcn36xx_hal_msg_header *msg_header = buf;
-+	const struct wcn36xx_hal_msg_header *msg_header = buf;
-+	struct ieee80211_hw *hw = qcom_smd_get_drvdata(channel);
-+	struct wcn36xx *wcn = hw->priv;
- 	struct wcn36xx_hal_ind_msg *msg_ind;
- 	wcn36xx_dbg_dump(WCN36XX_DBG_SMD_DUMP, "SMD <<< ", buf, len);
+ 	struct wcn36xx_hal_start_scan_req_msg msg_body;
+ 	int ret = 0;
+@@ -530,7 +530,7 @@ int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
+ 	mutex_lock(&wcn->hal_mutex);
+ 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_START_SCAN_REQ);
  
-@@ -2233,15 +2237,11 @@ static void wcn36xx_smd_rsp_process(struct wcn36xx *wcn, void *buf, size_t len)
- 	case WCN36XX_HAL_OTA_TX_COMPL_IND:
- 	case WCN36XX_HAL_MISSED_BEACON_IND:
- 	case WCN36XX_HAL_DELETE_STA_CONTEXT_IND:
--		msg_ind = kmalloc(sizeof(*msg_ind) + len, GFP_KERNEL);
-+		msg_ind = kmalloc(sizeof(*msg_ind) + len, GFP_ATOMIC);
- 		if (!msg_ind) {
--			/*
--			 * FIXME: Do something smarter then just
--			 * printing an error.
--			 */
- 			wcn36xx_err("Run out of memory while handling SMD_EVENT (%d)\n",
- 				    msg_header->msg_type);
--			break;
-+			return -ENOMEM;
- 		}
+-	msg_body.scan_channel = WCN36XX_HW_CHANNEL(wcn);
++	msg_body.scan_channel = scan_channel;
  
- 		msg_ind->msg_len = len;
-@@ -2257,6 +2257,8 @@ static void wcn36xx_smd_rsp_process(struct wcn36xx *wcn, void *buf, size_t len)
- 		wcn36xx_err("SMD_EVENT (%d) not supported\n",
- 			      msg_header->msg_type);
- 	}
-+
-+	return 0;
- }
- static void wcn36xx_ind_smd_work(struct work_struct *work)
- {
-@@ -2315,22 +2317,13 @@ int wcn36xx_smd_open(struct wcn36xx *wcn)
- 	INIT_LIST_HEAD(&wcn->hal_ind_queue);
- 	spin_lock_init(&wcn->hal_ind_lock);
+ 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
  
--	ret = wcn->ctrl_ops->open(wcn, wcn36xx_smd_rsp_process);
--	if (ret) {
--		wcn36xx_err("failed to open control channel\n");
--		goto free_wq;
--	}
--
--	return ret;
-+	return 0;
- 
--free_wq:
--	destroy_workqueue(wcn->hal_ind_wq);
- out:
+@@ -552,7 +552,7 @@ int wcn36xx_smd_start_scan(struct wcn36xx *wcn)
  	return ret;
  }
  
- void wcn36xx_smd_close(struct wcn36xx *wcn)
+-int wcn36xx_smd_end_scan(struct wcn36xx *wcn)
++int wcn36xx_smd_end_scan(struct wcn36xx *wcn, u8 scan_channel)
  {
--	wcn->ctrl_ops->close();
- 	destroy_workqueue(wcn->hal_ind_wq);
- }
+ 	struct wcn36xx_hal_end_scan_req_msg msg_body;
+ 	int ret = 0;
+@@ -560,7 +560,7 @@ int wcn36xx_smd_end_scan(struct wcn36xx *wcn)
+ 	mutex_lock(&wcn->hal_mutex);
+ 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_END_SCAN_REQ);
+ 
+-	msg_body.scan_channel = WCN36XX_HW_CHANNEL(wcn);
++	msg_body.scan_channel = scan_channel;
+ 
+ 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
+ 
 diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
-index df80cbbd9d1b..40d829563c2b 100644
+index 40d829563c2b..8892ccd67b14 100644
 --- a/drivers/net/wireless/ath/wcn36xx/smd.h
 +++ b/drivers/net/wireless/ath/wcn36xx/smd.h
-@@ -51,6 +51,7 @@ struct wcn36xx_hal_ind_msg {
- };
+@@ -60,8 +60,8 @@ int wcn36xx_smd_load_nv(struct wcn36xx *wcn);
+ int wcn36xx_smd_start(struct wcn36xx *wcn);
+ int wcn36xx_smd_stop(struct wcn36xx *wcn);
+ int wcn36xx_smd_init_scan(struct wcn36xx *wcn, enum wcn36xx_hal_sys_mode mode);
+-int wcn36xx_smd_start_scan(struct wcn36xx *wcn);
+-int wcn36xx_smd_end_scan(struct wcn36xx *wcn);
++int wcn36xx_smd_start_scan(struct wcn36xx *wcn, u8 scan_channel);
++int wcn36xx_smd_end_scan(struct wcn36xx *wcn, u8 scan_channel);
+ int wcn36xx_smd_finish_scan(struct wcn36xx *wcn,
+ 			    enum wcn36xx_hal_sys_mode mode);
+ int wcn36xx_smd_update_scan_params(struct wcn36xx *wcn, u8 *channels, size_t channel_count);
+diff --git a/drivers/net/wireless/ath/wcn36xx/txrx.c b/drivers/net/wireless/ath/wcn36xx/txrx.c
+index 1f34c2e912d7..8c387a0a3c09 100644
+--- a/drivers/net/wireless/ath/wcn36xx/txrx.c
++++ b/drivers/net/wireless/ath/wcn36xx/txrx.c
+@@ -45,9 +45,20 @@ int wcn36xx_rx_skb(struct wcn36xx *wcn, struct sk_buff *skb)
+ 	skb_put(skb, bd->pdu.mpdu_header_off + bd->pdu.mpdu_len);
+ 	skb_pull(skb, bd->pdu.mpdu_header_off);
  
- struct wcn36xx;
-+struct qcom_smd_channel;
- 
- int wcn36xx_smd_open(struct wcn36xx *wcn);
- void wcn36xx_smd_close(struct wcn36xx *wcn);
-@@ -127,6 +128,10 @@ int wcn36xx_smd_del_ba(struct wcn36xx *wcn, u16 tid, u8 sta_index);
- int wcn36xx_smd_trigger_ba(struct wcn36xx *wcn, u8 sta_index);
- 
- int wcn36xx_smd_update_cfg(struct wcn36xx *wcn, u32 cfg_id, u32 value);
++	hdr = (struct ieee80211_hdr *) skb->data;
++	fc = __le16_to_cpu(hdr->frame_control);
++	sn = IEEE80211_SEQ_TO_SN(__le16_to_cpu(hdr->seq_ctrl));
 +
-+int wcn36xx_smd_rsp_process(struct qcom_smd_channel *channel,
-+			    const void *buf, size_t len);
++	/* When scanning associate beacons to this */
++	if (ieee80211_is_beacon(hdr->frame_control) && wcn->scan_freq) {
++		status.freq = wcn->scan_freq;
++		status.band = wcn->scan_band;
++	} else {
++		status.freq = WCN36XX_CENTER_FREQ(wcn);
++		status.band = WCN36XX_BAND(wcn);
++	}
 +
- int wcn36xx_smd_set_mc_list(struct wcn36xx *wcn,
- 			    struct ieee80211_vif *vif,
- 			    struct wcn36xx_hal_rcv_flt_mc_addr_list_type *fp);
+ 	status.mactime = 10;
+-	status.freq = WCN36XX_CENTER_FREQ(wcn);
+-	status.band = WCN36XX_BAND(wcn);
+ 	status.signal = -get_rssi0(bd);
+ 	status.antenna = 1;
+ 	status.rate_idx = 1;
+@@ -61,10 +72,6 @@ int wcn36xx_rx_skb(struct wcn36xx *wcn, struct sk_buff *skb)
+ 
+ 	memcpy(IEEE80211_SKB_RXCB(skb), &status, sizeof(status));
+ 
+-	hdr = (struct ieee80211_hdr *) skb->data;
+-	fc = __le16_to_cpu(hdr->frame_control);
+-	sn = IEEE80211_SEQ_TO_SN(__le16_to_cpu(hdr->seq_ctrl));
+-
+ 	if (ieee80211_is_beacon(hdr->frame_control)) {
+ 		wcn36xx_dbg(WCN36XX_DBG_BEACON, "beacon skb %p len %d fc %04x sn %d\n",
+ 			    skb, skb->len, fc, sn);
 diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-index 22242d18e1fe..68cc06cf9bc0 100644
+index 68cc06cf9bc0..35a6590c3ee5 100644
 --- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
 +++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-@@ -103,19 +103,6 @@ struct nv_data {
- 	u8	table;
- };
+@@ -35,6 +35,9 @@
+ /* How many frames until we start a-mpdu TX session */
+ #define WCN36XX_AMPDU_START_THRESH	20
  
--/* Interface for platform control path
-- *
-- * @open: hook must be called when wcn36xx wants to open control channel.
-- * @tx: sends a buffer.
-- */
--struct wcn36xx_platform_ctrl_ops {
--	int (*open)(void *drv_priv, void *rsp_cb);
--	void (*close)(void);
--	int (*tx)(char *buf, size_t len);
--	int (*get_hw_mac)(u8 *addr);
--	int (*smsm_change_state)(u32 clear_mask, u32 set_mask);
--};
--
- /**
-  * struct wcn36xx_vif - holds VIF related fields
-  *
-@@ -205,7 +192,13 @@ struct wcn36xx {
- 	void __iomem		*ccu_base;
- 	void __iomem		*dxe_base;
++#define WCN36XX_MAX_SCAN_SSIDS		9
++#define WCN36XX_MAX_SCAN_IE_LEN		500
++
+ extern unsigned int wcn36xx_dbg_mask;
  
--	struct wcn36xx_platform_ctrl_ops *ctrl_ops;
-+	struct qcom_smd_channel *smd_channel;
+ enum wcn36xx_debug_mask {
+@@ -212,6 +215,12 @@ struct wcn36xx {
+ 	spinlock_t		hal_ind_lock;
+ 	struct list_head	hal_ind_queue;
+ 
++	struct work_struct	scan_work;
++	struct cfg80211_scan_request *scan_req;
++	int			scan_freq;
++	int			scan_band;
++	struct mutex		scan_lock;
 +
-+	struct qcom_smem_state  *tx_enable_state;
-+	unsigned		tx_enable_state_bit;
-+	struct qcom_smem_state	*tx_rings_empty_state;
-+	unsigned		tx_rings_empty_state_bit;
-+
- 	/*
- 	 * smd_buf must be protected with smd_mutex to garantee
- 	 * that all messages are sent one after another
+ 	/* DXE channels */
+ 	struct wcn36xx_dxe_ch	dxe_tx_l_ch;	/* TX low */
+ 	struct wcn36xx_dxe_ch	dxe_tx_h_ch;	/* TX high */
 -- 
 2.5.0
