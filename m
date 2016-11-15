@@ -1,61 +1,33 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] icmp: Restore resistence to abnormal messages
-Date: Tue, 15 Nov 2016 11:56:57 -0500 (EST)
-Message-ID: <20161115.115657.798577230951109692.davem@redhat.com>
-References: <20161111202018.13795-1-googuy@gmail.com>
-        <20161114.133646.1687576478968660327.davem@davemloft.net>
-        <CAO1wt+b4OkJ4DmJ7_hUj_oKj4p_rRMuKUVpiBY7MSFMa=0WKQg@mail.gmail.com>
+Subject: Re: [PATCH v2 net-next 0/6] bpf: LRU map
+Date: Tue, 15 Nov 2016 11:59:24 -0500 (EST)
+Message-ID: <20161115.115924.957021512319479216.davem@redhat.com>
+References: <1478890511-1346984-1-git-send-email-kafai@fb.com>
+        <20161115.115123.433376609853237994.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: googuy@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
+        kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36486 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37510 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752176AbcKOQ5C (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 11:57:02 -0500
-In-Reply-To: <CAO1wt+b4OkJ4DmJ7_hUj_oKj4p_rRMuKUVpiBY7MSFMa=0WKQg@mail.gmail.com>
+        id S1752219AbcKOQ71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 11:59:27 -0500
+In-Reply-To: <20161115.115123.433376609853237994.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vicente Jiménez <googuy@gmail.com>
-Date: Tue, 15 Nov 2016 17:49:43 +0100
-
-> On Mon, Nov 14, 2016 at 7:36 PM, David Miller <davem@davemloft.net> wrote:
->> From: Vicente Jimenez Aguilar <googuy@gmail.com>
->> Date: Fri, 11 Nov 2016 21:20:18 +0100
->>
->>> @@ -819,6 +820,12 @@ static bool icmp_unreach(struct sk_buff *skb)
->>>                               /* fall through */
->>>                       case 0:
->>>                               info = ntohs(icmph->un.frag.mtu);
->>> +                             /* Handle weird case where next hop MTU is
->>> +                              * equal to or exceeding dropped packet size
->>> +                              */
->>> +                             old_mtu = ntohs(iph->tot_len);
->>> +                             if (info >= old_mtu)
->>> +                                     info = old_mtu - 2;
->>
->> This isn't something the old code did.
->>
->> The old code behaved much differently.
->>
-> I don't wanted to restore old behavior just fix a strange case that
-> was handle by this code where the next hop MTU reported by the router
-> is equal or greater than the actual path MTU. Because router
-> information is wrong, we need a way to guess a good packet size
-> ignoring router data. The simplest strategy that avoid odd numbers is
-> reducing dropped packet size by 2.
-
-This whole approach seems arbitrary.
-
-You haven't discussed in any way, what causes this in the first place.
-And what about that cause makes simply subtracting by 2 work well or
-not.
-
-You have a very locallized, specific, situation on your end you want
-to fix.  But we must accept changes that handle things generically and
-in a way that would help more than just your specific case.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUByZWRoYXQuY29tPg0KRGF0ZTogVHVlLCAxNSBOb3Yg
+MjAxNiAxMTo1MToyMyAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IE1hcnRpbiBLYUZhaSBMYXUgPGth
+ZmFpQGZiLmNvbT4NCj4gRGF0ZTogRnJpLCAxMSBOb3YgMjAxNiAxMDo1NTowNSAtMDgwMA0KPiAN
+Cj4+IFRoaXMgcGF0Y2ggc2V0IGFkZHMgTFJVIG1hcCBpbXBsZW1lbnRhdGlvbiB0byB0aGUgZXhp
+c3RpbmcgQlBGIG1hcA0KPj4gZmFtaWx5Lg0KPiANCj4gU2VyaWVzIGFwcGxpZWQsIHRoYW5rcy4N
+Cg0KQlRXLCB3aXRoIEZlZG9yYSAyNCdzIGdjYy02LjIuMSBvbiB4ODZfNjQgSSdtIGdldHRpbmcg
+dGhpcyB3YXJuaW5nOg0KDQprZXJuZWwvYnBmL2JwZl9scnVfbGlzdC5jOiBJbiBmdW5jdGlvbiCh
+X19icGZfbHJ1X2xpc3Rfcm90YXRlX2luYWN0aXZlLmlzcmEuM6I6DQprZXJuZWwvYnBmL2JwZl9s
+cnVfbGlzdC5jOjIwMToyODogd2FybmluZzogoW5leHSiIG1heSBiZSB1c2VkIHVuaW5pdGlhbGl6
+ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVdtYXliZS11bmluaXRpYWxpemVkXQ0KICBsLT5uZXh0X2lu
+YWN0aXZlX3JvdGF0aW9uID0gbmV4dDsNCiAgfn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5efn5+
+fn4NCg==
