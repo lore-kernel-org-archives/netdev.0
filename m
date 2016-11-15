@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net-next v8 1/9] devres: add devm_alloc_percpu()
-Date: Tue, 15 Nov 2016 10:41:01 +0200
-Message-ID: <1479199269-9748-2-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH net-next v8 5/9] dpaa_eth: add sysfs exports
+Date: Tue, 15 Nov 2016 10:41:05 +0200
+Message-ID: <1479199269-9748-6-git-send-email-madalin.bucur@nxp.com>
 References: <1479199269-9748-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -11,147 +11,242 @@ Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
         <joe@perches.com>, <pebolle@tiscali.nl>,
         <joakim.tjernlund@infinera.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0049.outbound.protection.outlook.com ([104.47.36.49]:42570
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S966003AbcKOIlc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 03:41:32 -0500
 In-Reply-To: <1479199269-9748-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Introduce managed counterparts for alloc_percpu() and free_percpu().
-Add devm_alloc_percpu() and devm_free_percpu() into the managed
-interfaces list.
+Export Frame Queue and Buffer Pool IDs through sysfs.
 
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- Documentation/driver-model/devres.txt |  4 +++
- drivers/base/devres.c                 | 66 +++++++++++++++++++++++++++++++++++
- include/linux/device.h                | 19 ++++++++++
- 3 files changed, 89 insertions(+)
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   2 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |   4 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   4 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   | 165 +++++++++++++++++++++
+ 4 files changed, 174 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
 
-diff --git a/Documentation/driver-model/devres.txt b/Documentation/driver-model/devres.txt
-index 1670708..ca9d1eb 100644
---- a/Documentation/driver-model/devres.txt
-+++ b/Documentation/driver-model/devres.txt
-@@ -332,6 +332,10 @@ MEM
- MFD
-  devm_mfd_add_devices()
+diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
+index 43a4cfd..bfb03d4 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Makefile
++++ b/drivers/net/ethernet/freescale/dpaa/Makefile
+@@ -8,4 +8,4 @@ ccflags-y += -I$(FMAN)
  
-+PER-CPU MEM
-+  devm_alloc_percpu()
-+  devm_free_percpu()
-+
- PCI
-   pcim_enable_device()	: after success, all PCI ops become managed
-   pcim_pin_device()	: keep PCI device enabled after release
-diff --git a/drivers/base/devres.c b/drivers/base/devres.c
-index 8fc654f..71d5770 100644
---- a/drivers/base/devres.c
-+++ b/drivers/base/devres.c
-@@ -10,6 +10,7 @@
- #include <linux/device.h>
- #include <linux/module.h>
- #include <linux/slab.h>
-+#include <linux/percpu.h>
+ obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
  
- #include "base.h"
+-fsl_dpa-objs += dpaa_eth.o dpaa_ethtool.o
++fsl_dpa-objs += dpaa_eth.o dpaa_ethtool.o dpaa_eth_sysfs.o
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index fcb9cac..07ec2fe 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -2619,6 +2619,8 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ 	if (err < 0)
+ 		goto netdev_init_failed;
  
-@@ -985,3 +986,68 @@ void devm_free_pages(struct device *dev, unsigned long addr)
- 			       &devres));
- }
- EXPORT_SYMBOL_GPL(devm_free_pages);
++	dpaa_eth_sysfs_init(&net_dev->dev);
 +
-+static void devm_percpu_release(struct device *dev, void *pdata)
-+{
-+	void __percpu *p;
+ 	netif_info(priv, probe, net_dev, "Probed interface %s\n",
+ 		   net_dev->name);
+ 
+@@ -2664,6 +2666,8 @@ static int dpaa_remove(struct platform_device *pdev)
+ 
+ 	priv = netdev_priv(net_dev);
+ 
++	dpaa_eth_sysfs_remove(dev);
 +
-+	p = *(void __percpu **)pdata;
-+	free_percpu(p);
-+}
+ 	dev_set_drvdata(dev, NULL);
+ 	unregister_netdev(net_dev);
+ 
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+index 711fb06..44323e2 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+@@ -177,4 +177,8 @@ struct dpaa_priv {
+ 
+ /* from dpaa_ethtool.c */
+ extern const struct ethtool_ops dpaa_ethtool_ops;
 +
-+static int devm_percpu_match(struct device *dev, void *data, void *p)
-+{
-+	struct devres *devr = container_of(data, struct devres, data);
-+
-+	return *(void **)devr->data == p;
-+}
-+
-+/**
-+ * __devm_alloc_percpu - Resource-managed alloc_percpu
-+ * @dev: Device to allocate per-cpu memory for
-+ * @size: Size of per-cpu memory to allocate
-+ * @align: Alignment of per-cpu memory to allocate
++/* from dpaa_eth_sysfs.c */
++void dpaa_eth_sysfs_remove(struct device *dev);
++void dpaa_eth_sysfs_init(struct device *dev);
+ #endif	/* __DPAA_H */
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+new file mode 100644
+index 0000000..ec75d1c
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+@@ -0,0 +1,165 @@
++/* Copyright 2008-2016 Freescale Semiconductor Inc.
 + *
-+ * Managed alloc_percpu. Per-cpu memory allocated with this function is
-+ * automatically freed on driver detach.
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
 + *
-+ * RETURNS:
-+ * Pointer to allocated memory on success, NULL on failure.
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
-+void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
-+		size_t align)
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/io.h>
++#include <linux/of_net.h>
++#include "dpaa_eth.h"
++#include "mac.h"
++
++static ssize_t dpaa_eth_show_addr(struct device *dev,
++				  struct device_attribute *attr, char *buf)
 +{
-+	void *p;
-+	void __percpu *pcpu;
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	struct mac_device *mac_dev = priv->mac_dev;
 +
-+	pcpu = __alloc_percpu(size, align);
-+	if (!pcpu)
-+		return NULL;
++	if (mac_dev)
++		return sprintf(buf, "%llx",
++				(unsigned long long)mac_dev->res->start);
++	else
++		return sprintf(buf, "none");
++}
 +
-+	p = devres_alloc(devm_percpu_release, sizeof(void *), GFP_KERNEL);
-+	if (!p) {
-+		free_percpu(pcpu);
-+		return NULL;
++static ssize_t dpaa_eth_show_fqids(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	struct dpaa_fq *prev = NULL;
++	char *prevstr = NULL;
++	struct dpaa_fq *tmp;
++	struct dpaa_fq *fq;
++	u32 first_fqid = 0;
++	u32 last_fqid = 0;
++	ssize_t bytes = 0;
++	char *str;
++	int i = 0;
++
++	list_for_each_entry_safe(fq, tmp, &priv->dpaa_fq_list, list) {
++		switch (fq->fq_type) {
++		case FQ_TYPE_RX_DEFAULT:
++			str = "Rx default";
++			break;
++		case FQ_TYPE_RX_ERROR:
++			str = "Rx error";
++			break;
++		case FQ_TYPE_TX_CONFIRM:
++			str = "Tx default confirmation";
++			break;
++		case FQ_TYPE_TX_CONF_MQ:
++			str = "Tx confirmation (mq)";
++			break;
++		case FQ_TYPE_TX_ERROR:
++			str = "Tx error";
++			break;
++		case FQ_TYPE_TX:
++			str = "Tx";
++			break;
++		default:
++			str = "Unknown";
++		}
++
++		if (prev && (abs(fq->fqid - prev->fqid) != 1 ||
++			     str != prevstr)) {
++			if (last_fqid == first_fqid)
++				bytes += sprintf(buf + bytes,
++					"%s: %d\n", prevstr, prev->fqid);
++			else
++				bytes += sprintf(buf + bytes,
++					"%s: %d - %d\n", prevstr,
++					first_fqid, last_fqid);
++		}
++
++		if (prev && abs(fq->fqid - prev->fqid) == 1 &&
++		    str == prevstr) {
++			last_fqid = fq->fqid;
++		} else {
++			first_fqid = fq->fqid;
++			last_fqid = fq->fqid;
++		}
++
++		prev = fq;
++		prevstr = str;
++		i++;
 +	}
 +
-+	*(void __percpu **)p = pcpu;
++	if (prev) {
++		if (last_fqid == first_fqid)
++			bytes += sprintf(buf + bytes, "%s: %d\n", prevstr,
++					prev->fqid);
++		else
++			bytes += sprintf(buf + bytes, "%s: %d - %d\n", prevstr,
++					first_fqid, last_fqid);
++	}
 +
-+	devres_add(dev, p);
-+
-+	return pcpu;
++	return bytes;
 +}
-+EXPORT_SYMBOL_GPL(__devm_alloc_percpu);
 +
-+/**
-+ * devm_free_percpu - Resource-managed free_percpu
-+ * @dev: Device this memory belongs to
-+ * @pdata: Per-cpu memory to free
-+ *
-+ * Free memory allocated with devm_alloc_percpu().
-+ */
-+void devm_free_percpu(struct device *dev, void __percpu *pdata)
++static ssize_t dpaa_eth_show_bpids(struct device *dev,
++				   struct device_attribute *attr, char *buf)
 +{
-+	WARN_ON(devres_destroy(dev, devm_percpu_release, devm_percpu_match,
-+			       (void *)pdata));
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	ssize_t bytes = 0;
++	int i = 0;
++
++	for (i = 0; i < DPAA_BPS_NUM; i++)
++		bytes += snprintf(buf + bytes, PAGE_SIZE - bytes, "%u\n",
++				  priv->dpaa_bps[i]->bpid);
++
++	return bytes;
 +}
-+EXPORT_SYMBOL_GPL(devm_free_percpu);
-diff --git a/include/linux/device.h b/include/linux/device.h
-index bc41e87..a00105c 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -698,6 +698,25 @@ static inline int devm_add_action_or_reset(struct device *dev,
- 	return ret;
- }
- 
-+/**
-+ * devm_alloc_percpu - Resource-managed alloc_percpu
-+ * @dev: Device to allocate per-cpu memory for
-+ * @type: Type to allocate per-cpu memory for
-+ *
-+ * Managed alloc_percpu. Per-cpu memory allocated with this function is
-+ * automatically freed on driver detach.
-+ *
-+ * RETURNS:
-+ * Pointer to allocated memory on success, NULL on failure.
-+ */
-+#define devm_alloc_percpu(dev, type)      \
-+	((typeof(type) __percpu *)__devm_alloc_percpu((dev), sizeof(type), \
-+						      __alignof__(type)))
 +
-+void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
-+				   size_t align);
-+void devm_free_percpu(struct device *dev, void __percpu *pdata);
++static struct device_attribute dpaa_eth_attrs[] = {
++	__ATTR(device_addr, 0444, dpaa_eth_show_addr, NULL),
++	__ATTR(fqids, 0444, dpaa_eth_show_fqids, NULL),
++	__ATTR(bpids, 0444, dpaa_eth_show_bpids, NULL),
++};
 +
- struct device_dma_parameters {
- 	/*
- 	 * a low level driver may set these to teach IOMMU code about
++void dpaa_eth_sysfs_init(struct device *dev)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
++		if (device_create_file(dev, &dpaa_eth_attrs[i])) {
++			dev_err(dev, "Error creating sysfs file\n");
++			while (i > 0)
++				device_remove_file(dev, &dpaa_eth_attrs[--i]);
++			return;
++		}
++}
++
++void dpaa_eth_sysfs_remove(struct device *dev)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
++		device_remove_file(dev, &dpaa_eth_attrs[i]);
++}
 -- 
 2.1.0
