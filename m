@@ -1,65 +1,55 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH] amd-xgbe: fix unsigned comparison against less than zero
-Date: Tue, 15 Nov 2016 08:09:06 -0600
-Message-ID: <9b6547cf-a37e-e7b2-d725-4bccc1fb2dfc@amd.com>
-References: <20161115121842.5774-1-colin.king@canonical.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v3 2/7] vxlan: avoid checking socket multiple
+ times.
+Date: Tue, 15 Nov 2016 15:15:56 +0100
+Message-ID: <20161115151556.60bf4b99@griffin>
+References: <1479098638-4921-1-git-send-email-pshelar@ovn.org>
+        <1479098638-4921-3-git-send-email-pshelar@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>, <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0061.outbound.protection.outlook.com ([104.47.36.61]:22876
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932756AbcKOOJN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 09:09:13 -0500
-In-Reply-To: <20161115121842.5774-1-colin.king@canonical.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53120 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932406AbcKOOP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 09:15:59 -0500
+In-Reply-To: <1479098638-4921-3-git-send-email-pshelar@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2016 6:18 AM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Comparing unsigned int ret to less than zero for an error status
-> check is never true.  Fix this by making ret a signed int. Reduce
-> scope of ret too.
-> 
-> Found with static analysis by CoverityScan, CID 1377750
+Pravin,
 
-Thanks Colin, this was already identified by someone else and I
-submitted the patch yesterday.
+please CC reviewers of the previous version when submitting a new
+version. You'll get faster reviews that way.
 
-Thanks,
-Tom
+On Sun, 13 Nov 2016 20:43:53 -0800, Pravin B Shelar wrote:
+> @@ -2069,11 +2069,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>  		struct dst_entry *ndst;
+>  		u32 rt6i_flags;
+>  
+> -		if (!sock6)
+> -			goto drop;
+> -		sk = sock6->sock->sk;
+> -
+> -		ndst = vxlan6_get_route(vxlan, skb,
+> +		ndst = vxlan6_get_route(vxlan, sock6, skb,
+>  					rdst ? rdst->remote_ifindex : 0, tos,
+>  					label, &dst->sin6.sin6_addr,
+>  					&src->sin6.sin6_addr,
+> @@ -2093,6 +2089,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>  			goto tx_error;
+>  		}
+>  
+> +		sk = sock6->sock->sk;
+>  		/* Bypass encapsulation if the destination is local */
+>  		rt6i_flags = ((struct rt6_info *)ndst)->rt6i_flags;
+>  		if (!info && rt6i_flags & RTF_LOCAL &&
 
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-> index 4ba4332..168507e 100644
-> --- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-> @@ -2346,7 +2346,7 @@ static bool xgbe_phy_valid_speed(struct xgbe_prv_data *pdata, int speed)
->  static int xgbe_phy_link_status(struct xgbe_prv_data *pdata, int *an_restart)
->  {
->  	struct xgbe_phy_data *phy_data = pdata->phy_data;
-> -	unsigned int ret, reg;
-> +	unsigned int reg;
->  
->  	*an_restart = 0;
->  
-> @@ -2365,7 +2365,8 @@ static int xgbe_phy_link_status(struct xgbe_prv_data *pdata, int *an_restart)
->  
->  	if (phy_data->phydev) {
->  		/* Check external PHY */
-> -		ret = phy_read_status(phy_data->phydev);
-> +		int ret = phy_read_status(phy_data->phydev);
-> +
->  		if (ret < 0)
->  			return 0;
->  
-> 
+This moves the sk assignment from one arbitrary place to a different
+arbitrary place, while it would be best to just remove it and open code
+sock6->sock->sk in the call to udp_tunnel6_xmit_skb. But patch 6 does
+that later, so whatever.
+
+Acked-by: Jiri Benc <jbenc@redhat.com>
