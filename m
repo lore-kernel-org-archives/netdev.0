@@ -1,46 +1,40 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net PATCH 2/2] ipv4: Fix memory leak in exception case for
- splitting tries
-Date: Tue, 15 Nov 2016 05:46:12 -0500
-Message-ID: <20161115104612.13711.44592.stgit@ahduyck-blue-test.jf.intel.com>
-References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net PATCH 0/2] ipv4: Fix memory leaks and reference issues in fib
+Date: Tue, 15 Nov 2016 05:46:01 -0500
+Message-ID: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, davem@davemloft.net
+Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:44715 "EHLO mga09.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:6211 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752483AbcKOQrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 11:47:25 -0500
-In-Reply-To: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
+        id S1751884AbcKOQrO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 11:47:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a small memory leak that can occur where we leak a fib_alias in the
-event of us not being able to insert it into the local table.
+This series fixes one major issue and one minor issue in the fib tables.
 
-Fixes: 0ddcf43d5d4a0 ("ipv4: FIB Local/MAIN table collapse")
-Reported-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+The major issue is that we had lost the functionality that was flushing the
+local table entries from main after we had unmerged the two tries.  In
+order to regain the functionality I have performed a partial revert and
+then moved the functionality for flushing the external entries from main
+into fib_unmerge.
+
+The minor issue was a memory leak that could occur in the event that we
+weren't able to add an alias to the local trie resulting in the fib alias
+being leaked.
+
 ---
- net/ipv4/fib_trie.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 735edc9..026f309 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1743,8 +1743,10 @@ struct fib_table *fib_trie_unmerge(struct fib_table *oldtb)
- 				local_l = fib_find_node(lt, &local_tp, l->key);
- 
- 			if (fib_insert_alias(lt, local_tp, local_l, new_fa,
--					     NULL, l->key))
-+					     NULL, l->key)) {
-+				kmem_cache_free(fn_alias_kmem, new_fa);
- 				goto out;
-+			}
- 		}
- 
- 		/* stop loop if key wrapped back to 0 */
+Alexander Duyck (2):
+      ipv4: Restore fib_trie_flush_external function and fix call ordering
+      ipv4: Fix memory leak in exception case for splitting tries
+
+
+ include/net/ip_fib.h    |    1 +
+ net/ipv4/fib_frontend.c |   20 ++++++++++----
+ net/ipv4/fib_trie.c     |   69 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 84 insertions(+), 6 deletions(-)
