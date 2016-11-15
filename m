@@ -1,48 +1,54 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 09/15] net: bcmgenet: Utilize phy_ethtool_nway_reset
-Date: Tue, 15 Nov 2016 10:06:38 -0800
-Message-ID: <20161115180644.3941-10-f.fainelli@gmail.com>
+Subject: [PATCH 03/15] net: bcm63xx_enet: Utilize phy_ethtool_nway_reset
+Date: Tue, 15 Nov 2016 10:06:32 -0800
+Message-ID: <20161115180644.3941-4-f.fainelli@gmail.com>
 References: <20161115180644.3941-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, tremyfr@gmail.com,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        linux-kernel@vger.kernel.org (open list)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, Florian Fainelli <f.fainelli@gmail.com>,
+ Arnd Bergmann <arnd@arndb.de>, "xypron.glpk@gmx.de" <xypron.glpk@gmx.de>,
+ open list <linux-kernel@vger.kernel.org>, Jarod Wilson <jarod@redhat.com>,
+ "maintainer:BROADCOM BCM63XX ARM ARCHITECTURE"
+ <bcm-kernel-feedback-list@broadcom.com>, Thierry Reding <treding@nvidia.com>,
+ davem@davemloft.net, "moderated list:BROADCOM BCM63XX ARM ARCHITECTURE"
+ <linux-arm-kernel@lists.infradead.org>, tremyfr@gmail.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20161115180644.3941-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 4464bc5db934..33638dc0e104 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -971,13 +971,6 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
- 	return phy_ethtool_set_eee(priv->phydev, e);
- }
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 5c7acef1de2e..a43ab90c051e 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -1434,11 +1434,8 @@ static int bcm_enet_nway_reset(struct net_device *dev)
+ 	struct bcm_enet_priv *priv;
  
--static int bcmgenet_nway_reset(struct net_device *dev)
--{
--	struct bcmgenet_priv *priv = netdev_priv(dev);
--
--	return genphy_restart_aneg(priv->phydev);
--}
--
- /* standard ethtool support functions. */
- static const struct ethtool_ops bcmgenet_ethtool_ops = {
- 	.get_strings		= bcmgenet_get_strings,
-@@ -991,7 +984,7 @@ static const struct ethtool_ops bcmgenet_ethtool_ops = {
- 	.set_wol		= bcmgenet_set_wol,
- 	.get_eee		= bcmgenet_get_eee,
- 	.set_eee		= bcmgenet_set_eee,
--	.nway_reset		= bcmgenet_nway_reset,
-+	.nway_reset		= phy_ethtool_nway_reset,
- 	.get_coalesce		= bcmgenet_get_coalesce,
- 	.set_coalesce		= bcmgenet_set_coalesce,
- 	.get_link_ksettings	= bcmgenet_get_link_ksettings,
+ 	priv = netdev_priv(dev);
+-	if (priv->has_phy) {
+-		if (!dev->phydev)
+-			return -ENODEV;
+-		return genphy_restart_aneg(dev->phydev);
+-	}
++	if (priv->has_phy)
++		return phy_ethtool_nway_reset(dev),
+ 
+ 	return -EOPNOTSUPP;
+ }
 -- 
 2.9.3
