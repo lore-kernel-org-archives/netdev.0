@@ -1,66 +1,69 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] rtnetlink: fix rtnl_vfinfo_size
-Date: Tue, 15 Nov 2016 10:39:03 +0100
-Message-ID: <188991b3f1ede7ff1231f78411f4716cb5926950.1479202614.git.sd@queasysnail.net>
-Cc: Eran Ben Elisha <eranbe@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-        Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35952 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752423AbcKOJjT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 04:39:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
+Subject: [PATCH 4.9.0-rc5] AR9300 calibration problems with antenna selected
+Date: Tue, 15 Nov 2016 10:56:37 +0100
+Message-ID: <m3wpg52hii.fsf@t19.piap.pl>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The size reported by rtnl_vfinfo_size doesn't match the space used by
-rtnl_fill_vfinfo.
+Hi,
 
-rtnl_vfinfo_size currently doesn't account for the nest attributes
-used by statistics (added in commit 3b766cd83232), nor for struct
-ifla_vf_tx_rate (since commit ed616689a3d9, which added ifla_vf_rate
-to the dump without removing ifla_vf_tx_rate, but replaced
-ifla_vf_tx_rate with ifla_vf_rate in the size computation).
+I recently tried to select a single antenna on AR9300 and it works for
+30 seconds only. The subsequent calibration makes the RX signal level to
+drop from the usual -30/-40 dBm to -70/-80 dBm, and the transmission
+practically stops.
 
-Fixes: 3b766cd83232 ("net/core: Add reading VF statistics through the PF netdevice")
-Fixes: ed616689a3d9 ("net-next:v4: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- net/core/rtnetlink.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+With the attached patch it works, though selecting the antenna doesn't
+seem to have any visible effect, at least with "iw wlanX station dump"
+(perhaps it works for TX).
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index db313ec7af32..96f4bf274e30 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -840,18 +840,20 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
- 	if (dev->dev.parent && dev_is_pci(dev->dev.parent) &&
- 	    (ext_filter_mask & RTEXT_FILTER_VF)) {
- 		int num_vfs = dev_num_vf(dev->dev.parent);
--		size_t size = nla_total_size(sizeof(struct nlattr));
--		size += nla_total_size(num_vfs * sizeof(struct nlattr));
-+		size_t size = nla_total_size(0);
- 		size += num_vfs *
--			(nla_total_size(sizeof(struct ifla_vf_mac)) +
--			 nla_total_size(MAX_VLAN_LIST_LEN *
--					sizeof(struct nlattr)) +
-+			(nla_total_size(0) +
-+			 nla_total_size(sizeof(struct ifla_vf_mac)) +
-+			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
-+			 nla_total_size(0) + /* nest IFLA_VF_VLAN_LIST */
- 			 nla_total_size(MAX_VLAN_LIST_LEN *
- 					sizeof(struct ifla_vf_vlan_info)) +
- 			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
-+			 nla_total_size(sizeof(struct ifla_vf_tx_rate)) +
- 			 nla_total_size(sizeof(struct ifla_vf_rate)) +
- 			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
- 			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)) +
-+			 nla_total_size(0) + /* nest IFLA_VF_STATS */
- 			 /* IFLA_VF_STATS_RX_PACKETS */
- 			 nla_total_size_64bit(sizeof(__u64)) +
- 			 /* IFLA_VF_STATS_TX_PACKETS */
+I'm using ad-hoc mode:
+
+rmmod ath9k
+modprobe ath9k
+iw dev wlan0 set type ibss
+iw phy phyX set antenna 2
+ip link set up dev wlan0
+iw dev wlan0 set bitrates legacy-2.4 18
+iw dev wlan0 ibss join nameXXX freqYYY
+ip addr add ZZZ broadcast + dev wlan0
+
+The card in question is Mikrotik (Routerboard) R11e-2HPnD mPCIe adapter:
+AR9580 Wireless Network Adapter (rev 01), ID 168c:0033, subsystem
+19b6:d016.
+ieee80211 phy0: Atheros AR9300 Rev:4 mem=0xc0f40000, irq=334
+https://routerboard.com/R11e-2HPnD
+
+Linux 4.9.0-rc5.
+
+
+Is there a better way?
+
+Signed-off-by: Krzysztof Halasa <khalasa@piap.pl>
+
+diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
+index e9f32b5..7f17e5d 100644
+--- a/drivers/net/wireless/ath/ath9k/main.c
++++ b/drivers/net/wireless/ath/ath9k/main.c
+@@ -2245,7 +2245,7 @@ static int ath9k_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
+ 		return 0;
+ 
+ 	/* AR9100 runs into calibration issues if not all rx chains are enabled */
+-	if (AR_SREV_9100(ah))
++	if (AR_SREV_9100(ah) || AR_SREV_9300(ah))
+ 		ah->rxchainmask = 0x7;
+ 	else
+ 		ah->rxchainmask = fill_chainmask(ah->caps.rx_chainmask, rx_ant);
+
+
 -- 
-2.10.2
+Krzysztof Halasa
+
+Industrial Research Institute for Automation and Measurements PIAP
+Al. Jerozolimskie 202, 02-486 Warsaw, Poland
