@@ -1,107 +1,117 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] lan78xx: relocate mdix setting to phy driver
-Date: Tue, 15 Nov 2016 15:47:25 -0800
-Message-ID: <c894a7bd-4062-cb63-6b70-02bb86c874c1@gmail.com>
-References: <9235D6609DB808459E95D78E17F2E43D40965635@CHN-SV-EXMX02.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: andrew@lunn.ch, netdev@vger.kernel.org,
-        UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com, davem@davemloft.net
+Subject: [PATCH net] net: dsa: b53: Fix VLAN usage and how we treat CPU port
+Date: Tue, 15 Nov 2016 15:58:15 -0800
+Message-ID: <20161115235815.25641-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, knaack.h@gmx.de,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34808 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752194AbcKOXr3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 18:47:29 -0500
-Received: by mail-pf0-f195.google.com with SMTP id y68so8669912pfb.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 15:47:28 -0800 (PST)
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40965635@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35613 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752263AbcKOX6U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 18:58:20 -0500
+Received: by mail-pg0-f68.google.com with SMTP id p66so13007897pga.2
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 15:58:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2016 01:57 PM, Woojung.Huh@microchip.com wrote:
-> From: Woojung Huh <woojung.huh@microchip.com>
-> 
-> Relocate mdix code to phy driver to be called at config_init().
-> 
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
-> ---
->  drivers/net/phy/microchip.c | 43 +++++++++++++++++++++++++-
->  drivers/net/usb/lan78xx.c   | 73 ++-------------------------------------------
->  2 files changed, 45 insertions(+), 71 deletions(-)
-> 
-> diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
-> index 7c00e50..13553df 100644
-> --- a/drivers/net/phy/microchip.c
-> +++ b/drivers/net/phy/microchip.c
-> @@ -106,6 +106,47 @@ static int lan88xx_set_wol(struct phy_device *phydev,
->  	return 0;
->  }
->  
-> +static void lan88xx_set_mdix(struct phy_device *phydev)
-> +{
-> +	int buf;
-> +
-> +	if (phydev->mdix == ETH_TP_MDI) {
-> +		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-> +			  LAN88XX_EXT_PAGE_SPACE_1);
+We currently have a fundamental problem in how we treat the CPU port and
+its VLAN membership. As soon as a second VLAN is configured to be
+untagged, the CPU automatically becomes untagged for that VLAN as well,
+and yet, we don't gracefully make sure that the CPU becomes tagged in
+the other VLANs it could be a member of. This results in only one VLAN
+being effectively usable from the CPU's perspective.
 
-Should you take this write out of the if/else
+Instead of having some pretty complex logic which tries to maintain the
+CPU port's default VLAN and its untagged properties, just do something
+very simple which consists in neither altering the CPU port's PVID
+settings, nor its untagged settings:
 
-> +		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
+- whenever a VLAN is added, the CPU is automatically a member of this
+  VLAN group, as a tagged member
+- PVID settings for downstream ports do not alter the CPU port's PVID
+  since it now is part of all VLANs in the system
 
-And this one too
+This means that a typical example where e.g: LAN ports are in VLAN1, and
+WAN port is in VLAN2, now require having two VLAN interfaces for the
+host to properly terminate and send traffic from/to.
 
-> +		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
-> +		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
-> +			  buf | LAN88XX_EXT_MODE_CTRL_MDI_);
-> +		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-> +			  LAN88XX_EXT_PAGE_SPACE_0);
+Fixes: Fixes: a2482d2ce349 ("net: dsa: b53: Plug in VLAN support")
+Reported-by: Hartmut Knaack <knaack.h@gmx.de>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+David,
 
-And this one too as well
+Can you queue this for -stable so it makes it into 4.8.4?
 
-> +	} else if (phydev->mdix == ETH_TP_MDI_X) {
+Thank you!
 
-switch/case statement would be more appropriate and it would be easier
-to add support for future possible modes.
+ drivers/net/dsa/b53/b53_common.c | 16 ++++------------
+ 1 file changed, 4 insertions(+), 12 deletions(-)
 
-And once you take the write/read/write out of the switch case, it's just
-a matter of translating phydev->mdix into the appropriate mask value to
-write.
-
-So essentially, this comes down to:
-
-static void lan88xx_set_mdix(struct phy_device *phydev)
-{
-	int buf;
-	int mask_val;
-
-	switch (phydev->mdix) {
-	case ETH_TP_MDI:
-		mask_val = LAN88XX_EXT_MODE_CTRL_MDI_;
-		break;
-	case ETH_TP_MDI_X:
-		mask_val = LAN88XX_EXT_MODE_CTRL_MDI_X_;
-		break;
-	case ETH_TP_MDI_AUTO:
-		mask_val = LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_:
-		break:
-	default:
-		return;
-	}
-
-	phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-		  LAN88XX_EXT_PAGE_SPACE_1);
-	buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
-	buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
-	buf |= mask_val;
-	phy_write(phydev, LAN88XX_EXT_MODE_CTRL, buf);
-	phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-		  LAN88XX_EXT_PAGE_SPACE_0);
-}
-
-I leave it up to you whether you need to do this now, or as a subsequent
-clean up patch.
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index 7717b19dc806..947adda3397d 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -962,9 +962,10 @@ static void b53_vlan_add(struct dsa_switch *ds, int port,
+ 
+ 		vl->members |= BIT(port) | BIT(cpu_port);
+ 		if (untagged)
+-			vl->untag |= BIT(port) | BIT(cpu_port);
++			vl->untag |= BIT(port);
+ 		else
+-			vl->untag &= ~(BIT(port) | BIT(cpu_port));
++			vl->untag &= ~BIT(port);
++		vl->untag &= ~BIT(cpu_port);
+ 
+ 		b53_set_vlan_entry(dev, vid, vl);
+ 		b53_fast_age_vlan(dev, vid);
+@@ -973,8 +974,6 @@ static void b53_vlan_add(struct dsa_switch *ds, int port,
+ 	if (pvid) {
+ 		b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(port),
+ 			    vlan->vid_end);
+-		b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(cpu_port),
+-			    vlan->vid_end);
+ 		b53_fast_age_vlan(dev, vid);
+ 	}
+ }
+@@ -984,7 +983,6 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
+ {
+ 	struct b53_device *dev = ds->priv;
+ 	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
+-	unsigned int cpu_port = dev->cpu_port;
+ 	struct b53_vlan *vl;
+ 	u16 vid;
+ 	u16 pvid;
+@@ -997,8 +995,6 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
+ 		b53_get_vlan_entry(dev, vid, vl);
+ 
+ 		vl->members &= ~BIT(port);
+-		if ((vl->members & BIT(cpu_port)) == BIT(cpu_port))
+-			vl->members = 0;
+ 
+ 		if (pvid == vid) {
+ 			if (is5325(dev) || is5365(dev))
+@@ -1007,18 +1003,14 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
+ 				pvid = 0;
+ 		}
+ 
+-		if (untagged) {
++		if (untagged)
+ 			vl->untag &= ~(BIT(port));
+-			if ((vl->untag & BIT(cpu_port)) == BIT(cpu_port))
+-				vl->untag = 0;
+-		}
+ 
+ 		b53_set_vlan_entry(dev, vid, vl);
+ 		b53_fast_age_vlan(dev, vid);
+ 	}
+ 
+ 	b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(port), pvid);
+-	b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(cpu_port), pvid);
+ 	b53_fast_age_vlan(dev, pvid);
+ 
+ 	return 0;
 -- 
-Florian
+2.9.3
