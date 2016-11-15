@@ -1,159 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: enhance tcp_collapse_retrans() with
- skb_shift()
-Date: Tue, 15 Nov 2016 12:51:50 -0800
-Message-ID: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
+ and fix call ordering
+Date: Tue, 15 Nov 2016 21:52:33 +0100
+Message-ID: <20161115205233.GD1783@nanopsycho.orion>
+References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161115195107.GB1783@nanopsycho.orion>
+ <1479241747.681.105.camel@intel.com>
+ <20161115203140.GC1783@nanopsycho.orion>
+ <1479242939.681.117.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jiri@mellanox.com" <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>
+To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36291 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751340AbcKOUvw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 15:51:52 -0500
-Received: by mail-pg0-f68.google.com with SMTP id x23so12661148pgx.3
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 12:51:51 -0800 (PST)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:35740 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932333AbcKOUwg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 15:52:36 -0500
+Received: by mail-wm0-f54.google.com with SMTP id a197so193189008wmd.0
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 12:52:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1479242939.681.117.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Tue, Nov 15, 2016 at 09:49:02PM CET, alexander.h.duyck@intel.com wrote:
+>On Tue, 2016-11-15 at 21:31 +0100, Jiri Pirko wrote:
+>> Tue, Nov 15, 2016 at 09:29:09PM CET, alexander.h.duyck@intel.com wrote:
+>> > 
+>> > On Tue, 2016-11-15 at 20:51 +0100, Jiri Pirko wrote:
+>> > > 
+>> > > Tue, Nov 15, 2016 at 11:46:06AM CET, alexander.h.duyck@intel.com wrote:
+>> > > > 
+>> > > > 
+>> > > > The patch that removed the FIB offload infrastructure was a bit too
+>> > > > aggressive and also removed code needed to clean up us splitting the table
+>> > > > if additional rules were added.  Specifically the function
+>> > > > fib_trie_flush_external was called at the end of a new rule being added to
+>> > > > flush the foreign trie entries from the main trie.
+>> > > > 
+>> > > > I updated the code so that we only call fib_trie_flush_external on the main
+>> > > > table so that we flush the entries for local from main.  This way we don't
+>> > > > call it for every rule change which is what was happening previously.
+>> > > 
+>> > > Well, the function was introduced by:
+>> > > 
+>> > > commit 104616e74e0b464d449fdd2ee2f547d2fad71610
+>> > > Author: Scott Feldman <sfeldma@gmail.com>
+>> > > Date:   Thu Mar 5 21:21:16 2015 -0800
+>> > > 
+>> > >     switchdev: don't support custom ip rules, for now
+>> > >     
+>> > >     Keep switchdev FIB offload model simple for now and don't allow custom ip
+>> > >     rules.
+>> > > 
+>> > > Why this was not needed before? What changed in between:
+>> > > 104616e74e0b464d449fdd2ee2f547d2fad71610 ("switchdev: don't support custom ip rules, for now")
+>> > > and
+>> > > 347e3b28c1ba2 ("switchdev: remove FIB offload infrastructure")
+>> > 
+>> > We collapsed the two tables into one in commit 0ddcf43d5d4a ("ipv4: FIB
+>> > Local/MAIN table collapse") which was submitted the next day.  Scott
+>> > and I were working on things at the same time and the
+>> > fib_table_flush_external function was something we had worked out that
+>> > would allow him to take care of his use case and me to take care of
+>> > cleaning up the tables after unmerging.
+>> 
+>> Okay. But please name the fuction differently, as it does not flush
+>> external. Thanks!
+>
+>You and I have different meanings for "external".
+>
+>In my case I am flushing entries that belong to a foreign "external"
+>table from the table specified. So by "external" I am referring to
+>entries that don't actually live in main, but actually reside in local.
+>If you take a look at fib_table_flush that gets rid of all entries,
+>fib_table_flush_external simply clears the foreign ones.
+>
+>Also I'd rather maintain naming since it makes it easier if we need to
+>backport fixes.
+>
+>Finally, the flag RTNH_F_EXTERNAL was renamed over a year ago in commit
+>36583eb54d46c ("rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD") so there
+>isn't too much likelihood of this being confused for something that
+>handles offloaded entries.  If you take a look in net/ipv4/* after your
+>patch there isn't actually anything that references the word external
+>so the likelihood for any confusion is extremely low.
 
-In commit 2331ccc5b323 ("tcp: enhance tcp collapsing"),
-we made a first step allowing copying right skb to left skb head.
-
-Since all skbs in socket write queue are headless (but possibly the very
-first one), this strategy often does not work.
-
-This patch extends tcp_collapse_retrans() to perform frag shifting,
-thanks to skb_shift() helper.
-
-This helper needs to not BUG on non headless skbs, as callers are ok
-with that.
-
-Tested:
-
-Following packetdrill test now passes :
-
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-   +0 bind(3, ..., ...) = 0
-   +0 listen(3, 1) = 0
-
-   +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
-   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
-+.100 < . 1:1(0) ack 1 win 257
-   +0 accept(3, ..., ...) = 4
-
-   +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
-   +0 write(4, ..., 200) = 200
-   +0 > P. 1:201(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 201:401(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 401:601(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 601:801(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 801:1001(200) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1001:1101(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1101:1201(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1201:1301(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1301:1401(100) ack 1
-
-+.099 < . 1:1(0) ack 201 win 257
-+.001 < . 1:1(0) ack 201 win 257 <nop,nop,sack 1001:1401>
-   +0 > P. 201:1001(800) ack 1
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/core/skbuff.c     |    4 +++-
- net/ipv4/tcp_output.c |   22 +++++++++++-----------
- 2 files changed, 14 insertions(+), 12 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 0b2a6e94af2de73ed638634c47a0fb71e2cbc1cb..a9cb81a10c4ba895587727aa4cf098e9a38424ea 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2656,7 +2656,9 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
- 	struct skb_frag_struct *fragfrom, *fragto;
- 
- 	BUG_ON(shiftlen > skb->len);
--	BUG_ON(skb_headlen(skb));	/* Would corrupt stream */
-+
-+	if (skb_headlen(skb))
-+		return 0;
- 
- 	todo = shiftlen;
- 	from = 0;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index f57b5aa51b59cf0a58975fe34a7dcdb886ea8c50..19105b46a30436ebb85fe97ee43089e77aa028bb 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2514,7 +2514,7 @@ void tcp_skb_collapse_tstamp(struct sk_buff *skb,
- }
- 
- /* Collapses two adjacent SKB's during retransmission. */
--static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
-+static bool tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *next_skb = tcp_write_queue_next(sk, skb);
-@@ -2525,14 +2525,17 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
- 
- 	BUG_ON(tcp_skb_pcount(skb) != 1 || tcp_skb_pcount(next_skb) != 1);
- 
-+	if (next_skb_size) {
-+		if (next_skb_size <= skb_availroom(skb))
-+			skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
-+				      next_skb_size);
-+		else if (!skb_shift(skb, next_skb, next_skb_size))
-+			return false;
-+	}
- 	tcp_highest_sack_combine(sk, next_skb, skb);
- 
- 	tcp_unlink_write_queue(next_skb, sk);
- 
--	if (next_skb_size)
--		skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
--			      next_skb_size);
--
- 	if (next_skb->ip_summed == CHECKSUM_PARTIAL)
- 		skb->ip_summed = CHECKSUM_PARTIAL;
- 
-@@ -2561,6 +2564,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
- 	tcp_skb_collapse_tstamp(skb, next_skb);
- 
- 	sk_wmem_free_skb(sk, next_skb);
-+	return true;
- }
- 
- /* Check if coalescing SKBs is legal. */
-@@ -2610,16 +2614,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
- 
- 		if (space < 0)
- 			break;
--		/* Punt if not enough space exists in the first SKB for
--		 * the data in the second
--		 */
--		if (skb->len > skb_availroom(to))
--			break;
- 
- 		if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
- 			break;
- 
--		tcp_collapse_retrans(sk, to);
-+		if (!tcp_collapse_retrans(sk, to))
-+			break;
- 	}
- }
- 
+Okay. But if you can, please put a comment to this function in order to
+prevent future confusion. Thanks!
