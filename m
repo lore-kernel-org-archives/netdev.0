@@ -1,82 +1,159 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
- and fix call ordering
-Date: Tue, 15 Nov 2016 20:49:02 +0000
-Message-ID: <1479242939.681.117.camel@intel.com>
-References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
-         <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
-         <20161115195107.GB1783@nanopsycho.orion>
-         <1479241747.681.105.camel@intel.com>
-         <20161115203140.GC1783@nanopsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: enhance tcp_collapse_retrans() with
+ skb_shift()
+Date: Tue, 15 Nov 2016 12:51:50 -0800
+Message-ID: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jiri@mellanox.com" <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>
-To: "jiri@resnulli.us" <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19823 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751340AbcKOUtF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 15:49:05 -0500
-In-Reply-To: <20161115203140.GC1783@nanopsycho.orion>
-Content-Language: en-US
-Content-ID: <F6BBE4D75C2B774EB4A2F3032E73EAA6@intel.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36291 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751340AbcKOUvw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 15:51:52 -0500
+Received: by mail-pg0-f68.google.com with SMTP id x23so12661148pgx.3
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 12:51:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE2LTExLTE1IGF0IDIxOjMxICswMTAwLCBKaXJpIFBpcmtvIHdyb3RlOg0KPiBU
-dWUsIE5vdiAxNSwgMjAxNiBhdCAwOToyOTowOVBNIENFVCwgYWxleGFuZGVyLmguZHV5Y2tAaW50
-ZWwuY29tIHdyb3RlOg0KPiA+IA0KPiA+IE9uIFR1ZSwgMjAxNi0xMS0xNSBhdCAyMDo1MSArMDEw
-MCwgSmlyaSBQaXJrbyB3cm90ZToNCj4gPiA+IA0KPiA+ID4gVHVlLCBOb3YgMTUsIDIwMTYgYXQg
-MTE6NDY6MDZBTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbSB3cm90ZToNCj4gPiA+
-ID4gDQo+ID4gPiA+IA0KPiA+ID4gPiBUaGUgcGF0Y2ggdGhhdCByZW1vdmVkIHRoZSBGSUIgb2Zm
-bG9hZCBpbmZyYXN0cnVjdHVyZSB3YXMgYSBiaXQgdG9vDQo+ID4gPiA+IGFnZ3Jlc3NpdmUgYW5k
-IGFsc28gcmVtb3ZlZCBjb2RlIG5lZWRlZCB0byBjbGVhbiB1cCB1cyBzcGxpdHRpbmcgdGhlIHRh
-YmxlDQo+ID4gPiA+IGlmIGFkZGl0aW9uYWwgcnVsZXMgd2VyZSBhZGRlZC4gIFNwZWNpZmljYWxs
-eSB0aGUgZnVuY3Rpb24NCj4gPiA+ID4gZmliX3RyaWVfZmx1c2hfZXh0ZXJuYWwgd2FzIGNhbGxl
-ZCBhdCB0aGUgZW5kIG9mIGEgbmV3IHJ1bGUgYmVpbmcgYWRkZWQgdG8NCj4gPiA+ID4gZmx1c2gg
-dGhlIGZvcmVpZ24gdHJpZSBlbnRyaWVzIGZyb20gdGhlIG1haW4gdHJpZS4NCj4gPiA+ID4gDQo+
-ID4gPiA+IEkgdXBkYXRlZCB0aGUgY29kZSBzbyB0aGF0IHdlIG9ubHkgY2FsbCBmaWJfdHJpZV9m
-bHVzaF9leHRlcm5hbCBvbiB0aGUgbWFpbg0KPiA+ID4gPiB0YWJsZSBzbyB0aGF0IHdlIGZsdXNo
-IHRoZSBlbnRyaWVzIGZvciBsb2NhbCBmcm9tIG1haW4uICBUaGlzIHdheSB3ZSBkb24ndA0KPiA+
-ID4gPiBjYWxsIGl0IGZvciBldmVyeSBydWxlIGNoYW5nZSB3aGljaCBpcyB3aGF0IHdhcyBoYXBw
-ZW5pbmcgcHJldmlvdXNseS4NCj4gPiA+IA0KPiA+ID4gV2VsbCwgdGhlIGZ1bmN0aW9uIHdhcyBp
-bnRyb2R1Y2VkIGJ5Og0KPiA+ID4gDQo+ID4gPiBjb21taXQgMTA0NjE2ZTc0ZTBiNDY0ZDQ0OWZk
-ZDJlZTJmNTQ3ZDJmYWQ3MTYxMA0KPiA+ID4gQXV0aG9yOiBTY290dCBGZWxkbWFuIDxzZmVsZG1h
-QGdtYWlsLmNvbT4NCj4gPiA+IERhdGU6ICAgVGh1IE1hciA1IDIxOjIxOjE2IDIwMTUgLTA4MDAN
-Cj4gPiA+IA0KPiA+ID4gICAgIHN3aXRjaGRldjogZG9uJ3Qgc3VwcG9ydCBjdXN0b20gaXAgcnVs
-ZXMsIGZvciBub3cNCj4gPiA+ICAgICANCj4gPiA+ICAgICBLZWVwIHN3aXRjaGRldiBGSUIgb2Zm
-bG9hZCBtb2RlbCBzaW1wbGUgZm9yIG5vdyBhbmQgZG9uJ3QgYWxsb3cgY3VzdG9tIGlwDQo+ID4g
-PiAgICAgcnVsZXMuDQo+ID4gPiANCj4gPiA+IFdoeSB0aGlzIHdhcyBub3QgbmVlZGVkIGJlZm9y
-ZT8gV2hhdCBjaGFuZ2VkIGluIGJldHdlZW46DQo+ID4gPiAxMDQ2MTZlNzRlMGI0NjRkNDQ5ZmRk
-MmVlMmY1NDdkMmZhZDcxNjEwICgic3dpdGNoZGV2OiBkb24ndCBzdXBwb3J0IGN1c3RvbSBpcCBy
-dWxlcywgZm9yIG5vdyIpDQo+ID4gPiBhbmQNCj4gPiA+IDM0N2UzYjI4YzFiYTIgKCJzd2l0Y2hk
-ZXY6IHJlbW92ZSBGSUIgb2ZmbG9hZCBpbmZyYXN0cnVjdHVyZSIpDQo+ID4gDQo+ID4gV2UgY29s
-bGFwc2VkIHRoZSB0d28gdGFibGVzIGludG8gb25lIGluIGNvbW1pdMKgMGRkY2Y0M2Q1ZDRhICgi
-aXB2NDogRklCDQo+ID4gTG9jYWwvTUFJTiB0YWJsZSBjb2xsYXBzZSIpIHdoaWNoIHdhcyBzdWJt
-aXR0ZWQgdGhlIG5leHQgZGF5LiDCoFNjb3R0DQo+ID4gYW5kIEkgd2VyZSB3b3JraW5nIG9uIHRo
-aW5ncyBhdCB0aGUgc2FtZSB0aW1lIGFuZCB0aGUNCj4gPiBmaWJfdGFibGVfZmx1c2hfZXh0ZXJu
-YWwgZnVuY3Rpb24gd2FzIHNvbWV0aGluZyB3ZSBoYWQgd29ya2VkIG91dCB0aGF0DQo+ID4gd291
-bGQgYWxsb3cgaGltIHRvIHRha2UgY2FyZSBvZiBoaXMgdXNlIGNhc2UgYW5kIG1lIHRvIHRha2Ug
-Y2FyZSBvZg0KPiA+IGNsZWFuaW5nIHVwIHRoZSB0YWJsZXMgYWZ0ZXIgdW5tZXJnaW5nLg0KPiAN
-Cj4gT2theS4gQnV0IHBsZWFzZSBuYW1lIHRoZSBmdWN0aW9uIGRpZmZlcmVudGx5LCBhcyBpdCBk
-b2VzIG5vdCBmbHVzaA0KPiBleHRlcm5hbC4gVGhhbmtzIQ0KDQpZb3UgYW5kIEkgaGF2ZSBkaWZm
-ZXJlbnQgbWVhbmluZ3MgZm9yICJleHRlcm5hbCIuDQoNCkluIG15IGNhc2UgSSBhbSBmbHVzaGlu
-ZyBlbnRyaWVzIHRoYXQgYmVsb25nIHRvIGEgZm9yZWlnbiAiZXh0ZXJuYWwiDQp0YWJsZSBmcm9t
-IHRoZSB0YWJsZSBzcGVjaWZpZWQuIFNvIGJ5ICJleHRlcm5hbCIgSSBhbSByZWZlcnJpbmcgdG8N
-CmVudHJpZXMgdGhhdCBkb24ndCBhY3R1YWxseSBsaXZlIGluIG1haW4sIGJ1dCBhY3R1YWxseSBy
-ZXNpZGUgaW4gbG9jYWwuDQpJZiB5b3UgdGFrZSBhIGxvb2sgYXQgZmliX3RhYmxlX2ZsdXNoIHRo
-YXQgZ2V0cyByaWQgb2YgYWxsIGVudHJpZXMsDQpmaWJfdGFibGVfZmx1c2hfZXh0ZXJuYWwgc2lt
-cGx5IGNsZWFycyB0aGUgZm9yZWlnbiBvbmVzLg0KDQpBbHNvIEknZCByYXRoZXIgbWFpbnRhaW4g
-bmFtaW5nIHNpbmNlIGl0IG1ha2VzIGl0IGVhc2llciBpZiB3ZSBuZWVkIHRvDQpiYWNrcG9ydCBm
-aXhlcy4NCg0KRmluYWxseSwgdGhlIGZsYWcgUlROSF9GX0VYVEVSTkFMIHdhcyByZW5hbWVkIG92
-ZXIgYSB5ZWFyIGFnbyBpbiBjb21taXQNCjM2NTgzZWI1NGQ0NmMgKCJyZW5hbWUgUlROSF9GX0VY
-VEVSTkFMIHRvIFJUTkhfRl9PRkZMT0FEIikgc28gdGhlcmUNCmlzbid0IHRvbyBtdWNoIGxpa2Vs
-aWhvb2Qgb2YgdGhpcyBiZWluZyBjb25mdXNlZCBmb3Igc29tZXRoaW5nIHRoYXQNCmhhbmRsZXMg
-b2ZmbG9hZGVkIGVudHJpZXMuIMKgSWYgeW91IHRha2UgYSBsb29rIGluIG5ldC9pcHY0LyogYWZ0
-ZXIgeW91cg0KcGF0Y2ggdGhlcmUgaXNuJ3QgYWN0dWFsbHkgYW55dGhpbmcgdGhhdCByZWZlcmVu
-Y2VzIHRoZSB3b3JkIGV4dGVybmFsDQpzbyB0aGUgbGlrZWxpaG9vZCBmb3IgYW55IGNvbmZ1c2lv
-biBpcyBleHRyZW1lbHkgbG93Lg0KDQotIEFsZXgNCg==
+From: Eric Dumazet <edumazet@google.com>
+
+In commit 2331ccc5b323 ("tcp: enhance tcp collapsing"),
+we made a first step allowing copying right skb to left skb head.
+
+Since all skbs in socket write queue are headless (but possibly the very
+first one), this strategy often does not work.
+
+This patch extends tcp_collapse_retrans() to perform frag shifting,
+thanks to skb_shift() helper.
+
+This helper needs to not BUG on non headless skbs, as callers are ok
+with that.
+
+Tested:
+
+Following packetdrill test now passes :
+
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+   +0 bind(3, ..., ...) = 0
+   +0 listen(3, 1) = 0
+
+   +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
+   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
++.100 < . 1:1(0) ack 1 win 257
+   +0 accept(3, ..., ...) = 4
+
+   +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+   +0 write(4, ..., 200) = 200
+   +0 > P. 1:201(200) ack 1
++.001 write(4, ..., 200) = 200
+   +0 > P. 201:401(200) ack 1
++.001 write(4, ..., 200) = 200
+   +0 > P. 401:601(200) ack 1
++.001 write(4, ..., 200) = 200
+   +0 > P. 601:801(200) ack 1
++.001 write(4, ..., 200) = 200
+   +0 > P. 801:1001(200) ack 1
++.001 write(4, ..., 100) = 100
+   +0 > P. 1001:1101(100) ack 1
++.001 write(4, ..., 100) = 100
+   +0 > P. 1101:1201(100) ack 1
++.001 write(4, ..., 100) = 100
+   +0 > P. 1201:1301(100) ack 1
++.001 write(4, ..., 100) = 100
+   +0 > P. 1301:1401(100) ack 1
+
++.099 < . 1:1(0) ack 201 win 257
++.001 < . 1:1(0) ack 201 win 257 <nop,nop,sack 1001:1401>
+   +0 > P. 201:1001(800) ack 1
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/core/skbuff.c     |    4 +++-
+ net/ipv4/tcp_output.c |   22 +++++++++++-----------
+ 2 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 0b2a6e94af2de73ed638634c47a0fb71e2cbc1cb..a9cb81a10c4ba895587727aa4cf098e9a38424ea 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2656,7 +2656,9 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
+ 	struct skb_frag_struct *fragfrom, *fragto;
+ 
+ 	BUG_ON(shiftlen > skb->len);
+-	BUG_ON(skb_headlen(skb));	/* Would corrupt stream */
++
++	if (skb_headlen(skb))
++		return 0;
+ 
+ 	todo = shiftlen;
+ 	from = 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index f57b5aa51b59cf0a58975fe34a7dcdb886ea8c50..19105b46a30436ebb85fe97ee43089e77aa028bb 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2514,7 +2514,7 @@ void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+ }
+ 
+ /* Collapses two adjacent SKB's during retransmission. */
+-static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
++static bool tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *next_skb = tcp_write_queue_next(sk, skb);
+@@ -2525,14 +2525,17 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+ 
+ 	BUG_ON(tcp_skb_pcount(skb) != 1 || tcp_skb_pcount(next_skb) != 1);
+ 
++	if (next_skb_size) {
++		if (next_skb_size <= skb_availroom(skb))
++			skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
++				      next_skb_size);
++		else if (!skb_shift(skb, next_skb, next_skb_size))
++			return false;
++	}
+ 	tcp_highest_sack_combine(sk, next_skb, skb);
+ 
+ 	tcp_unlink_write_queue(next_skb, sk);
+ 
+-	if (next_skb_size)
+-		skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
+-			      next_skb_size);
+-
+ 	if (next_skb->ip_summed == CHECKSUM_PARTIAL)
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 
+@@ -2561,6 +2564,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+ 	tcp_skb_collapse_tstamp(skb, next_skb);
+ 
+ 	sk_wmem_free_skb(sk, next_skb);
++	return true;
+ }
+ 
+ /* Check if coalescing SKBs is legal. */
+@@ -2610,16 +2614,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
+ 
+ 		if (space < 0)
+ 			break;
+-		/* Punt if not enough space exists in the first SKB for
+-		 * the data in the second
+-		 */
+-		if (skb->len > skb_availroom(to))
+-			break;
+ 
+ 		if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
+ 			break;
+ 
+-		tcp_collapse_retrans(sk, to);
++		if (!tcp_collapse_retrans(sk, to))
++			break;
+ 	}
+ }
+ 
