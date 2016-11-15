@@ -1,53 +1,57 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH] vhost/vsock: Remove unused but set variable
-Date: Tue, 15 Nov 2016 13:00:58 +0000
-Message-ID: <20161115130058.GC6012@stefanha-x1.localdomain>
-References: <20161111132631.25708-1-tklauser@distanz.ch>
+From: Colin Ian King <colin.king@canonical.com>
+Subject: re: amd-xgbe: Add support for MDIO attached PHYs
+Date: Tue, 15 Nov 2016 13:07:10 +0000
+Message-ID: <6e653058-6442-5bcf-7e02-3136780caffb@canonical.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="YD3LsXFS42OYHhNZ"
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Tobias Klauser <tklauser@distanz.ch>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161111132631.25708-1-tklauser@distanz.ch>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---YD3LsXFS42OYHhNZ
 Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Tom Lendacky <thomas.lendacky@amd.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:35448 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933653AbcKONHU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 08:07:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 11, 2016 at 02:26:31PM +0100, Tobias Klauser wrote:
-> Remove the unused but set variable vq in vhost_transport_send_pkt() to
-> fix the following GCC warning when building with 'W=3D1':
->=20
->   drivers/vhost/vsock.c:198:26: warning: variable =E2=80=98vq=E2=80=99 se=
-t but not used
->=20
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> ---
->  drivers/vhost/vsock.c | 3 ---
->  1 file changed, 3 deletions(-)
+Hi,
 
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+Commit:
 
---YD3LsXFS42OYHhNZ
-Content-Type: application/pgp-signature; name="signature.asc"
+amd-xgbe: Add support for MDIO attached PHYs
 
------BEGIN PGP SIGNATURE-----
+    Use the phylib support in the kernel to communicate with and control an
+    MDIO attached PHY. Use the hardware's MDIO communication mechanism to
+    communicate with the PHY.
 
-iQEcBAEBAgAGBQJYKwcKAAoJEJykq7OBq3PI7l4H/2hM846kAdyckXOmKFaWRPCp
-POz3MKelNXQbNDDEIUvZ7T1tkspG8HwvrD07Ghxvx+2Q4dGE0YjMlEWHiir47lpb
-3Q0KPPwKMMGgBZt8FqJQ7F/2WTcRHivZKTfEsdR6n3xYqAIh5K2NnG6Ees9v/FPQ
-ltrQkZhHRXETE3qUeMlH12r0WKvQ+wwFsL2dGp2LJWdshnv7Io1VS1sb11PdSoxl
-9i/igk/DsJpCFne1ot8PJSHv/RHi7w2XKvwZ7siWBA4+Fumr+p2kvnlh0aFv8Bz3
-P6kcZto9YI7ZGk3EAVgxfcZHVfiGwezrrCR/Wtb/62APcvKecJYSBIZYadWP9KQ=
-=q08I
------END PGP SIGNATURE-----
 
---YD3LsXFS42OYHhNZ--
++static int xgbe_clr_gpio(struct xgbe_prv_data *pdata, unsigned int gpio)
++{
++       unsigned int reg;
++
++       if (gpio > 16)
++               return -EINVAL;
+
+is gpio in the range 0..15?
+
+	if (gpio > 15)
+		return -EINVAL;
+
++
++       reg = XGMAC_IOREAD(pdata, MAC_GPIOSR);
++
++       reg &= ~(1 << (gpio + 16));
+
+if gpio is 16, we get 1 << 32 which I believe is undefined behaviour.
+
++       XGMAC_IOWRITE(pdata, MAC_GPIOSR, reg);
++
++       return 0;
++}
+
+
+Same applies for function xgbe_clr_gpio().
+
+Colin
