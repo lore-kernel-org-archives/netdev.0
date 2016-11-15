@@ -1,54 +1,246 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 1/5] net: thunderx: Introduce BGX_ID_MASK macro to extract bgx_id
-Date: Tue, 15 Nov 2016 17:37:16 +0530
-Message-ID: <1479211636-14270-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 2/5] net: thunderx: Program LMAC credits based on MTU
+Date: Tue, 15 Nov 2016 17:37:36 +0530
+Message-ID: <1479211656-14316-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
         Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-This patch fixes the 'bgx_id' determination on 83xx where there are
-4 BGX blocks instead of 2 on other platforms.
+Programming LMAC credits taking 9K frame size by default is incorrect
+as for an interface which is one of the many on the same BGX/QLM
+no of credits available will be less as Tx FIFO will be divided
+across all interfaces. So let's say a BGX with 40G interface and another
+BGX with multiple 10G, bandwidth of 10G interfaces will be effected when
+traffic is running on both 40G and 10G interfaces simultaneously.
 
-Signed-off-by: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+This patch fixes this issue by programming credits based on netdev's MTU.
+Also fixed configuring MTU to HW and added CQE counter for pkts which
+exceed this value.
+
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 4 ++--
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h | 2 ++
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          |  3 +-
+ drivers/net/ethernet/cavium/thunder/nic_main.c     | 36 +++++++++++++-------
+ drivers/net/ethernet/cavium/thunder/nic_reg.h      |  1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 38 ++++++++++++----------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  3 ++
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  2 ++
+ 6 files changed, 53 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 8bbaedb..050e21f 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -1242,8 +1242,8 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 3042610..cd2d379 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -47,7 +47,7 @@
  
- 	pci_read_config_word(pdev, PCI_DEVICE_ID, &sdevid);
- 	if (sdevid != PCI_DEVICE_ID_THUNDER_RGX) {
--		bgx->bgx_id =
--		    (pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM) >> 24) & 1;
-+		bgx->bgx_id = (pci_resource_start(pdev,
-+			PCI_CFG_REG_BAR_NUM) >> 24) & BGX_ID_MASK;
- 		bgx->bgx_id += nic_get_node_id(pdev) * MAX_BGX_PER_NODE;
- 		bgx->max_lmac = MAX_LMAC_PER_BGX;
- 		bgx_vnic[bgx->bgx_id] = bgx;
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-index d59c71e..01cc7c8 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-@@ -28,6 +28,8 @@
- #define    MAX_DMAC_PER_LMAC			8
- #define    MAX_FRAME_SIZE			9216
+ /* Min/Max packet size */
+ #define	NIC_HW_MIN_FRS			64
+-#define	NIC_HW_MAX_FRS			9200 /* 9216 max packet including FCS */
++#define	NIC_HW_MAX_FRS			9190 /* Excluding L2 header and FCS */
  
-+#define	   BGX_ID_MASK				0x3
+ /* Max pkinds */
+ #define	NIC_MAX_PKIND			16
+@@ -282,7 +282,6 @@ struct nicvf {
+ 
+ 	u8			node;
+ 	u8			cpi_alg;
+-	u16			mtu;
+ 	bool			link_up;
+ 	u8			duplex;
+ 	u32			speed;
+diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
+index 2bbf4cb..85c9e62 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
+@@ -11,6 +11,7 @@
+ #include <linux/pci.h>
+ #include <linux/etherdevice.h>
+ #include <linux/of.h>
++#include <linux/if_vlan.h>
+ 
+ #include "nic_reg.h"
+ #include "nic.h"
+@@ -260,18 +261,31 @@ static void nic_get_bgx_stats(struct nicpf *nic, struct bgx_stats_msg *bgx)
+ /* Update hardware min/max frame size */
+ static int nic_update_hw_frs(struct nicpf *nic, int new_frs, int vf)
+ {
+-	if ((new_frs > NIC_HW_MAX_FRS) || (new_frs < NIC_HW_MIN_FRS)) {
+-		dev_err(&nic->pdev->dev,
+-			"Invalid MTU setting from VF%d rejected, should be between %d and %d\n",
+-			   vf, NIC_HW_MIN_FRS, NIC_HW_MAX_FRS);
++	int bgx, lmac, lmac_cnt;
++	u64 lmac_credits;
 +
- #define    MAX_DMAC_PER_LMAC_TNS_BYPASS_MODE	2
++	if ((new_frs > NIC_HW_MAX_FRS) || (new_frs < NIC_HW_MIN_FRS))
+ 		return 1;
+-	}
+-	new_frs += ETH_HLEN;
+-	if (new_frs <= nic->pkind.maxlen)
+-		return 0;
  
- /* Registers */
+-	nic->pkind.maxlen = new_frs;
+-	nic_reg_write(nic, NIC_PF_PKIND_0_15_CFG, *(u64 *)&nic->pkind);
++	bgx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
++	lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
++	lmac += bgx * MAX_LMAC_PER_BGX;
++
++	new_frs += VLAN_ETH_HLEN + ETH_FCS_LEN + 4;
++
++	/* Update corresponding LMAC credits */
++	lmac_cnt = bgx_get_lmac_count(nic->node, bgx);
++	lmac_credits = nic_reg_read(nic, NIC_PF_LMAC_0_7_CREDIT + (lmac * 8));
++	lmac_credits &= ~(0xFFFFFULL << 12);
++	lmac_credits |= (((((48 * 1024) / lmac_cnt) - new_frs) / 16) << 12);
++	nic_reg_write(nic, NIC_PF_LMAC_0_7_CREDIT + (lmac * 8), lmac_credits);
++
++	/* Enforce MTU in HW
++	 * This config is supported only from 88xx pass 2.0 onwards.
++	 */
++	if (!pass1_silicon(nic->pdev))
++		nic_reg_write(nic,
++			      NIC_PF_LMAC_0_7_CFG2 + (lmac * 8), new_frs);
+ 	return 0;
+ }
+ 
+@@ -464,7 +478,7 @@ static int nic_init_hw(struct nicpf *nic)
+ 
+ 	/* PKIND configuration */
+ 	nic->pkind.minlen = 0;
+-	nic->pkind.maxlen = NIC_HW_MAX_FRS + ETH_HLEN;
++	nic->pkind.maxlen = NIC_HW_MAX_FRS + VLAN_ETH_HLEN + ETH_FCS_LEN + 4;
+ 	nic->pkind.lenerr_en = 1;
+ 	nic->pkind.rx_hdr = 0;
+ 	nic->pkind.hdr_sl = 0;
+diff --git a/drivers/net/ethernet/cavium/thunder/nic_reg.h b/drivers/net/ethernet/cavium/thunder/nic_reg.h
+index edf779f..80d4633 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic_reg.h
++++ b/drivers/net/ethernet/cavium/thunder/nic_reg.h
+@@ -106,6 +106,7 @@
+ #define   NIC_PF_MPI_0_2047_CFG			(0x210000)
+ #define   NIC_PF_RSSI_0_4097_RQ			(0x220000)
+ #define   NIC_PF_LMAC_0_7_CFG			(0x240000)
++#define   NIC_PF_LMAC_0_7_CFG2			(0x240100)
+ #define   NIC_PF_LMAC_0_7_SW_XOFF		(0x242000)
+ #define   NIC_PF_LMAC_0_7_CREDIT		(0x244000)
+ #define   NIC_PF_CHAN_0_255_TX_CFG		(0x400000)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 45a13f7..8f83361 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -1189,6 +1189,17 @@ int nicvf_stop(struct net_device *netdev)
+ 	return 0;
+ }
+ 
++static int nicvf_update_hw_max_frs(struct nicvf *nic, int mtu)
++{
++	union nic_mbx mbx = {};
++
++	mbx.frs.msg = NIC_MBOX_MSG_SET_MAX_FRS;
++	mbx.frs.max_frs = mtu;
++	mbx.frs.vf_id = nic->vf_id;
++
++	return nicvf_send_msg_to_pf(nic, &mbx);
++}
++
+ int nicvf_open(struct net_device *netdev)
+ {
+ 	int err, qidx;
+@@ -1196,8 +1207,6 @@ int nicvf_open(struct net_device *netdev)
+ 	struct queue_set *qs = nic->qs;
+ 	struct nicvf_cq_poll *cq_poll = NULL;
+ 
+-	nic->mtu = netdev->mtu;
+-
+ 	netif_carrier_off(netdev);
+ 
+ 	err = nicvf_register_misc_interrupt(nic);
+@@ -1248,9 +1257,12 @@ int nicvf_open(struct net_device *netdev)
+ 	if (nic->sqs_mode)
+ 		nicvf_get_primary_vf_struct(nic);
+ 
+-	/* Configure receive side scaling */
+-	if (!nic->sqs_mode)
++	/* Configure receive side scaling and MTU */
++	if (!nic->sqs_mode) {
+ 		nicvf_rss_init(nic);
++		if (nicvf_update_hw_max_frs(nic, netdev->mtu))
++			goto cleanup;
++	}
+ 
+ 	err = nicvf_register_interrupts(nic);
+ 	if (err)
+@@ -1297,17 +1309,6 @@ int nicvf_open(struct net_device *netdev)
+ 	return err;
+ }
+ 
+-static int nicvf_update_hw_max_frs(struct nicvf *nic, int mtu)
+-{
+-	union nic_mbx mbx = {};
+-
+-	mbx.frs.msg = NIC_MBOX_MSG_SET_MAX_FRS;
+-	mbx.frs.max_frs = mtu;
+-	mbx.frs.vf_id = nic->vf_id;
+-
+-	return nicvf_send_msg_to_pf(nic, &mbx);
+-}
+-
+ static int nicvf_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+ 	struct nicvf *nic = netdev_priv(netdev);
+@@ -1318,10 +1319,13 @@ static int nicvf_change_mtu(struct net_device *netdev, int new_mtu)
+ 	if (new_mtu < NIC_HW_MIN_FRS)
+ 		return -EINVAL;
+ 
++	netdev->mtu = new_mtu;
++
++	if (!netif_running(netdev))
++		return 0;
++
+ 	if (nicvf_update_hw_max_frs(nic, new_mtu))
+ 		return -EINVAL;
+-	netdev->mtu = new_mtu;
+-	nic->mtu = new_mtu;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index a4fc501..f0e0ca6 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1530,6 +1530,9 @@ int nicvf_check_cqe_tx_errs(struct nicvf *nic,
+ 	case CQ_TX_ERROP_SUBDC_ERR:
+ 		stats->tx.subdesc_err++;
+ 		break;
++	case CQ_TX_ERROP_MAX_SIZE_VIOL:
++		stats->tx.max_size_exceeded++;
++		break;
+ 	case CQ_TX_ERROP_IMM_SIZE_OFLOW:
+ 		stats->tx.imm_size_oflow++;
+ 		break;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index 869f338..8f4718e 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -158,6 +158,7 @@ enum CQ_TX_ERROP_E {
+ 	CQ_TX_ERROP_DESC_FAULT = 0x10,
+ 	CQ_TX_ERROP_HDR_CONS_ERR = 0x11,
+ 	CQ_TX_ERROP_SUBDC_ERR = 0x12,
++	CQ_TX_ERROP_MAX_SIZE_VIOL = 0x13,
+ 	CQ_TX_ERROP_IMM_SIZE_OFLOW = 0x80,
+ 	CQ_TX_ERROP_DATA_SEQUENCE_ERR = 0x81,
+ 	CQ_TX_ERROP_MEM_SEQUENCE_ERR = 0x82,
+@@ -177,6 +178,7 @@ struct cmp_queue_stats {
+ 		u64 desc_fault;
+ 		u64 hdr_cons_err;
+ 		u64 subdesc_err;
++		u64 max_size_exceeded;
+ 		u64 imm_size_oflow;
+ 		u64 data_seq_err;
+ 		u64 mem_seq_err;
 -- 
 2.7.4
