@@ -1,210 +1,54 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH] lan78xx: relocate mdix setting to phy driver
-Date: Tue, 15 Nov 2016 21:57:30 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40965635@CHN-SV-EXMX02.mchp-main.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit
+ ethernet driver
+Date: Tue, 15 Nov 2016 22:59:07 +0100
+Message-ID: <20161115215907.GF23231@lunn.ch>
+References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161113195544.GA18258@lunn.ch>
+ <69558f55-824a-7063-d9b3-ccc0a6113b87@gmx.de>
+ <4450caf4-e1cf-5187-1337-c46b81b08708@gmail.com>
+ <0d1b4dee-11bb-3605-699c-ea417484cb68@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <f.fainelli@gmail.com>, <andrew@lunn.ch>, <netdev@vger.kernel.org>,
-        <UNGLinuxDriver@microchip.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
+        charrer@alacritech.com, liodot@gmail.com,
+        gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:17280 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751749AbcKOV5b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 16:57:31 -0500
-Content-Language: en-US
+Received: from vps0.lunn.ch ([178.209.37.122]:41098 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933957AbcKOV7S (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 16:59:18 -0500
+Content-Disposition: inline
+In-Reply-To: <0d1b4dee-11bb-3605-699c-ea417484cb68@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Woojung Huh <woojung.huh@microchip.com>
+> The link state is retrieved by a command to the application processor that is running 
+> on the network card. Also the register to set the phy configuration is write-only, so
+> it is not even possible to do the usual mdio bit-banging in the Phy read() and write()
+> functions (however there seems to be another application processor command reserved 
+> for retrieving the PHY settings, but I have not tried it yet). 
 
-Relocate mdix code to phy driver to be called at config_init().
+>> +  			val = MII_BMCR << 16 | SLIC_PCR_AUTONEG |
+>> +		     	         SLIC_PCR_AUTONEG_RST;
+>> +			slic_write(sdev, SLIC_REG_WPHY, val);
 
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
----
- drivers/net/phy/microchip.c | 43 +++++++++++++++++++++++++-
- drivers/net/usb/lan78xx.c   | 73 ++-------------------------------------------
- 2 files changed, 45 insertions(+), 71 deletions(-)
+This actually looks a lot like an MDIO write operation. The upper 16
+bits are the register, and the lower 16 bits are the data. What you
+don't have is the address. But maybe it is limited to one address.
 
-diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
-index 7c00e50..13553df 100644
---- a/drivers/net/phy/microchip.c
-+++ b/drivers/net/phy/microchip.c
-@@ -106,6 +106,47 @@ static int lan88xx_set_wol(struct phy_device *phydev,
- 	return 0;
- }
- 
-+static void lan88xx_set_mdix(struct phy_device *phydev)
-+{
-+	int buf;
-+
-+	if (phydev->mdix == ETH_TP_MDI) {
-+		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-+			  LAN88XX_EXT_PAGE_SPACE_1);
-+		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
-+		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
-+		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
-+			  buf | LAN88XX_EXT_MODE_CTRL_MDI_);
-+		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-+			  LAN88XX_EXT_PAGE_SPACE_0);
-+	} else if (phydev->mdix == ETH_TP_MDI_X) {
-+		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-+			  LAN88XX_EXT_PAGE_SPACE_1);
-+		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
-+		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
-+		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
-+			  buf | LAN88XX_EXT_MODE_CTRL_MDI_X_);
-+		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-+			  LAN88XX_EXT_PAGE_SPACE_0);
-+	} else if (phydev->mdix == ETH_TP_MDI_AUTO) {
-+		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-+			  LAN88XX_EXT_PAGE_SPACE_1);
-+		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
-+		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
-+		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
-+			  buf | LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_);
-+		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
-+			  LAN88XX_EXT_PAGE_SPACE_0);
-+	}
-+}
-+
-+static int lan88xx_config_aneg(struct phy_device *phydev)
-+{
-+	lan88xx_set_mdix(phydev);
-+
-+	return genphy_config_aneg(phydev);
-+}
-+
- static struct phy_driver microchip_phy_driver[] = {
- {
- 	.phy_id		= 0x0007c130,
-@@ -120,7 +161,7 @@ static struct phy_driver microchip_phy_driver[] = {
- 	.remove		= lan88xx_remove,
- 
- 	.config_init	= genphy_config_init,
--	.config_aneg	= genphy_config_aneg,
-+	.config_aneg	= lan88xx_config_aneg,
- 	.read_status	= genphy_read_status,
- 
- 	.ack_interrupt	= lan88xx_phy_ack_interrupt,
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index bcd9010..affc3b4 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -1476,62 +1476,12 @@ static void lan78xx_set_msglevel(struct net_device *net, u32 level)
- 	dev->msg_enable = level;
- }
- 
--static int lan78xx_get_mdix_status(struct net_device *net)
--{
--	struct phy_device *phydev = net->phydev;
--	int buf;
--
--	phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS, LAN88XX_EXT_PAGE_SPACE_1);
--	buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
--	phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS, LAN88XX_EXT_PAGE_SPACE_0);
--
--	return buf;
--}
--
--static void lan78xx_set_mdix_status(struct net_device *net, __u8 mdix_ctrl)
--{
--	struct lan78xx_net *dev = netdev_priv(net);
--	struct phy_device *phydev = net->phydev;
--	int buf;
--
--	if (mdix_ctrl == ETH_TP_MDI) {
--		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
--			  LAN88XX_EXT_PAGE_SPACE_1);
--		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
--		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
--		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
--			  buf | LAN88XX_EXT_MODE_CTRL_MDI_);
--		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
--			  LAN88XX_EXT_PAGE_SPACE_0);
--	} else if (mdix_ctrl == ETH_TP_MDI_X) {
--		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
--			  LAN88XX_EXT_PAGE_SPACE_1);
--		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
--		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
--		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
--			  buf | LAN88XX_EXT_MODE_CTRL_MDI_X_);
--		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
--			  LAN88XX_EXT_PAGE_SPACE_0);
--	} else if (mdix_ctrl == ETH_TP_MDI_AUTO) {
--		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
--			  LAN88XX_EXT_PAGE_SPACE_1);
--		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
--		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
--		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
--			  buf | LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_);
--		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
--			  LAN88XX_EXT_PAGE_SPACE_0);
--	}
--	dev->mdix_ctrl = mdix_ctrl;
--}
--
- static int lan78xx_get_link_ksettings(struct net_device *net,
- 				      struct ethtool_link_ksettings *cmd)
- {
- 	struct lan78xx_net *dev = netdev_priv(net);
- 	struct phy_device *phydev = net->phydev;
- 	int ret;
--	int buf;
- 
- 	ret = usb_autopm_get_interface(dev->intf);
- 	if (ret < 0)
-@@ -1539,20 +1489,6 @@ static int lan78xx_get_link_ksettings(struct net_device *net,
- 
- 	ret = phy_ethtool_ksettings_get(phydev, cmd);
- 
--	buf = lan78xx_get_mdix_status(net);
--
--	buf &= LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
--	if (buf == LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_) {
--		cmd->base.eth_tp_mdix = ETH_TP_MDI_AUTO;
--		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
--	} else if (buf == LAN88XX_EXT_MODE_CTRL_MDI_) {
--		cmd->base.eth_tp_mdix = ETH_TP_MDI;
--		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI;
--	} else if (buf == LAN88XX_EXT_MODE_CTRL_MDI_X_) {
--		cmd->base.eth_tp_mdix = ETH_TP_MDI_X;
--		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_X;
--	}
--
- 	usb_autopm_put_interface(dev->intf);
- 
- 	return ret;
-@@ -1570,9 +1506,6 @@ static int lan78xx_set_link_ksettings(struct net_device *net,
- 	if (ret < 0)
- 		return ret;
- 
--	if (dev->mdix_ctrl != cmd->base.eth_tp_mdix_ctrl)
--		lan78xx_set_mdix_status(net, cmd->base.eth_tp_mdix_ctrl);
--
- 	/* change speed & duplex */
- 	ret = phy_ethtool_ksettings_set(phydev, cmd);
- 
-@@ -2024,6 +1957,9 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
- 		phydev->irq = 0;
- 	netdev_dbg(dev->net, "phydev->irq = %d\n", phydev->irq);
- 
-+	/* set to AUTOMDIX */
-+	phydev->mdix = ETH_TP_MDI_AUTO;
-+
- 	ret = phy_connect_direct(dev->net, phydev,
- 				 lan78xx_link_status_change,
- 				 PHY_INTERFACE_MODE_GMII);
-@@ -2033,9 +1969,6 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
- 		return -EIO;
- 	}
- 
--	/* set to AUTOMDIX */
--	lan78xx_set_mdix_status(dev->net, ETH_TP_MDI_AUTO);
--
- 	/* MAC doesn't support 1000T Half */
- 	phydev->supported &= ~SUPPORTED_1000baseT_Half;
- 
--- 
-2.7.4
+If the processor command reserved for read works in a similar way, you
+have enough to do an MDIO bus.
+
+> Please also note that I do not have any datasheets or other documentation for the hardware, 
+> all I have as a reference is the driver code in staging. So I do not know which 
+> PHYs are actually used (the comments in the code mention Marvell and Cicada but this is
+> not very specific).
+
+If you can get the read working look at registers 2 and 3. Compare
+what you get with the values at the end of marvell.c.
+
+     Andrew
