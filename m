@@ -1,52 +1,54 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 14/15] net: usb: ax88172x: Utilize phy_ethtool_nway_reset
-Date: Tue, 15 Nov 2016 10:06:43 -0800
-Message-ID: <20161115180644.3941-15-f.fainelli@gmail.com>
+Subject: [PATCH 12/15] net: ethernet: ucc: Utilize phy_ethtool_nway_reset
+Date: Tue, 15 Nov 2016 10:06:41 -0800
+Message-ID: <20161115180644.3941-13-f.fainelli@gmail.com>
 References: <20161115180644.3941-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch, tremyfr@gmail.com,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Robert Foss <robert.foss@collabora.com>,
-        Colin Ian King <colin.king@canonical.com>,
-        linux-usb@vger.kernel.org (open list:USB NETWORKING DRIVERS),
-        linux-kernel@vger.kernel.org (open list)
+        Li Yang <leoli@freescale.com>,
+        linuxppc-dev@lists.ozlabs.org (open list:FREESCALE QUICC ENGINE UCC
+        ETHERNET DRIVER), linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33579 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754105AbcKOSHX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 13:07:23 -0500
 In-Reply-To: <20161115180644.3941-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/usb/ax88172a.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+ drivers/net/ethernet/freescale/ucc_geth_ethtool.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
-diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
-index 49a3bc107d05..6308386b09df 100644
---- a/drivers/net/usb/ax88172a.c
-+++ b/drivers/net/usb/ax88172a.c
-@@ -149,14 +149,6 @@ static const struct net_device_ops ax88172a_netdev_ops = {
- 	.ndo_set_rx_mode        = asix_set_multicast,
- };
+diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+index 812a968a78e9..8ba636f61b50 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
++++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+@@ -332,13 +332,6 @@ static void uec_get_ethtool_stats(struct net_device *netdev,
+ 	}
+ }
  
--static int ax88172a_nway_reset(struct net_device *net)
+-static int uec_nway_reset(struct net_device *netdev)
 -{
--	if (!net->phydev)
--		return -ENODEV;
+-	struct ucc_geth_private *ugeth = netdev_priv(netdev);
 -
--	return phy_start_aneg(net->phydev);
+-	return phy_start_aneg(ugeth->phydev);
 -}
 -
- static const struct ethtool_ops ax88172a_ethtool_ops = {
- 	.get_drvinfo		= asix_get_drvinfo,
- 	.get_link		= usbnet_get_link,
-@@ -167,7 +159,7 @@ static const struct ethtool_ops ax88172a_ethtool_ops = {
- 	.get_eeprom_len		= asix_get_eeprom_len,
- 	.get_eeprom		= asix_get_eeprom,
- 	.set_eeprom		= asix_set_eeprom,
--	.nway_reset		= ax88172a_nway_reset,
-+	.nway_reset		= phy_ethtool_nway_reset,
- 	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
- 	.set_link_ksettings	= phy_ethtool_set_link_ksettings,
- };
+ /* Report driver information */
+ static void
+ uec_get_drvinfo(struct net_device *netdev,
+@@ -394,7 +387,7 @@ static const struct ethtool_ops uec_ethtool_ops = {
+ 	.get_regs               = uec_get_regs,
+ 	.get_msglevel           = uec_get_msglevel,
+ 	.set_msglevel           = uec_set_msglevel,
+-	.nway_reset             = uec_nway_reset,
++	.nway_reset             = phy_ethtool_nway_reset,
+ 	.get_link               = ethtool_op_get_link,
+ 	.get_ringparam          = uec_get_ringparam,
+ 	.set_ringparam          = uec_set_ringparam,
 -- 
 2.9.3
