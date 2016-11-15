@@ -1,189 +1,180 @@
 From: Tobias Regnery <tobias.regnery@gmail.com>
-Subject: [PATCH net-next V2 3/9] alx: add ability to allocate and free alx_napi structures
-Date: Tue, 15 Nov 2016 12:43:10 +0100
-Message-ID: <406ba04f4d5f814ee5f7ea495e3100bec53b5e27.1479208628.git.tobias.regnery@gmail.com>
+Subject: [PATCH net-next V2 7/9] alx: prepare tx path for multi queue support
+Date: Tue, 15 Nov 2016 12:43:14 +0100
+Message-ID: <cadef4abef735592d5c9f0d0adcd8fa6766ce354.1479208629.git.tobias.regnery@gmail.com>
 References: <cover.1479208627.git.tobias.regnery@gmail.com>
 Cc: davem@davemloft.net, Tobias Regnery <tobias.regnery@gmail.com>
 To: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34241 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752704AbcKOLne (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 06:43:34 -0500
-Received: by mail-wm0-f65.google.com with SMTP id g23so24986663wme.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 03:43:33 -0800 (PST)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36435 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751012AbcKOLnk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 06:43:40 -0500
+Received: by mail-wm0-f67.google.com with SMTP id m203so24866197wma.3
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 03:43:39 -0800 (PST)
 In-Reply-To: <cover.1479208627.git.tobias.regnery@gmail.com>
 In-Reply-To: <cover.1479208627.git.tobias.regnery@gmail.com>
 References: <cover.1479208627.git.tobias.regnery@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new functions to allocate and free the alx_napi structures and use them
-in __alx_open and __alx_stop. We only allocate one of these structures for
-now, as the rest of the driver is not yet ready for multiple queues.
+This patch prepares the tx path to send data on multiple tx queues. It
+introduces per queue register adresses and uses them in the alx_tx_queue
+structs.
 
-We switch over the setup of the interrupt mask and the call to netif_napi_add
-to the new function because we must adjust these later on a per queue basis.
+There are new helper functions for the queue mapping in the tx path.
 
 Based on the downstream driver at github.com/qca/alx
 
 Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
 ---
- drivers/net/ethernet/atheros/alx/main.c | 99 ++++++++++++++++++++++++++-------
- 1 file changed, 78 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/atheros/alx/main.c | 58 +++++++++++++++++++++++++--------
+ 1 file changed, 45 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 8935766829b1..193da6799979 100644
+index c5f09d2616a4..0e773a2ca6a0 100644
 --- a/drivers/net/ethernet/atheros/alx/main.c
 +++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -632,45 +632,96 @@ static int alx_alloc_rings(struct alx_priv *alx)
- 	offset = alx_alloc_tx_ring(alx, &alx->txq, offset);
- 	if (offset < 0) {
- 		netdev_err(alx->dev, "Allocation of tx buffer failed!\n");
--		goto out_free;
-+		return -ENOMEM;
- 	}
- 
- 	offset = alx_alloc_rx_ring(alx, &alx->rxq, offset);
- 	if (offset < 0) {
- 		netdev_err(alx->dev, "Allocation of rx buffer failed!\n");
--		goto out_free;
-+		return -ENOMEM;
- 	}
- 
--	alx->int_mask &= ~ALX_ISR_ALL_QUEUES;
--	alx->int_mask |= ALX_ISR_TX_Q0 | ALX_ISR_RX_Q0;
--
--	netif_napi_add(alx->dev, &alx->napi, alx_poll, 64);
--
- 	alx_reinit_rings(alx);
- 
- 	return 0;
--out_free:
--	kfree(alx->txq.bufs);
--	kfree(alx->rxq.bufs);
--	dma_free_coherent(&alx->hw.pdev->dev,
--			  alx->descmem.size,
--			  alx->descmem.virt,
--			  alx->descmem.dma);
--	return -ENOMEM;
+@@ -143,6 +143,22 @@ static int alx_refill_rx_ring(struct alx_priv *alx, gfp_t gfp)
+ 	return count;
  }
  
- static void alx_free_rings(struct alx_priv *alx)
++static struct alx_tx_queue *alx_tx_queue_mapping(struct alx_priv *alx,
++						 struct sk_buff *skb)
++{
++	unsigned int r_idx = skb->queue_mapping;
++
++	if (r_idx >= alx->num_txq)
++		r_idx = r_idx % alx->num_txq;
++
++	return alx->qnapi[r_idx]->txq;
++}
++
++static struct netdev_queue *alx_get_tx_queue(const struct alx_tx_queue *txq)
++{
++	return netdev_get_tx_queue(txq->netdev, txq->queue_idx);
++}
++
+ static inline int alx_tpd_avail(struct alx_tx_queue *txq)
  {
--	netif_napi_del(&alx->napi);
- 	alx_free_buffers(alx);
+ 	if (txq->write_idx >= txq->read_idx)
+@@ -153,14 +169,16 @@ static inline int alx_tpd_avail(struct alx_tx_queue *txq)
+ static bool alx_clean_tx_irq(struct alx_tx_queue *txq)
+ {
+ 	struct alx_priv *alx;
++	struct netdev_queue *tx_queue;
+ 	u16 hw_read_idx, sw_read_idx;
+ 	unsigned int total_bytes = 0, total_packets = 0;
+ 	int budget = ALX_DEFAULT_TX_WORK;
  
- 	kfree(alx->txq.bufs);
- 	kfree(alx->rxq.bufs);
+ 	alx = netdev_priv(txq->netdev);
++	tx_queue = alx_get_tx_queue(txq);
  
--	dma_free_coherent(&alx->hw.pdev->dev,
--			  alx->descmem.size,
--			  alx->descmem.virt,
--			  alx->descmem.dma);
-+	if (!alx->descmem.virt)
-+		dma_free_coherent(&alx->hw.pdev->dev,
-+				  alx->descmem.size,
-+				  alx->descmem.virt,
-+				  alx->descmem.dma);
-+}
-+
-+static void alx_free_napis(struct alx_priv *alx)
-+{
-+	struct alx_napi *np;
-+
-+	np = alx->qnapi[0];
-+	if (!np)
-+		return;
-+
-+	netif_napi_del(&alx->napi);
-+	kfree(np->txq);
-+	kfree(np->rxq);
-+	kfree(np);
-+	alx->qnapi[0] = NULL;
-+}
-+
-+static int alx_alloc_napis(struct alx_priv *alx)
-+{
-+	struct alx_napi *np;
-+	struct alx_rx_queue *rxq;
-+	struct alx_tx_queue *txq;
-+
-+	alx->int_mask &= ~ALX_ISR_ALL_QUEUES;
-+	alx->int_mask |= ALX_ISR_TX_Q0 | ALX_ISR_RX_Q0;
-+
-+	/* allocate alx_napi structures */
-+	np = kzalloc(sizeof(struct alx_napi), GFP_KERNEL);
-+	if (!np)
-+		goto err_out;
-+
-+	np->alx = alx;
-+	netif_napi_add(alx->dev, &alx->napi, alx_poll, 64);
-+	alx->qnapi[0] = np;
-+
-+	/* allocate tx queues */
-+	np = alx->qnapi[0];
-+	txq = kzalloc(sizeof(*txq), GFP_KERNEL);
-+	if (!txq)
-+		goto err_out;
-+
-+	np->txq = txq;
-+	txq->count = alx->tx_ringsz;
-+	txq->netdev = alx->dev;
-+	txq->dev = &alx->hw.pdev->dev;
-+
-+	/* allocate rx queues */
-+	np = alx->qnapi[0];
-+	rxq = kzalloc(sizeof(*rxq), GFP_KERNEL);
-+	if (!rxq)
-+		goto err_out;
-+
-+	np->rxq = rxq;
-+	rxq->np = alx->qnapi[0];
-+	rxq->count = alx->rx_ringsz;
-+	rxq->netdev = alx->dev;
-+	rxq->dev = &alx->hw.pdev->dev;
-+
-+	return 0;
-+
-+err_out:
-+	netdev_err(alx->dev, "error allocating internal structures\n");
-+	alx_free_napis(alx);
-+	return -ENOMEM;
+ 	sw_read_idx = txq->read_idx;
+-	hw_read_idx = alx_read_mem16(&alx->hw, ALX_TPD_PRI0_CIDX);
++	hw_read_idx = alx_read_mem16(&alx->hw, txq->c_reg);
+ 
+ 	if (sw_read_idx != hw_read_idx) {
+ 		while (sw_read_idx != hw_read_idx && budget > 0) {
+@@ -180,12 +198,12 @@ static bool alx_clean_tx_irq(struct alx_tx_queue *txq)
+ 		}
+ 		txq->read_idx = sw_read_idx;
+ 
+-		netdev_completed_queue(txq->netdev, total_packets, total_bytes);
++		netdev_tx_completed_queue(tx_queue, total_packets, total_bytes);
+ 	}
+ 
+-	if (netif_queue_stopped(txq->netdev) && netif_carrier_ok(txq->netdev) &&
++	if (netif_tx_queue_stopped(tx_queue) && netif_carrier_ok(alx->dev) &&
+ 	    alx_tpd_avail(txq) > txq->count / 4)
+-		netif_wake_queue(txq->netdev);
++		netif_tx_wake_queue(tx_queue);
+ 
+ 	return sw_read_idx == hw_read_idx;
+ }
+@@ -487,7 +505,7 @@ static void alx_free_txring_buf(struct alx_tx_queue *txq)
+ 	txq->write_idx = 0;
+ 	txq->read_idx = 0;
+ 
+-	netdev_reset_queue(txq->netdev);
++	netdev_tx_reset_queue(alx_get_tx_queue(txq));
  }
  
- static void alx_config_vector_mapping(struct alx_priv *alx)
-@@ -1031,10 +1082,14 @@ static int __alx_open(struct alx_priv *alx, bool resume)
- 	if (!resume)
- 		netif_carrier_off(alx->dev);
- 
--	err = alx_alloc_rings(alx);
-+	err = alx_alloc_napis(alx);
- 	if (err)
- 		goto out_disable_adv_intr;
- 
-+	err = alx_alloc_rings(alx);
-+	if (err)
-+		goto out_free_rings;
-+
- 	alx_configure(alx);
- 
- 	err = alx_request_irq(alx);
-@@ -1054,6 +1109,7 @@ static int __alx_open(struct alx_priv *alx, bool resume)
- 
- out_free_rings:
- 	alx_free_rings(alx);
-+	alx_free_napis(alx);
- out_disable_adv_intr:
- 	alx_disable_advanced_intr(alx);
- 	return err;
-@@ -1064,6 +1120,7 @@ static void __alx_stop(struct alx_priv *alx)
- 	alx_halt(alx);
- 	alx_free_irq(alx);
- 	alx_free_rings(alx);
-+	alx_free_napis(alx);
+ static void alx_free_rxring_buf(struct alx_rx_queue *rxq)
+@@ -714,6 +732,10 @@ static void alx_free_napis(struct alx_priv *alx)
+ 	}
  }
  
- static const char *alx_speed_desc(struct alx_hw *hw)
++static const u16 tx_pidx_reg[] = {ALX_TPD_PRI0_PIDX, ALX_TPD_PRI1_PIDX,
++				  ALX_TPD_PRI2_PIDX, ALX_TPD_PRI3_PIDX};
++static const u16 tx_cidx_reg[] = {ALX_TPD_PRI0_CIDX, ALX_TPD_PRI1_CIDX,
++				  ALX_TPD_PRI2_CIDX, ALX_TPD_PRI3_CIDX};
+ static const u32 tx_vect_mask[] = {ALX_ISR_TX_Q0, ALX_ISR_TX_Q1,
+ 				   ALX_ISR_TX_Q2, ALX_ISR_TX_Q3};
+ static const u32 rx_vect_mask[] = {ALX_ISR_RX_Q0, ALX_ISR_RX_Q1,
+@@ -749,6 +771,8 @@ static int alx_alloc_napis(struct alx_priv *alx)
+ 			goto err_out;
+ 
+ 		np->txq = txq;
++		txq->p_reg = tx_pidx_reg[i];
++		txq->c_reg = tx_cidx_reg[i];
+ 		txq->queue_idx = i;
+ 		txq->count = alx->tx_ringsz;
+ 		txq->netdev = alx->dev;
+@@ -1501,16 +1525,17 @@ static int alx_map_tx_skb(struct alx_tx_queue *txq, struct sk_buff *skb)
+ 	return -ENOMEM;
+ }
+ 
+-static netdev_tx_t alx_start_xmit(struct sk_buff *skb,
+-				  struct net_device *netdev)
++static netdev_tx_t alx_start_xmit_ring(struct sk_buff *skb,
++				       struct alx_tx_queue *txq)
+ {
+-	struct alx_priv *alx = netdev_priv(netdev);
+-	struct alx_tx_queue *txq = alx->qnapi[0]->txq;
++	struct alx_priv *alx;
+ 	struct alx_txd *first;
+ 	int tso;
+ 
++	alx = netdev_priv(txq->netdev);
++
+ 	if (alx_tpd_avail(txq) < alx_tpd_req(skb)) {
+-		netif_stop_queue(txq->netdev);
++		netif_tx_stop_queue(alx_get_tx_queue(txq));
+ 		goto drop;
+ 	}
+ 
+@@ -1526,14 +1551,14 @@ static netdev_tx_t alx_start_xmit(struct sk_buff *skb,
+ 	if (alx_map_tx_skb(txq, skb) < 0)
+ 		goto drop;
+ 
+-	netdev_sent_queue(txq->netdev, skb->len);
++	netdev_tx_sent_queue(alx_get_tx_queue(txq), skb->len);
+ 
+ 	/* flush updates before updating hardware */
+ 	wmb();
+-	alx_write_mem16(&alx->hw, ALX_TPD_PRI0_PIDX, txq->write_idx);
++	alx_write_mem16(&alx->hw, txq->p_reg, txq->write_idx);
+ 
+ 	if (alx_tpd_avail(txq) < txq->count / 8)
+-		netif_stop_queue(txq->netdev);
++		netif_tx_stop_queue(alx_get_tx_queue(txq));
+ 
+ 	return NETDEV_TX_OK;
+ 
+@@ -1542,6 +1567,13 @@ static netdev_tx_t alx_start_xmit(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ }
+ 
++static netdev_tx_t alx_start_xmit(struct sk_buff *skb,
++				  struct net_device *netdev)
++{
++	struct alx_priv *alx = netdev_priv(netdev);
++	return alx_start_xmit_ring(skb, alx_tx_queue_mapping(alx, skb));
++}
++
+ static void alx_tx_timeout(struct net_device *dev)
+ {
+ 	struct alx_priv *alx = netdev_priv(dev);
 -- 
 2.7.4
