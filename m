@@ -1,67 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 00/15] net: phy: Centralize auto-negotation restart
-Date: Tue, 15 Nov 2016 10:06:29 -0800
-Message-ID: <20161115180644.3941-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, tremyfr@gmail.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36780 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753098AbcKOSG7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 13:06:59 -0500
-Received: by mail-pg0-f65.google.com with SMTP id x23so12378509pgx.3
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 10:06:59 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V2 for-next 00/11] Code improvements & fixes for HNS RoCE driver
+Date: Tue, 15 Nov 2016 18:10:42 +0000
+Message-ID: <20161115181053.399568-1-salil.mehta@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <xavier.huwei@huawei.com>,
+        <oulijun@huawei.com>, <xushaobo2@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <lijun_nudt@163.com>,
+        <linux-rdma@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+To: <dledford@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+This patchset introduces some code improvements and fixes
+for the identified problems in the HNS RoCE driver.
 
-This patch series centralizes how ethtool::nway_reset is implemented
-by providing a PHYLIB function which calls into genphy_restart_aneg().
+Lijun Ou (4):
+  IB/hns: Add the interface for querying QP1
+  IB/hns: add self loopback for CM
+  IB/hns: Modify the condition of notifying hardware loopback
+  IB/hns: Fix the bug for qp state in hns_roce_v1_m_qp()
 
-All drivers below are converted to use this new helper function. Some
-other have specific requirements that make them not quite suitable for
-a straight forward conversion.
+Salil Mehta (1):
+  IB/hns: Fix for Checkpatch.pl comment style errors
 
-There is another patch series which implements ethtool::nway_reset
-using the helper function introduced that depends on this patch
-series.
+Shaobo Xu (1):
+  IB/hns: Implement the add_gid/del_gid and optimize the GIDs
+    management
 
-Florian Fainelli (15):
-  net: phy: Add phy_ethtool_nway_reset
-  net: nb8800: Utilize phy_ethtool_nway_reset
-  net: bcm63xx_enet: Utilize phy_ethtool_nway_reset
-  net: mv643xx_eth: Utilize phy_ethtool_nway_reset
-  net: smsc911x: Utilize phy_ethtool_nway_reset
-  net: ethernet: smsc9420: Utilize phy_ethtool_nway_reset
-  net: ethernet: ll_temac: Utilize phy_ethtool_nway_reset
-  net: ethernet: ixp4xx_eth: Utilize phy_ethtool_nway_reset
-  net: bcmgenet: Utilize phy_ethtool_nway_reset
-  net: fs_enet: Utilize phy_ethtool_nway_reset
-  net: fec: Utilize phy_ethtool_nway_reset
-  net: ethernet: ucc: Utilize phy_ethtool_nway_reset
-  net: ethernet: lantiq_etop: Utilize phy_ethtool_nway_reset
-  net: usb: ax88172x: Utilize phy_ethtool_nway_reset
-  net: usb: lan78xx: Utilize phy_ethtool_nway_reset
+Wei Hu (Xavier) (5):
+  IB/hns: Add code for refreshing CQ CI using TPTR
+  IB/hns: Optimize the logic of allocating memory using APIs
+  IB/hns: Modify the macro for the timeout when cmd process
+  IB/hns: Modify query info named port_num when querying RC QP
+  IB/hns: Change qpn allocation to round-robin mode.
 
- drivers/net/ethernet/aurora/nb8800.c                  | 12 +-----------
- drivers/net/ethernet/broadcom/bcm63xx_enet.c          |  7 ++-----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c        |  9 +--------
- drivers/net/ethernet/freescale/fec_main.c             | 12 +-----------
- drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c |  7 +------
- drivers/net/ethernet/freescale/ucc_geth_ethtool.c     |  9 +--------
- drivers/net/ethernet/lantiq_etop.c                    |  8 +-------
- drivers/net/ethernet/marvell/mv643xx_eth.c            | 10 +---------
- drivers/net/ethernet/smsc/smsc911x.c                  |  7 +------
- drivers/net/ethernet/smsc/smsc9420.c                  | 10 +---------
- drivers/net/ethernet/xilinx/ll_temac_main.c           |  7 +------
- drivers/net/ethernet/xscale/ixp4xx_eth.c              |  7 +------
- drivers/net/phy/phy.c                                 | 11 +++++++++++
- drivers/net/usb/ax88172a.c                            | 10 +---------
- drivers/net/usb/lan78xx.c                             |  7 +------
- include/linux/phy.h                                   |  1 +
- 16 files changed, 27 insertions(+), 107 deletions(-)
+ drivers/infiniband/hw/hns/hns_roce_alloc.c  |   11 +-
+ drivers/infiniband/hw/hns/hns_roce_cmd.c    |    8 +-
+ drivers/infiniband/hw/hns/hns_roce_cmd.h    |    7 +-
+ drivers/infiniband/hw/hns/hns_roce_common.h |    2 -
+ drivers/infiniband/hw/hns/hns_roce_cq.c     |   17 +-
+ drivers/infiniband/hw/hns/hns_roce_device.h |   45 ++--
+ drivers/infiniband/hw/hns/hns_roce_eq.c     |    6 +-
+ drivers/infiniband/hw/hns/hns_roce_hem.c    |    6 +-
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c  |  267 +++++++++++++++++------
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.h  |   17 +-
+ drivers/infiniband/hw/hns/hns_roce_main.c   |  311 +++++++--------------------
+ drivers/infiniband/hw/hns/hns_roce_mr.c     |   21 +-
+ drivers/infiniband/hw/hns/hns_roce_pd.c     |    5 +-
+ drivers/infiniband/hw/hns/hns_roce_qp.c     |    2 +-
+ 14 files changed, 363 insertions(+), 362 deletions(-)
 
 -- 
-2.9.3
+1.7.9.5
