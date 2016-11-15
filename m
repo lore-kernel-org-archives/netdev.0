@@ -1,84 +1,284 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 2/3] vhost: better detection of available buffers
-Date: Tue, 15 Nov 2016 16:00:21 +0800
-Message-ID: <8bf86752-4dca-3ced-4641-efa7a4a1fc6e@redhat.com>
-References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
- <1478677113-13126-2-git-send-email-jasowang@redhat.com>
- <20161109215513-mutt-send-email-mst@kernel.org>
- <70cb5ad8-5266-b0c4-7b55-4aea4f5f01a6@redhat.com>
- <20161111054021-mutt-send-email-mst@kernel.org>
- <a2e98020-0fc5-e8c0-fd57-7d395733c693@redhat.com>
- <20161111182023-mutt-send-email-mst@kernel.org>
- <6f650bf0-1e2b-1c35-db34-5024383a6892@redhat.com>
- <20161115052753-mutt-send-email-mst@kernel.org>
+From: Erik Nordmark <nordmark@sonic.net>
+Subject: [PATCH net] ipv6 addrconf: Implemented enhanced DAD (RFC7527)
+Date: Tue, 15 Nov 2016 16:57:03 +0900
+Message-ID: <5863cb78-0050-7b7e-f886-d4d6b2186f16@sonic.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33916 "EHLO mx1.redhat.com"
+Received: from c.mail.sonic.net ([64.142.111.80]:52596 "EHLO c.mail.sonic.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934210AbcKOIAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 03:00:25 -0500
-In-Reply-To: <20161115052753-mutt-send-email-mst@kernel.org>
+        id S1751668AbcKOIH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 03:07:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Implemented RFC7527 Enhanced DAD.
+IPv6 duplicate address detection can fail if there is some temporary
+loopback of Ethernet frames. RFC7527 solves this by including a random
+nonce in the NS messages used for DAD, and if an NS is received with the
+same nonce it is assumed to be a looped back DAD probe and is ignored.
+RFC7527 is disabled by default. Can be enabled by setting either one of
+conf/{all,interface}/ipv6_rfc7527 to non-zero.
 
+Signed-off-by: Erik Nordmark <nordmark@arista.com>
 
-On 2016年11月15日 11:28, Michael S. Tsirkin wrote:
-> On Tue, Nov 15, 2016 at 11:16:59AM +0800, Jason Wang wrote:
->>
->> On 2016年11月12日 00:20, Michael S. Tsirkin wrote:
->>> On Fri, Nov 11, 2016 at 12:18:50PM +0800, Jason Wang wrote:
->>>> On 2016年11月11日 11:41, Michael S. Tsirkin wrote:
->>>>> On Fri, Nov 11, 2016 at 10:18:37AM +0800, Jason Wang wrote:
->>>>>>> On 2016年11月10日 03:57, Michael S. Tsirkin wrote:
->>>>>>>>> On Wed, Nov 09, 2016 at 03:38:32PM +0800, Jason Wang wrote:
->>>>>>>>>>> We should use vq->last_avail_idx instead of vq->avail_idx in the
->>>>>>>>>>> checking of vhost_vq_avail_empty() since latter is the cached avail
->>>>>>>>>>> index from guest but we want to know if there's pending available
->>>>>>>>>>> buffers in the virtqueue.
->>>>>>>>>>>
->>>>>>>>>>> Signed-off-by: Jason Wang<jasowang@redhat.com>
->>>>>>>>> I'm not sure why is this patch here. Is it related to
->>>>>>>>> batching somehow?
->>>>>>> Yes, we need to know whether or not there's still buffers left in the
->>>>>>> virtqueue, so need to check last_avail_idx. Otherwise, we're checking if
->>>>>>> guest has submitted new buffers.
->>>>>>>
->>>>>>>>>>> ---
->>>>>>>>>>>     drivers/vhost/vhost.c | 2 +-
->>>>>>>>>>>     1 file changed, 1 insertion(+), 1 deletion(-)
->>>>>>>>>>>
->>>>>>>>>>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
->>>>>>>>>>> index c6f2d89..fdf4cdf 100644
->>>>>>>>>>> --- a/drivers/vhost/vhost.c
->>>>>>>>>>> +++ b/drivers/vhost/vhost.c
->>>>>>>>>>> @@ -2230,7 +2230,7 @@ bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
->>>>>>>>>>>     	if (r)
->>>>>>>>>>>     		return false;
->>>>>>>>>>> -	return vhost16_to_cpu(vq, avail_idx) == vq->avail_idx;
->>>>>>>>>>> +	return vhost16_to_cpu(vq, avail_idx) == vq->last_avail_idx;
->>>>>>>>>>>     }
->>>>>>>>>>>     EXPORT_SYMBOL_GPL(vhost_vq_avail_empty);
->>>>>>>>> That might be OK for TX but it's probably wrong for RX
->>>>>>>>> where the fact that used != avail does not mean
->>>>>>>>> we have enough space to store the packet.
->>>>>>> Right, but it's no harm since it was just a hint, handle_rx() can handle
->>>>>>> this situation.
->>>>> Means busy polling will cause useless load on the CPU though.
->>>>>
->>>> Right, but,it's not easy to have 100% correct hint here. Needs more thought.
->>> What's wrong with what we have? It polls until value changes.
->>>
->> But as you said, this does not mean (in mergeable cases) we have enough
->> space to store the packet.
-> Absolutely but it checks once and then only re-checks after value
-> changes again.
->
+Index: linux-stable/Documentation/networking/ip-sysctl.txt
+===================================================================
+--- linux-stable.orig/Documentation/networking/ip-sysctl.txt
++++ linux-stable/Documentation/networking/ip-sysctl.txt
+@@ -1713,6 +1713,15 @@ drop_unsolicited_na - BOOLEAN
 
-Since get_rx_bufs() does not get enough buffers, we will wait for the 
-kick in this case. For busy polling, we probably want to stay in the 
-busy loop here.
+      By default this is turned off.
+
++ipv6_rfc7527 - BOOLEAN
++    Include a nonce option in the IPv6 neighbor solicitation messages 
+used for
++    duplicate address detection per RFC7527. A received DAD NS will 
+only signal
++    a duplicate address if the nonce is different. This avoids any false
++    detection of duplicates due to loopback of the NS messages that we 
+send.
++    The nonce option will be sent on an interface if either one of
++    conf/{all,interface}/ipv6_rfc7527 are TRUE.
++    Default: FALSE
++
+  icmp/*:
+  ratelimit - INTEGER
+      Limit the maximal rates for sending ICMPv6 packets.
+Index: linux-stable/include/linux/ipv6.h
+===================================================================
+--- linux-stable.orig/include/linux/ipv6.h
++++ linux-stable/include/linux/ipv6.h
+@@ -63,6 +63,7 @@ struct ipv6_devconf {
+      } stable_secret;
+      __s32        use_oif_addrs_only;
+      __s32        keep_addr_on_down;
++    __u32        ipv6_rfc7527;
+
+      struct ctl_table_header *sysctl_header;
+  };
+Index: linux-stable/include/net/if_inet6.h
+===================================================================
+--- linux-stable.orig/include/net/if_inet6.h
++++ linux-stable/include/net/if_inet6.h
+@@ -55,6 +55,7 @@ struct inet6_ifaddr {
+      __u8            stable_privacy_retry;
+
+      __u16            scope;
++    __u64            dad_nonce;
+
+      unsigned long        cstamp;    /* created timestamp */
+      unsigned long        tstamp; /* updated timestamp */
+Index: linux-stable/include/net/ndisc.h
+===================================================================
+--- linux-stable.orig/include/net/ndisc.h
++++ linux-stable/include/net/ndisc.h
+@@ -31,6 +31,7 @@ enum {
+      ND_OPT_PREFIX_INFO = 3,        /* RFC2461 */
+      ND_OPT_REDIRECT_HDR = 4,    /* RFC2461 */
+      ND_OPT_MTU = 5,            /* RFC2461 */
++    ND_OPT_NONCE = 14,              /* RFC7527 */
+      __ND_OPT_ARRAY_MAX,
+      ND_OPT_ROUTE_INFO = 24,        /* RFC4191 */
+      ND_OPT_RDNSS = 25,        /* RFC5006 */
+@@ -121,6 +122,7 @@ struct ndisc_options {
+  #define nd_opts_pi_end nd_opt_array[__ND_OPT_PREFIX_INFO_END]
+  #define nd_opts_rh            nd_opt_array[ND_OPT_REDIRECT_HDR]
+  #define nd_opts_mtu            nd_opt_array[ND_OPT_MTU]
++#define nd_opts_nonce            nd_opt_array[ND_OPT_NONCE]
+  #define nd_802154_opts_src_lladdr 
+nd_802154_opt_array[ND_OPT_SOURCE_LL_ADDR]
+  #define nd_802154_opts_tgt_lladdr 
+nd_802154_opt_array[ND_OPT_TARGET_LL_ADDR]
+
+@@ -398,7 +400,8 @@ void ndisc_cleanup(void);
+  int ndisc_rcv(struct sk_buff *skb);
+
+  void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+-           const struct in6_addr *daddr, const struct in6_addr *saddr);
++           const struct in6_addr *daddr, const struct in6_addr *saddr,
++           u64 nonce);
+
+  void ndisc_send_rs(struct net_device *dev,
+             const struct in6_addr *saddr, const struct in6_addr *daddr);
+Index: linux-stable/include/uapi/linux/ipv6.h
+===================================================================
+--- linux-stable.orig/include/uapi/linux/ipv6.h
++++ linux-stable/include/uapi/linux/ipv6.h
+@@ -177,6 +177,7 @@ enum {
+      DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
+      DEVCONF_DROP_UNSOLICITED_NA,
+      DEVCONF_KEEP_ADDR_ON_DOWN,
++    DEVCONF_IPV6_RFC7527,
+      DEVCONF_MAX
+  };
+
+Index: linux-stable/net/ipv6/addrconf.c
+===================================================================
+--- linux-stable.orig/net/ipv6/addrconf.c
++++ linux-stable/net/ipv6/addrconf.c
+@@ -217,6 +217,7 @@ static struct ipv6_devconf ipv6_devconf
+      .use_oif_addrs_only    = 0,
+      .ignore_routes_with_linkdown = 0,
+      .keep_addr_on_down    = 0,
++    .ipv6_rfc7527           = 0,
+  };
+
+  static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -262,6 +263,7 @@ static struct ipv6_devconf ipv6_devconf_
+      .use_oif_addrs_only    = 0,
+      .ignore_routes_with_linkdown = 0,
+      .keep_addr_on_down    = 0,
++    .ipv6_rfc7527           = 0,
+  };
+
+  /* Check if a valid qdisc is available */
+@@ -3722,12 +3724,18 @@ static void addrconf_dad_kick(struct ine
+  {
+      unsigned long rand_num;
+      struct inet6_dev *idev = ifp->idev;
++    u64 nonce;
+
+      if (ifp->flags & IFA_F_OPTIMISTIC)
+          rand_num = 0;
+      else
+          rand_num = prandom_u32() % (idev->cnf.rtr_solicit_delay ? : 1);
+
++    nonce = 0;
++    if (ifp->idev->cnf.ipv6_rfc7527 ||
++ dev_net((ifp->idev)->dev)->ipv6.devconf_all->ipv6_rfc7527)
++        get_random_bytes(&nonce, 6);
++    ifp->dad_nonce = nonce;
+      ifp->dad_probes = idev->cnf.dad_transmits;
+      addrconf_mod_dad_work(ifp, rand_num);
+  }
+@@ -3903,7 +3911,8 @@ static void addrconf_dad_work(struct wor
+
+      /* send a neighbour solicitation for our addr */
+      addrconf_addr_solict_mult(&ifp->addr, &mcaddr);
+-    ndisc_send_ns(ifp->idev->dev, &ifp->addr, &mcaddr, &in6addr_any);
++    ndisc_send_ns(ifp->idev->dev, &ifp->addr, &mcaddr, &in6addr_any,
++              ifp->dad_nonce);
+  out:
+      in6_ifa_put(ifp);
+      rtnl_unlock();
+@@ -4937,6 +4946,7 @@ static inline void ipv6_store_devconf(st
+      array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = 
+cnf->drop_unicast_in_l2_multicast;
+      array[DEVCONF_DROP_UNSOLICITED_NA] = cnf->drop_unsolicited_na;
+      array[DEVCONF_KEEP_ADDR_ON_DOWN] = cnf->keep_addr_on_down;
++    array[DEVCONF_IPV6_RFC7527] = cnf->ipv6_rfc7527;
+  }
+
+  static inline size_t inet6_ifla6_size(void)
+@@ -6027,6 +6037,13 @@ static const struct ctl_table addrconf_s
+
+      },
+      {
++        .procname       = "ipv6_rfc7527",
++        .data           = &ipv6_devconf.ipv6_rfc7527,
++        .maxlen         = sizeof(int),
++        .mode           = 0644,
++        .proc_handler   = proc_dointvec,
++    },
++    {
+          /* sentinel */
+      }
+  };
+Index: linux-stable/net/ipv6/ndisc.c
+===================================================================
+--- linux-stable.orig/net/ipv6/ndisc.c
++++ linux-stable/net/ipv6/ndisc.c
+@@ -234,6 +234,7 @@ struct ndisc_options *ndisc_parse_option
+          case ND_OPT_SOURCE_LL_ADDR:
+          case ND_OPT_TARGET_LL_ADDR:
+          case ND_OPT_MTU:
++        case ND_OPT_NONCE:
+          case ND_OPT_REDIRECT_HDR:
+              if (ndopts->nd_opt_array[nd_opt->nd_opt_type]) {
+                  ND_PRINTK(2, warn,
+@@ -571,7 +572,8 @@ static void ndisc_send_unsol_na(struct n
+  }
+
+  void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+-           const struct in6_addr *daddr, const struct in6_addr *saddr)
++           const struct in6_addr *daddr, const struct in6_addr *saddr,
++           u64 nonce)
+  {
+      struct sk_buff *skb;
+      struct in6_addr addr_buf;
+@@ -591,6 +593,8 @@ void ndisc_send_ns(struct net_device *de
+      if (inc_opt)
+          optlen += ndisc_opt_addr_space(dev,
+                             NDISC_NEIGHBOUR_SOLICITATION);
++    if (nonce != 0)
++        optlen += 8;
+
+      skb = ndisc_alloc_skb(dev, sizeof(*msg) + optlen);
+      if (!skb)
+@@ -608,6 +612,13 @@ void ndisc_send_ns(struct net_device *de
+          ndisc_fill_addr_option(skb, ND_OPT_SOURCE_LL_ADDR,
+                         dev->dev_addr,
+                         NDISC_NEIGHBOUR_SOLICITATION);
++    if (nonce != 0) {
++        u8 *opt = skb_put(skb, 8);
++
++        opt[0] = ND_OPT_NONCE;
++        opt[1] = 8 >> 3;
++        memcpy(opt + 2, &nonce, 6);
++    }
+
+      ndisc_send_skb(skb, daddr, saddr);
+  }
+@@ -696,12 +707,12 @@ static void ndisc_solicit(struct neighbo
+                    "%s: trying to ucast probe in NUD_INVALID: %pI6\n",
+                    __func__, target);
+          }
+-        ndisc_send_ns(dev, target, target, saddr);
++        ndisc_send_ns(dev, target, target, saddr, 0);
+      } else if ((probes -= NEIGH_VAR(neigh->parms, APP_PROBES)) < 0) {
+          neigh_app_ns(neigh);
+      } else {
+          addrconf_addr_solict_mult(target, &mcaddr);
+-        ndisc_send_ns(dev, target, &mcaddr, saddr);
++        ndisc_send_ns(dev, target, &mcaddr, saddr, 0);
+      }
+  }
+
+@@ -745,6 +756,7 @@ static void ndisc_recv_ns(struct sk_buff
+      int dad = ipv6_addr_any(saddr);
+      bool inc;
+      int is_router = -1;
++    u64 nonce;
+
+      if (skb->len < sizeof(struct nd_msg)) {
+          ND_PRINTK(2, warn, "NS: packet too short\n");
+@@ -789,6 +801,8 @@ static void ndisc_recv_ns(struct sk_buff
+              return;
+          }
+      }
++    if (ndopts.nd_opts_nonce)
++        memcpy(&nonce, (u8 *)(ndopts.nd_opts_nonce + 1), 6);
+
+      inc = ipv6_addr_is_multicast(daddr);
+
+@@ -797,6 +811,16 @@ static void ndisc_recv_ns(struct sk_buff
+  have_ifp:
+          if (ifp->flags & (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
+              if (dad) {
++                if (nonce != 0 && ifp->dad_nonce == nonce) {
++                    /* Matching nonce if looped back */
++                    if (net_ratelimit())
++                        ND_PRINTK(2, notice,
++                              "%s: IPv6 DAD loopback for address %pI6c 
+nonce %llu ignored\n",
++                               ifp->idev->dev->name,
++                               &ifp->addr,
++                               nonce);
++                    goto out;
++                }
+                  /*
+                   * We are colliding with another node
+                   * who is doing DAD
