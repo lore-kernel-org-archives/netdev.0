@@ -1,72 +1,155 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 2/3] vhost: better detection of available buffers
-Date: Tue, 15 Nov 2016 11:16:59 +0800
-Message-ID: <6f650bf0-1e2b-1c35-db34-5024383a6892@redhat.com>
-References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
- <1478677113-13126-2-git-send-email-jasowang@redhat.com>
- <20161109215513-mutt-send-email-mst@kernel.org>
- <70cb5ad8-5266-b0c4-7b55-4aea4f5f01a6@redhat.com>
- <20161111054021-mutt-send-email-mst@kernel.org>
- <a2e98020-0fc5-e8c0-fd57-7d395733c693@redhat.com>
- <20161111182023-mutt-send-email-mst@kernel.org>
+Subject: Re: Virtio_net support vxlan encapsulation package TSO offload
+ discuss
+Date: Tue, 15 Nov 2016 11:27:45 +0800
+Message-ID: <6db6b2a1-edbc-0068-d7d4-e8e15d18edc6@redhat.com>
+References: <DBCD2614ECF3FF4087A2C27CA80E34DD5401AC8B@SZXEMA501-MBX.china.huawei.com>
+ <c2f735e4-eddf-f737-2afe-35a93289f8d4@redhat.com>
+ <3a0b8f10-f479-3ed5-dd10-5b92de3eb593@redhat.com>
+ <DBCD2614ECF3FF4087A2C27CA80E34DD5401ADA8@SZXEMA501-MBX.china.huawei.com>
+ <53d0322b-4ce1-d0db-4b53-f9e860ece2c5@redhat.com>
+ <DBCD2614ECF3FF4087A2C27CA80E34DD5401BE13@SZXEMA501-MBX.china.huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161111182023-mutt-send-email-mst@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        Vlad Yasevic <vyasevic@redhat.com>,
+        Amnon Ilan <ailan@redhat.com>
+To: "Zhangming (James, Euler)" <james.zhangming@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35238 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965031AbcKOD1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 22:27:50 -0500
+In-Reply-To: <DBCD2614ECF3FF4087A2C27CA80E34DD5401BE13@SZXEMA501-MBX.china.huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-On 2016年11月12日 00:20, Michael S. Tsirkin wrote:
-> On Fri, Nov 11, 2016 at 12:18:50PM +0800, Jason Wang wrote:
->>
->> On 2016年11月11日 11:41, Michael S. Tsirkin wrote:
->>> On Fri, Nov 11, 2016 at 10:18:37AM +0800, Jason Wang wrote:
->>>>>
->>>>> On 2016年11月10日 03:57, Michael S. Tsirkin wrote:
->>>>>>> On Wed, Nov 09, 2016 at 03:38:32PM +0800, Jason Wang wrote:
->>>>>>>>> We should use vq->last_avail_idx instead of vq->avail_idx in the
->>>>>>>>> checking of vhost_vq_avail_empty() since latter is the cached avail
->>>>>>>>> index from guest but we want to know if there's pending available
->>>>>>>>> buffers in the virtqueue.
->>>>>>>>>
->>>>>>>>> Signed-off-by: Jason Wang<jasowang@redhat.com>
->>>>>>> I'm not sure why is this patch here. Is it related to
->>>>>>> batching somehow?
->>>>> Yes, we need to know whether or not there's still buffers left in the
->>>>> virtqueue, so need to check last_avail_idx. Otherwise, we're checking if
->>>>> guest has submitted new buffers.
->>>>>
->>>>>>>
->>>>>>>>> ---
->>>>>>>>>    drivers/vhost/vhost.c | 2 +-
->>>>>>>>>    1 file changed, 1 insertion(+), 1 deletion(-)
->>>>>>>>>
->>>>>>>>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
->>>>>>>>> index c6f2d89..fdf4cdf 100644
->>>>>>>>> --- a/drivers/vhost/vhost.c
->>>>>>>>> +++ b/drivers/vhost/vhost.c
->>>>>>>>> @@ -2230,7 +2230,7 @@ bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
->>>>>>>>>    	if (r)
->>>>>>>>>    		return false;
->>>>>>>>> -	return vhost16_to_cpu(vq, avail_idx) == vq->avail_idx;
->>>>>>>>> +	return vhost16_to_cpu(vq, avail_idx) == vq->last_avail_idx;
->>>>>>>>>    }
->>>>>>>>>    EXPORT_SYMBOL_GPL(vhost_vq_avail_empty);
->>>>>>> That might be OK for TX but it's probably wrong for RX
->>>>>>> where the fact that used != avail does not mean
->>>>>>> we have enough space to store the packet.
->>>>> Right, but it's no harm since it was just a hint, handle_rx() can handle
->>>>> this situation.
->>> Means busy polling will cause useless load on the CPU though.
+On 2016年11月10日 14:19, Zhangming (James, Euler) wrote:
+> On 2016年11月09日 15:14, Jason Wang wrote:
+>> On 2016年11月08日 19:58, Zhangming (James, Euler) wrote:
+>>> On 2016年11月08日 19:17, Jason Wang wrote:
 >>>
->> Right, but,it's not easy to have 100% correct hint here. Needs more thought.
-> What's wrong with what we have? It polls until value changes.
+>>>> On 2016年11月08日 19:13, Jason Wang wrote:
+>>>>> Cc Michael
+>>>>>
+>>>>> On 2016年11月08日 16:34, Zhangming (James, Euler) wrote:
+>>>>>> In container scenario, OVS is installed in the Virtual machine, and
+>>>>>> all the containers connected to the OVS will communicated through
+>>>>>> VXLAN encapsulation.
+>>>>>>
+>>>>>> By now, virtio_net does not support TSO offload for VXLAN
+>>>>>> encapsulated TSO package. In this condition, the performance is not
+>>>>>> good, sender is bottleneck
+>>>>>>
+>>>>>> I googled this scenario, but I didn’t find any information. Will
+>>>>>> virtio_net support VXLAN encapsulation package TSO offload later?
+>>>>>>
+>>>>> Yes and for both sender and receiver.
+>>>>>
+>>>>>> My idea is virtio_net open encapsulated TSO offload, and transport
+>>>>>> encapsulation info to TUN, TUN will parse the info and build skb
+>>>>>> with encapsulation info.
+>>>>>>
+>>>>>> OVS or kernel on the host should be modified to support this. Using
+>>>>>> this method, the TCP performance aremore than 2x as before.
+>>>>>>
+>>>>>> Any advice and suggestions for this idea or new idea will be
+>>>>>> greatly appreciated!
+>>>>>>
+>>>>>> Best regards,
+>>>>>>
+>>>>>>      James zhang
+>>>>>>
+>>>>> Sounds very good. And we may also need features bits
+>>>>> (VIRTIO_NET_F_GUEST|HOST_GSO_X) for this.
+>>>>>
+>>>>> This is in fact one of items in networking todo list. (See
+>>>>> http://www.linux-kvm.org/page/NetworkingTodo). While at it, we'd
+>>>>> better support not only VXLAN but also other tunnels.
+>>>> Cc Vlad who is working on extending virtio-net headers.
+>>>>
+>>>>> We can start with the spec work, or if you've already had some bits
+>>>>> you can post them as RFC for early review.
+>>>>>
+>>>>> Thanks
+>>> Below is my demo code
+>>> Virtio_net.c
+>>> static int virtnet_probe(struct virtio_device *vdev), add belows codes:
+>>>           if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||				// avoid gso segment, it should be negotiation later, because in the demo I reuse num_buffers.
+>>>               virtio_has_feature(vdev, VIRTIO_F_VERSION_1)) {
+>>>                   dev->hw_enc_features |= NETIF_F_TSO;
+>>>                   dev->hw_enc_features |= NETIF_F_ALL_CSUM;
+>>>                   dev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
+>>>                   dev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>>>                   dev->hw_enc_features |= NETIF_F_GSO_TUNNEL_REMCSUM;
+>>>
+>>>                   dev->features |= NETIF_F_GSO_UDP_TUNNEL;
+>>>                   dev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>>>                   dev->features |= NETIF_F_GSO_TUNNEL_REMCSUM;
+>>>           }
+>>>
+>>> static int xmit_skb(struct send_queue *sq, struct sk_buff *skb), add
+>>> below to pieces of codes
+>>>
+>>>                   if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
+>>>                           hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL;
+>>>                   if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)
+>>>                           hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL_CSUM;
+>>>                   if (skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM)
+>>>                           hdr->hdr.gso_type |=
+>>> VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM;
+>>>
+>>>           if (skb->encapsulation && skb_is_gso(skb)) {
+>>>                   inner_mac_len = skb_inner_network_header(skb) - skb_inner_mac_header(skb);
+>>>                   tnl_len = skb_inner_mac_header(skb) - skb_mac_header(skb);
+>>>                   if ( !(inner_mac_len >> DATA_LEN_SHIFT) && !(tnl_len >> DATA_LEN_SHIFT) ) {
+>>>                           hdr->hdr.flags |= VIRTIO_NET_HDR_F_ENCAPSULATION;
+>>>                           hdr->num_buffers = (__virtio16)((inner_mac_len << DATA_LEN_SHIFT) | tnl_len);		//we reuse num_buffers for simple , we should add extend member for later.
+>>>                   }  else
+>>>                           hdr->num_buffers = 0;
+>>>           }
+>>>
+>>> Tun.c
+>>>                   if (memcpy_fromiovecend((void *)&hdr, iv, offset, tun->vnet_hdr_sz))		//read header with negotiation length
+>>>                           return -EFAULT;
+>>>
+>>>                   if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL)					//set tunnel gso info
+>>>                           skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
+>>>                   if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_CSUM)
+>>>                           skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
+>>>                   if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM)
+>>>                           skb_shinfo(skb)->gso_type |=
+>>> SKB_GSO_TUNNEL_REMCSUM;
+>>>
+>>>           if (hdr.flags & VIRTIO_NET_HDR_F_ENCAPSULATION) {						//read tunnel info from header and set to built skb.
+>>>                   tnl_len = tun16_to_cpu(tun, hdr.num_buffers) & TUN_TNL_LEN_MASK;
+>>>                   payload_mac_len = tun16_to_cpu(tun, hdr.num_buffers) >> TUN_DATA_LEN_SHIFT;
+>>>                   mac_len = skb_network_header(skb) - skb_mac_header(skb);
+>>>                   skb_set_inner_mac_header(skb, tnl_len - mac_len);
+>>>                   skb_set_inner_network_header(skb, tnl_len + payload_mac_len - mac_len);
+>>>                   skb->encapsulation = 1;
+>>>           }
+>>>
+>>>
+>> Something like this, and you probably need do something more:
+>>
+>> - use net-next.git to generate the patch (for the latest code)
+>> - add feature negotiation
+>> - tun/macvtap/qemu patches for this, you can start with tun/macvtap patches
+>> - support for all other SKB_GSO_* types which is not supported
+>> - use a new field instead of num_buffers
+>> - a virtio spec patch to describe the support for encapsulation offload
+>>
+>> Thanks
+> Thank you for your advice, I will start it right now.
 >
+> Thanks
 
-But as you said, this does not mean (in mergeable cases) we have enough 
-space to store the packet.
+Cool, one more question: while at it, I think you may want to add 
+support for dpdk too?
+
+Thanks
