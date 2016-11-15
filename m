@@ -1,7 +1,8 @@
 From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net 0/3] Fix OdroidC2 Gigabit Tx link issue
-Date: Tue, 15 Nov 2016 15:29:11 +0100
-Message-ID: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
+Subject: [PATCH net 2/3] dt-bindings: net: add DT bindings for realtek phys
+Date: Tue, 15 Nov 2016 15:29:13 +0100
+Message-ID: <1479220154-25851-3-git-send-email-jbrunet@baylibre.com>
+References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
 Cc: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
         Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
         Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
@@ -15,36 +16,43 @@ Cc: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1479220154-25851-1-git-send-email-jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patchset fixes an issue with the OdroidC2 board (DWMAC + RTL8211F).
-Initially reported as a low Tx throughput issue at gigabit speed, the
-platform enters LPI too often. This eventually break the link (both Tx
-and Rx), and require to bring the interface down and up again to get the
-Rx path working again.
-
-The root cause of this issue is not fully understood yet but disabling EEE
-advertisement on the PHY prevent this feature to be negotiated.
-With this change, the link is stable and reliable, with the expected
-throughput performance.
-
-The patchset adds options in the realtek phy driver to disable EEE
-advertisement, through device tree, for the phy version supporting EEE.
-Then EEE is disabled in the OdroidC2 device tree for Gigabit speed.
-100M is not affected by this issue.
-
-Jerome Brunet (3):
-  net: phy: realtek: add eee advertisement disable options
-  dt-bindings: net: add DT bindings for realtek phys
-  ARM64: dts: meson: odroidc2: disable 1000t-eee advertisement
-
- .../devicetree/bindings/net/realtek-phy.txt        | 20 +++++++
- .../arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts | 15 +++++
- drivers/net/phy/realtek.c                          | 65 +++++++++++++++++++++-
- 3 files changed, 99 insertions(+), 1 deletion(-)
+Signed-off-by: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+---
+ .../devicetree/bindings/net/realtek-phy.txt          | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/realtek-phy.txt
 
+diff --git a/Documentation/devicetree/bindings/net/realtek-phy.txt b/Documentation/devicetree/bindings/net/realtek-phy.txt
+new file mode 100644
+index 000000000000..dc2845a6b387
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/realtek-phy.txt
+@@ -0,0 +1,20 @@
++Realtek Ethernet PHY
++
++Some boards require special tuning values of the phy.
++
++Optional properties:
++
++realtek,disable-eee-1000t:
++realtek,disable-eee-100tx:
++  If set, respectively disable 1000-BaseT and 100-BaseTx energy efficient
++  ethernet capabilty advertisement
++  default: Leave the phy default settings unchanged (capabilities advertised)
++
++Example:
++
++&mdio0 {
++	ethernetphy0: ethernet-phy@0 {
++		reg = <0>;
++		realtek,disable-eee-1000t;
++	};
++};
 -- 
 2.7.4
 
