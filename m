@@ -1,158 +1,74 @@
-From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: Re: [PATCH v9 0/8] thunderbolt: Introducing Thunderbolt(TM)
- Networking
-Date: Tue, 15 Nov 2016 11:59:21 +0100
-Message-ID: <20161115105920.GH6167@kw.sim.vm.gnt>
-References: <1478701208-4585-1-git-send-email-amir.jer.levy@intel.com>
- <20161109143632.GE6167@kw.sim.vm.gnt>
- <E607265CB020454880711A6F96C05A03B677E4C9@hasmsx107.ger.corp.intel.com>
+From: Jerome Brunet <jbrunet@baylibre.com>
+Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
+Date: Tue, 15 Nov 2016 12:27:56 +0100
+Message-ID: <1479209276.2619.10.camel@baylibre.com>
+References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
+         <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
+         <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
+         <20161031112524.4c4ee8f8@gmail.com> <1478192276.6632.34.camel@baylibre.com>
+         <3c21b0a4-43c9-0257-f8f2-c8e02cf94fbf@st.com>
+         <CAFBinCDq0neyidQBO13F4Yz-GZPorGyRQ2t5Vb-PL0Ls582+4Q@mail.gmail.com>
+         <24b4d9b3-0a9d-5f6c-7dc2-5fcbb1012481@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="nhAUiXSLan16V5i8"
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-        "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        "corbet@lwn.net" <corbet@lwn.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-        "mario_limonciello@dell.com" <mario_limonciello@dell.com>,
-        thunderbolt-linux <thunderbolt-linux@intel.com>,
-        "Westerberg, Mika" <mika.westerberg@intel.com>,
-        "Winkler, Tomas" <tomas.winkler@intel.com>,
-        "Zhang, Xiong Y" <xiong.y.zhang@intel.com>,
-        "Jamet, Michael" <michael.jamet@intel.com>,
-        remi.rerolle@seagate.com
-To: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <E607265CB020454880711A6F96C05A03B677E4C9@hasmsx107.ger.corp.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        netdev@vger.kernel.org,
+        =?ISO-8859-1?Q?Andr=E9?= Roth <neolynx@gmail.com>,
+        Johnson Leung <r58129@freescale.com>,
+        linux-amlogic@lists.infradead.org
+To: Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:36998 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751540AbcKOL17 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 06:27:59 -0500
+Received: by mail-wm0-f44.google.com with SMTP id t79so161895879wmt.0
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 03:27:58 -0800 (PST)
+In-Reply-To: <24b4d9b3-0a9d-5f6c-7dc2-5fcbb1012481@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2016-11-14 at 16:00 +0100, Andreas Färber wrote:
+> Hi,
+> 
+> Am 07.11.2016 um 18:37 schrieb Martin Blumenstingl:
+> > 
+> > The same problem still appears on my Tronsmart Vega S95 Meta even
+> > with
+> > the patched PHY driver.
+> > 
+> > Unfortunately I don't have a second device to rule out that my
+> > Tronsmart Vega S95 Meta could be broken (not unlikely, I get DDR
+> > errors from time to time in u-boot). Maybe Andreas Faerber can test
+> > ethernet with and without Jerome's patch on one of his Tronsmart
+> > devices.
+> 
+> So far I only ran into the stall issue on my Odroid-C2, not on my
+> Vega
+> S95 Telos, both on v4.10/integ branch with a rebased MMC patch of
+> yours
+> on top.
 
---nhAUiXSLan16V5i8
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The status of vega/mxq boards seems a bit confused.
+This is the status I have so far:
+These designs are not affected by the EEE issue. The patch mentioned
+has no effect on these boards.
+Some boards run fine at GBit speed (like yours) , some have terrible Tx
+throughput (like mine and Martin's one). However, unlike on the
+odroidc2, the link is not broken after the test, it is not necessary to
+ifdown/ifup the interface to do another test.
 
-On Wed, Nov 09, 2016 at 03:42:53PM +0000, Levy, Amir (Jer) wrote:
-> On Wed, Nov 9 2016, 04:36 PM, Simon Guinot wrote:
-> > On Wed, Nov 09, 2016 at 04:20:00PM +0200, Amir Levy wrote:
-> > > This driver enables Thunderbolt Networking on non-Apple platforms=20
-> > > running Linux.
-> > >
-> > > Thunderbolt Networking provides peer-to-peer connections to transfer=
-=20
-> > > files between computers, perform PC migrations, and/or set up small=
-=20
-> > > workgroups with shared storage.
-> > >
-> > > This is a virtual connection that emulates an Ethernet adapter that=
-=20
-> > > enables Ethernet networking with the benefit of Thunderbolt=20
-> > > superfast medium capability.
-> > >
-> > > Thunderbolt Networking enables two hosts and several devices that=20
-> > > have a Thunderbolt controller to be connected together in a linear=20
-> > > (Daisy
-> > > chain) series from a single port.
-> > >
-> > > Thunderbolt Networking for Linux is compatible with Thunderbolt=20
-> > > Networking on systems running macOS or Windows and also supports=20
-> > > Thunderbolt generation 2 and 3 controllers.
-> > >
-> > > Note that all pre-existing Thunderbolt generation 3 features, such=20
-> > > as USB, Display and other Thunderbolt device connectivity will=20
-> > > continue to function exactly as they did prior to enabling Thunderbol=
-t Networking.
-> > >
-> > > Code and Software Specifications:
-> > > This kernel code creates a virtual ethernet device for computer to=20
-> > > computer communication over a Thunderbolt cable.
-> > > The new driver is a separate driver to the existing Thunderbolt drive=
-r.
-> > > It is designed to work on systems running Linux that interface with=
-=20
-> > > Intel Connection Manager (ICM) firmware based Thunderbolt=20
-> > > controllers that support Thunderbolt Networking.
-> > > The kernel code operates in coordination with the Thunderbolt user-=
-=20
-> > > space daemon to implement full Thunderbolt networking functionality.
-> > >
-> > > Hardware Specifications:
-> > > Thunderbolt Hardware specs have not yet been published but are used=
-=20
-> > > where necessary for register definitions.
-> >=20
-> > Hi Amir,
-> >=20
-> > I have an ASUS "All Series/Z87-DELUXE/QUAD" motherboard with a=20
-> > Thunderbolt 2 "Falcon Ridge" chipset (device ID 156d).
-> >=20
-> > Is the thunderbolt-icm driver supposed to work with this chipset ?
-> >=20
->=20
-> Yes, the thunderbolt-icm supports Falcon Ridge, device ID 156c.
-> 156d is the bridge - http://lxr.free-electrons.com/source/include/linux/p=
-ci_ids.h#L2619
->=20
-> > I have installed both a 4.8.6 Linux kernel (patched with your v9
-> > series) and the thunderbolt-software-daemon (27 october release)=20
-> > inside a Debian system (Jessie).
-> >=20
-> > If I connect the ASUS motherboard with a MacBook Pro (Thunderbolt 2,=20
-> > device ID 156c), I can see that the thunderbolt-icm driver is loaded=20
-> > and that the thunderbolt-software-daemon is well started. But the=20
-> > Ethernet interface is not created.
-> >=20
-> > I have attached to this email the syslog file. There is the logs from=
-=20
-> > both the kernel and the daemon inside. Note that the daemon logs are=20
-> > everything but clear about what could be the issue. Maybe I missed=20
-> > some kind of configuration ? But I failed to find any valuable=20
-> > information about configuring the driver and/or the daemon in the vario=
-us documentation files.
-> >=20
-> > Please, can you provide some guidance ? I'd really like to test your=20
-> > patch series.
->=20
-> First, thank you very much for willing to test it.
-> Thunderbolt Networking support was added during Falcon Ridge, in the late=
-st FR images.
-> Do you know which Thunderbolt image version you have on your system?
-> Currently I submitted only Thunderbolt Networking feature in Linux, and w=
-e plan to add
-> more features like reading the image version and updating the image.
-> If you don't know the image version, the only thing I can suggest is to l=
-oad windows, install thunderbolt SW
-> and check in the Thunderbolt application the image version.
-> To know if image update is needed, you can check - https://thunderbolttec=
-hnology.net/updates
+I'm wondering if the vega/mxq designs all use the rtl8211f phy ?
 
-Hi Amir,
+> 
+> I'm assuming you mean realtek8211f-disable-eee-1000.patch from Nov 3.
+> 
 
-=46rom the Windows Thunderbolt software, I can read 13.00 for the firmware
-version. And from https://thunderbolttechnology.net/updates, I can see
-that there is no update available for my ASUS motherboard.
+Indeed. I won't submit anything for the vega since it has no effect.
 
-Am I good to go ?
-
-BTW, it is quite a shame that the Thunderbolt firmware version can't be
-read from Linux.
-
-Simon
-
---nhAUiXSLan16V5i8
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlgq6ogACgkQgtp0PDeOcDqw1ACeIw9i8KVjDMJpzw3n/WpjWq1t
-HhkAnAoPqer0QCbfGHSpQz2u7tvLZfIt
-=0iBw
------END PGP SIGNATURE-----
-
---nhAUiXSLan16V5i8--
+> Regards,
+> Andreas
+> 
