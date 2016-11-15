@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/2] net: fsl: Allow most drivers to be built with COMPILE_TEST
-Date: Tue, 15 Nov 2016 09:35:47 -0800
-Message-ID: <20161115173548.32567-2-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/2] net: marvell: Allow drivers to be built with COMPILE_TEST
+Date: Tue, 15 Nov 2016 09:35:48 -0800
+Message-ID: <20161115173548.32567-3-f.fainelli@gmail.com>
 References: <20161115173548.32567-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, mw@semihalf.com, arnd@arndb.de,
         gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com,
@@ -9,56 +9,63 @@ Cc: davem@davemloft.net, mw@semihalf.com, arnd@arndb.de,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35860 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752248AbcKORf4 (ORCPT
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34383 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752270AbcKORf4 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 12:35:56 -0500
-Received: by mail-pf0-f194.google.com with SMTP id c4so5738990pfb.3
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 09:35:55 -0800 (PST)
+Received: by mail-pg0-f65.google.com with SMTP id e9so11974610pgc.1
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 09:35:56 -0800 (PST)
 In-Reply-To: <20161115173548.32567-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are only a handful of Freescale Ethernet drivers that don't
-actually build with COMPILE_TEST:
-
-* FEC, for which we would need to define a default register layout if no
-  supported architecture is defined
-
-* UCC_GETH which depends on PowerPC cpm.h header (which could be moved
-  to a generic location)
-
-We need to fix an unmet dependency to get there though:
-warning: (FSL_XGMAC_MDIO) selects OF_MDIO which has unmet direct
-dependencies (OF && PHYLIB)
-
-which would result in CONFIG_OF_MDIO=[ym] without CONFIG_OF to be set.
+All Marvell Ethernet drivers actually build fine with COMPILE_TEST with
+a few warnings.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/freescale/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/Kconfig | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index d1ca45fbb164..0df5835d8b94 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -8,7 +8,7 @@ config NET_VENDOR_FREESCALE
- 	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
- 		   M523x || M527x || M5272 || M528x || M520x || M532x || \
- 		   ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM) || \
--		   ARCH_LAYERSCAPE
-+		   ARCH_LAYERSCAPE || COMPILE_TEST
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index 2664827ddecd..1fbe0bfbeead 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_MARVELL
+ 	bool "Marvell devices"
+ 	default y
+-	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET
++	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET || COMPILE_TEST
  	---help---
  	  If you have a network (Ethernet) card belonging to this class, say Y.
  
-@@ -65,6 +65,7 @@ config FSL_PQ_MDIO
- config FSL_XGMAC_MDIO
- 	tristate "Freescale XGMAC MDIO"
+@@ -18,7 +18,7 @@ if NET_VENDOR_MARVELL
+ 
+ config MV643XX_ETH
+ 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
+-	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
++	depends on (MV64X60 || PPC32 || PLAT_ORION || COMPILE_TEST) && INET
  	select PHYLIB
-+	depends on OF
- 	select OF_MDIO
+ 	select MVMDIO
  	---help---
- 	  This driver supports the MDIO bus on the Fman 10G Ethernet MACs, and
+@@ -55,7 +55,7 @@ config MVNETA_BM_ENABLE
+ 
+ config MVNETA
+ 	tristate "Marvell Armada 370/38x/XP network interface support"
+-	depends on PLAT_ORION
++	depends on PLAT_ORION || COMPILE_TEST
+ 	select MVMDIO
+ 	select FIXED_PHY
+ 	---help---
+@@ -77,7 +77,7 @@ config MVNETA_BM
+ 
+ config MVPP2
+ 	tristate "Marvell Armada 375 network interface support"
+-	depends on MACH_ARMADA_375
++	depends on MACH_ARMADA_375 || COMPILE_TEST
+ 	select MVMDIO
+ 	---help---
+ 	  This driver supports the network interface units in the
 -- 
 2.9.3
