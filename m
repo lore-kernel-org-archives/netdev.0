@@ -1,105 +1,79 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
- and fix call ordering
-Date: Tue, 15 Nov 2016 21:01:03 +0000
-Message-ID: <1479243657.681.125.camel@intel.com>
-References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
-         <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
-         <20161115195107.GB1783@nanopsycho.orion>
-         <1479241747.681.105.camel@intel.com>
-         <20161115203140.GC1783@nanopsycho.orion>
-         <1479242939.681.117.camel@intel.com>
-         <20161115205233.GD1783@nanopsycho.orion>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: linux-next: net->netns_ids is used after calling idr_destroy for it
+Date: Tue, 15 Nov 2016 13:07:05 -0800
+Message-ID: <CAM_iQpXYvGnaf=AAD5EJYqQ7WApjRyUResN+0Z_Bq1Xt8G8zQQ@mail.gmail.com>
+References: <CANaxB-x7FgxpAwpa-RgOvUptrCRUmAE6NFm3As+LuXUE=fHJyA@mail.gmail.com>
+ <CAM_iQpUQOCsVkaRPU3OkmNvyOLDtmRRK1G3uzvi9URSVEbapJQ@mail.gmail.com>
+ <CAM_iQpU=DXKEboYHi4yO3m6VuUm1RoDRD26ZK-pVY--yUE0wNA@mail.gmail.com> <CANaxB-ysMU+QG=warwiQdC5pfXRjrSY7WOqJk0fcj-UMpipSZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jiri@mellanox.com" <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>
-To: "jiri@resnulli.us" <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Andrei Vagin <avagin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55494 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752308AbcKOVBS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 16:01:18 -0500
-In-Reply-To: <20161115205233.GD1783@nanopsycho.orion>
-Content-Language: en-US
-Content-ID: <00679DC94A6D1649A19279115C41661F@intel.com>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:37596 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932797AbcKOVH0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 16:07:26 -0500
+Received: by mail-it0-f51.google.com with SMTP id b123so22511629itb.0
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 13:07:26 -0800 (PST)
+In-Reply-To: <CANaxB-ysMU+QG=warwiQdC5pfXRjrSY7WOqJk0fcj-UMpipSZQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE2LTExLTE1IGF0IDIxOjUyICswMTAwLCBKaXJpIFBpcmtvIHdyb3RlOg0KPiBU
-dWUsIE5vdiAxNSwgMjAxNiBhdCAwOTo0OTowMlBNIENFVCwgYWxleGFuZGVyLmguZHV5Y2tAaW50
-ZWwuY29tIHdyb3RlOg0KPiA+IA0KPiA+IE9uIFR1ZSwgMjAxNi0xMS0xNSBhdCAyMTozMSArMDEw
-MCwgSmlyaSBQaXJrbyB3cm90ZToNCj4gPiA+IA0KPiA+ID4gVHVlLCBOb3YgMTUsIDIwMTYgYXQg
-MDk6Mjk6MDlQTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbSB3cm90ZToNCj4gPiA+
-ID4gDQo+ID4gPiA+IA0KPiA+ID4gPiBPbiBUdWUsIDIwMTYtMTEtMTUgYXQgMjA6NTEgKzAxMDAs
-IEppcmkgUGlya28gd3JvdGU6DQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gVHVl
-LCBOb3YgMTUsIDIwMTYgYXQgMTE6NDY6MDZBTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVs
-LmNvbSB3cm90ZToNCj4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiANCj4g
-PiA+ID4gPiA+IFRoZSBwYXRjaCB0aGF0IHJlbW92ZWQgdGhlIEZJQiBvZmZsb2FkIGluZnJhc3Ry
-dWN0dXJlIHdhcyBhIGJpdCB0b28NCj4gPiA+ID4gPiA+IGFnZ3Jlc3NpdmUgYW5kIGFsc28gcmVt
-b3ZlZCBjb2RlIG5lZWRlZCB0byBjbGVhbiB1cCB1cyBzcGxpdHRpbmcgdGhlIHRhYmxlDQo+ID4g
-PiA+ID4gPiBpZiBhZGRpdGlvbmFsIHJ1bGVzIHdlcmUgYWRkZWQuICBTcGVjaWZpY2FsbHkgdGhl
-IGZ1bmN0aW9uDQo+ID4gPiA+ID4gPiBmaWJfdHJpZV9mbHVzaF9leHRlcm5hbCB3YXMgY2FsbGVk
-IGF0IHRoZSBlbmQgb2YgYSBuZXcgcnVsZSBiZWluZyBhZGRlZCB0bw0KPiA+ID4gPiA+ID4gZmx1
-c2ggdGhlIGZvcmVpZ24gdHJpZSBlbnRyaWVzIGZyb20gdGhlIG1haW4gdHJpZS4NCj4gPiA+ID4g
-PiA+IA0KPiA+ID4gPiA+ID4gSSB1cGRhdGVkIHRoZSBjb2RlIHNvIHRoYXQgd2Ugb25seSBjYWxs
-IGZpYl90cmllX2ZsdXNoX2V4dGVybmFsIG9uIHRoZSBtYWluDQo+ID4gPiA+ID4gPiB0YWJsZSBz
-byB0aGF0IHdlIGZsdXNoIHRoZSBlbnRyaWVzIGZvciBsb2NhbCBmcm9tIG1haW4uICBUaGlzIHdh
-eSB3ZSBkb24ndA0KPiA+ID4gPiA+ID4gY2FsbCBpdCBmb3IgZXZlcnkgcnVsZSBjaGFuZ2Ugd2hp
-Y2ggaXMgd2hhdCB3YXMgaGFwcGVuaW5nIHByZXZpb3VzbHkuDQo+ID4gPiA+ID4gDQo+ID4gPiA+
-ID4gV2VsbCwgdGhlIGZ1bmN0aW9uIHdhcyBpbnRyb2R1Y2VkIGJ5Og0KPiA+ID4gPiA+IA0KPiA+
-ID4gPiA+IGNvbW1pdCAxMDQ2MTZlNzRlMGI0NjRkNDQ5ZmRkMmVlMmY1NDdkMmZhZDcxNjEwDQo+
-ID4gPiA+ID4gQXV0aG9yOiBTY290dCBGZWxkbWFuIDxzZmVsZG1hQGdtYWlsLmNvbT4NCj4gPiA+
-ID4gPiBEYXRlOiAgIFRodSBNYXIgNSAyMToyMToxNiAyMDE1IC0wODAwDQo+ID4gPiA+ID4gDQo+
-ID4gPiA+ID4gICAgIHN3aXRjaGRldjogZG9uJ3Qgc3VwcG9ydCBjdXN0b20gaXAgcnVsZXMsIGZv
-ciBub3cNCj4gPiA+ID4gPiAgICAgDQo+ID4gPiA+ID4gICAgIEtlZXAgc3dpdGNoZGV2IEZJQiBv
-ZmZsb2FkIG1vZGVsIHNpbXBsZSBmb3Igbm93IGFuZCBkb24ndCBhbGxvdyBjdXN0b20gaXANCj4g
-PiA+ID4gPiAgICAgcnVsZXMuDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gV2h5IHRoaXMgd2FzIG5v
-dCBuZWVkZWQgYmVmb3JlPyBXaGF0IGNoYW5nZWQgaW4gYmV0d2VlbjoNCj4gPiA+ID4gPiAxMDQ2
-MTZlNzRlMGI0NjRkNDQ5ZmRkMmVlMmY1NDdkMmZhZDcxNjEwICgic3dpdGNoZGV2OiBkb24ndCBz
-dXBwb3J0IGN1c3RvbSBpcCBydWxlcywgZm9yIG5vdyIpDQo+ID4gPiA+ID4gYW5kDQo+ID4gPiA+
-ID4gMzQ3ZTNiMjhjMWJhMiAoInN3aXRjaGRldjogcmVtb3ZlIEZJQiBvZmZsb2FkIGluZnJhc3Ry
-dWN0dXJlIikNCj4gPiA+ID4gDQo+ID4gPiA+IFdlIGNvbGxhcHNlZCB0aGUgdHdvIHRhYmxlcyBp
-bnRvIG9uZSBpbiBjb21taXTCoDBkZGNmNDNkNWQ0YSAoImlwdjQ6IEZJQg0KPiA+ID4gPiBMb2Nh
-bC9NQUlOIHRhYmxlIGNvbGxhcHNlIikgd2hpY2ggd2FzIHN1Ym1pdHRlZCB0aGUgbmV4dCBkYXku
-IMKgU2NvdHQNCj4gPiA+ID4gYW5kIEkgd2VyZSB3b3JraW5nIG9uIHRoaW5ncyBhdCB0aGUgc2Ft
-ZSB0aW1lIGFuZCB0aGUNCj4gPiA+ID4gZmliX3RhYmxlX2ZsdXNoX2V4dGVybmFsIGZ1bmN0aW9u
-IHdhcyBzb21ldGhpbmcgd2UgaGFkIHdvcmtlZCBvdXQgdGhhdA0KPiA+ID4gPiB3b3VsZCBhbGxv
-dyBoaW0gdG8gdGFrZSBjYXJlIG9mIGhpcyB1c2UgY2FzZSBhbmQgbWUgdG8gdGFrZSBjYXJlIG9m
-DQo+ID4gPiA+IGNsZWFuaW5nIHVwIHRoZSB0YWJsZXMgYWZ0ZXIgdW5tZXJnaW5nLg0KPiA+ID4g
-DQo+ID4gPiBPa2F5LiBCdXQgcGxlYXNlIG5hbWUgdGhlIGZ1Y3Rpb24gZGlmZmVyZW50bHksIGFz
-IGl0IGRvZXMgbm90IGZsdXNoDQo+ID4gPiBleHRlcm5hbC4gVGhhbmtzIQ0KPiA+IA0KPiA+IFlv
-dSBhbmQgSSBoYXZlIGRpZmZlcmVudCBtZWFuaW5ncyBmb3IgImV4dGVybmFsIi4NCj4gPiANCj4g
-PiBJbiBteSBjYXNlIEkgYW0gZmx1c2hpbmcgZW50cmllcyB0aGF0IGJlbG9uZyB0byBhIGZvcmVp
-Z24gImV4dGVybmFsIg0KPiA+IHRhYmxlIGZyb20gdGhlIHRhYmxlIHNwZWNpZmllZC4gU28gYnkg
-ImV4dGVybmFsIiBJIGFtIHJlZmVycmluZyB0bw0KPiA+IGVudHJpZXMgdGhhdCBkb24ndCBhY3R1
-YWxseSBsaXZlIGluIG1haW4sIGJ1dCBhY3R1YWxseSByZXNpZGUgaW4gbG9jYWwuDQo+ID4gSWYg
-eW91IHRha2UgYSBsb29rIGF0IGZpYl90YWJsZV9mbHVzaCB0aGF0IGdldHMgcmlkIG9mIGFsbCBl
-bnRyaWVzLA0KPiA+IGZpYl90YWJsZV9mbHVzaF9leHRlcm5hbCBzaW1wbHkgY2xlYXJzIHRoZSBm
-b3JlaWduIG9uZXMuDQo+ID4gDQo+ID4gQWxzbyBJJ2QgcmF0aGVyIG1haW50YWluIG5hbWluZyBz
-aW5jZSBpdCBtYWtlcyBpdCBlYXNpZXIgaWYgd2UgbmVlZCB0bw0KPiA+IGJhY2twb3J0IGZpeGVz
-Lg0KPiA+IA0KPiA+IEZpbmFsbHksIHRoZSBmbGFnIFJUTkhfRl9FWFRFUk5BTCB3YXMgcmVuYW1l
-ZCBvdmVyIGEgeWVhciBhZ28gaW4gY29tbWl0DQo+ID4gMzY1ODNlYjU0ZDQ2YyAoInJlbmFtZSBS
-VE5IX0ZfRVhURVJOQUwgdG8gUlROSF9GX09GRkxPQUQiKSBzbyB0aGVyZQ0KPiA+IGlzbid0IHRv
-byBtdWNoIGxpa2VsaWhvb2Qgb2YgdGhpcyBiZWluZyBjb25mdXNlZCBmb3Igc29tZXRoaW5nIHRo
-YXQNCj4gPiBoYW5kbGVzIG9mZmxvYWRlZCBlbnRyaWVzLiDCoElmIHlvdSB0YWtlIGEgbG9vayBp
-biBuZXQvaXB2NC8qIGFmdGVyIHlvdXINCj4gPiBwYXRjaCB0aGVyZSBpc24ndCBhY3R1YWxseSBh
-bnl0aGluZyB0aGF0IHJlZmVyZW5jZXMgdGhlIHdvcmQgZXh0ZXJuYWwNCj4gPiBzbyB0aGUgbGlr
-ZWxpaG9vZCBmb3IgYW55IGNvbmZ1c2lvbiBpcyBleHRyZW1lbHkgbG93Lg0KPiANCj4gT2theS4g
-QnV0IGlmIHlvdSBjYW4sIHBsZWFzZSBwdXQgYSBjb21tZW50IHRvIHRoaXMgZnVuY3Rpb24gaW4g
-b3JkZXIgdG8NCj4gcHJldmVudCBmdXR1cmUgY29uZnVzaW9uLiBUaGFua3MhDQoNCkknbSBub3Qg
-c3VyZSB0aGVyZSBpcyBtdWNoIGxlZnQgdG8gY29uZnVzZSBhdCB0aGlzIHBvaW50LiDCoFRoZSBm
-dW5jdGlvbg0KaGFzIGdvbmUgZnJvbSBtdWx0aS1wdXJwb3NlIHRvIHNpbmdsZSBwdXJwb3NlIHNv
-IGFueW9uZSB0aGF0IGlzIG1lc3NpbmcNCndpdGggdGhpcyBzaG91bGQgb25seSBiZSBkb2luZyBz
-byBpZiB0aGV5IGFyZSBtZXNzaW5nIHdpdGggdGhlIHVubWVyZ2UNCmZ1bmN0aW9uYWxpdHkuDQoN
-CklmIGFueXRoaW5nIGl0IHdvdWxkIGJlIG1vcmUgY29uZnVzaW5nIHRvIHJlZmVyIHRvIGZ1bmN0
-aW9uYWxpdHkgdGhhdA0KdGhpcyBmdW5jdGlvbiBkb2Vzbid0IHN1cHBvcnQgaW4gdGhlIGNvbW1l
-bnRzLiDCoEFsbCB0aGlzIGZ1bmN0aW9uIGRvZXMNCmlzIGZsdXNoIGZvcmVpZ24vZXh0ZXJuYWwg
-b2JqZWN0cyBmcm9tIHRoZSB0cmVlLg0KDQpJJ20gd2lsbGluZyB0byByZXZpZXcgYSBwYXRjaCBp
-ZiB5b3UgaGF2ZSBhIHN1Z2dlc3Rpb24gZm9yIGEgY29tbWVudA0KdGhhdCB3b3VsZCB3b3JrLiDC
-oEkganVzdCB3YW50IHRvIGF2b2lkIGNvbmZ1c2luZyBwZW9wbGUgYnkgcmVmZXJyaW5nIHRvDQpj
-b2RlIGFuZCBmdW5jdGlvbmFsaXR5IHRoYXQgaXMgbm8gbG9uZ2VyIHJlbGV2ZW50Lg0KDQotIEFs
-ZXg=
+On Tue, Nov 15, 2016 at 12:48 PM, Andrei Vagin <avagin@gmail.com> wrote:
+> On Tue, Nov 15, 2016 at 10:50 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Tue, Nov 15, 2016 at 10:04 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>> On Mon, Nov 14, 2016 at 10:23 PM, Andrei Vagin <avagin@gmail.com> wrote:
+>>>> Hi Nicolas,
+>>>>
+>>>> cleanup_net() calls idr_destroy(net->netns_ids) for network namespaces
+>>>> and then it calls unregister_netdevice_many() which calls
+>>>> idr_alloc(net0>netns_ids). It looks wrong, doesn't it?
+>>>>
+>>>
+>>> netns id is designed to allocate lazily, but yeah it makes no sense
+>>> to allocate id for the netns being destroyed, not to mention idr is freed.
+>>>
+>>> I will send a patch.
+>>
+>> Could you try the attached patch? I just did some quick netns creation/destroy
+>> tests.
+>
+> Here is another fail:
+>
+> unreferenced object 0xffff94153912a0c0 (size 2096):
+>   comm "ip", pid 29175, jiffies 4294954213 (age 137.624s)
+>   hex dump (first 32 bytes):
+>     00 00 00 00 00 00 00 00 00 b2 3b 1d 15 94 ff ff  ..........;.....
+>     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>   backtrace:
+>     [<ffffffffac865c1a>] kmemleak_alloc+0x4a/0xa0
+>     [<ffffffffac243b38>] kmem_cache_alloc+0x128/0x280
+>     [<ffffffffac42f5ab>] idr_layer_alloc+0x2b/0x90
+>     [<ffffffffac42f9cd>] idr_get_empty_slot+0x34d/0x370
+>     [<ffffffffac42fa4e>] idr_alloc+0x5e/0x110
+>     [<ffffffffac70ac3d>] __peernet2id_alloc+0x6d/0x90
+>     [<ffffffffac70bda5>] peernet2id_alloc+0x55/0xb0
+>     [<ffffffffac731246>] rtnl_fill_ifinfo+0xaa6/0x10a0
+>     [<ffffffffac7330a3>] rtmsg_ifinfo_build_skb+0x73/0xd0
+>     [<ffffffffac7125e1>] rollback_registered_many+0x2a1/0x3a0
+>     [<ffffffffac712779>] __unregister_netdevice_many+0x29/0x80
+>     [<ffffffffac7127e3>] unregister_netdevice_many+0x13/0x20
+>     [<ffffffffc02dc4ce>] macvlan_device_event+0x13e/0x235 [macvlan]
+>     [<ffffffffac0bef2a>] notifier_call_chain+0x4a/0x70
+>     [<ffffffffac0bf066>] raw_notifier_call_chain+0x16/0x20
+>     [<ffffffffac710205>] call_netdevice_notifiers_info+0x35/0x60
+>
+
+Oh, drivers send rtmsg in notifiers too, hmm.
+
+>
+> What do you think about calling idr_destroy() at the final step in
+> cleanup_net()? In this case we can avoid this sort of problems in a
+> future.
+
+This was my first idea too, but it looks more risky than my approach.
+
+Also, rtmsg is really not needed because the netns is being destroyed,
+no one cares about it here.
