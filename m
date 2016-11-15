@@ -1,62 +1,67 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v3 3/7] vxlan: simplify exception handling
-Date: Tue, 15 Nov 2016 09:15:56 -0800
-Message-ID: <CAOrHB_AKP+4rg90YJ4puSziLnmX+3tu4uuGe-_=OJSoXVk-E5w@mail.gmail.com>
-References: <1479098638-4921-1-git-send-email-pshelar@ovn.org>
- <1479098638-4921-4-git-send-email-pshelar@ovn.org> <20161115153014.38fa2480@griffin>
- <CAOrHB_CQEeknxznNu5u=PhD8pGdPxg+HBinTu7+rz77tj2+wNg@mail.gmail.com> <20161115180453.26105ba8@griffin>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] icmp: Restore resistence to abnormal messages
+Date: Tue, 15 Nov 2016 18:30:24 +0100
+Message-ID: <20161115173024.GD30581@breakpoint.cc>
+References: <20161111202018.13795-1-googuy@gmail.com>
+ <20161114.133646.1687576478968660327.davem@davemloft.net>
+ <CAO1wt+b4OkJ4DmJ7_hUj_oKj4p_rRMuKUVpiBY7MSFMa=0WKQg@mail.gmail.com>
+ <20161115.115657.798577230951109692.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:58970 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932956AbcKORQR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 12:16:17 -0500
-Received: from mfilter36-d.gandi.net (mfilter36-d.gandi.net [217.70.178.167])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 0B539FB8A1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 18:16:15 +0100 (CET)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter36-d.gandi.net (mfilter36-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id G5LVuLHTEzYD for <netdev@vger.kernel.org>;
-        Tue, 15 Nov 2016 18:16:13 +0100 (CET)
-Received: from mail-it0-f46.google.com (mail-it0-f46.google.com [209.85.214.46])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 1FC92FB8DA
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 18:16:12 +0100 (CET)
-Received: by mail-it0-f46.google.com with SMTP id o1so10689316ito.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 09:16:12 -0800 (PST)
-In-Reply-To: <20161115180453.26105ba8@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: googuy@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161115.115657.798577230951109692.davem@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 15, 2016 at 9:04 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Tue, 15 Nov 2016 08:40:58 -0800, Pravin Shelar wrote:
->> On Tue, Nov 15, 2016 at 6:30 AM, Jiri Benc <jbenc@redhat.com> wrote:
->> > It would be a bit cleaner to do this assignment just after rt is
->> > assigned (but after the IS_ERR(rt) condition), get rid of the added
->> > ip_rt_put call above and move the existing ip_rt_put call in the bypass
->> > case just before the vxlan_encap_bypass call...
->> >
->> Does it really matters given that next patches in this series moves
->> this duplicate code and does pretty much what you are describing?
->
-> Okay, right. I tried to look also at patches further in the series but
-> it seemed to me this will leave an instance of ip_rt_put that could be
-> avoided. But it will not.
->
-> Acked-by: Jiri Benc <jbenc@redhat.com>
->
-> (It would make the reviewers' life easier if the individual patches
-> were more self contained. Ideally, each patch should be able to stand
-> on its own. This unrelated code shuffling makes it too easy to miss
-> things...)
->
-I tried to keep one patch targeting single cleanup. But all patches
-targeted same code, that makes it dependent on each other.
+David Miller <davem@redhat.com> wrote:
+> From: Vicente Jiménez <googuy@gmail.com>
+> Date: Tue, 15 Nov 2016 17:49:43 +0100
+> 
+> > On Mon, Nov 14, 2016 at 7:36 PM, David Miller <davem@davemloft.net> wrote:
+> >> From: Vicente Jimenez Aguilar <googuy@gmail.com>
+> >> Date: Fri, 11 Nov 2016 21:20:18 +0100
+> >>
+> >>> @@ -819,6 +820,12 @@ static bool icmp_unreach(struct sk_buff *skb)
+> >>>                               /* fall through */
+> >>>                       case 0:
+> >>>                               info = ntohs(icmph->un.frag.mtu);
+> >>> +                             /* Handle weird case where next hop MTU is
+> >>> +                              * equal to or exceeding dropped packet size
+> >>> +                              */
+> >>> +                             old_mtu = ntohs(iph->tot_len);
+> >>> +                             if (info >= old_mtu)
+> >>> +                                     info = old_mtu - 2;
+> >>
+> >> This isn't something the old code did.
+> >>
+> >> The old code behaved much differently.
+> >>
+> > I don't wanted to restore old behavior just fix a strange case that
+> > was handle by this code where the next hop MTU reported by the router
+> > is equal or greater than the actual path MTU. Because router
+> > information is wrong, we need a way to guess a good packet size
+> > ignoring router data. The simplest strategy that avoid odd numbers is
+> > reducing dropped packet size by 2.
+> 
+> This whole approach seems arbitrary.
+> 
+> You haven't discussed in any way, what causes this in the first place.
+> And what about that cause makes simply subtracting by 2 work well or
+> not.
+> 
+> You have a very locallized, specific, situation on your end you want
+> to fix.  But we must accept changes that handle things generically and
+> in a way that would help more than just your specific case.
 
-> Anyway, thanks for the cleanup!
->
+FWIW this is similar to the patch I sent a while ago:
 
-Thanks for all reviews.
+https://patchwork.ozlabs.org/patch/493997/
+
+I think in interest of robustness principle ("eat shit and don't die")
+one of these changes should go in :-|
