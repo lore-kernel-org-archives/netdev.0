@@ -1,51 +1,40 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: Re: [PATCH net-next v2] ipv6: sr: fix IPv6 initialization failure
- without lwtunnels
-Date: Tue, 15 Nov 2016 11:17:20 +0100
-Message-ID: <582AE0B0.60006@uclouvain.be>
-References: <CAKD1Yr0fDFdDv9+S3i_rH6W6btEuvs9s-h33_N67iM4qrtDezQ@mail.gmail.com>        <1478780813-20005-1-git-send-email-david.lebrun@uclouvain.be>        <20161113.002055.1386089188095640295.davem@davemloft.net> <20161113.002348.81553025732356797.davem@davemloft.net> <5828C619.2020008@uclouvain.be> <5829C89B.7010405@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature";
-        boundary="4m6HOjo7fG7goEvo7w5QMd9Newmstunse"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <lorenzo@google.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] rtnetlink: fix rtnl message size computation for XDP
+Date: Tue, 15 Nov 2016 11:16:35 +0100
+Message-ID: <0169d2419991a4ba533087a4fda70420ccdaca30.1479204870.git.sd@queasysnail.net>
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:34670 "EHLO
-        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941383AbcKOKP3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 05:15:29 -0500
-In-Reply-To: <5829C89B.7010405@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54700 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755647AbcKOKQm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 05:16:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---4m6HOjo7fG7goEvo7w5QMd9Newmstunse
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+rtnl_xdp_size() only considers the size of the actual payload attribute,
+and misses the space taken by the attribute used for nesting (IFLA_XDP).
 
-On 11/14/2016 03:22 PM, Roopa Prabhu wrote:
-> I prefer option b). most LWTUNNEL encaps are done this way.
->=20
-> seg6 and seg6_iptunnel is new segment routing code and can be under
-> CONFIG_IPV6_SEG6 which depends on CONFIG_LWTUNNEL and CONFIG_IPV6.
-> CONFIG_IPV6_SEG6_HMAC could then depend on CONFIG_IPV6_SEG6
+Fixes: d1fdd9138682 ("rtnl: add option for setting link xdp prog")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ net/core/rtnetlink.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Will do that, thanks
-
-David
-
-
---4m6HOjo7fG7goEvo7w5QMd9Newmstunse
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iEYEARECAAYFAlgq4LAACgkQjbzn67sZ6ANHjgCgiP1e1jCVz8Rf/Ivneh2q8xX3
-22gAniLqFPrqNhbWbfXVTX0aQWDaYYtz
-=JxTv
------END PGP SIGNATURE-----
-
---4m6HOjo7fG7goEvo7w5QMd9Newmstunse--
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 5aeb61aadd32..5b4c3ba507d0 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -901,7 +901,8 @@ static size_t rtnl_port_size(const struct net_device *dev,
+ 
+ static size_t rtnl_xdp_size(const struct net_device *dev)
+ {
+-	size_t xdp_size = nla_total_size(1);	/* XDP_ATTACHED */
++	size_t xdp_size = nla_total_size(0) +	/* nest IFLA_XDP */
++			  nla_total_size(1);	/* XDP_ATTACHED */
+ 
+ 	if (!dev->netdev_ops->ndo_xdp)
+ 		return 0;
+-- 
+2.10.2
