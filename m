@@ -1,137 +1,84 @@
-From: "Rangankar, Manish" <Manish.Rangankar@cavium.com>
-Subject: Re: [PATCH v2 3/6] qedi: Add QLogic FastLinQ offload iSCSI driver
- framework.
-Date: Tue, 15 Nov 2016 06:14:18 +0000
-Message-ID: <D450A21F.3537A%manish.rangankar@cavium.com>
-References: <1478588223-16183-1-git-send-email-manish.rangankar@cavium.com>
- <1478588223-16183-4-git-send-email-manish.rangankar@cavium.com>
- <d5abc303-1514-c521-390c-adfdd0e204af@suse.de>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 2/3] vhost: better detection of available buffers
+Date: Tue, 15 Nov 2016 16:00:21 +0800
+Message-ID: <8bf86752-4dca-3ced-4641-efa7a4a1fc6e@redhat.com>
+References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
+ <1478677113-13126-2-git-send-email-jasowang@redhat.com>
+ <20161109215513-mutt-send-email-mst@kernel.org>
+ <70cb5ad8-5266-b0c4-7b55-4aea4f5f01a6@redhat.com>
+ <20161111054021-mutt-send-email-mst@kernel.org>
+ <a2e98020-0fc5-e8c0-fd57-7d395733c693@redhat.com>
+ <20161111182023-mutt-send-email-mst@kernel.org>
+ <6f650bf0-1e2b-1c35-db34-5024383a6892@redhat.com>
+ <20161115052753-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Dept-Eng QLogic Storage Upstream"
-        <QLogic-Storage-Upstream@cavium.com>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-To: "Martin K. Petersen" <martin.petersen@oracle.com>,
-        "lduncan@suse.com" <lduncan@suse.com>,
-        Chris Leech <cleech@redhat.com>, Hannes Reinecke <hare@suse.de>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <d5abc303-1514-c521-390c-adfdd0e204af@suse.de>
-Content-Language: en-US
-Content-ID: <67DBC82DBCA0964EB499101D1BC3368B@namprd07.prod.outlook.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33916 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934210AbcKOIAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 03:00:25 -0500
+In-Reply-To: <20161115052753-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes,
 
-Please find the response below,
 
-On 11/11/16 10:13 PM, "Hannes Reinecke" <hare@suse.de> wrote:
-
->On 11/08/2016 07:57 AM, Manish Rangankar wrote:
->> The QLogic FastLinQ Driver for iSCSI (qedi) is the iSCSI specific module
->> for 41000 Series Converged Network Adapters by QLogic.
+On 2016年11月15日 11:28, Michael S. Tsirkin wrote:
+> On Tue, Nov 15, 2016 at 11:16:59AM +0800, Jason Wang wrote:
 >>
->> This patch consists of following changes:
->>   - MAINTAINERS Makefile and Kconfig changes for qedi,
->>   - PCI driver registration,
->>   - iSCSI host level initialization,
->>   - Debugfs and log level infrastructure.
->>
->> Signed-off-by: Nilesh Javali <nilesh.javali@cavium.com>
->> Signed-off-by: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
->> Signed-off-by: Chad Dupuis <chad.dupuis@cavium.com>
->> Signed-off-by: Saurav Kashyap <saurav.kashyap@cavium.com>
->> Signed-off-by: Arun Easi <arun.easi@cavium.com>
->> Signed-off-by: Manish Rangankar <manish.rangankar@cavium.com>
->> ---
->>  MAINTAINERS                         |    6 +
->>  drivers/net/ethernet/qlogic/Kconfig |   12 -
->>  drivers/scsi/Kconfig                |    1 +
->>  drivers/scsi/Makefile               |    1 +
->>  drivers/scsi/qedi/Kconfig           |   10 +
->>  drivers/scsi/qedi/Makefile          |    5 +
->>  drivers/scsi/qedi/qedi.h            |  291 +++++++
->>  drivers/scsi/qedi/qedi_dbg.c        |  143 ++++
->>  drivers/scsi/qedi/qedi_dbg.h        |  144 ++++
->>  drivers/scsi/qedi/qedi_debugfs.c    |  244 ++++++
->>  drivers/scsi/qedi/qedi_hsi.h        |   52 ++
->>  drivers/scsi/qedi/qedi_main.c       | 1616
->>+++++++++++++++++++++++++++++++++++
->>  drivers/scsi/qedi/qedi_sysfs.c      |   52 ++
->>  drivers/scsi/qedi/qedi_version.h    |   14 +
->>  14 files changed, 2579 insertions(+), 12 deletions(-)
->>  create mode 100644 drivers/scsi/qedi/Kconfig
->>  create mode 100644 drivers/scsi/qedi/Makefile
->>  create mode 100644 drivers/scsi/qedi/qedi.h
->>  create mode 100644 drivers/scsi/qedi/qedi_dbg.c
->>  create mode 100644 drivers/scsi/qedi/qedi_dbg.h
->>  create mode 100644 drivers/scsi/qedi/qedi_debugfs.c
->>  create mode 100644 drivers/scsi/qedi/qedi_hsi.h
->>  create mode 100644 drivers/scsi/qedi/qedi_main.c
->>  create mode 100644 drivers/scsi/qedi/qedi_sysfs.c
->>  create mode 100644 drivers/scsi/qedi/qedi_version.h
->>
-[...]
->>
->> +static enum qed_int_mode qedi_int_mode_to_enum(void)
->> +{
->> +	switch (int_mode) {
->> +	case 0: return QED_INT_MODE_MSIX;
->> +	case 1: return QED_INT_MODE_INTA;
->> +	case 2: return QED_INT_MODE_MSI;
->> +	default:
->> +		QEDI_ERR(NULL, "Unknown qede_int_mode=3D%08x; "
->> +			 "Defaulting to MSI-x\n", int_mode);
->> +		return QED_INT_MODE_MSIX;
->> +	}
->> +}
->Errm. A per-driver interrupt mode?
->How very curious.
->You surely want to make that per-HBA, right?
+>> On 2016年11月12日 00:20, Michael S. Tsirkin wrote:
+>>> On Fri, Nov 11, 2016 at 12:18:50PM +0800, Jason Wang wrote:
+>>>> On 2016年11月11日 11:41, Michael S. Tsirkin wrote:
+>>>>> On Fri, Nov 11, 2016 at 10:18:37AM +0800, Jason Wang wrote:
+>>>>>>> On 2016年11月10日 03:57, Michael S. Tsirkin wrote:
+>>>>>>>>> On Wed, Nov 09, 2016 at 03:38:32PM +0800, Jason Wang wrote:
+>>>>>>>>>>> We should use vq->last_avail_idx instead of vq->avail_idx in the
+>>>>>>>>>>> checking of vhost_vq_avail_empty() since latter is the cached avail
+>>>>>>>>>>> index from guest but we want to know if there's pending available
+>>>>>>>>>>> buffers in the virtqueue.
+>>>>>>>>>>>
+>>>>>>>>>>> Signed-off-by: Jason Wang<jasowang@redhat.com>
+>>>>>>>>> I'm not sure why is this patch here. Is it related to
+>>>>>>>>> batching somehow?
+>>>>>>> Yes, we need to know whether or not there's still buffers left in the
+>>>>>>> virtqueue, so need to check last_avail_idx. Otherwise, we're checking if
+>>>>>>> guest has submitted new buffers.
+>>>>>>>
+>>>>>>>>>>> ---
+>>>>>>>>>>>     drivers/vhost/vhost.c | 2 +-
+>>>>>>>>>>>     1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>>>>>>>>
+>>>>>>>>>>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>>>>>>>>>>> index c6f2d89..fdf4cdf 100644
+>>>>>>>>>>> --- a/drivers/vhost/vhost.c
+>>>>>>>>>>> +++ b/drivers/vhost/vhost.c
+>>>>>>>>>>> @@ -2230,7 +2230,7 @@ bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>>>>>>>>>>>     	if (r)
+>>>>>>>>>>>     		return false;
+>>>>>>>>>>> -	return vhost16_to_cpu(vq, avail_idx) == vq->avail_idx;
+>>>>>>>>>>> +	return vhost16_to_cpu(vq, avail_idx) == vq->last_avail_idx;
+>>>>>>>>>>>     }
+>>>>>>>>>>>     EXPORT_SYMBOL_GPL(vhost_vq_avail_empty);
+>>>>>>>>> That might be OK for TX but it's probably wrong for RX
+>>>>>>>>> where the fact that used != avail does not mean
+>>>>>>>>> we have enough space to store the packet.
+>>>>>>> Right, but it's no harm since it was just a hint, handle_rx() can handle
+>>>>>>> this situation.
+>>>>> Means busy polling will cause useless load on the CPU though.
+>>>>>
+>>>> Right, but,it's not easy to have 100% correct hint here. Needs more thought.
+>>> What's wrong with what we have? It polls until value changes.
+>>>
+>> But as you said, this does not mean (in mergeable cases) we have enough
+>> space to store the packet.
+> Absolutely but it checks once and then only re-checks after value
+> changes again.
+>
 
-This was added for testing purpose, we will remove this code.
-=20
-
-[...]
->> +static int qedi_request_msix_irq(struct qedi_ctx *qedi)
->> +{
->> +	int i, rc, cpu;
->> +
->> +	cpu =3D cpumask_first(cpu_online_mask);
->> +	for (i =3D 0; i < MIN_NUM_CPUS_MSIX(qedi); i++) {
->> +		rc =3D request_irq(qedi->int_info.msix[i].vector,
->> +				 qedi_msix_handler, 0, "qedi",
->> +				 &qedi->fp_array[i]);
->> +
->> +		if (rc) {
->> +			QEDI_WARN(&qedi->dbg_ctx, "request_irq failed.\n");
->> +			qedi_sync_free_irqs(qedi);
->> +			return rc;
->> +		}
->> +		qedi->int_info.used_cnt++;
->> +		rc =3D irq_set_affinity_hint(qedi->int_info.msix[i].vector,
->> +					   get_cpu_mask(cpu));
->> +		cpu =3D cpumask_next(cpu, cpu_online_mask);
->> +	}
->> +
->> +	return 0;
->> +}
->Please use the irq-affinity rework from Christoph here; that'll save you
->the additional msix vectors allocation.
-
-The existing qed* driver(s) and common module (qed) framework is built on
-top of the older pci_enable_msix_*() API. The new framework requires
-re-work on the existing qed common module API. That would need
-co-ordination among other dependent drivers (e.g.: qede network driver,
-which is already in the tree). We would prefer to add this as a follow on
-(to the initial submission) effort, with additional testing done and
-submission co-ordinated across protocol drivers.
-
-
-
-Thanks,
-Manish
-
+Since get_rx_bufs() does not get enough buffers, we will wait for the 
+kick in this case. For busy polling, we probably want to stay in the 
+busy loop here.
