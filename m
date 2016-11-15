@@ -1,47 +1,93 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net][v2] bpf: fix range arithmetic for bpf map access
-Date: Mon, 14 Nov 2016 19:10:17 -0800
-Message-ID: <20161115031016.GA10323@ast-mbp.thefacebook.com>
-References: <1479156336-6211-1-git-send-email-jbacik@fb.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 1/3] tuntap: rx batching
+Date: Tue, 15 Nov 2016 11:14:48 +0800
+Message-ID: <39c36d36-9029-5d1f-496f-6ff404c3b77a@redhat.com>
+References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
+ <20161109183259-mutt-send-email-mst@kernel.org>
+ <c6cd619f-b9a6-784d-2c44-6106e64f5664@redhat.com>
+ <20161111053048-mutt-send-email-mst@kernel.org> <58254654.4000501@gmail.com>
+ <2b357b06-f749-5897-f882-aa3121e49e89@redhat.com>
+ <20161111181754-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jannh@google.com, ast@kernel.org, daniel@iogearbox.net,
-        davem@davemloft.net, netdev@vger.kernel.org
-To: Josef Bacik <jbacik@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35257 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941131AbcKODKX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 22:10:23 -0500
-Received: by mail-pg0-f68.google.com with SMTP id p66so10530074pga.2
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 19:10:22 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1479156336-6211-1-git-send-email-jbacik@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161111181754-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 14, 2016 at 03:45:36PM -0500, Josef Bacik wrote:
-> I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
-> invalid accesses to bpf map entries.  Fix this up by doing a few things
-> 
-> 1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
-> life and just adds extra complexity.
-> 
-> 2) Fix the logic for BPF_AND, don't allow AND of negative numbers and set the
-> minimum value to 0 for positive AND's.
-> 
-> 3) Don't do operations on the ranges if they are set to the limits, as they are
-> by definition undefined, and allowing arithmetic operations on those values
-> could make them appear valid when they really aren't.
-> 
-> This fixes the testcase provided by Jann as well as a few other theoretical
-> problems.
-> 
-> Reported-by: Jann Horn <jannh@google.com>
-> Signed-off-by: Josef Bacik <jbacik@fb.com>
 
-lgtm.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Jann, could you please double check the logic.
-Thanks!
+On 2016年11月12日 00:20, Michael S. Tsirkin wrote:
+> On Fri, Nov 11, 2016 at 12:28:38PM +0800, Jason Wang wrote:
+>>
+>> On 2016年11月11日 12:17, John Fastabend wrote:
+>>> On 16-11-10 07:31 PM, Michael S. Tsirkin wrote:
+>>>>> On Fri, Nov 11, 2016 at 10:07:44AM +0800, Jason Wang wrote:
+>>>>>>>
+>>>>>>> On 2016年11月10日 00:38, Michael S. Tsirkin wrote:
+>>>>>>>>> On Wed, Nov 09, 2016 at 03:38:31PM +0800, Jason Wang wrote:
+>>>>>>>>>>> Backlog were used for tuntap rx, but it can only process 1 packet at
+>>>>>>>>>>> one time since it was scheduled during sendmsg() synchronously in
+>>>>>>>>>>> process context. This lead bad cache utilization so this patch tries
+>>>>>>>>>>> to do some batching before call rx NAPI. This is done through:
+>>>>>>>>>>>
+>>>>>>>>>>> - accept MSG_MORE as a hint from sendmsg() caller, if it was set,
+>>>>>>>>>>>     batch the packet temporarily in a linked list and submit them all
+>>>>>>>>>>>     once MSG_MORE were cleared.
+>>>>>>>>>>> - implement a tuntap specific NAPI handler for processing this kind of
+>>>>>>>>>>>     possible batching. (This could be done by extending backlog to
+>>>>>>>>>>>     support skb like, but using a tun specific one looks cleaner and
+>>>>>>>>>>>     easier for future extension).
+>>>>>>>>>>>
+>>>>>>>>>>> Signed-off-by: Jason Wang<jasowang@redhat.com>
+>>>>>>>>> So why do we need an extra queue?
+>>>>>>> The idea was borrowed from backlog to allow some kind of bulking and avoid
+>>>>>>> spinlock on each dequeuing.
+>>>>>>>
+>>>>>>>>>    This is not what hardware devices do.
+>>>>>>>>> How about adding the packet to queue unconditionally, deferring
+>>>>>>>>> signalling until we get sendmsg without MSG_MORE?
+>>>>>>> Then you need touch spinlock when dequeuing each packet.
+>>> Random thought, I have a cmpxchg ring I am using for the qdisc work that
+>>> could possibly replace the spinlock implementation. I haven't figured
+>>> out the resizing API yet because I did not need it but I assume it could
+>>> help here and let you dequeue multiple skbs in one operation.
+>>>
+>>> I can post the latest version if useful or an older version is
+>>> somewhere on patchworks as well.
+>>>
+>>> .John
+>>>
+>>>
+>> Look useful here, and I can compare the performance if you post.
+>>
+>> A question is can we extend the skb_array to support that?
+>>
+>> Thanks
+> I'd like to start with simple patch adding napi with one queue, then add
+> optimization patches on top.
+
+The point is tun is using backlog who uses two queues (process_queue and 
+input_pkt_queue).
+
+How about something like:
+
+1) NAPI support with skb_array
+2) MSG_MORE support
+3) other optimizations on top
+
+?
+
+>
+> One issue that comes to mind is that write queue limits
+> are byte based, they do not count packets unlike tun rx queue.
+
+I'm not sure I get the issue, write queue is not exported and only used 
+for batching. We probably need an internal limit in tun to avoid OOM 
+attacker from guest.
+
+Thanks
