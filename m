@@ -1,194 +1,69 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
- and fix call ordering
-Date: Tue, 15 Nov 2016 20:51:07 +0100
-Message-ID: <20161115195107.GB1783@nanopsycho.orion>
-References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
- <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
+From: Heinrich Schuchardt <xypron.debian@gmx.de>
+Subject: Re: [PATCH 03/15] net: bcm63xx_enet: Utilize phy_ethtool_nway_reset
+Date: Tue, 15 Nov 2016 20:59:00 +0100
+Message-ID: <3dc4471a-1afd-0e28-1de9-60558cece143@gmx.de>
+References: <20161115180644.3941-1-f.fainelli@gmail.com>
+ <20161115180644.3941-4-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-        Jiri Pirko <jiri@mellanox.com>, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33529 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752979AbcKOTvK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 14:51:10 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u144so3529195wmu.0
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 11:51:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, andrew@lunn.ch, tremyfr@gmail.com,
+        "maintainer:BROADCOM BCM63XX ARM ARCHITECTURE"
+        <bcm-kernel-feedback-list@broadcom.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        "xypron.glpk@gmx.de" <xypron.glpk@gmx.de>,
+        Jarod Wilson <jarod@redhat.com>,
+        Thierry Reding <treding@nvidia.com>,
+        "moderated list:BROADCOM BCM63XX ARM ARCHITECTURE"
+        <linux-arm-kernel@lists.infradead.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161115180644.3941-4-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Nov 15, 2016 at 11:46:06AM CET, alexander.h.duyck@intel.com wrote:
->The patch that removed the FIB offload infrastructure was a bit too
->aggressive and also removed code needed to clean up us splitting the table
->if additional rules were added.  Specifically the function
->fib_trie_flush_external was called at the end of a new rule being added to
->flush the foreign trie entries from the main trie.
->
->I updated the code so that we only call fib_trie_flush_external on the main
->table so that we flush the entries for local from main.  This way we don't
->call it for every rule change which is what was happening previously.
+On 11/15/2016 07:06 PM, Florian Fainelli wrote:
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Well, the function was introduced by:
+Each patch of your patch series should have a commit message.
 
-commit 104616e74e0b464d449fdd2ee2f547d2fad71610
-Author: Scott Feldman <sfeldma@gmail.com>
-Date:   Thu Mar 5 21:21:16 2015 -0800
+You can add the missing commit messages with
+git rebase -i HEAD~15
+choosing reword.
 
-    switchdev: don't support custom ip rules, for now
-    
-    Keep switchdev FIB offload model simple for now and don't allow custom ip
-    rules.
+Please, add a cover letter message describing the patch series using
 
-Why this was not needed before? What changed in between:
-104616e74e0b464d449fdd2ee2f547d2fad71610 ("switchdev: don't support custom ip rules, for now")
-and
-347e3b28c1ba2 ("switchdev: remove FIB offload infrastructure")
+git format-patch -ns --cover-letter HEAD~15..HEAD
 
+and provide a summary in the 0/15 message.
 
-?
+The cover letter and all patches should be in one mails thhread.
+If you put all messages into one directory you can send the series as
+one mail thread with
 
+git send-email <directory>
 
->
->Fixes: 347e3b28c1ba2 ("switchdev: remove FIB offload infrastructure")
->Reported-by: Eric Dumazet <edumazet@google.com>
->Cc: Jiri Pirko <jiri@mellanox.com>
->Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->---
-> include/net/ip_fib.h    |    1 +
-> net/ipv4/fib_frontend.c |   20 +++++++++++---
-> net/ipv4/fib_trie.c     |   65 +++++++++++++++++++++++++++++++++++++++++++++++
-> 3 files changed, 81 insertions(+), 5 deletions(-)
->
->diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
->index b9314b4..f390c3b 100644
->--- a/include/net/ip_fib.h
->+++ b/include/net/ip_fib.h
->@@ -243,6 +243,7 @@ int fib_table_dump(struct fib_table *table, struct sk_buff *skb,
-> 		   struct netlink_callback *cb);
-> int fib_table_flush(struct net *net, struct fib_table *table);
-> struct fib_table *fib_trie_unmerge(struct fib_table *main_tb);
->+void fib_table_flush_external(struct fib_table *table);
-> void fib_free_table(struct fib_table *tb);
+> ---
+>  drivers/net/ethernet/broadcom/bcm63xx_enet.c | 7 ++-----
+>  1 file changed, 2 insertions(+), 5 deletions(-)
 > 
-> #ifndef CONFIG_IP_MULTIPLE_TABLES
->diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
->index c3b8047..161fc0f 100644
->--- a/net/ipv4/fib_frontend.c
->+++ b/net/ipv4/fib_frontend.c
->@@ -151,7 +151,7 @@ static void fib_replace_table(struct net *net, struct fib_table *old,
+> diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> index 5c7acef1de2e..a43ab90c051e 100644
+> --- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> +++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> @@ -1434,11 +1434,8 @@ static int bcm_enet_nway_reset(struct net_device *dev)
+>  	struct bcm_enet_priv *priv;
+>  
+>  	priv = netdev_priv(dev);
+> -	if (priv->has_phy) {
+> -		if (!dev->phydev)
+> -			return -ENODEV;
+> -		return genphy_restart_aneg(dev->phydev);
+> -	}
+> +	if (priv->has_phy)
+> +		return phy_ethtool_nway_reset(dev),
+>  
+>  	return -EOPNOTSUPP;
+>  }
 > 
-> int fib_unmerge(struct net *net)
-> {
->-	struct fib_table *old, *new;
->+	struct fib_table *old, *new, *main_table;
-> 
-> 	/* attempt to fetch local table if it has been allocated */
-> 	old = fib_get_table(net, RT_TABLE_LOCAL);
->@@ -162,11 +162,21 @@ int fib_unmerge(struct net *net)
-> 	if (!new)
-> 		return -ENOMEM;
-> 
->+	/* table is already unmerged */
->+	if (new == old)
->+		return 0;
->+
-> 	/* replace merged table with clean table */
->-	if (new != old) {
->-		fib_replace_table(net, old, new);
->-		fib_free_table(old);
->-	}
->+	fib_replace_table(net, old, new);
->+	fib_free_table(old);
->+
->+	/* attempt to fetch main table if it has been allocated */
->+	main_table = fib_get_table(net, RT_TABLE_MAIN);
->+	if (!main_table)
->+		return 0;
->+
->+	/* flush local entries from main table */
->+	fib_table_flush_external(main_table);
-> 
-> 	return 0;
-> }
->diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
->index 4cff74d..735edc9 100644
->--- a/net/ipv4/fib_trie.c
->+++ b/net/ipv4/fib_trie.c
->@@ -1760,6 +1760,71 @@ struct fib_table *fib_trie_unmerge(struct fib_table *oldtb)
-> 	return NULL;
-> }
-> 
->+/* Caller must hold RTNL */
->+void fib_table_flush_external(struct fib_table *tb)
->+{
->+	struct trie *t = (struct trie *)tb->tb_data;
->+	struct key_vector *pn = t->kv;
->+	unsigned long cindex = 1;
->+	struct hlist_node *tmp;
->+	struct fib_alias *fa;
->+
->+	/* walk trie in reverse order */
->+	for (;;) {
->+		unsigned char slen = 0;
->+		struct key_vector *n;
->+
->+		if (!(cindex--)) {
->+			t_key pkey = pn->key;
->+
->+			/* cannot resize the trie vector */
->+			if (IS_TRIE(pn))
->+				break;
->+
->+			/* resize completed node */
->+			pn = resize(t, pn);
->+			cindex = get_index(pkey, pn);
->+
->+			continue;
->+		}
->+
->+		/* grab the next available node */
->+		n = get_child(pn, cindex);
->+		if (!n)
->+			continue;
->+
->+		if (IS_TNODE(n)) {
->+			/* record pn and cindex for leaf walking */
->+			pn = n;
->+			cindex = 1ul << n->bits;
->+
->+			continue;
->+		}
->+
->+		hlist_for_each_entry_safe(fa, tmp, &n->leaf, fa_list) {
->+			/* if alias was cloned to local then we just
->+			 * need to remove the local copy from main
->+			 */
->+			if (tb->tb_id != fa->tb_id) {
->+				hlist_del_rcu(&fa->fa_list);
->+				alias_free_mem_rcu(fa);
->+				continue;
->+			}
->+
->+			/* record local slen */
->+			slen = fa->fa_slen;
->+		}
->+
->+		/* update leaf slen */
->+		n->slen = slen;
->+
->+		if (hlist_empty(&n->leaf)) {
->+			put_child_root(pn, n->key, NULL);
->+			node_free(n);
->+		}
->+	}
->+}
->+
-> /* Caller must hold RTNL. */
-> int fib_table_flush(struct net *net, struct fib_table *tb)
-> {
->
