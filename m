@@ -1,117 +1,82 @@
-From: Andrei Vagin <avagin@gmail.com>
-Subject: Re: linux-next: net->netns_ids is used after calling idr_destroy for it
-Date: Tue, 15 Nov 2016 12:48:28 -0800
-Message-ID: <CANaxB-ysMU+QG=warwiQdC5pfXRjrSY7WOqJk0fcj-UMpipSZQ@mail.gmail.com>
-References: <CANaxB-x7FgxpAwpa-RgOvUptrCRUmAE6NFm3As+LuXUE=fHJyA@mail.gmail.com>
- <CAM_iQpUQOCsVkaRPU3OkmNvyOLDtmRRK1G3uzvi9URSVEbapJQ@mail.gmail.com> <CAM_iQpU=DXKEboYHi4yO3m6VuUm1RoDRD26ZK-pVY--yUE0wNA@mail.gmail.com>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
+ and fix call ordering
+Date: Tue, 15 Nov 2016 20:49:02 +0000
+Message-ID: <1479242939.681.117.camel@intel.com>
+References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
+         <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
+         <20161115195107.GB1783@nanopsycho.orion>
+         <1479241747.681.105.camel@intel.com>
+         <20161115203140.GC1783@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jiri@mellanox.com" <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>
+To: "jiri@resnulli.us" <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:36293 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751749AbcKOUsa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 15:48:30 -0500
-Received: by mail-oi0-f67.google.com with SMTP id 128so3989061oih.3
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 12:48:30 -0800 (PST)
-In-Reply-To: <CAM_iQpU=DXKEboYHi4yO3m6VuUm1RoDRD26ZK-pVY--yUE0wNA@mail.gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:19823 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751340AbcKOUtF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 15:49:05 -0500
+In-Reply-To: <20161115203140.GC1783@nanopsycho.orion>
+Content-Language: en-US
+Content-ID: <F6BBE4D75C2B774EB4A2F3032E73EAA6@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 15, 2016 at 10:50 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Tue, Nov 15, 2016 at 10:04 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Mon, Nov 14, 2016 at 10:23 PM, Andrei Vagin <avagin@gmail.com> wrote:
->>> Hi Nicolas,
->>>
->>> cleanup_net() calls idr_destroy(net->netns_ids) for network namespaces
->>> and then it calls unregister_netdevice_many() which calls
->>> idr_alloc(net0>netns_ids). It looks wrong, doesn't it?
->>>
->>
->> netns id is designed to allocate lazily, but yeah it makes no sense
->> to allocate id for the netns being destroyed, not to mention idr is freed.
->>
->> I will send a patch.
->
-> Could you try the attached patch? I just did some quick netns creation/destroy
-> tests.
-
-Here is another fail:
-
-unreferenced object 0xffff94153912a0c0 (size 2096):
-  comm "ip", pid 29175, jiffies 4294954213 (age 137.624s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 00 b2 3b 1d 15 94 ff ff  ..........;.....
-    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffffac865c1a>] kmemleak_alloc+0x4a/0xa0
-    [<ffffffffac243b38>] kmem_cache_alloc+0x128/0x280
-    [<ffffffffac42f5ab>] idr_layer_alloc+0x2b/0x90
-    [<ffffffffac42f9cd>] idr_get_empty_slot+0x34d/0x370
-    [<ffffffffac42fa4e>] idr_alloc+0x5e/0x110
-    [<ffffffffac70ac3d>] __peernet2id_alloc+0x6d/0x90
-    [<ffffffffac70bda5>] peernet2id_alloc+0x55/0xb0
-    [<ffffffffac731246>] rtnl_fill_ifinfo+0xaa6/0x10a0
-    [<ffffffffac7330a3>] rtmsg_ifinfo_build_skb+0x73/0xd0
-    [<ffffffffac7125e1>] rollback_registered_many+0x2a1/0x3a0
-    [<ffffffffac712779>] __unregister_netdevice_many+0x29/0x80
-    [<ffffffffac7127e3>] unregister_netdevice_many+0x13/0x20
-    [<ffffffffc02dc4ce>] macvlan_device_event+0x13e/0x235 [macvlan]
-    [<ffffffffac0bef2a>] notifier_call_chain+0x4a/0x70
-    [<ffffffffac0bf066>] raw_notifier_call_chain+0x16/0x20
-    [<ffffffffac710205>] call_netdevice_notifiers_info+0x35/0x60
-
-
-What do you think about calling idr_destroy() at the final step in
-cleanup_net()? In this case we can avoid this sort of problems in a
-future.
-
-@@ -422,21 +425,6 @@ static void cleanup_net(struct work_struct *work)
-        list_for_each_entry(net, &net_kill_list, cleanup_list) {
-                list_del_rcu(&net->list);
-                list_add_tail(&net->exit_list, &net_exit_list);
--               for_each_net(tmp) {
--                       int id;
--
--                       spin_lock_irq(&tmp->nsid_lock);
--                       id = __peernet2id(tmp, net);
--                       if (id >= 0)
--                               idr_remove(&tmp->netns_ids, id);
--                       spin_unlock_irq(&tmp->nsid_lock);
--                       if (id >= 0)
--                               rtnl_net_notifyid(tmp, RTM_DELNSID, id);
--               }
--               spin_lock_irq(&net->nsid_lock);
--               idr_destroy(&net->netns_ids);
--               spin_unlock_irq(&net->nsid_lock);
--
-        }
-        rtnl_unlock();
-
-@@ -464,6 +452,22 @@ static void cleanup_net(struct work_struct *work)
-
-        /* Finally it is safe to free my network namespace structure */
-        list_for_each_entry_safe(net, tmp, &net_exit_list, exit_list) {
-+               rtnl_lock();
-+               for_each_net(tmp) {
-+                       int id;
-+
-+                       spin_lock_irq(&tmp->nsid_lock);
-+                       id = __peernet2id(tmp, net);
-+                       if (id >= 0)
-+                               idr_remove(&tmp->netns_ids, id);
-+                       spin_unlock_irq(&tmp->nsid_lock);
-+                       if (id >= 0)
-+                               rtnl_net_notifyid(tmp, RTM_DELNSID, id);
-+               }
-+               rtnl_unlock();
-+
-+               idr_destroy(&net->netns_ids);
-+
-                list_del_init(&net->exit_list);
-                dec_net_namespaces(net->ucounts);
-                put_user_ns(net->user_ns);
->
-> Thanks!
+T24gVHVlLCAyMDE2LTExLTE1IGF0IDIxOjMxICswMTAwLCBKaXJpIFBpcmtvIHdyb3RlOg0KPiBU
+dWUsIE5vdiAxNSwgMjAxNiBhdCAwOToyOTowOVBNIENFVCwgYWxleGFuZGVyLmguZHV5Y2tAaW50
+ZWwuY29tIHdyb3RlOg0KPiA+IA0KPiA+IE9uIFR1ZSwgMjAxNi0xMS0xNSBhdCAyMDo1MSArMDEw
+MCwgSmlyaSBQaXJrbyB3cm90ZToNCj4gPiA+IA0KPiA+ID4gVHVlLCBOb3YgMTUsIDIwMTYgYXQg
+MTE6NDY6MDZBTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbSB3cm90ZToNCj4gPiA+
+ID4gDQo+ID4gPiA+IA0KPiA+ID4gPiBUaGUgcGF0Y2ggdGhhdCByZW1vdmVkIHRoZSBGSUIgb2Zm
+bG9hZCBpbmZyYXN0cnVjdHVyZSB3YXMgYSBiaXQgdG9vDQo+ID4gPiA+IGFnZ3Jlc3NpdmUgYW5k
+IGFsc28gcmVtb3ZlZCBjb2RlIG5lZWRlZCB0byBjbGVhbiB1cCB1cyBzcGxpdHRpbmcgdGhlIHRh
+YmxlDQo+ID4gPiA+IGlmIGFkZGl0aW9uYWwgcnVsZXMgd2VyZSBhZGRlZC4gIFNwZWNpZmljYWxs
+eSB0aGUgZnVuY3Rpb24NCj4gPiA+ID4gZmliX3RyaWVfZmx1c2hfZXh0ZXJuYWwgd2FzIGNhbGxl
+ZCBhdCB0aGUgZW5kIG9mIGEgbmV3IHJ1bGUgYmVpbmcgYWRkZWQgdG8NCj4gPiA+ID4gZmx1c2gg
+dGhlIGZvcmVpZ24gdHJpZSBlbnRyaWVzIGZyb20gdGhlIG1haW4gdHJpZS4NCj4gPiA+ID4gDQo+
+ID4gPiA+IEkgdXBkYXRlZCB0aGUgY29kZSBzbyB0aGF0IHdlIG9ubHkgY2FsbCBmaWJfdHJpZV9m
+bHVzaF9leHRlcm5hbCBvbiB0aGUgbWFpbg0KPiA+ID4gPiB0YWJsZSBzbyB0aGF0IHdlIGZsdXNo
+IHRoZSBlbnRyaWVzIGZvciBsb2NhbCBmcm9tIG1haW4uICBUaGlzIHdheSB3ZSBkb24ndA0KPiA+
+ID4gPiBjYWxsIGl0IGZvciBldmVyeSBydWxlIGNoYW5nZSB3aGljaCBpcyB3aGF0IHdhcyBoYXBw
+ZW5pbmcgcHJldmlvdXNseS4NCj4gPiA+IA0KPiA+ID4gV2VsbCwgdGhlIGZ1bmN0aW9uIHdhcyBp
+bnRyb2R1Y2VkIGJ5Og0KPiA+ID4gDQo+ID4gPiBjb21taXQgMTA0NjE2ZTc0ZTBiNDY0ZDQ0OWZk
+ZDJlZTJmNTQ3ZDJmYWQ3MTYxMA0KPiA+ID4gQXV0aG9yOiBTY290dCBGZWxkbWFuIDxzZmVsZG1h
+QGdtYWlsLmNvbT4NCj4gPiA+IERhdGU6ICAgVGh1IE1hciA1IDIxOjIxOjE2IDIwMTUgLTA4MDAN
+Cj4gPiA+IA0KPiA+ID4gICAgIHN3aXRjaGRldjogZG9uJ3Qgc3VwcG9ydCBjdXN0b20gaXAgcnVs
+ZXMsIGZvciBub3cNCj4gPiA+ICAgICANCj4gPiA+ICAgICBLZWVwIHN3aXRjaGRldiBGSUIgb2Zm
+bG9hZCBtb2RlbCBzaW1wbGUgZm9yIG5vdyBhbmQgZG9uJ3QgYWxsb3cgY3VzdG9tIGlwDQo+ID4g
+PiAgICAgcnVsZXMuDQo+ID4gPiANCj4gPiA+IFdoeSB0aGlzIHdhcyBub3QgbmVlZGVkIGJlZm9y
+ZT8gV2hhdCBjaGFuZ2VkIGluIGJldHdlZW46DQo+ID4gPiAxMDQ2MTZlNzRlMGI0NjRkNDQ5ZmRk
+MmVlMmY1NDdkMmZhZDcxNjEwICgic3dpdGNoZGV2OiBkb24ndCBzdXBwb3J0IGN1c3RvbSBpcCBy
+dWxlcywgZm9yIG5vdyIpDQo+ID4gPiBhbmQNCj4gPiA+IDM0N2UzYjI4YzFiYTIgKCJzd2l0Y2hk
+ZXY6IHJlbW92ZSBGSUIgb2ZmbG9hZCBpbmZyYXN0cnVjdHVyZSIpDQo+ID4gDQo+ID4gV2UgY29s
+bGFwc2VkIHRoZSB0d28gdGFibGVzIGludG8gb25lIGluIGNvbW1pdMKgMGRkY2Y0M2Q1ZDRhICgi
+aXB2NDogRklCDQo+ID4gTG9jYWwvTUFJTiB0YWJsZSBjb2xsYXBzZSIpIHdoaWNoIHdhcyBzdWJt
+aXR0ZWQgdGhlIG5leHQgZGF5LiDCoFNjb3R0DQo+ID4gYW5kIEkgd2VyZSB3b3JraW5nIG9uIHRo
+aW5ncyBhdCB0aGUgc2FtZSB0aW1lIGFuZCB0aGUNCj4gPiBmaWJfdGFibGVfZmx1c2hfZXh0ZXJu
+YWwgZnVuY3Rpb24gd2FzIHNvbWV0aGluZyB3ZSBoYWQgd29ya2VkIG91dCB0aGF0DQo+ID4gd291
+bGQgYWxsb3cgaGltIHRvIHRha2UgY2FyZSBvZiBoaXMgdXNlIGNhc2UgYW5kIG1lIHRvIHRha2Ug
+Y2FyZSBvZg0KPiA+IGNsZWFuaW5nIHVwIHRoZSB0YWJsZXMgYWZ0ZXIgdW5tZXJnaW5nLg0KPiAN
+Cj4gT2theS4gQnV0IHBsZWFzZSBuYW1lIHRoZSBmdWN0aW9uIGRpZmZlcmVudGx5LCBhcyBpdCBk
+b2VzIG5vdCBmbHVzaA0KPiBleHRlcm5hbC4gVGhhbmtzIQ0KDQpZb3UgYW5kIEkgaGF2ZSBkaWZm
+ZXJlbnQgbWVhbmluZ3MgZm9yICJleHRlcm5hbCIuDQoNCkluIG15IGNhc2UgSSBhbSBmbHVzaGlu
+ZyBlbnRyaWVzIHRoYXQgYmVsb25nIHRvIGEgZm9yZWlnbiAiZXh0ZXJuYWwiDQp0YWJsZSBmcm9t
+IHRoZSB0YWJsZSBzcGVjaWZpZWQuIFNvIGJ5ICJleHRlcm5hbCIgSSBhbSByZWZlcnJpbmcgdG8N
+CmVudHJpZXMgdGhhdCBkb24ndCBhY3R1YWxseSBsaXZlIGluIG1haW4sIGJ1dCBhY3R1YWxseSBy
+ZXNpZGUgaW4gbG9jYWwuDQpJZiB5b3UgdGFrZSBhIGxvb2sgYXQgZmliX3RhYmxlX2ZsdXNoIHRo
+YXQgZ2V0cyByaWQgb2YgYWxsIGVudHJpZXMsDQpmaWJfdGFibGVfZmx1c2hfZXh0ZXJuYWwgc2lt
+cGx5IGNsZWFycyB0aGUgZm9yZWlnbiBvbmVzLg0KDQpBbHNvIEknZCByYXRoZXIgbWFpbnRhaW4g
+bmFtaW5nIHNpbmNlIGl0IG1ha2VzIGl0IGVhc2llciBpZiB3ZSBuZWVkIHRvDQpiYWNrcG9ydCBm
+aXhlcy4NCg0KRmluYWxseSwgdGhlIGZsYWcgUlROSF9GX0VYVEVSTkFMIHdhcyByZW5hbWVkIG92
+ZXIgYSB5ZWFyIGFnbyBpbiBjb21taXQNCjM2NTgzZWI1NGQ0NmMgKCJyZW5hbWUgUlROSF9GX0VY
+VEVSTkFMIHRvIFJUTkhfRl9PRkZMT0FEIikgc28gdGhlcmUNCmlzbid0IHRvbyBtdWNoIGxpa2Vs
+aWhvb2Qgb2YgdGhpcyBiZWluZyBjb25mdXNlZCBmb3Igc29tZXRoaW5nIHRoYXQNCmhhbmRsZXMg
+b2ZmbG9hZGVkIGVudHJpZXMuIMKgSWYgeW91IHRha2UgYSBsb29rIGluIG5ldC9pcHY0LyogYWZ0
+ZXIgeW91cg0KcGF0Y2ggdGhlcmUgaXNuJ3QgYWN0dWFsbHkgYW55dGhpbmcgdGhhdCByZWZlcmVu
+Y2VzIHRoZSB3b3JkIGV4dGVybmFsDQpzbyB0aGUgbGlrZWxpaG9vZCBmb3IgYW55IGNvbmZ1c2lv
+biBpcyBleHRyZW1lbHkgbG93Lg0KDQotIEFsZXgNCg==
