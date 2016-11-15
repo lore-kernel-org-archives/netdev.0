@@ -1,120 +1,124 @@
-From: Jiri Pirko <jiri@resnulli.us>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
 Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
  and fix call ordering
-Date: Tue, 15 Nov 2016 22:07:54 +0100
-Message-ID: <20161115210754.GE1783@nanopsycho.orion>
+Date: Tue, 15 Nov 2016 21:11:50 +0000
+Message-ID: <1479244302.681.129.camel@intel.com>
 References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
- <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
- <20161115195107.GB1783@nanopsycho.orion>
- <1479241747.681.105.camel@intel.com>
- <20161115203140.GC1783@nanopsycho.orion>
- <1479242939.681.117.camel@intel.com>
- <20161115205233.GD1783@nanopsycho.orion>
- <1479243657.681.125.camel@intel.com>
+         <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
+         <20161115195107.GB1783@nanopsycho.orion>
+         <1479241747.681.105.camel@intel.com>
+         <20161115203140.GC1783@nanopsycho.orion>
+         <1479242939.681.117.camel@intel.com>
+         <20161115205233.GD1783@nanopsycho.orion>
+         <1479243657.681.125.camel@intel.com>
+         <20161115210754.GE1783@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "jiri@mellanox.com" <jiri@mellanox.com>,
         "davem@davemloft.net" <davem@davemloft.net>,
         "edumazet@google.com" <edumazet@google.com>
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: "jiri@resnulli.us" <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:37193 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752823AbcKOVH5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 16:07:57 -0500
-Received: by mail-wm0-f42.google.com with SMTP id t79so26593773wmt.0
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 13:07:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1479243657.681.125.camel@intel.com>
+Received: from mga11.intel.com ([192.55.52.93]:13408 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750772AbcKOVLw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 16:11:52 -0500
+In-Reply-To: <20161115210754.GE1783@nanopsycho.orion>
+Content-Language: en-US
+Content-ID: <315DD9B7D358F74FAC4F531D0E074ADC@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 15, 2016 at 10:01:03PM CET, alexander.h.duyck@intel.com wrote:
->On Tue, 2016-11-15 at 21:52 +0100, Jiri Pirko wrote:
->> Tue, Nov 15, 2016 at 09:49:02PM CET, alexander.h.duyck@intel.com wrote:
->> > 
->> > On Tue, 2016-11-15 at 21:31 +0100, Jiri Pirko wrote:
->> > > 
->> > > Tue, Nov 15, 2016 at 09:29:09PM CET, alexander.h.duyck@intel.com wrote:
->> > > > 
->> > > > 
->> > > > On Tue, 2016-11-15 at 20:51 +0100, Jiri Pirko wrote:
->> > > > > 
->> > > > > 
->> > > > > Tue, Nov 15, 2016 at 11:46:06AM CET, alexander.h.duyck@intel.com wrote:
->> > > > > > 
->> > > > > > 
->> > > > > > 
->> > > > > > The patch that removed the FIB offload infrastructure was a bit too
->> > > > > > aggressive and also removed code needed to clean up us splitting the table
->> > > > > > if additional rules were added.  Specifically the function
->> > > > > > fib_trie_flush_external was called at the end of a new rule being added to
->> > > > > > flush the foreign trie entries from the main trie.
->> > > > > > 
->> > > > > > I updated the code so that we only call fib_trie_flush_external on the main
->> > > > > > table so that we flush the entries for local from main.  This way we don't
->> > > > > > call it for every rule change which is what was happening previously.
->> > > > > 
->> > > > > Well, the function was introduced by:
->> > > > > 
->> > > > > commit 104616e74e0b464d449fdd2ee2f547d2fad71610
->> > > > > Author: Scott Feldman <sfeldma@gmail.com>
->> > > > > Date:   Thu Mar 5 21:21:16 2015 -0800
->> > > > > 
->> > > > >     switchdev: don't support custom ip rules, for now
->> > > > >     
->> > > > >     Keep switchdev FIB offload model simple for now and don't allow custom ip
->> > > > >     rules.
->> > > > > 
->> > > > > Why this was not needed before? What changed in between:
->> > > > > 104616e74e0b464d449fdd2ee2f547d2fad71610 ("switchdev: don't support custom ip rules, for now")
->> > > > > and
->> > > > > 347e3b28c1ba2 ("switchdev: remove FIB offload infrastructure")
->> > > > 
->> > > > We collapsed the two tables into one in commit 0ddcf43d5d4a ("ipv4: FIB
->> > > > Local/MAIN table collapse") which was submitted the next day.  Scott
->> > > > and I were working on things at the same time and the
->> > > > fib_table_flush_external function was something we had worked out that
->> > > > would allow him to take care of his use case and me to take care of
->> > > > cleaning up the tables after unmerging.
->> > > 
->> > > Okay. But please name the fuction differently, as it does not flush
->> > > external. Thanks!
->> > 
->> > You and I have different meanings for "external".
->> > 
->> > In my case I am flushing entries that belong to a foreign "external"
->> > table from the table specified. So by "external" I am referring to
->> > entries that don't actually live in main, but actually reside in local.
->> > If you take a look at fib_table_flush that gets rid of all entries,
->> > fib_table_flush_external simply clears the foreign ones.
->> > 
->> > Also I'd rather maintain naming since it makes it easier if we need to
->> > backport fixes.
->> > 
->> > Finally, the flag RTNH_F_EXTERNAL was renamed over a year ago in commit
->> > 36583eb54d46c ("rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD") so there
->> > isn't too much likelihood of this being confused for something that
->> > handles offloaded entries.  If you take a look in net/ipv4/* after your
->> > patch there isn't actually anything that references the word external
->> > so the likelihood for any confusion is extremely low.
->> 
->> Okay. But if you can, please put a comment to this function in order to
->> prevent future confusion. Thanks!
->
->I'm not sure there is much left to confuse at this point.  The function
->has gone from multi-purpose to single purpose so anyone that is messing
->with this should only be doing so if they are messing with the unmerge
->functionality.
->
->If anything it would be more confusing to refer to functionality that
->this function doesn't support in the comments.  All this function does
->is flush foreign/external objects from the tree.
->
->I'm willing to review a patch if you have a suggestion for a comment
->that would work.  I just want to avoid confusing people by referring to
->code and functionality that is no longer relevent.
-
-Perhaps I was the only one confused. Fair enough. Thanks Alex.
+T24gVHVlLCAyMDE2LTExLTE1IGF0IDIyOjA3ICswMTAwLCBKaXJpIFBpcmtvIHdyb3RlOg0KPiBU
+dWUsIE5vdiAxNSwgMjAxNiBhdCAxMDowMTowM1BNIENFVCwgYWxleGFuZGVyLmguZHV5Y2tAaW50
+ZWwuY29tIHdyb3RlOg0KPiA+IA0KPiA+IE9uIFR1ZSwgMjAxNi0xMS0xNSBhdCAyMTo1MiArMDEw
+MCwgSmlyaSBQaXJrbyB3cm90ZToNCj4gPiA+IA0KPiA+ID4gVHVlLCBOb3YgMTUsIDIwMTYgYXQg
+MDk6NDk6MDJQTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbSB3cm90ZToNCj4gPiA+
+ID4gDQo+ID4gPiA+IA0KPiA+ID4gPiBPbiBUdWUsIDIwMTYtMTEtMTUgYXQgMjE6MzEgKzAxMDAs
+IEppcmkgUGlya28gd3JvdGU6DQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gVHVl
+LCBOb3YgMTUsIDIwMTYgYXQgMDk6Mjk6MDlQTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVs
+LmNvbSB3cm90ZToNCj4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiANCj4g
+PiA+ID4gPiA+IE9uIFR1ZSwgMjAxNi0xMS0xNSBhdCAyMDo1MSArMDEwMCwgSmlyaSBQaXJrbyB3
+cm90ZToNCj4gPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiANCj4g
+PiA+ID4gPiA+ID4gVHVlLCBOb3YgMTUsIDIwMTYgYXQgMTE6NDY6MDZBTSBDRVQsIGFsZXhhbmRl
+ci5oLmR1eWNrQGludGVsLmNvbSB3cm90ZToNCj4gPiA+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+
+ID4gPiANCj4gPiA+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+ID4g
+PiBUaGUgcGF0Y2ggdGhhdCByZW1vdmVkIHRoZSBGSUIgb2ZmbG9hZCBpbmZyYXN0cnVjdHVyZSB3
+YXMgYSBiaXQgdG9vDQo+ID4gPiA+ID4gPiA+ID4gYWdncmVzc2l2ZSBhbmQgYWxzbyByZW1vdmVk
+IGNvZGUgbmVlZGVkIHRvIGNsZWFuIHVwIHVzIHNwbGl0dGluZyB0aGUgdGFibGUNCj4gPiA+ID4g
+PiA+ID4gPiBpZiBhZGRpdGlvbmFsIHJ1bGVzIHdlcmUgYWRkZWQuICBTcGVjaWZpY2FsbHkgdGhl
+IGZ1bmN0aW9uDQo+ID4gPiA+ID4gPiA+ID4gZmliX3RyaWVfZmx1c2hfZXh0ZXJuYWwgd2FzIGNh
+bGxlZCBhdCB0aGUgZW5kIG9mIGEgbmV3IHJ1bGUgYmVpbmcgYWRkZWQgdG8NCj4gPiA+ID4gPiA+
+ID4gPiBmbHVzaCB0aGUgZm9yZWlnbiB0cmllIGVudHJpZXMgZnJvbSB0aGUgbWFpbiB0cmllLg0K
+PiA+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiA+IEkgdXBkYXRlZCB0aGUgY29kZSBzbyB0
+aGF0IHdlIG9ubHkgY2FsbCBmaWJfdHJpZV9mbHVzaF9leHRlcm5hbCBvbiB0aGUgbWFpbg0KPiA+
+ID4gPiA+ID4gPiA+IHRhYmxlIHNvIHRoYXQgd2UgZmx1c2ggdGhlIGVudHJpZXMgZm9yIGxvY2Fs
+IGZyb20gbWFpbi4gIFRoaXMgd2F5IHdlIGRvbid0DQo+ID4gPiA+ID4gPiA+ID4gY2FsbCBpdCBm
+b3IgZXZlcnkgcnVsZSBjaGFuZ2Ugd2hpY2ggaXMgd2hhdCB3YXMgaGFwcGVuaW5nIHByZXZpb3Vz
+bHkuDQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiBXZWxsLCB0aGUgZnVuY3Rpb24gd2Fz
+IGludHJvZHVjZWQgYnk6DQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiBjb21taXQgMTA0
+NjE2ZTc0ZTBiNDY0ZDQ0OWZkZDJlZTJmNTQ3ZDJmYWQ3MTYxMA0KPiA+ID4gPiA+ID4gPiBBdXRo
+b3I6IFNjb3R0IEZlbGRtYW4gPHNmZWxkbWFAZ21haWwuY29tPg0KPiA+ID4gPiA+ID4gPiBEYXRl
+OiAgIFRodSBNYXIgNSAyMToyMToxNiAyMDE1IC0wODAwDQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4g
+PiA+ID4gPiAgICAgc3dpdGNoZGV2OiBkb24ndCBzdXBwb3J0IGN1c3RvbSBpcCBydWxlcywgZm9y
+IG5vdw0KPiA+ID4gPiA+ID4gPiAgICAgDQo+ID4gPiA+ID4gPiA+ICAgICBLZWVwIHN3aXRjaGRl
+diBGSUIgb2ZmbG9hZCBtb2RlbCBzaW1wbGUgZm9yIG5vdyBhbmQgZG9uJ3QgYWxsb3cgY3VzdG9t
+IGlwDQo+ID4gPiA+ID4gPiA+ICAgICBydWxlcy4NCj4gPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4g
+PiA+IFdoeSB0aGlzIHdhcyBub3QgbmVlZGVkIGJlZm9yZT8gV2hhdCBjaGFuZ2VkIGluIGJldHdl
+ZW46DQo+ID4gPiA+ID4gPiA+IDEwNDYxNmU3NGUwYjQ2NGQ0NDlmZGQyZWUyZjU0N2QyZmFkNzE2
+MTAgKCJzd2l0Y2hkZXY6IGRvbid0IHN1cHBvcnQgY3VzdG9tIGlwIHJ1bGVzLCBmb3Igbm93IikN
+Cj4gPiA+ID4gPiA+ID4gYW5kDQo+ID4gPiA+ID4gPiA+IDM0N2UzYjI4YzFiYTIgKCJzd2l0Y2hk
+ZXY6IHJlbW92ZSBGSUIgb2ZmbG9hZCBpbmZyYXN0cnVjdHVyZSIpDQo+ID4gPiA+ID4gPiANCj4g
+PiA+ID4gPiA+IFdlIGNvbGxhcHNlZCB0aGUgdHdvIHRhYmxlcyBpbnRvIG9uZSBpbiBjb21taXTC
+oDBkZGNmNDNkNWQ0YSAoImlwdjQ6IEZJQg0KPiA+ID4gPiA+ID4gTG9jYWwvTUFJTiB0YWJsZSBj
+b2xsYXBzZSIpIHdoaWNoIHdhcyBzdWJtaXR0ZWQgdGhlIG5leHQgZGF5LiDCoFNjb3R0DQo+ID4g
+PiA+ID4gPiBhbmQgSSB3ZXJlIHdvcmtpbmcgb24gdGhpbmdzIGF0IHRoZSBzYW1lIHRpbWUgYW5k
+IHRoZQ0KPiA+ID4gPiA+ID4gZmliX3RhYmxlX2ZsdXNoX2V4dGVybmFsIGZ1bmN0aW9uIHdhcyBz
+b21ldGhpbmcgd2UgaGFkIHdvcmtlZCBvdXQgdGhhdA0KPiA+ID4gPiA+ID4gd291bGQgYWxsb3cg
+aGltIHRvIHRha2UgY2FyZSBvZiBoaXMgdXNlIGNhc2UgYW5kIG1lIHRvIHRha2UgY2FyZSBvZg0K
+PiA+ID4gPiA+ID4gY2xlYW5pbmcgdXAgdGhlIHRhYmxlcyBhZnRlciB1bm1lcmdpbmcuDQo+ID4g
+PiA+ID4gDQo+ID4gPiA+ID4gT2theS4gQnV0IHBsZWFzZSBuYW1lIHRoZSBmdWN0aW9uIGRpZmZl
+cmVudGx5LCBhcyBpdCBkb2VzIG5vdCBmbHVzaA0KPiA+ID4gPiA+IGV4dGVybmFsLiBUaGFua3Mh
+DQo+ID4gPiA+IA0KPiA+ID4gPiBZb3UgYW5kIEkgaGF2ZSBkaWZmZXJlbnQgbWVhbmluZ3MgZm9y
+ICJleHRlcm5hbCIuDQo+ID4gPiA+IA0KPiA+ID4gPiBJbiBteSBjYXNlIEkgYW0gZmx1c2hpbmcg
+ZW50cmllcyB0aGF0IGJlbG9uZyB0byBhIGZvcmVpZ24gImV4dGVybmFsIg0KPiA+ID4gPiB0YWJs
+ZSBmcm9tIHRoZSB0YWJsZSBzcGVjaWZpZWQuIFNvIGJ5ICJleHRlcm5hbCIgSSBhbSByZWZlcnJp
+bmcgdG8NCj4gPiA+ID4gZW50cmllcyB0aGF0IGRvbid0IGFjdHVhbGx5IGxpdmUgaW4gbWFpbiwg
+YnV0IGFjdHVhbGx5IHJlc2lkZSBpbiBsb2NhbC4NCj4gPiA+ID4gSWYgeW91IHRha2UgYSBsb29r
+IGF0IGZpYl90YWJsZV9mbHVzaCB0aGF0IGdldHMgcmlkIG9mIGFsbCBlbnRyaWVzLA0KPiA+ID4g
+PiBmaWJfdGFibGVfZmx1c2hfZXh0ZXJuYWwgc2ltcGx5IGNsZWFycyB0aGUgZm9yZWlnbiBvbmVz
+Lg0KPiA+ID4gPiANCj4gPiA+ID4gQWxzbyBJJ2QgcmF0aGVyIG1haW50YWluIG5hbWluZyBzaW5j
+ZSBpdCBtYWtlcyBpdCBlYXNpZXIgaWYgd2UgbmVlZCB0bw0KPiA+ID4gPiBiYWNrcG9ydCBmaXhl
+cy4NCj4gPiA+ID4gDQo+ID4gPiA+IEZpbmFsbHksIHRoZSBmbGFnIFJUTkhfRl9FWFRFUk5BTCB3
+YXMgcmVuYW1lZCBvdmVyIGEgeWVhciBhZ28gaW4gY29tbWl0DQo+ID4gPiA+IDM2NTgzZWI1NGQ0
+NmMgKCJyZW5hbWUgUlROSF9GX0VYVEVSTkFMIHRvIFJUTkhfRl9PRkZMT0FEIikgc28gdGhlcmUN
+Cj4gPiA+ID4gaXNuJ3QgdG9vIG11Y2ggbGlrZWxpaG9vZCBvZiB0aGlzIGJlaW5nIGNvbmZ1c2Vk
+IGZvciBzb21ldGhpbmcgdGhhdA0KPiA+ID4gPiBoYW5kbGVzIG9mZmxvYWRlZCBlbnRyaWVzLiDC
+oElmIHlvdSB0YWtlIGEgbG9vayBpbiBuZXQvaXB2NC8qIGFmdGVyIHlvdXINCj4gPiA+ID4gcGF0
+Y2ggdGhlcmUgaXNuJ3QgYWN0dWFsbHkgYW55dGhpbmcgdGhhdCByZWZlcmVuY2VzIHRoZSB3b3Jk
+IGV4dGVybmFsDQo+ID4gPiA+IHNvIHRoZSBsaWtlbGlob29kIGZvciBhbnkgY29uZnVzaW9uIGlz
+IGV4dHJlbWVseSBsb3cuDQo+ID4gPiANCj4gPiA+IE9rYXkuIEJ1dCBpZiB5b3UgY2FuLCBwbGVh
+c2UgcHV0IGEgY29tbWVudCB0byB0aGlzIGZ1bmN0aW9uIGluIG9yZGVyIHRvDQo+ID4gPiBwcmV2
+ZW50IGZ1dHVyZSBjb25mdXNpb24uIFRoYW5rcyENCj4gPiANCj4gPiBJJ20gbm90IHN1cmUgdGhl
+cmUgaXMgbXVjaCBsZWZ0IHRvIGNvbmZ1c2UgYXQgdGhpcyBwb2ludC4gwqBUaGUgZnVuY3Rpb24N
+Cj4gPiBoYXMgZ29uZSBmcm9tIG11bHRpLXB1cnBvc2UgdG8gc2luZ2xlIHB1cnBvc2Ugc28gYW55
+b25lIHRoYXQgaXMgbWVzc2luZw0KPiA+IHdpdGggdGhpcyBzaG91bGQgb25seSBiZSBkb2luZyBz
+byBpZiB0aGV5IGFyZSBtZXNzaW5nIHdpdGggdGhlIHVubWVyZ2UNCj4gPiBmdW5jdGlvbmFsaXR5
+Lg0KPiA+IA0KPiA+IElmIGFueXRoaW5nIGl0IHdvdWxkIGJlIG1vcmUgY29uZnVzaW5nIHRvIHJl
+ZmVyIHRvIGZ1bmN0aW9uYWxpdHkgdGhhdA0KPiA+IHRoaXMgZnVuY3Rpb24gZG9lc24ndCBzdXBw
+b3J0IGluIHRoZSBjb21tZW50cy4gwqBBbGwgdGhpcyBmdW5jdGlvbiBkb2VzDQo+ID4gaXMgZmx1
+c2ggZm9yZWlnbi9leHRlcm5hbCBvYmplY3RzIGZyb20gdGhlIHRyZWUuDQo+ID4gDQo+ID4gSSdt
+IHdpbGxpbmcgdG8gcmV2aWV3IGEgcGF0Y2ggaWYgeW91IGhhdmUgYSBzdWdnZXN0aW9uIGZvciBh
+IGNvbW1lbnQNCj4gPiB0aGF0IHdvdWxkIHdvcmsuIMKgSSBqdXN0IHdhbnQgdG8gYXZvaWQgY29u
+ZnVzaW5nIHBlb3BsZSBieSByZWZlcnJpbmcgdG8NCj4gPiBjb2RlIGFuZCBmdW5jdGlvbmFsaXR5
+IHRoYXQgaXMgbm8gbG9uZ2VyIHJlbGV2ZW50Lg0KPiANCj4gUGVyaGFwcyBJIHdhcyB0aGUgb25s
+eSBvbmUgY29uZnVzZWQuIEZhaXIgZW5vdWdoLiBUaGFua3MgQWxleC4NCg0KTm8sIEkgd291bGQg
+YWdyZWUgdGhlIG9yaWdpbmFsIHNoYXJpbmcgb2YgdGhlIGZ1bmN0aW9uIHdhcyBhIGJpdA0KY29u
+ZnVzaW5nLCBhbmQgdGhhdCB3YXMgbW9zdGx5IGR1ZSB0byB0aGUgdGltZWxpbmUgb2YgdGhpbmdz
+IHdpdGggYm90aA0KU2NvdHQgYW5kIEkgcmViYXNpbmcgb3VyIGNvZGUgb24gdG9wIG9mIGVhY2gg
+b3RoZXIuDQoNCldpdGggeW91IHJlbW92aW5nIHRoZSBGSUIgb2ZmbG9hZCBwaWVjZXMgaXQgc2lt
+cGxpZmllZCBpdCBxdWl0ZSBhIGJpdA0Kc28gd2l0aCB0aGlzIGZpeCB3ZSBzaG91bGQgYmUgYmFj
+ayB0byAxMDAlIGZ1bmN0aW9uYWxpdHkgd2l0aCB0aGUgY29kZQ0KbXVjaCBtb3JlIHNpbXBsaWZp
+ZWQuDQoNClRoYW5rcy4NCg0KLSBBbGV4
