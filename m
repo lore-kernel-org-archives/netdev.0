@@ -1,69 +1,51 @@
-From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
-Subject: [PATCH 4.9.0-rc5] AR9300 calibration problems with antenna selected
-Date: Tue, 15 Nov 2016 10:56:37 +0100
-Message-ID: <m3wpg52hii.fsf@t19.piap.pl>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [PATCH net-next v2] ipv6: sr: fix IPv6 initialization failure
+ without lwtunnels
+Date: Tue, 15 Nov 2016 11:17:20 +0100
+Message-ID: <582AE0B0.60006@uclouvain.be>
+References: <CAKD1Yr0fDFdDv9+S3i_rH6W6btEuvs9s-h33_N67iM4qrtDezQ@mail.gmail.com>        <1478780813-20005-1-git-send-email-david.lebrun@uclouvain.be>        <20161113.002055.1386089188095640295.davem@davemloft.net> <20161113.002348.81553025732356797.davem@davemloft.net> <5828C619.2020008@uclouvain.be> <5829C89B.7010405@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="4m6HOjo7fG7goEvo7w5QMd9Newmstunse"
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <lorenzo@google.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:34670 "EHLO
+        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941383AbcKOKP3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 05:15:29 -0500
+In-Reply-To: <5829C89B.7010405@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+--4m6HOjo7fG7goEvo7w5QMd9Newmstunse
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-I recently tried to select a single antenna on AR9300 and it works for
-30 seconds only. The subsequent calibration makes the RX signal level to
-drop from the usual -30/-40 dBm to -70/-80 dBm, and the transmission
-practically stops.
+On 11/14/2016 03:22 PM, Roopa Prabhu wrote:
+> I prefer option b). most LWTUNNEL encaps are done this way.
+>=20
+> seg6 and seg6_iptunnel is new segment routing code and can be under
+> CONFIG_IPV6_SEG6 which depends on CONFIG_LWTUNNEL and CONFIG_IPV6.
+> CONFIG_IPV6_SEG6_HMAC could then depend on CONFIG_IPV6_SEG6
 
-With the attached patch it works, though selecting the antenna doesn't
-seem to have any visible effect, at least with "iw wlanX station dump"
-(perhaps it works for TX).
+Will do that, thanks
 
-I'm using ad-hoc mode:
-
-rmmod ath9k
-modprobe ath9k
-iw dev wlan0 set type ibss
-iw phy phyX set antenna 2
-ip link set up dev wlan0
-iw dev wlan0 set bitrates legacy-2.4 18
-iw dev wlan0 ibss join nameXXX freqYYY
-ip addr add ZZZ broadcast + dev wlan0
-
-The card in question is Mikrotik (Routerboard) R11e-2HPnD mPCIe adapter:
-AR9580 Wireless Network Adapter (rev 01), ID 168c:0033, subsystem
-19b6:d016.
-ieee80211 phy0: Atheros AR9300 Rev:4 mem=0xc0f40000, irq=334
-https://routerboard.com/R11e-2HPnD
-
-Linux 4.9.0-rc5.
+David
 
 
-Is there a better way?
+--4m6HOjo7fG7goEvo7w5QMd9Newmstunse
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Signed-off-by: Krzysztof Halasa <khalasa@piap.pl>
+-----BEGIN PGP SIGNATURE-----
 
-diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
-index e9f32b5..7f17e5d 100644
---- a/drivers/net/wireless/ath/ath9k/main.c
-+++ b/drivers/net/wireless/ath/ath9k/main.c
-@@ -2245,7 +2245,7 @@ static int ath9k_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
- 		return 0;
- 
- 	/* AR9100 runs into calibration issues if not all rx chains are enabled */
--	if (AR_SREV_9100(ah))
-+	if (AR_SREV_9100(ah) || AR_SREV_9300(ah))
- 		ah->rxchainmask = 0x7;
- 	else
- 		ah->rxchainmask = fill_chainmask(ah->caps.rx_chainmask, rx_ant);
+iEYEARECAAYFAlgq4LAACgkQjbzn67sZ6ANHjgCgiP1e1jCVz8Rf/Ivneh2q8xX3
+22gAniLqFPrqNhbWbfXVTX0aQWDaYYtz
+=JxTv
+-----END PGP SIGNATURE-----
 
-
--- 
-Krzysztof Halasa
-
-Industrial Research Institute for Automation and Measurements PIAP
-Al. Jerozolimskie 202, 02-486 Warsaw, Poland
+--4m6HOjo7fG7goEvo7w5QMd9Newmstunse--
