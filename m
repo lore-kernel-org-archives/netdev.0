@@ -1,65 +1,118 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3] ip6_output: ensure flow saddr actually
- belongs to device
-Date: Tue, 15 Nov 2016 08:26:42 -0700
-Message-ID: <4285324b-c396-dfc1-caad-c961a6564e94@cumulusnetworks.com>
-References: <27cccef1-06d9-74b3-5b8a-912850119a76@cumulusnetworks.com>
- <20161113232813.28926-1-Jason@zx2c4.com>
- <1479141867.3723362.787321689.4A3DCFD6@webmail.messagingengine.com>
- <fd1c804d-3e44-0321-8a3e-67d6ff7357fa@cumulusnetworks.com>
- <7d8c0210-9132-c755-9053-6ec19409e343@stressinduktion.org>
- <c75290bd-7ea2-0bf8-7ac0-fc5a3c81e312@cumulusnetworks.com>
- <7779da88-08dc-0adb-42dd-8e00502693df@stressinduktion.org>
- <0214eaf8-70c6-5a37-cddd-faa1c4268871@cumulusnetworks.com>
- <1479148385.3747043.787432273.5FCC2F4F@webmail.messagingengine.com>
- <CAHmME9ppx01YR9Db1oPpm6FJ+BmpqSxvjQ2S+GT0DXO09_M4oQ@mail.gmail.com>
- <7543fa0f-a053-8387-1862-d78ffadba688@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>,
- YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
- "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <7543fa0f-a053-8387-1862-d78ffadba688@stressinduktion.org>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] udplite: fix NULL pointer dereference
+Date: Tue, 15 Nov 2016 16:37:53 +0100
+Message-ID: <ac389a539b9299b44f63a2d1f744a637a8126943.1479223645.git.pabeni@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Andrei Vagin <avagin@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54094 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933203AbcKOPiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 10:38:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/15/16 7:45 AM, Hannes Frederic Sowa wrote:
+The commit 850cbaddb52d ("udp: use it's own memory accounting schema")
+assumes that the socket proto has memory accounting enabled,
+but this is not the case for UDPLITE.
+Fix it enabling memory accounting for UDPLITE and performing
+fwd allocated memory reclaiming on socket shutdown.
+UDP and UDPLITE share now the same memory accounting limits.
+Also drop the backlog receive operation, since is no more needed.
 
->> @@ -1012,6 +1013,16 @@ static int ip6_dst_lookup_tail(struct net *net,
->> const struct sock *sk,
->>          }
->>  #endif
->>
->> +        addr_type = ipv6_addr_type(&fl6->saddr);
->> +        if (addr_type == IPv6_ADDR_ANY)
->> +                return 0;
->> +
->> +        err = -EINVAL;
->> +        bind_to_dev = __ipv6_addr_src_scope(addr_type) <=
->> IPV6_ADDR_SCOPE_LINKLOCAL;
->> +        if (!ipv6_chk_addr(net, &fl6->saddr, bind_to_dev ?
->> (*dst)->dev : NULL, 0) &&
->> +            !ipv6_chk_acast_addr_src(net, (*dst)->dev, &fl6->saddr))
->> +                goto out_err_release;
->> +
->>          return 0;
->>
->>  out_err_release:
->>
-> 
-> We should not use (*dst)->dev, as this is the resulting device after the
-> lookup and not necessarily corresponds to the device the user asked for.
+Fixes: 850cbaddb52d ("udp: use it's own memory accounting schema")
+Reported-by: Andrei Vagin <avagin@gmail.com>
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/net/udp.h     | 1 +
+ include/net/udplite.h | 1 +
+ net/ipv4/udp.c        | 3 ++-
+ net/ipv4/udplite.c    | 3 ++-
+ net/ipv6/udplite.c    | 3 ++-
+ 5 files changed, 8 insertions(+), 3 deletions(-)
 
-To be consistent with IPv4 the saddr check is done before the lookup and dst and flow oif should not be used. Handling LL addresses are trickier and perhaps this is not the right place to enforce that check since it requires a specific device which is only really known after lookup. Why not add the if saddr is LL verification as part of the route selection? e.g, add something like rt6_device_match to ip6_pol_route (the device match call is only used for ip6_pol_route_lookup and not ip6_pol_route - why is that?).
+diff --git a/include/net/udp.h b/include/net/udp.h
+index e6e4e19..1661791 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -246,6 +246,7 @@ static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
+ }
+ 
+ /* net/ipv4/udp.c */
++void udp_destruct_sock(struct sock *sk);
+ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len);
+ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb);
+ void udp_skb_destructor(struct sock *sk, struct sk_buff *skb);
+diff --git a/include/net/udplite.h b/include/net/udplite.h
+index 8076193..36097d3 100644
+--- a/include/net/udplite.h
++++ b/include/net/udplite.h
+@@ -27,6 +27,7 @@ static __inline__ int udplite_getfrag(void *from, char *to, int  offset,
+ static inline int udplite_sk_init(struct sock *sk)
+ {
+ 	udp_sk(sk)->pcflag = UDPLITE_BIT;
++	sk->sk_destruct = udp_destruct_sock;
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index c827e4e..9ae7c63 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1253,7 +1253,7 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL_GPL(__udp_enqueue_schedule_skb);
+ 
+-static void udp_destruct_sock(struct sock *sk)
++void udp_destruct_sock(struct sock *sk)
+ {
+ 	/* reclaim completely the forward allocated memory */
+ 	unsigned int total = 0;
+@@ -1267,6 +1267,7 @@ static void udp_destruct_sock(struct sock *sk)
+ 
+ 	inet_sock_destruct(sk);
+ }
++EXPORT_SYMBOL_GPL(udp_destruct_sock);
+ 
+ int udp_init_sock(struct sock *sk)
+ {
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+index af81715..59f10fe 100644
+--- a/net/ipv4/udplite.c
++++ b/net/ipv4/udplite.c
+@@ -50,10 +50,11 @@ struct proto 	udplite_prot = {
+ 	.sendmsg	   = udp_sendmsg,
+ 	.recvmsg	   = udp_recvmsg,
+ 	.sendpage	   = udp_sendpage,
+-	.backlog_rcv	   = udp_queue_rcv_skb,
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v4_get_port,
++	.memory_allocated  = &udp_memory_allocated,
++	.sysctl_mem	   = sysctl_udp_mem,
+ 	.obj_size	   = sizeof(struct udp_sock),
+ 	.h.udp_table	   = &udplite_table,
+ #ifdef CONFIG_COMPAT
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+index 47d0d2b..2784cc3 100644
+--- a/net/ipv6/udplite.c
++++ b/net/ipv6/udplite.c
+@@ -45,10 +45,11 @@ struct proto udplitev6_prot = {
+ 	.getsockopt	   = udpv6_getsockopt,
+ 	.sendmsg	   = udpv6_sendmsg,
+ 	.recvmsg	   = udpv6_recvmsg,
+-	.backlog_rcv	   = udpv6_queue_rcv_skb,
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v6_get_port,
++	.memory_allocated  = &udp_memory_allocated,
++	.sysctl_mem	   = sysctl_udp_mem,
+ 	.obj_size	   = sizeof(struct udp6_sock),
+ 	.h.udp_table	   = &udplite_table,
+ #ifdef CONFIG_COMPAT
+-- 
+1.8.3.1
