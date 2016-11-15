@@ -1,52 +1,60 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [PATCH net-next v5] cadence: Add LSO support.
-Date: Tue, 15 Nov 2016 07:07:14 +0000
-Message-ID: <BN3PR07MB251641C606D02892E2196960C9BF0@BN3PR07MB2516.namprd07.prod.outlook.com>
-References: <BN3PR07MB2516C30913D2FB8D4788071AC9BC0@BN3PR07MB2516.namprd07.prod.outlook.com>
- <20161114.123038.1075174354580074536.davem@davemloft.net>
+From: Hannes Reinecke <hare@suse.de>
+Subject: Re: [PATCH v2 3/6] qedi: Add QLogic FastLinQ offload iSCSI driver
+ framework.
+Date: Tue, 15 Nov 2016 08:21:50 +0100
+Message-ID: <b6d4767e-47e2-a265-c4f8-5081a273b819@suse.de>
+References: <1478588223-16183-1-git-send-email-manish.rangankar@cavium.com>
+ <1478588223-16183-4-git-send-email-manish.rangankar@cavium.com>
+ <d5abc303-1514-c521-390c-adfdd0e204af@suse.de>
+ <D450A21F.3537A%manish.rangankar@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161114.123038.1075174354580074536.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Dept-Eng QLogic Storage Upstream
+        <QLogic-Storage-Upstream@cavium.com>,
+        "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+To: "Rangankar, Manish" <Manish.Rangankar@cavium.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        "lduncan@suse.com" <lduncan@suse.com>,
+        Chris Leech <cleech@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:44698 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933542AbcKOHVx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 02:21:53 -0500
+In-Reply-To: <D450A21F.3537A%manish.rangankar@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > If UFO is in use it should not silently disable UDP checksums.
-> > >=20
-> > > If you cannot support UFO with proper checksumming, then you cannot e=
-nable support for that feature.
-> >=20
-> > According Cadence Gigabit Ethernet MAC documentation:
-> >=20
-> > "Hardware will not calculate the UDP checksum or modify the UDP=20
-> > checksum field. Therefore software must set a value of zero in the=20
-> > checksum field in the UDP header (in the first payload buffer) to indic=
-ate to the receiver that the UDP datagram does not include a checksum."
-> >=20
-> > It is hardware requirement.
->
-> I do not doubt that it is a hardware restriction.
->
-> But I am saying that you cannot enable this feature under Linux if this i=
-s how it operates on your hardware.
+On 11/15/2016 07:14 AM, Rangankar, Manish wrote:
+> Hi Hannes,
+> 
+> Please find the response below,
+> 
+> On 11/11/16 10:13 PM, "Hannes Reinecke" <hare@suse.de> wrote:
+> 
+[ .. ]
+>> Please use the irq-affinity rework from Christoph here; that'll save you
+>> the additional msix vectors allocation.
+> 
+> The existing qed* driver(s) and common module (qed) framework is built on
+> top of the older pci_enable_msix_*() API. The new framework requires
+> re-work on the existing qed common module API. That would need
+> co-ordination among other dependent drivers (e.g.: qede network driver,
+> which is already in the tree). We would prefer to add this as a follow on
+> (to the initial submission) effort, with additional testing done and
+> submission co-ordinated across protocol drivers.
+> 
+Ok, fair enough.
 
-Would it be good to enable UFO conditionally with some internal define? Ex.=
-:
+Cheers,
 
-+#ifdef MACB_ENABLE_UFO
-+#define MACB_NETIF_LSO         (NETIF_F_TSO | NETIF_F_UFO)
-+#else
-+#define MACB_NETIF_LSO         (NETIF_F_TSO)
-+#endif
-
-I could add precise comment here that ufo is possible only without checksum=
-.
-
-Or maybe I could enable it from module_params or device-tree (like: drivers=
-/net/ethernet/neterion/s2io.c).
+Hannes
+-- 
+Dr. Hannes Reinecke		   Teamlead Storage & Networking
+hare@suse.de			               +49 911 74053 688
+SUSE LINUX GmbH, Maxfeldstr. 5, 90409 Nürnberg
+GF: F. Imendörffer, J. Smithard, J. Guild, D. Upmanyu, G. Norton
+HRB 21284 (AG Nürnberg)
