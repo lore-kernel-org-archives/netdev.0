@@ -1,53 +1,33 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
-Date: Tue, 15 Nov 2016 18:53:54 +0100
-Message-ID: <20161115175354.GA3979@verge.net.au>
-References: <1477934018-13968-1-git-send-email-geert+renesas@glider.be>
- <20161031.132431.648834397805808388.davem@davemloft.net>
- <20161101093216.GE28143@verge.net.au>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: linux-next: net->netns_ids is used after calling idr_destroy for it
+Date: Tue, 15 Nov 2016 10:04:32 -0800
+Message-ID: <CAM_iQpUQOCsVkaRPU3OkmNvyOLDtmRRK1G3uzvi9URSVEbapJQ@mail.gmail.com>
+References: <CANaxB-x7FgxpAwpa-RgOvUptrCRUmAE6NFm3As+LuXUE=fHJyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: geert+renesas@glider.be, sergei.shtylyov@cogentembedded.com,
-        arnd@arndb.de, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161101093216.GE28143@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Andrei Vagin <avagin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:34991 "EHLO
+        mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752236AbcKOSE4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 13:04:56 -0500
+Received: by mail-yw0-f176.google.com with SMTP id i145so107227943ywg.2
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 10:04:55 -0800 (PST)
+In-Reply-To: <CANaxB-x7FgxpAwpa-RgOvUptrCRUmAE6NFm3As+LuXUE=fHJyA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 01, 2016 at 10:32:17AM +0100, Simon Horman wrote:
-> On Mon, Oct 31, 2016 at 01:24:31PM -0400, David Miller wrote:
-> > From: Geert Uytterhoeven <geert+renesas@glider.be>
-> > Date: Mon, 31 Oct 2016 18:13:38 +0100
-> > 
-> > > The limitation to 10/100Mbit speeds on R-Car Gen3 is valid for R-Car H3
-> > > ES1.0 only. Check for the exact SoC model to allow 1Gbps on newer
-> > > revisions of R-Car H3, and on R-Car M3-W.
-> > > 
-> > > Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> > > ---
-> > > Tested on:
-> > >   - r8a7795/salvator-x with R-Car H3 ES1.0 (limited to 100Mbps),
-> > >   - r8a7795/salvator-x with R-Car H3 ES1.1 (1Gbps),
-> > >   - r8a7796/salvator-x with R-Car M3-W ES1.0 (1Gbps).
-> > > 
-> > > This is marked as an RFC because it depends on:
-> > >   A) the soc_device_match() infrastructure,
-> > >   B) Renesas SoC core ESx.y handling.
-> > > Hence I think the best merge strategy is to let this patch go in through
-> > > Simon's Renesas tree.
-> > > 
-> > > David: If you agree, can you please provide your ack? Thanks!
-> > 
-> > Sure, no problem:
-> > 
-> > Acked-by: David S. Miller <davem@davemloft.net>
-> 
-> Thanks Dave.
-> 
-> Geert, please repost or otherwise ping me once the dependencies are in
-> place and I should queue this up.
+On Mon, Nov 14, 2016 at 10:23 PM, Andrei Vagin <avagin@gmail.com> wrote:
+> Hi Nicolas,
+>
+> cleanup_net() calls idr_destroy(net->netns_ids) for network namespaces
+> and then it calls unregister_netdevice_many() which calls
+> idr_alloc(net0>netns_ids). It looks wrong, doesn't it?
+>
 
-For the record, I have queued this up for v4.10.
+netns id is designed to allocate lazily, but yeah it makes no sense
+to allocate id for the netns being destroyed, not to mention idr is freed.
+
+I will send a patch.
