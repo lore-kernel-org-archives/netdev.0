@@ -1,77 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v5] cadence: Add LSO support.
-Date: Tue, 15 Nov 2016 05:11:30 -0800
-Message-ID: <1479215490.8455.122.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <BN3PR07MB2516C30913D2FB8D4788071AC9BC0@BN3PR07MB2516.namprd07.prod.outlook.com>
-         <20161114.123038.1075174354580074536.davem@davemloft.net>
-         <BN3PR07MB251641C606D02892E2196960C9BF0@BN3PR07MB2516.namprd07.prod.outlook.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH V2] mac80211: Ignore VHT IE from peer with wrong
+ rx_mcs_map
+Date: Tue, 15 Nov 2016 14:20:12 +0100
+Message-ID: <1479216012.12007.27.camel@sipsolutions.net>
+References: <1478077466-4308-1-git-send-email-filip.matusiak@tieto.com>
+         (sfid-20161102_100438_908657_9F74D2B9)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rafal Ozieblo <rafalo@cadence.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35433 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934339AbcKONLc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 08:11:32 -0500
-In-Reply-To: <BN3PR07MB251641C606D02892E2196960C9BF0@BN3PR07MB2516.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: marek.kwaczynski@tieto.com, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Filip Matusiak <filip.matusiak@tieto.com>,
+        linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478077466-4308-1-git-send-email-filip.matusiak@tieto.com> (sfid-20161102_100438_908657_9F74D2B9)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-11-15 at 07:07 +0000, Rafal Ozieblo wrote:
-> > > > If UFO is in use it should not silently disable UDP checksums.
-> > > > 
-> > > > If you cannot support UFO with proper checksumming, then you cannot enable support for that feature.
-> > > 
-> > > According Cadence Gigabit Ethernet MAC documentation:
-> > > 
-> > > "Hardware will not calculate the UDP checksum or modify the UDP 
-> > > checksum field. Therefore software must set a value of zero in the 
-> > > checksum field in the UDP header (in the first payload buffer) to indicate to the receiver that the UDP datagram does not include a checksum."
-> > > 
-> > > It is hardware requirement.
-> >
-> > I do not doubt that it is a hardware restriction.
-> >
-> > But I am saying that you cannot enable this feature under Linux if this is how it operates on your hardware.
+On Wed, 2016-11-02 at 10:04 +0100, Filip Matusiak wrote:
+> This is a workaround for VHT-enabled STAs which break the spec
+> and have the VHT-MCS Rx map filled in with value 3 for all eight
+> spacial streams, an example is AR9462 in AP mode.
 > 
-> Would it be good to enable UFO conditionally with some internal define? Ex.:
+> As per spec, in section 22.1.1 Introduction to the VHT PHY
+> A VHT STA shall support at least single spactial stream VHT-MCSs
+> 0 to 7 (transmit and receive) in all supported channel widths.
 > 
-> +#ifdef MACB_ENABLE_UFO
-> +#define MACB_NETIF_LSO         (NETIF_F_TSO | NETIF_F_UFO)
-> +#else
-> +#define MACB_NETIF_LSO         (NETIF_F_TSO)
-> +#endif
+> Some devices in STA mode will get firmware assert when trying to
+> associate, examples are QCA9377 & QCA6174.
 > 
-> I could add precise comment here that ufo is possible only without checksum.
+> Packet example of broken VHT Cap IE of AR9462:
 > 
-> Or maybe I could enable it from module_params or device-tree (like: drivers/net/ethernet/neterion/s2io.c).
+> [...]
 
-No you can not do that.
+Applied, thanks.
 
-1) That would violate UDP specs.
-2) Module params are no longer accepted.
-3) Comments in a driver source code would only help the driver
-maintainer, not users to make their mind.
-
-Only way would be to propagate the intent of the sender.
-
-Only the sender application can decide to generate UDP checksums or not.
-
-Your driver ndo_features_check() could then force software segmentation
-fallback if the user did not asked to disable UDP checksums, and packet
-is UFO.
-
-(look for UDP_NO_CHECK6_TX, and SO_NO_CHECK )
-
-Problem is complex, because the skb has no marker, only the socket has.
-
-And socket state could change between packets, and packets can stay in
-an intermediate qdisc before hitting device driver. So looking at
-skb->sk from your ndo_features_check() would be racy.
-
-What use case would you have precisely ?
+johannes
