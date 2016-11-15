@@ -1,63 +1,109 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit
- ethernet driver
-Date: Wed, 16 Nov 2016 00:14:44 +0100
-Message-ID: <46664e87-da42-ece8-43b9-094d2b24e1e4@gmx.de>
-References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
- <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
- <20161113195544.GA18258@lunn.ch>
- <69558f55-824a-7063-d9b3-ccc0a6113b87@gmx.de>
- <4450caf4-e1cf-5187-1337-c46b81b08708@gmail.com>
- <0d1b4dee-11bb-3605-699c-ea417484cb68@gmx.de>
- <20161115215907.GF23231@lunn.ch>
- <86165d2b-f9d5-a380-9bb0-f77c12691eb6@gmx.de>
- <41c0c732-0935-1625-b88d-c084e5000a6c@gmail.com>
- <c645c726-dbe2-108d-c79a-d8db350a13b8@gmx.de>
- <20161115230317.GG23231@lunn.ch>
+From: "Yang, Yi Y" <yi.y.yang@intel.com>
+Subject: RE: [ovs-dev] [PATCH net-next v13 0/8] openvswitch: support for
+ layer 3 encapsulated packets
+Date: Tue, 15 Nov 2016 23:16:07 +0000
+Message-ID: <79BBBFE6CB6C9B488C1A45ACD284F5195F0F0110@SHSMSX103.ccr.corp.intel.com>
+References: <cover.1478791347.git.jbenc@redhat.com>
+ <79BBBFE6CB6C9B488C1A45ACD284F5195F0EBFEA@SHSMSX103.ccr.corp.intel.com>
+ <7ABC8850-9773-4457-907E-7ACC3180A590@cascardo.eti.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Florian Fainelli <f.fainelli@gmail.com>,
- gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, liodot@gmail.com,
- netdev@vger.kernel.org, davem@davemloft.net
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20161115230317.GG23231@lunn.ch>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+        Simon Horman <simon.horman@netronome.com>,
+        "egarver@redhat.com" <egarver@redhat.com>
+To: Thadeu Lima de Souza Cascardo <cascardo@cascardo.eti.br>,
+        Jiri Benc <jbenc@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:54998 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933957AbcKOXQM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 18:16:12 -0500
+In-Reply-To: <7ABC8850-9773-4457-907E-7ACC3180A590@cascardo.eti.br>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16.11.2016 00:03, Andrew Lunn wrote:
->> >>>>> +  			val = MII_BMCR << 16 | SLIC_PCR_AUTONEG |
->> >>>>> +		     	         SLIC_PCR_AUTONEG_RST;
->> >>>>> +			slic_write(sdev, SLIC_REG_WPHY, val);
-> 
->> Thats essentially what I meant by setting a flag in the irq handler. The mdio
->> function would have to check somehow if the irq has been fired (be it by means
->> of a flag or a completion that is set by the irq handler and checked by the 
->> mdio function). So I agree that it should work (if reading via the AP command
->> is actually possible).
-> 
-> It seems odd you have a nice simple way to do writes, but reads are
-> very complex. There might be a simple read method hiding somewhere.
-> 
->      Andrew
-> 
-
-I agree, it IS odd :). 
-But concerning reading the phy this is all I can see in the original source code:
-
-http://lxr.free-electrons.com/source/drivers/staging/slicoss/slichw.h#L516
-
-I strongly suspect that "RPHY" stand for "read phy". The only one who may
-know for sure if there is another/better way is Christopher Harrer. He is also on CC
-but I am not sure if he actually follows this discussion.
-
-Lino
+R290IGl0LCB0aGFua3MsIEknbGwgZm9sbG93IHlvdXIgZGlzY3Vzc2lvbiB0aHJlYWQuDQoNCi0t
+LS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBUaGFkZXUgTGltYSBkZSBTb3V6YSBDYXNj
+YXJkbyBbbWFpbHRvOmNhc2NhcmRvQGNhc2NhcmRvLmV0aS5icl0gDQpTZW50OiBXZWRuZXNkYXks
+IE5vdmVtYmVyIDE2LCAyMDE2IDM6MDEgQU0NClRvOiBZYW5nLCBZaSBZIDx5aS55LnlhbmdAaW50
+ZWwuY29tPjsgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQuY29tPjsgbmV0ZGV2QHZnZXIua2VybmVs
+Lm9yZw0KQ2M6IGRldkBvcGVudnN3aXRjaC5vcmc7IFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFu
+QG5ldHJvbm9tZS5jb20+OyBlZ2FydmVyQHJlZGhhdC5jb20NClN1YmplY3Q6IFJlOiBbb3ZzLWRl
+dl0gW1BBVENIIG5ldC1uZXh0IHYxMyAwLzhdIG9wZW52c3dpdGNoOiBzdXBwb3J0IGZvciBsYXll
+ciAzIGVuY2Fwc3VsYXRlZCBwYWNrZXRzDQoNCk9uIE5vdmVtYmVyIDE1LCAyMDE2IDExOjU3OjIx
+IEFNIEdNVC0wMjowMCwgIllhbmcsIFlpIFkiIDx5aS55LnlhbmdAaW50ZWwuY29tPiB3cm90ZToN
+Cj5IaSwgSmlyaQ0KPg0KPkknbSB2ZXJ5IGdsYWQgdG8gc2VlIHlvdSdyZSBjb250aW51aW5nIHRo
+aXMgd29yayA6LSksIEkgYXNrZWQgU2ltb24gDQo+YWJvdXQgdGhpcyB0d2ljZSwgYnV0IG5vYm9k
+eSByZXBsaWVzLiBJIGFsc28gcmVtZW1iZXIgQ2FzY2FyZG8gaGFzIGEgDQo+cGF0Y2ggc2V0IHRv
+IGNvbGxhYm9yYXRlIHdpdGggdGhpcyBwYXRjaCBzZXQsIEkgYXNrZWQgQ2FzY2FyZG8sIGJ1dCAN
+Cj5ub2JvZHkgcmVzcG9uZHMsIHdpbGwgeW91IGNvbnRpbnVlIHRvIGRvIENhc2NhcmRvJ3MgIiBj
+cmVhdGUgdHVubmVsIA0KPmRldmljZXMgdXNpbmcgcnRuZXRsaW5rIGludGVyZmFjZSIgcGF0Y2gg
+c2V0PyBJIHRlc3QgdGhlIG9sZCBvbmUgdjMsIA0KPnRoYXQgY2FuIHdvcmsgd2l0aCB2eGxhbiBt
+b2R1bGUgaW4ga2VybmVsLCBidXQgaWYgSSBidWlsZCBvdnMgd2l0aCANCj5vcHRpb24gIiAtLXdp
+dGgtbGludXg9L2xpYi9tb2R1bGVzL2B1bmFtZSAtcmAvYnVpbGQiLCBvdnMgdnhsYW4gbW9kdWxl
+IA0KPmlzIGJ1aWx0IGluIHZwb3J0X3Z4bGFuIG1vZHVsZSwgd2hlbiBJIGNyZWF0ZSB2eGxhbi1n
+cGUgcG9ydCwga2VybmVsIA0KPndpbGwgYXV0b21hdGljYWxseSBsb2FkIHZ4bGFuIG1vZHVsZSBp
+biB0aGUga2VybmVsIGluc3RlYWQgb2YgdXNpbmcgdGhlIA0KPkFQSXMgaW4gdnBvcnRfdnhsYW4g
+bW9kdWxlLg0KPg0KPkNhc2NhcmRvLCBhcmUgeW91IHN0aWxsIHdvcmtpbmcgb24gdGhpcz8NCj4N
+Cj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IG5ldGRldi1vd25lckB2Z2VyLmtl
+cm5lbC5vcmcNCj5bbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFs
+ZiBPZiBKaXJpIEJlbmMNCj5TZW50OiBUaHVyc2RheSwgTm92ZW1iZXIgMTAsIDIwMTYgMTE6Mjgg
+UE0NCj5UbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPkNjOiBkZXZAb3BlbnZzd2l0Y2gub3Jn
+OyBQcmF2aW4gU2hlbGFyIDxwc2hlbGFyQG92bi5vcmc+OyBMb3JhbmQgSmFrYWIgDQo+PGxvamFr
+YWJAY2lzY28uY29tPjsgU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4N
+Cj5TdWJqZWN0OiBbUEFUQ0ggbmV0LW5leHQgdjEzIDAvOF0gb3BlbnZzd2l0Y2g6IHN1cHBvcnQg
+Zm9yIGxheWVyIDMgDQo+ZW5jYXBzdWxhdGVkIHBhY2tldHMNCj4NCj5BdCB0aGUgY29yZSBvZiB0
+aGlzIHBhdGNoIHNldCBpcyByZW1vdmluZyB0aGUgYXNzdW1wdGlvbiBpbiBPcGVuIA0KPnZTd2l0
+Y2ggZGF0YXBhdGggdGhhdCBhbGwgcGFja2V0cyBoYXZlIEV0aGVybmV0IGhlYWRlci4NCj4NCj5U
+aGUgaW1wbGVtZW50YXRpb24gcmVsaWVzIG9uIHRoZSBwcmVzZW5jZSBvZiBwb3BfZXRoIGFuZCBw
+dXNoX2V0aCANCj5hY3Rpb25zIGluIGRhdGFwYXRoIGZsb3dzIHRvIGZhY2lsaXRhdGUgYWRkaW5n
+IGFuZCByZW1vdmluZyBFdGhlcm5ldCANCj5oZWFkZXJzIGFzIGFwcHJvcHJpYXRlLiBUaGUgY29u
+c3RydWN0aW9uIG9mIHN1Y2ggZmxvd3MgaXMgbGVmdCB1cCB0byANCj51c2VyLXNwYWNlLg0KPg0K
+PlRoaXMgc2VyaWVzIGlzIGJhc2VkIG9uIHdvcmsgYnkgU2ltb24gSG9ybWFuLCBMb3JhbmQgSmFr
+YWIsIFRob21hcyANCj5Nb3JpbiBhbmQgb3RoZXJzLiBJIGtlcHQgTG9yYW5kJ3MgYW5kIFNpbW9u
+J3Mgcy1vLWIgaW4gdGhlIHBhdGNoZXMgdGhhdCANCj5hcmUgZGVyaXZlZCBmcm9tIHYxMSB0byBy
+ZWNvcmQgdGhlaXIgYXV0aG9yc2hpcCBvZiBwYXJ0cyBvZiB0aGUgY29kZS4NCj4NCj5DaGFuZ2Vz
+IGZyb20gdjEyIHRvIHYxMzoNCj4NCj4qIEFkZHJlc3NlZCBQcmF2aW4ncyBmZWVkYmFjay4NCj4q
+IFJlbW92ZWQgdGhlIEdSRSB2cG9ydCBjb252ZXJzaW9uIHBhdGNoOyBMMyBHUkUgcG9ydHMgc2hv
+dWxkIGJlIA0KPmNyZWF0ZWQgYnkNCj4gIHJ0bmV0bGluayBpbnN0ZWFkLg0KPg0KPk1haW4gY2hh
+bmdlcyBmcm9tIHYxMSB0byB2MTI6DQo+DQo+KiBUaGUgcGF0Y2hlcyB3ZXJlIHJlc3RydWN0dXJl
+ZCBhbmQgc3BsaXQgZGlmZmVyZW50bHkgZm9yIGVhc2llciANCj5yZXZpZXcuDQo+KiBUaGV5IHdl
+cmUgcmViYXNlZCBhbmQgYWRqdXN0ZWQgdG8gdGhlIGN1cnJlbnQgbmV0LW5leHQuIEVzcGVjaWFs
+bHkgDQo+TVBMUyBoYW5kbGluZyBpcyBkaWZmZXJlbnQgKGFuZCBlYXNpZXIpIHRoYW5rcyB0byB0
+aGUgcmVjZW50IE1QTFMgR1NPIA0KPnJld29yay4NCj4qIFNldmVyYWwgYnVncyB3ZXJlIGRpc2Nv
+dmVyZWQgYW5kIGZpeGVkLiBUaGUgbW9zdCBub3RhYmxlIGlzIGZyYWdtZW50DQo+aGFuZGxpbmc6
+IGhlYWRlciBhZGp1c3RtZW50IGZvciBBUlBIUkRfTk9ORSBkZXZpY2VzIG9uIHR4IG5lZWRzIHRv
+IGJlIA0KPmRvbmUgYWZ0ZXIgcmVmcmFnbWVudGF0aW9uLCBub3QgYmVmb3JlIGl0LiBUaGlzIHJl
+cXVpcmVkIHNpZ25pZmljYW50IA0KPmNoYW5nZXMgaW4gdGhlIHBhdGNoc2V0LiBBbm90aGVyIG9u
+ZSBpcyBzdHJpY3RlciBjaGVja2luZyBvZiBhdHRyaWJ1dGVzIA0KPihtYXRjaCBvbg0KPkwyDQo+
+ICB2cy4gTDMgcGFja2V0KSBhdCB0aGUga2VybmVsIGxldmVsLg0KPiogSW5zdGVhZCBvZiBpc19s
+YXllcjMgYm9vbCwgYSBtYWNfcHJvdG8gZmllbGQgaXMgdXNlZC4NCj4NCj5KaXJpIEJlbmMgKDgp
+Og0KPiAgb3BlbnZzd2l0Y2g6IHVzZSBoYXJkX2hlYWRlcl9sZW4gaW5zdGVhZCBvZiBoYXJkY29k
+ZWQgRVRIX0hMRU4NCj4gIG9wZW52c3dpdGNoOiBhZGQgbWFjX3Byb3RvIGZpZWxkIHRvIHRoZSBm
+bG93IGtleQ0KPiAgb3BlbnZzd2l0Y2g6IHBhc3MgbWFjX3Byb3RvIHRvIG92c192cG9ydF9zZW5k
+DQo+ICBvcGVudnN3aXRjaDogc3VwcG9ydCBNUExTIHB1c2ggYW5kIHBvcCBmb3IgTDMgcGFja2V0
+cw0KPiAgb3BlbnZzd2l0Y2g6IGFkZCBwcm9jZXNzaW5nIG9mIEwzIHBhY2tldHMNCj4gIG9wZW52
+c3dpdGNoOiBuZXRsaW5rOiBzdXBwb3J0IEwzIHBhY2tldHMNCj4gIG9wZW52c3dpdGNoOiBhZGQg
+RXRoZXJuZXQgcHVzaCBhbmQgcG9wIGFjdGlvbnMNCj4gIG9wZW52c3dpdGNoOiBhbGxvdyBMMyBu
+ZXRkZXYgcG9ydHMNCj4NCj4gaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCAgMTUg
+KysrKw0KPiBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8IDExMSArKysrKysrKysr
+KysrKysrKy0tLS0tLS0NCj4gbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgICAgICAgfCAgMTMg
+Ky0tDQo+IG5ldC9vcGVudnN3aXRjaC9mbG93LmMgICAgICAgICAgIHwgMTA1ICsrKysrKysrKysr
+KysrKysrLS0tLS0tDQo+IG5ldC9vcGVudnN3aXRjaC9mbG93LmggICAgICAgICAgIHwgIDIyICsr
+KysrDQo+bmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jICAgfCAxNzkNCj4rKysrKysrKysr
+KysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0NCj4gbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5l
+dGRldi5jICAgfCAgIDkgKy0NCj4gbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMgICAgICAgICAgfCAg
+MzEgKysrKystLQ0KPiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQuaCAgICAgICAgICB8ICAgMiArLQ0K
+PiA5IGZpbGVzIGNoYW5nZWQsIDM1MyBpbnNlcnRpb25zKCspLCAxMzQgZGVsZXRpb25zKC0pDQo+
+DQo+LS0NCj4xLjguMy4xDQo+DQo+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18NCj5kZXYgbWFpbGluZyBsaXN0DQo+ZGV2QG9wZW52c3dpdGNoLm9yZw0KPmh0
+dHBzOi8vbWFpbC5vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9vdnMtZGV2DQoNCkhp
+Lg0KDQpJIGFtIHN0aWxsIHdvcmtpbmcgb24gdGhpcy4gSnVzdCBzZWUgbXkgcmVjZW50IGRpc2N1
+c3Npb24gd2l0aCBQcmF2aW4gYWJvdXQgdGhlIHdheSB0byBzdXBwb3J0IG91dCBvZiB0cmVlIGRy
+aXZlcnMuIElmIHlvdSBoYXZlIGFueSBvcGluaW9uIG9uIHRoYXQsIHBsZWFzZSBzaGFyZSBvbiB0
+aGF0IHRocmVhZCwgcHJlZmVyYWJseSB3aXRoIGEgcGF0Y2guIEl0J3MgbGlrZWx5IHRoYXQgRXJp
+YyBHYXJ2ZXIgd2lsbCB0YWtlIHRoaXMgdGFzayBhcyBoZSB3YXMgYWxyZWFkeSB3b3JraW5nIHdp
+dGggbWUuDQoNCkNhc2NhcmRvLg0K
