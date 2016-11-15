@@ -1,50 +1,117 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: linux-next: BUG: unable to handle kernel NULL pointer
- dereference in __sk_mem_raise_allocated()
-Date: Tue, 15 Nov 2016 09:57:19 +0100
-Message-ID: <1479200239.4660.3.camel@redhat.com>
-References: <CANaxB-yCk8hhP68L4Q2nFOJht8sqgXGGQO2AftpHs0u1xyGG5A@mail.gmail.com>
-         <1479166501.8455.91.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CANaxB-yYy1vstc-D6GAD=HKjHy68UHQvVukXQSf02MjMvhSxhw@mail.gmail.com>
-         <1479169886.8455.111.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrei Vagin <avagin@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53922 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755456AbcKOI5V (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 03:57:21 -0500
-In-Reply-To: <1479169886.8455.111.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf-next 2/2] ipvs: Decrement ttl
+Date: Tue, 15 Nov 2016 10:01:43 +0100
+Message-ID: <1479200503-25842-3-git-send-email-horms@verge.net.au>
+References: <1479200503-25842-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Julian Anastasov <ja@ssi.bg>,
+        Dwip Banerjee <dwip@linux.vnet.ibm.com>,
+        Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1479200503-25842-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-11-14 at 16:31 -0800, Eric Dumazet wrote:
-> On Mon, 2016-11-14 at 15:58 -0800, Andrei Vagin wrote:
-> 
-> > 
-> > Yes, you are right. It works if we set .memory_allocated and .sysctl_mem.
-> 
-> Now the question would be :
-> 
-> Are we okay if UDP and UDPlite share the same limits ?
-> 
-> I would vote for yes, because these default limits are huge anyway
-> (The 50% reduction done in
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=b66e91ccbc34ebd5a2f90f9e1bc1597e2924a500
-> only impacted TCP )
+From: Dwip Banerjee <dwip@linux.vnet.ibm.com>
 
-Thank you for jumping on this so early!
+We decrement the IP ttl in all the modes in order to prevent infinite
+route loops. The changes were done based on Julian Anastasov's
+suggestions in a prior thread.
 
-I'm sorry for the udplite left over: my fault.
+The ttl based check/discard and the actual decrement are done in
+__ip_vs_get_out_rt() and in __ip_vs_get_out_rt_v6(), for the IPv6
+case. decrement_ttl() implements the actual functionality for the
+two cases.
 
-I agree with sharing the limits between UDP and UDPlite. I think that
-the current ones are so high we can apply also a similar reduction to
-UDP (and SCTP, too)
+Signed-off-by: Dwip Banerjee <dwip@linux.vnet.ibm.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_xmit.c | 54 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
 
-Cheers,
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 01d3d894de46..4e1a98fcc8c3 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -254,6 +254,54 @@ static inline bool ensure_mtu_is_adequate(struct netns_ipvs *ipvs, int skb_af,
+ 	return true;
+ }
+ 
++static inline bool decrement_ttl(struct netns_ipvs *ipvs,
++				 int skb_af,
++				 struct sk_buff *skb)
++{
++	struct net *net = ipvs->net;
++
++#ifdef CONFIG_IP_VS_IPV6
++	if (skb_af == AF_INET6) {
++		struct dst_entry *dst = skb_dst(skb);
++
++		/* check and decrement ttl */
++		if (ipv6_hdr(skb)->hop_limit <= 1) {
++			/* Force OUTPUT device used as source address */
++			skb->dev = dst->dev;
++			icmpv6_send(skb, ICMPV6_TIME_EXCEED,
++				    ICMPV6_EXC_HOPLIMIT, 0);
++			__IP6_INC_STATS(net, ip6_dst_idev(dst),
++					IPSTATS_MIB_INHDRERRORS);
++
++			return false;
++		}
++
++		/* don't propagate ttl change to cloned packets */
++		if (!skb_make_writable(skb, sizeof(struct ipv6hdr)))
++			return false;
++
++		ipv6_hdr(skb)->hop_limit--;
++	} else
++#endif
++	{
++		if (ip_hdr(skb)->ttl <= 1) {
++			/* Tell the sender its packet died... */
++			__IP_INC_STATS(net, IPSTATS_MIB_INHDRERRORS);
++			icmp_send(skb, ICMP_TIME_EXCEEDED, ICMP_EXC_TTL, 0);
++			return false;
++		}
++
++		/* don't propagate ttl change to cloned packets */
++		if (!skb_make_writable(skb, sizeof(struct iphdr)))
++			return false;
++
++		/* Decrease ttl */
++		ip_decrease_ttl(ip_hdr(skb));
++	}
++
++	return true;
++}
++
+ /* Get route to destination or remote server */
+ static int
+ __ip_vs_get_out_rt(struct netns_ipvs *ipvs, int skb_af, struct sk_buff *skb,
+@@ -326,6 +374,9 @@ __ip_vs_get_out_rt(struct netns_ipvs *ipvs, int skb_af, struct sk_buff *skb,
+ 		return local;
+ 	}
+ 
++	if (!decrement_ttl(ipvs, skb_af, skb))
++		goto err_put;
++
+ 	if (likely(!(rt_mode & IP_VS_RT_MODE_TUNNEL))) {
+ 		mtu = dst_mtu(&rt->dst);
+ 	} else {
+@@ -473,6 +524,9 @@ __ip_vs_get_out_rt_v6(struct netns_ipvs *ipvs, int skb_af, struct sk_buff *skb,
+ 		return local;
+ 	}
+ 
++	if (!decrement_ttl(ipvs, skb_af, skb))
++		goto err_put;
++
+ 	/* MTU checking */
+ 	if (likely(!(rt_mode & IP_VS_RT_MODE_TUNNEL)))
+ 		mtu = dst_mtu(&rt->dst);
+-- 
+2.7.0.rc3.207.g0ac5344
 
-Paolo
