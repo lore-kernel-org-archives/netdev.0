@@ -1,35 +1,146 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [1/1] ath10k: use the right length of "background"
-Date: Tue, 15 Nov 2016 16:07:56 +0100
-Message-ID: <67898e02d2c1489b84cd0c85517445dc@euamsexm01a.eu.qualcomm.com>
-References: <20161029111737.19034-1-nicolas.iooss_linux@m4x.org>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH net-next 1/1] ipv6: sr: add option to control lwtunnel support
+Date: Tue, 15 Nov 2016 16:14:04 +0100
+Message-ID: <1479222844-20301-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <ath10k@lists.infradead.org>, <netdev@vger.kernel.org>,
-        <linux-wireless@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        "Nicolas Iooss" <nicolas.iooss_linux@m4x.org>
-To: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161029111737.19034-1-nicolas.iooss_linux@m4x.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <lorenzo@google.com>, <davem@davemloft.net>,
+        <roopa@cumulusnetworks.com>,
+        David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:42101 "EHLO
+        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932406AbcKOPMQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 10:12:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nicolas Iooss <nicolas.iooss_linux@m4x.org> wrote:
-> The word "background" contains 10 characters so the third argument of
-> strncmp() need to be 10 in order to match this prefix correctly.
-> 
-> Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-> Fixes: 855aed1220d2 ("ath10k: add spectral scan feature")
+This patch adds a new option CONFIG_IPV6_SEG6_LWTUNNEL to enable/disable
+support of encapsulation with the lightweight tunnels. When this option
+is enabled, CONFIG_LWTUNNEL is automatically selected.
 
-Patch applied to ath-next branch of ath.git, thanks.
+Fix commit 6c8702c60b88 ("ipv6: sr: add support for SRH encapsulation and injection with lwtunnels")
 
-31b239824ece ath10k: use the right length of "background"
+Without a proper option to control lwtunnel support for SR-IPv6, if
+CONFIG_LWTUNNEL=n then the IPv6 initialization fails as a consequence
+of seg6_iptunnel_init() failure with EOPNOTSUPP:
 
+NET: Registered protocol family 10
+IPv6: Attempt to unregister permanent protocol 6
+IPv6: Attempt to unregister permanent protocol 136
+IPv6: Attempt to unregister permanent protocol 17
+NET: Unregistered protocol family 10
+
+Tested (compiling, booting, and loading ipv6 module when relevant)
+with possible combinations of CONFIG_IPV6={y,m,n},
+CONFIG_IPV6_SEG6_LWTUNNEL={y,n} and CONFIG_LWTUNNEL={y,n}.
+
+Reported-by: Lorenzo Colitti <lorenzo@google.com>
+Suggested-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+---
+ net/ipv6/Kconfig  | 13 ++++++++++++-
+ net/ipv6/Makefile |  5 +++--
+ net/ipv6/seg6.c   |  8 ++++++++
+ 3 files changed, 23 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index 0f00811..ec1267e 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -289,9 +289,20 @@ config IPV6_PIMSM_V2
+ 	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
+ 	  If unsure, say N.
+ 
++config IPV6_SEG6_LWTUNNEL
++	bool "IPv6: Segment Routing Header encapsulation support"
++	depends on IPV6
++	select LWTUNNEL
++	---help---
++	  Support for encapsulation of packets within an outer IPv6
++	  header and a Segment Routing Header using the lightweight
++	  tunnels mechanism.
++
++	  If unsure, say N.
++
+ config IPV6_SEG6_INLINE
+ 	bool "IPv6: direct Segment Routing Header insertion "
+-	depends on IPV6
++	depends on IPV6_SEG6_LWTUNNEL
+ 	---help---
+ 	  Support for direct insertion of the Segment Routing Header,
+ 	  also known as inline mode. Be aware that direct insertion of
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 129cad2..a9e9fec 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -9,7 +9,7 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
+ 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
+ 		raw.o icmp.o mcast.o reassembly.o tcp_ipv6.o ping.o \
+ 		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o \
+-		udp_offload.o seg6.o seg6_iptunnel.o
++		udp_offload.o seg6.o
+ 
+ ipv6-offload :=	ip6_offload.o tcpv6_offload.o exthdrs_offload.o
+ 
+@@ -23,6 +23,8 @@ ipv6-$(CONFIG_IPV6_MULTIPLE_TABLES) += fib6_rules.o
+ ipv6-$(CONFIG_PROC_FS) += proc.o
+ ipv6-$(CONFIG_SYN_COOKIES) += syncookies.o
+ ipv6-$(CONFIG_NETLABEL) += calipso.o
++ipv6-$(CONFIG_IPV6_SEG6_LWTUNNEL) += seg6_iptunnel.o
++ipv6-$(CONFIG_IPV6_SEG6_HMAC) += seg6_hmac.o
+ 
+ ipv6-objs += $(ipv6-y)
+ 
+@@ -44,7 +46,6 @@ obj-$(CONFIG_IPV6_SIT) += sit.o
+ obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
+ obj-$(CONFIG_IPV6_GRE) += ip6_gre.o
+ obj-$(CONFIG_IPV6_FOU) += fou6.o
+-obj-$(CONFIG_IPV6_SEG6_HMAC) += seg6_hmac.o
+ 
+ obj-y += addrconf_core.o exthdrs_core.o ip6_checksum.o ip6_icmp.o
+ obj-$(CONFIG_INET) += output_core.o protocol.o $(ipv6-offload)
+diff --git a/net/ipv6/seg6.c b/net/ipv6/seg6.c
+index 50f6e06..b172d85 100644
+--- a/net/ipv6/seg6.c
++++ b/net/ipv6/seg6.c
+@@ -451,9 +451,11 @@ int __init seg6_init(void)
+ 	if (err)
+ 		goto out_unregister_genl;
+ 
++#ifdef CONFIG_IPV6_SEG6_LWTUNNEL
+ 	err = seg6_iptunnel_init();
+ 	if (err)
+ 		goto out_unregister_pernet;
++#endif
+ 
+ #ifdef CONFIG_IPV6_SEG6_HMAC
+ 	err = seg6_hmac_init();
+@@ -467,10 +469,14 @@ int __init seg6_init(void)
+ 	return err;
+ #ifdef CONFIG_IPV6_SEG6_HMAC
+ out_unregister_iptun:
++#ifdef CONFIG_IPV6_SEG6_LWTUNNEL
+ 	seg6_iptunnel_exit();
+ #endif
++#endif
++#ifdef CONFIG_IPV6_SEG6_LWTUNNEL
+ out_unregister_pernet:
+ 	unregister_pernet_subsys(&ip6_segments_ops);
++#endif
+ out_unregister_genl:
+ 	genl_unregister_family(&seg6_genl_family);
+ 	goto out;
+@@ -481,7 +487,9 @@ void seg6_exit(void)
+ #ifdef CONFIG_IPV6_SEG6_HMAC
+ 	seg6_hmac_exit();
+ #endif
++#ifdef CONFIG_IPV6_SEG6_LWTUNNEL
+ 	seg6_iptunnel_exit();
++#endif
+ 	unregister_pernet_subsys(&ip6_segments_ops);
+ 	genl_unregister_family(&seg6_genl_family);
+ }
 -- 
-https://patchwork.kernel.org/patch/9403561/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+2.7.3
