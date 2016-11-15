@@ -1,103 +1,194 @@
-From: =?UTF-8?Q?Vicente_Jim=C3=A9nez?= <googuy@gmail.com>
-Subject: Re: [PATCH] icmp: Restore resistence to abnormal messages
-Date: Tue, 15 Nov 2016 20:32:49 +0100
-Message-ID: <CAO1wt+aZjRE_KTY0iRNJryeHvehrK6kuGMn6wOOeFuT1ncpPxA@mail.gmail.com>
-References: <20161111202018.13795-1-googuy@gmail.com> <20161114.133646.1687576478968660327.davem@davemloft.net>
- <CAO1wt+b4OkJ4DmJ7_hUj_oKj4p_rRMuKUVpiBY7MSFMa=0WKQg@mail.gmail.com>
- <20161115.115657.798577230951109692.davem@redhat.com> <20161115173024.GD30581@breakpoint.cc>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
+ and fix call ordering
+Date: Tue, 15 Nov 2016 20:51:07 +0100
+Message-ID: <20161115195107.GB1783@nanopsycho.orion>
+References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@redhat.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161115173024.GD30581@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+        Jiri Pirko <jiri@mellanox.com>, davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33529 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752979AbcKOTvK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 14:51:10 -0500
+Received: by mail-wm0-f65.google.com with SMTP id u144so3529195wmu.0
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 11:51:10 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I agree that both patches try to solve the same problem in a very similar w=
-ay.
-Florian Westphal's patch do two more things:
-1- add warning with pr_warn_ratelimited. I like this idea. I also
-though about adding some message but I have no kernel experience and I
-preferred to have just a working solution.
-2- Check if the packet size is lower than (536 + 8). I think this is
-not necessary because low values (even the zero case) is already
-handled by the protocol. Also I don't understand why you choose this
-value, it seems to be related to TCP MSS and the compared value is IP
-packet size.
-
-Finally, both patches decrement current packet by a value: Mine by 2
-and Florian's by 8 bytes. Both arbitrary values. Personally I prefer
-to go by small steps. If the small step fails, it just iterate again
-and with 4 iterations, my patch also decrement the original value by 8
-bytes (4x2).
-Basically they are the same but my patch take smaller steps and miss
-the warning message.
-
-If David Miller thinks this could be a good addition, I'll add the
-warning message to my patch.
-
-We can also discuss the amount to subtract.
-
-On Tue, Nov 15, 2016 at 6:30 PM, Florian Westphal <fw@strlen.de> wrote:
-> David Miller <davem@redhat.com> wrote:
->> From: Vicente Jim=C3=A9nez <googuy@gmail.com>
->> Date: Tue, 15 Nov 2016 17:49:43 +0100
->>
->> > On Mon, Nov 14, 2016 at 7:36 PM, David Miller <davem@davemloft.net> wr=
-ote:
->> >> From: Vicente Jimenez Aguilar <googuy@gmail.com>
->> >> Date: Fri, 11 Nov 2016 21:20:18 +0100
->> >>
->> >>> @@ -819,6 +820,12 @@ static bool icmp_unreach(struct sk_buff *skb)
->> >>>                               /* fall through */
->> >>>                       case 0:
->> >>>                               info =3D ntohs(icmph->un.frag.mtu);
->> >>> +                             /* Handle weird case where next hop MT=
-U is
->> >>> +                              * equal to or exceeding dropped packe=
-t size
->> >>> +                              */
->> >>> +                             old_mtu =3D ntohs(iph->tot_len);
->> >>> +                             if (info >=3D old_mtu)
->> >>> +                                     info =3D old_mtu - 2;
->> >>
->> >> This isn't something the old code did.
->> >>
->> >> The old code behaved much differently.
->> >>
->> > I don't wanted to restore old behavior just fix a strange case that
->> > was handle by this code where the next hop MTU reported by the router
->> > is equal or greater than the actual path MTU. Because router
->> > information is wrong, we need a way to guess a good packet size
->> > ignoring router data. The simplest strategy that avoid odd numbers is
->> > reducing dropped packet size by 2.
->>
->> This whole approach seems arbitrary.
->>
->> You haven't discussed in any way, what causes this in the first place.
->> And what about that cause makes simply subtracting by 2 work well or
->> not.
->>
->> You have a very locallized, specific, situation on your end you want
->> to fix.  But we must accept changes that handle things generically and
->> in a way that would help more than just your specific case.
+Tue, Nov 15, 2016 at 11:46:06AM CET, alexander.h.duyck@intel.com wrote:
+>The patch that removed the FIB offload infrastructure was a bit too
+>aggressive and also removed code needed to clean up us splitting the table
+>if additional rules were added.  Specifically the function
+>fib_trie_flush_external was called at the end of a new rule being added to
+>flush the foreign trie entries from the main trie.
 >
-> FWIW this is similar to the patch I sent a while ago:
+>I updated the code so that we only call fib_trie_flush_external on the main
+>table so that we flush the entries for local from main.  This way we don't
+>call it for every rule change which is what was happening previously.
+
+Well, the function was introduced by:
+
+commit 104616e74e0b464d449fdd2ee2f547d2fad71610
+Author: Scott Feldman <sfeldma@gmail.com>
+Date:   Thu Mar 5 21:21:16 2015 -0800
+
+    switchdev: don't support custom ip rules, for now
+    
+    Keep switchdev FIB offload model simple for now and don't allow custom ip
+    rules.
+
+Why this was not needed before? What changed in between:
+104616e74e0b464d449fdd2ee2f547d2fad71610 ("switchdev: don't support custom ip rules, for now")
+and
+347e3b28c1ba2 ("switchdev: remove FIB offload infrastructure")
+
+
+?
+
+
 >
-> https://patchwork.ozlabs.org/patch/493997/
+>Fixes: 347e3b28c1ba2 ("switchdev: remove FIB offload infrastructure")
+>Reported-by: Eric Dumazet <edumazet@google.com>
+>Cc: Jiri Pirko <jiri@mellanox.com>
+>Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>---
+> include/net/ip_fib.h    |    1 +
+> net/ipv4/fib_frontend.c |   20 +++++++++++---
+> net/ipv4/fib_trie.c     |   65 +++++++++++++++++++++++++++++++++++++++++++++++
+> 3 files changed, 81 insertions(+), 5 deletions(-)
 >
-> I think in interest of robustness principle ("eat shit and don't die")
-> one of these changes should go in :-|
-
-
-
---=20
-saludos
-vicente
+>diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+>index b9314b4..f390c3b 100644
+>--- a/include/net/ip_fib.h
+>+++ b/include/net/ip_fib.h
+>@@ -243,6 +243,7 @@ int fib_table_dump(struct fib_table *table, struct sk_buff *skb,
+> 		   struct netlink_callback *cb);
+> int fib_table_flush(struct net *net, struct fib_table *table);
+> struct fib_table *fib_trie_unmerge(struct fib_table *main_tb);
+>+void fib_table_flush_external(struct fib_table *table);
+> void fib_free_table(struct fib_table *tb);
+> 
+> #ifndef CONFIG_IP_MULTIPLE_TABLES
+>diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+>index c3b8047..161fc0f 100644
+>--- a/net/ipv4/fib_frontend.c
+>+++ b/net/ipv4/fib_frontend.c
+>@@ -151,7 +151,7 @@ static void fib_replace_table(struct net *net, struct fib_table *old,
+> 
+> int fib_unmerge(struct net *net)
+> {
+>-	struct fib_table *old, *new;
+>+	struct fib_table *old, *new, *main_table;
+> 
+> 	/* attempt to fetch local table if it has been allocated */
+> 	old = fib_get_table(net, RT_TABLE_LOCAL);
+>@@ -162,11 +162,21 @@ int fib_unmerge(struct net *net)
+> 	if (!new)
+> 		return -ENOMEM;
+> 
+>+	/* table is already unmerged */
+>+	if (new == old)
+>+		return 0;
+>+
+> 	/* replace merged table with clean table */
+>-	if (new != old) {
+>-		fib_replace_table(net, old, new);
+>-		fib_free_table(old);
+>-	}
+>+	fib_replace_table(net, old, new);
+>+	fib_free_table(old);
+>+
+>+	/* attempt to fetch main table if it has been allocated */
+>+	main_table = fib_get_table(net, RT_TABLE_MAIN);
+>+	if (!main_table)
+>+		return 0;
+>+
+>+	/* flush local entries from main table */
+>+	fib_table_flush_external(main_table);
+> 
+> 	return 0;
+> }
+>diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+>index 4cff74d..735edc9 100644
+>--- a/net/ipv4/fib_trie.c
+>+++ b/net/ipv4/fib_trie.c
+>@@ -1760,6 +1760,71 @@ struct fib_table *fib_trie_unmerge(struct fib_table *oldtb)
+> 	return NULL;
+> }
+> 
+>+/* Caller must hold RTNL */
+>+void fib_table_flush_external(struct fib_table *tb)
+>+{
+>+	struct trie *t = (struct trie *)tb->tb_data;
+>+	struct key_vector *pn = t->kv;
+>+	unsigned long cindex = 1;
+>+	struct hlist_node *tmp;
+>+	struct fib_alias *fa;
+>+
+>+	/* walk trie in reverse order */
+>+	for (;;) {
+>+		unsigned char slen = 0;
+>+		struct key_vector *n;
+>+
+>+		if (!(cindex--)) {
+>+			t_key pkey = pn->key;
+>+
+>+			/* cannot resize the trie vector */
+>+			if (IS_TRIE(pn))
+>+				break;
+>+
+>+			/* resize completed node */
+>+			pn = resize(t, pn);
+>+			cindex = get_index(pkey, pn);
+>+
+>+			continue;
+>+		}
+>+
+>+		/* grab the next available node */
+>+		n = get_child(pn, cindex);
+>+		if (!n)
+>+			continue;
+>+
+>+		if (IS_TNODE(n)) {
+>+			/* record pn and cindex for leaf walking */
+>+			pn = n;
+>+			cindex = 1ul << n->bits;
+>+
+>+			continue;
+>+		}
+>+
+>+		hlist_for_each_entry_safe(fa, tmp, &n->leaf, fa_list) {
+>+			/* if alias was cloned to local then we just
+>+			 * need to remove the local copy from main
+>+			 */
+>+			if (tb->tb_id != fa->tb_id) {
+>+				hlist_del_rcu(&fa->fa_list);
+>+				alias_free_mem_rcu(fa);
+>+				continue;
+>+			}
+>+
+>+			/* record local slen */
+>+			slen = fa->fa_slen;
+>+		}
+>+
+>+		/* update leaf slen */
+>+		n->slen = slen;
+>+
+>+		if (hlist_empty(&n->leaf)) {
+>+			put_child_root(pn, n->key, NULL);
+>+			node_free(n);
+>+		}
+>+	}
+>+}
+>+
+> /* Caller must hold RTNL. */
+> int fib_table_flush(struct net *net, struct fib_table *tb)
+> {
+>
