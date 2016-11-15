@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 for-next 10/11] IB/hns: Implement the add_gid/del_gid and optimize the GIDs management
-Date: Tue, 15 Nov 2016 18:10:52 +0000
-Message-ID: <20161115181053.399568-11-salil.mehta@huawei.com>
+Subject: [PATCH V2 for-next 11/11] IB/hns: Fix for Checkpatch.pl comment style errors
+Date: Tue, 15 Nov 2016 18:10:53 +0000
+Message-ID: <20161115181053.399568-12-salil.mehta@huawei.com>
 References: <20161115181053.399568-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,418 +11,322 @@ Cc: <salil.mehta@huawei.com>, <xavier.huwei@huawei.com>,
         <linux-rdma@vger.kernel.org>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:33013 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752742AbcKOSMg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 13:12:36 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161115181053.399568-1-salil.mehta@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaobo Xu <xushaobo2@huawei.com>
+This patch correct the comment style errors caught by
+checkpatch.pl script
 
-IB core has implemented the calculation of GIDs and the management
-of GID tables, and it is now responsible to supply query function
-for GIDs. So the calculation of GIDs and the management of GID
-tables in the RoCE driver is redundant.
-
-The patch is to implement the add_gid/del_gid to set the GIDs in
-the RoCE driver, remove the redundant calculation and management of
-GIDs in the notifier call of the net device and the inet, and
-update the query_gid.
-
-Signed-off-by: Shaobo Xu <xushaobo2@huawei.com>
-Reviewed-by: Wei Hu (Xavier) <xavier.huwei@huawei.com>
 Signed-off-by: Salil Mehta  <salil.mehta@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_device.h |    2 -
- drivers/infiniband/hw/hns/hns_roce_main.c   |  270 +++++----------------------
- 2 files changed, 48 insertions(+), 224 deletions(-)
+ drivers/infiniband/hw/hns/hns_roce_cmd.c    |    8 ++--
+ drivers/infiniband/hw/hns/hns_roce_device.h |   28 ++++++-------
+ drivers/infiniband/hw/hns/hns_roce_eq.c     |    6 +--
+ drivers/infiniband/hw/hns/hns_roce_hem.c    |    6 +--
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c  |   58 +++++++++++++--------------
+ drivers/infiniband/hw/hns/hns_roce_main.c   |   28 ++++++-------
+ 6 files changed, 67 insertions(+), 67 deletions(-)
 
+diff --git a/drivers/infiniband/hw/hns/hns_roce_cmd.c b/drivers/infiniband/hw/hns/hns_roce_cmd.c
+index 2a0b6c0..8c1f7a6 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_cmd.c
++++ b/drivers/infiniband/hw/hns/hns_roce_cmd.c
+@@ -216,10 +216,10 @@ static int __hns_roce_cmd_mbox_wait(struct hns_roce_dev *hr_dev, u64 in_param,
+ 		goto out;
+ 
+ 	/*
+-	* It is timeout when wait_for_completion_timeout return 0
+-	* The return value is the time limit set in advance
+-	* how many seconds showing
+-	*/
++	 * It is timeout when wait_for_completion_timeout return 0
++	 * The return value is the time limit set in advance
++	 * how many seconds showing
++	 */
+ 	if (!wait_for_completion_timeout(&context->done,
+ 					 msecs_to_jiffies(timeout))) {
+ 		dev_err(dev, "[cmd]wait_for_completion_timeout timeout\n");
 diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index 593a42a..9ef1cc3 100644
+index 9ef1cc3..e48464d 100644
 --- a/drivers/infiniband/hw/hns/hns_roce_device.h
 +++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -429,8 +429,6 @@ struct hns_roce_ib_iboe {
- 	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
- 	struct notifier_block	nb;
- 	struct notifier_block	nb_inet;
--	/* 16 GID is shared by 6 port in v1 engine. */
--	union ib_gid		gid_table[HNS_ROCE_MAX_GID_NUM];
- 	u8			phy_port[HNS_ROCE_MAX_PORTS];
+@@ -201,9 +201,9 @@ struct hns_roce_bitmap {
+ /* Order = 0: bitmap is biggest, order = max bitmap is least (only a bit) */
+ /* Every bit repesent to a partner free/used status in bitmap */
+ /*
+-* Initial, bits of other bitmap are all 0 except that a bit of max_order is 1
+-* Bit = 1 represent to idle and available; bit = 0: not available
+-*/
++ * Initial, bits of other bitmap are all 0 except that a bit of max_order is 1
++ * Bit = 1 represent to idle and available; bit = 0: not available
++ */
+ struct hns_roce_buddy {
+ 	/* Members point to every order level bitmap */
+ 	unsigned long **bits;
+@@ -365,25 +365,25 @@ struct hns_roce_cmdq {
+ 	struct mutex		hcr_mutex;
+ 	struct semaphore	poll_sem;
+ 	/*
+-	* Event mode: cmd register mutex protection,
+-	* ensure to not exceed max_cmds and user use limit region
+-	*/
++	 * Event mode: cmd register mutex protection,
++	 * ensure to not exceed max_cmds and user use limit region
++	 */
+ 	struct semaphore	event_sem;
+ 	int			max_cmds;
+ 	spinlock_t		context_lock;
+ 	int			free_head;
+ 	struct hns_roce_cmd_context *context;
+ 	/*
+-	* Result of get integer part
+-	* which max_comds compute according a power of 2
+-	*/
++	 * Result of get integer part
++	 * which max_comds compute according a power of 2
++	 */
+ 	u16			token_mask;
+ 	/*
+-	* Process whether use event mode, init default non-zero
+-	* After the event queue of cmd event ready,
+-	* can switch into event mode
+-	* close device, switch into poll mode(non event mode)
+-	*/
++	 * Process whether use event mode, init default non-zero
++	 * After the event queue of cmd event ready,
++	 * can switch into event mode
++	 * close device, switch into poll mode(non event mode)
++	 */
+ 	u8			use_events;
+ 	u8			toggle;
  };
+diff --git a/drivers/infiniband/hw/hns/hns_roce_eq.c b/drivers/infiniband/hw/hns/hns_roce_eq.c
+index 21e21b0..50f8649 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_eq.c
++++ b/drivers/infiniband/hw/hns/hns_roce_eq.c
+@@ -371,9 +371,9 @@ static int hns_roce_aeq_ovf_int(struct hns_roce_dev *hr_dev,
+ 	int i = 0;
  
+ 	/**
+-	* AEQ overflow ECC mult bit err CEQ overflow alarm
+-	* must clear interrupt, mask irq, clear irq, cancel mask operation
+-	*/
++	 * AEQ overflow ECC mult bit err CEQ overflow alarm
++	 * must clear interrupt, mask irq, clear irq, cancel mask operation
++	 */
+ 	aeshift_val = roce_read(hr_dev, ROCEE_CAEP_AEQC_AEQE_SHIFT_REG);
+ 
+ 	if (roce_get_bit(aeshift_val,
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hem.c b/drivers/infiniband/hw/hns/hns_roce_hem.c
+index 250d8f2..c5104e0 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hem.c
++++ b/drivers/infiniband/hw/hns/hns_roce_hem.c
+@@ -80,9 +80,9 @@ struct hns_roce_hem *hns_roce_alloc_hem(struct hns_roce_dev *hr_dev, int npages,
+ 			--order;
+ 
+ 		/*
+-		* Alloc memory one time. If failed, don't alloc small block
+-		* memory, directly return fail.
+-		*/
++		 * Alloc memory one time. If failed, don't alloc small block
++		 * memory, directly return fail.
++		 */
+ 		mem = &chunk->mem[chunk->npages];
+ 		buf = dma_alloc_coherent(&hr_dev->pdev->dev, PAGE_SIZE << order,
+ 				&sg_dma_address(mem), gfp_mask);
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+index 34b7898..125ab90 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+@@ -1352,9 +1352,9 @@ static void __hns_roce_v1_cq_clean(struct hns_roce_cq *hr_cq, u32 qpn,
+ 	}
+ 
+ 	/*
+-	* Now backwards through the CQ, removing CQ entries
+-	* that match our QP by overwriting them with next entries.
+-	*/
++	 * Now backwards through the CQ, removing CQ entries
++	 * that match our QP by overwriting them with next entries.
++	 */
+ 	while ((int) --prod_index - (int) hr_cq->cons_index >= 0) {
+ 		cqe = get_cqe(hr_cq, prod_index & hr_cq->ib_cq.cqe);
+ 		if ((roce_get_field(cqe->cqe_byte_16, CQE_BYTE_16_LOCAL_QPN_M,
+@@ -1376,9 +1376,9 @@ static void __hns_roce_v1_cq_clean(struct hns_roce_cq *hr_cq, u32 qpn,
+ 	if (nfreed) {
+ 		hr_cq->cons_index += nfreed;
+ 		/*
+-		* Make sure update of buffer contents is done before
+-		* updating consumer index.
+-		*/
++		 * Make sure update of buffer contents is done before
++		 * updating consumer index.
++		 */
+ 		wmb();
+ 
+ 		hns_roce_v1_cq_set_ci(hr_cq, hr_cq->cons_index);
+@@ -1473,7 +1473,7 @@ void hns_roce_v1_write_cqc(struct hns_roce_dev *hr_dev,
+ 	roce_set_bit(cq_context->cqc_byte_32,
+ 		     CQ_CQNTEXT_CQC_BYTE_32_TYPE_OF_COMPLETION_NOTIFICATION_S,
+ 		     0);
+-	/*The initial value of cq's ci is 0 */
++	/* The initial value of cq's ci is 0 */
+ 	roce_set_field(cq_context->cqc_byte_32,
+ 		       CQ_CONTEXT_CQC_BYTE_32_CQ_CONS_IDX_M,
+ 		       CQ_CONTEXT_CQC_BYTE_32_CQ_CONS_IDX_S, 0);
+@@ -1490,9 +1490,9 @@ int hns_roce_v1_req_notify_cq(struct ib_cq *ibcq, enum ib_cq_notify_flags flags)
+ 	notification_flag = (flags & IB_CQ_SOLICITED_MASK) ==
+ 			    IB_CQ_SOLICITED ? CQ_DB_REQ_NOT : CQ_DB_REQ_NOT_SOL;
+ 	/*
+-	* flags = 0; Notification Flag = 1, next
+-	* flags = 1; Notification Flag = 0, solocited
+-	*/
++	 * flags = 0; Notification Flag = 1, next
++	 * flags = 1; Notification Flag = 0, solocited
++	 */
+ 	doorbell[0] = hr_cq->cons_index & ((hr_cq->cq_depth << 1) - 1);
+ 	roce_set_bit(doorbell[1], ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_HW_SYNS_S, 1);
+ 	roce_set_field(doorbell[1], ROCEE_DB_OTHERS_H_ROCEE_DB_OTH_CMD_M,
+@@ -1647,10 +1647,10 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *hr_cq,
+ 		wq = &(*cur_qp)->sq;
+ 		if ((*cur_qp)->sq_signal_bits) {
+ 			/*
+-			* If sg_signal_bit is 1,
+-			* firstly tail pointer updated to wqe
+-			* which current cqe correspond to
+-			*/
++			 * If sg_signal_bit is 1,
++			 * firstly tail pointer updated to wqe
++			 * which current cqe correspond to
++			 */
+ 			wqe_ctr = (u16)roce_get_field(cqe->cqe_byte_4,
+ 						      CQE_BYTE_4_WQE_INDEX_M,
+ 						      CQE_BYTE_4_WQE_INDEX_S);
+@@ -2072,11 +2072,11 @@ static int hns_roce_v1_m_qp(struct ib_qp *ibqp, const struct ib_qp_attr *attr,
+ 	}
+ 
+ 	/*
+-	*Reset to init
+-	*	Mandatory param:
+-	*	IB_QP_STATE | IB_QP_PKEY_INDEX | IB_QP_PORT | IB_QP_ACCESS_FLAGS
+-	*	Optional param: NA
+-	*/
++	 * Reset to init
++	 *	Mandatory param:
++	 *	IB_QP_STATE | IB_QP_PKEY_INDEX | IB_QP_PORT | IB_QP_ACCESS_FLAGS
++	 *	Optional param: NA
++	 */
+ 	if (cur_state == IB_QPS_RESET && new_state == IB_QPS_INIT) {
+ 		roce_set_field(context->qpc_bytes_4,
+ 			       QP_CONTEXT_QPC_BYTES_4_TRANSPORT_SERVICE_TYPE_M,
+@@ -2584,9 +2584,9 @@ static int hns_roce_v1_m_qp(struct ib_qp *ibqp, const struct ib_qp_attr *attr,
+ 	}
+ 
+ 	/*
+-	* Use rst2init to instead of init2init with drv,
+-	* need to hw to flash RQ HEAD by DB again
+-	*/
++	 * Use rst2init to instead of init2init with drv,
++	 * need to hw to flash RQ HEAD by DB again
++	 */
+ 	if (cur_state == IB_QPS_INIT && new_state == IB_QPS_INIT) {
+ 		/* Memory barrier */
+ 		wmb();
+@@ -2708,7 +2708,7 @@ static int hns_roce_v1_q_sqp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+ 		goto done;
+ 	}
+ 
+-	addr = ROCEE_QP1C_CFG0_0_REG + 
++	addr = ROCEE_QP1C_CFG0_0_REG +
+ 		hr_qp->port * sizeof(struct hns_roce_sqp_context);
+ 	context.qp1c_bytes_4 = roce_read(hr_dev, addr);
+ 	context.sq_rq_bt_l = roce_read(hr_dev, addr + 1);
+@@ -2921,9 +2921,9 @@ static void hns_roce_v1_destroy_qp_common(struct hns_roce_dev *hr_dev,
+ 	if (hr_qp->ibqp.qp_type == IB_QPT_RC) {
+ 		if (hr_qp->state != IB_QPS_RESET) {
+ 			/*
+-			* Set qp to ERR,
+-			* waiting for hw complete processing all dbs
+-			*/
++			 * Set qp to ERR,
++			 * waiting for hw complete processing all dbs
++			 */
+ 			if (hns_roce_v1_qp_modify(hr_dev, NULL,
+ 					to_hns_roce_state(
+ 						(enum ib_qp_state)hr_qp->state),
+@@ -2936,9 +2936,9 @@ static void hns_roce_v1_destroy_qp_common(struct hns_roce_dev *hr_dev,
+ 			sdbisusepr_val = roce_read(hr_dev,
+ 					 ROCEE_SDB_ISSUE_PTR_REG);
+ 			/*
+-			* Query db process status,
+-			* until hw process completely
+-			*/
++			 * Query db process status,
++			 * until hw process completely
++			 */
+ 			end = msecs_to_jiffies(
+ 			      HNS_ROCE_QP_DESTROY_TIMEOUT_MSECS) + jiffies;
+ 			do {
 diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index 6770171..795ef97 100644
+index 795ef97..914d0ac 100644
 --- a/drivers/infiniband/hw/hns/hns_roce_main.c
 +++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -35,52 +35,13 @@
- #include <rdma/ib_addr.h>
- #include <rdma/ib_smi.h>
- #include <rdma/ib_user_verbs.h>
-+#include <rdma/ib_cache.h>
- #include "hns_roce_common.h"
- #include "hns_roce_device.h"
- #include "hns_roce_user.h"
- #include "hns_roce_hem.h"
- 
- /**
-- * hns_roce_addrconf_ifid_eui48 - Get default gid.
-- * @eui: eui.
-- * @vlan_id:  gid
-- * @dev:  net device
-- * Description:
-- *    MAC convert to GID
-- *        gid[0..7] = fe80 0000 0000 0000
-- *        gid[8] = mac[0] ^ 2
-- *        gid[9] = mac[1]
-- *        gid[10] = mac[2]
-- *        gid[11] = ff        (VLAN ID high byte (4 MS bits))
-- *        gid[12] = fe        (VLAN ID low byte)
-- *        gid[13] = mac[3]
-- *        gid[14] = mac[4]
-- *        gid[15] = mac[5]
-- */
--static void hns_roce_addrconf_ifid_eui48(u8 *eui, u16 vlan_id,
--					 struct net_device *dev)
--{
--	memcpy(eui, dev->dev_addr, 3);
--	memcpy(eui + 5, dev->dev_addr + 3, 3);
--	if (vlan_id < 0x1000) {
--		eui[3] = vlan_id >> 8;
--		eui[4] = vlan_id & 0xff;
--	} else {
--		eui[3] = 0xff;
--		eui[4] = 0xfe;
--	}
--	eui[0] ^= 2;
--}
--
--static void hns_roce_make_default_gid(struct net_device *dev, union ib_gid *gid)
--{
--	memset(gid, 0, sizeof(*gid));
--	gid->raw[0] = 0xFE;
--	gid->raw[1] = 0x80;
--	hns_roce_addrconf_ifid_eui48(&gid->raw[8], 0xffff, dev);
--}
--
--/**
-  * hns_get_gid_index - Get gid index.
-  * @hr_dev: pointer to structure hns_roce_dev.
-  * @port:  port, value range: 0 ~ MAX
-@@ -96,30 +57,6 @@ int hns_get_gid_index(struct hns_roce_dev *hr_dev, u8 port, int gid_index)
- 	return gid_index * hr_dev->caps.num_ports + port;
- }
- 
--static int hns_roce_set_gid(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
--		     union ib_gid *gid)
--{
--	struct device *dev = &hr_dev->pdev->dev;
--	u8 gid_idx = 0;
--
--	if (gid_index >= hr_dev->caps.gid_table_len[port]) {
--		dev_err(dev, "gid_index %d illegal, port %d gid range: 0~%d\n",
--			gid_index, port, hr_dev->caps.gid_table_len[port] - 1);
--		return -EINVAL;
--	}
--
--	gid_idx = hns_get_gid_index(hr_dev, port, gid_index);
--
--	if (!memcmp(gid, &hr_dev->iboe.gid_table[gid_idx], sizeof(*gid)))
--		return -EINVAL;
--
--	memcpy(&hr_dev->iboe.gid_table[gid_idx], gid, sizeof(*gid));
--
--	hr_dev->hw->set_gid(hr_dev, port, gid_index, gid);
--
--	return 0;
--}
--
- static void hns_roce_set_mac(struct hns_roce_dev *hr_dev, u8 port, u8 *addr)
- {
- 	u8 phy_port;
-@@ -147,15 +84,44 @@ static void hns_roce_set_mtu(struct hns_roce_dev *hr_dev, u8 port, int mtu)
- 	hr_dev->hw->set_mtu(hr_dev, phy_port, tmp);
- }
- 
--static void hns_roce_update_gids(struct hns_roce_dev *hr_dev, int port)
-+static int hns_roce_add_gid(struct ib_device *device, u8 port_num,
-+			    unsigned int index, const union ib_gid *gid,
-+			    const struct ib_gid_attr *attr, void **context)
-+{
-+	struct hns_roce_dev *hr_dev = to_hr_dev(device);
-+	u8 port = port_num - 1;
-+	unsigned long flags;
-+
-+	if (port >= hr_dev->caps.num_ports)
-+		return -EINVAL;
-+
-+	spin_lock_irqsave(&hr_dev->iboe.lock, flags);
-+
-+	hr_dev->hw->set_gid(hr_dev, port, index, (union ib_gid *)gid);
-+
-+	spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
-+
-+	return 0;
-+}
-+
-+static int hns_roce_del_gid(struct ib_device *device, u8 port_num,
-+			    unsigned int index, void **context)
- {
--	struct ib_event event;
-+	struct hns_roce_dev *hr_dev = to_hr_dev(device);
-+	union ib_gid zgid = { {0} };
-+	u8 port = port_num - 1;
-+	unsigned long flags;
-+
-+	if (port >= hr_dev->caps.num_ports)
-+		return -EINVAL;
- 
--	/* Refresh gid in ib_cache */
--	event.device = &hr_dev->ib_dev;
--	event.element.port_num = port + 1;
--	event.event = IB_EVENT_GID_CHANGE;
--	ib_dispatch_event(&event);
-+	spin_lock_irqsave(&hr_dev->iboe.lock, flags);
-+
-+	hr_dev->hw->set_gid(hr_dev, port, index, &zgid);
-+
-+	spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
-+
-+	return 0;
- }
- 
- static int handle_en_event(struct hns_roce_dev *hr_dev, u8 port,
-@@ -164,8 +130,6 @@ static int handle_en_event(struct hns_roce_dev *hr_dev, u8 port,
- 	struct device *dev = &hr_dev->pdev->dev;
- 	struct net_device *netdev;
- 	unsigned long flags;
--	union ib_gid gid;
--	int ret = 0;
- 
- 	netdev = hr_dev->iboe.netdevs[port];
- 	if (!netdev) {
-@@ -181,10 +145,6 @@ static int handle_en_event(struct hns_roce_dev *hr_dev, u8 port,
- 	case NETDEV_REGISTER:
- 	case NETDEV_CHANGEADDR:
- 		hns_roce_set_mac(hr_dev, port, netdev->dev_addr);
--		hns_roce_make_default_gid(netdev, &gid);
--		ret = hns_roce_set_gid(hr_dev, port, 0, &gid);
--		if (!ret)
--			hns_roce_update_gids(hr_dev, port);
+@@ -148,8 +148,8 @@ static int handle_en_event(struct hns_roce_dev *hr_dev, u8 port,
  		break;
  	case NETDEV_DOWN:
  		/*
-@@ -197,7 +157,7 @@ static int handle_en_event(struct hns_roce_dev *hr_dev, u8 port,
- 	}
- 
- 	spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
--	return ret;
-+	return 0;
+-		* In v1 engine, only support all ports closed together.
+-		*/
++		 * In v1 engine, only support all ports closed together.
++		 */
+ 		break;
+ 	default:
+ 		dev_dbg(dev, "NETDEV event = 0x%x!\n", (u32)(event));
+@@ -773,10 +773,10 @@ static int hns_roce_init_hem(struct hns_roce_dev *hr_dev)
  }
  
- static int hns_roce_netdev_event(struct notifier_block *self,
-@@ -224,118 +184,17 @@ static int hns_roce_netdev_event(struct notifier_block *self,
- 	return NOTIFY_DONE;
- }
- 
--static void hns_roce_addr_event(int event, struct net_device *event_netdev,
--				struct hns_roce_dev *hr_dev, union ib_gid *gid)
--{
--	struct hns_roce_ib_iboe *iboe = NULL;
--	int gid_table_len = 0;
--	unsigned long flags;
--	union ib_gid zgid;
--	u8 gid_idx = 0;
--	u8 port = 0;
--	int i = 0;
--	int free;
--	struct net_device *real_dev = rdma_vlan_dev_real_dev(event_netdev) ?
--				      rdma_vlan_dev_real_dev(event_netdev) :
--				      event_netdev;
--
--	if (event != NETDEV_UP && event != NETDEV_DOWN)
--		return;
--
--	iboe = &hr_dev->iboe;
--	while (port < hr_dev->caps.num_ports) {
--		if (real_dev == iboe->netdevs[port])
--			break;
--		port++;
--	}
--
--	if (port >= hr_dev->caps.num_ports) {
--		dev_dbg(&hr_dev->pdev->dev, "can't find netdev\n");
--		return;
--	}
--
--	memset(zgid.raw, 0, sizeof(zgid.raw));
--	free = -1;
--	gid_table_len = hr_dev->caps.gid_table_len[port];
--
--	spin_lock_irqsave(&hr_dev->iboe.lock, flags);
--
--	for (i = 0; i < gid_table_len; i++) {
--		gid_idx = hns_get_gid_index(hr_dev, port, i);
--		if (!memcmp(gid->raw, iboe->gid_table[gid_idx].raw,
--			    sizeof(gid->raw)))
--			break;
--		if (free < 0 && !memcmp(zgid.raw,
--			iboe->gid_table[gid_idx].raw, sizeof(zgid.raw)))
--			free = i;
--	}
--
--	if (i >= gid_table_len) {
--		if (free < 0) {
--			spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
--			dev_dbg(&hr_dev->pdev->dev,
--				"gid_index overflow, port(%d)\n", port);
--			return;
--		}
--		if (!hns_roce_set_gid(hr_dev, port, free, gid))
--			hns_roce_update_gids(hr_dev, port);
--	} else if (event == NETDEV_DOWN) {
--		if (!hns_roce_set_gid(hr_dev, port, i, &zgid))
--			hns_roce_update_gids(hr_dev, port);
--	}
--
--	spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
--}
--
--static int hns_roce_inet_event(struct notifier_block *self, unsigned long event,
--			       void *ptr)
--{
--	struct in_ifaddr *ifa = ptr;
--	struct hns_roce_dev *hr_dev;
--	struct net_device *dev = ifa->ifa_dev->dev;
--	union ib_gid gid;
--
--	ipv6_addr_set_v4mapped(ifa->ifa_address, (struct in6_addr *)&gid);
--
--	hr_dev = container_of(self, struct hns_roce_dev, iboe.nb_inet);
--
--	hns_roce_addr_event(event, dev, hr_dev, &gid);
--
--	return NOTIFY_DONE;
--}
--
--static int hns_roce_setup_mtu_gids(struct hns_roce_dev *hr_dev)
-+static int hns_roce_setup_mtu_mac(struct hns_roce_dev *hr_dev)
+ /**
+-* hns_roce_setup_hca - setup host channel adapter
+-* @hr_dev: pointer to hns roce device
+-* Return : int
+-*/
++ * hns_roce_setup_hca - setup host channel adapter
++ * @hr_dev: pointer to hns roce device
++ * Return : int
++ */
+ static int hns_roce_setup_hca(struct hns_roce_dev *hr_dev)
  {
--	struct in_ifaddr *ifa_list = NULL;
--	union ib_gid gid = {{0} };
--	u32 ipaddr = 0;
--	int index = 0;
--	int ret = 0;
--	u8 i = 0;
-+	u8 i;
- 
- 	for (i = 0; i < hr_dev->caps.num_ports; i++) {
- 		hns_roce_set_mtu(hr_dev, i,
- 				 ib_mtu_enum_to_int(hr_dev->caps.max_mtu));
- 		hns_roce_set_mac(hr_dev, i, hr_dev->iboe.netdevs[i]->dev_addr);
--
--		if (hr_dev->iboe.netdevs[i]->ip_ptr) {
--			ifa_list = hr_dev->iboe.netdevs[i]->ip_ptr->ifa_list;
--			index = 1;
--			while (ifa_list) {
--				ipaddr = ifa_list->ifa_address;
--				ipv6_addr_set_v4mapped(ipaddr,
--						       (struct in6_addr *)&gid);
--				ret = hns_roce_set_gid(hr_dev, i, index, &gid);
--				if (ret)
--					break;
--				index++;
--				ifa_list = ifa_list->ifa_next;
--			}
--			hns_roce_update_gids(hr_dev, i);
--		}
- 	}
- 
--	return ret;
-+	return 0;
+ 	int ret;
+@@ -841,11 +841,11 @@ static int hns_roce_setup_hca(struct hns_roce_dev *hr_dev)
  }
  
- static int hns_roce_query_device(struct ib_device *ib_dev,
-@@ -444,31 +303,6 @@ static enum rdma_link_layer hns_roce_get_link_layer(struct ib_device *device,
- static int hns_roce_query_gid(struct ib_device *ib_dev, u8 port_num, int index,
- 			      union ib_gid *gid)
+ /**
+-* hns_roce_probe - RoCE driver entrance
+-* @pdev: pointer to platform device
+-* Return : int
+-*
+-*/
++ * hns_roce_probe - RoCE driver entrance
++ * @pdev: pointer to platform device
++ * Return : int
++ *
++ */
+ static int hns_roce_probe(struct platform_device *pdev)
  {
--	struct hns_roce_dev *hr_dev = to_hr_dev(ib_dev);
--	struct device *dev = &hr_dev->pdev->dev;
--	u8 gid_idx = 0;
--	u8 port;
--
--	if (port_num < 1 || port_num > hr_dev->caps.num_ports ||
--	    index >= hr_dev->caps.gid_table_len[port_num - 1]) {
--		dev_err(dev,
--			"port_num %d index %d illegal! correct range: port_num 1~%d index 0~%d!\n",
--			port_num, index, hr_dev->caps.num_ports,
--			hr_dev->caps.gid_table_len[port_num - 1] - 1);
--		return -EINVAL;
--	}
--
--	port = port_num - 1;
--	gid_idx = hns_get_gid_index(hr_dev, port, index);
--	if (gid_idx >= HNS_ROCE_MAX_GID_NUM) {
--		dev_err(dev, "port_num %d index %d illegal! total gid num %d!\n",
--			port_num, index, HNS_ROCE_MAX_GID_NUM);
--		return -EINVAL;
--	}
--
--	memcpy(gid->raw, hr_dev->iboe.gid_table[gid_idx].raw,
--	       HNS_ROCE_GID_SIZE);
--
- 	return 0;
+ 	int ret;
+@@ -958,9 +958,9 @@ static int hns_roce_probe(struct platform_device *pdev)
  }
  
-@@ -646,6 +480,8 @@ static int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	ib_dev->get_link_layer		= hns_roce_get_link_layer;
- 	ib_dev->get_netdev		= hns_roce_get_netdev;
- 	ib_dev->query_gid		= hns_roce_query_gid;
-+	ib_dev->add_gid			= hns_roce_add_gid;
-+	ib_dev->del_gid			= hns_roce_del_gid;
- 	ib_dev->query_pkey		= hns_roce_query_pkey;
- 	ib_dev->alloc_ucontext		= hns_roce_alloc_ucontext;
- 	ib_dev->dealloc_ucontext	= hns_roce_dealloc_ucontext;
-@@ -688,32 +524,22 @@ static int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 		return ret;
- 	}
- 
--	ret = hns_roce_setup_mtu_gids(hr_dev);
-+	ret = hns_roce_setup_mtu_mac(hr_dev);
- 	if (ret) {
--		dev_err(dev, "roce_setup_mtu_gids failed!\n");
--		goto error_failed_setup_mtu_gids;
-+		dev_err(dev, "setup_mtu_mac failed!\n");
-+		goto error_failed_setup_mtu_mac;
- 	}
- 
- 	iboe->nb.notifier_call = hns_roce_netdev_event;
- 	ret = register_netdevice_notifier(&iboe->nb);
- 	if (ret) {
- 		dev_err(dev, "register_netdevice_notifier failed!\n");
--		goto error_failed_setup_mtu_gids;
--	}
--
--	iboe->nb_inet.notifier_call = hns_roce_inet_event;
--	ret = register_inetaddr_notifier(&iboe->nb_inet);
--	if (ret) {
--		dev_err(dev, "register inet addr notifier failed!\n");
--		goto error_failed_register_inetaddr_notifier;
-+		goto error_failed_setup_mtu_mac;
- 	}
- 
- 	return 0;
- 
--error_failed_register_inetaddr_notifier:
--	unregister_netdevice_notifier(&iboe->nb);
--
--error_failed_setup_mtu_gids:
-+error_failed_setup_mtu_mac:
- 	ib_unregister_device(ib_dev);
- 
- 	return ret;
+ /**
+-* hns_roce_remove - remove RoCE device
+-* @pdev: pointer to platform device
+-*/
++ * hns_roce_remove - remove RoCE device
++ * @pdev: pointer to platform device
++ */
+ static int hns_roce_remove(struct platform_device *pdev)
+ {
+ 	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
 -- 
 1.7.9.5
