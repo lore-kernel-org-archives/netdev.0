@@ -1,68 +1,118 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
- and fix call ordering
-Date: Tue, 15 Nov 2016 21:31:40 +0100
-Message-ID: <20161115203140.GC1783@nanopsycho.orion>
-References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
- <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
- <20161115195107.GB1783@nanopsycho.orion>
- <1479241747.681.105.camel@intel.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit
+ ethernet driver
+Date: Tue, 15 Nov 2016 21:46:57 +0100
+Message-ID: <69558f55-824a-7063-d9b3-ccc0a6113b87@gmx.de>
+References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161113195544.GA18258@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jiri@mellanox.com" <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
+        gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36346 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753741AbcKOUbn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 15:31:43 -0500
-Received: by mail-wm0-f49.google.com with SMTP id g23so192165574wme.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 12:31:42 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1479241747.681.105.camel@intel.com>
+Received: from mout.gmx.net ([212.227.17.21]:57622 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751985AbcKOUrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 15:47:19 -0500
+In-Reply-To: <20161113195544.GA18258@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 15, 2016 at 09:29:09PM CET, alexander.h.duyck@intel.com wrote:
->On Tue, 2016-11-15 at 20:51 +0100, Jiri Pirko wrote:
->> Tue, Nov 15, 2016 at 11:46:06AM CET, alexander.h.duyck@intel.com wrote:
->> > 
->> > The patch that removed the FIB offload infrastructure was a bit too
->> > aggressive and also removed code needed to clean up us splitting the table
->> > if additional rules were added.  Specifically the function
->> > fib_trie_flush_external was called at the end of a new rule being added to
->> > flush the foreign trie entries from the main trie.
->> > 
->> > I updated the code so that we only call fib_trie_flush_external on the main
->> > table so that we flush the entries for local from main.  This way we don't
->> > call it for every rule change which is what was happening previously.
->> 
->> Well, the function was introduced by:
->> 
->> commit 104616e74e0b464d449fdd2ee2f547d2fad71610
->> Author: Scott Feldman <sfeldma@gmail.com>
->> Date:   Thu Mar 5 21:21:16 2015 -0800
->> 
->>     switchdev: don't support custom ip rules, for now
->>     
->>     Keep switchdev FIB offload model simple for now and don't allow custom ip
->>     rules.
->> 
->> Why this was not needed before? What changed in between:
->> 104616e74e0b464d449fdd2ee2f547d2fad71610 ("switchdev: don't support custom ip rules, for now")
->> and
->> 347e3b28c1ba2 ("switchdev: remove FIB offload infrastructure")
->
->We collapsed the two tables into one in commit 0ddcf43d5d4a ("ipv4: FIB
->Local/MAIN table collapse") which was submitted the next day.  Scott
->and I were working on things at the same time and the
->fib_table_flush_external function was something we had worked out that
->would allow him to take care of his use case and me to take care of
->cleaning up the tables after unmerging.
+Hi,
 
-Okay. But please name the fuction differently, as it does not flush
-external. Thanks!
+
+On 13.11.2016 20:55, Andrew Lunn wrote:
+>> +static const char slic_stats_strings[][ETH_GSTRING_LEN] = {
+>> +	"rx_packets     ",
+>> +	"rx_bytes       ",
+>> +	"rx_multicasts  ",
+>> +	"rx_errors      ",
+>> +	"rx_buff_miss   ",
+>> +	"rx_tp_csum     ",
+>> +	"rx_tp_oflow    ",
+>> +	"rx_tp_hlen     ",
+>> +	"rx_ip_csum     ",
+>> +	"rx_ip_len      ",
+> 
+> Are there any other drivers which pad the statistics strings?
+> 
+
+First off, thank you for the review!
+
+I took a look into a few drivers and most of them do not pad the statistic strings.
+Actually there are some that do (e.g. the chelsio drivers cxgb4, cxgb3, xcgb4v), 
+but this seems to be rather the minority, so I will remove it. Thank you for the hint.
+
+>> +static void slic_set_link_autoneg(struct slic_device *sdev)
+>> +{
+>> +	unsigned int subid = sdev->pdev->subsystem_device;
+>> +	u32 val;
+>> +
+>> +	if (sdev->is_fiber) {
+>> +		/* We've got a fiber gigabit interface, and register 4 is
+>> +		 * different in fiber mode than in copper mode.
+>> +		 */
+>> +		/* advertise FD only @1000 Mb */
+>> +		val = MII_ADVERTISE << 16 | SLIC_PAR_ADV1000XFD |
+>> +		      SLIC_PAR_ASYMPAUSE_FIBER;
+>> +		/* enable PAUSE frames */
+>> +		slic_write(sdev, SLIC_REG_WPHY, val);
+>> +		/* reset phy, enable auto-neg  */
+>> +		val = MII_BMCR << 16 | SLIC_PCR_RESET | SLIC_PCR_AUTONEG |
+>> +		      SLIC_PCR_AUTONEG_RST;
+>> +		slic_write(sdev, SLIC_REG_WPHY, val);
+>> +	} else {	/* copper gigabit */
+>> +		/* We've got a copper gigabit interface, and register 4 is
+>> +		 * different in copper mode than in fiber mode.
+>> +		 */
+>> +		/* advertise 10/100 Mb modes   */
+>> +		val = MII_ADVERTISE << 16 | SLIC_PAR_ADV100FD |
+>> +		      SLIC_PAR_ADV100HD | SLIC_PAR_ADV10FD | SLIC_PAR_ADV10HD;
+>> +		/* enable PAUSE frames  */
+>> +		val |= SLIC_PAR_ASYMPAUSE;
+>> +		/* required by the Cicada PHY  */
+>> +		val |= SLIC_PAR_802_3;
+>> +		slic_write(sdev, SLIC_REG_WPHY, val);
+>> +
+>> +		/* advertise FD only @1000 Mb  */
+>> +		val = MII_CTRL1000 << 16 | SLIC_PGC_ADV1000FD;
+>> +		slic_write(sdev, SLIC_REG_WPHY, val);
+>> +
+>> +		if (subid != PCI_SUBDEVICE_ID_ALACRITECH_CICADA) {
+>> +			 /* if a Marvell PHY enable auto crossover */
+>> +			val = SLIC_MIICR_REG_16 | SLIC_MRV_REG16_XOVERON;
+>> +			slic_write(sdev, SLIC_REG_WPHY, val);
+>> +
+>> +			/* reset phy, enable auto-neg  */
+>> +			val = MII_BMCR << 16 | SLIC_PCR_RESET |
+>> +			      SLIC_PCR_AUTONEG | SLIC_PCR_AUTONEG_RST;
+>> +			slic_write(sdev, SLIC_REG_WPHY, val);
+>> +		} else {
+>> +			/* enable and restart auto-neg (don't reset)  */
+>> +			val = MII_BMCR << 16 | SLIC_PCR_AUTONEG |
+>> +			      SLIC_PCR_AUTONEG_RST;
+>> +			slic_write(sdev, SLIC_REG_WPHY, val);
+>> +		}
+>> +	}
+>> +	sdev->autoneg = true;
+>> +}
+> 
+> Could this be pulled out into a standard PHY driver? All the SLIC
+> SLIC_PCR_ defines seems to be the same as those in mii.h. This could
+> be a standard PHY hidden behind a single register.
+> 
+>    Andrew
+
+You are right, the driver should really use the defines in mii.h. I will fix this in
+ a v2.
+
+Concerning the use of the PHY API: What would be the advantage of using it? Note that the
+ phy is always internal and not interchangeable. Is not the interchangeability of PHYs
+the main reason for using this API?
+
+Regards,
+Lino
