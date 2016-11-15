@@ -1,16 +1,15 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 2/8] net/mlx5: Port module event hardware structures
-Date: Tue, 15 Nov 2016 23:30:01 +0200
-Message-ID: <1479245407-6884-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 4/8] net/mlx5e: Add port module event counters to ethtool stats
+Date: Tue, 15 Nov 2016 23:30:03 +0200
+Message-ID: <1479245407-6884-5-git-send-email-saeedm@mellanox.com>
 References: <1479245407-6884-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54809 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54826 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753053AbcKOVae (ORCPT
+        with ESMTP id S1751937AbcKOVae (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 16:30:34 -0500
 In-Reply-To: <1479245407-6884-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,81 +17,95 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Huy Nguyen <huyn@mellanox.com>
 
-Add hardware structures and constants definitions needed for module
-events support.
+Add port module event counters to ethtool -S command
 
 Signed-off-by: Huy Nguyen <huyn@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
 ---
- include/linux/mlx5/device.h   | 11 +++++++++++
- include/linux/mlx5/mlx5_ifc.h |  3 ++-
- include/linux/mlx5/port.h     |  3 +++
- 3 files changed, 16 insertions(+), 1 deletion(-)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 23 +++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 17 ++++++++++++++++
+ 2 files changed, 39 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 5827614..52b4374 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -277,6 +277,7 @@ enum mlx5_event {
- 	MLX5_EVENT_TYPE_INTERNAL_ERROR	   = 0x08,
- 	MLX5_EVENT_TYPE_PORT_CHANGE	   = 0x09,
- 	MLX5_EVENT_TYPE_GPIO_EVENT	   = 0x15,
-+	MLX5_EVENT_TYPE_PORT_MODULE_EVENT  = 0x16,
- 	MLX5_EVENT_TYPE_REMOTE_CONFIG	   = 0x19,
- 
- 	MLX5_EVENT_TYPE_DB_BF_CONGESTION   = 0x1a,
-@@ -552,6 +553,15 @@ struct mlx5_eqe_vport_change {
- 	__be32		rsvd1[6];
- } __packed;
- 
-+struct mlx5_eqe_port_module {
-+	u8        reserved_at_0[1];
-+	u8        module;
-+	u8        reserved_at_2[1];
-+	u8        module_status;
-+	u8        reserved_at_4[2];
-+	u8        error_type;
-+} __packed;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 27ff401..b154621 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -173,7 +173,10 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 		       NUM_VPORT_COUNTERS + NUM_PPORT_COUNTERS +
+ 		       MLX5E_NUM_RQ_STATS(priv) +
+ 		       MLX5E_NUM_SQ_STATS(priv) +
+-		       MLX5E_NUM_PFC_COUNTERS(priv);
++		       MLX5E_NUM_PFC_COUNTERS(priv) +
++		       ARRAY_SIZE(mlx5e_pme_status_desc) +
++		       ARRAY_SIZE(mlx5e_pme_error_desc);
 +
- union ev_data {
- 	__be32				raw[7];
- 	struct mlx5_eqe_cmd		cmd;
-@@ -565,6 +575,7 @@ union ev_data {
- 	struct mlx5_eqe_page_req	req_pages;
- 	struct mlx5_eqe_page_fault	page_fault;
- 	struct mlx5_eqe_vport_change	vport_change;
-+	struct mlx5_eqe_port_module	port_module;
- } __packed;
+ 	case ETH_SS_PRIV_FLAGS:
+ 		return ARRAY_SIZE(mlx5e_priv_flags);
+ 	/* fallthrough */
+@@ -237,6 +240,13 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
+ 		}
+ 	}
  
- struct mlx5_eqe {
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 2632cb2..cd1d530 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -824,7 +824,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8	   early_vf_enable[0x1];
- 	u8         reserved_at_1a9[0x2];
- 	u8         local_ca_ack_delay[0x5];
--	u8         reserved_at_1af[0x2];
-+	u8         port_module_event[0x1];
-+	u8         reserved_at_1b0[0x1];
- 	u8         ports_check[0x1];
- 	u8         reserved_at_1b2[0x1];
- 	u8         disable_link_up[0x1];
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index b3065ac..dde8c7e 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -94,6 +94,9 @@ enum mlx5e_link_mode {
- 
- #define MLX5E_PROT_MASK(link_mode) (1 << link_mode)
- 
-+#define PORT_MODULE_EVENT_MODULE_STATUS_MASK 0xF
-+#define PORT_MODULE_EVENT_ERROR_TYPE_MASK         0xF
++	/* port module event counters */
++	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_status_desc[i].format);
 +
- int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
- int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
- 			 int ptys_size, int proto_mask, u8 local_port);
++	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_error_desc[i].format);
++
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
+ 
+@@ -279,6 +289,7 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 				    struct ethtool_stats *stats, u64 *data)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5_priv *mlx5_priv;
+ 	int i, j, tc, prio, idx = 0;
+ 	unsigned long pfc_combined;
+ 
+@@ -335,6 +346,16 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 		}
+ 	}
+ 
++	/* port module event counters */
++	mlx5_priv =  &priv->mdev->priv;
++	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
++		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.status_counters,
++						   mlx5e_pme_status_desc, i);
++
++	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
++		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
++						   mlx5e_pme_error_desc, i);
++
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+index 57452fd..b817e51 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+@@ -379,4 +379,21 @@ struct mlx5e_stats {
+ 	struct mlx5e_pport_stats pport;
+ };
+ 
++static const struct counter_desc mlx5e_pme_status_desc[] = {
++	{ "module_plug", 0 },
++	{ "module_unplug", 8 },
++};
++
++static const struct counter_desc mlx5e_pme_error_desc[] = {
++	{ "module_pwr_budget_exd", 0 },  /* power budget exceed */
++	{ "module_long_range", 8 },      /* long range for non MLNX cable */
++	{ "module_bus_stuck", 16 },      /* bus stuck (I2C or data shorted) */
++	{ "module_no_eeprom", 24 },      /* no eeprom/retry time out */
++	{ "module_enforce_part", 32 },   /* enforce part number list */
++	{ "module_unknown_id", 40 },     /* unknown identifier */
++	{ "module_high_temp", 48 },      /* high temperature */
++	{ "module_bad_shorted", 56 },    /* bad or shorted cable/module */
++	{ "module_unknown_status", 64 },
++};
++
+ #endif /* __MLX5_EN_STATS_H__ */
 -- 
 2.7.4
