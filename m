@@ -1,54 +1,47 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 03/15] net: bcm63xx_enet: Utilize phy_ethtool_nway_reset
-Date: Tue, 15 Nov 2016 10:06:32 -0800
-Message-ID: <20161115180644.3941-4-f.fainelli@gmail.com>
+Subject: [PATCH 05/15] net: smsc911x: Utilize phy_ethtool_nway_reset
+Date: Tue, 15 Nov 2016 10:06:34 -0800
+Message-ID: <20161115180644.3941-6-f.fainelli@gmail.com>
 References: <20161115180644.3941-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, Florian Fainelli <f.fainelli@gmail.com>,
- Arnd Bergmann <arnd@arndb.de>, "xypron.glpk@gmx.de" <xypron.glpk@gmx.de>,
- open list <linux-kernel@vger.kernel.org>, Jarod Wilson <jarod@redhat.com>,
- "maintainer:BROADCOM BCM63XX ARM ARCHITECTURE"
- <bcm-kernel-feedback-list@broadcom.com>, Thierry Reding <treding@nvidia.com>,
- davem@davemloft.net, "moderated list:BROADCOM BCM63XX ARM ARCHITECTURE"
- <linux-arm-kernel@lists.infradead.org>, tremyfr@gmail.com
+Cc: davem@davemloft.net, andrew@lunn.ch, tremyfr@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161115180644.3941-1-f.fainelli@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bcm63xx_enet.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/smsc/smsc911x.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 5c7acef1de2e..a43ab90c051e 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1434,11 +1434,8 @@ static int bcm_enet_nway_reset(struct net_device *dev)
- 	struct bcm_enet_priv *priv;
- 
- 	priv = netdev_priv(dev);
--	if (priv->has_phy) {
--		if (!dev->phydev)
--			return -ENODEV;
--		return genphy_restart_aneg(dev->phydev);
--	}
-+	if (priv->has_phy)
-+		return phy_ethtool_nway_reset(dev),
- 
- 	return -EOPNOTSUPP;
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index cdb343f0c6e0..be09573c6ced 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -1956,11 +1956,6 @@ static void smsc911x_ethtool_getdrvinfo(struct net_device *dev,
+ 		sizeof(info->bus_info));
  }
+ 
+-static int smsc911x_ethtool_nwayreset(struct net_device *dev)
+-{
+-	return phy_start_aneg(dev->phydev);
+-}
+-
+ static u32 smsc911x_ethtool_getmsglevel(struct net_device *dev)
+ {
+ 	struct smsc911x_data *pdata = netdev_priv(dev);
+@@ -2132,7 +2127,7 @@ static int smsc911x_ethtool_set_eeprom(struct net_device *dev,
+ static const struct ethtool_ops smsc911x_ethtool_ops = {
+ 	.get_link = ethtool_op_get_link,
+ 	.get_drvinfo = smsc911x_ethtool_getdrvinfo,
+-	.nway_reset = smsc911x_ethtool_nwayreset,
++	.nway_reset = phy_ethtool_nway_reset,
+ 	.get_msglevel = smsc911x_ethtool_getmsglevel,
+ 	.set_msglevel = smsc911x_ethtool_setmsglevel,
+ 	.get_regs_len = smsc911x_ethtool_getregslen,
 -- 
 2.9.3
