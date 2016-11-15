@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 1/5] net: busy-poll: allow preemption in sk_busy_loop()
-Date: Tue, 15 Nov 2016 10:15:11 -0800
-Message-ID: <1479233715-9905-2-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 2/5] net: busy-poll: remove need_resched() from sk_can_busy_loop()
+Date: Tue, 15 Nov 2016 10:15:12 -0800
+Message-ID: <1479233715-9905-3-git-send-email-edumazet@google.com>
 References: <1479233715-9905-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Willem de Bruijn <willemb@google.com>,
@@ -13,85 +13,20 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:35775 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752866AbcKOSWJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 13:22:09 -0500
-Received: by mail-pg0-f41.google.com with SMTP id p66so69206842pga.2
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 10:22:08 -0800 (PST)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33458 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751749AbcKOSW6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 13:22:58 -0500
+Received: by mail-pf0-f178.google.com with SMTP id d2so37477558pfd.0
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 10:22:58 -0800 (PST)
 In-Reply-To: <1479233715-9905-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit 4cd13c21b207 ("softirq: Let ksoftirqd do its job"),
-sk_busy_loop() needs a bit of care :
-softirqs might be delayed since we do not allow preemption yet.
+Now sk_busy_loop() can schedule by itself, we can remove
+need_resched() check from sk_can_busy_loop()
 
-This patch adds preemptiom points in sk_busy_loop(),
-and makes sure no unnecessary cache line dirtying
-or atomic operations are done while looping.
-
-A new flag is added into napi->state : NAPI_STATE_IN_BUSY_POLL
-
-This prevents napi_complete_done() from clearing NAPIF_STATE_SCHED,
-so that sk_busy_loop() does not have to grab it again.
-
-Similarly, netpoll_poll_lock() is done one time.
-
-This gives about 10 to 20 % improvement in various busy polling
-tests, especially when many threads are busy polling in
-configurations with large number of NIC queues.
-
-This should allow experimenting with bigger delays without
-hurting overall latencies.
-
-Tested:
- On a 40Gb mlx4 NIC, 32 RX/TX queues.
-
- echo 70 >/proc/sys/net/core/busy_read
- for i in `seq 1 40`; do echo -n $i: ; ./super_netperf $i -H lpaa24 -t UDP_RR -- -N -n; done
-
-    Before:      After:
- 1:   90072   92819
- 2:  157289  184007
- 3:  235772  213504
- 4:  344074  357513
- 5:  394755  458267
- 6:  461151  487819
- 7:  549116  625963
- 8:  544423  716219
- 9:  720460  738446
-10:  794686  837612
-11:  915998  923960
-12:  937507  925107
-13: 1019677  971506
-14: 1046831 1113650
-15: 1114154 1148902
-16: 1105221 1179263
-17: 1266552 1299585
-18: 1258454 1383817
-19: 1341453 1312194
-20: 1363557 1488487
-21: 1387979 1501004
-22: 1417552 1601683
-23: 1550049 1642002
-24: 1568876 1601915
-25: 1560239 1683607
-26: 1640207 1745211
-27: 1706540 1723574
-28: 1638518 1722036
-29: 1734309 1757447
-30: 1782007 1855436
-31: 1724806 1888539
-32: 1717716 1944297
-33: 1778716 1869118
-34: 1805738 1983466
-35: 1815694 2020758
-36: 1893059 2035632
-37: 1843406 2034653
-38: 1888830 2086580
-39: 1972827 2143567
-40: 1877729 2181851
+Also add a const to its struct sock parameter.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Cc: Willem de Bruijn <willemb@google.com>
@@ -100,184 +35,25 @@ Cc: Tariq Toukan <tariqt@mellanox.com>
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 Cc: Ariel Elior <ariel.elior@cavium.com>
 ---
- include/linux/netdevice.h |  10 +++++
- net/core/dev.c            | 102 +++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 92 insertions(+), 20 deletions(-)
+ include/net/busy_poll.h | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 86bacf6a64f0..e71de66e3792 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -334,6 +334,16 @@ enum {
- 	NAPI_STATE_NPSVC,	/* Netpoll - don't dequeue from poll_list */
- 	NAPI_STATE_HASHED,	/* In NAPI hash (busy polling possible) */
- 	NAPI_STATE_NO_BUSY_POLL,/* Do not add in napi_hash, no busy polling */
-+	NAPI_STATE_IN_BUSY_POLL,/* sk_busy_loop() owns this NAPI */
-+};
-+
-+enum {
-+	NAPIF_STATE_SCHED	 = (1UL << NAPI_STATE_SCHED),
-+	NAPIF_STATE_DISABLE	 = (1UL << NAPI_STATE_DISABLE),
-+	NAPIF_STATE_NPSVC	 = (1UL << NAPI_STATE_NPSVC),
-+	NAPIF_STATE_HASHED	 = (1UL << NAPI_STATE_HASHED),
-+	NAPIF_STATE_NO_BUSY_POLL = (1UL << NAPI_STATE_NO_BUSY_POLL),
-+	NAPIF_STATE_IN_BUSY_POLL = (1UL << NAPI_STATE_IN_BUSY_POLL),
- };
- 
- enum gro_result {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6deba68ad9e4..369dcc8efc01 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4902,6 +4902,12 @@ void __napi_complete(struct napi_struct *n)
- {
- 	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
- 
-+	/* Some drivers call us directly, instead of calling
-+	 * napi_complete_done().
-+	 */
-+	if (unlikely(test_bit(NAPI_STATE_IN_BUSY_POLL, &n->state)))
-+		return;
-+
- 	list_del_init(&n->poll_list);
- 	smp_mb__before_atomic();
- 	clear_bit(NAPI_STATE_SCHED, &n->state);
-@@ -4913,10 +4919,13 @@ void napi_complete_done(struct napi_struct *n, int work_done)
- 	unsigned long flags;
- 
- 	/*
--	 * don't let napi dequeue from the cpu poll list
--	 * just in case its running on a different cpu
-+	 * 1) Don't let napi dequeue from the cpu poll list
-+	 *    just in case its running on a different cpu.
-+	 * 2) If we are busy polling, do nothing here, we have
-+	 *    the guarantee we will be called later.
- 	 */
--	if (unlikely(test_bit(NAPI_STATE_NPSVC, &n->state)))
-+	if (unlikely(n->state & (NAPIF_STATE_NPSVC |
-+				 NAPIF_STATE_IN_BUSY_POLL)))
- 		return;
- 
- 	if (n->gro_list) {
-@@ -4956,13 +4965,41 @@ static struct napi_struct *napi_by_id(unsigned int napi_id)
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index 2fbeb1313c0f..965e52b9b5a3 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -58,10 +58,9 @@ static inline unsigned long busy_loop_end_time(void)
+ 	return busy_loop_us_clock() + ACCESS_ONCE(sysctl_net_busy_poll);
  }
  
- #if defined(CONFIG_NET_RX_BUSY_POLL)
-+
- #define BUSY_POLL_BUDGET 8
-+
-+static void busy_poll_stop(struct napi_struct *napi, void *have_poll_lock)
-+{
-+	int rc;
-+
-+	clear_bit(NAPI_STATE_IN_BUSY_POLL, &napi->state);
-+
-+	local_bh_disable();
-+
-+	/* All we really want here is to re-enable device interrupts.
-+	 * Ideally, a new ndo_busy_poll_stop() could avoid another round.
-+	 */
-+	rc = napi->poll(napi, BUSY_POLL_BUDGET);
-+	netpoll_poll_unlock(have_poll_lock);
-+	if (rc == BUSY_POLL_BUDGET)
-+		__napi_schedule(napi);
-+	local_bh_enable();
-+	if (local_softirq_pending())
-+		do_softirq();
-+}
-+
- bool sk_busy_loop(struct sock *sk, int nonblock)
+-static inline bool sk_can_busy_loop(struct sock *sk)
++static inline bool sk_can_busy_loop(const struct sock *sk)
  {
- 	unsigned long end_time = !nonblock ? sk_busy_loop_end_time(sk) : 0;
-+	int (*napi_poll)(struct napi_struct *napi, int budget);
- 	int (*busy_poll)(struct napi_struct *dev);
-+	void *have_poll_lock = NULL;
- 	struct napi_struct *napi;
--	int rc = false;
-+	int rc;
-+
-+restart:
-+	rc = false;
-+	napi_poll = NULL;
+-	return sk->sk_ll_usec && sk->sk_napi_id &&
+-	       !need_resched() && !signal_pending(current);
++	return sk->sk_ll_usec && sk->sk_napi_id && !signal_pending(current);
+ }
  
- 	rcu_read_lock();
  
-@@ -4973,24 +5010,33 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 	/* Note: ndo_busy_poll method is optional in linux-4.5 */
- 	busy_poll = napi->dev->netdev_ops->ndo_busy_poll;
- 
--	do {
-+	preempt_disable();
-+	for (;;) {
- 		rc = 0;
- 		local_bh_disable();
- 		if (busy_poll) {
- 			rc = busy_poll(napi);
--		} else if (napi_schedule_prep(napi)) {
--			void *have = netpoll_poll_lock(napi);
--
--			if (test_bit(NAPI_STATE_SCHED, &napi->state)) {
--				rc = napi->poll(napi, BUSY_POLL_BUDGET);
--				trace_napi_poll(napi, rc, BUSY_POLL_BUDGET);
--				if (rc == BUSY_POLL_BUDGET) {
--					napi_complete_done(napi, rc);
--					napi_schedule(napi);
--				}
--			}
--			netpoll_poll_unlock(have);
-+			goto count;
- 		}
-+		if (!napi_poll) {
-+			unsigned long val = READ_ONCE(napi->state);
-+
-+			/* If multiple threads are competing for this napi,
-+			 * we avoid dirtying napi->state as much as we can.
-+			 */
-+			if (val & (NAPIF_STATE_DISABLE | NAPIF_STATE_SCHED |
-+				   NAPIF_STATE_IN_BUSY_POLL))
-+				goto count;
-+			if (cmpxchg(&napi->state, val,
-+				    val | NAPIF_STATE_IN_BUSY_POLL |
-+					  NAPIF_STATE_SCHED) != val)
-+				goto count;
-+			have_poll_lock = netpoll_poll_lock(napi);
-+			napi_poll = napi->poll;
-+		}
-+		rc = napi_poll(napi, BUSY_POLL_BUDGET);
-+		trace_napi_poll(napi, rc, BUSY_POLL_BUDGET);
-+count:
- 		if (rc > 0)
- 			__NET_ADD_STATS(sock_net(sk),
- 					LINUX_MIB_BUSYPOLLRXPACKETS, rc);
-@@ -4999,10 +5045,26 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 		if (rc == LL_FLUSH_FAILED)
- 			break; /* permanent failure */
- 
--		cpu_relax();
--	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
--		 !need_resched() && !busy_loop_timeout(end_time));
-+		if (nonblock || !skb_queue_empty(&sk->sk_receive_queue) ||
-+		    busy_loop_timeout(end_time))
-+			break;
- 
-+		if (unlikely(need_resched())) {
-+			if (napi_poll)
-+				busy_poll_stop(napi, have_poll_lock);
-+			preempt_enable();
-+			rcu_read_unlock();
-+			cond_resched();
-+			rc = !skb_queue_empty(&sk->sk_receive_queue);
-+			if (rc || busy_loop_timeout(end_time))
-+				return rc;
-+			goto restart;
-+		}
-+		cpu_relax_lowlatency();
-+	}
-+	if (napi_poll)
-+		busy_poll_stop(napi, have_poll_lock);
-+	preempt_enable();
- 	rc = !skb_queue_empty(&sk->sk_receive_queue);
- out:
- 	rcu_read_unlock();
 -- 
 2.8.0.rc3.226.g39d4020
