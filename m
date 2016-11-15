@@ -1,63 +1,44 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] gro_cells: mark napi struct as not busy poll candidates
-Date: Mon, 14 Nov 2016 21:21:28 -0800
-Message-ID: <CAM_iQpWBATQUcTEg1o_mrA+zoH0KOh0Kpnmt+GgCLy+K3d=5_g@mail.gmail.com>
-References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
- <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
- <20161110212404.GB4127@linux.vnet.ibm.com> <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
- <20161112002347.GL4127@linux.vnet.ibm.com> <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
- <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com>
- <20161114162417.GJ4127@linux.vnet.ibm.com> <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com>
- <20161114181425.GN4127@linux.vnet.ibm.com> <87y40lhfrt.fsf@xmission.com>
- <1479163571.8455.83.camel@edumazet-glaptop3.roam.corp.google.com>
- <1479164967.8455.87.camel@edumazet-glaptop3.roam.corp.google.com> <1479169722.8455.108.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-        David Miller <davem@davemloft.net>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Justin Cormack <justin.cormack@docker.com>,
-        Ian Campbell <ian.campbell@docker.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:33431 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752777AbcKOFVt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 00:21:49 -0500
-Received: by mail-it0-f66.google.com with SMTP id c20so17354369itb.0
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 21:21:49 -0800 (PST)
-In-Reply-To: <1479169722.8455.108.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH v5 1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+Date: Mon, 14 Nov 2016 22:06:50 -0800
+Message-ID: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
+Cc: Andy Gross <andy.gross@linaro.org>, wcn36xx@lists.infradead.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org
+To: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 14, 2016 at 4:28 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Rolf Neugebauer reported very long delays at netns dismantle.
->
-> Eric W. Biederman was kind enough to look at this problem
-> and noticed synchronize_net() occurring from netif_napi_del() that was
-> added in linux-4.5
->
-> Busy polling makes no sense for tunnels NAPI.
-> If busy poll is used for sessions over tunnels, the poller will need to
-> poll the physical device queue anyway.
->
-> netif_tx_napi_add() could be used here, but function name is misleading,
-> and renaming it is not stable material, so set NAPI_STATE_NO_BUSY_POLL
-> bit directly.
->
-> This will avoid inserting gro_cells napi structures in napi_hash[]
-> and avoid the problematic synchronize_net() (per possible cpu) that
-> Rolf reported.
->
-> Fixes: 93d05d4a320c ("net: provide generic busy polling to all NAPI drivers")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Rolf Neugebauer <rolf.neugebauer@docker.com>
-> Reported-by: Eric W. Biederman <ebiederm@xmission.com>
+The correct include file for getting errno constants and ERR_PTR() is
+linux/err.h, rather than linux/errno.h, so fix the include.
 
+Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled smem_state")
+Acked-by: Andy Gross <andy.gross@linaro.org>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+Kalle, please merge this patch through your tree.
+
+Changes since v4:
+- New patch
+
+ include/linux/soc/qcom/smem_state.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/soc/qcom/smem_state.h b/include/linux/soc/qcom/smem_state.h
+index 7b88697929e9..b8478ee7a71f 100644
+--- a/include/linux/soc/qcom/smem_state.h
++++ b/include/linux/soc/qcom/smem_state.h
+@@ -1,7 +1,7 @@
+ #ifndef __QCOM_SMEM_STATE__
+ #define __QCOM_SMEM_STATE__
+ 
+-#include <linux/errno.h>
++#include <linux/err.h>
+ 
+ struct device_node;
+ struct qcom_smem_state;
+-- 
+2.5.0
