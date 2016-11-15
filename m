@@ -1,113 +1,197 @@
 From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v3 0/5] Adding PHY-Tunables and downshift support
-Date: Tue, 15 Nov 2016 11:19:59 +0100
-Message-ID: <1479205204-27768-1-git-send-email-allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v3 5/5] net: phy: Add downshift get/set support in Microsemi PHYs driver
+Date: Tue, 15 Nov 2016 11:20:04 +0100
+Message-ID: <1479205204-27768-6-git-send-email-allan.nielsen@microsemi.com>
+References: <1479205204-27768-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
-        <allan.nielsen@microsemi.com>
+        <allan.nielsen@microsemi.com>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0046.outbound.protection.outlook.com ([104.47.42.46]:43584
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0076.outbound.protection.outlook.com ([104.47.41.76]:3232
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755647AbcKOKU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 05:20:28 -0500
+        id S966665AbcKOKUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 05:20:40 -0500
+In-Reply-To: <1479205204-27768-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-This follow fixes the comments provided on the v2 series.
+Implements the phy tunable function pointers and implement downshift
+functionality for MSCC PHYs.
 
-Following is the list of changes.
-- Spelling in "net: phy: Add downshift get/set support in Microsemi PHYs driver"
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+---
+ drivers/net/phy/mscc.c | 100 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 100 insertions(+)
 
-Ethtool patches will follow shortly.
-
-Old cover letters included below.
-
-Please review.
-
-Best regards
-Allan and Raju
-
-
-Raju Lakkaraju (5):
-  ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE and ETHTOOL_PHY_STUNABLE
-  ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE
-  ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
-  ethtool: Core impl for ETHTOOL_PHY_DOWNSHIFT tunable
-  net: phy: Add downshift get/set support in Microsemi PHYs driver
-
- drivers/net/phy/mscc.c       | 100 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/phy.h          |   7 +++
- include/uapi/linux/ethtool.h |  18 +++++++-
- net/core/ethtool.c           |  93 ++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 217 insertions(+), 1 deletion(-)
-
-> From 5ca4dac36f45e097b93ae4cfdf35a8922e5d975e Mon Sep 17 00:00:00 2001
-> prom: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-> Date: Mon, 14 Nov 2016 10:04:07 +0100
-> Subject: [PATCH net-next v2 0/5] Adding PHY-Tunables and downshift support
-> 
-> Hi,
-> 
-> This is a follow-up on the patch series posted at Fri, 4 Nov 2016 10:55:25
-> +0100 (old cover letter included below).
-> 
-> The following is changed/added/addressed:
-> - Support for __ethtool_get_strings()/phy_tunables is added
-> - Using DOWNSHIFT_DEV_DISABLE define instead of '0' when disabling
-> - If downshifting clould not be eanbled with the requested count, then a
->   trace message with a hist is printed.
-> - Using ERANGE as requested by Andrew.
-> - Andrew suggested to use ENOSUPP when a tunable is not implemented We kept
->   the EINVAL because ENOSUPP does not exists, and the existing MAC-level
->   tunable is also using EINVAL in the same scenario.
-> - Andrew suggested that the driver should accept a count of 1 and "just"
->   round it up to 2 (the nearest allowed value). We discussed it a bit (Raju
->   and I) and preferred to return EINVAL when a configuration value could
->   not be accommodated. People which wants "help" to choose a supported
->   value should be using the DOWNSHIFT_DEV_DEFAULT_COUNT value.
-> - (ethtool) Syntax is changed from "--set-phy-tunable downshift on|off|%d"
->   to "--set-phy-tunable [downshift on|off [count N]]" - as requested by
->   Andrew.
-> 
-> Ethtool patches will follow shortly.
->
-> Old cover letter:
-> > From 1a318266822f5d74c58b5219ebbdf5a6a5f567dc Mon Sep 17 00:00:00 2001
-> > From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-> > Date: Fri, 4 Nov 2016 10:55:25 +0100
-> > Subject: [PATCH net-next 0/5] Adding PHY-Tunables and downshift support
-> > 
-> > Hi All,
-> > 
-> > This series add support for PHY tunables, and uses this facility to configure
-> > downshifting. The downshifting mechanism is implemented for MSCC phys.
-> > 
-> > This series tries to address the comments provided back in mid October when this
-> > feature was posted along with fast-link-failure. Fast-link-failure has been
-> > separated out, but we would like to pick continue on that if/when we agree on
-> > how the phy-tunables and downshifting should be done.
-> > 
-> > The proposed generic interface is similar to ETHTOOL_GTUNABLE/ETHTOOL_STUNABLE,
-> > it uses the same type (ethtool_tunable/tunable_type_id) but a new enum
-> > (phy_tunable_id) is added to reflect the PHY tunable.
-> > 
-> > The implementation just call the newly added function pointers in
-> > get_tunable/set_tunable phy_device structure.
-> > 
-> > To configure downshifting, the ethtool_tunable structure is used. 'id' must be
-> > set to 'ETHTOOL_PHY_DOWNSHIFT', 'type_id' must be set to 'ETHTOOL_TUNABLE_U8'
-> > and 'data' value configure the amount of downshift re-tries.
-> > 
-> > If configured to DOWNSHIFT_DEV_DISABLE, then downshift is disabled
-> > If configured to DOWNSHIFT_DEV_DEFAULT_COUNT, then it is up to the device to
-> > choose a device-specific re-try count.
-> > 
-> > Patches to implement this in ethtool will follow in a few minutes.
-
+diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+index d0026ab..92018ba 100644
+--- a/drivers/net/phy/mscc.c
++++ b/drivers/net/phy/mscc.c
+@@ -46,8 +46,15 @@ enum rgmii_rx_clock_delay {
+ 
+ #define MSCC_EXT_PAGE_ACCESS		  31
+ #define MSCC_PHY_PAGE_STANDARD		  0x0000 /* Standard registers */
++#define MSCC_PHY_PAGE_EXTENDED		  0x0001 /* Extended registers */
+ #define MSCC_PHY_PAGE_EXTENDED_2	  0x0002 /* Extended reg - page 2 */
+ 
++/* Extended Page 1 Registers */
++#define MSCC_PHY_ACTIPHY_CNTL		  20
++#define DOWNSHIFT_CNTL_MASK		  0x001C
++#define DOWNSHIFT_EN			  0x0010
++#define DOWNSHIFT_CNTL_POS		  2
++
+ /* Extended Page 2 Registers */
+ #define MSCC_PHY_RGMII_CNTL		  20
+ #define RGMII_RX_CLK_DELAY_MASK		  0x0070
+@@ -75,6 +82,8 @@ enum rgmii_rx_clock_delay {
+ #define MSCC_VDDMAC_2500		  2500
+ #define MSCC_VDDMAC_3300		  3300
+ 
++#define DOWNSHIFT_COUNT_MAX		  5
++
+ struct vsc8531_private {
+ 	int rate_magic;
+ };
+@@ -101,6 +110,66 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+ 	return rc;
+ }
+ 
++static int vsc85xx_downshift_get(struct phy_device *phydev, u8 *count)
++{
++	int rc;
++	u16 reg_val;
++
++	mutex_lock(&phydev->lock);
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
++	if (rc != 0)
++		goto out_unlock;
++
++	reg_val = phy_read(phydev, MSCC_PHY_ACTIPHY_CNTL);
++	reg_val &= DOWNSHIFT_CNTL_MASK;
++	if (!(reg_val & DOWNSHIFT_EN))
++		*count = DOWNSHIFT_DEV_DISABLE;
++	else
++		*count = ((reg_val & ~DOWNSHIFT_EN) >> DOWNSHIFT_CNTL_POS) + 2;
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
++
++out_unlock:
++	mutex_unlock(&phydev->lock);
++
++	return rc;
++}
++
++static int vsc85xx_downshift_set(struct phy_device *phydev, u8 count)
++{
++	int rc;
++	u16 reg_val;
++
++	if (count == DOWNSHIFT_DEV_DEFAULT_COUNT) {
++		/* Default downshift count 3 (i.e. Bit3:2 = 0b01) */
++		count = ((1 << DOWNSHIFT_CNTL_POS) | DOWNSHIFT_EN);
++	} else if (count > DOWNSHIFT_COUNT_MAX || count == 1) {
++		phydev_err(phydev, "Downshift count should be 2,3,4 or 5\n");
++		return -ERANGE;
++	} else if (count) {
++		/* Downshift count is either 2,3,4 or 5 */
++		count = (((count - 2) << DOWNSHIFT_CNTL_POS) | DOWNSHIFT_EN);
++	}
++
++	mutex_lock(&phydev->lock);
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
++	if (rc != 0)
++		goto out_unlock;
++
++	reg_val = phy_read(phydev, MSCC_PHY_ACTIPHY_CNTL);
++	reg_val &= ~(DOWNSHIFT_CNTL_MASK);
++	reg_val |= count;
++	rc = phy_write(phydev, MSCC_PHY_ACTIPHY_CNTL, reg_val);
++	if (rc != 0)
++		goto out_unlock;
++
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
++
++out_unlock:
++	mutex_unlock(&phydev->lock);
++
++	return rc;
++}
++
+ static int vsc85xx_wol_set(struct phy_device *phydev,
+ 			   struct ethtool_wolinfo *wol)
+ {
+@@ -329,6 +398,29 @@ static int vsc85xx_default_config(struct phy_device *phydev)
+ 	return rc;
+ }
+ 
++static int vsc85xx_get_tunable(struct phy_device *phydev,
++			       struct ethtool_tunable *tuna, void *data)
++{
++	switch (tuna->id) {
++	case ETHTOOL_PHY_DOWNSHIFT:
++		return vsc85xx_downshift_get(phydev, (u8 *)data);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int vsc85xx_set_tunable(struct phy_device *phydev,
++			       struct ethtool_tunable *tuna,
++			       const void *data)
++{
++	switch (tuna->id) {
++	case ETHTOOL_PHY_DOWNSHIFT:
++		return vsc85xx_downshift_set(phydev, *(u8 *)data);
++	default:
++		return -EINVAL;
++	}
++}
++
+ static int vsc85xx_config_init(struct phy_device *phydev)
+ {
+ 	int rc;
+@@ -418,6 +510,8 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.probe		= &vsc85xx_probe,
+ 	.set_wol	= &vsc85xx_wol_set,
+ 	.get_wol	= &vsc85xx_wol_get,
++	.get_tunable	= &vsc85xx_get_tunable,
++	.set_tunable	= &vsc85xx_set_tunable,
+ },
+ {
+ 	.phy_id		= PHY_ID_VSC8531,
+@@ -437,6 +531,8 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.probe		= &vsc85xx_probe,
+ 	.set_wol	= &vsc85xx_wol_set,
+ 	.get_wol	= &vsc85xx_wol_get,
++	.get_tunable	= &vsc85xx_get_tunable,
++	.set_tunable	= &vsc85xx_set_tunable,
+ },
+ {
+ 	.phy_id		= PHY_ID_VSC8540,
+@@ -456,6 +552,8 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.probe		= &vsc85xx_probe,
+ 	.set_wol	= &vsc85xx_wol_set,
+ 	.get_wol	= &vsc85xx_wol_get,
++	.get_tunable	= &vsc85xx_get_tunable,
++	.set_tunable	= &vsc85xx_set_tunable,
+ },
+ {
+ 	.phy_id		= PHY_ID_VSC8541,
+@@ -475,6 +573,8 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.probe		= &vsc85xx_probe,
+ 	.set_wol	= &vsc85xx_wol_set,
+ 	.get_wol	= &vsc85xx_wol_get,
++	.get_tunable	= &vsc85xx_get_tunable,
++	.set_tunable	= &vsc85xx_set_tunable,
+ }
+ 
+ };
 -- 
 2.7.3
