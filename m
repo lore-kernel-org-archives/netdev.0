@@ -1,43 +1,54 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 0/5] net: thunderx: Miscellaneous fixes
-Date: Tue, 15 Nov 2016 17:35:56 +0530
-Message-ID: <1479211562-14170-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 1/5] net: thunderx: Introduce BGX_ID_MASK macro to extract bgx_id
+Date: Tue, 15 Nov 2016 17:37:16 +0530
+Message-ID: <1479211636-14270-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
         Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
 
-This patchset includes fixes for incorrect LMAC credits,
-unreliable driver statistics, memory leak upon interface
-down e.t.c
+This patch fixes the 'bgx_id' determination on 83xx where there are
+4 BGX blocks instead of 2 on other platforms.
 
-Changes from v1:
-- As suggested replaced bit shifting with BIT() macro
-  in the patch 'Fix configuration of L3/L4 length checking'.
+Signed-off-by: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 4 ++--
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h | 2 ++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-Radha Mohan Chintakuntla (1):
-  net: thunderx: Introduce BGX_ID_MASK macro to extract bgx_id
-
-Sunil Goutham (4):
-  net: thunderx: Program LMAC credits based on MTU
-  net: thunderx: Fix configuration of L3/L4 length checking
-  net: thunderx: Fix VF driver's interface statistics
-  net: thunderx: Fix memory leak and other issues upon interface toggle
-
- drivers/net/ethernet/cavium/thunder/nic.h          |  64 +++++----
- drivers/net/ethernet/cavium/thunder/nic_main.c     |  37 +++--
- drivers/net/ethernet/cavium/thunder/nic_reg.h      |   1 +
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 105 +++++++-------
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 153 +++++++++++----------
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 118 +++++++++-------
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  24 +---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |   4 +-
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |   2 +
- 9 files changed, 274 insertions(+), 234 deletions(-)
-
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index 8bbaedb..050e21f 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -1242,8 +1242,8 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	pci_read_config_word(pdev, PCI_DEVICE_ID, &sdevid);
+ 	if (sdevid != PCI_DEVICE_ID_THUNDER_RGX) {
+-		bgx->bgx_id =
+-		    (pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM) >> 24) & 1;
++		bgx->bgx_id = (pci_resource_start(pdev,
++			PCI_CFG_REG_BAR_NUM) >> 24) & BGX_ID_MASK;
+ 		bgx->bgx_id += nic_get_node_id(pdev) * MAX_BGX_PER_NODE;
+ 		bgx->max_lmac = MAX_LMAC_PER_BGX;
+ 		bgx_vnic[bgx->bgx_id] = bgx;
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+index d59c71e..01cc7c8 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+@@ -28,6 +28,8 @@
+ #define    MAX_DMAC_PER_LMAC			8
+ #define    MAX_FRAME_SIZE			9216
+ 
++#define	   BGX_ID_MASK				0x3
++
+ #define    MAX_DMAC_PER_LMAC_TNS_BYPASS_MODE	2
+ 
+ /* Registers */
 -- 
 2.7.4
