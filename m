@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/15] net: phy: Centralize auto-negotation restart
-Date: Tue, 15 Nov 2016 16:33:56 -0500 (EST)
-Message-ID: <20161115.163356.1193714885578021122.davem@davemloft.net>
-References: <20161115180644.3941-1-f.fainelli@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] bpf: Fix compilation warning in
+ __bpf_lru_list_rotate_inactive
+Date: Tue, 15 Nov 2016 13:44:30 -0800
+Message-ID: <20161115214428.GA19854@ast-mbp.thefacebook.com>
+References: <1479236404-3906780-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, tremyfr@gmail.com
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59908 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753494AbcKOVeA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 16:34:00 -0500
-In-Reply-To: <20161115180644.3941-1-f.fainelli@gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34433 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752308AbcKOVof (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 16:44:35 -0500
+Received: by mail-pg0-f65.google.com with SMTP id e9so12405253pgc.1
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 13:44:34 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1479236404-3906780-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 15 Nov 2016 10:06:29 -0800
-
-> This patch series centralizes how ethtool::nway_reset is implemented
-> by providing a PHYLIB function which calls into genphy_restart_aneg().
+On Tue, Nov 15, 2016 at 11:00:04AM -0800, Martin KaFai Lau wrote:
+> gcc-6.2.1 gives the following warning:
+> kernel/bpf/bpf_lru_list.c: In function ‘__bpf_lru_list_rotate_inactive.isra.3’:
+> kernel/bpf/bpf_lru_list.c:201:28: warning: ‘next’ may be used uninitialized in this function [-Wmaybe-uninitialized]
 > 
-> All drivers below are converted to use this new helper function. Some
-> other have specific requirements that make them not quite suitable for
-> a straight forward conversion.
+> The "next" is currently initialized in the while() loop which must have >=1
+> iterations.
 > 
-> There is another patch series which implements ethtool::nway_reset
-> using the helper function introduced that depends on this patch
-> series.
+> This patch initializes next to get rid of the compiler warning.
+> 
+> Fixes: 3a08c2fd7634 ("bpf: LRU List")
+> Reported-by: David Miller <davem@davemloft.net>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-Series applied, thanks Florian.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
