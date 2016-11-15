@@ -1,51 +1,54 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] amd-xgbe: fix unsigned comparison against less than zero
-Date: Tue, 15 Nov 2016 12:18:42 +0000
-Message-ID: <20161115121842.5774-1-colin.king@canonical.com>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH] net: ioctl SIOCSIFADDR minor cleanup
+Date: Tue, 15 Nov 2016 20:44:59 +0800
+Message-ID: <1479213899-5952-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Tom Lendacky <thomas.lendacky@amd.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m50-133.163.com ([123.125.50.133]:38584 "EHLO m50-133.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751359AbcKOMpO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 07:45:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-Comparing unsigned int ret to less than zero for an error status
-check is never true.  Fix this by making ret a signed int. Reduce
-scope of ret too.
+1. set interface address label to ioctl request device name is enough
+2. when address pass inet_abc_len check, prefixlen < 31 is always true
 
-Found with static analysis by CoverityScan, CID 1377750
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/ipv4/devinet.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index 4ba4332..168507e 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-@@ -2346,7 +2346,7 @@ static bool xgbe_phy_valid_speed(struct xgbe_prv_data *pdata, int speed)
- static int xgbe_phy_link_status(struct xgbe_prv_data *pdata, int *an_restart)
- {
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
--	unsigned int ret, reg;
-+	unsigned int reg;
- 
- 	*an_restart = 0;
- 
-@@ -2365,7 +2365,8 @@ static int xgbe_phy_link_status(struct xgbe_prv_data *pdata, int *an_restart)
- 
- 	if (phy_data->phydev) {
- 		/* Check external PHY */
--		ret = phy_read_status(phy_data->phydev);
-+		int ret = phy_read_status(phy_data->phydev);
-+
- 		if (ret < 0)
- 			return 0;
- 
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 062a67c..d491a7a 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1063,10 +1063,7 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 			if (!ifa)
+ 				break;
+ 			INIT_HLIST_NODE(&ifa->hash);
+-			if (colon)
+-				memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
+-			else
+-				memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
++			memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
+ 		} else {
+ 			ret = 0;
+ 			if (ifa->ifa_local == sin->sin_addr.s_addr)
+@@ -1081,8 +1078,7 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 		if (!(dev->flags & IFF_POINTOPOINT)) {
+ 			ifa->ifa_prefixlen = inet_abc_len(ifa->ifa_address);
+ 			ifa->ifa_mask = inet_make_mask(ifa->ifa_prefixlen);
+-			if ((dev->flags & IFF_BROADCAST) &&
+-			    ifa->ifa_prefixlen < 31)
++			if (dev->flags & IFF_BROADCAST)
+ 				ifa->ifa_broadcast = ifa->ifa_address |
+ 						     ~ifa->ifa_mask;
+ 		} else {
 -- 
-2.10.2
+2.7.4
