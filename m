@@ -1,71 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/2] net: marvell: Allow drivers to be built with COMPILE_TEST
-Date: Tue, 15 Nov 2016 09:35:48 -0800
-Message-ID: <20161115173548.32567-3-f.fainelli@gmail.com>
-References: <20161115173548.32567-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, mw@semihalf.com, arnd@arndb.de,
-        gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com,
-        Igal.Liberman@freescale.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34383 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752270AbcKORf4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 12:35:56 -0500
-Received: by mail-pg0-f65.google.com with SMTP id e9so11974610pgc.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 09:35:56 -0800 (PST)
-In-Reply-To: <20161115173548.32567-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH/RFC] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
+Date: Tue, 15 Nov 2016 18:53:54 +0100
+Message-ID: <20161115175354.GA3979@verge.net.au>
+References: <1477934018-13968-1-git-send-email-geert+renesas@glider.be>
+ <20161031.132431.648834397805808388.davem@davemloft.net>
+ <20161101093216.GE28143@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: geert+renesas@glider.be, sergei.shtylyov@cogentembedded.com,
+        arnd@arndb.de, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161101093216.GE28143@verge.net.au>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-All Marvell Ethernet drivers actually build fine with COMPILE_TEST with
-a few warnings.
+On Tue, Nov 01, 2016 at 10:32:17AM +0100, Simon Horman wrote:
+> On Mon, Oct 31, 2016 at 01:24:31PM -0400, David Miller wrote:
+> > From: Geert Uytterhoeven <geert+renesas@glider.be>
+> > Date: Mon, 31 Oct 2016 18:13:38 +0100
+> > 
+> > > The limitation to 10/100Mbit speeds on R-Car Gen3 is valid for R-Car H3
+> > > ES1.0 only. Check for the exact SoC model to allow 1Gbps on newer
+> > > revisions of R-Car H3, and on R-Car M3-W.
+> > > 
+> > > Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> > > ---
+> > > Tested on:
+> > >   - r8a7795/salvator-x with R-Car H3 ES1.0 (limited to 100Mbps),
+> > >   - r8a7795/salvator-x with R-Car H3 ES1.1 (1Gbps),
+> > >   - r8a7796/salvator-x with R-Car M3-W ES1.0 (1Gbps).
+> > > 
+> > > This is marked as an RFC because it depends on:
+> > >   A) the soc_device_match() infrastructure,
+> > >   B) Renesas SoC core ESx.y handling.
+> > > Hence I think the best merge strategy is to let this patch go in through
+> > > Simon's Renesas tree.
+> > > 
+> > > David: If you agree, can you please provide your ack? Thanks!
+> > 
+> > Sure, no problem:
+> > 
+> > Acked-by: David S. Miller <davem@davemloft.net>
+> 
+> Thanks Dave.
+> 
+> Geert, please repost or otherwise ping me once the dependencies are in
+> place and I should queue this up.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/marvell/Kconfig | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index 2664827ddecd..1fbe0bfbeead 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_MARVELL
- 	bool "Marvell devices"
- 	default y
--	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET
-+	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET || COMPILE_TEST
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 
-@@ -18,7 +18,7 @@ if NET_VENDOR_MARVELL
- 
- config MV643XX_ETH
- 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
--	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
-+	depends on (MV64X60 || PPC32 || PLAT_ORION || COMPILE_TEST) && INET
- 	select PHYLIB
- 	select MVMDIO
- 	---help---
-@@ -55,7 +55,7 @@ config MVNETA_BM_ENABLE
- 
- config MVNETA
- 	tristate "Marvell Armada 370/38x/XP network interface support"
--	depends on PLAT_ORION
-+	depends on PLAT_ORION || COMPILE_TEST
- 	select MVMDIO
- 	select FIXED_PHY
- 	---help---
-@@ -77,7 +77,7 @@ config MVNETA_BM
- 
- config MVPP2
- 	tristate "Marvell Armada 375 network interface support"
--	depends on MACH_ARMADA_375
-+	depends on MACH_ARMADA_375 || COMPILE_TEST
- 	select MVMDIO
- 	---help---
- 	  This driver supports the network interface units in the
--- 
-2.9.3
+For the record, I have queued this up for v4.10.
