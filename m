@@ -1,55 +1,69 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v3 2/7] vxlan: avoid checking socket multiple
- times.
-Date: Tue, 15 Nov 2016 15:15:56 +0100
-Message-ID: <20161115151556.60bf4b99@griffin>
-References: <1479098638-4921-1-git-send-email-pshelar@ovn.org>
-        <1479098638-4921-3-git-send-email-pshelar@ovn.org>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: amd-xgbe: Add support for MDIO attached PHYs
+Date: Tue, 15 Nov 2016 08:17:26 -0600
+Message-ID: <fec6f014-9d5d-8d5b-22f1-c3fe81ab35ee@amd.com>
+References: <6e653058-6442-5bcf-7e02-3136780caffb@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@ovn.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Colin Ian King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53120 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932406AbcKOOP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 09:15:59 -0500
-In-Reply-To: <1479098638-4921-3-git-send-email-pshelar@ovn.org>
+Received: from mail-sn1nam02on0072.outbound.protection.outlook.com ([104.47.36.72]:24544
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752415AbcKOORd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 09:17:33 -0500
+In-Reply-To: <6e653058-6442-5bcf-7e02-3136780caffb@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pravin,
+On 11/15/2016 7:07 AM, Colin Ian King wrote:
+> Hi,
+> 
+> Commit:
+> 
+> amd-xgbe: Add support for MDIO attached PHYs
+> 
+>     Use the phylib support in the kernel to communicate with and control an
+>     MDIO attached PHY. Use the hardware's MDIO communication mechanism to
+>     communicate with the PHY.
+> 
+> 
+> +static int xgbe_clr_gpio(struct xgbe_prv_data *pdata, unsigned int gpio)
+> +{
+> +       unsigned int reg;
+> +
+> +       if (gpio > 16)
+> +               return -EINVAL;
+> 
+> is gpio in the range 0..15?
+> 
+> 	if (gpio > 15)
+> 		return -EINVAL;
 
-please CC reviewers of the previous version when submitting a new
-version. You'll get faster reviews that way.
+Yes, the GPIO range is 0 to 15. I'll submit a patch to change the
+constraint check.
 
-On Sun, 13 Nov 2016 20:43:53 -0800, Pravin B Shelar wrote:
-> @@ -2069,11 +2069,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
->  		struct dst_entry *ndst;
->  		u32 rt6i_flags;
->  
-> -		if (!sock6)
-> -			goto drop;
-> -		sk = sock6->sock->sk;
-> -
-> -		ndst = vxlan6_get_route(vxlan, skb,
-> +		ndst = vxlan6_get_route(vxlan, sock6, skb,
->  					rdst ? rdst->remote_ifindex : 0, tos,
->  					label, &dst->sin6.sin6_addr,
->  					&src->sin6.sin6_addr,
-> @@ -2093,6 +2089,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
->  			goto tx_error;
->  		}
->  
-> +		sk = sock6->sock->sk;
->  		/* Bypass encapsulation if the destination is local */
->  		rt6i_flags = ((struct rt6_info *)ndst)->rt6i_flags;
->  		if (!info && rt6i_flags & RTF_LOCAL &&
+Thanks,
+Tom
 
-This moves the sk assignment from one arbitrary place to a different
-arbitrary place, while it would be best to just remove it and open code
-sock6->sock->sk in the call to udp_tunnel6_xmit_skb. But patch 6 does
-that later, so whatever.
-
-Acked-by: Jiri Benc <jbenc@redhat.com>
+> 
+> +
+> +       reg = XGMAC_IOREAD(pdata, MAC_GPIOSR);
+> +
+> +       reg &= ~(1 << (gpio + 16));
+> 
+> if gpio is 16, we get 1 << 32 which I believe is undefined behaviour.
+> 
+> +       XGMAC_IOWRITE(pdata, MAC_GPIOSR, reg);
+> +
+> +       return 0;
+> +}
+> 
+> 
+> Same applies for function xgbe_clr_gpio().
+> 
+> Colin
+> 
