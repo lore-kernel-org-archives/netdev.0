@@ -1,58 +1,66 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 0/8]  Add support for offloading
- packet-sampling
-Date: Tue, 15 Nov 2016 10:27:43 +0100
-Message-ID: <20161115092743.GA1783@nanopsycho.orion>
-References: <1479135638-3580-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        jhs@mojatatu.com, geert+renesas@glider.be,
-        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
-        linux@roeck-us.net, roopa@cumulusnetworks.com,
-        john.fastabend@gmail.com, simon.horman@netronome.com
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] rtnetlink: fix rtnl_vfinfo_size
+Date: Tue, 15 Nov 2016 10:39:03 +0100
+Message-ID: <188991b3f1ede7ff1231f78411f4716cb5926950.1479202614.git.sd@queasysnail.net>
+Cc: Eran Ben Elisha <eranbe@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+        Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34808 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755343AbcKOJ1r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 04:27:47 -0500
-Received: by mail-wm0-f68.google.com with SMTP id g23so23757888wme.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 01:27:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1479135638-3580-1-git-send-email-jiri@resnulli.us>
+Received: from mx1.redhat.com ([209.132.183.28]:35952 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752423AbcKOJjT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 04:39:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Nov 14, 2016 at 04:00:30PM CET, jiri@resnulli.us wrote:
->From: Jiri Pirko <jiri@mellanox.com>
->
->Add the sample tc action, which allows to sample packet matching
->a classifier. The sample action peeks randomly packets, duplicates them,
->truncates them and adds informative metadata on the packet, for example,
->the input interface and the original packet length. The sampled packets
->are marked to allow matching them and redirecting them to a specific
->collector device.
->
->The sampled packets metadata is packed using ife encapsulation. To do
->that, this patch-set extracts ife logics from the tc_ife action into an
->independent ife module, and uses that functionality to pack the metadata.
->To include all the needed metadata, this patch-set introduces some new
->IFE_META tlv types.
->
->In addition, Add the support for offloading the macthall-sample tc command
->in the Mellanox mlxsw driver, for ingress qdiscs.
->
->Userspace examples for that code can be found in:
-> - https://github.com/yotamgi/host-sflow: sflow client that uses the sample
->   with combination of tap device to sample packets and send to a
->   centralized sflow collector.
-> - https://github.com/yotamgi/libife: a library for manipulating ife
->   packets in userspace. The library is used in the host-sflow program to
->   parse the sampled packets.
+The size reported by rtnl_vfinfo_size doesn't match the space used by
+rtnl_fill_vfinfo.
 
-Dave, please drop this patchset for now. We just discovered couple of
-more changes are needed.
+rtnl_vfinfo_size currently doesn't account for the nest attributes
+used by statistics (added in commit 3b766cd83232), nor for struct
+ifla_vf_tx_rate (since commit ed616689a3d9, which added ifla_vf_rate
+to the dump without removing ifla_vf_tx_rate, but replaced
+ifla_vf_tx_rate with ifla_vf_rate in the size computation).
 
-Thanks
+Fixes: 3b766cd83232 ("net/core: Add reading VF statistics through the PF netdevice")
+Fixes: ed616689a3d9 ("net-next:v4: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ net/core/rtnetlink.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index db313ec7af32..96f4bf274e30 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -840,18 +840,20 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
+ 	if (dev->dev.parent && dev_is_pci(dev->dev.parent) &&
+ 	    (ext_filter_mask & RTEXT_FILTER_VF)) {
+ 		int num_vfs = dev_num_vf(dev->dev.parent);
+-		size_t size = nla_total_size(sizeof(struct nlattr));
+-		size += nla_total_size(num_vfs * sizeof(struct nlattr));
++		size_t size = nla_total_size(0);
+ 		size += num_vfs *
+-			(nla_total_size(sizeof(struct ifla_vf_mac)) +
+-			 nla_total_size(MAX_VLAN_LIST_LEN *
+-					sizeof(struct nlattr)) +
++			(nla_total_size(0) +
++			 nla_total_size(sizeof(struct ifla_vf_mac)) +
++			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
++			 nla_total_size(0) + /* nest IFLA_VF_VLAN_LIST */
+ 			 nla_total_size(MAX_VLAN_LIST_LEN *
+ 					sizeof(struct ifla_vf_vlan_info)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
++			 nla_total_size(sizeof(struct ifla_vf_tx_rate)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_rate)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)) +
++			 nla_total_size(0) + /* nest IFLA_VF_STATS */
+ 			 /* IFLA_VF_STATS_RX_PACKETS */
+ 			 nla_total_size_64bit(sizeof(__u64)) +
+ 			 /* IFLA_VF_STATS_TX_PACKETS */
+-- 
+2.10.2
