@@ -1,102 +1,172 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 1/3] tuntap: rx batching
-Date: Tue, 15 Nov 2016 16:08:52 +0800
-Message-ID: <4eb99b34-29a5-fb67-a484-c345e9a2513d@redhat.com>
-References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
- <20161109183259-mutt-send-email-mst@kernel.org>
- <c6cd619f-b9a6-784d-2c44-6106e64f5664@redhat.com>
- <20161111053048-mutt-send-email-mst@kernel.org> <58254654.4000501@gmail.com>
- <2b357b06-f749-5897-f882-aa3121e49e89@redhat.com>
- <20161111181754-mutt-send-email-mst@kernel.org>
- <39c36d36-9029-5d1f-496f-6ff404c3b77a@redhat.com>
- <20161115053435-mutt-send-email-mst@kernel.org>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH net-next v8 0/9] dpaa_eth: Add the QorIQ DPAA Ethernet driver
+Date: Tue, 15 Nov 2016 10:41:00 +0200
+Message-ID: <1479199269-9748-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        <davem@davemloft.net>, <oss@buserror.net>, <ppc@mindchasers.com>,
+        <joe@perches.com>, <pebolle@tiscali.nl>,
+        <joakim.tjernlund@infinera.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161115053435-mutt-send-email-mst@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch series adds the Ethernet driver for the Freescale
+QorIQ Data Path Acceleration Architecture (DPAA).
 
+This version includes changes following the feedback received
+on previous versions from Eric Dumazet, Bob Cochran, Joe Perches,
+Paul Bolle, Joakim Tjernlund, Scott Wood, David Miller - thank you.
 
-On 2016年11月15日 11:41, Michael S. Tsirkin wrote:
-> On Tue, Nov 15, 2016 at 11:14:48AM +0800, Jason Wang wrote:
->> >
->> >
->> >On 2016年11月12日 00:20, Michael S. Tsirkin wrote:
->>> > >On Fri, Nov 11, 2016 at 12:28:38PM +0800, Jason Wang wrote:
->>>> > > >
->>>> > > >On 2016年11月11日 12:17, John Fastabend wrote:
->>>>> > > > >On 16-11-10 07:31 PM, Michael S. Tsirkin wrote:
->>>>>>> > > > > > >On Fri, Nov 11, 2016 at 10:07:44AM +0800, Jason Wang wrote:
->>>>>>>>> > > > > > > > >
->>>>>>>>> > > > > > > > >On 2016年11月10日 00:38, Michael S. Tsirkin wrote:
->>>>>>>>>>> > > > > > > > > > >On Wed, Nov 09, 2016 at 03:38:31PM +0800, Jason Wang wrote:
->>>>>>>>>>>>> > > > > > > > > > > > >Backlog were used for tuntap rx, but it can only process 1 packet at
->>>>>>>>>>>>> > > > > > > > > > > > >one time since it was scheduled during sendmsg() synchronously in
->>>>>>>>>>>>> > > > > > > > > > > > >process context. This lead bad cache utilization so this patch tries
->>>>>>>>>>>>> > > > > > > > > > > > >to do some batching before call rx NAPI. This is done through:
->>>>>>>>>>>>> > > > > > > > > > > > >
->>>>>>>>>>>>> > > > > > > > > > > > >- accept MSG_MORE as a hint from sendmsg() caller, if it was set,
->>>>>>>>>>>>> > > > > > > > > > > > >     batch the packet temporarily in a linked list and submit them all
->>>>>>>>>>>>> > > > > > > > > > > > >     once MSG_MORE were cleared.
->>>>>>>>>>>>> > > > > > > > > > > > >- implement a tuntap specific NAPI handler for processing this kind of
->>>>>>>>>>>>> > > > > > > > > > > > >     possible batching. (This could be done by extending backlog to
->>>>>>>>>>>>> > > > > > > > > > > > >     support skb like, but using a tun specific one looks cleaner and
->>>>>>>>>>>>> > > > > > > > > > > > >     easier for future extension).
->>>>>>>>>>>>> > > > > > > > > > > > >
->>>>>>>>>>>>> > > > > > > > > > > > >Signed-off-by: Jason Wang<jasowang@redhat.com>
->>>>>>>>>>> > > > > > > > > > >So why do we need an extra queue?
->>>>>>>>> > > > > > > > >The idea was borrowed from backlog to allow some kind of bulking and avoid
->>>>>>>>> > > > > > > > >spinlock on each dequeuing.
->>>>>>>>> > > > > > > > >
->>>>>>>>>>> > > > > > > > > > >    This is not what hardware devices do.
->>>>>>>>>>> > > > > > > > > > >How about adding the packet to queue unconditionally, deferring
->>>>>>>>>>> > > > > > > > > > >signalling until we get sendmsg without MSG_MORE?
->>>>>>>>> > > > > > > > >Then you need touch spinlock when dequeuing each packet.
->>>>> > > > >Random thought, I have a cmpxchg ring I am using for the qdisc work that
->>>>> > > > >could possibly replace the spinlock implementation. I haven't figured
->>>>> > > > >out the resizing API yet because I did not need it but I assume it could
->>>>> > > > >help here and let you dequeue multiple skbs in one operation.
->>>>> > > > >
->>>>> > > > >I can post the latest version if useful or an older version is
->>>>> > > > >somewhere on patchworks as well.
->>>>> > > > >
->>>>> > > > >.John
->>>>> > > > >
->>>>> > > > >
->>>> > > >Look useful here, and I can compare the performance if you post.
->>>> > > >
->>>> > > >A question is can we extend the skb_array to support that?
->>>> > > >
->>>> > > >Thanks
->>> > >I'd like to start with simple patch adding napi with one queue, then add
->>> > >optimization patches on top.
->> >
->> >The point is tun is using backlog who uses two queues (process_queue and
->> >input_pkt_queue).
->> >
->> >How about something like:
->> >
->> >1) NAPI support with skb_array
-> I would start with just write queue linked list. It all runs on a single
-> CPU normally,
+Together with the driver a managed version of alloc_percpu
+is provided that simplifies the release of per-CPU memory.
 
-True for virt but I'm not sure the others. If we have multiple senders 
-at the same time, current code scales very well.
+The Freescale DPAA architecture consists in a series of hardware
+blocks that support the Ethernet connectivity. The Ethernet driver
+depends upon the following drivers that are currently in the Linux
+kernel:
+ - Peripheral Access Memory Unit (PAMU)
+    drivers/iommu/fsl_*
+ - Frame Manager (FMan) added in v4.4
+    drivers/net/ethernet/freescale/fman
+ - Queue Manager (QMan), Buffer Manager (BMan) added in v4.9-rc1
+    drivers/soc/fsl/qbman
 
->   so the nice reductions of cache line bounces due to skb
-> array should never materialize.
->
-> While we are at it, limiting the size of the queue might
-> be a good idea. Kind of like TUNSETSNDBUF but 1. actually
-> working where instead of tracking packets within net stack
-> we make sndbuf track the internal buffer
+dpaa_eth interfaces mapping to FMan MACs:
 
-Get your point, will start from simple skb list.
+  dpaa_eth       /eth0\     ...       /ethN\
+  driver        |      |             |      |
+  -------------   ----   -----------   ----   -------------
+       -Ports  / Tx  Rx \    ...    / Tx  Rx \
+  FMan        |          |         |          |
+       -MACs  |   MAC0   |         |   MACN   |
+             /   dtsec0   \  ...  /   dtsecN   \ (or tgec)
+            /              \     /              \(or memac)
+  ---------  --------------  ---  --------------  ---------
+      FMan, FMan Port, FMan SP, FMan MURAM drivers
+  ---------------------------------------------------------
+      FMan HW blocks: MURAM, MACs, Ports, SP
+  ---------------------------------------------------------
 
-Thanks
+dpaa_eth relation to QMan, FMan:
+              ________________________________
+  dpaa_eth   /            eth0                \
+  driver    /                                  \
+  ---------   -^-   -^-   -^-   ---    ---------
+  QMan driver / \   / \   / \  \   /  | BMan    |
+             |Rx | |Rx | |Tx | |Tx |  | driver  |
+  ---------  |Dfl| |Err| |Cnf| |FQs|  |         |
+  QMan HW    |FQ | |FQ | |FQ | |   |  |         |
+             /   \ /   \ /   \  \ /   |         |
+  ---------   ---   ---   ---   -v-    ---------
+            |        FMan QMI         |         |
+            | FMan HW       FMan BMI  | BMan HW |
+              -----------------------   --------
+
+where the acronyms used above (and in the code) are:
+DPAA = Data Path Acceleration Architecture
+FMan = DPAA Frame Manager
+QMan = DPAA Queue Manager
+BMan = DPAA Buffers Manager
+QMI = QMan interface in FMan
+BMI = BMan interface in FMan
+FMan SP = FMan Storage Profiles
+MURAM = Multi-user RAM in FMan
+FQ = QMan Frame Queue
+Rx Dfl FQ = default reception FQ
+Rx Err FQ = Rx error frames FQ
+Tx Cnf FQ = Tx confirmation FQ
+Tx FQs = transmission frame queues
+dtsec = datapath three speed Ethernet controller (10/100/1000 Mbps)
+tgec = ten gigabit Ethernet controller (10 Gbps)
+memac = multirate Ethernet MAC (10/100/1000/10000)
+
+Changes from v7:
+ - remove the debug option to use a common buffer pool for all the
+   interfaces
+
+Changed from v6:
+ - fixed an issue on an error path in dpaa_set_mac_address()
+ - removed NDO operation definitions that were not needed
+ - sorted the local variable declarations
+ - cleaned up a few checkpatch checks
+ - removed friendly network interface naming code
+
+Changes from v5:
+ - adapt to the latest Q/BMan drivers API
+ - use build_skb() on Rx path instead of buffer pool refill path
+ - proper support for multiple buffer pools
+ - align function, variable names, code cleanup
+ - driver file structure cleanup
+
+Changes from v4:
+ - addressed feedback from Scott Wood and Joe Perches
+ - fixed spelling
+ - fixed leak of uninitialized stack to userspace
+ - fix prints
+ - replace raw_cpu_ptr() with this_cpu_ptr()
+ - remove _s from the end of structure names
+ - remove underscores at start of functions, goto labels
+ - remove likely in error paths
+ - use container_of() instead of open casts
+ - remove priv from the driver name
+ - move return type on same line with function name
+ - drop DPA_READ_SKB_PTR/DPA_WRITE_SKB_PTR
+
+Changes from v3:
+ - removed bogus delay and comment in .ndo_stop implementation
+ - addressed minor issues reported by David Miller
+
+Changes from v2:
+ - removed debugfs, moved exports to ethtool statistics
+ - removed congestion groups Kconfig params
+
+Changes from v1:
+ - bpool level Kconfig options removed
+ - print format using pr_fmt, cleaned up prints
+ - __hot/__cold removed
+ - gratuitous unlikely() removed
+ - code style aligned, consistent spacing for declarations
+ - comment formatting
+
+The changes are also available in the public git repository at
+git://git.freescale.com/ppc/upstream/linux.git on the branch dpaa_eth-next.
+
+Madalin Bucur (9):
+  devres: add devm_alloc_percpu()
+  dpaa_eth: add support for DPAA Ethernet
+  dpaa_eth: add ethtool functionality
+  dpaa_eth: add ethtool statistics
+  dpaa_eth: add sysfs exports
+  dpaa_eth: add trace points
+  arch/powerpc: Enable FSL_PAMU
+  arch/powerpc: Enable FSL_FMAN
+  arch/powerpc: Enable dpaa_eth
+
+ Documentation/driver-model/devres.txt              |    4 +
+ arch/powerpc/configs/dpaa.config                   |    3 +
+ drivers/base/devres.c                              |   66 +
+ drivers/net/ethernet/freescale/Kconfig             |    2 +
+ drivers/net/ethernet/freescale/Makefile            |    1 +
+ drivers/net/ethernet/freescale/dpaa/Kconfig        |   10 +
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   12 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     | 2753 ++++++++++++++++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  185 ++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |  165 ++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   |  141 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  417 +++
+ include/linux/device.h                             |   19 +
+ 13 files changed, 3778 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+
+-- 
+2.1.0
