@@ -1,49 +1,105 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit
- ethernet driver
-Date: Tue, 15 Nov 2016 12:54:51 -0800
-Message-ID: <4450caf4-e1cf-5187-1337-c46b81b08708@gmail.com>
-References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
- <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
- <20161113195544.GA18258@lunn.ch>
- <69558f55-824a-7063-d9b3-ccc0a6113b87@gmx.de>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
+ and fix call ordering
+Date: Tue, 15 Nov 2016 21:01:03 +0000
+Message-ID: <1479243657.681.125.camel@intel.com>
+References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
+         <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
+         <20161115195107.GB1783@nanopsycho.orion>
+         <1479241747.681.105.camel@intel.com>
+         <20161115203140.GC1783@nanopsycho.orion>
+         <1479242939.681.117.camel@intel.com>
+         <20161115205233.GD1783@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
- linux-kernel@vger.kernel.org, liodot@gmail.com, netdev@vger.kernel.org,
- davem@davemloft.net
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <69558f55-824a-7063-d9b3-ccc0a6113b87@gmx.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jiri@mellanox.com" <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>
+To: "jiri@resnulli.us" <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:55494 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752308AbcKOVBS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 16:01:18 -0500
+In-Reply-To: <20161115205233.GD1783@nanopsycho.orion>
+Content-Language: en-US
+Content-ID: <00679DC94A6D1649A19279115C41661F@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2016 12:46 PM, Lino Sanfilippo wrote:
->> Could this be pulled out into a standard PHY driver? All the SLIC
->> SLIC_PCR_ defines seems to be the same as those in mii.h. This could
->> be a standard PHY hidden behind a single register.
->>
->>    Andrew
-> 
-> You are right, the driver should really use the defines in mii.h. I will fix this in
->  a v2.
-> 
-> Concerning the use of the PHY API: What would be the advantage of using it? Note that the
->  phy is always internal and not interchangeable. Is not the interchangeability of PHYs
-> the main reason for using this API?
-
-Not reinventing the wheel primarily, while PHYLIB also solves the plug &
-play aspect of external PHYs, it also solves the basic link management,
-and consistent and reasonably well defined interface to user-space and
-drivers (statistics reporting, link, auto-negotiation, EEE etc.).
--- 
-Florian
+T24gVHVlLCAyMDE2LTExLTE1IGF0IDIxOjUyICswMTAwLCBKaXJpIFBpcmtvIHdyb3RlOg0KPiBU
+dWUsIE5vdiAxNSwgMjAxNiBhdCAwOTo0OTowMlBNIENFVCwgYWxleGFuZGVyLmguZHV5Y2tAaW50
+ZWwuY29tIHdyb3RlOg0KPiA+IA0KPiA+IE9uIFR1ZSwgMjAxNi0xMS0xNSBhdCAyMTozMSArMDEw
+MCwgSmlyaSBQaXJrbyB3cm90ZToNCj4gPiA+IA0KPiA+ID4gVHVlLCBOb3YgMTUsIDIwMTYgYXQg
+MDk6Mjk6MDlQTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbSB3cm90ZToNCj4gPiA+
+ID4gDQo+ID4gPiA+IA0KPiA+ID4gPiBPbiBUdWUsIDIwMTYtMTEtMTUgYXQgMjA6NTEgKzAxMDAs
+IEppcmkgUGlya28gd3JvdGU6DQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gVHVl
+LCBOb3YgMTUsIDIwMTYgYXQgMTE6NDY6MDZBTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVs
+LmNvbSB3cm90ZToNCj4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiANCj4g
+PiA+ID4gPiA+IFRoZSBwYXRjaCB0aGF0IHJlbW92ZWQgdGhlIEZJQiBvZmZsb2FkIGluZnJhc3Ry
+dWN0dXJlIHdhcyBhIGJpdCB0b28NCj4gPiA+ID4gPiA+IGFnZ3Jlc3NpdmUgYW5kIGFsc28gcmVt
+b3ZlZCBjb2RlIG5lZWRlZCB0byBjbGVhbiB1cCB1cyBzcGxpdHRpbmcgdGhlIHRhYmxlDQo+ID4g
+PiA+ID4gPiBpZiBhZGRpdGlvbmFsIHJ1bGVzIHdlcmUgYWRkZWQuICBTcGVjaWZpY2FsbHkgdGhl
+IGZ1bmN0aW9uDQo+ID4gPiA+ID4gPiBmaWJfdHJpZV9mbHVzaF9leHRlcm5hbCB3YXMgY2FsbGVk
+IGF0IHRoZSBlbmQgb2YgYSBuZXcgcnVsZSBiZWluZyBhZGRlZCB0bw0KPiA+ID4gPiA+ID4gZmx1
+c2ggdGhlIGZvcmVpZ24gdHJpZSBlbnRyaWVzIGZyb20gdGhlIG1haW4gdHJpZS4NCj4gPiA+ID4g
+PiA+IA0KPiA+ID4gPiA+ID4gSSB1cGRhdGVkIHRoZSBjb2RlIHNvIHRoYXQgd2Ugb25seSBjYWxs
+IGZpYl90cmllX2ZsdXNoX2V4dGVybmFsIG9uIHRoZSBtYWluDQo+ID4gPiA+ID4gPiB0YWJsZSBz
+byB0aGF0IHdlIGZsdXNoIHRoZSBlbnRyaWVzIGZvciBsb2NhbCBmcm9tIG1haW4uICBUaGlzIHdh
+eSB3ZSBkb24ndA0KPiA+ID4gPiA+ID4gY2FsbCBpdCBmb3IgZXZlcnkgcnVsZSBjaGFuZ2Ugd2hp
+Y2ggaXMgd2hhdCB3YXMgaGFwcGVuaW5nIHByZXZpb3VzbHkuDQo+ID4gPiA+ID4gDQo+ID4gPiA+
+ID4gV2VsbCwgdGhlIGZ1bmN0aW9uIHdhcyBpbnRyb2R1Y2VkIGJ5Og0KPiA+ID4gPiA+IA0KPiA+
+ID4gPiA+IGNvbW1pdCAxMDQ2MTZlNzRlMGI0NjRkNDQ5ZmRkMmVlMmY1NDdkMmZhZDcxNjEwDQo+
+ID4gPiA+ID4gQXV0aG9yOiBTY290dCBGZWxkbWFuIDxzZmVsZG1hQGdtYWlsLmNvbT4NCj4gPiA+
+ID4gPiBEYXRlOiAgIFRodSBNYXIgNSAyMToyMToxNiAyMDE1IC0wODAwDQo+ID4gPiA+ID4gDQo+
+ID4gPiA+ID4gICAgIHN3aXRjaGRldjogZG9uJ3Qgc3VwcG9ydCBjdXN0b20gaXAgcnVsZXMsIGZv
+ciBub3cNCj4gPiA+ID4gPiAgICAgDQo+ID4gPiA+ID4gICAgIEtlZXAgc3dpdGNoZGV2IEZJQiBv
+ZmZsb2FkIG1vZGVsIHNpbXBsZSBmb3Igbm93IGFuZCBkb24ndCBhbGxvdyBjdXN0b20gaXANCj4g
+PiA+ID4gPiAgICAgcnVsZXMuDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gV2h5IHRoaXMgd2FzIG5v
+dCBuZWVkZWQgYmVmb3JlPyBXaGF0IGNoYW5nZWQgaW4gYmV0d2VlbjoNCj4gPiA+ID4gPiAxMDQ2
+MTZlNzRlMGI0NjRkNDQ5ZmRkMmVlMmY1NDdkMmZhZDcxNjEwICgic3dpdGNoZGV2OiBkb24ndCBz
+dXBwb3J0IGN1c3RvbSBpcCBydWxlcywgZm9yIG5vdyIpDQo+ID4gPiA+ID4gYW5kDQo+ID4gPiA+
+ID4gMzQ3ZTNiMjhjMWJhMiAoInN3aXRjaGRldjogcmVtb3ZlIEZJQiBvZmZsb2FkIGluZnJhc3Ry
+dWN0dXJlIikNCj4gPiA+ID4gDQo+ID4gPiA+IFdlIGNvbGxhcHNlZCB0aGUgdHdvIHRhYmxlcyBp
+bnRvIG9uZSBpbiBjb21taXTCoDBkZGNmNDNkNWQ0YSAoImlwdjQ6IEZJQg0KPiA+ID4gPiBMb2Nh
+bC9NQUlOIHRhYmxlIGNvbGxhcHNlIikgd2hpY2ggd2FzIHN1Ym1pdHRlZCB0aGUgbmV4dCBkYXku
+IMKgU2NvdHQNCj4gPiA+ID4gYW5kIEkgd2VyZSB3b3JraW5nIG9uIHRoaW5ncyBhdCB0aGUgc2Ft
+ZSB0aW1lIGFuZCB0aGUNCj4gPiA+ID4gZmliX3RhYmxlX2ZsdXNoX2V4dGVybmFsIGZ1bmN0aW9u
+IHdhcyBzb21ldGhpbmcgd2UgaGFkIHdvcmtlZCBvdXQgdGhhdA0KPiA+ID4gPiB3b3VsZCBhbGxv
+dyBoaW0gdG8gdGFrZSBjYXJlIG9mIGhpcyB1c2UgY2FzZSBhbmQgbWUgdG8gdGFrZSBjYXJlIG9m
+DQo+ID4gPiA+IGNsZWFuaW5nIHVwIHRoZSB0YWJsZXMgYWZ0ZXIgdW5tZXJnaW5nLg0KPiA+ID4g
+DQo+ID4gPiBPa2F5LiBCdXQgcGxlYXNlIG5hbWUgdGhlIGZ1Y3Rpb24gZGlmZmVyZW50bHksIGFz
+IGl0IGRvZXMgbm90IGZsdXNoDQo+ID4gPiBleHRlcm5hbC4gVGhhbmtzIQ0KPiA+IA0KPiA+IFlv
+dSBhbmQgSSBoYXZlIGRpZmZlcmVudCBtZWFuaW5ncyBmb3IgImV4dGVybmFsIi4NCj4gPiANCj4g
+PiBJbiBteSBjYXNlIEkgYW0gZmx1c2hpbmcgZW50cmllcyB0aGF0IGJlbG9uZyB0byBhIGZvcmVp
+Z24gImV4dGVybmFsIg0KPiA+IHRhYmxlIGZyb20gdGhlIHRhYmxlIHNwZWNpZmllZC4gU28gYnkg
+ImV4dGVybmFsIiBJIGFtIHJlZmVycmluZyB0bw0KPiA+IGVudHJpZXMgdGhhdCBkb24ndCBhY3R1
+YWxseSBsaXZlIGluIG1haW4sIGJ1dCBhY3R1YWxseSByZXNpZGUgaW4gbG9jYWwuDQo+ID4gSWYg
+eW91IHRha2UgYSBsb29rIGF0IGZpYl90YWJsZV9mbHVzaCB0aGF0IGdldHMgcmlkIG9mIGFsbCBl
+bnRyaWVzLA0KPiA+IGZpYl90YWJsZV9mbHVzaF9leHRlcm5hbCBzaW1wbHkgY2xlYXJzIHRoZSBm
+b3JlaWduIG9uZXMuDQo+ID4gDQo+ID4gQWxzbyBJJ2QgcmF0aGVyIG1haW50YWluIG5hbWluZyBz
+aW5jZSBpdCBtYWtlcyBpdCBlYXNpZXIgaWYgd2UgbmVlZCB0bw0KPiA+IGJhY2twb3J0IGZpeGVz
+Lg0KPiA+IA0KPiA+IEZpbmFsbHksIHRoZSBmbGFnIFJUTkhfRl9FWFRFUk5BTCB3YXMgcmVuYW1l
+ZCBvdmVyIGEgeWVhciBhZ28gaW4gY29tbWl0DQo+ID4gMzY1ODNlYjU0ZDQ2YyAoInJlbmFtZSBS
+VE5IX0ZfRVhURVJOQUwgdG8gUlROSF9GX09GRkxPQUQiKSBzbyB0aGVyZQ0KPiA+IGlzbid0IHRv
+byBtdWNoIGxpa2VsaWhvb2Qgb2YgdGhpcyBiZWluZyBjb25mdXNlZCBmb3Igc29tZXRoaW5nIHRo
+YXQNCj4gPiBoYW5kbGVzIG9mZmxvYWRlZCBlbnRyaWVzLiDCoElmIHlvdSB0YWtlIGEgbG9vayBp
+biBuZXQvaXB2NC8qIGFmdGVyIHlvdXINCj4gPiBwYXRjaCB0aGVyZSBpc24ndCBhY3R1YWxseSBh
+bnl0aGluZyB0aGF0IHJlZmVyZW5jZXMgdGhlIHdvcmQgZXh0ZXJuYWwNCj4gPiBzbyB0aGUgbGlr
+ZWxpaG9vZCBmb3IgYW55IGNvbmZ1c2lvbiBpcyBleHRyZW1lbHkgbG93Lg0KPiANCj4gT2theS4g
+QnV0IGlmIHlvdSBjYW4sIHBsZWFzZSBwdXQgYSBjb21tZW50IHRvIHRoaXMgZnVuY3Rpb24gaW4g
+b3JkZXIgdG8NCj4gcHJldmVudCBmdXR1cmUgY29uZnVzaW9uLiBUaGFua3MhDQoNCkknbSBub3Qg
+c3VyZSB0aGVyZSBpcyBtdWNoIGxlZnQgdG8gY29uZnVzZSBhdCB0aGlzIHBvaW50LiDCoFRoZSBm
+dW5jdGlvbg0KaGFzIGdvbmUgZnJvbSBtdWx0aS1wdXJwb3NlIHRvIHNpbmdsZSBwdXJwb3NlIHNv
+IGFueW9uZSB0aGF0IGlzIG1lc3NpbmcNCndpdGggdGhpcyBzaG91bGQgb25seSBiZSBkb2luZyBz
+byBpZiB0aGV5IGFyZSBtZXNzaW5nIHdpdGggdGhlIHVubWVyZ2UNCmZ1bmN0aW9uYWxpdHkuDQoN
+CklmIGFueXRoaW5nIGl0IHdvdWxkIGJlIG1vcmUgY29uZnVzaW5nIHRvIHJlZmVyIHRvIGZ1bmN0
+aW9uYWxpdHkgdGhhdA0KdGhpcyBmdW5jdGlvbiBkb2Vzbid0IHN1cHBvcnQgaW4gdGhlIGNvbW1l
+bnRzLiDCoEFsbCB0aGlzIGZ1bmN0aW9uIGRvZXMNCmlzIGZsdXNoIGZvcmVpZ24vZXh0ZXJuYWwg
+b2JqZWN0cyBmcm9tIHRoZSB0cmVlLg0KDQpJJ20gd2lsbGluZyB0byByZXZpZXcgYSBwYXRjaCBp
+ZiB5b3UgaGF2ZSBhIHN1Z2dlc3Rpb24gZm9yIGEgY29tbWVudA0KdGhhdCB3b3VsZCB3b3JrLiDC
+oEkganVzdCB3YW50IHRvIGF2b2lkIGNvbmZ1c2luZyBwZW9wbGUgYnkgcmVmZXJyaW5nIHRvDQpj
+b2RlIGFuZCBmdW5jdGlvbmFsaXR5IHRoYXQgaXMgbm8gbG9uZ2VyIHJlbGV2ZW50Lg0KDQotIEFs
+ZXg=
