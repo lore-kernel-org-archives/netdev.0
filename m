@@ -1,54 +1,52 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 12/15] net: ethernet: ucc: Utilize phy_ethtool_nway_reset
-Date: Tue, 15 Nov 2016 10:06:41 -0800
-Message-ID: <20161115180644.3941-13-f.fainelli@gmail.com>
+Subject: [PATCH 11/15] net: fec: Utilize phy_ethtool_nway_reset
+Date: Tue, 15 Nov 2016 10:06:40 -0800
+Message-ID: <20161115180644.3941-12-f.fainelli@gmail.com>
 References: <20161115180644.3941-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch, tremyfr@gmail.com,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Li Yang <leoli@freescale.com>,
-        linuxppc-dev@lists.ozlabs.org (open list:FREESCALE QUICC ENGINE UCC
-        ETHERNET DRIVER), linux-kernel@vger.kernel.org (open list)
+        Fugang Duan <fugang.duan@nxp.com>,
+        linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33579 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754105AbcKOSHX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 13:07:23 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161115180644.3941-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/freescale/ucc_geth_ethtool.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-index 812a968a78e9..8ba636f61b50 100644
---- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-@@ -332,13 +332,6 @@ static void uec_get_ethtool_stats(struct net_device *netdev,
- 	}
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 01aebc0084a9..1aabe4bcc8ea 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2344,16 +2344,6 @@ static int fec_enet_get_sset_count(struct net_device *dev, int sset)
  }
+ #endif /* !defined(CONFIG_M5272) */
  
--static int uec_nway_reset(struct net_device *netdev)
+-static int fec_enet_nway_reset(struct net_device *dev)
 -{
--	struct ucc_geth_private *ugeth = netdev_priv(netdev);
+-	struct phy_device *phydev = dev->phydev;
 -
--	return phy_start_aneg(ugeth->phydev);
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return genphy_restart_aneg(phydev);
 -}
 -
- /* Report driver information */
- static void
- uec_get_drvinfo(struct net_device *netdev,
-@@ -394,7 +387,7 @@ static const struct ethtool_ops uec_ethtool_ops = {
- 	.get_regs               = uec_get_regs,
- 	.get_msglevel           = uec_get_msglevel,
- 	.set_msglevel           = uec_set_msglevel,
--	.nway_reset             = uec_nway_reset,
-+	.nway_reset             = phy_ethtool_nway_reset,
- 	.get_link               = ethtool_op_get_link,
- 	.get_ringparam          = uec_get_ringparam,
- 	.set_ringparam          = uec_set_ringparam,
+ /* ITR clock source is enet system clock (clk_ahb).
+  * TCTT unit is cycle_ns * 64 cycle
+  * So, the ICTT value = X us / (cycle_ns * 64)
+@@ -2553,7 +2543,7 @@ static const struct ethtool_ops fec_enet_ethtool_ops = {
+ 	.get_drvinfo		= fec_enet_get_drvinfo,
+ 	.get_regs_len		= fec_enet_get_regs_len,
+ 	.get_regs		= fec_enet_get_regs,
+-	.nway_reset		= fec_enet_nway_reset,
++	.nway_reset		= phy_ethtool_nway_reset,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_coalesce		= fec_enet_get_coalesce,
+ 	.set_coalesce		= fec_enet_set_coalesce,
 -- 
 2.9.3
