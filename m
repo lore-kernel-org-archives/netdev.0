@@ -1,89 +1,66 @@
-From: Jerome Brunet <jbrunet@baylibre.com>
-Subject: Re: [PATCH net 1/3] net: phy: realtek: add eee advertisement
- disable options
-Date: Wed, 16 Nov 2016 16:38:51 +0100
-Message-ID: <1479310731.17538.53.camel@baylibre.com>
-References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
-         <1479220154-25851-2-git-send-email-jbrunet@baylibre.com>
-         <20161115163036.GB23231@lunn.ch>
-         <476b72f3-5efe-3551-6c24-0e378d655a0f@gmail.com>
-         <1479290189.17538.25.camel@baylibre.com> <20161116132337.GD19962@lunn.ch>
-         <1479307890.17538.40.camel@baylibre.com> <20161116150628.GI23231@lunn.ch>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v2 3/4] bpf, mlx5: drop priv->xdp_prog reference
+ on netdev cleanup
+Date: Wed, 16 Nov 2016 16:45:21 +0100
+Message-ID: <582C7F11.7000006@iogearbox.net>
+References: <cover.1479253024.git.daniel@iogearbox.net> <4617cac95e3ca1b608f5d0a55709b0534c168943.1479253024.git.daniel@iogearbox.net> <CALzJLG9Rzds3H-wXnjCg=_2oGV-33TY714Hx0n+NyVsZzcBBfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, Carlo Caione <carlo@caione.org>,
-        Kevin Hilman <khilman@baylibre.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre TORGUE <alexandre.torgue@st.com>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Andre Roth <neolynx@gmail.com>,
-        Neil Armstrong <narmstrong@baylibre.com>,
-        linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161116150628.GI23231@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Brenden Blanco <bblanco@plumgrid.com>, zhiyisun@gmail.com,
+        Rana Shahout <ranas@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38881 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932166AbcKPPp1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:45:27 -0500
+In-Reply-To: <CALzJLG9Rzds3H-wXnjCg=_2oGV-33TY714Hx0n+NyVsZzcBBfA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-16 at 16:06 +0100, Andrew Lunn wrote:
-> On Wed, Nov 16, 2016 at 03:51:30PM +0100, Jerome Brunet wrote:
-> > 
-> > On Wed, 2016-11-16 at 14:23 +0100, Andrew Lunn wrote:
-> > > 
-> > > > 
-> > > > 
-> > > > There two kind of PHYs supporting eee, the one advertising eee
-> > > > by
-> > > > default (like realtek) and the one not advertising it (like
-> > > > micrel).
-> > 
-> > This is just the default register value.
-> > 
-> > > 
-> > > 
-> > > I don't know too much about EEE. So maybe a dumb question. Does
-> > > the
-> > > MAC need to be involved? Or is it just the PHY?
-> > > 
-> > > If the MAC needs to be involved, the PHY should not be
-> > > advertising
-> > > EEE
-> > > unless the MAC asks for it by calling phy_init_eee(). If this is
-> > > true,
-> > > maybe we need to change the realtek driver, and others in that
-> > > class.
-> > 
-> > As far I understand, the advertised capabilities are exchanged
-> > during
-> > the auto-negotiation.
-> > 
-> > At this stage, if the advertisement is disabled (regarless of the
-> > actual support) on either side of the link, there will be no low
-> > power
-> > idle state on the Tx nor the Rx path.
-> > 
-> > If the advertisement is enabled on both side but we don't call
-> > phy_init_eee, I suppose Tx won't enter LPI, but Rx could.
-> 
-> What i was trying to find out is, if the MAC needs to support EEE as
-> well as the PHY, what happens when the MAC does not support EEE, but
-> the PHYs do negotiate EEE? Does it break?
+On 11/16/2016 01:51 PM, Saeed Mahameed wrote:
+> On Wed, Nov 16, 2016 at 2:04 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> mlx5e_xdp_set() is currently the only place where we drop reference on the
+>> prog sitting in priv->xdp_prog when it's exchanged by a new one. We also
+>> need to make sure that we eventually release that reference, for example,
+>> in case the netdev is dismantled.
+>>
+>> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>> ---
+>>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 +++
+>>   1 file changed, 3 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>> index cf26672..60fe54c 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>> @@ -3715,6 +3715,9 @@ static void mlx5e_nic_cleanup(struct mlx5e_priv *priv)
+>>
+>>          if (MLX5_CAP_GEN(mdev, vport_group_manager))
+>>                  mlx5_eswitch_unregister_vport_rep(esw, 0);
+>> +
+>> +       if (priv->xdp_prog)
+>> +               bpf_prog_put(priv->xdp_prog);
+>>   }
+>
+> I thought that on unregister_netdev  ndo_xdp_set will be called with
+> NULL prog to cleanup. like any other resources (Vlans/mac_lists/
+> etc..), why xdp should be different ?
+> Anyway if this is the case, I am ok with this fix, you can even send
+> it to net (it looks like a serious leak).
 
-Interesting question. In a regular case, I suppose it should be fine.
-As you would have LPI only on the Rx path this should be transparent to
-the MAC. That's my understanding. Maybe people knowing EEE better than
-me could confirm (or not) ? Peppe? Alexandre?
+The only interaction with ndo_xdp() right now is dev_change_xdp_fd()
+and the currently a bit terse dump via rtnl_xdp_fill(). The latter
+only tells whether something is actually attached and will have more
+info in near future, but doesn't alter anything.
 
-I just checked with the OdroidC2, I disabled eee support by forcing
-"dma_cap.eee = 0" in stmmac_get_hw_features. As expected, no tx_LPI
-interrupts but plenty of rx_LPI interrupts.
-
-What was not expected is test failing like before.
-So in our case, having LPI on the Rx path is fine for receiving data,
-but not for sending.
-
-> 
->     Andrew
+dev_change_xdp_fd() is only triggered from user side via netlink when
+IFLA_XDP container attr is around, so no automatic cleanup here. This
+means as per documentation in enum xdp_netdev_command, that the driver
+has full ownership, thus needs to bpf_prog_put().
