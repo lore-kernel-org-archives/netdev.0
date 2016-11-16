@@ -1,83 +1,101 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [patch net-next 0/8] ipv4: fib: Allow modules to dump FIB tables
-Date: Wed, 16 Nov 2016 08:38:13 -0800
-Message-ID: <CAKgT0Ud134-+QtxJYGmeyPXY4hZpC1rV_oDkUXSF5wJ9oeTYxQ@mail.gmail.com>
-References: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [patch net-next v2 5/8] Introduce sample tc action
+Date: Wed, 16 Nov 2016 16:26:44 +0000
+Message-ID: <DB3PR05MB0764183033BE8FFDAC8B6896ACBE0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1479135638-3580-1-git-send-email-jiri@resnulli.us>
+ <1479135638-3580-6-git-send-email-jiri@resnulli.us>
+ <582C861B.8010709@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
-        arkadis@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>,
-        roopa <roopa@cumulusnetworks.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        nikolay@cumulusnetworks.com, Andy Gospodarek <andy@greyhouse.net>,
-        vivien.didelot@savoirfairelinux.com, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        "kaber@trash.net" <kaber@trash.net>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "geert+renesas@glider.be" <geert+renesas@glider.be>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "linux@roeck-us.net" <linux@roeck-us.net>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "simon.horman@netronome.com" <simon.horman@netronome.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35520 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbcKPQiP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 11:38:15 -0500
-Received: by mail-it0-f66.google.com with SMTP id b123so8243246itb.2
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 08:38:15 -0800 (PST)
-In-Reply-To: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
+Received: from mail-db5eur01on0076.outbound.protection.outlook.com ([104.47.2.76]:21388
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932247AbcKPQlm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Nov 2016 11:41:42 -0500
+In-Reply-To: <582C861B.8010709@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2016 at 6:08 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+>-----Original Message-----
+>From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
+>Sent: Wednesday, November 16, 2016 6:15 PM
+>To: Jiri Pirko <jiri@resnulli.us>
+>Cc: netdev@vger.kernel.org; davem@davemloft.net; Yotam Gigi
+><yotamg@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
+><eladr@mellanox.com>; Nogah Frankel <nogahf@mellanox.com>; Or Gerlitz
+><ogerlitz@mellanox.com>; jhs@mojatatu.com; geert+renesas@glider.be;
+>stephen@networkplumber.org; xiyou.wangcong@gmail.com; linux@roeck-us.net;
+>john.fastabend@gmail.com; simon.horman@netronome.com
+>Subject: Re: [patch net-next v2 5/8] Introduce sample tc action
 >
-> Ido says:
+>On 11/14/16, 7:00 AM, Jiri Pirko wrote:
+>> From: Yotam Gigi <yotamg@mellanox.com>
+>>
+>> This action allow the user to sample traffic matched by tc classifier.
+>> The sampling consists of choosing packets randomly, truncating them,
+>> adding some informative metadata regarding the interface and the origina=
+l
+>> packet size and mark them with specific mark, to allow further tc rules =
+to
+>> match and process. The marked sample packets are then injected into the
+>> device ingress qdisc using netif_receive_skb.
+>>
+>> The packets metadata is packed using the ife encapsulation protocol, and
+>> the outer packet's ethernet dest, source and eth_type, along with the
+>> rate, mark and the optional truncation size can be configured from
+>> userspace.
+>>
+>> Example:
+>> To sample ingress traffic from interface eth1, and redirect the sampled
+>> the sampled packets to interface dummy0, one may use the commands:
+>>
+>> tc qdisc add dev eth1 handle ffff: ingress
+>>
+>> tc filter add dev eth1 parent ffff: \
+>> 	   matchall action sample rate 12 mark 17
 >
-> In kernel 4.9 the switchdev-specific FIB offload mechanism was replaced
-> by a new FIB notification chain to which modules could register in order
-> to be notified about the addition and deletion of FIB entries. The
-> motivation for this change was that switchdev drivers need to be able to
-> reflect the entire FIB table and not only FIBs configured on top of the
-> port netdevs themselves. This is useful in case of in-band management.
->
-> The fundamental problem with this approach is that upon registration
-> listeners lose all the information previously sent in the chain and
-> thus have an incomplete view of the FIB tables, which can result in
-> packet loss. This patchset fixes that by introducing a new API to dump
-> the FIB tables.
->
-> The entire dump process is done under RCU and thus the FIB notification
-> chain is converted to be atomic. The listeners are modified accordingly.
-> This is done in the first five patches.
->
-> The sixth patch adds the dump callback itself and the next patches call
-> it from current listeners of the FIB notification chain.
->
-> Ido Schimmel (8):
->   ipv4: fib: Export free_fib_info()
->   mlxsw: spectrum_router: Implement FIB offload in delayed work
->   rocker: Implement FIB offload in delayed work
->   ipv4: fib: Convert FIB notification chain to be atomic
->   net: ipv4: Send notifications only after removing FIB alias
->   ipv4: fib: Add an API to request a FIB dump
->   mlxsw: spectrum_router: Request a dump of FIB tables during init
->   rocker: Request a dump of FIB tables during init
->
->  drivers/net/ethernet/mellanox/mlxsw/core.c         |   6 +
->  drivers/net/ethernet/mellanox/mlxsw/core.h         |   1 +
->  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  73 ++++++++++--
->  drivers/net/ethernet/rocker/rocker_main.c          |  59 ++++++++--
->  drivers/net/ethernet/rocker/rocker_ofdpa.c         |   1 +
->  include/net/ip_fib.h                               |   1 +
->  net/ipv4/fib_semantics.c                           |   1 +
->  net/ipv4/fib_trie.c                                | 128 +++++++++++++++++++--
->  8 files changed, 242 insertions(+), 28 deletions(-)
->
+>Yotham, I am guessing in the future if one does not want to use mark,
+>the sample api is extensible to allow for other actions to be added.
+>This is from the general concern we had on using mark: some may not want t=
+o use
+>mark.
+>As long as the api is extensible to allow an alternate way in the future,
+> we should be good. (We would prefer to not go down the path of having to
+>introduce
+>a new  'action sample' if this limits us in some way).
 
-So for the pieces related to the fib_trie itself this patch series
-looks good to me.
+The code is extensible  - if one does want to add another action to sample,=
+ he=20
+totally can :)
 
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+By the way, one of the reasons we removed the patches for now is that we=20
+consider adding mirroring functionality to it instead of heaving two tc-rul=
+es.
+
+
+>
+>>
+>> tc filter add parent ffff: dev eth1 protocol all \
+>> 	   u32 match mark 17 0xff \
+>> 	   action mirred egress redirect dev dummy0
+>>
+>
+>thanks.
