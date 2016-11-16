@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rtnetlink: fix rtnl message size computation for
- XDP
-Date: Tue, 15 Nov 2016 22:43:01 -0500 (EST)
-Message-ID: <20161115.224301.179517453653413520.davem@davemloft.net>
-References: <0169d2419991a4ba533087a4fda70420ccdaca30.1479204870.git.sd@queasysnail.net>
+Subject: Re: [PATCH net-next v3 0/5] Adding PHY-Tunables and downshift
+ support
+Date: Tue, 15 Nov 2016 22:44:06 -0500 (EST)
+Message-ID: <20161115.224406.493444135671689580.davem@davemloft.net>
+References: <1479205204-27768-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bblanco@plumgrid.com
-To: sd@queasysnail.net
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        raju.lakkaraju@microsemi.com
+To: allan.nielsen@microsemi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35990 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36000 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932211AbcKPDnD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 22:43:03 -0500
-In-Reply-To: <0169d2419991a4ba533087a4fda70420ccdaca30.1479204870.git.sd@queasysnail.net>
+        with ESMTP id S933423AbcKPDoH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 22:44:07 -0500
+In-Reply-To: <1479205204-27768-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Tue, 15 Nov 2016 11:16:35 +0100
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Date: Tue, 15 Nov 2016 11:19:59 +0100
 
-> rtnl_xdp_size() only considers the size of the actual payload attribute,
-> and misses the space taken by the attribute used for nesting (IFLA_XDP).
-> 
-> Fixes: d1fdd9138682 ("rtnl: add option for setting link xdp prog")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Old cover letters included below.
 
-Applied and queued up for -stable.
+Please do not form your cover letter by quoting older and older
+cover letters.
+
+Always write a clean, single, cover letter with a changelog of
+changed between each and every version leading up to the
+current one.
+
+Thank you.
