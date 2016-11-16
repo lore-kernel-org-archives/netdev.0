@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net 3/3] net: phy: fixed_phy: fix of_node leak in fixed_phy_unregister
-Date: Wed, 16 Nov 2016 15:20:38 +0100
-Message-ID: <1479306038-27211-4-git-send-email-johan@kernel.org>
+Subject: [PATCH net 2/3] of_mdio: fix device reference leak in of_phy_find_device
+Date: Wed, 16 Nov 2016 15:20:37 +0100
+Message-ID: <1479306038-27211-3-git-send-email-johan@kernel.org>
 References: <1479306038-27211-1-git-send-email-johan@kernel.org>
 Cc: Rob Herring <robh+dt@kernel.org>,
         Frank Rowand <frowand.list@gmail.com>, netdev@vger.kernel.org,
@@ -12,29 +12,27 @@ In-Reply-To: <1479306038-27211-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure to drop the of_node reference taken in fixed_phy_register()
-when deregistering a PHY.
+Make sure to drop the reference taken by bus_find_device() before
+returning NULL from of_phy_find_device() when the found device is not a
+PHY.
 
-Fixes: a75951217472 ("net: phy: extend fixed driver with
-fixed_phy_register()")
-
+Fixes: 6ed742363b9c ("of: of_mdio: Ensure mdio device is a PHY")
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/phy/fixed_phy.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/of/of_mdio.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index c649c101bbab..eb5167210681 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -279,7 +279,7 @@ EXPORT_SYMBOL_GPL(fixed_phy_register);
- void fixed_phy_unregister(struct phy_device *phy)
- {
- 	phy_device_remove(phy);
--
-+	of_node_put(phy->mdio.dev.of_node);
- 	fixed_phy_del(phy->mdio.addr);
- }
- EXPORT_SYMBOL_GPL(fixed_phy_unregister);
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 8f4648383fb2..5a3145a02547 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -292,6 +292,7 @@ struct phy_device *of_phy_find_device(struct device_node *phy_np)
+ 		mdiodev = to_mdio_device(d);
+ 		if (mdiodev->flags & MDIO_DEVICE_FLAG_PHY)
+ 			return to_phy_device(d);
++		put_device(d);
+ 	}
+ 
+ 	return NULL;
 -- 
 2.7.3
