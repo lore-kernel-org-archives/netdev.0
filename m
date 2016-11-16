@@ -1,87 +1,66 @@
-From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net 2/3] dt-bindings: net: add DT bindings for realtek
- phys
-Date: Wed, 16 Nov 2016 16:20:11 +0100
-Message-ID: <1479309611.17538.41.camel@baylibre.com>
-References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
-         <1479220154-25851-3-git-send-email-jbrunet@baylibre.com>
-         <20161116151104.5sfcqjyvrzre5pkn@rob-hp-laptop>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Cannot set IPv6 address
+Date: Wed, 16 Nov 2016 17:22:01 +0200
+Message-ID: <CALzJLG9B52CbMEiWgroaihq4Ar2Jc9H3BZdA_xjF37CZESbZ8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
-        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161116151104.5sfcqjyvrzre5pkn@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Doron Tsur <doront@mellanox.com>,
+        Majd Dibbiny <majd@mellanox.com>
+To: david.lebrun@uclouvain.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34564 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932455AbcKPPWX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:22:23 -0500
+Received: by mail-wm0-f67.google.com with SMTP id g23so12217162wme.1
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 07:22:23 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-16 at 09:11 -0600, Rob Herring wrote:
-> On Tue, Nov 15, 2016 at 03:29:13PM +0100, Jerome Brunet wrote:
-> > 
-> > Signed-off-by: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-> > Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-> > ---
-> >  .../devicetree/bindings/net/realtek-phy.txt          | 20
-> > ++++++++++++++++++++
-> >  1 file changed, 20 insertions(+)
-> >  create mode 100644 Documentation/devicetree/bindings/net/realtek-
-> > phy.txt
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/realtek-phy.txt
-> > b/Documentation/devicetree/bindings/net/realtek-phy.txt
-> > new file mode 100644
-> > index 000000000000..dc2845a6b387
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/realtek-phy.txt
-> > @@ -0,0 +1,20 @@
-> > +Realtek Ethernet PHY
-> > +
-> > +Some boards require special tuning values of the phy.
-> > +
-> > +Optional properties:
-> > +
-> > +realtek,disable-eee-1000t:
-> > +realtek,disable-eee-100tx:
-> 
-> Make these generic/common.
-Same feedback from the net folks. Will do.
-Thx Rob
-> 
-> > 
-> > +  If set, respectively disable 1000-BaseT and 100-BaseTx energy
-> > efficient
-> > +  ethernet capabilty advertisement
-> > +  default: Leave the phy default settings unchanged (capabilities
-> > advertised)
-> > +
-> > +Example:
-> > +
-> > +&mdio0 {
-> > +	ethernetphy0: ethernet-phy@0 {
-> > +		reg = <0>;
-> > +		realtek,disable-eee-1000t;
-> > +	};
-> > +};
-> > -- 
-> > 2.7.4
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe
-> > devicetree" in
-> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi David,
+
+The following commit introduced a new issue when setting IPv6 address
+via the following command:
+
+/sbin/ip -6 addr add 2001:0db8:0:f112::1/64 dev enp2s2
+RTNETLINK answers: Operation not supported
+
+Offending commit:
+
+commit 6c8702c60b88651072460f3f4026c7dfe2521d12
+Author: David Lebrun <david.lebrun@uclouvain.be>
+Date:   Tue Nov 8 14:57:41 2016 +0100
+
+    ipv6: sr: add support for SRH encapsulation and injection with lwtunnels
+
+    This patch creates a new type of interfaceless lightweight tunnel (SEG6),
+    enabling the encapsulation and injection of SRH within locally emitted
+    packets and forwarded packets.
+
+    >From a configuration viewpoint, a seg6 tunnel would be configured
+as follows:
+
+      ip -6 ro ad fc00::1/128 encap seg6 mode encap segs
+fc42::1,fc42::2,fc42::3 dev eth0
+
+    Any packet whose destination address is fc00::1 would thus be encapsulated
+    within an outer IPv6 header containing the SRH with three
+segments, and would
+    actually be routed to the first segment of the list. If `mode inline' was
+    specified instead of `mode encap', then the SRH would be directly inserted
+    after the IPv6 header without outer encapsulation.
+
+    The inline mode is only available if CONFIG_IPV6_SEG6_INLINE is
+enabled. This
+    feature was made configurable because direct header insertion may break
+    several mechanisms such as PMTUD or IPSec AH.
+
+    Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+Can you check ? Are we missing something here ?
+
+Thanks,
+Saeed.
