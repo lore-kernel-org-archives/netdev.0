@@ -1,58 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] netronome: don't access real_num_rx_queues directly
-Date: Wed, 16 Nov 2016 15:10:49 +0100
-Message-ID: <20161116141118.1893244-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Rolf Neugebauer <rolf.neugebauer@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] be2net: do not call napi_hash_del()
+Date: Wed, 16 Nov 2016 06:12:42 -0800
+Message-ID: <1479305562.8455.176.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33879 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932201AbcKPOMo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:12:44 -0500
+Received: by mail-pg0-f67.google.com with SMTP id e9so14475384pgc.1
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:12:44 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The netdev->real_num_rx_queues setting is only available if CONFIG_SYSFS
-is enabled, so we now get a build failure when that is turned off:
+From: Eric Dumazet <edumazet@google.com>
 
-netronome/nfp/nfp_net_common.c: In function 'nfp_net_ring_swap_enable':
-netronome/nfp/nfp_net_common.c:2489:18: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
+Calling napi_hash_del() before netif_napi_del() is dangerous
+if a synchronize_rcu() is not enforced before NAPI struct freeing.
 
-As far as I can tell, the check here is only used as an optimization that
-we can skip in order to fix the compilation. If sysfs is disabled,
-the following netif_set_real_num_rx_queues() has no effect.
+Lets leave this detail to core networking stack and feel
+more comfortable.
 
-Fixes: 164d1e9e5d52 ("nfp: add support for ethtool .set_channels")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Sathya Perla <sathya.perla@broadcom.com>
+Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
+Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Cc: Somnath Kotur <somnath.kotur@broadcom.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 99edb9fd84bf..eb3715700c95 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2486,15 +2486,13 @@ nfp_net_ring_swap_enable(struct nfp_net *nn, unsigned int *num_vecs,
- 	for (r = 0; r <	nn->max_r_vecs; r++)
- 		nfp_net_vector_assign_rings(nn, &nn->r_vecs[r], r);
- 
--	if (nn->netdev->real_num_rx_queues != nn->num_rx_rings) {
--		if (!netif_is_rxfh_configured(nn->netdev))
--			nfp_net_rss_init_itbl(nn);
-+	if (!netif_is_rxfh_configured(nn->netdev))
-+		nfp_net_rss_init_itbl(nn);
- 
--		err = netif_set_real_num_rx_queues(nn->netdev,
--						   nn->num_rx_rings);
--		if (err)
--			return err;
--	}
-+	err = netif_set_real_num_rx_queues(nn->netdev,
-+					   nn->num_rx_rings);
-+	if (err)
-+		return err;
- 
- 	if (nn->netdev->real_num_tx_queues != nn->num_stack_tx_rings) {
- 		err = netif_set_real_num_tx_queues(nn->netdev,
--- 
-2.9.0
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index cece8a08edca..93aa2939142a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2813,7 +2813,6 @@ static void be_evt_queues_destroy(struct be_adapter *adapter)
+ 		if (eqo->q.created) {
+ 			be_eq_clean(eqo);
+ 			be_cmd_q_destroy(adapter, &eqo->q, QTYPE_EQ);
+-			napi_hash_del(&eqo->napi);
+ 			netif_napi_del(&eqo->napi);
+ 			free_cpumask_var(eqo->affinity_mask);
+ 		}
