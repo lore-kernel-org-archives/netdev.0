@@ -1,19 +1,19 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 2/3] net: fsl: Allow most drivers to be built with COMPILE_TEST
-Date: Tue, 15 Nov 2016 16:40:35 -0800
-Message-ID: <20161116004037.20941-4-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 1/3] net: fsl: Allow most drivers to be built with COMPILE_TEST
+Date: Tue, 15 Nov 2016 16:40:33 -0800
+Message-ID: <20161116004037.20941-2-f.fainelli@gmail.com>
 References: <20161116004037.20941-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, mw@semihalf.com, arnd@arndb.de,
         gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33954 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751750AbcKPAks (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:40:48 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so12718707pgc.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 16:40:48 -0800 (PST)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35980 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751481AbcKPAkp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:40:45 -0500
+Received: by mail-pg0-f68.google.com with SMTP id x23so13066048pgx.3
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 16:40:44 -0800 (PST)
 In-Reply-To: <20161116004037.20941-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
