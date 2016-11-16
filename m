@@ -1,34 +1,36 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net] : add a missing rcu synchronization
-Date: Wed, 16 Nov 2016 07:59:55 -0800
-Message-ID: <CACKFLiniozU+O94hH+HmF7B8-BK=+oFZyoiRtA1x2A6jj9aNvA@mail.gmail.com>
-References: <1479306712.8455.185.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: fix possible uninitialized access in inactive rotation
+Date: Wed, 16 Nov 2016 17:00:10 +0100
+Message-ID: <582C828A.60605@iogearbox.net>
+References: <20161116143836.2448688-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f41.google.com ([209.85.213.41]:35616 "EHLO
-        mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752194AbcKPP75 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:59:57 -0500
-Received: by mail-vk0-f41.google.com with SMTP id w194so118207697vkw.2
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 07:59:57 -0800 (PST)
-In-Reply-To: <1479306712.8455.185.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Martin KaFai Lau <kafai@fb.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, Alexei Starovoitov <ast@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161116143836.2448688-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 16, 2016 at 6:31 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On 11/16/2016 03:38 PM, Arnd Bergmann wrote:
+> This newly added code causes a build warning:
 >
-> Add a missing synchronize_net() call to avoid potential use after free,
-> since we explicitly call napi_hash_del() to factorize the RCU grace
-> period.
+> kernel/bpf/bpf_lru_list.c: In function '__bpf_lru_list_rotate_inactive':
+> kernel/bpf/bpf_lru_list.c:201:28: error: 'next' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 >
-> Fixes: c0c050c58d84 ("bnxt_en: New Broadcom ethernet driver.")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Michael Chan <michael.chan@broadcom.com>
+> The warning is plausible from looking at the code, though there might
+> be non-obvious external constraints that ensure it always works.
+>
+> Moving the assignment of ->next_inactive_rotation inside of the
+> loop makes it obvious to the reader and the compiler when we
+> actually want to update ->next.
+>
+> Fixes: 3a08c2fd7634 ("bpf: LRU List")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Thanks.  Subject line is missing the driver name.  Other than that,
+Thanks a lot, Arnd, patch was already sent here though:
 
-Acked-by: Michael Chan <michael.chan@broadcom.com>
+http://patchwork.ozlabs.org/patch/695202/
