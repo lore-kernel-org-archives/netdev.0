@@ -1,54 +1,65 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net v2] net: nsid cannot be allocated for a dead netns
-Date: Wed, 16 Nov 2016 09:29:29 -0800
-Message-ID: <CAM_iQpXzp54gOyiRu4PUcJhLEB3T+TTEL+JLE2PL+oB31ZuCJw@mail.gmail.com>
-References: <201611161759.tCk5fdCO%fengguang.wu@intel.com> <1479289775-1715-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH ipsec-next 6/8] xfrm: policy: only use rcu in
+ xfrm_sk_policy_lookup
+Date: Wed, 16 Nov 2016 18:30:28 +0100
+Message-ID: <20161116173028.GI30581@breakpoint.cc>
+References: <1470921479-25592-1-git-send-email-fw@strlen.de>
+ <1470921479-25592-7-git-send-email-fw@strlen.de>
+ <0e235471-cb63-2376-c42d-5872e78e4c98@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrey Wagin <avagin@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+        Steffen Klassert <steffen.klassert@secunet.com>
 To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:34614 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932123AbcKPR3v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 12:29:51 -0500
-Received: by mail-it0-f67.google.com with SMTP id o1so8544380ito.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 09:29:50 -0800 (PST)
-In-Reply-To: <1479289775-1715-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:50402 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932201AbcKPRcv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 12:32:51 -0500
+Content-Disposition: inline
+In-Reply-To: <0e235471-cb63-2376-c42d-5872e78e4c98@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2016 at 1:49 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> index f61c0e02a413..63f65387f4e1 100644
-> --- a/net/core/net_namespace.c
-> +++ b/net/core/net_namespace.c
-> @@ -159,6 +159,9 @@ static int alloc_netid(struct net *net, struct net *peer, int reqid)
->                 max = reqid + 1;
->         }
->
-> +       if (!atomic_read(&net->count) || !atomic_read(&peer->count))
-> +               return -EINVAL;
-> +
->         return idr_alloc(&net->netns_ids, peer, min, max, GFP_ATOMIC);
->  }
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+> Le 11/08/2016 à 15:17, Florian Westphal a écrit :
+> > Don't acquire the readlock anymore and rely on rcu alone.
+> > 
+> > In case writer on other CPU changed policy at the wrong moment (after we
+> > obtained sk policy pointer but before we could obtain the reference)
+> > just repeat the lookup.
+> > 
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
+> Since this patch, our IKEv1 Transport tests (using charon) fail to establish the
+> connection. If I revert it, the IKE negociation is ok again.
+> charon logs are enclosed.
+> 
+> I didn't had time to investigate now, but any idea is welcomed ;-)
 
+I'm an idiot.  Thanks for figuring out the faulty commit!
 
-There is already a check in peernet2id_alloc(), so why not just the following?
+This should fix it (if we succeed grabbing the refcount, then if (err && !xfrm_pol_hold_rcu
+evaluates to false and we hit last else branch and set pol to ERR_PTR(0)...
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index f61c0e0..7001da9 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -219,6 +219,8 @@ int peernet2id_alloc(struct net *net, struct net *peer)
-        bool alloc;
-        int id;
-
-+       if (atomic_read(&net->count) == 0)
-+               return NETNSA_NSID_NOT_ASSIGNED;
-        spin_lock_irqsave(&net->nsid_lock, flags);
-        alloc = atomic_read(&peer->count) == 0 ? false : true;
-        id = __peernet2id_alloc(net, peer, &alloc);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index fd6986634e6f..5bf7e1bfeac7 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1268,12 +1268,14 @@ static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
+                        err = security_xfrm_policy_lookup(pol->security,
+                                                      fl->flowi_secid,
+                                                      policy_to_flow_dir(dir));
+-                       if (!err && !xfrm_pol_hold_rcu(pol))
+-                               goto again;
+-                       else if (err == -ESRCH)
++                       if (!err) {
++                               if (!xfrm_pol_hold_rcu(pol))
++                                       goto again;
++                       } else if (err == -ESRCH) {
+                                pol = NULL;
+-                       else
++                       } else {
+                                pol = ERR_PTR(err);
++                       }
+                } else
