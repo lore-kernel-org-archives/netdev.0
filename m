@@ -1,31 +1,33 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH v2 net-next] net/mlx5e: remove napi_hash_del() calls
-Date: Wed, 16 Nov 2016 16:34:51 +0200
-Message-ID: <CALzJLG8EWsWsqT-XW8EL6MhWpuS=BhcZ6tbWd2cQEYYgHepfMw@mail.gmail.com>
-References: <1479304537.8455.167.camel@edumazet-glaptop3.roam.corp.google.com> <1479306094.8455.181.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f171.google.com ([209.85.216.171]:34168 "EHLO
-        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753144AbcKPOfM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:35:12 -0500
-Received: by mail-qt0-f171.google.com with SMTP id n6so103541632qtd.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:35:12 -0800 (PST)
-In-Reply-To: <1479306094.8455.181.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH net 0/7] net: cpsw: fix leaks and probe deferral
+Date: Wed, 16 Nov 2016 15:35:09 +0100
+Message-ID: <1479306916-27673-1-git-send-email-johan@kernel.org>
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 16, 2016 at 4:21 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Calling napi_hash_del() after netif_napi_del() is pointless.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Saeed Mahameed <saeedm@mellanox.com>
+This series fixes as number of leaks and issues in the cpsw probe-error
+and driver-unbind paths, some which specifically prevented deferred
+probing.
 
-Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+Johan
+
+
+Johan Hovold (7):
+  net: ethernet: ti: cpsw: fix bad register access in probe error path
+  net: ethernet: ti: cpsw: fix mdio device reference leak
+  net: ethernet: ti: cpsw: fix deferred probe
+  net: ethernet: ti: cpsw: fix of_node and phydev leaks
+  net: ethernet: ti: cpsw: fix secondary-emac probe error path
+  net: ethernet: ti: cpsw: add missing sanity check
+  net: ethernet: ti: cpsw: fix fixed-link phy probe deferral
+
+ drivers/net/ethernet/ti/cpsw.c | 88 ++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 71 insertions(+), 17 deletions(-)
+
+-- 
+2.7.3
