@@ -1,53 +1,44 @@
-From: zyjzyj2000@gmail.com
-Subject: [PATCH 1/1] ixgbe: write flush vfta registers
-Date: Wed, 16 Nov 2016 20:40:41 +0800
-Message-ID: <1479300041-3436-1-git-send-email-zyjzyj2000@gmail.com>
-Cc: Zhu Yanjun <zyjzyj2000@gmail.com>
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [111.196.90.44] ([111.196.90.44]:34848 "EHLO mail.rain.com"
-        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752715AbcKPM6T (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Nov 2016 07:58:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH net 1/3] net: phy: realtek: add eee advertisement disable
+ options
+Date: Wed, 16 Nov 2016 14:23:37 +0100
+Message-ID: <20161116132337.GD19962@lunn.ch>
+References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
+ <1479220154-25851-2-git-send-email-jbrunet@baylibre.com>
+ <20161115163036.GB23231@lunn.ch>
+ <476b72f3-5efe-3551-6c24-0e378d655a0f@gmail.com>
+ <1479290189.17538.25.camel@baylibre.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1479290189.17538.25.camel-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+> There two kind of PHYs supporting eee, the one advertising eee by
+> default (like realtek) and the one not advertising it (like micrel).
 
-Sometimes vfta registers can not be written successfully in dcb mode.
-This is very occassional. When the ixgbe nic runs for a very long time,
-sometimes this bug occurs. But after IXGBE_WRITE_FLUSH is executed,
-this bug never occurs.
+I don't know too much about EEE. So maybe a dumb question. Does the
+MAC need to be involved? Or is it just the PHY?
 
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+If the MAC needs to be involved, the PHY should not be advertising EEE
+unless the MAC asks for it by calling phy_init_eee(). If this is true,
+maybe we need to change the realtek driver, and others in that class.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index bd93d82..1221cfb 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4138,8 +4138,10 @@ static void ixgbe_vlan_promisc_enable(struct ixgbe_adapter *adapter)
- 	}
- 
- 	/* Set all bits in the VLAN filter table array */
--	for (i = hw->mac.vft_size; i--;)
-+	for (i = hw->mac.vft_size; i--;) {
- 		IXGBE_WRITE_REG(hw, IXGBE_VFTA(i), ~0U);
-+		IXGBE_WRITE_FLUSH(hw);
-+	}
- }
- 
- #define VFTA_BLOCK_SIZE 8
-@@ -4186,6 +4188,7 @@ static void ixgbe_scrub_vfta(struct ixgbe_adapter *adapter, u32 vfta_offset)
- 		vfta[i] |= adapter->active_vlans[word] >> bits;
- 
- 		IXGBE_WRITE_REG(hw, IXGBE_VFTA(vfta_offset + i), vfta[i]);
-+		IXGBE_WRITE_FLUSH(hw);
- 	}
- }
- 
--- 
-2.7.4
+      Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
