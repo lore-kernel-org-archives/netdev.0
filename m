@@ -1,57 +1,87 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [patch net-next 6/8] ipv4: fib: Add an API to request a FIB dump
-Date: Wed, 16 Nov 2016 17:18:29 +0200
-Message-ID: <20161116151829.h6kapbjes7xxxcyi@splinter.mtl.com>
-References: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
- <1479305343-13167-7-git-send-email-jiri@resnulli.us>
- <e795e6e0-a680-a2c3-7d5e-afd966104a4a@stressinduktion.org>
+From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net 2/3] dt-bindings: net: add DT bindings for realtek
+ phys
+Date: Wed, 16 Nov 2016 16:20:11 +0100
+Message-ID: <1479309611.17538.41.camel@baylibre.com>
+References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
+         <1479220154-25851-3-git-send-email-jbrunet@baylibre.com>
+         <20161116151104.5sfcqjyvrzre5pkn@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:35935 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752532AbcKPPSm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:18:42 -0500
-Content-Disposition: inline
-In-Reply-To: <e795e6e0-a680-a2c3-7d5e-afd966104a4a@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161116151104.5sfcqjyvrzre5pkn@rob-hp-laptop>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Hannes,
-
-On Wed, Nov 16, 2016 at 03:51:01PM +0100, Hannes Frederic Sowa wrote:
-> On 16.11.2016 15:09, Jiri Pirko wrote:
-> > From: Ido Schimmel <idosch@mellanox.com>
+On Wed, 2016-11-16 at 09:11 -0600, Rob Herring wrote:
+> On Tue, Nov 15, 2016 at 03:29:13PM +0100, Jerome Brunet wrote:
 > > 
-> > Commit b90eb7549499 ("fib: introduce FIB notification infrastructure")
-> > introduced a new notification chain to notify listeners (f.e., switchdev
-> > drivers) about addition and deletion of routes.
+> > Signed-off-by: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+> > Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+> > ---
+> >  .../devicetree/bindings/net/realtek-phy.txt          | 20
+> > ++++++++++++++++++++
+> >  1 file changed, 20 insertions(+)
+> >  create mode 100644 Documentation/devicetree/bindings/net/realtek-
+> > phy.txt
 > > 
-> > However, upon registration to the chain the FIB tables can already be
-> > populated, which means potential listeners will have an incomplete view
-> > of the tables.
-> > 
-> > Solve that by adding an API to request a FIB dump. The dump itself it
-> > done using RCU in order not to starve consumers that need RTNL to make
-> > progress.
-> > 
-> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> > diff --git a/Documentation/devicetree/bindings/net/realtek-phy.txt
+> > b/Documentation/devicetree/bindings/net/realtek-phy.txt
+> > new file mode 100644
+> > index 000000000000..dc2845a6b387
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/realtek-phy.txt
+> > @@ -0,0 +1,20 @@
+> > +Realtek Ethernet PHY
+> > +
+> > +Some boards require special tuning values of the phy.
+> > +
+> > +Optional properties:
+> > +
+> > +realtek,disable-eee-1000t:
+> > +realtek,disable-eee-100tx:
 > 
-> Have you looked at potential inconsistencies resulting of RCU walking
-> the table and having concurrent inserts?
-
-Yes. I did try to think about situations in which this approach will
-fail, but I could only find problems with concurrent removals, which I
-addressed in 5/8. In case of concurrent insertions, even if you missed
-the node, you would still get the ENTRY_ADD event to your listener.
+> Make these generic/common.
+Same feedback from the net folks. Will do.
+Thx Rob
+> 
+> > 
+> > +  If set, respectively disable 1000-BaseT and 100-BaseTx energy
+> > efficient
+> > +  ethernet capabilty advertisement
+> > +  default: Leave the phy default settings unchanged (capabilities
+> > advertised)
+> > +
+> > +Example:
+> > +
+> > +&mdio0 {
+> > +	ethernetphy0: ethernet-phy@0 {
+> > +		reg = <0>;
+> > +		realtek,disable-eee-1000t;
+> > +	};
+> > +};
+> > -- 
+> > 2.7.4
+> > 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe
+> > devicetree" in
+> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
