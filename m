@@ -1,117 +1,103 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: dsa: b53: Fix VLAN usage and how we treat CPU port
-Date: Tue, 15 Nov 2016 15:58:15 -0800
-Message-ID: <20161115235815.25641-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, knaack.h@gmx.de,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v2 2/4] bpf, mlx5: fix various refcount issues in mlx5e_xdp_set
+Date: Wed, 16 Nov 2016 01:04:09 +0100
+Message-ID: <0899adb6ace97b7e7f94b04dd11a0e55270d2b54.1479253024.git.daniel@iogearbox.net>
+References: <cover.1479253024.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, bblanco@plumgrid.com,
+        zhiyisun@gmail.com, ranas@mellanox.com, saeedm@mellanox.com,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35613 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752263AbcKOX6U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 18:58:20 -0500
-Received: by mail-pg0-f68.google.com with SMTP id p66so13007897pga.2
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 15:58:20 -0800 (PST)
+Received: from www62.your-server.de ([213.133.104.62]:36568 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752604AbcKPAEW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:04:22 -0500
+In-Reply-To: <cover.1479253024.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1479253024.git.daniel@iogearbox.net>
+References: <cover.1479253024.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently have a fundamental problem in how we treat the CPU port and
-its VLAN membership. As soon as a second VLAN is configured to be
-untagged, the CPU automatically becomes untagged for that VLAN as well,
-and yet, we don't gracefully make sure that the CPU becomes tagged in
-the other VLANs it could be a member of. This results in only one VLAN
-being effectively usable from the CPU's perspective.
+There are multiple issues in mlx5e_xdp_set():
 
-Instead of having some pretty complex logic which tries to maintain the
-CPU port's default VLAN and its untagged properties, just do something
-very simple which consists in neither altering the CPU port's PVID
-settings, nor its untagged settings:
+1) The batched bpf_prog_add() is currently not checked for errors! When
+   doing so, it should be done at an earlier point in time to makes sure
+   that we cannot fail anymore at the time we want to set the program for
+   each channel. This only means that we have to undo the bpf_prog_add()
+   in case we return due to required reset.
 
-- whenever a VLAN is added, the CPU is automatically a member of this
-  VLAN group, as a tagged member
-- PVID settings for downstream ports do not alter the CPU port's PVID
-  since it now is part of all VLANs in the system
+2) When swapping the priv->xdp_prog, then no extra reference count must be
+   taken since we got that from call path via dev_change_xdp_fd() already.
+   Otherwise, we'd never be able to free the program. Also, bpf_prog_add()
+   without checking the return code could fail.
 
-This means that a typical example where e.g: LAN ports are in VLAN1, and
-WAN port is in VLAN2, now require having two VLAN interfaces for the
-host to properly terminate and send traffic from/to.
-
-Fixes: Fixes: a2482d2ce349 ("net: dsa: b53: Plug in VLAN support")
-Reported-by: Hartmut Knaack <knaack.h@gmx.de>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
-David,
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 25 ++++++++++++++++++-----
+ 1 file changed, 20 insertions(+), 5 deletions(-)
 
-Can you queue this for -stable so it makes it into 4.8.4?
-
-Thank you!
-
- drivers/net/dsa/b53/b53_common.c | 16 ++++------------
- 1 file changed, 4 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 7717b19dc806..947adda3397d 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -962,9 +962,10 @@ static void b53_vlan_add(struct dsa_switch *ds, int port,
- 
- 		vl->members |= BIT(port) | BIT(cpu_port);
- 		if (untagged)
--			vl->untag |= BIT(port) | BIT(cpu_port);
-+			vl->untag |= BIT(port);
- 		else
--			vl->untag &= ~(BIT(port) | BIT(cpu_port));
-+			vl->untag &= ~BIT(port);
-+		vl->untag &= ~BIT(cpu_port);
- 
- 		b53_set_vlan_entry(dev, vid, vl);
- 		b53_fast_age_vlan(dev, vid);
-@@ -973,8 +974,6 @@ static void b53_vlan_add(struct dsa_switch *ds, int port,
- 	if (pvid) {
- 		b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(port),
- 			    vlan->vid_end);
--		b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(cpu_port),
--			    vlan->vid_end);
- 		b53_fast_age_vlan(dev, vid);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index ab0c336..cf26672 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3142,6 +3142,17 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
+ 		goto unlock;
  	}
+ 
++	if (prog) {
++		/* num_channels is invariant here, so we can take the
++		 * batched reference right upfront.
++		 */
++		prog = bpf_prog_add(prog, priv->params.num_channels);
++		if (IS_ERR(prog)) {
++			err = PTR_ERR(prog);
++			goto unlock;
++		}
++	}
++
+ 	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+ 	/* no need for full reset when exchanging programs */
+ 	reset = (!priv->xdp_prog || !prog);
+@@ -3149,10 +3160,10 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
+ 	if (was_opened && reset)
+ 		mlx5e_close_locked(netdev);
+ 
+-	/* exchange programs */
++	/* exchange programs, extra prog reference we got from caller
++	 * as long as we don't fail from this point onwards.
++	 */
+ 	old_prog = xchg(&priv->xdp_prog, prog);
+-	if (prog)
+-		bpf_prog_add(prog, 1);
+ 	if (old_prog)
+ 		bpf_prog_put(old_prog);
+ 
+@@ -3163,12 +3174,11 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
+ 		mlx5e_open_locked(netdev);
+ 
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state) || reset)
+-		goto unlock;
++		goto unlock_put;
+ 
+ 	/* exchanging programs w/o reset, we update ref counts on behalf
+ 	 * of the channels RQs here.
+ 	 */
+-	bpf_prog_add(prog, priv->params.num_channels);
+ 	for (i = 0; i < priv->params.num_channels; i++) {
+ 		struct mlx5e_channel *c = priv->channel[i];
+ 
+@@ -3190,6 +3200,11 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
+ unlock:
+ 	mutex_unlock(&priv->state_lock);
+ 	return err;
++unlock_put:
++	/* reference on priv->xdp_prog is still held at this point */
++	if (prog)
++		bpf_prog_sub(prog, priv->params.num_channels);
++	goto unlock;
  }
-@@ -984,7 +983,6 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
- {
- 	struct b53_device *dev = ds->priv;
- 	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
--	unsigned int cpu_port = dev->cpu_port;
- 	struct b53_vlan *vl;
- 	u16 vid;
- 	u16 pvid;
-@@ -997,8 +995,6 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
- 		b53_get_vlan_entry(dev, vid, vl);
  
- 		vl->members &= ~BIT(port);
--		if ((vl->members & BIT(cpu_port)) == BIT(cpu_port))
--			vl->members = 0;
- 
- 		if (pvid == vid) {
- 			if (is5325(dev) || is5365(dev))
-@@ -1007,18 +1003,14 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
- 				pvid = 0;
- 		}
- 
--		if (untagged) {
-+		if (untagged)
- 			vl->untag &= ~(BIT(port));
--			if ((vl->untag & BIT(cpu_port)) == BIT(cpu_port))
--				vl->untag = 0;
--		}
- 
- 		b53_set_vlan_entry(dev, vid, vl);
- 		b53_fast_age_vlan(dev, vid);
- 	}
- 
- 	b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(port), pvid);
--	b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(cpu_port), pvid);
- 	b53_fast_age_vlan(dev, pvid);
- 
- 	return 0;
+ static bool mlx5e_xdp_attached(struct net_device *dev)
 -- 
-2.9.3
+1.9.3
