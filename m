@@ -1,64 +1,69 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v2 5/8] Introduce sample tc action
-Date: Wed, 16 Nov 2016 08:15:23 -0800
-Message-ID: <582C861B.8010709@cumulusnetworks.com>
-References: <1479135638-3580-1-git-send-email-jiri@resnulli.us> <1479135638-3580-6-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] igmp: Make igmp group member RFC 3376 compliant
+Date: Wed, 16 Nov 2016 11:19:43 -0500 (EST)
+Message-ID: <20161116.111943.1827868712701090468.davem@davemloft.net>
+References: <20161107.201345.1974283028907025304.davem@davemloft.net>
+        <20161108092625.GA14456@sparky-lenivo.brq.redhat.com>
+        <20161116062045.GB17935@leo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-        ogerlitz@mellanox.com, jhs@mojatatu.com, geert+renesas@glider.be,
-        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
-        linux@roeck-us.net, john.fastabend@gmail.com,
-        simon.horman@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: mtesar@redhat.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        kaber@trash.net, netdev@vger.kernel.org
+To: haliu@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33823 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbcKPQP0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 11:15:26 -0500
-Received: by mail-pf0-f176.google.com with SMTP id c4so31619509pfb.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 08:15:25 -0800 (PST)
-In-Reply-To: <1479135638-3580-6-git-send-email-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43560 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753032AbcKPQTr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 11:19:47 -0500
+In-Reply-To: <20161116062045.GB17935@leo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/14/16, 7:00 AM, Jiri Pirko wrote:
-> From: Yotam Gigi <yotamg@mellanox.com>
->
-> This action allow the user to sample traffic matched by tc classifier.
-> The sampling consists of choosing packets randomly, truncating them,
-> adding some informative metadata regarding the interface and the original
-> packet size and mark them with specific mark, to allow further tc rules to
-> match and process. The marked sample packets are then injected into the
-> device ingress qdisc using netif_receive_skb.
->
-> The packets metadata is packed using the ife encapsulation protocol, and
-> the outer packet's ethernet dest, source and eth_type, along with the
-> rate, mark and the optional truncation size can be configured from
-> userspace.
->
-> Example:
-> To sample ingress traffic from interface eth1, and redirect the sampled
-> the sampled packets to interface dummy0, one may use the commands:
->
-> tc qdisc add dev eth1 handle ffff: ingress
->
-> tc filter add dev eth1 parent ffff: \
-> 	   matchall action sample rate 12 mark 17
+From: Hangbin Liu <haliu@redhat.com>
+Date: Wed, 16 Nov 2016 14:20:45 +0800
 
-Yotham, I am guessing in the future if one does not want to use mark,
-the sample api is extensible to allow for other actions to be added.
-This is from the general concern we had on using mark: some may not want to use mark.
-As long as the api is extensible to allow an alternate way in the future,
- we should be good. (We would prefer to not go down the path of having to introduce
-a new  'action sample' if this limits us in some way).
+> Hi David,
+> 
+> On Tue, Nov 08, 2016 at 10:26:25AM +0100, Michal Tesar wrote:
+>> On Mon, Nov 07, 2016 at 08:13:45PM -0500, David Miller wrote:
+>> 
+>> > From: Michal Tesar <mtesar@redhat.com>
+>> > Date: Thu, 3 Nov 2016 10:38:34 +0100
+>> > 
+>> > >  2. If the received Query is a General Query, the interface timer is
+>> > >     used to schedule a response to the General Query after the
+>> > >     selected delay.  Any previously pending response to a General
+>> > >     Query is canceled.
+>> > > --8<--
+>> > > 
+>> > > Currently the timer is rearmed with new random expiration time for
+>> > > every incoming query regardless of possibly already pending report.
+>> > > Which is not aligned with the above RFE.
+>> > 
+>> > I don't read it that way.  #2 says if this is a general query then any
+>> > pending response to a general query is cancelled.  And that's
+>> > effectively what the code is doing right now.
+>> 
+>> Hi David,
+>> I think that it is important to notice that the RFC says also 
+>> that only the first matching rule is applied.
+>> 
+>> "
+>> When new Query with the Router-Alert option arrives on an
+>> interface, provided the system has state to report, a delay for a
+>> response is randomly selected in the range (0, [Max Resp Time]) where
+>> Max Resp Time is derived from Max Resp Code in the received Query
+>> message.  The following rules are then used to determine if a Report
+>> needs to be scheduled and the type of Report to schedule.  The rules
+>> are considered in order and only the first matching rule is applied.
+> 
+>  ^^
+> 
+> Would you like to reconsider about this? I also agree with Michal that we
+> need to choose the sooner timer. Or if we receive query very quickly, we
+> will keep refresh the timer and may never reply the report.
 
->
-> tc filter add parent ffff: dev eth1 protocol all \
-> 	   u32 match mark 17 0xff \
-> 	   action mirred egress redirect dev dummy0
->
-
-thanks.
+I'm still thinking about this, please be patient, I review a hundred
+patches or more per day so it takes me time to get to tasks that
+require deep thinking or real consideration on any level.
