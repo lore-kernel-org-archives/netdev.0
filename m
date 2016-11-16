@@ -1,23 +1,20 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] be2net: do not call napi_hash_del()
-Date: Wed, 16 Nov 2016 06:12:42 -0800
-Message-ID: <1479305562.8455.176.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: [PATCH net] cxgb4: do not call napi_hash_del()
+Date: Wed, 16 Nov 2016 06:19:02 -0800
+Message-ID: <1479305942.8455.179.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        Ajit Khaparde <ajit.khaparde@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>
+        Hariprasad S <hariprasad@chelsio.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33879 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932201AbcKPOMo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:12:44 -0500
-Received: by mail-pg0-f67.google.com with SMTP id e9so14475384pgc.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:12:44 -0800 (PST)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36386 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751522AbcKPOTE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:19:04 -0500
+Received: by mail-pf0-f195.google.com with SMTP id c4so7386551pfb.3
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:19:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -30,23 +27,20 @@ Lets leave this detail to core networking stack and feel
 more comfortable.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Sathya Perla <sathya.perla@broadcom.com>
-Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
-Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Cc: Somnath Kotur <somnath.kotur@broadcom.com>
+Cc: Hariprasad S <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    1 -
+ drivers/net/ethernet/chelsio/cxgb4/sge.c |    1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index cece8a08edca..93aa2939142a 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2813,7 +2813,6 @@ static void be_evt_queues_destroy(struct be_adapter *adapter)
- 		if (eqo->q.created) {
- 			be_eq_clean(eqo);
- 			be_cmd_q_destroy(adapter, &eqo->q, QTYPE_EQ);
--			napi_hash_del(&eqo->napi);
- 			netif_napi_del(&eqo->napi);
- 			free_cpumask_var(eqo->affinity_mask);
- 		}
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 1e74fd6085df..e19a0ca8e5dd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2951,7 +2951,6 @@ void free_rspq_fl(struct adapter *adap, struct sge_rspq *rq,
+ 		   rq->cntxt_id, fl_id, 0xffff);
+ 	dma_free_coherent(adap->pdev_dev, (rq->size + 1) * rq->iqe_len,
+ 			  rq->desc, rq->phys_addr);
+-	napi_hash_del(&rq->napi);
+ 	netif_napi_del(&rq->napi);
+ 	rq->netdev = NULL;
+ 	rq->cntxt_id = rq->abs_id = 0;
