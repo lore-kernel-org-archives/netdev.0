@@ -1,42 +1,108 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: linux-next: net->netns_ids is used after calling idr_destroy for it
-Date: Wed, 16 Nov 2016 10:04:03 -0800
-Message-ID: <CAM_iQpVG1gHvzvL0X8zAuFzjNTJHzRVUzO_m6UEo6tGWNP7qjw@mail.gmail.com>
-References: <CANaxB-x7FgxpAwpa-RgOvUptrCRUmAE6NFm3As+LuXUE=fHJyA@mail.gmail.com>
- <CAM_iQpUQOCsVkaRPU3OkmNvyOLDtmRRK1G3uzvi9URSVEbapJQ@mail.gmail.com>
- <CAM_iQpU=DXKEboYHi4yO3m6VuUm1RoDRD26ZK-pVY--yUE0wNA@mail.gmail.com>
- <CANaxB-ysMU+QG=warwiQdC5pfXRjrSY7WOqJk0fcj-UMpipSZQ@mail.gmail.com>
- <CAM_iQpXYvGnaf=AAD5EJYqQ7WApjRyUResN+0Z_Bq1Xt8G8zQQ@mail.gmail.com>
- <CANaxB-y0_veL0hfdskXrix66FzydTSQ=MXOkmw72RsFqcXj9Pw@mail.gmail.com> <CANaxB-ypW4cFxNTAaS-n6ehNHxGyxe9x0G8SJap6PBp8UJX9gA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: dsa: fix fixed-link-phy device leaks
+Date: Wed, 16 Nov 2016 10:14:10 -0800
+Message-ID: <8387696c-813a-4c88-5f10-7d2e5fdae6b8@gmail.com>
+References: <1479307664-32428-1-git-send-email-johan@kernel.org>
+ <42af57ed-df84-f628-659d-c982d30da7d5@gmail.com>
+ <20161116171145.GE4864@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Andrei Vagin <avagin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f170.google.com ([209.85.213.170]:35009 "EHLO
-        mail-yb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932155AbcKPSEY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:04:24 -0500
-Received: by mail-yb0-f170.google.com with SMTP id d128so45308237ybh.2
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 10:04:24 -0800 (PST)
-In-Reply-To: <CANaxB-ypW4cFxNTAaS-n6ehNHxGyxe9x0G8SJap6PBp8UJX9gA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Johan Hovold <johan@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161116171145.GE4864@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 15, 2016 at 2:45 PM, Andrei Vagin <avagin@gmail.com> wrote:
-> On Tue, Nov 15, 2016 at 2:21 PM, Andrei Vagin <avagin@gmail.com> wrote:
->> I would like to agree with you here, but looks like sockets with
->> NETLINK_F_LISTEN_ALL_NSID are able to catch these messages.
->
-> Actually I found that I was wrong.
->
-> do_one_broadcast() sends a notification only if a device network
-> namespace has an id in a socket netns. But cleanup_net() removes all
-> id-s to a target namespace, so just ignore my last comment.
+On 11/16/2016 09:11 AM, Johan Hovold wrote:
+> On Wed, Nov 16, 2016 at 09:06:26AM -0800, Florian Fainelli wrote:
+>> On 11/16/2016 06:47 AM, Johan Hovold wrote:
+>>> Make sure to drop the reference taken by of_phy_find_device() when
+>>> registering and deregistering the fixed-link PHY-device.
+>>>
+>>> Note that we need to put both references held at deregistration.
+>>>
+>>> Fixes: 39b0c705195e ("net: dsa: Allow configuration of CPU & DSA port
+>>> speeds/duplex")
+>>> Signed-off-by: Johan Hovold <johan@kernel.org>
+>>> ---
+>>>
+>>> Hi,
+>>>
+>>> This is one has been compile tested only, but fixes a couple of leaks
+>>> similar to one that was found in the cpsw driver for which I just posted
+>>> a patch.
+>>>
+>>> It turns out all drivers but DSA fail to deregister the fixed-link PHYs
+>>> registered by of_phy_register_fixed_link(). Due to the way this
+>>> interface was designed, deregistering such a PHY is a bit cumbersome and
+>>> looks like it would benefit from a common helper.
+>>>
+>>> However, perhaps the interface should instead be changed so that the PHY
+>>> device is returned so that drivers do not need to use
+>>> of_phy_find_device() when they need to access properties of the fixed
+>>> link (e.g. as in dsu_cpu_dsa_setup below).
+>>>
+>>> Thoughts?
+>>>
+>>> Thanks,
+>>> Johan
+>>>
+>>>
+>>>  net/dsa/dsa.c | 8 +++++++-
+>>>  1 file changed, 7 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+>>> index a6902c1e2f28..798a6a776a5f 100644
+>>> --- a/net/dsa/dsa.c
+>>> +++ b/net/dsa/dsa.c
+>>> @@ -233,6 +233,8 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
+>>>  		genphy_read_status(phydev);
+>>>  		if (ds->ops->adjust_link)
+>>>  			ds->ops->adjust_link(ds, port, phydev);
+>>> +
+>>> +		phy_device_free(phydev);	/* of_phy_find_device */
+>>>  	}
+>>>  
+>>>  	return 0;
+>>> @@ -509,8 +511,12 @@ void dsa_cpu_dsa_destroy(struct device_node *port_dn)
+>>>  	if (of_phy_is_fixed_link(port_dn)) {
+>>>  		phydev = of_phy_find_device(port_dn);
+>>>  		if (phydev) {
+>>> -			phy_device_free(phydev);
+>>>  			fixed_phy_unregister(phydev);
+>>> +			/* Put references taken by of_phy_find_device() and
+>>> +			 * of_phy_register_fixed_link().
+>>> +			 */
+>>> +			phy_device_free(phydev);
+>>> +			phy_device_free(phydev);
+>>
+>> Double free, this looks bogus here. Actually would not this mean a
+>> triple free since you already free in dsa_cpu_dsa_setup() which is
+>> paired with dsa_cpu_dsa_destroy()?
+> 
+> The naming of phy_device_free() is unfortunate when it's really a put():
+> 
+> void phy_device_free(struct phy_device *phydev)
+> {
+> 	put_device(&phydev->mdio.dev);
+> }
 
-The point is all sockets in that netns are already gone at that point
-because of refcount.
+Indeed, should have looked a little harder.
 
-cleanup_net() also destroys net->netns_ids, so it should not be even
-accessed after that point.
+> 
+> which may need to be called multiple times, specifically after a call to
+> of_phy_find_device() which takes another reference.
+> 
+> With this patch the refcounts are properly balanced.
+
+The intent of your patch is good, but it still feels like having to
+double imbalance the refcount is symptomatic of a larger issue here, it
+does not seem like having several refcounts are necessary, so we may
+really want to rework the API.
+-- 
+Florian
