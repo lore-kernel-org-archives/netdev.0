@@ -1,51 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net/mlx4_en: remove napi_hash_del() call
-Date: Wed, 16 Nov 2016 05:49:22 -0800
-Message-ID: <1479304162.8455.163.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] net/phy/vitesse: Configure RGMII skew on VSC8601, if
+ needed
+Date: Wed, 16 Nov 2016 14:50:53 +0100
+Message-ID: <20161116135053.GF19962@lunn.ch>
+References: <20161115.221217.2076182289174952941.davem@davemloft.net>
+ <1479286953-11481-1-git-send-email-alex.g@adaptrum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33938 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752377AbcKPNtZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 08:49:25 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so14430933pgc.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 05:49:24 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Alexandru Gagniuc <alex.g@adaptrum.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1479286953-11481-1-git-send-email-alex.g@adaptrum.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Nov 16, 2016 at 01:02:33AM -0800, Alexandru Gagniuc wrote:
+> With RGMII, we need a 1.5 to 2ns skew between clock and data lines. The
+> VSC8601 can handle this internally. While the VSC8601 can set more
+> fine-grained delays, the standard skew settings work out of the box.
+> The same heuristic is used to determine when this skew should be enabled
+> as in vsc824x_config_init().
+> 
+> Tested on custom board with AM3352 SOC and VSC801 PHY.
+> 
+> Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
+> ---
+> Changes since v1:
+>  * Added comment detailing applicability to different RGMII interfaces.
+> 
+>  drivers/net/phy/vitesse.c | 34 +++++++++++++++++++++++++++++++++-
+>  1 file changed, 33 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+> index 2e37eb3..24b4a09 100644
+> --- a/drivers/net/phy/vitesse.c
+> +++ b/drivers/net/phy/vitesse.c
+> @@ -62,6 +62,10 @@
+>  /* Vitesse Extended Page Access Register */
+>  #define MII_VSC82X4_EXT_PAGE_ACCESS	0x1f
+>  
+> +/* Vitesse VSC8601 Extended PHY Control Register 1 */
+> +#define MII_VSC8601_EPHY_CTL		0x17
+> +#define MII_VSC8601_EPHY_CTL_RGMII_SKEW	(1 << 8)
+> +
+>  #define PHY_ID_VSC8234			0x000fc620
+>  #define PHY_ID_VSC8244			0x000fc6c0
+>  #define PHY_ID_VSC8514			0x00070670
+> @@ -111,6 +115,34 @@ static int vsc824x_config_init(struct phy_device *phydev)
+>  	return err;
+>  }
+>  
+> +/* This adds a skew for both TX and RX clocks, so the skew should only be
+> + * applied to "rgmii-id" interfaces. It may not work as expected
+> + * on "rgmii-txid", "rgmii-rxid" or "rgmii" interfaces. */
 
-There is no need calling napi_hash_del()+synchronize_rcu() before
-calling netif_napi_del()
+Hi Alexandru
 
-netif_napi_del() does this already.
+You should be able to make "rgmii" work as expected. If that is the
+phy mode, disable the skew.
 
-Using napi_hash_del() in a driver is useful only when dealing with
-a batch of NAPI structures, so that a single synchronize_rcu() can
-be used. mlx4_en_deactivate_cq() is deactivating a single NAPI.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_cq.c |    4 ----
- 1 file changed, 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index 03f05c4d1f9897d851c4f36d1f0e37ad3398e76c..09dd3776db7632ae8818c9638507705176233ea4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -185,10 +185,6 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq)
- void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
- {
- 	napi_disable(&cq->napi);
--	if (cq->type == RX) {
--		napi_hash_del(&cq->napi);
--		synchronize_rcu();
--	}
- 	netif_napi_del(&cq->napi);
- 
- 	mlx4_cq_free(priv->mdev->dev, &cq->mcq);
+    Andrew
