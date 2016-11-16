@@ -1,50 +1,58 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 8/8] rocker: Request a dump of FIB tables during init
-Date: Wed, 16 Nov 2016 15:09:03 +0100
-Message-ID: <1479305343-13167-9-git-send-email-jiri@resnulli.us>
-References: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33040 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932244AbcKPOJP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:09:15 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u144so11485748wmu.0
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:09:15 -0800 (PST)
-In-Reply-To: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] netronome: don't access real_num_rx_queues directly
+Date: Wed, 16 Nov 2016 15:10:49 +0100
+Message-ID: <20161116141118.1893244-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Rolf Neugebauer <rolf.neugebauer@netronome.com>,
+        oss-drivers@netronome.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+The netdev->real_num_rx_queues setting is only available if CONFIG_SYSFS
+is enabled, so we now get a build failure when that is turned off:
 
-Make sure the device has a complete view of the FIB tables by invoking
-their dump during module init.
+netronome/nfp/nfp_net_common.c: In function 'nfp_net_ring_swap_enable':
+netronome/nfp/nfp_net_common.c:2489:18: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+As far as I can tell, the check here is only used as an optimization that
+we can skip in order to fix the compilation. If sysfs is disabled,
+the following netif_set_real_num_rx_queues() has no effect.
+
+Fixes: 164d1e9e5d52 ("nfp: add support for ethtool .set_channels")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/rocker/rocker_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
-index b80ff12..6968473 100644
---- a/drivers/net/ethernet/rocker/rocker_main.c
-+++ b/drivers/net/ethernet/rocker/rocker_main.c
-@@ -2806,6 +2806,7 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 99edb9fd84bf..eb3715700c95 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -2486,15 +2486,13 @@ nfp_net_ring_swap_enable(struct nfp_net *nn, unsigned int *num_vecs,
+ 	for (r = 0; r <	nn->max_r_vecs; r++)
+ 		nfp_net_vector_assign_rings(nn, &nn->r_vecs[r], r);
  
- 	rocker->fib_nb.notifier_call = rocker_router_fib_event;
- 	register_fib_notifier(&rocker->fib_nb);
-+	fib_notifier_dump(&rocker->fib_nb);
+-	if (nn->netdev->real_num_rx_queues != nn->num_rx_rings) {
+-		if (!netif_is_rxfh_configured(nn->netdev))
+-			nfp_net_rss_init_itbl(nn);
++	if (!netif_is_rxfh_configured(nn->netdev))
++		nfp_net_rss_init_itbl(nn);
  
- 	dev_info(&pdev->dev, "Rocker switch with id %*phN\n",
- 		 (int)sizeof(rocker->hw.id), &rocker->hw.id);
+-		err = netif_set_real_num_rx_queues(nn->netdev,
+-						   nn->num_rx_rings);
+-		if (err)
+-			return err;
+-	}
++	err = netif_set_real_num_rx_queues(nn->netdev,
++					   nn->num_rx_rings);
++	if (err)
++		return err;
+ 
+ 	if (nn->netdev->real_num_tx_queues != nn->num_stack_tx_rings) {
+ 		err = netif_set_real_num_tx_queues(nn->netdev,
 -- 
-2.7.4
+2.9.0
