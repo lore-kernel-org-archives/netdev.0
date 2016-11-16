@@ -1,94 +1,81 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 5/6] net: dsa: mv88e6xxx: Fix cleanup on error for g1 interrupt setup
-Date: Wed, 16 Nov 2016 01:56:55 +0100
-Message-ID: <1479257816-7496-6-git-send-email-andrew@lunn.ch>
-References: <1479257816-7496-1-git-send-email-andrew@lunn.ch>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+From: Kast Bernd <kastbernd@gmx.de>
+Subject: Re: [PATCH] r8169: Module parameter for opt-in of ASPM
+Date: Wed, 16 Nov 2016 01:59:30 +0100
+Message-ID: <20161116005930.GA32205@ASUS-Bernd.fritz.box>
+References: <20161103233306.GA9368@ASUS-Bernd.fritz.box>
+ <20161112.210224.1889131711533608896.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41264 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751481AbcKPA7J (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 19:59:09 -0500
-In-Reply-To: <1479257816-7496-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161112.210224.1889131711533608896.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On error, remask the interrupts, release all maps, and remove the
-domain. This cannot be done using the mv88e6xxx_g1_irq_free() because
-some of these actions are not idempotent.
+On Sat, Nov 12, 2016 at 09:02:24PM -0500, David Miller wrote:
+> From: Kast Bernd <kastbernd@gmx.de>
+> Date: Fri, 4 Nov 2016 00:33:06 +0100
+> 
+> > This patch adds a module parameter in order to activate ASPM. By that
+> > the CPU can enter deep sleep modes (PC6) and power consumption can be
+> > reduced (for example from 13W to 8W on my notebook with a Haswell CPU).
+> > Basically, it reapplies d64ec841517a25f6d468bde9f67e5b4cffdc67c7, which
+> > was reverted due to delayed link status detection and increased boot
+> > times on some systems. These bugs are avoided by two actions:
+> >         1) ASPM is turned off by default to avoid any problems with the
+> > 	default	configuration.
+> >         2) Flags for ASPM and clock request are set after ephy_init,
+> > 	which wasn't respected on the previous patch. Thus ASPM with
+> > 	this patch could work even with previously failing systems.
+> 
+> This feels like grasping at straws.
+> 
+> If you feel you've corrected a flaw in the previous ASPM
+> support, then let's reinstate it unconditionally without
+> some module parameter.
+> 
+> We'll never find out if you actually did fix ASPM support
+> sufficiently if it's off by default.
+> 
+> Only experts like you will ever enable the option.  It's
+> usage will be minimal, and therefore the benefits will not
+> be sufficient to justify these changes in the first place.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 31 ++++++++++++++++++++-----------
- 1 file changed, 20 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 8fcef7e0d3ba..614b2f68d401 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -431,8 +431,8 @@ static void mv88e6xxx_g1_irq_free(struct mv88e6xxx_chip *chip)
- 
- static int mv88e6xxx_g1_irq_setup(struct mv88e6xxx_chip *chip)
- {
--	int err, irq;
--	u16 reg;
-+	int err, irq, virq;
-+	u16 reg, mask;
- 
- 	chip->g1_irq.nirqs = chip->info->g1_irqs;
- 	chip->g1_irq.domain = irq_domain_add_simple(
-@@ -447,32 +447,41 @@ static int mv88e6xxx_g1_irq_setup(struct mv88e6xxx_chip *chip)
- 	chip->g1_irq.chip = mv88e6xxx_g1_irq_chip;
- 	chip->g1_irq.masked = ~0;
- 
--	err = mv88e6xxx_g1_read(chip, GLOBAL_CONTROL, &reg);
-+	err = mv88e6xxx_g1_read(chip, GLOBAL_CONTROL, &mask);
- 	if (err)
--		goto out;
-+		goto out_mapping;
- 
--	reg &= ~GENMASK(chip->g1_irq.nirqs, 0);
-+	mask &= ~GENMASK(chip->g1_irq.nirqs, 0);
- 
--	err = mv88e6xxx_g1_write(chip, GLOBAL_CONTROL, reg);
-+	err = mv88e6xxx_g1_write(chip, GLOBAL_CONTROL, mask);
- 	if (err)
--		goto out;
-+		goto out_disable;
- 
- 	/* Reading the interrupt status clears (most of) them */
- 	err = mv88e6xxx_g1_read(chip, GLOBAL_STATUS, &reg);
- 	if (err)
--		goto out;
-+		goto out_disable;
- 
- 	err = request_threaded_irq(chip->irq, NULL,
- 				   mv88e6xxx_g1_irq_thread_fn,
- 				   IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
- 				   dev_name(chip->dev), chip);
- 	if (err)
--		goto out;
-+		goto out_disable;
- 
- 	return 0;
- 
--out:
--	mv88e6xxx_g1_irq_free(chip);
-+out_disable:
-+	mask |= GENMASK(chip->g1_irq.nirqs, 0);
-+	mv88e6xxx_g1_write(chip, GLOBAL_CONTROL, mask);
-+
-+out_mapping:
-+	for (irq = 0; irq < 16; irq++) {
-+		virq = irq_find_mapping(chip->g1_irq.domain, irq);
-+		irq_dispose_mapping(virq);
-+	}
-+
-+	irq_domain_remove(chip->g1_irq.domain);
- 
- 	return err;
- }
--- 
-2.10.2
+The correction of that flaw is rather a side effect of reapplying the
+old patch. Perhaps it will allow enabling ASPM on some additional
+systems, but for sure it won't solve all ASPM related problems.
+I know that the module parameters are frowned upon, as Francois Romieu
+stated. Nevertheless, nobody commented on his suggestion to overcome
+the problem of disabled ASPM (1).
+I would really love to see ASPM enabled by default. However, it seems
+to be quite unlikely, as it has the potential to trigger bugs and
+freezes on some systems. I can understand, that the main focus of the
+kernel is stability. Nonetheless, I also mind power consumption.
+That's why I used this kernel parameter to provide a simple solution,
+which can significantly reduce power consumption and heat production
+without affecting stability. If we can achieve that without a kernel
+parameter it's perfectly fine for me. From my point of view, there are
+only two other solutions:
+-a white list, like proposed by Francois Romieu, that enables ASPM on
+systems, that are known to work stable
+-a black list, that disables ASPM on buggy systems
+While the first solution results in lots of work to keep that list up
+to date, the second one will lead to unstable systems.
+I don't know how many systems are out there, that suffer from problems
+that are really caused by ASPM and not by some other bug,as even the
+commit (2), that disabled ASPM in general for r8169, cites a bug
+report, that doensn't seem to be related to ASPM at all (3).
+However, others state, that disabling ASPM solved their problems (4).
+Finding the flaws that caused these bugs or listing these systems is
+beyond my possibilities. Thus the kernel paramter, although it is not
+perfect, seemed to be the best compromise to me.
+
+
+(1) http://lkml.iu.edu/hypermail/linux/kernel/1605.1/04992.html
+(2) 4521e1a94279ce610d3f9b7945c17d581f804242
+(3) https://bugzilla.redhat.com/show_bug.cgi?id=642861#c9
+(4) https://bugzilla.redhat.com/show_bug.cgi?id=538920
