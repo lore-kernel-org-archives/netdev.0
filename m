@@ -1,40 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next] dctcp: update cwnd on congestion event
-Date: Tue, 15 Nov 2016 22:02:40 -0500 (EST)
-Message-ID: <20161115.220240.164646299093092679.davem@davemloft.net>
-References: <1479138121-32294-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH 0/3 v5] Fixes for running a big-endian kernel on
+ Cubieboard2
+Date: Tue, 15 Nov 2016 22:06:13 -0500 (EST)
+Message-ID: <20161115.220613.1694912451059007913.davem@davemloft.net>
+References: <20161114175807.4747-1-michael.weiser@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brakmo@fb.com, agshew@gmail.com,
-        glenn.judd@morganstanley.com, daniel@iogearbox.net
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org
+To: michael.weiser@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35372 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35404 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752578AbcKPDCm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 22:02:42 -0500
-In-Reply-To: <1479138121-32294-1-git-send-email-fw@strlen.de>
+        with ESMTP id S1752941AbcKPDGP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 22:06:15 -0500
+In-Reply-To: <20161114175807.4747-1-michael.weiser@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Mon, 14 Nov 2016 16:42:01 +0100
+From: Michael Weiser <michael.weiser@gmx.de>
+Date: Mon, 14 Nov 2016 18:58:04 +0100
 
-> draft-ietf-tcpm-dctcp-02 says:
-> 
-> ... when the sender receives an indication of congestion
-> (ECE), the sender SHOULD update cwnd as follows:
-> 
->          cwnd = cwnd * (1 - DCTCP.Alpha / 2)
-> 
-> So, lets do this and reduce cwnd more smoothly (and faster), as per
-> current congestion estimate.
-> 
-> Cc: Lawrence Brakmo <brakmo@fb.com>
-> Cc: Andrew Shewmaker <agshew@gmail.com>
-> Cc: Glenn Judd <glenn.judd@morganstanley.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> the following patches are what remains to be fixed in order to allow running a
+> big-endian kernel on the Cubieboard2.
 
-Applied.
+Series applied to net-next, thanks.
