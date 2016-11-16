@@ -1,46 +1,46 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net-next] lwtunnel: subtract tunnel headroom from mtu on output redirect
-Date: Wed, 16 Nov 2016 10:05:46 +0100
-Message-ID: <1479287146-25766-1-git-send-email-david.lebrun@uclouvain.be>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <roopa@cumulusnetworks.com>,
-        David Lebrun <david.lebrun@uclouvain.be>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:36278 "EHLO
-        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752352AbcKPJEC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 04:04:02 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greentime Hu <green.hu@gmail.com>
+Subject: [PATCH] net: ethernet: faraday: To support device tree usage.
+Date: Wed, 16 Nov 2016 16:43:15 +0800
+Message-ID: <1479285795-3105-1-git-send-email-green.hu@gmail.com>
+Cc: Greentime Hu <green.hu@gmail.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch changes the lwtunnel_headroom() function which is called
-in ipv4_mtu() and ip6_mtu(), to also return the correct headroom
-value when the lwtunnel state is OUTPUT_REDIRECT.
+To support device tree usage for ftmac100.
 
-This patch enables e.g. SR-IPv6 encapsulations to work without
-manually setting the route mtu.
-
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+Signed-off-by: Greentime Hu <green.hu@gmail.com>
 ---
- include/net/lwtunnel.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/faraday/ftmac100.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
-index 82e76fe..d4c1c75 100644
---- a/include/net/lwtunnel.h
-+++ b/include/net/lwtunnel.h
-@@ -94,7 +94,8 @@ static inline bool lwtunnel_xmit_redirect(struct lwtunnel_state *lwtstate)
- static inline unsigned int lwtunnel_headroom(struct lwtunnel_state *lwtstate,
- 					     unsigned int mtu)
- {
--	if (lwtunnel_xmit_redirect(lwtstate) && lwtstate->headroom < mtu)
-+	if ((lwtunnel_xmit_redirect(lwtstate) ||
-+	     lwtunnel_output_redirect(lwtstate)) && lwtstate->headroom < mtu)
- 		return lwtstate->headroom;
- 
+diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
+index dce5f7b..81dd9e1 100644
+--- a/drivers/net/ethernet/faraday/ftmac100.c
++++ b/drivers/net/ethernet/faraday/ftmac100.c
+@@ -1172,11 +1172,17 @@ static int __exit ftmac100_remove(struct platform_device *pdev)
  	return 0;
+ }
+ 
++static const struct of_device_id mac_of_ids[] = {
++	{ .compatible = "andestech,atmac100" },
++	{ }
++};
++
+ static struct platform_driver ftmac100_driver = {
+ 	.probe		= ftmac100_probe,
+ 	.remove		= __exit_p(ftmac100_remove),
+ 	.driver		= {
+ 		.name	= DRV_NAME,
++		.of_match_table = mac_of_ids
+ 	},
+ };
+ 
+@@ -1200,3 +1206,4 @@ static void __exit ftmac100_exit(void)
+ MODULE_AUTHOR("Po-Yu Chuang <ratbert@faraday-tech.com>");
+ MODULE_DESCRIPTION("FTMAC100 driver");
+ MODULE_LICENSE("GPL");
++MODULE_DEVICE_TABLE(of, mac_of_ids);
 -- 
-2.7.3
+1.7.9.5
