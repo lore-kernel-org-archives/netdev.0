@@ -1,40 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] net: busy-poll: allow preemption and
- other optimizations
-Date: Wed, 16 Nov 2016 13:41:14 -0500 (EST)
-Message-ID: <20161116.134114.806108837136085282.davem@davemloft.net>
-References: <1479233715-9905-1-git-send-email-edumazet@google.com>
+From: Jann Horn <jannh@google.com>
+Subject: Re: [PATCH net][v2] bpf: fix range arithmetic for bpf map access
+Date: Wed, 16 Nov 2016 19:41:19 +0100
+Message-ID: <CAG48ez2XnOQAc440ErNBATfL8uN1VOmV4M3BJKDW9s9PvWFOtg@mail.gmail.com>
+References: <1479156336-6211-1-git-send-email-jbacik@fb.com>
+ <20161115031016.GA10323@ast-mbp.thefacebook.com> <CAG48ez1z8wJstz84-ekY5Ed8oNgpT73Xc18Or7RboOoBnTE03w@mail.gmail.com>
+ <de657ab3-9d6c-a700-a593-53d5a4dcde75@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com, abelay@google.com,
-        zach.brown@ni.com, tariqt@mellanox.com, Yuval.Mintz@cavium.com,
-        ariel.elior@cavium.com, eric.dumazet@gmail.com
-To: edumazet@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Josef Bacik <jbacik@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46914 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932177AbcKPSlQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:41:16 -0500
-In-Reply-To: <1479233715-9905-1-git-send-email-edumazet@google.com>
+Received: from mail-it0-f48.google.com ([209.85.214.48]:38022 "EHLO
+        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933498AbcKPSmL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:42:11 -0500
+Received: by mail-it0-f48.google.com with SMTP id o1so67424628ito.1
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 10:42:11 -0800 (PST)
+In-Reply-To: <de657ab3-9d6c-a700-a593-53d5a4dcde75@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Tue, 15 Nov 2016 10:15:10 -0800
+On Tue, Nov 15, 2016 at 3:20 PM, Josef Bacik <jbacik@fb.com> wrote:
+> On 11/15/2016 08:47 AM, Jann Horn wrote:
+>> In states_equal():
+>> if (rold->type == NOT_INIT ||
+>>    (rold->type == UNKNOWN_VALUE && rcur->type != NOT_INIT))
+>> <------------
+>> continue;
+>>
+>> I think this is broken in code like the following:
+>>
+>> int value;
+>> if (condition) {
+>>   value = 1; // visited first by verifier
+>> } else {
+>>   value = 1000000; // visited second by verifier
+>> }
+>> int dummy = 1; // states seem to converge here, but actually don't
+>> map[value] = 1234;
+>>
+>> `value` would be an UNKNOWN_VALUE for both paths, right? So
+>> states_equal() would decide that the states converge after the
+>> conditionally executed code?
+>>
+>
+> Value would be CONST_IMM for both paths, and wouldn't match so they wouldn't
+> converge.  I think I understood your question right, let me know if I'm
+> addressing the wrong part of it.
 
-> It is time to have preemption points in sk_busy_loop() and improve
-> its scalability.
-> 
-> Also napi_complete() and friends can tell drivers when it is safe to
-> not re-enable device interrupts, saving some overhead under
-> high busy polling.
-> 
-> mlx4 and bnx2x are changed accordingly, to show how this busy polling
-> status can be exploited by drivers.
-> 
-> Next steps will implement Zach Brown suggestion, where NAPI polling
-> would be enabled all the time for some chosen queues.
-> This is needed for efficient epoll() support anyway.
+Okay, true, but what if you load the values from a map and bounds-check them
+instead of hardcoding them? Then they will be of type UNKNOWN_VALUE, right?
+Like this:
 
-Series applied, thanks a lot Eric.
+int value = map[0];
+if (condition) {
+  value &= 0x1; // visited first by verifier
+} else {
+  // nothing; visited second by verifier
+}
+int dummy = 1; // states seem to converge here, but actually don't
+map[value] = 1234;
+
+And then `rold->type == UNKNOWN_VALUE && rcur->type != NOT_INIT` will be
+true in the `dummy = 1` line, and the states converge. Am I missing something?
