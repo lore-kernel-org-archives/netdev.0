@@ -1,39 +1,29 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: bcm63xx_enet: Fix build failure with phy_ethtool_nway_reset
-Date: Tue, 15 Nov 2016 18:21:09 -0800
-Message-ID: <20161116022109.26935-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: bcm63xx_enet: Fix build failure with
+ phy_ethtool_nway_reset
+Date: Tue, 15 Nov 2016 21:56:43 -0500 (EST)
+Message-ID: <20161115.215643.2070933046596523141.davem@davemloft.net>
+References: <20161116022109.26935-1-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35244 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932170AbcKPCVM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 21:21:12 -0500
-Received: by mail-pg0-f68.google.com with SMTP id p66so13286409pga.2
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 18:21:12 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:35206 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752445AbcKPC4s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 21:56:48 -0500
+In-Reply-To: <20161116022109.26935-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduced a typo making the driver no longer build, *sigh*.
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 15 Nov 2016 18:21:09 -0800
 
-Fixes: 42469bf5d9bb ("net: bcm63xx_enet: Utilize phy_ethtool_nway_reset")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/bcm63xx_enet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Introduced a typo making the driver no longer build, *sigh*.
+> 
+> Fixes: 42469bf5d9bb ("net: bcm63xx_enet: Utilize phy_ethtool_nway_reset")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index a43ab90c051e..3b14d5144228 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1435,7 +1435,7 @@ static int bcm_enet_nway_reset(struct net_device *dev)
- 
- 	priv = netdev_priv(dev);
- 	if (priv->has_phy)
--		return phy_ethtool_nway_reset(dev),
-+		return phy_ethtool_nway_reset(dev);
- 
- 	return -EOPNOTSUPP;
- }
--- 
-2.9.3
+Applied.
