@@ -1,53 +1,69 @@
-From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Subject: Aw: [PATCH 1/1] ixgbe: write flush vfta registers
-Date: Wed, 16 Nov 2016 15:05:44 +0100
-Message-ID: <trinity-ec3a2e6f-7310-41aa-8743-61bc62ccf663-1479305144399@3capp-gmx-bs59>
-References: <1479300041-3436-1-git-send-email-zyjzyj2000@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        "Zhu Yanjun" <zyjzyj2000@gmail.com>
-To: zyjzyj2000@gmail.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/8] ipv4: fib: Allow modules to dump FIB tables
+Date: Wed, 16 Nov 2016 15:08:55 +0100
+Message-ID: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:56312 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751955AbcKPOGH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Nov 2016 09:06:07 -0500
-In-Reply-To: <1479300041-3436-1-git-send-email-zyjzyj2000@gmail.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36243 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753571AbcKPOJG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:09:06 -0500
+Received: by mail-wm0-f66.google.com with SMTP id m203so11466365wma.3
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:09:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@mellanox.com>
 
+Ido says:
 
-Hi,
+In kernel 4.9 the switchdev-specific FIB offload mechanism was replaced
+by a new FIB notification chain to which modules could register in order
+to be notified about the addition and deletion of FIB entries. The
+motivation for this change was that switchdev drivers need to be able to
+reflect the entire FIB table and not only FIBs configured on top of the
+port netdevs themselves. This is useful in case of in-band management.
 
-> 
-> Sometimes vfta registers can not be written successfully in dcb mode.
-> This is very occassional. When the ixgbe nic runs for a very long time,
-> sometimes this bug occurs. But after IXGBE_WRITE_FLUSH is executed,
-> this bug never occurs.
-> 
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index bd93d82..1221cfb 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -4138,8 +4138,10 @@ static void ixgbe_vlan_promisc_enable(struct ixgbe_adapter *adapter)
->  	}
->  
->  	/* Set all bits in the VLAN filter table array */
-> -	for (i = hw->mac.vft_size; i--;)
-> +	for (i = hw->mac.vft_size; i--;) {
->  		IXGBE_WRITE_REG(hw, IXGBE_VFTA(i), ~0U);
-> +		IXGBE_WRITE_FLUSH(hw);
-> +	}
+The fundamental problem with this approach is that upon registration
+listeners lose all the information previously sent in the chain and
+thus have an incomplete view of the FIB tables, which can result in
+packet loss. This patchset fixes that by introducing a new API to dump
+the FIB tables.
 
-Should it not be sufficient to do the flush only once, at the end of the function?
+The entire dump process is done under RCU and thus the FIB notification
+chain is converted to be atomic. The listeners are modified accordingly.
+This is done in the first five patches.
 
-Regards,
-Lino
+The sixth patch adds the dump callback itself and the next patches call
+it from current listeners of the FIB notification chain.
+
+Ido Schimmel (8):
+  ipv4: fib: Export free_fib_info()
+  mlxsw: spectrum_router: Implement FIB offload in delayed work
+  rocker: Implement FIB offload in delayed work
+  ipv4: fib: Convert FIB notification chain to be atomic
+  net: ipv4: Send notifications only after removing FIB alias
+  ipv4: fib: Add an API to request a FIB dump
+  mlxsw: spectrum_router: Request a dump of FIB tables during init
+  rocker: Request a dump of FIB tables during init
+
+ drivers/net/ethernet/mellanox/mlxsw/core.c         |   6 +
+ drivers/net/ethernet/mellanox/mlxsw/core.h         |   1 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  73 ++++++++++--
+ drivers/net/ethernet/rocker/rocker_main.c          |  59 ++++++++--
+ drivers/net/ethernet/rocker/rocker_ofdpa.c         |   1 +
+ include/net/ip_fib.h                               |   1 +
+ net/ipv4/fib_semantics.c                           |   1 +
+ net/ipv4/fib_trie.c                                | 128 +++++++++++++++++++--
+ 8 files changed, 242 insertions(+), 28 deletions(-)
+
+-- 
+2.7.4
