@@ -1,78 +1,175 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/4] mlxsw: Invoke driver's init/fini methods only if defined
-Date: Wed, 16 Nov 2016 15:20:45 +0100
-Message-ID: <1479306046-13324-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 4/4] mlxsw: minimal: Add I2C support for Mellanox ASICs
+Date: Wed, 16 Nov 2016 15:20:46 +0100
+Message-ID: <1479306046-13324-5-git-send-email-jiri@resnulli.us>
 References: <1479306046-13324-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, vadimp@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
         arkadis@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33496 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33522 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752879AbcKPOUy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:20:54 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u144so11588152wmu.0
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:20:53 -0800 (PST)
+        with ESMTP id S1753441AbcKPOUz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:20:55 -0500
+Received: by mail-wm0-f65.google.com with SMTP id u144so11588307wmu.0
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:20:55 -0800 (PST)
 In-Reply-To: <1479306046-13324-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Pasternak <vadimp@mellanox.com>
 
-We are going to add a minimal driver on top of the mlxsw core
-infrastructure, which will be mainly used for hardware monitoring in
-Baseboard management controller (BMC) installations.
+Add I2C access support for Mellanox ASICs:
+- Virtual Protocol Interconnect switches SwitchX, SwitchX2,
+  providing InfiniBand, Ethernet and Fibre Channel connectivity;
+- Infiniband switches SwitchIB, SwitchIB2:
+- Ethernet switch Spectrum.
 
-Unlike the switch drivers (e.g., spectrum, switchx2), this driver does not
-initialize the ASIC and therefore doesn't need to implement the init() and
-fini() methods in its 'mlxsw_driver' struct.
+Example of probing activation:
+echo mlxsw_minimal 0x48 > /sys/bus/i2c/devices/i2c-2/new_device
 
 Signed-off-by: Vadim Pasternak <vadimp@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig   | 11 +++
+ drivers/net/ethernet/mellanox/mlxsw/Makefile  |  2 +
+ drivers/net/ethernet/mellanox/mlxsw/minimal.c | 97 +++++++++++++++++++++++++++
+ 3 files changed, 110 insertions(+)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/minimal.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 33b0cd4..9272ef1 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -1162,9 +1162,11 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_hwmon_init;
- 
--	err = mlxsw_driver->init(mlxsw_core, mlxsw_bus_info);
--	if (err)
--		goto err_driver_init;
-+	if (mlxsw_driver->init) {
-+		err = mlxsw_driver->init(mlxsw_core, mlxsw_bus_info);
-+		if (err)
-+			goto err_driver_init;
-+	}
- 
- 	err = mlxsw_core_debugfs_init(mlxsw_core);
- 	if (err)
-@@ -1173,7 +1175,8 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	return 0;
- 
- err_debugfs_init:
--	mlxsw_core->driver->fini(mlxsw_core);
-+	if (mlxsw_core->driver->fini)
-+		mlxsw_core->driver->fini(mlxsw_core);
- err_driver_init:
- err_hwmon_init:
- 	devlink_unregister(devlink);
-@@ -1199,7 +1202,8 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
- 	struct devlink *devlink = priv_to_devlink(mlxsw_core);
- 
- 	mlxsw_core_debugfs_fini(mlxsw_core);
--	mlxsw_core->driver->fini(mlxsw_core);
-+	if (mlxsw_core->driver->fini)
-+		mlxsw_core->driver->fini(mlxsw_core);
- 	devlink_unregister(devlink);
- 	mlxsw_emad_fini(mlxsw_core);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+index f0bc7b3..c9822e6 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+@@ -79,3 +79,14 @@ config MLXSW_SPECTRUM_DCB
+ 	---help---
+ 	  Say Y here if you want to use Data Center Bridging (DCB) in the
+ 	  driver.
++
++config MLXSW_MINIMAL
++	tristate "Mellanox Technologies minimal I2C support"
++	depends on MLXSW_CORE && MLXSW_I2C
++	default m
++	---help---
++	  This driver supports I2C access for Mellanox Technologies Switch
++	  ASICs.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called mlxsw_minimal.
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+index 4623ede..2722942 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
++++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+@@ -14,3 +14,5 @@ mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
+ 				   spectrum_switchdev.o spectrum_router.o \
+ 				   spectrum_kvdl.o
+ mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
++obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
++mlxsw_minimal-objs		:= minimal.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/minimal.c b/drivers/net/ethernet/mellanox/mlxsw/minimal.c
+new file mode 100644
+index 0000000..3dd1626
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlxsw/minimal.c
+@@ -0,0 +1,97 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/minimal.c
++ * Copyright (c) 2016 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2016 Vadim Pasternak <vadimp@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/i2c.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mod_devicetable.h>
++#include <linux/types.h>
++
++#include "core.h"
++#include "i2c.h"
++
++static const char mlxsw_minimal_driver_name[] = "mlxsw_minimal";
++
++static const struct mlxsw_config_profile mlxsw_minimal_config_profile;
++
++static struct mlxsw_driver mlxsw_minimal_driver = {
++	.kind		= mlxsw_minimal_driver_name,
++	.priv_size	= 1,
++	.profile	= &mlxsw_minimal_config_profile,
++};
++
++static const struct i2c_device_id mlxsw_minimal_i2c_id[] = {
++	{ "mlxsw_minimal", 0},
++	{ },
++};
++
++static struct i2c_driver mlxsw_minimal_i2c_driver = {
++	.driver.name = "mlxsw_minimal",
++	.class = I2C_CLASS_HWMON,
++	.id_table = mlxsw_minimal_i2c_id,
++};
++
++static int __init mlxsw_minimal_module_init(void)
++{
++	int err;
++
++	err = mlxsw_core_driver_register(&mlxsw_minimal_driver);
++	if (err)
++		return err;
++
++	err = mlxsw_i2c_driver_register(&mlxsw_minimal_i2c_driver);
++	if (err)
++		goto err_i2c_driver_register;
++
++	return 0;
++
++err_i2c_driver_register:
++	mlxsw_core_driver_unregister(&mlxsw_minimal_driver);
++
++	return err;
++}
++
++static void __exit mlxsw_minimal_module_exit(void)
++{
++	mlxsw_i2c_driver_unregister(&mlxsw_minimal_i2c_driver);
++	mlxsw_core_driver_unregister(&mlxsw_minimal_driver);
++}
++
++module_init(mlxsw_minimal_module_init);
++module_exit(mlxsw_minimal_module_exit);
++
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_AUTHOR("Vadim Pasternak <vadimp@mellanox.com>");
++MODULE_DESCRIPTION("Mellanox minimal driver");
++MODULE_DEVICE_TABLE(i2c, mlxsw_minimal_i2c_id);
 -- 
 2.7.4
