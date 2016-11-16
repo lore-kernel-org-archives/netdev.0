@@ -1,40 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] X86: Removing inline decl on arch/x86/include/asm/desc.h.
-Date: Wed, 16 Nov 2016 12:15:08 -0800
-Message-ID: <1479327308.8455.215.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1479239164-7721-1-git-send-email-asd@marian1000.go.ro>
-         <alpine.DEB.2.20.1611162005320.3697@nanos>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] mlxsw: spectrum_router: Adjust placement of
+ FIB abort warning
+Date: Wed, 16 Nov 2016 15:18:26 -0500 (EST)
+Message-ID: <20161116.151826.139954270912785247.davem@davemloft.net>
+References: <1479286318-6115-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
-        "H. Peter Anvin" <hpa@zytor.com>,
-        Realtek linux nic maintainers <nic_swsd@realtek.com>,
-        x86@kernel.org, linux-kernel@vger.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35696 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752546AbcKPUPL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 15:15:11 -0500
-In-Reply-To: <alpine.DEB.2.20.1611162005320.3697@nanos>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50282 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753955AbcKPUSc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 15:18:32 -0500
+In-Reply-To: <1479286318-6115-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-16 at 20:16 +0100, Thomas Gleixner wrote:
-> On Tue, 15 Nov 2016, Corcodel Marian wrote:
-> >  Inline declarations suppress warning message from compiler but
-> >  most of these functions was declared static and is not used local on file.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 16 Nov 2016 09:51:58 +0100
+
+> From: Ido Schimmel <idosch@mellanox.com>
 > 
-> Huch? This is a header file and the functions are marked inline on purpose.
+> The recent merge commit bb598c1b8c9b ("Merge
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net") would cause
+> the FIB abort warning to fire whenever we flush the FIB tables - either
+> during module removal or actual abort.
 > 
-> Can you please explain what you are trying to achieve and why you think
-> that this is a good idea?
+> Move it back to its rightful location in the FIB abort function.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Corcodel Marian is a bot.
-Do not bother Thomas. 
-Total Waste of time.
-
-https://www.spinics.net/lists/netdev/msg370788.html
-
-https://www.mail-archive.com/netdev@vger.kernel.org/msg103775.html
+Applied, thanks for fixing this up.
