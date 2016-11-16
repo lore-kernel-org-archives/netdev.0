@@ -1,47 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ixgbevf: fix invalid use of napi_hash_del()
-Date: Wed, 16 Nov 2016 07:15:15 -0800
-Message-ID: <1479309315.8455.189.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [patch net-next 6/8] ipv4: fib: Add an API to request a FIB dump
+Date: Wed, 16 Nov 2016 17:18:29 +0200
+Message-ID: <20161116151829.h6kapbjes7xxxcyi@splinter.mtl.com>
+References: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
+ <1479305343-13167-7-git-send-email-jiri@resnulli.us>
+ <e795e6e0-a680-a2c3-7d5e-afd966104a4a@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34467 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753992AbcKPPPU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:15:20 -0500
-Received: by mail-pg0-f68.google.com with SMTP id e9so14592551pgc.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 07:15:18 -0800 (PST)
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:35935 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752532AbcKPPSm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:18:42 -0500
+Content-Disposition: inline
+In-Reply-To: <e795e6e0-a680-a2c3-7d5e-afd966104a4a@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Hannes,
 
-Calling napi_hash_del() before netif_napi_del() is dangerous
-if a synchronize_rcu() is not enforced before NAPI struct freeing.
+On Wed, Nov 16, 2016 at 03:51:01PM +0100, Hannes Frederic Sowa wrote:
+> On 16.11.2016 15:09, Jiri Pirko wrote:
+> > From: Ido Schimmel <idosch@mellanox.com>
+> > 
+> > Commit b90eb7549499 ("fib: introduce FIB notification infrastructure")
+> > introduced a new notification chain to notify listeners (f.e., switchdev
+> > drivers) about addition and deletion of routes.
+> > 
+> > However, upon registration to the chain the FIB tables can already be
+> > populated, which means potential listeners will have an incomplete view
+> > of the tables.
+> > 
+> > Solve that by adding an API to request a FIB dump. The dump itself it
+> > done using RCU in order not to starve consumers that need RTNL to make
+> > progress.
+> > 
+> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> 
+> Have you looked at potential inconsistencies resulting of RCU walking
+> the table and having concurrent inserts?
 
-Lets leave this detail to core networking stack to get it right.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 7eaac3234049..30a26e624e5a 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -2511,9 +2511,6 @@ static int ixgbevf_alloc_q_vectors(struct ixgbevf_adapter *adapter)
- 	while (q_idx) {
- 		q_idx--;
- 		q_vector = adapter->q_vector[q_idx];
--#ifdef CONFIG_NET_RX_BUSY_POLL
--		napi_hash_del(&q_vector->napi);
--#endif
- 		netif_napi_del(&q_vector->napi);
- 		kfree(q_vector);
- 		adapter->q_vector[q_idx] = NULL;
+Yes. I did try to think about situations in which this approach will
+fail, but I could only find problems with concurrent removals, which I
+addressed in 5/8. In case of concurrent insertions, even if you missed
+the node, you would still get the ENTRY_ADD event to your listener.
