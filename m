@@ -1,70 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 3/3] net: marvell: Allow drivers to be built with COMPILE_TEST
-Date: Tue, 15 Nov 2016 16:35:41 -0800
-Message-ID: <20161116003541.18415-4-f.fainelli@gmail.com>
-References: <20161116003541.18415-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, mw@semihalf.com, arnd@arndb.de,
-        gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the net-next tree
+Date: Wed, 16 Nov 2016 11:36:47 +1100
+Message-ID: <20161116113647.04900939@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Martin KaFai Lau <kafai@fb.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35382 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935259AbcKPAfy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:35:54 -0500
-Received: by mail-pg0-f65.google.com with SMTP id p66so13076909pga.2
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 16:35:54 -0800 (PST)
-In-Reply-To: <20161116003541.18415-1-f.fainelli@gmail.com>
+Received: from ozlabs.org ([103.22.144.67]:42403 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752409AbcKPAgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 19:36:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All Marvell Ethernet drivers actually build fine with COMPILE_TEST with
-a few warnings.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/marvell/Kconfig | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+After merging the net-next tree, today's linux-next build (x86_64
+allmodconfig) produced this warning:
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index 2664827ddecd..1fbe0bfbeead 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_MARVELL
- 	bool "Marvell devices"
- 	default y
--	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET
-+	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET || COMPILE_TEST
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 
-@@ -18,7 +18,7 @@ if NET_VENDOR_MARVELL
- 
- config MV643XX_ETH
- 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
--	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
-+	depends on (MV64X60 || PPC32 || PLAT_ORION || COMPILE_TEST) && INET
- 	select PHYLIB
- 	select MVMDIO
- 	---help---
-@@ -55,7 +55,7 @@ config MVNETA_BM_ENABLE
- 
- config MVNETA
- 	tristate "Marvell Armada 370/38x/XP network interface support"
--	depends on PLAT_ORION
-+	depends on PLAT_ORION || COMPILE_TEST
- 	select MVMDIO
- 	select FIXED_PHY
- 	---help---
-@@ -77,7 +77,7 @@ config MVNETA_BM
- 
- config MVPP2
- 	tristate "Marvell Armada 375 network interface support"
--	depends on MACH_ARMADA_375
-+	depends on MACH_ARMADA_375 || COMPILE_TEST
- 	select MVMDIO
- 	---help---
- 	  This driver supports the network interface units in the
+kernel/bpf/bpf_lru_list.c: In function '__bpf_lru_list_rotate_inactive.isra.3':
+kernel/bpf/bpf_lru_list.c:201:28: warning: 'next' may be used uninitialized in this function [-Wmaybe-uninitialized]
+  l->next_inactive_rotation = next;
+                            ^
+
+Introduced by commit
+
+  3a08c2fd7634 ("bpf: LRU List")
+
+I can't tell if this is a false positive or not.
+
 -- 
-2.9.3
+Cheers,
+Stephen Rothwell
