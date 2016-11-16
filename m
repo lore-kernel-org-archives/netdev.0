@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/5] Adding PHY-Tunables and downshift
- support
-Date: Tue, 15 Nov 2016 22:44:06 -0500 (EST)
-Message-ID: <20161115.224406.493444135671689580.davem@davemloft.net>
-References: <1479205204-27768-1-git-send-email-allan.nielsen@microsemi.com>
+Subject: Re: [PATCH net-next V2 0/9] alx: add multi queue support
+Date: Tue, 15 Nov 2016 22:46:48 -0500 (EST)
+Message-ID: <20161115.224648.1352404559474123921.davem@davemloft.net>
+References: <cover.1479208627.git.tobias.regnery@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        raju.lakkaraju@microsemi.com
-To: allan.nielsen@microsemi.com
+Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
+To: tobias.regnery@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36000 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36026 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933423AbcKPDoH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 22:44:07 -0500
-In-Reply-To: <1479205204-27768-1-git-send-email-allan.nielsen@microsemi.com>
+        with ESMTP id S1752409AbcKPDqu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 22:46:50 -0500
+In-Reply-To: <cover.1479208627.git.tobias.regnery@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Date: Tue, 15 Nov 2016 11:19:59 +0100
+From: Tobias Regnery <tobias.regnery@gmail.com>
+Date: Tue, 15 Nov 2016 12:43:07 +0100
 
-> Old cover letters included below.
+> This patchset lays the groundwork for multi queue support in the alx driver
+> and enables multi queue support for the tx path by default. The hardware
+> supports up to 4 tx queues. 
 
-Please do not form your cover letter by quoting older and older
-cover letters.
-
-Always write a clean, single, cover letter with a changelog of
-changed between each and every version leading up to the
-current one.
-
-Thank you.
+Series applied, thanks.
