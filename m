@@ -1,108 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: dsa: fix fixed-link-phy device leaks
-Date: Wed, 16 Nov 2016 10:14:10 -0800
-Message-ID: <8387696c-813a-4c88-5f10-7d2e5fdae6b8@gmail.com>
-References: <1479307664-32428-1-git-send-email-johan@kernel.org>
- <42af57ed-df84-f628-659d-c982d30da7d5@gmail.com>
- <20161116171145.GE4864@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net][v2] bpf: fix range arithmetic for bpf map access
+Date: Wed, 16 Nov 2016 13:22:31 -0500 (EST)
+Message-ID: <20161116.132231.466321381115973145.davem@davemloft.net>
+References: <1479156336-6211-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Johan Hovold <johan@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161116171145.GE4864@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jannh@google.com, ast@kernel.org, daniel@iogearbox.net,
+        netdev@vger.kernel.org
+To: jbacik@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45510 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752282AbcKPSWg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:22:36 -0500
+In-Reply-To: <1479156336-6211-1-git-send-email-jbacik@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/16/2016 09:11 AM, Johan Hovold wrote:
-> On Wed, Nov 16, 2016 at 09:06:26AM -0800, Florian Fainelli wrote:
->> On 11/16/2016 06:47 AM, Johan Hovold wrote:
->>> Make sure to drop the reference taken by of_phy_find_device() when
->>> registering and deregistering the fixed-link PHY-device.
->>>
->>> Note that we need to put both references held at deregistration.
->>>
->>> Fixes: 39b0c705195e ("net: dsa: Allow configuration of CPU & DSA port
->>> speeds/duplex")
->>> Signed-off-by: Johan Hovold <johan@kernel.org>
->>> ---
->>>
->>> Hi,
->>>
->>> This is one has been compile tested only, but fixes a couple of leaks
->>> similar to one that was found in the cpsw driver for which I just posted
->>> a patch.
->>>
->>> It turns out all drivers but DSA fail to deregister the fixed-link PHYs
->>> registered by of_phy_register_fixed_link(). Due to the way this
->>> interface was designed, deregistering such a PHY is a bit cumbersome and
->>> looks like it would benefit from a common helper.
->>>
->>> However, perhaps the interface should instead be changed so that the PHY
->>> device is returned so that drivers do not need to use
->>> of_phy_find_device() when they need to access properties of the fixed
->>> link (e.g. as in dsu_cpu_dsa_setup below).
->>>
->>> Thoughts?
->>>
->>> Thanks,
->>> Johan
->>>
->>>
->>>  net/dsa/dsa.c | 8 +++++++-
->>>  1 file changed, 7 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
->>> index a6902c1e2f28..798a6a776a5f 100644
->>> --- a/net/dsa/dsa.c
->>> +++ b/net/dsa/dsa.c
->>> @@ -233,6 +233,8 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
->>>  		genphy_read_status(phydev);
->>>  		if (ds->ops->adjust_link)
->>>  			ds->ops->adjust_link(ds, port, phydev);
->>> +
->>> +		phy_device_free(phydev);	/* of_phy_find_device */
->>>  	}
->>>  
->>>  	return 0;
->>> @@ -509,8 +511,12 @@ void dsa_cpu_dsa_destroy(struct device_node *port_dn)
->>>  	if (of_phy_is_fixed_link(port_dn)) {
->>>  		phydev = of_phy_find_device(port_dn);
->>>  		if (phydev) {
->>> -			phy_device_free(phydev);
->>>  			fixed_phy_unregister(phydev);
->>> +			/* Put references taken by of_phy_find_device() and
->>> +			 * of_phy_register_fixed_link().
->>> +			 */
->>> +			phy_device_free(phydev);
->>> +			phy_device_free(phydev);
->>
->> Double free, this looks bogus here. Actually would not this mean a
->> triple free since you already free in dsa_cpu_dsa_setup() which is
->> paired with dsa_cpu_dsa_destroy()?
-> 
-> The naming of phy_device_free() is unfortunate when it's really a put():
-> 
-> void phy_device_free(struct phy_device *phydev)
-> {
-> 	put_device(&phydev->mdio.dev);
-> }
+From: Josef Bacik <jbacik@fb.com>
+Date: Mon, 14 Nov 2016 15:45:36 -0500
 
-Indeed, should have looked a little harder.
-
+> I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
+> invalid accesses to bpf map entries.  Fix this up by doing a few things
 > 
-> which may need to be called multiple times, specifically after a call to
-> of_phy_find_device() which takes another reference.
+> 1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
+> life and just adds extra complexity.
 > 
-> With this patch the refcounts are properly balanced.
+> 2) Fix the logic for BPF_AND, don't allow AND of negative numbers and set the
+> minimum value to 0 for positive AND's.
+> 
+> 3) Don't do operations on the ranges if they are set to the limits, as they are
+> by definition undefined, and allowing arithmetic operations on those values
+> could make them appear valid when they really aren't.
+> 
+> This fixes the testcase provided by Jann as well as a few other theoretical
+> problems.
+> 
+> Reported-by: Jann Horn <jannh@google.com>
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
 
-The intent of your patch is good, but it still feels like having to
-double imbalance the refcount is symptomatic of a larger issue here, it
-does not seem like having several refcounts are necessary, so we may
-really want to rework the API.
--- 
-Florian
+Applied, thanks.
