@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net] igmp: do not remove igmp souce list info when
- set link down
-Date: Tue, 15 Nov 2016 19:51:42 -0500 (EST)
-Message-ID: <20161115.195142.1921064214545163262.davem@davemloft.net>
-References: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: linux-next: build warning after merge of the net-next tree
+Date: Tue, 15 Nov 2016 16:56:05 -0800
+Message-ID: <20161116005605.GA16285@kafai-mba.local>
+References: <20161116113647.04900939@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-        daniel@iogearbox.net
-To: liuhangbin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34024 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751396AbcKPAvr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:51:47 -0500
-In-Reply-To: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        <linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161116113647.04900939@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hangbin Liu <liuhangbin@gmail.com>
-Date: Mon, 14 Nov 2016 16:16:28 +0800
+On Wed, Nov 16, 2016 at 11:36:47AM +1100, Stephen Rothwell wrote:
+> Hi all,
+>
+> After merging the net-next tree, today's linux-next build (x86_64
+> allmodconfig) produced this warning:
+>
+> kernel/bpf/bpf_lru_list.c: In function '__bpf_lru_list_rotate_inactive.isra.3':
+> kernel/bpf/bpf_lru_list.c:201:28: warning: 'next' may be used uninitialized in this function [-Wmaybe-uninitialized]
+>   l->next_inactive_rotation = next;
+>                             ^
+>
+> Introduced by commit
+>
+>   3a08c2fd7634 ("bpf: LRU List")
+>
+> I can't tell if this is a false positive or not.
+A false positive.
 
-> In commit 24cf3af3fed5 ("igmp: call ip_mc_clear_src..."), we forgot to remove
-> igmpv3_clear_delrec() in ip_mc_down(), which also called ip_mc_clear_src().
-> This make us clear all IGMPv3 source filter info after NETDEV_DOWN.
-> Move igmpv3_clear_delrec() to ip_mc_destroy_dev() and then no need
-> ip_mc_clear_src() in ip_mc_destroy_dev().
-> 
-> On the other hand, we should restore back instead of free all source filter
-> info in igmpv3_del_delrec(). Or we will not able to restore IGMPv3 source
-> filter info after NETDEV_UP and NETDEV_POST_TYPE_CHANGE.
-> 
-> Fixes: 24cf3af3fed5 ("igmp: call ip_mc_clear_src() only when ...")
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+A patch has been posted: https://patchwork.ozlabs.org/patch/695202/
 
-Applied.
+Thanks for the report.
+--Martin
