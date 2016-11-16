@@ -1,175 +1,98 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/4] mlxsw: minimal: Add I2C support for Mellanox ASICs
-Date: Wed, 16 Nov 2016 15:20:46 +0100
-Message-ID: <1479306046-13324-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 1/4] mlxsw: Add bus capability flag
+Date: Wed, 16 Nov 2016 15:20:43 +0100
+Message-ID: <1479306046-13324-2-git-send-email-jiri@resnulli.us>
 References: <1479306046-13324-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, vadimp@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
         arkadis@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33522 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753441AbcKPOUz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:20:55 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u144so11588307wmu.0
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:20:55 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34730 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751953AbcKPOUv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:20:51 -0500
+Received: by mail-wm0-f68.google.com with SMTP id g23so11664831wme.1
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:20:51 -0800 (PST)
 In-Reply-To: <1479306046-13324-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Pasternak <vadimp@mellanox.com>
 
-Add I2C access support for Mellanox ASICs:
-- Virtual Protocol Interconnect switches SwitchX, SwitchX2,
-  providing InfiniBand, Ethernet and Fibre Channel connectivity;
-- Infiniband switches SwitchIB, SwitchIB2:
-- Ethernet switch Spectrum.
+The mlxsw core infrastructure currently assumes that communication with
+the ASIC is always possible using Ethernet management datagrams (EMADs),
+but this is only possible when the PCI bus is used.
 
-Example of probing activation:
-echo mlxsw_minimal 0x48 > /sys/bus/i2c/devices/i2c-2/new_device
+The bus capability flag is added to indicate EMAD support and make core
+initialize EMAD communication only when it's set. Otherwise, register
+access is done using command interface.
 
 Signed-off-by: Vadim Pasternak <vadimp@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/Kconfig   | 11 +++
- drivers/net/ethernet/mellanox/mlxsw/Makefile  |  2 +
- drivers/net/ethernet/mellanox/mlxsw/minimal.c | 97 +++++++++++++++++++++++++++
- 3 files changed, 110 insertions(+)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/minimal.c
+ drivers/net/ethernet/mellanox/mlxsw/core.c | 6 ++++++
+ drivers/net/ethernet/mellanox/mlxsw/core.h | 3 +++
+ drivers/net/ethernet/mellanox/mlxsw/pci.c  | 1 +
+ 3 files changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-index f0bc7b3..c9822e6 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-@@ -79,3 +79,14 @@ config MLXSW_SPECTRUM_DCB
- 	---help---
- 	  Say Y here if you want to use Data Center Bridging (DCB) in the
- 	  driver.
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index 7874e30..33b0cd4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -598,6 +598,9 @@ static int mlxsw_emad_init(struct mlxsw_core *mlxsw_core)
+ 	u64 tid;
+ 	int err;
+ 
++	if (!(mlxsw_core->bus->features & MLXSW_BUS_F_TXRX))
++		return 0;
 +
-+config MLXSW_MINIMAL
-+	tristate "Mellanox Technologies minimal I2C support"
-+	depends on MLXSW_CORE && MLXSW_I2C
-+	default m
-+	---help---
-+	  This driver supports I2C access for Mellanox Technologies Switch
-+	  ASICs.
+ 	/* Set the upper 32 bits of the transaction ID field to a random
+ 	 * number. This allows us to discard EMADs addressed to other
+ 	 * devices.
+@@ -634,6 +637,9 @@ static void mlxsw_emad_fini(struct mlxsw_core *mlxsw_core)
+ {
+ 	char hpkt_pl[MLXSW_REG_HPKT_LEN];
+ 
++	if (!(mlxsw_core->bus->features & MLXSW_BUS_F_TXRX))
++		return;
 +
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called mlxsw_minimal.
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-index 4623ede..2722942 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-@@ -14,3 +14,5 @@ mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
- 				   spectrum_switchdev.o spectrum_router.o \
- 				   spectrum_kvdl.o
- mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
-+obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
-+mlxsw_minimal-objs		:= minimal.o
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/minimal.c b/drivers/net/ethernet/mellanox/mlxsw/minimal.c
-new file mode 100644
-index 0000000..3dd1626
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/minimal.c
-@@ -0,0 +1,97 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/minimal.c
-+ * Copyright (c) 2016 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2016 Vadim Pasternak <vadimp@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
+ 	mlxsw_core->emad.use_emad = false;
+ 	mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_DISCARD,
+ 			    MLXSW_TRAP_ID_ETHEMAD);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index e382ed0..a2bd6c6a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -269,6 +269,8 @@ u64 mlxsw_core_res_get(struct mlxsw_core *mlxsw_core,
+ #define MLXSW_CORE_RES_GET(res, short_res_id)			\
+ 	mlxsw_core_res_get(res, MLXSW_RES_ID_##short_res_id)
+ 
++#define MLXSW_BUS_F_TXRX	BIT(0)
 +
-+#include <linux/i2c.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/mod_devicetable.h>
-+#include <linux/types.h>
-+
-+#include "core.h"
-+#include "i2c.h"
-+
-+static const char mlxsw_minimal_driver_name[] = "mlxsw_minimal";
-+
-+static const struct mlxsw_config_profile mlxsw_minimal_config_profile;
-+
-+static struct mlxsw_driver mlxsw_minimal_driver = {
-+	.kind		= mlxsw_minimal_driver_name,
-+	.priv_size	= 1,
-+	.profile	= &mlxsw_minimal_config_profile,
-+};
-+
-+static const struct i2c_device_id mlxsw_minimal_i2c_id[] = {
-+	{ "mlxsw_minimal", 0},
-+	{ },
-+};
-+
-+static struct i2c_driver mlxsw_minimal_i2c_driver = {
-+	.driver.name = "mlxsw_minimal",
-+	.class = I2C_CLASS_HWMON,
-+	.id_table = mlxsw_minimal_i2c_id,
-+};
-+
-+static int __init mlxsw_minimal_module_init(void)
-+{
-+	int err;
-+
-+	err = mlxsw_core_driver_register(&mlxsw_minimal_driver);
-+	if (err)
-+		return err;
-+
-+	err = mlxsw_i2c_driver_register(&mlxsw_minimal_i2c_driver);
-+	if (err)
-+		goto err_i2c_driver_register;
-+
-+	return 0;
-+
-+err_i2c_driver_register:
-+	mlxsw_core_driver_unregister(&mlxsw_minimal_driver);
-+
-+	return err;
-+}
-+
-+static void __exit mlxsw_minimal_module_exit(void)
-+{
-+	mlxsw_i2c_driver_unregister(&mlxsw_minimal_i2c_driver);
-+	mlxsw_core_driver_unregister(&mlxsw_minimal_driver);
-+}
-+
-+module_init(mlxsw_minimal_module_init);
-+module_exit(mlxsw_minimal_module_exit);
-+
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_AUTHOR("Vadim Pasternak <vadimp@mellanox.com>");
-+MODULE_DESCRIPTION("Mellanox minimal driver");
-+MODULE_DEVICE_TABLE(i2c, mlxsw_minimal_i2c_id);
+ struct mlxsw_bus {
+ 	const char *kind;
+ 	int (*init)(void *bus_priv, struct mlxsw_core *mlxsw_core,
+@@ -284,6 +286,7 @@ struct mlxsw_bus {
+ 			char *in_mbox, size_t in_mbox_size,
+ 			char *out_mbox, size_t out_mbox_size,
+ 			u8 *p_status);
++	u8 features;
+ };
+ 
+ struct mlxsw_bus_info {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+index d5cf1ea..a223c85 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -1755,6 +1755,7 @@ static const struct mlxsw_bus mlxsw_pci_bus = {
+ 	.skb_transmit_busy	= mlxsw_pci_skb_transmit_busy,
+ 	.skb_transmit		= mlxsw_pci_skb_transmit,
+ 	.cmd_exec		= mlxsw_pci_cmd_exec,
++	.features		= MLXSW_BUS_F_TXRX,
+ };
+ 
+ static int mlxsw_pci_sw_reset(struct mlxsw_pci *mlxsw_pci,
 -- 
 2.7.4
