@@ -1,53 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v6] cadence: Add LSO support.
-Date: Wed, 16 Nov 2016 17:56:15 -0500 (EST)
-Message-ID: <20161116.175615.1225296791248245329.davem@davemloft.net>
-References: <1478698862-12924-1-git-send-email-rafalo@cadence.com>
-        <1479290554-22123-1-git-send-email-rafalo@cadence.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 17 Nov 2016 10:36:28 +1100
+Message-ID: <20161117103628.4cf3e73b@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: rafalo@cadence.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479290554-22123-1-git-send-email-rafalo@cadence.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Jarod Wilson <jarod@redhat.com>,
+        Sunil Goutham <sgoutham@cavium.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rafal Ozieblo <rafalo@cadence.com>
-Date: Wed, 16 Nov 2016 10:02:34 +0000
+Hi all,
 
-> New Cadence GEM hardware support Large Segment Offload (LSO):
-> TCP segmentation offload (TSO) as well as UDP fragmentation
-> offload (UFO). Support for those features was added to the driver.
-> ---
-> Changed in v2:
-> macb_lso_check_compatibility() changed to macb_features_check()
-> (with little modifications) and bind to .ndo_features_check.
-> (after Eric Dumazet suggestion)
-> ---
-> Changed in v3:
-> Respin to net-next.
-> ---
-> Changed in v4:
-> (struct iphdr*)skb_network_header(skb) changed to ip_hdr(skb)
-> ---
-> Changed in v5:
-> Changes after Florian Fainelli comments
-> ---
-> Changes in v6:
-> UDP checksum zeroing removed. There is no need to zeroing
-> UDP checksum during UFO operation.
-> 
-> Signed-off-by: Rafal Ozieblo <rafalo@cadence.com>
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Applied.
+  drivers/net/ethernet/cavium/thunder/nicvf_main.c
 
-But you really, truly, screwed up this commit message.
+between commit:
 
-Everything after "---" will be deleted from the commit message when I
-apply your patch with GIT.  Which means your entire changelog plus
-your signoff were removed.
+  712c31853440 ("net: thunderx: Program LMAC credits based on MTU")
 
-Please do this properly in the future.
+from the net tree and commit:
+
+  109cc16526c6 ("ethernet/cavium: use core min/max MTU checking")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 8a37012c9c89,b192712c93b7..000000000000
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@@ -1292,19 -1312,10 +1292,13 @@@ static int nicvf_change_mtu(struct net_
+  {
+  	struct nicvf *nic = netdev_priv(netdev);
+  
+- 	if (new_mtu > NIC_HW_MAX_FRS)
+- 		return -EINVAL;
+- 
+- 	if (new_mtu < NIC_HW_MIN_FRS)
+- 		return -EINVAL;
+- 
+ +	netdev->mtu = new_mtu;
+ +
+ +	if (!netif_running(netdev))
+ +		return 0;
+ +
+  	if (nicvf_update_hw_max_frs(nic, new_mtu))
+  		return -EINVAL;
+ -	netdev->mtu = new_mtu;
+ -	nic->mtu = new_mtu;
+  
+  	return 0;
+  }
