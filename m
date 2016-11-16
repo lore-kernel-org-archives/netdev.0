@@ -1,77 +1,59 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net 4/7] net: ethernet: ti: cpsw: fix of_node and phydev leaks
-Date: Wed, 16 Nov 2016 15:35:13 +0100
-Message-ID: <1479306916-27673-5-git-send-email-johan@kernel.org>
-References: <1479306916-27673-1-git-send-email-johan@kernel.org>
-Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479306916-27673-1-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: ethernet: faraday: To support device tree usage.
+Date: Wed, 16 Nov 2016 15:37:15 +0100
+Message-ID: <20161116143715.GH19962@lunn.ch>
+References: <1479285795-3105-1-git-send-email-green.hu@gmail.com>
+ <20161116134715.GE19962@lunn.ch>
+ <CAEbi=3esyRi4cnUNf4uPKCQtyRekBRo81Frd=BSJy8qf=3uc+A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, devicetree@vger.kernel.org
+To: Greentime Hu <green.hu@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41838 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753099AbcKPOhR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Nov 2016 09:37:17 -0500
+Content-Disposition: inline
+In-Reply-To: <CAEbi=3esyRi4cnUNf4uPKCQtyRekBRo81Frd=BSJy8qf=3uc+A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure to drop references taken and deregister devices registered
-during probe on probe errors (including deferred probe) and driver
-unbind.
+On Wed, Nov 16, 2016 at 10:26:52PM +0800, Greentime Hu wrote:
+> On Wed, Nov 16, 2016 at 9:47 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> > On Wed, Nov 16, 2016 at 04:43:15PM +0800, Greentime Hu wrote:
+> >> To support device tree usage for ftmac100.
+> >>
+> >> Signed-off-by: Greentime Hu <green.hu@gmail.com>
+> >> ---
+> >>  drivers/net/ethernet/faraday/ftmac100.c |    7 +++++++
+> >>  1 file changed, 7 insertions(+)
+> >>
+> >> diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
+> >> index dce5f7b..81dd9e1 100644
+> >> --- a/drivers/net/ethernet/faraday/ftmac100.c
+> >> +++ b/drivers/net/ethernet/faraday/ftmac100.c
+> >> @@ -1172,11 +1172,17 @@ static int __exit ftmac100_remove(struct platform_device *pdev)
+> >>       return 0;
+> >>  }
+> >>
+> >> +static const struct of_device_id mac_of_ids[] = {
+> >> +     { .compatible = "andestech,atmac100" },
+> >> +     { }
+> >
+> > andestech is not in
+> > Documentation/devicetree/bindings/vendor-prefixes.txt Please provide a
+> > separate patch adding it.
+> OK. I will provide another patch to add andestech.
+> 
+> > Humm, why andestech? Why not something based around faraday
+> > technology?
+> It is because we use the same ftmac100 IP provided from faraday
+> technology but I am now using it in andestech SoC.
 
-Specifically, PHY of-node references were never released and fixed-link
-PHY devices were never deregistered.
+Please make sure you get an acked-by: from the device tree
+maintainers. They might want you to use faraday, since that is the
+original IP provider. For example, all Synopsys licensed IP uses
+"snps,XXX", not the SoC vendor with the license.
 
-Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
-Fixes: 1f71e8c96fc6 ("drivers: net: cpsw: Add support for fixed-link
-PHY")
-Signed-off-by: Johan Hovold <johan@kernel.org>
----
- drivers/net/ethernet/ti/cpsw.c | 35 +++++++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 4374ba05610b..4bd96732291c 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2443,6 +2443,41 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 
- static void cpsw_remove_dt(struct platform_device *pdev)
- {
-+	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct cpsw_common *cpsw = ndev_to_cpsw(ndev);
-+	struct cpsw_platform_data *data = &cpsw->data;
-+	struct device_node *node = pdev->dev.of_node;
-+	struct device_node *slave_node;
-+	int i = 0;
-+
-+	for_each_available_child_of_node(node, slave_node) {
-+		struct cpsw_slave_data *slave_data = &data->slave_data[i];
-+
-+		if (strcmp(slave_node->name, "slave"))
-+			continue;
-+
-+		if (of_phy_is_fixed_link(slave_node)) {
-+			struct phy_device *phydev;
-+
-+			phydev = of_phy_find_device(slave_node);
-+			if (phydev) {
-+				fixed_phy_unregister(phydev);
-+				/* Put references taken by
-+				 * of_phy_find_device() and
-+				 * of_phy_register_fixed_link().
-+				 */
-+				phy_device_free(phydev);
-+				phy_device_free(phydev);
-+			}
-+		}
-+
-+		of_node_put(slave_data->phy_node);
-+
-+		i++;
-+		if (i == data->slaves)
-+			break;
-+	}
-+
- 	of_platform_depopulate(&pdev->dev);
- }
- 
--- 
-2.7.3
+	    Andrew
