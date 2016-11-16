@@ -1,70 +1,59 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] ip6_tunnel: disable caching when the traffic class is inherited
-Date: Wed, 16 Nov 2016 16:26:46 +0100
-Message-ID: <67662ec875375c86e95666a7e47fc61c3a869d86.1479309929.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Liam McBirnie <liam.mcbirnie@boeing.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net] ixgbevf: fix invalid uses of napi_hash_del()
+Date: Wed, 16 Nov 2016 07:26:50 -0800
+Message-ID: <1479310010.8455.197.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1479309315.8455.189.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53090 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932808AbcKPP04 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Nov 2016 10:26:56 -0500
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36655 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752679AbcKPP0y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:26:54 -0500
+Received: by mail-pg0-f68.google.com with SMTP id x23so14963333pgx.3
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 07:26:54 -0800 (PST)
+In-Reply-To: <1479309315.8455.189.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If an ip6 tunnel is configured to inherit the traffic class from
-the inner header, the dst_cache must be disabled or it will foul
-the policy routing.
+From: Eric Dumazet <edumazet@google.com>
 
-The issue is apprently there since at leat Linux-2.6.12-rc2.
+Calling napi_hash_del() before netif_napi_del() is dangerous
+if a synchronize_rcu() is not enforced before NAPI struct freeing.
 
-Reported-by: Liam McBirnie <liam.mcbirnie@boeing.com>
-Cc: Liam McBirnie <liam.mcbirnie@boeing.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Lets leave this detail to core networking stack to get it right.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/ipv6/ip6_tunnel.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 8778456..0a4759b 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1034,6 +1034,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 	int mtu;
- 	unsigned int psh_hlen = sizeof(struct ipv6hdr) + t->encap_hlen;
- 	unsigned int max_headroom = psh_hlen;
-+	bool use_cache = false;
- 	u8 hop_limit;
- 	int err = -1;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 7eaac3234049..bf4d7efc7dbd 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -2511,9 +2511,6 @@ static int ixgbevf_alloc_q_vectors(struct ixgbevf_adapter *adapter)
+ 	while (q_idx) {
+ 		q_idx--;
+ 		q_vector = adapter->q_vector[q_idx];
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-		napi_hash_del(&q_vector->napi);
+-#endif
+ 		netif_napi_del(&q_vector->napi);
+ 		kfree(q_vector);
+ 		adapter->q_vector[q_idx] = NULL;
+@@ -2537,9 +2534,6 @@ static void ixgbevf_free_q_vectors(struct ixgbevf_adapter *adapter)
+ 		struct ixgbevf_q_vector *q_vector = adapter->q_vector[q_idx];
  
-@@ -1066,7 +1067,15 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 
- 		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
- 		neigh_release(neigh);
--	} else if (!fl6->flowi6_mark)
-+	} else if (!(t->parms.flags &
-+		     (IP6_TNL_F_USE_ORIG_TCLASS | IP6_TNL_F_USE_ORIG_FWMARK))) {
-+		/* enable the cache only only if the routing decision does
-+		 * not depend on the current inner header value
-+		 */
-+		use_cache = true;
-+	}
-+
-+	if (use_cache)
- 		dst = dst_cache_get(&t->dst_cache);
- 
- 	if (!ip6_tnl_xmit_ctl(t, &fl6->saddr, &fl6->daddr))
-@@ -1150,7 +1159,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 		if (t->encap.type != TUNNEL_ENCAP_NONE)
- 			goto tx_err_dst_release;
- 	} else {
--		if (!fl6->flowi6_mark && ndst)
-+		if (use_cache && ndst)
- 			dst_cache_set_ip6(&t->dst_cache, ndst, &fl6->saddr);
+ 		adapter->q_vector[q_idx] = NULL;
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-		napi_hash_del(&q_vector->napi);
+-#endif
+ 		netif_napi_del(&q_vector->napi);
+ 		kfree(q_vector);
  	}
- 	skb_dst_set(skb, dst);
--- 
-1.8.3.1
