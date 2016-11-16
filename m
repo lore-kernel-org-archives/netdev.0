@@ -1,19 +1,19 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 1/3] net: gianfar_ptp: Rename FS bit to FIPERST
-Date: Tue, 15 Nov 2016 16:40:34 -0800
-Message-ID: <20161116004037.20941-3-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/3] net: gianfar_ptp: Rename FS bit to FIPERST
+Date: Tue, 15 Nov 2016 16:40:36 -0800
+Message-ID: <20161116004037.20941-5-f.fainelli@gmail.com>
 References: <20161116004037.20941-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, mw@semihalf.com, arnd@arndb.de,
         gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33949 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750815AbcKPAkr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:40:47 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so12718652pgc.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 16:40:46 -0800 (PST)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36682 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752589AbcKPAky (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:40:54 -0500
+Received: by mail-pf0-f193.google.com with SMTP id c4so6146840pfb.3
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 16:40:54 -0800 (PST)
 In-Reply-To: <20161116004037.20941-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
