@@ -1,91 +1,30 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH iproute2] ifstat/nstat: fix help output alignment
-Date: Tue, 15 Nov 2016 22:34:14 -0500
-Message-ID: <20161116033414.24632-1-vapier@gentoo.org>
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v8 0/9] dpaa_eth: Add the QorIQ DPAA Ethernet
+ driver
+Date: Tue, 15 Nov 2016 22:34:50 -0500 (EST)
+Message-ID: <20161115.223450.723967283520630203.davem@davemloft.net>
+References: <1479199269-9748-1-git-send-email-madalin.bucur@nxp.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org, oss@buserror.net,
+        ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
+        joakim.tjernlund@infinera.com
+To: madalin.bucur@nxp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:54836 "EHLO smtp.gentoo.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752020AbcKPDeU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 22:34:20 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:35850 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933091AbcKPDex (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 22:34:53 -0500
+In-Reply-To: <1479199269-9748-1-git-send-email-madalin.bucur@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some lines use tabs while others use spaces.  Use spaces everywhere.
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Date: Tue, 15 Nov 2016 10:41:00 +0200
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- misc/ifstat.c | 24 ++++++++++++------------
- misc/nstat.c  | 22 +++++++++++-----------
- 2 files changed, 23 insertions(+), 23 deletions(-)
+> This patch series adds the Ethernet driver for the Freescale
+> QorIQ Data Path Acceleration Architecture (DPAA).
 
-diff --git a/misc/ifstat.c b/misc/ifstat.c
-index d55197375e3c..92d67b0c5fd1 100644
---- a/misc/ifstat.c
-+++ b/misc/ifstat.c
-@@ -662,18 +662,18 @@ static void usage(void)
- {
- 	fprintf(stderr,
- "Usage: ifstat [OPTION] [ PATTERN [ PATTERN ] ]\n"
--"   -h, --help		this message\n"
--"   -a, --ignore	ignore history\n"
--"   -d, --scan=SECS	sample every statistics every SECS\n"
--"   -e, --errors	show errors\n"
--"   -j, --json          format output in JSON\n"
--"   -n, --nooutput	do history only\n"
--"   -p, --pretty        pretty print\n"
--"   -r, --reset		reset history\n"
--"   -s, --noupdate	don\'t update history\n"
--"   -t, --interval=SECS	report average over the last SECS\n"
--"   -V, --version	output version information\n"
--"   -z, --zeros		show entries with zero activity\n");
-+"   -h, --help           this message\n"
-+"   -a, --ignore         ignore history\n"
-+"   -d, --scan=SECS      sample every statistics every SECS\n"
-+"   -e, --errors         show errors\n"
-+"   -j, --json           format output in JSON\n"
-+"   -n, --nooutput       do history only\n"
-+"   -p, --pretty         pretty print\n"
-+"   -r, --reset          reset history\n"
-+"   -s, --noupdate       don't update history\n"
-+"   -t, --interval=SECS  report average over the last SECS\n"
-+"   -V, --version        output version information\n"
-+"   -z, --zeros          show entries with zero activity\n");
- 
- 	exit(-1);
- }
-diff --git a/misc/nstat.c b/misc/nstat.c
-index 1cb6c7eea27a..1212b1f2c812 100644
---- a/misc/nstat.c
-+++ b/misc/nstat.c
-@@ -526,17 +526,17 @@ static void usage(void)
- {
- 	fprintf(stderr,
- "Usage: nstat [OPTION] [ PATTERN [ PATTERN ] ]\n"
--"   -h, --help		this message\n"
--"   -a, --ignore	ignore history\n"
--"   -d, --scan=SECS	sample every statistics every SECS\n"
--"   -j, --json          format output in JSON\n"
--"   -n, --nooutput	do history only\n"
--"   -p, --pretty        pretty print\n"
--"   -r, --reset		reset history\n"
--"   -s, --noupdate	don\'t update history\n"
--"   -t, --interval=SECS	report average over the last SECS\n"
--"   -V, --version	output version information\n"
--"   -z, --zeros		show entries with zero activity\n");
-+"   -h, --help           this message\n"
-+"   -a, --ignore         ignore history\n"
-+"   -d, --scan=SECS      sample every statistics every SECS\n"
-+"   -j, --json           format output in JSON\n"
-+"   -n, --nooutput       do history only\n"
-+"   -p, --pretty         pretty print\n"
-+"   -r, --reset          reset history\n"
-+"   -s, --noupdate       don't update history\n"
-+"   -t, --interval=SECS  report average over the last SECS\n"
-+"   -V, --version        output version information\n"
-+"   -z, --zeros          show entries with zero activity\n");
- 	exit(-1);
- }
- 
--- 
-2.10.2
+Series applied, thanks.
