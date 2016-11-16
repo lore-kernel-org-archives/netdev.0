@@ -1,44 +1,28 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net 1/3] net: phy: realtek: add eee advertisement disable
- options
-Date: Wed, 16 Nov 2016 14:23:37 +0100
-Message-ID: <20161116132337.GD19962@lunn.ch>
-References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
- <1479220154-25851-2-git-send-email-jbrunet@baylibre.com>
- <20161115163036.GB23231@lunn.ch>
- <476b72f3-5efe-3551-6c24-0e378d655a0f@gmail.com>
- <1479290189.17538.25.camel@baylibre.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/2] can: holt_hi311x: document device tree bindings
+Date: Wed, 16 Nov 2016 07:34:22 -0600
+Message-ID: <20161116133422.jvuamgpebot4yfkd@rob-hp-laptop>
+References: <1479146144-29143-1-git-send-email-akshay.bhat@timesys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
-        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: wg@grandegger.com, mkl@pengutronix.de, mark.rutland@arm.com,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Akshay Bhat <nodeax@gmail.com>
+To: Akshay Bhat <akshay.bhat@timesys.com>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1479290189.17538.25.camel-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1479146144-29143-1-git-send-email-akshay.bhat@timesys.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> There two kind of PHYs supporting eee, the one advertising eee by
-> default (like realtek) and the one not advertising it (like micrel).
+On Mon, Nov 14, 2016 at 12:55:43PM -0500, Akshay Bhat wrote:
+> Document the HOLT HI-311x CAN device tree bindings.
+> 
+> Signed-off-by: Akshay Bhat <nodeax@gmail.com>
+> ---
+>  .../devicetree/bindings/net/can/holt_hi311x.txt    | 24 ++++++++++++++++++++++
+>  1 file changed, 24 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/can/holt_hi311x.txt
 
-I don't know too much about EEE. So maybe a dumb question. Does the
-MAC need to be involved? Or is it just the PHY?
-
-If the MAC needs to be involved, the PHY should not be advertising EEE
-unless the MAC asks for it by calling phy_init_eee(). If this is true,
-maybe we need to change the realtek driver, and others in that class.
-
-      Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Rob Herring <robh@kernel.org>
