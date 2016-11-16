@@ -1,53 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next 6/8] ipv4: fib: Add an API to request a FIB dump
-Date: Wed, 16 Nov 2016 15:51:01 +0100
-Message-ID: <e795e6e0-a680-a2c3-7d5e-afd966104a4a@stressinduktion.org>
-References: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
- <1479305343-13167-7-git-send-email-jiri@resnulli.us>
+From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net 1/3] net: phy: realtek: add eee advertisement
+ disable options
+Date: Wed, 16 Nov 2016 15:51:30 +0100
+Message-ID: <1479307890.17538.40.camel@baylibre.com>
+References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
+         <1479220154-25851-2-git-send-email-jbrunet@baylibre.com>
+         <20161115163036.GB23231@lunn.ch>
+         <476b72f3-5efe-3551-6c24-0e378d655a0f@gmail.com>
+         <1479290189.17538.25.camel@baylibre.com> <20161116132337.GD19962@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:56042 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752834AbcKPOvG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:51:06 -0500
-In-Reply-To: <1479305343-13167-7-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161116132337.GD19962-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16.11.2016 15:09, Jiri Pirko wrote:
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> Commit b90eb7549499 ("fib: introduce FIB notification infrastructure")
-> introduced a new notification chain to notify listeners (f.e., switchdev
-> drivers) about addition and deletion of routes.
-> 
-> However, upon registration to the chain the FIB tables can already be
-> populated, which means potential listeners will have an incomplete view
-> of the tables.
-> 
-> Solve that by adding an API to request a FIB dump. The dump itself it
-> done using RCU in order not to starve consumers that need RTNL to make
-> progress.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+On Wed, 2016-11-16 at 14:23 +0100, Andrew Lunn wrote:
+> > 
+> > There two kind of PHYs supporting eee, the one advertising eee by
+> > default (like realtek) and the one not advertising it (like
+> > micrel).
 
-Have you looked at potential inconsistencies resulting of RCU walking
-the table and having concurrent inserts?
+This is just the default register value.
 
-I don't see a way around doing a journal like in filesystems somehow,
-but maybe the effects are not that severe and it is not a problem after all.
+> 
+> I don't know too much about EEE. So maybe a dumb question. Does the
+> MAC need to be involved? Or is it just the PHY?
+> 
+> If the MAC needs to be involved, the PHY should not be advertising
+> EEE
+> unless the MAC asks for it by calling phy_init_eee(). If this is
+> true,
+> maybe we need to change the realtek driver, and others in that class.
 
-Bye,
-Hannes
+As far I understand, the advertised capabilities are exchanged during
+the auto-negotiation.
+
+At this stage, if the advertisement is disabled (regarless of the
+actual support) on either side of the link, there will be no low power
+idle state on the Tx nor the Rx path.
+
+If the advertisement is enabled on both side but we don't call
+phy_init_eee, I suppose Tx won't enter LPI, but Rx could.
+
+
+> 
+>       Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
