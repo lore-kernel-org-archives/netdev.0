@@ -1,33 +1,44 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: Re: [PATCH net-next] sfc: remove napi_hash_del() call
-Date: Wed, 16 Nov 2016 14:15:05 +0000
-Message-ID: <346f2de7-ef32-e60f-fe1d-d2eae0071636@solarflare.com>
-References: <1479304907.8455.171.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Greentime Hu <green.hu@gmail.com>
+Subject: Re: [PATCH] net: ethernet: faraday: To support device tree usage.
+Date: Wed, 16 Nov 2016 22:26:52 +0800
+Message-ID: <CAEbi=3esyRi4cnUNf4uPKCQtyRekBRo81Frd=BSJy8qf=3uc+A@mail.gmail.com>
+References: <1479285795-3105-1-git-send-email-green.hu@gmail.com> <20161116134715.GE19962@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Edward Cree <ecree@solarflare.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:30213 "EHLO
-        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753187AbcKPO1L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:27:11 -0500
-In-Reply-To: <1479304907.8455.171.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161116134715.GE19962@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/11/16 14:01, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Calling napi_hash_del() after netif_napi_del() is pointless.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Edward Cree <ecree@solarflare.com>
-> Cc: Bert Kenward <bkenward@solarflare.com>
-> ---
->  drivers/net/ethernet/sfc/efx.c |    5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
+On Wed, Nov 16, 2016 at 9:47 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Wed, Nov 16, 2016 at 04:43:15PM +0800, Greentime Hu wrote:
+>> To support device tree usage for ftmac100.
+>>
+>> Signed-off-by: Greentime Hu <green.hu@gmail.com>
+>> ---
+>>  drivers/net/ethernet/faraday/ftmac100.c |    7 +++++++
+>>  1 file changed, 7 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
+>> index dce5f7b..81dd9e1 100644
+>> --- a/drivers/net/ethernet/faraday/ftmac100.c
+>> +++ b/drivers/net/ethernet/faraday/ftmac100.c
+>> @@ -1172,11 +1172,17 @@ static int __exit ftmac100_remove(struct platform_device *pdev)
+>>       return 0;
+>>  }
+>>
+>> +static const struct of_device_id mac_of_ids[] = {
+>> +     { .compatible = "andestech,atmac100" },
+>> +     { }
+>
+> andestech is not in
+> Documentation/devicetree/bindings/vendor-prefixes.txt Please provide a
+> separate patch adding it.
+OK. I will provide another patch to add andestech.
 
-Acked-by: Bert Kenward <bkenward@solarflare.com>
+> Humm, why andestech? Why not something based around faraday
+> technology?
+It is because we use the same ftmac100 IP provided from faraday
+technology but I am now using it in andestech SoC.
