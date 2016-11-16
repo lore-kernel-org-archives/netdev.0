@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] net: thunderx: Miscellaneous fixes
-Date: Wed, 16 Nov 2016 13:28:51 -0500 (EST)
-Message-ID: <20161116.132851.1120462864756652814.davem@davemloft.net>
-References: <1479211562-14170-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH net-next 0/5] net: busy-poll: allow preemption and
+ other optimizations
+Date: Wed, 16 Nov 2016 13:41:14 -0500 (EST)
+Message-ID: <20161116.134114.806108837136085282.davem@davemloft.net>
+References: <1479233715-9905-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com
-To: sunil.kovvuri@gmail.com
+Cc: netdev@vger.kernel.org, willemb@google.com, abelay@google.com,
+        zach.brown@ni.com, tariqt@mellanox.com, Yuval.Mintz@cavium.com,
+        ariel.elior@cavium.com, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46466 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46914 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752409AbcKPS2x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:28:53 -0500
-In-Reply-To: <1479211562-14170-1-git-send-email-sunil.kovvuri@gmail.com>
+        with ESMTP id S932177AbcKPSlQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:41:16 -0500
+In-Reply-To: <1479233715-9905-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sunil.kovvuri@gmail.com
-Date: Tue, 15 Nov 2016 17:35:56 +0530
+From: Eric Dumazet <edumazet@google.com>
+Date: Tue, 15 Nov 2016 10:15:10 -0800
 
-> This patchset includes fixes for incorrect LMAC credits,
-> unreliable driver statistics, memory leak upon interface
-> down e.t.c
+> It is time to have preemption points in sk_busy_loop() and improve
+> its scalability.
 > 
-> Changes from v1:
-> - As suggested replaced bit shifting with BIT() macro
->   in the patch 'Fix configuration of L3/L4 length checking'.
+> Also napi_complete() and friends can tell drivers when it is safe to
+> not re-enable device interrupts, saving some overhead under
+> high busy polling.
+> 
+> mlx4 and bnx2x are changed accordingly, to show how this busy polling
+> status can be exploited by drivers.
+> 
+> Next steps will implement Zach Brown suggestion, where NAPI polling
+> would be enabled all the time for some chosen queues.
+> This is needed for efficient epoll() support anyway.
 
-Series applied, thanks.
+Series applied, thanks a lot Eric.
