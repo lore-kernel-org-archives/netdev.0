@@ -1,62 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] icmp: Restore resistence to abnormal messages
-Date: Wed, 16 Nov 2016 02:14:04 +0100
-Message-ID: <20161116011404.GF30581@breakpoint.cc>
-References: <20161111202018.13795-1-googuy@gmail.com>
- <20161114.133646.1687576478968660327.davem@davemloft.net>
- <CAO1wt+b4OkJ4DmJ7_hUj_oKj4p_rRMuKUVpiBY7MSFMa=0WKQg@mail.gmail.com>
- <20161115.115657.798577230951109692.davem@redhat.com>
- <20161115173024.GD30581@breakpoint.cc>
- <CAO1wt+aZjRE_KTY0iRNJryeHvehrK6kuGMn6wOOeFuT1ncpPxA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: Florian Westphal <fw@strlen.de>, David Miller <davem@redhat.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Vicente =?iso-8859-15?Q?Jim=E9nez?= <googuy@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAO1wt+aZjRE_KTY0iRNJryeHvehrK6kuGMn6wOOeFuT1ncpPxA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: bcm63xx_enet: Fix build failure with phy_ethtool_nway_reset
+Date: Tue, 15 Nov 2016 18:21:09 -0800
+Message-ID: <20161116022109.26935-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35244 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932170AbcKPCVM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 21:21:12 -0500
+Received: by mail-pg0-f68.google.com with SMTP id p66so13286409pga.2
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 18:21:12 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Vicente Jiménez <googuy@gmail.com> wrote:
-> I agree that both patches try to solve the same problem in a very similar way.
-> Florian Westphal's patch do two more things:
-> 1- add warning with pr_warn_ratelimited. I like this idea. I also
-> though about adding some message but I have no kernel experience and I
-> preferred to have just a working solution.
+Introduced a typo making the driver no longer build, *sigh*.
 
-I added this only to show whats happening.
+Fixes: 42469bf5d9bb ("net: bcm63xx_enet: Utilize phy_ethtool_nway_reset")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I don't like such printks because end users can't do anything about it.
-
-> 2- Check if the packet size is lower than (536 + 8). I think this is
-> not necessary because low values (even the zero case) is already
-> handled by the protocol. Also I don't understand why you choose this
-> value, it seems to be related to TCP MSS and the compared value is IP
-> packet size.
-
-Right, no need for this check.
-
-> Finally, both patches decrement current packet by a value: Mine by 2
-> and Florian's by 8 bytes. Both arbitrary values. Personally I prefer
-> to go by small steps. If the small step fails, it just iterate again
-> and with 4 iterations, my patch also decrement the original value by 8
-> bytes (4x2).
-> Basically they are the same but my patch take smaller steps and miss
-> the warning message.
-
-IIRC I chose 8 because connection recovered faster in my case.
-
-I have not experienced this issue again (I dropped the patch from
-my kernel at some point and the connection stalls did not reappear so
-this got fixed elsewhere).
-
-I'd just apply your patch, possibly with an additional comment that
-says that we're grasping at straws because some middlebox is evidently
-feeding bogus pmtu information.
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index a43ab90c051e..3b14d5144228 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -1435,7 +1435,7 @@ static int bcm_enet_nway_reset(struct net_device *dev)
+ 
+ 	priv = netdev_priv(dev);
+ 	if (priv->has_phy)
+-		return phy_ethtool_nway_reset(dev),
++		return phy_ethtool_nway_reset(dev);
+ 
+ 	return -EOPNOTSUPP;
+ }
+-- 
+2.9.3
