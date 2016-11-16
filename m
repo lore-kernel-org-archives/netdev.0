@@ -1,112 +1,64 @@
-From: =?UTF-8?q?Asbj=C3=B8rn=20Sloth=20T=C3=B8nnesen?=
-        <asbjorn@asbjorn.st>
-Subject: [PATCH iproute2 v2 7/9] l2tp: support sequence numbering
-Date: Wed, 16 Nov 2016 22:45:24 +0000
-Message-ID: <20161116224526.32343-7-asbjorn@asbjorn.st>
-References: <20161116224526.32343-1-asbjorn@asbjorn.st>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: Netperf UDP issue with connected sockets
+Date: Wed, 16 Nov 2016 14:50:33 -0800
+Message-ID: <47c129e9-100b-477e-6e44-e81ef746d55e@hpe.com>
+References: <20140903165943.372b897b@redhat.com>
+ <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20161116131609.4e5726b4@redhat.com>
+ <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
+ <20161116234022.2bad179b@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: James Chapman <jchapman@katalix.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.asbjorn.biz ([185.38.24.25]:41444 "EHLO mail.asbjorn.biz"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941326AbcKPWqi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Nov 2016 17:46:38 -0500
-In-Reply-To: <20161116224526.32343-1-asbjorn@asbjorn.st>
+Received: from g4t3425.houston.hpe.com ([15.241.140.78]:9060 "EHLO
+        g4t3425.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754094AbcKPWuf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 17:50:35 -0500
+In-Reply-To: <20161116234022.2bad179b@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implement and documents the user interface for
-sequence numbering.
+On 11/16/2016 02:40 PM, Jesper Dangaard Brouer wrote:
+> On Wed, 16 Nov 2016 09:46:37 -0800
+> Rick Jones <rick.jones2@hpe.com> wrote:
+>> It is a wild guess, but does setting SO_DONTROUTE affect whether or not
+>> a connect() would have the desired effect?  That is there to protect
+>> people from themselves (long story about people using UDP_STREAM to
+>> stress improperly air-gapped systems during link up/down testing....)
+>> It can be disabled with a test-specific -R 1 option, so your netperf
+>> command would become:
+>>
+>> netperf -H 198.18.50.1 -t UDP_STREAM -l 120 -- -m 1472 -n -N -R 1
+>
+> Using -R 1 does not seem to help remove __ip_select_ident()
 
-Signed-off-by: Asbjørn Sloth Tønnesen <asbjorn@asbjorn.st>
----
- ip/ipl2tp.c        | 23 +++++++++++++++++++++++
- man/man8/ip-l2tp.8 | 15 +++++++++++++++
- 2 files changed, 38 insertions(+)
+Bummer.  It was a wild guess anyway, since I was seeing a connect() call 
+on the data socket.
 
-diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
-index f5d4113..ab35023 100644
---- a/ip/ipl2tp.c
-+++ b/ip/ipl2tp.c
-@@ -246,6 +246,12 @@ static void print_session(struct l2tp_data *data)
- 		printf("  reorder timeout: %u\n", p->reorder_timeout);
- 	else
- 		printf("\n");
-+	if (p->send_seq || p->recv_seq) {
-+		printf("  sequence numbering:");
-+		if (p->send_seq) printf(" send");
-+		if (p->recv_seq) printf(" recv");
-+		printf("\n");
-+	}
- }
- 
- static int get_response(struct nlmsghdr *n, void *arg)
-@@ -482,6 +488,7 @@ static void usage(void)
- 	fprintf(stderr, "          session_id ID peer_session_id ID\n");
- 	fprintf(stderr, "          [ cookie HEXSTR ] [ peer_cookie HEXSTR ]\n");
- 	fprintf(stderr, "          [ offset OFFSET ] [ peer_offset OFFSET ]\n");
-+	fprintf(stderr, "          [ seq { none | send | recv | both } ]\n");
- 	fprintf(stderr, "          [ l2spec_type L2SPEC ]\n");
- 	fprintf(stderr, "       ip l2tp del tunnel tunnel_id ID\n");
- 	fprintf(stderr, "       ip l2tp del session tunnel_id ID session_id ID\n");
-@@ -652,6 +659,22 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
- 				fprintf(stderr, "Unknown layer2specific header type \"%s\"\n", *argv);
- 				exit(-1);
- 			}
-+		} else if (strcmp(*argv, "seq") == 0) {
-+			NEXT_ARG();
-+			if (strcasecmp(*argv, "both") == 0) {
-+				p->recv_seq = 1;
-+				p->send_seq = 1;
-+			} else if (strcasecmp(*argv, "recv") == 0) {
-+				p->recv_seq = 1;
-+			} else if (strcasecmp(*argv, "send") == 0) {
-+				p->send_seq = 1;
-+			} else if (strcasecmp(*argv, "none") == 0) {
-+				p->recv_seq = 0;
-+				p->send_seq = 0;
-+			} else {
-+				fprintf(stderr, "Unknown seq value \"%s\"\n", *argv);
-+				exit(-1);
-+			}
- 		} else if (strcmp(*argv, "tunnel") == 0) {
- 			p->tunnel = 1;
- 		} else if (strcmp(*argv, "session") == 0) {
-diff --git a/man/man8/ip-l2tp.8 b/man/man8/ip-l2tp.8
-index 991d097..d4e7270 100644
---- a/man/man8/ip-l2tp.8
-+++ b/man/man8/ip-l2tp.8
-@@ -51,6 +51,8 @@ ip-l2tp - L2TPv3 static unmanaged tunnel configuration
- .br
- .RB "[ " l2spec_type " { " none " | " default " } ]"
- .br
-+.RB "[ " seq " { " none " | " send " | " recv " | " both " } ]"
-+.br
- .RB "[ " offset
- .IR OFFSET
- .RB " ] [ " peer_offset
-@@ -238,6 +240,19 @@ set the layer2specific header type of the session.
- Valid values are:
- .BR none ", " default "."
- .TP
-+.BI seq " SEQ"
-+controls sequence numbering to prevent or detect out of order packets.
-+.B send
-+puts a sequence number in the default layer2specific header of each
-+outgoing packet.
-+.B recv
-+reorder packets if they are received out of order.
-+Default is
-+.BR none "."
-+.br
-+Valid values are:
-+.BR none ", " send ", " recv ", " both "."
-+.TP
- .BI offset " OFFSET"
- sets the byte offset from the L2TP header where user data starts in
- transmitted L2TP data packets. This is hardly ever used. If set, the
--- 
-2.10.2
+> Samples: 56K of event 'cycles', Event count (approx.): 78628132661
+>   Overhead  Command        Shared Object        Symbol
+> +    9.11%  netperf        [kernel.vmlinux]     [k] __ip_select_ident
+> +    6.98%  netperf        [kernel.vmlinux]     [k] _raw_spin_lock
+> +    6.21%  swapper        [mlx5_core]          [k] mlx5e_poll_tx_cq
+> +    5.03%  netperf        [kernel.vmlinux]     [k] copy_user_enhanced_fast_string
+> +    4.69%  netperf        [kernel.vmlinux]     [k] __ip_make_skb
+> +    4.63%  netperf        [kernel.vmlinux]     [k] skb_set_owner_w
+> +    4.15%  swapper        [kernel.vmlinux]     [k] __slab_free
+> +    3.80%  netperf        [mlx5_core]          [k] mlx5e_sq_xmit
+> +    2.00%  swapper        [kernel.vmlinux]     [k] sock_wfree
+> +    1.94%  netperf        netperf              [.] send_data
+> +    1.92%  netperf        netperf              [.] send_omni_inner
+
+Well, the next step I suppose is to have you try a quick netperf 
+UDP_STREAM under strace to see if your netperf binary does what mine did:
+
+strace -v -o /tmp/netperf.strace netperf -H 198.18.50.1 -t UDP_STREAM -l 
+1 -- -m 1472 -n -N -R 1
+
+And see if you see the connect() I saw. (Note, I make the runtime 1 second)
+
+rick
