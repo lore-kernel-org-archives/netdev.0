@@ -1,33 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] virtio-net: add a missing synchronize_net()
-Date: Wed, 16 Nov 2016 15:12:14 -0500 (EST)
-Message-ID: <20161116.151214.1324945416632519254.davem@davemloft.net>
-References: <1479277452.8455.156.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG] X86: Removing inline decl on arch/x86/include/asm/desc.h.
+Date: Wed, 16 Nov 2016 12:15:08 -0800
+Message-ID: <1479327308.8455.215.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1479239164-7721-1-git-send-email-asd@marian1000.go.ro>
+         <alpine.DEB.2.20.1611162005320.3697@nanos>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jasowang@redhat.com, mst@redhat.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
+        "H. Peter Anvin" <hpa@zytor.com>,
+        Realtek linux nic maintainers <nic_swsd@realtek.com>,
+        x86@kernel.org, linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50078 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752375AbcKPUM1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 15:12:27 -0500
-In-Reply-To: <1479277452.8455.156.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35696 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752546AbcKPUPL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 15:15:11 -0500
+In-Reply-To: <alpine.DEB.2.20.1611162005320.3697@nanos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 15 Nov 2016 22:24:12 -0800
+On Wed, 2016-11-16 at 20:16 +0100, Thomas Gleixner wrote:
+> On Tue, 15 Nov 2016, Corcodel Marian wrote:
+> >  Inline declarations suppress warning message from compiler but
+> >  most of these functions was declared static and is not used local on file.
+> 
+> Huch? This is a header file and the functions are marked inline on purpose.
+> 
+> Can you please explain what you are trying to achieve and why you think
+> that this is a good idea?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> It seems many drivers do not respect napi_hash_del() contract.
-> 
-> When napi_hash_del() is used before netif_napi_del(), an RCU grace
-> period is needed before freeing NAPI object.
-> 
-> Fixes: 91815639d880 ("virtio-net: rx busy polling support")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Corcodel Marian is a bot.
+Do not bother Thomas. 
+Total Waste of time.
 
-Applied and queued up for -stable, thanks Eric.
+https://www.spinics.net/lists/netdev/msg370788.html
+
+https://www.mail-archive.com/netdev@vger.kernel.org/msg103775.html
