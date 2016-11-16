@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/8] net/mlx5: Make the command interface
- cache more flexible
-Date: Wed, 16 Nov 2016 13:55:11 -0500 (EST)
-Message-ID: <20161116.135511.614933371173594632.davem@davemloft.net>
-References: <1479245407-6884-1-git-send-email-saeedm@mellanox.com>
-        <1479245407-6884-2-git-send-email-saeedm@mellanox.com>
+Subject: Re: [PATCH net-next 0/2] amd-xgbe: AMD XGBE driver updates
+ 2016-11-15
+Date: Wed, 16 Nov 2016 13:58:01 -0500 (EST)
+Message-ID: <20161116.135801.1914248995672210530.davem@davemloft.net>
+References: <20161115221055.12403.90574.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mohamad@mellanox.com
-To: saeedm@mellanox.com
+Cc: netdev@vger.kernel.org, colin.king@canonical.com,
+        dan.carpenter@oracle.com
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47444 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47556 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932565AbcKPSzN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:55:13 -0500
-In-Reply-To: <1479245407-6884-2-git-send-email-saeedm@mellanox.com>
+        with ESMTP id S1751464AbcKPS6D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:58:03 -0500
+In-Reply-To: <20161115221055.12403.90574.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Tue, 15 Nov 2016 23:30:00 +0200
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Tue, 15 Nov 2016 16:10:55 -0600
 
-> -struct cache_ent {
-> +struct cmd_msg_cache {
->  	/* protect block chain allocations
->  	 */
->  	spinlock_t		lock;
->  	struct list_head	head;
-> +	unsigned		max_inbox_size;
-> +	unsigned		num_ent;
+> This patch series addresses some minor issues found in the recently
+> accepted patch series for the AMD XGBE driver.
+> 
+> The following fixes are included in this driver update series:
+> 
+> - Fix a possibly uninitialized variable in the debugfs support
+> - Fix the GPIO pin number constraint check
+> 
+> This patch series is based on net-next.
 
-Always spell out fully the "unsigned int" type name instead of just
-plain "unsigned".
+Series applied, thanks Tom.
