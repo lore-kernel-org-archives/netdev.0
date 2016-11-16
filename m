@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bcm63xx_enet: fix build failure
-Date: Wed, 16 Nov 2016 17:51:54 -0500 (EST)
-Message-ID: <20161116.175154.767887282639567610.davem@davemloft.net>
-References: <1479336616-26500-1-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH v2] net/phy/vitesse: Configure RGMII skew on VSC8601,
+ if needed
+Date: Wed, 16 Nov 2016 17:54:23 -0500 (EST)
+Message-ID: <20161116.175423.1067471964290543367.davem@davemloft.net>
+References: <20161115.221217.2076182289174952941.davem@davemloft.net>
+        <1479286953-11481-1-git-send-email-alex.g@adaptrum.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: sudipm.mukherjee@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54158 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753215AbcKPWv6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 17:51:58 -0500
-In-Reply-To: <1479336616-26500-1-git-send-email-sudipm.mukherjee@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: alex.g@adaptrum.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1479286953-11481-1-git-send-email-alex.g@adaptrum.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Date: Wed, 16 Nov 2016 22:50:16 +0000
+From: Alexandru Gagniuc <alex.g@adaptrum.com>
+Date: Wed, 16 Nov 2016 01:02:33 -0800
 
-> The build of mips bcm63xx_defconfig was failing with the error:
-> drivers/net/ethernet/broadcom/bcm63xx_enet.c:1440:2:
-> 	error: expected expression before 'return'
+> With RGMII, we need a 1.5 to 2ns skew between clock and data lines. The
+> VSC8601 can handle this internally. While the VSC8601 can set more
+> fine-grained delays, the standard skew settings work out of the box.
+> The same heuristic is used to determine when this skew should be enabled
+> as in vsc824x_config_init().
 > 
-> The return statement should be termibated with ';' and not ','.
+> Tested on custom board with AM3352 SOC and VSC801 PHY.
 > 
-> Fixes: 42469bf5d9bb ("net: bcm63xx_enet: Utilize phy_ethtool_nway_reset")
-> Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+> Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
+> ---
+> Changes since v1:
+>  * Added comment detailing applicability to different RGMII interfaces.
 
-Already fixes in the current net-next tree.
+Applied.
