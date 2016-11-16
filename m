@@ -1,41 +1,49 @@
-From: Peter Robinson <pbrobinson@gmail.com>
-Subject: Re: [PATCH 1/2] ethernet: stmmac: make DWMAC_STM32 depend on it's
- associated SoC
-Date: Wed, 16 Nov 2016 14:01:58 +0000
-Message-ID: <CALeDE9PfMU4M4JbTDfHY5Yfo9rz4EMBgu54knkEf=_yNnTTvyQ@mail.gmail.com>
-References: <20161106200437.12312-1-pbrobinson@gmail.com> <20161106.214128.668519501329683090.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sfc: remove napi_hash_del() call
+Date: Wed, 16 Nov 2016 06:01:47 -0800
+Message-ID: <1479304907.8455.171.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: mcoquelin.stm32@gmail.com, alexandre.torgue@st.com,
-        peppe.cavallaro@st.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Edward Cree <ecree@solarflare.com>,
+        Bert Kenward <bkenward@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:36793 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751953AbcKPOCA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:02:00 -0500
-Received: by mail-wm0-f52.google.com with SMTP id g23so241690887wme.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:01:59 -0800 (PST)
-In-Reply-To: <20161106.214128.668519501329683090.davem@davemloft.net>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36302 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751522AbcKPOBt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:01:49 -0500
+Received: by mail-pg0-f68.google.com with SMTP id x23so14803528pgx.3
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:01:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 7, 2016 at 2:41 AM, David Miller <davem@davemloft.net> wrote:
-> From: Peter Robinson <pbrobinson@gmail.com>
-> Date: Sun,  6 Nov 2016 20:04:37 +0000
->
->> There's not much point, except compile test, enabling the stmmac
->> platform drivers unless the STM32 SoC is enabled. It's not
->> useful without it.
->>
->> Signed-off-by: Peter Robinson <pbrobinson@gmail.com>
->
-> Please don't post just some of the patches in a patch series.
->
-> Always post the complete series, with a proper "[PATCH 0/2] ..."
-> posting at the beginning.
+From: Eric Dumazet <edumazet@google.com>
 
-Sorry, it was a stm branch, I should have broke it our differently. I
-can recompose and send this one again on it's own.
+Calling napi_hash_del() after netif_napi_del() is pointless.
 
-Peter
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Edward Cree <ecree@solarflare.com>
+Cc: Bert Kenward <bkenward@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 649bc508fa4b9ea42aa08331c50335e1a51f9259..52ca0404c49121f1c86126ab7d443b1144f20720 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2113,10 +2113,9 @@ static void efx_init_napi(struct efx_nic *efx)
+ 
+ static void efx_fini_napi_channel(struct efx_channel *channel)
+ {
+-	if (channel->napi_dev) {
++	if (channel->napi_dev)
+ 		netif_napi_del(&channel->napi_str);
+-		napi_hash_del(&channel->napi_str);
+-	}
++
+ 	channel->napi_dev = NULL;
+ }
+ 
