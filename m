@@ -1,78 +1,148 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH] rtl8xxxu: Fix for agressive power saving by rtl8723bu wireless IC
-Date: Wed, 16 Nov 2016 16:29:16 -0500
-Message-ID: <wrfj60nni05v.fsf@redhat.com>
-References: <20161031183522.GA13315@cube> <wrfj1sywrz2f.fsf@redhat.com>
-        <CAAye0QNtcb28q1HY-xAr=bQ0s_nEQuv1TM+Ax5i99Eds7xOb=Q@mail.gmail.com>
-        <CAAye0QNjYY5gBzSdc+0_rhy1OHk7iQ-CVp0Svph1DR7+mgVWGg@mail.gmail.com>
-        <CAAye0QP0FQetaaa-RE23teVgZ335ELE8O5qnzMA7CwQ4T8wc_Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: Barry Day <briselec@gmail.com>,
-        =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: John Heenan <john@zgus.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 3/3] RDS: TCP: Force every connection to be initiated by numerically smaller IP address
+Date: Wed, 16 Nov 2016 13:29:50 -0800
+Message-ID: <ffffabdfe8df7b9940f50264175b8edc22085dd5.1478876910.git.sowmini.varadhan@oracle.com>
+References: <cover.1478876910.git.sowmini.varadhan@oracle.com>
+Cc: santosh.shilimkar@oracle.com, sowmini.varadhan@oracle.com,
+        davem@davemloft.net, rds-devel@oss.oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34626 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753058AbcKPV3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Nov 2016 16:29:18 -0500
-In-Reply-To: <CAAye0QP0FQetaaa-RE23teVgZ335ELE8O5qnzMA7CwQ4T8wc_Q@mail.gmail.com>
-        (John Heenan's message of "Wed, 2 Nov 2016 11:13:34 +1000")
+Received: from userp1040.oracle.com ([156.151.31.81]:25953 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932785AbcKPVaB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 16:30:01 -0500
+In-Reply-To: <cover.1478876910.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1478876910.git.sowmini.varadhan@oracle.com>
+References: <cover.1478876910.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Heenan <john@zgus.com> writes:
-> Barry Day has submitted real world reports for the 8192eu and 8192cu.
-> This needs to be acknowledged. I have submitted real world reports for
-> the 8723bu.
+When 2 RDS peers initiate an RDS-TCP connection simultaneously,
+there is a potential for "duelling syns" on either/both sides.
+See commit 241b271952eb ("RDS-TCP: Reset tcp callbacks if re-using an
+outgoing socket in rds_tcp_accept_one()") for a description of this
+condition, and the arbitration logic which ensures that the
+numerically large IP address in the TCP connection is bound to the
+RDS_TCP_PORT ("canonical ordering").
 
-Lets get this a little more clear - first of all, I have asked you to
-investigate which part resolves the problem. Rather than 'I randomly
-moved something around and it happens to work for me'.
+The rds_connection should not be marked as RDS_CONN_UP until the
+arbitration logic has converged for the following reason. The sender
+may start transmitting RDS datagrams as soon as RDS_CONN_UP is set,
+and since the sender removes all datagrams from the rds_connection's
+cp_retrans queue based on TCP acks. If the TCP ack was sent from
+a tcp socket that got reset as part of duel aribitration (but
+before data was delivered to the receivers RDS socket layer),
+the sender may end up prematurely freeing the datagram, and
+the datagram is no longer reliably deliverable.
 
-> When it comes down to it, it looks like the kernel code changes are
-> really going to be very trivial to fix this problem and we need to
-> take the focus off dramatic outbursts over style issues to a strategy
-> for getting usable results from real world testing.
->
-> Addressing style issues in a dramatic manner to me looks like a mean
-> sport for maintainers who line up to easy target first time
-> contributors. This mean attitude comes from the top with a well known
-> comment about "publicly making fun of people". The polite comments
-> over style from Joe Perches and Rafał Miłecki are welcomed.
+This patch remedies that condition by making sure that, upon
+receipt of 3WH completion state change notification of TCP_ESTABLISHED
+in rds_tcp_state_change, we mark the rds_connection as RDS_CONN_UP
+if, and only if, the IP addresses and ports for the connection are
+canonically ordered. In all other cases, rds_tcp_state_change will
+force an rds_conn_path_drop(), and rds_queue_reconnect() on
+both peers will restart the connection to ensure canonical ordering.
 
-Once bad code is in place, it is way harder to get rid of it again. It
-is *normal* for maintainers to ask contributors to do things
-correctly. In addition you have been asked repeatedly by multiple people
-to respect coding style, but every patch you posted violated it again in
-a different way, instead of spending the little time it would take for
-you to get it right.
+A side-effect of enforcing this condition in rds_tcp_state_change()
+is that rds_tcp_accept_one_path() can now be refactored for simplicity.
+It is also no longer possible to encounter an RDS_CONN_UP connection in
+the arbitration logic in rds_tcp_accept_one().
 
-> An effective strategy would be to insert some printk statements to
-> trace what init steps vendor derived drivers do each time
-> wpa_supplicant is called and ask real world testers to report their
-> results. This is a lot more productive and less error prone than
-> laboriously pouring over vendor source code. Alternative drivers that
-> use vendor code from Realtek is enormously complicated and a huge pain
-> to make sense of.
->
-> Joe Sorensen's driver code is far easier to make sense of and it is a
-> shame Realtek don't come to the party. Joe Sorensens's code take takes
-> advantage of the excellent work of kernel contributors to the mac80211
-> driver.
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+ net/rds/connection.c  |    1 +
+ net/rds/tcp_connect.c |   14 +++++++++++++-
+ net/rds/tcp_listen.c  |   29 ++++++++++++-----------------
+ 3 files changed, 26 insertions(+), 18 deletions(-)
 
-Now you are pissing on my name - do you really want to be taken
-seriously here?
-
-> Previous comments I made about enable_rf, rtl8xxxu_start,
-> rtl8xxxu_init_device etc should be clarified. I will leave it for the
-> moment as it currently serves no direct useful purpose.
-
-I have made it very clear I want this issue resolved, but I want it
-done right.
-
-Jes
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index b86e188..fe9d31c 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -683,6 +683,7 @@ void rds_conn_path_connect_if_down(struct rds_conn_path *cp)
+ 	    !test_and_set_bit(RDS_RECONNECT_PENDING, &cp->cp_flags))
+ 		queue_delayed_work(rds_wq, &cp->cp_conn_w, 0);
+ }
++EXPORT_SYMBOL_GPL(rds_conn_path_connect_if_down);
+ 
+ void rds_conn_connect_if_down(struct rds_connection *conn)
+ {
+diff --git a/net/rds/tcp_connect.c b/net/rds/tcp_connect.c
+index 05f61c5..d6839d9 100644
+--- a/net/rds/tcp_connect.c
++++ b/net/rds/tcp_connect.c
+@@ -60,7 +60,19 @@ void rds_tcp_state_change(struct sock *sk)
+ 	case TCP_SYN_RECV:
+ 		break;
+ 	case TCP_ESTABLISHED:
+-		rds_connect_path_complete(cp, RDS_CONN_CONNECTING);
++		/* Force the peer to reconnect so that we have the
++		 * TCP ports going from <smaller-ip>.<transient> to
++		 * <larger-ip>.<RDS_TCP_PORT>. We avoid marking the
++		 * RDS connection as RDS_CONN_UP until the reconnect,
++		 * to avoid RDS datagram loss.
++		 */
++		if (cp->cp_conn->c_laddr > cp->cp_conn->c_faddr &&
++		    rds_conn_path_transition(cp, RDS_CONN_CONNECTING,
++					     RDS_CONN_ERROR)) {
++			rds_conn_path_drop(cp);
++		} else {
++			rds_connect_path_complete(cp, RDS_CONN_CONNECTING);
++		}
+ 		break;
+ 	case TCP_CLOSE_WAIT:
+ 	case TCP_CLOSE:
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index c9c4968..f74bab3 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -83,25 +83,20 @@ struct rds_tcp_connection *rds_tcp_accept_one_path(struct rds_connection *conn)
+ {
+ 	int i;
+ 	bool peer_is_smaller = (conn->c_faddr < conn->c_laddr);
+-	int npaths = conn->c_npaths;
+-
+-	if (npaths <= 1) {
+-		struct rds_conn_path *cp = &conn->c_path[0];
+-		int ret;
+-
+-		ret = rds_conn_path_transition(cp, RDS_CONN_DOWN,
+-					       RDS_CONN_CONNECTING);
+-		if (!ret)
+-			rds_conn_path_transition(cp, RDS_CONN_ERROR,
+-						 RDS_CONN_CONNECTING);
+-		return cp->cp_transport_data;
+-	}
++	int npaths = max_t(int, 1, conn->c_npaths);
+ 
+-	/* for mprds, paths with cp_index > 0 MUST be initiated by the peer
++	/* for mprds, all paths MUST be initiated by the peer
+ 	 * with the smaller address.
+ 	 */
+-	if (!peer_is_smaller)
++	if (!peer_is_smaller) {
++		/* Make sure we initiate at least one path if this
++		 * has not already been done; rds_start_mprds() will
++		 * take care of additional paths, if necessary.
++		 */
++		if (npaths == 1)
++			rds_conn_path_connect_if_down(&conn->c_path[0]);
+ 		return NULL;
++	}
+ 
+ 	for (i = 0; i < npaths; i++) {
+ 		struct rds_conn_path *cp = &conn->c_path[i];
+@@ -171,8 +166,8 @@ int rds_tcp_accept_one(struct socket *sock)
+ 	mutex_lock(&rs_tcp->t_conn_path_lock);
+ 	cp = rs_tcp->t_cpath;
+ 	conn_state = rds_conn_path_state(cp);
+-	if (conn_state != RDS_CONN_CONNECTING && conn_state != RDS_CONN_UP &&
+-	    conn_state != RDS_CONN_ERROR)
++	WARN_ON(conn_state == RDS_CONN_UP);
++	if (conn_state != RDS_CONN_CONNECTING && conn_state != RDS_CONN_ERROR)
+ 		goto rst_nsk;
+ 	if (rs_tcp->t_sock) {
+ 		/* Need to resolve a duelling SYN between peers.
+-- 
+1.7.1
