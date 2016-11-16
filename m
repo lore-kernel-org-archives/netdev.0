@@ -1,42 +1,70 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 0/3] net: ethernet: Allow Marvell & Freescale to COMPILE_TEST
-Date: Tue, 15 Nov 2016 16:35:38 -0800
-Message-ID: <20161116003541.18415-1-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 3/3] net: marvell: Allow drivers to be built with COMPILE_TEST
+Date: Tue, 15 Nov 2016 16:35:41 -0800
+Message-ID: <20161116003541.18415-4-f.fainelli@gmail.com>
+References: <20161116003541.18415-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, mw@semihalf.com, arnd@arndb.de,
         gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34811 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934959AbcKPAfp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:35:45 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so12709615pgc.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 16:35:45 -0800 (PST)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35382 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935259AbcKPAfy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 19:35:54 -0500
+Received: by mail-pg0-f65.google.com with SMTP id p66so13076909pga.2
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 16:35:54 -0800 (PST)
+In-Reply-To: <20161116003541.18415-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+All Marvell Ethernet drivers actually build fine with COMPILE_TEST with
+a few warnings.
 
-This patch series allows most of the Freescale Ethernet drivers to be built
-with COMPILE_TEST and all Marvell drivers to build with COMPILE_TEST.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/marvell/Kconfig | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-This is helpful to increase build coverage without requiring hacking into
-Kconfig anymore.
-
-Changes in v2:
-
-- rename register define clash when building for i386 (spotted by LKP)
-
-Florian Fainelli (3):
-  net: fsl: Allow most drivers to be built with COMPILE_TEST
-  net: gianfar_ptp: Rename FS bit to FIPERST
-  net: marvell: Allow drivers to be built with COMPILE_TEST
-
- drivers/net/ethernet/freescale/Kconfig       | 3 ++-
- drivers/net/ethernet/freescale/gianfar_ptp.c | 4 ++--
- drivers/net/ethernet/marvell/Kconfig         | 8 ++++----
- 3 files changed, 8 insertions(+), 7 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index 2664827ddecd..1fbe0bfbeead 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_MARVELL
+ 	bool "Marvell devices"
+ 	default y
+-	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET
++	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET || COMPILE_TEST
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
+ 
+@@ -18,7 +18,7 @@ if NET_VENDOR_MARVELL
+ 
+ config MV643XX_ETH
+ 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
+-	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
++	depends on (MV64X60 || PPC32 || PLAT_ORION || COMPILE_TEST) && INET
+ 	select PHYLIB
+ 	select MVMDIO
+ 	---help---
+@@ -55,7 +55,7 @@ config MVNETA_BM_ENABLE
+ 
+ config MVNETA
+ 	tristate "Marvell Armada 370/38x/XP network interface support"
+-	depends on PLAT_ORION
++	depends on PLAT_ORION || COMPILE_TEST
+ 	select MVMDIO
+ 	select FIXED_PHY
+ 	---help---
+@@ -77,7 +77,7 @@ config MVNETA_BM
+ 
+ config MVPP2
+ 	tristate "Marvell Armada 375 network interface support"
+-	depends on MACH_ARMADA_375
++	depends on MACH_ARMADA_375 || COMPILE_TEST
+ 	select MVMDIO
+ 	---help---
+ 	  This driver supports the network interface units in the
 -- 
 2.9.3
