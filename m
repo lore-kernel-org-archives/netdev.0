@@ -1,37 +1,44 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 0/6] Fixes for the MV88e6xxx interrupt code
-Date: Wed, 16 Nov 2016 01:56:50 +0100
-Message-ID: <1479257816-7496-1-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 1/6] net: dsa: mv88e6xxx: Fix typos when removing g1 interrupts
+Date: Wed, 16 Nov 2016 01:56:51 +0100
+Message-ID: <1479257816-7496-2-git-send-email-andrew@lunn.ch>
+References: <1479257816-7496-1-git-send-email-andrew@lunn.ch>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41243 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:41247 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933205AbcKPA5d (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 19:57:33 -0500
+        id S1752578AbcKPA5s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 19:57:48 -0500
+In-Reply-To: <1479257816-7496-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The interrupt code was never tested with a board who's probing
-resulted in an -EPROBE_DEFFERED. So the clean up paths never got
-tested. I now do have -EPROBE_DEFFERED, and things break badly during
-cleanup. These are the fixes.
+Simple typos, s/g2/g1/
 
-This is fixing code in net-next.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Andrew Lunn (6):
-  net: dsa: mv88e6xxx: Fix typos when removing g1 interrupts
-  net: dsa: mv88e6xxx: Fix unconditional irq freeing
-  net: dsa: mv88e6xxx: Mask g1 interrupts and free interrupt
-  net: dsa: mv88e6xxx: Fix releasing for the global2 interrupts
-  net: dsa: mv88e6xxx: Fix cleanup on error for g1 interrupt setup
-  net: dsa: mv88e6xxx: Hold the mutex while freeing g1 interrupts
-
- drivers/net/dsa/mv88e6xxx/chip.c      | 58 ++++++++++++++++++++++++-----------
- drivers/net/dsa/mv88e6xxx/global2.c   | 25 ++++++++++-----
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
- 3 files changed, 58 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index d6d9d66b81ce..6aa81d2d8f63 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -415,11 +415,11 @@ static void mv88e6xxx_g1_irq_free(struct mv88e6xxx_chip *chip)
+ 	int irq, virq;
+ 
+ 	for (irq = 0; irq < 16; irq++) {
+-		virq = irq_find_mapping(chip->g2_irq.domain, irq);
++		virq = irq_find_mapping(chip->g1_irq.domain, irq);
+ 		irq_dispose_mapping(virq);
+ 	}
+ 
+-	irq_domain_remove(chip->g2_irq.domain);
++	irq_domain_remove(chip->g1_irq.domain);
+ }
+ 
+ static int mv88e6xxx_g1_irq_setup(struct mv88e6xxx_chip *chip)
 -- 
 2.10.2
