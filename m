@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netronome: don't access real_num_rx_queues directly
-Date: Wed, 16 Nov 2016 17:06:05 -0500 (EST)
-Message-ID: <20161116.170605.1685419597650175744.davem@davemloft.net>
-References: <20161116141118.1893244-1-arnd@arndb.de>
+Subject: Re: [PATCH net] be2net: do not call napi_hash_del()
+Date: Wed, 16 Nov 2016 17:07:02 -0500 (EST)
+Message-ID: <20161116.170702.1946497230265430495.davem@davemloft.net>
+References: <1479305562.8455.176.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com, rolf.neugebauer@netronome.com,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161116141118.1893244-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sathya.perla@broadcom.com,
+        ajit.khaparde@broadcom.com, sriharsha.basavapatna@broadcom.com,
+        somnath.kotur@broadcom.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53718 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753449AbcKPWHF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 17:07:05 -0500
+In-Reply-To: <1479305562.8455.176.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 16 Nov 2016 15:10:49 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 16 Nov 2016 06:12:42 -0800
 
-> The netdev->real_num_rx_queues setting is only available if CONFIG_SYSFS
-> is enabled, so we now get a build failure when that is turned off:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> netronome/nfp/nfp_net_common.c: In function 'nfp_net_ring_swap_enable':
-> netronome/nfp/nfp_net_common.c:2489:18: error: 'struct net_device' has no member named 'real_num_rx_queues'; did you mean 'real_num_tx_queues'?
+> Calling napi_hash_del() before netif_napi_del() is dangerous
+> if a synchronize_rcu() is not enforced before NAPI struct freeing.
 > 
-> As far as I can tell, the check here is only used as an optimization that
-> we can skip in order to fix the compilation. If sysfs is disabled,
-> the following netif_set_real_num_rx_queues() has no effect.
+> Lets leave this detail to core networking stack and feel
+> more comfortable.
 > 
-> Fixes: 164d1e9e5d52 ("nfp: add support for ethtool .set_channels")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied.
