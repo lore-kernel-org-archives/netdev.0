@@ -1,65 +1,72 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH ipsec-next 6/8] xfrm: policy: only use rcu in
- xfrm_sk_policy_lookup
-Date: Wed, 16 Nov 2016 18:30:28 +0100
-Message-ID: <20161116173028.GI30581@breakpoint.cc>
-References: <1470921479-25592-1-git-send-email-fw@strlen.de>
- <1470921479-25592-7-git-send-email-fw@strlen.de>
- <0e235471-cb63-2376-c42d-5872e78e4c98@6wind.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next 6/8] ipv4: fib: Add an API to request a FIB dump
+Date: Wed, 16 Nov 2016 18:35:45 +0100
+Message-ID: <dcbbcefa-3ca7-c0ed-09a7-1d0e6f96e256@stressinduktion.org>
+References: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
+ <1479305343-13167-7-git-send-email-jiri@resnulli.us>
+ <e795e6e0-a680-a2c3-7d5e-afd966104a4a@stressinduktion.org>
+ <20161116151829.h6kapbjes7xxxcyi@splinter.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-        Steffen Klassert <steffen.klassert@secunet.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:50402 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932201AbcKPRcv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 12:32:51 -0500
-Content-Disposition: inline
-In-Reply-To: <0e235471-cb63-2376-c42d-5872e78e4c98@6wind.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:46709 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751263AbcKPRfu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 12:35:50 -0500
+In-Reply-To: <20161116151829.h6kapbjes7xxxcyi@splinter.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> Le 11/08/2016 à 15:17, Florian Westphal a écrit :
-> > Don't acquire the readlock anymore and rely on rcu alone.
-> > 
-> > In case writer on other CPU changed policy at the wrong moment (after we
-> > obtained sk policy pointer but before we could obtain the reference)
-> > just repeat the lookup.
-> > 
-> > Signed-off-by: Florian Westphal <fw@strlen.de>
-> Since this patch, our IKEv1 Transport tests (using charon) fail to establish the
-> connection. If I revert it, the IKE negociation is ok again.
-> charon logs are enclosed.
+On 16.11.2016 16:18, Ido Schimmel wrote:
+> Hi Hannes,
 > 
-> I didn't had time to investigate now, but any idea is welcomed ;-)
+> On Wed, Nov 16, 2016 at 03:51:01PM +0100, Hannes Frederic Sowa wrote:
+>> On 16.11.2016 15:09, Jiri Pirko wrote:
+>>> From: Ido Schimmel <idosch@mellanox.com>
+>>>
+>>> Commit b90eb7549499 ("fib: introduce FIB notification infrastructure")
+>>> introduced a new notification chain to notify listeners (f.e., switchdev
+>>> drivers) about addition and deletion of routes.
+>>>
+>>> However, upon registration to the chain the FIB tables can already be
+>>> populated, which means potential listeners will have an incomplete view
+>>> of the tables.
+>>>
+>>> Solve that by adding an API to request a FIB dump. The dump itself it
+>>> done using RCU in order not to starve consumers that need RTNL to make
+>>> progress.
+>>>
+>>> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Have you looked at potential inconsistencies resulting of RCU walking
+>> the table and having concurrent inserts?
+> 
+> Yes. I did try to think about situations in which this approach will
+> fail, but I could only find problems with concurrent removals, which I
+> addressed in 5/8. In case of concurrent insertions, even if you missed
+> the node, you would still get the ENTRY_ADD event to your listener.
 
-I'm an idiot.  Thanks for figuring out the faulty commit!
+Theoretically a node could still be installed while the deletion event
+fired before registering the notifier. E.g. a synchronize_net before
+dumping could help here?
 
-This should fix it (if we succeed grabbing the refcount, then if (err && !xfrm_pol_hold_rcu
-evaluates to false and we hit last else branch and set pol to ERR_PTR(0)...
+I don't know how you prepare the data structures for inserting in into
+the hardware, but if ordering matters, the notifier for a delete event
+can be called before the dump installed the fib entry? E.g. you also
+don't check what events are already queued in the delayed work queue so
+far. I hope I understand the patches correctly?
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index fd6986634e6f..5bf7e1bfeac7 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1268,12 +1268,14 @@ static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
-                        err = security_xfrm_policy_lookup(pol->security,
-                                                      fl->flowi_secid,
-                                                      policy_to_flow_dir(dir));
--                       if (!err && !xfrm_pol_hold_rcu(pol))
--                               goto again;
--                       else if (err == -ESRCH)
-+                       if (!err) {
-+                               if (!xfrm_pol_hold_rcu(pol))
-+                                       goto again;
-+                       } else if (err == -ESRCH) {
-                                pol = NULL;
--                       else
-+                       } else {
-                                pol = ERR_PTR(err);
-+                       }
-                } else
+Thanks,
+Hannes
