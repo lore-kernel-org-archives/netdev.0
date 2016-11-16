@@ -1,50 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/phy/vitesse: Configure RGMII skew on VSC8601, if
- needed
-Date: Tue, 15 Nov 2016 22:12:17 -0500 (EST)
-Message-ID: <20161115.221217.2076182289174952941.davem@davemloft.net>
-References: <20161114.161818.1460191406108019273.davem@davemloft.net>
-        <d567c69f-6b57-7083-9090-df01fb140e36@gmail.com>
-        <c9c60bc8-d93f-a60c-7f25-4cd508507e65@adaptrum.com>
+Subject: Re: [PATCH 0/2] amd-xgbe: AMD XGBE driver updates 2016-11-14
+Date: Tue, 15 Nov 2016 22:13:15 -0500 (EST)
+Message-ID: <20161115.221315.2085419689375024221.davem@davemloft.net>
+References: <20161114222827.25160.24791.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, gokhan@adaptrum.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: alex.g@adaptrum.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c9c60bc8-d93f-a60c-7f25-4cd508507e65@adaptrum.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, julia.lawall@lip6.fr,
+        christophe.jaillet@wanadoo.fr
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35492 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935096AbcKPDNR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 22:13:17 -0500
+In-Reply-To: <20161114222827.25160.24791.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alex <alex.g@adaptrum.com>
-Date: Mon, 14 Nov 2016 13:54:57 -0800
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Mon, 14 Nov 2016 16:28:27 -0600
 
+> This patch series addresses some minor issues found in the recently
+> accepted patch series for the AMD XGBE driver.
 > 
+> The following fixes are included in this driver update series:
 > 
-> On 11/14/2016 01:25 PM, Florian Fainelli wrote:
->> On 11/14/2016 01:18 PM, David Miller wrote:
->>> From: Alexandru Gagniuc <alex.g@adaptrum.com>
->>> Date: Sat, 12 Nov 2016 15:32:13 -0800
->>>
->>>> +	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
->>>> +		ret = vsc8601_add_skew(phydev);
->>>
->>> I think you should use phy_interface_is_rgmii() here.
->>>
->>
->> This would include all RGMII modes, here I think the intent is to
->> check
->> for PHY_INTERFACE_MODE_RGMII_ID and PHY_INTERFACE_MODE_RGMII_TXID (or
->> RXID),
+> - Fix how a mask is applied to a Clause 37 register value
+> - Fix some coccinelle identified warnings
 > 
-> That is correct.
-> 
->>  Alexandru, what direction does the skew settings apply to?
-> 
-> It applies a skew in both TX and RX directions.
+> This patch series is based on net-next.
 
-Please repost your patch, making the intent clear either in the
-commit message or a code comment.
-
-Thanks.
+Series applied.
