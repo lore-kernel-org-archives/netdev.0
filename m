@@ -1,66 +1,47 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v2 3/4] bpf, mlx5: drop priv->xdp_prog reference
- on netdev cleanup
-Date: Wed, 16 Nov 2016 16:45:21 +0100
-Message-ID: <582C7F11.7000006@iogearbox.net>
-References: <cover.1479253024.git.daniel@iogearbox.net> <4617cac95e3ca1b608f5d0a55709b0534c168943.1479253024.git.daniel@iogearbox.net> <CALzJLG9Rzds3H-wXnjCg=_2oGV-33TY714Hx0n+NyVsZzcBBfA@mail.gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] ipv6: sr: fix IPv6 initialization failure
+ without lwtunnels
+Date: Wed, 16 Nov 2016 07:49:19 -0800
+Message-ID: <582C7FFF.70203@cumulusnetworks.com>
+References: <5828C619.2020008@uclouvain.be> <5829C89B.7010405@cumulusnetworks.com> <582AE0B0.60006@uclouvain.be> <20161115.101857.1945116546500210861.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Brenden Blanco <bblanco@plumgrid.com>, zhiyisun@gmail.com,
-        Rana Shahout <ranas@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Cc: david.lebrun@uclouvain.be, netdev@vger.kernel.org,
+        lorenzo@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38881 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932166AbcKPPp1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:45:27 -0500
-In-Reply-To: <CALzJLG9Rzds3H-wXnjCg=_2oGV-33TY714Hx0n+NyVsZzcBBfA@mail.gmail.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:36596 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751263AbcKPPtV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 10:49:21 -0500
+Received: by mail-pg0-f44.google.com with SMTP id f188so80151982pgc.3
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 07:49:21 -0800 (PST)
+In-Reply-To: <20161115.101857.1945116546500210861.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/16/2016 01:51 PM, Saeed Mahameed wrote:
-> On Wed, Nov 16, 2016 at 2:04 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> mlx5e_xdp_set() is currently the only place where we drop reference on the
->> prog sitting in priv->xdp_prog when it's exchanged by a new one. We also
->> need to make sure that we eventually release that reference, for example,
->> in case the netdev is dismantled.
->>
->> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->> ---
->>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 +++
->>   1 file changed, 3 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> index cf26672..60fe54c 100644
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> @@ -3715,6 +3715,9 @@ static void mlx5e_nic_cleanup(struct mlx5e_priv *priv)
->>
->>          if (MLX5_CAP_GEN(mdev, vport_group_manager))
->>                  mlx5_eswitch_unregister_vport_rep(esw, 0);
->> +
->> +       if (priv->xdp_prog)
->> +               bpf_prog_put(priv->xdp_prog);
->>   }
+On 11/15/16, 7:18 AM, David Miller wrote:
+> From: David Lebrun <david.lebrun@uclouvain.be>
+> Date: Tue, 15 Nov 2016 11:17:20 +0100
 >
-> I thought that on unregister_netdev  ndo_xdp_set will be called with
-> NULL prog to cleanup. like any other resources (Vlans/mac_lists/
-> etc..), why xdp should be different ?
-> Anyway if this is the case, I am ok with this fix, you can even send
-> it to net (it looks like a serious leak).
+>> On 11/14/2016 03:22 PM, Roopa Prabhu wrote:
+>>> I prefer option b). most LWTUNNEL encaps are done this way.
+>>>
+>>> seg6 and seg6_iptunnel is new segment routing code and can be under
+>>> CONFIG_IPV6_SEG6 which depends on CONFIG_LWTUNNEL and CONFIG_IPV6.
+>>> CONFIG_IPV6_SEG6_HMAC could then depend on CONFIG_IPV6_SEG6
+>> Will do that, thanks
+> This is good for the time being.
+>
+> Although I'd like to entertain the idea of making LWTUNNEL
+> unconditionally built and considered a fundamental piece of
+> networking infrastructure just like net/core/dst.c
+ok, ack. I can submit a patch for that. But, I had the lwtunnel infra hooks in
+CONFIG_LWTUNNEL to reduce the cost of hooks in the default fast path when it was not enabled.
+Will need to re-evaluate the cost of the hooks in the default fast-path.
 
-The only interaction with ndo_xdp() right now is dev_change_xdp_fd()
-and the currently a bit terse dump via rtnl_xdp_fill(). The latter
-only tells whether something is actually attached and will have more
-info in near future, but doesn't alter anything.
+I am assuming you are ok with various encaps staying in their respective configs (mpls iptunnels, ila, and now
+ipv6 segment routing).
 
-dev_change_xdp_fd() is only triggered from user side via netlink when
-IFLA_XDP container attr is around, so no automatic cleanup here. This
-means as per documentation in enum xdp_netdev_command, that the driver
-has full ownership, thus needs to bpf_prog_put().
+thanks
