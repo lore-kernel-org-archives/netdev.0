@@ -1,104 +1,83 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net 1/3] net: phy: realtek: add eee advertisement disable
- options
-Date: Wed, 16 Nov 2016 09:01:13 -0800
-Message-ID: <d4e04f8a-77c5-f43e-5c24-d1238925543a@gmail.com>
-References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
- <1479220154-25851-2-git-send-email-jbrunet@baylibre.com>
- <20161115163036.GB23231@lunn.ch>
- <476b72f3-5efe-3551-6c24-0e378d655a0f@gmail.com>
- <1479290189.17538.25.camel@baylibre.com> <20161116132337.GD19962@lunn.ch>
- <1479307890.17538.40.camel@baylibre.com> <20161116150628.GI23231@lunn.ch>
- <1479310731.17538.53.camel@baylibre.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: dsa: fix fixed-link-phy device leaks
+Date: Wed, 16 Nov 2016 09:06:26 -0800
+Message-ID: <42af57ed-df84-f628-659d-c982d30da7d5@gmail.com>
+References: <1479307664-32428-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
-        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1479310731.17538.53.camel-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 7bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Johan Hovold <johan@kernel.org>, Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1479307664-32428-1-git-send-email-johan@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/16/2016 07:38 AM, Jerome Brunet wrote:
-> On Wed, 2016-11-16 at 16:06 +0100, Andrew Lunn wrote:
->> On Wed, Nov 16, 2016 at 03:51:30PM +0100, Jerome Brunet wrote:
->>>
->>> On Wed, 2016-11-16 at 14:23 +0100, Andrew Lunn wrote:
->>>>
->>>>>
->>>>>
->>>>> There two kind of PHYs supporting eee, the one advertising eee
->>>>> by
->>>>> default (like realtek) and the one not advertising it (like
->>>>> micrel).
->>>
->>> This is just the default register value.
->>>
->>>>
->>>>
->>>> I don't know too much about EEE. So maybe a dumb question. Does
->>>> the
->>>> MAC need to be involved? Or is it just the PHY?
->>>>
->>>> If the MAC needs to be involved, the PHY should not be
->>>> advertising
->>>> EEE
->>>> unless the MAC asks for it by calling phy_init_eee(). If this is
->>>> true,
->>>> maybe we need to change the realtek driver, and others in that
->>>> class.
->>>
->>> As far I understand, the advertised capabilities are exchanged
->>> during
->>> the auto-negotiation.
->>>
->>> At this stage, if the advertisement is disabled (regarless of the
->>> actual support) on either side of the link, there will be no low
->>> power
->>> idle state on the Tx nor the Rx path.
->>>
->>> If the advertisement is enabled on both side but we don't call
->>> phy_init_eee, I suppose Tx won't enter LPI, but Rx could.
->>
->> What i was trying to find out is, if the MAC needs to support EEE as
->> well as the PHY, what happens when the MAC does not support EEE, but
->> the PHYs do negotiate EEE? Does it break?
+On 11/16/2016 06:47 AM, Johan Hovold wrote:
+> Make sure to drop the reference taken by of_phy_find_device() when
+> registering and deregistering the fixed-link PHY-device.
 > 
-> Interesting question. In a regular case, I suppose it should be fine.
-> As you would have LPI only on the Rx path this should be transparent to
-> the MAC. That's my understanding. Maybe people knowing EEE better than
-> me could confirm (or not) ? Peppe? Alexandre?
-
-EEE is a MAC and PHY feature, and both need to agree on what is enabled,
-especially in the transmit path because the way packets may be
-transmitted with or without EEE can be done differently at the HW level
-(faster/slower return to idle, different clock source).
-
+> Note that we need to put both references held at deregistration.
 > 
-> I just checked with the OdroidC2, I disabled eee support by forcing
-> "dma_cap.eee = 0" in stmmac_get_hw_features. As expected, no tx_LPI
-> interrupts but plenty of rx_LPI interrupts.
+> Fixes: 39b0c705195e ("net: dsa: Allow configuration of CPU & DSA port
+> speeds/duplex")
+> Signed-off-by: Johan Hovold <johan@kernel.org>
+> ---
 > 
-> What was not expected is test failing like before.
-> So in our case, having LPI on the Rx path is fine for receiving data,
-> but not for sending.
+> Hi,
+> 
+> This is one has been compile tested only, but fixes a couple of leaks
+> similar to one that was found in the cpsw driver for which I just posted
+> a patch.
+> 
+> It turns out all drivers but DSA fail to deregister the fixed-link PHYs
+> registered by of_phy_register_fixed_link(). Due to the way this
+> interface was designed, deregistering such a PHY is a bit cumbersome and
+> looks like it would benefit from a common helper.
+> 
+> However, perhaps the interface should instead be changed so that the PHY
+> device is returned so that drivers do not need to use
+> of_phy_find_device() when they need to access properties of the fixed
+> link (e.g. as in dsu_cpu_dsa_setup below).
+> 
+> Thoughts?
+> 
+> Thanks,
+> Johan
+> 
+> 
+>  net/dsa/dsa.c | 8 +++++++-
+>  1 file changed, 7 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index a6902c1e2f28..798a6a776a5f 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -233,6 +233,8 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
+>  		genphy_read_status(phydev);
+>  		if (ds->ops->adjust_link)
+>  			ds->ops->adjust_link(ds, port, phydev);
+> +
+> +		phy_device_free(phydev);	/* of_phy_find_device */
+>  	}
+>  
+>  	return 0;
+> @@ -509,8 +511,12 @@ void dsa_cpu_dsa_destroy(struct device_node *port_dn)
+>  	if (of_phy_is_fixed_link(port_dn)) {
+>  		phydev = of_phy_find_device(port_dn);
+>  		if (phydev) {
+> -			phy_device_free(phydev);
+>  			fixed_phy_unregister(phydev);
+> +			/* Put references taken by of_phy_find_device() and
+> +			 * of_phy_register_fixed_link().
+> +			 */
+> +			phy_device_free(phydev);
+> +			phy_device_free(phydev);
 
-OK, which really sounds like a potential interoperability problem, or
-just the Realtek PHY with EEE enabled acting funky (irrespective of
-being attached to stmmac).
+Double free, this looks bogus here. Actually would not this mean a
+triple free since you already free in dsa_cpu_dsa_setup() which is
+paired with dsa_cpu_dsa_destroy()?
 -- 
 Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
