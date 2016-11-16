@@ -1,57 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: add a missing synchronize_net()
-Date: Wed, 16 Nov 2016 15:55:46 +0200
-Message-ID: <20161116155537-mutt-send-email-mst@kernel.org>
-References: <1479277452.8455.156.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Peter Robinson <pbrobinson@gmail.com>
+Subject: Re: [PATCH 1/2] ethernet: stmmac: make DWMAC_STM32 depend on it's
+ associated SoC
+Date: Wed, 16 Nov 2016 14:01:58 +0000
+Message-ID: <CALeDE9PfMU4M4JbTDfHY5Yfo9rz4EMBgu54knkEf=_yNnTTvyQ@mail.gmail.com>
+References: <20161106200437.12312-1-pbrobinson@gmail.com> <20161106.214128.668519501329683090.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Jason Wang <jasowang@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: mcoquelin.stm32@gmail.com, alexandre.torgue@st.com,
+        peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58948 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753215AbcKPNzs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Nov 2016 08:55:48 -0500
-Content-Disposition: inline
-In-Reply-To: <1479277452.8455.156.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:36793 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751953AbcKPOCA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:02:00 -0500
+Received: by mail-wm0-f52.google.com with SMTP id g23so241690887wme.1
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 06:01:59 -0800 (PST)
+In-Reply-To: <20161106.214128.668519501329683090.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 15, 2016 at 10:24:12PM -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> It seems many drivers do not respect napi_hash_del() contract.
-> 
-> When napi_hash_del() is used before netif_napi_del(), an RCU grace
-> period is needed before freeing NAPI object.
-> 
-> Fixes: 91815639d880 ("virtio-net: rx busy polling support")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jason Wang <jasowang@redhat.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
+On Mon, Nov 7, 2016 at 2:41 AM, David Miller <davem@davemloft.net> wrote:
+> From: Peter Robinson <pbrobinson@gmail.com>
+> Date: Sun,  6 Nov 2016 20:04:37 +0000
+>
+>> There's not much point, except compile test, enabling the stmmac
+>> platform drivers unless the STM32 SoC is enabled. It's not
+>> useful without it.
+>>
+>> Signed-off-by: Peter Robinson <pbrobinson@gmail.com>
+>
+> Please don't post just some of the patches in a patch series.
+>
+> Always post the complete series, with a proper "[PATCH 0/2] ..."
+> posting at the beginning.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Sorry, it was a stm branch, I should have broke it our differently. I
+can recompose and send this one again on it's own.
 
-
-> ---
->  drivers/net/virtio_net.c |    5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index fd8b1e62301f..7276d5a95bd0 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1497,6 +1497,11 @@ static void virtnet_free_queues(struct virtnet_info *vi)
->  		netif_napi_del(&vi->rq[i].napi);
->  	}
->  
-> +	/* We called napi_hash_del() before netif_napi_del(),
-> +	 * we need to respect an RCU grace period before freeing vi->rq
-> +	 */
-> +	synchronize_net();
-> +
->  	kfree(vi->rq);
->  	kfree(vi->sq);
->  }
-> 
+Peter
