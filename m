@@ -1,95 +1,92 @@
-From: Kai-Heng Feng <kai.heng.feng@canonical.com>
-Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe function
-Date: Wed, 16 Nov 2016 18:29:29 +0800
-Message-ID: <CAAd53p4k4MvDD_u3v3VcsoxEuks7S1VAM3C1REB1g3C_KiFtcg@mail.gmail.com>
-References: <Pine.LNX.4.44L0.1611081339060.1499-100000@iolanthe.rowland.org>
- <1478692735.2428.10.camel@suse.com> <8760nwj0l3.fsf@miraculix.mork.no>
- <CAAd53p5W4xpSYsFZ00deQDh-gZBijn_ApreE9NmC=_B_MAQaug@mail.gmail.com>
- <87a8d7h9q1.fsf@miraculix.mork.no> <1478776957.2428.15.camel@suse.com>
- <5825D962.9090807@linux.intel.com> <CAAd53p6unhMOPRux+HOB9unLy2Et47gcH5SV6H947-=_gS3DPw@mail.gmail.com>
+From: Alexandru Gagniuc <alex.g@adaptrum.com>
+Subject: [PATCH v2] net/phy/vitesse: Configure RGMII skew on VSC8601, if needed
+Date: Wed, 16 Nov 2016 01:02:33 -0800
+Message-ID: <1479286953-11481-1-git-send-email-alex.g@adaptrum.com>
+References: <20161115.221217.2076182289174952941.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Oliver Neukum <oneukum@suse.com>,
-        =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
-        Alan Stern <stern@rowland.harvard.edu>,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Mathias Nyman <mathias.nyman@linux.intel.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <davem@davemloft.net>, Alexandru Gagniuc <alex.g@adaptrum.com>
+To: <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAd53p6unhMOPRux+HOB9unLy2Et47gcH5SV6H947-=_gS3DPw@mail.gmail.com>
+In-Reply-To: <20161115.221217.2076182289174952941.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 14, 2016 at 3:34 PM, Kai-Heng Feng
-<kai.heng.feng@canonical.com> wrote:
-> On Fri, Nov 11, 2016 at 10:44 PM, Mathias Nyman
-> <mathias.nyman@linux.intel.com> wrote:
->> On 10.11.2016 13:22, Oliver Neukum wrote:
->>>
->>> On Thu, 2016-11-10 at 12:09 +0100, Bj=C3=B8rn Mork wrote:
->>>>
->>>> Kai-Heng Feng <kai.heng.feng@canonical.com> writes:
->>>>>
->>>>> On Wed, Nov 9, 2016 at 8:32 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote=
-:
->>>>>>
->>>>>> Oliver Neukum <oneukum@suse.com> writes:
->>>>>>
->>>>>>> On Tue, 2016-11-08 at 13:44 -0500, Alan Stern wrote:
->>>>>>>
->>>>>>>> These problems could very well be caused by running at SuperSpeed
->>>>>>>> (USB-3) instead of high speed (USB-2).
->>>>>
->>>>>
->>>>> Yes, it's running at SuperSpeed, on a Kabylake laptop.
->>>>>
->>>>> It does not have this issue on a Broadwell laptop, also running at
->>>>> SuperSpeed.
->>>>
->>>>
->>>> Then I must join Oliver, being very surprised by where in the stack yo=
-u
->>>> attempt to fix the issue.  What you write above indicates a problem in
->>>> pci bridge or usb host controller, doesn't it?
->
-> Yes, I was totally wrong about that.
->
->>>
->>>
->>> Indeed. And this means we need an XHCI specialist.
->>> Mathias, we have a failure specific to one implementation of XHCI.
->>>
->>
->>
->> Could be related to resume singnalling time.
->> Does the xhci fix for it in 4.9-rc3 help?
->>
->> commit 7d3b016a6f5a0fa610dfd02b05654c08fa4ae514
->>     xhci: use default USB_RESUME_TIMEOUT when resuming ports.
->>
->> It doesn't directly explain why it would work on Broadwell but not Kabyl=
-ake,
->> but it resolved very similar cases.
->>
->> If not, then adding dynamic debug for xhci could show something.
->
-> I tried the latest commit, 6005a545cadb2adca64350c7aee17d002563e8c7,
-> on for-usb-next branch.
->
-> Now the cdc_mbim still probe failed at the first time, but somehow it
-> re-probed again with a success.
->
-> I reverted commit 7d3b016a6f5a0fa610dfd02b05654c08fa4ae514 and the
-> behavior is the same, first time probed failed, second time probed
-> success.
->
-> The attached dmesg is with usbcore and xhci_hcd dynamic debug enabled.
+With RGMII, we need a 1.5 to 2ns skew between clock and data lines. The
+VSC8601 can handle this internally. While the VSC8601 can set more
+fine-grained delays, the standard skew settings work out of the box.
+The same heuristic is used to determine when this skew should be enabled
+as in vsc824x_config_init().
 
-I filed a bug report on bugzilla:
-https://bugzilla.kernel.org/show_bug.cgi?id=3D187861
+Tested on custom board with AM3352 SOC and VSC801 PHY.
 
->
->>
->> -Mathias
->>
+Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
+---
+Changes since v1:
+ * Added comment detailing applicability to different RGMII interfaces.
+
+ drivers/net/phy/vitesse.c | 34 +++++++++++++++++++++++++++++++++-
+ 1 file changed, 33 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+index 2e37eb3..24b4a09 100644
+--- a/drivers/net/phy/vitesse.c
++++ b/drivers/net/phy/vitesse.c
+@@ -62,6 +62,10 @@
+ /* Vitesse Extended Page Access Register */
+ #define MII_VSC82X4_EXT_PAGE_ACCESS	0x1f
+ 
++/* Vitesse VSC8601 Extended PHY Control Register 1 */
++#define MII_VSC8601_EPHY_CTL		0x17
++#define MII_VSC8601_EPHY_CTL_RGMII_SKEW	(1 << 8)
++
+ #define PHY_ID_VSC8234			0x000fc620
+ #define PHY_ID_VSC8244			0x000fc6c0
+ #define PHY_ID_VSC8514			0x00070670
+@@ -111,6 +115,34 @@ static int vsc824x_config_init(struct phy_device *phydev)
+ 	return err;
+ }
+ 
++/* This adds a skew for both TX and RX clocks, so the skew should only be
++ * applied to "rgmii-id" interfaces. It may not work as expected
++ * on "rgmii-txid", "rgmii-rxid" or "rgmii" interfaces. */
++static int vsc8601_add_skew(struct phy_device *phydev)
++{
++	int ret;
++
++	ret = phy_read(phydev, MII_VSC8601_EPHY_CTL);
++	if (ret < 0)
++		return ret;
++
++	ret |= MII_VSC8601_EPHY_CTL_RGMII_SKEW;
++	return phy_write(phydev, MII_VSC8601_EPHY_CTL, ret);
++}
++
++static int vsc8601_config_init(struct phy_device *phydev)
++{
++	int ret = 0;
++
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
++		ret = vsc8601_add_skew(phydev);
++
++	if (ret < 0)
++		return ret;
++
++	return genphy_config_init(phydev);
++}
++
+ static int vsc824x_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int err = 0;
+@@ -275,7 +307,7 @@ static struct phy_driver vsc82xx_driver[] = {
+ 	.phy_id_mask    = 0x000ffff0,
+ 	.features       = PHY_GBIT_FEATURES,
+ 	.flags          = PHY_HAS_INTERRUPT,
+-	.config_init    = &genphy_config_init,
++	.config_init    = &vsc8601_config_init,
+ 	.config_aneg    = &genphy_config_aneg,
+ 	.read_status    = &genphy_read_status,
+ 	.ack_interrupt  = &vsc824x_ack_interrupt,
+-- 
+2.7.4
