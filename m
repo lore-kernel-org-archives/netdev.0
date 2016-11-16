@@ -1,140 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] udp: enable busy polling for all sockets
-Date: Wed, 16 Nov 2016 09:10:42 -0800
-Message-ID: <1479316242.8455.213.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH] net: dsa: fix fixed-link-phy device leaks
+Date: Wed, 16 Nov 2016 18:11:45 +0100
+Message-ID: <20161116171145.GE4864@localhost>
+References: <1479307664-32428-1-git-send-email-johan@kernel.org>
+ <42af57ed-df84-f628-659d-c982d30da7d5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35662 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932162AbcKPRKo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 12:10:44 -0500
-Received: by mail-pg0-f67.google.com with SMTP id p66so15181107pga.2
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 09:10:44 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <johan@kernel.org>, Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <42af57ed-df84-f628-659d-c982d30da7d5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Nov 16, 2016 at 09:06:26AM -0800, Florian Fainelli wrote:
+> On 11/16/2016 06:47 AM, Johan Hovold wrote:
+> > Make sure to drop the reference taken by of_phy_find_device() when
+> > registering and deregistering the fixed-link PHY-device.
+> > 
+> > Note that we need to put both references held at deregistration.
+> > 
+> > Fixes: 39b0c705195e ("net: dsa: Allow configuration of CPU & DSA port
+> > speeds/duplex")
+> > Signed-off-by: Johan Hovold <johan@kernel.org>
+> > ---
+> > 
+> > Hi,
+> > 
+> > This is one has been compile tested only, but fixes a couple of leaks
+> > similar to one that was found in the cpsw driver for which I just posted
+> > a patch.
+> > 
+> > It turns out all drivers but DSA fail to deregister the fixed-link PHYs
+> > registered by of_phy_register_fixed_link(). Due to the way this
+> > interface was designed, deregistering such a PHY is a bit cumbersome and
+> > looks like it would benefit from a common helper.
+> > 
+> > However, perhaps the interface should instead be changed so that the PHY
+> > device is returned so that drivers do not need to use
+> > of_phy_find_device() when they need to access properties of the fixed
+> > link (e.g. as in dsu_cpu_dsa_setup below).
+> > 
+> > Thoughts?
+> > 
+> > Thanks,
+> > Johan
+> > 
+> > 
+> >  net/dsa/dsa.c | 8 +++++++-
+> >  1 file changed, 7 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> > index a6902c1e2f28..798a6a776a5f 100644
+> > --- a/net/dsa/dsa.c
+> > +++ b/net/dsa/dsa.c
+> > @@ -233,6 +233,8 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
+> >  		genphy_read_status(phydev);
+> >  		if (ds->ops->adjust_link)
+> >  			ds->ops->adjust_link(ds, port, phydev);
+> > +
+> > +		phy_device_free(phydev);	/* of_phy_find_device */
+> >  	}
+> >  
+> >  	return 0;
+> > @@ -509,8 +511,12 @@ void dsa_cpu_dsa_destroy(struct device_node *port_dn)
+> >  	if (of_phy_is_fixed_link(port_dn)) {
+> >  		phydev = of_phy_find_device(port_dn);
+> >  		if (phydev) {
+> > -			phy_device_free(phydev);
+> >  			fixed_phy_unregister(phydev);
+> > +			/* Put references taken by of_phy_find_device() and
+> > +			 * of_phy_register_fixed_link().
+> > +			 */
+> > +			phy_device_free(phydev);
+> > +			phy_device_free(phydev);
+> 
+> Double free, this looks bogus here. Actually would not this mean a
+> triple free since you already free in dsa_cpu_dsa_setup() which is
+> paired with dsa_cpu_dsa_destroy()?
 
-UDP busy polling is restricted to connected UDP sockets.
+The naming of phy_device_free() is unfortunate when it's really a put():
 
-This is because sk_busy_loop() only takes care of one NAPI context.
+void phy_device_free(struct phy_device *phydev)
+{
+	put_device(&phydev->mdio.dev);
+}
 
-There are cases where it could be extended.
+which may need to be called multiple times, specifically after a call to
+of_phy_find_device() which takes another reference.
 
-1) Some hosts receive traffic on a single NIC, with one RX queue.
+With this patch the refcounts are properly balanced.
 
-2) Some applications use SO_REUSEPORT and associated BPF filter
-   to split the incoming traffic on one UDP socket per RX
-queue/thread/cpu
-
-3) Some UDP sockets are used to send/receive traffic for one flow, but
-they do not bother with connect()
-
-
-This patch records the napi_id of first received skb, giving more
-reach to busy polling.
-
-Tested:
-
-lpaa23:~# echo 70 >/proc/sys/net/core/busy_read
-lpaa24:~# echo 70 >/proc/sys/net/core/busy_read
-
-lpaa23:~# for f in `seq 1 10`; do ./super_netperf 1 -H lpaa24 -t UDP_RR -l 5; done
-
-Before patch :
-   27867   28870   37324   41060   41215
-   36764   36838   44455   41282   43843
-After patch :
-   73920   73213   70147   74845   71697
-   68315   68028   75219   70082   73707
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
----
- include/net/busy_poll.h |   28 +++++++++++++++++++---------
- net/ipv4/udp.c          |    2 ++
- net/ipv6/udp.c          |    2 ++
- 3 files changed, 23 insertions(+), 9 deletions(-)
-
-diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-index 2fbeb1313c0f4f78ac82ddf6c18d1016a901f99a..34c57a0ec040a58f09b12e3878f534433dc30015 100644
---- a/include/net/busy_poll.h
-+++ b/include/net/busy_poll.h
-@@ -81,11 +81,6 @@ static inline void skb_mark_napi_id(struct sk_buff *skb,
- 	skb->napi_id = napi->napi_id;
- }
- 
--/* used in the protocol hanlder to propagate the napi_id to the socket */
--static inline void sk_mark_napi_id(struct sock *sk, struct sk_buff *skb)
--{
--	sk->sk_napi_id = skb->napi_id;
--}
- 
- #else /* CONFIG_NET_RX_BUSY_POLL */
- static inline unsigned long net_busy_loop_on(void)
-@@ -108,10 +103,6 @@ static inline void skb_mark_napi_id(struct sk_buff *skb,
- {
- }
- 
--static inline void sk_mark_napi_id(struct sock *sk, struct sk_buff *skb)
--{
--}
--
- static inline bool busy_loop_timeout(unsigned long end_time)
- {
- 	return true;
-@@ -123,4 +114,23 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
- }
- 
- #endif /* CONFIG_NET_RX_BUSY_POLL */
-+
-+/* used in the protocol hanlder to propagate the napi_id to the socket */
-+static inline void sk_mark_napi_id(struct sock *sk, const struct sk_buff *skb)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	sk->sk_napi_id = skb->napi_id;
-+#endif
-+}
-+
-+/* variant used for unconnected sockets */
-+static inline void sk_mark_napi_id_once(struct sock *sk,
-+					const struct sk_buff *skb)
-+{
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	if (!sk->sk_napi_id)
-+		sk->sk_napi_id = skb->napi_id;
-+#endif
-+}
-+
- #endif /* _LINUX_NET_BUSY_POLL_H */
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 9ae7c63a8b131f56a3c05e00a8f7d106a0362c54..e1fc0116e8d59d8185670c6e55d1219bde55610d 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1569,6 +1569,8 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		sock_rps_save_rxhash(sk, skb);
- 		sk_mark_napi_id(sk, skb);
- 		sk_incoming_cpu_update(sk);
-+	} else {
-+		sk_mark_napi_id_once(sk, skb);
- 	}
- 
- 	rc = __udp_enqueue_schedule_skb(sk, skb);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 86a8cacd333b64f40acc7350a45213cb422a9c1a..4f99417d9b401f2a65c7828e7d6b86d1d6161794 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -519,6 +519,8 @@ static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		sock_rps_save_rxhash(sk, skb);
- 		sk_mark_napi_id(sk, skb);
- 		sk_incoming_cpu_update(sk);
-+	} else {
-+		sk_mark_napi_id_once(sk, skb);
- 	}
- 
- 	rc = __udp_enqueue_schedule_skb(sk, skb);
+Johan
