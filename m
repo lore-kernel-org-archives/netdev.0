@@ -1,77 +1,53 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH] net: dsa: fix fixed-link-phy device leaks
-Date: Wed, 16 Nov 2016 15:47:44 +0100
-Message-ID: <1479307664-32428-1-git-send-email-johan@kernel.org>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next 6/8] ipv4: fib: Add an API to request a FIB dump
+Date: Wed, 16 Nov 2016 15:51:01 +0100
+Message-ID: <e795e6e0-a680-a2c3-7d5e-afd966104a4a@stressinduktion.org>
+References: <1479305343-13167-1-git-send-email-jiri@resnulli.us>
+ <1479305343-13167-7-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:56042 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752834AbcKPOvG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:51:06 -0500
+In-Reply-To: <1479305343-13167-7-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure to drop the reference taken by of_phy_find_device() when
-registering and deregistering the fixed-link PHY-device.
+On 16.11.2016 15:09, Jiri Pirko wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
+> 
+> Commit b90eb7549499 ("fib: introduce FIB notification infrastructure")
+> introduced a new notification chain to notify listeners (f.e., switchdev
+> drivers) about addition and deletion of routes.
+> 
+> However, upon registration to the chain the FIB tables can already be
+> populated, which means potential listeners will have an incomplete view
+> of the tables.
+> 
+> Solve that by adding an API to request a FIB dump. The dump itself it
+> done using RCU in order not to starve consumers that need RTNL to make
+> progress.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Note that we need to put both references held at deregistration.
+Have you looked at potential inconsistencies resulting of RCU walking
+the table and having concurrent inserts?
 
-Fixes: 39b0c705195e ("net: dsa: Allow configuration of CPU & DSA port
-speeds/duplex")
-Signed-off-by: Johan Hovold <johan@kernel.org>
----
+I don't see a way around doing a journal like in filesystems somehow,
+but maybe the effects are not that severe and it is not a problem after all.
 
-Hi,
-
-This is one has been compile tested only, but fixes a couple of leaks
-similar to one that was found in the cpsw driver for which I just posted
-a patch.
-
-It turns out all drivers but DSA fail to deregister the fixed-link PHYs
-registered by of_phy_register_fixed_link(). Due to the way this
-interface was designed, deregistering such a PHY is a bit cumbersome and
-looks like it would benefit from a common helper.
-
-However, perhaps the interface should instead be changed so that the PHY
-device is returned so that drivers do not need to use
-of_phy_find_device() when they need to access properties of the fixed
-link (e.g. as in dsu_cpu_dsa_setup below).
-
-Thoughts?
-
-Thanks,
-Johan
-
-
- net/dsa/dsa.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index a6902c1e2f28..798a6a776a5f 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -233,6 +233,8 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 		genphy_read_status(phydev);
- 		if (ds->ops->adjust_link)
- 			ds->ops->adjust_link(ds, port, phydev);
-+
-+		phy_device_free(phydev);	/* of_phy_find_device */
- 	}
- 
- 	return 0;
-@@ -509,8 +511,12 @@ void dsa_cpu_dsa_destroy(struct device_node *port_dn)
- 	if (of_phy_is_fixed_link(port_dn)) {
- 		phydev = of_phy_find_device(port_dn);
- 		if (phydev) {
--			phy_device_free(phydev);
- 			fixed_phy_unregister(phydev);
-+			/* Put references taken by of_phy_find_device() and
-+			 * of_phy_register_fixed_link().
-+			 */
-+			phy_device_free(phydev);
-+			phy_device_free(phydev);
- 		}
- 	}
- }
--- 
-2.7.3
+Bye,
+Hannes
