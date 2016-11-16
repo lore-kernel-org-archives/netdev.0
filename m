@@ -1,30 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] net: Implenent ethtool::nway_reset for a
- few drivers
-Date: Wed, 16 Nov 2016 13:44:26 -0500 (EST)
-Message-ID: <20161116.134426.646312767588173259.davem@davemloft.net>
-References: <20161115191949.15361-1-f.fainelli@gmail.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+Date: Wed, 16 Nov 2016 19:49:38 +0100
+Message-ID: <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
+References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, tremyfr@gmail.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47088 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753625AbcKPSob (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 13:44:31 -0500
-In-Reply-To: <20161115191949.15361-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Andy Gross <andy.gross@linaro.org>,
+        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-msm@vger.kernel.org>
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 15 Nov 2016 11:19:44 -0800
-
-> This patch series depends on "net: phy: Centralize auto-negotation restart"
-> since it provides phy_ethtool_nway_reset as a helper function.
+Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
+> The correct include file for getting errno constants and ERR_PTR() is
+> linux/err.h, rather than linux/errno.h, so fix the include.
 > 
-> The drivers here already support PHYLIB, so there really is no reason why
-> restarting auto-negotiation would not be possible with these.
+> Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled smem_state")
+> Acked-by: Andy Gross <andy.gross@linaro.org>
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 
-Series applied, thanks Florian.
+For some reason this fails to compile now. Can you take a look, please?
+
+ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wcn36xx.ko] undefined!
+make[1]: *** [__modpost] Error 1
+make: *** [modules] Error 2
+
+5 patches set to Changes Requested.
+
+9429045 [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+9429047 [v5,2/5] wcn36xx: Transition driver to SMD client
+9429037 [v5,3/5] wcn36xx: Implement firmware assisted scan
+9429043 [v5,4/5] wcn36xx: Implement print_reg indication
+9429023 [v5,5/5] wcn36xx: Don't use the destroyed hal_mutex
+
+-- 
+https://patchwork.kernel.org/patch/9429045/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
