@@ -1,84 +1,78 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: net/l2tp:BUG: KASAN: use-after-free in l2tp_ip6_close
-Date: Wed, 16 Nov 2016 22:07:41 +0100
-Message-ID: <20161116210741.zqair4zkkzscdfe5@alphalink.fr>
-References: <33b1f154-3f9a-55b6-63d3-cd28c0524ea6@gmail.com>
- <CAM_iQpWpf--gXPy7zD7ax4vt-foMCh_dw8Pbb3=y_gSgegeF3Q@mail.gmail.com>
- <76f028b3-cf56-5526-352f-ff4826933779@gmail.com>
- <20161116163021.tblhptv37r6byjvp@alphalink.fr>
- <CAM_iQpUxNYpkRetxX88z=iFZiZ1beQqBt+9qFsDTnAYwWCoHfA@mail.gmail.com>
+From: Jes Sorensen <Jes.Sorensen@redhat.com>
+Subject: Re: [PATCH] rtl8xxxu: Fix for agressive power saving by rtl8723bu wireless IC
+Date: Wed, 16 Nov 2016 16:29:16 -0500
+Message-ID: <wrfj60nni05v.fsf@redhat.com>
+References: <20161031183522.GA13315@cube> <wrfj1sywrz2f.fsf@redhat.com>
+        <CAAye0QNtcb28q1HY-xAr=bQ0s_nEQuv1TM+Ax5i99Eds7xOb=Q@mail.gmail.com>
+        <CAAye0QNjYY5gBzSdc+0_rhy1OHk7iQ-CVp0Svph1DR7+mgVWGg@mail.gmail.com>
+        <CAAye0QP0FQetaaa-RE23teVgZ335ELE8O5qnzMA7CwQ4T8wc_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Baozeng Ding <sploving1@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Barry Day <briselec@gmail.com>,
+        =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: John Heenan <john@zgus.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:57705 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932263AbcKPVHp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 16:07:45 -0500
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpUxNYpkRetxX88z=iFZiZ1beQqBt+9qFsDTnAYwWCoHfA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:34626 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753058AbcKPV3S (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Nov 2016 16:29:18 -0500
+In-Reply-To: <CAAye0QP0FQetaaa-RE23teVgZ335ELE8O5qnzMA7CwQ4T8wc_Q@mail.gmail.com>
+        (John Heenan's message of "Wed, 2 Nov 2016 11:13:34 +1000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2016 at 11:08:23AM -0800, Cong Wang wrote:
-> On Wed, Nov 16, 2016 at 8:30 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
-> > diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-> > index fce25af..982f6c4 100644
-> > --- a/net/l2tp/l2tp_ip.c
-> > +++ b/net/l2tp/l2tp_ip.c
-> > @@ -251,8 +251,6 @@ static int l2tp_ip_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
-> >         int ret;
-> >         int chk_addr_ret;
-> >
-> > -       if (!sock_flag(sk, SOCK_ZAPPED))
-> > -               return -EINVAL;
-> >         if (addr_len < sizeof(struct sockaddr_l2tpip))
-> >                 return -EINVAL;
-> >         if (addr->l2tp_family != AF_INET)
-> > @@ -267,6 +265,9 @@ static int l2tp_ip_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
-> >         read_unlock_bh(&l2tp_ip_lock);
-> >
-> >         lock_sock(sk);
-> > +       if (!sock_flag(sk, SOCK_ZAPPED))
-> > +               goto out;
-> > +
-> >         if (sk->sk_state != TCP_CLOSE || addr_len < sizeof(struct sockaddr_l2tpip))
-> >                 goto out;
-> >
-> > diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-> > index ad3468c..9978d01 100644
-> > --- a/net/l2tp/l2tp_ip6.c
-> > +++ b/net/l2tp/l2tp_ip6.c
-> > @@ -269,8 +269,6 @@ static int l2tp_ip6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
-> >         int addr_type;
-> >         int err;
-> >
-> > -       if (!sock_flag(sk, SOCK_ZAPPED))
-> > -               return -EINVAL;
-> >         if (addr->l2tp_family != AF_INET6)
-> >                 return -EINVAL;
-> >         if (addr_len < sizeof(*addr))
-> > @@ -296,6 +294,9 @@ static int l2tp_ip6_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
-> >         lock_sock(sk);
-> >
-> >         err = -EINVAL;
-> > +       if (!sock_flag(sk, SOCK_ZAPPED))
-> > +               goto out_unlock;
-> > +
-> >         if (sk->sk_state != TCP_CLOSE)
-> >                 goto out_unlock;
-> 
-> 
-> Makes sense, it should prevent a concurrent caller adding the socket
-> into bind table
-> twice after passing __l2tp_ip_bind_lookup() check.
+John Heenan <john@zgus.com> writes:
+> Barry Day has submitted real world reports for the 8192eu and 8192cu.
+> This needs to be acknowledged. I have submitted real world reports for
+> the 8723bu.
 
-Yes, and the __l2tp_ip_bind_lookup() call is also racy. But, by
-properly checking the SOCK_ZAPPED flag, we probably can remove this
-call entirely.
+Lets get this a little more clear - first of all, I have asked you to
+investigate which part resolves the problem. Rather than 'I randomly
+moved something around and it happens to work for me'.
 
-For now, I only wanted to make sure the issue was well identified. I'll
-submit a more complete patch for net (with protected SOCK_ZAPPED check
-in l2tp_ip_connect() too).
+> When it comes down to it, it looks like the kernel code changes are
+> really going to be very trivial to fix this problem and we need to
+> take the focus off dramatic outbursts over style issues to a strategy
+> for getting usable results from real world testing.
+>
+> Addressing style issues in a dramatic manner to me looks like a mean
+> sport for maintainers who line up to easy target first time
+> contributors. This mean attitude comes from the top with a well known
+> comment about "publicly making fun of people". The polite comments
+> over style from Joe Perches and Rafał Miłecki are welcomed.
+
+Once bad code is in place, it is way harder to get rid of it again. It
+is *normal* for maintainers to ask contributors to do things
+correctly. In addition you have been asked repeatedly by multiple people
+to respect coding style, but every patch you posted violated it again in
+a different way, instead of spending the little time it would take for
+you to get it right.
+
+> An effective strategy would be to insert some printk statements to
+> trace what init steps vendor derived drivers do each time
+> wpa_supplicant is called and ask real world testers to report their
+> results. This is a lot more productive and less error prone than
+> laboriously pouring over vendor source code. Alternative drivers that
+> use vendor code from Realtek is enormously complicated and a huge pain
+> to make sense of.
+>
+> Joe Sorensen's driver code is far easier to make sense of and it is a
+> shame Realtek don't come to the party. Joe Sorensens's code take takes
+> advantage of the excellent work of kernel contributors to the mac80211
+> driver.
+
+Now you are pissing on my name - do you really want to be taken
+seriously here?
+
+> Previous comments I made about enable_rf, rtl8xxxu_start,
+> rtl8xxxu_init_device etc should be clarified. I will leave it for the
+> moment as it currently serves no direct useful purpose.
+
+I have made it very clear I want this issue resolved, but I want it
+done right.
+
+Jes
