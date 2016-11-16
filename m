@@ -1,57 +1,58 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net 1/7] net: ethernet: ti: cpsw: fix bad register access in probe error path
-Date: Wed, 16 Nov 2016 15:35:10 +0100
-Message-ID: <1479306916-27673-2-git-send-email-johan@kernel.org>
+Subject: [PATCH net 7/7] net: ethernet: ti: cpsw: fix fixed-link phy probe deferral
+Date: Wed, 16 Nov 2016 15:35:16 +0100
+Message-ID: <1479306916-27673-8-git-send-email-johan@kernel.org>
 References: <1479306916-27673-1-git-send-email-johan@kernel.org>
 Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
         linux-omap@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
 To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34325 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753537AbcKPOfc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 09:35:32 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1479306916-27673-1-git-send-email-johan@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make sure to resume the platform device to enable clocks before
-accessing the CPSW registers in the probe error path (e.g. for deferred
-probe).
+Make sure to propagate errors from of_phy_register_fixed_link() which
+can fail with -EPROBE_DEFER.
 
-Unhandled fault: external abort on non-linefetch (0x1008) at 0xd0872d08
-...
-[<c04fabcc>] (cpsw_ale_control_set) from [<c04fb8b4>] (cpsw_ale_destroy+0x2c/0x44)
-[<c04fb8b4>] (cpsw_ale_destroy) from [<c04fea58>] (cpsw_probe+0xbd0/0x10c4)
-[<c04fea58>] (cpsw_probe) from [<c047b2a0>] (platform_drv_probe+0x5c/0xc0)
-
-Note that in the unlikely event of a runtime-resume failure, we'll leak
-the ale struct.
-
-Fixes: df828598a755 ("netdev: driver: ethernet: Add TI CPSW driver")
+Fixes: 1f71e8c96fc6 ("drivers: net: cpsw: Add support for fixed-link
+PHY")
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/ethernet/ti/cpsw.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/ti/cpsw.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c6cff3d2ff05..5bc5e6189661 100644
+index 411be060fee6..cf8f1afa46bf 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2818,7 +2818,12 @@ static int cpsw_probe(struct platform_device *pdev)
- 	return 0;
+@@ -2375,8 +2375,11 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 			 * to the PHY is the Ethernet MAC DT node.
+ 			 */
+ 			ret = of_phy_register_fixed_link(slave_node);
+-			if (ret)
++			if (ret) {
++				if (ret != -EPROBE_DEFER)
++					dev_err(&pdev->dev, "failed to register fixed-link phy: %d\n", ret);
+ 				return ret;
++			}
+ 			slave_data->phy_node = of_node_get(slave_node);
+ 		} else if (parp) {
+ 			u32 phyid;
+@@ -2628,11 +2631,10 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	/* Select default pin state */
+ 	pinctrl_pm_select_default_state(&pdev->dev);
  
- clean_ale_ret:
--	cpsw_ale_destroy(cpsw->ale);
-+	if (pm_runtime_get_sync(&pdev->dev) < 0) {
-+		pm_runtime_put_noidle(&pdev->dev);
-+	} else {
-+		cpsw_ale_destroy(cpsw->ale);
-+		pm_runtime_put_sync(&pdev->dev);
-+	}
- clean_dma_ret:
- 	cpdma_ctlr_destroy(cpsw->dma);
- clean_runtime_disable_ret:
+-	if (cpsw_probe_dt(&cpsw->data, pdev)) {
+-		dev_err(&pdev->dev, "cpsw: platform data missing\n");
+-		ret = -ENODEV;
++	ret = cpsw_probe_dt(&cpsw->data, pdev);
++	if (ret)
+ 		goto clean_dt_ret;
+-	}
++
+ 	data = &cpsw->data;
+ 	cpsw->rx_ch_num = 1;
+ 	cpsw->tx_ch_num = 1;
 -- 
 2.7.3
