@@ -1,277 +1,172 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH v8 6/6] samples: bpf: add userspace example for attaching eBPF programs to cgroups
-Date: Thu, 17 Nov 2016 19:27:09 +0100
-Message-ID: <1479407229-14861-7-git-send-email-daniel@zonque.org>
+From: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH v8 3/6] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH commands
+Date: Thu, 17 Nov 2016 19:27:06 +0100
+Message-ID: <1479407229-14861-4-git-send-email-daniel@zonque.org>
 References: <1479407229-14861-1-git-send-email-daniel@zonque.org>
-Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
-        sargun@sargun.me, cgroups@vger.kernel.org,
-        Daniel Mack <daniel@zonque.org>
-To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:55766 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754399AbcKQS1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 13:27:25 -0500
-In-Reply-To: <1479407229-14861-1-git-send-email-daniel@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
+        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+To: htejun-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1479407229-14861-1-git-send-email-daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add a simple userpace program to demonstrate the new API to attach eBPF
-programs to cgroups. This is what it does:
+Extend the bpf(2) syscall by two new commands, BPF_PROG_ATTACH and
+BPF_PROG_DETACH which allow attaching and detaching eBPF programs
+to a target.
 
- * Create arraymap in kernel with 4 byte keys and 8 byte values
+On the API level, the target could be anything that has an fd in
+userspace, hence the name of the field in union bpf_attr is called
+'target_fd'.
 
- * Load eBPF program
+When called with BPF_ATTACH_TYPE_CGROUP_INET_{E,IN}GRESS, the target is
+expected to be a valid file descriptor of a cgroup v2 directory which
+has the bpf controller enabled. These are the only use-cases
+implemented by this patch at this point, but more can be added.
 
-   The eBPF program accesses the map passed in to store two pieces of
-   information. The number of invocations of the program, which maps
-   to the number of packets received, is stored to key 0. Key 1 is
-   incremented on each iteration by the number of bytes stored in
-   the skb.
+If a program of the given type already exists in the given cgroup,
+the program is swapped automically, so userspace does not have to drop
+an existing program first before installing a new one, which would
+otherwise leave a gap in which no program is attached.
 
- * Detach any eBPF program previously attached to the cgroup
+For more information on the propagation logic to subcgroups, please
+refer to the bpf cgroup controller implementation.
 
- * Attach the new program to the cgroup using BPF_PROG_ATTACH
+The API is guarded by CAP_NET_ADMIN.
 
- * Once a second, read map[0] and map[1] to see how many bytes and
-   packets were seen on any socket of tasks in the given cgroup.
-
-The program takes a cgroup path as 1st argument, and either "ingress"
-or "egress" as 2nd. Optionally, "drop" can be passed as 3rd argument,
-which will make the generated eBPF program return 0 instead of 1, so
-the kernel will drop the packet.
-
-libbpf gained two new wrappers for the new syscall commands.
-
-Signed-off-by: Daniel Mack <daniel@zonque.org>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- samples/bpf/Makefile            |   2 +
- samples/bpf/libbpf.c            |  21 ++++++
- samples/bpf/libbpf.h            |   3 +
- samples/bpf/test_cgrp2_attach.c | 147 ++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 173 insertions(+)
- create mode 100644 samples/bpf/test_cgrp2_attach.c
+ include/uapi/linux/bpf.h |  8 +++++
+ kernel/bpf/syscall.c     | 81 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 89 insertions(+)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 12b7304..e4cdc74 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -22,6 +22,7 @@ hostprogs-y += spintest
- hostprogs-y += map_perf_test
- hostprogs-y += test_overhead
- hostprogs-y += test_cgrp2_array_pin
-+hostprogs-y += test_cgrp2_attach
- hostprogs-y += xdp1
- hostprogs-y += xdp2
- hostprogs-y += test_current_task_under_cgroup
-@@ -49,6 +50,7 @@ spintest-objs := bpf_load.o libbpf.o spintest_user.o
- map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
- test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
- test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
-+test_cgrp2_attach-objs := libbpf.o test_cgrp2_attach.o
- xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
- # reuse xdp1 source intentionally
- xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
-diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-index 9969e35..9ce707b 100644
---- a/samples/bpf/libbpf.c
-+++ b/samples/bpf/libbpf.c
-@@ -104,6 +104,27 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
- 	return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 1f3e6f1..f31b655 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -73,6 +73,8 @@ enum bpf_cmd {
+ 	BPF_PROG_LOAD,
+ 	BPF_OBJ_PIN,
+ 	BPF_OBJ_GET,
++	BPF_PROG_ATTACH,
++	BPF_PROG_DETACH,
+ };
+ 
+ enum bpf_map_type {
+@@ -150,6 +152,12 @@ union bpf_attr {
+ 		__aligned_u64	pathname;
+ 		__u32		bpf_fd;
+ 	};
++
++	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
++		__u32		target_fd;	/* container object to attach to */
++		__u32		attach_bpf_fd;	/* eBPF program to attach */
++		__u32		attach_type;
++	};
+ } __attribute__((aligned(8)));
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 228f962..1814c01 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -822,6 +822,77 @@ static int bpf_obj_get(const union bpf_attr *attr)
+ 	return bpf_obj_get_user(u64_to_ptr(attr->pathname));
  }
  
-+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_bpf_fd = prog_fd,
-+		.attach_type = type,
-+	};
++#ifdef CONFIG_CGROUP_BPF
 +
-+	return syscall(__NR_bpf, BPF_PROG_ATTACH, &attr, sizeof(attr));
++#define BPF_PROG_ATTACH_LAST_FIELD attach_type
++
++static int bpf_prog_attach(const union bpf_attr *attr)
++{
++	struct bpf_prog *prog;
++	struct cgroup *cgrp;
++
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (CHECK_ATTR(BPF_PROG_ATTACH))
++		return -EINVAL;
++
++	switch (attr->attach_type) {
++	case BPF_CGROUP_INET_INGRESS:
++	case BPF_CGROUP_INET_EGRESS:
++		prog = bpf_prog_get_type(attr->attach_bpf_fd,
++					 BPF_PROG_TYPE_CGROUP_SKB);
++		if (IS_ERR(prog))
++			return PTR_ERR(prog);
++
++		cgrp = cgroup_get_from_fd(attr->target_fd);
++		if (IS_ERR(cgrp)) {
++			bpf_prog_put(prog);
++			return PTR_ERR(cgrp);
++		}
++
++		cgroup_bpf_update(cgrp, prog, attr->attach_type);
++		cgroup_put(cgrp);
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
 +}
 +
-+int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
++#define BPF_PROG_DETACH_LAST_FIELD attach_type
++
++static int bpf_prog_detach(const union bpf_attr *attr)
 +{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_type = type,
-+	};
++	struct cgroup *cgrp;
 +
-+	return syscall(__NR_bpf, BPF_PROG_DETACH, &attr, sizeof(attr));
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (CHECK_ATTR(BPF_PROG_DETACH))
++		return -EINVAL;
++
++	switch (attr->attach_type) {
++	case BPF_CGROUP_INET_INGRESS:
++	case BPF_CGROUP_INET_EGRESS:
++		cgrp = cgroup_get_from_fd(attr->target_fd);
++		if (IS_ERR(cgrp))
++			return PTR_ERR(cgrp);
++
++		cgroup_bpf_update(cgrp, NULL, attr->attach_type);
++		cgroup_put(cgrp);
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
 +}
++#endif /* CONFIG_CGROUP_BPF */
 +
- int bpf_obj_pin(int fd, const char *pathname)
+ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
  {
- 	union bpf_attr attr = {
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-index ac6edb6..d0a799a 100644
---- a/samples/bpf/libbpf.h
-+++ b/samples/bpf/libbpf.h
-@@ -15,6 +15,9 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
- 		  const struct bpf_insn *insns, int insn_len,
- 		  const char *license, int kern_version);
- 
-+int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
-+int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
+ 	union bpf_attr attr = {};
+@@ -888,6 +959,16 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
+ 	case BPF_OBJ_GET:
+ 		err = bpf_obj_get(&attr);
+ 		break;
 +
- int bpf_obj_pin(int fd, const char *pathname);
- int bpf_obj_get(const char *pathname);
- 
-diff --git a/samples/bpf/test_cgrp2_attach.c b/samples/bpf/test_cgrp2_attach.c
-new file mode 100644
-index 0000000..63ef208
---- /dev/null
-+++ b/samples/bpf/test_cgrp2_attach.c
-@@ -0,0 +1,147 @@
-+/* eBPF example program:
-+ *
-+ * - Creates arraymap in kernel with 4 bytes keys and 8 byte values
-+ *
-+ * - Loads eBPF program
-+ *
-+ *   The eBPF program accesses the map passed in to store two pieces of
-+ *   information. The number of invocations of the program, which maps
-+ *   to the number of packets received, is stored to key 0. Key 1 is
-+ *   incremented on each iteration by the number of bytes stored in
-+ *   the skb.
-+ *
-+ * - Detaches any eBPF program previously attached to the cgroup
-+ *
-+ * - Attaches the new program to a cgroup using BPF_PROG_ATTACH
-+ *
-+ * - Every second, reads map[0] and map[1] to see how many bytes and
-+ *   packets were seen on any socket of tasks in the given cgroup.
-+ */
++#ifdef CONFIG_CGROUP_BPF
++	case BPF_PROG_ATTACH:
++		err = bpf_prog_attach(&attr);
++		break;
++	case BPF_PROG_DETACH:
++		err = bpf_prog_detach(&attr);
++		break;
++#endif
 +
-+#define _GNU_SOURCE
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <stddef.h>
-+#include <string.h>
-+#include <unistd.h>
-+#include <assert.h>
-+#include <errno.h>
-+#include <fcntl.h>
-+
-+#include <linux/bpf.h>
-+
-+#include "libbpf.h"
-+
-+enum {
-+	MAP_KEY_PACKETS,
-+	MAP_KEY_BYTES,
-+};
-+
-+static int prog_load(int map_fd, int verdict)
-+{
-+	struct bpf_insn prog[] = {
-+		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1), /* save r6 so it's not clobbered by BPF_CALL */
-+
-+		/* Count packets */
-+		BPF_MOV64_IMM(BPF_REG_0, MAP_KEY_PACKETS), /* r0 = 0 */
-+		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -4), /* *(u32 *)(fp - 4) = r0 */
-+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4), /* r2 = fp - 4 */
-+		BPF_LD_MAP_FD(BPF_REG_1, map_fd), /* load map fd to r1 */
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2),
-+		BPF_MOV64_IMM(BPF_REG_1, 1), /* r1 = 1 */
-+		BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
-+
-+		/* Count bytes */
-+		BPF_MOV64_IMM(BPF_REG_0, MAP_KEY_BYTES), /* r0 = 1 */
-+		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -4), /* *(u32 *)(fp - 4) = r0 */
-+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4), /* r2 = fp - 4 */
-+		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2),
-+		BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6, offsetof(struct __sk_buff, len)), /* r1 = skb->len */
-+		BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
-+
-+		BPF_MOV64_IMM(BPF_REG_0, verdict), /* r0 = verdict */
-+		BPF_EXIT_INSN(),
-+	};
-+
-+	return bpf_prog_load(BPF_PROG_TYPE_CGROUP_SKB,
-+			     prog, sizeof(prog), "GPL", 0);
-+}
-+
-+static int usage(const char *argv0)
-+{
-+	printf("Usage: %s <cg-path> <egress|ingress> [drop]\n", argv0);
-+	return EXIT_FAILURE;
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	int cg_fd, map_fd, prog_fd, key, ret;
-+	long long pkt_cnt, byte_cnt;
-+	enum bpf_attach_type type;
-+	int verdict = 1;
-+
-+	if (argc < 3)
-+		return usage(argv[0]);
-+
-+	if (strcmp(argv[2], "ingress") == 0)
-+		type = BPF_CGROUP_INET_INGRESS;
-+	else if (strcmp(argv[2], "egress") == 0)
-+		type = BPF_CGROUP_INET_EGRESS;
-+	else
-+		return usage(argv[0]);
-+
-+	if (argc > 3 && strcmp(argv[3], "drop") == 0)
-+		verdict = 0;
-+
-+	cg_fd = open(argv[1], O_DIRECTORY | O_RDONLY);
-+	if (cg_fd < 0) {
-+		printf("Failed to open cgroup path: '%s'\n", strerror(errno));
-+		return EXIT_FAILURE;
-+	}
-+
-+	map_fd = bpf_create_map(BPF_MAP_TYPE_ARRAY,
-+				sizeof(key), sizeof(byte_cnt),
-+				256, 0);
-+	if (map_fd < 0) {
-+		printf("Failed to create map: '%s'\n", strerror(errno));
-+		return EXIT_FAILURE;
-+	}
-+
-+	prog_fd = prog_load(map_fd, verdict);
-+	printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
-+
-+	if (prog_fd < 0) {
-+		printf("Failed to load prog: '%s'\n", strerror(errno));
-+		return EXIT_FAILURE;
-+	}
-+
-+	ret = bpf_prog_detach(cg_fd, type);
-+	printf("bpf_prog_detach() returned '%s' (%d)\n", strerror(errno), errno);
-+
-+	ret = bpf_prog_attach(prog_fd, cg_fd, type);
-+	if (ret < 0) {
-+		printf("Failed to attach prog to cgroup: '%s'\n",
-+		       strerror(errno));
-+		return EXIT_FAILURE;
-+	}
-+
-+	while (1) {
-+		key = MAP_KEY_PACKETS;
-+		assert(bpf_lookup_elem(map_fd, &key, &pkt_cnt) == 0);
-+
-+		key = MAP_KEY_BYTES;
-+		assert(bpf_lookup_elem(map_fd, &key, &byte_cnt) == 0);
-+
-+		printf("cgroup received %lld packets, %lld bytes\n",
-+		       pkt_cnt, byte_cnt);
-+		sleep(1);
-+	}
-+
-+	return EXIT_SUCCESS;
-+}
+ 	default:
+ 		err = -EINVAL;
+ 		break;
 -- 
 2.7.4
