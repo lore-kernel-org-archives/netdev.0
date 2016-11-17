@@ -1,46 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: use new rhlist interface on sctp transport
- rhashtable
-Date: Wed, 16 Nov 2016 23:22:36 -0500 (EST)
-Message-ID: <20161116.232236.1426599744587048750.davem@davemloft.net>
-References: <0a89ef8506db3bba6a37010bd5622cd145183ab4.1479223391.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net] net: dsa: b53: Fix VLAN usage and how we treat CPU
+ port
+Date: Wed, 16 Nov 2016 23:26:03 -0500 (EST)
+Message-ID: <20161116.232603.2010098159063305096.davem@davemloft.net>
+References: <20161115235815.25641-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        vyasevich@gmail.com, herbert@gondor.apana.org.au, phil@nwl.cc
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, knaack.h@gmx.de
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33012 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33052 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751688AbcKQEWi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 23:22:38 -0500
-In-Reply-To: <0a89ef8506db3bba6a37010bd5622cd145183ab4.1479223391.git.lucien.xin@gmail.com>
+        with ESMTP id S1752375AbcKQE0F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 23:26:05 -0500
+In-Reply-To: <20161115235815.25641-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Tue, 15 Nov 2016 23:23:11 +0800
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 15 Nov 2016 15:58:15 -0800
 
-> Now sctp transport rhashtable uses hash(lport, dport, daddr) as the key
-> to hash a node to one chain. If in one host thousands of assocs connect
-> to one server with the same lport and different laddrs (although it's
-> not a normal case), all the transports would be hashed into the same
-> chain.
+> We currently have a fundamental problem in how we treat the CPU port and
+> its VLAN membership. As soon as a second VLAN is configured to be
+> untagged, the CPU automatically becomes untagged for that VLAN as well,
+> and yet, we don't gracefully make sure that the CPU becomes tagged in
+> the other VLANs it could be a member of. This results in only one VLAN
+> being effectively usable from the CPU's perspective.
 > 
-> It may cause to keep returning -EBUSY when inserting a new node, as the
-> chain is too long and sctp inserts a transport node in a loop, which
-> could even lead to system hangs there.
+> Instead of having some pretty complex logic which tries to maintain the
+> CPU port's default VLAN and its untagged properties, just do something
+> very simple which consists in neither altering the CPU port's PVID
+> settings, nor its untagged settings:
 > 
-> The new rhlist interface works for this case that there are many nodes
-> with the same key in one chain. It puts them into a list then makes this
-> list be as a node of the chain.
+> - whenever a VLAN is added, the CPU is automatically a member of this
+>   VLAN group, as a tagged member
+> - PVID settings for downstream ports do not alter the CPU port's PVID
+>   since it now is part of all VLANs in the system
 > 
-> This patch is to replace rhashtable_ interface with rhltable_ interface.
-> Since a chain would not be too long and it would not return -EBUSY with
-> this fix when inserting a node, the reinsert loop is also removed here.
+> This means that a typical example where e.g: LAN ports are in VLAN1, and
+> WAN port is in VLAN2, now require having two VLAN interfaces for the
+> host to properly terminate and send traffic from/to.
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Fixes: Fixes: a2482d2ce349 ("net: dsa: b53: Plug in VLAN support")
+> Reported-by: Hartmut Knaack <knaack.h@gmx.de>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> David,
+> 
+> Can you queue this for -stable so it makes it into 4.8.4?
 
-Applied to net-next, thanks.
+Applied and queued up for -stable, thanks.
