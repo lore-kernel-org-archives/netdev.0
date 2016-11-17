@@ -1,36 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlx4_en: remove napi_hash_del() call
-Date: Thu, 17 Nov 2016 11:17:37 -0500 (EST)
-Message-ID: <20161117.111737.2006621470541369678.davem@davemloft.net>
-References: <1479304162.8455.163.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rafal Ozieblo <rafalo@cadence.com>
+Subject: RE: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
+Date: Thu, 17 Nov 2016 12:57:23 +0000
+Message-ID: <BN3PR07MB2516488A6BB0F208C3DDB0E1C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
+References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39654 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752275AbcKQQ47 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 11:56:59 -0500
-In-Reply-To: <1479304162.8455.163.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Harini Katakam <harinikatakamlinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 16 Nov 2016 05:49:22 -0800
-
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> There is no need calling napi_hash_del()+synchronize_rcu() before
-> calling netif_napi_del()
-> 
-> netif_napi_del() does this already.
-> 
-> Using napi_hash_del() in a driver is useful only when dealing with
-> a batch of NAPI structures, so that a single synchronize_rcu() can
-> be used. mlx4_en_deactivate_cq() is deactivating a single NAPI.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied, thanks Eric.
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEhhcmluaSBLYXRha2FtIFttYWlsdG86
+aGFyaW5pa2F0YWthbWxpbnV4QGdtYWlsLmNvbV0gDQpTZW50OiAxNyBsaXN0b3BhZGEgMjAxNiAx
+MzoyMg0KVG86IFJhZmFsIE96aWVibG8NCkNjOiBoYXJpbmkua2F0YWthbUB4aWxpbnguY29tOyBu
+aWNvbGFzLmZlcnJlQGF0bWVsLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2Vy
+bmVsQHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IFtSRkMgUEFUQ0ggMi8yXSBuZXQ6IG1h
+Y2I6IEFkZCA2NCBiaXQgYWRkcmVzc2luZyBzdXBwb3J0IGZvciBHRU0NCg0KPiBIaSBSYWZhbCwN
+Cj4NCj4gT24gVGh1LCBOb3YgMTcsIDIwMTYgYXQgNToyMCBQTSwgUmFmYWwgT3ppZWJsbyA8cmFm
+YWxvQGNhZGVuY2UuY29tPiB3cm90ZToNCj4gPiBIZWxsbywNCj4gPiBJIHRoaW5rLCB0aGVyZSBj
+b3VsZCBhIGJ1ZyBpbiB5b3VyIHBhdGNoLg0KPiA+DQo+ID4+ICsNCj4gPj4gKyNpZmRlZiBDT05G
+SUdfQVJDSF9ETUFfQUREUl9UXzY0QklUDQo+ID4+ICsgICAgICAgICAgICAgZG1hY2ZnIHw9IEdF
+TV9CSVQoQUREUjY0KTsgI2VuZGlmDQo+ID4NCj4gPiBZb3UgZW5hYmxlIDY0IGJpdCBhZGRyZXNz
+aW5nICg2NGIgZG1hIGJ1cyB3aWR0aCkgYWx3YXlzIHdoZW4gYXBwcm9wcmlhdGUgYXJjaGl0ZWN0
+dXJlIGNvbmZpZyBvcHRpb24gaXMgZW5hYmxlZC4NCj4gPiBCdXQgdGhlcmUgYXJlIHNvbWUgbGVn
+YWN5IGNvbnRyb2xsZXJzIHdoaWNoIGRvIG5vdCBzdXBwb3J0IHRoYXQgZmVhdHVyZS4gQWNjb3Jk
+aW5nIENhZGVuY2UgaGFyZHdhcmUgdGVhbToNCj4gPiAiNjQgYml0IGFkZHJlc3Npbmcgd2FzIGFk
+ZGVkIGluIEp1bHkgMjAxMy4gRWFybGllciB2ZXJzaW9uIGRvIG5vdCBoYXZlIGl0Lg0KPiA+IFRo
+aXMgZmVhdHVyZSB3YXMgZW5oYW5jZWQgaW4gcmVsZWFzZSBBdWd1c3QgMjAxNCB0byBoYXZlIHNl
+cGFyYXRlIHVwcGVyIGFkZHJlc3MgdmFsdWVzIGZvciB0cmFuc21pdCBhbmQgcmVjZWl2ZS4iDQo+
+ID4NCj4gPj4gLyogQml0ZmllbGRzIGluIE5TUiAqLw0KPiA+PiBAQCAtNDc0LDYgKzQ3OSwxMCBA
+QA0KPiA+PiAgc3RydWN0IG1hY2JfZG1hX2Rlc2Mgew0KPiA+ICA+ICAgICAgdTMyICAgICBhZGRy
+Ow0KPiA+PiAgICAgICB1MzIgICAgIGN0cmw7IA0KPiA+PiArI2lmZGVmIENPTkZJR19BUkNIX0RN
+QV9BRERSX1RfNjRCSVQNCj4gPj4gKyAgICAgdTMyICAgICBhZGRyaDsNCj4gPj4gKyAgICAgdTMy
+ICAgICByZXN2ZDsNCj4gPj4gKyNlbmRpZg0KPiA+PiAgfTsNCj4gPg0KPiA+IEl0IHdpbGwgbm90
+IHdvcmsgZm9yIGxlZ2FjeSBoYXJkd2FyZS4gT2xkIGRlc2NyaXB0b3IgaXMgMiB3b3JkcyB3aWRl
+LCB0aGUgbmV3IG9uZSBpcyA0IHdvcmRzIHdpZGUuDQo+ID4gSWYgeW91IGVuYWJsZSBDT05GSUdf
+QVJDSF9ETUFfQUREUl9UXzY0QklUIGJ1dCBoYXJkd2FyZSBkb2Vzbid0IA0KPiA+IHN1cHBvcnQg
+aXQgYXQgYWxsLCB5b3Ugd2lsbCBtaXNzIGV2ZXJ5IHNlY29uZCBkZXNjcmlwdG9yLg0KPiA+DQo+
+DQo+IFRydWUsIHRoaXMgZmVhdHVyZSBpcyBub3QgYXZhaWxhYmxlIGluIGFsbCBvZiBDYWRlbmNl
+IElQIHZlcnNpb25zLg0KPiBJbiBmYWN0LCB0aGUgSVAgdmVyc2lvbiBaeW5xIGRvZXMgbm90IHN1
+cHBvcnQgdGhpcy4gQnV0IHRoZSBvbmUgaW4gWnlucU1QIGRvZXMuDQo+IFNvLCB3ZSBlbmFibGUg
+a2VybmVsIGNvbmZpZyBmb3IgNjQgYml0IERNQSBhZGRyZXNzaW5nIGZvciB0aGlzIFNvQyBhbmQg
+aGVuY2UgdGhlIGRyaXZlciBwaWNrcyBpdCB1cC4gTXkgYXNzdW1wdGlvbiB3YXMgdGhhdCBpZiB0
+aGUgbGVnYWN5IElQIGRvZXMgbm90IHN1cHBvcnQNCj4gNjQgYml0IGFkZHJlc3NpbmcsIHRoZW4g
+dGhpcyBETUEgb3B0aW9uIHdvdWxkbid0IGJlIGVuYWJsZWQuDQoNCldoYXQgZm9yIGV4YW1wbGUg
+d2l0aCBhcm02NCAod2hpY2ggZW5hYmxlcyBDT05GSUdfQVJDSF9ETUFfQUREUl9UXzY0QklUIGJ5
+IGRlZmF1bHQpIGFuZCBsZWdhY3kgSVAgY29udHJvbGxlcj8gT3Igc3lzdGVtcyB3aXRoIG11bHRp
+cGxlIElQLCBib3RoIHdpdGggYW5kIHdpdGhvdXQgNjRiIGRtYSBjYXBhYmxlPw0KSXQgbWlnaHQg
+cmVzdWx0IGluIHVucHJlZGljdGFibGUgYmVoYXZpby4gKGV4cGxhaW5lZCBiZWxvdykNCg0KPiBU
+aGVyZSBpcyBhIGRlc2lnbiBjb25maWcgcmVnaXN0ZXIgaW4gQ2FkZW5jZSBJUCB3aGljaCBpcyBi
+ZWluZyByZWFkIHRvIGNoZWNrIGZvciA2NCBiaXQgYWRkcmVzcyBzdXBwb3J0IC0gRE1BIG1hc2sg
+aXMgc2V0IGJhc2VkIG9uIHRoYXQuDQo+IEJ1dCB0aGUgYWRkaXRpb24gb2YgdHdvIGRlc2NyaXB0
+b3Igd29yZHMgY2Fubm90IGJlIGJhc2VkIG9uIHRoaXMgcnVudGltZSBjaGVjay4NCj4gRm9yIHRo
+aXMgcmVhc29uLCBhbGwgdGhlIHN0YXRpYyBjaGFuZ2VzIHdlcmUgcGxhY2VkIHVuZGVyIHRoaXMg
+Y2hlY2suDQoNCkFyZSB5b3UgdGFsa2luZyBhYm91dCB0aGlzPw0KDQorI2lmZGVmIENPTkZJR19B
+UkNIX0RNQV9BRERSX1RfNjRCSVQNCisJaWYgKEdFTV9CRkVYVChEQldERUYsIGdlbV9yZWFkbChi
+cCwgRENGRzEpKSA+IEdFTV9EQlczMikNCisJCWRtYV9zZXRfbWFzaygmcGRldi0+ZGV2LCBETUFf
+QklUX01BU0soNDQpKTsNCisjZW5kaWYNCisNCg0KSXQgb25seSBzZXRzIHRoZSBtYXhpbXVtIGFk
+ZHJlc3Mgd2hpY2ggY2FuIGJlIHNlZW4gb24gYWRkcmVzcyBidXMuIChpdHMgbWFzayBleGFjdGx5
+KQ0KDQorc3RhdGljIGlubGluZSB2b2lkIG1hY2Jfc2V0X2FkZHIoc3RydWN0IG1hY2JfZG1hX2Rl
+c2MgKmRlc2MsIGRtYV9hZGRyX3QgYWRkcikNCit7DQorCWRlc2MtPmFkZHIgPSAodTMyKWFkZHI7
+DQorI2lmZGVmIENPTkZJR19BUkNIX0RNQV9BRERSX1RfNjRCSVQNCisJZGVzYy0+YWRkcmggPSAo
+dTMyKShhZGRyID4+IDMyKTsNCisjZW5kaWYNCit9DQorDQoNCkJlY2F1c2UgYWRkciBpcyAzMmIg
+d2lkZSwgKHUzMikoYWRkciA+PiAzMikgZXF1YWxzIDAuIElQIGNvbnRyb2xsZXIgdXNlcyAyIHdv
+cmRzIGZvciBkbWEgZGVzY3JpcHRvciwgc28gZGVzYy0+YWRkciBmcm9tIHNlY29uZCBoYXJkd2Fy
+ZSBkZXNjcmlwdG9yIHdpbGwgYmUgb3ZlcndyaXR0ZW4gYnkgZGVzYy0+YWRkcmggZnJvbSB0aGUg
+Zmlyc3Qgc29mdHdhcmUgZGVzY3JpcHRvci4NCihzYW1lIGRlc2MtPmN0cmwgZnJvbSBzZWNvbmQg
+aGFyZHdhcmUgZGVzY3JpcHRvciB3aWxsIGJlIG92ZXJ3cml0dGVuIGJ5IGRlc2MtPnJlc3ZkKS4g
+DQoNClJlZ2FyZHMsDQpIYXJpbmkNCg==
