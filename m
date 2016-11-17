@@ -1,45 +1,67 @@
-From: Yishai Hadas <yishaih-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: mlx4 BUG_ON in probe path
-Date: Thu, 17 Nov 2016 12:22:44 +0200
-Message-ID: <efdb87e8-cac0-f45b-7f6f-122f053fe366@dev.mellanox.co.il>
-References: <20161116182527.GC26600@bhelgaas-glaptop.roam.corp.google.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 4.8 51/92] xprtrdma: use complete() instead complete_all()
+Date: Thu, 17 Nov 2016 11:32:24 +0100
+Message-ID: <20161117103226.356879238@linuxfoundation.org>
+References: <20161117103224.218007793@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Johannes Thumshirn <jthumshirn-l3A5Bk7waGM@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bjorn Helgaas <helgaas-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161116182527.GC26600-1RhO1Y9PlrlHTL0Zs8A6p5iNqAH0jzoTYJqu5kTmcBRl57MIdRCFDg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        stable@vger.kernel.org, Daniel Wagner <daniel.wagner@bmw-carit.de>,
+        Anna Schumaker <Anna.Schumaker@Netapp.com>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Chuck Lever <chuck.lever@oracle.com>,
+        linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20161117103224.218007793@linuxfoundation.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/16/2016 8:25 PM, Bjorn Helgaas wrote:
-> Hi Yishai,
->
-> Johannes has been working on an mlx4 initialization problem on an
-> IBM x3850 X6.  The underlying problem is a PCI core issue -- we're
-> setting RCB in the Mellanox device, which means it thinks it can
-> generate 128-byte Completions, even though the Root Port above it
-> can't handle them.  That issue is
-> https://bugzilla.kernel.org/show_bug.cgi?id=187781
->
-> The machine crashed when this happened, apparently not because of any
-> error reported via AER, but because mlx4 contains a BUG_ON, probably
-> the one in mlx4_enter_error_state().
->
-> That one happens if pci_channel_offline() returns false.  Is this
-> telling us about a problem in PCI error handling, or is it just a case
-> where mlx4 isn't as smart as it could be?
+4.8-stable review patch.  If anyone has any objections, please let me know.
 
-Yes, we expect at that step a problem/bug in the PCI layer that should 
-be fixed (e.g. reporting online but really is offline, etc.), can you 
-please evaluate and confirm that ?
+------------------
 
+From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+commit 5690a22d8612e1788b48b4ea53c59868589cd2db upstream.
+
+There is only one waiter for the completion, therefore there
+is no need to use complete_all(). Let's make that clear by
+using complete() instead of complete_all().
+
+The usage pattern of the completion is:
+
+waiter context                          waker context
+
+frwr_op_unmap_sync()
+  reinit_completion()
+  ib_post_send()
+  wait_for_completion()
+
+					frwr_wc_localinv_wake()
+					  complete()
+
+Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Cc: Anna Schumaker <Anna.Schumaker@Netapp.com>
+Cc: Trond Myklebust <trond.myklebust@primarydata.com>
+Cc: Chuck Lever <chuck.lever@oracle.com>
+Cc: linux-nfs@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Anna Schumaker <Anna.Schumaker@Netapp.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+---
+ net/sunrpc/xprtrdma/frwr_ops.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/net/sunrpc/xprtrdma/frwr_ops.c
++++ b/net/sunrpc/xprtrdma/frwr_ops.c
+@@ -329,7 +329,7 @@ frwr_wc_localinv_wake(struct ib_cq *cq,
+ 	frmr = container_of(cqe, struct rpcrdma_frmr, fr_cqe);
+ 	if (wc->status != IB_WC_SUCCESS)
+ 		__frwr_sendcompletion_flush(wc, frmr, "localinv");
+-	complete_all(&frmr->fr_linv_done);
++	complete(&frmr->fr_linv_done);
+ }
+ 
+ /* Post a REG_MR Work Request to register a memory region
