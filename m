@@ -1,155 +1,97 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCHv2 perf/core 2/2] tools lib bpf: Sync with
- samples/bpf/libbpf
-Date: Thu, 17 Nov 2016 10:10:56 +0800
-Message-ID: <582D11B0.80208@huawei.com>
-References: <20161116174324.29675-1-joe@ovn.org>
- <20161116174324.29675-3-joe@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <ast@fb.com>, <daniel@iogearbox.net>,
-        <acme@kernel.org>
-To: Joe Stringer <joe@ovn.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161116174324.29675-3-joe@ovn.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 2/4] bnxt_en: Enhance autoneg support.
+Date: Wed, 16 Nov 2016 21:13:08 -0500
+Message-ID: <1479348790-6218-3-git-send-email-michael.chan@broadcom.com>
+References: <1479348790-6218-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:35938 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933368AbcKQCNa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 21:13:30 -0500
+Received: by mail-pg0-f52.google.com with SMTP id f188so85427756pgc.3
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 18:13:29 -0800 (PST)
+In-Reply-To: <1479348790-6218-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'm also working on improving bpf.c. Please have a look at:
+On some dual port NICs, the speed setting on one port can affect the
+available speed on the other port.  Add logic to detect these changes
+and adjust the advertised speed settings when necessary.
 
-https://lkml.org/lkml/2016/11/14/1078
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 23 +++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
+ 2 files changed, 24 insertions(+)
 
-Since bpf.c is simple, I think we can add more functions and fixes
-gradually, instead of a full copy.
-
-See my inline comment below.
-
-On 2016/11/17 1:43, Joe Stringer wrote:
-> Extend the tools/ version of libbpf to include all of the functionality
-> provided in the samples/bpf version.
->
-> Signed-off-by: Joe Stringer <joe@ovn.org>
-> ---
-> v2: Don't shift non-bpf changes across.
->      Various type cleanups, removal of extraneous declarations
-> ---
->   tools/lib/bpf/bpf.c    | 107 ++++++++++++++++++++------
->   tools/lib/bpf/bpf.h    | 202 +++++++++++++++++++++++++++++++++++++++++++++++--
->   tools/lib/bpf/libbpf.c |   3 +-
->   3 files changed, 279 insertions(+), 33 deletions(-)
->
-> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-> index 4212ed62235b..5e061851ac00 100644
-> --- a/tools/lib/bpf/bpf.c
-> +++ b/tools/lib/bpf/bpf.c
-> @@ -20,10 +20,17 @@
->    */
->   
->   #include <stdlib.h>
-> -#include <memory.h>
-> +#include <stdio.h>
->   #include <unistd.h>
->   #include <asm/unistd.h>
-> +#include <string.h>
-> +#include <linux/netlink.h>
->   #include <linux/bpf.h>
-> +#include <errno.h>
-> +#include <net/ethernet.h>
-> +#include <net/if.h>
-> +#include <linux/if_packet.h>
-> +#include <arpa/inet.h>
->   #include "bpf.h"
->   
-
-Why we need these network related headers?
-
->   /*
-> @@ -53,24 +60,71 @@ static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
->   	return syscall(__NR_bpf, cmd, attr, size);
->   }
->   
-> -int bpf_create_map(enum bpf_map_type map_type, int key_size,
-> -		   int value_size, int max_entries)
-> +int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
-> +		   int max_entries, int map_flags)
->   {
-> -	union bpf_attr attr;
-> +	union bpf_attr attr = {
-> +		.map_type = map_type,
-> +		.key_size = key_size,
-> +		.value_size = value_size,
-> +		.max_entries = max_entries,
-> +		.map_flags = map_flags,
-> +	};
->   
-> -	memset(&attr, '\0', sizeof(attr));
-> +	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
-> +}
->   
-
-I lost map_flags in original bpf.c. Thanks to your patch. map_flags is 
-useful
-when creating BPF_MAP_TYPE_PERCPU_HASH: BPF_F_NO_PREALLOC is meanful in this
-case.
-
-Although it is okay in samples, I still prefer a explicit bzero() or 
-memset(),
-because kernel checks if unused field in this union is zero. However 
-I'll check
-c standard to see how unused field would be initialized.
-
-
-<SNIP>
-
-> diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-> index e8ba54087497..4dba36995771 100644
-> --- a/tools/lib/bpf/bpf.h
-> +++ b/tools/lib/bpf/bpf.h
-> @@ -23,16 +23,202 @@
->   
->   #include <linux/bpf.h>
->   
-> +struct bpf_insn;
-> +
->   int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
-> -		   int max_entries);
-> +		   int max_entries, int map_flags);
-> +int bpf_update_elem(int fd, void *key, void *value, unsigned long long flags);
-> +int bpf_lookup_elem(int fd, void *key, void *value);
-> +int bpf_delete_elem(int fd, void *key);
-> +int bpf_get_next_key(int fd, void *key, void *next_key);
-> +
-> +int bpf_load_program(enum bpf_prog_type prog_type,
-> +		     const struct bpf_insn *insns, int insn_len,
-> +		     const char *license, int kern_version,
-> +		     char *log_buf, size_t log_buf_sz);
-> +
-> +int bpf_obj_pin(int fd, const char *pathname);
-> +int bpf_obj_get(const char *pathname);
->   
-> -/* Recommend log buffer size */
->   #define BPF_LOG_BUF_SIZE 65536
-> -int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
-> -		     size_t insns_cnt, char *license,
-> -		     u32 kern_version, char *log_buf,
-> -		     size_t log_buf_sz);
->   
-> -int bpf_map_update_elem(int fd, void *key, void *value,
-> -			u64 flags);
-> +/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
-> +
-> +#define BPF_ALU64_REG(OP, DST, SRC)				\
-> +	((struct bpf_insn) {					\
-> +		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
-> +		.dst_reg = DST,					\
-> +		.src_reg = SRC,					\
-> +		.off   = 0,					\
-> +		.imm   = 0 })
-> +
-
-Should we define these macros here? They are in include/linux/filter.h
-and duplicated in tools/include/linux/filter.h. Redefining them here
-would cause conflict.
-
-Thank you.
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 1332577..4db50e8 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -1499,6 +1499,7 @@ static int bnxt_async_event_process(struct bnxt *bp,
+ 			netdev_warn(bp->dev, "Link speed %d no longer supported\n",
+ 				    speed);
+ 		}
++		set_bit(BNXT_LINK_SPEED_CHNG_SP_EVENT, &bp->sp_event);
+ 		/* fall thru */
+ 	}
+ 	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE:
+@@ -5095,6 +5096,7 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
+ 	struct hwrm_port_phy_qcfg_input req = {0};
+ 	struct hwrm_port_phy_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
+ 	u8 link_up = link_info->link_up;
++	u16 diff;
+ 
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_PORT_PHY_QCFG, -1, -1);
+ 
+@@ -5182,6 +5184,23 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
+ 		link_info->link_up = 0;
+ 	}
+ 	mutex_unlock(&bp->hwrm_cmd_lock);
++
++	diff = link_info->support_auto_speeds ^ link_info->advertising;
++	if ((link_info->support_auto_speeds | diff) !=
++	    link_info->support_auto_speeds) {
++		/* An advertised speed is no longer supported, so we need to
++		 * update the advertisement settings.  See bnxt_reset() for
++		 * comments about the rtnl_lock() sequence below.
++		 */
++		clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
++		rtnl_lock();
++		link_info->advertising = link_info->support_auto_speeds;
++		if (test_bit(BNXT_STATE_OPEN, &bp->state) &&
++		    (link_info->autoneg & BNXT_AUTONEG_SPEED))
++			bnxt_hwrm_set_link_setting(bp, true, false);
++		set_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
++		rtnl_unlock();
++	}
+ 	return 0;
+ }
+ 
+@@ -6108,6 +6127,10 @@ static void bnxt_sp_task(struct work_struct *work)
+ 	if (test_and_clear_bit(BNXT_RX_NTP_FLTR_SP_EVENT, &bp->sp_event))
+ 		bnxt_cfg_ntp_filters(bp);
+ 	if (test_and_clear_bit(BNXT_LINK_CHNG_SP_EVENT, &bp->sp_event)) {
++		if (test_and_clear_bit(BNXT_LINK_SPEED_CHNG_SP_EVENT,
++				       &bp->sp_event))
++			bnxt_hwrm_phy_qcaps(bp);
++
+ 		rc = bnxt_update_link(bp, true);
+ 		if (rc)
+ 			netdev_err(bp->dev, "SP task can't update link (rc: %x)\n",
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 51b164a..666bc06 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -1089,6 +1089,7 @@ struct bnxt {
+ #define BNXT_RESET_TASK_SILENT_SP_EVENT	11
+ #define BNXT_GENEVE_ADD_PORT_SP_EVENT	12
+ #define BNXT_GENEVE_DEL_PORT_SP_EVENT	13
++#define BNXT_LINK_SPEED_CHNG_SP_EVENT	14
+ 
+ 	struct bnxt_pf_info	pf;
+ #ifdef CONFIG_BNXT_SRIOV
+-- 
+1.8.3.1
