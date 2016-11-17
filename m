@@ -1,8 +1,8 @@
 From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v3 3/5] ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
-Date: Thu, 17 Nov 2016 13:07:22 +0100
-Message-ID: <1479384444-31122-4-git-send-email-allan.nielsen@microsemi.com>
-References: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
+Subject: [PATCH ethtool v3 1/2] ethtool-copy.h:sync with net
+Date: Thu, 17 Nov 2016 13:07:59 +0100
+Message-ID: <1479384480-31201-2-git-send-email-allan.nielsen@microsemi.com>
+References: <1479384480-31201-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
@@ -10,49 +10,88 @@ Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
         Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0046.outbound.protection.outlook.com ([104.47.34.46]:6009
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-bn3nam01on0051.outbound.protection.outlook.com ([104.47.33.51]:32544
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S941126AbcKQRkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 12:40:40 -0500
-In-Reply-To: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
+        id S941537AbcKQRk4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 12:40:56 -0500
+In-Reply-To: <1479384480-31201-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-For operation in cabling environments that are incompatible with
-1000BASE-T, PHY device may provide an automatic link speed downshift
-operation. When enabled, the device automatically changes its 1000BASE-T
-auto-negotiation to the next slower speed after a configured number of
-failed attempts at 1000BASE-T.  This feature is useful in setting up in
-networks using older cable installations that include only pairs A and B,
-and not pairs C and D.
+This covers kernel changes upto:
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+commit f5a4732f85613b3fb43f8bc33a017e3db3b3605a
+Author: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Date:   Wed Nov 9 16:33:09 2016 +0530
+
+    ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
+
+    For operation in cabling environments that are incompatible with
+    1000BASE-T, PHY device may provide an automatic link speed downshift
+    operation. When enabled, the device automatically changes its 1000BASE-T
+    auto-negotiation to the next slower speed after a configured number of
+    failed attempts at 1000BASE-T.  This feature is useful in setting up in
+    networks using older cable installations that include only pairs A and B,
+    and not pairs C and D.
+
+    Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+    Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
 ---
- include/uapi/linux/ethtool.h | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ ethtool-copy.h | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 42f696f..f0db778 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -248,9 +248,12 @@ struct ethtool_tunable {
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 70748f5..2e2448f 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -247,6 +247,19 @@ struct ethtool_tunable {
  	void	*data[0];
  };
  
 +#define DOWNSHIFT_DEV_DEFAULT_COUNT	0xff
 +#define DOWNSHIFT_DEV_DISABLE		0
 +
- enum phy_tunable_id {
- 	ETHTOOL_PHY_ID_UNSPEC,
--
++enum phy_tunable_id {
++	ETHTOOL_PHY_ID_UNSPEC,
 +	ETHTOOL_PHY_DOWNSHIFT,
- 	/*
- 	 * Add your fresh new phy tunable attribute above and remember to update
- 	 * phy_tunable_strings[] in net/core/ethtool.c
++	/*
++	 * Add your fresh new phy tunable attribute above and remember to update
++	 * phy_tunable_strings[] in net/core/ethtool.c
++	 */
++	__ETHTOOL_PHY_TUNABLE_COUNT,
++};
++
+ /**
+  * struct ethtool_regs - hardware register dump
+  * @cmd: Command number = %ETHTOOL_GREGS
+@@ -547,6 +560,7 @@ struct ethtool_pauseparam {
+  * @ETH_SS_FEATURES: Device feature names
+  * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
+  * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
++ * @ETH_SS_PHY_TUNABLES: PHY tunable names
+  */
+ enum ethtool_stringset {
+ 	ETH_SS_TEST		= 0,
+@@ -557,6 +571,7 @@ enum ethtool_stringset {
+ 	ETH_SS_RSS_HASH_FUNCS,
+ 	ETH_SS_TUNABLES,
+ 	ETH_SS_PHY_STATS,
++	ETH_SS_PHY_TUNABLES,
+ };
+ 
+ /**
+@@ -1312,7 +1327,8 @@ struct ethtool_per_queue_op {
+ 
+ #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings */
+ #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
+-
++#define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
++#define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
 -- 
 2.7.3
