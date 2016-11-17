@@ -1,78 +1,178 @@
-From: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: ethernet: faraday: To support device tree usage.
-Date: Thu, 17 Nov 2016 10:37:31 +0800
-Message-ID: <CAEbi=3eMcJ6U0opLEFgomS5ZBTfqyL2acag7JakuGFxsbgM_aA@mail.gmail.com>
-References: <1479285795-3105-1-git-send-email-green.hu@gmail.com>
- <CAEbi=3esyRi4cnUNf4uPKCQtyRekBRo81Frd=BSJy8qf=3uc+A@mail.gmail.com>
- <20161116143715.GH19962@lunn.ch> <7309308.u1IWIyx3Gm@wuerfel>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCHv2 perf/core 2/2] tools lib bpf: Sync with samples/bpf/libbpf
+Date: Wed, 16 Nov 2016 18:46:25 -0800
+Message-ID: <CAOftzPhXk0LKCt8wQKuqeBnDrj6a4p0YL7P80jhK78eFSAz8WQ@mail.gmail.com>
+References: <20161116174324.29675-1-joe@ovn.org> <20161116174324.29675-3-joe@ovn.org>
+ <582D11B0.80208@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <7309308.u1IWIyx3Gm@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Joe Stringer <joe@ovn.org>, LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, ast@fb.com,
+        daniel@iogearbox.net, acme@kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <582D11B0.80208@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 17, 2016 at 12:12 AM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> On Wednesday, November 16, 2016 3:37:15 PM CET Andrew Lunn wrote:
->> On Wed, Nov 16, 2016 at 10:26:52PM +0800, Greentime Hu wrote:
->> > On Wed, Nov 16, 2016 at 9:47 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
->> > > On Wed, Nov 16, 2016 at 04:43:15PM +0800, Greentime Hu wrote:
->> > >> To support device tree usage for ftmac100.
->> > >>
->> > >> Signed-off-by: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> > >> ---
->> > >>  drivers/net/ethernet/faraday/ftmac100.c |    7 +++++++
->> > >>  1 file changed, 7 insertions(+)
->> > >>
->> > >> diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
->> > >> index dce5f7b..81dd9e1 100644
->> > >> --- a/drivers/net/ethernet/faraday/ftmac100.c
->> > >> +++ b/drivers/net/ethernet/faraday/ftmac100.c
->> > >> @@ -1172,11 +1172,17 @@ static int __exit ftmac100_remove(struct platform_device *pdev)
->> > >>       return 0;
->> > >>  }
->> > >>
->> > >> +static const struct of_device_id mac_of_ids[] = {
->> > >> +     { .compatible = "andestech,atmac100" },
->> > >> +     { }
->> > >
->> > > andestech is not in
->> > > Documentation/devicetree/bindings/vendor-prefixes.txt Please provide a
->> > > separate patch adding it.
->> > OK. I will provide another patch to add andestech.
->> >
->> > > Humm, why andestech? Why not something based around faraday
->> > > technology?
->> > It is because we use the same ftmac100 IP provided from faraday
->> > technology but I am now using it in andestech SoC.
+On 16 November 2016 at 18:10, Wangnan (F) <wangnan0@huawei.com> wrote:
+> I'm also working on improving bpf.c. Please have a look at:
+>
+> https://lkml.org/lkml/2016/11/14/1078
+>
+> Since bpf.c is simple, I think we can add more functions and fixes
+> gradually, instead of a full copy.
+>
+> See my inline comment below.
+
+Ah, I missed this, my apologies. It looks like it will provide much of
+what I need, I can reassess this patch with your series in mind.
+
+One comment though for your patch (I don't have the original thread to
+respond to unfortunately): The map_pin and map_get functions in your
+patch series can be used to pin progs too, so maybe there is a better
+name? You'll see that this patch uses bpf_obj_{pin,get}() - although I
+wouldn't want those to be confused with the libbpf.c objects so maybe
+there's a clearer name that could be used.
+
+I also have some patches to rework the samples/bpf/* code to use
+libbpf instead of the sample code that is there, is it worth me
+submitting that? It will need to wait for your patch to go in, plus a
+merge with davem's tree.
+
+>
+> On 2016/11/17 1:43, Joe Stringer wrote:
 >>
->> Please make sure you get an acked-by: from the device tree
->> maintainers. They might want you to use faraday, since that is the
->> original IP provider. For example, all Synopsys licensed IP uses
->> "snps,XXX", not the SoC vendor with the license.
+>> Extend the tools/ version of libbpf to include all of the functionality
+>> provided in the samples/bpf version.
+>>
+>> Signed-off-by: Joe Stringer <joe@ovn.org>
+>> ---
+>> v2: Don't shift non-bpf changes across.
+>>      Various type cleanups, removal of extraneous declarations
+>> ---
+>>   tools/lib/bpf/bpf.c    | 107 ++++++++++++++++++++------
+>>   tools/lib/bpf/bpf.h    | 202
+>> +++++++++++++++++++++++++++++++++++++++++++++++--
+>>   tools/lib/bpf/libbpf.c |   3 +-
+>>   3 files changed, 279 insertions(+), 33 deletions(-)
+>>
+>> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+>> index 4212ed62235b..5e061851ac00 100644
+>> --- a/tools/lib/bpf/bpf.c
+>> +++ b/tools/lib/bpf/bpf.c
+>> @@ -20,10 +20,17 @@
+>>    */
+>>     #include <stdlib.h>
+>> -#include <memory.h>
+>> +#include <stdio.h>
+>>   #include <unistd.h>
+>>   #include <asm/unistd.h>
+>> +#include <string.h>
+>> +#include <linux/netlink.h>
+>>   #include <linux/bpf.h>
+>> +#include <errno.h>
+>> +#include <net/ethernet.h>
+>> +#include <net/if.h>
+>> +#include <linux/if_packet.h>
+>> +#include <arpa/inet.h>
+>>   #include "bpf.h"
+>>
 >
-> I think ideally we have both the ID from andes and from faraday here.
 >
-> Note that we already have "moxa,moxart-mac" as a compatible string
-> for this hardware, though it uses a different driver.
->
-> We should probably have a single binding document describing
-> both compatible strings and any optional properties.
->
->         Arnd
+> Why we need these network related headers?
 
-I am agree with that.
-Andes got this ftmac100 ip from faraday and we refined it.
-We rename it to atmac100 to provide to our customer.
-These 2 mac100 are using different hardware RTL code but they are
-software compatible.
+I started with a copy/paste, assuming that the headers were all in use
+but I guess that assumption was wrong.
 
-Most of the IPs in Andes SoC are named as atXXX in its dts.
-I suggest using this string "andestech,atmac100".
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>   /*
+>> @@ -53,24 +60,71 @@ static int sys_bpf(enum bpf_cmd cmd, union bpf_attr
+>> *attr,
+>>         return syscall(__NR_bpf, cmd, attr, size);
+>>   }
+>>   -int bpf_create_map(enum bpf_map_type map_type, int key_size,
+>> -                  int value_size, int max_entries)
+>> +int bpf_create_map(enum bpf_map_type map_type, int key_size, int
+>> value_size,
+>> +                  int max_entries, int map_flags)
+>>   {
+>> -       union bpf_attr attr;
+>> +       union bpf_attr attr = {
+>> +               .map_type = map_type,
+>> +               .key_size = key_size,
+>> +               .value_size = value_size,
+>> +               .max_entries = max_entries,
+>> +               .map_flags = map_flags,
+>> +       };
+>>   -     memset(&attr, '\0', sizeof(attr));
+>> +       return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+>> +}
+>>
+>
+>
+> I lost map_flags in original bpf.c. Thanks to your patch. map_flags is
+> useful
+> when creating BPF_MAP_TYPE_PERCPU_HASH: BPF_F_NO_PREALLOC is meanful in this
+> case.
+
+Do you want me to resubmit this piece as a separate patch or will you
+address this?
+
+> Although it is okay in samples, I still prefer a explicit bzero() or
+> memset(),
+> because kernel checks if unused field in this union is zero. However I'll
+> check
+> c standard to see how unused field would be initialized.
+
+OK.
+
+>> diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+>> index e8ba54087497..4dba36995771 100644
+>> --- a/tools/lib/bpf/bpf.h
+>> +++ b/tools/lib/bpf/bpf.h
+>> @@ -23,16 +23,202 @@
+>>     #include <linux/bpf.h>
+>>   +struct bpf_insn;
+>> +
+>>   int bpf_create_map(enum bpf_map_type map_type, int key_size, int
+>> value_size,
+>> -                  int max_entries);
+>> +                  int max_entries, int map_flags);
+>> +int bpf_update_elem(int fd, void *key, void *value, unsigned long long
+>> flags);
+>> +int bpf_lookup_elem(int fd, void *key, void *value);
+>> +int bpf_delete_elem(int fd, void *key);
+>> +int bpf_get_next_key(int fd, void *key, void *next_key);
+>> +
+>> +int bpf_load_program(enum bpf_prog_type prog_type,
+>> +                    const struct bpf_insn *insns, int insn_len,
+>> +                    const char *license, int kern_version,
+>> +                    char *log_buf, size_t log_buf_sz);
+>> +
+>> +int bpf_obj_pin(int fd, const char *pathname);
+>> +int bpf_obj_get(const char *pathname);
+>>   -/* Recommend log buffer size */
+>>   #define BPF_LOG_BUF_SIZE 65536
+>> -int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
+>> -                    size_t insns_cnt, char *license,
+>> -                    u32 kern_version, char *log_buf,
+>> -                    size_t log_buf_sz);
+>>   -int bpf_map_update_elem(int fd, void *key, void *value,
+>> -                       u64 flags);
+>> +/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
+>> +
+>> +#define BPF_ALU64_REG(OP, DST, SRC)                            \
+>> +       ((struct bpf_insn) {                                    \
+>> +               .code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,        \
+>> +               .dst_reg = DST,                                 \
+>> +               .src_reg = SRC,                                 \
+>> +               .off   = 0,                                     \
+>> +               .imm   = 0 })
+>> +
+>
+>
+> Should we define these macros here? They are in include/linux/filter.h
+> and duplicated in tools/include/linux/filter.h. Redefining them here
+> would cause conflict.
+
+Probably not; including the correct header file would be sufficient.
