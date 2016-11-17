@@ -1,169 +1,155 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [net-next] af_packet: Use virtio_net_hdr_to_skb().
-Date: Wed, 16 Nov 2016 18:06:42 -0800
-Message-ID: <1479348402-126248-1-git-send-email-jarno@ovn.org>
-Cc: jarno@ovn.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:32976 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751688AbcKQCKb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 21:10:31 -0500
-Received: from relay6-d.mail.gandi.net (relay6-d.mail.gandi.net [217.70.183.198])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 6433D47E95F
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 03:07:00 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCHv2 perf/core 2/2] tools lib bpf: Sync with
+ samples/bpf/libbpf
+Date: Thu, 17 Nov 2016 10:10:56 +0800
+Message-ID: <582D11B0.80208@huawei.com>
+References: <20161116174324.29675-1-joe@ovn.org>
+ <20161116174324.29675-3-joe@ovn.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <ast@fb.com>, <daniel@iogearbox.net>,
+        <acme@kernel.org>
+To: Joe Stringer <joe@ovn.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161116174324.29675-3-joe@ovn.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the common virtio_net_hdr_to_skb() instead of open coding it.
-Other call sites were changed by commit fd2a0437dc, but this one was
-missed, maybe because it is split in two parts of the source code.
+I'm also working on improving bpf.c. Please have a look at:
 
-Also fix other call sites to be more uniform.
+https://lkml.org/lkml/2016/11/14/1078
 
-Fixes: fd2a0437dc ("virtio_net: introduce virtio_net_hdr_{from,to}_skb")
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- drivers/net/macvtap.c      |  5 ++---
- drivers/net/tun.c          | 12 ++++--------
- include/linux/virtio_net.h |  2 +-
- net/packet/af_packet.c     | 44 +-------------------------------------------
- 4 files changed, 8 insertions(+), 55 deletions(-)
+Since bpf.c is simple, I think we can add more functions and fixes
+gradually, instead of a full copy.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 070e329..5da9861 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -821,9 +821,8 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 		if (iov_iter_count(iter) < vnet_hdr_len)
- 			return -EINVAL;
- 
--		ret = virtio_net_hdr_from_skb(skb, &vnet_hdr,
--					      macvtap_is_little_endian(q));
--		if (ret)
-+		if (virtio_net_hdr_from_skb(skb, &vnet_hdr,
-+					    macvtap_is_little_endian(q)))
- 			BUG();
- 
- 		if (copy_to_iter(&vnet_hdr, sizeof(vnet_hdr), iter) !=
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9328568..864aae3 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1252,8 +1252,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		return -EFAULT;
- 	}
- 
--	err = virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun));
--	if (err) {
-+	if (virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun))) {
- 		this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
- 		kfree_skb(skb);
- 		return -EINVAL;
-@@ -1361,15 +1360,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 	}
- 
- 	if (vnet_hdr_sz) {
--		struct virtio_net_hdr gso = { 0 }; /* no info leak */
--		int ret;
--
-+		struct virtio_net_hdr gso;
- 		if (iov_iter_count(iter) < vnet_hdr_sz)
- 			return -EINVAL;
- 
--		ret = virtio_net_hdr_from_skb(skb, &gso,
--					      tun_is_little_endian(tun));
--		if (ret) {
-+		if (virtio_net_hdr_from_skb(skb, &gso,
-+					    tun_is_little_endian(tun))) {
- 			struct skb_shared_info *sinfo = skb_shinfo(skb);
- 			pr_err("unexpected GSO type: "
- 			       "0x%x, gso_size %d, hdr_len %d\n",
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 1c912f8..74f1e33 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -98,4 +98,4 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
- 	return 0;
- }
- 
--#endif /* _LINUX_VIRTIO_BYTEORDER */
-+#endif /* _LINUX_VIRTIO_NET_H */
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 11db0d6..09abb88 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1971,8 +1971,6 @@ static unsigned int run_filter(struct sk_buff *skb,
- static int __packet_rcv_vnet(const struct sk_buff *skb,
- 			     struct virtio_net_hdr *vnet_hdr)
- {
--	*vnet_hdr = (const struct virtio_net_hdr) { 0 };
--
- 	if (virtio_net_hdr_from_skb(skb, vnet_hdr, vio_le()))
- 		BUG();
- 
-@@ -2391,8 +2389,6 @@ static void tpacket_set_protocol(const struct net_device *dev,
- 
- static int __packet_snd_vnet_parse(struct virtio_net_hdr *vnet_hdr, size_t len)
- {
--	unsigned short gso_type = 0;
--
- 	if ((vnet_hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
- 	    (__virtio16_to_cpu(vio_le(), vnet_hdr->csum_start) +
- 	     __virtio16_to_cpu(vio_le(), vnet_hdr->csum_offset) + 2 >
-@@ -2404,29 +2400,6 @@ static int __packet_snd_vnet_parse(struct virtio_net_hdr *vnet_hdr, size_t len)
- 	if (__virtio16_to_cpu(vio_le(), vnet_hdr->hdr_len) > len)
- 		return -EINVAL;
- 
--	if (vnet_hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
--		switch (vnet_hdr->gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
--		case VIRTIO_NET_HDR_GSO_TCPV4:
--			gso_type = SKB_GSO_TCPV4;
--			break;
--		case VIRTIO_NET_HDR_GSO_TCPV6:
--			gso_type = SKB_GSO_TCPV6;
--			break;
--		case VIRTIO_NET_HDR_GSO_UDP:
--			gso_type = SKB_GSO_UDP;
--			break;
--		default:
--			return -EINVAL;
--		}
--
--		if (vnet_hdr->gso_type & VIRTIO_NET_HDR_GSO_ECN)
--			gso_type |= SKB_GSO_TCP_ECN;
--
--		if (vnet_hdr->gso_size == 0)
--			return -EINVAL;
--	}
--
--	vnet_hdr->gso_type = gso_type;	/* changes type, temporary storage */
- 	return 0;
- }
- 
-@@ -2449,22 +2422,7 @@ static int packet_snd_vnet_parse(struct msghdr *msg, size_t *len,
- static int packet_snd_vnet_gso(struct sk_buff *skb,
- 			       struct virtio_net_hdr *vnet_hdr)
- {
--	if (vnet_hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--		u16 s = __virtio16_to_cpu(vio_le(), vnet_hdr->csum_start);
--		u16 o = __virtio16_to_cpu(vio_le(), vnet_hdr->csum_offset);
--
--		if (!skb_partial_csum_set(skb, s, o))
--			return -EINVAL;
--	}
--
--	skb_shinfo(skb)->gso_size =
--		__virtio16_to_cpu(vio_le(), vnet_hdr->gso_size);
--	skb_shinfo(skb)->gso_type = vnet_hdr->gso_type;
--
--	/* Header must be checked, and gso_segs computed. */
--	skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
--	skb_shinfo(skb)->gso_segs = 0;
--	return 0;
-+	return virtio_net_hdr_to_skb(skb, vnet_hdr, vio_le());
- }
- 
- static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
--- 
-2.1.4
+See my inline comment below.
+
+On 2016/11/17 1:43, Joe Stringer wrote:
+> Extend the tools/ version of libbpf to include all of the functionality
+> provided in the samples/bpf version.
+>
+> Signed-off-by: Joe Stringer <joe@ovn.org>
+> ---
+> v2: Don't shift non-bpf changes across.
+>      Various type cleanups, removal of extraneous declarations
+> ---
+>   tools/lib/bpf/bpf.c    | 107 ++++++++++++++++++++------
+>   tools/lib/bpf/bpf.h    | 202 +++++++++++++++++++++++++++++++++++++++++++++++--
+>   tools/lib/bpf/libbpf.c |   3 +-
+>   3 files changed, 279 insertions(+), 33 deletions(-)
+>
+> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+> index 4212ed62235b..5e061851ac00 100644
+> --- a/tools/lib/bpf/bpf.c
+> +++ b/tools/lib/bpf/bpf.c
+> @@ -20,10 +20,17 @@
+>    */
+>   
+>   #include <stdlib.h>
+> -#include <memory.h>
+> +#include <stdio.h>
+>   #include <unistd.h>
+>   #include <asm/unistd.h>
+> +#include <string.h>
+> +#include <linux/netlink.h>
+>   #include <linux/bpf.h>
+> +#include <errno.h>
+> +#include <net/ethernet.h>
+> +#include <net/if.h>
+> +#include <linux/if_packet.h>
+> +#include <arpa/inet.h>
+>   #include "bpf.h"
+>   
+
+Why we need these network related headers?
+
+>   /*
+> @@ -53,24 +60,71 @@ static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
+>   	return syscall(__NR_bpf, cmd, attr, size);
+>   }
+>   
+> -int bpf_create_map(enum bpf_map_type map_type, int key_size,
+> -		   int value_size, int max_entries)
+> +int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+> +		   int max_entries, int map_flags)
+>   {
+> -	union bpf_attr attr;
+> +	union bpf_attr attr = {
+> +		.map_type = map_type,
+> +		.key_size = key_size,
+> +		.value_size = value_size,
+> +		.max_entries = max_entries,
+> +		.map_flags = map_flags,
+> +	};
+>   
+> -	memset(&attr, '\0', sizeof(attr));
+> +	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+> +}
+>   
+
+I lost map_flags in original bpf.c. Thanks to your patch. map_flags is 
+useful
+when creating BPF_MAP_TYPE_PERCPU_HASH: BPF_F_NO_PREALLOC is meanful in this
+case.
+
+Although it is okay in samples, I still prefer a explicit bzero() or 
+memset(),
+because kernel checks if unused field in this union is zero. However 
+I'll check
+c standard to see how unused field would be initialized.
+
+
+<SNIP>
+
+> diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+> index e8ba54087497..4dba36995771 100644
+> --- a/tools/lib/bpf/bpf.h
+> +++ b/tools/lib/bpf/bpf.h
+> @@ -23,16 +23,202 @@
+>   
+>   #include <linux/bpf.h>
+>   
+> +struct bpf_insn;
+> +
+>   int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+> -		   int max_entries);
+> +		   int max_entries, int map_flags);
+> +int bpf_update_elem(int fd, void *key, void *value, unsigned long long flags);
+> +int bpf_lookup_elem(int fd, void *key, void *value);
+> +int bpf_delete_elem(int fd, void *key);
+> +int bpf_get_next_key(int fd, void *key, void *next_key);
+> +
+> +int bpf_load_program(enum bpf_prog_type prog_type,
+> +		     const struct bpf_insn *insns, int insn_len,
+> +		     const char *license, int kern_version,
+> +		     char *log_buf, size_t log_buf_sz);
+> +
+> +int bpf_obj_pin(int fd, const char *pathname);
+> +int bpf_obj_get(const char *pathname);
+>   
+> -/* Recommend log buffer size */
+>   #define BPF_LOG_BUF_SIZE 65536
+> -int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
+> -		     size_t insns_cnt, char *license,
+> -		     u32 kern_version, char *log_buf,
+> -		     size_t log_buf_sz);
+>   
+> -int bpf_map_update_elem(int fd, void *key, void *value,
+> -			u64 flags);
+> +/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
+> +
+> +#define BPF_ALU64_REG(OP, DST, SRC)				\
+> +	((struct bpf_insn) {					\
+> +		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
+> +		.dst_reg = DST,					\
+> +		.src_reg = SRC,					\
+> +		.off   = 0,					\
+> +		.imm   = 0 })
+> +
+
+Should we define these macros here? They are in include/linux/filter.h
+and duplicated in tools/include/linux/filter.h. Redefining them here
+would cause conflict.
+
+Thank you.
