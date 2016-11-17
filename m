@@ -1,69 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the tip tree
-Date: Thu, 17 Nov 2016 14:22:27 +1100
-Message-ID: <20161117142227.7753ef12@canb.auug.org.au>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: Respect SPEED_UNFORCED, don't set force bit
+Date: Thu, 17 Nov 2016 14:25:31 +1100
+Message-ID: <87lgwizt1w.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1479266808-10957-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Christian Borntraeger <borntraeger@de.ibm.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
-        "H. Peter Anvin" <hpa@zytor.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:56226 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752375AbcKQDZk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 22:25:40 -0500
+In-Reply-To: <1479266808-10957-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Hi Andrew,
 
-After merging the tip tree, today's linux-next build (arm
-multi_v7_defconfig) failed like this:
+Andrew Lunn <andrew@lunn.ch> writes:
 
-net/core/dev.c: In function 'sk_busy_loop':
-net/core/dev.c:5065:3: error: implicit declaration of function 'cpu_relax_lowlatency' [-Werror=implicit-function-declaration]
-   cpu_relax_lowlatency();
-   ^
+> The SPEED_UNFORCED indicates the MAC & PHY should perform
+> auto-negotiation to determine a speed which works. If this is called
+> for, don't set the force bit. If it is set, the MAC actually does
+> 10Gbps, why the internal PHYs don't support.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Caused by commit
+Fixes: 96a2b40c7bd3 ("net: dsa: mv88e6xxx: add port's MAC speed setter")
 
-  5bd0b85ba8bb ("locking/core, arch: Remove cpu_relax_lowlatency()")
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-interacting with commit
+David, this is for net-next.
 
-  217f69743681 ("net: busy-poll: allow preemption in sk_busy_loop()")
+Thanks!
 
-from the net-next tree.
-
-I have applied the following merge fix patch.
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 17 Nov 2016 14:13:05 +1100
-Subject: [PATCH] net: busy-poll: fix up for cpu_relax_lowlatency() removal
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d29d538ec5ad..6b9f8eb55b62 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5062,7 +5062,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 				return rc;
- 			goto restart;
- 		}
--		cpu_relax_lowlatency();
-+		cpu_relax();
- 	}
- 	if (napi_poll)
- 		busy_poll_stop(napi, have_poll_lock);
--- 
-2.10.2
-
--- 
-Cheers,
-Stephen Rothwell
+        Vivien
