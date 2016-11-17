@@ -1,62 +1,126 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
-Date: Thu, 17 Nov 2016 17:51:34 +0530
-Message-ID: <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
-References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next 6/8] ipv4: fib: Add an API to request a FIB dump
+Date: Thu, 17 Nov 2016 20:03:03 +0100
+Message-ID: <61ef623b-3e10-2ea4-a8de-ba5f31d208e5@stressinduktion.org>
+References: <e2e0eaaf-30f0-e825-29c7-920115742301@stressinduktion.org>
+ <20161117.114529.1851585222876647915.davem@davemloft.net>
+ <f58c008f-c23a-4950-2975-3c1b4c3b8692@stressinduktion.org>
+ <20161117.131609.164578639844581895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rafal Ozieblo <rafalo@cadence.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: idosch@idosch.org, jiri@resnulli.us, netdev@vger.kernel.org,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        nogahf@mellanox.com, arkadis@mellanox.com, ogerlitz@mellanox.com,
+        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, andy@greyhouse.net,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:42117 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933672AbcKQTDL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 14:03:11 -0500
+In-Reply-To: <20161117.131609.164578639844581895.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rafal,
+On 17.11.2016 19:16, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Thu, 17 Nov 2016 18:20:39 +0100
+> 
+>> Hi,
+>>
+>> On 17.11.2016 17:45, David Miller wrote:
+>>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>> Date: Thu, 17 Nov 2016 15:36:48 +0100
+>>>
+>>>> The other way is the journal idea I had, which uses an rb-tree with
+>>>> timestamps as keys (can be lamport timestamps). You insert into the tree
+>>>> until the dump is finished and use it as queue later to shuffle stuff
+>>>> into the hardware.
+>>>
+>>> If you have this "place" where pending inserts are stored, you have
+>>> a policy decision to make.
+>>>
+>>> First of all what do other lookups see when there are pending entires?
+>>
+>> I think this is a problem with the current approach already, as the
+>> delayed work queue already postpones the insert for an undecidable
+>> amount of time (and reorders depending on which CPU the entry was
+>> inserted and the fib notifier was called).
+>>
+>> For user space queries we would still query the in-kernel table.
+> 
+> Ok, I think I might misunderstand something.
+> 
+> What is going into this journal exactly?  The actual full software and
+> hardware insert operation, or just the notification to the hardware
+> device driver notifiers?
 
-On Thu, Nov 17, 2016 at 5:20 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
-> Hello,
-> I think, there could a bug in your patch.
->
->> +
->> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
->> +             dmacfg |= GEM_BIT(ADDR64);
->> +#endif
->
-> You enable 64 bit addressing (64b dma bus width) always when appropriate architecture config option is enabled.
-> But there are some legacy controllers which do not support that feature. According Cadence hardware team:
-> "64 bit addressing was added in July 2013. Earlier version do not have it.
-> This feature was enhanced in release August 2014 to have separate upper address values for transmit and receive."
->
->> /* Bitfields in NSR */
->> @@ -474,6 +479,10 @@
->>  struct macb_dma_desc {
->  >      u32     addr;
->>       u32     ctrl;
->> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
->> +     u32     addrh;
->> +     u32     resvd;
->> +#endif
->>  };
->
-> It will not work for legacy hardware. Old descriptor is 2 words wide, the new one is 4 words wide.
-> If you enable CONFIG_ARCH_DMA_ADDR_T_64BIT but hardware doesn't support it at all,
-> you will miss every second descriptor.
->
+The journal is only used as a timely ordered queue for updating the
+hardware in correct order.
 
-True, this feature is not available in all of Cadence IP versions.
-In fact, the IP version Zynq does not support this. But the one in ZynqMP does.
-So, we enable kernel config for 64 bit DMA addressing for this SoC and hence
-the driver picks it up. My assumption was that if the legacy IP does not support
-64 bit addressing, then this DMA option wouldn't be enabled.
+The enqueue side is the fib notifier only. If no fib notifier is
+registered we don't use this code at all (and also don't hit the lock
+protecting this journal in fib insertion/deletion path - fast in-kernel
+path is untouched - otherwise just a spin_lock already under rtnl_lock
+in slow path).
 
-There is a design config register in Cadence IP which is being read to
-check for 64 bit address support - DMA mask is set based on that.
-But the addition of two descriptor words cannot be based on this runtime check.
-For this reason, all the static changes were placed under this check.
+The fib notifier enqueues the packet with a timestamp into this journal
+and can also merge entries while they are in the queue, e.g. we got a
+delete from the fib notifier but the rcu walk indicated an addition of
+the entry, so we can merge that at this point and depending on the
+timestamp remove the entry or drop the deletion event.
 
-Regards,
-Harini
+We start dequeueing the fib entries into the hardware as soon as the rcu
+dump is finished, at this point we are up-to-date in the queue with all
+events. New events can be added to the journal (with appropriate
+locking) during this time, as the queue was once in proper synced state
+we stay proper synchronized. We keep up with the queue in steady state
+after the dump, so syncing happens ASAP. Maybe we can also drop the
+journal then.
+
+Something alike this described queue is implemented here (haven't
+checked if it exactly matches the specification, certainly it provides
+more features):
+https://github.com/bus1/bus1/blob/master/ipc/bus1/util/queue.h
+https://github.com/bus1/bus1/blob/master/ipc/bus1/util/queue.c
+
+For this to work the config path needs to add timestamps to the
+fib_infos or fib_aliases.
+
+> The "lookup" I'm mostly concerned with is the fast path where the
+> packets being processed actually look up a route.
+
+This doesn't change at all. All code will be hidden in a library that
+gets attached to the fib notifier, which is configuration code path.
+
+> I do not think we can return success on the insert to the user yet
+> have the route lookup dataplace not return that route on a lookup.
+
+We don't change kernel fast path at all.
+
+If we add/delete a route in software and hardware, kernel indicates
+success as soon as software has the entry added. It also gets queued up
+in the journal. Journal will be lazily processed, if error happens
+during that (e.g. hardware signals table full), abort is called and all
+packets go to user space ASAP. User space will always show the route as
+it is added to in the first place and after the driver called abort also
+process the packets accordingly.
+
+I can imagine this can get very complicated. David's approach with a
+counter to check for modifications and a limited number of retries
+probably works too, especially because the hardware will probably be
+initialized before routing daemons start up and will be synced up
+hopefully all the time.
+
+So maybe this is over engineered, but I have no idea how long hardware
+needs to sync up a e.g. full IPv4 routing table into hardware (if that
+is actually the current goal of this).
+
+Bye,
+Hannes
