@@ -1,59 +1,102 @@
-From: =?UTF-8?Q?Vicente_Jim=C3=A9nez?= <googuy@gmail.com>
-Subject: Re: [PATCH] icmp: Restore resistence to abnormal messages
-Date: Thu, 17 Nov 2016 02:17:44 +0100
-Message-ID: <CAO1wt+aOv8K-16geLxO=qzp8cVTkFPiTMxV6WNWS9Ggx+tZeKg@mail.gmail.com>
-References: <20161111202018.13795-1-googuy@gmail.com> <20161114.133646.1687576478968660327.davem@davemloft.net>
- <CAO1wt+b4OkJ4DmJ7_hUj_oKj4p_rRMuKUVpiBY7MSFMa=0WKQg@mail.gmail.com>
- <20161115.115657.798577230951109692.davem@redhat.com> <20161115173024.GD30581@breakpoint.cc>
- <CAO1wt+aZjRE_KTY0iRNJryeHvehrK6kuGMn6wOOeFuT1ncpPxA@mail.gmail.com> <20161116011404.GF30581@breakpoint.cc>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCHv2 perf/core 1/2] tools lib bpf: Sync
+ {tools,}/include/uapi/linux/bpf.h
+Date: Thu, 17 Nov 2016 09:28:00 +0800
+Message-ID: <582D07A0.3050003@huawei.com>
+References: <20161116174324.29675-1-joe@ovn.org>
+ <20161116174324.29675-2-joe@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@redhat.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <ast@fb.com>, <daniel@iogearbox.net>,
+        <acme@kernel.org>
+To: Joe Stringer <joe@ovn.org>, <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161116011404.GF30581@breakpoint.cc>
+In-Reply-To: <20161116174324.29675-2-joe@ovn.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 16, 2016 at 2:14 AM, Florian Westphal <fw@strlen.de> wrote:
-> Vicente Jim=C3=A9nez <googuy@gmail.com> wrote:
->> 1- add warning with pr_warn_ratelimited. I like this idea. I also
->> though about adding some message but I have no kernel experience and I
->> preferred to have just a working solution.
->
-> I added this only to show whats happening.
->
-> I don't like such printks because end users can't do anything about it.
->
-What about using net_dbg_ratelimited macro? it only adds messages if
-debug is enabled.
 
->
->> Finally, both patches decrement current packet by a value: Mine by 2
->> and Florian's by 8 bytes. Both arbitrary values. Personally I prefer
->> to go by small steps. If the small step fails, it just iterate again
->> and with 4 iterations, my patch also decrement the original value by 8
->> bytes (4x2).
->> Basically they are the same but my patch take smaller steps and miss
->> the warning message.
->
-> IIRC I chose 8 because connection recovered faster in my case.
->
-> I have not experienced this issue again (I dropped the patch from
-> my kernel at some point and the connection stalls did not reappear so
-> this got fixed elsewhere).
-My issue is permanent for now in various locations. We have to
-decrease MTU manually on all devices with newer kernels. We don't have
-direct access to those abnormal routers because they are managed by a
-communication provider that think the network had no problem because
-all their Windows machines apparently work perfectly.
 
---=20
-cheers
-vicente
+On 2016/11/17 1:43, Joe Stringer wrote:
+> The tools version of this header is out of date; update it to the latest
+> version from the kernel headers.
+>
+> Signed-off-by: Joe Stringer <joe@ovn.org>
+> ---
+> v2: No change.
+> ---
+>   tools/include/uapi/linux/bpf.h | 51 ++++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 51 insertions(+)
+
+Acked-by: Wang Nan <wangnan0@huawei.com>
+
+> diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+> index 9e5fc168c8a3..f09c70b97eca 100644
+> --- a/tools/include/uapi/linux/bpf.h
+> +++ b/tools/include/uapi/linux/bpf.h
+> @@ -95,6 +95,7 @@ enum bpf_prog_type {
+>   	BPF_PROG_TYPE_SCHED_ACT,
+>   	BPF_PROG_TYPE_TRACEPOINT,
+>   	BPF_PROG_TYPE_XDP,
+> +	BPF_PROG_TYPE_PERF_EVENT,
+>   };
+>   
+>   #define BPF_PSEUDO_MAP_FD	1
+> @@ -375,6 +376,56 @@ enum bpf_func_id {
+>   	 */
+>   	BPF_FUNC_probe_write_user,
+>   
+> +	/**
+> +	 * bpf_current_task_under_cgroup(map, index) - Check cgroup2 membership of current task
+> +	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
+> +	 * @index: index of the cgroup in the bpf_map
+> +	 * Return:
+> +	 *   == 0 current failed the cgroup2 descendant test
+> +	 *   == 1 current succeeded the cgroup2 descendant test
+> +	 *    < 0 error
+> +	 */
+> +	BPF_FUNC_current_task_under_cgroup,
+> +
+> +	/**
+> +	 * bpf_skb_change_tail(skb, len, flags)
+> +	 * The helper will resize the skb to the given new size,
+> +	 * to be used f.e. with control messages.
+> +	 * @skb: pointer to skb
+> +	 * @len: new skb length
+> +	 * @flags: reserved
+> +	 * Return: 0 on success or negative error
+> +	 */
+> +	BPF_FUNC_skb_change_tail,
+> +
+> +	/**
+> +	 * bpf_skb_pull_data(skb, len)
+> +	 * The helper will pull in non-linear data in case the
+> +	 * skb is non-linear and not all of len are part of the
+> +	 * linear section. Only needed for read/write with direct
+> +	 * packet access.
+> +	 * @skb: pointer to skb
+> +	 * @len: len to make read/writeable
+> +	 * Return: 0 on success or negative error
+> +	 */
+> +	BPF_FUNC_skb_pull_data,
+> +
+> +	/**
+> +	 * bpf_csum_update(skb, csum)
+> +	 * Adds csum into skb->csum in case of CHECKSUM_COMPLETE.
+> +	 * @skb: pointer to skb
+> +	 * @csum: csum to add
+> +	 * Return: csum on success or negative error
+> +	 */
+> +	BPF_FUNC_csum_update,
+> +
+> +	/**
+> +	 * bpf_set_hash_invalid(skb)
+> +	 * Invalidate current skb>hash.
+> +	 * @skb: pointer to skb
+> +	 */
+> +	BPF_FUNC_set_hash_invalid,
+> +
+>   	__BPF_FUNC_MAX_ID,
+>   };
+>   
