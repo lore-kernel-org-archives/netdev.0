@@ -1,77 +1,85 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net v2 4/7] net: ethernet: ti: cpsw: fix of_node and phydev leaks
-Date: Thu, 17 Nov 2016 17:40:01 +0100
-Message-ID: <1479400804-9847-5-git-send-email-johan@kernel.org>
-References: <1479400804-9847-1-git-send-email-johan@kernel.org>
-Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479400804-9847-1-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v3 0/5] Adding PHY-Tunables and downshift support
+Date: Thu, 17 Nov 2016 13:07:19 +0100
+Message-ID: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0061.outbound.protection.outlook.com ([104.47.40.61]:57280
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S936373AbcKQRja (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 12:39:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure to drop references taken and deregister devices registered
-during probe on probe errors (including deferred probe) and driver
-unbind.
+Hi All,
 
-Specifically, PHY of-node references were never released and fixed-link
-PHY devices were never deregistered.
+(This is a re-post of the v3 patch set with a new cover letter - I was not
+aware that the cover letters was used a commit comments in merge commits).
 
-Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
-Fixes: 1f71e8c96fc6 ("drivers: net: cpsw: Add support for fixed-link
-PHY")
-Signed-off-by: Johan Hovold <johan@kernel.org>
----
- drivers/net/ethernet/ti/cpsw.c | 35 +++++++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+This series add support for PHY tunables, and uses this facility to
+configure downshifting. The downshifting mechanism is implemented for MSCC
+phys.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 5d14abb06486..c3b78bc4fe58 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2443,6 +2443,41 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 
- static void cpsw_remove_dt(struct platform_device *pdev)
- {
-+	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct cpsw_common *cpsw = ndev_to_cpsw(ndev);
-+	struct cpsw_platform_data *data = &cpsw->data;
-+	struct device_node *node = pdev->dev.of_node;
-+	struct device_node *slave_node;
-+	int i = 0;
-+
-+	for_each_available_child_of_node(node, slave_node) {
-+		struct cpsw_slave_data *slave_data = &data->slave_data[i];
-+
-+		if (strcmp(slave_node->name, "slave"))
-+			continue;
-+
-+		if (of_phy_is_fixed_link(slave_node)) {
-+			struct phy_device *phydev;
-+
-+			phydev = of_phy_find_device(slave_node);
-+			if (phydev) {
-+				fixed_phy_unregister(phydev);
-+				/* Put references taken by
-+				 * of_phy_find_device() and
-+				 * of_phy_register_fixed_link().
-+				 */
-+				phy_device_free(phydev);
-+				phy_device_free(phydev);
-+			}
-+		}
-+
-+		of_node_put(slave_data->phy_node);
-+
-+		i++;
-+		if (i == data->slaves)
-+			break;
-+	}
-+
- 	of_platform_depopulate(&pdev->dev);
- }
- 
+This series tries to address the comments provided back in mid October when
+this feature was posted along with fast-link-failure. Fast-link-failure has
+been separated out, but we would like to pick continue on that if/when we
+agree on how the phy-tunables and downshifting should be done.
+
+The proposed generic interface is similar to
+ETHTOOL_GTUNABLE/ETHTOOL_STUNABLE, it uses the same type
+(ethtool_tunable/tunable_type_id) but a new enum (phy_tunable_id) is added
+to reflect the PHY tunable.
+
+The implementation just call the newly added function pointers in
+get_tunable/set_tunable phy_device structure.
+
+To configure downshifting, the ethtool_tunable structure is used. 'id' must
+be set to 'ETHTOOL_PHY_DOWNSHIFT', 'type_id' must be set to
+'ETHTOOL_TUNABLE_U8' and 'data' value configure the amount of downshift
+re-tries.
+
+If configured to DOWNSHIFT_DEV_DISABLE, then downshift is disabled If
+configured to DOWNSHIFT_DEV_DEFAULT_COUNT, then it is up to the device to
+choose a device-specific re-try count.
+
+Tested on Beaglebone Black with VSC 8531 PHY.
+
+Change set:
+v0:
+
+- Link Speed downshift and Fast Link failure-2 features coded by using
+  Device tree.
+v1: 
+- Split the Downshift and FLF2 features in different set of patches.
+- Removed DT access and implemented IOCTL access suggested by Andrew.
+- Added function pointers in get_tunable/set_tunable phy_device structure
+v2:
+- Added trace message with a hist is printed when downshifting clould not
+  be eanbled with the requested count
+- (ethtool) Syntax is changed from "--set-phy-tunable downshift on|off|%d"
+  to "--set-phy-tunable [downshift on|off [count N]]" - as requested by
+  Andrew.
+v3:
+- Fixed Spelling in "net: phy: Add downshift get/set support in Microsemi
+  PHYs driver"
+
+Raju Lakkaraju (5):
+  ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE and ETHTOOL_PHY_STUNABLE
+  ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE
+  ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
+  ethtool: Core impl for ETHTOOL_PHY_DOWNSHIFT tunable
+  net: phy: Add downshift get/set support in Microsemi PHYs driver
+
+ drivers/net/phy/mscc.c       | 100 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/phy.h          |   7 +++
+ include/uapi/linux/ethtool.h |  18 +++++++-
+ net/core/ethtool.c           |  93 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 217 insertions(+), 1 deletion(-)
+
 -- 
-2.7.3
+2.7.4
