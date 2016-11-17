@@ -1,78 +1,31 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
-Date: Thu, 17 Nov 2016 13:35:28 +0000
-Message-ID: <BN3PR07MB2516EBCDD8822FC5F8A9095FC9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
-References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
- <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
- <e6773b4e-a633-4754-893d-fd2351d07459@atmel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 4/7] vxlan: improve vxlan route lookup
+ checks.
+Date: Thu, 17 Nov 2016 13:11:22 -0500 (EST)
+Message-ID: <20161117.131122.1746243673707925963.davem@davemloft.net>
+References: <20161115153934.363e176d@griffin>
+        <063D6719AE5E284EB5DD2968C1650D6DB0222355@AcuExch.aculab.com>
+        <20161117165950.6a8ed0d0@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Harini Katakam <harinikatakamlinux@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David.Laight@ACULAB.COM, pshelar@ovn.org, netdev@vger.kernel.org
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0059.outbound.protection.outlook.com ([104.47.40.59]:57312
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S964845AbcKQSIx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 13:08:53 -0500
-In-Reply-To: <e6773b4e-a633-4754-893d-fd2351d07459@atmel.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:40668 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934925AbcKQSLb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 13:11:31 -0500
+In-Reply-To: <20161117165950.6a8ed0d0@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IE5pY29sYXMgRmVycmUgW21haWx0bzpu
-aWNvbGFzLmZlcnJlQGF0bWVsLmNvbV0gDQpTZW50OiAxNyBsaXN0b3BhZGEgMjAxNiAxNDoyOQ0K
-VG86IEhhcmluaSBLYXRha2FtOyBSYWZhbCBPemllYmxvDQpDYzogaGFyaW5pLmthdGFrYW1AeGls
-aW54LmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVs
-Lm9yZw0KU3ViamVjdDogUmU6IFtSRkMgUEFUQ0ggMi8yXSBuZXQ6IG1hY2I6IEFkZCA2NCBiaXQg
-YWRkcmVzc2luZyBzdXBwb3J0IGZvciBHRU0NCg0KPiBMZSAxNy8xMS8yMDE2IMOgIDEzOjIxLCBI
-YXJpbmkgS2F0YWthbSBhIMOpY3JpdCA6DQo+ID4gSGkgUmFmYWwsDQo+ID4gDQo+ID4gT24gVGh1
-LCBOb3YgMTcsIDIwMTYgYXQgNToyMCBQTSwgUmFmYWwgT3ppZWJsbyA8cmFmYWxvQGNhZGVuY2Uu
-Y29tPiB3cm90ZToNCj4gPj4gSGVsbG8sDQo+ID4+IEkgdGhpbmssIHRoZXJlIGNvdWxkIGEgYnVn
-IGluIHlvdXIgcGF0Y2guDQo+ID4+DQo+ID4+PiArDQo+ID4+PiArI2lmZGVmIENPTkZJR19BUkNI
-X0RNQV9BRERSX1RfNjRCSVQNCj4gPj4+ICsgICAgICAgICAgICAgZG1hY2ZnIHw9IEdFTV9CSVQo
-QUREUjY0KTsgI2VuZGlmDQo+ID4+DQo+ID4+IFlvdSBlbmFibGUgNjQgYml0IGFkZHJlc3Npbmcg
-KDY0YiBkbWEgYnVzIHdpZHRoKSBhbHdheXMgd2hlbiBhcHByb3ByaWF0ZSBhcmNoaXRlY3R1cmUg
-Y29uZmlnIG9wdGlvbiBpcyBlbmFibGVkLg0KPiA+PiBCdXQgdGhlcmUgYXJlIHNvbWUgbGVnYWN5
-IGNvbnRyb2xsZXJzIHdoaWNoIGRvIG5vdCBzdXBwb3J0IHRoYXQgZmVhdHVyZS4gQWNjb3JkaW5n
-IENhZGVuY2UgaGFyZHdhcmUgdGVhbToNCj4gPj4gIjY0IGJpdCBhZGRyZXNzaW5nIHdhcyBhZGRl
-ZCBpbiBKdWx5IDIwMTMuIEVhcmxpZXIgdmVyc2lvbiBkbyBub3QgaGF2ZSBpdC4NCj4gPj4gVGhp
-cyBmZWF0dXJlIHdhcyBlbmhhbmNlZCBpbiByZWxlYXNlIEF1Z3VzdCAyMDE0IHRvIGhhdmUgc2Vw
-YXJhdGUgdXBwZXIgYWRkcmVzcyB2YWx1ZXMgZm9yIHRyYW5zbWl0IGFuZCByZWNlaXZlLiINCj4g
-Pj4NCj4gPj4+IC8qIEJpdGZpZWxkcyBpbiBOU1IgKi8NCj4gPj4+IEBAIC00NzQsNiArNDc5LDEw
-IEBADQo+ID4+PiAgc3RydWN0IG1hY2JfZG1hX2Rlc2Mgew0KPiA+PiAgPiAgICAgIHUzMiAgICAg
-YWRkcjsNCj4gPj4+ICAgICAgIHUzMiAgICAgY3RybDsNCj4gPj4+ICsjaWZkZWYgQ09ORklHX0FS
-Q0hfRE1BX0FERFJfVF82NEJJVA0KPiA+Pj4gKyAgICAgdTMyICAgICBhZGRyaDsNCj4gPj4+ICsg
-ICAgIHUzMiAgICAgcmVzdmQ7DQo+ID4+PiArI2VuZGlmDQo+ID4+PiAgfTsNCj4gPj4NCj4gPj4g
-SXQgd2lsbCBub3Qgd29yayBmb3IgbGVnYWN5IGhhcmR3YXJlLiBPbGQgZGVzY3JpcHRvciBpcyAy
-IHdvcmRzIHdpZGUsIHRoZSBuZXcgb25lIGlzIDQgd29yZHMgd2lkZS4NCj4gPj4gSWYgeW91IGVu
-YWJsZSBDT05GSUdfQVJDSF9ETUFfQUREUl9UXzY0QklUIGJ1dCBoYXJkd2FyZSBkb2Vzbid0IA0K
-PiA+PiBzdXBwb3J0IGl0IGF0IGFsbCwgeW91IHdpbGwgbWlzcyBldmVyeSBzZWNvbmQgZGVzY3Jp
-cHRvci4NCj4gPj4NCj4gPiANCj4gPiBUcnVlLCB0aGlzIGZlYXR1cmUgaXMgbm90IGF2YWlsYWJs
-ZSBpbiBhbGwgb2YgQ2FkZW5jZSBJUCB2ZXJzaW9ucy4NCj4gPiBJbiBmYWN0LCB0aGUgSVAgdmVy
-c2lvbiBaeW5xIGRvZXMgbm90IHN1cHBvcnQgdGhpcy4gQnV0IHRoZSBvbmUgaW4gWnlucU1QIGRv
-ZXMuDQo+ID4gU28sIHdlIGVuYWJsZSBrZXJuZWwgY29uZmlnIGZvciA2NCBiaXQgRE1BIGFkZHJl
-c3NpbmcgZm9yIHRoaXMgU29DIGFuZCANCj4gPiBoZW5jZSB0aGUgZHJpdmVyIHBpY2tzIGl0IHVw
-LiBNeSBhc3N1bXB0aW9uIHdhcyB0aGF0IGlmIHRoZSBsZWdhY3kgSVAgDQo+ID4gZG9lcyBub3Qg
-c3VwcG9ydA0KPiA+IDY0IGJpdCBhZGRyZXNzaW5nLCB0aGVuIHRoaXMgRE1BIG9wdGlvbiB3b3Vs
-ZG4ndCBiZSBlbmFibGVkLg0KPiA+IA0KPiA+IFRoZXJlIGlzIGEgZGVzaWduIGNvbmZpZyByZWdp
-c3RlciBpbiBDYWRlbmNlIElQIHdoaWNoIGlzIGJlaW5nIHJlYWQgdG8gDQo+ID4gY2hlY2sgZm9y
-IDY0IGJpdCBhZGRyZXNzIHN1cHBvcnQgLSBETUEgbWFzayBpcyBzZXQgYmFzZWQgb24gdGhhdC4N
-Cj4gPiBCdXQgdGhlIGFkZGl0aW9uIG9mIHR3byBkZXNjcmlwdG9yIHdvcmRzIGNhbm5vdCBiZSBi
-YXNlZCBvbiB0aGlzIHJ1bnRpbWUgY2hlY2suDQo+ID4gRm9yIHRoaXMgcmVhc29uLCBhbGwgdGhl
-IHN0YXRpYyBjaGFuZ2VzIHdlcmUgcGxhY2VkIHVuZGVyIHRoaXMgY2hlY2suDQo+DQo+IFdlIGhh
-dmUgcXVpdGUgYSBidW5jaCBvZiBvcHRpb25zIGluIHRoaXMgZHJpdmVyIHRvIGRldGVybWluYXRl
-IHdoYXQgaXMgdGhlIHJlYWwgY2FwYWNpdHkgb2YgdGhlIHVuZGVybHlpbmcgaGFyZHdhcmUuDQo+
-IElmIEhXIGNvbmZpZ3VyYXRpb24gcmVnaXN0ZXJzIGFyZSBub3QgYXBwcm9wcmlhdGUsIGFuZCBp
-dCBzZWVtcyB0aGV5IGFyZSBub3QsIEkgd291bGQgYWR2aWNlIHRvIHNpbXBseSB1c2UgdGhlIERU
-IGNvbXBhdGliaWxpdHkgc3RyaW5nLg0KPg0KPiBCZXN0IHJlZ2FyZHMsDQo+IC0tDQo+IE5pY29s
-YXMgRmVycmUNCg0KSFcgY29uZmlndXJhdGlvbiByZWdpc3RlcnMgYXJlIGFwcHJvcHJpYXRlLiBU
-aGUgaXNzdWUgaXMgdGhhdCB0aGlzIGNvZGUgZG9lc27igJl0IHVzZSB0aGUgY2FwYWJpbGl0eSBi
-aXQgdG8gc3dpdGNoIGJldHdlZW4gZGlmZmVyZW50IGRtYSBkZXNjcmlwdG9ycyAoMiB3b3JkcyB2
-cy4gNCB3b3JkcykuDQpETUEgZGVzY3JpcHRvciBzaXplIGlzIGNob3NlbiBiYXNlZCBvbiBrZXJu
-ZWwgY29uZmlndXJhdGlvbiwgbm90IGJhc2VkIG9uIGhhcmR3YXJlIGNhcGFiaWxpdGllcy4NCg0K
-UmVnYXJkcywgDQpSYWZhbCBPemllYmxvDQo=
+From: Jiri Benc <jbenc@redhat.com>
+Date: Thu, 17 Nov 2016 16:59:49 +0100
+
+> On Thu, 17 Nov 2016 10:17:01 +0000, David Laight wrote:
+>> Worse than arbitrary, it adds 4 bytes of pad on 64bit systems.
+> 
+> It does not, this is not a struct.
+
+He is talking about on the function stack.
