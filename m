@@ -1,97 +1,234 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 2/4] bnxt_en: Enhance autoneg support.
-Date: Wed, 16 Nov 2016 21:13:08 -0500
-Message-ID: <1479348790-6218-3-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 4/4] bnxt_en: Add ethtool -n|-N rx-flow-hash support.
+Date: Wed, 16 Nov 2016 21:13:10 -0500
+Message-ID: <1479348790-6218-5-git-send-email-michael.chan@broadcom.com>
 References: <1479348790-6218-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:35938 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933368AbcKQCNa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 21:13:30 -0500
-Received: by mail-pg0-f52.google.com with SMTP id f188so85427756pgc.3
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 18:13:29 -0800 (PST)
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:34787 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933828AbcKQCNc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 21:13:32 -0500
+Received: by mail-pg0-f53.google.com with SMTP id x23so82907968pgx.1
+        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 18:13:32 -0800 (PST)
 In-Reply-To: <1479348790-6218-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some dual port NICs, the speed setting on one port can affect the
-available speed on the other port.  Add logic to detect these changes
-and adjust the advertised speed settings when necessary.
+To display and modify the RSS hash.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 23 +++++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
- 2 files changed, 24 insertions(+)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 167 +++++++++++++++++++++-
+ 1 file changed, 164 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 1332577..4db50e8 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1499,6 +1499,7 @@ static int bnxt_async_event_process(struct bnxt *bp,
- 			netdev_warn(bp->dev, "Link speed %d no longer supported\n",
- 				    speed);
- 		}
-+		set_bit(BNXT_LINK_SPEED_CHNG_SP_EVENT, &bp->sp_event);
- 		/* fall thru */
- 	}
- 	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE:
-@@ -5095,6 +5096,7 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
- 	struct hwrm_port_phy_qcfg_input req = {0};
- 	struct hwrm_port_phy_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
- 	u8 link_up = link_info->link_up;
-+	u16 diff;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index a7e04ff..fa6125e 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -542,6 +542,146 @@ static int bnxt_grxclsrule(struct bnxt *bp, struct ethtool_rxnfc *cmd)
  
- 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_PORT_PHY_QCFG, -1, -1);
- 
-@@ -5182,6 +5184,23 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
- 		link_info->link_up = 0;
- 	}
- 	mutex_unlock(&bp->hwrm_cmd_lock);
-+
-+	diff = link_info->support_auto_speeds ^ link_info->advertising;
-+	if ((link_info->support_auto_speeds | diff) !=
-+	    link_info->support_auto_speeds) {
-+		/* An advertised speed is no longer supported, so we need to
-+		 * update the advertisement settings.  See bnxt_reset() for
-+		 * comments about the rtnl_lock() sequence below.
-+		 */
-+		clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
-+		rtnl_lock();
-+		link_info->advertising = link_info->support_auto_speeds;
-+		if (test_bit(BNXT_STATE_OPEN, &bp->state) &&
-+		    (link_info->autoneg & BNXT_AUTONEG_SPEED))
-+			bnxt_hwrm_set_link_setting(bp, true, false);
-+		set_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
-+		rtnl_unlock();
-+	}
- 	return 0;
+ 	return rc;
  }
- 
-@@ -6108,6 +6127,10 @@ static void bnxt_sp_task(struct work_struct *work)
- 	if (test_and_clear_bit(BNXT_RX_NTP_FLTR_SP_EVENT, &bp->sp_event))
- 		bnxt_cfg_ntp_filters(bp);
- 	if (test_and_clear_bit(BNXT_LINK_CHNG_SP_EVENT, &bp->sp_event)) {
-+		if (test_and_clear_bit(BNXT_LINK_SPEED_CHNG_SP_EVENT,
-+				       &bp->sp_event))
-+			bnxt_hwrm_phy_qcaps(bp);
++#endif
 +
- 		rc = bnxt_update_link(bp, true);
- 		if (rc)
- 			netdev_err(bp->dev, "SP task can't update link (rc: %x)\n",
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 51b164a..666bc06 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1089,6 +1089,7 @@ struct bnxt {
- #define BNXT_RESET_TASK_SILENT_SP_EVENT	11
- #define BNXT_GENEVE_ADD_PORT_SP_EVENT	12
- #define BNXT_GENEVE_DEL_PORT_SP_EVENT	13
-+#define BNXT_LINK_SPEED_CHNG_SP_EVENT	14
++static u64 get_ethtool_ipv4_rss(struct bnxt *bp)
++{
++	if (bp->rss_hash_cfg & VNIC_RSS_CFG_REQ_HASH_TYPE_IPV4)
++		return RXH_IP_SRC | RXH_IP_DST;
++	return 0;
++}
++
++static u64 get_ethtool_ipv6_rss(struct bnxt *bp)
++{
++	if (bp->rss_hash_cfg & VNIC_RSS_CFG_REQ_HASH_TYPE_IPV6)
++		return RXH_IP_SRC | RXH_IP_DST;
++	return 0;
++}
++
++static int bnxt_grxfh(struct bnxt *bp, struct ethtool_rxnfc *cmd)
++{
++	cmd->data = 0;
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++		if (bp->rss_hash_cfg & VNIC_RSS_CFG_REQ_HASH_TYPE_TCP_IPV4)
++			cmd->data |= RXH_IP_SRC | RXH_IP_DST |
++				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		cmd->data |= get_ethtool_ipv4_rss(bp);
++		break;
++	case UDP_V4_FLOW:
++		if (bp->rss_hash_cfg & VNIC_RSS_CFG_REQ_HASH_TYPE_UDP_IPV4)
++			cmd->data |= RXH_IP_SRC | RXH_IP_DST |
++				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		/* fall through */
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case IPV4_FLOW:
++		cmd->data |= get_ethtool_ipv4_rss(bp);
++		break;
++
++	case TCP_V6_FLOW:
++		if (bp->rss_hash_cfg & VNIC_RSS_CFG_REQ_HASH_TYPE_TCP_IPV6)
++			cmd->data |= RXH_IP_SRC | RXH_IP_DST |
++				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		cmd->data |= get_ethtool_ipv6_rss(bp);
++		break;
++	case UDP_V6_FLOW:
++		if (bp->rss_hash_cfg & VNIC_RSS_CFG_REQ_HASH_TYPE_UDP_IPV6)
++			cmd->data |= RXH_IP_SRC | RXH_IP_DST |
++				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		/* fall through */
++	case SCTP_V6_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case IPV6_FLOW:
++		cmd->data |= get_ethtool_ipv6_rss(bp);
++		break;
++	}
++	return 0;
++}
++
++#define RXH_4TUPLE (RXH_IP_SRC | RXH_IP_DST | RXH_L4_B_0_1 | RXH_L4_B_2_3)
++#define RXH_2TUPLE (RXH_IP_SRC | RXH_IP_DST)
++
++static int bnxt_srxfh(struct bnxt *bp, struct ethtool_rxnfc *cmd)
++{
++	u32 rss_hash_cfg = bp->rss_hash_cfg;
++	int tuple, rc = 0;
++
++	if (cmd->data == RXH_4TUPLE)
++		tuple = 4;
++	else if (cmd->data == RXH_2TUPLE)
++		tuple = 2;
++	else if (!cmd->data)
++		tuple = 0;
++	else
++		return -EINVAL;
++
++	if (cmd->flow_type == TCP_V4_FLOW) {
++		rss_hash_cfg &= ~VNIC_RSS_CFG_REQ_HASH_TYPE_TCP_IPV4;
++		if (tuple == 4)
++			rss_hash_cfg |= VNIC_RSS_CFG_REQ_HASH_TYPE_TCP_IPV4;
++	} else if (cmd->flow_type == UDP_V4_FLOW) {
++		if (tuple == 4 && !(bp->flags & BNXT_FLAG_UDP_RSS_CAP))
++			return -EINVAL;
++		rss_hash_cfg &= ~VNIC_RSS_CFG_REQ_HASH_TYPE_UDP_IPV4;
++		if (tuple == 4)
++			rss_hash_cfg |= VNIC_RSS_CFG_REQ_HASH_TYPE_UDP_IPV4;
++	} else if (cmd->flow_type == TCP_V6_FLOW) {
++		rss_hash_cfg &= ~VNIC_RSS_CFG_REQ_HASH_TYPE_TCP_IPV6;
++		if (tuple == 4)
++			rss_hash_cfg |= VNIC_RSS_CFG_REQ_HASH_TYPE_TCP_IPV6;
++	} else if (cmd->flow_type == UDP_V6_FLOW) {
++		if (tuple == 4 && !(bp->flags & BNXT_FLAG_UDP_RSS_CAP))
++			return -EINVAL;
++		rss_hash_cfg &= ~VNIC_RSS_CFG_REQ_HASH_TYPE_UDP_IPV6;
++		if (tuple == 4)
++			rss_hash_cfg |= VNIC_RSS_CFG_REQ_HASH_TYPE_UDP_IPV6;
++	} else if (tuple == 4) {
++		return -EINVAL;
++	}
++
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++	case UDP_V4_FLOW:
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case IPV4_FLOW:
++		if (tuple == 2)
++			rss_hash_cfg |= VNIC_RSS_CFG_REQ_HASH_TYPE_IPV4;
++		else if (!tuple)
++			rss_hash_cfg &= ~VNIC_RSS_CFG_REQ_HASH_TYPE_IPV4;
++		break;
++
++	case TCP_V6_FLOW:
++	case UDP_V6_FLOW:
++	case SCTP_V6_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case IPV6_FLOW:
++		if (tuple == 2)
++			rss_hash_cfg |= VNIC_RSS_CFG_REQ_HASH_TYPE_IPV6;
++		else if (!tuple)
++			rss_hash_cfg &= ~VNIC_RSS_CFG_REQ_HASH_TYPE_IPV6;
++		break;
++	}
++
++	if (bp->rss_hash_cfg == rss_hash_cfg)
++		return 0;
++
++	bp->rss_hash_cfg = rss_hash_cfg;
++	if (netif_running(bp->dev)) {
++		bnxt_close_nic(bp, false, false);
++		rc = bnxt_open_nic(bp, false, false);
++	}
++	return rc;
++}
  
- 	struct bnxt_pf_info	pf;
- #ifdef CONFIG_BNXT_SRIOV
+ static int bnxt_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 			  u32 *rule_locs)
+@@ -550,6 +690,7 @@ static int bnxt_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 	int rc = 0;
+ 
+ 	switch (cmd->cmd) {
++#ifdef CONFIG_RFS_ACCEL
+ 	case ETHTOOL_GRXRINGS:
+ 		cmd->data = bp->rx_nr_rings;
+ 		break;
+@@ -566,6 +707,11 @@ static int bnxt_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 	case ETHTOOL_GRXCLSRULE:
+ 		rc = bnxt_grxclsrule(bp, cmd);
+ 		break;
++#endif
++
++	case ETHTOOL_GRXFH:
++		rc = bnxt_grxfh(bp, cmd);
++		break;
+ 
+ 	default:
+ 		rc = -EOPNOTSUPP;
+@@ -574,7 +720,23 @@ static int bnxt_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 
+ 	return rc;
+ }
+-#endif
++
++static int bnxt_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	int rc;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_SRXFH:
++		rc = bnxt_srxfh(bp, cmd);
++		break;
++
++	default:
++		rc = -EOPNOTSUPP;
++		break;
++	}
++	return rc;
++}
+ 
+ static u32 bnxt_get_rxfh_indir_size(struct net_device *dev)
+ {
+@@ -1885,9 +2047,8 @@ static int bnxt_nway_reset(struct net_device *dev)
+ 	.get_ringparam		= bnxt_get_ringparam,
+ 	.get_channels		= bnxt_get_channels,
+ 	.set_channels		= bnxt_set_channels,
+-#ifdef CONFIG_RFS_ACCEL
+ 	.get_rxnfc		= bnxt_get_rxnfc,
+-#endif
++	.set_rxnfc		= bnxt_set_rxnfc,
+ 	.get_rxfh_indir_size    = bnxt_get_rxfh_indir_size,
+ 	.get_rxfh_key_size      = bnxt_get_rxfh_key_size,
+ 	.get_rxfh               = bnxt_get_rxfh,
 -- 
 1.8.3.1
