@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net v2 5/7] net: ethernet: ti: cpsw: fix secondary-emac probe error path
-Date: Thu, 17 Nov 2016 17:40:02 +0100
-Message-ID: <1479400804-9847-6-git-send-email-johan@kernel.org>
+Subject: [PATCH net v2 7/7] net: ethernet: ti: cpsw: fix fixed-link phy probe deferral
+Date: Thu, 17 Nov 2016 17:40:04 +0100
+Message-ID: <1479400804-9847-8-git-send-email-johan@kernel.org>
 References: <1479400804-9847-1-git-send-email-johan@kernel.org>
 Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
         linux-omap@vger.kernel.org, netdev@vger.kernel.org,
@@ -12,42 +12,47 @@ In-Reply-To: <1479400804-9847-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure to deregister the primary device in case the secondary emac
-fails to probe.
+Make sure to propagate errors from of_phy_register_fixed_link() which
+can fail with -EPROBE_DEFER.
 
-kernel BUG at /home/johan/work/omicron/src/linux/net/core/dev.c:7743!
-...
-[<c05b3dec>] (free_netdev) from [<c04fe6c0>] (cpsw_probe+0x9cc/0xe50)
-[<c04fe6c0>] (cpsw_probe) from [<c047b28c>] (platform_drv_probe+0x5c/0xc0)
-
-Fixes: d9ba8f9e6298 ("driver: net: ethernet: cpsw: dual emac interface
-implementation")
+Fixes: 1f71e8c96fc6 ("drivers: net: cpsw: Add support for fixed-link
+PHY")
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/ethernet/ti/cpsw.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/ti/cpsw.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c3b78bc4fe58..11b2daef3158 100644
+index 1387299030e4..58947aae31c7 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2852,7 +2852,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		ret = cpsw_probe_dual_emac(priv);
- 		if (ret) {
- 			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
--			goto clean_ale_ret;
-+			goto clean_unregister_netdev_ret;
- 		}
+@@ -2375,8 +2375,11 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 			 * to the PHY is the Ethernet MAC DT node.
+ 			 */
+ 			ret = of_phy_register_fixed_link(slave_node);
+-			if (ret)
++			if (ret) {
++				if (ret != -EPROBE_DEFER)
++					dev_err(&pdev->dev, "failed to register fixed-link phy: %d\n", ret);
+ 				return ret;
++			}
+ 			slave_data->phy_node = of_node_get(slave_node);
+ 		} else if (parp) {
+ 			u32 phyid;
+@@ -2637,11 +2640,10 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_runtime_disable_ret;
  	}
  
-@@ -2860,6 +2860,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	return 0;
- 
-+clean_unregister_netdev_ret:
-+	unregister_netdev(ndev);
- clean_ale_ret:
- 	cpsw_ale_destroy(cpsw->ale);
- clean_dma_ret:
+-	if (cpsw_probe_dt(&cpsw->data, pdev)) {
+-		dev_err(&pdev->dev, "cpsw: platform data missing\n");
+-		ret = -ENODEV;
++	ret = cpsw_probe_dt(&cpsw->data, pdev);
++	if (ret)
+ 		goto clean_dt_ret;
+-	}
++
+ 	data = &cpsw->data;
+ 	cpsw->rx_ch_num = 1;
+ 	cpsw->tx_ch_num = 1;
 -- 
 2.7.3
