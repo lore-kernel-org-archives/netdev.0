@@ -1,42 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v3 2/3] net: fsl: Allow most drivers to be built with COMPILE_TEST
-Date: Thu, 17 Nov 2016 11:47:02 +0100
-Message-ID: <2379973.pinmoxev18@wuerfel>
-References: <201611161135.ksuIHp17%fengguang.wu@intel.com> <0216ebc6-1889-6ca7-974c-90524ed61651@gmail.com> <20161117013823.ne3f3dpvs64j5gmw@wfg-t540p.sh.intel.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 0/5] sfc: Firmware-Assisted TSO version 2
+Date: Thu, 17 Nov 2016 10:49:42 +0000
+Message-ID: <ae6b02ca-9a0b-7072-6914-294fc9adb684@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, kbuild-all@01.org,
-        netdev@vger.kernel.org, davem@davemloft.net, mw@semihalf.com,
-        gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com
-To: Fengguang Wu <lkp@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <bkenward@solarflare.com>, <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:55931 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S2992846AbcKQKrb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 05:47:31 -0500
-In-Reply-To: <20161117013823.ne3f3dpvs64j5gmw@wfg-t540p.sh.intel.com>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:48801 "EHLO
+        nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S941900AbcKQKtz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 05:49:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, November 17, 2016 9:38:23 AM CET Fengguang Wu wrote:
-> >
-> >Right here.
-> >
-> >What compiler version is this?
-> 
-> Compiler is sh4-linux-gnu-gcc (Debian 6.1.1-9) 6.1.1 20160705.
-> 
-> include/asm-generic/io.h conditionally defines iounmap() to be an
-> empty inline function, which may explain the warning on sh4.
-> 
-> General speaking, it's a false warning. The solution could be to teach
-> the robot to ignore such 'unused variable' warnings in non-x86 archs.
+The firmware on 8000 series SFC NICs supports a new TSO API ("FATSOv2"), and
+ 7000 series NICs will also support this in an imminent release.  This series
+ adds driver support for this TSO implementation.
+The series also removes SWTSO, as it's now equivalent to GSO.  This does not
+ actually remove very much code, because SWTSO was grotesquely intertwingled
+ with FATSOv1, which will also be removed once 7000 series supports FATSOv2.
 
-I think we should change the iounmap stub macro into an inline function.
-Does this only happen on sh or other architectures too?
 
-I certainly wouldn't want the warning to be ignored on ARM, or in
-general on all architectures other than x86.
+Bert Kenward (1):
+  sfc: Firmware-Assisted TSO version 2
 
-	Arnd
+Edward Cree (4):
+  sfc: Update MCDI protocol definitions
+  sfc: Update EF10 register definitions
+  sfc: handle failure to allocate TSOv2 contexts
+  sfc: remove Software TSO
+
+ drivers/net/ethernet/sfc/Makefile     |    2 +-
+ drivers/net/ethernet/sfc/ef10.c       |  158 ++++-
+ drivers/net/ethernet/sfc/ef10_regs.h  |  103 +++-
+ drivers/net/ethernet/sfc/efx.c        |   38 +-
+ drivers/net/ethernet/sfc/ethtool.c    |    2 +
+ drivers/net/ethernet/sfc/falcon.c     |    2 +
+ drivers/net/ethernet/sfc/farch.c      |   15 +
+ drivers/net/ethernet/sfc/mcdi_pcol.h  |  483 ++++++++++++++-
+ drivers/net/ethernet/sfc/net_driver.h |   52 +-
+ drivers/net/ethernet/sfc/nic.h        |    2 +
+ drivers/net/ethernet/sfc/siena.c      |    1 +
+ drivers/net/ethernet/sfc/tx.c         | 1047 +++++++++------------------------
+ drivers/net/ethernet/sfc/tx.h         |   27 +
+ drivers/net/ethernet/sfc/tx_tso.c     |  452 ++++++++++++++
+ 14 files changed, 1558 insertions(+), 826 deletions(-)
+ create mode 100644 drivers/net/ethernet/sfc/tx.h
+ create mode 100644 drivers/net/ethernet/sfc/tx_tso.c
