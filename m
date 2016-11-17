@@ -1,83 +1,67 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v3 1/5] ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE and ETHTOOL_PHY_STUNABLE
-Date: Thu, 17 Nov 2016 13:07:20 +0100
-Message-ID: <1479384444-31122-2-git-send-email-allan.nielsen@microsemi.com>
-References: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 6/8] ipv4: fib: Add an API to request a FIB
+ dump
+Date: Thu, 17 Nov 2016 13:16:09 -0500 (EST)
+Message-ID: <20161117.131609.164578639844581895.davem@davemloft.net>
+References: <e2e0eaaf-30f0-e825-29c7-920115742301@stressinduktion.org>
+        <20161117.114529.1851585222876647915.davem@davemloft.net>
+        <f58c008f-c23a-4950-2975-3c1b4c3b8692@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: idosch@idosch.org, jiri@resnulli.us, netdev@vger.kernel.org,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        nogahf@mellanox.com, arkadis@mellanox.com, ogerlitz@mellanox.com,
+        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, andy@greyhouse.net,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0059.outbound.protection.outlook.com ([104.47.33.59]:8172
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932678AbcKQSUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 13:20:41 -0500
-In-Reply-To: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40890 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752233AbcKQS1F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 13:27:05 -0500
+In-Reply-To: <f58c008f-c23a-4950-2975-3c1b4c3b8692@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 17 Nov 2016 18:20:39 +0100
 
-Defines a generic API to get/set phy tunables. The API is using the
-existing ethtool_tunable/tunable_type_id types which is already being used
-for mac level tunables.
+> Hi,
+> 
+> On 17.11.2016 17:45, David Miller wrote:
+>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Date: Thu, 17 Nov 2016 15:36:48 +0100
+>> 
+>>> The other way is the journal idea I had, which uses an rb-tree with
+>>> timestamps as keys (can be lamport timestamps). You insert into the tree
+>>> until the dump is finished and use it as queue later to shuffle stuff
+>>> into the hardware.
+>> 
+>> If you have this "place" where pending inserts are stored, you have
+>> a policy decision to make.
+>> 
+>> First of all what do other lookups see when there are pending entires?
+> 
+> I think this is a problem with the current approach already, as the
+> delayed work queue already postpones the insert for an undecidable
+> amount of time (and reorders depending on which CPU the entry was
+> inserted and the fib notifier was called).
+> 
+> For user space queries we would still query the in-kernel table.
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
----
- include/uapi/linux/ethtool.h | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+Ok, I think I might misunderstand something.
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 8e54723..42f696f 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -248,6 +248,16 @@ struct ethtool_tunable {
- 	void	*data[0];
- };
- 
-+enum phy_tunable_id {
-+	ETHTOOL_PHY_ID_UNSPEC,
-+
-+	/*
-+	 * Add your fresh new phy tunable attribute above and remember to update
-+	 * phy_tunable_strings[] in net/core/ethtool.c
-+	 */
-+	__ETHTOOL_PHY_TUNABLE_COUNT,
-+};
-+
- /**
-  * struct ethtool_regs - hardware register dump
-  * @cmd: Command number = %ETHTOOL_GREGS
-@@ -548,6 +558,7 @@ struct ethtool_pauseparam {
-  * @ETH_SS_FEATURES: Device feature names
-  * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
-  * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
-+ * @ETH_SS_PHY_TUNABLES: PHY tunable names
-  */
- enum ethtool_stringset {
- 	ETH_SS_TEST		= 0,
-@@ -558,6 +569,7 @@ enum ethtool_stringset {
- 	ETH_SS_RSS_HASH_FUNCS,
- 	ETH_SS_TUNABLES,
- 	ETH_SS_PHY_STATS,
-+	ETH_SS_PHY_TUNABLES,
- };
- 
- /**
-@@ -1313,7 +1325,8 @@ struct ethtool_per_queue_op {
- 
- #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings */
- #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
--
-+#define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
-+#define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
--- 
-2.7.3
+What is going into this journal exactly?  The actual full software and
+hardware insert operation, or just the notification to the hardware
+device driver notifiers?
+
+The "lookup" I'm mostly concerned with is the fast path where the
+packets being processed actually look up a route.
+
+I do not think we can return success on the insert to the user yet
+have the route lookup dataplace not return that route on a lookup.
