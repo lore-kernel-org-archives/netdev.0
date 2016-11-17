@@ -1,111 +1,184 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 4/8] net/mlx5e: Add port module event counters to ethtool stats
-Date: Thu, 17 Nov 2016 13:45:58 +0200
-Message-ID: <1479383162-3432-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 7/8] net/mlx5: Add MPCNT register infrastructure
+Date: Thu, 17 Nov 2016 13:46:01 +0200
+Message-ID: <1479383162-3432-8-git-send-email-saeedm@mellanox.com>
 References: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
+Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57826 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57827 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S941467AbcKQLqT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 06:46:19 -0500
+        with ESMTP id S941462AbcKQLqY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 06:46:24 -0500
 In-Reply-To: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Huy Nguyen <huyn@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Add port module event counters to ethtool -S command
+Add the needed infrastructure for future use of MPCNT register.
 
-Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 23 +++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 17 ++++++++++++++++
- 2 files changed, 39 insertions(+), 1 deletion(-)
+ include/linux/mlx5/device.h   |  5 +++
+ include/linux/mlx5/driver.h   |  1 +
+ include/linux/mlx5/mlx5_ifc.h | 93 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 99 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 27ff401..b154621 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -173,7 +173,10 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
- 		       NUM_VPORT_COUNTERS + NUM_PPORT_COUNTERS +
- 		       MLX5E_NUM_RQ_STATS(priv) +
- 		       MLX5E_NUM_SQ_STATS(priv) +
--		       MLX5E_NUM_PFC_COUNTERS(priv);
-+		       MLX5E_NUM_PFC_COUNTERS(priv) +
-+		       ARRAY_SIZE(mlx5e_pme_status_desc) +
-+		       ARRAY_SIZE(mlx5e_pme_error_desc);
-+
- 	case ETH_SS_PRIV_FLAGS:
- 		return ARRAY_SIZE(mlx5e_priv_flags);
- 	/* fallthrough */
-@@ -237,6 +240,13 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
- 		}
- 	}
- 
-+	/* port module event counters */
-+	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
-+		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_status_desc[i].format);
-+
-+	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
-+		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_error_desc[i].format);
-+
- 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
- 		return;
- 
-@@ -279,6 +289,7 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 				    struct ethtool_stats *stats, u64 *data)
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_priv *mlx5_priv;
- 	int i, j, tc, prio, idx = 0;
- 	unsigned long pfc_combined;
- 
-@@ -335,6 +346,16 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 		}
- 	}
- 
-+	/* port module event counters */
-+	mlx5_priv =  &priv->mdev->priv;
-+	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
-+		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.status_counters,
-+						   mlx5e_pme_status_desc, i);
-+
-+	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
-+		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
-+						   mlx5e_pme_error_desc, i);
-+
- 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
- 		return;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-index 57452fd..b817e51 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-@@ -379,4 +379,21 @@ struct mlx5e_stats {
- 	struct mlx5e_pport_stats pport;
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 52b4374..9f48936 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1071,6 +1071,11 @@ enum {
+ 	MLX5_INFINIBAND_PORT_COUNTERS_GROUP   = 0x20,
  };
  
-+static const struct counter_desc mlx5e_pme_status_desc[] = {
-+	{ "module_plug", 0 },
-+	{ "module_unplug", 8 },
++enum {
++	MLX5_PCIE_PERFORMANCE_COUNTERS_GROUP       = 0x0,
++	MLX5_PCIE_TIMERS_AND_STATES_COUNTERS_GROUP = 0x2,
 +};
 +
-+static const struct counter_desc mlx5e_pme_error_desc[] = {
-+	{ "module_pwr_budget_exd", 0 },  /* power budget exceed */
-+	{ "module_long_range", 8 },      /* long range for non MLNX cable */
-+	{ "module_bus_stuck", 16 },      /* bus stuck (I2C or data shorted) */
-+	{ "module_no_eeprom", 24 },      /* no eeprom/retry time out */
-+	{ "module_enforce_part", 32 },   /* enforce part number list */
-+	{ "module_unknown_id", 40 },     /* unknown identifier */
-+	{ "module_high_temp", 48 },      /* high temperature */
-+	{ "module_bad_shorted", 56 },    /* bad or shorted cable/module */
-+	{ "module_unknown_status", 64 },
+ static inline u16 mlx5_to_sw_pkey_sz(int pkey_sz)
+ {
+ 	if (pkey_sz > MLX5_MAX_LOG_PKEY_TABLE)
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 7336c8e..ae1f451 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -121,6 +121,7 @@ enum {
+ 	MLX5_REG_HOST_ENDIANNESS = 0x7004,
+ 	MLX5_REG_MCIA		 = 0x9014,
+ 	MLX5_REG_MLCR		 = 0x902b,
++	MLX5_REG_MPCNT		 = 0x9051,
+ };
+ 
+ enum {
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index f08a0624..a5f0fbe 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1757,6 +1757,80 @@ struct mlx5_ifc_eth_802_3_cntrs_grp_data_layout_bits {
+ 	u8         reserved_at_4c0[0x300];
+ };
+ 
++struct mlx5_ifc_pcie_perf_cntrs_grp_data_layout_bits {
++	u8         life_time_counter_high[0x20];
++
++	u8         life_time_counter_low[0x20];
++
++	u8         rx_errors[0x20];
++
++	u8         tx_errors[0x20];
++
++	u8         l0_to_recovery_eieos[0x20];
++
++	u8         l0_to_recovery_ts[0x20];
++
++	u8         l0_to_recovery_framing[0x20];
++
++	u8         l0_to_recovery_retrain[0x20];
++
++	u8         crc_error_dllp[0x20];
++
++	u8         crc_error_tlp[0x20];
++
++	u8         reserved_at_140[0x680];
 +};
 +
- #endif /* __MLX5_EN_STATS_H__ */
++struct mlx5_ifc_pcie_tas_cntrs_grp_data_layout_bits {
++	u8         life_time_counter_high[0x20];
++
++	u8         life_time_counter_low[0x20];
++
++	u8         time_to_boot_image_start[0x20];
++
++	u8         time_to_link_image[0x20];
++
++	u8         calibration_time[0x20];
++
++	u8         time_to_first_perst[0x20];
++
++	u8         time_to_detect_state[0x20];
++
++	u8         time_to_l0[0x20];
++
++	u8         time_to_crs_en[0x20];
++
++	u8         time_to_plastic_image_start[0x20];
++
++	u8         time_to_iron_image_start[0x20];
++
++	u8         perst_handler[0x20];
++
++	u8         times_in_l1[0x20];
++
++	u8         times_in_l23[0x20];
++
++	u8         dl_down[0x20];
++
++	u8         config_cycle1usec[0x20];
++
++	u8         config_cycle2to7usec[0x20];
++
++	u8         config_cycle_8to15usec[0x20];
++
++	u8         config_cycle_16_to_63usec[0x20];
++
++	u8         config_cycle_64usec[0x20];
++
++	u8         correctable_err_msg_sent[0x20];
++
++	u8         non_fatal_err_msg_sent[0x20];
++
++	u8         fatal_err_msg_sent[0x20];
++
++	u8         reserved_at_2e0[0x4e0];
++};
++
+ struct mlx5_ifc_cmd_inter_comp_event_bits {
+ 	u8         command_completion_vector[0x20];
+ 
+@@ -2921,6 +2995,12 @@ union mlx5_ifc_eth_cntrs_grp_data_layout_auto_bits {
+ 	u8         reserved_at_0[0x7c0];
+ };
+ 
++union mlx5_ifc_pcie_cntrs_grp_data_layout_auto_bits {
++	struct mlx5_ifc_pcie_perf_cntrs_grp_data_layout_bits pcie_perf_cntrs_grp_data_layout;
++	struct mlx5_ifc_pcie_tas_cntrs_grp_data_layout_bits pcie_tas_cntrs_grp_data_layout;
++	u8         reserved_at_0[0x7c0];
++};
++
+ union mlx5_ifc_event_auto_bits {
+ 	struct mlx5_ifc_comp_event_bits comp_event;
+ 	struct mlx5_ifc_dct_events_bits dct_events;
+@@ -7240,6 +7320,18 @@ struct mlx5_ifc_ppcnt_reg_bits {
+ 	union mlx5_ifc_eth_cntrs_grp_data_layout_auto_bits counter_set;
+ };
+ 
++struct mlx5_ifc_mpcnt_reg_bits {
++	u8         reserved_at_0[0x8];
++	u8         pcie_index[0x8];
++	u8         reserved_at_10[0xa];
++	u8         grp[0x6];
++
++	u8         clr[0x1];
++	u8         reserved_at_21[0x1f];
++
++	union mlx5_ifc_pcie_cntrs_grp_data_layout_auto_bits counter_set;
++};
++
+ struct mlx5_ifc_ppad_reg_bits {
+ 	u8         reserved_at_0[0x3];
+ 	u8         single_mac[0x1];
+@@ -7845,6 +7937,7 @@ union mlx5_ifc_ports_control_registers_document_bits {
+ 	struct mlx5_ifc_pmtu_reg_bits pmtu_reg;
+ 	struct mlx5_ifc_ppad_reg_bits ppad_reg;
+ 	struct mlx5_ifc_ppcnt_reg_bits ppcnt_reg;
++	struct mlx5_ifc_mpcnt_reg_bits mpcnt_reg;
+ 	struct mlx5_ifc_pplm_reg_bits pplm_reg;
+ 	struct mlx5_ifc_pplr_reg_bits pplr_reg;
+ 	struct mlx5_ifc_ppsc_reg_bits ppsc_reg;
 -- 
 2.7.4
