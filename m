@@ -1,53 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 6/8] ipv4: fib: Add an API to request a FIB
- dump
-Date: Thu, 17 Nov 2016 11:45:29 -0500 (EST)
-Message-ID: <20161117.114529.1851585222876647915.davem@davemloft.net>
-References: <56d2179d-00ff-bcc5-e365-845179cbe672@stressinduktion.org>
-        <20161117131049.pevkla5os75h4zlc@splinter.mtl.com>
-        <e2e0eaaf-30f0-e825-29c7-920115742301@stressinduktion.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 3/3] net: marvell: Allow drivers to be built
+ with COMPILE_TEST
+Date: Thu, 17 Nov 2016 08:52:04 -0800
+Message-ID: <9b06cae5-abd8-a9d2-5c12-573071353e62@gmail.com>
+References: <201611171559.suMIPVBq%fengguang.wu@intel.com>
+ <19888267.TNEXR1Cft3@wuerfel>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: idosch@idosch.org, jiri@resnulli.us, netdev@vger.kernel.org,
-        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-        nogahf@mellanox.com, arkadis@mellanox.com, ogerlitz@mellanox.com,
-        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, andy@greyhouse.net,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net
-To: hannes@stressinduktion.org
+Cc: kbuild-all@01.org, netdev@vger.kernel.org, davem@davemloft.net,
+        mw@semihalf.com, gregory.clement@free-electrons.com,
+        Shaohui.Xie@freescale.com
+To: Arnd Bergmann <arnd@arndb.de>, kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39760 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932854AbcKQRB7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:01:59 -0500
-In-Reply-To: <e2e0eaaf-30f0-e825-29c7-920115742301@stressinduktion.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34448 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932132AbcKQRDc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:03:32 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y68so11986253pfb.1
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 09:03:31 -0800 (PST)
+In-Reply-To: <19888267.TNEXR1Cft3@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 17 Nov 2016 15:36:48 +0100
+On 11/17/2016 01:12 AM, Arnd Bergmann wrote:
+> On Thursday, November 17, 2016 3:10:10 PM CET kbuild test robot wrote:
+>> url:    https://github.com/0day-ci/linux/commits/Florian-Fainelli/net-fsl-Allow-most-drivers-to-be-built-with-COMPILE_TEST/20161116-094841
+>> config: mips-allyesconfig (attached as .config)
+>> compiler: mips-linux-gnu-gcc (Debian 6.1.1-9) 6.1.1 20160705
+>> reproduce:
+>>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>>         chmod +x ~/bin/make.cross
+>>         # save the attached .config to linux build tree
+>>         make.cross ARCH=mips 
+>>
+>> All errors (new ones prefixed by >>):
+>>
+>>    drivers/built-in.o: In function `mvneta_bm_pool_create':
+>>>> mvneta_bm.c:(.text+0x772f0c): undefined reference to `mvebu_mbus_get_dram_win_info'
+> 
+> We should fix this, I'd suggest either adding an inline wrapper for
+> mvebu_mbus_get_dram_win_info() when CONFIG_MVEBU_MBUS is not set,
+> or allowing CONFIG_MVEBU_MBUS to be enabled for COMPILE_TEST as well.
 
-> The other way is the journal idea I had, which uses an rb-tree with
-> timestamps as keys (can be lamport timestamps). You insert into the tree
-> until the dump is finished and use it as queue later to shuffle stuff
-> into the hardware.
-
-If you have this "place" where pending inserts are stored, you have
-a policy decision to make.
-
-First of all what do other lookups see when there are pending entires?
-
-If, once inserted into the pending queue, you return success to the
-inserting entity, then you must make those pending entries visible
-to lookups.
-
-If you block the inserting entity, well that doesn't make a lot of
-sense.  If blocking is a workable solution, then we can just block the
-entire insert while this FIB dump to the device driver is happening.
-
-But I am pretty sure the idea of blocking modifications for so long
-was considered undesirable.
+Yes, I have a patch prepared for that, thanks!
+-- 
+Florian
