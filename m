@@ -1,210 +1,45 @@
-From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net 1/3] net: phy: realtek: add eee advertisement
- disable options
-Date: Thu, 17 Nov 2016 11:20:55 +0100
-Message-ID: <1479378055.17538.57.camel@baylibre.com>
-References: <1479220154-25851-1-git-send-email-jbrunet@baylibre.com>
-         <1479220154-25851-2-git-send-email-jbrunet@baylibre.com>
-         <CANAwSgTjG8G0U+A1p7hOKND9rjY4BzZfPgyWWHAEryYkHj_UOw@mail.gmail.com>
+From: Yishai Hadas <yishaih-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: mlx4 BUG_ON in probe path
+Date: Thu, 17 Nov 2016 12:22:44 +0200
+Message-ID: <efdb87e8-cac0-f45b-7f6f-122f053fe366@dev.mellanox.co.il>
+References: <20161116182527.GC26600@bhelgaas-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Anand Moon <linux.amoon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CANAwSgTjG8G0U+A1p7hOKND9rjY4BzZfPgyWWHAEryYkHj_UOw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Johannes Thumshirn <jthumshirn-l3A5Bk7waGM@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bjorn Helgaas <helgaas-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161116182527.GC26600-1RhO1Y9PlrlHTL0Zs8A6p5iNqAH0jzoTYJqu5kTmcBRl57MIdRCFDg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-11-16 at 22:36 +0530, Anand Moon wrote:
->  Hi Jerome.
-> 
-> On 15 November 2016 at 19:59, Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-> wrote:
-> > 
-> > On some platforms, energy efficient ethernet with rtl8211 devices
-> > is
-> > causing issue, like throughput drop or broken link.
-> > 
-> > This was reported on the OdroidC2 (DWMAC + RTL8211F). While the
-> > issue root
-> > cause is not fully understood yet, disabling EEE advertisement
-> > prevent auto
-> > negotiation from enabling EEE.
-> > 
-> > This patch provides options to disable 1000T and 100TX EEE
-> > advertisement
-> > individually for the realtek phys supporting this feature.
-> > 
-> > Reported-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23myhRSP0FMvGiw@public.gmane.org
-> > m>
-> > Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-> > Cc: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-> > Signed-off-by: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-> > Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-> > Tested-by: Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > ---
-> >  drivers/net/phy/realtek.c | 65
-> > ++++++++++++++++++++++++++++++++++++++++++++++-
-> >  1 file changed, 64 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-> > index aadd6e9f54ad..77235fd5faaf 100644
-> > --- a/drivers/net/phy/realtek.c
-> > +++ b/drivers/net/phy/realtek.c
-> > @@ -15,6 +15,12 @@
-> >   */
-> >  #include <linux/phy.h>
-> >  #include <linux/module.h>
-> > +#include <linux/of.h>
-> > +
-> > +struct rtl8211x_phy_priv {
-> > +       bool eee_1000t_disable;
-> > +       bool eee_100tx_disable;
-> > +};
-> > 
-> >  #define RTL821x_PHYSR          0x11
-> >  #define RTL821x_PHYSR_DUPLEX   0x2000
-> > @@ -93,12 +99,44 @@ static int rtl8211f_config_intr(struct
-> > phy_device *phydev)
-> >         return err;
-> >  }
-> > 
-> > +static void rtl8211x_clear_eee_adv(struct phy_device *phydev)
-> > +{
-> > +       struct rtl8211x_phy_priv *priv = phydev->priv;
-> > +       u16 val;
-> > +
-> > +       if (priv->eee_1000t_disable || priv->eee_100tx_disable) {
-> > +               val = phy_read_mmd_indirect(phydev,
-> > MDIO_AN_EEE_ADV,
-> > +                                           MDIO_MMD_AN);
-> > +
-> > +               if (priv->eee_1000t_disable)
-> > +                       val &= ~MDIO_AN_EEE_ADV_1000T;
-> > +               if (priv->eee_100tx_disable)
-> > +                       val &= ~MDIO_AN_EEE_ADV_100TX;
-> > +
-> > +               phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
-> > +                                      MDIO_MMD_AN, val);
-> > +       }
-> > +}
-> > +
-> > +static int rtl8211x_config_init(struct phy_device *phydev)
-> > +{
-> > +       int ret;
-> > +
-> > +       ret = genphy_config_init(phydev);
-> > +       if (ret < 0)
-> > +               return ret;
-> > +
-> > +       rtl8211x_clear_eee_adv(phydev);
-> > +
-> > +       return 0;
-> > +}
-> > +
-> >  static int rtl8211f_config_init(struct phy_device *phydev)
-> >  {
-> >         int ret;
-> >         u16 reg;
-> > 
-> > -       ret = genphy_config_init(phydev);
-> > +       ret = rtl8211x_config_init(phydev);
-> >         if (ret < 0)
-> >                 return ret;
-> > 
-> > @@ -115,6 +153,26 @@ static int rtl8211f_config_init(struct
-> > phy_device *phydev)
-> >         return 0;
-> >  }
-> > 
-> > +static int rtl8211x_phy_probe(struct phy_device *phydev)
-> > +{
-> > +       struct device *dev = &phydev->mdio.dev;
-> > +       struct device_node *of_node = dev->of_node;
-> > +       struct rtl8211x_phy_priv *priv;
-> > +
-> > +       priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-> > +       if (!priv)
-> > +               return -ENOMEM;
-> > +
-> > +       priv->eee_1000t_disable =
-> > +               of_property_read_bool(of_node, "realtek,disable-
-> > eee-1000t");
-> > +       priv->eee_100tx_disable =
-> > +               of_property_read_bool(of_node, "realtek,disable-
-> > eee-100tx");
-> > +
-> > +       phydev->priv = priv;
-> > +
-> > +       return 0;
-> > +}
-> > +
-> >  static struct phy_driver realtek_drvs[] = {
-> >         {
-> >                 .phy_id         = 0x00008201,
-> > @@ -140,7 +198,9 @@ static struct phy_driver realtek_drvs[] = {
-> >                 .phy_id_mask    = 0x001fffff,
-> >                 .features       = PHY_GBIT_FEATURES,
-> >                 .flags          = PHY_HAS_INTERRUPT,
-> > +               .probe          = &rtl8211x_phy_probe,
-> >                 .config_aneg    = genphy_config_aneg,
-> > +               .config_init    = &rtl8211x_config_init,
-> >                 .read_status    = genphy_read_status,
-> >                 .ack_interrupt  = rtl821x_ack_interrupt,
-> >                 .config_intr    = rtl8211e_config_intr,
-> > @@ -152,7 +212,9 @@ static struct phy_driver realtek_drvs[] = {
-> >                 .phy_id_mask    = 0x001fffff,
-> >                 .features       = PHY_GBIT_FEATURES,
-> >                 .flags          = PHY_HAS_INTERRUPT,
-> > +               .probe          = &rtl8211x_phy_probe,
-> >                 .config_aneg    = &genphy_config_aneg,
-> > +               .config_init    = &rtl8211x_config_init,
-> >                 .read_status    = &genphy_read_status,
-> >                 .ack_interrupt  = &rtl821x_ack_interrupt,
-> >                 .config_intr    = &rtl8211e_config_intr,
-> > @@ -164,6 +226,7 @@ static struct phy_driver realtek_drvs[] = {
-> >                 .phy_id_mask    = 0x001fffff,
-> >                 .features       = PHY_GBIT_FEATURES,
-> >                 .flags          = PHY_HAS_INTERRUPT,
-> > +               .probe          = &rtl8211x_phy_probe,
-> >                 .config_aneg    = &genphy_config_aneg,
-> >                 .config_init    = &rtl8211f_config_init,
-> >                 .read_status    = &genphy_read_status,
-> > --
-> > 2.7.4
-> > 
-> 
-> How about adding callback functionality for .soft_reset to handle
-> BMCR
-> where we update the Auto-Negotiation for the phy,
-> as per the datasheet of the rtl8211f.
+On 11/16/2016 8:25 PM, Bjorn Helgaas wrote:
+> Hi Yishai,
+>
+> Johannes has been working on an mlx4 initialization problem on an
+> IBM x3850 X6.  The underlying problem is a PCI core issue -- we're
+> setting RCB in the Mellanox device, which means it thinks it can
+> generate 128-byte Completions, even though the Root Port above it
+> can't handle them.  That issue is
+> https://bugzilla.kernel.org/show_bug.cgi?id=187781
+>
+> The machine crashed when this happened, apparently not because of any
+> error reported via AER, but because mlx4 contains a BUG_ON, probably
+> the one in mlx4_enter_error_state().
+>
+> That one happens if pci_channel_offline() returns false.  Is this
+> telling us about a problem in PCI error handling, or is it just a case
+> where mlx4 isn't as smart as it could be?
 
-I'm not sure I understand how this would help with our issue (and EEE).
-Am I missing something or is it something unrelated that you would like
-to see happening on this driver ? 
+Yes, we expect at that step a problem/bug in the PCI layer that should 
+be fixed (e.g. reporting online but really is offline, etc.), can you 
+please evaluate and confirm that ?
 
-> 
-> -Best Regard
-> Anand Moon
-> 
-> > 
-> > 
-> > _______________________________________________
-> > linux-amlogic mailing list
-> > linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> > http://lists.infradead.org/mailman/listinfo/linux-amlogic
+
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
