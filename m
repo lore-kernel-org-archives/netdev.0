@@ -1,15 +1,15 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 6/8] net/mlx5: Set driver version into firmware
-Date: Thu, 17 Nov 2016 13:46:00 +0200
-Message-ID: <1479383162-3432-7-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 4/8] net/mlx5e: Add port module event counters to ethtool stats
+Date: Thu, 17 Nov 2016 13:45:58 +0200
+Message-ID: <1479383162-3432-5-git-send-email-saeedm@mellanox.com>
 References: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57819 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57826 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S941470AbcKQLqT (ORCPT
+        with ESMTP id S941467AbcKQLqT (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 06:46:19 -0500
 In-Reply-To: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,71 +17,95 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Huy Nguyen <huyn@mellanox.com>
 
-If driver_version capability bit is enabled, set driver version
-to firmware after the init HCA command, for display purposes.
-
-Example of driver version: "Linux,mlx5_core,3.0-1"
+Add port module event counters to ethtool -S command
 
 Signed-off-by: Huy Nguyen <huyn@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 37 ++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 23 +++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 17 ++++++++++++++++
+ 2 files changed, 39 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index c074933..f28df33 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -175,6 +175,41 @@ static int wait_fw_init(struct mlx5_core_dev *dev, u32 max_wait_mili)
- 	return err;
- }
- 
-+static void mlx5_set_driver_version(struct mlx5_core_dev *dev)
-+{
-+	int driver_ver_sz = MLX5_FLD_SZ_BYTES(set_driver_version_in,
-+					      driver_version);
-+	u8 in[MLX5_ST_SZ_BYTES(set_driver_version_in)] = {0};
-+	u8 out[MLX5_ST_SZ_BYTES(set_driver_version_out)] = {0};
-+	int remaining_size = driver_ver_sz;
-+	char *string;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 27ff401..b154621 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -173,7 +173,10 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 		       NUM_VPORT_COUNTERS + NUM_PPORT_COUNTERS +
+ 		       MLX5E_NUM_RQ_STATS(priv) +
+ 		       MLX5E_NUM_SQ_STATS(priv) +
+-		       MLX5E_NUM_PFC_COUNTERS(priv);
++		       MLX5E_NUM_PFC_COUNTERS(priv) +
++		       ARRAY_SIZE(mlx5e_pme_status_desc) +
++		       ARRAY_SIZE(mlx5e_pme_error_desc);
 +
-+	if (!MLX5_CAP_GEN(dev, driver_version))
-+		return;
-+
-+	string = MLX5_ADDR_OF(set_driver_version_in, in, driver_version);
-+
-+	strncpy(string, "Linux", remaining_size);
-+
-+	remaining_size = max_t(int, 0, driver_ver_sz - strlen(string));
-+	strncat(string, ",", remaining_size);
-+
-+	remaining_size = max_t(int, 0, driver_ver_sz - strlen(string));
-+	strncat(string, DRIVER_NAME, remaining_size);
-+
-+	remaining_size = max_t(int, 0, driver_ver_sz - strlen(string));
-+	strncat(string, ",", remaining_size);
-+
-+	remaining_size = max_t(int, 0, driver_ver_sz - strlen(string));
-+	strncat(string, DRIVER_VERSION, remaining_size);
-+
-+	/*Send the command*/
-+	MLX5_SET(set_driver_version_in, in, opcode,
-+		 MLX5_CMD_OP_SET_DRIVER_VERSION);
-+
-+	mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+}
-+
- static int set_dma_caps(struct pci_dev *pdev)
- {
- 	int err;
-@@ -1015,6 +1050,8 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- 		goto err_pagealloc_stop;
+ 	case ETH_SS_PRIV_FLAGS:
+ 		return ARRAY_SIZE(mlx5e_priv_flags);
+ 	/* fallthrough */
+@@ -237,6 +240,13 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
+ 		}
  	}
  
-+	mlx5_set_driver_version(dev);
++	/* port module event counters */
++	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_status_desc[i].format);
 +
- 	mlx5_start_health_poll(dev);
++	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_error_desc[i].format);
++
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
  
- 	err = mlx5_query_hca_caps(dev);
+@@ -279,6 +289,7 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 				    struct ethtool_stats *stats, u64 *data)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5_priv *mlx5_priv;
+ 	int i, j, tc, prio, idx = 0;
+ 	unsigned long pfc_combined;
+ 
+@@ -335,6 +346,16 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
+ 		}
+ 	}
+ 
++	/* port module event counters */
++	mlx5_priv =  &priv->mdev->priv;
++	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
++		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.status_counters,
++						   mlx5e_pme_status_desc, i);
++
++	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
++		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
++						   mlx5e_pme_error_desc, i);
++
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+index 57452fd..b817e51 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+@@ -379,4 +379,21 @@ struct mlx5e_stats {
+ 	struct mlx5e_pport_stats pport;
+ };
+ 
++static const struct counter_desc mlx5e_pme_status_desc[] = {
++	{ "module_plug", 0 },
++	{ "module_unplug", 8 },
++};
++
++static const struct counter_desc mlx5e_pme_error_desc[] = {
++	{ "module_pwr_budget_exd", 0 },  /* power budget exceed */
++	{ "module_long_range", 8 },      /* long range for non MLNX cable */
++	{ "module_bus_stuck", 16 },      /* bus stuck (I2C or data shorted) */
++	{ "module_no_eeprom", 24 },      /* no eeprom/retry time out */
++	{ "module_enforce_part", 32 },   /* enforce part number list */
++	{ "module_unknown_id", 40 },     /* unknown identifier */
++	{ "module_high_temp", 48 },      /* high temperature */
++	{ "module_bad_shorted", 56 },    /* bad or shorted cable/module */
++	{ "module_unknown_status", 64 },
++};
++
+ #endif /* __MLX5_EN_STATS_H__ */
 -- 
 2.7.4
