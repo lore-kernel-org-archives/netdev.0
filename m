@@ -1,197 +1,86 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v3 5/5] net: phy: Add downshift get/set support in Microsemi PHYs driver
-Date: Thu, 17 Nov 2016 13:07:24 +0100
-Message-ID: <1479384444-31122-6-git-send-email-allan.nielsen@microsemi.com>
-References: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0069.outbound.protection.outlook.com ([104.47.33.69]:55376
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S938835AbcKQRmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 12:42:17 -0500
-In-Reply-To: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH net v2 1/7] net: ethernet: ti: cpsw: fix bad register access in probe error path
+Date: Thu, 17 Nov 2016 17:39:58 +0100
+Message-ID: <1479400804-9847-2-git-send-email-johan@kernel.org>
+References: <1479400804-9847-1-git-send-email-johan@kernel.org>
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1479400804-9847-1-git-send-email-johan@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Make sure to keep the platform device runtime-resumed throughout probe
+to avoid accessing the CPSW registers in the error path (e.g. for
+deferred probe) with clocks disabled:
 
-Implements the phy tunable function pointers and implement downshift
-functionality for MSCC PHYs.
+Unhandled fault: external abort on non-linefetch (0x1008) at 0xd0872d08
+...
+[<c04fabcc>] (cpsw_ale_control_set) from [<c04fb8b4>] (cpsw_ale_destroy+0x2c/0x44)
+[<c04fb8b4>] (cpsw_ale_destroy) from [<c04fea58>] (cpsw_probe+0xbd0/0x10c4)
+[<c04fea58>] (cpsw_probe) from [<c047b2a0>] (platform_drv_probe+0x5c/0xc0)
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+Fixes: df828598a755 ("netdev: driver: ethernet: Add TI CPSW driver")
+Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/phy/mscc.c | 100 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 100 insertions(+)
+ drivers/net/ethernet/ti/cpsw.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index d0026ab..92018ba 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -46,8 +46,15 @@ enum rgmii_rx_clock_delay {
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index c6cff3d2ff05..f60f8ab7c1e3 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2641,13 +2641,12 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_runtime_disable_ret;
+ 	}
+ 	cpsw->version = readl(&cpsw->regs->id_ver);
+-	pm_runtime_put_sync(&pdev->dev);
  
- #define MSCC_EXT_PAGE_ACCESS		  31
- #define MSCC_PHY_PAGE_STANDARD		  0x0000 /* Standard registers */
-+#define MSCC_PHY_PAGE_EXTENDED		  0x0001 /* Extended registers */
- #define MSCC_PHY_PAGE_EXTENDED_2	  0x0002 /* Extended reg - page 2 */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 	cpsw->wr_regs = devm_ioremap_resource(&pdev->dev, res);
+ 	if (IS_ERR(cpsw->wr_regs)) {
+ 		ret = PTR_ERR(cpsw->wr_regs);
+-		goto clean_runtime_disable_ret;
++		goto clean_pm_runtime_put_ret;
+ 	}
  
-+/* Extended Page 1 Registers */
-+#define MSCC_PHY_ACTIPHY_CNTL		  20
-+#define DOWNSHIFT_CNTL_MASK		  0x001C
-+#define DOWNSHIFT_EN			  0x0010
-+#define DOWNSHIFT_CNTL_POS		  2
-+
- /* Extended Page 2 Registers */
- #define MSCC_PHY_RGMII_CNTL		  20
- #define RGMII_RX_CLK_DELAY_MASK		  0x0070
-@@ -75,6 +82,8 @@ enum rgmii_rx_clock_delay {
- #define MSCC_VDDMAC_2500		  2500
- #define MSCC_VDDMAC_3300		  3300
+ 	memset(&dma_params, 0, sizeof(dma_params));
+@@ -2684,7 +2683,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	default:
+ 		dev_err(priv->dev, "unknown version 0x%08x\n", cpsw->version);
+ 		ret = -ENODEV;
+-		goto clean_runtime_disable_ret;
++		goto clean_pm_runtime_put_ret;
+ 	}
+ 	for (i = 0; i < cpsw->data.slaves; i++) {
+ 		struct cpsw_slave *slave = &cpsw->slaves[i];
+@@ -2713,7 +2712,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	if (!cpsw->dma) {
+ 		dev_err(priv->dev, "error initializing dma\n");
+ 		ret = -ENOMEM;
+-		goto clean_runtime_disable_ret;
++		goto clean_pm_runtime_put_ret;
+ 	}
  
-+#define DOWNSHIFT_COUNT_MAX		  5
-+
- struct vsc8531_private {
- 	int rate_magic;
- };
-@@ -101,6 +110,66 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- 	return rc;
- }
+ 	cpsw->txch[0] = cpdma_chan_create(cpsw->dma, 0, cpsw_tx_handler, 0);
+@@ -2815,12 +2814,16 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		}
+ 	}
  
-+static int vsc85xx_downshift_get(struct phy_device *phydev, u8 *count)
-+{
-+	int rc;
-+	u16 reg_val;
++	pm_runtime_put(&pdev->dev);
 +
-+	mutex_lock(&phydev->lock);
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
-+	if (rc != 0)
-+		goto out_unlock;
-+
-+	reg_val = phy_read(phydev, MSCC_PHY_ACTIPHY_CNTL);
-+	reg_val &= DOWNSHIFT_CNTL_MASK;
-+	if (!(reg_val & DOWNSHIFT_EN))
-+		*count = DOWNSHIFT_DEV_DISABLE;
-+	else
-+		*count = ((reg_val & ~DOWNSHIFT_EN) >> DOWNSHIFT_CNTL_POS) + 2;
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-+
-+out_unlock:
-+	mutex_unlock(&phydev->lock);
-+
-+	return rc;
-+}
-+
-+static int vsc85xx_downshift_set(struct phy_device *phydev, u8 count)
-+{
-+	int rc;
-+	u16 reg_val;
-+
-+	if (count == DOWNSHIFT_DEV_DEFAULT_COUNT) {
-+		/* Default downshift count 3 (i.e. Bit3:2 = 0b01) */
-+		count = ((1 << DOWNSHIFT_CNTL_POS) | DOWNSHIFT_EN);
-+	} else if (count > DOWNSHIFT_COUNT_MAX || count == 1) {
-+		phydev_err(phydev, "Downshift count should be 2,3,4 or 5\n");
-+		return -ERANGE;
-+	} else if (count) {
-+		/* Downshift count is either 2,3,4 or 5 */
-+		count = (((count - 2) << DOWNSHIFT_CNTL_POS) | DOWNSHIFT_EN);
-+	}
-+
-+	mutex_lock(&phydev->lock);
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
-+	if (rc != 0)
-+		goto out_unlock;
-+
-+	reg_val = phy_read(phydev, MSCC_PHY_ACTIPHY_CNTL);
-+	reg_val &= ~(DOWNSHIFT_CNTL_MASK);
-+	reg_val |= count;
-+	rc = phy_write(phydev, MSCC_PHY_ACTIPHY_CNTL, reg_val);
-+	if (rc != 0)
-+		goto out_unlock;
-+
-+	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-+
-+out_unlock:
-+	mutex_unlock(&phydev->lock);
-+
-+	return rc;
-+}
-+
- static int vsc85xx_wol_set(struct phy_device *phydev,
- 			   struct ethtool_wolinfo *wol)
- {
-@@ -329,6 +398,29 @@ static int vsc85xx_default_config(struct phy_device *phydev)
- 	return rc;
- }
+ 	return 0;
  
-+static int vsc85xx_get_tunable(struct phy_device *phydev,
-+			       struct ethtool_tunable *tuna, void *data)
-+{
-+	switch (tuna->id) {
-+	case ETHTOOL_PHY_DOWNSHIFT:
-+		return vsc85xx_downshift_get(phydev, (u8 *)data);
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
-+static int vsc85xx_set_tunable(struct phy_device *phydev,
-+			       struct ethtool_tunable *tuna,
-+			       const void *data)
-+{
-+	switch (tuna->id) {
-+	case ETHTOOL_PHY_DOWNSHIFT:
-+		return vsc85xx_downshift_set(phydev, *(u8 *)data);
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- static int vsc85xx_config_init(struct phy_device *phydev)
- {
- 	int rc;
-@@ -418,6 +510,8 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.probe		= &vsc85xx_probe,
- 	.set_wol	= &vsc85xx_wol_set,
- 	.get_wol	= &vsc85xx_wol_get,
-+	.get_tunable	= &vsc85xx_get_tunable,
-+	.set_tunable	= &vsc85xx_set_tunable,
- },
- {
- 	.phy_id		= PHY_ID_VSC8531,
-@@ -437,6 +531,8 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.probe		= &vsc85xx_probe,
- 	.set_wol	= &vsc85xx_wol_set,
- 	.get_wol	= &vsc85xx_wol_get,
-+	.get_tunable	= &vsc85xx_get_tunable,
-+	.set_tunable	= &vsc85xx_set_tunable,
- },
- {
- 	.phy_id		= PHY_ID_VSC8540,
-@@ -456,6 +552,8 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.probe		= &vsc85xx_probe,
- 	.set_wol	= &vsc85xx_wol_set,
- 	.get_wol	= &vsc85xx_wol_get,
-+	.get_tunable	= &vsc85xx_get_tunable,
-+	.set_tunable	= &vsc85xx_set_tunable,
- },
- {
- 	.phy_id		= PHY_ID_VSC8541,
-@@ -475,6 +573,8 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.probe		= &vsc85xx_probe,
- 	.set_wol	= &vsc85xx_wol_set,
- 	.get_wol	= &vsc85xx_wol_get,
-+	.get_tunable	= &vsc85xx_get_tunable,
-+	.set_tunable	= &vsc85xx_set_tunable,
- }
- 
- };
+ clean_ale_ret:
+ 	cpsw_ale_destroy(cpsw->ale);
+ clean_dma_ret:
+ 	cpdma_ctlr_destroy(cpsw->dma);
++clean_pm_runtime_put_ret:
++	pm_runtime_put_sync(&pdev->dev);
+ clean_runtime_disable_ret:
+ 	pm_runtime_disable(&pdev->dev);
+ clean_ndev_ret:
 -- 
 2.7.3
