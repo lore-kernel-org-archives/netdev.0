@@ -1,42 +1,40 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: wlcore: Allow scans when in AP mode
-Date: Thu, 17 Nov 2016 06:43:22 +0000 (UTC)
-Message-ID: <20161117064322.50C93615D8@smtp.codeaurora.org>
-References: <1475855157-21271-1-git-send-email-xander.huff@ni.com>
+Subject: Re: brcmfmac: print name of connect status event
+Date: Thu, 17 Nov 2016 06:45:02 +0000 (UTC)
+Message-ID: <20161117064502.0D0F5615D8@smtp.codeaurora.org>
+References: <20161014074559.22962-1-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        James Minor <james.minor@ni.com>, linux-kernel@vger.kernel.org,
-        xander.huff@ni.com
-To: Xander Huff <xander.huff@ni.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:43496 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938318AbcKQGnX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 01:43:23 -0500
-In-Reply-To: <1475855157-21271-1-git-send-email-xander.huff@ni.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        Franky Lin <frankyl@broadcom.com>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161014074559.22962-1-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Xander Huff <xander.huff@ni.com> wrote:
-> From: James Minor <james.minor@ni.com>
+Rafał Miłecki wrote:
+> From: Rafał Miłecki <rafal@milecki.pl>
 > 
-> When in AP mode, scans can be done without changing firmware to
-> the multi-role firmware. Allow the interface to scan if forced
-> in the scan request.
+> This simplifies debugging. Format %s (%u) comes from similar debugging
+> message in brcmf_fweh_event_worker.
 > 
-> Signed-off-by: James Minor <james.minor@ni.com>
-> Signed-off-by: Xander Huff <xander.huff@ni.com>
-> Reviewed-by: Ben Shelton <ben.shelton@ni.com>
-> Reviewed-by: Jaeden Amero <jaeden.amero@ni.com>
+> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-87016f5eb1a3 wlcore: Allow scans when in AP mode
+e1c122d55f9e brcmfmac: print name of connect status event
 
 -- 
-https://patchwork.kernel.org/patch/9366467/
+https://patchwork.kernel.org/patch/9376147/
 
 Documentation about submitting wireless patches and checking status
 from patchwork:
