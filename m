@@ -1,55 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Netperf UDP issue with connected sockets
-Date: Wed, 16 Nov 2016 16:34:09 -0800
-Message-ID: <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20140903165943.372b897b@redhat.com>
-         <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
-         <20161116131609.4e5726b4@redhat.com>
-         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
-         <20161116234022.2bad179b@redhat.com>
+From: =?UTF-8?Q?Vicente_Jim=C3=A9nez?= <googuy@gmail.com>
+Subject: Re: [PATCH] icmp: Restore resistence to abnormal messages
+Date: Thu, 17 Nov 2016 02:17:44 +0100
+Message-ID: <CAO1wt+aOv8K-16geLxO=qzp8cVTkFPiTMxV6WNWS9Ggx+tZeKg@mail.gmail.com>
+References: <20161111202018.13795-1-googuy@gmail.com> <20161114.133646.1687576478968660327.davem@davemloft.net>
+ <CAO1wt+b4OkJ4DmJ7_hUj_oKj4p_rRMuKUVpiBY7MSFMa=0WKQg@mail.gmail.com>
+ <20161115.115657.798577230951109692.davem@redhat.com> <20161115173024.GD30581@breakpoint.cc>
+ <CAO1wt+aZjRE_KTY0iRNJryeHvehrK6kuGMn6wOOeFuT1ncpPxA@mail.gmail.com> <20161116011404.GF30581@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hpe.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35239 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752906AbcKQAeL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 19:34:11 -0500
-Received: by mail-pf0-f195.google.com with SMTP id i88so10581437pfk.2
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 16:34:10 -0800 (PST)
-In-Reply-To: <20161116234022.2bad179b@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@redhat.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161116011404.GF30581@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-11-16 at 23:40 +0100, Jesper Dangaard Brouer wrote:
+On Wed, Nov 16, 2016 at 2:14 AM, Florian Westphal <fw@strlen.de> wrote:
+> Vicente Jim=C3=A9nez <googuy@gmail.com> wrote:
+>> 1- add warning with pr_warn_ratelimited. I like this idea. I also
+>> though about adding some message but I have no kernel experience and I
+>> preferred to have just a working solution.
+>
+> I added this only to show whats happening.
+>
+> I don't like such printks because end users can't do anything about it.
+>
+What about using net_dbg_ratelimited macro? it only adds messages if
+debug is enabled.
 
-> Using -R 1 does not seem to help remove __ip_select_ident()
-> 
-> Samples: 56K of event 'cycles', Event count (approx.): 78628132661
->   Overhead  Command        Shared Object        Symbol
-> +    9.11%  netperf        [kernel.vmlinux]     [k] __ip_select_ident
-> +    6.98%  netperf        [kernel.vmlinux]     [k] _raw_spin_lock
-> +    6.21%  swapper        [mlx5_core]          [k] mlx5e_poll_tx_cq
-> +    5.03%  netperf        [kernel.vmlinux]     [k] copy_user_enhanced_fast_string
-> +    4.69%  netperf        [kernel.vmlinux]     [k] __ip_make_skb
-> +    4.63%  netperf        [kernel.vmlinux]     [k] skb_set_owner_w
-> +    4.15%  swapper        [kernel.vmlinux]     [k] __slab_free
-> +    3.80%  netperf        [mlx5_core]          [k] mlx5e_sq_xmit
-> +    2.00%  swapper        [kernel.vmlinux]     [k] sock_wfree
-> +    1.94%  netperf        netperf              [.] send_data
-> +    1.92%  netperf        netperf              [.] send_omni_inner
+>
+>> Finally, both patches decrement current packet by a value: Mine by 2
+>> and Florian's by 8 bytes. Both arbitrary values. Personally I prefer
+>> to go by small steps. If the small step fails, it just iterate again
+>> and with 4 iterations, my patch also decrement the original value by 8
+>> bytes (4x2).
+>> Basically they are the same but my patch take smaller steps and miss
+>> the warning message.
+>
+> IIRC I chose 8 because connection recovered faster in my case.
+>
+> I have not experienced this issue again (I dropped the patch from
+> my kernel at some point and the connection stalls did not reappear so
+> this got fixed elsewhere).
+My issue is permanent for now in various locations. We have to
+decrease MTU manually on all devices with newer kernels. We don't have
+direct access to those abnormal routers because they are managed by a
+communication provider that think the network had no problem because
+all their Windows machines apparently work perfectly.
 
-Check "ss -nu"  ?
-
-You will see if sockets are connected (present in ss output or not)
-
-UDP being connected does not prevent __ip_select_ident() being used.
-
-    if ((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) {
-
-So you need IP_DF being set, and skb->ignore_df being 0
-
--> time to try IP_MTU_DISCOVER ;)
+--=20
+cheers
+vicente
