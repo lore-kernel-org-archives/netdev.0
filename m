@@ -1,90 +1,69 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next v2 3/4] bpf, mlx5: drop priv->xdp_prog reference
- on netdev cleanup
-Date: Thu, 17 Nov 2016 11:34:37 +0200
-Message-ID: <CALzJLG9J0J0AGP_+0WukLG9N3vzukPoJf4Br-iFdDXzWowb6pg@mail.gmail.com>
-References: <cover.1479253024.git.daniel@iogearbox.net> <4617cac95e3ca1b608f5d0a55709b0534c168943.1479253024.git.daniel@iogearbox.net>
- <CALzJLG9Rzds3H-wXnjCg=_2oGV-33TY714Hx0n+NyVsZzcBBfA@mail.gmail.com>
- <582C7F11.7000006@iogearbox.net> <582C817A.4030902@iogearbox.net>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH net 1/7] net: ethernet: ti: cpsw: fix bad register access
+ in probe error path
+Date: Thu, 17 Nov 2016 10:41:03 +0100
+Message-ID: <20161117094103.GB21237@localhost>
+References: <1479306916-27673-1-git-send-email-johan@kernel.org>
+ <1479306916-27673-2-git-send-email-johan@kernel.org>
+ <664c1f10-dd31-8566-852f-ee5ca0b5c46e@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Brenden Blanco <bblanco@plumgrid.com>, zhiyisun@gmail.com,
-        Rana Shahout <ranas@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35166 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752941AbcKQJe7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 04:34:59 -0500
-Received: by mail-wm0-f66.google.com with SMTP id a20so19404156wme.2
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 01:34:59 -0800 (PST)
-In-Reply-To: <582C817A.4030902@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <johan@kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <664c1f10-dd31-8566-852f-ee5ca0b5c46e@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 16, 2016 at 5:55 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 11/16/2016 04:45 PM, Daniel Borkmann wrote:
->>
->> On 11/16/2016 01:51 PM, Saeed Mahameed wrote:
->>>
->>> On Wed, Nov 16, 2016 at 2:04 AM, Daniel Borkmann <daniel@iogearbox.net>
->>> wrote:
->>>>
->>>> mlx5e_xdp_set() is currently the only place where we drop reference on
->>>> the
->>>> prog sitting in priv->xdp_prog when it's exchanged by a new one. We also
->>>> need to make sure that we eventually release that reference, for
->>>> example,
->>>> in case the netdev is dismantled.
->>>>
->>>> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
->>>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->>>> ---
->>>>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 +++
->>>>   1 file changed, 3 insertions(+)
->>>>
->>>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->>>> b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->>>> index cf26672..60fe54c 100644
->>>> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->>>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->>>> @@ -3715,6 +3715,9 @@ static void mlx5e_nic_cleanup(struct mlx5e_priv
->>>> *priv)
->>>>
->>>>          if (MLX5_CAP_GEN(mdev, vport_group_manager))
->>>>                  mlx5_eswitch_unregister_vport_rep(esw, 0);
->>>> +
->>>> +       if (priv->xdp_prog)
->>>> +               bpf_prog_put(priv->xdp_prog);
->>>>   }
->>>
->>>
->>> I thought that on unregister_netdev  ndo_xdp_set will be called with
->>> NULL prog to cleanup. like any other resources (Vlans/mac_lists/
->>> etc..), why xdp should be different ?
->>> Anyway if this is the case, I am ok with this fix, you can even send
->>> it to net (it looks like a serious leak).
->>
->>
->> The only interaction with ndo_xdp() right now is dev_change_xdp_fd()
->> and the currently a bit terse dump via rtnl_xdp_fill(). The latter
->> only tells whether something is actually attached and will have more
->> info in near future, but doesn't alter anything.
->>
->> dev_change_xdp_fd() is only triggered from user side via netlink when
->> IFLA_XDP container attr is around, so no automatic cleanup here. This
->> means as per documentation in enum xdp_netdev_command, that the driver
->> has full ownership, thus needs to bpf_prog_put().
->
->
-> Note that without patch 2/4, just sending this one to net doesn't really
-> solve anything, since there the mlx5e_xdp_set() still has the incorrect
-> bpf_prog_add(prog, 1) around. So it's the whole series if so. I had it
-> originally targeted at net, but Alexei suggested net-next; I don't really
-> mind either way, so I agreed to go for net-next.
+On Wed, Nov 16, 2016 at 02:33:18PM -0600, Grygorii Strashko wrote:
+> On 11/16/2016 08:35 AM, Johan Hovold wrote:
+> > Make sure to resume the platform device to enable clocks before
+> > accessing the CPSW registers in the probe error path (e.g. for deferred
+> > probe).
+> > 
+> > Unhandled fault: external abort on non-linefetch (0x1008) at 0xd0872d08
+> > ...
+> > [<c04fabcc>] (cpsw_ale_control_set) from [<c04fb8b4>] (cpsw_ale_destroy+0x2c/0x44)
+> > [<c04fb8b4>] (cpsw_ale_destroy) from [<c04fea58>] (cpsw_probe+0xbd0/0x10c4)
+> > [<c04fea58>] (cpsw_probe) from [<c047b2a0>] (platform_drv_probe+0x5c/0xc0)
+> > 
+> > Note that in the unlikely event of a runtime-resume failure, we'll leak
+> > the ale struct.
+> > 
+> > Fixes: df828598a755 ("netdev: driver: ethernet: Add TI CPSW driver")
+> > Signed-off-by: Johan Hovold <johan@kernel.org>
+> > ---
+> >  drivers/net/ethernet/ti/cpsw.c | 7 ++++++-
+> >  1 file changed, 6 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> > index c6cff3d2ff05..5bc5e6189661 100644
+> > --- a/drivers/net/ethernet/ti/cpsw.c
+> > +++ b/drivers/net/ethernet/ti/cpsw.c
+> > @@ -2818,7 +2818,12 @@ static int cpsw_probe(struct platform_device *pdev)
+> >  	return 0;
+> >  
+> >  clean_ale_ret:
+> > -	cpsw_ale_destroy(cpsw->ale);
+> > +	if (pm_runtime_get_sync(&pdev->dev) < 0) {
+> > +		pm_runtime_put_noidle(&pdev->dev);
+> > +	} else {
+> > +		cpsw_ale_destroy(cpsw->ale);
+> > +		pm_runtime_put_sync(&pdev->dev);
+> > +	}
+> >  clean_dma_ret:
+> >  	cpdma_ctlr_destroy(cpsw->dma);
+> >  clean_runtime_disable_ret:
+> > 
+> 
+> I think, wouldn't it be logically more simple to just keep CPSW PM
+> runtime enabled during probe?
 
-Ok, Thank you Daniel
+Indeed it would. I'll do that in a v2.
+
+Thanks,
+Johan
