@@ -1,74 +1,55 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v4 2/5] net: fsl: Allow most drivers to be built with COMPILE_TEST
-Date: Thu, 17 Nov 2016 11:19:11 -0800
-Message-ID: <20161117191914.11077-3-f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 3/5] bus: mvebu-bus: Provide inline stub for mvebu_mbus_get_dram_win_info
+Date: Thu, 17 Nov 2016 11:19:12 -0800
+Message-ID: <20161117191914.11077-4-f.fainelli@gmail.com>
 References: <20161117191914.11077-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, mw@semihalf.com, arnd@arndb.de,
         gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com,
         andrew@lunn.ch, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36194 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754173AbcKQTUs (ORCPT
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34165 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754296AbcKQTUs (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 14:20:48 -0500
-Received: by mail-pg0-f67.google.com with SMTP id x23so18292121pgx.3
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 11:20:46 -0800 (PST)
+Received: by mail-pf0-f195.google.com with SMTP id y68so12065203pfb.1
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 11:20:47 -0800 (PST)
 In-Reply-To: <20161117191914.11077-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are only a handful of Freescale Ethernet drivers that don't
-actually build with COMPILE_TEST:
-
-* FEC, for which we would need to define a default register layout if no
-  supported architecture is defined
-
-* UCC_GETH which depends on PowerPC cpm.h header (which could be moved
-  to a generic location)
-
-* GIANFAR needs to depend on HAS_DMA to fix linking failures on some
-  architectures (like m32r)
-
-We need to fix an unmet dependency to get there though:
-warning: (FSL_XGMAC_MDIO) selects OF_MDIO which has unmet direct
-dependencies (OF && PHYLIB)
-
-which would result in CONFIG_OF_MDIO=[ym] without CONFIG_OF to be set.
+In preparation for allowing CONFIG_MVNETA_BM to build with COMPILE_TEST,
+provide an inline stub for mvebu_mbus_get_dram_win_info().
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/freescale/Kconfig | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/linux/mbus.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index aa3f615886b4..0d415516b577 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -8,7 +8,7 @@ config NET_VENDOR_FREESCALE
- 	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
- 		   M523x || M527x || M5272 || M528x || M520x || M532x || \
- 		   ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM) || \
--		   ARCH_LAYERSCAPE
-+		   ARCH_LAYERSCAPE || COMPILE_TEST
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
+diff --git a/include/linux/mbus.h b/include/linux/mbus.h
+index 2931aa43dab1..0d3f14fd2621 100644
+--- a/include/linux/mbus.h
++++ b/include/linux/mbus.h
+@@ -82,6 +82,7 @@ static inline int mvebu_mbus_get_io_win_info(phys_addr_t phyaddr, u32 *size,
+ }
+ #endif
  
-@@ -65,6 +65,7 @@ config FSL_PQ_MDIO
- config FSL_XGMAC_MDIO
- 	tristate "Freescale XGMAC MDIO"
- 	select PHYLIB
-+	depends on OF
- 	select OF_MDIO
- 	---help---
- 	  This driver supports the MDIO bus on the Fman 10G Ethernet MACs, and
-@@ -85,6 +86,7 @@ config UGETH_TX_ON_DEMAND
++#ifdef CONFIG_MVEBU_MBUS
+ int mvebu_mbus_save_cpu_target(u32 __iomem *store_addr);
+ void mvebu_mbus_get_pcie_mem_aperture(struct resource *res);
+ void mvebu_mbus_get_pcie_io_aperture(struct resource *res);
+@@ -97,5 +98,12 @@ int mvebu_mbus_init(const char *soc, phys_addr_t mbus_phys_base,
+ 		    size_t mbus_size, phys_addr_t sdram_phys_base,
+ 		    size_t sdram_size);
+ int mvebu_mbus_dt_init(bool is_coherent);
++#else
++static inline int mvebu_mbus_get_dram_win_info(phys_addr_t phyaddr, u8 *target,
++					       u8 *attr)
++{
++	return -EINVAL;
++}
++#endif /* CONFIG_MVEBU_MBUS */
  
- config GIANFAR
- 	tristate "Gianfar Ethernet"
-+	depends on HAS_DMA
- 	select FSL_PQ_MDIO
- 	select PHYLIB
- 	select CRC32
+ #endif /* __LINUX_MBUS_H */
 -- 
 2.9.3
