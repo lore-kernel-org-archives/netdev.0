@@ -1,86 +1,42 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net v2 1/7] net: ethernet: ti: cpsw: fix bad register access in probe error path
-Date: Thu, 17 Nov 2016 17:39:58 +0100
-Message-ID: <1479400804-9847-2-git-send-email-johan@kernel.org>
-References: <1479400804-9847-1-git-send-email-johan@kernel.org>
-Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479400804-9847-1-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: Netperf UDP issue with connected sockets
+Date: Thu, 17 Nov 2016 09:42:44 -0800
+Message-ID: <cae599d5-fee9-1d39-914f-0f5145c04da4@hpe.com>
+References: <20140903165943.372b897b@redhat.com>
+ <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20161116131609.4e5726b4@redhat.com>
+ <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
+ <20161116234022.2bad179b@redhat.com>
+ <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117091638.5fab8494@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brouer@redhat.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3426.houston.hpe.com ([15.241.140.75]:3682 "EHLO
+        g4t3426.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933417AbcKQRmr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:42:47 -0500
+In-Reply-To: <20161117091638.5fab8494@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure to keep the platform device runtime-resumed throughout probe
-to avoid accessing the CPSW registers in the error path (e.g. for
-deferred probe) with clocks disabled:
+On 11/17/2016 12:16 AM, Jesper Dangaard Brouer wrote:
+>> time to try IP_MTU_DISCOVER ;)
+>
+> To Rick, maybe you can find a good solution or option with Eric's hint,
+> to send appropriate sized UDP packets with Don't Fragment (DF).
 
-Unhandled fault: external abort on non-linefetch (0x1008) at 0xd0872d08
-...
-[<c04fabcc>] (cpsw_ale_control_set) from [<c04fb8b4>] (cpsw_ale_destroy+0x2c/0x44)
-[<c04fb8b4>] (cpsw_ale_destroy) from [<c04fea58>] (cpsw_probe+0xbd0/0x10c4)
-[<c04fea58>] (cpsw_probe) from [<c047b2a0>] (platform_drv_probe+0x5c/0xc0)
+Well, I suppose adding another setsockopt() to the data socket creation 
+wouldn't be too difficult, along with another command-line option to 
+cause it to happen.
 
-Fixes: df828598a755 ("netdev: driver: ethernet: Add TI CPSW driver")
-Signed-off-by: Johan Hovold <johan@kernel.org>
----
- drivers/net/ethernet/ti/cpsw.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+Could we leave things as "make sure you don't need fragmentation when 
+you use this" or would netperf have to start processing ICMP messages?
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c6cff3d2ff05..f60f8ab7c1e3 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2641,13 +2641,12 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_runtime_disable_ret;
- 	}
- 	cpsw->version = readl(&cpsw->regs->id_ver);
--	pm_runtime_put_sync(&pdev->dev);
- 
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
- 	cpsw->wr_regs = devm_ioremap_resource(&pdev->dev, res);
- 	if (IS_ERR(cpsw->wr_regs)) {
- 		ret = PTR_ERR(cpsw->wr_regs);
--		goto clean_runtime_disable_ret;
-+		goto clean_pm_runtime_put_ret;
- 	}
- 
- 	memset(&dma_params, 0, sizeof(dma_params));
-@@ -2684,7 +2683,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	default:
- 		dev_err(priv->dev, "unknown version 0x%08x\n", cpsw->version);
- 		ret = -ENODEV;
--		goto clean_runtime_disable_ret;
-+		goto clean_pm_runtime_put_ret;
- 	}
- 	for (i = 0; i < cpsw->data.slaves; i++) {
- 		struct cpsw_slave *slave = &cpsw->slaves[i];
-@@ -2713,7 +2712,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	if (!cpsw->dma) {
- 		dev_err(priv->dev, "error initializing dma\n");
- 		ret = -ENOMEM;
--		goto clean_runtime_disable_ret;
-+		goto clean_pm_runtime_put_ret;
- 	}
- 
- 	cpsw->txch[0] = cpdma_chan_create(cpsw->dma, 0, cpsw_tx_handler, 0);
-@@ -2815,12 +2814,16 @@ static int cpsw_probe(struct platform_device *pdev)
- 		}
- 	}
- 
-+	pm_runtime_put(&pdev->dev);
-+
- 	return 0;
- 
- clean_ale_ret:
- 	cpsw_ale_destroy(cpsw->ale);
- clean_dma_ret:
- 	cpdma_ctlr_destroy(cpsw->dma);
-+clean_pm_runtime_put_ret:
-+	pm_runtime_put_sync(&pdev->dev);
- clean_runtime_disable_ret:
- 	pm_runtime_disable(&pdev->dev);
- clean_ndev_ret:
--- 
-2.7.3
+happy benchmarking,
+
+rick jones
