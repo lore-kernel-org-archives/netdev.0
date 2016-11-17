@@ -1,65 +1,203 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] af_unix: revert "af_unix: use freezable blocking calls in read"
-Date: Thu, 17 Nov 2016 14:09:24 -0800
-Message-ID: <1479420564-15799-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: dvyukov@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Tejun Heo <tj@kernel.org>, Colin Cross <ccross@android.com>,
-        "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
-To: netdev@vger.kernel.org
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH v2 net-next] lan78xx: relocate mdix setting to phy driver
+Date: Thu, 17 Nov 2016 22:10:02 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40966AA4@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <andrew@lunn.ch>, <UNGLinuxDriver@microchip.com>
+To: <davem@davemloft.net>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34605 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750855AbcKQWJm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 17:09:42 -0500
-Received: by mail-pf0-f196.google.com with SMTP id y68so12210203pfb.1
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 14:09:42 -0800 (PST)
+Received: from smtpout.microchip.com ([198.175.253.82]:31799 "EHLO
+        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752315AbcKQWKE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 17:10:04 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 2b15af6f95 ("af_unix: use freezable blocking calls in read")
-converts schedule_timeout() to its freezable version, it was probably
-correct at that time, but later, commit 2b514574f7e8
-("net: af_unix: implement splice for stream af_unix sockets") breaks
-the strong requirement for a freezable sleep, according to
-commit 0f9548ca1091:
+From: Woojung Huh <woojung.huh@microchip.com>
 
-    We shouldn't try_to_freeze if locks are held.  Holding a lock can cause a
-    deadlock if the lock is later acquired in the suspend or hibernate path
-    (e.g.  by dpm).  Holding a lock can also cause a deadlock in the case of
-    cgroup_freezer if a lock is held inside a frozen cgroup that is later
-    acquired by a process outside that group.
+Relocate mdix code to phy driver to be called at config_init().
 
-The pipe_lock is still held at that point. So just revert commit 2b15af6f95.
-
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Tejun Heo <tj@kernel.org>
-Cc: Colin Cross <ccross@android.com>
-Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
 ---
- net/unix/af_unix.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/phy/microchip.c | 36 +++++++++++++++++++++-
+ drivers/net/usb/lan78xx.c   | 73 ++-------------------------------------------
+ 2 files changed, 38 insertions(+), 71 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 5d1c14a..6f37f9e 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -116,7 +116,6 @@
- #include <linux/mount.h>
- #include <net/checksum.h>
- #include <linux/security.h>
--#include <linux/freezer.h>
+diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
+index 7c00e50..eb4db22 100644
+--- a/drivers/net/phy/microchip.c
++++ b/drivers/net/phy/microchip.c
+@@ -106,6 +106,40 @@ static int lan88xx_set_wol(struct phy_device *phydev,
+ 	return 0;
+ }
  
- struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
- EXPORT_SYMBOL_GPL(unix_socket_table);
-@@ -2220,7 +2219,7 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
++static void lan88xx_set_mdix(struct phy_device *phydev)
++{
++	int buf;
++	int val;
++
++	switch (phydev->mdix) {
++	case ETH_TP_MDI:
++		val = LAN88XX_EXT_MODE_CTRL_MDI_;
++		break;
++	case ETH_TP_MDI_X:
++		val = LAN88XX_EXT_MODE_CTRL_MDI_X_;
++		break;
++	case ETH_TP_MDI_AUTO:
++		val = LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_;
++		break;
++	default:
++		return;
++	}
++
++	phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS, LAN88XX_EXT_PAGE_SPACE_1);
++	buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
++	buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
++	buf |= val;
++	phy_write(phydev, LAN88XX_EXT_MODE_CTRL, buf);
++	phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS, LAN88XX_EXT_PAGE_SPACE_0);
++}
++
++static int lan88xx_config_aneg(struct phy_device *phydev)
++{
++	lan88xx_set_mdix(phydev);
++
++	return genphy_config_aneg(phydev);
++}
++
+ static struct phy_driver microchip_phy_driver[] = {
+ {
+ 	.phy_id		= 0x0007c130,
+@@ -120,7 +154,7 @@ static struct phy_driver microchip_phy_driver[] = {
+ 	.remove		= lan88xx_remove,
  
- 		sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 		unix_state_unlock(sk);
--		timeo = freezable_schedule_timeout(timeo);
-+		timeo = schedule_timeout(timeo);
- 		unix_state_lock(sk);
+ 	.config_init	= genphy_config_init,
+-	.config_aneg	= genphy_config_aneg,
++	.config_aneg	= lan88xx_config_aneg,
+ 	.read_status	= genphy_read_status,
  
- 		if (sock_flag(sk, SOCK_DEAD))
+ 	.ack_interrupt	= lan88xx_phy_ack_interrupt,
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index cf2857f..0c459e9 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1471,62 +1471,12 @@ static void lan78xx_set_msglevel(struct net_device *net, u32 level)
+ 	dev->msg_enable = level;
+ }
+ 
+-static int lan78xx_get_mdix_status(struct net_device *net)
+-{
+-	struct phy_device *phydev = net->phydev;
+-	int buf;
+-
+-	phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS, LAN88XX_EXT_PAGE_SPACE_1);
+-	buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
+-	phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS, LAN88XX_EXT_PAGE_SPACE_0);
+-
+-	return buf;
+-}
+-
+-static void lan78xx_set_mdix_status(struct net_device *net, __u8 mdix_ctrl)
+-{
+-	struct lan78xx_net *dev = netdev_priv(net);
+-	struct phy_device *phydev = net->phydev;
+-	int buf;
+-
+-	if (mdix_ctrl == ETH_TP_MDI) {
+-		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
+-			  LAN88XX_EXT_PAGE_SPACE_1);
+-		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
+-		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
+-		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
+-			  buf | LAN88XX_EXT_MODE_CTRL_MDI_);
+-		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
+-			  LAN88XX_EXT_PAGE_SPACE_0);
+-	} else if (mdix_ctrl == ETH_TP_MDI_X) {
+-		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
+-			  LAN88XX_EXT_PAGE_SPACE_1);
+-		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
+-		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
+-		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
+-			  buf | LAN88XX_EXT_MODE_CTRL_MDI_X_);
+-		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
+-			  LAN88XX_EXT_PAGE_SPACE_0);
+-	} else if (mdix_ctrl == ETH_TP_MDI_AUTO) {
+-		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
+-			  LAN88XX_EXT_PAGE_SPACE_1);
+-		buf = phy_read(phydev, LAN88XX_EXT_MODE_CTRL);
+-		buf &= ~LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
+-		phy_write(phydev, LAN88XX_EXT_MODE_CTRL,
+-			  buf | LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_);
+-		phy_write(phydev, LAN88XX_EXT_PAGE_ACCESS,
+-			  LAN88XX_EXT_PAGE_SPACE_0);
+-	}
+-	dev->mdix_ctrl = mdix_ctrl;
+-}
+-
+ static int lan78xx_get_link_ksettings(struct net_device *net,
+ 				      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(net);
+ 	struct phy_device *phydev = net->phydev;
+ 	int ret;
+-	int buf;
+ 
+ 	ret = usb_autopm_get_interface(dev->intf);
+ 	if (ret < 0)
+@@ -1534,20 +1484,6 @@ static int lan78xx_get_link_ksettings(struct net_device *net,
+ 
+ 	ret = phy_ethtool_ksettings_get(phydev, cmd);
+ 
+-	buf = lan78xx_get_mdix_status(net);
+-
+-	buf &= LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
+-	if (buf == LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_) {
+-		cmd->base.eth_tp_mdix = ETH_TP_MDI_AUTO;
+-		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
+-	} else if (buf == LAN88XX_EXT_MODE_CTRL_MDI_) {
+-		cmd->base.eth_tp_mdix = ETH_TP_MDI;
+-		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI;
+-	} else if (buf == LAN88XX_EXT_MODE_CTRL_MDI_X_) {
+-		cmd->base.eth_tp_mdix = ETH_TP_MDI_X;
+-		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_X;
+-	}
+-
+ 	usb_autopm_put_interface(dev->intf);
+ 
+ 	return ret;
+@@ -1565,9 +1501,6 @@ static int lan78xx_set_link_ksettings(struct net_device *net,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (dev->mdix_ctrl != cmd->base.eth_tp_mdix_ctrl)
+-		lan78xx_set_mdix_status(net, cmd->base.eth_tp_mdix_ctrl);
+-
+ 	/* change speed & duplex */
+ 	ret = phy_ethtool_ksettings_set(phydev, cmd);
+ 
+@@ -2019,6 +1952,9 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ 		phydev->irq = 0;
+ 	netdev_dbg(dev->net, "phydev->irq = %d\n", phydev->irq);
+ 
++	/* set to AUTOMDIX */
++	phydev->mdix = ETH_TP_MDI_AUTO;
++
+ 	ret = phy_connect_direct(dev->net, phydev,
+ 				 lan78xx_link_status_change,
+ 				 PHY_INTERFACE_MODE_GMII);
+@@ -2028,9 +1964,6 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ 		return -EIO;
+ 	}
+ 
+-	/* set to AUTOMDIX */
+-	lan78xx_set_mdix_status(dev->net, ETH_TP_MDI_AUTO);
+-
+ 	/* MAC doesn't support 1000T Half */
+ 	phydev->supported &= ~SUPPORTED_1000baseT_Half;
+ 
 -- 
-2.1.0
+2.7.4
