@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: netcp: replace IS_ERR_OR_NULL by IS_ERR
-Date: Wed, 16 Nov 2016 23:27:07 -0500 (EST)
-Message-ID: <20161116.232707.1586517242816228983.davem@davemloft.net>
-References: <1479293014-18811-1-git-send-email-Julia.Lawall@lip6.fr>
-        <1479293014-18811-2-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [patch net-next 0/4] mlxsw: Introduce support for I2C bus
+Date: Wed, 16 Nov 2016 23:29:30 -0500 (EST)
+Message-ID: <20161116.232930.939122953962295945.davem@davemloft.net>
+References: <1479306046-13324-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w-kwok2@ti.com, kernel-janitors@vger.kernel.org,
-        m-karicheri2@ti.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, christophe.jaillet@wanadoo.fr
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479293014-18811-2-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vadimp@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
+        arkadis@mellanox.com, ogerlitz@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33104 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932229AbcKQE3c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 23:29:32 -0500
+In-Reply-To: <1479306046-13324-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Wed, 16 Nov 2016 11:43:33 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 16 Nov 2016 15:20:42 +0100
 
-> knav_queue_open always returns an ERR_PTR value, never NULL.  This can be
-> confirmed by unfolding the function calls and conforms to the function's
-> documentation.  Thus, replace IS_ERR_OR_NULL by IS_ERR in error checks.
+> Vadim says:
 > 
-> The change is made using the following semantic patch:
-> (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> This patchset adds I2C access support for SwitchX, SwitchX2, SwitchIB,
+> SwitchIB2 and Spectrum silicones.
 
-Applied to net-next, thanks.
+Series applied, thanks.
