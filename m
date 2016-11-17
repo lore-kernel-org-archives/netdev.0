@@ -1,106 +1,78 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: BUG still has locks held in unix_stream_splice_read
-Date: Thu, 17 Nov 2016 19:02:28 +0100
-Message-ID: <CACT4Y+bhRREoHKE=yWrQ-7Owq6JKYPhSk-PEPznWXqa-j_7QnQ@mail.gmail.com>
-References: <CACT4Y+aPybMnXjiH+DdDWDAfz+L6PF-H-J3YT2+hjcDp3aw9SQ@mail.gmail.com>
- <CACT4Y+a6yDm28VYtNPSktYKs_T2UzLGb8jadpFpsdKfNzb7-tA@mail.gmail.com>
- <20161010024607.GV19539@ZenIV.linux.org.uk> <20161010031450.GW19539@ZenIV.linux.org.uk>
- <CACT4Y+ZgbobWZEkAFLVK9bLHB0oLpnxXrH1FQzTgVu_6JQQVDQ@mail.gmail.com>
+From: Rafal Ozieblo <rafalo@cadence.com>
+Subject: RE: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
+Date: Thu, 17 Nov 2016 13:35:28 +0000
+Message-ID: <BN3PR07MB2516EBCDD8822FC5F8A9095FC9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
+References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
+ <e6773b4e-a633-4754-893d-fd2351d07459@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+ZgbobWZEkAFLVK9bLHB0oLpnxXrH1FQzTgVu_6JQQVDQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+        Harini Katakam <harinikatakamlinux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0059.outbound.protection.outlook.com ([104.47.40.59]:57312
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S964845AbcKQSIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 13:08:53 -0500
+In-Reply-To: <e6773b4e-a633-4754-893d-fd2351d07459@atmel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 10, 2016 at 10:01 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Mon, Oct 10, 2016 at 5:14 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
->> On Mon, Oct 10, 2016 at 03:46:07AM +0100, Al Viro wrote:
->>> On Sun, Oct 09, 2016 at 12:06:14PM +0200, Dmitry Vyukov wrote:
->>> > I suspect this is:
->>> >
->>> > commit 25869262ef7af24ccde988867ac3eb1c3d4b88d4
->>> > Author: Al Viro <viro@zeniv.linux.org.uk>
->>> > Date:   Sat Sep 17 21:02:10 2016 -0400
->>> >     skb_splice_bits(): get rid of callback
->>> >     since pipe_lock is the outermost now, we don't need to drop/regain
->>> >     socket locks around the call of splice_to_pipe() from skb_splice_bits(),
->>> >     which kills the need to have a socket-specific callback; we can just
->>> >     call splice_to_pipe() and be done with that.
->>>
->>> Unlikely, since that particular commit removes unlocking/relocking ->iolock
->>> around the call of splice_to_pipe().  Original would've retaken the same
->>> lock on the way out; it's not as if we could leave the syscall there.
->>>
->>> It might be splice-related, but I don't believe that you've got the right
->>> commit here.
->>
->> It's not that commit
->
-> It's highly likely. Sorry for falsely pointing to your commit.
->
->
->> , all right - it's "can't call unix_stream_read_generic()
->> with any locks held" stepped onto a couple of commits prior by
->> "splice: lift pipe_lock out of splice_to_pipe()".  Could somebody explain
->> what is that about?
->>
->> E.g what will happen if some code does a read on AF_UNIX socket with
->> some local mutex held?  AFAICS, there are exactly two callers of
->> freezable_schedule_timeout() - this one and one in XFS; the latter is
->> in a kernel thread where we do have good warranties about the locking
->> environment, but here it's in the bleeding ->recvmsg/->splice_read and
->> for those assumption that caller doesn't hold any locks is pretty
->> strong, especially since it's not documented anywhere.
->>
->> What's going on there?
->
-> I never saw that warning before. There is some possibility that fuzzer
-> has discovered some new paths, but it's much more likely that
-> something has changed recently (the stack looks quite simple -- just a
-> splice from unix socket). And my previous pull was like a week ago.
-
-Ping. Just hit it again on 4.9-rc5
-
-
-[ BUG: syz-executor/15922 still has locks held! ]
-4.9.0-rc5+ #43 Not tainted
--------------------------------------
-1 lock held by syz-executor/15922:
- #0: [ 1441.143288]  (
-[<     inline     >] pipe_lock_nested fs/pipe.c:66
-[<ffffffff81a8d72b>] pipe_lock+0x5b/0x70 fs/pipe.c:74
-
-stack backtrace:
-CPU: 3 PID: 15922 Comm: syz-executor Not tainted 4.9.0-rc5+ #43
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- ffff88004a98f568 ffffffff834c2a19 ffffffff00000003 1ffff10009531e40
- ffffed0009531e38 0000000041b58ab3 ffffffff895758b0 ffffffff834c272b
- 0000000000000003 ffff880035256640 0000000000000003 ffff88006d122cd8
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff834c2a19>] dump_stack+0x2ee/0x3f5 lib/dump_stack.c:51
- [<     inline     >] print_held_locks_bug kernel/locking/lockdep.c:4296
- [<ffffffff81560245>] debug_check_no_locks_held+0x125/0x140
-kernel/locking/lockdep.c:4302
- [<     inline     >] try_to_freeze include/linux/freezer.h:65
- [<     inline     >] freezer_count include/linux/freezer.h:127
- [<     inline     >] freezable_schedule_timeout include/linux/freezer.h:192
- [<ffffffff8716ed5d>] unix_stream_data_wait+0x4fd/0x910 net/unix/af_unix.c:2223
- [<ffffffff871749a2>] unix_stream_read_generic+0x11e2/0x2240
-net/unix/af_unix.c:2332
- [<ffffffff87175c7f>] unix_stream_splice_read+0x27f/0x400
-net/unix/af_unix.c:2506
- [<ffffffff86a6578e>] sock_splice_read+0xbe/0x100 net/socket.c:772
- [<ffffffff81b3f90f>] do_splice_to+0x10f/0x170 fs/splice.c:897
- [<     inline     >] do_splice fs/splice.c:1185
- [<     inline     >] SYSC_splice fs/splice.c:1409
- [<ffffffff81b4683a>] SyS_splice+0xfaa/0x16a0 fs/splice.c:1392
- [<ffffffff88147905>] entry_SYSCALL_64_fastpath+0x23/0xc6
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IE5pY29sYXMgRmVycmUgW21haWx0bzpu
+aWNvbGFzLmZlcnJlQGF0bWVsLmNvbV0gDQpTZW50OiAxNyBsaXN0b3BhZGEgMjAxNiAxNDoyOQ0K
+VG86IEhhcmluaSBLYXRha2FtOyBSYWZhbCBPemllYmxvDQpDYzogaGFyaW5pLmthdGFrYW1AeGls
+aW54LmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVs
+Lm9yZw0KU3ViamVjdDogUmU6IFtSRkMgUEFUQ0ggMi8yXSBuZXQ6IG1hY2I6IEFkZCA2NCBiaXQg
+YWRkcmVzc2luZyBzdXBwb3J0IGZvciBHRU0NCg0KPiBMZSAxNy8xMS8yMDE2IMOgIDEzOjIxLCBI
+YXJpbmkgS2F0YWthbSBhIMOpY3JpdCA6DQo+ID4gSGkgUmFmYWwsDQo+ID4gDQo+ID4gT24gVGh1
+LCBOb3YgMTcsIDIwMTYgYXQgNToyMCBQTSwgUmFmYWwgT3ppZWJsbyA8cmFmYWxvQGNhZGVuY2Uu
+Y29tPiB3cm90ZToNCj4gPj4gSGVsbG8sDQo+ID4+IEkgdGhpbmssIHRoZXJlIGNvdWxkIGEgYnVn
+IGluIHlvdXIgcGF0Y2guDQo+ID4+DQo+ID4+PiArDQo+ID4+PiArI2lmZGVmIENPTkZJR19BUkNI
+X0RNQV9BRERSX1RfNjRCSVQNCj4gPj4+ICsgICAgICAgICAgICAgZG1hY2ZnIHw9IEdFTV9CSVQo
+QUREUjY0KTsgI2VuZGlmDQo+ID4+DQo+ID4+IFlvdSBlbmFibGUgNjQgYml0IGFkZHJlc3Npbmcg
+KDY0YiBkbWEgYnVzIHdpZHRoKSBhbHdheXMgd2hlbiBhcHByb3ByaWF0ZSBhcmNoaXRlY3R1cmUg
+Y29uZmlnIG9wdGlvbiBpcyBlbmFibGVkLg0KPiA+PiBCdXQgdGhlcmUgYXJlIHNvbWUgbGVnYWN5
+IGNvbnRyb2xsZXJzIHdoaWNoIGRvIG5vdCBzdXBwb3J0IHRoYXQgZmVhdHVyZS4gQWNjb3JkaW5n
+IENhZGVuY2UgaGFyZHdhcmUgdGVhbToNCj4gPj4gIjY0IGJpdCBhZGRyZXNzaW5nIHdhcyBhZGRl
+ZCBpbiBKdWx5IDIwMTMuIEVhcmxpZXIgdmVyc2lvbiBkbyBub3QgaGF2ZSBpdC4NCj4gPj4gVGhp
+cyBmZWF0dXJlIHdhcyBlbmhhbmNlZCBpbiByZWxlYXNlIEF1Z3VzdCAyMDE0IHRvIGhhdmUgc2Vw
+YXJhdGUgdXBwZXIgYWRkcmVzcyB2YWx1ZXMgZm9yIHRyYW5zbWl0IGFuZCByZWNlaXZlLiINCj4g
+Pj4NCj4gPj4+IC8qIEJpdGZpZWxkcyBpbiBOU1IgKi8NCj4gPj4+IEBAIC00NzQsNiArNDc5LDEw
+IEBADQo+ID4+PiAgc3RydWN0IG1hY2JfZG1hX2Rlc2Mgew0KPiA+PiAgPiAgICAgIHUzMiAgICAg
+YWRkcjsNCj4gPj4+ICAgICAgIHUzMiAgICAgY3RybDsNCj4gPj4+ICsjaWZkZWYgQ09ORklHX0FS
+Q0hfRE1BX0FERFJfVF82NEJJVA0KPiA+Pj4gKyAgICAgdTMyICAgICBhZGRyaDsNCj4gPj4+ICsg
+ICAgIHUzMiAgICAgcmVzdmQ7DQo+ID4+PiArI2VuZGlmDQo+ID4+PiAgfTsNCj4gPj4NCj4gPj4g
+SXQgd2lsbCBub3Qgd29yayBmb3IgbGVnYWN5IGhhcmR3YXJlLiBPbGQgZGVzY3JpcHRvciBpcyAy
+IHdvcmRzIHdpZGUsIHRoZSBuZXcgb25lIGlzIDQgd29yZHMgd2lkZS4NCj4gPj4gSWYgeW91IGVu
+YWJsZSBDT05GSUdfQVJDSF9ETUFfQUREUl9UXzY0QklUIGJ1dCBoYXJkd2FyZSBkb2Vzbid0IA0K
+PiA+PiBzdXBwb3J0IGl0IGF0IGFsbCwgeW91IHdpbGwgbWlzcyBldmVyeSBzZWNvbmQgZGVzY3Jp
+cHRvci4NCj4gPj4NCj4gPiANCj4gPiBUcnVlLCB0aGlzIGZlYXR1cmUgaXMgbm90IGF2YWlsYWJs
+ZSBpbiBhbGwgb2YgQ2FkZW5jZSBJUCB2ZXJzaW9ucy4NCj4gPiBJbiBmYWN0LCB0aGUgSVAgdmVy
+c2lvbiBaeW5xIGRvZXMgbm90IHN1cHBvcnQgdGhpcy4gQnV0IHRoZSBvbmUgaW4gWnlucU1QIGRv
+ZXMuDQo+ID4gU28sIHdlIGVuYWJsZSBrZXJuZWwgY29uZmlnIGZvciA2NCBiaXQgRE1BIGFkZHJl
+c3NpbmcgZm9yIHRoaXMgU29DIGFuZCANCj4gPiBoZW5jZSB0aGUgZHJpdmVyIHBpY2tzIGl0IHVw
+LiBNeSBhc3N1bXB0aW9uIHdhcyB0aGF0IGlmIHRoZSBsZWdhY3kgSVAgDQo+ID4gZG9lcyBub3Qg
+c3VwcG9ydA0KPiA+IDY0IGJpdCBhZGRyZXNzaW5nLCB0aGVuIHRoaXMgRE1BIG9wdGlvbiB3b3Vs
+ZG4ndCBiZSBlbmFibGVkLg0KPiA+IA0KPiA+IFRoZXJlIGlzIGEgZGVzaWduIGNvbmZpZyByZWdp
+c3RlciBpbiBDYWRlbmNlIElQIHdoaWNoIGlzIGJlaW5nIHJlYWQgdG8gDQo+ID4gY2hlY2sgZm9y
+IDY0IGJpdCBhZGRyZXNzIHN1cHBvcnQgLSBETUEgbWFzayBpcyBzZXQgYmFzZWQgb24gdGhhdC4N
+Cj4gPiBCdXQgdGhlIGFkZGl0aW9uIG9mIHR3byBkZXNjcmlwdG9yIHdvcmRzIGNhbm5vdCBiZSBi
+YXNlZCBvbiB0aGlzIHJ1bnRpbWUgY2hlY2suDQo+ID4gRm9yIHRoaXMgcmVhc29uLCBhbGwgdGhl
+IHN0YXRpYyBjaGFuZ2VzIHdlcmUgcGxhY2VkIHVuZGVyIHRoaXMgY2hlY2suDQo+DQo+IFdlIGhh
+dmUgcXVpdGUgYSBidW5jaCBvZiBvcHRpb25zIGluIHRoaXMgZHJpdmVyIHRvIGRldGVybWluYXRl
+IHdoYXQgaXMgdGhlIHJlYWwgY2FwYWNpdHkgb2YgdGhlIHVuZGVybHlpbmcgaGFyZHdhcmUuDQo+
+IElmIEhXIGNvbmZpZ3VyYXRpb24gcmVnaXN0ZXJzIGFyZSBub3QgYXBwcm9wcmlhdGUsIGFuZCBp
+dCBzZWVtcyB0aGV5IGFyZSBub3QsIEkgd291bGQgYWR2aWNlIHRvIHNpbXBseSB1c2UgdGhlIERU
+IGNvbXBhdGliaWxpdHkgc3RyaW5nLg0KPg0KPiBCZXN0IHJlZ2FyZHMsDQo+IC0tDQo+IE5pY29s
+YXMgRmVycmUNCg0KSFcgY29uZmlndXJhdGlvbiByZWdpc3RlcnMgYXJlIGFwcHJvcHJpYXRlLiBU
+aGUgaXNzdWUgaXMgdGhhdCB0aGlzIGNvZGUgZG9lc27igJl0IHVzZSB0aGUgY2FwYWJpbGl0eSBi
+aXQgdG8gc3dpdGNoIGJldHdlZW4gZGlmZmVyZW50IGRtYSBkZXNjcmlwdG9ycyAoMiB3b3JkcyB2
+cy4gNCB3b3JkcykuDQpETUEgZGVzY3JpcHRvciBzaXplIGlzIGNob3NlbiBiYXNlZCBvbiBrZXJu
+ZWwgY29uZmlndXJhdGlvbiwgbm90IGJhc2VkIG9uIGhhcmR3YXJlIGNhcGFiaWxpdGllcy4NCg0K
+UmVnYXJkcywgDQpSYWZhbCBPemllYmxvDQo=
