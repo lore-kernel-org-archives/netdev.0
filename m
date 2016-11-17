@@ -1,7 +1,7 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 1/5] sfc: Update MCDI protocol definitions
-Date: Thu, 17 Nov 2016 10:51:30 +0000
-Message-ID: <bebbc1a0-c29b-74f0-f4ab-703ea28f0d96@solarflare.com>
+Subject: [PATCH net-next 5/5] sfc: remove Software TSO
+Date: Thu, 17 Nov 2016 10:52:36 +0000
+Message-ID: <d74326a2-af17-0cb2-67f3-5216ea04e61a@solarflare.com>
 References: <ae6b02ca-9a0b-7072-6914-294fc9adb684@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,701 +9,653 @@ Content-Transfer-Encoding: 7bit
 Cc: <bkenward@solarflare.com>, <netdev@vger.kernel.org>
 To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:62659 "EHLO
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:57273 "EHLO
         nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S2993610AbcKQKvj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 05:51:39 -0500
+        by vger.kernel.org with ESMTP id S941793AbcKQKwq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 05:52:46 -0500
 In-Reply-To: <ae6b02ca-9a0b-7072-6914-294fc9adb684@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+It gives no advantage over GSO now that xmit_more exists.  If we find
+ ourselves unable to handle a TSO skb (because our TXQ doesn't have a
+ TSOv2 context and the NIC doesn't support TSOv1), hand it back to GSO.
+ Also do that if the TSO handler fails with EINVAL for any other reason.
+As Falcon-architecture NICs don't support any firmware-assisted TSO,
+ they no longer advertise TSO feature flags at all.
+
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi_pcol.h | 483 +++++++++++++++++++++++++++++++++--
- 1 file changed, 462 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c       |  15 ++
+ drivers/net/ethernet/sfc/efx.c        |  38 ++---
+ drivers/net/ethernet/sfc/ethtool.c    |   1 +
+ drivers/net/ethernet/sfc/net_driver.h |   5 +
+ drivers/net/ethernet/sfc/tx.c         |  46 +++++-
+ drivers/net/ethernet/sfc/tx_tso.c     | 260 ++++++++++------------------------
+ 6 files changed, 154 insertions(+), 211 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index ccceafc..35cc3d4 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -276,6 +276,9 @@
- /* The clock whose frequency you've attempted to set set
-  * doesn't exist on this NIC */
- #define MC_CMD_ERR_NO_CLOCK 0x1015
-+/* Returned by MC_CMD_TESTASSERT if the action that should
-+ * have caused an assertion failed to do so.  */
-+#define MC_CMD_ERR_UNREACHABLE 0x1016
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 9cbe573..0f58ea8 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -2158,6 +2158,20 @@ static int efx_ef10_tx_tso_desc(struct efx_tx_queue *tx_queue,
+ 	return 0;
+ }
  
- #define MC_CMD_ERR_CODE_OFST 0
- 
-@@ -933,6 +936,8 @@
- #define        MC_CMD_COPYCODE_IN_BOOT_MAGIC_SKIP_BOOT_ICORE_SYNC_WIDTH 1
- #define        MC_CMD_COPYCODE_IN_BOOT_MAGIC_FORCE_STANDALONE_LBN 5
- #define        MC_CMD_COPYCODE_IN_BOOT_MAGIC_FORCE_STANDALONE_WIDTH 1
-+#define        MC_CMD_COPYCODE_IN_BOOT_MAGIC_DISABLE_XIP_LBN 6
-+#define        MC_CMD_COPYCODE_IN_BOOT_MAGIC_DISABLE_XIP_WIDTH 1
- /* Destination address */
- #define       MC_CMD_COPYCODE_IN_DEST_ADDR_OFST 4
- #define       MC_CMD_COPYCODE_IN_NUMWORDS_OFST 8
-@@ -1659,6 +1664,8 @@
- #define       MC_CMD_PTP_OUT_GET_ATTRIBUTES_CAPABILITIES_OFST 8
- #define        MC_CMD_PTP_OUT_GET_ATTRIBUTES_REPORT_SYNC_STATUS_LBN 0
- #define        MC_CMD_PTP_OUT_GET_ATTRIBUTES_REPORT_SYNC_STATUS_WIDTH 1
-+#define        MC_CMD_PTP_OUT_GET_ATTRIBUTES_RX_TSTAMP_OOB_LBN 1
-+#define        MC_CMD_PTP_OUT_GET_ATTRIBUTES_RX_TSTAMP_OOB_WIDTH 1
- #define       MC_CMD_PTP_OUT_GET_ATTRIBUTES_RESERVED0_OFST 12
- #define       MC_CMD_PTP_OUT_GET_ATTRIBUTES_RESERVED1_OFST 16
- #define       MC_CMD_PTP_OUT_GET_ATTRIBUTES_RESERVED2_OFST 20
-@@ -2211,6 +2218,10 @@
- #define          MC_CMD_FW_HIGH_TX_RATE 0x3
- /* enum: Reserved value */
- #define          MC_CMD_FW_PACKED_STREAM_HASH_MODE_1 0x4
-+/* enum: Prefer to use firmware with additional "rules engine" filtering
-+ * support
-+ */
-+#define          MC_CMD_FW_RULES_ENGINE 0x5
- /* enum: Only this option is allowed for non-admin functions */
- #define          MC_CMD_FW_DONT_CARE  0xffffffff
- 
-@@ -3654,12 +3665,27 @@
- 
- #define MC_CMD_0x38_PRIVILEGE_CTG SRIOV_CTG_ADMIN
- 
--/* MC_CMD_NVRAM_UPDATE_START_IN msgrequest */
-+/* MC_CMD_NVRAM_UPDATE_START_IN msgrequest: Legacy NVRAM_UPDATE_START request.
-+ * Use NVRAM_UPDATE_START_V2_IN in new code
-+ */
- #define    MC_CMD_NVRAM_UPDATE_START_IN_LEN 4
- #define       MC_CMD_NVRAM_UPDATE_START_IN_TYPE_OFST 0
- /*            Enum values, see field(s): */
- /*               MC_CMD_NVRAM_TYPES/MC_CMD_NVRAM_TYPES_OUT/TYPES */
- 
-+/* MC_CMD_NVRAM_UPDATE_START_V2_IN msgrequest: Extended NVRAM_UPDATE_START
-+ * request with additional flags indicating version of command in use. See
-+ * MC_CMD_NVRAM_UPDATE_FINISH_V2_OUT for details of extended functionality. Use
-+ * paired up with NVRAM_UPDATE_FINISH_V2_IN.
-+ */
-+#define    MC_CMD_NVRAM_UPDATE_START_V2_IN_LEN 8
-+#define       MC_CMD_NVRAM_UPDATE_START_V2_IN_TYPE_OFST 0
-+/*            Enum values, see field(s): */
-+/*               MC_CMD_NVRAM_TYPES/MC_CMD_NVRAM_TYPES_OUT/TYPES */
-+#define       MC_CMD_NVRAM_UPDATE_START_V2_IN_FLAGS_OFST 4
-+#define        MC_CMD_NVRAM_UPDATE_START_V2_IN_FLAG_REPORT_VERIFY_RESULT_LBN 0
-+#define        MC_CMD_NVRAM_UPDATE_START_V2_IN_FLAG_REPORT_VERIFY_RESULT_WIDTH 1
++static u32 efx_ef10_tso_versions(struct efx_nic *efx)
++{
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	u32 tso_versions = 0;
 +
- /* MC_CMD_NVRAM_UPDATE_START_OUT msgresponse */
- #define    MC_CMD_NVRAM_UPDATE_START_OUT_LEN 0
- 
-@@ -3784,16 +3810,81 @@
- 
- #define MC_CMD_0x3c_PRIVILEGE_CTG SRIOV_CTG_ADMIN
- 
--/* MC_CMD_NVRAM_UPDATE_FINISH_IN msgrequest */
-+/* MC_CMD_NVRAM_UPDATE_FINISH_IN msgrequest: Legacy NVRAM_UPDATE_FINISH
-+ * request. Use NVRAM_UPDATE_FINISH_V2_IN in new code
-+ */
- #define    MC_CMD_NVRAM_UPDATE_FINISH_IN_LEN 8
- #define       MC_CMD_NVRAM_UPDATE_FINISH_IN_TYPE_OFST 0
- /*            Enum values, see field(s): */
- /*               MC_CMD_NVRAM_TYPES/MC_CMD_NVRAM_TYPES_OUT/TYPES */
- #define       MC_CMD_NVRAM_UPDATE_FINISH_IN_REBOOT_OFST 4
- 
--/* MC_CMD_NVRAM_UPDATE_FINISH_OUT msgresponse */
-+/* MC_CMD_NVRAM_UPDATE_FINISH_V2_IN msgrequest: Extended NVRAM_UPDATE_FINISH
-+ * request with additional flags indicating version of NVRAM_UPDATE commands in
-+ * use. See MC_CMD_NVRAM_UPDATE_FINISH_V2_OUT for details of extended
-+ * functionality. Use paired up with NVRAM_UPDATE_START_V2_IN.
-+ */
-+#define    MC_CMD_NVRAM_UPDATE_FINISH_V2_IN_LEN 12
-+#define       MC_CMD_NVRAM_UPDATE_FINISH_V2_IN_TYPE_OFST 0
-+/*            Enum values, see field(s): */
-+/*               MC_CMD_NVRAM_TYPES/MC_CMD_NVRAM_TYPES_OUT/TYPES */
-+#define       MC_CMD_NVRAM_UPDATE_FINISH_V2_IN_REBOOT_OFST 4
-+#define       MC_CMD_NVRAM_UPDATE_FINISH_V2_IN_FLAGS_OFST 8
-+#define        MC_CMD_NVRAM_UPDATE_FINISH_V2_IN_FLAG_REPORT_VERIFY_RESULT_LBN 0
-+#define        MC_CMD_NVRAM_UPDATE_FINISH_V2_IN_FLAG_REPORT_VERIFY_RESULT_WIDTH 1
++	if (nic_data->datapath_caps &
++	    (1 << MC_CMD_GET_CAPABILITIES_OUT_TX_TSO_LBN))
++		tso_versions |= BIT(1);
++	if (nic_data->datapath_caps2 &
++	    (1 << MC_CMD_GET_CAPABILITIES_V2_OUT_TX_TSO_V2_LBN))
++		tso_versions |= BIT(2);
++	return tso_versions;
++}
 +
-+/* MC_CMD_NVRAM_UPDATE_FINISH_OUT msgresponse: Legacy NVRAM_UPDATE_FINISH
-+ * response. Use NVRAM_UPDATE_FINISH_V2_OUT in new code
-+ */
- #define    MC_CMD_NVRAM_UPDATE_FINISH_OUT_LEN 0
+ static void efx_ef10_tx_init(struct efx_tx_queue *tx_queue)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_INIT_TXQ_IN_LEN(EFX_MAX_DMAQ_SIZE * 8 /
+@@ -5759,6 +5773,7 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
+ #endif
+ 	.get_mac_address = efx_ef10_get_mac_address_pf,
+ 	.set_mac_address = efx_ef10_set_mac_address,
++	.tso_versions = efx_ef10_tso_versions,
  
-+/* MC_CMD_NVRAM_UPDATE_FINISH_V2_OUT msgresponse:
+ 	.revision = EFX_REV_HUNT_A0,
+ 	.max_dma_mask = DMA_BIT_MASK(ESF_DZ_TX_KER_BUF_ADDR_WIDTH),
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 52ca040..756a0964 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -3200,23 +3200,6 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
+ 	efx = netdev_priv(net_dev);
+ 	efx->type = (const struct efx_nic_type *) entry->driver_data;
+ 	efx->fixed_features |= NETIF_F_HIGHDMA;
+-	net_dev->features |= (efx->type->offload_features | NETIF_F_SG |
+-			      NETIF_F_TSO | NETIF_F_RXCSUM);
+-	if (efx->type->offload_features & (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))
+-		net_dev->features |= NETIF_F_TSO6;
+-	/* Mask for features that also apply to VLAN devices */
+-	net_dev->vlan_features |= (NETIF_F_HW_CSUM | NETIF_F_SG |
+-				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO |
+-				   NETIF_F_RXCSUM);
+-
+-	net_dev->hw_features = net_dev->features & ~efx->fixed_features;
+-
+-	/* Disable VLAN filtering by default.  It may be enforced if
+-	 * the feature is fixed (i.e. VLAN filters are required to
+-	 * receive VLAN tagged packets due to vPort restrictions).
+-	 */
+-	net_dev->features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
+-	net_dev->features |= efx->fixed_features;
+ 
+ 	pci_set_drvdata(pci_dev, efx);
+ 	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
+@@ -3239,6 +3222,27 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
+ 	if (rc)
+ 		goto fail3;
+ 
++	net_dev->features |= (efx->type->offload_features | NETIF_F_SG |
++			      NETIF_F_TSO | NETIF_F_RXCSUM);
++	if (efx->type->offload_features & (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))
++		net_dev->features |= NETIF_F_TSO6;
++	/* Check whether device supports TSO */
++	if (!efx->type->tso_versions || !efx->type->tso_versions(efx))
++		net_dev->features &= ~NETIF_F_ALL_TSO;
++	/* Mask for features that also apply to VLAN devices */
++	net_dev->vlan_features |= (NETIF_F_HW_CSUM | NETIF_F_SG |
++				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO |
++				   NETIF_F_RXCSUM);
++
++	net_dev->hw_features = net_dev->features & ~efx->fixed_features;
++
++	/* Disable VLAN filtering by default.  It may be enforced if
++	 * the feature is fixed (i.e. VLAN filters are required to
++	 * receive VLAN tagged packets due to vPort restrictions).
++	 */
++	net_dev->features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
++	net_dev->features |= efx->fixed_features;
++
+ 	rc = efx_register_netdev(efx);
+ 	if (rc)
+ 		goto fail4;
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index bd5edd6..740cdf0 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -69,6 +69,7 @@ static const struct efx_sw_stat_desc efx_sw_stat_desc[] = {
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(tso_bursts),
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(tso_long_headers),
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(tso_packets),
++	EFX_ETHTOOL_UINT_TXQ_STAT(tso_fallbacks),
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(pushes),
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(pio_packets),
+ 	EFX_ETHTOOL_UINT_TXQ_STAT(cb_packets),
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 2da3e8f..f97f828 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -225,6 +225,7 @@ struct efx_tx_buffer {
+  * @tso_long_headers: Number of packets with headers too long for standard
+  *	blocks
+  * @tso_packets: Number of packets via the TSO xmit path
++ * @tso_fallbacks: Number of times TSO fallback used
+  * @pushes: Number of times the TX push feature has been used
+  * @pio_packets: Number of times the TX PIO feature has been used
+  * @xmit_more_available: Are any packets waiting to be pushed to the NIC
+@@ -266,6 +267,7 @@ struct efx_tx_queue {
+ 	unsigned int tso_bursts;
+ 	unsigned int tso_long_headers;
+ 	unsigned int tso_packets;
++	unsigned int tso_fallbacks;
+ 	unsigned int pushes;
+ 	unsigned int pio_packets;
+ 	bool xmit_more_available;
+@@ -1225,6 +1227,8 @@ struct efx_mtd_partition {
+  *	and tx_type will already have been validated but this operation
+  *	must validate and update rx_filter.
+  * @set_mac_address: Set the MAC address of the device
++ * @tso_versions: Returns mask of firmware-assisted TSO versions supported.
++ *	If %NULL, then device does not support any TSO version.
+  * @revision: Hardware architecture revision
+  * @txd_ptr_tbl_base: TX descriptor ring base address
+  * @rxd_ptr_tbl_base: RX descriptor ring base address
+@@ -1381,6 +1385,7 @@ struct efx_nic_type {
+ 	void (*vswitching_remove)(struct efx_nic *efx);
+ 	int (*get_mac_address)(struct efx_nic *efx, unsigned char *perm_addr);
+ 	int (*set_mac_address)(struct efx_nic *efx);
++	u32 (*tso_versions)(struct efx_nic *efx);
+ 
+ 	int revision;
+ 	unsigned int txd_ptr_tbl_base;
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 3089e88..1aa728c 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -446,10 +446,38 @@ static void efx_enqueue_unwind(struct efx_tx_queue *tx_queue)
+ 	}
+ }
+ 
+-static int efx_tx_tso_sw(struct efx_tx_queue *tx_queue, struct sk_buff *skb,
+-			 bool *data_mapped)
++/*
++ * Fallback to software TSO.
 + *
-+ * Extended NVRAM_UPDATE_FINISH response that communicates the result of secure
-+ * firmware validation where applicable back to the host.
++ * This is used if we are unable to send a GSO packet through hardware TSO.
++ * This should only ever happen due to per-queue restrictions - unsupported
++ * packets should first be filtered by the feature flags.
 + *
-+ * Medford only: For signed firmware images, such as those for medford, the MC
-+ * firmware verifies the signature before marking the firmware image as valid.
-+ * This process takes a few seconds to complete. So is likely to take more than
-+ * the MCDI timeout. Hence signature verification is initiated when
-+ * MC_CMD_NVRAM_UPDATE_FINISH_V2_IN is received by the firmware, however, the
-+ * MCDI command returns immediately with error code EAGAIN. Subsequent
-+ * NVRAM_UPDATE_FINISH_V2_IN requests also return EAGAIN if the verification is
-+ * in progress. Once the verification has completed, this response payload
-+ * includes the results of the signature verification. Note that the nvram lock
-+ * in firmware is only released after the verification has completed and the
-+ * host has read back the result code from firmware.
++ * Returns 0 on success, error code otherwise.
 + */
-+#define    MC_CMD_NVRAM_UPDATE_FINISH_V2_OUT_LEN 4
-+/* Result of nvram update completion processing */
-+#define       MC_CMD_NVRAM_UPDATE_FINISH_V2_OUT_RESULT_CODE_OFST 0
-+/* enum: Verify succeeded without any errors. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_SUCCESS 0x1
-+/* enum: CMS format verification failed due to an internal error. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_CMS_CHECK_FAILED 0x2
-+/* enum: Invalid CMS format in image metadata. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_INVALID_CMS_FORMAT 0x3
-+/* enum: Message digest verification failed due to an internal error. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_MESSAGE_DIGEST_CHECK_FAILED 0x4
-+/* enum: Error in message digest calculated over the reflash-header, payload
-+ * and reflash-trailer.
-+ */
-+#define          MC_CMD_NVRAM_VERIFY_RC_BAD_MESSAGE_DIGEST 0x5
-+/* enum: Signature verification failed due to an internal error. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_SIGNATURE_CHECK_FAILED 0x6
-+/* enum: There are no valid signatures in the image. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_NO_VALID_SIGNATURES 0x7
-+/* enum: Trusted approvers verification failed due to an internal error. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_TRUSTED_APPROVERS_CHECK_FAILED 0x8
-+/* enum: The Trusted approver's list is empty. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_NO_TRUSTED_APPROVERS 0x9
-+/* enum: Signature chain verification failed due to an internal error. */
-+#define          MC_CMD_NVRAM_VERIFY_RC_SIGNATURE_CHAIN_CHECK_FAILED 0xa
-+/* enum: The signers of the signatures in the image are not listed in the
-+ * Trusted approver's list.
-+ */
-+#define          MC_CMD_NVRAM_VERIFY_RC_NO_SIGNATURE_MATCH 0xb
++static int efx_tx_tso_fallback(struct efx_tx_queue *tx_queue,
++			       struct sk_buff *skb)
+ {
+-	return efx_enqueue_skb_tso(tx_queue, skb, data_mapped);
++	struct sk_buff *segments, *next;
 +
- 
- /***********************************/
- /* MC_CMD_REBOOT
-@@ -4356,6 +4447,28 @@
- /* MC_CMD_TESTASSERT_OUT msgresponse */
- #define    MC_CMD_TESTASSERT_OUT_LEN 0
- 
-+/* MC_CMD_TESTASSERT_V2_IN msgrequest */
-+#define    MC_CMD_TESTASSERT_V2_IN_LEN 4
-+/* How to provoke the assertion */
-+#define       MC_CMD_TESTASSERT_V2_IN_TYPE_OFST 0
-+/* enum: Assert using the FAIL_ASSERTION_WITH_USEFUL_VALUES macro. Unless
-+ * you're testing firmware, this is what you want.
-+ */
-+#define          MC_CMD_TESTASSERT_V2_IN_FAIL_ASSERTION_WITH_USEFUL_VALUES  0x0
-+/* enum: Assert using assert(0); */
-+#define          MC_CMD_TESTASSERT_V2_IN_ASSERT_FALSE  0x1
-+/* enum: Deliberately trigger a watchdog */
-+#define          MC_CMD_TESTASSERT_V2_IN_WATCHDOG  0x2
-+/* enum: Deliberately trigger a trap by loading from an invalid address */
-+#define          MC_CMD_TESTASSERT_V2_IN_LOAD_TRAP  0x3
-+/* enum: Deliberately trigger a trap by storing to an invalid address */
-+#define          MC_CMD_TESTASSERT_V2_IN_STORE_TRAP  0x4
-+/* enum: Jump to an invalid address */
-+#define          MC_CMD_TESTASSERT_V2_IN_JUMP_TRAP  0x5
++	segments = skb_gso_segment(skb, 0);
++	if (IS_ERR(segments))
++		return PTR_ERR(segments);
 +
-+/* MC_CMD_TESTASSERT_V2_OUT msgresponse */
-+#define    MC_CMD_TESTASSERT_V2_OUT_LEN 0
++	dev_kfree_skb_any(skb);
++	skb = segments;
 +
++	while (skb) {
++		next = skb->next;
++		skb->next = NULL;
++
++		if (next)
++			skb->xmit_more = true;
++		efx_enqueue_skb(tx_queue, skb);
++		skb = next;
++	}
++
++	return 0;
+ }
  
- /***********************************/
- /* MC_CMD_WORKAROUND
-@@ -4421,6 +4534,7 @@
-  * (GET_PHY_CFG_OUT_MEDIA_TYPE); the valid 'page number' input values, and the
-  * output data, are interpreted on a per-type basis. For SFP+: PAGE=0 or 1
-  * returns a 128-byte block read from module I2C address 0xA0 offset 0 or 0x80.
-+ * Anything else: currently undefined. Locks required: None. Return code: 0.
+ /*
+@@ -473,6 +501,7 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+ 	bool data_mapped = false;
+ 	unsigned int segments;
+ 	unsigned int skb_len;
++	int rc;
+ 
+ 	skb_len = skb->len;
+ 	segments = skb_is_gso(skb) ? skb_shinfo(skb)->gso_segs : 0;
+@@ -485,7 +514,14 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+ 	 */
+ 	if (segments) {
+ 		EFX_BUG_ON_PARANOID(!tx_queue->handle_tso);
+-		if (tx_queue->handle_tso(tx_queue, skb, &data_mapped))
++		rc = tx_queue->handle_tso(tx_queue, skb, &data_mapped);
++		if (rc == -EINVAL) {
++			rc = efx_tx_tso_fallback(tx_queue, skb);
++			tx_queue->tso_fallbacks++;
++			if (rc == 0)
++				return 0;
++		}
++		if (rc)
+ 			goto err;
+ #ifdef EFX_USE_PIO
+ 	} else if (skb_len <= efx_piobuf_size && !skb->xmit_more &&
+@@ -801,7 +837,7 @@ void efx_init_tx_queue(struct efx_tx_queue *tx_queue)
+ 	/* Set up default function pointers. These may get replaced by
+ 	 * efx_nic_init_tx() based off NIC/queue capabilities.
+ 	 */
+-	tx_queue->handle_tso = efx_tx_tso_sw;
++	tx_queue->handle_tso = efx_enqueue_skb_tso;
+ 
+ 	/* Some older hardware requires Tx writes larger than 32. */
+ 	tx_queue->tx_min_size = EFX_WORKAROUND_15592(efx) ? 33 : 0;
+diff --git a/drivers/net/ethernet/sfc/tx_tso.c b/drivers/net/ethernet/sfc/tx_tso.c
+index 99936d7..6032887 100644
+--- a/drivers/net/ethernet/sfc/tx_tso.c
++++ b/drivers/net/ethernet/sfc/tx_tso.c
+@@ -29,8 +29,7 @@
+ 
+ /* Efx legacy TCP segmentation acceleration.
+  *
+- * Why?  Because by doing it here in the driver we can go significantly
+- * faster than the GSO.
++ * Utilises firmware support to go faster than GSO (but not as fast as TSOv2).
+  *
+  * Requires TX checksum offload support.
   */
- #define MC_CMD_GET_PHY_MEDIA_INFO 0x4b
+@@ -47,15 +46,13 @@
+  * @in_len: Remaining length in current SKB fragment
+  * @unmap_len: Length of SKB fragment
+  * @unmap_addr: DMA address of SKB fragment
+- * @dma_flags: TX buffer flags for DMA mapping - %EFX_TX_BUF_MAP_SINGLE or 0
+  * @protocol: Network protocol (after any VLAN header)
+  * @ip_off: Offset of IP header
+  * @tcp_off: Offset of TCP header
+  * @header_len: Number of bytes of header
+  * @ip_base_len: IPv4 tot_len or IPv6 payload_len, before TCP payload
+- * @header_dma_addr: Header DMA address, when using option descriptors
+- * @header_unmap_len: Header DMA mapped length, or 0 if not using option
+- *	descriptors
++ * @header_dma_addr: Header DMA address
++ * @header_unmap_len: Header DMA mapped length
+  *
+  * The state used during segmentation.  It is put into this data structure
+  * just to make it easy to pass into inline functions.
+@@ -72,7 +69,6 @@ struct tso_state {
+ 	unsigned int in_len;
+ 	unsigned int unmap_len;
+ 	dma_addr_t unmap_addr;
+-	unsigned short dma_flags;
  
-@@ -5362,12 +5476,14 @@
- #define          NVRAM_PARTITION_TYPE_EXPANSION_UEFI       0xd00
- /* enum: Spare partition 0 */
- #define          NVRAM_PARTITION_TYPE_SPARE_0              0x1000
--/* enum: Spare partition 1 */
--#define          NVRAM_PARTITION_TYPE_SPARE_1              0x1100
-+/* enum: Used for XIP code of shmbooted images */
-+#define          NVRAM_PARTITION_TYPE_XIP_SCRATCH          0x1100
- /* enum: Spare partition 2 */
- #define          NVRAM_PARTITION_TYPE_SPARE_2              0x1200
--/* enum: Spare partition 3 */
--#define          NVRAM_PARTITION_TYPE_SPARE_3              0x1300
-+/* enum: Manufacturing partition. Used during manufacture to pass information
-+ * between XJTAG and Manftest.
-+ */
-+#define          NVRAM_PARTITION_TYPE_MANUFACTURING        0x1300
- /* enum: Spare partition 4 */
- #define          NVRAM_PARTITION_TYPE_SPARE_4              0x1400
- /* enum: Spare partition 5 */
-@@ -5402,6 +5518,14 @@
- #define          LICENSED_APP_ID_CAPTURE_SOLARSYSTEM     0x40
- /* enum: Network Access Control */
- #define          LICENSED_APP_ID_NETWORK_ACCESS_CONTROL  0x80
-+/* enum: TCP Direct */
-+#define          LICENSED_APP_ID_TCP_DIRECT              0x100
-+/* enum: Low Latency */
-+#define          LICENSED_APP_ID_LOW_LATENCY             0x200
-+/* enum: SolarCapture Tap */
-+#define          LICENSED_APP_ID_SOLARCAPTURE_TAP        0x400
-+/* enum: Capture SolarSystem 40G */
-+#define          LICENSED_APP_ID_CAPTURE_SOLARSYSTEM_40G 0x800
- #define       LICENSED_APP_ID_ID_LBN 0
- #define       LICENSED_APP_ID_ID_WIDTH 32
+ 	__be16 protocol;
+ 	unsigned int ip_off;
+@@ -172,63 +168,6 @@ static __be16 efx_tso_check_protocol(struct sk_buff *skb)
+ 	return protocol;
+ }
  
-@@ -5458,6 +5582,14 @@
- #define        LICENSED_V3_APPS_CAPTURE_SOLARSYSTEM_WIDTH 1
- #define        LICENSED_V3_APPS_NETWORK_ACCESS_CONTROL_LBN 7
- #define        LICENSED_V3_APPS_NETWORK_ACCESS_CONTROL_WIDTH 1
-+#define        LICENSED_V3_APPS_TCP_DIRECT_LBN 8
-+#define        LICENSED_V3_APPS_TCP_DIRECT_WIDTH 1
-+#define        LICENSED_V3_APPS_LOW_LATENCY_LBN 9
-+#define        LICENSED_V3_APPS_LOW_LATENCY_WIDTH 1
-+#define        LICENSED_V3_APPS_SOLARCAPTURE_TAP_LBN 10
-+#define        LICENSED_V3_APPS_SOLARCAPTURE_TAP_WIDTH 1
-+#define        LICENSED_V3_APPS_CAPTURE_SOLARSYSTEM_40G_LBN 11
-+#define        LICENSED_V3_APPS_CAPTURE_SOLARSYSTEM_40G_WIDTH 1
- #define       LICENSED_V3_APPS_MASK_LBN 0
- #define       LICENSED_V3_APPS_MASK_WIDTH 64
+-static u8 *efx_tsoh_get_buffer(struct efx_tx_queue *tx_queue,
+-			       struct efx_tx_buffer *buffer, unsigned int len)
+-{
+-	u8 *result;
+-
+-	EFX_BUG_ON_PARANOID(buffer->len);
+-	EFX_BUG_ON_PARANOID(buffer->flags);
+-	EFX_BUG_ON_PARANOID(buffer->unmap_len);
+-
+-	result = efx_tx_get_copy_buffer_limited(tx_queue, buffer, len);
+-
+-	if (result) {
+-		buffer->flags = EFX_TX_BUF_CONT;
+-	} else {
+-		buffer->heap_buf = kmalloc(NET_IP_ALIGN + len, GFP_ATOMIC);
+-		if (unlikely(!buffer->heap_buf))
+-			return NULL;
+-		tx_queue->tso_long_headers++;
+-		result = (u8 *)buffer->heap_buf + NET_IP_ALIGN;
+-		buffer->flags = EFX_TX_BUF_CONT | EFX_TX_BUF_HEAP;
+-	}
+-
+-	buffer->len = len;
+-
+-	return result;
+-}
+-
+-/*
+- * Put a TSO header into the TX queue.
+- *
+- * This is special-cased because we know that it is small enough to fit in
+- * a single fragment, and we know it doesn't cross a page boundary.  It
+- * also allows us to not worry about end-of-packet etc.
+- */
+-static int efx_tso_put_header(struct efx_tx_queue *tx_queue,
+-			      struct efx_tx_buffer *buffer, u8 *header)
+-{
+-	if (unlikely(buffer->flags & EFX_TX_BUF_HEAP)) {
+-		buffer->dma_addr = dma_map_single(&tx_queue->efx->pci_dev->dev,
+-						  header, buffer->len,
+-						  DMA_TO_DEVICE);
+-		if (unlikely(dma_mapping_error(&tx_queue->efx->pci_dev->dev,
+-					       buffer->dma_addr))) {
+-			kfree(buffer->heap_buf);
+-			buffer->len = 0;
+-			buffer->flags = 0;
+-			return -ENOMEM;
+-		}
+-		buffer->unmap_len = buffer->len;
+-		buffer->dma_offset = 0;
+-		buffer->flags |= EFX_TX_BUF_MAP_SINGLE;
+-	}
+-
+-	++tx_queue->insert_count;
+-	return 0;
+-}
+-
  
-@@ -5988,6 +6120,8 @@
- #define        MC_CMD_INIT_TXQ_EXT_IN_FLAG_INNER_TCP_CSUM_EN_WIDTH 1
- #define        MC_CMD_INIT_TXQ_EXT_IN_FLAG_TSOV2_EN_LBN 12
- #define        MC_CMD_INIT_TXQ_EXT_IN_FLAG_TSOV2_EN_WIDTH 1
-+#define        MC_CMD_INIT_TXQ_EXT_IN_FLAG_CTPIO_LBN 13
-+#define        MC_CMD_INIT_TXQ_EXT_IN_FLAG_CTPIO_WIDTH 1
- /* Owner ID to use if in buffer mode (zero if physical) */
- #define       MC_CMD_INIT_TXQ_EXT_IN_OWNER_ID_OFST 20
- /* The port ID associated with the v-adaptor which should contain this DMAQ. */
-@@ -7728,6 +7862,8 @@
-  * tests (Medford development only)
+ /* Parse the SKB header and initialise state. */
+ static int tso_start(struct tso_state *st, struct efx_nic *efx,
+@@ -237,12 +176,8 @@ static int tso_start(struct tso_state *st, struct efx_nic *efx,
+ {
+ 	struct device *dma_dev = &efx->pci_dev->dev;
+ 	unsigned int header_len, in_len;
+-	bool use_opt_desc = false;
+ 	dma_addr_t dma_addr;
+ 
+-	if (tx_queue->tso_version == 1)
+-		use_opt_desc = true;
+-
+ 	st->ip_off = skb_network_header(skb) - skb->data;
+ 	st->tcp_off = skb_transport_header(skb) - skb->data;
+ 	header_len = st->tcp_off + (tcp_hdr(skb)->doff << 2u);
+@@ -264,30 +199,12 @@ static int tso_start(struct tso_state *st, struct efx_nic *efx,
+ 
+ 	st->out_len = skb->len - header_len;
+ 
+-	if (!use_opt_desc) {
+-		st->header_unmap_len = 0;
+-
+-		if (likely(in_len == 0)) {
+-			st->dma_flags = 0;
+-			st->unmap_len = 0;
+-			return 0;
+-		}
+-
+-		dma_addr = dma_map_single(dma_dev, skb->data + header_len,
+-					  in_len, DMA_TO_DEVICE);
+-		st->dma_flags = EFX_TX_BUF_MAP_SINGLE;
+-		st->dma_addr = dma_addr;
+-		st->unmap_addr = dma_addr;
+-		st->unmap_len = in_len;
+-	} else {
+-		dma_addr = dma_map_single(dma_dev, skb->data,
+-					  skb_headlen(skb), DMA_TO_DEVICE);
+-		st->header_dma_addr = dma_addr;
+-		st->header_unmap_len = skb_headlen(skb);
+-		st->dma_flags = 0;
+-		st->dma_addr = dma_addr + header_len;
+-		st->unmap_len = 0;
+-	}
++	dma_addr = dma_map_single(dma_dev, skb->data,
++				  skb_headlen(skb), DMA_TO_DEVICE);
++	st->header_dma_addr = dma_addr;
++	st->header_unmap_len = skb_headlen(skb);
++	st->dma_addr = dma_addr + header_len;
++	st->unmap_len = 0;
+ 
+ 	return unlikely(dma_mapping_error(dma_dev, dma_addr)) ? -ENOMEM : 0;
+ }
+@@ -298,7 +215,6 @@ static int tso_get_fragment(struct tso_state *st, struct efx_nic *efx,
+ 	st->unmap_addr = skb_frag_dma_map(&efx->pci_dev->dev, frag, 0,
+ 					  skb_frag_size(frag), DMA_TO_DEVICE);
+ 	if (likely(!dma_mapping_error(&efx->pci_dev->dev, st->unmap_addr))) {
+-		st->dma_flags = 0;
+ 		st->unmap_len = skb_frag_size(frag);
+ 		st->in_len = skb_frag_size(frag);
+ 		st->dma_addr = st->unmap_addr;
+@@ -352,7 +268,6 @@ static void tso_fill_packet_with_fragment(struct efx_tx_queue *tx_queue,
+ 		/* Transfer ownership of the DMA mapping */
+ 		buffer->unmap_len = st->unmap_len;
+ 		buffer->dma_offset = buffer->unmap_len - buffer->len;
+-		buffer->flags |= st->dma_flags;
+ 		st->unmap_len = 0;
+ 	}
+ 
+@@ -369,7 +284,7 @@ static void tso_fill_packet_with_fragment(struct efx_tx_queue *tx_queue,
+  * @st:			TSO state
+  *
+  * Generate a new header and prepare for the new packet.  Return 0 on
+- * success, or -%ENOMEM if failed to alloc header.
++ * success, or -%ENOMEM if failed to alloc header, or other negative error.
   */
- #define          MC_CMD_GET_CAPABILITIES_OUT_RXPD_FW_TYPE_LAYER2_PERF  0x7
-+/* enum: Rules engine RX PD production firmware */
-+#define          MC_CMD_GET_CAPABILITIES_OUT_RXPD_FW_TYPE_RULES_ENGINE  0x8
- /* enum: RX PD firmware for GUE parsing prototype (Medford development only) */
- #define          MC_CMD_GET_CAPABILITIES_OUT_RXPD_FW_TYPE_TESTFW_GUE_PROTOTYPE  0xe
- /* enum: RX PD firmware parsing but not filtering network overlay tunnel
-@@ -7763,6 +7899,8 @@
-  * tests (Medford development only)
+ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
+ 				const struct sk_buff *skb,
+@@ -378,7 +293,7 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
+ 	struct efx_tx_buffer *buffer =
+ 		efx_tx_queue_get_insert_buffer(tx_queue);
+ 	bool is_last = st->out_len <= skb_shinfo(skb)->gso_size;
+-	u8 tcp_flags_mask;
++	u8 tcp_flags_mask, tcp_flags;
+ 
+ 	if (!is_last) {
+ 		st->packet_space = skb_shinfo(skb)->gso_size;
+@@ -388,82 +303,44 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
+ 		tcp_flags_mask = 0x00;
+ 	}
+ 
+-	if (!st->header_unmap_len) {
+-		/* Allocate and insert a DMA-mapped header buffer. */
+-		struct tcphdr *tsoh_th;
+-		unsigned int ip_length;
+-		u8 *header;
+-		int rc;
+-
+-		header = efx_tsoh_get_buffer(tx_queue, buffer, st->header_len);
+-		if (!header)
+-			return -ENOMEM;
+-
+-		tsoh_th = (struct tcphdr *)(header + st->tcp_off);
+-
+-		/* Copy and update the headers. */
+-		memcpy(header, skb->data, st->header_len);
+-
+-		tsoh_th->seq = htonl(st->seqnum);
+-		((u8 *)tsoh_th)[TCP_FLAGS_OFFSET] &= ~tcp_flags_mask;
+-
+-		ip_length = st->ip_base_len + st->packet_space;
+-
+-		if (st->protocol == htons(ETH_P_IP)) {
+-			struct iphdr *tsoh_iph =
+-				(struct iphdr *)(header + st->ip_off);
+-
+-			tsoh_iph->tot_len = htons(ip_length);
+-			tsoh_iph->id = htons(st->ipv4_id);
+-		} else {
+-			struct ipv6hdr *tsoh_iph =
+-				(struct ipv6hdr *)(header + st->ip_off);
+-
+-			tsoh_iph->payload_len = htons(ip_length);
+-		}
++	if (WARN_ON(!st->header_unmap_len))
++		return -EINVAL;
++	/* Send the original headers with a TSO option descriptor
++	 * in front
++	 */
++	tcp_flags = ((u8 *)tcp_hdr(skb))[TCP_FLAGS_OFFSET] & ~tcp_flags_mask;
++
++	buffer->flags = EFX_TX_BUF_OPTION;
++	buffer->len = 0;
++	buffer->unmap_len = 0;
++	EFX_POPULATE_QWORD_5(buffer->option,
++			     ESF_DZ_TX_DESC_IS_OPT, 1,
++			     ESF_DZ_TX_OPTION_TYPE,
++			     ESE_DZ_TX_OPTION_DESC_TSO,
++			     ESF_DZ_TX_TSO_TCP_FLAGS, tcp_flags,
++			     ESF_DZ_TX_TSO_IP_ID, st->ipv4_id,
++			     ESF_DZ_TX_TSO_TCP_SEQNO, st->seqnum);
++	++tx_queue->insert_count;
+ 
+-		rc = efx_tso_put_header(tx_queue, buffer, header);
+-		if (unlikely(rc))
+-			return rc;
+-	} else {
+-		/* Send the original headers with a TSO option descriptor
+-		 * in front
++	/* We mapped the headers in tso_start().  Unmap them
++	 * when the last segment is completed.
++	 */
++	buffer = efx_tx_queue_get_insert_buffer(tx_queue);
++	buffer->dma_addr = st->header_dma_addr;
++	buffer->len = st->header_len;
++	if (is_last) {
++		buffer->flags = EFX_TX_BUF_CONT | EFX_TX_BUF_MAP_SINGLE;
++		buffer->unmap_len = st->header_unmap_len;
++		buffer->dma_offset = 0;
++		/* Ensure we only unmap them once in case of a
++		 * later DMA mapping error and rollback
+ 		 */
+-		u8 tcp_flags = ((u8 *)tcp_hdr(skb))[TCP_FLAGS_OFFSET] &
+-				~tcp_flags_mask;
+-
+-		buffer->flags = EFX_TX_BUF_OPTION;
+-		buffer->len = 0;
++		st->header_unmap_len = 0;
++	} else {
++		buffer->flags = EFX_TX_BUF_CONT;
+ 		buffer->unmap_len = 0;
+-		EFX_POPULATE_QWORD_5(buffer->option,
+-				     ESF_DZ_TX_DESC_IS_OPT, 1,
+-				     ESF_DZ_TX_OPTION_TYPE,
+-				     ESE_DZ_TX_OPTION_DESC_TSO,
+-				     ESF_DZ_TX_TSO_TCP_FLAGS, tcp_flags,
+-				     ESF_DZ_TX_TSO_IP_ID, st->ipv4_id,
+-				     ESF_DZ_TX_TSO_TCP_SEQNO, st->seqnum);
+-		++tx_queue->insert_count;
+-
+-		/* We mapped the headers in tso_start().  Unmap them
+-		 * when the last segment is completed.
+-		 */
+-		buffer = efx_tx_queue_get_insert_buffer(tx_queue);
+-		buffer->dma_addr = st->header_dma_addr;
+-		buffer->len = st->header_len;
+-		if (is_last) {
+-			buffer->flags = EFX_TX_BUF_CONT | EFX_TX_BUF_MAP_SINGLE;
+-			buffer->unmap_len = st->header_unmap_len;
+-			buffer->dma_offset = 0;
+-			/* Ensure we only unmap them once in case of a
+-			 * later DMA mapping error and rollback
+-			 */
+-			st->header_unmap_len = 0;
+-		} else {
+-			buffer->flags = EFX_TX_BUF_CONT;
+-			buffer->unmap_len = 0;
+-		}
+-		++tx_queue->insert_count;
+ 	}
++	++tx_queue->insert_count;
+ 
+ 	st->seqnum += skb_shinfo(skb)->gso_size;
+ 
+@@ -483,8 +360,8 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
+  * Context: You must hold netif_tx_lock() to call this function.
+  *
+  * Add socket buffer @skb to @tx_queue, doing TSO or return != 0 if
+- * @skb was not enqueued.  In all cases @skb is consumed.  Return
+- * %NETDEV_TX_OK.
++ * @skb was not enqueued.  @skb is consumed unless return value is
++ * %EINVAL.
   */
- #define          MC_CMD_GET_CAPABILITIES_OUT_TXPD_FW_TYPE_LAYER2_PERF  0x7
-+/* enum: Rules engine TX PD production firmware */
-+#define          MC_CMD_GET_CAPABILITIES_OUT_TXPD_FW_TYPE_RULES_ENGINE  0x8
- /* enum: RX PD firmware for GUE parsing prototype (Medford development only) */
- #define          MC_CMD_GET_CAPABILITIES_OUT_TXPD_FW_TYPE_TESTFW_GUE_PROTOTYPE  0xe
- /* Hardware capabilities of NIC */
-@@ -7913,6 +8051,8 @@
-  * tests (Medford development only)
-  */
- #define          MC_CMD_GET_CAPABILITIES_V2_OUT_RXPD_FW_TYPE_LAYER2_PERF  0x7
-+/* enum: Rules engine RX PD production firmware */
-+#define          MC_CMD_GET_CAPABILITIES_V2_OUT_RXPD_FW_TYPE_RULES_ENGINE  0x8
- /* enum: RX PD firmware for GUE parsing prototype (Medford development only) */
- #define          MC_CMD_GET_CAPABILITIES_V2_OUT_RXPD_FW_TYPE_TESTFW_GUE_PROTOTYPE  0xe
- /* enum: RX PD firmware parsing but not filtering network overlay tunnel
-@@ -7948,6 +8088,8 @@
-  * tests (Medford development only)
-  */
- #define          MC_CMD_GET_CAPABILITIES_V2_OUT_TXPD_FW_TYPE_LAYER2_PERF  0x7
-+/* enum: Rules engine TX PD production firmware */
-+#define          MC_CMD_GET_CAPABILITIES_V2_OUT_TXPD_FW_TYPE_RULES_ENGINE  0x8
- /* enum: RX PD firmware for GUE parsing prototype (Medford development only) */
- #define          MC_CMD_GET_CAPABILITIES_V2_OUT_TXPD_FW_TYPE_TESTFW_GUE_PROTOTYPE  0xe
- /* Hardware capabilities of NIC */
-@@ -7980,6 +8122,8 @@
- #define        MC_CMD_GET_CAPABILITIES_V2_OUT_RX_SNIFF_WIDTH 1
- #define        MC_CMD_GET_CAPABILITIES_V2_OUT_TX_SNIFF_LBN 11
- #define        MC_CMD_GET_CAPABILITIES_V2_OUT_TX_SNIFF_WIDTH 1
-+#define        MC_CMD_GET_CAPABILITIES_V2_OUT_NVRAM_UPDATE_REPORT_VERIFY_RESULT_LBN 12
-+#define        MC_CMD_GET_CAPABILITIES_V2_OUT_NVRAM_UPDATE_REPORT_VERIFY_RESULT_WIDTH 1
- /* Number of FATSOv2 contexts per datapath supported by this NIC. Not present
-  * on older firmware (check the length).
-  */
-@@ -8247,6 +8391,8 @@
- #define        MC_CMD_GET_CAPABILITIES_V3_OUT_RX_SNIFF_WIDTH 1
- #define        MC_CMD_GET_CAPABILITIES_V3_OUT_TX_SNIFF_LBN 11
- #define        MC_CMD_GET_CAPABILITIES_V3_OUT_TX_SNIFF_WIDTH 1
-+#define        MC_CMD_GET_CAPABILITIES_V3_OUT_NVRAM_UPDATE_REPORT_VERIFY_RESULT_LBN 12
-+#define        MC_CMD_GET_CAPABILITIES_V3_OUT_NVRAM_UPDATE_REPORT_VERIFY_RESULT_WIDTH 1
- /* Number of FATSOv2 contexts per datapath supported by this NIC. Not present
-  * on older firmware (check the length).
-  */
-@@ -8304,7 +8450,7 @@
- #define       MC_CMD_GET_CAPABILITIES_V3_OUT_SIZE_PIO_BUFF_LEN 2
- /* On chips later than Medford the amount of address space assigned to each VI
-  * is configurable. This is a global setting that the driver must query to
-- * discover the VI to address mapping. Cut-through PIO (CTPIO) in not available
-+ * discover the VI to address mapping. Cut-through PIO (CTPIO) is not available
-  * with 8k VI windows.
-  */
- #define       MC_CMD_GET_CAPABILITIES_V3_OUT_VI_WINDOW_MODE_OFST 72
-@@ -10283,6 +10429,8 @@
-  * more data is returned.
-  */
- #define          MC_CMD_PCIE_TUNE_IN_POLL_EYE_PLOT  0x6
-+/* enum: Enable the SERDES BIST and set it to generate a 200MHz square wave */
-+#define          MC_CMD_PCIE_TUNE_IN_BIST_SQUARE_WAVE  0x7
- /* Align the arguments to 32 bits */
- #define       MC_CMD_PCIE_TUNE_IN_PCIE_TUNE_RSVD_OFST 1
- #define       MC_CMD_PCIE_TUNE_IN_PCIE_TUNE_RSVD_LEN 3
-@@ -10468,6 +10616,12 @@
- #define       MC_CMD_PCIE_TUNE_POLL_EYE_PLOT_OUT_SAMPLES_MINNUM 0
- #define       MC_CMD_PCIE_TUNE_POLL_EYE_PLOT_OUT_SAMPLES_MAXNUM 126
+ int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 			struct sk_buff *skb,
+@@ -494,6 +371,9 @@ int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 	int frag_i, rc;
+ 	struct tso_state state;
  
-+/* MC_CMD_PCIE_TUNE_BIST_SQUARE_WAVE_IN msgrequest */
-+#define    MC_CMD_PCIE_TUNE_BIST_SQUARE_WAVE_IN_LEN 0
++	if (tx_queue->tso_version != 1)
++		return -EINVAL;
 +
-+/* MC_CMD_PCIE_TUNE_BIST_SQUARE_WAVE_OUT msgrequest */
-+#define    MC_CMD_PCIE_TUNE_BIST_SQUARE_WAVE_OUT_LEN 0
-+
+ 	prefetch(skb->data);
  
- /***********************************/
- /* MC_CMD_LICENSING
-@@ -10783,29 +10937,45 @@
- #define MC_CMD_0xd4_PRIVILEGE_CTG SRIOV_CTG_GENERAL
+ 	/* Find the packet protocol and sanity-check it */
+@@ -503,7 +383,7 @@ int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
  
- /* MC_CMD_LICENSED_V3_VALIDATE_APP_IN msgrequest */
--#define    MC_CMD_LICENSED_V3_VALIDATE_APP_IN_LEN 72
-+#define    MC_CMD_LICENSED_V3_VALIDATE_APP_IN_LEN 56
-+/* challenge for validation (384 bits) */
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_CHALLENGE_OFST 0
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_CHALLENGE_LEN 48
- /* application ID expressed as a single bit mask */
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_APP_ID_OFST 0
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_APP_ID_OFST 48
- #define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_APP_ID_LEN 8
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_APP_ID_LO_OFST 0
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_APP_ID_HI_OFST 4
--/* challenge for validation */
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_CHALLENGE_OFST 8
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_CHALLENGE_LEN 64
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_APP_ID_LO_OFST 48
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_IN_APP_ID_HI_OFST 52
+ 	rc = tso_start(&state, efx, tx_queue, skb);
+ 	if (rc)
+-		goto mem_err;
++		goto fail;
  
- /* MC_CMD_LICENSED_V3_VALIDATE_APP_OUT msgresponse */
--#define    MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_LEN 72
-+#define    MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_LEN 116
-+/* validation response to challenge in the form of ECDSA signature consisting
-+ * of two 384-bit integers, r and s, in big-endian order. The signature signs a
-+ * SHA-384 digest of a message constructed from the concatenation of the input
-+ * message and the remaining fields of this output message, e.g. challenge[48
-+ * bytes] ... expiry_time[4 bytes] ...
-+ */
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_RESPONSE_OFST 0
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_RESPONSE_LEN 96
- /* application expiry time */
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_EXPIRY_TIME_OFST 0
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_EXPIRY_TIME_OFST 96
- /* application expiry units */
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_EXPIRY_UNITS_OFST 4
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_EXPIRY_UNITS_OFST 100
- /* enum: expiry units are accounting units */
- #define          MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_EXPIRY_UNIT_ACC  0x0
- /* enum: expiry units are calendar days */
- #define          MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_EXPIRY_UNIT_DAYS  0x1
--/* validation response to challenge */
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_RESPONSE_OFST 8
--#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_RESPONSE_LEN 64
-+/* base MAC address of the NIC stored in NVRAM (note that this is a constant
-+ * value for a given NIC regardless which function is calling, effectively this
-+ * is PF0 base MAC address)
-+ */
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_BASE_MACADDR_OFST 104
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_BASE_MACADDR_LEN 6
-+/* MAC address of v-adaptor associated with the client. If no such v-adapator
-+ * exists, then the field is filled with 0xFF.
-+ */
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_VADAPTOR_MACADDR_OFST 110
-+#define       MC_CMD_LICENSED_V3_VALIDATE_APP_OUT_VADAPTOR_MACADDR_LEN 6
+ 	if (likely(state.in_len == 0)) {
+ 		/* Grab the first payload fragment. */
+@@ -512,14 +392,15 @@ int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 		rc = tso_get_fragment(&state, efx,
+ 				      skb_shinfo(skb)->frags + frag_i);
+ 		if (rc)
+-			goto mem_err;
++			goto fail;
+ 	} else {
+ 		/* Payload starts in the header area. */
+ 		frag_i = -1;
+ 	}
  
+-	if (tso_start_new_packet(tx_queue, skb, &state) < 0)
+-		goto mem_err;
++	rc = tso_start_new_packet(tx_queue, skb, &state);
++	if (rc)
++		goto fail;
  
- /***********************************/
-@@ -10835,6 +11005,70 @@
+ 	prefetch_ptr(tx_queue);
  
+@@ -534,37 +415,38 @@ int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
+ 			rc = tso_get_fragment(&state, efx,
+ 					      skb_shinfo(skb)->frags + frag_i);
+ 			if (rc)
+-				goto mem_err;
++				goto fail;
+ 		}
  
- /***********************************/
-+/* MC_CMD_LICENSING_V3_TEMPORARY
-+ * Perform operations to support installation of a single temporary license in
-+ * the adapter, in addition to those found in the licensing partition. See
-+ * SF-116124-SW for an overview of how this could be used. The license is
-+ * stored in MC persistent data and so will survive a MC reboot, but will be
-+ * erased when the adapter is power cycled
-+ */
-+#define MC_CMD_LICENSING_V3_TEMPORARY 0xd6
-+
-+#define MC_CMD_0xd6_PRIVILEGE_CTG SRIOV_CTG_GENERAL
-+
-+/* MC_CMD_LICENSING_V3_TEMPORARY_IN msgrequest */
-+#define    MC_CMD_LICENSING_V3_TEMPORARY_IN_LEN 4
-+/* operation code */
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_IN_OP_OFST 0
-+/* enum: install a new license, overwriting any existing temporary license.
-+ * This is an asynchronous operation owing to the time taken to validate an
-+ * ECDSA license
-+ */
-+#define          MC_CMD_LICENSING_V3_TEMPORARY_SET  0x0
-+/* enum: clear the license immediately rather than waiting for the next power
-+ * cycle
-+ */
-+#define          MC_CMD_LICENSING_V3_TEMPORARY_CLEAR  0x1
-+/* enum: get the status of the asynchronous MC_CMD_LICENSING_V3_TEMPORARY_SET
-+ * operation
-+ */
-+#define          MC_CMD_LICENSING_V3_TEMPORARY_STATUS  0x2
-+
-+/* MC_CMD_LICENSING_V3_TEMPORARY_IN_SET msgrequest */
-+#define    MC_CMD_LICENSING_V3_TEMPORARY_IN_SET_LEN 164
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_IN_SET_OP_OFST 0
-+/* ECDSA license and signature */
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_IN_SET_LICENSE_OFST 4
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_IN_SET_LICENSE_LEN 160
-+
-+/* MC_CMD_LICENSING_V3_TEMPORARY_IN_CLEAR msgrequest */
-+#define    MC_CMD_LICENSING_V3_TEMPORARY_IN_CLEAR_LEN 4
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_IN_CLEAR_OP_OFST 0
-+
-+/* MC_CMD_LICENSING_V3_TEMPORARY_IN_STATUS msgrequest */
-+#define    MC_CMD_LICENSING_V3_TEMPORARY_IN_STATUS_LEN 4
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_IN_STATUS_OP_OFST 0
-+
-+/* MC_CMD_LICENSING_V3_TEMPORARY_OUT_STATUS msgresponse */
-+#define    MC_CMD_LICENSING_V3_TEMPORARY_OUT_STATUS_LEN 12
-+/* status code */
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_OUT_STATUS_STATUS_OFST 0
-+/* enum: finished validating and installing license */
-+#define          MC_CMD_LICENSING_V3_TEMPORARY_STATUS_OK  0x0
-+/* enum: license validation and installation in progress */
-+#define          MC_CMD_LICENSING_V3_TEMPORARY_STATUS_IN_PROGRESS  0x1
-+/* enum: licensing error. More specific error messages are not provided to
-+ * avoid exposing details of the licensing system to the client
-+ */
-+#define          MC_CMD_LICENSING_V3_TEMPORARY_STATUS_ERROR  0x2
-+/* bitmask of licensed features */
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_OUT_STATUS_LICENSED_FEATURES_OFST 4
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_OUT_STATUS_LICENSED_FEATURES_LEN 8
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_OUT_STATUS_LICENSED_FEATURES_LO_OFST 4
-+#define       MC_CMD_LICENSING_V3_TEMPORARY_OUT_STATUS_LICENSED_FEATURES_HI_OFST 8
-+
-+
-+/***********************************/
- /* MC_CMD_SET_PORT_SNIFF_CONFIG
-  * Configure RX port sniffing for the physical port associated with the calling
-  * function. Only a privileged function may change the port sniffing
-@@ -11705,6 +11939,66 @@
- /* MC_CMD_RX_BALANCING_OUT msgresponse */
- #define    MC_CMD_RX_BALANCING_OUT_LEN 0
+ 		/* Start at new packet? */
+-		if (state.packet_space == 0 &&
+-		    tso_start_new_packet(tx_queue, skb, &state) < 0)
+-			goto mem_err;
++		if (state.packet_space == 0) {
++			rc = tso_start_new_packet(tx_queue, skb, &state);
++			if (rc)
++				goto fail;
++		}
+ 	}
  
-+
-+/***********************************/
-+/* MC_CMD_NVRAM_PRIVATE_APPEND
-+ * Append a single TLV to the MC_USAGE_TLV partition. Returns MC_CMD_ERR_EEXIST
-+ * if the tag is already present.
-+ */
-+#define MC_CMD_NVRAM_PRIVATE_APPEND 0x11c
-+
-+#define MC_CMD_0x11c_PRIVILEGE_CTG SRIOV_CTG_ADMIN
-+
-+/* MC_CMD_NVRAM_PRIVATE_APPEND_IN msgrequest */
-+#define    MC_CMD_NVRAM_PRIVATE_APPEND_IN_LENMIN 9
-+#define    MC_CMD_NVRAM_PRIVATE_APPEND_IN_LENMAX 252
-+#define    MC_CMD_NVRAM_PRIVATE_APPEND_IN_LEN(num) (8+1*(num))
-+/* The tag to be appended */
-+#define       MC_CMD_NVRAM_PRIVATE_APPEND_IN_TAG_OFST 0
-+/* The length of the data */
-+#define       MC_CMD_NVRAM_PRIVATE_APPEND_IN_LENGTH_OFST 4
-+/* The data to be contained in the TLV structure */
-+#define       MC_CMD_NVRAM_PRIVATE_APPEND_IN_DATA_BUFFER_OFST 8
-+#define       MC_CMD_NVRAM_PRIVATE_APPEND_IN_DATA_BUFFER_LEN 1
-+#define       MC_CMD_NVRAM_PRIVATE_APPEND_IN_DATA_BUFFER_MINNUM 1
-+#define       MC_CMD_NVRAM_PRIVATE_APPEND_IN_DATA_BUFFER_MAXNUM 244
-+
-+/* MC_CMD_NVRAM_PRIVATE_APPEND_OUT msgresponse */
-+#define    MC_CMD_NVRAM_PRIVATE_APPEND_OUT_LEN 0
-+
-+
-+/***********************************/
-+/* MC_CMD_XPM_VERIFY_CONTENTS
-+ * Verify that the contents of the XPM memory is correct (Medford only). This
-+ * is used during manufacture to check that the XPM memory has been programmed
-+ * correctly at ATE.
-+ */
-+#define MC_CMD_XPM_VERIFY_CONTENTS 0x11b
-+
-+#define MC_CMD_0x11b_PRIVILEGE_CTG SRIOV_CTG_ADMIN
-+
-+/* MC_CMD_XPM_VERIFY_CONTENTS_IN msgrequest */
-+#define    MC_CMD_XPM_VERIFY_CONTENTS_IN_LEN 4
-+/* Data type to be checked */
-+#define       MC_CMD_XPM_VERIFY_CONTENTS_IN_DATA_TYPE_OFST 0
-+
-+/* MC_CMD_XPM_VERIFY_CONTENTS_OUT msgresponse */
-+#define    MC_CMD_XPM_VERIFY_CONTENTS_OUT_LENMIN 12
-+#define    MC_CMD_XPM_VERIFY_CONTENTS_OUT_LENMAX 252
-+#define    MC_CMD_XPM_VERIFY_CONTENTS_OUT_LEN(num) (12+1*(num))
-+/* Number of sectors found (test builds only) */
-+#define       MC_CMD_XPM_VERIFY_CONTENTS_OUT_NUM_SECTORS_OFST 0
-+/* Number of bytes found (test builds only) */
-+#define       MC_CMD_XPM_VERIFY_CONTENTS_OUT_NUM_BYTES_OFST 4
-+/* Length of signature */
-+#define       MC_CMD_XPM_VERIFY_CONTENTS_OUT_SIG_LENGTH_OFST 8
-+/* Signature */
-+#define       MC_CMD_XPM_VERIFY_CONTENTS_OUT_SIGNATURE_OFST 12
-+#define       MC_CMD_XPM_VERIFY_CONTENTS_OUT_SIGNATURE_LEN 1
-+#define       MC_CMD_XPM_VERIFY_CONTENTS_OUT_SIGNATURE_MINNUM 0
-+#define       MC_CMD_XPM_VERIFY_CONTENTS_OUT_SIGNATURE_MAXNUM 240
-+
-+
- /***********************************/
- /* MC_CMD_SET_EVQ_TMR
-  * Update the timer load, timer reload and timer mode values for a given EVQ.
-@@ -11798,4 +12092,151 @@
-  */
- #define       MC_CMD_GET_EVQ_TMR_PROPERTIES_OUT_BUG35388_TMR_STEP_OFST 32
+ 	*data_mapped = true;
  
-+
-+/***********************************/
-+/* MC_CMD_ALLOCATE_TX_VFIFO_CP
-+ * When we use the TX_vFIFO_ULL mode, we can allocate common pools using the
-+ * non used switch buffers.
-+ */
-+#define MC_CMD_ALLOCATE_TX_VFIFO_CP 0x11d
-+
-+#define MC_CMD_0x11d_PRIVILEGE_CTG SRIOV_CTG_ADMIN
-+
-+/* MC_CMD_ALLOCATE_TX_VFIFO_CP_IN msgrequest */
-+#define    MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_LEN 20
-+/* Desired instance. Must be set to a specific instance, which is a function
-+ * local queue index.
-+ */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_INSTANCE_OFST 0
-+/* Will the common pool be used as TX_vFIFO_ULL (1) */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_MODE_OFST 4
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_ENABLED       0x1 /* enum */
-+/* enum: Using this interface without TX_vFIFO_ULL is not supported for now */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_DISABLED      0x0
-+/* Number of buffers to reserve for the common pool */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_SIZE_OFST 8
-+/* TX datapath to which the Common Pool is connected to. */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_INGRESS_OFST 12
-+/* enum: Extracts information from function */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_USE_FUNCTION_VALUE          -0x1
-+/* Network port or RX Engine to which the common pool connects. */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_EGRESS_OFST 16
-+/* enum: Extracts information from function */
-+/*               MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_USE_FUNCTION_VALUE          -0x1 */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_PORT0          0x0 /* enum */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_PORT1          0x1 /* enum */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_PORT2          0x2 /* enum */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_PORT3          0x3 /* enum */
-+/* enum: To enable Switch loopback with Rx engine 0 */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_RX_ENGINE0     0x4
-+/* enum: To enable Switch loopback with Rx engine 1 */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_CP_IN_RX_ENGINE1     0x5
-+
-+/* MC_CMD_ALLOCATE_TX_VFIFO_CP_OUT msgresponse */
-+#define    MC_CMD_ALLOCATE_TX_VFIFO_CP_OUT_LEN 4
-+/* ID of the common pool allocated */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_CP_OUT_CP_ID_OFST 0
-+
-+
-+/***********************************/
-+/* MC_CMD_ALLOCATE_TX_VFIFO_VFIFO
-+ * When we use the TX_vFIFO_ULL mode, we can allocate vFIFOs using the
-+ * previously allocated common pools.
-+ */
-+#define MC_CMD_ALLOCATE_TX_VFIFO_VFIFO 0x11e
-+
-+#define MC_CMD_0x11e_PRIVILEGE_CTG SRIOV_CTG_ADMIN
-+
-+/* MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN msgrequest */
-+#define    MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_LEN 20
-+/* Common pool previously allocated to which the new vFIFO will be associated
-+ */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_CP_OFST 0
-+/* Port or RX engine to associate the vFIFO egress */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_EGRESS_OFST 4
-+/* enum: Extracts information from common pool */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_USE_CP_VALUE   -0x1
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_PORT0          0x0 /* enum */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_PORT1          0x1 /* enum */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_PORT2          0x2 /* enum */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_PORT3          0x3 /* enum */
-+/* enum: To enable Switch loopback with Rx engine 0 */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_RX_ENGINE0     0x4
-+/* enum: To enable Switch loopback with Rx engine 1 */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_RX_ENGINE1     0x5
-+/* Minimum number of buffers that the pool must have */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_SIZE_OFST 8
-+/* enum: Do not check the space available */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_NO_MINIMUM     0x0
-+/* Will the vFIFO be used as TX_vFIFO_ULL */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_MODE_OFST 12
-+/* Network priority of the vFIFO,if applicable */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_PRIORITY_OFST 16
-+/* enum: Search for the lowest unused priority */
-+#define          MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_IN_LOWEST_AVAILABLE  -0x1
-+
-+/* MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_OUT msgresponse */
-+#define    MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_OUT_LEN 8
-+/* Short vFIFO ID */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_OUT_VID_OFST 0
-+/* Network priority of the vFIFO */
-+#define       MC_CMD_ALLOCATE_TX_VFIFO_VFIFO_OUT_PRIORITY_OFST 4
-+
-+
-+/***********************************/
-+/* MC_CMD_TEARDOWN_TX_VFIFO_VF
-+ * This interface clears the configuration of the given vFIFO and leaves it
-+ * ready to be re-used.
-+ */
-+#define MC_CMD_TEARDOWN_TX_VFIFO_VF 0x11f
-+
-+#define MC_CMD_0x11f_PRIVILEGE_CTG SRIOV_CTG_ADMIN
-+
-+/* MC_CMD_TEARDOWN_TX_VFIFO_VF_IN msgrequest */
-+#define    MC_CMD_TEARDOWN_TX_VFIFO_VF_IN_LEN 4
-+/* Short vFIFO ID */
-+#define       MC_CMD_TEARDOWN_TX_VFIFO_VF_IN_VFIFO_OFST 0
-+
-+/* MC_CMD_TEARDOWN_TX_VFIFO_VF_OUT msgresponse */
-+#define    MC_CMD_TEARDOWN_TX_VFIFO_VF_OUT_LEN 0
-+
-+
-+/***********************************/
-+/* MC_CMD_DEALLOCATE_TX_VFIFO_CP
-+ * This interface clears the configuration of the given common pool and leaves
-+ * it ready to be re-used.
-+ */
-+#define MC_CMD_DEALLOCATE_TX_VFIFO_CP 0x121
-+
-+#define MC_CMD_0x121_PRIVILEGE_CTG SRIOV_CTG_ADMIN
-+
-+/* MC_CMD_DEALLOCATE_TX_VFIFO_CP_IN msgrequest */
-+#define    MC_CMD_DEALLOCATE_TX_VFIFO_CP_IN_LEN 4
-+/* Common pool ID given when pool allocated */
-+#define       MC_CMD_DEALLOCATE_TX_VFIFO_CP_IN_POOL_ID_OFST 0
-+
-+/* MC_CMD_DEALLOCATE_TX_VFIFO_CP_OUT msgresponse */
-+#define    MC_CMD_DEALLOCATE_TX_VFIFO_CP_OUT_LEN 0
-+
-+
-+/***********************************/
-+/* MC_CMD_SWITCH_GET_UNASSIGNED_BUFFERS
-+ * This interface allows the host to find out how many common pool buffers are
-+ * not yet assigned.
-+ */
-+#define MC_CMD_SWITCH_GET_UNASSIGNED_BUFFERS 0x124
-+
-+#define MC_CMD_0x124_PRIVILEGE_CTG SRIOV_CTG_ADMIN
-+
-+/* MC_CMD_SWITCH_GET_UNASSIGNED_BUFFERS_IN msgrequest */
-+#define    MC_CMD_SWITCH_GET_UNASSIGNED_BUFFERS_IN_LEN 0
-+
-+/* MC_CMD_SWITCH_GET_UNASSIGNED_BUFFERS_OUT msgresponse */
-+#define    MC_CMD_SWITCH_GET_UNASSIGNED_BUFFERS_OUT_LEN 8
-+/* Available buffers for the ENG to NET vFIFOs. */
-+#define       MC_CMD_SWITCH_GET_UNASSIGNED_BUFFERS_OUT_NET_OFST 0
-+/* Available buffers for the ENG to ENG and NET to ENG vFIFOs. */
-+#define       MC_CMD_SWITCH_GET_UNASSIGNED_BUFFERS_OUT_ENG_OFST 4
-+
-+
- #endif /* MCDI_PCOL_H */
+ 	return 0;
+ 
+- mem_err:
+-	netif_err(efx, tx_err, efx->net_dev,
+-		  "Out of memory for TSO headers, or DMA mapping error\n");
++fail:
++	if (rc == -ENOMEM)
++		netif_err(efx, tx_err, efx->net_dev,
++			  "Out of memory for TSO headers, or DMA mapping error\n");
++	else
++		netif_err(efx, tx_err, efx->net_dev, "TSO failed, rc = %d\n", rc);
+ 
+ 	/* Free the DMA mapping we were in the process of writing out */
+ 	if (state.unmap_len) {
+-		if (state.dma_flags & EFX_TX_BUF_MAP_SINGLE)
+-			dma_unmap_single(&efx->pci_dev->dev, state.unmap_addr,
+-					 state.unmap_len, DMA_TO_DEVICE);
+-		else
+-			dma_unmap_page(&efx->pci_dev->dev, state.unmap_addr,
+-				       state.unmap_len, DMA_TO_DEVICE);
++		dma_unmap_page(&efx->pci_dev->dev, state.unmap_addr,
++			       state.unmap_len, DMA_TO_DEVICE);
+ 	}
+ 
+-	/* Free the header DMA mapping, if using option descriptors */
++	/* Free the header DMA mapping */
+ 	if (state.header_unmap_len)
+ 		dma_unmap_single(&efx->pci_dev->dev, state.header_dma_addr,
+ 				 state.header_unmap_len, DMA_TO_DEVICE);
+ 
+-	return -ENOMEM;
++	return rc;
+ }
