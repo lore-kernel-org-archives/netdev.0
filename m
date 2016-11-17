@@ -1,41 +1,61 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v2 3/3] net: marvell: Allow drivers to be built with COMPILE_TEST
-Date: Thu, 17 Nov 2016 10:12:00 +0100
-Message-ID: <19888267.TNEXR1Cft3@wuerfel>
-References: <201611171559.suMIPVBq%fengguang.wu@intel.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH 1/1] ixgbe: write flush vfta registers
+Date: Thu, 17 Nov 2016 17:33:03 +0800
+Message-ID: <CAD=hENfbWUobVvUOKhjRi+7fNCj=87R3GFeGjXg+zd_zez_SpQ@mail.gmail.com>
+References: <1479300041-3436-1-git-send-email-zyjzyj2000@gmail.com>
+	<trinity-ec3a2e6f-7310-41aa-8743-61bc62ccf663-1479305144399@3capp-gmx-bs59>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, kbuild-all@01.org,
-        netdev@vger.kernel.org, davem@davemloft.net, mw@semihalf.com,
-        gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com
-To: kbuild test robot <lkp@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:56479 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750790AbcKQJMy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 04:12:54 -0500
-In-Reply-To: <201611171559.suMIPVBq%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <trinity-ec3a2e6f-7310-41aa-8743-61bc62ccf663-1479305144399@3capp-gmx-bs59>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Thursday, November 17, 2016 3:10:10 PM CET kbuild test robot wrote:
-> url:    https://github.com/0day-ci/linux/commits/Florian-Fainelli/net-fsl-Allow-most-drivers-to-be-built-with-COMPILE_TEST/20161116-094841
-> config: mips-allyesconfig (attached as .config)
-> compiler: mips-linux-gnu-gcc (Debian 6.1.1-9) 6.1.1 20160705
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=mips 
-> 
-> All errors (new ones prefixed by >>):
-> 
->    drivers/built-in.o: In function `mvneta_bm_pool_create':
-> >> mvneta_bm.c:(.text+0x772f0c): undefined reference to `mvebu_mbus_get_dram_win_info'
-
-We should fix this, I'd suggest either adding an inline wrapper for
-mvebu_mbus_get_dram_win_info() when CONFIG_MVEBU_MBUS is not set,
-or allowing CONFIG_MVEBU_MBUS to be enabled for COMPILE_TEST as well.
-
-	Arnd
+U3VyZS4gRnJvbSB0aGUgZm9sbG93aW5nLgoiClZMQU4gRmlsdGVyLiBFYWNoIGJpdCDigJhp4oCZ
+IGluIHJlZ2lzdGVyIOKAmG7igJkgYWZmZWN0cyBwYWNrZXRzIHdpdGggVkxBTgp0YWdzIGVxdWFs
+IHRvIDMyKm4raS4KMTI4IFZMQU4gRmlsdGVyIHJlZ2lzdGVycyBjb21wb3NlIGEgdGFibGUgb2Yg
+NDA5NiBiaXRzIHRoYXQgY292ZXIgYWxsCnBvc3NpYmxlIFZMQU4KdGFncy4KRWFjaCBiaXQgd2hl
+biBzZXQsIGVuYWJsZXMgcGFja2V0cyB3aXRoIHRoZSBhc3NvY2lhdGVkIFZMQU4gdGFncyB0bwpw
+YXNzLiBFYWNoIGJpdAp3aGVuIGNsZWFyZWQsIGJsb2NrcyBwYWNrZXRzIHdpdGggdGhpcyBWTEFO
+IHRhZy4KIgpZb3VyIHN1Z2dlc3Rpb25zIHNlZW1zIHJlYXNvbmFibGUuIFBsZWFzZSB3YWl0LiBJ
+IHdpbGwgbWFrZSB0ZXN0cyB0bwp2ZWZpcnkgeW91ciBzdWdnZXN0aW9ucy4KCkkgd2lsbCBrZWVw
+IHlvdSB1cGRhdGUuCgpPbiBXZWQsIE5vdiAxNiwgMjAxNiBhdCAxMDowNSBQTSwgTGlubyBTYW5m
+aWxpcHBvIDxMaW5vU2FuZmlsaXBwb0BnbXguZGU+IHdyb3RlOgo+Cj4KPiBIaSwKPgo+Pgo+PiBT
+b21ldGltZXMgdmZ0YSByZWdpc3RlcnMgY2FuIG5vdCBiZSB3cml0dGVuIHN1Y2Nlc3NmdWxseSBp
+biBkY2IgbW9kZS4KPj4gVGhpcyBpcyB2ZXJ5IG9jY2Fzc2lvbmFsLiBXaGVuIHRoZSBpeGdiZSBu
+aWMgcnVucyBmb3IgYSB2ZXJ5IGxvbmcgdGltZSwKPj4gc29tZXRpbWVzIHRoaXMgYnVnIG9jY3Vy
+cy4gQnV0IGFmdGVyIElYR0JFX1dSSVRFX0ZMVVNIIGlzIGV4ZWN1dGVkLAo+PiB0aGlzIGJ1ZyBu
+ZXZlciBvY2N1cnMuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFpodSBZYW5qdW4gPHp5anp5ajIwMDBA
+Z21haWwuY29tPgo+PiAtLS0KPj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4
+Z2JlX21haW4uYyB8IDUgKysrKy0KPj4gIDEgZmlsZSBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyks
+IDEgZGVsZXRpb24oLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2l4Z2JlL2l4Z2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2Jl
+L2l4Z2JlX21haW4uYwo+PiBpbmRleCBiZDkzZDgyLi4xMjIxY2ZiIDEwMDY0NAo+PiAtLS0gYS9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMKPj4gKysrIGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jCj4+IEBAIC00MTM4LDgg
+KzQxMzgsMTAgQEAgc3RhdGljIHZvaWQgaXhnYmVfdmxhbl9wcm9taXNjX2VuYWJsZShzdHJ1Y3Qg
+aXhnYmVfYWRhcHRlciAqYWRhcHRlcikKPj4gICAgICAgfQo+Pgo+PiAgICAgICAvKiBTZXQgYWxs
+IGJpdHMgaW4gdGhlIFZMQU4gZmlsdGVyIHRhYmxlIGFycmF5ICovCj4+IC0gICAgIGZvciAoaSA9
+IGh3LT5tYWMudmZ0X3NpemU7IGktLTspCj4+ICsgICAgIGZvciAoaSA9IGh3LT5tYWMudmZ0X3Np
+emU7IGktLTspIHsKPj4gICAgICAgICAgICAgICBJWEdCRV9XUklURV9SRUcoaHcsIElYR0JFX1ZG
+VEEoaSksIH4wVSk7Cj4+ICsgICAgICAgICAgICAgSVhHQkVfV1JJVEVfRkxVU0goaHcpOwo+PiAr
+ICAgICB9Cj4KPiBTaG91bGQgaXQgbm90IGJlIHN1ZmZpY2llbnQgdG8gZG8gdGhlIGZsdXNoIG9u
+bHkgb25jZSwgYXQgdGhlIGVuZCBvZiB0aGUgZnVuY3Rpb24/Cj4KPiBSZWdhcmRzLAo+IExpbm8K
+Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMu
+c291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3Rp
+bmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQs
+IHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
