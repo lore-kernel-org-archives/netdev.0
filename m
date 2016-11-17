@@ -1,85 +1,58 @@
 From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v3 0/5] Adding PHY-Tunables and downshift support
-Date: Thu, 17 Nov 2016 13:07:19 +0100
-Message-ID: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v3 3/5] ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
+Date: Thu, 17 Nov 2016 13:07:22 +0100
+Message-ID: <1479384444-31122-4-git-send-email-allan.nielsen@microsemi.com>
+References: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
+        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0061.outbound.protection.outlook.com ([104.47.40.61]:57280
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam01on0046.outbound.protection.outlook.com ([104.47.34.46]:6009
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S936373AbcKQRja (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 12:39:30 -0500
+        id S941126AbcKQRkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 12:40:40 -0500
+In-Reply-To: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-(This is a re-post of the v3 patch set with a new cover letter - I was not
-aware that the cover letters was used a commit comments in merge commits).
+For operation in cabling environments that are incompatible with
+1000BASE-T, PHY device may provide an automatic link speed downshift
+operation. When enabled, the device automatically changes its 1000BASE-T
+auto-negotiation to the next slower speed after a configured number of
+failed attempts at 1000BASE-T.  This feature is useful in setting up in
+networks using older cable installations that include only pairs A and B,
+and not pairs C and D.
 
-This series add support for PHY tunables, and uses this facility to
-configure downshifting. The downshifting mechanism is implemented for MSCC
-phys.
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ include/uapi/linux/ethtool.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-This series tries to address the comments provided back in mid October when
-this feature was posted along with fast-link-failure. Fast-link-failure has
-been separated out, but we would like to pick continue on that if/when we
-agree on how the phy-tunables and downshifting should be done.
-
-The proposed generic interface is similar to
-ETHTOOL_GTUNABLE/ETHTOOL_STUNABLE, it uses the same type
-(ethtool_tunable/tunable_type_id) but a new enum (phy_tunable_id) is added
-to reflect the PHY tunable.
-
-The implementation just call the newly added function pointers in
-get_tunable/set_tunable phy_device structure.
-
-To configure downshifting, the ethtool_tunable structure is used. 'id' must
-be set to 'ETHTOOL_PHY_DOWNSHIFT', 'type_id' must be set to
-'ETHTOOL_TUNABLE_U8' and 'data' value configure the amount of downshift
-re-tries.
-
-If configured to DOWNSHIFT_DEV_DISABLE, then downshift is disabled If
-configured to DOWNSHIFT_DEV_DEFAULT_COUNT, then it is up to the device to
-choose a device-specific re-try count.
-
-Tested on Beaglebone Black with VSC 8531 PHY.
-
-Change set:
-v0:
-
-- Link Speed downshift and Fast Link failure-2 features coded by using
-  Device tree.
-v1: 
-- Split the Downshift and FLF2 features in different set of patches.
-- Removed DT access and implemented IOCTL access suggested by Andrew.
-- Added function pointers in get_tunable/set_tunable phy_device structure
-v2:
-- Added trace message with a hist is printed when downshifting clould not
-  be eanbled with the requested count
-- (ethtool) Syntax is changed from "--set-phy-tunable downshift on|off|%d"
-  to "--set-phy-tunable [downshift on|off [count N]]" - as requested by
-  Andrew.
-v3:
-- Fixed Spelling in "net: phy: Add downshift get/set support in Microsemi
-  PHYs driver"
-
-Raju Lakkaraju (5):
-  ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE and ETHTOOL_PHY_STUNABLE
-  ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE
-  ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
-  ethtool: Core impl for ETHTOOL_PHY_DOWNSHIFT tunable
-  net: phy: Add downshift get/set support in Microsemi PHYs driver
-
- drivers/net/phy/mscc.c       | 100 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/phy.h          |   7 +++
- include/uapi/linux/ethtool.h |  18 +++++++-
- net/core/ethtool.c           |  93 ++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 217 insertions(+), 1 deletion(-)
-
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 42f696f..f0db778 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -248,9 +248,12 @@ struct ethtool_tunable {
+ 	void	*data[0];
+ };
+ 
++#define DOWNSHIFT_DEV_DEFAULT_COUNT	0xff
++#define DOWNSHIFT_DEV_DISABLE		0
++
+ enum phy_tunable_id {
+ 	ETHTOOL_PHY_ID_UNSPEC,
+-
++	ETHTOOL_PHY_DOWNSHIFT,
+ 	/*
+ 	 * Add your fresh new phy tunable attribute above and remember to update
+ 	 * phy_tunable_strings[] in net/core/ethtool.c
 -- 
-2.7.4
+2.7.3
