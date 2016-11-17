@@ -1,58 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net: nsid cannot be allocated for a dead netns
-Date: Wed, 16 Nov 2016 23:17:22 -0500 (EST)
-Message-ID: <20161116.231722.2198167385156796830.davem@davemloft.net>
-References: <201611161759.tCk5fdCO%fengguang.wu@intel.com>
-        <1479289775-1715-1-git-send-email-nicolas.dichtel@6wind.com>
-        <CAM_iQpXzp54gOyiRu4PUcJhLEB3T+TTEL+JLE2PL+oB31ZuCJw@mail.gmail.com>
+Subject: Re: [PATCH net] sctp: use new rhlist interface on sctp transport
+ rhashtable
+Date: Wed, 16 Nov 2016 23:22:36 -0500 (EST)
+Message-ID: <20161116.232236.1426599744587048750.davem@davemloft.net>
+References: <0a89ef8506db3bba6a37010bd5622cd145183ab4.1479223391.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, avagin@gmail.com, netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
+        vyasevich@gmail.com, herbert@gondor.apana.org.au, phil@nwl.cc
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32988 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33012 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751688AbcKQERY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 23:17:24 -0500
-In-Reply-To: <CAM_iQpXzp54gOyiRu4PUcJhLEB3T+TTEL+JLE2PL+oB31ZuCJw@mail.gmail.com>
+        with ESMTP id S1751688AbcKQEWi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Nov 2016 23:22:38 -0500
+In-Reply-To: <0a89ef8506db3bba6a37010bd5622cd145183ab4.1479223391.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed, 16 Nov 2016 09:29:29 -0800
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue, 15 Nov 2016 23:23:11 +0800
 
-> On Wed, Nov 16, 2016 at 1:49 AM, Nicolas Dichtel
-> <nicolas.dichtel@6wind.com> wrote:
->> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->> index f61c0e02a413..63f65387f4e1 100644
->> --- a/net/core/net_namespace.c
->> +++ b/net/core/net_namespace.c
->> @@ -159,6 +159,9 @@ static int alloc_netid(struct net *net, struct net *peer, int reqid)
->>                 max = reqid + 1;
->>         }
->>
->> +       if (!atomic_read(&net->count) || !atomic_read(&peer->count))
->> +               return -EINVAL;
->> +
->>         return idr_alloc(&net->netns_ids, peer, min, max, GFP_ATOMIC);
->>  }
+> Now sctp transport rhashtable uses hash(lport, dport, daddr) as the key
+> to hash a node to one chain. If in one host thousands of assocs connect
+> to one server with the same lport and different laddrs (although it's
+> not a normal case), all the transports would be hashed into the same
+> chain.
 > 
+> It may cause to keep returning -EBUSY when inserting a new node, as the
+> chain is too long and sctp inserts a transport node in a loop, which
+> could even lead to system hangs there.
 > 
-> There is already a check in peernet2id_alloc(), so why not just the following?
+> The new rhlist interface works for this case that there are many nodes
+> with the same key in one chain. It puts them into a list then makes this
+> list be as a node of the chain.
 > 
-> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> index f61c0e0..7001da9 100644
-> --- a/net/core/net_namespace.c
-> +++ b/net/core/net_namespace.c
-> @@ -219,6 +219,8 @@ int peernet2id_alloc(struct net *net, struct net *peer)
->         bool alloc;
->         int id;
+> This patch is to replace rhashtable_ interface with rhltable_ interface.
+> Since a chain would not be too long and it would not return -EBUSY with
+> this fix when inserting a node, the reinsert loop is also removed here.
 > 
-> +       if (atomic_read(&net->count) == 0)
-> +               return NETNSA_NSID_NOT_ASSIGNED;
->         spin_lock_irqsave(&net->nsid_lock, flags);
->         alloc = atomic_read(&peer->count) == 0 ? false : true;
->         id = __peernet2id_alloc(net, peer, &alloc);
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Indeed, this looks cleaner, Nicolas?
+Applied to net-next, thanks.
