@@ -1,50 +1,44 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [patch] amd-xgbe: Signedness bug in xgbe_phy_link_status()
-Date: Thu, 17 Nov 2016 08:40:29 -0600
-Message-ID: <e7d2e620-9eb0-0fee-1d6f-33062fd8bcc7@amd.com>
-References: <20161117105932.GA32143@mwanda>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Netperf UDP issue with connected sockets
+Date: Thu, 17 Nov 2016 05:20:50 -0800
+Message-ID: <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20140903165943.372b897b@redhat.com>
+         <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
+         <20161116131609.4e5726b4@redhat.com>
+         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
+         <20161116234022.2bad179b@redhat.com>
+         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117091638.5fab8494@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0078.outbound.protection.outlook.com ([104.47.34.78]:32480
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933208AbcKQRN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 12:13:26 -0500
-In-Reply-To: <20161117105932.GA32143@mwanda>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:36677 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753205AbcKQRO7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:14:59 -0500
+Received: by mail-pg0-f43.google.com with SMTP id f188so93196692pgc.3
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 09:14:58 -0800 (PST)
+In-Reply-To: <20161117091638.5fab8494@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/17/2016 4:59 AM, Dan Carpenter wrote:
-> "ret" needs to be signed for the error handling to work.
+On Thu, 2016-11-17 at 09:16 +0100, Jesper Dangaard Brouer wrote:
+
 > 
-> Fixes: abf0a1c2b26a ("amd-xgbe: Add support for SFP+ modules")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
+> I noticed there is a Send-Q, and the perf-top2 is _raw_spin_lock, which
+> looks like it comes from __dev_queue_xmit(), but we know from
+> experience that this stall is actually caused by writing the
+> tailptr/doorbell in the HW.  Thus, this could benefit a lot from
+> bulk/xmit_more into the qdisc layer.
 
-Hi Dan,
+The Send-Q is there because of TX-completions being delayed a bit,
+because of IRQ mitigation.
 
-This was already identified and patched:
-8c5385cbb036 ("amd-xgbe: Fix up some coccinelle identified warnings")
+(ethtool -c eth0)
 
-Thanks,
-Tom
+It happens even if you do not have a qdisc in the first place.
 
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-> index 4ba4332..a2559c2 100644
-> --- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-> @@ -2346,7 +2346,8 @@ static bool xgbe_phy_valid_speed(struct xgbe_prv_data *pdata, int speed)
->  static int xgbe_phy_link_status(struct xgbe_prv_data *pdata, int *an_restart)
->  {
->  	struct xgbe_phy_data *phy_data = pdata->phy_data;
-> -	unsigned int ret, reg;
-> +	unsigned int reg;
-> +	int ret;
->  
->  	*an_restart = 0;
->  
-> 
+And we do have xmit_more in the qdisc layer already.
