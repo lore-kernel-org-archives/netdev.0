@@ -1,98 +1,69 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCHv2 perf/core 2/2] tools lib bpf: Sync with
- samples/bpf/libbpf
-Date: Thu, 17 Nov 2016 11:21:06 +0800
-Message-ID: <582D2222.4060309@huawei.com>
-References: <20161116174324.29675-1-joe@ovn.org>
- <20161116174324.29675-3-joe@ovn.org> <582D11B0.80208@huawei.com>
- <CAOftzPhXk0LKCt8wQKuqeBnDrj6a4p0YL7P80jhK78eFSAz8WQ@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the tip tree
+Date: Thu, 17 Nov 2016 14:22:27 +1100
+Message-ID: <20161117142227.7753ef12@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, <ast@fb.com>,
-        <daniel@iogearbox.net>, <acme@kernel.org>
-To: Joe Stringer <joe@ovn.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOftzPhXk0LKCt8wQKuqeBnDrj6a4p0YL7P80jhK78eFSAz8WQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Christian Borntraeger <borntraeger@de.ibm.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
+        "H. Peter Anvin" <hpa@zytor.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
+After merging the tip tree, today's linux-next build (arm
+multi_v7_defconfig) failed like this:
 
-On 2016/11/17 10:46, Joe Stringer wrote:
-> On 16 November 2016 at 18:10, Wangnan (F) <wangnan0@huawei.com> wrote:
->> I'm also working on improving bpf.c. Please have a look at:
->>
->> https://lkml.org/lkml/2016/11/14/1078
->>
->> Since bpf.c is simple, I think we can add more functions and fixes
->> gradually, instead of a full copy.
->>
->> See my inline comment below.
-> Ah, I missed this, my apologies. It looks like it will provide much of
-> what I need, I can reassess this patch with your series in mind.
->
-> One comment though for your patch (I don't have the original thread to
-> respond to unfortunately): The map_pin and map_get functions in your
-> patch series can be used to pin progs too, so maybe there is a better
-> name? You'll see that this patch uses bpf_obj_{pin,get}() - although I
-> wouldn't want those to be confused with the libbpf.c objects so maybe
-> there's a clearer name that could be used.
+net/core/dev.c: In function 'sk_busy_loop':
+net/core/dev.c:5065:3: error: implicit declaration of function 'cpu_relax_lowlatency' [-Werror=implicit-function-declaration]
+   cpu_relax_lowlatency();
+   ^
 
-The full thread can be found:
+Caused by commit
 
-https://www.mail-archive.com/linux-kernel@vger.kernel.org/msg1272045.html
+  5bd0b85ba8bb ("locking/core, arch: Remove cpu_relax_lowlatency()")
 
-(lkml.kernel.org is not working for me, sorry)
+interacting with commit
 
-In that patch set, bpf_map_pin/get is linked into perf hooks, so BPF script
-can pin a map to sysfs. I think this feature would be useful, but I don't
-have an example to show how to use it. I didn't provide program pinning/get
-interface because in perf hook they are not useful. After rethinking your
-suggestion now I think it is okay to provide bpf_obj_{pin,get} in bpf.c
-and export bpf_map_pin to perf hook. I'll adjust my own patch.
+  217f69743681 ("net: busy-poll: allow preemption in sk_busy_loop()")
 
-> I also have some patches to rework the samples/bpf/* code to use
-> libbpf instead of the sample code that is there, is it worth me
-> submitting that? It will need to wait for your patch to go in, plus a
-> merge with davem's tree.
->
->> On 2016/11/17 1:43, Joe Stringer wrote:
+from the net-next tree.
 
-[SNIP]
+I have applied the following merge fix patch.
 
->>>    /*
->>> @@ -53,24 +60,71 @@ static int sys_bpf(enum bpf_cmd cmd, union bpf_attr
->>> *attr,
->>>          return syscall(__NR_bpf, cmd, attr, size);
->>>    }
->>>    -int bpf_create_map(enum bpf_map_type map_type, int key_size,
->>> -                  int value_size, int max_entries)
->>> +int bpf_create_map(enum bpf_map_type map_type, int key_size, int
->>> value_size,
->>> +                  int max_entries, int map_flags)
->>>    {
->>> -       union bpf_attr attr;
->>> +       union bpf_attr attr = {
->>> +               .map_type = map_type,
->>> +               .key_size = key_size,
->>> +               .value_size = value_size,
->>> +               .max_entries = max_entries,
->>> +               .map_flags = map_flags,
->>> +       };
->>>    -     memset(&attr, '\0', sizeof(attr));
->>> +       return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
->>> +}
->>>
->>
->> I lost map_flags in original bpf.c. Thanks to your patch. map_flags is
->> useful
->> when creating BPF_MAP_TYPE_PERCPU_HASH: BPF_F_NO_PREALLOC is meanful in this
->> case.
-> Do you want me to resubmit this piece as a separate patch or will you
-> address this?
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 17 Nov 2016 14:13:05 +1100
+Subject: [PATCH] net: busy-poll: fix up for cpu_relax_lowlatency() removal
 
-Please send it.
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thank you.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d29d538ec5ad..6b9f8eb55b62 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5062,7 +5062,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 				return rc;
+ 			goto restart;
+ 		}
+-		cpu_relax_lowlatency();
++		cpu_relax();
+ 	}
+ 	if (napi_poll)
+ 		busy_poll_stop(napi, have_poll_lock);
+-- 
+2.10.2
+
+-- 
+Cheers,
+Stephen Rothwell
