@@ -1,78 +1,38 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
-Date: Thu, 17 Nov 2016 12:57:23 +0000
-Message-ID: <BN3PR07MB2516488A6BB0F208C3DDB0E1C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
-References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
- <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Harini Katakam <harinikatakamlinux@gmail.com>
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH net v2 2/7] net: ethernet: ti: cpsw: fix mdio device reference leak
+Date: Thu, 17 Nov 2016 17:39:59 +0100
+Message-ID: <1479400804-9847-3-git-send-email-johan@kernel.org>
+References: <1479400804-9847-1-git-send-email-johan@kernel.org>
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <1479400804-9847-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEhhcmluaSBLYXRha2FtIFttYWlsdG86
-aGFyaW5pa2F0YWthbWxpbnV4QGdtYWlsLmNvbV0gDQpTZW50OiAxNyBsaXN0b3BhZGEgMjAxNiAx
-MzoyMg0KVG86IFJhZmFsIE96aWVibG8NCkNjOiBoYXJpbmkua2F0YWthbUB4aWxpbnguY29tOyBu
-aWNvbGFzLmZlcnJlQGF0bWVsLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2Vy
-bmVsQHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IFtSRkMgUEFUQ0ggMi8yXSBuZXQ6IG1h
-Y2I6IEFkZCA2NCBiaXQgYWRkcmVzc2luZyBzdXBwb3J0IGZvciBHRU0NCg0KPiBIaSBSYWZhbCwN
-Cj4NCj4gT24gVGh1LCBOb3YgMTcsIDIwMTYgYXQgNToyMCBQTSwgUmFmYWwgT3ppZWJsbyA8cmFm
-YWxvQGNhZGVuY2UuY29tPiB3cm90ZToNCj4gPiBIZWxsbywNCj4gPiBJIHRoaW5rLCB0aGVyZSBj
-b3VsZCBhIGJ1ZyBpbiB5b3VyIHBhdGNoLg0KPiA+DQo+ID4+ICsNCj4gPj4gKyNpZmRlZiBDT05G
-SUdfQVJDSF9ETUFfQUREUl9UXzY0QklUDQo+ID4+ICsgICAgICAgICAgICAgZG1hY2ZnIHw9IEdF
-TV9CSVQoQUREUjY0KTsgI2VuZGlmDQo+ID4NCj4gPiBZb3UgZW5hYmxlIDY0IGJpdCBhZGRyZXNz
-aW5nICg2NGIgZG1hIGJ1cyB3aWR0aCkgYWx3YXlzIHdoZW4gYXBwcm9wcmlhdGUgYXJjaGl0ZWN0
-dXJlIGNvbmZpZyBvcHRpb24gaXMgZW5hYmxlZC4NCj4gPiBCdXQgdGhlcmUgYXJlIHNvbWUgbGVn
-YWN5IGNvbnRyb2xsZXJzIHdoaWNoIGRvIG5vdCBzdXBwb3J0IHRoYXQgZmVhdHVyZS4gQWNjb3Jk
-aW5nIENhZGVuY2UgaGFyZHdhcmUgdGVhbToNCj4gPiAiNjQgYml0IGFkZHJlc3Npbmcgd2FzIGFk
-ZGVkIGluIEp1bHkgMjAxMy4gRWFybGllciB2ZXJzaW9uIGRvIG5vdCBoYXZlIGl0Lg0KPiA+IFRo
-aXMgZmVhdHVyZSB3YXMgZW5oYW5jZWQgaW4gcmVsZWFzZSBBdWd1c3QgMjAxNCB0byBoYXZlIHNl
-cGFyYXRlIHVwcGVyIGFkZHJlc3MgdmFsdWVzIGZvciB0cmFuc21pdCBhbmQgcmVjZWl2ZS4iDQo+
-ID4NCj4gPj4gLyogQml0ZmllbGRzIGluIE5TUiAqLw0KPiA+PiBAQCAtNDc0LDYgKzQ3OSwxMCBA
-QA0KPiA+PiAgc3RydWN0IG1hY2JfZG1hX2Rlc2Mgew0KPiA+ICA+ICAgICAgdTMyICAgICBhZGRy
-Ow0KPiA+PiAgICAgICB1MzIgICAgIGN0cmw7IA0KPiA+PiArI2lmZGVmIENPTkZJR19BUkNIX0RN
-QV9BRERSX1RfNjRCSVQNCj4gPj4gKyAgICAgdTMyICAgICBhZGRyaDsNCj4gPj4gKyAgICAgdTMy
-ICAgICByZXN2ZDsNCj4gPj4gKyNlbmRpZg0KPiA+PiAgfTsNCj4gPg0KPiA+IEl0IHdpbGwgbm90
-IHdvcmsgZm9yIGxlZ2FjeSBoYXJkd2FyZS4gT2xkIGRlc2NyaXB0b3IgaXMgMiB3b3JkcyB3aWRl
-LCB0aGUgbmV3IG9uZSBpcyA0IHdvcmRzIHdpZGUuDQo+ID4gSWYgeW91IGVuYWJsZSBDT05GSUdf
-QVJDSF9ETUFfQUREUl9UXzY0QklUIGJ1dCBoYXJkd2FyZSBkb2Vzbid0IA0KPiA+IHN1cHBvcnQg
-aXQgYXQgYWxsLCB5b3Ugd2lsbCBtaXNzIGV2ZXJ5IHNlY29uZCBkZXNjcmlwdG9yLg0KPiA+DQo+
-DQo+IFRydWUsIHRoaXMgZmVhdHVyZSBpcyBub3QgYXZhaWxhYmxlIGluIGFsbCBvZiBDYWRlbmNl
-IElQIHZlcnNpb25zLg0KPiBJbiBmYWN0LCB0aGUgSVAgdmVyc2lvbiBaeW5xIGRvZXMgbm90IHN1
-cHBvcnQgdGhpcy4gQnV0IHRoZSBvbmUgaW4gWnlucU1QIGRvZXMuDQo+IFNvLCB3ZSBlbmFibGUg
-a2VybmVsIGNvbmZpZyBmb3IgNjQgYml0IERNQSBhZGRyZXNzaW5nIGZvciB0aGlzIFNvQyBhbmQg
-aGVuY2UgdGhlIGRyaXZlciBwaWNrcyBpdCB1cC4gTXkgYXNzdW1wdGlvbiB3YXMgdGhhdCBpZiB0
-aGUgbGVnYWN5IElQIGRvZXMgbm90IHN1cHBvcnQNCj4gNjQgYml0IGFkZHJlc3NpbmcsIHRoZW4g
-dGhpcyBETUEgb3B0aW9uIHdvdWxkbid0IGJlIGVuYWJsZWQuDQoNCldoYXQgZm9yIGV4YW1wbGUg
-d2l0aCBhcm02NCAod2hpY2ggZW5hYmxlcyBDT05GSUdfQVJDSF9ETUFfQUREUl9UXzY0QklUIGJ5
-IGRlZmF1bHQpIGFuZCBsZWdhY3kgSVAgY29udHJvbGxlcj8gT3Igc3lzdGVtcyB3aXRoIG11bHRp
-cGxlIElQLCBib3RoIHdpdGggYW5kIHdpdGhvdXQgNjRiIGRtYSBjYXBhYmxlPw0KSXQgbWlnaHQg
-cmVzdWx0IGluIHVucHJlZGljdGFibGUgYmVoYXZpby4gKGV4cGxhaW5lZCBiZWxvdykNCg0KPiBU
-aGVyZSBpcyBhIGRlc2lnbiBjb25maWcgcmVnaXN0ZXIgaW4gQ2FkZW5jZSBJUCB3aGljaCBpcyBi
-ZWluZyByZWFkIHRvIGNoZWNrIGZvciA2NCBiaXQgYWRkcmVzcyBzdXBwb3J0IC0gRE1BIG1hc2sg
-aXMgc2V0IGJhc2VkIG9uIHRoYXQuDQo+IEJ1dCB0aGUgYWRkaXRpb24gb2YgdHdvIGRlc2NyaXB0
-b3Igd29yZHMgY2Fubm90IGJlIGJhc2VkIG9uIHRoaXMgcnVudGltZSBjaGVjay4NCj4gRm9yIHRo
-aXMgcmVhc29uLCBhbGwgdGhlIHN0YXRpYyBjaGFuZ2VzIHdlcmUgcGxhY2VkIHVuZGVyIHRoaXMg
-Y2hlY2suDQoNCkFyZSB5b3UgdGFsa2luZyBhYm91dCB0aGlzPw0KDQorI2lmZGVmIENPTkZJR19B
-UkNIX0RNQV9BRERSX1RfNjRCSVQNCisJaWYgKEdFTV9CRkVYVChEQldERUYsIGdlbV9yZWFkbChi
-cCwgRENGRzEpKSA+IEdFTV9EQlczMikNCisJCWRtYV9zZXRfbWFzaygmcGRldi0+ZGV2LCBETUFf
-QklUX01BU0soNDQpKTsNCisjZW5kaWYNCisNCg0KSXQgb25seSBzZXRzIHRoZSBtYXhpbXVtIGFk
-ZHJlc3Mgd2hpY2ggY2FuIGJlIHNlZW4gb24gYWRkcmVzcyBidXMuIChpdHMgbWFzayBleGFjdGx5
-KQ0KDQorc3RhdGljIGlubGluZSB2b2lkIG1hY2Jfc2V0X2FkZHIoc3RydWN0IG1hY2JfZG1hX2Rl
-c2MgKmRlc2MsIGRtYV9hZGRyX3QgYWRkcikNCit7DQorCWRlc2MtPmFkZHIgPSAodTMyKWFkZHI7
-DQorI2lmZGVmIENPTkZJR19BUkNIX0RNQV9BRERSX1RfNjRCSVQNCisJZGVzYy0+YWRkcmggPSAo
-dTMyKShhZGRyID4+IDMyKTsNCisjZW5kaWYNCit9DQorDQoNCkJlY2F1c2UgYWRkciBpcyAzMmIg
-d2lkZSwgKHUzMikoYWRkciA+PiAzMikgZXF1YWxzIDAuIElQIGNvbnRyb2xsZXIgdXNlcyAyIHdv
-cmRzIGZvciBkbWEgZGVzY3JpcHRvciwgc28gZGVzYy0+YWRkciBmcm9tIHNlY29uZCBoYXJkd2Fy
-ZSBkZXNjcmlwdG9yIHdpbGwgYmUgb3ZlcndyaXR0ZW4gYnkgZGVzYy0+YWRkcmggZnJvbSB0aGUg
-Zmlyc3Qgc29mdHdhcmUgZGVzY3JpcHRvci4NCihzYW1lIGRlc2MtPmN0cmwgZnJvbSBzZWNvbmQg
-aGFyZHdhcmUgZGVzY3JpcHRvciB3aWxsIGJlIG92ZXJ3cml0dGVuIGJ5IGRlc2MtPnJlc3ZkKS4g
-DQoNClJlZ2FyZHMsDQpIYXJpbmkNCg==
+Make sure to drop the reference taken by of_find_device_by_node() when
+looking up an mdio device from a phy_id property during probe.
+
+Fixes: 549985ee9c72 ("cpsw: simplify the setup of the register
+pointers")
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/net/ethernet/ti/cpsw.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index f60f8ab7c1e3..84c5d214557e 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2397,6 +2397,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 			}
+ 			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
+ 				 PHY_ID_FMT, mdio->name, phyid);
++			put_device(&mdio->dev);
+ 		} else {
+ 			dev_err(&pdev->dev,
+ 				"No slave[%d] phy_id, phy-handle, or fixed-link property\n",
+-- 
+2.7.3
