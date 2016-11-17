@@ -1,127 +1,78 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH] net: dsa: fix fixed-link-phy device leaks
-Date: Thu, 17 Nov 2016 10:52:25 +0100
-Message-ID: <20161117095225.GC21237@localhost>
-References: <1479307664-32428-1-git-send-email-johan@kernel.org>
- <42af57ed-df84-f628-659d-c982d30da7d5@gmail.com>
- <20161116171145.GE4864@localhost>
- <8387696c-813a-4c88-5f10-7d2e5fdae6b8@gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: Cannot set IPv6 address
+Date: Thu, 17 Nov 2016 11:55:33 +0200
+Message-ID: <CALzJLG-3K=WJ5OXN1Ho41_7ce9ktnxtaiG+FDCtdDGe7=meGAg@mail.gmail.com>
+References: <CALzJLG9B52CbMEiWgroaihq4Ar2Jc9H3BZdA_xjF37CZESbZ8Q@mail.gmail.com>
+ <1479310198.8455.199.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johan Hovold <johan@kernel.org>, Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8387696c-813a-4c88-5f10-7d2e5fdae6b8@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: david.lebrun@uclouvain.be,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Doron Tsur <doront@mellanox.com>,
+        Majd Dibbiny <majd@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36570 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751359AbcKQJzz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 04:55:55 -0500
+Received: by mail-wm0-f67.google.com with SMTP id m203so19475923wma.3
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 01:55:54 -0800 (PST)
+In-Reply-To: <1479310198.8455.199.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2016 at 10:14:10AM -0800, Florian Fainelli wrote:
-> On 11/16/2016 09:11 AM, Johan Hovold wrote:
-> > On Wed, Nov 16, 2016 at 09:06:26AM -0800, Florian Fainelli wrote:
-> >> On 11/16/2016 06:47 AM, Johan Hovold wrote:
-> >>> Make sure to drop the reference taken by of_phy_find_device() when
-> >>> registering and deregistering the fixed-link PHY-device.
-> >>>
-> >>> Note that we need to put both references held at deregistration.
-> >>>
-> >>> Fixes: 39b0c705195e ("net: dsa: Allow configuration of CPU & DSA port
-> >>> speeds/duplex")
-> >>> Signed-off-by: Johan Hovold <johan@kernel.org>
-> >>> ---
-> >>>
-> >>> Hi,
-> >>>
-> >>> This is one has been compile tested only, but fixes a couple of leaks
-> >>> similar to one that was found in the cpsw driver for which I just posted
-> >>> a patch.
-> >>>
-> >>> It turns out all drivers but DSA fail to deregister the fixed-link PHYs
-> >>> registered by of_phy_register_fixed_link(). Due to the way this
-> >>> interface was designed, deregistering such a PHY is a bit cumbersome and
-> >>> looks like it would benefit from a common helper.
-> >>>
-> >>> However, perhaps the interface should instead be changed so that the PHY
-> >>> device is returned so that drivers do not need to use
-> >>> of_phy_find_device() when they need to access properties of the fixed
-> >>> link (e.g. as in dsu_cpu_dsa_setup below).
-> >>>
-> >>> Thoughts?
-> >>>
-> >>> Thanks,
-> >>> Johan
-> >>>
-> >>>
-> >>>  net/dsa/dsa.c | 8 +++++++-
-> >>>  1 file changed, 7 insertions(+), 1 deletion(-)
-> >>>
-> >>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> >>> index a6902c1e2f28..798a6a776a5f 100644
-> >>> --- a/net/dsa/dsa.c
-> >>> +++ b/net/dsa/dsa.c
-> >>> @@ -233,6 +233,8 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
-> >>>  		genphy_read_status(phydev);
-> >>>  		if (ds->ops->adjust_link)
-> >>>  			ds->ops->adjust_link(ds, port, phydev);
-> >>> +
-> >>> +		phy_device_free(phydev);	/* of_phy_find_device */
-> >>>  	}
-> >>>  
-> >>>  	return 0;
-> >>> @@ -509,8 +511,12 @@ void dsa_cpu_dsa_destroy(struct device_node *port_dn)
-> >>>  	if (of_phy_is_fixed_link(port_dn)) {
-> >>>  		phydev = of_phy_find_device(port_dn);
-> >>>  		if (phydev) {
-> >>> -			phy_device_free(phydev);
-> >>>  			fixed_phy_unregister(phydev);
-> >>> +			/* Put references taken by of_phy_find_device() and
-> >>> +			 * of_phy_register_fixed_link().
-> >>> +			 */
-> >>> +			phy_device_free(phydev);
-> >>> +			phy_device_free(phydev);
-> >>
-> >> Double free, this looks bogus here. Actually would not this mean a
-> >> triple free since you already free in dsa_cpu_dsa_setup() which is
-> >> paired with dsa_cpu_dsa_destroy()?
-> > 
-> > The naming of phy_device_free() is unfortunate when it's really a put():
-> > 
-> > void phy_device_free(struct phy_device *phydev)
-> > {
-> > 	put_device(&phydev->mdio.dev);
-> > }
-> 
-> Indeed, should have looked a little harder.
-> 
-> > 
-> > which may need to be called multiple times, specifically after a call to
-> > of_phy_find_device() which takes another reference.
-> > 
-> > With this patch the refcounts are properly balanced.
-> 
-> The intent of your patch is good, but it still feels like having to
-> double imbalance the refcount is symptomatic of a larger issue here, it
-> does not seem like having several refcounts are necessary, so we may
-> really want to rework the API.
+On Wed, Nov 16, 2016 at 5:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2016-11-16 at 17:22 +0200, Saeed Mahameed wrote:
+>> Hi David,
+>>
+>> The following commit introduced a new issue when setting IPv6 address
+>> via the following command:
+>>
+>> /sbin/ip -6 addr add 2001:0db8:0:f112::1/64 dev enp2s2
+>> RTNETLINK answers: Operation not supported
+>>
+>> Offending commit:
+>>
+>> commit 6c8702c60b88651072460f3f4026c7dfe2521d12
+>> Author: David Lebrun <david.lebrun@uclouvain.be>
+>> Date:   Tue Nov 8 14:57:41 2016 +0100
+>>
+>>     ipv6: sr: add support for SRH encapsulation and injection with lwtunnels
+>>
+>>     This patch creates a new type of interfaceless lightweight tunnel (SEG6),
+>>     enabling the encapsulation and injection of SRH within locally emitted
+>>     packets and forwarded packets.
+>>
+>>     >From a configuration viewpoint, a seg6 tunnel would be configured
+>> as follows:
+>>
+>>       ip -6 ro ad fc00::1/128 encap seg6 mode encap segs
+>> fc42::1,fc42::2,fc42::3 dev eth0
+>>
+>>     Any packet whose destination address is fc00::1 would thus be encapsulated
+>>     within an outer IPv6 header containing the SRH with three
+>> segments, and would
+>>     actually be routed to the first segment of the list. If `mode inline' was
+>>     specified instead of `mode encap', then the SRH would be directly inserted
+>>     after the IPv6 header without outer encapsulation.
+>>
+>>     The inline mode is only available if CONFIG_IPV6_SEG6_INLINE is
+>> enabled. This
+>>     feature was made configurable because direct header insertion may break
+>>     several mechanisms such as PMTUD or IPSec AH.
+>>
+>>     Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>>
+>>
+>> Can you check ? Are we missing something here ?
+>
+> Sure, patch is under review. Please look at netdev archives and/or
+> ozlabs
+>
+> https://patchwork.ozlabs.org/patch/695060/
+>
+>
 
-I'll cook something up for -next, but how about using
-
-	put_device(&phydev->mdio.dev)
-
-for the reference taken by of_phy_find_device() (as some driver
-already do) to fix the immediate leaks?
-
-Then deregistration would look like:
-
-	phydev = of_phy_find_device(port_dn);
-	if (phydev) {
--			phy_device_free(phydev);
-			fixed_phy_unregister(phydev);
-+			put_device(&phydev->mdio.dev)
-+			phy_device_free(phydev);
-
-Thanks,
-Johan
+Thank you Eric.
