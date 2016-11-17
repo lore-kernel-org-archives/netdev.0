@@ -1,80 +1,98 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 5/8] net/mlx5: Set driver version infrastructure
-Date: Thu, 17 Nov 2016 13:45:59 +0200
-Message-ID: <1479383162-3432-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 2/8] net/mlx5: Port module event hardware structures
+Date: Thu, 17 Nov 2016 13:45:56 +0200
+Message-ID: <1479383162-3432-3-git-send-email-saeedm@mellanox.com>
 References: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-        Huy Nguyen <huyn@mellanox.com>,
+Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
         Leon Romanovsky <leonro@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57829 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57824 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S941473AbcKQLqT (ORCPT
+        with ESMTP id S941465AbcKQLqT (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 06:46:19 -0500
 In-Reply-To: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add driver_version capability bit is enabled, and set driver
-version command in mlx5_ifc firmware header.  The only purpose
-of this command is to store a driver version/OS string in FW
-to be reported and displayed in various management systems,
-such as IPMI/BMC.
+From: Huy Nguyen <huyn@mellanox.com>
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Add hardware structures and constants definitions needed for module
+events support.
+
 Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
 ---
- include/linux/mlx5/mlx5_ifc.h | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+ include/linux/mlx5/device.h   | 11 +++++++++++
+ include/linux/mlx5/mlx5_ifc.h |  3 ++-
+ include/linux/mlx5/port.h     |  3 +++
+ 3 files changed, 16 insertions(+), 1 deletion(-)
 
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index 5827614..52b4374 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -277,6 +277,7 @@ enum mlx5_event {
+ 	MLX5_EVENT_TYPE_INTERNAL_ERROR	   = 0x08,
+ 	MLX5_EVENT_TYPE_PORT_CHANGE	   = 0x09,
+ 	MLX5_EVENT_TYPE_GPIO_EVENT	   = 0x15,
++	MLX5_EVENT_TYPE_PORT_MODULE_EVENT  = 0x16,
+ 	MLX5_EVENT_TYPE_REMOTE_CONFIG	   = 0x19,
+ 
+ 	MLX5_EVENT_TYPE_DB_BF_CONGESTION   = 0x1a,
+@@ -552,6 +553,15 @@ struct mlx5_eqe_vport_change {
+ 	__be32		rsvd1[6];
+ } __packed;
+ 
++struct mlx5_eqe_port_module {
++	u8        reserved_at_0[1];
++	u8        module;
++	u8        reserved_at_2[1];
++	u8        module_status;
++	u8        reserved_at_4[2];
++	u8        error_type;
++} __packed;
++
+ union ev_data {
+ 	__be32				raw[7];
+ 	struct mlx5_eqe_cmd		cmd;
+@@ -565,6 +575,7 @@ union ev_data {
+ 	struct mlx5_eqe_page_req	req_pages;
+ 	struct mlx5_eqe_page_fault	page_fault;
+ 	struct mlx5_eqe_vport_change	vport_change;
++	struct mlx5_eqe_port_module	port_module;
+ } __packed;
+ 
+ struct mlx5_eqe {
 diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index cd1d530..f08a0624 100644
+index 2632cb2..cd1d530 100644
 --- a/include/linux/mlx5/mlx5_ifc.h
 +++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -83,6 +83,7 @@ enum {
- 	MLX5_CMD_OP_SET_HCA_CAP                   = 0x109,
- 	MLX5_CMD_OP_QUERY_ISSI                    = 0x10a,
- 	MLX5_CMD_OP_SET_ISSI                      = 0x10b,
-+	MLX5_CMD_OP_SET_DRIVER_VERSION            = 0x10d,
- 	MLX5_CMD_OP_CREATE_MKEY                   = 0x200,
- 	MLX5_CMD_OP_QUERY_MKEY                    = 0x201,
- 	MLX5_CMD_OP_DESTROY_MKEY                  = 0x202,
-@@ -909,7 +910,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8         log_pg_sz[0x8];
+@@ -824,7 +824,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8	   early_vf_enable[0x1];
+ 	u8         reserved_at_1a9[0x2];
+ 	u8         local_ca_ack_delay[0x5];
+-	u8         reserved_at_1af[0x2];
++	u8         port_module_event[0x1];
++	u8         reserved_at_1b0[0x1];
+ 	u8         ports_check[0x1];
+ 	u8         reserved_at_1b2[0x1];
+ 	u8         disable_link_up[0x1];
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index b3065ac..dde8c7e 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -94,6 +94,9 @@ enum mlx5e_link_mode {
  
- 	u8         bf[0x1];
--	u8         reserved_at_261[0x1];
-+	u8         driver_version[0x1];
- 	u8         pad_tx_eth_packet[0x1];
- 	u8         reserved_at_263[0x8];
- 	u8         log_bf_reg_size[0x5];
-@@ -4005,6 +4006,25 @@ struct mlx5_ifc_query_issi_in_bits {
- 	u8         reserved_at_40[0x40];
- };
+ #define MLX5E_PROT_MASK(link_mode) (1 << link_mode)
  
-+struct mlx5_ifc_set_driver_version_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_0[0x18];
++#define PORT_MODULE_EVENT_MODULE_STATUS_MASK 0xF
++#define PORT_MODULE_EVENT_ERROR_TYPE_MASK         0xF
 +
-+	u8         syndrome[0x20];
-+	u8         reserved_1[0x40];
-+};
-+
-+struct mlx5_ifc_set_driver_version_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_0[0x10];
-+
-+	u8         reserved_1[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_2[0x40];
-+	u8         driver_version[64][0x8];
-+};
-+
- struct mlx5_ifc_query_hca_vport_pkey_out_bits {
- 	u8         status[0x8];
- 	u8         reserved_at_8[0x18];
+ int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
+ int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
+ 			 int ptys_size, int proto_mask, u8 local_port);
 -- 
 2.7.4
