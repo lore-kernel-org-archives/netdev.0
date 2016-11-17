@@ -1,43 +1,77 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net v2 0/7] net: cpsw: fix leaks and probe deferral
-Date: Thu, 17 Nov 2016 17:39:57 +0100
-Message-ID: <1479400804-9847-1-git-send-email-johan@kernel.org>
+Subject: [PATCH net v2 4/7] net: ethernet: ti: cpsw: fix of_node and phydev leaks
+Date: Thu, 17 Nov 2016 17:40:01 +0100
+Message-ID: <1479400804-9847-5-git-send-email-johan@kernel.org>
+References: <1479400804-9847-1-git-send-email-johan@kernel.org>
 Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
         linux-omap@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
 To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1479400804-9847-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series fixes as number of leaks and issues in the cpsw probe-error
-and driver-unbind paths, some which specifically prevented deferred
-probing.
+Make sure to drop references taken and deregister devices registered
+during probe on probe errors (including deferred probe) and driver
+unbind.
 
-Johan
+Specifically, PHY of-node references were never released and fixed-link
+PHY devices were never deregistered.
 
+Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
+Fixes: 1f71e8c96fc6 ("drivers: net: cpsw: Add support for fixed-link
+PHY")
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/net/ethernet/ti/cpsw.c | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
-v2
- - Keep platform device runtime-resumed throughout probe instead of
-   resuming in the probe error path as suggested by Grygorii (patch
-   1/7).
-
- - Runtime-resume platform device before registering any children in
-   order to make sure it is synchronously suspended after deregistering
-   children in the error path (patch 3/7).
-
-
-Johan Hovold (7):
-  net: ethernet: ti: cpsw: fix bad register access in probe error path
-  net: ethernet: ti: cpsw: fix mdio device reference leak
-  net: ethernet: ti: cpsw: fix deferred probe
-  net: ethernet: ti: cpsw: fix of_node and phydev leaks
-  net: ethernet: ti: cpsw: fix secondary-emac probe error path
-  net: ethernet: ti: cpsw: add missing sanity check
-  net: ethernet: ti: cpsw: fix fixed-link phy probe deferral
-
- drivers/net/ethernet/ti/cpsw.c | 95 ++++++++++++++++++++++++++++++++----------
- 1 file changed, 74 insertions(+), 21 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 5d14abb06486..c3b78bc4fe58 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2443,6 +2443,41 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 
+ static void cpsw_remove_dt(struct platform_device *pdev)
+ {
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct cpsw_common *cpsw = ndev_to_cpsw(ndev);
++	struct cpsw_platform_data *data = &cpsw->data;
++	struct device_node *node = pdev->dev.of_node;
++	struct device_node *slave_node;
++	int i = 0;
++
++	for_each_available_child_of_node(node, slave_node) {
++		struct cpsw_slave_data *slave_data = &data->slave_data[i];
++
++		if (strcmp(slave_node->name, "slave"))
++			continue;
++
++		if (of_phy_is_fixed_link(slave_node)) {
++			struct phy_device *phydev;
++
++			phydev = of_phy_find_device(slave_node);
++			if (phydev) {
++				fixed_phy_unregister(phydev);
++				/* Put references taken by
++				 * of_phy_find_device() and
++				 * of_phy_register_fixed_link().
++				 */
++				phy_device_free(phydev);
++				phy_device_free(phydev);
++			}
++		}
++
++		of_node_put(slave_data->phy_node);
++
++		i++;
++		if (i == data->slaves)
++			break;
++	}
++
+ 	of_platform_depopulate(&pdev->dev);
+ }
+ 
 -- 
 2.7.3
