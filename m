@@ -1,95 +1,150 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Netperf UDP issue with connected sockets
-Date: Thu, 17 Nov 2016 08:21:19 -0800
-Message-ID: <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20140903165943.372b897b@redhat.com>
-         <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
-         <20161116131609.4e5726b4@redhat.com>
-         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
-         <20161116234022.2bad179b@redhat.com>
-         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117091638.5fab8494@redhat.com>
-         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117144248.23500001@redhat.com>
-         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117155753.17b76f5a@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH] VSOCK: add loopback to virtio_transport
+Date: Thu, 17 Nov 2016 15:49:23 +0000
+Message-ID: <1479397763-22319-1-git-send-email-stefanha@redhat.com>
+Cc: cavery@redhat.com, Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+        Jorgen Hansen <jhansen@vmware.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:35086 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932427AbcKQRIY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:08:24 -0500
-Received: by mail-pg0-f47.google.com with SMTP id p66so93399479pga.2
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 09:08:24 -0800 (PST)
-In-Reply-To: <20161117155753.17b76f5a@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:34498 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934666AbcKQRIm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 12:08:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-11-17 at 15:57 +0100, Jesper Dangaard Brouer wrote:
-> On Thu, 17 Nov 2016 06:17:38 -0800
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > On Thu, 2016-11-17 at 14:42 +0100, Jesper Dangaard Brouer wrote:
-> > 
-> > > I can see that qdisc layer does not activate xmit_more in this case.
-> > >   
-> > 
-> > Sure. Not enough pressure from the sender(s).
-> > 
-> > The bottleneck is not the NIC or qdisc in your case, meaning that BQL
-> > limit is kept at a small value.
-> > 
-> > (BTW not all NIC have expensive doorbells)
-> 
-> I believe this NIC mlx5 (50G edition) does.
-> 
-> I'm seeing UDP TX of 1656017.55 pps, which is per packet:
-> 2414 cycles(tsc) 603.86 ns
-> 
-> Perf top shows (with my own udp_flood, that avoids __ip_select_ident):
-> 
->  Samples: 56K of event 'cycles', Event count (approx.): 51613832267
->    Overhead  Command        Shared Object        Symbol
->  +    8.92%  udp_flood      [kernel.vmlinux]     [k] _raw_spin_lock
->    - _raw_spin_lock
->       + 90.78% __dev_queue_xmit
->       + 7.83% dev_queue_xmit
->       + 1.30% ___slab_alloc
->  +    5.59%  udp_flood      [kernel.vmlinux]     [k] skb_set_owner_w
+The VMware VMCI transport supports loopback inside virtual machines.
+This patch implements loopback for virtio-vsock.
 
-Does TX completion happens on same cpu ?
+Flow control is handled by the virtio-vsock protocol as usual.  The
+sending process stops transmitting on a connection when the peer's
+receive buffer space is exhausted.
 
->  +    4.77%  udp_flood      [mlx5_core]          [k] mlx5e_sq_xmit
->  +    4.09%  udp_flood      [kernel.vmlinux]     [k] fib_table_lookup
+Cathy Avery <cavery@redhat.com> noticed this difference between VMCI and
+virtio-vsock when a test case using loopback failed.  Although loopback
+isn't the main point of AF_VSOCK, it is useful for testing and
+virtio-vsock must match VMCI semantics so that userspace programs run
+regardless of the underlying transport.
 
-Why fib_table_lookup() is used with connected UDP flow ???
+My understanding is that loopback is not supported on the host side with
+VMCI.  Follow that by implementing it only in the guest driver, not the
+vhost host driver.
 
->  +    4.00%  swapper        [mlx5_core]          [k] mlx5e_poll_tx_cq
->  +    3.11%  udp_flood      [kernel.vmlinux]     [k] __ip_route_output_key_hash
+Cc: Jorgen Hansen <jhansen@vmware.com>
+Reported-by: Cathy Avery <cavery@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ net/vmw_vsock/virtio_transport.c | 57 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 57 insertions(+)
 
-Same here, this is suspect.
-
->  +    2.49%  swapper        [kernel.vmlinux]     [k] __slab_free
-> 
-> In this setup the spinlock in __dev_queue_xmit should be uncongested.
-> An uncongested spin_lock+unlock cost 32 cycles(tsc) 8.198 ns on this system.
-> 
-> But 8.92% of the time is spend on it, which corresponds to a cost of 215
-> cycles (2414*0.0892).  This cost is too high, thus something else is
-> going on... I claim this mysterious extra cost is the tailptr/doorbell.
-
-Well, with no pressure, doorbell is triggered for each packet.
-
-Since we can not predict that your application is going to send yet
-another packet one usec later, we can not avoid this.
-
-Note that with the patches I am working on (busypolling extentions),
-we could decide to let the busypoller doing the doorbells, say one every
-10 usec. (or after ~16 packets were queued)
-
-But mlx4 uses two different NAPI for TX and RX, maybe mlx5 has the same
-strategy .
+diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
+index 936d7ee..f2c4071 100644
+--- a/net/vmw_vsock/virtio_transport.c
++++ b/net/vmw_vsock/virtio_transport.c
+@@ -44,6 +44,10 @@ struct virtio_vsock {
+ 	spinlock_t send_pkt_list_lock;
+ 	struct list_head send_pkt_list;
+ 
++	struct work_struct loopback_work;
++	spinlock_t loopback_list_lock;
++	struct list_head loopback_list;
++
+ 	atomic_t queued_replies;
+ 
+ 	/* The following fields are protected by rx_lock.  vqs[VSOCK_VQ_RX]
+@@ -74,6 +78,42 @@ static u32 virtio_transport_get_local_cid(void)
+ 	return vsock->guest_cid;
+ }
+ 
++static void virtio_transport_loopback_work(struct work_struct *work)
++{
++	struct virtio_vsock *vsock =
++		container_of(work, struct virtio_vsock, loopback_work);
++	LIST_HEAD(pkts);
++
++	spin_lock_bh(&vsock->loopback_list_lock);
++	list_splice_init(&vsock->loopback_list, &pkts);
++	spin_unlock_bh(&vsock->loopback_list_lock);
++
++	mutex_lock(&vsock->rx_lock);
++	while (!list_empty(&pkts)) {
++		struct virtio_vsock_pkt *pkt;
++
++		pkt = list_first_entry(&pkts, struct virtio_vsock_pkt, list);
++		list_del_init(&pkt->list);
++
++		virtio_transport_recv_pkt(pkt);
++	}
++	mutex_unlock(&vsock->rx_lock);
++}
++
++static int virtio_transport_send_pkt_loopback(struct virtio_vsock *vsock,
++					      struct virtio_vsock_pkt *pkt)
++{
++	int len = pkt->len;
++
++	spin_lock_bh(&vsock->loopback_list_lock);
++	list_add_tail(&pkt->list, &vsock->loopback_list);
++	spin_unlock_bh(&vsock->loopback_list_lock);
++
++	queue_work(virtio_vsock_workqueue, &vsock->loopback_work);
++
++	return len;
++}
++
+ static void
+ virtio_transport_send_pkt_work(struct work_struct *work)
+ {
+@@ -159,6 +199,10 @@ virtio_transport_send_pkt(struct virtio_vsock_pkt *pkt)
+ 		return -ENODEV;
+ 	}
+ 
++	if (le32_to_cpu(pkt->hdr.dst_cid) == vsock->guest_cid) {
++		return virtio_transport_send_pkt_loopback(vsock, pkt);
++	}
++
+ 	if (pkt->reply)
+ 		atomic_inc(&vsock->queued_replies);
+ 
+@@ -510,10 +554,13 @@ static int virtio_vsock_probe(struct virtio_device *vdev)
+ 	mutex_init(&vsock->event_lock);
+ 	spin_lock_init(&vsock->send_pkt_list_lock);
+ 	INIT_LIST_HEAD(&vsock->send_pkt_list);
++	spin_lock_init(&vsock->loopback_list_lock);
++	INIT_LIST_HEAD(&vsock->loopback_list);
+ 	INIT_WORK(&vsock->rx_work, virtio_transport_rx_work);
+ 	INIT_WORK(&vsock->tx_work, virtio_transport_tx_work);
+ 	INIT_WORK(&vsock->event_work, virtio_transport_event_work);
+ 	INIT_WORK(&vsock->send_pkt_work, virtio_transport_send_pkt_work);
++	INIT_WORK(&vsock->loopback_work, virtio_transport_loopback_work);
+ 
+ 	mutex_lock(&vsock->rx_lock);
+ 	virtio_vsock_rx_fill(vsock);
+@@ -539,6 +586,7 @@ static void virtio_vsock_remove(struct virtio_device *vdev)
+ 	struct virtio_vsock *vsock = vdev->priv;
+ 	struct virtio_vsock_pkt *pkt;
+ 
++	flush_work(&vsock->loopback_work);
+ 	flush_work(&vsock->rx_work);
+ 	flush_work(&vsock->tx_work);
+ 	flush_work(&vsock->event_work);
+@@ -565,6 +613,15 @@ static void virtio_vsock_remove(struct virtio_device *vdev)
+ 	}
+ 	spin_unlock_bh(&vsock->send_pkt_list_lock);
+ 
++	spin_lock_bh(&vsock->loopback_list_lock);
++	while (!list_empty(&vsock->loopback_list)) {
++		pkt = list_first_entry(&vsock->loopback_list,
++				       struct virtio_vsock_pkt, list);
++		list_del(&pkt->list);
++		virtio_transport_free_pkt(pkt);
++	}
++	spin_unlock_bh(&vsock->loopback_list_lock);
++
+ 	mutex_lock(&the_virtio_vsock_mutex);
+ 	the_virtio_vsock = NULL;
+ 	vsock_core_exit();
+-- 
+2.7.4
