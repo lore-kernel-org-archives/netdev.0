@@ -1,239 +1,104 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [RFC PATCH net-next] virtio_net: Support UDP Tunnel offloads.
-Date: Thu, 17 Nov 2016 15:01:57 -0800
-Message-ID: <1479423717-2339-1-git-send-email-jarno@ovn.org>
-Cc: jarno@ovn.org, james.zhangming@huawei.com, mst@redhat.com,
-        vyasevic@redhat.com, ailan@redhat.com
-To: netdev@vger.kernel.org
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: Netperf UDP issue with connected sockets
+Date: Thu, 17 Nov 2016 15:08:58 -0800
+Message-ID: <d7d209a8-6142-2599-3303-19640d340b97@hpe.com>
+References: <20140903165943.372b897b@redhat.com>
+ <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20161116131609.4e5726b4@redhat.com>
+ <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
+ <20161116234022.2bad179b@redhat.com>
+ <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117091638.5fab8494@redhat.com>
+ <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117144248.23500001@redhat.com>
+ <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117155753.17b76f5a@redhat.com>
+ <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117193021.580589ae@redhat.com>
+ <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117221941.3b525181@redhat.com>
+ <1479419042.8455.280.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:54025 "EHLO
-        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751609AbcKQXC0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 18:02:26 -0500
+Received: from g4t3426.houston.hpe.com ([15.241.140.75]:48095 "EHLO
+        g4t3426.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751590AbcKQXJB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 18:09:01 -0500
+In-Reply-To: <1479419042.8455.280.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is a proof-of-concept I did a few months ago for UDP tunnel
-offload support in virtio_net interface, and rebased on to the current
-net-next.
+On 11/17/2016 01:44 PM, Eric Dumazet wrote:
+> because netperf sends the same message
+> over and over...
 
-Real implementation needs to extend the virtio_net header rather than
-piggy-backing on existing fields.  Inner MAC length (or inner network
-offset) also needs to be passed as a new field.  Control plane (QEMU)
-also needs to be updated.
+Well, sort of, by default.  That can be altered to a degree.
 
-All testing was done using Geneve, but this should work for all UDP
-tunnels the same.
+The global -F option should cause netperf to fill the buffers in its 
+send ring with data from the specified file.  The number of buffers in 
+the send ring can be controlled via the global -W option.  The number of 
+elements in the ring will default to one more than the initial SO_SNDBUF 
+size divided by the send size.
 
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- drivers/net/tun.c               |  7 ++++-
- drivers/net/virtio_net.c        | 16 +++++++---
- include/linux/skbuff.h          |  5 ++++
- include/linux/virtio_net.h      | 66 ++++++++++++++++++++++++++++++-----------
- include/uapi/linux/virtio_net.h |  7 +++++
- 5 files changed, 78 insertions(+), 23 deletions(-)
+raj@tardy:~/netperf2_trunk$ strace -v -o /tmp/netperf.strace src/netperf 
+-F src/nettest_omni.c -t UDP_STREAM -l 1 -- -m 1472
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 1588469..36f3219 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -198,7 +198,9 @@ struct tun_struct {
- 	struct net_device	*dev;
- 	netdev_features_t	set_features;
- #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
--			  NETIF_F_TSO6|NETIF_F_UFO)
-+			   NETIF_F_TSO6|NETIF_F_UFO|NETIF_F_GSO_UDP_TUNNEL| \
-+			   NETIF_F_GSO_UDP_TUNNEL_CSUM| \
-+			   NETIF_F_GSO_TUNNEL_REMCSUM)
- 
- 	int			align;
- 	int			vnet_hdr_sz;
-@@ -1877,6 +1879,9 @@ static int set_offload(struct tun_struct *tun, unsigned long arg)
- 
- 		if (arg & TUN_F_UFO) {
- 			features |= NETIF_F_UFO;
-+#if 1
-+			features |= NETIF_F_GSO_UDP_TUNNEL|NETIF_F_GSO_UDP_TUNNEL_CSUM|NETIF_F_GSO_TUNNEL_REMCSUM;
-+#endif
- 			arg &= ~TUN_F_UFO;
- 		}
- 	}
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index ca5239a..eb8d887 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1789,7 +1789,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 
- 		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
- 			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
--				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
-+				| NETIF_F_TSO_ECN | NETIF_F_TSO6
-+				| NETIF_F_GSO_UDP_TUNNEL
-+				| NETIF_F_GSO_UDP_TUNNEL_CSUM
-+				| NETIF_F_GSO_TUNNEL_REMCSUM;
- 		}
- 		/* Individual feature bits: what can host handle? */
- 		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO4))
-@@ -1798,13 +1801,18 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			dev->hw_features |= NETIF_F_TSO6;
- 		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
- 			dev->hw_features |= NETIF_F_TSO_ECN;
--		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
-+		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO)) {
- 			dev->hw_features |= NETIF_F_UFO;
--
-+#if 1
-+			dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
-+			dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
-+			dev->hw_features |= NETIF_F_GSO_TUNNEL_REMCSUM;
-+#endif
-+		}
- 		dev->features |= NETIF_F_GSO_ROBUST;
- 
- 		if (gso)
--			dev->features |= dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO);
-+			dev->features |= dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO|NETIF_F_GSO_UDP_TUNNEL|NETIF_F_GSO_UDP_TUNNEL_CSUM|NETIF_F_GSO_TUNNEL_REMCSUM);
- 		/* (!csum && gso) case will be fixed by register_netdev() */
- 	}
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index a4aeeca..992ad30 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2115,6 +2115,11 @@ static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
- 	return skb->head + skb->inner_mac_header;
- }
- 
-+static inline int skb_inner_mac_offset(const struct sk_buff *skb)
-+{
-+	return skb_inner_mac_header(skb) - skb->data;
-+}
-+
- static inline void skb_reset_inner_mac_header(struct sk_buff *skb)
- {
- 	skb->inner_mac_header = skb->data - skb->head;
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 1c912f8..17384d1 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -8,10 +8,19 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
- 					const struct virtio_net_hdr *hdr,
- 					bool little_endian)
- {
--	unsigned short gso_type = 0;
-+	u16 start = __virtio16_to_cpu(little_endian, hdr->csum_start);
-+
-+	if (hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
-+		u16 off = __virtio16_to_cpu(little_endian, hdr->csum_offset);
-+
-+		if (!skb_partial_csum_set(skb, start, off))
-+			return -EINVAL;
-+	}
- 
- 	if (hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
--		switch (hdr->gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
-+		unsigned short gso_type = 0;
-+
-+		switch (hdr->gso_type & ~VIRTIO_NET_HDR_GSO_FLAGS) {
- 		case VIRTIO_NET_HDR_GSO_TCPV4:
- 			gso_type = SKB_GSO_TCPV4;
- 			break;
-@@ -27,23 +36,28 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
- 
- 		if (hdr->gso_type & VIRTIO_NET_HDR_GSO_ECN)
- 			gso_type |= SKB_GSO_TCP_ECN;
-+		if (hdr->gso_type & VIRTIO_NET_HDR_GSO_UDP_TUNNEL)
-+			gso_type |= SKB_GSO_UDP_TUNNEL;
-+		if (hdr->gso_type & VIRTIO_NET_HDR_GSO_UDP_TUNNEL_CSUM)
-+			gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
-+		if (hdr->gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM) {
-+			gso_type |= SKB_GSO_TUNNEL_REMCSUM;
-+			skb->remcsum_offload = true;
-+		}
-+		if (gso_type & (SKB_GSO_UDP_TUNNEL | SKB_GSO_UDP_TUNNEL_CSUM)) {
-+			u16 hdr_len = __virtio16_to_cpu(little_endian,
-+							hdr->hdr_len);
-+			skb->encapsulation = 1;
-+			skb_set_inner_mac_header(skb, hdr_len);
-+			skb_set_inner_network_header(skb, hdr_len + ETH_HLEN);
-+			/* XXX: What if start is not set? */
-+			skb_set_inner_transport_header(skb, start);
-+		}
- 
- 		if (hdr->gso_size == 0)
- 			return -EINVAL;
--	}
--
--	if (hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--		u16 start = __virtio16_to_cpu(little_endian, hdr->csum_start);
--		u16 off = __virtio16_to_cpu(little_endian, hdr->csum_offset);
--
--		if (!skb_partial_csum_set(skb, start, off))
--			return -EINVAL;
--	}
--
--	if (hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
--		u16 gso_size = __virtio16_to_cpu(little_endian, hdr->gso_size);
--
--		skb_shinfo(skb)->gso_size = gso_size;
-+		skb_shinfo(skb)->gso_size = __virtio16_to_cpu(little_endian,
-+							      hdr->gso_size);
- 		skb_shinfo(skb)->gso_type = gso_type;
- 
- 		/* Header must be checked, and gso_segs computed. */
-@@ -64,8 +78,8 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
- 		struct skb_shared_info *sinfo = skb_shinfo(skb);
- 
- 		/* This is a hint as to how much should be linear. */
--		hdr->hdr_len = __cpu_to_virtio16(little_endian,
--						 skb_headlen(skb));
-+		u16 hdr_len = skb_headlen(skb);
-+
- 		hdr->gso_size = __cpu_to_virtio16(little_endian,
- 						  sinfo->gso_size);
- 		if (sinfo->gso_type & SKB_GSO_TCPV4)
-@@ -78,6 +92,22 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
- 			return -EINVAL;
- 		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
- 			hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
-+		if (sinfo->gso_type & SKB_GSO_UDP_TUNNEL)
-+			hdr->gso_type |= VIRTIO_NET_HDR_GSO_UDP_TUNNEL;
-+		if (sinfo->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)
-+			hdr->gso_type |= VIRTIO_NET_HDR_GSO_UDP_TUNNEL_CSUM;
-+		if (sinfo->gso_type & SKB_GSO_TUNNEL_REMCSUM)
-+			hdr->gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM;
-+
-+		if (sinfo->gso_type &
-+		    (SKB_GSO_UDP_TUNNEL | SKB_GSO_UDP_TUNNEL_CSUM))
-+			/* For encapsulated packets 'hdr_len' is the offset to
-+			 * the beginning of the inner packet.  This way the
-+			 * encapsulation can remain ignorant of the size of the
-+			 * UDP tunnel header.
-+			 */
-+			hdr_len = skb_inner_mac_offset(skb);
-+		hdr->hdr_len = __cpu_to_virtio16(little_endian, hdr_len);
- 	} else
- 		hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
- 
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index fc353b5..833950b 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -93,7 +93,14 @@ struct virtio_net_hdr_v1 {
- #define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
- #define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
- #define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
-+#define VIRTIO_NET_HDR_GSO_UDP_TUNNEL	0x10	/* GSO frame, UDP tunnel */
-+#define VIRTIO_NET_HDR_GSO_UDP_TUNNEL_CSUM 0x20	/* GSO frame, UDP tnl w CSUM */
-+#define VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM 0x40	/* TUNNEL with TSO & REMCSUM */
- #define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
-+#define VIRTIO_NET_HDR_GSO_FLAGS (VIRTIO_NET_HDR_GSO_UDP_TUNNEL | \
-+				  VIRTIO_NET_HDR_GSO_UDP_TUNNEL_CSUM | \
-+				  VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM | \
-+				  VIRTIO_NET_HDR_GSO_ECN)
- 	__u8 gso_type;
- 	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
- 	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
--- 
-2.1.4
+...
+
+socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP) = 4
+getsockopt(4, SOL_SOCKET, SO_SNDBUF, [212992], [4]) = 0
+getsockopt(4, SOL_SOCKET, SO_RCVBUF, [212992], [4]) = 0
+setsockopt(4, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+bind(4, {sa_family=AF_INET, sin_port=htons(0), 
+sin_addr=inet_addr("0.0.0.0")}, 16) = 0
+setsockopt(4, SOL_SOCKET, SO_DONTROUTE, [1], 4) = 0
+setsockopt(4, SOL_IP, IP_RECVERR, [1], 4) = 0
+open("src/nettest_omni.c", O_RDONLY)    = 5
+fstat(5, {st_dev=makedev(8, 2), st_ino=82075297, st_mode=S_IFREG|0664, 
+st_nlink=1, st_uid=1000, st_gid=1000, st_blksize=4096, st_blocks=456, 
+st_size=230027, st_atime=2016/11/16-09:49:29, 
+st_mtime=2016/11/16-09:49:24, st_ctime=2016/11/16-09:49:24}) = 0
+mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) 
+= 0x7f3099f62000
+read(5, "#ifdef HAVE_CONFIG_H\n#include <c"..., 4096) = 4096
+read(5, "_INTEGER *intvl_two_ptr = &intvl"..., 4096) = 4096
+read(5, "interval_count = interval_burst;"..., 4096) = 4096
+read(5, ";\n\n/* these will control the wid"..., 4096) = 4096
+read(5, "\n  LOCAL_SECURITY_ENABLED_NUM,\n "..., 4096) = 4096
+read(5, "      &dwBytes,  \n              "..., 4096) = 4096
+
+...
+
+rt_sigaction(SIGALRM, {0x402ea6, [ALRM], SA_RESTORER|SA_INTERRUPT, 
+0x7f30994a7cb0}, NULL, 8) = 0
+rt_sigaction(SIGINT, {0x402ea6, [INT], SA_RESTORER|SA_INTERRUPT, 
+0x7f30994a7cb0}, NULL, 8) = 0
+alarm(1)                                = 0
+sendto(4, "#ifdef HAVE_CONFIG_H\n#include <c"..., 1472, 0, 
+{sa_family=AF_INET, sin_port=htons(58088), 
+sin_addr=inet_addr("127.0.0.1")}, 16) = 1472
+sendto(4, " used\\n\\\n    -m local,remote   S"..., 1472, 0, 
+{sa_family=AF_INET, sin_port=htons(58088), 
+sin_addr=inet_addr("127.0.0.1")}, 16) = 1472
+sendto(4, " do here but clear the legacy fl"..., 1472, 0, 
+{sa_family=AF_INET, sin_port=htons(58088), 
+sin_addr=inet_addr("127.0.0.1")}, 16) = 1472
+sendto(4, "e before we scan the test-specif"..., 1472, 0, 
+{sa_family=AF_INET, sin_port=htons(58088), 
+sin_addr=inet_addr("127.0.0.1")}, 16) = 1472
+sendto(4, "\n\n\tfprintf(where,\n\t\ttput_fmt_1_l"..., 1472, 0, 
+{sa_family=AF_INET, sin_port=htons(58088), 
+sin_addr=inet_addr("127.0.0.1")}, 16) = 1472
+
+Of course, it will continue to send the same messages from the send_ring 
+over and over instead of putting different data into the buffers each 
+time, but if one has a sufficiently large -W option specified...
+happy benchmarking,
+
+rick jones
