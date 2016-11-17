@@ -1,23 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] net: phy: fix of_node and device leaks
-Date: Thu, 17 Nov 2016 12:05:50 -0500 (EST)
-Message-ID: <20161117.120550.24158862253694255.davem@davemloft.net>
-References: <1479306038-27211-1-git-send-email-johan@kernel.org>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next 1/5] net: stmmac: Implement ethtool::nway_reset
+Date: Thu, 17 Nov 2016 17:38:38 +0100
+Message-ID: <53bc6ffe-77ef-09bd-de91-1b744c52cf16@st.com>
+References: <20161115191949.15361-1-f.fainelli@gmail.com>
+ <20161115191949.15361-2-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, robh+dt@kernel.org, frowand.list@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: johan@kernel.org
+Cc: <davem@davemloft.net>, <andrew@lunn.ch>, <tremyfr@gmail.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479306038-27211-1-git-send-email-johan@kernel.org>
+In-Reply-To: <20161115191949.15361-2-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johan Hovold <johan@kernel.org>
-Date: Wed, 16 Nov 2016 15:20:35 +0100
+On 11/15/2016 8:19 PM, Florian Fainelli wrote:
+> Utilize the generic phy_ethtool_nway_reset() helper function to
+> implement an autonegotiation restart.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-> These patches fix a couple of of_node leaks in the fixed-link code and a
-> device reference leak in a phy helper.
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Series applied, thanks.
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> index 3fe9340b748f..0290d52330da 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> @@ -870,6 +870,7 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
+>  	.get_regs = stmmac_ethtool_gregs,
+>  	.get_regs_len = stmmac_ethtool_get_regs_len,
+>  	.get_link = ethtool_op_get_link,
+> +	.nway_reset = phy_ethtool_nway_reset,
+>  	.get_pauseparam = stmmac_get_pauseparam,
+>  	.set_pauseparam = stmmac_set_pauseparam,
+>  	.get_ethtool_stats = stmmac_get_ethtool_stats,
+>
