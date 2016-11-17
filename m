@@ -1,42 +1,59 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: Netperf UDP issue with connected sockets
-Date: Thu, 17 Nov 2016 09:42:44 -0800
-Message-ID: <cae599d5-fee9-1d39-914f-0f5145c04da4@hpe.com>
-References: <20140903165943.372b897b@redhat.com>
- <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
- <20161116131609.4e5726b4@redhat.com>
- <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
- <20161116234022.2bad179b@redhat.com>
- <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161117091638.5fab8494@redhat.com>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v3 4/5] ethtool: Core impl for ETHTOOL_PHY_DOWNSHIFT tunable
+Date: Thu, 17 Nov 2016 13:07:23 +0100
+Message-ID: <1479384444-31122-5-git-send-email-allan.nielsen@microsemi.com>
+References: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hpe.com ([15.241.140.75]:3682 "EHLO
-        g4t3426.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933417AbcKQRmr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:42:47 -0500
-In-Reply-To: <20161117091638.5fab8494@redhat.com>
+Received: from mail-sn1nam02on0059.outbound.protection.outlook.com ([104.47.36.59]:37808
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S965098AbcKQRnB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 12:43:01 -0500
+In-Reply-To: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/17/2016 12:16 AM, Jesper Dangaard Brouer wrote:
->> time to try IP_MTU_DISCOVER ;)
->
-> To Rick, maybe you can find a good solution or option with Eric's hint,
-> to send appropriate sized UDP packets with Don't Fragment (DF).
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-Well, I suppose adding another setsockopt() to the data socket creation 
-wouldn't be too difficult, along with another command-line option to 
-cause it to happen.
+Adding validation support for the ETHTOOL_PHY_DOWNSHIFT. Functional
+implementation needs to be done in the individual PHY drivers.
 
-Could we leave things as "make sure you don't need fragmentation when 
-you use this" or would netperf have to start processing ICMP messages?
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+---
+ net/core/ethtool.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-happy benchmarking,
-
-rick jones
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 61aebdf..e9b45567 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -122,6 +122,7 @@ tunable_strings[__ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
+ static const char
+ phy_tunable_strings[__ETHTOOL_PHY_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
+ 	[ETHTOOL_ID_UNSPEC]     = "Unspec",
++	[ETHTOOL_PHY_DOWNSHIFT]	= "phy-downshift",
+ };
+ 
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
+@@ -2435,6 +2436,11 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ static int ethtool_phy_tunable_valid(const struct ethtool_tunable *tuna)
+ {
+ 	switch (tuna->id) {
++	case ETHTOOL_PHY_DOWNSHIFT:
++		if (tuna->len != sizeof(u8) ||
++		    tuna->type_id != ETHTOOL_TUNABLE_U8)
++			return -EINVAL;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+-- 
+2.7.3
