@@ -1,70 +1,87 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 0/8] Mellanox 100G mlx5 update 2016-11-15
-Date: Thu, 17 Nov 2016 13:45:54 +0200
-Message-ID: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V2 6/8] net/mlx5: Set driver version into firmware
+Date: Thu, 17 Nov 2016 13:46:00 +0200
+Message-ID: <1479383162-3432-7-git-send-email-saeedm@mellanox.com>
+References: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57825 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57819 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S941480AbcKQLqU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 06:46:20 -0500
+        with ESMTP id S941470AbcKQLqT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 06:46:19 -0500
+In-Reply-To: <1479383162-3432-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Huy Nguyen <huyn@mellanox.com>
 
-This series contains four humble mlx5 features.
+If driver_version capability bit is enabled, set driver version
+to firmware after the init HCA command, for display purposes.
 
->From Gal, 
- - Add the support for PCIe statistics and expose them in ethtool
+Example of driver version: "Linux,mlx5_core,3.0-1"
 
->From Huy,
- - Add the support for port module events reporting and statistics
- - Add the support for driver version setting into FW (for display purposes only)
+Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 37 ++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
->From Mohamad,
- - Extended the command interface cache flexibility
-
-This series was generated against commit
-6a02f5eb6a8a ("Merge branch 'mlxsw-i2c")
-
-V2:
- - Changed plain "unsigned" to "unsigned int"
-
-Thanks,
-Saeed.
-
-
-Gal Pressman (2):
-  net/mlx5: Add MPCNT register infrastructure
-  net/mlx5e: Expose PCIe statistics to ethtool
-
-Huy Nguyen (4):
-  net/mlx5: Port module event hardware structures
-  net/mlx5: Add handling for port module event
-  net/mlx5e: Add port module event counters to ethtool stats
-  net/mlx5: Set driver version into firmware
-
-Mohamad Haj Yahia (1):
-  net/mlx5: Make the command interface cache more flexible
-
-Saeed Mahameed (1):
-  net/mlx5: Set driver version infrastructure
-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      | 145 ++++++++++-----------
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  40 +++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  24 ++++
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |  49 ++++++-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  12 ++
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  37 ++++++
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |  57 ++++++++
- include/linux/mlx5/device.h                        |  16 +++
- include/linux/mlx5/driver.h                        |  42 +++++-
- include/linux/mlx5/mlx5_ifc.h                      | 118 ++++++++++++++++-
- include/linux/mlx5/port.h                          |   3 +
- 12 files changed, 457 insertions(+), 87 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index c074933..f28df33 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -175,6 +175,41 @@ static int wait_fw_init(struct mlx5_core_dev *dev, u32 max_wait_mili)
+ 	return err;
+ }
+ 
++static void mlx5_set_driver_version(struct mlx5_core_dev *dev)
++{
++	int driver_ver_sz = MLX5_FLD_SZ_BYTES(set_driver_version_in,
++					      driver_version);
++	u8 in[MLX5_ST_SZ_BYTES(set_driver_version_in)] = {0};
++	u8 out[MLX5_ST_SZ_BYTES(set_driver_version_out)] = {0};
++	int remaining_size = driver_ver_sz;
++	char *string;
++
++	if (!MLX5_CAP_GEN(dev, driver_version))
++		return;
++
++	string = MLX5_ADDR_OF(set_driver_version_in, in, driver_version);
++
++	strncpy(string, "Linux", remaining_size);
++
++	remaining_size = max_t(int, 0, driver_ver_sz - strlen(string));
++	strncat(string, ",", remaining_size);
++
++	remaining_size = max_t(int, 0, driver_ver_sz - strlen(string));
++	strncat(string, DRIVER_NAME, remaining_size);
++
++	remaining_size = max_t(int, 0, driver_ver_sz - strlen(string));
++	strncat(string, ",", remaining_size);
++
++	remaining_size = max_t(int, 0, driver_ver_sz - strlen(string));
++	strncat(string, DRIVER_VERSION, remaining_size);
++
++	/*Send the command*/
++	MLX5_SET(set_driver_version_in, in, opcode,
++		 MLX5_CMD_OP_SET_DRIVER_VERSION);
++
++	mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++
+ static int set_dma_caps(struct pci_dev *pdev)
+ {
+ 	int err;
+@@ -1015,6 +1050,8 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 		goto err_pagealloc_stop;
+ 	}
+ 
++	mlx5_set_driver_version(dev);
++
+ 	mlx5_start_health_poll(dev);
+ 
+ 	err = mlx5_query_hca_caps(dev);
 -- 
 2.7.4
