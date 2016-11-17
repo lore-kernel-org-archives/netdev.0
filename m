@@ -1,336 +1,710 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: Fwd:[Intel-wired-lan] [PATCH v2] e1000e: free IRQ regardless of
- __E1000_DOWN
-Date: Thu, 17 Nov 2016 15:17:52 +0200
-Message-ID: <29981d8b-e79e-8b27-32f6-6e01df158416@intel.com>
-References: <630A6B92B7EDEB45A87E20D3D286660153E3B481@hasmsx109.ger.corp.intel.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 1/3] net: stmmac: replace all pr_xxx by their netdev_xxx
+ counterpart
+Date: Thu, 17 Nov 2016 17:39:37 +0100
+Message-ID: <ed2015d8-1eed-df03-c777-de4349e6f33f@st.com>
+References: <1479323381-26639-1-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1255
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: intel-wired-lan@lists.osuosl.org,
-        Tyler Baicar <tbaicar@codeaurora.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:51373 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752323AbcKQRp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 12:45:58 -0500
-In-Reply-To: <630A6B92B7EDEB45A87E20D3D286660153E3B481@hasmsx109.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1479323381-26639-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Baicar, Tyler [mailto:tbaicar@codeaurora.org] Sent: Tuesday,
-November 15, 2016 11:50 PM
-To: Neftin, Sasha <sasha.neftin@intel.com>; Kirsher, Jeffrey T
-<jeffrey.t.kirsher@intel.com>; intel-wired-lan@lists.osuosl.org;
-netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-okaya@codeaurora.org; timur@codeaurora.org
-Subject: Re: [Intel-wired-lan] [PATCH v2] e1000e: free IRQ regardless of
-__E1000_DOWN
+On 11/16/2016 8:09 PM, Corentin Labbe wrote:
+> From: LABBE Corentin <clabbe.montjoie@gmail.com>
+>
+> The stmmac driver use lots of pr_xxx functions to print information.
+> This is bad since we cannot know which device logs the information.
+> (moreover if two stmmac device are present)
+>
+> Furthermore, it seems that it assumes wrongly that all logs will always
+> be subsequent by using a dev_xxx then some indented pr_xxx like this:
+> kernel: sun7i-dwmac 1c50000.ethernet: no reset control found
+> kernel:  Ring mode enabled
+> kernel:  No HW DMA feature register supported
+> kernel:  Normal descriptors
+> kernel:  TX Checksum insertion supported
+>
+> So this patch replace all pr_xxx by their netdev_xxx counterpart.
+> Excepts for some printing where netdev "cause" unpretty output like:
+> sun7i-dwmac 1c50000.ethernet (unnamed net_device) (uninitialized): no reset control found
+> In those case, I keep dev_xxx.
+>
+> In the same time I remove some "stmmac:" print since
+> this will be a duplicate with that dev_xxx displays.
+>
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 
-On 11/13/2016 2:25 AM, Neftin, Sasha wrote:
-> On 11/13/2016 10:34 AM, Neftin, Sasha wrote:
->> On 11/11/2016 12:35 AM, Baicar, Tyler wrote:
->>> Hello Sasha,
->>>
->>> On 11/9/2016 11:19 PM, Neftin, Sasha wrote:
->>>> On 11/9/2016 11:41 PM, Tyler Baicar wrote:
->>>>> Move IRQ free code so that it will happen regardless of the 
->>>>> __E1000_DOWN bit. Currently the e1000e driver only releases its 
->>>>> IRQ if the __E1000_DOWN bit is cleared. This is not sufficient 
->>>>> because it is possible for __E1000_DOWN to be set without releasing the IRQ.
->>>>> In such a situation, we will hit a kernel bug later in 
->>>>> e1000_remove because the IRQ still has action since it was never 
->>>>> freed. A secondary bus reset can cause this case to happen.
->>>>>
->>>>> Signed-off-by: Tyler Baicar <tbaicar@codeaurora.org>
->>>>> ---
->>>>>    drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
->>>>>    1 file changed, 2 insertions(+), 1 deletion(-)
->>>>>
->>>>> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
->>>>> b/drivers/net/ethernet/intel/e1000e/netdev.c
->>>>> index 7017281..36cfcb0 100644
->>>>> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
->>>>> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
->>>>> @@ -4679,12 +4679,13 @@ int e1000e_close(struct net_device *netdev)
->>>>>          if (!test_bit(__E1000_DOWN, &adapter->state)) {
->>>>>            e1000e_down(adapter, true);
->>>>> -        e1000_free_irq(adapter);
->>>>>              /* Link status message must follow this format */
->>>>>            pr_info("%s NIC Link is Down\n", adapter->netdev->name);
->>>>>        }
->>>>>    +    e1000_free_irq(adapter);
->>>>> +
->>>>>        napi_disable(&adapter->napi);
->>>>>          e1000e_free_tx_resources(adapter->tx_ring);
->>>>>
->>>> I would like not recommend insert this change. This change related 
->>>> driver state machine, we afraid from lot of synchronization problem 
->>>> and issues.
->>>> We need keep e1000_free_irq in loop and check for 'test_bit' ready.
->>> What do you mean here? There is no loop. If __E1000_DOWN is set then 
->>> we will never free the IRQ.
->>>
->>>> Another point, does before execute secondary bus reset your SW back 
->>>> up pcie configuration space as properly?
->>> After a secondary bus reset, the link needs to recover and go back 
->>> to a working state after 1 second.
->>>
->>>  From the callstack, the issue is happening while removing the 
->>> endpoint from the system, before applying the secondary bus reset.
->>>
->>> The order of events is
->>> 1. remove the drivers
->>> 2. cause a secondary bus reset
->>> 3. wait 1 second
->> Actually, this is too much, usually link up in less than 100ms.You 
->> can check Data Link Layer indication.
->>> 4. recover the link
->>>
->>> callstack:
->>> free_msi_irqs+0x6c/0x1a8
->>> pci_disable_msi+0xb0/0x148
->>> e1000e_reset_interrupt_capability+0x60/0x78
->>> e1000_remove+0xc8/0x180
->>> pci_device_remove+0x48/0x118
->>> __device_release_driver+0x80/0x108
->>> device_release_driver+0x2c/0x40
->>> pci_stop_bus_device+0xa0/0xb0
->>> pci_stop_bus_device+0x3c/0xb0
->>> pci_stop_root_bus+0x54/0x80
->>> acpi_pci_root_remove+0x28/0x64
->>> acpi_bus_trim+0x6c/0xa4
->>> acpi_device_hotplug+0x19c/0x3f4
->>> acpi_hotplug_work_fn+0x28/0x3c
->>> process_one_work+0x150/0x460
->>> worker_thread+0x50/0x4b8
->>> kthread+0xd4/0xe8
->>> ret_from_fork+0x10/0x50
->>>
->>> Thanks,
->>> Tyler
->>>
->> Hello Tyler,
->> Okay, we need consult more about this suggestion.
->> May I ask what is setup you run? Is there NIC or on board LAN? I 
->> would like try reproduce this issue in our lab's too.
->> Also, is same issue observed with same scenario and others NIC's too?
->> Sasha
->> _______________________________________________
->> Intel-wired-lan mailing list
->> Intel-wired-lan@lists.osuosl.org
->> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
->>
-> Please, specify what is device used.
-Hello Sasha,
-This was on a QDF2432 using an Intel PRO/1000 PT Dual Port server
-adapter. I have not tried other e1000e PCIe cards, but have not seen any
-similar issues with Mellanox cards. I'm able to reproduce it with just
-pulling the card out. Here is the lspci -vvv output for this card:
+Thanks for these changes.
 
-0004:00:00.0 PCI bridge: Airgo Networks, Inc. Device 0400 (prog-if 00
-[Normal decode])
-         Physical Slot: 5
-         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
-ParErr- Stepping- SERR- FastB2B- DisINTx+
-         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-         Latency: 0
-         Interrupt: pin A routed to IRQ 297
-         Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
-         I/O behind bridge: 00002000-00002fff
-         Memory behind bridge: 00100000-002fffff
-         Prefetchable memory behind bridge:
-00000c0400000000-00000c04001fffff
-         Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort-
-<TAbort- <MAbort- <SERR- <PERR-
-         BridgeCtl: Parity- SERR+ NoISA- VGA- MAbort- >Reset- FastB2B-
-                 PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
-         Capabilities: [40] Power Management version 3
-                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
-PME(D0+,D1-,D2-,D3hot+,D3cold-)
-                 Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
-         Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
-                 Address: 00000000397f0040  Data: 0000
-         Capabilities: [70] Express (v2) Root Port (Slot+), MSI 00
-                 DevCap: MaxPayload 512 bytes, PhantFunc 0
-                         ExtTag- RBE+
-                 DevCtl: Report errors: Correctable+ Non-Fatal+ Fatal+
-Unsupported+
-                         RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-                         MaxPayload 256 bytes, MaxReadReq 512 bytes
-                 DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq-
-AuxPwr- TransPend-
-                 LnkCap: Port #0, Speed 5GT/s, Width x8, ASPM L0s L1,
-Exit Latency L0s <1us, L1 <16us
-                         ClockPM- Surprise- LLActRep+ BwNot+ ASPMOptComp+
-                 LnkCtl: ASPM Disabled; RCB 128 bytes Disabled- CommClk-
-                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                 LnkSta: Speed 2.5GT/s, Width x4, TrErr- Train- SlotClk+
-DLActive+ BWMgmt- ABWMgmt-
-                 SltCap: AttnBtn+ PwrCtrl+ MRL+ AttnInd+ PwrInd+
-HotPlug+ Surprise+
-                         Slot #5, PowerLimit 75.000W; Interlock+ NoCompl-
-                 SltCtl: Enable: AttnBtn- PwrFlt- MRL- PresDet- CmdCplt-
-HPIrq- LinkChg-
-                         Control: AttnInd Off, PwrInd Off, Power- Interlock-
-                 SltSta: Status: AttnBtn- PowerFlt- MRL- CmdCplt-
-PresDet- Interlock-
-                         Changed: MRL- PresDet- LinkState-
-                 RootCtl: ErrCorrectable- ErrNon-Fatal- ErrFatal-
-PMEIntEna+ CRSVisible-
-                 RootCap: CRSVisible-
-                 RootSta: PME ReqID 0000, PMEStatus- PMEPending-
-                 DevCap2: Completion Timeout: Range ABCD, TimeoutDis+,
-LTR+, OBFF Not Supported ARIFwd+
-                 DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-,
-LTR-, OBFF Disabled ARIFwd-
-                 LnkCtl2: Target Link Speed: 5GT/s, EnterCompliance-
-SpeedDis-
-                          Transmit Margin: Normal Operating Range,
-EnterModifiedCompliance- ComplianceSOS-
-                          Compliance De-emphasis: -6dB
-                 LnkSta2: Current De-emphasis Level: -3.5dB,
-EqualizationComplete-, EqualizationPhase1-
-                          EqualizationPhase2-, EqualizationPhase3-,
-LinkEqualizationRequest-
-         Capabilities: [100 v2] Advanced Error Reporting
-                 UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-                 UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-                 UESvrt: DLP+ SDES+ TLP- FCP+ CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
-                 CESta:  RxErr- BadTLP- BadDLLP- Rollover- Timeout-
-NonFatalErr-
-                 CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout-
-NonFatalErr+
-                 AERCap: First Error Pointer: 00, GenCap+ CGenEn+
-ChkCap+ ChkEn+
-         Capabilities: [178 v1] #19
-         Kernel driver in use: pcieport
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-0004:01:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit
-Ethernet Controller (rev 06)
-         Subsystem: Intel Corporation PRO/1000 PT Dual Port Server Adapter
-         Physical Slot: 5-1
-         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
-ParErr- Stepping- SERR+ FastB2B- DisINTx+
-         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-         Latency: 0, Cache Line Size: 128 bytes
-         Interrupt: pin A routed to IRQ 299
-         Region 0: Memory at c0100100000 (32-bit, non-prefetchable)
-[size=128K]
-         Region 1: Memory at c0100120000 (32-bit, non-prefetchable)
-[size=128K]
-         Region 2: I/O ports at 1000 [size=32]
-         Expansion ROM at c0100140000 [disabled] [size=128K]
-         Capabilities: [c8] Power Management version 2
-                 Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA
-PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                 Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-         Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-                 Address: 00000000397f0040  Data: 0000
-         Capabilities: [e0] Express (v1) Endpoint, MSI 00
-                 DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s
-<512ns, L1 <64us
-                         ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
-                 DevCtl: Report errors: Correctable+ Non-Fatal+ Fatal+
-Unsupported+
-                         RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-                         MaxPayload 256 bytes, MaxReadReq 512 bytes
-                 DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq-
-AuxPwr+ TransPend-
-                 LnkCap: Port #8, Speed 2.5GT/s, Width x4, ASPM L0s,
-Exit Latency L0s <4us, L1 <64us
-                         ClockPM- Surprise- LLActRep- BwNot- ASPMOptComp-
-                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- CommClk-
-                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                 LnkSta: Speed 2.5GT/s, Width x4, TrErr- Train- SlotClk+
-DLActive- BWMgmt- ABWMgmt-
-         Capabilities: [100 v1] Advanced Error Reporting
-                 UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
-                 UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-                 UESvrt: DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
-                 CESta:  RxErr- BadTLP- BadDLLP- Rollover- Timeout-
-NonFatalErr-
-                 CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout-
-NonFatalErr-
-                 AERCap: First Error Pointer: 14, GenCap- CGenEn-
-ChkCap- ChkEn-
-         Capabilities: [140 v1] Device Serial Number 68-05-ca-ff-ff-3e-5b-7a
-         Kernel driver in use: e1000e
-
-0004:01:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit
-Ethernet Controller (rev 06)
-         Subsystem: Intel Corporation PRO/1000 PT Dual Port Server Adapter
-         Physical Slot: 5-1
-         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
-ParErr- Stepping- SERR+ FastB2B- DisINTx+
-         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-         Latency: 0, Cache Line Size: 128 bytes
-         Interrupt: pin B routed to IRQ 301
-         Region 0: Memory at c0100160000 (32-bit, non-prefetchable)
-[size=128K]
-         Region 1: Memory at c0100180000 (32-bit, non-prefetchable)
-[size=128K]
-         Region 2: I/O ports at 1020 [size=32]
-         Expansion ROM at c01001a0000 [disabled] [size=128K]
-         Capabilities: [c8] Power Management version 2
-                 Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA
-PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                 Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-         Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-                 Address: 00000000397f0040  Data: 0000
-         Capabilities: [e0] Express (v1) Endpoint, MSI 00
-                 DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s
-<512ns, L1 <64us
-                         ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
-                 DevCtl: Report errors: Correctable+ Non-Fatal+ Fatal+
-Unsupported+
-                         RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-                         MaxPayload 256 bytes, MaxReadReq 512 bytes
-                 DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq-
-AuxPwr+ TransPend-
-                 LnkCap: Port #8, Speed 2.5GT/s, Width x4, ASPM L0s,
-Exit Latency L0s <4us, L1 <64us
-                         ClockPM- Surprise- LLActRep- BwNot- ASPMOptComp-
-                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- CommClk-
-                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                 LnkSta: Speed 2.5GT/s, Width x4, TrErr- Train- SlotClk+
-DLActive- BWMgmt- ABWMgmt-
-         Capabilities: [100 v1] Advanced Error Reporting
-                 UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
-                 UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-                 UESvrt: DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
-                 CESta:  RxErr- BadTLP- BadDLLP- Rollover- Timeout-
-NonFatalErr-
-                 CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout-
-NonFatalErr-
-                 AERCap: First Error Pointer: 14, GenCap- CGenEn-
-ChkCap- ChkEn-
-         Capabilities: [140 v1] Device Serial Number 68-05-ca-ff-ff-3e-5b-7a
-         Kernel driver in use: e1000e
-
-Thanks,
-Tyler
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.
-Qualcomm Technologies, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project.
-Hello Tyler,
-I see some in consistent implementation of __*_close methods in our
-drivers. Do you have any igb NIC to test and check if same problem
-persist there?
-Thanks,
-Sasha
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 204 ++++++++++++----------
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |  14 +-
+>  2 files changed, 123 insertions(+), 95 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 8eb12353..791daf4 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -305,7 +305,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+>  			 */
+>  			spin_lock_irqsave(&priv->lock, flags);
+>  			if (priv->eee_active) {
+> -				pr_debug("stmmac: disable EEE\n");
+> +				netdev_dbg(priv->dev, "disable EEE\n");
+>  				del_timer_sync(&priv->eee_ctrl_timer);
+>  				priv->hw->mac->set_eee_timer(priv->hw, 0,
+>  							     tx_lpi_timer);
+> @@ -334,7 +334,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+>  		ret = true;
+>  		spin_unlock_irqrestore(&priv->lock, flags);
+>
+> -		pr_debug("stmmac: Energy-Efficient Ethernet initialized\n");
+> +		netdev_dbg(priv->dev, "Energy-Efficient Ethernet initialized\n");
+>  	}
+>  out:
+>  	return ret;
+> @@ -456,8 +456,8 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+>  			   sizeof(struct hwtstamp_config)))
+>  		return -EFAULT;
+>
+> -	pr_debug("%s config flags:0x%x, tx_type:0x%x, rx_filter:0x%x\n",
+> -		 __func__, config.flags, config.tx_type, config.rx_filter);
+> +	netdev_dbg(priv->dev, "%s config flags:0x%x, tx_type:0x%x, rx_filter:0x%x\n",
+> +		   __func__, config.flags, config.tx_type, config.rx_filter);
+>
+>  	/* reserved for future extensions */
+>  	if (config.flags)
+> @@ -756,8 +756,9 @@ static void stmmac_adjust_link(struct net_device *dev)
+>  				break;
+>  			default:
+>  				if (netif_msg_link(priv))
+> -					pr_warn("%s: Speed (%d) not 10/100\n",
+> -						dev->name, phydev->speed);
+> +					netdev_warn(priv->dev,
+> +						    "Speed (%d) not 10/100\n",
+> +						    phydev->speed);
+>  				break;
+>  			}
+>
+> @@ -810,10 +811,10 @@ static void stmmac_check_pcs_mode(struct stmmac_priv *priv)
+>  		    (interface == PHY_INTERFACE_MODE_RGMII_ID) ||
+>  		    (interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
+>  		    (interface == PHY_INTERFACE_MODE_RGMII_TXID)) {
+> -			pr_debug("STMMAC: PCS RGMII support enable\n");
+> +			netdev_dbg(priv->dev, "PCS RGMII support enabled\n");
+>  			priv->hw->pcs = STMMAC_PCS_RGMII;
+>  		} else if (interface == PHY_INTERFACE_MODE_SGMII) {
+> -			pr_debug("STMMAC: PCS SGMII support enable\n");
+> +			netdev_dbg(priv->dev, "PCS SGMII support enabled\n");
+>  			priv->hw->pcs = STMMAC_PCS_SGMII;
+>  		}
+>  	}
+> @@ -848,15 +849,15 @@ static int stmmac_init_phy(struct net_device *dev)
+>
+>  		snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
+>  			 priv->plat->phy_addr);
+> -		pr_debug("stmmac_init_phy:  trying to attach to %s\n",
+> -			 phy_id_fmt);
+> +		netdev_dbg(priv->dev, "stmmac_init_phy: trying to attach to %s\n",
+> +			   phy_id_fmt);
+>
+>  		phydev = phy_connect(dev, phy_id_fmt, &stmmac_adjust_link,
+>  				     interface);
+>  	}
+>
+>  	if (IS_ERR_OR_NULL(phydev)) {
+> -		pr_err("%s: Could not attach to PHY\n", dev->name);
+> +		netdev_err(priv->dev, "Could not attach to PHY\n");
+>  		if (!phydev)
+>  			return -ENODEV;
+>
+> @@ -889,8 +890,9 @@ static int stmmac_init_phy(struct net_device *dev)
+>  	if (phydev->is_pseudo_fixed_link)
+>  		phydev->irq = PHY_POLL;
+>
+> -	pr_debug("stmmac_init_phy:  %s: attached to PHY (UID 0x%x)"
+> -		 " Link = %d\n", dev->name, phydev->phy_id, phydev->link);
+> +	netdev_dbg(priv->dev,
+> +		   "stmmac_init_phy: attached to PHY (UID 0x%x) Link = %d\n",
+> +		   phydev->phy_id, phydev->link);
+>
+>  	return 0;
+>  }
+> @@ -976,7 +978,8 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
+>
+>  	skb = __netdev_alloc_skb_ip_align(priv->dev, priv->dma_buf_sz, flags);
+>  	if (!skb) {
+> -		pr_err("%s: Rx init fails; skb is NULL\n", __func__);
+> +		netdev_err(priv->dev,
+> +			   "%s: Rx init fails; skb is NULL\n", __func__);
+>  		return -ENOMEM;
+>  	}
+>  	priv->rx_skbuff[i] = skb;
+> @@ -984,7 +987,7 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
+>  						priv->dma_buf_sz,
+>  						DMA_FROM_DEVICE);
+>  	if (dma_mapping_error(priv->device, priv->rx_skbuff_dma[i])) {
+> -		pr_err("%s: DMA mapping error\n", __func__);
+> +		netdev_err(priv->dev, "%s: DMA mapping error\n", __func__);
+>  		dev_kfree_skb_any(skb);
+>  		return -EINVAL;
+>  	}
+> @@ -1035,11 +1038,12 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+>  	priv->dma_buf_sz = bfsize;
+>
+>  	if (netif_msg_probe(priv)) {
+> -		pr_debug("(%s) dma_rx_phy=0x%08x dma_tx_phy=0x%08x\n", __func__,
+> -			 (u32) priv->dma_rx_phy, (u32) priv->dma_tx_phy);
+> +		netdev_dbg(priv->dev, "(%s) dma_rx_phy=0x%08x dma_tx_phy=0x%08x\n",
+> +			   __func__, (u32)priv->dma_rx_phy,
+> +			   (u32)priv->dma_tx_phy);
+>
+>  		/* RX INITIALIZATION */
+> -		pr_debug("\tSKB addresses:\nskb\t\tskb data\tdma data\n");
+> +		netdev_dbg(priv->dev, "SKB addresses:\nskb\t\tskb data\tdma data\n");
+>  	}
+>  	for (i = 0; i < DMA_RX_SIZE; i++) {
+>  		struct dma_desc *p;
+> @@ -1053,7 +1057,8 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+>  			goto err_init_rx_buffers;
+>
+>  		if (netif_msg_probe(priv))
+> -			pr_debug("[%p]\t[%p]\t[%x]\n", priv->rx_skbuff[i],
+> +			netdev_dbg(priv->dev, "[%p]\t[%p]\t[%x]\n",
+> +				   priv->rx_skbuff[i],
+>  				 priv->rx_skbuff[i]->data,
+>  				 (unsigned int)priv->rx_skbuff_dma[i]);
+>  	}
+> @@ -1386,7 +1391,8 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+>  		if (netif_queue_stopped(priv->dev) &&
+>  		    stmmac_tx_avail(priv) > STMMAC_TX_THRESH) {
+>  			if (netif_msg_tx_done(priv))
+> -				pr_debug("%s: restart transmit\n", __func__);
+> +				netdev_dbg(priv->dev, "%s: restart transmit\n",
+> +					   __func__);
+>  			netif_wake_queue(priv->dev);
+>  		}
+>  		netif_tx_unlock(priv->dev);
+> @@ -1497,7 +1503,7 @@ static void stmmac_mmc_setup(struct stmmac_priv *priv)
+>  		dwmac_mmc_ctrl(priv->mmcaddr, mode);
+>  		memset(&priv->mmc, 0, sizeof(struct stmmac_counters));
+>  	} else
+> -		pr_info(" No MAC Management Counters available\n");
+> +		netdev_info(priv->dev, "No MAC Management Counters available\n");
+>  }
+>
+>  /**
+> @@ -1510,18 +1516,18 @@ static void stmmac_mmc_setup(struct stmmac_priv *priv)
+>  static void stmmac_selec_desc_mode(struct stmmac_priv *priv)
+>  {
+>  	if (priv->plat->enh_desc) {
+> -		pr_info(" Enhanced/Alternate descriptors\n");
+> +		dev_info(priv->device, "Enhanced/Alternate descriptors\n");
+>
+>  		/* GMAC older than 3.50 has no extended descriptors */
+>  		if (priv->synopsys_id >= DWMAC_CORE_3_50) {
+> -			pr_info("\tEnabled extended descriptors\n");
+> +			dev_info(priv->device, "Enabled extended descriptors\n");
+>  			priv->extend_desc = 1;
+>  		} else
+> -			pr_warn("Extended descriptors not supported\n");
+> +			dev_warn(priv->device, "Extended descriptors not supported\n");
+>
+>  		priv->hw->desc = &enh_desc_ops;
+>  	} else {
+> -		pr_info(" Normal descriptors\n");
+> +		dev_info(priv->device, "Normal descriptors\n");
+>  		priv->hw->desc = &ndesc_ops;
+>  	}
+>  }
+> @@ -1562,8 +1568,8 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
+>  					     priv->dev->dev_addr, 0);
+>  		if (!is_valid_ether_addr(priv->dev->dev_addr))
+>  			eth_hw_addr_random(priv->dev);
+> -		pr_info("%s: device MAC address %pM\n", priv->dev->name,
+> -			priv->dev->dev_addr);
+> +		netdev_info(priv->dev, "device MAC address %pM\n",
+> +			    priv->dev->dev_addr);
+>  	}
+>  }
+>
+> @@ -1671,7 +1677,8 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+>  	/* DMA initialization and SW reset */
+>  	ret = stmmac_init_dma_engine(priv);
+>  	if (ret < 0) {
+> -		pr_err("%s: DMA engine initialization failed\n", __func__);
+> +		netdev_err(priv->dev, "%s: DMA engine initialization failed\n",
+> +			   __func__);
+>  		return ret;
+>  	}
+>
+> @@ -1700,7 +1707,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+>
+>  	ret = priv->hw->mac->rx_ipc(priv->hw);
+>  	if (!ret) {
+> -		pr_warn(" RX IPC Checksum Offload disabled\n");
+> +		netdev_warn(priv->dev, "RX IPC Checksum Offload disabled\n");
+>  		priv->plat->rx_coe = STMMAC_RX_COE_NONE;
+>  		priv->hw->rx_csum = 0;
+>  	}
+> @@ -1725,10 +1732,11 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+>  #ifdef CONFIG_DEBUG_FS
+>  	ret = stmmac_init_fs(dev);
+>  	if (ret < 0)
+> -		pr_warn("%s: failed debugFS registration\n", __func__);
+> +		netdev_warn(priv->dev, "%s: failed debugFS registration\n",
+> +			    __func__);
+>  #endif
+>  	/* Start the ball rolling... */
+> -	pr_debug("%s: DMA RX/TX processes started...\n", dev->name);
+> +	netdev_dbg(priv->dev, "DMA RX/TX processes started...\n");
+>  	priv->hw->dma->start_tx(priv->ioaddr);
+>  	priv->hw->dma->start_rx(priv->ioaddr);
+>
+> @@ -1783,8 +1791,9 @@ static int stmmac_open(struct net_device *dev)
+>  	    priv->hw->pcs != STMMAC_PCS_RTBI) {
+>  		ret = stmmac_init_phy(dev);
+>  		if (ret) {
+> -			pr_err("%s: Cannot attach to PHY (error: %d)\n",
+> -			       __func__, ret);
+> +			netdev_err(priv->dev,
+> +				   "%s: Cannot attach to PHY (error: %d)\n",
+> +				   __func__, ret);
+>  			return ret;
+>  		}
+>  	}
+> @@ -1798,19 +1807,21 @@ static int stmmac_open(struct net_device *dev)
+>
+>  	ret = alloc_dma_desc_resources(priv);
+>  	if (ret < 0) {
+> -		pr_err("%s: DMA descriptors allocation failed\n", __func__);
+> +		netdev_err(priv->dev, "%s: DMA descriptors allocation failed\n",
+> +			   __func__);
+>  		goto dma_desc_error;
+>  	}
+>
+>  	ret = init_dma_desc_rings(dev, GFP_KERNEL);
+>  	if (ret < 0) {
+> -		pr_err("%s: DMA descriptors initialization failed\n", __func__);
+> +		netdev_err(priv->dev, "%s: DMA descriptors initialization failed\n",
+> +			   __func__);
+>  		goto init_error;
+>  	}
+>
+>  	ret = stmmac_hw_setup(dev, true);
+>  	if (ret < 0) {
+> -		pr_err("%s: Hw setup failed\n", __func__);
+> +		netdev_err(priv->dev, "%s: Hw setup failed\n", __func__);
+>  		goto init_error;
+>  	}
+>
+> @@ -1823,8 +1834,9 @@ static int stmmac_open(struct net_device *dev)
+>  	ret = request_irq(dev->irq, stmmac_interrupt,
+>  			  IRQF_SHARED, dev->name, dev);
+>  	if (unlikely(ret < 0)) {
+> -		pr_err("%s: ERROR: allocating the IRQ %d (error: %d)\n",
+> -		       __func__, dev->irq, ret);
+> +		netdev_err(priv->dev,
+> +			   "%s: ERROR: allocating the IRQ %d (error: %d)\n",
+> +			   __func__, dev->irq, ret);
+>  		goto init_error;
+>  	}
+>
+> @@ -1833,8 +1845,9 @@ static int stmmac_open(struct net_device *dev)
+>  		ret = request_irq(priv->wol_irq, stmmac_interrupt,
+>  				  IRQF_SHARED, dev->name, dev);
+>  		if (unlikely(ret < 0)) {
+> -			pr_err("%s: ERROR: allocating the WoL IRQ %d (%d)\n",
+> -			       __func__, priv->wol_irq, ret);
+> +			netdev_err(priv->dev,
+> +				   "%s: ERROR: allocating the WoL IRQ %d (%d)\n",
+> +				   __func__, priv->wol_irq, ret);
+>  			goto wolirq_error;
+>  		}
+>  	}
+> @@ -1844,8 +1857,9 @@ static int stmmac_open(struct net_device *dev)
+>  		ret = request_irq(priv->lpi_irq, stmmac_interrupt, IRQF_SHARED,
+>  				  dev->name, dev);
+>  		if (unlikely(ret < 0)) {
+> -			pr_err("%s: ERROR: allocating the LPI IRQ %d (%d)\n",
+> -			       __func__, priv->lpi_irq, ret);
+> +			netdev_err(priv->dev,
+> +				   "%s: ERROR: allocating the LPI IRQ %d (%d)\n",
+> +				   __func__, priv->lpi_irq, ret);
+>  			goto lpiirq_error;
+>  		}
+>  	}
+> @@ -2008,7 +2022,9 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		if (!netif_queue_stopped(dev)) {
+>  			netif_stop_queue(dev);
+>  			/* This is a hard error, log it. */
+> -			pr_err("%s: Tx Ring full when queue awake\n", __func__);
+> +			netdev_err(priv->dev,
+> +				   "%s: Tx Ring full when queue awake\n",
+> +				   __func__);
+>  		}
+>  		spin_unlock(&priv->tx_lock);
+>  		return NETDEV_TX_BUSY;
+> @@ -2082,7 +2098,8 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+>
+>  	if (unlikely(stmmac_tx_avail(priv) <= (MAX_SKB_FRAGS + 1))) {
+>  		if (netif_msg_hw(priv))
+> -			pr_debug("%s: stop transmitted packets\n", __func__);
+> +			netdev_dbg(priv->dev, "%s: stop transmitted packets\n",
+> +				   __func__);
+>  		netif_stop_queue(dev);
+>  	}
+>
+> @@ -2188,7 +2205,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		if (!netif_queue_stopped(dev)) {
+>  			netif_stop_queue(dev);
+>  			/* This is a hard error, log it. */
+> -			pr_err("%s: Tx Ring full when queue awake\n", __func__);
+> +			netdev_err(priv->dev,
+> +				   "%s: Tx Ring full when queue awake\n",
+> +				   __func__);
+>  		}
+>  		return NETDEV_TX_BUSY;
+>  	}
+> @@ -2263,9 +2282,10 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	if (netif_msg_pktdata(priv)) {
+>  		void *tx_head;
+>
+> -		pr_debug("%s: curr=%d dirty=%d f=%d, e=%d, first=%p, nfrags=%d",
+> -			 __func__, priv->cur_tx, priv->dirty_tx, first_entry,
+> -			 entry, first, nfrags);
+> +		netdev_dbg(priv->dev,
+> +			   "%s: curr=%d dirty=%d f=%d, e=%d, first=%p, nfrags=%d",
+> +			   __func__, priv->cur_tx, priv->dirty_tx, first_entry,
+> +			   entry, first, nfrags);
+>
+>  		if (priv->extend_desc)
+>  			tx_head = (void *)priv->dma_etx;
+> @@ -2274,13 +2294,14 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>
+>  		priv->hw->desc->display_ring(tx_head, DMA_TX_SIZE, false);
+>
+> -		pr_debug(">>> frame to be transmitted: ");
+> +		netdev_dbg(priv->dev, ">>> frame to be transmitted: ");
+>  		print_pkt(skb->data, skb->len);
+>  	}
+>
+>  	if (unlikely(stmmac_tx_avail(priv) <= (MAX_SKB_FRAGS + 1))) {
+>  		if (netif_msg_hw(priv))
+> -			pr_debug("%s: stop transmitted packets\n", __func__);
+> +			netdev_dbg(priv->dev,
+> +				   "%s: stop transmitted packets\n", __func__);
+>  		netif_stop_queue(dev);
+>  	}
+>
+> @@ -2357,7 +2378,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>
+>  dma_map_err:
+>  	spin_unlock(&priv->tx_lock);
+> -	dev_err(priv->device, "Tx dma map failed\n");
+> +	netdev_err(priv->dev, "Tx DMA map failed\n");
+>  	dev_kfree_skb(skb);
+>  	priv->dev->stats.tx_dropped++;
+>  	return NETDEV_TX_OK;
+> @@ -2428,7 +2449,7 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+>  					   DMA_FROM_DEVICE);
+>  			if (dma_mapping_error(priv->device,
+>  					      priv->rx_skbuff_dma[entry])) {
+> -				dev_err(priv->device, "Rx dma map failed\n");
+> +				netdev_err(priv->dev, "Rx DMA map failed\n");
+>  				dev_kfree_skb(skb);
+>  				break;
+>  			}
+> @@ -2446,7 +2467,8 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+>  				priv->rx_zeroc_thresh--;
+>
+>  			if (netif_msg_rx_status(priv))
+> -				pr_debug("\trefill entry #%d\n", entry);
+> +				netdev_dbg(priv->dev,
+> +					   "refill entry #%d\n", entry);
+>  		}
+>  		wmb();
+>
+> @@ -2479,7 +2501,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+>  	if (netif_msg_rx_status(priv)) {
+>  		void *rx_head;
+>
+> -		pr_debug("%s: descriptor ring:\n", __func__);
+> +		netdev_dbg(priv->dev, "%s: descriptor ring:\n", __func__);
+>  		if (priv->extend_desc)
+>  			rx_head = (void *)priv->dma_erx;
+>  		else
+> @@ -2549,9 +2571,9 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+>  			 *  ignored
+>  			 */
+>  			if (frame_len > priv->dma_buf_sz) {
+> -				pr_err("%s: len %d larger than size (%d)\n",
+> -				       priv->dev->name, frame_len,
+> -				       priv->dma_buf_sz);
+> +				netdev_err(priv->dev,
+> +					   "len %d larger than size (%d)\n",
+> +					   frame_len, priv->dma_buf_sz);
+>  				priv->dev->stats.rx_length_errors++;
+>  				break;
+>  			}
+> @@ -2563,11 +2585,11 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+>  				frame_len -= ETH_FCS_LEN;
+>
+>  			if (netif_msg_rx_status(priv)) {
+> -				pr_debug("\tdesc: %p [entry %d] buff=0x%x\n",
+> -					p, entry, des);
+> +				netdev_dbg(priv->dev, "\tdesc: %p [entry %d] buff=0x%x\n",
+> +					   p, entry, des);
+>  				if (frame_len > ETH_FRAME_LEN)
+> -					pr_debug("\tframe size %d, COE: %d\n",
+> -						 frame_len, status);
+> +					netdev_dbg(priv->dev, "frame size %d, COE: %d\n",
+> +						   frame_len, status);
+>  			}
+>
+>  			/* The zero-copy is always used for all the sizes
+> @@ -2604,8 +2626,9 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+>  			} else {
+>  				skb = priv->rx_skbuff[entry];
+>  				if (unlikely(!skb)) {
+> -					pr_err("%s: Inconsistent Rx chain\n",
+> -					       priv->dev->name);
+> +					netdev_err(priv->dev,
+> +						   "%s: Inconsistent Rx chain\n",
+> +						   priv->dev->name);
+>  					priv->dev->stats.rx_dropped++;
+>  					break;
+>  				}
+> @@ -2623,7 +2646,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+>  			stmmac_get_rx_hwtstamp(priv, entry, skb);
+>
+>  			if (netif_msg_pktdata(priv)) {
+> -				pr_debug("frame received (%dbytes)", frame_len);
+> +				netdev_dbg(priv->dev, "frame received (%dbytes)",
+> +					   frame_len);
+>  				print_pkt(skb->data, frame_len);
+>  			}
+>
+> @@ -2720,8 +2744,10 @@ static void stmmac_set_rx_mode(struct net_device *dev)
+>   */
+>  static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
+>  {
+> +	struct stmmac_priv *priv = netdev_priv(dev);
+> +
+>  	if (netif_running(dev)) {
+> -		pr_err("%s: must be stopped to change its MTU\n", dev->name);
+> +		netdev_err(priv->dev, "must be stopped to change its MTU\n");
+>  		return -EBUSY;
+>  	}
+>
+> @@ -2800,7 +2826,7 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+>  		pm_wakeup_event(priv->device, 0);
+>
+>  	if (unlikely(!dev)) {
+> -		pr_err("%s: invalid dev pointer\n", __func__);
+> +		netdev_err(priv->dev, "%s: invalid dev pointer\n", __func__);
+>  		return IRQ_NONE;
+>  	}
+>
+> @@ -3032,8 +3058,7 @@ static int stmmac_init_fs(struct net_device *dev)
+>  	priv->dbgfs_dir = debugfs_create_dir(dev->name, stmmac_fs_dir);
+>
+>  	if (!priv->dbgfs_dir || IS_ERR(priv->dbgfs_dir)) {
+> -		pr_err("ERROR %s/%s, debugfs create directory failed\n",
+> -		       STMMAC_RESOURCE_NAME, dev->name);
+> +		netdev_err(priv->dev, "ERROR failed to create debugfs directory\n");
+>
+>  		return -ENOMEM;
+>  	}
+> @@ -3045,7 +3070,7 @@ static int stmmac_init_fs(struct net_device *dev)
+>  				    &stmmac_rings_status_fops);
+>
+>  	if (!priv->dbgfs_rings_status || IS_ERR(priv->dbgfs_rings_status)) {
+> -		pr_info("ERROR creating stmmac ring debugfs file\n");
+> +		netdev_err(priv->dev, "ERROR creating stmmac ring debugfs file\n");
+>  		debugfs_remove_recursive(priv->dbgfs_dir);
+>
+>  		return -ENOMEM;
+> @@ -3057,7 +3082,7 @@ static int stmmac_init_fs(struct net_device *dev)
+>  					    dev, &stmmac_dma_cap_fops);
+>
+>  	if (!priv->dbgfs_dma_cap || IS_ERR(priv->dbgfs_dma_cap)) {
+> -		pr_info("ERROR creating stmmac MMC debugfs file\n");
+> +		netdev_err(priv->dev, "ERROR creating stmmac MMC debugfs file\n");
+>  		debugfs_remove_recursive(priv->dbgfs_dir);
+>
+>  		return -ENOMEM;
+> @@ -3129,11 +3154,11 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+>  	} else {
+>  		if (chain_mode) {
+>  			priv->hw->mode = &chain_mode_ops;
+> -			pr_info(" Chain mode enabled\n");
+> +			dev_info(priv->device, "Chain mode enabled\n");
+>  			priv->mode = STMMAC_CHAIN_MODE;
+>  		} else {
+>  			priv->hw->mode = &ring_mode_ops;
+> -			pr_info(" Ring mode enabled\n");
+> +			dev_info(priv->device, "Ring mode enabled\n");
+>  			priv->mode = STMMAC_RING_MODE;
+>  		}
+>  	}
+> @@ -3141,7 +3166,7 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+>  	/* Get the HW capability (new GMAC newer than 3.50a) */
+>  	priv->hw_cap_support = stmmac_get_hw_features(priv);
+>  	if (priv->hw_cap_support) {
+> -		pr_info(" DMA HW capability register supported");
+> +		dev_info(priv->device, "DMA HW capability register supported\n");
+>
+>  		/* We can override some gmac/dma configuration fields: e.g.
+>  		 * enh_desc, tx_coe (e.g. that are passed through the
+> @@ -3166,8 +3191,9 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+>  		else if (priv->dma_cap.rx_coe_type1)
+>  			priv->plat->rx_coe = STMMAC_RX_COE_TYPE1;
+>
+> -	} else
+> -		pr_info(" No HW DMA feature register supported");
+> +	} else {
+> +		dev_info(priv->device, "No HW DMA feature register supported\n");
+> +	}
+>
+>  	/* To use alternate (extended), normal or GMAC4 descriptor structures */
+>  	if (priv->synopsys_id >= DWMAC_CORE_4_00)
+> @@ -3177,20 +3203,20 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+>
+>  	if (priv->plat->rx_coe) {
+>  		priv->hw->rx_csum = priv->plat->rx_coe;
+> -		pr_info(" RX Checksum Offload Engine supported\n");
+> +		dev_info(priv->device, "RX Checksum Offload Engine supported\n");
+>  		if (priv->synopsys_id < DWMAC_CORE_4_00)
+> -			pr_info("\tCOE Type %d\n", priv->hw->rx_csum);
+> +			dev_info(priv->device, "COE Type %d\n", priv->hw->rx_csum);
+>  	}
+>  	if (priv->plat->tx_coe)
+> -		pr_info(" TX Checksum insertion supported\n");
+> +		dev_info(priv->device, "TX Checksum insertion supported\n");
+>
+>  	if (priv->plat->pmt) {
+> -		pr_info(" Wake-Up On Lan supported\n");
+> +		dev_info(priv->device, "Wake-Up On Lan supported\n");
+>  		device_set_wakeup_capable(priv->device, 1);
+>  	}
+>
+>  	if (priv->dma_cap.tsoen)
+> -		pr_info(" TSO supported\n");
+> +		dev_info(priv->device, "TSO supported\n");
+>
+>  	return 0;
+>  }
+> @@ -3249,8 +3275,8 @@ int stmmac_dvr_probe(struct device *device,
+>
+>  	priv->stmmac_clk = devm_clk_get(priv->device, STMMAC_RESOURCE_NAME);
+>  	if (IS_ERR(priv->stmmac_clk)) {
+> -		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
+> -			 __func__);
+> +		netdev_warn(priv->dev, "%s: warning: cannot get CSR clock\n",
+> +			    __func__);
+>  		/* If failed to obtain stmmac_clk and specific clk_csr value
+>  		 * is NOT passed from the platform, probe fail.
+>  		 */
+> @@ -3299,7 +3325,7 @@ int stmmac_dvr_probe(struct device *device,
+>  	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen)) {
+>  		ndev->hw_features |= NETIF_F_TSO;
+>  		priv->tso = true;
+> -		pr_info(" TSO feature enabled\n");
+> +		dev_info(priv->device, "TSO feature enabled\n");
+>  	}
+>  	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
+>  	ndev->watchdog_timeo = msecs_to_jiffies(watchdog);
+> @@ -3328,7 +3354,7 @@ int stmmac_dvr_probe(struct device *device,
+>  	 */
+>  	if ((priv->synopsys_id >= DWMAC_CORE_3_50) && (!priv->plat->riwt_off)) {
+>  		priv->use_riwt = 1;
+> -		pr_info(" Enable RX Mitigation via HW Watchdog Timer\n");
+> +		netdev_info(priv->dev, "Enable RX Mitigation via HW Watchdog Timer\n");
+>  	}
+>
+>  	netif_napi_add(ndev, &priv->napi, stmmac_poll, 64);
+> @@ -3338,7 +3364,8 @@ int stmmac_dvr_probe(struct device *device,
+>
+>  	ret = register_netdev(ndev);
+>  	if (ret) {
+> -		pr_err("%s: ERROR %i registering the device\n", __func__, ret);
+> +		netdev_err(priv->dev, "%s: ERROR %i registering the device\n",
+> +			   __func__, ret);
+>  		goto error_netdev_register;
+>  	}
+>
+> @@ -3361,8 +3388,9 @@ int stmmac_dvr_probe(struct device *device,
+>  		/* MDIO bus Registration */
+>  		ret = stmmac_mdio_register(ndev);
+>  		if (ret < 0) {
+> -			pr_debug("%s: MDIO bus (id: %d) registration failed",
+> -				 __func__, priv->plat->bus_id);
+> +			netdev_err(priv->dev,
+> +				   "%s: MDIO bus (id: %d) registration failed",
+> +				   __func__, priv->plat->bus_id);
+>  			goto error_mdio_register;
+>  		}
+>  	}
+> @@ -3395,7 +3423,7 @@ int stmmac_dvr_remove(struct device *dev)
+>  	struct net_device *ndev = dev_get_drvdata(dev);
+>  	struct stmmac_priv *priv = netdev_priv(ndev);
+>
+> -	pr_info("%s:\n\tremoving driver", __func__);
+> +	netdev_info(priv->dev, "%s: removing driver", __func__);
+>
+>  	priv->hw->dma->stop_rx(priv->ioaddr);
+>  	priv->hw->dma->stop_tx(priv->ioaddr);
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> index ec29585..e3216e5 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> @@ -260,7 +260,7 @@ int stmmac_mdio_reset(struct mii_bus *bus)
+>  #endif
+>
+>  	if (data->phy_reset) {
+> -		pr_debug("stmmac_mdio_reset: calling phy_reset\n");
+> +		netdev_dbg(ndev, "stmmac_mdio_reset: calling phy_reset\n");
+>  		data->phy_reset(priv->plat->bsp_priv);
+>  	}
+>
+> @@ -325,7 +325,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+>  	else
+>  		err = mdiobus_register(new_bus);
+>  	if (err != 0) {
+> -		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
+> +		netdev_err(ndev, "Cannot register the MDIO bus\n");
+>  		goto bus_register_fail;
+>  	}
+>
+> @@ -372,16 +372,16 @@ int stmmac_mdio_register(struct net_device *ndev)
+>  				irq_str = irq_num;
+>  				break;
+>  			}
+> -			pr_info("%s: PHY ID %08x at %d IRQ %s (%s)%s\n",
+> -				ndev->name, phydev->phy_id, addr,
+> -				irq_str, phydev_name(phydev),
+> -				act ? " active" : "");
+> +			netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
+> +				    phydev->phy_id, addr,
+> +				    irq_str, phydev_name(phydev),
+> +				    act ? " active" : "");
+>  			found = 1;
+>  		}
+>  	}
+>
+>  	if (!found && !mdio_node) {
+> -		pr_warn("%s: No PHY found\n", ndev->name);
+> +		netdev_warn(ndev, "No PHY found\n");
+>  		mdiobus_unregister(new_bus);
+>  		mdiobus_free(new_bus);
+>  		return -ENODEV;
+>
