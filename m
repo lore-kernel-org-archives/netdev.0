@@ -1,7 +1,7 @@
 From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v3 2/5] ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE
-Date: Thu, 17 Nov 2016 13:07:21 +0100
-Message-ID: <1479384444-31122-3-git-send-email-allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v3 5/5] net: phy: Add downshift get/set support in Microsemi PHYs driver
+Date: Thu, 17 Nov 2016 13:07:24 +0100
+Message-ID: <1479384444-31122-6-git-send-email-allan.nielsen@microsemi.com>
 References: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,179 +10,188 @@ Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
         Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0043.outbound.protection.outlook.com ([104.47.36.43]:19456
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-bn3nam01on0069.outbound.protection.outlook.com ([104.47.33.69]:55376
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S941649AbcKQRmE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 12:42:04 -0500
+        id S938835AbcKQRmR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 12:42:17 -0500
 In-Reply-To: <1479384444-31122-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-Adding get_tunable/set_tunable function pointer to the phy_driver
-structure, and uses these function pointers to implement the
-ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE ioctls.
+Implements the phy tunable function pointers and implement downshift
+functionality for MSCC PHYs.
 
 Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
 ---
- include/linux/phy.h |  7 +++++
- net/core/ethtool.c  | 87 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 94 insertions(+)
+ drivers/net/phy/mscc.c | 100 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 100 insertions(+)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 9880d73..3d35c36 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -611,6 +611,13 @@ struct phy_driver {
- 	void (*get_strings)(struct phy_device *dev, u8 *data);
- 	void (*get_stats)(struct phy_device *dev,
- 			  struct ethtool_stats *stats, u64 *data);
+diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+index d0026ab..92018ba 100644
+--- a/drivers/net/phy/mscc.c
++++ b/drivers/net/phy/mscc.c
+@@ -46,8 +46,15 @@ enum rgmii_rx_clock_delay {
+ 
+ #define MSCC_EXT_PAGE_ACCESS		  31
+ #define MSCC_PHY_PAGE_STANDARD		  0x0000 /* Standard registers */
++#define MSCC_PHY_PAGE_EXTENDED		  0x0001 /* Extended registers */
+ #define MSCC_PHY_PAGE_EXTENDED_2	  0x0002 /* Extended reg - page 2 */
+ 
++/* Extended Page 1 Registers */
++#define MSCC_PHY_ACTIPHY_CNTL		  20
++#define DOWNSHIFT_CNTL_MASK		  0x001C
++#define DOWNSHIFT_EN			  0x0010
++#define DOWNSHIFT_CNTL_POS		  2
 +
-+	/* Get and Set PHY tunables */
-+	int (*get_tunable)(struct phy_device *dev,
-+			   struct ethtool_tunable *tuna, void *data);
-+	int (*set_tunable)(struct phy_device *dev,
-+			    struct ethtool_tunable *tuna,
-+			    const void *data);
+ /* Extended Page 2 Registers */
+ #define MSCC_PHY_RGMII_CNTL		  20
+ #define RGMII_RX_CLK_DELAY_MASK		  0x0070
+@@ -75,6 +82,8 @@ enum rgmii_rx_clock_delay {
+ #define MSCC_VDDMAC_2500		  2500
+ #define MSCC_VDDMAC_3300		  3300
+ 
++#define DOWNSHIFT_COUNT_MAX		  5
++
+ struct vsc8531_private {
+ 	int rate_magic;
  };
- #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
- 				      struct phy_driver, mdiodrv)
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 9774898..61aebdf 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -119,6 +119,11 @@ tunable_strings[__ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
- 	[ETHTOOL_TX_COPYBREAK]	= "tx-copybreak",
- };
- 
-+static const char
-+phy_tunable_strings[__ETHTOOL_PHY_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
-+	[ETHTOOL_ID_UNSPEC]     = "Unspec",
-+};
-+
- static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_gfeatures cmd = {
-@@ -227,6 +232,9 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
- 	if (sset == ETH_SS_TUNABLES)
- 		return ARRAY_SIZE(tunable_strings);
- 
-+	if (sset == ETH_SS_PHY_TUNABLES)
-+		return ARRAY_SIZE(phy_tunable_strings);
-+
- 	if (sset == ETH_SS_PHY_STATS) {
- 		if (dev->phydev)
- 			return phy_get_sset_count(dev->phydev);
-@@ -253,6 +261,8 @@ static void __ethtool_get_strings(struct net_device *dev,
- 		       sizeof(rss_hash_func_strings));
- 	else if (stringset == ETH_SS_TUNABLES)
- 		memcpy(data, tunable_strings, sizeof(tunable_strings));
-+	else if (stringset == ETH_SS_PHY_TUNABLES)
-+		memcpy(data, phy_tunable_strings, sizeof(phy_tunable_strings));
- 	else if (stringset == ETH_SS_PHY_STATS) {
- 		struct phy_device *phydev = dev->phydev;
- 
-@@ -2422,6 +2432,76 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
- 	};
+@@ -101,6 +110,66 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+ 	return rc;
  }
  
-+static int ethtool_phy_tunable_valid(const struct ethtool_tunable *tuna)
++static int vsc85xx_downshift_get(struct phy_device *phydev, u8 *count)
++{
++	int rc;
++	u16 reg_val;
++
++	mutex_lock(&phydev->lock);
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
++	if (rc != 0)
++		goto out_unlock;
++
++	reg_val = phy_read(phydev, MSCC_PHY_ACTIPHY_CNTL);
++	reg_val &= DOWNSHIFT_CNTL_MASK;
++	if (!(reg_val & DOWNSHIFT_EN))
++		*count = DOWNSHIFT_DEV_DISABLE;
++	else
++		*count = ((reg_val & ~DOWNSHIFT_EN) >> DOWNSHIFT_CNTL_POS) + 2;
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
++
++out_unlock:
++	mutex_unlock(&phydev->lock);
++
++	return rc;
++}
++
++static int vsc85xx_downshift_set(struct phy_device *phydev, u8 count)
++{
++	int rc;
++	u16 reg_val;
++
++	if (count == DOWNSHIFT_DEV_DEFAULT_COUNT) {
++		/* Default downshift count 3 (i.e. Bit3:2 = 0b01) */
++		count = ((1 << DOWNSHIFT_CNTL_POS) | DOWNSHIFT_EN);
++	} else if (count > DOWNSHIFT_COUNT_MAX || count == 1) {
++		phydev_err(phydev, "Downshift count should be 2,3,4 or 5\n");
++		return -ERANGE;
++	} else if (count) {
++		/* Downshift count is either 2,3,4 or 5 */
++		count = (((count - 2) << DOWNSHIFT_CNTL_POS) | DOWNSHIFT_EN);
++	}
++
++	mutex_lock(&phydev->lock);
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
++	if (rc != 0)
++		goto out_unlock;
++
++	reg_val = phy_read(phydev, MSCC_PHY_ACTIPHY_CNTL);
++	reg_val &= ~(DOWNSHIFT_CNTL_MASK);
++	reg_val |= count;
++	rc = phy_write(phydev, MSCC_PHY_ACTIPHY_CNTL, reg_val);
++	if (rc != 0)
++		goto out_unlock;
++
++	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
++
++out_unlock:
++	mutex_unlock(&phydev->lock);
++
++	return rc;
++}
++
+ static int vsc85xx_wol_set(struct phy_device *phydev,
+ 			   struct ethtool_wolinfo *wol)
+ {
+@@ -329,6 +398,29 @@ static int vsc85xx_default_config(struct phy_device *phydev)
+ 	return rc;
+ }
+ 
++static int vsc85xx_get_tunable(struct phy_device *phydev,
++			       struct ethtool_tunable *tuna, void *data)
 +{
 +	switch (tuna->id) {
++	case ETHTOOL_PHY_DOWNSHIFT:
++		return vsc85xx_downshift_get(phydev, (u8 *)data);
 +	default:
 +		return -EINVAL;
 +	}
-+
-+	return 0;
 +}
 +
-+static int get_phy_tunable(struct net_device *dev, void __user *useraddr)
++static int vsc85xx_set_tunable(struct phy_device *phydev,
++			       struct ethtool_tunable *tuna,
++			       const void *data)
 +{
-+	int ret;
-+	struct ethtool_tunable tuna;
-+	struct phy_device *phydev = dev->phydev;
-+	void *data;
-+
-+	if (!(phydev && phydev->drv && phydev->drv->get_tunable))
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
-+		return -EFAULT;
-+	ret = ethtool_phy_tunable_valid(&tuna);
-+	if (ret)
-+		return ret;
-+	data = kmalloc(tuna.len, GFP_USER);
-+	if (!data)
-+		return -ENOMEM;
-+	ret = phydev->drv->get_tunable(phydev, &tuna, data);
-+	if (ret)
-+		goto out;
-+	useraddr += sizeof(tuna);
-+	ret = -EFAULT;
-+	if (copy_to_user(useraddr, data, tuna.len))
-+		goto out;
-+	ret = 0;
-+
-+out:
-+	kfree(data);
-+	return ret;
++	switch (tuna->id) {
++	case ETHTOOL_PHY_DOWNSHIFT:
++		return vsc85xx_downshift_set(phydev, *(u8 *)data);
++	default:
++		return -EINVAL;
++	}
 +}
 +
-+static int set_phy_tunable(struct net_device *dev, void __user *useraddr)
-+{
-+	int ret;
-+	struct ethtool_tunable tuna;
-+	struct phy_device *phydev = dev->phydev;
-+	void *data;
-+
-+	if (!(phydev && phydev->drv && phydev->drv->set_tunable))
-+		return -EOPNOTSUPP;
-+	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
-+		return -EFAULT;
-+	ret = ethtool_phy_tunable_valid(&tuna);
-+	if (ret)
-+		return ret;
-+	data = kmalloc(tuna.len, GFP_USER);
-+	if (!data)
-+		return -ENOMEM;
-+	useraddr += sizeof(tuna);
-+	ret = -EFAULT;
-+	if (copy_from_user(data, useraddr, tuna.len))
-+		goto out;
-+	ret = phydev->drv->set_tunable(phydev, &tuna, data);
-+
-+out:
-+	kfree(data);
-+	return ret;
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
+ static int vsc85xx_config_init(struct phy_device *phydev)
+ {
+ 	int rc;
+@@ -418,6 +510,8 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.probe		= &vsc85xx_probe,
+ 	.set_wol	= &vsc85xx_wol_set,
+ 	.get_wol	= &vsc85xx_wol_get,
++	.get_tunable	= &vsc85xx_get_tunable,
++	.set_tunable	= &vsc85xx_set_tunable,
+ },
+ {
+ 	.phy_id		= PHY_ID_VSC8531,
+@@ -437,6 +531,8 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.probe		= &vsc85xx_probe,
+ 	.set_wol	= &vsc85xx_wol_set,
+ 	.get_wol	= &vsc85xx_wol_get,
++	.get_tunable	= &vsc85xx_get_tunable,
++	.set_tunable	= &vsc85xx_set_tunable,
+ },
+ {
+ 	.phy_id		= PHY_ID_VSC8540,
+@@ -456,6 +552,8 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.probe		= &vsc85xx_probe,
+ 	.set_wol	= &vsc85xx_wol_set,
+ 	.get_wol	= &vsc85xx_wol_get,
++	.get_tunable	= &vsc85xx_get_tunable,
++	.set_tunable	= &vsc85xx_set_tunable,
+ },
+ {
+ 	.phy_id		= PHY_ID_VSC8541,
+@@ -475,6 +573,8 @@ static struct phy_driver vsc85xx_driver[] = {
+ 	.probe		= &vsc85xx_probe,
+ 	.set_wol	= &vsc85xx_wol_set,
+ 	.get_wol	= &vsc85xx_wol_get,
++	.get_tunable	= &vsc85xx_get_tunable,
++	.set_tunable	= &vsc85xx_set_tunable,
+ }
  
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -2479,6 +2559,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GET_TS_INFO:
- 	case ETHTOOL_GEEE:
- 	case ETHTOOL_GTUNABLE:
-+	case ETHTOOL_PHY_GTUNABLE:
- 		break;
- 	default:
- 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
-@@ -2684,6 +2765,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_SLINKSETTINGS:
- 		rc = ethtool_set_link_ksettings(dev, useraddr);
- 		break;
-+	case ETHTOOL_PHY_GTUNABLE:
-+		rc = get_phy_tunable(dev, useraddr);
-+		break;
-+	case ETHTOOL_PHY_STUNABLE:
-+		rc = set_phy_tunable(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
+ };
 -- 
 2.7.3
