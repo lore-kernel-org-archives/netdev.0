@@ -1,67 +1,42 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4.8 51/92] xprtrdma: use complete() instead complete_all()
-Date: Thu, 17 Nov 2016 11:32:24 +0100
-Message-ID: <20161117103226.356879238@linuxfoundation.org>
-References: <20161117103224.218007793@linuxfoundation.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next v3 2/3] net: fsl: Allow most drivers to be built with COMPILE_TEST
+Date: Thu, 17 Nov 2016 11:47:02 +0100
+Message-ID: <2379973.pinmoxev18@wuerfel>
+References: <201611161135.ksuIHp17%fengguang.wu@intel.com> <0216ebc6-1889-6ca7-974c-90524ed61651@gmail.com> <20161117013823.ne3f3dpvs64j5gmw@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        stable@vger.kernel.org, Daniel Wagner <daniel.wagner@bmw-carit.de>,
-        Anna Schumaker <Anna.Schumaker@Netapp.com>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Chuck Lever <chuck.lever@oracle.com>,
-        linux-nfs@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20161117103224.218007793@linuxfoundation.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, kbuild-all@01.org,
+        netdev@vger.kernel.org, davem@davemloft.net, mw@semihalf.com,
+        gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com
+To: Fengguang Wu <lkp@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.24]:55931 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S2992846AbcKQKrb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 05:47:31 -0500
+In-Reply-To: <20161117013823.ne3f3dpvs64j5gmw@wfg-t540p.sh.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-4.8-stable review patch.  If anyone has any objections, please let me know.
+On Thursday, November 17, 2016 9:38:23 AM CET Fengguang Wu wrote:
+> >
+> >Right here.
+> >
+> >What compiler version is this?
+> 
+> Compiler is sh4-linux-gnu-gcc (Debian 6.1.1-9) 6.1.1 20160705.
+> 
+> include/asm-generic/io.h conditionally defines iounmap() to be an
+> empty inline function, which may explain the warning on sh4.
+> 
+> General speaking, it's a false warning. The solution could be to teach
+> the robot to ignore such 'unused variable' warnings in non-x86 archs.
 
-------------------
+I think we should change the iounmap stub macro into an inline function.
+Does this only happen on sh or other architectures too?
 
-From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+I certainly wouldn't want the warning to be ignored on ARM, or in
+general on all architectures other than x86.
 
-commit 5690a22d8612e1788b48b4ea53c59868589cd2db upstream.
-
-There is only one waiter for the completion, therefore there
-is no need to use complete_all(). Let's make that clear by
-using complete() instead of complete_all().
-
-The usage pattern of the completion is:
-
-waiter context                          waker context
-
-frwr_op_unmap_sync()
-  reinit_completion()
-  ib_post_send()
-  wait_for_completion()
-
-					frwr_wc_localinv_wake()
-					  complete()
-
-Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
-Cc: Anna Schumaker <Anna.Schumaker@Netapp.com>
-Cc: Trond Myklebust <trond.myklebust@primarydata.com>
-Cc: Chuck Lever <chuck.lever@oracle.com>
-Cc: linux-nfs@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Anna Schumaker <Anna.Schumaker@Netapp.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
----
- net/sunrpc/xprtrdma/frwr_ops.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/net/sunrpc/xprtrdma/frwr_ops.c
-+++ b/net/sunrpc/xprtrdma/frwr_ops.c
-@@ -329,7 +329,7 @@ frwr_wc_localinv_wake(struct ib_cq *cq,
- 	frmr = container_of(cqe, struct rpcrdma_frmr, fr_cqe);
- 	if (wc->status != IB_WC_SUCCESS)
- 		__frwr_sendcompletion_flush(wc, frmr, "localinv");
--	complete_all(&frmr->fr_linv_done);
-+	complete(&frmr->fr_linv_done);
- }
- 
- /* Post a REG_MR Work Request to register a memory region
+	Arnd
