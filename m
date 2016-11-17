@@ -1,114 +1,107 @@
-From: =?UTF-8?B?QW5kcsOp?= Roth <neolynx@gmail.com>
-Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
-Date: Thu, 17 Nov 2016 19:44:05 +0100
-Message-ID: <20161117194405.4ca7899b@gmail.com>
-References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
-        <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
-        <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
-        <20161031112524.4c4ee8f8@gmail.com>
-        <1478192276.6632.34.camel@baylibre.com>
-        <20161113201339.667ac1f7@gmail.com>
-        <1479120574.29252.29.camel@baylibre.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Netperf UDP issue with connected sockets
+Date: Thu, 17 Nov 2016 10:51:23 -0800
+Message-ID: <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20140903165943.372b897b@redhat.com>
+         <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
+         <20161116131609.4e5726b4@redhat.com>
+         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
+         <20161116234022.2bad179b@redhat.com>
+         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117091638.5fab8494@redhat.com>
+         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117144248.23500001@redhat.com>
+         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117155753.17b76f5a@redhat.com>
+         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117193021.580589ae@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Johnson Leung <r58129@freescale.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        linux-amlogic@lists.infradead.org,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org
-To: Jerome Brunet <jbrunet@baylibre.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35999 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753268AbcKQSoK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 13:44:10 -0500
-Received: by mail-wm0-f68.google.com with SMTP id m203so23874574wma.3
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 10:44:09 -0800 (PST)
-In-Reply-To: <1479120574.29252.29.camel@baylibre.com>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:33307 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754471AbcKQSv0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 13:51:26 -0500
+Received: by mail-it0-f67.google.com with SMTP id c20so17076412itb.0
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 10:51:26 -0800 (PST)
+In-Reply-To: <20161117193021.580589ae@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2016-11-17 at 19:30 +0100, Jesper Dangaard Brouer wrote:
 
-Hi all,
+> The point is I can see a socket Send-Q forming, thus we do know the
+> application have something to send. Thus, and possibility for
+> non-opportunistic bulking. Allowing/implementing bulk enqueue from
+> socket layer into qdisc layer, should be fairly simple (and rest of
+> xmit_more is already in place).  
 
-> I checked again the kernel
-> at=C2=A0https://github.com/hardkernel/linux/tree/ odroidc2-3.14.y. The
-> version you mention (3.14.65-73) seems to be:
-> sha1:=C2=A0c75d5f4d1516cdd86d90a9d1c565bb0ed9251036 tag: jenkins-deb s905
-> kernel-73
 
-I downloaded the prebuilt image from hardkernel, I did not build the
-kernel myself. but hardkernel has an earlier release of the same kernel
-version, which works fine too. I assume they would have committed the
-change in the newer version..
-=20
-> In this particular version, both realtek drivers:
-> - drivers/net/phy/realtek.c
-> - drivers/amlogic/ethernet/phy/am_realtek.c
->=20
-> have the hack to disable 1000M advertisement. I don't understand how
-> it possible for you to have 1000Base-T Full Duplex with this, maybe
-> I'm missing something here ?
+As I said, you are fooled by TX completions.
 
-that's what I don't understand as well...
+Please make sure to increase the sndbuf limits !
 
-the patched kernel shows the following:
+echo 2129920 >/proc/sys/net/core/wmem_default
 
-$ uname -a
-Linux T-06 4.9.0-rc4+ #21 SMP PREEMPT Sun Nov 13 12:07:19 UTC 2016
+lpaa23:~# sar -n DEV 1 10|grep eth1
+10:49:25         eth1      7.00 9273283.00      0.61 2187214.90      0.00      0.00      0.00
+10:49:26         eth1      1.00 9230795.00      0.06 2176787.57      0.00      0.00      1.00
+10:49:27         eth1      2.00 9247906.00      0.17 2180915.45      0.00      0.00      0.00
+10:49:28         eth1      3.00 9246542.00      0.23 2180790.38      0.00      0.00      1.00
+10:49:29         eth1      1.00 9239218.00      0.06 2179044.83      0.00      0.00      0.00
+10:49:30         eth1      3.00 9248775.00      0.23 2181257.84      0.00      0.00      1.00
+10:49:31         eth1      4.00 9225471.00      0.65 2175772.75      0.00      0.00      0.00
+10:49:32         eth1      2.00 9253536.00      0.33 2182666.44      0.00      0.00      1.00
+10:49:33         eth1      1.00 9265900.00      0.06 2185598.40      0.00      0.00      0.00
+10:49:34         eth1      1.00 6949031.00      0.06 1638889.63      0.00      0.00      1.00
+Average:         eth1      2.50 9018045.70      0.25 2126893.82      0.00      0.00      0.50
 
-$ sudo ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full=20
-                                100baseT/Half 100baseT/Full=20
-                                1000baseT/Full=20
-        Supported pause frame use: No
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full=20
-                                100baseT/Half 100baseT/Full=20
-                                1000baseT/Full=20
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  10baseT/Half 10baseT/Full=20
-                                             100baseT/Half
-100baseT/Full 1000baseT/Half 1000baseT/Full=20
-        Link partner advertised pause frame use: Symmetric Receive-only
-        Link partner advertised auto-negotiation: Yes
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: MII
-        PHYAD: 0
-        Transceiver: external
-        Auto-negotiation: on
-        Supports Wake-on: ug
-        Wake-on: d
-        Current message level: 0x0000003f (63)
-                               drv probe link timer ifdown ifup
-        Link detected: yes
 
-$ sudo ethtool --show-eee eth0
-EEE Settings for eth0:
-        EEE status: disabled
-        Tx LPI: disabled
-        Supported EEE link modes:  100baseT/Full=20
-                                   1000baseT/Full=20
-        Advertised EEE link modes:  100baseT/Full=20
-        Link partner advertised EEE link modes:  100baseT/Full=20
-                                                 1000baseT/Full=20
+lpaa23:~# ethtool -S eth1|grep more; sleep 1;ethtool -S eth1|grep more
+     xmit_more: 2251366909
+     xmit_more: 2256011392
 
-can it be that "EEE link modes" and the "normal" link modes are two
-different things ?=20
+lpaa23:~# echo 2256011392-2251366909 | bc
+4644483
 
-> If you did compile the kernel yourself, could you check the 2 file
-> mentioned above ? Just to be sure there was no patch applied at the
-> last minute, which would not show up in the git history of
-> hardkernel ?
+   PerfTop:   76969 irqs/sec  kernel:96.6%  exact: 100.0% [4000Hz cycles:pp],  (all, 48 CPUs)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-I cannot check this easily at the moment..
-
-Regards,
-
- Andr=C3=A9
+    11.64%  [kernel]  [k] skb_set_owner_w               
+     6.21%  [kernel]  [k] queued_spin_lock_slowpath     
+     4.76%  [kernel]  [k] _raw_spin_lock                
+     4.40%  [kernel]  [k] __ip_make_skb                 
+     3.10%  [kernel]  [k] sock_wfree                    
+     2.87%  [kernel]  [k] ipt_do_table                  
+     2.76%  [kernel]  [k] fq_dequeue                    
+     2.71%  [kernel]  [k] mlx4_en_xmit                  
+     2.50%  [kernel]  [k] __dev_queue_xmit              
+     2.29%  [kernel]  [k] __ip_append_data.isra.40      
+     2.28%  [kernel]  [k] udp_sendmsg                   
+     2.01%  [kernel]  [k] __alloc_skb                   
+     1.90%  [kernel]  [k] napi_consume_skb              
+     1.63%  [kernel]  [k] udp_send_skb                  
+     1.62%  [kernel]  [k] skb_release_data              
+     1.62%  [kernel]  [k] entry_SYSCALL_64_fastpath     
+     1.56%  [kernel]  [k] dev_hard_start_xmit           
+     1.55%  udpsnd    [.] __libc_send                   
+     1.48%  [kernel]  [k] netif_skb_features            
+     1.42%  [kernel]  [k] __qdisc_run                   
+     1.35%  [kernel]  [k] sk_dst_check                  
+     1.33%  [kernel]  [k] sock_def_write_space          
+     1.30%  [kernel]  [k] kmem_cache_alloc_node_trace   
+     1.29%  [kernel]  [k] __local_bh_enable_ip          
+     1.21%  [kernel]  [k] copy_user_enhanced_fast_string
+     1.08%  [kernel]  [k] __kmalloc_reserve.isra.40     
+     1.08%  [kernel]  [k] SYSC_sendto                   
+     1.07%  [kernel]  [k] kmem_cache_alloc_node         
+     0.95%  [kernel]  [k] ip_finish_output2             
+     0.95%  [kernel]  [k] ktime_get                     
+     0.91%  [kernel]  [k] validate_xmit_skb             
+     0.88%  [kernel]  [k] sock_alloc_send_pskb          
+     0.82%  [kernel]  [k] sock_sendmsg                  
