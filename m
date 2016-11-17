@@ -1,150 +1,36 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH] VSOCK: add loopback to virtio_transport
-Date: Thu, 17 Nov 2016 15:49:23 +0000
-Message-ID: <1479397763-22319-1-git-send-email-stefanha@redhat.com>
-Cc: cavery@redhat.com, Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-        Jorgen Hansen <jhansen@vmware.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ip6_tunnel: disable caching when the traffic class
+ is inherited
+Date: Thu, 17 Nov 2016 12:09:40 -0500 (EST)
+Message-ID: <20161117.120940.1678961893613466136.davem@davemloft.net>
+References: <67662ec875375c86e95666a7e47fc61c3a869d86.1479309929.git.pabeni@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, liam.mcbirnie@boeing.com,
+        hannes@stressinduktion.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34498 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934666AbcKQRIm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 12:08:42 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:39916 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754415AbcKQRJl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:09:41 -0500
+In-Reply-To: <67662ec875375c86e95666a7e47fc61c3a869d86.1479309929.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VMware VMCI transport supports loopback inside virtual machines.
-This patch implements loopback for virtio-vsock.
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Wed, 16 Nov 2016 16:26:46 +0100
 
-Flow control is handled by the virtio-vsock protocol as usual.  The
-sending process stops transmitting on a connection when the peer's
-receive buffer space is exhausted.
+> If an ip6 tunnel is configured to inherit the traffic class from
+> the inner header, the dst_cache must be disabled or it will foul
+> the policy routing.
+> 
+> The issue is apprently there since at leat Linux-2.6.12-rc2.
+> 
+> Reported-by: Liam McBirnie <liam.mcbirnie@boeing.com>
+> Cc: Liam McBirnie <liam.mcbirnie@boeing.com>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Cathy Avery <cavery@redhat.com> noticed this difference between VMCI and
-virtio-vsock when a test case using loopback failed.  Although loopback
-isn't the main point of AF_VSOCK, it is useful for testing and
-virtio-vsock must match VMCI semantics so that userspace programs run
-regardless of the underlying transport.
-
-My understanding is that loopback is not supported on the host side with
-VMCI.  Follow that by implementing it only in the guest driver, not the
-vhost host driver.
-
-Cc: Jorgen Hansen <jhansen@vmware.com>
-Reported-by: Cathy Avery <cavery@redhat.com>
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
- net/vmw_vsock/virtio_transport.c | 57 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 57 insertions(+)
-
-diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
-index 936d7ee..f2c4071 100644
---- a/net/vmw_vsock/virtio_transport.c
-+++ b/net/vmw_vsock/virtio_transport.c
-@@ -44,6 +44,10 @@ struct virtio_vsock {
- 	spinlock_t send_pkt_list_lock;
- 	struct list_head send_pkt_list;
- 
-+	struct work_struct loopback_work;
-+	spinlock_t loopback_list_lock;
-+	struct list_head loopback_list;
-+
- 	atomic_t queued_replies;
- 
- 	/* The following fields are protected by rx_lock.  vqs[VSOCK_VQ_RX]
-@@ -74,6 +78,42 @@ static u32 virtio_transport_get_local_cid(void)
- 	return vsock->guest_cid;
- }
- 
-+static void virtio_transport_loopback_work(struct work_struct *work)
-+{
-+	struct virtio_vsock *vsock =
-+		container_of(work, struct virtio_vsock, loopback_work);
-+	LIST_HEAD(pkts);
-+
-+	spin_lock_bh(&vsock->loopback_list_lock);
-+	list_splice_init(&vsock->loopback_list, &pkts);
-+	spin_unlock_bh(&vsock->loopback_list_lock);
-+
-+	mutex_lock(&vsock->rx_lock);
-+	while (!list_empty(&pkts)) {
-+		struct virtio_vsock_pkt *pkt;
-+
-+		pkt = list_first_entry(&pkts, struct virtio_vsock_pkt, list);
-+		list_del_init(&pkt->list);
-+
-+		virtio_transport_recv_pkt(pkt);
-+	}
-+	mutex_unlock(&vsock->rx_lock);
-+}
-+
-+static int virtio_transport_send_pkt_loopback(struct virtio_vsock *vsock,
-+					      struct virtio_vsock_pkt *pkt)
-+{
-+	int len = pkt->len;
-+
-+	spin_lock_bh(&vsock->loopback_list_lock);
-+	list_add_tail(&pkt->list, &vsock->loopback_list);
-+	spin_unlock_bh(&vsock->loopback_list_lock);
-+
-+	queue_work(virtio_vsock_workqueue, &vsock->loopback_work);
-+
-+	return len;
-+}
-+
- static void
- virtio_transport_send_pkt_work(struct work_struct *work)
- {
-@@ -159,6 +199,10 @@ virtio_transport_send_pkt(struct virtio_vsock_pkt *pkt)
- 		return -ENODEV;
- 	}
- 
-+	if (le32_to_cpu(pkt->hdr.dst_cid) == vsock->guest_cid) {
-+		return virtio_transport_send_pkt_loopback(vsock, pkt);
-+	}
-+
- 	if (pkt->reply)
- 		atomic_inc(&vsock->queued_replies);
- 
-@@ -510,10 +554,13 @@ static int virtio_vsock_probe(struct virtio_device *vdev)
- 	mutex_init(&vsock->event_lock);
- 	spin_lock_init(&vsock->send_pkt_list_lock);
- 	INIT_LIST_HEAD(&vsock->send_pkt_list);
-+	spin_lock_init(&vsock->loopback_list_lock);
-+	INIT_LIST_HEAD(&vsock->loopback_list);
- 	INIT_WORK(&vsock->rx_work, virtio_transport_rx_work);
- 	INIT_WORK(&vsock->tx_work, virtio_transport_tx_work);
- 	INIT_WORK(&vsock->event_work, virtio_transport_event_work);
- 	INIT_WORK(&vsock->send_pkt_work, virtio_transport_send_pkt_work);
-+	INIT_WORK(&vsock->loopback_work, virtio_transport_loopback_work);
- 
- 	mutex_lock(&vsock->rx_lock);
- 	virtio_vsock_rx_fill(vsock);
-@@ -539,6 +586,7 @@ static void virtio_vsock_remove(struct virtio_device *vdev)
- 	struct virtio_vsock *vsock = vdev->priv;
- 	struct virtio_vsock_pkt *pkt;
- 
-+	flush_work(&vsock->loopback_work);
- 	flush_work(&vsock->rx_work);
- 	flush_work(&vsock->tx_work);
- 	flush_work(&vsock->event_work);
-@@ -565,6 +613,15 @@ static void virtio_vsock_remove(struct virtio_device *vdev)
- 	}
- 	spin_unlock_bh(&vsock->send_pkt_list_lock);
- 
-+	spin_lock_bh(&vsock->loopback_list_lock);
-+	while (!list_empty(&vsock->loopback_list)) {
-+		pkt = list_first_entry(&vsock->loopback_list,
-+				       struct virtio_vsock_pkt, list);
-+		list_del(&pkt->list);
-+		virtio_transport_free_pkt(pkt);
-+	}
-+	spin_unlock_bh(&vsock->loopback_list_lock);
-+
- 	mutex_lock(&the_virtio_vsock_mutex);
- 	the_virtio_vsock = NULL;
- 	vsock_core_exit();
--- 
-2.7.4
+Applied and queued up for -stable, thank you.
