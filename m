@@ -1,78 +1,62 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Netperf UDP issue with connected sockets
-Date: Thu, 17 Nov 2016 15:57:53 +0100
-Message-ID: <20161117155753.17b76f5a@redhat.com>
-References: <20140903165943.372b897b@redhat.com>
-        <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
-        <20161116131609.4e5726b4@redhat.com>
-        <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
-        <20161116234022.2bad179b@redhat.com>
-        <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20161117091638.5fab8494@redhat.com>
-        <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20161117144248.23500001@redhat.com>
-        <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Subject: Re: [PATCH] net: sky2: Fix shutdown crash
+Date: Thu, 17 Nov 2016 16:14:10 +0000
+Message-ID: <52ae014e-573a-2cb7-cb9c-a2d604bda97d@arm.com>
+References: <1479395665-27784-1-git-send-email-jeremy.linton@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, mlindner@marvell.com,
+        stephen@networkplumber.org
+To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37808 "EHLO mx1.redhat.com"
+Received: from foss.arm.com ([217.140.101.70]:57182 "EHLO foss.arm.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932570AbcKQR0F (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Nov 2016 12:26:05 -0500
-In-Reply-To: <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+        id S932461AbcKQRcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 12:32:20 -0500
+In-Reply-To: <1479395665-27784-1-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Nov 2016 06:17:38 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On Thu, 2016-11-17 at 14:42 +0100, Jesper Dangaard Brouer wrote:
-> 
-> > I can see that qdisc layer does not activate xmit_more in this case.
-> >   
-> 
-> Sure. Not enough pressure from the sender(s).
-> 
-> The bottleneck is not the NIC or qdisc in your case, meaning that BQL
-> limit is kept at a small value.
-> 
-> (BTW not all NIC have expensive doorbells)
 
-I believe this NIC mlx5 (50G edition) does.
+On 17/11/16 15:14, Jeremy Linton wrote:
+> The sky2 frequently crashes during machine shutdown with:
+>
+> sky2_get_stats+0x60/0x3d8 [sky2]
+> dev_get_stats+0x68/0xd8
+> rtnl_fill_stats+0x54/0x140
+> rtnl_fill_ifinfo+0x46c/0xc68
+> rtmsg_ifinfo_build_skb+0x7c/0xf0
+> rtmsg_ifinfo.part.22+0x3c/0x70
+> rtmsg_ifinfo+0x50/0x5c
+> netdev_state_change+0x4c/0x58
+> linkwatch_do_dev+0x50/0x88
+> __linkwatch_run_queue+0x104/0x1a4
+> linkwatch_event+0x30/0x3c
+> process_one_work+0x140/0x3e0
+> worker_thread+0x60/0x44c
+> kthread+0xdc/0xf0
+> ret_from_fork+0x10/0x50
+>
+> This is caused by the sky2 being called after it has been shutdown.
+> A previous thread about this can be found here:
+>
+> https://lkml.org/lkml/2016/4/12/410
+>
+> An alternative fix is to assure that IFF_UP gets cleared by
+> calling dev_close() during shutdown. This is similar to what the
+> bnx2/tg3/xgene and maybe others are doing to assure that the driver
+> isn't being called following _shutdown().
+>
+> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
 
-I'm seeing UDP TX of 1656017.55 pps, which is per packet:
-2414 cycles(tsc) 603.86 ns
+Since this issue has been very random and on/off recently, it's quite
+hard to test this and confirm. However I did around 20 reboot/shutdown
+and could not reproduce the issue after applying this patch. So,
 
-Perf top shows (with my own udp_flood, that avoids __ip_select_ident):
-
- Samples: 56K of event 'cycles', Event count (approx.): 51613832267
-   Overhead  Command        Shared Object        Symbol
- +    8.92%  udp_flood      [kernel.vmlinux]     [k] _raw_spin_lock
-   - _raw_spin_lock
-      + 90.78% __dev_queue_xmit
-      + 7.83% dev_queue_xmit
-      + 1.30% ___slab_alloc
- +    5.59%  udp_flood      [kernel.vmlinux]     [k] skb_set_owner_w
- +    4.77%  udp_flood      [mlx5_core]          [k] mlx5e_sq_xmit
- +    4.09%  udp_flood      [kernel.vmlinux]     [k] fib_table_lookup
- +    4.00%  swapper        [mlx5_core]          [k] mlx5e_poll_tx_cq
- +    3.11%  udp_flood      [kernel.vmlinux]     [k] __ip_route_output_key_hash
- +    2.49%  swapper        [kernel.vmlinux]     [k] __slab_free
-
-In this setup the spinlock in __dev_queue_xmit should be uncongested.
-An uncongested spin_lock+unlock cost 32 cycles(tsc) 8.198 ns on this system.
-
-But 8.92% of the time is spend on it, which corresponds to a cost of 215
-cycles (2414*0.0892).  This cost is too high, thus something else is
-going on... I claim this mysterious extra cost is the tailptr/doorbell.
+Tested-by: Sudeep Holla <sudeep.holla@arm.com>
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Regards,
+Sudeep
