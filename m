@@ -1,62 +1,86 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [iproute2] iproute2: fix the link group name getting error
-Date: Fri, 18 Nov 2016 09:12:53 +0800
-Message-ID: <1479431573-2910-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:19232 "EHLO
-        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750849AbcKRBTR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 20:19:17 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris Lesiak <chris.lesiak@licor.com>
+Subject: [PATCH] net: fec: Detect and recover receive queue hangs
+Date: Thu, 17 Nov 2016 15:14:42 -0600
+Message-ID: <1479417282-15540-1-git-send-email-chris.lesiak@licor.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        "Jaccon Bastiaansen" <jaccon.bastiaansen@gmail.com>,
+        <chris.lesiak@licor.com>
+To: Fugang Duan <fugang.duan@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In the situation where more than one entry live in the same hash bucket,
-loop to get the correct one.
+This corrects a problem that appears to be similar to ERR006358.  But
+while ERR006358 is a race when the tx queue transitions from empty to
+not empty, this problem is a race when the rx queue transitions from
+full to not full.
 
-Before:
-$ cat /etc/iproute2/group
-0	default
-256     test
+The symptom is a receive queue that is stuck.  The ENET_RDAR register
+will read 0, indicating that there are no empty receive descriptors in
+the receive ring.  Since no additional frames can be queued, no RXF
+interrupts occur.
 
-$ sudo ip link set group test dummy1
+This problem can be triggered with a 1 Gb link and about 400 Mbps of
+traffic.
 
-$ ip link show type dummy
-11: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group 0 qlen 1000
-    link/ether 4e:3b:d3:6c:f0:e6 brd ff:ff:ff:ff:ff:ff
-12: dummy1: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group test qlen 1000
-    link/ether d6:9c:a4:1f:e7:e5 brd ff:ff:ff:ff:ff:ff
+This patch detects this condition, sets the work_rx bit, and
+reschedules the poll method.
 
-After:
-$ ip link show type dummy
-11: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 4e:3b:d3:6c:f0:e6 brd ff:ff:ff:ff:ff:ff
-12: dummy1: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group test qlen 1000
-    link/ether d6:9c:a4:1f:e7:e5 brd ff:ff:ff:ff:ff:ff
-
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Signed-off-by: Chris Lesiak <chris.lesiak@licor.com>
 ---
- lib/rt_names.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
-diff --git a/lib/rt_names.c b/lib/rt_names.c
-index b665d3e..c66cb1e 100644
---- a/lib/rt_names.c
-+++ b/lib/rt_names.c
-@@ -559,8 +559,12 @@ const char *rtnl_group_n2a(int id, char *buf, int len)
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index fea0f33..8a87037 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1588,6 +1588,34 @@ fec_enet_interrupt(int irq, void *dev_id)
+ 	return ret;
+ }
  
- 	for (i = 0; i < 256; i++) {
- 		entry = rtnl_group_hash[i];
--		if (entry && entry->id == id)
--			return entry->name;
++static inline bool
++fec_enet_recover_rxq(struct fec_enet_private *fep, u16 queue_id)
++{
++	int work_bit = (queue_id == 0) ? 2 : ((queue_id == 1) ? 0 : 1);
 +
-+		while (entry) {
-+			if (entry->id == id)
-+				return entry->name;
-+			entry = entry->next;
-+		}
++	if (readl(fep->rx_queue[queue_id]->bd.reg_desc_active))
++		return false;
++
++	dev_notice_once(&fep->pdev->dev, "Recovered rx queue\n");
++
++	fep->work_rx |= 1 << work_bit;
++
++	return true;
++}
++
++static inline bool fec_enet_recover_rxqs(struct fec_enet_private *fep)
++{
++	unsigned int q;
++	bool ret = false;
++
++	for (q = 0; q < fep->num_rx_queues; q++) {
++		if (fec_enet_recover_rxq(fep, q))
++			ret = true;
++	}
++
++	return ret;
++}
++
+ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
+ {
+ 	struct net_device *ndev = napi->dev;
+@@ -1601,6 +1629,9 @@ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
+ 	if (pkts < budget) {
+ 		napi_complete(napi);
+ 		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++
++		if (fec_enet_recover_rxqs(fep) && napi_reschedule(napi))
++			writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
  	}
- 
- 	snprintf(buf, len, "%d", id);
+ 	return pkts;
+ }
 -- 
-1.8.3.1
+2.5.5
