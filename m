@@ -1,72 +1,167 @@
-From: Andrei Vagin <avagin@gmail.com>
-Subject: Re: [Patch net] net: check dead netns for peernet2id_alloc()
-Date: Wed, 16 Nov 2016 23:17:05 -0800
-Message-ID: <CANaxB-yVpvudJaG_NY4LpuCu-Jy1ya8r=sW_Rjb2pEn176snYQ@mail.gmail.com>
-References: <1479320822-17483-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: Virtio_net support vxlan encapsulation package TSO offload
+ discuss
+Date: Thu, 17 Nov 2016 15:27:40 +0800
+Message-ID: <0438366c-8b0e-270e-cbd1-334c1d655428@redhat.com>
+References: <DBCD2614ECF3FF4087A2C27CA80E34DD5401AC8B@SZXEMA501-MBX.china.huawei.com>
+ <c2f735e4-eddf-f737-2afe-35a93289f8d4@redhat.com>
+ <3a0b8f10-f479-3ed5-dd10-5b92de3eb593@redhat.com>
+ <DBCD2614ECF3FF4087A2C27CA80E34DD5401ADA8@SZXEMA501-MBX.china.huawei.com>
+ <53d0322b-4ce1-d0db-4b53-f9e860ece2c5@redhat.com>
+ <DBCD2614ECF3FF4087A2C27CA80E34DD5401BE13@SZXEMA501-MBX.china.huawei.com>
+ <6db6b2a1-edbc-0068-d7d4-e8e15d18edc6@redhat.com>
+ <DBCD2614ECF3FF4087A2C27CA80E34DD54027936@SZXEMA501-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        Vlad Yasevic <vyasevic@redhat.com>,
+        Amnon Ilan <ailan@redhat.com>
+To: "Zhangming (James, Euler)" <james.zhangming@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:38375 "EHLO
-        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751139AbcKQHRG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 02:17:06 -0500
-Received: by mail-it0-f43.google.com with SMTP id j191so27171630ita.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 23:17:06 -0800 (PST)
-In-Reply-To: <1479320822-17483-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:60970 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750785AbcKQH1r (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 02:27:47 -0500
+In-Reply-To: <DBCD2614ECF3FF4087A2C27CA80E34DD54027936@SZXEMA501-MBX.china.huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2016 at 10:27 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> Andrei reports we still allocate netns ID from idr after we destroy
-> it in cleanup_net().
->
-> cleanup_net():
->   ...
->   idr_destroy(&net->netns_ids);
->   ...
->   list_for_each_entry_reverse(ops, &pernet_list, list)
->     ops_exit_list(ops, &net_exit_list);
->       -> rollback_registered_many()
->         -> rtmsg_ifinfo_build_skb()
->          -> rtnl_fill_ifinfo()
->            -> peernet2id_alloc()
->
-> After that point we should not even access net->netns_ids, we
-> should check the death of the current netns as early as we can in
-> peernet2id_alloc().
->
-> For net-next we can consider to avoid sending rtmsg totally,
-> it is a good optimization for netns teardown path.
 
-It works for me and looks good. Thanks.
 
-Acked-by: Andrei Vagin <avagin@openvz.org>
+On 2016年11月17日 09:31, Zhangming (James, Euler) wrote:
+> On 2016年11月15日 11:28, Jason Wang wrote:
+>> On 2016年11月10日 14:19, Zhangming (James, Euler) wrote:
+>>> On 2016年11月09日 15:14, Jason Wang wrote:
+>>>> On 2016年11月08日 19:58, Zhangming (James, Euler) wrote:
+>>>>> On 2016年11月08日 19:17, Jason Wang wrote:
+>>>>>
+>>>>>> On 2016年11月08日 19:13, Jason Wang wrote:
+>>>>>>> Cc Michael
+>>>>>>>
+>>>>>>> On 2016年11月08日 16:34, Zhangming (James, Euler) wrote:
+>>>>>>>> In container scenario, OVS is installed in the Virtual machine,
+>>>>>>>> and all the containers connected to the OVS will communicated
+>>>>>>>> through VXLAN encapsulation.
+>>>>>>>>
+>>>>>>>> By now, virtio_net does not support TSO offload for VXLAN
+>>>>>>>> encapsulated TSO package. In this condition, the performance is
+>>>>>>>> not good, sender is bottleneck
+>>>>>>>>
+>>>>>>>> I googled this scenario, but I didn’t find any information. Will
+>>>>>>>> virtio_net support VXLAN encapsulation package TSO offload later?
+>>>>>>>>
+>>>>>>> Yes and for both sender and receiver.
+>>>>>>>
+>>>>>>>> My idea is virtio_net open encapsulated TSO offload, and
+>>>>>>>> transport encapsulation info to TUN, TUN will parse the info and
+>>>>>>>> build skb with encapsulation info.
+>>>>>>>>
+>>>>>>>> OVS or kernel on the host should be modified to support this.
+>>>>>>>> Using this method, the TCP performance aremore than 2x as before.
+>>>>>>>>
+>>>>>>>> Any advice and suggestions for this idea or new idea will be
+>>>>>>>> greatly appreciated!
+>>>>>>>>
+>>>>>>>> Best regards,
+>>>>>>>>
+>>>>>>>>       James zhang
+>>>>>>>>
+>>>>>>> Sounds very good. And we may also need features bits
+>>>>>>> (VIRTIO_NET_F_GUEST|HOST_GSO_X) for this.
+>>>>>>>
+>>>>>>> This is in fact one of items in networking todo list. (See
+>>>>>>> http://www.linux-kvm.org/page/NetworkingTodo). While at it, we'd
+>>>>>>> better support not only VXLAN but also other tunnels.
+>>>>>> Cc Vlad who is working on extending virtio-net headers.
+>>>>>>
+>>>>>>> We can start with the spec work, or if you've already had some
+>>>>>>> bits you can post them as RFC for early review.
+>>>>>>>
+>>>>>>> Thanks
+>>>>> Below is my demo code
+>>>>> Virtio_net.c
+>>>>> static int virtnet_probe(struct virtio_device *vdev), add belows codes:
+>>>>>            if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||				// avoid gso segment, it should be negotiation later, because in the demo I reuse num_buffers.
+>>>>>                virtio_has_feature(vdev, VIRTIO_F_VERSION_1)) {
+>>>>>                    dev->hw_enc_features |= NETIF_F_TSO;
+>>>>>                    dev->hw_enc_features |= NETIF_F_ALL_CSUM;
+>>>>>                    dev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
+>>>>>                    dev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>>>>>                    dev->hw_enc_features |=
+>>>>> NETIF_F_GSO_TUNNEL_REMCSUM;
+>>>>>
+>>>>>                    dev->features |= NETIF_F_GSO_UDP_TUNNEL;
+>>>>>                    dev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>>>>>                    dev->features |= NETIF_F_GSO_TUNNEL_REMCSUM;
+>>>>>            }
+>>>>>
+>>>>> static int xmit_skb(struct send_queue *sq, struct sk_buff *skb), add
+>>>>> below to pieces of codes
+>>>>>
+>>>>>                    if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
+>>>>>                            hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL;
+>>>>>                    if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)
+>>>>>                            hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL_CSUM;
+>>>>>                    if (skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM)
+>>>>>                            hdr->hdr.gso_type |=
+>>>>> VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM;
+>>>>>
+>>>>>            if (skb->encapsulation && skb_is_gso(skb)) {
+>>>>>                    inner_mac_len = skb_inner_network_header(skb) - skb_inner_mac_header(skb);
+>>>>>                    tnl_len = skb_inner_mac_header(skb) - skb_mac_header(skb);
+>>>>>                    if ( !(inner_mac_len >> DATA_LEN_SHIFT) && !(tnl_len >> DATA_LEN_SHIFT) ) {
+>>>>>                            hdr->hdr.flags |= VIRTIO_NET_HDR_F_ENCAPSULATION;
+>>>>>                            hdr->num_buffers = (__virtio16)((inner_mac_len << DATA_LEN_SHIFT) | tnl_len);		//we reuse num_buffers for simple , we should add extend member for later.
+>>>>>                    }  else
+>>>>>                            hdr->num_buffers = 0;
+>>>>>            }
+>>>>>
+>>>>> Tun.c
+>>>>>                    if (memcpy_fromiovecend((void *)&hdr, iv, offset, tun->vnet_hdr_sz))		//read header with negotiation length
+>>>>>                            return -EFAULT;
+>>>>>
+>>>>>                    if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL)					//set tunnel gso info
+>>>>>                            skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
+>>>>>                    if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_CSUM)
+>>>>>                            skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
+>>>>>                    if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM)
+>>>>>                            skb_shinfo(skb)->gso_type |=
+>>>>> SKB_GSO_TUNNEL_REMCSUM;
+>>>>>
+>>>>>            if (hdr.flags & VIRTIO_NET_HDR_F_ENCAPSULATION) {						//read tunnel info from header and set to built skb.
+>>>>>                    tnl_len = tun16_to_cpu(tun, hdr.num_buffers) & TUN_TNL_LEN_MASK;
+>>>>>                    payload_mac_len = tun16_to_cpu(tun, hdr.num_buffers) >> TUN_DATA_LEN_SHIFT;
+>>>>>                    mac_len = skb_network_header(skb) - skb_mac_header(skb);
+>>>>>                    skb_set_inner_mac_header(skb, tnl_len - mac_len);
+>>>>>                    skb_set_inner_network_header(skb, tnl_len + payload_mac_len - mac_len);
+>>>>>                    skb->encapsulation = 1;
+>>>>>            }
+>>>>>
+>>>>>
+>>>> Something like this, and you probably need do something more:
+>>>>
+>>>> - use net-next.git to generate the patch (for the latest code)
+>>>> - add feature negotiation
+>>>> - tun/macvtap/qemu patches for this, you can start with tun/macvtap
+>>>> patches
+>>>> - support for all other SKB_GSO_* types which is not supported
+>>>> - use a new field instead of num_buffers
+>>>> - a virtio spec patch to describe the support for encapsulation
+>>>> offload
+>>>>
+>>>> Thanks
+>>> Thank you for your advice, I will start it right now.
+>>>
+>>> Thanks
+>> Cool, one more question: while at it, I think you may want to add support for dpdk too?
+>>
+>> Thanks
+> Do you mean that the patch should be compatible with virtio pmd, or give virtio pmd patch?
+>
+> Thanks
 
->
-> Fixes: 0c7aecd4bde4 ("netns: add rtnl cmd to add and get peer netns ids")
-> Reported-by: Andrei Vagin <avagin@gmail.com>
-> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/core/net_namespace.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> index f61c0e0..7001da9 100644
-> --- a/net/core/net_namespace.c
-> +++ b/net/core/net_namespace.c
-> @@ -219,6 +219,8 @@ int peernet2id_alloc(struct net *net, struct net *peer)
->         bool alloc;
->         int id;
->
-> +       if (atomic_read(&net->count) == 0)
-> +               return NETNSA_NSID_NOT_ASSIGNED;
->         spin_lock_irqsave(&net->nsid_lock, flags);
->         alloc = atomic_read(&peer->count) == 0 ? false : true;
->         id = __peernet2id_alloc(net, peer, &alloc);
-> --
-> 2.1.0
->
+I mean it's better to prepare patches for both virtio pmd and dpdk.
+
+Thanks
