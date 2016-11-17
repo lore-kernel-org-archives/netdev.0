@@ -1,61 +1,90 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH 1/1] ixgbe: write flush vfta registers
-Date: Thu, 17 Nov 2016 17:33:03 +0800
-Message-ID: <CAD=hENfbWUobVvUOKhjRi+7fNCj=87R3GFeGjXg+zd_zez_SpQ@mail.gmail.com>
-References: <1479300041-3436-1-git-send-email-zyjzyj2000@gmail.com>
-	<trinity-ec3a2e6f-7310-41aa-8743-61bc62ccf663-1479305144399@3capp-gmx-bs59>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next v2 3/4] bpf, mlx5: drop priv->xdp_prog reference
+ on netdev cleanup
+Date: Thu, 17 Nov 2016 11:34:37 +0200
+Message-ID: <CALzJLG9J0J0AGP_+0WukLG9N3vzukPoJf4Br-iFdDXzWowb6pg@mail.gmail.com>
+References: <cover.1479253024.git.daniel@iogearbox.net> <4617cac95e3ca1b608f5d0a55709b0534c168943.1479253024.git.daniel@iogearbox.net>
+ <CALzJLG9Rzds3H-wXnjCg=_2oGV-33TY714Hx0n+NyVsZzcBBfA@mail.gmail.com>
+ <582C7F11.7000006@iogearbox.net> <582C817A.4030902@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <trinity-ec3a2e6f-7310-41aa-8743-61bc62ccf663-1479305144399@3capp-gmx-bs59>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Brenden Blanco <bblanco@plumgrid.com>, zhiyisun@gmail.com,
+        Rana Shahout <ranas@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35166 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752941AbcKQJe7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 04:34:59 -0500
+Received: by mail-wm0-f66.google.com with SMTP id a20so19404156wme.2
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 01:34:59 -0800 (PST)
+In-Reply-To: <582C817A.4030902@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U3VyZS4gRnJvbSB0aGUgZm9sbG93aW5nLgoiClZMQU4gRmlsdGVyLiBFYWNoIGJpdCDigJhp4oCZ
-IGluIHJlZ2lzdGVyIOKAmG7igJkgYWZmZWN0cyBwYWNrZXRzIHdpdGggVkxBTgp0YWdzIGVxdWFs
-IHRvIDMyKm4raS4KMTI4IFZMQU4gRmlsdGVyIHJlZ2lzdGVycyBjb21wb3NlIGEgdGFibGUgb2Yg
-NDA5NiBiaXRzIHRoYXQgY292ZXIgYWxsCnBvc3NpYmxlIFZMQU4KdGFncy4KRWFjaCBiaXQgd2hl
-biBzZXQsIGVuYWJsZXMgcGFja2V0cyB3aXRoIHRoZSBhc3NvY2lhdGVkIFZMQU4gdGFncyB0bwpw
-YXNzLiBFYWNoIGJpdAp3aGVuIGNsZWFyZWQsIGJsb2NrcyBwYWNrZXRzIHdpdGggdGhpcyBWTEFO
-IHRhZy4KIgpZb3VyIHN1Z2dlc3Rpb25zIHNlZW1zIHJlYXNvbmFibGUuIFBsZWFzZSB3YWl0LiBJ
-IHdpbGwgbWFrZSB0ZXN0cyB0bwp2ZWZpcnkgeW91ciBzdWdnZXN0aW9ucy4KCkkgd2lsbCBrZWVw
-IHlvdSB1cGRhdGUuCgpPbiBXZWQsIE5vdiAxNiwgMjAxNiBhdCAxMDowNSBQTSwgTGlubyBTYW5m
-aWxpcHBvIDxMaW5vU2FuZmlsaXBwb0BnbXguZGU+IHdyb3RlOgo+Cj4KPiBIaSwKPgo+Pgo+PiBT
-b21ldGltZXMgdmZ0YSByZWdpc3RlcnMgY2FuIG5vdCBiZSB3cml0dGVuIHN1Y2Nlc3NmdWxseSBp
-biBkY2IgbW9kZS4KPj4gVGhpcyBpcyB2ZXJ5IG9jY2Fzc2lvbmFsLiBXaGVuIHRoZSBpeGdiZSBu
-aWMgcnVucyBmb3IgYSB2ZXJ5IGxvbmcgdGltZSwKPj4gc29tZXRpbWVzIHRoaXMgYnVnIG9jY3Vy
-cy4gQnV0IGFmdGVyIElYR0JFX1dSSVRFX0ZMVVNIIGlzIGV4ZWN1dGVkLAo+PiB0aGlzIGJ1ZyBu
-ZXZlciBvY2N1cnMuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFpodSBZYW5qdW4gPHp5anp5ajIwMDBA
-Z21haWwuY29tPgo+PiAtLS0KPj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4
-Z2JlX21haW4uYyB8IDUgKysrKy0KPj4gIDEgZmlsZSBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyks
-IDEgZGVsZXRpb24oLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2l4Z2JlL2l4Z2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2Jl
-L2l4Z2JlX21haW4uYwo+PiBpbmRleCBiZDkzZDgyLi4xMjIxY2ZiIDEwMDY0NAo+PiAtLS0gYS9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMKPj4gKysrIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jCj4+IEBAIC00MTM4LDgg
-KzQxMzgsMTAgQEAgc3RhdGljIHZvaWQgaXhnYmVfdmxhbl9wcm9taXNjX2VuYWJsZShzdHJ1Y3Qg
-aXhnYmVfYWRhcHRlciAqYWRhcHRlcikKPj4gICAgICAgfQo+Pgo+PiAgICAgICAvKiBTZXQgYWxs
-IGJpdHMgaW4gdGhlIFZMQU4gZmlsdGVyIHRhYmxlIGFycmF5ICovCj4+IC0gICAgIGZvciAoaSA9
-IGh3LT5tYWMudmZ0X3NpemU7IGktLTspCj4+ICsgICAgIGZvciAoaSA9IGh3LT5tYWMudmZ0X3Np
-emU7IGktLTspIHsKPj4gICAgICAgICAgICAgICBJWEdCRV9XUklURV9SRUcoaHcsIElYR0JFX1ZG
-VEEoaSksIH4wVSk7Cj4+ICsgICAgICAgICAgICAgSVhHQkVfV1JJVEVfRkxVU0goaHcpOwo+PiAr
-ICAgICB9Cj4KPiBTaG91bGQgaXQgbm90IGJlIHN1ZmZpY2llbnQgdG8gZG8gdGhlIGZsdXNoIG9u
-bHkgb25jZSwgYXQgdGhlIGVuZCBvZiB0aGUgZnVuY3Rpb24/Cj4KPiBSZWdhcmRzLAo+IExpbm8K
-Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMu
-c291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3Rp
-bmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQs
-IHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
+On Wed, Nov 16, 2016 at 5:55 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 11/16/2016 04:45 PM, Daniel Borkmann wrote:
+>>
+>> On 11/16/2016 01:51 PM, Saeed Mahameed wrote:
+>>>
+>>> On Wed, Nov 16, 2016 at 2:04 AM, Daniel Borkmann <daniel@iogearbox.net>
+>>> wrote:
+>>>>
+>>>> mlx5e_xdp_set() is currently the only place where we drop reference on
+>>>> the
+>>>> prog sitting in priv->xdp_prog when it's exchanged by a new one. We also
+>>>> need to make sure that we eventually release that reference, for
+>>>> example,
+>>>> in case the netdev is dismantled.
+>>>>
+>>>> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
+>>>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>>>> ---
+>>>>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 +++
+>>>>   1 file changed, 3 insertions(+)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>>>> b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>>>> index cf26672..60fe54c 100644
+>>>> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>>>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>>>> @@ -3715,6 +3715,9 @@ static void mlx5e_nic_cleanup(struct mlx5e_priv
+>>>> *priv)
+>>>>
+>>>>          if (MLX5_CAP_GEN(mdev, vport_group_manager))
+>>>>                  mlx5_eswitch_unregister_vport_rep(esw, 0);
+>>>> +
+>>>> +       if (priv->xdp_prog)
+>>>> +               bpf_prog_put(priv->xdp_prog);
+>>>>   }
+>>>
+>>>
+>>> I thought that on unregister_netdev  ndo_xdp_set will be called with
+>>> NULL prog to cleanup. like any other resources (Vlans/mac_lists/
+>>> etc..), why xdp should be different ?
+>>> Anyway if this is the case, I am ok with this fix, you can even send
+>>> it to net (it looks like a serious leak).
+>>
+>>
+>> The only interaction with ndo_xdp() right now is dev_change_xdp_fd()
+>> and the currently a bit terse dump via rtnl_xdp_fill(). The latter
+>> only tells whether something is actually attached and will have more
+>> info in near future, but doesn't alter anything.
+>>
+>> dev_change_xdp_fd() is only triggered from user side via netlink when
+>> IFLA_XDP container attr is around, so no automatic cleanup here. This
+>> means as per documentation in enum xdp_netdev_command, that the driver
+>> has full ownership, thus needs to bpf_prog_put().
+>
+>
+> Note that without patch 2/4, just sending this one to net doesn't really
+> solve anything, since there the mlx5e_xdp_set() still has the incorrect
+> bpf_prog_add(prog, 1) around. So it's the whole series if so. I had it
+> originally targeted at net, but Alexei suggested net-next; I don't really
+> mind either way, so I agreed to go for net-next.
+
+Ok, Thank you Daniel
