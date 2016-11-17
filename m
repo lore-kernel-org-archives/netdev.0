@@ -1,66 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net v2] net: nsid cannot be allocated for a dead netns
-Date: Wed, 16 Nov 2016 22:32:18 -0800
-Message-ID: <CAM_iQpUGayFoDSQL2w6bOVKG2q=dSDyf1jQ5LvrYuy7V_y_auA@mail.gmail.com>
-References: <201611161759.tCk5fdCO%fengguang.wu@intel.com> <1479289775-1715-1-git-send-email-nicolas.dichtel@6wind.com>
- <CAM_iQpXzp54gOyiRu4PUcJhLEB3T+TTEL+JLE2PL+oB31ZuCJw@mail.gmail.com> <20161116.231722.2198167385156796830.davem@davemloft.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v3] mwifiex: report wakeup for wowlan
+Date: Thu, 17 Nov 2016 06:41:20 +0000 (UTC)
+Message-ID: <20161117064120.5925C61414@smtp.codeaurora.org>
+References: <1475613462-93384-1-git-send-email-rajatja@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Andrey Wagin <avagin@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Rajat Jain <rajatja@google.com>,
+        Wei-Ning Huang <wnhuang@google.com>,
+        Brian Norris <briannorris@google.com>,
+        Eric Caruso <ejcaruso@chromium.org>, rajatxjain@gmail.com
+To: Rajat Jain <rajatja@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:34431 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938562AbcKQGcj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 01:32:39 -0500
-Received: by mail-it0-f66.google.com with SMTP id o1so12997976ito.1
-        for <netdev@vger.kernel.org>; Wed, 16 Nov 2016 22:32:39 -0800 (PST)
-In-Reply-To: <20161116.231722.2198167385156796830.davem@davemloft.net>
+Received: from smtp.codeaurora.org ([198.145.29.96]:42642 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938562AbcKQGlV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 01:41:21 -0500
+In-Reply-To: <1475613462-93384-1-git-send-email-rajatja@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 16, 2016 at 8:17 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Wed, 16 Nov 2016 09:29:29 -0800
->
->> On Wed, Nov 16, 2016 at 1:49 AM, Nicolas Dichtel
->> <nicolas.dichtel@6wind.com> wrote:
->>> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->>> index f61c0e02a413..63f65387f4e1 100644
->>> --- a/net/core/net_namespace.c
->>> +++ b/net/core/net_namespace.c
->>> @@ -159,6 +159,9 @@ static int alloc_netid(struct net *net, struct net *peer, int reqid)
->>>                 max = reqid + 1;
->>>         }
->>>
->>> +       if (!atomic_read(&net->count) || !atomic_read(&peer->count))
->>> +               return -EINVAL;
->>> +
->>>         return idr_alloc(&net->netns_ids, peer, min, max, GFP_ATOMIC);
->>>  }
->>
->>
->> There is already a check in peernet2id_alloc(), so why not just the following?
->>
->> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->> index f61c0e0..7001da9 100644
->> --- a/net/core/net_namespace.c
->> +++ b/net/core/net_namespace.c
->> @@ -219,6 +219,8 @@ int peernet2id_alloc(struct net *net, struct net *peer)
->>         bool alloc;
->>         int id;
->>
->> +       if (atomic_read(&net->count) == 0)
->> +               return NETNSA_NSID_NOT_ASSIGNED;
->>         spin_lock_irqsave(&net->nsid_lock, flags);
->>         alloc = atomic_read(&peer->count) == 0 ? false : true;
->>         id = __peernet2id_alloc(net, peer, &alloc);
->
-> Indeed, this looks cleaner, Nicolas?
+Rajat Jain <rajatja@google.com> wrote:
+> Register the WLAN device as a wakeup source since it can
+> wake the system via wake-on-wireless-lan. In an actual wowlan
+> event, notify the PM core that we are the current wakeup source.
+> This allows the PM core to update the wakeup attributes in /sys.
+> 
+> This was causing wakeup issues on chromeos as the system was
+> apparently confused about the wakeup source.
+> 
+> Signed-off-by: Wei-Ning Huang <wnhuang@google.com>
+> Signed-off-by: Rajat Jain <rajatja@google.com>
+> Tested-by: Wei-Ning Huang <wnhuang@chromium.org>
+> Reviewed-by: Eric Caruso <ejcaruso@chromium.org>
+> Acked-by: Amitkumar Karwar <akarwar@marvell.com>
 
-Yeah, I already sent a formal patch:
-https://patchwork.ozlabs.org/patch/695747/
+Patch applied to wireless-drivers-next.git, thanks.
 
-since Nicolas' patch doesn't even compile...
+df566a481ee8 mwifiex: report wakeup for wowlan
+
+-- 
+https://patchwork.kernel.org/patch/9362275/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
