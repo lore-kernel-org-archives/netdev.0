@@ -1,44 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Netperf UDP issue with connected sockets
-Date: Thu, 17 Nov 2016 05:20:50 -0800
-Message-ID: <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20140903165943.372b897b@redhat.com>
-         <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
-         <20161116131609.4e5726b4@redhat.com>
-         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
-         <20161116234022.2bad179b@redhat.com>
-         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117091638.5fab8494@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net v2] net: nsid cannot be allocated for a dead netns
+Date: Thu, 17 Nov 2016 08:50:16 -0800
+Message-ID: <CAM_iQpW+r3vpQb0=0Bd7xj7DVFUNMh4voGRCyggaMS4u2bOziw@mail.gmail.com>
+References: <201611161759.tCk5fdCO%fengguang.wu@intel.com> <1479289775-1715-1-git-send-email-nicolas.dichtel@6wind.com>
+ <CAM_iQpXzp54gOyiRu4PUcJhLEB3T+TTEL+JLE2PL+oB31ZuCJw@mail.gmail.com>
+ <20161116.231722.2198167385156796830.davem@davemloft.net> <CAM_iQpUGayFoDSQL2w6bOVKG2q=dSDyf1jQ5LvrYuy7V_y_auA@mail.gmail.com>
+ <0fb84877-d43d-736a-c5a8-1ca954f90925@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
+        Andrey Wagin <avagin@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:36677 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753205AbcKQRO7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:14:59 -0500
-Received: by mail-pg0-f43.google.com with SMTP id f188so93196692pgc.3
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 09:14:58 -0800 (PST)
-In-Reply-To: <20161117091638.5fab8494@redhat.com>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:36584 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754446AbcKQRQH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 12:16:07 -0500
+Received: by mail-it0-f54.google.com with SMTP id l8so150615178iti.1
+        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 09:16:06 -0800 (PST)
+In-Reply-To: <0fb84877-d43d-736a-c5a8-1ca954f90925@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-11-17 at 09:16 +0100, Jesper Dangaard Brouer wrote:
+On Thu, Nov 17, 2016 at 12:41 AM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> Le 17/11/2016 =C3=A0 07:32, Cong Wang a =C3=A9crit :
+> [snip]
+>> since Nicolas' patch doesn't even compile...
+> It's always surprising how agressive you are, really :(
+> Can you show me the compilation error of this patch (we are talking about=
+ the v2
+> patch here)?
 
-> 
-> I noticed there is a Send-Q, and the perf-top2 is _raw_spin_lock, which
-> looks like it comes from __dev_queue_xmit(), but we know from
-> experience that this stall is actually caused by writing the
-> tailptr/doorbell in the HW.  Thus, this could benefit a lot from
-> bulk/xmit_more into the qdisc layer.
+Sorry about that, I didn't event look at your v2, because your patch
+(no matter v2 or v1) is already wrong to me, the idr_for_each() before
+alloc_netid() is clearly a use-after-destroy.
 
-The Send-Q is there because of TX-completions being delayed a bit,
-because of IRQ mitigation.
-
-(ethtool -c eth0)
-
-It happens even if you do not have a qdisc in the first place.
-
-And we do have xmit_more in the qdisc layer already.
+Based on the same reason, my patch is not your v3, we are patching
+different places.
