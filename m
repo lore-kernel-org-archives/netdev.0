@@ -1,31 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/5] net: Enable COMPILE_TEST for Marvell &
- Freescale drivers
-Date: Fri, 18 Nov 2016 13:54:55 -0500 (EST)
-Message-ID: <20161118.135455.1518212943056933203.davem@davemloft.net>
-References: <20161117191914.11077-1-f.fainelli@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] tcp: make undo_cwnd mandatory for congestion
+ modules
+Date: Fri, 18 Nov 2016 19:54:34 +0100
+Message-ID: <20161118185434.GB18071@breakpoint.cc>
+References: <1479387411-9830-1-git-send-email-fw@strlen.de>
+ <20161118.134304.1574614508508170507.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mw@semihalf.com, arnd@arndb.de,
-        gregory.clement@free-electrons.com, Shaohui.Xie@freescale.com,
-        andrew@lunn.ch
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, netdev@vger.kernel.org, edumazet@google.com,
+        ycheng@google.com, ncardwell@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38786 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752847AbcKRSy5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:54:57 -0500
-In-Reply-To: <20161117191914.11077-1-f.fainelli@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:60432 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751986AbcKRS5D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:57:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20161118.134304.1574614508508170507.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 17 Nov 2016 11:19:09 -0800
+David Miller <davem@davemloft.net> wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Thu, 17 Nov 2016 13:56:51 +0100
+> 
+> > The undo_cwnd fallback in the stack doubles cwnd based on ssthresh,
+> > which un-does reno halving behaviour.
+> > 
+> > It seems more appropriate to let congctl algorithms pair .ssthresh
+> > and .undo_cwnd properly. Add a 'tcp_reno_undo_cwnd' function and wire it
+> > up for all congestion algorithms that used to rely on the fallback.
+> > 
+> > highspeed, illinois, scalable, veno and yeah use 'reno undo' while their
+> > .ssthresh implementation doesn't halve the slowstart threshold, this
+> > might point to similar issue as the one fixed for dctcp in
+> > ce6dd23329b1e ("dctcp: avoid bogus doubling of cwnd after loss").
+> > 
+> > Cc: Eric Dumazet <edumazet@google.com>
+> > Cc: Yuchung Cheng <ycheng@google.com>
+> > Cc: Neal Cardwell <ncardwell@google.com>
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
+> 
+> If you really suspect that highspeed et al. need to implement their own
+> undo_cwnd instead of using the default reno fallback, I would really
+> rather that this gets either fixed or explicitly marked as likely wrong
+> (in an "XXX" comment or similar).
 
-> This patch series allows building the Freescale and Marvell Ethernet
-> network drivers with COMPILE_TEST.
+Ok, fair enough.  I am not familiar with these algorithms, I will check
+what they're doing in more detail and if absolutely needed resubmit this
+patch with XXX/FIXME/TODO comments added.
 
-Thanks for doing this work, this kind of thing helps me a lot.
+> Otherwise nobody is going to remember this down the road.
 
-Series applied, thanks.
+Agreed.
