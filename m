@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: fix get_net_ns_by_fd(int pid) typo
-Date: Fri, 18 Nov 2016 14:02:14 -0500 (EST)
-Message-ID: <20161118.140214.602354945693248622.davem@davemloft.net>
-References: <1479462106-28529-1-git-send-email-stefanha@redhat.com>
+Subject: Re: [patch net-next] liquidio CN23XX: bitwise vs logical AND typo
+Date: Fri, 18 Nov 2016 14:04:03 -0500 (EST)
+Message-ID: <20161118.140403.2109023792867040848.davem@davemloft.net>
+References: <20161118114734.GB3281@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stefanha@redhat.com
+Cc: derek.chickles@caviumnetworks.com,
+        raghu.vatsavayi@caviumnetworks.com,
+        satananda.burla@caviumnetworks.com,
+        felix.manlunas@caviumnetworks.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39232 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39328 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752301AbcKRTCP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:02:15 -0500
-In-Reply-To: <1479462106-28529-1-git-send-email-stefanha@redhat.com>
+        with ESMTP id S1751989AbcKRTEF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:04:05 -0500
+In-Reply-To: <20161118114734.GB3281@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Fri, 18 Nov 2016 09:41:46 +0000
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 18 Nov 2016 14:47:35 +0300
 
-> The argument to get_net_ns_by_fd() is a /proc/$PID/ns/net file
-> descriptor not a pid.  Fix the typo.
+> We obviously intended a bitwise AND here, not a logical one.
 > 
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> Fixes: 8c978d059224 ("liquidio CN23XX: Mailbox support")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
