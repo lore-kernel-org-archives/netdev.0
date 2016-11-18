@@ -1,70 +1,121 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net-next v2 5/5] af_packet: Use virtio_net_hdr_from_skb() directly.
-Date: Fri, 18 Nov 2016 15:40:42 -0800
-Message-ID: <1479512442-61601-5-git-send-email-jarno@ovn.org>
+Subject: [PATCH net-next v2 4/5] af_packet: Use virtio_net_hdr_to_skb().
+Date: Fri, 18 Nov 2016 15:40:41 -0800
+Message-ID: <1479512442-61601-4-git-send-email-jarno@ovn.org>
 References: <1479512442-61601-1-git-send-email-jarno@ovn.org>
 Cc: jarno@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:44212 "EHLO
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:53071 "EHLO
         relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753219AbcKRXlA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 18:41:00 -0500
+        with ESMTP id S1753169AbcKRXk7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 18:40:59 -0500
 In-Reply-To: <1479512442-61601-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove static function __packet_rcv_vnet(), which only called
-virtio_net_hdr_from_skb() and BUG()ged out if an error code was
-returned.  Instead, call virtio_net_hdr_from_skb() from the former
-call sites of __packet_rcv_vnet() and actually use the error handling
-code that is already there.
+Use the common virtio_net_hdr_to_skb() instead of open coding it.
+Other call sites were changed by commit fd2a0437dc, but this one was
+missed, maybe because it is split in two parts of the source code.
 
+Interim comparisons of 'vnet_hdr->gso_type' still work as both the
+vnet_hdr and skb notion of gso_type is zero when there is no gso.
+
+Fixes: fd2a0437dc ("virtio_net: introduce virtio_net_hdr_{from,to}_skb")
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- net/packet/af_packet.c | 16 ++++------------
- 1 file changed, 4 insertions(+), 12 deletions(-)
+ net/packet/af_packet.c | 51 +++-----------------------------------------------
+ 1 file changed, 3 insertions(+), 48 deletions(-)
 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1816b77..fab9bbf 100644
+index abe6c0b..1816b77 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1967,15 +1967,6 @@ static unsigned int run_filter(struct sk_buff *skb,
- 	return res;
+@@ -2388,8 +2388,6 @@ static void tpacket_set_protocol(const struct net_device *dev,
+ 
+ static int __packet_snd_vnet_parse(struct virtio_net_hdr *vnet_hdr, size_t len)
+ {
+-	unsigned short gso_type = 0;
+-
+ 	if ((vnet_hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+ 	    (__virtio16_to_cpu(vio_le(), vnet_hdr->csum_start) +
+ 	     __virtio16_to_cpu(vio_le(), vnet_hdr->csum_offset) + 2 >
+@@ -2401,29 +2399,6 @@ static int __packet_snd_vnet_parse(struct virtio_net_hdr *vnet_hdr, size_t len)
+ 	if (__virtio16_to_cpu(vio_le(), vnet_hdr->hdr_len) > len)
+ 		return -EINVAL;
+ 
+-	if (vnet_hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
+-		switch (vnet_hdr->gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
+-		case VIRTIO_NET_HDR_GSO_TCPV4:
+-			gso_type = SKB_GSO_TCPV4;
+-			break;
+-		case VIRTIO_NET_HDR_GSO_TCPV6:
+-			gso_type = SKB_GSO_TCPV6;
+-			break;
+-		case VIRTIO_NET_HDR_GSO_UDP:
+-			gso_type = SKB_GSO_UDP;
+-			break;
+-		default:
+-			return -EINVAL;
+-		}
+-
+-		if (vnet_hdr->gso_type & VIRTIO_NET_HDR_GSO_ECN)
+-			gso_type |= SKB_GSO_TCP_ECN;
+-
+-		if (vnet_hdr->gso_size == 0)
+-			return -EINVAL;
+-	}
+-
+-	vnet_hdr->gso_type = gso_type;	/* changes type, temporary storage */
+ 	return 0;
  }
  
--static int __packet_rcv_vnet(const struct sk_buff *skb,
--			     struct virtio_net_hdr *vnet_hdr)
+@@ -2443,27 +2418,6 @@ static int packet_snd_vnet_parse(struct msghdr *msg, size_t *len,
+ 	return __packet_snd_vnet_parse(vnet_hdr, *len);
+ }
+ 
+-static int packet_snd_vnet_gso(struct sk_buff *skb,
+-			       struct virtio_net_hdr *vnet_hdr)
 -{
--	if (virtio_net_hdr_from_skb(skb, vnet_hdr, vio_le()))
--		BUG();
+-	if (vnet_hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+-		u16 s = __virtio16_to_cpu(vio_le(), vnet_hdr->csum_start);
+-		u16 o = __virtio16_to_cpu(vio_le(), vnet_hdr->csum_offset);
 -
+-		if (!skb_partial_csum_set(skb, s, o))
+-			return -EINVAL;
+-	}
+-
+-	skb_shinfo(skb)->gso_size =
+-		__virtio16_to_cpu(vio_le(), vnet_hdr->gso_size);
+-	skb_shinfo(skb)->gso_type = vnet_hdr->gso_type;
+-
+-	/* Header must be checked, and gso_segs computed. */
+-	skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+-	skb_shinfo(skb)->gso_segs = 0;
 -	return 0;
 -}
 -
- static int packet_rcv_vnet(struct msghdr *msg, const struct sk_buff *skb,
- 			   size_t *len)
- {
-@@ -1985,7 +1976,7 @@ static int packet_rcv_vnet(struct msghdr *msg, const struct sk_buff *skb,
- 		return -EINVAL;
- 	*len -= sizeof(vnet_hdr);
+ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		void *frame, struct net_device *dev, void *data, int tp_len,
+ 		__be16 proto, unsigned char *addr, int hlen, int copylen,
+@@ -2723,7 +2677,8 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 			}
+ 		}
  
--	if (__packet_rcv_vnet(skb, &vnet_hdr))
-+	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le()))
- 		return -EINVAL;
- 
- 	return memcpy_to_msg(msg, (void *)&vnet_hdr, sizeof(vnet_hdr));
-@@ -2244,8 +2235,9 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	spin_unlock(&sk->sk_receive_queue.lock);
+-		if (po->has_vnet_hdr && packet_snd_vnet_gso(skb, vnet_hdr)) {
++		if (po->has_vnet_hdr && virtio_net_hdr_to_skb(skb, vnet_hdr,
++							      vio_le())) {
+ 			tp_len = -EINVAL;
+ 			goto tpacket_error;
+ 		}
+@@ -2914,7 +2869,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	packet_pick_tx_queue(dev, skb);
  
  	if (po->has_vnet_hdr) {
--		if (__packet_rcv_vnet(skb, h.raw + macoff -
--					   sizeof(struct virtio_net_hdr))) {
-+		if (virtio_net_hdr_from_skb(skb, h.raw + macoff -
-+					    sizeof(struct virtio_net_hdr),
-+					    vio_le())) {
- 			spin_lock(&sk->sk_receive_queue.lock);
- 			goto drop_n_account;
- 		}
+-		err = packet_snd_vnet_gso(skb, &vnet_hdr);
++		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
+ 		if (err)
+ 			goto out_free;
+ 		len += sizeof(vnet_hdr);
 -- 
 2.1.4
