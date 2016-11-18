@@ -1,53 +1,63 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
-Date: Fri, 18 Nov 2016 16:02:03 +0530
-Message-ID: <CAFcVEC+ft7FG2VYo21ifjv4ms+k2_BA98NAtP+Ppudx_8HUYeQ@mail.gmail.com>
-References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
- <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
- <e6773b4e-a633-4754-893d-fd2351d07459@atmel.com> <BN3PR07MB2516EBCDD8822FC5F8A9095FC9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
- <CAFcVEC+RqUMQF39oe2EuCoisX6dCwRQ3G81zFMqoOHU3HpfPHQ@mail.gmail.com>
- <BN3PR07MB25166D8301C60C4A35402AB1C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
- <a315b554-8b44-ac82-a104-e382940750bb@atmel.com> <BN3PR07MB251655CAFDB38CCF0F240BB5C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
- <CAFcVECJT=b2jmQAtsTeXEwWad8L2VEVW1GOyTY9XYR5qUq=4Mw@mail.gmail.com> <27516aeb-b8f9-dc38-4d01-d2a5c5cf44dd@microchip.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: add igmpv3 and mldv2 query support
+Date: Fri, 18 Nov 2016 11:31:00 +0100
+Message-ID: <a5fe27de-e747-c1c6-7108-83124d1c000f@cumulusnetworks.com>
+References: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
+ <9c1e16c2-b716-21e0-fa2c-3e3126607953@cumulusnetworks.com>
+ <c1c35821-cdba-4a5e-0e53-694d10fb5918@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rafal Ozieblo <rafalo@cadence.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrei Pistirica <andrei.pistirica@microchip.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <27516aeb-b8f9-dc38-4d01-d2a5c5cf44dd@microchip.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        linus.luessing@c0d3.blue, roopa <roopa@cumulusnetworks.com>
+To: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36926 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751905AbcKRKik (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 05:38:40 -0500
+Received: by mail-wm0-f50.google.com with SMTP id t79so28668263wmt.0
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 02:38:39 -0800 (PST)
+In-Reply-To: <c1c35821-cdba-4a5e-0e53-694d10fb5918@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-tHi Andrei,
+On 18/11/16 11:09, Nikolay Aleksandrov wrote:
+> On 18/11/16 11:04, Nikolay Aleksandrov wrote:
+>> (+CC Roopa)
+>> Hi Hangbin,
+>> This patch is not correct, you should not use the net device IGMP config in the bridge.
+> * bridge net device, sorry not port
+>
+>> These packets may never make it to the host and they may not be reflected, even more the
+>> host may have very different igmp config for the port net device than the bridge does.
+> * again bridge net device, not port
+>
+>> Also your current implementation switches to V3 only if it is globally set, and that should
+>> be controlled on a per-bridge basis, even per-vlan later.
+> * it is per-bridge, you use the global net device IGMP config, but it should be in the bridge
+> mcast control options, so we can do it per-vlan later and also be able to do the compat parts
+> of the RFC and in general, the bridge is configured via its own options not the host net device
+> because as I said these packets may never be received locally
 
->> Yes, Andre's version of Cadence does not ability to report have RX
->> timestamp.
->> The version I worked with did. This is the old series I sent:
->> https://lkml.org/lkml/2015/9/11/92
->> But right now, i'm working on building on top of Andre's changes.
->
->
-> I'm addressing maintainer's feedback on both patches:
-> https://patchwork.kernel.org/patch/9310989/
-> https://patchwork.kernel.org/patch/9310991/
->
-> I've done all suggested updates, except the numerous 64bit divisions in the
-> frequency adjustment callback. I've implemented a different algorithm which
-> uses 2 64bit division, but I couldn't find a way to use only 1.
->
-> Also, I have a version with timecounter/cyclecounter which shows a much
-> better accuracy (less than 100ns level). In my opinion this could be a
-> better implementation. What is you opinion about this? Did you try it?
->
+Having the host netdev options affect the bridge-specific config is really undesirable and confusing.
 
-I did not try timecounter on Cadence IP versions later than r1p06.
-Because with sub ns precision in HW timestamp, that works better
-than SW cyclecounter.
-On older Zynq version, yes timecounter is used and is better.
+>
+>> One more thing, if someone does a V2 leave for a group, you can end up sending them V3
+>> group-specific query.
+>>
+>> I have been working on an implementation for IGMPv3/MLDv2 querier for the bridge device, it re-uses
+>> most of the current code and allows you to configure it per-bridge (and later per-vlan). The only
+>> reason I've not yet sent it to upstream is that we (at Cumulus) are working out the compatibility
+>> parts (e.g. RFC3376 sec 7, sec 8) of the RFC since it has some unclear cases.
 
-Regards,
-Harini
+Err, RFC3376 sec 7.3.1, 7.3.2, and RFC3810 sec 8.3.1, 8.3.2
+
+I really should get coffee.. sorry for the multiple emails :-)
+
+>> But I can rip the compatibility out and send it early for review if you'd like, we can add the
+>> compat code later.
+>>
+>> Cheers,
+>>  Nik
+>>
