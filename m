@@ -1,60 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] udp: enable busy polling for all sockets
-Date: Fri, 18 Nov 2016 10:45:49 -0500 (EST)
-Message-ID: <20161118.104549.1326421456884426702.davem@davemloft.net>
-References: <1479316242.8455.213.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [net-next PATCH v2] net: dummy: Introduce dummy virtual functions
+Date: Fri, 18 Nov 2016 16:59:47 +0100
+Message-ID: <20161118155947.GB26542@orbyte.nwl.cc>
+References: <20161114130205.18333-1-phil@nwl.cc>
+ <CAJ3xEMhG4Eeh6pwY2Uq_KxmuHJb9-xYYkr4Ps_kQWwEXeB9Sbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58766 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751180AbcKRPqA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 10:46:00 -0500
-In-Reply-To: <1479316242.8455.213.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:40065 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751593AbcKRP7t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Nov 2016 10:59:49 -0500
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMhG4Eeh6pwY2Uq_KxmuHJb9-xYYkr4Ps_kQWwEXeB9Sbg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 16 Nov 2016 09:10:42 -0800
+Hi,
 
-> From: Eric Dumazet <edumazet@google.com>
+On Fri, Nov 18, 2016 at 12:04:14AM +0200, Or Gerlitz wrote:
+> On Mon, Nov 14, 2016 at 3:02 PM, Phil Sutter <phil@nwl.cc> wrote:
 > 
-> UDP busy polling is restricted to connected UDP sockets.
+> > Due to the assumption that all PFs are PCI devices, this implementation
+> > is not completely straightforward: In order to allow for
+> > rtnl_fill_ifinfo() to see the dummy VFs, a fake PCI parent device is
+> > attached to the dummy netdev. This has to happen at the right spot so
+> > register_netdevice() does not get confused. This patch abuses
+> > ndo_fix_features callback for that. In ndo_uninit callback, the fake
+> > parent is removed again for the same purpose.
 > 
-> This is because sk_busy_loop() only takes care of one NAPI context.
-> 
-> There are cases where it could be extended.
-> 
-> 1) Some hosts receive traffic on a single NIC, with one RX queue.
-> 
-> 2) Some applications use SO_REUSEPORT and associated BPF filter
->    to split the incoming traffic on one UDP socket per RX
-> queue/thread/cpu
-> 
-> 3) Some UDP sockets are used to send/receive traffic for one flow, but
-> they do not bother with connect()
-> 
-> 
-> This patch records the napi_id of first received skb, giving more
-> reach to busy polling.
-> 
-> Tested:
-> 
-> lpaa23:~# echo 70 >/proc/sys/net/core/busy_read
-> lpaa24:~# echo 70 >/proc/sys/net/core/busy_read
-> 
-> lpaa23:~# for f in `seq 1 10`; do ./super_netperf 1 -H lpaa24 -t UDP_RR -l 5; done
-> 
-> Before patch :
->    27867   28870   37324   41060   41215
->    36764   36838   44455   41282   43843
-> After patch :
->    73920   73213   70147   74845   71697
->    68315   68028   75219   70082   73707
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> So you did some mimic-ing of PCI interface, how do you let the user to
+> config the number of VFs? though a module param? why? if the module
+> param only serves to say how many VF the device supports, maybe
+> support the maximum possible by PCI spec and skip the module param?
 
-Applied, thanks Eric.
+Yes, this is controlled via module parameter. But it doesn't say how
+much is supported but rather how many dummy VFs are to be created for
+each dummy interface.
+
+> > +module_param(num_vfs, int, 0);
+> > +MODULE_PARM_DESC(num_vfs, "Number of dummy VFs per dummy device");
+> > +
+> 
+> > @@ -190,6 +382,7 @@ static int __init dummy_init_one(void)
+> >         err = register_netdevice(dev_dummy);
+> >         if (err < 0)
+> >                 goto err;
+> > +
+> >         return 0;
+> 
+> nit, remove this added blank line..
+
+Oh yes, thanks. Spontaneous reviewer's blindness. :)
+
+The implementation is problematic in another aspect though: Upon reboot,
+it seems like no netdev ops are being called but the fake PCI parent's
+kobject is being freed which does not work (and leads to an oops).
+
+Cheers, Phil
