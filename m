@@ -1,86 +1,122 @@
-From: Chris Lesiak <chris.lesiak@licor.com>
-Subject: [PATCH] net: fec: Detect and recover receive queue hangs
-Date: Thu, 17 Nov 2016 15:14:42 -0600
-Message-ID: <1479417282-15540-1-git-send-email-chris.lesiak@licor.com>
+From: Harini Katakam <harinikatakamlinux@gmail.com>
+Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
+Date: Fri, 18 Nov 2016 09:59:47 +0530
+Message-ID: <CAFcVEC+RqUMQF39oe2EuCoisX6dCwRQ3G81zFMqoOHU3HpfPHQ@mail.gmail.com>
+References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
+ <e6773b4e-a633-4754-893d-fd2351d07459@atmel.com> <BN3PR07MB2516EBCDD8822FC5F8A9095FC9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        "Jaccon Bastiaansen" <jaccon.bastiaansen@gmail.com>,
-        <chris.lesiak@licor.com>
-To: Fugang Duan <fugang.duan@nxp.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rafal Ozieblo <rafalo@cadence.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BN3PR07MB2516EBCDD8822FC5F8A9095FC9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This corrects a problem that appears to be similar to ERR006358.  But
-while ERR006358 is a race when the tx queue transitions from empty to
-not empty, this problem is a race when the rx queue transitions from
-full to not full.
+Hi Rafal,
 
-The symptom is a receive queue that is stuck.  The ENET_RDAR register
-will read 0, indicating that there are no empty receive descriptors in
-the receive ring.  Since no additional frames can be queued, no RXF
-interrupts occur.
+On Thu, Nov 17, 2016 at 7:05 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
+> -----Original Message-----
+> From: Nicolas Ferre [mailto:nicolas.ferre@atmel.com]
+> Sent: 17 listopada 2016 14:29
+> To: Harini Katakam; Rafal Ozieblo
+> Cc: harini.katakam@xilinx.com; netdev@vger.kernel.org; linux-kernel@vger.=
+kernel.org
+> Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for=
+ GEM
+>
+>> Le 17/11/2016 =C3=A0 13:21, Harini Katakam a =C3=A9crit :
+>> > Hi Rafal,
+>> >
+>> > On Thu, Nov 17, 2016 at 5:20 PM, Rafal Ozieblo <rafalo@cadence.com> wr=
+ote:
+>> >> Hello,
+>> >> I think, there could a bug in your patch.
+>> >>
+>> >>> +
+>> >>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+>> >>> +             dmacfg |=3D GEM_BIT(ADDR64); #endif
+>> >>
+>> >> You enable 64 bit addressing (64b dma bus width) always when appropri=
+ate architecture config option is enabled.
+>> >> But there are some legacy controllers which do not support that featu=
+re. According Cadence hardware team:
+>> >> "64 bit addressing was added in July 2013. Earlier version do not hav=
+e it.
+>> >> This feature was enhanced in release August 2014 to have separate upp=
+er address values for transmit and receive."
+>> >>
+>> >>> /* Bitfields in NSR */
+>> >>> @@ -474,6 +479,10 @@
+>> >>>  struct macb_dma_desc {
+>> >>  >      u32     addr;
+>> >>>       u32     ctrl;
+>> >>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+>> >>> +     u32     addrh;
+>> >>> +     u32     resvd;
+>> >>> +#endif
+>> >>>  };
+>> >>
+>> >> It will not work for legacy hardware. Old descriptor is 2 words wide,=
+ the new one is 4 words wide.
+>> >> If you enable CONFIG_ARCH_DMA_ADDR_T_64BIT but hardware doesn't
+>> >> support it at all, you will miss every second descriptor.
+>> >>
+>> >
+>> > True, this feature is not available in all of Cadence IP versions.
+>> > In fact, the IP version Zynq does not support this. But the one in Zyn=
+qMP does.
+>> > So, we enable kernel config for 64 bit DMA addressing for this SoC and
+>> > hence the driver picks it up. My assumption was that if the legacy IP
+>> > does not support
+>> > 64 bit addressing, then this DMA option wouldn't be enabled.
+>> >
+>> > There is a design config register in Cadence IP which is being read to
+>> > check for 64 bit address support - DMA mask is set based on that.
+>> > But the addition of two descriptor words cannot be based on this runti=
+me check.
+>> > For this reason, all the static changes were placed under this check.
+>>
+>> We have quite a bunch of options in this driver to determinate what is t=
+he real capacity of the underlying hardware.
+>> If HW configuration registers are not appropriate, and it seems they are=
+ not, I would advice to simply use the DT compatibility string.
+>>
+>> Best regards,
+>> --
+>> Nicolas Ferre
+>
+> HW configuration registers are appropriate. The issue is that this code d=
+oesn=E2=80=99t use the capability bit to switch between different dma descr=
+iptors (2 words vs. 4 words).
+> DMA descriptor size is chosen based on kernel configuration, not based on=
+ hardware capabilities.
 
-This problem can be triggered with a 1 Gb link and about 400 Mbps of
-traffic.
+HW configuration register does give appropriate information.
+But addition of two address words in the macb descriptor structure is
+a static change.
 
-This patch detects this condition, sets the work_rx bit, and
-reschedules the poll method.
-
-Signed-off-by: Chris Lesiak <chris.lesiak@licor.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index fea0f33..8a87037 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1588,6 +1588,34 @@ fec_enet_interrupt(int irq, void *dev_id)
- 	return ret;
- }
- 
-+static inline bool
-+fec_enet_recover_rxq(struct fec_enet_private *fep, u16 queue_id)
++static inline void macb_set_addr(struct macb_dma_desc *desc, dma_addr_t ad=
+dr)
 +{
-+	int work_bit = (queue_id == 0) ? 2 : ((queue_id == 1) ? 0 : 1);
++       desc->addr =3D (u32)addr;
++#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
++       desc->addrh =3D (u32)(addr >> 32);
++#endif
 +
-+	if (readl(fep->rx_queue[queue_id]->bd.reg_desc_active))
-+		return false;
-+
-+	dev_notice_once(&fep->pdev->dev, "Recovered rx queue\n");
-+
-+	fep->work_rx |= 1 << work_bit;
-+
-+	return true;
-+}
-+
-+static inline bool fec_enet_recover_rxqs(struct fec_enet_private *fep)
-+{
-+	unsigned int q;
-+	bool ret = false;
-+
-+	for (q = 0; q < fep->num_rx_queues; q++) {
-+		if (fec_enet_recover_rxq(fep, q))
-+			ret = true;
-+	}
-+
-+	return ret;
-+}
-+
- static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
- {
- 	struct net_device *ndev = napi->dev;
-@@ -1601,6 +1629,9 @@ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
- 	if (pkts < budget) {
- 		napi_complete(napi);
- 		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
-+
-+		if (fec_enet_recover_rxqs(fep) && napi_reschedule(napi))
-+			writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
- 	}
- 	return pkts;
- }
--- 
-2.5.5
+
+Even if the #ifdef condition here is changed to HW config check, addr
+and addrh are different.
+And "addrh" entry has to be present for 64 bit desc case to be handled
+separately.
+Can you please tell me how you propose change in DMA descriptor structure f=
+rom
+4 to 2 or 2 to 4 words *after* reading the DCFG register?
+
+Regards,
+Harini
