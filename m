@@ -1,110 +1,77 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] net: fec: Detect and recover receive queue hangs
-Date: Fri, 18 Nov 2016 06:44:18 +0000
-Message-ID: <AM4PR0401MB2260764510A33C534AB0136FFFB00@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <1479417282-15540-1-git-send-email-chris.lesiak@licor.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next v4 3/5] bus: mvebu-bus: Provide inline stub for mvebu_mbus_get_dram_win_info
+Date: Fri, 18 Nov 2016 09:32:13 +0100
+Message-ID: <87k2c1b33m.fsf@free-electrons.com>
+References: <20161117191914.11077-1-f.fainelli@gmail.com>
+        <20161117191914.11077-4-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Jaccon Bastiaansen" <jaccon.bastiaansen@gmail.com>
-To: Chris Lesiak <chris.lesiak@licor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479417282-15540-1-git-send-email-chris.lesiak@licor.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mw@semihalf.com,
+        arnd@arndb.de, Shaohui.Xie@freescale.com, andrew@lunn.ch
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:34770 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751320AbcKRIc0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 03:32:26 -0500
+In-Reply-To: <20161117191914.11077-4-f.fainelli@gmail.com> (Florian Fainelli's
+        message of "Thu, 17 Nov 2016 11:19:12 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Lesiak <chris.lesiak@licor.com> Sent: Friday, November 18, 2016=
- 5:15 AM
- >To: Andy Duan <fugang.duan@nxp.com>
- >Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jaccon
- >Bastiaansen <jaccon.bastiaansen@gmail.com>; chris.lesiak@licor.com
- >Subject: [PATCH] net: fec: Detect and recover receive queue hangs
- >
- >This corrects a problem that appears to be similar to ERR006358.  But whi=
-le
- >ERR006358 is a race when the tx queue transitions from empty to not empty=
-,
- >this problem is a race when the rx queue transitions from full to not ful=
-l.
- >
- >The symptom is a receive queue that is stuck.  The ENET_RDAR register wil=
-l
- >read 0, indicating that there are no empty receive descriptors in the rec=
-eive
- >ring.  Since no additional frames can be queued, no RXF interrupts occur.
- >
- >This problem can be triggered with a 1 Gb link and about 400 Mbps of traf=
-fic.
- >
- >This patch detects this condition, sets the work_rx bit, and reschedules =
-the
- >poll method.
- >
- >Signed-off-by: Chris Lesiak <chris.lesiak@licor.com>
- >---
- > drivers/net/ethernet/freescale/fec_main.c | 31
- >+++++++++++++++++++++++++++++++
- > 1 file changed, 31 insertions(+)
- >
-Firstly, how to reproduce the issue, pls list the reproduce steps. Thanks.
-Secondly, pls check below comments.
+Hi Florian,
+ 
+ On jeu., nov. 17 2016, Florian Fainelli <f.fainelli@gmail.com> wrote:
 
- >diff --git a/drivers/net/ethernet/freescale/fec_main.c
- >b/drivers/net/ethernet/freescale/fec_main.c
- >index fea0f33..8a87037 100644
- >--- a/drivers/net/ethernet/freescale/fec_main.c
- >+++ b/drivers/net/ethernet/freescale/fec_main.c
- >@@ -1588,6 +1588,34 @@ fec_enet_interrupt(int irq, void *dev_id)
- > 	return ret;
- > }
- >
- >+static inline bool
- >+fec_enet_recover_rxq(struct fec_enet_private *fep, u16 queue_id) {
- >+	int work_bit =3D (queue_id =3D=3D 0) ? 2 : ((queue_id =3D=3D 1) ? 0 : 1=
-);
- >+
- >+	if (readl(fep->rx_queue[queue_id]->bd.reg_desc_active))
-If rx ring is really empty in slight throughput cases,  rdar is always clea=
-red, then there always do napi reschedule.
+> In preparation for allowing CONFIG_MVNETA_BM to build with COMPILE_TEST,
+> provide an inline stub for mvebu_mbus_get_dram_win_info().
 
- >+		return false;
- >+
- >+	dev_notice_once(&fep->pdev->dev, "Recovered rx queue\n");
- >+
- >+	fep->work_rx |=3D 1 << work_bit;
- >+
- >+	return true;
- >+}
- >+
- >+static inline bool fec_enet_recover_rxqs(struct fec_enet_private *fep)
- >+{
- >+	unsigned int q;
- >+	bool ret =3D false;
- >+
- >+	for (q =3D 0; q < fep->num_rx_queues; q++) {
- >+		if (fec_enet_recover_rxq(fep, q))
- >+			ret =3D true;
- >+	}
- >+
- >+	return ret;
- >+}
- >+
- > static int fec_enet_rx_napi(struct napi_struct *napi, int budget)  {
- > 	struct net_device *ndev =3D napi->dev;
- >@@ -1601,6 +1629,9 @@ static int fec_enet_rx_napi(struct napi_struct *nap=
-i,
- >int budget)
- > 	if (pkts < budget) {
- > 		napi_complete(napi);
- > 		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
- >+
- >+		if (fec_enet_recover_rxqs(fep) && napi_reschedule(napi))
- >+			writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
- > 	}
- > 	return pkts;
- > }
- >--
- >2.5.5
+Actually the set of SoCs supporting mbus is more reduce than MVEBU. You
+can have a look on 434cec62a6d7 ("bus: mvebu-mbus: Provide stub function
+for mvebu_mbus_get_io_win_info()"), PLAT_ORION seems the good option.
+
+
+Thanks,
+
+Gregory
+
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  include/linux/mbus.h | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+>
+> diff --git a/include/linux/mbus.h b/include/linux/mbus.h
+> index 2931aa43dab1..0d3f14fd2621 100644
+> --- a/include/linux/mbus.h
+> +++ b/include/linux/mbus.h
+> @@ -82,6 +82,7 @@ static inline int mvebu_mbus_get_io_win_info(phys_addr_t phyaddr, u32 *size,
+>  }
+>  #endif
+>  
+> +#ifdef CONFIG_MVEBU_MBUS
+>  int mvebu_mbus_save_cpu_target(u32 __iomem *store_addr);
+>  void mvebu_mbus_get_pcie_mem_aperture(struct resource *res);
+>  void mvebu_mbus_get_pcie_io_aperture(struct resource *res);
+> @@ -97,5 +98,12 @@ int mvebu_mbus_init(const char *soc, phys_addr_t mbus_phys_base,
+>  		    size_t mbus_size, phys_addr_t sdram_phys_base,
+>  		    size_t sdram_size);
+>  int mvebu_mbus_dt_init(bool is_coherent);
+> +#else
+> +static inline int mvebu_mbus_get_dram_win_info(phys_addr_t phyaddr, u8 *target,
+> +					       u8 *attr)
+> +{
+> +	return -EINVAL;
+> +}
+> +#endif /* CONFIG_MVEBU_MBUS */
+>  
+>  #endif /* __LINUX_MBUS_H */
+> -- 
+> 2.9.3
+>
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
