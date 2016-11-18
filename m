@@ -1,25 +1,105 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2016-11-18
-Date: Fri, 18 Nov 2016 14:00:53 -0500 (EST)
-Message-ID: <20161118.140053.320146177353944868.davem@davemloft.net>
-References: <20161118075201.30081-1-johannes@sipsolutions.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [PATCH 4/5] virtio_net: add dedicated XDP transmit queues
+Date: Fri, 18 Nov 2016 11:00:41 -0800
+Message-ID: <20161118190041.16137.48399.stgit@john-Precision-Tower-5810>
+References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161118075201.30081-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        bblanco@plumgrid.com, john.fastabend@gmail.com, brouer@redhat.com
+To: tgraf@suug.ch, shm@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36748 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753847AbcKRTBB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:01:01 -0500
+Received: by mail-pf0-f193.google.com with SMTP id c4so11452702pfb.3
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 11:01:01 -0800 (PST)
+In-Reply-To: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Fri, 18 Nov 2016 08:52:00 +0100
+XDP requires using isolated transmit queues to avoid interference
+with normal networking stack (BQL, NETDEV_TX_BUSY, etc). This patch
+adds a XDP queue per cpu when a XDP program is loaded and does not
+expose the queues to the OS via the normal API call to
+netif_set_real_num_tx_queues(). This way the stack will never push
+an skb to these queues.
 
-> Due to travel/vacation, this is a bit late, but there aren't
-> that many fixes either. Most interesting/important are the
-> fixes from Felix and perhaps the scan entry limit.
-> 
-> Please pull and let me know if there's any problem.
+However virtio/vhost/qemu implementation only allows for creating
+TX/RX queue pairs at this time so creating only TX queues was not
+possible. And because the associated RX queues are being created I
+went ahead and exposed these to the stack and let the backend use
+them. This creates more RX queues visible to the network stack than
+TX queues which is worth mentioning but does not cause any issues as
+far as I can tell.
 
-Pulled, thanks a lot Johannes.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ drivers/net/virtio_net.c |   32 +++++++++++++++++++++++++++++---
+ 1 file changed, 29 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 16c257d..631ee07 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -114,6 +114,9 @@ struct virtnet_info {
+ 	/* # of queue pairs currently used by the driver */
+ 	u16 curr_queue_pairs;
+ 
++	/* # of XDP queue pairs currently used by the driver */
++	u16 xdp_queue_pairs;
++
+ 	/* I like... big packets and I cannot lie! */
+ 	bool big_packets;
+ 
+@@ -1525,7 +1528,8 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	struct bpf_prog *old_prog;
+-	int i;
++	u16 xdp_qp = 0, curr_qp;
++	int err, i;
+ 
+ 	if ((dev->features & NETIF_F_LRO) && prog) {
+ 		netdev_warn(dev, "can't set XDP while LRO is on, disable LRO first\n");
+@@ -1542,12 +1546,34 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 		return -EINVAL;
+ 	}
+ 
++	curr_qp = vi->curr_queue_pairs - vi->xdp_queue_pairs;
++	if (prog)
++		xdp_qp = num_online_cpus();
++
++	/* XDP requires extra queues for XDP_TX */
++	if (curr_qp + xdp_qp > vi->max_queue_pairs) {
++		netdev_warn(dev, "request %i queues but max is %i\n",
++			    curr_qp + xdp_qp, vi->max_queue_pairs);
++		return -ENOMEM;
++	}
++
++	err = virtnet_set_queues(vi, curr_qp + xdp_qp);
++	if (err) {
++		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
++		return err;
++	}
++
+ 	if (prog) {
+-		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
+-		if (IS_ERR(prog))
++		prog = bpf_prog_add(prog, vi->max_queue_pairs);
++		if (IS_ERR(prog)) {
++			virtnet_set_queues(vi, curr_qp);
+ 			return PTR_ERR(prog);
++		}
+ 	}
+ 
++	vi->xdp_queue_pairs = xdp_qp;
++	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
++
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		old_prog = rcu_dereference(vi->rq[i].xdp_prog);
+ 		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
