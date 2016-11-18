@@ -1,74 +1,78 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2016-11-18
-Date: Fri, 18 Nov 2016 08:52:00 +0100
-Message-ID: <20161118075201.30081-1-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Fri, 18 Nov 2016 07:57:33 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+ <1394712342-15778-227-Taiwan-albertk@realtek.com>
+ <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
+ <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <d683c019-4e0f-6fe6-368c-c4fc86c72fe6-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Mark Lord [mailto:mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org]
+> Sent: Thursday, November 17, 2016 9:42 PM
+[...]
+> What the above sample shows, is the URB transfer buffer ran out of space in the
+> middle
+> of a packet, and the hardware then tried to just continue that same packet in the
+> next URB,
+> without an rx_desc header inserted.  The r8152.c driver always assumes the URB
+> buffer begins
+> with an rx_desc, so of course this behaviour produces really weird effects, and
+> system crashes, etc..
 
-Due to travel/vacation, this is a bit late, but there aren't
-that many fixes either. Most interesting/important are the
-fixes from Felix and perhaps the scan entry limit.
+The USB device wouldn't know the address and size of buffer. Only
+the USB host controller knows. Therefore, the device sends the
+data to host, and the host fills the memory. According to your
+description, it seems the host splits the data from the device
+into two different buffers (or URB transfers). I wonder if it would
+occur. As far as I know, the host wouldn't allow the buffer size
+less than the data length.
 
-Please pull and let me know if there's any problem.
+Our hw engineers need the log from the USB analyzer to confirm
+what the device sends to the host. However, I don't think you
+have USB analyzer to do this. I would try to reproduce the issue.
+But, I am busy, so I don't think I would response quickly.
 
-Thanks,
-johannes
+Besides, the maximum data length which the RTL8152 would send to
+the host is 16KB. That is, if the agg_buf_sz is 16KB, the host
+wouldn't split it. However, you still see problems for it.
 
+[...]
+> It is not clear to me how the chip decides when to forward an rx URB to the host.
+> If you could describe how that part works for us, then it would help in further
+> understanding why fast systems (eg. a PC) don't generally notice the issue,
+> while much slower embedded systems do see the issue regularly.
 
+The driver expects the rx buffer would be
 
-The following changes since commit 269ebce4531b8edc4224259a02143181a1c1d77c:
+	rx_desc + a packet + padding to 8 alignment + 
+	rx_desc + a packet + padding to 8 alignment + ...
+	
+Therefore, when a urb transfer is completed, the driver parsers
+the buffer by this way. After the buffer is handled, it would
+be submitted to the host, until the transfer is completed again.
+If the submitting fail, the driver would try again later. The
+urb->actual_length means how much data the host fills. The drive
+uses it to check the end of the data. The urb->status mean if
+the transfer is successful. The driver submits the urb to the
+host directly if the status is not successful.
 
-  xen-netfront: cast grant table reference first to type int (2016-11-02 15:33:36 -0400)
+Best Regards,
+Hayes
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-11-18
-
-for you to fetch changes up to 9853a55ef1bb66d7411136046060bbfb69c714fa:
-
-  cfg80211: limit scan results cache size (2016-11-18 08:44:44 +0100)
-
-----------------------------------------------------------------
-A few more bugfixes:
- * limit # of scan results stored in memory - this is a long-standing bug
-   Jouni and I only noticed while discussing other things in Santa Fe
- * revert AP_LINK_PS patch that was causing issues (Felix)
- * various A-MSDU/A-MPDU fixes for TXQ code (Felix)
- * interoperability workaround for peers with broken VHT capabilities
-   (Filip Matusiak)
- * add bitrate definition for a VHT MCS that's supposed to be invalid
-   but gets used by some hardware anyway (Thomas Pedersen)
- * beacon timer fix in hwsim (Benjamin Beichler)
-
-----------------------------------------------------------------
-Benjamin Beichler (1):
-      mac80211_hwsim: fix beacon delta calculation
-
-Felix Fietkau (4):
-      Revert "mac80211: allow using AP_LINK_PS with mac80211-generated TIM IE"
-      mac80211: update A-MPDU flag on tx dequeue
-      mac80211: remove bogus skb vif assignment
-      mac80211: fix A-MSDU aggregation with fast-xmit + txq
-
-Filip Matusiak (1):
-      mac80211: Ignore VHT IE from peer with wrong rx_mcs_map
-
-Johannes Berg (1):
-      cfg80211: limit scan results cache size
-
-Pedersen, Thomas (1):
-      cfg80211: add bitrate for 20MHz MCS 9
-
- drivers/net/wireless/mac80211_hwsim.c |  2 +-
- net/mac80211/sta_info.c               |  2 +-
- net/mac80211/tx.c                     | 14 +++++--
- net/mac80211/vht.c                    | 16 ++++++++
- net/wireless/core.h                   |  1 +
- net/wireless/scan.c                   | 69 +++++++++++++++++++++++++++++++++++
- net/wireless/util.c                   |  3 +-
- 7 files changed, 100 insertions(+), 7 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
