@@ -1,49 +1,38 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH net v2 7/7] net: ethernet: ti: cpsw: fix fixed-link phy
- probe deferral
-Date: Fri, 18 Nov 2016 10:33:10 +0100
-Message-ID: <20161118093310.GE10490@localhost>
-References: <1479400804-9847-1-git-send-email-johan@kernel.org>
- <1479400804-9847-8-git-send-email-johan@kernel.org>
- <20161117.120416.1443476818715961812.davem@davemloft.net>
- <20161117171920.GD10490@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johan@kernel.org, mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161117171920.GD10490@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH] netns: fix get_net_ns_by_fd(int pid) typo
+Date: Fri, 18 Nov 2016 09:41:46 +0000
+Message-ID: <1479462106-28529-1-git-send-email-stefanha@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37590 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751802AbcKRJlt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Nov 2016 04:41:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 17, 2016 at 06:19:20PM +0100, Johan Hovold wrote:
-> On Thu, Nov 17, 2016 at 12:04:16PM -0500, David Miller wrote:
-> > From: Johan Hovold <johan@kernel.org>
-> > Date: Thu, 17 Nov 2016 17:40:04 +0100
-> > 
-> > > Make sure to propagate errors from of_phy_register_fixed_link() which
-> > > can fail with -EPROBE_DEFER.
-> > > 
-> > > Fixes: 1f71e8c96fc6 ("drivers: net: cpsw: Add support for fixed-link
-> > > PHY")
-> > > Signed-off-by: Johan Hovold <johan@kernel.org>
-> > 
-> > Johan, when you update a patch within a series you must post the
-> > entire series freshly to the lists, cover posting and all.
-> 
-> I'm quite sure that is exactly what I did. Did you only get this last
-> patch out of the seven?
+The argument to get_net_ns_by_fd() is a /proc/$PID/ns/net file
+descriptor not a pid.  Fix the typo.
 
-The full series has made it to the lists:
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ include/net/net_namespace.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	https://marc.info/?l=linux-netdev&m=147940433115984&w=2
-
-Perhaps some messages just got held up.
-
-Let me know if you still want me to resend.
-
-Thanks,
-Johan
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index fc4f757..0940598 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -170,7 +170,7 @@ static inline struct net *copy_net_ns(unsigned long flags,
+ extern struct list_head net_namespace_list;
+ 
+ struct net *get_net_ns_by_pid(pid_t pid);
+-struct net *get_net_ns_by_fd(int pid);
++struct net *get_net_ns_by_fd(int fd);
+ 
+ #ifdef CONFIG_SYSCTL
+ void ipx_register_sysctl(void);
+-- 
+2.7.4
