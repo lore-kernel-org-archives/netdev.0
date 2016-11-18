@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH 3/5] virtio_net: Add XDP support
-Date: Fri, 18 Nov 2016 15:21:56 -0800
-Message-ID: <1479511316.8455.303.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Fri, 18 Nov 2016 15:23:42 -0800
+Message-ID: <1479511422.8455.305.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
          <20161118190017.16137.13910.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
@@ -13,38 +13,33 @@ Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
         netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35567 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752805AbcKRXV7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 18:21:59 -0500
-Received: by mail-pg0-f65.google.com with SMTP id p66so21838909pga.2
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 15:21:58 -0800 (PST)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:32868 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752901AbcKRXXo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 18:23:44 -0500
+Received: by mail-pf0-f196.google.com with SMTP id 144so14291934pfv.0
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 15:23:44 -0800 (PST)
 In-Reply-To: <20161118190017.16137.13910.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Fri, 2016-11-18 at 11:00 -0800, John Fastabend wrote:
+> From: Shrijeet Mukherjee <shrijeet@gmail.com>
 
 
->  static void free_receive_bufs(struct virtnet_info *vi)
->  {
-> +	struct bpf_prog *old_prog;
->  	int i;
+>  #include <linux/slab.h>
+> @@ -81,6 +82,8 @@ struct receive_queue {
 >  
->  	for (i = 0; i < vi->max_queue_pairs; i++) {
->  		while (vi->rq[i].pages)
->  			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
-> +
-> +		old_prog = rcu_dereference(vi->rq[i].xdp_prog);
-
-Seems wrong to me.
-
-Are you sure lockdep (with CONFIG_PROVE_RCU=y) was happy with this ?
-
-> +		RCU_INIT_POINTER(vi->rq[i].xdp_prog, NULL);
-> +		if (old_prog)
-> +			bpf_prog_put(old_prog);
->  	}
->  }
+>  	struct napi_struct napi;
 >  
-> 
+> +	struct bpf_prog *xdp_prog;
+
+Please add proper sparse annotation, as in 
+
+	struct bpf_prog __rcu *xdp_prog;
+
+And run sparse ;)
+
+CONFIG_SPARSE_RCU_POINTER=y
+
+make C=2 drivers/net/virtio_net.o
