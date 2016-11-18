@@ -1,274 +1,74 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH net-next] bridge: add igmpv3 and mldv2 query support
-Date: Fri, 18 Nov 2016 15:32:01 +0800
-Message-ID: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        linus.luessing@c0d3.blue, Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:32853 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752001AbcKRHco (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 02:32:44 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 144so13077958pfv.0
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 23:32:43 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2016-11-18
+Date: Fri, 18 Nov 2016 08:52:00 +0100
+Message-ID: <20161118075201.30081-1-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add bridge IGMPv3 and MLDv2 query support. But before we think it is stable
-enough, only enable it when declare in force_igmp/mld_version.
+Hi Dave,
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- net/bridge/br_multicast.c | 203 ++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 194 insertions(+), 9 deletions(-)
+Due to travel/vacation, this is a bit late, but there aren't
+that many fixes either. Most interesting/important are the
+fixes from Felix and perhaps the scan entry limit.
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 2136e45..9fb47f3 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -35,6 +35,10 @@
- 
- #include "br_private.h"
- 
-+#define IGMP_V3_SEEN(in_dev) \
-+	(IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) == 3 || \
-+	 IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) == 3)
-+
- static void br_multicast_start_querier(struct net_bridge *br,
- 				       struct bridge_mcast_own_query *query);
- static void br_multicast_add_router(struct net_bridge *br,
-@@ -360,9 +364,8 @@ static int br_mdb_rehash(struct net_bridge_mdb_htable __rcu **mdbp, int max,
- 	return 0;
- }
- 
--static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
--						    __be32 group,
--						    u8 *igmp_type)
-+static struct sk_buff *br_ip4_alloc_query_v2(struct net_bridge *br,
-+					     __be32 group, u8 *igmp_type)
- {
- 	struct sk_buff *skb;
- 	struct igmphdr *ih;
-@@ -428,10 +431,82 @@ static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
- 	return skb;
- }
- 
-+static struct sk_buff *br_ip4_alloc_query_v3(struct net_bridge *br,
-+					     __be32 group, u8 *igmp_type)
-+{
-+	struct sk_buff *skb;
-+	struct igmpv3_query *ih3;
-+	struct ethhdr *eth;
-+	struct iphdr *iph;
-+
-+	skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*iph) +
-+						 sizeof(*ih3) + 4);
-+	if (!skb)
-+		goto out;
-+
-+	skb->protocol = htons(ETH_P_IP);
-+
-+	skb_reset_mac_header(skb);
-+	eth = eth_hdr(skb);
-+
-+	ether_addr_copy(eth->h_source, br->dev->dev_addr);
-+	eth->h_dest[0] = 1;
-+	eth->h_dest[1] = 0;
-+	eth->h_dest[2] = 0x5e;
-+	eth->h_dest[3] = 0;
-+	eth->h_dest[4] = 0;
-+	eth->h_dest[5] = 1;
-+	eth->h_proto = htons(ETH_P_IP);
-+	skb_put(skb, sizeof(*eth));
-+
-+	skb_set_network_header(skb, skb->len);
-+	iph = ip_hdr(skb);
-+
-+	iph->version = 4;
-+	iph->ihl = 6;
-+	iph->tos = 0xc0;
-+	iph->tot_len = htons(sizeof(*iph) + sizeof(*ih3) + 4);
-+	iph->id = 0;
-+	iph->frag_off = htons(IP_DF);
-+	iph->ttl = 1;
-+	iph->protocol = IPPROTO_IGMP;
-+	iph->saddr = br->multicast_query_use_ifaddr ?
-+		     inet_select_addr(br->dev, 0, RT_SCOPE_LINK) : 0;
-+	iph->daddr = htonl(INADDR_ALLHOSTS_GROUP);
-+	((u8 *)&iph[1])[0] = IPOPT_RA;
-+	((u8 *)&iph[1])[1] = 4;
-+	((u8 *)&iph[1])[2] = 0;
-+	((u8 *)&iph[1])[3] = 0;
-+	ip_send_check(iph);
-+	skb_put(skb, 24);
-+
-+	skb_set_transport_header(skb, skb->len);
-+	ih3 = igmpv3_query_hdr(skb);
-+
-+	*igmp_type = IGMP_HOST_MEMBERSHIP_QUERY;
-+	ih3->type = IGMP_HOST_MEMBERSHIP_QUERY;
-+	ih3->code = (group ? br->multicast_last_member_interval :
-+			    br->multicast_query_response_interval) /
-+		   (HZ / IGMP_TIMER_SCALE);
-+	ih3->csum = 0;
-+	ih3->group = group;
-+	ih3->resv = 0;
-+	ih3->suppress = 0;
-+	ih3->qrv= 2;
-+	ih3->qqic = br->multicast_query_interval / HZ;
-+	ih3->nsrcs = 0;
-+	ih3->csum = ip_compute_csum((void *)ih3, sizeof(struct igmpv3_query ));
-+	skb_put(skb, sizeof(*ih3));
-+
-+	__skb_pull(skb, sizeof(*eth));
-+
-+out:
-+	return skb;
-+}
- #if IS_ENABLED(CONFIG_IPV6)
--static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
--						    const struct in6_addr *grp,
--						    u8 *igmp_type)
-+static struct sk_buff *br_ip6_alloc_query_v1(struct net_bridge *br,
-+					     const struct in6_addr *grp,
-+					     u8 *igmp_type)
- {
- 	struct sk_buff *skb;
- 	struct ipv6hdr *ip6h;
-@@ -514,19 +589,129 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
- out:
- 	return skb;
- }
-+
-+static struct sk_buff *br_ip6_alloc_query_v2(struct net_bridge *br,
-+					     const struct in6_addr *grp,
-+					     u8 *igmp_type)
-+{
-+	struct sk_buff *skb;
-+	struct ipv6hdr *ip6h;
-+	struct mld2_query *mld2q;
-+	struct ethhdr *eth;
-+	u8 *hopopt;
-+	unsigned long interval;
-+
-+	skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*ip6h) +
-+						 8 + sizeof(*mld2q));
-+	if (!skb)
-+		goto out;
-+
-+	skb->protocol = htons(ETH_P_IPV6);
-+
-+	/* Ethernet header */
-+	skb_reset_mac_header(skb);
-+	eth = eth_hdr(skb);
-+
-+	ether_addr_copy(eth->h_source, br->dev->dev_addr);
-+	eth->h_proto = htons(ETH_P_IPV6);
-+	skb_put(skb, sizeof(*eth));
-+
-+	/* IPv6 header + HbH option */
-+	skb_set_network_header(skb, skb->len);
-+	ip6h = ipv6_hdr(skb);
-+
-+	*(__force __be32 *)ip6h = htonl(0x60000000);
-+	ip6h->payload_len = htons(8 + sizeof(*mld2q));
-+	ip6h->nexthdr = IPPROTO_HOPOPTS;
-+	ip6h->hop_limit = 1;
-+	ipv6_addr_set(&ip6h->daddr, htonl(0xff020000), 0, 0, htonl(1));
-+	if (ipv6_dev_get_saddr(dev_net(br->dev), br->dev, &ip6h->daddr, 0,
-+			       &ip6h->saddr)) {
-+		kfree_skb(skb);
-+		br->has_ipv6_addr = 0;
-+		return NULL;
-+	}
-+
-+	br->has_ipv6_addr = 1;
-+	ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
-+
-+	hopopt = (u8 *)(ip6h + 1);
-+	hopopt[0] = IPPROTO_ICMPV6;		/* next hdr */
-+	hopopt[1] = 0;				/* length of HbH */
-+	hopopt[2] = IPV6_TLV_ROUTERALERT;	/* Router Alert */
-+	hopopt[3] = 2;				/* Length of RA Option */
-+	hopopt[4] = 0;				/* Type = 0x0000 (MLD) */
-+	hopopt[5] = 0;
-+	hopopt[6] = IPV6_TLV_PAD1;		/* Pad1 */
-+	hopopt[7] = IPV6_TLV_PAD1;		/* Pad1 */
-+
-+	skb_put(skb, sizeof(*ip6h) + 8);
-+
-+	/* ICMPv6 */
-+	skb_set_transport_header(skb, skb->len);
-+	mld2q = (struct mld2_query *) icmp6_hdr(skb);
-+
-+	interval = ipv6_addr_any(grp) ?
-+			br->multicast_query_response_interval :
-+			br->multicast_last_member_interval;
-+
-+	*igmp_type = ICMPV6_MGM_QUERY;
-+	mld2q->mld2q_type = ICMPV6_MGM_QUERY;
-+	mld2q->mld2q_code = 0;
-+	mld2q->mld2q_cksum = 0;
-+	mld2q->mld2q_mrc = htons((u16)jiffies_to_msecs(interval));
-+	mld2q->mld2q_resv1 = 0;
-+	mld2q->mld2q_mca = *grp;
-+	mld2q->mld2q_resv2 = 0;
-+	mld2q->mld2q_suppress = 0;
-+	mld2q->mld2q_qrv = 2;
-+	mld2q->mld2q_qqic = br->multicast_query_interval / HZ;
-+	mld2q->mld2q_nsrcs = 0;
-+
-+	/* checksum */
-+	mld2q->mld2q_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
-+					  sizeof(*mld2q), IPPROTO_ICMPV6,
-+					  csum_partial(mld2q,
-+						       sizeof(*mld2q), 0));
-+	skb_put(skb, sizeof(*mld2q));
-+
-+	__skb_pull(skb, sizeof(*eth));
-+
-+out:
-+	return skb;
-+}
- #endif
- 
-+static int mld_force_mld_version(const struct inet6_dev *idev)
-+{
-+	if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version != 0)
-+		return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version;
-+	else
-+		return idev->cnf.force_mld_version;
-+}
-+
- static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
- 						struct br_ip *addr,
- 						u8 *igmp_type)
- {
-+	struct in_device *in_dev = __in_dev_get_rcu(br->dev);
-+	struct inet6_dev *idev = __in6_dev_get(br->dev);
- 	switch (addr->proto) {
- 	case htons(ETH_P_IP):
--		return br_ip4_multicast_alloc_query(br, addr->u.ip4, igmp_type);
-+		if (IGMP_V3_SEEN(in_dev))
-+			return br_ip4_alloc_query_v3(br, addr->u.ip4,
-+						     igmp_type);
-+		else
-+			return br_ip4_alloc_query_v2(br, addr->u.ip4,
-+						     igmp_type);
- #if IS_ENABLED(CONFIG_IPV6)
- 	case htons(ETH_P_IPV6):
--		return br_ip6_multicast_alloc_query(br, &addr->u.ip6,
--						    igmp_type);
-+		if (mld_force_mld_version(idev) == 2)
-+			return br_ip6_alloc_query_v2(br, &addr->u.ip6,
-+						     igmp_type);
-+		else
-+			return br_ip6_alloc_query_v1(br, &addr->u.ip6,
-+						     igmp_type);
- #endif
- 	}
- 	return NULL;
--- 
-2.5.5
+Please pull and let me know if there's any problem.
+
+Thanks,
+johannes
+
+
+
+The following changes since commit 269ebce4531b8edc4224259a02143181a1c1d77c:
+
+  xen-netfront: cast grant table reference first to type int (2016-11-02 15:33:36 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-11-18
+
+for you to fetch changes up to 9853a55ef1bb66d7411136046060bbfb69c714fa:
+
+  cfg80211: limit scan results cache size (2016-11-18 08:44:44 +0100)
+
+----------------------------------------------------------------
+A few more bugfixes:
+ * limit # of scan results stored in memory - this is a long-standing bug
+   Jouni and I only noticed while discussing other things in Santa Fe
+ * revert AP_LINK_PS patch that was causing issues (Felix)
+ * various A-MSDU/A-MPDU fixes for TXQ code (Felix)
+ * interoperability workaround for peers with broken VHT capabilities
+   (Filip Matusiak)
+ * add bitrate definition for a VHT MCS that's supposed to be invalid
+   but gets used by some hardware anyway (Thomas Pedersen)
+ * beacon timer fix in hwsim (Benjamin Beichler)
+
+----------------------------------------------------------------
+Benjamin Beichler (1):
+      mac80211_hwsim: fix beacon delta calculation
+
+Felix Fietkau (4):
+      Revert "mac80211: allow using AP_LINK_PS with mac80211-generated TIM IE"
+      mac80211: update A-MPDU flag on tx dequeue
+      mac80211: remove bogus skb vif assignment
+      mac80211: fix A-MSDU aggregation with fast-xmit + txq
+
+Filip Matusiak (1):
+      mac80211: Ignore VHT IE from peer with wrong rx_mcs_map
+
+Johannes Berg (1):
+      cfg80211: limit scan results cache size
+
+Pedersen, Thomas (1):
+      cfg80211: add bitrate for 20MHz MCS 9
+
+ drivers/net/wireless/mac80211_hwsim.c |  2 +-
+ net/mac80211/sta_info.c               |  2 +-
+ net/mac80211/tx.c                     | 14 +++++--
+ net/mac80211/vht.c                    | 16 ++++++++
+ net/wireless/core.h                   |  1 +
+ net/wireless/scan.c                   | 69 +++++++++++++++++++++++++++++++++++
+ net/wireless/util.c                   |  3 +-
+ 7 files changed, 100 insertions(+), 7 deletions(-)
