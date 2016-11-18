@@ -1,54 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sky2: Fix shutdown crash
-Date: Fri, 18 Nov 2016 13:41:09 -0500 (EST)
-Message-ID: <20161118.134109.1491291521879435264.davem@davemloft.net>
-References: <1479395665-27784-1-git-send-email-jeremy.linton@arm.com>
+Subject: Re: [PATCH -next] tcp: make undo_cwnd mandatory for congestion
+ modules
+Date: Fri, 18 Nov 2016 13:43:04 -0500 (EST)
+Message-ID: <20161118.134304.1574614508508170507.davem@davemloft.net>
+References: <1479387411-9830-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mlindner@marvell.com,
-        stephen@networkplumber.org, Sudeep.Holla@arm.com
-To: jeremy.linton@arm.com
+Cc: netdev@vger.kernel.org, edumazet@google.com, ycheng@google.com,
+        ncardwell@google.com
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37922 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38108 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752961AbcKRSlN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:41:13 -0500
-In-Reply-To: <1479395665-27784-1-git-send-email-jeremy.linton@arm.com>
+        with ESMTP id S1753038AbcKRSnJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:43:09 -0500
+In-Reply-To: <1479387411-9830-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeremy Linton <jeremy.linton@arm.com>
-Date: Thu, 17 Nov 2016 09:14:25 -0600
+From: Florian Westphal <fw@strlen.de>
+Date: Thu, 17 Nov 2016 13:56:51 +0100
 
-> The sky2 frequently crashes during machine shutdown with:
+> The undo_cwnd fallback in the stack doubles cwnd based on ssthresh,
+> which un-does reno halving behaviour.
 > 
-> sky2_get_stats+0x60/0x3d8 [sky2]
-> dev_get_stats+0x68/0xd8
-> rtnl_fill_stats+0x54/0x140
-> rtnl_fill_ifinfo+0x46c/0xc68
-> rtmsg_ifinfo_build_skb+0x7c/0xf0
-> rtmsg_ifinfo.part.22+0x3c/0x70
-> rtmsg_ifinfo+0x50/0x5c
-> netdev_state_change+0x4c/0x58
-> linkwatch_do_dev+0x50/0x88
-> __linkwatch_run_queue+0x104/0x1a4
-> linkwatch_event+0x30/0x3c
-> process_one_work+0x140/0x3e0
-> worker_thread+0x60/0x44c
-> kthread+0xdc/0xf0
-> ret_from_fork+0x10/0x50
+> It seems more appropriate to let congctl algorithms pair .ssthresh
+> and .undo_cwnd properly. Add a 'tcp_reno_undo_cwnd' function and wire it
+> up for all congestion algorithms that used to rely on the fallback.
 > 
-> This is caused by the sky2 being called after it has been shutdown.
-> A previous thread about this can be found here:
+> highspeed, illinois, scalable, veno and yeah use 'reno undo' while their
+> .ssthresh implementation doesn't halve the slowstart threshold, this
+> might point to similar issue as the one fixed for dctcp in
+> ce6dd23329b1e ("dctcp: avoid bogus doubling of cwnd after loss").
 > 
-> https://lkml.org/lkml/2016/4/12/410
-> 
-> An alternative fix is to assure that IFF_UP gets cleared by
-> calling dev_close() during shutdown. This is similar to what the
-> bnx2/tg3/xgene and maybe others are doing to assure that the driver
-> isn't being called following _shutdown().
-> 
-> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Applied and queued up for -stable, thanks.
+If you really suspect that highspeed et al. need to implement their own
+undo_cwnd instead of using the default reno fallback, I would really
+rather that this gets either fixed or explicitly marked as likely wrong
+(in an "XXX" comment or similar).
+
+Otherwise nobody is going to remember this down the road.
