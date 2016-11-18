@@ -1,94 +1,50 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net: fix bogus cast in skb_pagelen() and use unsigned
- variables
-Date: Sat, 19 Nov 2016 04:08:08 +0300
-Message-ID: <20161119010808.GF1200@avx2>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/5] virtio_net: Add XDP support
+Date: Fri, 18 Nov 2016 15:21:56 -0800
+Message-ID: <1479511316.8455.303.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
+         <20161118190017.16137.13910.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35500 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753047AbcKRXIR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 18:08:17 -0500
-Received: by mail-wm0-f68.google.com with SMTP id a20so10857369wme.2
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 15:08:17 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35567 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752805AbcKRXV7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 18:21:59 -0500
+Received: by mail-pg0-f65.google.com with SMTP id p66so21838909pga.2
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 15:21:58 -0800 (PST)
+In-Reply-To: <20161118190017.16137.13910.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) cast to "int" is unnecessary:
-   u8 will be promoted to int before decrementing,
-   small positive numbers fit into "int", so their values won't be changed
-   during promotion.
-
-   Once everything is int including loop counters, signedness doesn't
-   matter: 32-bit operations will stay 32-bit operations.
-
-   But! Someone tried to make this loop smart by making everything of
-   the same type apparently in an attempt to optimise it.
-   Do the optimization, just differently.
-   Do the cast where it matters. :^)
-
-2) frag size is unsigned entity and sum of fragments sizes is also
-   unsigned.
-
-Make everything unsigned, leave no MOVSX instruction behind.
+On Fri, 2016-11-18 at 11:00 -0800, John Fastabend wrote:
 
 
-	add/remove: 0/0 grow/shrink: 0/3 up/down: 0/-4 (-4)
-	function                                     old     new   delta
-	skb_cow_data                                 835     834      -1
-	ip_do_fragment                              2549    2548      -1
-	ip6_fragment                                3130    3128      -2
-	Total: Before=154865032, After=154865028, chg -0.00%
+>  static void free_receive_bufs(struct virtnet_info *vi)
+>  {
+> +	struct bpf_prog *old_prog;
+>  	int i;
+>  
+>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		while (vi->rq[i].pages)
+>  			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
+> +
+> +		old_prog = rcu_dereference(vi->rq[i].xdp_prog);
 
+Seems wrong to me.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+Are you sure lockdep (with CONFIG_PROVE_RCU=y) was happy with this ?
 
- include/linux/skbuff.h |    6 +++---
- net/ipv4/ip_output.c   |    2 +-
- net/ipv6/ip6_output.c  |    2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
-
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1799,11 +1799,11 @@ static inline unsigned int skb_headlen(const struct sk_buff *skb)
- 	return skb->len - skb->data_len;
- }
- 
--static inline int skb_pagelen(const struct sk_buff *skb)
-+static inline unsigned int skb_pagelen(const struct sk_buff *skb)
- {
--	int i, len = 0;
-+	unsigned int i, len = 0;
- 
--	for (i = (int)skb_shinfo(skb)->nr_frags - 1; i >= 0; i--)
-+	for (i = skb_shinfo(skb)->nr_frags - 1; (int)i >= 0; i--)
- 		len += skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 	return len + skb_headlen(skb);
- }
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -581,7 +581,7 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 	 */
- 	if (skb_has_frag_list(skb)) {
- 		struct sk_buff *frag, *frag2;
--		int first_len = skb_pagelen(skb);
-+		unsigned int first_len = skb_pagelen(skb);
- 
- 		if (first_len - hlen > mtu ||
- 		    ((first_len - hlen) & 7) ||
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -625,7 +625,7 @@ int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
- 
- 	hroom = LL_RESERVED_SPACE(rt->dst.dev);
- 	if (skb_has_frag_list(skb)) {
--		int first_len = skb_pagelen(skb);
-+		unsigned int first_len = skb_pagelen(skb);
- 		struct sk_buff *frag2;
- 
- 		if (first_len - hlen > mtu ||
+> +		RCU_INIT_POINTER(vi->rq[i].xdp_prog, NULL);
+> +		if (old_prog)
+> +			bpf_prog_put(old_prog);
+>  	}
+>  }
+>  
+> 
