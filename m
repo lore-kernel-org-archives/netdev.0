@@ -1,39 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Synopsys Ethernet QoS Driver
-Date: Fri, 18 Nov 2016 10:29:05 -0800
-Message-ID: <1479493745.8455.286.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cbe5f79b-53a4-e116-1e09-bc975a66a8ca@synopsys.com>
-         <771E7B93-5AB6-4F2B-8DEB-58DDB6A96D13@gmail.com>
-         <fbf4263b-2b08-611d-f9cb-1f09c6f91117@synopsys.com>
-         <a4bb3828-3aa5-1e80-f57e-ad9a94a681b3@gmail.com>
-         <034e8607-b6d1-02e9-6ec3-fe50f1bd51c8@synopsys.com>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+Date: Fri, 18 Nov 2016 10:35:41 -0800
+Message-ID: <20161118183541.GI28340@tuxbot>
+References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
+ <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
-        jeffrey.t.kirsher@intel.com, jiri@mellanox.com,
-        saeedm@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, CARLOS.PALMINHA@synopsys.com,
-        andreas.irestal@axis.com
-To: Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35047 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753081AbcKRS3H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:29:07 -0500
-In-Reply-To: <034e8607-b6d1-02e9-6ec3-fe50f1bd51c8@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Andy Gross <andy.gross@linaro.org>,
+        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-11-18 at 16:40 +0000, Joao Pinto wrote:
+On Wed 16 Nov 10:49 PST 2016, Kalle Valo wrote:
 
-> help a lot, thank you!
-> lets start working then :)
+> Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
+> > The correct include file for getting errno constants and ERR_PTR() is
+> > linux/err.h, rather than linux/errno.h, so fix the include.
+> > 
+> > Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled smem_state")
+> > Acked-by: Andy Gross <andy.gross@linaro.org>
+> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> 
+> For some reason this fails to compile now. Can you take a look, please?
+> 
+> ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wcn36xx.ko] undefined!
+> make[1]: *** [__modpost] Error 1
+> make: *** [modules] Error 2
+> 
+> 5 patches set to Changes Requested.
+> 
+> 9429045 [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+> 9429047 [v5,2/5] wcn36xx: Transition driver to SMD client
 
-Please read this very useful document first, so that you can avoid
-common mistakes ;)
+This patch was updated with the necessary depends in Kconfig to catch
+this exact issue and when I pull in your .config (which has QCOM_SMD=n,
+QCOM_WCNSS_CTRL=n and WCN36XX=y) I can build this just fine.
 
+I've tested the various combinations and it seems to work fine. Do you
+have any other patches in your tree? Any stale objects?
 
-https://www.kernel.org/doc/Documentation/networking/netdev-FAQ.txt
+Would you mind retesting this, before I invest more time in trying to
+reproduce the issue you're seeing?
 
-Thanks
+Regards,
+Bjorn
