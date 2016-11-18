@@ -1,311 +1,199 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: add igmpv3 and mldv2 query support
-Date: Fri, 18 Nov 2016 11:09:26 +0100
-Message-ID: <c1c35821-cdba-4a5e-0e53-694d10fb5918@cumulusnetworks.com>
-References: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
- <9c1e16c2-b716-21e0-fa2c-3e3126607953@cumulusnetworks.com>
+From: Andrei Pistirica <andrei.pistirica@microchip.com>
+Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
+Date: Fri, 18 Nov 2016 11:07:11 +0100
+Message-ID: <27516aeb-b8f9-dc38-4d01-d2a5c5cf44dd@microchip.com>
+References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
+ <e6773b4e-a633-4754-893d-fd2351d07459@atmel.com>
+ <BN3PR07MB2516EBCDD8822FC5F8A9095FC9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <CAFcVEC+RqUMQF39oe2EuCoisX6dCwRQ3G81zFMqoOHU3HpfPHQ@mail.gmail.com>
+ <BN3PR07MB25166D8301C60C4A35402AB1C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <a315b554-8b44-ac82-a104-e382940750bb@atmel.com>
+ <BN3PR07MB251655CAFDB38CCF0F240BB5C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <CAFcVECJT=b2jmQAtsTeXEwWad8L2VEVW1GOyTY9XYR5qUq=4Mw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        linus.luessing@c0d3.blue, roopa <roopa@cumulusnetworks.com>
-To: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:34441 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751586AbcKRKJ3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 05:09:29 -0500
-Received: by mail-wm0-f45.google.com with SMTP id u144so4238794wmu.1
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 02:09:28 -0800 (PST)
-In-Reply-To: <9c1e16c2-b716-21e0-fa2c-3e3126607953@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Rafal Ozieblo <rafalo@cadence.com>,
+        Nicolas Ferre <nicolas.ferre@atmel.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Harini Katakam <harinikatakamlinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFcVECJT=b2jmQAtsTeXEwWad8L2VEVW1GOyTY9XYR5qUq=4Mw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18/11/16 11:04, Nikolay Aleksandrov wrote:
-> On 18/11/16 08:32, Hangbin Liu wrote:
->> Add bridge IGMPv3 and MLDv2 query support. But before we think it is stable
->> enough, only enable it when declare in force_igmp/mld_version.
->>
->> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
->> ---
->>  net/bridge/br_multicast.c | 203 ++++++++++++++++++++++++++++++++++++++++++++--
->>  1 file changed, 194 insertions(+), 9 deletions(-)
->>
->
-> (+CC Roopa)
-> Hi Hangbin,
-> This patch is not correct, you should not use the net device IGMP config in the bridge.
-* bridge net device, sorry not port
+Hi Harini,
 
-> These packets may never make it to the host and they may not be reflected, even more the
-> host may have very different igmp config for the port net device than the bridge does.
-* again bridge net device, not port
+On 18.11.2016 10:43, Harini Katakam wrote:
+> Hi Rafal,
+>
+> On Fri, Nov 18, 2016 at 3:00 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
+>>> -----Original Message-----
+>>> From: Nicolas Ferre [mailto:nicolas.ferre@atmel.com]
+>>> Sent: 18 listopada 2016 10:10
+>>> To: Rafal Ozieblo; Harini Katakam; Andrei Pistirica
+>>> Cc: harini.katakam@xilinx.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+>>> Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
+>>>
+>>> Le 18/11/2016 à 09:59, Rafal Ozieblo a écrit :
+>>>> Hello,
+>>>>
+>>>>> From: Harini Katakam [mailto:harinikatakamlinux@gmail.com]
+>>>>> Sent: 18 listopada 2016 05:30
+>>>>> To: Rafal Ozieblo
+>>>>> Cc: Nicolas Ferre; harini.katakam@xilinx.com; netdev@vger.kernel.org;
+>>>>> linux-kernel@vger.kernel.org
+>>>>> Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support
+>>>>> for GEM
+>>>>>
+>>>>> Hi Rafal,
+>>>>>
+>>>>> On Thu, Nov 17, 2016 at 7:05 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
+>>>>>> -----Original Message-----
+>>>>>> From: Nicolas Ferre [mailto:nicolas.ferre@atmel.com]
+>>>>>> Sent: 17 listopada 2016 14:29
+>>>>>> To: Harini Katakam; Rafal Ozieblo
+>>>>>> Cc: harini.katakam@xilinx.com; netdev@vger.kernel.org;
+>>>>>> linux-kernel@vger.kernel.org
+>>>>>> Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing
+>>>>>> support for GEM
+>>>>>>
+>>>>>>> Le 17/11/2016 à 13:21, Harini Katakam a écrit :
+>>>>>>>> Hi Rafal,
+>>>>>>>>
+>>>>>>>> On Thu, Nov 17, 2016 at 5:20 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
+>>>>>>>>> Hello,
+>>>>>>>>> I think, there could a bug in your patch.
+>>>>>>>>>
+>>>>>>>>>> +
+>>>>>>>>>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+>>>>>>>>>> +             dmacfg |= GEM_BIT(ADDR64); #endif
+>>>>>>>>>
+>>>>>>>>> You enable 64 bit addressing (64b dma bus width) always when appropriate architecture config option is enabled.
+>>>>>>>>> But there are some legacy controllers which do not support that feature. According Cadence hardware team:
+>>>>>>>>> "64 bit addressing was added in July 2013. Earlier version do not have it.
+>>>>>>>>> This feature was enhanced in release August 2014 to have separate upper address values for transmit and receive."
+>>>>>>>>>
+>>>>>>>>>> /* Bitfields in NSR */
+>>>>>>>>>> @@ -474,6 +479,10 @@
+>>>>>>>>>>  struct macb_dma_desc {
+>>>>>>>>>  >      u32     addr;
+>>>>>>>>>>       u32     ctrl;
+>>>>>>>>>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+>>>>>>>>>> +     u32     addrh;
+>>>>>>>>>> +     u32     resvd;
+>>>>>>>>>> +#endif
+>>>>>>>>>>  };
+>>>>>>>>>
+>>>>>>>>> It will not work for legacy hardware. Old descriptor is 2 words wide, the new one is 4 words wide.
+>>>>>>>>> If you enable CONFIG_ARCH_DMA_ADDR_T_64BIT but hardware doesn't
+>>>>>>>>> support it at all, you will miss every second descriptor.
+>>>>>>>>>
+>>>>>>>>
+>>>>>>>> True, this feature is not available in all of Cadence IP versions.
+>>>>>>>> In fact, the IP version Zynq does not support this. But the one in ZynqMP does.
+>>>>>>>> So, we enable kernel config for 64 bit DMA addressing for this SoC
+>>>>>>>> and hence the driver picks it up. My assumption was that if the
+>>>>>>>> legacy IP does not support
+>>>>>>>> 64 bit addressing, then this DMA option wouldn't be enabled.
+>>>>>>>>
+>>>>>>>> There is a design config register in Cadence IP which is being
+>>>>>>>> read to check for 64 bit address support - DMA mask is set based on that.
+>>>>>>>> But the addition of two descriptor words cannot be based on this runtime check.
+>>>>>>>> For this reason, all the static changes were placed under this check.
+>>>>>>>
+>>>>>>> We have quite a bunch of options in this driver to determinate what is the real capacity of the underlying hardware.
+>>>>>>> If HW configuration registers are not appropriate, and it seems they are not, I would advice to simply use the DT compatibility string.
+>>>>>>>
+>>>>>>> Best regards,
+>>>>>>> --
+>>>>>>> Nicolas Ferre
+>>>>>>
+>>>>>> HW configuration registers are appropriate. The issue is that this code doesn’t use the capability bit to switch between different dma descriptors (2 words vs. 4 words).
+>>>>>> DMA descriptor size is chosen based on kernel configuration, not based on hardware capabilities.
+>>>>>
+>>>>> HW configuration register does give appropriate information.
+>>>>> But addition of two address words in the macb descriptor structure is a static change.
+>>>>>
+>>>>> +static inline void macb_set_addr(struct macb_dma_desc *desc,
+>>>>> +dma_addr_t
+>>>>> +addr) {
+>>>>> +       desc->addr = (u32)addr;
+>>>>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+>>>>> +       desc->addrh = (u32)(addr >> 32); #endif
+>>>>> +
+>>>>>
+>>>>> Even if the #ifdef condition here is changed to HW config check, addr and addrh are different.
+>>>>> And "addrh" entry has to be present for 64 bit desc case to be handled separately.
+>>>>> Can you please tell me how you propose change in DMA descriptor
+>>>>> structure from
+>>>>> 4 to 2 or 2 to 4 words *after* reading the DCFG register?
+>>>>
+>>>> It is very complex problem. I wrote to you because I faced the same issue. I'm working on PTP implementation for macb. When PTP is enabled there are additional two words in buffer descriptor.
+>>>
+>>> Moreover, we can use PTP without the 64bits descriptor support (early GEM revisions).
+>>>
+>>> BTW, note that there is an initiative ongoing with Andrei to support
+>>> PTP/1588 on these devices with patches already send: please synchronize with him.
+>>> https://urldefense.proofpoint.com/v2/url?u=https-3A__marc.info_-3Fl-3Dlinux-2Dnetdev-26m-3D147282092309112-26w-3D3&d=DgIDaQ&c=aUq983L2pue2FqKFoP6PGHMJQyoJ7kl3s3GZ-_haXqY&r=MWSZN_jP4BHjuU9UFsrndALGeJqIXzD0WtGCtCg4L5E&m=jUmZzqwn1uRrvcqF3BHCHFC6ZsKoZkU3vT8gJ-7fnsE&s=kr_km0MKQBzpkaOt0fkM-FIajN1-pOylzzTjsXi-vak&e=
+>>> or
+>>> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.kernel.org_patch_9310989_&d=DgIDaQ&c=aUq983L2pue2FqKFoP6PGHMJQyoJ7kl3s3GZ-_haXqY&r=MWSZN_jP4BHjuU9UFsrndALGeJqIXzD0WtGCtCg4L5E&m=jUmZzqwn1uRrvcqF3BHCHFC6ZsKoZkU3vT8gJ-7fnsE&s=ZbXVD5Lb5zGn7wUKIPYHxagIEKp_vJvrnkRa4qJfmTY&e=
+>>> and
+>>> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.kernel.org_patch_9310991_&d=DgIDaQ&c=aUq983L2pue2FqKFoP6PGHMJQyoJ7kl3s3GZ-_haXqY&r=MWSZN_jP4BHjuU9UFsrndALGeJqIXzD0WtGCtCg4L5E&m=jUmZzqwn1uRrvcqF3BHCHFC6ZsKoZkU3vT8gJ-7fnsE&s=Z0kRqUqh5Is4TmuaY7A4hnpizfdeq3HrgPhyDAMLuA8&e=
+>>>
+>>> Regards,
+>>> --
+>>> Nicolas Ferre
+>>
+>> Above patch doesn’t use hardware timestamps in descriptors at all. It doesn't use appropriate accuracy.
+>> We have our PTP patch ready, which use timestamps from descriptor. But we have not sent it yet because of compatibility issue.
+>> Of course, we can do it like Harini did:
+>>
+>> struct macb_dma_desc {
+>>         u32     addr;
+>>         u32     ctrl;
+>> #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+>>         u32     addrh;
+>>         u32     resvd;
+>> #endif
+>> #if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
+>>         u32     dma_desc_ts_1;
+>>         u32     dma_desc_ts_2;
+>> #endif
+>> };
+>>
+>> But in that approach we lose backward compatibility.
+>>
+>> What are your suggestion? Can we send patch like it is or wait for some common solution with backward compatibility?
+>>
+>
+> Yes, Andre's version of Cadence does not ability to report have RX timestamp.
+> The version I worked with did. This is the old series I sent:
+> https://lkml.org/lkml/2015/9/11/92
+> But right now, i'm working on building on top of Andre's changes.
 
-> Also your current implementation switches to V3 only if it is globally set, and that should
-> be controlled on a per-bridge basis, even per-vlan later.
-* it is per-bridge, you use the global net device IGMP config, but it should be in the bridge
-mcast control options, so we can do it per-vlan later and also be able to do the compat parts
-of the RFC and in general, the bridge is configured via its own options not the host net device
-because as I said these packets may never be received locally
+I'm addressing maintainer's feedback on both patches:
+https://patchwork.kernel.org/patch/9310989/
+https://patchwork.kernel.org/patch/9310991/
 
-> One more thing, if someone does a V2 leave for a group, you can end up sending them V3
-> group-specific query.
+I've done all suggested updates, except the numerous 64bit divisions in 
+the frequency adjustment callback. I've implemented a different 
+algorithm which uses 2 64bit division, but I couldn't find a way to use 
+only 1.
+
+Also, I have a version with timecounter/cyclecounter which shows a much 
+better accuracy (less than 100ns level). In my opinion this could be a 
+better implementation. What is you opinion about this? Did you try it?
+
+Tuesday I can send an updated version of these patches.
+
 >
-> I have been working on an implementation for IGMPv3/MLDv2 querier for the bridge device, it re-uses
-> most of the current code and allows you to configure it per-bridge (and later per-vlan). The only
-> reason I've not yet sent it to upstream is that we (at Cumulus) are working out the compatibility
-> parts (e.g. RFC3376 sec 7, sec 8) of the RFC since it has some unclear cases.
-> But I can rip the compatibility out and send it early for review if you'd like, we can add the
-> compat code later.
+> Regards,
+> Harini
 >
-> Cheers,
->  Nik
->
->> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
->> index 2136e45..9fb47f3 100644
->> --- a/net/bridge/br_multicast.c
->> +++ b/net/bridge/br_multicast.c
->> @@ -35,6 +35,10 @@
->>
->>  #include "br_private.h"
->>
->> +#define IGMP_V3_SEEN(in_dev) \
->> +    (IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) == 3 || \
->> +     IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) == 3)
->> +
->>  static void br_multicast_start_querier(struct net_bridge *br,
->>                         struct bridge_mcast_own_query *query);
->>  static void br_multicast_add_router(struct net_bridge *br,
->> @@ -360,9 +364,8 @@ static int br_mdb_rehash(struct net_bridge_mdb_htable __rcu **mdbp, int max,
->>      return 0;
->>  }
->>
->> -static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
->> -                            __be32 group,
->> -                            u8 *igmp_type)
->> +static struct sk_buff *br_ip4_alloc_query_v2(struct net_bridge *br,
->> +                         __be32 group, u8 *igmp_type)
->>  {
->>      struct sk_buff *skb;
->>      struct igmphdr *ih;
->> @@ -428,10 +431,82 @@ static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
->>      return skb;
->>  }
->>
->> +static struct sk_buff *br_ip4_alloc_query_v3(struct net_bridge *br,
->> +                         __be32 group, u8 *igmp_type)
->> +{
->> +    struct sk_buff *skb;
->> +    struct igmpv3_query *ih3;
->> +    struct ethhdr *eth;
->> +    struct iphdr *iph;
->> +
->> +    skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*iph) +
->> +                         sizeof(*ih3) + 4);
->> +    if (!skb)
->> +        goto out;
->> +
->> +    skb->protocol = htons(ETH_P_IP);
->> +
->> +    skb_reset_mac_header(skb);
->> +    eth = eth_hdr(skb);
->> +
->> +    ether_addr_copy(eth->h_source, br->dev->dev_addr);
->> +    eth->h_dest[0] = 1;
->> +    eth->h_dest[1] = 0;
->> +    eth->h_dest[2] = 0x5e;
->> +    eth->h_dest[3] = 0;
->> +    eth->h_dest[4] = 0;
->> +    eth->h_dest[5] = 1;
->> +    eth->h_proto = htons(ETH_P_IP);
->> +    skb_put(skb, sizeof(*eth));
->> +
->> +    skb_set_network_header(skb, skb->len);
->> +    iph = ip_hdr(skb);
->> +
->> +    iph->version = 4;
->> +    iph->ihl = 6;
->> +    iph->tos = 0xc0;
->> +    iph->tot_len = htons(sizeof(*iph) + sizeof(*ih3) + 4);
->> +    iph->id = 0;
->> +    iph->frag_off = htons(IP_DF);
->> +    iph->ttl = 1;
->> +    iph->protocol = IPPROTO_IGMP;
->> +    iph->saddr = br->multicast_query_use_ifaddr ?
->> +             inet_select_addr(br->dev, 0, RT_SCOPE_LINK) : 0;
->> +    iph->daddr = htonl(INADDR_ALLHOSTS_GROUP);
->> +    ((u8 *)&iph[1])[0] = IPOPT_RA;
->> +    ((u8 *)&iph[1])[1] = 4;
->> +    ((u8 *)&iph[1])[2] = 0;
->> +    ((u8 *)&iph[1])[3] = 0;
->> +    ip_send_check(iph);
->> +    skb_put(skb, 24);
->> +
->> +    skb_set_transport_header(skb, skb->len);
->> +    ih3 = igmpv3_query_hdr(skb);
->> +
->> +    *igmp_type = IGMP_HOST_MEMBERSHIP_QUERY;
->> +    ih3->type = IGMP_HOST_MEMBERSHIP_QUERY;
->> +    ih3->code = (group ? br->multicast_last_member_interval :
->> +                br->multicast_query_response_interval) /
->> +           (HZ / IGMP_TIMER_SCALE);
->> +    ih3->csum = 0;
->> +    ih3->group = group;
->> +    ih3->resv = 0;
->> +    ih3->suppress = 0;
->> +    ih3->qrv= 2;
->> +    ih3->qqic = br->multicast_query_interval / HZ;
->> +    ih3->nsrcs = 0;
->> +    ih3->csum = ip_compute_csum((void *)ih3, sizeof(struct igmpv3_query ));
->> +    skb_put(skb, sizeof(*ih3));
->> +
->> +    __skb_pull(skb, sizeof(*eth));
->> +
->> +out:
->> +    return skb;
->> +}
->>  #if IS_ENABLED(CONFIG_IPV6)
->> -static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
->> -                            const struct in6_addr *grp,
->> -                            u8 *igmp_type)
->> +static struct sk_buff *br_ip6_alloc_query_v1(struct net_bridge *br,
->> +                         const struct in6_addr *grp,
->> +                         u8 *igmp_type)
->>  {
->>      struct sk_buff *skb;
->>      struct ipv6hdr *ip6h;
->> @@ -514,19 +589,129 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
->>  out:
->>      return skb;
->>  }
->> +
->> +static struct sk_buff *br_ip6_alloc_query_v2(struct net_bridge *br,
->> +                         const struct in6_addr *grp,
->> +                         u8 *igmp_type)
->> +{
->> +    struct sk_buff *skb;
->> +    struct ipv6hdr *ip6h;
->> +    struct mld2_query *mld2q;
->> +    struct ethhdr *eth;
->> +    u8 *hopopt;
->> +    unsigned long interval;
->> +
->> +    skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*ip6h) +
->> +                         8 + sizeof(*mld2q));
->> +    if (!skb)
->> +        goto out;
->> +
->> +    skb->protocol = htons(ETH_P_IPV6);
->> +
->> +    /* Ethernet header */
->> +    skb_reset_mac_header(skb);
->> +    eth = eth_hdr(skb);
->> +
->> +    ether_addr_copy(eth->h_source, br->dev->dev_addr);
->> +    eth->h_proto = htons(ETH_P_IPV6);
->> +    skb_put(skb, sizeof(*eth));
->> +
->> +    /* IPv6 header + HbH option */
->> +    skb_set_network_header(skb, skb->len);
->> +    ip6h = ipv6_hdr(skb);
->> +
->> +    *(__force __be32 *)ip6h = htonl(0x60000000);
->> +    ip6h->payload_len = htons(8 + sizeof(*mld2q));
->> +    ip6h->nexthdr = IPPROTO_HOPOPTS;
->> +    ip6h->hop_limit = 1;
->> +    ipv6_addr_set(&ip6h->daddr, htonl(0xff020000), 0, 0, htonl(1));
->> +    if (ipv6_dev_get_saddr(dev_net(br->dev), br->dev, &ip6h->daddr, 0,
->> +                   &ip6h->saddr)) {
->> +        kfree_skb(skb);
->> +        br->has_ipv6_addr = 0;
->> +        return NULL;
->> +    }
->> +
->> +    br->has_ipv6_addr = 1;
->> +    ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
->> +
->> +    hopopt = (u8 *)(ip6h + 1);
->> +    hopopt[0] = IPPROTO_ICMPV6;        /* next hdr */
->> +    hopopt[1] = 0;                /* length of HbH */
->> +    hopopt[2] = IPV6_TLV_ROUTERALERT;    /* Router Alert */
->> +    hopopt[3] = 2;                /* Length of RA Option */
->> +    hopopt[4] = 0;                /* Type = 0x0000 (MLD) */
->> +    hopopt[5] = 0;
->> +    hopopt[6] = IPV6_TLV_PAD1;        /* Pad1 */
->> +    hopopt[7] = IPV6_TLV_PAD1;        /* Pad1 */
->> +
->> +    skb_put(skb, sizeof(*ip6h) + 8);
->> +
->> +    /* ICMPv6 */
->> +    skb_set_transport_header(skb, skb->len);
->> +    mld2q = (struct mld2_query *) icmp6_hdr(skb);
->> +
->> +    interval = ipv6_addr_any(grp) ?
->> +            br->multicast_query_response_interval :
->> +            br->multicast_last_member_interval;
->> +
->> +    *igmp_type = ICMPV6_MGM_QUERY;
->> +    mld2q->mld2q_type = ICMPV6_MGM_QUERY;
->> +    mld2q->mld2q_code = 0;
->> +    mld2q->mld2q_cksum = 0;
->> +    mld2q->mld2q_mrc = htons((u16)jiffies_to_msecs(interval));
->> +    mld2q->mld2q_resv1 = 0;
->> +    mld2q->mld2q_mca = *grp;
->> +    mld2q->mld2q_resv2 = 0;
->> +    mld2q->mld2q_suppress = 0;
->> +    mld2q->mld2q_qrv = 2;
->> +    mld2q->mld2q_qqic = br->multicast_query_interval / HZ;
->> +    mld2q->mld2q_nsrcs = 0;
->> +
->> +    /* checksum */
->> +    mld2q->mld2q_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
->> +                      sizeof(*mld2q), IPPROTO_ICMPV6,
->> +                      csum_partial(mld2q,
->> +                               sizeof(*mld2q), 0));
->> +    skb_put(skb, sizeof(*mld2q));
->> +
->> +    __skb_pull(skb, sizeof(*eth));
->> +
->> +out:
->> +    return skb;
->> +}
->>  #endif
->>
->> +static int mld_force_mld_version(const struct inet6_dev *idev)
->> +{
->> +    if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version != 0)
->> +        return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version;
->> +    else
->> +        return idev->cnf.force_mld_version;
->> +}
->> +
->>  static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
->>                          struct br_ip *addr,
->>                          u8 *igmp_type)
->>  {
->> +    struct in_device *in_dev = __in_dev_get_rcu(br->dev);
->> +    struct inet6_dev *idev = __in6_dev_get(br->dev);
->>      switch (addr->proto) {
->>      case htons(ETH_P_IP):
->> -        return br_ip4_multicast_alloc_query(br, addr->u.ip4, igmp_type);
->> +        if (IGMP_V3_SEEN(in_dev))
->> +            return br_ip4_alloc_query_v3(br, addr->u.ip4,
->> +                             igmp_type);
->> +        else
->> +            return br_ip4_alloc_query_v2(br, addr->u.ip4,
->> +                             igmp_type);
->>  #if IS_ENABLED(CONFIG_IPV6)
->>      case htons(ETH_P_IPV6):
->> -        return br_ip6_multicast_alloc_query(br, &addr->u.ip6,
->> -                            igmp_type);
->> +        if (mld_force_mld_version(idev) == 2)
->> +            return br_ip6_alloc_query_v2(br, &addr->u.ip6,
->> +                             igmp_type);
->> +        else
->> +            return br_ip6_alloc_query_v1(br, &addr->u.ip6,
->> +                             igmp_type);
->>  #endif
->>      }
->>      return NULL;
->>
->
+
+Regards,
+Andrei
