@@ -1,51 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] mlx4 fix for shutdown flow
-Date: Fri, 18 Nov 2016 13:47:09 -0500 (EST)
-Message-ID: <20161118.134709.2264667169397661712.davem@davemloft.net>
-References: <1479397251-6932-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH net v2 7/7] net: ethernet: ti: cpsw: fix fixed-link phy
+ probe deferral
+Date: Fri, 18 Nov 2016 13:48:05 -0500 (EST)
+Message-ID: <20161118.134805.1178638605544036871.davem@davemloft.net>
+References: <1479400804-9847-8-git-send-email-johan@kernel.org>
+        <20161117.120416.1443476818715961812.davem@davemloft.net>
+        <20161117171920.GD10490@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, saeedm@mellanox.com,
-        eugenia@mellanox.com
-To: tariqt@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38328 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752280AbcKRSrL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:47:11 -0500
-In-Reply-To: <1479397251-6932-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: johan@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161117171920.GD10490@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Thu, 17 Nov 2016 17:40:48 +0200
+From: Johan Hovold <johan@kernel.org>
+Date: Thu, 17 Nov 2016 18:19:20 +0100
 
-> This patchset fixes an invalid reference to mdev in mlx4 shutdown flow.
+> On Thu, Nov 17, 2016 at 12:04:16PM -0500, David Miller wrote:
+>> From: Johan Hovold <johan@kernel.org>
+>> Date: Thu, 17 Nov 2016 17:40:04 +0100
+>> 
+>> > Make sure to propagate errors from of_phy_register_fixed_link() which
+>> > can fail with -EPROBE_DEFER.
+>> > 
+>> > Fixes: 1f71e8c96fc6 ("drivers: net: cpsw: Add support for fixed-link
+>> > PHY")
+>> > Signed-off-by: Johan Hovold <johan@kernel.org>
+>> 
+>> Johan, when you update a patch within a series you must post the
+>> entire series freshly to the lists, cover posting and all.
 > 
-> In patch 1, we make sure netif_device_detach() is called from shutdown flow only,
-> since we want to keep it present during a simple configuration change.
-> 
-> In patches 2 and 3, we add checks that were missing in:
-> * dev_get_phys_port_id
-> * dev_get_phys_port_name
-> We check the presence of the network device before calling the driver's
-> callbacks. This already exists for all other ndo's.
-> 
-> Series generated against net commit:
-> e5f6f564fd19 bnxt: add a missing rcu synchronization
+> I'm quite sure that is exactly what I did. Did you only get this last
+> patch out of the seven?
 
-I don't like where this is going nor the precedence it is setting.
-
-If you are taking the device into a state where it cannot be safely
-accessed by ndo operations, then you _MUST_ do whatever is necessary
-to make sure the device is unregistered and cannot be found in the
-various global lists and tables of network devices.
-
-This is mandatory.
-
-And this is how we must fix these kinds of problems instead of
-peppering device presence test all over the place.  That will be
-error prone and in the long term a huge maintainence burdon.
-
-I'm not applying this series, sorry.  You have to fix this properly.
+I ended up getting it delayed, thanks.
