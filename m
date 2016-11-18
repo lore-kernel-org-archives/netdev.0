@@ -1,28 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rtnetlink: fix FDB size computation
-Date: Fri, 18 Nov 2016 14:10:59 -0500 (EST)
-Message-ID: <20161118.141059.1545399735812585925.davem@davemloft.net>
-References: <9bef2a8afa6f8193fcca61ea381b67a52ab878b2.1479477903.git.sd@queasysnail.net>
+Subject: Re: [PATCH] mlxsw: switchib: add MLXSW_PCI dependency
+Date: Fri, 18 Nov 2016 14:13:26 -0500 (EST)
+Message-ID: <20161118.141326.1186329701317224000.davem@davemloft.net>
+References: <20161118160127.473555-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hubert.sokolowski@intel.com
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39712 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752057AbcKRTLB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:11:01 -0500
-In-Reply-To: <9bef2a8afa6f8193fcca61ea381b67a52ab878b2.1479477903.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jiri@mellanox.com, idosch@mellanox.com, ivecera@redhat.com,
+        eladr@mellanox.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161118160127.473555-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Fri, 18 Nov 2016 15:50:39 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 18 Nov 2016 17:01:14 +0100
 
-> Add missing NDA_VLAN attribute's size.
+> The newly added switchib driver fails to link if MLXSW_PCI=m:
 > 
-> Fixes: 1e53d5bb8878 ("net: Pass VLAN ID to rtnl_fdb_notify.")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> drivers/net/ethernet/mellanox/mlxsw/mlxsw_switchib.o: In function^Cmlxsw_sib_module_exit':
+> switchib.c:(.exit.text+0x8): undefined reference to `mlxsw_pci_driver_unregister'
+> switchib.c:(.exit.text+0x10): undefined reference to `mlxsw_pci_driver_unregister'
+> drivers/net/ethernet/mellanox/mlxsw/mlxsw_switchib.o: In function `mlxsw_sib_module_init':
+> switchib.c:(.init.text+0x28): undefined reference to `mlxsw_pci_driver_register'
+> switchib.c:(.init.text+0x38): undefined reference to `mlxsw_pci_driver_register'
+> switchib.c:(.init.text+0x48): undefined reference to `mlxsw_pci_driver_unregister'
+> 
+> The other two such sub-drivers have a dependency, so add the same one
+> here. In theory we could allow this driver if MLXSW_PCI is disabled,
+> but it's probably not worth it.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied and queued up for -stable, thanks.
+Please resubmit this with a proper fixes tag that identifies the commit that
+added the switchib driver.
+
+Thanks.
