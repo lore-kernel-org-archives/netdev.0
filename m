@@ -1,50 +1,311 @@
-From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v9 0/8] thunderbolt: Introducing Thunderbolt(TM)
- Networking
-Date: Fri, 18 Nov 2016 11:07:00 +0100
-Message-ID: <20161118100700.GA7126@kroah.com>
-References: <1478701208-4585-1-git-send-email-amir.jer.levy@intel.com>
- <20161109143632.GE6167@kw.sim.vm.gnt>
- <E607265CB020454880711A6F96C05A03B677E4C9@hasmsx107.ger.corp.intel.com>
- <20161115105920.GH6167@kw.sim.vm.gnt>
- <E607265CB020454880711A6F96C05A03BE2199EE@hasmsx108.ger.corp.intel.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: add igmpv3 and mldv2 query support
+Date: Fri, 18 Nov 2016 11:09:26 +0100
+Message-ID: <c1c35821-cdba-4a5e-0e53-694d10fb5918@cumulusnetworks.com>
+References: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
+ <9c1e16c2-b716-21e0-fa2c-3e3126607953@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Guinot <simon.guinot@sequanux.org>,
-        "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        "corbet@lwn.net" <corbet@lwn.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-        "mario_limonciello@dell.com" <mario_limonciello@dell.com>,
-        thunderbolt-linux <thunderbolt-linux@intel.com>,
-        "Westerberg, Mika" <mika.westerberg@intel.com>,
-        "Winkler, Tomas" <tomas.winkler@intel.com>,
-        "Zhang, Xiong Y" <xiong.y.zhang@intel.com>,
-        "Jamet, Michael" <michael.jamet@intel.com>,
-        "remi.rerolle@seagate.com" <remi.rerolle@seagate.com>
-To: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <E607265CB020454880711A6F96C05A03BE2199EE@hasmsx108.ger.corp.intel.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        linus.luessing@c0d3.blue, roopa <roopa@cumulusnetworks.com>
+To: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:34441 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751586AbcKRKJ3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 05:09:29 -0500
+Received: by mail-wm0-f45.google.com with SMTP id u144so4238794wmu.1
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 02:09:28 -0800 (PST)
+In-Reply-To: <9c1e16c2-b716-21e0-fa2c-3e3126607953@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 18, 2016 at 08:48:36AM +0000, Levy, Amir (Jer) wrote:
-> > BTW, it is quite a shame that the Thunderbolt firmware version can't 
-> > be read from Linux.
-> > 
-> 
-> This is WIP, once this patch will be upstream, we will be able to focus more
-> on aligning Linux with the Thunderbolt features that we have for windows.
+On 18/11/16 11:04, Nikolay Aleksandrov wrote:
+> On 18/11/16 08:32, Hangbin Liu wrote:
+>> Add bridge IGMPv3 and MLDv2 query support. But before we think it is stable
+>> enough, only enable it when declare in force_igmp/mld_version.
+>>
+>> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+>> ---
+>>  net/bridge/br_multicast.c | 203 ++++++++++++++++++++++++++++++++++++++++++++--
+>>  1 file changed, 194 insertions(+), 9 deletions(-)
+>>
+>
+> (+CC Roopa)
+> Hi Hangbin,
+> This patch is not correct, you should not use the net device IGMP config in the bridge.
+* bridge net device, sorry not port
 
-Why is this patch somehow holding that work back?  You aren't just
-sitting around waiting for people to review this and not doing anything
-else, right?  Is there some basic building block in these patches that
-your firmware download code is going to rely on?
+> These packets may never make it to the host and they may not be reflected, even more the
+> host may have very different igmp config for the port net device than the bridge does.
+* again bridge net device, not port
 
-confused,
+> Also your current implementation switches to V3 only if it is globally set, and that should
+> be controlled on a per-bridge basis, even per-vlan later.
+* it is per-bridge, you use the global net device IGMP config, but it should be in the bridge
+mcast control options, so we can do it per-vlan later and also be able to do the compat parts
+of the RFC and in general, the bridge is configured via its own options not the host net device
+because as I said these packets may never be received locally
 
-greg k-h
+> One more thing, if someone does a V2 leave for a group, you can end up sending them V3
+> group-specific query.
+>
+> I have been working on an implementation for IGMPv3/MLDv2 querier for the bridge device, it re-uses
+> most of the current code and allows you to configure it per-bridge (and later per-vlan). The only
+> reason I've not yet sent it to upstream is that we (at Cumulus) are working out the compatibility
+> parts (e.g. RFC3376 sec 7, sec 8) of the RFC since it has some unclear cases.
+> But I can rip the compatibility out and send it early for review if you'd like, we can add the
+> compat code later.
+>
+> Cheers,
+>  Nik
+>
+>> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+>> index 2136e45..9fb47f3 100644
+>> --- a/net/bridge/br_multicast.c
+>> +++ b/net/bridge/br_multicast.c
+>> @@ -35,6 +35,10 @@
+>>
+>>  #include "br_private.h"
+>>
+>> +#define IGMP_V3_SEEN(in_dev) \
+>> +    (IPV4_DEVCONF_ALL(dev_net(in_dev->dev), FORCE_IGMP_VERSION) == 3 || \
+>> +     IN_DEV_CONF_GET((in_dev), FORCE_IGMP_VERSION) == 3)
+>> +
+>>  static void br_multicast_start_querier(struct net_bridge *br,
+>>                         struct bridge_mcast_own_query *query);
+>>  static void br_multicast_add_router(struct net_bridge *br,
+>> @@ -360,9 +364,8 @@ static int br_mdb_rehash(struct net_bridge_mdb_htable __rcu **mdbp, int max,
+>>      return 0;
+>>  }
+>>
+>> -static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
+>> -                            __be32 group,
+>> -                            u8 *igmp_type)
+>> +static struct sk_buff *br_ip4_alloc_query_v2(struct net_bridge *br,
+>> +                         __be32 group, u8 *igmp_type)
+>>  {
+>>      struct sk_buff *skb;
+>>      struct igmphdr *ih;
+>> @@ -428,10 +431,82 @@ static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
+>>      return skb;
+>>  }
+>>
+>> +static struct sk_buff *br_ip4_alloc_query_v3(struct net_bridge *br,
+>> +                         __be32 group, u8 *igmp_type)
+>> +{
+>> +    struct sk_buff *skb;
+>> +    struct igmpv3_query *ih3;
+>> +    struct ethhdr *eth;
+>> +    struct iphdr *iph;
+>> +
+>> +    skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*iph) +
+>> +                         sizeof(*ih3) + 4);
+>> +    if (!skb)
+>> +        goto out;
+>> +
+>> +    skb->protocol = htons(ETH_P_IP);
+>> +
+>> +    skb_reset_mac_header(skb);
+>> +    eth = eth_hdr(skb);
+>> +
+>> +    ether_addr_copy(eth->h_source, br->dev->dev_addr);
+>> +    eth->h_dest[0] = 1;
+>> +    eth->h_dest[1] = 0;
+>> +    eth->h_dest[2] = 0x5e;
+>> +    eth->h_dest[3] = 0;
+>> +    eth->h_dest[4] = 0;
+>> +    eth->h_dest[5] = 1;
+>> +    eth->h_proto = htons(ETH_P_IP);
+>> +    skb_put(skb, sizeof(*eth));
+>> +
+>> +    skb_set_network_header(skb, skb->len);
+>> +    iph = ip_hdr(skb);
+>> +
+>> +    iph->version = 4;
+>> +    iph->ihl = 6;
+>> +    iph->tos = 0xc0;
+>> +    iph->tot_len = htons(sizeof(*iph) + sizeof(*ih3) + 4);
+>> +    iph->id = 0;
+>> +    iph->frag_off = htons(IP_DF);
+>> +    iph->ttl = 1;
+>> +    iph->protocol = IPPROTO_IGMP;
+>> +    iph->saddr = br->multicast_query_use_ifaddr ?
+>> +             inet_select_addr(br->dev, 0, RT_SCOPE_LINK) : 0;
+>> +    iph->daddr = htonl(INADDR_ALLHOSTS_GROUP);
+>> +    ((u8 *)&iph[1])[0] = IPOPT_RA;
+>> +    ((u8 *)&iph[1])[1] = 4;
+>> +    ((u8 *)&iph[1])[2] = 0;
+>> +    ((u8 *)&iph[1])[3] = 0;
+>> +    ip_send_check(iph);
+>> +    skb_put(skb, 24);
+>> +
+>> +    skb_set_transport_header(skb, skb->len);
+>> +    ih3 = igmpv3_query_hdr(skb);
+>> +
+>> +    *igmp_type = IGMP_HOST_MEMBERSHIP_QUERY;
+>> +    ih3->type = IGMP_HOST_MEMBERSHIP_QUERY;
+>> +    ih3->code = (group ? br->multicast_last_member_interval :
+>> +                br->multicast_query_response_interval) /
+>> +           (HZ / IGMP_TIMER_SCALE);
+>> +    ih3->csum = 0;
+>> +    ih3->group = group;
+>> +    ih3->resv = 0;
+>> +    ih3->suppress = 0;
+>> +    ih3->qrv= 2;
+>> +    ih3->qqic = br->multicast_query_interval / HZ;
+>> +    ih3->nsrcs = 0;
+>> +    ih3->csum = ip_compute_csum((void *)ih3, sizeof(struct igmpv3_query ));
+>> +    skb_put(skb, sizeof(*ih3));
+>> +
+>> +    __skb_pull(skb, sizeof(*eth));
+>> +
+>> +out:
+>> +    return skb;
+>> +}
+>>  #if IS_ENABLED(CONFIG_IPV6)
+>> -static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
+>> -                            const struct in6_addr *grp,
+>> -                            u8 *igmp_type)
+>> +static struct sk_buff *br_ip6_alloc_query_v1(struct net_bridge *br,
+>> +                         const struct in6_addr *grp,
+>> +                         u8 *igmp_type)
+>>  {
+>>      struct sk_buff *skb;
+>>      struct ipv6hdr *ip6h;
+>> @@ -514,19 +589,129 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
+>>  out:
+>>      return skb;
+>>  }
+>> +
+>> +static struct sk_buff *br_ip6_alloc_query_v2(struct net_bridge *br,
+>> +                         const struct in6_addr *grp,
+>> +                         u8 *igmp_type)
+>> +{
+>> +    struct sk_buff *skb;
+>> +    struct ipv6hdr *ip6h;
+>> +    struct mld2_query *mld2q;
+>> +    struct ethhdr *eth;
+>> +    u8 *hopopt;
+>> +    unsigned long interval;
+>> +
+>> +    skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*ip6h) +
+>> +                         8 + sizeof(*mld2q));
+>> +    if (!skb)
+>> +        goto out;
+>> +
+>> +    skb->protocol = htons(ETH_P_IPV6);
+>> +
+>> +    /* Ethernet header */
+>> +    skb_reset_mac_header(skb);
+>> +    eth = eth_hdr(skb);
+>> +
+>> +    ether_addr_copy(eth->h_source, br->dev->dev_addr);
+>> +    eth->h_proto = htons(ETH_P_IPV6);
+>> +    skb_put(skb, sizeof(*eth));
+>> +
+>> +    /* IPv6 header + HbH option */
+>> +    skb_set_network_header(skb, skb->len);
+>> +    ip6h = ipv6_hdr(skb);
+>> +
+>> +    *(__force __be32 *)ip6h = htonl(0x60000000);
+>> +    ip6h->payload_len = htons(8 + sizeof(*mld2q));
+>> +    ip6h->nexthdr = IPPROTO_HOPOPTS;
+>> +    ip6h->hop_limit = 1;
+>> +    ipv6_addr_set(&ip6h->daddr, htonl(0xff020000), 0, 0, htonl(1));
+>> +    if (ipv6_dev_get_saddr(dev_net(br->dev), br->dev, &ip6h->daddr, 0,
+>> +                   &ip6h->saddr)) {
+>> +        kfree_skb(skb);
+>> +        br->has_ipv6_addr = 0;
+>> +        return NULL;
+>> +    }
+>> +
+>> +    br->has_ipv6_addr = 1;
+>> +    ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
+>> +
+>> +    hopopt = (u8 *)(ip6h + 1);
+>> +    hopopt[0] = IPPROTO_ICMPV6;        /* next hdr */
+>> +    hopopt[1] = 0;                /* length of HbH */
+>> +    hopopt[2] = IPV6_TLV_ROUTERALERT;    /* Router Alert */
+>> +    hopopt[3] = 2;                /* Length of RA Option */
+>> +    hopopt[4] = 0;                /* Type = 0x0000 (MLD) */
+>> +    hopopt[5] = 0;
+>> +    hopopt[6] = IPV6_TLV_PAD1;        /* Pad1 */
+>> +    hopopt[7] = IPV6_TLV_PAD1;        /* Pad1 */
+>> +
+>> +    skb_put(skb, sizeof(*ip6h) + 8);
+>> +
+>> +    /* ICMPv6 */
+>> +    skb_set_transport_header(skb, skb->len);
+>> +    mld2q = (struct mld2_query *) icmp6_hdr(skb);
+>> +
+>> +    interval = ipv6_addr_any(grp) ?
+>> +            br->multicast_query_response_interval :
+>> +            br->multicast_last_member_interval;
+>> +
+>> +    *igmp_type = ICMPV6_MGM_QUERY;
+>> +    mld2q->mld2q_type = ICMPV6_MGM_QUERY;
+>> +    mld2q->mld2q_code = 0;
+>> +    mld2q->mld2q_cksum = 0;
+>> +    mld2q->mld2q_mrc = htons((u16)jiffies_to_msecs(interval));
+>> +    mld2q->mld2q_resv1 = 0;
+>> +    mld2q->mld2q_mca = *grp;
+>> +    mld2q->mld2q_resv2 = 0;
+>> +    mld2q->mld2q_suppress = 0;
+>> +    mld2q->mld2q_qrv = 2;
+>> +    mld2q->mld2q_qqic = br->multicast_query_interval / HZ;
+>> +    mld2q->mld2q_nsrcs = 0;
+>> +
+>> +    /* checksum */
+>> +    mld2q->mld2q_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+>> +                      sizeof(*mld2q), IPPROTO_ICMPV6,
+>> +                      csum_partial(mld2q,
+>> +                               sizeof(*mld2q), 0));
+>> +    skb_put(skb, sizeof(*mld2q));
+>> +
+>> +    __skb_pull(skb, sizeof(*eth));
+>> +
+>> +out:
+>> +    return skb;
+>> +}
+>>  #endif
+>>
+>> +static int mld_force_mld_version(const struct inet6_dev *idev)
+>> +{
+>> +    if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version != 0)
+>> +        return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version;
+>> +    else
+>> +        return idev->cnf.force_mld_version;
+>> +}
+>> +
+>>  static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
+>>                          struct br_ip *addr,
+>>                          u8 *igmp_type)
+>>  {
+>> +    struct in_device *in_dev = __in_dev_get_rcu(br->dev);
+>> +    struct inet6_dev *idev = __in6_dev_get(br->dev);
+>>      switch (addr->proto) {
+>>      case htons(ETH_P_IP):
+>> -        return br_ip4_multicast_alloc_query(br, addr->u.ip4, igmp_type);
+>> +        if (IGMP_V3_SEEN(in_dev))
+>> +            return br_ip4_alloc_query_v3(br, addr->u.ip4,
+>> +                             igmp_type);
+>> +        else
+>> +            return br_ip4_alloc_query_v2(br, addr->u.ip4,
+>> +                             igmp_type);
+>>  #if IS_ENABLED(CONFIG_IPV6)
+>>      case htons(ETH_P_IPV6):
+>> -        return br_ip6_multicast_alloc_query(br, &addr->u.ip6,
+>> -                            igmp_type);
+>> +        if (mld_force_mld_version(idev) == 2)
+>> +            return br_ip6_alloc_query_v2(br, &addr->u.ip6,
+>> +                             igmp_type);
+>> +        else
+>> +            return br_ip6_alloc_query_v1(br, &addr->u.ip6,
+>> +                             igmp_type);
+>>  #endif
+>>      }
+>>      return NULL;
+>>
+>
