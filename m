@@ -1,40 +1,127 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlxsw: switchib: add MLXSW_PCI dependency
-Date: Fri, 18 Nov 2016 14:13:26 -0500 (EST)
-Message-ID: <20161118.141326.1186329701317224000.davem@davemloft.net>
-References: <20161118160127.473555-1-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next]  mlx4: avoid unnecessary dirtying of critical
+ fields
+Date: Fri, 18 Nov 2016 12:15:33 -0800
+Message-ID: <1479500133.8455.295.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, idosch@mellanox.com, ivecera@redhat.com,
-        eladr@mellanox.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161118160127.473555-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33061 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752452AbcKRUPf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 15:15:35 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 144so14116453pfv.0
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 12:15:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 18 Nov 2016 17:01:14 +0100
+From: Eric Dumazet <edumazet@google.com>
 
-> The newly added switchib driver fails to link if MLXSW_PCI=m:
-> 
-> drivers/net/ethernet/mellanox/mlxsw/mlxsw_switchib.o: In function^Cmlxsw_sib_module_exit':
-> switchib.c:(.exit.text+0x8): undefined reference to `mlxsw_pci_driver_unregister'
-> switchib.c:(.exit.text+0x10): undefined reference to `mlxsw_pci_driver_unregister'
-> drivers/net/ethernet/mellanox/mlxsw/mlxsw_switchib.o: In function `mlxsw_sib_module_init':
-> switchib.c:(.init.text+0x28): undefined reference to `mlxsw_pci_driver_register'
-> switchib.c:(.init.text+0x38): undefined reference to `mlxsw_pci_driver_register'
-> switchib.c:(.init.text+0x48): undefined reference to `mlxsw_pci_driver_unregister'
-> 
-> The other two such sub-drivers have a dependency, so add the same one
-> here. In theory we could allow this driver if MLXSW_PCI is disabled,
-> but it's probably not worth it.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+While stressing a 40Gbit mlx4 NIC with busy polling, I found false
+sharing in mlx4 driver that can be easily avoided.
 
-Please resubmit this with a proper fixes tag that identifies the commit that
-added the switchib driver.
+This patch brings an additional 7 % performance improvement in UDP_RR
+workload.
 
-Thanks.
+1) If we received no frame during one mlx4_en_process_rx_cq()
+   invocation, no need to call mlx4_cq_set_ci() and/or dirty ring->cons
+
+2) Do not refill rx buffers if we have plenty of them.
+   This avoids false sharing and allows some bulk/batch optimizations.
+   Page allocator and its locks will thank us.
+
+Finally, mlx4_en_poll_rx_cq() should not return 0 if it determined
+cpu handling NIC IRQ should be changed. We should return budget-1
+instead, to not fool net_rx_action() and its netdev_budget.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |   51 +++++++++++--------
+ 1 file changed, 32 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 22f08f9ef464..2112494ff43b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -688,18 +688,23 @@ static void validate_loopback(struct mlx4_en_priv *priv, struct sk_buff *skb)
+ 	dev_kfree_skb_any(skb);
+ }
+ 
+-static void mlx4_en_refill_rx_buffers(struct mlx4_en_priv *priv,
+-				     struct mlx4_en_rx_ring *ring)
++static bool mlx4_en_refill_rx_buffers(struct mlx4_en_priv *priv,
++				      struct mlx4_en_rx_ring *ring)
+ {
+-	int index = ring->prod & ring->size_mask;
++	u32 missing = ring->actual_size - (ring->prod - ring->cons);
+ 
+-	while ((u32) (ring->prod - ring->cons) < ring->actual_size) {
+-		if (mlx4_en_prepare_rx_desc(priv, ring, index,
++	/* Try to batch allocations, but not too much. */
++	if (missing < 8)
++		return false;
++	do {
++		if (mlx4_en_prepare_rx_desc(priv, ring,
++					    ring->prod & ring->size_mask,
+ 					    GFP_ATOMIC | __GFP_COLD))
+ 			break;
+ 		ring->prod++;
+-		index = ring->prod & ring->size_mask;
+-	}
++	} while (--missing);
++
++	return true;
+ }
+ 
+ /* When hardware doesn't strip the vlan, we need to calculate the checksum
+@@ -1081,15 +1086,20 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 
+ out:
+ 	rcu_read_unlock();
+-	if (doorbell_pending)
+-		mlx4_en_xmit_doorbell(priv->tx_ring[TX_XDP][cq->ring]);
+-
+-	AVG_PERF_COUNTER(priv->pstats.rx_coal_avg, polled);
+-	mlx4_cq_set_ci(&cq->mcq);
+-	wmb(); /* ensure HW sees CQ consumer before we post new buffers */
+-	ring->cons = cq->mcq.cons_index;
+-	mlx4_en_refill_rx_buffers(priv, ring);
+-	mlx4_en_update_rx_prod_db(ring);
++
++	if (polled) {
++		if (doorbell_pending)
++			mlx4_en_xmit_doorbell(priv->tx_ring[TX_XDP][cq->ring]);
++
++		AVG_PERF_COUNTER(priv->pstats.rx_coal_avg, polled);
++		mlx4_cq_set_ci(&cq->mcq);
++		wmb(); /* ensure HW sees CQ consumer before we post new buffers */
++		ring->cons = cq->mcq.cons_index;
++	}
++
++	if (mlx4_en_refill_rx_buffers(priv, ring))
++		mlx4_en_update_rx_prod_db(ring);
++
+ 	return polled;
+ }
+ 
+@@ -1131,10 +1141,13 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
+ 			return budget;
+ 
+ 		/* Current cpu is not according to smp_irq_affinity -
+-		 * probably affinity changed. need to stop this NAPI
+-		 * poll, and restart it on the right CPU
++		 * probably affinity changed. Need to stop this NAPI
++		 * poll, and restart it on the right CPU.
++		 * Try to avoid returning a too small value (like 0),
++		 * to not fool net_rx_action() and its netdev_budget
+ 		 */
+-		done = 0;
++		if (done)
++			done--;
+ 	}
+ 	/* Done for now */
+ 	if (napi_complete_done(napi, done))
