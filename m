@@ -1,47 +1,51 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] liquidio CN23XX: check if PENDING bit is clear using logical and
-Date: Fri, 18 Nov 2016 18:45:32 +0000
-Message-ID: <20161118184532.5282-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] mlx4 fix for shutdown flow
+Date: Fri, 18 Nov 2016 13:47:09 -0500 (EST)
+Message-ID: <20161118.134709.2264667169397661712.davem@davemloft.net>
+References: <1479397251-6932-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com, saeedm@mellanox.com,
+        eugenia@mellanox.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:50580 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753014AbcKRSpp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:45:45 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:38328 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752280AbcKRSrL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:47:11 -0500
+In-Reply-To: <1479397251-6932-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Thu, 17 Nov 2016 17:40:48 +0200
 
-the mbox state should be bitwise anded rather than logically anded
-with OCTEON_MBOX_STATE_RESPONSE_PENDING. Fix this by using the
-correct & operator instead of &&.
+> This patchset fixes an invalid reference to mdev in mlx4 shutdown flow.
+> 
+> In patch 1, we make sure netif_device_detach() is called from shutdown flow only,
+> since we want to keep it present during a simple configuration change.
+> 
+> In patches 2 and 3, we add checks that were missing in:
+> * dev_get_phys_port_id
+> * dev_get_phys_port_name
+> We check the presence of the network device before calling the driver's
+> callbacks. This already exists for all other ndo's.
+> 
+> Series generated against net commit:
+> e5f6f564fd19 bnxt: add a missing rcu synchronization
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I don't like where this is going nor the precedence it is setting.
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-index 5309384..73696b42 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
-@@ -301,7 +301,7 @@ int octeon_mbox_process_message(struct octeon_mbox *mbox)
- 		       sizeof(struct octeon_mbox_cmd));
- 		if (!mbox_cmd.msg.s.resp_needed) {
- 			mbox->state &= ~OCTEON_MBOX_STATE_REQUEST_RECEIVED;
--			if (!(mbox->state &&
-+			if (!(mbox->state &
- 			      OCTEON_MBOX_STATE_RESPONSE_PENDING))
- 				mbox->state = OCTEON_MBOX_STATE_IDLE;
- 			writeq(OCTEON_PFVFSIG, mbox->mbox_read_reg);
--- 
-2.10.2
+If you are taking the device into a state where it cannot be safely
+accessed by ndo operations, then you _MUST_ do whatever is necessary
+to make sure the device is unregistered and cannot be found in the
+various global lists and tables of network devices.
+
+This is mandatory.
+
+And this is how we must fix these kinds of problems instead of
+peppering device presence test all over the place.  That will be
+error prone and in the long term a huge maintainence burdon.
+
+I'm not applying this series, sorry.  You have to fix this properly.
