@@ -1,40 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] cxgb4: Allocate Tx queues dynamically
-Date: Fri, 18 Nov 2016 14:04:46 -0500 (EST)
-Message-ID: <20161118.140446.1811222085231950254.davem@davemloft.net>
-References: <1479467260-6509-1-git-send-email-atul.gupta@chelsio.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH 0/5] XDP for virtio_net
+Date: Fri, 18 Nov 2016 11:06:57 -0800
+Message-ID: <582F5151.3050702@gmail.com>
+References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org,
-        jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-        leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-        swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: atul.gupta-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1479467260-6509-1-git-send-email-atul.gupta-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        bblanco@plumgrid.com, brouer@redhat.com
+To: tgraf@suug.ch, shm@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net, "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:32992 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751989AbcKRTHO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:07:14 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 3so21375852pgd.0
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 11:07:14 -0800 (PST)
+In-Reply-To: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Atul Gupta <atul.gupta-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Fri, 18 Nov 2016 16:37:40 +0530
-
-> From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+On 16-11-18 10:59 AM, John Fastabend wrote:
+> This implements virtio_net for the mergeable buffers and big_packet
+> modes. I tested this with vhost_net running on qemu and did not see
+> any issues.
 > 
-> Allocate resources dynamically for Upper layer driver's (ULD) like
-> cxgbit, iw_cxgb4, cxgb4i and chcr. The resources allocated include Tx
-> queues which are allocated when ULD register with cxgb4 driver and freed
-> while un-registering. The Tx queues which are shared by ULD shall be
-> allocated by first registering driver and un-allocated by last
-> unregistering driver.
+> There are some restrictions for XDP to be enabled (see patch 3) for
+> more details.
 > 
-> Signed-off-by: Atul Gupta <atul.gupta-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+>   1. LRO must be off
+>   2. MTU must be less than PAGE_SIZE
+>   3. queues must be available to dedicate to XDP
+>   4. num_bufs received in mergeable buffers must be 1
+>   5. big_packet mode must have all data on single page
+> 
+> Please review any comments/feedback welcome as always.
+> 
+> Thanks,
+> John
+> ---
+> 
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi Dave,
+
+Should be obvious but this is for net-next I dropped the tag from my
+git-send command.
+
+Also I missed probably the most important person on the CC/TO list.
+
++Michael Tsirkin.
+
+Thanks,
+John
