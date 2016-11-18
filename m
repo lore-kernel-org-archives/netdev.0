@@ -1,71 +1,107 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] netlink: use "unsigned int" in nla_next()
-Date: Sat, 19 Nov 2016 03:54:35 +0300
-Message-ID: <20161119005435.GD1200@avx2>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: Re: [net-next] af_packet: Use virtio_net_hdr_to_skb().
+Date: Fri, 18 Nov 2016 14:58:14 -0800
+Message-ID: <9BDB4BB5-F93E-4097-9607-5F28F96BA61E@ovn.org>
+References: <1479348402-126248-1-git-send-email-jarno@ovn.org> <20161118.113527.2164504813195182869.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33149 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751716AbcKRWyo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 17:54:44 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u144so10788005wmu.0
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 14:54:44 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35210 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752301AbcKRW6S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 17:58:18 -0500
+Received: by mail-pg0-f66.google.com with SMTP id p66so21795562pga.2
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 14:58:18 -0800 (PST)
+In-Reply-To: <20161118.113527.2164504813195182869.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-->nla_len is unsigned entity (it's length after all) and u16,
-thus it can't overflow when being aligned into int/unsigned int.
+Sorry for my transgressions and wasting your time. I’ll send a v2 in a moment.
 
-(nlmsg_next has the same code, but I didn't yet convince myself
-it is correct to do so).
-
-There is pointer arithmetic in this function and offset being
-unsigned is better:
-
-	add/remove: 0/0 grow/shrink: 1/64 up/down: 5/-309 (-304)
-	function                                     old     new   delta
-	nl80211_set_wiphy                           1444    1449      +5
-	team_nl_cmd_options_set                      997     995      -2
-	tcf_em_tree_validate                         872     870      -2
-	switchdev_port_bridge_setlink                352     350      -2
-	switchdev_port_br_afspec                     312     310      -2
-	rtm_to_fib_config                            428     426      -2
-	qla4xxx_sysfs_ddb_set_param                 2193    2191      -2
-	qla4xxx_iface_set_param                     4470    4468      -2
-	ovs_nla_free_flow_actions                    152     150      -2
-	output_userspace                             518     516      -2
-		...
-	nl80211_set_reg                              654     649      -5
-	validate_scan_freqs                          148     142      -6
-	validate_linkmsg                             288     282      -6
-	nl80211_parse_connkeys                       489     483      -6
-	nlattr_set                                   231     224      -7
-	nf_tables_delsetelem                         267     260      -7
-	do_setlink                                  3416    3408      -8
-	netlbl_cipsov4_add_std                      1672    1659     -13
-	nl80211_parse_sched_scan                    2902    2888     -14
-	nl80211_trigger_scan                        1738    1720     -18
-	do_execute_actions                          2821    2738     -83
-	Total: Before=154865355, After=154865051, chg -0.00%
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- include/net/netlink.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -713,7 +713,7 @@ static inline bool nla_ok(const struct nlattr *nla, int remaining)
-  */
- static inline struct nlattr *nla_next(const struct nlattr *nla, int *remaining)
- {
--	int totlen = NLA_ALIGN(nla->nla_len);
-+	unsigned int totlen = NLA_ALIGN(nla->nla_len);
+  Jarno
  
- 	*remaining -= totlen;
- 	return (struct nlattr *) ((char *) nla + totlen);
+> On Nov 18, 2016, at 8:35 AM, David Miller <davem@davemloft.net> wrote:
+> 
+> From: Jarno Rajahalme <jarno@ovn.org>
+> Date: Wed, 16 Nov 2016 18:06:42 -0800
+> 
+>> Use the common virtio_net_hdr_to_skb() instead of open coding it.
+>> Other call sites were changed by commit fd2a0437dc, but this one was
+>> missed, maybe because it is split in two parts of the source code.
+>> 
+>> Also fix other call sites to be more uniform.
+>> 
+>> Fixes: fd2a0437dc ("virtio_net: introduce virtio_net_hdr_{from,to}_skb")
+>> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+> 
+> This patch is doing many more things that just this.
+> 
+> Do not mix unrelated changes together:
+> 
+>> @@ -821,9 +821,8 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>> 		if (iov_iter_count(iter) < vnet_hdr_len)
+>> 			return -EINVAL;
+>> 
+>> -		ret = virtio_net_hdr_from_skb(skb, &vnet_hdr,
+>> -					      macvtap_is_little_endian(q));
+>> -		if (ret)
+>> +		if (virtio_net_hdr_from_skb(skb, &vnet_hdr,
+>> +					    macvtap_is_little_endian(q)))
+>> 			BUG();
+>> 
+>> 		if (copy_to_iter(&vnet_hdr, sizeof(vnet_hdr), iter) !=
+> 
+> This has nothing to do with modifying code to use vrtio_net_hdr_to_skb(), it
+> doesn't belong in this patch.
+> 
+>> @@ -1361,15 +1360,12 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>> 	}
+>> 
+>> 	if (vnet_hdr_sz) {
+>> -		struct virtio_net_hdr gso = { 0 }; /* no info leak */
+>> -		int ret;
+>> -
+>> +		struct virtio_net_hdr gso;
+> 
+> This is _extremely_ opaque.  The initializer is trying to prevent kernel memory
+> info leaks onto the network or into user space.
+> 
+> Maybe this transformation is valid but:
+> 
+> 1) YOU DON'T EVEN MENTION IT IN YOUR COMMIT MESSAGE.
+> 
+> 2) It's unrelated to this specific change, therefore it belongs in
+>   a separate change.
+> 
+> 3) You don't explain that it is a valid transformation, not why.
+> 
+> It is extremely disappointing to catch unrelated, potentially far
+> reaching things embedded in a patch when I review it.
+> 
+> Please do not ever do this.
+> 
+>> @@ -98,4 +98,4 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
+>> 	return 0;
+>> }
+>> 
+>> -#endif /* _LINUX_VIRTIO_BYTEORDER */
+>> +#endif /* _LINUX_VIRTIO_NET_H */
+> 
+> Another unrelated change.
+> 
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index 11db0d6..09abb88 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -1971,8 +1971,6 @@ static unsigned int run_filter(struct sk_buff *skb,
+>> static int __packet_rcv_vnet(const struct sk_buff *skb,
+>> 			     struct virtio_net_hdr *vnet_hdr)
+>> {
+>> -	*vnet_hdr = (const struct virtio_net_hdr) { 0 };
+>> -
+> 
+> There is no way this belongs in this patch, and again you do not explain
+> why removing this initializer is valid.
