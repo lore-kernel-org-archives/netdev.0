@@ -1,35 +1,46 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next] cadence: Add hardware PTP support.
-Date: Fri, 18 Nov 2016 13:27:30 +0100
-Message-ID: <20161118122730.GA11866@localhost.localdomain>
-References: <1479466028-29914-1-git-send-email-rafalo@cadence.com>
- <CAFcVECLoMyJJLwAQ_+xN9GNLeVbew7RU_vURZjK94VXH2zS7EA@mail.gmail.com>
- <BN3PR07MB2516D135ECCF2A68C1687EB6C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Synopsys Ethernet QoS Driver
+Date: Fri, 18 Nov 2016 12:28:30 +0000
+Message-ID: <cbe5f79b-53a4-e116-1e09-bc975a66a8ca@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Harini Katakam <harinikatakamlinux@gmail.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Andrei Pistirica <Andrei.Pistirica@microchip.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rafal Ozieblo <rafalo@cadence.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <CARLOS.PALMINHA@synopsys.com>, <andreas.irestal@axis.com>
+To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
+        <jiri@mellanox.com>, <saeedm@mellanox.com>, <idosch@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34109 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752149AbcKRM1g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 07:27:36 -0500
-Content-Disposition: inline
-In-Reply-To: <BN3PR07MB2516D135ECCF2A68C1687EB6C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
+Received: from smtprelay.synopsys.com ([198.182.47.9]:39614 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752855AbcKRM2l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 07:28:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 18, 2016 at 11:55:37AM +0000, Rafal Ozieblo wrote:
-> >I'm not sure of your application and why this is necessary.
-> >Can you please check Andrei's patches and mine and Richard Cochran's comments?
-> >I use linuxptp to test.
 
-And please, PLEASE, put me onto CC for all PTP related patches.  I am
-the maintainer, you know.
+Dear all,
 
-Thanks,
-Richard
+My name is Joao Pinto and I work at Synopsys.
+I am a kernel developer with special focus in mainline collaboration, both Linux
+and Buildroot. I was recently named one of the maintainers of the PCIe
+Designware core driver and I was the author of the Designware UFS driver stack.
+
+I am sending you this e-mail because you were the suggested contacts from the
+get_maintainers script concerning Ethernet drivers :).
+
+Currently I have the task to work on the mainline Ethernet QoS driver in which
+you are the author. The work would consist of the following:
+
+a) Separate the current driver in a Core driver (common ops) + platform glue
+driver + pci glue driver
+b) Add features that are currently only available internally
+c) Add specific phy support using the PHY framework
+
+I would also gladly be available to be its maintainer if you agree with it.
+
+It would be great to have your collaboration in the project if you are available
+to review the work in progress.
+
+Thank you and I am looking forward for your feedback!
+
+Joao Pinto
