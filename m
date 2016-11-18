@@ -1,1190 +1,507 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: [PATCH net-next] cadence: Add hardware PTP support.
-Date: Fri, 18 Nov 2016 10:47:08 +0000
-Message-ID: <1479466028-29914-1-git-send-email-rafalo@cadence.com>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next] bridge: add igmpv3 and mldv2 query support
+Date: Fri, 18 Nov 2016 18:56:23 +0800
+Message-ID: <201611181822.YvavXpLR%fengguang.wu@intel.com>
+References: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Rafal Ozieblo <rafalo@cadence.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Harini Katakam <harinikatakamlinux@gmail.com>,
-        Andrei Pistirica <Andrei.Pistirica@microchip.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="zYM0uCDKw75PZbzx"
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        linus.luessing@c0d3.blue, Hangbin Liu <liuhangbin@gmail.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:9313 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751788AbcKRK5W (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Nov 2016 05:57:22 -0500
+Content-Disposition: inline
+In-Reply-To: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Rafal Ozieblo <rafalo@cadence.com>
+
+--zYM0uCDKw75PZbzx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Hangbin,
+
+[auto build test ERROR on net-next/master]
+
+url:    https://github.com/0day-ci/linux/commits/Hangbin-Liu/bridge-add-igmpv3-and-mldv2-query-support/20161118-155854
+config: powerpc-defconfig (attached as .config)
+compiler: powerpc64-linux-gnu-gcc (Debian 6.1.1-9) 6.1.1 20160705
+reproduce:
+        wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+        chmod +x ~/bin/make.cross
+        # save the attached .config to linux build tree
+        make.cross ARCH=powerpc 
+
+All errors (new ones prefixed by >>):
+
+   net/bridge/br_multicast.c: In function 'mld_force_mld_version':
+>> net/bridge/br_multicast.c:688:24: error: 'struct net' has no member named 'ipv6'; did you mean 'ipv4'?
+     if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version != 0)
+                           ^~
+   net/bridge/br_multicast.c:689:28: error: 'struct net' has no member named 'ipv6'; did you mean 'ipv4'?
+      return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version;
+                               ^~
+   net/bridge/br_multicast.c: In function 'br_multicast_alloc_query':
+   net/bridge/br_multicast.c:699:27: error: implicit declaration of function '__in6_dev_get' [-Werror=implicit-function-declaration]
+     struct inet6_dev *idev = __in6_dev_get(br->dev);
+                              ^~~~~~~~~~~~~
+   net/bridge/br_multicast.c:699:27: warning: initialization makes pointer from integer without a cast [-Wint-conversion]
+   net/bridge/br_multicast.c:699:20: warning: unused variable 'idev' [-Wunused-variable]
+     struct inet6_dev *idev = __in6_dev_get(br->dev);
+                       ^~~~
+   At top level:
+   net/bridge/br_multicast.c:686:12: warning: 'mld_force_mld_version' defined but not used [-Wunused-function]
+    static int mld_force_mld_version(const struct inet6_dev *idev)
+               ^~~~~~~~~~~~~~~~~~~~~
+   cc1: some warnings being treated as errors
+
+vim +688 net/bridge/br_multicast.c
+
+   682		return skb;
+   683	}
+   684	#endif
+   685	
+   686	static int mld_force_mld_version(const struct inet6_dev *idev)
+   687	{
+ > 688		if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version != 0)
+   689			return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version;
+   690		else
+   691			return idev->cnf.force_mld_version;
+
 ---
- Documentation/devicetree/bindings/net/macb.txt |   1 +
- drivers/net/ethernet/cadence/macb.c            | 742 ++++++++++++++++++++++++-
- drivers/net/ethernet/cadence/macb.h            | 217 +++++++-
- 3 files changed, 950 insertions(+), 10 deletions(-)
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
-diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-index 1506e94..27966ae 100644
---- a/Documentation/devicetree/bindings/net/macb.txt
-+++ b/Documentation/devicetree/bindings/net/macb.txt
-@@ -22,6 +22,7 @@ Required properties:
- 	Required elements: 'pclk', 'hclk'
- 	Optional elements: 'tx_clk'
- 	Optional elements: 'rx_clk' applies to cdns,zynqmp-gem
-+	Optional elements: 'tsu_clk'
- - clocks: Phandles to input clocks.
- 
- Optional properties for PHY child node:
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index e1847ce..8481e4a 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -32,7 +32,10 @@
- #include <linux/of_gpio.h>
- #include <linux/of_mdio.h>
- #include <linux/of_net.h>
--
-+#include <linux/ptp_clock_kernel.h>
-+#include <linux/clocksource.h>
-+#include <linux/net_tstamp.h>
-+#include <linux/timecounter.h>
- #include "macb.h"
- 
- #define MACB_RX_BUFFER_SIZE	128
-@@ -665,6 +668,81 @@ static void macb_tx_error_task(struct work_struct *work)
- 	spin_unlock_irqrestore(&bp->lock, flags);
- }
- 
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+static int macb_hw_timestamp(struct macb *bp, u32 dma_desc_ts_1, u32 dma_desc_ts_2, struct timespec64 *ts)
-+{
-+	struct timespec64 tsu;
-+
-+	ts->tv_sec = (MACB_BFEXT(DMA_TS_MSB_SEC, dma_desc_ts_2) << MACB_DMA_TS_LSB_SEC_SIZE) |
-+			MACB_BFEXT(DMA_TS_LSB_SEC, dma_desc_ts_1);
-+	ts->tv_nsec = MACB_BFEXT(DMA_TS_NSEC, dma_desc_ts_1);
-+
-+	/* TSU overlaping workaround
-+	 * The timestamp only contains lower few bits of seconds,
-+	 * so add value from 1588 timer
-+	 */
-+	macb_ptp_time_get(bp, &tsu);
-+
-+	/* If the top bit is set in the timestamp,
-+	 * but not in 1588 timer, it has rolled over,
-+	 * so subtract max size
-+	 */
-+	if ((ts->tv_sec & (MACB_DMA_TS_SEC_TOP >> 1)) && 
-+		!(tsu.tv_sec & (MACB_DMA_TS_SEC_TOP >> 1)))
-+		ts->tv_sec -= MACB_DMA_TS_SEC_TOP;
-+
-+	ts->tv_sec += ((~MACB_DMA_TS_SEC_MASK) & (tsu.tv_sec));
-+
-+	return 0;
-+}
-+
-+static void macb_tstamp_tx(struct macb *bp, struct sk_buff *skb, struct macb_dma_desc *desc)
-+{
-+	struct skb_shared_hwtstamps shhwtstamps;
-+	struct timespec64 ts;
-+
-+	if(MACB_BFEXT(DMA_TX_TS_VALID, desc->ctrl)) {
-+		macb_hw_timestamp(bp, desc->dma_desc_ts_1, desc->dma_desc_ts_2, &ts);
-+		memset(&shhwtstamps, 0, sizeof(shhwtstamps));
-+		shhwtstamps.hwtstamp = ktime_set(ts.tv_sec, ts.tv_nsec);
-+		skb_tstamp_tx(skb, &shhwtstamps);
-+	}
-+}
-+
-+static void macb_tx_timestamp_flush(struct work_struct *work)
-+{
-+	struct macb_queue *queue = container_of(work, struct macb_queue, tx_timestamp_task);
-+	struct macb_tx_timestamp *tx_timestamp;
-+	unsigned long head = smp_load_acquire(&queue->tx_tstamp_head);
-+	unsigned long tail = queue->tx_tstamp_tail;
-+
-+	while (CIRC_CNT(head, tail, PTP_TS_BUFFER_SIZE)) {
-+		tx_timestamp = &queue->tx_timestamps[tail];
-+		macb_tstamp_tx(queue->bp, tx_timestamp->skb, &tx_timestamp->desc);
-+		/* cleanup */
-+		dev_kfree_skb_any(tx_timestamp->skb);
-+		smp_store_release(&queue->tx_tstamp_tail, (tail + 1) & (PTP_TS_BUFFER_SIZE - 1));
-+		tail = queue->tx_tstamp_tail;
-+	}
-+}
-+
-+static int macb_tx_timestamp_add(struct macb_queue *queue, struct sk_buff *skb, struct macb_dma_desc *desc)
-+{
-+	struct macb_tx_timestamp *tx_timestamp;
-+	unsigned long head = queue->tx_tstamp_head;
-+	unsigned long tail = ACCESS_ONCE(queue->tx_tstamp_tail);
-+
-+	if (CIRC_SPACE(head, tail, PTP_TS_BUFFER_SIZE) == 0)
-+		return -ENOMEM;
-+
-+	tx_timestamp = &queue->tx_timestamps[head];
-+	tx_timestamp->skb = skb;
-+	memcpy(&tx_timestamp->desc, desc, sizeof(tx_timestamp->desc));
-+	smp_store_release(&queue->tx_tstamp_head, (head + 1) & (PTP_TS_BUFFER_SIZE - 1));
-+	return 0;
-+}
-+#endif
-+
- static void macb_tx_interrupt(struct macb_queue *queue)
- {
- 	unsigned int tail;
-@@ -712,6 +790,16 @@ static void macb_tx_interrupt(struct macb_queue *queue)
- 				netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
- 					    macb_tx_ring_wrap(bp, tail),
- 					    skb->data);
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+				if (bp->ptp_hw_support)
-+					if (macb_tx_timestamp_add(queue, skb, desc) == 0) {
-+						 /* skb now belongs to timestamp buffer
-+						 * and will be removed later
-+						 */
-+						tx_skb->skb = NULL;
-+						schedule_work(&queue->tx_timestamp_task);
-+					}
-+#endif
- 				bp->stats.tx_packets++;
- 				bp->stats.tx_bytes += skb->len;
- 			}
-@@ -876,6 +964,17 @@ static int gem_rx(struct macb *bp, int budget)
- 		bp->stats.rx_packets++;
- 		bp->stats.rx_bytes += skb->len;
- 
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+		if (bp->ptp_hw_support) {
-+			struct timespec64 ts;
-+
-+			if (MACB_BFEXT(DMA_RX_TS_VALID, desc->addr)) {
-+				macb_hw_timestamp(bp, desc->dma_desc_ts_1, desc->dma_desc_ts_2, &ts);
-+				skb_hwtstamps(skb)->hwtstamp = ktime_set(ts.tv_sec, ts.tv_nsec);
-+			}
-+		}
-+#endif
-+
- #if defined(DEBUG) && defined(VERBOSE_DEBUG)
- 		netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
- 			    skb->len, skb->csum);
-@@ -1103,6 +1202,9 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 	struct macb *bp = queue->bp;
- 	struct net_device *dev = bp->dev;
- 	u32 status, ctrl;
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+	struct timespec64 ts;
-+#endif
- 
- 	status = queue_readl(queue, ISR);
- 
-@@ -1195,6 +1297,87 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 				queue_writel(queue, ISR, MACB_BIT(HRESP));
- 		}
- 
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+		if (status & MACB_BIT(PTP_DELAY_REQ_FRAME_RECEIVED)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				queue_writel(queue, ISR, MACB_BIT(PTP_DELAY_REQ_FRAME_RECEIVED));
-+			if (macb_ptp_time_frame_rx_get(bp, &ts) != 0) {
-+				ts.tv_sec = 0;
-+				ts.tv_nsec = 0;
-+			}
-+			macb_ptp_event(bp, &ts);
-+		}
-+
-+		if (status & MACB_BIT(PTP_SYNC_FRAME_RECEIVED)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				queue_writel(queue, ISR, MACB_BIT(PTP_SYNC_FRAME_RECEIVED));
-+			if (macb_ptp_time_frame_rx_get(bp, &ts) != 0) {
-+				ts.tv_sec = 0;
-+				ts.tv_nsec = 0;
-+			}
-+			macb_ptp_event(bp, &ts);
-+		}
-+
-+		if (status & MACB_BIT(PTP_DELAY_REQ_FRAME_TRANSMITTED)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				queue_writel(queue, ISR, MACB_BIT(PTP_DELAY_REQ_FRAME_TRANSMITTED));
-+			if (macb_ptp_time_frame_tx_get(bp, &ts) != 0) {
-+				ts.tv_sec = 0;
-+				ts.tv_nsec = 0;
-+			}
-+			macb_ptp_event(bp, &ts);
-+		}
-+
-+		if (status & MACB_BIT(PTP_SYNC_FRAME_TRANSMITTED)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				queue_writel(queue, ISR, MACB_BIT(PTP_SYNC_FRAME_TRANSMITTED));
-+			if (macb_ptp_time_frame_tx_get(bp, &ts) != 0) {
-+				ts.tv_sec = 0;
-+				ts.tv_nsec = 0;
-+			}
-+			macb_ptp_event(bp, &ts);
-+		}
-+
-+		if (status & MACB_BIT(PTP_PDELAY_REQ_FRAME_RECEIVED)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				queue_writel(queue, ISR, MACB_BIT(PTP_PDELAY_REQ_FRAME_RECEIVED));
-+			if (macb_ptp_time_peer_frame_rx_get(bp, &ts) != 0) {
-+				ts.tv_sec = 0;
-+				ts.tv_nsec = 0;
-+			}
-+			macb_ptp_event(bp, &ts);
-+		}
-+
-+		if (status & MACB_BIT(PTP_PDELAY_RESP_FRAME_RECEIVED)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				queue_writel(queue, ISR, MACB_BIT(PTP_PDELAY_RESP_FRAME_RECEIVED));
-+			if (macb_ptp_time_peer_frame_rx_get(bp, &ts) != 0) {
-+				ts.tv_sec = 0;
-+				ts.tv_nsec = 0;
-+			}
-+			macb_ptp_event(bp, &ts);
-+		}
-+
-+		if (status & MACB_BIT(PTP_PDELAY_REQ_FRAME_TRANSMITTED)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				queue_writel(queue, ISR, MACB_BIT(PTP_PDELAY_REQ_FRAME_TRANSMITTED));
-+			if (macb_ptp_time_peer_frame_tx_get(bp, &ts) != 0) {
-+				ts.tv_sec = 0;
-+				ts.tv_nsec = 0;
-+			}
-+			macb_ptp_event(bp, &ts);
-+		}
-+
-+		if (status & MACB_BIT(PTP_PDELAY_RESP_FRAME_TRANSMITTED)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				queue_writel(queue, ISR, MACB_BIT(PTP_PDELAY_RESP_FRAME_TRANSMITTED));
-+			if (macb_ptp_time_peer_frame_tx_get(bp, &ts) != 0) {
-+				ts.tv_sec = 0;
-+				ts.tv_nsec = 0;
-+			}
-+			macb_ptp_event(bp, &ts);
-+		}
-+#endif
- 		status = queue_readl(queue, ISR);
- 	}
- 
-@@ -1422,7 +1605,10 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Make newly initialized descriptor visible to hardware */
- 	wmb();
- 
--	skb_tx_timestamp(skb);
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+	if (!bp->ptp_hw_support)
-+#endif
-+		skb_tx_timestamp(skb);
- 
- 	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
- 
-@@ -1752,6 +1938,9 @@ static void macb_configure_dma(struct macb *bp)
- #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
- 		dmacfg |= GEM_BIT(ADDR64);
- #endif
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+		dmacfg |= GEM_BIT(RX_EXTENDED_MODE) | GEM_BIT(TX_EXTENDED_MODE);
-+#endif
- 		netdev_dbg(bp->dev, "Cadence configure DMA with 0x%08x\n",
- 			   dmacfg);
- 		gem_writel(bp, DMACFG, dmacfg);
-@@ -1763,7 +1952,7 @@ static void macb_init_hw(struct macb *bp)
- 	struct macb_queue *queue;
- 	unsigned int q;
- 
--	u32 config;
-+	u32 config, ier;
- 
- 	macb_reset_hw(bp);
- 	macb_set_hwaddr(bp);
-@@ -1808,10 +1997,21 @@ static void macb_init_hw(struct macb *bp)
- #endif
- 
- 		/* Enable interrupts */
--		queue_writel(queue, IER,
--			     MACB_RX_INT_FLAGS |
--			     MACB_TX_INT_FLAGS |
--			     MACB_BIT(HRESP));
-+		ier = MACB_RX_INT_FLAGS |
-+			MACB_TX_INT_FLAGS |
-+			MACB_BIT(HRESP);
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+		if (bp->ptp_hw_support)
-+			ier |= MACB_BIT(PTP_DELAY_REQ_FRAME_TRANSMITTED) |
-+				MACB_BIT(PTP_SYNC_FRAME_TRANSMITTED) |
-+				MACB_BIT(PTP_PDELAY_REQ_FRAME_TRANSMITTED) |
-+				MACB_BIT(PTP_PDELAY_RESP_FRAME_TRANSMITTED) |
-+				MACB_BIT(PTP_DELAY_REQ_FRAME_RECEIVED) |
-+				MACB_BIT(PTP_SYNC_FRAME_RECEIVED) |
-+				MACB_BIT(PTP_PDELAY_REQ_FRAME_RECEIVED) |
-+				MACB_BIT(PTP_PDELAY_RESP_FRAME_RECEIVED);
-+#endif
-+		queue_writel(queue, IER, ier);
- 	}
- 
- 	/* Enable TX and RX */
-@@ -2183,6 +2383,34 @@ static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 		regs_buff[13] = gem_readl(bp, DMACFG);
- }
- 
-+int macb_get_ts_info(struct net_device *dev, struct ethtool_ts_info *ts_info)
-+{
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+	struct macb *bp = netdev_priv(dev);
-+
-+	if (bp->ptp_hw_support) {
-+		ts_info->phc_index = ptp_clock_index(bp->ptp_clock);
-+		ts_info->so_timestamping =
-+			SOF_TIMESTAMPING_TX_SOFTWARE |
-+			SOF_TIMESTAMPING_RX_SOFTWARE |
-+			SOF_TIMESTAMPING_TX_HARDWARE |
-+			SOF_TIMESTAMPING_RX_HARDWARE |
-+			SOF_TIMESTAMPING_RAW_HARDWARE |
-+			SOF_TIMESTAMPING_SOFTWARE;
-+		ts_info->tx_types =
-+			(1 << HWTSTAMP_TX_ONESTEP_SYNC) |
-+			(1 << HWTSTAMP_TX_OFF) |
-+			(1 << HWTSTAMP_TX_ON);
-+		ts_info->rx_filters =
-+			(1 << HWTSTAMP_FILTER_NONE) |
-+			(1 << HWTSTAMP_FILTER_ALL);
-+		return 0;
-+	}
-+	else
-+#endif
-+		return ethtool_op_get_ts_info(dev, ts_info);
-+}
-+
- static void macb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- {
- 	struct macb *bp = netdev_priv(netdev);
-@@ -2283,7 +2511,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
- 	.get_regs_len		= macb_get_regs_len,
- 	.get_regs		= macb_get_regs,
- 	.get_link		= ethtool_op_get_link,
--	.get_ts_info		= ethtool_op_get_ts_info,
-+	.get_ts_info		= macb_get_ts_info,
- 	.get_ethtool_stats	= gem_get_ethtool_stats,
- 	.get_strings		= gem_get_ethtool_strings,
- 	.get_sset_count		= gem_get_sset_count,
-@@ -2293,6 +2521,100 @@ static const struct ethtool_ops gem_ethtool_ops = {
- 	.set_ringparam		= macb_set_ringparam,
- };
- 
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+int macb_get_ts(struct net_device *dev, struct ifreq *rq)
-+{
-+	struct macb *bp = netdev_priv(dev);
-+	struct hwtstamp_config *tstamp_config = &bp->tstamp_config;
-+
-+	if (!bp->ptp_hw_support)
-+		return -EFAULT;
-+	if (copy_to_user(rq->ifr_data, tstamp_config, sizeof(*tstamp_config)))
-+		return -EFAULT;
-+	else
-+		return 0;
-+}
-+
-+int macb_set_ts(struct net_device *dev, struct ifreq *rq)
-+{
-+	struct macb *bp = netdev_priv(dev);
-+	struct hwtstamp_config *tstamp_config = &bp->tstamp_config;
-+
-+	struct timespec64 ts;
-+	struct incrementspec incr_spec;
-+
-+	enum macb_bd_control tx_bd_control;
-+	enum macb_bd_control rx_bd_control;
-+
-+	if (!bp->ptp_hw_support)
-+		return -EFAULT;
-+
-+	if (copy_from_user(tstamp_config, rq->ifr_data, sizeof(*tstamp_config)))
-+		return -EFAULT;
-+
-+	switch (tstamp_config->tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+		break;
-+	case HWTSTAMP_TX_ONESTEP_SYNC:
-+		if (macb_ptp_set_one_step_sync(bp, 1) != 0)
-+			return -ERANGE;
-+	case HWTSTAMP_TX_ON:
-+		tx_bd_control = TSTAMP_ALL_FRAMES;
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	switch (tstamp_config->rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		break;
-+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-+		break;
-+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-+		break;
-+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-+		rx_bd_control =  TSTAMP_ALL_PTP_FRAMES;
-+		tstamp_config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
-+		break;
-+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-+	case HWTSTAMP_FILTER_ALL:
-+		rx_bd_control = TSTAMP_ALL_FRAMES;
-+		tstamp_config->rx_filter = HWTSTAMP_FILTER_ALL;
-+		break;
-+	default:
-+		tstamp_config->rx_filter = HWTSTAMP_FILTER_NONE;
-+		return -ERANGE;
-+	}
-+
-+	/* 1. get current system time */
-+	ts = ns_to_timespec64(ktime_to_ns(ktime_get_real()));
-+
-+	/* 2. set ptp timer */
-+	macb_ptp_time_set(bp, &ts);
-+
-+	/* 3. set PTP timer increment value to BASE_INCREMENT */
-+	incr_spec.sub_ns = bp->tsu_incr.sub_ns;
-+	incr_spec.ns = bp->tsu_incr.ns;
-+	macb_ptp_increment_set(bp, &incr_spec);
-+
-+	if (macb_ptp_set_tstamp_mode(bp, tx_bd_control, rx_bd_control) != 0)
-+		return -ERANGE;
-+
-+	if (copy_to_user(rq->ifr_data, tstamp_config, sizeof(*tstamp_config)))
-+		return -EFAULT;
-+	else
-+		return 0;
-+}
-+#endif
-+
- static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct phy_device *phydev = dev->phydev;
-@@ -2303,6 +2625,13 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!phydev)
- 		return -ENODEV;
- 
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+	if (cmd == SIOCGHWTSTAMP)
-+		return macb_get_ts(dev, rq);
-+
-+	if (cmd == SIOCSHWTSTAMP)
-+		return macb_set_ts(dev, rq);
-+#endif
- 	return phy_mii_ioctl(phydev, rq, cmd);
- }
- 
-@@ -3147,6 +3476,17 @@ static int macb_probe(struct platform_device *pdev)
- 		    macb_is_gem(bp) ? "GEM" : "MACB", macb_readl(bp, MID),
- 		    dev->base_addr, dev->irq, dev->dev_addr);
- 
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+	/* Enable PTP */
-+	bp->ptp_hw_support = false;
-+	if (GEM_BFEXT(TSU, gem_readl(bp, DCFG5))) {
-+		err = macb_ptp_init(pdev);
-+		if (err)
-+			dev_err(&pdev->dev, "Cannot initialize ptp.\n");
-+		else
-+			bp->ptp_hw_support = true;
-+	}
-+#endif
- 	return 0;
- 
- err_out_unregister_mdio:
-@@ -3245,6 +3585,392 @@ static int __maybe_unused macb_resume(struct device *dev)
- 	return 0;
- }
- 
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+int macb_ptp_init(struct platform_device *pdev)
-+{
-+	struct net_device *dev = platform_get_drvdata(pdev);
-+	struct macb *bp = netdev_priv(dev);
-+	u64 tsu_f, temp;
-+	unsigned int q;
-+	struct macb_queue *queue;
-+
-+	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
-+		queue->tx_tstamp_head = 0;
-+		queue->tx_tstamp_tail = 0;
-+		INIT_WORK(&queue->tx_timestamp_task, macb_tx_timestamp_flush);
-+	}
-+
-+	snprintf(bp->ptp_clock_info.name, 16, "macb_ptp");
-+	bp->ptp_clock_info.max_adj   = (64E6);
-+	bp->ptp_clock_info.n_alarm   = 1;
-+	bp->ptp_clock_info.n_ext_ts  = 1;
-+	bp->ptp_clock_info.n_per_out = 0;
-+	bp->ptp_clock_info.n_pins    = 0;
-+	bp->ptp_clock_info.pps	     = 1;
-+	bp->ptp_clock_info.adjfreq   = macb_ptp_adjfreq;
-+	bp->ptp_clock_info.adjtime   = macb_ptp_adjtime;
-+	bp->ptp_clock_info.gettime64 = macb_ptp_gettime;
-+	bp->ptp_clock_info.settime64 = macb_ptp_settime;
-+	bp->ptp_clock_info.enable    = macb_ptp_enable;
-+
-+	bp->ptp_clock = ptp_clock_register(&bp->ptp_clock_info, &pdev->dev);
-+
-+	bp->tsu_clk = devm_clk_get(&pdev->dev, "tsu_clk");
-+	if (!IS_ERR(bp->tsu_clk)) {
-+		tsu_f = clk_get_rate(bp->tsu_clk);
-+	}
-+	/* try pclk instead */
-+	else if (!IS_ERR(bp->pclk)) {
-+		bp->tsu_clk = bp->pclk;
-+		tsu_f = clk_get_rate(bp->tsu_clk);
-+	} else
-+		return -ENOTSUPP;
-+
-+	bp->tsu_incr.ns = div_u64(NSEC_PER_SEC, tsu_f);
-+	temp = (NSEC_PER_SEC - ((u64)bp->tsu_incr.ns * tsu_f));
-+	temp *= (1 << MACB_SUB_NS_INCR_SIZE);
-+	bp->tsu_incr.sub_ns = div_u64(temp, tsu_f);
-+
-+	return 0;
-+}
-+
-+void macb_ptp_stop(struct platform_device *pdev)
-+{
-+	struct net_device *dev = platform_get_drvdata(pdev);
-+	struct macb *bp = netdev_priv(dev);
-+
-+	if (bp->ptp_clock)
-+		ptp_clock_unregister(bp->ptp_clock);
-+}
-+
-+/* Interface of Linux PTP Framework */
-+
-+int macb_ptp_adjfreq(struct ptp_clock_info *ptp_clock_info, s32 ppb)
-+{
-+	struct incrementspec incr_spec;
-+	struct macb *bp = container_of(ptp_clock_info, struct macb, ptp_clock_info);
-+	u64 period, temp;
-+	bool neg_adj = false;
-+	unsigned long flags;
-+
-+	if (!ptp_clock_info)
-+		return -EINVAL;
-+
-+	if (ppb < 0) {
-+		neg_adj = true;
-+		ppb = -ppb;
-+	}
-+
-+	/* Adjustment is relative to base frequency */
-+	incr_spec.sub_ns = bp->tsu_incr.sub_ns;
-+	incr_spec.ns = bp->tsu_incr.ns;
-+
-+	/* scaling */
-+	period = ((u64) incr_spec.ns << MACB_SUB_NS_INCR_SIZE) + incr_spec.sub_ns;
-+	temp = (u64)ppb * period;
-+	/* Divide with rounding, equivalent to floating dividing:
-+	 * (temp / NSEC_PER_SEC) + 0.5
-+	 */
-+	temp = div_u64(temp + (NSEC_PER_SEC >> 1), NSEC_PER_SEC);
-+
-+	period = neg_adj ? (period - temp) : (period + temp);
-+
-+	incr_spec.ns = (period >> MACB_SUB_NS_INCR_SIZE) & ((1 << MACB_NUM_INCS_SIZE) - 1);
-+	incr_spec.sub_ns = period & ((1 << MACB_SUB_NS_INCR_SIZE) - 1);
-+
-+	spin_lock_irqsave(&bp->lock, flags);
-+	macb_ptp_increment_set(bp, &incr_spec);
-+
-+	spin_unlock_irqrestore(&bp->lock, flags);
-+	return 0;
-+}
-+
-+int macb_ptp_adjtime(struct ptp_clock_info *ptp_clock_info, s64 delta)
-+{
-+
-+	u64 ts_nsec;
-+	struct timespec64 ts;
-+	struct macb *bp = container_of(ptp_clock_info, struct macb, ptp_clock_info);
-+
-+	if (!ptp_clock_info)
-+		return -EINVAL;
-+
-+	if (delta >= -TSU_NSEC_MAX_VAL && delta <= TSU_NSEC_MAX_VAL) {
-+		macb_ptp_time_adjust(bp, (s32)delta);
-+	} else {
-+		macb_ptp_time_get(bp, &ts);
-+
-+		ts_nsec = ts.tv_nsec + ts.tv_sec * NSEC_PER_SEC;
-+		ts_nsec += delta;
-+
-+		ts.tv_sec = div_u64(ts_nsec, NSEC_PER_SEC);
-+		ts.tv_nsec = ts_nsec - ts.tv_sec * NSEC_PER_SEC;
-+
-+		macb_ptp_time_set(bp, &ts);
-+	}
-+
-+	return 0;
-+}
-+
-+
-+int macb_ptp_gettime(struct ptp_clock_info *ptp_clock_info, struct timespec64 *ts)
-+{
-+	struct macb *bp = container_of(ptp_clock_info, struct macb, ptp_clock_info);
-+
-+	if (!ptp_clock_info || !ts)
-+		return -EINVAL;
-+
-+	macb_ptp_time_get(bp, ts);
-+	return 0;
-+}
-+
-+int macb_ptp_settime(struct ptp_clock_info *ptp_clock_info, const struct timespec64 *ts)
-+{
-+	struct macb *bp = container_of(ptp_clock_info, struct macb, ptp_clock_info);
-+
-+	if (!ptp_clock_info || !ts)
-+		return -EINVAL;
-+
-+	macb_ptp_time_set(bp, ts);
-+	return 0;
-+}
-+
-+int macb_ptp_enable(struct ptp_clock_info *ptp_clock_info,
-+		    struct ptp_clock_request *request, int on)
-+{
-+	struct macb *bp = container_of(ptp_clock_info, struct macb, ptp_clock_info);
-+	u32 mask;
-+
-+	if (!ptp_clock_info || !request)
-+		return -EINVAL;
-+
-+	switch (request->type) {
-+	case PTP_CLK_REQ_EXTTS:	/* Toggle TSU match interrupt */
-+		mask = macb_readl(bp, IMR) | (1 << MACB_TSU_TIMER_COMPARISON_INTERRUPT_OFFSET);
-+		if (on)
-+			macb_writel(bp, IER, mask);
-+		else
-+			macb_writel(bp, IDR, mask);
-+		break;
-+	case PTP_CLK_REQ_PEROUT: /* Toggle Periodic output */
-+		return -EOPNOTSUPP;
-+		/* break; */
-+	case PTP_CLK_REQ_PPS:	/* Toggle TSU periodic (second) interrupt */
-+		mask = macb_readl(bp, IMR) | (1 << MACB_TSU_SECONDS_REGISTER_INCREMENT_OFFSET);
-+		if (on)
-+			macb_writel(bp, IER, mask);
-+		else
-+			macb_writel(bp, IDR, mask);
-+		break;
-+	default:
-+		break;
-+	}
-+	return 0;
-+}
-+
-+
-+/* End of Interface of Linux PTP Framework */
-+
-+int macb_ptp_increment_get(struct macb *bp, struct incrementspec *incr_spec)
-+{
-+	u32 sub_ns_reg;
-+	u32 ns_reg;
-+
-+	if (!bp || !incr_spec)
-+		return -EINVAL;
-+
-+	sub_ns_reg = macb_readl(bp, TSU_TIMER_INCR_SUB_NSEC);
-+	ns_reg = macb_readl(bp, TSU_TIMER_INCR);
-+
-+	incr_spec->sub_ns = MACB_BFEXT(SUB_NS_INCR_MSB, sub_ns_reg) << MACB_SUB_NS_INCR_LSB_SIZE | MACB_BFEXT(SUB_NS_INCR_LSB, sub_ns_reg);
-+	incr_spec->ns = MACB_BFEXT(NS_INCREMENT, ns_reg);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_increment_set(struct macb *bp, struct incrementspec *incr_spec)
-+{
-+	u32 sub_ns_reg;
-+	u32 ns_reg;
-+
-+	if (!bp || !incr_spec)
-+		return -EINVAL;
-+
-+	sub_ns_reg = MACB_BF(SUB_NS_INCR_LSB, incr_spec->sub_ns)
-+			| (((incr_spec->sub_ns & ~((1 << MACB_SUB_NS_INCR_LSB_SIZE) - 1)) >> MACB_SUB_NS_INCR_LSB_SIZE));
-+	ns_reg = incr_spec->ns;
-+
-+	/* tsu_timer_incr register must be written after the tsu_timer_incr_sub_ns register
-+	 * and the write operation will cause the value written to the tsu_timer_incr_sub_ns
-+	 * register to take effect.
-+	 */
-+	macb_writel(bp, TSU_TIMER_INCR_SUB_NSEC, sub_ns_reg);
-+	macb_writel(bp, TSU_TIMER_INCR, ns_reg);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_time_adjust(struct macb *bp, s32 delta)
-+{
-+	bool subtract = 0;
-+	u32 val = 0;
-+
-+	if (!bp)
-+		return -EINVAL;
-+
-+	if ((delta < -TSU_NSEC_MAX_VAL) || (delta > TSU_NSEC_MAX_VAL))
-+		return -EINVAL;
-+
-+	if (delta < 0) {
-+		subtract = 1;
-+		delta = -delta;
-+	}
-+
-+	val = (subtract << MACB_ADD_SUBTRACT_OFFSET) | delta;
-+
-+	macb_writel(bp, TSU_TIMER_ADJUST, val);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_time_get(struct macb *bp, struct timespec64 *ts)
-+{
-+	long first, second;
-+	u32 sec, msb_sec;
-+
-+	if (!bp || !ts)
-+		return -EINVAL;
-+
-+	first = macb_readl(bp, TSU_TMR_NSEC);
-+	sec = macb_readl(bp, TSU_TMR_SEC);
-+	msb_sec = macb_readl(bp, TSU_TMR_MSB_SEC);
-+	second = macb_readl(bp, TSU_TMR_NSEC);
-+
-+	/* test for nsec rollover */
-+	if (first > second) {
-+		/* if so, use later read & re-read seconds
-+		 * (assume all done within 1s)
-+		 */
-+		ts->tv_nsec = macb_readl(bp, TSU_TMR_NSEC);
-+		sec = macb_readl(bp, TSU_TMR_SEC);
-+		msb_sec = macb_readl(bp, TSU_TMR_MSB_SEC);
-+	} else
-+		ts->tv_nsec = first;
-+
-+	ts->tv_sec = (((u64)msb_sec << MACB_TIMER_LSB_SEC_SIZE) | sec)
-+			& TSU_SEC_MAX_VAL;
-+
-+	return 0;
-+}
-+
-+int macb_ptp_time_set(struct macb *bp, const struct timespec64 *ts)
-+{
-+	if (!bp || !ts)
-+		return -EINVAL;
-+
-+	macb_writel(bp, TSU_TMR_MSB_SEC, (ts->tv_sec >> MACB_TIMER_LSB_SEC_SIZE)
-+			& ((1 << MACB_TIMER_MSB_SEC_SIZE) - 1));
-+	/* write lower bits 2nd, for synchronised secs update */
-+	macb_writel(bp, TSU_TMR_SEC, ts->tv_sec & (((u64)1 << MACB_TIMER_LSB_SEC_SIZE) - 1));
-+	macb_writel(bp, TSU_TMR_NSEC, ts->tv_nsec);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_time_peer_frame_tx_get(struct macb *bp, struct timespec64 *ts)
-+{
-+	if (!bp || !ts)
-+		return -EINVAL;
-+
-+	ts->tv_sec = (((u64)macb_readl(bp, TSU_PEER_TX_MSB_SEC) << 32) |
-+		macb_readl(bp, TSU_PEER_TX_SEC)) & TSU_SEC_MAX_VAL;
-+	ts->tv_nsec = macb_readl(bp, TSU_PEER_TX_NSEC);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_time_peer_frame_rx_get(struct macb *bp, struct timespec64 *ts)
-+{
-+	if (!bp || !ts)
-+		return -EINVAL;
-+
-+	ts->tv_sec = (((u64)macb_readl(bp, TSU_PEER_RX_MSB_SEC) << 32) |
-+		macb_readl(bp, TSU_PEER_RX_SEC)) & TSU_SEC_MAX_VAL;
-+	ts->tv_nsec = macb_readl(bp, TSU_PEER_RX_NSEC);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_time_frame_tx_get(struct macb *bp, struct timespec64 *ts)
-+{
-+	if (!bp || !ts)
-+		return -EINVAL;
-+
-+	ts->tv_sec = (((u64)macb_readl(bp, TSU_PTP_TX_MSB_SEC) << 32) |
-+		macb_readl(bp, TSU_PTP_TX_SEC)) & TSU_SEC_MAX_VAL;
-+	ts->tv_nsec = macb_readl(bp, TSU_PTP_TX_NSEC);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_time_frame_rx_get(struct macb *bp, struct timespec64 *ts)
-+{
-+	if (!bp || !ts)
-+		return -EINVAL;
-+
-+	ts->tv_sec = (((u64)macb_readl(bp, TSU_PTP_RX_MSB_SEC) << 32) |
-+		      macb_readl(bp, TSU_PTP_RX_SEC)) & TSU_SEC_MAX_VAL;
-+	ts->tv_nsec = macb_readl(bp, TSU_PTP_RX_NSEC);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_event(struct macb *bp, struct timespec64 *ts)
-+{
-+	struct ptp_clock_event event;
-+
-+	event.type = PTP_CLOCK_EXTTS;
-+	event.index = 0;
-+	event.timestamp = ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
-+
-+	ptp_clock_event(bp->ptp_clock, &event);
-+
-+	return 0;
-+}
-+
-+int macb_ptp_set_one_step_sync(struct macb *bp, u8 enable)
-+{
-+	u32 reg_val;
-+
-+	if (!bp)
-+		return -EINVAL;
-+	if (enable < 0 || enable > 1)
-+		return -EINVAL;
-+
-+	reg_val = macb_readl(bp, NCR);
-+
-+	if (enable)
-+		macb_writel(bp, NCR, reg_val | MACB_BIT(ONE_STEP_SYNC_MODE));
-+	else
-+		macb_writel(bp, NCR, reg_val & ~MACB_BIT(ONE_STEP_SYNC_MODE));
-+
-+	return 0;
-+}
-+
-+int macb_ptp_set_tstamp_mode(struct macb *bp,
-+			     enum macb_bd_control tx_bd_control,
-+			     enum macb_bd_control rx_bd_control)
-+{
-+	if (!bp)
-+		return -EINVAL;
-+
-+	macb_writel(bp, TX_BD_CONTROL, MACB_BF(TX_BD_TS_MODE, tx_bd_control));
-+	macb_writel(bp, RX_BD_CONTROL, MACB_BF(RX_BD_TS_MODE, rx_bd_control));
-+
-+	return 0;
-+}
-+#endif
-+
- static SIMPLE_DEV_PM_OPS(macb_pm_ops, macb_suspend, macb_resume);
- 
- static struct platform_driver macb_driver = {
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 1216950..1381f0a 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -66,8 +66,32 @@
- #define MACB_USRIO		0x00c0
- #define MACB_WOL		0x00c4
- #define MACB_MID		0x00fc
--#define MACB_TBQPH		0x04C8
--#define MACB_RBQPH		0x04D4
-+
-+#define MACB_TSU_PTP_TX_MSB_SEC		0x00e8	/* PTP Event Frame Transmitted Seconds Register 47:32 */
-+#define MACB_TSU_PTP_RX_MSB_SEC		0x00ec	/* PTP Event Frame Received Seconds Register 47:32 */
-+#define MACB_TSU_PEER_TX_MSB_SEC	0x00f0	/* PTP Peer Event Frame Transmitted Seconds Register 47:32 */
-+#define MACB_TSU_PEER_RX_MSB_SEC	0x00f4	/* PTP Peer Event Frame Received Seconds Register 47:32 */
-+#define MACB_TSU_TIMER_INCR_SUB_NSEC	0x01bc	/* Sub-nanoseconds increment */
-+#define MACB_TSU_TIMER_INCR		0x01dc	/* Nanoseconds increment */
-+#define MACB_TSU_TMR_MSB_SEC		0x01c0	/* Upper second count of Time Stamp Unit */
-+#define MACB_TSU_TMR_SEC		0x01d0	/* Lower second count of Time Stamp Unit */
-+#define MACB_TSU_TMR_NSEC		0x01d4	/* Nanosecond count of Time Stamp Unit */
-+#define MACB_TSU_TIMER_ADJUST		0x01d8	/* Nanosecond Adjust Register */
-+#define MACB_TSU_TIMER_INCR_SUB_NSEC	0x01bc	/* Sub-nanosecond Adjust Register */
-+#define MACB_TSU_TIMER_INCR		0x01dc	/* Nanosecond Adjust Register */
-+#define MACB_TSU_PTP_TX_SEC		0x01e0	/* PTP Event Frame Transmitted Seconds Register 31:0 */
-+#define MACB_TSU_PTP_TX_NSEC		0x01e4	/* PTP Event Frame Transmitted Nanoseconds Register */
-+#define MACB_TSU_PTP_RX_SEC		0x01e8	/* PTP Event Frame Received Seconds Register 31:0 */
-+#define MACB_TSU_PTP_RX_NSEC		0x01ec	/* PTP Event Frame Received Nanoseconds Register */
-+#define MACB_TSU_PEER_TX_SEC		0x01f0	/* PTP Peer Event Frame Transmitted Seconds Register 31:0 */
-+#define MACB_TSU_PEER_TX_NSEC		0x01f4	/* PTP Peer Event Frame Transmitted Nanoseconds Register */
-+#define MACB_TSU_PEER_RX_SEC		0x01f8	/* PTP Peer Event Frame Received Seconds Register 31:0 */
-+#define MACB_TSU_PEER_RX_NSEC		0x01fc	/* PTP Peer Event Frame Received Nanoseconds Register */
-+
-+#define MACB_TX_BD_CONTROL 	0x04cc /* TX Buffer Descriptor control register */
-+#define MACB_RX_BD_CONTROL 	0x04d0 /* RX Buffer Descriptor control register */
-+#define MACB_TBQPH		0x04c8
-+#define MACB_RBQPH		0x04d4
- 
- /* GEM register offsets. */
- #define GEM_NCFGR		0x0004 /* Network Config */
-@@ -174,6 +198,8 @@
- #define MACB_NCR_TPF_SIZE	1
- #define MACB_TZQ_OFFSET		12 /* Transmit zero quantum pause frame */
- #define MACB_TZQ_SIZE		1
-+#define MACB_ONE_STEP_SYNC_MODE_OFFSET 24 /* Enable One Step Synchro Mode */
-+#define MACB_ONE_STEP_SYNC_MODE_SIZE 1
- 
- /* Bitfields in NCFGR */
- #define MACB_SPD_OFFSET		0 /* Speed */
-@@ -252,6 +278,10 @@
- #define GEM_RXBS_SIZE		8
- #define GEM_DDRP_OFFSET		24 /* disc_when_no_ahb */
- #define GEM_DDRP_SIZE		1
-+#define GEM_RX_EXTENDED_MODE_OFFSET	28 /* RX extended Buffer Descriptor mode */
-+#define GEM_RX_EXTENDED_MODE_SIZE	1
-+#define GEM_TX_EXTENDED_MODE_OFFSET	29 /* TX extended Buffer Descriptor mode */
-+#define GEM_TX_EXTENDED_MODE_SIZE	1
- #define GEM_ADDR64_OFFSET	30 /* Address bus width - 64b or 32b */
- #define GEM_ADDR64_SIZE		1
- 
-@@ -319,6 +349,26 @@
- #define MACB_PTZ_SIZE		1
- #define MACB_WOL_OFFSET		14 /* Enable wake-on-lan interrupt */
- #define MACB_WOL_SIZE		1
-+#define MACB_PTP_DELAY_REQ_FRAME_RECEIVED_OFFSET	18	/* PTP delay_req frame received */
-+#define MACB_PTP_DELAY_REQ_FRAME_RECEIVED_SIZE		1
-+#define MACB_PTP_SYNC_FRAME_RECEIVED_OFFSET		19	/* PTP sync frame received */
-+#define MACB_PTP_SYNC_FRAME_RECEIVED_SIZE		1
-+#define MACB_PTP_DELAY_REQ_FRAME_TRANSMITTED_OFFSET	20	/* PTP delay_req frame transmitted */
-+#define MACB_PTP_DELAY_REQ_FRAME_TRANSMITTED_SIZE	1
-+#define MACB_PTP_SYNC_FRAME_TRANSMITTED_OFFSET		21	/* PTP sync frame transmitted */
-+#define MACB_PTP_SYNC_FRAME_TRANSMITTED_SIZE		1
-+#define MACB_PTP_PDELAY_REQ_FRAME_RECEIVED_OFFSET	22	/* PTP pdelay_req frame received */
-+#define MACB_PTP_PDELAY_REQ_FRAME_RECEIVED_SIZE		1
-+#define MACB_PTP_PDELAY_RESP_FRAME_RECEIVED_OFFSET	23	/* PTP pdelay_resp frame received */
-+#define MACB_PTP_PDELAY_RESP_FRAME_RECEIVED_SIZE	1
-+#define MACB_PTP_PDELAY_REQ_FRAME_TRANSMITTED_OFFSET	24	/* PTP pdelay_req frame transmitted */
-+#define MACB_PTP_PDELAY_REQ_FRAME_TRANSMITTED_SIZE	1
-+#define MACB_PTP_PDELAY_RESP_FRAME_TRANSMITTED_OFFSET	25	/* PTP pdelay_resp frame transmitted */
-+#define MACB_PTP_PDELAY_RESP_FRAME_TRANSMITTED_SIZE	1
-+#define MACB_TSU_SECONDS_REGISTER_INCREMENT_OFFSET	26	/* TSU periodic (second) interrup */
-+#define MACB_TSU_SECONDS_REGISTER_INCREMENT_SIZE	1
-+#define MACB_TSU_TIMER_COMPARISON_INTERRUPT_OFFSET	29	/* TSU match interrupt */
-+#define MACB_TSU_TIMER_COMPARISON_INTERRUPT_SIZE	1
- 
- /* Bitfields in MAN */
- #define MACB_DATA_OFFSET	0 /* data */
-@@ -382,6 +432,10 @@
- #define GEM_TX_PKT_BUFF_OFFSET			21
- #define GEM_TX_PKT_BUFF_SIZE			1
- 
-+/* Bitfields in DCFG5. */
-+#define GEM_TSU_OFFSET				8
-+#define GEM_TSU_SIZE				1
-+
- /* Constants for CLK */
- #define MACB_CLK_DIV8				0
- #define MACB_CLK_DIV16				1
-@@ -402,6 +456,74 @@
- #define MACB_MAN_READ				2
- #define MACB_MAN_CODE				2
- 
-+/* Constants for TSU */
-+/* MACB_TSU_TIMER_INCR_SUB_NSEC */
-+#define MACB_SUB_NS_INCR_MSB_OFFSET	0 /* sub-ns MSB [23:8] which the 1588 timer will be incremented each clock cycle */
-+#define MACB_SUB_NS_INCR_MSB_SIZE	16
-+#define MACB_SUB_NS_INCR_LSB_OFFSET	24 /* sub-ns MSB [7:0] which the 1588 timer will be incremented each clock cycle */
-+#define MACB_SUB_NS_INCR_LSB_SIZE	8
-+#define MACB_SUB_NS_INCR_SIZE 		(MACB_SUB_NS_INCR_MSB_SIZE + MACB_SUB_NS_INCR_LSB_SIZE)
-+
-+/* MACB_TSU_TIMER_INCR */
-+#define MACB_NS_INCREMENT_OFFSET	0 /* ns [7:0] which the 1588 timer will be incremented each clock cycle */
-+#define MACB_NS_INCREMENT_SIZE		8
-+#define MACB_ALT_NS_INCR_OFFSET		8 /* Alternative nanoseconds count */
-+#define MACB_ALT_NS_INCR_SIZE		8
-+#define MACB_NUM_INCS_OFFSET		16 /* Number of incs before alt inc */
-+#define MACB_NUM_INCS_SIZE		8
-+
-+/* MACB_TSU_TIMER_ADJUST */
-+#define MACB_INCREMENT_VALUE_OFFSET	0 /* Timer increment value */
-+#define MACB_INCREMENT_VALUE_SIZE	30
-+#define MACB_ADD_SUBTRACT_OFFSET	31 /* Write as one to subtract from the 1588 timer */
-+#define MACB_ADD_SUBTRACT_SIZE		1
-+
-+/* MACB_TSU_TIMER_MSB_SEC */
-+#define MACB_TIMER_MSB_SEC_OFFSET	0 /* TSU timer value (s). MSB [47:32] of seconds timer count */
-+#define MACB_TIMER_MSB_SEC_SIZE		16
-+
-+/* MACB_TSU_TIMER_SEC */
-+#define MACB_TIMER_LSB_SEC_OFFSET	0 /* TSU timer value (s). LSB [31:0] of seconds timer count */
-+#define MACB_TIMER_LSB_SEC_SIZE		32
-+
-+/* MACB_TSU_TIMER_NSEC */
-+#define MACB_TIMER_NSEC_OFFSET		0 /* TSU timer value (ns) */
-+#define MACB_TIMER_NSEC_SIZE		30
-+
-+/* Transmit DMA buffer descriptor Word 1 */
-+#define MACB_DMA_TX_TS_VALID_OFFSET	23 /* timestamp has been captured in the Buffer Descriptor */
-+#define MACB_DMA_TX_TS_VALID_SIZE	1
-+
-+/* Receive DMA buffer descriptor Word 0 */
-+#define MACB_DMA_RX_TS_VALID_OFFSET	2 /* indicates a valid timestamp in the Buffer Descriptor */
-+#define MACB_DMA_RX_TS_VALID_SIZE	1
-+
-+/* DMA buffer descriptor Word 2 (32 bit addressing) or Word 4 (64 bit addressing) */
-+#define MACB_DMA_TS_LSB_SEC_OFFSET	30 /* Timestamp seconds[1:0]  */
-+#define MACB_DMA_TS_LSB_SEC_SIZE	2
-+#define MACB_DMA_TS_NSEC_OFFSET		0 /* Timestamp nanosecs [29:0] */
-+#define MACB_DMA_TS_NSEC_SIZE		30
-+
-+/* DMA buffer descriptor Word 3 (32 bit addressing) or Word 5 (64 bit addressing) */
-+
-+/* New hardware supports 12 bit precision of timestamp in DMA buffer descriptor.
-+ * Old hardware supports only 6 bit precision but it is enough for PTP.
-+ * Less accuracy is used always instead of checking hardware version.
-+ */
-+#define MACB_DMA_TS_MSB_SEC_OFFSET	0 /* Timestamp seconds[5:2] */
-+#define MACB_DMA_TS_MSB_SEC_SIZE	4
-+#define MACB_DMA_TS_SEC_WIDTH 		(MACB_DMA_TS_MSB_SEC_SIZE + MACB_DMA_TS_LSB_SEC_SIZE)
-+#define MACB_DMA_TS_SEC_TOP 		(1 << MACB_DMA_TS_SEC_WIDTH)
-+#define MACB_DMA_TS_SEC_MASK 		(MACB_DMA_TS_SEC_TOP - 1)
-+
-+/* Constants for TX_BD_CONTROL */
-+#define MACB_TX_BD_TS_MODE_OFFSET	4 /* TX Descriptor Timestamp Insertion mode */
-+#define MACB_TX_BD_TS_MODE_SIZE		2
-+
-+/* Constants for RX_BD_CONTROL */
-+#define MACB_RX_BD_TS_MODE_OFFSET 	4 /* RX Descriptor Timestamp Insertion mode */
-+#define MACB_RX_BD_TS_MODE_SIZE 	2
-+
- /* Capability mask bits */
- #define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
- #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
-@@ -449,6 +571,8 @@
- #define queue_readl(queue, reg)		(queue)->bp->macb_reg_readl((queue)->bp, (queue)->reg)
- #define queue_writel(queue, reg, value)	(queue)->bp->macb_reg_writel((queue)->bp, (queue)->reg, (value))
- 
-+#define PTP_TS_BUFFER_SIZE		128 /* must be power of 2 */
-+
- /* Conditional GEM/MACB macros.  These perform the operation to the correct
-  * register dependent on whether the device is a GEM or a MACB.  For registers
-  * and bitfields that are common across both devices, use macb_{read,write}l
-@@ -483,7 +607,18 @@ struct macb_dma_desc {
- 	u32     addrh;
- 	u32     resvd;
- #endif
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+	u32	dma_desc_ts_1;
-+	u32	dma_desc_ts_2;
-+#endif
-+};
-+
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+struct macb_tx_timestamp {
-+	struct sk_buff *skb;
-+	struct macb_dma_desc desc;
- };
-+#endif
- 
- /* DMA descriptor bitfields */
- #define MACB_RX_USED_OFFSET			0
-@@ -794,8 +929,22 @@ struct macb_queue {
- 	struct macb_tx_skb	*tx_skb;
- 	dma_addr_t		tx_ring_dma;
- 	struct work_struct	tx_error_task;
-+
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+	/* PTP support */
-+	struct work_struct 	tx_timestamp_task;
-+	unsigned int 		tx_tstamp_head, tx_tstamp_tail;
-+	struct macb_tx_timestamp tx_timestamps[PTP_TS_BUFFER_SIZE];
-+#endif
- };
- 
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+struct incrementspec {
-+	u32 sub_ns;
-+	u32 ns;
-+};
-+#endif
-+
- struct macb {
- 	void __iomem		*regs;
- 	bool			native_io;
-@@ -860,8 +1009,72 @@ struct macb {
- 	unsigned int		jumbo_max_len;
- 
- 	u32			wol;
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+	/* PTP support */
-+	bool ptp_hw_support;
-+	struct ptp_clock_info ptp_clock_info;
-+	struct ptp_clock *ptp_clock;
-+	struct clk *tsu_clk;
-+	struct incrementspec tsu_incr;
-+	struct hwtstamp_config tstamp_config;
-+#endif
-+};
-+
-+#if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
-+#define MACB_TIMER_SEC_SIZE  (MACB_TIMER_MSB_SEC_SIZE + MACB_TIMER_LSB_SEC_SIZE)
-+#define TSU_SEC_MAX_VAL (((u64)1 << MACB_TIMER_SEC_SIZE) - 1)
-+#define TSU_NSEC_MAX_VAL ((1 << MACB_TIMER_NSEC_SIZE) - 1)
-+
-+enum macb_bd_control {
-+	TSTAMP_DISABLED,
-+	TSTAMP_FRAME_PTP_EVENT_ONLY,
-+	TSTAMP_ALL_PTP_FRAMES,
-+	TSTAMP_ALL_FRAMES,
- };
- 
-+int macb_ptp_init(struct platform_device *pdev);
-+void macb_ptp_stop(struct platform_device *pdev);
-+
-+int macb_ptp_verify(struct ptp_clock_info *ptp_clock_info, unsigned int pin,
-+		    enum ptp_pin_function func, unsigned int chan);
-+
-+/* Following functions implement interface functions of Linux PTP
-+ * Framework.
-+ */
-+int macb_ptp_adjfreq(struct ptp_clock_info *ptp_clock_info, s32 ppb);
-+int macb_ptp_adjtime(struct ptp_clock_info *ptp_clock_info, s64 delta);
-+int macb_ptp_gettime(struct ptp_clock_info *ptp_clock_info,
-+		     struct timespec64 *ts);
-+int macb_ptp_settime(struct ptp_clock_info *ptp_clock_info,
-+		     const struct timespec64 *ts);
-+int macb_ptp_enable(struct ptp_clock_info *ptp_clock_info,
-+		    struct ptp_clock_request *request, int on);
-+
-+/* Low level functions used by above interface. */
-+int macb_ptp_time_get(struct macb *bp, struct timespec64 *ts);
-+int macb_ptp_time_set(struct macb *bp, const struct timespec64 *ts);
-+
-+int macb_ptp_increment_get(struct macb *bp, struct incrementspec *incr_spec);
-+int macb_ptp_increment_set(struct macb *bp, struct incrementspec *incr_spec);
-+int macb_ptp_time_adjust(struct macb *bp, s32 delta);
-+
-+/* Timestamp reading functions */
-+int macb_ptp_time_peer_frame_tx_get(struct macb *bp, struct timespec64 *ts);
-+int macb_ptp_time_peer_frame_rx_get(struct macb *bp, struct timespec64 *ts);
-+int macb_ptp_time_frame_tx_get(struct macb *bp, struct timespec64 *ts);
-+int macb_ptp_time_frame_rx_get(struct macb *bp, struct timespec64 *ts);
-+
-+/* Event reporting functions */
-+int macb_ptp_event(struct macb *bp, struct timespec64 *ts);
-+
-+/* Hardware configuratio functions */
-+int macb_ptp_set_one_step_sync(struct macb *bp, u8 enable);
-+int macb_ptp_set_tstamp_mode(struct macb *bp,
-+			     enum macb_bd_control tx_bd_control,
-+			     enum macb_bd_control rx_bd_control);
-+
-+#endif
-+
- static inline bool macb_is_gem(struct macb *bp)
- {
- 	return !!(bp->caps & MACB_CAPS_MACB_IS_GEM);
--- 
-2.4.5
+--zYM0uCDKw75PZbzx
+Content-Type: application/gzip
+Content-Disposition: attachment; filename=".config.gz"
+Content-Transfer-Encoding: base64
+
+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
+fGC06t/o0xduzRz+D6Gd9BdebgEA
+
+--zYM0uCDKw75PZbzx--
