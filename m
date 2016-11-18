@@ -1,127 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next]  mlx4: avoid unnecessary dirtying of critical
- fields
-Date: Fri, 18 Nov 2016 12:15:33 -0800
-Message-ID: <1479500133.8455.295.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH -next] tcp: make undo_cwnd mandatory for congestion modules
+Date: Fri, 18 Nov 2016 15:38:01 -0500
+Message-ID: <CADVnQykLcgoGiMcnAFe-HA4Pn29aSQEORYBVg=5YV=466NrBWw@mail.gmail.com>
+References: <1479387411-9830-1-git-send-email-fw@strlen.de>
+ <20161118.134304.1574614508508170507.davem@davemloft.net> <20161118185434.GB18071@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33061 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752452AbcKRUPf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 15:15:35 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 144so14116453pfv.0
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 12:15:35 -0800 (PST)
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:35510 "EHLO
+        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752035AbcKRUid (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 15:38:33 -0500
+Received: by mail-oi0-f51.google.com with SMTP id b126so63909671oia.2
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 12:38:32 -0800 (PST)
+In-Reply-To: <20161118185434.GB18071@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Nov 18, 2016 at 1:54 PM, Florian Westphal <fw@strlen.de> wrote:
+> David Miller <davem@davemloft.net> wrote:
+>> If you really suspect that highspeed et al. need to implement their own
+>> undo_cwnd instead of using the default reno fallback, I would really
+>> rather that this gets either fixed or explicitly marked as likely wrong
+>> (in an "XXX" comment or similar).
+>
+> Ok, fair enough.  I am not familiar with these algorithms, I will check
+> what they're doing in more detail and if absolutely needed resubmit this
+> patch with XXX/FIXME/TODO comments added.
 
-While stressing a 40Gbit mlx4 NIC with busy polling, I found false
-sharing in mlx4 driver that can be easily avoided.
+BTW, FWIW I really like the idea of making undo_cwnd required. It
+simplifies the core code and forces CC modules to think about what
+undo should look like for their CC module.
 
-This patch brings an additional 7 % performance improvement in UDP_RR
-workload.
+And I suspect you are right that those CC modules have an issue that
+should be fixed.
 
-1) If we received no frame during one mlx4_en_process_rx_cq()
-   invocation, no need to call mlx4_cq_set_ci() and/or dirty ring->cons
-
-2) Do not refill rx buffers if we have plenty of them.
-   This avoids false sharing and allows some bulk/batch optimizations.
-   Page allocator and its locks will thank us.
-
-Finally, mlx4_en_poll_rx_cq() should not return 0 if it determined
-cpu handling NIC IRQ should be changed. We should return budget-1
-instead, to not fool net_rx_action() and its netdev_budget.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |   51 +++++++++++--------
- 1 file changed, 32 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 22f08f9ef464..2112494ff43b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -688,18 +688,23 @@ static void validate_loopback(struct mlx4_en_priv *priv, struct sk_buff *skb)
- 	dev_kfree_skb_any(skb);
- }
- 
--static void mlx4_en_refill_rx_buffers(struct mlx4_en_priv *priv,
--				     struct mlx4_en_rx_ring *ring)
-+static bool mlx4_en_refill_rx_buffers(struct mlx4_en_priv *priv,
-+				      struct mlx4_en_rx_ring *ring)
- {
--	int index = ring->prod & ring->size_mask;
-+	u32 missing = ring->actual_size - (ring->prod - ring->cons);
- 
--	while ((u32) (ring->prod - ring->cons) < ring->actual_size) {
--		if (mlx4_en_prepare_rx_desc(priv, ring, index,
-+	/* Try to batch allocations, but not too much. */
-+	if (missing < 8)
-+		return false;
-+	do {
-+		if (mlx4_en_prepare_rx_desc(priv, ring,
-+					    ring->prod & ring->size_mask,
- 					    GFP_ATOMIC | __GFP_COLD))
- 			break;
- 		ring->prod++;
--		index = ring->prod & ring->size_mask;
--	}
-+	} while (--missing);
-+
-+	return true;
- }
- 
- /* When hardware doesn't strip the vlan, we need to calculate the checksum
-@@ -1081,15 +1086,20 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 
- out:
- 	rcu_read_unlock();
--	if (doorbell_pending)
--		mlx4_en_xmit_doorbell(priv->tx_ring[TX_XDP][cq->ring]);
--
--	AVG_PERF_COUNTER(priv->pstats.rx_coal_avg, polled);
--	mlx4_cq_set_ci(&cq->mcq);
--	wmb(); /* ensure HW sees CQ consumer before we post new buffers */
--	ring->cons = cq->mcq.cons_index;
--	mlx4_en_refill_rx_buffers(priv, ring);
--	mlx4_en_update_rx_prod_db(ring);
-+
-+	if (polled) {
-+		if (doorbell_pending)
-+			mlx4_en_xmit_doorbell(priv->tx_ring[TX_XDP][cq->ring]);
-+
-+		AVG_PERF_COUNTER(priv->pstats.rx_coal_avg, polled);
-+		mlx4_cq_set_ci(&cq->mcq);
-+		wmb(); /* ensure HW sees CQ consumer before we post new buffers */
-+		ring->cons = cq->mcq.cons_index;
-+	}
-+
-+	if (mlx4_en_refill_rx_buffers(priv, ring))
-+		mlx4_en_update_rx_prod_db(ring);
-+
- 	return polled;
- }
- 
-@@ -1131,10 +1141,13 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
- 			return budget;
- 
- 		/* Current cpu is not according to smp_irq_affinity -
--		 * probably affinity changed. need to stop this NAPI
--		 * poll, and restart it on the right CPU
-+		 * probably affinity changed. Need to stop this NAPI
-+		 * poll, and restart it on the right CPU.
-+		 * Try to avoid returning a too small value (like 0),
-+		 * to not fool net_rx_action() and its netdev_budget
- 		 */
--		done = 0;
-+		if (done)
-+			done--;
- 	}
- 	/* Done for now */
- 	if (napi_complete_done(napi, done))
+neal
