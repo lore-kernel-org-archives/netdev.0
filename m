@@ -1,7 +1,7 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
-Date: Fri, 18 Nov 2016 09:59:24 +0000
-Message-ID: <BN3PR07MB25162D82CEF09B8C7586B799C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM
+Date: Fri, 18 Nov 2016 11:14:16 +0100
+Message-ID: <401d4678-2c56-50f3-1435-7a8fd78dffeb@atmel.com>
 References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.outlook.com>
  <CAFcVECJ-ZYjGg-3CbWD2Ka8yKzOokUxS8ZHHOJXa2Z6anuTr7Q@mail.gmail.com>
  <e6773b4e-a633-4754-893d-fd2351d07459@atmel.com>
@@ -11,305 +11,212 @@ References: <BN3PR07MB2516B2EBCF0AE7079971DBF6C9B10@BN3PR07MB2516.namprd07.prod.
  <a315b554-8b44-ac82-a104-e382940750bb@atmel.com>
  <BN3PR07MB251655CAFDB38CCF0F240BB5C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
  <CAFcVECJT=b2jmQAtsTeXEwWad8L2VEVW1GOyTY9XYR5qUq=4Mw@mail.gmail.com>
+ <BN3PR07MB25162D82CEF09B8C7586B799C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Andrei Pistirica <Andrei.Pistirica@microchip.com>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+Content-Transfer-Encoding: 8bit
+Cc: "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Harini Katakam <harinikatakamlinux@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0069.outbound.protection.outlook.com ([104.47.42.69]:51456
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751586AbcKRKOG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Nov 2016 05:14:06 -0500
-In-Reply-To: <CAFcVECJT=b2jmQAtsTeXEwWad8L2VEVW1GOyTY9XYR5qUq=4Mw@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Rafal Ozieblo <rafalo@cadence.com>,
+        Harini Katakam <harinikatakamlinux@gmail.com>,
+        Andrei Pistirica <Andrei.Pistirica@microchip.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BN3PR07MB25162D82CEF09B8C7586B799C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0gICAgICAgICAgICAgICAgICAgICAgICAgICANCj5G
-cm9tOiBIYXJpbmkgS2F0YWthbSBbbWFpbHRvOmhhcmluaWthdGFrYW1saW51eEBnbWFpbC5jb21d
-IA0KPlNlbnQ6IDE4IGxpc3RvcGFkYSAyMDE2IDEwOjQ0ICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgDQo+VG86IFJhZmFsIE96aWVibG8gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICANCj5DYzogTmljb2xhcyBGZXJyZTsgQW5kcmVpIFBpc3RpcmljYTsgaGFyaW5p
-LmthdGFrYW1AeGlsaW54LmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVs
-QHZnZXIua2VybmVsLm9yZyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPlN1
-YmplY3Q6IFJlOiBbUkZDIFBBVENIIDIvMl0gbmV0OiBtYWNiOiBBZGQgNjQgYml0IGFkZHJlc3Np
-bmcgc3VwcG9ydCBmb3IgR0VNICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+ICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj5IaSBSYWZhbCwgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPiAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgDQo+T24gRnJpLCBOb3YgMTgsIDIwMTYgYXQgMzowMCBQ
-TSwgUmFmYWwgT3ppZWJsbyA8cmFmYWxvQGNhZGVuY2UuY29tPiB3cm90ZTogICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICANCj4+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIA0KPj4+RnJvbTogTmljb2xhcyBGZXJyZSBbbWFpbHRvOm5pY29sYXMuZmVycmVA
-YXRtZWwuY29tXSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgDQo+Pj5TZW50OiAxOCBsaXN0b3BhZGEgMjAxNiAxMDoxMCAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+
-PlRvOiBSYWZhbCBPemllYmxvOyBIYXJpbmkgS2F0YWthbTsgQW5kcmVpIFBpc3RpcmljYSAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Q2M6IGhh
-cmluaS5rYXRha2FtQHhpbGlueC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7ICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj5saW51eC1rZXJuZWxA
-dmdlci5rZXJuZWwub3JnICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+PlN1YmplY3Q6IFJlOiBbUkZDIFBB
-VENIIDIvMl0gbmV0OiBtYWNiOiBBZGQgNjQgYml0IGFkZHJlc3Npbmcgc3VwcG9ydCAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Zm9yIEdFTSAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgDQo+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICANCj4+PkxlIDE4LzExLzIwMTYgw6AgMDk6NTksIFJhZmFsIE96aWVibG8gYSDD
-qWNyaXQgOiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgDQo+Pj4+IEhlbGxvLCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAN
-Cj4+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4g
-RnJvbTogSGFyaW5pIEthdGFrYW0gW21haWx0bzpoYXJpbmlrYXRha2FtbGludXhAZ21haWwuY29t
-XSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+PiBTZW50OiAx
-OCBsaXN0b3BhZGEgMjAxNiAwNTozMCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+IFRvOiBSYWZhbCBPemll
-YmxvICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4gQ2M6IE5pY29sYXMgRmVycmU7IGhh
-cmluaS5rYXRha2FtQHhpbGlueC5jb207ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+PiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51
-eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICANCj4+Pj4+IFN1YmplY3Q6IFJlOiBbUkZDIFBBVENIIDIvMl0gbmV0OiBt
-YWNiOiBBZGQgNjQgYml0IGFkZHJlc3NpbmcgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIA0KPj4+Pj4gc3VwcG9ydCBmb3IgR0VNICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-DQo+Pj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+
-IEhpIFJhZmFsLCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4gICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+PiBPbiBUaHUsIE5vdiAx
-NywgMjAxNiBhdCA3OjA1IFBNLCBSYWZhbCBPemllYmxvIDxyYWZhbG9AY2FkZW5jZS5jb20+IHdy
-b3RlOiAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+PiAtLS0tLU9yaWdpbmFsIE1lc3Nh
-Z2UtLS0tLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+IEZyb206IE5pY29sYXMgRmVycmUgW21haWx0
-bzpuaWNvbGFzLmZlcnJlQGF0bWVsLmNvbV0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgDQo+Pj4+Pj4gU2VudDogMTcgbGlzdG9wYWRhIDIwMTYgMTQ6MjkgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICANCj4+Pj4+PiBUbzogSGFyaW5pIEthdGFrYW07IFJhZmFsIE96aWVibG8gICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IA0KPj4+Pj4+IENjOiBoYXJpbmkua2F0YWthbUB4aWxpbnguY29tOyBuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnOyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+
-Pj4gbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZyAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+PiBTdWJq
-ZWN0OiBSZTogW1JGQyBQQVRDSCAyLzJdIG5ldDogbWFjYjogQWRkIDY0IGJpdCBhZGRyZXNzaW5n
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+IHN1cHBvcnQgZm9y
-IEdFTSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4gICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4gTGUgMTcvMTEvMjAxNiDDoCAxMzoyMSwg
-SGFyaW5pIEthdGFrYW0gYSDDqWNyaXQgOiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+PiBIaSBSYWZhbCwgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICANCj4+Pj4+Pj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIA0KPj4+Pj4+Pj4gT24gVGh1LCBOb3YgMTcsIDIwMTYgYXQgNToyMCBQTSwgUmFmYWwgT3pp
-ZWJsbyA8cmFmYWxvQGNhZGVuY2UuY29tPiB3cm90ZTogICAgICAgICAgICAgICAgICAgICAgDQo+
-Pj4+Pj4+Pj4gSGVsbG8sICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4+
-PiBJIHRoaW5rLCB0aGVyZSBjb3VsZCBhIGJ1ZyBpbiB5b3VyIHBhdGNoLiAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4+ICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+Pj4+ICsgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4+Pj4gKyNpZmRlZiBDT05GSUdfQVJD
-SF9ETUFfQUREUl9UXzY0QklUICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4+PiArICAgICAgICAgICAgIGRtYWNmZyB8PSBH
-RU1fQklUKEFERFI2NCk7ICNlbmRpZiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgDQo+Pj4+Pj4+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICANCj4+Pj4+Pj4+PiBZb3UgZW5hYmxlIDY0IGJpdCBhZGRyZXNzaW5nICg2NGIgZG1hIGJ1
-cyB3aWR0aCkgYWx3YXlzIHdoZW4gYXBwcm9wcmlhdGUgYXJjaGl0ZWN0dXJlIGNvbmZpZyBvcHRp
-b24gaXMgZW5hYmxlZC4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4+
-IEJ1dCB0aGVyZSBhcmUgc29tZSBsZWdhY3kgY29udHJvbGxlcnMgd2hpY2ggZG8gbm90IHN1cHBv
-cnQgdGhhdCBmZWF0dXJlLiBBY2NvcmRpbmcgQ2FkZW5jZSBoYXJkd2FyZSB0ZWFtOiAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+Pj4gIjY0IGJpdCBhZGRyZXNz
-aW5nIHdhcyBhZGRlZCBpbiBKdWx5IDIwMTMuIEVhcmxpZXIgdmVyc2lvbiBkbyBub3QgaGF2ZSBp
-dC4gICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4+PiBUaGlzIGZlYXR1cmUgd2FzIGVuaGFu
-Y2VkIGluIHJlbGVhc2UgQXVndXN0IDIwMTQgdG8gaGF2ZSBzZXBhcmF0ZSB1cHBlciBhZGRyZXNz
-IHZhbHVlcyBmb3IgdHJhbnNtaXQgYW5kIHJlY2VpdmUuIiAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIA0KPj4+Pj4+Pj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-DQo+Pj4+Pj4+Pj4+IC8qIEJpdGZpZWxkcyBpbiBOU1IgKi8gICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+
-Pj4+Pj4gQEAgLTQ3NCw2ICs0NzksMTAgQEAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4+PiAg
-c3RydWN0IG1hY2JfZG1hX2Rlc2MgeyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+Pj4gID4gICAgICB1
-MzIgICAgIGFkZHI7ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4+Pj4gICAgICAgdTMyICAgICBj
-dHJsOyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4+PiArI2lmZGVmIENPTkZJR19BUkNIX0RN
-QV9BRERSX1RfNjRCSVQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgDQo+Pj4+Pj4+Pj4+ICsgICAgIHUzMiAgICAgYWRkcmg7ICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICANCj4+Pj4+Pj4+Pj4gKyAgICAgdTMyICAgICByZXN2ZDsgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IA0KPj4+Pj4+Pj4+PiArI2VuZGlmICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+
-Pj4+Pj4+ICB9OyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4+PiAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4+IEl0IHdpbGwg
-bm90IHdvcmsgZm9yIGxlZ2FjeSBoYXJkd2FyZS4gT2xkIGRlc2NyaXB0b3IgaXMgMiB3b3JkcyB3
-aWRlLCB0aGUgbmV3IG9uZSBpcyA0IHdvcmRzIHdpZGUuICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+Pj4gSWYgeW91IGVuYWJsZSBDT05GSUdfQVJD
-SF9ETUFfQUREUl9UXzY0QklUIGJ1dCBoYXJkd2FyZSBkb2Vzbid0ICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICANCj4+Pj4+Pj4+PiBzdXBwb3J0IGl0IGF0IGFsbCwgeW91IHdpbGwgbWlz
-cyBldmVyeSBzZWNvbmQgZGVzY3JpcHRvci4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIA0KPj4+Pj4+Pj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-DQo+Pj4+Pj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+
-Pj4+IFRydWUsIHRoaXMgZmVhdHVyZSBpcyBub3QgYXZhaWxhYmxlIGluIGFsbCBvZiBDYWRlbmNl
-IElQIHZlcnNpb25zLiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4gSW4g
-ZmFjdCwgdGhlIElQIHZlcnNpb24gWnlucSBkb2VzIG5vdCBzdXBwb3J0IHRoaXMuIEJ1dCB0aGUg
-b25lIGluIFp5bnFNUCBkb2VzLiAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+PiBTbywgd2UgZW5h
-YmxlIGtlcm5lbCBjb25maWcgZm9yIDY0IGJpdCBETUEgYWRkcmVzc2luZyBmb3IgdGhpcyAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4+IFNvQyBhbmQgaGVuY2UgdGhl
-IGRyaXZlciBwaWNrcyBpdCB1cC4gTXkgYXNzdW1wdGlvbiB3YXMgdGhhdCBpZiAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4gdGhlIGxlZ2FjeSBJUCBkb2VzIG5vdCBz
-dXBwb3J0ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgDQo+Pj4+Pj4+PiA2NCBiaXQgYWRkcmVzc2luZywgdGhlbiB0aGlzIERN
-QSBvcHRpb24gd291bGRuJ3QgYmUgZW5hYmxlZC4gICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICANCj4+Pj4+Pj4+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IA0KPj4+Pj4+Pj4gVGhlcmUgaXMgYSBkZXNpZ24gY29uZmlnIHJlZ2lzdGVyIGluIENhZGVuY2Ug
-SVAgd2hpY2ggaXMgYmVpbmcgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+
-Pj4+PiByZWFkIHRvIGNoZWNrIGZvciA2NCBiaXQgYWRkcmVzcyBzdXBwb3J0IC0gRE1BIG1hc2sg
-aXMgc2V0IGJhc2VkIG9uIHRoYXQuICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4+IEJ1
-dCB0aGUgYWRkaXRpb24gb2YgdHdvIGRlc2NyaXB0b3Igd29yZHMgY2Fubm90IGJlIGJhc2VkIG9u
-IHRoaXMgcnVudGltZSBjaGVjay4gICAgICAgICAgICAgICAgIA0KPj4+Pj4+Pj4gRm9yIHRoaXMg
-cmVhc29uLCBhbGwgdGhlIHN0YXRpYyBjaGFuZ2VzIHdlcmUgcGxhY2VkIHVuZGVyIHRoaXMgY2hl
-Y2suICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+ICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4gV2UgaGF2ZSBxdWl0ZSBhIGJ1bmNoIG9m
-IG9wdGlvbnMgaW4gdGhpcyBkcml2ZXIgdG8gZGV0ZXJtaW5hdGUgd2hhdCBpcyB0aGUgcmVhbCBj
-YXBhY2l0eSBvZiB0aGUgdW5kZXJseWluZyBoYXJkd2FyZS4gICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIA0KPj4+Pj4+PiBJZiBIVyBjb25maWd1cmF0aW9uIHJlZ2lzdGVycyBhcmUgbm90IGFw
-cHJvcHJpYXRlLCBhbmQgaXQgc2VlbXMgdGhleSBhcmUgbm90LCBJIHdvdWxkIGFkdmljZSB0byBz
-aW1wbHkgdXNlIHRoZSBEVCBjb21wYXRpYmlsaXR5IHN0cmluZy4gICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+Pj4gQmVzdCBy
-ZWdhcmRzLCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4+PiAtLSAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+Pj4+IE5pY29sYXMgRmVycmUgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICANCj4+Pj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgIA0KPj4+Pj4+IEhXIGNvbmZpZ3VyYXRpb24gcmVnaXN0ZXJzIGFyZSBhcHBy
-b3ByaWF0ZS4gVGhlIGlzc3VlIGlzIHRoYXQgdGhpcyBjb2RlIGRvZXNu4oCZdCB1c2UgdGhlIGNh
-cGFiaWxpdHkgYml0IHRvIHN3aXRjaCBiZXR3ZWVuIGRpZmZlcmVudCBkbWEgZGVzY3JpcHRvcnMg
-KDIgd29yZHMgdnMuIDQgd29yZHMpLiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAN
-Cj4+Pj4+PiBETUEgZGVzY3JpcHRvciBzaXplIGlzIGNob3NlbiBiYXNlZCBvbiBrZXJuZWwgY29u
-ZmlndXJhdGlvbiwgbm90IGJhc2VkIG9uIGhhcmR3YXJlIGNhcGFiaWxpdGllcy4gIA0KPj4+Pj4g
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+PiBIVyBjb25m
-aWd1cmF0aW9uIHJlZ2lzdGVyIGRvZXMgZ2l2ZSBhcHByb3ByaWF0ZSBpbmZvcm1hdGlvbi4gICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+IEJ1dCBhZGRpdGlvbiBv
-ZiB0d28gYWRkcmVzcyB3b3JkcyBpbiB0aGUgbWFjYiBkZXNjcmlwdG9yIHN0cnVjdHVyZSBpcyBh
-IHN0YXRpYyBjaGFuZ2UuICAgICAgICAgICAgIA0KPj4+Pj4gICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+PiArc3RhdGljIGlubGluZSB2b2lkIG1hY2Jfc2V0
-X2FkZHIoc3RydWN0IG1hY2JfZG1hX2Rlc2MgKmRlc2MsICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICANCj4+Pj4+ICtkbWFfYWRkcl90ICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIA0KPj4+Pj4gK2FkZHIpIHsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-DQo+Pj4+PiArICAgICAgIGRlc2MtPmFkZHIgPSAodTMyKWFkZHI7ICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+
-ICsjaWZkZWYgQ09ORklHX0FSQ0hfRE1BX0FERFJfVF82NEJJVCAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4gKyAgICAg
-ICBkZXNjLT5hZGRyaCA9ICh1MzIpKGFkZHIgPj4gMzIpOyAjZW5kaWYgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+PiArICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4+ICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIA0KPj4+Pj4gRXZlbiBpZiB0aGUgI2lmZGVmIGNvbmRpdGlv
-biBoZXJlIGlzIGNoYW5nZWQgdG8gSFcgY29uZmlnIGNoZWNrLCBhZGRyIGFuZCBhZGRyaCBhcmUg
-ZGlmZmVyZW50LiAgICAgDQo+Pj4+PiBBbmQgImFkZHJoIiBlbnRyeSBoYXMgdG8gYmUgcHJlc2Vu
-dCBmb3IgNjQgYml0IGRlc2MgY2FzZSB0byBiZSBoYW5kbGVkIHNlcGFyYXRlbHkuICAgICAgICAg
-ICAgICAgICANCj4+Pj4+IENhbiB5b3UgcGxlYXNlIHRlbGwgbWUgaG93IHlvdSBwcm9wb3NlIGNo
-YW5nZSBpbiBETUEgZGVzY3JpcHRvciAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IA0KPj4+Pj4gc3RydWN0dXJlIGZyb20gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgDQo+Pj4+
-PiA0IHRvIDIgb3IgMiB0byA0IHdvcmRzICphZnRlciogcmVhZGluZyB0aGUgRENGRyByZWdpc3Rl
-cj8gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICANCj4+Pj4gICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPj4+PiBJdCBpcyB2ZXJ5IGNv
-bXBsZXggcHJvYmxlbS4gSSB3cm90ZSB0byB5b3UgYmVjYXVzZSBJIGZhY2VkIHRoZSBzYW1lIGlz
-c3VlLiBJJ20gd29ya2luZyBvbiBQVFAgaW1wbGVtZW50YXRpb24gZm9yIG1hY2IuIFdoZW4gUFRQ
-IGlzIGVuYWJsZWQgdGhlcmUgYXJlIGFkZGl0aW9uYWwgdHdvIHdvcmRzIGluIGJ1ZmZlciBkZXNj
-cmlwdG9yLiAgICAgICAgICAgICAgDQo+Pj4NCj4+Pk1vcmVvdmVyLCB3ZSBjYW4gdXNlIFBUUCB3
-aXRob3V0IHRoZSA2NGJpdHMgZGVzY3JpcHRvciBzdXBwb3J0IChlYXJseSBHRU0gcmV2aXNpb25z
-KS4NCj4+Pg0KPj4+QlRXLCBub3RlIHRoYXQgdGhlcmUgaXMgYW4gaW5pdGlhdGl2ZSBvbmdvaW5n
-IHdpdGggQW5kcmVpIHRvIHN1cHBvcnQNCj4+PlBUUC8xNTg4IG9uIHRoZXNlIGRldmljZXMgd2l0
-aCBwYXRjaGVzIGFscmVhZHkgc2VuZDogcGxlYXNlIHN5bmNocm9uaXplIHdpdGggaGltLg0KPj4+
-aHR0cHM6Ly91cmxkZWZlbnNlLnByb29mcG9pbnQuY29tL3YyL3VybD91PWh0dHBzLTNBX19tYXJj
-LmluZm9fLTNGbC0zRA0KPj4+bGludXgtMkRuZXRkZXYtMjZtLTNEMTQ3MjgyMDkyMzA5MTEyLTI2
-dy0zRDMmZD1EZ0lEYVEmYz1hVXE5ODNMMnB1ZTJGcQ0KPj4+S0ZvUDZQR0hNSlF5b0o3a2wzczNH
-Wi1faGFYcVkmcj1NV1NaTl9qUDRCSGp1VTlVRnNybmRBTEdlSnFJWHpEMFd0R0N0Qw0KPj4+ZzRM
-NUUmbT1qVW1aenF3bjF1UnJ2Y3FGM0JIQ0hGQzZac0tvWmtVM3ZUOGdKLTdmbnNFJnM9a3Jfa20w
-TUtRQnpwa2FPdA0KPj4+MGZrTS1GSWFqTjEtcE95bHp6VGpzWGktdmFrJmU9DQo+Pj5vcg0KPj4+
-aHR0cHM6Ly91cmxkZWZlbnNlLnByb29mcG9pbnQuY29tL3YyL3VybD91PWh0dHBzLTNBX19wYXRj
-aHdvcmsua2VybmVsLg0KPj4+b3JnX3BhdGNoXzkzMTA5ODlfJmQ9RGdJRGFRJmM9YVVxOTgzTDJw
-dWUyRnFLRm9QNlBHSE1KUXlvSjdrbDNzM0daLV9oYQ0KPj4+WHFZJnI9TVdTWk5falA0QkhqdVU5
-VUZzcm5kQUxHZUpxSVh6RDBXdEdDdENnNEw1RSZtPWpVbVp6cXduMXVScnZjcUYzQg0KPj4+SENI
-RkM2WnNLb1prVTN2VDhnSi03Zm5zRSZzPVpiWFZENUxiNXpHbjd3VUtJUFlIeGFnSUVLcF92SnZy
-bmtSYTRxSmZtVA0KPj4+WSZlPQ0KPj4+YW5kDQo+Pj5odHRwczovL3VybGRlZmVuc2UucHJvb2Zw
-b2ludC5jb20vdjIvdXJsP3U9aHR0cHMtM0FfX3BhdGNod29yay5rZXJuZWwuDQo+Pj5vcmdfcGF0
-Y2hfOTMxMDk5MV8mZD1EZ0lEYVEmYz1hVXE5ODNMMnB1ZTJGcUtGb1A2UEdITUpReW9KN2tsM3Mz
-R1otX2hhDQo+Pj5YcVkmcj1NV1NaTl9qUDRCSGp1VTlVRnNybmRBTEdlSnFJWHpEMFd0R0N0Q2c0
-TDVFJm09alVtWnpxd24xdVJydmNxRjNCDQo+Pj5IQ0hGQzZac0tvWmtVM3ZUOGdKLTdmbnNFJnM9
-WjBrUnFVcWg1SXM0VG11YVk3QTRobnBpemZkZXEzSHJnUGh5REFNTHVBDQo+Pj44JmU9DQo+Pj4N
-Cj4+PlJlZ2FyZHMsDQo+Pj4tLQ0KPj4+Tmljb2xhcyBGZXJyZQ0KPj4NCj4+IEFib3ZlIHBhdGNo
-IGRvZXNu4oCZdCB1c2UgaGFyZHdhcmUgdGltZXN0YW1wcyBpbiBkZXNjcmlwdG9ycyBhdCBhbGwu
-IEl0IGRvZXNuJ3QgdXNlIGFwcHJvcHJpYXRlIGFjY3VyYWN5Lg0KPj4gV2UgaGF2ZSBvdXIgUFRQ
-IHBhdGNoIHJlYWR5LCB3aGljaCB1c2UgdGltZXN0YW1wcyBmcm9tIGRlc2NyaXB0b3IuIEJ1dCB3
-ZSBoYXZlIG5vdCBzZW50IGl0IHlldCBiZWNhdXNlIG9mIGNvbXBhdGliaWxpdHkgaXNzdWUuDQo+
-PiBPZiBjb3Vyc2UsIHdlIGNhbiBkbyBpdCBsaWtlIEhhcmluaSBkaWQ6DQo+Pg0KPj4gc3RydWN0
-IG1hY2JfZG1hX2Rlc2Mgew0KPj4gICAgICAgICB1MzIgICAgIGFkZHI7DQo+PiAgICAgICAgIHUz
-MiAgICAgY3RybDsNCj4+ICNpZmRlZiBDT05GSUdfQVJDSF9ETUFfQUREUl9UXzY0QklUDQo+PiAg
-ICAgICAgIHUzMiAgICAgYWRkcmg7DQo+PiAgICAgICAgIHUzMiAgICAgcmVzdmQ7DQo+PiAjZW5k
-aWYNCj4+ICNpZiBJU19FTkFCTEVEKENPTkZJR19QVFBfMTU4OF9DTE9DSykNCj4+ICAgICAgICAg
-dTMyICAgICBkbWFfZGVzY190c18xOw0KPj4gICAgICAgICB1MzIgICAgIGRtYV9kZXNjX3RzXzI7
-DQo+PiAjZW5kaWYNCj4+IH07DQo+Pg0KPj4gQnV0IGluIHRoYXQgYXBwcm9hY2ggd2UgbG9zZSBi
-YWNrd2FyZCBjb21wYXRpYmlsaXR5Lg0KPj4NCj4+IFdoYXQgYXJlIHlvdXIgc3VnZ2VzdGlvbj8g
-Q2FuIHdlIHNlbmQgcGF0Y2ggbGlrZSBpdCBpcyBvciB3YWl0IGZvciBzb21lIGNvbW1vbiBzb2x1
-dGlvbiB3aXRoIGJhY2t3YXJkIGNvbXBhdGliaWxpdHk/DQo+Pg0KPg0KPlllcywgQW5kcmUncyB2
-ZXJzaW9uIG9mIENhZGVuY2UgZG9lcyBub3QgYWJpbGl0eSB0byByZXBvcnQgaGF2ZSBSWCB0aW1l
-c3RhbXAuDQo+VGhlIHZlcnNpb24gSSB3b3JrZWQgd2l0aCBkaWQuIFRoaXMgaXMgdGhlIG9sZCBz
-ZXJpZXMgSSBzZW50Og0KPmh0dHBzOi8vdXJsZGVmZW5zZS5wcm9vZnBvaW50LmNvbS92Mi91cmw/
-dT1odHRwcy0zQV9fbGttbC5vcmdfbGttbF8yMDE1XzlfMTFfOTImZD1EZ0lGYVEmYz1hVXE5ODNM
-MnB1ZTJGcUtGb1A2UEdITUpReW9KN2tsM3MzR1otX2hhWHFZJnI9TVdTWk5falA0QkhqdVU5VUZz
-cm5kQUxHZUpxSVh6RDBXdEdDdENnNEw1RSZtPTFBMXF4ZGx3WTNrTWxKMUpVSkpMMUVxTHpXejRB
-S3RmT3haZl92dThiV28mcz1OR3BFYmJDNGJZWFVaako2bjBVZDhGOHAzZlB6NUVoVEoxTzktTkt3
-Q2tRJmU9DQo+QnV0IHJpZ2h0IG5vdywgaSdtIHdvcmtpbmcgb24gYnVpbGRpbmcgb24gdG9wIG9m
-IEFuZHJlJ3MgY2hhbmdlcy4NCj4NCj5SZWdhcmRzLA0KPkhhcmluaQ0KPg0KSSBjYW7igJl0IHNl
-ZSBhIHBsYWNlIHdoZXJlIHlvdSBlbmFibGUgZXh0ZW5kZWQgZGVzY3JpcHRvciBmb3IgUFRQLiBE
-aWQgeW91IGFkZCBzdXBwb3J0IGZvciBleHRlbmRlZCBQVFAgZGVzY3JpcHRvcj8NCiJETUEgQ29u
-ZmlndXJhdGlvbiBSZWdpc3RlciIgMHgwMTA6DQoyOQl0eF9iZF9leHRlbmRlZF9tb2RlX2VuCSJF
-bmFibGUgVFggZXh0ZW5kZWQgQkQgbW9kZS4gU2VlIFRYIEJEIGNvbnRyb2wgcmVnaXN0ZXIgZGVm
-aW5pdGlvbiBmb3IgZGVzY3JpcHRpb24gb2YgZmVhdHVyZS4iDQoyOAlyeF9iZF9leHRlbmRlZF9t
-b2RlX2VuCSJFbmFibGUgUlggZXh0ZW5kZWQgQkQgbW9kZS4gU2VlIFJYIEJEIGNvbnRyb2wgcmVn
-aXN0ZXIgZGVmaW5pdGlvbiBmb3IgZGVzY3JpcHRpb24gb2YgZmVhdHVyZS4iDQoNCkNhbiBJIHNl
-bmQgeW91IG91ciBwYXRjaCBmb3IgY29tcGFyaXNvbiA/IA0K
+Le 18/11/2016 à 10:59, Rafal Ozieblo a écrit :
+>>                                                     
+>> -----Original Message-----                           
+>> From: Harini Katakam [mailto:harinikatakamlinux@gmail.com] 
+>> Sent: 18 listopada 2016 10:44                              
+>> To: Rafal Ozieblo                                          
+>> Cc: Nicolas Ferre; Andrei Pistirica; harini.katakam@xilinx.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org                                                                                             
+>> Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support for GEM                           
+>>                                                                                                        
+>> Hi Rafal,                                                                                               
+>>                                                                                                        
+>> On Fri, Nov 18, 2016 at 3:00 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:                              
+>>>> -----Original Message-----                                                                            
+>>>> From: Nicolas Ferre [mailto:nicolas.ferre@atmel.com]                                                  
+>>>> Sent: 18 listopada 2016 10:10                                                                         
+>>>> To: Rafal Ozieblo; Harini Katakam; Andrei Pistirica                                                   
+>>>> Cc: harini.katakam@xilinx.com; netdev@vger.kernel.org;                                                
+>>>> linux-kernel@vger.kernel.org                                                                          
+>>>> Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing support                                 
+>>>> for GEM                                                                                               
+>>>>                                                                                                      
+>>>> Le 18/11/2016 à 09:59, Rafal Ozieblo a écrit :                                                        
+>>>>> Hello,                                                                                              
+>>>>>                                                                                                     
+>>>>>> From: Harini Katakam [mailto:harinikatakamlinux@gmail.com]                                         
+>>>>>> Sent: 18 listopada 2016 05:30                                                                      
+>>>>>> To: Rafal Ozieblo                                                                                  
+>>>>>> Cc: Nicolas Ferre; harini.katakam@xilinx.com;                                                      
+>>>>>> netdev@vger.kernel.org; linux-kernel@vger.kernel.org                                               
+>>>>>> Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing                                      
+>>>>>> support for GEM                                                                                    
+>>>>>>                                                                                                    
+>>>>>> Hi Rafal,                                                                                          
+>>>>>>                                                                                                    
+>>>>>> On Thu, Nov 17, 2016 at 7:05 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:                         
+>>>>>>> -----Original Message-----                                                                        
+>>>>>>> From: Nicolas Ferre [mailto:nicolas.ferre@atmel.com]                                              
+>>>>>>> Sent: 17 listopada 2016 14:29                                                                     
+>>>>>>> To: Harini Katakam; Rafal Ozieblo                                                                 
+>>>>>>> Cc: harini.katakam@xilinx.com; netdev@vger.kernel.org;                                            
+>>>>>>> linux-kernel@vger.kernel.org                                                                      
+>>>>>>> Subject: Re: [RFC PATCH 2/2] net: macb: Add 64 bit addressing                                     
+>>>>>>> support for GEM                                                                                   
+>>>>>>>                                                                                                   
+>>>>>>>> Le 17/11/2016 à 13:21, Harini Katakam a écrit :                                                  
+>>>>>>>>> Hi Rafal,                                                                                       
+>>>>>>>>>                                                                                                 
+>>>>>>>>> On Thu, Nov 17, 2016 at 5:20 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:                      
+>>>>>>>>>> Hello,                                                                                         
+>>>>>>>>>> I think, there could a bug in your patch.                                                      
+>>>>>>>>>>                                                                                                
+>>>>>>>>>>> +                                                                                             
+>>>>>>>>>>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT                                                          
+>>>>>>>>>>> +             dmacfg |= GEM_BIT(ADDR64); #endif                                               
+>>>>>>>>>>                                                                                                
+>>>>>>>>>> You enable 64 bit addressing (64b dma bus width) always when appropriate architecture config option is enabled.                                                                                         
+>>>>>>>>>> But there are some legacy controllers which do not support that feature. According Cadence hardware team:                                                                                               
+>>>>>>>>>> "64 bit addressing was added in July 2013. Earlier version do not have it.                     
+>>>>>>>>>> This feature was enhanced in release August 2014 to have separate upper address values for transmit and receive."                                                                                       
+>>>>>>>>>>                                                                                                
+>>>>>>>>>>> /* Bitfields in NSR */                                                                        
+>>>>>>>>>>> @@ -474,6 +479,10 @@                                                                          
+>>>>>>>>>>>  struct macb_dma_desc {                                                                       
+>>>>>>>>>>  >      u32     addr;                                                                          
+>>>>>>>>>>>       u32     ctrl;                                                                           
+>>>>>>>>>>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT                                                          
+>>>>>>>>>>> +     u32     addrh;                                                                          
+>>>>>>>>>>> +     u32     resvd;                                                                          
+>>>>>>>>>>> +#endif                                                                                       
+>>>>>>>>>>>  };                                                                                           
+>>>>>>>>>>                                                                                                
+>>>>>>>>>> It will not work for legacy hardware. Old descriptor is 2 words wide, the new one is 4 words wide.                                                                                                      
+>>>>>>>>>> If you enable CONFIG_ARCH_DMA_ADDR_T_64BIT but hardware doesn't                                
+>>>>>>>>>> support it at all, you will miss every second descriptor.                                      
+>>>>>>>>>>                                                                                                
+>>>>>>>>>                                                                                                 
+>>>>>>>>> True, this feature is not available in all of Cadence IP versions.                              
+>>>>>>>>> In fact, the IP version Zynq does not support this. But the one in ZynqMP does.                 
+>>>>>>>>> So, we enable kernel config for 64 bit DMA addressing for this                                  
+>>>>>>>>> SoC and hence the driver picks it up. My assumption was that if                                 
+>>>>>>>>> the legacy IP does not support                                                                  
+>>>>>>>>> 64 bit addressing, then this DMA option wouldn't be enabled.                                    
+>>>>>>>>>                                                                                                 
+>>>>>>>>> There is a design config register in Cadence IP which is being                                  
+>>>>>>>>> read to check for 64 bit address support - DMA mask is set based on that.                       
+>>>>>>>>> But the addition of two descriptor words cannot be based on this runtime check.                 
+>>>>>>>>> For this reason, all the static changes were placed under this check.                           
+>>>>>>>>                                                                                                  
+>>>>>>>> We have quite a bunch of options in this driver to determinate what is the real capacity of the underlying hardware.                                                                                      
+>>>>>>>> If HW configuration registers are not appropriate, and it seems they are not, I would advice to simply use the DT compatibility string.                                                                   
+>>>>>>>>                                                                                                  
+>>>>>>>> Best regards,                                                                                    
+>>>>>>>> --                                                                                               
+>>>>>>>> Nicolas Ferre                                                                                    
+>>>>>>>                                                                                                   
+>>>>>>> HW configuration registers are appropriate. The issue is that this code doesn’t use the capability bit to switch between different dma descriptors (2 words vs. 4 words).                                  
+>>>>>>> DMA descriptor size is chosen based on kernel configuration, not based on hardware capabilities.  
+>>>>>>                                                                                                    
+>>>>>> HW configuration register does give appropriate information.                                       
+>>>>>> But addition of two address words in the macb descriptor structure is a static change.             
+>>>>>>                                                                                                    
+>>>>>> +static inline void macb_set_addr(struct macb_dma_desc *desc,                                      
+>>>>>> +dma_addr_t                                                                                        
+>>>>>> +addr) {                                                                                           
+>>>>>> +       desc->addr = (u32)addr;                                                                    
+>>>>>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT                                                               
+>>>>>> +       desc->addrh = (u32)(addr >> 32); #endif                                                    
+>>>>>> +                                                                                                  
+>>>>>>                                                                                                    
+>>>>>> Even if the #ifdef condition here is changed to HW config check, addr and addrh are different.     
+>>>>>> And "addrh" entry has to be present for 64 bit desc case to be handled separately.                 
+>>>>>> Can you please tell me how you propose change in DMA descriptor                                    
+>>>>>> structure from                                                                                     
+>>>>>> 4 to 2 or 2 to 4 words *after* reading the DCFG register?                                          
+>>>>>                                                                                                     
+>>>>> It is very complex problem. I wrote to you because I faced the same issue. I'm working on PTP implementation for macb. When PTP is enabled there are additional two words in buffer descriptor.              
+>>>>
+>>>> Moreover, we can use PTP without the 64bits descriptor support (early GEM revisions).
+>>>>
+>>>> BTW, note that there is an initiative ongoing with Andrei to support
+>>>> PTP/1588 on these devices with patches already send: please synchronize with him.
+>>>> https://urldefense.proofpoint.com/v2/url?u=https-3A__marc.info_-3Fl-3D
+>>>> linux-2Dnetdev-26m-3D147282092309112-26w-3D3&d=DgIDaQ&c=aUq983L2pue2Fq
+>>>> KFoP6PGHMJQyoJ7kl3s3GZ-_haXqY&r=MWSZN_jP4BHjuU9UFsrndALGeJqIXzD0WtGCtC
+>>>> g4L5E&m=jUmZzqwn1uRrvcqF3BHCHFC6ZsKoZkU3vT8gJ-7fnsE&s=kr_km0MKQBzpkaOt
+>>>> 0fkM-FIajN1-pOylzzTjsXi-vak&e=
+>>>> or
+>>>> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.kernel.
+>>>> org_patch_9310989_&d=DgIDaQ&c=aUq983L2pue2FqKFoP6PGHMJQyoJ7kl3s3GZ-_ha
+>>>> XqY&r=MWSZN_jP4BHjuU9UFsrndALGeJqIXzD0WtGCtCg4L5E&m=jUmZzqwn1uRrvcqF3B
+>>>> HCHFC6ZsKoZkU3vT8gJ-7fnsE&s=ZbXVD5Lb5zGn7wUKIPYHxagIEKp_vJvrnkRa4qJfmT
+>>>> Y&e=
+>>>> and
+>>>> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.kernel.
+>>>> org_patch_9310991_&d=DgIDaQ&c=aUq983L2pue2FqKFoP6PGHMJQyoJ7kl3s3GZ-_ha
+>>>> XqY&r=MWSZN_jP4BHjuU9UFsrndALGeJqIXzD0WtGCtCg4L5E&m=jUmZzqwn1uRrvcqF3B
+>>>> HCHFC6ZsKoZkU3vT8gJ-7fnsE&s=Z0kRqUqh5Is4TmuaY7A4hnpizfdeq3HrgPhyDAMLuA
+>>>> 8&e=
+>>>>
+>>>> Regards,
+>>>> --
+>>>> Nicolas Ferre
+>>>
+>>> Above patch doesn’t use hardware timestamps in descriptors at all. It doesn't use appropriate accuracy.
+>>> We have our PTP patch ready, which use timestamps from descriptor. But we have not sent it yet because of compatibility issue.
+>>> Of course, we can do it like Harini did:
+>>>
+>>> struct macb_dma_desc {
+>>>         u32     addr;
+>>>         u32     ctrl;
+>>> #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+>>>         u32     addrh;
+>>>         u32     resvd;
+>>> #endif
+>>> #if IS_ENABLED(CONFIG_PTP_1588_CLOCK)
+>>>         u32     dma_desc_ts_1;
+>>>         u32     dma_desc_ts_2;
+>>> #endif
+>>> };
+>>>
+>>> But in that approach we lose backward compatibility.
+>>>
+>>> What are your suggestion? Can we send patch like it is or wait for some common solution with backward compatibility?
+>>>
+>>
+>> Yes, Andre's version of Cadence does not ability to report have RX timestamp.
+>> The version I worked with did. This is the old series I sent:
+>> https://urldefense.proofpoint.com/v2/url?u=https-3A__lkml.org_lkml_2015_9_11_92&d=DgIFaQ&c=aUq983L2pue2FqKFoP6PGHMJQyoJ7kl3s3GZ-_haXqY&r=MWSZN_jP4BHjuU9UFsrndALGeJqIXzD0WtGCtCg4L5E&m=1A1qxdlwY3kMlJ1JUJJL1EqLzWz4AKtfOxZf_vu8bWo&s=NGpEbbC4bYXUZjJ6n0Ud8F8p3fPz5EhTJ1O9-NKwCkQ&e=
+>> But right now, i'm working on building on top of Andre's changes.
+>>
+>> Regards,
+>> Harini
+>>
+> I can’t see a place where you enable extended descriptor for PTP. Did you add support for extended PTP descriptor?
+> "DMA Configuration Register" 0x010:
+> 29	tx_bd_extended_mode_en	"Enable TX extended BD mode. See TX BD control register definition for description of feature."
+> 28	rx_bd_extended_mode_en	"Enable RX extended BD mode. See RX BD control register definition for description of feature."
+> 
+> Can I send you our patch for comparison ? 
+
+You mean "send you and everyone else on the mailing-list" right?
+Even if the first initiative has a bit or priority, like Harini's one
+ported further by Andrei, we are still eager to share code and ideas to
+make this support go forward.
+
+I do think that the steps will be to include generic support for PTP
+(without 64bits descriptors) and then plug the 64bits descriptor support
+which is an newer extension of it (and definitively more robust and
+leading to more accurate behavior, I know). Basically like Harini
+suggested: "building on top of Andrei's changes".
+
+Best regards,
+-- 
+Nicolas Ferre
