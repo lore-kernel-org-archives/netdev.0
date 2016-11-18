@@ -1,507 +1,835 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next] bridge: add igmpv3 and mldv2 query support
-Date: Fri, 18 Nov 2016 18:56:23 +0800
-Message-ID: <201611181822.YvavXpLR%fengguang.wu@intel.com>
-References: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="zYM0uCDKw75PZbzx"
-Cc: kbuild-all@01.org, netdev@vger.kernel.org,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        linus.luessing@c0d3.blue, Hangbin Liu <liuhangbin@gmail.com>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:9313 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751788AbcKRK5W (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Nov 2016 05:57:22 -0500
-Content-Disposition: inline
-In-Reply-To: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Atul Gupta <atul.gupta@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Allocate Tx queues dynamically
+Date: Fri, 18 Nov 2016 16:37:40 +0530
+Message-ID: <1479467260-6509-1-git-send-email-atul.gupta@chelsio.com>
+Cc: davem@davemloft.net, nab@linux-iscsi.org, jejb@linux.vnet.ibm.com,
+        martin.petersen@oracle.com, dledford@redhat.com,
+        herbert@gondor.apana.org.au, leedom@chelsio.com,
+        nirranjan@chelsio.com, varun@chelsio.com,
+        swise@opengridcomputing.com, hariprasad@chelsio.com,
+        Atul Gupta <atul.gupta@chelsio.com>
+To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+        target-devel@vger.kernel.org, linux-rdma@vger.kernel.org,
+        linux-crypto@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Hariprasad Shenai <hariprasad@chelsio.com>
 
---zYM0uCDKw75PZbzx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Allocate resources dynamically for Upper layer driver's (ULD) like
+cxgbit, iw_cxgb4, cxgb4i and chcr. The resources allocated include Tx
+queues which are allocated when ULD register with cxgb4 driver and freed
+while un-registering. The Tx queues which are shared by ULD shall be
+allocated by first registering driver and un-allocated by last
+unregistering driver.
 
-Hi Hangbin,
-
-[auto build test ERROR on net-next/master]
-
-url:    https://github.com/0day-ci/linux/commits/Hangbin-Liu/bridge-add-igmpv3-and-mldv2-query-support/20161118-155854
-config: powerpc-defconfig (attached as .config)
-compiler: powerpc64-linux-gnu-gcc (Debian 6.1.1-9) 6.1.1 20160705
-reproduce:
-        wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
-        chmod +x ~/bin/make.cross
-        # save the attached .config to linux build tree
-        make.cross ARCH=powerpc 
-
-All errors (new ones prefixed by >>):
-
-   net/bridge/br_multicast.c: In function 'mld_force_mld_version':
->> net/bridge/br_multicast.c:688:24: error: 'struct net' has no member named 'ipv6'; did you mean 'ipv4'?
-     if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version != 0)
-                           ^~
-   net/bridge/br_multicast.c:689:28: error: 'struct net' has no member named 'ipv6'; did you mean 'ipv4'?
-      return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version;
-                               ^~
-   net/bridge/br_multicast.c: In function 'br_multicast_alloc_query':
-   net/bridge/br_multicast.c:699:27: error: implicit declaration of function '__in6_dev_get' [-Werror=implicit-function-declaration]
-     struct inet6_dev *idev = __in6_dev_get(br->dev);
-                              ^~~~~~~~~~~~~
-   net/bridge/br_multicast.c:699:27: warning: initialization makes pointer from integer without a cast [-Wint-conversion]
-   net/bridge/br_multicast.c:699:20: warning: unused variable 'idev' [-Wunused-variable]
-     struct inet6_dev *idev = __in6_dev_get(br->dev);
-                       ^~~~
-   At top level:
-   net/bridge/br_multicast.c:686:12: warning: 'mld_force_mld_version' defined but not used [-Wunused-function]
-    static int mld_force_mld_version(const struct inet6_dev *idev)
-               ^~~~~~~~~~~~~~~~~~~~~
-   cc1: some warnings being treated as errors
-
-vim +688 net/bridge/br_multicast.c
-
-   682		return skb;
-   683	}
-   684	#endif
-   685	
-   686	static int mld_force_mld_version(const struct inet6_dev *idev)
-   687	{
- > 688		if (dev_net(idev->dev)->ipv6.devconf_all->force_mld_version != 0)
-   689			return dev_net(idev->dev)->ipv6.devconf_all->force_mld_version;
-   690		else
-   691			return idev->cnf.force_mld_version;
-
+Signed-off-by: Atul Gupta <atul.gupta@chelsio.com>
 ---
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+ drivers/crypto/chelsio/chcr_algo.c                 |  16 +--
+ drivers/crypto/chelsio/chcr_core.c                 |   3 +-
+ drivers/infiniband/hw/cxgb4/device.c               |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  19 +++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  12 --
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  64 +++++++----
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c     | 114 +++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |  17 +++
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           | 121 +++++++++++++++------
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c                 |   1 +
+ drivers/target/iscsi/cxgbit/cxgbit_main.c          |   1 +
+ 11 files changed, 287 insertions(+), 82 deletions(-)
 
---zYM0uCDKw75PZbzx
-Content-Type: application/gzip
-Content-Disposition: attachment; filename=".config.gz"
-Content-Transfer-Encoding: base64
-
-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
-fGC06t/o0xduzRz+D6Gd9BdebgEA
-
---zYM0uCDKw75PZbzx--
+diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
+index e4ddb921d7b3..56b153805462 100644
+--- a/drivers/crypto/chelsio/chcr_algo.c
++++ b/drivers/crypto/chelsio/chcr_algo.c
+@@ -592,16 +592,18 @@ static int chcr_aes_cbc_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
+ 
+ static int cxgb4_is_crypto_q_full(struct net_device *dev, unsigned int idx)
+ {
+-	int ret = 0;
+-	struct sge_ofld_txq *q;
+ 	struct adapter *adap = netdev2adap(dev);
++	struct sge_uld_txq_info *txq_info =
++		adap->sge.uld_txq_info[CXGB4_TX_CRYPTO];
++	struct sge_uld_txq *txq;
++	int ret = 0;
+ 
+ 	local_bh_disable();
+-	q = &adap->sge.ofldtxq[idx];
+-	spin_lock(&q->sendq.lock);
+-	if (q->full)
++	txq = &txq_info->uldtxq[idx];
++	spin_lock(&txq->sendq.lock);
++	if (txq->full)
+ 		ret = -1;
+-	spin_unlock(&q->sendq.lock);
++	spin_unlock(&txq->sendq.lock);
+ 	local_bh_enable();
+ 	return ret;
+ }
+@@ -674,11 +676,11 @@ static int chcr_device_init(struct chcr_context *ctx)
+ 		}
+ 		u_ctx = ULD_CTX(ctx);
+ 		rxq_perchan = u_ctx->lldi.nrxq / u_ctx->lldi.nchan;
+-		ctx->dev->tx_channel_id = 0;
+ 		rxq_idx = ctx->dev->tx_channel_id * rxq_perchan;
+ 		rxq_idx += id % rxq_perchan;
+ 		spin_lock(&ctx->dev->lock_chcr_dev);
+ 		ctx->tx_channel_id = rxq_idx;
++		ctx->dev->tx_channel_id = !ctx->dev->tx_channel_id;
+ 		spin_unlock(&ctx->dev->lock_chcr_dev);
+ 	}
+ out:
+diff --git a/drivers/crypto/chelsio/chcr_core.c b/drivers/crypto/chelsio/chcr_core.c
+index fb5f9bbfa09c..4d7f6700fd7e 100644
+--- a/drivers/crypto/chelsio/chcr_core.c
++++ b/drivers/crypto/chelsio/chcr_core.c
+@@ -42,6 +42,7 @@ static chcr_handler_func work_handlers[NUM_CPL_CMDS] = {
+ static struct cxgb4_uld_info chcr_uld_info = {
+ 	.name = DRV_MODULE_NAME,
+ 	.nrxq = MAX_ULD_QSETS,
++	.ntxq = MAX_ULD_QSETS,
+ 	.rxq_size = 1024,
+ 	.add = chcr_uld_add,
+ 	.state_change = chcr_uld_state_change,
+@@ -126,7 +127,7 @@ static int cpl_fw6_pld_handler(struct chcr_dev *dev,
+ 
+ int chcr_send_wr(struct sk_buff *skb)
+ {
+-	return cxgb4_ofld_send(skb->dev, skb);
++	return cxgb4_crypto_send(skb->dev, skb);
+ }
+ 
+ static void *chcr_uld_add(const struct cxgb4_lld_info *lld)
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index 93e3d270a98a..4e5baf4fe15e 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -1481,6 +1481,7 @@ static int c4iw_uld_control(void *handle, enum cxgb4_control control, ...)
+ static struct cxgb4_uld_info c4iw_uld_info = {
+ 	.name = DRV_NAME,
+ 	.nrxq = MAX_ULD_QSETS,
++	.ntxq = MAX_ULD_QSETS,
+ 	.rxq_size = 511,
+ 	.ciq = true,
+ 	.lro = false,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 2125903043fb..0bce1bf9ca0f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -635,6 +635,7 @@ struct tx_sw_desc;
+ 
+ struct sge_txq {
+ 	unsigned int  in_use;       /* # of in-use Tx descriptors */
++	unsigned int  q_type;	    /* Q type Eth/Ctrl/Ofld */
+ 	unsigned int  size;         /* # of descriptors */
+ 	unsigned int  cidx;         /* SW consumer index */
+ 	unsigned int  pidx;         /* producer index */
+@@ -665,7 +666,7 @@ struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
+ 	unsigned long mapping_err;  /* # of I/O MMU packet mapping errors */
+ } ____cacheline_aligned_in_smp;
+ 
+-struct sge_ofld_txq {               /* state for an SGE offload Tx queue */
++struct sge_uld_txq {               /* state for an SGE offload Tx queue */
+ 	struct sge_txq q;
+ 	struct adapter *adap;
+ 	struct sk_buff_head sendq;  /* list of backpressured packets */
+@@ -693,14 +694,20 @@ struct sge_uld_rxq_info {
+ 	u8 uld;			/* uld type */
+ };
+ 
++struct sge_uld_txq_info {
++	struct sge_uld_txq *uldtxq; /* Txq's for ULD */
++	atomic_t users;		/* num users */
++	u16 ntxq;		/* # of egress uld queues */
++};
++
+ struct sge {
+ 	struct sge_eth_txq ethtxq[MAX_ETH_QSETS];
+-	struct sge_ofld_txq ofldtxq[MAX_OFLD_QSETS];
+ 	struct sge_ctrl_txq ctrlq[MAX_CTRL_QUEUES];
+ 
+ 	struct sge_eth_rxq ethrxq[MAX_ETH_QSETS];
+ 	struct sge_rspq fw_evtq ____cacheline_aligned_in_smp;
+ 	struct sge_uld_rxq_info **uld_rxq_info;
++	struct sge_uld_txq_info **uld_txq_info;
+ 
+ 	struct sge_rspq intrq ____cacheline_aligned_in_smp;
+ 	spinlock_t intrq_lock;
+@@ -1298,8 +1305,9 @@ int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
+ 			  unsigned int cmplqid);
+ int t4_sge_mod_ctrl_txq(struct adapter *adap, unsigned int eqid,
+ 			unsigned int cmplqid);
+-int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+-			  struct net_device *dev, unsigned int iqid);
++int t4_sge_alloc_uld_txq(struct adapter *adap, struct sge_uld_txq *txq,
++			 struct net_device *dev, unsigned int iqid,
++			 unsigned int uld_type);
+ irqreturn_t t4_sge_intr_msix(int irq, void *cookie);
+ int t4_sge_init(struct adapter *adap);
+ void t4_sge_start(struct adapter *adap);
+@@ -1661,4 +1669,7 @@ int t4_uld_mem_alloc(struct adapter *adap);
+ void t4_uld_clean_up(struct adapter *adap);
+ void t4_register_netevent_notifier(void);
+ void free_rspq_fl(struct adapter *adap, struct sge_rspq *rq, struct sge_fl *fl);
++void free_tx_desc(struct adapter *adap, struct sge_txq *q,
++		  unsigned int n, bool unmap);
++void free_txq(struct adapter *adap, struct sge_txq *q);
+ #endif /* __CXGB4_H__ */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index 20455d082cb8..acc231293e4d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -2512,18 +2512,6 @@ do { \
+ 		RL("FLLow:", fl.low);
+ 		RL("FLStarving:", fl.starving);
+ 
+-	} else if (ofld_idx < ofld_entries) {
+-		const struct sge_ofld_txq *tx =
+-			&adap->sge.ofldtxq[ofld_idx * 4];
+-		int n = min(4, adap->sge.ofldqsets - 4 * ofld_idx);
+-
+-		S("QType:", "OFLD-Txq");
+-		T("TxQ ID:", q.cntxt_id);
+-		T("TxQ size:", q.size);
+-		T("TxQ inuse:", q.in_use);
+-		T("TxQ CIDX:", q.cidx);
+-		T("TxQ PIDX:", q.pidx);
+-
+ 	} else if (ctrl_idx < ctrl_entries) {
+ 		const struct sge_ctrl_txq *tx = &adap->sge.ctrlq[ctrl_idx * 4];
+ 		int n = min(4, adap->params.nports - 4 * ctrl_idx);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index c0cc2ee77be7..449884f8dd67 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -530,15 +530,15 @@ static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
+ 
+ 		txq = q->adap->sge.egr_map[qid - q->adap->sge.egr_start];
+ 		txq->restarts++;
+-		if ((u8 *)txq < (u8 *)q->adap->sge.ofldtxq) {
++		if (txq->q_type == CXGB4_TXQ_ETH) {
+ 			struct sge_eth_txq *eq;
+ 
+ 			eq = container_of(txq, struct sge_eth_txq, q);
+ 			netif_tx_wake_queue(eq->txq);
+ 		} else {
+-			struct sge_ofld_txq *oq;
++			struct sge_uld_txq *oq;
+ 
+-			oq = container_of(txq, struct sge_ofld_txq, q);
++			oq = container_of(txq, struct sge_uld_txq, q);
+ 			tasklet_schedule(&oq->qresume_tsk);
+ 		}
+ 	} else if (opcode == CPL_FW6_MSG || opcode == CPL_FW4_MSG) {
+@@ -885,15 +885,6 @@ static int setup_sge_queues(struct adapter *adap)
+ 		}
+ 	}
+ 
+-	j = s->ofldqsets / adap->params.nports; /* iscsi queues per channel */
+-	for_each_ofldtxq(s, i) {
+-		err = t4_sge_alloc_ofld_txq(adap, &s->ofldtxq[i],
+-					    adap->port[i / j],
+-					    s->fw_evtq.cntxt_id);
+-		if (err)
+-			goto freeout;
+-	}
+-
+ 	for_each_port(adap, i) {
+ 		/* Note that cmplqid below is 0 if we don't
+ 		 * have RDMA queues, and that's the right value.
+@@ -1922,8 +1913,18 @@ static void disable_dbs(struct adapter *adap)
+ 
+ 	for_each_ethrxq(&adap->sge, i)
+ 		disable_txq_db(&adap->sge.ethtxq[i].q);
+-	for_each_ofldtxq(&adap->sge, i)
+-		disable_txq_db(&adap->sge.ofldtxq[i].q);
++	if (is_offload(adap)) {
++		struct sge_uld_txq_info *txq_info =
++			adap->sge.uld_txq_info[CXGB4_TX_OFLD];
++
++		if (txq_info) {
++			for_each_ofldtxq(&adap->sge, i) {
++				struct sge_uld_txq *txq = &txq_info->uldtxq[i];
++
++				disable_txq_db(&txq->q);
++			}
++		}
++	}
+ 	for_each_port(adap, i)
+ 		disable_txq_db(&adap->sge.ctrlq[i].q);
+ }
+@@ -1934,8 +1935,18 @@ static void enable_dbs(struct adapter *adap)
+ 
+ 	for_each_ethrxq(&adap->sge, i)
+ 		enable_txq_db(adap, &adap->sge.ethtxq[i].q);
+-	for_each_ofldtxq(&adap->sge, i)
+-		enable_txq_db(adap, &adap->sge.ofldtxq[i].q);
++	if (is_offload(adap)) {
++		struct sge_uld_txq_info *txq_info =
++			adap->sge.uld_txq_info[CXGB4_TX_OFLD];
++
++		if (txq_info) {
++			for_each_ofldtxq(&adap->sge, i) {
++				struct sge_uld_txq *txq = &txq_info->uldtxq[i];
++
++				enable_txq_db(adap, &txq->q);
++			}
++		}
++	}
+ 	for_each_port(adap, i)
+ 		enable_txq_db(adap, &adap->sge.ctrlq[i].q);
+ }
+@@ -2006,8 +2017,17 @@ static void recover_all_queues(struct adapter *adap)
+ 
+ 	for_each_ethrxq(&adap->sge, i)
+ 		sync_txq_pidx(adap, &adap->sge.ethtxq[i].q);
+-	for_each_ofldtxq(&adap->sge, i)
+-		sync_txq_pidx(adap, &adap->sge.ofldtxq[i].q);
++	if (is_offload(adap)) {
++		struct sge_uld_txq_info *txq_info =
++			adap->sge.uld_txq_info[CXGB4_TX_OFLD];
++		if (txq_info) {
++			for_each_ofldtxq(&adap->sge, i) {
++				struct sge_uld_txq *txq = &txq_info->uldtxq[i];
++
++				sync_txq_pidx(adap, &txq->q);
++			}
++		}
++	}
+ 	for_each_port(adap, i)
+ 		sync_txq_pidx(adap, &adap->sge.ctrlq[i].q);
+ }
+@@ -3991,7 +4011,7 @@ static inline bool is_x_10g_port(const struct link_config *lc)
+ static void cfg_queues(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+-	int i, n10g = 0, qidx = 0;
++	int i = 0, n10g = 0, qidx = 0;
+ #ifndef CONFIG_CHELSIO_T4_DCB
+ 	int q10g = 0;
+ #endif
+@@ -4006,8 +4026,7 @@ static void cfg_queues(struct adapter *adap)
+ 		adap->params.crypto = 0;
+ 	}
+ 
+-	for_each_port(adap, i)
+-		n10g += is_x_10g_port(&adap2pinfo(adap, i)->link_cfg);
++	n10g += is_x_10g_port(&adap2pinfo(adap, i)->link_cfg);
+ #ifdef CONFIG_CHELSIO_T4_DCB
+ 	/* For Data Center Bridging support we need to be able to support up
+ 	 * to 8 Traffic Priorities; each of which will be assigned to its
+@@ -4075,9 +4094,6 @@ static void cfg_queues(struct adapter *adap)
+ 	for (i = 0; i < ARRAY_SIZE(s->ctrlq); i++)
+ 		s->ctrlq[i].q.size = 512;
+ 
+-	for (i = 0; i < ARRAY_SIZE(s->ofldtxq); i++)
+-		s->ofldtxq[i].q.size = 1024;
+-
+ 	init_rspq(adap, &s->fw_evtq, 0, 1, 1024, 64);
+ 	init_rspq(adap, &s->intrq, 0, 1, 512, 64);
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+index 2471ff465d5c..565a6c6bfeaf 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+@@ -447,6 +447,106 @@ static void quiesce_rx_uld(struct adapter *adap, unsigned int uld_type)
+ 		quiesce_rx(adap, &rxq_info->uldrxq[idx].rspq);
+ }
+ 
++static void
++free_sge_txq_uld(struct adapter *adap, struct sge_uld_txq_info *txq_info)
++{
++	int nq = txq_info->ntxq;
++	int i;
++
++	for (i = 0; i < nq; i++) {
++		struct sge_uld_txq *txq = &txq_info->uldtxq[i];
++
++		if (txq && txq->q.desc) {
++			tasklet_kill(&txq->qresume_tsk);
++			t4_ofld_eq_free(adap, adap->mbox, adap->pf, 0,
++					txq->q.cntxt_id);
++			free_tx_desc(adap, &txq->q, txq->q.in_use, false);
++			kfree(txq->q.sdesc);
++			__skb_queue_purge(&txq->sendq);
++			free_txq(adap, &txq->q);
++		}
++	}
++}
++
++static int
++alloc_sge_txq_uld(struct adapter *adap, struct sge_uld_txq_info *txq_info,
++		  unsigned int uld_type)
++{
++	struct sge *s = &adap->sge;
++	int nq = txq_info->ntxq;
++	int i, j, err;
++
++	j = nq / adap->params.nports;
++	for (i = 0; i < nq; i++) {
++		struct sge_uld_txq *txq = &txq_info->uldtxq[i];
++
++		txq->q.size = 1024;
++		err = t4_sge_alloc_uld_txq(adap, txq, adap->port[i / j],
++					   s->fw_evtq.cntxt_id, uld_type);
++		if (err)
++			goto freeout;
++	}
++	return 0;
++freeout:
++	free_sge_txq_uld(adap, txq_info);
++	return err;
++}
++
++static void
++release_sge_txq_uld(struct adapter *adap, unsigned int uld_type)
++{
++	struct sge_uld_txq_info *txq_info = NULL;
++	int tx_uld_type = TX_ULD(uld_type);
++
++	txq_info = adap->sge.uld_txq_info[tx_uld_type];
++
++	if (txq_info && atomic_dec_and_test(&txq_info->users)) {
++		free_sge_txq_uld(adap, txq_info);
++		kfree(txq_info->uldtxq);
++		kfree(txq_info);
++		adap->sge.uld_txq_info[tx_uld_type] = NULL;
++	}
++}
++
++static int
++setup_sge_txq_uld(struct adapter *adap, unsigned int uld_type,
++		  const struct cxgb4_uld_info *uld_info)
++{
++	struct sge_uld_txq_info *txq_info = NULL;
++	int tx_uld_type, i;
++
++	tx_uld_type = TX_ULD(uld_type);
++	txq_info = adap->sge.uld_txq_info[tx_uld_type];
++
++	if ((tx_uld_type == CXGB4_TX_OFLD) && txq_info &&
++	    (atomic_inc_return(&txq_info->users) > 1))
++		return 0;
++
++	txq_info = kzalloc(sizeof(*txq_info), GFP_KERNEL);
++	if (!txq_info)
++		return -ENOMEM;
++
++	i = min_t(int, uld_info->ntxq, num_online_cpus());
++	txq_info->ntxq = roundup(i, adap->params.nports);
++
++	txq_info->uldtxq = kcalloc(txq_info->ntxq, sizeof(struct sge_uld_txq),
++				   GFP_KERNEL);
++	if (!txq_info->uldtxq) {
++		kfree(txq_info->uldtxq);
++		return -ENOMEM;
++	}
++
++	if (alloc_sge_txq_uld(adap, txq_info, tx_uld_type)) {
++		kfree(txq_info->uldtxq);
++		kfree(txq_info);
++		return -ENOMEM;
++	}
++
++	atomic_inc(&txq_info->users);
++	adap->sge.uld_txq_info[tx_uld_type] = txq_info;
++	return 0;
++}
++
+ static void uld_queue_init(struct adapter *adap, unsigned int uld_type,
+ 			   struct cxgb4_lld_info *lli)
+ {
+@@ -472,7 +572,15 @@ int t4_uld_mem_alloc(struct adapter *adap)
+ 	if (!s->uld_rxq_info)
+ 		goto err_uld;
+ 
++	s->uld_txq_info = kzalloc(CXGB4_TX_MAX *
++				  sizeof(struct sge_uld_txq_info *),
++				  GFP_KERNEL);
++	if (!s->uld_txq_info)
++		goto err_uld_rx;
+ 	return 0;
++
++err_uld_rx:
++	kfree(s->uld_rxq_info);
+ err_uld:
+ 	kfree(adap->uld);
+ 	return -ENOMEM;
+@@ -482,6 +590,7 @@ void t4_uld_mem_free(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+ 
++	kfree(s->uld_txq_info);
+ 	kfree(s->uld_rxq_info);
+ 	kfree(adap->uld);
+ }
+@@ -616,6 +725,9 @@ int cxgb4_register_uld(enum cxgb4_uld type,
+ 			ret = -EBUSY;
+ 			goto free_irq;
+ 		}
++		ret = setup_sge_txq_uld(adap, type, p);
++		if (ret)
++			goto free_irq;
+ 		adap->uld[type] = *p;
+ 		uld_attach(adap, type);
+ 		adap_idx++;
+@@ -644,6 +756,7 @@ int cxgb4_register_uld(enum cxgb4_uld type,
+ 			break;
+ 		adap->uld[type].handle = NULL;
+ 		adap->uld[type].add = NULL;
++		release_sge_txq_uld(adap, type);
+ 		if (adap->flags & FULL_INIT_DONE)
+ 			quiesce_rx_uld(adap, type);
+ 		if (adap->flags & USING_MSIX)
+@@ -679,6 +792,7 @@ int cxgb4_unregister_uld(enum cxgb4_uld type)
+ 			continue;
+ 		adap->uld[type].handle = NULL;
+ 		adap->uld[type].add = NULL;
++		release_sge_txq_uld(adap, type);
+ 		if (adap->flags & FULL_INIT_DONE)
+ 			quiesce_rx_uld(adap, type);
+ 		if (adap->flags & USING_MSIX)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index 2996793b1aaa..4c856605fdfa 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -77,6 +77,8 @@ enum {
+ 
+ /* Special asynchronous notification message */
+ #define CXGB4_MSG_AN ((void *)1)
++#define TX_ULD(uld)(((uld) != CXGB4_ULD_CRYPTO) ? CXGB4_TX_OFLD :\
++		      CXGB4_TX_CRYPTO)
+ 
+ struct serv_entry {
+ 	void *data;
+@@ -223,6 +225,19 @@ enum cxgb4_uld {
+ 	CXGB4_ULD_MAX
+ };
+ 
++enum cxgb4_tx_uld {
++	CXGB4_TX_OFLD,
++	CXGB4_TX_CRYPTO,
++	CXGB4_TX_MAX
++};
++
++enum cxgb4_txq_type {
++	CXGB4_TXQ_ETH,
++	CXGB4_TXQ_ULD,
++	CXGB4_TXQ_CTRL,
++	CXGB4_TXQ_MAX
++};
++
+ enum cxgb4_state {
+ 	CXGB4_STATE_UP,
+ 	CXGB4_STATE_START_RECOVERY,
+@@ -316,6 +331,7 @@ struct cxgb4_uld_info {
+ 	void *handle;
+ 	unsigned int nrxq;
+ 	unsigned int rxq_size;
++	unsigned int ntxq;
+ 	bool ciq;
+ 	bool lro;
+ 	void *(*add)(const struct cxgb4_lld_info *p);
+@@ -333,6 +349,7 @@ struct cxgb4_uld_info {
+ int cxgb4_register_uld(enum cxgb4_uld type, const struct cxgb4_uld_info *p);
+ int cxgb4_unregister_uld(enum cxgb4_uld type);
+ int cxgb4_ofld_send(struct net_device *dev, struct sk_buff *skb);
++int cxgb4_crypto_send(struct net_device *dev, struct sk_buff *skb);
+ unsigned int cxgb4_dbfifo_count(const struct net_device *dev, int lpfifo);
+ unsigned int cxgb4_port_chan(const struct net_device *dev);
+ unsigned int cxgb4_port_viid(const struct net_device *dev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 1e74fd6085df..b7d0753b9242 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -377,8 +377,8 @@ unmap:			dma_unmap_page(dev, be64_to_cpu(p->addr[0]),
+  *	Reclaims Tx descriptors from an SGE Tx queue and frees the associated
+  *	Tx buffers.  Called with the Tx queue lock held.
+  */
+-static void free_tx_desc(struct adapter *adap, struct sge_txq *q,
+-			 unsigned int n, bool unmap)
++void free_tx_desc(struct adapter *adap, struct sge_txq *q,
++		  unsigned int n, bool unmap)
+ {
+ 	struct tx_sw_desc *d;
+ 	unsigned int cidx = q->cidx;
+@@ -1543,7 +1543,7 @@ static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
+  *	inability to map packets.  A periodic timer attempts to restart
+  *	queues so marked.
+  */
+-static void txq_stop_maperr(struct sge_ofld_txq *q)
++static void txq_stop_maperr(struct sge_uld_txq *q)
+ {
+ 	q->mapping_err++;
+ 	q->q.stops++;
+@@ -1559,7 +1559,7 @@ static void txq_stop_maperr(struct sge_ofld_txq *q)
+  *	Stops an offload Tx queue that has become full and modifies the packet
+  *	being written to request a wakeup.
+  */
+-static void ofldtxq_stop(struct sge_ofld_txq *q, struct sk_buff *skb)
++static void ofldtxq_stop(struct sge_uld_txq *q, struct sk_buff *skb)
+ {
+ 	struct fw_wr_hdr *wr = (struct fw_wr_hdr *)skb->data;
+ 
+@@ -1586,7 +1586,7 @@ static void ofldtxq_stop(struct sge_ofld_txq *q, struct sk_buff *skb)
+  *	boolean "service_ofldq_running" to make sure that only one instance
+  *	is ever running at a time ...
+  */
+-static void service_ofldq(struct sge_ofld_txq *q)
++static void service_ofldq(struct sge_uld_txq *q)
+ {
+ 	u64 *pos, *before, *end;
+ 	int credits;
+@@ -1706,7 +1706,7 @@ static void service_ofldq(struct sge_ofld_txq *q)
+  *
+  *	Send an offload packet through an SGE offload queue.
+  */
+-static int ofld_xmit(struct sge_ofld_txq *q, struct sk_buff *skb)
++static int ofld_xmit(struct sge_uld_txq *q, struct sk_buff *skb)
+ {
+ 	skb->priority = calc_tx_flits_ofld(skb);       /* save for restart */
+ 	spin_lock(&q->sendq.lock);
+@@ -1735,7 +1735,7 @@ static int ofld_xmit(struct sge_ofld_txq *q, struct sk_buff *skb)
+  */
+ static void restart_ofldq(unsigned long data)
+ {
+-	struct sge_ofld_txq *q = (struct sge_ofld_txq *)data;
++	struct sge_uld_txq *q = (struct sge_uld_txq *)data;
+ 
+ 	spin_lock(&q->sendq.lock);
+ 	q->full = 0;            /* the queue actually is completely empty now */
+@@ -1767,17 +1767,23 @@ static inline unsigned int is_ctrl_pkt(const struct sk_buff *skb)
+ 	return skb->queue_mapping & 1;
+ }
+ 
+-static inline int ofld_send(struct adapter *adap, struct sk_buff *skb)
++static inline int uld_send(struct adapter *adap, struct sk_buff *skb,
++			   unsigned int tx_uld_type)
+ {
++	struct sge_uld_txq_info *txq_info;
++	struct sge_uld_txq *txq;
+ 	unsigned int idx = skb_txq(skb);
+ 
++	txq_info = adap->sge.uld_txq_info[tx_uld_type];
++	txq = &txq_info->uldtxq[idx];
++
+ 	if (unlikely(is_ctrl_pkt(skb))) {
+ 		/* Single ctrl queue is a requirement for LE workaround path */
+ 		if (adap->tids.nsftids)
+ 			idx = 0;
+ 		return ctrl_xmit(&adap->sge.ctrlq[idx], skb);
+ 	}
+-	return ofld_xmit(&adap->sge.ofldtxq[idx], skb);
++	return ofld_xmit(txq, skb);
+ }
+ 
+ /**
+@@ -1794,7 +1800,7 @@ int t4_ofld_send(struct adapter *adap, struct sk_buff *skb)
+ 	int ret;
+ 
+ 	local_bh_disable();
+-	ret = ofld_send(adap, skb);
++	ret = uld_send(adap, skb, CXGB4_TX_OFLD);
+ 	local_bh_enable();
+ 	return ret;
+ }
+@@ -1813,6 +1819,39 @@ int cxgb4_ofld_send(struct net_device *dev, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(cxgb4_ofld_send);
+ 
++/**
++ *	t4_crypto_send - send crypto packet
++ *	@adap: the adapter
++ *	@skb: the packet
++ *
++ *	Sends crypto packet.  We use the packet queue_mapping to select the
++ *	appropriate Tx queue as follows: bit 0 indicates whether the packet
++ *	should be sent as regular or control, bits 1-15 select the queue.
++ */
++static int t4_crypto_send(struct adapter *adap, struct sk_buff *skb)
++{
++	int ret;
++
++	local_bh_disable();
++	ret = uld_send(adap, skb, CXGB4_TX_CRYPTO);
++	local_bh_enable();
++	return ret;
++}
++
++/**
++ *	cxgb4_crypto_send - send crypto packet
++ *	@dev: the net device
++ *	@skb: the packet
++ *
++ *	Sends crypto packet.  This is an exported version of @t4_crypto_send,
++ *	intended for ULDs.
++ */
++int cxgb4_crypto_send(struct net_device *dev, struct sk_buff *skb)
++{
++	return t4_crypto_send(netdev2adap(dev), skb);
++}
++EXPORT_SYMBOL(cxgb4_crypto_send);
++
+ static inline void copy_frags(struct sk_buff *skb,
+ 			      const struct pkt_gl *gl, unsigned int offset)
+ {
+@@ -2479,7 +2518,7 @@ static void sge_tx_timer_cb(unsigned long data)
+ 	for (i = 0; i < BITS_TO_LONGS(s->egr_sz); i++)
+ 		for (m = s->txq_maperr[i]; m; m &= m - 1) {
+ 			unsigned long id = __ffs(m) + i * BITS_PER_LONG;
+-			struct sge_ofld_txq *txq = s->egr_map[id];
++			struct sge_uld_txq *txq = s->egr_map[id];
+ 
+ 			clear_bit(id, s->txq_maperr);
+ 			tasklet_schedule(&txq->qresume_tsk);
+@@ -2799,6 +2838,7 @@ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
+ 		return ret;
+ 	}
+ 
++	txq->q.q_type = CXGB4_TXQ_ETH;
+ 	init_txq(adap, &txq->q, FW_EQ_ETH_CMD_EQID_G(ntohl(c.eqid_pkd)));
+ 	txq->txq = netdevq;
+ 	txq->tso = txq->tx_cso = txq->vlan_ins = 0;
+@@ -2852,6 +2892,7 @@ int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
+ 		return ret;
+ 	}
+ 
++	txq->q.q_type = CXGB4_TXQ_CTRL;
+ 	init_txq(adap, &txq->q, FW_EQ_CTRL_CMD_EQID_G(ntohl(c.cmpliqid_eqid)));
+ 	txq->adap = adap;
+ 	skb_queue_head_init(&txq->sendq);
+@@ -2872,13 +2913,15 @@ int t4_sge_mod_ctrl_txq(struct adapter *adap, unsigned int eqid,
+ 	return t4_set_params(adap, adap->mbox, adap->pf, 0, 1, &param, &val);
+ }
+ 
+-int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+-			  struct net_device *dev, unsigned int iqid)
++int t4_sge_alloc_uld_txq(struct adapter *adap, struct sge_uld_txq *txq,
++			 struct net_device *dev, unsigned int iqid,
++			 unsigned int uld_type)
+ {
+ 	int ret, nentries;
+ 	struct fw_eq_ofld_cmd c;
+ 	struct sge *s = &adap->sge;
+ 	struct port_info *pi = netdev_priv(dev);
++	int cmd = FW_EQ_OFLD_CMD;
+ 
+ 	/* Add status entries */
+ 	nentries = txq->q.size + s->stat_len / sizeof(struct tx_desc);
+@@ -2891,7 +2934,9 @@ int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+ 		return -ENOMEM;
+ 
+ 	memset(&c, 0, sizeof(c));
+-	c.op_to_vfn = htonl(FW_CMD_OP_V(FW_EQ_OFLD_CMD) | FW_CMD_REQUEST_F |
++	if (unlikely(uld_type == CXGB4_TX_CRYPTO))
++		cmd = FW_EQ_CTRL_CMD;
++	c.op_to_vfn = htonl(FW_CMD_OP_V(cmd) | FW_CMD_REQUEST_F |
+ 			    FW_CMD_WRITE_F | FW_CMD_EXEC_F |
+ 			    FW_EQ_OFLD_CMD_PFN_V(adap->pf) |
+ 			    FW_EQ_OFLD_CMD_VFN_V(0));
+@@ -2919,6 +2964,7 @@ int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+ 		return ret;
+ 	}
+ 
++	txq->q.q_type = CXGB4_TXQ_ULD;
+ 	init_txq(adap, &txq->q, FW_EQ_OFLD_CMD_EQID_G(ntohl(c.eqid_pkd)));
+ 	txq->adap = adap;
+ 	skb_queue_head_init(&txq->sendq);
+@@ -2928,7 +2974,7 @@ int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+ 	return 0;
+ }
+ 
+-static void free_txq(struct adapter *adap, struct sge_txq *q)
++void free_txq(struct adapter *adap, struct sge_txq *q)
+ {
+ 	struct sge *s = &adap->sge;
+ 
+@@ -3026,21 +3072,6 @@ void t4_free_sge_resources(struct adapter *adap)
+ 		}
+ 	}
+ 
+-	/* clean up offload Tx queues */
+-	for (i = 0; i < ARRAY_SIZE(adap->sge.ofldtxq); i++) {
+-		struct sge_ofld_txq *q = &adap->sge.ofldtxq[i];
+-
+-		if (q->q.desc) {
+-			tasklet_kill(&q->qresume_tsk);
+-			t4_ofld_eq_free(adap, adap->mbox, adap->pf, 0,
+-					q->q.cntxt_id);
+-			free_tx_desc(adap, &q->q, q->q.in_use, false);
+-			kfree(q->q.sdesc);
+-			__skb_queue_purge(&q->sendq);
+-			free_txq(adap, &q->q);
+-		}
+-	}
+-
+ 	/* clean up control Tx queues */
+ 	for (i = 0; i < ARRAY_SIZE(adap->sge.ctrlq); i++) {
+ 		struct sge_ctrl_txq *cq = &adap->sge.ctrlq[i];
+@@ -3093,12 +3124,34 @@ void t4_sge_stop(struct adapter *adap)
+ 	if (s->tx_timer.function)
+ 		del_timer_sync(&s->tx_timer);
+ 
+-	for (i = 0; i < ARRAY_SIZE(s->ofldtxq); i++) {
+-		struct sge_ofld_txq *q = &s->ofldtxq[i];
++	if (is_offload(adap)) {
++		struct sge_uld_txq_info *txq_info;
++
++		txq_info = adap->sge.uld_txq_info[CXGB4_TX_OFLD];
++		if (txq_info) {
++			struct sge_uld_txq *txq = txq_info->uldtxq;
+ 
+-		if (q->q.desc)
+-			tasklet_kill(&q->qresume_tsk);
++			for_each_ofldtxq(&adap->sge, i) {
++				if (txq->q.desc)
++					tasklet_kill(&txq->qresume_tsk);
++			}
++		}
+ 	}
++
++	if (is_pci_uld(adap)) {
++		struct sge_uld_txq_info *txq_info;
++
++		txq_info = adap->sge.uld_txq_info[CXGB4_TX_CRYPTO];
++		if (txq_info) {
++			struct sge_uld_txq *txq = txq_info->uldtxq;
++
++			for_each_ofldtxq(&adap->sge, i) {
++				if (txq->q.desc)
++					tasklet_kill(&txq->qresume_tsk);
++			}
++		}
++	}
++
+ 	for (i = 0; i < ARRAY_SIZE(s->ctrlq); i++) {
+ 		struct sge_ctrl_txq *cq = &s->ctrlq[i];
+ 
+diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+index 0039bebaa9e2..4655a9f9dcea 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
++++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+@@ -85,6 +85,7 @@ static inline int send_tx_flowc_wr(struct cxgbi_sock *);
+ static const struct cxgb4_uld_info cxgb4i_uld_info = {
+ 	.name = DRV_MODULE_NAME,
+ 	.nrxq = MAX_ULD_QSETS,
++	.ntxq = MAX_ULD_QSETS,
+ 	.rxq_size = 1024,
+ 	.lro = false,
+ 	.add = t4_uld_add,
+diff --git a/drivers/target/iscsi/cxgbit/cxgbit_main.c b/drivers/target/iscsi/cxgbit/cxgbit_main.c
+index ad26b9372f10..96eedfc49c94 100644
+--- a/drivers/target/iscsi/cxgbit/cxgbit_main.c
++++ b/drivers/target/iscsi/cxgbit/cxgbit_main.c
+@@ -653,6 +653,7 @@ static struct iscsit_transport cxgbit_transport = {
+ static struct cxgb4_uld_info cxgbit_uld_info = {
+ 	.name		= DRV_NAME,
+ 	.nrxq		= MAX_ULD_QSETS,
++	.ntxq		= MAX_ULD_QSETS,
+ 	.rxq_size	= 1024,
+ 	.lro		= true,
+ 	.add		= cxgbit_uld_add,
+-- 
+2.3.4
