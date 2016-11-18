@@ -1,166 +1,41 @@
-From: Chris Lesiak <chris.lesiak@licor.com>
-Subject: Re: [PATCH] net: fec: Detect and recover receive queue hangs
-Date: Fri, 18 Nov 2016 08:36:44 -0600
-Message-ID: <b420fcd7-4171-f5c7-9d0c-cd8809e31bbc@licor.com>
-References: <1479417282-15540-1-git-send-email-chris.lesiak@licor.com>
- <AM4PR0401MB2260764510A33C534AB0136FFFB00@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-To: Andy Duan <fugang.duan@nxp.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] rtnetlink: fix FDB size computation
+Date: Fri, 18 Nov 2016 15:50:39 +0100
+Message-ID: <9bef2a8afa6f8193fcca61ea381b67a52ab878b2.1479477903.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+        Hubert Sokolowski <hubert.sokolowski@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0096.outbound.protection.outlook.com ([104.47.38.96]:8375
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752443AbcKROgy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Nov 2016 09:36:54 -0500
-In-Reply-To: <AM4PR0401MB2260764510A33C534AB0136FFFB00@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:18342 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751180AbcKROuo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Nov 2016 09:50:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/18/2016 12:44 AM, Andy Duan wrote:
-> From: Chris Lesiak <chris.lesiak@licor.com> Sent: Friday, November 18, =
-2016 5:15 AM
->  >To: Andy Duan <fugang.duan@nxp.com>
->  >Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jaccon
->  >Bastiaansen <jaccon.bastiaansen@gmail.com>; chris.lesiak@licor.com
->  >Subject: [PATCH] net: fec: Detect and recover receive queue hangs
->  >
->  >This corrects a problem that appears to be similar to ERR006358.  But=
- while
->  >ERR006358 is a race when the tx queue transitions from empty to not e=
-mpty,
->  >this problem is a race when the rx queue transitions from full to not=
- full.
->  >
->  >The symptom is a receive queue that is stuck.  The ENET_RDAR register=
- will
->  >read 0, indicating that there are no empty receive descriptors in the=
- receive
->  >ring.  Since no additional frames can be queued, no RXF interrupts oc=
-cur.
->  >
->  >This problem can be triggered with a 1 Gb link and about 400 Mbps of =
-traffic.
+Add missing NDA_VLAN attribute's size.
 
-I can cause the error by running the following on an imx6q: iperf -s -u
-And sending packets from the other end of a 1 Gbps link:
-iperf -c $IPADDR -u -b40000pps
+Fixes: 1e53d5bb8878 ("net: Pass VLAN ID to rtnl_fdb_notify.")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ net/core/rtnetlink.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-A few others have seen this problem.
-See: https://community.nxp.com/thread/322882
-
->  >
->  >This patch detects this condition, sets the work_rx bit, and reschedu=
-les the
->  >poll method.
->  >
->  >Signed-off-by: Chris Lesiak <chris.lesiak@licor.com>
->  >---
->  > drivers/net/ethernet/freescale/fec_main.c | 31
->  >+++++++++++++++++++++++++++++++
->  > 1 file changed, 31 insertions(+)
->  >
-> Firstly, how to reproduce the issue, pls list the reproduce steps. Than=
-ks.
-> Secondly, pls check below comments.
->
->  >diff --git a/drivers/net/ethernet/freescale/fec_main.c
->  >b/drivers/net/ethernet/freescale/fec_main.c
->  >index fea0f33..8a87037 100644
->  >--- a/drivers/net/ethernet/freescale/fec_main.c
->  >+++ b/drivers/net/ethernet/freescale/fec_main.c
->  >@@ -1588,6 +1588,34 @@ fec_enet_interrupt(int irq, void *dev_id)
->  > 	return ret;
->  > }
->  >
->  >+static inline bool
->  >+fec_enet_recover_rxq(struct fec_enet_private *fep, u16 queue_id) {
->  >+	int work_bit =3D (queue_id =3D=3D 0) ? 2 : ((queue_id =3D=3D 1) ? 0=
- : 1);
->  >+
->  >+	if (readl(fep->rx_queue[queue_id]->bd.reg_desc_active))
-> If rx ring is really empty in slight throughput cases,  rdar is always =
-cleared, then there always do napi reschedule.
-
-I think that you are concerned that if rdar is zero due to this hardware
-problem,
-but the rx ring is actually empty, then fec_enet_rx_queue will never do
-a write
-to rdar so that it can be non-zero.  That will cause napi to always be
-resceduled.
-
-I suppose that might be the case with zero rx traffic, and I was
-concerned that
-it might be true even when there was rx traffic.  I suspected that the
-hardware,
-seeing that rdar is zero, would never queue another packet, even if
-there were
-in fact empty descriptors.  But it doesn't seem to be the case.  It does
-reschedule
-multiple times, but eventually sees some packets in the rx ring and
-recovers.
-
-I admit that I do not completely understand how that can happen.  I did
-confirm
-that fec_enet_active_rxring is not being called.
-
-Maybe someone with a deeper understanding of the fec than I can provide a=
-n
-explanation.
-
->
->  >+		return false;
->  >+
->  >+	dev_notice_once(&fep->pdev->dev, "Recovered rx queue\n");
->  >+
->  >+	fep->work_rx |=3D 1 << work_bit;
->  >+
->  >+	return true;
->  >+}
->  >+
->  >+static inline bool fec_enet_recover_rxqs(struct fec_enet_private *fe=
-p)
->  >+{
->  >+	unsigned int q;
->  >+	bool ret =3D false;
->  >+
->  >+	for (q =3D 0; q < fep->num_rx_queues; q++) {
->  >+		if (fec_enet_recover_rxq(fep, q))
->  >+			ret =3D true;
->  >+	}
->  >+
->  >+	return ret;
->  >+}
->  >+
->  > static int fec_enet_rx_napi(struct napi_struct *napi, int budget)  {=
-
->  > 	struct net_device *ndev =3D napi->dev;
->  >@@ -1601,6 +1629,9 @@ static int fec_enet_rx_napi(struct napi_struct =
-*napi,
->  >int budget)
->  > 	if (pkts < budget) {
->  > 		napi_complete(napi);
->  > 		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
->  >+
->  >+		if (fec_enet_recover_rxqs(fep) && napi_reschedule(napi))
->  >+			writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
->  > 	}
->  > 	return pkts;
->  > }
->  >--
->  >2.5.5
->
-
-
---=20
-Chris Lesiak
-Principal Design Engineer, Software
-LI-COR Biosciences
-chris.lesiak@licor.com
-
-Any opinions expressed are those of the author and
-do not necessarily represent those of his employer.
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 2a75127f0e9e..92e75af2dc6a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2863,7 +2863,10 @@ static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
+ 
+ static inline size_t rtnl_fdb_nlmsg_size(void)
+ {
+-	return NLMSG_ALIGN(sizeof(struct ndmsg)) + nla_total_size(ETH_ALEN);
++	return NLMSG_ALIGN(sizeof(struct ndmsg)) +
++	       nla_total_size(ETH_ALEN) +	/* NDA_LLADDR */
++	       nla_total_size(sizeof(u16)) +	/* NDA_VLAN */
++	       0;
+ }
+ 
+ static void rtnl_fdb_notify(struct net_device *dev, u8 *addr, u16 vid, int type,
+-- 
+2.10.2
