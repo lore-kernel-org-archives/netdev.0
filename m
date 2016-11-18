@@ -1,113 +1,76 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v2] af_unix: conditionally use freezable blocking calls in read
-Date: Thu, 17 Nov 2016 15:55:26 -0800
-Message-ID: <1479426926-28197-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: dvyukov@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Tejun Heo <tj@kernel.org>, Colin Cross <ccross@android.com>,
-        "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34469 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750928AbcKQXzq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Nov 2016 18:55:46 -0500
-Received: by mail-pf0-f193.google.com with SMTP id y68so12326348pfb.1
-        for <netdev@vger.kernel.org>; Thu, 17 Nov 2016 15:55:45 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarno Rajahalme <jarno.rajahalme@gmail.com>
+Subject: Re: Long delays creating a netns after deleting one (possibly RCU related)
+Date: Thu, 17 Nov 2016 16:31:19 -0800
+Message-ID: <5697DF47-5CCB-41F3-9BD1-62DE42AD61B8@gmail.com>
+References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com> <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com> <20161110212404.GB4127@linux.vnet.ibm.com> <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com> <20161112002347.GL4127@linux.vnet.ibm.com> <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com> <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com> <20161114162417.GJ4127@linux.vnet.ibm.com> <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com> <20161114181425.GN4127@linux.vnet.ibm.com> <87y40lhfrt.fsf@xmission.com> <1479163571.8455.83.camel@edumazet-glaptop3.roam.corp.google.com> <1479164967.8455.87.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Rolf Neugebauer <rolf.neugebauer@docker.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Justin Cormack <justin.cormack@docker.com>,
+        Ian Campbell <ian.campbell@docker.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1479164967.8455.87.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 2b15af6f95 ("af_unix: use freezable blocking calls in read")
-converts schedule_timeout() to its freezable version, it was probably
-correct at that time, but later, commit 2b514574f7e8
-("net: af_unix: implement splice for stream af_unix sockets") breaks
-the strong requirement for a freezable sleep, according to
-commit 0f9548ca1091:
 
-    We shouldn't try_to_freeze if locks are held.  Holding a lock can cause a
-    deadlock if the lock is later acquired in the suspend or hibernate path
-    (e.g.  by dpm).  Holding a lock can also cause a deadlock in the case of
-    cgroup_freezer if a lock is held inside a frozen cgroup that is later
-    acquired by a process outside that group.
+> On Nov 14, 2016, at 3:09 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+>=20
+> On Mon, 2016-11-14 at 14:46 -0800, Eric Dumazet wrote:
+>> On Mon, 2016-11-14 at 16:12 -0600, Eric W. Biederman wrote:
+>>=20
+>>> synchronize_rcu_expidited is not enough if you have multiple network
+>>> devices in play.
+>>>=20
+>>> Looking at the code it comes down to this commit, and it appears =
+there
+>>> is a promise add rcu grace period combining by Eric Dumazet.
+>>>=20
+>>> Eric since people are hitting noticable stalls because of the rcu =
+grace
+>>> period taking a long time do you think you could look at this code =
+path
+>>> a bit more?
+>>>=20
+>>> commit 93d05d4a320cb16712bb3d57a9658f395d8cecb9
+>>> Author: Eric Dumazet <edumazet@google.com>
+>>> Date:   Wed Nov 18 06:31:03 2015 -0800
+>>=20
+>> Absolutely, I will take a loop asap.
+>=20
+> The worst offender should be fixed by the following patch.
+>=20
+> busy poll needs to poll the physical device, not a virtual one...
+>=20
+> diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
+> index =
+d15214d673b2e8e08fd6437b572278fb1359f10d..2a1abbf8da74368cd01adc40cef6c064=
+4e059ef2 100644
+> --- a/include/net/gro_cells.h
+> +++ b/include/net/gro_cells.h
+> @@ -68,6 +68,9 @@ static inline int gro_cells_init(struct gro_cells =
+*gcells, struct net_device *de
+> 		struct gro_cell *cell =3D per_cpu_ptr(gcells->cells, i);
+>=20
+> 		__skb_queue_head_init(&cell->napi_skbs);
+> +
+> +		set_bit(NAPI_STATE_NO_BUSY_POLL, &cell->napi.state);
+> +
+> 		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
+> 		napi_enable(&cell->napi);
+> 	}
+>=20
 
-The pipe_lock is still held at that point.
+This solved a ~20 second slowdown between OVS datapath unit tests for =
+me.
 
-So use freezable version only for the recvmsg call path, avoid impact for
-Android.
-
-Fixes: 2b514574f7e8 ("net: af_unix: implement splice for stream af_unix sockets")
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Tejun Heo <tj@kernel.org>
-Cc: Colin Cross <ccross@android.com>
-Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/unix/af_unix.c | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 5d1c14a..2358f26 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2199,7 +2199,8 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg,
-  *	Sleep until more data has arrived. But check for races..
-  */
- static long unix_stream_data_wait(struct sock *sk, long timeo,
--				  struct sk_buff *last, unsigned int last_len)
-+				  struct sk_buff *last, unsigned int last_len,
-+				  bool freezable)
- {
- 	struct sk_buff *tail;
- 	DEFINE_WAIT(wait);
-@@ -2220,7 +2221,10 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
- 
- 		sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
- 		unix_state_unlock(sk);
--		timeo = freezable_schedule_timeout(timeo);
-+		if (freezable)
-+			timeo = freezable_schedule_timeout(timeo);
-+		else
-+			timeo = schedule_timeout(timeo);
- 		unix_state_lock(sk);
- 
- 		if (sock_flag(sk, SOCK_DEAD))
-@@ -2250,7 +2254,8 @@ struct unix_stream_read_state {
- 	unsigned int splice_flags;
- };
- 
--static int unix_stream_read_generic(struct unix_stream_read_state *state)
-+static int unix_stream_read_generic(struct unix_stream_read_state *state,
-+				    bool freezable)
- {
- 	struct scm_cookie scm;
- 	struct socket *sock = state->socket;
-@@ -2330,7 +2335,7 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state)
- 			mutex_unlock(&u->iolock);
- 
- 			timeo = unix_stream_data_wait(sk, timeo, last,
--						      last_len);
-+						      last_len, freezable);
- 
- 			if (signal_pending(current)) {
- 				err = sock_intr_errno(timeo);
-@@ -2472,7 +2477,7 @@ static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg,
- 		.flags = flags
- 	};
- 
--	return unix_stream_read_generic(&state);
-+	return unix_stream_read_generic(&state, true);
- }
- 
- static int unix_stream_splice_actor(struct sk_buff *skb,
-@@ -2503,7 +2508,7 @@ static ssize_t unix_stream_splice_read(struct socket *sock,  loff_t *ppos,
- 	    flags & SPLICE_F_NONBLOCK)
- 		state.flags = MSG_DONTWAIT;
- 
--	return unix_stream_read_generic(&state);
-+	return unix_stream_read_generic(&state, false);
- }
- 
- static int unix_shutdown(struct socket *sock, int mode)
--- 
-2.1.0
+  Jarno
