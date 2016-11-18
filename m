@@ -1,54 +1,54 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
-Date: Fri, 18 Nov 2016 10:35:41 -0800
-Message-ID: <20161118183541.GI28340@tuxbot>
-References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
- <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: sky2: Fix shutdown crash
+Date: Fri, 18 Nov 2016 13:41:09 -0500 (EST)
+Message-ID: <20161118.134109.1491291521879435264.davem@davemloft.net>
+References: <1479395665-27784-1-git-send-email-jeremy.linton@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Andy Gross <andy.gross@linaro.org>,
-        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mlindner@marvell.com,
+        stephen@networkplumber.org, Sudeep.Holla@arm.com
+To: jeremy.linton@arm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37922 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752961AbcKRSlN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:41:13 -0500
+In-Reply-To: <1479395665-27784-1-git-send-email-jeremy.linton@arm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 16 Nov 10:49 PST 2016, Kalle Valo wrote:
+From: Jeremy Linton <jeremy.linton@arm.com>
+Date: Thu, 17 Nov 2016 09:14:25 -0600
 
-> Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
-> > The correct include file for getting errno constants and ERR_PTR() is
-> > linux/err.h, rather than linux/errno.h, so fix the include.
-> > 
-> > Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled smem_state")
-> > Acked-by: Andy Gross <andy.gross@linaro.org>
-> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> The sky2 frequently crashes during machine shutdown with:
 > 
-> For some reason this fails to compile now. Can you take a look, please?
+> sky2_get_stats+0x60/0x3d8 [sky2]
+> dev_get_stats+0x68/0xd8
+> rtnl_fill_stats+0x54/0x140
+> rtnl_fill_ifinfo+0x46c/0xc68
+> rtmsg_ifinfo_build_skb+0x7c/0xf0
+> rtmsg_ifinfo.part.22+0x3c/0x70
+> rtmsg_ifinfo+0x50/0x5c
+> netdev_state_change+0x4c/0x58
+> linkwatch_do_dev+0x50/0x88
+> __linkwatch_run_queue+0x104/0x1a4
+> linkwatch_event+0x30/0x3c
+> process_one_work+0x140/0x3e0
+> worker_thread+0x60/0x44c
+> kthread+0xdc/0xf0
+> ret_from_fork+0x10/0x50
 > 
-> ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wcn36xx.ko] undefined!
-> make[1]: *** [__modpost] Error 1
-> make: *** [modules] Error 2
+> This is caused by the sky2 being called after it has been shutdown.
+> A previous thread about this can be found here:
 > 
-> 5 patches set to Changes Requested.
+> https://lkml.org/lkml/2016/4/12/410
 > 
-> 9429045 [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
-> 9429047 [v5,2/5] wcn36xx: Transition driver to SMD client
+> An alternative fix is to assure that IFF_UP gets cleared by
+> calling dev_close() during shutdown. This is similar to what the
+> bnx2/tg3/xgene and maybe others are doing to assure that the driver
+> isn't being called following _shutdown().
+> 
+> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
 
-This patch was updated with the necessary depends in Kconfig to catch
-this exact issue and when I pull in your .config (which has QCOM_SMD=n,
-QCOM_WCNSS_CTRL=n and WCN36XX=y) I can build this just fine.
-
-I've tested the various combinations and it seems to work fine. Do you
-have any other patches in your tree? Any stale objects?
-
-Would you mind retesting this, before I invest more time in trying to
-reproduce the issue you're seeing?
-
-Regards,
-Bjorn
+Applied and queued up for -stable, thanks.
