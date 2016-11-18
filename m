@@ -1,61 +1,31 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: Synopsys Ethernet QoS Driver
-Date: Fri, 18 Nov 2016 16:40:11 +0000
-Message-ID: <034e8607-b6d1-02e9-6ec3-fe50f1bd51c8@synopsys.com>
-References: <cbe5f79b-53a4-e116-1e09-bc975a66a8ca@synopsys.com>
- <771E7B93-5AB6-4F2B-8DEB-58DDB6A96D13@gmail.com>
- <fbf4263b-2b08-611d-f9cb-1f09c6f91117@synopsys.com>
- <a4bb3828-3aa5-1e80-f57e-ad9a94a681b3@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] sfc: Firmware-Assisted TSO version 2
+Date: Fri, 18 Nov 2016 12:03:09 -0500 (EST)
+Message-ID: <20161118.120309.949387214421176408.davem@davemloft.net>
+References: <ae6b02ca-9a0b-7072-6914-294fc9adb684@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <CARLOS.PALMINHA@synopsys.com>, <andreas.irestal@axis.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>,
-        <jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-        <saeedm@mellanox.com>, <idosch@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a4bb3828-3aa5-1e80-f57e-ad9a94a681b3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, bkenward@solarflare.com,
+        netdev@vger.kernel.org
+To: ecree@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60988 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754360AbcKRRDO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 12:03:14 -0500
+In-Reply-To: <ae6b02ca-9a0b-7072-6914-294fc9adb684@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 18-11-2016 16:35, Florian Fainelli wrote:
-> 
-> 
-> On 11/18/2016 08:31 AM, Joao Pinto wrote:
->>  Hi Florian,
->>
->> On 18-11-2016 14:53, Florian Fainelli wrote:
->>> On November 18, 2016 4:28:30 AM PST, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
->>>>
+From: Edward Cree <ecree@solarflare.com>
+Date: Thu, 17 Nov 2016 10:49:42 +0000
 
-snip (...)
+> The firmware on 8000 series SFC NICs supports a new TSO API ("FATSOv2"), and
+>  7000 series NICs will also support this in an imminent release.  This series
+>  adds driver support for this TSO implementation.
+> The series also removes SWTSO, as it's now equivalent to GSO.  This does not
+>  actually remove very much code, because SWTSO was grotesquely intertwingled
+>  with FATSOv1, which will also be removed once 7000 series supports FATSOv2.
 
->>>> I would also gladly be available to be its maintainer if you agree with
->>>> it.
->>>
->>> Since you have both the hardware and a clear todo list for this driver, start submitting patches, get them included in David's tree and over time chances are that you will become the maintainer, either explicitly by adding an entry in the MAINTAINERS file or just by consistently contributing to this area.
->>
->> Thanks for the feedback.
->>
->> So I found 2 suitable git trees:
->>  a) kernel/git/davem/net.git
->>  b) kernel/git/davem/net-next.git
->>
->> We should submit to net.git correct? The net-next.git is a tree with selected
->> patches for upstream only?
-> 
-> net-next.git is the git tree where new features/enhancements can be
-> submitted, while net.git is for bug fixes. Unless you absolutely need
-> to, it is common practice to avoid having changes in net-next.git depend
-> on net.git and vice versa.
-> 
-> Hope this helps.
-> 
-
-help a lot, thank you!
-lets start working then :)
-
-Thanks,
-Joao
+Series applied, thanks.
