@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [PATCH 4/5] virtio_net: add dedicated XDP transmit queues
-Date: Fri, 18 Nov 2016 11:00:41 -0800
-Message-ID: <20161118190041.16137.48399.stgit@john-Precision-Tower-5810>
+Subject: [PATCH 5/5] virtio_net: add XDP_TX support
+Date: Fri, 18 Nov 2016 11:01:04 -0800
+Message-ID: <20161118190104.16137.17790.stgit@john-Precision-Tower-5810>
 References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,94 +12,147 @@ To: tgraf@suug.ch, shm@cumulusnetworks.com,
         alexei.starovoitov@gmail.com, daniel@iogearbox.net,
         davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36748 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753847AbcKRTBB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:01:01 -0500
-Received: by mail-pf0-f193.google.com with SMTP id c4so11452702pfb.3
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 11:01:01 -0800 (PST)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34388 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752057AbcKRTB0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:01:26 -0500
+Received: by mail-pf0-f196.google.com with SMTP id y68so14043362pfb.1
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 11:01:25 -0800 (PST)
 In-Reply-To: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-XDP requires using isolated transmit queues to avoid interference
-with normal networking stack (BQL, NETDEV_TX_BUSY, etc). This patch
-adds a XDP queue per cpu when a XDP program is loaded and does not
-expose the queues to the OS via the normal API call to
-netif_set_real_num_tx_queues(). This way the stack will never push
-an skb to these queues.
+This adds support for the XDP_TX action to virtio_net. When an XDP
+program is run and returns the XDP_TX action the virtio_net XDP
+implementation will transmit the packet on a TX queue that aligns
+with the current CPU that the XDP packet was processed on.
 
-However virtio/vhost/qemu implementation only allows for creating
-TX/RX queue pairs at this time so creating only TX queues was not
-possible. And because the associated RX queues are being created I
-went ahead and exposed these to the stack and let the backend use
-them. This creates more RX queues visible to the network stack than
-TX queues which is worth mentioning but does not cause any issues as
-far as I can tell.
+Before sending the packet the header is zeroed.  Also XDP is expected
+to handle checksum correctly so no checksum offload  support is
+provided.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/virtio_net.c |   32 +++++++++++++++++++++++++++++---
- 1 file changed, 29 insertions(+), 3 deletions(-)
+ drivers/net/virtio_net.c |   57 ++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 54 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 16c257d..631ee07 100644
+index 631ee07..4b22938 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -114,6 +114,9 @@ struct virtnet_info {
- 	/* # of queue pairs currently used by the driver */
- 	u16 curr_queue_pairs;
+@@ -330,12 +330,40 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 	return skb;
+ }
  
-+	/* # of XDP queue pairs currently used by the driver */
-+	u16 xdp_queue_pairs;
++static void virtnet_xdp_xmit(struct virtnet_info *vi,
++			     unsigned int qnum, struct xdp_buff *xdp)
++{
++	struct send_queue *sq = &vi->sq[qnum];
++	struct virtio_net_hdr_mrg_rxbuf *hdr;
++	unsigned int num_sg, len;
++	void *xdp_sent;
 +
- 	/* I like... big packets and I cannot lie! */
- 	bool big_packets;
- 
-@@ -1525,7 +1528,8 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
++	/* Free up any pending old buffers before queueing new ones. */
++	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
++		struct page *page = virt_to_head_page(xdp_sent);
++
++		put_page(page);
++	}
++
++	/* Zero header and leave csum up to XDP layers */
++	hdr = xdp->data;
++	memset(hdr, 0, vi->hdr_len);
++	hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE;
++	hdr->hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
++
++	num_sg = 1;
++	sg_init_one(sq->sg, xdp->data, xdp->data_end - xdp->data);
++	virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, xdp->data, GFP_ATOMIC);
++	virtqueue_kick(sq->vq);
++}
++
+ static u32 do_xdp_prog(struct virtnet_info *vi,
+ 		       struct bpf_prog *xdp_prog,
+ 		       struct page *page, int offset, int len)
  {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	struct bpf_prog *old_prog;
--	int i;
-+	u16 xdp_qp = 0, curr_qp;
-+	int err, i;
+ 	int hdr_padded_len;
+ 	struct xdp_buff xdp;
++	unsigned int qp;
+ 	u32 act;
+ 	u8 *buf;
  
- 	if ((dev->features & NETIF_F_LRO) && prog) {
- 		netdev_warn(dev, "can't set XDP while LRO is on, disable LRO first\n");
-@@ -1542,12 +1546,34 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 		return -EINVAL;
- 	}
+@@ -353,9 +381,15 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
+ 	switch (act) {
+ 	case XDP_PASS:
+ 		return XDP_PASS;
++	case XDP_TX:
++		qp = vi->curr_queue_pairs -
++			vi->xdp_queue_pairs +
++			smp_processor_id();
++		xdp.data = buf + (vi->mergeable_rx_bufs ? 0 : 4);
++		virtnet_xdp_xmit(vi, qp, &xdp);
++		return XDP_TX;
+ 	default:
+ 		bpf_warn_invalid_xdp_action(act);
+-	case XDP_TX:
+ 	case XDP_ABORTED:
+ 	case XDP_DROP:
+ 		return XDP_DROP;
+@@ -386,8 +420,15 @@ static struct sk_buff *receive_big(struct net_device *dev,
+ 	if (xdp_prog) {
+ 		u32 act = do_xdp_prog(vi, xdp_prog, page, 0, len);
  
-+	curr_qp = vi->curr_queue_pairs - vi->xdp_queue_pairs;
-+	if (prog)
-+		xdp_qp = num_online_cpus();
-+
-+	/* XDP requires extra queues for XDP_TX */
-+	if (curr_qp + xdp_qp > vi->max_queue_pairs) {
-+		netdev_warn(dev, "request %i queues but max is %i\n",
-+			    curr_qp + xdp_qp, vi->max_queue_pairs);
-+		return -ENOMEM;
-+	}
-+
-+	err = virtnet_set_queues(vi, curr_qp + xdp_qp);
-+	if (err) {
-+		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
-+		return err;
-+	}
-+
- 	if (prog) {
--		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
--		if (IS_ERR(prog))
-+		prog = bpf_prog_add(prog, vi->max_queue_pairs);
-+		if (IS_ERR(prog)) {
-+			virtnet_set_queues(vi, curr_qp);
- 			return PTR_ERR(prog);
+-		if (act == XDP_DROP)
++		switch (act) {
++		case XDP_PASS:
++			break;
++		case XDP_TX:
++			goto xdp_xmit;
++		case XDP_DROP:
++		default:
+ 			goto err;
 +		}
  	}
  
-+	vi->xdp_queue_pairs = xdp_qp;
-+	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
-+
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		old_prog = rcu_dereference(vi->rq[i].xdp_prog);
- 		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
+ 	skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
+@@ -399,6 +440,7 @@ static struct sk_buff *receive_big(struct net_device *dev,
+ err:
+ 	dev->stats.rx_dropped++;
+ 	give_pages(rq, page);
++xdp_xmit:
+ 	return NULL;
+ }
+ 
+@@ -417,6 +459,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	struct sk_buff *head_skb, *curr_skb;
+ 	struct bpf_prog *xdp_prog;
+ 
++	head_skb = NULL;
+ 	xdp_prog = rcu_dereference(rq->xdp_prog);
+ 	if (xdp_prog) {
+ 		u32 act;
+@@ -427,8 +470,15 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		}
+ 
+ 		act = do_xdp_prog(vi, xdp_prog, page, offset, len);
+-		if (act == XDP_DROP)
++		switch (act) {
++		case XDP_PASS:
++			break;
++		case XDP_TX:
++			goto xdp_xmit;
++		case XDP_DROP:
++		default:
+ 			goto err_skb;
++		}
+ 	}
+ 
+ 	head_skb = page_to_skb(vi, rq, page, offset, len, truesize);
+@@ -502,6 +552,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ err_buf:
+ 	dev->stats.rx_dropped++;
+ 	dev_kfree_skb(head_skb);
++xdp_xmit:
+ 	return NULL;
+ }
+ 
