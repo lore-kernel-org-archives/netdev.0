@@ -1,53 +1,39 @@
-From: Iago Abal <iago.abal-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Potential deadlock BUG in drivers/net/wireless/st/cw1200/sta.c (Linux 4.9)
-Date: Fri, 18 Nov 2016 22:58:00 +0100
-Message-ID: <CAGbDTvrA85Qao_y0FxCFR_cE26WejoLLrA=PA1qhTButiDp3xg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] net: macb: add check for dma mapping error in start_xmit()
+Date: Sat, 19 Nov 2016 01:40:10 +0300
+Message-ID: <1479508810-30476-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+at91ether_start_xmit() does not check for dma mapping errors.
 
-With the help of a static bug finder (EBA -
-https://github.com/models-team/eba) I have found a potential deadlock
-in drivers/net/wireless/st/cw1200/
-sta.c. This happens due to a recursive mutex_lock on `priv->conf_mutex'.
+Found by Linux Driver Verification project (linuxtesting.org).
 
-If this is indeed a bug, I will be happy to help with a patch.
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/ethernet/cadence/macb.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-A quick (not elegant) fix could be to unlock before the call to
-`cw1200_do_unjoin' in line 1174, and lock again afterwards. It seems
-that `cw1200_join_complete' is always called with `priv->conf_mutex'
-held. Another option could be to add a Boolean parameter to
-`cw1200_do_unjoin' to choose whether this function should take the
-lock itself. Yet another option would be to have a
-`__cw1200_do_unjoin' that does not lock, and make `cw1200_do_unjoin' a
-wrapper over this that adds the locking; `cw1200_join_complete' would
-call `__cw1200_do_unjoin' instead.
-
-Someone who is actually familiar with this code may have a better
-proposal though.
-
-The trace is as follows:
-
-1. Function `cw1200_join_complete_work' takes the first lock in line 1189:
-
-    // see https://github.com/torvalds/linux/blob/v4.9-rc5/drivers/net/wireless/st/cw1200/sta.c#L1189
-    mutex_lock(& priv->conf_mutex);
-
-2. and subsequently calls `cw1200_join_complete';
-3. which calls `cw1200_do_unjoin' in line 1174;
-4. and this latter function takes the lock for the second time in line 1387:
-
-    // see https://github.com/torvalds/linux/blob/v4.9-rc5/drivers/net/wireless/st/cw1200/sta.c#L1387
-    mutex_lock(& priv->conf_mutex);
-
-Hope it helps!
-
---
-iago
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index b32444a3ed79..533653bd7aec 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2673,6 +2673,12 @@ static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		lp->skb_length = skb->len;
+ 		lp->skb_physaddr = dma_map_single(NULL, skb->data, skb->len,
+ 							DMA_TO_DEVICE);
++		if (dma_mapping_error(NULL, lp->skb_physaddr)) {
++			dev_kfree_skb_any(skb);
++			dev->stats.tx_dropped++;
++			netdev_err(dev, "%s: DMA mapping error\n", __func__);
++			return NETDEV_TX_OK;
++		}
+ 
+ 		/* Set address of the data in the Transmit Address register */
+ 		macb_writel(lp, TAR, lp->skb_physaddr);
+-- 
+2.7.4
