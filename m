@@ -1,52 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net v2] af_unix: conditionally use freezable blocking
- calls in read
-Date: Fri, 18 Nov 2016 13:59:15 -0500 (EST)
-Message-ID: <20161118.135915.760650991089630301.davem@davemloft.net>
-References: <1479426926-28197-1-git-send-email-xiyou.wangcong@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [PATCH 0/5] XDP for virtio_net
+Date: Fri, 18 Nov 2016 10:59:09 -0800
+Message-ID: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com, tj@kernel.org,
-        ccross@android.com, rafael.j.wysocki@intel.com,
-        hannes@stressinduktion.org
-To: xiyou.wangcong@gmail.com
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        bblanco@plumgrid.com, john.fastabend@gmail.com, brouer@redhat.com
+To: tgraf@suug.ch, shm@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39038 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752419AbcKRS7Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:59:16 -0500
-In-Reply-To: <1479426926-28197-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33123 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752246AbcKRS72 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 13:59:28 -0500
+Received: by mail-pf0-f196.google.com with SMTP id 144so14039330pfv.0
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 10:59:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 17 Nov 2016 15:55:26 -0800
+This implements virtio_net for the mergeable buffers and big_packet
+modes. I tested this with vhost_net running on qemu and did not see
+any issues.
 
-> Commit 2b15af6f95 ("af_unix: use freezable blocking calls in read")
-> converts schedule_timeout() to its freezable version, it was probably
-> correct at that time, but later, commit 2b514574f7e8
-> ("net: af_unix: implement splice for stream af_unix sockets") breaks
-> the strong requirement for a freezable sleep, according to
-> commit 0f9548ca1091:
-> 
->     We shouldn't try_to_freeze if locks are held.  Holding a lock can cause a
->     deadlock if the lock is later acquired in the suspend or hibernate path
->     (e.g.  by dpm).  Holding a lock can also cause a deadlock in the case of
->     cgroup_freezer if a lock is held inside a frozen cgroup that is later
->     acquired by a process outside that group.
-> 
-> The pipe_lock is still held at that point.
-> 
-> So use freezable version only for the recvmsg call path, avoid impact for
-> Android.
-> 
-> Fixes: 2b514574f7e8 ("net: af_unix: implement splice for stream af_unix sockets")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Tejun Heo <tj@kernel.org>
-> Cc: Colin Cross <ccross@android.com>
-> Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+There are some restrictions for XDP to be enabled (see patch 3) for
+more details.
 
-Applied and queued up for -stable, thanks.
+  1. LRO must be off
+  2. MTU must be less than PAGE_SIZE
+  3. queues must be available to dedicate to XDP
+  4. num_bufs received in mergeable buffers must be 1
+  5. big_packet mode must have all data on single page
+
+Please review any comments/feedback welcome as always.
+
+Thanks,
+John
+---
+
+John Fastabend (4):
+      net: virtio dynamically disable/enable LRO
+      net: xdp: add invalid buffer warning
+      virtio_net: add dedicated XDP transmit queues
+      virtio_net: add XDP_TX support
+
+Shrijeet Mukherjee (1):
+      virtio_net: Add XDP support
+
+
+ drivers/net/virtio_net.c |  264 +++++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/filter.h   |    1 
+ net/core/filter.c        |    6 +
+ 3 files changed, 267 insertions(+), 4 deletions(-)
