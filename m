@@ -1,47 +1,35 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: [RFC PATCH 1/2] macb: Add 1588 support in Cadence GEM.
-Date: Fri, 18 Nov 2016 12:05:53 +0000
-Message-ID: <BN3PR07MB2516576760AA9CDF8647973DC9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] cadence: Add hardware PTP support.
+Date: Fri, 18 Nov 2016 13:27:30 +0100
+Message-ID: <20161118122730.GA11866@localhost.localdomain>
+References: <1479466028-29914-1-git-send-email-rafalo@cadence.com>
+ <CAFcVECLoMyJJLwAQ_+xN9GNLeVbew7RU_vURZjK94VXH2zS7EA@mail.gmail.com>
+ <BN3PR07MB2516D135ECCF2A68C1687EB6C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Harini Katakam <harinikatakamlinux@gmail.com>,
+        Nicolas Ferre <nicolas.ferre@atmel.com>,
+        Andrei Pistirica <Andrei.Pistirica@microchip.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "andrei.pistirica@microchip.com" <andrei.pistirica@microchip.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Rafal Ozieblo <rafalo@cadence.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34109 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752149AbcKRM1g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 07:27:36 -0500
+Content-Disposition: inline
+In-Reply-To: <BN3PR07MB2516D135ECCF2A68C1687EB6C9B00@BN3PR07MB2516.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Andrei,
+On Fri, Nov 18, 2016 at 11:55:37AM +0000, Rafal Ozieblo wrote:
+> >I'm not sure of your application and why this is necessary.
+> >Can you please check Andrei's patches and mine and Richard Cochran's comments?
+> >I use linuxptp to test.
 
->+static struct ptp_clock_info macb_ptp_caps =3D {
->+       .owner          =3D THIS_MODULE,
->+       .name           =3D GMAC_TIMER_NAME,
->+       .max_adj        =3D 250000000,
->+       .n_alarm        =3D 0,
->+       .n_ext_ts       =3D 0,
->+       .n_per_out      =3D 0,
->+       .n_pins         =3D 0,
->+       .pps            =3D 0,
->+       .adjfreq        =3D macb_ptp_adjfreq,
->+       .adjtime        =3D macb_ptp_adjtime,
->+       .gettime64      =3D macb_ptp_gettime,
->+       .settime64      =3D macb_ptp_settime,
->+       .enable         =3D macb_ptp_enable,
->+};
+And please, PLEASE, put me onto CC for all PTP related patches.  I am
+the maintainer, you know.
 
-I'm wondering, how did you count max_adj ?
-
-Best regards,
-
-Rafal Ozieblo=A0=A0=A0|=A0=A0=A0Firmware System Engineer,=20
-phone nbr.: +48 32=A05085469=20
-
-
-www.cadence.com
-
-
-=A0
+Thanks,
+Richard
