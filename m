@@ -1,45 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/5] virtio_net: Add XDP support
-Date: Fri, 18 Nov 2016 15:23:42 -0800
-Message-ID: <1479511422.8455.305.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
-         <20161118190017.16137.13910.stgit@john-Precision-Tower-5810>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [mm PATCH v3 21/23] mm: Add support for releasing multiple
+ instances of a page
+Date: Fri, 18 Nov 2016 15:27:16 -0800
+Message-ID: <20161118152716.3f7acf6e25f142846909b2f6@linux-foundation.org>
+References: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
+	<20161110113606.76501.70752.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        davem@davemloft.net, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:32868 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752901AbcKRXXo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 18:23:44 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 144so14291934pfv.0
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 15:23:44 -0800 (PST)
-In-Reply-To: <20161118190017.16137.13910.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mm@kvack.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161110113606.76501.70752.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-11-18 at 11:00 -0800, John Fastabend wrote:
-> From: Shrijeet Mukherjee <shrijeet@gmail.com>
+On Thu, 10 Nov 2016 06:36:06 -0500 Alexander Duyck <alexander.h.duyck@intel.com> wrote:
 
-
->  #include <linux/slab.h>
-> @@ -81,6 +82,8 @@ struct receive_queue {
+> This patch adds a function that allows us to batch free a page that has
+> multiple references outstanding.  Specifically this function can be used to
+> drop a page being used in the page frag alloc cache.  With this drivers can
+> make use of functionality similar to the page frag alloc cache without
+> having to do any workarounds for the fact that there is no function that
+> frees multiple references.
+> 
+> ...
+>
+> --- a/include/linux/gfp.h
+> +++ b/include/linux/gfp.h
+> @@ -506,6 +506,8 @@ extern void free_hot_cold_page(struct page *page, bool cold);
+>  extern void free_hot_cold_page_list(struct list_head *list, bool cold);
 >  
->  	struct napi_struct napi;
+>  struct page_frag_cache;
+> +extern void __page_frag_drain(struct page *page, unsigned int order,
+> +			      unsigned int count);
+>  extern void *__alloc_page_frag(struct page_frag_cache *nc,
+>  			       unsigned int fragsz, gfp_t gfp_mask);
+>  extern void __free_page_frag(void *addr);
+> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> index 0fbfead..54fea40 100644
+> --- a/mm/page_alloc.c
+> +++ b/mm/page_alloc.c
+> @@ -3912,6 +3912,20 @@ static struct page *__page_frag_refill(struct page_frag_cache *nc,
+>  	return page;
+>  }
 >  
-> +	struct bpf_prog *xdp_prog;
+> +void __page_frag_drain(struct page *page, unsigned int order,
+> +		       unsigned int count)
+> +{
+> +	VM_BUG_ON_PAGE(page_ref_count(page) == 0, page);
+> +
+> +	if (page_ref_sub_and_test(page, count)) {
+> +		if (order == 0)
+> +			free_hot_cold_page(page, false);
+> +		else
+> +			__free_pages_ok(page, order);
+> +	}
+> +}
+> +EXPORT_SYMBOL(__page_frag_drain);
 
-Please add proper sparse annotation, as in 
+It's an exported-to-modules library function.  It should be documented,
+please?  The page-frag API is only partially documented, but that's no
+excuse.
 
-	struct bpf_prog __rcu *xdp_prog;
+And perhaps documentation will help explain the naming choice.  Why
+"drain"?  I'd have expected "put"?
 
-And run sparse ;)
+And why the leading underscores.  The page-frag API is pretty weird :(
 
-CONFIG_SPARSE_RCU_POINTER=y
+And inconsistent.  __alloc_page_frag -> page_frag_alloc,
+__free_page_frag -> page_frag_free(), etc.  I must have been asleep
+when I let that lot through.
 
-make C=2 drivers/net/virtio_net.o
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
