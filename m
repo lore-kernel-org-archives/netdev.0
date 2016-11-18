@@ -1,59 +1,32 @@
-From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: RE: [PATCH iproute2 1/1] tc: updated man page to reflect GET command
- to retrieve a single filter.
-Date: Fri, 18 Nov 2016 14:41:28 +0530
-Message-ID: <be774d83f997e19ce7c2a1d9ff0f2d1b@mail.gmail.com>
-References: <1478485658-14379-1-git-send-email-mrv@mojatatu.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec] xfrm: unbreak xfrm_sk_policy_lookup
+Date: Fri, 18 Nov 2016 10:17:47 +0100
+Message-ID: <20161118091746.GC19080@gauss.secunet.com>
+References: <1479385306-24731-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-        stephen@networkplumber.org
-To: Roman Mashak <mrv@mojatatu.com>, davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.161.172]:35091 "EHLO
-        mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751139AbcKRJLb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 04:11:31 -0500
-Received: by mail-yw0-f172.google.com with SMTP id i145so160720781ywg.2
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 01:11:31 -0800 (PST)
-In-Reply-To: <1478485658-14379-1-git-send-email-mrv@mojatatu.com>
+Received: from a.mx.secunet.com ([62.96.220.36]:44502 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753065AbcKRJRx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Nov 2016 04:17:53 -0500
+Content-Disposition: inline
+In-Reply-To: <1479385306-24731-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Roman Mashak
->
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  man/man8/tc.8 | 10 +++++++++-
->  1 file changed, 9 insertions(+), 1 deletion(-)
->
-> diff --git a/man/man8/tc.8 b/man/man8/tc.8 index 4e99dca..3f4f8b5 100644
-> --- a/man/man8/tc.8
-> +++ b/man/man8/tc.8
-> @@ -28,7 +28,7 @@ class-id ] qdisc
->
->  .B tc
->  .RI "[ " OPTIONS " ]"
-> -.B filter [ add | change | replace | delete ] dev
-> +.B filter [ add | change | replace | delete | get ] dev
->  DEV
->  .B [ parent
->  qdisc-id
+On Thu, Nov 17, 2016 at 01:21:46PM +0100, Florian Westphal wrote:
+> if we succeed grabbing the refcount, then
+>   if (err && !xfrm_pol_hold_rcu)
+> 
+> will evaluate to false so this hits last else branch which then
+> sets policy to ERR_PTR(0).
+> 
+> Fixes: ae33786f73a7ce ("xfrm: policy: only use rcu in xfrm_sk_policy_lookup")
+> Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Tested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-The handle parameter seems to be missing from the TC filter syntax
-synopsis ; as in:
-tc [ OPTIONS ] filter [ add | change | replace | delete | get ]  dev  DEV
-[
-       parent  qdisc-id  | root ] protocol protocol prio priority handle
-handle-ID
-
-^^^^^^^^^^^^^
-
-I guess the user would have to specify the handle-ID to retrieve a single
-filter.
-
-thanks,
--Sathya
+Applied to the ipsec tree, thanks everyone!
