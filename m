@@ -1,577 +1,706 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [RFC 04/10] IB/hfi-vnic: VNIC Ethernet Management (EM) structure definitions
-Date: Fri, 18 Nov 2016 14:42:12 -0800
-Message-ID: <1479508938-63799-5-git-send-email-niranjana.vishwanathapura@intel.com>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Subject: [RFC 05/10] IB/hfi-vnic: VNIC statistics support
+Date: Fri, 18 Nov 2016 14:42:13 -0800
+Message-ID: <1479508938-63799-6-git-send-email-niranjana.vishwanathapura@intel.com>
 References: <1479508938-63799-1-git-send-email-niranjana.vishwanathapura@intel.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Niranjana Vishwanathapura <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Tanya K Jajodia <tanya.k.jajodia-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1479508938-63799-1-git-send-email-niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>,
+        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+To: Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:33853 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752936AbcKRWmv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Nov 2016 17:42:51 -0500
+In-Reply-To: <1479508938-63799-1-git-send-email-niranjana.vishwanathapura@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Define VNIC EM MAD structures and the associated macros. These structures
-are used for information exchange between VNIC EM agent on the HFI host
-and the Ethernet manager.
+HFI VNIC driver statistics support maintains various counters including
+standard netdev counters and the Ethernet manager defined counters.
+Add the Ethtool hook to read the counters.
 
-Change-Id: If4837ec74e5b0eecc81774a52ab92fffea4b6338
-Reviewed-by: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Tanya K Jajodia <tanya.k.jajodia-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Change-Id: I6d828c2ce5eeae73d611174a985ff41f83480562
+Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
+Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
 ---
- .../sw/intel/vnic/hfi_vnic/hfi_vnic_encap.h        | 444 +++++++++++++++++++++
- .../sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h     |  35 +-
- 2 files changed, 478 insertions(+), 1 deletion(-)
+ .../sw/intel/vnic/hfi_vnic/hfi_vnic_encap.c        |  19 +-
+ .../sw/intel/vnic/hfi_vnic/hfi_vnic_ethtool.c      | 131 +++++++++++
+ .../sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h     |  84 +++++++
+ .../sw/intel/vnic/hfi_vnic/hfi_vnic_netdev.c       | 260 ++++++++++++++++++++-
+ 4 files changed, 486 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_encap.h b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_encap.h
-index 6786cce..9ed5221 100644
---- a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_encap.h
-+++ b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_encap.h
-@@ -52,11 +52,455 @@
-  * and decapsulation of Ethernet packets
-  */
+diff --git a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_encap.c b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_encap.c
+index 9804c6d..5a5e5a7 100644
+--- a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_encap.c
++++ b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_encap.c
+@@ -210,8 +210,10 @@ int hfi_vnic_encap_skb(struct hfi_vnic_adapter *adapter, struct sk_buff *skb)
+ 	hdr->slid_high = info->vport.encap_slid >> 20;
  
-+#include <linux/types.h>
-+#include <rdma/ib_mad.h>
-+
-+/* Maximum number of vnics supported */
-+#define HFI_MAX_VPORTS_SUPPORTED 256
-+
-+/* EMA class version */
-+#define HFI_EMA_CLASS_VERSION               0x80
-+
-+/*
-+ * Define the Intel vendor management class for HFI
-+ * ETHERNET MANAGEMENT
-+ */
-+#define HFI_MGMT_CLASS_INTEL_EMA            0x34
-+
-+/* EM attribute IDs */
-+#define HFI_EM_ATTR_CLASS_PORT_INFO                 0x0001
-+#define HFI_EM_ATTR_VESWPORT_INFO                   0x0011
-+#define HFI_EM_ATTR_VESWPORT_MAC_ENTRIES            0x0012
-+#define HFI_EM_ATTR_IFACE_UCAST_MACS                0x0013
-+#define HFI_EM_ATTR_IFACE_MCAST_MACS                0x0014
-+#define HFI_EM_ATTR_DELETE_VESW                     0x0015
-+#define HFI_EM_ATTR_VESWPORT_SUMMARY_COUNTERS       0x0020
-+#define HFI_EM_ATTR_VESWPORT_ERROR_COUNTERS         0x0022
-+
- #define HFI_VESW_MAX_NUM_DEF_PORT   16
- #define HFI_VNIC_MAX_NUM_PCP        8
+ 	dlid = hfi_vnic_get_dlid(adapter, skb, def_port);
+-	if (unlikely(!dlid))
++	if (unlikely(!dlid)) {
++		adapter->q_err_cntrs[skb->queue_mapping].tx_dlid_zero++;
+ 		return -EFAULT;
++	}
  
-+#define HFI_VNIC_EMA_DATA    (OPA_MGMT_MAD_SIZE - IB_MGMT_VENDOR_HDR)
+ 	hdr->dlid = dlid;
+ 	hdr->dlid_high = dlid >> 20;
+@@ -234,6 +236,19 @@ int hfi_vnic_encap_skb(struct hfi_vnic_adapter *adapter, struct sk_buff *skb)
+ /* hfi_vnic_decap_skb - strip OPA header from the skb (ethernet) packet */
+ int hfi_vnic_decap_skb(struct hfi_vnic_rx_queue *rxq, struct sk_buff *skb)
+ {
++	struct hfi_vnic_adapter *adapter = rxq->adapter;
++	int max_len = adapter->netdev->mtu + VLAN_ETH_HLEN;
++	int rc = -EFAULT;
 +
-+/* Defines for vendor specific notice(trap) attributes */
-+#define HFI_INTEL_EMA_NOTICE_TYPE_INFO 0x04
+ 	skb_pull(skb, HFI_VNIC_HDR_LEN);
+-	return 0;
 +
-+/* INTEL OUI */
-+#define INTEL_OUI_1 0x00
-+#define INTEL_OUI_2 0x06
-+#define INTEL_OUI_3 0x6a
++	/* Validate Packet length */
++	if (skb->len > max_len)
++		adapter->q_err_cntrs[rxq->idx].rx_oversize++;
++	else if (skb->len < ETH_ZLEN)
++		adapter->q_err_cntrs[rxq->idx].rx_runt++;
++	else
++		rc = 0;
 +
-+/* Trap opcodes sent from VNIC */
-+#define HFI_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE 0x1
-+#define HFI_VESWPORT_TRAP_IFACE_MCAST_MAC_CHANGE 0x2
-+#define HFI_VESWPORT_TRAP_ETH_LINK_STATUS_CHANGE 0x3
-+
- /* VNIC configured and operational state values */
- #define HFI_VNIC_STATE_DROP_ALL        0x1
- #define HFI_VNIC_STATE_FORWARDING      0x3
++	return rc;
+ }
+diff --git a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_ethtool.c b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_ethtool.c
+index 32bb9ce..ab4b00d 100644
+--- a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_ethtool.c
++++ b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_ethtool.c
+@@ -54,6 +54,83 @@
+ #include "hfi_vnic.h"
+ #include "hfi_vnic_internal.h"
  
-+/**
-+ * struct hfi_vesw_info - HFI vnic switch information
-+ * @fabric_id: 10-bit fabric id
-+ * @vesw_id: 12-bit virtual ethernet switch id
-+ * @def_port_mask: bitmask of default ports
-+ * @pkey: partition key
-+ * @u_mcast_dlid: unknown multicast dlid
-+ * @u_ucast_dlid: array of unknown unicast dlids
-+ * @eth_mtu: MTUs for each vlan PCP
-+ * @eth_mtu_non_vlan: MTU for non vlan packets
-+ */
-+struct hfi_vesw_info {
-+	__be16  fabric_id;
-+	__be16  vesw_id;
++enum {NETDEV_STATS, VNIC_STATS};
 +
-+	u8      rsvd0[6];
-+	__be16  def_port_mask;
-+
-+	u8      rsvd1[2];
-+	__be16  pkey;
-+
-+	u8      rsvd2[4];
-+	__be32  u_mcast_dlid;
-+	__be32  u_ucast_dlid[HFI_VESW_MAX_NUM_DEF_PORT];
-+
-+	u8      rsvd3[44];
-+	__be16  eth_mtu[HFI_VNIC_MAX_NUM_PCP];
-+	__be16  eth_mtu_non_vlan;
-+	u8      rsvd4[2];
-+} __packed;
-+
-+/**
-+ * struct hfi_per_veswport_info - HFI vnic per port information
-+ * @port_num: port number
-+ * @eth_link_status: current ethernet link state
-+ * @base_mac_addr: base mac address
-+ * @config_state: configured port state
-+ * @oper_state: operational port state
-+ * @max_mac_tbl_ent: max number of mac table entries
-+ * @max_smac_ent: max smac entries in mac table
-+ * @mac_tbl_digest: mac table digest
-+ * @encap_slid: base slid for the port
-+ * @pcp_to_sc_uc: sc by pcp index for unicast ethernet packets
-+ * @pcp_to_vl_uc: vl by pcp index for unicast ethernet packets
-+ * @pcp_to_sc_mc: sc by pcp index for multicast ethernet packets
-+ * @pcp_to_vl_mc: vl by pcp index for multicast ethernet packets
-+ * @non_vlan_sc_uc: sc for non-vlan unicast ethernet packets
-+ * @non_vlan_vl_uc: vl for non-vlan unicast ethernet packets
-+ * @non_vlan_sc_mc: sc for non-vlan multicast ethernet packets
-+ * @non_vlan_vl_mc: vl for non-vlan multicast ethernet packets
-+ * @uc_macs_gen_count: generation count for unicast macs list
-+ * @mc_macs_gen_count: generation count for multicast macs list
-+ */
-+struct hfi_per_veswport_info {
-+	__be32  port_num;
-+
-+	u8      eth_link_status;
-+	u8      rsvd0[3];
-+
-+	u8      base_mac_addr[ETH_ALEN];
-+	u8      config_state;
-+	u8      oper_state;
-+
-+	__be16  max_mac_tbl_ent;
-+	__be16  max_smac_ent;
-+	__be32  mac_tbl_digest;
-+	u8      rsvd1[4];
-+
-+	__be32  encap_slid;
-+
-+	u8      pcp_to_sc_uc[HFI_VNIC_MAX_NUM_PCP];
-+	u8      pcp_to_vl_uc[HFI_VNIC_MAX_NUM_PCP];
-+	u8      pcp_to_sc_mc[HFI_VNIC_MAX_NUM_PCP];
-+	u8      pcp_to_vl_mc[HFI_VNIC_MAX_NUM_PCP];
-+
-+	u8      non_vlan_sc_uc;
-+	u8      non_vlan_vl_uc;
-+	u8      non_vlan_sc_mc;
-+	u8      non_vlan_vl_mc;
-+
-+	u8      rsvd2[48];
-+
-+	__be16  uc_macs_gen_count;
-+	__be16  mc_macs_gen_count;
-+
-+	u8      rsvd3[8];
-+} __packed;
-+
-+/**
-+ * struct hfi_veswport_info - HFI vnic port information
-+ * @vesw: HFI vnic switch information
-+ * @vport: HFI vnic per port information
-+ *
-+ * On host, each of the virtual ethernet ports belongs
-+ * to a different virtual ethernet switches.
-+ */
-+struct hfi_veswport_info {
-+	struct hfi_vesw_info          vesw;
-+	struct hfi_per_veswport_info  vport;
-+};
-+
-+/**
-+ * union __hfi_vnic_dlid_sd - vnic dlid and side data needed.
-+ * @sd_is_src_mac: 1 = entry is SMAC, 0 = not SMAC
-+ * @dlid: Destination lid corresponding to MAC addr
-+ */
-+union __hfi_vnic_dlid_sd {
++struct vnic_stats {
++	char stat_string[ETH_GSTRING_LEN];
 +	struct {
-+		u32  sd_reserved    : 5;
-+		u32  sd_is_src_mac  : 1;
-+		u32  rsvd0          : 2;
-+		u32  dlid           : 24;
++		int type;
++		int sizeof_stat;
++		int stat_offset;
 +	};
-+	u32 dw;
 +};
 +
-+/* Same as __hfi_vnic_dlid_sd, but with a big endian attribute */
-+union hfi_vnic_dlid_sd {
-+	union __hfi_vnic_dlid_sd u;
-+	__be32 dw;
++#define VNIC_STAT(m)            { VNIC_STATS,                               \
++				  FIELD_SIZEOF(struct hfi_vnic_adapter, m), \
++				  offsetof(struct hfi_vnic_adapter, m) }
++#define VNIC_NETDEV_STAT(m)     { NETDEV_STATS,                             \
++				  FIELD_SIZEOF(struct net_device, m),       \
++				  offsetof(struct net_device, m) }
++
++static struct vnic_stats vnic_gstrings_stats[] = {
++	/* NETDEV stats */
++	{"rx_packets", VNIC_NETDEV_STAT(stats.rx_packets)},
++	{"tx_packets", VNIC_NETDEV_STAT(stats.tx_packets)},
++	{"rx_bytes", VNIC_NETDEV_STAT(stats.rx_bytes)},
++	{"tx_bytes", VNIC_NETDEV_STAT(stats.tx_bytes)},
++	{"rx_errors", VNIC_NETDEV_STAT(stats.rx_errors)},
++	{"tx_errors", VNIC_NETDEV_STAT(stats.tx_errors)},
++	{"rx_dropped", VNIC_NETDEV_STAT(stats.rx_dropped)},
++	{"tx_dropped", VNIC_NETDEV_STAT(stats.tx_dropped)},
++
++	{"rx_fifo_errors", VNIC_NETDEV_STAT(stats.rx_fifo_errors)},
++	{"rx_missed_errors", VNIC_NETDEV_STAT(stats.rx_missed_errors)},
++	{"tx_carrier_errors", VNIC_NETDEV_STAT(stats.tx_carrier_errors)},
++	{"tx_fifo_errors", VNIC_NETDEV_STAT(stats.tx_fifo_errors)},
++
++	/* SUMMARY counters */
++	{"tx_unicast", VNIC_STAT(sum_cntrs.tx_grp.unicast)},
++	{"tx_mcastbcast", VNIC_STAT(sum_cntrs.tx_grp.mcastbcast)},
++	{"tx_untagged", VNIC_STAT(sum_cntrs.tx_grp.untagged)},
++	{"tx_vlan", VNIC_STAT(sum_cntrs.tx_grp.vlan)},
++
++	{"tx_64_size", VNIC_STAT(sum_cntrs.tx_grp.xx_64_size)},
++	{"tx_65_127", VNIC_STAT(sum_cntrs.tx_grp.xx_65_127)},
++	{"tx_128_255", VNIC_STAT(sum_cntrs.tx_grp.xx_128_255)},
++	{"tx_256_511", VNIC_STAT(sum_cntrs.tx_grp.xx_256_511)},
++	{"tx_512_1023", VNIC_STAT(sum_cntrs.tx_grp.xx_512_1023)},
++	{"tx_1024_1518", VNIC_STAT(sum_cntrs.tx_grp.xx_1024_1518)},
++	{"tx_1519_max", VNIC_STAT(sum_cntrs.tx_grp.xx_1519_max)},
++
++	{"rx_unicast", VNIC_STAT(sum_cntrs.rx_grp.unicast)},
++	{"rx_mcastbcast", VNIC_STAT(sum_cntrs.rx_grp.mcastbcast)},
++	{"rx_untagged", VNIC_STAT(sum_cntrs.rx_grp.untagged)},
++	{"rx_vlan", VNIC_STAT(sum_cntrs.rx_grp.vlan)},
++
++	{"rx_64_size", VNIC_STAT(sum_cntrs.rx_grp.xx_64_size)},
++	{"rx_65_127", VNIC_STAT(sum_cntrs.rx_grp.xx_65_127)},
++	{"rx_128_255", VNIC_STAT(sum_cntrs.rx_grp.xx_128_255)},
++	{"rx_256_511", VNIC_STAT(sum_cntrs.rx_grp.xx_256_511)},
++	{"rx_512_1023", VNIC_STAT(sum_cntrs.rx_grp.xx_512_1023)},
++	{"rx_1024_1518", VNIC_STAT(sum_cntrs.rx_grp.xx_1024_1518)},
++	{"rx_1519_max", VNIC_STAT(sum_cntrs.rx_grp.xx_1519_max)},
++
++	/* ERROR counters */
++	{"tx_smac_filt", VNIC_STAT(err_cntrs.tx_smac_filt)},
++	{"tx_dlid_zero", VNIC_STAT(err_cntrs.tx_dlid_zero)},
++	{"tx_logic", VNIC_STAT(err_cntrs.tx_logic)},
++	{"tx_drop_state", VNIC_STAT(err_cntrs.tx_drop_state)},
++
++	{"rx_bad_veswid", VNIC_STAT(err_cntrs.rx_bad_veswid)},
++	{"rx_runt", VNIC_STAT(err_cntrs.rx_runt)},
++	{"rx_oversize", VNIC_STAT(err_cntrs.rx_oversize)},
++	{"rx_eth_down", VNIC_STAT(err_cntrs.rx_eth_down)},
++	{"rx_drop_state", VNIC_STAT(err_cntrs.rx_drop_state)},
++	{"rx_logic", VNIC_STAT(err_cntrs.rx_logic)},
 +};
 +
-+/**
-+ * struct hfi_veswport_mactable_entry - single entry in the forwarding table
-+ * @mac_addr: MAC address
-+ * @mac_addr_mask: MAC address bit mask
-+ * @dlid_sd: Matching DLID and side data
-+ *
-+ * On the host each virtual ethernet port will have
-+ * a forwarding table. These tables are used to
-+ * map a MAC to a LID and other data. For more
-+ * details see struct hfi_veswport_mactable_entries.
-+ * This is the structure of a single mactable entry
-+ */
-+struct hfi_veswport_mactable_entry {
-+	u8                      mac_addr[ETH_ALEN];
-+	u8                      mac_addr_mask[ETH_ALEN];
-+	union hfi_vnic_dlid_sd  dlid_sd;
-+} __packed;
++#define VNIC_STATS_LEN  ARRAY_SIZE(vnic_gstrings_stats)
 +
-+/**
-+ * struct hfi_veswport_mactable - Forwarding table array
-+ * @offset: mac table starting offset
-+ * @num_entries: Number of entries to get or set
-+ * @mac_tbl_digest: mac table digest
-+ * @tbl_entries[]: Array of table entries
-+ *
-+ * The EM sends down this structure in a MAD indicating
-+ * the starting offset in the forwarding table that this
-+ * entry is to be loaded into and the number of entries
-+ * that that this MAD instance contains
-+ * The mac_tbl_digest has been added to this MAD structure. It will be set by
-+ * the EM and it will be used by the EM to check if there are any
-+ * discrepancies with this value and the value
-+ * maintained by the EM in the case of VNIC device being deleted or unloaded
-+ * A new instantiation of a VNIC will always have a value of zero.
-+ * This value is stored as part of the vnic adapter structure and will be
-+ * accessed by the GET and SET routines for both the mactable entries and the
-+ * veswport info.
-+ */
-+struct hfi_veswport_mactable {
-+	__be16                              offset;
-+	__be16                              num_entries;
-+	__be32                              mac_tbl_digest;
-+	struct hfi_veswport_mactable_entry  tbl_entries[0];
-+} __packed;
-+
-+/**
-+ * struct hfi_veswport_summary_counters - summary counters
-+ * @vp_instance: vport instance on the HFI port
-+ * @vesw_id: virtual ethernet switch id
-+ * @veswport_num: virtual ethernet switch port number
-+ * @tx_errors: transmit errors
-+ * @rx_errors: receive errors
-+ * @tx_packets: transmit packets
-+ * @rx_packets: receive packets
-+ * @tx_bytes: transmit bytes
-+ * @rx_bytes: receive bytes
-+ * @tx_unicast: unicast packets transmitted
-+ * @tx_mcastbcast: multicast/broadcast packets transmitted
-+ * @tx_untagged: non-vlan packets transmitted
-+ * @tx_vlan: vlan packets transmitted
-+ * @tx_64_size: transmit packet length is 64 bytes
-+ * @tx_65_127: transmit packet length is >=65 and < 127 bytes
-+ * @tx_128_255: transmit packet length is >=128 and < 255 bytes
-+ * @tx_256_511: transmit packet length is >=256 and < 511 bytes
-+ * @tx_512_1023: transmit packet length is >=512 and < 1023 bytes
-+ * @tx_1024_1518: transmit packet length is >=1024 and < 1518 bytes
-+ * @tx_1519_max: transmit packet length >= 1519 bytes
-+ * @rx_unicast: unicast packets received
-+ * @rx_mcastbcast: multicast/broadcast packets received
-+ * @rx_untagged: non-vlan packets received
-+ * @rx_vlan: vlan packets received
-+ * @rx_64_size: received packet length is 64 bytes
-+ * @rx_65_127: received packet length is >=65 and < 127 bytes
-+ * @rx_128_255: received packet length is >=128 and < 255 bytes
-+ * @rx_256_511: received packet length is >=256 and < 511 bytes
-+ * @rx_512_1023: received packet length is >=512 and < 1023 bytes
-+ * @rx_1024_1518: received packet length is >=1024 and < 1518 bytes
-+ * @rx_1519_max: received packet length >= 1519 bytes
-+ *
-+ * All the above are counters of corresponding conditions.
-+ */
-+struct hfi_veswport_summary_counters {
-+	__be16  vp_instance;
-+	__be16  vesw_id;
-+	__be32  veswport_num;
-+
-+	__be64  tx_errors;
-+	__be64  rx_errors;
-+	__be64  tx_packets;
-+	__be64  rx_packets;
-+	__be64  tx_bytes;
-+	__be64  rx_bytes;
-+
-+	__be64  tx_unicast;
-+	__be64  tx_mcastbcast;
-+
-+	__be64  tx_untagged;
-+	__be64  tx_vlan;
-+
-+	__be64  tx_64_size;
-+	__be64  tx_65_127;
-+	__be64  tx_128_255;
-+	__be64  tx_256_511;
-+	__be64  tx_512_1023;
-+	__be64  tx_1024_1518;
-+	__be64  tx_1519_max;
-+
-+	__be64  rx_unicast;
-+	__be64  rx_mcastbcast;
-+
-+	__be64  rx_untagged;
-+	__be64  rx_vlan;
-+
-+	__be64  rx_64_size;
-+	__be64  rx_65_127;
-+	__be64  rx_128_255;
-+	__be64  rx_256_511;
-+	__be64  rx_512_1023;
-+	__be64  rx_1024_1518;
-+	__be64  rx_1519_max;
-+
-+	__be64  reserved[16];
-+} __packed;
-+
-+/**
-+ * struct hfi_veswport_error_counters - error counters
-+ * @vp_instance: vport instance on the HFI port
-+ * @vesw_id: virtual ethernet switch id
-+ * @veswport_num: virtual ethernet switch port number
-+ * @tx_errors: transmit errors
-+ * @rx_errors: receive errors
-+ * @tx_smac_filt: smac filter errors
-+ * @tx_dlid_zero: transmit packets with invalid dlid
-+ * @tx_logic: other transmit errors
-+ * @tx_drop_state: packet tansmission in non-forward port state
-+ * @rx_bad_veswid: received packet with invalid vesw id
-+ * @rx_runt: received ethernet packet with length < 64 bytes
-+ * @rx_oversize: received ethernet packet with length > MTU size
-+ * @rx_eth_down: received packets when interface is down
-+ * @rx_drop_state: received packets in non-forwarding port state
-+ * @rx_logic: other receive errors
-+ *
-+ * All the above are counters of corresponding erorr conditions.
-+ */
-+struct hfi_veswport_error_counters {
-+	__be16  vp_instance;
-+	__be16  vesw_id;
-+	__be32  veswport_num;
-+
-+	__be64  tx_errors;
-+	__be64  rx_errors;
-+
-+	__be64  rsvd0;
-+	__be64  tx_smac_filt;
-+	__be64  rsvd1;
-+	__be64  rsvd2;
-+	__be64  rsvd3;
-+	__be64  tx_dlid_zero;
-+	__be64  rsvd4;
-+	__be64  tx_logic;
-+	__be64  rsvd5;
-+	__be64  tx_drop_state;
-+
-+	__be64  rx_bad_veswid;
-+	__be64  rsvd6;
-+	__be64  rx_runt;
-+	__be64  rx_oversize;
-+	__be64  rsvd7;
-+	__be64  rx_eth_down;
-+	__be64  rx_drop_state;
-+	__be64  rx_logic;
-+	__be64  rsvd8;
-+
-+	__be64  rsvd9[16];
-+} __packed;
-+
-+/**
-+ * struct hfi_veswport_trap - Trap message sent to EM by VNIC
-+ * @fabric_id: 10 bit fabric id
-+ * @veswid: 12 bit virtual ethernet switch id
-+ * @veswportnum: logical port number on the Virtual switch
-+ * @hfiportnum: physical port num (redundant on host)
-+ * @veswportindex: switch port index on hfi port 0 based
-+ * @opcode: operation
-+ * @reserved: 32 bit for alignment
-+ *
-+ * The VNIC will send trap messages to the Ethernet manager to
-+ * inform it about changes to the VNIC config, behaviour etc.
-+ * This is the format of the trap payload.
-+ */
-+struct hfi_veswport_trap {
-+	__be16  fabric_id;
-+	__be16  veswid;
-+	__be32  veswportnum;
-+	__be16  hfiportnum;
-+	u8      veswportindex;
-+	u8      opcode;
-+	__be32  reserved;
-+} __packed;
-+
-+/**
-+ * struct hfi_vnic_iface_macs_entry - single entry in the mac list
-+ * @mac_addr: MAC address
-+ */
-+struct hfi_vnic_iface_mac_entry {
-+	u8 mac_addr[ETH_ALEN];
-+};
-+
-+/**
-+ * struct hfi_veswport_iface_macs - Msg to set globally administered MAC
-+ * @start_idx: position of first entry (0 based)
-+ * @num_macs_in_msg: number of MACs in this message
-+ * @tot_macs_in_lst: The total number of MACs the agent has
-+ * @gen_count: gen_count to indicate change
-+ * @entry: The mac list entry
-+ *
-+ * Same attribute IDS and attribute modifiers as in locally administered
-+ * addresses used to set globally administered addresses
-+ */
-+struct hfi_veswport_iface_macs {
-+	__be16 start_idx;
-+	__be16 num_macs_in_msg;
-+	__be16 tot_macs_in_lst;
-+	__be16 gen_count;
-+	struct hfi_vnic_iface_mac_entry entry[0];
-+} __packed;
-+
-+/**
-+ * struct hfi_vnic_vema_mad - Generic VEMA MAD
-+ * @mad_hdr: Generic MAD header
-+ * @rmpp_hdr: RMPP header for vendor specific MADs
-+ * @oui: Unique org identifier
-+ * @data: MAD data
-+ */
-+struct hfi_vnic_vema_mad {
-+	struct ib_mad_hdr  mad_hdr;
-+	struct ib_rmpp_hdr rmpp_hdr;
-+	u8                 reserved;
-+	u8                 oui[3];
-+	u8                 data[HFI_VNIC_EMA_DATA];
-+};
-+
-+/**
-+ * struct hfi_vnic_notice_attr - Generic Notice MAD
-+ * @gen_type: Generic/Specific bit and type of notice
-+ * @oui_1: Vendor ID byte 1
-+ * @oui_2: Vendor ID byte 2
-+ * @oui_3: Vendor ID byte 3
-+ * @trap_num: Trap number
-+ * @toggle_count: Notice toggle bit and count value
-+ * @issuer_lid: Trap issuer's lid
-+ * @issuer_gid: Issuer GID (only if Report method)
-+ * @raw_data: Trap message body
-+ */
-+struct hfi_vnic_notice_attr {
-+	u8     gen_type;
-+	u8     oui_1;
-+	u8     oui_2;
-+	u8     oui_3;
-+	__be16 trap_num;
-+	__be16 toggle_count;
-+	__be32 issuer_lid;
-+	__be32 reserved;
-+	u8     issuer_gid[16];
-+	u8     raw_data[64];
-+} __packed;
-+
-+/**
-+ * struct hfi_vnic_vema_mad_trap - Generic VEMA MAD Trap
-+ * @mad_hdr: Generic MAD header
-+ * @rmpp_hdr: RMPP header for vendor specific MADs
-+ * @oui: Unique org identifier
-+ * @notice: Notice structure
-+ */
-+struct hfi_vnic_vema_mad_trap {
-+	struct ib_mad_hdr            mad_hdr;
-+	struct ib_rmpp_hdr           rmpp_hdr;
-+	u8                           reserved;
-+	u8                           oui[3];
-+	struct hfi_vnic_notice_attr  notice;
-+};
-+
- #endif /* _HFI_VNIC_ENCAP_H */
-diff --git a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h
-index 8a5e0c1..4dbb117 100644
---- a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h
-+++ b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h
-@@ -95,13 +95,15 @@ enum hfi_vnic_flags_t {
+ /* vnic_get_drvinfo - get driver info */
+ static void vnic_get_drvinfo(struct net_device *netdev,
+ 			     struct ethtool_drvinfo *drvinfo)
+@@ -68,10 +145,64 @@ static void vnic_get_drvinfo(struct net_device *netdev,
+ 		sizeof(drvinfo->bus_info));
+ }
  
- /**
-  * struct __hfi_vesw_info - HFI vnic virtual switch info
-+ *
-+ * Same as hfi_vesw_info without bitwise attribute.
-  */
- struct __hfi_vesw_info {
- 	u16  fabric_id;
- 	u16  vesw_id;
- 
- 	u8   rsvd0[6];
--	u16  def_fw_id_mask;
-+	u16  def_port_mask;
- 
- 	u8   rsvd1[2];
- 	u16  pkey;
-@@ -118,6 +120,8 @@ struct __hfi_vesw_info {
- 
- /**
-  * struct __hfi_per_veswport_info - HFI vnic per port info
-+ *
-+ * Same as hfi_per_veswport_info without bitwise attribute.
-  */
- struct __hfi_per_veswport_info {
- 	u32  port_num;
-@@ -156,6 +160,8 @@ struct __hfi_per_veswport_info {
- 
- /**
-  * struct __hfi_veswport_info - HFI vnic port info
-+ *
-+ * Same as hfi_veswport_info without bitwise attribute.
-  */
- struct __hfi_veswport_info {
- 	struct __hfi_vesw_info            vesw;
-@@ -163,6 +169,21 @@ struct __hfi_veswport_info {
++/* vnic_get_sset_count - get string set count */
++static int vnic_get_sset_count(struct net_device *netdev, int sset)
++{
++	return (sset == ETH_SS_STATS) ? VNIC_STATS_LEN : -EOPNOTSUPP;
++}
++
++/* vnic_get_ethtool_stats - get statistics */
++static void vnic_get_ethtool_stats(struct net_device *netdev,
++				   struct ethtool_stats *stats, u64 *data)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	int i;
++	char *p = NULL;
++
++	mutex_lock(&adapter->stats_lock);
++	hfi_vnic_update_stats(netdev);
++	for (i = 0; i < VNIC_STATS_LEN; i++) {
++		switch (vnic_gstrings_stats[i].type) {
++		case NETDEV_STATS:
++			p = (char *)netdev +
++			  vnic_gstrings_stats[i].stat_offset;
++			break;
++		case VNIC_STATS:
++			p = (char *)adapter +
++			  vnic_gstrings_stats[i].stat_offset;
++			break;
++		default:
++			p = NULL;
++		}
++
++		if (p)
++			data[i] = (vnic_gstrings_stats[i].sizeof_stat ==
++			   sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
++	}
++	mutex_unlock(&adapter->stats_lock);
++}
++
++/* vnic_get_strings - get strings */
++static void vnic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
++{
++	int i;
++
++	if (stringset != ETH_SS_STATS)
++		return;
++
++	for (i = 0; i < VNIC_STATS_LEN; i++)
++		memcpy(data + i * ETH_GSTRING_LEN,
++		       vnic_gstrings_stats[i].stat_string,
++		       ETH_GSTRING_LEN);
++}
++
+ /* ethtool ops */
+ static const struct ethtool_ops hfi_vnic_ethtool_ops = {
+ 	.get_drvinfo = vnic_get_drvinfo,
+ 	.get_link = ethtool_op_get_link,
++	.get_strings = vnic_get_strings,
++	.get_sset_count = vnic_get_sset_count,
++	.get_ethtool_stats = vnic_get_ethtool_stats,
  };
  
+ /* hfi_vnic_set_ethtool_ops - set ethtool ops */
+diff --git a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h
+index 4dbb117..c48e676 100644
+--- a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h
++++ b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_internal.h
+@@ -94,6 +94,64 @@ enum hfi_vnic_flags_t {
+ struct hfi_vnic_adapter;
+ 
  /**
-+ * struct __hfi_veswport_trap - HFI vnic trap info
++ * struct __hfi_vnic_summary_counters - HFI summary counters
 + *
-+ * Same as hfi_veswport_trap without bitwise attribute.
++ * Same as __hfi_veswport_summary_counters without bitwise
++ * attribute and reserved fields.
 + */
-+struct __hfi_veswport_trap {
-+	u16	fabric_id;
-+	u16	veswid;
-+	u32	veswportnum;
-+	u16	hfiportnum;
-+	u8	veswportindex;
-+	u8	opcode;
-+	u32	reserved;
++struct __hfi_vnic_summary_counters {
++	u64  tx_errors;
++	u64  rx_errors;
++	u64  tx_packets;
++	u64  rx_packets;
++	u64  tx_bytes;
++	u64  rx_bytes;
++
++	/* Group of histogram statistic counters */
++	struct __hfi_vnic_group_scs {
++		u64  unicast;
++		u64  mcastbcast;
++
++		u64  untagged;
++		u64  vlan;
++
++		u64  xx_64_size;
++		u64  xx_65_127;
++		u64  xx_128_255;
++		u64  xx_256_511;
++		u64  xx_512_1023;
++		u64  xx_1024_1518;
++		u64  xx_1519_max;
++	} tx_grp;
++
++	struct __hfi_vnic_group_scs rx_grp;
++
 +} __packed;
 +
 +/**
-  * struct hfi_vnic_rx_queue - HFI VNIC receive queue
-  * @idx: queue index
-  * @adapter: netdev adapter
-@@ -210,6 +231,18 @@ struct hfi_vnic_adapter {
- #define v_notice(format, arg...) \
- 	netdev_notice(adapter->netdev, format, ## arg)
++ * struct __hfi_vnic_error_counters - HFI error counters
++ *
++ * Same as hfi_veswport_error_counters without bitwise
++ * attribute and reserved fields.
++ */
++struct __hfi_vnic_error_counters {
++	u64  tx_errors;
++	u64  rx_errors;
++
++	u64  tx_smac_filt;
++	u64  tx_dlid_zero;
++	u64  tx_logic;
++	u64  tx_drop_state;
++
++	u64  rx_bad_veswid;
++	u64  rx_runt;
++	u64  rx_oversize;
++	u64  rx_eth_down;
++	u64  rx_drop_state;
++	u64  rx_logic;
++} __packed;
++
++/**
+  * struct __hfi_vesw_info - HFI vnic virtual switch info
+  *
+  * Same as hfi_vesw_info without bitwise attribute.
+@@ -203,7 +261,17 @@ struct hfi_vnic_rx_queue {
+  * @lock: adapter lock
+  * @rxq: receive queue array
+  * @info: virtual ethernet switch port information
++ * @stats_lock: statistics lock
+  * @flow_tbl: flow to default port redirection table
++ * @q_sum_cntrs: per queue EM summary counters
++ * @q_err_cntrs: per queue EM error counters
++ * @q_rx_logic_errors: per queue rx logic (default) errors
++ * @q_tx_logic_errors: per queue tx logic (default) errors
++ * @q_tx_halt: per queue tx halt counts
++ * @q_tx_restart: per queue tx restart counts
++ * @q_tx_wakeup: per queue tx wakeup counts
++ * @sum_cntrs: Total EM summary counters (from all queues)
++ * @err_cntrs: Total EM error counters (from all queues)
+  */
+ struct hfi_vnic_adapter {
+ 	struct net_device        *netdev;
+@@ -217,7 +285,22 @@ struct hfi_vnic_adapter {
  
-+/* The maximum allowed entries in the mac table */
-+#define HFI_VNIC_MAC_TBL_MAX_ENTRIES  2048
-+/* Limit of smac entries in mac table */
-+#define HFI_VNIC_MAX_SMAC_LIMIT       256
-+
-+/* The last octet of the MAC address is used as the key to the hash table */
-+#define HFI_VNIC_MAC_HASH_IDX         5
-+
-+/* The VNIC MAC hash table is of size 2^8 */
-+#define HFI_VNIC_MAC_TBL_HASH_BITS    8
-+#define HFI_VNIC_MAC_TBL_SIZE  BIT(HFI_VNIC_MAC_TBL_HASH_BITS)
-+
- extern char hfi_vnic_driver_name[];
- extern const char hfi_vnic_driver_version[];
+ 	struct __hfi_veswport_info info;
  
++	/* Lock used to protect access to vnic counters */
++	struct mutex stats_lock;
++
+ 	u8 flow_tbl[HFI_VNIC_FLOW_TBL_SIZE];
++
++	struct __hfi_vnic_summary_counters  q_sum_cntrs[HFI_VNIC_MAX_QUEUE];
++	struct __hfi_vnic_error_counters    q_err_cntrs[HFI_VNIC_MAX_QUEUE];
++	u64 q_rx_logic_errors[HFI_VNIC_MAX_QUEUE];
++	u64 q_tx_logic_errors[HFI_VNIC_MAX_QUEUE];
++
++	u64 q_tx_halt[HFI_VNIC_MAX_QUEUE];
++	u64 q_tx_restart[HFI_VNIC_MAX_QUEUE];
++	u64 q_tx_wakeup[HFI_VNIC_MAX_QUEUE];
++
++	struct __hfi_vnic_summary_counters  sum_cntrs;
++	struct __hfi_vnic_error_counters    err_cntrs;
+ };
+ 
+ #define v_dbg(format, arg...) \
+@@ -249,6 +332,7 @@ struct hfi_vnic_adapter {
+ int hfi_vnic_encap_skb(struct hfi_vnic_adapter *adapter, struct sk_buff *skb);
+ int hfi_vnic_decap_skb(struct hfi_vnic_rx_queue *rxq, struct sk_buff *skb);
+ u8 hfi_vnic_calc_entropy(struct hfi_vnic_adapter *adapter, struct sk_buff *skb);
++void hfi_vnic_update_stats(struct net_device *netdev);
+ void hfi_vnic_set_ethtool_ops(struct net_device *ndev);
+ 
+ #endif /* _HFI_VNIC_INTERNAL_H */
+diff --git a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_netdev.c b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_netdev.c
+index 7121637..f134225 100644
+--- a/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_netdev.c
++++ b/drivers/infiniband/sw/intel/vnic/hfi_vnic/hfi_vnic_netdev.c
+@@ -63,6 +63,235 @@
+ 
+ #define HFI_VNIC_MIN_ETH_MTU (ETH_ZLEN - ETH_HLEN)
+ 
++#define SUM_GRP_COUNTERS(adpt, summary, x_grp) do {                     \
++		u64 *src64, *dst64;                                     \
++		for (src64 = &summary->x_grp.unicast,                   \
++			dst64 = &adpt->sum_cntrs.x_grp.unicast;         \
++			dst64 <= &adpt->sum_cntrs.x_grp.xx_1519_max;) { \
++			*dst64++ += *src64++;                           \
++		}                                                       \
++	} while (0)
++
++/* hfi_vnic_update_stats - update statistics */
++void hfi_vnic_update_stats(struct net_device *netdev)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	struct hfi_vnic_device *vdev = adapter->vdev;
++	struct hfi_vnic_stats h_stats = { 0 };
++	u64 tx_logic_errors = 0;
++	u64 rx_logic_errors = 0;
++	u8 i;
++
++	/* first clear the total counters */
++	memset(&adapter->sum_cntrs, 0, sizeof(adapter->sum_cntrs));
++	memset(&adapter->err_cntrs, 0, sizeof(adapter->err_cntrs));
++
++	/* add tx counters on different queues */
++	for (i = 0; i < vdev->hfi_info.num_tx_q; i++) {
++		struct hfi_vnic_stats *hfi_stats = &vdev->hfi_stats[i];
++		struct __hfi_vnic_summary_counters *sum_cntrs =
++						&adapter->q_sum_cntrs[i];
++		struct __hfi_vnic_error_counters *err_cntrs =
++						&adapter->q_err_cntrs[i];
++
++		h_stats.tx_fifo_errors += hfi_stats->tx_fifo_errors;
++		h_stats.tx_carrier_errors += hfi_stats->tx_carrier_errors;
++		h_stats.tx_logic_errors += hfi_stats->tx_logic_errors;
++
++		SUM_GRP_COUNTERS(adapter, sum_cntrs, tx_grp);
++		adapter->sum_cntrs.tx_packets += sum_cntrs->tx_packets;
++		adapter->sum_cntrs.tx_bytes += sum_cntrs->tx_bytes;
++
++		adapter->err_cntrs.tx_smac_filt += err_cntrs->tx_smac_filt;
++		adapter->err_cntrs.tx_dlid_zero += err_cntrs->tx_dlid_zero;
++		adapter->err_cntrs.tx_drop_state += err_cntrs->tx_drop_state;
++
++		tx_logic_errors += adapter->q_tx_logic_errors[i];
++	}
++
++	/* add rx counters on different queues */
++	for (i = 0; i < vdev->hfi_info.num_rx_q; i++) {
++		struct hfi_vnic_stats *hfi_stats = &vdev->hfi_stats[i];
++		struct __hfi_vnic_summary_counters *sum_cntrs =
++						&adapter->q_sum_cntrs[i];
++		struct __hfi_vnic_error_counters *err_cntrs =
++						&adapter->q_err_cntrs[i];
++
++		h_stats.rx_fifo_errors += hfi_stats->rx_fifo_errors;
++		h_stats.rx_missed_errors += hfi_stats->rx_missed_errors;
++		h_stats.rx_bad_veswid += hfi_stats->rx_bad_veswid;
++		h_stats.rx_logic_errors += hfi_stats->rx_logic_errors;
++
++		SUM_GRP_COUNTERS(adapter, sum_cntrs, rx_grp);
++		adapter->sum_cntrs.rx_packets += sum_cntrs->rx_packets;
++		adapter->sum_cntrs.rx_bytes += sum_cntrs->rx_bytes;
++
++		adapter->err_cntrs.rx_drop_state += err_cntrs->rx_drop_state;
++		adapter->err_cntrs.rx_runt += err_cntrs->rx_runt;
++		adapter->err_cntrs.rx_oversize += err_cntrs->rx_oversize;
++
++		rx_logic_errors += adapter->q_rx_logic_errors[i];
++	}
++
++	/* update hfi errors */
++	netdev->stats.rx_fifo_errors = h_stats.rx_fifo_errors;
++	netdev->stats.tx_fifo_errors = h_stats.tx_fifo_errors;
++	netdev->stats.rx_missed_errors = h_stats.rx_missed_errors;
++	netdev->stats.tx_carrier_errors = h_stats.tx_carrier_errors;
++	adapter->err_cntrs.rx_bad_veswid = h_stats.rx_bad_veswid;
++
++	/* update tx counters */
++	netdev->stats.tx_packets = adapter->sum_cntrs.tx_packets;
++	netdev->stats.tx_bytes = adapter->sum_cntrs.tx_bytes;
++
++	adapter->err_cntrs.tx_logic = netdev->stats.tx_carrier_errors +
++				      netdev->stats.tx_fifo_errors +
++				      h_stats.tx_logic_errors +
++				      tx_logic_errors;
++
++	netdev->stats.tx_errors = adapter->err_cntrs.tx_smac_filt +
++				  adapter->err_cntrs.tx_dlid_zero +
++				  adapter->err_cntrs.tx_drop_state +
++				  adapter->err_cntrs.tx_logic;
++
++	netdev->stats.tx_dropped = netdev->stats.tx_errors;
++	adapter->sum_cntrs.tx_errors = netdev->stats.tx_errors;
++	adapter->err_cntrs.tx_errors = netdev->stats.tx_errors;
++
++	/* update rx counters */
++	netdev->stats.rx_packets = adapter->sum_cntrs.rx_packets;
++	netdev->stats.rx_bytes = adapter->sum_cntrs.rx_bytes;
++	netdev->stats.multicast = adapter->sum_cntrs.rx_grp.mcastbcast;
++	netdev->stats.rx_over_errors = adapter->err_cntrs.rx_oversize;
++	netdev->stats.rx_length_errors = adapter->err_cntrs.rx_oversize +
++					 adapter->err_cntrs.rx_runt;
++
++	adapter->err_cntrs.rx_logic = netdev->stats.rx_missed_errors +
++				      netdev->stats.rx_fifo_errors +
++				      h_stats.rx_logic_errors +
++				      rx_logic_errors;
++
++	netdev->stats.rx_errors = adapter->err_cntrs.rx_bad_veswid +
++				  adapter->err_cntrs.rx_runt +
++				  adapter->err_cntrs.rx_oversize +
++				  adapter->err_cntrs.rx_eth_down +
++				  adapter->err_cntrs.rx_drop_state +
++				  adapter->err_cntrs.rx_logic;
++
++	netdev->stats.rx_dropped = netdev->stats.rx_errors;
++	adapter->sum_cntrs.rx_errors = netdev->stats.rx_errors;
++	adapter->err_cntrs.rx_errors = netdev->stats.rx_errors;
++}
++
++/* update_len_counters - update pkt's len histogram counters */
++static inline void update_len_counters(struct __hfi_vnic_group_scs *grp,
++				       int len)
++{
++	/* account for 4 byte FCS */
++	if (len >= 1515)
++		grp->xx_1519_max++;
++	else if (len >= 1020)
++		grp->xx_1024_1518++;
++	else if (len >= 508)
++		grp->xx_512_1023++;
++	else if (len >= 252)
++		grp->xx_256_511++;
++	else if (len >= 124)
++		grp->xx_128_255++;
++	else if (len >= 61)
++		grp->xx_65_127++;
++	else
++		grp->xx_64_size++;
++}
++
++/* hfi_vnic_update_tx_counters - update transmit counters */
++static void hfi_vnic_update_tx_counters(struct net_device *netdev, u8 q_idx,
++					struct sk_buff *skb, int err)
++{
++	struct ethhdr *mac_hdr = (struct ethhdr *)skb_mac_header(skb);
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	struct __hfi_vnic_group_scs *grp_cntrs =
++			&adapter->q_sum_cntrs[q_idx].tx_grp;
++	u16 vlan_tci;
++
++	adapter->q_sum_cntrs[q_idx].tx_packets++;
++	adapter->q_sum_cntrs[q_idx].tx_bytes += skb->len + ETH_FCS_LEN;
++
++	update_len_counters(grp_cntrs, skb->len);
++
++	/* rest of the counts are for good packets only */
++	if (err)
++		return;
++
++	if (is_multicast_ether_addr(mac_hdr->h_dest))
++		grp_cntrs->mcastbcast++;
++	else
++		grp_cntrs->unicast++;
++
++	if (!__vlan_get_tag(skb, &vlan_tci))
++		grp_cntrs->vlan++;
++	else
++		grp_cntrs->untagged++;
++}
++
++/* hfi_vnic_update_rx_counters - update receive counters */
++static void hfi_vnic_update_rx_counters(struct net_device *netdev, u8 q_idx,
++					struct sk_buff *skb, int err)
++{
++	struct ethhdr *mac_hdr = (struct ethhdr *)skb->data;
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	struct __hfi_vnic_group_scs *grp_cntrs =
++			&adapter->q_sum_cntrs[q_idx].rx_grp;
++	u16 vlan_tci;
++
++	adapter->q_sum_cntrs[q_idx].rx_packets++;
++	adapter->q_sum_cntrs[q_idx].rx_bytes += skb->len + ETH_FCS_LEN;
++
++	update_len_counters(grp_cntrs, skb->len);
++
++	/* rest of the counts are for good packets only */
++	if (err)
++		return;
++
++	if (is_multicast_ether_addr(mac_hdr->h_dest))
++		grp_cntrs->mcastbcast++;
++	else
++		grp_cntrs->unicast++;
++
++	if (!__vlan_get_tag(skb, &vlan_tci))
++		grp_cntrs->vlan++;
++	else
++		grp_cntrs->untagged++;
++}
++
++static struct rtnl_link_stats64 *
++hfi_vnic_get_stats64(struct net_device *netdev,
++		     struct rtnl_link_stats64 *stats)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++
++	mutex_lock(&adapter->stats_lock);
++	hfi_vnic_update_stats(netdev);
++
++	stats->rx_packets = netdev->stats.rx_packets;
++	stats->tx_packets = netdev->stats.tx_packets;
++	stats->rx_bytes = netdev->stats.rx_bytes;
++	stats->tx_bytes = netdev->stats.tx_bytes;
++	stats->rx_errors = netdev->stats.rx_errors;
++	stats->tx_errors = netdev->stats.tx_errors;
++	stats->rx_dropped = netdev->stats.rx_dropped;
++	stats->tx_dropped = netdev->stats.tx_dropped;
++	stats->multicast = netdev->stats.multicast;
++	stats->rx_length_errors = netdev->stats.rx_length_errors;
++	stats->rx_over_errors = netdev->stats.rx_over_errors;
++	stats->rx_fifo_errors = netdev->stats.rx_fifo_errors;
++	stats->rx_missed_errors = netdev->stats.rx_missed_errors;
++	stats->tx_carrier_errors = netdev->stats.tx_carrier_errors;
++	stats->tx_fifo_errors = netdev->stats.tx_fifo_errors;
++	mutex_unlock(&adapter->stats_lock);
++	return stats;
++}
++
+ /* hfi_vnic_maybe_stop_tx - stop tx queue if required */
+ static void hfi_vnic_maybe_stop_tx(struct hfi_vnic_adapter *adapter, u8 q_idx)
+ {
+@@ -72,6 +301,7 @@ static void hfi_vnic_maybe_stop_tx(struct hfi_vnic_adapter *adapter, u8 q_idx)
+ 	if (!vdev->bus_ops->get_write_avail(vdev, q_idx))
+ 		return;
+ 
++	adapter->q_tx_restart[q_idx]++;
+ 	netif_start_subqueue(vdev->netdev, q_idx);
+ }
+ 
+@@ -87,12 +317,15 @@ static netdev_tx_t hfi_netdev_start_xmit(struct sk_buff *skb,
+ 
+ 	v_dbg("xmit: queue %d skb len %d\n", q_idx, skb->len);
+ 	if (unlikely(adapter->info.vport.oper_state !=
+-		     HFI_VNIC_STATE_FORWARDING))
++		     HFI_VNIC_STATE_FORWARDING)) {
++		adapter->q_err_cntrs[q_idx].tx_drop_state++;
+ 		goto tx_finish;
++	}
+ 
+ 	/* pad to ensure mininum ethernet packet length */
+ 	if (unlikely(skb->len < ETH_ZLEN)) {
+ 		if (skb_padto(skb, ETH_ZLEN)) {
++			adapter->q_tx_logic_errors[q_idx]++;
+ 			skip_skb_free = true;
+ 			goto tx_finish;
+ 		}
+@@ -106,16 +339,19 @@ static netdev_tx_t hfi_netdev_start_xmit(struct sk_buff *skb,
+ 	/* Get reference to skb as hfi driver might release it */
+ 	skb_get(skb);
+ 	rc = vdev->bus_ops->put_skb(vdev, q_idx, skb);
+-	/* remove the header */
++	/* remove the header before updating tx counters */
+ 	skb_pull(skb, HFI_VNIC_HDR_LEN);
+ 
+ tx_finish:
+ 	if (unlikely(rc == -EBUSY)) {
+ 		hfi_vnic_maybe_stop_tx(adapter, q_idx);
++		adapter->q_tx_halt[q_idx]++;
+ 		dev_kfree_skb_any(skb);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	/* update tx counters */
++	hfi_vnic_update_tx_counters(netdev, q_idx, skb, rc);
+ 	if (!skip_skb_free)
+ 		dev_kfree_skb_any(skb);
+ 	return NETDEV_TX_OK;
+@@ -128,6 +364,7 @@ static void vnic_handle_rx(struct hfi_vnic_rx_queue *rxq,
+ 	struct hfi_vnic_adapter *adapter = rxq->adapter;
+ 	struct hfi_vnic_device *vdev = adapter->vdev;
+ 	struct sk_buff *skb;
++	int rc;
+ 
+ 	while (1) {
+ 		if (*work_done >= work_to_do)
+@@ -137,7 +374,11 @@ static void vnic_handle_rx(struct hfi_vnic_rx_queue *rxq,
+ 		if (!skb)
+ 			break;
+ 
+-		if (hfi_vnic_decap_skb(rxq, skb)) {
++		rc = hfi_vnic_decap_skb(rxq, skb);
++
++		/* update rx counters */
++		hfi_vnic_update_rx_counters(adapter->netdev, rxq->idx, skb, rc);
++		if (rc) {
+ 			dev_kfree_skb_any(skb);
+ 			continue;
+ 		}
+@@ -183,8 +424,10 @@ static void vnic_event_cb(struct hfi_vnic_device *vdev, u8 evt)
+ 	if (evt < vdev->hfi_info.num_rx_q) {
+ 		q_idx = evt;
+ 		if (unlikely(adapter->info.vport.oper_state !=
+-			     HFI_VNIC_STATE_FORWARDING))
++			     HFI_VNIC_STATE_FORWARDING)) {
++			adapter->q_err_cntrs[q_idx].rx_drop_state++;
+ 			return;
++		}
+ 
+ 		rxq = &adapter->rxq[q_idx];
+ 		if (napi_schedule_prep(&rxq->napi)) {
+@@ -198,9 +441,10 @@ static void vnic_event_cb(struct hfi_vnic_device *vdev, u8 evt)
+ 	    (evt < (HFI_VNIC_EVT_TX0 + vdev->hfi_info.num_tx_q))) {
+ 		q_idx = evt - HFI_VNIC_EVT_TX0;
+ 
+-		if (__netif_subqueue_stopped(vdev->netdev, q_idx))
++		if (__netif_subqueue_stopped(vdev->netdev, q_idx)) {
+ 			netif_wake_subqueue(vdev->netdev, q_idx);
+-
++			adapter->q_tx_wakeup[q_idx]++;
++		}
+ 		return;
+ 	}
+ 	v_err("Invalid event\n");
+@@ -341,6 +585,7 @@ static int hfi_netdev_close(struct net_device *netdev)
+ 	.ndo_stop = hfi_netdev_close,
+ 	.ndo_start_xmit = hfi_netdev_start_xmit,
+ 	.ndo_change_mtu = hfi_netdev_change_mtu,
++	.ndo_get_stats64 = hfi_vnic_get_stats64,
+ 	.ndo_select_queue = hfi_vnic_select_queue,
+ 	.ndo_set_mac_address = hfi_vnic_set_mac_addr,
+ };
+@@ -380,6 +625,7 @@ static int hfi_vnic_drv_probe(struct device *dev)
+ 	netdev->netdev_ops = &hfi_netdev_ops;
+ 	netdev->hard_header_len += HFI_VNIC_SKB_HEADROOM;
+ 	mutex_init(&adapter->lock);
++	mutex_init(&adapter->stats_lock);
+ 	strcpy(netdev->name, "veth%d");
+ 
+ 	hfi_vnic_set_ethtool_ops(netdev);
+@@ -406,6 +652,7 @@ static int hfi_vnic_drv_probe(struct device *dev)
+ 	vdev->bus_ops->deinit(vdev);
+ hw_err:
+ 	mutex_destroy(&adapter->lock);
++	mutex_destroy(&adapter->stats_lock);
+ 	free_netdev(netdev);
+ 	dev_err(dev, "initialization failed %d\n", rc);
+ 
+@@ -422,6 +669,7 @@ static int hfi_vnic_drv_remove(struct device *dev)
+ 	unregister_netdev(vdev->netdev);
+ 	vdev->bus_ops->deinit(vdev);
+ 	mutex_destroy(&adapter->lock);
++	mutex_destroy(&adapter->stats_lock);
+ 	free_netdev(vdev->netdev);
+ 
+ 	dev_info(dev, "removed\n");
 -- 
 1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
