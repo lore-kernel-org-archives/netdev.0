@@ -1,76 +1,52 @@
-From: Jarno Rajahalme <jarno.rajahalme@gmail.com>
-Subject: Re: Long delays creating a netns after deleting one (possibly RCU related)
-Date: Thu, 17 Nov 2016 16:31:19 -0800
-Message-ID: <5697DF47-5CCB-41F3-9BD1-62DE42AD61B8@gmail.com>
-References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com> <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com> <20161110212404.GB4127@linux.vnet.ibm.com> <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com> <20161112002347.GL4127@linux.vnet.ibm.com> <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com> <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com> <20161114162417.GJ4127@linux.vnet.ibm.com> <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com> <20161114181425.GN4127@linux.vnet.ibm.com> <87y40lhfrt.fsf@xmission.com> <1479163571.8455.83.camel@edumazet-glaptop3.roam.corp.google.com> <1479164967.8455.87.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Justin Cormack <justin.cormack@docker.com>,
-        Ian Campbell <ian.campbell@docker.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479164967.8455.87.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Netperf UDP issue with connected sockets
+Date: Fri, 18 Nov 2016 02:37:09 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1611180145580.2135@ja.home.ssi.bg>
+References: <20140903165943.372b897b@redhat.com> <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com> <20161116131609.4e5726b4@redhat.com> <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com> <20161116234022.2bad179b@redhat.com>
+ <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com> <20161117091638.5fab8494@redhat.com> <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com> <20161117144248.23500001@redhat.com> <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117155753.17b76f5a@redhat.com> <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com> <20161117193021.580589ae@redhat.com> <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com> <20161117221941.3b525181@redhat.com>
+ <1479419042.8455.280.camel@edumazet-glaptop3.roam.corp.google.com> <d7d209a8-6142-2599-3303-19640d340b97@hpe.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Rick Jones <rick.jones2@hpe.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:32933 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752149AbcKRAhh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Nov 2016 19:37:37 -0500
+In-Reply-To: <d7d209a8-6142-2599-3303-19640d340b97@hpe.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> On Nov 14, 2016, at 3:09 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->=20
-> On Mon, 2016-11-14 at 14:46 -0800, Eric Dumazet wrote:
->> On Mon, 2016-11-14 at 16:12 -0600, Eric W. Biederman wrote:
->>=20
->>> synchronize_rcu_expidited is not enough if you have multiple network
->>> devices in play.
->>>=20
->>> Looking at the code it comes down to this commit, and it appears =
-there
->>> is a promise add rcu grace period combining by Eric Dumazet.
->>>=20
->>> Eric since people are hitting noticable stalls because of the rcu =
-grace
->>> period taking a long time do you think you could look at this code =
-path
->>> a bit more?
->>>=20
->>> commit 93d05d4a320cb16712bb3d57a9658f395d8cecb9
->>> Author: Eric Dumazet <edumazet@google.com>
->>> Date:   Wed Nov 18 06:31:03 2015 -0800
->>=20
->> Absolutely, I will take a loop asap.
->=20
-> The worst offender should be fixed by the following patch.
->=20
-> busy poll needs to poll the physical device, not a virtual one...
->=20
-> diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
-> index =
-d15214d673b2e8e08fd6437b572278fb1359f10d..2a1abbf8da74368cd01adc40cef6c064=
-4e059ef2 100644
-> --- a/include/net/gro_cells.h
-> +++ b/include/net/gro_cells.h
-> @@ -68,6 +68,9 @@ static inline int gro_cells_init(struct gro_cells =
-*gcells, struct net_device *de
-> 		struct gro_cell *cell =3D per_cpu_ptr(gcells->cells, i);
->=20
-> 		__skb_queue_head_init(&cell->napi_skbs);
-> +
-> +		set_bit(NAPI_STATE_NO_BUSY_POLL, &cell->napi.state);
-> +
-> 		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
-> 		napi_enable(&cell->napi);
-> 	}
->=20
+	Hello,
 
-This solved a ~20 second slowdown between OVS datapath unit tests for =
-me.
+On Thu, 17 Nov 2016, Rick Jones wrote:
 
-  Jarno
+> raj@tardy:~/netperf2_trunk$ strace -v -o /tmp/netperf.strace src/netperf -F
+> src/nettest_omni.c -t UDP_STREAM -l 1 -- -m 1472
+> 
+> ...
+> 
+> socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP) = 4
+> getsockopt(4, SOL_SOCKET, SO_SNDBUF, [212992], [4]) = 0
+> getsockopt(4, SOL_SOCKET, SO_RCVBUF, [212992], [4]) = 0
+> setsockopt(4, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> bind(4, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("0.0.0.0")},
+> 16) = 0
+> setsockopt(4, SOL_SOCKET, SO_DONTROUTE, [1], 4) = 0
+
+	connected socket can benefit from dst cached in socket
+but not if SO_DONTROUTE is set. If we do not want to send packets
+via gateway this -l 1 should help but I don't see IP_TTL setsockopt
+in your first example with connect() to 127.0.0.1.
+
+	Also, may be there can be another default, if -l is used to
+specify TTL then SO_DONTROUTE should not be set. I.e. we should
+avoid SO_DONTROUTE, if possible.
+
+Regards
