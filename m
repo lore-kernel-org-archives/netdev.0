@@ -1,56 +1,28 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH 0/5] XDP for virtio_net
-Date: Fri, 18 Nov 2016 11:06:57 -0800
-Message-ID: <582F5151.3050702@gmail.com>
-References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] rtnetlink: fix FDB size computation
+Date: Fri, 18 Nov 2016 14:10:59 -0500 (EST)
+Message-ID: <20161118.141059.1545399735812585925.davem@davemloft.net>
+References: <9bef2a8afa6f8193fcca61ea381b67a52ab878b2.1479477903.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        bblanco@plumgrid.com, brouer@redhat.com
-To: tgraf@suug.ch, shm@cumulusnetworks.com,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        davem@davemloft.net, "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org, hubert.sokolowski@intel.com
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:32992 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751989AbcKRTHO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:07:14 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 3so21375852pgd.0
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 11:07:14 -0800 (PST)
-In-Reply-To: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39712 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752057AbcKRTLB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 14:11:01 -0500
+In-Reply-To: <9bef2a8afa6f8193fcca61ea381b67a52ab878b2.1479477903.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-11-18 10:59 AM, John Fastabend wrote:
-> This implements virtio_net for the mergeable buffers and big_packet
-> modes. I tested this with vhost_net running on qemu and did not see
-> any issues.
-> 
-> There are some restrictions for XDP to be enabled (see patch 3) for
-> more details.
-> 
->   1. LRO must be off
->   2. MTU must be less than PAGE_SIZE
->   3. queues must be available to dedicate to XDP
->   4. num_bufs received in mergeable buffers must be 1
->   5. big_packet mode must have all data on single page
-> 
-> Please review any comments/feedback welcome as always.
-> 
-> Thanks,
-> John
-> ---
-> 
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Fri, 18 Nov 2016 15:50:39 +0100
 
-Hi Dave,
+> Add missing NDA_VLAN attribute's size.
+> 
+> Fixes: 1e53d5bb8878 ("net: Pass VLAN ID to rtnl_fdb_notify.")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Should be obvious but this is for net-next I dropped the tag from my
-git-send command.
-
-Also I missed probably the most important person on the CC/TO list.
-
-+Michael Tsirkin.
-
-Thanks,
-John
+Applied and queued up for -stable, thanks.
