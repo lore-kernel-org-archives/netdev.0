@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 5/5] af_packet: Use
- virtio_net_hdr_from_skb() directly.
-Date: Sat, 19 Nov 2016 10:37:41 -0500 (EST)
-Message-ID: <20161119.103741.2184474918272369205.davem@davemloft.net>
-References: <1479512442-61601-1-git-send-email-jarno@ovn.org>
-        <1479512442-61601-5-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jarno@ovn.org
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [iproute2] libnetlink: reduce size of message sent to kernel
+Date: Sat, 19 Nov 2016 23:50:13 +0800
+Message-ID: <1479570613-3104-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34304 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753038AbcKSPhq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 10:37:46 -0500
-In-Reply-To: <1479512442-61601-5-git-send-email-jarno@ovn.org>
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:32235 "EHLO
+        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753038AbcKSPuX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 10:50:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarno Rajahalme <jarno@ovn.org>
-Date: Fri, 18 Nov 2016 15:40:42 -0800
+This patch reduce the size of message sent to kernel space. Before this
+patch, for command: 'ip link show', we will sent 1056 bytes. With this
+patch, we only need to send 40 bytes.
 
-> Remove static function __packet_rcv_vnet(), which only called
-> virtio_net_hdr_from_skb() and BUG()ged out if an error code was
-> returned.  Instead, call virtio_net_hdr_from_skb() from the former
-> call sites of __packet_rcv_vnet() and actually use the error handling
-> code that is already there.
-> 
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ lib/libnetlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied.
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 2279935..d0e19cc 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -149,7 +149,7 @@ int rtnl_wilddump_req_filter_fn(struct rtnl_handle *rth, int family, int type,
+ 	if (err)
+ 		return err;
+ 
+-	return send(rth->fd, (void*)&req, sizeof(req), 0);
++	return send(rth->fd, (void*)&req, req.nlh.nlmsg_len, 0);
+ }
+ 
+ int rtnl_wilddump_stats_req_filter(struct rtnl_handle *rth, int fam, int type,
+-- 
+1.8.3.1
