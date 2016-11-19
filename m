@@ -1,70 +1,79 @@
-From: Tushar Dave <tushar.n.dave@oracle.com>
-Subject: [PATCH] i40e: remove unnecessary __packed
-Date: Sat, 19 Nov 2016 13:53:58 -0800
-Message-ID: <1479592438-17078-1-git-send-email-tushar.n.dave@oracle.com>
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bnx2: use READ_ONCE() instead of barrier()
+Date: Sat, 19 Nov 2016 14:57:11 -0800
+Message-ID: <1479596231.8455.354.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Rasesh Mody <rasesh.mody@cavium.com>,
+        Harish Patil <harish.patil@cavium.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:32199 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752234AbcKSV4Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 16:56:16 -0500
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36160 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752941AbcKSW5O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 17:57:14 -0500
+Received: by mail-pf0-f196.google.com with SMTP id c4so13164436pfb.3
+        for <netdev@vger.kernel.org>; Sat, 19 Nov 2016 14:57:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'struct i40e_dma_mem' defined with 'packed' directive causing kernel
-unaligned errors on sparc.
+From: Eric Dumazet <edumazet@google.com>
 
-e.g.
-i40e: Intel(R) Ethernet Connection XL710 Network Driver - version
-1.6.16-k
-i40e: Copyright (c) 2013 - 2014 Intel Corporation.
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-i40e 0000:03:00.0: fw 5.1.40981 api 1.5 nvm 5.04 0x80002548 0.0.0
+barrier() is a big hammer compared to READ_ONCE(),
+and requires comments explaining what is protected.
 
-This can be fixed with get_unaligned/put_unaligned(). However no
-reference in driver shows that 'struct i40e_dma_mem' directly shoved
-into NIC hardware. But instead fields of the struct are being read and
-used for hardware. Therefore, __packed is unnecessary for 'struct
-i40e_dma_mem'.
+READ_ONCE() is more precise and compiler should generate
+better overall code.
 
-In addition, although 'struct i40e_virt_mem' doesn't cause any
-unaligned access, keeping it packed is unnecessary as well because
-of aforementioned reason.
-
-This change make 'struct i40e_dma_mem' and 'struct i40e_virt_mem'
-unpacked.
-
-Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_osdep.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c |   17 +++++------------
+ 1 file changed, 5 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_osdep.h b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-index 5b6feb7..be74bcf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-@@ -55,7 +55,7 @@ struct i40e_dma_mem {
- 	void *va;
- 	dma_addr_t pa;
- 	u32 size;
--} __packed;
-+};
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 9960a9249dc0d0c8fb3494989e882a4c96e64970..d5d1026be4b70a320c48af7545a1891c74e19a47 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -254,13 +254,10 @@ static inline u32 bnx2_tx_avail(struct bnx2 *bp, struct bnx2_tx_ring_info *txr)
+ {
+ 	u32 diff;
  
- #define i40e_allocate_dma_mem(h, m, unused, s, a) \
- 			i40e_allocate_dma_mem_d(h, m, s, a)
-@@ -64,7 +64,7 @@ struct i40e_dma_mem {
- struct i40e_virt_mem {
- 	void *va;
- 	u32 size;
--} __packed;
-+};
+-	/* Tell compiler to fetch tx_prod and tx_cons from memory. */
+-	barrier();
+-
+ 	/* The ring uses 256 indices for 255 entries, one of them
+ 	 * needs to be skipped.
+ 	 */
+-	diff = txr->tx_prod - txr->tx_cons;
++	diff = READ_ONCE(txr->tx_prod) - READ_ONCE(txr->tx_cons);
+ 	if (unlikely(diff >= BNX2_TX_DESC_CNT)) {
+ 		diff &= 0xffff;
+ 		if (diff == BNX2_TX_DESC_CNT)
+@@ -2839,10 +2836,8 @@ bnx2_get_hw_tx_cons(struct bnx2_napi *bnapi)
+ {
+ 	u16 cons;
  
- #define i40e_allocate_virt_mem(h, m, s) i40e_allocate_virt_mem_d(h, m, s)
- #define i40e_free_virt_mem(h, m) i40e_free_virt_mem_d(h, m)
--- 
-1.9.1
+-	/* Tell compiler that status block fields can change. */
+-	barrier();
+-	cons = *bnapi->hw_tx_cons_ptr;
+-	barrier();
++	cons = READ_ONCE(*bnapi->hw_tx_cons_ptr);
++
+ 	if (unlikely((cons & BNX2_MAX_TX_DESC_CNT) == BNX2_MAX_TX_DESC_CNT))
+ 		cons++;
+ 	return cons;
+@@ -3141,10 +3136,8 @@ bnx2_get_hw_rx_cons(struct bnx2_napi *bnapi)
+ {
+ 	u16 cons;
+ 
+-	/* Tell compiler that status block fields can change. */
+-	barrier();
+-	cons = *bnapi->hw_rx_cons_ptr;
+-	barrier();
++	cons = READ_ONCE(*bnapi->hw_rx_cons_ptr);
++
+ 	if (unlikely((cons & BNX2_MAX_RX_DESC_CNT) == BNX2_MAX_RX_DESC_CNT))
+ 		cons++;
+ 	return cons;
