@@ -1,46 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Long delays creating a netns after deleting one (possibly RCU
- related)
-Date: Fri, 18 Nov 2016 16:41:20 -0800
-Message-ID: <1479516080.8455.306.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
-         <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
-         <20161110212404.GB4127@linux.vnet.ibm.com>
-         <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
-         <20161112002347.GL4127@linux.vnet.ibm.com>
-         <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
-         <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com>
-         <20161114162417.GJ4127@linux.vnet.ibm.com>
-         <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com>
-         <20161114181425.GN4127@linux.vnet.ibm.com> <87y40lhfrt.fsf@xmission.com>
-         <1479163571.8455.83.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1479164967.8455.87.camel@edumazet-glaptop3.roam.corp.google.com>
-         <884D43D4-024E-4485-94E6-1E8DFF972483@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Justin Cormack <justin.cormack@docker.com>,
-        Ian Campbell <ian.campbell@docker.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Jarno Rajahalme <jarno.rajahalme@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <884D43D4-024E-4485-94E6-1E8DFF972483@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v3 1/4] bpf, mlx5: fix mlx5e_create_rq taking reference on prog
+Date: Sat, 19 Nov 2016 01:45:00 +0100
+Message-ID: <cb3c229b56d24f6650472bc333d0a72de80327de.1479514784.git.daniel@iogearbox.net>
+References: <cover.1479514784.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, bblanco@plumgrid.com,
+        zhiyisun@gmail.com, ranas@mellanox.com, saeedm@mellanox.com,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:58644 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752419AbcKSApZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 19:45:25 -0500
+In-Reply-To: <cover.1479514784.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1479514784.git.daniel@iogearbox.net>
+References: <cover.1479514784.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-11-18 at 16:38 -0800, Jarno Rajahalme wrote:
+In mlx5e_create_rq(), when creating a new queue, we call bpf_prog_add() but
+without checking the return value. bpf_prog_add() can fail since 92117d8443bc
+("bpf: fix refcnt overflow"), so we really must check it. Take the reference
+right when we assign it to the rq from priv->xdp_prog, and just drop the
+reference on error path. Destruction in mlx5e_destroy_rq() looks good, though.
 
-> This fixes the problem for me, so for whatever it’s worth:
-> 
-> Tested-by: Jarno Rajahalme <jarno@ovn.org>
-> 
+Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 13 +++++++++----
+ kernel/bpf/syscall.c                              |  1 +
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-Thanks for testing !
-
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=e88a2766143a27bfe6704b4493b214de4094cf29
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index bd0732d..54bae79 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -513,7 +513,13 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+ 	rq->channel = c;
+ 	rq->ix      = c->ix;
+ 	rq->priv    = c->priv;
+-	rq->xdp_prog = priv->xdp_prog;
++
++	rq->xdp_prog = priv->xdp_prog ? bpf_prog_inc(priv->xdp_prog) : NULL;
++	if (IS_ERR(rq->xdp_prog)) {
++		err = PTR_ERR(rq->xdp_prog);
++		rq->xdp_prog = NULL;
++		goto err_rq_wq_destroy;
++	}
+ 
+ 	rq->buff.map_dir = DMA_FROM_DEVICE;
+ 	if (rq->xdp_prog)
+@@ -590,12 +596,11 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+ 	rq->page_cache.head = 0;
+ 	rq->page_cache.tail = 0;
+ 
+-	if (rq->xdp_prog)
+-		bpf_prog_add(rq->xdp_prog, 1);
+-
+ 	return 0;
+ 
+ err_rq_wq_destroy:
++	if (rq->xdp_prog)
++		bpf_prog_put(rq->xdp_prog);
+ 	mlx5_wq_destroy(&rq->wq_ctrl);
+ 
+ 	return err;
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index ce1b7de..eb15498 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -696,6 +696,7 @@ struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
+ {
+ 	return bpf_prog_add(prog, 1);
+ }
++EXPORT_SYMBOL_GPL(bpf_prog_inc);
+ 
+ static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *type)
+ {
+-- 
+1.9.3
