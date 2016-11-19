@@ -1,57 +1,48 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 7/8] batman-adv: Add module alias for batadv netlink family
-Date: Sat, 19 Nov 2016 14:35:27 +0100
-Message-ID: <20161119133528.1379-8-sw@simonwunderlich.de>
+Subject: [PATCH 6/8] batman-adv: Update wifi flags on upper link change
+Date: Sat, 19 Nov 2016 14:35:26 +0100
+Message-ID: <20161119133528.1379-7-sw@simonwunderlich.de>
 References: <20161119133528.1379-1-sw@simonwunderlich.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Sven Eckelmann <sven@narfation.org>,
+        Sven Eckelmann <sven.eckelmann@open-mesh.com>,
         Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:49980 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:49978 "EHLO
         mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752814AbcKSNfe (ORCPT
+        with ESMTP id S1752801AbcKSNfe (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 08:35:34 -0500
 In-Reply-To: <20161119133528.1379-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+From: Sven Eckelmann <sven.eckelmann@open-mesh.com>
 
-The batman-adv module has to be loaded to fulfill genl request by the
-userspace. When it is not loaded then requests will fail. It is therefore
-useful to get the module automatically loaded when such a request is made.
+Things like VLANs don't have their link set when they are created. Thus
+the wifi flags have to be evaluated later to fix their contents for the
+link interface.
 
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Sven Eckelmann <sven.eckelmann@open-mesh.com>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/main.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/batman-adv/hard-interface.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 6b5dae6..d46415e 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -23,6 +23,7 @@
- #include <linux/crc32c.h>
- #include <linux/errno.h>
- #include <linux/fs.h>
-+#include <linux/genetlink.h>
- #include <linux/if_ether.h>
- #include <linux/if_vlan.h>
- #include <linux/init.h>
-@@ -44,6 +45,7 @@
- #include <linux/workqueue.h>
- #include <net/dsfield.h>
- #include <net/rtnetlink.h>
-+#include <uapi/linux/batman_adv.h>
- 
- #include "bat_algo.h"
- #include "bat_iv_ogm.h"
-@@ -648,3 +650,4 @@ MODULE_DESCRIPTION(BATADV_DRIVER_DESC);
- MODULE_SUPPORTED_DEVICE(BATADV_DRIVER_DEVICE);
- MODULE_VERSION(BATADV_SOURCE_VERSION);
- MODULE_ALIAS_RTNL_LINK("batadv");
-+MODULE_ALIAS_GENL_FAMILY(BATADV_NL_NAME);
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index ca743a5..61a431a 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -1006,6 +1006,11 @@ static int batadv_hard_if_event(struct notifier_block *this,
+ 		if (hard_iface == primary_if)
+ 			batadv_primary_if_update_addr(bat_priv, NULL);
+ 		break;
++	case NETDEV_CHANGEUPPER:
++		hard_iface->wifi_flags = batadv_wifi_flags_evaluate(net_dev);
++		if (batadv_is_wifi_hardif(hard_iface))
++			hard_iface->num_bcasts = BATADV_NUM_BCASTS_WIRELESS;
++		break;
+ 	default:
+ 		break;
+ 	}
 -- 
 2.10.2
