@@ -1,75 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v3 4/4] bpf: add __must_check attributes to refcount manipulating helpers
-Date: Sat, 19 Nov 2016 01:45:03 +0100
-Message-ID: <b3e9d0fe6bc4f93f9a22caa5fcad1597e5d272bf.1479514784.git.daniel@iogearbox.net>
-References: <cover.1479514784.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, bblanco@plumgrid.com,
-        zhiyisun@gmail.com, ranas@mellanox.com, saeedm@mellanox.com,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH 3/5] virtio_net: Add XDP support
+Date: Fri, 18 Nov 2016 17:02:44 -0800
+Message-ID: <582FA4B4.4000808@gmail.com>
+References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
+ <20161118190017.16137.13910.stgit@john-Precision-Tower-5810>
+ <1479511422.8455.305.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58651 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752813AbcKSApZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 19:45:25 -0500
-In-Reply-To: <cover.1479514784.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1479514784.git.daniel@iogearbox.net>
-References: <cover.1479514784.git.daniel@iogearbox.net>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34881 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751085AbcKSBDC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 20:03:02 -0500
+Received: by mail-pf0-f193.google.com with SMTP id i88so14338920pfk.2
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 17:03:02 -0800 (PST)
+In-Reply-To: <1479511422.8455.305.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Helpers like bpf_prog_add(), bpf_prog_inc(), bpf_map_inc() can fail
-with an error, so make sure the caller properly checks their return
-value and not just ignores it, which could worst-case lead to use
-after free.
+On 16-11-18 03:23 PM, Eric Dumazet wrote:
+> On Fri, 2016-11-18 at 11:00 -0800, John Fastabend wrote:
+>> From: Shrijeet Mukherjee <shrijeet@gmail.com>
+> 
+> 
+>>  #include <linux/slab.h>
+>> @@ -81,6 +82,8 @@ struct receive_queue {
+>>  
+>>  	struct napi_struct napi;
+>>  
+>> +	struct bpf_prog *xdp_prog;
+> 
+> Please add proper sparse annotation, as in 
+> 
+> 	struct bpf_prog __rcu *xdp_prog;
+> 
+> And run sparse ;)
+> 
+> CONFIG_SPARSE_RCU_POINTER=y
+> 
+> make C=2 drivers/net/virtio_net.o
+> 
+> 
+> 
+> 
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- include/linux/bpf.h | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 01c1487..69d0a7f 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -233,14 +233,14 @@ u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
- 
- struct bpf_prog *bpf_prog_get(u32 ufd);
- struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
--struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i);
-+struct bpf_prog * __must_check bpf_prog_add(struct bpf_prog *prog, int i);
- void bpf_prog_sub(struct bpf_prog *prog, int i);
--struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog);
-+struct bpf_prog * __must_check bpf_prog_inc(struct bpf_prog *prog);
- void bpf_prog_put(struct bpf_prog *prog);
- 
- struct bpf_map *bpf_map_get_with_uref(u32 ufd);
- struct bpf_map *__bpf_map_get(struct fd f);
--struct bpf_map *bpf_map_inc(struct bpf_map *map, bool uref);
-+struct bpf_map * __must_check bpf_map_inc(struct bpf_map *map, bool uref);
- void bpf_map_put_with_uref(struct bpf_map *map);
- void bpf_map_put(struct bpf_map *map);
- int bpf_map_precharge_memlock(u32 pages);
-@@ -299,7 +299,8 @@ static inline struct bpf_prog *bpf_prog_get_type(u32 ufd,
- {
- 	return ERR_PTR(-EOPNOTSUPP);
- }
--static inline struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
-+static inline struct bpf_prog * __must_check bpf_prog_add(struct bpf_prog *prog,
-+							  int i)
- {
- 	return ERR_PTR(-EOPNOTSUPP);
- }
-@@ -311,7 +312,8 @@ static inline void bpf_prog_sub(struct bpf_prog *prog, int i)
- static inline void bpf_prog_put(struct bpf_prog *prog)
- {
- }
--static inline struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
-+
-+static inline struct bpf_prog * __must_check bpf_prog_inc(struct bpf_prog *prog)
- {
- 	return ERR_PTR(-EOPNOTSUPP);
- }
--- 
-1.9.3
+Yep will do thanks! And I will fix the other comment as well.
