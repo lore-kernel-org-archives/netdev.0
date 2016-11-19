@@ -1,37 +1,35 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [iproute2] libnetlink: reduce size of message sent to kernel
-Date: Sat, 19 Nov 2016 23:50:13 +0800
-Message-ID: <1479570613-3104-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:32235 "EHLO
-        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753038AbcKSPuX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 10:50:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/2] pull request for net: batman-adv
+	2016-11-19
+Date: Sat, 19 Nov 2016 11:21:05 -0500 (EST)
+Message-ID: <20161119.112105.1058155711268474781.davem@davemloft.net>
+References: <20161119110614.23325-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20161119110614.23325-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This patch reduce the size of message sent to kernel space. Before this
-patch, for command: 'ip link show', we will sent 1056 bytes. With this
-patch, we only need to send 40 bytes.
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Date: Sat, 19 Nov 2016 12:06:12 +0100
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- lib/libnetlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> here are some bugfix patches which we would like to have integrated
+> into net.
+> 
+> Please pull or let me know of any problem!
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 2279935..d0e19cc 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -149,7 +149,7 @@ int rtnl_wilddump_req_filter_fn(struct rtnl_handle *rth, int family, int type,
- 	if (err)
- 		return err;
- 
--	return send(rth->fd, (void*)&req, sizeof(req), 0);
-+	return send(rth->fd, (void*)&req, req.nlh.nlmsg_len, 0);
- }
- 
- int rtnl_wilddump_stats_req_filter(struct rtnl_handle *rth, int fam, int type,
--- 
-1.8.3.1
+Pulled.
