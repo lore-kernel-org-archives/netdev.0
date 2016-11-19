@@ -1,85 +1,68 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 0/8] pull request for net-next: batman-adv
-	2016-11-19
-Date: Sat, 19 Nov 2016 14:35:20 +0100
-Message-ID: <20161119133528.1379-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 1/8] batman-adv: Return non-const ptr in batadv_getlink_net
+Date: Sat, 19 Nov 2016 14:35:21 +0100
+Message-ID: <20161119133528.1379-2-sw@simonwunderlich.de>
+References: <20161119133528.1379-1-sw@simonwunderlich.de>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Sven Eckelmann <sven.eckelmann@open-mesh.com>,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from packetmixer.de ([79.140.42.25]:49949 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752690AbcKSNfc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 08:35:32 -0500
+In-Reply-To: <20161119133528.1379-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Sven Eckelmann <sven.eckelmann@open-mesh.com>
 
-this should be our last feature pull request for batman-adv in this round.
+The returned net_namespace of batadv_getlink_net may be used with functions
+that potentially modify the struct. Thus it must return the pointer as
+non-const like rtnl_link_ops::get_link_net does.
 
-Please pull or let me know of any problem!
+Signed-off-by: Sven Eckelmann <sven.eckelmann@open-mesh.com>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+---
+ net/batman-adv/hard-interface.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-Thank you,
-      Simon
-
-The following changes since commit 93bbaab455f30fd43911e0881a02107a17150a62:
-
-  batman-adv: Reject unicast packet with zero/mcast dst address (2016-11-08 19:02:36 +0100)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20161119
-
-for you to fetch changes up to 9b4aec647a92a2464337db10507348aecf0f0fd7:
-
-  batman-adv: fix rare race conditions on interface removal (2016-11-08 19:02:39 +0100)
-
-----------------------------------------------------------------
-This feature patchset includes the following changes:
-
- - 6 patches adding functionality to detect a WiFi interface under
-   other virtual interfaces, like VLANs. They introduce a cache for
-   the detected the WiFi configuration to avoid RTNL locking in
-   critical sections. Patches have been prepared by Marek Lindner
-   and Sven Eckelmann
-
- - Enable automatic module loading for genl requests, by Sven Eckelmann
-
- - Fix a potential race condition on interface removal. This is not
-   happening very often in practice, but requires bigger changes to fix,
-   so we are sending this to net-next. By Linus Luessing
-
-----------------------------------------------------------------
-Linus Lüssing (1):
-      batman-adv: fix rare race conditions on interface removal
-
-Marek Lindner (3):
-      batman-adv: refactor wifi interface detection
-      batman-adv: additional checks for virtual interfaces on top of WiFi
-      batman-adv: retrieve B.A.T.M.A.N. V WiFi neighbor stats from real interface
-
-Sven Eckelmann (4):
-      batman-adv: Return non-const ptr in batadv_getlink_net
-      batman-adv: Cache the type of wifi device for each hardif
-      batman-adv: Update wifi flags on upper link change
-      batman-adv: Add module alias for batadv netlink family
-
- net/batman-adv/bat_iv_ogm.c        |  21 +--
- net/batman-adv/bat_v_elp.c         |  41 +++---
- net/batman-adv/hard-interface.c    | 173 +++++++++++++++++++++--
- net/batman-adv/hard-interface.h    |   5 +-
- net/batman-adv/main.c              |   3 +
- net/batman-adv/send.c              | 283 ++++++++++++++++++++++++++++---------
- net/batman-adv/send.h              |   5 +
- net/batman-adv/translation-table.c |  10 +-
- net/batman-adv/types.h             |  19 +++
- 9 files changed, 445 insertions(+), 115 deletions(-)
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index a7a462e..fdbb47e 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -92,8 +92,8 @@ batadv_hardif_get_by_netdev(const struct net_device *net_dev)
+  *
+  * Return: result of rtnl_link_ops->get_link_net or @fallback_net
+  */
+-static const struct net *batadv_getlink_net(const struct net_device *netdev,
+-					    const struct net *fallback_net)
++static struct net *batadv_getlink_net(const struct net_device *netdev,
++				      struct net *fallback_net)
+ {
+ 	if (!netdev->rtnl_link_ops)
+ 		return fallback_net;
+@@ -116,9 +116,9 @@ static const struct net *batadv_getlink_net(const struct net_device *netdev,
+  * Return: true if the devices are each others parent, otherwise false
+  */
+ static bool batadv_mutual_parents(const struct net_device *dev1,
+-				  const struct net *net1,
++				  struct net *net1,
+ 				  const struct net_device *dev2,
+-				  const struct net *net2)
++				  struct net *net2)
+ {
+ 	int dev1_parent_iflink = dev_get_iflink(dev1);
+ 	int dev2_parent_iflink = dev_get_iflink(dev2);
+@@ -154,7 +154,7 @@ static bool batadv_is_on_batman_iface(const struct net_device *net_dev)
+ {
+ 	struct net *net = dev_net(net_dev);
+ 	struct net_device *parent_dev;
+-	const struct net *parent_net;
++	struct net *parent_net;
+ 	bool ret;
+ 
+ 	/* check if this is a batman-adv mesh interface */
+-- 
+2.10.2
