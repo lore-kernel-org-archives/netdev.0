@@ -1,9 +1,9 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/2] pull request for net: batman-adv
-	2016-11-19
-Date: Sat, 19 Nov 2016 11:21:05 -0500 (EST)
-Message-ID: <20161119.112105.1058155711268474781.davem@davemloft.net>
-References: <20161119110614.23325-1-sw@simonwunderlich.de>
+Subject: Re: [PATCH 0/8] pull request for net-next:
+	batman-adv 2016-11-19
+Date: Sat, 19 Nov 2016 11:21:21 -0500 (EST)
+Message-ID: <20161119.112121.1503146925507972543.davem@davemloft.net>
+References: <20161119133528.1379-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
@@ -12,7 +12,7 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20161119110614.23325-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+In-Reply-To: <20161119133528.1379-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
  <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
@@ -25,11 +25,10 @@ Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@publ
 List-Id: netdev.vger.kernel.org
 
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Date: Sat, 19 Nov 2016 12:06:12 +0100
+Date: Sat, 19 Nov 2016 14:35:20 +0100
 
-> here are some bugfix patches which we would like to have integrated
-> into net.
+> this should be our last feature pull request for batman-adv in this round.
 > 
 > Please pull or let me know of any problem!
 
-Pulled.
+Also pulled, thanks.
