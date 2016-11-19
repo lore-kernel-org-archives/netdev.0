@@ -1,100 +1,59 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: eliminate obsolete socket locking policy description
-Date: Sat, 19 Nov 2016 14:47:07 -0500
-Message-ID: <1479584827-21772-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-        Paul Gortmaker <paul.gortmaker@windriver.com>,
-        parthasarathy.bhuvaragan@ericsson.com, ying.xue@windriver.com,
-        maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
-        Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH 4/5] virtio_net: add dedicated XDP transmit queues
+Date: Sat, 19 Nov 2016 13:33:31 -0800
+Message-ID: <5830C52B.8000108@gmail.com>
+References: <20161118185517.16137.92123.stgit@john-Precision-Tower-5810>
+ <20161118190041.16137.48399.stgit@john-Precision-Tower-5810>
+ <20161118130953.7bf2d71d@laptop> <20161118181004.4c15a6a1@laptop>
+ <582FBC6B.8000902@gmail.com> <20161118185728.67e2b53a@laptop>
+ <1479525658.8455.313.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161118192317.6c283867@laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
+To: Jakub Kicinski <kubakici@wp.pl>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:39059 "EHLO
-        smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753220AbcKSTrO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 14:47:14 -0500
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35292 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753117AbcKSVdv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 16:33:51 -0500
+Received: by mail-pg0-f66.google.com with SMTP id p66so24224931pga.2
+        for <netdev@vger.kernel.org>; Sat, 19 Nov 2016 13:33:51 -0800 (PST)
+In-Reply-To: <20161118192317.6c283867@laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The comment block in socket.c describing the locking policy is
-obsolete, and does not reflect current reality. We remove it in this
-commit.
+On 16-11-18 07:23 PM, Jakub Kicinski wrote:
+> On Fri, 18 Nov 2016 19:20:58 -0800, Eric Dumazet wrote:
+>> On Fri, 2016-11-18 at 18:57 -0800, Jakub Kicinski wrote:
+>>> On Fri, 18 Nov 2016 18:43:55 -0800, John Fastabend wrote:  
+>>>> On 16-11-18 06:10 PM, Jakub Kicinski wrote:  
+>>  [...]  
+>>>>
+>>>> Seem like a valid concerns to me how about num_possible_cpus() instead.  
+>>>
+>>> That would solve problem 1, but could cpu_possible_mask still be sparse
+>>> on strange setups?  Let me try to dig into this, I recall someone
+>>> (Eric?) was fixing similar problems some time ago.  
+>>
+>> nr_cpu_ids is probably what you want ;)
+> 
+> Thank you :)
+> 
 
-Since the current locking policy is much simpler and follows a
-mainstream approach, we see no need to add a new description.
+Yep poked around a bit and the common pattern seems to be to use
+nr_cpu_ids to build a cpu array and then index it with
+smp_processor_id(). So I'll do this as well.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c | 48 +-----------------------------------------------
- 1 file changed, 1 insertion(+), 47 deletions(-)
+Although I'm not sure I entirely follow on the x86 platforms at
+least how/if nr_cpu_ids != num_possible_cpus().
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 22d92f0..4916d8f 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/socket.c: TIPC socket API
-  *
-- * Copyright (c) 2001-2007, 2012-2015, Ericsson AB
-+ * Copyright (c) 2001-2007, 2012-2016, Ericsson AB
-  * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
-  * All rights reserved.
-  *
-@@ -127,54 +127,8 @@ static const struct proto_ops packet_ops;
- static const struct proto_ops stream_ops;
- static const struct proto_ops msg_ops;
- static struct proto tipc_proto;
--
- static const struct rhashtable_params tsk_rht_params;
- 
--/*
-- * Revised TIPC socket locking policy:
-- *
-- * Most socket operations take the standard socket lock when they start
-- * and hold it until they finish (or until they need to sleep).  Acquiring
-- * this lock grants the owner exclusive access to the fields of the socket
-- * data structures, with the exception of the backlog queue.  A few socket
-- * operations can be done without taking the socket lock because they only
-- * read socket information that never changes during the life of the socket.
-- *
-- * Socket operations may acquire the lock for the associated TIPC port if they
-- * need to perform an operation on the port.  If any routine needs to acquire
-- * both the socket lock and the port lock it must take the socket lock first
-- * to avoid the risk of deadlock.
-- *
-- * The dispatcher handling incoming messages cannot grab the socket lock in
-- * the standard fashion, since invoked it runs at the BH level and cannot block.
-- * Instead, it checks to see if the socket lock is currently owned by someone,
-- * and either handles the message itself or adds it to the socket's backlog
-- * queue; in the latter case the queued message is processed once the process
-- * owning the socket lock releases it.
-- *
-- * NOTE: Releasing the socket lock while an operation is sleeping overcomes
-- * the problem of a blocked socket operation preventing any other operations
-- * from occurring.  However, applications must be careful if they have
-- * multiple threads trying to send (or receive) on the same socket, as these
-- * operations might interfere with each other.  For example, doing a connect
-- * and a receive at the same time might allow the receive to consume the
-- * ACK message meant for the connect.  While additional work could be done
-- * to try and overcome this, it doesn't seem to be worthwhile at the present.
-- *
-- * NOTE: Releasing the socket lock while an operation is sleeping also ensures
-- * that another operation that must be performed in a non-blocking manner is
-- * not delayed for very long because the lock has already been taken.
-- *
-- * NOTE: This code assumes that certain fields of a port/socket pair are
-- * constant over its lifetime; such fields can be examined without taking
-- * the socket lock and/or port lock, and do not need to be re-read even
-- * after resuming processing after waiting.  These fields include:
-- *   - socket type
-- *   - pointer to socket sk structure (aka tipc_sock structure)
-- *   - pointer to port structure
-- *   - port reference
-- */
--
- static u32 tsk_own_node(struct tipc_sock *tsk)
- {
- 	return msg_prevnode(&tsk->phdr);
--- 
-2.7.4
+Nice catch Jakub.
+
+Thanks,
+John
