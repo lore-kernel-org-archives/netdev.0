@@ -1,8 +1,9 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 0/2] pull request for net: batman-adv
-	2016-11-19
-Date: Sat, 19 Nov 2016 12:06:12 +0100
-Message-ID: <20161119110614.23325-1-sw@simonwunderlich.de>
+Subject: [PATCH 1/2] batman-adv: Revert "fix splat on
+	disabling an interface"
+Date: Sat, 19 Nov 2016 12:06:13 +0100
+Message-ID: <20161119110614.23325-2-sw@simonwunderlich.de>
+References: <20161119110614.23325-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
@@ -11,6 +12,7 @@ Content-Transfer-Encoding: 8bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20161119110614.23325-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
  <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
@@ -22,42 +24,36 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 
-here are some bugfix patches which we would like to have integrated
-into net.
+The commit 9799c50372b2 ("batman-adv: fix splat on disabling an interface")
+fixed a warning but at the same time broke the rtnl function add_slave for
+devices which were temporarily removed.
 
-Please pull or let me know of any problem!
+batadv_softif_slave_add requires soft_iface of and hard_iface to be NULL
+before it is allowed to be enslaved. But this resetting of soft_iface to
+NULL in batadv_hardif_disable_interface was removed with the aforementioned
+commit.
 
-Thank you,
-      Simon
-
-The following changes since commit 9799c50372b23ed774791bdb87d700f1286ee8a9:
-
-  batman-adv: fix splat on disabling an interface (2016-10-21 14:47:02 +0200)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batadv-net-for-davem-20161119
-
-for you to fetch changes up to e13258f38e927b61cdb5f4ad25309450d3b127d1:
-
-  batman-adv: Detect missing primaryif during tp_send as error (2016-11-04 12:27:39 +0100)
-
-----------------------------------------------------------------
-Here are two batman-adv bugfix patches:
-
- - Revert a splat on disabling interface which created another problem,
-   by Sven Eckelmann
-
- - Fix error handling when the primary interface disappears during a
-   throughput meter test, by Sven Eckelmann
-
-----------------------------------------------------------------
-Sven Eckelmann (2):
-      batman-adv: Revert "fix splat on disabling an interface"
-      batman-adv: Detect missing primaryif during tp_send as error
-
+Reported-by: Julian Labus <julian-OytpCXbLH6+xrkVEDGYtmQ@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Acked-by: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+---
  net/batman-adv/hard-interface.c | 1 +
- net/batman-adv/tp_meter.c       | 1 +
- 2 files changed, 2 insertions(+)
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index e034afb..08ce361 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -652,6 +652,7 @@ void batadv_hardif_disable_interface(struct batadv_hard_iface *hard_iface,
+ 			batadv_softif_destroy_sysfs(hard_iface->soft_iface);
+ 	}
+ 
++	hard_iface->soft_iface = NULL;
+ 	batadv_hardif_put(hard_iface);
+ 
+ out:
+-- 
+2.10.2
