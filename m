@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: macb: add check for dma mapping error in
- start_xmit()
-Date: Sat, 19 Nov 2016 10:29:14 -0500 (EST)
-Message-ID: <20161119.102914.2049594778546810370.davem@davemloft.net>
-References: <1479508810-30476-1-git-send-email-khoroshilov@ispras.ru>
+Subject: Re: [PATCH net-next v2 1/5] virtio_net: Simplify call sites for
+ virtio_net_hdr_{from,to}_skb().
+Date: Sat, 19 Nov 2016 10:37:14 -0500 (EST)
+Message-ID: <20161119.103714.293011246005811705.davem@davemloft.net>
+References: <1479512442-61601-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: khoroshilov@ispras.ru
+Cc: netdev@vger.kernel.org
+To: jarno@ovn.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34210 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34278 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752975AbcKSP3V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 10:29:21 -0500
-In-Reply-To: <1479508810-30476-1-git-send-email-khoroshilov@ispras.ru>
+        with ESMTP id S1752985AbcKSPhQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 10:37:16 -0500
+In-Reply-To: <1479512442-61601-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Date: Sat, 19 Nov 2016 01:40:10 +0300
+From: Jarno Rajahalme <jarno@ovn.org>
+Date: Fri, 18 Nov 2016 15:40:38 -0800
 
-> at91ether_start_xmit() does not check for dma mapping errors.
+> No point storing the return value of virtio_net_hdr_to_skb() or
+> virtio_net_hdr_from_skb() to a variable when the value is used only
+> once as a boolean in an immediately following if statement.
 > 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 
-Applied, thanks.
+Applied.
