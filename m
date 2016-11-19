@@ -1,47 +1,71 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net: make struct napi_alloc_cache::skb_count unsigned int
-Date: Sat, 19 Nov 2016 03:47:56 +0300
-Message-ID: <20161119004756.GC1200@avx2>
+Subject: [PATCH] netlink: use "unsigned int" in nla_next()
+Date: Sat, 19 Nov 2016 03:54:35 +0300
+Message-ID: <20161119005435.GD1200@avx2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35403 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33149 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751716AbcKRWsG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 17:48:06 -0500
-Received: by mail-wm0-f65.google.com with SMTP id a20so10742137wme.2
-        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 14:48:05 -0800 (PST)
+        with ESMTP id S1751716AbcKRWyo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Nov 2016 17:54:44 -0500
+Received: by mail-wm0-f65.google.com with SMTP id u144so10788005wmu.0
+        for <netdev@vger.kernel.org>; Fri, 18 Nov 2016 14:54:44 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-size_t is way too much for an integer not exceeding 64.
+->nla_len is unsigned entity (it's length after all) and u16,
+thus it can't overflow when being aligned into int/unsigned int.
 
-Space savings: 10 bytes!
+(nlmsg_next has the same code, but I didn't yet convince myself
+it is correct to do so).
 
-	add/remove: 0/0 grow/shrink: 0/3 up/down: 0/-10 (-10)
+There is pointer arithmetic in this function and offset being
+unsigned is better:
+
+	add/remove: 0/0 grow/shrink: 1/64 up/down: 5/-309 (-304)
 	function                                     old     new   delta
-	napi_consume_skb                             165     163      -2
-	__kfree_skb_flush                             56      53      -3
-	__kfree_skb_defer                             97      92      -5
-	Total: Before=154865639, After=154865629, chg -0.00%
+	nl80211_set_wiphy                           1444    1449      +5
+	team_nl_cmd_options_set                      997     995      -2
+	tcf_em_tree_validate                         872     870      -2
+	switchdev_port_bridge_setlink                352     350      -2
+	switchdev_port_br_afspec                     312     310      -2
+	rtm_to_fib_config                            428     426      -2
+	qla4xxx_sysfs_ddb_set_param                 2193    2191      -2
+	qla4xxx_iface_set_param                     4470    4468      -2
+	ovs_nla_free_flow_actions                    152     150      -2
+	output_userspace                             518     516      -2
+		...
+	nl80211_set_reg                              654     649      -5
+	validate_scan_freqs                          148     142      -6
+	validate_linkmsg                             288     282      -6
+	nl80211_parse_connkeys                       489     483      -6
+	nlattr_set                                   231     224      -7
+	nf_tables_delsetelem                         267     260      -7
+	do_setlink                                  3416    3408      -8
+	netlbl_cipsov4_add_std                      1672    1659     -13
+	nl80211_parse_sched_scan                    2902    2888     -14
+	nl80211_trigger_scan                        1738    1720     -18
+	do_execute_actions                          2821    2738     -83
+	Total: Before=154865355, After=154865051, chg -0.00%
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/core/skbuff.c |    2 +-
+ include/net/netlink.h |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -354,7 +354,7 @@ EXPORT_SYMBOL(build_skb);
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -713,7 +713,7 @@ static inline bool nla_ok(const struct nlattr *nla, int remaining)
+  */
+ static inline struct nlattr *nla_next(const struct nlattr *nla, int *remaining)
+ {
+-	int totlen = NLA_ALIGN(nla->nla_len);
++	unsigned int totlen = NLA_ALIGN(nla->nla_len);
  
- struct napi_alloc_cache {
- 	struct page_frag_cache page;
--	size_t skb_count;
-+	unsigned int skb_count;
- 	void *skb_cache[NAPI_SKB_CACHE_SIZE];
- };
- 
+ 	*remaining -= totlen;
+ 	return (struct nlattr *) ((char *) nla + totlen);
