@@ -1,49 +1,28 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [net-next] rtnl: fix the loop index update error in
- rtnl_dump_ifinfo()
-Date: Sat, 19 Nov 2016 21:45:38 -0500
-Message-ID: <713e95b3-8a90-1ef5-70af-dcc5426b2884@cumulusnetworks.com>
-References: <1479569312-15224-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] i40e: remove unnecessary __packed
+Date: Sat, 19 Nov 2016 21:47:40 -0500 (EST)
+Message-ID: <20161119.214740.728792132654733676.davem@davemloft.net>
+References: <1479592438-17078-1-git-send-email-tushar.n.dave@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
+Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
         netdev@vger.kernel.org
+To: tushar.n.dave@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f181.google.com ([209.85.217.181]:35041 "EHLO
-        mail-ua0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753004AbcKTCpj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 21:45:39 -0500
-Received: by mail-ua0-f181.google.com with SMTP id 12so201272807uas.2
-        for <netdev@vger.kernel.org>; Sat, 19 Nov 2016 18:45:39 -0800 (PST)
-In-Reply-To: <1479569312-15224-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45498 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753240AbcKTCro (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 21:47:44 -0500
+In-Reply-To: <1479592438-17078-1-git-send-email-tushar.n.dave@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/19/16 10:28 AM, Zhang Shengju wrote:
-> If the link is filtered out, loop index should also be updated. If not,
-> loop index will not be correct.
-> 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> ---
->  net/core/rtnetlink.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index db313ec..f4b9350 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1606,7 +1606,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
->  		head = &net->dev_index_head[h];
->  		hlist_for_each_entry(dev, head, index_hlist) {
->  			if (link_dump_filtered(dev, master_idx, kind_ops))
-> -				continue;
-> +				goto cont;
->  			if (idx < s_idx)
->  				goto cont;
->  			err = rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
-> 
+From: Tushar Dave <tushar.n.dave@oracle.com>
+Date: Sat, 19 Nov 2016 13:53:58 -0800
 
-Fixes: dc599f76c22b0 ("net: Add support for filtering link dump by master device and kind")
+> 'struct i40e_dma_mem' defined with 'packed' directive causing kernel
+> unaligned errors on sparc.
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+I really wish people would get out of the habit of just slapping
+the __packed attribute onto structures seemingly by default.
