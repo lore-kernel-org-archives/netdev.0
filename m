@@ -1,79 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bnx2: use READ_ONCE() instead of barrier()
-Date: Sat, 19 Nov 2016 14:57:11 -0800
-Message-ID: <1479596231.8455.354.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [net-next] rtnl: fix the loop index update error in
+ rtnl_dump_ifinfo()
+Date: Sat, 19 Nov 2016 21:45:38 -0500
+Message-ID: <713e95b3-8a90-1ef5-70af-dcc5426b2884@cumulusnetworks.com>
+References: <1479569312-15224-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Rasesh Mody <rasesh.mody@cavium.com>,
-        Harish Patil <harish.patil@cavium.com>
-To: David Miller <davem@davemloft.net>
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36160 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752941AbcKSW5O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 17:57:14 -0500
-Received: by mail-pf0-f196.google.com with SMTP id c4so13164436pfb.3
-        for <netdev@vger.kernel.org>; Sat, 19 Nov 2016 14:57:14 -0800 (PST)
+Received: from mail-ua0-f181.google.com ([209.85.217.181]:35041 "EHLO
+        mail-ua0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753004AbcKTCpj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 21:45:39 -0500
+Received: by mail-ua0-f181.google.com with SMTP id 12so201272807uas.2
+        for <netdev@vger.kernel.org>; Sat, 19 Nov 2016 18:45:39 -0800 (PST)
+In-Reply-To: <1479569312-15224-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 11/19/16 10:28 AM, Zhang Shengju wrote:
+> If the link is filtered out, loop index should also be updated. If not,
+> loop index will not be correct.
+> 
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> ---
+>  net/core/rtnetlink.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index db313ec..f4b9350 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1606,7 +1606,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+>  		head = &net->dev_index_head[h];
+>  		hlist_for_each_entry(dev, head, index_hlist) {
+>  			if (link_dump_filtered(dev, master_idx, kind_ops))
+> -				continue;
+> +				goto cont;
+>  			if (idx < s_idx)
+>  				goto cont;
+>  			err = rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
+> 
 
-barrier() is a big hammer compared to READ_ONCE(),
-and requires comments explaining what is protected.
+Fixes: dc599f76c22b0 ("net: Add support for filtering link dump by master device and kind")
 
-READ_ONCE() is more precise and compiler should generate
-better overall code.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/broadcom/bnx2.c |   17 +++++------------
- 1 file changed, 5 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 9960a9249dc0d0c8fb3494989e882a4c96e64970..d5d1026be4b70a320c48af7545a1891c74e19a47 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -254,13 +254,10 @@ static inline u32 bnx2_tx_avail(struct bnx2 *bp, struct bnx2_tx_ring_info *txr)
- {
- 	u32 diff;
- 
--	/* Tell compiler to fetch tx_prod and tx_cons from memory. */
--	barrier();
--
- 	/* The ring uses 256 indices for 255 entries, one of them
- 	 * needs to be skipped.
- 	 */
--	diff = txr->tx_prod - txr->tx_cons;
-+	diff = READ_ONCE(txr->tx_prod) - READ_ONCE(txr->tx_cons);
- 	if (unlikely(diff >= BNX2_TX_DESC_CNT)) {
- 		diff &= 0xffff;
- 		if (diff == BNX2_TX_DESC_CNT)
-@@ -2839,10 +2836,8 @@ bnx2_get_hw_tx_cons(struct bnx2_napi *bnapi)
- {
- 	u16 cons;
- 
--	/* Tell compiler that status block fields can change. */
--	barrier();
--	cons = *bnapi->hw_tx_cons_ptr;
--	barrier();
-+	cons = READ_ONCE(*bnapi->hw_tx_cons_ptr);
-+
- 	if (unlikely((cons & BNX2_MAX_TX_DESC_CNT) == BNX2_MAX_TX_DESC_CNT))
- 		cons++;
- 	return cons;
-@@ -3141,10 +3136,8 @@ bnx2_get_hw_rx_cons(struct bnx2_napi *bnapi)
- {
- 	u16 cons;
- 
--	/* Tell compiler that status block fields can change. */
--	barrier();
--	cons = *bnapi->hw_rx_cons_ptr;
--	barrier();
-+	cons = READ_ONCE(*bnapi->hw_rx_cons_ptr);
-+
- 	if (unlikely((cons & BNX2_MAX_RX_DESC_CNT) == BNX2_MAX_RX_DESC_CNT))
- 		cons++;
- 	return cons;
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
