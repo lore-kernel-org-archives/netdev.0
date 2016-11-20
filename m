@@ -1,44 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix bogus cast in skb_pagelen() and use unsigned
- variables
-Date: Sat, 19 Nov 2016 22:12:15 -0500 (EST)
-Message-ID: <20161119.221215.1839854526883011435.davem@davemloft.net>
-References: <20161119010808.GF1200@avx2>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH] VSOCK: add loopback to virtio_transport
+Date: Sat, 19 Nov 2016 19:14:15 -0800
+Message-ID: <58311507.7070707@gmail.com>
+References: <1479397763-22319-1-git-send-email-stefanha@redhat.com>
+ <20161119.220804.755313313976863187.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: adobriyan@gmail.com
+Cc: netdev@vger.kernel.org, cavery@redhat.com,
+        imbrenda@linux.vnet.ibm.com, jhansen@vmware.com
+To: David Miller <davem@davemloft.net>, stefanha@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45912 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753126AbcKTDMQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 22:12:16 -0500
-In-Reply-To: <20161119010808.GF1200@avx2>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33106 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752897AbcKTDOa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Nov 2016 22:14:30 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 3so24749667pgd.0
+        for <netdev@vger.kernel.org>; Sat, 19 Nov 2016 19:14:30 -0800 (PST)
+In-Reply-To: <20161119.220804.755313313976863187.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Sat, 19 Nov 2016 04:08:08 +0300
+On 16-11-19 07:08 PM, David Miller wrote:
+> From: Stefan Hajnoczi <stefanha@redhat.com>
+> Date: Thu, 17 Nov 2016 15:49:23 +0000
+> 
+>> @@ -159,6 +199,10 @@ virtio_transport_send_pkt(struct virtio_vsock_pkt *pkt)
+>>  		return -ENODEV;
+>>  	}
+>>  
+>> +	if (le32_to_cpu(pkt->hdr.dst_cid) == vsock->guest_cid) {
+>> +		return virtio_transport_send_pkt_loopback(vsock, pkt);
+>> +	}
+>> +
+> 
+> A single-statement basic block should get surrounding curly
+> braces.
+> 
 
-> 1) cast to "int" is unnecessary:
->    u8 will be promoted to int before decrementing,
->    small positive numbers fit into "int", so their values won't be changed
->    during promotion.
-> 
->    Once everything is int including loop counters, signedness doesn't
->    matter: 32-bit operations will stay 32-bit operations.
-> 
->    But! Someone tried to make this loop smart by making everything of
->    the same type apparently in an attempt to optimise it.
->    Do the optimization, just differently.
->    Do the cast where it matters. :^)
-> 
-> 2) frag size is unsigned entity and sum of fragments sizes is also
->    unsigned.
-> 
-> Make everything unsigned, leave no MOVSX instruction behind.
- ...
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-
-Applied to net-next.
+Should _not_ get curly braces in case it wasn't obvious ;)
