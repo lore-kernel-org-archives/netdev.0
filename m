@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH net 08/18] net/ena: change sizeof() argument to be the type pointer
-Date: Sun, 20 Nov 2016 10:45:37 +0200
-Message-ID: <1479631547-29354-9-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH net 07/18] net/ena: refactor ena_get_stats64 to be atomic context safe
+Date: Sun, 20 Nov 2016 10:45:36 +0200
+Message-ID: <1479631547-29354-8-git-send-email-netanel@annapurnalabs.com>
 References: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -9,95 +9,142 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         nafea@annapurnalabs.com
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:38270 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753411AbcKTIqP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 03:46:15 -0500
-Received: by mail-wm0-f47.google.com with SMTP id f82so98677182wmf.1
-        for <netdev@vger.kernel.org>; Sun, 20 Nov 2016 00:46:15 -0800 (PST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Instead of using:
-memset(ptr, 0x0, sizeof(struct ...))
-use:
-memset(ptr, 0x0, sizeor(*ptr))
+ndo_get_stat64 can be called from atomic context.
+However the current implementation sends an admin command to retrieve
+the statistics from the device.
+This admin commands uses sleep.
+
+Refactor the implementation of ena_get_stats64 to take the
+{rx,tx}bytes/cnt from the driver's inner counters
+and to take the rx drops counter
+from the asynchronous keep alive (heart bit) event.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_admin_defs.h |  8 ++++
+ drivers/net/ethernet/amazon/ena/ena_netdev.c     | 57 +++++++++++++++++-------
+ drivers/net/ethernet/amazon/ena/ena_netdev.h     |  1 +
+ 3 files changed, 51 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 366c2c5..edb2e81 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -329,7 +329,7 @@ static int ena_com_init_io_sq(struct ena_com_dev *ena_dev,
- 	size_t size;
- 	int dev_node = 0;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
+index c78f0b2..35ae511 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
++++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
+@@ -904,6 +904,14 @@ struct ena_admin_aenq_link_change_desc {
+ 	u32 flags;
+ };
  
--	memset(&io_sq->desc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
-+	memset(&io_sq->desc_addr, 0x0, sizeof(io_sq->desc_addr));
++struct ena_admin_aenq_keep_alive_desc {
++	struct ena_admin_aenq_common_desc aenq_common_desc;
++
++	u32 rx_drops_low;
++
++	u32 rx_drops_high;
++};
++
+ struct ena_admin_ena_mmio_req_read_less_resp {
+ 	u16 req_id;
  
- 	io_sq->desc_entry_size =
- 		(io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX) ?
-@@ -383,7 +383,7 @@ static int ena_com_init_io_cq(struct ena_com_dev *ena_dev,
- 	size_t size;
- 	int prev_node = 0;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index e7dda8b..44dc298 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -2185,28 +2185,46 @@ static struct rtnl_link_stats64 *ena_get_stats64(struct net_device *netdev,
+ 						 struct rtnl_link_stats64 *stats)
+ {
+ 	struct ena_adapter *adapter = netdev_priv(netdev);
+-	struct ena_admin_basic_stats ena_stats;
+-	int rc;
++	struct ena_ring *rx_ring, *tx_ring;
++	unsigned int start;
++	u64 rx_drops;
++	int i;
  
--	memset(&io_cq->cdesc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
-+	memset(&io_cq->cdesc_addr, 0x0, sizeof(io_cq->cdesc_addr));
+ 	if (!test_bit(ENA_FLAG_DEV_UP, &adapter->flags))
+ 		return NULL;
  
- 	/* Use the basic completion descriptor for Rx */
- 	io_cq->cdesc_entry_size_in_bytes =
-@@ -681,7 +681,7 @@ static int ena_com_destroy_io_sq(struct ena_com_dev *ena_dev,
- 	u8 direction;
- 	int ret;
+-	rc = ena_com_get_dev_basic_stats(adapter->ena_dev, &ena_stats);
+-	if (rc)
+-		return NULL;
++	for (i = 0; i < adapter->num_queues; i++) {
++		u64 bytes, packets;
++
++		tx_ring = &adapter->tx_ring[i];
++
++		do {
++			start = u64_stats_fetch_begin_irq(&tx_ring->syncp);
++			packets = tx_ring->tx_stats.cnt;
++			bytes = tx_ring->tx_stats.bytes;
++		} while (u64_stats_fetch_retry_irq(&tx_ring->syncp, start));
++
++		stats->tx_packets += packets;
++		stats->tx_bytes += bytes;
  
--	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
-+	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
+-	stats->tx_bytes = ((u64)ena_stats.tx_bytes_high << 32) |
+-		ena_stats.tx_bytes_low;
+-	stats->rx_bytes = ((u64)ena_stats.rx_bytes_high << 32) |
+-		ena_stats.rx_bytes_low;
++		rx_ring = &adapter->rx_ring[i];
++
++		do {
++			start = u64_stats_fetch_begin_irq(&rx_ring->syncp);
++			packets = rx_ring->rx_stats.cnt;
++			bytes = rx_ring->rx_stats.bytes;
++		} while (u64_stats_fetch_retry_irq(&rx_ring->syncp, start));
  
- 	if (io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX)
- 		direction = ENA_ADMIN_SQ_DIRECTION_TX;
-@@ -963,7 +963,7 @@ static int ena_com_create_io_sq(struct ena_com_dev *ena_dev,
- 	u8 direction;
- 	int ret;
+-	stats->rx_packets = ((u64)ena_stats.rx_pkts_high << 32) |
+-		ena_stats.rx_pkts_low;
+-	stats->tx_packets = ((u64)ena_stats.tx_pkts_high << 32) |
+-		ena_stats.tx_pkts_low;
++		stats->rx_packets += packets;
++		stats->rx_bytes += bytes;
++	}
++
++	do {
++		start = u64_stats_fetch_begin_irq(&rx_ring->syncp);
++		rx_drops = adapter->dev_stats.rx_drops;
++	} while (u64_stats_fetch_retry_irq(&rx_ring->syncp, start));
  
--	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_sq_cmd));
-+	memset(&create_cmd, 0x0, sizeof(create_cmd));
+-	stats->rx_dropped = ((u64)ena_stats.rx_drops_high << 32) |
+-		ena_stats.rx_drops_low;
++	stats->rx_dropped = rx_drops;
  
- 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_SQ;
+ 	stats->multicast = 0;
+ 	stats->collisions = 0;
+@@ -3272,8 +3290,17 @@ static void ena_keep_alive_wd(void *adapter_data,
+ 			      struct ena_admin_aenq_entry *aenq_e)
+ {
+ 	struct ena_adapter *adapter = (struct ena_adapter *)adapter_data;
++	struct ena_admin_aenq_keep_alive_desc *desc;
++	u64 rx_drops;
  
-@@ -1155,7 +1155,7 @@ int ena_com_create_io_cq(struct ena_com_dev *ena_dev,
- 	struct ena_admin_acq_create_cq_resp_desc cmd_completion;
- 	int ret;
++	desc = (struct ena_admin_aenq_keep_alive_desc *)aenq_e;
+ 	adapter->last_keep_alive_jiffies = jiffies;
++
++	rx_drops = ((u64)desc->rx_drops_high << 32) | desc->rx_drops_low;
++
++	u64_stats_update_begin(&adapter->syncp);
++	adapter->dev_stats.rx_drops = rx_drops;
++	u64_stats_update_end(&adapter->syncp);
+ }
  
--	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_cq_cmd));
-+	memset(&create_cmd, 0x0, sizeof(create_cmd));
+ static void ena_notification(void *adapter_data,
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index f8ef1f0..2897fab 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -251,6 +251,7 @@ struct ena_stats_dev {
+ 	u64 interface_up;
+ 	u64 interface_down;
+ 	u64 admin_q_pause;
++	u64 rx_drops;
+ };
  
- 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_CQ;
- 
-@@ -1263,7 +1263,7 @@ int ena_com_destroy_io_cq(struct ena_com_dev *ena_dev,
- 	struct ena_admin_acq_destroy_cq_resp_desc destroy_resp;
- 	int ret;
- 
--	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
-+	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
- 
- 	destroy_cmd.cq_idx = io_cq->idx;
- 	destroy_cmd.aq_common_descriptor.opcode = ENA_ADMIN_DESTROY_CQ;
-@@ -1613,8 +1613,8 @@ int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
- 	io_sq = &ena_dev->io_sq_queues[ctx->qid];
- 	io_cq = &ena_dev->io_cq_queues[ctx->qid];
- 
--	memset(io_sq, 0x0, sizeof(struct ena_com_io_sq));
--	memset(io_cq, 0x0, sizeof(struct ena_com_io_cq));
-+	memset(io_sq, 0x0, sizeof(*io_sq));
-+	memset(io_cq, 0x0, sizeof(*io_cq));
- 
- 	/* Init CQ */
- 	io_cq->q_depth = ctx->queue_size;
+ enum ena_flags_t {
 -- 
 1.9.1
