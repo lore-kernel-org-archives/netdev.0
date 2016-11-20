@@ -1,49 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] [v2] net: phy: phy drivers should not set
- SUPPORTED_[Asym_]Pause
-Date: Sun, 20 Nov 2016 09:32:26 -0800
-Message-ID: <7af71256-7c94-3847-f50f-482ff26f7e45@gmail.com>
-References: <1478821561-26498-1-git-send-email-timur@codeaurora.org>
- <cf18464c-e225-af5d-9251-f2553b93b9ff@gmail.com>
- <CAOZdJXX5j9EVB8UtJK7u4-q4yFFtPBdWnWhL5aO_gGvL7fLTUg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/1] driver: macvlan: Remove duplicated IFF_UP
+ condition check in macvlan_forward_source_one
+Date: Sun, 20 Nov 2016 09:37:56 -0800
+Message-ID: <1479663476.8455.369.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1479640879-30733-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Timur Tabi <timur@codeaurora.org>
+Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34412 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751613AbcKTRc2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 12:32:28 -0500
-Received: by mail-pf0-f196.google.com with SMTP id y68so16759141pfb.1
-        for <netdev@vger.kernel.org>; Sun, 20 Nov 2016 09:32:28 -0800 (PST)
-In-Reply-To: <CAOZdJXX5j9EVB8UtJK7u4-q4yFFtPBdWnWhL5aO_gGvL7fLTUg@mail.gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35782 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752209AbcKTRh6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 12:37:58 -0500
+Received: by mail-pg0-f65.google.com with SMTP id p66so26145628pga.2
+        for <netdev@vger.kernel.org>; Sun, 20 Nov 2016 09:37:58 -0800 (PST)
+In-Reply-To: <1479640879-30733-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 11/20/2016 08:08 AM, Timur Tabi wrote:
-> On Mon, Nov 14, 2016 at 12:35 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> if (!(drv->features & (SUPPORTED_Pause | SUPPORTED_AsymPause))
->>         phydev->supported |= SUPPORTED_Pause | SUPPORTED_AsymPause;
+On Sun, 2016-11-20 at 19:21 +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <gfree.wind@gmail.com>
 > 
-> How about, if either bit is set in drv->features, then assume the phy
-> driver really knows what it's doing, and just copy those bits to
-> phydev->supported?
-
-Yes, that seems completely reasonable to me. Thanks!
-
+> The condition check "dev->flags & IFF_UP" is duplicated in
+> macvlan_forward_source_one, because its caller macvlan_forward_source
+> has already checked this flag.
 > 
-> if (drv->features & (SUPPORTED_Pause | SUPPORTED_AsymPause)) {
->     phydev->supported &= ~(SUPPORTED_Pause | SUPPORTED_AsymPause);
->     phydev->supported |= drv->features & (SUPPORTED_Pause |
-> SUPPORTED_AsymPause);
-> } else
->     phydev->supported |= SUPPORTED_Pause | SUPPORTED_AsymPause;
+> Signed-off-by: Gao Feng <gfree.wind@gmail.com>
+> ---
+>  drivers/net/macvlan.c | 3 ---
+>  1 file changed, 3 deletions(-)
 > 
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 13b7e0b..95a5ffc 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -375,9 +375,6 @@ static void macvlan_forward_source_one(struct sk_buff *skb,
+>  	int ret;
+>  
+>  	dev = vlan->dev;
+> -	if (unlikely(!(dev->flags & IFF_UP)))
+> -		return;
+> -
+>  	nskb = skb_clone(skb, GFP_ATOMIC);
+>  	if (!nskb)
+>  		return;
 
--- 
-Florian
+If you don't mind, I would rather remove the test in the caller and
+leave it here. It is likely compiler inlines the function anyway, so
+there is no performance change.
