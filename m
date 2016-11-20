@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH net 07/18] net/ena: refactor ena_get_stats64 to be atomic context safe
-Date: Sun, 20 Nov 2016 10:45:36 +0200
-Message-ID: <1479631547-29354-8-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH net 04/18] net/ena: reduce the severity of ena printouts
+Date: Sun, 20 Nov 2016 10:45:33 +0200
+Message-ID: <1479631547-29354-5-git-send-email-netanel@annapurnalabs.com>
 References: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -14,137 +14,123 @@ In-Reply-To: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ndo_get_stat64 can be called from atomic context.
-However the current implementation sends an admin command to retrieve
-the statistics from the device.
-This admin commands uses sleep.
-
-Refactor the implementation of ena_get_stats64 to take the
-{rx,tx}bytes/cnt from the driver's inner counters
-and to take the rx drops counter
-from the asynchronous keep alive (heart bit) event.
-
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_admin_defs.h |  8 ++++
- drivers/net/ethernet/amazon/ena/ena_netdev.c     | 57 +++++++++++++++++-------
- drivers/net/ethernet/amazon/ena/ena_netdev.h     |  1 +
- 3 files changed, 51 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c    | 27 +++++++++++++++++----------
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 14 +++++++++++---
+ 2 files changed, 28 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-index c78f0b2..35ae511 100644
---- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-@@ -904,6 +904,14 @@ struct ena_admin_aenq_link_change_desc {
- 	u32 flags;
- };
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index 3066d9c..6bd2b9b 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -784,7 +784,7 @@ static int ena_com_get_feature_ex(struct ena_com_dev *ena_dev,
+ 	int ret;
  
-+struct ena_admin_aenq_keep_alive_desc {
-+	struct ena_admin_aenq_common_desc aenq_common_desc;
-+
-+	u32 rx_drops_low;
-+
-+	u32 rx_drops_high;
-+};
-+
- struct ena_admin_ena_mmio_req_read_less_resp {
- 	u16 req_id;
+ 	if (!ena_com_check_supported_feature_id(ena_dev, feature_id)) {
+-		pr_info("Feature %d isn't supported\n", feature_id);
++		pr_debug("Feature %d isn't supported\n", feature_id);
+ 		return -EPERM;
+ 	}
  
+@@ -1126,7 +1126,13 @@ int ena_com_execute_admin_command(struct ena_com_admin_queue *admin_queue,
+ 	comp_ctx = ena_com_submit_admin_cmd(admin_queue, cmd, cmd_size,
+ 					    comp, comp_size);
+ 	if (unlikely(IS_ERR(comp_ctx))) {
+-		pr_err("Failed to submit command [%ld]\n", PTR_ERR(comp_ctx));
++		if (comp_ctx == ERR_PTR(-ENODEV))
++			pr_debug("Failed to submit command [%ld]\n",
++				 PTR_ERR(comp_ctx));
++		else
++			pr_err("Failed to submit command [%ld]\n",
++			       PTR_ERR(comp_ctx));
++
+ 		return PTR_ERR(comp_ctx);
+ 	}
+ 
+@@ -1895,7 +1901,7 @@ int ena_com_set_dev_mtu(struct ena_com_dev *ena_dev, int mtu)
+ 	int ret;
+ 
+ 	if (!ena_com_check_supported_feature_id(ena_dev, ENA_ADMIN_MTU)) {
+-		pr_info("Feature %d isn't supported\n", ENA_ADMIN_MTU);
++		pr_debug("Feature %d isn't supported\n", ENA_ADMIN_MTU);
+ 		return -EPERM;
+ 	}
+ 
+@@ -1948,8 +1954,8 @@ int ena_com_set_hash_function(struct ena_com_dev *ena_dev)
+ 
+ 	if (!ena_com_check_supported_feature_id(ena_dev,
+ 						ENA_ADMIN_RSS_HASH_FUNCTION)) {
+-		pr_info("Feature %d isn't supported\n",
+-			ENA_ADMIN_RSS_HASH_FUNCTION);
++		pr_debug("Feature %d isn't supported\n",
++			 ENA_ADMIN_RSS_HASH_FUNCTION);
+ 		return -EPERM;
+ 	}
+ 
+@@ -2112,7 +2118,8 @@ int ena_com_set_hash_ctrl(struct ena_com_dev *ena_dev)
+ 
+ 	if (!ena_com_check_supported_feature_id(ena_dev,
+ 						ENA_ADMIN_RSS_HASH_INPUT)) {
+-		pr_info("Feature %d isn't supported\n", ENA_ADMIN_RSS_HASH_INPUT);
++		pr_debug("Feature %d isn't supported\n",
++			 ENA_ADMIN_RSS_HASH_INPUT);
+ 		return -EPERM;
+ 	}
+ 
+@@ -2270,8 +2277,8 @@ int ena_com_indirect_table_set(struct ena_com_dev *ena_dev)
+ 
+ 	if (!ena_com_check_supported_feature_id(
+ 		    ena_dev, ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG)) {
+-		pr_info("Feature %d isn't supported\n",
+-			ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
++		pr_debug("Feature %d isn't supported\n",
++			 ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
+ 		return -EPERM;
+ 	}
+ 
+@@ -2542,8 +2549,8 @@ int ena_com_init_interrupt_moderation(struct ena_com_dev *ena_dev)
+ 
+ 	if (rc) {
+ 		if (rc == -EPERM) {
+-			pr_info("Feature %d isn't supported\n",
+-				ENA_ADMIN_INTERRUPT_MODERATION);
++			pr_debug("Feature %d isn't supported\n",
++				 ENA_ADMIN_INTERRUPT_MODERATION);
+ 			rc = 0;
+ 		} else {
+ 			pr_err("Failed to get interrupt moderation admin cmd. rc: %d\n",
 diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index e7dda8b..44dc298 100644
+index e3acf76..7247abb 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2185,28 +2185,46 @@ static struct rtnl_link_stats64 *ena_get_stats64(struct net_device *netdev,
- 						 struct rtnl_link_stats64 *stats)
+@@ -566,6 +566,7 @@ static void ena_free_all_rx_bufs(struct ena_adapter *adapter)
+  */
+ static void ena_free_tx_bufs(struct ena_ring *tx_ring)
  {
- 	struct ena_adapter *adapter = netdev_priv(netdev);
--	struct ena_admin_basic_stats ena_stats;
--	int rc;
-+	struct ena_ring *rx_ring, *tx_ring;
-+	unsigned int start;
-+	u64 rx_drops;
-+	int i;
++	bool print_once = true;
+ 	u32 i;
  
- 	if (!test_bit(ENA_FLAG_DEV_UP, &adapter->flags))
- 		return NULL;
+ 	for (i = 0; i < tx_ring->ring_size; i++) {
+@@ -577,9 +578,16 @@ static void ena_free_tx_bufs(struct ena_ring *tx_ring)
+ 		if (!tx_info->skb)
+ 			continue;
  
--	rc = ena_com_get_dev_basic_stats(adapter->ena_dev, &ena_stats);
--	if (rc)
--		return NULL;
-+	for (i = 0; i < adapter->num_queues; i++) {
-+		u64 bytes, packets;
-+
-+		tx_ring = &adapter->tx_ring[i];
-+
-+		do {
-+			start = u64_stats_fetch_begin_irq(&tx_ring->syncp);
-+			packets = tx_ring->tx_stats.cnt;
-+			bytes = tx_ring->tx_stats.bytes;
-+		} while (u64_stats_fetch_retry_irq(&tx_ring->syncp, start));
-+
-+		stats->tx_packets += packets;
-+		stats->tx_bytes += bytes;
+-		netdev_notice(tx_ring->netdev,
+-			      "free uncompleted tx skb qid %d idx 0x%x\n",
+-			      tx_ring->qid, i);
++		if (print_once) {
++			netdev_notice(tx_ring->netdev,
++				      "free uncompleted tx skb qid %d idx 0x%x\n",
++				      tx_ring->qid, i);
++			print_once = false;
++		} else {
++			netdev_dbg(tx_ring->netdev,
++				   "free uncompleted tx skb qid %d idx 0x%x\n",
++				   tx_ring->qid, i);
++		}
  
--	stats->tx_bytes = ((u64)ena_stats.tx_bytes_high << 32) |
--		ena_stats.tx_bytes_low;
--	stats->rx_bytes = ((u64)ena_stats.rx_bytes_high << 32) |
--		ena_stats.rx_bytes_low;
-+		rx_ring = &adapter->rx_ring[i];
-+
-+		do {
-+			start = u64_stats_fetch_begin_irq(&rx_ring->syncp);
-+			packets = rx_ring->rx_stats.cnt;
-+			bytes = rx_ring->rx_stats.bytes;
-+		} while (u64_stats_fetch_retry_irq(&rx_ring->syncp, start));
- 
--	stats->rx_packets = ((u64)ena_stats.rx_pkts_high << 32) |
--		ena_stats.rx_pkts_low;
--	stats->tx_packets = ((u64)ena_stats.tx_pkts_high << 32) |
--		ena_stats.tx_pkts_low;
-+		stats->rx_packets += packets;
-+		stats->rx_bytes += bytes;
-+	}
-+
-+	do {
-+		start = u64_stats_fetch_begin_irq(&rx_ring->syncp);
-+		rx_drops = adapter->dev_stats.rx_drops;
-+	} while (u64_stats_fetch_retry_irq(&rx_ring->syncp, start));
- 
--	stats->rx_dropped = ((u64)ena_stats.rx_drops_high << 32) |
--		ena_stats.rx_drops_low;
-+	stats->rx_dropped = rx_drops;
- 
- 	stats->multicast = 0;
- 	stats->collisions = 0;
-@@ -3272,8 +3290,17 @@ static void ena_keep_alive_wd(void *adapter_data,
- 			      struct ena_admin_aenq_entry *aenq_e)
- {
- 	struct ena_adapter *adapter = (struct ena_adapter *)adapter_data;
-+	struct ena_admin_aenq_keep_alive_desc *desc;
-+	u64 rx_drops;
- 
-+	desc = (struct ena_admin_aenq_keep_alive_desc *)aenq_e;
- 	adapter->last_keep_alive_jiffies = jiffies;
-+
-+	rx_drops = ((u64)desc->rx_drops_high << 32) | desc->rx_drops_low;
-+
-+	u64_stats_update_begin(&adapter->syncp);
-+	adapter->dev_stats.rx_drops = rx_drops;
-+	u64_stats_update_end(&adapter->syncp);
- }
- 
- static void ena_notification(void *adapter_data,
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index f8ef1f0..2897fab 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -251,6 +251,7 @@ struct ena_stats_dev {
- 	u64 interface_up;
- 	u64 interface_down;
- 	u64 admin_q_pause;
-+	u64 rx_drops;
- };
- 
- enum ena_flags_t {
+ 		ena_buf = tx_info->bufs;
+ 		dma_unmap_single(tx_ring->dev,
 -- 
 1.9.1
