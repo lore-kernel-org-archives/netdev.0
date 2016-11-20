@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH net 04/18] net/ena: reduce the severity of ena printouts
-Date: Sun, 20 Nov 2016 10:45:33 +0200
-Message-ID: <1479631547-29354-5-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH net 09/18] net/ena: change condition for host attribute configuration
+Date: Sun, 20 Nov 2016 10:45:38 +0200
+Message-ID: <1479631547-29354-10-git-send-email-netanel@annapurnalabs.com>
 References: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -14,123 +14,64 @@ In-Reply-To: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Move the host info config to be the first admin command that is executed.
+This change require the driver to remove the 'feature check'
+from host info configuration flow.
+The check is removed since the supported features bitmask field
+is retrieved only after calling ENA_ADMIN_DEVICE_ATTRIBUTES admin command.
+
+If set host info is not supported an error will be returned by the device.
+
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c    | 27 +++++++++++++++++----------
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 14 +++++++++++---
- 2 files changed, 28 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c    | 8 +++-----
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 5 +++--
+ 2 files changed, 6 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 3066d9c..6bd2b9b 100644
+index edb2e81..b2891f9 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_com.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -784,7 +784,7 @@ static int ena_com_get_feature_ex(struct ena_com_dev *ena_dev,
+@@ -2474,11 +2474,9 @@ int ena_com_set_host_attributes(struct ena_com_dev *ena_dev)
+ 
  	int ret;
  
- 	if (!ena_com_check_supported_feature_id(ena_dev, feature_id)) {
--		pr_info("Feature %d isn't supported\n", feature_id);
-+		pr_debug("Feature %d isn't supported\n", feature_id);
- 		return -EPERM;
- 	}
+-	if (!ena_com_check_supported_feature_id(ena_dev,
+-						ENA_ADMIN_HOST_ATTR_CONFIG)) {
+-		pr_warn("Set host attribute isn't supported\n");
+-		return -EPERM;
+-	}
++	/* Host attribute config is called before ena_com_get_dev_attr_feat
++	 * so ena_com can't check if the feature is supported.
++	 */
  
-@@ -1126,7 +1126,13 @@ int ena_com_execute_admin_command(struct ena_com_admin_queue *admin_queue,
- 	comp_ctx = ena_com_submit_admin_cmd(admin_queue, cmd, cmd_size,
- 					    comp, comp_size);
- 	if (unlikely(IS_ERR(comp_ctx))) {
--		pr_err("Failed to submit command [%ld]\n", PTR_ERR(comp_ctx));
-+		if (comp_ctx == ERR_PTR(-ENODEV))
-+			pr_debug("Failed to submit command [%ld]\n",
-+				 PTR_ERR(comp_ctx));
-+		else
-+			pr_err("Failed to submit command [%ld]\n",
-+			       PTR_ERR(comp_ctx));
-+
- 		return PTR_ERR(comp_ctx);
- 	}
- 
-@@ -1895,7 +1901,7 @@ int ena_com_set_dev_mtu(struct ena_com_dev *ena_dev, int mtu)
- 	int ret;
- 
- 	if (!ena_com_check_supported_feature_id(ena_dev, ENA_ADMIN_MTU)) {
--		pr_info("Feature %d isn't supported\n", ENA_ADMIN_MTU);
-+		pr_debug("Feature %d isn't supported\n", ENA_ADMIN_MTU);
- 		return -EPERM;
- 	}
- 
-@@ -1948,8 +1954,8 @@ int ena_com_set_hash_function(struct ena_com_dev *ena_dev)
- 
- 	if (!ena_com_check_supported_feature_id(ena_dev,
- 						ENA_ADMIN_RSS_HASH_FUNCTION)) {
--		pr_info("Feature %d isn't supported\n",
--			ENA_ADMIN_RSS_HASH_FUNCTION);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_HASH_FUNCTION);
- 		return -EPERM;
- 	}
- 
-@@ -2112,7 +2118,8 @@ int ena_com_set_hash_ctrl(struct ena_com_dev *ena_dev)
- 
- 	if (!ena_com_check_supported_feature_id(ena_dev,
- 						ENA_ADMIN_RSS_HASH_INPUT)) {
--		pr_info("Feature %d isn't supported\n", ENA_ADMIN_RSS_HASH_INPUT);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_HASH_INPUT);
- 		return -EPERM;
- 	}
- 
-@@ -2270,8 +2277,8 @@ int ena_com_indirect_table_set(struct ena_com_dev *ena_dev)
- 
- 	if (!ena_com_check_supported_feature_id(
- 		    ena_dev, ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG)) {
--		pr_info("Feature %d isn't supported\n",
--			ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
- 		return -EPERM;
- 	}
- 
-@@ -2542,8 +2549,8 @@ int ena_com_init_interrupt_moderation(struct ena_com_dev *ena_dev)
- 
- 	if (rc) {
- 		if (rc == -EPERM) {
--			pr_info("Feature %d isn't supported\n",
--				ENA_ADMIN_INTERRUPT_MODERATION);
-+			pr_debug("Feature %d isn't supported\n",
-+				 ENA_ADMIN_INTERRUPT_MODERATION);
- 			rc = 0;
- 		} else {
- 			pr_err("Failed to get interrupt moderation admin cmd. rc: %d\n",
+ 	memset(&cmd, 0x0, sizeof(cmd));
+ 	admin_queue = &ena_dev->admin_queue;
 diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index e3acf76..7247abb 100644
+index 44dc298..dd7c74b 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -566,6 +566,7 @@ static void ena_free_all_rx_bufs(struct ena_adapter *adapter)
-  */
- static void ena_free_tx_bufs(struct ena_ring *tx_ring)
- {
-+	bool print_once = true;
- 	u32 i;
+@@ -2387,6 +2387,8 @@ static int ena_device_init(struct ena_com_dev *ena_dev, struct pci_dev *pdev,
+ 	 */
+ 	ena_com_set_admin_polling_mode(ena_dev, true);
  
- 	for (i = 0; i < tx_ring->ring_size; i++) {
-@@ -577,9 +578,16 @@ static void ena_free_tx_bufs(struct ena_ring *tx_ring)
- 		if (!tx_info->skb)
- 			continue;
++	ena_config_host_info(ena_dev);
++
+ 	/* Get Device Attributes*/
+ 	rc = ena_com_get_dev_attr_feat(ena_dev, get_feat_ctx);
+ 	if (rc) {
+@@ -2411,11 +2413,10 @@ static int ena_device_init(struct ena_com_dev *ena_dev, struct pci_dev *pdev,
  
--		netdev_notice(tx_ring->netdev,
--			      "free uncompleted tx skb qid %d idx 0x%x\n",
--			      tx_ring->qid, i);
-+		if (print_once) {
-+			netdev_notice(tx_ring->netdev,
-+				      "free uncompleted tx skb qid %d idx 0x%x\n",
-+				      tx_ring->qid, i);
-+			print_once = false;
-+		} else {
-+			netdev_dbg(tx_ring->netdev,
-+				   "free uncompleted tx skb qid %d idx 0x%x\n",
-+				   tx_ring->qid, i);
-+		}
+ 	*wd_state = !!(aenq_groups & BIT(ENA_ADMIN_KEEP_ALIVE));
  
- 		ena_buf = tx_info->bufs;
- 		dma_unmap_single(tx_ring->dev,
+-	ena_config_host_info(ena_dev);
+-
+ 	return 0;
+ 
+ err_admin_init:
++	ena_com_delete_host_info(ena_dev);
+ 	ena_com_admin_destroy(ena_dev);
+ err_mmio_read_less:
+ 	ena_com_mmio_reg_read_request_destroy(ena_dev);
 -- 
 1.9.1
