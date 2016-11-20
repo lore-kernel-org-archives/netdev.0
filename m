@@ -1,129 +1,167 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v8 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
-Date: Sat, 19 Nov 2016 22:07:52 -0800
-Message-ID: <20161120060749.GA96164@ast-mbp.thefacebook.com>
-References: <1479407229-14861-1-git-send-email-daniel@zonque.org>
- <1479407229-14861-6-git-send-email-daniel@zonque.org>
- <20161118123732.GA10400@salvia>
- <20161118171715.GA56632@ast-mbp.thefacebook.com>
- <20161118174405.GA9678@salvia>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH] net: fec: Detect and recover receive queue hangs
+Date: Sun, 20 Nov 2016 06:18:13 +0000
+Message-ID: <AM4PR0401MB226045E9C87FADD2717853AAFFB20@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+References: <1479417282-15540-1-git-send-email-chris.lesiak@licor.com>
+ <AM4PR0401MB2260764510A33C534AB0136FFFB00@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <b420fcd7-4171-f5c7-9d0c-cd8809e31bbc@licor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>, htejun-b10kYP2dOMg@public.gmane.org,
-        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161118174405.GA9678@salvia>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Jaccon Bastiaansen" <jaccon.bastiaansen@gmail.com>
+To: Chris Lesiak <chris.lesiak@licor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b420fcd7-4171-f5c7-9d0c-cd8809e31bbc@licor.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 18, 2016 at 06:44:05PM +0100, Pablo Neira Ayuso wrote:
-> On Fri, Nov 18, 2016 at 09:17:18AM -0800, Alexei Starovoitov wrote:
-> > On Fri, Nov 18, 2016 at 01:37:32PM +0100, Pablo Neira Ayuso wrote:
-> > > On Thu, Nov 17, 2016 at 07:27:08PM +0100, Daniel Mack wrote:
-> > > [...]
-> > > > @@ -312,6 +314,12 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
-> > > >  	skb->dev = dev;
-> > > >  	skb->protocol = htons(ETH_P_IP);
-> > > >  
-> > > > +	ret = BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb);
-> > > > +	if (ret) {
-> > > > +		kfree_skb(skb);
-> > > > +		return ret;
-> > > > +	}
-> > > > +
-> > > >  	/*
-> > > >  	 *	Multicasts are looped back for other local users
-> > > >  	 */
-> > > > @@ -364,12 +372,19 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
-> > > >  int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
-> > > >  {
-> > > >  	struct net_device *dev = skb_dst(skb)->dev;
-> > > > +	int ret;
-> > > >  
-> > > >  	IP_UPD_PO_STATS(net, IPSTATS_MIB_OUT, skb->len);
-> > > >  
-> > > >  	skb->dev = dev;
-> > > >  	skb->protocol = htons(ETH_P_IP);
-> > > >  
-> > > > +	ret = BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb);
-> > > > +	if (ret) {
-> > > > +		kfree_skb(skb);
-> > > > +		return ret;
-> > > > +	}
-> > > > +
-> > > >  	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
-> > > >  			    net, sk, skb, NULL, dev,
-> > > >  			    ip_finish_output,
-> > > 
-> > > Please, place this after the netfilter hook.
-> > > 
-> > > Since this new hook may mangle output packets, any mangling
-> > > potentially interfers and breaks conntrack.
-> > 
-> > actually this hook cannot mangle the packets, so no conntrack
-> > concerns.  Also this was brought up by Lorenzo earlier and consensus
-> > was that it's cleaner to leave it in this order.
-> 
-> Not yet probably, but this could be used to implement snat at some
-> point, you have potentially the infrastructure to do so in place
-> already.
-> 
-> > My reply:
-> > http://www.spinics.net/lists/cgroups/msg16675.html
-> > and Daniel's:
-> > http://www.spinics.net/lists/cgroups/msg16677.html
-> > and the rest of that thread.
-> 
-> Please place this afterwards since I don't want to update Netfilter
-> documentation to indicate that there is a new spot to debug before
-> POSTROUTING that may drop packets. People are used to debugging things
-> in a certain way, if packets are dropped after POSTROUTING, then
-> netfilter tracing will indicate the packet has successfully left our
-> framework and people will notice that packets are dropped somewhere
-> else, so they have a clue probably is this new layer.
-> 
-> Actually I remember you mentioned in a previous email that this hook
-> can be placed anywhere, and that they don't really need a fixed
-> location, if so, then it should not be much of a problem to change
-> this.
+From: Chris Lesiak <chris.lesiak@licor.com> Sent: Friday, November 18, 2016=
+ 10:37 PM
+ >To: Andy Duan <fugang.duan@nxp.com>
+ >Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jaccon
+ >Bastiaansen <jaccon.bastiaansen@gmail.com>
+ >Subject: Re: [PATCH] net: fec: Detect and recover receive queue hangs
+ >
+ >On 11/18/2016 12:44 AM, Andy Duan wrote:
+ >> From: Chris Lesiak <chris.lesiak@licor.com> Sent: Friday, November 18,
+ >> 2016 5:15 AM
+ >>  >To: Andy Duan <fugang.duan@nxp.com>
+ >>  >Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jaccon
+ >> >Bastiaansen <jaccon.bastiaansen@gmail.com>; chris.lesiak@licor.com
+ >>  >Subject: [PATCH] net: fec: Detect and recover receive queue hangs  >
+ >> >This corrects a problem that appears to be similar to ERR006358.  But
+ >> while
+ >>  >ERR006358 is a race when the tx queue transitions from empty to not
+ >> empty,  >this problem is a race when the rx queue transitions from full=
+ to
+ >not full.
+ >>  >
+ >>  >The symptom is a receive queue that is stuck.  The ENET_RDAR
+ >> register will  >read 0, indicating that there are no empty receive
+ >> descriptors in the receive  >ring.  Since no additional frames can be q=
+ueued,
+ >no RXF interrupts occur.
+ >>  >
+ >>  >This problem can be triggered with a 1 Gb link and about 400 Mbps of
+ >traffic.
+ >
+ >I can cause the error by running the following on an imx6q: iperf -s -u A=
+nd
+ >sending packets from the other end of a 1 Gbps link:
+ >iperf -c $IPADDR -u -b40000pps
+ >
+ >A few others have seen this problem.
+ >See: https://community.nxp.com/thread/322882
+ >
+ >>  >
+ >>  >This patch detects this condition, sets the work_rx bit, and
+ >> reschedules the  >poll method.
+ >>  >
+ >>  >Signed-off-by: Chris Lesiak <chris.lesiak@licor.com>
+ >>  >---
+ >>  > drivers/net/ethernet/freescale/fec_main.c | 31
+ >> >+++++++++++++++++++++++++++++++  > 1 file changed, 31 insertions(+)
+ >> > Firstly, how to reproduce the issue, pls list the reproduce steps.
+ >> Thanks.
+ >> Secondly, pls check below comments.
+ >>
+ >>  >diff --git a/drivers/net/ethernet/freescale/fec_main.c
+ >>  >b/drivers/net/ethernet/freescale/fec_main.c
+ >>  >index fea0f33..8a87037 100644
+ >>  >--- a/drivers/net/ethernet/freescale/fec_main.c
+ >>  >+++ b/drivers/net/ethernet/freescale/fec_main.c
+ >>  >@@ -1588,6 +1588,34 @@ fec_enet_interrupt(int irq, void *dev_id)
+ >>  > 	return ret;
+ >>  > }
+ >>  >
+ >>  >+static inline bool
+ >>  >+fec_enet_recover_rxq(struct fec_enet_private *fep, u16 queue_id) {
+ >>  >+	int work_bit =3D (queue_id =3D=3D 0) ? 2 : ((queue_id =3D=3D 1) ? 0=
+ : 1);
+ >>  >+
+ >>  >+	if (readl(fep->rx_queue[queue_id]->bd.reg_desc_active))
+ >> If rx ring is really empty in slight throughput cases,  rdar is always =
+cleared,
+ >then there always do napi reschedule.
+ >
+ >I think that you are concerned that if rdar is zero due to this hardware
+ >problem, but the rx ring is actually empty, then fec_enet_rx_queue will
+ >never do a write to rdar so that it can be non-zero.  That will cause nap=
+i to
+ >always be resceduled.
+ >
+ >I suppose that might be the case with zero rx traffic, and I was concerne=
+d
+ >that it might be true even when there was rx traffic.  I suspected that t=
+he
+ >hardware, seeing that rdar is zero, would never queue another packet, eve=
+n
+ >if there were in fact empty descriptors.  But it doesn't seem to be the c=
+ase.  It
+ >does reschedule multiple times, but eventually sees some packets in the r=
+x
+ >ring and recovers.
+ >
+ >I admit that I do not completely understand how that can happen.  I did
+ >confirm that fec_enet_active_rxring is not being called.
+ >
+ >Maybe someone with a deeper understanding of the fec than I can provide
+ >an explanation.
+ >
+The patch needs to hold on for some time (days), I will reserve time to inv=
+estigate the issue.
+Thanks.
 
-correct. As I said in the link above I don't mind the order.
-We discussed it in private and (my personal interpretation) that
-the opinions are 60% to keep it as-is and 40% to go with your
-proposal.
-It is certainly not a big deal to go one way or the other.
-I think only you have a strong opinion about the order whereas
-myself and Daneil B and Daniel M are exhuasted enough, so we will
-take it either way.
-So let me recoup the pro and con and let you decide, since it seems
-doing it after nf hook on tx will actually make them much harder to
-use together and I think you wouldn't want it in the first place.
-Since RX hook is so late in the receive path there is no
-practical use case to mangle the packet at this stage.
-This set of patches doesn't allow to change the packet either.
-After this rx hook the socket can only receive the packet and
-messing up l3/l4 headers won't have any effect. Furthermore since
-the hooks have to be symmetrical it doesn't make sense to mangle
-the packet on TX either. In tcp case the socket is an established
-connection, so allowing mangling won't do any good to the remote side.
-Hence this cgroup+bpf+inet_rx/tx thingy is only useful for monitoring
-of what applications are doing and high level application firewalling.
-Now imagine some policy framework that prevents a websever
-in a cgroup talk to a database using this facility. If nf hook
-runs first on tx, this policy framework won't be usable, since l3/l4
-can be mangled, so application enforcement is not possible unless
-iptables are disabled. I don't want such "either iptables or cgroup+bpf"
-scenario and I don't think you want that either.
-At the same time if iptables do traditional nat and firewall
-_after_ this tx hook then this policy framework can coexist
-with iptables based security. So imo this order of hooks
-is a better way forward.
-But if you strongly disagree, I'm ok to change it,
-though I think long term it will be a loosing proposition
-for both frameworks. So your call.
-
-Thanks
+ >>
+ >>  >+		return false;
+ >>  >+
+ >>  >+	dev_notice_once(&fep->pdev->dev, "Recovered rx queue\n");
+ >>  >+
+ >>  >+	fep->work_rx |=3D 1 << work_bit;
+ >>  >+
+ >>  >+	return true;
+ >>  >+}
+ >>  >+
+ >>  >+static inline bool fec_enet_recover_rxqs(struct fec_enet_private
+ >> *fep)  >+{
+ >>  >+	unsigned int q;
+ >>  >+	bool ret =3D false;
+ >>  >+
+ >>  >+	for (q =3D 0; q < fep->num_rx_queues; q++) {
+ >>  >+		if (fec_enet_recover_rxq(fep, q))
+ >>  >+			ret =3D true;
+ >>  >+	}
+ >>  >+
+ >>  >+	return ret;
+ >>  >+}
+ >>  >+
+ >>  > static int fec_enet_rx_napi(struct napi_struct *napi, int budget)  {
+ >>  > 	struct net_device *ndev =3D napi->dev;
+ >>  >@@ -1601,6 +1629,9 @@ static int fec_enet_rx_napi(struct napi_struct
+ >> *napi,  >int budget)
+ >>  > 	if (pkts < budget) {
+ >>  > 		napi_complete(napi);
+ >>  > 		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+ >>  >+
+ >>  >+		if (fec_enet_recover_rxqs(fep) && napi_reschedule(napi))
+ >>  >+			writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
+ >>  > 	}
+ >>  > 	return pkts;
+ >>  > }
+ >>  >--
+ >>  >2.5.5
+ >>
+ >
+ >
+ >--
+ >Chris Lesiak
+ >Principal Design Engineer, Software
+ >LI-COR Biosciences
+ >chris.lesiak@licor.com
+ >
+ >Any opinions expressed are those of the author and do not necessarily
+ >represent those of his employer.
+ >
