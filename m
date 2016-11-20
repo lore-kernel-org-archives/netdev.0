@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH net 09/18] net/ena: change condition for host attribute configuration
-Date: Sun, 20 Nov 2016 10:45:38 +0200
-Message-ID: <1479631547-29354-10-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH net 01/18] net/ena: remove RFS support from device feature list
+Date: Sun, 20 Nov 2016 10:45:30 +0200
+Message-ID: <1479631547-29354-2-git-send-email-netanel@annapurnalabs.com>
 References: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -9,69 +9,36 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         nafea@annapurnalabs.com
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f172.google.com ([209.85.210.172]:34493 "EHLO
+        mail-wj0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753121AbcKTIvf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 03:51:35 -0500
+Received: by mail-wj0-f172.google.com with SMTP id mp19so14053659wjc.1
+        for <netdev@vger.kernel.org>; Sun, 20 Nov 2016 00:51:34 -0800 (PST)
 In-Reply-To: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move the host info config to be the first admin command that is executed.
-This change require the driver to remove the 'feature check'
-from host info configuration flow.
-The check is removed since the supported features bitmask field
-is retrieved only after calling ENA_ADMIN_DEVICE_ATTRIBUTES admin command.
-
-If set host info is not supported an error will be returned by the device.
+Remove NETIF_F_NTUPLE from netdev->features.
+The ENA device driver does not support RFS acceleration.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c    | 8 +++-----
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 5 +++--
- 2 files changed, 6 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index edb2e81..b2891f9 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -2474,11 +2474,9 @@ int ena_com_set_host_attributes(struct ena_com_dev *ena_dev)
- 
- 	int ret;
- 
--	if (!ena_com_check_supported_feature_id(ena_dev,
--						ENA_ADMIN_HOST_ATTR_CONFIG)) {
--		pr_warn("Set host attribute isn't supported\n");
--		return -EPERM;
--	}
-+	/* Host attribute config is called before ena_com_get_dev_attr_feat
-+	 * so ena_com can't check if the feature is supported.
-+	 */
- 
- 	memset(&cmd, 0x0, sizeof(cmd));
- 	admin_queue = &ena_dev->admin_queue;
 diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 44dc298..dd7c74b 100644
+index bfeaec5..33a760e 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2387,6 +2387,8 @@ static int ena_device_init(struct ena_com_dev *ena_dev, struct pci_dev *pdev,
- 	 */
- 	ena_com_set_admin_polling_mode(ena_dev, true);
+@@ -2729,7 +2729,6 @@ static void ena_set_dev_offloads(struct ena_com_dev_get_features_ctx *feat,
+ 	netdev->features =
+ 		dev_features |
+ 		NETIF_F_SG |
+-		NETIF_F_NTUPLE |
+ 		NETIF_F_RXHASH |
+ 		NETIF_F_HIGHDMA;
  
-+	ena_config_host_info(ena_dev);
-+
- 	/* Get Device Attributes*/
- 	rc = ena_com_get_dev_attr_feat(ena_dev, get_feat_ctx);
- 	if (rc) {
-@@ -2411,11 +2413,10 @@ static int ena_device_init(struct ena_com_dev *ena_dev, struct pci_dev *pdev,
- 
- 	*wd_state = !!(aenq_groups & BIT(ENA_ADMIN_KEEP_ALIVE));
- 
--	ena_config_host_info(ena_dev);
--
- 	return 0;
- 
- err_admin_init:
-+	ena_com_delete_host_info(ena_dev);
- 	ena_com_admin_destroy(ena_dev);
- err_mmio_read_less:
- 	ena_com_mmio_reg_read_request_destroy(ena_dev);
 -- 
 1.9.1
