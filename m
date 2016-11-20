@@ -1,48 +1,23 @@
-From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH net 14/18] net/ena: add IPv6 extended protocols to ena_admin_flow_hash_proto
-Date: Sun, 20 Nov 2016 10:45:43 +0200
-Message-ID: <1479631547-29354-15-git-send-email-netanel@annapurnalabs.com>
-References: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
-Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
-        zorik@annapurnalabs.com, alex@annapurnalabs.com,
-        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
-        nafea@annapurnalabs.com
-To: linux-kernel@vger.kernel.org, davem@davemloft.net,
-        netdev@vger.kernel.org
+From: Sky Finance <loan@skfn.org>
+Subject: QUICK LOAN OFFER
+Date: Sat, 19 Nov 2016 22:10:53 -0800
+Message-ID: <20161120064347.6B04D2238C3F@mail.ponyexpress.kz>
+Reply-To: skyfinance001@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <loan@skfn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f181.google.com ([209.85.210.181]:36410 "EHLO
-        mail-wj0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753242AbcKTIxH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 03:53:07 -0500
-Received: by mail-wj0-f181.google.com with SMTP id qp4so14058058wjc.3
-        for <netdev@vger.kernel.org>; Sun, 20 Nov 2016 00:53:07 -0800 (PST)
-In-Reply-To: <1479631547-29354-1-git-send-email-netanel@annapurnalabs.com>
+Received: from mail.ponyexpress.kz ([178.88.184.100]:41947 "EHLO
+        mail.ponyexpress.kz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753118AbcKTJtN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 04:49:13 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We intend to use those fields in the future.
+Do You Need A Loan Of Any Kind ? If Yes Email Now For More Info Contact us on: skyfinance001@gmail.com
 
-Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_admin_defs.h | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-index 35ae511..92bba08 100644
---- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-@@ -627,6 +627,12 @@ enum ena_admin_flow_hash_proto {
- 
- 	ENA_ADMIN_RSS_NOT_IP	= 7,
- 
-+	/* TCPv6 with extension header */
-+	ENA_ADMIN_RSS_TCP6_EX	= 8,
-+
-+	/* IPv6 with extension header */
-+	ENA_ADMIN_RSS_IP6_EX	= 9,
-+
- 	ENA_ADMIN_RSS_PROTO_NUM	= 16,
- };
- 
--- 
-1.9.1
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
