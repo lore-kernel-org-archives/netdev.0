@@ -1,66 +1,46 @@
-From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Subject: Re: Synopsys Ethernet QoS Driver
-Date: Mon, 21 Nov 2016 10:59:41 +0530
-Message-ID: <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
-References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
- <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com> <20161119135654.GA14079@lnxartpec.se.axis.com>
+From: miaoqing@codeaurora.org
+Subject: Re: [PATCH 4.9.0-rc5] AR9300 calibration problems with antenna
+ selected
+Date: Mon, 21 Nov 2016 13:48:03 +0800
+Message-ID: <2ea016e563f5db553f201a7d4205c2c0@codeaurora.org>
+References: <m3wpg52hii.fsf@t19.piap.pl>
+ <61055e757c5645dfb69da3fc555cbcf5@aptaiexm02f.ap.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Joao Pinto <Joao.Pinto@synopsys.com>, mued dib <kreptor@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>, jiri@mellanox.com,
-        saeedm@mellanox.com, idosch@mellanox.com,
-        netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-        CARLOS.PALMINHA@synopsys.com, andreas.irestal@axis.com,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        alexandre.torgue@st.com, lars.persson@axis.com
-To: Rabin Vincent <rabin@rab.in>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161119135654.GA14079@lnxartpec.se.axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Sat, Nov 19, 2016 at 7:26 PM, Rabin Vincent <rabin@rab.in> wrote:
-> On Fri, Nov 18, 2016 at 02:20:27PM +0000, Joao Pinto wrote:
->> For now we are interesting in improving the synopsys QoS driver under
->> /nect/ethernet/synopsys. For now the driver structure consists of a single file
->> called dwc_eth_qos.c, containing synopsys ethernet qos common ops and platform
->> related stuff.
->>
->> Our strategy would be:
->>
->> a) Implement a platform glue driver (dwc_eth_qos_pltfm.c)
->> b) Implement a pci glue driver (dwc_eth_qos_pci.c)
->> c) Implement a "core driver" (dwc_eth_qos.c) that would only have Ethernet QoS
->> related stuff to be reused by the platform / pci drivers
->> d) Add a set of features to the "core driver" that we have available internally
->
-> Note that there are actually two drivers in mainline for this hardware:
->
->  drivers/net/ethernet/synopsis/
->  drivers/net/ethernet/stmicro/stmmac/
-
-Yes the later driver (drivers/net/ethernet/stmicro/stmmac/) supports
-both 3.x and 4.x. It has glue layer for pci, platform, core etc,
-please refer this driver once before you start.
-
-You can start adding missing feature of 4.x in stmmac driver.
-
->
-> (See http://lists.openwall.net/netdev/2016/02/29/127)
->
-> The former only supports 4.x of the hardware.
->
-> The later supports 4.x and 3.x and already has a platform glue driver
-> with support for several platforms, a PCI glue driver, and a core driver
-> with several features not present in the former (for example: TX/RX
-> interrupt coalescing, EEE, PTP).
->
-> Have you evaluated both drivers?  Why have you decided to work on the
-> former rather than the latter?
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>,
+        ath9k-devel <ath9k-devel@qca.qualcomm.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:56890 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751324AbcKUFsF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 00:48:05 -0500
+In-Reply-To: <61055e757c5645dfb69da3fc555cbcf5@aptaiexm02f.ap.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+I would prefer that you didn't submit this.
 
--- 
-wwr
-Rayagond
+> 
+> I recently tried to select a single antenna on AR9300 and it works for
+> 30 seconds only. The subsequent calibration makes the RX signal level
+> to drop from the usual -30/-40 dBm to -70/-80 dBm, and the
+> transmission practically stops.
+> 
+> With the attached patch it works, though selecting the antenna doesn't
+> seem to have any visible effect, at least with "iw wlanX station dump"
+> (perhaps it works for TX).
+> 
+> I'm using ad-hoc mode:
+> 
+> rmmod ath9k
+> modprobe ath9k
+> iw dev wlan0 set type ibss
+> iw phy phyX set antenna 2
+
+2 is a bad mask. We use bitmap, the valid masks are 1, 3, 7.
