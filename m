@@ -1,308 +1,55 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next 2/2] bridge: mcast: add MLDv2 querier support
-Date: Mon, 21 Nov 2016 13:03:25 +0100
-Message-ID: <1479729805-23108-3-git-send-email-nikolay@cumulusnetworks.com>
-References: <1479729805-23108-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next 0/2] bridge: add support for IGMPv3 and MLDv2 querier
+Date: Mon, 21 Nov 2016 13:03:23 +0100
+Message-ID: <1479729805-23108-1-git-send-email-nikolay@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, sashok@cumulusnetworks.com,
         stephen@networkplumber.org, davem@davemloft.net,
         liuhangbin@gmail.com,
         Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:37407 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754037AbcKUMFF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 07:05:05 -0500
-Received: by mail-wm0-f45.google.com with SMTP id t79so140359985wmt.0
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 04:05:04 -0800 (PST)
-In-Reply-To: <1479729805-23108-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36267 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753457AbcKUMFE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 07:05:04 -0500
+Received: by mail-wm0-f47.google.com with SMTP id g23so142931755wme.1
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 04:05:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds basic support for MLDv2 queries, the default is MLDv1
-as before. A new multicast option - multicast_mld_version, adds the
-ability to change it between 1 and 2 via netlink and sysfs.
-The MLD option is disabled if CONFIG_IPV6 is disabled.
+Hi all,
+This patch-set adds support for IGMPv3 and MLDv2 querier in the bridge.
+Two new options which can be toggled via netlink and sysfs are added that
+control the version per-bridge:
+ multicast_igmp_version - default 2, can be set to 3
+ multicast_mld_version - default 1, can be set to 2 (this option is
+                         disabled if CONFIG_IPV6=n)
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- include/uapi/linux/if_link.h |  1 +
- net/bridge/br_multicast.c    | 89 +++++++++++++++++++++++++++++++++-----------
- net/bridge/br_netlink.c      | 19 +++++++++-
- net/bridge/br_private.h      |  4 ++
- net/bridge/br_sysfs_br.c     | 22 +++++++++++
- 5 files changed, 113 insertions(+), 22 deletions(-)
+Note that the names do not include "querier", I think that these options
+can be re-used later as more IGMPv3 support is added to the bridge so we
+can avoid adding more options to switch between v2 and v3 behaviour.
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 325d2601150d..92b2d4928bf1 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -276,6 +276,7 @@ enum {
- 	IFLA_BR_VLAN_STATS_ENABLED,
- 	IFLA_BR_MCAST_STATS_ENABLED,
- 	IFLA_BR_MCAST_IGMP_VERSION,
-+	IFLA_BR_MCAST_MLD_VERSION,
- 	__IFLA_BR_MAX,
- };
- 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 66192c11aa45..b30e77e8427c 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -459,15 +459,20 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
- 						    const struct in6_addr *grp,
- 						    u8 *igmp_type)
- {
--	struct sk_buff *skb;
-+	struct mld2_query *mld2q;
-+	unsigned long interval;
- 	struct ipv6hdr *ip6h;
- 	struct mld_msg *mldq;
-+	size_t mld_hdr_size;
-+	struct sk_buff *skb;
- 	struct ethhdr *eth;
- 	u8 *hopopt;
--	unsigned long interval;
- 
-+	mld_hdr_size = sizeof(*mldq);
-+	if (br->multicast_mld_version == 2)
-+		mld_hdr_size = sizeof(*mld2q);
- 	skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*ip6h) +
--						 8 + sizeof(*mldq));
-+						 8 + mld_hdr_size);
- 	if (!skb)
- 		goto out;
- 
-@@ -486,7 +491,7 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
- 	ip6h = ipv6_hdr(skb);
- 
- 	*(__force __be32 *)ip6h = htonl(0x60000000);
--	ip6h->payload_len = htons(8 + sizeof(*mldq));
-+	ip6h->payload_len = htons(8 + mld_hdr_size);
- 	ip6h->nexthdr = IPPROTO_HOPOPTS;
- 	ip6h->hop_limit = 1;
- 	ipv6_addr_set(&ip6h->daddr, htonl(0xff020000), 0, 0, htonl(1));
-@@ -514,26 +519,47 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
- 
- 	/* ICMPv6 */
- 	skb_set_transport_header(skb, skb->len);
--	mldq = (struct mld_msg *) icmp6_hdr(skb);
--
- 	interval = ipv6_addr_any(grp) ?
- 			br->multicast_query_response_interval :
- 			br->multicast_last_member_interval;
--
- 	*igmp_type = ICMPV6_MGM_QUERY;
--	mldq->mld_type = ICMPV6_MGM_QUERY;
--	mldq->mld_code = 0;
--	mldq->mld_cksum = 0;
--	mldq->mld_maxdelay = htons((u16)jiffies_to_msecs(interval));
--	mldq->mld_reserved = 0;
--	mldq->mld_mca = *grp;
--
--	/* checksum */
--	mldq->mld_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
--					  sizeof(*mldq), IPPROTO_ICMPV6,
--					  csum_partial(mldq,
--						       sizeof(*mldq), 0));
--	skb_put(skb, sizeof(*mldq));
-+	switch (br->multicast_mld_version) {
-+	case 1:
-+		mldq = (struct mld_msg *)icmp6_hdr(skb);
-+		mldq->mld_type = ICMPV6_MGM_QUERY;
-+		mldq->mld_code = 0;
-+		mldq->mld_cksum = 0;
-+		mldq->mld_maxdelay = htons((u16)jiffies_to_msecs(interval));
-+		mldq->mld_reserved = 0;
-+		mldq->mld_mca = *grp;
-+		mldq->mld_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
-+						  sizeof(*mldq), IPPROTO_ICMPV6,
-+						  csum_partial(mldq,
-+							       sizeof(*mldq),
-+							       0));
-+		break;
-+	case 2:
-+		mld2q = (struct mld2_query *)icmp6_hdr(skb);
-+		mld2q->mld2q_mrc = ntohs((u16)jiffies_to_msecs(interval));
-+		mld2q->mld2q_type = ICMPV6_MGM_QUERY;
-+		mld2q->mld2q_code = 0;
-+		mld2q->mld2q_cksum = 0;
-+		mld2q->mld2q_resv1 = 0;
-+		mld2q->mld2q_resv2 = 0;
-+		mld2q->mld2q_suppress = 0;
-+		mld2q->mld2q_qrv = 2;
-+		mld2q->mld2q_nsrcs = 0;
-+		mld2q->mld2q_qqic = br->multicast_query_interval / HZ;
-+		mld2q->mld2q_mca = *grp;
-+		mld2q->mld2q_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
-+						     sizeof(*mld2q),
-+						     IPPROTO_ICMPV6,
-+						     csum_partial(mld2q,
-+								  sizeof(*mld2q),
-+								  0));
-+		break;
-+	}
-+	skb_put(skb, mld_hdr_size);
- 
- 	__skb_pull(skb, sizeof(*eth));
- 
-@@ -1842,7 +1868,6 @@ void br_multicast_init(struct net_bridge *br)
- 	br->hash_elasticity = 4;
- 	br->hash_max = 512;
- 
--	br->multicast_igmp_version = 2;
- 	br->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
- 	br->multicast_querier = 0;
- 	br->multicast_query_use_ifaddr = 0;
-@@ -1858,7 +1883,9 @@ void br_multicast_init(struct net_bridge *br)
- 
- 	br->ip4_other_query.delay_time = 0;
- 	br->ip4_querier.port = NULL;
-+	br->multicast_igmp_version = 2;
- #if IS_ENABLED(CONFIG_IPV6)
-+	br->multicast_mld_version = 1;
- 	br->ip6_other_query.delay_time = 0;
- 	br->ip6_querier.port = NULL;
- #endif
-@@ -2177,6 +2204,26 @@ int br_multicast_set_igmp_version(struct net_bridge *br, unsigned long val)
- 	return 0;
- }
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+int br_multicast_set_mld_version(struct net_bridge *br, unsigned long val)
-+{
-+	/* Currently we support version 1 and 2 */
-+	switch (val) {
-+	case 1:
-+	case 2:
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	spin_lock_bh(&br->multicast_lock);
-+	br->multicast_mld_version = val;
-+	spin_unlock_bh(&br->multicast_lock);
-+
-+	return 0;
-+}
-+#endif
-+
- /**
-  * br_multicast_list_adjacent - Returns snooped multicast addresses
-  * @dev:	The bridge port adjacent to which to retrieve addresses
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 10b9b80f778f..71c7453268c1 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -859,6 +859,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
- 	[IFLA_BR_VLAN_STATS_ENABLED] = { .type = NLA_U8 },
- 	[IFLA_BR_MCAST_STATS_ENABLED] = { .type = NLA_U8 },
- 	[IFLA_BR_MCAST_IGMP_VERSION] = { .type = NLA_U8 },
-+	[IFLA_BR_MCAST_MLD_VERSION] = { .type = NLA_U8 },
- };
- 
- static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
-@@ -1079,6 +1080,17 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
- 		if (err)
- 			return err;
- 	}
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (data[IFLA_BR_MCAST_MLD_VERSION]) {
-+		__u8 mld_version;
-+
-+		mld_version = nla_get_u8(data[IFLA_BR_MCAST_MLD_VERSION]);
-+		err = br_multicast_set_mld_version(br, mld_version);
-+		if (err)
-+			return err;
-+	}
-+#endif
- #endif
- #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
- 	if (data[IFLA_BR_NF_CALL_IPTABLES]) {
-@@ -1146,6 +1158,7 @@ static size_t br_get_size(const struct net_device *brdev)
- 	       nla_total_size_64bit(sizeof(u64)) + /* IFLA_BR_MCAST_QUERY_RESPONSE_INTVL */
- 	       nla_total_size_64bit(sizeof(u64)) + /* IFLA_BR_MCAST_STARTUP_QUERY_INTVL */
- 	       nla_total_size(sizeof(u8)) +	/* IFLA_BR_MCAST_IGMP_VERSION */
-+	       nla_total_size(sizeof(u8)) +	/* IFLA_BR_MCAST_MLD_VERSION */
- #endif
- #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
- 	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_NF_CALL_IPTABLES */
-@@ -1225,7 +1238,11 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	    nla_put_u8(skb, IFLA_BR_MCAST_IGMP_VERSION,
- 		       br->multicast_igmp_version))
- 		return -EMSGSIZE;
--
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (nla_put_u8(skb, IFLA_BR_MCAST_MLD_VERSION,
-+		       br->multicast_mld_version))
-+		return -EMSGSIZE;
-+#endif
- 	clockval = jiffies_to_clock_t(br->multicast_last_member_interval);
- 	if (nla_put_u64_64bit(skb, IFLA_BR_MCAST_LAST_MEMBER_INTVL, clockval,
- 			      IFLA_BR_PAD))
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 3d207d92d899..26aec2366bc3 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -355,6 +355,7 @@ struct net_bridge
- 	struct bridge_mcast_other_query	ip6_other_query;
- 	struct bridge_mcast_own_query	ip6_own_query;
- 	struct bridge_mcast_querier	ip6_querier;
-+	u8				multicast_mld_version;
- #endif /* IS_ENABLED(CONFIG_IPV6) */
- #endif
- 
-@@ -585,6 +586,9 @@ int br_multicast_toggle(struct net_bridge *br, unsigned long val);
- int br_multicast_set_querier(struct net_bridge *br, unsigned long val);
- int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val);
- int br_multicast_set_igmp_version(struct net_bridge *br, unsigned long val);
-+#if IS_ENABLED(CONFIG_IPV6)
-+int br_multicast_set_mld_version(struct net_bridge *br, unsigned long val);
-+#endif
- struct net_bridge_mdb_entry *
- br_mdb_ip_get(struct net_bridge_mdb_htable *mdb, struct br_ip *dst);
- struct net_bridge_mdb_entry *
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index f00d1690658c..c9d2e0abfb89 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -659,6 +659,25 @@ static ssize_t multicast_stats_enabled_store(struct device *d,
- 	return store_bridge_parm(d, buf, len, set_stats_enabled);
- }
- static DEVICE_ATTR_RW(multicast_stats_enabled);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+static ssize_t multicast_mld_version_show(struct device *d,
-+					  struct device_attribute *attr,
-+					  char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+
-+	return sprintf(buf, "%u\n", br->multicast_mld_version);
-+}
-+
-+static ssize_t multicast_mld_version_store(struct device *d,
-+					   struct device_attribute *attr,
-+					   const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, br_multicast_set_mld_version);
-+}
-+static DEVICE_ATTR_RW(multicast_mld_version);
-+#endif
- #endif
- #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
- static ssize_t nf_call_iptables_show(
-@@ -827,6 +846,9 @@ static struct attribute *bridge_attrs[] = {
- 	&dev_attr_multicast_startup_query_interval.attr,
- 	&dev_attr_multicast_stats_enabled.attr,
- 	&dev_attr_multicast_igmp_version.attr,
-+#if IS_ENABLED(CONFIG_IPV6)
-+	&dev_attr_multicast_mld_version.attr,
-+#endif
- #endif
- #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
- 	&dev_attr_nf_call_iptables.attr,
+The set uses the already existing br_ip{4,6}_multicast_alloc_query
+functions and adds the appropriate header based on the chosen version.
+
+For the initial support I have removed the compatibility implementation
+(RFC3376 sec 7.3.1, 7.3.2; RFC3810 sec 8.3.1, 8.3.2), because there are
+some details that we need to sort out.
+
+Thank you,
+ Nik
+
+
+Nikolay Aleksandrov (2):
+  bridge: mcast: add IGMPv3 query support
+  bridge: mcast: add MLDv2 querier support
+
+ include/uapi/linux/if_link.h |   2 +
+ net/bridge/br_multicast.c    | 166 +++++++++++++++++++++++++++++++++----------
+ net/bridge/br_netlink.c      |  34 ++++++++-
+ net/bridge/br_private.h      |   7 ++
+ net/bridge/br_sysfs_br.c     |  40 +++++++++++
+ 5 files changed, 210 insertions(+), 39 deletions(-)
+
 -- 
 2.1.4
