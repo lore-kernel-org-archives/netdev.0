@@ -1,74 +1,75 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH net v2 1/1] net: batman-adv: Treat NET_XMIT_CN as transmit successfully
-Date: Mon, 21 Nov 2016 21:31:59 +0800
-Message-ID: <CA+6hz4p9sRHsmNS+x+MsEfx774=C08UJvaFqaRYund3+9dw91w@mail.gmail.com>
-References: <1479725922-5112-1-git-send-email-fgao@ikuai8.com>
- <20161121110915.GB22120@breakpoint.cc> <CA+6hz4rVCL2oxeQUojcqptNfcZdtLZdgEA2_j7iU1-B=s12SHg@mail.gmail.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH] VSOCK: add loopback to virtio_transport
+Date: Mon, 21 Nov 2016 13:40:53 +0000
+Message-ID: <20161121134053.GE15478@stefanha-x1.localdomain>
+References: <1479397763-22319-1-git-send-email-stefanha@redhat.com>
+ <20161119.220804.755313313976863187.davem@davemloft.net>
+ <58311507.7070707@gmail.com>
+ <20161119.221643.2303914168886226654.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: mareklindner@neomailbox.ch,
-        Simon Wunderlich <sw@simonwunderlich.de>, a@unstable.cc,
-        "David S. Miller" <davem@davemloft.net>,
-        b.a.t.m.a.n@lists.open-mesh.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="T6xhMxlHU34Bk0ad"
+Cc: john.fastabend@gmail.com, netdev@vger.kernel.org,
+        cavery@redhat.com, imbrenda@linux.vnet.ibm.com, jhansen@vmware.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpproxy19.qq.com ([184.105.206.84]:52694 "EHLO
-        smtpproxy19.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753261AbcKUNcJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 08:32:09 -0500
-Received: from mail-vk0-f48.google.com (unknown [209.85.213.48])
-        by esmtp4.qq.com (ESMTP) with SMTP id 0
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 21:32:00 +0800 (CST)
-Received: by mail-vk0-f48.google.com with SMTP id 137so218791771vkl.0
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 05:32:01 -0800 (PST)
-In-Reply-To: <CA+6hz4rVCL2oxeQUojcqptNfcZdtLZdgEA2_j7iU1-B=s12SHg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43408 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753975AbcKUNk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Nov 2016 08:40:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20161119.221643.2303914168886226654.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
 
+--T6xhMxlHU34Bk0ad
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, Nov 21, 2016 at 9:24 PM, Gao Feng <fgao@ikuai8.com> wrote:
-> Hi Florian,
->
-> On Mon, Nov 21, 2016 at 7:09 PM, Florian Westphal <fw@strlen.de> wrote:
->> fgao@ikuai8.com <fgao@ikuai8.com> wrote:
->>> From: Gao Feng <fgao@ikuai8.com>
->>>
->>> The tc could return NET_XMIT_CN as one congestion notification, but
->>> it does not mean the packet is lost. Other modules like ipvlan,
->>> macvlan, and others treat NET_XMIT_CN as success too.
->>>
->>> So batman-adv should add the NET_XMIT_CN check.
->>
->> "The tc could return NET_XMIT_CN as one congestion notification, but
->> it means another packet got dropped. Other modules like batman do not
->> treat NET_XMIT_CN as success, so modules like ipvlan, macvlan, ..
->> should ignore it as well."
+On Sat, Nov 19, 2016 at 10:16:43PM -0500, David Miller wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Sat, 19 Nov 2016 19:14:15 -0800
+>=20
+> > On 16-11-19 07:08 PM, David Miller wrote:
+> >> From: Stefan Hajnoczi <stefanha@redhat.com>
+> >> Date: Thu, 17 Nov 2016 15:49:23 +0000
+> >>=20
+> >>> @@ -159,6 +199,10 @@ virtio_transport_send_pkt(struct virtio_vsock_pk=
+t *pkt)
+> >>>  		return -ENODEV;
+> >>>  	}
+> >>> =20
+> >>> +	if (le32_to_cpu(pkt->hdr.dst_cid) =3D=3D vsock->guest_cid) {
+> >>> +		return virtio_transport_send_pkt_loopback(vsock, pkt);
+> >>> +	}
+> >>> +
+> >>=20
+> >> A single-statement basic block should get surrounding curly
+> >> braces.
+> >>=20
+> >=20
+> > Should _not_ get curly braces in case it wasn't obvious ;)
+>=20
+> Indeed, thanks for the correction :)
 
-I didn't get you in the last email
+Thanks, I'll remember to run checkpatch.pl and send v2.
 
-You mean the NET_XMIT_CN should be treated as one error?
-But the comment of NET_XMIT_CN says "It indicates that the device will
-soon be dropping packets, or already drops some packets of the same
-priority". It is not sure another packet is dropped.
+Stefan
 
-BTW, the macro "net_xmit_eval" does not treat NET_XMIT_CN as one error.
+--T6xhMxlHU34Bk0ad
+Content-Type: application/pgp-signature; name="signature.asc"
 
-Regards
-Feng
+-----BEGIN PGP SIGNATURE-----
 
->>
->> What I am asking is:
->> Are you sure adding NET_XMIT_CN handling everywhere is the right way to
->> resolve the inconsistency?
->
-> Or create one new macro to handle this case like net_xmit_eval.
-> For example,
-> #define net_xmit_ok(ret)    (ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)
->
-> Is it ok? But it should be done for net-next.
->
-> Best Regards
-> Feng
+iQEcBAEBAgAGBQJYMvllAAoJEJykq7OBq3PI0R0IALhiHho7sPv6/yt0kQ65+ioF
+8Zy1RPPgLncezxzM51y2yulvQvsA9lJ+ySUzUpvinANYl0IDuTs6psU8Px/Y9Abd
+tWBR3gRYkIQ74ynfZstmxlWk6+Uqklz8uV9KG7+04QZzUeGY6tGc4cuzmpKjmUgp
+7nZ74jIdRCKjAcZKZzyO1mlIy0j0cqaACwCg5fcGbGlhfrmpffrIwKKRPX6aGKc5
+1ua1JyjjfIkjQht/yoP1rNxOtO4iQsKQ7jjrSP+pr1dJNDBGIV2/DevXgzyNjx0d
+EGJtWennAKHr7K/CkFOshuBmlR/oT5c30qWHtamLx94iaA/+bRbzPN0QCpdzHWg=
+=yH/Z
+-----END PGP SIGNATURE-----
+
+--T6xhMxlHU34Bk0ad--
