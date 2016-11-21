@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [RFC net-next 1/3] net: bridge: Allow bridge master device to configure switch CPU port
-Date: Mon, 21 Nov 2016 11:09:23 -0800
-Message-ID: <20161121190925.14530-2-f.fainelli@gmail.com>
+Subject: [RFC net-next 3/3] net: dsa: b53: Remove CPU port specific VLAN programming
+Date: Mon, 21 Nov 2016 11:09:25 -0800
+Message-ID: <20161121190925.14530-4-f.fainelli@gmail.com>
 References: <20161121190925.14530-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, bridge@lists.linux-foundation.org,
         stephen@networkplumber.org, vivien.didelot@savoirfairelinux.com,
@@ -9,113 +9,108 @@ Cc: davem@davemloft.net, bridge@lists.linux-foundation.org,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36456 "EHLO
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34120 "EHLO
         mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752835AbcKUTKE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 14:10:04 -0500
-Received: by mail-pg0-f66.google.com with SMTP id x23so29285773pgx.3
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 11:10:03 -0800 (PST)
+        with ESMTP id S1754587AbcKUTKM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 14:10:12 -0500
+Received: by mail-pg0-f66.google.com with SMTP id e9so28912546pgc.1
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 11:10:07 -0800 (PST)
 In-Reply-To: <20161121190925.14530-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An use case which is currently not possible with Linux bridges on top of
-network switches is to configure the CPU port of the switch (inherently
-presented to the user with a bridge master device) independently from
-its downstream ports, with a different set of VLAN properties. The
-reason as to why is that the switch driver will never get any call to
-switchdev_port_obj_{add,del} with the obj->orig_dev set to the bridge
-master device.
-
-This allows CPU/management ports to e.g: receive all traffic as tagged,
-whereas the downstream port may have different untagged VLAN settings.
-
-The following happens now (assuming bridge master device is already
-created):
-
-bridge vlan add vid 2 dev port0 pvid untagged
-	-> port0 (e.g: switch port 0) gets programmed
-	-> CPU port gets programmed
-bridge vlan add vid 2 dev br0 self
-	-> CPU port gets programmed
-bridge vlan add vid 2 dev port0
-	-> port0 (switch port 0) gets programmed
+Now that DSA calls into the switch driver to program the CPU port's VLAN
+attributes, we can get rid of the code that dealt with adding/removing
+the CPU port to a downstream facing port VLAN membership.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/bridge/br_vlan.c | 28 +++++++++++++++++++++++++---
- 1 file changed, 25 insertions(+), 3 deletions(-)
+ drivers/net/dsa/b53/b53_common.c | 22 ++++++----------------
+ 1 file changed, 6 insertions(+), 16 deletions(-)
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index b6de4f457161..b335d66d21db 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -228,7 +228,9 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags)
- 		err = __vlan_vid_add(dev, br, v->vid, flags);
- 		if (err)
- 			goto out;
-+	}
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index 7717b19dc806..6577286a2721 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -951,7 +951,6 @@ static void b53_vlan_add(struct dsa_switch *ds, int port,
+ 	struct b53_device *dev = ds->priv;
+ 	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
+ 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
+-	unsigned int cpu_port = dev->cpu_port;
+ 	struct b53_vlan *vl;
+ 	u16 vid;
  
-+	if (p) {
- 		/* need to work on the master vlan too */
- 		if (flags & BRIDGE_VLAN_INFO_MASTER) {
- 			err = br_vlan_add(br, v->vid, flags |
-@@ -242,6 +244,14 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags)
- 			goto out_filt;
- 		v->brvlan = masterv;
- 		v->stats = masterv->stats;
-+
-+		/* Propagate the VLAN flags changes down to the underlying
-+		 * hardware, which may have to reconfigure the physical port
-+		 * associated with the bridge (e.g: CPU/management port)
-+		 */
-+		err = __vlan_vid_add(br->dev, br, v->vid, flags);
-+		if (err)
-+			goto out_filt;
+@@ -960,11 +959,11 @@ static void b53_vlan_add(struct dsa_switch *ds, int port,
+ 
+ 		b53_get_vlan_entry(dev, vid, vl);
+ 
+-		vl->members |= BIT(port) | BIT(cpu_port);
++		vl->members |= BIT(port);
+ 		if (untagged)
+-			vl->untag |= BIT(port) | BIT(cpu_port);
++			vl->untag |= BIT(port);
+ 		else
+-			vl->untag &= ~(BIT(port) | BIT(cpu_port));
++			vl->untag &= ~BIT(port);
+ 
+ 		b53_set_vlan_entry(dev, vid, vl);
+ 		b53_fast_age_vlan(dev, vid);
+@@ -973,8 +972,6 @@ static void b53_vlan_add(struct dsa_switch *ds, int port,
+ 	if (pvid) {
+ 		b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(port),
+ 			    vlan->vid_end);
+-		b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(cpu_port),
+-			    vlan->vid_end);
+ 		b53_fast_age_vlan(dev, vid);
  	}
+ }
+@@ -984,7 +981,6 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
+ {
+ 	struct b53_device *dev = ds->priv;
+ 	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
+-	unsigned int cpu_port = dev->cpu_port;
+ 	struct b53_vlan *vl;
+ 	u16 vid;
+ 	u16 pvid;
+@@ -997,8 +993,6 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
+ 		b53_get_vlan_entry(dev, vid, vl);
  
- 	/* Add the dev mac and count the vlan only if it's usable */
-@@ -287,19 +297,25 @@ static int __vlan_del(struct net_bridge_vlan *v)
- 	struct net_bridge_vlan *masterv = v;
- 	struct net_bridge_vlan_group *vg;
- 	struct net_bridge_port *p = NULL;
-+	struct net_device *dev;
-+	struct net_bridge *br;
- 	int err = 0;
+ 		vl->members &= ~BIT(port);
+-		if ((vl->members & BIT(cpu_port)) == BIT(cpu_port))
+-			vl->members = 0;
  
- 	if (br_vlan_is_master(v)) {
--		vg = br_vlan_group(v->br);
-+		br = v->br;
-+		vg = br_vlan_group(br);
-+		dev = v->br->dev;
- 	} else {
- 		p = v->port;
-+		br = p->br;
-+		dev = p->dev;
- 		vg = nbp_vlan_group(v->port);
- 		masterv = v->brvlan;
- 	}
- 
- 	__vlan_delete_pvid(vg, v->vid);
--	if (p) {
--		err = __vlan_vid_del(p->dev, p->br, v->vid);
-+	if (p || br_vlan_is_master(v)) {
-+		err = __vlan_vid_del(dev, br, v->vid);
- 		if (err)
- 			goto out;
- 	}
-@@ -568,6 +584,12 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
- 			vg->num_vlans++;
+ 		if (pvid == vid) {
+ 			if (is5325(dev) || is5365(dev))
+@@ -1007,18 +1001,14 @@ static int b53_vlan_del(struct dsa_switch *ds, int port,
+ 				pvid = 0;
  		}
- 		__vlan_add_flags(vlan, flags);
-+
-+		/* Propagate the VLAN flags changes down to the underlying
-+		 * hardware, which may have to reconfigure the physical port
-+		 * associated with the bridge (e.g: CPU/management port)
-+		 */
-+		__vlan_vid_add(br->dev, br, vlan->vid, flags);
- 		return 0;
+ 
+-		if (untagged) {
++		if (untagged)
+ 			vl->untag &= ~(BIT(port));
+-			if ((vl->untag & BIT(cpu_port)) == BIT(cpu_port))
+-				vl->untag = 0;
+-		}
+ 
+ 		b53_set_vlan_entry(dev, vid, vl);
+ 		b53_fast_age_vlan(dev, vid);
  	}
  
+ 	b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(port), pvid);
+-	b53_write16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(cpu_port), pvid);
+ 	b53_fast_age_vlan(dev, pvid);
+ 
+ 	return 0;
+@@ -1396,8 +1386,8 @@ static void b53_br_leave(struct dsa_switch *ds, int port)
+ 		b53_write16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, reg);
+ 	} else {
+ 		b53_get_vlan_entry(dev, pvid, vl);
+-		vl->members |= BIT(port) | BIT(dev->cpu_port);
+-		vl->untag |= BIT(port) | BIT(dev->cpu_port);
++		vl->members |= BIT(port);
++		vl->untag |= BIT(port);
+ 		b53_set_vlan_entry(dev, pvid, vl);
+ 	}
+ }
 -- 
 2.9.3
