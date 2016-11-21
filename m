@@ -1,60 +1,112 @@
-From: Daniel.Hopf@continental-corporation.com
-Subject: ip -s macsec show: Statistics for OutOctets... and OutPkts... switched
-Date: Mon, 21 Nov 2016 12:31:50 +0100
-Message-ID: <OF4B44CECE.BF9C7A12-ONC1258072.0037C56C-C1258072.003F5731@continental-corporation.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH v2 4/5] virtio_net: add dedicated XDP transmit
+ queues
+Date: Mon, 21 Nov 2016 12:45:36 +0100
+Message-ID: <5832DE60.4000200@iogearbox.net>
+References: <20161120024710.19187.31037.stgit@john-Precision-Tower-5810> <20161120025104.19187.54400.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bblanco@plumgrid.com,
+        john.r.fastabend@intel.com, brouer@redhat.com, tgraf@suug.ch
+To: John Fastabend <john.fastabend@gmail.com>, eric.dumazet@gmail.com,
+        mst@redhat.com, kubakici@wp.pl, shm@cumulusnetworks.com,
+        davem@davemloft.net, alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout03.rmx.de ([217.111.120.11]:54658 "EHLO mailout03.rmx.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754185AbcKULli (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Nov 2016 06:41:38 -0500
-Received: from kdin02.retarus.de (kdin02.dmz1.retloc [172.19.17.49])
-        (using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mailout03.rmx.de (Postfix) with ESMTPS id 3tMmf32YCqzlYrt
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 12:31:55 +0100 (CET)
-Received: from FRHB102.fr.ge.conti.de ([10.220.1.13])
-        by kdin02.retarus.de (8.15.2/8.14.5/retarus.custom) with ESMTPS id uALBVsmn005264
-        (version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 12:31:54 +0100
-Received: from frhb102.fr.ge.conti.de (FRHB102.fr.ge.conti.de [172.29.14.41])
-        by FRHB102.fr.ge.conti.de (8.14.4/8.14.4) with ESMTP id uALBVr3N050244
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 12:31:54 +0100
+Received: from www62.your-server.de ([213.133.104.62]:57381 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753387AbcKULpq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 06:45:46 -0500
+In-Reply-To: <20161120025104.19187.54400.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear community,
+On 11/20/2016 03:51 AM, John Fastabend wrote:
+> XDP requires using isolated transmit queues to avoid interference
+> with normal networking stack (BQL, NETDEV_TX_BUSY, etc). This patch
+> adds a XDP queue per cpu when a XDP program is loaded and does not
+> expose the queues to the OS via the normal API call to
+> netif_set_real_num_tx_queues(). This way the stack will never push
+> an skb to these queues.
+>
+> However virtio/vhost/qemu implementation only allows for creating
+> TX/RX queue pairs at this time so creating only TX queues was not
+> possible. And because the associated RX queues are being created I
+> went ahead and exposed these to the stack and let the backend use
+> them. This creates more RX queues visible to the network stack than
+> TX queues which is worth mentioning but does not cause any issues as
+> far as I can tell.
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>   drivers/net/virtio_net.c |   32 +++++++++++++++++++++++++++++---
+>   1 file changed, 29 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 8f99a53..80a426c 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -114,6 +114,9 @@ struct virtnet_info {
+>   	/* # of queue pairs currently used by the driver */
+>   	u16 curr_queue_pairs;
+>
+> +	/* # of XDP queue pairs currently used by the driver */
+> +	u16 xdp_queue_pairs;
+> +
+>   	/* I like... big packets and I cannot lie! */
+>   	bool big_packets;
+>
+> @@ -1525,7 +1528,8 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>   {
+>   	struct virtnet_info *vi = netdev_priv(dev);
+>   	struct bpf_prog *old_prog;
+> -	int i;
+> +	u16 xdp_qp = 0, curr_qp;
+> +	int err, i;
+>
+>   	if ((dev->features & NETIF_F_LRO) && prog) {
+>   		netdev_warn(dev, "can't set XDP while LRO is on, disable LRO first\n");
+> @@ -1542,12 +1546,34 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>   		return -EINVAL;
+>   	}
+>
+> +	curr_qp = vi->curr_queue_pairs - vi->xdp_queue_pairs;
+> +	if (prog)
+> +		xdp_qp = nr_cpu_ids;
+> +
+> +	/* XDP requires extra queues for XDP_TX */
+> +	if (curr_qp + xdp_qp > vi->max_queue_pairs) {
+> +		netdev_warn(dev, "request %i queues but max is %i\n",
+> +			    curr_qp + xdp_qp, vi->max_queue_pairs);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	err = virtnet_set_queues(vi, curr_qp + xdp_qp);
+> +	if (err) {
+> +		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+> +		return err;
+> +	}
+> +
+>   	if (prog) {
+> -		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
+> -		if (IS_ERR(prog))
+> +		prog = bpf_prog_add(prog, vi->max_queue_pairs);
 
-I'm using the following ip utility:
+I think this change is not correct, it would be off by one now.
+The previous 'vi->max_queue_pairs - 1' was actually correct here.
+dev_change_xdp_fd() already gives you a reference (see the doc on
+enum xdp_netdev_command in netdevice.h).
 
-ubuntu2@ubuntu2:~$ ip -V
-ip utility, iproute2-ss161009
-ubuntu2@ubuntu2:~$ uname -r
-4.8.0-22-generic
-
-During tests with the recent MACsec implementation I noticed that the 
-statistics for OutOctets[Protected|Encrypted] and 
-OutPkts[Protected|Encrypted] are switched.
-
-The error seems to reside in lines 637:640 of iproute2/ip/ipmacsec.c:
-        [MACSEC_TXSC_STATS_ATTR_OUT_PKTS_PROTECTED] = 
-"OutOctetsProtected",
-        [MACSEC_TXSC_STATS_ATTR_OUT_PKTS_ENCRYPTED] = 
-"OutOctetsEncrypted",
-        [MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_PROTECTED] = 
-"OutPktsProtected",
-        [MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_ENCRYPTED] = 
-"OutPktsEncrypted",
-
-In my opinion this should instead read:
-        [MACSEC_TXSC_STATS_ATTR_OUT_PKTS_PROTECTED] = "OutPktsProtected",
-        [MACSEC_TXSC_STATS_ATTR_OUT_PKTS_ENCRYPTED] = "OutPktsEncrypted",
-        [MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_PROTECTED] = 
-"OutOctetsProtected",
-        [MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_ENCRYPTED] = 
-"OutOctetsEncrypted",
-
-Regards
-- Daniel
+> +		if (IS_ERR(prog)) {
+> +			virtnet_set_queues(vi, curr_qp);
+>   			return PTR_ERR(prog);
+> +		}
+>   	}
+>
+> +	vi->xdp_queue_pairs = xdp_qp;
+> +	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
+> +
+>   	for (i = 0; i < vi->max_queue_pairs; i++) {
+>   		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+>   		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
+>
