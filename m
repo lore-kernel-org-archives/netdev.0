@@ -1,75 +1,131 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH] VSOCK: add loopback to virtio_transport
-Date: Mon, 21 Nov 2016 13:40:53 +0000
-Message-ID: <20161121134053.GE15478@stefanha-x1.localdomain>
-References: <1479397763-22319-1-git-send-email-stefanha@redhat.com>
- <20161119.220804.755313313976863187.davem@davemloft.net>
- <58311507.7070707@gmail.com>
- <20161119.221643.2303914168886226654.davem@davemloft.net>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Mon, 21 Nov 2016 13:48:53 +0000
+Message-ID: <afc18eb0-4c11-9668-498d-982624c6de78@synopsys.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="T6xhMxlHU34Bk0ad"
-Cc: john.fastabend@gmail.com, netdev@vger.kernel.org,
-        cavery@redhat.com, imbrenda@linux.vnet.ibm.com, jhansen@vmware.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43408 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753975AbcKUNk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Nov 2016 08:40:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20161119.221643.2303914168886226654.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: mued dib <kreptor@gmail.com>, David Miller <davem@davemloft.net>,
+        "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+        <saeedm@mellanox.com>, <idosch@mellanox.com>,
+        netdev <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <CARLOS.PALMINHA@synopsys.com>, <andreas.irestal@axis.com>,
+        <alexandre.torgue@st.com>, <lars.persson@axis.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+        Rabin Vincent <rabin@rab.in>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello Peppe,
 
---T6xhMxlHU34Bk0ad
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 21-11-2016 12:52, Giuseppe CAVALLARO wrote:
+> Hello Joao
+> 
+> On 11/21/2016 1:32 PM, Joao Pinto wrote:
+>> Hello,
+>>
+>> On 21-11-2016 05:29, Rayagond Kokatanur wrote:
+>>> On Sat, Nov 19, 2016 at 7:26 PM, Rabin Vincent <rabin@rab.in> wrote:
+>>>> On Fri, Nov 18, 2016 at 02:20:27PM +0000, Joao Pinto wrote:
+>>>>> For now we are interesting in improving the synopsys QoS driver under
+>>>>> /nect/ethernet/synopsys. For now the driver structure consists of a single
+>>>>> file
+>>>>> called dwc_eth_qos.c, containing synopsys ethernet qos common ops and platform
+>>>>> related stuff.
+>>>>>
+>>>>> Our strategy would be:
+>>>>>
+>>>>> a) Implement a platform glue driver (dwc_eth_qos_pltfm.c)
+>>>>> b) Implement a pci glue driver (dwc_eth_qos_pci.c)
+>>>>> c) Implement a "core driver" (dwc_eth_qos.c) that would only have Ethernet QoS
+>>>>> related stuff to be reused by the platform / pci drivers
+>>>>> d) Add a set of features to the "core driver" that we have available
+>>>>> internally
+>>>>
+>>>> Note that there are actually two drivers in mainline for this hardware:
+>>>>
+>>>>  drivers/net/ethernet/synopsis/
+>>>>  drivers/net/ethernet/stmicro/stmmac/
+>>>
+>>> Yes the later driver (drivers/net/ethernet/stmicro/stmmac/) supports
+>>> both 3.x and 4.x. It has glue layer for pci, platform, core etc,
+>>> please refer this driver once before you start.
+>>>
+>>> You can start adding missing feature of 4.x in stmmac driver.
+>>
+>> Thanks you all for all the info.
+>> Well, I think we are in a good position to organize the ethernet drivers
+>> concerning Synopsys IPs.
+>>
+>> First of all, in my opinion, it does not make sense to have a ethernet/synopsis
+>> (typo :)) when ethernet/stmicro is also for a synopsys IP. If we have another
+>> vendor using the same IP it should be able to reuse the commonn operations. But
+>> I would put that discussion for later :)
+>>
+>> For now I suggest that for we create ethernet/qos and create there a folder
+>> called dwc (designware controller) where all the synopsys qos IP specific code
+>> in order to be reused for example by ethernet/stmicro/stmmac/. We just have to
+>> figure out a clean interface for "client drivers" like stmmac to interact with
+>> the new qos driver.
+>>
+>> What do you think about this approach?
+> 
+> The stmmac drivers run since many years on several platforms
+> (sh4, stm32, arm, x86, mips ...) and it supports an huge of amount of
+> configurations starting from 3.1x to 3.7x databooks.
 
-On Sat, Nov 19, 2016 at 10:16:43PM -0500, David Miller wrote:
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Sat, 19 Nov 2016 19:14:15 -0800
->=20
-> > On 16-11-19 07:08 PM, David Miller wrote:
-> >> From: Stefan Hajnoczi <stefanha@redhat.com>
-> >> Date: Thu, 17 Nov 2016 15:49:23 +0000
-> >>=20
-> >>> @@ -159,6 +199,10 @@ virtio_transport_send_pkt(struct virtio_vsock_pk=
-t *pkt)
-> >>>  		return -ENODEV;
-> >>>  	}
-> >>> =20
-> >>> +	if (le32_to_cpu(pkt->hdr.dst_cid) =3D=3D vsock->guest_cid) {
-> >>> +		return virtio_transport_send_pkt_loopback(vsock, pkt);
-> >>> +	}
-> >>> +
-> >>=20
-> >> A single-statement basic block should get surrounding curly
-> >> braces.
-> >>=20
-> >=20
-> > Should _not_ get curly braces in case it wasn't obvious ;)
->=20
-> Indeed, thanks for the correction :)
+Great!
 
-Thanks, I'll remember to run checkpatch.pl and send v2.
+> 
+> It also supports QoS hardware; for example, 4.00a, 4.10a and 4.20a
+> are fully working.
 
-Stefan
+Synopsys QoS IP is a separated hardware component, so it should be reusable by
+all implementations using it and so have its own "core driver" and platform +
+pci glue drivers. This is necessary for example in hardware validation, where
+you prototype an IP and instantiate its drivers and test it.
 
---T6xhMxlHU34Bk0ad
-Content-Type: application/pgp-signature; name="signature.asc"
+Was there a strong reason to integrate QoS features directly in stmmac and not
+in synopsys/dwc_eth_qos.*?
 
------BEGIN PGP SIGNATURE-----
+> 
+> Also the stmmac has platform, device-tree and pcie supports and
+> a lot of maintained glue-logic files.
+> 
+> It is fully documented inside the kernel tree.
 
-iQEcBAEBAgAGBQJYMvllAAoJEJykq7OBq3PI0R0IALhiHho7sPv6/yt0kQ65+ioF
-8Zy1RPPgLncezxzM51y2yulvQvsA9lJ+ySUzUpvinANYl0IDuTs6psU8Px/Y9Abd
-tWBR3gRYkIQ74ynfZstmxlWk6+Uqklz8uV9KG7+04QZzUeGY6tGc4cuzmpKjmUgp
-7nZ74jIdRCKjAcZKZzyO1mlIy0j0cqaACwCg5fcGbGlhfrmpffrIwKKRPX6aGKc5
-1ua1JyjjfIkjQht/yoP1rNxOtO4iQsKQ7jjrSP+pr1dJNDBGIV2/DevXgzyNjx0d
-EGJtWennAKHr7K/CkFOshuBmlR/oT5c30qWHtamLx94iaA/+bRbzPN0QCpdzHWg=
-=yH/Z
------END PGP SIGNATURE-----
+Thanks for the information, I am going to check it out.
 
---T6xhMxlHU34Bk0ad--
+> 
+> I am happy to have new enhancements from other developers.
+> So, on my side, if you want to spend your time on improving it on your
+> platforms please feel free to do it!
+> 
+> Concerning the stmicro/stmmac naming, these come from a really old
+> story and have no issue to adopt new folder/file names.
+
+Thank you for your availability!
+
+> 
+> I am also open to merge fixes and changes from ethernet/synopsis.
+> I want to point you on some benchmarks made by Alex some months ago
+> (IIRC) that showed an stmmac winner (due to the several optimizations
+> analyzed and reviewed in this mailing list).
+> 
+> Peppe
+> 
+
+Thanks
+Joao
