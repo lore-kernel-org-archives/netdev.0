@@ -1,41 +1,34 @@
-From: Kirill Esipov <yesipov@gmail.com>
-Subject: [PATCH] net: phy: micrel: fix KSZ8041FTL supported value
-Date: Mon, 21 Nov 2016 19:53:31 +0300
-Message-ID: <1479747211-22394-1-git-send-email-yesipov@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Kirill Esipov <yesipov@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] driver: macvlan: Remove duplicated IFF_UP
+ condition check in macvlan_forward_source
+Date: Mon, 21 Nov 2016 11:59:08 -0500 (EST)
+Message-ID: <20161121.115908.2164465813816317675.davem@davemloft.net>
+References: <1479687998-456-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53804 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753309AbcKUQ7K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 11:59:10 -0500
+In-Reply-To: <1479687998-456-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix setting of SUPPORTED_FIBRE bit as it was not present in features
-of KSZ8041.
+From: fgao@ikuai8.com
+Date: Mon, 21 Nov 2016 08:26:38 +0800
 
-Signed-off-by: Kirill Esipov <yesipov@gmail.com>
----
- drivers/net/phy/micrel.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+> From: Gao Feng <gfree.wind@gmail.com>
+> 
+> The function macvlan_forward_source_one has already checked the flag
+> IFF_UP, so needn't check it outside in macvlan_forward_source too.
+> 
+> Signed-off-by: Gao Feng <gfree.wind@gmail.com>
+> ---
+>  v2: Remove the IFF_UP check in macvlan_forward_source instead of macvlan_forward_source_one
+>  v1: Initial patch
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 081df68..ea92d52 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -318,12 +318,12 @@ static int ksz8041_config_init(struct phy_device *phydev)
- 	/* Limit supported and advertised modes in fiber mode */
- 	if (of_property_read_bool(of_node, "micrel,fiber-mode")) {
- 		phydev->dev_flags |= MICREL_PHY_FXEN;
--		phydev->supported &= SUPPORTED_FIBRE |
--				     SUPPORTED_100baseT_Full |
-+		phydev->supported &= SUPPORTED_100baseT_Full |
- 				     SUPPORTED_100baseT_Half;
--		phydev->advertising &= ADVERTISED_FIBRE |
--				       ADVERTISED_100baseT_Full |
-+		phydev->supported |= SUPPORTED_FIBRE;
-+		phydev->advertising &= ADVERTISED_100baseT_Full |
- 				       ADVERTISED_100baseT_Half;
-+		phydev->advertising |= ADVERTISED_FIBRE;
- 		phydev->autoneg = AUTONEG_DISABLE;
- 	}
- 
--- 
-2.7.4
+Applied.
