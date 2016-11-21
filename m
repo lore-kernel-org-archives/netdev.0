@@ -1,89 +1,83 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net v2 1/1] net: batman-adv: Treat NET_XMIT_CN as transmit successfully
-Date: Mon, 21 Nov 2016 18:58:42 +0800
-Message-ID: <1479725922-5112-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: mareklindner@neomailbox.ch, sw@simonwunderlich.de, a@unstable.cc,
-        davem@davemloft.net, b.a.t.m.a.n@lists.open-mesh.org,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH net 1/1] net: batman-adv: Treat NET_XMIT_CN as transmit successfully
+Date: Mon, 21 Nov 2016 19:01:12 +0800
+Message-ID: <CA+6hz4qFrZpC7CYRq1OFJP8y_Zj1LG3qaFZGJNW8rNf=E__4bA@mail.gmail.com>
+References: <1479688779-1328-1-git-send-email-fgao@ikuai8.com> <850ff61e-8f94-9316-ed1f-c7d3e8faf95b@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de, a@unstable.cc,
+        "David S. Miller" <davem@davemloft.net>,
+        b.a.t.m.a.n@lists.open-mesh.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg278.qq.com ([113.108.11.203]:38492 "EHLO smtpbg278.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752075AbcKUK7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Nov 2016 05:59:31 -0500
+Received: from mail-vk0-f51.google.com ([209.85.213.51]:34859 "EHLO
+        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752452AbcKULBO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 06:01:14 -0500
+Received: by mail-vk0-f51.google.com with SMTP id w194so215571579vkw.2
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 03:01:14 -0800 (PST)
+In-Reply-To: <850ff61e-8f94-9316-ed1f-c7d3e8faf95b@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+Hi Sergei,
 
-The tc could return NET_XMIT_CN as one congestion notification, but
-it does not mean the packet is lost. Other modules like ipvlan,
-macvlan, and others treat NET_XMIT_CN as success too.
+On Mon, Nov 21, 2016 at 6:44 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+> On 11/21/2016 3:39 AM, fgao@ikuai8.com wrote:
+>
+>> From: Gao Feng <fgao@ikuai8.com>
+>>
+>> The tc could return NET_XMIT_CN as one congestion notification, but
+>> it does not mean the packe is lost. Other modules like ipvlan,
+>
+>
+>    Packet.
 
-So batman-adv should add the NET_XMIT_CN check.
+Thanks, it was typo.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v2: Correct two typo "packe" and "ret"
- v1: Initial version
+>
+>> macvlan, and others treat NET_XMIT_CN as success too.
+>>
+>> So batman-adv should add the NET_XMIT_CN check.
+>>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>
+>
+> [...]
+>
+>> diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+>> index 7e8dc64..8edd324 100644
+>> --- a/net/batman-adv/routing.c
+>> +++ b/net/batman-adv/routing.c
+>> @@ -706,7 +706,7 @@ static int batadv_route_unicast_packet(struct sk_buff
+>> *skb,
+>>                 goto out;
+>>
+>>         /* translate transmit result into receive result */
+>> -       if (res == NET_XMIT_SUCCESS) {
+>> +       if (res == NET_XMIT_SUCCESS || ret == NET_XMIT_CN) {
 
- net/batman-adv/distributed-arp-table.c | 2 +-
- net/batman-adv/fragmentation.c         | 2 +-
- net/batman-adv/routing.c               | 2 +-
- net/batman-adv/tp_meter.c              | 2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+Thanks again.
+I didn't find it during myself's review and compile process.
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index e257efd..4bf0622 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -660,7 +660,7 @@ static bool batadv_dat_send_data(struct batadv_priv *bat_priv,
- 		}
- 
- 		send_status = batadv_send_unicast_skb(tmp_skb, neigh_node);
--		if (send_status == NET_XMIT_SUCCESS) {
-+		if (send_status == NET_XMIT_SUCCESS || send_status == NET_XMIT_CN) {
- 			/* count the sent packet */
- 			switch (packet_subtype) {
- 			case BATADV_P_DAT_DHT_GET:
-diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
-index 0934730..4714b8f 100644
---- a/net/batman-adv/fragmentation.c
-+++ b/net/batman-adv/fragmentation.c
-@@ -495,7 +495,7 @@ int batadv_frag_send_packet(struct sk_buff *skb,
- 		batadv_add_counter(bat_priv, BATADV_CNT_FRAG_TX_BYTES,
- 				   skb_fragment->len + ETH_HLEN);
- 		ret = batadv_send_unicast_skb(skb_fragment, neigh_node);
--		if (ret != NET_XMIT_SUCCESS) {
-+		if (ret != NET_XMIT_SUCCESS && ret != NET_XMIT_CN) {
- 			/* return -1 so that the caller can free the original
- 			 * skb
- 			 */
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 7e8dc64..f44fb07 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -706,7 +706,7 @@ static int batadv_route_unicast_packet(struct sk_buff *skb,
- 		goto out;
- 
- 	/* translate transmit result into receive result */
--	if (res == NET_XMIT_SUCCESS) {
-+	if (res == NET_XMIT_SUCCESS || res == NET_XMIT_CN) {
- 		/* skb was transmitted and consumed */
- 		batadv_inc_counter(bat_priv, BATADV_CNT_FORWARD);
- 		batadv_add_counter(bat_priv, BATADV_CNT_FORWARD_BYTES,
-diff --git a/net/batman-adv/tp_meter.c b/net/batman-adv/tp_meter.c
-index 8af1611..461dbad 100644
---- a/net/batman-adv/tp_meter.c
-+++ b/net/batman-adv/tp_meter.c
-@@ -618,7 +618,7 @@ static int batadv_tp_send_msg(struct batadv_tp_vars *tp_vars, const u8 *src,
- 	if (r == -1)
- 		kfree_skb(skb);
- 
--	if (r == NET_XMIT_SUCCESS)
-+	if (r == NET_XMIT_SUCCESS || r == NET_XMIT_CN)
- 		return 0;
- 
- 	return BATADV_TP_REASON_CANT_SEND;
--- 
-1.9.1
+>
+>
+>    Not 'res == NET_XMIT_CN'?
+>
+>>                 /* skb was transmitted and consumed */
+>>                 batadv_inc_counter(bat_priv, BATADV_CNT_FORWARD);
+>>                 batadv_add_counter(bat_priv, BATADV_CNT_FORWARD_BYTES,
+>
+> [...]
+>
+> MBR, Sergei
+>
+
+I have sent the v2 patch which corrects these two typos.
+
+Best Regards
+Feng
