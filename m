@@ -1,7 +1,7 @@
 From: Jerome Brunet <jbrunet@baylibre.com>
-Subject: [RFC PATCH net v2 1/3] net: phy: add an option to disable EEE advertisement
-Date: Mon, 21 Nov 2016 16:35:22 +0100
-Message-ID: <1479742524-30222-2-git-send-email-jbrunet@baylibre.com>
+Subject: [RFC PATCH net v2 2/3] dt: bindings: add ethernet phy eee-disable-advert option documentation
+Date: Mon, 21 Nov 2016 16:35:23 +0100
+Message-ID: <1479742524-30222-3-git-send-email-jbrunet@baylibre.com>
 References: <1479742524-30222-1-git-send-email-jbrunet@baylibre.com>
 Cc: Jerome Brunet <jbrunet@baylibre.com>,
         Carlo Caione <carlo@caione.org>,
@@ -20,177 +20,26 @@ In-Reply-To: <1479742524-30222-1-git-send-email-jbrunet@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds an option to disable EEE advertisement in the generic PHY
-by providing a mask of prohibited modes corresponding to the value found in
-the MDIO_AN_EEE_ADV register.
-
-On some platforms, PHY Low power idle seems to be causing issues, even
-breaking the link some cases. The patch provides a convenient way for these
-platforms to disable EEE advertisement and work around the issue.
-
 Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
 ---
- drivers/net/phy/phy.c        |  3 ++
- drivers/net/phy/phy_device.c | 80 +++++++++++++++++++++++++++++++++++++++-----
- include/linux/phy.h          |  3 ++
- 3 files changed, 77 insertions(+), 9 deletions(-)
+ Documentation/devicetree/bindings/net/phy.txt | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index f424b867f73e..a44ee14bd953 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -1348,6 +1348,9 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
- {
- 	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index bc1c3c8bf8fa..7f066b7c1e2c 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -35,6 +35,11 @@ Optional Properties:
+ - broken-turn-around: If set, indicates the PHY device does not correctly
+   release the turn around line low at the end of a MDIO transaction.
  
-+	/* Mask prohibited EEE modes */
-+	val &= ~phydev->eee_advert_disabled;
++- eee-advert-disable: Bits to clear in the MDIO_AN_EEE_ADV register to
++  disable EEE modes. Example
++    * 0x4: disable EEE for 1000T,
++    * 0x6: disable EEE for 100TX and 1000T
 +
- 	phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN, val);
+ Example:
  
- 	return 0;
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 1a4bf8acad78..74c628e046cb 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1116,6 +1116,43 @@ static int genphy_config_advert(struct phy_device *phydev)
- }
- 
- /**
-+ * genphy_config_eee_advert - disable unwanted eee mode advertisement
-+ * @phydev: target phy_device struct
-+ *
-+ * Description: Writes MDIO_AN_EEE_ADV after disabling unsupported energy
-+ *   efficent ethernet modes. Returns 0 if the PHY's advertisement hasn't
-+ *   changed, and 1 if it has changed.
-+ */
-+static int genphy_config_eee_advert(struct phy_device *phydev)
-+{
-+	u32 disabled = phydev->eee_advert_disabled;
-+	u32 old_adv, adv;
-+
-+	/* Nothing to disable */
-+	if (!disabled)
-+		return 0;
-+
-+	/* If the following call fails, we assume that EEE is not
-+	 * supported by the phy. If we read 0, EEE is not advertised
-+	 * In both case, we don't need to continue
-+	 */
-+	adv = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN);
-+	if (adv <= 0)
-+		return 0;
-+
-+	old_adv = adv;
-+	adv &= ~disabled;
-+
-+	/* Advertising remains unchanged with the ban */
-+	if (old_adv == adv)
-+		return 0;
-+
-+	phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN, adv);
-+
-+	return 1;
-+}
-+
-+/**
-  * genphy_setup_forced - configures/forces speed/duplex from @phydev
-  * @phydev: target phy_device struct
-  *
-@@ -1173,15 +1210,20 @@ EXPORT_SYMBOL(genphy_restart_aneg);
-  */
- int genphy_config_aneg(struct phy_device *phydev)
- {
--	int result;
-+	int err, changed;
-+
-+	changed = genphy_config_eee_advert(phydev);
- 
- 	if (AUTONEG_ENABLE != phydev->autoneg)
- 		return genphy_setup_forced(phydev);
- 
--	result = genphy_config_advert(phydev);
--	if (result < 0) /* error */
--		return result;
--	if (result == 0) {
-+	err = genphy_config_advert(phydev);
-+	if (err < 0) /* error */
-+		return err;
-+
-+	changed |= err;
-+
-+	if (changed == 0) {
- 		/* Advertisement hasn't changed, but maybe aneg was never on to
- 		 * begin with?  Or maybe phy was isolated?
- 		 */
-@@ -1191,16 +1233,16 @@ int genphy_config_aneg(struct phy_device *phydev)
- 			return ctl;
- 
- 		if (!(ctl & BMCR_ANENABLE) || (ctl & BMCR_ISOLATE))
--			result = 1; /* do restart aneg */
-+			changed = 1; /* do restart aneg */
- 	}
- 
- 	/* Only restart aneg if we are advertising something different
- 	 * than we were before.
- 	 */
--	if (result > 0)
--		result = genphy_restart_aneg(phydev);
-+	if (changed > 0)
-+		return genphy_restart_aneg(phydev);
- 
--	return result;
-+	return 0;
- }
- EXPORT_SYMBOL(genphy_config_aneg);
- 
-@@ -1558,6 +1600,21 @@ static void of_set_phy_supported(struct phy_device *phydev)
- 		__set_phy_supported(phydev, max_speed);
- }
- 
-+static void of_set_phy_eee_disable(struct phy_device *phydev)
-+{
-+	struct device_node *node = phydev->mdio.dev.of_node;
-+	u32 disabled;
-+
-+	if (!IS_ENABLED(CONFIG_OF_MDIO))
-+		return;
-+
-+	if (!node)
-+		return;
-+
-+	if (!of_property_read_u32(node, "eee-advert-disable", &disabled))
-+		phydev->eee_advert_disabled = disabled;
-+}
-+
- /**
-  * phy_probe - probe and init a PHY device
-  * @dev: device to probe and init
-@@ -1595,6 +1652,11 @@ static int phy_probe(struct device *dev)
- 	of_set_phy_supported(phydev);
- 	phydev->advertising = phydev->supported;
- 
-+	/* Get the EEE modes we want to prohibit. We will ask
-+	 * the PHY stop advertising these mode later on
-+	 */
-+	of_set_phy_eee_disable(phydev);
-+
- 	/* Set the state to READY by default */
- 	phydev->state = PHY_READY;
- 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index e25f1830fbcf..7f2ea0af16d1 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -401,6 +401,9 @@ struct phy_device {
- 	u32 advertising;
- 	u32 lp_advertising;
- 
-+	/* Energy efficient ethernet modes which should be prohibited */
-+	u32 eee_advert_disabled;
-+
- 	int autoneg;
- 
- 	int link_timeout;
+ ethernet-phy@0 {
 -- 
 2.7.4
