@@ -1,86 +1,60 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net 1/1] net: batman-adv: Treat NET_XMIT_CN as transmit successfully
-Date: Mon, 21 Nov 2016 08:39:39 +0800
-Message-ID: <1479688779-1328-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: mareklindner@neomailbox.ch, sw@simonwunderlich.de, a@unstable.cc,
-        davem@davemloft.net, b.a.t.m.a.n@lists.open-mesh.org,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH net-next 1/1] driver: macvlan: Remove duplicated IFF_UP
+ condition check in macvlan_forward_source
+Date: Mon, 21 Nov 2016 08:52:45 +0800
+Message-ID: <CA+6hz4pFLqs_BgUvkbf3B5dG3yR=8QTLgVZjyTm2oaaPN=QOZg@mail.gmail.com>
+References: <1479687998-456-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: "David S. Miller" <davem@davemloft.net>,
+        Patrick McHardy <kaber@trash.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Feng Gao <gfree.wind@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg327.qq.com ([14.17.43.158]:48716 "EHLO smtpbg327.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751950AbcKUAk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 20 Nov 2016 19:40:28 -0500
+Received: from mail-vk0-f65.google.com ([209.85.213.65]:34397 "EHLO
+        mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751088AbcKUAwq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 19:52:46 -0500
+Received: by mail-vk0-f65.google.com with SMTP id p9so22882214vkd.1
+        for <netdev@vger.kernel.org>; Sun, 20 Nov 2016 16:52:46 -0800 (PST)
+In-Reply-To: <1479687998-456-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On Mon, Nov 21, 2016 at 8:26 AM,  <fgao@ikuai8.com> wrote:
+> From: Gao Feng <gfree.wind@gmail.com>
+>
+> The function macvlan_forward_source_one has already checked the flag
+> IFF_UP, so needn't check it outside in macvlan_forward_source too.
+>
+> Signed-off-by: Gao Feng <gfree.wind@gmail.com>
+> ---
+>  v2: Remove the IFF_UP check in macvlan_forward_source instead of macvlan_forward_source_one
+>  v1: Initial patch
+>
+>  drivers/net/macvlan.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 13b7e0b..7ddfd2c 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -400,8 +400,7 @@ static void macvlan_forward_source(struct sk_buff *skb,
+>
+>         hlist_for_each_entry_rcu(entry, h, hlist) {
+>                 if (ether_addr_equal_64bits(entry->addr, addr))
+> -                       if (entry->vlan->dev->flags & IFF_UP)
+> -                               macvlan_forward_source_one(skb, entry->vlan);
+> +                       macvlan_forward_source_one(skb, entry->vlan);
+>         }
+>  }
+>
+> --
+> 1.9.1
+>
+>
 
-The tc could return NET_XMIT_CN as one congestion notification, but
-it does not mean the packe is lost. Other modules like ipvlan,
-macvlan, and others treat NET_XMIT_CN as success too.
+Sorry, I forget add the "v2" in the title.
 
-So batman-adv should add the NET_XMIT_CN check.
-
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/batman-adv/distributed-arp-table.c | 2 +-
- net/batman-adv/fragmentation.c         | 2 +-
- net/batman-adv/routing.c               | 2 +-
- net/batman-adv/tp_meter.c              | 2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index e257efd..4bf0622 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -660,7 +660,7 @@ static bool batadv_dat_send_data(struct batadv_priv *bat_priv,
- 		}
- 
- 		send_status = batadv_send_unicast_skb(tmp_skb, neigh_node);
--		if (send_status == NET_XMIT_SUCCESS) {
-+		if (send_status == NET_XMIT_SUCCESS || send_status == NET_XMIT_CN) {
- 			/* count the sent packet */
- 			switch (packet_subtype) {
- 			case BATADV_P_DAT_DHT_GET:
-diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
-index 0934730..4714b8f 100644
---- a/net/batman-adv/fragmentation.c
-+++ b/net/batman-adv/fragmentation.c
-@@ -495,7 +495,7 @@ int batadv_frag_send_packet(struct sk_buff *skb,
- 		batadv_add_counter(bat_priv, BATADV_CNT_FRAG_TX_BYTES,
- 				   skb_fragment->len + ETH_HLEN);
- 		ret = batadv_send_unicast_skb(skb_fragment, neigh_node);
--		if (ret != NET_XMIT_SUCCESS) {
-+		if (ret != NET_XMIT_SUCCESS && ret != NET_XMIT_CN) {
- 			/* return -1 so that the caller can free the original
- 			 * skb
- 			 */
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 7e8dc64..8edd324 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -706,7 +706,7 @@ static int batadv_route_unicast_packet(struct sk_buff *skb,
- 		goto out;
- 
- 	/* translate transmit result into receive result */
--	if (res == NET_XMIT_SUCCESS) {
-+	if (res == NET_XMIT_SUCCESS || ret == NET_XMIT_CN) {
- 		/* skb was transmitted and consumed */
- 		batadv_inc_counter(bat_priv, BATADV_CNT_FORWARD);
- 		batadv_add_counter(bat_priv, BATADV_CNT_FORWARD_BYTES,
-diff --git a/net/batman-adv/tp_meter.c b/net/batman-adv/tp_meter.c
-index 8af1611..461dbad 100644
---- a/net/batman-adv/tp_meter.c
-+++ b/net/batman-adv/tp_meter.c
-@@ -618,7 +618,7 @@ static int batadv_tp_send_msg(struct batadv_tp_vars *tp_vars, const u8 *src,
- 	if (r == -1)
- 		kfree_skb(skb);
- 
--	if (r == NET_XMIT_SUCCESS)
-+	if (r == NET_XMIT_SUCCESS || r == NET_XMIT_CN)
- 		return 0;
- 
- 	return BATADV_TP_REASON_CANT_SEND;
--- 
-1.9.1
+Regards
+Feng
