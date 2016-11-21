@@ -1,71 +1,90 @@
-From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v9 0/8] thunderbolt: Introducing Thunderbolt(TM)
- Networking
-Date: Mon, 21 Nov 2016 13:22:41 +0100
-Message-ID: <20161121122241.GA16158@kroah.com>
-References: <1478701208-4585-1-git-send-email-amir.jer.levy@intel.com>
- <20161109143632.GE6167@kw.sim.vm.gnt>
- <E607265CB020454880711A6F96C05A03B677E4C9@hasmsx107.ger.corp.intel.com>
- <20161115105920.GH6167@kw.sim.vm.gnt>
- <E607265CB020454880711A6F96C05A03BE2199EE@hasmsx108.ger.corp.intel.com>
- <20161118100700.GA7126@kroah.com>
- <E607265CB020454880711A6F96C05A03BE2214E2@hasmsx107.ger.corp.intel.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Mon, 21 Nov 2016 12:32:55 +0000
+Message-ID: <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Guinot <simon.guinot@sequanux.org>,
-        "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        "corbet@lwn.net" <corbet@lwn.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-        "mario_limonciello@dell.com" <mario_limonciello@dell.com>,
-        thunderbolt-linux <thunderbolt-linux@intel.com>,
-        "Westerberg, Mika" <mika.westerberg@intel.com>,
-        "Winkler, Tomas" <tomas.winkler@intel.com>,
-        "Zhang, Xiong Y" <xiong.y.zhang@intel.com>,
-        "Jamet, Michael" <michael.jamet@intel.com>,
-        "remi.rerolle@seagate.com" <remi.rerolle@seagate.com>
-To: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:52640 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754255AbcKUMWc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 07:22:32 -0500
-Content-Disposition: inline
-In-Reply-To: <E607265CB020454880711A6F96C05A03BE2214E2@hasmsx107.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joao Pinto <Joao.Pinto@synopsys.com>, mued dib <kreptor@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        <jiri@mellanox.com>, <saeedm@mellanox.com>, <idosch@mellanox.com>,
+        netdev <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <CARLOS.PALMINHA@synopsys.com>, <andreas.irestal@axis.com>,
+        <alexandre.torgue@st.com>, <lars.persson@axis.com>
+To: Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+        Rabin Vincent <rabin@rab.in>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 20, 2016 at 06:30:19AM +0000, Levy, Amir (Jer) wrote:
-> On Fri, Nov 18 2016, 12:07 PM, gregkh@linuxfoundation.org wrote:
-> > On Fri, Nov 18, 2016 at 08:48:36AM +0000, Levy, Amir (Jer) wrote:
-> > > > BTW, it is quite a shame that the Thunderbolt firmware version can't
-> > > > be read from Linux.
-> > > >
-> > >
-> > > This is WIP, once this patch will be upstream, we will be able to
-> > > focus more on aligning Linux with the Thunderbolt features that we have
-> > for windows.
-> > 
-> > Why is this patch somehow holding that work back?  You aren't just sitting
-> > around waiting for people to review this and not doing anything else, right?
-> > Is there some basic building block in these patches that your firmware
-> > download code is going to rely on?
-> > 
-> > confused,
-> > 
-> > greg k-h
+Hello,
+
+On 21-11-2016 05:29, Rayagond Kokatanur wrote:
+> On Sat, Nov 19, 2016 at 7:26 PM, Rabin Vincent <rabin@rab.in> wrote:
+>> On Fri, Nov 18, 2016 at 02:20:27PM +0000, Joao Pinto wrote:
+>>> For now we are interesting in improving the synopsys QoS driver under
+>>> /nect/ethernet/synopsys. For now the driver structure consists of a single file
+>>> called dwc_eth_qos.c, containing synopsys ethernet qos common ops and platform
+>>> related stuff.
+>>>
+>>> Our strategy would be:
+>>>
+>>> a) Implement a platform glue driver (dwc_eth_qos_pltfm.c)
+>>> b) Implement a pci glue driver (dwc_eth_qos_pci.c)
+>>> c) Implement a "core driver" (dwc_eth_qos.c) that would only have Ethernet QoS
+>>> related stuff to be reused by the platform / pci drivers
+>>> d) Add a set of features to the "core driver" that we have available internally
+>>
+>> Note that there are actually two drivers in mainline for this hardware:
+>>
+>>  drivers/net/ethernet/synopsis/
+>>  drivers/net/ethernet/stmicro/stmmac/
 > 
-> All the Thunderbolt SW features (including networking and FW update) depend 
-> on the communication with FW, which is patch 3/8 in the series.
-> The patch also sets up a generic netlink for user space communication.
+> Yes the later driver (drivers/net/ethernet/stmicro/stmmac/) supports
+> both 3.x and 4.x. It has glue layer for pci, platform, core etc,
+> please refer this driver once before you start.
+> 
+> You can start adding missing feature of 4.x in stmmac driver.
 
-It's that "generic netlink" connection that I really want a whole lot of
-revewers to read over as it's very unusual and "different" from all
-other driver subsystems.
+Thanks you all for all the info.
+Well, I think we are in a good position to organize the ethernet drivers
+concerning Synopsys IPs.
 
-thanks,
+First of all, in my opinion, it does not make sense to have a ethernet/synopsis
+(typo :)) when ethernet/stmicro is also for a synopsys IP. If we have another
+vendor using the same IP it should be able to reuse the commonn operations. But
+I would put that discussion for later :)
 
-greg k-h
+For now I suggest that for we create ethernet/qos and create there a folder
+called dwc (designware controller) where all the synopsys qos IP specific code
+in order to be reused for example by ethernet/stmicro/stmmac/. We just have to
+figure out a clean interface for "client drivers" like stmmac to interact with
+the new qos driver.
+
+What do you think about this approach?
+
+
+> 
+>>
+>> (See http://lists.openwall.net/netdev/2016/02/29/127)
+>>
+>> The former only supports 4.x of the hardware.
+>>
+>> The later supports 4.x and 3.x and already has a platform glue driver
+>> with support for several platforms, a PCI glue driver, and a core driver
+>> with several features not present in the former (for example: TX/RX
+>> interrupt coalescing, EEE, PTP).
+>>
+>> Have you evaluated both drivers?  Why have you decided to work on the
+>> former rather than the latter?
+> 
+> 
+
+Thanks.
