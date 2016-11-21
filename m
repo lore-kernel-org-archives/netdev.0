@@ -1,225 +1,65 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH iproute2 1/2] tc/cls_flower: Classify packet in ip tunnels
-Date: Mon, 21 Nov 2016 12:20:55 +0200
-Message-ID: <20161121102056.13468-2-amir@vadai.me>
-References: <20161121102056.13468-1-amir@vadai.me>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:36537 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753271AbcKUKjg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 05:39:36 -0500
-Received: by mail-wj0-f195.google.com with SMTP id jb2so3549277wjb.3
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 02:39:35 -0800 (PST)
-In-Reply-To: <20161121102056.13468-1-amir@vadai.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH net 1/1] net: batman-adv: Treat
+ NET_XMIT_CN as transmit successfully
+Date: Mon, 21 Nov 2016 13:44:47 +0300
+Message-ID: <850ff61e-8f94-9316-ed1f-c7d3e8faf95b@cogentembedded.com>
+References: <1479688779-1328-1-git-send-email-fgao@ikuai8.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org, mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org,
+ a@unstable.cc, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gfree.wind-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1479688779-1328-1-git-send-email-fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Introduce classifying by metadata extracted by the tunnel device.
-Outer header fields - source/dest ip and tunnel id, are extracted from
-the metadata when classifying.
+Hello.
 
-For example, the following will add a filter on the ingress Qdisc of shared
-vxlan device named 'vxlan0'. To forward packets with outer src ip
-11.11.0.2, dst ip 11.11.0.1 and tunnel id 11. The packets will be
-forwarded to tap device 'vnet0' (after metadata is released):
+On 11/21/2016 3:39 AM, fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org wrote:
 
-$ tc filter add dev vxlan0 protocol ip parent ffff: \
-    flower \
-      enc_src_ip 11.11.0.2 \
-      enc_dst_ip 11.11.0.1 \
-      enc_key_id 11 \
-      dst_ip 11.11.11.1 \
-    action tunnel_key release \
-    action mirred egress redirect dev vnet0
+> From: Gao Feng <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>
+>
+> The tc could return NET_XMIT_CN as one congestion notification, but
+> it does not mean the packe is lost. Other modules like ipvlan,
 
-The action tunnel_key, will be introduced in the next patch in this
-series.
+    Packet.
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
----
- man/man8/tc-flower.8 | 17 ++++++++++-
- tc/f_flower.c        | 85 ++++++++++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 98 insertions(+), 4 deletions(-)
+> macvlan, and others treat NET_XMIT_CN as success too.
+>
+> So batman-adv should add the NET_XMIT_CN check.
+>
+> Signed-off-by: Gao Feng <fgao-KlmEoCYek3zQT0dZR+AlfA@public.gmane.org>
 
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index 74f76647753b..0e0b0cf4bb72 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@@ -36,7 +36,11 @@ flower \- flow based traffic control filter
- .BR dst_ip " | " src_ip " } { "
- .IR ipv4_address " | " ipv6_address " } | { "
- .BR dst_port " | " src_port " } "
--.IR port_number " }"
-+.IR port_number " } | "
-+.B enc_key_id
-+.IR KEY-ID " | {"
-+.BR enc_dst_ip " | " enc_src_ip " } { "
-+.IR ipv4_address " | " ipv6_address " } | "
- .SH DESCRIPTION
- The
- .B flower
-@@ -121,6 +125,17 @@ which has to be specified in beforehand.
- Match on layer 4 protocol source or destination port number. Only available for
- .BR ip_proto " values " udp " and " tcp ,
- which has to be specified in beforehand.
-+.TP
-+.BI enc_key_id " NUMBER"
-+.TQ
-+.BI enc_dst_ip " ADDRESS"
-+.TQ
-+.BI enc_src_ip " ADDRESS"
-+Match on IP tunnel metadata. Key id
-+.I NUMBER
-+is a 32 bit tunnel key id (e.g. VNI for VXLAN tunnel).
-+.I ADDRESS
-+must be a valid IPv4 or IPv6 address.
- .SH NOTES
- As stated above where applicable, matches of a certain layer implicitly depend
- on the matches of the next lower layer. Precisely, layer one and two matches (
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 2d31d1aa832d..1cf0750b5b83 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -41,7 +41,10 @@ static void explain(void)
- 	fprintf(stderr, "                       dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
- 	fprintf(stderr, "                       src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
- 	fprintf(stderr, "                       dst_port PORT-NUMBER |\n");
--	fprintf(stderr, "                       src_port PORT-NUMBER }\n");
-+	fprintf(stderr, "                       src_port PORT-NUMBER |\n");
-+	fprintf(stderr, "                       enc_dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
-+	fprintf(stderr, "                       enc_src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
-+	fprintf(stderr, "                       enc_key_id [ KEY-ID ] }\n");
- 	fprintf(stderr,	"       FILTERID := X:Y:Z\n");
- 	fprintf(stderr,	"       ACTION-SPEC := ... look at individual actions\n");
- 	fprintf(stderr,	"\n");
-@@ -121,8 +124,9 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
- 		family = AF_INET;
- 	} else if (eth_type == htons(ETH_P_IPV6)) {
- 		family = AF_INET6;
-+	} else if (!eth_type) {
-+		family = AF_UNSPEC;
- 	} else {
--		fprintf(stderr, "Illegal \"eth_type\" for ip address\n");
- 		return -1;
- 	}
- 
-@@ -130,8 +134,10 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
- 	if (ret)
- 		return -1;
- 
--	if (addr.family != family)
-+	if (family && (addr.family != family)) {
-+		fprintf(stderr, "Illegal \"eth_type\" for ip address\n");
- 		return -1;
-+	}
- 
- 	addattr_l(n, MAX_MSG, addr.family == AF_INET ? addr4_type : addr6_type,
- 		  addr.data, addr.bytelen);
-@@ -181,6 +187,20 @@ static int flower_parse_port(char *str, __u8 ip_port,
- 	return 0;
- }
- 
-+static int flower_parse_key_id(char *str, int type, struct nlmsghdr *n)
-+{
-+	int ret;
-+	__be32 key_id;
-+
-+	ret = get_be32(&key_id, str, 10);
-+	if (ret)
-+		return -1;
-+
-+	addattr32(n, MAX_MSG, type, key_id);
-+
-+	return 0;
-+}
-+
- static int flower_parse_opt(struct filter_util *qu, char *handle,
- 			    int argc, char **argv, struct nlmsghdr *n)
- {
-@@ -339,6 +359,38 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 				fprintf(stderr, "Illegal \"src_port\"\n");
- 				return -1;
- 			}
-+		} else if (matches(*argv, "enc_dst_ip") == 0) {
-+			NEXT_ARG();
-+			ret = flower_parse_ip_addr(*argv, 0,
-+						   TCA_FLOWER_KEY_ENC_IPV4_DST,
-+						   TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,
-+						   TCA_FLOWER_KEY_ENC_IPV6_DST,
-+						   TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,
-+						   n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"enc_dst_ip\"\n");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "enc_src_ip") == 0) {
-+			NEXT_ARG();
-+			ret = flower_parse_ip_addr(*argv, 0,
-+						   TCA_FLOWER_KEY_ENC_IPV4_SRC,
-+						   TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,
-+						   TCA_FLOWER_KEY_ENC_IPV6_SRC,
-+						   TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK,
-+						   n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"enc_src_ip\"\n");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "enc_key_id") == 0) {
-+			NEXT_ARG();
-+			ret = flower_parse_key_id(*argv,
-+						  TCA_FLOWER_KEY_ENC_KEY_ID, n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"enc_key_id\"\n");
-+				return -1;
-+			}
- 		} else if (matches(*argv, "action") == 0) {
- 			NEXT_ARG();
- 			ret = parse_action(&argc, &argv, TCA_FLOWER_ACT, n);
-@@ -509,6 +561,14 @@ static void flower_print_port(FILE *f, char *name, __u8 ip_proto,
- 	fprintf(f, "\n  %s %d", name, ntohs(rta_getattr_u16(attr)));
- }
- 
-+static void flower_print_key_id(FILE *f, char *name,
-+				struct rtattr *attr)
-+{
-+	if (!attr)
-+		return;
-+	fprintf(f, "\n  %s %d", name, ntohl(rta_getattr_u32(attr)));
-+}
-+
- static int flower_print_opt(struct filter_util *qu, FILE *f,
- 			    struct rtattr *opt, __u32 handle)
- {
-@@ -577,6 +637,25 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
- 			  tb[TCA_FLOWER_KEY_TCP_SRC],
- 			  tb[TCA_FLOWER_KEY_UDP_SRC]);
- 
-+	flower_print_ip_addr(f, "enc_dst_ip",
-+			     tb[TCA_FLOWER_KEY_ENC_IPV4_DST_MASK] ?
-+			     htons(ETH_P_IP) : htons(ETH_P_IPV6),
-+			     tb[TCA_FLOWER_KEY_ENC_IPV4_DST],
-+			     tb[TCA_FLOWER_KEY_ENC_IPV4_DST_MASK],
-+			     tb[TCA_FLOWER_KEY_ENC_IPV6_DST],
-+			     tb[TCA_FLOWER_KEY_ENC_IPV6_DST_MASK]);
-+
-+	flower_print_ip_addr(f, "enc_src_ip",
-+			     tb[TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK] ?
-+			     htons(ETH_P_IP) : htons(ETH_P_IPV6),
-+			     tb[TCA_FLOWER_KEY_ENC_IPV4_SRC],
-+			     tb[TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK],
-+			     tb[TCA_FLOWER_KEY_ENC_IPV6_SRC],
-+			     tb[TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK]);
-+
-+	flower_print_key_id(f, "enc_key_id",
-+			    tb[TCA_FLOWER_KEY_ENC_KEY_ID]);
-+
- 	if (tb[TCA_FLOWER_FLAGS])  {
- 		__u32 flags = rta_getattr_u32(tb[TCA_FLOWER_FLAGS]);
- 
--- 
-2.10.2
+[...]
+
+> diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+> index 7e8dc64..8edd324 100644
+> --- a/net/batman-adv/routing.c
+> +++ b/net/batman-adv/routing.c
+> @@ -706,7 +706,7 @@ static int batadv_route_unicast_packet(struct sk_buff *skb,
+>  		goto out;
+>
+>  	/* translate transmit result into receive result */
+> -	if (res == NET_XMIT_SUCCESS) {
+> +	if (res == NET_XMIT_SUCCESS || ret == NET_XMIT_CN) {
+
+    Not 'res == NET_XMIT_CN'?
+
+>  		/* skb was transmitted and consumed */
+>  		batadv_inc_counter(bat_priv, BATADV_CNT_FORWARD);
+>  		batadv_add_counter(bat_priv, BATADV_CNT_FORWARD_BYTES,
+[...]
+
+MBR, Sergei
