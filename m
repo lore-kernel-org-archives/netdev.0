@@ -1,297 +1,114 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH 2/2] net: qcom/emac: add support for the Qualcomm Technologies QDF2400
-Date: Mon, 21 Nov 2016 16:58:22 -0600
-Message-ID: <1479769102-27909-3-git-send-email-timur@codeaurora.org>
-References: <1479769102-27909-1-git-send-email-timur@codeaurora.org>
-To: David Miller <davem@davemloft.net>, alokc@codeaurora.org,
-        netdev@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next PATCH v2 4/5] virtio_net: add dedicated XDP transmit
+ queues
+Date: Tue, 22 Nov 2016 01:13:46 +0200
+Message-ID: <20161121234008-mutt-send-email-mst@kernel.org>
+References: <20161120024710.19187.31037.stgit@john-Precision-Tower-5810>
+ <20161120025104.19187.54400.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, kubakici@wp.pl,
+        shm@cumulusnetworks.com, davem@davemloft.net,
+        alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        bblanco@plumgrid.com, john.r.fastabend@intel.com,
+        brouer@redhat.com, tgraf@suug.ch
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55872 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754915AbcKUW6g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 17:58:36 -0500
-In-Reply-To: <1479769102-27909-1-git-send-email-timur@codeaurora.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46140 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754583AbcKUXNu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Nov 2016 18:13:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20161120025104.19187.54400.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The QDF2432 and the QDF2400 have slightly different internal PHYs,
-so there are some programming differences.  Some of the registers in
-the QDF2400 have moved, and some registers require different values
-during initialization.
+On Sat, Nov 19, 2016 at 06:51:04PM -0800, John Fastabend wrote:
+> XDP requires using isolated transmit queues to avoid interference
+> with normal networking stack (BQL, NETDEV_TX_BUSY, etc). This patch
+> adds a XDP queue per cpu when a XDP program is loaded and does not
+> expose the queues to the OS via the normal API call to
+> netif_set_real_num_tx_queues(). This way the stack will never push
+> an skb to these queues.
+> 
+> However virtio/vhost/qemu implementation only allows for creating
+> TX/RX queue pairs at this time so creating only TX queues was not
+> possible. And because the associated RX queues are being created I
+> went ahead and exposed these to the stack and let the backend use
+> them. This creates more RX queues visible to the network stack than
+> TX queues which is worth mentioning but does not cause any issues as
+> far as I can tell.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Because of the differences, the internal PHY on the QDF2400 has a new
-ACPI HID, QCOM8072.
+FYI what's supposed to happen is packets from the same
+flow going in the reverse direction will go on the
+same queue.
 
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
- drivers/net/ethernet/qualcomm/emac/Makefile        |   3 +-
- .../ethernet/qualcomm/emac/emac-sgmii-qdf2400.c    | 217 +++++++++++++++++++++
- drivers/net/ethernet/qualcomm/emac/emac-sgmii.c    |   4 +
- drivers/net/ethernet/qualcomm/emac/emac-sgmii.h    |   1 +
- 4 files changed, 224 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c
+This might come in handy when implementing RX XDP.
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/Makefile b/drivers/net/ethernet/qualcomm/emac/Makefile
-index 204b787..7a66879 100644
---- a/drivers/net/ethernet/qualcomm/emac/Makefile
-+++ b/drivers/net/ethernet/qualcomm/emac/Makefile
-@@ -5,4 +5,5 @@
- obj-$(CONFIG_QCOM_EMAC) += qcom-emac.o
- 
- qcom-emac-objs := emac.o emac-mac.o emac-phy.o emac-sgmii.o \
--		  emac-sgmii-fsm9900.o emac-sgmii-qdf2432.o
-+		  emac-sgmii-fsm9900.o emac-sgmii-qdf2432.o \
-+		  emac-sgmii-qdf2400.o
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c
-new file mode 100644
-index 0000000..efaaa96
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii-qdf2400.c
-@@ -0,0 +1,217 @@
-+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+/* Qualcomm Technologies, Inc. QDF2400 EMAC SGMII Controller driver.
-+ */
-+
-+#include <linux/iopoll.h>
-+#include "emac.h"
-+
-+/* EMAC_SGMII register offsets */
-+#define EMAC_SGMII_PHY_TX_PWR_CTRL		0x000C
-+#define EMAC_SGMII_PHY_LANE_CTRL1		0x0018
-+#define EMAC_SGMII_PHY_CDR_CTRL0		0x0058
-+#define EMAC_SGMII_PHY_POW_DWN_CTRL0		0x0080
-+#define EMAC_SGMII_PHY_RESET_CTRL		0x00a8
-+#define EMAC_SGMII_PHY_INTERRUPT_MASK		0x00b4
-+
-+/* SGMII digital lane registers */
-+#define EMAC_SGMII_LN_DRVR_CTRL0		0x000C
-+#define EMAC_SGMII_LN_DRVR_TAP_EN		0x0018
-+#define EMAC_SGMII_LN_TX_MARGINING		0x001C
-+#define EMAC_SGMII_LN_TX_PRE			0x0020
-+#define EMAC_SGMII_LN_TX_POST			0x0024
-+#define EMAC_SGMII_LN_TX_BAND_MODE		0x0060
-+#define EMAC_SGMII_LN_LANE_MODE			0x0064
-+#define EMAC_SGMII_LN_PARALLEL_RATE		0x007C
-+#define EMAC_SGMII_LN_CML_CTRL_MODE0		0x00C0
-+#define EMAC_SGMII_LN_MIXER_CTRL_MODE0		0x00D8
-+#define EMAC_SGMII_LN_VGA_INITVAL		0x013C
-+#define EMAC_SGMII_LN_UCDR_FO_GAIN_MODE0	0x0184
-+#define EMAC_SGMII_LN_UCDR_SO_GAIN_MODE0	0x0190
-+#define EMAC_SGMII_LN_UCDR_SO_CONFIG		0x019C
-+#define EMAC_SGMII_LN_RX_BAND			0x01A4
-+#define EMAC_SGMII_LN_RX_RCVR_PATH1_MODE0	0x01C0
-+#define EMAC_SGMII_LN_RSM_CONFIG		0x01F8
-+#define EMAC_SGMII_LN_SIGDET_ENABLES		0x0230
-+#define EMAC_SGMII_LN_SIGDET_CNTRL		0x0234
-+#define EMAC_SGMII_LN_SIGDET_DEGLITCH_CNTRL	0x0238
-+#define EMAC_SGMII_LN_RX_EN_SIGNAL		0x02AC
-+#define EMAC_SGMII_LN_RX_MISC_CNTRL0		0x02B8
-+#define EMAC_SGMII_LN_DRVR_LOGIC_CLKDIV		0x02C8
-+
-+/* SGMII digital lane register values */
-+#define UCDR_STEP_BY_TWO_MODE0			BIT(7)
-+#define UCDR_xO_GAIN_MODE(x)			((x) & 0x7f)
-+#define UCDR_ENABLE				BIT(6)
-+#define UCDR_SO_SATURATION(x)			((x) & 0x3f)
-+
-+#define SIGDET_LP_BYP_PS4			BIT(7)
-+#define SIGDET_EN_PS0_TO_PS2			BIT(6)
-+
-+#define TXVAL_VALID_INIT			BIT(4)
-+#define KR_PCIGEN3_MODE				BIT(0)
-+
-+#define MAIN_EN					BIT(0)
-+
-+#define TX_MARGINING_MUX			BIT(6)
-+#define TX_MARGINING(x)				((x) & 0x3f)
-+
-+#define TX_PRE_MUX				BIT(6)
-+
-+#define TX_POST_MUX				BIT(6)
-+
-+#define CML_GEAR_MODE(x)			(((x) & 7) << 3)
-+#define CML2CMOS_IBOOST_MODE(x)			((x) & 7)
-+
-+#define MIXER_LOADB_MODE(x)			(((x) & 0xf) << 2)
-+#define MIXER_DATARATE_MODE(x)			((x) & 3)
-+
-+#define VGA_THRESH_DFE(x)			((x) & 0x3f)
-+
-+#define SIGDET_LP_BYP_PS0_TO_PS2		BIT(5)
-+#define SIGDET_FLT_BYP				BIT(0)
-+
-+#define SIGDET_LVL(x)				(((x) & 0xf) << 4)
-+
-+#define SIGDET_DEGLITCH_CTRL(x)			(((x) & 0xf) << 1)
-+
-+#define INVERT_PCS_RX_CLK			BIT(7)
-+
-+#define DRVR_LOGIC_CLK_EN			BIT(4)
-+#define DRVR_LOGIC_CLK_DIV(x)			((x) & 0xf)
-+
-+#define PARALLEL_RATE_MODE0(x)			((x) & 0x3)
-+
-+#define BAND_MODE0(x)				((x) & 0x3)
-+
-+#define LANE_MODE(x)				((x) & 0x1f)
-+
-+#define CDR_PD_SEL_MODE0(x)			(((x) & 0x3) << 5)
-+#define EN_DLL_MODE0				BIT(4)
-+#define EN_IQ_DCC_MODE0				BIT(3)
-+#define EN_IQCAL_MODE0				BIT(2)
-+
-+#define BYPASS_RSM_SAMP_CAL			BIT(1)
-+#define BYPASS_RSM_DLL_CAL			BIT(0)
-+
-+#define L0_RX_EQUALIZE_ENABLE			BIT(6)
-+
-+#define PWRDN_B					BIT(0)
-+
-+#define CDR_MAX_CNT(x)				((x) & 0xff)
-+
-+#define SERDES_START_WAIT_TIMES			100
-+
-+struct emac_reg_write {
-+	unsigned int offset;
-+	u32 val;
-+};
-+
-+static void emac_reg_write_all(void __iomem *base,
-+			       const struct emac_reg_write *itr, size_t size)
-+{
-+	size_t i;
-+
-+	for (i = 0; i < size; ++itr, ++i)
-+		writel(itr->val, base + itr->offset);
-+}
-+
-+static const struct emac_reg_write sgmii_laned[] = {
-+	/* CDR Settings */
-+	{EMAC_SGMII_LN_UCDR_FO_GAIN_MODE0,
-+		UCDR_STEP_BY_TWO_MODE0 | UCDR_xO_GAIN_MODE(10)},
-+	{EMAC_SGMII_LN_UCDR_SO_GAIN_MODE0, UCDR_xO_GAIN_MODE(0)},
-+	{EMAC_SGMII_LN_UCDR_SO_CONFIG, UCDR_ENABLE | UCDR_SO_SATURATION(12)},
-+
-+	/* TX/RX Settings */
-+	{EMAC_SGMII_LN_RX_EN_SIGNAL, SIGDET_LP_BYP_PS4 | SIGDET_EN_PS0_TO_PS2},
-+
-+	{EMAC_SGMII_LN_DRVR_CTRL0, TXVAL_VALID_INIT | KR_PCIGEN3_MODE},
-+	{EMAC_SGMII_LN_DRVR_TAP_EN, MAIN_EN},
-+	{EMAC_SGMII_LN_TX_MARGINING, TX_MARGINING_MUX | TX_MARGINING(25)},
-+	{EMAC_SGMII_LN_TX_PRE, TX_PRE_MUX},
-+	{EMAC_SGMII_LN_TX_POST, TX_POST_MUX},
-+
-+	{EMAC_SGMII_LN_CML_CTRL_MODE0,
-+		CML_GEAR_MODE(1) | CML2CMOS_IBOOST_MODE(1)},
-+	{EMAC_SGMII_LN_MIXER_CTRL_MODE0,
-+		MIXER_LOADB_MODE(12) | MIXER_DATARATE_MODE(1)},
-+	{EMAC_SGMII_LN_VGA_INITVAL, VGA_THRESH_DFE(31)},
-+	{EMAC_SGMII_LN_SIGDET_ENABLES,
-+		SIGDET_LP_BYP_PS0_TO_PS2 | SIGDET_FLT_BYP},
-+	{EMAC_SGMII_LN_SIGDET_CNTRL, SIGDET_LVL(8)},
-+
-+	{EMAC_SGMII_LN_SIGDET_DEGLITCH_CNTRL, SIGDET_DEGLITCH_CTRL(4)},
-+	{EMAC_SGMII_LN_RX_MISC_CNTRL0, INVERT_PCS_RX_CLK},
-+	{EMAC_SGMII_LN_DRVR_LOGIC_CLKDIV,
-+		DRVR_LOGIC_CLK_EN | DRVR_LOGIC_CLK_DIV(4)},
-+
-+	{EMAC_SGMII_LN_PARALLEL_RATE, PARALLEL_RATE_MODE0(1)},
-+	{EMAC_SGMII_LN_TX_BAND_MODE, BAND_MODE0(1)},
-+	{EMAC_SGMII_LN_RX_BAND, BAND_MODE0(2)},
-+	{EMAC_SGMII_LN_LANE_MODE, LANE_MODE(26)},
-+	{EMAC_SGMII_LN_RX_RCVR_PATH1_MODE0, CDR_PD_SEL_MODE0(2) |
-+		EN_DLL_MODE0 | EN_IQ_DCC_MODE0| EN_IQCAL_MODE0},
-+	{EMAC_SGMII_LN_RSM_CONFIG, BYPASS_RSM_SAMP_CAL | BYPASS_RSM_DLL_CAL},
-+};
-+
-+static const struct emac_reg_write physical_coding_sublayer_programming[] = {
-+	{EMAC_SGMII_PHY_POW_DWN_CTRL0, PWRDN_B},
-+	{EMAC_SGMII_PHY_CDR_CTRL0, CDR_MAX_CNT(15)},
-+	{EMAC_SGMII_PHY_TX_PWR_CTRL, 0},
-+	{EMAC_SGMII_PHY_LANE_CTRL1, L0_RX_EQUALIZE_ENABLE},
-+};
-+
-+int emac_sgmii_init_qdf2400(struct emac_adapter *adpt)
-+{
-+	struct emac_phy *phy = &adpt->phy;
-+	void __iomem *phy_regs = phy->base;
-+	void __iomem *laned = phy->digital;
-+	unsigned int i;
-+	u32 lnstatus;
-+
-+	/* PCS lane-x init */
-+	emac_reg_write_all(phy->base, physical_coding_sublayer_programming,
-+			   ARRAY_SIZE(physical_coding_sublayer_programming));
-+
-+	/* SGMII lane-x init */
-+	emac_reg_write_all(phy->digital, sgmii_laned, ARRAY_SIZE(sgmii_laned));
-+
-+	/* Power up PCS and start reset lane state machine */
-+
-+	writel(0, phy_regs + EMAC_SGMII_PHY_RESET_CTRL);
-+	writel(1, laned + SGMII_LN_RSM_START);
-+
-+	/* Wait for c_ready assertion */
-+	for (i = 0; i < SERDES_START_WAIT_TIMES; i++) {
-+		lnstatus = readl(phy_regs + SGMII_PHY_LN_LANE_STATUS);
-+		if (lnstatus & BIT(1))
-+			break;
-+		usleep_range(100, 200);
-+	}
-+
-+	if (i == SERDES_START_WAIT_TIMES) {
-+		netdev_err(adpt->netdev, "SGMII failed to start\n");
-+		return -EIO;
-+	}
-+
-+	/* Disable digital and SERDES loopback */
-+	writel(0, phy_regs + SGMII_PHY_LN_BIST_GEN0);
-+	writel(0, phy_regs + SGMII_PHY_LN_BIST_GEN2);
-+	writel(0, phy_regs + SGMII_PHY_LN_CDR_CTRL1);
-+
-+	/* Mask out all the SGMII Interrupt */
-+	writel(0, phy_regs + EMAC_SGMII_PHY_INTERRUPT_MASK);
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-index 07c872a..c5dc9ef 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-@@ -166,6 +166,10 @@ static int emac_sgmii_acpi_match(struct device *dev, void *data)
- 			.id = "QCOM8071",
- 			.driver_data = (kernel_ulong_t)emac_sgmii_init_qdf2432,
- 		},
-+		{
-+			.id = "QCOM8072",
-+			.driver_data = (kernel_ulong_t)emac_sgmii_init_qdf2400,
-+		},
- 		{}
- 	};
- 	const struct acpi_device_id *id = acpi_match_device(match_table, dev);
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.h b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.h
-index e2bef14..80ed3dc 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.h
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.h
-@@ -21,5 +21,6 @@ void emac_sgmii_reset(struct emac_adapter *adpt);
- 
- int emac_sgmii_init_fsm9900(struct emac_adapter *adpt);
- int emac_sgmii_init_qdf2432(struct emac_adapter *adpt);
-+int emac_sgmii_init_qdf2400(struct emac_adapter *adpt);
- 
- #endif
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+> ---
+>  drivers/net/virtio_net.c |   32 +++++++++++++++++++++++++++++---
+>  1 file changed, 29 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 8f99a53..80a426c 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -114,6 +114,9 @@ struct virtnet_info {
+>  	/* # of queue pairs currently used by the driver */
+>  	u16 curr_queue_pairs;
+>  
+> +	/* # of XDP queue pairs currently used by the driver */
+> +	u16 xdp_queue_pairs;
+> +
+>  	/* I like... big packets and I cannot lie! */
+>  	bool big_packets;
+>  
+> @@ -1525,7 +1528,8 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  {
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	struct bpf_prog *old_prog;
+> -	int i;
+> +	u16 xdp_qp = 0, curr_qp;
+> +	int err, i;
+>  
+>  	if ((dev->features & NETIF_F_LRO) && prog) {
+>  		netdev_warn(dev, "can't set XDP while LRO is on, disable LRO first\n");
+> @@ -1542,12 +1546,34 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  		return -EINVAL;
+>  	}
+>  
+> +	curr_qp = vi->curr_queue_pairs - vi->xdp_queue_pairs;
+> +	if (prog)
+> +		xdp_qp = nr_cpu_ids;
+> +
+> +	/* XDP requires extra queues for XDP_TX */
+> +	if (curr_qp + xdp_qp > vi->max_queue_pairs) {
+> +		netdev_warn(dev, "request %i queues but max is %i\n",
+> +			    curr_qp + xdp_qp, vi->max_queue_pairs);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	err = virtnet_set_queues(vi, curr_qp + xdp_qp);
+> +	if (err) {
+> +		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+> +		return err;
+> +	}
+> +
+>  	if (prog) {
+> -		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
+> -		if (IS_ERR(prog))
+> +		prog = bpf_prog_add(prog, vi->max_queue_pairs);
+> +		if (IS_ERR(prog)) {
+> +			virtnet_set_queues(vi, curr_qp);
+>  			return PTR_ERR(prog);
+> +		}
+>  	}
+>  
+> +	vi->xdp_queue_pairs = xdp_qp;
+> +	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
+> +
+>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+>  		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
