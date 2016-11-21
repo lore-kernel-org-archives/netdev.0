@@ -1,39 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net v2 1/1] net: batman-adv: Treat NET_XMIT_CN as
- transmit successfully
-Date: Mon, 21 Nov 2016 12:09:15 +0100
-Message-ID: <20161121110915.GB22120@breakpoint.cc>
-References: <1479725922-5112-1-git-send-email-fgao@ikuai8.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] mlxsw: switchib:  add MLXSW_PCI dependency
+Date: Mon, 21 Nov 2016 12:20:11 +0100
+Message-ID: <20161121112011.GB1739@nanopsycho>
+References: <20161118160127.473555-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de, a@unstable.cc,
-        davem@davemloft.net, b.a.t.m.a.n@lists.open-mesh.org,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:37622 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753528AbcKULL7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 06:11:59 -0500
+Cc: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Ivan Vecera <ivecera@redhat.com>,
+        Elad Raz <eladr@mellanox.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1479725922-5112-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161118160127.473555-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-fgao@ikuai8.com <fgao@ikuai8.com> wrote:
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> The tc could return NET_XMIT_CN as one congestion notification, but
-> it does not mean the packet is lost. Other modules like ipvlan,
-> macvlan, and others treat NET_XMIT_CN as success too.
-> 
-> So batman-adv should add the NET_XMIT_CN check.
+Fri, Nov 18, 2016 at 05:01:14PM CET, arnd@arndb.de wrote:
+>The newly added switchib driver fails to link if MLXSW_PCI=m:
+>
+>drivers/net/ethernet/mellanox/mlxsw/mlxsw_switchib.o: In function^Cmlxsw_sib_module_exit':
+>switchib.c:(.exit.text+0x8): undefined reference to `mlxsw_pci_driver_unregister'
+>switchib.c:(.exit.text+0x10): undefined reference to `mlxsw_pci_driver_unregister'
+>drivers/net/ethernet/mellanox/mlxsw/mlxsw_switchib.o: In function `mlxsw_sib_module_init':
+>switchib.c:(.init.text+0x28): undefined reference to `mlxsw_pci_driver_register'
+>switchib.c:(.init.text+0x38): undefined reference to `mlxsw_pci_driver_register'
+>switchib.c:(.init.text+0x48): undefined reference to `mlxsw_pci_driver_unregister'
+>
+>The other two such sub-drivers have a dependency, so add the same one
+>here. In theory we could allow this driver if MLXSW_PCI is disabled,
+>but it's probably not worth it.
+>
+>Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-"The tc could return NET_XMIT_CN as one congestion notification, but
-it means another packet got dropped. Other modules like batman do not
-treat NET_XMIT_CN as success, so modules like ipvlan, macvlan, ..
-should ignore it as well."
+Thanks.
 
-What I am asking is:
-Are you sure adding NET_XMIT_CN handling everywhere is the right way to
-resolve the inconsistency?
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
