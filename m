@@ -1,45 +1,61 @@
 From: Jerome Brunet <jbrunet@baylibre.com>
-Subject: [RFC PATCH net v2 2/3] dt: bindings: add ethernet phy eee-disable-advert option documentation
-Date: Mon, 21 Nov 2016 16:35:23 +0100
-Message-ID: <1479742524-30222-3-git-send-email-jbrunet@baylibre.com>
+Subject: [RFC PATCH net v2 3/3] ARM64: dts: meson: odroidc2: disable
+ advertisement EEE for GbE.
+Date: Mon, 21 Nov 2016 16:35:24 +0100
+Message-ID: <1479742524-30222-4-git-send-email-jbrunet@baylibre.com>
 References: <1479742524-30222-1-git-send-email-jbrunet@baylibre.com>
-Cc: Jerome Brunet <jbrunet@baylibre.com>,
-        Carlo Caione <carlo@caione.org>,
-        Kevin Hilman <khilman@baylibre.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre TORGUE <alexandre.torgue@st.com>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Andre Roth <neolynx@gmail.com>,
-        Neil Armstrong <narmstrong@baylibre.com>,
-        linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Alexandre TORGUE <alexandre.torgue@st.com>,
+ Neil Armstrong <narmstrong@baylibre.com>,
+ Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+ Kevin Hilman <khilman@baylibre.com>, linux-kernel@vger.kernel.org,
+ Andre Roth <neolynx@gmail.com>, linux-amlogic@lists.infradead.org,
+ Carlo Caione <carlo@caione.org>, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ linux-arm-kernel@lists.infradead.org, Jerome Brunet <jbrunet@baylibre.com>
 To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+ Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1479742524-30222-1-git-send-email-jbrunet@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
 ---
- Documentation/devicetree/bindings/net/phy.txt | 5 +++++
- 1 file changed, 5 insertions(+)
+ arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-index bc1c3c8bf8fa..7f066b7c1e2c 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -35,6 +35,11 @@ Optional Properties:
- - broken-turn-around: If set, indicates the PHY device does not correctly
-   release the turn around line low at the end of a MDIO transaction.
- 
-+- eee-advert-disable: Bits to clear in the MDIO_AN_EEE_ADV register to
-+  disable EEE modes. Example
-+    * 0x4: disable EEE for 1000T,
-+    * 0x6: disable EEE for 100TX and 1000T
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
+index e6e3491d48a5..b34da077b2f8 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
+@@ -98,3 +98,18 @@
+ 	pinctrl-0 = <&i2c_a_pins>;
+ 	pinctrl-names = "default";
+ };
 +
- Example:
- 
- ethernet-phy@0 {
++&ethmac {
++	phy-handle = <&eth_phy0>;
++
++	mdio {
++		compatible = "snps,dwmac-mdio";
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		eth_phy0: ethernet-phy@0 {
++			reg = <0>;
++			eee-advert-disable = <0x4>;
++		};
++	};
++};
 -- 
 2.7.4
