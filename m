@@ -1,37 +1,69 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next v3 3/4] bpf, mlx5: drop priv->xdp_prog reference
- on netdev cleanup
-Date: Mon, 21 Nov 2016 11:31:24 +0200
-Message-ID: <CALzJLG-7icaCU-cOTZoKtm5H6Ns=Vwa=wFw8Y-LkQ3zQWUea4w@mail.gmail.com>
-References: <cover.1479514784.git.daniel@iogearbox.net> <29469b54bfddfe218266b8b902a3735034d28226.1479514784.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Zhiyi Sun <zhiyisun@gmail.com>,
-        Rana Shahout <ranas@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Amir Vadai <amir@vadai.me>
+Subject: [PATCH iproute2 0/2] tc/cls_flower: Support for ip tunnel metadata set/release/classify
+Date: Mon, 21 Nov 2016 12:20:54 +0200
+Message-ID: <20161121102056.13468-1-amir@vadai.me>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:36208 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752266AbcKUJbp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 04:31:45 -0500
-Received: by mail-qk0-f196.google.com with SMTP id h201so45252744qke.3
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 01:31:45 -0800 (PST)
-In-Reply-To: <29469b54bfddfe218266b8b902a3735034d28226.1479514784.git.daniel@iogearbox.net>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33241 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751264AbcKUKVY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 05:21:24 -0500
+Received: by mail-wm0-f67.google.com with SMTP id u144so472892wmu.0
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 02:21:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 19, 2016 at 2:45 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> mlx5e_xdp_set() is currently the only place where we drop reference on the
-> prog sitting in priv->xdp_prog when it's exchanged by a new one. We also
-> need to make sure that we eventually release that reference, for example,
-> in case the netdev is dismantled, otherwise we leak the program.
->
-> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Hi,
 
-Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+This short series adds support for matching and setting metadata for ip tunnel
+shared device using the TC system, introduced in kernel 4.9 [1].
+
+Applied and tested on top of commit f3f339e9590a ("cleanup debris from revert")
+
+Example usage:
+
+$ tc filter add dev vxlan0 protocol ip parent ffff: \
+    flower \
+      enc_src_ip 11.11.0.2 \
+      enc_dst_ip 11.11.0.1 \
+      enc_key_id 11 \
+      dst_ip 11.11.11.1 \
+    action tunnel_key release \
+    action mirred egress redirect dev vnet0
+
+$ tc filter add dev net0 protocol ip parent ffff: \
+    flower \
+      ip_proto 1 \
+      dst_ip 11.11.11.2 \
+    action tunnel_key set \
+      src_ip 11.11.0.1 \
+      dst_ip 11.11.0.2 \
+      id 11 \
+    action mirred egress redirect dev vxlan0
+
+[1] - d1ba24feb466 ("Merge branch 'act_tunnel_key'")
+
+Thanks,
+Amir
+
+Amir Vadai (2):
+  tc/cls_flower: Classify packet in ip tunnels
+  tc/act_tunnel: Introduce ip tunnel action
+
+ include/linux/tc_act/tc_tunnel_key.h |  42 ++++++
+ man/man8/tc-flower.8                 |  17 ++-
+ man/man8/tc-tunnel_key.8             | 105 ++++++++++++++
+ tc/Makefile                          |   1 +
+ tc/f_flower.c                        |  85 +++++++++++-
+ tc/m_tunnel_key.c                    | 259 +++++++++++++++++++++++++++++++++++
+ 6 files changed, 505 insertions(+), 4 deletions(-)
+ create mode 100644 include/linux/tc_act/tc_tunnel_key.h
+ create mode 100644 man/man8/tc-tunnel_key.8
+ create mode 100644 tc/m_tunnel_key.c
+
+-- 
+2.10.2
