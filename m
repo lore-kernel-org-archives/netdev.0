@@ -1,175 +1,95 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH for-next 03/11] IB/hns: Optimize the logic of allocating
- memory using APIs
-Date: Mon, 21 Nov 2016 20:20:30 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A7ADC7A@lhreml503-mbx>
-References: <20161104163633.141880-1-salil.mehta@huawei.com>
- <20161104163633.141880-4-salil.mehta@huawei.com>
- <20161109072130.GH27883@leon.nu>
- <F4CC6FACFEB3C54C9141D49AD221F7F91A7A2371@lhreml503-mbx>
- <20161116083602.GH4240@leon.nu>
- <F4CC6FACFEB3C54C9141D49AD221F7F91A7AD7DF@lhreml503-mbx>
- <20161121171423.GA23083@leon.nu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Huwei (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "Zhangping (ZP)" <zhangping5-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161121171423.GA23083-2ukJVAZIZ/Y@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH] net: ieee802154: constify ieee802154_ops structures
+Date: Tue, 22 Nov 2016 02:00:14 +0530
+Message-ID: <1479760214-32624-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, michael.hennerich@analog.com,
+        aar@pengutronix.de, stefan@osg.samsung.com,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:netdev-
-> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Leon Romanovsky
-> Sent: Monday, November 21, 2016 5:14 PM
-> To: Salil Mehta
-> Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org; Huwei (Xavier); oulijun;
-> mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm;
-> Zhangping (ZP)
-> Subject: Re: [PATCH for-next 03/11] IB/hns: Optimize the logic of
-> allocating memory using APIs
-> 
-> On Mon, Nov 21, 2016 at 04:12:38PM +0000, Salil Mehta wrote:
-> > > -----Original Message-----
-> > > From: Leon Romanovsky [mailto:leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org]
-> > > Sent: Wednesday, November 16, 2016 8:36 AM
-> > > To: Salil Mehta
-> > > Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org; Huwei (Xavier); oulijun;
-> > > mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> > > netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm;
-> > > Zhangping (ZP)
-> > > Subject: Re: [PATCH for-next 03/11] IB/hns: Optimize the logic of
-> > > allocating memory using APIs
-> > >
-> > > On Tue, Nov 15, 2016 at 03:52:46PM +0000, Salil Mehta wrote:
-> > > > > -----Original Message-----
-> > > > > From: Leon Romanovsky [mailto:leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org]
-> > > > > Sent: Wednesday, November 09, 2016 7:22 AM
-> > > > > To: Salil Mehta
-> > > > > Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org; Huwei (Xavier); oulijun;
-> > > > > mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> > > > > netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm;
-> > > > > Zhangping (ZP)
-> > > > > Subject: Re: [PATCH for-next 03/11] IB/hns: Optimize the logic
-> of
-> > > > > allocating memory using APIs
-> > > > >
-> > > > > On Fri, Nov 04, 2016 at 04:36:25PM +0000, Salil Mehta wrote:
-> > > > > > From: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> > > > > >
-> > > > > > This patch modified the logic of allocating memory using APIs
-> in
-> > > > > > hns RoCE driver. We used kcalloc instead of kmalloc_array and
-> > > > > > bitmap_zero. And When kcalloc failed, call vzalloc to alloc
-> > > > > > memory.
-> > > > > >
-> > > > > > Signed-off-by: Wei Hu (Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> > > > > > Signed-off-by: Ping Zhang <zhangping5-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> > > > > > Signed-off-by: Salil Mehta  <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> > > > > > ---
-> > > > > >  drivers/infiniband/hw/hns/hns_roce_mr.c |   15 ++++++++-----
-> --
-> > > > > >  1 file changed, 8 insertions(+), 7 deletions(-)
-> > > > > >
-> > > > > > diff --git a/drivers/infiniband/hw/hns/hns_roce_mr.c
-> > > > > b/drivers/infiniband/hw/hns/hns_roce_mr.c
-> > > > > > index fb87883..d3dfb5f 100644
-> > > > > > --- a/drivers/infiniband/hw/hns/hns_roce_mr.c
-> > > > > > +++ b/drivers/infiniband/hw/hns/hns_roce_mr.c
-> > > > > > @@ -137,11 +137,12 @@ static int hns_roce_buddy_init(struct
-> > > > > hns_roce_buddy *buddy, int max_order)
-> > > > > >
-> > > > > >  	for (i = 0; i <= buddy->max_order; ++i) {
-> > > > > >  		s = BITS_TO_LONGS(1 << (buddy->max_order - i));
-> > > > > > -		buddy->bits[i] = kmalloc_array(s, sizeof(long),
-> > > > > GFP_KERNEL);
-> > > > > > -		if (!buddy->bits[i])
-> > > > > > -			goto err_out_free;
-> > > > > > -
-> > > > > > -		bitmap_zero(buddy->bits[i], 1 << (buddy->max_order -
-> > > i));
-> > > > > > +		buddy->bits[i] = kcalloc(s, sizeof(long),
-> > > GFP_KERNEL);
-> > > > > > +		if (!buddy->bits[i]) {
-> > > > > > +			buddy->bits[i] = vzalloc(s * sizeof(long));
-> > > > >
-> > > > > I wonder, why don't you use directly vzalloc instead of kcalloc
-> > > > > fallback?
-> > > > As we know we will have physical contiguous pages if the kcalloc
-> > > > call succeeds. This will give us a chance to have better
-> performance
-> > > > over the allocations which are just virtually contiguous through
-> the
-> > > > function vzalloc(). Therefore, later has only been used as a
-> fallback
-> > > > when our memory request cannot be entertained through kcalloc.
-> > > >
-> > > > Are you suggesting that there will not be much performance
-> penalty
-> > > > if we use just vzalloc ?
-> > >
-> > > Not exactly,
-> > > I asked it, because we have similar code in our drivers and this
-> > > construction looks strange to me.
-> > >
-> > > 1. If performance is critical, we will use kmalloc.
-> > > 2. If performance is not critical, we will use vmalloc.
-> > >
-> > > But in this case, such construction shows me that we can live with
-> > > vmalloc performance and kmalloc allocation are not really needed.
-> > >
-> > > In your specific case, I'm not sure that kcalloc will ever fail.
-> > Performance is definitely critical here. Though, I agree this is bit
-> > unusual way of memory allocation. In actual, we were encountering
-> > memory alloc failures using kmalloc (if you see allocation amount
-> > is on the higher side and is exponential) so we ended up using
-> > vmalloc as fall back - It is very naïve allocation scheme.
-> 
-> I understand it, we did the same, see our mlx5_vzalloc call.
-> BTW, we used __GFP_NOWARN flag, which you should consider to use
-> in your case too.
-Ok. Will add this flag and refloat patch V3. 
+Declare the structure ieee802154_ops as const as it is only passed as an
+argument to the function  ieee802154_alloc_hw. This argument is of type
+const struct ieee802154_ops *, so ieee80254_ops structures having this
+property can be declared as const.
+Done using Coccinelle:
 
-Thanks
-> 
-> >
-> > Maybe we need to rethink this allocation scheme part? Also, I can
-> pull
-> > back this particular patch for now or just live with vzalloc() till
-> > we figure out proper solution to this?
-> 
-> It is up to you, I don't think that you should drop it, AFAIK, there is
-> no other proper solution.
-Ok we will live with it for now and later maybe we can see how we can optimize
-pre-allocation of physically contiguous memory. 
+@r1 disable optional_qualifier @
+identifier i;
+position p;
+@@
+static struct ieee802154_ops i@p = {...};
 
-Thanks for your suggestions!
-Salil
-> 
-> >
-> > >
-> > > Thanks
-> > >
-> > >
-> > > >
-> > > > >
-> > > > > > +			if (!buddy->bits[i])
-> > > > > > +				goto err_out_free;
-> > > > > > +		}
-> > > > > >  	}
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+@ok1@
+identifier r1.i;
+position p;
+expression e1;
+@@
+ieee802154_alloc_hw(e1,&i@p)
+
+@bad@
+position p!={r1.p,ok1.p};
+identifier r1.i;
+@@
+i@p
+
+@depends on !bad disable optional_qualifier@
+identifier r1.i;
+@@
+static
++const
+struct ieee802154_ops  i={...};
+
+@depends on !bad disable optional_qualifier@
+identifier r1.i;
+@@
++const
+struct ieee802154_ops  i;
+
+The before and after size details of the affected files are:
+
+   text	   data	    bss	    dec	    hex	filename
+   8669	   1176	     16	   9861	   2685	drivers/net/ieee802154/adf7242.o
+   8805	   1048	     16	   9869	   268d	drivers/net/ieee802154/adf7242.o
+
+   text	   data	    bss	    dec	    hex	filename
+   7211	   2296	     32	   9539	   2543	drivers/net/ieee802154/atusb.o
+   7339	   2160	     32	   9531	   253b	drivers/net/ieee802154/atusb.o
+
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+---
+ drivers/net/ieee802154/adf7242.c | 2 +-
+ drivers/net/ieee802154/atusb.c   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ieee802154/adf7242.c b/drivers/net/ieee802154/adf7242.c
+index 9fa7ac9..4ff4c7d 100644
+--- a/drivers/net/ieee802154/adf7242.c
++++ b/drivers/net/ieee802154/adf7242.c
+@@ -874,7 +874,7 @@ static int adf7242_rx(struct adf7242_local *lp)
+ 	return 0;
+ }
+ 
+-static struct ieee802154_ops adf7242_ops = {
++static const struct ieee802154_ops adf7242_ops = {
+ 	.owner = THIS_MODULE,
+ 	.xmit_sync = adf7242_xmit,
+ 	.ed = adf7242_ed,
+diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
+index 1056ed1..322864a 100644
+--- a/drivers/net/ieee802154/atusb.c
++++ b/drivers/net/ieee802154/atusb.c
+@@ -567,7 +567,7 @@ static void atusb_stop(struct ieee802154_hw *hw)
+ 	return 0;
+ }
+ 
+-static struct ieee802154_ops atusb_ops = {
++static const struct ieee802154_ops atusb_ops = {
+ 	.owner			= THIS_MODULE,
+ 	.xmit_async		= atusb_xmit,
+ 	.ed			= atusb_ed,
+-- 
+1.9.1
