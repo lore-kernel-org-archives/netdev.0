@@ -1,134 +1,177 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next 1/2] net: batman-adv: Treat NET_XMIT_CN as transmit successfully
-Date: Mon, 21 Nov 2016 23:03:56 +0800
-Message-ID: <1479740636-3904-1-git-send-email-fgao@ikuai8.com>
-To: mareklindner@neomailbox.ch, sw@simonwunderlich.de, a@unstable.cc,
-        davem@davemloft.net, b.a.t.m.a.n@lists.open-mesh.org,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg320.qq.com ([14.17.32.29]:60562 "EHLO smtpbg320.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754527AbcKUPE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Nov 2016 10:04:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Mon, 21 Nov 2016 15:06:23 +0000
+Message-ID: <b126021d-e902-7a53-4d7a-e73ea89a66cf@synopsys.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+ <BFA799B0-BB22-4515-AC14-3544A3167B0A@axis.com>
+ <ffd3b27c-0bc9-b53b-cc65-c7808595a553@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Joao Pinto <Joao.Pinto@synopsys.com>,
+        Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+        Rabin Vincent <rabin@rab.in>, mued dib <kreptor@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        "jiri@mellanox.com" <jiri@mellanox.com>,
+        "saeedm@mellanox.com" <saeedm@mellanox.com>,
+        "idosch@mellanox.com" <idosch@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "CARLOS.PALMINHA@synopsys.com" <CARLOS.PALMINHA@synopsys.com>,
+        =?UTF-8?Q?Andreas_Irest=c3=a5l?= <andire@axis.com>,
+        "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Lars Persson <lars.persson@axis.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ffd3b27c-0bc9-b53b-cc65-c7808595a553@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <gfree.wind@gmail.com>
+On 21-11-2016 14:25, Giuseppe CAVALLARO wrote:
+> On 11/21/2016 2:28 PM, Lars Persson wrote:
+>>
+>>
+>>> 21 nov. 2016 kl. 13:53 skrev Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
+>>>
+>>> Hello Joao
+>>>
+>>>> On 11/21/2016 1:32 PM, Joao Pinto wrote:
+>>>> Hello,
+>>>>
+>>>>> On 21-11-2016 05:29, Rayagond Kokatanur wrote:
+>>>>>> On Sat, Nov 19, 2016 at 7:26 PM, Rabin Vincent <rabin@rab.in> wrote:
+>>>>>>> On Fri, Nov 18, 2016 at 02:20:27PM +0000, Joao Pinto wrote:
+>>>>>>> For now we are interesting in improving the synopsys QoS driver under
+>>>>>>> /nect/ethernet/synopsys. For now the driver structure consists of a
+>>>>>>> single file
+>>>>>>> called dwc_eth_qos.c, containing synopsys ethernet qos common ops and
+>>>>>>> platform
+>>>>>>> related stuff.
+>>>>>>>
+>>>>>>> Our strategy would be:
+>>>>>>>
+>>>>>>> a) Implement a platform glue driver (dwc_eth_qos_pltfm.c)
+>>>>>>> b) Implement a pci glue driver (dwc_eth_qos_pci.c)
+>>>>>>> c) Implement a "core driver" (dwc_eth_qos.c) that would only have
+>>>>>>> Ethernet QoS
+>>>>>>> related stuff to be reused by the platform / pci drivers
+>>>>>>> d) Add a set of features to the "core driver" that we have available
+>>>>>>> internally
+>>>>>>
+>>>>>> Note that there are actually two drivers in mainline for this hardware:
+>>>>>>
+>>>>>> drivers/net/ethernet/synopsis/
+>>>>>> drivers/net/ethernet/stmicro/stmmac/
+>>>>>
+>>>>> Yes the later driver (drivers/net/ethernet/stmicro/stmmac/) supports
+>>>>> both 3.x and 4.x. It has glue layer for pci, platform, core etc,
+>>>>> please refer this driver once before you start.
+>>>>>
+>>>>> You can start adding missing feature of 4.x in stmmac driver.
+>>>>
+>>>> Thanks you all for all the info.
+>>>> Well, I think we are in a good position to organize the ethernet drivers
+>>>> concerning Synopsys IPs.
+>>>>
+>>>> First of all, in my opinion, it does not make sense to have a ethernet/synopsis
+>>>> (typo :)) when ethernet/stmicro is also for a synopsys IP. If we have another
+>>>> vendor using the same IP it should be able to reuse the commonn operations. But
+>>>> I would put that discussion for later :)
+>>>>
+>>>> For now I suggest that for we create ethernet/qos and create there a folder
+>>>> called dwc (designware controller) where all the synopsys qos IP specific code
+>>>> in order to be reused for example by ethernet/stmicro/stmmac/. We just have to
+>>>> figure out a clean interface for "client drivers" like stmmac to interact with
+>>>> the new qos driver.
+>>>>
+>>>> What do you think about this approach?
+>>>
+>>> The stmmac drivers run since many years on several platforms
+>>> (sh4, stm32, arm, x86, mips ...) and it supports an huge of amount of
+>>> configurations starting from 3.1x to 3.7x databooks.
+>>>
+>>> It also supports QoS hardware; for example, 4.00a, 4.10a and 4.20a
+>>> are fully working.
+>>>
+>>> Also the stmmac has platform, device-tree and pcie supports and
+>>> a lot of maintained glue-logic files.
+>>>
+>>> It is fully documented inside the kernel tree.
+>>>
+>>> I am happy to have new enhancements from other developers.
+>>> So, on my side, if you want to spend your time on improving it on your
+>>> platforms please feel free to do it!
+>>>
+>>> Concerning the stmicro/stmmac naming, these come from a really old
+>>> story and have no issue to adopt new folder/file names.
+>>>
+>>> I am also open to merge fixes and changes from ethernet/synopsis.
+>>> I want to point you on some benchmarks made by Alex some months ago
+>>> (IIRC) that showed an stmmac winner (due to the several optimizations
+>>> analyzed and reviewed in this mailing list).
+>>>
+>>> Peppe
+>>>
+>>
+>> Hello Joao and others,
+>>
 
-The tc could return NET_XMIT_CN as one congestion notification, but
-it does not mean the packet is lost. Other modules like ipvlan,
-macvlan, and others treat NET_XMIT_CN as success too.
+Hi Lars,
 
-So batman-adv should add the NET_XMIT_CN check.
+>> As the maintainer of dwc_eth_qos.c I prefer also that we put efforts on the
+>> most mature driver, the stmmac.
+>>
+>> I hope that the code can migrate into an ethernet/synopsys folder to keep the
+>> convention of naming the folder after the vendor. This makes it easy for
+>> others to find the driver.
+>>
+>> The dwc_eth_qos.c will eventually be removed and its DT binding interface can
+>> then be implemented in the stmmac driver.
 
-Signed-off-by: Gao Feng <gfree.wind@gmail.com>
----
- net/batman-adv/distributed-arp-table.c |  2 +-
- net/batman-adv/fragmentation.c         |  2 +-
- net/batman-adv/routing.c               | 10 +++++-----
- net/batman-adv/soft-interface.c        |  2 +-
- net/batman-adv/tp_meter.c              |  2 +-
- 5 files changed, 9 insertions(+), 9 deletions(-)
+So your ideia is to pick the ethernet/stmmac and rename it to ethernet/synopsys
+and try to improve the structure and add the missing QoS features to it?
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index 49576c5..f6ff4de 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -659,7 +659,7 @@ static bool batadv_dat_send_data(struct batadv_priv *bat_priv,
- 		}
- 
- 		send_status = batadv_send_unicast_skb(tmp_skb, neigh_node);
--		if (send_status == NET_XMIT_SUCCESS) {
-+		if (send_status == NET_XMIT_SUCCESS || send_status == NET_XMIT_CN) {
- 			/* count the sent packet */
- 			switch (packet_subtype) {
- 			case BATADV_P_DAT_DHT_GET:
-diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
-index 9c561e6..5239616 100644
---- a/net/batman-adv/fragmentation.c
-+++ b/net/batman-adv/fragmentation.c
-@@ -509,7 +509,7 @@ int batadv_frag_send_packet(struct sk_buff *skb,
- 		batadv_add_counter(bat_priv, BATADV_CNT_FRAG_TX_BYTES,
- 				   skb_fragment->len + ETH_HLEN);
- 		ret = batadv_send_unicast_skb(skb_fragment, neigh_node);
--		if (ret != NET_XMIT_SUCCESS) {
-+		if (ret != NET_XMIT_SUCCESS && ret != NET_XMIT_CN) {
- 			ret = NET_XMIT_DROP;
- 			goto free_skb;
- 		}
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 6713bdf..6b08b26 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -262,7 +262,7 @@ static int batadv_recv_my_icmp_packet(struct batadv_priv *bat_priv,
- 		icmph->ttl = BATADV_TTL;
- 
- 		res = batadv_send_skb_to_orig(skb, orig_node, NULL);
--		if (res == NET_XMIT_SUCCESS)
-+		if (res == NET_XMIT_SUCCESS || res == NET_XMIT_CN)
- 			ret = NET_RX_SUCCESS;
- 
- 		/* skb was consumed */
-@@ -330,7 +330,7 @@ static int batadv_recv_icmp_ttl_exceeded(struct batadv_priv *bat_priv,
- 	icmp_packet->ttl = BATADV_TTL;
- 
- 	res = batadv_send_skb_to_orig(skb, orig_node, NULL);
--	if (res == NET_RX_SUCCESS)
-+	if (res == NET_RX_SUCCESS || res == NET_XMIT_CN)
- 		ret = NET_XMIT_SUCCESS;
- 
- 	/* skb was consumed */
-@@ -424,7 +424,7 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
- 
- 	/* route it */
- 	res = batadv_send_skb_to_orig(skb, orig_node, recv_if);
--	if (res == NET_XMIT_SUCCESS)
-+	if (res == NET_XMIT_SUCCESS || res == NET_XMIT_CN)
- 		ret = NET_RX_SUCCESS;
- 
- 	/* skb was consumed */
-@@ -719,14 +719,14 @@ static int batadv_route_unicast_packet(struct sk_buff *skb,
- 
- 	len = skb->len;
- 	res = batadv_send_skb_to_orig(skb, orig_node, recv_if);
--	if (res == NET_XMIT_SUCCESS)
-+	if (res == NET_XMIT_SUCCESS || res == NET_XMIT_CN)
- 		ret = NET_RX_SUCCESS;
- 
- 	/* skb was consumed */
- 	skb = NULL;
- 
- 	/* translate transmit result into receive result */
--	if (res == NET_XMIT_SUCCESS) {
-+	if (res == NET_XMIT_SUCCESS || res == NET_XMIT_CN) {
- 		/* skb was transmitted and consumed */
- 		batadv_inc_counter(bat_priv, BATADV_CNT_FORWARD);
- 		batadv_add_counter(bat_priv, BATADV_CNT_FORWARD_BYTES,
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 7b3494a..60516bb 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -386,7 +386,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
- 			ret = batadv_send_skb_via_tt(bat_priv, skb, dst_hint,
- 						     vid);
- 		}
--		if (ret != NET_XMIT_SUCCESS)
-+		if (ret != NET_XMIT_SUCCESS && ret != NET_XMIT_CN)
- 			goto dropped_freed;
- 	}
- 
-diff --git a/net/batman-adv/tp_meter.c b/net/batman-adv/tp_meter.c
-index f156452..44bfb1e 100644
---- a/net/batman-adv/tp_meter.c
-+++ b/net/batman-adv/tp_meter.c
-@@ -615,7 +615,7 @@ static int batadv_tp_send_msg(struct batadv_tp_vars *tp_vars, const u8 *src,
- 	batadv_tp_fill_prerandom(tp_vars, data, data_len);
- 
- 	r = batadv_send_skb_to_orig(skb, orig_node, NULL);
--	if (r == NET_XMIT_SUCCESS)
-+	if (r == NET_XMIT_SUCCESS || r == NET_XMIT_CN)
- 		return 0;
- 
- 	return BATADV_TP_REASON_CANT_SEND;
--- 
-1.9.1
+
+> 
+> Thanks Lars, I will be happy to support all you on this transition
+> and I agree on renaming all.
+> 
+> peppe
+> 
+> 
+>> - Lars
+>>
+>>>>
+>>>>
+>>>>>
+>>>>>>
+>>>>>> (See http://lists.openwall.net/netdev/2016/02/29/127)
+>>>>>>
+>>>>>> The former only supports 4.x of the hardware.
+>>>>>>
+>>>>>> The later supports 4.x and 3.x and already has a platform glue driver
+>>>>>> with support for several platforms, a PCI glue driver, and a core driver
+>>>>>> with several features not present in the former (for example: TX/RX
+>>>>>> interrupt coalescing, EEE, PTP).
+>>>>>>
+>>>>>> Have you evaluated both drivers?  Why have you decided to work on the
+>>>>>> former rather than the latter?
+>>>>>
+>>>>>
+>>>>
+>>>> Thanks.
+>>>>
+>>>>
+>>>>
+>>>>
+>>>
+>>
+> 
