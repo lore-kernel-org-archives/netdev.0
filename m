@@ -1,92 +1,43 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC PATCH v2 2/2] macb: Enable 1588 support in SAMA5D2 platform.
-Date: Sun, 20 Nov 2016 20:54:13 +0100
-Message-ID: <20161120195413.GB7874@localhost.localdomain>
-References: <1479478912-14067-1-git-send-email-andrei.pistirica@microchip.com>
- <1479478912-14067-2-git-send-email-andrei.pistirica@microchip.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, davem@davemloft.net,
-        nicolas.ferre@atmel.com, harinikatakamlinux@gmail.com,
-        harini.katakam@xilinx.com, punnaia@xilinx.com, michals@xilinx.com,
-        anirudh@xilinx.com, boris.brezillon@free-electrons.com,
-        alexandre.belloni@free-electrons.com, tbultel@pixelsurmer.com
-To: Andrei Pistirica <andrei.pistirica@microchip.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1479478912-14067-2-git-send-email-andrei.pistirica@microchip.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH net-next 1/1] driver: macvlan: Remove duplicated IFF_UP condition check in macvlan_forward_source
+Date: Mon, 21 Nov 2016 08:26:38 +0800
+Message-ID: <1479687998-456-1-git-send-email-fgao@ikuai8.com>
+To: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbg327.qq.com ([14.17.43.158]:39238 "EHLO smtpbg327.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751490AbcKUAfb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 20 Nov 2016 19:35:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 18, 2016 at 03:21:52PM +0100, Andrei Pistirica wrote:
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index d975882..eb66b76 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -697,6 +697,8 @@ static void macb_tx_interrupt(struct macb_queue *queue)
->  
->  			/* First, update TX stats if needed */
->  			if (skb) {
-> +				macb_ptp_do_txstamp(bp, skb);
+From: Gao Feng <gfree.wind@gmail.com>
 
-This is in the hot path, and so you should have an inline wrapper that
-tests (bp->hwts_tx_en) and THEN calls into macb_ptp.c
+The function macvlan_forward_source_one has already checked the flag
+IFF_UP, so needn't check it outside in macvlan_forward_source too.
 
-In case PTP isn't configured, then the inline wrapper should be empty.
+Signed-off-by: Gao Feng <gfree.wind@gmail.com>
+---
+ v2: Remove the IFF_UP check in macvlan_forward_source instead of macvlan_forward_source_one
+ v1: Initial patch
 
->  				netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
->  					    macb_tx_ring_wrap(tail), skb->data);
->  				bp->stats.tx_packets++;
-> @@ -853,6 +855,8 @@ static int gem_rx(struct macb *bp, int budget)
->  		    GEM_BFEXT(RX_CSUM, ctrl) & GEM_RX_CSUM_CHECKED_MASK)
->  			skb->ip_summed = CHECKSUM_UNNECESSARY;
->  
-> +		macb_ptp_do_rxstamp(bp, skb);
+ drivers/net/macvlan.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Same here.
-
->  		bp->stats.rx_packets++;
->  		bp->stats.rx_bytes += skb->len;
->  
-> @@ -1946,6 +1950,8 @@ static int macb_open(struct net_device *dev)
->  
->  	netif_tx_start_all_queues(dev);
->  
-> +	macb_ptp_init(dev);
-
-This leaks PHC instances starting the second time that the interface goes up!
-
->  	return 0;
->  }
->  
-> @@ -2204,7 +2210,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
->  	.get_regs_len		= macb_get_regs_len,
->  	.get_regs		= macb_get_regs,
->  	.get_link		= ethtool_op_get_link,
-> -	.get_ts_info		= ethtool_op_get_ts_info,
-> +	.get_ts_info		= macb_get_ts_info,
-
-You enable the time stamping logic unconditionally here ...
-
->  	.get_ethtool_stats	= gem_get_ethtool_stats,
->  	.get_strings		= gem_get_ethtool_strings,
->  	.get_sset_count		= gem_get_sset_count,
-> @@ -2221,7 +2227,14 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
->  	if (!phydev)
->  		return -ENODEV;
->  
-> -	return phy_mii_ioctl(phydev, rq, cmd);
-> +	switch (cmd) {
-> +	case SIOCSHWTSTAMP:
-> +		return macb_hwtst_set(dev, rq, cmd);
-> +	case SIOCGHWTSTAMP:
-> +		return macb_hwtst_get(dev, rq);
-
-and here.
-
-Is that logic always available on every MACB device?  If so, is the
-implementation also identical?
-
-Thanks,
-Richard
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 13b7e0b..7ddfd2c 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -400,8 +400,7 @@ static void macvlan_forward_source(struct sk_buff *skb,
+ 
+ 	hlist_for_each_entry_rcu(entry, h, hlist) {
+ 		if (ether_addr_equal_64bits(entry->addr, addr))
+-			if (entry->vlan->dev->flags & IFF_UP)
+-				macvlan_forward_source_one(skb, entry->vlan);
++			macvlan_forward_source_one(skb, entry->vlan);
+ 	}
+ }
+ 
+-- 
+1.9.1
