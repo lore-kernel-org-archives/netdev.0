@@ -1,70 +1,138 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 0/7] Mellanox 100G mlx5 SRIOV switchdev update
-Date: Mon, 21 Nov 2016 15:05:54 +0200
-Message-ID: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 5/7] net/mlx5: Enable to query min inline for a specific vport
+Date: Mon, 21 Nov 2016 15:05:59 +0200
+Message-ID: <1479733561-26601-6-git-send-email-saeedm@mellanox.com>
+References: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46913 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46914 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932308AbcKUNHT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 08:07:19 -0500
+        with ESMTP id S932308AbcKUNHQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 08:07:16 -0500
+In-Reply-To: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Roi Dayan <roid@mellanox.com>
 
-This series from Roi and Or further enhances the new SRIOV switchdev mode.
+Also move the inline capablities enum to a shared header vport.h
 
-Roi's patches deal with allowing users to configure though devlink
-the level of inline headers that the VF should be setting in order for
-the eswitch HW to do proper matching. We also enforce that the matching
-required for offloaded TC rules is aligned with that level on the PF driver.
+Signed-off-by: Roi Dayan <roid@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  6 ------
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 11 +++++------
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c   | 14 ++++++++------
+ include/linux/mlx5/vport.h                        | 10 ++++++++--
+ 4 files changed, 21 insertions(+), 20 deletions(-)
 
-Or's patches deals with allowing the user to control on the VF operational
-link state through admin directives on the mlx5 VF rep link. Also in this series
-is implementation of HW and SW counters for the mlx5 VF rep which is aligned
-with the design set by commit a5ea31f57309 'Merge branch net-offloaded-stats'.
-
-This series was generated against commit
-f81a8a02bb3b ("Merge branch 'mV88e6xxx-interrupt-fixes'")
-
-Thanks,
-Saeed.
-
-Or Gerlitz (3):
-  net: Add net-device param to the get offloaded stats ndo
-  net/mlx5e: Support HW (offloaded) and SW counters for SRIOV switchdev
-    mode
-  net/mlx5e: Support VF vport link state control for SRIOV switchdev
-    mode
-
-Roi Dayan (4):
-  devlink: Add E-Switch inline mode control
-  net/mlx5: Enable to query min inline for a specific vport
-  net/mlx5: E-Switch, Add control for inline mode
-  net/mlx5e: Enforce min inline mode when offloading flows
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  15 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  42 +++---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   | 144 +++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  46 ++++++-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |   4 +
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 141 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   2 +
- drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  14 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   2 +-
- include/linux/mlx5/vport.h                         |  10 +-
- include/linux/netdevice.h                          |   4 +-
- include/net/devlink.h                              |   2 +
- include/uapi/linux/devlink.h                       |   8 ++
- net/core/devlink.c                                 |  70 +++++++---
- net/core/rtnetlink.c                               |   4 +-
- 17 files changed, 438 insertions(+), 72 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index ebf5dbc..a2b32ed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -150,12 +150,6 @@ static inline int mlx5_max_log_rq_size(int wq_type)
+ 	}
+ }
+ 
+-enum {
+-	MLX5E_INLINE_MODE_L2,
+-	MLX5E_INLINE_MODE_VPORT_CONTEXT,
+-	MLX5_INLINE_MODE_NOT_REQUIRED,
+-};
+-
+ struct mlx5e_tx_wqe {
+ 	struct mlx5_wqe_ctrl_seg ctrl;
+ 	struct mlx5_wqe_eth_seg  eth;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 480875f..d25bc0f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -952,7 +952,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
+ 	sq->bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
+ 	sq->max_inline  = param->max_inline;
+ 	sq->min_inline_mode =
+-		MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5E_INLINE_MODE_VPORT_CONTEXT ?
++		MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_VPORT_CONTEXT ?
+ 		param->min_inline_mode : 0;
+ 
+ 	err = mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu));
+@@ -3403,14 +3403,13 @@ static void mlx5e_query_min_inline(struct mlx5_core_dev *mdev,
+ 				   u8 *min_inline_mode)
+ {
+ 	switch (MLX5_CAP_ETH(mdev, wqe_inline_mode)) {
+-	case MLX5E_INLINE_MODE_L2:
++	case MLX5_CAP_INLINE_MODE_L2:
+ 		*min_inline_mode = MLX5_INLINE_MODE_L2;
+ 		break;
+-	case MLX5E_INLINE_MODE_VPORT_CONTEXT:
+-		mlx5_query_nic_vport_min_inline(mdev,
+-						min_inline_mode);
++	case MLX5_CAP_INLINE_MODE_VPORT_CONTEXT:
++		mlx5_query_nic_vport_min_inline(mdev, 0, min_inline_mode);
+ 		break;
+-	case MLX5_INLINE_MODE_NOT_REQUIRED:
++	case MLX5_CAP_INLINE_MODE_NOT_REQUIRED:
+ 		*min_inline_mode = MLX5_INLINE_MODE_NONE;
+ 		break;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 525f17a..269e440 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -113,15 +113,17 @@ static int mlx5_modify_nic_vport_context(struct mlx5_core_dev *mdev, void *in,
+ 	return mlx5_cmd_exec(mdev, in, inlen, out, sizeof(out));
+ }
+ 
+-void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
+-				     u8 *min_inline_mode)
++int mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				    u16 vport, u8 *min_inline)
+ {
+ 	u32 out[MLX5_ST_SZ_DW(query_nic_vport_context_out)] = {0};
++	int err;
+ 
+-	mlx5_query_nic_vport_context(mdev, 0, out, sizeof(out));
+-
+-	*min_inline_mode = MLX5_GET(query_nic_vport_context_out, out,
+-				    nic_vport_context.min_wqe_inline_mode);
++	err = mlx5_query_nic_vport_context(mdev, vport, out, sizeof(out));
++	if (!err)
++		*min_inline = MLX5_GET(query_nic_vport_context_out, out,
++				       nic_vport_context.min_wqe_inline_mode);
++	return err;
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_min_inline);
+ 
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index 451b0bd..ec35157 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -36,6 +36,12 @@
+ #include <linux/mlx5/driver.h>
+ #include <linux/mlx5/device.h>
+ 
++enum {
++	MLX5_CAP_INLINE_MODE_L2,
++	MLX5_CAP_INLINE_MODE_VPORT_CONTEXT,
++	MLX5_CAP_INLINE_MODE_NOT_REQUIRED,
++};
++
+ u8 mlx5_query_vport_state(struct mlx5_core_dev *mdev, u8 opmod, u16 vport);
+ u8 mlx5_query_vport_admin_state(struct mlx5_core_dev *mdev, u8 opmod,
+ 				u16 vport);
+@@ -43,8 +49,8 @@ int mlx5_modify_vport_admin_state(struct mlx5_core_dev *mdev, u8 opmod,
+ 				  u16 vport, u8 state);
+ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr);
+-void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
+-				     u8 *min_inline);
++int mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				    u16 vport, u8 *min_inline);
+ int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 min_inline);
+ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *dev,
 -- 
 2.7.4
