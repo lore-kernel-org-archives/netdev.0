@@ -1,99 +1,41 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH net-next] bridge: add igmpv3 and mldv2 query support
-Date: Mon, 21 Nov 2016 11:25:47 +0800
-Message-ID: <CAPwn2JT6rqw+a55ujfSc-Ps4ZgX6yef2FFhq=32y91AV5QDukg@mail.gmail.com>
-References: <1479454321-31304-1-git-send-email-liuhangbin@gmail.com>
- <9c1e16c2-b716-21e0-fa2c-3e3126607953@cumulusnetworks.com>
- <c1c35821-cdba-4a5e-0e53-694d10fb5918@cumulusnetworks.com> <a5fe27de-e747-c1c6-7108-83124d1c000f@cumulusnetworks.com>
+From: "UNCLAIMED ASSET" <noreply@eLIVE.co.uk>
+Subject: Haster Response.//..
+Date: Sun, 20 Nov 2016 22:28:44 -0500
+Message-ID: <E1c8fHs-0003cZ-4E@srv01.wsp.net.br>
+Reply-To: steve.s.bhatti@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        linus.luessing@c0d3.blue, roopa <roopa@cumulusnetworks.com>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <noreply@eLIVE.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:33192 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752084AbcKUDZs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 22:25:48 -0500
-Received: by mail-qk0-f194.google.com with SMTP id x190so44157197qkb.0
-        for <netdev@vger.kernel.org>; Sun, 20 Nov 2016 19:25:48 -0800 (PST)
-In-Reply-To: <a5fe27de-e747-c1c6-7108-83124d1c000f@cumulusnetworks.com>
+Received: from 177-069-092-234.static.ctbctelecom.com.br ([177.69.92.234]:40121
+        "EHLO srv01.wsp.net.br" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+        with ESMTP id S1752084AbcKUD3A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Nov 2016 22:29:00 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-11-18 18:31 GMT+08:00 Nikolay Aleksandrov <nikolay@cumulusnetworks.com>:
-> On 18/11/16 11:09, Nikolay Aleksandrov wrote:
->>
->> On 18/11/16 11:04, Nikolay Aleksandrov wrote:
->>>
->>> (+CC Roopa)
->>> Hi Hangbin,
->>> This patch is not correct, you should not use the net device IGMP config
->>> in the bridge.
->>
->> * bridge net device, sorry not port
+God dag,
 
-Hi Nikolay,
+Vær så snill, kan jeg få din oppmerksomhet i utførelsen av en undermentioned forslag i tråd med min nåværende ekspansjon, vil jeg gjerne oppfordre partnerskap med deg eller ditt firma i forbindelse med en gjenstand. Det er en forlatt fondet her i vår bank (Santander Bank Plc.) Som ble eid av en av mine klienter. Ved Navn: Late David McDowell Brown, (en amerikansk statsborger av Arlington Virgina).
 
-Thanks for the comments. You are right. I was just thinking to make the IGMP/MLD
-version configurable and use existing variables directly. But we
-should control it
-per-bridge basis.
+Han er dessverre mistet livet i februar 2003 gjennom det sørlige USA romfergen Columbia. Han døde og etterlot en stor sum penger som har vært sovende i mange år i vår Bank uten krav og jeg har vært mislykket i finne noen av hans slektninger i mange år nå siden han døde en enkelt mann. Vær så snill, jeg trenger din haster hjelp til å overføre dette fondet (er) (penger) til kontoen din innen 11 eller 15 bankdager.
 
->>
->>> These packets may never make it to the host and they may not be
->>> reflected, even more the
->>> host may have very different igmp config for the port net device than the
->>> bridge does.
->>
->> * again bridge net device, not port
->>
->>> Also your current implementation switches to V3 only if it is globally
->>> set, and that should
->>> be controlled on a per-bridge basis, even per-vlan later.
->>
->> * it is per-bridge, you use the global net device IGMP config, but it
->> should be in the bridge
->> mcast control options, so we can do it per-vlan later and also be able to
->> do the compat parts
->> of the RFC and in general, the bridge is configured via its own options
->> not the host net device
->> because as I said these packets may never be received locally
->
->
-> Having the host netdev options affect the bridge-specific config is really
-> undesirable and confusing.
->
->>
->>> One more thing, if someone does a V2 leave for a group, you can end up
->>> sending them V3
->>> group-specific query.
->>>
->>> I have been working on an implementation for IGMPv3/MLDv2 querier for the
->>> bridge device, it re-uses
->>> most of the current code and allows you to configure it per-bridge (and
->>> later per-vlan). The only
->>> reason I've not yet sent it to upstream is that we (at Cumulus) are
->>> working out the compatibility
->>> parts (e.g. RFC3376 sec 7, sec 8) of the RFC since it has some unclear
->>> cases.
+Jeg har nylig fått en informasjon som banken ønsker å arve undermentioned summen inn i deres Treasury konto siden ingen har kommet for kravet ennå. Vær så snill, jeg trenger din HASTER hjelp til å presentere deg som den avdødes pårørende (Late David McDowell Brown) og jeg ærlig forsikre dere om at det skulle være noen bro over LOV involverer denne transaksjonen som alle dokument (er) for å gjøre denne påstanden (s ) vil bli sikret og godkjent av meg i advokatfirmaet her i Storbritannia. Jeg har stor tro på at dette ville være en stor / gjensidig nytte og flott avenue for investeringer i nærmeste fremtid.
 
-Yeah, even in the host igmp/mld code we have some vague areas and different
-handles.
+Når pengene er overført med hell til særskilt konto i ditt land og utbetalt henholdsvis mellom oss begge,
+Jeg ønsker å søke din ærlige råd på noen god og pålitelig forretningsidé jeg kan investere min andel i ditt land.
+Fullstendige opplysninger / modaliteter vil bli offentliggjort på din uttrykk for interesse for å samarbeide med meg. Jeg kan nås direkte på: (steve.s.bhatti@gmail.com).
 
->
->
-> Err, RFC3376 sec 7.3.1, 7.3.2, and RFC3810 sec 8.3.1, 8.3.2
->
-> I really should get coffee.. sorry for the multiple emails :-)
->
->
->>> But I can rip the compatibility out and send it early for review if you'd
->>> like, we can add the
->>> compat code later.
+Takk, vil din ærlige samarbeid bli høyt verdsatt.
 
-OK, then I will wait for your patch.
-
-Thanks
-Hangbin
+Vennlig hilsen,
+Dr. Steve Bhatti.
+Drift / regionsjef
+Santander Bank Plc,
+47-48 Piccadilly
+PICCADILLY
+W1J0DT
+London, Storbritannia
+Tel: +447042043211
