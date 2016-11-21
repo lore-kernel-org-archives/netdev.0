@@ -1,63 +1,77 @@
-From: Miroslav Urbanek <mu@miroslavurbanek.com>
-Subject: [PATCH] flowcache: Increase threshold for refusing new allocations
-Date: Mon, 21 Nov 2016 15:48:21 +0100
-Message-ID: <20161121144820.GA4048@miroslavurbanek.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Mon, 21 Nov 2016 15:00:06 +0000
+Message-ID: <48776f8b-4e06-1456-1b52-3ea08a22b2a4@synopsys.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+ <afc18eb0-4c11-9668-498d-982624c6de78@synopsys.com>
+ <937252db-9538-2cf6-c8fa-82b558531c51@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.smtp.cz ([81.95.97.115]:42873 "EHLO relay.smtp.cz"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754228AbcKUOy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Nov 2016 09:54:27 -0500
-Received: from antirelay02.smtp.cz (antirelay02.smtp.cz [81.95.105.132])
-        by relay.smtp.cz (Postfix) with ESMTPS id EB9DB20BA99
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 15:48:27 +0100 (CET)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: mued dib <kreptor@gmail.com>, David Miller <davem@davemloft.net>,
+        "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+        <saeedm@mellanox.com>, <idosch@mellanox.com>,
+        netdev <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <CARLOS.PALMINHA@synopsys.com>, <andreas.irestal@axis.com>,
+        <alexandre.torgue@st.com>, <lars.persson@axis.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+        Rabin Vincent <rabin@rab.in>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <937252db-9538-2cf6-c8fa-82b558531c51@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The threshold for OOM protection is too small for systems with large
-number of CPUs. Applications report ENOBUFs on connect() every 10
-minutes.
+On 21-11-2016 14:36, Giuseppe CAVALLARO wrote:
+> Hello Joao
+> 
+> On 11/21/2016 2:48 PM, Joao Pinto wrote:
+>> Synopsys QoS IP is a separated hardware component, so it should be reusable by
+>> all implementations using it and so have its own "core driver" and platform +
+>> pci glue drivers. This is necessary for example in hardware validation, where
+>> you prototype an IP and instantiate its drivers and test it.
+>>
+>> Was there a strong reason to integrate QoS features directly in stmmac and not
+>> in synopsys/dwc_eth_qos.*?
+> 
+> We decided to enhance the stmmac on supporting the QoS for several
+> reasons; for example the common APIs that the driver already exposed and
+> actually suitable for other SYNP chips. Then, PTP, EEE,
+> S/RGMII, MMC could be shared among different chips with a minimal
+> effort.  This meant a lot of code already ready.
+> 
+> For sure, the net-core, Ethtool, mdio parts were reused. Same for the
+> glue logic files.
+> For the latter, this helped to easily bring-up new platforms also
+> because the stmmac uses the HW cap register to auto-configure many
+> parts of the MAC core, DMA and modules. This helped many users, AFAIK.
+> 
+> For validation purpose, this is my experience, the stmmac helped
+> a lot because people used the same code to validate different HW
+> and it was easy to switch to a platform to another one in order to
+> verify / check if the support was ok or if a regression was introduced.
+> This is important for complex supports like PTP or EEE.
+> 
+> Hoping this can help.
+> 
+> Do not hesitate to contact me for further details
 
-The problem is that the variable net->xfrm.flow_cache_gc_count is a
-global counter while the variable fc->high_watermark is a per-CPU
-constant. Take the number of CPUs into account as well.
+Thanks for the highly detailed info.
+My target application is to prototype the Ethernet QoS IP in a FPGA, with a PHY
+attached and make hardware validation.
 
-Fixes: 6ad3122a08e3 ("flowcache: Avoid OOM condition under preasure")
-Reported-by: Lukáš Koldrt <lk@excello.cz>
-Tested-by: Jan Hejl <jh@excello.cz>
-Signed-off-by: Miroslav Urbanek <mu@miroslavurbanek.com>
----
- net/core/flow.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+In your opinion a refactored stmmac with the missing QoS features would be
+suitable for it?
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 3937b1b..18e8893 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -95,7 +95,6 @@ static void flow_cache_gc_task(struct work_struct *work)
- 	list_for_each_entry_safe(fce, n, &gc_list, u.gc_list) {
- 		flow_entry_kill(fce, xfrm);
- 		atomic_dec(&xfrm->flow_cache_gc_count);
--		WARN_ON(atomic_read(&xfrm->flow_cache_gc_count) < 0);
- 	}
- }
- 
-@@ -236,9 +235,8 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
- 		if (fcp->hash_count > fc->high_watermark)
- 			flow_cache_shrink(fc, fcp);
- 
--		if (fcp->hash_count > 2 * fc->high_watermark ||
--		    atomic_read(&net->xfrm.flow_cache_gc_count) > fc->high_watermark) {
--			atomic_inc(&net->xfrm.flow_cache_genid);
-+		if (atomic_read(&net->xfrm.flow_cache_gc_count) >
-+		    2 * num_online_cpus() * fc->high_watermark) {
- 			flo = ERR_PTR(-ENOBUFS);
- 			goto ret_object;
- 		}
--- 
-2.7.3
+Thanks.
+
+> 
+> peppe
