@@ -1,90 +1,128 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 1/7] net: Add net-device param to the get offloaded stats ndo
-Date: Mon, 21 Nov 2016 15:05:55 +0200
-Message-ID: <1479733561-26601-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 7/7] net/mlx5e: Enforce min inline mode when offloading flows
+Date: Mon, 21 Nov 2016 15:06:01 +0200
+Message-ID: <1479733561-26601-8-git-send-email-saeedm@mellanox.com>
 References: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46919 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46920 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932291AbcKUNHL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 08:07:11 -0500
+        with ESMTP id S932329AbcKUNHV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 08:07:21 -0500
 In-Reply-To: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Roi Dayan <roid@mellanox.com>
 
-Some drivers would need to check few internal matters for
-that. To be used in downstream mlx5 commit.
+A flow should be offloaded only if the matches are
+allowed according to min inline mode.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Roi Dayan <roid@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
- include/linux/netdevice.h                      | 4 ++--
- net/core/rtnetlink.c                           | 4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 46 +++++++++++++++++++++++--
+ 1 file changed, 44 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 4a1f9d5..be32f47 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -857,7 +857,7 @@ mlxsw_sp_port_get_sw_stats64(const struct net_device *dev,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 4b99112..4d06fab 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -279,8 +279,10 @@ static int parse_tunnel_attr(struct mlx5e_priv *priv,
  	return 0;
  }
  
--static bool mlxsw_sp_port_has_offload_stats(int attr_id)
-+static bool mlxsw_sp_port_has_offload_stats(struct net_device *dev, int attr_id)
+-static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec,
+-			    struct tc_cls_flower_offload *f)
++static int __parse_cls_flower(struct mlx5e_priv *priv,
++			      struct mlx5_flow_spec *spec,
++			      struct tc_cls_flower_offload *f,
++			      u8 *min_inline)
  {
- 	switch (attr_id) {
- 	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e84800e..ae32a27 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -925,7 +925,7 @@ struct netdev_xdp {
-  *	3. Update dev->stats asynchronously and atomically, and define
-  *	   neither operation.
-  *
-- * bool (*ndo_has_offload_stats)(int attr_id)
-+ * bool (*ndo_has_offload_stats)(const struct net_device *dev, int attr_id)
-  *	Return true if this device supports offload stats of this attr_id.
-  *
-  * int (*ndo_get_offload_stats)(int attr_id, const struct net_device *dev,
-@@ -1165,7 +1165,7 @@ struct net_device_ops {
+ 	void *headers_c = MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
+ 				       outer_headers);
+@@ -289,6 +291,8 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
+ 	u16 addr_type = 0;
+ 	u8 ip_proto = 0;
  
- 	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
- 						     struct rtnl_link_stats64 *storage);
--	bool			(*ndo_has_offload_stats)(int attr_id);
-+	bool			(*ndo_has_offload_stats)(const struct net_device *dev, int attr_id);
- 	int			(*ndo_get_offload_stats)(int attr_id,
- 							 const struct net_device *dev,
- 							 void *attr_data);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index db313ec..f5a8d8a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3665,7 +3665,7 @@ static int rtnl_get_offload_stats(struct sk_buff *skb, struct net_device *dev,
- 		if (!size)
- 			continue;
++	*min_inline = MLX5_INLINE_MODE_L2;
++
+ 	if (f->dissector->used_keys &
+ 	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
+ 	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
+@@ -362,6 +366,9 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
+ 			 mask->ip_proto);
+ 		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_protocol,
+ 			 key->ip_proto);
++
++		if (mask->ip_proto)
++			*min_inline = MLX5_INLINE_MODE_IP;
+ 	}
  
--		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
-+		if (!dev->netdev_ops->ndo_has_offload_stats(dev, attr_id))
- 			continue;
+ 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
+@@ -432,6 +439,9 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
+ 		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
+ 				    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
+ 		       &key->dst, sizeof(key->dst));
++
++		if (mask->src || mask->dst)
++			*min_inline = MLX5_INLINE_MODE_IP;
+ 	}
  
- 		attr = nla_reserve_64bit(skb, attr_id, size,
-@@ -3706,7 +3706,7 @@ static int rtnl_get_offload_stats_size(const struct net_device *dev)
+ 	if (addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS) {
+@@ -457,6 +467,10 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
+ 		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
+ 				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
+ 		       &key->dst, sizeof(key->dst));
++
++		if (ipv6_addr_type(&mask->src) != IPV6_ADDR_ANY ||
++		    ipv6_addr_type(&mask->dst) != IPV6_ADDR_ANY)
++			*min_inline = MLX5_INLINE_MODE_IP;
+ 	}
  
- 	for (attr_id = IFLA_OFFLOAD_XSTATS_FIRST;
- 	     attr_id <= IFLA_OFFLOAD_XSTATS_MAX; attr_id++) {
--		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
-+		if (!dev->netdev_ops->ndo_has_offload_stats(dev, attr_id))
- 			continue;
- 		size = rtnl_get_offload_stats_attr_size(attr_id);
- 		nla_size += nla_total_size_64bit(size);
+ 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
+@@ -497,11 +511,39 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
+ 				   "Only UDP and TCP transport are supported\n");
+ 			return -EINVAL;
+ 		}
++
++		if (mask->src || mask->dst)
++			*min_inline = MLX5_INLINE_MODE_TCP_UDP;
+ 	}
+ 
+ 	return 0;
+ }
+ 
++static int parse_cls_flower(struct mlx5e_priv *priv,
++			    struct mlx5_flow_spec *spec,
++			    struct tc_cls_flower_offload *f)
++{
++	struct mlx5_core_dev *dev = priv->mdev;
++	struct mlx5_eswitch *esw = dev->priv.eswitch;
++	struct mlx5_eswitch_rep *rep = priv->ppriv;
++	u8 min_inline;
++	int err;
++
++	err = __parse_cls_flower(priv, spec, f, &min_inline);
++
++	if (!err && esw->mode == SRIOV_OFFLOADS &&
++	    rep->vport != FDB_UPLINK_VPORT) {
++		if (min_inline > esw->offloads.inline_mode) {
++			netdev_warn(priv->netdev,
++				    "Flow is not offloaded due to min inline setting, required %d actual %d\n",
++				    min_inline, esw->offloads.inline_mode);
++			return -EOPNOTSUPP;
++		}
++	}
++
++	return err;
++}
++
+ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 				u32 *action, u32 *flow_tag)
+ {
 -- 
 2.7.4
