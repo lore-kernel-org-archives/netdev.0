@@ -1,202 +1,90 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 4/7] devlink: Add E-Switch inline mode control
-Date: Mon, 21 Nov 2016 15:05:58 +0200
-Message-ID: <1479733561-26601-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 1/7] net: Add net-device param to the get offloaded stats ndo
+Date: Mon, 21 Nov 2016 15:05:55 +0200
+Message-ID: <1479733561-26601-2-git-send-email-saeedm@mellanox.com>
 References: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46921 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46919 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932325AbcKUNHT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 08:07:19 -0500
+        with ESMTP id S932291AbcKUNHL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 08:07:11 -0500
 In-Reply-To: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roi Dayan <roid@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Some HWs need the VF driver to put part of the packet headers on the
-TX descriptor so the e-switch can do proper matching and steering.
+Some drivers would need to check few internal matters for
+that. To be used in downstream mlx5 commit.
 
-The supported modes: none, link, network, transport.
-
-Signed-off-by: Roi Dayan <roid@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/net/devlink.h        |  2 ++
- include/uapi/linux/devlink.h |  8 +++++
- net/core/devlink.c           | 70 ++++++++++++++++++++++++++++++++------------
- 3 files changed, 61 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
+ include/linux/netdevice.h                      | 4 ++--
+ net/core/rtnetlink.c                           | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/devlink.h b/include/net/devlink.h
-index 211bd3c..d29e5fc 100644
---- a/include/net/devlink.h
-+++ b/include/net/devlink.h
-@@ -92,6 +92,8 @@ struct devlink_ops {
- 
- 	int (*eswitch_mode_get)(struct devlink *devlink, u16 *p_mode);
- 	int (*eswitch_mode_set)(struct devlink *devlink, u16 mode);
-+	int (*eswitch_inline_mode_get)(struct devlink *devlink, u8 *p_inline_mode);
-+	int (*eswitch_inline_mode_set)(struct devlink *devlink, u8 inline_mode);
- };
- 
- static inline void *devlink_priv(struct devlink *devlink)
-diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-index 915bfa7..9014c33 100644
---- a/include/uapi/linux/devlink.h
-+++ b/include/uapi/linux/devlink.h
-@@ -102,6 +102,13 @@ enum devlink_eswitch_mode {
- 	DEVLINK_ESWITCH_MODE_SWITCHDEV,
- };
- 
-+enum devlink_eswitch_inline_mode {
-+	DEVLINK_ESWITCH_INLINE_MODE_NONE,
-+	DEVLINK_ESWITCH_INLINE_MODE_LINK,
-+	DEVLINK_ESWITCH_INLINE_MODE_NETWORK,
-+	DEVLINK_ESWITCH_INLINE_MODE_TRANSPORT,
-+};
-+
- enum devlink_attr {
- 	/* don't change the order or add anything between, this is ABI! */
- 	DEVLINK_ATTR_UNSPEC,
-@@ -133,6 +140,7 @@ enum devlink_attr {
- 	DEVLINK_ATTR_SB_OCC_CUR,		/* u32 */
- 	DEVLINK_ATTR_SB_OCC_MAX,		/* u32 */
- 	DEVLINK_ATTR_ESWITCH_MODE,		/* u16 */
-+	DEVLINK_ATTR_ESWITCH_INLINE_MODE,	/* u8 */
- 
- 	/* add new attributes above here, update the policy in devlink.c */
- 
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index c14f8b6..2b5bf9e 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -1394,26 +1394,45 @@ static int devlink_nl_cmd_sb_occ_max_clear_doit(struct sk_buff *skb,
- 
- static int devlink_eswitch_fill(struct sk_buff *msg, struct devlink *devlink,
- 				enum devlink_command cmd, u32 portid,
--				u32 seq, int flags, u16 mode)
-+				u32 seq, int flags)
- {
-+	const struct devlink_ops *ops = devlink->ops;
- 	void *hdr;
-+	int err = 0;
-+	u16 mode;
-+	u8 inline_mode;
- 
- 	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
- 	if (!hdr)
- 		return -EMSGSIZE;
- 
--	if (devlink_nl_put_handle(msg, devlink))
--		goto nla_put_failure;
-+	err = devlink_nl_put_handle(msg, devlink);
-+	if (err)
-+		goto out;
- 
--	if (nla_put_u16(msg, DEVLINK_ATTR_ESWITCH_MODE, mode))
--		goto nla_put_failure;
-+	err = ops->eswitch_mode_get(devlink, &mode);
-+	if (err)
-+		goto out;
-+	err = nla_put_u16(msg, DEVLINK_ATTR_ESWITCH_MODE, mode);
-+	if (err)
-+		goto out;
-+
-+	if (ops->eswitch_inline_mode_get) {
-+		err = ops->eswitch_inline_mode_get(devlink, &inline_mode);
-+		if (err)
-+			goto out;
-+		err = nla_put_u8(msg, DEVLINK_ATTR_ESWITCH_INLINE_MODE,
-+				 inline_mode);
-+		if (err)
-+			goto out;
-+	}
- 
- 	genlmsg_end(msg, hdr);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 4a1f9d5..be32f47 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -857,7 +857,7 @@ mlxsw_sp_port_get_sw_stats64(const struct net_device *dev,
  	return 0;
- 
--nla_put_failure:
-+out:
- 	genlmsg_cancel(msg, hdr);
--	return -EMSGSIZE;
-+	return err;
  }
  
- static int devlink_nl_cmd_eswitch_mode_get_doit(struct sk_buff *skb,
-@@ -1422,22 +1441,17 @@ static int devlink_nl_cmd_eswitch_mode_get_doit(struct sk_buff *skb,
- 	struct devlink *devlink = info->user_ptr[0];
- 	const struct devlink_ops *ops = devlink->ops;
- 	struct sk_buff *msg;
--	u16 mode;
- 	int err;
+-static bool mlxsw_sp_port_has_offload_stats(int attr_id)
++static bool mlxsw_sp_port_has_offload_stats(struct net_device *dev, int attr_id)
+ {
+ 	switch (attr_id) {
+ 	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e84800e..ae32a27 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -925,7 +925,7 @@ struct netdev_xdp {
+  *	3. Update dev->stats asynchronously and atomically, and define
+  *	   neither operation.
+  *
+- * bool (*ndo_has_offload_stats)(int attr_id)
++ * bool (*ndo_has_offload_stats)(const struct net_device *dev, int attr_id)
+  *	Return true if this device supports offload stats of this attr_id.
+  *
+  * int (*ndo_get_offload_stats)(int attr_id, const struct net_device *dev,
+@@ -1165,7 +1165,7 @@ struct net_device_ops {
  
- 	if (!ops || !ops->eswitch_mode_get)
- 		return -EOPNOTSUPP;
+ 	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
+ 						     struct rtnl_link_stats64 *storage);
+-	bool			(*ndo_has_offload_stats)(int attr_id);
++	bool			(*ndo_has_offload_stats)(const struct net_device *dev, int attr_id);
+ 	int			(*ndo_get_offload_stats)(int attr_id,
+ 							 const struct net_device *dev,
+ 							 void *attr_data);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index db313ec..f5a8d8a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3665,7 +3665,7 @@ static int rtnl_get_offload_stats(struct sk_buff *skb, struct net_device *dev,
+ 		if (!size)
+ 			continue;
  
--	err = ops->eswitch_mode_get(devlink, &mode);
--	if (err)
--		return err;
--
- 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
- 	if (!msg)
- 		return -ENOMEM;
+-		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
++		if (!dev->netdev_ops->ndo_has_offload_stats(dev, attr_id))
+ 			continue;
  
- 	err = devlink_eswitch_fill(msg, devlink, DEVLINK_CMD_ESWITCH_MODE_GET,
--				   info->snd_portid, info->snd_seq, 0, mode);
-+				   info->snd_portid, info->snd_seq, 0);
+ 		attr = nla_reserve_64bit(skb, attr_id, size,
+@@ -3706,7 +3706,7 @@ static int rtnl_get_offload_stats_size(const struct net_device *dev)
  
- 	if (err) {
- 		nlmsg_free(msg);
-@@ -1453,15 +1467,32 @@ static int devlink_nl_cmd_eswitch_mode_set_doit(struct sk_buff *skb,
- 	struct devlink *devlink = info->user_ptr[0];
- 	const struct devlink_ops *ops = devlink->ops;
- 	u16 mode;
-+	u8 inline_mode;
-+	int err = 0;
- 
--	if (!info->attrs[DEVLINK_ATTR_ESWITCH_MODE])
--		return -EINVAL;
-+	if (!ops)
-+		return -EOPNOTSUPP;
- 
--	mode = nla_get_u16(info->attrs[DEVLINK_ATTR_ESWITCH_MODE]);
-+	if (info->attrs[DEVLINK_ATTR_ESWITCH_MODE]) {
-+		if (!ops->eswitch_mode_set)
-+			return -EOPNOTSUPP;
-+		mode = nla_get_u16(info->attrs[DEVLINK_ATTR_ESWITCH_MODE]);
-+		err = ops->eswitch_mode_set(devlink, mode);
-+		if (err)
-+			return err;
-+	}
- 
--	if (ops && ops->eswitch_mode_set)
--		return ops->eswitch_mode_set(devlink, mode);
--	return -EOPNOTSUPP;
-+	if (info->attrs[DEVLINK_ATTR_ESWITCH_INLINE_MODE]) {
-+		if (!ops->eswitch_inline_mode_set)
-+			return -EOPNOTSUPP;
-+		inline_mode = nla_get_u8(
-+				info->attrs[DEVLINK_ATTR_ESWITCH_INLINE_MODE]);
-+		err = ops->eswitch_inline_mode_set(devlink, inline_mode);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
- }
- 
- static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
-@@ -1478,6 +1509,7 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
- 	[DEVLINK_ATTR_SB_THRESHOLD] = { .type = NLA_U32 },
- 	[DEVLINK_ATTR_SB_TC_INDEX] = { .type = NLA_U16 },
- 	[DEVLINK_ATTR_ESWITCH_MODE] = { .type = NLA_U16 },
-+	[DEVLINK_ATTR_ESWITCH_INLINE_MODE] = { .type = NLA_U8 },
- };
- 
- static const struct genl_ops devlink_nl_ops[] = {
+ 	for (attr_id = IFLA_OFFLOAD_XSTATS_FIRST;
+ 	     attr_id <= IFLA_OFFLOAD_XSTATS_MAX; attr_id++) {
+-		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
++		if (!dev->netdev_ops->ndo_has_offload_stats(dev, attr_id))
+ 			continue;
+ 		size = rtnl_get_offload_stats_attr_size(attr_id);
+ 		nla_size += nla_total_size_64bit(size);
 -- 
 2.7.4
