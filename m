@@ -1,88 +1,48 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 22 Nov 2016 11:58:18 +1100
-Message-ID: <20161122115818.2872dfa2@canb.auug.org.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH ethtool v3 1/2] ethtool-copy.h:sync with net
+Date: Mon, 21 Nov 2016 17:03:56 -0800
+Message-ID: <2ef46dcf-94ba-73fd-3e35-d82b5ec5d841@gmail.com>
+References: <1479384480-31201-1-git-send-email-allan.nielsen@microsemi.com>
+ <1479384480-31201-2-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        LABBE Corentin <clabbe.montjoie@gmail.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andrew@lunn.ch, raju.lakkaraju@microsemi.com
+To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34821 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753951AbcKVBEB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Nov 2016 20:04:01 -0500
+Received: by mail-pf0-f196.google.com with SMTP id i88so176817pfk.2
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 17:04:00 -0800 (PST)
+In-Reply-To: <1479384480-31201-2-git-send-email-allan.nielsen@microsemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On 11/17/2016 04:07 AM, Allan W. Nielsen wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> 
+> This covers kernel changes upto:
+> 
+> commit f5a4732f85613b3fb43f8bc33a017e3db3b3605a
+> Author: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> Date:   Wed Nov 9 16:33:09 2016 +0530
+> 
+>     ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
+> 
+>     For operation in cabling environments that are incompatible with
+>     1000BASE-T, PHY device may provide an automatic link speed downshift
+>     operation. When enabled, the device automatically changes its 1000BASE-T
+>     auto-negotiation to the next slower speed after a configured number of
+>     failed attempts at 1000BASE-T.  This feature is useful in setting up in
+>     networks using older cable installations that include only pairs A and B,
+>     and not pairs C and D.
+> 
+>     Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+>     Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
 
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-
-between commit:
-
-  ba1ffd74df74 ("stmmac: fix PTP support for GMAC4")
-
-from the net tree and commit:
-
-  38ddc59d65b6 ("net: stmmac: replace all pr_xxx by their netdev_xxx counterpart")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 1f9ec02fa7f8,fbd1cd79233d..000000000000
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@@ -2484,7 -2493,7 +2493,7 @@@ static int stmmac_rx(struct stmmac_pri
-  	if (netif_msg_rx_status(priv)) {
-  		void *rx_head;
-  
-- 		pr_info(">>>>>> %s: descriptor ring:\n", __func__);
- -		netdev_dbg(priv->dev, "%s: descriptor ring:\n", __func__);
-++		netdev_info(priv->dev, ">>>>>> %s: descriptor ring:\n", __func__);
-  		if (priv->extend_desc)
-  			rx_head = (void *)priv->dma_erx;
-  		else
-@@@ -2571,11 -2577,11 +2580,11 @@@
-  				frame_len -= ETH_FCS_LEN;
-  
-  			if (netif_msg_rx_status(priv)) {
-- 				pr_info("\tdesc: %p [entry %d] buff=0x%x\n",
-- 					p, entry, des);
- -				netdev_dbg(priv->dev, "\tdesc: %p [entry %d] buff=0x%x\n",
- -					   p, entry, des);
-++				netdev_info(priv->dev, "\tdesc: %p [entry %d] buff=0x%x\n",
-++					    p, entry, des);
-  				if (frame_len > ETH_FRAME_LEN)
-- 					pr_debug("\tframe size %d, COE: %d\n",
-- 						 frame_len, status);
-+ 					netdev_dbg(priv->dev, "frame size %d, COE: %d\n",
-+ 						   frame_len, status);
-  			}
-  
-  			/* The zero-copy is always used for all the sizes
-@@@ -2628,8 -2635,11 +2638,9 @@@
-  						 DMA_FROM_DEVICE);
-  			}
-  
- -			stmmac_get_rx_hwtstamp(priv, entry, skb);
- -
-  			if (netif_msg_pktdata(priv)) {
-- 				pr_debug("frame received (%dbytes)", frame_len);
-+ 				netdev_dbg(priv->dev, "frame received (%dbytes)",
-+ 					   frame_len);
-  				print_pkt(skb->data, frame_len);
-  			}
-  
+Florian
