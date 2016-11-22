@@ -1,39 +1,49 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: egress all frames
-Date: Tue, 22 Nov 2016 17:15:25 -0500
-Message-ID: <87zikr40w2.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20161122103944.31381-1-stefan.eichenberger@netmodule.com> <20161122150330.GE2691@lunn.ch> <20161122183732.GD13973@gruene.netmodule.intranet> <20161122190206.GE14947@lunn.ch>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [net] 34fad54c25: kernel BUG at include/linux/skbuff.h:1935!
+Date: Tue, 22 Nov 2016 14:28:53 -0800
+Message-ID: <CANn89i+B8F8thJRCdNPHA=BddTTxHCHz+xkvT_wuZ+b8osoTVQ@mail.gmail.com>
+References: <582b7c30.nXQXP2V4/6pFiYwt%xiaolong.ye@intel.com> <CA+55aFxV7Bq583QOdYauuo2jY9EkAmgnceBukrN27ArjzFszYg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stefan Eichenberger <eichest@gmail.com>, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Stefan Eichenberger <stefan.eichenberger@netmodule.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:59540 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934033AbcKVWPc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 17:15:32 -0500
-In-Reply-To: <20161122190206.GE14947@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: kernel test robot <xiaolong.ye@intel.com>,
+        David Miller <davem@davemloft.net>, LKP <lkp@01.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxV7Bq583QOdYauuo2jY9EkAmgnceBukrN27ArjzFszYg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew, Stefan,
-
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> What you might find useful is
+On Tue, Nov 22, 2016 at 2:04 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> David, Eric,
 >
-> https://github.com/vivien/linux.git 161b96bd7d16d21b0f046c935b70c3b2d277ccc2
+>  what's the situation on this issue? The bisection looks a bit odd,
+> but the commit in question does end up changing the key_control->thoff
+> value for the failure case, so maybe that in turn ends up screwing up
+> a later skb_pull.
 >
-> although it might need some changes for recent commits.
+> I'm not seeing anything that might fix this in the last networking
+> pull, but I may have missed something.
 >
-> With that, you can see deeper into the switches registers.
+> I also noticed that the kernel test robot had screwed up the
+> participants list for some reason, and had
+>
+>   "Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>, David S.
+> Miller" <davem@davemloft.net>
+>
+> as one of the participants. So there's some odd commit parsing issue
+> there somewhere. But Alexander seems to have seen this report despite
+> that, it just never went anywhere that I can tell.
+>
+>                 Linus
+>
 
-FYI, I have rebased it on top of the latest net-next (f9aa9dc7d2d0):
+This is fixed by :
+https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=c9b8af1330198ae241cd545e1f040019010d44d9
 
-    https://github.com/vivien/linux.git dsa/dev
-
-Thanks,
-
-        Vivien
+Thanks
