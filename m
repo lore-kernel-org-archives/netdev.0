@@ -1,54 +1,52 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [mm PATCH v3 21/23] mm: Add support for releasing multiple
- instances of a page
-Date: Mon, 21 Nov 2016 22:28:29 -0800
-Message-ID: <20161121222829.30e2bf67c58af5f1c91d1a1b@linux-foundation.org>
-References: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
-	<20161110113606.76501.70752.stgit@ahduyck-blue-test.jf.intel.com>
-	<20161118152716.3f7acf6e25f142846909b2f6@linux-foundation.org>
-	<CAKgT0UfoS-JC66hHV14E-hgmrhGdz4oYpmHve=01A1X8o8O=rw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>, linux-mm
- <linux-mm@kvack.org>, Netdev <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAKgT0UfoS-JC66hHV14E-hgmrhGdz4oYpmHve=01A1X8o8O=rw@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+From: Manjeet Pawar <manjeet.p@samsung.com>
+Subject: [PATCH] ipv6:ipv6_pinfo dereferenced after NULL check
+Date: Tue, 22 Nov 2016 11:57:04 +0530
+Message-ID: <1479796024-39418-1-git-send-email-manjeet.p@samsung.com>
+Cc: pankaj.m@samsung.com, ajeet.y@samsung.com,
+        Rohit Thapliyal <r.thapliyal@samsung.com>,
+        Manjeet Pawar <manjeet.p@samsung.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Nov 2016 08:21:39 -0800 Alexander Duyck <alexander.duyck@gmail.com> wrote:
+From: Rohit Thapliyal <r.thapliyal@samsung.com>
 
-> >> +                     __free_pages_ok(page, order);
-> >> +     }
-> >> +}
-> >> +EXPORT_SYMBOL(__page_frag_drain);
-> >
-> > It's an exported-to-modules library function.  It should be documented,
-> > please?  The page-frag API is only partially documented, but that's no
-> > excuse.
-> 
-> Okay.  I assume you want the documentation as a follow-up patch since
-> I received a notice that the patch was added to -mm?
+np checked for NULL and then dereferenced. It should be modified
+for NULL case.
 
-Yes please.  Or a replacement patch which I'll temporarily turn into a
-delta, either is fine.
+Signed-off-by: Rohit Thapliyal <r.thapliyal@samsung.com>
+Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
+---
+ net/ipv6/ip6_output.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-> If you would like I could look at doing a couple of renaming patches
-> so that we make the API a bit more consistent.  I could move the
-> __alloc and __free to what you have suggested, and then take a look at
-> trying to rename the refill/drain to be a bit more consistent in terms
-> of what they are supposed to work on and how they are supposed to be
-> used.
-
-I think that would be better - it's hardly high-priority but a bit of
-attention to the documentation and naming conventions would help tidy
-things up.  When you can't find anything else to do ;)
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 1dfc402..c2afa14 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -205,14 +205,15 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+ 	/*
+ 	 *	Fill in the IPv6 header
+ 	 */
+-	if (np)
++	if (np) {
+ 		hlimit = np->hop_limit;
++		ip6_flow_hdr(
++					hdr, tclass, ip6_make_flowlabel(
++					net, skb, fl6->flowlabel,
++					np->autoflowlabel, fl6));
++	}
+ 	if (hlimit < 0)
+ 		hlimit = ip6_dst_hoplimit(dst);
+ 
+-	ip6_flow_hdr(hdr, tclass, ip6_make_flowlabel(net, skb, fl6->flowlabel,
+-				np->autoflowlabel, fl6));
+-
+ 	hdr->payload_len = htons(seg_len);
+ 	hdr->nexthdr = proto;
+ 	hdr->hop_limit = hlimit;
+-- 
+1.9.1
