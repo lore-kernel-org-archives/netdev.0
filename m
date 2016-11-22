@@ -1,594 +1,86 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/2] mlxsw: core: Implement thermal zone
-Date: Tue, 22 Nov 2016 11:24:13 +0100
-Message-ID: <1479810253-9114-3-git-send-email-jiri@resnulli.us>
-References: <1479810253-9114-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, cera@cera.cz, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
-        arkadis@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Stefan Eichenberger <eichest@gmail.com>
+Subject: [PATCH] net: dsa: mv88e6xxx: add MV88E6097 switch
+Date: Tue, 22 Nov 2016 11:28:36 +0100
+Message-ID: <20161122102836.23980-1-stefan.eichenberger@netmodule.com>
+Cc: netdev@vger.kernel.org,
+        Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33213 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755269AbcKVKYT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 05:24:19 -0500
-Received: by mail-wm0-f66.google.com with SMTP id u144so2694390wmu.0
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 02:24:18 -0800 (PST)
-In-Reply-To: <1479810253-9114-1-git-send-email-jiri@resnulli.us>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:33531 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752746AbcKVK3r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 05:29:47 -0500
+Received: by mail-qk0-f195.google.com with SMTP id x190so2574089qkb.0
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 02:29:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <cera@cera.cz>
+Add support for the MV88E6097 switch. The change was tested on an Armada
+based platform with a MV88E6097 switch.
 
-Implement thermal zone for mlxsw based HW. It uses temperature sensor
-provided by ASIC (the same as mlxsw hwmon interface) to report current
-temp to thermal core. The ASIC's PWM is then used to control speed
-of system fans registered as cooling devices.
-
-Signed-off-by: Ivan Vecera <cera@cera.cz>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/Kconfig        |   9 +
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |   1 +
- drivers/net/ethernet/mellanox/mlxsw/core.c         |   8 +
- drivers/net/ethernet/mellanox/mlxsw/core.h         |  24 ++
- drivers/net/ethernet/mellanox/mlxsw/core_thermal.c | 442 +++++++++++++++++++++
- 5 files changed, 484 insertions(+)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_thermal.c
+ drivers/net/dsa/mv88e6xxx/chip.c      | 19 +++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  2 ++
+ 2 files changed, 21 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-index c9822e6..95ae4c0 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-@@ -19,6 +19,15 @@ config MLXSW_CORE_HWMON
- 	---help---
- 	  Say Y here if you want to expose HWMON interface on mlxsw devices.
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 5a9729b..20d6fb5 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -3213,6 +3213,12 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
+ };
  
-+config MLXSW_CORE_THERMAL
-+	bool "Thermal zone support for Mellanox Technologies Switch ASICs"
-+	depends on MLXSW_CORE && THERMAL
-+	depends on !(MLXSW_CORE=y && THERMAL=m)
-+	default y
-+	---help---
-+	 Say Y here if you want to automatically control fans speed according
-+	 ambient temperature reported by ASIC.
++static const struct mv88e6xxx_ops mv88e6097_ops = {
++	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
++	.phy_read = mv88e6xxx_g2_smi_phy_read,
++	.phy_write = mv88e6xxx_g2_smi_phy_write,
++};
 +
- config MLXSW_PCI
- 	tristate "PCI bus implementation for Mellanox Technologies Switch ASICs"
- 	depends on PCI && HAS_DMA && HAS_IOMEM && MLXSW_CORE
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-index 2722942..fe8dadb 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-@@ -1,6 +1,7 @@
- obj-$(CONFIG_MLXSW_CORE)	+= mlxsw_core.o
- mlxsw_core-objs			:= core.o
- mlxsw_core-$(CONFIG_MLXSW_CORE_HWMON) += core_hwmon.o
-+mlxsw_core-$(CONFIG_MLXSW_CORE_THERMAL) += core_thermal.o
- obj-$(CONFIG_MLXSW_PCI)		+= mlxsw_pci.o
- mlxsw_pci-objs			:= pci.o
- obj-$(CONFIG_MLXSW_I2C)		+= mlxsw_i2c.o
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 763752f..bcd7251 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -131,6 +131,7 @@ struct mlxsw_core {
- 	} lag;
- 	struct mlxsw_res res;
- 	struct mlxsw_hwmon *hwmon;
-+	struct mlxsw_thermal *thermal;
- 	struct mlxsw_core_port ports[MLXSW_PORT_MAX_PORTS];
- 	unsigned long driver_priv[0];
- 	/* driver_priv has to be always the last item */
-@@ -1162,6 +1163,11 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_hwmon_init;
+ static const struct mv88e6xxx_ops mv88e6123_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_read,
+@@ -3342,6 +3348,19 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.ops = &mv88e6095_ops,
+ 	},
  
-+	err = mlxsw_thermal_init(mlxsw_core, mlxsw_bus_info,
-+				 &mlxsw_core->thermal);
-+	if (err)
-+		goto err_thermal_init;
-+
- 	if (mlxsw_driver->init) {
- 		err = mlxsw_driver->init(mlxsw_core, mlxsw_bus_info);
- 		if (err)
-@@ -1178,6 +1184,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (mlxsw_core->driver->fini)
- 		mlxsw_core->driver->fini(mlxsw_core);
- err_driver_init:
-+err_thermal_init:
- err_hwmon_init:
- 	devlink_unregister(devlink);
- err_devlink_register:
-@@ -1204,6 +1211,7 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
- 	mlxsw_core_debugfs_fini(mlxsw_core);
- 	if (mlxsw_core->driver->fini)
- 		mlxsw_core->driver->fini(mlxsw_core);
-+	mlxsw_thermal_fini(mlxsw_core->thermal);
- 	devlink_unregister(devlink);
- 	mlxsw_emad_fini(mlxsw_core);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index f7a4d83..3de8955 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -321,4 +321,28 @@ static inline int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
- 
- #endif
- 
-+struct mlxsw_thermal;
-+
-+#ifdef CONFIG_MLXSW_CORE_THERMAL
-+
-+int mlxsw_thermal_init(struct mlxsw_core *mlxsw_core,
-+		       const struct mlxsw_bus_info *mlxsw_bus_info,
-+		       struct mlxsw_thermal **p_thermal);
-+void mlxsw_thermal_fini(struct mlxsw_thermal *thermal);
-+
-+#else
-+
-+static inline int mlxsw_thermal_init(struct mlxsw_core *mlxsw_core,
-+				     const struct mlxsw_bus_info *mlxsw_bus_info,
-+				     struct mlxsw_thermal **p_thermal)
-+{
-+	return 0;
-+}
-+
-+static inline void mlxsw_thermal_fini(struct mlxsw_thermal *thermal)
-+{
-+}
-+
-+#endif
-+
- #endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_thermal.c b/drivers/net/ethernet/mellanox/mlxsw/core_thermal.c
-new file mode 100644
-index 0000000..d866c98
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core_thermal.c
-@@ -0,0 +1,442 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/core_thermal.c
-+ * Copyright (c) 2016 Ivan Vecera <cera@cera.cz>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/device.h>
-+#include <linux/sysfs.h>
-+#include <linux/thermal.h>
-+#include <linux/err.h>
-+
-+#include "core.h"
-+
-+#define MLXSW_THERMAL_POLL_INT	1000	/* ms */
-+#define MLXSW_THERMAL_MAX_TEMP	110000	/* 110C */
-+#define MLXSW_THERMAL_MAX_STATE	10
-+#define MLXSW_THERMAL_MAX_DUTY	255
-+
-+struct mlxsw_thermal_trip {
-+	int	type;
-+	int	temp;
-+	int	min_state;
-+	int	max_state;
-+};
-+
-+static const struct mlxsw_thermal_trip default_thermal_trips[] = {
-+	{	/* In range - 0-40% PWM */
-+		.type		= THERMAL_TRIP_ACTIVE,
-+		.temp		= 75000,
-+		.min_state	= 0,
-+		.max_state	= (4 * MLXSW_THERMAL_MAX_STATE) / 10,
++	[MV88E6097] = {
++		.prod_num = PORT_SWITCH_ID_PROD_NUM_6097,
++		.family = MV88E6XXX_FAMILY_6097,
++		.name = "Marvell 88E6097/88E6097F",
++		.num_databases = 4096,
++		.num_ports = 11,
++		.port_base_addr = 0x10,
++		.global1_addr = 0x1b,
++		.age_time_coeff = 15000,
++		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
++		.ops = &mv88e6097_ops,
 +	},
-+	{	/* High - 40-100% PWM */
-+		.type		= THERMAL_TRIP_ACTIVE,
-+		.temp		= 80000,
-+		.min_state	= (4 * MLXSW_THERMAL_MAX_STATE) / 10,
-+		.max_state	= MLXSW_THERMAL_MAX_STATE,
-+	},
-+	{
-+		/* Very high - 100% PWM */
-+		.type		= THERMAL_TRIP_ACTIVE,
-+		.temp		= 85000,
-+		.min_state	= MLXSW_THERMAL_MAX_STATE,
-+		.max_state	= MLXSW_THERMAL_MAX_STATE,
-+	},
-+	{	/* Warning */
-+		.type		= THERMAL_TRIP_HOT,
-+		.temp		= 105000,
-+		.min_state	= MLXSW_THERMAL_MAX_STATE,
-+		.max_state	= MLXSW_THERMAL_MAX_STATE,
-+	},
-+	{	/* Critical - soft poweroff */
-+		.type		= THERMAL_TRIP_CRITICAL,
-+		.temp		= MLXSW_THERMAL_MAX_TEMP,
-+		.min_state	= MLXSW_THERMAL_MAX_STATE,
-+		.max_state	= MLXSW_THERMAL_MAX_STATE,
-+	}
-+};
 +
-+#define MLXSW_THERMAL_NUM_TRIPS	ARRAY_SIZE(default_thermal_trips)
-+
-+/* Make sure all trips are writable */
-+#define MLXSW_THERMAL_TRIP_MASK	(BIT(MLXSW_THERMAL_NUM_TRIPS) - 1)
-+
-+struct mlxsw_thermal {
-+	struct mlxsw_core *core;
-+	const struct mlxsw_bus_info *bus_info;
-+	struct thermal_zone_device *tzdev;
-+	struct thermal_cooling_device *cdevs[MLXSW_MFCR_PWMS_MAX];
-+	struct mlxsw_thermal_trip trips[MLXSW_THERMAL_NUM_TRIPS];
-+	enum thermal_device_mode mode;
-+};
-+
-+static inline u8 mlxsw_state_to_duty(int state)
-+{
-+	return DIV_ROUND_CLOSEST(state * MLXSW_THERMAL_MAX_DUTY,
-+				 MLXSW_THERMAL_MAX_STATE);
-+}
-+
-+static inline int mlxsw_duty_to_state(u8 duty)
-+{
-+	return DIV_ROUND_CLOSEST(duty * MLXSW_THERMAL_MAX_STATE,
-+				 MLXSW_THERMAL_MAX_DUTY);
-+}
-+
-+static int mlxsw_get_cooling_device_idx(struct mlxsw_thermal *thermal,
-+					struct thermal_cooling_device *cdev)
-+{
-+	int i;
-+
-+	for (i = 0; i < MLXSW_MFCR_PWMS_MAX; i++)
-+		if (thermal->cdevs[i] == cdev)
-+			return i;
-+
-+	return -ENODEV;
-+}
-+
-+static int mlxsw_thermal_bind(struct thermal_zone_device *tzdev,
-+			      struct thermal_cooling_device *cdev)
-+{
-+	struct mlxsw_thermal *thermal = tzdev->devdata;
-+	struct device *dev = thermal->bus_info->dev;
-+	int i, err;
-+
-+	/* If the cooling device is one of ours bind it */
-+	if (mlxsw_get_cooling_device_idx(thermal, cdev) < 0)
-+		return 0;
-+
-+	for (i = 0; i < MLXSW_THERMAL_NUM_TRIPS; i++) {
-+		const struct mlxsw_thermal_trip *trip = &thermal->trips[i];
-+
-+		err = thermal_zone_bind_cooling_device(tzdev, i, cdev,
-+						       trip->max_state,
-+						       trip->min_state,
-+						       THERMAL_WEIGHT_DEFAULT);
-+		if (err < 0) {
-+			dev_err(dev, "Failed to bind cooling device to trip %d\n", i);
-+			return err;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_unbind(struct thermal_zone_device *tzdev,
-+				struct thermal_cooling_device *cdev)
-+{
-+	struct mlxsw_thermal *thermal = tzdev->devdata;
-+	struct device *dev = thermal->bus_info->dev;
-+	int i;
-+	int err;
-+
-+	/* If the cooling device is our one unbind it */
-+	if (mlxsw_get_cooling_device_idx(thermal, cdev) < 0)
-+		return 0;
-+
-+	for (i = 0; i < MLXSW_THERMAL_NUM_TRIPS; i++) {
-+		err = thermal_zone_unbind_cooling_device(tzdev, i, cdev);
-+		if (err < 0) {
-+			dev_err(dev, "Failed to unbind cooling device\n");
-+			return err;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_get_mode(struct thermal_zone_device *tzdev,
-+				  enum thermal_device_mode *mode)
-+{
-+	struct mlxsw_thermal *thermal = tzdev->devdata;
-+
-+	*mode = thermal->mode;
-+
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_set_mode(struct thermal_zone_device *tzdev,
-+				  enum thermal_device_mode mode)
-+{
-+	struct mlxsw_thermal *thermal = tzdev->devdata;
-+
-+	mutex_lock(&tzdev->lock);
-+
-+	if (mode == THERMAL_DEVICE_ENABLED)
-+		tzdev->polling_delay = MLXSW_THERMAL_POLL_INT;
-+	else
-+		tzdev->polling_delay = 0;
-+
-+	mutex_unlock(&tzdev->lock);
-+
-+	thermal->mode = mode;
-+	thermal_zone_device_update(tzdev, THERMAL_EVENT_UNSPECIFIED);
-+
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_get_temp(struct thermal_zone_device *tzdev,
-+				  int *p_temp)
-+{
-+	struct mlxsw_thermal *thermal = tzdev->devdata;
-+	struct device *dev = thermal->bus_info->dev;
-+	char mtmp_pl[MLXSW_REG_MTMP_LEN];
-+	unsigned int temp;
-+	int err;
-+
-+	mlxsw_reg_mtmp_pack(mtmp_pl, 0, false, false);
-+
-+	err = mlxsw_reg_query(thermal->core, MLXSW_REG(mtmp), mtmp_pl);
-+	if (err) {
-+		dev_err(dev, "Failed to query temp sensor\n");
-+		return err;
-+	}
-+	mlxsw_reg_mtmp_unpack(mtmp_pl, &temp, NULL, NULL);
-+
-+	*p_temp = (int) temp;
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_get_trip_type(struct thermal_zone_device *tzdev,
-+				       int trip,
-+				       enum thermal_trip_type *p_type)
-+{
-+	struct mlxsw_thermal *thermal = tzdev->devdata;
-+
-+	if (trip < 0 || trip >= MLXSW_THERMAL_NUM_TRIPS)
-+		return -EINVAL;
-+
-+	*p_type = thermal->trips[trip].type;
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_get_trip_temp(struct thermal_zone_device *tzdev,
-+				       int trip, int *p_temp)
-+{
-+	struct mlxsw_thermal *thermal = tzdev->devdata;
-+
-+	if (trip < 0 || trip >= MLXSW_THERMAL_NUM_TRIPS)
-+		return -EINVAL;
-+
-+	*p_temp = thermal->trips[trip].temp;
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_set_trip_temp(struct thermal_zone_device *tzdev,
-+				       int trip, int temp)
-+{
-+	struct mlxsw_thermal *thermal = tzdev->devdata;
-+
-+	if (trip < 0 || trip >= MLXSW_THERMAL_NUM_TRIPS ||
-+	    temp > MLXSW_THERMAL_MAX_TEMP)
-+		return -EINVAL;
-+
-+	thermal->trips[trip].temp = temp;
-+	return 0;
-+}
-+
-+static struct thermal_zone_device_ops mlxsw_thermal_ops = {
-+	.bind = mlxsw_thermal_bind,
-+	.unbind = mlxsw_thermal_unbind,
-+	.get_mode = mlxsw_thermal_get_mode,
-+	.set_mode = mlxsw_thermal_set_mode,
-+	.get_temp = mlxsw_thermal_get_temp,
-+	.get_trip_type	= mlxsw_thermal_get_trip_type,
-+	.get_trip_temp	= mlxsw_thermal_get_trip_temp,
-+	.set_trip_temp	= mlxsw_thermal_set_trip_temp,
-+};
-+
-+static int mlxsw_thermal_get_max_state(struct thermal_cooling_device *cdev,
-+				       unsigned long *p_state)
-+{
-+	*p_state = MLXSW_THERMAL_MAX_STATE;
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_get_cur_state(struct thermal_cooling_device *cdev,
-+				       unsigned long *p_state)
-+
-+{
-+	struct mlxsw_thermal *thermal = cdev->devdata;
-+	struct device *dev = thermal->bus_info->dev;
-+	char mfsc_pl[MLXSW_REG_MFSC_LEN];
-+	int err, idx;
-+	u8 duty;
-+
-+	idx = mlxsw_get_cooling_device_idx(thermal, cdev);
-+	if (idx < 0)
-+		return idx;
-+
-+	mlxsw_reg_mfsc_pack(mfsc_pl, idx, 0);
-+	err = mlxsw_reg_query(thermal->core, MLXSW_REG(mfsc), mfsc_pl);
-+	if (err) {
-+		dev_err(dev, "Failed to query PWM duty\n");
-+		return err;
-+	}
-+
-+	duty = mlxsw_reg_mfsc_pwm_duty_cycle_get(mfsc_pl);
-+	*p_state = mlxsw_duty_to_state(duty);
-+	return 0;
-+}
-+
-+static int mlxsw_thermal_set_cur_state(struct thermal_cooling_device *cdev,
-+				       unsigned long state)
-+
-+{
-+	struct mlxsw_thermal *thermal = cdev->devdata;
-+	struct device *dev = thermal->bus_info->dev;
-+	char mfsc_pl[MLXSW_REG_MFSC_LEN];
-+	int err, idx;
-+
-+	idx = mlxsw_get_cooling_device_idx(thermal, cdev);
-+	if (idx < 0)
-+		return idx;
-+
-+	mlxsw_reg_mfsc_pack(mfsc_pl, idx, mlxsw_state_to_duty(state));
-+	err = mlxsw_reg_write(thermal->core, MLXSW_REG(mfsc), mfsc_pl);
-+	if (err) {
-+		dev_err(dev, "Failed to write PWM duty\n");
-+		return err;
-+	}
-+	return 0;
-+}
-+
-+static const struct thermal_cooling_device_ops mlxsw_cooling_ops = {
-+	.get_max_state	= mlxsw_thermal_get_max_state,
-+	.get_cur_state	= mlxsw_thermal_get_cur_state,
-+	.set_cur_state	= mlxsw_thermal_set_cur_state,
-+};
-+
-+int mlxsw_thermal_init(struct mlxsw_core *core,
-+		       const struct mlxsw_bus_info *bus_info,
-+		       struct mlxsw_thermal **p_thermal)
-+{
-+	char mfcr_pl[MLXSW_REG_MFCR_LEN] = { 0 };
-+	enum mlxsw_reg_mfcr_pwm_frequency freq;
-+	struct device *dev = bus_info->dev;
-+	struct mlxsw_thermal *thermal;
-+	u16 tacho_active;
-+	u8 pwm_active;
-+	int err, i;
-+
-+	thermal = devm_kzalloc(dev, sizeof(*thermal),
-+			       GFP_KERNEL);
-+	if (!thermal)
-+		return -ENOMEM;
-+
-+	thermal->core = core;
-+	thermal->bus_info = bus_info;
-+	memcpy(thermal->trips, default_thermal_trips, sizeof(thermal->trips));
-+
-+	err = mlxsw_reg_query(thermal->core, MLXSW_REG(mfcr), mfcr_pl);
-+	if (err) {
-+		dev_err(dev, "Failed to probe PWMs\n");
-+		goto err_free_thermal;
-+	}
-+	mlxsw_reg_mfcr_unpack(mfcr_pl, &freq, &tacho_active, &pwm_active);
-+
-+	for (i = 0; i < MLXSW_MFCR_TACHOS_MAX; i++) {
-+		if (tacho_active & BIT(i)) {
-+			char mfsl_pl[MLXSW_REG_MFSL_LEN];
-+
-+			mlxsw_reg_mfsl_pack(mfsl_pl, i, 0, 0);
-+
-+			/* We need to query the register to preserve maximum */
-+			err = mlxsw_reg_query(thermal->core, MLXSW_REG(mfsl),
-+					      mfsl_pl);
-+			if (err)
-+				goto err_free_thermal;
-+
-+			/* set the minimal RPMs to 0 */
-+			mlxsw_reg_mfsl_tach_min_set(mfsl_pl, 0);
-+			err = mlxsw_reg_write(thermal->core, MLXSW_REG(mfsl),
-+					      mfsl_pl);
-+			if (err)
-+				goto err_free_thermal;
-+		}
-+	}
-+	for (i = 0; i < MLXSW_MFCR_PWMS_MAX; i++) {
-+		if (pwm_active & BIT(i)) {
-+			struct thermal_cooling_device *cdev;
-+
-+			cdev = thermal_cooling_device_register("Fan", thermal,
-+							&mlxsw_cooling_ops);
-+			if (IS_ERR(cdev)) {
-+				err = PTR_ERR(cdev);
-+				dev_err(dev, "Failed to register cooling device\n");
-+				goto err_unreg_cdevs;
-+			}
-+			thermal->cdevs[i] = cdev;
-+		}
-+	}
-+
-+	thermal->tzdev = thermal_zone_device_register("mlxsw",
-+						      MLXSW_THERMAL_NUM_TRIPS,
-+						      MLXSW_THERMAL_TRIP_MASK,
-+						      thermal,
-+						      &mlxsw_thermal_ops,
-+						      NULL, 0,
-+						      MLXSW_THERMAL_POLL_INT);
-+	if (IS_ERR(thermal->tzdev)) {
-+		err = PTR_ERR(thermal->tzdev);
-+		dev_err(dev, "Failed to register thermal zone\n");
-+		goto err_unreg_cdevs;
-+	}
-+
-+	thermal->mode = THERMAL_DEVICE_ENABLED;
-+	*p_thermal = thermal;
-+	return 0;
-+err_unreg_cdevs:
-+	for (i = 0; i < MLXSW_MFCR_PWMS_MAX; i++)
-+		if (thermal->cdevs[i])
-+			thermal_cooling_device_unregister(thermal->cdevs[i]);
-+err_free_thermal:
-+	devm_kfree(dev, thermal);
-+	return err;
-+}
-+
-+void mlxsw_thermal_fini(struct mlxsw_thermal *thermal)
-+{
-+	int i;
-+
-+	if (thermal->tzdev) {
-+		thermal_zone_device_unregister(thermal->tzdev);
-+		thermal->tzdev = NULL;
-+	}
-+
-+	for (i = 0; i < MLXSW_MFCR_PWMS_MAX; i++) {
-+		if (thermal->cdevs[i]) {
-+			thermal_cooling_device_unregister(thermal->cdevs[i]);
-+			thermal->cdevs[i] = NULL;
-+		}
-+	}
-+
-+	devm_kfree(thermal->bus_info->dev, thermal);
-+}
+ 	[MV88E6123] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6123,
+ 		.family = MV88E6XXX_FAMILY_6165,
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index e572121..42e28f8 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -74,6 +74,7 @@
+ #define PORT_SWITCH_ID		0x03
+ #define PORT_SWITCH_ID_PROD_NUM_6085	0x04a
+ #define PORT_SWITCH_ID_PROD_NUM_6095	0x095
++#define PORT_SWITCH_ID_PROD_NUM_6097	0x099
+ #define PORT_SWITCH_ID_PROD_NUM_6131	0x106
+ #define PORT_SWITCH_ID_PROD_NUM_6320	0x115
+ #define PORT_SWITCH_ID_PROD_NUM_6123	0x121
+@@ -353,6 +354,7 @@
+ enum mv88e6xxx_model {
+ 	MV88E6085,
+ 	MV88E6095,
++	MV88E6097,
+ 	MV88E6123,
+ 	MV88E6131,
+ 	MV88E6161,
 -- 
-2.7.4
+2.9.3
