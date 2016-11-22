@@ -1,52 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC net-next 0/3] net: bridge: Allow CPU port configuration
-Date: Tue, 22 Nov 2016 23:08:59 +0100
-Message-ID: <20161122220859.GF1819@nanopsycho>
-References: <20161121190925.14530-1-f.fainelli@gmail.com>
- <20161122174140.2ly226dcxkv23nlo@splinter.mtl.com>
- <20161122174829.GD14947@lunn.ch>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 2/2] net: qcom/emac: add support for the Qualcomm
+ Technologies QDF2400
+Date: Tue, 22 Nov 2016 16:14:13 -0600
+Message-ID: <5834C335.4040907@codeaurora.org>
+References: <1479769102-27909-1-git-send-email-timur@codeaurora.org>
+ <1479769102-27909-3-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ido Schimmel <idosch@idosch.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        bridge@lists.linux-foundation.org, stephen@networkplumber.org,
-        vivien.didelot@savoirfairelinux.com, jiri@mellanox.com,
-        idosch@mellanox.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, alokc@codeaurora.org,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:35253 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933012AbcKVWJC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 17:09:02 -0500
-Received: by mail-wj0-f195.google.com with SMTP id f8so7405513wje.2
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 14:09:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20161122174829.GD14947@lunn.ch>
+Received: from smtp.codeaurora.org ([198.145.29.96]:50264 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932273AbcKVWOP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 17:14:15 -0500
+In-Reply-To: <1479769102-27909-3-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 22, 2016 at 06:48:29PM CET, andrew@lunn.ch wrote:
->Hi Ido
-> 
->> First of all, I want to be sure that when we say "CPU port", we're
->> talking about the same thing. In mlxsw, the CPU port is a pipe between
->> the device and the host, through which all packets trapped to the host
->> go through. So, when a packet is trapped, the driver reads its Rx
->> descriptor, checks through which port it ingressed, resolves its netdev,
->> sets skb->dev accordingly and injects it to the Rx path via
->> netif_receive_skb(). The CPU port itself isn't represented using a
->> netdev.
+On 11/21/2016 04:58 PM, Timur Tabi wrote:
+> The QDF2432 and the QDF2400 have slightly different internal PHYs,
+> so there are some programming differences.  Some of the registers in
+> the QDF2400 have moved, and some registers require different values
+> during initialization.
 >
->With DSA, we have a real physical ethernet network interface for the
->'cpu' port. It connects to one of the ports of the switch. Frames on
-
-Every port should be visible as a netdevice, including cpu port.
-Would it make sence to have representors for those?
-
->this interface have an extra header, indicating which switch port it
->came from, and we do a similar resolving it to a slave netdev, strip
->of the header and injecting it into the receiver path via
->netif_receive_skb().
+> Because of the differences, the internal PHY on the QDF2400 has a new
+> ACPI HID, QCOM8072.
 >
->	Andrew
+> Signed-off-by: Timur Tabi<timur@codeaurora.org>
+
+There seems to be some disagreement internally as to whether a new HID 
+is the right approach.  Please hold off on applying patch [2/2] for now.
+
+Patch [1/2] can be applied, however, if it passes review.
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
