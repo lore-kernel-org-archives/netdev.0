@@ -1,64 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bnxt: do not busy-poll when link is down
-Date: Tue, 22 Nov 2016 10:38:36 -0800
-Message-ID: <1479839916.8455.439.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1479838448-44877-1-git-send-email-gospo@broadcom.com>
+From: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: egress all frames
+Date: Tue, 22 Nov 2016 19:37:33 +0100
+Message-ID: <20161122183732.GD13973@gruene.netmodule.intranet>
+References: <20161122103944.31381-1-stefan.eichenberger@netmodule.com>
+ <20161122150330.GE2691@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michael Chan <michael.chan@broadcom.com>
-To: Andy Gospodarek <gospo@broadcom.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Stefan Eichenberger <eichest@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36067 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933056AbcKVSii (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 13:38:38 -0500
-Received: by mail-pg0-f67.google.com with SMTP id x23so2775106pgx.3
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 10:38:38 -0800 (PST)
-In-Reply-To: <1479838448-44877-1-git-send-email-gospo@broadcom.com>
+Received: from webmail.netmodule.com ([194.29.26.242]:39505 "EHLO
+        webmail.netmodule.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754732AbcKVSwn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 13:52:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20161122150330.GE2691@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-11-22 at 13:14 -0500, Andy Gospodarek wrote:
-> When busy polling while a link is down (during a link-flap test), TX
-> timeouts were observed as well as the following messages in the ring
-> buffer:
-> 
-> bnxt_en 0008:01:00.2 enP8p1s0f2d2: Resp cmpl intr err msg: 0x51
-> bnxt_en 0008:01:00.2 enP8p1s0f2d2: hwrm_ring_free tx failed. rc:-1
-> bnxt_en 0008:01:00.2 enP8p1s0f2d2: Resp cmpl intr err msg: 0x51
-> bnxt_en 0008:01:00.2 enP8p1s0f2d2: hwrm_ring_free rx failed. rc:-1
-> 
-> These were resolved by checking for link status and returning if link
-> was not up.
-> 
-> Signed-off-by: Andy Gospodarek <gospo@broadcom.com>
-> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
-> Tested-by: Rob Miller <rob.miller@broadcom.com>
-> ---
->  drivers/net/ethernet/broadcom/bnxt/bnxt.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> index e18635b..013e373 100644
-> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-> @@ -1811,6 +1811,9 @@ static int bnxt_busy_poll(struct napi_struct *napi)
->  	if (atomic_read(&bp->intr_sem) != 0)
->  		return LL_FLUSH_FAILED;
->  
-> +	if (!bp->link_info.link_up)
-> +		return LL_FLUSH_FAILED;
-> +
->  	if (!bnxt_lock_poll(bnapi))
->  		return LL_FLUSH_BUSY;
->  
+Hi Andrew
 
+On Tue, Nov 22, 2016 at 04:03:30PM +0100, Andrew Lunn wrote:
+> On Tue, Nov 22, 2016 at 11:39:44AM +0100, Stefan Eichenberger wrote:
+> > Egress multicast and egress unicast is only enabled for CPU/DSA ports
+> > but for switching operation it seems it should be enabled for all ports.
+> > Do I miss something here?
+> > 
+> > I did the following test:
+> > brctl addbr br0
+> > brctl addif br0 lan0
+> > brctl addif br0 lan1
+> > 
+> > In this scenario the unicast and multicast packets were not forwarded,
+> > therefore ARP requests were not resolved, and no connection could be
+> > established.
+> 
+> Hi Stefan
+> 
+> This is probably specific to the 6097 family. It works fine without
+> this on other devices. Creating a bridge like above and pinging across
+> it is one of my standard tests. But i only test modern devices like
+> the 6165, 6352, 6351, 6390 families.
 
-Any plans removing this busy polling stuff, now it is done in core
-networking stack ?
+Okay perfect, I wasn't 100% sure if I would have to configure something
+additionally.
 
-This would remove bnxt_lock_napi() extra overhead in normal path ( napi
-poll )
+> 
+> In fact, you might need to review all the code and look where
+> mv88e6xxx_6095_family(chip) is used and consider if you need to add
+> mv88e6xxx_6097_family(chip). e.g.
+> 
+>         if (mv88e6xxx_6095_family(chip) || mv88e6xxx_6185_family(chip)) {
+>                 /* Set the upstream port this port should use */
+>                 reg |= dsa_upstream_port(ds);
+>                 /* enable forwarding of unknown multicast addresses to
+>                  * the upstream port
+>                  */
+>                 if (port == dsa_upstream_port(ds))
+>                         reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
+>         }
+> 
+> Maybe this is your problem?
 
-I could do this but I do not have the hardware to do the tests.
+I think I still don't understand exactly how the driver works.
+
+My problem is that the multicast and broadcast frames are filtered and
+the following counter is increasing in ethtool:
+sw_in_filtered: 596
+
+This makes sense because "Egress Floods" in the Port Control Register is
+set to 0. What kind of mechanism should make sure that for example ARP
+packets are sent trough all ports anyway?
+
+Unfortunately I don't have any devices available with more modern
+devices, so I can't double check the registers.
+
+Regards,
+Stefan
