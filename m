@@ -1,60 +1,73 @@
-From: Roi Dayan <roid@mellanox.com>
-Subject: [PATCH net-next] net/sched: cls_flower: verify root pointer before dereferncing it
-Date: Tue, 22 Nov 2016 16:25:26 +0200
-Message-ID: <1479824726-62607-1-git-send-email-roid@mellanox.com>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Cong Wang <cwang@twopensource.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52901 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932605AbcKVOZg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 09:25:36 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Valo, Kalle" <kvalo@qca.qualcomm.com>
+Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+Date: Tue, 22 Nov 2016 14:55:04 +0000
+Message-ID: <877f7vimyg.fsf@kamboji.qca.qualcomm.com>
+References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
+        <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
+        <20161118183541.GI28340@tuxbot>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "k.eugene.e@gmail.com" <k.eugene.e@gmail.com>,
+        Andy Gross <andy.gross@linaro.org>,
+        "wcn36xx@lists.infradead.org" <wcn36xx@lists.infradead.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20161118183541.GI28340@tuxbot> (Bjorn Andersson's message of
+        "Fri, 18 Nov 2016 10:35:41 -0800")
+Content-Language: en-US
+Content-ID: <7912ABFCDB849344A2AB905FBA5FE275@qualcomm.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tp->root is being allocated in init() time and kfreed in destroy()
-however it is being dereferenced in classify() path.
+Bjorn Andersson <bjorn.andersson@linaro.org> writes:
 
-We could be in classify() path after destroy() was called and thus 
-tp->root is null. Verifying if tp->root is null in classify() path 
-is enough because it's being freed with kfree_rcu() and classify() 
-path is under rcu_read_lock().
+> On Wed 16 Nov 10:49 PST 2016, Kalle Valo wrote:
+>
+>> Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
+>> > The correct include file for getting errno constants and ERR_PTR() is
+>> > linux/err.h, rather than linux/errno.h, so fix the include.
+>> >=20
+>> > Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled sm=
+em_state")
+>> > Acked-by: Andy Gross <andy.gross@linaro.org>
+>> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+>>=20
+>> For some reason this fails to compile now. Can you take a look, please?
+>>=20
+>> ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wcn36=
+xx.ko] undefined!
+>> make[1]: *** [__modpost] Error 1
+>> make: *** [modules] Error 2
+>>=20
+>> 5 patches set to Changes Requested.
+>>=20
+>> 9429045 [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+>> 9429047 [v5,2/5] wcn36xx: Transition driver to SMD client
+>
+> This patch was updated with the necessary depends in Kconfig to catch
+> this exact issue and when I pull in your .config (which has QCOM_SMD=3Dn,
+> QCOM_WCNSS_CTRL=3Dn and WCN36XX=3Dy) I can build this just fine.
+>
+> I've tested the various combinations and it seems to work fine. Do you
+> have any other patches in your tree?
 
-Fixes: 1e052be69d04 ("net_sched: destroy proto tp when all filters are gone")
-Signed-off-by: Roi Dayan <roid@mellanox.com>
-Cc: Cong Wang <cwang@twopensource.com>
----
+This was with the pending branch of my ath.git tree. There are other
+wireless patches (ath10k etc) but I would guess they don't affect here.
 
-Hi Cong, all
+> Any stale objects?
 
-As stated above, the issue was introduced with commit 1e052be69d04 ("net_sched: destroy 
-proto tp when all filters are gone"). This patch provides a fix only for cls_flower where 
-I succeeded in reproducing the issue. Cong, if you can/want to come up with a fix that
-will be applicable for all the others classifiners, I am fine with that.
+Not sure what you mean with this question, but I didn't run 'make clean'
+if that's what you are asking.
 
-Thanks,
-Roi
+> Would you mind retesting this, before I invest more time in trying to
+> reproduce the issue you're seeing?
 
+Sure, I'll take a look but that might take few days.
 
- net/sched/cls_flower.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index e8dd09a..88a26c4 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -135,7 +135,7 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 	struct fl_flow_key skb_mkey;
- 	struct ip_tunnel_info *info;
- 
--	if (!atomic_read(&head->ht.nelems))
-+	if (!head || !atomic_read(&head->ht.nelems))
- 		return -1;
- 
- 	fl_clear_masked_range(&skb_key, &head->mask);
--- 
-2.7.4
+--=20
+Kalle Valo=
