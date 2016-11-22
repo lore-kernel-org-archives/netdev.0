@@ -1,171 +1,67 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: enhance tcp_collapse_retrans() with
- skb_shift()
-Date: Tue, 22 Nov 2016 10:57:33 -0800
-Message-ID: <1479841053.8455.441.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: [PATCH net] flow_dissect: call init_default_flow_dissectors()
+ earlier
+Date: Tue, 22 Nov 2016 11:17:30 -0800
+Message-ID: <1479842250.8455.452.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161121092855.GA20976@kroah.com>
+         <20161122165912.GA19939@tuebingen.mpg.de>
+         <20161122170654.GA20022@kroah.com>
+         <CANn89iJCkHxOpE3TW8+gW8+UCVvT0mY8y8j_GJC1GK0i05dgbg@mail.gmail.com>
+         <1479836511.681.165.camel@intel.com>
+         <CANn89iLdtfoYDVoszduyKCpmZpYcpV2=UnwbjAzH0G08nzNwbw@mail.gmail.com>
+         <20161122175504.GD19939@tuebingen.mpg.de>
+         <CANn89iKZMcnzLJUNE286pBKSaL3kcrBgwpdihxSMm8Ze5L_-qw@mail.gmail.com>
+         <20161122180605.GE19939@tuebingen.mpg.de>
+         <1479838123.681.173.camel@intel.com>
+         <20161122182258.GF19939@tuebingen.mpg.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34286 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755942AbcKVTQN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 14:16:13 -0500
-Received: by mail-pg0-f65.google.com with SMTP id e9so2841875pgc.1
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 11:16:13 -0800 (PST)
-In-Reply-To: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "ast@kernel.org" <ast@kernel.org>,
+        "willemb@google.com" <willemb@google.com>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "jslaby@suse.cz" <jslaby@suse.cz>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "yibyang@cisco.com" <yibyang@cisco.com>,
+        netdev <netdev@vger.kernel.org>
+To: Andre Noll <maan@tuebingen.mpg.de>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161122182258.GF19939@tuebingen.mpg.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-11-15 at 12:51 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commit 2331ccc5b323 ("tcp: enhance tcp collapsing"),
-> we made a first step allowing copying right skb to left skb head.
-> 
-> Since all skbs in socket write queue are headless (but possibly the very
-> first one), this strategy often does not work.
-> 
-> This patch extends tcp_collapse_retrans() to perform frag shifting,
-> thanks to skb_shift() helper.
-> 
-> This helper needs to not BUG on non headless skbs, as callers are ok
-> with that.
-> 
-> Tested:
-> 
-> Following packetdrill test now passes :
-> 
-> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
->    +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
->    +0 bind(3, ..., ...) = 0
->    +0 listen(3, 1) = 0
-> 
->    +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
->    +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
-> +.100 < . 1:1(0) ack 1 win 257
->    +0 accept(3, ..., ...) = 4
-> 
->    +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
->    +0 write(4, ..., 200) = 200
->    +0 > P. 1:201(200) ack 1
-> +.001 write(4, ..., 200) = 200
->    +0 > P. 201:401(200) ack 1
-> +.001 write(4, ..., 200) = 200
->    +0 > P. 401:601(200) ack 1
-> +.001 write(4, ..., 200) = 200
->    +0 > P. 601:801(200) ack 1
-> +.001 write(4, ..., 200) = 200
->    +0 > P. 801:1001(200) ack 1
-> +.001 write(4, ..., 100) = 100
->    +0 > P. 1001:1101(100) ack 1
-> +.001 write(4, ..., 100) = 100
->    +0 > P. 1101:1201(100) ack 1
-> +.001 write(4, ..., 100) = 100
->    +0 > P. 1201:1301(100) ack 1
-> +.001 write(4, ..., 100) = 100
->    +0 > P. 1301:1401(100) ack 1
-> 
-> +.099 < . 1:1(0) ack 201 win 257
-> +.001 < . 1:1(0) ack 201 win 257 <nop,nop,sack 1001:1401>
->    +0 > P. 201:1001(800) ack 1
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> ---
->  net/core/skbuff.c     |    4 +++-
->  net/ipv4/tcp_output.c |   22 +++++++++++-----------
->  2 files changed, 14 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 0b2a6e94af2de73ed638634c47a0fb71e2cbc1cb..a9cb81a10c4ba895587727aa4cf098e9a38424ea 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2656,7 +2656,9 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
->  	struct skb_frag_struct *fragfrom, *fragto;
->  
->  	BUG_ON(shiftlen > skb->len);
-> -	BUG_ON(skb_headlen(skb));	/* Would corrupt stream */
-> +
-> +	if (skb_headlen(skb))
-> +		return 0;
->  
->  	todo = shiftlen;
->  	from = 0;
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index f57b5aa51b59cf0a58975fe34a7dcdb886ea8c50..19105b46a30436ebb85fe97ee43089e77aa028bb 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2514,7 +2514,7 @@ void tcp_skb_collapse_tstamp(struct sk_buff *skb,
->  }
->  
->  /* Collapses two adjacent SKB's during retransmission. */
-> -static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
-> +static bool tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
->  	struct sk_buff *next_skb = tcp_write_queue_next(sk, skb);
-> @@ -2525,14 +2525,17 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
->  
->  	BUG_ON(tcp_skb_pcount(skb) != 1 || tcp_skb_pcount(next_skb) != 1);
->  
-> +	if (next_skb_size) {
-> +		if (next_skb_size <= skb_availroom(skb))
-> +			skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
-> +				      next_skb_size);
-> +		else if (!skb_shift(skb, next_skb, next_skb_size))
-> +			return false;
-> +	}
->  	tcp_highest_sack_combine(sk, next_skb, skb);
->  
->  	tcp_unlink_write_queue(next_skb, sk);
->  
-> -	if (next_skb_size)
-> -		skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
-> -			      next_skb_size);
-> -
->  	if (next_skb->ip_summed == CHECKSUM_PARTIAL)
->  		skb->ip_summed = CHECKSUM_PARTIAL;
->  
-> @@ -2561,6 +2564,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
->  	tcp_skb_collapse_tstamp(skb, next_skb);
->  
->  	sk_wmem_free_skb(sk, next_skb);
-> +	return true;
->  }
->  
->  /* Check if coalescing SKBs is legal. */
-> @@ -2610,16 +2614,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
->  
->  		if (space < 0)
->  			break;
-> -		/* Punt if not enough space exists in the first SKB for
-> -		 * the data in the second
-> -		 */
-> -		if (skb->len > skb_availroom(to))
-> -			break;
->  
->  		if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
->  			break;
->  
-> -		tcp_collapse_retrans(sk, to);
-> +		if (!tcp_collapse_retrans(sk, to))
-> +			break;
->  	}
->  }
->  
+From: Eric Dumazet <edumazet@google.com>
 
+Andre Noll reported panics after my recent fix (commit 34fad54c2537
+"net: __skb_flow_dissect() must cap its return value")
 
-David, patch is marked 'Superseded' in
-https://patchwork.ozlabs.org/patch/695264/
+After some more headaches, Alexander root caused the problem to
+init_default_flow_dissectors() being called too late, in case
+a network driver like IGB is not a module and receives DHCP message
+very early.
 
-Not sure what this means exactly ?
-Did I miss a mail/feedback/something ?
+Fix is to call init_default_flow_dissectors() much earlier,
+as it is a core infrastructure and does not depend on another
+kernel service.
 
-Thanks !
+Fixes: 06635a35d13d4 ("flow_dissect: use programable dissector in skb_flow_dissect and friends")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andre Noll <maan@tuebingen.mpg.de>
+Diagnosed-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ net/core/flow_dissector.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 69e4463a4b1b..c6d8207ffa7e 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -1013,4 +1013,4 @@ static int __init init_default_flow_dissectors(void)
+ 	return 0;
+ }
+ 
+-late_initcall_sync(init_default_flow_dissectors);
++core_initcall(init_default_flow_dissectors);
