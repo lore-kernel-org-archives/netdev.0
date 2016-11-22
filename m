@@ -1,66 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6:ipv6_pinfo dereferenced after NULL check
-Date: Tue, 22 Nov 2016 13:26:45 +0100
-Message-ID: <611c167e-cef4-691b-f154-1b6b6aa86e53@stressinduktion.org>
-References: <1479796024-39418-1-git-send-email-manjeet.p@samsung.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC net-next 0/3] net: bridge: Allow CPU port configuration
+Date: Tue, 22 Nov 2016 13:49:36 +0100
+Message-ID: <20161122124936.GA1819@nanopsycho>
+References: <20161121190925.14530-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: pankaj.m@samsung.com, ajeet.y@samsung.com,
-        Rohit Thapliyal <r.thapliyal@samsung.com>
-To: Manjeet Pawar <manjeet.p@samsung.com>, davem@davemloft.net,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479796024-39418-1-git-send-email-manjeet.p@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        jiri@mellanox.com, idosch@mellanox.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35236 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932329AbcKVMtj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 07:49:39 -0500
+Received: by mail-wm0-f66.google.com with SMTP id a20so3586428wme.2
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 04:49:38 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161121190925.14530-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22.11.2016 07:27, Manjeet Pawar wrote:
-> From: Rohit Thapliyal <r.thapliyal@samsung.com>
-> 
-> np checked for NULL and then dereferenced. It should be modified
-> for NULL case.
-> 
-> Signed-off-by: Rohit Thapliyal <r.thapliyal@samsung.com>
-> Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
-> ---
->  net/ipv6/ip6_output.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 1dfc402..c2afa14 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -205,14 +205,15 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
->  	/*
->  	 *	Fill in the IPv6 header
->  	 */
-> -	if (np)
-> +	if (np) {
->  		hlimit = np->hop_limit;
-> +		ip6_flow_hdr(
-> +					hdr, tclass, ip6_make_flowlabel(
-> +					net, skb, fl6->flowlabel,
-> +					np->autoflowlabel, fl6));
-> +	}
->  	if (hlimit < 0)
->  		hlimit = ip6_dst_hoplimit(dst);
->  
-> -	ip6_flow_hdr(hdr, tclass, ip6_make_flowlabel(net, skb, fl6->flowlabel,
-> -				np->autoflowlabel, fl6));
-> -
->  	hdr->payload_len = htons(seg_len);
->  	hdr->nexthdr = proto;
->  	hdr->hop_limit = hlimit;
-> 
+Mon, Nov 21, 2016 at 08:09:22PM CET, f.fainelli@gmail.com wrote:
+>Hi all,
+>
+>This patch series allows using the bridge master interface to configure
+>an Ethernet switch port's CPU/management port with different VLAN attributes than
+>those of the bridge downstream ports/members.
+>
+>Jiri, Ido, Andrew, Vivien, please review the impact on mlxsw and mv88e6xxx, I
+>tested this with b53 and a mockup DSA driver.
+
+Patchset looks fine to me.
+
+>
+>Open questions:
+>
+>- if we have more than one bridge on top of a physical switch, the driver
+>  should keep track of that and verify that we are not going to change
+>  the CPU port VLAN attributes in a way that results in incompatible settings
+>  to be applied
+
+Ack. In mlxsw this is tracked
 
 
-We always should initialize hdr and not skip the ip6_flow_hdr call.
-
-Do you saw a bug or did you find this by code review? I wonder if np can
-actually be NULL at this point. Maybe we can just eliminate the NULL check.
-
-Thanks,
-Hannes
+>
+>- if the default behavior is to have all VLANs associated with the CPU port
+>  be ingressing/egressing tagged to the CPU, is this really useful?
+>
+>Florian Fainelli (3):
+>  net: bridge: Allow bridge master device to configure switch CPU port
+>  net: dsa: Propagate VLAN add/del to CPU port(s)
+>  net: dsa: b53: Remove CPU port specific VLAN programming
+>
+> drivers/net/dsa/b53/b53_common.c | 22 ++++++--------------
+> net/bridge/br_vlan.c             | 28 ++++++++++++++++++++++---
+> net/dsa/slave.c                  | 45 +++++++++++++++++++++++++++++-----------
+> 3 files changed, 64 insertions(+), 31 deletions(-)
+>
+>-- 
+>2.9.3
+>
