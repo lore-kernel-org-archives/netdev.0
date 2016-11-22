@@ -1,11 +1,12 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v2 3/5] virtio_net: Add XDP support
-Date: Tue, 22 Nov 2016 16:58:40 +0200
-Message-ID: <20161122165400-mutt-send-email-mst@kernel.org>
+Subject: Re: [net-next PATCH v2 4/5] virtio_net: add dedicated XDP transmit
+ queues
+Date: Tue, 22 Nov 2016 16:59:31 +0200
+Message-ID: <20161122165852-mutt-send-email-mst@kernel.org>
 References: <20161120024710.19187.31037.stgit@john-Precision-Tower-5810>
- <20161120025033.19187.11082.stgit@john-Precision-Tower-5810>
- <20161122011638-mutt-send-email-mst@kernel.org>
- <58340157.8060103@gmail.com>
+ <20161120025104.19187.54400.stgit@john-Precision-Tower-5810>
+ <20161121234008-mutt-send-email-mst@kernel.org>
+ <5833FF24.2010800@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, kubakici@wp.pl,
@@ -15,81 +16,49 @@ Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, kubakici@wp.pl,
         brouer@redhat.com, tgraf@suug.ch
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44472 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37746 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754549AbcKVO6o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Nov 2016 09:58:44 -0500
+        id S1753255AbcKVO7e (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Nov 2016 09:59:34 -0500
 Content-Disposition: inline
-In-Reply-To: <58340157.8060103@gmail.com>
+In-Reply-To: <5833FF24.2010800@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2016 at 12:27:03AM -0800, John Fastabend wrote:
-> On 16-11-21 03:20 PM, Michael S. Tsirkin wrote:
-> > On Sat, Nov 19, 2016 at 06:50:33PM -0800, John Fastabend wrote:
-> >> From: Shrijeet Mukherjee <shrijeet@gmail.com>
+On Tue, Nov 22, 2016 at 12:17:40AM -0800, John Fastabend wrote:
+> On 16-11-21 03:13 PM, Michael S. Tsirkin wrote:
+> > On Sat, Nov 19, 2016 at 06:51:04PM -0800, John Fastabend wrote:
+> >> XDP requires using isolated transmit queues to avoid interference
+> >> with normal networking stack (BQL, NETDEV_TX_BUSY, etc). This patch
+> >> adds a XDP queue per cpu when a XDP program is loaded and does not
+> >> expose the queues to the OS via the normal API call to
+> >> netif_set_real_num_tx_queues(). This way the stack will never push
+> >> an skb to these queues.
 > >>
-> >> This adds XDP support to virtio_net. Some requirements must be
-> >> met for XDP to be enabled depending on the mode. First it will
-> >> only be supported with LRO disabled so that data is not pushed
-> >> across multiple buffers. The MTU must be less than a page size
-> >> to avoid having to handle XDP across multiple pages.
+> >> However virtio/vhost/qemu implementation only allows for creating
+> >> TX/RX queue pairs at this time so creating only TX queues was not
+> >> possible. And because the associated RX queues are being created I
+> >> went ahead and exposed these to the stack and let the backend use
+> >> them. This creates more RX queues visible to the network stack than
+> >> TX queues which is worth mentioning but does not cause any issues as
+> >> far as I can tell.
 > >>
-> >> If mergeable receive is enabled this first series only supports
-> >> the case where header and data are in the same buf which we can
-> >> check when a packet is received by looking at num_buf. If the
-> >> num_buf is greater than 1 and a XDP program is loaded the packet
-> >> is dropped and a warning is thrown. When any_header_sg is set this
-> >> does not happen and both header and data is put in a single buffer
-> >> as expected so we check this when XDP programs are loaded. Note I
-> >> have only tested this with Linux vhost backend.
-> >>
-> >> If big packets mode is enabled and MTU/LRO conditions above are
-> >> met then XDP is allowed.
-> >>
-> >> A follow on patch can be generated to solve the mergeable receive
-> >> case with num_bufs equal to 2. Buffers greater than two may not
-> >> be handled has easily.
+> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 > > 
+> > FYI what's supposed to happen is packets from the same
+> > flow going in the reverse direction will go on the
+> > same queue.
 > > 
-> > I would very much prefer support for other layouts without drops
-> > before merging this.
-> > header by itself can certainly be handled by skipping it.
-> > People wanted to use that e.g. for zero copy.
-> 
-> OK fair enough I'll do this now rather than push it out.
-> 
+> > This might come in handy when implementing RX XDP.
 > > 
-> > Anything else can be handled by copying the packet.
 > 
-> This though I'm not so sure about. The copy is going to be slow and
-> I wonder if someone could craft a packet to cause this if it could
-> be used to slow down a system.
-
-Device can always linearize if it wants to. If device is malicious
-it's hard for OS to defend itself.
-
-> Also I can't see what would cause this to happen. With mergeable
-> buffers and LRO off the num_bufs is either 1 or 2 depending on where
-> the header is. Otherwise with LRO off it should be in a single page.
-> At least this is the Linux vhost implementation, I guess other
-> implementation might meet spec but use num_buf > 2 or multiple pages
-> even in the non LRO case.
-
-Me neither but then not a long time ago we always placed
-header in a separate entry until we saw the extra s/g has
-measureable overhead.
-
-network broken is kind of a heavy handed thing, making debugging
-impossible for many people.
-
-> I tend to think dropping the packet out right is better than copying
-> it around. At very least if we do this we need to put in warnings so
-> users can see something is mis-configured.
+> Yeah but if its the first packet not part of a flow then presumably it
+> can pick any queue but its worth keeping in mind certainly.
 > 
 > .John
 
-Yes, I think that's a good idea.
+Oh I agree, absolutely. This was just a FYI in case it comes useful
+as an optimization down the road.
 
 -- 
 MST
