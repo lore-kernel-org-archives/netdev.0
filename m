@@ -1,129 +1,203 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 7/7] net/mlx5e: Enforce min inline mode when offloading flows
-Date: Tue, 22 Nov 2016 23:10:00 +0200
-Message-ID: <1479849000-14902-8-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 4/7] devlink: Add E-Switch inline mode control
+Date: Tue, 22 Nov 2016 23:09:57 +0200
+Message-ID: <1479849000-14902-5-git-send-email-saeedm@mellanox.com>
 References: <1479849000-14902-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46189 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46196 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933060AbcKVVKN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 16:10:13 -0500
+        with ESMTP id S1753763AbcKVVKK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 16:10:10 -0500
 In-Reply-To: <1479849000-14902-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roi Dayan <roid@mellanox.com>
 
-A flow should be offloaded only if the matches are
-allowed according to min inline mode.
+Some HWs need the VF driver to put part of the packet headers on the
+TX descriptor so the e-switch can do proper matching and steering.
+
+The supported modes: none, link, network, transport.
 
 Signed-off-by: Roi Dayan <roid@mellanox.com>
 Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 46 +++++++++++++++++++++++--
- 1 file changed, 44 insertions(+), 2 deletions(-)
+ include/net/devlink.h        |  2 ++
+ include/uapi/linux/devlink.h |  8 +++++
+ net/core/devlink.c           | 70 ++++++++++++++++++++++++++++++++------------
+ 3 files changed, 61 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 4b99112..4d06fab 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -279,8 +279,10 @@ static int parse_tunnel_attr(struct mlx5e_priv *priv,
- 	return 0;
- }
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+index 211bd3c..d29e5fc 100644
+--- a/include/net/devlink.h
++++ b/include/net/devlink.h
+@@ -92,6 +92,8 @@ struct devlink_ops {
  
--static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec,
--			    struct tc_cls_flower_offload *f)
-+static int __parse_cls_flower(struct mlx5e_priv *priv,
-+			      struct mlx5_flow_spec *spec,
-+			      struct tc_cls_flower_offload *f,
-+			      u8 *min_inline)
+ 	int (*eswitch_mode_get)(struct devlink *devlink, u16 *p_mode);
+ 	int (*eswitch_mode_set)(struct devlink *devlink, u16 mode);
++	int (*eswitch_inline_mode_get)(struct devlink *devlink, u8 *p_inline_mode);
++	int (*eswitch_inline_mode_set)(struct devlink *devlink, u8 inline_mode);
+ };
+ 
+ static inline void *devlink_priv(struct devlink *devlink)
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+index 915bfa7..9014c33 100644
+--- a/include/uapi/linux/devlink.h
++++ b/include/uapi/linux/devlink.h
+@@ -102,6 +102,13 @@ enum devlink_eswitch_mode {
+ 	DEVLINK_ESWITCH_MODE_SWITCHDEV,
+ };
+ 
++enum devlink_eswitch_inline_mode {
++	DEVLINK_ESWITCH_INLINE_MODE_NONE,
++	DEVLINK_ESWITCH_INLINE_MODE_LINK,
++	DEVLINK_ESWITCH_INLINE_MODE_NETWORK,
++	DEVLINK_ESWITCH_INLINE_MODE_TRANSPORT,
++};
++
+ enum devlink_attr {
+ 	/* don't change the order or add anything between, this is ABI! */
+ 	DEVLINK_ATTR_UNSPEC,
+@@ -133,6 +140,7 @@ enum devlink_attr {
+ 	DEVLINK_ATTR_SB_OCC_CUR,		/* u32 */
+ 	DEVLINK_ATTR_SB_OCC_MAX,		/* u32 */
+ 	DEVLINK_ATTR_ESWITCH_MODE,		/* u16 */
++	DEVLINK_ATTR_ESWITCH_INLINE_MODE,	/* u8 */
+ 
+ 	/* add new attributes above here, update the policy in devlink.c */
+ 
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index c14f8b6..2b5bf9e 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -1394,26 +1394,45 @@ static int devlink_nl_cmd_sb_occ_max_clear_doit(struct sk_buff *skb,
+ 
+ static int devlink_eswitch_fill(struct sk_buff *msg, struct devlink *devlink,
+ 				enum devlink_command cmd, u32 portid,
+-				u32 seq, int flags, u16 mode)
++				u32 seq, int flags)
  {
- 	void *headers_c = MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
- 				       outer_headers);
-@@ -289,6 +291,8 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
- 	u16 addr_type = 0;
- 	u8 ip_proto = 0;
++	const struct devlink_ops *ops = devlink->ops;
+ 	void *hdr;
++	int err = 0;
++	u16 mode;
++	u8 inline_mode;
  
-+	*min_inline = MLX5_INLINE_MODE_L2;
-+
- 	if (f->dissector->used_keys &
- 	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
- 	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
-@@ -362,6 +366,9 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
- 			 mask->ip_proto);
- 		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ip_protocol,
- 			 key->ip_proto);
-+
-+		if (mask->ip_proto)
-+			*min_inline = MLX5_INLINE_MODE_IP;
- 	}
+ 	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
+ 	if (!hdr)
+ 		return -EMSGSIZE;
  
- 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
-@@ -432,6 +439,9 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
- 		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
- 				    dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
- 		       &key->dst, sizeof(key->dst));
-+
-+		if (mask->src || mask->dst)
-+			*min_inline = MLX5_INLINE_MODE_IP;
- 	}
+-	if (devlink_nl_put_handle(msg, devlink))
+-		goto nla_put_failure;
++	err = devlink_nl_put_handle(msg, devlink);
++	if (err)
++		goto out;
  
- 	if (addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS) {
-@@ -457,6 +467,10 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
- 		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
- 				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
- 		       &key->dst, sizeof(key->dst));
+-	if (nla_put_u16(msg, DEVLINK_ATTR_ESWITCH_MODE, mode))
+-		goto nla_put_failure;
++	err = ops->eswitch_mode_get(devlink, &mode);
++	if (err)
++		goto out;
++	err = nla_put_u16(msg, DEVLINK_ATTR_ESWITCH_MODE, mode);
++	if (err)
++		goto out;
 +
-+		if (ipv6_addr_type(&mask->src) != IPV6_ADDR_ANY ||
-+		    ipv6_addr_type(&mask->dst) != IPV6_ADDR_ANY)
-+			*min_inline = MLX5_INLINE_MODE_IP;
- 	}
++	if (ops->eswitch_inline_mode_get) {
++		err = ops->eswitch_inline_mode_get(devlink, &inline_mode);
++		if (err)
++			goto out;
++		err = nla_put_u8(msg, DEVLINK_ATTR_ESWITCH_INLINE_MODE,
++				 inline_mode);
++		if (err)
++			goto out;
++	}
  
- 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
-@@ -497,11 +511,39 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
- 				   "Only UDP and TCP transport are supported\n");
- 			return -EINVAL;
- 		}
-+
-+		if (mask->src || mask->dst)
-+			*min_inline = MLX5_INLINE_MODE_TCP_UDP;
- 	}
- 
+ 	genlmsg_end(msg, hdr);
  	return 0;
+ 
+-nla_put_failure:
++out:
+ 	genlmsg_cancel(msg, hdr);
+-	return -EMSGSIZE;
++	return err;
  }
  
-+static int parse_cls_flower(struct mlx5e_priv *priv,
-+			    struct mlx5_flow_spec *spec,
-+			    struct tc_cls_flower_offload *f)
-+{
-+	struct mlx5_core_dev *dev = priv->mdev;
-+	struct mlx5_eswitch *esw = dev->priv.eswitch;
-+	struct mlx5_eswitch_rep *rep = priv->ppriv;
-+	u8 min_inline;
-+	int err;
-+
-+	err = __parse_cls_flower(priv, spec, f, &min_inline);
-+
-+	if (!err && esw->mode == SRIOV_OFFLOADS &&
-+	    rep->vport != FDB_UPLINK_VPORT) {
-+		if (min_inline > esw->offloads.inline_mode) {
-+			netdev_warn(priv->netdev,
-+				    "Flow is not offloaded due to min inline setting, required %d actual %d\n",
-+				    min_inline, esw->offloads.inline_mode);
+ static int devlink_nl_cmd_eswitch_mode_get_doit(struct sk_buff *skb,
+@@ -1422,22 +1441,17 @@ static int devlink_nl_cmd_eswitch_mode_get_doit(struct sk_buff *skb,
+ 	struct devlink *devlink = info->user_ptr[0];
+ 	const struct devlink_ops *ops = devlink->ops;
+ 	struct sk_buff *msg;
+-	u16 mode;
+ 	int err;
+ 
+ 	if (!ops || !ops->eswitch_mode_get)
+ 		return -EOPNOTSUPP;
+ 
+-	err = ops->eswitch_mode_get(devlink, &mode);
+-	if (err)
+-		return err;
+-
+ 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		return -ENOMEM;
+ 
+ 	err = devlink_eswitch_fill(msg, devlink, DEVLINK_CMD_ESWITCH_MODE_GET,
+-				   info->snd_portid, info->snd_seq, 0, mode);
++				   info->snd_portid, info->snd_seq, 0);
+ 
+ 	if (err) {
+ 		nlmsg_free(msg);
+@@ -1453,15 +1467,32 @@ static int devlink_nl_cmd_eswitch_mode_set_doit(struct sk_buff *skb,
+ 	struct devlink *devlink = info->user_ptr[0];
+ 	const struct devlink_ops *ops = devlink->ops;
+ 	u16 mode;
++	u8 inline_mode;
++	int err = 0;
+ 
+-	if (!info->attrs[DEVLINK_ATTR_ESWITCH_MODE])
+-		return -EINVAL;
++	if (!ops)
++		return -EOPNOTSUPP;
+ 
+-	mode = nla_get_u16(info->attrs[DEVLINK_ATTR_ESWITCH_MODE]);
++	if (info->attrs[DEVLINK_ATTR_ESWITCH_MODE]) {
++		if (!ops->eswitch_mode_set)
 +			return -EOPNOTSUPP;
-+		}
++		mode = nla_get_u16(info->attrs[DEVLINK_ATTR_ESWITCH_MODE]);
++		err = ops->eswitch_mode_set(devlink, mode);
++		if (err)
++			return err;
++	}
+ 
+-	if (ops && ops->eswitch_mode_set)
+-		return ops->eswitch_mode_set(devlink, mode);
+-	return -EOPNOTSUPP;
++	if (info->attrs[DEVLINK_ATTR_ESWITCH_INLINE_MODE]) {
++		if (!ops->eswitch_inline_mode_set)
++			return -EOPNOTSUPP;
++		inline_mode = nla_get_u8(
++				info->attrs[DEVLINK_ATTR_ESWITCH_INLINE_MODE]);
++		err = ops->eswitch_inline_mode_set(devlink, inline_mode);
++		if (err)
++			return err;
 +	}
 +
-+	return err;
-+}
-+
- static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 				u32 *action, u32 *flow_tag)
- {
++	return 0;
+ }
+ 
+ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+@@ -1478,6 +1509,7 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+ 	[DEVLINK_ATTR_SB_THRESHOLD] = { .type = NLA_U32 },
+ 	[DEVLINK_ATTR_SB_TC_INDEX] = { .type = NLA_U16 },
+ 	[DEVLINK_ATTR_ESWITCH_MODE] = { .type = NLA_U16 },
++	[DEVLINK_ATTR_ESWITCH_INLINE_MODE] = { .type = NLA_U8 },
+ };
+ 
+ static const struct genl_ops devlink_nl_ops[] = {
 -- 
 2.7.4
