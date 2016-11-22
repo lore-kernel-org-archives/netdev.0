@@ -1,66 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] net/phy: add trace events for mdio accesses
-Date: Tue, 22 Nov 2016 16:19:32 +0100
-Message-ID: <20161122151932.GI2691@lunn.ch>
-References: <20161114110335.27862-1-uwe@kleine-koenig.org>
- <20161122100127.5940-1-uwe@kleine-koenig.org>
- <20161122095521.73d9c746@gandalf.local.home>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Tue, 22 Nov 2016 16:22:57 +0100
+Message-ID: <CA+BoTQm5yZYccMherMnmxZ0_b2PqkCWf_0nBoRLzsro-Ujz1eQ@mail.gmail.com>
+References: <201611111820.52072@pali> <20161121155153.GM13735@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <uwe@kleine-koenig.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Ingo Molnar <mingo@redhat.com>, netdev@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48517 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932592AbcKVPTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Nov 2016 10:19:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20161122095521.73d9c746@gandalf.local.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Kalle Valo <kvalo@codeaurora.org>, Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161121155153.GM13735@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 22, 2016 at 09:55:21AM -0500, Steven Rostedt wrote:
-> On Tue, 22 Nov 2016 11:01:27 +0100
-> Uwe Kleine-König <uwe@kleine-koenig.org> wrote:
-> 
-> > diff --git a/include/trace/events/mdio.h b/include/trace/events/mdio.h
-> > new file mode 100644
-> > index 000000000000..468e2d095d19
-> > --- /dev/null
-> > +++ b/include/trace/events/mdio.h
-> > @@ -0,0 +1,42 @@
-> > +#undef TRACE_SYSTEM
-> > +#define TRACE_SYSTEM mdio
-> > +
-> > +#if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ)
-> > +#define _TRACE_MDIO_H
-> > +
-> > +#include <linux/tracepoint.h>
-> > +
-> > +TRACE_EVENT_CONDITION(mdio_access,
-> > +
-> > +	TP_PROTO(struct mii_bus *bus, int read,
-> > +		 unsigned addr, unsigned regnum, u16 val, int err),
-> > +
-> > +	TP_ARGS(bus, read, addr, regnum, val, err),
-> > +
-> > +	TP_CONDITION(err >= 0),
-> > +
-> > +	TP_STRUCT__entry(
-> > +		__array(char, busid, MII_BUS_ID_SIZE)
-> > +		__field(int, read)
-> 
-> read is just a 0 or 1. What about making it a char? That way we can
-> pack this better. If I'm not mistaken, MII_BUS_ID_SIZE is (20 - 3) or
-> 17. If read is just one byte, then it can fit in one of those three
-> bytes, and you save 4 extra bytes (assuming addr will be 4 byte
-> aligned).
+On 21 November 2016 at 16:51, Pali Roh=C3=A1r <pali.rohar@gmail.com> wrote:
+> On Friday 11 November 2016 18:20:50 Pali Roh=C3=A1r wrote:
+>> Hi! I will open discussion about mac address and calibration data for
+>> wl1251 wireless chip again...
+>>
+>> Problem: Mac address & calibration data for wl1251 chip on Nokia N900
+>> are stored on second nand partition (mtd1) in special proprietary format
+>> which is used only for Nokia N900 (probably on N8x0 and N9 too).
+>> Wireless driver wl1251.ko cannot work without mac address and
+>> calibration data.
 
-addr could also be cast into a u8. There are a maximum of 32
-addresses on an MDIO bus. Because of clause 45 MDIO, regnum needs to
-remain a u32.
+Same problem applies to some ath9k/ath10k supported routers. Some even
+carry mac address as implicit offset from ethernet mac address. As far
+as I understand OpenWRT cooks cal blobs on first boot prior to loading
+modules.
 
-       Andrew
+
+>> Absence of mac address cause that driver generates random mac address at
+>> every kernel boot which has couple of problems (unstable identifier of
+>> wireless device due to udev permanent storage rules; unpredictable
+>> behaviour for dhcp mac address assignment, mac address filtering, ...).
+>>
+>> Currently there is no way to set (permanent) mac address for network
+>> interface from userspace. And it does not make sense to implement in
+>> linux kernel large parser for proprietary format of second nand
+>> partition where is mac address stored only for one device -- Nokia N900.
+>>
+>> Driver wl1251.ko loads calibration data via request_firmware() for file
+>> wl1251-nvs.bin. There are some "example" calibration file in linux-
+>> firmware repository, but it is not suitable for normal usage as real
+>> calibration data are per-device specific.
+
+You could hook up a script that cooks up the cal/mac file via
+modprobe's install hook, no?
+
+
+Micha=C5=82
