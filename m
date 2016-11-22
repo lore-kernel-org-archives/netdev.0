@@ -1,267 +1,318 @@
 From: Michael Braun <michael-dev@fami-braun.de>
-Subject: [PATCH v8] mac80211: multicast to unicast conversion
-Date: Tue, 22 Nov 2016 11:52:18 +0100
-Message-ID: <1479811938-728-1-git-send-email-michael-dev@fami-braun.de>
+Subject: [PATCH v5] iproute2: macvlan: add "source" mode
+Date: Tue, 22 Nov 2016 11:59:13 +0100
+Message-ID: <1479812353-32400-1-git-send-email-michael-dev@fami-braun.de>
 Cc: Michael Braun <michael-dev@fami-braun.de>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        projekt-wlan@fem.tu-ilmenau.de
-To: johannes@sipsolutions.net
+        projekt-wlan@fem.tu-ilmenau.de, steweg@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fem.tu-ilmenau.de ([141.24.220.54]:35976 "EHLO
+Received: from mail.fem.tu-ilmenau.de ([141.24.220.54]:36882 "EHLO
         mail.fem.tu-ilmenau.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932274AbcKVKw2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 05:52:28 -0500
+        with ESMTP id S932521AbcKVK7S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 05:59:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the ability for an AP (and associated VLANs) to perform
-multicast-to-unicast conversion for ARP, IPv4 and IPv6 frames
-(possibly within 802.1Q). If enabled, such frames are to be sent
-to each station separately, with the DA replaced by their own
-MAC address rather than the group address.
+Adjusting iproute2 utility to support new macvlan link type mode called
+"source".
 
-Note that this may break certain expectations of the receiver,
-such as the ability to drop unicast IP packets received within
-multicast L2 frames, or the ability to not send ICMP destination
-unreachable messages for packets received in L2 multicast (which
-is required, but the receiver can't tell the difference if this
-new option is enabled.)
+Example of commands that can be applied:
+  ip link add link eth0 name macvlan0 type macvlan mode source
+  ip link set link dev macvlan0 type macvlan macaddr add 00:11:11:11:11:11
+  ip link set link dev macvlan0 type macvlan macaddr del 00:11:11:11:11:11
+  ip link set link dev macvlan0 type macvlan macaddr flush
+  ip -details link show dev macvlan0
 
-This also doesn't implement the 802.11 DMS (directed multicast
-service).
+Based on previous work of Stefan Gula <steweg@gmail.com>
 
 Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
 
---
-v8:
-  - remove superflous check
-  - change return type to bool
-v7:
-  - avoid recursion
-  - style and description
-v5:
-  - rename bss->unicast to bss->multicast_to_unicast
-  - access sdata->bss only after checking iftype
-v4:
-  - rename MULTICAST_TO_UNICAST to MULTICAST_TO_UNICAST
-v3: fix compile error for trace.h
-v2: add nl80211 toggle
-    rename tx_dnat to change_da
-    change int to bool unicast
----
- net/mac80211/cfg.c            |  12 +++++
- net/mac80211/debugfs_netdev.c |   3 ++
- net/mac80211/ieee80211_i.h    |   1 +
- net/mac80211/tx.c             | 122 +++++++++++++++++++++++++++++++++++++++++-
- 4 files changed, 137 insertions(+), 1 deletion(-)
+Cc: steweg@gmail.com
 
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index 1edb017..7de342a 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -3345,6 +3345,17 @@ static int ieee80211_del_tx_ts(struct wiphy *wiphy, struct net_device *dev,
- 	return -ENOENT;
- }
+v5:
+ - rebase and fix checkpatch
+
+v4:
+ - add MACADDR_SET support
+ - skip FLAG_UNICAST / FLAG_UNICAST_ALL as this is not upstream
+ - fix man page
+---
+ ip/iplink_macvlan.c   | 124 +++++++++++++++++++++++++++++++++++++++++++++++---
+ man/man8/ip-link.8.in |  42 ++++++++++++++++-
+ 2 files changed, 158 insertions(+), 8 deletions(-)
+
+diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
+index 83ff961..b9a146f 100644
+--- a/ip/iplink_macvlan.c
++++ b/ip/iplink_macvlan.c
+@@ -15,6 +15,7 @@
+ #include <string.h>
+ #include <sys/socket.h>
+ #include <linux/if_link.h>
++#include <linux/if_ether.h>
  
-+static int ieee80211_set_multicast_to_unicast(struct wiphy *wiphy,
-+					      struct net_device *dev,
-+					      const bool enabled)
-+{
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+
-+	sdata->u.ap.multicast_to_unicast = enabled;
-+
-+	return 0;
-+}
-+
- const struct cfg80211_ops mac80211_config_ops = {
- 	.add_virtual_intf = ieee80211_add_iface,
- 	.del_virtual_intf = ieee80211_del_iface,
-@@ -3430,4 +3441,5 @@ const struct cfg80211_ops mac80211_config_ops = {
- 	.set_ap_chanwidth = ieee80211_set_ap_chanwidth,
- 	.add_tx_ts = ieee80211_add_tx_ts,
- 	.del_tx_ts = ieee80211_del_tx_ts,
-+	.set_multicast_to_unicast = ieee80211_set_multicast_to_unicast,
- };
-diff --git a/net/mac80211/debugfs_netdev.c b/net/mac80211/debugfs_netdev.c
-index ed7bff4..509c6c3 100644
---- a/net/mac80211/debugfs_netdev.c
-+++ b/net/mac80211/debugfs_netdev.c
-@@ -487,6 +487,8 @@ static ssize_t ieee80211_if_fmt_num_buffered_multicast(
- }
- IEEE80211_IF_FILE_R(num_buffered_multicast);
- 
-+IEEE80211_IF_FILE(multicast_to_unicast, u.ap.multicast_to_unicast, HEX);
-+
- /* IBSS attributes */
- static ssize_t ieee80211_if_fmt_tsf(
- 	const struct ieee80211_sub_if_data *sdata, char *buf, int buflen)
-@@ -642,6 +644,7 @@ static void add_ap_files(struct ieee80211_sub_if_data *sdata)
- 	DEBUGFS_ADD(dtim_count);
- 	DEBUGFS_ADD(num_buffered_multicast);
- 	DEBUGFS_ADD_MODE(tkip_mic_test, 0200);
-+	DEBUGFS_ADD_MODE(multicast_to_unicast, 0600);
- }
- 
- static void add_vlan_files(struct ieee80211_sub_if_data *sdata)
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 70c0963..84374ed 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -293,6 +293,7 @@ struct ieee80211_if_ap {
- 			 driver_smps_mode; /* smps mode request */
- 
- 	struct work_struct request_smps_work;
-+	bool multicast_to_unicast;
- };
- 
- struct ieee80211_if_wds {
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index c3ce86e..5effffd 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -16,6 +16,7 @@
- #include <linux/kernel.h>
- #include <linux/slab.h>
- #include <linux/skbuff.h>
-+#include <linux/if_vlan.h>
- #include <linux/etherdevice.h>
- #include <linux/bitmap.h>
- #include <linux/rcupdate.h>
-@@ -3418,6 +3419,115 @@ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
- 	rcu_read_unlock();
- }
- 
-+static int ieee80211_change_da(struct sk_buff *skb, struct sta_info *sta)
-+{
-+	struct ethhdr *eth;
-+	int err;
-+
-+	err = skb_ensure_writable(skb, ETH_HLEN);
-+	if (unlikely(err))
-+		return err;
-+
-+	eth = (void *)skb->data;
-+	ether_addr_copy(eth->h_dest, sta->sta.addr);
-+
-+	return 0;
-+}
-+
-+static inline bool
-+ieee80211_multicast_to_unicast(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+	const struct ethhdr *eth = (void *)skb->data;
-+	const struct vlan_ethhdr *ethvlan = (void *)skb->data;
-+	u16 ethertype;
-+
-+	if (likely(!is_multicast_ether_addr(eth->h_dest)))
-+		return 0;
-+
-+	switch (sdata->vif.type) {
-+	case NL80211_IFTYPE_AP_VLAN:
-+		if (sdata->u.vlan.sta)
-+			return 0;
-+		if (sdata->wdev.use_4addr)
-+			return 0;
-+		/* fall through */
-+	case NL80211_IFTYPE_AP:
-+		/* check runtime toggle for this bss */
-+		if (!sdata->bss->multicast_to_unicast)
-+			return 0;
-+		break;
-+	default:
-+		return 0;
-+	}
-+
-+	/* multicast to unicast conversion only for some payload */
-+	ethertype = ntohs(eth->h_proto);
-+	if (ethertype == ETH_P_8021Q && skb->len >= VLAN_ETH_HLEN)
-+		ethertype = ntohs(ethvlan->h_vlan_encapsulated_proto);
-+	switch (ethertype) {
-+	case ETH_P_ARP:
-+	case ETH_P_IP:
-+	case ETH_P_IPV6:
-+		break;
-+	default:
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+static void
-+ieee80211_convert_to_unicast(struct sk_buff *skb, struct net_device *dev,
-+			     struct sk_buff_head *queue)
-+{
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+	struct ieee80211_local *local = sdata->local;
-+	const struct ethhdr *eth = (struct ethhdr *)skb->data;
-+	struct sta_info *sta, *first = NULL;
-+	struct sk_buff *cloned_skb;
-+
-+	rcu_read_lock();
-+
-+	list_for_each_entry_rcu(sta, &local->sta_list, list) {
-+		if (sdata != sta->sdata)
-+			/* AP-VLAN mismatch */
-+			continue;
-+		if (unlikely(ether_addr_equal(eth->h_source, sta->sta.addr)))
-+			/* do not send back to source */
-+			continue;
-+		if (!first) {
-+			first = sta;
-+			continue;
-+		}
-+		cloned_skb = skb_clone(skb, GFP_ATOMIC);
-+		if (!cloned_skb)
-+			goto unicast;
-+		if (unlikely(ieee80211_change_da(cloned_skb, sta))) {
-+			dev_kfree_skb(cloned_skb);
-+			goto unicast;
-+		}
-+		__skb_queue_tail(queue, cloned_skb);
-+	}
-+
-+	if (likely(first)) {
-+		if (unlikely(ieee80211_change_da(skb, first)))
-+			goto unicast;
-+		__skb_queue_tail(queue, skb);
-+	} else {
-+		/* no STA connected, drop */
-+		kfree_skb(skb);
-+		skb = NULL;
-+	}
-+
-+	goto out;
-+unicast:
-+	__skb_queue_purge(queue);
-+	__skb_queue_tail(queue, skb);
-+out:
-+	rcu_read_unlock();
-+}
-+
- /**
-  * ieee80211_subif_start_xmit - netif start_xmit function for 802.3 vifs
-  * @skb: packet to be sent
-@@ -3428,7 +3538,17 @@ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
- netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
- 				       struct net_device *dev)
+ #include "rt_names.h"
+ #include "utils.h"
+@@ -29,7 +30,11 @@
+ static void print_explain(struct link_util *lu, FILE *f)
  {
--	__ieee80211_subif_start_xmit(skb, dev, 0);
-+	if (unlikely(ieee80211_multicast_to_unicast(skb, dev))) {
-+		struct sk_buff_head queue;
+ 	fprintf(f,
+-		"Usage: ... %s mode { private | vepa | bridge | passthru [nopromisc] }\n",
++		"Usage: ... %s mode MODE [flag MODE_FLAG] MODE_OPTS\n"
++		"MODE: private | vepa | bridge | passthru | source\n"
++		"MODE_FLAG: null | nopromisc\n"
++		"MODE_OPTS: for mode \"source\":\n"
++		"\tmacaddr { { add | del } <macaddr> | set [ <macaddr> [ <macaddr>  ... ] ] | flush }\n",
+ 		lu->id
+ 	);
+ }
+@@ -43,7 +48,15 @@ static void explain(struct link_util *lu)
+ static int mode_arg(const char *arg)
+ {
+ 	fprintf(stderr,
+-		"Error: argument of \"mode\" must be \"private\", \"vepa\", \"bridge\" or \"passthru\", not \"%s\"\n",
++		"Error: argument of \"mode\" must be \"private\", \"vepa\", \"bridge\", \"passthru\" or \"source\", not \"%s\"\n",
++		arg);
++	return -1;
++}
 +
-+		__skb_queue_head_init(&queue);
-+		ieee80211_convert_to_unicast(skb, dev, &queue);
-+		while ((skb = __skb_dequeue(&queue)))
-+			__ieee80211_subif_start_xmit(skb, dev, 0);
-+	} else {
-+		__ieee80211_subif_start_xmit(skb, dev, 0);
++static int flag_arg(const char *arg)
++{
++	fprintf(stderr,
++		"Error: argument of \"flag\" must be \"nopromisc\" or \"null\", not \"%s\"\n",
+ 		arg);
+ 	return -1;
+ }
+@@ -53,6 +66,10 @@ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ {
+ 	__u32 mode = 0;
+ 	__u16 flags = 0;
++	__u32 mac_mode = 0;
++	int has_flags = 0;
++	char mac[ETH_ALEN];
++	struct rtattr *nmac;
+ 
+ 	while (argc > 0) {
+ 		if (matches(*argv, "mode") == 0) {
+@@ -66,10 +83,72 @@ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 				mode = MACVLAN_MODE_BRIDGE;
+ 			else if (strcmp(*argv, "passthru") == 0)
+ 				mode = MACVLAN_MODE_PASSTHRU;
++			else if (strcmp(*argv, "source") == 0)
++				mode = MACVLAN_MODE_SOURCE;
+ 			else
+ 				return mode_arg(*argv);
++		} else if (matches(*argv, "flag") == 0) {
++			NEXT_ARG();
++
++			if (strcmp(*argv, "nopromisc") == 0)
++				flags |= MACVLAN_FLAG_NOPROMISC;
++			else if (strcmp(*argv, "null") == 0)
++				flags |= 0;
++			else
++				return flag_arg(*argv);
++
++			has_flags = 1;
++
++		} else if (matches(*argv, "macaddr") == 0) {
++			NEXT_ARG();
++
++			if (strcmp(*argv, "add") == 0) {
++				mac_mode = MACVLAN_MACADDR_ADD;
++			} else if (strcmp(*argv, "del") == 0) {
++				mac_mode = MACVLAN_MACADDR_DEL;
++			} else if (strcmp(*argv, "set") == 0) {
++				mac_mode = MACVLAN_MACADDR_SET;
++			} else if (strcmp(*argv, "flush") == 0) {
++				mac_mode = MACVLAN_MACADDR_FLUSH;
++			} else {
++				explain(lu);
++				return -1;
++			}
++
++			addattr32(n, 1024, IFLA_MACVLAN_MACADDR_MODE, mac_mode);
++
++			if (mac_mode == MACVLAN_MACADDR_ADD ||
++			    mac_mode == MACVLAN_MACADDR_DEL) {
++				NEXT_ARG();
++
++				if (ll_addr_a2n(mac, sizeof(mac),
++						*argv) != ETH_ALEN)
++					return -1;
++
++				addattr_l(n, 1024, IFLA_MACVLAN_MACADDR, &mac,
++					  ETH_ALEN);
++			}
++
++			if (mac_mode == MACVLAN_MACADDR_SET) {
++				nmac = addattr_nest(n, 1024,
++						    IFLA_MACVLAN_MACADDR_DATA);
++				while (NEXT_ARG_OK()) {
++					NEXT_ARG_FWD();
++
++					if (ll_addr_a2n(mac, sizeof(mac),
++							*argv) != ETH_ALEN) {
++						PREV_ARG();
++						break;
++					}
++
++					addattr_l(n, 1024, IFLA_MACVLAN_MACADDR,
++						  &mac, ETH_ALEN);
++				}
++				addattr_nest_end(n, nmac);
++			}
+ 		} else if (matches(*argv, "nopromisc") == 0) {
+ 			flags |= MACVLAN_FLAG_NOPROMISC;
++			has_flags = 1;
+ 		} else if (matches(*argv, "help") == 0) {
+ 			explain(lu);
+ 			return -1;
+@@ -84,7 +163,7 @@ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	if (mode)
+ 		addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
+ 
+-	if (flags) {
++	if (has_flags) {
+ 		if (flags & MACVLAN_FLAG_NOPROMISC &&
+ 		    mode != MACVLAN_MODE_PASSTHRU) {
+ 			pfx_err(lu, "nopromisc flag only valid in passthru mode");
+@@ -100,6 +179,10 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
+ {
+ 	__u32 mode;
+ 	__u16 flags;
++	__u32 count;
++	unsigned char *addr;
++	int len;
++	struct rtattr *rta;
+ 
+ 	if (!tb)
+ 		return;
+@@ -109,20 +192,49 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
+ 		return;
+ 
+ 	mode = rta_getattr_u32(tb[IFLA_MACVLAN_MODE]);
+-	fprintf(f, " mode %s ",
++	fprintf(f, "mode %s ",
+ 		  mode == MACVLAN_MODE_PRIVATE ? "private"
+ 		: mode == MACVLAN_MODE_VEPA    ? "vepa"
+ 		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
+ 		: mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
++		: mode == MACVLAN_MODE_SOURCE  ? "source"
+ 		:				 "unknown");
+ 
+ 	if (!tb[IFLA_MACVLAN_FLAGS] ||
+ 	    RTA_PAYLOAD(tb[IFLA_MACVLAN_FLAGS]) < sizeof(__u16))
+-		return;
++		flags = 0;
++	else
++		flags = rta_getattr_u16(tb[IFLA_MACVLAN_FLAGS]);
+ 
+-	flags = rta_getattr_u16(tb[IFLA_MACVLAN_FLAGS]);
+ 	if (flags & MACVLAN_FLAG_NOPROMISC)
+ 		fprintf(f, "nopromisc ");
++
++	/* in source mode, there are more options to print */
++
++	if (mode != MACVLAN_MODE_SOURCE)
++		return;
++
++	if (!tb[IFLA_MACVLAN_MACADDR_COUNT] ||
++	    RTA_PAYLOAD(tb[IFLA_MACVLAN_MACADDR_COUNT]) < sizeof(__u32))
++		return;
++
++	count = rta_getattr_u32(tb[IFLA_MACVLAN_MACADDR_COUNT]);
++	fprintf(f, "remotes (%d) ", count);
++
++	if (!tb[IFLA_MACVLAN_MACADDR_DATA])
++		return;
++
++	rta = RTA_DATA(tb[IFLA_MACVLAN_MACADDR_DATA]);
++	len = RTA_PAYLOAD(tb[IFLA_MACVLAN_MACADDR_DATA]);
++
++	for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
++		if (rta->rta_type != IFLA_MACVLAN_MACADDR ||
++		    RTA_PAYLOAD(rta) < 6)
++			continue;
++		addr = RTA_DATA(rta);
++		fprintf(f, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x ", addr[0],
++			addr[1], addr[2], addr[3], addr[4], addr[5]);
 +	}
-+
- 	return NETDEV_TX_OK;
  }
  
+ static void macvlan_print_help(struct link_util *lu, int argc, char **argv,
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index ee1159d..18e9417 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -135,7 +135,12 @@ ip-link \- network device configuration
+ .IR NAME " ]"
+ .br
+ .RB "[ " addrgenmode " { " eui64 " | " none " | " stable_secret " | " random " } ]"
+-
++.br
++.RB "[ " macaddr " { " flush " | { " add " | " del " } "
++.IR MACADDR " | set [ "
++.IR MACADDR " [ "
++.IR MACADDR " [ ... ] ] ] } ]"
++.br
+ 
+ .ti -8
+ .B ip link show
+@@ -882,7 +887,7 @@ the following additional arguments are supported:
+ .BI "ip link add link " DEVICE " name " NAME
+ .BR type " { " macvlan " | " macvtap " } "
+ .BR mode " { " private " | " vepa " | " bridge " | " passthru
+-.RB " [ " nopromisc " ] } "
++.RB " [ " nopromisc " ] | " source " } "
+ 
+ .in +8
+ .sp
+@@ -919,6 +924,13 @@ the interface or create vlan interfaces on top of it. By default, this mode
+ forces the underlying interface into promiscuous mode. Passing the
+ .BR nopromisc " flag prevents this, so the promisc flag may be controlled "
+ using standard tools.
++
++.B mode source
++- allows one to set a list of allowed mac address, which is used to match
++against source mac address from received frames on underlying interface. This
++allows creating mac based VLAN associations, instead of standard port or tag
++based. The feature is useful to deploy 802.1x mac based behavior,
++where drivers of underlying interfaces doesn't allows that.
+ .in -8
+ 
+ .TP
+@@ -1468,6 +1480,32 @@ the following additional arguments are supported:
+ 
+ .in -8
+ 
++.TP
++MACVLAN and MACVTAP Support
++Modify list of allowed macaddr for link in source mode.
++
++.B "ip link set type { macvlan | macvap } "
++[
++.BI macaddr " " "" COMMAND " " MACADDR " ..."
++]
++
++Commands:
++.in +8
++.B add
++- add MACADDR to allowed list
++.sp
++.B set
++- replace allowed list
++.sp
++.B del
++- remove MACADDR from allowed list
++.sp
++.B flush
++- flush whole allowed list
++.sp
++.in -8
++
++
+ .SS  ip link show - display device attributes
+ 
+ .TP
 -- 
 2.1.4
