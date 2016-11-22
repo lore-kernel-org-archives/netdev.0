@@ -1,75 +1,90 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 0/7] Mellanox 100G mlx5 SRIOV switchdev update
-Date: Tue, 22 Nov 2016 23:09:53 +0200
-Message-ID: <1479849000-14902-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 1/7] net: Add net-device param to the get offloaded stats ndo
+Date: Tue, 22 Nov 2016 23:09:54 +0200
+Message-ID: <1479849000-14902-2-git-send-email-saeedm@mellanox.com>
+References: <1479849000-14902-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46182 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46184 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755369AbcKVVKK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 16:10:10 -0500
+        with ESMTP id S933054AbcKVVKN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 16:10:13 -0500
+In-Reply-To: <1479849000-14902-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-This series from Roi and Or further enhances the new SRIOV switchdev mode.
+Some drivers would need to check few internal matters for
+that. To be used in downstream mlx5 commit.
 
-Roi's patches deal with allowing users to configure though devlink
-the level of inline headers that the VF should be setting in order for
-the eswitch HW to do proper matching. We also enforce that the matching
-required for offloaded TC rules is aligned with that level on the PF driver.
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
+ include/linux/netdevice.h                      | 4 ++--
+ net/core/rtnetlink.c                           | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-Or's patches deals with allowing the user to control on the VF operational
-link state through admin directives on the mlx5 VF rep link. Also in this series
-is implementation of HW and SW counters for the mlx5 VF rep which is aligned
-with the design set by commit a5ea31f57309 'Merge branch net-offloaded-stats'.
-
-v1 --> v2:
-* constified the net-device param of get offloaded stats ndo in mlxsw
-  (pointed by 0-day screaming on us...)
-* added Or's Review-by tags for Roi's patches
-
-This series was generated against commit
-e796f49d826a ("net: ieee802154: constify ieee802154_ops structures")
-
-Thanks,
-Saeed.
-
-Or Gerlitz (3):
-  net: Add net-device param to the get offloaded stats ndo
-  net/mlx5e: Support HW (offloaded) and SW counters for SRIOV switchdev
-    mode
-  net/mlx5e: Support VF vport link state control for SRIOV switchdev
-    mode
-
-Roi Dayan (4):
-  devlink: Add E-Switch inline mode control
-  net/mlx5: Enable to query min inline for a specific vport
-  net/mlx5: E-Switch, Add control for inline mode
-  net/mlx5e: Enforce min inline mode when offloading flows
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  15 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  42 +++---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   | 144 +++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  46 ++++++-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |   4 +
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 141 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   2 +
- drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  14 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   2 +-
- include/linux/mlx5/vport.h                         |  10 +-
- include/linux/netdevice.h                          |   4 +-
- include/net/devlink.h                              |   2 +
- include/uapi/linux/devlink.h                       |   8 ++
- net/core/devlink.c                                 |  70 +++++++---
- net/core/rtnetlink.c                               |   4 +-
- 17 files changed, 438 insertions(+), 72 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 4a1f9d5..e0d7d5a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -857,7 +857,7 @@ mlxsw_sp_port_get_sw_stats64(const struct net_device *dev,
+ 	return 0;
+ }
+ 
+-static bool mlxsw_sp_port_has_offload_stats(int attr_id)
++static bool mlxsw_sp_port_has_offload_stats(const struct net_device *dev, int attr_id)
+ {
+ 	switch (attr_id) {
+ 	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e84800e..ae32a27 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -925,7 +925,7 @@ struct netdev_xdp {
+  *	3. Update dev->stats asynchronously and atomically, and define
+  *	   neither operation.
+  *
+- * bool (*ndo_has_offload_stats)(int attr_id)
++ * bool (*ndo_has_offload_stats)(const struct net_device *dev, int attr_id)
+  *	Return true if this device supports offload stats of this attr_id.
+  *
+  * int (*ndo_get_offload_stats)(int attr_id, const struct net_device *dev,
+@@ -1165,7 +1165,7 @@ struct net_device_ops {
+ 
+ 	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
+ 						     struct rtnl_link_stats64 *storage);
+-	bool			(*ndo_has_offload_stats)(int attr_id);
++	bool			(*ndo_has_offload_stats)(const struct net_device *dev, int attr_id);
+ 	int			(*ndo_get_offload_stats)(int attr_id,
+ 							 const struct net_device *dev,
+ 							 void *attr_data);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index db313ec..f5a8d8a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3665,7 +3665,7 @@ static int rtnl_get_offload_stats(struct sk_buff *skb, struct net_device *dev,
+ 		if (!size)
+ 			continue;
+ 
+-		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
++		if (!dev->netdev_ops->ndo_has_offload_stats(dev, attr_id))
+ 			continue;
+ 
+ 		attr = nla_reserve_64bit(skb, attr_id, size,
+@@ -3706,7 +3706,7 @@ static int rtnl_get_offload_stats_size(const struct net_device *dev)
+ 
+ 	for (attr_id = IFLA_OFFLOAD_XSTATS_FIRST;
+ 	     attr_id <= IFLA_OFFLOAD_XSTATS_MAX; attr_id++) {
+-		if (!dev->netdev_ops->ndo_has_offload_stats(attr_id))
++		if (!dev->netdev_ops->ndo_has_offload_stats(dev, attr_id))
+ 			continue;
+ 		size = rtnl_get_offload_stats_attr_size(attr_id);
+ 		nla_size += nla_total_size_64bit(size);
 -- 
 2.7.4
