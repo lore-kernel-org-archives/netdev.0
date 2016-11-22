@@ -1,57 +1,64 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH] net: mvneta: Only disable mvneta_bm for 64-bits
-Date: Tue, 22 Nov 2016 16:38:48 +0100
-Message-ID: <20161122153848.13071-1-gregory.clement@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:34593 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755817AbcKVPjK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 10:39:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC net-next 1/3] net: bridge: Allow bridge master
+	device to configure switch CPU port
+Date: Tue, 22 Nov 2016 10:46:25 -0500
+Message-ID: <87h96zzfe6.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20161121190925.14530-1-f.fainelli@gmail.com>
+	<20161121190925.14530-2-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: idosch@mellanox.com, andrew@lunn.ch,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	bridge@lists.linux-foundation.org, jiri@mellanox.com, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20161121190925.14530-2-f.fainelli@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Actually only the mvneta_bm support is not 64-bits compatible.
-The mvneta code itself can run on 64-bits architecture.
+Hi Florian,
 
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
----
- drivers/net/ethernet/marvell/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index 66fd9dbb2ca7..2ccea9dd9248 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -44,6 +44,7 @@ config MVMDIO
- config MVNETA_BM_ENABLE
- 	tristate "Marvell Armada 38x/XP network interface BM support"
- 	depends on MVNETA
-+	depends on !64BIT
- 	---help---
- 	  This driver supports auxiliary block of the network
- 	  interface units in the Marvell ARMADA XP and ARMADA 38x SoC
-@@ -58,7 +59,6 @@ config MVNETA
- 	tristate "Marvell Armada 370/38x/XP network interface support"
- 	depends on PLAT_ORION || COMPILE_TEST
- 	depends on HAS_DMA
--	depends on !64BIT
- 	select MVMDIO
- 	select FIXED_PHY
- 	---help---
-@@ -71,6 +71,7 @@ config MVNETA
- 
- config MVNETA_BM
- 	tristate
-+	depends on !64BIT
- 	default y if MVNETA=y && MVNETA_BM_ENABLE!=n
- 	default MVNETA_BM_ENABLE
- 	select HWBM
--- 
-2.10.2
+> bridge vlan add vid 2 dev br0 self
+> 	-> CPU port gets programmed
+> bridge vlan add vid 2 dev port0
+> 	-> port0 (switch port 0) gets programmed
+
+Although this is not specific to this patch, I'd like to point out that
+this seems not to be the behavior bridge expects.
+
+The bridge manpage says:
+
+    bridge vlan add - add a new vlan filter entry
+    ...
+
+       self   the vlan is configured on the specified physical device.
+              Required if the device is the bridge device.
+
+       master the vlan is configured on the software bridge (default).
+
+So if I'm not mistaken, the switch chip must be programmed only when the
+bridge command is called with the "self" attribute. Without it, only
+software configuration must be made, like what happens when the driver
+returns -EOPNOTSUPP.
+
+Currently, both commands below program the hardware:
+
+    # bridge vlan add vid 2 dev port0 [master]
+    # bridge vlan add vid 2 dev port0 [master] self
+
+Jiri, what do you think? Is there a reason for switchdev not to be
+consistent with the bridge doc, or should this be fixed?
+
+Thanks,
+
+        Vivien
