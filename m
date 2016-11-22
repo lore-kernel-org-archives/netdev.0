@@ -1,41 +1,30 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] net: revert "net: l2tp: Treat NET_XMIT_CN as success in l2tp_eth_dev_xmit"
-Date: Mon, 21 Nov 2016 23:24:43 -0800
-Message-ID: <1479799483-18332-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Gao Feng <gfree.wind@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34544 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752001AbcKVH0v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 02:26:51 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so1293014pgc.1
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 23:26:51 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] mac80211: Remove unused 'struct rate_control_ref'
+ variable
+Date: Tue, 22 Nov 2016 08:30:30 +0100
+Message-ID: <1479799830.4391.6.camel@sipsolutions.net>
+References: <20161122065416.GA3565@google.com>
+         (sfid-20161122_075424_196465_55445AD4)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Maxim Altshul <maxim.altshul-l0cyMroinI0@public.gmane.org>
+To: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161122065416.GA3565-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> (sfid-20161122_075424_196465_55445AD4)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This reverts commit 7c6ae610a1f0, because l2tp_xmit_skb() never
-returns NET_XMIT_CN, it ignores the return value of l2tp_xmit_core().
+On Mon, 2016-11-21 at 22:54 -0800, Kirtika Ruchandani wrote:
+> Commit 3b17fbf87d5d introduced sta_get_expected_throughput()
+> leaving variable 'struct rate_control_ref* ref' set but unused.
+> Compiling with W=1 gives the following warning, fix it.
+> 
+> net/mac80211/sta_info.c: In function ‘sta_set_sinfo’:
+> net/mac80211/sta_info.c:2052:27: warning: variable ‘ref’ set but not
+> used [-Wunused-but-set-variable]
 
-Cc: Gao Feng <gfree.wind@gmail.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/l2tp/l2tp_eth.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Applied all three of these, thanks Kirtika.
 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 3dc97b4..965f7e3 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -97,7 +97,7 @@ static int l2tp_eth_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned int len = skb->len;
- 	int ret = l2tp_xmit_skb(session, skb, session->hdr_len);
- 
--	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
-+	if (likely(ret == NET_XMIT_SUCCESS)) {
- 		atomic_long_add(len, &priv->tx_bytes);
- 		atomic_long_inc(&priv->tx_packets);
- 	} else {
--- 
-1.8.4.5
+johannes
