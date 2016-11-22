@@ -1,64 +1,59 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v2 4/5] virtio_net: add dedicated XDP transmit
- queues
-Date: Tue, 22 Nov 2016 16:59:31 +0200
-Message-ID: <20161122165852-mutt-send-email-mst@kernel.org>
-References: <20161120024710.19187.31037.stgit@john-Precision-Tower-5810>
- <20161120025104.19187.54400.stgit@john-Precision-Tower-5810>
- <20161121234008-mutt-send-email-mst@kernel.org>
- <5833FF24.2010800@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: egress all frames
+Date: Tue, 22 Nov 2016 16:03:30 +0100
+Message-ID: <20161122150330.GE2691@lunn.ch>
+References: <20161122103944.31381-1-stefan.eichenberger@netmodule.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, kubakici@wp.pl,
-        shm@cumulusnetworks.com, davem@davemloft.net,
-        alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        bblanco@plumgrid.com, john.r.fastabend@intel.com,
-        brouer@redhat.com, tgraf@suug.ch
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org,
+        Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+To: Stefan Eichenberger <eichest@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37746 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:48475 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753255AbcKVO7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Nov 2016 09:59:34 -0500
+        id S1755461AbcKVPDd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Nov 2016 10:03:33 -0500
 Content-Disposition: inline
-In-Reply-To: <5833FF24.2010800@gmail.com>
+In-Reply-To: <20161122103944.31381-1-stefan.eichenberger@netmodule.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2016 at 12:17:40AM -0800, John Fastabend wrote:
-> On 16-11-21 03:13 PM, Michael S. Tsirkin wrote:
-> > On Sat, Nov 19, 2016 at 06:51:04PM -0800, John Fastabend wrote:
-> >> XDP requires using isolated transmit queues to avoid interference
-> >> with normal networking stack (BQL, NETDEV_TX_BUSY, etc). This patch
-> >> adds a XDP queue per cpu when a XDP program is loaded and does not
-> >> expose the queues to the OS via the normal API call to
-> >> netif_set_real_num_tx_queues(). This way the stack will never push
-> >> an skb to these queues.
-> >>
-> >> However virtio/vhost/qemu implementation only allows for creating
-> >> TX/RX queue pairs at this time so creating only TX queues was not
-> >> possible. And because the associated RX queues are being created I
-> >> went ahead and exposed these to the stack and let the backend use
-> >> them. This creates more RX queues visible to the network stack than
-> >> TX queues which is worth mentioning but does not cause any issues as
-> >> far as I can tell.
-> >>
-> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> > 
-> > FYI what's supposed to happen is packets from the same
-> > flow going in the reverse direction will go on the
-> > same queue.
-> > 
-> > This might come in handy when implementing RX XDP.
-> > 
+On Tue, Nov 22, 2016 at 11:39:44AM +0100, Stefan Eichenberger wrote:
+> Egress multicast and egress unicast is only enabled for CPU/DSA ports
+> but for switching operation it seems it should be enabled for all ports.
+> Do I miss something here?
 > 
-> Yeah but if its the first packet not part of a flow then presumably it
-> can pick any queue but its worth keeping in mind certainly.
+> I did the following test:
+> brctl addbr br0
+> brctl addif br0 lan0
+> brctl addif br0 lan1
 > 
-> .John
+> In this scenario the unicast and multicast packets were not forwarded,
+> therefore ARP requests were not resolved, and no connection could be
+> established.
 
-Oh I agree, absolutely. This was just a FYI in case it comes useful
-as an optimization down the road.
+Hi Stefan
 
--- 
-MST
+This is probably specific to the 6097 family. It works fine without
+this on other devices. Creating a bridge like above and pinging across
+it is one of my standard tests. But i only test modern devices like
+the 6165, 6352, 6351, 6390 families.
+
+In fact, you might need to review all the code and look where
+mv88e6xxx_6095_family(chip) is used and consider if you need to add
+mv88e6xxx_6097_family(chip). e.g.
+
+        if (mv88e6xxx_6095_family(chip) || mv88e6xxx_6185_family(chip)) {
+                /* Set the upstream port this port should use */
+                reg |= dsa_upstream_port(ds);
+                /* enable forwarding of unknown multicast addresses to
+                 * the upstream port
+                 */
+                if (port == dsa_upstream_port(ds))
+                        reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
+        }
+
+Maybe this is your problem?
+
+	Andrew
