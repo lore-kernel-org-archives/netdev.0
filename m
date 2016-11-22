@@ -1,127 +1,86 @@
-From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Subject: Re: [RFC PATCH net v2 2/3] dt: bindings: add ethernet phy
- eee-disable-advert option documentation
-Date: Tue, 22 Nov 2016 11:13:57 +0100
-Message-ID: <1479809637.17538.113.camel@baylibre.com>
-References: <1479742524-30222-1-git-send-email-jbrunet@baylibre.com>
-         <1479742524-30222-3-git-send-email-jbrunet@baylibre.com>
-         <20161121160149.GF1922@lunn.ch> <1479744993.17538.85.camel@baylibre.com>
-         <20161121164733.GG1922@lunn.ch>
-         <e792c889-8725-3952-ca28-a08537d9f87a@gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/icmp: null-ptr-deref in icmp6_send
+Date: Tue, 22 Nov 2016 11:23:01 +0100
+Message-ID: <CAAeHK+wRE7y_0d7djWnq9S1O_w-1wQRq1g7VsAmzEAE+JY_v2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <e792c889-8725-3952-ca28-a08537d9f87a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Ahern <dsa@cumulusnetworks.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-11-21 at 21:35 -0800, Florian Fainelli wrote:
-> Le 21/11/2016 à 08:47, Andrew Lunn a écrit :
-> > 
-> > > 
-> > > What I did not realize when doing this patch for the realtek
-> > > driver is
-> > > that there is already 6 valid modes defined in the kernel
-> > > 
-> > > #define MDIO_EEE_100TX		MDIO_AN_EEE_ADV_100TX	
-> > > /*
-> > > 100TX EEE cap */
-> > > #define MDIO_EEE_1000T		MDIO_AN_EEE_ADV_1000T	
-> > > /*
-> > > 1000T EEE cap */
-> > > #define MDIO_EEE_10GT		0x0008	/* 10GT EEE
-> > > cap */
-> > > #define MDIO_EEE_1000KX		0x0010	/* 1000KX
-> > > EEE cap
-> > > */
-> > > #define MDIO_EEE_10GKX4		0x0020	/* 10G KX4
-> > > EEE cap
-> > > */
-> > > #define MDIO_EEE_10GKR		0x0040	/* 10G KR EEE
-> > > cap
-> > > */
-> > > 
-> > > I took care of only 2 in the case of realtek.c since it only
-> > > support
-> > > MDIO_EEE_100TX and MDIO_EEE_1000T.
-> > > 
-> > > Defining a property for each is certainly doable but it does not
-> > > look
-> > > very nice either. If it extends in the future, it will get even
-> > > more
-> > > messier, especially if you want to disable everything.
-> > 
-> > Yes, agreed.
-> 
-> One risk with the definition a group of advertisement capabilities
-> (under the form of a bitmask for instance) to enable/disable is that
-> we
-> end up with Device Tree contain some kind of configuration policy as
-> opposed to just flagging particular hardware features as broken.
+Hi,
 
-The code proposed only allows to disable EEE advertisement (not
-enable), so we should not see it used as a configuration policy in DT.
-To make this more explicit, I could replace the property "eee-advert-
-disable" by "eee-broken" ?
+I've got the following error report while fuzzing the kernel with syzkaller.
 
-> 
-> Fortunately, there does not seem to be a ton of PHYs out there which
-> require EEE
+It seems that skb_dst(skb) may end up being NULL.
 
-It is quite difficult to have the real picture here because some PHYs
-have EEE disabled by default and you have to explicitly enable it.
-I have no idea of the ratio between the 2 phy policies.
+As far as I can see the bug was introduced in commit 5d41ce29e ("net:
+icmp6_send should use dst dev to determine L3 domain").
+ICMP v4 probaly has similar issue due to 9d1a6c4ea ("net:
+icmp_route_lookup should use rt dev to determine L3 domain").
 
-> to be disabled to function properly so having individual
-> properties vs. bitmasks/groups is kind of speculative here.
+On commit 9c763584b7c8911106bb77af7e648bef09af9d80 (4.9-rc6, Nov 20).
 
-In the particular instance of the OdroidC2, disabling EEE for GbE only
-enough. However, If you have a PHY broken with, I think it is likely
-that you might want to disable all (supported) EEE modes. That's reason
-why I prefer bitmask. I agree both are functionally similar, this is
-kind of a cosmetic debate.
-
-> 
-> Another approach to solving this problem could be to register a PHY
-> fixup which disables EEE at the PHY level, and which is only called
-> for
-> specific boards affected by this problem
-> (of_machine_is_compatible()).
-> This code can leave in arch/*/* when that is possible, 
-
-That something I was looking at, but we don't have these files anymore
-on ARM64 (looking at your comment, you already know this)
-
-> or it can just be
-> somewhere where it is relevant, e.g; in the PHY driver for instance
-> (similarly to how PCI fixups are done).
-
-Do you prefer having board specific code inside generic driver than
-having the setting living in DT? Peppe told me they also had a few
-platform with similar issues. The point is that this could be useful to
-other people, so it could spread a grow a bit.
-
-I would prefer having this in the DT, but I can definitely do it the
-PHY with of_machine_is_compatible() and register_fixup is this what you
-prefer/want. 
-
-Cheers
-Jerome
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+kasan: CONFIG_KASAN_INLINE enabled
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Modules linked in:
+CPU: 0 PID: 3859 Comm: a.out Not tainted 4.9.0-rc6+ #429
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff8800666d4200 task.stack: ffff880067348000
+RIP: 0010:[<ffffffff833617ec>]  [<ffffffff833617ec>]
+icmp6_send+0x5fc/0x1e30 net/ipv6/icmp.c:451
+RSP: 0018:ffff88006734f2c0  EFLAGS: 00010206
+RAX: ffff8800666d4200 RBX: 0000000000000000 RCX: 0000000000000000
+RDX: 0000000000000000 RSI: dffffc0000000000 RDI: 0000000000000018
+RBP: ffff88006734f630 R08: ffff880064138418 R09: 0000000000000003
+R10: dffffc0000000000 R11: 0000000000000005 R12: 0000000000000000
+R13: ffffffff84e7e200 R14: ffff880064138484 R15: ffff8800641383c0
+FS:  00007fb3887a07c0(0000) GS:ffff88006cc00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000020000000 CR3: 000000006b040000 CR4: 00000000000006f0
+Stack:
+ ffff8800666d4200 ffff8800666d49f8 ffff8800666d4200 ffffffff84c02460
+ ffff8800666d4a1a 1ffff1000ccdaa2f ffff88006734f498 0000000000000046
+ ffff88006734f440 ffffffff832f4269 ffff880064ba7456 0000000000000000
+Call Trace:
+ [<ffffffff83364ddc>] icmpv6_param_prob+0x2c/0x40 net/ipv6/icmp.c:557
+ [<     inline     >] ip6_tlvopt_unknown net/ipv6/exthdrs.c:88
+ [<ffffffff83394405>] ip6_parse_tlv+0x555/0x670 net/ipv6/exthdrs.c:157
+ [<ffffffff8339a759>] ipv6_parse_hopopts+0x199/0x460 net/ipv6/exthdrs.c:663
+ [<ffffffff832ee773>] ipv6_rcv+0xfa3/0x1dc0 net/ipv6/ip6_input.c:191
+ [<ffffffff82bdc01b>] __netif_receive_skb_core+0x187b/0x2a10 net/core/dev.c:4208
+ [<ffffffff82bdd1da>] __netif_receive_skb+0x2a/0x170 net/core/dev.c:4246
+ [<ffffffff82bdd4d3>] netif_receive_skb_internal+0x1b3/0x390 net/core/dev.c:4274
+ [<ffffffff82bdd6f8>] netif_receive_skb+0x48/0x250 net/core/dev.c:4298
+ [<ffffffff82420e7e>] tun_get_user+0xbde/0x2890 drivers/net/tun.c:1308
+ [<ffffffff82422d4a>] tun_chr_write_iter+0xda/0x190 drivers/net/tun.c:1332
+ [<     inline     >] new_sync_write fs/read_write.c:499
+ [<ffffffff8151c234>] __vfs_write+0x334/0x570 fs/read_write.c:512
+ [<ffffffff8151fd4b>] vfs_write+0x17b/0x500 fs/read_write.c:560
+ [<     inline     >] SYSC_write fs/read_write.c:607
+ [<ffffffff81523674>] SyS_write+0xd4/0x1a0 fs/read_write.c:599
+ [<ffffffff83fc4301>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+arch/x86/entry/entry_64.S:209
+Code: 67 58 41 f6 c4 01 0f 85 d4 07 00 00 49 83 e4 fe e8 ea 5e fc fd
+49 8d 7c 24 18 49 ba 00 00 00 00 00 fc ff df 49 89 f9 49 c1 e9 03 <43>
+80 3c 11 00 0f 85 c5 17 00 00 4d 8b 64 24 18 65 ff 05 cd 3c
+RIP  [<ffffffff833617ec>] icmp6_send+0x5fc/0x1e30 net/ipv6/icmp.c:451
+ RSP <ffff88006734f2c0>
+---[ end trace 12dd736536064d71 ]---
+Kernel panic - not syncing: Fatal exception in interrupt
+Kernel Offset: disabled
+---[ end Kernel panic - not syncing: Fatal exception in interrupt
