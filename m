@@ -1,64 +1,130 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC net-next 1/3] net: bridge: Allow bridge master
-	device to configure switch CPU port
-Date: Tue, 22 Nov 2016 10:46:25 -0500
-Message-ID: <87h96zzfe6.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20161121190925.14530-1-f.fainelli@gmail.com>
-	<20161121190925.14530-2-f.fainelli@gmail.com>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <uwe@kleine-koenig.org>
+Subject: [PATCH v3] net/phy: add trace events for mdio accesses
+Date: Tue, 22 Nov 2016 16:47:11 +0100
+Message-ID: <20161122154711.26622-1-uwe@kleine-koenig.org>
+References: <20161122100127.5940-1-uwe@kleine-koenig.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: idosch@mellanox.com, andrew@lunn.ch,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	bridge@lists.linux-foundation.org, jiri@mellanox.com, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161121190925.14530-2-f.fainelli@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:33641 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755798AbcKVPrT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 10:47:19 -0500
+In-Reply-To: <20161122100127.5940-1-uwe@kleine-koenig.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Make it possible to generate trace events for mdio read and write accesses.
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+Signed-off-by: Uwe Kleine-König <uwe@kleine-koenig.org>
+---
+ drivers/net/phy/mdio_bus.c  | 11 +++++++++++
+ include/trace/events/mdio.h | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 53 insertions(+)
+ create mode 100644 include/trace/events/mdio.h
 
-> bridge vlan add vid 2 dev br0 self
-> 	-> CPU port gets programmed
-> bridge vlan add vid 2 dev port0
-> 	-> port0 (switch port 0) gets programmed
-
-Although this is not specific to this patch, I'd like to point out that
-this seems not to be the behavior bridge expects.
-
-The bridge manpage says:
-
-    bridge vlan add - add a new vlan filter entry
-    ...
-
-       self   the vlan is configured on the specified physical device.
-              Required if the device is the bridge device.
-
-       master the vlan is configured on the software bridge (default).
-
-So if I'm not mistaken, the switch chip must be programmed only when the
-bridge command is called with the "self" attribute. Without it, only
-software configuration must be made, like what happens when the driver
-returns -EOPNOTSUPP.
-
-Currently, both commands below program the hardware:
-
-    # bridge vlan add vid 2 dev port0 [master]
-    # bridge vlan add vid 2 dev port0 [master] self
-
-Jiri, what do you think? Is there a reason for switchdev not to be
-consistent with the bridge doc, or should this be fixed?
-
-Thanks,
-
-        Vivien
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 09deef4bed09..653d076eafe5 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -38,6 +38,9 @@
+ 
+ #include <asm/irq.h>
+ 
++#define CREATE_TRACE_POINTS
++#include <trace/events/mdio.h>
++
+ int mdiobus_register_device(struct mdio_device *mdiodev)
+ {
+ 	if (mdiodev->bus->mdio_map[mdiodev->addr])
+@@ -461,6 +464,8 @@ int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum)
+ 	retval = bus->read(bus, addr, regnum);
+ 	mutex_unlock(&bus->mdio_lock);
+ 
++	trace_mdio_access(bus, 1, addr, regnum, retval, retval);
++
+ 	return retval;
+ }
+ EXPORT_SYMBOL(mdiobus_read_nested);
+@@ -485,6 +490,8 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
+ 	retval = bus->read(bus, addr, regnum);
+ 	mutex_unlock(&bus->mdio_lock);
+ 
++	trace_mdio_access(bus, 1, addr, regnum, retval, retval);
++
+ 	return retval;
+ }
+ EXPORT_SYMBOL(mdiobus_read);
+@@ -513,6 +520,8 @@ int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val)
+ 	err = bus->write(bus, addr, regnum, val);
+ 	mutex_unlock(&bus->mdio_lock);
+ 
++	trace_mdio_access(bus, 0, addr, regnum, val, err);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(mdiobus_write_nested);
+@@ -538,6 +547,8 @@ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
+ 	err = bus->write(bus, addr, regnum, val);
+ 	mutex_unlock(&bus->mdio_lock);
+ 
++	trace_mdio_access(bus, 0, addr, regnum, val, err);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(mdiobus_write);
+diff --git a/include/trace/events/mdio.h b/include/trace/events/mdio.h
+new file mode 100644
+index 000000000000..00d85f5f54e4
+--- /dev/null
++++ b/include/trace/events/mdio.h
+@@ -0,0 +1,42 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM mdio
++
++#if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_MDIO_H
++
++#include <linux/tracepoint.h>
++
++TRACE_EVENT_CONDITION(mdio_access,
++
++	TP_PROTO(struct mii_bus *bus, char read,
++		 u8 addr, unsigned regnum, u16 val, int err),
++
++	TP_ARGS(bus, read, addr, regnum, val, err),
++
++	TP_CONDITION(err >= 0),
++
++	TP_STRUCT__entry(
++		__array(char, busid, MII_BUS_ID_SIZE)
++		__field(char, read)
++		__field(u8, addr)
++		__field(u16, val)
++		__field(unsigned, regnum)
++	),
++
++	TP_fast_assign(
++		strncpy(__entry->busid, bus->id, MII_BUS_ID_SIZE);
++		__entry->read = read;
++		__entry->addr = addr;
++		__entry->regnum = regnum;
++		__entry->val = val;
++	),
++
++	TP_printk("%s %-5s phy:0x%02hhx reg:0x%02x val:0x%04hx",
++		  __entry->busid, __entry->read ? "read" : "write",
++		  __entry->addr, __entry->regnum, __entry->val)
++);
++
++#endif /* if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ) */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.10.2
