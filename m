@@ -1,58 +1,51 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 4/5] virtio_net: add dedicated XDP transmit
- queues
-Date: Tue, 22 Nov 2016 00:17:40 -0800
-Message-ID: <5833FF24.2010800@gmail.com>
-References: <20161120024710.19187.31037.stgit@john-Precision-Tower-5810>
- <20161120025104.19187.54400.stgit@john-Precision-Tower-5810>
- <20161121234008-mutt-send-email-mst@kernel.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: linux-next: build warnings after merge of the net-next tree
+Date: Tue, 22 Nov 2016 09:23:38 +0100
+Message-ID: <20161122092338.1b788f05@free-electrons.com>
+References: <20161122122216.575b1793@canb.auug.org.au>
+        <e5c5a4d7-355e-b8a6-9526-d6acbe4e54f8@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, kubakici@wp.pl,
-        shm@cumulusnetworks.com, davem@davemloft.net,
-        alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        bblanco@plumgrid.com, john.r.fastabend@intel.com,
-        brouer@redhat.com, tgraf@suug.ch
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36528 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755413AbcKVISD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 03:18:03 -0500
-Received: by mail-pg0-f67.google.com with SMTP id x23so1429209pgx.3
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 00:18:03 -0800 (PST)
-In-Reply-To: <20161121234008-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Gregory Clement <gregory.clement@free-electrons.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <e5c5a4d7-355e-b8a6-9526-d6acbe4e54f8@gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-11-21 03:13 PM, Michael S. Tsirkin wrote:
-> On Sat, Nov 19, 2016 at 06:51:04PM -0800, John Fastabend wrote:
->> XDP requires using isolated transmit queues to avoid interference
->> with normal networking stack (BQL, NETDEV_TX_BUSY, etc). This patch
->> adds a XDP queue per cpu when a XDP program is loaded and does not
->> expose the queues to the OS via the normal API call to
->> netif_set_real_num_tx_queues(). This way the stack will never push
->> an skb to these queues.
->>
->> However virtio/vhost/qemu implementation only allows for creating
->> TX/RX queue pairs at this time so creating only TX queues was not
->> possible. And because the associated RX queues are being created I
->> went ahead and exposed these to the stack and let the backend use
->> them. This creates more RX queues visible to the network stack than
->> TX queues which is worth mentioning but does not cause any issues as
->> far as I can tell.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> 
-> FYI what's supposed to happen is packets from the same
-> flow going in the reverse direction will go on the
-> same queue.
-> 
-> This might come in handy when implementing RX XDP.
-> 
+Hello,
 
-Yeah but if its the first packet not part of a flow then presumably it
-can pick any queue but its worth keeping in mind certainly.
+On Mon, 21 Nov 2016 17:28:39 -0800, Florian Fainelli wrote:
+> +Thomas, Gregory,
+> 
+> On 11/21/2016 05:22 PM, Stephen Rothwell wrote:
+> [snip]
+> > 
+> > Introduced by commit
+> > 
+> >   a0627f776a45 ("net: marvell: Allow drivers to be built with COMPILE_TEST")
+> > 
+> > "a few warnings" is a matter of perception.  :-(  
+> 
+> Thomas, based on our IRC conversation, do you already have patches for
+> mvneta and mvpp2 to build without warning on 64-bit or should I prepare
+> patches for these?
 
-.John
+Yes, we already have patches for making mvneta and mvpp2 build without
+warning for 64-bit (Grégory for mvneta, and myself for mvpp2). I
+intended to send the mvpp2 ones together with patches adding support
+for a new variant of the IP, but I guess I can send just the few ones
+that make it 64-bit "buildable".
+
+Best regards,
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
