@@ -1,113 +1,145 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC net-next 0/3] net: bridge: Allow CPU port
-	configuration
-Date: Tue, 22 Nov 2016 09:56:30 -0800
-Message-ID: <e9bbd22e-215f-a1fd-62ba-c0d33b255154@gmail.com>
-References: <20161121190925.14530-1-f.fainelli@gmail.com>
-	<20161122174140.2ly226dcxkv23nlo@splinter.mtl.com>
+From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Tue, 22 Nov 2016 18:05:13 +0100
+Message-ID: <201611221805.13606@pali>
+References: <201611111820.52072@pali> <20161122153141.GT13735@pali> <CA+BoTQkSOJ85PiT=pjmH234sviCj-LVWWM=64KbCe4AG9CMNUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: idosch@mellanox.com, andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	jiri@mellanox.com, davem@davemloft.net
-To: Ido Schimmel <idosch@idosch.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161122174140.2ly226dcxkv23nlo@splinter.mtl.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed;
+  boundary="nextPart10355501.CvPRMbuW7A";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        "linux-wireless" <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: Michal Kazior <michal.kazior@tieto.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+BoTQkSOJ85PiT=pjmH234sviCj-LVWWM=64KbCe4AG9CMNUg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/22/2016 09:41 AM, Ido Schimmel wrote:
-> Hi Florian,
-> 
-> On Mon, Nov 21, 2016 at 11:09:22AM -0800, Florian Fainelli wrote:
->> Hi all,
->>
->> This patch series allows using the bridge master interface to configure
->> an Ethernet switch port's CPU/management port with different VLAN attributes than
->> those of the bridge downstream ports/members.
->>
->> Jiri, Ido, Andrew, Vivien, please review the impact on mlxsw and mv88e6xxx, I
->> tested this with b53 and a mockup DSA driver.
-> 
-> We'll need to add a check in mlxsw and ignore any VLAN configuration for
-> the bridge device itself. Otherwise, any configuration done on br0 will
-> be propagated to all of its slaves, which is incorrect.
-> 
->>
->> Open questions:
->>
->> - if we have more than one bridge on top of a physical switch, the driver
->>   should keep track of that and verify that we are not going to change
->>   the CPU port VLAN attributes in a way that results in incompatible settings
->>   to be applied
->>
->> - if the default behavior is to have all VLANs associated with the CPU port
->>   be ingressing/egressing tagged to the CPU, is this really useful?
-> 
-> First of all, I want to be sure that when we say "CPU port", we're
-> talking about the same thing. In mlxsw, the CPU port is a pipe between
-> the device and the host, through which all packets trapped to the host
-> go through. So, when a packet is trapped, the driver reads its Rx
-> descriptor, checks through which port it ingressed, resolves its netdev,
-> sets skb->dev accordingly and injects it to the Rx path via
-> netif_receive_skb(). The CPU port itself isn't represented using a
-> netdev.
+--nextPart10355501.CvPRMbuW7A
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-In the case of DSA, the CPU port is a normal Ethernet MAC driver, but in
-premise, this driver plus the DSA tag protocol hook do exactly the same
-things as you just describe.
+On Tuesday 22 November 2016 17:14:28 Michal Kazior wrote:
+> On 22 November 2016 at 16:31, Pali Roh=C3=A1r <pali.rohar@gmail.com> wrot=
+e:
+> > On Tuesday 22 November 2016 16:22:57 Michal Kazior wrote:
+> >> On 21 November 2016 at 16:51, Pali Roh=C3=A1r <pali.rohar@gmail.com>
+> >> wrote:
+> >> > On Friday 11 November 2016 18:20:50 Pali Roh=C3=A1r wrote:
+> >> >> Hi! I will open discussion about mac address and calibration
+> >> >> data for wl1251 wireless chip again...
+> >> >>=20
+> >> >> Problem: Mac address & calibration data for wl1251 chip on
+> >> >> Nokia N900 are stored on second nand partition (mtd1) in
+> >> >> special proprietary format which is used only for Nokia N900
+> >> >> (probably on N8x0 and N9 too). Wireless driver wl1251.ko
+> >> >> cannot work without mac address and calibration data.
+> >>=20
+> >> Same problem applies to some ath9k/ath10k supported routers. Some
+> >> even carry mac address as implicit offset from ethernet mac
+> >> address. As far as I understand OpenWRT cooks cal blobs on first
+> >> boot prior to loading modules.
+> >=20
+> > So... wl1251 on Nokia N900 is not alone and this problem is there
+> > for more drivers and devices. Which means we should come up with
+> > some generic solution.
+>=20
+> This isn't particularly a problem for ath9k/ath10k.
+>=20
+> Let me give you more background on ath10k.
+>=20
+> ath10k devices can come with caldata and macaddr stored in their
+> OTP/EEPROM. In that case a generic "template" board file is used.
+> Userspace doesn't need to do anything special.
+>=20
+> Some vendors however decide to use flash partition to store caldata.
+> In that case ath10k expects userspace to prepare
+> cal-$bus-$devname.bin files, each for a different radio (you can
+> have multiple radios on a system).
+>=20
+> Now translating this for wl1251 I would expect it should also use
+> something like wl1251-nvs-sdio-0x0001.bin for devices like N900 that
+> have caldata on flash partition (instead of the generic
+> wl1251-nvs.bin). I'm not sure if wl1251-nvs.bin is something
+> comparable to (the generic) board.bin ath10k has though. Maybe the
+> entire idea behind wl1251-nvs.bin is flawed as it's supposed to be
+> device specific and is oblivious to possibility of having multiple
+> wl1251 radios on one system (probably sane assumption from practical
+> standpoint but still).
 
-> 
-> Given the above, having VLAN filters (or STP) on the CPU port itself
-> isn't really helpful (we do have them for physical ports of course...).
-> So, mlxsw will not benefit from this patchset and if we've the same
-> concept of "CPU port", then I'm not sure why you don't just enable all
-> the VLANs on it?
+Basically nvs data are device specific, in ideal case they should be=20
+generated in factory by some calibration process (or so).
 
-We do enable all VLANs on the CPU port (at least with b53, but I think
-mv88e6xxx does it too), but compared to e.g: mlxsw, we trap all traffic
-by default, and actually, quite often (always actually, until we add IP
-routing offloads) the CPU is involved in the LAN/WAN routing, so it is
-not infrequent to have the following packet flow:
+> >> >> Absence of mac address cause that driver generates random mac
+> >> >> address at every kernel boot which has couple of problems
+> >> >> (unstable identifier of wireless device due to udev permanent
+> >> >> storage rules; unpredictable behaviour for dhcp mac address
+> >> >> assignment, mac address filtering, ...).
+> >> >>=20
+> >> >> Currently there is no way to set (permanent) mac address for
+> >> >> network interface from userspace. And it does not make sense
+> >> >> to implement in linux kernel large parser for proprietary
+> >> >> format of second nand partition where is mac address stored
+> >> >> only for one device -- Nokia N900.
+> >> >>=20
+> >> >> Driver wl1251.ko loads calibration data via request_firmware()
+> >> >> for file wl1251-nvs.bin. There are some "example" calibration
+> >> >> file in linux- firmware repository, but it is not suitable for
+> >> >> normal usage as real calibration data are per-device specific.
+> >>=20
+> >> You could hook up a script that cooks up the cal/mac file via
+> >> modprobe's install hook, no?
+> >=20
+> > Via modprobe hook I can either pass custom module parameter or call
+> > any other system (shell) commands.
+> >=20
+> > As wl1251.ko does not accept mac_address as module parameter, such
+> > modprobe hook does not help -- as there is absolutely no way from
+> > userspace to set or change (permanent) mac address.
+>=20
+> Quoting modprobe.d manual:
+> >       install modulename command...
+> >      =20
+> >           This command instructs modprobe to run your
+> >           command instead of inserting the module in the
+> >           kernel as normal. The command can be any shell
+> >           command: this allows you to do any kind of
+> >           complex processing you might wish. [...]
 
-LAN port -> VLAN 1 -> eth0.1 -> NAT/routing -> eth0.2 -> VLAN 2 -> WAN port
+I know. But this do not allow me to send mac address to kernel -- as=20
+kernel does not support such command yet (reason for my first question).
 
-In that case, having the ability to define the per-port membership for
-VLANs, including the CPU, kind of helps, especially if there are
-private/guests VLAN on either the LAN or WAN segments that the CPU does
-not necessarily need to play a role in.
+> You can hook up a script that cooks up wl1251-nvs.bin (caldata,
+> macaddr) and then insmod the actual wl1251.ko module. Or you can just
+> cook up the nvs on first device boot and store it in /lib/firmware
+> (possibly overwriting the "generic" wl1251 from linux-firmware).
 
-NB: this scheme works because in most configurations that we support
-today, the CPU port's speed is greater or equal than the speed of the
-downstream/front panel ports.
+This is what I would like to prevent -- overwriting (possible readonly)=20
+system files with some device specific. It is really bad idea!
 
-> 
-> Also, how are you going to set the VLAN filters for the CPU port when
-> you don't offload a bridge, but instead vlan devices between which you
-> route packets? You lose your abstraction of CPU port...
+=2D-=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
 
-As far as I can tell today, this is not particularly helpful with DSA,
-where we start with all traffic going to the CPU (each DSA created
-network device is segregated from the other) and only then we require
-having bridge VLAN filtering enabled in the kernel, and configuring
-bridge VLAN membership to have a proper VLAN-based scheme.
+--nextPart10355501.CvPRMbuW7A
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-If you did configure VLAN membership with e.g: port0.<vid> we could
-support that just fine, but that programming interface does not allow
-configuring the default VLAN, and in our case, it matters a bit to
-support the LAN/WAN routing scenario described. We could agree that all
-untagged traffic should go to VLAN 0 or 1 for instance, but that could
-then, vary on a per-driver/HW basis.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-Hope this clarifies things a bit!
--- 
-Florian
+iEYEABECAAYFAlg0eskACgkQi/DJPQPkQ1KpUgCdEhjP8T0b0vZ00AxX6CeDL/Wy
+UiMAn3ynIB+PnRJkxwsiZ27rgggBA1vt
+=mEYs
+-----END PGP SIGNATURE-----
+
+--nextPart10355501.CvPRMbuW7A--
