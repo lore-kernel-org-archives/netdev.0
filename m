@@ -1,32 +1,55 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [RFC PATCH net-next] net: ethtool: add support for forward error
- correction modes
-Date: Tue, 22 Nov 2016 23:41:34 +0000
-Message-ID: <DM5PR12MB1786C97235D728D6087AA933C8B40@DM5PR12MB1786.namprd12.prod.outlook.com>
-References: <DM5PR12MB178630AFB893C17362A4C09BC8BB0@DM5PR12MB1786.namprd12.prod.outlook.com>,<DM5PR12MB1786073763933EAE09E36978C8B40@DM5PR12MB1786.namprd12.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH ethtool] ethtool: Fix the "advertise" parameter logic.
+Date: Tue, 22 Nov 2016 18:55:47 -0500
+Message-ID: <1479858947-25017-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0120.outbound.protection.outlook.com ([104.47.34.120]:22361
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751644AbcKVXzs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Nov 2016 18:55:48 -0500
-In-Reply-To: <DM5PR12MB1786073763933EAE09E36978C8B40@DM5PR12MB1786.namprd12.prod.outlook.com>
-Content-Language: en-US
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:33217 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752218AbcKVXzz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 18:55:55 -0500
+Received: by mail-pg0-f43.google.com with SMTP id 3so12611318pgd.0
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 15:55:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  And by the way, we currently have two ethtool APIs which pump in an Auto-=
-Negotiation indication -- set_link_ksettings() and set_pauseparam().  Now w=
-e're talking about adding a third, set_fecparam().  Are all of the calls to=
- these three APIs supposed to agree on the concept of Auto-Negotiations?  I=
-.e. what's it mean if set_link_ksettings() gets called with link_ksettings-=
->base.autoneg =3D=3D AUTONEG_ENABLE but set_pauseparam() gets called with e=
-pause->autoneg =3D=3D AUTONEG_DISABLE?  And now adding set_fecparam() into =
-the system with a similar ability to specify the state of Auto-Negotiation =
-is even more confusing.
+From: Michael Chan <mchan@broadcom.com>
 
-Casey=
+The current code ignores the value of the advertise parameter.  For example,
+
+ethtool -s ethx advertise 0x1000
+
+The full_advertising_wanted parameter of 0x1000 is not passed to the kernel.
+The reason is that advertising_wanted is NULL in this case, and ethtool
+will think that the user has given no advertisement input and so it will
+proceed to pass all supported advertisement speeds to the kernel.
+
+The older legacy ethtool with similar logic worked because
+advertising_wanted was an integer and could take on -1 and 0.  It would pass
+the full_advertising_wanted value if advertising_wanted == -1.
+
+This fix is to pass all supported advertisement speeds only when both
+advertising_wanted == NULL && full_advertising_wanted == NULL.
+
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ ethtool.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/ethtool.c b/ethtool.c
+index 49ac94e..7715823 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2971,7 +2971,8 @@ static int do_sset(struct cmd_context *ctx)
+ 				fprintf(stderr,	"\n");
+ 			}
+ 			if (autoneg_wanted == AUTONEG_ENABLE &&
+-			    advertising_wanted == NULL) {
++			    advertising_wanted == NULL &&
++			    full_advertising_wanted == NULL) {
+ 				unsigned int i;
+ 
+ 				/* Auto negotiation enabled, but with
+-- 
+1.8.4.5
