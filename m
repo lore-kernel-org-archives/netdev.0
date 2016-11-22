@@ -1,227 +1,62 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/udp: bug in skb_pull_rcsum
-Date: Tue, 22 Nov 2016 12:58:39 +0100
-Message-ID: <CAAeHK+zZSc28e4LMg-YvEztKO4X0VVxqCStkZW8LL4ZA_rYyMQ@mail.gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: mlx5 "syndrome" errors in kernel log
+Date: Tue, 22 Nov 2016 14:04:52 +0200
+Message-ID: <CALzJLG9fcvy1vy7US4fTE4DOHaPDNRnnWmH18TYctmCt-twk6w@mail.gmail.com>
+References: <20161122105944.0c64e77b@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1146c12042952f0541e27ec2
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: samanthakumar <samanthakumar@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---001a1146c12042952f0541e27ec2
 Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:33326 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932422AbcKVMFO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 07:05:14 -0500
+Received: by mail-qk0-f181.google.com with SMTP id x190so20121524qkb.0
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 04:05:13 -0800 (PST)
+In-Reply-To: <20161122105944.0c64e77b@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Nov 22, 2016 at 11:59 AM, Jesper Dangaard Brouer
+<jbrouer@redhat.com> wrote:
+>
+> Hi Saeed,
+>
+> I'm seeing below dmesg errors, after pulling net-next at commit
+> e796f49d826aad, before I was not seeing these errors, where my tree was
+> based on top of commit 319b0534b95.
+>
+> mlx5_core 0000:02:00.1: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+> mlx5_core 0000:02:00.1: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+> mlx5_core 0000:02:00.0: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+> mlx5_core 0000:02:00.0: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+> mlx5_core 0000:02:00.1: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+> mlx5_core 0000:02:00.1: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+> mlx5_core 0000:02:00.0: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+> mlx5_core 0000:02:00.0: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+>
+>
+> Listing my firmware version:
+>
+>  $ ethtool -i mlx5p2
+>  driver: mlx5_core
+>  version: 3.0-1 (January 2015)
+>  firmware-version: 12.12.1240
 
-I've got the following error report while fuzzing the kernel with syzkaller.
+Hi Jesper,
 
-A reproducer is attached.
+Seems like this FW version doesn't support a new FW command introduced
+by "net/mlx5e: Expose PCIe statistics to ethtool"
 
-On commit 9c763584b7c8911106bb77af7e648bef09af9d80 (4.9-rc6, Nov 20).
+I suggest to upgrade FW, but if you don't know how to do it or in a
+hurry, please go ahead and revert "
+   net/mlx5e: Expose PCIe statistics to ethtool"
 
-------------[ cut here ]------------
-kernel BUG at net/core/skbuff.c:3029!
-invalid opcode: 0000 [#1] SMP KASAN
-Modules linked in:
-CPU: 1 PID: 3854 Comm: a.out Not tainted 4.9.0-rc6+ #431
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-task: ffff880068472c00 task.stack: ffff880063ec8000
-RIP: 0010:[<ffffffff82b8fd85>]  [<ffffffff82b8fd85>]
-skb_pull_rcsum+0x255/0x350 net/core/skbuff.c:3029
-RSP: 0018:ffff880063ecf660  EFLAGS: 00010297
-RAX: ffff880068472c00 RBX: ffff880065a2da00 RCX: 0000000000000000
-RDX: 0000000000000000 RSI: 000000000000000d RDI: ffffed000c7d9ec0
-RBP: ffff880063ecf690 R08: 1ffff1000d08e67e R09: 1ffff1000cb45b50
-R10: dffffc0000000000 R11: 0000000000000000 R12: ffff880065a2da80
-R13: 0000000000000008 R14: ffff880065a2dad8 R15: 0000000000000001
-FS:  00007fbb006497c0(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000020032fe0 CR3: 00000000636d9000 CR4: 00000000000006e0
-Stack:
- ffff88006bfbb948 ffff880065a2da00 ffff880064160000 1ffff1000cb45b52
- 0000000000000000 1ffff1000d4d3933 ffff880063ecf6f8 ffffffff83354ced
- 00000000fffffe00 ffff880065a2da90 ffff880063ecf6c0 ffffffff00000001
-Call Trace:
- [<     inline     >] udp_csum_pull_header ./include/net/udp.h:166
- [<ffffffff83354ced>] udpv6_queue_rcv_skb+0x37d/0x17b0 net/ipv6/udp.c:625
- [<     inline     >] sk_backlog_rcv ./include/net/sock.h:874
- [<ffffffff82b7eec6>] __release_sock+0x126/0x3a0 net/core/sock.c:2046
- [<ffffffff82b7f199>] release_sock+0x59/0x1c0 net/core/sock.c:2504
- [<ffffffff8334fc50>] udpv6_sendmsg+0x1310/0x24a0 net/ipv6/udp.c:1273
- [<ffffffff83174fa7>] inet_sendmsg+0x317/0x4e0 net/ipv4/af_inet.c:734
- [<     inline     >] sock_sendmsg_nosec net/socket.c:621
- [<ffffffff82b7176c>] sock_sendmsg+0xcc/0x110 net/socket.c:631
- [<ffffffff82b719d1>] sock_write_iter+0x221/0x3b0 net/socket.c:829
- [<ffffffff8151e69b>] do_iter_readv_writev+0x2bb/0x3f0 fs/read_write.c:695
- [<ffffffff81520501>] do_readv_writev+0x431/0x730 fs/read_write.c:872
- [<ffffffff81520d2f>] vfs_writev+0x8f/0xc0 fs/read_write.c:911
- [<ffffffff81520e41>] do_writev+0xe1/0x240 fs/read_write.c:944
- [<     inline     >] SYSC_writev fs/read_write.c:1017
- [<ffffffff81523ca7>] SyS_writev+0x27/0x30 fs/read_write.c:1014
- [<ffffffff83fc4381>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-arch/x86/entry/entry_64.S:209
-Code: 89 f8 49 c1 e8 03 47 0f b6 14 08 45 84 d2 74 0a 41 80 fa 03 0f
-8e cf 00 00 00 80 a3 91 00 00 00 f9 e9 43 ff ff ff e8 3b 79 79 fe <0f>
-0b e8 34 79 79 fe 0f 0b e8 2d 79 79 fe 48 8b 7d d0 31 d2 44
-RIP  [<ffffffff82b8fd85>] skb_pull_rcsum+0x255/0x350 net/core/skbuff.c:3029
- RSP <ffff880063ecf660>
----[ end trace a5d5d2cef6a25ecb ]---
-==================================================================
+I will need to introduce a new capability bit as a permanent solution
+and a fix for the above patch.
 
---001a1146c12042952f0541e27ec2
-Content-Type: text/x-csrc; charset=US-ASCII; name="skb-pull-bug-poc.c"
-Content-Disposition: attachment; filename="skb-pull-bug-poc.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ivtg3kq60
-
-Ly8gYXV0b2dlbmVyYXRlZCBieSBzeXprYWxsZXIgKGh0dHA6Ly9naXRodWIuY29tL2dvb2dsZS9z
-eXprYWxsZXIpCgojaWZuZGVmIF9fTlJfbW1hcAojZGVmaW5lIF9fTlJfbW1hcCA5CiNlbmRpZgoj
-aWZuZGVmIF9fTlJfYmluZAojZGVmaW5lIF9fTlJfYmluZCA0OQojZW5kaWYKI2lmbmRlZiBfX05S
-X3NlbmRtc2cKI2RlZmluZSBfX05SX3NlbmRtc2cgNDYKI2VuZGlmCiNpZm5kZWYgX19OUl93cml0
-ZXYKI2RlZmluZSBfX05SX3dyaXRldiAyMAojZW5kaWYKI2lmbmRlZiBfX05SX3NvY2tldAojZGVm
-aW5lIF9fTlJfc29ja2V0IDQxCiNlbmRpZgojaWZuZGVmIF9fTlJfc3l6X2Z1c2VfbW91bnQKI2Rl
-ZmluZSBfX05SX3N5el9mdXNlX21vdW50IDEwMDAwMDQKI2VuZGlmCiNpZm5kZWYgX19OUl9zeXpf
-ZnVzZWJsa19tb3VudAojZGVmaW5lIF9fTlJfc3l6X2Z1c2VibGtfbW91bnQgMTAwMDAwNQojZW5k
-aWYKI2lmbmRlZiBfX05SX3N5el9vcGVuX2RldgojZGVmaW5lIF9fTlJfc3l6X29wZW5fZGV2IDEw
-MDAwMDIKI2VuZGlmCiNpZm5kZWYgX19OUl9zeXpfb3Blbl9wdHMKI2RlZmluZSBfX05SX3N5el9v
-cGVuX3B0cyAxMDAwMDAzCiNlbmRpZgojaWZuZGVmIF9fTlJfc3l6X3Rlc3QKI2RlZmluZSBfX05S
-X3N5el90ZXN0IDEwMDAwMDEKI2VuZGlmCgojaW5jbHVkZSA8c3lzL2lvY3RsLmg+CiNpbmNsdWRl
-IDxzeXMvc29ja2V0Lmg+CiNpbmNsdWRlIDxzeXMvc3RhdC5oPgojaW5jbHVkZSA8c3lzL3N5c2Nh
-bGwuaD4KI2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8bmV0L2lmX2FycC5oPgoKI2lu
-Y2x1ZGUgPGVycm5vLmg+CiNpbmNsdWRlIDxlcnJvci5oPgojaW5jbHVkZSA8ZmNudGwuaD4KI2lu
-Y2x1ZGUgPHB0aHJlYWQuaD4KI2luY2x1ZGUgPHNldGptcC5oPgojaW5jbHVkZSA8c2lnbmFsLmg+
-CiNpbmNsdWRlIDxzdGRkZWYuaD4KI2luY2x1ZGUgPHN0ZGludC5oPgojaW5jbHVkZSA8c3RkaW8u
-aD4KI2luY2x1ZGUgPHN0ZGxpYi5oPgojaW5jbHVkZSA8c3RyaW5nLmg+CiNpbmNsdWRlIDx1bmlz
-dGQuaD4KCl9fdGhyZWFkIGludCBza2lwX3NlZ3Y7Cl9fdGhyZWFkIGptcF9idWYgc2Vndl9lbnY7
-CgpzdGF0aWMgdm9pZCBzZWd2X2hhbmRsZXIoaW50IHNpZywgc2lnaW5mb190KiBpbmZvLCB2b2lk
-KiB1Y3R4KQp7CiAgaWYgKF9fYXRvbWljX2xvYWRfbigmc2tpcF9zZWd2LCBfX0FUT01JQ19SRUxB
-WEVEKSkKICAgIF9sb25nam1wKHNlZ3ZfZW52LCAxKTsKICBleGl0KHNpZyk7Cn0KCnN0YXRpYyB2
-b2lkIGluc3RhbGxfc2Vndl9oYW5kbGVyKCkKewogIHN0cnVjdCBzaWdhY3Rpb24gc2E7CiAgbWVt
-c2V0KCZzYSwgMCwgc2l6ZW9mKHNhKSk7CiAgc2Euc2Ffc2lnYWN0aW9uID0gc2Vndl9oYW5kbGVy
-OwogIHNhLnNhX2ZsYWdzID0gU0FfTk9ERUZFUiB8IFNBX1NJR0lORk87CiAgc2lnYWN0aW9uKFNJ
-R1NFR1YsICZzYSwgTlVMTCk7CiAgc2lnYWN0aW9uKFNJR0JVUywgJnNhLCBOVUxMKTsKfQoKI2Rl
-ZmluZSBOT05GQUlMSU5HKC4uLikgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICBcCiAgeyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgXAogICAgX19hdG9taWNfZmV0Y2hfYWRkKCZza2lw
-X3NlZ3YsIDEsIF9fQVRPTUlDX1NFUV9DU1QpOyAgICAgICAgICAgICAgIFwKICAgIGlmIChfc2V0
-am1wKHNlZ3ZfZW52KSA9PSAwKSB7ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICBcCiAgICAgIF9fVkFfQVJHU19fOyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgXAogICAgfSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKICAgIF9fYXRvbWljX2ZldGNoX3N1
-Yigmc2tpcF9zZWd2LCAxLCBfX0FUT01JQ19TRVFfQ1NUKTsgICAgICAgICAgICAgICBcCiAgfQoK
-c3RhdGljIHVpbnRwdHJfdCBzeXpfb3Blbl9kZXYodWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEs
-IHVpbnRwdHJfdCBhMikKewogIGlmIChhMCA9PSAweGMgfHwgYTAgPT0gMHhiKSB7CgogICAgY2hh
-ciBidWZbMTI4XTsKICAgIHNwcmludGYoYnVmLCAiL2Rldi8lcy8lZDolZCIsIGEwID09IDB4YyA/
-ICJjaGFyIiA6ICJibG9jayIsCiAgICAgICAgICAgICh1aW50OF90KWExLCAodWludDhfdClhMik7
-CiAgICByZXR1cm4gb3BlbihidWYsIE9fUkRXUiwgMCk7CiAgfSBlbHNlIHsKCiAgICBjaGFyIGJ1
-ZlsxMDI0XTsKICAgIGNoYXIqIGhhc2g7CiAgICBzdHJuY3B5KGJ1ZiwgKGNoYXIqKWEwLCBzaXpl
-b2YoYnVmKSk7CiAgICBidWZbc2l6ZW9mKGJ1ZikgLSAxXSA9IDA7CiAgICB3aGlsZSAoKGhhc2gg
-PSBzdHJjaHIoYnVmLCAnIycpKSkgewogICAgICAqaGFzaCA9ICcwJyArIChjaGFyKShhMSAlIDEw
-KTsKICAgICAgYTEgLz0gMTA7CiAgICB9CiAgICByZXR1cm4gb3BlbihidWYsIGEyLCAwKTsKICB9
-Cn0KCnN0YXRpYyB1aW50cHRyX3Qgc3l6X29wZW5fcHRzKHVpbnRwdHJfdCBhMCwgdWludHB0cl90
-IGExKQp7CgogIGludCBwdHlubyA9IDA7CiAgaWYgKGlvY3RsKGEwLCBUSU9DR1BUTiwgJnB0eW5v
-KSkKICAgIHJldHVybiAtMTsKICBjaGFyIGJ1ZlsxMjhdOwogIHNwcmludGYoYnVmLCAiL2Rldi9w
-dHMvJWQiLCBwdHlubyk7CiAgcmV0dXJuIG9wZW4oYnVmLCBhMSwgMCk7Cn0KCnN0YXRpYyB1aW50
-cHRyX3Qgc3l6X2Z1c2VfbW91bnQodWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEsCiAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90IGEyLCB1aW50cHRyX3QgYTMsCiAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90IGE0LCB1aW50cHRyX3QgYTUpCnsK
-CiAgdWludDY0X3QgdGFyZ2V0ID0gYTA7CiAgdWludDY0X3QgbW9kZSA9IGExOwogIHVpbnQ2NF90
-IHVpZCA9IGEyOwogIHVpbnQ2NF90IGdpZCA9IGEzOwogIHVpbnQ2NF90IG1heHJlYWQgPSBhNDsK
-ICB1aW50NjRfdCBmbGFncyA9IGE1OwoKICBpbnQgZmQgPSBvcGVuKCIvZGV2L2Z1c2UiLCBPX1JE
-V1IpOwogIGlmIChmZCA9PSAtMSkKICAgIHJldHVybiBmZDsKICBjaGFyIGJ1ZlsxMDI0XTsKICBz
-cHJpbnRmKGJ1ZiwgImZkPSVkLHVzZXJfaWQ9JWxkLGdyb3VwX2lkPSVsZCxyb290bW9kZT0wJW8i
-LCBmZCwKICAgICAgICAgIChsb25nKXVpZCwgKGxvbmcpZ2lkLCAodW5zaWduZWQpbW9kZSAmIH4z
-dSk7CiAgaWYgKG1heHJlYWQgIT0gMCkKICAgIHNwcmludGYoYnVmICsgc3RybGVuKGJ1ZiksICIs
-bWF4X3JlYWQ9JWxkIiwgKGxvbmcpbWF4cmVhZCk7CiAgaWYgKG1vZGUgJiAxKQogICAgc3RyY2F0
-KGJ1ZiwgIixkZWZhdWx0X3Blcm1pc3Npb25zIik7CiAgaWYgKG1vZGUgJiAyKQogICAgc3RyY2F0
-KGJ1ZiwgIixhbGxvd19vdGhlciIpOwogIHN5c2NhbGwoU1lTX21vdW50LCAiIiwgdGFyZ2V0LCAi
-ZnVzZSIsIGZsYWdzLCBidWYpOwoKICByZXR1cm4gZmQ7Cn0KCnN0YXRpYyB1aW50cHRyX3Qgc3l6
-X2Z1c2VibGtfbW91bnQodWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEsCiAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90IGEyLCB1aW50cHRyX3QgYTMsCiAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90IGE0LCB1aW50cHRyX3QgYTUsCiAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90IGE2LCB1aW50cHRyX3Qg
-YTcpCnsKCiAgdWludDY0X3QgdGFyZ2V0ID0gYTA7CiAgdWludDY0X3QgYmxrZGV2ID0gYTE7CiAg
-dWludDY0X3QgbW9kZSA9IGEyOwogIHVpbnQ2NF90IHVpZCA9IGEzOwogIHVpbnQ2NF90IGdpZCA9
-IGE0OwogIHVpbnQ2NF90IG1heHJlYWQgPSBhNTsKICB1aW50NjRfdCBibGtzaXplID0gYTY7CiAg
-dWludDY0X3QgZmxhZ3MgPSBhNzsKCiAgaW50IGZkID0gb3BlbigiL2Rldi9mdXNlIiwgT19SRFdS
-KTsKICBpZiAoZmQgPT0gLTEpCiAgICByZXR1cm4gZmQ7CiAgaWYgKHN5c2NhbGwoU1lTX21rbm9k
-YXQsIEFUX0ZEQ1dELCBibGtkZXYsIFNfSUZCTEssIG1ha2VkZXYoNywgMTk5KSkpCiAgICByZXR1
-cm4gZmQ7CiAgY2hhciBidWZbMjU2XTsKICBzcHJpbnRmKGJ1ZiwgImZkPSVkLHVzZXJfaWQ9JWxk
-LGdyb3VwX2lkPSVsZCxyb290bW9kZT0wJW8iLCBmZCwKICAgICAgICAgIChsb25nKXVpZCwgKGxv
-bmcpZ2lkLCAodW5zaWduZWQpbW9kZSAmIH4zdSk7CiAgaWYgKG1heHJlYWQgIT0gMCkKICAgIHNw
-cmludGYoYnVmICsgc3RybGVuKGJ1ZiksICIsbWF4X3JlYWQ9JWxkIiwgKGxvbmcpbWF4cmVhZCk7
-CiAgaWYgKGJsa3NpemUgIT0gMCkKICAgIHNwcmludGYoYnVmICsgc3RybGVuKGJ1ZiksICIsYmxr
-c2l6ZT0lbGQiLCAobG9uZylibGtzaXplKTsKICBpZiAobW9kZSAmIDEpCiAgICBzdHJjYXQoYnVm
-LCAiLGRlZmF1bHRfcGVybWlzc2lvbnMiKTsKICBpZiAobW9kZSAmIDIpCiAgICBzdHJjYXQoYnVm
-LCAiLGFsbG93X290aGVyIik7CiAgc3lzY2FsbChTWVNfbW91bnQsIGJsa2RldiwgdGFyZ2V0LCAi
-ZnVzZWJsayIsIGZsYWdzLCBidWYpOwoKICByZXR1cm4gZmQ7Cn0KCnN0YXRpYyB1aW50cHRyX3Qg
-ZXhlY3V0ZV9zeXNjYWxsKGludCBuciwgdWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEsCiAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHVpbnRwdHJfdCBhMiwgdWludHB0cl90IGEzLAog
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1aW50cHRyX3QgYTQsIHVpbnRwdHJfdCBh
-NSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90IGE2LCB1aW50cHRy
-X3QgYTcsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHVpbnRwdHJfdCBhOCkKewog
-IHN3aXRjaCAobnIpIHsKICBkZWZhdWx0OgogICAgcmV0dXJuIHN5c2NhbGwobnIsIGEwLCBhMSwg
-YTIsIGEzLCBhNCwgYTUpOwogIGNhc2UgX19OUl9zeXpfdGVzdDoKICAgIHJldHVybiAwOwogIGNh
-c2UgX19OUl9zeXpfb3Blbl9kZXY6CiAgICByZXR1cm4gc3l6X29wZW5fZGV2KGEwLCBhMSwgYTIp
-OwogIGNhc2UgX19OUl9zeXpfb3Blbl9wdHM6CiAgICByZXR1cm4gc3l6X29wZW5fcHRzKGEwLCBh
-MSk7CiAgY2FzZSBfX05SX3N5el9mdXNlX21vdW50OgogICAgcmV0dXJuIHN5el9mdXNlX21vdW50
-KGEwLCBhMSwgYTIsIGEzLCBhNCwgYTUpOwogIGNhc2UgX19OUl9zeXpfZnVzZWJsa19tb3VudDoK
-ICAgIHJldHVybiBzeXpfZnVzZWJsa19tb3VudChhMCwgYTEsIGEyLCBhMywgYTQsIGE1LCBhNiwg
-YTcpOwogIH0KfQoKbG9uZyByWzE3XTsKCmludCBtYWluKCkKewogIGluc3RhbGxfc2Vndl9oYW5k
-bGVyKCk7CiAgbWVtc2V0KHIsIC0xLCBzaXplb2YocikpOwogIHJbMF0gPSBleGVjdXRlX3N5c2Nh
-bGwoX19OUl9tbWFwLCAweDIwMDAwMDAwdWwsIDB4MzUwMDB1bCwgMHgzdWwsCiAgICAgICAgICAg
-ICAgICAgICAgICAgICAweDMydWwsIDB4ZmZmZmZmZmZmZmZmZmZmZnVsLCAweDB1bCwgMCwgMCwg
-MCk7CiAgclsxXSA9IGV4ZWN1dGVfc3lzY2FsbChfX05SX3NvY2tldCwgMHhhdWwsIDB4MnVsLCAw
-eDg4dWwsIDAsIDAsIDAsIDAsCiAgICAgICAgICAgICAgICAgICAgICAgICAwLCAwKTsKICBOT05G
-QUlMSU5HKG1lbWNweSgKICAgICAgKHZvaWQqKTB4MjAwMzQwMDAsCiAgICAgICJceDBhXHgwMFx4
-NDJceDQyXHg3YVx4ODVceDg2XHhiNFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwIgog
-ICAgICAiXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDFceGI0XHg3M1x4MTdceDg0XHgw
-MFx4MDBceDAwXHgwMCIKICAgICAgIlx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgw
-MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDAiCiAgICAgICJceDAwXHgwMFx4MDBceDAwXHgw
-MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwIgogICAgICAiXHgw
-MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
-XHgwMCIKICAgICAgIlx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
-XHgwMFx4MDBceDAwXHgwMFx4MDAiCiAgICAgICJceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
-XHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwIgogICAgICAiXHgwMFx4MDBceDAw
-XHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwIgogICAgICAi
-XHgwMCIsCiAgICAgIDEyOCkpOwogIHJbM10gPSBleGVjdXRlX3N5c2NhbGwoX19OUl9iaW5kLCBy
-WzFdLCAweDIwMDM0MDAwdWwsIDB4ODB1bCwgMCwgMCwgMCwKICAgICAgICAgICAgICAgICAgICAg
-ICAgIDAsIDAsIDApOwogIE5PTkZBSUxJTkcoKih1aW50NjRfdCopMHgyMDAyYjAwMCA9ICh1aW50
-NjRfdCkweDIwMDIxZjgwKTsKICBOT05GQUlMSU5HKCoodWludDMyX3QqKTB4MjAwMmIwMDggPSAo
-dWludDMyX3QpMHg4MCk7CiAgTk9ORkFJTElORygqKHVpbnQ2NF90KikweDIwMDJiMDEwID0gKHVp
-bnQ2NF90KTB4MjAwMWYwMDApOwogIE5PTkZBSUxJTkcoKih1aW50NjRfdCopMHgyMDAyYjAxOCA9
-ICh1aW50NjRfdCkweDApOwogIE5PTkZBSUxJTkcoKih1aW50NjRfdCopMHgyMDAyYjAyMCA9ICh1
-aW50NjRfdCkweDIwMDI3MDAwKTsKICBOT05GQUlMSU5HKCoodWludDY0X3QqKTB4MjAwMmIwMjgg
-PSAodWludDY0X3QpMHgwKTsKICBOT05GQUlMSU5HKCoodWludDMyX3QqKTB4MjAwMmIwMzAgPSAo
-dWludDMyX3QpMHgwKTsKICBOT05GQUlMSU5HKG1lbWNweSgKICAgICAgKHZvaWQqKTB4MjAwMjFm
-ODAsCiAgICAgICJceDBhXHgwMFx4NDJceDQyXHhiZVx4ZjlceGE4XHhhM1x4MDBceDAwXHgwMFx4
-MDBceDAwXHgwMFx4MDBceDAwIgogICAgICAiXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4
-MDFceDdmXHhkYlx4MGRceGYxXHgwMFx4MDBceDAwXHgwMCIKICAgICAgIlx4MDBceDAwXHgwMFx4
-MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDAiCiAgICAg
-ICJceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgw
-MFx4MDBceDAwIgogICAgICAiXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgw
-MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMCIKICAgICAgIlx4MDBceDAwXHgwMFx4MDBceDAwXHgw
-MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDAiCiAgICAgICJceDAwXHgw
-MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
-IgogICAgICAiXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
-XHgwMFx4MDBceDAwIgogICAgICAiXHgwMCIsCiAgICAgIDEyOCkpOwogIHJbMTJdID0gZXhlY3V0
-ZV9zeXNjYWxsKF9fTlJfc2VuZG1zZywgclsxXSwgMHgyMDAyYjAwMHVsLCAweDgwMDB1bCwgMCwK
-ICAgICAgICAgICAgICAgICAgICAgICAgICAwLCAwLCAwLCAwLCAwKTsKICBOT05GQUlMSU5HKCoo
-dWludDY0X3QqKTB4MjAwMzJmZTAgPSAodWludDY0X3QpMHgyMDAzMjAwMCk7CiAgTk9ORkFJTElO
-RygqKHVpbnQ2NF90KikweDIwMDMyZmU4ID0gKHVpbnQ2NF90KTB4MSk7CiAgTk9ORkFJTElORyht
-ZW1jcHkoKHZvaWQqKTB4MjAwMzIwMDAsICJceDBkIiwgMSkpOwogIHJbMTZdID0gZXhlY3V0ZV9z
-eXNjYWxsKF9fTlJfd3JpdGV2LCByWzFdLCAweDIwMDMyZmUwdWwsIDB4MXVsLCAwLCAwLAogICAg
-ICAgICAgICAgICAgICAgICAgICAgIDAsIDAsIDAsIDApOwogIHJldHVybiAwOwp9Cg==
---001a1146c12042952f0541e27ec2--
+Thanks for the report,
+We will handle this.
