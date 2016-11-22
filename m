@@ -1,95 +1,133 @@
-From: Stefan Eichenberger <eichest@gmail.com>
-Subject: [PATCH v2] net: dsa: mv88e6xxx: add MV88E6097 switch
-Date: Tue, 22 Nov 2016 17:47:21 +0100
-Message-ID: <20161122164721.4103-1-stefan.eichenberger@netmodule.com>
-References: <20161122150754.GF2691@lunn.ch>
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org,
-        Stefan Eichenberger <stefan.eichenberger@netmodule.com>
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34083 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756016AbcKVREb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 12:04:31 -0500
-Received: by mail-wm0-f66.google.com with SMTP id g23so5179399wme.1
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 09:04:30 -0800 (PST)
-In-Reply-To: <20161122150754.GF2691@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] udplite: call proper backlog handlers
+Date: Tue, 22 Nov 2016 09:06:45 -0800
+Message-ID: <1479834405.8455.437.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+zZSc28e4LMg-YvEztKO4X0VVxqCStkZW8LL4ZA_rYyMQ@mail.gmail.com>
+         <CANn89iKewy1iMa=dUGpE=8UjHUi4o=s=6P_-ngLr_S_ZDByTwg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        samanthakumar <samanthakumar@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Benjamin LaHaise <bcrl@kvack.org>,
+        Willem de Bruijn <willemb@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89iKewy1iMa=dUGpE=8UjHUi4o=s=6P_-ngLr_S_ZDByTwg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support for the MV88E6097 switch. The change was tested on an Armada
-based platform with a MV88E6097 switch.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+In commits 93821778def10 ("udp: Fix rcv socket locking") and
+f7ad74fef3af ("net/ipv6/udp: UDP encapsulation: break backlog_rcv into
+__udpv6_queue_rcv_skb") UDP backlog handlers were renamed, but UDPlite
+was forgotten.
+
+This leads to crashes if UDPlite header is pulled twice, which happens
+starting from commit e6afc8ace6dd ("udp: remove headers from UDP packets
+before queueing")
+
+Bug found by syzkaller team, thanks a lot guys !
+
+Note that backlog use in UDP/UDPlite is scheduled to be removed starting
+from linux-4.10, so this patch is only needed up to linux-4.9
+
+Fixes: 93821778def1 ("udp: Fix rcv socket locking")
+Fixes: f7ad74fef3af ("net/ipv6/udp: UDP encapsulation: break backlog_rcv into __udpv6_queue_rcv_skb")
+Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Cc: Benjamin LaHaise <bcrl@kvack.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 26 ++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  2 ++
- 2 files changed, 28 insertions(+)
+ net/ipv4/udp.c      |    2 +-
+ net/ipv4/udp_impl.h |    2 +-
+ net/ipv4/udplite.c  |    2 +-
+ net/ipv6/udp.c      |    2 +-
+ net/ipv6/udp_impl.h |    2 +-
+ net/ipv6/udplite.c  |    2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 48b58c7..2d5941c 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3208,6 +3208,19 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
- 	.stats_get_stats = mv88e6095_stats_get_stats,
- };
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 0de9d5d2b9ae..5bab6c3f7a2f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1455,7 +1455,7 @@ static void udp_v4_rehash(struct sock *sk)
+ 	udp_lib_rehash(sk, new_hash);
+ }
  
-+static const struct mv88e6xxx_ops mv88e6097_ops = {
-+	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
-+	.port_set_duplex = mv88e6xxx_port_set_duplex,
-+	.port_set_speed = mv88e6185_port_set_speed,
-+	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
-+	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
-+	.stats_get_strings = mv88e6095_stats_get_strings,
-+	.stats_get_stats = mv88e6095_stats_get_stats,
-+};
-+
- static const struct mv88e6xxx_ops mv88e6123_ops = {
- 	/* MV88E6XXX_FAMILY_6165 */
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -3579,6 +3592,19 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.ops = &mv88e6095_ops,
- 	},
+-static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
  
-+	[MV88E6097] = {
-+		.prod_num = PORT_SWITCH_ID_PROD_NUM_6097,
-+		.family = MV88E6XXX_FAMILY_6097,
-+		.name = "Marvell 88E6097/88E6097F",
-+		.num_databases = 4096,
-+		.num_ports = 11,
-+		.port_base_addr = 0x10,
-+		.global1_addr = 0x1b,
-+		.age_time_coeff = 15000,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
-+		.ops = &mv88e6097_ops,
-+	},
-+
- 	[MV88E6123] = {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6123,
- 		.family = MV88E6XXX_FAMILY_6165,
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 9298faa..ab52c37 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -81,6 +81,7 @@
- #define PORT_SWITCH_ID		0x03
- #define PORT_SWITCH_ID_PROD_NUM_6085	0x04a
- #define PORT_SWITCH_ID_PROD_NUM_6095	0x095
-+#define PORT_SWITCH_ID_PROD_NUM_6097	0x099
- #define PORT_SWITCH_ID_PROD_NUM_6131	0x106
- #define PORT_SWITCH_ID_PROD_NUM_6320	0x115
- #define PORT_SWITCH_ID_PROD_NUM_6123	0x121
-@@ -378,6 +379,7 @@
- enum mv88e6xxx_model {
- 	MV88E6085,
- 	MV88E6095,
-+	MV88E6097,
- 	MV88E6123,
- 	MV88E6131,
- 	MV88E6161,
--- 
-2.9.3
+diff --git a/net/ipv4/udp_impl.h b/net/ipv4/udp_impl.h
+index 7e0fe4bdd967..feb50a16398d 100644
+--- a/net/ipv4/udp_impl.h
++++ b/net/ipv4/udp_impl.h
+@@ -25,7 +25,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 		int flags, int *addr_len);
+ int udp_sendpage(struct sock *sk, struct page *page, int offset, size_t size,
+ 		 int flags);
+-int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
++int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ void udp_destroy_sock(struct sock *sk);
+ 
+ #ifdef CONFIG_PROC_FS
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+index af817158d830..ff450c2aad9b 100644
+--- a/net/ipv4/udplite.c
++++ b/net/ipv4/udplite.c
+@@ -50,7 +50,7 @@ struct proto 	udplite_prot = {
+ 	.sendmsg	   = udp_sendmsg,
+ 	.recvmsg	   = udp_recvmsg,
+ 	.sendpage	   = udp_sendpage,
+-	.backlog_rcv	   = udp_queue_rcv_skb,
++	.backlog_rcv	   = __udp_queue_rcv_skb,
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v4_get_port,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index e5056d4873d1..e4a8000d59ad 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -514,7 +514,7 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	return;
+ }
+ 
+-static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
+ 
+diff --git a/net/ipv6/udp_impl.h b/net/ipv6/udp_impl.h
+index f6eb1ab34f4b..e78bdc76dcc3 100644
+--- a/net/ipv6/udp_impl.h
++++ b/net/ipv6/udp_impl.h
+@@ -26,7 +26,7 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
+ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len);
+ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 		  int flags, int *addr_len);
+-int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
++int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ void udpv6_destroy_sock(struct sock *sk);
+ 
+ #ifdef CONFIG_PROC_FS
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+index 47d0d2b87106..2f5101a12283 100644
+--- a/net/ipv6/udplite.c
++++ b/net/ipv6/udplite.c
+@@ -45,7 +45,7 @@ struct proto udplitev6_prot = {
+ 	.getsockopt	   = udpv6_getsockopt,
+ 	.sendmsg	   = udpv6_sendmsg,
+ 	.recvmsg	   = udpv6_recvmsg,
+-	.backlog_rcv	   = udpv6_queue_rcv_skb,
++	.backlog_rcv	   = __udpv6_queue_rcv_skb,
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v6_get_port,
