@@ -1,60 +1,74 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC net-next 0/3] net: bridge: Allow CPU port
-	configuration
-Date: Tue, 22 Nov 2016 10:29:59 -0500
-Message-ID: <87k2bvzg5k.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20161121190925.14530-1-f.fainelli@gmail.com>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Tue, 22 Nov 2016 16:31:41 +0100
+Message-ID: <20161122153141.GT13735@pali>
+References: <201611111820.52072@pali>
+ <20161121155153.GM13735@pali>
+ <CA+BoTQm5yZYccMherMnmxZ0_b2PqkCWf_0nBoRLzsro-Ujz1eQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: idosch@mellanox.com, andrew@lunn.ch,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	bridge@lists.linux-foundation.org, jiri@mellanox.com, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161121190925.14530-1-f.fainelli@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: Michal Kazior <michal.kazior@tieto.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+BoTQm5yZYccMherMnmxZ0_b2PqkCWf_0nBoRLzsro-Ujz1eQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Florian,
+On Tuesday 22 November 2016 16:22:57 Michal Kazior wrote:
+> On 21 November 2016 at 16:51, Pali Rohár <pali.rohar@gmail.com> wrote:
+> > On Friday 11 November 2016 18:20:50 Pali Rohár wrote:
+> >> Hi! I will open discussion about mac address and calibration data for
+> >> wl1251 wireless chip again...
+> >>
+> >> Problem: Mac address & calibration data for wl1251 chip on Nokia N900
+> >> are stored on second nand partition (mtd1) in special proprietary format
+> >> which is used only for Nokia N900 (probably on N8x0 and N9 too).
+> >> Wireless driver wl1251.ko cannot work without mac address and
+> >> calibration data.
+> 
+> Same problem applies to some ath9k/ath10k supported routers. Some even
+> carry mac address as implicit offset from ethernet mac address. As far
+> as I understand OpenWRT cooks cal blobs on first boot prior to loading
+> modules.
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+So... wl1251 on Nokia N900 is not alone and this problem is there for
+more drivers and devices. Which means we should come up with some
+generic solution.
 
-> This patch series allows using the bridge master interface to configure
-> an Ethernet switch port's CPU/management port with different VLAN attributes than
-> those of the bridge downstream ports/members.
->
-> Jiri, Ido, Andrew, Vivien, please review the impact on mlxsw and mv88e6xxx, I
-> tested this with b53 and a mockup DSA driver.
+> >> Absence of mac address cause that driver generates random mac address at
+> >> every kernel boot which has couple of problems (unstable identifier of
+> >> wireless device due to udev permanent storage rules; unpredictable
+> >> behaviour for dhcp mac address assignment, mac address filtering, ...).
+> >>
+> >> Currently there is no way to set (permanent) mac address for network
+> >> interface from userspace. And it does not make sense to implement in
+> >> linux kernel large parser for proprietary format of second nand
+> >> partition where is mac address stored only for one device -- Nokia N900.
+> >>
+> >> Driver wl1251.ko loads calibration data via request_firmware() for file
+> >> wl1251-nvs.bin. There are some "example" calibration file in linux-
+> >> firmware repository, but it is not suitable for normal usage as real
+> >> calibration data are per-device specific.
+> 
+> You could hook up a script that cooks up the cal/mac file via
+> modprobe's install hook, no?
 
-Patchset looks fine to me overall. I'm cooking a patch similar to 3/3
-for mv88e6xxx to put on top of this patchset.
+Via modprobe hook I can either pass custom module parameter or call any
+other system (shell) commands.
 
-Minor comments in individual patchs will follow.
+As wl1251.ko does not accept mac_address as module parameter, such
+modprobe hook does not help -- as there is absolutely no way from
+userspace to set or change (permanent) mac address.
 
-> Open questions:
->
-> - if we have more than one bridge on top of a physical switch, the driver
->   should keep track of that and verify that we are not going to change
->   the CPU port VLAN attributes in a way that results in incompatible settings
->   to be applied
-
-In mv88e6xxx, mv88e6xxx_port_check_hw_vlan() does that. It needs a small
-adjustment though.
-
-> - if the default behavior is to have all VLANs associated with the CPU port
->   be ingressing/egressing tagged to the CPU, is this really useful?
-
-I have no strong opinion on this. Intuitively I'd expect the CPU port to
-be excluded until I add it myself, but I didn't think much about it.
-
-Thanks,
-
-        Vivien
+-- 
+Pali Rohár
+pali.rohar@gmail.com
