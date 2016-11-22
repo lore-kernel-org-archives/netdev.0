@@ -1,45 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] flow_dissect: call init_default_flow_dissectors()
- earlier
-Date: Tue, 22 Nov 2016 14:44:44 -0500 (EST)
-Message-ID: <20161122.144444.2261159964230408258.davem@davemloft.net>
-References: <1479838123.681.173.camel@intel.com>
-        <20161122182258.GF19939@tuebingen.mpg.de>
-        <1479842250.8455.452.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Tue, 22 Nov 2016 11:49:18 -0800
+Message-ID: <20161122194918.GA69241@knc-06.sc.intel.com>
+References: <1479508938-63799-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1479508938-63799-3-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161119190445.GG22775@obsidianresearch.com>
+ <20161121213017.GB67872@knc-06.sc.intel.com>
+ <20161121213930.GA30111@obsidianresearch.com>
+ <20161121232629.GA67988@knc-06.sc.intel.com>
+ <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
+ <20161122170407.GE3956@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: maan@tuebingen.mpg.de, jiri@resnulli.us,
-        alexander.h.duyck@intel.com, edumazet@google.com,
-        linux-kernel@vger.kernel.org, ast@kernel.org, willemb@google.com,
-        gregkh@linuxfoundation.org, jslaby@suse.cz, yibyang@cisco.com,
-        netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479842250.8455.452.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.43]:43284 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754970AbcKVTtn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Nov 2016 14:49:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20161122170407.GE3956@obsidianresearch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 22 Nov 2016 11:17:30 -0800
+Ok, I do understand Jason's point that we should probably not put this driver 
+under drivers/infiniband/sw/.., as this driver is not a HCA.
+It is an ULP similar to ipoib, built on top of Omni-path irrespective of 
+whether we register a hfi_vnic_bus or a direct custom interface with HFI1.
+This ULP will transmit and recieve Omni-path packets over the fabric, and is 
+dependent on IB MAD interface and the HFI1 driver.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Andre Noll reported panics after my recent fix (commit 34fad54c2537
-> "net: __skb_flow_dissect() must cap its return value")
-> 
-> After some more headaches, Alexander root caused the problem to
-> init_default_flow_dissectors() being called too late, in case
-> a network driver like IGB is not a module and receives DHCP message
-> very early.
-> 
-> Fix is to call init_default_flow_dissectors() much earlier,
-> as it is a core infrastructure and does not depend on another
-> kernel service.
-> 
-> Fixes: 06635a35d13d4 ("flow_dissect: use programable dissector in skb_flow_dissect and friends")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Andre Noll <maan@tuebingen.mpg.de>
-> Diagnosed-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Doug,
+Will it be acceptable if we put it under 'drivers/infiniband/ulp/hfi_vnic'?
 
-Applied and queued up for -stable, I'll try to fast-track this.
+Niranjana
