@@ -1,98 +1,63 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: net/can: use-after-free in bcm_rx_thr_flush
-Date: Tue, 22 Nov 2016 18:29:30 +0100
-Message-ID: <5abd6ebd-1249-71a9-da30-65d8371a2a36@hartkopp.net>
-References: <CAAeHK+xhwpVO=xHqEOyP-Tm6cx1+jDLDpYT0hpMwM2PCf7W3Jw@mail.gmail.com>
+From: <Mario.Limonciello@dell.com>
+Subject: RE: [PATCH v9 0/8] thunderbolt: Introducing Thunderbolt(TM)
+ Networking
+Date: Tue, 22 Nov 2016 17:36:15 +0000
+Message-ID: <f653e691805d41d190160409282ea450@ausx13mpc120.AMER.DELL.COM>
+References: <1478701208-4585-1-git-send-email-amir.jer.levy@intel.com>
+ <20161109143632.GE6167@kw.sim.vm.gnt>
+ <E607265CB020454880711A6F96C05A03B677E4C9@hasmsx107.ger.corp.intel.com>
+ <20161115105920.GH6167@kw.sim.vm.gnt>
+ <E607265CB020454880711A6F96C05A03BE2199EE@hasmsx108.ger.corp.intel.com>
+ <20161118112007.GB1230@kw.sim.vm.gnt> <20161122172828.GB31492@kw.sim.vm.gnt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+xhwpVO=xHqEOyP-Tm6cx1+jDLDpYT0hpMwM2PCf7W3Jw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: <gregkh@linuxfoundation.org>, <andreas.noever@gmail.com>,
+        <bhelgaas@google.com>, <corbet@lwn.net>,
+        <linux-kernel@vger.kernel.org>, <linux-pci@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-doc@vger.kernel.org>,
+        <thunderbolt-linux@intel.com>, <mika.westerberg@intel.com>,
+        <tomas.winkler@intel.com>, <xiong.y.zhang@intel.com>,
+        <michael.jamet@intel.com>, <remi.rerolle@seagate.com>
+To: <simon.guinot@sequanux.org>, <amir.jer.levy@intel.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20161122172828.GB31492@kw.sim.vm.gnt>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrey,
+> Here are a couple of additional questions:
+>=20
+> - When the network interface is created, there is no IP address
+>   assigned (or negotiated ?) on the Linux side. But it is done on the
+>   MacOS side. And in the Linux kernel logs I can also read the message:
+>   "ready for ThunderboltIP negotiation". Is there something missing or
+>   not working on the Linux side ? What is the correct way to configure
+>   or negotiate the IP address. For my tests I did it manually...
+>=20
+> - When the Linux machine is started with the Thunderbolt wire already
+>   connected to a MacBook Pro, sometimes (but not every time) the
+>   network interface is not created. The Thunderbolt wire needs to be
+>   replugged.
+>=20
+> FWIW you get my
+>=20
+> Tested-by: Simon Guinot <simon.guinot@sequanux.org>
+>=20
+> Simon
 
-thanks for the report.
+Simon,
 
-Although I can't see the issue in the code ...
+Since I also performed testing on the previous patchset, I'll share what I =
+did.
 
-On 11/22/2016 10:22 AM, Andrey Konovalov wrote:
+I configured Network Manager to use the TBT interface to share an internet
+connection to another box.  This configures a static IP address on the loca=
+l
+Linux side and sets up routing.
 
-> ==================================================================
-> BUG: KASAN: use-after-free in bcm_rx_thr_flush+0x284/0x2b0
-> Read of size 1 at addr ffff88006c1faae5 by task a.out/3874
->
-> page:ffffea0001b07e80 count:1 mapcount:0 mapping:          (null) index:0x0
-> flags: 0x100000000000080(slab)
-> page dumped because: kasan: bad access detected
-
-(..)
-
->
-> The buggy address belongs to the object at ffff88006c1faae0
->  which belongs to the cache kmalloc-32 of size 32
-
-???
-
-> The buggy address ffff88006c1faae5 is located 5 bytes inside
->  of 32-byte region [ffff88006c1faae0, ffff88006c1fab00)
-
-(..)
-
-> Memory state around the buggy address:
->  ffff88006c1fa980: fc fc fb fb fb fb fc fc fb fb fb fb fc fc fb fb
->  ffff88006c1faa00: fb fb fc fc fb fb fb fb fc fc fb fb fb fb fc fc
->> ffff88006c1faa80: fb fb fb fb fc fc fb fb fb fb fc fc fb fb fb fb
->                                                        ^
->  ffff88006c1fab00: fc fc fb fb fb fb fc fc 00 00 00 00 fc fc 00 00
->  ffff88006c1fab80: 00 00 fc fc fb fb fb fb fc fc fb fb fb fb fc fc
-> ==================================================================
-
-(should be some zero initialized memory here)
-
-The relevant code of bcm_rx_do_flush() can be found here:
-
-http://lxr.free-electrons.com/source/net/can/bcm.c#L589
-
-static inline int bcm_rx_do_flush(struct bcm_op *op, int update,
-				  unsigned int index)
-{
-	struct canfd_frame *lcf = op->last_frames + op->cfsiz * index;
-
-	if ((op->last_frames) && (lcf->flags & RX_THR)) {  <<<----- !!!
-		if (update)
-			bcm_rx_changed(op, lcf);
-		return 1;
-	}
-	return 0;
-}
+Network manager remembers setup this in a configuration database. =20
+When the interface goes up it will then set up a DHCP server to hand
+out an IP address to the other side.
 
 
-lcf->flags points into an array of struct canfd_frame at offset 5 which 
-is allocated here:
-
-http://lxr.free-electrons.com/source/net/can/bcm.c#L1105
-
-	/* create and init array for received CAN frames */
-	op->last_frames = kzalloc(msg_head->nframes * op->cfsiz,
-				  GFP_KERNEL);
-
-So why does KASAN complain about accessing some kind of 32 byte cache 
-when it should point into a zero initialized allocated space?
-
-I will write some other test cases with a similar setting of options to 
-check if I can trigger the instability too.
-
-Tnx & regards,
-Oliver
