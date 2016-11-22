@@ -1,136 +1,47 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC net-next 2/3] net: dsa: Propagate VLAN add/del to
-	CPU port(s)
-Date: Tue, 22 Nov 2016 11:50:38 -0500
-Message-ID: <87eg23zcf5.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20161121190925.14530-1-f.fainelli@gmail.com>
-	<20161121190925.14530-3-f.fainelli@gmail.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Tue, 22 Nov 2016 10:04:07 -0700
+Message-ID: <20161122170407.GE3956@obsidianresearch.com>
+References: <1479508938-63799-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1479508938-63799-3-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161119190445.GG22775@obsidianresearch.com>
+ <20161121213017.GB67872@knc-06.sc.intel.com>
+ <20161121213930.GA30111@obsidianresearch.com>
+ <20161121232629.GA67988@knc-06.sc.intel.com>
+ <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: idosch@mellanox.com, andrew@lunn.ch,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	bridge@lists.linux-foundation.org, jiri@mellanox.com, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161121190925.14530-3-f.fainelli@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:48895 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756021AbcKVREL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Nov 2016 12:04:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20161122015304.GB67988@knc-06.sc.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+On Mon, Nov 21, 2016 at 05:53:04PM -0800, Vishwanathapura, Niranjana wrote:
+> There are many example drivers in kernel which are using bus_register() in
+> an initcall.
 
-Open question: will we need to do the same for FDB and MDB objects?
+There really are not, certainly not in major subsystems.
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+> We could add a custom Interface between HFI1 driver and hfi_vnic drivers
+> without involving a bus.
 
-> Now that the bridge layer can call into switchdev to signal programming
-> requests targeting the bridge master device itself, allow the switch
-> drivers to implement separate programming of downstream and
-> upstream/management ports.
->
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  net/dsa/slave.c | 45 +++++++++++++++++++++++++++++++++------------
->  1 file changed, 33 insertions(+), 12 deletions(-)
->
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index d0c7bce88743..18288261b964 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -223,35 +223,30 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
->  	return 0;
->  }
->  
-> -static int dsa_slave_port_vlan_add(struct net_device *dev,
-> +static int dsa_slave_port_vlan_add(struct dsa_switch *ds, int port,
->  				   const struct switchdev_obj_port_vlan *vlan,
->  				   struct switchdev_trans *trans)
->  {
-> -	struct dsa_slave_priv *p = netdev_priv(dev);
-> -	struct dsa_switch *ds = p->parent;
->  
+hfi is already registering on the infiniband class, just use that.
 
-Extra newline ^.
+> But using the existing bus model gave a lot of in-built flexibility in
+> decoupling devices from the drivers.
 
->  	if (switchdev_trans_ph_prepare(trans)) {
->  		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
->  			return -EOPNOTSUPP;
->  
-> -		return ds->ops->port_vlan_prepare(ds, p->port, vlan, trans);
-> +		return ds->ops->port_vlan_prepare(ds, port, vlan, trans);
->  	}
->  
-> -	ds->ops->port_vlan_add(ds, p->port, vlan, trans);
-> +	ds->ops->port_vlan_add(ds, port, vlan, trans);
->  
->  	return 0;
->  }
->  
-> -static int dsa_slave_port_vlan_del(struct net_device *dev,
-> +static int dsa_slave_port_vlan_del(struct dsa_switch *ds, int port,
->  				   const struct switchdev_obj_port_vlan *vlan)
->  {
-> -	struct dsa_slave_priv *p = netdev_priv(dev);
-> -	struct dsa_switch *ds = p->parent;
-> -
->  	if (!ds->ops->port_vlan_del)
->  		return -EOPNOTSUPP;
->  
-> -	return ds->ops->port_vlan_del(ds, p->port, vlan);
-> +	return ds->ops->port_vlan_del(ds, port, vlan);
->  }
->  
->  static int dsa_slave_port_vlan_dump(struct net_device *dev,
-> @@ -465,8 +460,21 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
->  				  const struct switchdev_obj *obj,
->  				  struct switchdev_trans *trans)
->  {
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->parent;
-> +	int port = p->port;
->  	int err;
->  
-> +	/* Here we may be called with an orig_dev which is different from dev,
-> +	 * on purpose, to receive request coming from e.g the bridge master
-> +	 * device. Although there are no network device associated with CPU/DSA
-> +	 * ports, we may still have programming operation for these ports.
-> +	 */
-> +	if (obj->orig_dev == p->bridge_dev) {
-> +		ds = ds->dst->ds[0];
-> +		port = ds->dst->cpu_port;
-> +	}
-> +
->  	/* For the prepare phase, ensure the full set of changes is feasable in
->  	 * one go in order to signal a failure properly. If an operation is not
->  	 * supported, return -EOPNOTSUPP.
-> @@ -483,7 +491,7 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
->  					     trans);
->  		break;
->  	case SWITCHDEV_OBJ_ID_PORT_VLAN:
-> -		err = dsa_slave_port_vlan_add(dev,
-> +		err = dsa_slave_port_vlan_add(ds, port,
->  					      SWITCHDEV_OBJ_PORT_VLAN(obj),
->  					      trans);
+If you want to have your own bus then you need your own hfi
+subsystem. drivers/infiniband is not a dumping ground..
 
-Note that dsa_slave_port_vlan_add() will be called N times, N being the
-number of bridge ports. This is not an issue for the moment though.
-Programming it only once requires caching, so leave it for an eventual
-future patch.
-
-When issuing the following command (lan0 being a member of br0):
-
-    # bridge vlan add vid 42 dev lan0
-
-the CPU port is also programmed as tagged in VLAN 42. Is that expected?
-
-Thanks,
-
-        Vivien
+Jason
