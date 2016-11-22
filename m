@@ -1,95 +1,70 @@
-From: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [RESEND][PATCH v4] cgroup: Use CAP_SYS_RESOURCE to allow a
- process to migrate other tasks between cgroups
-Date: Tue, 22 Nov 2016 16:57:48 -0800
-Message-ID: <CALAqxLXk+A9=A0oXGEduphXOQdbMg-wuGxmLkEk9cPHyn44X5Q@mail.gmail.com>
-References: <1478647728-30357-1-git-send-email-john.stultz@linaro.org>
- <CALCETrU5fCWoe0RXfKWuN7Zt9vLvoyHFcZnVqeqiKBpSKrMrxA@mail.gmail.com>
- <20161109000342.GA42532@ast-mbp.thefacebook.com> <CALCETrW_mPHneTvcAM6HyBLCJqcwKmcYEoC+kseyuyQZzj2a=A@mail.gmail.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [RFC PATCH net-next] net: ethtool: add support for forward error
+ correction modes
+Date: Tue, 22 Nov 2016 23:30:32 +0000
+Message-ID: <DM5PR12MB1786073763933EAE09E36978C8B40@DM5PR12MB1786.namprd12.prod.outlook.com>
+References: <DM5PR12MB178630AFB893C17362A4C09BC8BB0@DM5PR12MB1786.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kafai-b10kYP2dOMg@public.gmane.org,
-        Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
-        Harald Hoyer <harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
-        Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-        lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
-        "open list:CONTROL GROUP (CGROUP)" <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
-        Rom Lemarchand <romlem-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
-        Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
-        Dmitry Shmidt <dimitrysh@google.
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrW_mPHneTvcAM6HyBLCJqcwKmcYEoC+kseyuyQZzj2a=A@mail.gmail.com>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-dm3nam03on0114.outbound.protection.outlook.com ([104.47.41.114]:44629
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752916AbcKWBF2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Nov 2016 20:05:28 -0500
+In-Reply-To: <DM5PR12MB178630AFB893C17362A4C09BC8BB0@DM5PR12MB1786.namprd12.prod.outlook.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 8, 2016 at 4:12 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
-> On Tue, Nov 8, 2016 at 4:03 PM, Alexei Starovoitov
-> <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> On Tue, Nov 08, 2016 at 03:51:40PM -0800, Andy Lutomirski wrote:
->>>
->>> I hate to say it, but I think I may see a problem.  Current
->>> developments are afoot to make cgroups do more than resource control.
->>> For example, there's Landlock and there's Daniel's ingress/egress
->>> filter thing.  Current cgroup controllers can mostly just DoS their
->>> controlled processes.  These new controllers (or controller-like
->>> things) can exfiltrate data and change semantics.
->>>
->>> Does anyone have a security model in mind for these controllers and
->>> the cgroups that they're attached to?  I'm reasonably confident that
->>> CAP_SYS_RESOURCE is not the answer...
->>
->> and specifically the answer is... ?
->> Also would be great if you start with specifying the question first
->> and the problem you're trying to solve.
->>
->
-> I don't have a good answer right now.  Here are some constraints, though:
->
-> 1. An insufficiently privileged process should not be able to move a
-> victim into a dangerous cgroup.
->
-> 2. An insufficiently privileged process should not be able to move
-> itself into a dangerous cgroup and then use execve to gain privilege
-> such that the execve'd program can be compromised.
->
-> 3. An insufficiently privileged process should not be able to make an
-> existing cgroup dangerous in a way that could compromise a victim in
-> that cgroup.
->
-> 4. An insufficiently privileged process should not be able to make a
-> cgroup dangerous in a way that bypasses protections that would
-> otherwise protect execve() as used by itself or some other process in
-> that cgroup.
->
-> Keep in mind that "dangerous" may apply to a cgroup's descendents in
-> addition to the cgroup being controlled.
+  I'm attempting to start the work necessary to implement Vidya's proposed =
+new ethtool interface to manage Forward Error Correction settings on a link=
+.  I'm confused by the ethtool FEC API and the degree/type of control it of=
+fers.  At the top of the patch we have:
 
-Sorry for taking awhile to get back to you here.  I'm a little
-befuddled as to what next steps I should consider (and honestly, I'm
-not totally sure I really grok your concern here, particularly what
-you mean with "dangrous cgroups").
+Encoding: Types of encoding
+Off    :  Turning off any encoding
+RS     :  enforcing RS-FEC encoding on supported speeds
+BaseR  :  enforcing Base R encoding on supported speeds
+Auto   :  Default FEC settings  for  divers , and would represent
+          asking the hardware to essentially go into a best effort mode.
 
-So is going back to the CAP_CGROUP_MIGRATE approach (to properly
-separate "sufficiently" from "insufficiently privileged") better?
+but then later on we have:
 
-Or something closer to the original method Android used of each cgroup
-having an allow_attach() check which could determine what is
-sufficiently privledged for the respective level of danger the cgroup
-might poise?
++struct ethtool_fecparam {
++ __u32   cmd;
++ __u32   autoneg;
++     /* bitmask of FEC modes */
++     __u32   fec;
++     __u32   reserved;
++};
 
-Or just stepping back, what method would you imagine to be reasonable
-to allow a specified task to migrate other tasks between cgroups
-without it having to be root/suid?
+...
 
-thanks
--john
++enum ethtool_fec_config_bits {
++       ETHTOOL_FEC_NONE_BIT,
++       ETHTOOL_FEC_AUTO_BIT,
++       ETHTOOL_FEC_OFF_BIT,
++       ETHTOOL_FEC_RS_BIT,
++       ETHTOOL_FEC_BASER_BIT,
++};
+
+...
+
++       ETHTOOL_LINK_MODE_FEC_NONE_BIT          =3D 47,
++       ETHTOOL_LINK_MODE_FEC_RS_BIT            =3D 48,
++       ETHTOOL_LINK_MODE_FEC_BASER_BIT           =3D 49,
+
+The last ethtool Link Mode bits seem to imply a separable FEC on/off with i=
+ndividual control for RS and BASER.  How would the "Auto" from the top be e=
+ncoded within these Link Mode bits?  And I don't see any reference to the e=
+thtool_fec_config_bits in the kernel or ethtool patches so I'm not sure wha=
+t they're supposed to reference.  Can you clarify the above?  I.e. can you =
+offer a small template example of what a driver implementation might look l=
+ike interpreting the incoming Link Mode Bits?
+
+  And do we expect that there will be new FECs in the future?
+
+Casey=
