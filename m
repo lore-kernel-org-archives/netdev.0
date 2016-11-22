@@ -1,100 +1,151 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: mlx5 "syndrome" errors in kernel log
-Date: Tue, 22 Nov 2016 10:59:44 +0100
-Message-ID: <20161122105944.0c64e77b@redhat.com>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <uwe@kleine-koenig.org>
+Subject: [PATCH v2] net/phy: add trace events for mdio accesses
+Date: Tue, 22 Nov 2016 11:01:27 +0100
+Message-ID: <20161122100127.5940-1-uwe@kleine-koenig.org>
+References: <20161114110335.27862-1-uwe@kleine-koenig.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46696 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755650AbcKVJ7w (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Nov 2016 04:59:52 -0500
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:35605 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755819AbcKVKBh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 05:01:37 -0500
+In-Reply-To: <20161114110335.27862-1-uwe@kleine-koenig.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Make it possible to generate trace events for mdio read and write accesses.
 
-Hi Saeed,
+Signed-off-by: Uwe Kleine-König <uwe@kleine-koenig.org>
+---
+Changes since (implicit) v1:
 
-I'm seeing below dmesg errors, after pulling net-next at commit
-e796f49d826aad, before I was not seeing these errors, where my tree was
-based on top of commit 319b0534b95.
+ - make use of TRACE_EVENT_CONDITION
 
-mlx5_core 0000:02:00.1: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
-mlx5_core 0000:02:00.1: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
-mlx5_core 0000:02:00.0: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
-mlx5_core 0000:02:00.0: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
-mlx5_core 0000:02:00.1: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
-mlx5_core 0000:02:00.1: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
-mlx5_core 0000:02:00.0: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
-mlx5_core 0000:02:00.0: mlx5_cmd_check:698:(pid 8788): ACCESS_REG(0x805) op_mod(0x1) failed, status bad parameter(0x3), syndrome (0x6c4d48)
+Alternatively to this patch the condition could be
 
++	TP_CONDITION(err == 0),
 
-Listing my firmware version:
+but then we'd need in the read callbacks:
 
- $ ethtool -i mlx5p2
- driver: mlx5_core
- version: 3.0-1 (January 2015)
- firmware-version: 12.12.1240
- bus-info: 0000:02:00.1
- supports-statistics: yes
- supports-test: no
- supports-eeprom-access: no
- supports-register-dump: no
- supports-priv-flags: yes
++	trace_mdio_access(bus, 1, addr, regnum, retval, retval < 0 ? retval : 0);
 
+or at least
+
++	trace_mdio_access(bus, 1, addr, regnum, retval, retval < 0);
+
+which both looks more ugly IMHO.
+
+Best regards
+Uwe
+
+ drivers/net/phy/mdio_bus.c  | 11 +++++++++++
+ include/trace/events/mdio.h | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 53 insertions(+)
+ create mode 100644 include/trace/events/mdio.h
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 09deef4bed09..653d076eafe5 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -38,6 +38,9 @@
+ 
+ #include <asm/irq.h>
+ 
++#define CREATE_TRACE_POINTS
++#include <trace/events/mdio.h>
++
+ int mdiobus_register_device(struct mdio_device *mdiodev)
+ {
+ 	if (mdiodev->bus->mdio_map[mdiodev->addr])
+@@ -461,6 +464,8 @@ int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum)
+ 	retval = bus->read(bus, addr, regnum);
+ 	mutex_unlock(&bus->mdio_lock);
+ 
++	trace_mdio_access(bus, 1, addr, regnum, retval, retval);
++
+ 	return retval;
+ }
+ EXPORT_SYMBOL(mdiobus_read_nested);
+@@ -485,6 +490,8 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
+ 	retval = bus->read(bus, addr, regnum);
+ 	mutex_unlock(&bus->mdio_lock);
+ 
++	trace_mdio_access(bus, 1, addr, regnum, retval, retval);
++
+ 	return retval;
+ }
+ EXPORT_SYMBOL(mdiobus_read);
+@@ -513,6 +520,8 @@ int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val)
+ 	err = bus->write(bus, addr, regnum, val);
+ 	mutex_unlock(&bus->mdio_lock);
+ 
++	trace_mdio_access(bus, 0, addr, regnum, val, err);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(mdiobus_write_nested);
+@@ -538,6 +547,8 @@ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
+ 	err = bus->write(bus, addr, regnum, val);
+ 	mutex_unlock(&bus->mdio_lock);
+ 
++	trace_mdio_access(bus, 0, addr, regnum, val, err);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(mdiobus_write);
+diff --git a/include/trace/events/mdio.h b/include/trace/events/mdio.h
+new file mode 100644
+index 000000000000..468e2d095d19
+--- /dev/null
++++ b/include/trace/events/mdio.h
+@@ -0,0 +1,42 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM mdio
++
++#if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_MDIO_H
++
++#include <linux/tracepoint.h>
++
++TRACE_EVENT_CONDITION(mdio_access,
++
++	TP_PROTO(struct mii_bus *bus, int read,
++		 unsigned addr, unsigned regnum, u16 val, int err),
++
++	TP_ARGS(bus, read, addr, regnum, val, err),
++
++	TP_CONDITION(err >= 0),
++
++	TP_STRUCT__entry(
++		__array(char, busid, MII_BUS_ID_SIZE)
++		__field(int, read)
++		__field(unsigned, addr)
++		__field(unsigned, regnum)
++		__field(u16, val)
++	),
++
++	TP_fast_assign(
++		strncpy(__entry->busid, bus->id, MII_BUS_ID_SIZE);
++		__entry->read = read;
++		__entry->addr = addr;
++		__entry->regnum = regnum;
++		__entry->val = val;
++	),
++
++	TP_printk("%s %-5s phy:0x%02x reg:0x%02x val:0x%04hx",
++		  __entry->busid, __entry->read ? "read" : "write",
++		  __entry->addr, __entry->regnum, __entry->val)
++);
++
++#endif /* if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ) */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
-git diff --stat 319b0534b95..e796f49d826aad drivers/net/ethernet/mellanox/mlx5/
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c        | 145 ++++++++++++++++++++++++++++++++++++++++++----------------------------------------------
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c |  40 ++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c    |  61 +++++++++++++++++++++++++++++--------
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h   |  49 +++++++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c         |  12 ++++++++
- drivers/net/ethernet/mellanox/mlx5/core/main.c       |  37 +++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h  |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/port.c       |  57 +++++++++++++++++++++++++++++++++++
- 8 files changed, 312 insertions(+), 90 deletions(-)
-
-
-$ git shortlog  319b0534b95..e796f49d826aad drivers/net/ethernet/mellanox/mlx5/
-Daniel Borkmann (3):
-      bpf, mlx5: fix mlx5e_create_rq taking reference on prog
-      bpf, mlx5: fix various refcount issues in mlx5e_xdp_set
-      bpf, mlx5: drop priv->xdp_prog reference on netdev cleanup
-
-Eric Dumazet (1):
-      net/mlx5e: remove napi_hash_del() calls
-
-Gal Pressman (1):
-      net/mlx5e: Expose PCIe statistics to ethtool
-
-Huy Nguyen (3):
-      net/mlx5: Add handling for port module event
-      net/mlx5e: Add port module event counters to ethtool stats
-      net/mlx5: Set driver version into firmware
-
-Mohamad Haj Yahia (1):
-      net/mlx5: Make the command interface cache more flexible
-
-
-
-$ git log --pretty=oneline   319b0534b95..e796f49d826aad drivers/net/ethernet/mellanox/mlx5/
-a055c19be98bc065a4478663ba7f6833693b8958 bpf, mlx5: drop priv->xdp_prog reference on netdev cleanup
-c54c06290428554bc0e26d58f21a7865cbe995af bpf, mlx5: fix various refcount issues in mlx5e_xdp_set
-97bc402db7821259f6a722cb38e060aa9b35b6e8 bpf, mlx5: fix mlx5e_create_rq taking reference on prog
-9c7262399ba12825f3ca4b00a76d8d5e77c720f5 net/mlx5e: Expose PCIe statistics to ethtool
-012e50e109fd27ff989492ad74c50ca7ab21e6a1 net/mlx5: Set driver version into firmware
-bedb7c909c1911270fcb084230245df4a00bd881 net/mlx5e: Add port module event counters to ethtool stats
-d4eb4cd78b0774c7061db56844ed2ea7790cc77c net/mlx5: Add handling for port module event
-0ac3ea70897fb9f84b620aeda074ecccf481629d net/mlx5: Make the command interface cache more flexible
-d30d9ccbfac7cf9a12a088d57aaf0891732e2bca net/mlx5e: remove napi_hash_del() calls
+2.10.2
