@@ -1,56 +1,49 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net 1/1] net sched filters: pass netlink message flags in
- event notification
-Date: Mon, 21 Nov 2016 21:23:15 -0800
-Message-ID: <CAM_iQpXPsDAfgGsKB7V_=+LnwnuqzgvY7amcPo7hs3VKGrviiA@mail.gmail.com>
-References: <1479334570-25159-1-git-send-email-mrv@mojatatu.com> <CAM_iQpU_ivg4eBV=88DH6qEcomrq0+G5M=c9rafLszf09PAP_w@mail.gmail.com>
+Subject: Re: [PATCH net 1/1] net: l2tp: Treat NET_XMIT_CN as success in l2tp_eth_dev_xmit
+Date: Mon, 21 Nov 2016 21:29:32 -0800
+Message-ID: <CAM_iQpX-z8Eja4rPg5dzAXLXd6v3nwMMPev-gk+wM9XLBNYK1A@mail.gmail.com>
+References: <1479689781-2125-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>, javier@osg.samsung.com,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Roman Mashak <mrv@mojatatu.com>
+        Feng Gao <gfree.wind@gmail.com>
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:35215 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750804AbcKVFXg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 00:23:36 -0500
-Received: by mail-it0-f68.google.com with SMTP id b123so535470itb.2
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 21:23:36 -0800 (PST)
-In-Reply-To: <CAM_iQpU_ivg4eBV=88DH6qEcomrq0+G5M=c9rafLszf09PAP_w@mail.gmail.com>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36424 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755059AbcKVF3x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 00:29:53 -0500
+Received: by mail-it0-f67.google.com with SMTP id n68so537833itn.3
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 21:29:53 -0800 (PST)
+In-Reply-To: <1479689781-2125-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 17, 2016 at 1:02 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Nov 16, 2016 at 2:16 PM, Roman Mashak <mrv@mojatatu.com> wrote:
->> Userland client should be able to read an event, and reflect it back to
->> the kernel, therefore it needs to extract complete set of netlink flags.
->>
->> For example, this will allow "tc monitor" to distinguish Add and Replace
->> operations.
->>
->> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
->> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->> ---
->>  net/sched/cls_api.c | 5 +++--
->>  1 file changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
->> index 2b2a797..8e93d4a 100644
->> --- a/net/sched/cls_api.c
->> +++ b/net/sched/cls_api.c
->> @@ -112,7 +112,7 @@ static void tfilter_notify_chain(struct net *net, struct sk_buff *oskb,
->>
->>         for (it_chain = chain; (tp = rtnl_dereference(*it_chain)) != NULL;
->>              it_chain = &tp->next)
->> -               tfilter_notify(net, oskb, n, tp, 0, event, false);
->> +               tfilter_notify(net, oskb, n, tp, n->nlmsg_flags, event, false);
+On Sun, Nov 20, 2016 at 4:56 PM,  <fgao@ikuai8.com> wrote:
+> From: Gao Feng <gfree.wind@gmail.com>
 >
+> The tc could return NET_XMIT_CN as one congestion notification, but
+> it does not mean the packe is lost. Other modules like ipvlan,
+> macvlan, and others treat NET_XMIT_CN as success too.
+> So l2tp_eth_dev_xmit should add the NET_XMIT_CN check.
 >
-> I must miss something, why does it make sense to pass n->nlmsg_flags
-> as 'fh' to tfilter_notify()??
+> Signed-off-by: Gao Feng <gfree.wind@gmail.com>
+> ---
+>  net/l2tp/l2tp_eth.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+> index 965f7e3..3dc97b4 100644
+> --- a/net/l2tp/l2tp_eth.c
+> +++ b/net/l2tp/l2tp_eth.c
+> @@ -97,7 +97,7 @@ static int l2tp_eth_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+>         unsigned int len = skb->len;
+>         int ret = l2tp_xmit_skb(session, skb, session->hdr_len);
+>
+> -       if (likely(ret == NET_XMIT_SUCCESS)) {
+> +       if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
 
-Ping... Any response?
-
-It still doesn't look correct to me. I will send a fix unless someone could
-explain this.
+How could l2tp_xmit_skb() possibly return NET_XMIT_CN?
+Note It ignores the return value of l2tp_xmit_core().
