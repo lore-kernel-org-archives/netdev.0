@@ -1,84 +1,88 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH iproute2 2/2] tc/act_tunnel: Introduce ip tunnel action
-Date: Tue, 22 Nov 2016 09:50:34 +0200
-Message-ID: <20161122075034.GB12067@office.localdomain>
-References: <20161121102056.13468-1-amir@vadai.me>
- <20161121102056.13468-3-amir@vadai.me>
- <9B0331B6EBBD0E4684FBFAEDA55776F93D345ED8@HASMSX110.ger.corp.intel.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v2 1/5] net: virtio dynamically disable/enable
+ LRO
+Date: Tue, 22 Nov 2016 00:16:26 -0800
+Message-ID: <5833FEDA.90701@gmail.com>
+References: <20161120024710.19187.31037.stgit@john-Precision-Tower-5810>
+ <20161120024934.19187.8294.stgit@john-Precision-Tower-5810>
+ <20161122012202-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: "Rosen, Rami" <rami.rosen@intel.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, kubakici@wp.pl,
+        shm@cumulusnetworks.com, davem@davemloft.net,
+        alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        bblanco@plumgrid.com, john.r.fastabend@intel.com,
+        brouer@redhat.com, tgraf@suug.ch
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36425 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752869AbcKVHuh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 02:50:37 -0500
-Received: by mail-wm0-f66.google.com with SMTP id m203so1726939wma.3
-        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 23:50:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F93D345ED8@HASMSX110.ger.corp.intel.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33034 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755267AbcKVIQt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 03:16:49 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 144so941072pfv.0
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 00:16:48 -0800 (PST)
+In-Reply-To: <20161122012202-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 21, 2016 at 11:50:03PM +0000, Rosen, Rami wrote:
-> Hi, Amir,
+On 16-11-21 03:23 PM, Michael S. Tsirkin wrote:
+> On Sat, Nov 19, 2016 at 06:49:34PM -0800, John Fastabend wrote:
+>> This adds support for dynamically setting the LRO feature flag. The
+>> message to control guest features in the backend uses the
+>> CTRL_GUEST_OFFLOADS msg type.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>  drivers/net/virtio_net.c |   45 ++++++++++++++++++++++++++++++++++++++++++++-
+>>  1 file changed, 44 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index ca5239a..8189e5b 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -1419,6 +1419,41 @@ static void virtnet_init_settings(struct net_device *dev)
+>>  	.set_settings = virtnet_set_settings,
+>>  };
+>>  
+>> +static int virtnet_set_features(struct net_device *netdev,
+>> +				netdev_features_t features)
+>> +{
+>> +	struct virtnet_info *vi = netdev_priv(netdev);
+>> +	struct virtio_device *vdev = vi->vdev;
+>> +	struct scatterlist sg;
+>> +	u64 offloads = 0;
+>> +
+>> +	if (features & NETIF_F_LRO)
+>> +		offloads |= (1 << VIRTIO_NET_F_GUEST_TSO4) |
+>> +			    (1 << VIRTIO_NET_F_GUEST_TSO6);
+>> +
+>> +	if (features & NETIF_F_RXCSUM)
+>> +		offloads |= (1 << VIRTIO_NET_F_GUEST_CSUM);
+>> +
+>> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS)) {
+>> +		sg_init_one(&sg, &offloads, sizeof(uint64_t));
+>> +		if (!virtnet_send_command(vi,
+>> +					  VIRTIO_NET_CTRL_GUEST_OFFLOADS,
+>> +					  VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET,
+>> +					  &sg)) {
+>> +			dev_warn(&netdev->dev,
+>> +				 "Failed to set guest offloads by virtnet command.\n");
+>> +			return -EINVAL;
+>> +		}
+>> +	} else if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS) &&
+>> +		   !virtio_has_feature(vdev, VIRTIO_F_VERSION_1)) {
+>> +		dev_warn(&netdev->dev,
+>> +			 "No support for setting offloads pre version_1.\n");
+>> +		return -EINVAL;
+>> +	}
 > 
-> Following are three minor comments:
+> I don't get this last warning. VIRTIO_NET_F_CTRL_GUEST_OFFLOADS
+> was exposes by legacy devices, I don't think it's related to
+> VIRTIO_F_VERSION_1.
 > 
-> Seems that TCA_TUNNEL_KEY_PAD used anywhere:
-I assume you ment that it is _NOT_ used anywhere:
-This attribute type is used in the kernel side only - for padding 64bit
-attributes. The userspace enum should match the kernel include/uapi one.
 
->  
-> +	TCA_TUNNEL_KEY_PAD,
-> +	__TCA_TUNNEL_KEY_MAX,
-> +};
-> 
-> 
-> Should be "and destination IP 11.11.0.2" instead of  "and destination IP 11.11.0.1":
-ack
+OK looks like I can just drop the else if branch here.
 
-> 
-> +Tunnel ID (for example VNI in VXLAN tunnel) .TP .B src_ip Outer header 
-> +source IP address (IPv4 or IPv6) .TP .B dst_ip Outer header destination 
-> +IP address (IPv4 or IPv6) .RE .SH EXAMPLES The following example 
-> +encapsulates incoming ICMP packets on eth0 into a vxlan tunnel by 
-> +setting metadata to VNI 11, source IP 11.11.0.1 and destination IP
-> +11.11.0.1 by forwarding the skb with the metadata to device vxlan0, 
-> +which will prepare the VXLAN headers:
-> +
-> +.RS
-> +.EX
-> +#tc qdisc add dev eth0 handle ffff: ingress #tc filter add dev eth0 
-> +protocol ip parent ffff: \\
-> +  flower \\
-> +    ip_proto icmp \\
-> +  action tunnel_key set \\
-> +    src_ip 11.11.0.1 \\
-> +    dst_ip 11.11.0.2 \\
-> +    id 11 \\
-> 
-> 
-> Typo: should be "ip tunnel" instead of "ip tunel":
-ack
-
-> 
-> + * m_tunnel_key.c	ip tunel manipulation module
-> + *
-> + *              This program is free software; you can redistribute it and/or
-> 
-> Keep on the good work!
-Thanks for reviewing,
-Amir
-
-> 
-> Regards,
-> Rami Rosen
-> Intel Corporation
+Thanks,
+John
