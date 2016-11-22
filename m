@@ -1,75 +1,60 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: Re: [PATCH] net: ipv6: avoid errors due to per-cpu atomic alloc
-Date: Tue, 22 Nov 2016 13:17:44 +0000
-Message-ID: <05518e10-0da0-ab83-8917-02853e34ac3e@brocade.com>
-References: <1479810840-19122-1-git-send-email-mmanning@brocade.com>
- <718b6520-686e-cab3-1c8d-9e1de4cb0dbd@stressinduktion.org>
+From: Daniel.Hopf@continental-corporation.com
+Subject: [PATCH] iproute2: Nr. of packets and octets for macsec tx stats were
+ swapped.
+Date: Tue, 22 Nov 2016 14:24:40 +0100
+Message-ID: <OFDC737720.EA272892-ONC1258073.00458CA2-C1258073.0049AC0D@continental-corporation.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:39020 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753253AbcKVNSi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 08:18:38 -0500
-In-Reply-To: <718b6520-686e-cab3-1c8d-9e1de4cb0dbd@stressinduktion.org>
+Received: from mailout01.de1.retarus.com ([94.199.92.161]:44652 "EHLO
+        mailout01.de1.retarus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755731AbcKVNcG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 08:32:06 -0500
+Received: from kdin02.de1.retarus.com (unknown [10.241.12.12])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by mailout01.de1.retarus.com (Postfix) with ESMTPS id 3tNR5n4K2Gz4ywtM
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 14:24:45 +0100 (CET)
+Received: from FRHB104.fr.ge.conti.de (unknown [10.220.1.11])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by kdin02.de1.retarus.com (Postfix) with ESMTPS id 3tNR5n2Fw5z374Kb
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 14:24:45 +0100 (CET)
+Received: from frhb104.fr.ge.conti.de (FRHB104.fr.ge.conti.de [172.29.14.42])
+        by FRHB104.fr.ge.conti.de (8.14.4/8.14.4) with ESMTP id uAMDOic5065226
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 14:24:45 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/22/2016 12:18 PM, Hannes Frederic Sowa wrote:
-> On 22.11.2016 11:34, Mike Manning wrote:
->> Bursts of failures may occur when adding IPv6 routes via Netlink to the
->> kernel when testing under scale (e.g. 500 routes lost out of 1M). The
->> reason is that percpu.c:pcpu_balance_workfn() is not guaranteed to have
->> extended the area map in time for the atomic allocation using percpu.c:
->> pcpu_alloc() to succeed. This results in route additions failing with
->> an -ENOMEM error.
->>
->> While the sender of the Netlink msg to add this route could check for
->> an ACK and retransmit in the case of an -ENOMEM error, the latter
->> should not occur in the first place if there is plenty of memory. The
->> solution is to use non-atomic alloc for rt6_info instead. While the
->> client may now be blocked for longer depending on the state of the
->> chunk being added to, this work has to be incurred at some point.
->>
->> The alternative solution would be to provide configurable parameters
->> e.g. via sysctl in percpu.c for default map size, low/high empty pages
->> and map margins. For this solution, the map margin sizes need to be
->> stored per chunk, as large margins cannot be used if the dynamic early
->> slots map size is in use. This is not a preferred solution though, as
->> it requires tuning of these parameters to provide sufficient margins to
->> avoid -ENOMEM errors depending on system requirements.
->>
->> Signed-off-by: Mike Manning <mmanning@brocade.com>
->> ---
->>  net/ipv6/route.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index 1b57e11..0e9bb76 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -347,7 +347,7 @@ struct rt6_info *ip6_dst_alloc(struct net *net,
->>  	struct rt6_info *rt = __ip6_dst_alloc(net, dev, flags);
->>  
->>  	if (rt) {
->> -		rt->rt6i_pcpu = alloc_percpu_gfp(struct rt6_info *, GFP_ATOMIC);
->> +		rt->rt6i_pcpu = alloc_percpu_gfp(struct rt6_info *, GFP_KERNEL);
->>  		if (rt->rt6i_pcpu) {
->>  			int cpu;
-> 
-> Nak, this doesn't work, as ip6_dst_alloc must be callable from
-> non-blocking code paths unfortunately.
-> 
-> 
+Signed-off-by: Daniel Hopf <daniel.hopf@continental-corporation.com>
+---
+ ip/ipmacsec.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Thanks for the prompt reply.
+diff --git a/ip/ipmacsec.c b/ip/ipmacsec.c
+index c9252bb..aa89a00 100644
+--- a/ip/ipmacsec.c
++++ b/ip/ipmacsec.c
+@@ -634,10 +634,10 @@ static void print_one_stat(const char **names, 
+struct rtattr **attr, int idx,
+ }
 
-Do you consider the alternative of providing configurable parameters for per-cpu
-alloc as viable, or is there a better way of dealing with this?
+ static const char *txsc_stats_names[NUM_MACSEC_TXSC_STATS_ATTR] = {
+-       [MACSEC_TXSC_STATS_ATTR_OUT_PKTS_PROTECTED] = 
+"OutOctetsProtected",
+-       [MACSEC_TXSC_STATS_ATTR_OUT_PKTS_ENCRYPTED] = 
+"OutOctetsEncrypted",
+-       [MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_PROTECTED] = 
+"OutPktsProtected",
+-       [MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_ENCRYPTED] = 
+"OutPktsEncrypted",
++       [MACSEC_TXSC_STATS_ATTR_OUT_PKTS_PROTECTED] = "OutPktsProtected",
++       [MACSEC_TXSC_STATS_ATTR_OUT_PKTS_ENCRYPTED] = "OutPktsEncrypted",
++       [MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_PROTECTED] = 
+"OutOctetsProtected",
++       [MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_ENCRYPTED] = 
+"OutOctetsEncrypted",
+ };
 
-While I have tested such param changes under scale as avoiding the -ENOMEM errors, it
-would be good to get confirmation that this approach is acceptable prior to coding the
-sysctl handling for these.
+ static void print_txsc_stats(const char *prefix, struct rtattr *attr)
