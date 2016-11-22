@@ -1,56 +1,39 @@
-From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
-Subject: [PATCH] mac80211: Remove unused 'struct rate_control_ref' variable
-Date: Mon, 21 Nov 2016 22:54:16 -0800
-Message-ID: <20161122065416.GA3565@google.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH] bnxt_en: Fix a VXLAN vs GENEVE issue
+Date: Mon, 21 Nov 2016 23:15:30 -0800
+Message-ID: <CACKFLim17ZxiSrGe+TPR2pXDFrcNvZ=h-_xEbsJULiuVoOybbg@mail.gmail.com>
+References: <20161122051440.9748-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, Maxim Altshul <maxim.altshul@ti.com>,
-        Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Prashant Sreedharan <prashant.sreedharan@broadcom.com>,
+        Netdev <netdev@vger.kernel.org>, kernel-janitors@vger.kernel.org
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34697 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752529AbcKVGyX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 01:54:23 -0500
-Content-Disposition: inline
+Received: from mail-ua0-f181.google.com ([209.85.217.181]:36560 "EHLO
+        mail-ua0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751736AbcKVHPb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 02:15:31 -0500
+Received: by mail-ua0-f181.google.com with SMTP id b35so7425827uaa.3
+        for <netdev@vger.kernel.org>; Mon, 21 Nov 2016 23:15:31 -0800 (PST)
+In-Reply-To: <20161122051440.9748-1-christophe.jaillet@wanadoo.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 3b17fbf87d5d introduced sta_get_expected_throughput()
-leaving variable 'struct rate_control_ref* ref' set but unused.
-Compiling with W=1 gives the following warning, fix it.
+On Mon, Nov 21, 2016 at 9:14 PM, Christophe JAILLET
+<christophe.jaillet@wanadoo.fr> wrote:
+> Knowing that:
+>   #define TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_VXLAN        (0x1UL << 0)
+>   #define TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_GENEVE       (0x5UL << 0)
+> and that 'bnxt_hwrm_tunnel_dst_port_alloc()' is only called with one of
+> these 2 constants, the TUNNEL_DST_PORT_ALLOC_REQ_TUNNEL_TYPE_GENEVE can not
+> trigger.
+>
+> Replace the bit test that overlap by an equality test, just as in
+> 'bnxt_hwrm_tunnel_dst_port_free()' above.
+>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-net/mac80211/sta_info.c: In function ‘sta_set_sinfo’:
-net/mac80211/sta_info.c:2052:27: warning: variable ‘ref’ set but not used [-Wunused-but-set-variable]
+Thanks.
 
-Fixes: 3b17fbf87d5d ("mac80211: mesh: Add support for HW RC implementation")
-Cc: Johannes Berg <johannes.berg@intel.com>
-Cc: Maxim Altshul <maxim.altshul@ti.com>
-Signed-off-by: Kirtika Ruchandani <kirtika@google.com>
----
- net/mac80211/sta_info.c | 4 ----
- 1 file changed, 4 deletions(-)
-
-diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
-index 1711bae..4ab75a9 100644
---- a/net/mac80211/sta_info.c
-+++ b/net/mac80211/sta_info.c
-@@ -2049,16 +2049,12 @@ void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
- {
- 	struct ieee80211_sub_if_data *sdata = sta->sdata;
- 	struct ieee80211_local *local = sdata->local;
--	struct rate_control_ref *ref = NULL;
- 	u32 thr = 0;
- 	int i, ac, cpu;
- 	struct ieee80211_sta_rx_stats *last_rxstats;
-
- 	last_rxstats = sta_get_last_rx_stats(sta);
-
--	if (test_sta_flag(sta, WLAN_STA_RATE_CONTROL))
--		ref = local->rate_ctrl;
--
- 	sinfo->generation = sdata->local->sta_generation;
-
- 	/* do before driver, so beacon filtering drivers have a
+Acked-by: Michael Chan <michael.chan@broadcom.com>
