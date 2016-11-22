@@ -1,58 +1,171 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: net/icmp: null-ptr-deref in icmp6_send
-Date: Tue, 22 Nov 2016 14:14:33 -0500
-Message-ID: <59A60049-B985-43E8-84C7-B413A544AFF4@cumulusnetworks.com>
-References: <CAAeHK+wRE7y_0d7djWnq9S1O_w-1wQRq1g7VsAmzEAE+JY_v2Q@mail.gmail.com> <CAM_iQpUQtt2CGrYF4H2DJv_NRsmnBqkXj5rJVXD8osJBFz_qYw@mail.gmail.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-        charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpUQtt2CGrYF4H2DJv_NRsmnBqkXj5rJVXD8osJBFz_qYw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: enhance tcp_collapse_retrans() with
+ skb_shift()
+Date: Tue, 22 Nov 2016 10:57:33 -0800
+Message-ID: <1479841053.8455.441.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34286 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755942AbcKVTQN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 14:16:13 -0500
+Received: by mail-pg0-f65.google.com with SMTP id e9so2841875pgc.1
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 11:16:13 -0800 (PST)
+In-Reply-To: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Tue, 2016-11-15 at 12:51 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> In commit 2331ccc5b323 ("tcp: enhance tcp collapsing"),
+> we made a first step allowing copying right skb to left skb head.
+> 
+> Since all skbs in socket write queue are headless (but possibly the very
+> first one), this strategy often does not work.
+> 
+> This patch extends tcp_collapse_retrans() to perform frag shifting,
+> thanks to skb_shift() helper.
+> 
+> This helper needs to not BUG on non headless skbs, as callers are ok
+> with that.
+> 
+> Tested:
+> 
+> Following packetdrill test now passes :
+> 
+> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+>    +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+>    +0 bind(3, ..., ...) = 0
+>    +0 listen(3, 1) = 0
+> 
+>    +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
+>    +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
+> +.100 < . 1:1(0) ack 1 win 257
+>    +0 accept(3, ..., ...) = 4
+> 
+>    +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+>    +0 write(4, ..., 200) = 200
+>    +0 > P. 1:201(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 201:401(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 401:601(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 601:801(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 801:1001(200) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1001:1101(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1101:1201(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1201:1301(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1301:1401(100) ack 1
+> 
+> +.099 < . 1:1(0) ack 201 win 257
+> +.001 < . 1:1(0) ack 201 win 257 <nop,nop,sack 1001:1401>
+>    +0 > P. 201:1001(800) ack 1
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> ---
+>  net/core/skbuff.c     |    4 +++-
+>  net/ipv4/tcp_output.c |   22 +++++++++++-----------
+>  2 files changed, 14 insertions(+), 12 deletions(-)
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 0b2a6e94af2de73ed638634c47a0fb71e2cbc1cb..a9cb81a10c4ba895587727aa4cf098e9a38424ea 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2656,7 +2656,9 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
+>  	struct skb_frag_struct *fragfrom, *fragto;
+>  
+>  	BUG_ON(shiftlen > skb->len);
+> -	BUG_ON(skb_headlen(skb));	/* Would corrupt stream */
+> +
+> +	if (skb_headlen(skb))
+> +		return 0;
+>  
+>  	todo = shiftlen;
+>  	from = 0;
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index f57b5aa51b59cf0a58975fe34a7dcdb886ea8c50..19105b46a30436ebb85fe97ee43089e77aa028bb 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2514,7 +2514,7 @@ void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+>  }
+>  
+>  /* Collapses two adjacent SKB's during retransmission. */
+> -static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+> +static bool tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>  {
+>  	struct tcp_sock *tp = tcp_sk(sk);
+>  	struct sk_buff *next_skb = tcp_write_queue_next(sk, skb);
+> @@ -2525,14 +2525,17 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>  
+>  	BUG_ON(tcp_skb_pcount(skb) != 1 || tcp_skb_pcount(next_skb) != 1);
+>  
+> +	if (next_skb_size) {
+> +		if (next_skb_size <= skb_availroom(skb))
+> +			skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
+> +				      next_skb_size);
+> +		else if (!skb_shift(skb, next_skb, next_skb_size))
+> +			return false;
+> +	}
+>  	tcp_highest_sack_combine(sk, next_skb, skb);
+>  
+>  	tcp_unlink_write_queue(next_skb, sk);
+>  
+> -	if (next_skb_size)
+> -		skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
+> -			      next_skb_size);
+> -
+>  	if (next_skb->ip_summed == CHECKSUM_PARTIAL)
+>  		skb->ip_summed = CHECKSUM_PARTIAL;
+>  
+> @@ -2561,6 +2564,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>  	tcp_skb_collapse_tstamp(skb, next_skb);
+>  
+>  	sk_wmem_free_skb(sk, next_skb);
+> +	return true;
+>  }
+>  
+>  /* Check if coalescing SKBs is legal. */
+> @@ -2610,16 +2614,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
+>  
+>  		if (space < 0)
+>  			break;
+> -		/* Punt if not enough space exists in the first SKB for
+> -		 * the data in the second
+> -		 */
+> -		if (skb->len > skb_availroom(to))
+> -			break;
+>  
+>  		if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
+>  			break;
+>  
+> -		tcp_collapse_retrans(sk, to);
+> +		if (!tcp_collapse_retrans(sk, to))
+> +			break;
+>  	}
+>  }
+>  
 
 
+David, patch is marked 'Superseded' in
+https://patchwork.ozlabs.org/patch/695264/
 
-Sent from my iPhone
+Not sure what this means exactly ?
+Did I miss a mail/feedback/something ?
 
-> On Nov 22, 2016, at 1:11 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->=20
->> On Tue, Nov 22, 2016 at 2:23 AM, Andrey Konovalov <andreyknvl@google.com>=
- wrote:
->> Hi,
->>=20
->> I've got the following error report while fuzzing the kernel with syzkall=
-er.
->>=20
->> It seems that skb_dst(skb) may end up being NULL.
->>=20
->> As far as I can see the bug was introduced in commit 5d41ce29e ("net:
->> icmp6_send should use dst dev to determine L3 domain").
->> ICMP v4 probaly has similar issue due to 9d1a6c4ea ("net:
->> icmp_route_lookup should use rt dev to determine L3 domain").
->=20
->=20
-> ipv6_parse_hopopts() is called before NF_INET_PRE_ROUTING,
-> so the skb_dst could be NULL.
->=20
-> I have no idea what commit 5d41ce29e tried to fix, but we already
-> use skb->dev a few lines before l3mdev_master_ifindex(), so I don't
-> understand why skb->dev could be NULL, maybe just for vrf dev?
-
-On PTO this week and currently at the beach. Will take a look tonight. Thank=
-s for the report.=20=
+Thanks !
