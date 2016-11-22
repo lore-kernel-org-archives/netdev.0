@@ -1,51 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: mvneta: Only disable mvneta_bm for
- 64-bits
-Date: Tue, 22 Nov 2016 11:12:23 -0500 (EST)
-Message-ID: <20161122.111223.676925674747527292.davem@davemloft.net>
-References: <20161122160037.14400-1-gregory.clement@free-electrons.com>
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: [PATCH] iproute2: Nr. of packets and octets for macsec tx stats
+ were swapped.
+Date: Tue, 22 Nov 2016 18:20:36 +0200
+Message-ID: <CAKoUArmoUGWZms-PzMKivFiPU5cZK7D7Vp9CKhBbn3qhCQE4aw@mail.gmail.com>
+References: <OFDC737720.EA272892-ONC1258073.00458CA2-C1258073.0049AC0D@continental-corporation.com>
+ <20161122135622.GA23112@bistromath.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com,
-        linux-arm-kernel@lists.infradead.org
-To: gregory.clement@free-electrons.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel.Hopf@continental-corporation.com,
+        Netdev <netdev@vger.kernel.org>
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54884 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755309AbcKVQSC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 11:18:02 -0500
-In-Reply-To: <20161122160037.14400-1-gregory.clement@free-electrons.com>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:33587 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753804AbcKVQUh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 11:20:37 -0500
+Received: by mail-qk0-f180.google.com with SMTP id x190so31779620qkb.0
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 08:20:37 -0800 (PST)
+In-Reply-To: <20161122135622.GA23112@bistromath.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogR3JlZ29yeSBDTEVNRU5UIDxncmVnb3J5LmNsZW1lbnRAZnJlZS1lbGVjdHJvbnMuY29t
-Pg0KRGF0ZTogVHVlLCAyMiBOb3YgMjAxNiAxNzowMDozNyArMDEwMA0KDQo+IEFjdHVhbGx5IG9u
-bHkgdGhlIG12bmV0YV9ibSBzdXBwb3J0IGlzIG5vdCA2NC1iaXRzIGNvbXBhdGlibGUuDQo+IFRo
-ZSBtdm5ldGEgY29kZSBpdHNlbGYgY2FuIHJ1biBvbiA2NC1iaXRzIGFyY2hpdGVjdHVyZS4NCj4g
-DQo+IFNpZ25lZC1vZmYtYnk6IEdyZWdvcnkgQ0xFTUVOVCA8Z3JlZ29yeS5jbGVtZW50QGZyZWUt
-ZWxlY3Ryb25zLmNvbT4NCg0KTm8gaXQgY2Fubm90LCBpdCBlbWl0cyB3YXJuaW5ncyBiZWNhdXNl
-IGl0IGNhc3RzIHBvaW50ZXJzIHRvIGFuZA0KZnJvbSAzMi1iaXQgaW50ZWdlcnMuDQoNCkknbSBu
-b3QgYXBwbHlpbmcgdGhpcy4NCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm5ldGEu
-YzogSW4gZnVuY3Rpb24goW12bmV0YV9yeF9yZWZpbGyiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQv
-bWFydmVsbC9tdm5ldGEuYzoxODAyOjQyOiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBp
-bnRlZ2VyIG9mIGRpZmZlcmVudCBzaXplIFstV3BvaW50ZXItdG8taW50LWNhc3RdDQogIG12bmV0
-YV9yeF9kZXNjX2ZpbGwocnhfZGVzYywgcGh5c19hZGRyLCAodTMyKWRhdGEpOw0KICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXg0KZHJpdmVycy9uZXQvZXRoZXJuZXQv
-bWFydmVsbC9tdm5ldGEuYzogSW4gZnVuY3Rpb24goW12bmV0YV9yeHFfZHJvcF9wa3RzojoNCmRy
-aXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmM6MTg2NDoxNjogd2FybmluZzogY2Fz
-dCB0byBwb2ludGVyIGZyb20gaW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZSBbLVdpbnQtdG8tcG9p
-bnRlci1jYXN0XQ0KICAgdm9pZCAqZGF0YSA9ICh2b2lkICopcnhfZGVzYy0+YnVmX2Nvb2tpZTsN
-CiAgICAgICAgICAgICAgICBeDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5j
-OiBJbiBmdW5jdGlvbiChbXZuZXRhX3J4X3N3Ym2iOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFy
-dmVsbC9tdm5ldGEuYzoxOTAyOjEwOiB3YXJuaW5nOiBjYXN0IHRvIHBvaW50ZXIgZnJvbSBpbnRl
-Z2VyIG9mIGRpZmZlcmVudCBzaXplIFstV2ludC10by1wb2ludGVyLWNhc3RdDQogICBkYXRhID0g
-KHVuc2lnbmVkIGNoYXIgKilyeF9kZXNjLT5idWZfY29va2llOw0KICAgICAgICAgIF4NCmRyaXZl
-cnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmM6IEluIGZ1bmN0aW9uIKFtdm5ldGFfcnhf
-aHdibaI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bmV0YS5jOjIwMjM6MTA6IHdh
-cm5pbmc6IGNhc3QgdG8gcG9pbnRlciBmcm9tIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUgWy1X
-aW50LXRvLXBvaW50ZXItY2FzdF0NCiAgIGRhdGEgPSAodW5zaWduZWQgY2hhciAqKXJ4X2Rlc2Mt
-PmJ1Zl9jb29raWU7DQogICAgICAgICAgXg0K
+Hi, Daniel
+Acked-by: Rami Rosen <roszenrami@gmail.com>
+
+Agreed about Sabrina comments about adding iproute2 and about the newlines.
+
+Regards,
+R
