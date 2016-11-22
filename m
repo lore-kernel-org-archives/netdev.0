@@ -1,47 +1,75 @@
-From: Florian Fainelli <florian.fainelli@broadcom.com>
-Subject: Re: [PATCH net-next 4/5] net: phy: bcm7xxx: Add support for
- downshift/Wirespeed
-Date: Tue, 22 Nov 2016 13:01:07 -0800
-Message-ID: <5c131c30-637a-1c9e-ebd5-6ca7a7f84d66@broadcom.com>
-References: <20161122194058.29820-1-f.fainelli@gmail.com>
- <20161122194058.29820-5-f.fainelli@gmail.com>
- <20161122200228.GG14947@lunn.ch>
- <1902f0f0-46e5-d3b3-90c1-10867f4fb826@gmail.com>
- <20161122205747.GH14947@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com, vivien.didelot@savoirfairelinux.com
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V2 0/7] Mellanox 100G mlx5 SRIOV switchdev update
+Date: Tue, 22 Nov 2016 23:09:53 +0200
+Message-ID: <1479849000-14902-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:35577 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755369AbcKVVIK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 16:08:10 -0500
-Received: by mail-pg0-f44.google.com with SMTP id p66so11274549pga.2
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 13:08:10 -0800 (PST)
-In-Reply-To: <20161122205747.GH14947@lunn.ch>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46182 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755369AbcKVVKK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 16:10:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/22/2016 12:57 PM, Andrew Lunn wrote:
->>> Maybe we should think about this locking a bit. It is normal for the
->>> lock to be held when using ops in the phy driver structure. The
->>> exception is suspend/resume. Maybe we should also take the lock before
->>> calling the phydev->drv->get_tunable() and phydev->drv->set_tunable()?
->>
->> Yes, that certainly seems like a good approach to me, let me cook a
->> patch doing that.
-> 
-> Hi Florian
-> 
-> There are a couple of mutex locks/unlocks you will need to remove from
-> mscc.c when you centralize this mutex.
+Hi Dave,
 
-Good point, thanks, let me review the mscc PHY driver and propose a more
-proper fix.
+This series from Roi and Or further enhances the new SRIOV switchdev mode.
+
+Roi's patches deal with allowing users to configure though devlink
+the level of inline headers that the VF should be setting in order for
+the eswitch HW to do proper matching. We also enforce that the matching
+required for offloaded TC rules is aligned with that level on the PF driver.
+
+Or's patches deals with allowing the user to control on the VF operational
+link state through admin directives on the mlx5 VF rep link. Also in this series
+is implementation of HW and SW counters for the mlx5 VF rep which is aligned
+with the design set by commit a5ea31f57309 'Merge branch net-offloaded-stats'.
+
+v1 --> v2:
+* constified the net-device param of get offloaded stats ndo in mlxsw
+  (pointed by 0-day screaming on us...)
+* added Or's Review-by tags for Roi's patches
+
+This series was generated against commit
+e796f49d826a ("net: ieee802154: constify ieee802154_ops structures")
+
+Thanks,
+Saeed.
+
+Or Gerlitz (3):
+  net: Add net-device param to the get offloaded stats ndo
+  net/mlx5e: Support HW (offloaded) and SW counters for SRIOV switchdev
+    mode
+  net/mlx5e: Support VF vport link state control for SRIOV switchdev
+    mode
+
+Roi Dayan (4):
+  devlink: Add E-Switch inline mode control
+  net/mlx5: Enable to query min inline for a specific vport
+  net/mlx5: E-Switch, Add control for inline mode
+  net/mlx5e: Enforce min inline mode when offloading flows
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  15 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  42 +++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   | 144 +++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  46 ++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |   4 +
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 141 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   2 +
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  14 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   2 +-
+ include/linux/mlx5/vport.h                         |  10 +-
+ include/linux/netdevice.h                          |   4 +-
+ include/net/devlink.h                              |   2 +
+ include/uapi/linux/devlink.h                       |   8 ++
+ net/core/devlink.c                                 |  70 +++++++---
+ net/core/rtnetlink.c                               |   4 +-
+ 17 files changed, 438 insertions(+), 72 deletions(-)
+
 -- 
-Florian
+2.7.4
