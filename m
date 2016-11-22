@@ -1,39 +1,43 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 4/5] net: phy: bcm7xxx: Add support for
- downshift/Wirespeed
-Date: Tue, 22 Nov 2016 21:57:47 +0100
-Message-ID: <20161122205747.GH14947@lunn.ch>
-References: <20161122194058.29820-1-f.fainelli@gmail.com>
- <20161122194058.29820-5-f.fainelli@gmail.com>
- <20161122200228.GG14947@lunn.ch>
- <1902f0f0-46e5-d3b3-90c1-10867f4fb826@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits compatible
+Date: Tue, 22 Nov 2016 22:04:12 +0100
+Message-ID: <2948812.F3se4ieqO6@wuerfel>
+References: <20161122164844.19566-1-gregory.clement@free-electrons.com> <20161122164844.19566-2-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com, vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48940 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756875AbcKVU5u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Nov 2016 15:57:50 -0500
-Content-Disposition: inline
-In-Reply-To: <1902f0f0-46e5-d3b3-90c1-10867f4fb826@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161122164844.19566-2-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > Maybe we should think about this locking a bit. It is normal for the
-> > lock to be held when using ops in the phy driver structure. The
-> > exception is suspend/resume. Maybe we should also take the lock before
-> > calling the phydev->drv->get_tunable() and phydev->drv->set_tunable()?
+On Tuesday, November 22, 2016 5:48:41 PM CET Gregory CLEMENT wrote:
+> +#ifdef CONFIG_64BIT
+> +       void *data_tmp;
+> +
+> +       /* In Neta HW only 32 bits data is supported, so in order to
+> +        * obtain whole 64 bits address from RX descriptor, we store
+> +        * the upper 32 bits when allocating buffer, and put it back
+> +        * when using buffer cookie for accessing packet in memory.
+> +        * Frags should be allocated from single 'memory' region,
+> +        * hence common upper address half should be sufficient.
+> +        */
+> +       data_tmp = mvneta_frag_alloc(pp->frag_size);
+> +       if (data_tmp) {
+> +               pp->data_high = (u64)upper_32_bits((u64)data_tmp) << 32;
+> +               mvneta_frag_free(pp->frag_size, data_tmp);
+> +       }
 > 
-> Yes, that certainly seems like a good approach to me, let me cook a
-> patch doing that.
 
-Hi Florian
+How does this work when the region spans a n*4GB address boundary?
 
-There are a couple of mutex locks/unlocks you will need to remove from
-mscc.c when you centralize this mutex.
-
-       Andrew
+	Arnd
