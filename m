@@ -1,41 +1,39 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 2/2] net: qcom/emac: add support for the Qualcomm
- Technologies QDF2400
-Date: Tue, 22 Nov 2016 16:14:13 -0600
-Message-ID: <5834C335.4040907@codeaurora.org>
-References: <1479769102-27909-1-git-send-email-timur@codeaurora.org>
- <1479769102-27909-3-git-send-email-timur@codeaurora.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: egress all frames
+Date: Tue, 22 Nov 2016 17:15:25 -0500
+Message-ID: <87zikr40w2.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20161122103944.31381-1-stefan.eichenberger@netmodule.com> <20161122150330.GE2691@lunn.ch> <20161122183732.GD13973@gruene.netmodule.intranet> <20161122190206.GE14947@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, alokc@codeaurora.org,
+Content-Type: text/plain
+Cc: Stefan Eichenberger <eichest@gmail.com>, f.fainelli@gmail.com,
         netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+        Stefan Eichenberger <stefan.eichenberger@netmodule.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:50264 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932273AbcKVWOP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 17:14:15 -0500
-In-Reply-To: <1479769102-27909-3-git-send-email-timur@codeaurora.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:59540 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934033AbcKVWPc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 17:15:32 -0500
+In-Reply-To: <20161122190206.GE14947@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2016 04:58 PM, Timur Tabi wrote:
-> The QDF2432 and the QDF2400 have slightly different internal PHYs,
-> so there are some programming differences.  Some of the registers in
-> the QDF2400 have moved, and some registers require different values
-> during initialization.
+Hi Andrew, Stefan,
+
+Andrew Lunn <andrew@lunn.ch> writes:
+
+> What you might find useful is
 >
-> Because of the differences, the internal PHY on the QDF2400 has a new
-> ACPI HID, QCOM8072.
+> https://github.com/vivien/linux.git 161b96bd7d16d21b0f046c935b70c3b2d277ccc2
 >
-> Signed-off-by: Timur Tabi<timur@codeaurora.org>
+> although it might need some changes for recent commits.
+>
+> With that, you can see deeper into the switches registers.
 
-There seems to be some disagreement internally as to whether a new HID 
-is the right approach.  Please hold off on applying patch [2/2] for now.
+FYI, I have rebased it on top of the latest net-next (f9aa9dc7d2d0):
 
-Patch [1/2] can be applied, however, if it passes review.
+    https://github.com/vivien/linux.git dsa/dev
 
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Thanks,
+
+        Vivien
