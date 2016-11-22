@@ -1,57 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] ethtool: Protect {get,set}_phy_tunable with PHY device mutex
-Date: Tue, 22 Nov 2016 12:13:16 -0800
-Message-ID: <20161122201316.10830-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, bcm-kernel-feedback-list@broadcom.com,
-        andrew@lunn.ch, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com, vivien.didelot@savoirfairelinux.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: [PATCH ethtool v4 0/2] Adding downshift support to ethtool
+Date: Tue, 22 Nov 2016 21:32:15 +0100
+Message-ID: <1479846737-18669-1-git-send-email-allan.nielsen@microsemi.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35197 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754238AbcKVUNW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 15:13:22 -0500
-Received: by mail-pf0-f194.google.com with SMTP id i88so1926573pfk.2
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 12:13:22 -0800 (PST)
+Received: from mail-bl2nam02on0087.outbound.protection.outlook.com ([104.47.38.87]:26800
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751454AbcKVUcv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Nov 2016 15:32:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PHY drivers should be able to rely on the caller of {get,set}_tunable to
-have acquired the PHY device mutex, in order to both serialize against
-concurrent calls of these functions, but also against PHY state machine
-changes. All ethtool PHY-level functions do this, except
-{get,set}_tunable, so we make them consistent here as well.
+(downshift feature is applied in the net-next tree - d3c19c0a72)
 
-Fixes: 968ad9da7e0e ("ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/core/ethtool.c | 4 ++++
- 1 file changed, 4 insertions(+)
+This series adds support for downshift (using phy-tunables).
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index e9b4556751ff..0adb3bec5b5a 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -2466,7 +2466,9 @@ static int get_phy_tunable(struct net_device *dev, void __user *useraddr)
- 	data = kmalloc(tuna.len, GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
-+	mutex_lock(&phydev->lock);
- 	ret = phydev->drv->get_tunable(phydev, &tuna, data);
-+	mutex_unlock(&phydev->lock);
- 	if (ret)
- 		goto out;
- 	useraddr += sizeof(tuna);
-@@ -2501,7 +2503,9 @@ static int set_phy_tunable(struct net_device *dev, void __user *useraddr)
- 	ret = -EFAULT;
- 	if (copy_from_user(data, useraddr, tuna.len))
- 		goto out;
-+	mutex_lock(&phydev->lock);
- 	ret = phydev->drv->set_tunable(phydev, &tuna, data);
-+	mutex_unlock(&phydev->lock);
- 
- out:
- 	kfree(data);
+Downshifting can either be turned on/off, or it can be configured to a
+specifc count.
+
+"count" is optional.
+
+Change set:
+v1:
+- Initial version of set/get phy tunable with downshift feature.
+v2:
+- (ethtool) Syntax is changed from "--set-phy-tunable downshift on|off|%d"
+  to "--set-phy-tunable [downshift on|off [count N]]" - as requested by
+  Andrew.
+v3:
+- Fixed Spelling in "ethtool-copy.h:sync with net" 
+- Fixed "if send_ioctl() returns an error, print the error message and then
+  still print th value of count".
+v4:
+- Fixing spelling in the example included in the commit message
+- Improve the description in the man-page
+
+Raju Lakkaraju (2):
+  ethtool-copy.h:sync with net
+  Ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE and PHY
+    downshift
+
+ ethtool-copy.h |  18 +++++++-
+ ethtool.8.in   |  40 ++++++++++++++++
+ ethtool.c      | 144 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 201 insertions(+), 1 deletion(-)
+
 -- 
-2.9.3
+2.7.3
