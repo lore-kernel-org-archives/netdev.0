@@ -1,60 +1,61 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Free netdev resources under state lock
-Date: Tue, 22 Nov 2016 16:20:39 +0200
-Message-ID: <1479824439-27353-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Sagi Grimberg <sagi@grimberg.me>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH net-next] marvell: mark mvneta and mvpp2 32-bit only
+Date: Tue, 22 Nov 2016 15:21:22 +0100
+Message-ID: <20161122142136.1690096-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Marcin Wojtas <mw@semihalf.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52221 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756030AbcKVOVR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 09:21:17 -0500
+Received: from mout.kundenserver.de ([212.227.126.134]:55016 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756156AbcKVOVs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 09:21:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make sure mlx4_en_free_resources is called under the netdev state lock.
-This is needed since RCU dereference of XDP prog should be protected.
+Both of these drivers won't work on 64-bit architectures unless they
+are redesigned, since they store a virtual address pointer in a 32-bit
+field of the descriptors:
 
-Fixes: 326fe02d1ed6 ("net/mlx4_en: protect ring->xdp_prog with rcu_read_lock")
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Reported-by: Sagi Grimberg <sagi@grimberg.me>
-CC: Brenden Blanco <bblanco@plumgrid.com>
+drivers/net/ethernet/marvell/mvneta_bm.c: In function 'mvneta_bm_construct':
+drivers/net/ethernet/marvell/mvneta_bm.c:103:16: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+drivers/net/ethernet/marvell/mvpp2.c: In function 'mvpp2_prs_vlan_init':
+drivers/net/ethernet/marvell/mvpp2.c:2563:32: error: large integer implicitly truncated to unsigned type [-Werror=overflow]
+
+This limits the COMPILE_TEST option for the two drivers again to
+only build them on 32-bit. This seems nicer than shutting up the
+warnings, in case we ever actually want to use them on 64-bit,
+as the warnings indicate which parts of the driver are currently
+broken there.
+
+Fixes: a0627f776a45 ("net: marvell: Allow drivers to be built with COMPILE_TEST")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/Kconfig | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 3a47e83d3e07..a60f635da78b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -129,6 +129,9 @@ static enum mlx4_net_trans_rule_id mlx4_ip_proto_to_trans_rule_id(u8 ip_proto)
- 	}
- };
- 
-+/* Must not acquire state_lock, as its corresponding work_sync
-+ * is done under it.
-+ */
- static void mlx4_en_filter_work(struct work_struct *work)
- {
- 	struct mlx4_en_filter *filter = container_of(work,
-@@ -2189,13 +2192,13 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
- 	mutex_lock(&mdev->state_lock);
- 	mdev->pndev[priv->port] = NULL;
- 	mdev->upper[priv->port] = NULL;
--	mutex_unlock(&mdev->state_lock);
- 
- #ifdef CONFIG_RFS_ACCEL
- 	mlx4_en_cleanup_filters(priv);
- #endif
- 
- 	mlx4_en_free_resources(priv);
-+	mutex_unlock(&mdev->state_lock);
- 
- 	kfree(priv->tx_ring);
- 	kfree(priv->tx_cq);
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index d74d4e6f0b34..66fd9dbb2ca7 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -58,6 +58,7 @@ config MVNETA
+ 	tristate "Marvell Armada 370/38x/XP network interface support"
+ 	depends on PLAT_ORION || COMPILE_TEST
+ 	depends on HAS_DMA
++	depends on !64BIT
+ 	select MVMDIO
+ 	select FIXED_PHY
+ 	---help---
+@@ -81,6 +82,7 @@ config MVPP2
+ 	tristate "Marvell Armada 375 network interface support"
+ 	depends on MACH_ARMADA_375 || COMPILE_TEST
+ 	depends on HAS_DMA
++	depends on !64BIT
+ 	select MVMDIO
+ 	---help---
+ 	  This driver supports the network interface units in the
 -- 
-1.8.3.1
+2.9.0
