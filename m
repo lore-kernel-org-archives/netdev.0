@@ -1,151 +1,127 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <uwe@kleine-koenig.org>
-Subject: [PATCH v2] net/phy: add trace events for mdio accesses
-Date: Tue, 22 Nov 2016 11:01:27 +0100
-Message-ID: <20161122100127.5940-1-uwe@kleine-koenig.org>
-References: <20161114110335.27862-1-uwe@kleine-koenig.org>
+From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: Re: [RFC PATCH net v2 2/3] dt: bindings: add ethernet phy
+ eee-disable-advert option documentation
+Date: Tue, 22 Nov 2016 11:13:57 +0100
+Message-ID: <1479809637.17538.113.camel@baylibre.com>
+References: <1479742524-30222-1-git-send-email-jbrunet@baylibre.com>
+         <1479742524-30222-3-git-send-email-jbrunet@baylibre.com>
+         <20161121160149.GF1922@lunn.ch> <1479744993.17538.85.camel@baylibre.com>
+         <20161121164733.GG1922@lunn.ch>
+         <e792c889-8725-3952-ca28-a08537d9f87a@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        Ingo Molnar <mingo@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:35605 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755819AbcKVKBh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 05:01:37 -0500
-In-Reply-To: <20161114110335.27862-1-uwe@kleine-koenig.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <e792c889-8725-3952-ca28-a08537d9f87a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Make it possible to generate trace events for mdio read and write accesses.
+On Mon, 2016-11-21 at 21:35 -0800, Florian Fainelli wrote:
+> Le 21/11/2016 à 08:47, Andrew Lunn a écrit :
+> > 
+> > > 
+> > > What I did not realize when doing this patch for the realtek
+> > > driver is
+> > > that there is already 6 valid modes defined in the kernel
+> > > 
+> > > #define MDIO_EEE_100TX		MDIO_AN_EEE_ADV_100TX	
+> > > /*
+> > > 100TX EEE cap */
+> > > #define MDIO_EEE_1000T		MDIO_AN_EEE_ADV_1000T	
+> > > /*
+> > > 1000T EEE cap */
+> > > #define MDIO_EEE_10GT		0x0008	/* 10GT EEE
+> > > cap */
+> > > #define MDIO_EEE_1000KX		0x0010	/* 1000KX
+> > > EEE cap
+> > > */
+> > > #define MDIO_EEE_10GKX4		0x0020	/* 10G KX4
+> > > EEE cap
+> > > */
+> > > #define MDIO_EEE_10GKR		0x0040	/* 10G KR EEE
+> > > cap
+> > > */
+> > > 
+> > > I took care of only 2 in the case of realtek.c since it only
+> > > support
+> > > MDIO_EEE_100TX and MDIO_EEE_1000T.
+> > > 
+> > > Defining a property for each is certainly doable but it does not
+> > > look
+> > > very nice either. If it extends in the future, it will get even
+> > > more
+> > > messier, especially if you want to disable everything.
+> > 
+> > Yes, agreed.
+> 
+> One risk with the definition a group of advertisement capabilities
+> (under the form of a bitmask for instance) to enable/disable is that
+> we
+> end up with Device Tree contain some kind of configuration policy as
+> opposed to just flagging particular hardware features as broken.
 
-Signed-off-by: Uwe Kleine-König <uwe@kleine-koenig.org>
----
-Changes since (implicit) v1:
+The code proposed only allows to disable EEE advertisement (not
+enable), so we should not see it used as a configuration policy in DT.
+To make this more explicit, I could replace the property "eee-advert-
+disable" by "eee-broken" ?
 
- - make use of TRACE_EVENT_CONDITION
+> 
+> Fortunately, there does not seem to be a ton of PHYs out there which
+> require EEE
 
-Alternatively to this patch the condition could be
+It is quite difficult to have the real picture here because some PHYs
+have EEE disabled by default and you have to explicitly enable it.
+I have no idea of the ratio between the 2 phy policies.
 
-+	TP_CONDITION(err == 0),
+> to be disabled to function properly so having individual
+> properties vs. bitmasks/groups is kind of speculative here.
 
-but then we'd need in the read callbacks:
+In the particular instance of the OdroidC2, disabling EEE for GbE only
+enough. However, If you have a PHY broken with, I think it is likely
+that you might want to disable all (supported) EEE modes. That's reason
+why I prefer bitmask. I agree both are functionally similar, this is
+kind of a cosmetic debate.
 
-+	trace_mdio_access(bus, 1, addr, regnum, retval, retval < 0 ? retval : 0);
+> 
+> Another approach to solving this problem could be to register a PHY
+> fixup which disables EEE at the PHY level, and which is only called
+> for
+> specific boards affected by this problem
+> (of_machine_is_compatible()).
+> This code can leave in arch/*/* when that is possible, 
 
-or at least
+That something I was looking at, but we don't have these files anymore
+on ARM64 (looking at your comment, you already know this)
 
-+	trace_mdio_access(bus, 1, addr, regnum, retval, retval < 0);
+> or it can just be
+> somewhere where it is relevant, e.g; in the PHY driver for instance
+> (similarly to how PCI fixups are done).
 
-which both looks more ugly IMHO.
+Do you prefer having board specific code inside generic driver than
+having the setting living in DT? Peppe told me they also had a few
+platform with similar issues. The point is that this could be useful to
+other people, so it could spread a grow a bit.
 
-Best regards
-Uwe
+I would prefer having this in the DT, but I can definitely do it the
+PHY with of_machine_is_compatible() and register_fixup is this what you
+prefer/want. 
 
- drivers/net/phy/mdio_bus.c  | 11 +++++++++++
- include/trace/events/mdio.h | 42 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 53 insertions(+)
- create mode 100644 include/trace/events/mdio.h
+Cheers
+Jerome
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 09deef4bed09..653d076eafe5 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -38,6 +38,9 @@
- 
- #include <asm/irq.h>
- 
-+#define CREATE_TRACE_POINTS
-+#include <trace/events/mdio.h>
-+
- int mdiobus_register_device(struct mdio_device *mdiodev)
- {
- 	if (mdiodev->bus->mdio_map[mdiodev->addr])
-@@ -461,6 +464,8 @@ int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum)
- 	retval = bus->read(bus, addr, regnum);
- 	mutex_unlock(&bus->mdio_lock);
- 
-+	trace_mdio_access(bus, 1, addr, regnum, retval, retval);
-+
- 	return retval;
- }
- EXPORT_SYMBOL(mdiobus_read_nested);
-@@ -485,6 +490,8 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
- 	retval = bus->read(bus, addr, regnum);
- 	mutex_unlock(&bus->mdio_lock);
- 
-+	trace_mdio_access(bus, 1, addr, regnum, retval, retval);
-+
- 	return retval;
- }
- EXPORT_SYMBOL(mdiobus_read);
-@@ -513,6 +520,8 @@ int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val)
- 	err = bus->write(bus, addr, regnum, val);
- 	mutex_unlock(&bus->mdio_lock);
- 
-+	trace_mdio_access(bus, 0, addr, regnum, val, err);
-+
- 	return err;
- }
- EXPORT_SYMBOL(mdiobus_write_nested);
-@@ -538,6 +547,8 @@ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
- 	err = bus->write(bus, addr, regnum, val);
- 	mutex_unlock(&bus->mdio_lock);
- 
-+	trace_mdio_access(bus, 0, addr, regnum, val, err);
-+
- 	return err;
- }
- EXPORT_SYMBOL(mdiobus_write);
-diff --git a/include/trace/events/mdio.h b/include/trace/events/mdio.h
-new file mode 100644
-index 000000000000..468e2d095d19
---- /dev/null
-+++ b/include/trace/events/mdio.h
-@@ -0,0 +1,42 @@
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM mdio
-+
-+#if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ)
-+#define _TRACE_MDIO_H
-+
-+#include <linux/tracepoint.h>
-+
-+TRACE_EVENT_CONDITION(mdio_access,
-+
-+	TP_PROTO(struct mii_bus *bus, int read,
-+		 unsigned addr, unsigned regnum, u16 val, int err),
-+
-+	TP_ARGS(bus, read, addr, regnum, val, err),
-+
-+	TP_CONDITION(err >= 0),
-+
-+	TP_STRUCT__entry(
-+		__array(char, busid, MII_BUS_ID_SIZE)
-+		__field(int, read)
-+		__field(unsigned, addr)
-+		__field(unsigned, regnum)
-+		__field(u16, val)
-+	),
-+
-+	TP_fast_assign(
-+		strncpy(__entry->busid, bus->id, MII_BUS_ID_SIZE);
-+		__entry->read = read;
-+		__entry->addr = addr;
-+		__entry->regnum = regnum;
-+		__entry->val = val;
-+	),
-+
-+	TP_printk("%s %-5s phy:0x%02x reg:0x%02x val:0x%04hx",
-+		  __entry->busid, __entry->read ? "read" : "write",
-+		  __entry->addr, __entry->regnum, __entry->val)
-+);
-+
-+#endif /* if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ) */
-+
-+/* This part must be outside protection */
-+#include <trace/define_trace.h>
--- 
-2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
