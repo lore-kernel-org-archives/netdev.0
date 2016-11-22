@@ -1,70 +1,88 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: [PATCH iproute2 2/2] tc/act_tunnel: Introduce ip tunnel action
-Date: Mon, 21 Nov 2016 23:50:03 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93D345ED8@HASMSX110.ger.corp.intel.com>
-References: <20161121102056.13468-1-amir@vadai.me>
- <20161121102056.13468-3-amir@vadai.me>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 22 Nov 2016 11:58:18 +1100
+Message-ID: <20161122115818.2872dfa2@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Amir Vadai <amir@vadai.me>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:8748 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752505AbcKUXuS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Nov 2016 18:50:18 -0500
-In-Reply-To: <20161121102056.13468-3-amir@vadai.me>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        LABBE Corentin <clabbe.montjoie@gmail.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Amir,
+Hi all,
 
-Following are three minor comments:
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Seems that TCA_TUNNEL_KEY_PAD used anywhere:
- 
-+	TCA_TUNNEL_KEY_PAD,
-+	__TCA_TUNNEL_KEY_MAX,
-+};
+  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 
+between commit:
 
-Should be "and destination IP 11.11.0.2" instead of  "and destination IP 11.11.0.1":
+  ba1ffd74df74 ("stmmac: fix PTP support for GMAC4")
 
-+Tunnel ID (for example VNI in VXLAN tunnel) .TP .B src_ip Outer header 
-+source IP address (IPv4 or IPv6) .TP .B dst_ip Outer header destination 
-+IP address (IPv4 or IPv6) .RE .SH EXAMPLES The following example 
-+encapsulates incoming ICMP packets on eth0 into a vxlan tunnel by 
-+setting metadata to VNI 11, source IP 11.11.0.1 and destination IP
-+11.11.0.1 by forwarding the skb with the metadata to device vxlan0, 
-+which will prepare the VXLAN headers:
-+
-+.RS
-+.EX
-+#tc qdisc add dev eth0 handle ffff: ingress #tc filter add dev eth0 
-+protocol ip parent ffff: \\
-+  flower \\
-+    ip_proto icmp \\
-+  action tunnel_key set \\
-+    src_ip 11.11.0.1 \\
-+    dst_ip 11.11.0.2 \\
-+    id 11 \\
+from the net tree and commit:
 
+  38ddc59d65b6 ("net: stmmac: replace all pr_xxx by their netdev_xxx counterpart")
 
-Typo: should be "ip tunnel" instead of "ip tunel":
+from the net-next tree.
 
-+ * m_tunnel_key.c	ip tunel manipulation module
-+ *
-+ *              This program is free software; you can redistribute it and/or
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
 
-Keep on the good work!
+-- 
+Cheers,
+Stephen Rothwell
 
-Regards,
-Rami Rosen
-Intel Corporation
+diff --cc drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 1f9ec02fa7f8,fbd1cd79233d..000000000000
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@@ -2484,7 -2493,7 +2493,7 @@@ static int stmmac_rx(struct stmmac_pri
+  	if (netif_msg_rx_status(priv)) {
+  		void *rx_head;
+  
+- 		pr_info(">>>>>> %s: descriptor ring:\n", __func__);
+ -		netdev_dbg(priv->dev, "%s: descriptor ring:\n", __func__);
+++		netdev_info(priv->dev, ">>>>>> %s: descriptor ring:\n", __func__);
+  		if (priv->extend_desc)
+  			rx_head = (void *)priv->dma_erx;
+  		else
+@@@ -2571,11 -2577,11 +2580,11 @@@
+  				frame_len -= ETH_FCS_LEN;
+  
+  			if (netif_msg_rx_status(priv)) {
+- 				pr_info("\tdesc: %p [entry %d] buff=0x%x\n",
+- 					p, entry, des);
+ -				netdev_dbg(priv->dev, "\tdesc: %p [entry %d] buff=0x%x\n",
+ -					   p, entry, des);
+++				netdev_info(priv->dev, "\tdesc: %p [entry %d] buff=0x%x\n",
+++					    p, entry, des);
+  				if (frame_len > ETH_FRAME_LEN)
+- 					pr_debug("\tframe size %d, COE: %d\n",
+- 						 frame_len, status);
++ 					netdev_dbg(priv->dev, "frame size %d, COE: %d\n",
++ 						   frame_len, status);
+  			}
+  
+  			/* The zero-copy is always used for all the sizes
+@@@ -2628,8 -2635,11 +2638,9 @@@
+  						 DMA_FROM_DEVICE);
+  			}
+  
+ -			stmmac_get_rx_hwtstamp(priv, entry, skb);
+ -
+  			if (netif_msg_pktdata(priv)) {
+- 				pr_debug("frame received (%dbytes)", frame_len);
++ 				netdev_dbg(priv->dev, "frame received (%dbytes)",
++ 					   frame_len);
+  				print_pkt(skb->data, frame_len);
+  			}
+  
