@@ -1,81 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: verify root pointer
- before dereferncing it
-Date: Tue, 22 Nov 2016 15:48:44 +0100
-Message-ID: <20161122144844.GB1819@nanopsycho>
-References: <1479824726-62607-1-git-send-email-roid@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6:ipv6_pinfo dereferenced after NULL check
+Date: Tue, 22 Nov 2016 10:06:13 -0500 (EST)
+Message-ID: <20161122.100613.2091017686933180253.davem@davemloft.net>
+References: <1479796024-39418-1-git-send-email-manjeet.p@samsung.com>
+        <611c167e-cef4-691b-f154-1b6b6aa86e53@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Cong Wang <cwang@twopensource.com>
-To: Roi Dayan <roid@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35563 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755421AbcKVPGB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 10:06:01 -0500
-Received: by mail-qk0-f195.google.com with SMTP id n204so4466756qke.2
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 07:06:00 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1479824726-62607-1-git-send-email-roid@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: manjeet.p@samsung.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, pankaj.m@samsung.com,
+        ajeet.y@samsung.com, r.thapliyal@samsung.com
+To: hannes@stressinduktion.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <611c167e-cef4-691b-f154-1b6b6aa86e53@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Nov 22, 2016 at 03:25:26PM CET, roid@mellanox.com wrote:
->tp->root is being allocated in init() time and kfreed in destroy()
->however it is being dereferenced in classify() path.
->
->We could be in classify() path after destroy() was called and thus 
->tp->root is null. Verifying if tp->root is null in classify() path 
->is enough because it's being freed with kfree_rcu() and classify() 
->path is under rcu_read_lock().
->
->Fixes: 1e052be69d04 ("net_sched: destroy proto tp when all filters are gone")
->Signed-off-by: Roi Dayan <roid@mellanox.com>
->Cc: Cong Wang <cwang@twopensource.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 22 Nov 2016 13:26:45 +0100
 
-This is correct
-
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-
-The other way to fix this would be to move tp->ops->destroy call to
-call_rcu phase. That would require bigger changes though. net-next
-perhaps?
-
-
-
->---
->
->Hi Cong, all
->
->As stated above, the issue was introduced with commit 1e052be69d04 ("net_sched: destroy 
->proto tp when all filters are gone"). This patch provides a fix only for cls_flower where 
->I succeeded in reproducing the issue. Cong, if you can/want to come up with a fix that
->will be applicable for all the others classifiners, I am fine with that.
->
->Thanks,
->Roi
->
->
-> net/sched/cls_flower.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
->
->diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
->index e8dd09a..88a26c4 100644
->--- a/net/sched/cls_flower.c
->+++ b/net/sched/cls_flower.c
->@@ -135,7 +135,7 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-> 	struct fl_flow_key skb_mkey;
-> 	struct ip_tunnel_info *info;
+> On 22.11.2016 07:27, Manjeet Pawar wrote:
+>> From: Rohit Thapliyal <r.thapliyal@samsung.com>
+>> 
+>> np checked for NULL and then dereferenced. It should be modified
+>> for NULL case.
+>> 
+>> Signed-off-by: Rohit Thapliyal <r.thapliyal@samsung.com>
+>> Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
+>> ---
+>>  net/ipv6/ip6_output.c | 9 +++++----
+>>  1 file changed, 5 insertions(+), 4 deletions(-)
+>> 
+>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+>> index 1dfc402..c2afa14 100644
+>> --- a/net/ipv6/ip6_output.c
+>> +++ b/net/ipv6/ip6_output.c
+>> @@ -205,14 +205,15 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+>>  	/*
+>>  	 *	Fill in the IPv6 header
+>>  	 */
+>> -	if (np)
+>> +	if (np) {
+>>  		hlimit = np->hop_limit;
+>> +		ip6_flow_hdr(
+>> +					hdr, tclass, ip6_make_flowlabel(
+>> +					net, skb, fl6->flowlabel,
+>> +					np->autoflowlabel, fl6));
+>> +	}
+>>  	if (hlimit < 0)
+>>  		hlimit = ip6_dst_hoplimit(dst);
+>>  
+>> -	ip6_flow_hdr(hdr, tclass, ip6_make_flowlabel(net, skb, fl6->flowlabel,
+>> -				np->autoflowlabel, fl6));
+>> -
+>>  	hdr->payload_len = htons(seg_len);
+>>  	hdr->nexthdr = proto;
+>>  	hdr->hop_limit = hlimit;
+>> 
 > 
->-	if (!atomic_read(&head->ht.nelems))
->+	if (!head || !atomic_read(&head->ht.nelems))
-> 		return -1;
 > 
-> 	fl_clear_masked_range(&skb_key, &head->mask);
->-- 
->2.7.4
->
+> We always should initialize hdr and not skip the ip6_flow_hdr call.
+> 
+> Do you saw a bug or did you find this by code review? I wonder if np can
+> actually be NULL at this point. Maybe we can just eliminate the NULL check.
+
+Also the indentation is really off.
