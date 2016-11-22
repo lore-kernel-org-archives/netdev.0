@@ -1,80 +1,77 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 3/5] virtio_net: Add XDP support
-Date: Tue, 22 Nov 2016 00:27:03 -0800
-Message-ID: <58340157.8060103@gmail.com>
-References: <20161120024710.19187.31037.stgit@john-Precision-Tower-5810>
- <20161120025033.19187.11082.stgit@john-Precision-Tower-5810>
- <20161122011638-mutt-send-email-mst@kernel.org>
+From: Ozgur Karatas <mueddib@yandex.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Tue, 22 Nov 2016 10:38:20 +0200
+Message-ID: <1806171479803900@web16j.yandex.ru>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+ <afc18eb0-4c11-9668-498d-982624c6de78@synopsys.com>
+ <937252db-9538-2cf6-c8fa-82b558531c51@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, kubakici@wp.pl,
-        shm@cumulusnetworks.com, davem@davemloft.net,
-        alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        bblanco@plumgrid.com, john.r.fastabend@intel.com,
-        brouer@redhat.com, tgraf@suug.ch
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33029 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755568AbcKVI1g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 03:27:36 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 144so959711pfv.0
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 00:27:35 -0800 (PST)
-In-Reply-To: <20161122011638-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "andreas.irestal@axis.com" <andreas.irestal@axis.com>,
+ "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+ "saeedm@mellanox.com" <saeedm@mellanox.com>, netdev <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "CARLOS.PALMINHA@synopsys.com" <carlos.palminha@synopsys.com>,
+ "idosch@mellanox.com" <idosch@mellanox.com>, mued dib <kreptor@gmail.com>,
+ "jiri@mellanox.com" <jiri@mellanox.com>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>, David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ "lars.persson@axis.com" <lars.persson@axis.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+ Joao Pinto <joao.pinto@synopsys.com>,
+ Rayagond Kokatanur <rayagond@vayavyalabs.com>, Rabin Vincent <rabin@rab.in>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <937252db-9538-2cf6-c8fa-82b558531c51@st.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 16-11-21 03:20 PM, Michael S. Tsirkin wrote:
-> On Sat, Nov 19, 2016 at 06:50:33PM -0800, John Fastabend wrote:
->> From: Shrijeet Mukherjee <shrijeet@gmail.com>
->>
->> This adds XDP support to virtio_net. Some requirements must be
->> met for XDP to be enabled depending on the mode. First it will
->> only be supported with LRO disabled so that data is not pushed
->> across multiple buffers. The MTU must be less than a page size
->> to avoid having to handle XDP across multiple pages.
->>
->> If mergeable receive is enabled this first series only supports
->> the case where header and data are in the same buf which we can
->> check when a packet is received by looking at num_buf. If the
->> num_buf is greater than 1 and a XDP program is loaded the packet
->> is dropped and a warning is thrown. When any_header_sg is set this
->> does not happen and both header and data is put in a single buffer
->> as expected so we check this when XDP programs are loaded. Note I
->> have only tested this with Linux vhost backend.
->>
->> If big packets mode is enabled and MTU/LRO conditions above are
->> met then XDP is allowed.
->>
->> A follow on patch can be generated to solve the mergeable receive
->> case with num_bufs equal to 2. Buffers greater than two may not
->> be handled has easily.
-> 
-> 
-> I would very much prefer support for other layouts without drops
-> before merging this.
-> header by itself can certainly be handled by skipping it.
-> People wanted to use that e.g. for zero copy.
-
-OK fair enough I'll do this now rather than push it out.
-
-> 
-> Anything else can be handled by copying the packet.
-
-This though I'm not so sure about. The copy is going to be slow and
-I wonder if someone could craft a packet to cause this if it could
-be used to slow down a system.
-
-Also I can't see what would cause this to happen. With mergeable
-buffers and LRO off the num_bufs is either 1 or 2 depending on where
-the header is. Otherwise with LRO off it should be in a single page.
-At least this is the Linux vhost implementation, I guess other
-implementation might meet spec but use num_buf > 2 or multiple pages
-even in the non LRO case.
-
-I tend to think dropping the packet out right is better than copying
-it around. At very least if we do this we need to put in warnings so
-users can see something is mis-configured.
-
-.John
+SGVsbG8gYWxsLAoKSSB0aGluaywgZXRodG9vbCBhbmQgbWRpbyBkb24ndCB3b3JrIGJlY2F1c2Ug
+dGhlIHRvb2wncyBub3Qgc3VwcG9ydCB0byAiUW9TIiwgcmlnaHQ/CgpNYXliZSwgbmVlZCBhIG5l
+dyBBUEkuIEknbSBsb29raW5nIGZvciBkd2NlcW9zIGNvZGUgYnV0ICJ0YyIgdG9vbHMgaXMgdmVy
+eSBpZGVhLgoKSSBob3BlIHRvIGJlIG1lIGFsd2F5cyBoZWxwZnVsLgoKUmVnYXJkcywKCk96Z3Vy
+CgoyMS4xMS4yMDE2LCAxNjozOCwgIkdpdXNlcHBlIENBVkFMTEFSTyIgPHBlcHBlLmNhdmFsbGFy
+b0BzdC5jb20+Ogo+IEhlbGxvIEpvYW8KPgo+IE9uIDExLzIxLzIwMTYgMjo0OCBQTSwgSm9hbyBQ
+aW50byB3cm90ZToKPj4gwqBTeW5vcHN5cyBRb1MgSVAgaXMgYSBzZXBhcmF0ZWQgaGFyZHdhcmUg
+Y29tcG9uZW50LCBzbyBpdCBzaG91bGQgYmUgcmV1c2FibGUgYnkKPj4gwqBhbGwgaW1wbGVtZW50
+YXRpb25zIHVzaW5nIGl0IGFuZCBzbyBoYXZlIGl0cyBvd24gImNvcmUgZHJpdmVyIiBhbmQgcGxh
+dGZvcm0gKwo+PiDCoHBjaSBnbHVlIGRyaXZlcnMuIFRoaXMgaXMgbmVjZXNzYXJ5IGZvciBleGFt
+cGxlIGluIGhhcmR3YXJlIHZhbGlkYXRpb24sIHdoZXJlCj4+IMKgeW91IHByb3RvdHlwZSBhbiBJ
+UCBhbmQgaW5zdGFudGlhdGUgaXRzIGRyaXZlcnMgYW5kIHRlc3QgaXQuCj4+Cj4+IMKgV2FzIHRo
+ZXJlIGEgc3Ryb25nIHJlYXNvbiB0byBpbnRlZ3JhdGUgUW9TIGZlYXR1cmVzIGRpcmVjdGx5IGlu
+IHN0bW1hYyBhbmQgbm90Cj4+IMKgaW4gc3lub3BzeXMvZHdjX2V0aF9xb3MuKj8KPgo+IFdlIGRl
+Y2lkZWQgdG8gZW5oYW5jZSB0aGUgc3RtbWFjIG9uIHN1cHBvcnRpbmcgdGhlIFFvUyBmb3Igc2V2
+ZXJhbAo+IHJlYXNvbnM7IGZvciBleGFtcGxlIHRoZSBjb21tb24gQVBJcyB0aGF0IHRoZSBkcml2
+ZXIgYWxyZWFkeSBleHBvc2VkIGFuZAo+IGFjdHVhbGx5IHN1aXRhYmxlIGZvciBvdGhlciBTWU5Q
+IGNoaXBzLiBUaGVuLCBQVFAsIEVFRSwKPiBTL1JHTUlJLCBNTUMgY291bGQgYmUgc2hhcmVkIGFt
+b25nIGRpZmZlcmVudCBjaGlwcyB3aXRoIGEgbWluaW1hbAo+IGVmZm9ydC4gVGhpcyBtZWFudCBh
+IGxvdCBvZiBjb2RlIGFscmVhZHkgcmVhZHkuCj4KPiBGb3Igc3VyZSwgdGhlIG5ldC1jb3JlLCBF
+dGh0b29sLCBtZGlvIHBhcnRzIHdlcmUgcmV1c2VkLiBTYW1lIGZvciB0aGUKPiBnbHVlIGxvZ2lj
+IGZpbGVzLgo+IEZvciB0aGUgbGF0dGVyLCB0aGlzIGhlbHBlZCB0byBlYXNpbHkgYnJpbmctdXAg
+bmV3IHBsYXRmb3JtcyBhbHNvCj4gYmVjYXVzZSB0aGUgc3RtbWFjIHVzZXMgdGhlIEhXIGNhcCBy
+ZWdpc3RlciB0byBhdXRvLWNvbmZpZ3VyZSBtYW55Cj4gcGFydHMgb2YgdGhlIE1BQyBjb3JlLCBE
+TUEgYW5kIG1vZHVsZXMuIFRoaXMgaGVscGVkIG1hbnkgdXNlcnMsIEFGQUlLLgo+Cj4gRm9yIHZh
+bGlkYXRpb24gcHVycG9zZSwgdGhpcyBpcyBteSBleHBlcmllbmNlLCB0aGUgc3RtbWFjIGhlbHBl
+ZAo+IGEgbG90IGJlY2F1c2UgcGVvcGxlIHVzZWQgdGhlIHNhbWUgY29kZSB0byB2YWxpZGF0ZSBk
+aWZmZXJlbnQgSFcKPiBhbmQgaXQgd2FzIGVhc3kgdG8gc3dpdGNoIHRvIGEgcGxhdGZvcm0gdG8g
+YW5vdGhlciBvbmUgaW4gb3JkZXIgdG8KPiB2ZXJpZnkgLyBjaGVjayBpZiB0aGUgc3VwcG9ydCB3
+YXMgb2sgb3IgaWYgYSByZWdyZXNzaW9uIHdhcyBpbnRyb2R1Y2VkLgo+IFRoaXMgaXMgaW1wb3J0
+YW50IGZvciBjb21wbGV4IHN1cHBvcnRzIGxpa2UgUFRQIG9yIEVFRS4KPgo+IEhvcGluZyB0aGlz
+IGNhbiBoZWxwLgo+Cj4gRG8gbm90IGhlc2l0YXRlIHRvIGNvbnRhY3QgbWUgZm9yIGZ1cnRoZXIg
+ZGV0YWlscwo+Cj4gcGVwcGUKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxA
+bGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xp
+c3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
