@@ -1,110 +1,27 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net-next 2/2] openvswitch: Fix skb->protocol for vlan frames.
-Date: Tue, 22 Nov 2016 20:09:34 -0800
-Message-ID: <1479874174-75329-2-git-send-email-jarno@ovn.org>
-References: <1479874174-75329-1-git-send-email-jarno@ovn.org>
-Cc: jarno@ovn.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:36351 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755988AbcKWEJv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 23:09:51 -0500
-In-Reply-To: <1479874174-75329-1-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: sendfile from 9p fs into af_alg
+Date: Wed, 23 Nov 2016 04:46:26 +0000
+Message-ID: <20161123044625.GL1555@ZenIV.linux.org.uk>
+References: <20161123035827.GA43786@ast-mbp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161123035827.GA43786@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Do not set skb->protocol to be the ethertype of the L3 header, unless
-the packet only has the L3 header.  For a non-hardware offloaded VLAN
-frame skb->protocol needs to be one of the VLAN ethertypes.
+On Tue, Nov 22, 2016 at 07:58:29PM -0800, Alexei Starovoitov wrote:
+> Hi Al,
+> 
+> it seems the following commit 523ac9afc73a ("switch default_file_splice_read() to use of pipe-backed iov_iter")
+> breaks sendfile from 9p fs into af_alg socket.
+> sendfile into af_alg is used by iproute2/tc.
+> I'm not sure whether it's 9p or crypto or vfs problem, but happy to test any patches.
 
-Any VLAN offloading is undone on the OVS netlink interface.  Due to
-this all VLAN packets sent to openvswitch module from userspace are
-non-offloaded.
-
-Incorrect skb->protocol value on a full-size non-offloaded VLAN skb
-causes packet drop due to failing MTU check, as the VLAN header should
-not be counted in when considering MTU in ovs_vport_send().
-
-Fixes: 5108bbaddc ("openvswitch: add processing of L3 packets")
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- net/openvswitch/datapath.c |  1 -
- net/openvswitch/flow.c     | 20 +++++++++++---------
- 2 files changed, 11 insertions(+), 10 deletions(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 2d4c4d3..9c62b63 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -606,7 +606,6 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	rcu_assign_pointer(flow->sf_acts, acts);
- 	packet->priority = flow->key.phy.priority;
- 	packet->mark = flow->key.phy.skb_mark;
--	packet->protocol = flow->key.eth.type;
- 
- 	rcu_read_lock();
- 	dp = get_dp_rcu(net, ovs_header->dp_ifindex);
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 08aa926..9be9fda 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -477,12 +477,17 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
- }
- 
- /**
-- * key_extract - extracts a flow key from an Ethernet frame.
-+ * key_extract - extracts a flow key from a packet with or without an
-+ * Ethernet header.
-  * @skb: sk_buff that contains the frame, with skb->data pointing to the
-- * Ethernet header
-+ * beginning of the packet.
-  * @key: output flow key
-  *
-- * The caller must ensure that skb->len >= ETH_HLEN.
-+ * 'key->mac_proto' must be initialized to indicate the frame type.
-+ * For an L3 frame 'key->mac_proto' must equal 'MAC_PROTO_NONE', and the
-+ * caller must ensure that 'skb->protocol' is set to the ethertype of the L3
-+ * header.  Otherwise the presence of an Ethernet header is assumed and
-+ * the caller must ensure that skb->len >= ETH_HLEN.
-  *
-  * Returns 0 if successful, otherwise a negative errno value.
-  *
-@@ -497,9 +502,6 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
-  *      on output, then just past the IP header, if one is present and
-  *      of a correct length, otherwise the same as skb->network_header.
-  *      For other key->eth.type values it is left untouched.
-- *
-- *    - skb->protocol: the type of the data starting at skb->network_header.
-- *      Equals to key->eth.type.
-  */
- static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- {
-@@ -518,6 +520,7 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 			return -EINVAL;
- 
- 		skb_reset_network_header(skb);
-+		key->eth.type = skb->protocol;
- 	} else {
- 		eth = eth_hdr(skb);
- 		ether_addr_copy(key->eth.src, eth->h_source);
-@@ -531,15 +534,14 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 		if (unlikely(parse_vlan(skb, key)))
- 			return -ENOMEM;
- 
--		skb->protocol = parse_ethertype(skb);
--		if (unlikely(skb->protocol == htons(0)))
-+		key->eth.type = parse_ethertype(skb);
-+		if (unlikely(key->eth.type == htons(0)))
- 			return -ENOMEM;
- 
- 		skb_reset_network_header(skb);
- 		__skb_push(skb, skb->data - skb_mac_header(skb));
- 	}
- 	skb_reset_mac_len(skb);
--	key->eth.type = skb->protocol;
- 
- 	/* Network layer. */
- 	if (key->eth.type == htons(ETH_P_IP)) {
--- 
-2.1.4
+Could you try -rc6 (or anything that contains 680bb946a1ae04, for that
+matter)?
