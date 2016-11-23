@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 03/11] mlxsw: core: Create an ordered workqueue for FIB offload
-Date: Wed, 23 Nov 2016 15:34:24 +0100
-Message-ID: <1479911670-4525-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 05/11] rocker: Create an ordered workqueue for FIB offload
+Date: Wed, 23 Nov 2016 15:34:26 +0100
+Message-ID: <1479911670-4525-6-git-send-email-jiri@resnulli.us>
 References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
@@ -12,112 +12,86 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36236 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964973AbcKWOeg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:34:36 -0500
-Received: by mail-wm0-f66.google.com with SMTP id m203so2176640wma.3
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:34:36 -0800 (PST)
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:34278 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938295AbcKWOej (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:34:39 -0500
+Received: by mail-wj0-f193.google.com with SMTP id xy5so1189347wjc.1
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:34:38 -0800 (PST)
 In-Reply-To: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-We're going to start processing FIB entries addition / deletion events
-in deferred work. These work items must be processed in the order they
-were submitted or otherwise we can have differences between the kernel's
-FIB table and the device's.
+As explained in the previous patches, we need to process FIB entries
+addition / deletion events in FIFO order or otherwise we can have a
+mismatch between the kernel's FIB table and the device's.
 
-Solve this by creating an ordered workqueue to which these work items
-will be submitted to. Note that we can't simply convert the current
-workqueue to be ordered, as EMADs re-transmissions are also processed in
-deferred work.
-
-Later on, we can migrate other work items to this workqueue, such as FDB
-notification processing and nexthop resolution, since they all take the
-same lock anyway.
+Create an ordered workqueue for rocker to which these work items will be
+submitted to.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c | 22 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/core.h |  2 ++
- 2 files changed, 24 insertions(+)
+ drivers/net/ethernet/rocker/rocker.h      |  1 +
+ drivers/net/ethernet/rocker/rocker_main.c | 11 +++++++++++
+ 2 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index bcd7251..a8d9a9c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -77,6 +77,7 @@ static const char mlxsw_core_driver_name[] = "mlxsw_core";
- static struct dentry *mlxsw_core_dbg_root;
+diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
+index 2eb9b49..ee9675d 100644
+--- a/drivers/net/ethernet/rocker/rocker.h
++++ b/drivers/net/ethernet/rocker/rocker.h
+@@ -72,6 +72,7 @@ struct rocker {
+ 	struct rocker_dma_ring_info event_ring;
+ 	struct notifier_block fib_nb;
+ 	struct rocker_world_ops *wops;
++	struct workqueue_struct *rocker_owq;
+ 	void *wpriv;
+ };
  
- static struct workqueue_struct *mlxsw_wq;
-+static struct workqueue_struct *mlxsw_owq;
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 67df4cf..424be96 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -28,6 +28,7 @@
+ #include <linux/if_bridge.h>
+ #include <linux/bitops.h>
+ #include <linux/ctype.h>
++#include <linux/workqueue.h>
+ #include <net/switchdev.h>
+ #include <net/rtnetlink.h>
+ #include <net/netevent.h>
+@@ -2754,6 +2755,13 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		goto err_request_event_irq;
+ 	}
  
- struct mlxsw_core_pcpu_stats {
- 	u64			trap_rx_packets[MLXSW_TRAP_ID_MAX];
-@@ -1857,6 +1858,18 @@ int mlxsw_core_schedule_dw(struct delayed_work *dwork, unsigned long delay)
- }
- EXPORT_SYMBOL(mlxsw_core_schedule_dw);
- 
-+int mlxsw_core_schedule_odw(struct delayed_work *dwork, unsigned long delay)
-+{
-+	return queue_delayed_work(mlxsw_owq, dwork, delay);
-+}
-+EXPORT_SYMBOL(mlxsw_core_schedule_odw);
-+
-+void mlxsw_core_flush_owq(void)
-+{
-+	flush_workqueue(mlxsw_owq);
-+}
-+EXPORT_SYMBOL(mlxsw_core_flush_owq);
-+
- static int __init mlxsw_core_module_init(void)
- {
- 	int err;
-@@ -1864,6 +1877,12 @@ static int __init mlxsw_core_module_init(void)
- 	mlxsw_wq = alloc_workqueue(mlxsw_core_driver_name, WQ_MEM_RECLAIM, 0);
- 	if (!mlxsw_wq)
- 		return -ENOMEM;
-+	mlxsw_owq = alloc_ordered_workqueue("%s_ordered", WQ_MEM_RECLAIM,
-+					    mlxsw_core_driver_name);
-+	if (!mlxsw_owq) {
++	rocker->rocker_owq = alloc_ordered_workqueue(rocker_driver_name,
++						     WQ_MEM_RECLAIM);
++	if (!rocker->rocker_owq) {
 +		err = -ENOMEM;
 +		goto err_alloc_ordered_workqueue;
 +	}
- 	mlxsw_core_dbg_root = debugfs_create_dir(mlxsw_core_driver_name, NULL);
- 	if (!mlxsw_core_dbg_root) {
- 		err = -ENOMEM;
-@@ -1872,6 +1891,8 @@ static int __init mlxsw_core_module_init(void)
++
+ 	rocker->hw.id = rocker_read64(rocker, SWITCH_ID);
+ 
+ 	err = rocker_probe_ports(rocker);
+@@ -2771,6 +2779,8 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  	return 0;
  
- err_debugfs_create_dir:
-+	destroy_workqueue(mlxsw_owq);
+ err_probe_ports:
++	destroy_workqueue(rocker->rocker_owq);
 +err_alloc_ordered_workqueue:
- 	destroy_workqueue(mlxsw_wq);
- 	return err;
- }
-@@ -1879,6 +1900,7 @@ static int __init mlxsw_core_module_init(void)
- static void __exit mlxsw_core_module_exit(void)
- {
- 	debugfs_remove_recursive(mlxsw_core_dbg_root);
-+	destroy_workqueue(mlxsw_owq);
- 	destroy_workqueue(mlxsw_wq);
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 3de8955..f676ee9 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -156,6 +156,8 @@ enum devlink_port_type mlxsw_core_port_type_get(struct mlxsw_core *mlxsw_core,
- 						u8 local_port);
- 
- int mlxsw_core_schedule_dw(struct delayed_work *dwork, unsigned long delay);
-+int mlxsw_core_schedule_odw(struct delayed_work *dwork, unsigned long delay);
-+void mlxsw_core_flush_owq(void);
- 
- #define MLXSW_CONFIG_PROFILE_SWID_COUNT 8
- 
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
+ err_request_event_irq:
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_CMD), rocker);
+@@ -2799,6 +2809,7 @@ static void rocker_remove(struct pci_dev *pdev)
+ 	unregister_fib_notifier(&rocker->fib_nb);
+ 	rocker_write32(rocker, CONTROL, ROCKER_CONTROL_RESET);
+ 	rocker_remove_ports(rocker);
++	destroy_workqueue(rocker->rocker_owq);
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_CMD), rocker);
+ 	rocker_dma_rings_fini(rocker);
 -- 
 2.7.4
