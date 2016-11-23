@@ -1,47 +1,58 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2016-11-23
-Date: Wed, 23 Nov 2016 15:34:29 +0100
-Message-ID: <20161123143430.24985-1-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 01/11] ipv4: fib: Export free_fib_info()
+Date: Wed, 23 Nov 2016 15:34:22 +0100
+Message-ID: <1479911670-4525-2-git-send-email-jiri@resnulli.us>
+References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:60403 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S964963AbcKWOee (ORCPT
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33896 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964955AbcKWOee (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:34:34 -0500
+Received: by mail-wm0-f66.google.com with SMTP id g23so2186587wme.1
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:34:33 -0800 (PST)
+In-Reply-To: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Ido Schimmel <idosch@mellanox.com>
 
-this is a pull request for net/master.
+The FIB notification chain is going to be converted to an atomic chain,
+which means switchdev drivers will have to offload FIB entries in
+deferred work, as hardware operations entail sleeping.
 
-The patch by Oliver Hartkopp for the broadcast manager (bcm) fixes the CAN-FD
-support, which may cause an out-of-bounds access otherwise.
+However, while the work is queued fib info might be freed, so a
+reference must be taken. To release the reference (and potentially free
+the fib info) fib_info_put() will be called, which in turn calls
+free_fib_info().
 
-regards,
-Marc
+Export free_fib_info() so that modules will be able to invoke
+fib_info_put().
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
+ net/ipv4/fib_semantics.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-The following changes since commit c9b8af1330198ae241cd545e1f040019010d44d9:
-
-  flow_dissect: call init_default_flow_dissectors() earlier (2016-11-22 14:44:01 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.9-20161123
-
-for you to fetch changes up to 5499a6b22e5508b921c447757685b0a5e40a07ed:
-
-  can: bcm: fix support for CAN FD frames (2016-11-23 15:22:18 +0100)
-
-----------------------------------------------------------------
-linux-can-fixes-for-4.9-20161123
-
-----------------------------------------------------------------
-Oliver Hartkopp (1):
-      can: bcm: fix support for CAN FD frames
-
- net/can/bcm.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 388d3e2..c1bc1e9 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -234,6 +234,7 @@ void free_fib_info(struct fib_info *fi)
+ #endif
+ 	call_rcu(&fi->rcu, free_fib_info_rcu);
+ }
++EXPORT_SYMBOL_GPL(free_fib_info);
+ 
+ void fib_release_info(struct fib_info *fi)
+ {
+-- 
+2.7.4
