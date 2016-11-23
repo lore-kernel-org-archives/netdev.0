@@ -1,51 +1,82 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: sendfile from 9p fs into af_alg
-Date: Wed, 23 Nov 2016 08:29:54 -0800
-Message-ID: <20161123162952.GA48439@ast-mbp.thefacebook.com>
-References: <20161123035827.GA43786@ast-mbp.thefacebook.com>
- <20161123044625.GL1555@ZenIV.linux.org.uk>
- <20161123045558.GA43893@ast-mbp.thefacebook.com>
- <20161123061628.GN1555@ZenIV.linux.org.uk>
- <20161123085809.GA46992@ast-mbp.thefacebook.com>
- <20161123155301.GP1555@ZenIV.linux.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: properly flush delay-freed skbs
+Date: Wed, 23 Nov 2016 08:44:56 -0800
+Message-ID: <1479919496.8455.509.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Martin KaFai Lau <kafai@fb.com>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161123155301.GP1555@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34215 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752700AbcKWQpD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 11:45:03 -0500
+Received: by mail-pg0-f68.google.com with SMTP id e9so1431634pgc.1
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 08:44:58 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 23, 2016 at 03:53:01PM +0000, Al Viro wrote:
-> On Wed, Nov 23, 2016 at 12:58:11AM -0800, Alexei Starovoitov wrote:
-> 
-> > if I read it correctly 9p actually responded with 8192 bytes of requests...
-> > whereas the file size was 9624.
-> > For large file sizes (in megabytes) the difference between what
-> > sendfile is reporting and actual file size can be 3x.
-> > In the small file case (like above dump) it looks rounded to page size for some reason.
-> 
-> OK, I think I see one bug in there; could you check if this gets it back to
-> normal?
-> 
-> diff --git a/fs/splice.c b/fs/splice.c
-> index dcaf185..5a7750b 100644
-> --- a/fs/splice.c
-> +++ b/fs/splice.c
-> @@ -408,7 +408,8 @@ static ssize_t default_file_splice_read(struct file *in, loff_t *ppos,
->  	if (res <= 0)
->  		return -ENOMEM;
->  
-> -	nr_pages = res / PAGE_SIZE;
-> +	BUG_ON(dummy);
-> +	nr_pages = DIV_ROUND_UP(res, PAGE_SIZE);
+From: Eric Dumazet <edumazet@google.com>
 
-Hooray. It fixed it :)
-Feel free to add my
-Tested-by: Alexei Starovoitov <ast@kernel.org>
-when you submit it.
-Thanks for fixing it so quickly!
+Typical NAPI drivers use napi_consume_skb(skb) at TX completion time.
+This put skb in a percpu special queue, napi_alloc_cache, to get bulk
+frees.
+
+It turns out the queue is not flushed and hits the NAPI_SKB_CACHE_SIZE
+limit quite often, with skbs that were queued hundreds of usec earlier.
+I measured this can take ~6000 nsec to perform one flush.
+
+__kfree_skb_flush() can be called from two points right now :
+
+1) From net_tx_action(), but only for skbs that were queued to
+sd->completion_queue.
+
+ -> Irrelevant for NAPI drivers in normal operation.
+
+2) From net_rx_action(), but only under high stress or if RPS/RFS has a
+pending action.
+
+This patch changes net_rx_action() to perform the flush in all cases and
+after more urgent operations happened (like kicking remote CPUS for
+RPS/RFS).
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ net/core/dev.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f71b34ab57a5132647729d20e21376d362d4e630..048b46b7c92ae10080226ea7050fad3529920baa 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5260,7 +5260,7 @@ static __latent_entropy void net_rx_action(struct softirq_action *h)
+ 
+ 		if (list_empty(&list)) {
+ 			if (!sd_has_rps_ipi_waiting(sd) && list_empty(&repoll))
+-				return;
++				goto out;
+ 			break;
+ 		}
+ 
+@@ -5278,7 +5278,6 @@ static __latent_entropy void net_rx_action(struct softirq_action *h)
+ 		}
+ 	}
+ 
+-	__kfree_skb_flush();
+ 	local_irq_disable();
+ 
+ 	list_splice_tail_init(&sd->poll_list, &list);
+@@ -5288,6 +5287,8 @@ static __latent_entropy void net_rx_action(struct softirq_action *h)
+ 		__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+ 
+ 	net_rps_action_and_irq_enable(sd);
++out:
++	__kfree_skb_flush();
+ }
+ 
+ struct netdev_adjacent {
