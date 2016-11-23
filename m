@@ -1,169 +1,41 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] tcp: enhance tcp_collapse_retrans() with skb_shift()
-Date: Wed, 23 Nov 2016 12:05:27 -0800
-Message-ID: <CAK6E8=fzjZc33bnLU1_f3MdKzKj_ZzmhoFQotnbMaY37KfmeCQ@mail.gmail.com>
-References: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [PATCH v2] cpsw: ethtool: add support for getting/setting EEE registers
+Date: Wed, 23 Nov 2016 21:08:00 +0100
+Message-ID: <CAGm1_ksC_6afhzK39uVTSk2PoC9CrR4Fow89YCZfihS2f6wzOw@mail.gmail.com>
+References: <1479911913-1761-1-git-send-email-yegorslists@googlemail.com> <93e0bd06-3171-e12b-b763-1e2895a463f8@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        "N, Mugunthan V" <mugunthanvnm@ti.com>,
+        Rami Rosen <roszenrami@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:32785 "EHLO
-        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756349AbcKWUGJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 15:06:09 -0500
-Received: by mail-io0-f169.google.com with SMTP id j65so43598619iof.0
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 12:06:09 -0800 (PST)
-In-Reply-To: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-vk0-f46.google.com ([209.85.213.46]:35373 "EHLO
+        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933996AbcKWUIV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 15:08:21 -0500
+In-Reply-To: <93e0bd06-3171-e12b-b763-1e2895a463f8@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 15, 2016 at 12:51 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Wed, Nov 23, 2016 at 6:33 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 11/23/2016 06:38 AM, yegorslists@googlemail.com wrote:
+>> From: Yegor Yefremov <yegorslists@googlemail.com>
+>>
+>> Add the ability to query and set Energy Efficient Ethernet parameters
+>> via ethtool for applicable devices.
 >
-> From: Eric Dumazet <edumazet@google.com>
+> Are you sure this is enough to actually enable EEE? I don't see where
+> phy_init_eee() is called here, nor is the cpsw Ethernet controller part
+> configured to enable/disable EEE. EEE is not just a PHY thing, it
+> usually also needs to be configured properly at the Ethernet MAC/switch
+> level as well.
 >
-> In commit 2331ccc5b323 ("tcp: enhance tcp collapsing"),
-> we made a first step allowing copying right skb to left skb head.
->
-> Since all skbs in socket write queue are headless (but possibly the very
-> first one), this strategy often does not work.
->
-> This patch extends tcp_collapse_retrans() to perform frag shifting,
-> thanks to skb_shift() helper.
->
-> This helper needs to not BUG on non headless skbs, as callers are ok
-> with that.
->
-> Tested:
->
-> Following packetdrill test now passes :
->
-> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
->    +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
->    +0 bind(3, ..., ...) = 0
->    +0 listen(3, 1) = 0
->
->    +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
->    +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
-> +.100 < . 1:1(0) ack 1 win 257
->    +0 accept(3, ..., ...) = 4
->
->    +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
->    +0 write(4, ..., 200) = 200
->    +0 > P. 1:201(200) ack 1
-> +.001 write(4, ..., 200) = 200
->    +0 > P. 201:401(200) ack 1
-> +.001 write(4, ..., 200) = 200
->    +0 > P. 401:601(200) ack 1
-> +.001 write(4, ..., 200) = 200
->    +0 > P. 601:801(200) ack 1
-> +.001 write(4, ..., 200) = 200
->    +0 > P. 801:1001(200) ack 1
-> +.001 write(4, ..., 100) = 100
->    +0 > P. 1001:1101(100) ack 1
-> +.001 write(4, ..., 100) = 100
->    +0 > P. 1101:1201(100) ack 1
-> +.001 write(4, ..., 100) = 100
->    +0 > P. 1201:1301(100) ack 1
-> +.001 write(4, ..., 100) = 100
->    +0 > P. 1301:1401(100) ack 1
->
-> +.099 < . 1:1(0) ack 201 win 257
-> +.001 < . 1:1(0) ack 201 win 257 <nop,nop,sack 1001:1401>
->    +0 > P. 201:1001(800) ack 1
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+> Just curious here.
 
-Nice follow-up patch. This also works well with RACK loss detection
-since RACK only cares about time (skb_mstamp) not sequence so
-collapsing sequences is not a problem.
+I'm sure I want to disable EEE :-) So I need this patch in order to
+check and disable EEE advertising.
 
-> ---
->  net/core/skbuff.c     |    4 +++-
->  net/ipv4/tcp_output.c |   22 +++++++++++-----------
->  2 files changed, 14 insertions(+), 12 deletions(-)
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 0b2a6e94af2de73ed638634c47a0fb71e2cbc1cb..a9cb81a10c4ba895587727aa4cf098e9a38424ea 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2656,7 +2656,9 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
->         struct skb_frag_struct *fragfrom, *fragto;
->
->         BUG_ON(shiftlen > skb->len);
-> -       BUG_ON(skb_headlen(skb));       /* Would corrupt stream */
-> +
-> +       if (skb_headlen(skb))
-> +               return 0;
->
->         todo = shiftlen;
->         from = 0;
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index f57b5aa51b59cf0a58975fe34a7dcdb886ea8c50..19105b46a30436ebb85fe97ee43089e77aa028bb 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2514,7 +2514,7 @@ void tcp_skb_collapse_tstamp(struct sk_buff *skb,
->  }
->
->  /* Collapses two adjacent SKB's during retransmission. */
-> -static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
-> +static bool tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
->  {
->         struct tcp_sock *tp = tcp_sk(sk);
->         struct sk_buff *next_skb = tcp_write_queue_next(sk, skb);
-> @@ -2525,14 +2525,17 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
->
->         BUG_ON(tcp_skb_pcount(skb) != 1 || tcp_skb_pcount(next_skb) != 1);
->
-> +       if (next_skb_size) {
-> +               if (next_skb_size <= skb_availroom(skb))
-> +                       skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
-> +                                     next_skb_size);
-> +               else if (!skb_shift(skb, next_skb, next_skb_size))
-> +                       return false;
-> +       }
->         tcp_highest_sack_combine(sk, next_skb, skb);
->
->         tcp_unlink_write_queue(next_skb, sk);
->
-> -       if (next_skb_size)
-> -               skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
-> -                             next_skb_size);
-> -
->         if (next_skb->ip_summed == CHECKSUM_PARTIAL)
->                 skb->ip_summed = CHECKSUM_PARTIAL;
->
-> @@ -2561,6 +2564,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
->         tcp_skb_collapse_tstamp(skb, next_skb);
->
->         sk_wmem_free_skb(sk, next_skb);
-> +       return true;
->  }
->
->  /* Check if coalescing SKBs is legal. */
-> @@ -2610,16 +2614,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
->
->                 if (space < 0)
->                         break;
-> -               /* Punt if not enough space exists in the first SKB for
-> -                * the data in the second
-> -                */
-> -               if (skb->len > skb_availroom(to))
-> -                       break;
->
->                 if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
->                         break;
->
-> -               tcp_collapse_retrans(sk, to);
-> +               if (!tcp_collapse_retrans(sk, to))
-> +                       break;
->         }
->  }
->
->
->
+Yegor
