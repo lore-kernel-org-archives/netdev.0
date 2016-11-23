@@ -1,52 +1,65 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) Bus driver
-Date: Wed, 23 Nov 2016 01:06:43 +0100
-Message-ID: <20161123000643.GJ2691@lunn.ch>
-References: <1479508938-63799-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1479508938-63799-3-git-send-email-niranjana.vishwanathapura@intel.com>
- <20161119190445.GG22775@obsidianresearch.com>
- <20161121213017.GB67872@knc-06.sc.intel.com>
- <20161121213930.GA30111@obsidianresearch.com>
- <20161121232629.GA67988@knc-06.sc.intel.com>
- <20161121233118.GA31132@obsidianresearch.com>
- <20161122015304.GB67988@knc-06.sc.intel.com>
- <20161122170407.GE3956@obsidianresearch.com>
- <20161122194918.GA69241@knc-06.sc.intel.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 1/1] ipv6: sr: add option to control lwtunnel support
+Date: Tue, 22 Nov 2016 16:16:09 -0800
+Message-ID: <CAADnVQ+MdPeZv1FpzD=omH1ftr2vW3uYiqdLL3Y_teaZj=tEbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>
-To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: david.lebrun@uclouvain.be,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49078 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751968AbcKWAHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Nov 2016 19:07:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20161122194918.GA69241@knc-06.sc.intel.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:35209 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751245AbcKWAQc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 19:16:32 -0500
+Received: by mail-wm0-f43.google.com with SMTP id a197so52577115wmd.0
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 16:16:31 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2016 at 11:49:18AM -0800, Vishwanathapura, Niranjana wrote:
-> Ok, I do understand Jason's point that we should probably not put
-> this driver under drivers/infiniband/sw/.., as this driver is not a
-> HCA.
-> It is an ULP similar to ipoib, built on top of Omni-path
-> irrespective of whether we register a hfi_vnic_bus or a direct
-> custom interface with HFI1.
-> This ULP will transmit and recieve Omni-path packets over the
-> fabric, and is dependent on IB MAD interface and the HFI1 driver.
-> 
-> Doug,
-> Will it be acceptable if we put it under 'drivers/infiniband/ulp/hfi_vnic'?
+On Wed, Nov 16, 2016 at 8:32 AM, David Miller <davem@davemloft.net> wrote:
+> From: David Lebrun <david.lebrun@uclouvain.be>
+> Date: Tue, 15 Nov 2016 16:14:04 +0100
+>
+>> This patch adds a new option CONFIG_IPV6_SEG6_LWTUNNEL to enable/disable
+>> support of encapsulation with the lightweight tunnels. When this option
+>> is enabled, CONFIG_LWTUNNEL is automatically selected.
+>>
+>> Fix commit 6c8702c60b88 ("ipv6: sr: add support for SRH encapsulation and injection with lwtunnels")
+>>
+>> Without a proper option to control lwtunnel support for SR-IPv6, if
+>> CONFIG_LWTUNNEL=n then the IPv6 initialization fails as a consequence
+>> of seg6_iptunnel_init() failure with EOPNOTSUPP:
+>>
+>> NET: Registered protocol family 10
+>> IPv6: Attempt to unregister permanent protocol 6
+>> IPv6: Attempt to unregister permanent protocol 136
+>> IPv6: Attempt to unregister permanent protocol 17
+>> NET: Unregistered protocol family 10
+>>
+>> Tested (compiling, booting, and loading ipv6 module when relevant)
+>> with possible combinations of CONFIG_IPV6={y,m,n},
+>> CONFIG_IPV6_SEG6_LWTUNNEL={y,n} and CONFIG_LWTUNNEL={y,n}.
+>>
+>> Reported-by: Lorenzo Colitti <lorenzo@google.com>
+>> Suggested-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+>
+> Applied.
 
-How about turning this whole discussion around. 
+ipv6 seems to be still broken in the latest net-next
+when CONFIG_LWTUNNEL is not set:
+# ping 127.0.0.1
+ping: socket: Address family not supported by protocol
+# ping -4 127.0.0.1
+PING localhost.localdomain (127.0.0.1) 56(84) bytes of data.
+64 bytes from localhost.localdomain (127.0.0.1): icmp_seq=1 ttl=64 time=0.067 ms
 
-This is a network driver. So ask the network Maintainers where he
-wants it. Send the patch to David Miller <davem@davemloft.net> and
-netdev with the question, where does this code belong?
+it works with CONFIG_LWTUNNEL=y
 
-	Andrew
+Roopa, David, please take a look.
+
+Thanks!
