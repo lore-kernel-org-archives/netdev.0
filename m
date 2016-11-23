@@ -1,46 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] net: dsa: mv88e6xxx: forward unknown mc packets on
- mv88e6097
-Date: Wed, 23 Nov 2016 18:40:40 +0100
-Message-ID: <20161123174040.GE8760@lunn.ch>
-References: <20161123165022.GD12698@gruene.netmodule.intranet>
- <20161123165440.4894-1-stefan.eichenberger@netmodule.com>
- <20161123165949.GB8760@lunn.ch>
- <20161123171441.GE12698@gruene.netmodule.intranet>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] mlx4: do not use priv->stats_lock in
+ mlx4_en_auto_moderation()
+Date: Wed, 23 Nov 2016 09:46:52 -0800
+Message-ID: <1479923212.8455.515.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Eichenberger <eichest@gmail.com>,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50123 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933957AbcKWRlg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 12:41:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20161123171441.GE12698@gruene.netmodule.intranet>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33875 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938687AbcKWRqz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 12:46:55 -0500
+Received: by mail-pf0-f193.google.com with SMTP id y68so904357pfb.1
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 09:46:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 23, 2016 at 06:14:41PM +0100, Stefan Eichenberger wrote:
-> On Wed, Nov 23, 2016 at 05:59:49PM +0100, Andrew Lunn wrote:
-> > On Wed, Nov 23, 2016 at 05:54:40PM +0100, Stefan Eichenberger wrote:
-> > > Packets with unknown destination addresses are not forwarded to the cpu
-> > > port on mv88e6097 based switches (e.g. MV88E6097) at the moment. This
-> > > commit enables PORT_CONTROL_FORWARD_UNKNOWN_MC for this family.
-> > 
-> > Please try adding MV88E6XXX_FLAG_EDSA to
-> > MV88E6XXX_FLAGS_FAMILY_6097. That is the better fix if it works.
-> 
-> I was even wondering what EDSA means:) Thanks this solved the problem!
+From: Eric Dumazet <edumazet@google.com>
 
-Plain DSA puts four bytes of header between the MAC source address and
-the EtherType/Length.
+Per RX ring packets/bytes counters are not protected by global
+priv->stats_lock.
 
-EDSA puts in an 8 byte header, and includes an Ethertype value of
-0xdada. Having that ethertype value makes it more obvious what is
-going on. And if you have a recent version of tcpdump, it will decode
-the header.
+Better not confuse the reader, and use READ_ONCE() to show we read
+these counters without surrounding synchronization.
 
-    Andrew
+Interrupt moderation is best effort, and we do not really care of
+ultra precise counters.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 9a807e93c9fdd81e61e561208aa1480a244d0bdb..b964bdcd4ae509a7e693215e8b32f040218e252c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1391,10 +1391,8 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
+ 		return;
+ 
+ 	for (ring = 0; ring < priv->rx_ring_num; ring++) {
+-		spin_lock_bh(&priv->stats_lock);
+-		rx_packets = priv->rx_ring[ring]->packets;
+-		rx_bytes = priv->rx_ring[ring]->bytes;
+-		spin_unlock_bh(&priv->stats_lock);
++		rx_packets = READ_ONCE(priv->rx_ring[ring]->packets);
++		rx_bytes = READ_ONCE(priv->rx_ring[ring]->bytes);
+ 
+ 		rx_pkt_diff = ((unsigned long) (rx_packets -
+ 				priv->last_moder_packets[ring]));
