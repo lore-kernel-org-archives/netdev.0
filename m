@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 08/11] ipv4: fib: Allow for consistent FIB dumping
-Date: Wed, 23 Nov 2016 15:34:29 +0100
-Message-ID: <1479911670-4525-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 07/11] ipv4: fib: Convert FIB notification chain to be atomic
+Date: Wed, 23 Nov 2016 15:34:28 +0100
+Message-ID: <1479911670-4525-8-git-send-email-jiri@resnulli.us>
 References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
@@ -12,72 +12,63 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36263 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965009AbcKWOem (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:34:42 -0500
-Received: by mail-wm0-f65.google.com with SMTP id m203so2176881wma.3
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:34:41 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36257 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964981AbcKWOel (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:34:41 -0500
+Received: by mail-wm0-f68.google.com with SMTP id m203so2176845wma.3
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:34:40 -0800 (PST)
 In-Reply-To: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-The next patch will enable listeners of the FIB notification chain to
-request a dump of the FIB tables. However, since RTNL isn't taken during
-the dump, it's possible for the FIB tables to change mid-dump, which
-will result in inconsistency between the listener's table and the
-kernel's.
+In order not to hold RTNL for long periods of time we're going to dump
+the FIB tables using RCU.
 
-Allow listeners to know about changes that occurred mid-dump, by adding
-a change sequence counter to each net namespace. The counter is
-incremented just before a notification is sent in the FIB chain.
+Convert the FIB notification chain to be atomic, as we can't block in
+RCU critical sections.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/netns/ipv4.h | 2 ++
- net/ipv4/fib_frontend.c  | 2 ++
- net/ipv4/fib_trie.c      | 1 +
- 3 files changed, 5 insertions(+)
+ net/ipv4/fib_trie.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 7adf438..d236c08 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -136,5 +136,7 @@ struct netns_ipv4 {
- 	int sysctl_fib_multipath_use_neigh;
- #endif
- 	atomic_t	rt_genid;
-+
-+	atomic_t	fib_seq;
- };
- #endif
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 121384b..cf8c867 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1219,6 +1219,8 @@ static int __net_init ip_fib_net_init(struct net *net)
- 	int err;
- 	size_t size = sizeof(struct hlist_head) * FIB_TABLE_HASHSZ;
- 
-+	atomic_set(&net->ipv4.fib_seq, 0);
-+
- 	/* Avoid false sharing : Use at least a full cache line */
- 	size = max_t(size_t, size, L1_CACHE_BYTES);
- 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 9bfce0d..b1d2d09 100644
+index 026f309..9bfce0d 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -101,6 +101,7 @@ EXPORT_SYMBOL(unregister_fib_notifier);
- int call_fib_notifiers(struct net *net, enum fib_event_type event_type,
+@@ -84,17 +84,17 @@
+ #include <trace/events/fib.h>
+ #include "fib_lookup.h"
+ 
+-static BLOCKING_NOTIFIER_HEAD(fib_chain);
++static ATOMIC_NOTIFIER_HEAD(fib_chain);
+ 
+ int register_fib_notifier(struct notifier_block *nb)
+ {
+-	return blocking_notifier_chain_register(&fib_chain, nb);
++	return atomic_notifier_chain_register(&fib_chain, nb);
+ }
+ EXPORT_SYMBOL(register_fib_notifier);
+ 
+ int unregister_fib_notifier(struct notifier_block *nb)
+ {
+-	return blocking_notifier_chain_unregister(&fib_chain, nb);
++	return atomic_notifier_chain_unregister(&fib_chain, nb);
+ }
+ EXPORT_SYMBOL(unregister_fib_notifier);
+ 
+@@ -102,7 +102,7 @@ int call_fib_notifiers(struct net *net, enum fib_event_type event_type,
  		       struct fib_notifier_info *info)
  {
-+	atomic_inc(&net->ipv4.fib_seq);
  	info->net = net;
- 	return atomic_notifier_call_chain(&fib_chain, event_type, info);
+-	return blocking_notifier_call_chain(&fib_chain, event_type, info);
++	return atomic_notifier_call_chain(&fib_chain, event_type, info);
  }
+ 
+ static int call_fib_entry_notifiers(struct net *net,
 -- 
 2.7.4
