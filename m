@@ -1,45 +1,120 @@
-From: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
-Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: add MV88E6097 switch
-Date: Wed, 23 Nov 2016 21:41:46 +0100
-Message-ID: <20161123204146.GA31777@gruene.netmodule.intranet>
-References: <20161123175546.31416-1-stefan.eichenberger@netmodule.com>
- <20161123175546.31416-2-stefan.eichenberger@netmodule.com>
- <20161123181016.GG8760@lunn.ch>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC PATCH v2 1/2] macb: Add 1588 support in Cadence GEM.
+Date: Wed, 23 Nov 2016 22:03:18 +0100
+Message-ID: <20161123210318.GB2845@localhost.localdomain>
+References: <1479478912-14067-1-git-send-email-andrei.pistirica@microchip.com>
+ <20161120191823.GA6950@localhost.localdomain>
+ <e592169a-6287-7f3c-b4fd-23c4c79198b0@microchip.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Stefan Eichenberger <eichest@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.netmodule.com ([194.29.26.242]:61739 "EHLO
-        webmail.netmodule.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934507AbcKWUlx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 15:41:53 -0500
+Content-Transfer-Encoding: 7bit
+Cc: tbultel@pixelsurmer.com, boris.brezillon@free-electrons.com,
+ netdev@vger.kernel.org, alexandre.belloni@free-electrons.com,
+ nicolas.ferre@atmel.com, linux-kernel@vger.kernel.org,
+ harinikatakamlinux@gmail.com, michals@xilinx.com, anirudh@xilinx.com,
+ punnaia@xilinx.com, harini.katakam@xilinx.com, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Andrei Pistirica <andrei.pistirica@microchip.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <20161123181016.GG8760@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <e592169a-6287-7f3c-b4fd-23c4c79198b0@microchip.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2016 at 07:10:16PM +0100, Andrew Lunn wrote:
-> > +	[MV88E6097] = {
-> > +		.prod_num = PORT_SWITCH_ID_PROD_NUM_6097,
-> > +		.family = MV88E6XXX_FAMILY_6097,
-> > +		.name = "Marvell 88E6097/88E6097F",
-> > +		.num_databases = 4096,
-> > +		.num_ports = 11,
-> > +		.port_base_addr = 0x10,
-> > +		.global1_addr = 0x1b,
-> > +		.age_time_coeff = 15000,
-> > +		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
-> > +		.ops = &mv88e6097_ops,
-> 
-> Upps. Sorry, i missed something when you rebased onto net-next. You
-> are missing .g1_irqs = . It is probably 9. You can check the
-> datasheet, global 1, register 0. If bit 8 is AVBInt, you need 9. If
-> bit 8 is reserved, then 8.
+On Wed, Nov 23, 2016 at 02:34:03PM +0100, Andrei Pistirica wrote:
+> From what I understand, your suggestion is:
+> (ns | frac) * ppb = (total_ns | total_frac)
+> (total_ns | total_frac) / 10^9 = (adj_ns | adj_frac)
+> This is correct iff total_ns/10^9 >= 1, but the problem is that there are
+> missed fractions due to the following approximation:
+> frac*ppb =~ (ns*ppb+frac*ppb*2^16)*2^16-10^9*2^16*flor(ns*ppb+frac*ppb*2^16,
+> 10^9).
 
-No problem, bit 8-10 are reserved. So I put 8 in then.
+-ENOPARSE;
+ 
+> An example which uses values from a real test:
+> let ppb=4891, ns=12 and frac=3158
 
-Regards,
-Stefan
+That is a very strange example for nominal frequency.  The clock
+period is 12.048187255859375 nanoseconds, and so the frequency is
+83000037.99 Hz.
+
+But hey, let's go with it...
+
+> - using suggested algorithm, yields: adj_ns = 0 and adj_frac = 0
+> - using in-place algorithm, yields: adj_ns = 0, adj_frac = 4
+> You can check the calculus.
+
+The test program, below, shows you what I meant.  (Of course, you
+should adjust this to fit the adjfine() method.)
+
+Unfortunately, this device has a very coarse frequency resolution.
+Using a nominal period of ns=12 as an example, the resolution is
+2^-16 / 12 or 1.27 ppm.  The 24 bit device is much better in this
+repect.
+
+The output using your example numbers is:
+
+   $ ./a.out 12 3158 4891
+   ns=12 frac=3158
+   ns=12 frac=3162
+
+   $ ./a.out 12 3158 -4891
+   ns=12 frac=3158
+   ns=12 frac=3154
+
+See how you get a result of +/- 4 with just one division?
+
+Thanks,
+Richard
+
+---
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+static void adjfreq(uint32_t ns, uint32_t frac, int32_t ppb)
+{
+	uint64_t adj;
+	uint32_t diff, word;
+	int neg_adj = 0;
+
+	printf("ns=%u frac=%u\n", ns, frac);
+
+	if (ppb < 0) {
+		neg_adj = 1;
+		ppb = -ppb;
+	}
+	word = (ns << 16) + frac;
+	adj = word;
+	adj *= ppb;
+	adj += 500000000UL;
+	diff = adj / 1000000000UL;
+
+	word = neg_adj ? word - diff : word + diff;
+	printf("ns=%u frac=%u\n", word >> 16, word & 0xffff);
+}
+
+int main(int argc, char *argv[])
+{
+	uint32_t ns, frac;
+	int32_t ppb;
+
+	if (argc != 4) {
+		puts("need ns, frac, and ppb");
+		return -1;
+	}
+	ns = atoi(argv[1]);
+	frac = atoi(argv[2]);
+	ppb = atoi(argv[3]);
+	adjfreq(ns, frac, ppb);
+	return 0;
+}
