@@ -1,50 +1,46 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Wed, 23 Nov 2016 15:12:21 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB201051D51@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
- <1394712342-15778-227-Taiwan-albertk@realtek.com>
- <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
- <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
- <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
- <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
- <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>,<b61a0e10-c737-8912-3e4e-393f4eb32077@pobox.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH ethtool] ethtool: Fix the "advertise" parameter logic.
+Date: Wed, 23 Nov 2016 10:00:14 -0500
+Message-ID: <20161123150014.GB13179@tuxdriver.com>
+References: <1479858947-25017-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Mark Lord <mlord@pobox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b61a0e10-c737-8912-3e4e-393f4eb32077@pobox.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Michael Chan <michael.chan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43608 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935294AbcKWPPx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 10:15:53 -0500
+Content-Disposition: inline
+In-Reply-To: <1479858947-25017-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mark Lord [mlord@pobox.com]
-[...]
-> What does this code do:
+On Tue, Nov 22, 2016 at 06:55:47PM -0500, Michael Chan wrote:
+> From: Michael Chan <mchan@broadcom.com>
+> 
+> The current code ignores the value of the advertise parameter.  For example,
+> 
+> ethtool -s ethx advertise 0x1000
+> 
+> The full_advertising_wanted parameter of 0x1000 is not passed to the kernel.
+> The reason is that advertising_wanted is NULL in this case, and ethtool
+> will think that the user has given no advertisement input and so it will
+> proceed to pass all supported advertisement speeds to the kernel.
+> 
+> The older legacy ethtool with similar logic worked because
+> advertising_wanted was an integer and could take on -1 and 0.  It would pass
+> the full_advertising_wanted value if advertising_wanted == -1.
+> 
+> This fix is to pass all supported advertisement speeds only when both
+> advertising_wanted == NULL && full_advertising_wanted == NULL.
+> 
+> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 
-> >static void r8153_set_rx_early_size(struct r8152 *tp)
-> >{
-> >        u32 mtu = tp->netdev->mtu;
-> >        u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
-> >
-> >        ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
-> >}
+Thanks, Michael -- merging...
 
-This only works for RTL8153. However, what you use is RTL8152.
-It is like delay completion. It is used to reduce the loading of CPU
-by letting a transfer contain more data to reduce the number of
-transfers.
-
-> How is ocp_data used by the hardware?
-> Shouldn't the calculation also include sizeof(rx_desc) in there somewhere?
-
-The algorithm is from our hw engineers, and it should be 
-
-   (agg_buf_sz - packet size) / 8
-
-You could refer to commit a59e6d815226 ("r8152: correct the rx early size").
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
