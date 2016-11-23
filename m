@@ -1,111 +1,343 @@
-From: Daniele Palmas <dnlplm@gmail.com>
-Subject: [PATCH 1/1] NET: usb: cdc_ncm: adding MBIM RESET_FUNCTION request and modifying ncm bind common code
-Date: Wed, 23 Nov 2016 13:36:46 +0100
-Message-ID: <1479904606-30647-2-git-send-email-dnlplm@gmail.com>
-References: <1479904606-30647-1-git-send-email-dnlplm@gmail.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        Daniele Palmas <dnlplm@gmail.com>
-To: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-        Oliver Neukum <oliver@neukum.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [net-next PATCH v3] net: dummy: Introduce dummy virtual functions
+Date: Wed, 23 Nov 2016 13:41:25 +0100
+Message-ID: <20161123124125.3374-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f193.google.com ([209.85.210.193]:34198 "EHLO
-        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934685AbcKWMhK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 07:37:10 -0500
-In-Reply-To: <1479904606-30647-1-git-send-email-dnlplm@gmail.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:46195 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934685AbcKWMl6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Nov 2016 07:41:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some latest QC based modems seem not to properly accept altsetting
-toggling in cdc_ncm_bind_common, making them to fail. The workaround
-was to introduce an empirically decided pause to avoid the failure.
+The idea for this was born when testing VF support in iproute2 which was
+impeded by hardware requirements. In fact, not every VF-capable hardware
+driver implements all netdev ops, so testing the interface is still hard
+to do even with a well-sorted hardware shelf.
 
-This patch introduces a different approach: for MBIM devices, instead
-of toggling interfaces, the MBIM class-specific request code
-RESET_FUNCTION is used in order to reset the function to its initial
-state, removing the need for the pause.
+To overcome this and allow for testing the user-kernel interface, this
+patch allows to turn dummy into a PF with a configurable amount of VFs.
 
-Signed-off-by: Daniele Palmas <dnlplm@gmail.com>
+Due to the assumption that all PFs are PCI devices, this implementation
+is not completely straightforward: In order to allow for
+rtnl_fill_ifinfo() to see the dummy VFs, a fake PCI parent device is
+attached to the dummy netdev. This has to happen at the right spot so
+register_netdevice() does not get confused. This patch abuses
+ndo_fix_features callback for that. In ndo_uninit callback, the fake
+parent is removed again for the same purpose.
+
+Joint work with Sabrina Dubroca.
+
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/usb/cdc_ncm.c    | 39 +++++++++++++++++++++++++++------------
- include/uapi/linux/usb/cdc.h |  1 +
- 2 files changed, 28 insertions(+), 12 deletions(-)
+Changes since v2:
+- Fixed oops on reboot (need to initialize parent device mutex).
+- Got rid of potential mem leak noticed by Eric Dumazet.
+- Dropped stray newline insertion.
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 877c951..e8a7a76 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -498,6 +498,22 @@ static int cdc_ncm_init(struct usbnet *dev)
- 		return err; /* GET_NTB_PARAMETERS is required */
- 	}
+Changes since v1:
+- Fixed issues reported by kbuild test robot:
+  - pci_dev->sriov is only present if CONFIG_PCI_ATS is active.
+  - pci_bus_type does not exist if CONFIG_PCI is not defined.
+---
+ drivers/net/dummy.c | 205 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 203 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 69fc8409a9733..829eb552c63c5 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -34,6 +34,8 @@
+ #include <linux/etherdevice.h>
+ #include <linux/init.h>
+ #include <linux/moduleparam.h>
++#include <linux/pci.h>
++#include "../pci/pci.h"		/* for struct pci_sriov */
+ #include <linux/rtnetlink.h>
+ #include <net/rtnetlink.h>
+ #include <linux/u64_stats_sync.h>
+@@ -42,6 +44,37 @@
+ #define DRV_VERSION	"1.0"
  
-+	/* Some modems (e.g. Telit LE922A6) need to reset the MBIM function
-+	 * or they will fail to work properly.
-+	 * For details on RESET_FUNCTION request see document
-+	 * "USB Communication Class Subclass Specification for MBIM"
-+	 * RESET_FUNCTION should be harmless for all the other MBIM modems
-+	 */
-+	if (cdc_ncm_comm_intf_is_mbim(ctx->control->cur_altsetting)) {
-+		err = usbnet_write_cmd(dev, USB_CDC_RESET_FUNCTION,
-+				       USB_TYPE_CLASS | USB_DIR_OUT
-+				       | USB_RECIP_INTERFACE,
-+				       0, iface_no, NULL, 0);
-+		if (err < 0) {
-+			dev_err(&dev->intf->dev, "failed RESET_FUNCTION\n");
+ static int numdummies = 1;
++static int num_vfs;
++
++static struct pci_sriov pdev_sriov;
++
++static struct pci_dev pci_pdev = {
++	.is_physfn = 0,
++#ifdef CONFIG_PCI_ATS
++	.sriov = &pdev_sriov,
++#endif
++#ifdef CONFIG_PCI
++	.dev.bus = &pci_bus_type,
++#endif
++};
++
++struct vf_data_storage {
++	unsigned char vf_mac[ETH_ALEN];
++	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
++	u16 pf_qos;
++	__be16 vlan_proto;
++	u16 min_tx_rate;
++	u16 max_tx_rate;
++	u8 spoofchk_enabled;
++	bool rss_query_enabled;
++	u8 trusted;
++	int link_state;
++};
++
++struct dummy_priv {
++	int num_vfs;
++	struct vf_data_storage *vfinfo;
++};
+ 
+ /* fake multicast ability */
+ static void set_multicast_list(struct net_device *dev)
+@@ -91,15 +124,31 @@ static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int dummy_dev_init(struct net_device *dev)
+ {
++	struct dummy_priv *priv = netdev_priv(dev);
++
+ 	dev->dstats = netdev_alloc_pcpu_stats(struct pcpu_dstats);
+ 	if (!dev->dstats)
+ 		return -ENOMEM;
+ 
++	priv->num_vfs = num_vfs;
++	priv->vfinfo = NULL;
++
++	if (!num_vfs)
++		return 0;
++
++	priv->vfinfo = kcalloc(num_vfs, sizeof(struct vf_data_storage),
++			       GFP_KERNEL);
++	if (!priv->vfinfo) {
++		free_percpu(dev->dstats);
++		return -ENOMEM;
++	}
++
+ 	return 0;
+ }
+ 
+ static void dummy_dev_uninit(struct net_device *dev)
+ {
++	dev->dev.parent = NULL;
+ 	free_percpu(dev->dstats);
+ }
+ 
+@@ -112,6 +161,134 @@ static int dummy_change_carrier(struct net_device *dev, bool new_carrier)
+ 	return 0;
+ }
+ 
++/* fake, just to set fake PCI parent after netdev_register_kobject() */
++static netdev_features_t dummy_fix_features(struct net_device *dev,
++					    netdev_features_t features)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (priv->num_vfs) {
++		dev->dev.parent = &pci_pdev.dev;
++		if (!pci_pdev.is_physfn) {
++			mutex_init(&pci_pdev.dev.mutex);
++			pci_pdev.is_physfn = 1;
 +		}
 +	}
 +
- 	/* set CRC Mode */
- 	if (cdc_ncm_flags(dev) & USB_CDC_NCM_NCAP_CRC_MODE) {
- 		dev_dbg(&dev->intf->dev, "Setting CRC mode off\n");
-@@ -842,25 +858,24 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_
- 	/* Reset data interface. Some devices will not reset properly
- 	 * unless they are configured first.  Toggle the altsetting to
- 	 * force a reset
-+	 * This is applied only to ncm devices, since it has been verified
-+	 * to cause issues with some MBIM modems (e.g. Telit LE922A6).
-+	 * MBIM devices reset is achieved using MBIM request RESET_FUNCTION
-+	 * in cdc_ncm_init
- 	 */
--	usb_set_interface(dev->udev, iface_no, data_altsetting);
--	temp = usb_set_interface(dev->udev, iface_no, 0);
--	if (temp) {
--		dev_dbg(&intf->dev, "set interface failed\n");
--		goto error2;
-+	if (!cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting)) {
-+		usb_set_interface(dev->udev, iface_no, data_altsetting);
-+		temp = usb_set_interface(dev->udev, iface_no, 0);
-+		if (temp) {
-+			dev_dbg(&intf->dev, "set interface failed\n");
-+			goto error2;
-+		}
- 	}
++	return features;
++}
++
++static int dummy_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (!is_valid_ether_addr(mac) || (vf >= priv->num_vfs))
++		return -EINVAL;
++
++	memcpy(priv->vfinfo[vf].vf_mac, mac, ETH_ALEN);
++
++	return 0;
++}
++
++static int dummy_set_vf_vlan(struct net_device *dev, int vf,
++			     u16 vlan, u8 qos, __be16 vlan_proto)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if ((vf >= priv->num_vfs) || (vlan > 4095) || (qos > 7))
++		return -EINVAL;
++
++	priv->vfinfo[vf].pf_vlan = vlan;
++	priv->vfinfo[vf].pf_qos = qos;
++	priv->vfinfo[vf].vlan_proto = vlan_proto;
++
++	return 0;
++}
++
++static int dummy_set_vf_rate(struct net_device *dev, int vf, int min, int max)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].min_tx_rate = min;
++	priv->vfinfo[vf].max_tx_rate = max;
++
++	return 0;
++}
++
++static int dummy_set_vf_spoofchk(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].spoofchk_enabled = val;
++
++	return 0;
++}
++
++static int dummy_set_vf_rss_query_en(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].rss_query_enabled = val;
++
++	return 0;
++}
++
++static int dummy_set_vf_trust(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].trusted = val;
++
++	return 0;
++}
++
++static int dummy_get_vf_config(struct net_device *dev,
++			       int vf, struct ifla_vf_info *ivi)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	ivi->vf = vf;
++	memcpy(&ivi->mac, priv->vfinfo[vf].vf_mac, ETH_ALEN);
++	ivi->vlan = priv->vfinfo[vf].pf_vlan;
++	ivi->qos = priv->vfinfo[vf].pf_qos;
++	ivi->spoofchk = priv->vfinfo[vf].spoofchk_enabled;
++	ivi->linkstate = priv->vfinfo[vf].link_state;
++	ivi->min_tx_rate = priv->vfinfo[vf].min_tx_rate;
++	ivi->max_tx_rate = priv->vfinfo[vf].max_tx_rate;
++	ivi->rss_query_en = priv->vfinfo[vf].rss_query_enabled;
++	ivi->trusted = priv->vfinfo[vf].trusted;
++	ivi->vlan_proto = priv->vfinfo[vf].vlan_proto;
++
++	return 0;
++}
++
++static int dummy_set_vf_link_state(struct net_device *dev, int vf, int state)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].link_state = state;
++
++	return 0;
++}
++
+ static const struct net_device_ops dummy_netdev_ops = {
+ 	.ndo_init		= dummy_dev_init,
+ 	.ndo_uninit		= dummy_dev_uninit,
+@@ -121,6 +298,15 @@ static const struct net_device_ops dummy_netdev_ops = {
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ 	.ndo_get_stats64	= dummy_get_stats64,
+ 	.ndo_change_carrier	= dummy_change_carrier,
++	.ndo_fix_features	= dummy_fix_features,
++	.ndo_set_vf_mac		= dummy_set_vf_mac,
++	.ndo_set_vf_vlan	= dummy_set_vf_vlan,
++	.ndo_set_vf_rate	= dummy_set_vf_rate,
++	.ndo_set_vf_spoofchk	= dummy_set_vf_spoofchk,
++	.ndo_set_vf_trust	= dummy_set_vf_trust,
++	.ndo_get_vf_config	= dummy_get_vf_config,
++	.ndo_set_vf_link_state	= dummy_set_vf_link_state,
++	.ndo_set_vf_rss_query_en = dummy_set_vf_rss_query_en,
+ };
  
- 	/* initialize basic device settings */
- 	if (cdc_ncm_init(dev))
- 		goto error2;
+ static void dummy_get_drvinfo(struct net_device *dev,
+@@ -134,6 +320,14 @@ static const struct ethtool_ops dummy_ethtool_ops = {
+ 	.get_drvinfo            = dummy_get_drvinfo,
+ };
  
--	/* Some firmwares need a pause here or they will silently fail
--	 * to set up the interface properly.  This value was decided
--	 * empirically on a Sierra Wireless MC7455 running 02.08.02.00
--	 * firmware.
--	 */
--	usleep_range(10000, 20000);
--
- 	/* configure data interface */
- 	temp = usb_set_interface(dev->udev, iface_no, data_altsetting);
- 	if (temp) {
-diff --git a/include/uapi/linux/usb/cdc.h b/include/uapi/linux/usb/cdc.h
-index e2bc417..30258fb 100644
---- a/include/uapi/linux/usb/cdc.h
-+++ b/include/uapi/linux/usb/cdc.h
-@@ -231,6 +231,7 @@ struct usb_cdc_mbim_extended_desc {
++static void dummy_free_netdev(struct net_device *dev)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	kfree(priv->vfinfo);
++	free_netdev(dev);
++}
++
+ static void dummy_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+@@ -141,7 +335,7 @@ static void dummy_setup(struct net_device *dev)
+ 	/* Initialize the device structure. */
+ 	dev->netdev_ops = &dummy_netdev_ops;
+ 	dev->ethtool_ops = &dummy_ethtool_ops;
+-	dev->destructor = free_netdev;
++	dev->destructor = dummy_free_netdev;
  
- #define USB_CDC_SEND_ENCAPSULATED_COMMAND	0x00
- #define USB_CDC_GET_ENCAPSULATED_RESPONSE	0x01
-+#define USB_CDC_RESET_FUNCTION			0x05
- #define USB_CDC_REQ_SET_LINE_CODING		0x20
- #define USB_CDC_REQ_GET_LINE_CODING		0x21
- #define USB_CDC_REQ_SET_CONTROL_LINE_STATE	0x22
+ 	/* Fill in device structure with ethernet-generic values. */
+ 	dev->flags |= IFF_NOARP;
+@@ -169,6 +363,7 @@ static int dummy_validate(struct nlattr *tb[], struct nlattr *data[])
+ 
+ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
+ 	.kind		= DRV_NAME,
++	.priv_size	= sizeof(struct dummy_priv),
+ 	.setup		= dummy_setup,
+ 	.validate	= dummy_validate,
+ };
+@@ -177,12 +372,16 @@ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
+ module_param(numdummies, int, 0);
+ MODULE_PARM_DESC(numdummies, "Number of dummy pseudo devices");
+ 
++module_param(num_vfs, int, 0);
++MODULE_PARM_DESC(num_vfs, "Number of dummy VFs per dummy device");
++
+ static int __init dummy_init_one(void)
+ {
+ 	struct net_device *dev_dummy;
+ 	int err;
+ 
+-	dev_dummy = alloc_netdev(0, "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
++	dev_dummy = alloc_netdev(sizeof(struct dummy_priv),
++				 "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
+ 	if (!dev_dummy)
+ 		return -ENOMEM;
+ 
+@@ -201,6 +400,8 @@ static int __init dummy_init_module(void)
+ {
+ 	int i, err = 0;
+ 
++	pdev_sriov.num_VFs = num_vfs;
++
+ 	rtnl_lock();
+ 	err = __rtnl_link_register(&dummy_link_ops);
+ 	if (err < 0)
 -- 
-2.7.4
+2.10.0
