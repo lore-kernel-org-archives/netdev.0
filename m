@@ -1,372 +1,87 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: stmmac ethernet in kernel 4.4: coalescing related pauses?
-Date: Wed, 23 Nov 2016 11:51:25 +0100
-Message-ID: <20161123105125.GA26394@amd>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Wed, 23 Nov 2016 11:59:57 +0100
+Message-ID: <c37c47e1-8e21-1b11-ed15-6b899ed1dd03@st.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+ <BFA799B0-BB22-4515-AC14-3544A3167B0A@axis.com>
+ <ffd3b27c-0bc9-b53b-cc65-c7808595a553@st.com>
+ <b126021d-e902-7a53-4d7a-e73ea89a66cf@synopsys.com>
+ <A001080B-2DC8-48D9-BD82-8276A9B3BE3D@axis.com>
+ <7c7798b5-8cd4-ba99-f526-22d3e06e05db@synopsys.com>
+ <2eefdb8f-7e87-6009-6e50-c536d4b95dd6@synopsys.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="s/l3CgOIzMHHjg/5"
-To: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-        kernel list <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: "idosch@mellanox.com" <idosch@mellanox.com>,
+ "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+ "saeedm@mellanox.com" <saeedm@mellanox.com>, netdev <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "CARLOS.PALMINHA@synopsys.com" <CARLOS.PALMINHA@synopsys.com>,
+ Rabin Vincent <rabin@rab.in>, mued dib <kreptor@gmail.com>,
+ "jiri@mellanox.com" <jiri@mellanox.com>,
+ Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ =?UTF-8?Q?Andreas_Irest=c3=a5l?= <andire@axis.com>,
+ David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, Lars Persson <lars.persson@axis.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <2eefdb8f-7e87-6009-6e50-c536d4b95dd6@synopsys.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+Hello Joao, Lars.
 
---s/l3CgOIzMHHjg/5
-Content-Type: multipart/mixed; boundary="2fHTh5uZTiUOsy+g"
-Content-Disposition: inline
+On 11/22/2016 3:16 PM, Joao Pinto wrote:
+>> Ok, it makes sense.
+>> > Just for curiosity the target setup is the following:
+>> > https://www.youtube.com/watch?v=8V-LB5y2Cos
+>> > but instead of using internal drivers, we desire to use mainline drivers only.
+>> >
+>> > Thanks!
+> Regarding this subject, I am thinking of making the following adaption:
+>
+> a) delete ethernet/synopsys
+> b) rename ethernet/stmicro/stmmac to ethernet/synopsys
+>
+> and send you a patch for you to evaluate. Both agree with the approach?
+> To have a new work base would be important, because I will add to the "new"
+> structure some missing QoS features like Multichannel support, CBS and later TSN.
 
+IMO, we have to agree on a common strategy making the change for
+net-next; I imaged the following steps:
 
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+- to port missing feature or fixes from ethernet/synopsys
+   inside the stmmac taking care about the documentation too.
+- remove ethernet/synopsys
+- rename ethernet/stmicro/stmmac to ethernet/synopsys
 
-Hi!
+   These latest two have some relevant impacts.
 
-I'm debugging strange delays during transmit in stmmac driver. They
-seem to be present in 4.4 kernel (and older kernels, too). Workload is
-burst of udp packets being sent, pause, burst of udp packets, ...
+   This change should be propagated to all the platforms that are using:
+       CONFIG_SYNOPSYS_DWC_ETH_QOS and CONFIG_STMMAC_ETH
+   plus device-tree compatibility.
 
-Test code is attached, I use these parameters for testing:
+- enhance the stmmac with new features and new glue (part of these
+   can be anticipated for sure).
 
-=2E/udp-test raw 10.0.0.6 1234 1000 100 30
+what do you think? does it make sense? If yes, we can also
+understand how/who starts.
 
-The delays seem to be related to coalescing:
+Regards,
+Peppe
 
-drivers/net/ethernet/stmicro/stmmac/common.h
-#define STMMAC_COAL_TX_TIMER    40000
-#define STMMAC_MAX_COAL_TX_TICK 100000
-#define STMMAC_TX_MAX_FRAMES    256
-
-If I lower the parameters, delays are gone, but I get netdev watchdog
-backtrace followed by broken driver.
-
-Any ideas what is going on there?
-
-[I'm currently trying to get newer kernels working on affected
-hardware.]
-
-Best regards,
-
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="CMakeLists.txt"
-Content-Transfer-Encoding: quoted-printable
-
-cmake_minimum_required(VERSION 2.8.7)
-project(streaming)
-
-find_package(Boost REQUIRED COMPONENTS system)
-
-set(SOURCES=20
-	udp-test.cpp)
-
-add_executable(udp-test ${SOURCES})
-
-if (BUILD_TESTS)
-  enable_testing()
-endif()
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=3Dc++11")
-
-set_property(TARGET udp-test PROPERTY CXX_STANDARD 11)
-target_link_libraries(udp-test boost_system pthread )
-
---2fHTh5uZTiUOsy+g
-Content-Type: text/x-c++src; charset=us-ascii
-Content-Disposition: attachment; filename="udp-test.cpp"
-Content-Transfer-Encoding: quoted-printable
-
-#include <boost/asio.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <iostream>
-
-
-namespace asio =3D boost::asio;
-
-class UdpSendTest
-{
-	public:
-		UdpSendTest(asio::io_service& io_service, const std::string& dest_ip, int=
- dest_port, int packet_size, int packet_count, int interval)
-			: io_service_(io_service),
-	   		timer_(io_service),
-			udp_socket_(io_service),
-			dest_ip_(std::move(dest_ip)),
-			dest_port_(dest_port),
-			packet_size_(packet_size),
-			packet_count_(packet_count),
-			period_(interval)
-		{
-		}
-
-		void start()
-		{
-			timer_.expires_from_now(period_);
-			timer_.async_wait(std::bind(&UdpSendTest::handleTimer, this, std::placeh=
-olders::_1));
-			try
-			{
-				udp_socket_.connect(asio::ip::udp::endpoint(boost::asio::ip::address::f=
-rom_string(dest_ip_), dest_port_));
-			}
-			catch(boost::system::system_error e)
-			{
-				std::cerr<< "Could not connect:"<<e.what()<<std::endl;
-			}
-		}
-	private:
-		static_assert(std::chrono::steady_clock::is_steady, "steady_clock does no=
-t use the monotonic system clock. Please use a toolchain with full support =
-for std::chrono!");
-
-		void sendPackets()
-		{
-			std::vector<unsigned char> buffer(packet_size_,0);
-		=09
-			for (int i=3D0; i<packet_count_; i++)
-			{
-				if (buffer.size() > 1)
-				{
-					buffer[0] =3D i / 255;
-					buffer[1] =3D i % 255;
-				}
-				else
-					buffer[0]=3Di%255;
-
-				auto t0 =3D std::chrono::steady_clock::now();
-				try
-				{
-					udp_socket_.send(asio::buffer(buffer));
-				}
-				catch(boost::system::system_error& error)
-				{
-					std::cerr<<"Could not send UDP packet, reason: "<<error.what()<<std::e=
-ndl;
-				}
-				auto delta_t =3D std::chrono::steady_clock::now() - t0;
-				auto delta_t_us =3D std::chrono::duration_cast<std::chrono::microsecond=
-s>(delta_t).count();
-				if (delta_t_us > 10000)
-				{
-					std::cout<<"Sending UDP packet took >10ms: "<<delta_t_us<<"us"<<std::e=
-ndl;
-				}
-				if (delta_t_us > period_.count() * 1000)
-				{
-					std::cout<<"This would lead to a lost frame!"<<std::endl;
-				}
-			}
-		}
-
-		void handleTimer(boost::system::error_code ec)
-		{
-			if (ec)
-			{
-				std::cerr<<"Timer interrupted, exiting!"<<std::endl;
-				return;
-			}
-
-			sendPackets();
-			timer_.expires_at(timer_.expires_at() + period_);
-			timer_.async_wait(std::bind(&UdpSendTest::handleTimer, this, std::placeh=
-olders::_1));
-
-		}
-
-		asio::io_service& io_service_;
-		asio::steady_timer timer_;
-
-		asio::ip::udp::socket udp_socket_;
-
-		std::string dest_ip_;
-		int dest_port_;
-		int packet_size_;
-		int packet_count_;
-		std::chrono::milliseconds period_;
-};
-
-class UdpSendTestLowlevel
-{
-	public:
-		UdpSendTestLowlevel(asio::io_service& io_service, const std::string& dest=
-_ip, int dest_port, int packet_size, int packet_count, int interval)
-			: io_service_(io_service),
-	   		timer_(io_service),
-			dest_ip_(std::move(dest_ip)),
-			dest_port_(dest_port),
-			packet_size_(packet_size),
-			packet_count_(packet_count),
-			period_(interval)
-		{
-		}
-
-		void start()
-		{
-			timer_.expires_from_now(period_);
-			timer_.async_wait(std::bind(&UdpSendTestLowlevel::handleTimer, this, std=
-::placeholders::_1));
-			socket_fd_ =3D socket(AF_INET, SOCK_DGRAM, 0);
-			if (socket_fd_ < 0)
-				std::cerr<<"could not create socket: " <<strerror(errno)<<std::endl;
-
-			auto h =3D gethostbyname(dest_ip_.c_str());
-			if (h =3D=3D nullptr)
-				std::cerr<<"Could not find host: "<<dest_ip_<<std::endl;
-
-			server_addr_.sin_family =3D h->h_addrtype;
-			memcpy((char*)&server_addr_.sin_addr.s_addr, h->h_addr_list[0], h->h_len=
-gth);
-			server_addr_.sin_port =3D htons(dest_port_);
-
-			client_addr_.sin_family =3D AF_INET;
-			client_addr_.sin_addr.s_addr =3D htonl(INADDR_ANY);
-			client_addr_.sin_port =3D htons(0);
-			auto rc =3D bind(socket_fd_,reinterpret_cast<sockaddr*>(&client_addr_), =
-sizeof(client_addr_));
-			if (rc < 0)
-				std::cerr<<"Could not open Port"<<std::endl;
-		}
-	private:
-		static_assert(std::chrono::steady_clock::is_steady, "steady_clock does no=
-t use the monotonic system clock. Please use a toolchain with full support =
-for std::chrono!");
-
-		void sendPackets()
-		{
-			std::vector<unsigned char> buffer(packet_size_,0);
-		=09
-			for (int i=3D0; i<packet_count_; i++)
-			{
-				if (buffer.size() > 1)
-				{
-					buffer[0] =3D i / 255;
-					buffer[1] =3D i % 255;
-				}
-				else
-					buffer[0]=3Di%255;
-
-				auto t0 =3D std::chrono::steady_clock::now();
-				auto rc =3D sendto(socket_fd_, buffer.data(), buffer.size(), 0, (sockad=
-dr* )&server_addr_, sizeof(server_addr_));
-				if (rc<0)
-					std::cerr<<"Could not send UDP packet"<<std::endl;
-				auto delta_t =3D std::chrono::steady_clock::now() - t0;
-				auto delta_t_us =3D std::chrono::duration_cast<std::chrono::microsecond=
-s>(delta_t).count();
-				if (delta_t_us > 10000)
-				{
-					std::cout<<"Sending UDP packet took >10ms: "<<delta_t_us<<"us"<<std::e=
-ndl;
-				}
-				if (delta_t_us > period_.count() * 1000)
-				{
-					std::cout<<"This would lead to a lost frame!"<<std::endl;
-				}
-			}
-		}
-
-		void handleTimer(boost::system::error_code ec)
-		{
-			if (ec)
-			{
-				std::cerr<<"Timer interrupted, exiting!"<<std::endl;
-				return;
-			}
-
-			sendPackets();
-			timer_.expires_at(timer_.expires_at() + period_);
-			timer_.async_wait(std::bind(&UdpSendTestLowlevel::handleTimer, this, std=
-::placeholders::_1));
-
-		}
-
-		asio::io_service& io_service_;
-		asio::steady_timer timer_;
-
-		std::string dest_ip_;
-		int dest_port_;
-		int packet_size_;
-		int packet_count_;
-		std::chrono::milliseconds period_;
-
-		int socket_fd_;
-		struct sockaddr_in client_addr_, server_addr_;
-};
-int main(int argc, char** argv)
-{
-	if (argc < 7)
-	{
-		std::cout<<"usage: "<<argv[0]<<" [boost|raw] dest_ip dest_port packet_siz=
-e packet_count interval_ms"<<std::endl;
-		return 1;
-	}
-	if (std::atoi(argv[4])<1)
-	{
-		std::cerr<<"Please select a packet size > 0 bytes!"<<std::endl;
-		return 1;
-	}
-	asio::io_service io_service;
-=09
-	std::string mode(argv[1]);
-
-	int dest_port =3D std::atoi(argv[3]);
-	int packet_size =3D std::atoi(argv[4]);
-	int packet_count =3D std::atoi(argv[5]);
-	int frame_interval =3D std::atoi(argv[6]);
-
-	int bytes_per_sec =3D packet_size * packet_count *(1000.f/frame_interval);
-	int bytes_per_sec_2 =3D (packet_size+12) * packet_count *(1000.f/frame_int=
-erval);
-	std::cout<<"Sending "<<packet_count<<" packets ("<<packet_size<<"b each) a=
-t an interval of "<<frame_interval<<"ms, expected data rate:"<<bytes_per_se=
-c <<"b/s ("<<bytes_per_sec_2<<"b/s incl udp overhead)"<<std::endl;
-	if (bytes_per_sec_2 > 1000 * 1000 * 100)
-		std::cerr<<"Warning: trying to transmit > 100Mb/s"<<std::endl;
-
-	if (mode =3D=3D "boost")
-	{
-=09
-		UdpSendTest u(io_service,
-				argv[2],dest_port, packet_size, packet_count, frame_interval);
-		u.start();
-		io_service.run();
-	}
-	else
-	{
-		UdpSendTestLowlevel u(io_service,
-				argv[2],dest_port, packet_size, packet_count, frame_interval);
-		u.start();
-		io_service.run();
-	}
-
-	return 0;
-}
-
---2fHTh5uZTiUOsy+g--
-
---s/l3CgOIzMHHjg/5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlg1dK0ACgkQMOfwapXb+vIu1ACcCWJ3pbB56RmHQ8UJ18tFiaGM
-M4YAn0OhQ80GH2kaodxpjYWfUF3YlIZK
-=MXVN
------END PGP SIGNATURE-----
-
---s/l3CgOIzMHHjg/5--
+> Thanks.
