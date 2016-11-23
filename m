@@ -1,90 +1,111 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: Re: [PATCH net-next 4/5] net: phy: bcm7xxx: Add support for
- downshift/Wirespeed
-Date: Wed, 23 Nov 2016 12:45:12 +0100
-Message-ID: <20161123114512.GB25778@microsemi.com>
-References: <20161122194058.29820-1-f.fainelli@gmail.com>
- <20161122194058.29820-5-f.fainelli@gmail.com>
- <20161122200228.GG14947@lunn.ch>
- <1902f0f0-46e5-d3b3-90c1-10867f4fb826@gmail.com>
+From: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: egress all frames
+Date: Wed, 23 Nov 2016 13:00:47 +0100
+Message-ID: <20161123120047.GC12698@gruene.netmodule.intranet>
+References: <20161122103944.31381-1-stefan.eichenberger@netmodule.com>
+ <20161122150330.GE2691@lunn.ch>
+ <20161122183732.GD13973@gruene.netmodule.intranet>
+ <20161122190206.GE14947@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Cc: Andrew Lunn <andrew@lunn.ch>, <netdev@vger.kernel.org>,
-        <davem@davemloft.net>, <bcm-kernel-feedback-list@broadcom.com>,
-        <raju.lakkaraju@microsemi.com>,
-        <vivien.didelot@savoirfairelinux.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Stefan Eichenberger <eichest@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0072.outbound.protection.outlook.com ([104.47.34.72]:37376
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755058AbcKWLpV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 06:45:21 -0500
+Received: from webmail.netmodule.com ([194.29.26.242]:34286 "EHLO
+        webmail.netmodule.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933829AbcKWMAw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 07:00:52 -0500
 Content-Disposition: inline
-In-Reply-To: <1902f0f0-46e5-d3b3-90c1-10867f4fb826@gmail.com>
+In-Reply-To: <20161122190206.GE14947@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On 22/11/16 12:07, Florian Fainelli wrote:
-> On 11/22/2016 12:02 PM, Andrew Lunn wrote:
-> >> +static int bcm7xxx_28nm_set_tunable(struct phy_device *phydev,
-> >> +                                struct ethtool_tunable *tuna,
-> >> +                                const void *data)
-> >> +{
-> >> +    u8 count = *(u8 *)data;
-> >> +    int ret;
-> >> +
-> >> +    switch (tuna->id) {
-> >> +    case ETHTOOL_PHY_DOWNSHIFT:
-> >> +            ret = bcm_phy_downshift_set(phydev, count);
-> >> +            break;
-> >> +    default:
-> >> +            return -EOPNOTSUPP;
-> >> +    }
-> >> +
-> >> +    if (ret)
-> >> +            return ret;
-> >> +
-> >> +    /* Disable EEE advertisment since this prevents the PHY
-> >> +     * from successfully linking up, trigger auto-negotiation restart
-> >> +     * to let the MAC decide what to do.
-> >> +     */
-> >> +    ret = bcm_phy_set_eee(phydev, count == DOWNSHIFT_DEV_DISABLE);
-> >> +    if (ret)
-> >> +            return ret;
-> >> +
-> >> +    return genphy_restart_aneg(phydev);
-> >> +}
-> >
-> > Hi Florian
-> >
-> > Is the locking O.K. here? The core code does not take the phy lock.
-> > But i think your shadow register accesses at least need to be
-> > protected by the lock?
+On Tue, Nov 22, 2016 at 08:02:06PM +0100, Andrew Lunn wrote:
+> On Tue, Nov 22, 2016 at 07:37:33PM +0100, Stefan Eichenberger wrote:
+> > Hi Andrew
+> > 
+> > On Tue, Nov 22, 2016 at 04:03:30PM +0100, Andrew Lunn wrote:
+> > > On Tue, Nov 22, 2016 at 11:39:44AM +0100, Stefan Eichenberger wrote:
+> > > > Egress multicast and egress unicast is only enabled for CPU/DSA ports
+> > > > but for switching operation it seems it should be enabled for all ports.
+> > > > Do I miss something here?
+> > > > 
+> > > > I did the following test:
+> > > > brctl addbr br0
+> > > > brctl addif br0 lan0
+> > > > brctl addif br0 lan1
+> > > > 
+> > > > In this scenario the unicast and multicast packets were not forwarded,
+> > > > therefore ARP requests were not resolved, and no connection could be
+> > > > established.
+> > > 
+> > > Hi Stefan
+> > > 
+> > > This is probably specific to the 6097 family. It works fine without
+> > > this on other devices. Creating a bridge like above and pinging across
+> > > it is one of my standard tests. But i only test modern devices like
+> > > the 6165, 6352, 6351, 6390 families.
+> > 
+> > Okay perfect, I wasn't 100% sure if I would have to configure something
+> > additionally.
 > 
-> There should be some kind of protection, but I was expecting it to be
-> done at the caller level, so that when {get,set}_tunable run, they are
-> serialized with respect to each other, clearly, by looking at the code,
-> this is not the case.
+> No. The idea is you treat the interfaces as normal interfaces. You
+> should not need to do anything additional to what you would do with a
+> normal interface, when adding it to a bridge.
+>  
+> > > In fact, you might need to review all the code and look where
+> > > mv88e6xxx_6095_family(chip) is used and consider if you need to add
+> > > mv88e6xxx_6097_family(chip). e.g.
+> > > 
+> > >         if (mv88e6xxx_6095_family(chip) || mv88e6xxx_6185_family(chip)) {
+> > >                 /* Set the upstream port this port should use */
+> > >                 reg |= dsa_upstream_port(ds);
+> > >                 /* enable forwarding of unknown multicast addresses to
+> > >                  * the upstream port
+> > >                  */
+> > >                 if (port == dsa_upstream_port(ds))
+> > >                         reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
+> > >         }
+> > > 
+> > > Maybe this is your problem?
+> > 
+> > I think I still don't understand exactly how the driver works.
+> > 
+> > My problem is that the multicast and broadcast frames are filtered and
+> > the following counter is increasing in ethtool:
+> > sw_in_filtered: 596
 > 
-> >
-> > Maybe we should think about this locking a bit. It is normal for the
-> > lock to be held when using ops in the phy driver structure. The
-> > exception is suspend/resume. Maybe we should also take the lock before
-> > calling the phydev->drv->get_tunable() and phydev->drv->set_tunable()?
+> This is not what is supposed to happen. Broadcast and multicast frames
+> should go to all ports in the bridge. There are two different ways
+> this can happen:
 > 
-> Yes, that certainly seems like a good approach to me, let me cook a
-> patch doing that.
+> 1) The mv88e6xxx driver started out with the host doing all bridge
+> operations. The switch forwards all frames to the software bridge, and
+> the software bridge then sends them out another port if needed.
+> 
+> 2) We later added support for hardware bridging. That is, the switch
+> itself bridges frames between ports. It will only pass frames to the
+> software bridge if it does not know what to do with a frame itself.
 
-Just for my understanding (such that I will not make the same mistake again)...
+Thanks for this explanation it helped a lot.
 
-Why is it that phy functions such as get_wol needs to take the phy_lock and
-others like get_tunable does not.
+> 
+> Now, the different families are not 100% compatible with each
+> other. We never had access to a 6097, so it has not been tested
+> recently, and we have probably broken it... My guess would be,
+> anywhere mv88e6xxx_6095_family(chip) is used, there also needs to be
+> an mv88e6xxx_6097_family(chip). But i could be wrong.
 
-I do understand the arguments on why the lock should be held by the caller of
-get_tunable, but I do not understand why the same argument does not apply for
-get_wol.
+I think I probably found the problem. For EDSA type switches the bit
+PORT_CONTROL_FORWARD_UNKNOWN_MC is set on the cpu port but not for DSA 
+type switches. Broadcast addresses are threaded as multicast addresses, 
+so unknown frames will never leave the switch.
 
-/Allan
+Do you know if there is a reason why this bit isn't set for DSA type
+switches too? The patch would be extremely simple and it seems to work
+perfectly with this bit set on the CPU port.
+
+Thanks
+Stefan
