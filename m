@@ -1,7 +1,7 @@
 From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH v9 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
-Date: Wed, 23 Nov 2016 16:52:29 +0100
-Message-ID: <1479916350-28462-6-git-send-email-daniel@zonque.org>
+Subject: [PATCH v9 1/6] bpf: add new prog type for cgroup socket filtering
+Date: Wed, 23 Nov 2016 16:52:25 +0100
+Message-ID: <1479916350-28462-2-git-send-email-daniel@zonque.org>
 References: <1479916350-28462-1-git-send-email-daniel@zonque.org>
 Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
         pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
@@ -9,129 +9,103 @@ Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
         Daniel Mack <daniel@zonque.org>
 To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:49654 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:49620 "EHLO mail.zonque.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935098AbcKWPwn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 10:52:43 -0500
+        id S935117AbcKWPwk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Nov 2016 10:52:40 -0500
 In-Reply-To: <1479916350-28462-1-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the cgroup associated with the receiving socket has an eBPF
-programs installed, run them from ip_output(), ip6_output() and
-ip_mc_output(). From mentioned functions we have two socket contexts
-as per 7026b1ddb6b8 ("netfilter: Pass socket pointer down through
-okfn()."). We explicitly need to use sk instead of skb->sk here,
-since otherwise the same program would run multiple times on egress
-when encap devices are involved, which is not desired in our case.
+This program type is similar to BPF_PROG_TYPE_SOCKET_FILTER, except that
+it does not allow BPF_LD_[ABS|IND] instructions and hooks up the
+bpf_skb_load_bytes() helper.
 
-eBPF programs used in this context are expected to either return 1 to
-let the packet pass, or != 1 to drop them. The programs have access to
-the skb through bpf_skb_load_bytes(), and the payload starts at the
-network headers (L3).
-
-Note that cgroup_bpf_run_filter() is stubbed out as static inline nop
-for !CONFIG_CGROUP_BPF, and is otherwise guarded by a static key if
-the feature is unused.
+Programs of this type will be attached to cgroups for network filtering
+and accounting.
 
 Signed-off-by: Daniel Mack <daniel@zonque.org>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/ipv4/ip_output.c  | 26 ++++++++++++++++++++++++--
- net/ipv6/ip6_output.c |  9 +++++++++
- 2 files changed, 33 insertions(+), 2 deletions(-)
+ include/uapi/linux/bpf.h |  9 +++++++++
+ net/core/filter.c        | 23 +++++++++++++++++++++++
+ 2 files changed, 32 insertions(+)
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 03e7f73..ed0c276 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -74,6 +74,7 @@
- #include <net/checksum.h>
- #include <net/inetpeer.h>
- #include <net/lwtunnel.h>
-+#include <linux/bpf-cgroup.h>
- #include <linux/igmp.h>
- #include <linux/netfilter_ipv4.h>
- #include <linux/netfilter_bridge.h>
-@@ -281,6 +282,13 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
- static int ip_finish_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
- 	unsigned int mtu;
-+	int ret;
-+
-+	ret = BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb);
-+	if (ret) {
-+		kfree_skb(skb);
-+		return ret;
-+	}
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index f09c70b..1f3e6f1 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -96,8 +96,17 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_TRACEPOINT,
+ 	BPF_PROG_TYPE_XDP,
+ 	BPF_PROG_TYPE_PERF_EVENT,
++	BPF_PROG_TYPE_CGROUP_SKB,
+ };
  
- #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
- 	/* Policy lookup after SNAT yielded a new policy */
-@@ -299,6 +307,20 @@ static int ip_finish_output(struct net *net, struct sock *sk, struct sk_buff *sk
- 	return ip_finish_output2(net, sk, skb);
++enum bpf_attach_type {
++	BPF_CGROUP_INET_INGRESS,
++	BPF_CGROUP_INET_EGRESS,
++	__MAX_BPF_ATTACH_TYPE
++};
++
++#define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
++
+ #define BPF_PSEUDO_MAP_FD	1
+ 
+ /* flags for BPF_MAP_UPDATE_ELEM command */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 00351cd..e3813d6 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2576,6 +2576,17 @@ xdp_func_proto(enum bpf_func_id func_id)
+ 	}
  }
  
-+static int ip_mc_finish_output(struct net *net, struct sock *sk,
-+			       struct sk_buff *skb)
++static const struct bpf_func_proto *
++cg_skb_func_proto(enum bpf_func_id func_id)
 +{
-+	int ret;
-+
-+	ret = BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb);
-+	if (ret) {
-+		kfree_skb(skb);
-+		return ret;
++	switch (func_id) {
++	case BPF_FUNC_skb_load_bytes:
++		return &bpf_skb_load_bytes_proto;
++	default:
++		return sk_filter_func_proto(func_id);
 +	}
-+
-+	return dev_loopback_xmit(net, sk, skb);
 +}
 +
- int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ static bool __is_valid_access(int off, int size, enum bpf_access_type type)
  {
- 	struct rtable *rt = skb_rtable(skb);
-@@ -336,7 +358,7 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- 			if (newskb)
- 				NF_HOOK(NFPROTO_IPV4, NF_INET_POST_ROUTING,
- 					net, sk, newskb, NULL, newskb->dev,
--					dev_loopback_xmit);
-+					ip_mc_finish_output);
- 		}
+ 	if (off < 0 || off >= sizeof(struct __sk_buff))
+@@ -2938,6 +2949,12 @@ static const struct bpf_verifier_ops xdp_ops = {
+ 	.convert_ctx_access	= xdp_convert_ctx_access,
+ };
  
- 		/* Multicasts with ttl 0 must not go beyond the host */
-@@ -352,7 +374,7 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		if (newskb)
- 			NF_HOOK(NFPROTO_IPV4, NF_INET_POST_ROUTING,
- 				net, sk, newskb, NULL, newskb->dev,
--				dev_loopback_xmit);
-+				ip_mc_finish_output);
- 	}
++static const struct bpf_verifier_ops cg_skb_ops = {
++	.get_func_proto		= cg_skb_func_proto,
++	.is_valid_access	= sk_filter_is_valid_access,
++	.convert_ctx_access	= sk_filter_convert_ctx_access,
++};
++
+ static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+ 	.ops	= &sk_filter_ops,
+ 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
+@@ -2958,12 +2975,18 @@ static struct bpf_prog_type_list xdp_type __read_mostly = {
+ 	.type	= BPF_PROG_TYPE_XDP,
+ };
  
- 	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 6001e78..ddeb41e 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -39,6 +39,7 @@
- #include <linux/module.h>
- #include <linux/slab.h>
- 
-+#include <linux/bpf-cgroup.h>
- #include <linux/netfilter.h>
- #include <linux/netfilter_ipv6.h>
- 
-@@ -131,6 +132,14 @@ static int ip6_finish_output2(struct net *net, struct sock *sk, struct sk_buff *
- 
- static int ip6_finish_output(struct net *net, struct sock *sk, struct sk_buff *skb)
++static struct bpf_prog_type_list cg_skb_type __read_mostly = {
++	.ops	= &cg_skb_ops,
++	.type	= BPF_PROG_TYPE_CGROUP_SKB,
++};
++
+ static int __init register_sk_filter_ops(void)
  {
-+	int ret;
-+
-+	ret = BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb);
-+	if (ret) {
-+		kfree_skb(skb);
-+		return ret;
-+	}
-+
- 	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
- 	    dst_allfrag(skb_dst(skb)) ||
- 	    (IP6CB(skb)->frag_max_size && skb->len > IP6CB(skb)->frag_max_size))
+ 	bpf_register_prog_type(&sk_filter_type);
+ 	bpf_register_prog_type(&sched_cls_type);
+ 	bpf_register_prog_type(&sched_act_type);
+ 	bpf_register_prog_type(&xdp_type);
++	bpf_register_prog_type(&cg_skb_type);
+ 
+ 	return 0;
+ }
 -- 
 2.7.4
