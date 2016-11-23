@@ -1,59 +1,92 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next 1/2] openvswitch: Add a missing break statement.
-Date: Wed, 23 Nov 2016 11:23:46 -0800
-Message-ID: <CAOrHB_B8Zo59f1i8F1RiobBBf=V5mvC2CJ0uRrmFy1C9_G7Ekw@mail.gmail.com>
-References: <1479874174-75329-1-git-send-email-jarno@ovn.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: verify root pointer
+ before dereferncing it
+Date: Wed, 23 Nov 2016 11:29:02 -0800
+Message-ID: <CAM_iQpVLd8tka7=9iQ_jSKD-jy2uLi9DL1xDnG1oK8hxBUrugA@mail.gmail.com>
+References: <1479824726-62607-1-git-send-email-roid@mellanox.com>
+ <20161122144844.GB1819@nanopsycho> <58346C7B.7090006@iogearbox.net>
+ <20161122161159.GC1819@nanopsycho> <CAM_iQpVTtqQRg7KgQbMQSxxVJRB8a46DGgfU52m=SxF1uYDFWQ@mail.gmail.com>
+ <5834AD97.1020600@iogearbox.net> <5834D670.2050301@gmail.com>
+ <CAM_iQpWhGfrZgBD1Li+efZCv4Q6uGno1ttXcBL4C_F+4es4e_A@mail.gmail.com> <58357D7E.3010100@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jarno Rajahalme <jarno@ovn.org>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, Roi Dayan <roid@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Cong Wang <cwang@twopensource.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:59960 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932754AbcKWTZF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 14:25:05 -0500
-Received: from mfilter41-d.gandi.net (mfilter41-d.gandi.net [217.70.178.173])
-        by relay3-d.mail.gandi.net (Postfix) with ESMTP id 65553A80DC
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 20:23:52 +0100 (CET)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-        by mfilter41-d.gandi.net (mfilter41-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id hz5PT2jyWBv8 for <netdev@vger.kernel.org>;
-        Wed, 23 Nov 2016 20:23:51 +0100 (CET)
-Received: from mail-io0-f175.google.com (mail-io0-f175.google.com [209.85.223.175])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 009DCA80BE
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 20:23:50 +0100 (CET)
-Received: by mail-io0-f175.google.com with SMTP id c21so37427513ioj.1
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 11:23:50 -0800 (PST)
-In-Reply-To: <1479874174-75329-1-git-send-email-jarno@ovn.org>
+Received: from mail-yw0-f172.google.com ([209.85.161.172]:35196 "EHLO
+        mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933604AbcKWT3Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 14:29:24 -0500
+Received: by mail-yw0-f172.google.com with SMTP id i145so20470612ywg.2
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 11:29:23 -0800 (PST)
+In-Reply-To: <58357D7E.3010100@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2016 at 8:09 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
-> Add a break statement to prevent fall-through from
-> OVS_KEY_ATTR_ETHERNET to OVS_KEY_ATTR_TUNNEL.  Without the break
-> actions setting ethernet addresses fail to validate with log messages
-> complaining about invalid tunnel attributes.
+On Wed, Nov 23, 2016 at 3:29 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
 >
-> Fixes: 0a6410fbde ("openvswitch: netlink: support L3 packets")
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
->  net/openvswitch/flow_netlink.c | 1 +
->  1 file changed, 1 insertion(+)
+> Can't we drop the 'force' parameter from tcf_destroy() and related cls
+> destroy() callbacks, and change the logic roughly like this:
 >
-> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-> index d19044f..c87d359 100644
-> --- a/net/openvswitch/flow_netlink.c
-> +++ b/net/openvswitch/flow_netlink.c
-> @@ -2195,6 +2195,7 @@ static int validate_set(const struct nlattr *a,
->         case OVS_KEY_ATTR_ETHERNET:
->                 if (mac_proto != MAC_PROTO_ETHERNET)
->                         return -EINVAL;
-> +               break;
+> [...]
+>         case RTM_DELTFILTER:
+>                 err = tp->ops->delete(tp, fh, &drop_tp);
+>                 if (err == 0) {
+>                         struct tcf_proto *next = rtnl_dereference(tp->next);
 >
->         case OVS_KEY_ATTR_TUNNEL:
->                 if (masked)
+>                         tfilter_notify(net, skb, n, tp,
+>                                        t->tcm_handle,
+>                                        RTM_DELTFILTER, false);
+>                         if (drop_tp) {
+>                                 RCU_INIT_POINTER(*back, next);
+>                                 tcf_destroy(tp);
+>                         }
+>                 }
+>                 goto errout;
+> [...]
+>
+> This one was the only tcf_destroy() instance with force=false. Why can't
+> the prior delete() callback make the decision whether the tp now has no
+> further internal filters and thus can be dropped. Afaik, delete() and
+> destroy() are protected by RTNL anyway. Thus, we could unlink the tp from
+> the list before tcf_destroy(), which should then work with grace period
+> as well. Given we remove the setting of tp->root to NULL, any outstanding
+> readers for that grace period should either still execute the 'scheduled
+> for removal' filter we just dropped, or find an empty list of filters.
 
-Thanks for tracking it down.
+This is exactly why I said "the semantic of ->destroy() needs to revise too",
+this is a reasonable revision of course, but the change is still large because
+we need to move that logic from ->destroy() to ->delete(). I was trying to find
+a relatively small fix for -net and -stable, for -net-next we could do
+aggressive
+change as long as it's necessary. This is why I am still thinking about it,
+perhaps there is no quick fix for this bug.
 
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+
+>
+>> Hmm, perhaps we really have to switch to a doubly-linked list, that is
+>> list_head. I need to double check. And also the semantic of ->destroy()
+>> needs to revise too.
+>
+>
+> Can you elaborate why double-linked list? Isn't the tp list always protected
+> from modifications via RTNL in control path, and walked via
+> rcu_dereference_bh()
+> in data path?
+
+At least two benefits we can get from using doubly-linked list:
+
+1) No need to pass a 'prev' pointer if we want to remove tp in a RCU callback,
+list_del_rcu(&tp->head) is just enough.
+
+2) No need to worry about RCU pointers because list_head has RCU API's
+already, much more readable to me.
+
+Of course, the size of struct tcf_proto will grow a bit, but it doesn't seem to
+be a problem.
