@@ -1,85 +1,88 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC net-next 0/3] net: bridge: Allow CPU port configuration
-Date: Wed, 23 Nov 2016 09:21:42 +0100
-Message-ID: <20161123082142.GA1873@nanopsycho>
-References: <20161121190925.14530-1-f.fainelli@gmail.com>
- <20161122174140.2ly226dcxkv23nlo@splinter.mtl.com>
- <20161122174829.GD14947@lunn.ch>
- <20161122220859.GF1819@nanopsycho>
- <6e1bce5a-3bc6-ad7b-6cc0-ca80c0f86f55@gmail.com>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Wed, 23 Nov 2016 09:24:50 +0100
+Message-ID: <479c8380-82f7-f5c9-814d-dc3378feec5b@broadcom.com>
+References: <201611111820.52072@pali> <20161122153141.GT13735@pali>
+ <CA+BoTQkSOJ85PiT=pjmH234sviCj-LVWWM=64KbCe4AG9CMNUg@mail.gmail.com>
+ <201611221805.13606@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, Ido Schimmel <idosch@idosch.org>,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        bridge@lists.linux-foundation.org, stephen@networkplumber.org,
-        vivien.didelot@savoirfairelinux.com, jiri@mellanox.com,
-        idosch@mellanox.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f194.google.com ([209.85.210.194]:36442 "EHLO
-        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933035AbcKWIVq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 03:21:46 -0500
-Received: by mail-wj0-f194.google.com with SMTP id jb2so459976wjb.3
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 00:21:45 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <6e1bce5a-3bc6-ad7b-6cc0-ca80c0f86f55@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
+        Michal Kazior <michal.kazior@tieto.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201611221805.13606@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Nov 23, 2016 at 01:24:30AM CET, f.fainelli@gmail.com wrote:
->On 11/22/2016 02:08 PM, Jiri Pirko wrote:
->> Tue, Nov 22, 2016 at 06:48:29PM CET, andrew@lunn.ch wrote:
->>> Hi Ido
+On 22-11-2016 18:05, Pali Rohár wrote:
+> On Tuesday 22 November 2016 17:14:28 Michal Kazior wrote:
+>> On 22 November 2016 at 16:31, Pali Rohár <pali.rohar@gmail.com> wrote:
+>>> On Tuesday 22 November 2016 16:22:57 Michal Kazior wrote:
+>>>> On 21 November 2016 at 16:51, Pali Rohár <pali.rohar@gmail.com>
+>>>> wrote:
+>>>>> On Friday 11 November 2016 18:20:50 Pali Rohár wrote:
+>>>>>> Hi! I will open discussion about mac address and calibration
+>>>>>> data for wl1251 wireless chip again...
+>>>>>>
+>>>>>> Problem: Mac address & calibration data for wl1251 chip on
+>>>>>> Nokia N900 are stored on second nand partition (mtd1) in
+>>>>>> special proprietary format which is used only for Nokia N900
+>>>>>> (probably on N8x0 and N9 too). Wireless driver wl1251.ko
+>>>>>> cannot work without mac address and calibration data.
+>>>>
+>>>> Same problem applies to some ath9k/ath10k supported routers. Some
+>>>> even carry mac address as implicit offset from ethernet mac
+>>>> address. As far as I understand OpenWRT cooks cal blobs on first
+>>>> boot prior to loading modules.
 >>>
->>>> First of all, I want to be sure that when we say "CPU port", we're
->>>> talking about the same thing. In mlxsw, the CPU port is a pipe between
->>>> the device and the host, through which all packets trapped to the host
->>>> go through. So, when a packet is trapped, the driver reads its Rx
->>>> descriptor, checks through which port it ingressed, resolves its netdev,
->>>> sets skb->dev accordingly and injects it to the Rx path via
->>>> netif_receive_skb(). The CPU port itself isn't represented using a
->>>> netdev.
->>>
->>> With DSA, we have a real physical ethernet network interface for the
->>> 'cpu' port. It connects to one of the ports of the switch. Frames on
->> 
->> Every port should be visible as a netdevice, including cpu port.
->> Would it make sence to have representors for those?
->
->The CPU port is kind of already visible with DSA since you need the
->switch to be attached to a normal Ethernet MAC driver (later referenced
->as eth0 for simplicity). Since eth0 is going to potentially receive/send
->switch tagged traffic, and the model is to terminate the interfaces at
->the port level, this interface does not really have any meaningful use
->from a data exchange, apart from multiplexing/demultiplexing switch tags
->(when enabled).
+>>> So... wl1251 on Nokia N900 is not alone and this problem is there
+>>> for more drivers and devices. Which means we should come up with
+>>> some generic solution.
+>>
+>> This isn't particularly a problem for ath9k/ath10k.
+>>
+>> Let me give you more background on ath10k.
+>>
+>> ath10k devices can come with caldata and macaddr stored in their
+>> OTP/EEPROM. In that case a generic "template" board file is used.
+>> Userspace doesn't need to do anything special.
+>>
+>> Some vendors however decide to use flash partition to store caldata.
+>> In that case ath10k expects userspace to prepare
+>> cal-$bus-$devname.bin files, each for a different radio (you can
+>> have multiple radios on a system).
+>>
+>> Now translating this for wl1251 I would expect it should also use
+>> something like wl1251-nvs-sdio-0x0001.bin for devices like N900 that
+>> have caldata on flash partition (instead of the generic
+>> wl1251-nvs.bin). I'm not sure if wl1251-nvs.bin is something
+>> comparable to (the generic) board.bin ath10k has though. Maybe the
+>> entire idea behind wl1251-nvs.bin is flawed as it's supposed to be
+>> device specific and is oblivious to possibility of having multiple
+>> wl1251 radios on one system (probably sane assumption from practical
+>> standpoint but still).
+> 
+> Basically nvs data are device specific, in ideal case they should be 
+> generated in factory by some calibration process (or so).
 
-But this is not the switch port, but the counterpart on the other end of
-MII. There should be 2 netdevices, one for each.
+For brcmfmac we have what we call nvram data, which is determined during
+manufacturing. We use the firmware_class API to obtain that file, but on
+router it may be stored in flash. So an API was created for that router
+architecture and brcmfmac calls that API [1]. Not a generic solution but
+it gets the job done. Personally, I would have liked this to be handled
+behind the firmware_class API to hide the storage details from the driver.
 
+Regards,
+Arend
 
->
->If we did create a "cpu" network device, this interface would not be
->able to send/receive traffic either, because the per-port network
->interfaces are terminated at their level, and the conduit interface is
->just used for transmitting/receiving switch tagged traffic. It does have
->value as a controlling interface only though.
-
-In this case, yes.
-
-
->
->As a controlling interface, this can be helpful, but we need to decide
->which side of the switch this CPU interface would represent, is it the
->switch's view of the CPU port, or is the Ethernet MAC view's of the
->switch's CPU port, attached to it (especially true with discrete switch
->chips).
->
->If we did use eth0 as a controlling interface, we need to somehow be
->able to overload (in an objected oriented fashioned) the netdev_ops,
->ethtool_ops and switchdev_ops for that interface so as to make it
->participate in the switch configuration (we actually do this already for
->ethtool statistics, but this is ugly).
->-- 
->Florian
+[1]
+http://lxr.free-electrons.com/source/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c#L449
