@@ -1,70 +1,69 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [RFC PATCH net-next] net: ethtool: add support for forward error
- correction modes
-Date: Tue, 22 Nov 2016 23:30:32 +0000
-Message-ID: <DM5PR12MB1786073763933EAE09E36978C8B40@DM5PR12MB1786.namprd12.prod.outlook.com>
-References: <DM5PR12MB178630AFB893C17362A4C09BC8BB0@DM5PR12MB1786.namprd12.prod.outlook.com>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Tue, 22 Nov 2016 16:53:18 -0800
+Message-ID: <20161123005318.GA69897@knc-06.sc.intel.com>
+References: <1479508938-63799-3-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161119190445.GG22775@obsidianresearch.com>
+ <20161121213017.GB67872@knc-06.sc.intel.com>
+ <20161121213930.GA30111@obsidianresearch.com>
+ <20161121232629.GA67988@knc-06.sc.intel.com>
+ <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
+ <20161122170407.GE3956@obsidianresearch.com>
+ <20161122194918.GA69241@knc-06.sc.intel.com>
+ <alpine.DEB.2.20.1611221656390.8214@east.gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0114.outbound.protection.outlook.com ([104.47.41.114]:44629
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752916AbcKWBF2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Nov 2016 20:05:28 -0500
-In-Reply-To: <DM5PR12MB178630AFB893C17362A4C09BC8BB0@DM5PR12MB1786.namprd12.prod.outlook.com>
-Content-Language: en-US
+Received: from mga04.intel.com ([192.55.52.120]:2278 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755568AbcKWBF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Nov 2016 20:05:29 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.20.1611221656390.8214@east.gentwo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  I'm attempting to start the work necessary to implement Vidya's proposed =
-new ethtool interface to manage Forward Error Correction settings on a link=
-.  I'm confused by the ethtool FEC API and the degree/type of control it of=
-fers.  At the top of the patch we have:
+On Tue, Nov 22, 2016 at 05:04:37PM -0600, Christoph Lameter wrote:
+>On Tue, 22 Nov 2016, Vishwanathapura, Niranjana wrote:
+>
+>> Ok, I do understand Jason's point that we should probably not put this driver
+>> under drivers/infiniband/sw/.., as this driver is not a HCA.
+>> It is an ULP similar to ipoib, built on top of Omni-path irrespective of
+>> whether we register a hfi_vnic_bus or a direct custom interface with HFI1.
+>> This ULP will transmit and recieve Omni-path packets over the fabric, and is
+>> dependent on IB MAD interface and the HFI1 driver.
+>
+>This is something that encapsulates IP (v4 right?) in something else.
+>Would belong into
+>
+>	linux/net/ipv4
+>
+>You already have similar implementations there
+>
+>See f.e. ipip.c, ip_tunnel.c and lots more (try
+>	ls linux/net/ipv4/*tunnel*
+>
+>)
+>
+>If this is more like a device then it would belong into
+>
+>linux/drivers/net/hfi or so (see also linux/drivers/net/ppp, plip,
+>loopback, etc etc)
+>
 
-Encoding: Types of encoding
-Off    :  Turning off any encoding
-RS     :  enforcing RS-FEC encoding on supported speeds
-BaseR  :  enforcing Base R encoding on supported speeds
-Auto   :  Default FEC settings  for  divers , and would represent
-          asking the hardware to essentially go into a best effort mode.
+It is Ethernet packet encapsulated in Omni-path header by hfi_vnic driver.
+The packets are sent and received over the wire by the HFI1 device driven by 
+HFI1 driver. The encapsulation information is obtained via IB MAD control 
+interface.
 
-but then later on we have:
+Niranjana
 
-+struct ethtool_fecparam {
-+ __u32   cmd;
-+ __u32   autoneg;
-+     /* bitmask of FEC modes */
-+     __u32   fec;
-+     __u32   reserved;
-+};
-
-...
-
-+enum ethtool_fec_config_bits {
-+       ETHTOOL_FEC_NONE_BIT,
-+       ETHTOOL_FEC_AUTO_BIT,
-+       ETHTOOL_FEC_OFF_BIT,
-+       ETHTOOL_FEC_RS_BIT,
-+       ETHTOOL_FEC_BASER_BIT,
-+};
-
-...
-
-+       ETHTOOL_LINK_MODE_FEC_NONE_BIT          =3D 47,
-+       ETHTOOL_LINK_MODE_FEC_RS_BIT            =3D 48,
-+       ETHTOOL_LINK_MODE_FEC_BASER_BIT           =3D 49,
-
-The last ethtool Link Mode bits seem to imply a separable FEC on/off with i=
-ndividual control for RS and BASER.  How would the "Auto" from the top be e=
-ncoded within these Link Mode bits?  And I don't see any reference to the e=
-thtool_fec_config_bits in the kernel or ethtool patches so I'm not sure wha=
-t they're supposed to reference.  Can you clarify the above?  I.e. can you =
-offer a small template example of what a driver implementation might look l=
-ike interpreting the incoming Link Mode Bits?
-
-  And do we expect that there will be new FECs in the future?
-
-Casey=
+>
+>
