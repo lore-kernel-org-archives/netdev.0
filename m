@@ -1,77 +1,145 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Wed, 23 Nov 2016 03:52:30 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
- <1394712342-15778-227-Taiwan-albertk@realtek.com>
- <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
- <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
- <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
- <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: sendfile from 9p fs into af_alg
+Date: Tue, 22 Nov 2016 19:58:29 -0800
+Message-ID: <20161123035827.GA43786@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Mark Lord <mlord@pobox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>
+To: Al Viro <viro@zeniv.linux.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
-Content-Language: zh-TW
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TWFyayBMb3JkIFttYWlsdG86bWxvcmRAcG9ib3guY29tXQ0KPiBTZW50OiBGcmlkYXksIE5vdmVt
-YmVyIDE4LCAyMDE2IDg6MDMgUE0NClsuLl0NCj4gSG93IGRvZXMgdGhlIFJUTDgxNTIga25vdyB0
-aGF0IHRoZSBsaW1pdCBpcyAxNktCLA0KPiByYXRoZXIgdGhhbiBzb21lIG90aGVyIG51bWJlcj8g
-IElzIHRoaXMgYSBoYXJkd2lyZWQgbnVtYmVyDQo+IGluIHRoZSBoYXJkd2FyZSwgb3IgaXMgaXQg
-YSBwYXJhbWV0ZXIgdGhhdCB0aGUgc29mdHdhcmUNCj4gc2VuZHMgdG8gdGhlIGNoaXAgZHVyaW5n
-IGluaXRpYWxpemF0aW9uPw0KDQpJdCBpcyB0aGUgbGltaXRhdGlvbiBvZiB0aGUgaGFyZHdhcmUu
-DQoNCj4gSSBoYXZlIGEgVVNCIGFuYWx5emVyLCBidXQgaXQgaXMgZGlmZmljdWx0IHRvIGZpZ3Vy
-ZSBvdXQgaG93DQo+IHRvIHByb2dyYW0gYW4gYXBwcm9wcmlhdGUgdHJpZ2dlciBwb2ludCBmb3Ig
-dGhlIGNhcHR1cmUsDQo+IHNpbmNlIHRoZSBwcm9ibGVtICh3aXRoIDE2S0IgVVJCcykgdGFrZXMg
-bWludXRlcyB0byBob3Vycw0KPiBvciBldmVuIGRheXMgdG8gdHJpZ2dlci4NCg0KSXQgaXMgZ29v
-ZC4gT3VyIGh3IGVuZ2luZWVycyByZWFsIHdhbnQgaXQuIE1heWJlIHlvdSBjb3VsZCBzZW5kDQph
-IHNwZWNpZmljIHBhY2tldCwgYW5kIHRyaWdnZXIgaXQuIFlvdSBjb3VsZCBhbGxvY2F0ZSBhIHNr
-YiBhbmQNCmZpbGwgdGhlIGRhdGEgd2hpY2ggeW91IHByZWZlciwgYW5kIGNhbGwNCg0KCXNrYl9x
-dWV1ZV90YWlsKCZ0cC0+dHhfcXVldWUsIHNrYik7DQoNClsuLi5dDQo+IFRoZSBmaXJzdCBpc3N1
-ZSBpcyB0aGF0IGEgcGFja2V0IHNvbWV0aW1lcyBiZWdpbnMgaW4gb25lIFVSQiwNCj4gYW5kIGNv
-bXBsZXRlcyBpbiB0aGUgbmV4dCBVUkIsIHdpdGhvdXQgYW4gcnhfZGVzYyBhdCB0aGUgc3RhcnQN
-Cj4gb2YgdGhlIHNlY29uZCBVUkIuICBUaGlzIEkgaGF2ZSBhbHJlYWR5IHJlcG9ydGVkIGVhcmxp
-ZXIuDQoNCkhvd2V2ZXIsIG91ciBodyBlbmdpbmVlciBzYXlzIGl0IHdvdWxkbid0IGhhcHBlbi4g
-T3VyIGh3IGFsd2F5cw0Kc2VuZHMgcnhfZGVzYyArIHBhY2tldCArIHBhZGRpbmcuIFRoZSBodyB3
-b3VsZG4ndCBzcGxpdCBpdCB0bw0KdHdvIG9yIG1vcmUgdHJhbnNtaXNzaW9uLiBUaGF0IGlzIHdo
-eSBJIHdvbmRlciB3aG8gZG9lcyBpdC4NCg0KPiBCdXQgdGhlIGRyaXZlciwgYXMgd3JpdHRlbiwg
-c29tZXRpbWVzIGFjY2Vzc2VzIGJ5dGVzIG91dHNpZGUNCj4gb2YgdGhlIDE2S0IgVVJCIGJ1ZmZl
-ciwgYmVjYXVzZSBpdCB0cnVzdHMgdGhlIG5vbi1leGlzdGVudA0KPiByeF9kZXNjIGluIHRoZXNl
-IGNhc2VzLCBhbmQgYWxzbyBiZWNhdXNlIGl0IGFjY2Vzc2VzIGJ5dGVzDQo+IGZyb20gdGhlIHJ4
-X2Rlc2Mgd2l0aG91dCBmaXJzdCBjaGVja2luZyB3aGV0aGVyIHRoZXJlIGlzDQo+IHN1ZmZpY2ll
-bnQgcmVtYWluaW5nIHNwYWNlIGluIHRoZSBVUkIgdG8gaG9sZCBhbiByeF9kZXNjLg0KDQpJIHRo
-aW5rIEkgY2hlY2sgdGhlbS4gQWNjb3JkaW5nIHRvIHRoZSBmb2xsb3duaW5nIGNvZGUsDQoNCgls
-aXN0X2Zvcl9lYWNoX3NhZmUoY3Vyc29yLCBuZXh0LCAmcnhfcXVldWUpIHsNCgkJc3RydWN0IHJ4
-X2Rlc2MgKnJ4X2Rlc2M7DQoJCXN0cnVjdCByeF9hZ2cgKmFnZzsNCgkJaW50IGxlbl91c2VkID0g
-MDsNCgkJc3RydWN0IHVyYiAqdXJiOw0KCQl1OCAqcnhfZGF0YTsNCg0KCQkuLi4NCg0KCQlyeF9k
-ZXNjID0gYWdnLT5oZWFkOw0KCQlyeF9kYXRhID0gYWdnLT5oZWFkOw0KCQlsZW5fdXNlZCArPSBz
-aXplb2Yoc3RydWN0IHJ4X2Rlc2MpOyAvLzwtLSBhZGQgdGhlIHNpemUgb2YgbmV4dCByeF9kZXNj
-DQoNCgkJd2hpbGUgKHVyYi0+YWN0dWFsX2xlbmd0aCA+IGxlbl91c2VkKSB7DQoJCQlzdHJ1Y3Qg
-bmV0X2RldmljZSAqbmV0ZGV2ID0gdHAtPm5ldGRldjsNCgkJCXN0cnVjdCBuZXRfZGV2aWNlX3N0
-YXRzICpzdGF0cyA9ICZuZXRkZXYtPnN0YXRzOw0KCQkJdW5zaWduZWQgaW50IHBrdF9sZW47DQoJ
-CQlzdHJ1Y3Qgc2tfYnVmZiAqc2tiOw0KDQoJCQlwa3RfbGVuID0gbGUzMl90b19jcHUocnhfZGVz
-Yy0+b3B0czEpICYgUlhfTEVOX01BU0s7DQoJCQlpZiAocGt0X2xlbiA8IEVUSF9aTEVOKQ0KCQkJ
-CWJyZWFrOw0KDQoJCQlsZW5fdXNlZCArPSBwa3RfbGVuOw0KCQkJaWYgKHVyYi0+YWN0dWFsX2xl
-bmd0aCA8IGxlbl91c2VkKQ0KCQkJCWJyZWFrOw0KDQoJCQlwa3RfbGVuIC09IENSQ19TSVpFOw0K
-CQkJcnhfZGF0YSArPSBzaXplb2Yoc3RydWN0IHJ4X2Rlc2MpOw0KDQoJCQkuLi4NCg0KZmluZF9u
-ZXh0X3J4Og0KCQkJcnhfZGF0YSA9IHJ4X2FnZ19hbGlnbihyeF9kYXRhICsgcGt0X2xlbiArIENS
-Q19TSVpFKTsNCgkJCXJ4X2Rlc2MgPSAoc3RydWN0IHJ4X2Rlc2MgKilyeF9kYXRhOw0KCQkJbGVu
-X3VzZWQgPSAoaW50KShyeF9kYXRhIC0gKHU4ICopYWdnLT5oZWFkKTsNCgkJCWxlbl91c2VkICs9
-IHNpemVvZihzdHJ1Y3QgcnhfZGVzYyk7IC8vPC0tIGFkZCB0aGUgc2l6ZSBvZiBuZXh0IHJ4X2Rl
-c2MNCgkJfQ0KDQpzdWJtaXQ6DQoJCS4uLg0KCX0NCg0KVGhlIHdoaWxlIGxvb3Agd291bGQgY2hl
-Y2sgaWYgdGhlIG5leHQgcnhfZGVzYyBpcyBpbnNpZGUgdGhlIHVyYg0KYnVmZmVyLCBiZWNhdXNl
-IHRoZSBsZW5fdXNlZCBpbmNsdWRlcyB0aGUgc2l6ZSBvZiB0aGUgbmV4dCByeF9kZXNjLg0KVGhl
-biwgaW4gdGhlIHdoaWxlIGxvb3AsIHRoZSBsZW5fdXNlZCBhZGRzIHRoZSBwYWNrZXQgc2l6ZSBh
-bmQgY2hlY2sNCndpdGggdXJiLT5hY3R1YWxfbGVuZ3RoIGFnYWluLiBUaGVzZSBtYWtlIHN1cmUg
-dGhlIHJ4X2Rlc2MgYW5kIHRoZQ0KcGFja2V0IGFyZSBpbnNpZGUgdGhlIHVyYiBidWZmZXIuIEV4
-Y2VwdCB0aGUgdXJiLT5hY3R1YWxfbGVuZ3RoDQppcyBtb3JlIHRoYW4gYWdnX2J1Zl9zei4gSG93
-ZXZlciwgSSBkb24ndCB0aGluayBpdCB3b3VsZCBoYXBwZW4uDQoNCkJlc3QgUmVnYXJkcywNCkhh
-eWVzDQoNCg==
+Hi Al,
+
+it seems the following commit 523ac9afc73a ("switch default_file_splice_read() to use of pipe-backed iov_iter")
+breaks sendfile from 9p fs into af_alg socket.
+sendfile into af_alg is used by iproute2/tc.
+I'm not sure whether it's 9p or crypto or vfs problem, but happy to test any patches.
+
+The following program is a reduced test from iproute2.
+On broken kernels it fails as:
+$ ./a.out some_file
+Error from sendfile (8192 vs 9624 bytes): Success
+
+It seems to work fine when 'some_file' is on ext4 or tmpfs, so could be 9p related.
+
+Thanks
+------------
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <sys/vfs.h>
+#include <sys/mount.h>
+#include <sys/syscall.h>
+#include <sys/sendfile.h>
+#include <sys/resource.h>
+
+#include <linux/if_alg.h>
+
+#include <arpa/inet.h>
+
+#ifndef AF_ALG
+#define AF_ALG 38
+#endif
+
+static int obj_hash(const char *object, uint8_t *out, size_t len)
+{
+	struct sockaddr_alg alg = {
+		.salg_family	= AF_ALG,
+		.salg_type	= "hash",
+		.salg_name	= "sha1",
+	};
+	int ret, cfd, ofd, ffd;
+	struct stat stbuff;
+	ssize_t size;
+
+	if (!object || len != 20)
+		return -EINVAL;
+
+	cfd = socket(AF_ALG, SOCK_SEQPACKET, 0);
+	if (cfd < 0) {
+		fprintf(stderr, "Cannot get AF_ALG socket: %s\n",
+			strerror(errno));
+		return cfd;
+	}
+
+	ret = bind(cfd, (struct sockaddr *)&alg, sizeof(alg));
+	if (ret < 0) {
+		fprintf(stderr, "Error binding socket: %s\n", strerror(errno));
+		goto out_cfd;
+	}
+
+	ofd = accept(cfd, NULL, 0);
+	if (ofd < 0) {
+		fprintf(stderr, "Error accepting socket: %s\n",
+			strerror(errno));
+		ret = ofd;
+		goto out_cfd;
+	}
+
+	ffd = open(object, O_RDONLY);
+	if (ffd < 0) {
+		fprintf(stderr, "Error opening object %s: %s\n",
+			object, strerror(errno));
+		ret = ffd;
+		goto out_ofd;
+	}
+
+	ret = fstat(ffd, &stbuff);
+	if (ret < 0) {
+		fprintf(stderr, "Error doing fstat: %s\n",
+			strerror(errno));
+		goto out_ffd;
+	}
+
+	size = sendfile(ofd, ffd, NULL, stbuff.st_size);
+	if (size != stbuff.st_size) {
+		fprintf(stderr, "Error from sendfile (%zd vs %zu bytes): %s\n",
+			size, stbuff.st_size, strerror(errno));
+		ret = -1;
+		goto out_ffd;
+	}
+
+	size = read(ofd, out, len);
+	if (size != len) {
+		fprintf(stderr, "Error from read (%zd vs %zu bytes): %s\n",
+			size, len, strerror(errno));
+		ret = -1;
+	} else {
+		ret = 0;
+	}
+out_ffd:
+	close(ffd);
+out_ofd:
+	close(ofd);
+out_cfd:
+	close(cfd);
+	return ret;
+}
+
+int main(int ac, char **av)
+{
+	uint8_t hash[20] = {};
+
+	if (ac != 2) {
+		fprintf(stderr, "%s file\n", av[0]);
+		return 1;
+	}
+	obj_hash(av[1], hash, sizeof(hash));
+	printf("hash %llx\n", *(long long *)hash);
+	return 0;
+}
