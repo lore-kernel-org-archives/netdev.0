@@ -1,40 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/arp: ARP cache aging failed.
-Date: Wed, 23 Nov 2016 15:49:27 -0800
-Message-ID: <1479944967.8455.516.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com>
-         <alpine.LFD.2.11.1611230928140.1659@ja.home.ssi.bg>
-         <1479902729.8455.479.camel@edumazet-glaptop3.roam.corp.google.com>
-         <250d3a88-45ad-891f-389a-997f39d7bdad@stressinduktion.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: random thoughts on optmizing network namespace exit.
+Date: Wed, 23 Nov 2016 17:52:48 -0600
+Message-ID: <87eg21ycrz.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, yuehaibing <yuehaibing@huawei.com>,
-        davem@davemloft.net, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: Andrei Vagin <avagin@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:35797 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933483AbcKWXt3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 18:49:29 -0500
-Received: by mail-pg0-f50.google.com with SMTP id p66so11205283pga.2
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 15:49:29 -0800 (PST)
-In-Reply-To: <250d3a88-45ad-891f-389a-997f39d7bdad@stressinduktion.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:45102 "EHLO
+        out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933483AbcKWXz3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 18:55:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-23 at 15:37 +0100, Hannes Frederic Sowa wrote:
 
-> Irregardless about the question if bonding should keep the MAC address
-> alive, a MAC address can certainly change below a TCP connection.
+Fundamentally if we want things to get better we have to remove
+unnecessary serialization.  It is entirely too easy to sleep when
+cleaning up a networking subsystem and create long hold times on
+net_mutex for no particular reasons.
 
-Of course ;)
+What probably makes sense to do is to add the concept of a
+non-serialized pernet_operation.  And then work through the networking
+stack converting all of the pernet_operations.  That should allow
+network namespace exits to overlap while they clean up, and it should
+allow the net_mutex to be dropped at the same point we drop rtnl_lock
+in cleanup_net.
 
-> 
-> dst_entry is 1:n to neigh_entry and as such we can end up confirming an
-> aging neighbor while sending a reply with dst->pending_confirm set while
-> the confirming packet actually came from a different neighbor.
-> 
-> I agree with Julian, pending_confirm became useless in this way.
+It might be a touch tricky during the transition period to take
+advantage of an early drop of net_mutex, but that is where I would
+start.
 
-Let's kill it then ;)
+Once net_mutex is no longer used to serialize initialization/cleanup
+methods for a network namespace.  We can look at other bottlenecks.
+
+Eric
