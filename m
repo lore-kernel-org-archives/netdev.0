@@ -1,83 +1,51 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 for-next 04/11] IB/hns: add self loopback for CM
-Date: Wed, 23 Nov 2016 19:41:02 +0000
-Message-ID: <20161123194109.420760-5-salil.mehta@huawei.com>
-References: <20161123194109.420760-1-salil.mehta@huawei.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 10/11] mlxsw: spectrum_router: Request a dump
+ of FIB tables during init
+Date: Wed, 23 Nov 2016 20:45:48 +0100
+Message-ID: <20161123194548.GD1873@nanopsycho>
+References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
+ <1479912528-4636-1-git-send-email-jiri@resnulli.us>
+ <1479916800.4019894.797128001.743EBB6A@webmail.messagingengine.com>
+ <20161123160453.GB1873@nanopsycho>
+ <1479920345.4035504.797158425.2C10AA0C@webmail.messagingengine.com>
+ <20161123170436.GC1873@nanopsycho>
+ <1479920903.4037682.797206209.599A8C7A@webmail.messagingengine.com>
+ <20161123192230.7uuqwlme3pkrmpyl@splinter>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta@huawei.com>, <xavier.huwei@huawei.com>,
-        <oulijun@huawei.com>, <xushaobo2@huawei.com>,
-        <mehta.salil.lnk@gmail.com>, <lijun_nudt@163.com>,
-        <linux-rdma@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        Peter Chen <luck.chen@huawei.com>
-To: <dledford@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161123194109.420760-1-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
+        arkadis@mellanox.com, ogerlitz@mellanox.com,
+        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, andy@greyhouse.net,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        f.fainelli@gmail.com, alexander.h.duyck@intel.com, kaber@trash.net
+To: Ido Schimmel <idosch@idosch.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36856 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933908AbcKWTpv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 14:45:51 -0500
+Received: by mail-wm0-f68.google.com with SMTP id m203so2965528wma.3
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 11:45:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161123192230.7uuqwlme3pkrmpyl@splinter>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lijun Ou <oulijun@huawei.com>
+Wed, Nov 23, 2016 at 08:22:30PM CET, idosch@idosch.org wrote:
+>On Wed, Nov 23, 2016 at 06:08:23PM +0100, Hannes Frederic Sowa wrote:
+>> On Wed, Nov 23, 2016, at 18:04, Jiri Pirko wrote:
+>> > >Sure, but an abort function can be provided to the kernel anyway and the
+>> > >driver can care about that.
+>> > 
+>> > Ok, how?
+>> 
+>> I think just a sysctl ontop of this series is enough plus a pr_warn.
+>> Rocker and mlxsw are responsible to loop for a maximum amount of time.
+>
+>Maybe, when the module requests a dump it can also provide a callback
+>that is invoked following each failed dump?
 
-This patch mainly adds self loopback support for CM.
-
-Signed-off-by: Lijun Ou <oulijun@huawei.com>
-Signed-off-by: Peter Chen <luck.chen@huawei.com>
-Reviewed-by: Wei Hu (Xavier) <xavier.huwei@huawei.com>
-Signed-off-by: Salil Mehta  <salil.mehta@huawei.com>
----
- drivers/infiniband/hw/hns/hns_roce_hw_v1.c |   11 +++++++++++
- drivers/infiniband/hw/hns/hns_roce_hw_v1.h |    2 ++
- 2 files changed, 13 insertions(+)
-
-diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-index 959d5ca..e080dd6 100644
---- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/platform_device.h>
- #include <linux/acpi.h>
-+#include <linux/etherdevice.h>
- #include <rdma/ib_umem.h>
- #include "hns_roce_common.h"
- #include "hns_roce_device.h"
-@@ -72,6 +73,8 @@ int hns_roce_v1_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
- 	int nreq = 0;
- 	u32 ind = 0;
- 	int ret = 0;
-+	u8 *smac;
-+	int loopback;
- 
- 	if (unlikely(ibqp->qp_type != IB_QPT_GSI &&
- 		ibqp->qp_type != IB_QPT_RC)) {
-@@ -129,6 +132,14 @@ int hns_roce_v1_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
- 				       UD_SEND_WQE_U32_8_DMAC_5_M,
- 				       UD_SEND_WQE_U32_8_DMAC_5_S,
- 				       ah->av.mac[5]);
-+
-+			smac = (u8 *)hr_dev->dev_addr[qp->port];
-+			loopback = ether_addr_equal_unaligned(ah->av.mac,
-+							      smac) ? 1 : 0;
-+			roce_set_bit(ud_sq_wqe->u32_8,
-+				     UD_SEND_WQE_U32_8_LOOPBACK_INDICATOR_S,
-+				     loopback);
-+
- 			roce_set_field(ud_sq_wqe->u32_8,
- 				       UD_SEND_WQE_U32_8_OPERATION_TYPE_M,
- 				       UD_SEND_WQE_U32_8_OPERATION_TYPE_S,
-diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-index 6004c7f..cf28f1b 100644
---- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
-@@ -440,6 +440,8 @@ struct hns_roce_ud_send_wqe {
- #define UD_SEND_WQE_U32_8_DMAC_5_M   \
- 	(((1UL << 8) - 1) << UD_SEND_WQE_U32_8_DMAC_5_S)
- 
-+#define UD_SEND_WQE_U32_8_LOOPBACK_INDICATOR_S 22
-+
- #define UD_SEND_WQE_U32_8_OPERATION_TYPE_S 16
- #define UD_SEND_WQE_U32_8_OPERATION_TYPE_M   \
- 	(((1UL << 4) - 1) << UD_SEND_WQE_U32_8_OPERATION_TYPE_S)
--- 
-1.7.9.5
+That would make sense. Thanks.
