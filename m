@@ -1,83 +1,45 @@
-From: Ulrik De Bie <ulrik.debie-os@e2big.org>
-Subject: [PATCH net-next 1/1] ptp: gianfar: Use high resolution frequency method.
-Date: Wed, 23 Nov 2016 21:11:04 +0100
-Message-ID: <20161123201104.9706-1-ulrik.debie-os@e2big.org>
-Cc: David Miller <davem@davemloft.net>,
-        Richard Cochran <richardcochran@gmail.com>,
-        ulrik.debie-os@e2big.org
-To: netdev@vger.kernel.org
+From: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: add MV88E6097 switch
+Date: Wed, 23 Nov 2016 21:41:46 +0100
+Message-ID: <20161123204146.GA31777@gruene.netmodule.intranet>
+References: <20161123175546.31416-1-stefan.eichenberger@netmodule.com>
+ <20161123175546.31416-2-stefan.eichenberger@netmodule.com>
+ <20161123181016.GG8760@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Stefan Eichenberger <eichest@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <davem@davemloft.net>,
+        <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2big.org ([198.61.226.133]:55116 "EHLO e2big.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933402AbcKWU3B (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 15:29:01 -0500
+Received: from webmail.netmodule.com ([194.29.26.242]:61739 "EHLO
+        webmail.netmodule.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934507AbcKWUlx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 15:41:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20161123181016.GG8760@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch depends on commit d8d263541913 ("ptp: Introduce a high
-resolution frequency adjustment method.")
+On Wed, Nov 23, 2016 at 07:10:16PM +0100, Andrew Lunn wrote:
+> > +	[MV88E6097] = {
+> > +		.prod_num = PORT_SWITCH_ID_PROD_NUM_6097,
+> > +		.family = MV88E6XXX_FAMILY_6097,
+> > +		.name = "Marvell 88E6097/88E6097F",
+> > +		.num_databases = 4096,
+> > +		.num_ports = 11,
+> > +		.port_base_addr = 0x10,
+> > +		.global1_addr = 0x1b,
+> > +		.age_time_coeff = 15000,
+> > +		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
+> > +		.ops = &mv88e6097_ops,
+> 
+> Upps. Sorry, i missed something when you rebased onto net-next. You
+> are missing .g1_irqs = . It is probably 9. You can check the
+> datasheet, global 1, register 0. If bit 8 is AVBInt, you need 9. If
+> bit 8 is reserved, then 8.
 
-The gianfar devices offer a frequency resolution of about 0.46 ppb
-(depends on actual value of tmr_add, for the calculation assumed
-0x80000000). This patch lets users of the device benefit from the increased
-frequency resolution when tuning the clock. Thanks to the rounding the
-maximum error between the requested frequency and the applied frequency
-will then be about 0.23 ppb.
+No problem, bit 8-10 are reserved. So I put 8 in then.
 
-Tested on a v3.3.8 kernel on a real gianfar device. Verified compilation
-on net-next (currently at v4.9-rc5).
-
-Signed-off-by: Ulrik De Bie <ulrik.debie-os@e2big.org>
----
- drivers/net/ethernet/freescale/gianfar_ptp.c | 21 +++++++++++++--------
- 1 file changed, 13 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
-index 3e8d1ff..721be13 100644
---- a/drivers/net/ethernet/freescale/gianfar_ptp.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
-@@ -280,21 +280,26 @@ static irqreturn_t isr(int irq, void *priv)
-  * PTP clock operations
-  */
- 
--static int ptp_gianfar_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-+static int ptp_gianfar_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
- {
--	u64 adj;
--	u32 diff, tmr_add;
-+	u64 adj, diff;
-+	u32 tmr_add;
- 	int neg_adj = 0;
- 	struct etsects *etsects = container_of(ptp, struct etsects, caps);
- 
--	if (ppb < 0) {
-+	if (scaled_ppm < 0) {
- 		neg_adj = 1;
--		ppb = -ppb;
-+		scaled_ppm = -scaled_ppm;
- 	}
- 	tmr_add = etsects->tmr_add;
- 	adj = tmr_add;
--	adj *= ppb;
--	diff = div_u64(adj, 1000000000ULL);
-+
-+	/* calculate diff as adj*(scaled_ppm/65536)/1000000
-+	 * and round() to the nearest integer
-+	 */
-+	adj *= scaled_ppm;
-+	diff = div_u64(adj, 8000000);
-+	diff = (diff >> 13) + ((diff >> 12) & 1);
- 
- 	tmr_add = neg_adj ? tmr_add - diff : tmr_add + diff;
- 
-@@ -415,7 +420,7 @@ static struct ptp_clock_info ptp_gianfar_caps = {
- 	.n_per_out	= 0,
- 	.n_pins		= 0,
- 	.pps		= 1,
--	.adjfreq	= ptp_gianfar_adjfreq,
-+	.adjfine	= ptp_gianfar_adjfine,
- 	.adjtime	= ptp_gianfar_adjtime,
- 	.gettime64	= ptp_gianfar_gettime,
- 	.settime64	= ptp_gianfar_settime,
--- 
-2.10.2
+Regards,
+Stefan
