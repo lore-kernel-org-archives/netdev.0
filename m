@@ -1,10 +1,9 @@
 From: Andrei Pistirica <andrei.pistirica@microchip.com>
-Subject: Re: [RFC PATCH v2 2/2] macb: Enable 1588 support in SAMA5D2 platform.
-Date: Wed, 23 Nov 2016 14:35:14 +0100
-Message-ID: <0717c12e-fd91-db48-eb7b-997695fa39dc@microchip.com>
+Subject: Re: [RFC PATCH v2 1/2] macb: Add 1588 support in Cadence GEM.
+Date: Wed, 23 Nov 2016 14:36:55 +0100
+Message-ID: <90432c85-871f-22be-bde2-51e321828c9a@microchip.com>
 References: <1479478912-14067-1-git-send-email-andrei.pistirica@microchip.com>
- <1479478912-14067-2-git-send-email-andrei.pistirica@microchip.com>
- <20161120195413.GB7874@localhost.localdomain>
+ <20161120193720.GA7874@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -16,98 +15,56 @@ Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
         <boris.brezillon@free-electrons.com>,
         <alexandre.belloni@free-electrons.com>, <tbultel@pixelsurmer.com>
 To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout.microchip.com ([198.175.253.82]:44247 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S936211AbcKWNjA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 08:39:00 -0500
-In-Reply-To: <20161120195413.GB7874@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161120193720.GA7874@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 20.11.2016 20:54, Richard Cochran wrote:
-> On Fri, Nov 18, 2016 at 03:21:52PM +0100, Andrei Pistirica wrote:
->> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
->> index d975882..eb66b76 100644
->> --- a/drivers/net/ethernet/cadence/macb.c
->> +++ b/drivers/net/ethernet/cadence/macb.c
->> @@ -697,6 +697,8 @@ static void macb_tx_interrupt(struct macb_queue *queue)
->>
->>  			/* First, update TX stats if needed */
->>  			if (skb) {
->> +				macb_ptp_do_txstamp(bp, skb);
+On 20.11.2016 20:37, Richard Cochran wrote:
+> On Fri, Nov 18, 2016 at 03:21:51PM +0100, Andrei Pistirica wrote:
+>> +#ifdef CONFIG_MACB_USE_HWSTAMP
+>> +void macb_ptp_init(struct net_device *ndev);
+>> +#else
+>> +void macb_ptp_init(struct net_device *ndev) { }
 >
-> This is in the hot path, and so you should have an inline wrapper that
-> tests (bp->hwts_tx_en) and THEN calls into macb_ptp.c
+> static inline ^^^
 
-Ack.
+I can do static inline only when PTP is not enabled (on else branch), 
+thus the empty function is defined in the header file (since the init 
+function is defined in macb_ptp and used in macb). To differentiate 
+between macb versions, I'll add a wrapper.
+Would this be ok?
 
 >
-> In case PTP isn't configured, then the inline wrapper should be empty.
+>> +#endif
 >
->>  				netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
->>  					    macb_tx_ring_wrap(tail), skb->data);
->>  				bp->stats.tx_packets++;
->> @@ -853,6 +855,8 @@ static int gem_rx(struct macb *bp, int budget)
->>  		    GEM_BFEXT(RX_CSUM, ctrl) & GEM_RX_CSUM_CHECKED_MASK)
->>  			skb->ip_summed = CHECKSUM_UNNECESSARY;
->>
->> +		macb_ptp_do_rxstamp(bp, skb);
 >
-> Same here.
+>> +void macb_ptp_init(struct net_device *ndev)
+>> +{
+>> +	struct macb *bp = netdev_priv(ndev);
+>> +	struct timespec64 now;
+>> +	u32 rem = 0;
+>> +
+>> +	if (!(bp->caps | MACB_CAPS_GEM_HAS_PTP)){
+>> +		netdev_vdbg(bp->dev, "Platform does not support PTP!\n");
+>> +		return;
+>> +	}
 >
->>  		bp->stats.rx_packets++;
->>  		bp->stats.rx_bytes += skb->len;
->>
->> @@ -1946,6 +1950,8 @@ static int macb_open(struct net_device *dev)
->>
->>  	netif_tx_start_all_queues(dev);
->>
->> +	macb_ptp_init(dev);
->
-> This leaks PHC instances starting the second time that the interface goes up!
+> You would have needed '&' and not '|' here.
 
-Yes, I will call unregister at interface down.
+Yes. Another stupid mistake... sorry. I will be more careful next time.
 
 >
->>  	return 0;
->>  }
->>
->> @@ -2204,7 +2210,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
->>  	.get_regs_len		= macb_get_regs_len,
->>  	.get_regs		= macb_get_regs,
->>  	.get_link		= ethtool_op_get_link,
->> -	.get_ts_info		= ethtool_op_get_ts_info,
->> +	.get_ts_info		= macb_get_ts_info,
+> Also, using a flag limits the code to your platform.  This works for
+> you, but it is short sighted.  The other MACB PTP blocks have
+> different register layouts, and this patch does not lay the ground
+> work for the others.
 >
-> You enable the time stamping logic unconditionally here ...
+> The driver needs to be designed to support the other platforms.
 
-I will add a wrapper to test if macb is gem and if it has PTP 
-capability, otherwise call ethtool_op_get_ts_info.
-
->
->>  	.get_ethtool_stats	= gem_get_ethtool_stats,
->>  	.get_strings		= gem_get_ethtool_strings,
->>  	.get_sset_count		= gem_get_sset_count,
->> @@ -2221,7 +2227,14 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
->>  	if (!phydev)
->>  		return -ENODEV;
->>
->> -	return phy_mii_ioctl(phydev, rq, cmd);
->> +	switch (cmd) {
->> +	case SIOCSHWTSTAMP:
->> +		return macb_hwtst_set(dev, rq, cmd);
->> +	case SIOCGHWTSTAMP:
->> +		return macb_hwtst_get(dev, rq);
->
-> and here.
->
-> Is that logic always available on every MACB device?  If so, is the
-> implementation also identical?
-
-As before, I will add a wrapper and the related tests.
+It will support Xilinx.
 
 >
 > Thanks,
