@@ -1,311 +1,169 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [PATCH 12/20] net/iucv: Convert to hotplug state machine
-Date: Wed, 23 Nov 2016 19:04:16 +0100
-Message-ID: <62f8abea-093c-cac5-ffb1-7b8710aa0a91@linux.vnet.ibm.com>
-References: <20161117183541.8588-1-bigeasy@linutronix.de>
- <20161117183541.8588-13-bigeasy@linutronix.de>
+From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH V3 for-next 01/11] IB/hns: Add the interface for querying QP1
+Date: Wed, 23 Nov 2016 19:40:59 +0000
+Message-ID: <20161123194109.420760-2-salil.mehta@huawei.com>
+References: <20161123194109.420760-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: rt@linuxtronix.de, "David S. Miller" <davem@davemloft.net>,
-        linux-s390@vger.kernel.org, netdev@vger.kernel.org
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161117183541.8588-13-bigeasy@linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xushaobo2-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <lijun_nudt-9Onoh4P/yGk@public.gmane.org>,
+        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161123194109.420760-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian,
+From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
-your patch looks good to me. I run successfully some small tests with it.
-I want to suggest a small change in iucv_init() to keep the uniform technique
-of undo labels below. Do you agree?
+In old code, It only added the interface for querying non-specific
+QP. This patch mainly adds an interface for querying QP1.
 
-Kind regards, Ursula
+Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Wei Hu (Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Salil Mehta  <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+Change Log
 
-On 11/17/2016 07:35 PM, Sebastian Andrzej Siewior wrote:
-> Install the callbacks via the state machine and let the core invoke the
-> callbacks on the already online CPUs. The smp function calls in the
-> online/downprep callbacks are not required as the callback is guaranteed to
-> be invoked on the upcoming/outgoing cpu.
-> 
-> Cc: Ursula Braun <ubraun@linux.vnet.ibm.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: linux-s390@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> ---
->  include/linux/cpuhotplug.h |   1 +
->  net/iucv/iucv.c            | 118 +++++++++++++++++----------------------------
->  2 files changed, 45 insertions(+), 74 deletions(-)
-> 
-> diff --git a/include/linux/cpuhotplug.h b/include/linux/cpuhotplug.h
-> index fd5598b8353a..69abf2c09f6c 100644
-> --- a/include/linux/cpuhotplug.h
-> +++ b/include/linux/cpuhotplug.h
-> @@ -63,6 +63,7 @@ enum cpuhp_state {
->  	CPUHP_X86_THERM_PREPARE,
->  	CPUHP_X86_CPUID_PREPARE,
->  	CPUHP_X86_MSR_PREPARE,
-> +	CPUHP_NET_IUCV_PREPARE,
->  	CPUHP_TIMERS_DEAD,
->  	CPUHP_NOTF_ERR_INJ_PREPARE,
->  	CPUHP_MIPS_SOC_PREPARE,
-> diff --git a/net/iucv/iucv.c b/net/iucv/iucv.c
-> index 88a2a3ba4212..f0d6afc5d4a9 100644
-> --- a/net/iucv/iucv.c
-> +++ b/net/iucv/iucv.c
-> @@ -639,7 +639,7 @@ static void iucv_disable(void)
->  	put_online_cpus();
->  }
->  
-> -static void free_iucv_data(int cpu)
-> +static int iucv_cpu_dead(unsigned int cpu)
->  {
->  	kfree(iucv_param_irq[cpu]);
->  	iucv_param_irq[cpu] = NULL;
-> @@ -647,9 +647,10 @@ static void free_iucv_data(int cpu)
->  	iucv_param[cpu] = NULL;
->  	kfree(iucv_irq_data[cpu]);
->  	iucv_irq_data[cpu] = NULL;
-> +	return 0;
->  }
->  
-> -static int alloc_iucv_data(int cpu)
-> +static int iucv_cpu_prepare(unsigned int cpu)
->  {
->  	/* Note: GFP_DMA used to get memory below 2G */
->  	iucv_irq_data[cpu] = kmalloc_node(sizeof(struct iucv_irq_data),
-> @@ -671,58 +672,38 @@ static int alloc_iucv_data(int cpu)
->  	return 0;
->  
->  out_free:
-> -	free_iucv_data(cpu);
-> +	iucv_cpu_dead(cpu);
->  	return -ENOMEM;
->  }
->  
-> -static int iucv_cpu_notify(struct notifier_block *self,
-> -				     unsigned long action, void *hcpu)
-> +static int iucv_cpu_online(unsigned int cpu)
->  {
-> -	cpumask_t cpumask;
-> -	long cpu = (long) hcpu;
-> -
-> -	switch (action) {
-> -	case CPU_UP_PREPARE:
-> -	case CPU_UP_PREPARE_FROZEN:
-> -		if (alloc_iucv_data(cpu))
-> -			return notifier_from_errno(-ENOMEM);
-> -		break;
-> -	case CPU_UP_CANCELED:
-> -	case CPU_UP_CANCELED_FROZEN:
-> -	case CPU_DEAD:
-> -	case CPU_DEAD_FROZEN:
-> -		free_iucv_data(cpu);
-> -		break;
-> -	case CPU_ONLINE:
-> -	case CPU_ONLINE_FROZEN:
-> -	case CPU_DOWN_FAILED:
-> -	case CPU_DOWN_FAILED_FROZEN:
-> -		if (!iucv_path_table)
-> -			break;
-> -		smp_call_function_single(cpu, iucv_declare_cpu, NULL, 1);
-> -		break;
-> -	case CPU_DOWN_PREPARE:
-> -	case CPU_DOWN_PREPARE_FROZEN:
-> -		if (!iucv_path_table)
-> -			break;
-> -		cpumask_copy(&cpumask, &iucv_buffer_cpumask);
-> -		cpumask_clear_cpu(cpu, &cpumask);
-> -		if (cpumask_empty(&cpumask))
-> -			/* Can't offline last IUCV enabled cpu. */
-> -			return notifier_from_errno(-EINVAL);
-> -		smp_call_function_single(cpu, iucv_retrieve_cpu, NULL, 1);
-> -		if (cpumask_empty(&iucv_irq_cpumask))
-> -			smp_call_function_single(
-> -				cpumask_first(&iucv_buffer_cpumask),
-> -				iucv_allow_cpu, NULL, 1);
-> -		break;
-> -	}
-> -	return NOTIFY_OK;
-> +	if (!iucv_path_table)
-> +		return 0;
-> +	iucv_declare_cpu(NULL);
-> +	return 0;
->  }
->  
-> -static struct notifier_block __refdata iucv_cpu_notifier = {
-> -	.notifier_call = iucv_cpu_notify,
-> -};
-> +static int iucv_cpu_down_prep(unsigned int cpu)
-> +{
-> +	cpumask_t cpumask;
-> +
-> +	if (!iucv_path_table)
-> +		return 0;
-> +
-> +	cpumask_copy(&cpumask, &iucv_buffer_cpumask);
-> +	cpumask_clear_cpu(cpu, &cpumask);
-> +	if (cpumask_empty(&cpumask))
-> +		/* Can't offline last IUCV enabled cpu. */
-> +		return -EINVAL;
-> +
-> +	iucv_retrieve_cpu(NULL);
-> +	if (!cpumask_empty(&iucv_irq_cpumask))
-> +		return 0;
-> +	smp_call_function_single(cpumask_first(&iucv_buffer_cpumask),
-> +				 iucv_allow_cpu, NULL, 1);
-> +	return 0;
-> +}
->  
->  /**
->   * iucv_sever_pathid
-> @@ -2027,6 +2008,7 @@ struct iucv_interface iucv_if = {
->  };
->  EXPORT_SYMBOL(iucv_if);
->  
-> +static enum cpuhp_state iucv_online;
->  /**
->   * iucv_init
->   *
-> @@ -2035,7 +2017,6 @@ EXPORT_SYMBOL(iucv_if);
->  static int __init iucv_init(void)
->  {
->  	int rc;
-> -	int cpu;
->  
->  	if (!MACHINE_IS_VM) {
->  		rc = -EPROTONOSUPPORT;
-> @@ -2054,23 +2035,19 @@ static int __init iucv_init(void)
->  		goto out_int;
->  	}
->  
-> -	cpu_notifier_register_begin();
-> -
-> -	for_each_online_cpu(cpu) {
-> -		if (alloc_iucv_data(cpu)) {
-> -			rc = -ENOMEM;
-> -			goto out_free;
-> -		}
-> -	}
-> -	rc = __register_hotcpu_notifier(&iucv_cpu_notifier);
-> +	rc = cpuhp_setup_state(CPUHP_NET_IUCV_PREPARE, "net/iucv:prepare",
-> +			       iucv_cpu_prepare, iucv_cpu_dead);
->  	if (rc)
->  		goto out_free;
-> -
-> -	cpu_notifier_register_done();
-> +	rc = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "net/iucv:online",
-> +			       iucv_cpu_online, iucv_cpu_down_prep);
-> +	if (rc < 0)
-> +		goto out_free;
-> +	iucv_online = rc;
->  
->  	rc = register_reboot_notifier(&iucv_reboot_notifier);
->  	if (rc)
-> -		goto out_cpu;
-> +		goto out_free;
->  	ASCEBC(iucv_error_no_listener, 16);
->  	ASCEBC(iucv_error_no_memory, 16);
->  	ASCEBC(iucv_error_pathid, 16);
-> @@ -2084,14 +2061,10 @@ static int __init iucv_init(void)
->  
->  out_reboot:
->  	unregister_reboot_notifier(&iucv_reboot_notifier);
-> -out_cpu:
-> -	cpu_notifier_register_begin();
-> -	__unregister_hotcpu_notifier(&iucv_cpu_notifier);
->  out_free:
-> -	for_each_possible_cpu(cpu)
-> -		free_iucv_data(cpu);
-> -
-> -	cpu_notifier_register_done();
-> +	if (iucv_online)
-> +		cpuhp_remove_state(iucv_online);
-> +	cpuhp_remove_state(CPUHP_NET_IUCV_PREPARE);
->  
->  	root_device_unregister(iucv_root);
->  out_int:
-I prefer to keep the technique of cascaded undo labels here, like this:
-@@ -2054,23 +2035,19 @@ static int __init iucv_init(void)
-                goto out_int;
-        }
+Patch V2: Addressed the comment provided by Anurup M
+	Link: https://patchwork.kernel.org/patch/9412855/
+Patch V1: Initial Submit
+---
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c |   83 +++++++++++++++++++++++++++-
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.h |    6 +-
+ 2 files changed, 86 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+index 71232e5..7485514 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+@@ -2630,8 +2630,78 @@ static int hns_roce_v1_query_qpc(struct hns_roce_dev *hr_dev,
+ 	return ret;
+ }
  
--       cpu_notifier_register_begin();
--
--       for_each_online_cpu(cpu) {
--               if (alloc_iucv_data(cpu)) {
--                       rc = -ENOMEM;
--                       goto out_free;
--               }
--       }
--       rc = __register_hotcpu_notifier(&iucv_cpu_notifier);
-+       rc = cpuhp_setup_state(CPUHP_NET_IUCV_PREPARE, "net/iucv:prepare",
-+                              iucv_cpu_prepare, iucv_cpu_dead);
-        if (rc)
--               goto out_free;
--
--       cpu_notifier_register_done();
-+               goto out_dev;
-+       rc = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "net/iucv:online",
-+                              iucv_cpu_online, iucv_cpu_down_prep);
-+       if (rc < 0)
-+               goto out_prep;
-+       iucv_online = rc;
+-int hns_roce_v1_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+-			 int qp_attr_mask, struct ib_qp_init_attr *qp_init_attr)
++static int hns_roce_v1_q_sqp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
++			     int qp_attr_mask,
++			     struct ib_qp_init_attr *qp_init_attr)
++{
++	struct hns_roce_dev *hr_dev = to_hr_dev(ibqp->device);
++	struct hns_roce_qp *hr_qp = to_hr_qp(ibqp);
++	struct hns_roce_sqp_context context;
++	u32 addr;
++
++	mutex_lock(&hr_qp->mutex);
++
++	if (hr_qp->state == IB_QPS_RESET) {
++		qp_attr->qp_state = IB_QPS_RESET;
++		goto done;
++	}
++
++	addr = ROCEE_QP1C_CFG0_0_REG + 
++		hr_qp->port * sizeof(struct hns_roce_sqp_context);
++	context.qp1c_bytes_4 = roce_read(hr_dev, addr);
++	context.sq_rq_bt_l = roce_read(hr_dev, addr + 1);
++	context.qp1c_bytes_12 = roce_read(hr_dev, addr + 2);
++	context.qp1c_bytes_16 = roce_read(hr_dev, addr + 3);
++	context.qp1c_bytes_20 = roce_read(hr_dev, addr + 4);
++	context.cur_rq_wqe_ba_l = roce_read(hr_dev, addr + 5);
++	context.qp1c_bytes_28 = roce_read(hr_dev, addr + 6);
++	context.qp1c_bytes_32 = roce_read(hr_dev, addr + 7);
++	context.cur_sq_wqe_ba_l = roce_read(hr_dev, addr + 8);
++	context.qp1c_bytes_40 = roce_read(hr_dev, addr + 9);
++
++	hr_qp->state = roce_get_field(context.qp1c_bytes_4,
++				      QP1C_BYTES_4_QP_STATE_M,
++				      QP1C_BYTES_4_QP_STATE_S);
++	qp_attr->qp_state	= hr_qp->state;
++	qp_attr->path_mtu	= IB_MTU_256;
++	qp_attr->path_mig_state	= IB_MIG_ARMED;
++	qp_attr->qkey		= QKEY_VAL;
++	qp_attr->rq_psn		= 0;
++	qp_attr->sq_psn		= 0;
++	qp_attr->dest_qp_num	= 1;
++	qp_attr->qp_access_flags = 6;
++
++	qp_attr->pkey_index = roce_get_field(context.qp1c_bytes_20,
++					     QP1C_BYTES_20_PKEY_IDX_M,
++					     QP1C_BYTES_20_PKEY_IDX_S);
++	qp_attr->port_num = hr_qp->port + 1;
++	qp_attr->sq_draining = 0;
++	qp_attr->max_rd_atomic = 0;
++	qp_attr->max_dest_rd_atomic = 0;
++	qp_attr->min_rnr_timer = 0;
++	qp_attr->timeout = 0;
++	qp_attr->retry_cnt = 0;
++	qp_attr->rnr_retry = 0;
++	qp_attr->alt_timeout = 0;
++
++done:
++	qp_attr->cur_qp_state = qp_attr->qp_state;
++	qp_attr->cap.max_recv_wr = hr_qp->rq.wqe_cnt;
++	qp_attr->cap.max_recv_sge = hr_qp->rq.max_gs;
++	qp_attr->cap.max_send_wr = hr_qp->sq.wqe_cnt;
++	qp_attr->cap.max_send_sge = hr_qp->sq.max_gs;
++	qp_attr->cap.max_inline_data = 0;
++	qp_init_attr->cap = qp_attr->cap;
++	qp_init_attr->create_flags = 0;
++
++	mutex_unlock(&hr_qp->mutex);
++
++	return 0;
++}
++
++static int hns_roce_v1_q_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
++			    int qp_attr_mask,
++			    struct ib_qp_init_attr *qp_init_attr)
+ {
+ 	struct hns_roce_dev *hr_dev = to_hr_dev(ibqp->device);
+ 	struct hns_roce_qp *hr_qp = to_hr_qp(ibqp);
+@@ -2767,6 +2837,15 @@ int hns_roce_v1_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+ 	return ret;
+ }
  
-        rc = register_reboot_notifier(&iucv_reboot_notifier);
-        if (rc)
--               goto out_cpu;
-+               goto out_remove;
-        ASCEBC(iucv_error_no_listener, 16);
-        ASCEBC(iucv_error_no_memory, 16);
-        ASCEBC(iucv_error_pathid, 16);
-@@ -2084,15 +2061,12 @@ static int __init iucv_init(void)
++int hns_roce_v1_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
++			 int qp_attr_mask, struct ib_qp_init_attr *qp_init_attr)
++{
++	struct hns_roce_qp *hr_qp = to_hr_qp(ibqp);
++
++	return hr_qp->doorbell_qpn <= 1 ?
++		hns_roce_v1_q_sqp(ibqp, qp_attr, qp_attr_mask, qp_init_attr) :
++		hns_roce_v1_q_qp(ibqp, qp_attr, qp_attr_mask, qp_init_attr);
++}
+ static void hns_roce_v1_destroy_qp_common(struct hns_roce_dev *hr_dev,
+ 					  struct hns_roce_qp *hr_qp,
+ 					  int is_user)
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+index 539b0a3b..2e1878b 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+@@ -480,13 +480,17 @@ struct hns_roce_sqp_context {
+ 	u32 qp1c_bytes_12;
+ 	u32 qp1c_bytes_16;
+ 	u32 qp1c_bytes_20;
+-	u32 qp1c_bytes_28;
+ 	u32 cur_rq_wqe_ba_l;
++	u32 qp1c_bytes_28;
+ 	u32 qp1c_bytes_32;
+ 	u32 cur_sq_wqe_ba_l;
+ 	u32 qp1c_bytes_40;
+ };
  
- out_reboot:
-        unregister_reboot_notifier(&iucv_reboot_notifier);
--out_cpu:
--       cpu_notifier_register_begin();
--       __unregister_hotcpu_notifier(&iucv_cpu_notifier);
--out_free:
--       for_each_possible_cpu(cpu)
--               free_iucv_data(cpu);
--
--       cpu_notifier_register_done();
--
-+out_remove:
-+       if (iucv_online)
-+               cpuhp_remove_state(iucv_online);
-+out_prep:
-+       cpuhp_remove_state(CPUHP_NET_IUCV_PREPARE);
-+out_dev:
-        root_device_unregister(iucv_root);
- out_int:
-        unregister_external_irq(EXT_IRQ_IUCV, iucv_external_interrupt);
++#define QP1C_BYTES_4_QP_STATE_S 0
++#define QP1C_BYTES_4_QP_STATE_M   \
++	(((1UL << 3) - 1) << QP1C_BYTES_4_QP_STATE_S)
++
+ #define QP1C_BYTES_4_SQ_WQE_SHIFT_S 8
+ #define QP1C_BYTES_4_SQ_WQE_SHIFT_M   \
+ 	(((1UL << 4) - 1) << QP1C_BYTES_4_SQ_WQE_SHIFT_S)
+-- 
+1.7.9.5
 
-> @@ -2110,7 +2083,6 @@ static int __init iucv_init(void)
->  static void __exit iucv_exit(void)
->  {
->  	struct iucv_irq_list *p, *n;
-> -	int cpu;
->  
->  	spin_lock_irq(&iucv_queue_lock);
->  	list_for_each_entry_safe(p, n, &iucv_task_queue, list)
-> @@ -2119,11 +2091,9 @@ static void __exit iucv_exit(void)
->  		kfree(p);
->  	spin_unlock_irq(&iucv_queue_lock);
->  	unregister_reboot_notifier(&iucv_reboot_notifier);
-> -	cpu_notifier_register_begin();
-> -	__unregister_hotcpu_notifier(&iucv_cpu_notifier);
-> -	for_each_possible_cpu(cpu)
-> -		free_iucv_data(cpu);
-> -	cpu_notifier_register_done();
-> +
-> +	cpuhp_remove_state_nocalls(iucv_online);
-> +	cpuhp_remove_state(CPUHP_NET_IUCV_PREPARE);
->  	root_device_unregister(iucv_root);
->  	bus_unregister(&iucv_bus);
->  	unregister_external_irq(EXT_IRQ_IUCV, iucv_external_interrupt);
-> 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
