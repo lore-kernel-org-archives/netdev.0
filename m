@@ -1,39 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2] ethtool: Protect {get,set}_phy_tunable with
- PHY device mutex
-Date: Wed, 23 Nov 2016 23:43:05 +0100
-Message-ID: <20161123224305.GF12343@lunn.ch>
-References: <20161122215531.18212-1-f.fainelli@gmail.com>
+From: Rami Rosen <roszenrami-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v9 2/6] cgroup: add support for eBPF programs
+Date: Thu, 24 Nov 2016 00:46:46 +0200
+Message-ID: <CAKoUArnq-DpwMJPdUutyR7fAhEN_6Spkw3NXkK5O=jZOQR8BXA@mail.gmail.com>
+References: <1479916350-28462-1-git-send-email-daniel@zonque.org> <1479916350-28462-3-git-send-email-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com, vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53163 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934383AbcKWWnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 17:43:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20161122215531.18212-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: htejun-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
+        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1479916350-28462-3-git-send-email-daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 22, 2016 at 01:55:31PM -0800, Florian Fainelli wrote:
-> PHY drivers should be able to rely on the caller of {get,set}_tunable to
-> have acquired the PHY device mutex, in order to both serialize against
-> concurrent calls of these functions, but also against PHY state machine
-> changes. All ethtool PHY-level functions do this, except
-> {get,set}_tunable, so we make them consistent here as well.
-> 
-> We need to update the Microsemi PHY driver in the same commit to avoid
-> introducing either deadlocks, or lack of proper locking.
-> 
-> Fixes: 968ad9da7e0e ("ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE")
-> Fixes: 310d9ad57ae0 ("net: phy: Add downshift get/set support in Microsemi PHYs driver")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Hi Daniel,
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+A minor comment:
 
-    Andrew
+> +/**
+> + * __cgroup_bpf_update() - Update the pinned program of a cgroup, and
+> + *                         propagate the change to descendants
+> + * @cgrp: The cgroup which descendants to traverse
+> + * @parent: The parent of @cgrp, or %NULL if @cgrp is the root
+> + * @prog: A new program to pin
+> + * @type: Type of pinning operation (ingress/egress)
+> + *
+> + * Each cgroup has a set of two pointers for bpf programs; one for eBPF
+> + * programs it owns, and which is effective for execution.
+> + *
+You have in the following section twice identical checks, for If @prog
+is %NULL".
+Shouldn't it be here (in the first case only) "If @prog is not %NULL"
+instead "If @prog is %NULL"?
+
+> + * If @prog is %NULL, this function attaches a new program to the cgroup and
+> + * releases the one that is currently attached, if any. @prog is then made
+> + * the effective program of type @type in that cgroup.
+> + *
+> + * If @prog is %NULL, the currently attached program of type @type is released,
+> + * and the effective program of the parent cgroup (if any) is inherited to
+> + * @cgrp.
+> + *
+
+
+Regard,
+Rami Rosen
