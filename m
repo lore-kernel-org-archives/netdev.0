@@ -1,52 +1,59 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] drivers: net: davinci_mdio: use builtin_platform_driver
-Date: Wed, 23 Nov 2016 11:22:32 -0600
-Message-ID: <00cc7fb8-6c2f-16ae-c589-bd9ad5bd7beb@ti.com>
-References: <055763562f90fd7e2d311308e1d731ba93c3eea9.1479912302.git.geliangtang@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] net: dsa: mv88e6xxx: forward unknown mc packets on
+ mv88e6097
+Date: Wed, 23 Nov 2016 18:32:30 +0100
+Message-ID: <20161123173230.GD8760@lunn.ch>
+References: <20161123165022.GD12698@gruene.netmodule.intranet>
+ <20161123165440.4894-1-stefan.eichenberger@netmodule.com>
+ <20161123165949.GB8760@lunn.ch>
+ <20161123171441.GE12698@gruene.netmodule.intranet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Geliang Tang <geliangtang@gmail.com>,
-        Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <055763562f90fd7e2d311308e1d731ba93c3eea9.1479912302.git.geliangtang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stefan Eichenberger <eichest@gmail.com>,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org
+To: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:50088 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S938550AbcKWRcd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Nov 2016 12:32:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20161123171441.GE12698@gruene.netmodule.intranet>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Nov 23, 2016 at 06:14:41PM +0100, Stefan Eichenberger wrote:
+> On Wed, Nov 23, 2016 at 05:59:49PM +0100, Andrew Lunn wrote:
+> > On Wed, Nov 23, 2016 at 05:54:40PM +0100, Stefan Eichenberger wrote:
+> > > Packets with unknown destination addresses are not forwarded to the cpu
+> > > port on mv88e6097 based switches (e.g. MV88E6097) at the moment. This
+> > > commit enables PORT_CONTROL_FORWARD_UNKNOWN_MC for this family.
+> > 
+> > Please try adding MV88E6XXX_FLAG_EDSA to
+> > MV88E6XXX_FLAGS_FAMILY_6097. That is the better fix if it works.
+> 
+> I was even wondering what EDSA means:) Thanks this solved the problem!
 
+Great.
 
-On 11/23/2016 08:45 AM, Geliang Tang wrote:
-> Use builtin_platform_driver() helper to simplify the code.
+We should fix up a few minor issues and resubmit.
 
-Not sure about this. We do support this driver to be a module.
+What is the status of the first patch, which added 6097 to the driver?
+I don't think David accepted it yet. So lets make one patchset
+containing the two patches.
 
->
-> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
-> ---
->  drivers/net/ethernet/ti/davinci_mdio.c | 6 +-----
->  1 file changed, 1 insertion(+), 5 deletions(-)
->
-> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-> index 33df340..b3f0a12 100644
-> --- a/drivers/net/ethernet/ti/davinci_mdio.c
-> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-> @@ -536,11 +536,7 @@ static struct platform_driver davinci_mdio_driver = {
->  	.remove = davinci_mdio_remove,
->  };
->
-> -static int __init davinci_mdio_init(void)
-> -{
-> -	return platform_driver_register(&davinci_mdio_driver);
-> -}
-> -device_initcall(davinci_mdio_init);
-> +builtin_platform_driver(davinci_mdio_driver);
->
->  static void __exit davinci_mdio_exit(void)
->  {
->
+The subject line of the patches need to have net-next in it. e.g.
 
--- 
-regards,
--grygorii
+[PATCH net-next 0/2] Add support for the MV88e6097
+
+Include a cover node, saying what the patchset as a whole does.
+This gets used as the merge commit message.
+
+Then the two patches.
+
+When posting the patchset, please start a new thread. A new version of
+a patchset or patch should be a new thread.
+
+Thanks
+	Andrew
