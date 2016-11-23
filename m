@@ -1,40 +1,38 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: [PATCH] cpsw: ethtool: add support for getting/setting EEE registers
-Date: Wed, 23 Nov 2016 15:40:32 +0100
-Message-ID: <CAGm1_ks01zBoL_rVPbg=GqxLbm5X+pfvhbbL1X65+JFW2-2_Lw@mail.gmail.com>
-References: <1479897248-5923-1-git-send-email-yegorslists@googlemail.com> <CAKoUArn8ndLaaEEr55DNFOqJL1hcRvpZCZ1e7WqhWZiaAHBiNw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "N, Mugunthan V" <mugunthanvnm@ti.com>
-To: Rami Rosen <roszenrami@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f194.google.com ([209.85.217.194]:35519 "EHLO
-        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936461AbcKWOmQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:42:16 -0500
-In-Reply-To: <CAKoUArn8ndLaaEEr55DNFOqJL1hcRvpZCZ1e7WqhWZiaAHBiNw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geliang Tang <geliangtang@gmail.com>
+Subject: [PATCH] drivers: net: davinci_mdio: use builtin_platform_driver
+Date: Wed, 23 Nov 2016 22:45:43 +0800
+Message-ID: <055763562f90fd7e2d311308e1d731ba93c3eea9.1479912302.git.geliangtang@gmail.com>
+Cc: Geliang Tang <geliangtang@gmail.com>, linux-omap@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mugunthan V N <mugunthanvnm@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Rami,
+Use builtin_platform_driver() helper to simplify the code.
 
-On Wed, Nov 23, 2016 at 3:31 PM, Rami Rosen <roszenrami@gmail.com> wrote:
-> Hi, Yegor,
->
-> Minor comment: these methods should be static.
->
-> +int cpsw_get_eee(struct net_device *ndev, struct ethtool_eee *edata)
-> +{
-> ...
-> ...
-> +int cpsw_set_eee(struct net_device *ndev, struct ethtool_eee *edata)
-> ...
+Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-ACK. Fixed in v2.
-
-Thanks.
-
-Yegor
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 33df340..b3f0a12 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -536,11 +536,7 @@ static struct platform_driver davinci_mdio_driver = {
+ 	.remove = davinci_mdio_remove,
+ };
+ 
+-static int __init davinci_mdio_init(void)
+-{
+-	return platform_driver_register(&davinci_mdio_driver);
+-}
+-device_initcall(davinci_mdio_init);
++builtin_platform_driver(davinci_mdio_driver);
+ 
+ static void __exit davinci_mdio_exit(void)
+ {
+-- 
+2.9.3
