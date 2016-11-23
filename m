@@ -1,70 +1,55 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: AF_VSOCK network namespace support
-Date: Wed, 23 Nov 2016 14:55:35 +0000
-Message-ID: <20161123145535.GA16465@stefanha-x1.localdomain>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH resend] ethtool: add register dump support for fjes driver
+Date: Wed, 23 Nov 2016 09:56:47 -0500
+Message-ID: <20161123145646.GA13179@tuxdriver.com>
+References: <1479257733-19277-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="OXfL5xGRrasGEqWY"
-Cc: netdev@vger.kernel.org, imbrenda@linux.vnet.ibm.com
-To: Jorgen Hansen <jhansen@vmware.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38522 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938633AbcKWO43 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 09:56:29 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43357 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938652AbcKWPAQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 10:00:16 -0500
 Content-Disposition: inline
+In-Reply-To: <1479257733-19277-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Nov 16, 2016 at 09:55:32AM +0900, Taku Izumi wrote:
+> This patch adds the register dump format for FUJITSU Extended
+> Network device like the following:
+> 
+>    # ethtool -d es0
+> 
+> 0x0000: OWNER_EPID    (Owner EPID)                       0x00000001
+> 0x0004: MAX_EP        (Maximum EP)                       0x00000008
+> 0x0010: DCTL          (Device Control)                   0x00000000
+> 0x0020: CR            (Command request)                  0x80000002
+> 0x0024: CS            (Command status)                   0x80000002
+> 0x0028: SHSTSAL       (Share status address Low)         0xE8215304
+> 0x002C: SHSTSAH       (Share status address High)        0x00000007
+> 0x0034: REQBL         (Request Buffer length)            0x00008028
+> 0x0038: REQBAL        (Request Buffer Address Low)       0xEB0A0000
+> 0x003C: REQBAH        (Request Buffer Address High)      0x00000007
+> 0x0044: RESPBL        (Response Buffer Length)           0x00000018
+> 0x0048: RESPBAL       (Response Buffer Address Low)      0xE41E1220
+> 0x004C: RESPBAH       (Response Buffer Address High)     0x00000007
+> 0x0080: IS            (Interrupt status)                 0x00000000
+> 0x0084: IMS           (Interrupt mask set)               0x7FE00000
+> 0x0088: IMC           (Interrupt mask clear)             0x001F0000
+> 0x008C: IG            (Interrupt generator)              0x00010000
+> 0x0090: ICTL          (Interrupt control)                0x00000000
+> 
+> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 
---OXfL5xGRrasGEqWY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Thank you, Taku Izumi. I have merged this patch and will be pushing
+it shortly.
 
-Hi Jorgen,
-There are two use cases where network namespace support in AF_VSOCK
-could be useful:
+I apologize for the delay.
 
-1. Claudio Imbrenda pointed out that a machine cannot act as both host
-   and guest at the same time.  This is necessary for nested
-   virtualization.  Currently only one transport (the host side or the
-   guest side) can be registered at a time.
-
-2. Users may wish to isolate the AF_VSOCK address namespace so that two
-   VMs have completely independent CID and ports (they could even use
-   the same CID and ports because they're in separate namespaces).  This
-   ensures that a host service visible to VM1 is not automatically
-   visible to VM2.
-
-Network namespaces could solve both problems.
-
-A drawback of namespaces is that existing configurations using network
-namespaces for IPv4/6 or other purposes break if AF_VSOCK gains network
-namespace support.  This is not a big problem for virtio-vsock if we
-implement namespace support soon since there are no existing users.
-
-I wonder how other address families have solved this transition to
-network namespaces.  It's almost like we need fine-grained namespaces
-instead of a blanket network namespace that applies across all address
-families...
-
-I'm playing around with the code now but wanted to get your thoughts in
-case you've already considered these problems.
-
-Stefan
-
---OXfL5xGRrasGEqWY
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJYNa3nAAoJEJykq7OBq3PISB8H/i6c2h4vmYrp14lr4z0nC8Zq
-34eHSihEN2WksD9qVuvC6zw8vm7smHR1iaM5aFitAaQoaur4A+CxPlR+uWUlnJSt
-pFV1azfN0C+WdshFCb5tILBKcrx06TtCcCp2DKyjtuuXLrt7GOSMcx/yoikbn/0R
-yp59hLO4Nr0PvTb18Sosh9AXgFOVweMQuyxrTTKdVRed0LZtlvsExVWM6NlJ5Dm/
-QXrDi1Dx+soKmjr+pYCGKqt4R714po0qtdlA0nu5bo30fiRpjESfkK2pfWTOMBki
-1Qhrat6/J17ro2lf4czj6wNi+KQkoj3kFX1e1O2tt339z/TXbSkVm5ayWFcoTaM=
-=CbZ/
------END PGP SIGNATURE-----
-
---OXfL5xGRrasGEqWY--
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
