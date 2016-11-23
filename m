@@ -1,44 +1,79 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: net/arp: ARP cache aging failed.
-Date: Wed, 23 Nov 2016 10:33:13 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1611230928140.1659@ja.home.ssi.bg>
-References: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [LKP] [net] 34fad54c25: kernel BUG at
+ include/linux/skbuff.h:1935!
+Date: Wed, 23 Nov 2016 16:36:39 +0800
+Message-ID: <20161123083639.h6wuxh33jejpk4ln@wfg-t540p.sh.intel.com>
+References: <582b7c30.nXQXP2V4/6pFiYwt%xiaolong.ye@intel.com>
+ <CA+55aFxV7Bq583QOdYauuo2jY9EkAmgnceBukrN27ArjzFszYg@mail.gmail.com>
+ <20161123064421.cewko2msg7mdawco@wfg-t540p.sh.intel.com>
+ <CA+55aFx9q2xi1oi2j5QcYhMV490oj9CQ4N_OEXzC-3b6GeUQug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: yuehaibing <yuehaibing@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:58589 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932982AbcKWIdg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 03:33:36 -0500
-In-Reply-To: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: kernel test robot <xiaolong.ye@intel.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>, LKP <lkp@01.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFx9q2xi1oi2j5QcYhMV490oj9CQ4N_OEXzC-3b6GeUQug@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Nov 22, 2016 at 11:07:16PM -0800, Linus Torvalds wrote:
+>On Tue, Nov 22, 2016 at 10:44 PM, Fengguang Wu <fengguang.wu@intel.com> wrote:
+>>
+>> On Tue, Nov 22, 2016 at 02:04:42PM -0800, Linus Torvalds wrote:
+>>
+>>> I also noticed that the kernel test robot had screwed up the
+>>> participants list for some reason, and had
+>>>
+>>>  "Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>, David S.
+>>> Miller" <davem@davemloft.net>
+>>>
+>>> as one of the participants. So there's some odd commit parsing issue
+>>> there somewhere. But Alexander seems to have seen this report despite
+>>> that, it just never went anywhere that I can tell.
+>>
+>>
+>> Yeah the robot will CC all "Acked-by" people in the bug reports.
+>>
+>> Shall we limit it to the below TO/CC list?
+>
+>No. We do want to keep the Acked-by's on the cc.
+>
+>But you missed the real problem.
+>
+>It *didn't* cc the acked-by. Look closer. What happened was that it cc'd this:
+>
+> "Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>, David S. Miller"
+>
+> <davem@davemloft.net>
+>
+>ie there is only _one_ email address (that of davem@davemloft.net),
+>and the whole "Acked-by: Alexander Duyck <...>" part is quoted as the
+>_name_ of that email address.
+>
+>At least that's what the headers look like for me in the original report:
+>
+>   From: kernel test robot <xiaolong.ye@intel.com>
+>   To: Eric Dumazet <edumazet@google.com>
+>   Cc: lkp@01.org, Linus Torvalds <torvalds@linux-foundation.org>,
+>LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov
+><ast@kernel.org>, Willem de Bruijn <willemb@google.com>, "Acked-by:
+>Alexander Duyck <alexander.h.duyck@intel.com>, David S. Miller"
+><davem@davemloft.net>
+>
+>Notice the quoting of that last "name".
 
-	Hello,
+Ah thanks! Xiaolong just root caused the parse error and will fix it.
 
-On Wed, 23 Nov 2016, yuehaibing wrote:
+Interestingly we didn't see that problem -- the CC list looks correct
+in our emails -- perhaps Intel's email system auto fixed up the header.
 
-> 	As to my topo,HOST1 and HOST3 share one route on HOST2, tcp connection between HOST2 and HOST3 may call tcp_ack to set dst->pending_confirm.
-> 	
-> So dst_neigh_output may wrongly freshed  n->confirmed which stands for HOST1,however HOST1'MAC had been changed.
-> 
-> 	The possibility of this occurred Significantly increases ,when ping and TCP transaction are set the same processor affinity on the HOST2.
-> 
-> 	It seems that the issue is brought in commit 5110effee8fde2edfacac9cd12a9960ab2dc39ea ("net: Do delayed neigh confirmation.").
-
-	Bad news. Problem is not in delayed confirmation but
-in the mechanism to use same dst for different neighbours on
-LAN. We don't have a dst->neighbour reference anymore.
-
-	For IPv4 this is related to rt->rt_uses_gateway but
-also to DST_NOCACHE. In the other cases we can not call
-dst_confirm, may be we should lookup the neigh entry instead.
-But we need a way to reduce such lookups on every packet,
-for example, by remembering in struct sock and checking if
-some bits of jiffies (at least 4-5) are changed from
-previous lookup.
-
-Regards
+Thanks,
+Fengguang
