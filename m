@@ -1,102 +1,124 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6:ipv6_pinfo dereferenced after NULL check
-Date: Wed, 23 Nov 2016 12:32:52 +0100
-Message-ID: <b142a6be-ee2c-2564-6c38-6dfc5e8efce2@stressinduktion.org>
-References: <1479796024-39418-1-git-send-email-manjeet.p@samsung.com>
- <CGME20161122122650epcas3p200ae9d4f95577997c98c37eb3e375ae8@epcas3p2.samsung.com>
- <20161123044535epcms5p37a2a3f2c2c071fdac1ddb6b1a6c02cf6@epcms5p3>
+From: Lars Persson <lars.persson@axis.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Wed, 23 Nov 2016 11:41:28 +0000
+Message-ID: <899DC02E-84BB-489E-A1FE-5D8F3BB795B6@axis.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+ <BFA799B0-BB22-4515-AC14-3544A3167B0A@axis.com>
+ <ffd3b27c-0bc9-b53b-cc65-c7808595a553@st.com>
+ <b126021d-e902-7a53-4d7a-e73ea89a66cf@synopsys.com>
+ <A001080B-2DC8-48D9-BD82-8276A9B3BE3D@axis.com>
+ <7c7798b5-8cd4-ba99-f526-22d3e06e05db@synopsys.com>
+ <2eefdb8f-7e87-6009-6e50-c536d4b95dd6@synopsys.com>
+ <c37c47e1-8e21-1b11-ed15-6b899ed1dd03@st.com>,<7c259adb-5c73-f997-6b96-5be427157b08@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: PANKAJ MISHRA <pankaj.m@samsung.com>,
-        Ajeet Kumar Yadav <ajeet.y@samsung.com>
-To: r.thapliyal@samsung.com, Manjeet Pawar <manjeet.p@samsung.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "jmorris@namei.org" <jmorris@namei.org>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "kaber@trash.net" <kaber@trash.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:54097 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756180AbcKWLc4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 06:32:56 -0500
-In-Reply-To: <20161123044535epcms5p37a2a3f2c2c071fdac1ddb6b1a6c02cf6@epcms5p3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+        Rabin Vincent <rabin@rab.in>, mued dib <kreptor@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        "jiri@mellanox.com" <jiri@mellanox.com>,
+        "saeedm@mellanox.com" <saeedm@mellanox.com>,
+        "idosch@mellanox.com" <idosch@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "CARLOS.PALMINHA@synopsys.com" <CARLOS.PALMINHA@synopsys.com>,
+        =?iso-8859-1?Q?Andreas_Irest=E5l?= <andire@axis.com>,
+        "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7c259adb-5c73-f997-6b96-5be427157b08@synopsys.com>
+Content-Language: sv-SE
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 23.11.2016 05:45, Rohit Thapliyal wrote:
-> |>On 22.11.2016 07:27, Manjeet Pawar wrote:
->  >> From: Rohit Thapliyal <r.thapliyal@samsung.com <mailto:r.thapliyal@samsung.com>>
->  >>
->  >> np checked for NULL and then dereferenced. It should be modified
->  >> for NULL case.
->  >>
->  >> Signed-off-by: Rohit Thapliyal <r.thapliyal@samsung.com 
-> <mailto:r.thapliyal@samsung.com>>>
->  >> Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com 
-> <mailto:manjeet.p@samsung.com>>>
->  >> ---
->  >>  net/ipv6/ip6_output.c | 9 +++++----
->  >>  1 file changed, 5 insertions(+), 4 deletions(-)
->  >>
->  >> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
->  >> index 1dfc402..c2afa14 100644
->  >> --- a/net/ipv6/ip6_output.c
->  >> +++ b/net/ipv6/ip6_output.c
->  >> @@ -205,14 +205,15 @@ int ip6_xmit(const struct sock *sk, struct sk_buff 
-> *skb, struct flowi6 *fl6,
->  >>   /*
->  >>    * Fill in the IPv6 header
->  >>    */
->  >> - if (np)
->  >> + if (np) {
->  >>    hlimit = np->hop_limit;
->  >> +  ip6_flow_hdr(
->  >> +     hdr, tclass, ip6_make_flowlabel(
->  >> +     net, skb, fl6->flowlabel,
->  >> +     np->autoflowlabel, fl6));
->  >> + }
->  >>   if (hlimit < 0)
->  >>    hlimit = ip6_dst_hoplimit(dst);
->  >>
->  >> - ip6_flow_hdr(hdr, tclass, ip6_make_flowlabel(net, skb, fl6->flowlabel,
->  >> -    np->autoflowlabel, fl6));
->  >> -
->  >>   hdr->payload_len = htons(seg_len);
->  >>   hdr->nexthdr = proto;
->  >>   hdr->hop_limit = hlimit;
->  >>
->  >
->  >
->  >We always should initialize hdr and not skip the ip6_flow_hdr call.|
+
+> 23 nov. 2016 kl. 12:11 skrev Joao Pinto <Joao.Pinto@synopsys.com>:
 > 
-> |if np becomes NULL, then anyways hdr won't be initialized due to NULL pointer 
-> dereference ip6_make_flowlabel.|
-
-Which we would see as a crash. So far no crash has been reported in this
-code. Doing a quick code review on the paths leading to ip6_xmit,
-inet6_sk must always be set to actually reach up to this point.
-Otherwise we would have crashes on all code paths much earler.
-
-Anyway, I would be fine to keep the NULL check in this path, it looks
-better because of the inet6_sk you pointed out above but I would
-recommend to just use a "np ? np->autoflowlabel :
-ip6_default_np_autolabel(net) in the ip6_flow_hdr function.
-
-> |>Do you saw a bug or did you find this by code review? I wonder if np can
->  >actually be NULL at this point. Maybe we can just eliminate the NULL check.|
+> Hi Peppe and Lars,
 > 
-> |
+>> On 23-11-2016 10:59, Giuseppe CAVALLARO wrote:
+>> Hello Joao, Lars.
+>> 
+>>> On 11/22/2016 3:16 PM, Joao Pinto wrote:
+>>>>> Ok, it makes sense.
+>>>>> Just for curiosity the target setup is the following:
+>>>>> https://www.youtube.com/watch?v=8V-LB5y2Cos
+>>>>> but instead of using internal drivers, we desire to use mainline drivers only.
+>>>>> 
+>>>>> Thanks!
+>>> Regarding this subject, I am thinking of making the following adaption:
+>>> 
+>>> a) delete ethernet/synopsys
+>>> b) rename ethernet/stmicro/stmmac to ethernet/synopsys
+>>> 
+>>> and send you a patch for you to evaluate. Both agree with the approach?
+>>> To have a new work base would be important, because I will add to the "new"
+>>> structure some missing QoS features like Multichannel support, CBS and later TSN.
+>> 
+>> IMO, we have to agree on a common strategy making the change for
+>> net-next; I imaged the following steps:
 > 
+> Yes it makes totally sense.
 > 
-> I must admit that I found it just by code review, and so far didn't face any 
-> crash whatsoever.
-> As we can see in inet6_sk, np could be NULL. Thus, the NULL check seems justified.
+>> 
+>> - to port missing feature or fixes from ethernet/synopsys
+>>  inside the stmmac taking care about the documentation too.
+> 
+> @Lars: You are familiar with the synopsys qos driver. Could you please do this
+> porting. You can also make an analysis of what to port and I can do the porting
+> for you if you don't have the availability for it.
 
-Thanks for looking at this!
+As my main duty is changing diapers until March next year, please go ahead with this step if you can spend time on it before I am back in office.
 
-Bye,
-Hannes
+Rabin Vincent can review and test that the port works properly on our Artpec-chips that use dwc_eth_qos.c today.
+
+The main porting step is to implement the device tree binding in bindings/net/snps,dwc-qos-ethernet.txt. Also our chip has a strict requirement that the phy is enabled when the SWR reset bit is set (it needs a tx clock to complete the reset).
+
+- Lars
+
+> 
+>> - remove ethernet/synopsys
+>> - rename ethernet/stmicro/stmmac to ethernet/synopsys
+> 
+> I volunteer to do this task.
+> 
+>> 
+>>  These latest two have some relevant impacts.
+>> 
+>>  This change should be propagated to all the platforms that are using:
+>>      CONFIG_SYNOPSYS_DWC_ETH_QOS and CONFIG_STMMAC_ETH
+>>  plus device-tree compatibility.
+> 
+> I volunteer to do this task also.
+> 
+>> 
+>> - enhance the stmmac with new features and new glue (part of these
+>>  can be anticipated for sure).
+> 
+> I have to implement 3 new features for now, but I will take some time for it, so
+> I would suggest to make the previous task and incrementally add features.
+> 
+>> 
+>> what do you think? does it make sense? If yes, we can also
+>> understand how/who starts.
+>> 
+>> Regards,
+>> Peppe
+> 
+> Thanks and regards.
+> 
+> Joao
+> 
+>> 
+>>> Thanks.
+>> 
+> 
