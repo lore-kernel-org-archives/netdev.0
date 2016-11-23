@@ -1,58 +1,95 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 01/11] ipv4: fib: Export free_fib_info()
-Date: Wed, 23 Nov 2016 15:34:22 +0100
-Message-ID: <1479911670-4525-2-git-send-email-jiri@resnulli.us>
-References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        hannes@stressinduktion.org, kaber@trash.net
-To: netdev@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: bcm: fix support for CAN FD frames
+Date: Wed, 23 Nov 2016 15:35:32 +0100
+Message-ID: <781efa22-a378-dd4c-97e1-9045eafd9121@pengutronix.de>
+References: <20161123133325.1812-1-socketcan@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="fgpiL6WF8hGjaDePglOKcxne3h7sWd9Sw"
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        linux-can@vger.kernel.org,
+        Andrey Konovalov <andreyknvl@google.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33896 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964955AbcKWOee (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:34:34 -0500
-Received: by mail-wm0-f66.google.com with SMTP id g23so2186587wme.1
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:34:33 -0800 (PST)
-In-Reply-To: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:41335 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S938655AbcKWOfi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:35:38 -0500
+In-Reply-To: <20161123133325.1812-1-socketcan@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--fgpiL6WF8hGjaDePglOKcxne3h7sWd9Sw
+Content-Type: multipart/mixed; boundary="iCe7rsqAlkTpkFojCKaeFBeWNw9egHm8l";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org,
+ Andrey Konovalov <andreyknvl@google.com>, netdev@vger.kernel.org
+Message-ID: <781efa22-a378-dd4c-97e1-9045eafd9121@pengutronix.de>
+Subject: Re: [PATCH] can: bcm: fix support for CAN FD frames
+References: <20161123133325.1812-1-socketcan@hartkopp.net>
+In-Reply-To: <20161123133325.1812-1-socketcan@hartkopp.net>
 
-The FIB notification chain is going to be converted to an atomic chain,
-which means switchdev drivers will have to offload FIB entries in
-deferred work, as hardware operations entail sleeping.
+--iCe7rsqAlkTpkFojCKaeFBeWNw9egHm8l
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-However, while the work is queued fib info might be freed, so a
-reference must be taken. To release the reference (and potentially free
-the fib info) fib_info_put() will be called, which in turn calls
-free_fib_info().
+On 11/23/2016 02:33 PM, Oliver Hartkopp wrote:
+> Since commit 6f3b911d5f29b98 ("can: bcm: add support for CAN FD frames"=
+) the
+> CAN broadcast manager supports CAN and CAN FD data frames.
+>=20
+> As these data frames are embedded in struct can[fd]_frames which have a=
 
-Export free_fib_info() so that modules will be able to invoke
-fib_info_put().
+> different length the access to the provided array of CAN frames became
+> dependend of op->cfsiz. By using a struct canfd_frame pointer for the a=
+rray of
+> CAN frames the new offset calculation based on op->cfsiz was accidently=
+ applied
+> to CAN FD frame element lengths.
+>=20
+> This fix makes the pointer to the arrays of the different CAN frame typ=
+es a
+> void pointer so that the offset calculation in bytes accesses the corre=
+ct CAN
+> frame elements.
+>=20
+> Reference: http://marc.info/?l=3Dlinux-netdev&m=3D147980658909653
+>=20
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/ipv4/fib_semantics.c | 1 +
- 1 file changed, 1 insertion(+)
+Added to can and send a pull request to David.
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 388d3e2..c1bc1e9 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -234,6 +234,7 @@ void free_fib_info(struct fib_info *fi)
- #endif
- 	call_rcu(&fi->rcu, free_fib_info_rcu);
- }
-+EXPORT_SYMBOL_GPL(free_fib_info);
- 
- void fib_release_info(struct fib_info *fi)
- {
--- 
-2.7.4
+Thanks,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--iCe7rsqAlkTpkFojCKaeFBeWNw9egHm8l--
+
+--fgpiL6WF8hGjaDePglOKcxne3h7sWd9Sw
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlg1qTQACgkQPTuqJayp
+JWqb9wf/eWIZ3XFFT0tcd8FA9fhE+qPKPwBj9bT0oAI3Rb5tbISZ8IrIzSKHRLlR
+mEKaFy3VnXY7PFK7h/ou/NFwVRyjbLXnNnfiiPWpbxwDVdppBBPcX6h0RHJjw2fv
+irInlUNA0aoApRqIffw3Jt1T4md2t797ZWw14IQxCHdh2POQW1Ti3NEPVRebTPN0
+Sve8dTWYSb5566Q32S2fec2IX7lNP6Edjpd9qGYvQQb/NYS6nqmlEWs2rZXkvIBn
+kCyP13gbLqy8BklMqMAKNMyLromVlC2BJZSwjsPMNPqz5gGQO5VoFmOAAFEAgfDl
+k4MZg0X36bfbznxgCAe7cLAupyM5Ew==
+=1F4I
+-----END PGP SIGNATURE-----
+
+--fgpiL6WF8hGjaDePglOKcxne3h7sWd9Sw--
