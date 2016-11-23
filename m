@@ -1,75 +1,42 @@
-From: Andrei Pistirica <andrei.pistirica@microchip.com>
-Subject: Re: [RFC PATCH v2 1/2] macb: Add 1588 support in Cadence GEM.
-Date: Wed, 23 Nov 2016 14:36:55 +0100
-Message-ID: <90432c85-871f-22be-bde2-51e321828c9a@microchip.com>
-References: <1479478912-14067-1-git-send-email-andrei.pistirica@microchip.com>
- <20161120193720.GA7874@localhost.localdomain>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Wed, 23 Nov 2016 08:41:29 -0500
+Message-ID: <b61a0e10-c737-8912-3e4e-393f4eb32077@pobox.com>
+References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+ <1394712342-15778-227-Taiwan-albertk@realtek.com>
+ <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
+ <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
+ <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
-        <nicolas.ferre@atmel.com>, <harinikatakamlinux@gmail.com>,
-        <harini.katakam@xilinx.com>, <punnaia@xilinx.com>,
-        <michals@xilinx.com>, <anirudh@xilinx.com>,
-        <boris.brezillon@free-electrons.com>,
-        <alexandre.belloni@free-electrons.com>, <tbultel@pixelsurmer.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: nic_swsd <nic_swsd@realtek.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161120193720.GA7874@localhost.localdomain>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+What does this code do:
 
+>static void r8153_set_rx_early_size(struct r8152 *tp)
+>{
+>        u32 mtu = tp->netdev->mtu;
+>        u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
+>
+>        ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
+>}
 
-On 20.11.2016 20:37, Richard Cochran wrote:
-> On Fri, Nov 18, 2016 at 03:21:51PM +0100, Andrei Pistirica wrote:
->> +#ifdef CONFIG_MACB_USE_HWSTAMP
->> +void macb_ptp_init(struct net_device *ndev);
->> +#else
->> +void macb_ptp_init(struct net_device *ndev) { }
->
-> static inline ^^^
+How is ocp_data used by the hardware?
+Shouldn't the calculation also include sizeof(rx_desc) in there somewhere?
 
-I can do static inline only when PTP is not enabled (on else branch), 
-thus the empty function is defined in the header file (since the init 
-function is defined in macb_ptp and used in macb). To differentiate 
-between macb versions, I'll add a wrapper.
-Would this be ok?
-
->
->> +#endif
->
->
->> +void macb_ptp_init(struct net_device *ndev)
->> +{
->> +	struct macb *bp = netdev_priv(ndev);
->> +	struct timespec64 now;
->> +	u32 rem = 0;
->> +
->> +	if (!(bp->caps | MACB_CAPS_GEM_HAS_PTP)){
->> +		netdev_vdbg(bp->dev, "Platform does not support PTP!\n");
->> +		return;
->> +	}
->
-> You would have needed '&' and not '|' here.
-
-Yes. Another stupid mistake... sorry. I will be more careful next time.
-
->
-> Also, using a flag limits the code to your platform.  This works for
-> you, but it is short sighted.  The other MACB PTP blocks have
-> different register layouts, and this patch does not lay the ground
-> work for the others.
->
-> The driver needs to be designed to support the other platforms.
-
-It will support Xilinx.
-
->
-> Thanks,
-> Richard
->
-
-Regards,
-Andrei
+Thanks
+-- 
+Mark Lord
+Real-Time Remedies Inc.
+mlord@pobox.com
