@@ -1,47 +1,27 @@
-From: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: egress all frames
-Date: Wed, 23 Nov 2016 10:56:22 +0100
-Message-ID: <20161123095622.GA12698@gruene.netmodule.intranet>
-References: <20161122103944.31381-1-stefan.eichenberger@netmodule.com>
- <20161122150330.GE2691@lunn.ch>
- <20161122183732.GD13973@gruene.netmodule.intranet>
- <20161122190206.GE14947@lunn.ch>
- <87zikr40w2.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 2/2] samples/bpf: fix bpf loader
+Date: Wed, 23 Nov 2016 10:57:37 +0100
+Message-ID: <58356811.1070407@iogearbox.net>
+References: <1479862329-2361912-1-git-send-email-ast@fb.com> <1479862329-2361912-2-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Stefan Eichenberger <eichest@gmail.com>,
-        <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.netmodule.com ([194.29.26.242]:12902 "EHLO
-        webmail.netmodule.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934143AbcKWJ43 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 04:56:29 -0500
-Content-Disposition: inline
-In-Reply-To: <87zikr40w2.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+Received: from www62.your-server.de ([213.133.104.62]:57694 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934143AbcKWJ5m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 04:57:42 -0500
+In-Reply-To: <1479862329-2361912-2-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien
+On 11/23/2016 01:52 AM, Alexei Starovoitov wrote:
+> llvm can emit relocations into sections other than program code
+> (like debug info sections). Ignore them during parsing of elf file
+>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-On Tue, Nov 22, 2016 at 05:15:25PM -0500, Vivien Didelot wrote:
-> Hi Andrew, Stefan,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> > What you might find useful is
-> >
-> > https://github.com/vivien/linux.git 161b96bd7d16d21b0f046c935b70c3b2d277ccc2
-> >
-> > although it might need some changes for recent commits.
-> >
-> > With that, you can see deeper into the switches registers.
-> 
-> FYI, I have rebased it on top of the latest net-next (f9aa9dc7d2d0):
-> 
->     https://github.com/vivien/linux.git dsa/dev
-> 
-
-Perfect that is really helpful, thanks a lot!
-Stefan
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
