@@ -1,36 +1,33 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] flowcache: Increase threshold for refusing new
- allocations
-Date: Wed, 23 Nov 2016 13:42:55 +0100
-Message-ID: <20161123124255.GA3541@gauss.secunet.com>
-References: <20161121144820.GA4048@miroslavurbanek.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: fix bogus cast in skb_pagelen() and use unsigned
+ variables
+Date: Wed, 23 Nov 2016 12:49:41 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB02265B3@AcuExch.aculab.com>
+References: <20161119010808.GF1200@avx2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Miroslav Urbanek <mu@miroslavurbanek.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Alexey Dobriyan' <adobriyan@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:57133 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S936026AbcKWMnK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 07:43:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20161121144820.GA4048@miroslavurbanek.com>
+Received: from smtp-out6.electric.net ([192.162.217.188]:60709 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936202AbcKWMtq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 07:49:46 -0500
+In-Reply-To: <20161119010808.GF1200@avx2>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 21, 2016 at 03:48:21PM +0100, Miroslav Urbanek wrote:
-> The threshold for OOM protection is too small for systems with large
-> number of CPUs. Applications report ENOBUFs on connect() every 10
-> minutes.
-> 
-> The problem is that the variable net->xfrm.flow_cache_gc_count is a
-> global counter while the variable fc->high_watermark is a per-CPU
-> constant. Take the number of CPUs into account as well.
-> 
-> Fixes: 6ad3122a08e3 ("flowcache: Avoid OOM condition under preasure")
-> Reported-by: Lukáš Koldrt <lk@excello.cz>
-> Tested-by: Jan Hejl <jh@excello.cz>
-> Signed-off-by: Miroslav Urbanek <mu@miroslavurbanek.com>
+From: Alexey Dobriyan
+> Sent: 19 November 2016 01:08
+...
+> -	for (i = (int)skb_shinfo(skb)->nr_frags - 1; i >= 0; i--)
+> +	for (i = skb_shinfo(skb)->nr_frags - 1; (int)i >= 0; i--)
+>  		len += skb_frag_size(&skb_shinfo(skb)->frags[i]);
 
-Applied to the ipsec tree, thanks!
+Think I'd use:
+	for (i = skb_shinfo(skb)->nr_frags; i-- != 0; )
+
+	David
