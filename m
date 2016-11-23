@@ -1,40 +1,99 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] cxgb4: fix memory leak on txq_info
-Date: Wed, 23 Nov 2016 11:02:44 +0000
-Message-ID: <20161123110244.16111-1-colin.king@canonical.com>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits
+ compatible
+Date: Wed, 23 Nov 2016 19:03:21 +0800
+Message-ID: <20161123190321.2f027a3a@xhacker>
+References: <20161122164844.19566-1-gregory.clement@free-electrons.com>
+        <2948812.F3se4ieqO6@wuerfel>    <20161123175341.4777595f@xhacker>
+        <9432400.S1OrxC027t@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Hariprasad S <hariprasad@chelsio.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-arm-kernel@lists.infradead.org>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        "Jason Cooper" <jason@lakedaemon.net>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9432400.S1OrxC027t@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Hi Arnd,
 
-Currently if txq_info->uldtxq cannot be allocated then
-txq_info->txq is being kfree'd (which is redundant because it
-is NULL) instead of txq_info. Fix this by instead kfree'ing
-txq_info.
+On Wed, 23 Nov 2016 11:15:32 +0100 Arnd Bergmann wrote:
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> On Wednesday, November 23, 2016 5:53:41 PM CET Jisheng Zhang wrote:
+> > On Tue, 22 Nov 2016 22:04:12 +0100 Arnd Bergmann wrote:
+> >   
+> > > On Tuesday, November 22, 2016 5:48:41 PM CET Gregory CLEMENT wrote:  
+> > > > +#ifdef CONFIG_64BIT
+> > > > +       void *data_tmp;
+> > > > +
+> > > > +       /* In Neta HW only 32 bits data is supported, so in order to
+> > > > +        * obtain whole 64 bits address from RX descriptor, we store
+> > > > +        * the upper 32 bits when allocating buffer, and put it back
+> > > > +        * when using buffer cookie for accessing packet in memory.
+> > > > +        * Frags should be allocated from single 'memory' region,
+> > > > +        * hence common upper address half should be sufficient.
+> > > > +        */
+> > > > +       data_tmp = mvneta_frag_alloc(pp->frag_size);
+> > > > +       if (data_tmp) {
+> > > > +               pp->data_high = (u64)upper_32_bits((u64)data_tmp) << 32;
+> > > > +               mvneta_frag_free(pp->frag_size, data_tmp);
+> > > > +       }
+> > > >     
+> > > 
+> > > How does this work when the region spans a n*4GB address boundary?  
+> > 
+> > indeed. We also make use of this driver on 64bit platforms. We use
+> > different solution to make the driver 64bit safe.
+> > 
+> > solA: make use of the reserved field in the mvneta_rx_desc, such
+> > as reserved2 etc. Yes, the field is marked as "for future use, PnC", but
+> > now it's not used at all. This is one possible solution however.  
+> 
+> Right, this sounds like the most straightforward choice.
+> 
+> > solB: allocate a shadow buf cookie during init, e.g
+> > 
+> > rxq->descs_bufcookie = kmalloc(rxq->size * sizeof(void*), GFP_KERNEL);
+> > 
+> > then modify mvneta_rx_desc_fill a bit to save the 64bit pointer in
+> > the shadow buf cookie, e.g
+> > static void mvneta_rx_desc_fill(struct mvneta_rx_desc *rx_desc,
+> >                                 u32 phys_addr, u32 cookie,
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-index 565a6c6..8098902 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-@@ -532,7 +532,7 @@ setup_sge_txq_uld(struct adapter *adap, unsigned int uld_type,
- 	txq_info->uldtxq = kcalloc(txq_info->ntxq, sizeof(struct sge_uld_txq),
- 				   GFP_KERNEL);
- 	if (!txq_info->uldtxq) {
--		kfree(txq_info->uldtxq);
-+		kfree(txq_info);
- 		return -ENOMEM;
- 	}
- 
--- 
-2.10.2
+sorry, this line should be:
+u32 phys_addr, void *cookie
+
+> > 				struct mvneta_rx_queue *rxq)
+> > 
+> > {
+> > 	int i;
+> > 
+> > 	rx_desc->buf_cookie = cookie;
+> > 	rx_desc->buf_phys_addr = phys_addr;
+> > 	i = rx_desc - rxq->descs;
+> > 	rxq->descs_bufcookie[i] = cookie;
+> > }
+> > 
+> > then fetch the desc from the shadow buf cookie in all code path, such
+> > as mvneta_rx() etc.
+> > 
+> > Both solutions should not have the problems pointed out by Arnd.  
+> 
+> Wait, since you compute an index 'i' here, can't you just store 'i'
+> directly in the descriptor instead of the pointer?
+> 
+
+we need to store the pointer, it's to store the buffer allocated by
+mvneta_frag_alloc()
+
+Thanks,
+Jisheng
