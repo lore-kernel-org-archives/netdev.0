@@ -1,27 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 1/1] net sched filters: fix filter handle ID in tfilter_notify_chain()
-Date: Wed, 23 Nov 2016 08:34:18 +0100
-Message-ID: <5835467A.7020207@iogearbox.net>
-References: <1479866224-12285-1-git-send-email-mrv@mojatatu.com>
+From: daniel.hopf@zebralla-it.de
+Subject: [PATCH iproute2 v2] macsec: Nr. of packets and octets for macsec tx
+ stats were swapped.
+Date: Wed, 23 Nov 2016 07:34:31 +0000
+Message-ID: <20161123073431.Horde.JMylwjcAn8TA3xQWzd6Asnb@webmail.zebralla-it.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com
-To: Roman Mashak <mrv@mojatatu.com>, davem@davemloft.net
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42162 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755876AbcKWHeX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 02:34:23 -0500
-In-Reply-To: <1479866224-12285-1-git-send-email-mrv@mojatatu.com>
+Received: from zebralla-it.de ([87.230.18.236]:51910 "EHLO
+        lvps87-230-18-236.dedicated.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752680AbcKWHki (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 02:40:38 -0500
+Received: from lvps87-230-18-236.dedicated.hosteurope.de (unknown [IPv6:::1])
+        by lvps87-230-18-236.dedicated.hosteurope.de (Postfix) with ESMTPSA id CD95C638
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 08:34:31 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/23/2016 02:57 AM, Roman Mashak wrote:
-> Should pass valid filter handle, not the netlink flags.
->
-> Fixes: 30a391a13ab92 ("net sched filters: pass netlink message flags in event notification")
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Resent from other mail address due to our company mail  
+[clients|servers] stupidly forcing
+line-breaks on plain-text e-mails. Also changed the subject format as  
+suggested by Sabrina
+and Rami.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Rami Rosen <roszenrami@gmail.com>
+Acked-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Daniel Hopf <daniel.hopf@continental-corporation.com>
+---
+  ip/ipmacsec.c | 8 ++++----
+  1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/ip/ipmacsec.c b/ip/ipmacsec.c
+index c9252bb..aa89a00 100644
+--- a/ip/ipmacsec.c
++++ b/ip/ipmacsec.c
+@@ -634,10 +634,10 @@ static void print_one_stat(const char **names,  
+struct rtattr **attr, int idx,
+  }
+
+  static const char *txsc_stats_names[NUM_MACSEC_TXSC_STATS_ATTR] = {
+-	[MACSEC_TXSC_STATS_ATTR_OUT_PKTS_PROTECTED] = "OutOctetsProtected",
+-	[MACSEC_TXSC_STATS_ATTR_OUT_PKTS_ENCRYPTED] = "OutOctetsEncrypted",
+-	[MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_PROTECTED] = "OutPktsProtected",
+-	[MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_ENCRYPTED] = "OutPktsEncrypted",
++	[MACSEC_TXSC_STATS_ATTR_OUT_PKTS_PROTECTED] = "OutPktsProtected",
++	[MACSEC_TXSC_STATS_ATTR_OUT_PKTS_ENCRYPTED] = "OutPktsEncrypted",
++	[MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_PROTECTED] = "OutOctetsProtected",
++	[MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_ENCRYPTED] = "OutOctetsEncrypted",
+  };
+
+  static void print_txsc_stats(const char *prefix, struct rtattr *attr)
