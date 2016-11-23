@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 10/11] mlxsw: spectrum_router: Request a dump of FIB tables during init
-Date: Wed, 23 Nov 2016 15:48:47 +0100
-Message-ID: <1479912528-4636-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 11/11] rocker: Register FIB notifier before creating ports
+Date: Wed, 23 Nov 2016 15:48:48 +0100
+Message-ID: <1479912528-4636-2-git-send-email-jiri@resnulli.us>
 References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
@@ -12,60 +12,69 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34061 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964993AbcKWOsu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:48:50 -0500
-Received: by mail-wm0-f66.google.com with SMTP id g23so2222666wme.1
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:48:50 -0800 (PST)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35297 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965030AbcKWOsv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:48:51 -0500
+Received: by mail-wm0-f67.google.com with SMTP id a20so2229819wme.2
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:48:51 -0800 (PST)
 In-Reply-To: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Make sure the device has a complete view of the FIB tables by invoking
-their dump during module init.
+Unlike mlxsw, rocker only supports the reflection of routes pointing to
+its own netdevs. Therefore, instead of requesting a FIB dump during
+init, simply register the FIB notifier before creating the ports.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ drivers/net/ethernet/rocker/rocker_main.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 14bed1d..36a71d2 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -2027,6 +2027,21 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
- 	return NOTIFY_DONE;
- }
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 914e9e1..8c9c90a 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -2804,6 +2804,9 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		goto err_alloc_ordered_workqueue;
+ 	}
  
-+static void mlxsw_sp_router_fib_dump(struct mlxsw_sp *mlxsw_sp)
-+{
-+	while (!fib_notifier_dump(&mlxsw_sp->fib_nb)) {
-+		/* Flush pending FIB notifications and then flush the
-+		 * device's table before requesting another dump. Do
-+		 * that with RTNL held, as FIB notification block is
-+		 * already registered.
-+		 */
-+		mlxsw_core_flush_owq();
-+		rtnl_lock();
-+		mlxsw_sp_router_fib_flush(mlxsw_sp);
-+		rtnl_unlock();
-+	}
-+}
++	rocker->fib_nb.notifier_call = rocker_router_fib_event;
++	register_fib_notifier(&rocker->fib_nb);
 +
- int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
- {
- 	int err;
-@@ -2048,6 +2063,7 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ 	rocker->hw.id = rocker_read64(rocker, SWITCH_ID);
  
- 	mlxsw_sp->fib_nb.notifier_call = mlxsw_sp_router_fib_event;
- 	register_fib_notifier(&mlxsw_sp->fib_nb);
-+	mlxsw_sp_router_fib_dump(mlxsw_sp);
+ 	err = rocker_probe_ports(rocker);
+@@ -2812,15 +2815,13 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		goto err_probe_ports;
+ 	}
+ 
+-	rocker->fib_nb.notifier_call = rocker_router_fib_event;
+-	register_fib_notifier(&rocker->fib_nb);
+-
+ 	dev_info(&pdev->dev, "Rocker switch with id %*phN\n",
+ 		 (int)sizeof(rocker->hw.id), &rocker->hw.id);
+ 
  	return 0;
  
- err_neigh_init:
+ err_probe_ports:
++	unregister_fib_notifier(&rocker->fib_nb);
+ 	destroy_workqueue(rocker->rocker_owq);
+ err_alloc_ordered_workqueue:
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
+@@ -2848,9 +2849,9 @@ static void rocker_remove(struct pci_dev *pdev)
+ {
+ 	struct rocker *rocker = pci_get_drvdata(pdev);
+ 
++	rocker_remove_ports(rocker);
+ 	unregister_fib_notifier(&rocker->fib_nb);
+ 	rocker_write32(rocker, CONTROL, ROCKER_CONTROL_RESET);
+-	rocker_remove_ports(rocker);
+ 	destroy_workqueue(rocker->rocker_owq);
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_CMD), rocker);
 -- 
 2.7.4
