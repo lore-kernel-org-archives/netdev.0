@@ -1,46 +1,137 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH ethtool] ethtool: Fix the "advertise" parameter logic.
-Date: Wed, 23 Nov 2016 10:00:14 -0500
-Message-ID: <20161123150014.GB13179@tuxdriver.com>
-References: <1479858947-25017-1-git-send-email-michael.chan@broadcom.com>
+Subject: Re: [PATCH ethtool v4 1/2] ethtool-copy.h:sync with net
+Date: Wed, 23 Nov 2016 10:24:47 -0500
+Message-ID: <20161123152447.GC13179@tuxdriver.com>
+References: <1479846737-18669-1-git-send-email-allan.nielsen@microsemi.com>
+ <1479846737-18669-2-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Michael Chan <michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
+        raju.lakkaraju@microsemi.com
+To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43608 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43859 "EHLO
         smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935294AbcKWPPx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 10:15:53 -0500
+        with ESMTP id S938728AbcKWPaT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 10:30:19 -0500
 Content-Disposition: inline
-In-Reply-To: <1479858947-25017-1-git-send-email-michael.chan@broadcom.com>
+In-Reply-To: <1479846737-18669-2-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2016 at 06:55:47PM -0500, Michael Chan wrote:
-> From: Michael Chan <mchan@broadcom.com>
-> 
-> The current code ignores the value of the advertise parameter.  For example,
-> 
-> ethtool -s ethx advertise 0x1000
-> 
-> The full_advertising_wanted parameter of 0x1000 is not passed to the kernel.
-> The reason is that advertising_wanted is NULL in this case, and ethtool
-> will think that the user has given no advertisement input and so it will
-> proceed to pass all supported advertisement speeds to the kernel.
-> 
-> The older legacy ethtool with similar logic worked because
-> advertising_wanted was an integer and could take on -1 and 0.  It would pass
-> the full_advertising_wanted value if advertising_wanted == -1.
-> 
-> This fix is to pass all supported advertisement speeds only when both
-> advertising_wanted == NULL && full_advertising_wanted == NULL.
-> 
-> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+It looks like this patch somehow misses the following commit:
 
-Thanks, Michael -- merging...
+commit 85a624403c77c3f074931aefdfced59f61b668cb
+Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date:   Thu Oct 13 16:13:55 2016 -0700
+
+    ethtool: silence warning on bit loss
+    
+    Sparse was complaining when we went to prototype some code
+    using ethtool_cmd_speed_set and SPEED_100000, which uses
+    the upper 16 bits of __u32 speed for the first time.
+    
+    CHECK
+    ...
+    .../uapi/linux/ethtool.h:123:28: warning:
+      cast truncates bits from constant value (186a0 becomes 86a0)
+    
+    The warning is actually bogus, as no bits are really lost, but
+    we can get rid of the sparse warning with this one small change.
+    
+    Reported-by: Preethi Banala <preethi.banala@intel.com>
+    Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Plus, the referenced commit does not seem to exist in the net-next tree.
+
+Please resubmit with the complete history and correct commit IDs -- thanks!
 
 John
+
+On Tue, Nov 22, 2016 at 09:32:16PM +0100, Allan W. Nielsen wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> 
+> This covers kernel changes upto:
+> 
+> commit f5a4732f85613b3fb43f8bc33a017e3db3b3605a
+> Author: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> Date:   Wed Nov 9 16:33:09 2016 +0530
+> 
+>     ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
+> 
+>     For operation in cabling environments that are incompatible with
+>     1000BASE-T, PHY device may provide an automatic link speed downshift
+>     operation. When enabled, the device automatically changes its 1000BASE-T
+>     auto-negotiation to the next slower speed after a configured number of
+>     failed attempts at 1000BASE-T.  This feature is useful in setting up in
+>     networks using older cable installations that include only pairs A and B,
+>     and not pairs C and D.
+> 
+>     Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+>     Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+> 
+> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  ethtool-copy.h | 18 +++++++++++++++++-
+>  1 file changed, 17 insertions(+), 1 deletion(-)
+> 
+> diff --git a/ethtool-copy.h b/ethtool-copy.h
+> index 70748f5..2e2448f 100644
+> --- a/ethtool-copy.h
+> +++ b/ethtool-copy.h
+> @@ -247,6 +247,19 @@ struct ethtool_tunable {
+>  	void	*data[0];
+>  };
+>  
+> +#define DOWNSHIFT_DEV_DEFAULT_COUNT	0xff
+> +#define DOWNSHIFT_DEV_DISABLE		0
+> +
+> +enum phy_tunable_id {
+> +	ETHTOOL_PHY_ID_UNSPEC,
+> +	ETHTOOL_PHY_DOWNSHIFT,
+> +	/*
+> +	 * Add your fresh new phy tunable attribute above and remember to update
+> +	 * phy_tunable_strings[] in net/core/ethtool.c
+> +	 */
+> +	__ETHTOOL_PHY_TUNABLE_COUNT,
+> +};
+> +
+>  /**
+>   * struct ethtool_regs - hardware register dump
+>   * @cmd: Command number = %ETHTOOL_GREGS
+> @@ -547,6 +560,7 @@ struct ethtool_pauseparam {
+>   * @ETH_SS_FEATURES: Device feature names
+>   * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
+>   * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
+> + * @ETH_SS_PHY_TUNABLES: PHY tunable names
+>   */
+>  enum ethtool_stringset {
+>  	ETH_SS_TEST		= 0,
+> @@ -557,6 +571,7 @@ enum ethtool_stringset {
+>  	ETH_SS_RSS_HASH_FUNCS,
+>  	ETH_SS_TUNABLES,
+>  	ETH_SS_PHY_STATS,
+> +	ETH_SS_PHY_TUNABLES,
+>  };
+>  
+>  /**
+> @@ -1312,7 +1327,8 @@ struct ethtool_per_queue_op {
+>  
+>  #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings */
+>  #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
+> -
+> +#define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
+> +#define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
+>  
+>  /* compatibility with older code */
+>  #define SPARC_ETH_GSET		ETHTOOL_GSET
+> -- 
+> 2.7.3
+> 
+> 
+
 -- 
 John W. Linville		Someday the world will need a hero, and you
 linville@tuxdriver.com			might be all we have.  Be ready.
