@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V3 for-next 09/11] IB/hns: Change qpn allocation to round-robin mode.
-Date: Wed, 23 Nov 2016 19:41:07 +0000
-Message-ID: <20161123194109.420760-10-salil.mehta@huawei.com>
+Subject: [PATCH V3 for-next 06/11] IB/hns: Fix the bug for qp state in hns_roce_v1_m_qp()
+Date: Wed, 23 Nov 2016 19:41:04 +0000
+Message-ID: <20161123194109.420760-7-salil.mehta@huawei.com>
 References: <20161123194109.420760-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,176 +11,36 @@ Cc: <salil.mehta@huawei.com>, <xavier.huwei@huawei.com>,
         <linux-rdma@vger.kernel.org>, <netdev@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:65343 "EHLO
-        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935089AbcKWTm5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 14:42:57 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161123194109.420760-1-salil.mehta@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Wei Hu (Xavier)" <xavier.huwei@huawei.com>
+From: Lijun Ou <oulijun@huawei.com>
 
-When using CM to establish connections, qp number that was freed
-just now will be rejected by ib core. To fix these problem, We
-change qpn allocation to round-robin mode. We added the round-robin
-mode for allocating resources using bitmap. We use round-robin mode
-for qp number and non round-robing mode for other resources like
-cq number, pd number etc.
+In old code, the value of qp state from qpc was assigned for
+attr->qp_state. The value may be an error while attr_mask &
+IB_QP_STATE is zero.
 
-Signed-off-by: Wei Hu (Xavier) <xavier.huwei@huawei.com>
+Signed-off-by: Lijun Ou <oulijun@huawei.com>
+Reviewed-by: Wei Hu (Xavier) <xavier.huwei@huawei.com>
 Signed-off-by: Salil Mehta  <salil.mehta@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_alloc.c  |   11 +++++++----
- drivers/infiniband/hw/hns/hns_roce_cq.c     |    4 ++--
- drivers/infiniband/hw/hns/hns_roce_device.h |    9 +++++++--
- drivers/infiniband/hw/hns/hns_roce_mr.c     |    2 +-
- drivers/infiniband/hw/hns/hns_roce_pd.c     |    5 +++--
- drivers/infiniband/hw/hns/hns_roce_qp.c     |    2 +-
- 6 files changed, 21 insertions(+), 12 deletions(-)
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_alloc.c b/drivers/infiniband/hw/hns/hns_roce_alloc.c
-index 863a17a..605962f 100644
---- a/drivers/infiniband/hw/hns/hns_roce_alloc.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_alloc.c
-@@ -61,9 +61,10 @@ int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, unsigned long *obj)
- 	return ret;
- }
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+index 643a2ff..b835a55 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+@@ -2571,7 +2571,7 @@ static int hns_roce_v1_m_qp(struct ib_qp *ibqp, const struct ib_qp_attr *attr,
+ 	/* Every status migrate must change state */
+ 	roce_set_field(context->qpc_bytes_144,
+ 		       QP_CONTEXT_QPC_BYTES_144_QP_STATE_M,
+-		       QP_CONTEXT_QPC_BYTES_144_QP_STATE_S, attr->qp_state);
++		       QP_CONTEXT_QPC_BYTES_144_QP_STATE_S, new_state);
  
--void hns_roce_bitmap_free(struct hns_roce_bitmap *bitmap, unsigned long obj)
-+void hns_roce_bitmap_free(struct hns_roce_bitmap *bitmap, unsigned long obj,
-+			  int rr)
- {
--	hns_roce_bitmap_free_range(bitmap, obj, 1);
-+	hns_roce_bitmap_free_range(bitmap, obj, 1, rr);
- }
- 
- int hns_roce_bitmap_alloc_range(struct hns_roce_bitmap *bitmap, int cnt,
-@@ -106,7 +107,8 @@ int hns_roce_bitmap_alloc_range(struct hns_roce_bitmap *bitmap, int cnt,
- }
- 
- void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
--				unsigned long obj, int cnt)
-+				unsigned long obj, int cnt,
-+				int rr)
- {
- 	int i;
- 
-@@ -116,7 +118,8 @@ void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
- 	for (i = 0; i < cnt; i++)
- 		clear_bit(obj + i, bitmap->table);
- 
--	bitmap->last = min(bitmap->last, obj);
-+	if (!rr)
-+		bitmap->last = min(bitmap->last, obj);
- 	bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
- 		       & bitmap->mask;
- 	spin_unlock(&bitmap->lock);
-diff --git a/drivers/infiniband/hw/hns/hns_roce_cq.c b/drivers/infiniband/hw/hns/hns_roce_cq.c
-index 461a273..c9f6c3d 100644
---- a/drivers/infiniband/hw/hns/hns_roce_cq.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_cq.c
-@@ -166,7 +166,7 @@ static int hns_roce_cq_alloc(struct hns_roce_dev *hr_dev, int nent,
- 	hns_roce_table_put(hr_dev, &cq_table->table, hr_cq->cqn);
- 
- err_out:
--	hns_roce_bitmap_free(&cq_table->bitmap, hr_cq->cqn);
-+	hns_roce_bitmap_free(&cq_table->bitmap, hr_cq->cqn, BITMAP_NO_RR);
- 	return ret;
- }
- 
-@@ -204,7 +204,7 @@ static void hns_roce_free_cq(struct hns_roce_dev *hr_dev,
- 	spin_unlock_irq(&cq_table->lock);
- 
- 	hns_roce_table_put(hr_dev, &cq_table->table, hr_cq->cqn);
--	hns_roce_bitmap_free(&cq_table->bitmap, hr_cq->cqn);
-+	hns_roce_bitmap_free(&cq_table->bitmap, hr_cq->cqn, BITMAP_NO_RR);
- }
- 
- static int hns_roce_ib_get_cq_umem(struct hns_roce_dev *hr_dev,
-diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index 7242b14..593a42a 100644
---- a/drivers/infiniband/hw/hns/hns_roce_device.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -72,6 +72,9 @@
- #define HNS_ROCE_MAX_GID_NUM			16
- #define HNS_ROCE_GID_SIZE			16
- 
-+#define BITMAP_NO_RR				0
-+#define BITMAP_RR				1
-+
- #define MR_TYPE_MR				0x00
- #define MR_TYPE_DMA				0x03
- 
-@@ -661,7 +664,8 @@ int hns_roce_buf_write_mtt(struct hns_roce_dev *hr_dev,
- void hns_roce_cleanup_qp_table(struct hns_roce_dev *hr_dev);
- 
- int hns_roce_bitmap_alloc(struct hns_roce_bitmap *bitmap, unsigned long *obj);
--void hns_roce_bitmap_free(struct hns_roce_bitmap *bitmap, unsigned long obj);
-+void hns_roce_bitmap_free(struct hns_roce_bitmap *bitmap, unsigned long obj,
-+			 int rr);
- int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num, u32 mask,
- 			 u32 reserved_bot, u32 resetrved_top);
- void hns_roce_bitmap_cleanup(struct hns_roce_bitmap *bitmap);
-@@ -669,7 +673,8 @@ int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num, u32 mask,
- int hns_roce_bitmap_alloc_range(struct hns_roce_bitmap *bitmap, int cnt,
- 				int align, unsigned long *obj);
- void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
--				unsigned long obj, int cnt);
-+				unsigned long obj, int cnt,
-+				int rr);
- 
- struct ib_ah *hns_roce_create_ah(struct ib_pd *pd, struct ib_ah_attr *ah_attr);
- int hns_roce_query_ah(struct ib_ah *ibah, struct ib_ah_attr *ah_attr);
-diff --git a/drivers/infiniband/hw/hns/hns_roce_mr.c b/drivers/infiniband/hw/hns/hns_roce_mr.c
-index a5bd645..9b8a1ad 100644
---- a/drivers/infiniband/hw/hns/hns_roce_mr.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_mr.c
-@@ -289,7 +289,7 @@ static void hns_roce_mr_free(struct hns_roce_dev *hr_dev,
- 	}
- 
- 	hns_roce_bitmap_free(&hr_dev->mr_table.mtpt_bitmap,
--			     key_to_hw_index(mr->key));
-+			     key_to_hw_index(mr->key), BITMAP_NO_RR);
- }
- 
- static int hns_roce_mr_enable(struct hns_roce_dev *hr_dev,
-diff --git a/drivers/infiniband/hw/hns/hns_roce_pd.c b/drivers/infiniband/hw/hns/hns_roce_pd.c
-index 05db7d5..a64500f 100644
---- a/drivers/infiniband/hw/hns/hns_roce_pd.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_pd.c
-@@ -40,7 +40,7 @@ static int hns_roce_pd_alloc(struct hns_roce_dev *hr_dev, unsigned long *pdn)
- 
- static void hns_roce_pd_free(struct hns_roce_dev *hr_dev, unsigned long pdn)
- {
--	hns_roce_bitmap_free(&hr_dev->pd_bitmap, pdn);
-+	hns_roce_bitmap_free(&hr_dev->pd_bitmap, pdn, BITMAP_NO_RR);
- }
- 
- int hns_roce_init_pd_table(struct hns_roce_dev *hr_dev)
-@@ -121,7 +121,8 @@ int hns_roce_uar_alloc(struct hns_roce_dev *hr_dev, struct hns_roce_uar *uar)
- 
- void hns_roce_uar_free(struct hns_roce_dev *hr_dev, struct hns_roce_uar *uar)
- {
--	hns_roce_bitmap_free(&hr_dev->uar_table.bitmap, uar->index);
-+	hns_roce_bitmap_free(&hr_dev->uar_table.bitmap, uar->index,
-+			     BITMAP_NO_RR);
- }
- 
- int hns_roce_init_uar_table(struct hns_roce_dev *hr_dev)
-diff --git a/drivers/infiniband/hw/hns/hns_roce_qp.c b/drivers/infiniband/hw/hns/hns_roce_qp.c
-index e86dd8d..4775b5c 100644
---- a/drivers/infiniband/hw/hns/hns_roce_qp.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_qp.c
-@@ -250,7 +250,7 @@ void hns_roce_release_range_qp(struct hns_roce_dev *hr_dev, int base_qpn,
- 	if (base_qpn < SQP_NUM)
- 		return;
- 
--	hns_roce_bitmap_free_range(&qp_table->bitmap, base_qpn, cnt);
-+	hns_roce_bitmap_free_range(&qp_table->bitmap, base_qpn, cnt, BITMAP_RR);
- }
- 
- static int hns_roce_set_rq_size(struct hns_roce_dev *hr_dev,
+ 	/* SW pass context to HW */
+ 	ret = hns_roce_v1_qp_modify(hr_dev, &hr_qp->mtt,
 -- 
 1.7.9.5
