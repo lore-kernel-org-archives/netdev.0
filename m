@@ -1,137 +1,39 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH ethtool v4 1/2] ethtool-copy.h:sync with net
-Date: Wed, 23 Nov 2016 10:24:47 -0500
-Message-ID: <20161123152447.GC13179@tuxdriver.com>
-References: <1479846737-18669-1-git-send-email-allan.nielsen@microsemi.com>
- <1479846737-18669-2-git-send-email-allan.nielsen@microsemi.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] net: fix bogus cast in skb_pagelen() and use unsigned variables
+Date: Wed, 23 Nov 2016 18:35:43 +0300
+Message-ID: <CACVxJT90bUVFFZkCS1uxRLbptGFRUDYdtoXiXg8xufeucSsa=g@mail.gmail.com>
+References: <20161119010808.GF1200@avx2> <063D6719AE5E284EB5DD2968C1650D6DB02265B3@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
-        raju.lakkaraju@microsemi.com
-To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43859 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938728AbcKWPaT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 10:30:19 -0500
-Content-Disposition: inline
-In-Reply-To: <1479846737-18669-2-git-send-email-allan.nielsen@microsemi.com>
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:36132 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965352AbcKWPfp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 10:35:45 -0500
+Received: by mail-wj0-f193.google.com with SMTP id jb2so1298430wjb.3
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 07:35:45 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB02265B3@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It looks like this patch somehow misses the following commit:
+On Wed, Nov 23, 2016 at 3:49 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Alexey Dobriyan
+>> Sent: 19 November 2016 01:08
+> ...
+>> -     for (i = (int)skb_shinfo(skb)->nr_frags - 1; i >= 0; i--)
+>> +     for (i = skb_shinfo(skb)->nr_frags - 1; (int)i >= 0; i--)
+>>               len += skb_frag_size(&skb_shinfo(skb)->frags[i]);
+>
+> Think I'd use:
+>         for (i = skb_shinfo(skb)->nr_frags; i-- != 0; )
 
-commit 85a624403c77c3f074931aefdfced59f61b668cb
-Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Date:   Thu Oct 13 16:13:55 2016 -0700
+This kind of diverges from canonical loop form:
 
-    ethtool: silence warning on bit loss
-    
-    Sparse was complaining when we went to prototype some code
-    using ethtool_cmd_speed_set and SPEED_100000, which uses
-    the upper 16 bits of __u32 speed for the first time.
-    
-    CHECK
-    ...
-    .../uapi/linux/ethtool.h:123:28: warning:
-      cast truncates bits from constant value (186a0 becomes 86a0)
-    
-    The warning is actually bogus, as no bits are really lost, but
-    we can get rid of the sparse warning with this one small change.
-    
-    Reported-by: Preethi Banala <preethi.banala@intel.com>
-    Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+  for (init; temination condition: iterator)
 
-Plus, the referenced commit does not seem to exist in the net-next tree.
+by shifting everything into termination part.
 
-Please resubmit with the complete history and correct commit IDs -- thanks!
-
-John
-
-On Tue, Nov 22, 2016 at 09:32:16PM +0100, Allan W. Nielsen wrote:
-> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> 
-> This covers kernel changes upto:
-> 
-> commit f5a4732f85613b3fb43f8bc33a017e3db3b3605a
-> Author: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> Date:   Wed Nov 9 16:33:09 2016 +0530
-> 
->     ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
-> 
->     For operation in cabling environments that are incompatible with
->     1000BASE-T, PHY device may provide an automatic link speed downshift
->     operation. When enabled, the device automatically changes its 1000BASE-T
->     auto-negotiation to the next slower speed after a configured number of
->     failed attempts at 1000BASE-T.  This feature is useful in setting up in
->     networks using older cable installations that include only pairs A and B,
->     and not pairs C and D.
-> 
->     Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
->     Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
-> 
-> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
-> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  ethtool-copy.h | 18 +++++++++++++++++-
->  1 file changed, 17 insertions(+), 1 deletion(-)
-> 
-> diff --git a/ethtool-copy.h b/ethtool-copy.h
-> index 70748f5..2e2448f 100644
-> --- a/ethtool-copy.h
-> +++ b/ethtool-copy.h
-> @@ -247,6 +247,19 @@ struct ethtool_tunable {
->  	void	*data[0];
->  };
->  
-> +#define DOWNSHIFT_DEV_DEFAULT_COUNT	0xff
-> +#define DOWNSHIFT_DEV_DISABLE		0
-> +
-> +enum phy_tunable_id {
-> +	ETHTOOL_PHY_ID_UNSPEC,
-> +	ETHTOOL_PHY_DOWNSHIFT,
-> +	/*
-> +	 * Add your fresh new phy tunable attribute above and remember to update
-> +	 * phy_tunable_strings[] in net/core/ethtool.c
-> +	 */
-> +	__ETHTOOL_PHY_TUNABLE_COUNT,
-> +};
-> +
->  /**
->   * struct ethtool_regs - hardware register dump
->   * @cmd: Command number = %ETHTOOL_GREGS
-> @@ -547,6 +560,7 @@ struct ethtool_pauseparam {
->   * @ETH_SS_FEATURES: Device feature names
->   * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
->   * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
-> + * @ETH_SS_PHY_TUNABLES: PHY tunable names
->   */
->  enum ethtool_stringset {
->  	ETH_SS_TEST		= 0,
-> @@ -557,6 +571,7 @@ enum ethtool_stringset {
->  	ETH_SS_RSS_HASH_FUNCS,
->  	ETH_SS_TUNABLES,
->  	ETH_SS_PHY_STATS,
-> +	ETH_SS_PHY_TUNABLES,
->  };
->  
->  /**
-> @@ -1312,7 +1327,8 @@ struct ethtool_per_queue_op {
->  
->  #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings */
->  #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
-> -
-> +#define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
-> +#define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
->  
->  /* compatibility with older code */
->  #define SPARC_ETH_GSET		ETHTOOL_GSET
-> -- 
-> 2.7.3
-> 
-> 
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+  A
