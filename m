@@ -1,199 +1,137 @@
-From: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v9 0/6] Add eBPF hooks for cgroups
-Date: Wed, 23 Nov 2016 16:52:24 +0100
-Message-ID: <1479916350-28462-1-git-send-email-daniel@zonque.org>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
-        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-To: htejun-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <daniel@zonque.org>
+Subject: [PATCH v9 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
+Date: Wed, 23 Nov 2016 16:52:29 +0100
+Message-ID: <1479916350-28462-6-git-send-email-daniel@zonque.org>
+References: <1479916350-28462-1-git-send-email-daniel@zonque.org>
+Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me, cgroups@vger.kernel.org,
+        Daniel Mack <daniel@zonque.org>
+To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:49654 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935098AbcKWPwn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Nov 2016 10:52:43 -0500
+In-Reply-To: <1479916350-28462-1-git-send-email-daniel@zonque.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is v9 of the patch set to allow eBPF programs for network
-filtering and accounting to be attached to cgroups, so that they apply
-to all sockets of all tasks placed in that cgroup. The logic also
-allows to be extendeded for other cgroup based eBPF logic.
+If the cgroup associated with the receiving socket has an eBPF
+programs installed, run them from ip_output(), ip6_output() and
+ip_mc_output(). From mentioned functions we have two socket contexts
+as per 7026b1ddb6b8 ("netfilter: Pass socket pointer down through
+okfn()."). We explicitly need to use sk instead of skb->sk here,
+since otherwise the same program would run multiple times on egress
+when encap devices are involved, which is not desired in our case.
 
-Again, only minor details are updated in this version.
+eBPF programs used in this context are expected to either return 1 to
+let the packet pass, or != 1 to drop them. The programs have access to
+the skb through bpf_skb_load_bytes(), and the payload starts at the
+network headers (L3).
 
+Note that cgroup_bpf_run_filter() is stubbed out as static inline nop
+for !CONFIG_CGROUP_BPF, and is otherwise guarded by a static key if
+the feature is unused.
 
-Thanks,
-Daniel
+Signed-off-by: Daniel Mack <daniel@zonque.org>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ net/ipv4/ip_output.c  | 26 ++++++++++++++++++++++++--
+ net/ipv6/ip6_output.c |  9 +++++++++
+ 2 files changed, 33 insertions(+), 2 deletions(-)
 
-
-Changes from v8:
-
-* Move the egress hooks into ip_finish_output() and ip6_finish_output()
-  so they run after the netfilter hooks. For IPv4 multicast, add a new
-  ip_mc_finish_output() callback that is invoked on success by
-  netfilter, and call the eBPF program from there.
-
-
-Changes from v7:
-
-* Replace the static inline function cgroup_bpf_run_filter() with
-  two specific macros for ingress and egress.  This addresses David
-  Miller's concern regarding skb->sk vs. sk in the egress path.
-  Thanks a lot to Daniel Borkmann and Alexei Starovoitov for the
-  suggestions.
-
-
-Changes from v6:
-
-* Rebased to 4.9-rc2
-
-* Add EXPORT_SYMBOL(__cgroup_bpf_run_filter). The kbuild test robot
-  now succeeds in building this version of the patch set.
-
-* Switch from bpf_prog_run_save_cb() to bpf_prog_run_clear_cb() to not
-  tamper with the contents of skb->cb[]. Pointed out by Daniel
-  Borkmann.
-
-* Use sk_to_full_sk() in the egress path, as suggested by Daniel
-  Borkmann.
-
-* Renamed BPF_PROG_TYPE_CGROUP_SOCKET to BPF_PROG_TYPE_CGROUP_SKB, as
-  requested by David Ahern.
-
-* Added Alexei's Acked-by tags.
-
-
-Changes from v5:
-
-* The eBPF programs now operate on L3 rather than on L2 of the packets,
-  and the egress hooks were moved from __dev_queue_xmit() to
-  ip*_output().
-
-* For BPF_PROG_TYPE_CGROUP_SOCKET, disallow direct access to the skb
-  through BPF_LD_[ABS|IND] instructions, but hook up the
-  bpf_skb_load_bytes() access helper instead. Thanks to Daniel Borkmann
-  for the help.
-
-
-Changes from v4:
-
-* Plug an skb leak when dropping packets due to eBPF verdicts in
-  __dev_queue_xmit(). Spotted by Daniel Borkmann.
-
-* Check for sk_fullsock(sk) in __cgroup_bpf_run_filter() so we don't
-  operate on timewait or request sockets. Suggested by Daniel Borkmann.
-
-* Add missing @parent parameter in kerneldoc of __cgroup_bpf_update().
-  Spotted by Rami Rosen.
-
-* Include linux/jump_label.h from bpf-cgroup.h to fix a kbuild error.
-
-
-Changes from v3:
-
-* Dropped the _FILTER suffix from BPF_PROG_TYPE_CGROUP_SOCKET_FILTER,
-  renamed BPF_ATTACH_TYPE_CGROUP_INET_{E,IN}GRESS to
-  BPF_CGROUP_INET_{IN,E}GRESS and alias BPF_MAX_ATTACH_TYPE to
-  __BPF_MAX_ATTACH_TYPE, as suggested by Daniel Borkmann.
-
-* Dropped the attach_flags member from the anonymous struct for BPF
-  attach operations in union bpf_attr. They can be added later on via
-  CHECK_ATTR. Requested by Daniel Borkmann and Alexei.
-
-* Release old_prog at the end of __cgroup_bpf_update rather that at
-  the beginning to fix a race gap between program updates and their
-  users. Spotted by Daniel Borkmann.
-
-* Plugged an skb leak when dropping packets on the egress path.
-  Spotted by Daniel Borkmann.
-
-* Add cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org to the loop, as suggested by Rami Rosen.
-
-* Some minor coding style adoptions not worth mentioning in particular.
-
-
-Changes from v2:
-
-* Fixed the RCU locking details Tejun pointed out.
-
-* Assert bpf_attr.flags == 0 in BPF_PROG_DETACH syscall handler.
-
-
-Changes from v1:
-
-* Moved all bpf specific cgroup code into its own file, and stub
-  out related functions for !CONFIG_CGROUP_BPF as static inline nops.
-  This way, the call sites are not cluttered with #ifdef guards while
-  the feature remains compile-time configurable.
-
-* Implemented the new scheme proposed by Tejun. Per cgroup, store one
-  set of pointers that are pinned to the cgroup, and one for the
-  programs that are effective. When a program is attached or detached,
-  the change is propagated to all the cgroup's descendants. If a
-  subcgroup has its own pinned program, skip the whole subbranch in
-  order to allow delegation models.
-
-* The hookup for egress packets is now done from __dev_queue_xmit().
-
-* A static key is now used in both the ingress and egress fast paths
-  to keep performance penalties close to zero if the feature is
-  not in use.
-
-* Overall cleanup to make the accessors use the program arrays.
-  This should make it much easier to add new program types, which
-  will then automatically follow the pinned vs. effective logic.
-
-* Fixed locking issues, as pointed out by Eric Dumazet and Alexei
-  Starovoitov. Changes to the program array are now done with
-  xchg() and are protected by cgroup_mutex.
-
-* eBPF programs are now expected to return 1 to let the packet pass,
-  not >= 0. Pointed out by Alexei.
-
-* Operation is now limited to INET sockets, so local AF_UNIX sockets
-  are not affected. The enum members are renamed accordingly. In case
-  other socket families should be supported, this can be extended in
-  the future.
-
-* The sample program learned to support both ingress and egress, and
-  can now optionally make the eBPF program drop packets by making it
-  return 0.
-
-
-Daniel Mack (6):
-  bpf: add new prog type for cgroup socket filtering
-  cgroup: add support for eBPF programs
-  bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH commands
-  net: filter: run cgroup eBPF ingress programs
-  net: ipv4, ipv6: run cgroup eBPF egress programs
-  samples: bpf: add userspace example for attaching eBPF programs to
-    cgroups
-
-Daniel Mack (6):
-  bpf: add new prog type for cgroup socket filtering
-  cgroup: add support for eBPF programs
-  bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH commands
-  net: filter: run cgroup eBPF ingress programs
-  net: ipv4, ipv6: run cgroup eBPF egress programs
-  samples: bpf: add userspace example for attaching eBPF programs to
-    cgroups
-
- include/linux/bpf-cgroup.h      |  79 +++++++++++++++++++
- include/linux/cgroup-defs.h     |   4 +
- include/uapi/linux/bpf.h        |  17 ++++
- init/Kconfig                    |  12 +++
- kernel/bpf/Makefile             |   1 +
- kernel/bpf/cgroup.c             | 167 ++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/syscall.c            |  81 +++++++++++++++++++
- kernel/cgroup.c                 |  18 +++++
- net/core/filter.c               |  27 +++++++
- net/ipv4/ip_output.c            |  26 ++++++-
- net/ipv6/ip6_output.c           |   9 +++
- samples/bpf/Makefile            |   2 +
- samples/bpf/libbpf.c            |  21 +++++
- samples/bpf/libbpf.h            |   3 +
- samples/bpf/test_cgrp2_attach.c | 147 +++++++++++++++++++++++++++++++++++
- 15 files changed, 612 insertions(+), 2 deletions(-)
- create mode 100644 include/linux/bpf-cgroup.h
- create mode 100644 kernel/bpf/cgroup.c
- create mode 100644 samples/bpf/test_cgrp2_attach.c
-
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 03e7f73..ed0c276 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -74,6 +74,7 @@
+ #include <net/checksum.h>
+ #include <net/inetpeer.h>
+ #include <net/lwtunnel.h>
++#include <linux/bpf-cgroup.h>
+ #include <linux/igmp.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_bridge.h>
+@@ -281,6 +282,13 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+ static int ip_finish_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+ 	unsigned int mtu;
++	int ret;
++
++	ret = BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb);
++	if (ret) {
++		kfree_skb(skb);
++		return ret;
++	}
+ 
+ #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
+ 	/* Policy lookup after SNAT yielded a new policy */
+@@ -299,6 +307,20 @@ static int ip_finish_output(struct net *net, struct sock *sk, struct sk_buff *sk
+ 	return ip_finish_output2(net, sk, skb);
+ }
+ 
++static int ip_mc_finish_output(struct net *net, struct sock *sk,
++			       struct sk_buff *skb)
++{
++	int ret;
++
++	ret = BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb);
++	if (ret) {
++		kfree_skb(skb);
++		return ret;
++	}
++
++	return dev_loopback_xmit(net, sk, skb);
++}
++
+ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct rtable *rt = skb_rtable(skb);
+@@ -336,7 +358,7 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 			if (newskb)
+ 				NF_HOOK(NFPROTO_IPV4, NF_INET_POST_ROUTING,
+ 					net, sk, newskb, NULL, newskb->dev,
+-					dev_loopback_xmit);
++					ip_mc_finish_output);
+ 		}
+ 
+ 		/* Multicasts with ttl 0 must not go beyond the host */
+@@ -352,7 +374,7 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		if (newskb)
+ 			NF_HOOK(NFPROTO_IPV4, NF_INET_POST_ROUTING,
+ 				net, sk, newskb, NULL, newskb->dev,
+-				dev_loopback_xmit);
++				ip_mc_finish_output);
+ 	}
+ 
+ 	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6001e78..ddeb41e 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -39,6 +39,7 @@
+ #include <linux/module.h>
+ #include <linux/slab.h>
+ 
++#include <linux/bpf-cgroup.h>
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv6.h>
+ 
+@@ -131,6 +132,14 @@ static int ip6_finish_output2(struct net *net, struct sock *sk, struct sk_buff *
+ 
+ static int ip6_finish_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
++	int ret;
++
++	ret = BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb);
++	if (ret) {
++		kfree_skb(skb);
++		return ret;
++	}
++
+ 	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
+ 	    dst_allfrag(skb_dst(skb)) ||
+ 	    (IP6CB(skb)->frag_max_size && skb->len > IP6CB(skb)->frag_max_size))
 -- 
 2.7.4
