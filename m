@@ -1,99 +1,111 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits
- compatible
-Date: Wed, 23 Nov 2016 19:03:21 +0800
-Message-ID: <20161123190321.2f027a3a@xhacker>
-References: <20161122164844.19566-1-gregory.clement@free-electrons.com>
-        <2948812.F3se4ieqO6@wuerfel>    <20161123175341.4777595f@xhacker>
-        <9432400.S1OrxC027t@wuerfel>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Wed, 23 Nov 2016 11:10:44 +0000
+Message-ID: <7c259adb-5c73-f997-6b96-5be427157b08@synopsys.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+ <BFA799B0-BB22-4515-AC14-3544A3167B0A@axis.com>
+ <ffd3b27c-0bc9-b53b-cc65-c7808595a553@st.com>
+ <b126021d-e902-7a53-4d7a-e73ea89a66cf@synopsys.com>
+ <A001080B-2DC8-48D9-BD82-8276A9B3BE3D@axis.com>
+ <7c7798b5-8cd4-ba99-f526-22d3e06e05db@synopsys.com>
+ <2eefdb8f-7e87-6009-6e50-c536d4b95dd6@synopsys.com>
+ <c37c47e1-8e21-1b11-ed15-6b899ed1dd03@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel@lists.infradead.org>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        "Jason Cooper" <jason@lakedaemon.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+        Rabin Vincent <rabin@rab.in>, mued dib <kreptor@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        "jiri@mellanox.com" <jiri@mellanox.com>,
+        "saeedm@mellanox.com" <saeedm@mellanox.com>,
+        "idosch@mellanox.com" <idosch@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "CARLOS.PALMINHA@synopsys.com" <CARLOS.PALMINHA@synopsys.com>,
+        =?UTF-8?Q?Andreas_Irest=c3=a5l?= <andire@axis.com>,
+        "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Lars Persson <lars.persson@axis.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9432400.S1OrxC027t@wuerfel>
+In-Reply-To: <c37c47e1-8e21-1b11-ed15-6b899ed1dd03@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arnd,
+Hi Peppe and Lars,
 
-On Wed, 23 Nov 2016 11:15:32 +0100 Arnd Bergmann wrote:
-
-> On Wednesday, November 23, 2016 5:53:41 PM CET Jisheng Zhang wrote:
-> > On Tue, 22 Nov 2016 22:04:12 +0100 Arnd Bergmann wrote:
-> >   
-> > > On Tuesday, November 22, 2016 5:48:41 PM CET Gregory CLEMENT wrote:  
-> > > > +#ifdef CONFIG_64BIT
-> > > > +       void *data_tmp;
-> > > > +
-> > > > +       /* In Neta HW only 32 bits data is supported, so in order to
-> > > > +        * obtain whole 64 bits address from RX descriptor, we store
-> > > > +        * the upper 32 bits when allocating buffer, and put it back
-> > > > +        * when using buffer cookie for accessing packet in memory.
-> > > > +        * Frags should be allocated from single 'memory' region,
-> > > > +        * hence common upper address half should be sufficient.
-> > > > +        */
-> > > > +       data_tmp = mvneta_frag_alloc(pp->frag_size);
-> > > > +       if (data_tmp) {
-> > > > +               pp->data_high = (u64)upper_32_bits((u64)data_tmp) << 32;
-> > > > +               mvneta_frag_free(pp->frag_size, data_tmp);
-> > > > +       }
-> > > >     
-> > > 
-> > > How does this work when the region spans a n*4GB address boundary?  
-> > 
-> > indeed. We also make use of this driver on 64bit platforms. We use
-> > different solution to make the driver 64bit safe.
-> > 
-> > solA: make use of the reserved field in the mvneta_rx_desc, such
-> > as reserved2 etc. Yes, the field is marked as "for future use, PnC", but
-> > now it's not used at all. This is one possible solution however.  
+On 23-11-2016 10:59, Giuseppe CAVALLARO wrote:
+> Hello Joao, Lars.
 > 
-> Right, this sounds like the most straightforward choice.
+> On 11/22/2016 3:16 PM, Joao Pinto wrote:
+>>> Ok, it makes sense.
+>>> > Just for curiosity the target setup is the following:
+>>> > https://www.youtube.com/watch?v=8V-LB5y2Cos
+>>> > but instead of using internal drivers, we desire to use mainline drivers only.
+>>> >
+>>> > Thanks!
+>> Regarding this subject, I am thinking of making the following adaption:
+>>
+>> a) delete ethernet/synopsys
+>> b) rename ethernet/stmicro/stmmac to ethernet/synopsys
+>>
+>> and send you a patch for you to evaluate. Both agree with the approach?
+>> To have a new work base would be important, because I will add to the "new"
+>> structure some missing QoS features like Multichannel support, CBS and later TSN.
 > 
-> > solB: allocate a shadow buf cookie during init, e.g
-> > 
-> > rxq->descs_bufcookie = kmalloc(rxq->size * sizeof(void*), GFP_KERNEL);
-> > 
-> > then modify mvneta_rx_desc_fill a bit to save the 64bit pointer in
-> > the shadow buf cookie, e.g
-> > static void mvneta_rx_desc_fill(struct mvneta_rx_desc *rx_desc,
-> >                                 u32 phys_addr, u32 cookie,
+> IMO, we have to agree on a common strategy making the change for
+> net-next; I imaged the following steps:
 
-sorry, this line should be:
-u32 phys_addr, void *cookie
+Yes it makes totally sense.
 
-> > 				struct mvneta_rx_queue *rxq)
-> > 
-> > {
-> > 	int i;
-> > 
-> > 	rx_desc->buf_cookie = cookie;
-> > 	rx_desc->buf_phys_addr = phys_addr;
-> > 	i = rx_desc - rxq->descs;
-> > 	rxq->descs_bufcookie[i] = cookie;
-> > }
-> > 
-> > then fetch the desc from the shadow buf cookie in all code path, such
-> > as mvneta_rx() etc.
-> > 
-> > Both solutions should not have the problems pointed out by Arnd.  
 > 
-> Wait, since you compute an index 'i' here, can't you just store 'i'
-> directly in the descriptor instead of the pointer?
+> - to port missing feature or fixes from ethernet/synopsys
+>   inside the stmmac taking care about the documentation too.
+
+@Lars: You are familiar with the synopsys qos driver. Could you please do this
+porting. You can also make an analysis of what to port and I can do the porting
+for you if you don't have the availability for it.
+
+> - remove ethernet/synopsys
+> - rename ethernet/stmicro/stmmac to ethernet/synopsys
+
+I volunteer to do this task.
+
 > 
+>   These latest two have some relevant impacts.
+> 
+>   This change should be propagated to all the platforms that are using:
+>       CONFIG_SYNOPSYS_DWC_ETH_QOS and CONFIG_STMMAC_ETH
+>   plus device-tree compatibility.
 
-we need to store the pointer, it's to store the buffer allocated by
-mvneta_frag_alloc()
+I volunteer to do this task also.
 
-Thanks,
-Jisheng
+> 
+> - enhance the stmmac with new features and new glue (part of these
+>   can be anticipated for sure).
+
+I have to implement 3 new features for now, but I will take some time for it, so
+I would suggest to make the previous task and incrementally add features.
+
+> 
+> what do you think? does it make sense? If yes, we can also
+> understand how/who starts.
+> 
+> Regards,
+> Peppe
+
+Thanks and regards.
+
+Joao
+
+> 
+>> Thanks.
+> 
