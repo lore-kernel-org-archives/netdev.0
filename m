@@ -1,41 +1,69 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net] net: ethernet: mvneta: Remove IFF_UNICAST_FLT which is not implemented
-Date: Thu, 24 Nov 2016 00:08:13 +0100
-Message-ID: <1479942493-19784-1-git-send-email-andrew@lunn.ch>
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH v2 net] phy: fix error case of phy_led_triggers_(un)register
+Date: Wed, 23 Nov 2016 23:10:33 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40969DE2@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <davem@davemloft.net>, <zach.brown@ni.com>,
+        <netdev@vger.kernel.org>, <f.fainelli@gmail.com>, <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53408 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933483AbcKWXJK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 18:09:10 -0500
+Received: from smtpout.microchip.com ([198.175.253.82]:40979 "EHLO
+        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S934818AbcKWXKf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 18:10:35 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvneta driver advertises it supports IFF_UNICAST_FLT. However, it
-actually does not. The hardware probably does support it, but there is
-no code to configure the filter. As a quick and simple fix, remove the
-flag. This will cause the core to fall back to promiscuous mode.
+From: Woojung Huh <woojung.huh@microchip.com>
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Fixes: b50b72de2f2f ("net: mvneta: enable features before registering the driver")
+When phy_init_hw() fails at phy_attach_direct();
+- phy_detach() calls phy_led_triggers_unregister() without
+  previous call of phy_led_triggers_register().
+- still call phy_led_triggers_register() and cause memory leak.
+
+Fixes: 2e0bc452f472 ("net: phy: leds: add support for led triggers on phy link state change")
+Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/phy/phy_device.c       | 6 +++---
+ drivers/net/phy/phy_led_triggers.c | 2 --
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 5cb07c2017bf..0c0a45af950f 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -4151,7 +4151,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
- 	dev->hw_features |= dev->features;
- 	dev->vlan_features |= dev->features;
--	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
-+	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
- 	dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 9e8f048..ba86c19 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -914,15 +914,15 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 	 */
+ 	err = phy_init_hw(phydev);
+ 	if (err)
+-		phy_detach(phydev);
+-	else
+-		phy_resume(phydev);
++		goto error;
  
- 	err = register_netdev(dev);
++	phy_resume(phydev);
+ 	phy_led_triggers_register(phydev);
+ 
+ 	return err;
+ 
+ error:
++	phy_detach(phydev);
+ 	put_device(d);
+ 	module_put(bus->owner);
+ 	return err;
+diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
+index cda600a..fa62bdf 100644
+--- a/drivers/net/phy/phy_led_triggers.c
++++ b/drivers/net/phy/phy_led_triggers.c
+@@ -130,7 +130,5 @@ void phy_led_triggers_unregister(struct phy_device *phy)
+ 
+ 	for (i = 0; i < phy->phy_num_led_triggers; i++)
+ 		phy_led_trigger_unregister(&phy->phy_led_triggers[i]);
+-
+-	devm_kfree(&phy->mdio.dev, phy->phy_led_triggers);
+ }
+ EXPORT_SYMBOL_GPL(phy_led_triggers_unregister);
 -- 
-2.10.2
+2.7.4
