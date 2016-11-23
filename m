@@ -1,64 +1,41 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next v2 09/11] ipv4: fib: Add an API to request a FIB
- dump
-Date: Thu, 24 Nov 2016 00:04:57 +0100
-Message-ID: <6d57dab8-2c83-501e-f3ee-0bad0b72efbb@stressinduktion.org>
-References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
- <1479911670-4525-10-git-send-email-jiri@resnulli.us>
- <fa5e105b-9109-1c30-c07c-5a2b0720ffec@stressinduktion.org>
- <20161123195328.aqzbhf263z2pq2e7@splinter>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kaber@trash.net
-To: Ido Schimmel <idosch@idosch.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net] net: ethernet: mvneta: Remove IFF_UNICAST_FLT which is not implemented
+Date: Thu, 24 Nov 2016 00:08:13 +0100
+Message-ID: <1479942493-19784-1-git-send-email-andrew@lunn.ch>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:51778 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933483AbcKWXFG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 18:05:06 -0500
-In-Reply-To: <20161123195328.aqzbhf263z2pq2e7@splinter>
+Received: from vps0.lunn.ch ([178.209.37.122]:53408 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933483AbcKWXJK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Nov 2016 18:09:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23.11.2016 20:53, Ido Schimmel wrote:
-> On Wed, Nov 23, 2016 at 06:47:03PM +0100, Hannes Frederic Sowa wrote:
->> Hmm, I think you need to read the sequence counter under rtnl_lock to
->> have an ordering with the rest of the updates to the RCU trie. Otherwise
->> you don't know if the fib trie has the correct view regarding to the
->> incoming notifications as a whole. This is also necessary during restarts.
->
-> I spent quite a lot of time thinking about this specific issue, but I
-> couldn't convince myself that the read should be done under RTNL and I'm
-> not sure I understand your reasoning. Can you please elaborate?
->
-> If, before each notification sent, we call atomic_inc() and then call
-> atomic_read() at the end, then how can we be tricked?
+The mvneta driver advertises it supports IFF_UNICAST_FLT. However, it
+actually does not. The hardware probably does support it, but there is
+no code to configure the filter. As a quick and simple fix, remove the
+flag. This will cause the core to fall back to promiscuous mode.
 
-The race I am suspecting to happen is:
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Fixes: b50b72de2f2f ("net: mvneta: enable features before registering the driver")
+---
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-<CPU0> fib_register()
-
-<CPU1> delete route by notifier
-<CPU1> enqueue delete cmd into ordered queue
-
-<CPU0> starts dump
-<CPU0> sees deleted route by CPU1 because route not yet removed from RCU
-<CPU0> enqueues route for addition
-
-sometimes later in the ordered queue:
-
-delete route -> route not in hw, nop
-add route from dump -> route added to hardware
-
-The result should actually have been that route isn't in hw.
-
-Bye,
-Hannes
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 5cb07c2017bf..0c0a45af950f 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -4151,7 +4151,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+ 	dev->hw_features |= dev->features;
+ 	dev->vlan_features |= dev->features;
+-	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
++	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+ 	dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
+ 
+ 	err = register_netdev(dev);
+-- 
+2.10.2
