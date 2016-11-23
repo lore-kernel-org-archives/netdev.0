@@ -1,78 +1,96 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next v2 10/11] mlxsw: spectrum_router: Request a dump of
- FIB tables during init
-Date: Wed, 23 Nov 2016 17:00:00 +0100
-Message-ID: <1479916800.4019894.797128001.743EBB6A@webmail.messagingengine.com>
-References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
- <1479912528-4636-1-git-send-email-jiri@resnulli.us>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits compatible
+Date: Wed, 23 Nov 2016 17:02:11 +0100
+Message-ID: <CAPv3WKf0a63qQT+xwXfUatbgLFF58e6L8J10VtBOUTam+kUcjg@mail.gmail.com>
+References: <20161122164844.19566-1-gregory.clement@free-electrons.com>
+ <2948812.F3se4ieqO6@wuerfel> <20161123175341.4777595f@xhacker>
+ <9432400.S1OrxC027t@wuerfel> <87mvgqmjiy.fsf@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kaber@trash.net
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:34277 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S940622AbcKWQAq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 11:00:46 -0500
-In-Reply-To: <1479912528-4636-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jisheng Zhang <jszhang@marvell.com>,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
+ Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <87mvgqmjiy.fsf@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2016, at 15:48, Jiri Pirko wrote:
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> Make sure the device has a complete view of the FIB tables by invoking
-> their dump during module init.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 16
->  ++++++++++++++++
->  1 file changed, 16 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> index 14bed1d..36a71d2 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> @@ -2027,6 +2027,21 @@ static int mlxsw_sp_router_fib_event(struct
-> notifier_block *nb,
->  	return NOTIFY_DONE;
->  }
->  
-> +static void mlxsw_sp_router_fib_dump(struct mlxsw_sp *mlxsw_sp)
-> +{
-> +       while (!fib_notifier_dump(&mlxsw_sp->fib_nb)) {
-> +               /* Flush pending FIB notifications and then flush the
-> +                * device's table before requesting another dump. Do
-> +                * that with RTNL held, as FIB notification block is
-> +                * already registered.
-> +                */
-> +               mlxsw_core_flush_owq();
-> +               rtnl_lock();
-> +               mlxsw_sp_router_fib_flush(mlxsw_sp);
-> +               rtnl_unlock();
-> +       }
-> +}
+Hi Gregory,
 
-I think it is fine to use this kind of synchronization.
+2016-11-23 14:07 GMT+01:00 Gregory CLEMENT <gregory.clement@free-electrons.com>:
+> Hi Jisheng, Arnd,
+>
+>
+> Thanks for your feedback.
+>
+>
+>  On mer., nov. 23 2016, Arnd Bergmann <arnd@arndb.de> wrote:
+>
+>> On Wednesday, November 23, 2016 5:53:41 PM CET Jisheng Zhang wrote:
+>>> On Tue, 22 Nov 2016 22:04:12 +0100 Arnd Bergmann wrote:
+>>>
+>>> > On Tuesday, November 22, 2016 5:48:41 PM CET Gregory CLEMENT wrote:
+>>> > > +#ifdef CONFIG_64BIT
+>>> > > +       void *data_tmp;
+>>> > > +
+>>> > > +       /* In Neta HW only 32 bits data is supported, so in order to
+>>> > > +        * obtain whole 64 bits address from RX descriptor, we store
+>>> > > +        * the upper 32 bits when allocating buffer, and put it back
+>>> > > +        * when using buffer cookie for accessing packet in memory.
+>>> > > +        * Frags should be allocated from single 'memory' region,
+>>> > > +        * hence common upper address half should be sufficient.
+>>> > > +        */
+>>> > > +       data_tmp = mvneta_frag_alloc(pp->frag_size);
+>>> > > +       if (data_tmp) {
+>>> > > +               pp->data_high = (u64)upper_32_bits((u64)data_tmp) << 32;
+>>> > > +               mvneta_frag_free(pp->frag_size, data_tmp);
+>>> > > +       }
+>>> > >
+>>> >
+>>> > How does this work when the region spans a n*4GB address boundary?
+>>>
+>>> indeed. We also make use of this driver on 64bit platforms. We use
+>>> different solution to make the driver 64bit safe.
+>>>
+>>> solA: make use of the reserved field in the mvneta_rx_desc, such
+>>> as reserved2 etc. Yes, the field is marked as "for future use, PnC", but
+>>> now it's not used at all. This is one possible solution however.
+>>
+>> Right, this sounds like the most straightforward choice.
+>
+> The PnC (which stands for Parsing and Classification) is not used yet
+> indeed but this field will be needed when we will enable it. It is
+> something we want to do but it is not planned in a near future. However
+> from the datasheets I have it seems only present on the Armada XP. It is
+> not mentioned on datasheets for the Armada 38x or the Armada 3700.
+>
 
-But I think that this part of the logic still belongs into the core
-kernel. I still think it could happen that we will loop here
-indefinitely because of a lot of routing updates and as such would need
-to abort this loop after a number of tries.
+It is not mentioned in A38x spec, but this SoC has exactly the same
+PnC as Armada XP (they differ only with used SRAM details). I wouldn't
+be surprised if it was supported on A3700 as well.
 
-I would like that the kernel has one function to do this decision
-instead of later patching all users of this API. Do you think it is
-worth it?
+> That would mean it was safe to use on of this field in 64-bits mode on
+> the Armada 3700.
+>
+> So I am going to take this approach.
+>
 
-Bye,
-Hannes
+I think for now it's safe and is much easier than handling extra
+software ring for virtual addresses.
+
+Best regards,
+Marcin
