@@ -1,43 +1,169 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [patch net-next v2 09/11] ipv4: fib: Add an API to request a FIB
- dump
-Date: Wed, 23 Nov 2016 21:53:28 +0200
-Message-ID: <20161123195328.aqzbhf263z2pq2e7@splinter>
-References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
- <1479911670-4525-10-git-send-email-jiri@resnulli.us>
- <fa5e105b-9109-1c30-c07c-5a2b0720ffec@stressinduktion.org>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: enhance tcp_collapse_retrans() with skb_shift()
+Date: Wed, 23 Nov 2016 12:05:27 -0800
+Message-ID: <CAK6E8=fzjZc33bnLU1_f3MdKzKj_ZzmhoFQotnbMaY37KfmeCQ@mail.gmail.com>
+References: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kaber@trash.net
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:47787 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933854AbcKWUDg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 15:03:36 -0500
-Content-Disposition: inline
-In-Reply-To: <fa5e105b-9109-1c30-c07c-5a2b0720ffec@stressinduktion.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:32785 "EHLO
+        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756349AbcKWUGJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 15:06:09 -0500
+Received: by mail-io0-f169.google.com with SMTP id j65so43598619iof.0
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 12:06:09 -0800 (PST)
+In-Reply-To: <1479243110.8455.135.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 23, 2016 at 06:47:03PM +0100, Hannes Frederic Sowa wrote:
-> Hmm, I think you need to read the sequence counter under rtnl_lock to
-> have an ordering with the rest of the updates to the RCU trie. Otherwise
-> you don't know if the fib trie has the correct view regarding to the
-> incoming notifications as a whole. This is also necessary during restarts.
+On Tue, Nov 15, 2016 at 12:51 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> From: Eric Dumazet <edumazet@google.com>
+>
+> In commit 2331ccc5b323 ("tcp: enhance tcp collapsing"),
+> we made a first step allowing copying right skb to left skb head.
+>
+> Since all skbs in socket write queue are headless (but possibly the very
+> first one), this strategy often does not work.
+>
+> This patch extends tcp_collapse_retrans() to perform frag shifting,
+> thanks to skb_shift() helper.
+>
+> This helper needs to not BUG on non headless skbs, as callers are ok
+> with that.
+>
+> Tested:
+>
+> Following packetdrill test now passes :
+>
+> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+>    +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+>    +0 bind(3, ..., ...) = 0
+>    +0 listen(3, 1) = 0
+>
+>    +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
+>    +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
+> +.100 < . 1:1(0) ack 1 win 257
+>    +0 accept(3, ..., ...) = 4
+>
+>    +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+>    +0 write(4, ..., 200) = 200
+>    +0 > P. 1:201(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 201:401(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 401:601(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 601:801(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 801:1001(200) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1001:1101(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1101:1201(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1201:1301(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1301:1401(100) ack 1
+>
+> +.099 < . 1:1(0) ack 201 win 257
+> +.001 < . 1:1(0) ack 201 win 257 <nop,nop,sack 1001:1401>
+>    +0 > P. 201:1001(800) ack 1
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-I spent quite a lot of time thinking about this specific issue, but I
-couldn't convince myself that the read should be done under RTNL and I'm
-not sure I understand your reasoning. Can you please elaborate?
+Nice follow-up patch. This also works well with RACK loss detection
+since RACK only cares about time (skb_mstamp) not sequence so
+collapsing sequences is not a problem.
 
-If, before each notification sent, we call atomic_inc() and then call
-atomic_read() at the end, then how can we be tricked?
-
-Thanks for looking into this!
+> ---
+>  net/core/skbuff.c     |    4 +++-
+>  net/ipv4/tcp_output.c |   22 +++++++++++-----------
+>  2 files changed, 14 insertions(+), 12 deletions(-)
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 0b2a6e94af2de73ed638634c47a0fb71e2cbc1cb..a9cb81a10c4ba895587727aa4cf098e9a38424ea 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2656,7 +2656,9 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
+>         struct skb_frag_struct *fragfrom, *fragto;
+>
+>         BUG_ON(shiftlen > skb->len);
+> -       BUG_ON(skb_headlen(skb));       /* Would corrupt stream */
+> +
+> +       if (skb_headlen(skb))
+> +               return 0;
+>
+>         todo = shiftlen;
+>         from = 0;
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index f57b5aa51b59cf0a58975fe34a7dcdb886ea8c50..19105b46a30436ebb85fe97ee43089e77aa028bb 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2514,7 +2514,7 @@ void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+>  }
+>
+>  /* Collapses two adjacent SKB's during retransmission. */
+> -static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+> +static bool tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>  {
+>         struct tcp_sock *tp = tcp_sk(sk);
+>         struct sk_buff *next_skb = tcp_write_queue_next(sk, skb);
+> @@ -2525,14 +2525,17 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>
+>         BUG_ON(tcp_skb_pcount(skb) != 1 || tcp_skb_pcount(next_skb) != 1);
+>
+> +       if (next_skb_size) {
+> +               if (next_skb_size <= skb_availroom(skb))
+> +                       skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
+> +                                     next_skb_size);
+> +               else if (!skb_shift(skb, next_skb, next_skb_size))
+> +                       return false;
+> +       }
+>         tcp_highest_sack_combine(sk, next_skb, skb);
+>
+>         tcp_unlink_write_queue(next_skb, sk);
+>
+> -       if (next_skb_size)
+> -               skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
+> -                             next_skb_size);
+> -
+>         if (next_skb->ip_summed == CHECKSUM_PARTIAL)
+>                 skb->ip_summed = CHECKSUM_PARTIAL;
+>
+> @@ -2561,6 +2564,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>         tcp_skb_collapse_tstamp(skb, next_skb);
+>
+>         sk_wmem_free_skb(sk, next_skb);
+> +       return true;
+>  }
+>
+>  /* Check if coalescing SKBs is legal. */
+> @@ -2610,16 +2614,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
+>
+>                 if (space < 0)
+>                         break;
+> -               /* Punt if not enough space exists in the first SKB for
+> -                * the data in the second
+> -                */
+> -               if (skb->len > skb_availroom(to))
+> -                       break;
+>
+>                 if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
+>                         break;
+>
+> -               tcp_collapse_retrans(sk, to);
+> +               if (!tcp_collapse_retrans(sk, to))
+> +                       break;
+>         }
+>  }
+>
+>
+>
