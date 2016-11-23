@@ -1,92 +1,90 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: verify root pointer
- before dereferncing it
-Date: Wed, 23 Nov 2016 11:29:02 -0800
-Message-ID: <CAM_iQpVLd8tka7=9iQ_jSKD-jy2uLi9DL1xDnG1oK8hxBUrugA@mail.gmail.com>
-References: <1479824726-62607-1-git-send-email-roid@mellanox.com>
- <20161122144844.GB1819@nanopsycho> <58346C7B.7090006@iogearbox.net>
- <20161122161159.GC1819@nanopsycho> <CAM_iQpVTtqQRg7KgQbMQSxxVJRB8a46DGgfU52m=SxF1uYDFWQ@mail.gmail.com>
- <5834AD97.1020600@iogearbox.net> <5834D670.2050301@gmail.com>
- <CAM_iQpWhGfrZgBD1Li+efZCv4Q6uGno1ttXcBL4C_F+4es4e_A@mail.gmail.com> <58357D7E.3010100@iogearbox.net>
+From: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Wed, 23 Nov 2016 14:29:37 -0500
+Message-ID: <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
+References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+ <1394712342-15778-227-Taiwan-albertk@realtek.com>
+ <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
+ <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
+ <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>
+ <b61a0e10-c737-8912-3e4e-393f4eb32077@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201051D51@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>, Roi Dayan <roid@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Cong Wang <cwang@twopensource.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.161.172]:35196 "EHLO
-        mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933604AbcKWT3Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 14:29:24 -0500
-Received: by mail-yw0-f172.google.com with SMTP id i145so20470612ywg.2
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 11:29:23 -0800 (PST)
-In-Reply-To: <58357D7E.3010100@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB201051D51-JIZ+AM9kKNzuvTFwvkocLypo8c9IxeqyAjHCUHv49ws@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2016 at 3:29 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->
-> Can't we drop the 'force' parameter from tcf_destroy() and related cls
-> destroy() callbacks, and change the logic roughly like this:
->
+On 16-11-23 10:12 AM, Hayes Wang wrote:
+> Mark Lord [mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org]
 > [...]
->         case RTM_DELTFILTER:
->                 err = tp->ops->delete(tp, fh, &drop_tp);
->                 if (err == 0) {
->                         struct tcf_proto *next = rtnl_dereference(tp->next);
+>> What does this code do:
 >
->                         tfilter_notify(net, skb, n, tp,
->                                        t->tcm_handle,
->                                        RTM_DELTFILTER, false);
->                         if (drop_tp) {
->                                 RCU_INIT_POINTER(*back, next);
->                                 tcf_destroy(tp);
->                         }
->                 }
->                 goto errout;
-> [...]
+>>> static void r8153_set_rx_early_size(struct r8152 *tp)
+>>> {
+>>>        u32 mtu = tp->netdev->mtu;
+>>>        u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
+>>>
+>>>        ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
+>>> }
 >
-> This one was the only tcf_destroy() instance with force=false. Why can't
-> the prior delete() callback make the decision whether the tp now has no
-> further internal filters and thus can be dropped. Afaik, delete() and
-> destroy() are protected by RTNL anyway. Thus, we could unlink the tp from
-> the list before tcf_destroy(), which should then work with grace period
-> as well. Given we remove the setting of tp->root to NULL, any outstanding
-> readers for that grace period should either still execute the 'scheduled
-> for removal' filter we just dropped, or find an empty list of filters.
-
-This is exactly why I said "the semantic of ->destroy() needs to revise too",
-this is a reasonable revision of course, but the change is still large because
-we need to move that logic from ->destroy() to ->delete(). I was trying to find
-a relatively small fix for -net and -stable, for -net-next we could do
-aggressive
-change as long as it's necessary. This is why I am still thinking about it,
-perhaps there is no quick fix for this bug.
-
-
+> This only works for RTL8153. However, what you use is RTL8152.
+> It is like delay completion. It is used to reduce the loading of CPU
+> by letting a transfer contain more data to reduce the number of
+> transfers.
 >
->> Hmm, perhaps we really have to switch to a doubly-linked list, that is
->> list_head. I need to double check. And also the semantic of ->destroy()
->> needs to revise too.
+>> How is ocp_data used by the hardware?
+>> Shouldn't the calculation also include sizeof(rx_desc) in there somewhere?
 >
+> The algorithm is from our hw engineers, and it should be
 >
-> Can you elaborate why double-linked list? Isn't the tp list always protected
-> from modifications via RTNL in control path, and walked via
-> rcu_dereference_bh()
-> in data path?
+>    (agg_buf_sz - packet size) / 8
+>
+> You could refer to commit a59e6d815226 ("r8152: correct the rx early size").
 
-At least two benefits we can get from using doubly-linked list:
+Thanks.
 
-1) No need to pass a 'prev' pointer if we want to remove tp in a RCU callback,
-list_del_rcu(&tp->head) is just enough.
+Right now I am working quite hard trying to narrow things down exactly.
+You are correct that the driver does appear to be careful about accesses
+beyond the filled portion of a URB buffer -- for some reason I thought
+the original driver had issues there, but looking again it does not seem to.
 
-2) No need to worry about RCU pointers because list_head has RCU API's
-already, much more readable to me.
+One idea that is now looking more likely:
+Things could be suffering from speculative CPU accesses to RAM
+(the system here has non-coherent d-cache/RAM).
+This could incorrectly pre-load data from adjacent URB buffers
+into the d-cache, creating coherency issues.  I am testing now
+with cacheline-sized guard zones between the buffers to see if
+that is the issue or not.
 
-Of course, the size of struct tcf_proto will grow a bit, but it doesn't seem to
-be a problem.
+Worth repeating: other dongles we have tried, eg. those using the asix driver,
+do not cause us any troubles here.  Only the r8152 dongles do.
+
+The other drivers do not use hardware checksums, so even if they did
+incur similar bad packets, whatever the reason, those bad packets
+would be detected/rejected by the Linux network stack (software checksums).
+So everything appears to behave fine with them, as it does with
+the r8152 driver when hardware checksums are disabled.
+
+Still trying to understand exactly how these errors are happening.
+It takes a very long time to do a conclusive test of anything here,
+and I only have the hardware for a day or two a week.
+So my apologies if I am slow in getting back to you on stuff.
+
+Cheers
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
