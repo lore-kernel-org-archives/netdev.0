@@ -1,95 +1,123 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: bcm: fix support for CAN FD frames
-Date: Wed, 23 Nov 2016 15:35:32 +0100
-Message-ID: <781efa22-a378-dd4c-97e1-9045eafd9121@pengutronix.de>
-References: <20161123133325.1812-1-socketcan@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="fgpiL6WF8hGjaDePglOKcxne3h7sWd9Sw"
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        linux-can@vger.kernel.org,
-        Andrey Konovalov <andreyknvl@google.com>,
-        netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 03/11] mlxsw: core: Create an ordered workqueue for FIB offload
+Date: Wed, 23 Nov 2016 15:34:24 +0100
+Message-ID: <1479911670-4525-4-git-send-email-jiri@resnulli.us>
+References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        hannes@stressinduktion.org, kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:41335 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S938655AbcKWOfi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:35:38 -0500
-In-Reply-To: <20161123133325.1812-1-socketcan@hartkopp.net>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36236 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964973AbcKWOeg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:34:36 -0500
+Received: by mail-wm0-f66.google.com with SMTP id m203so2176640wma.3
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:34:36 -0800 (PST)
+In-Reply-To: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---fgpiL6WF8hGjaDePglOKcxne3h7sWd9Sw
-Content-Type: multipart/mixed; boundary="iCe7rsqAlkTpkFojCKaeFBeWNw9egHm8l";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org,
- Andrey Konovalov <andreyknvl@google.com>, netdev@vger.kernel.org
-Message-ID: <781efa22-a378-dd4c-97e1-9045eafd9121@pengutronix.de>
-Subject: Re: [PATCH] can: bcm: fix support for CAN FD frames
-References: <20161123133325.1812-1-socketcan@hartkopp.net>
-In-Reply-To: <20161123133325.1812-1-socketcan@hartkopp.net>
+From: Ido Schimmel <idosch@mellanox.com>
 
---iCe7rsqAlkTpkFojCKaeFBeWNw9egHm8l
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+We're going to start processing FIB entries addition / deletion events
+in deferred work. These work items must be processed in the order they
+were submitted or otherwise we can have differences between the kernel's
+FIB table and the device's.
 
-On 11/23/2016 02:33 PM, Oliver Hartkopp wrote:
-> Since commit 6f3b911d5f29b98 ("can: bcm: add support for CAN FD frames"=
-) the
-> CAN broadcast manager supports CAN and CAN FD data frames.
->=20
-> As these data frames are embedded in struct can[fd]_frames which have a=
+Solve this by creating an ordered workqueue to which these work items
+will be submitted to. Note that we can't simply convert the current
+workqueue to be ordered, as EMADs re-transmissions are also processed in
+deferred work.
 
-> different length the access to the provided array of CAN frames became
-> dependend of op->cfsiz. By using a struct canfd_frame pointer for the a=
-rray of
-> CAN frames the new offset calculation based on op->cfsiz was accidently=
- applied
-> to CAN FD frame element lengths.
->=20
-> This fix makes the pointer to the arrays of the different CAN frame typ=
-es a
-> void pointer so that the offset calculation in bytes accesses the corre=
-ct CAN
-> frame elements.
->=20
-> Reference: http://marc.info/?l=3Dlinux-netdev&m=3D147980658909653
->=20
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Later on, we can migrate other work items to this workqueue, such as FDB
+notification processing and nexthop resolution, since they all take the
+same lock anyway.
 
-Added to can and send a pull request to David.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core.c | 22 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/core.h |  2 ++
+ 2 files changed, 24 insertions(+)
 
-Thanks,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---iCe7rsqAlkTpkFojCKaeFBeWNw9egHm8l--
-
---fgpiL6WF8hGjaDePglOKcxne3h7sWd9Sw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlg1qTQACgkQPTuqJayp
-JWqb9wf/eWIZ3XFFT0tcd8FA9fhE+qPKPwBj9bT0oAI3Rb5tbISZ8IrIzSKHRLlR
-mEKaFy3VnXY7PFK7h/ou/NFwVRyjbLXnNnfiiPWpbxwDVdppBBPcX6h0RHJjw2fv
-irInlUNA0aoApRqIffw3Jt1T4md2t797ZWw14IQxCHdh2POQW1Ti3NEPVRebTPN0
-Sve8dTWYSb5566Q32S2fec2IX7lNP6Edjpd9qGYvQQb/NYS6nqmlEWs2rZXkvIBn
-kCyP13gbLqy8BklMqMAKNMyLromVlC2BJZSwjsPMNPqz5gGQO5VoFmOAAFEAgfDl
-k4MZg0X36bfbznxgCAe7cLAupyM5Ew==
-=1F4I
------END PGP SIGNATURE-----
-
---fgpiL6WF8hGjaDePglOKcxne3h7sWd9Sw--
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index bcd7251..a8d9a9c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -77,6 +77,7 @@ static const char mlxsw_core_driver_name[] = "mlxsw_core";
+ static struct dentry *mlxsw_core_dbg_root;
+ 
+ static struct workqueue_struct *mlxsw_wq;
++static struct workqueue_struct *mlxsw_owq;
+ 
+ struct mlxsw_core_pcpu_stats {
+ 	u64			trap_rx_packets[MLXSW_TRAP_ID_MAX];
+@@ -1857,6 +1858,18 @@ int mlxsw_core_schedule_dw(struct delayed_work *dwork, unsigned long delay)
+ }
+ EXPORT_SYMBOL(mlxsw_core_schedule_dw);
+ 
++int mlxsw_core_schedule_odw(struct delayed_work *dwork, unsigned long delay)
++{
++	return queue_delayed_work(mlxsw_owq, dwork, delay);
++}
++EXPORT_SYMBOL(mlxsw_core_schedule_odw);
++
++void mlxsw_core_flush_owq(void)
++{
++	flush_workqueue(mlxsw_owq);
++}
++EXPORT_SYMBOL(mlxsw_core_flush_owq);
++
+ static int __init mlxsw_core_module_init(void)
+ {
+ 	int err;
+@@ -1864,6 +1877,12 @@ static int __init mlxsw_core_module_init(void)
+ 	mlxsw_wq = alloc_workqueue(mlxsw_core_driver_name, WQ_MEM_RECLAIM, 0);
+ 	if (!mlxsw_wq)
+ 		return -ENOMEM;
++	mlxsw_owq = alloc_ordered_workqueue("%s_ordered", WQ_MEM_RECLAIM,
++					    mlxsw_core_driver_name);
++	if (!mlxsw_owq) {
++		err = -ENOMEM;
++		goto err_alloc_ordered_workqueue;
++	}
+ 	mlxsw_core_dbg_root = debugfs_create_dir(mlxsw_core_driver_name, NULL);
+ 	if (!mlxsw_core_dbg_root) {
+ 		err = -ENOMEM;
+@@ -1872,6 +1891,8 @@ static int __init mlxsw_core_module_init(void)
+ 	return 0;
+ 
+ err_debugfs_create_dir:
++	destroy_workqueue(mlxsw_owq);
++err_alloc_ordered_workqueue:
+ 	destroy_workqueue(mlxsw_wq);
+ 	return err;
+ }
+@@ -1879,6 +1900,7 @@ static int __init mlxsw_core_module_init(void)
+ static void __exit mlxsw_core_module_exit(void)
+ {
+ 	debugfs_remove_recursive(mlxsw_core_dbg_root);
++	destroy_workqueue(mlxsw_owq);
+ 	destroy_workqueue(mlxsw_wq);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 3de8955..f676ee9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -156,6 +156,8 @@ enum devlink_port_type mlxsw_core_port_type_get(struct mlxsw_core *mlxsw_core,
+ 						u8 local_port);
+ 
+ int mlxsw_core_schedule_dw(struct delayed_work *dwork, unsigned long delay);
++int mlxsw_core_schedule_odw(struct delayed_work *dwork, unsigned long delay);
++void mlxsw_core_flush_owq(void);
+ 
+ #define MLXSW_CONFIG_PROFILE_SWID_COUNT 8
+ 
+-- 
+2.7.4
