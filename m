@@ -1,114 +1,83 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: bcm: fix support for CAN FD frames
-Date: Wed, 23 Nov 2016 15:34:30 +0100
-Message-ID: <20161123143430.24985-2-mkl@pengutronix.de>
-References: <20161123143430.24985-1-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
-        linux-stable <stable@vger.kernel.org>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 08/11] ipv4: fib: Allow for consistent FIB dumping
+Date: Wed, 23 Nov 2016 15:34:29 +0100
+Message-ID: <1479911670-4525-9-git-send-email-jiri@resnulli.us>
+References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20161123143430.24985-1-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36263 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965009AbcKWOem (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 09:34:42 -0500
+Received: by mail-wm0-f65.google.com with SMTP id m203so2176881wma.3
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 06:34:41 -0800 (PST)
+In-Reply-To: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Since commit 6f3b911d5f29b98 ("can: bcm: add support for CAN FD frames") the
-CAN broadcast manager supports CAN and CAN FD data frames.
+The next patch will enable listeners of the FIB notification chain to
+request a dump of the FIB tables. However, since RTNL isn't taken during
+the dump, it's possible for the FIB tables to change mid-dump, which
+will result in inconsistency between the listener's table and the
+kernel's.
 
-As these data frames are embedded in struct can[fd]_frames which have a
-different length the access to the provided array of CAN frames became
-dependend of op->cfsiz. By using a struct canfd_frame pointer for the array of
-CAN frames the new offset calculation based on op->cfsiz was accidently applied
-to CAN FD frame element lengths.
+Allow listeners to know about changes that occurred mid-dump, by adding
+a change sequence counter to each net namespace. The counter is
+incremented just before a notification is sent in the FIB chain.
 
-This fix makes the pointer to the arrays of the different CAN frame types a
-void pointer so that the offset calculation in bytes accesses the correct CAN
-frame elements.
-
-Reference: http://marc.info/?l=linux-netdev&m=147980658909653
-
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: linux-stable <stable@vger.kernel.org>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/can/bcm.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ include/net/netns/ipv4.h | 2 ++
+ net/ipv4/fib_frontend.c  | 2 ++
+ net/ipv4/fib_trie.c      | 1 +
+ 3 files changed, 5 insertions(+)
 
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 8af9d25ff988..436a7537e6a9 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -77,7 +77,7 @@
- 		     (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
- 		     (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 7adf438..d236c08 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -136,5 +136,7 @@ struct netns_ipv4 {
+ 	int sysctl_fib_multipath_use_neigh;
+ #endif
+ 	atomic_t	rt_genid;
++
++	atomic_t	fib_seq;
+ };
+ #endif
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 121384b..cf8c867 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1219,6 +1219,8 @@ static int __net_init ip_fib_net_init(struct net *net)
+ 	int err;
+ 	size_t size = sizeof(struct hlist_head) * FIB_TABLE_HASHSZ;
  
--#define CAN_BCM_VERSION "20160617"
-+#define CAN_BCM_VERSION "20161123"
++	atomic_set(&net->ipv4.fib_seq, 0);
++
+ 	/* Avoid false sharing : Use at least a full cache line */
+ 	size = max_t(size_t, size, L1_CACHE_BYTES);
  
- MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
- MODULE_LICENSE("Dual BSD/GPL");
-@@ -109,8 +109,9 @@ struct bcm_op {
- 	u32 count;
- 	u32 nframes;
- 	u32 currframe;
--	struct canfd_frame *frames;
--	struct canfd_frame *last_frames;
-+	/* void pointers to arrays of struct can[fd]_frame */
-+	void *frames;
-+	void *last_frames;
- 	struct canfd_frame sframe;
- 	struct canfd_frame last_sframe;
- 	struct sock *sk;
-@@ -681,7 +682,7 @@ static void bcm_rx_handler(struct sk_buff *skb, void *data)
- 
- 	if (op->flags & RX_FILTER_ID) {
- 		/* the easiest case */
--		bcm_rx_update_and_send(op, &op->last_frames[0], rxframe);
-+		bcm_rx_update_and_send(op, op->last_frames, rxframe);
- 		goto rx_starttimer;
- 	}
- 
-@@ -1068,7 +1069,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 
- 		if (msg_head->nframes) {
- 			/* update CAN frames content */
--			err = memcpy_from_msg((u8 *)op->frames, msg,
-+			err = memcpy_from_msg(op->frames, msg,
- 					      msg_head->nframes * op->cfsiz);
- 			if (err < 0)
- 				return err;
-@@ -1118,7 +1119,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 		}
- 
- 		if (msg_head->nframes) {
--			err = memcpy_from_msg((u8 *)op->frames, msg,
-+			err = memcpy_from_msg(op->frames, msg,
- 					      msg_head->nframes * op->cfsiz);
- 			if (err < 0) {
- 				if (op->frames != &op->sframe)
-@@ -1163,6 +1164,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 	/* check flags */
- 
- 	if (op->flags & RX_RTR_FRAME) {
-+		struct canfd_frame *frame0 = op->frames;
- 
- 		/* no timers in RTR-mode */
- 		hrtimer_cancel(&op->thrtimer);
-@@ -1174,8 +1176,8 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 		 * prevent a full-load-loopback-test ... ;-]
- 		 */
- 		if ((op->flags & TX_CP_CAN_ID) ||
--		    (op->frames[0].can_id == op->can_id))
--			op->frames[0].can_id = op->can_id & ~CAN_RTR_FLAG;
-+		    (frame0->can_id == op->can_id))
-+			frame0->can_id = op->can_id & ~CAN_RTR_FLAG;
- 
- 	} else {
- 		if (op->flags & SETTIMER) {
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 9bfce0d..b1d2d09 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -101,6 +101,7 @@ EXPORT_SYMBOL(unregister_fib_notifier);
+ int call_fib_notifiers(struct net *net, enum fib_event_type event_type,
+ 		       struct fib_notifier_info *info)
+ {
++	atomic_inc(&net->ipv4.fib_seq);
+ 	info->net = net;
+ 	return atomic_notifier_call_chain(&fib_chain, event_type, info);
+ }
 -- 
-2.10.2
+2.7.4
