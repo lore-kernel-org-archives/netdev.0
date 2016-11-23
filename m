@@ -1,51 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] cpsw: ethtool: add support for getting/setting EEE
- registers
-Date: Wed, 23 Nov 2016 12:15:46 -0800
-Message-ID: <c91dcd74-3983-3ab6-91f6-3657b1e601af@gmail.com>
-References: <1479911913-1761-1-git-send-email-yegorslists@googlemail.com>
- <93e0bd06-3171-e12b-b763-1e2895a463f8@gmail.com>
- <CAGm1_ksC_6afhzK39uVTSk2PoC9CrR4Fow89YCZfihS2f6wzOw@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 1/1] ptp: gianfar: Use high resolution frequency
+ method.
+Date: Wed, 23 Nov 2016 21:23:43 +0100
+Message-ID: <20161123202343.GA2845@localhost.localdomain>
+References: <20161123201104.9706-1-ulrik.debie-os@e2big.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "N, Mugunthan V" <mugunthanvnm@ti.com>,
-        Rami Rosen <roszenrami@gmail.com>
-To: Yegor Yefremov <yegorslists@googlemail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Ulrik De Bie <ulrik.debie-os@e2big.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33217 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936216AbcKWUPt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 15:15:49 -0500
-In-Reply-To: <CAGm1_ksC_6afhzK39uVTSk2PoC9CrR4Fow89YCZfihS2f6wzOw@mail.gmail.com>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:33748 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933402AbcKWUXs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 15:23:48 -0500
+Received: by mail-wj0-f195.google.com with SMTP id kp2so1841129wjc.0
+        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 12:23:47 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161123201104.9706-1-ulrik.debie-os@e2big.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/23/2016 12:08 PM, Yegor Yefremov wrote:
-> On Wed, Nov 23, 2016 at 6:33 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 11/23/2016 06:38 AM, yegorslists@googlemail.com wrote:
->>> From: Yegor Yefremov <yegorslists@googlemail.com>
->>>
->>> Add the ability to query and set Energy Efficient Ethernet parameters
->>> via ethtool for applicable devices.
->>
->> Are you sure this is enough to actually enable EEE? I don't see where
->> phy_init_eee() is called here, nor is the cpsw Ethernet controller part
->> configured to enable/disable EEE. EEE is not just a PHY thing, it
->> usually also needs to be configured properly at the Ethernet MAC/switch
->> level as well.
->>
->> Just curious here.
+On Wed, Nov 23, 2016 at 09:11:04PM +0100, Ulrik De Bie wrote:
+> This patch depends on commit d8d263541913 ("ptp: Introduce a high
+> resolution frequency adjustment method.")
 > 
-> I'm sure I want to disable EEE :-) So I need this patch in order to
-> check and disable EEE advertising.
+> The gianfar devices offer a frequency resolution of about 0.46 ppb
+> (depends on actual value of tmr_add, for the calculation assumed
+> 0x80000000). This patch lets users of the device benefit from the increased
+> frequency resolution when tuning the clock. Thanks to the rounding the
+> maximum error between the requested frequency and the applied frequency
+> will then be about 0.23 ppb.
+> 
+> Tested on a v3.3.8 kernel on a real gianfar device. Verified compilation
+> on net-next (currently at v4.9-rc5).
+> 
+> Signed-off-by: Ulrik De Bie <ulrik.debie-os@e2big.org>
 
-OK, so you need this to disable EEE advertisement, which is great, but
-this also allows you to enable EEE, is it enough to just advertise EEE
-with your link partner for cpsw to work correctly? Just wondering, since
-your commit message is more than short.
--- 
-Florian
+Acked-by: Richard Cochran <richardcochran@gmail.com>
