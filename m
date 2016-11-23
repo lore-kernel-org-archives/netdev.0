@@ -1,31 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net 1/1] net sched filters: fix filter handle ID in tfilter_notify_chain()
-Date: Tue, 22 Nov 2016 20:09:17 -0800
-Message-ID: <CAM_iQpXP1Rq+p_EjwTaVkS5BNXsBh7kstTxT2o7bkSxvXPy8Yw@mail.gmail.com>
-References: <1479866224-12285-1-git-send-email-mrv@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Roman Mashak <mrv@mojatatu.com>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net-next 1/2] openvswitch: Add a missing break statement.
+Date: Tue, 22 Nov 2016 20:09:33 -0800
+Message-ID: <1479874174-75329-1-git-send-email-jarno@ovn.org>
+Cc: jarno@ovn.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:36355 "EHLO
-        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755360AbcKWEJi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 23:09:38 -0500
-Received: by mail-io0-f181.google.com with SMTP id x94so4114758ioi.3
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 20:09:37 -0800 (PST)
-In-Reply-To: <1479866224-12285-1-git-send-email-mrv@mojatatu.com>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:36115 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755971AbcKWEJu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 23:09:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2016 at 5:57 PM, Roman Mashak <mrv@mojatatu.com> wrote:
-> Should pass valid filter handle, not the netlink flags.
->
-> Fixes: 30a391a13ab92 ("net sched filters: pass netlink message flags in event notification")
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Add a break statement to prevent fall-through from
+OVS_KEY_ATTR_ETHERNET to OVS_KEY_ATTR_TUNNEL.  Without the break
+actions setting ethernet addresses fail to validate with log messages
+complaining about invalid tunnel attributes.
 
-Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
+Fixes: 0a6410fbde ("openvswitch: netlink: support L3 packets")
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ net/openvswitch/flow_netlink.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d19044f..c87d359 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -2195,6 +2195,7 @@ static int validate_set(const struct nlattr *a,
+ 	case OVS_KEY_ATTR_ETHERNET:
+ 		if (mac_proto != MAC_PROTO_ETHERNET)
+ 			return -EINVAL;
++		break;
+ 
+ 	case OVS_KEY_ATTR_TUNNEL:
+ 		if (masked)
+-- 
+2.1.4
