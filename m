@@ -1,41 +1,39 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: [PATCH net 1/1] net sched filters: fix filter handle ID in tfilter_notify_chain()
-Date: Tue, 22 Nov 2016 20:57:04 -0500
-Message-ID: <1479866224-12285-1-git-send-email-mrv@mojatatu.com>
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, Roman Mashak <mrv@mojatatu.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:34090 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756019AbcKWB5W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Nov 2016 20:57:22 -0500
-Received: by mail-io0-f195.google.com with SMTP id r94so27346ioe.1
-        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 17:57:21 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next] tuntap: remove unnecessary sk_receive_queue length check during xmit
+Date: Wed, 23 Nov 2016 10:26:49 +0800
+Message-ID: <1479868009-14157-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Should pass valid filter handle, not the netlink flags.
+After commit 1576d9860599 ("tun: switch to use skb array for tx"),
+sk_receive_queue was not used any more. So remove the uncessary
+sk_receive_queue length check during xmit.
 
-Fixes: 30a391a13ab92 ("net sched filters: pass netlink message flags in event notification")
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- net/sched/cls_api.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/tun.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 8e93d4a..b05d4a2 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -112,7 +112,7 @@ static void tfilter_notify_chain(struct net *net, struct sk_buff *oskb,
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 64e694c..e2af2dd 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -878,13 +878,6 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	    sk_filter(tfile->socket.sk, skb))
+ 		goto drop;
  
- 	for (it_chain = chain; (tp = rtnl_dereference(*it_chain)) != NULL;
- 	     it_chain = &tp->next)
--		tfilter_notify(net, oskb, n, tp, n->nlmsg_flags, event, false);
-+		tfilter_notify(net, oskb, n, tp, 0, event, false);
- }
+-	/* Limit the number of packets queued by dividing txq length with the
+-	 * number of queues.
+-	 */
+-	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
+-			  >= dev->tx_queue_len)
+-		goto drop;
+-
+ 	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+ 		goto drop;
  
- /* Select new prio value from the range, managed by kernel. */
 -- 
-1.9.1
+2.7.4
