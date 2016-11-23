@@ -1,81 +1,92 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth 2016-11-23
-Date: Wed, 23 Nov 2016 09:29:12 +0200
-Message-ID: <20161123072912.GA3538@x1c>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/1] ipv6: sr: add option to control lwtunnel
+ support
+Date: Tue, 22 Nov 2016 23:34:03 -0800
+Message-ID: <5835466B.6080405@cumulusnetworks.com>
+References: <CAADnVQ+MdPeZv1FpzD=omH1ftr2vW3uYiqdLL3Y_teaZj=tEbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="RnlQjJ0d97Da+TV1"
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, david.lebrun@uclouvain.be,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33445 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750999AbcKWH3U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 02:29:20 -0500
-Content-Disposition: inline
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33871 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750999AbcKWHeG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 02:34:06 -0500
+Received: by mail-pg0-f49.google.com with SMTP id x23so3128501pgx.1
+        for <netdev@vger.kernel.org>; Tue, 22 Nov 2016 23:34:06 -0800 (PST)
+In-Reply-To: <CAADnVQ+MdPeZv1FpzD=omH1ftr2vW3uYiqdLL3Y_teaZj=tEbQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/22/16, 4:16 PM, Alexei Starovoitov wrote:
+> On Wed, Nov 16, 2016 at 8:32 AM, David Miller <davem@davemloft.net> wrote:
+>> From: David Lebrun <david.lebrun@uclouvain.be>
+>> Date: Tue, 15 Nov 2016 16:14:04 +0100
+>>
+>>> This patch adds a new option CONFIG_IPV6_SEG6_LWTUNNEL to enable/disable
+>>> support of encapsulation with the lightweight tunnels. When this option
+>>> is enabled, CONFIG_LWTUNNEL is automatically selected.
+>>>
+>>> Fix commit 6c8702c60b88 ("ipv6: sr: add support for SRH encapsulation and injection with lwtunnels")
+>>>
+>>> Without a proper option to control lwtunnel support for SR-IPv6, if
+>>> CONFIG_LWTUNNEL=n then the IPv6 initialization fails as a consequence
+>>> of seg6_iptunnel_init() failure with EOPNOTSUPP:
+>>>
+>>> NET: Registered protocol family 10
+>>> IPv6: Attempt to unregister permanent protocol 6
+>>> IPv6: Attempt to unregister permanent protocol 136
+>>> IPv6: Attempt to unregister permanent protocol 17
+>>> NET: Unregistered protocol family 10
+>>>
+>>> Tested (compiling, booting, and loading ipv6 module when relevant)
+>>> with possible combinations of CONFIG_IPV6={y,m,n},
+>>> CONFIG_IPV6_SEG6_LWTUNNEL={y,n} and CONFIG_LWTUNNEL={y,n}.
+>>>
+>>> Reported-by: Lorenzo Colitti <lorenzo@google.com>
+>>> Suggested-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+>> Applied.
+> ipv6 seems to be still broken in the latest net-next
+> when CONFIG_LWTUNNEL is not set:
+> # ping 127.0.0.1
+> ping: socket: Address family not supported by protocol
+> # ping -4 127.0.0.1
+> PING localhost.localdomain (127.0.0.1) 56(84) bytes of data.
+> 64 bytes from localhost.localdomain (127.0.0.1): icmp_seq=1 ttl=64 time=0.067 ms
+>
+> it works with CONFIG_LWTUNNEL=y
+>
+> Roopa, David, please take a look.
+>
+I can't seem to reproduce the problem you are seeing. still trying..
+I don't have CONFIG_LWTUNNEL set nor any of the other SEG6 configs.
+My CONFIG_IPV6 is on and compiled as a module. I have also tried disabling it.
+If you can send me the config, I can try again. Looking back at the patches,
+I do see a few things below ..but they may not fix your problem directly.
 
---RnlQjJ0d97Da+TV1
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Though I had none of the ipv6 segment routing configs turned on,
+I do see the "Segment Routing with IPv6" msg at bootup.
+Was looking at david's patches again, and a few things (I had missed seeing the last version):
 
-Hi Dave,
+In my review comment I was hinting at CONFIG_IPV6_SEG6 to cover all of ipv6 segment routing,
+including the lwtunnel bits.
 
-Sorry about the late pull request for 4.9, but we have one more
-important Bluetooth patch that should make it to the release. It fixes
-connection creation for Bluetooth LE controllers that do not have a
-public address (only a random one).
+something like below:
 
-Please let me know if there are any issues pulling. Thanks.
+config IPV6_SEG6
+        bool "IPv6: Segment Routing Header encapsulation support"
+        depends on LWTUNNEL && IPV6
 
-Johan
+DavidL, do you see a problem doing it this way ?. with this 'seg6.o' will be part of CONFIG_IPV6_SEG6 and not
+get initialized unless it is enabled..which seems like the right thing to do.
 
----
-The following changes since commit c9b8af1330198ae241cd545e1f040019010d44d9:
+DaveM had suggested compiling LWTUNNEL in by default. I can submit a patch for that.
+But it is not clear to me yet why the right depends will not fix it.
 
-  flow_dissect: call init_default_flow_dissectors() earlier (2016-11-22 14:44:01 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to 39385cb5f3274735b03ed1f8e7ff517b02a0beed:
-
-  Bluetooth: Fix using the correct source address type (2016-11-22 22:50:46 +0100)
-
-----------------------------------------------------------------
-Johan Hedberg (1):
-      Bluetooth: Fix using the correct source address type
-
- include/net/bluetooth/hci_core.h |  2 +-
- net/bluetooth/6lowpan.c          |  4 ++--
- net/bluetooth/hci_conn.c         | 26 ++++++++++++++++++++++++--
- net/bluetooth/l2cap_core.c       |  2 +-
- net/bluetooth/rfcomm/tty.c       |  2 +-
- net/bluetooth/sco.c              |  2 +-
- 6 files changed, 30 insertions(+), 8 deletions(-)
-
-
---RnlQjJ0d97Da+TV1
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBAgAGBQJYNUVHAAoJECQj9vv5qNQS66gQALndXVs28c8VjZFbKUZTW+bF
-FRDmPb9qn9Ev7dJtjBILPyIoSfYnONQEp2SOS0j6kN2R4jiRBN9SZUqRe/NTvvPc
-AN5PA3/FwQ4I6VWFeR4hSP6yrDkl444GLv/NfhrcWBum7SAtYTGMxIEBTeIXH/WG
-WxUCrZ/N6pFy5TfU5Iun21oqgVoEZC9p2mI+Qr84yDIk25VkO2lfWl2ZTl8qAXb5
-Z8EKK6dpHs6A9BbqW3hJ088Fl3ON49bYEJ5u/2l04tDDpFs98RkmM96Hr15ZPdiL
-VJFP53CY/Dsl1wZ/my/R1GMgXOS8OCo4O4oKjP+EXMRO8oBXMmzboW5LNwvav+iv
-GlybEuPxLnnO6GQVS53HLchvgf0rITe4Yb5CITRZ4p6vV49gVn/Wv2lNyh15NU5X
-2TIPs9CKpfA33Mr4hcZoYTMqqrtlHpy9+x27rcgNi/uS799AZQGI/8EvjhbwQTSs
-ZuMbnDRE027i8iwKnCCQNOzZrN0XTmwjHQawB/XGE8Q/fPNu0WwCQXr6KYq6rrcZ
-z8PU5cjr3G1hOlbVROkkelX7TQ/7svIbETzWeC1vvBj+UcAsifLr6Bid0+xUhhyl
-z4XY2oElir++i+Nu46hZDL52VKKmJYZ7qxIUcAVBD7g1iaRgo1kfxySKCj3CzJeW
-2ExJLyVlTQfJ3fWoYBei
-=/h79
------END PGP SIGNATURE-----
-
---RnlQjJ0d97Da+TV1--
+thanks.
