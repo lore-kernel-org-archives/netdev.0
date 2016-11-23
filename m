@@ -1,74 +1,97 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC net-next 0/3] net: bridge: Allow CPU port
-	configuration
-Date: Tue, 22 Nov 2016 16:24:30 -0800
-Message-ID: <6e1bce5a-3bc6-ad7b-6cc0-ca80c0f86f55@gmail.com>
-References: <20161121190925.14530-1-f.fainelli@gmail.com>
-	<20161122174140.2ly226dcxkv23nlo@splinter.mtl.com>
-	<20161122174829.GD14947@lunn.ch> <20161122220859.GF1819@nanopsycho>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Tue, 22 Nov 2016 17:49:32 -0700
+Message-ID: <20161123004932.GA13598@obsidianresearch.com>
+References: <1479508938-63799-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1479508938-63799-3-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161119190445.GG22775@obsidianresearch.com>
+ <20161121213017.GB67872@knc-06.sc.intel.com>
+ <20161121213930.GA30111@obsidianresearch.com>
+ <20161121232629.GA67988@knc-06.sc.intel.com>
+ <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
+ <20161122170407.GE3956@obsidianresearch.com>
+ <20161123000502.GA27968@phlsvsds.ph.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: idosch@mellanox.com, vivien.didelot@savoirfairelinux.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Ido Schimmel <idosch@idosch.org>, jiri@mellanox.com, davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161122220859.GF1819@nanopsycho>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>,
+        Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>
+To: "ira.weiny" <ira.weiny@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:55946 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755453AbcKWAtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Nov 2016 19:49:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20161123000502.GA27968@phlsvsds.ph.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/22/2016 02:08 PM, Jiri Pirko wrote:
-> Tue, Nov 22, 2016 at 06:48:29PM CET, andrew@lunn.ch wrote:
->> Hi Ido
->>
->>> First of all, I want to be sure that when we say "CPU port", we're
->>> talking about the same thing. In mlxsw, the CPU port is a pipe between
->>> the device and the host, through which all packets trapped to the host
->>> go through. So, when a packet is trapped, the driver reads its Rx
->>> descriptor, checks through which port it ingressed, resolves its netdev,
->>> sets skb->dev accordingly and injects it to the Rx path via
->>> netif_receive_skb(). The CPU port itself isn't represented using a
->>> netdev.
->>
->> With DSA, we have a real physical ethernet network interface for the
->> 'cpu' port. It connects to one of the ports of the switch. Frames on
+On Tue, Nov 22, 2016 at 07:05:05PM -0500, ira.weiny wrote:
+> On Tue, Nov 22, 2016 at 10:04:07AM -0700, Jason Gunthorpe wrote:
+> > On Mon, Nov 21, 2016 at 05:53:04PM -0800, Vishwanathapura, Niranjana wrote:
+> > > There are many example drivers in kernel which are using bus_register() in
+> > > an initcall.
+> > 
+> > There really are not, certainly not in major subsystems.
 > 
-> Every port should be visible as a netdevice, including cpu port.
-> Would it make sence to have representors for those?
+> I see 2 drivers in the Block subsystem which do this:
+> 
+> 
+> 19   5354  /nfs/site/home/iweiny/linux-stable/drivers/block/cciss.c <<cciss_init>>
+> 	err = bus_register(&cciss_bus_type);
+> 20   6447 /nfs/site/home/iweiny/linux-stable/drivers/block/rbd.c <<rbd_sysfs_init>>
+> 	ret = bus_register(&rbd_bus_type);
+> 
+> 2 drivers in the drm subsystem which do this:
+> 
+> 
+> 29   1155  /nfs/site/home/iweiny/linux-stable/drivers/gpu/drm/drm_mipi_dsi.c <<mipi_dsi_bus_init>>
+> 	return bus_register(&mipi_dsi_bus_type);
+> 30    242 /nfs/site/home/iweiny/linux-stable/drivers/gpu/host1x/dev.c <<tegra_host1x_init>>
+> 	err = bus_register(&host1x_bus_type);
 
-The CPU port is kind of already visible with DSA since you need the
-switch to be attached to a normal Ethernet MAC driver (later referenced
-as eth0 for simplicity). Since eth0 is going to potentially receive/send
-switch tagged traffic, and the model is to terminate the interfaces at
-the port level, this interface does not really have any meaningful use
-from a data exchange, apart from multiplexing/demultiplexing switch tags
-(when enabled).
+IMHO this is all obscure or legacy stuff (eg ccsiss lost its bus when
+it was reworked into hpsa). Who knows about that SOC stuff, maybe
+there really is a special on-chip bus under those drivers.
 
-If we did create a "cpu" network device, this interface would not be
-able to send/receive traffic either, because the per-port network
-interfaces are terminated at their level, and the conduit interface is
-just used for transmitting/receiving switch tagged traffic. It does have
-value as a controlling interface only though.
+The point is using a bus as a generic interconnect between two driver
+modules seems very rare, and is not what we have historically ever
+done in drivers/infiniband - all our split drivers use a trivial
+register scheme. eg see cxgb4_register_uld/mlx4_register_interface/etc.
 
-As a controlling interface, this can be helpful, but we need to decide
-which side of the switch this CPU interface would represent, is it the
-switch's view of the CPU port, or is the Ethernet MAC view's of the
-switch's CPU port, attached to it (especially true with discrete switch
-chips).
+Should a multi-function driver use a bus or class to connect its
+parts? Who knows. Maybe Greg KH/etc has an opinion. But that is not
+what we have been doing, it doesn't seem very simplifying, and
+this series doesn't even make module auto-loading work...
 
-If we did use eth0 as a controlling interface, we need to somehow be
-able to overload (in an objected oriented fashioned) the netdev_ops,
-ethtool_ops and switchdev_ops for that interface so as to make it
-participate in the switch configuration (we actually do this already for
-ethtool statistics, but this is ugly).
--- 
-Florian
+Since doing this creates a bunch of uapis (again, from a driver, ugh) it
+seems like a bad idea without more support as 'the right way'
+
+.. and yes, it would be nice to have a lightweight mechanism to
+replace those register functions that could handle module auto loading
+too, and maybe that is a 'multi part driver bus/class' or somesuch
+... This is really a topic for the device core maintainers, IMHO.
+
+> > > We could add a custom Interface between HFI1 driver and hfi_vnic drivers
+> > > without involving a bus.
+> > 
+> > hfi is already registering on the infiniband class, just use that.
+> 
+> I don't understand what you mean here?
+
+Get the struct ib_device for the hfi and then do something to get hfi
+specific function calls.
+
+Or work it backwards with a _register function..
+
+> [*] As an aside why does the ib_core not use this methodology?  It dawned on
+> me that this may be a better way to fix our module load problems.  However, I
+> have not looked into details.
+
+ib_core is a class, which is appropriate. RDMA devices are not busses.
+
+Jason
