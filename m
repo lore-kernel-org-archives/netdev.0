@@ -1,71 +1,66 @@
-From: =?utf-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
-Subject: [scr265482] ip_tunnel.c
-Date: Thu, 24 Nov 2016 02:47:04 +0000
-Message-ID: <F41877A268BCDE49BAEE2286FA8C269F6FECFB15@LETV-MBX-IDC09.letv.local>
-References: <860a2905e7f7467f864e13839eb05222@imshyb02.MITRE.ORG>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [RFC net-next 1/3] net: bridge: Allow bridge master
+ device to configure switch CPU port
+Date: Thu, 24 Nov 2016 10:49:08 +0900
+Message-ID: <ee14a75c-b0f5-59e5-e621-2855ec583ae6@lab.ntt.co.jp>
+References: <20161121190925.14530-1-f.fainelli@gmail.com>
+	<20161121190925.14530-2-f.fainelli@gmail.com>
+	<87h96zzfe6.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "cve-request@mitre.org" <cve-request@mitre.org>
-To: "security@kernel.org" <security@kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.letv.com ([115.182.93.109]:57957 "EHLO letvspm.imsa.com"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754354AbcKXDOK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Nov 2016 22:14:10 -0500
-In-Reply-To: <860a2905e7f7467f864e13839eb05222@imshyb02.MITRE.ORG>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: idosch@mellanox.com, andrew@lunn.ch, bridge@lists.linux-foundation.org,
+	jiri@mellanox.com, davem@davemloft.net
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <87h96zzfe6.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-SGk6IA0KCUkgZm91bmQgdGhhdCB0aGUgR1JFIHR1bm5lbCBpbiBzYW1lIGNhc2UgY2FuIGNhdXNl
-IGludGVnZXIgb3ZlcmZsb3cgaW4gaXBfdHVubmVsLmM6Mzk3DQogICANCkNhdXNlIG9mIHRoZSBw
-cm9ibGVtOg0KICAJV2hlbiB0cGktPnNlcSBsZXNzIHRoYW4gdHVubmVsLT5pX3NlcW5vLCB0aGUg
-cGFja2V0IHdpbGwgYmUgZHJvcGVkLiANCg0KSG93IHRvIHJlY3VycmVuY2UgcHJvYmxlbQ0KCTEu
-IENyZWF0ZSBhbiB0dW5uZWwgdXNlIGtlcm5lbCBHUkUgbW9kdWxlLg0KICAgIDIuIFVzZSB0aGUg
-dHVubmVsIHRvIHNlbmQgcGFja2V0cyBmb3IgYXdpbGUuDQogICAgMy5SZWJvb3Qgb25lIHNpdGUg
-b2YgdGhlIHR1bm5lbC4gDQogICAgNC4gQ29tbXVuaWNhdGlvbiBpbnRlcnJ1cHRlZCANCg0KDQoJ
-CWlmICh0dW5uZWwtPnBhcm1zLmlfZmxhZ3MmVFVOTkVMX1NFUSkgew0KCQlpZiAoISh0cGktPmZs
-YWdzJlRVTk5FTF9TRVEpIHx8DQoJCSAgICAodHVubmVsLT5pX3NlcW5vICYmIChzMzIpKG50b2hs
-KHRwaS0+c2VxKSAtIHR1bm5lbC0+aV9zZXFubykgPCAwKSkgeyAgICAvKipIZXJlIGlzIHRoZSB0
-cm91YmxlIGNvZGUqIC8NCgkJCXR1bm5lbC0+ZGV2LT5zdGF0cy5yeF9maWZvX2Vycm9ycysrOw0K
-CQkJdHVubmVsLT5kZXYtPnN0YXRzLnJ4X2Vycm9ycysrOw0KCQkJZ290byBkcm9wOw0KCQl9DQoJ
-CXR1bm5lbC0+aV9zZXFubyA9IG50b2hsKHRwaS0+c2VxKSArIDE7DQoJfQ0KICAgIA0KLS0tLS1C
-RUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQ0KSGFzaDogU0hBMjU2DQoNCj4gSW50ZWdlciBP
-dmVyZmxvdyBpbiBpcF90dW5uZWwuYyBpbiBVYnVudHUgTGludXgga2VybmVsIEdSRSBBTEwga2Vy
-bmVsIA0KPiB2ZXJzaW9uIGFsbG93cyBhdHRhY2tlciB0byBEZW5pYWwgb2YgU2VydmljZSB2aWEg
-cmVib290IG9uZSBlbmQgb2YgdGhlIA0KPiB0dW5uZWwNCg0KQ291bGQgeW91IHBsZWFzZSBjbGFy
-aWZ5IHdoZXRoZXIgdGhpcyBhZmZlY3RzIG9ubHkgVWJ1bnR1LCBvciBwb3RlbnRpYWxseSBhZmZl
-Y3RzIG90aGVyIExpbnV4IGRpc3RyaWJ1dGlvbnM/IGlwX3R1bm5lbC5jIGlzIHByZXNlbnQgaW4g
-dGhlIExpbnV4IGtlcm5lbCBpbiBhbGwgZGlzdHJpYnV0aW9ucyBhbmQgaXMgbWFpbnRhaW5lZCBh
-dDoNCg0KICBodHRwOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwvZ2l0L3RvcnZh
-bGRzL2xpbnV4LmdpdC9sb2cvbmV0L2lwdjQvaXBfdHVubmVsLmMNCg0KWW91IHNob3VsZCBwcm92
-aWRlIHlvdXIgZXZpZGVuY2Ugb2YgYW4gaW50ZWdlciBvdmVyZmxvdywgc3VjaCBhcyBzb3VyY2Ug
-Y29kZSBvciBjcmFzaCB0cmFjaW5nLg0KDQpJZiB5b3UgYXJlIHJlcG9ydGluZyBhbiBVYnVudHUg
-aXNzdWUsIHBsZWFzZSBzZWU6DQoNCiAgaHR0cHM6Ly93aWtpLnVidW50dS5jb20vU2VjdXJpdHlU
-ZWFtL0ZBUSNDb250YWN0DQoNCmFib3V0IGhvdyB0byBmaWxlIGEgUHJpdmF0ZSBTZWN1cml0eSBi
-dWcgaW4gTGF1bmNocGFkLg0KDQpJZiB5b3UgYXJlIHJlcG9ydGluZyBhbiBpc3N1ZSBhZmZlY3Rp
-bmcgdGhlIExpbnV4IGtlcm5lbCBpbiBnZW5lcmFsLCBwbGVhc2UgY29udGFjdDoNCg0KICBzZWN1
-cml0eUBrZXJuZWwub3JnDQoNCllvdSBjYW4gYWxzbyBpbmNsdWRlOg0KDQogIG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmcNCg0KaWYgdGhlIHJlcG9ydCBpcyBwdWJsaWMuIElmIHlvdSBuZWVkIHRvIHN1
-YnNjcmliZSwgc2VlOg0KDQogIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvdmdlci1saXN0cy5odG1s
-I25ldGRldg0KDQotIC0tDQpDVkUgQXNzaWdubWVudCBUZWFtDQpNL1MgTTMwMCwgMjAyIEJ1cmxp
-bmd0b24gUm9hZCwgQmVkZm9yZCwgTUEgMDE3MzAgVVNBIFsgQSBQR1Aga2V5IGlzIGF2YWlsYWJs
-ZSBmb3IgZW5jcnlwdGVkIGNvbW11bmljYXRpb25zIGF0DQogIGh0dHA6Ly9jdmUubWl0cmUub3Jn
-L2N2ZS9yZXF1ZXN0X2lkLmh0bWwgXSAtLS0tLUJFR0lOIFBHUCBTSUdOQVRVUkUtLS0tLQ0KVmVy
-c2lvbjogR251UEcgdjENCg0KaVFJY0JBRUJDQUFHQlFKWU5lRVRBQW9KRUhiL013V0xWaGkyNlJj
-UC9SMzhTNlYwTEZHUEhPVEZOalRhcGNuVg0KUlBLeWNDL2xPQ0dqUWVoREFVa2h4eFR3b2xKcEpG
-M1JXZUkrS0wvaE92eEErTFAzQjNZZVlkb1luUXlaNlNxSQ0KOEoreno1dlY1bUNQM29sS1l5bk80
-UzMyYkJuOHJaaXdvV3NGV1BhQzRJTG1vUUZUTFppRGJINmppM0RySGV3bQ0KT3dyVHlzeUMxYTdj
-bE91SU0zQmFQbDNSYTBxTUhzZ1IyYjE2Z1lNRWRpL0IxWWEzb0xZN01WTFRCMkFpeEE5Rg0KQkIv
-YVFqRk1JQ2ZjaEVGMzl1UXNsVTNqSmQrU1B1YXlMdmNlaUtJdnFGcUJ0MUQ4S3QyckJhbXpNbUk1
-TUMzTQ0KWmJWQk5mWGRlMU14cWxWMldqVXpsOEtGajJsMXpHN0lsSDFyY1Jlcys2WkkzVmFKbmJ2
-OUp5aTZvYzlRek1RYw0KbkZSZzlzSC9EekQzZzQwYmgyelJCdExxa1FlVHh4a2czSnZhRmMyT0My
-TWF4TWlvYlFDc285MjZkNHBGeFRtZA0KK3g4d1A3RS9uS3ZkNCtFMDkvYmVwL3YwK21FT3hmU0RJ
-Q05HTy83Z0JPVTR3S1o2SXlhTmZ0ZmU1UTF6RGF4dg0KTTN2V0k2VnFURngzMndZN1RFNjlBSElI
-N1g3V3Z6c0JpN0JMajJSSEdGZzJod1M3bjgwQTF0NEJjZFlqUGRTaA0KZmVGeGZWSDVnR0FhRzNC
-bTRqSk9DS2U1K3ZSd3VKR2pub3gyK3ZRdlVyRDl2K3Z4MHoxRDVvb084TXMyTUxuVA0Ka0tMN0JL
-aGNudGNvTEozVFVJMDlJMkhaQlNoN1IzaG9tZ0ZoZ3JwYkRIZDBZamFXNlhncUhqQXI4cGlLRVRv
-Sw0KVjZqQ2hSMFl6WFRrVGx3MWpZbEUNCj16MHRhDQotLS0tLUVORCBQR1AgU0lHTkFUVVJFLS0t
-LS0NCg==
+On 2016/11/23 0:46, Vivien Didelot wrote:
+> Hi Florian,
+> 
+> Florian Fainelli <f.fainelli@gmail.com> writes:
+> 
+>> bridge vlan add vid 2 dev br0 self
+>> 	-> CPU port gets programmed
+>> bridge vlan add vid 2 dev port0
+>> 	-> port0 (switch port 0) gets programmed
+> 
+> Although this is not specific to this patch, I'd like to point out that
+> this seems not to be the behavior bridge expects.
+> 
+> The bridge manpage says:
+> 
+>     bridge vlan add - add a new vlan filter entry
+>     ...
+> 
+>        self   the vlan is configured on the specified physical device.
+>               Required if the device is the bridge device.
+> 
+>        master the vlan is configured on the software bridge (default).
+> 
+> So if I'm not mistaken, the switch chip must be programmed only when the
+> bridge command is called with the "self" attribute. Without it, only
+> software configuration must be made, like what happens when the driver
+> returns -EOPNOTSUPP.
+> 
+> Currently, both commands below program the hardware:
+> 
+>     # bridge vlan add vid 2 dev port0 [master]
+>     # bridge vlan add vid 2 dev port0 [master] self
+
+Actually this is intended behavior, which keeps backward compatibility.
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=7f1095394918c7058ff81c96c3bab3a897e97a9d
+
+Thanks,
+Toshiaki Makita
