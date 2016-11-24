@@ -1,78 +1,90 @@
-From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Subject: Aw: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit
- ethernet driver
-Date: Thu, 24 Nov 2016 13:30:13 +0100
-Message-ID: <trinity-689864d1-7519-49c5-9c6d-8366a1841360-1479990613647@3capp-gmx-bs64>
-References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
- <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
- <20161113195544.GA18258@lunn.ch>
- <69558f55-824a-7063-d9b3-ccc0a6113b87@gmx.de>
- <4450caf4-e1cf-5187-1337-c46b81b08708@gmail.com>
- <0d1b4dee-11bb-3605-699c-ea417484cb68@gmx.de>
- <20161115215907.GF23231@lunn.ch>,
- <86165d2b-f9d5-a380-9bb0-f77c12691eb6@gmx.de>
+From: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Thu, 24 Nov 2016 07:31:17 -0500
+Message-ID: <baf5246d-9d8a-4029-6823-350ed561fd33@pobox.com>
+References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+ <1394712342-15778-227-Taiwan-albertk@realtek.com>
+ <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
+ <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
+ <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>
+ <b61a0e10-c737-8912-3e4e-393f4eb32077@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201051D51@RTITMBSV03.realtek.com.tw>
+ <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
-        gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        LinoSanfilippo@gmx.de
-To: f.fainelli@gmail.com, andrew@lunn.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <86165d2b-f9d5-a380-9bb0-f77c12691eb6@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <95fa9f67-3af6-6749-0e2b-c95406486f7d-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew, Hi Florian
-
-> Gesendet: Dienstag, 15. November 2016 um 23:34 Uhr
-> Von: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-> An: "Andrew Lunn" <andrew@lunn.ch>
-> Cc: "Florian Fainelli" <f.fainelli@gmail.com>, davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com, gregkh@linuxfoundation.org, devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-> Betreff: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit ethernet driver
+On 16-11-23 02:29 PM, Mark Lord wrote:
+> On 16-11-23 10:12 AM, Hayes Wang wrote:
+>> Mark Lord [mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org]
+>> [...]
+>>> What does this code do:
+>>
+>>>> static void r8153_set_rx_early_size(struct r8152 *tp)
+>>>> {
+>>>>        u32 mtu = tp->netdev->mtu;
+>>>>        u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
+>>>>
+>>>>        ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
+>>>> }
+>>
+>> This only works for RTL8153. However, what you use is RTL8152.
+>> It is like delay completion. It is used to reduce the loading of CPU
+>> by letting a transfer contain more data to reduce the number of
+>> transfers.
+>>
+>>> How is ocp_data used by the hardware?
+>>> Shouldn't the calculation also include sizeof(rx_desc) in there somewhere?
+>>
+>> The algorithm is from our hw engineers, and it should be
+>>
+>>    (agg_buf_sz - packet size) / 8
+>>
+>> You could refer to commit a59e6d815226 ("r8152: correct the rx early size").
 >
-> On 15.11.2016 22:59, Andrew Lunn wrote:
-> >> The link state is retrieved by a command to the application processor that is running 
-> >> on the network card. Also the register to set the phy configuration is write-only, so
-> >> it is not even possible to do the usual mdio bit-banging in the Phy read() and write()
-> >> functions (however there seems to be another application processor command reserved 
-> >> for retrieving the PHY settings, but I have not tried it yet). 
-> > 
-> >>> +  			val = MII_BMCR << 16 | SLIC_PCR_AUTONEG |
-> >>> +		     	         SLIC_PCR_AUTONEG_RST;
-> >>> +			slic_write(sdev, SLIC_REG_WPHY, val);
-> > 
-> > This actually looks a lot like an MDIO write operation. The upper 16
-> > bits are the register, and the lower 16 bits are the data. What you
-> > don't have is the address. But maybe it is limited to one address.
-> > 
-> > If the processor command reserved for read works in a similar way, you
-> > have enough to do an MDIO bus.
-> > 
-> 
-> Ok, I will give it a try. Reading values via the application processor
-> is a bit awkward though, since it requires an address to a dma area as part of
-> the command and then the AP informs the driver via irq that the dma memory has 
-> been written. So probably the irq handler will have to set some flag and
-> the mdio_read() function will have to poll for that flag in place of doing 
-> bit-banging a register. 
-> 
-> > If you can get the read working look at registers 2 and 3. Compare
-> > what you get with the values at the end of marvell.c.
-> > 
-> 
-> Will do, thank you!
-> 
+> Thanks.
+>
+> Right now I am working quite hard trying to narrow things down exactly.
+> You are correct that the driver does appear to be careful about accesses
+> beyond the filled portion of a URB buffer -- for some reason I thought
+> the original driver had issues there, but looking again it does not seem to.
+>
+> One idea that is now looking more likely:
+> Things could be suffering from speculative CPU accesses to RAM
+> (the system here has non-coherent d-cache/RAM).
+> This could incorrectly pre-load data from adjacent URB buffers
+> into the d-cache, creating coherency issues.  I am testing now
+> with cacheline-sized guard zones between the buffers to see if
+> that is the issue or not.
 
-unfortunately I was not able to figure out how to read the phy. My hope was to find
-a hidden register that I can use to request the phy status from the cards utility processor.
-I actually found two more registers that seem to be reserved for the communication
-with the UP. At least they cause the UPR irq to be fired but there is no data written to
-the provided dma address. I assume that they are not meant to be used for the this purpose.
-So I am afraid I am not able to use the phy API in this driver for now. 
-However I will send a v2 of the driver shortly that will include the other
-changes suggested by Andrew along with some further small improvements.
-Thanks for your help so far!
+Nope.  Guard zones did not fix it, so it's probably not a prefetch issue.
+Oddly, adding a couple of memory barriers to specific places in the driver
+does help, A LOT.  Still not 100%, but it did pass 1800 reboot tests over night
+with only three bad rx_desc's reported.
 
-Regards,
-Lino
+That's a new record here for the driver using kmalloc'd buffers,
+and put reliability on par with using non-cacheable buffers.
+
+Any way we look at it though, the chip/driver are simply unreliable,
+and relying upon hardware checksums (which fail due to the driver
+looking at garbage rather than the checksum bits) leads to data corruption.
+
+Cheers
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
