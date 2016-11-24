@@ -1,59 +1,19 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] stmmac ethernet: remove cut & paste code
-Date: Thu, 24 Nov 2016 14:27:13 -0800
-Message-ID: <1480026433.19726.17.camel@perches.com>
-References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
-         <20161124102901.GA27793@amd> <20161124103630.GB27793@amd>
-         <20161124104619.GA30723@amd> <20161124110548.GB30723@amd>
-         <1480017925.19726.13.camel@perches.com> <20161124214401.GA25662@amd>
+From: "Brown Baby" <MonicaLinBrownO12@hot-nail.com>
+Subject: hey!
+Date: Thu, 24 Nov 2016 22:48:37 +0000
+Message-ID: <44144.37792.qm@smtp107.biz.mail.ne1.yahoo.com>
+Reply-To: brownlin1988@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-        kernel list <linux-kernel@vger.kernel.org>,
-        ezequiel@vanguardiasur.com.ar, sonic.zhang@analog.com,
-        fabrice.gasnier@st.com
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161124214401.GA25662@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <MonicaLinBrownO12@hot-nail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp107.biz.mail.ne1.yahoo.com ([98.138.207.14]:22577 "EHLO
+        smtp107.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S966512AbcKXWsx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 17:48:53 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-11-24 at 22:44 +0100, Pavel Machek wrote:
-> On Thu 2016-11-24 12:05:25, Joe Perches wrote:
-> > On Thu, 2016-11-24 at 12:05 +0100, Pavel Machek wrote:
-> > > Remove duplicate code from _tx routines.
-> > 
-> > trivia:
-> > 
-> > > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > 
-> > []
-> > > @@ -1960,6 +1960,38 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
-> > >  	}
-> > >  }
-> > >  
-> > > +static void stmmac_xmit_common(struct sk_buff *skb, struct net_device *dev, int nfrags, struct dma_desc *desc)
-> > > +{
-> > > +	struct stmmac_priv *priv = netdev_priv(dev);
-> > > +
-> > > +	if (unlikely(stmmac_tx_avail(priv) <= (MAX_SKB_FRAGS + 1))) {
-> > > +		if (netif_msg_hw(priv))
-> > > +			pr_debug("%s: stop transmitted packets\n", __func__);
-> > 
-> > 		netif_dbg(priv, hw, dev, "%s: stop transmitted packets\n",
-> > 			  __func__);
-> 
-> Not now. Modifying the code while de-duplicating would be bad idea.
-
-Too many people think overly granular patches are the
-best and only way to make changes.
-
-Deduplication and consolidation can happen simultaneously.
-
-> (And it looks like the driver has rather more serious problems than
-> printk style...)
-
-Probably so.
-
-cheers, Joe
+I just wanna be your friend if you can reply me back, Call me Monica.
