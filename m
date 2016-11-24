@@ -1,269 +1,69 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH ethtool v5 2/2] Ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE and PHY downshift
-Date: Thu, 24 Nov 2016 09:56:51 +0100
-Message-ID: <1479977811-5603-3-git-send-email-allan.nielsen@microsemi.com>
-References: <1479977811-5603-1-git-send-email-allan.nielsen@microsemi.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits compatible
+Date: Thu, 24 Nov 2016 10:00:36 +0100
+Message-ID: <21520380.oWTKcrq8DS@wuerfel>
+References: <20161122164844.19566-1-gregory.clement@free-electrons.com> <CAPv3WKf0a63qQT+xwXfUatbgLFF58e6L8J10VtBOUTam+kUcjg@mail.gmail.com> <20161124163327.1cc261ab@xhacker>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linville@tuxdriver.com>, <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0074.outbound.protection.outlook.com ([104.47.36.74]:6800
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S935768AbcKXI5U (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 03:57:20 -0500
-In-Reply-To: <1479977811-5603-1-git-send-email-allan.nielsen@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Jisheng Zhang <jszhang@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161124163327.1cc261ab@xhacker>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On Thursday, November 24, 2016 4:37:36 PM CET Jisheng Zhang wrote:
+> solB (a SW shadow cookie) perhaps gives a better performance: in hot path,
+> such as mvneta_rx(), the driver accesses buf_cookie and buf_phys_addr of
+> rx_desc which is allocated by dma_alloc_coherent, it's noncacheable if the
+> device isn't cache-coherent. I didn't measure the performance difference,
+> because in fact we take solA as well internally. From your experience,
+> can the performance gain deserve the complex code?
 
-Add ethtool get and set tunable to access PHY drivers.
+Yes, a read from uncached memory is fairly slow, so if you have a chance
+to avoid that it will probably help. When adding complexity to the code,
+it probably makes sense to take a runtime profile anyway quantify how
+much it gains.
 
-Ethtool Help: ethtool -h for PHY tunables
-    ethtool --set-phy-tunable DEVNAME      Set PHY tunable
-                [ downshift on|off [count N] ]
-    ethtool --get-phy-tunable DEVNAME      Get PHY tunable
-                [ downshift ]
+On machines that have cache-coherent DMA, accessing the descriptor
+should be fine, as you already have to load the entire cache line
+to read the status field.
 
-Ethtool ex:
-  ethtool --set-phy-tunable eth0 downshift on
-  ethtool --set-phy-tunable eth0 downshift off
-  ethtool --set-phy-tunable eth0 downshift on count 2
+Looking at this snippet:
 
-  ethtool --get-phy-tunable eth0 downshift
+                rx_status = rx_desc->status;
+                rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+                data = (unsigned char *)rx_desc->buf_cookie;
+                phys_addr = rx_desc->buf_phys_addr;
+                pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
+                bm_pool = &pp->bm_priv->bm_pools[pool_id];
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
----
- ethtool.8.in |  40 +++++++++++++++++
- ethtool.c    | 144 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 184 insertions(+)
+                if (!mvneta_rxq_desc_is_first_last(rx_status) ||
+                    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
+err_drop_frame_ret_pool:
+                        /* Return the buffer to the pool */
+                        mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
+                                              rx_desc->buf_phys_addr);
+err_drop_frame:
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 9631847..5c36c06 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -340,6 +340,18 @@ ethtool \- query or control network driver and hardware settings
- .B2 tx-lpi on off
- .BN tx-timer
- .BN advertise
-+.HP
-+.B ethtool \-\-set\-phy\-tunable
-+.I devname
-+.RB [
-+.B downshift
-+.A1 on off
-+.BN count
-+.RB ]
-+.HP
-+.B ethtool \-\-get\-phy\-tunable
-+.I devname
-+.RB [ downshift ]
- .
- .\" Adjust lines (i.e. full justification) and hyphenate.
- .ad
-@@ -947,6 +959,34 @@ Values are as for
- Sets the amount of time the device should stay in idle mode prior to asserting
- its Tx LPI (in microseconds). This has meaning only when Tx LPI is enabled.
- .RE
-+.TP
-+.B \-\-set\-phy\-tunable
-+Sets the PHY tunable parameters.
-+.RS 4
-+.TP
-+.A2 downshift on off
-+Specifies whether downshift should be enabled
-+.TS
-+nokeep;
-+lB	l.
-+.BI count \ N
-+Sets the PHY downshift re-tries count.
-+.TE
-+.PD
-+.RE
-+.TP
-+.B \-\-get\-phy\-tunable
-+Gets the PHY tunable parameters.
-+.RS 4
-+.TP
-+.B downshift
-+For operation in cabling environments that are incompatible with 1000BASE-T,
-+PHY device provides an automatic link speed downshift operation.
-+Link speed downshift after N failed 1000BASE-T auto-negotiation attempts.
-+Downshift is useful where cable does not have the 4 pairs instance.
-+
-+Gets the PHY downshift count/status.
-+.RE
- .SH BUGS
- Not supported (in part or whole) on all network drivers.
- .SH AUTHOR
-diff --git a/ethtool.c b/ethtool.c
-index 49ac94e..7dcd005 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -4520,6 +4520,146 @@ static int do_seee(struct cmd_context *ctx)
- 	return 0;
- }
- 
-+static int do_get_phy_tunable(struct cmd_context *ctx)
-+{
-+	int argc = ctx->argc;
-+	char **argp = ctx->argp;
-+	int err, i;
-+	u8 downshift_changed = 0;
-+
-+	if (argc < 1)
-+		exit_bad_args();
-+	for (i = 0; i < argc; i++) {
-+		if (!strcmp(argp[i], "downshift")) {
-+			downshift_changed = 1;
-+			i += 1;
-+			if (i < argc)
-+				exit_bad_args();
-+		} else  {
-+			exit_bad_args();
-+		}
-+	}
-+
-+	if (downshift_changed) {
-+		struct ethtool_tunable ds;
-+		u8 count = 0;
-+
-+		ds.cmd = ETHTOOL_PHY_GTUNABLE;
-+		ds.id = ETHTOOL_PHY_DOWNSHIFT;
-+		ds.type_id = ETHTOOL_TUNABLE_U8;
-+		ds.len = 1;
-+		ds.data[0] = &count;
-+		err = send_ioctl(ctx, &ds);
-+		if (err < 0) {
-+			perror("Cannot Get PHY downshift count");
-+			return 87;
-+		}
-+		count = *((u8 *)&ds.data[0]);
-+		if (count)
-+			fprintf(stdout, "Downshift count: %d\n", count);
-+		else
-+			fprintf(stdout, "Downshift disabled\n");
-+	}
-+
-+	return err;
-+}
-+
-+static int parse_named_bool(struct cmd_context *ctx, const char *name, u8 *on)
-+{
-+	if (ctx->argc < 2)
-+		return 0;
-+
-+	if (strcmp(*ctx->argp, name))
-+		return 0;
-+
-+	if (!strcmp(*(ctx->argp + 1), "on")) {
-+		*on = 1;
-+	} else if (!strcmp(*(ctx->argp + 1), "off")) {
-+		*on = 0;
-+	} else {
-+		fprintf(stderr, "Invalid boolean\n");
-+		exit_bad_args();
-+	}
-+
-+	ctx->argc -= 2;
-+	ctx->argp += 2;
-+
-+	return 1;
-+}
-+
-+static int parse_named_u8(struct cmd_context *ctx, const char *name, u8 *val)
-+{
-+	if (ctx->argc < 2)
-+		return 0;
-+
-+	if (strcmp(*ctx->argp, name))
-+		return 0;
-+
-+	*val = get_uint_range(*(ctx->argp + 1), 0, 0xff);
-+
-+	ctx->argc -= 2;
-+	ctx->argp += 2;
-+
-+	return 1;
-+}
-+
-+static int do_set_phy_tunable(struct cmd_context *ctx)
-+{
-+	int err = 0;
-+	u8 ds_cnt = DOWNSHIFT_DEV_DEFAULT_COUNT;
-+	u8 ds_changed = 0, ds_has_cnt = 0, ds_enable = 0;
-+
-+	if (ctx->argc == 0)
-+		exit_bad_args();
-+
-+	/* Parse arguments */
-+	while (ctx->argc) {
-+		if (parse_named_bool(ctx, "downshift", &ds_enable)) {
-+			ds_changed = 1;
-+			ds_has_cnt = parse_named_u8(ctx, "count", &ds_cnt);
-+		} else {
-+			exit_bad_args();
-+		}
-+	}
-+
-+	/* Validate parameters */
-+	if (ds_changed) {
-+		if (!ds_enable && ds_has_cnt) {
-+			fprintf(stderr, "'count' may not be set when downshift "
-+				        "is off.\n");
-+			exit_bad_args();
-+		}
-+
-+		if (ds_enable && ds_has_cnt && ds_cnt == 0) {
-+			fprintf(stderr, "'count' may not be zero.\n");
-+			exit_bad_args();
-+		}
-+
-+		if (!ds_enable)
-+			ds_cnt = DOWNSHIFT_DEV_DISABLE;
-+	}
-+
-+	/* Do it */
-+	if (ds_changed) {
-+		struct ethtool_tunable ds;
-+		u8 count;
-+
-+		ds.cmd = ETHTOOL_PHY_STUNABLE;
-+		ds.id = ETHTOOL_PHY_DOWNSHIFT;
-+		ds.type_id = ETHTOOL_TUNABLE_U8;
-+		ds.len = 1;
-+		ds.data[0] = &count;
-+		*((u8 *)&ds.data[0]) = ds_cnt;
-+		err = send_ioctl(ctx, &ds);
-+		if (err < 0) {
-+			perror("Cannot Set PHY downshift count");
-+			err = 87;
-+		}
-+	}
-+
-+	return err;
-+}
-+
- #ifndef TEST_ETHTOOL
- int send_ioctl(struct cmd_context *ctx, void *cmd)
- {
-@@ -4681,6 +4821,10 @@ static const struct option {
- 	  "		[ advertise %x ]\n"
- 	  "		[ tx-lpi on|off ]\n"
- 	  "		[ tx-timer %d ]\n"},
-+	{ "--set-phy-tunable", 1, do_set_phy_tunable, "Set PHY tunable",
-+	  "		[ downshift on|off [count N] ]\n"},
-+	{ "--get-phy-tunable", 1, do_get_phy_tunable, "Get PHY tunable",
-+	  "		[ downshift ]\n"},
- 	{ "-h|--help", 0, show_usage, "Show this help" },
- 	{ "--version", 0, do_version, "Show version number" },
- 	{}
--- 
-2.7.3
+
+I think there is more room for optimizing if you start: you read
+the status field twice (the second one in MVNETA_RX_GET_BM_POOL_ID)
+and you can cache the buf_phys_addr along with the virtual address
+once you add that.
+
+Generally speaking, I'd recommend using READ_ONCE()/WRITE_ONCE()
+to access the descriptor fields, to ensure the compiler doesn't
+add extra references as well as to annotate the expensive
+operations.
+
+	Arnd
