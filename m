@@ -1,42 +1,42 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH net v2 5/5] net: qcom/emac: fix of_node and phydev leaks
-Date: Thu, 24 Nov 2016 12:55:24 -0600
-Message-ID: <5837379C.4080400@codeaurora.org>
-References: <1480011691-13278-1-git-send-email-johan@kernel.org>
- <1480011691-13278-6-git-send-email-johan@kernel.org>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Thu, 24 Nov 2016 13:58:34 -0500
+Message-ID: <e94d7d6b-2f2f-d10e-8862-ac06bfe69897@pobox.com>
+References: <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
+ <baf5246d-9d8a-4029-6823-350ed561fd33@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
+ <20161124.112152.692025478489876693.davem@davemloft.net>
+ <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
+ <20161124184253.GA23483@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Johan Hovold <johan@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, hayeswang@realtek.com,
+        netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480011691-13278-6-git-send-email-johan@kernel.org>
+In-Reply-To: <20161124184253.GA23483@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johan Hovold wrote:
-> Make sure to drop the reference taken by of_phy_find_device() during
-> probe on probe errors and on driver unbind.
+On 16-11-24 01:42 PM, Greg KH wrote:
 >
-> Also drop the of_node reference taken by of_parse_phandle() in the same
-> path.
->
-> Fixes: b9b17debc69d ("net: emac: emac gigabit ethernet controller driver")
-> Signed-off-by: Johan Hovold<johan@kernel.org>
+> Have you tried using usbmon?
 
-When I first wrote this code, I had a lot of trouble getting the PHY to 
-re-probe when the driver was unloaded and reloaded, and it was because 
-of some odd problems with get/put of of_nodes.
+This system is running rootfs over NFS, so usbmon
+isn't realistically going to be usable in that scenario
+without a lot of reconfiguration of the setup (which in itself
+might obscure the original problem).
 
-Since I know that you didn't test this driver on real hardware, I have 
-to test these patches myself before I can ACK them.
+There is a hardware USB analyzer in the building though.
 
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+But it requires a MS-Windows machine (very scarce here, I don't have one)
+for the incredibly user-unfriendly software.  I'm not sure if it can be
+setup to stop the trace somehow at the right point either, as it takes
+overnight runs usually to catch an occurrence of the issue.
+
+I also seem to recall that it only exports data captures in a proprietary
+format that only that brand of software/device can read, but perhaps
+that might not be true.  Would still need to find a MS-Windows machine/license
+to even check it out though.
