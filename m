@@ -1,62 +1,44 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch net-next] sfc: remove unneeded variable
-Date: Thu, 24 Nov 2016 14:16:51 +0300
-Message-ID: <20161124111651.GJ17225@mwanda>
+Subject: [patch] fsl/fman: fix a leak in tgec_free()
+Date: Thu, 24 Nov 2016 14:20:43 +0300
+Message-ID: <20161124111931.GK17225@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-        Edward Cree <ecree@solarflare.com>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Madalin Bucur <madalin.bucur@nxp.com>,
+        Igal Liberman <igal.liberman@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:25587 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964867AbcKXLSB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 06:18:01 -0500
+Received: from aserp1050.oracle.com ([141.146.126.70]:40034 "EHLO
+        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964981AbcKXLY1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 06:24:27 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't use ->heap_buf after commit 46d1efd852cc ("sfc: remove Software
-TSO") so let's remove the last traces.
+We set "tgec->cfg" to NULL before passing it to kfree().  There is no
+need to set it to NULL at all.  Let's just delete it.
 
+Fixes: 57ba4c9b56d8 ("fsl/fman: Add FMan MAC support")
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+I haven't tested this.  It occurs to me that this code might be
+something to paper over a use after free bug by changing it to a leak
+instead.
 
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index f97f828..fd17bda 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -139,8 +139,6 @@ struct efx_special_buffer {
-  * struct efx_tx_buffer - buffer state for a TX descriptor
-  * @skb: When @flags & %EFX_TX_BUF_SKB, the associated socket buffer to be
-  *	freed when descriptor completes
-- * @heap_buf: When @flags & %EFX_TX_BUF_HEAP, the associated heap buffer to be
-- *	freed when descriptor completes.
-  * @option: When @flags & %EFX_TX_BUF_OPTION, a NIC-specific option descriptor.
-  * @dma_addr: DMA address of the fragment.
-  * @flags: Flags for allocation and DMA mapping type
-@@ -151,10 +149,7 @@ struct efx_special_buffer {
-  * Only valid if @unmap_len != 0.
-  */
- struct efx_tx_buffer {
--	union {
--		const struct sk_buff *skb;
--		void *heap_buf;
--	};
-+	const struct sk_buff *skb;
- 	union {
- 		efx_qword_t option;
- 		dma_addr_t dma_addr;
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index 1aa728c..bb07034 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -84,8 +84,6 @@ static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
- 		netif_vdbg(tx_queue->efx, tx_done, tx_queue->efx->net_dev,
- 			   "TX queue %d transmission id %x complete\n",
- 			   tx_queue->queue, tx_queue->read_count);
--	} else if (buffer->flags & EFX_TX_BUF_HEAP) {
--		kfree(buffer->heap_buf);
- 	}
+It applies to net-master.
+
+diff --git a/drivers/net/ethernet/freescale/fman/fman_tgec.c b/drivers/net/ethernet/freescale/fman/fman_tgec.c
+index efabb04..4b0f3a5 100644
+--- a/drivers/net/ethernet/freescale/fman/fman_tgec.c
++++ b/drivers/net/ethernet/freescale/fman/fman_tgec.c
+@@ -722,9 +722,6 @@ int tgec_free(struct fman_mac *tgec)
+ {
+ 	free_init_resources(tgec);
  
- 	buffer->len = 0;
+-	if (tgec->cfg)
+-		tgec->cfg = NULL;
+-
+ 	kfree(tgec->cfg);
+ 	kfree(tgec);
+ 
