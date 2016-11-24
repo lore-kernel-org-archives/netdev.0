@@ -1,35 +1,37 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [net-next PATCH v1 1/2] net: dt-bindings: add RGMII TX delay
- configuration to meson8b-dwmac
-Date: Thu, 24 Nov 2016 16:48:58 +0100
-Message-ID: <20161124154858.GB20455@lunn.ch>
-References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
- <20161124143417.10178-2-martin.blumenstingl@googlemail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 1/2] openvswitch: Add a missing break
+ statement.
+Date: Thu, 24 Nov 2016 16:55:33 +0100
+Message-ID: <20161124165533.7eaf4b01@griffin>
+References: <1479874174-75329-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-amlogic@lists.infradead.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, davem@davemloft.net, khilman@baylibre.com,
-        mark.rutland@arm.com, robh+dt@kernel.org,
-        linux-arm-kernel@lists.infradead.org, alexandre.torgue@st.com,
-        peppe.cavallaro@st.com, carlo@caione.org, jbrunet@baylibre.com
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jarno Rajahalme <jarno@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54366 "EHLO vps0.lunn.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:60222 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966602AbcKXPtD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 10:49:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20161124143417.10178-2-martin.blumenstingl@googlemail.com>
+        id S966252AbcKXPzh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 10:55:37 -0500
+In-Reply-To: <1479874174-75329-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The configuration values are provided as preprocessor macros to make the
-> devicetree files easier to read.
+On Tue, 22 Nov 2016 20:09:33 -0800, Jarno Rajahalme wrote:
+> Add a break statement to prevent fall-through from
+> OVS_KEY_ATTR_ETHERNET to OVS_KEY_ATTR_TUNNEL.  Without the break
+> actions setting ethernet addresses fail to validate with log messages
+> complaining about invalid tunnel attributes.
+> 
+> Fixes: 0a6410fbde ("openvswitch: netlink: support L3 packets")
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 
-Hi Martin
+Acked-by: Jiri Benc <jbenc@redhat.com>
 
-If i'm reading the code/comments correctly, you can set the delay to
-0, 2, 4 or 6ns? So calling this property amlogic,tx-delay-ns would be
-even easier to read.
+It's a good practice to CC the one who messed up :-) Please do that
+next time.
 
-     Andrew
+Thanks for noticing the bug and fixing it.
+
+ Jiri
