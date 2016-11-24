@@ -1,79 +1,95 @@
-From: Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH 1/4] bindings: net: stmmac: correct note about TSO
-Date: Thu, 24 Nov 2016 18:42:24 +0100
-Message-ID: <534cf0ea-fae9-cb6b-5a90-1d2df9f19e15@st.com>
-References: <1479911066-19752-1-git-send-email-niklass@axis.com>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: [PATCH 4/4] net: stmmac: stmmac_platform: use correct setup
+ function for gmac4
+Date: Thu, 24 Nov 2016 18:58:35 +0100
+Message-ID: <3a5aabfa-fc49-68ff-7388-493f8da6044d@st.com>
+References: <1479911117-19917-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>,
-        Niklas Cassel <niklass-VrBV9hrLPhE@public.gmane.org>,
-        Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1479911066-19752-1-git-send-email-niklass-VrBV9hrLPhE@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:38671 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754136AbcKXR6o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 12:58:44 -0500
+In-Reply-To: <1479911117-19917-1-git-send-email-niklass@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Niklas,
 
-On 11/23/2016 03:24 PM, Niklas Cassel wrote:
-> From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+On 11/23/2016 03:25 PM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
 >
-> snps,tso was previously placed under AXI BUS Mode parameters,
-> suggesting that the property should be in the stmmac-axi-config node.
+> devicetree binding for stmmac states:
+> - compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
+> 	For backwards compatibility: "st,spear600-gmac" is also supported.
 >
-> TSO (TCP Segmentation Offloading) has nothing to do with AXI BUS Mode
-> parameters, and the parser actually expects it to be in the root node,
-> not in the stmmac-axi-config.
+> Previously, when specifying "snps,dwmac-4.10a", "snps,dwmac" as your
+> compatible string, plat_stmmacenet_data would have both has_gmac and
+> has_gmac4 set.
 >
-> Also added a note about snps,tso only being available on GMAC4 and newer.
+> This would lead to stmmac_hw_init calling dwmac1000_setup rather than
+> dwmac4_setup, resulting in a non-functional driver.
+> This happened since the check for has_gmac is done before the check for
+> has_gmac4. However, the order should not matter, so it does not make sense
+> to have both set.
+
+Well spot.
+
 >
-> Signed-off-by: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+> If something is valid for both, you should do as the stmmac_interrupt does:
+> if (priv->plat->has_gmac || priv->plat->has_gmac4) ...
+>
+> The places where it was obvious that the author actually meant
+> if (has_gmac || has_gmac4) rather than if (has_gmac) has been updated.
+>
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 > ---
->  Documentation/devicetree/bindings/net/stmmac.txt | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c  | 4 ++--
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 +
+>  2 files changed, 3 insertions(+), 2 deletions(-)
 >
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index 41b49e6075f5..b95ff998ba73 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -1,7 +1,7 @@
->  * STMicroelectronics 10/100/1000 Ethernet driver (GMAC)
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> index d5a8122b6033..dd5b38e4cd1f 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> @@ -263,7 +263,7 @@ static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
+>  {
+>  	struct stmmac_priv *priv = netdev_priv(dev);
 >
->  Required properties:
-> -- compatible: Should be "snps,dwmac-<ip_version>" "snps,dwmac"
-> +- compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
->  	For backwards compatibility: "st,spear600-gmac" is also supported.
->  - reg: Address and length of the register set for the device
->  - interrupt-parent: Should be the phandle for the interrupt controller
-> @@ -50,6 +50,8 @@ Optional properties:
->  - snps,ps-speed: port selection speed that can be passed to the core when
->  		 PCS is supported. For example, this is used in case of SGMII
->  		 and MAC2MAC connection.
-> +- snps,tso: this enables the TSO feature otherwise it will be managed by
-> +		 MAC HW capability register. Only for GMAC4 and newer.
->  - AXI BUS Mode parameters: below the list of all the parameters to program the
->  			   AXI register inside the DMA module:
->  	- snps,lpi_en: enable Low Power Interface
-> @@ -62,8 +64,6 @@ Optional properties:
->  	- snps,fb: fixed-burst
->  	- snps,mb: mixed-burst
->  	- snps,rb: rebuild INCRx Burst
-> -	- snps,tso: this enables the TSO feature otherwise it will be managed by
-> -	    MAC HW capability register.
->  - mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
+> -	if (priv->plat->has_gmac)
+> +	if (priv->plat->has_gmac || priv->plat->has_gmac4)
+>  		strlcpy(info->driver, GMAC_ETHTOOL_NAME, sizeof(info->driver));
+>  	else
+>  		strlcpy(info->driver, MAC100_ETHTOOL_NAME,
+> @@ -448,7 +448,7 @@ static void stmmac_ethtool_gregs(struct net_device *dev,
 >
->  Examples:
+>  	memset(reg_space, 0x0, REG_SPACE_SIZE);
 >
-Acked-by: <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -	if (!priv->plat->has_gmac) {
+> +	if (!(priv->plat->has_gmac || priv->plat->has_gmac4)) {
+>  		/* MAC registers */
+>  		for (i = 0; i < 12; i++)
+>  			reg_space[i] = readl(priv->ioaddr + (i * 4));
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 4d544c34c1f2..c8a59f396c6e 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -291,6 +291,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>  	if (of_device_is_compatible(np, "snps,dwmac-4.00") ||
+>  	    of_device_is_compatible(np, "snps,dwmac-4.10a")) {
+>  		plat->has_gmac4 = 1;
+> +		plat->has_gmac = 0;
+>  		plat->pmt = 1;
+>  		plat->tso_en = of_property_read_bool(np, "snps,tso");
+>  	}
+>
+Thanks Niklas, Acked-by: <alexandre.torgue@st.com>
+
+Regards
+Alex
