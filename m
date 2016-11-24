@@ -1,65 +1,39 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
-Date: Thu, 24 Nov 2016 22:36:58 +0200
-Message-ID: <20161124222357-mutt-send-email-mst@kernel.org>
-References: <1479983114-17190-1-git-send-email-mark.rutland@arm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bnxt: do not busy-poll when link is down
+Date: Thu, 24 Nov 2016 15:40:05 -0500 (EST)
+Message-ID: <20161124.154005.944121181562755910.davem@davemloft.net>
+References: <1479838448-44877-1-git-send-email-gospo@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dave@stgolabs.net, kvm@vger.kernel.org, dbueso@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	paulmck@linux.vnet.ibm.com, dvyukov@google.com
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1479983114-17190-1-git-send-email-mark.rutland@arm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, michael.chan@broadcom.com
+To: gospo@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41014 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756748AbcKXUkI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 15:40:08 -0500
+In-Reply-To: <1479838448-44877-1-git-send-email-gospo@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 24, 2016 at 10:25:11AM +0000, Mark Rutland wrote:
-> For several reasons, it would be beneficial to kill off ACCESS_ONCE()
-> tree-wide, in favour of {READ,WRITE}_ONCE(). These work with aggregate types,
-> more obviously document their intended behaviour, and are necessary for tools
-> like KTSAN to work correctly (as otherwise reads and writes cannot be
-> instrumented separately).
+From: Andy Gospodarek <gospo@broadcom.com>
+Date: Tue, 22 Nov 2016 13:14:08 -0500
+
+> When busy polling while a link is down (during a link-flap test), TX
+> timeouts were observed as well as the following messages in the ring
+> buffer:
 > 
-> While it's possible to script the bulk of this tree-wide conversion, some cases
-> such as the virtio code, require some manual intervention. This series moves
-> the virtio and vringh code over to {READ,WRITE}_ONCE(), in the process fixing a
-> bug in the virtio headers.
+> bnxt_en 0008:01:00.2 enP8p1s0f2d2: Resp cmpl intr err msg: 0x51
+> bnxt_en 0008:01:00.2 enP8p1s0f2d2: hwrm_ring_free tx failed. rc:-1
+> bnxt_en 0008:01:00.2 enP8p1s0f2d2: Resp cmpl intr err msg: 0x51
+> bnxt_en 0008:01:00.2 enP8p1s0f2d2: hwrm_ring_free rx failed. rc:-1
 > 
-> Thanks,
-> Mark.
-
-I don't have a problem with this specific patchset.
-
-Though I really question the whole _ONCE APIs esp with
-aggregate types - these seem to generate a memcpy and
-an 8-byte read/writes sometimes, and I'm pretty sure this simply
-can't be read/written at once on all architectures.
-
-So I worry it's kind of like volatile in this respect,
-too easy to overuse.
-
-
-> Mark Rutland (3):
->   tools/virtio: fix READ_ONCE()
->   vringh: kill off ACCESS_ONCE()
->   tools/virtio: use {READ,WRITE}_ONCE() in uaccess.h
+> These were resolved by checking for link status and returning if link
+> was not up.
 > 
->  drivers/vhost/vringh.c        | 5 +++--
->  tools/virtio/linux/compiler.h | 2 +-
->  tools/virtio/linux/uaccess.h  | 9 +++++----
->  3 files changed, 9 insertions(+), 7 deletions(-)
-> 
-> -- 
-> 2.7.4
+> Signed-off-by: Andy Gospodarek <gospo@broadcom.com>
+> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+> Tested-by: Rob Miller <rob.miller@broadcom.com>
+
+Applied.
