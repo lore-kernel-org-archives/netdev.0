@@ -1,54 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] igb: Explicitly select page 0 at initialization
-Date: Thu, 24 Nov 2016 13:36:55 +0300
-Message-ID: <bf11b668-0ee4-3cfd-405b-43705a6e011e@cogentembedded.com>
-References: <1479983568-4383-1-git-send-email-matwey@sai.msu.ru>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: [PATCH] stmmac ethernet: unify locking
+Date: Thu, 24 Nov 2016 11:46:19 +0100
+Message-ID: <20161124104619.GA30723@amd>
+References: <20161123105125.GA26394@amd>
+ <20161124085506.GA25007@amd>
+ <20161124102901.GA27793@amd>
+ <20161124103630.GB27793@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, todd.fujinaka@intel.com,
-        carolyn.wyborny@intel.com, dchang@suse.com, jcheung@suse.com,
-        matwey.kornilov@gmail.com, stable@vger.kernel.org
-To: "Matwey V. Kornilov" <matwey@sai.msu.ru>,
-        jeffrey.t.kirsher@intel.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="MGYHOYXEY6WxJCY8"
+To: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+        kernel list <linux-kernel@vger.kernel.org>,
+        ezequiel@vanguardiasur.com.ar, sonic.zhang@analog.com,
+        fabrice.gasnier@st.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479983568-4383-1-git-send-email-matwey@sai.msu.ru>
+Content-Disposition: inline
+In-Reply-To: <20161124103630.GB27793@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-On 11/24/2016 1:32 PM, Matwey V. Kornilov wrote:
+--MGYHOYXEY6WxJCY8
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> The functions igb_read_phy_reg_gs40g/igb_write_phy_reg_gs40g (which were
-> removed in 2a3cdea) explicitly selected the required page at every phy_reg
 
-    This is not the way to cite a commit -- you need to specify at least 12 
-digits and follow them with the commit subject enclosed into ("").
+Make locking match in both _xmit functions.
+  =20
+Signed-off-by: Pavel Machek <pavel@denx.de>
 
-> access. Currently, igb_get_phy_id_82575 relays on the fact that page 0 is
-> already selected. The assumption is not fulfilled for my Lex 3I380CW
-> motherboard with integrated dual i211 based gigabit ethernet. This leads to igb
-> initialization failure and network interfaces are not working:
->
->     igb: Intel(R) Gigabit Ethernet Network Driver - version 5.4.0-k
->     igb: Copyright (c) 2007-2014 Intel Corporation.
->     igb: probe of 0000:01:00.0 failed with error -2
->     igb: probe of 0000:02:00.0 failed with error -2
->
-> In order to fix it, we explicitly select page 0 before first access to phy
-> registers.
->
-> See also: https://bugzilla.suse.com/show_bug.cgi?id=1009911
-> See also: http://www.lex.com.tw/products/pdf/3I380A&3I380CW.pdf
->
-> Fixes: 2a3cdea ("igb: Remove GS40G specific defines/functions")
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/ne=
+t/ethernet/stmicro/stmmac/stmmac_main.c
+index 0363db3..1cff258 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2185,12 +2185,12 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb,=
+ struct net_device *dev)
+ 	spin_lock(&priv->tx_lock);
+=20
+ 	if (unlikely(stmmac_tx_avail(priv) < nfrags + 1)) {
+-		spin_unlock(&priv->tx_lock);
+ 		if (!netif_queue_stopped(dev)) {
+ 			netif_stop_queue(dev);
+ 			/* This is a hard error, log it. */
+ 			pr_err("%s: Tx Ring full when queue awake\n", __func__);
+ 		}
++		spin_unlock(&priv->tx_lock);
+ 		return NETDEV_TX_BUSY;
+ 	}
+=20
 
-    Again, at least 12 digits.
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
 
-> Cc: <stable@vger.kernel.org> # 4.5+
-> Signed-off-by: Matwey V. Kornilov <matwey@sai.msu.ru>
-[...]
+--MGYHOYXEY6WxJCY8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-MBR, Sergei
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlg2xPsACgkQMOfwapXb+vKNhACfaaJH+wlVKawDT3eEUECraW2L
+xzIAnRM6If4DdYAy/0O4fI80Z78BiHWN
+=aXNg
+-----END PGP SIGNATURE-----
+
+--MGYHOYXEY6WxJCY8--
