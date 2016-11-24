@@ -1,46 +1,37 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] cpsw: ethtool: add support for getting/setting EEE
- registers
-Date: Thu, 24 Nov 2016 16:38:09 +0100
-Message-ID: <20161124153809.GA20455@lunn.ch>
-References: <1479911913-1761-1-git-send-email-yegorslists@googlemail.com>
- <93e0bd06-3171-e12b-b763-1e2895a463f8@gmail.com>
- <CAGm1_ksC_6afhzK39uVTSk2PoC9CrR4Fow89YCZfihS2f6wzOw@mail.gmail.com>
- <c91dcd74-3983-3ab6-91f6-3657b1e601af@gmail.com>
- <CAGm1_ktuAbt0pr_NJu2GLDOavFV_bvMBmH5RvDxr5AyXvfwB3A@mail.gmail.com>
+From: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Thu, 24 Nov 2016 17:31:23 +0200
+Message-ID: <56cc60dc-f0f2-a9d4-75d1-da8f2f60531e@gmail.com>
+References: <201611111820.52072@pali> <201611221805.13606@pali>
+ <20161123222335.GA4788@amd> <201611232339.59411@pali>
+ <20161124075104.GA26721@amd> <20161124083329.GB13735@pali>
+ <20161124151317.34yoza3dzuh46oa4@earth> <20161124152045.GK13735@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "N, Mugunthan V" <mugunthanvnm@ti.com>,
-        Rami Rosen <roszenrami@gmail.com>
-To: Yegor Yefremov <yegorslists@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54342 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966777AbcKXPiL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 10:38:11 -0500
-Content-Disposition: inline
-In-Reply-To: <CAGm1_ktuAbt0pr_NJu2GLDOavFV_bvMBmH5RvDxr5AyXvfwB3A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Pavel Machek <pavel@ucw.cz>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
+        Sebastian Reichel <sre@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161124152045.GK13735@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> As for enabling advertising and correct working of cpsw do you mean it
-> would be better to disable EEE in any PHY on cpsw initialization as
-> long as cpsw doesn't provide support for EEE?
-> 
-> We observe some strange behavior with our gigabit PHYs and a link
-> partner in a EEE-capable unmanaged NetGear switch. Disabling
-> advertising seems to help. Though we're still investigating the issue.
+Hi,
 
-Hi Florian
+On 24.11.2016 17:20, Pali Rohár wrote:
+>
+> In case when wl1251 is statically linked into kernel image, it is loaded
+> and initialized before even userspace applications starts.
+>
 
-Am i right in saying, a PHY should not advertise EEE until the MAC
-driver calls phy_init_eee(), indicating the MAC supports EEE?
+Which leaves no option, but integrating libcal into kernel :).
 
-If so, it looks like we need to change a few of the PHY drivers, in
-particular, the bcm-*.c.
-
-    Andrew
+Ivo
