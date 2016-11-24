@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlx4: reorganize struct mlx4_en_tx_ring
-Date: Thu, 24 Nov 2016 16:04:13 -0500 (EST)
-Message-ID: <20161124.160413.361550700742982089.davem@davemloft.net>
-References: <1479858970.8455.461.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next 2/2] samples/bpf: fix bpf loader
+Date: Thu, 24 Nov 2016 16:05:09 -0500 (EST)
+Message-ID: <20161124.160509.1361530663050535399.davem@davemloft.net>
+References: <1479862329-2361912-1-git-send-email-ast@fb.com>
+        <1479862329-2361912-2-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com
-To: eric.dumazet@gmail.com
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41706 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41724 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965980AbcKXVEP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 16:04:15 -0500
-In-Reply-To: <1479858970.8455.461.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S965980AbcKXVFR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 16:05:17 -0500
+In-Reply-To: <1479862329-2361912-2-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 22 Nov 2016 15:56:10 -0800
+From: Alexei Starovoitov <ast@fb.com>
+Date: Tue, 22 Nov 2016 16:52:09 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> llvm can emit relocations into sections other than program code
+> (like debug info sections). Ignore them during parsing of elf file
 > 
-> Goal is to reorganize this critical structure to increase performance.
-> 
-> ndo_start_xmit() should only dirty one cache line, and access as few
-> cache lines as possible.
-> 
-> Add sp_ (Slow Path) prefix to fields that are not used in fast path,
-> to make clear what is going on.
-> 
-> After this patch pahole reports something much better, as all
-> ndo_start_xmit() needed fields are packed into two cache lines instead
-> of seven or eight
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied, thanks Eric.
+Applied.
