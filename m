@@ -1,54 +1,70 @@
-From: =?utf-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
-Subject: =?utf-8?B?562U5aSNOiBbc2NyMjY1NDgyXSBpcF90dW5uZWwuYw==?=
-Date: Thu, 24 Nov 2016 07:45:52 +0000
-Message-ID: <F41877A268BCDE49BAEE2286FA8C269F6FECFBBF@LETV-MBX-IDC09.letv.local>
-References: <860a2905e7f7467f864e13839eb05222@imshyb02.MITRE.ORG>
- <F41877A268BCDE49BAEE2286FA8C269F6FECFB15@LETV-MBX-IDC09.letv.local>
- <CAM_iQpX7mU7gogGx1peYMoOQbp0CZgYmTZJt=uGFm0c0gviY5A@mail.gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Thu, 24 Nov 2016 08:51:04 +0100
+Message-ID: <20161124075104.GA26721@amd>
+References: <201611111820.52072@pali>
+ <201611221805.13606@pali>
+ <20161123222335.GA4788@amd>
+ <201611232339.59411@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "security@kernel.org" <security@kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "cve-request@mitre.org" <cve-request@mitre.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.letv.com ([115.182.93.109]:11178 "EHLO letvspm.imsa.com"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754649AbcKXHqu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 02:46:50 -0500
-In-Reply-To: <CAM_iQpX7mU7gogGx1peYMoOQbp0CZgYmTZJt=uGFm0c0gviY5A@mail.gmail.com>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="4Ckj6UjgE2iN1+kY"
+Cc: Michal Kazior <michal.kazior@tieto.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201611232339.59411@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-WWVhaO+8jEkgbWVhbnMgdGhhdCByZWNyZWF0ZSB0aGUgdHVubmVsIGFnYWluLCANCkJ1dCBJIGRv
-buKAmXQgdGhpbmsgdGhlIHBhdGNoIGNhbiBmaXggdGhlIGJ1Zy4gSXQgb25seSBjYW4gbWFrZSB0
-aGUgZmlyc3QgcGFja2V0IHJlY2VpdmVkIHN1Y2Nlc3NlZC4gQW5kIHRoZSBmb2xsb3cgcGFja2V0
-IHdpbGwgZHJvcGVkIGFsc28uDQpJbiBmdW5jdGlvbiBfX2dyZV94bWl0ICBsaW5lIDM2NiANCiAg
-dHVubmVsLT5vX3NlcW5vKys7DQoNCklmIHlvdSByZXN0YXJ0IGZyb20gVUlOVF9NQVgsIHRoZSAn
-b19zZXFubycgb2Ygc2Vjb25kIHBhY2tldCB3aWxsIHJldHVybiB0byAwIGFnYWluLiANCg0KQlRX
-Og0KICAgQ2FuIHlvdSByZWFkIENoaW5lc2U/IDopDQoNCk9uIFdlZCwgTm92IDIzLCAyMDE2IGF0
-IDY6NDcgUE0sIExpeWFuZyBZdSAo5LqO56uL5rSLMSkgPHl1bGl5YW5nMUBsZS5jb20+IHdyb3Rl
-Og0KPiBIaToNCj4gICAgICAgICBJIGZvdW5kIHRoYXQgdGhlIEdSRSB0dW5uZWwgaW4gc2FtZSBj
-YXNlIGNhbiBjYXVzZSBpbnRlZ2VyIA0KPiBvdmVyZmxvdyBpbiBpcF90dW5uZWwuYzozOTcNCj4N
-Cj4gQ2F1c2Ugb2YgdGhlIHByb2JsZW06DQo+ICAgICAgICAgV2hlbiB0cGktPnNlcSBsZXNzIHRo
-YW4gdHVubmVsLT5pX3NlcW5vLCB0aGUgcGFja2V0IHdpbGwgYmUgZHJvcGVkLg0KPg0KPiBIb3cg
-dG8gcmVjdXJyZW5jZSBwcm9ibGVtDQo+ICAgICAgICAgMS4gQ3JlYXRlIGFuIHR1bm5lbCB1c2Ug
-a2VybmVsIEdSRSBtb2R1bGUuDQo+ICAgICAyLiBVc2UgdGhlIHR1bm5lbCB0byBzZW5kIHBhY2tl
-dHMgZm9yIGF3aWxlLg0KPiAgICAgMy5SZWJvb3Qgb25lIHNpdGUgb2YgdGhlIHR1bm5lbC4NCj4g
-ICAgIDQuIENvbW11bmljYXRpb24gaW50ZXJydXB0ZWQNCg0KV2hhdCBkbyB5b3UgbWVhbiBieSAi
-cmVib290IG9uZSBzaXRlIG9mIHRoZSB0dW5uZWwiPw0KDQpJZiB5b3UgbWVhbiBzb21ldGhpbmcg
-bGlrZSBkZWxldGUgYW5kIGNyZWF0ZSBpdCBhZ2FpbiwgaXQgaGFzIG5vdGhpbmcgcmVsYXRlZCB0
-byBpbnRlZ2VyIG92ZXJmbG93LCB0aGUgdHVubmVsLT5vX3NlcW5vIHdpbGwgcmVzdGFydCBmcm9t
-IDAgYW5kIHRoZSB0dW5uZWwtPmlfc2Vxbm8gd2lsbCByZW1haW4gYXMgaXQgaXMgc2luY2Ugd2Ug
-Y2FuJ3QgZGV0ZWN0IHRoZSBpbnRlcnJ1cHRpb24gb2YgdGhlIHR1bm5lbCB0cmFmZmljLg0KSWYg
-c28sIHRoZSBmb2xsb3dpbmcgcGF0Y2ggY291bGQgaGVscD8NCg0KDQpkaWZmIC0tZ2l0IGEvbmV0
-L2lwdjQvaXBfdHVubmVsLmMgYi9uZXQvaXB2NC9pcF90dW5uZWwuYyBpbmRleCA1NzE5ZDZiLi4y
-NzM4ZmYyIDEwMDY0NA0KLS0tIGEvbmV0L2lwdjQvaXBfdHVubmVsLmMNCisrKyBiL25ldC9pcHY0
-L2lwX3R1bm5lbC5jDQpAQCAtMjc3LDYgKzI3Nyw3IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqX19pcF90dW5uZWxfY3JlYXRlKHN0cnVjdCBuZXQgKm5ldCwNCiAgICAgICAgdHVubmVsID0g
-bmV0ZGV2X3ByaXYoZGV2KTsNCiAgICAgICAgdHVubmVsLT5wYXJtcyA9ICpwYXJtczsNCiAgICAg
-ICAgdHVubmVsLT5uZXQgPSBuZXQ7DQorICAgICAgIHR1bm5lbC0+b19zZXFubyA9IFVJTlRfTUFY
-Ow0KDQogICAgICAgIGVyciA9IHJlZ2lzdGVyX25ldGRldmljZShkZXYpOw0KICAgICAgICBpZiAo
-ZXJyKQ0K
+
+--4Ckj6UjgE2iN1+kY
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi!
+
+> > "ifconfig hw ether XX" normally sets the address. I guess that's
+> > ioctl?
+>=20
+> This sets temporary address and it is ioctl. IIRC same as what ethtool=20
+> uses. (ifconfig is already deprecated).
+>=20
+> > And I guess we should use similar mechanism for permanent
+> > address.
+>=20
+> I'm not sure here... Above ioctl =E2=86=91=E2=86=91=E2=86=91 is for chang=
+ing temporary mac=20
+> address. But here we do not want to change permanent mac address. We=20
+> want to tell kernel driver current permanent mac address which is
+> stored
+
+Well... I'd still use similar mechanism :-).
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--4Ckj6UjgE2iN1+kY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlg2m+gACgkQMOfwapXb+vKdTACgmqIMZEMe0mifTbptRfXmAGMs
+ioQAnRac8nGiIzkUhJyJ3dZKrfjvcGd7
+=ueN4
+-----END PGP SIGNATURE-----
+
+--4Ckj6UjgE2iN1+kY--
