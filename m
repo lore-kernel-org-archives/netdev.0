@@ -1,41 +1,168 @@
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [patch] net/mlx5: remove a duplicate condition
-Date: Thu, 24 Nov 2016 14:03:45 +0300
-Message-ID: <20161124110345.GC17225@mwanda>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: [PATCH] stmmac ethernet: remove cut & paste code
+Date: Thu, 24 Nov 2016 12:05:48 +0100
+Message-ID: <20161124110548.GB30723@amd>
+References: <20161123105125.GA26394@amd>
+ <20161124085506.GA25007@amd>
+ <20161124102901.GA27793@amd>
+ <20161124103630.GB27793@amd>
+ <20161124104619.GA30723@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="hHWLQfXTYDoKhP50"
+To: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+        kernel list <linux-kernel@vger.kernel.org>,
+        ezequiel@vanguardiasur.com.ar, sonic.zhang@analog.com,
+        fabrice.gasnier@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20161124104619.GA30723@amd>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We verified that MLX5_FLOW_CONTEXT_ACTION_COUNT was set on the first
-line of the function so we don't need to check again here.
 
-Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
-Not a bugfix so it would go into -next
+--hHWLQfXTYDoKhP50
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 68ec4ea..a263d89 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -1307,8 +1307,7 @@ static bool counter_is_valid(struct mlx5_fc *counter, u32 action)
- 		return false;
- 
- 	return (action & (MLX5_FLOW_CONTEXT_ACTION_DROP |
--			  MLX5_FLOW_CONTEXT_ACTION_FWD_DEST)) &&
--		(action & MLX5_FLOW_CONTEXT_ACTION_COUNT);
-+			  MLX5_FLOW_CONTEXT_ACTION_FWD_DEST));
+
+Remove duplicate code from _tx routines.
+   =20
+Signed-off-by: Pavel Machek <pavel@denx.de>
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/ne=
+t/ethernet/stmicro/stmmac/stmmac_main.c
+index 1cff258..5cf9cef 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1960,6 +1960,38 @@ static void stmmac_tso_allocator(struct stmmac_priv =
+*priv, unsigned int des,
+ 	}
  }
- 
- static bool dest_is_valid(struct mlx5_flow_destination *dest,
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=20
++static void stmmac_xmit_common(struct sk_buff *skb, struct net_device *dev=
+, int nfrags, struct dma_desc *desc)
++{
++	struct stmmac_priv *priv =3D netdev_priv(dev);
++
++	if (unlikely(stmmac_tx_avail(priv) <=3D (MAX_SKB_FRAGS + 1))) {
++		if (netif_msg_hw(priv))
++			pr_debug("%s: stop transmitted packets\n", __func__);
++		netif_stop_queue(dev);
++	}
++
++	dev->stats.tx_bytes +=3D skb->len;
++
++	/* According to the coalesce parameter the IC bit for the latest
++	 * segment is reset and the timer re-started to clean the tx status.
++	 * This approach takes care about the fragments: desc is the first
++	 * element in case of no SG.
++	 */
++	priv->tx_count_frames +=3D nfrags + 1;
++	if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
++		mod_timer(&priv->txtimer,
++			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
++	} else {
++		priv->tx_count_frames =3D 0;
++		priv->hw->desc->set_tx_ic(desc);
++		priv->xstats.tx_set_ic_bit++;
++	}
++
++	if (!priv->hwts_tx_en)
++		skb_tx_timestamp(skb);
++}
++
++
+ /**
+  *  stmmac_tso_xmit - Tx entry point of the driver for oversized frames (T=
+SO)
+  *  @skb : the socket buffer
+@@ -2081,30 +2113,11 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *=
+skb, struct net_device *dev)
+=20
+ 	priv->cur_tx =3D STMMAC_GET_ENTRY(priv->cur_tx, DMA_TX_SIZE);
+=20
+-	if (unlikely(stmmac_tx_avail(priv) <=3D (MAX_SKB_FRAGS + 1))) {
+-		if (netif_msg_hw(priv))
+-			pr_debug("%s: stop transmitted packets\n", __func__);
+-		netif_stop_queue(dev);
+-	}
+-
+-	dev->stats.tx_bytes +=3D skb->len;
++	stmmac_xmit_common(skb, dev, nfrags, desc);
++=09
+ 	priv->xstats.tx_tso_frames++;
+ 	priv->xstats.tx_tso_nfrags +=3D nfrags;
+=20
+-	/* Manage tx mitigation */
+-	priv->tx_count_frames +=3D nfrags + 1;
+-	if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
+-		mod_timer(&priv->txtimer,
+-			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
+-	} else {
+-		priv->tx_count_frames =3D 0;
+-		priv->hw->desc->set_tx_ic(desc);
+-		priv->xstats.tx_set_ic_bit++;
+-	}
+-
+-	if (!priv->hwts_tx_en)
+-		skb_tx_timestamp(skb);
+-
+ 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+ 		     priv->hwts_tx_en)) {
+ 		/* declare that device is doing timestamping */
+@@ -2280,31 +2293,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, =
+struct net_device *dev)
+ 		print_pkt(skb->data, skb->len);
+ 	}
+=20
+-	if (unlikely(stmmac_tx_avail(priv) <=3D (MAX_SKB_FRAGS + 1))) {
+-		if (netif_msg_hw(priv))
+-			pr_debug("%s: stop transmitted packets\n", __func__);
+-		netif_stop_queue(dev);
+-	}
+-
+-	dev->stats.tx_bytes +=3D skb->len;
+-
+-	/* According to the coalesce parameter the IC bit for the latest
+-	 * segment is reset and the timer re-started to clean the tx status.
+-	 * This approach takes care about the fragments: desc is the first
+-	 * element in case of no SG.
+-	 */
+-	priv->tx_count_frames +=3D nfrags + 1;
+-	if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
+-		mod_timer(&priv->txtimer,
+-			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
+-	} else {
+-		priv->tx_count_frames =3D 0;
+-		priv->hw->desc->set_tx_ic(desc);
+-		priv->xstats.tx_set_ic_bit++;
+-	}
+-
+-	if (!priv->hwts_tx_en)
+-		skb_tx_timestamp(skb);
++	stmmac_xmit_common(skb, dev, nfrags, desc);
+=20
+ 	/* Ready to fill the first descriptor and set the OWN bit w/o any
+ 	 * problems because all the descriptors are actually ready to be
+
+
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--hHWLQfXTYDoKhP50
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlg2yYwACgkQMOfwapXb+vKHqwCgt8cHTFoFkMFrSndNctbZRmpd
+LucAnA3pTaQ2R4UoeQbkF666wgNYFCk4
+=kpo8
+-----END PGP SIGNATURE-----
+
+--hHWLQfXTYDoKhP50--
