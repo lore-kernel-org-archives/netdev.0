@@ -1,37 +1,67 @@
-From: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 0/4] Fix -Wunused-but-set-variable in net/mac80211/
-Date: Wed, 23 Nov 2016 20:45:23 -0800
-Message-ID: <cover.1479962513.git.kirtika@chromium.org>
+From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Subject: [PATCH 1/4] mac80211: Removed unused 'i' variable
+Date: Wed, 23 Nov 2016 20:45:36 -0800
+Message-ID: <c7cb0fc989545ddc3c3dd1fe29774ee3bf483623.1479962513.git.kirtika@chromium.org>
+References: <cover.1479962513.git.kirtika@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Marek Kwaczynski <marek.kwaczynski-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
-        David Spinadel <david.spinadel-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Alexander Bondar <alexander.bondar-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-To: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        Marek Kwaczynski <marek.kwaczynski@tieto.com>,
+        David Spinadel <david.spinadel@intel.com>,
+        Alexander Bondar <alexander.bondar@intel.com>,
+        Michal Kazior <michal.kazior@tieto.com>
+To: Johannes Berg <johannes.berg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35243 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754622AbcKXEpm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 23:45:42 -0500
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <cover.1479962513.git.kirtika@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset is part of the effort led by Arnd Bergmann to clean up
-warnings in the kernel. This and following patchsets will focus on
-"-Wunused-but-set-variable" as it among the noisier ones. These were
-found compiling with W=1.
+Commit 5bcae31d9 (mac80211: implement multi-vif in-place reservations)
+introduced ieee80211_vif_use_reserved_switch() with a counter variable
+'i' that is set but not used. Compiling with W=1 gives the following
+warning, fix it.
+net/mac80211/chan.c: In function ‘ieee80211_vif_use_reserved_switch’:
+net/mac80211/chan.c:1273:6: warning: variable ‘i’ set but not used [-Wunused-but-set-variable]
 
-Kirtika Ruchandani (4):
-  mac80211: Removed unused 'i' variable
-  mac80211: Remove unused 'len' variable
-  mac80211: Removed unused 'struct ieee80211_supported_band*' variable
-  mac80211: Remove unused 'beaconint_us' variable
+This is a harmless warning, and is only being fixed to reduce the
+noise obtained with W=1 in the kernel.
 
+Fixes: 5bcae31d9 ("mac80211: implement multi-vif in-place reservations")
+Cc: Michal Kazior <michal.kazior@tieto.com>
+Cc: Johannes Berg <johannes.berg@intel.com>
+Signed-off-by: Kirtika Ruchandani <kirtika@chromium.org>
+---
  net/mac80211/chan.c | 4 +---
- net/mac80211/mlme.c | 4 ----
- net/mac80211/scan.c | 8 +++-----
- net/mac80211/vht.c  | 4 ----
- 4 files changed, 4 insertions(+), 16 deletions(-)
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
+diff --git a/net/mac80211/chan.c b/net/mac80211/chan.c
+index e75cbf6..7550fd2 100644
+--- a/net/mac80211/chan.c
++++ b/net/mac80211/chan.c
+@@ -1270,7 +1270,7 @@ static int ieee80211_vif_use_reserved_switch(struct ieee80211_local *local)
+ 	struct ieee80211_sub_if_data *sdata, *sdata_tmp;
+ 	struct ieee80211_chanctx *ctx, *ctx_tmp, *old_ctx;
+ 	struct ieee80211_chanctx *new_ctx = NULL;
+-	int i, err, n_assigned, n_reserved, n_ready;
++	int err, n_assigned, n_reserved, n_ready;
+ 	int n_ctx = 0, n_vifs_switch = 0, n_vifs_assign = 0, n_vifs_ctxless = 0;
+ 
+ 	lockdep_assert_held(&local->mtx);
+@@ -1391,8 +1391,6 @@ static int ieee80211_vif_use_reserved_switch(struct ieee80211_local *local)
+ 	 * Update all structures, values and pointers to point to new channel
+ 	 * context(s).
+ 	 */
+-
+-	i = 0;
+ 	list_for_each_entry(ctx, &local->chanctx_list, list) {
+ 		if (ctx->replace_state != IEEE80211_CHANCTX_REPLACES_OTHER)
+ 			continue;
 -- 
 2.8.0.rc3.226.g39d4020
