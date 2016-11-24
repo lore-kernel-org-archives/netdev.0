@@ -1,40 +1,48 @@
-From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: [net-next PATCH v1 1/2] net: dt-bindings: add RGMII TX delay
- configuration to meson8b-dwmac
-Date: Thu, 24 Nov 2016 17:52:20 +0100
-Message-ID: <CAFBinCCc_CEm-ujR5vrBuQnoRcDMuuo+T0usQ3O5+5t5b+9UrQ@mail.gmail.com>
-References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
- <20161124143417.10178-2-martin.blumenstingl@googlemail.com> <20161124154858.GB20455@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] VSOCK: add loopback to virtio_transport
+Date: Thu, 24 Nov 2016 11:54:00 -0500 (EST)
+Message-ID: <20161124.115400.234424564137643675.davem@davemloft.net>
+References: <1479736591-25235-1-git-send-email-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        peppe.cavallaro-qxv4g6HH51o@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161124154858.GB20455-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, cavery@redhat.com,
+        imbrenda@linux.vnet.ibm.com, jhansen@vmware.com
+To: stefanha@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35056 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756864AbcKXQyE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 11:54:04 -0500
+In-Reply-To: <1479736591-25235-1-git-send-email-stefanha@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Mon, 21 Nov 2016 13:56:31 +0000
 
-On Thu, Nov 24, 2016 at 4:48 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
->> The configuration values are provided as preprocessor macros to make the
->> devicetree files easier to read.
->
-> Hi Martin
->
-> If i'm reading the code/comments correctly, you can set the delay to
-> 0, 2, 4 or 6ns? So calling this property amlogic,tx-delay-ns would be
-> even easier to read.
-indeed, this sounds like a very nice idea (as it moves the calculation
-from the programmer's brain to dwmac-meson8b.c)!
+> The VMware VMCI transport supports loopback inside virtual machines.
+> This patch implements loopback for virtio-vsock.
+> 
+> Flow control is handled by the virtio-vsock protocol as usual.  The
+> sending process stops transmitting on a connection when the peer's
+> receive buffer space is exhausted.
+> 
+> Cathy Avery <cavery@redhat.com> noticed this difference between VMCI and
+> virtio-vsock when a test case using loopback failed.  Although loopback
+> isn't the main point of AF_VSOCK, it is useful for testing and
+> virtio-vsock must match VMCI semantics so that userspace programs run
+> regardless of the underlying transport.
+> 
+> My understanding is that loopback is not supported on the host side with
+> VMCI.  Follow that by implementing it only in the guest driver, not the
+> vhost host driver.
+> 
+> Cc: Jorgen Hansen <jhansen@vmware.com>
+> Reported-by: Cathy Avery <cavery@redhat.com>
+> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> ---
+> v2:
+>  * Fixed checkpatch.pl warnings [DaveM]
 
-I'll send an updated version once I received enough feedback (in case
-something else is wrong with the patches)
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-next, thanks.
