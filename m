@@ -1,40 +1,54 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [patch net-next] sfc: remove unneeded variable
-Date: Thu, 24 Nov 2016 13:22:24 +0000
-Message-ID: <698affdd-d4e0-53c0-fff0-9b66252504a0@solarflare.com>
-References: <20161124111651.GJ17225@mwanda>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Thu, 24 Nov 2016 13:26:55 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+ <1394712342-15778-227-Taiwan-albertk@realtek.com>
+ <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
+ <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
+ <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>
+ <b61a0e10-c737-8912-3e4e-393f4eb32077@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201051D51@RTITMBSV03.realtek.com.tw>
+ <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
+ <baf5246d-9d8a-4029-6823-350ed561fd33@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Bert Kenward <bkenward@solarflare.com>, <netdev@vger.kernel.org>,
-        <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:29684 "EHLO
-        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S965211AbcKXNWm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 08:22:42 -0500
-In-Reply-To: <20161124111651.GJ17225@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd <nic_swsd@realtek.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Mark Lord <mlord@pobox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <baf5246d-9d8a-4029-6823-350ed561fd33@pobox.com>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24/11/16 11:16, Dan Carpenter wrote:
-> We don't use ->heap_buf after commit 46d1efd852cc ("sfc: remove Software
-> TSO") so let's remove the last traces.
->
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-> index f97f828..fd17bda 100644
-> --- a/drivers/net/ethernet/sfc/net_driver.h
-> +++ b/drivers/net/ethernet/sfc/net_driver.h
-> @@ -139,8 +139,6 @@ struct efx_special_buffer {
->   * struct efx_tx_buffer - buffer state for a TX descriptor
->   * @skb: When @flags & %EFX_TX_BUF_SKB, the associated socket buffer to be
->   *	freed when descriptor completes
-> - * @heap_buf: When @flags & %EFX_TX_BUF_HEAP, the associated heap buffer to be
-> - *	freed when descriptor completes.
+Mark Lord [mailto:mlord@pobox.com]
+> Sent: Thursday, November 24, 2016 8:31 PM
+[...]
+> Nope.  Guard zones did not fix it, so it's probably not a prefetch issue.
+> Oddly, adding a couple of memory barriers to specific places in the driver
+> does help, A LOT.  Still not 100%, but it did pass 1800 reboot tests over night
+> with only three bad rx_desc's reported.
+> 
+> That's a new record here for the driver using kmalloc'd buffers,
+> and put reliability on par with using non-cacheable buffers.
+> 
+> Any way we look at it though, the chip/driver are simply unreliable,
+> and relying upon hardware checksums (which fail due to the driver
+> looking at garbage rather than the checksum bits) leads to data corruption.
 
-Does that mean we can also remove EFX_TX_BUF_HEAP?
--Ed
+I don't think the garbage results from our driver or device.
+If it is the issue about memory, I think the host driver ought
+to deal with it, because it handles the DMA.
+
+Besides, it doesn't seem to occur for all platforms. I have
+tested the iperf more than 26 hours, and it still works fine.
+I think I would get the same result on x86 or x86_64 platform.
+
+Best Regards,
+Hayes
