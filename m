@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net: revert "net: l2tp: Treat NET_XMIT_CN as
- success in l2tp_eth_dev_xmit"
-Date: Wed, 23 Nov 2016 20:28:00 -0500 (EST)
-Message-ID: <20161123.202800.1093755803785587463.davem@davemloft.net>
-References: <1479799483-18332-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net/mlx4_en: Free netdev resources under state lock
+Date: Wed, 23 Nov 2016 20:28:11 -0500 (EST)
+Message-ID: <20161123.202811.693262110451124399.davem@davemloft.net>
+References: <1479824439-27353-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gfree.wind@gmail.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com, saeedm@mellanox.com,
+        sagi@grimberg.me, bblanco@plumgrid.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41952 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41958 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935508AbcKXB2C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 20:28:02 -0500
-In-Reply-To: <1479799483-18332-1-git-send-email-xiyou.wangcong@gmail.com>
+        with ESMTP id S935138AbcKXB2O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 20:28:14 -0500
+In-Reply-To: <1479824439-27353-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 21 Nov 2016 23:24:43 -0800
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Tue, 22 Nov 2016 16:20:39 +0200
 
-> This reverts commit 7c6ae610a1f0, because l2tp_xmit_skb() never
-> returns NET_XMIT_CN, it ignores the return value of l2tp_xmit_core().
+> Make sure mlx4_en_free_resources is called under the netdev state lock.
+> This is needed since RCU dereference of XDP prog should be protected.
 > 
-> Cc: Gao Feng <gfree.wind@gmail.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Fixes: 326fe02d1ed6 ("net/mlx4_en: protect ring->xdp_prog with rcu_read_lock")
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+> Reported-by: Sagi Grimberg <sagi@grimberg.me>
 
 Applied.
