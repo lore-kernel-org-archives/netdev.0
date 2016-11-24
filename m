@@ -1,43 +1,94 @@
-From: Aaro Koskinen <aaro.koskinen@iki.fi>
-Subject: Re: wl1251 & mac address & calibration data
-Date: Thu, 24 Nov 2016 20:46:01 +0200
-Message-ID: <20161124184601.wo4al6nyzb6rmiqs@raspberrypi-2.musicnaut.iki.fi>
-References: <201611111820.52072@pali>
- <201611221805.13606@pali>
- <20161123222335.GA4788@amd>
- <201611232339.59411@pali>
- <20161124075104.GA26721@amd>
- <20161124083329.GB13735@pali>
- <20161124151317.34yoza3dzuh46oa4@earth>
- <20161124152045.GK13735@pali>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits
+ compatible
+Date: Thu, 24 Nov 2016 11:04:38 -0800
+Message-ID: <e6160675-9d75-f617-b154-d23a3d725a07@gmail.com>
+References: <20161122164844.19566-1-gregory.clement@free-electrons.com>
+ <CAPv3WKf0a63qQT+xwXfUatbgLFF58e6L8J10VtBOUTam+kUcjg@mail.gmail.com>
+ <20161124163327.1cc261ab@xhacker> <21520380.oWTKcrq8DS@wuerfel>
+ <8760ncly5s.fsf@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: Sebastian Reichel <sre@kernel.org>, Pavel Machek <pavel@ucw.cz>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Tony Lindgren <tony@atomide.com>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        linux-kernel@vger.kernel.org
-To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Cc: Jisheng Zhang <jszhang@marvell.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Marcin Wojtas <mw@semihalf.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-arm-kernel@lists.infradead.org,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161124152045.GK13735@pali>
+In-Reply-To: <8760ncly5s.fsf@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On Thu, Nov 24, 2016 at 04:20:45PM +0100, Pali Roh�r wrote:
-> Proprietary, signed and closed bootloader NOLO does not support DT. So
-> for booting you need to append DTS file to kernel image.
+Le 24/11/2016 à 07:01, Gregory CLEMENT a écrit :
+> Hi Arnd,
+>  
+>  On jeu., nov. 24 2016, Arnd Bergmann <arnd@arndb.de> wrote:
 > 
-> U-Boot is optional and can be used as intermediate bootloader between
-> NOLO and kernel. But still it has problems with reading from nand, so
-> cannot read NVS data nor MAC address.
+>> On Thursday, November 24, 2016 4:37:36 PM CET Jisheng Zhang wrote:
+>>> solB (a SW shadow cookie) perhaps gives a better performance: in hot path,
+>>> such as mvneta_rx(), the driver accesses buf_cookie and buf_phys_addr of
+>>> rx_desc which is allocated by dma_alloc_coherent, it's noncacheable if the
+>>> device isn't cache-coherent. I didn't measure the performance difference,
+>>> because in fact we take solA as well internally. From your experience,
+>>> can the performance gain deserve the complex code?
+>>
+>> Yes, a read from uncached memory is fairly slow, so if you have a chance
+>> to avoid that it will probably help. When adding complexity to the code,
+>> it probably makes sense to take a runtime profile anyway quantify how
+>> much it gains.
+>>
+>> On machines that have cache-coherent DMA, accessing the descriptor
+>> should be fine, as you already have to load the entire cache line
+>> to read the status field.
+>>
+>> Looking at this snippet:
+>>
+>>                 rx_status = rx_desc->status;
+>>                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+>>                 data = (unsigned char *)rx_desc->buf_cookie;
+>>                 phys_addr = rx_desc->buf_phys_addr;
+>>                 pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
+>>                 bm_pool = &pp->bm_priv->bm_pools[pool_id];
+>>
+>>                 if (!mvneta_rxq_desc_is_first_last(rx_status) ||
+>>                     (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
+>> err_drop_frame_ret_pool:
+>>                         /* Return the buffer to the pool */
+>>                         mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
+>>                                               rx_desc->buf_phys_addr);
+>> err_drop_frame:
+>>
+>>
+>> I think there is more room for optimizing if you start: you read
+>> the status field twice (the second one in MVNETA_RX_GET_BM_POOL_ID)
+>> and you can cache the buf_phys_addr along with the virtual address
+>> once you add that.
+> 
+> I agree we can optimize this code but it is not related to the 64 bits
+> conversion. Indeed this part is running when we use the HW buffer
+> management, however currently this part is not ready at all for 64
+> bits. The virtual address is directly handled by the hardware but it has
+> only 32 bits to store it in the cookie.So if we want to use the HWBM in
+> 64 bits we need to redesign the code, (maybe by storing the virtual
+> address in a array and pass the index in the cookie).
 
-You could use kexec to pass the fixed DT.
+Can't you make sure that skb->data is aligned to a value big enough that
+you can still cover the <N> bit physical address space of the adapter
+within a 32-bit quantity if you drop the low bits that would be all zeroes?
 
-A.
+That way, even though you only have 32-bits of storage/cookie, these
+don't have to be the actual 32-bits of your original address, but could
+be addr >> 8 for instance?
+
+As you indicate using an index stored in the cookie might be a better
+scheme though, since you could attach a lot more metadata to an index in
+an local array (which could be in cached memory) as opposed to just an
+address.
+-- 
+Florian
