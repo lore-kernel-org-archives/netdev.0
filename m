@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] ethtool: Protect {get,set}_phy_tunable
- with PHY device mutex
-Date: Thu, 24 Nov 2016 16:02:46 -0500 (EST)
-Message-ID: <20161124.160246.1074638964663356987.davem@davemloft.net>
-References: <20161122215531.18212-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] mlx4: reorganize struct mlx4_en_tx_ring
+Date: Thu, 24 Nov 2016 16:04:13 -0500 (EST)
+Message-ID: <20161124.160413.361550700742982089.davem@davemloft.net>
+References: <1479858970.8455.461.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
-        andrew@lunn.ch, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com, vivien.didelot@savoirfairelinux.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41672 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41706 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966127AbcKXVCy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 16:02:54 -0500
-In-Reply-To: <20161122215531.18212-1-f.fainelli@gmail.com>
+        with ESMTP id S965980AbcKXVEP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 16:04:15 -0500
+In-Reply-To: <1479858970.8455.461.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 22 Nov 2016 13:55:31 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 22 Nov 2016 15:56:10 -0800
 
-> PHY drivers should be able to rely on the caller of {get,set}_tunable to
-> have acquired the PHY device mutex, in order to both serialize against
-> concurrent calls of these functions, but also against PHY state machine
-> changes. All ethtool PHY-level functions do this, except
-> {get,set}_tunable, so we make them consistent here as well.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> We need to update the Microsemi PHY driver in the same commit to avoid
-> introducing either deadlocks, or lack of proper locking.
+> Goal is to reorganize this critical structure to increase performance.
 > 
-> Fixes: 968ad9da7e0e ("ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE")
-> Fixes: 310d9ad57ae0 ("net: phy: Add downshift get/set support in Microsemi PHYs driver")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Changes in v2:
+> ndo_start_xmit() should only dirty one cache line, and access as few
+> cache lines as possible.
 > 
-> - also patch drivers/net/phy/mscc.c in the same commit
+> Add sp_ (Slow Path) prefix to fields that are not used in fast path,
+> to make clear what is going on.
+> 
+> After this patch pahole reports something much better, as all
+> ndo_start_xmit() needed fields are packed into two cache lines instead
+> of seven or eight
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks Florian.
+Applied, thanks Eric.
