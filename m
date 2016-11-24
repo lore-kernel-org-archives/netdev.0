@@ -1,87 +1,97 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [Patch net-next] net_sched: move the empty tp check from ->destroy()
- to ->delete()
-Date: Thu, 24 Nov 2016 16:20:56 +0100
-Message-ID: <58370558.9070004@iogearbox.net>
-References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com> <5836A4D4.2010500@mellanox.com> <5836BD82.6080407@iogearbox.net> <5836C87E.8050506@mellanox.com>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Thu, 24 Nov 2016 16:20:45 +0100
+Message-ID: <20161124152045.GK13735@pali>
+References: <201611111820.52072@pali>
+ <201611221805.13606@pali>
+ <20161123222335.GA4788@amd>
+ <201611232339.59411@pali>
+ <20161124075104.GA26721@amd>
+ <20161124083329.GB13735@pali>
+ <20161124151317.34yoza3dzuh46oa4@earth>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, John Fastabend <john.fastabend@gmail.com>
-To: Roi Dayan <roid@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Pavel Machek <pavel@ucw.cz>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: Sebastian Reichel <sre@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36161 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965992AbcKXPVG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 10:21:06 -0500
-In-Reply-To: <5836C87E.8050506@mellanox.com>
+Received: from mail-wj0-f179.google.com ([209.85.210.179]:32992 "EHLO
+        mail-wj0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965985AbcKXPVI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 10:21:08 -0500
+Content-Disposition: inline
+In-Reply-To: <20161124151317.34yoza3dzuh46oa4@earth>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/24/2016 12:01 PM, Roi Dayan wrote:
-> On 24/11/2016 12:14, Daniel Borkmann wrote:
->> On 11/24/2016 09:29 AM, Roi Dayan wrote:
->>> Hi,
->>>
->>> I'm testing this patch with KASAN enabled and got into a new kernel crash I didn't hit before.
->>>
->>> [ 1860.725065] ==================================================================
->>> [ 1860.733893] BUG: KASAN: use-after-free in __netif_receive_skb_core+0x1ebe/0x29a0 at addr ffff880a68b04028
->>> [ 1860.745415] Read of size 8 by task CPU 0/KVM/5334
->>> [ 1860.751368] CPU: 8 PID: 5334 Comm: CPU 0/KVM Tainted: G O 4.9.0-rc3+ #18
+On Thursday 24 November 2016 16:13:17 Sebastian Reichel wrote:
+> Hi,
+> 
+> On Thu, Nov 24, 2016 at 09:33:29AM +0100, Pali Rohár wrote:
+> > On Thursday 24 November 2016 08:51:04 Pavel Machek wrote:
+> > > Hi!
+> > > 
+> > > > > "ifconfig hw ether XX" normally sets the address. I guess that's
+> > > > > ioctl?
+> > > > 
+> > > > This sets temporary address and it is ioctl. IIRC same as what ethtool 
+> > > > uses. (ifconfig is already deprecated).
+> > > > 
+> > > > > And I guess we should use similar mechanism for permanent
+> > > > > address.
+> > > > 
+> > > > I'm not sure here... Above ioctl ↑↑↑ is for changing temporary mac 
+> > > > address. But here we do not want to change permanent mac address. We 
+> > > > want to tell kernel driver current permanent mac address which is
+> > > > stored
+> > > 
+> > > Well... I'd still use similar mechanism :-).
+> > 
+> > Thats problematic, because in time when wlan0 interface is registered
+> > into system and visible in ifconfig output it already needs to have
+> > permanent mac address assigned.
+> > 
+> > We should assign permanent mac address before wlan0 of wl1251 is
+> > registered into system.
+> 
+> You can just add the MAC address to the NVS data, which is also
+> required for the device initialization.
 
-(Btw, your kernel is tainted with o-o-tree module? Anything relevant?)
+NVS data file has fixed size, there is IIRC no place for it.
 
->>> [ 1860.760547] Hardware name: HP ProLiant DL380p Gen8, BIOS P70 07/01/2015
->>> [ 1860.768036] Call Trace:
->>> [ 1860.771307]  [<ffffffffa9b6dc42>] dump_stack+0x63/0x81
->>> [ 1860.777167]  [<ffffffffa95fb751>] kasan_object_err+0x21/0x70
->>> [ 1860.783826]  [<ffffffffa95fb9dd>] kasan_report_error+0x1ed/0x4e0
->>> [ 1860.790640]  [<ffffffffa9b9b841>] ? csum_partial+0x11/0x20
->>> [ 1860.796871]  [<ffffffffaa44a6b9>] ? csum_partial_ext+0x9/0x10
->>> [ 1860.803571]  [<ffffffffaa453155>] ? __skb_checksum+0x115/0x8d0
->>> [ 1860.810370]  [<ffffffffa95fbe81>] __asan_report_load8_noabort+0x61/0x70
->>> [ 1860.818263]  [<ffffffffaa49c3fe>] ? __netif_receive_skb_core+0x1ebe/0x29a0
->>> [ 1860.826215]  [<ffffffffaa49c3fe>] __netif_receive_skb_core+0x1ebe/0x29a0
->>> [ 1860.833991]  [<ffffffffaa49a540>] ? netdev_info+0x100/0x100
->>> [ 1860.840529]  [<ffffffffaa671792>] ? udp4_gro_receive+0x802/0x1090
->>> [ 1860.847783]  [<ffffffffa9bb9a08>] ? find_next_bit+0x18/0x20
->>> [ 1860.854126]  [<ffffffffaa49cf04>] __netif_receive_skb+0x24/0x150
->>> [ 1860.861695]  [<ffffffffaa49d0d1>] netif_receive_skb_internal+0xa1/0x1d0
->>> [ 1860.869366]  [<ffffffffaa49d030>] ? __netif_receive_skb+0x150/0x150
->>> [ 1860.876464]  [<ffffffffaa49f7e9>] ? dev_gro_receive+0x969/0x1660
->>> [ 1860.883924]  [<ffffffffaa4a0e1f>] napi_gro_receive+0x1df/0x300
->>> [ 1860.890744]  [<ffffffffc02e885d>] mlx5e_handle_rx_cqe_rep+0x83d/0xd30 [mlx5_core]
->>>
->>> checking with gdb
->>>
->>> (gdb) l *(__netif_receive_skb_core+0x1ebe)
->>> 0xffffffff8249c3fe is in __netif_receive_skb_core (net/core/dev.c:3937).
->>> 3932                    *pt_prev = NULL;
->>> 3933            }
->>> 3934
->>> 3935            qdisc_skb_cb(skb)->pkt_len = skb->len;
->>> 3936            skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
->>> 3937            qdisc_bstats_cpu_update(cl->q, skb);
->>> 3938
->>> 3939            switch (tc_classify(skb, cl, &cl_res, false)) {
->>> 3940            case TC_ACT_OK:
->>> 3941            case TC_ACT_RECLASSIFY:
->>
->> Can you elaborate some more on your test-case? Adding/dropping ingress qdisc with
->> some classifier on it in a loop while traffic goes through?
->
-> I first delete the qdisc ingress from the relevant interface
-> I start traffic on it then I add the qdisc ingress to the relevant interface and start adding tc flower rules to match the traffic.
+But one of my suggestion was to use another request_firmware for MAC
+address. So this is similar to what you are proposing, as NVS data are
+loaded by request_firmware too...
 
-Ok, strange, qdisc_destroy() calls into ops->destroy(), where ingress
-drops its entire chain via tcf_destroy_chain(), so that will be NULL
-eventually. The tps are freed by call_rcu() as well as qdisc itself
-later on via qdisc_rcu_free(), where it frees per-cpu bstats as well.
-Outstanding readers should either bail out due to if (!cl) or can still
-process the chain until read section ends, but during that time, cl->q
-resp. bstats should be good. Do you happen to know what's at address
-ffff880a68b04028? I was wondering wrt call_rcu() vs call_rcu_bh(), but
-at least on ingress (netif_receive_skb_internal()) we hold rcu_read_lock()
-here. The KASAN report is reliably happening at this location, right?
+> I wonder if those information could be put into DT. Iirc some
+> network devices get their MAC address from DT. Maybe we can add
+> all NVS info to DT? How much data is it?
+
+Proprietary, signed and closed bootloader NOLO does not support DT. So
+for booting you need to append DTS file to kernel image.
+
+U-Boot is optional and can be used as intermediate bootloader between
+NOLO and kernel. But still it has problems with reading from nand, so
+cannot read NVS data nor MAC address.
+
+> Userspace application can add all those information to the DT
+> using a DT overlay. Also the u-boot could parse and add it at
+> some point in the future.
+
+In case when wl1251 is statically linked into kernel image, it is loaded
+and initialized before even userspace applications starts.
+
+So no... adding NVS data or MAC address into DT or DT overlay is not a
+solution.
+
+-- 
+Pali Rohár
+pali.rohar@gmail.com
