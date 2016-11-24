@@ -1,69 +1,25 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits compatible
-Date: Thu, 24 Nov 2016 10:00:36 +0100
-Message-ID: <21520380.oWTKcrq8DS@wuerfel>
-References: <20161122164844.19566-1-gregory.clement@free-electrons.com> <CAPv3WKf0a63qQT+xwXfUatbgLFF58e6L8J10VtBOUTam+kUcjg@mail.gmail.com> <20161124163327.1cc261ab@xhacker>
+From: Llorente Santos Jesus <jesus.llorente.santos@aalto.fi>
+Subject: (unknown)
+Date: Thu, 24 Nov 2016 08:54:42 +0000
+Message-ID: <6acbb48adfc345ea843dc3f96d57351a@aalto.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Jisheng Zhang <jszhang@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161124163327.1cc261ab@xhacker>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out-02.aalto.fi ([130.233.228.121]:59167 "EHLO
+        smtp-out-02.aalto.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756869AbcKXJEO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 04:04:14 -0500
+Received: from smtp-out-02.aalto.fi (localhost.localdomain [127.0.0.1])
+        by localhost (Email Security Appliance) with SMTP id 829732710AA_836AAD2B
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 08:54:42 +0000 (GMT)
+Received: from exng4.org.aalto.fi (exng4.org.aalto.fi [130.233.223.23])
+        by smtp-out-02.aalto.fi (Sophos Email Appliance) with ESMTP id 6A0D0271085_836AAD2F
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 08:54:42 +0000 (GMT)
+Subject: 
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, November 24, 2016 4:37:36 PM CET Jisheng Zhang wrote:
-> solB (a SW shadow cookie) perhaps gives a better performance: in hot path,
-> such as mvneta_rx(), the driver accesses buf_cookie and buf_phys_addr of
-> rx_desc which is allocated by dma_alloc_coherent, it's noncacheable if the
-> device isn't cache-coherent. I didn't measure the performance difference,
-> because in fact we take solA as well internally. From your experience,
-> can the performance gain deserve the complex code?
-
-Yes, a read from uncached memory is fairly slow, so if you have a chance
-to avoid that it will probably help. When adding complexity to the code,
-it probably makes sense to take a runtime profile anyway quantify how
-much it gains.
-
-On machines that have cache-coherent DMA, accessing the descriptor
-should be fine, as you already have to load the entire cache line
-to read the status field.
-
-Looking at this snippet:
-
-                rx_status = rx_desc->status;
-                rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
-                data = (unsigned char *)rx_desc->buf_cookie;
-                phys_addr = rx_desc->buf_phys_addr;
-                pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
-                bm_pool = &pp->bm_priv->bm_pools[pool_id];
-
-                if (!mvneta_rxq_desc_is_first_last(rx_status) ||
-                    (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
-err_drop_frame_ret_pool:
-                        /* Return the buffer to the pool */
-                        mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
-                                              rx_desc->buf_phys_addr);
-err_drop_frame:
-
-
-I think there is more room for optimizing if you start: you read
-the status field twice (the second one in MVNETA_RX_GET_BM_POOL_ID)
-and you can cache the buf_phys_addr along with the virtual address
-once you add that.
-
-Generally speaking, I'd recommend using READ_ONCE()/WRITE_ONCE()
-to access the descriptor fields, to ensure the compiler doesn't
-add extra references as well as to annotate the expensive
-operations.
-
-	Arnd
+unsubscribe
