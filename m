@@ -1,66 +1,41 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [RFC net-next 1/3] net: bridge: Allow bridge master
- device to configure switch CPU port
-Date: Thu, 24 Nov 2016 10:49:08 +0900
-Message-ID: <ee14a75c-b0f5-59e5-e621-2855ec583ae6@lab.ntt.co.jp>
-References: <20161121190925.14530-1-f.fainelli@gmail.com>
-	<20161121190925.14530-2-f.fainelli@gmail.com>
-	<87h96zzfe6.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Thu, 24 Nov 2016 03:24:48 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB201054BD8@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+ <1394712342-15778-227-Taiwan-albertk@realtek.com>
+ <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
+ <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
+ <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>
+ <b61a0e10-c737-8912-3e4e-393f4eb32077@pobox.com>
+ <0835B3720019904CB8F7AA43166CEEB201051D51@RTITMBSV03.realtek.com.tw>
+ <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: idosch@mellanox.com, andrew@lunn.ch, bridge@lists.linux-foundation.org,
-	jiri@mellanox.com, davem@davemloft.net
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <87h96zzfe6.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd <nic_swsd@realtek.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Mark Lord <mlord@pobox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2016/11/23 0:46, Vivien Didelot wrote:
-> Hi Florian,
-> 
-> Florian Fainelli <f.fainelli@gmail.com> writes:
-> 
->> bridge vlan add vid 2 dev br0 self
->> 	-> CPU port gets programmed
->> bridge vlan add vid 2 dev port0
->> 	-> port0 (switch port 0) gets programmed
-> 
-> Although this is not specific to this patch, I'd like to point out that
-> this seems not to be the behavior bridge expects.
-> 
-> The bridge manpage says:
-> 
->     bridge vlan add - add a new vlan filter entry
->     ...
-> 
->        self   the vlan is configured on the specified physical device.
->               Required if the device is the bridge device.
-> 
->        master the vlan is configured on the software bridge (default).
-> 
-> So if I'm not mistaken, the switch chip must be programmed only when the
-> bridge command is called with the "self" attribute. Without it, only
-> software configuration must be made, like what happens when the driver
-> returns -EOPNOTSUPP.
-> 
-> Currently, both commands below program the hardware:
-> 
->     # bridge vlan add vid 2 dev port0 [master]
->     # bridge vlan add vid 2 dev port0 [master] self
+Mark Lord [mailto:mlord@pobox.com]
+> Sent: Thursday, November 24, 2016 3:30 AM
+[...]
+> Worth repeating: other dongles we have tried, eg. those using the asix driver,
+> do not cause us any troubles here.  Only the r8152 dongles do.
 
-Actually this is intended behavior, which keeps backward compatibility.
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=7f1095394918c7058ff81c96c3bab3a897e97a9d
+I couldn't tell you why you would see the problem. I have tested the
+RTL8152 on raspberry pi platform with iperf more than 17 hours. And
+I don't see any invalid rx descriptor. I don't think it really is the
+issue about our hw.
 
-Thanks,
-Toshiaki Makita
+Best Regards,
+Hayes
