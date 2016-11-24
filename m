@@ -1,94 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits
- compatible
-Date: Thu, 24 Nov 2016 11:04:38 -0800
-Message-ID: <e6160675-9d75-f617-b154-d23a3d725a07@gmail.com>
-References: <20161122164844.19566-1-gregory.clement@free-electrons.com>
- <CAPv3WKf0a63qQT+xwXfUatbgLFF58e6L8J10VtBOUTam+kUcjg@mail.gmail.com>
- <20161124163327.1cc261ab@xhacker> <21520380.oWTKcrq8DS@wuerfel>
- <8760ncly5s.fsf@free-electrons.com>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Thu, 24 Nov 2016 14:10:36 -0500
+Message-ID: <9e8ff5b4-1c72-3106-7821-73484de133c2@pobox.com>
+References: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
+ <20161124.112152.692025478489876693.davem@davemloft.net>
+ <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
+ <20161124.121140.2054576632424977475.davem@davemloft.net>
+ <c3ca9e10-64de-2454-b99a-19e8302f5c12@pobox.com>
+ <20161124190055.GA3642@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jisheng Zhang <jszhang@marvell.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Marcin Wojtas <mw@semihalf.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Arnd Bergmann <arnd@arndb.de>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, hayeswang@realtek.com,
+        netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8760ncly5s.fsf@free-electrons.com>
+In-Reply-To: <20161124190055.GA3642@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 24/11/2016 à 07:01, Gregory CLEMENT a écrit :
-> Hi Arnd,
->  
->  On jeu., nov. 24 2016, Arnd Bergmann <arnd@arndb.de> wrote:
+On 16-11-24 02:00 PM, Greg KH wrote:
+> On Thu, Nov 24, 2016 at 01:34:08PM -0500, Mark Lord wrote:
+>> One thought:  bulk data streams are byte streams, not packets.
+>> Scheduling on the USB bus can break up larger transfers across
+>> multiple in-kernel buffers.  A "real" URB buffer on USB2 is max 512 bytes.
+>> The driver is providing 16384-byte buffers, and assumes that data will
+>> never spill over from one such buffer to the next.
+>> Yet the observations here consistently show otherwise.
 > 
->> On Thursday, November 24, 2016 4:37:36 PM CET Jisheng Zhang wrote:
->>> solB (a SW shadow cookie) perhaps gives a better performance: in hot path,
->>> such as mvneta_rx(), the driver accesses buf_cookie and buf_phys_addr of
->>> rx_desc which is allocated by dma_alloc_coherent, it's noncacheable if the
->>> device isn't cache-coherent. I didn't measure the performance difference,
->>> because in fact we take solA as well internally. From your experience,
->>> can the performance gain deserve the complex code?
->>
->> Yes, a read from uncached memory is fairly slow, so if you have a chance
->> to avoid that it will probably help. When adding complexity to the code,
->> it probably makes sense to take a runtime profile anyway quantify how
->> much it gains.
->>
->> On machines that have cache-coherent DMA, accessing the descriptor
->> should be fine, as you already have to load the entire cache line
->> to read the status field.
->>
->> Looking at this snippet:
->>
->>                 rx_status = rx_desc->status;
->>                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
->>                 data = (unsigned char *)rx_desc->buf_cookie;
->>                 phys_addr = rx_desc->buf_phys_addr;
->>                 pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
->>                 bm_pool = &pp->bm_priv->bm_pools[pool_id];
->>
->>                 if (!mvneta_rxq_desc_is_first_last(rx_status) ||
->>                     (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
->> err_drop_frame_ret_pool:
->>                         /* Return the buffer to the pool */
->>                         mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
->>                                               rx_desc->buf_phys_addr);
->> err_drop_frame:
->>
->>
->> I think there is more room for optimizing if you start: you read
->> the status field twice (the second one in MVNETA_RX_GET_BM_POOL_ID)
->> and you can cache the buf_phys_addr along with the virtual address
->> once you add that.
-> 
-> I agree we can optimize this code but it is not related to the 64 bits
-> conversion. Indeed this part is running when we use the HW buffer
-> management, however currently this part is not ready at all for 64
-> bits. The virtual address is directly handled by the hardware but it has
-> only 32 bits to store it in the cookie.So if we want to use the HWBM in
-> 64 bits we need to redesign the code, (maybe by storing the virtual
-> address in a array and pass the index in the cookie).
+> Wait, how do you know that data will not spill over?  What is making
+> that guarantee?  Will the USB device send a "zero packet" in order to
+> show that all of the "logical" data is now sent for this specific
+> endpoint?  Is there some sort of "framing" that the device does with the
+> USB data so that the driver "knows" where the end of packet is?
 
-Can't you make sure that skb->data is aligned to a value big enough that
-you can still cover the <N> bit physical address space of the adapter
-within a 32-bit quantity if you drop the low bits that would be all zeroes?
+Exactly my point.
 
-That way, even though you only have 32-bits of storage/cookie, these
-don't have to be the actual 32-bits of your original address, but could
-be addr >> 8 for instance?
+> Check the zero-packet stuff for this device, that's tripped up many a
+> USB driver writer over the years, myself included.
 
-As you indicate using an index stored in the cookie might be a better
-scheme though, since you could attach a lot more metadata to an index in
-an local array (which could be in cached memory) as opposed to just an
-address.
--- 
-Florian
+I haven't tripped over it myself, but only because we were careful
+to allow for such in the USB drivers I have worked on.
+
+The r8152 driver just assumes it never happens.
