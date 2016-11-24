@@ -1,220 +1,101 @@
-From: Sebastian Reichel <sre@kernel.org>
-Subject: Re: wl1251 & mac address & calibration data
-Date: Thu, 24 Nov 2016 19:11:39 +0100
-Message-ID: <20161124181138.4i6ehkpohjxfgpbn@earth>
-References: <201611111820.52072@pali>
- <20161124152045.GK13735@pali>
- <20161124160830.kdpbonsz3l26uuo5@earth>
- <201611241749.33681@pali>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: [PATCH] net: stmmac: enable tx queue 0 for gmac4 IPs synthesized
+ with multiple TX queues
+Date: Thu, 24 Nov 2016 19:11:49 +0100
+Message-ID: <0516ebe9-6b66-5991-1f96-1cc10178977a@st.com>
+References: <1479998194-7113-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="ectbp4bp3wodyn6s"
-Cc: Pavel Machek <pavel@ucw.cz>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Tony Lindgren <tony@atomide.com>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        linux-kernel@vger.kernel.org
-To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201611241749.33681@pali>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:35073 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S935877AbcKXSMI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 13:12:08 -0500
+In-Reply-To: <1479998194-7113-1-git-send-email-niklass@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Niklas,
 
---ectbp4bp3wodyn6s
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-On Thu, Nov 24, 2016 at 05:49:33PM +0100, Pali Roh=C3=A1r wrote:
-> On Thursday 24 November 2016 17:08:30 Sebastian Reichel wrote:
-> > On Thu, Nov 24, 2016 at 04:20:45PM +0100, Pali Roh=C3=A1r wrote:
-> > > On Thursday 24 November 2016 16:13:17 Sebastian Reichel wrote:
-> > > > On Thu, Nov 24, 2016 at 09:33:29AM +0100, Pali Roh=C3=A1r wrote:
-> > > > > On Thursday 24 November 2016 08:51:04 Pavel Machek wrote:
-> > > > > > > > "ifconfig hw ether XX" normally sets the address. I guess
-> > > > > > > > that's ioctl?
-> > > > > > >=20
-> > > > > > > This sets temporary address and it is ioctl. IIRC same as
-> > > > > > > what ethtool uses. (ifconfig is already deprecated).
-> > > > > > >=20
-> > > > > > > > And I guess we should use similar mechanism for permanent
-> > > > > > > > address.
-> > > > > > >=20
-> > > > > > > I'm not sure here... Above ioctl =E2=86=91=E2=86=91=E2=86=91 =
-is for changing
-> > > > > > > temporary mac address. But here we do not want to change
-> > > > > > > permanent mac address. We want to tell kernel driver
-> > > > > > > current permanent mac address which is stored
-> > > > > >=20
-> > > > > > Well... I'd still use similar mechanism :-).
-> > > > >=20
-> > > > > Thats problematic, because in time when wlan0 interface is
-> > > > > registered into system and visible in ifconfig output it
-> > > > > already needs to have permanent mac address assigned.
-> > > > >=20
-> > > > > We should assign permanent mac address before wlan0 of wl1251
-> > > > > is registered into system.
-> > > >=20
-> > > > You can just add the MAC address to the NVS data, which is also
-> > > > required for the device initialization.
-> > >=20
-> > > NVS data file has fixed size, there is IIRC no place for it.
-> > >=20
-> > > But one of my suggestion was to use another request_firmware for
-> > > MAC address. So this is similar to what you are proposing, as NVS
-> > > data are loaded by request_firmware too...
-> >=20
-> > Just append it to NVS data and modify the size check accordingly?
->=20
-> First that would mean to have request_firmware() function which will not=
-=20
-> use direct VFS access, but instead use userspace helper.
-
-Permanent MAC is device specific init data, NVS is device specific
-init data =3D> load together.
-
-The userspace helper stuff is only needed to get the data from
-the NAND calibration area on the fly.
-
-> NVS data file with some default values (not suitable for usage) is=20
-> already present in linux-firmware and available in /lib/firmware/...
-
-You mentioned NVS data is fixed size, so this should be enough?
-
-switch(loaded_size)
-    case IMAGE_SIZE + MAC_SIZE:
-        /* extract mac */
-        /* fallthrough */
-    case IMAGE_SIZE:
-        /* load NVS */
-        break;
-    default:
-        /* fail */
-}
-
-> Also I'm not sure if such thing is allowed by license:
-> https://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git/=
-tree/LICENCE.ti-connectivity
-
-concating data is not a modification, otherwise you can't
-put the file in a filesystem.
-
-> > > > I wonder if those information could be put into DT. Iirc some
-> > > > network devices get their MAC address from DT. Maybe we can add
-> > > > all NVS info to DT? How much data is it?
-> > >=20
-> > > Proprietary, signed and closed bootloader NOLO does not support DT.
-> > > So for booting you need to append DTS file to kernel image.
-> >=20
-> > Yeah, so NOLO without U-Boot will depend on userspace to fixup DT.
-> >=20
-> > > U-Boot is optional and can be used as intermediate bootloader
-> > > between NOLO and kernel. But still it has problems with reading
-> > > from nand, so cannot read NVS data nor MAC address.
-> >=20
-> > It may in the future?
->=20
-> I already tried that, but I failed. I was not able to access N900's nand=
-=20
-> from u-boot. No idea where was problem...
+On 11/24/2016 03:36 PM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
 >
-> And if somebody fix onenand in u-boot, then needs to reimplement Nokia's=
-=20
-> proprietary parser of that partition where is stored NVS and mac address=
-=20
-> && make this support in upstream u-boot.
+> The dwmac4 IP can synthesized with 1-8 number of tx queues.
+> On an IP synthesized with DWC_EQOS_NUM_TXQ > 1, all txqueues are disabled
+> by default. For these IPs, the bitfield TXQEN is R/W.
+>
+> Always enable tx queue 0. The write will have no effect on IPs synthesized
+> with DWC_EQOS_NUM_TXQ == 1.
+>
+> The driver does still not utilize more than one tx queue in the IP.
+>
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h     |  3 +++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 12 +++++++++++-
+>  2 files changed, 14 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> index 6f4f5ce25114..3e8d4fefa5e0 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> @@ -155,8 +155,11 @@ enum power_event {
+>  #define MTL_CHAN_RX_DEBUG(x)		(MTL_CHANX_BASE_ADDR(x) + 0x38)
+>
+>  #define MTL_OP_MODE_RSF			BIT(5)
+> +#define MTL_OP_MODE_TXQEN		BIT(3)
+>  #define MTL_OP_MODE_TSF			BIT(1)
+>
+> +#define MTL_OP_MODE_TQS_MASK		GENMASK(24, 16)
+> +
+>  #define MTL_OP_MODE_TTC_MASK		0x70
+>  #define MTL_OP_MODE_TTC_SHIFT		4
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> index 116151cd6a95..577316de6ba8 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> @@ -213,7 +213,17 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
+>  		else
+>  			mtl_tx_op |= MTL_OP_MODE_TTC_512;
+>  	}
+> -
+> +	/* For an IP with DWC_EQOS_NUM_TXQ == 1, the fields TXQEN and TQS are RO
+> +	 * with reset values: TXQEN on, TQS == DWC_EQOS_TXFIFO_SIZE.
+> +	 * For an IP with DWC_EQOS_NUM_TXQ > 1, the fields TXQEN and TQS are R/W
+> +	 * with reset values: TXQEN off, TQS 256 bytes.
+> +	 *
+> +	 * Write the bits in both cases, since it will have no effect when RO.
+> +	 * For DWC_EQOS_NUM_TXQ > 1, the top bits in MTL_OP_MODE_TQS_MASK might
+> +	 * be RO, however, writing the whole TQS field will result in a value
+> +	 * equal to DWC_EQOS_TXFIFO_SIZE, just like for DWC_EQOS_NUM_TXQ == 1.
+> +	 */
+> +	mtl_tx_op |= MTL_OP_MODE_TXQEN | MTL_OP_MODE_TQS_MASK;
 
-Are we talking about this?
+Your patch sounds good. Just one question:
 
-https://github.com/community-ssu/libcal/blob/master/cal.c
+In synopsys databook I use, I see that MTL_OP_MODE_TXQEN for channel 2 
+can take several values "disabled / enabled / Enabled in AV mode":
 
-That's ~1k loc for read-only. Getting NAND working looks harder than
-porting this to me.
+Transmit Queue Enable
+This field is used to enable/disable the transmit queue 1. 00 R/W
+■ 2'b00 - Not enabled
+■ 2'b01 - Enable in AV mode (Reserved when Enable Audio Video
+Bridging is not selected while configuring the core)
+■ 2'b10 - Enabled
+■ 2'b11 - Reserved
 
-> So... I doubt it will be in any future.
->=20
-> + no men power
+Do you plan to manage av mode in a future patch ?
 
-yeah :(
+Regards
+Alex
 
-But with that reasoning you should just extract the NVS data
-=66rom NAND and put it in your rootfs.
-
-> > > > Userspace application can add all those information to the DT
-> > > > using a DT overlay. Also the u-boot could parse and add it at
-> > > > some point in the future.
-> > >=20
-> > > In case when wl1251 is statically linked into kernel image, it is
-> > > loaded and initialized before even userspace applications starts.
-> > >=20
-> > > So no... adding NVS data or MAC address into DT or DT overlay is
-> > > not a solution.
-> >=20
-> > Actually with data loaded from DT you *can* load data quite early in
-> > the boot process, while your suggestions always require userspace.
-> > So you argument against yourself?
->=20
-> You cannot add DTS in uboot (no support).
-
-AFAIK that's supported:
-
-http://www.denx.de/wiki/DULG/LinuxFDTBlob
-
-"Note that U-Boot makes some automatic modifications to the blob
-before passing it to the kernel - mainly adding and modifying
-information that is learnt at run-time."
-
-> And if you modify DTS on running kernel from userspace, then it is
-> too late when wl1251 is statically linked into kernel image.
->=20
-> wl1251 will not wait until some userspace modify DTS and add data...
-
-if (nvs info missing)
-    return -EPROBE_DEFER;
-
-> But request_firmware() in fallback mode *can* wait for userspace so=20
-> wl1251 can postpone its operation until mdev/udev/whatever starts=20
-> listening for events and push needed firmware data to kernel.
-
-As you said one workaround is waiting. That's not a solution, that
-only works with request_firmware().
-
-> So no, there is no argument against... request_firmware() in fallback=20
-> mode with userspace helper is by design blocking and waiting for=20
-> userspace. But waiting for some change in DTS in kernel is just=20
-> nonsense.
-
-I would just mark the wlan device with status =3D "disabled" and
-enable it in the overlay together with adding the NVS & MAC info.
-
--- Sebastian
-
---ectbp4bp3wodyn6s
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAlg3LVYACgkQ2O7X88g7
-+pqbiA/8Czithcg0DaKkbAfDLz1ctqkFU3AfS7/etyIwHcOMjL4vAhnqiidguSM0
-0cNIfb7GmFj+JIHPpKgb/HFUXg3vEPTgGcKbMr8VlHliIO34tOVIhmp2omnY+1aq
-xVtyOHxT4fhGXaKCrg3k3zHmZmhYJ0SCQkIUM8ARcTOF7/ypjOpgy3cudIKCyeKx
-fqBYsK8mZWiK5lx4IhaHT/hUffU7G8qYaetpl6ZhwFlgZA4jmJhI0/KWzmHIvUyJ
-gGE2Mx8a/sq5KDGuPmB8NesszHO0NalJJxYLk+XTsVtZg94nssp1JZ0jyc79Zz89
-swqQr3819meKnUcErr9n5Ox/yOas4illFQkPLA5sCU7tW4v9kugQinYupXNx8Pg9
-ofZj3Yw7re5g4dUJ8rBfvBALYsghEv9TPNDaAcqT+jVU3UkhUBMEUQMapE1X2wzX
-Bzqd3qMyKU0s1FJnGEv9S7bWNe0yxETY7paCX9nB1gFZv8fa9dIzu4MPhJZJqSYl
-6Io5t7KZ1SWizKvXd0PEcKQqIA0vume0lozzaakDAaP6YfO092TybKH/Ek7miLyH
-GsznXB5XIOyNC4IUTQ5gytSxAeEEsHfIyf85mDVEzUYzayOXg/NRiLJRXExl0mHf
-c7PpCK9ct3QsqOAOyBaMOg+5k6pYPtOcnpUEfNruJ+RhSWCzHv4=
-=wvHN
------END PGP SIGNATURE-----
-
---ectbp4bp3wodyn6s--
+>  	writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
+>
+>  	mtl_rx_op = readl(ioaddr + MTL_CHAN_RX_OP_MODE(channel));
+>
