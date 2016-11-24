@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] driver: macvlan: Check if need rollback
- multicast setting in macvlan_open
-Date: Wed, 23 Nov 2016 20:26:49 -0500 (EST)
-Message-ID: <20161123.202649.1918521321796603041.davem@davemloft.net>
-References: <1479779676-10417-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH] netdevice.h: fix kernel-doc warning
+Date: Wed, 23 Nov 2016 20:27:02 -0500 (EST)
+Message-ID: <20161123.202702.1190966424251782715.davem@davemloft.net>
+References: <89f2d6da-89e1-1962-9f6f-e81dece8a101@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: netdev@vger.kernel.org
+To: rdunlap@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41854 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41928 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935508AbcKXB0w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 20:26:52 -0500
-In-Reply-To: <1479779676-10417-1-git-send-email-fgao@ikuai8.com>
+        with ESMTP id S935508AbcKXB1E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 20:27:04 -0500
+In-Reply-To: <89f2d6da-89e1-1962-9f6f-e81dece8a101@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fgao@ikuai8.com
-Date: Tue, 22 Nov 2016 09:54:36 +0800
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Mon, 21 Nov 2016 18:28:36 -0800
 
-> From: Gao Feng <fgao@ikuai8.com>
+> From: Randy Dunlap <rdunlap@infradead.org>
 > 
-> When dev_set_promiscuity failed in macvlan_open, it always invokes
-> dev_set_allmulti without checking if necessary.
-> Now check the IFF_ALLMULTI flag firstly before rollback the multicast
-> setting in the error handler.
+> Fix kernel-doc warning in <linux/netdevice.h> (missing ':'):
 > 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ..//include/linux/netdevice.h:1904: warning: No description found for parameter 'prio_tc_map[TC_BITMASK + 1]'
+> 
+> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 
 Applied.
