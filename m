@@ -1,93 +1,78 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: net/arp: ARP cache aging failed.
-Date: Thu, 24 Nov 2016 13:28:23 +0100
-Message-ID: <1fdf938e-600c-ce58-ece1-06b816ddba1c@stressinduktion.org>
-References: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com>
- <alpine.LFD.2.11.1611230928140.1659@ja.home.ssi.bg>
- <1479902729.8455.479.camel@edumazet-glaptop3.roam.corp.google.com>
- <250d3a88-45ad-891f-389a-997f39d7bdad@stressinduktion.org>
- <1479944967.8455.516.camel@edumazet-glaptop3.roam.corp.google.com>
- <alpine.LFD.2.11.1611240931560.1685@ja.home.ssi.bg>
- <c82b7b44-c0ad-9ee7-1114-3eae3b5cf75a@huawei.com>
+From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
+Subject: Aw: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit
+ ethernet driver
+Date: Thu, 24 Nov 2016 13:30:13 +0100
+Message-ID: <trinity-689864d1-7519-49c5-9c6d-8366a1841360-1479990613647@3capp-gmx-bs64>
+References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161113195544.GA18258@lunn.ch>
+ <69558f55-824a-7063-d9b3-ccc0a6113b87@gmx.de>
+ <4450caf4-e1cf-5187-1337-c46b81b08708@gmail.com>
+ <0d1b4dee-11bb-3605-699c-ea417484cb68@gmx.de>
+ <20161115215907.GF23231@lunn.ch>,
+ <86165d2b-f9d5-a380-9bb0-f77c12691eb6@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: YueHaibing <yuehaibing@huawei.com>, Julian Anastasov <ja@ssi.bg>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:34222 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S964853AbcKXM20 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 07:28:26 -0500
-In-Reply-To: <c82b7b44-c0ad-9ee7-1114-3eae3b5cf75a@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
+        gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        LinoSanfilippo@gmx.de
+To: f.fainelli@gmail.com, andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <86165d2b-f9d5-a380-9bb0-f77c12691eb6@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24.11.2016 10:06, YueHaibing wrote:
-> On 2016/11/24 15:51, Julian Anastasov wrote:
->>
->> 	Hello,
->>
->> On Wed, 23 Nov 2016, Eric Dumazet wrote:
->>
->>> On Wed, 2016-11-23 at 15:37 +0100, Hannes Frederic Sowa wrote:
->>>
->>>> Irregardless about the question if bonding should keep the MAC address
->>>> alive, a MAC address can certainly change below a TCP connection.
->>>
->>> Of course ;)
->>>
+Hi Andrew, Hi Florian
+
+> Gesendet: Dienstag, 15. November 2016 um 23:34 Uhr
+> Von: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
+> An: "Andrew Lunn" <andrew@lunn.ch>
+> Cc: "Florian Fainelli" <f.fainelli@gmail.com>, davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com, gregkh@linuxfoundation.org, devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+> Betreff: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit ethernet driver
+>
+> On 15.11.2016 22:59, Andrew Lunn wrote:
+> >> The link state is retrieved by a command to the application processor that is running 
+> >> on the network card. Also the register to set the phy configuration is write-only, so
+> >> it is not even possible to do the usual mdio bit-banging in the Phy read() and write()
+> >> functions (however there seems to be another application processor command reserved 
+> >> for retrieving the PHY settings, but I have not tried it yet). 
+> > 
+> >>> +  			val = MII_BMCR << 16 | SLIC_PCR_AUTONEG |
+> >>> +		     	         SLIC_PCR_AUTONEG_RST;
+> >>> +			slic_write(sdev, SLIC_REG_WPHY, val);
+> > 
+> > This actually looks a lot like an MDIO write operation. The upper 16
+> > bits are the register, and the lower 16 bits are the data. What you
+> > don't have is the address. But maybe it is limited to one address.
+> > 
+> > If the processor command reserved for read works in a similar way, you
+> > have enough to do an MDIO bus.
+> > 
 > 
-> I configured bonding fail_over_mac=1 ,so the bonding MAC always be the MAC
-> address of the currently active slave.
+> Ok, I will give it a try. Reading values via the application processor
+> is a bit awkward though, since it requires an address to a dma area as part of
+> the command and then the AP informs the driver via irq that the dma memory has 
+> been written. So probably the irq handler will have to set some flag and
+> the mdio_read() function will have to poll for that flag in place of doing 
+> bit-banging a register. 
 > 
->>>>
->>>> dst_entry is 1:n to neigh_entry and as such we can end up confirming an
->>>> aging neighbor while sending a reply with dst->pending_confirm set while
->>>> the confirming packet actually came from a different neighbor.
->>>>
->>>> I agree with Julian, pending_confirm became useless in this way.
->>>
->>> Let's kill it then ;)
->>
->> 	It works for traffic via gateway. I now see that
->> we can even avoid write in dst_confirm:
->>
->> 	if (!dst->pending_confirm)
->> 		dst->pending_confirm = 1;
->>
->> 	because it is called by non-dup TCP ACKs.
->>
->> 	But for traffic to hosts on LAN we need different solution,
->> i.e. for cached dsts with rt_gateway = 0 (last entry below).
->>
->> rt_uses_gateway rt_gateway DST_NOCACHE Description
->> ====================================================================
->> 1               nh_gw      ANY         Traffic via gateway
->> 0               LAN_host   1           FLOWI_FLAG_KNOWN_NH (nexthop
->>                                        set by IPVS, hdrincl, xt_TEE)
->> 0               0          0           1 dst for many subnet hosts
->>
->> Regards
->>
->> --
->> Julian Anastasov <ja@ssi.bg>
->>
->> .
->>
+> > If you can get the read working look at registers 2 and 3. Compare
+> > what you get with the values at the end of marvell.c.
+> > 
 > 
-> As above,Is there a plan to fix the problem ? Should we just not call dst_confirm
-> when in the case rt->rt_uses_gateway/DST_NOCACHE?
+> Will do, thank you!
+> 
 
-I think some people are thinking about it already (me also ;) ).
+unfortunately I was not able to figure out how to read the phy. My hope was to find
+a hidden register that I can use to request the phy status from the cards utility processor.
+I actually found two more registers that seem to be reserved for the communication
+with the UP. At least they cause the UPR irq to be fired but there is no data written to
+the provided dma address. I assume that they are not meant to be used for the this purpose.
+So I am afraid I am not able to use the phy API in this driver for now. 
+However I will send a v2 of the driver shortly that will include the other
+changes suggested by Andrew along with some further small improvements.
+Thanks for your help so far!
 
-But it is not easy to come up with a solution. First of all, we need to
-look up the L2 address again in the neighbor cache and confirm the
-appropriate neighbor. Secondly we should only do that for packets which
-we can actually confirm (that means passing the TCP recv tests or some
-other kind of confirmation besides simply spamming the box etc). Also it
-needs to be fast.
-
-Bye,
-Hannes
+Regards,
+Lino
