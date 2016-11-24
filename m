@@ -1,14 +1,12 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 2/4] net: thunderx: Add ethtool support for supported ports
- and link modes.
-Date: Thu, 24 Nov 2016 14:48:01 +0530
-Message-ID: <1479979083-15963-3-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 3/4] net: thunderx: Configure RED and backpressure levels
+Date: Thu, 24 Nov 2016 14:48:02 +0530
+Message-ID: <1479979083-15963-4-git-send-email-sunil.kovvuri@gmail.com>
 References: <1479979083-15963-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>,
- Thanneeru Srinivasulu <tsrinivasulu@cavium.com>, linux-kernel@vger.kernel.org,
+Cc: Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
  linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
@@ -24,123 +22,134 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Signed-off-by: Thanneeru Srinivasulu <tsrinivasulu@cavium.com>
+This patch enables moving average calculation of Rx pkt's resources
+and configures RED and backpressure levels for both CQ and RBDR.
+Also initialize SQ's CQ_LIMIT properly.
+
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          |  2 ++
- drivers/net/ethernet/cavium/thunder/nic_main.c     |  1 +
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 36 ++++++++++++++++++++--
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |  1 +
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |  1 +
- 5 files changed, 38 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic_main.c     |  9 ++++++++
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  9 ++++++--
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 24 +++++++++++++++++-----
+ drivers/net/ethernet/cavium/thunder/q_struct.h     |  8 ++++++--
+ 4 files changed, 41 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 86bd93c..be8404a 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -292,6 +292,7 @@ struct nicvf {
- 	u8			node;
- 	u8			cpi_alg;
- 	bool			link_up;
-+	u8			mac_type;
- 	u8			duplex;
- 	u32			speed;
- 	bool			tns_mode;
-@@ -446,6 +447,7 @@ struct bgx_stats_msg {
- /* Physical interface link status */
- struct bgx_link_status {
- 	u8    msg;
-+	u8    mac_type;
- 	u8    link_up;
- 	u8    duplex;
- 	u32   speed;
 diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 6677b96..b87d416 100644
+index b87d416..17490ec 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -1258,6 +1258,7 @@ static void nic_poll_for_link(struct work_struct *work)
- 			mbx.link_status.link_up = link.link_up;
- 			mbx.link_status.duplex = link.duplex;
- 			mbx.link_status.speed = link.speed;
-+			mbx.link_status.mac_type = link.mac_type;
- 			nic_send_msg_to_vf(nic, vf, &mbx);
- 		}
- 	}
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index 432bf6b..d4d76a7 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -130,12 +130,42 @@ static int nicvf_get_settings(struct net_device *netdev,
- 		return 0;
- 	}
+@@ -809,6 +809,15 @@ static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
  
--	if (nic->speed <= 1000) {
--		cmd->port = PORT_MII;
-+	switch (nic->speed) {
-+	case SPEED_1000:
-+		cmd->port = PORT_MII | PORT_TP;
- 		cmd->autoneg = AUTONEG_ENABLE;
--	} else {
-+		cmd->supported |= SUPPORTED_MII | SUPPORTED_TP;
-+		cmd->supported |= SUPPORTED_1000baseT_Full |
-+				  SUPPORTED_1000baseT_Half |
-+				  SUPPORTED_100baseT_Full  |
-+				  SUPPORTED_100baseT_Half  |
-+				  SUPPORTED_10baseT_Full   |
-+				  SUPPORTED_10baseT_Half;
-+		cmd->supported |= SUPPORTED_Autoneg;
-+		cmd->advertising |= ADVERTISED_1000baseT_Full |
-+				    ADVERTISED_1000baseT_Half |
-+				    ADVERTISED_100baseT_Full  |
-+				    ADVERTISED_100baseT_Half  |
-+				    ADVERTISED_10baseT_Full   |
-+				    ADVERTISED_10baseT_Half;
-+		break;
-+	case SPEED_10000:
-+		if (nic->mac_type == BGX_MODE_RXAUI) {
-+			cmd->port = PORT_TP;
-+			cmd->supported |= SUPPORTED_TP;
-+		} else {
-+			cmd->port = PORT_FIBRE;
-+			cmd->supported |= SUPPORTED_FIBRE;
-+		}
-+		cmd->autoneg = AUTONEG_DISABLE;
-+		cmd->supported |= SUPPORTED_10000baseT_Full;
-+		break;
-+	case SPEED_40000:
- 		cmd->port = PORT_FIBRE;
- 		cmd->autoneg = AUTONEG_DISABLE;
-+		cmd->supported |= SUPPORTED_FIBRE;
-+		cmd->supported |= SUPPORTED_40000baseCR4_Full;
-+		break;
- 	}
- 	cmd->duplex = nic->duplex;
- 	ethtool_cmd_speed_set(cmd, nic->speed);
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 7c2c373..c6c2303 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -221,6 +221,7 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
- 		nic->link_up = mbx.link_status.link_up;
- 		nic->duplex = mbx.link_status.duplex;
- 		nic->speed = mbx.link_status.speed;
-+		nic->mac_type = mbx.link_status.mac_type;
- 		if (nic->link_up) {
- 			netdev_info(nic->netdev, "%s: Link is Up %d Mbps %s\n",
- 				    nic->netdev->name, nic->speed,
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 1d6214b..29c727f 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -161,6 +161,7 @@ void bgx_get_lmac_link_state(int node, int bgx_idx, int lmacid, void *status)
- 		return;
+ 	bgx_lmac_internal_loopback(nic->node, bgx_idx, lmac_idx, lbk->enable);
  
- 	lmac = &bgx->lmac[lmacid];
-+	link->mac_type = lmac->lmac_type;
- 	link->link_up = lmac->link_up;
- 	link->duplex = lmac->last_duplex;
- 	link->speed = lmac->last_speed;
++	/* Enable moving average calculation.
++	 * Keep the LVL/AVG delay to HW enforced minimum so that, not too many
++	 * packets sneek in between average calculations.
++	 */
++	nic_reg_write(nic, NIC_PF_CQ_AVG_CFG,
++		      (BIT_ULL(20) | 0x2ull << 14 | 0x1));
++	nic_reg_write(nic, NIC_PF_RRM_AVG_CFG,
++		      (BIT_ULL(20) | 0x3ull << 14 | 0x1));
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index 747ef08..7b336cd 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -544,14 +544,18 @@ static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
+ 	nicvf_send_msg_to_pf(nic, &mbx);
+ 
+ 	mbx.rq.msg = NIC_MBOX_MSG_RQ_BP_CFG;
+-	mbx.rq.cfg = (1ULL << 63) | (1ULL << 62) | (qs->vnic_id << 0);
++	mbx.rq.cfg = BIT_ULL(63) | BIT_ULL(62) |
++		     (RQ_PASS_RBDR_LVL << 16) | (RQ_PASS_CQ_LVL << 8) |
++		     (qs->vnic_id << 0);
+ 	nicvf_send_msg_to_pf(nic, &mbx);
+ 
+ 	/* RQ drop config
+ 	 * Enable CQ drop to reserve sufficient CQEs for all tx packets
+ 	 */
+ 	mbx.rq.msg = NIC_MBOX_MSG_RQ_DROP_CFG;
+-	mbx.rq.cfg = (1ULL << 62) | (RQ_CQ_DROP << 8);
++	mbx.rq.cfg = BIT_ULL(63) | BIT_ULL(62) |
++		     (RQ_PASS_RBDR_LVL << 40) | (RQ_DROP_RBDR_LVL << 32) |
++		     (RQ_PASS_CQ_LVL << 16) | (RQ_DROP_CQ_LVL << 8);
+ 	nicvf_send_msg_to_pf(nic, &mbx);
+ 
+ 	if (!nic->sqs_mode && (qidx == 0)) {
+@@ -650,6 +654,7 @@ static void nicvf_snd_queue_config(struct nicvf *nic, struct queue_set *qs,
+ 	sq_cfg.ldwb = 0;
+ 	sq_cfg.qsize = SND_QSIZE;
+ 	sq_cfg.tstmp_bgx_intf = 0;
++	sq_cfg.cq_limit = 0;
+ 	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_CFG, qidx, *(u64 *)&sq_cfg);
+ 
+ 	/* Set threshold value for interrupt generation */
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index 2e3c940..20511f2 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -85,12 +85,26 @@
+ 
+ #define MAX_CQES_FOR_TX		((SND_QUEUE_LEN / MIN_SQ_DESC_PER_PKT_XMIT) * \
+ 				 MAX_CQE_PER_PKT_XMIT)
+-/* Calculate number of CQEs to reserve for all SQEs.
+- * Its 1/256th level of CQ size.
+- * '+ 1' to account for pipelining
++
++/* RED and Backpressure levels of CQ for pkt reception
++ * For CQ, level is a measure of emptiness i.e 0x0 means full
++ * eg: For CQ of size 4K, and for pass/drop levels of 128/96
++ * HW accepts pkt if unused CQE >= 2048
++ * RED accepts pkt if unused CQE < 2048 & >= 1536
++ * DROPs pkts if unused CQE < 1536
++ */
++#define RQ_PASS_CQ_LVL		128ULL
++#define RQ_DROP_CQ_LVL		96ULL
++
++/* RED and Backpressure levels of RBDR for pkt reception
++ * For RBDR, level is a measure of fullness i.e 0x0 means empty
++ * eg: For RBDR of size 8K, and for pass/drop levels of 4/0
++ * HW accepts pkt if unused RBs >= 256
++ * RED accepts pkt if unused RBs < 256 & >= 0
++ * DROPs pkts if unused RBs < 0
+  */
+-#define RQ_CQ_DROP		((256 / (CMP_QUEUE_LEN / \
+-				 (CMP_QUEUE_LEN - MAX_CQES_FOR_TX))) + 1)
++#define RQ_PASS_RBDR_LVL	8ULL
++#define RQ_DROP_RBDR_LVL	0ULL
+ 
+ /* Descriptor size in bytes */
+ #define SND_QUEUE_DESC_SIZE	16
+diff --git a/drivers/net/ethernet/cavium/thunder/q_struct.h b/drivers/net/ethernet/cavium/thunder/q_struct.h
+index 9e6d987..f363472 100644
+--- a/drivers/net/ethernet/cavium/thunder/q_struct.h
++++ b/drivers/net/ethernet/cavium/thunder/q_struct.h
+@@ -624,7 +624,9 @@ struct cq_cfg {
+ 
+ struct sq_cfg {
+ #if defined(__BIG_ENDIAN_BITFIELD)
+-	u64 reserved_20_63:44;
++	u64 reserved_32_63:32;
++	u64 cq_limit:8;
++	u64 reserved_20_23:4;
+ 	u64 ena:1;
+ 	u64 reserved_18_18:1;
+ 	u64 reset:1;
+@@ -642,7 +644,9 @@ struct sq_cfg {
+ 	u64 reset:1;
+ 	u64 reserved_18_18:1;
+ 	u64 ena:1;
+-	u64 reserved_20_63:44;
++	u64 reserved_20_23:4;
++	u64 cq_limit:8;
++	u64 reserved_32_63:32;
+ #endif
+ };
+ 
 -- 
 2.7.4
