@@ -1,55 +1,41 @@
-From: Manjeet Pawar <manjeet.p@samsung.com>
-Subject: [PATCH v2] ipv6:ipv6_pinfo dereferenced after NULL check
-Date: Thu, 24 Nov 2016 16:11:57 +0530
-Message-ID: <1479984117-39005-1-git-send-email-manjeet.p@samsung.com>
-Cc: pankaj.m@samsung.com, ajeet.y@samsung.com,
-        Rohit Thapliyal <r.thapliyal@samsung.com>,
-        Manjeet Pawar <manjeet.p@samsung.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [patch] net/mlx5: remove a duplicate condition
+Date: Thu, 24 Nov 2016 14:03:45 +0300
+Message-ID: <20161124110345.GC17225@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Rohit Thapliyal <r.thapliyal@samsung.com>
+We verified that MLX5_FLOW_CONTEXT_ACTION_COUNT was set on the first
+line of the function so we don't need to check again here.
 
-np checked for NULL and then dereferenced. It should be modified
-for NULL case.
-
-Signed-off-by: Rohit Thapliyal <r.thapliyal@samsung.com>
-Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Reviewed-by: Akhilesh Kumar <akhilesh.k@samsung.com>
-
+Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
-v1->v2: Modified as per the suggestion of Hannes
-        np ? np->autoflowlabel : ip6_default_np_autolabel(net)
+Not a bugfix so it would go into -next
 
- net/ipv6/ip6_output.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 59eb4ed..d734b5e 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -215,11 +215,14 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
- 	 */
- 	if (np)
- 		hlimit = np->hop_limit;
-+
- 	if (hlimit < 0)
- 		hlimit = ip6_dst_hoplimit(dst);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 68ec4ea..a263d89 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1307,8 +1307,7 @@ static bool counter_is_valid(struct mlx5_fc *counter, u32 action)
+ 		return false;
  
--	ip6_flow_hdr(hdr, tclass, ip6_make_flowlabel(net, skb, fl6->flowlabel,
--						     np->autoflowlabel, fl6));
-+	ip6_flow_hdr(hdr, tclass,
-+		ip6_make_flowlabel(net, skb, fl6->flowlabel,
-+			np ? np->autoflowlabel : ip6_default_np_autolabel(net),
-+			fl6));
+ 	return (action & (MLX5_FLOW_CONTEXT_ACTION_DROP |
+-			  MLX5_FLOW_CONTEXT_ACTION_FWD_DEST)) &&
+-		(action & MLX5_FLOW_CONTEXT_ACTION_COUNT);
++			  MLX5_FLOW_CONTEXT_ACTION_FWD_DEST));
+ }
  
- 	hdr->payload_len = htons(seg_len);
- 	hdr->nexthdr = proto;
--- 
-1.9.1
+ static bool dest_is_valid(struct mlx5_flow_destination *dest,
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
