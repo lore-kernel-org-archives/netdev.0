@@ -1,80 +1,95 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits
- compatible
-Date: Thu, 24 Nov 2016 17:11:59 +0800
-Message-ID: <20161124171159.2a82da4f@xhacker>
-References: <20161122164844.19566-1-gregory.clement@free-electrons.com>
-        <CAPv3WKf0a63qQT+xwXfUatbgLFF58e6L8J10VtBOUTam+kUcjg@mail.gmail.com>
-        <20161124163327.1cc261ab@xhacker>       <21520380.oWTKcrq8DS@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel@lists.infradead.org>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        "Jason Cooper" <jason@lakedaemon.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [patch added to 3.12-stable] net: sctp, forbid negative length
+Date: Thu, 24 Nov 2016 10:17:59 +0100
+Message-ID: <20161124091800.14160-11-jslaby@suse.cz>
+References: <20161124091800.14160-1-jslaby@suse.cz>
+Cc: Jiri Slaby <jslaby@suse.cz>, Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <21520380.oWTKcrq8DS@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: stable@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20161124091800.14160-1-jslaby@suse.cz>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Nov 2016 10:00:36 +0100
-Arnd Bergmann <arnd@arndb.de> wrote:
+This patch has been added to the 3.12 stable tree. If you have any
+objections, please let us know.
 
-> On Thursday, November 24, 2016 4:37:36 PM CET Jisheng Zhang wrote:
-> > solB (a SW shadow cookie) perhaps gives a better performance: in hot path,
-> > such as mvneta_rx(), the driver accesses buf_cookie and buf_phys_addr of
-> > rx_desc which is allocated by dma_alloc_coherent, it's noncacheable if the
-> > device isn't cache-coherent. I didn't measure the performance difference,
-> > because in fact we take solA as well internally. From your experience,
-> > can the performance gain deserve the complex code?  
-> 
-> Yes, a read from uncached memory is fairly slow, so if you have a chance
-> to avoid that it will probably help. When adding complexity to the code,
-> it probably makes sense to take a runtime profile anyway quantify how
-> much it gains.
-> 
-> On machines that have cache-coherent DMA, accessing the descriptor
-> should be fine, as you already have to load the entire cache line
-> to read the status field.
-> 
-> Looking at this snippet:
-> 
->                 rx_status = rx_desc->status;
->                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
->                 data = (unsigned char *)rx_desc->buf_cookie;
->                 phys_addr = rx_desc->buf_phys_addr;
->                 pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
->                 bm_pool = &pp->bm_priv->bm_pools[pool_id];
-> 
->                 if (!mvneta_rxq_desc_is_first_last(rx_status) ||
->                     (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
-> err_drop_frame_ret_pool:
->                         /* Return the buffer to the pool */
->                         mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
->                                               rx_desc->buf_phys_addr);
-> err_drop_frame:
-> 
-> 
-> I think there is more room for optimizing if you start: you read
-> the status field twice (the second one in MVNETA_RX_GET_BM_POOL_ID)
-> and you can cache the buf_phys_addr along with the virtual address
-> once you add that.
+===============
 
-oh, yeah! buf_phy_addr could be included too.
+[ Upstream commit a4b8e71b05c27bae6bad3bdecddbc6b68a3ad8cf ]
 
-> 
-> Generally speaking, I'd recommend using READ_ONCE()/WRITE_ONCE()
-> to access the descriptor fields, to ensure the compiler doesn't
-> add extra references as well as to annotate the expensive
-> operations.
-> 
-> 	Arnd
+Most of getsockopt handlers in net/sctp/socket.c check len against
+sizeof some structure like:
+        if (len < sizeof(int))
+                return -EINVAL;
 
-Got it. Thanks so much for the detailed guide. 
+On the first look, the check seems to be correct. But since len is int
+and sizeof returns size_t, int gets promoted to unsigned size_t too. So
+the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
+false.
+
+Fix this in sctp by explicitly checking len < 0 before any getsockopt
+handler is called.
+
+Note that sctp_getsockopt_events already handled the negative case.
+Since we added the < 0 check elsewhere, this one can be removed.
+
+If not checked, this is the result:
+UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
+shift exponent 52 is too large for 32-bit type 'int'
+CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
+ 0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
+ ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
+ 0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
+Call Trace:
+ [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
+...
+ [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
+ [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
+ [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
+ [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
+ [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
+ [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
+ [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
+
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-sctp@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+---
+ net/sctp/socket.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index ead3a8adca08..98cd6606f4a4 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4247,7 +4247,7 @@ static int sctp_getsockopt_disable_fragments(struct sock *sk, int len,
+ static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
+ 				  int __user *optlen)
+ {
+-	if (len <= 0)
++	if (len == 0)
+ 		return -EINVAL;
+ 	if (len > sizeof(struct sctp_event_subscribe))
+ 		len = sizeof(struct sctp_event_subscribe);
+@@ -5758,6 +5758,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 	if (get_user(len, optlen))
+ 		return -EFAULT;
+ 
++	if (len < 0)
++		return -EINVAL;
++
+ 	sctp_lock_sock(sk);
+ 
+ 	switch (optname) {
+-- 
+2.10.2
