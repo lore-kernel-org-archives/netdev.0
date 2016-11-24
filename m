@@ -1,60 +1,57 @@
-From: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 3/4] mac80211: Removed unused 'struct
- ieee80211_supported_band*' variable
-Date: Wed, 23 Nov 2016 20:46:14 -0800
-Message-ID: <a8fcdffb1e209afc5148bec8ba6229fcc8dd50af.1479962513.git.kirtika@chromium.org>
+From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Subject: [PATCH 4/4] mac80211: Remove unused 'beaconint_us' variable
+Date: Wed, 23 Nov 2016 20:46:27 -0800
+Message-ID: <9a09ca6fd5eeab860461b1692fdf5274dfa1aee8.1479962513.git.kirtika@chromium.org>
 References: <cover.1479962513.git.kirtika@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Marek Kwaczynski <marek.kwaczynski-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
-        David Spinadel <david.spinadel-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Alexander Bondar <alexander.bondar-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-To: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        Marek Kwaczynski <marek.kwaczynski@tieto.com>,
+        David Spinadel <david.spinadel@intel.com>,
+        Alexander Bondar <alexander.bondar@intel.com>,
+        Michal Kazior <michal.kazior@tieto.com>
+To: Johannes Berg <johannes.berg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33266 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754354AbcKXEqc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 23:46:32 -0500
 Content-Disposition: inline
-In-Reply-To: <cover.1479962513.git.kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <cover.1479962513.git.kirtika@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit b1bce14a7954 (mac80211: update opmode when adding new station)
-refactored ieee80211_vht_handle_opmode into __ieee80211_vht_handle_opmode
-and ieee80211_vht_handle_opmode leaving a set but unused variable
-(sband) in the former. Compiling with W=1 gives the following warning,
-fix it.
+Commit 4a733ef1bea7 (mac80211: remove PM-QoS listener) removed all use
+of 'beaconint_us' from ieee80211_recalc_ps() but left the variable
+intact. Compiling with W=1 gives the following warning, fix it.
+net/mac80211/mlme.c: In function ‘ieee80211_recalc_ps’:
+net/mac80211/mlme.c:1481:7: warning: variable ‘beaconint_us’ set but not used [-Wunused-but-set-variable]
 
-net/mac80211/vht.c: In function ‘__ieee80211_vht_handle_opmode’:
-net/mac80211/vht.c:424:35: warning: variable ‘sband’ set but not used [-Wunused-but-set-variable]
+iee80211_tu_to_usec has no side-effects and is safe to remove.
 
-Remove 'struct ieee80211_local* local' as well, it was only used to
-set sband.
-
-This is a harmless warning, and is only being fixed to reduce the
-noise with W=1 in the kernel.
-
-Fixes: b1bce14a7954 ("mac80211: update opmode when adding new station")
-Cc: Marek Kwaczynski <marek.kwaczynski-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Cc: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Kirtika Ruchandani <kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Fixes: 4a733ef1bea7 ("mac80211: remove PM-QoS listener")
+Cc: Johannes Berg <johannes.berg@intel.com>
+Signed-off-by: Kirtika Ruchandani <kirtika@chromium.org>
 ---
- net/mac80211/vht.c | 4 ----
+ net/mac80211/mlme.c | 4 ----
  1 file changed, 4 deletions(-)
 
-diff --git a/net/mac80211/vht.c b/net/mac80211/vht.c
-index ee71576..14920e3 100644
---- a/net/mac80211/vht.c
-+++ b/net/mac80211/vht.c
-@@ -420,14 +420,10 @@ u32 __ieee80211_vht_handle_opmode(struct ieee80211_sub_if_data *sdata,
- 				  struct sta_info *sta, u8 opmode,
- 				  enum nl80211_band band)
- {
--	struct ieee80211_local *local = sdata->local;
--	struct ieee80211_supported_band *sband;
- 	enum ieee80211_sta_rx_bandwidth new_bw;
- 	u32 changed = 0;
- 	u8 nss;
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index 7486f2d..e883345 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -1478,10 +1478,6 @@ void ieee80211_recalc_ps(struct ieee80211_local *local)
  
--	sband = local->hw.wiphy->bands[band];
+ 	if (count == 1 && ieee80211_powersave_allowed(found)) {
+ 		u8 dtimper = found->u.mgd.dtim_period;
+-		s32 beaconint_us;
+-
+-		beaconint_us = ieee80211_tu_to_usec(
+-					found->vif.bss_conf.beacon_int);
+ 
+ 		timeout = local->dynamic_ps_forced_timeout;
+ 		if (timeout < 0)
+-- 
+2.8.0.rc3.226.g39d4020
