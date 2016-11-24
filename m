@@ -1,61 +1,54 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [scr265482] ip_tunnel.c
-Date: Wed, 23 Nov 2016 23:19:38 -0800
-Message-ID: <CAM_iQpX7mU7gogGx1peYMoOQbp0CZgYmTZJt=uGFm0c0gviY5A@mail.gmail.com>
-References: <860a2905e7f7467f864e13839eb05222@imshyb02.MITRE.ORG> <F41877A268BCDE49BAEE2286FA8C269F6FECFB15@LETV-MBX-IDC09.letv.local>
+From: =?utf-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
+Subject: =?utf-8?B?562U5aSNOiBbc2NyMjY1NDgyXSBpcF90dW5uZWwuYw==?=
+Date: Thu, 24 Nov 2016 07:45:52 +0000
+Message-ID: <F41877A268BCDE49BAEE2286FA8C269F6FECFBBF@LETV-MBX-IDC09.letv.local>
+References: <860a2905e7f7467f864e13839eb05222@imshyb02.MITRE.ORG>
+ <F41877A268BCDE49BAEE2286FA8C269F6FECFB15@LETV-MBX-IDC09.letv.local>
+ <CAM_iQpX7mU7gogGx1peYMoOQbp0CZgYmTZJt=uGFm0c0gviY5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "security@kernel.org" <security@kernel.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "cve-request@mitre.org" <cve-request@mitre.org>
-To: =?UTF-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35014 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751146AbcKXHUA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 02:20:00 -0500
-Received: by mail-io0-f195.google.com with SMTP id h133so4189183ioe.2
-        for <netdev@vger.kernel.org>; Wed, 23 Nov 2016 23:20:00 -0800 (PST)
-In-Reply-To: <F41877A268BCDE49BAEE2286FA8C269F6FECFB15@LETV-MBX-IDC09.letv.local>
+Received: from mail2.letv.com ([115.182.93.109]:11178 "EHLO letvspm.imsa.com"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754649AbcKXHqu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 02:46:50 -0500
+In-Reply-To: <CAM_iQpX7mU7gogGx1peYMoOQbp0CZgYmTZJt=uGFm0c0gviY5A@mail.gmail.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 23, 2016 at 6:47 PM, Liyang Yu (=E4=BA=8E=E7=AB=8B=E6=B4=8B1) <=
-yuliyang1@le.com> wrote:
-> Hi:
->         I found that the GRE tunnel in same case can cause integer overfl=
-ow in ip_tunnel.c:397
->
-> Cause of the problem:
->         When tpi->seq less than tunnel->i_seqno, the packet will be drope=
-d.
->
-> How to recurrence problem
->         1. Create an tunnel use kernel GRE module.
->     2. Use the tunnel to send packets for awile.
->     3.Reboot one site of the tunnel.
->     4. Communication interrupted
-
-What do you mean by "reboot one site of the tunnel"?
-
-If you mean something like delete and create it again,
-it has nothing related to integer overflow, the tunnel->o_seqno
-will restart from 0 and the tunnel->i_seqno will remain as it is
-since we can't detect the interruption of the tunnel traffic.
-If so, the following patch could help?
-
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 5719d6b..2738ff2 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -277,6 +277,7 @@ static struct net_device
-*__ip_tunnel_create(struct net *net,
-        tunnel =3D netdev_priv(dev);
-        tunnel->parms =3D *parms;
-        tunnel->net =3D net;
-+       tunnel->o_seqno =3D UINT_MAX;
-
-        err =3D register_netdevice(dev);
-        if (err)
+WWVhaO+8jEkgbWVhbnMgdGhhdCByZWNyZWF0ZSB0aGUgdHVubmVsIGFnYWluLCANCkJ1dCBJIGRv
+buKAmXQgdGhpbmsgdGhlIHBhdGNoIGNhbiBmaXggdGhlIGJ1Zy4gSXQgb25seSBjYW4gbWFrZSB0
+aGUgZmlyc3QgcGFja2V0IHJlY2VpdmVkIHN1Y2Nlc3NlZC4gQW5kIHRoZSBmb2xsb3cgcGFja2V0
+IHdpbGwgZHJvcGVkIGFsc28uDQpJbiBmdW5jdGlvbiBfX2dyZV94bWl0ICBsaW5lIDM2NiANCiAg
+dHVubmVsLT5vX3NlcW5vKys7DQoNCklmIHlvdSByZXN0YXJ0IGZyb20gVUlOVF9NQVgsIHRoZSAn
+b19zZXFubycgb2Ygc2Vjb25kIHBhY2tldCB3aWxsIHJldHVybiB0byAwIGFnYWluLiANCg0KQlRX
+Og0KICAgQ2FuIHlvdSByZWFkIENoaW5lc2U/IDopDQoNCk9uIFdlZCwgTm92IDIzLCAyMDE2IGF0
+IDY6NDcgUE0sIExpeWFuZyBZdSAo5LqO56uL5rSLMSkgPHl1bGl5YW5nMUBsZS5jb20+IHdyb3Rl
+Og0KPiBIaToNCj4gICAgICAgICBJIGZvdW5kIHRoYXQgdGhlIEdSRSB0dW5uZWwgaW4gc2FtZSBj
+YXNlIGNhbiBjYXVzZSBpbnRlZ2VyIA0KPiBvdmVyZmxvdyBpbiBpcF90dW5uZWwuYzozOTcNCj4N
+Cj4gQ2F1c2Ugb2YgdGhlIHByb2JsZW06DQo+ICAgICAgICAgV2hlbiB0cGktPnNlcSBsZXNzIHRo
+YW4gdHVubmVsLT5pX3NlcW5vLCB0aGUgcGFja2V0IHdpbGwgYmUgZHJvcGVkLg0KPg0KPiBIb3cg
+dG8gcmVjdXJyZW5jZSBwcm9ibGVtDQo+ICAgICAgICAgMS4gQ3JlYXRlIGFuIHR1bm5lbCB1c2Ug
+a2VybmVsIEdSRSBtb2R1bGUuDQo+ICAgICAyLiBVc2UgdGhlIHR1bm5lbCB0byBzZW5kIHBhY2tl
+dHMgZm9yIGF3aWxlLg0KPiAgICAgMy5SZWJvb3Qgb25lIHNpdGUgb2YgdGhlIHR1bm5lbC4NCj4g
+ICAgIDQuIENvbW11bmljYXRpb24gaW50ZXJydXB0ZWQNCg0KV2hhdCBkbyB5b3UgbWVhbiBieSAi
+cmVib290IG9uZSBzaXRlIG9mIHRoZSB0dW5uZWwiPw0KDQpJZiB5b3UgbWVhbiBzb21ldGhpbmcg
+bGlrZSBkZWxldGUgYW5kIGNyZWF0ZSBpdCBhZ2FpbiwgaXQgaGFzIG5vdGhpbmcgcmVsYXRlZCB0
+byBpbnRlZ2VyIG92ZXJmbG93LCB0aGUgdHVubmVsLT5vX3NlcW5vIHdpbGwgcmVzdGFydCBmcm9t
+IDAgYW5kIHRoZSB0dW5uZWwtPmlfc2Vxbm8gd2lsbCByZW1haW4gYXMgaXQgaXMgc2luY2Ugd2Ug
+Y2FuJ3QgZGV0ZWN0IHRoZSBpbnRlcnJ1cHRpb24gb2YgdGhlIHR1bm5lbCB0cmFmZmljLg0KSWYg
+c28sIHRoZSBmb2xsb3dpbmcgcGF0Y2ggY291bGQgaGVscD8NCg0KDQpkaWZmIC0tZ2l0IGEvbmV0
+L2lwdjQvaXBfdHVubmVsLmMgYi9uZXQvaXB2NC9pcF90dW5uZWwuYyBpbmRleCA1NzE5ZDZiLi4y
+NzM4ZmYyIDEwMDY0NA0KLS0tIGEvbmV0L2lwdjQvaXBfdHVubmVsLmMNCisrKyBiL25ldC9pcHY0
+L2lwX3R1bm5lbC5jDQpAQCAtMjc3LDYgKzI3Nyw3IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqX19pcF90dW5uZWxfY3JlYXRlKHN0cnVjdCBuZXQgKm5ldCwNCiAgICAgICAgdHVubmVsID0g
+bmV0ZGV2X3ByaXYoZGV2KTsNCiAgICAgICAgdHVubmVsLT5wYXJtcyA9ICpwYXJtczsNCiAgICAg
+ICAgdHVubmVsLT5uZXQgPSBuZXQ7DQorICAgICAgIHR1bm5lbC0+b19zZXFubyA9IFVJTlRfTUFY
+Ow0KDQogICAgICAgIGVyciA9IHJlZ2lzdGVyX25ldGRldmljZShkZXYpOw0KICAgICAgICBpZiAo
+ZXJyKQ0K
