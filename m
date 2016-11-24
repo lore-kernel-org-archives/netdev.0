@@ -1,7 +1,8 @@
 From: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/5] ath10k: Remove unused 'num_vdev_stats' variable
-Date: Thu, 24 Nov 2016 00:01:41 -0800
-Message-ID: <053542094d16965b971f1bc70dbbe9dff3c40ca1.1479974100.git.kirtika@chromium.org>
+Subject: [PATCH 3/5] ath10k: Remove unused wmi_p2p_noa_descriptor 'noa' in
+ wmi-tlv
+Date: Thu, 24 Nov 2016 00:01:58 -0800
+Message-ID: <99d0ff42e57d5f62560e72d926b4d69d5d7c418b.1479974100.git.kirtika@chromium.org>
 References: <cover.1479974100.git.kirtika@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -16,126 +17,40 @@ In-Reply-To: <cover.1479974100.git.kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.o
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Several functions for wmi stats parsing define and set num_vdev_stats
-but do not use it. Compiling with W=1 gives the following warnings,
-fix them.
+Commit ca996ec56608 (ath10k: implement wmi-tlv backend)
+introduced ath10k_wmi_tlv_op_gen_vdev_start() where
+'struct wmi_p2p_noa_descriptor *noa' is defined and set but not used.
+Compiling with W=1 gives the following warning, fix it.
+drivers/net/wireless/ath/ath10k/wmi-tlv.c: In function ‘ath10k_wmi_tlv_op_gen_vdev_start’:
+drivers/net/wireless/ath/ath10k/wmi-tlv.c:1647:33: warning: variable ‘noa’ set but not used [-Wunused-but-set-variable]
 
-drivers/net/wireless/ath/ath10k/wmi.c: In function ‘ath10k_wmi_main_op_pull_fw_stats’:
-drivers/net/wireless/ath/ath10k/wmi.c:2680:22: warning: variable ‘num_vdev_stats’ set but not used [-Wunused-but-set-variable]
-  u32 num_pdev_stats, num_vdev_stats, num_peer_stats;
-                      ^
-drivers/net/wireless/ath/ath10k/wmi.c: In function ‘ath10k_wmi_10x_op_pull_fw_stats’:
-drivers/net/wireless/ath/ath10k/wmi.c:2735:22: warning: variable ‘num_vdev_stats’ set but not used [-Wunused-but-set-variable]
-  u32 num_pdev_stats, num_vdev_stats, num_peer_stats;
-                      ^
-drivers/net/wireless/ath/ath10k/wmi.c: In function ‘ath10k_wmi_10_2_op_pull_fw_stats’:
-drivers/net/wireless/ath/ath10k/wmi.c:2796:6: warning: variable ‘num_vdev_stats’ set but not used [-Wunused-but-set-variable]
-  u32 num_vdev_stats;
-      ^
-drivers/net/wireless/ath/ath10k/wmi.c: In function ‘ath10k_wmi_10_2_4_op_pull_fw_stats’:
-drivers/net/wireless/ath/ath10k/wmi.c:2875:6: warning: variable ‘num_vdev_stats’ set but not used [-Wunused-but-set-variable]
-  u32 num_vdev_stats;
-      ^
-drivers/net/wireless/ath/ath10k/wmi.c: In function ‘ath10k_wmi_10_4_op_pull_fw_stats’:
-drivers/net/wireless/ath/ath10k/wmi.c:2963:6: warning: variable ‘num_vdev_stats’ set but not used [-Wunused-but-set-variable]
-  u32 num_vdev_stats;
-      ^
-
-These are harmless warnings and are only being fixed to reduce the
-noise with W=1 in the kernel.
-
-Fixes: d15fb5200664 ("ath10k: split wmi stats parsing")
-Fixes: 20de2229c634 ("ath10k: fix 10.2 fw stats parsing")
+Fixes: ca996ec56608 ("ath10k: implement wmi-tlv backend")
 Cc: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
 Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
 Signed-off-by: Kirtika Ruchandani <kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 ---
- drivers/net/wireless/ath/ath10k/wmi.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/wireless/ath/ath10k/wmi-tlv.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/wmi.c b/drivers/net/wireless/ath/ath10k/wmi.c
-index 1f28187..10ec5a5 100644
---- a/drivers/net/wireless/ath/ath10k/wmi.c
-+++ b/drivers/net/wireless/ath/ath10k/wmi.c
-@@ -2675,14 +2675,13 @@ static int ath10k_wmi_main_op_pull_fw_stats(struct ath10k *ar,
-					    struct ath10k_fw_stats *stats)
+diff --git a/drivers/net/wireless/ath/ath10k/wmi-tlv.c b/drivers/net/wireless/ath/ath10k/wmi-tlv.c
+index e64f593..0e4bd29 100644
+--- a/drivers/net/wireless/ath/ath10k/wmi-tlv.c
++++ b/drivers/net/wireless/ath/ath10k/wmi-tlv.c
+@@ -1644,7 +1644,6 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
  {
-	const struct wmi_stats_event *ev = (void *)skb->data;
--	u32 num_pdev_stats, num_vdev_stats, num_peer_stats;
-+	u32 num_pdev_stats, num_peer_stats;
-	int i;
+	struct wmi_tlv_vdev_start_cmd *cmd;
+	struct wmi_channel *ch;
+-	struct wmi_p2p_noa_descriptor *noa;
+	struct wmi_tlv *tlv;
+	struct sk_buff *skb;
+	size_t len;
+@@ -1702,7 +1701,6 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
+	tlv = ptr;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_ARRAY_STRUCT);
+	tlv->len = 0;
+-	noa = (void *)tlv->value;
 
-	if (!skb_pull(skb, sizeof(*ev)))
-		return -EPROTO;
-
-	num_pdev_stats = __le32_to_cpu(ev->num_pdev_stats);
--	num_vdev_stats = __le32_to_cpu(ev->num_vdev_stats);
-	num_peer_stats = __le32_to_cpu(ev->num_peer_stats);
-
-	for (i = 0; i < num_pdev_stats; i++) {
-@@ -2730,14 +2729,13 @@ static int ath10k_wmi_10x_op_pull_fw_stats(struct ath10k *ar,
-					   struct ath10k_fw_stats *stats)
- {
-	const struct wmi_stats_event *ev = (void *)skb->data;
--	u32 num_pdev_stats, num_vdev_stats, num_peer_stats;
-+	u32 num_pdev_stats, num_peer_stats;
-	int i;
-
-	if (!skb_pull(skb, sizeof(*ev)))
-		return -EPROTO;
-
-	num_pdev_stats = __le32_to_cpu(ev->num_pdev_stats);
--	num_vdev_stats = __le32_to_cpu(ev->num_vdev_stats);
-	num_peer_stats = __le32_to_cpu(ev->num_peer_stats);
-
-	for (i = 0; i < num_pdev_stats; i++) {
-@@ -2791,7 +2789,6 @@ static int ath10k_wmi_10_2_op_pull_fw_stats(struct ath10k *ar,
-	const struct wmi_10_2_stats_event *ev = (void *)skb->data;
-	u32 num_pdev_stats;
-	u32 num_pdev_ext_stats;
--	u32 num_vdev_stats;
-	u32 num_peer_stats;
-	int i;
-
-@@ -2800,7 +2797,6 @@ static int ath10k_wmi_10_2_op_pull_fw_stats(struct ath10k *ar,
-
-	num_pdev_stats = __le32_to_cpu(ev->num_pdev_stats);
-	num_pdev_ext_stats = __le32_to_cpu(ev->num_pdev_ext_stats);
--	num_vdev_stats = __le32_to_cpu(ev->num_vdev_stats);
-	num_peer_stats = __le32_to_cpu(ev->num_peer_stats);
-
-	for (i = 0; i < num_pdev_stats; i++) {
-@@ -2870,7 +2866,6 @@ static int ath10k_wmi_10_2_4_op_pull_fw_stats(struct ath10k *ar,
-	const struct wmi_10_2_stats_event *ev = (void *)skb->data;
-	u32 num_pdev_stats;
-	u32 num_pdev_ext_stats;
--	u32 num_vdev_stats;
-	u32 num_peer_stats;
-	int i;
-
-@@ -2879,7 +2874,6 @@ static int ath10k_wmi_10_2_4_op_pull_fw_stats(struct ath10k *ar,
-
-	num_pdev_stats = __le32_to_cpu(ev->num_pdev_stats);
-	num_pdev_ext_stats = __le32_to_cpu(ev->num_pdev_ext_stats);
--	num_vdev_stats = __le32_to_cpu(ev->num_vdev_stats);
-	num_peer_stats = __le32_to_cpu(ev->num_peer_stats);
-
-	for (i = 0; i < num_pdev_stats; i++) {
-@@ -2958,7 +2952,6 @@ static int ath10k_wmi_10_4_op_pull_fw_stats(struct ath10k *ar,
-	const struct wmi_10_2_stats_event *ev = (void *)skb->data;
-	u32 num_pdev_stats;
-	u32 num_pdev_ext_stats;
--	u32 num_vdev_stats;
-	u32 num_peer_stats;
-	u32 num_bcnflt_stats;
-	u32 stats_id;
-@@ -2969,7 +2962,6 @@ static int ath10k_wmi_10_4_op_pull_fw_stats(struct ath10k *ar,
-
-	num_pdev_stats = __le32_to_cpu(ev->num_pdev_stats);
-	num_pdev_ext_stats = __le32_to_cpu(ev->num_pdev_ext_stats);
--	num_vdev_stats = __le32_to_cpu(ev->num_vdev_stats);
-	num_peer_stats = __le32_to_cpu(ev->num_peer_stats);
-	num_bcnflt_stats = __le32_to_cpu(ev->num_bcnflt_stats);
-	stats_id = __le32_to_cpu(ev->stats_id);
+	/* Note: This is a nested TLV containing:
+	 * [wmi_tlv][wmi_p2p_noa_descriptor][wmi_tlv]..
 --
 2.8.0.rc3.226.g39d4020
