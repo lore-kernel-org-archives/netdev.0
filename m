@@ -1,36 +1,59 @@
-From: Geliang Tang <geliangtang@gmail.com>
-Subject: [PATCH] net/mlx5: drop duplicate header delay.h
-Date: Thu, 24 Nov 2016 21:58:33 +0800
-Message-ID: <03d5a2a0f03458cdb4f2b139cfabc11b5c334f95.1479990943.git.geliangtang@gmail.com>
-References: <15299de49216a2360976ca37ff774cae9d27d88b.1479991297.git.geliangtang@gmail.com>
-Cc: Geliang Tang <geliangtang@gmail.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <15299de49216a2360976ca37ff774cae9d27d88b.1479991297.git.geliangtang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nogah Frankel <nogahf@mellanox.com>
+Subject: [PATCH iproute2 3/3] ifstat: Add "sw only" extended statistics to ifstat
+Date: Thu, 24 Nov 2016 16:12:40 +0200
+Message-ID: <1479996760-61271-4-git-send-email-nogahf@mellanox.com>
+References: <1479996760-61271-1-git-send-email-nogahf@mellanox.com>
+Cc: eladr@mellanox.com, yotamg@mellanox.com, jiri@mellanox.com,
+        idosch@mellanox.com, ogerlitz@mellanox.com,
+        Nogah Frankel <nogahf@mellanox.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43435 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S965562AbcKXOLg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 09:11:36 -0500
+In-Reply-To: <1479996760-61271-1-git-send-email-nogahf@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Drop duplicate header delay.h from mlx5/core/main.c.
+Add support for extended statistics of SW only type, for counting only the
+packets that went via the cpu. (useful for systems with forward
+offloading). It reads it from filter type IFLA_STATS_LINK_OFFLOAD_XSTATS
+and sub type IFLA_OFFLOAD_XSTATS_CPU_HIT.
 
-Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+It is under the name 'software'
+(or any shorten of it as 'soft' or simply 's').
+
+For example:
+ifstat -x s
+
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 1 -
- 1 file changed, 1 deletion(-)
+ misc/ifstat.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index f28df33..d7a55eb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -46,7 +46,6 @@
- #include <linux/mlx5/srq.h>
- #include <linux/debugfs.h>
- #include <linux/kmod.h>
--#include <linux/delay.h>
- #include <linux/mlx5/mlx5_ifc.h>
- #ifdef CONFIG_RFS_ACCEL
- #include <linux/cpu_rmap.h>
+diff --git a/misc/ifstat.c b/misc/ifstat.c
+index 90aeeaa..7825a3a 100644
+--- a/misc/ifstat.c
++++ b/misc/ifstat.c
+@@ -675,7 +675,8 @@ static int verify_forging(int fd)
+ static void xstat_usage(void)
+ {
+ 	fprintf(stderr,
+-"Usage: ifstat supported xstats:\n");
++"Usage: ifstat supported xstats:\n"
++"	software	SW stats. Counts only packets that went via the CPU\n");
+ 
+ }
+ 
+@@ -691,6 +692,7 @@ struct extended_stats_options_t {
+  */
+ static const struct extended_stats_options_t extended_stats_options[] = {
+ 	{"", IFLA_STATS_LINK_64, NO_SUB_TYPE},
++	{"software",  IFLA_STATS_LINK_OFFLOAD_XSTATS, IFLA_OFFLOAD_XSTATS_CPU_HIT},
+ };
+ 
+ static bool get_filter_type(char *name)
 -- 
-2.9.3
+2.4.3
