@@ -1,79 +1,82 @@
-From: YueHaibing <yuehaibing@huawei.com>
-Subject: Re: net/arp: ARP cache aging failed.
-Date: Thu, 24 Nov 2016 17:06:04 +0800
-Message-ID: <c82b7b44-c0ad-9ee7-1114-3eae3b5cf75a@huawei.com>
-References: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com>
- <alpine.LFD.2.11.1611230928140.1659@ja.home.ssi.bg>
- <1479902729.8455.479.camel@edumazet-glaptop3.roam.corp.google.com>
- <250d3a88-45ad-891f-389a-997f39d7bdad@stressinduktion.org>
- <1479944967.8455.516.camel@edumazet-glaptop3.roam.corp.google.com>
- <alpine.LFD.2.11.1611240931560.1685@ja.home.ssi.bg>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH 12/20] net/iucv: Convert to hotplug state machine
+Date: Thu, 24 Nov 2016 10:10:46 +0100
+Message-ID: <20161124091046.hixy3j4ibt7xzezr@linutronix.de>
+References: <20161117183541.8588-1-bigeasy@linutronix.de>
+ <20161117183541.8588-13-bigeasy@linutronix.de>
+ <62f8abea-093c-cac5-ffb1-7b8710aa0a91@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>, Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, rt@linutronix.de,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-s390@vger.kernel.org, netdev@vger.kernel.org
+To: Ursula Braun <ubraun@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:40734 "EHLO
-        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933142AbcKXJIh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 04:08:37 -0500
-In-Reply-To: <alpine.LFD.2.11.1611240931560.1685@ja.home.ssi.bg>
+Received: from Galois.linutronix.de ([146.0.238.70]:36500 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934150AbcKXJKv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 04:10:51 -0500
+Content-Disposition: inline
+In-Reply-To: <62f8abea-093c-cac5-ffb1-7b8710aa0a91@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016/11/24 15:51, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Wed, 23 Nov 2016, Eric Dumazet wrote:
-> 
->> On Wed, 2016-11-23 at 15:37 +0100, Hannes Frederic Sowa wrote:
->>
->>> Irregardless about the question if bonding should keep the MAC address
->>> alive, a MAC address can certainly change below a TCP connection.
->>
->> Of course ;)
->>
+On 2016-11-23 19:04:16 [+0100], Ursula Braun wrote:
+> Sebastian,
+Hallo Ursula,
 
-I configured bonding fail_over_mac=1 ,so the bonding MAC always be the MAC
-address of the currently active slave.
+> your patch looks good to me. I run successfully some small tests with it.
+> I want to suggest a small change in iucv_init() to keep the uniform technique
+> of undo labels below. Do you agree?
 
->>>
->>> dst_entry is 1:n to neigh_entry and as such we can end up confirming an
->>> aging neighbor while sending a reply with dst->pending_confirm set while
->>> the confirming packet actually came from a different neighbor.
->>>
->>> I agree with Julian, pending_confirm became useless in this way.
->>
->> Let's kill it then ;)
-> 
-> 	It works for traffic via gateway. I now see that
-> we can even avoid write in dst_confirm:
-> 
-> 	if (!dst->pending_confirm)
-> 		dst->pending_confirm = 1;
-> 
-> 	because it is called by non-dup TCP ACKs.
-> 
-> 	But for traffic to hosts on LAN we need different solution,
-> i.e. for cached dsts with rt_gateway = 0 (last entry below).
-> 
-> rt_uses_gateway rt_gateway DST_NOCACHE Description
-> ====================================================================
-> 1               nh_gw      ANY         Traffic via gateway
-> 0               LAN_host   1           FLOWI_FLAG_KNOWN_NH (nexthop
->                                        set by IPVS, hdrincl, xt_TEE)
-> 0               0          0           1 dst for many subnet hosts
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-> 
-> .
-> 
+So what you ask for is:
 
-As above,Is there a plan to fix the problem ? Should we just not call dst_confirm
-when in the case rt->rt_uses_gateway/DST_NOCACHE?
+diff --git a/net/iucv/iucv.c b/net/iucv/iucv.c
+index f0d6afc5d4a9..8f7ef167c45a 100644
+--- a/net/iucv/iucv.c
++++ b/net/iucv/iucv.c
+@@ -2038,16 +2038,16 @@ static int __init iucv_init(void)
+ 	rc = cpuhp_setup_state(CPUHP_NET_IUCV_PREPARE, "net/iucv:prepare",
+ 			       iucv_cpu_prepare, iucv_cpu_dead);
+ 	if (rc)
+-		goto out_free;
++		goto out_dev;
+ 	rc = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "net/iucv:online",
+ 			       iucv_cpu_online, iucv_cpu_down_prep);
+ 	if (rc < 0)
+-		goto out_free;
++		goto out_prep;
+ 	iucv_online = rc;
+ 
+ 	rc = register_reboot_notifier(&iucv_reboot_notifier);
+ 	if (rc)
+-		goto out_free;
++		goto out_remove_hp;
+ 	ASCEBC(iucv_error_no_listener, 16);
+ 	ASCEBC(iucv_error_no_memory, 16);
+ 	ASCEBC(iucv_error_pathid, 16);
+@@ -2061,11 +2061,11 @@ static int __init iucv_init(void)
+ 
+ out_reboot:
+ 	unregister_reboot_notifier(&iucv_reboot_notifier);
+-out_free:
+-	if (iucv_online)
+-		cpuhp_remove_state(iucv_online);
++out_remove_hp:
++	cpuhp_remove_state(iucv_online);
++out_prep:
+ 	cpuhp_remove_state(CPUHP_NET_IUCV_PREPARE);
+-
++out_dev:
+ 	root_device_unregister(iucv_root);
+ out_int:
+ 	unregister_external_irq(EXT_IRQ_IUCV, iucv_external_interrupt);
+
+This is your change including the removal of the `if' check in the
+`out_remove' label which got renamed to `out_remove_hp'.
+Of course, I agree with this change and a proper patch will follow in a
+few hours if nobody objects.
+
+> Kind regards, Ursula
+
+Sebastian
