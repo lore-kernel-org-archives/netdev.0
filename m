@@ -1,73 +1,76 @@
-From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
-Subject: [PATCH 2/4] mac80211: Remove unused 'len' variable
-Date: Wed, 23 Nov 2016 20:45:49 -0800
-Message-ID: <dfe71b8260fee9c0fa850ba5fdd29d7d5ca6cb2b.1479962513.git.kirtika@chromium.org>
-References: <cover.1479962513.git.kirtika@chromium.org>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: improve sanity check for
+	received domain records
+Date: Wed, 23 Nov 2016 23:46:09 -0500
+Message-ID: <1479962769-24239-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        Marek Kwaczynski <marek.kwaczynski@tieto.com>,
-        David Spinadel <david.spinadel@intel.com>,
-        Alexander Bondar <alexander.bondar@intel.com>,
-        Michal Kazior <michal.kazior@tieto.com>
-To: Johannes Berg <johannes.berg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35283 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754522AbcKXEpz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 23:45:55 -0500
-Content-Disposition: inline
-In-Reply-To: <cover.1479962513.git.kirtika@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Commit 633e27132625 (mac80211: split sched scan IEs) introduced the
-len variable to keep track of the return value of
-ieee80211_build_preq_ies() but did not use it. Compiling with W=1
-gives the following warning, fix it.
+In commit 35c55c9877f8 ("tipc: add neighbor monitoring framework") we
+added a data area to the link monitor STATE messages under the
+assumption that previous versions did not use any such data area.
 
-net/mac80211/scan.c: In function ‘__ieee80211_request_sched_scan_start’:
-net/mac80211/scan.c:1123:9: warning: variable ‘len’ set but not used [-Wunused-but-set-variable]
+For versions older than Linux 4.3 this assumption is not correct. In
+those version, all STATE messages sent out from a node inadvertently
+contain a 16 byte data area containing a string; -a leftover from
+previous RESET messages which were using this during the setup phase.
+This string serves no purpose in STATE messages, and should no be there.
 
-This is a harmless warning and is only being fixed to reduce the noise
-with W=1 in the kernel.
+Unfortunately, this data area is delivered to the link monitor
+framework, where a sanity check catches that it is not a correct domain
+record, and drops it. It also issues a rate limited warning about the
+event.
 
-Fixes: 633e27132625 ("mac80211: split sched scan IEs")
-Cc: David Spinadel <david.spinadel@intel.com>
-Cc: Alexander Bondar <alexander.bondar@intel.com>
-Cc: Johannes Berg <johannes.berg@intel.com>
-Signed-off-by: Kirtika Ruchandani <kirtika@chromium.org>
+Since such events occur much more frequently than anticipated, we now
+choose to remove the warning in order to not fill the kernel log with
+useless contents. We also make the sanity check stricter, to further
+reduce the risk that such data is inavertently admitted.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/mac80211/scan.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ net/tipc/monitor.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
-index 23d8ac8..faab3c4 100644
---- a/net/mac80211/scan.c
-+++ b/net/mac80211/scan.c
-@@ -1120,7 +1120,6 @@ int __ieee80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
- 	u32 rate_masks[NUM_NL80211_BANDS] = {};
- 	u8 bands_used = 0;
- 	u8 *ie;
--	size_t len;
+diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
+index ed97a58..9e109bb 100644
+--- a/net/tipc/monitor.c
++++ b/net/tipc/monitor.c
+@@ -455,14 +455,14 @@ void tipc_mon_rcv(struct net *net, void *data, u16 dlen, u32 addr,
+ 	int i, applied_bef;
  
- 	iebufsz = local->scan_ies_len + req->ie_len;
+ 	state->probing = false;
+-	if (!dlen)
+-		return;
  
-@@ -1145,10 +1144,9 @@ int __ieee80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
+ 	/* Sanity check received domain record */
+-	if ((dlen < new_dlen) || ntohs(arrv_dom->len) != new_dlen) {
+-		pr_warn_ratelimited("Received illegal domain record\n");
++	if (dlen < dom_rec_len(arrv_dom, 0))
++		return;
++	if (dlen != dom_rec_len(arrv_dom, new_member_cnt))
++		return;
++	if ((dlen < new_dlen) || ntohs(arrv_dom->len) != new_dlen)
+ 		return;
+-	}
  
- 	ieee80211_prepare_scan_chandef(&chandef, req->scan_width);
- 
--	len = ieee80211_build_preq_ies(local, ie, num_bands * iebufsz,
--				       &sched_scan_ies, req->ie,
--				       req->ie_len, bands_used,
--				       rate_masks, &chandef);
-+	ieee80211_build_preq_ies(local, ie, num_bands * iebufsz,
-+				 &sched_scan_ies, req->ie,
-+				 req->ie_len, bands_used, rate_masks, &chandef);
- 
- 	ret = drv_sched_scan_start(local, sdata, req, &sched_scan_ies);
- 	if (ret == 0) {
+ 	/* Synch generation numbers with peer if link just came up */
+ 	if (!state->synched) {
 -- 
-2.8.0.rc3.226.g39d4020
+2.7.4
+
+
+------------------------------------------------------------------------------
