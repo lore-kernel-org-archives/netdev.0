@@ -1,98 +1,93 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next v2 09/11] ipv4: fib: Add an API to request a FIB
- dump
-Date: Thu, 24 Nov 2016 13:34:08 +0100
-Message-ID: <a81fdb9c-4bf7-3e0c-85b0-9504b6780b48@stressinduktion.org>
-References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
- <1479911670-4525-10-git-send-email-jiri@resnulli.us>
- <fa5e105b-9109-1c30-c07c-5a2b0720ffec@stressinduktion.org>
- <20161123195328.aqzbhf263z2pq2e7@splinter>
- <6d57dab8-2c83-501e-f3ee-0bad0b72efbb@stressinduktion.org>
- <20161124084758.q5uh7lr55pwwhxoh@splinter>
+From: Roi Dayan <roid@mellanox.com>
+Subject: Re: [Patch net-next] net_sched: move the empty tp check from
+ ->destroy() to ->delete()
+Date: Thu, 24 Nov 2016 13:01:18 +0200
+Message-ID: <5836C87E.8050506@mellanox.com>
+References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com>
+ <5836A4D4.2010500@mellanox.com> <5836BD82.6080407@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kaber@trash.net
-To: Ido Schimmel <idosch@idosch.org>
+Cc: <roid@mellanox.com>, <jiri@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:51078 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S940580AbcKXMej (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 07:34:39 -0500
-In-Reply-To: <20161124084758.q5uh7lr55pwwhxoh@splinter>
+Received: from mail-db5eur01on0067.outbound.protection.outlook.com ([104.47.2.67]:5488
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S938647AbcKXMfD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 07:35:03 -0500
+In-Reply-To: <5836BD82.6080407@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24.11.2016 09:47, Ido Schimmel wrote:
-> On Thu, Nov 24, 2016 at 12:04:57AM +0100, Hannes Frederic Sowa wrote:
->> On 23.11.2016 20:53, Ido Schimmel wrote:
->>> On Wed, Nov 23, 2016 at 06:47:03PM +0100, Hannes Frederic Sowa wrote:
->>>> Hmm, I think you need to read the sequence counter under rtnl_lock to
->>>> have an ordering with the rest of the updates to the RCU trie. Otherwise
->>>> you don't know if the fib trie has the correct view regarding to the
->>>> incoming notifications as a whole. This is also necessary during restarts.
->>>
->>> I spent quite a lot of time thinking about this specific issue, but I
->>> couldn't convince myself that the read should be done under RTNL and I'm
->>> not sure I understand your reasoning. Can you please elaborate?
->>>
->>> If, before each notification sent, we call atomic_inc() and then call
->>> atomic_read() at the end, then how can we be tricked?
+
+On 24/11/2016 12:14, Daniel Borkmann wrote:
+> On 11/24/2016 09:29 AM, Roi Dayan wrote:
+>> Hi,
 >>
->> The race I am suspecting to happen is:
+>> I'm testing this patch with KASAN enabled and got into a new kernel 
+>> crash I didn't hit before.
 >>
->> <CPU0> fib_register()
+>> [ 1860.725065] 
+>> ==================================================================
+>> [ 1860.733893] BUG: KASAN: use-after-free in 
+>> __netif_receive_skb_core+0x1ebe/0x29a0 at addr ffff880a68b04028
+>> [ 1860.745415] Read of size 8 by task CPU 0/KVM/5334
+>> [ 1860.751368] CPU: 8 PID: 5334 Comm: CPU 0/KVM Tainted: G O 
+>> 4.9.0-rc3+ #18
+>> [ 1860.760547] Hardware name: HP ProLiant DL380p Gen8, BIOS P70 
+>> 07/01/2015
+>> [ 1860.768036] Call Trace:
+>> [ 1860.771307]  [<ffffffffa9b6dc42>] dump_stack+0x63/0x81
+>> [ 1860.777167]  [<ffffffffa95fb751>] kasan_object_err+0x21/0x70
+>> [ 1860.783826]  [<ffffffffa95fb9dd>] kasan_report_error+0x1ed/0x4e0
+>> [ 1860.790640]  [<ffffffffa9b9b841>] ? csum_partial+0x11/0x20
+>> [ 1860.796871]  [<ffffffffaa44a6b9>] ? csum_partial_ext+0x9/0x10
+>> [ 1860.803571]  [<ffffffffaa453155>] ? __skb_checksum+0x115/0x8d0
+>> [ 1860.810370]  [<ffffffffa95fbe81>] 
+>> __asan_report_load8_noabort+0x61/0x70
+>> [ 1860.818263]  [<ffffffffaa49c3fe>] ? 
+>> __netif_receive_skb_core+0x1ebe/0x29a0
+>> [ 1860.826215]  [<ffffffffaa49c3fe>] 
+>> __netif_receive_skb_core+0x1ebe/0x29a0
+>> [ 1860.833991]  [<ffffffffaa49a540>] ? netdev_info+0x100/0x100
+>> [ 1860.840529]  [<ffffffffaa671792>] ? udp4_gro_receive+0x802/0x1090
+>> [ 1860.847783]  [<ffffffffa9bb9a08>] ? find_next_bit+0x18/0x20
+>> [ 1860.854126]  [<ffffffffaa49cf04>] __netif_receive_skb+0x24/0x150
+>> [ 1860.861695]  [<ffffffffaa49d0d1>] 
+>> netif_receive_skb_internal+0xa1/0x1d0
+>> [ 1860.869366]  [<ffffffffaa49d030>] ? __netif_receive_skb+0x150/0x150
+>> [ 1860.876464]  [<ffffffffaa49f7e9>] ? dev_gro_receive+0x969/0x1660
+>> [ 1860.883924]  [<ffffffffaa4a0e1f>] napi_gro_receive+0x1df/0x300
+>> [ 1860.890744]  [<ffffffffc02e885d>] 
+>> mlx5e_handle_rx_cqe_rep+0x83d/0xd30 [mlx5_core]
 >>
->> <CPU1> delete route by notifier
->> <CPU1> enqueue delete cmd into ordered queue
+>> checking with gdb
 >>
->> <CPU0> starts dump
->> <CPU0> sees deleted route by CPU1 because route not yet removed from RCU
->> <CPU0> enqueues route for addition
-> 
-> Yea, I missed this trivial case... My mind was fixed on problems that
-> could happen after the dump already started. :(
-> 
-> Regarding your suggestion, I think the API will be more useful if we
-> don't bundle fib_register() and fib_dump() together. We can do the
-> following instead:
-> 
-> 1) Sum 'fib_seq' (doesn't need to be atomic_t anymore) from all net
-> namespaces under RTNL
+>> (gdb) l *(__netif_receive_skb_core+0x1ebe)
+>> 0xffffffff8249c3fe is in __netif_receive_skb_core (net/core/dev.c:3937).
+>> 3932                    *pt_prev = NULL;
+>> 3933            }
+>> 3934
+>> 3935            qdisc_skb_cb(skb)->pkt_len = skb->len;
+>> 3936            skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
+>> 3937            qdisc_bstats_cpu_update(cl->q, skb);
+>> 3938
+>> 3939            switch (tc_classify(skb, cl, &cl_res, false)) {
+>> 3940            case TC_ACT_OK:
+>> 3941            case TC_ACT_RECLASSIFY:
+>
+> Can you elaborate some more on your test-case? Adding/dropping ingress 
+> qdisc with
+> some classifier on it in a loop while traffic goes through?
 
-You anyway only support init_net, no?
+I first delete the qdisc ingress from the relevant interface
+I start traffic on it then I add the qdisc ingress to the relevant 
+interface and start adding tc flower rules to match the traffic.
 
-I didn't fully understood what you mean by sum? Using one for the whole
-system?
 
-We already have net->ipv4.rt_genid as a per-namespace routing change
-counter, have you looked at that?
-
-> 2) Dump FIB tables under RCU
-> 3) Do 1) again
-> 4) Compare results from 1) and 3) and retry (according to sysctl limit)
-> if results differ. Before each retry the module's callback (if passed)
-> will be invoked.
-> 
-> Sounds OK?
-
-Ah, you want to sum up all the fib_seq from all namespaces. Now I got it.
-
-Not sure if that is such a good idea actually. It might make problems
-later on if offloading will maybe one day become a per-netns knob for
-the respective admins.
-
-But semantically it should work.
-
-If it turns out to be much easier than doing it per-netns, I think this
-approach should work.
-
-Bye,
-Hannes
+>
+> Thanks,
+> Daniel
