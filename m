@@ -1,96 +1,81 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next 1/4] net: mvneta: Convert to be 64 bits compatible
-Date: Thu, 24 Nov 2016 16:01:35 +0100
-Message-ID: <8760ncly5s.fsf@free-electrons.com>
-References: <20161122164844.19566-1-gregory.clement@free-electrons.com>
-        <CAPv3WKf0a63qQT+xwXfUatbgLFF58e6L8J10VtBOUTam+kUcjg@mail.gmail.com>
-        <20161124163327.1cc261ab@xhacker> <21520380.oWTKcrq8DS@wuerfel>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH iproute2 0/2] tc/cls_flower: Support for ip tunnel
+ metadata set/release/classify
+Date: Thu, 24 Nov 2016 17:06:33 +0200
+Message-ID: <20161124150633.GA27727@office.localdomain>
+References: <20161121102056.13468-1-amir@vadai.me>
+ <20161124143856.43fa54d6@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-arm-kernel@lists.infradead.org,
-        Jisheng Zhang <jszhang@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:40908 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965876AbcKXPCD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 10:02:03 -0500
-In-Reply-To: <21520380.oWTKcrq8DS@wuerfel> (Arnd Bergmann's message of "Thu,
-        24 Nov 2016 10:00:36 +0100")
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34730 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965739AbcKXPGi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 10:06:38 -0500
+Received: by mail-wm0-f67.google.com with SMTP id g23so5226926wme.1
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 07:06:37 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161124143856.43fa54d6@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
- 
- On jeu., nov. 24 2016, Arnd Bergmann <arnd@arndb.de> wrote:
+On Thu, Nov 24, 2016 at 02:38:56PM +0100, Jiri Benc wrote:
+> On Mon, 21 Nov 2016 12:20:54 +0200, Amir Vadai wrote:
+> > $ tc filter add dev vxlan0 protocol ip parent ffff: \
+> >     flower \
+> >       enc_src_ip 11.11.0.2 \
+> >       enc_dst_ip 11.11.0.1 \
+> >       enc_key_id 11 \
+> >       dst_ip 11.11.11.1 \
+> >     action tunnel_key release \
+> >     action mirred egress redirect dev vnet0
+> 
+> I really hate the "action tunnel_key release". This just exposes the
+> kernel internal implementation detail (dst_metadata) to the user. Why
+> should the user care about explicit releasing of the tunnel key? This
+> should happen automatically. Users do not care about our internal
+> implementation.
+I see.
+So you mean to just unconditionally call skb_dst_drop() from
+act_mirred()?
 
-> On Thursday, November 24, 2016 4:37:36 PM CET Jisheng Zhang wrote:
->> solB (a SW shadow cookie) perhaps gives a better performance: in hot path,
->> such as mvneta_rx(), the driver accesses buf_cookie and buf_phys_addr of
->> rx_desc which is allocated by dma_alloc_coherent, it's noncacheable if the
->> device isn't cache-coherent. I didn't measure the performance difference,
->> because in fact we take solA as well internally. From your experience,
->> can the performance gain deserve the complex code?
->
-> Yes, a read from uncached memory is fairly slow, so if you have a chance
-> to avoid that it will probably help. When adding complexity to the code,
-> it probably makes sense to take a runtime profile anyway quantify how
-> much it gains.
->
-> On machines that have cache-coherent DMA, accessing the descriptor
-> should be fine, as you already have to load the entire cache line
-> to read the status field.
->
-> Looking at this snippet:
->
->                 rx_status = rx_desc->status;
->                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
->                 data = (unsigned char *)rx_desc->buf_cookie;
->                 phys_addr = rx_desc->buf_phys_addr;
->                 pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
->                 bm_pool = &pp->bm_priv->bm_pools[pool_id];
->
->                 if (!mvneta_rxq_desc_is_first_last(rx_status) ||
->                     (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
-> err_drop_frame_ret_pool:
->                         /* Return the buffer to the pool */
->                         mvneta_bm_pool_put_bp(pp->bm_priv, bm_pool,
->                                               rx_desc->buf_phys_addr);
-> err_drop_frame:
->
->
-> I think there is more room for optimizing if you start: you read
-> the status field twice (the second one in MVNETA_RX_GET_BM_POOL_ID)
-> and you can cache the buf_phys_addr along with the virtual address
-> once you add that.
+> 
+> > $ tc filter add dev net0 protocol ip parent ffff: \
+> >     flower \
+> >       ip_proto 1 \
+> >       dst_ip 11.11.11.2 \
+> >     action tunnel_key set \
+> >       src_ip 11.11.0.1 \
+> >       dst_ip 11.11.0.2 \
+> >       id 11 \
+> >     action mirred egress redirect dev vxlan0
+> 
+> Do you see the asymmetry? This is not called "alloc tunnel_key", and
+> rightly so. It's very reasonable to call this "set", as it is what the
+> action looks like to the user.
+> 
+> The only argument for the existence of an explicit "release" (we should
+> rather call it "unset" in such case, though) is forwarding between two
+> tunnels, where metadata from the first tunnel will be used for
+> encapsulation done by the second tunnel. Or a similar case when there's
+> classification based on the tunnel metadata done on the mirred
+> interface. Somewhat corner cases, though. If we want to support them,
+> then let's call the action "unset" and not "release". And in any case,
+> it should not be mandatory to specify it, which should be made clear
+> in the documentation (including examples where it is needed - basically
+> only when forwarding between tunnels).
+The use case we already have that uses the release action is the
+hardware offload support, which is already in the kernel.
+It is using the "tunnel_key release" action to signal the hardware to
+strip off the ip tunnel headers.
+I need to go over this again and see how can we make it work without the
+release/unset action.
 
-I agree we can optimize this code but it is not related to the 64 bits
-conversion. Indeed this part is running when we use the HW buffer
-management, however currently this part is not ready at all for 64
-bits. The virtual address is directly handled by the hardware but it has
-only 32 bits to store it in the cookie. So if we want to use the HWBM in
-64 bits we need to redesign the code, (maybe by storing the virtual
-address in a array and pass the index in the cookie).
-
-Gregory
-
->
-> Generally speaking, I'd recommend using READ_ONCE()/WRITE_ONCE()
-> to access the descriptor fields, to ensure the compiler doesn't
-> add extra references as well as to annotate the expensive
-> operations.
->
-> 	Arnd
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+> 
+>  Jiri
