@@ -1,90 +1,98 @@
-From: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Thu, 24 Nov 2016 07:31:17 -0500
-Message-ID: <baf5246d-9d8a-4029-6823-350ed561fd33@pobox.com>
-References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
- <1394712342-15778-227-Taiwan-albertk@realtek.com>
- <0835B3720019904CB8F7AA43166CEEB20105013E@RTITMBSV03.realtek.com.tw>
- <d683c019-4e0f-6fe6-368c-c4fc86c72fe6@pobox.com>
- <0835B3720019904CB8F7AA43166CEEB201050B7E@RTITMBSV03.realtek.com.tw>
- <b9809516-d036-bfc3-b7a3-6563033ec957@pobox.com>
- <0835B3720019904CB8F7AA43166CEEB2010517CE@RTITMBSV03.realtek.com.tw>
- <b61a0e10-c737-8912-3e4e-393f4eb32077@pobox.com>
- <0835B3720019904CB8F7AA43166CEEB201051D51@RTITMBSV03.realtek.com.tw>
- <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next v2 09/11] ipv4: fib: Add an API to request a FIB
+ dump
+Date: Thu, 24 Nov 2016 13:34:08 +0100
+Message-ID: <a81fdb9c-4bf7-3e0c-85b0-9504b6780b48@stressinduktion.org>
+References: <1479911670-4525-1-git-send-email-jiri@resnulli.us>
+ <1479911670-4525-10-git-send-email-jiri@resnulli.us>
+ <fa5e105b-9109-1c30-c07c-5a2b0720ffec@stressinduktion.org>
+ <20161123195328.aqzbhf263z2pq2e7@splinter>
+ <6d57dab8-2c83-501e-f3ee-0bad0b72efbb@stressinduktion.org>
+ <20161124084758.q5uh7lr55pwwhxoh@splinter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <95fa9f67-3af6-6749-0e2b-c95406486f7d-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kaber@trash.net
+To: Ido Schimmel <idosch@idosch.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:51078 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S940580AbcKXMej (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 07:34:39 -0500
+In-Reply-To: <20161124084758.q5uh7lr55pwwhxoh@splinter>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-11-23 02:29 PM, Mark Lord wrote:
-> On 16-11-23 10:12 AM, Hayes Wang wrote:
->> Mark Lord [mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org]
->> [...]
->>> What does this code do:
+On 24.11.2016 09:47, Ido Schimmel wrote:
+> On Thu, Nov 24, 2016 at 12:04:57AM +0100, Hannes Frederic Sowa wrote:
+>> On 23.11.2016 20:53, Ido Schimmel wrote:
+>>> On Wed, Nov 23, 2016 at 06:47:03PM +0100, Hannes Frederic Sowa wrote:
+>>>> Hmm, I think you need to read the sequence counter under rtnl_lock to
+>>>> have an ordering with the rest of the updates to the RCU trie. Otherwise
+>>>> you don't know if the fib trie has the correct view regarding to the
+>>>> incoming notifications as a whole. This is also necessary during restarts.
+>>>
+>>> I spent quite a lot of time thinking about this specific issue, but I
+>>> couldn't convince myself that the read should be done under RTNL and I'm
+>>> not sure I understand your reasoning. Can you please elaborate?
+>>>
+>>> If, before each notification sent, we call atomic_inc() and then call
+>>> atomic_read() at the end, then how can we be tricked?
 >>
->>>> static void r8153_set_rx_early_size(struct r8152 *tp)
->>>> {
->>>>        u32 mtu = tp->netdev->mtu;
->>>>        u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
->>>>
->>>>        ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
->>>> }
+>> The race I am suspecting to happen is:
 >>
->> This only works for RTL8153. However, what you use is RTL8152.
->> It is like delay completion. It is used to reduce the loading of CPU
->> by letting a transfer contain more data to reduce the number of
->> transfers.
+>> <CPU0> fib_register()
 >>
->>> How is ocp_data used by the hardware?
->>> Shouldn't the calculation also include sizeof(rx_desc) in there somewhere?
+>> <CPU1> delete route by notifier
+>> <CPU1> enqueue delete cmd into ordered queue
 >>
->> The algorithm is from our hw engineers, and it should be
->>
->>    (agg_buf_sz - packet size) / 8
->>
->> You could refer to commit a59e6d815226 ("r8152: correct the rx early size").
->
-> Thanks.
->
-> Right now I am working quite hard trying to narrow things down exactly.
-> You are correct that the driver does appear to be careful about accesses
-> beyond the filled portion of a URB buffer -- for some reason I thought
-> the original driver had issues there, but looking again it does not seem to.
->
-> One idea that is now looking more likely:
-> Things could be suffering from speculative CPU accesses to RAM
-> (the system here has non-coherent d-cache/RAM).
-> This could incorrectly pre-load data from adjacent URB buffers
-> into the d-cache, creating coherency issues.  I am testing now
-> with cacheline-sized guard zones between the buffers to see if
-> that is the issue or not.
+>> <CPU0> starts dump
+>> <CPU0> sees deleted route by CPU1 because route not yet removed from RCU
+>> <CPU0> enqueues route for addition
+> 
+> Yea, I missed this trivial case... My mind was fixed on problems that
+> could happen after the dump already started. :(
+> 
+> Regarding your suggestion, I think the API will be more useful if we
+> don't bundle fib_register() and fib_dump() together. We can do the
+> following instead:
+> 
+> 1) Sum 'fib_seq' (doesn't need to be atomic_t anymore) from all net
+> namespaces under RTNL
 
-Nope.  Guard zones did not fix it, so it's probably not a prefetch issue.
-Oddly, adding a couple of memory barriers to specific places in the driver
-does help, A LOT.  Still not 100%, but it did pass 1800 reboot tests over night
-with only three bad rx_desc's reported.
+You anyway only support init_net, no?
 
-That's a new record here for the driver using kmalloc'd buffers,
-and put reliability on par with using non-cacheable buffers.
+I didn't fully understood what you mean by sum? Using one for the whole
+system?
 
-Any way we look at it though, the chip/driver are simply unreliable,
-and relying upon hardware checksums (which fail due to the driver
-looking at garbage rather than the checksum bits) leads to data corruption.
+We already have net->ipv4.rt_genid as a per-namespace routing change
+counter, have you looked at that?
 
-Cheers
+> 2) Dump FIB tables under RCU
+> 3) Do 1) again
+> 4) Compare results from 1) and 3) and retry (according to sysctl limit)
+> if results differ. Before each retry the module's callback (if passed)
+> will be invoked.
+> 
+> Sounds OK?
 
+Ah, you want to sum up all the fib_seq from all namespaces. Now I got it.
 
+Not sure if that is such a good idea actually. It might make problems
+later on if offloading will maybe one day become a per-netns knob for
+the respective admins.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But semantically it should work.
+
+If it turns out to be much easier than doing it per-netns, I think this
+approach should work.
+
+Bye,
+Hannes
