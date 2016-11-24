@@ -1,43 +1,58 @@
-From: Chris Paterson <chris.paterson2@renesas.com>
-Subject: [PATCH v2 0/2] can: Add r8a7796 support to CAN/CAN FD
-Date: Thu, 24 Nov 2016 16:11:55 +0000
-Message-ID: <1480003917-3953-1-git-send-email-chris.paterson2@renesas.com>
-References: <1479903243-1860-1-git-send-email-chris.paterson2@renesas.com>
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Simon Horman <horms@verge.net.au>,
-        Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        Chris Paterson <chris.paterson2@renesas.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor4.renesas.com ([210.160.252.174]:37251 "EHLO
-        relmlie3.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752330AbcKXQMF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 11:12:05 -0500
-In-Reply-To: <1479903243-1860-1-git-send-email-chris.paterson2@renesas.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Thu, 24 Nov 2016 09:15:45 -0700
+Message-ID: <20161124161545.GA20818@obsidianresearch.com>
+References: <20161119190445.GG22775@obsidianresearch.com>
+ <20161121213017.GB67872@knc-06.sc.intel.com>
+ <20161121213930.GA30111@obsidianresearch.com>
+ <20161121232629.GA67988@knc-06.sc.intel.com>
+ <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
+ <20161122170407.GE3956@obsidianresearch.com>
+ <20161123000502.GA27968@phlsvsds.ph.intel.com>
+ <20161123004932.GA13598@obsidianresearch.com>
+ <20161124000825.GA73280@knc-06.sc.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161124000825.GA73280-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This series adds support for r8a7796 to rcar_can and rcar_canfd.
+On Wed, Nov 23, 2016 at 04:08:25PM -0800, Vishwanathapura, Niranjana wrote:
 
-Original series: [PATCH 0/3] arm64: dts: r8a7796: Add CAN/CAN FD support.
+> In order to pass the hfi function pointers to the hfi_vnic ULP, I can,
+> a) Have hfi_vnic ULP define an interface API for hfi1 driver to call to
+> register its callback (as you pointed). Unfortunately there will be a module
+> dependency here.
+> Or,
 
-Changes since v1:
-- Split bindings documentation changes from device tree changes.
-- Rebased on renesas-devel-20161123v2-v4.9-rc6.
+That is probably backwards
 
+> b) Add a new member ‘struct vnic_ops’ either to the ib_device structure or
+> ib_port_immutable structure. As it is hfi1 specific, only hfi1 driver will
+> set it. No module dependency here.
 
-Chris Paterson (2):
-  can: rcar_can: Add r8a7796 support
-  can: rcar_canfd: Add r8a7796 support
+You can add a hfi1_get_vnic_ops(struct ib_device *) and implement it
+in your module..
 
- Documentation/devicetree/bindings/net/can/rcar_can.txt   | 12 +++++++-----
- Documentation/devicetree/bindings/net/can/rcar_canfd.txt | 12 +++++++-----
- 2 files changed, 14 insertions(+), 10 deletions(-)
+> And will move the hfi_vnic module under
+> ‘drivers/infiniband/ulp/hfi_vnic’.
 
--- 
-1.9.1
+I would prefer drivers/net/ethernet
+
+This is clearly not a ULP since it doesn't use verbs.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
