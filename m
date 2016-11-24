@@ -1,45 +1,41 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: [PATCH 3/3] tools/virtio: use {READ,WRITE}_ONCE() in uaccess.h
-Date: Thu, 24 Nov 2016 12:37:52 +0100
-Message-ID: <20161124123752.5b1a3561.cornelia.huck@de.ibm.com>
-References: <1479983114-17190-1-git-send-email-mark.rutland@arm.com>
-	<1479983114-17190-4-git-send-email-mark.rutland@arm.com>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: Re: [PATCH net-next v2] ethtool: Protect {get,set}_phy_tunable with
+ PHY device mutex
+Date: Thu, 24 Nov 2016 12:48:10 +0100
+Message-ID: <20161124114809.GG4457@microsemi.com>
+References: <20161122215531.18212-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dave@stgolabs.net, kvm@vger.kernel.org, dbueso@suse.de,
-	netdev@vger.kernel.org, mst@redhat.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	paulmck@linux.vnet.ibm.com, dvyukov@google.com
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1479983114-17190-4-git-send-email-mark.rutland@arm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <bcm-kernel-feedback-list@broadcom.com>, <andrew@lunn.ch>,
+        <raju.lakkaraju@microsemi.com>,
+        <vivien.didelot@savoirfairelinux.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0071.outbound.protection.outlook.com ([104.47.38.71]:17680
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S965060AbcKXLsX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 06:48:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20161122215531.18212-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Nov 2016 10:25:14 +0000
-Mark Rutland <mark.rutland@arm.com> wrote:
-
-> As a step towards killing off ACCESS_ONCE, use {READ,WRITE}_ONCE() for the
-> virtio tools uaccess primitives, pulling these in from <linux/compiler.h>.
+On 22/11/16 13:55, Florian Fainelli wrote:
+> EXTERNAL EMAIL
 > 
-> With this done, we can kill off the now-unused ACCESS_ONCE() definition.
 > 
-> Signed-off-by: Mark Rutland <mark.rutland@arm.com>
-> Cc: Jason Wang <jasowang@redhat.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: linux-kernel@vger.kernel.org
-> Cc: virtualization@lists.linux-foundation.org
-> ---
->  tools/virtio/linux/uaccess.h | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-
-Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+> PHY drivers should be able to rely on the caller of {get,set}_tunable to
+> have acquired the PHY device mutex, in order to both serialize against
+> concurrent calls of these functions, but also against PHY state machine
+> changes. All ethtool PHY-level functions do this, except
+> {get,set}_tunable, so we make them consistent here as well.
+> 
+> We need to update the Microsemi PHY driver in the same commit to avoid
+> introducing either deadlocks, or lack of proper locking.
+> 
+> Fixes: 968ad9da7e0e ("ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE")
+> Fixes: 310d9ad57ae0 ("net: phy: Add downshift get/set support in Microsemi PHYs driver")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Reviewed-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
