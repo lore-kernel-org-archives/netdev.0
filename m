@@ -1,95 +1,220 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [PATCH 4/4] net: stmmac: stmmac_platform: use correct setup
- function for gmac4
-Date: Thu, 24 Nov 2016 18:58:35 +0100
-Message-ID: <3a5aabfa-fc49-68ff-7388-493f8da6044d@st.com>
-References: <1479911117-19917-1-git-send-email-niklass@axis.com>
+From: Sebastian Reichel <sre@kernel.org>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Thu, 24 Nov 2016 19:11:39 +0100
+Message-ID: <20161124181138.4i6ehkpohjxfgpbn@earth>
+References: <201611111820.52072@pali>
+ <20161124152045.GK13735@pali>
+ <20161124160830.kdpbonsz3l26uuo5@earth>
+ <201611241749.33681@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:38671 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754136AbcKXR6o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 12:58:44 -0500
-In-Reply-To: <1479911117-19917-1-git-send-email-niklass@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="ectbp4bp3wodyn6s"
+Cc: Pavel Machek <pavel@ucw.cz>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201611241749.33681@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Niklas,
 
-On 11/23/2016 03:25 PM, Niklas Cassel wrote:
-> From: Niklas Cassel <niklas.cassel@axis.com>
->
-> devicetree binding for stmmac states:
-> - compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
-> 	For backwards compatibility: "st,spear600-gmac" is also supported.
->
-> Previously, when specifying "snps,dwmac-4.10a", "snps,dwmac" as your
-> compatible string, plat_stmmacenet_data would have both has_gmac and
-> has_gmac4 set.
->
-> This would lead to stmmac_hw_init calling dwmac1000_setup rather than
-> dwmac4_setup, resulting in a non-functional driver.
-> This happened since the check for has_gmac is done before the check for
-> has_gmac4. However, the order should not matter, so it does not make sense
-> to have both set.
+--ectbp4bp3wodyn6s
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Well spot.
+Hi,
 
->
-> If something is valid for both, you should do as the stmmac_interrupt does:
-> if (priv->plat->has_gmac || priv->plat->has_gmac4) ...
->
-> The places where it was obvious that the author actually meant
-> if (has_gmac || has_gmac4) rather than if (has_gmac) has been updated.
->
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c  | 4 ++--
->  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 +
->  2 files changed, 3 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-> index d5a8122b6033..dd5b38e4cd1f 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-> @@ -263,7 +263,7 @@ static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
->  {
->  	struct stmmac_priv *priv = netdev_priv(dev);
->
-> -	if (priv->plat->has_gmac)
-> +	if (priv->plat->has_gmac || priv->plat->has_gmac4)
->  		strlcpy(info->driver, GMAC_ETHTOOL_NAME, sizeof(info->driver));
->  	else
->  		strlcpy(info->driver, MAC100_ETHTOOL_NAME,
-> @@ -448,7 +448,7 @@ static void stmmac_ethtool_gregs(struct net_device *dev,
->
->  	memset(reg_space, 0x0, REG_SPACE_SIZE);
->
-> -	if (!priv->plat->has_gmac) {
-> +	if (!(priv->plat->has_gmac || priv->plat->has_gmac4)) {
->  		/* MAC registers */
->  		for (i = 0; i < 12; i++)
->  			reg_space[i] = readl(priv->ioaddr + (i * 4));
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 4d544c34c1f2..c8a59f396c6e 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -291,6 +291,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
->  	if (of_device_is_compatible(np, "snps,dwmac-4.00") ||
->  	    of_device_is_compatible(np, "snps,dwmac-4.10a")) {
->  		plat->has_gmac4 = 1;
-> +		plat->has_gmac = 0;
->  		plat->pmt = 1;
->  		plat->tso_en = of_property_read_bool(np, "snps,tso");
->  	}
->
-Thanks Niklas, Acked-by: <alexandre.torgue@st.com>
+On Thu, Nov 24, 2016 at 05:49:33PM +0100, Pali Roh=C3=A1r wrote:
+> On Thursday 24 November 2016 17:08:30 Sebastian Reichel wrote:
+> > On Thu, Nov 24, 2016 at 04:20:45PM +0100, Pali Roh=C3=A1r wrote:
+> > > On Thursday 24 November 2016 16:13:17 Sebastian Reichel wrote:
+> > > > On Thu, Nov 24, 2016 at 09:33:29AM +0100, Pali Roh=C3=A1r wrote:
+> > > > > On Thursday 24 November 2016 08:51:04 Pavel Machek wrote:
+> > > > > > > > "ifconfig hw ether XX" normally sets the address. I guess
+> > > > > > > > that's ioctl?
+> > > > > > >=20
+> > > > > > > This sets temporary address and it is ioctl. IIRC same as
+> > > > > > > what ethtool uses. (ifconfig is already deprecated).
+> > > > > > >=20
+> > > > > > > > And I guess we should use similar mechanism for permanent
+> > > > > > > > address.
+> > > > > > >=20
+> > > > > > > I'm not sure here... Above ioctl =E2=86=91=E2=86=91=E2=86=91 =
+is for changing
+> > > > > > > temporary mac address. But here we do not want to change
+> > > > > > > permanent mac address. We want to tell kernel driver
+> > > > > > > current permanent mac address which is stored
+> > > > > >=20
+> > > > > > Well... I'd still use similar mechanism :-).
+> > > > >=20
+> > > > > Thats problematic, because in time when wlan0 interface is
+> > > > > registered into system and visible in ifconfig output it
+> > > > > already needs to have permanent mac address assigned.
+> > > > >=20
+> > > > > We should assign permanent mac address before wlan0 of wl1251
+> > > > > is registered into system.
+> > > >=20
+> > > > You can just add the MAC address to the NVS data, which is also
+> > > > required for the device initialization.
+> > >=20
+> > > NVS data file has fixed size, there is IIRC no place for it.
+> > >=20
+> > > But one of my suggestion was to use another request_firmware for
+> > > MAC address. So this is similar to what you are proposing, as NVS
+> > > data are loaded by request_firmware too...
+> >=20
+> > Just append it to NVS data and modify the size check accordingly?
+>=20
+> First that would mean to have request_firmware() function which will not=
+=20
+> use direct VFS access, but instead use userspace helper.
 
-Regards
-Alex
+Permanent MAC is device specific init data, NVS is device specific
+init data =3D> load together.
+
+The userspace helper stuff is only needed to get the data from
+the NAND calibration area on the fly.
+
+> NVS data file with some default values (not suitable for usage) is=20
+> already present in linux-firmware and available in /lib/firmware/...
+
+You mentioned NVS data is fixed size, so this should be enough?
+
+switch(loaded_size)
+    case IMAGE_SIZE + MAC_SIZE:
+        /* extract mac */
+        /* fallthrough */
+    case IMAGE_SIZE:
+        /* load NVS */
+        break;
+    default:
+        /* fail */
+}
+
+> Also I'm not sure if such thing is allowed by license:
+> https://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git/=
+tree/LICENCE.ti-connectivity
+
+concating data is not a modification, otherwise you can't
+put the file in a filesystem.
+
+> > > > I wonder if those information could be put into DT. Iirc some
+> > > > network devices get their MAC address from DT. Maybe we can add
+> > > > all NVS info to DT? How much data is it?
+> > >=20
+> > > Proprietary, signed and closed bootloader NOLO does not support DT.
+> > > So for booting you need to append DTS file to kernel image.
+> >=20
+> > Yeah, so NOLO without U-Boot will depend on userspace to fixup DT.
+> >=20
+> > > U-Boot is optional and can be used as intermediate bootloader
+> > > between NOLO and kernel. But still it has problems with reading
+> > > from nand, so cannot read NVS data nor MAC address.
+> >=20
+> > It may in the future?
+>=20
+> I already tried that, but I failed. I was not able to access N900's nand=
+=20
+> from u-boot. No idea where was problem...
+>
+> And if somebody fix onenand in u-boot, then needs to reimplement Nokia's=
+=20
+> proprietary parser of that partition where is stored NVS and mac address=
+=20
+> && make this support in upstream u-boot.
+
+Are we talking about this?
+
+https://github.com/community-ssu/libcal/blob/master/cal.c
+
+That's ~1k loc for read-only. Getting NAND working looks harder than
+porting this to me.
+
+> So... I doubt it will be in any future.
+>=20
+> + no men power
+
+yeah :(
+
+But with that reasoning you should just extract the NVS data
+=66rom NAND and put it in your rootfs.
+
+> > > > Userspace application can add all those information to the DT
+> > > > using a DT overlay. Also the u-boot could parse and add it at
+> > > > some point in the future.
+> > >=20
+> > > In case when wl1251 is statically linked into kernel image, it is
+> > > loaded and initialized before even userspace applications starts.
+> > >=20
+> > > So no... adding NVS data or MAC address into DT or DT overlay is
+> > > not a solution.
+> >=20
+> > Actually with data loaded from DT you *can* load data quite early in
+> > the boot process, while your suggestions always require userspace.
+> > So you argument against yourself?
+>=20
+> You cannot add DTS in uboot (no support).
+
+AFAIK that's supported:
+
+http://www.denx.de/wiki/DULG/LinuxFDTBlob
+
+"Note that U-Boot makes some automatic modifications to the blob
+before passing it to the kernel - mainly adding and modifying
+information that is learnt at run-time."
+
+> And if you modify DTS on running kernel from userspace, then it is
+> too late when wl1251 is statically linked into kernel image.
+>=20
+> wl1251 will not wait until some userspace modify DTS and add data...
+
+if (nvs info missing)
+    return -EPROBE_DEFER;
+
+> But request_firmware() in fallback mode *can* wait for userspace so=20
+> wl1251 can postpone its operation until mdev/udev/whatever starts=20
+> listening for events and push needed firmware data to kernel.
+
+As you said one workaround is waiting. That's not a solution, that
+only works with request_firmware().
+
+> So no, there is no argument against... request_firmware() in fallback=20
+> mode with userspace helper is by design blocking and waiting for=20
+> userspace. But waiting for some change in DTS in kernel is just=20
+> nonsense.
+
+I would just mark the wlan device with status =3D "disabled" and
+enable it in the overlay together with adding the NVS & MAC info.
+
+-- Sebastian
+
+--ectbp4bp3wodyn6s
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAlg3LVYACgkQ2O7X88g7
++pqbiA/8Czithcg0DaKkbAfDLz1ctqkFU3AfS7/etyIwHcOMjL4vAhnqiidguSM0
+0cNIfb7GmFj+JIHPpKgb/HFUXg3vEPTgGcKbMr8VlHliIO34tOVIhmp2omnY+1aq
+xVtyOHxT4fhGXaKCrg3k3zHmZmhYJ0SCQkIUM8ARcTOF7/ypjOpgy3cudIKCyeKx
+fqBYsK8mZWiK5lx4IhaHT/hUffU7G8qYaetpl6ZhwFlgZA4jmJhI0/KWzmHIvUyJ
+gGE2Mx8a/sq5KDGuPmB8NesszHO0NalJJxYLk+XTsVtZg94nssp1JZ0jyc79Zz89
+swqQr3819meKnUcErr9n5Ox/yOas4illFQkPLA5sCU7tW4v9kugQinYupXNx8Pg9
+ofZj3Yw7re5g4dUJ8rBfvBALYsghEv9TPNDaAcqT+jVU3UkhUBMEUQMapE1X2wzX
+Bzqd3qMyKU0s1FJnGEv9S7bWNe0yxETY7paCX9nB1gFZv8fa9dIzu4MPhJZJqSYl
+6Io5t7KZ1SWizKvXd0PEcKQqIA0vume0lozzaakDAaP6YfO092TybKH/Ek7miLyH
+GsznXB5XIOyNC4IUTQ5gytSxAeEEsHfIyf85mDVEzUYzayOXg/NRiLJRXExl0mHf
+c7PpCK9ct3QsqOAOyBaMOg+5k6pYPtOcnpUEfNruJ+RhSWCzHv4=
+=wvHN
+-----END PGP SIGNATURE-----
+
+--ectbp4bp3wodyn6s--
