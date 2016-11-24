@@ -1,60 +1,93 @@
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [patch] fsl/fman: fix a leak in tgec_free()
-Date: Thu, 24 Nov 2016 12:01:22 +0000
-Message-ID: <AM4PR04MB1604B06C5FB986CCF241D411ECB60@AM4PR04MB1604.eurprd04.prod.outlook.com>
-References: <20161124111931.GK17225@mwanda>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: net/arp: ARP cache aging failed.
+Date: Thu, 24 Nov 2016 13:28:23 +0100
+Message-ID: <1fdf938e-600c-ce58-ece1-06b816ddba1c@stressinduktion.org>
+References: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com>
+ <alpine.LFD.2.11.1611230928140.1659@ja.home.ssi.bg>
+ <1479902729.8455.479.camel@edumazet-glaptop3.roam.corp.google.com>
+ <250d3a88-45ad-891f-389a-997f39d7bdad@stressinduktion.org>
+ <1479944967.8455.516.camel@edumazet-glaptop3.roam.corp.google.com>
+ <alpine.LFD.2.11.1611240931560.1685@ja.home.ssi.bg>
+ <c82b7b44-c0ad-9ee7-1114-3eae3b5cf75a@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: YueHaibing <yuehaibing@huawei.com>, Julian Anastasov <ja@ssi.bg>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0051.outbound.protection.outlook.com ([104.47.2.51]:62953
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933453AbcKXMRk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 07:17:40 -0500
-In-Reply-To: <20161124111931.GK17225@mwanda>
-Content-Language: en-US
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:34222 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S964853AbcKXM20 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 07:28:26 -0500
+In-Reply-To: <c82b7b44-c0ad-9ee7-1114-3eae3b5cf75a@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
-> Sent: Thursday, November 24, 2016 1:21 PM
-> To: Madalin-Cristian Bucur <madalin.bucur@nxp.com>; Igal Liberman
-> <igal.liberman@freescale.com>
-> Cc: netdev@vger.kernel.org; kernel-janitors@vger.kernel.org
-> Subject: [patch] fsl/fman: fix a leak in tgec_free()
->=20
-> We set "tgec->cfg" to NULL before passing it to kfree().  There is no
-> need to set it to NULL at all.  Let's just delete it.
+On 24.11.2016 10:06, YueHaibing wrote:
+> On 2016/11/24 15:51, Julian Anastasov wrote:
+>>
+>> 	Hello,
+>>
+>> On Wed, 23 Nov 2016, Eric Dumazet wrote:
+>>
+>>> On Wed, 2016-11-23 at 15:37 +0100, Hannes Frederic Sowa wrote:
+>>>
+>>>> Irregardless about the question if bonding should keep the MAC address
+>>>> alive, a MAC address can certainly change below a TCP connection.
+>>>
+>>> Of course ;)
+>>>
+> 
+> I configured bonding fail_over_mac=1 ,so the bonding MAC always be the MAC
+> address of the currently active slave.
+> 
+>>>>
+>>>> dst_entry is 1:n to neigh_entry and as such we can end up confirming an
+>>>> aging neighbor while sending a reply with dst->pending_confirm set while
+>>>> the confirming packet actually came from a different neighbor.
+>>>>
+>>>> I agree with Julian, pending_confirm became useless in this way.
+>>>
+>>> Let's kill it then ;)
+>>
+>> 	It works for traffic via gateway. I now see that
+>> we can even avoid write in dst_confirm:
+>>
+>> 	if (!dst->pending_confirm)
+>> 		dst->pending_confirm = 1;
+>>
+>> 	because it is called by non-dup TCP ACKs.
+>>
+>> 	But for traffic to hosts on LAN we need different solution,
+>> i.e. for cached dsts with rt_gateway = 0 (last entry below).
+>>
+>> rt_uses_gateway rt_gateway DST_NOCACHE Description
+>> ====================================================================
+>> 1               nh_gw      ANY         Traffic via gateway
+>> 0               LAN_host   1           FLOWI_FLAG_KNOWN_NH (nexthop
+>>                                        set by IPVS, hdrincl, xt_TEE)
+>> 0               0          0           1 dst for many subnet hosts
+>>
+>> Regards
+>>
+>> --
+>> Julian Anastasov <ja@ssi.bg>
+>>
+>> .
+>>
+> 
+> As above,Is there a plan to fix the problem ? Should we just not call dst_confirm
+> when in the case rt->rt_uses_gateway/DST_NOCACHE?
 
-Agree, thanks.
+I think some people are thinking about it already (me also ;) ).
 
-=20
-> Fixes: 57ba4c9b56d8 ("fsl/fman: Add FMan MAC support")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> I haven't tested this.  It occurs to me that this code might be
-> something to paper over a use after free bug by changing it to a leak
-> instead.
->=20
-> It applies to net-master.
->=20
-> diff --git a/drivers/net/ethernet/freescale/fman/fman_tgec.c
-> b/drivers/net/ethernet/freescale/fman/fman_tgec.c
-> index efabb04..4b0f3a5 100644
-> --- a/drivers/net/ethernet/freescale/fman/fman_tgec.c
-> +++ b/drivers/net/ethernet/freescale/fman/fman_tgec.c
-> @@ -722,9 +722,6 @@ int tgec_free(struct fman_mac *tgec)
->  {
->  	free_init_resources(tgec);
->=20
-> -	if (tgec->cfg)
-> -		tgec->cfg =3D NULL;
-> -
->  	kfree(tgec->cfg);
->  	kfree(tgec);
->=20
+But it is not easy to come up with a solution. First of all, we need to
+look up the L2 address again in the neighbor cache and confirm the
+appropriate neighbor. Secondly we should only do that for packets which
+we can actually confirm (that means passing the TCP recv tests or some
+other kind of confirmation besides simply spamming the box etc). Also it
+needs to be fast.
+
+Bye,
+Hannes
