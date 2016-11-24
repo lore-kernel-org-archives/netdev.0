@@ -1,582 +1,683 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V3 net-next 15/15] smc: netlink interface for SMC sockets
-Date: Thu, 24 Nov 2016 16:06:45 +0100
-Message-ID: <20161124150645.90881-16-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V3 net-next 09/15] smc: initialize IB transport incl. PD, MR, QP, CQ, event, WR
+Date: Thu, 24 Nov 2016 16:06:39 +0100
+Message-ID: <20161124150645.90881-10-ubraun@linux.vnet.ibm.com>
 References: <20161124150645.90881-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
         utz.bacher@de.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:59329 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S966342AbcKXPHR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 10:07:17 -0500
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uAOF3ipu119391
-        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 10:07:16 -0500
-Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 26wynpn1kr-1
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:34516 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S966322AbcKXPHL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 10:07:11 -0500
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uAOF3iAN144174
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 10:07:10 -0500
+Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 26wyaxxr5y-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 10:07:16 -0500
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 10:07:10 -0500
 Received: from localhost
-        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Thu, 24 Nov 2016 15:07:13 -0000
+        Thu, 24 Nov 2016 15:07:06 -0000
 In-Reply-To: <20161124150645.90881-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support for SMC socket monitoring via netlink sockets of protocol
-NETLINK_SOCK_DIAG.
+Prepare the link for RDMA transport:
+Create a queue pair (QP) and move it into the state Ready-To-Receive (RTR).
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- include/net/smc.h             |  20 ++++
- include/net/sock.h            |   3 +
- include/uapi/linux/netlink.h  |   1 +
- include/uapi/linux/smc_diag.h |  85 +++++++++++++++++
- net/smc/Kconfig               |   9 ++
- net/smc/Makefile              |   1 +
- net/smc/af_smc.c              |  43 ++++++++-
- net/smc/smc.h                 |   2 +
- net/smc/smc_close.c           |   1 +
- net/smc/smc_diag.c            | 215 ++++++++++++++++++++++++++++++++++++++++++
- 10 files changed, 379 insertions(+), 1 deletion(-)
- create mode 100644 include/net/smc.h
- create mode 100644 include/uapi/linux/smc_diag.h
- create mode 100644 net/smc/smc_diag.c
+ net/smc/af_smc.c   |  34 ++++++--
+ net/smc/smc.h      |   1 +
+ net/smc/smc_clc.c  |  10 ++-
+ net/smc/smc_core.c |  74 +++++++++++++++++
+ net/smc/smc_core.h |  18 +++++
+ net/smc/smc_ib.c   | 230 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/smc/smc_ib.h   |  13 +++
+ net/smc/smc_pnet.c |   3 +
+ net/smc/smc_wr.c   |   2 +
+ 9 files changed, 376 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/smc.h b/include/net/smc.h
-new file mode 100644
-index 0000000..12d2635
---- /dev/null
-+++ b/include/net/smc.h
-@@ -0,0 +1,20 @@
-+/*
-+ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ *  Definitions for the SMC module (socket related)
-+ *
-+ *  Copyright IBM Corp. 2016
-+ *
-+ *  Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
-+ */
-+#ifndef _SMC_H
-+#define _SMC_H
-+
-+struct smc_hashinfo {
-+	rwlock_t lock;
-+	struct hlist_head ht;
-+};
-+
-+int smc_hash_sk(struct sock *sk);
-+void smc_unhash_sk(struct sock *sk);
-+#endif	/* _SMC_H */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index cb4359b..e6bddcf 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -70,6 +70,7 @@
- #include <net/checksum.h>
- #include <net/tcp_states.h>
- #include <linux/net_tstamp.h>
-+#include <net/smc.h>
- 
- /*
-  * This structure really needs to be cleaned up.
-@@ -955,6 +956,7 @@ struct request_sock_ops;
- struct timewait_sock_ops;
- struct inet_hashinfo;
- struct raw_hashinfo;
-+struct smc_hashinfo;
- struct module;
- 
- /*
-@@ -1063,6 +1065,7 @@ struct proto {
- 		struct inet_hashinfo	*hashinfo;
- 		struct udp_table	*udp_table;
- 		struct raw_hashinfo	*raw_hash;
-+		struct smc_hashinfo	*smc_hash;
- 	} h;
- 
- 	struct module		*owner;
-diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-index 0dba4e4..f3946a2 100644
---- a/include/uapi/linux/netlink.h
-+++ b/include/uapi/linux/netlink.h
-@@ -27,6 +27,7 @@
- #define NETLINK_ECRYPTFS	19
- #define NETLINK_RDMA		20
- #define NETLINK_CRYPTO		21	/* Crypto layer */
-+#define NETLINK_SMC		22	/* SMC monitoring */
- 
- #define NETLINK_INET_DIAG	NETLINK_SOCK_DIAG
- 
-diff --git a/include/uapi/linux/smc_diag.h b/include/uapi/linux/smc_diag.h
-new file mode 100644
-index 0000000..0063919
---- /dev/null
-+++ b/include/uapi/linux/smc_diag.h
-@@ -0,0 +1,85 @@
-+#ifndef _UAPI_SMC_DIAG_H_
-+#define _UAPI_SMC_DIAG_H_
-+
-+#include <linux/types.h>
-+#include <linux/inet_diag.h>
-+#include <rdma/ib_verbs.h>
-+
-+/* Request structure */
-+struct smc_diag_req {
-+	__u8	diag_family;
-+	__u8	pad[2];
-+	__u8	diag_ext;		/* Query extended information */
-+	struct inet_diag_sockid	id;
-+};
-+
-+/* Base info structure. It contains socket identity (addrs/ports/cookie) based
-+ * on the internal clcsock, and more SMC-related socket data
-+ */
-+struct smc_diag_msg {
-+	__u8	diag_family;
-+	__u8	diag_state;
-+	__u8	diag_fallback;
-+	__u8	diag_shutdown;
-+	struct inet_diag_sockid id;
-+
-+	__u32	diag_uid;
-+	__u64	diag_inode;
-+};
-+
-+/* Extensions */
-+
-+enum {
-+	SMC_DIAG_NONE,
-+	SMC_DIAG_CONNINFO,
-+	SMC_DIAG_LGRINFO,
-+	SMC_DIAG_SHUTDOWN,
-+	__SMC_DIAG_MAX,
-+};
-+
-+#define SMC_DIAG_MAX (__SMC_DIAG_MAX - 1)
-+
-+/* SMC_DIAG_CONNINFO */
-+
-+struct smc_diag_cursor {
-+	__u16	reserved;
-+	__u16	wrap;
-+	__u32	count;
-+};
-+
-+struct smc_diag_conninfo {
-+	__u32			token;		/* unique connection id */
-+	__u32			sndbuf_size;	/* size of send buffer */
-+	__u32			rmbe_size;	/* size of RMB element */
-+	__u32			peer_rmbe_size;	/* size of peer RMB element */
-+	/* local RMB element cursors */
-+	struct smc_diag_cursor	rx_prod;	/* received producer cursor */
-+	struct smc_diag_cursor	rx_cons;	/* received consumer cursor */
-+	/* peer RMB element cursors */
-+	struct smc_diag_cursor	tx_prod;	/* sent producer cursor */
-+	struct smc_diag_cursor	tx_cons;	/* sent consumer cursor */
-+	__u8			rx_prod_flags;	/* received producer flags */
-+	__u8			rx_conn_state_flags; /* recvd connection flags*/
-+	__u8			tx_prod_flags;	/* sent producer flags */
-+	__u8			tx_conn_state_flags; /* sent connection flags*/
-+	/* send buffer cursors */
-+	struct smc_diag_cursor	tx_prep;	/* prepared to be sent cursor */
-+	struct smc_diag_cursor	tx_sent;	/* sent cursor */
-+	struct smc_diag_cursor	tx_fin;		/* confirmed sent cursor */
-+};
-+
-+/* SMC_DIAG_LINKINFO */
-+
-+struct smc_diag_linkinfo {
-+	__u8 link_id;			/* link identifier */
-+	__u8 ibname[IB_DEVICE_NAME_MAX]; /* name of the RDMA device */
-+	__u8 ibport;			/* RDMA device port number */
-+	__u8 gid[40];			/* local GID */
-+	__u8 peer_gid[40];		/* peer GID */
-+};
-+
-+struct smc_diag_lgrinfo {
-+	struct smc_diag_linkinfo	lnk[1];
-+	__u8				role;
-+};
-+#endif /* _UAPI_SMC_DIAG_H_ */
-diff --git a/net/smc/Kconfig b/net/smc/Kconfig
-index bc02980..c717ef0 100644
---- a/net/smc/Kconfig
-+++ b/net/smc/Kconfig
-@@ -9,3 +9,12 @@ config SMC
- 	  a separate socket family SMC.
- 
- 	  Select this option if you want to run SMC socket applications
-+
-+config SMC_DIAG
-+	tristate "SMC: socket monitoring interface"
-+	depends on SMC
-+	---help---
-+	  Support for SMC socket monitoring interface used by tools such as
-+	  smcss.
-+
-+	  if unsure, say Y.
-diff --git a/net/smc/Makefile b/net/smc/Makefile
-index 5cf0caf..1881046 100644
---- a/net/smc/Makefile
-+++ b/net/smc/Makefile
-@@ -1,3 +1,4 @@
- obj-$(CONFIG_SMC)	+= smc.o
-+obj-$(CONFIG_SMC_DIAG)	+= smc_diag.o
- smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o smc_llc.o
- smc-y += smc_cdc.o smc_tx.o smc_rx.o smc_close.o
 diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 23f7d65..53cdef6 100644
+index 972ea76..fc7ef1e 100644
 --- a/net/smc/af_smc.c
 +++ b/net/smc/af_smc.c
-@@ -29,6 +29,7 @@
- #include <linux/in.h>
- #include <net/sock.h>
- #include <net/tcp.h>
-+#include <net/smc.h>
+@@ -349,9 +349,20 @@ static int smc_connect_rdma(struct smc_sock *smc)
  
- #include "smc.h"
- #include "smc_clc.h"
-@@ -59,13 +60,48 @@ static void smc_set_keepalive(struct sock *sk, int val)
- 	smc->clcsock->sk->sk_prot->keepalive(smc->clcsock->sk, val);
- }
+ 	if (local_contact == SMC_FIRST_CONTACT)
+ 		smc_link_save_peer_info(link, &aclc);
+-	/* tbd in follow-on patch: more steps to setup RDMA communcication,
+-	 * create rmbs, map rmbs, rtoken_handling, modify_qp
+-	 */
++
++	rc = smc_rmb_rtoken_handling(&smc->conn, &aclc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_INTERR;
++		goto decline_rdma_unlock;
++	}
++
++	if (local_contact == SMC_FIRST_CONTACT) {
++		rc = smc_ib_ready_link(link);
++		if (rc) {
++			reason_code = SMC_CLC_DECL_INTERR;
++			goto decline_rdma_unlock;
++		}
++	}
  
--static struct proto smc_proto = {
-+static struct smc_hashinfo smc_v4_hashinfo = {
-+	.lock = __RW_LOCK_UNLOCKED(smc_v4_hashinfo.lock),
-+};
-+
-+int smc_hash_sk(struct sock *sk)
-+{
-+	struct smc_hashinfo *h = sk->sk_prot->h.smc_hash;
-+	struct hlist_head *head;
-+
-+	head = &h->ht;
-+
-+	write_lock_bh(&h->lock);
-+	sk_add_node(sk, head);
-+	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
-+	write_unlock_bh(&h->lock);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(smc_hash_sk);
-+
-+void smc_unhash_sk(struct sock *sk)
-+{
-+	struct smc_hashinfo *h = sk->sk_prot->h.smc_hash;
-+
-+	write_lock_bh(&h->lock);
-+	if (sk_del_node_init(sk))
-+		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-+	write_unlock_bh(&h->lock);
-+}
-+EXPORT_SYMBOL_GPL(smc_unhash_sk);
-+
-+struct proto smc_proto = {
- 	.name		= "SMC",
- 	.owner		= THIS_MODULE,
- 	.keepalive	= smc_set_keepalive,
-+	.hash		= smc_hash_sk,
-+	.unhash		= smc_unhash_sk,
- 	.obj_size	= sizeof(struct smc_sock),
-+	.h.smc_hash	= &smc_v4_hashinfo,
- 	.slab_flags	= SLAB_DESTROY_BY_RCU,
- };
-+EXPORT_SYMBOL_GPL(smc_proto);
+ 	rc = smc_clc_send_confirm(smc);
+ 	if (rc)
+@@ -648,9 +659,20 @@ static void smc_listen_work(struct work_struct *work)
+ 	if (local_contact == SMC_FIRST_CONTACT)
+ 		smc_link_save_peer_info(link, &cclc);
  
- static int smc_release(struct socket *sock)
- {
-@@ -109,6 +145,7 @@ static int smc_release(struct socket *sock)
- 		schedule_delayed_work(&smc->sock_put_work,
- 				      SMC_CLOSE_SOCK_PUT_DELAY);
- 	}
-+	sk->sk_prot->unhash(sk);
- 	release_sock(sk);
+-	/* tbd in follow-on patch: more steps to setup RDMA communcication,
+-	 * rtoken_handling, modify_qp
+-	 */
++	rc = smc_rmb_rtoken_handling(&new_smc->conn, &cclc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_INTERR;
++		goto decline_rdma;
++	}
++
++	/* tbd in follow-on patch: modify_qp, llc_confirm */
++	if (local_contact == SMC_FIRST_CONTACT) {
++		rc = smc_ib_ready_link(link);
++		if (rc) {
++			reason_code = SMC_CLC_DECL_INTERR;
++			goto decline_rdma;
++		}
++	}
  
- 	sock_put(sk);
-@@ -139,6 +176,7 @@ static struct sock *smc_sock_alloc(struct net *net, struct socket *sock)
- 	sk->sk_state = SMC_INIT;
- 	sk->sk_destruct = smc_destruct;
- 	sk->sk_protocol = SMCPROTO_SMC;
-+	sk->sk_prot->hash(sk);
- 	sk_refcnt_debug_inc(sk);
- 
- 	smc = smc_sk(sk);
-@@ -546,6 +584,7 @@ static int smc_clcsock_accept(struct smc_sock *lsmc, struct smc_sock **new_smc)
- 		lsmc->sk.sk_err = -rc;
- 		new_sk->sk_state = SMC_CLOSED;
- 		sock_set_flag(new_sk, SOCK_DEAD);
-+		sk->sk_prot->unhash(new_sk);
- 		sock_put(new_sk);
- 		*new_smc = NULL;
- 		goto out;
-@@ -555,6 +594,7 @@ static int smc_clcsock_accept(struct smc_sock *lsmc, struct smc_sock **new_smc)
- 			sock_release(new_clcsock);
- 		new_sk->sk_state = SMC_CLOSED;
- 		sock_set_flag(new_sk, SOCK_DEAD);
-+		sk->sk_prot->unhash(new_sk);
- 		sock_put(new_sk);
- 		*new_smc = NULL;
- 		goto out;
-@@ -1330,6 +1370,7 @@ static int __init smc_init(void)
- 		pr_err("%s: sock_register fails with %d\n", __func__, rc);
- 		goto out_proto;
- 	}
-+	INIT_HLIST_HEAD(&smc_v4_hashinfo.ht);
- 
- 	rc = smc_ib_register_client();
- 	if (rc) {
+ out_connected:
+ 	sk_refcnt_debug_inc(newsmcsk);
 diff --git a/net/smc/smc.h b/net/smc/smc.h
-index 963b60f..38c3644 100644
+index 122677b..36fb1fa 100644
 --- a/net/smc/smc.h
 +++ b/net/smc/smc.h
-@@ -18,6 +18,8 @@
+@@ -40,6 +40,7 @@ struct smc_connection {
+ 	atomic_t		peer_rmbe_space;/* remaining free bytes in peer
+ 						 * rmbe
+ 						 */
++	int			rtoken_idx;	/* idx to peer RMB rkey/addr */
  
- #define SMCPROTO_SMC		0	/* SMC protocol */
+ 	struct smc_buf_desc	*sndbuf_desc;	/* send buffer descriptor */
+ 	int			sndbuf_size;	/* sndbuf size <== sock wmem */
+diff --git a/net/smc/smc_clc.c b/net/smc/smc_clc.c
+index 746afc9..30cf5c8 100644
+--- a/net/smc/smc_clc.c
++++ b/net/smc/smc_clc.c
+@@ -200,13 +200,15 @@ int smc_clc_send_confirm(struct smc_sock *smc)
+ 	       SMC_GID_SIZE);
+ 	memcpy(&cclc.lcl.mac, &link->smcibdev->mac[link->ibport - 1],
+ 	       sizeof(link->smcibdev->mac));
+-
+-	/* tbd in follow-on patch: fill in rmb-related values */
+-
+ 	hton24(cclc.qpn, link->roce_qp->qp_num);
++	cclc.rmb_rkey =
++		htonl(conn->rmb_desc->mr_rx[SMC_SINGLE_LINK]->rkey);
+ 	cclc.conn_idx = 1; /* for now: 1 RMB = 1 RMBE */
+ 	cclc.rmbe_alert_token = htonl(conn->alert_token_local);
+ 	cclc.qp_mtu = min(link->path_mtu, link->peer_mtu);
++	cclc.rmbe_size = conn->rmbe_size_short;
++	cclc.rmb_dma_addr =
++		cpu_to_be64((u64)conn->rmb_desc->dma_addr[SMC_SINGLE_LINK]);
+ 	hton24(cclc.psn, link->psn_initial);
  
-+extern struct proto smc_proto;
-+
- #ifdef ATOMIC64_INIT
- #define KERNEL_HAS_ATOMIC64
- #endif
-diff --git a/net/smc/smc_close.c b/net/smc/smc_close.c
-index d70c05b..03dfcc6 100644
---- a/net/smc/smc_close.c
-+++ b/net/smc/smc_close.c
-@@ -384,6 +384,7 @@ void smc_close_sock_put_work(struct work_struct *work)
- 					    struct smc_sock,
- 					    sock_put_work);
+ 	memcpy(cclc.trl.eyecatcher, SMC_EYECATCHER, sizeof(SMC_EYECATCHER));
+@@ -252,6 +254,8 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
+ 	memcpy(&aclc.lcl.mac, link->smcibdev->mac[link->ibport - 1],
+ 	       sizeof(link->smcibdev->mac[link->ibport - 1]));
+ 	hton24(aclc.qpn, link->roce_qp->qp_num);
++	aclc.rmb_rkey =
++		htonl(conn->rmb_desc->mr_rx[SMC_SINGLE_LINK]->rkey);
+ 	aclc.conn_idx = 1;			/* as long as 1 RMB = 1 RMBE */
+ 	aclc.rmbe_alert_token = htonl(conn->alert_token_local);
+ 	aclc.qp_mtu = link->path_mtu;
+diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
+index 0eed4c1..2b2e739 100644
+--- a/net/smc/smc_core.c
++++ b/net/smc/smc_core.c
+@@ -166,6 +166,15 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	if (rc)
+ 		goto free_lgr;
+ 	init_waitqueue_head(&lnk->wr_tx_wait);
++	rc = smc_ib_create_protection_domain(lnk);
++	if (rc)
++		goto free_link_mem;
++	rc = smc_ib_create_queue_pair(lnk);
++	if (rc)
++		goto dealloc_pd;
++	rc = smc_wr_create_link(lnk);
++	if (rc)
++		goto destroy_qp;
  
-+	smc->sk.sk_prot->unhash(&smc->sk);
- 	sock_put(&smc->sk);
+ 	smc->conn.lgr = lgr;
+ 	rwlock_init(&lgr->conns_lock);
+@@ -174,6 +183,12 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	spin_unlock_bh(&smc_lgr_list.lock);
+ 	return 0;
+ 
++destroy_qp:
++	smc_ib_destroy_queue_pair(lnk);
++dealloc_pd:
++	smc_ib_dealloc_protection_domain(lnk);
++free_link_mem:
++	smc_wr_free_link_mem(lnk);
+ free_lgr:
+ 	kfree(lgr);
+ out:
+@@ -211,7 +226,10 @@ void smc_conn_free(struct smc_connection *conn)
+ static void smc_link_clear(struct smc_link *lnk)
+ {
+ 	lnk->peer_qpn = 0;
++	smc_ib_modify_qp_reset(lnk);
+ 	smc_wr_free_link(lnk);
++	smc_ib_destroy_queue_pair(lnk);
++	smc_ib_dealloc_protection_domain(lnk);
+ 	smc_wr_free_link_mem(lnk);
  }
  
-diff --git a/net/smc/smc_diag.c b/net/smc/smc_diag.c
-new file mode 100644
-index 0000000..d2d01cf
---- /dev/null
-+++ b/net/smc/smc_diag.c
-@@ -0,0 +1,215 @@
-+/*
-+ * Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ * Monitoring SMC transport protocol sockets
-+ *
-+ * Copyright IBM Corp. 2016
-+ *
-+ * Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/init.h>
-+#include <linux/sock_diag.h>
-+#include <linux/inet_diag.h>
-+#include <linux/smc_diag.h>
-+#include <net/netlink.h>
-+#include <net/smc.h>
-+
-+#include "smc.h"
-+#include "smc_core.h"
-+
-+static void smc_gid_be16_convert(__u8 *buf, u8 *gid_raw)
-+{
-+	sprintf(buf, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x",
-+		be16_to_cpu(((__be16 *)gid_raw)[0]),
-+		be16_to_cpu(((__be16 *)gid_raw)[1]),
-+		be16_to_cpu(((__be16 *)gid_raw)[2]),
-+		be16_to_cpu(((__be16 *)gid_raw)[3]),
-+		be16_to_cpu(((__be16 *)gid_raw)[4]),
-+		be16_to_cpu(((__be16 *)gid_raw)[5]),
-+		be16_to_cpu(((__be16 *)gid_raw)[6]),
-+		be16_to_cpu(((__be16 *)gid_raw)[7]));
-+}
-+
-+static void smc_diag_msg_common_fill(struct smc_diag_msg *r, struct sock *sk)
-+{
-+	struct smc_sock *smc = smc_sk(sk);
-+
-+	r->diag_family = sk->sk_family;
-+	if (!smc->clcsock)
-+		return;
-+	r->id.idiag_sport = htons(smc->clcsock->sk->sk_num);
-+	r->id.idiag_dport = smc->clcsock->sk->sk_dport;
-+	r->id.idiag_if = smc->clcsock->sk->sk_bound_dev_if;
-+	sock_diag_save_cookie(sk, r->id.idiag_cookie);
-+	memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
-+	memset(&r->id.idiag_dst, 0, sizeof(r->id.idiag_dst));
-+	r->id.idiag_src[0] = smc->clcsock->sk->sk_rcv_saddr;
-+	r->id.idiag_dst[0] = smc->clcsock->sk->sk_daddr;
-+}
-+
-+static int smc_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
-+				   struct smc_diag_msg *r,
-+				   struct user_namespace *user_ns)
-+{
-+	if (nla_put_u8(skb, SMC_DIAG_SHUTDOWN, sk->sk_shutdown))
-+		return 1;
-+
-+	r->diag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
-+	r->diag_inode = sock_i_ino(sk);
-+	return 0;
-+}
-+
-+static int __smc_diag_dump(struct sock *sk, struct sk_buff *skb,
-+			   struct netlink_callback *cb,
-+			   const struct smc_diag_req *req,
-+			   struct nlattr *bc)
-+{
-+	struct smc_sock *smc = smc_sk(sk);
-+	struct user_namespace *user_ns;
-+	struct smc_diag_msg *r;
-+	struct nlmsghdr *nlh;
-+
-+	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
-+			cb->nlh->nlmsg_type, sizeof(*r), NLM_F_MULTI);
-+	if (!nlh)
-+		return -EMSGSIZE;
-+
-+	r = nlmsg_data(nlh);
-+	smc_diag_msg_common_fill(r, sk);
-+	r->diag_state = sk->sk_state;
-+	r->diag_fallback = smc->use_fallback;
-+	user_ns = sk_user_ns(NETLINK_CB(cb->skb).sk);
-+	if (smc_diag_msg_attrs_fill(sk, skb, r, user_ns))
-+		goto errout;
-+
-+	if ((req->diag_ext & (1 << (SMC_DIAG_CONNINFO - 1))) && smc->conn.lgr) {
-+		struct smc_connection *conn = &smc->conn;
-+		struct smc_diag_conninfo cinfo = {
-+			.token = conn->alert_token_local,
-+			.sndbuf_size = conn->sndbuf_size,
-+			.rmbe_size = conn->rmbe_size,
-+			.peer_rmbe_size = conn->peer_rmbe_size,
-+
-+			.rx_prod.wrap = conn->local_rx_ctrl.prod.wrap,
-+			.rx_prod.count = conn->local_rx_ctrl.prod.count,
-+			.rx_cons.wrap = conn->local_rx_ctrl.cons.wrap,
-+			.rx_cons.count = conn->local_rx_ctrl.cons.count,
-+
-+			.tx_prod.wrap = conn->local_tx_ctrl.prod.wrap,
-+			.tx_prod.count = conn->local_tx_ctrl.prod.count,
-+			.tx_cons.wrap = conn->local_tx_ctrl.cons.wrap,
-+			.tx_cons.count = conn->local_tx_ctrl.cons.count,
-+
-+			.tx_prod_flags =
-+				*(u8 *)&conn->local_tx_ctrl.prod_flags,
-+			.tx_conn_state_flags =
-+				*(u8 *)&conn->local_tx_ctrl.conn_state_flags,
-+			.rx_prod_flags = *(u8 *)&conn->local_rx_ctrl.prod_flags,
-+			.rx_conn_state_flags =
-+				*(u8 *)&conn->local_rx_ctrl.conn_state_flags,
-+
-+			.tx_prep.wrap = conn->tx_curs_prep.wrap,
-+			.tx_prep.count = conn->tx_curs_prep.count,
-+			.tx_sent.wrap = conn->tx_curs_sent.wrap,
-+			.tx_sent.count = conn->tx_curs_sent.count,
-+			.tx_fin.wrap = conn->tx_curs_fin.wrap,
-+			.tx_fin.count = conn->tx_curs_fin.count,
-+		};
-+
-+		if (nla_put(skb, SMC_DIAG_CONNINFO, sizeof(cinfo), &cinfo) < 0)
-+			goto errout;
-+	}
-+
-+	if ((req->diag_ext & (1 << (SMC_DIAG_LGRINFO - 1))) && smc->conn.lgr) {
-+		struct smc_diag_lgrinfo linfo = {
-+			.role = smc->conn.lgr->role,
-+			.lnk[0].ibport = smc->conn.lgr->lnk[0].ibport,
-+			.lnk[0].link_id = smc->conn.lgr->lnk[0].link_id,
-+		};
-+
-+		memcpy(linfo.lnk[0].ibname,
-+		       smc->conn.lgr->lnk[0].smcibdev->ibdev->name,
-+		       sizeof(smc->conn.lgr->lnk[0].smcibdev->ibdev->name));
-+		smc_gid_be16_convert(linfo.lnk[0].gid,
-+				     smc->conn.lgr->lnk[0].gid.raw);
-+		smc_gid_be16_convert(linfo.lnk[0].peer_gid,
-+				     smc->conn.lgr->lnk[0].peer_gid);
-+
-+		if (nla_put(skb, SMC_DIAG_LGRINFO, sizeof(linfo), &linfo) < 0)
-+			goto errout;
-+	}
-+
-+	nlmsg_end(skb, nlh);
-+	return 0;
-+
-+errout:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+
-+static int smc_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct nlattr *bc = NULL;
-+	struct hlist_head *head;
-+	struct sock *sk;
-+	int rc = 0;
-+
-+	read_lock(&smc_proto.h.smc_hash->lock);
-+	head = &smc_proto.h.smc_hash->ht;
-+	if (hlist_empty(head))
-+		goto out;
-+
-+	sk_for_each(sk, head) {
-+		if (!net_eq(sock_net(sk), net))
+@@ -223,6 +241,10 @@ static void smc_lgr_free_sndbufs(struct smc_link_group *lgr)
+ 	for (i = 0; i < SMC_RMBE_SIZES; i++) {
+ 		list_for_each_entry_safe(sndbuf_desc, bf_desc, &lgr->sndbufs[i],
+ 					 list) {
++			list_del(&sndbuf_desc->list);
++			smc_ib_buf_unmap(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
++					 smc_uncompress_bufsize(i),
++					 sndbuf_desc, DMA_TO_DEVICE);
+ 			kfree(sndbuf_desc->cpu_addr);
+ 			kfree(sndbuf_desc);
+ 		}
+@@ -232,11 +254,16 @@ static void smc_lgr_free_sndbufs(struct smc_link_group *lgr)
+ static void smc_lgr_free_rmbs(struct smc_link_group *lgr)
+ {
+ 	struct smc_buf_desc *rmb_desc, *bf_desc;
++	struct smc_link *lnk = &lgr->lnk[SMC_SINGLE_LINK];
+ 	int i;
+ 
+ 	for (i = 0; i < SMC_RMBE_SIZES; i++) {
+ 		list_for_each_entry_safe(rmb_desc, bf_desc, &lgr->rmbs[i],
+ 					 list) {
++			list_del(&rmb_desc->list);
++			smc_ib_buf_unmap(lnk->smcibdev,
++					 smc_uncompress_bufsize(i),
++					 rmb_desc, DMA_FROM_DEVICE);
+ 			kfree(rmb_desc->cpu_addr);
+ 			kfree(rmb_desc);
+ 		}
+@@ -550,6 +577,18 @@ int smc_rmb_create(struct smc_sock *smc)
+ 			kfree(rmb_desc);
+ 			continue; /* if mapping failed, try smaller one */
+ 		}
++		rc = smc_ib_get_memory_region(lgr->lnk[SMC_SINGLE_LINK].roce_pd,
++					      IB_ACCESS_REMOTE_WRITE |
++					      IB_ACCESS_LOCAL_WRITE,
++					     &rmb_desc->mr_rx[SMC_SINGLE_LINK]);
++		if (rc) {
++			smc_ib_buf_unmap(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
++					 tmp_bufsize, rmb_desc,
++					 DMA_FROM_DEVICE);
++			kfree(rmb_desc->cpu_addr);
++			kfree(rmb_desc);
 +			continue;
-+		rc = __smc_diag_dump(sk, skb, cb, nlmsg_data(cb->nlh), bc);
-+		if (rc)
-+			break;
-+	}
++		}
+ 		rmb_desc->used = 1;
+ 		write_lock_bh(&lgr->rmbs_lock);
+ 		list_add(&rmb_desc->list,
+@@ -567,3 +606,38 @@ int smc_rmb_create(struct smc_sock *smc)
+ 		return -ENOMEM;
+ 	}
+ }
 +
-+out:
-+	read_unlock(&smc_proto.h.smc_hash->lock);
++static inline int smc_rmb_reserve_rtoken_idx(struct smc_link_group *lgr)
++{
++	int i;
++
++	for_each_clear_bit(i, lgr->rtokens_used_mask, SMC_RMBS_PER_LGR_MAX) {
++		if (!test_and_set_bit(i, lgr->rtokens_used_mask))
++			return i;
++	}
++	return -ENOSPC;
++}
++
++/* save rkey and dma_addr received from peer during clc handshake */
++int smc_rmb_rtoken_handling(struct smc_connection *conn,
++			    struct smc_clc_msg_accept_confirm *clc)
++{
++	u64 dma_addr = be64_to_cpu(clc->rmb_dma_addr);
++	struct smc_link_group *lgr = conn->lgr;
++	u32 rkey = ntohl(clc->rmb_rkey);
++	int i;
++
++	for (i = 0; i < SMC_RMBS_PER_LGR_MAX; i++) {
++		if ((lgr->rtokens[i][SMC_SINGLE_LINK].rkey == rkey) &&
++		    test_bit(i, lgr->rtokens_used_mask)) {
++			conn->rtoken_idx = i;
++			return 0;
++		}
++	}
++	conn->rtoken_idx = smc_rmb_reserve_rtoken_idx(lgr);
++	if (conn->rtoken_idx < 0)
++		return conn->rtoken_idx;
++	lgr->rtokens[conn->rtoken_idx][SMC_SINGLE_LINK].rkey = rkey;
++	lgr->rtokens[conn->rtoken_idx][SMC_SINGLE_LINK].dma_addr = dma_addr;
++	return 0;
++}
+diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
+index c841f5c..97805b2 100644
+--- a/net/smc/smc_core.h
++++ b/net/smc/smc_core.h
+@@ -90,9 +90,18 @@ struct smc_buf_desc {
+ 	u64			dma_addr[SMC_LINKS_PER_LGR_MAX];
+ 						/* mapped address of buffer */
+ 	void			*cpu_addr;	/* virtual address of buffer */
++	struct ib_mr		*mr_rx[SMC_LINKS_PER_LGR_MAX];
++						/* for rmb only:
++						 * rkey provided to peer
++						 */
+ 	u32			used;		/* currently used / unused */
+ };
+ 
++struct smc_rtoken {				/* address/key of remote RMB */
++	u64			dma_addr;
++	u32			rkey;
++};
++
+ struct smc_link_group {
+ 	struct list_head	list;
+ 	enum smc_lgr_role	role;		/* client or server */
+@@ -109,6 +118,13 @@ struct smc_link_group {
+ 	rwlock_t		sndbufs_lock;	/* protects tx buffers */
+ 	struct list_head	rmbs[SMC_RMBE_SIZES];	/* rx buffers */
+ 	rwlock_t		rmbs_lock;	/* protects rx buffers */
++	struct smc_rtoken	rtokens[SMC_RMBS_PER_LGR_MAX]
++				       [SMC_LINKS_PER_LGR_MAX];
++						/* remote addr/key pairs */
++	unsigned long		rtokens_used_mask[BITS_TO_LONGS(
++							SMC_RMBS_PER_LGR_MAX)];
++						/* used rtoken elements */
++
+ 	struct delayed_work	free_work;	/* delayed freeing of an lgr */
+ 	bool			sync_err;	/* lgr no longer fits to peer */
+ };
+@@ -153,5 +169,7 @@ void smc_lgr_free(struct smc_link_group *lgr);
+ void smc_lgr_terminate(struct smc_link_group *lgr);
+ int smc_sndbuf_create(struct smc_sock *smc);
+ int smc_rmb_create(struct smc_sock *smc);
++int smc_rmb_rtoken_handling(struct smc_connection *conn,
++			    struct smc_clc_msg_accept_confirm *clc);
+ 
+ #endif
+diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c
+index b3e40f7..0c044d6 100644
+--- a/net/smc/smc_ib.c
++++ b/net/smc/smc_ib.c
+@@ -12,6 +12,7 @@
+  */
+ 
+ #include <linux/random.h>
++#include <linux/workqueue.h>
+ #include <rdma/ib_verbs.h>
+ 
+ #include "smc_pnet.h"
+@@ -20,6 +21,11 @@
+ #include "smc_wr.h"
+ #include "smc.h"
+ 
++#define SMC_QP_MIN_RNR_TIMER		5
++#define SMC_QP_TIMEOUT			15 /* 4096 * 2 ** timeout usec */
++#define SMC_QP_RETRY_CNT			7 /* 7: infinite */
++#define SMC_QP_RNR_RETRY			7 /* 7: infinite */
++
+ struct smc_ib_devices smc_ib_devices = {	/* smc-registered ib devices */
+ 	.lock = __SPIN_LOCK_UNLOCKED(smc_ib_devices.lock),
+ 	.list = LIST_HEAD_INIT(smc_ib_devices.list),
+@@ -31,6 +37,169 @@ u8 local_systemid[SMC_SYSTEMID_LEN] = SMC_LOCAL_SYSTEMID_RESET;	/* unique system
+ 								 * identifier
+ 								 */
+ 
++int smc_ib_get_memory_region(struct ib_pd *pd, int access_flags,
++			     struct ib_mr **mr)
++{
++	int rc;
++
++	if (*mr)
++		return 0; /* already done */
++
++	/* obtain unique key -
++	 * next invocation of get_dma_mr returns a different key!
++	 */
++	*mr = pd->device->get_dma_mr(pd, access_flags);
++	rc = PTR_ERR_OR_ZERO(*mr);
++	if (IS_ERR(*mr))
++		*mr = NULL;
 +	return rc;
 +}
 +
-+static int smc_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
++static int smc_ib_modify_qp_init(struct smc_link *lnk)
 +{
-+	struct net *net = sock_net(skb->sk);
++	struct ib_qp_attr qp_attr;
 +
-+	if (h->nlmsg_type == SOCK_DIAG_BY_FAMILY &&
-+	    h->nlmsg_flags & NLM_F_DUMP) {
-+		{
-+			struct netlink_dump_control c = {
-+				.dump = smc_diag_dump,
-+				.min_dump_alloc = SKB_WITH_OVERHEAD(32768),
-+			};
-+			return netlink_dump_start(net->diag_nlsk, skb, h, &c);
-+		}
++	memset(&qp_attr, 0, sizeof(qp_attr));
++	qp_attr.qp_state = IB_QPS_INIT;
++	qp_attr.pkey_index = 0;
++	qp_attr.port_num = lnk->ibport;
++	qp_attr.qp_access_flags = IB_ACCESS_LOCAL_WRITE
++				| IB_ACCESS_REMOTE_WRITE;
++	return ib_modify_qp(lnk->roce_qp, &qp_attr,
++			    IB_QP_STATE | IB_QP_PKEY_INDEX |
++			    IB_QP_ACCESS_FLAGS | IB_QP_PORT);
++}
++
++static int smc_ib_modify_qp_rtr(struct smc_link *lnk)
++{
++	enum ib_qp_attr_mask qp_attr_mask =
++		IB_QP_STATE | IB_QP_AV | IB_QP_PATH_MTU | IB_QP_DEST_QPN |
++		IB_QP_RQ_PSN | IB_QP_MAX_DEST_RD_ATOMIC | IB_QP_MIN_RNR_TIMER;
++	struct ib_qp_attr qp_attr;
++
++	memset(&qp_attr, 0, sizeof(qp_attr));
++	qp_attr.qp_state = IB_QPS_RTR;
++	qp_attr.path_mtu = min(lnk->path_mtu, lnk->peer_mtu);
++	qp_attr.ah_attr.port_num = lnk->ibport;
++	qp_attr.ah_attr.ah_flags = IB_AH_GRH;
++	qp_attr.ah_attr.grh.hop_limit = 1;
++	memcpy(&qp_attr.ah_attr.grh.dgid, lnk->peer_gid,
++	       sizeof(lnk->peer_gid));
++	memcpy(&qp_attr.ah_attr.dmac, lnk->peer_mac,
++	       sizeof(lnk->peer_mac));
++	qp_attr.dest_qp_num = lnk->peer_qpn;
++	qp_attr.rq_psn = lnk->peer_psn; /* starting receive packet seq # */
++	qp_attr.max_dest_rd_atomic = 1; /* max # of resources for incoming
++					 * requests
++					 */
++	qp_attr.min_rnr_timer = SMC_QP_MIN_RNR_TIMER;
++
++	return ib_modify_qp(lnk->roce_qp, &qp_attr, qp_attr_mask);
++}
++
++int smc_ib_modify_qp_rts(struct smc_link *lnk)
++{
++	struct ib_qp_attr qp_attr;
++
++	memset(&qp_attr, 0, sizeof(qp_attr));
++	qp_attr.qp_state = IB_QPS_RTS;
++	qp_attr.timeout = SMC_QP_TIMEOUT;	/* local ack timeout */
++	qp_attr.retry_cnt = SMC_QP_RETRY_CNT;	/* retry count */
++	qp_attr.rnr_retry = SMC_QP_RNR_RETRY;	/* RNR retries, 7=infinite */
++	qp_attr.sq_psn = lnk->psn_initial;	/* starting send packet seq # */
++	qp_attr.max_rd_atomic = 1;	/* # of outstanding RDMA reads and
++					 * atomic ops allowed
++					 */
++	return ib_modify_qp(lnk->roce_qp, &qp_attr,
++			    IB_QP_STATE | IB_QP_TIMEOUT | IB_QP_RETRY_CNT |
++			    IB_QP_SQ_PSN | IB_QP_RNR_RETRY |
++			    IB_QP_MAX_QP_RD_ATOMIC);
++}
++
++int smc_ib_modify_qp_reset(struct smc_link *lnk)
++{
++	struct ib_qp_attr qp_attr;
++
++	memset(&qp_attr, 0, sizeof(qp_attr));
++	qp_attr.qp_state = IB_QPS_RESET;
++	return ib_modify_qp(lnk->roce_qp, &qp_attr, IB_QP_STATE);
++}
++
++int smc_ib_ready_link(struct smc_link *lnk)
++{
++	struct smc_link_group *lgr =
++		container_of(lnk, struct smc_link_group, lnk[0]);
++	int rc = 0;
++
++	rc = smc_ib_modify_qp_init(lnk);
++	if (rc)
++		goto out;
++
++	rc = smc_ib_modify_qp_rtr(lnk);
++	if (rc)
++		goto out;
++	smc_wr_remember_qp_attr(lnk);
++	rc = ib_req_notify_cq(lnk->smcibdev->roce_cq_recv,
++			      IB_CQ_SOLICITED_MASK);
++	if (rc)
++		goto out;
++	rc = smc_wr_rx_post_init(lnk);
++	if (rc)
++		goto out;
++	smc_wr_remember_qp_attr(lnk);
++
++	if (lgr->role == SMC_SERV) {
++		rc = smc_ib_modify_qp_rts(lnk);
++		if (rc)
++			goto out;
++		smc_wr_remember_qp_attr(lnk);
 +	}
-+	return 0;
++out:
++	return rc;
 +}
 +
-+static const struct sock_diag_handler smc_diag_handler = {
-+	.family = AF_SMC,
-+	.dump = smc_diag_handler_dump,
-+};
-+
-+static int __init smc_diag_init(void)
++/* process context wrapper for might_sleep smc_ib_remember_port_attr */
++static void smc_ib_port_event_work(struct work_struct *work)
 +{
-+	return sock_diag_register(&smc_diag_handler);
++	struct smc_ib_device *smcibdev = container_of(
++		work, struct smc_ib_device, port_event_work);
++	u8 port_idx;
++
++	for_each_set_bit(port_idx, &smcibdev->port_event_mask, SMC_MAX_PORTS) {
++		smc_ib_remember_port_attr(smcibdev, port_idx + 1);
++		clear_bit(port_idx, &smcibdev->port_event_mask);
++	}
 +}
 +
-+static void __exit smc_diag_exit(void)
++/* can be called in IRQ context */
++static void smc_ib_global_event_handler(struct ib_event_handler *handler,
++					struct ib_event *ibevent)
 +{
-+	sock_diag_unregister(&smc_diag_handler);
++	struct smc_ib_device *smcibdev;
++	u8 port_idx;
++
++	smcibdev = container_of(handler, struct smc_ib_device, event_handler);
++	switch (ibevent->event) {
++	case IB_EVENT_PORT_ERR:
++		port_idx = ibevent->element.port_num - 1;
++		set_bit(port_idx, &smcibdev->port_event_mask);
++		schedule_work(&smcibdev->port_event_work);
++		/* fall through */
++	case IB_EVENT_DEVICE_FATAL:
++		/* tbd in follow-on patch:
++		 * abnormal close of corresponding connections
++		 */
++		break;
++	case IB_EVENT_PORT_ACTIVE:
++		port_idx = ibevent->element.port_num - 1;
++		set_bit(port_idx, &smcibdev->port_event_mask);
++		schedule_work(&smcibdev->port_event_work);
++		break;
++	default:
++		break;
++	}
 +}
 +
-+module_init(smc_diag_init);
-+module_exit(smc_diag_exit);
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_SOCK_DIAG, 43 /* AF_SMC */);
+ void smc_ib_dealloc_protection_domain(struct smc_link *lnk)
+ {
+ 	ib_dealloc_pd(lnk->roce_pd);
+@@ -121,6 +290,17 @@ int smc_ib_buf_map(struct smc_ib_device *smcibdev, int buf_size,
+ 	return rc;
+ }
+ 
++void smc_ib_buf_unmap(struct smc_ib_device *smcibdev, int buf_size,
++		      struct smc_buf_desc *buf_slot,
++		      enum dma_data_direction data_direction)
++{
++	if (!buf_slot->dma_addr[SMC_SINGLE_LINK])
++		return; /* already unmapped */
++	ib_dma_unmap_single(smcibdev->ibdev, *buf_slot->dma_addr, buf_size,
++			    data_direction);
++	buf_slot->dma_addr[SMC_SINGLE_LINK] = 0;
++}
++
+ static int smc_ib_fill_gid_and_mac(struct smc_ib_device *smcibdev, u8 ibport)
+ {
+ 	struct net_device *ndev;
+@@ -184,6 +364,48 @@ int smc_ib_remember_port_attr(struct smc_ib_device *smcibdev, u8 ibport)
+ 	return rc;
+ }
+ 
++long smc_ib_setup_per_ibdev(struct smc_ib_device *smcibdev)
++{
++	struct ib_cq_init_attr cqattr =	{
++		.cqe = SMC_WR_MAX_CQE, .comp_vector = 0 };
++	long rc;
++
++	smcibdev->roce_cq_send = ib_create_cq(smcibdev->ibdev,
++					      smc_wr_tx_cq_handler, NULL,
++					      smcibdev, &cqattr);
++	rc = PTR_ERR_OR_ZERO(smcibdev->roce_cq_send);
++	if (IS_ERR(smcibdev->roce_cq_send)) {
++		smcibdev->roce_cq_send = NULL;
++		goto err;
++	}
++	smcibdev->roce_cq_recv = ib_create_cq(smcibdev->ibdev,
++					      smc_wr_rx_cq_handler, NULL,
++					      smcibdev, &cqattr);
++	rc = PTR_ERR_OR_ZERO(smcibdev->roce_cq_recv);
++	if (IS_ERR(smcibdev->roce_cq_recv)) {
++		smcibdev->roce_cq_recv = NULL;
++		goto err_cq;
++	}
++	INIT_IB_EVENT_HANDLER(&smcibdev->event_handler, smcibdev->ibdev,
++			      smc_ib_global_event_handler);
++	ib_register_event_handler(&smcibdev->event_handler);
++	smc_wr_add_dev(smcibdev);
++	return rc;
++
++err_cq:
++	ib_destroy_cq(smcibdev->roce_cq_send);
++err:
++	return rc;
++}
++
++static void smc_ib_cleanup_per_ibdev(struct smc_ib_device *smcibdev)
++{
++	smc_wr_remove_dev(smcibdev);
++	ib_unregister_event_handler(&smcibdev->event_handler);
++	ib_destroy_cq(smcibdev->roce_cq_recv);
++	ib_destroy_cq(smcibdev->roce_cq_send);
++}
++
+ static struct ib_client smc_ib_client;
+ 
+ /* callback function for ib_register_client() */
+@@ -200,6 +422,7 @@ static void smc_ib_add_dev(struct ib_device *ibdev)
+ 		return;
+ 
+ 	smcibdev->ibdev = ibdev;
++	INIT_WORK(&smcibdev->port_event_work, smc_ib_port_event_work);
+ 
+ 	for (i = 1; i <= SMC_MAX_PORTS; i++) {
+ 		if (smc_pnet_exists_in_table(smcibdev, i) &&
+@@ -209,6 +432,10 @@ static void smc_ib_add_dev(struct ib_device *ibdev)
+ 				kfree(smcibdev);
+ 				return;
+ 			}
++			if (smc_ib_setup_per_ibdev(smcibdev)) {
++				kfree(smcibdev);
++				return;
++			}
+ 			smcibdev->initialized = 1;
+ 			break;
+ 		}
+@@ -229,6 +456,9 @@ static void smc_ib_remove_dev(struct ib_device *ibdev, void *client_data)
+ 	spin_lock(&smc_ib_devices.lock);
+ 	list_del_init(&smcibdev->list); /* remove from smc_ib_devices */
+ 	spin_unlock(&smc_ib_devices.lock);
++	if (smcibdev->initialized)
++		smc_ib_cleanup_per_ibdev(smcibdev);
++	cancel_work_sync(&smcibdev->port_event_work);
+ 	kfree(smcibdev);
+ }
+ 
+diff --git a/net/smc/smc_ib.h b/net/smc/smc_ib.h
+index 441fd16..3fe2d55 100644
+--- a/net/smc/smc_ib.h
++++ b/net/smc/smc_ib.h
+@@ -29,6 +29,7 @@ struct smc_ib_device {				/* ib-device infos for smc */
+ 	struct list_head	list;
+ 	struct ib_device	*ibdev;
+ 	struct ib_port_attr	pattr[SMC_MAX_PORTS];	/* ib dev. port attrs */
++	struct ib_event_handler	event_handler;	/* global ib_event handler */
+ 	struct ib_cq		*roce_cq_send;	/* send completion queue */
+ 	struct ib_cq		*roce_cq_recv;	/* recv completion queue */
+ 	struct tasklet_struct	send_tasklet;	/* called by send cq handler */
+@@ -36,6 +37,8 @@ struct smc_ib_device {				/* ib-device infos for smc */
+ 	char			mac[SMC_MAX_PORTS][6]; /* mac address per port*/
+ 	union ib_gid		gid[SMC_MAX_PORTS]; /* gid per port */
+ 	u8			initialized : 1; /* ib dev CQ, evthdl done */
++	struct work_struct	port_event_work;
++	unsigned long		port_event_mask;
+ };
+ 
+ struct smc_buf_desc;
+@@ -48,9 +51,19 @@ int smc_ib_remember_port_attr(struct smc_ib_device *smcibdev, u8 ibport);
+ int smc_ib_buf_map(struct smc_ib_device *smcibdev, int buf_size,
+ 		   struct smc_buf_desc *buf_slot,
+ 		   enum dma_data_direction data_direction);
++void smc_ib_buf_unmap(struct smc_ib_device *smcibdev, int bufsize,
++		      struct smc_buf_desc *buf_slot,
++		      enum dma_data_direction data_direction);
+ void smc_ib_dealloc_protection_domain(struct smc_link *lnk);
+ int smc_ib_create_protection_domain(struct smc_link *lnk);
+ void smc_ib_destroy_queue_pair(struct smc_link *lnk);
+ int smc_ib_create_queue_pair(struct smc_link *lnk);
++int smc_ib_get_memory_region(struct ib_pd *pd, int access_flags,
++			     struct ib_mr **mr);
++int smc_ib_ready_link(struct smc_link *lnk);
++int smc_ib_modify_qp_rts(struct smc_link *lnk);
++int smc_ib_modify_qp_reset(struct smc_link *lnk);
++long smc_ib_setup_per_ibdev(struct smc_ib_device *smcibdev);
++
+ 
+ #endif
+diff --git a/net/smc/smc_pnet.c b/net/smc/smc_pnet.c
+index e007137..1b5c67b 100644
+--- a/net/smc/smc_pnet.c
++++ b/net/smc/smc_pnet.c
+@@ -223,6 +223,9 @@ static int smc_pnet_add_ib(struct smc_pnetentry *pnetelem, char *name,
+ 					       pnetelem->ib_port);
+ 		if (rc)
+ 			return rc;
++		rc = smc_ib_setup_per_ibdev(smcibdev);
++		if (rc)
++			return rc;
+ 		smcibdev->initialized = 1;
+ 	}
+ 	return rc;
+diff --git a/net/smc/smc_wr.c b/net/smc/smc_wr.c
+index a2bc6b6..5cbc1e5 100644
+--- a/net/smc/smc_wr.c
++++ b/net/smc/smc_wr.c
+@@ -393,6 +393,7 @@ static void smc_wr_init_sge(struct smc_link *lnk)
+ 		lnk->wr_tx_sges[i].addr =
+ 			lnk->wr_tx_dma_addr + i * SMC_WR_BUF_SIZE;
+ 		lnk->wr_tx_sges[i].length = SMC_WR_TX_SIZE;
++		lnk->wr_tx_sges[i].lkey = lnk->roce_pd->local_dma_lkey;
+ 		lnk->wr_tx_ibs[i].next = NULL;
+ 		lnk->wr_tx_ibs[i].sg_list = &lnk->wr_tx_sges[i];
+ 		lnk->wr_tx_ibs[i].num_sge = 1;
+@@ -404,6 +405,7 @@ static void smc_wr_init_sge(struct smc_link *lnk)
+ 		lnk->wr_rx_sges[i].addr =
+ 			lnk->wr_rx_dma_addr + i * SMC_WR_BUF_SIZE;
+ 		lnk->wr_rx_sges[i].length = SMC_WR_BUF_SIZE;
++		lnk->wr_rx_sges[i].lkey = lnk->roce_pd->local_dma_lkey;
+ 		lnk->wr_rx_ibs[i].next = NULL;
+ 		lnk->wr_rx_ibs[i].sg_list = &lnk->wr_rx_sges[i];
+ 		lnk->wr_rx_ibs[i].num_sge = 1;
 -- 
 2.8.4
