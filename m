@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] net sched filters: fix filter handle ID in
- tfilter_notify_chain()
-Date: Thu, 24 Nov 2016 16:06:20 -0500 (EST)
-Message-ID: <20161124.160620.703038887504914339.davem@davemloft.net>
-References: <1479866224-12285-1-git-send-email-mrv@mojatatu.com>
+Subject: Re: [PATCH net-next] tuntap: remove unnecessary sk_receive_queue
+ length check during xmit
+Date: Thu, 24 Nov 2016 16:07:19 -0500 (EST)
+Message-ID: <20161124.160719.645523357072527584.davem@davemloft.net>
+References: <1479868009-14157-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net
-To: mrv@mojatatu.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        mst@redhat.com
+To: jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41746 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41800 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965927AbcKXVG3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 16:06:29 -0500
-In-Reply-To: <1479866224-12285-1-git-send-email-mrv@mojatatu.com>
+        with ESMTP id S966250AbcKXVHl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 16:07:41 -0500
+In-Reply-To: <1479868009-14157-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roman Mashak <mrv@mojatatu.com>
-Date: Tue, 22 Nov 2016 20:57:04 -0500
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed, 23 Nov 2016 10:26:49 +0800
 
-> Should pass valid filter handle, not the netlink flags.
+> After commit 1576d9860599 ("tun: switch to use skb array for tx"),
+> sk_receive_queue was not used any more. So remove the uncessary
+> sk_receive_queue length check during xmit.
 > 
-> Fixes: 30a391a13ab92 ("net sched filters: pass netlink message flags in event notification")
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied.
+Good catch, applied, thanks Jason.
