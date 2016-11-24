@@ -1,46 +1,33 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH iproute2 0/2] tc/cls_flower: Support for ip tunnel
- metadata set/release/classify
-Date: Thu, 24 Nov 2016 16:33:55 +0100
-Message-ID: <20161124163355.1c4d686f@griffin>
-References: <20161121102056.13468-1-amir@vadai.me>
-        <20161124143856.43fa54d6@griffin>
-        <20161124150633.GA27727@office.localdomain>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [patch] net/mlx5: remove a duplicate condition
+Date: Thu, 24 Nov 2016 17:30:00 +0200
+Message-ID: <CALzJLG97UUXQi6qYOqm_EePkv-k5JxyVxN_he1QZrJx2Yui2Tg@mail.gmail.com>
+References: <20161124110345.GC17225@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        linux-rdma@vger.kernel.org,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50006 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966349AbcKXPd7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 10:33:59 -0500
-In-Reply-To: <20161124150633.GA27727@office.localdomain>
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:32871 "EHLO
+        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966765AbcKXPhi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 10:37:38 -0500
+Received: by mail-lf0-f52.google.com with SMTP id c13so31385634lfg.0
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 07:37:29 -0800 (PST)
+In-Reply-To: <20161124110345.GC17225@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Nov 2016 17:06:33 +0200, Amir Vadai wrote:
-> So you mean to just unconditionally call skb_dst_drop() from
-> act_mirred()?
+On Thu, Nov 24, 2016 at 1:03 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
+> We verified that MLX5_FLOW_CONTEXT_ACTION_COUNT was set on the first
+> line of the function so we don't need to check again here.
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-That's one option. Or just leave the dst there, it shouldn't matter?
-(Except for forwarding to a different tunnel but as I said, it's a
-corner case and we may have a "tunnel_key unset" action for that.)
-
-> The use case we already have that uses the release action is the
-> hardware offload support, which is already in the kernel.
-> It is using the "tunnel_key release" action to signal the hardware to
-> strip off the ip tunnel headers.
-
-The tunnel headers must be removed upon reception on the tunnel
-interface without specifying anything, because that's how the Linux
-kernel behaves currently. If this is offloaded, this behavior must be
-preserved. I don't see how "tunnel_key release" might be used for
-stripping the headers.
-
- Jiri
+Acked-by: Saeed Mahameed <saeedm@mellanox.com>
