@@ -1,55 +1,67 @@
-From: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 5/5] ath10k: Removed unused 'dev' in ath10k_ahb_resource_init
-Date: Thu, 24 Nov 2016 00:02:43 -0800
-Message-ID: <7d837ab7846f83add2f5e289ece94d0dbeb82eed.1479974100.git.kirtika@chromium.org>
-References: <cover.1479974100.git.kirtika@chromium.org>
+From: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v9 2/6] cgroup: add support for eBPF programs
+Date: Thu, 24 Nov 2016 09:21:58 +0100
+Message-ID: <0f73e359-e3d9-4344-ecae-7a03945aaf8b@zonque.org>
+References: <1479916350-28462-1-git-send-email-daniel@zonque.org>
+ <1479916350-28462-3-git-send-email-daniel@zonque.org>
+ <CAKoUArnq-DpwMJPdUutyR7fAhEN_6Spkw3NXkK5O=jZOQR8BXA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Raja Mani <rmani-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>,
-        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1479974100.git.kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 7bit
+Cc: htejun-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
+        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rami Rosen <roszenrami-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKoUArnq-DpwMJPdUutyR7fAhEN_6Spkw3NXkK5O=jZOQR8BXA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Commit 704dc4e36769 introduced ath10k_ahb_resource_init() which
-defines and sets 'struct device* dev' but does not use it.
-Compiling with W=1 gives the following warning, fix it.
+Hi Rami,
 
-drivers/net/wireless/ath/ath10k/ahb.c: In function ‘ath10k_ahb_resource_init’:
-drivers/net/wireless/ath/ath10k/ahb.c:449:17: warning: variable ‘dev’ set but not used [-Wunused-but-set-variable]
+On 11/23/2016 11:46 PM, Rami Rosen wrote:
+> A minor comment:
+> 
+>> +/**
+>> + * __cgroup_bpf_update() - Update the pinned program of a cgroup, and
+>> + *                         propagate the change to descendants
+>> + * @cgrp: The cgroup which descendants to traverse
+>> + * @parent: The parent of @cgrp, or %NULL if @cgrp is the root
+>> + * @prog: A new program to pin
+>> + * @type: Type of pinning operation (ingress/egress)
+>> + *
+>> + * Each cgroup has a set of two pointers for bpf programs; one for eBPF
+>> + * programs it owns, and which is effective for execution.
+>> + *
+> You have in the following section twice identical checks, for If @prog
+> is %NULL".
+> Shouldn't it be here (in the first case only) "If @prog is not %NULL"
+> instead "If @prog is %NULL"?
 
-This is a harmless warning, and is only being fixed to reduce the
-noise with W=1 in the kernel.
+Yes, you're right, thanks for spotting.
 
-Fixes: 704dc4e36769 ("ath10k: add resource init and deinit in ahb")
-Cc: Raja Mani <rmani-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>
-Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Signed-off-by: Kirtika Ruchandani <kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
----
- drivers/net/wireless/ath/ath10k/ahb.c | 2 --
- 1 file changed, 2 deletions(-)
+If possible, I would like to not send a v10 just for this one missing
+word in the comments though, but rather fix that up in a separate patch
+afterwards.
 
-diff --git a/drivers/net/wireless/ath/ath10k/ahb.c b/drivers/net/wireless/ath/ath10k/ahb.c
-index 8078d64..19507fe 100644
---- a/drivers/net/wireless/ath/ath10k/ahb.c
-+++ b/drivers/net/wireless/ath/ath10k/ahb.c
-@@ -443,12 +443,10 @@ static int ath10k_ahb_resource_init(struct ath10k *ar)
- {
-	struct ath10k_ahb *ar_ahb = ath10k_ahb_priv(ar);
-	struct platform_device *pdev;
--	struct device *dev;
-	struct resource *res;
-	int ret;
 
-	pdev = ar_ahb->pdev;
--	dev = &pdev->dev;
+Thanks,
+Daniel
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
---
-2.8.0.rc3.226.g39d4020
+
+> 
+>> + * If @prog is %NULL, this function attaches a new program to the cgroup and
+>> + * releases the one that is currently attached, if any. @prog is then made
+>> + * the effective program of type @type in that cgroup.
+>> + *
+>> + * If @prog is %NULL, the currently attached program of type @type is released,
+>> + * and the effective program of the parent cgroup (if any) is inherited to
+>> + * @cgrp.
+>> + *
+> 
+> 
+> Regard,
+> Rami Rosen
+> 
