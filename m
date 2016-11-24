@@ -1,71 +1,57 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) Bus driver
-Date: Wed, 23 Nov 2016 16:08:25 -0800
-Message-ID: <20161124000825.GA73280@knc-06.sc.intel.com>
-References: <1479508938-63799-3-git-send-email-niranjana.vishwanathapura@intel.com>
- <20161119190445.GG22775@obsidianresearch.com>
- <20161121213017.GB67872@knc-06.sc.intel.com>
- <20161121213930.GA30111@obsidianresearch.com>
- <20161121232629.GA67988@knc-06.sc.intel.com>
- <20161121233118.GA31132@obsidianresearch.com>
- <20161122015304.GB67988@knc-06.sc.intel.com>
- <20161122170407.GE3956@obsidianresearch.com>
- <20161123000502.GA27968@phlsvsds.ph.intel.com>
- <20161123004932.GA13598@obsidianresearch.com>
+From: "mrsgraceibrahim@ono.com" <mrsgraceibrahim@ono.com>
+Subject: Mrs. Grace Ibrahim
+Date: Thu, 24 Nov 2016 01:31:40 +0100 (CET)
+Message-ID: <3560727.63981479947500689.JavaMail.defaultUser@defaultHost>
+Reply-To: mrsgraceibrahim@ono.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161123004932.GA13598-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3.ono.com ([62.42.230.163]:52964 "EHLO smtp3.ono.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934820AbcKXAh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Nov 2016 19:37:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 22, 2016 at 05:49:32PM -0700, Jason Gunthorpe wrote:
->> > > We could add a custom Interface between HFI1 driver and hfi_vnic drivers
->> > > without involving a bus.
->> >
->> > hfi is already registering on the infiniband class, just use that.
->>
->> I don't understand what you mean here?
->
->Get the struct ib_device for the hfi and then do something to get hfi
->specific function calls.
->
->Or work it backwards with a _register function..
->
+I am Mrs Mrs Grace Ibrahim, i have a pending project of fulfillment to
+put in your hand, i will need your support to make this dream come
+through, could you let me know your interest to enable me give you
+further information, and I hereby advice that you send the below
+mentioned information
 
-OK, thanks for your feedback.
-We can make the hfi_vnic module as an ib client (which it is) like other ULPs, 
-and do not have an in-built or custom bus for binding.
-Then the hfi_vnic ULP by some mechanism will identify the device as hfi1 device 
-and will only serve that device.
+I decided to while/donate the sum of £ 4.7 million Euros to you for
+the good work of God, and also to help the motherless and less
+privilege and also for assistance of the widows. At the moment I
+cannot take any telephone calls right now due to the fact that my
+relatives (that have squandered the funds agave them for this purpose
+before) are around me and my health status also. I have adjusted my
+while and my lawyer is aware.
 
-In order to pass the hfi function pointers to the hfi_vnic ULP, I can,
-a) Have hfi_vnic ULP define an interface API for hfi1 driver to call to 
-register its callback (as you pointed). Unfortunately there will be a module 
-dependency here.
-Or,
-b) Add a new member ‘struct vnic_ops’ either to the ib_device structure or 
-ib_port_immutable structure. As it is hfi1 specific, only hfi1 driver will set 
-it. No module dependency here.
+I have willed those properties to you by quoting my personal file
+routing and account information. And I have also notified the bank
+that I am willing that properties to you for a good, effective and
+prudent work. I know I don't know you but I have been directed to do
+this by God.ok Please contact this woman for more details you might
+not get me on line in time contact this email if you need more ok.
 
-And will move the hfi_vnic module under ‘drivers/infiniband/ulp/hfi_vnic’.
-All these will remove undue complexity and fit the driver in current design 
-framework as per your suggestion.
-Let me know your comments.
+Email: mrsgraceibrahim1978@gmail.com
 
-Niranjana
 
->
->Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Your full name.........................
+
+Your private telephone number..........
+
+Your passport or identity card.........
+
+Your country....................... ...
+
+Your occupation........................
+
+
+Thank you as i wait your reply.
+
+Yours faithful friend,
+
+Mrs. Grace Ibrahim
