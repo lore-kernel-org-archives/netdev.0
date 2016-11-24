@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Thu, 24 Nov 2016 12:11:40 -0500 (EST)
-Message-ID: <20161124.121140.2054576632424977475.davem@davemloft.net>
-References: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
-        <20161124.112152.692025478489876693.davem@davemloft.net>
+Date: Thu, 24 Nov 2016 12:13:58 -0500 (EST)
+Message-ID: <20161124.121358.56070406552833188.davem@davemloft.net>
+References: <20161124.112152.692025478489876693.davem@davemloft.net>
         <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
+        <e599b008-07c5-3de1-3349-a088bc3b6b1e@pobox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,30 +13,20 @@ Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
         linux-usb@vger.kernel.org
 To: mlord@pobox.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
+In-Reply-To: <e599b008-07c5-3de1-3349-a088bc3b6b1e@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Mark Lord <mlord@pobox.com>
-Date: Thu, 24 Nov 2016 11:43:53 -0500
+Date: Thu, 24 Nov 2016 12:00:15 -0500
 
-> So even if this were a platform memory coherency issue, one should
-> still never see ASCII data at the beginning of an rx buffer.
+> It seems I am being overly helpful here.
 
-I'm not so convinced, since this is the kind of random corruption one
-would expect to see when dealing with virtual caches that have
-aliasing or similar issues.
+Either you want to cry or you want to keep helping us track down
+this problem.  It is your choice, and your choice alone.
 
-Writes to address X that show up at address Y or not at all are
-precisely the signature of virtual cache aliasing problems.
+Please do not pretend otherwise, everyone else in this thread is
+operating with the best intentions and wants to see this through
+to a full analysis and a proper solution for the corruptions.
 
-Is it a case of the chip writing to X but the cpu is still seeing
-stale data from a previous CPU store?
-
-For NFS the cpu is writing into the page cache, so we know that
-cpu side stores are where the ASCII text is coming from.
-
-Now is the r8152 buffer one that the USB host controller is DMA'ing
-into directly, or is it one that SWIOMMU or similar bounce buffering
-is copying into?  In the latter case we are doing cpu stores into
-the area and the writes aren't coming from the device.
+Thank you.
