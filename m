@@ -1,56 +1,55 @@
-From: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 3/5] ath10k: Remove unused wmi_p2p_noa_descriptor 'noa' in
- wmi-tlv
-Date: Thu, 24 Nov 2016 00:01:58 -0800
-Message-ID: <99d0ff42e57d5f62560e72d926b4d69d5d7c418b.1479974100.git.kirtika@chromium.org>
+From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Subject: [PATCH 4/5] ath10k: Removed unused 'dev' in ath10k_ahb_clock_enable()
+Date: Thu, 24 Nov 2016 00:02:13 -0800
+Message-ID: <bef0ae334d0e58b26e826d295ad1a8d6c8fda639.1479974100.git.kirtika@chromium.org>
 References: <cover.1479974100.git.kirtika@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Raja Mani <rmani-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>,
-        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, Raja Mani <rmani@qti.qualcomm.com>,
+        Michal Kazior <michal.kazior@tieto.com>
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33894 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933514AbcKXIQM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 03:16:12 -0500
 Content-Disposition: inline
-In-Reply-To: <cover.1479974100.git.kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <cover.1479974100.git.kirtika@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit ca996ec56608 (ath10k: implement wmi-tlv backend)
-introduced ath10k_wmi_tlv_op_gen_vdev_start() where
-'struct wmi_p2p_noa_descriptor *noa' is defined and set but not used.
+Commit 8beff219c528 introduced ath10k_ahb_clock_enable() which
+defines and sets 'struct device* dev' but does not use it.
 Compiling with W=1 gives the following warning, fix it.
-drivers/net/wireless/ath/ath10k/wmi-tlv.c: In function ‘ath10k_wmi_tlv_op_gen_vdev_start’:
-drivers/net/wireless/ath/ath10k/wmi-tlv.c:1647:33: warning: variable ‘noa’ set but not used [-Wunused-but-set-variable]
+drivers/net/wireless/ath/ath10k/ahb.c: In function ‘ath10k_ahb_clock_enable’:
+drivers/net/wireless/ath/ath10k/ahb.c:133:17: warning: variable ‘dev’ set but not used [-Wunused-but-set-variable]
 
-Fixes: ca996ec56608 ("ath10k: implement wmi-tlv backend")
-Cc: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Signed-off-by: Kirtika Ruchandani <kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+This is a harmless warning, and is only being fixed to reduce the
+noise with W=1 in the kernel.
+
+Fixes: 8beff219c528("ath10k: add clock ctrl related functions in ahb")
+Cc: Raja Mani <rmani@qti.qualcomm.com>
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>
+Signed-off-by: Kirtika Ruchandani <kirtika@chromium.org>
 ---
- drivers/net/wireless/ath/ath10k/wmi-tlv.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/wireless/ath/ath10k/ahb.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/wmi-tlv.c b/drivers/net/wireless/ath/ath10k/wmi-tlv.c
-index e64f593..0e4bd29 100644
---- a/drivers/net/wireless/ath/ath10k/wmi-tlv.c
-+++ b/drivers/net/wireless/ath/ath10k/wmi-tlv.c
-@@ -1644,7 +1644,6 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
+diff --git a/drivers/net/wireless/ath/ath10k/ahb.c b/drivers/net/wireless/ath/ath10k/ahb.c
+index 766c63b..8078d64 100644
+--- a/drivers/net/wireless/ath/ath10k/ahb.c
++++ b/drivers/net/wireless/ath/ath10k/ahb.c
+@@ -130,11 +130,8 @@ static void ath10k_ahb_clock_deinit(struct ath10k *ar)
+ static int ath10k_ahb_clock_enable(struct ath10k *ar)
  {
-	struct wmi_tlv_vdev_start_cmd *cmd;
-	struct wmi_channel *ch;
--	struct wmi_p2p_noa_descriptor *noa;
-	struct wmi_tlv *tlv;
-	struct sk_buff *skb;
-	size_t len;
-@@ -1702,7 +1701,6 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
-	tlv = ptr;
-	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_ARRAY_STRUCT);
-	tlv->len = 0;
--	noa = (void *)tlv->value;
+	struct ath10k_ahb *ar_ahb = ath10k_ahb_priv(ar);
+-	struct device *dev;
+	int ret;
 
-	/* Note: This is a nested TLV containing:
-	 * [wmi_tlv][wmi_p2p_noa_descriptor][wmi_tlv]..
---
-2.8.0.rc3.226.g39d4020
+-	dev = &ar_ahb->pdev->dev;
+-
+	if (IS_ERR_OR_NULL(ar_ahb->cmd_clk) ||
+	    IS_ERR_OR_NULL(ar_ahb->ref_clk) ||
+	    IS_ERR_OR_NULL(ar_ahb->rtc_clk)) {
