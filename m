@@ -1,38 +1,62 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 0/4] net: thunderx: Support for 80xx, RED, PFC e.t.c
-Date: Thu, 24 Nov 2016 14:47:59 +0530
-Message-ID: <1479979083-15963-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 1/4] net: thunderx: 80xx BGX0 configuration changes
+Date: Thu, 24 Nov 2016 14:48:00 +0530
+Message-ID: <1479979083-15963-2-git-send-email-sunil.kovvuri@gmail.com>
+References: <1479979083-15963-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1479979083-15963-1-git-send-email-sunil.kovvuri@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-This patch series adds support for SLM modules present on 80xx
-silicon, enables ramdom early discard, backpressure generation,
-PFC and some ethtool changes to display supported link modes e.t.c.
+On 80xx only one lane of DLM0 and DLM1 (of BGX0) can be used
+, so even though lmac count may be 2 but LMAC1 should use
+serdes lane of DLM1. Since it's not possible to distinguish
+80xx from 81xx as PCI devid are same, this patch adds this
+config support by replying on what firmware configures the
+lmacs with.
 
-Sunil Goutham (3):
-  net: thunderx: 80xx BGX0 configuration changes
-  net: thunderx: Configure RED and backpressure levels
-  net: thunderx: Pause frame support
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
 
-Thanneeru Srinivasulu (1):
-  net: thunderx: Add ethtool support for supported ports and link modes.
-
- drivers/net/ethernet/cavium/thunder/nic.h          | 19 +++++
- drivers/net/ethernet/cavium/thunder/nic_main.c     | 37 +++++++++
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 87 +++++++++++++++++++++-
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   |  7 ++
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  9 ++-
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 24 ++++--
- drivers/net/ethernet/cavium/thunder/q_struct.h     |  8 +-
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c  | 74 +++++++++++++++++-
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h  | 12 +++
- 9 files changed, 262 insertions(+), 15 deletions(-)
-
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index 050e21f..1d6214b 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -970,11 +970,25 @@ static void bgx_set_lmac_config(struct bgx *bgx, u8 idx)
+ 		lmac_set_training(bgx, lmac, lmac->lmacid);
+ 		lmac_set_lane2sds(bgx, lmac);
+ 
+-		/* Set LMAC type of other lmac on same DLM i.e LMAC 1/3 */
+ 		olmac = &bgx->lmac[idx + 1];
+-		olmac->lmac_type = lmac->lmac_type;
++		/*  Check if other LMAC on the same DLM is already configured by
++		 *  firmware, if so use the same config or else set as same, as
++		 *  that of LMAC 0/2.
++		 *  This check is needed as on 80xx only one lane of each of the
++		 *  DLM of BGX0 is used, so have to rely on firmware for
++		 *  distingushing 80xx from 81xx.
++		 */
++		cmr_cfg = bgx_reg_read(bgx, idx + 1, BGX_CMRX_CFG);
++		lmac_type = (u8)((cmr_cfg >> 8) & 0x07);
++		lane_to_sds = (u8)(cmr_cfg & 0xFF);
++		if ((lmac_type == 0) && (lane_to_sds == 0xE4)) {
++			olmac->lmac_type = lmac->lmac_type;
++			lmac_set_lane2sds(bgx, olmac);
++		} else {
++			olmac->lmac_type = lmac_type;
++			olmac->lane_to_sds = lane_to_sds;
++		}
+ 		lmac_set_training(bgx, olmac, olmac->lmacid);
+-		lmac_set_lane2sds(bgx, olmac);
+ 	}
+ }
+ 
 -- 
 2.7.4
