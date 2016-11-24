@@ -1,40 +1,63 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 2/2] openvswitch: Fix skb->protocol for vlan
- frames.
-Date: Thu, 24 Nov 2016 17:10:46 +0100
-Message-ID: <20161124171046.7eb0e287@griffin>
-References: <1479874174-75329-1-git-send-email-jarno@ovn.org>
-        <1479874174-75329-2-git-send-email-jarno@ovn.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
+Date: Thu, 24 Nov 2016 11:04:16 -0500 (EST)
+Message-ID: <20161124.110416.198867271899443489.davem@davemloft.net>
+References: <20161123105125.GA26394@amd>
+        <20161124085506.GA25007@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jarno Rajahalme <jarno@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53894 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757226AbcKXQKu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 11:10:50 -0500
-In-Reply-To: <1479874174-75329-2-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: pavel@ucw.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161124085506.GA25007@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Nov 2016 20:09:34 -0800, Jarno Rajahalme wrote:
-> Do not set skb->protocol to be the ethertype of the L3 header, unless
-> the packet only has the L3 header.  For a non-hardware offloaded VLAN
-> frame skb->protocol needs to be one of the VLAN ethertypes.
+From: Pavel Machek <pavel@ucw.cz>
+Date: Thu, 24 Nov 2016 09:55:06 +0100
+
+> Hi!
 > 
-> Any VLAN offloading is undone on the OVS netlink interface.  Due to
-> this all VLAN packets sent to openvswitch module from userspace are
-> non-offloaded.
+>> I'm debugging strange delays during transmit in stmmac driver. They
+>> seem to be present in 4.4 kernel (and older kernels, too). Workload is
+>> burst of udp packets being sent, pause, burst of udp packets, ...
+>> 
+>> Test code is attached, I use these parameters for testing:
+>> 
+>> ./udp-test raw 10.0.0.6 1234 1000 100 30
+>> 
+>> The delays seem to be related to coalescing:
+>> 
+>> drivers/net/ethernet/stmicro/stmmac/common.h
+>> #define STMMAC_COAL_TX_TIMER    40000
+>> #define STMMAC_MAX_COAL_TX_TICK 100000
+>> #define STMMAC_TX_MAX_FRAMES    256
+>> 
+>> If I lower the parameters, delays are gone, but I get netdev watchdog
+>> backtrace followed by broken driver.
+>> 
+>> Any ideas what is going on there?
+> 
+> 4.9-rc6 still has the delays. With the
+> 
+> #define STMMAC_COAL_TX_TIMER 1000
+> #define STMMAC_TX_MAX_FRAMES 2
+> 
+> settings, delays go away, and driver still works. (It fails fairly
+> fast in 4.4). Good news. But the question still is: what is going on
+> there?
 
-This is exactly why I wanted to always accelerate the vlan tag, the
-same way it is done in other parts of the networking stack: to prevent
-all those weird corner cases.
+256 packets looks way too large for being a trigger for aborting the
+TX coalescing timer.
 
-Looks to me this is the only real way forward.
+Looking more deeply into this, the driver is using non-highres timers
+to implement the TX coalescing.  This simply cannot work.
 
-This patch is wrong, it would leave skb->protocol as ETH_P_TEB for L2
-frames received via ARPHRD_NONE interface.
+1 HZ, which is the lowest granularity of non-highres timers in the
+kernel, is variable as well as already too large of a delay for
+effective TX coalescing.
 
- Jiri
+I seriously think that the TX coalescing support should be ripped out
+or disabled entirely until it is implemented properly in this driver.
