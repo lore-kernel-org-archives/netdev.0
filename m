@@ -1,58 +1,24 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) Bus driver
-Date: Thu, 24 Nov 2016 09:15:45 -0700
-Message-ID: <20161124161545.GA20818@obsidianresearch.com>
-References: <20161119190445.GG22775@obsidianresearch.com>
- <20161121213017.GB67872@knc-06.sc.intel.com>
- <20161121213930.GA30111@obsidianresearch.com>
- <20161121232629.GA67988@knc-06.sc.intel.com>
- <20161121233118.GA31132@obsidianresearch.com>
- <20161122015304.GB67988@knc-06.sc.intel.com>
- <20161122170407.GE3956@obsidianresearch.com>
- <20161123000502.GA27968@phlsvsds.ph.intel.com>
- <20161123004932.GA13598@obsidianresearch.com>
- <20161124000825.GA73280@knc-06.sc.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Thu, 24 Nov 2016 11:21:52 -0500 (EST)
+Message-ID: <20161124.112152.692025478489876693.davem@davemloft.net>
+References: <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
+        <baf5246d-9d8a-4029-6823-350ed561fd33@pobox.com>
+        <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161124000825.GA73280-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mlord@pobox.com, netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2016 at 04:08:25PM -0800, Vishwanathapura, Niranjana wrote:
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Thu, 24 Nov 2016 13:26:55 +0000
 
-> In order to pass the hfi function pointers to the hfi_vnic ULP, I can,
-> a) Have hfi_vnic ULP define an interface API for hfi1 driver to call to
-> register its callback (as you pointed). Unfortunately there will be a module
-> dependency here.
-> Or,
+> I don't think the garbage results from our driver or device.
 
-That is probably backwards
-
-> b) Add a new member ‘struct vnic_ops’ either to the ib_device structure or
-> ib_port_immutable structure. As it is hfi1 specific, only hfi1 driver will
-> set it. No module dependency here.
-
-You can add a hfi1_get_vnic_ops(struct ib_device *) and implement it
-in your module..
-
-> And will move the hfi_vnic module under
-> ‘drivers/infiniband/ulp/hfi_vnic’.
-
-I would prefer drivers/net/ethernet
-
-This is clearly not a ULP since it doesn't use verbs.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is my impression with what has been presented so far as well.
