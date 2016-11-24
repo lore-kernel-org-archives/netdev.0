@@ -1,81 +1,35 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net 1/1] driver: ipvlan: Fix one possible memleak in ipvlan_link_new
-Date: Thu, 24 Nov 2016 23:39:59 +0800
-Message-ID: <1480001999-10500-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, maheshb@google.com, edumazet@google.com,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [net-next PATCH v1 1/2] net: dt-bindings: add RGMII TX delay
+ configuration to meson8b-dwmac
+Date: Thu, 24 Nov 2016 16:48:58 +0100
+Message-ID: <20161124154858.GB20455@lunn.ch>
+References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
+ <20161124143417.10178-2-martin.blumenstingl@googlemail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-amlogic@lists.infradead.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, davem@davemloft.net, khilman@baylibre.com,
+        mark.rutland@arm.com, robh+dt@kernel.org,
+        linux-arm-kernel@lists.infradead.org, alexandre.torgue@st.com,
+        peppe.cavallaro@st.com, carlo@caione.org, jbrunet@baylibre.com
+To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG179.QQ.COM ([119.147.194.222]:43610 "EHLO
-        smtpbg179.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967047AbcKXPkw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 10:40:52 -0500
+Received: from vps0.lunn.ch ([178.209.37.122]:54366 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S966602AbcKXPtD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 10:49:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20161124143417.10178-2-martin.blumenstingl@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+> The configuration values are provided as preprocessor macros to make the
+> devicetree files easier to read.
 
-When ipvlan_link_new fails and creates one ipvlan port, it does not
-destroy the ipvlan port created. It causes mem leak and the physical
-device contains invalid ipvlan data.
+Hi Martin
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- drivers/net/ipvlan/ipvlan_main.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+If i'm reading the code/comments correctly, you can set the delay to
+0, 2, 4 or 6ns? So calling this property amlogic,tx-delay-ns would be
+even easier to read.
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index f442eb3..0fef178 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -497,6 +497,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 	struct net_device *phy_dev;
- 	int err;
- 	u16 mode = IPVLAN_MODE_L3;
-+	bool create = false;
- 
- 	if (!tb[IFLA_LINK])
- 		return -EINVAL;
-@@ -513,6 +514,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 		err = ipvlan_port_create(phy_dev);
- 		if (err < 0)
- 			return err;
-+		create = true;
- 	}
- 
- 	if (data && data[IFLA_IPVLAN_MODE])
-@@ -536,22 +538,27 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 
- 	err = register_netdevice(dev);
- 	if (err < 0)
--		return err;
-+		goto destroy_ipvlan_port;
- 
- 	err = netdev_upper_dev_link(phy_dev, dev);
- 	if (err) {
--		unregister_netdevice(dev);
--		return err;
-+		goto unregister_netdev;
- 	}
- 	err = ipvlan_set_port_mode(port, mode);
- 	if (err) {
--		unregister_netdevice(dev);
--		return err;
-+		goto unregister_netdev;
- 	}
- 
- 	list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
- 	netif_stacked_transfer_operstate(phy_dev, dev);
- 	return 0;
-+
-+unregister_netdev:
-+	unregister_netdevice(dev);
-+destroy_ipvlan_port:
-+	if (create)
-+		ipvlan_port_destroy(phy_dev);
-+	return err;
- }
- 
- static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
--- 
-1.9.1
+     Andrew
