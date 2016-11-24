@@ -1,106 +1,70 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] neigh: fix the loop index error in neigh dump
-Date: Thu, 24 Nov 2016 13:25:09 +0800
-Message-ID: <1479965109-14607-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: netdev@vger.kernel.org, dsa@cumulusnetworks.com
+From: Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Subject: [PATCH] adm80211: Removed unused 'io_addr' 'mem_addr' variables
+Date: Wed, 23 Nov 2016 22:40:45 -0800
+Message-ID: <20161124064045.GA8836@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Johannes Berg <johannes.berg@intel.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:19747 "EHLO
-        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751169AbcKXF2h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 00:28:37 -0500
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35337 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751123AbcKXGkv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 01:40:51 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Loop index in neigh dump function is not updated correctly under some
-circumstances, this patch will fix it.
+Initial commit cc0b88cf5ecf ([PATCH] Add adm8211 802.11b wireless driver)
+introduced variables mem_addr and io_addr in adm80211_probe() that are
+set but not used. Compiling with W=1 gives the following warnings,
+fix them.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+drivers/net/wireless/admtek/adm8211.c: In function ‘adm8211_probe’:
+drivers/net/wireless/admtek/adm8211.c:1769:15: warning: variable ‘io_addr’ set but not used [-Wunused-but-set-variable]
+  unsigned int io_addr, io_len;
+               ^
+drivers/net/wireless/admtek/adm8211.c:1768:16: warning: variable ‘mem_addr’ set but not used [-Wunused-but-set-variable]
+  unsigned long mem_addr, mem_len;
+                ^
+
+These are harmless warnings and are only being fixed to reduce the
+noise with W=1 in the kernel. The calls to pci_resource_start do not
+have any side-effects and are safe to remove.
+
+Fixes: cc0b88cf5ecf ("[PATCH] Add adm8211 802.11b wireless driver")
+Cc: Michael Wu <flamingice@sourmilk.net>
+Cc: John W. Linville <linville@tuxdriver.com>
+Signed-off-by: Kirtika Ruchandani <kirtika@chromium.org>
 ---
- net/core/neighbour.c | 39 ++++++++++++++++++---------------------
- 1 file changed, 18 insertions(+), 21 deletions(-)
+ drivers/net/wireless/admtek/adm8211.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 2ae929f..ce32e9c 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2256,6 +2256,16 @@ static bool neigh_ifindex_filtered(struct net_device *dev, int filter_idx)
- 	return false;
- }
- 
-+static bool neigh_dump_filtered(struct net_device *dev, int filter_idx,
-+		int filter_master_idx)
-+{
-+	if (neigh_ifindex_filtered(dev, filter_idx) ||
-+	    neigh_master_filtered(dev, filter_master_idx))
-+		return true;
-+
-+	return false;
-+}
-+
- static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 			    struct netlink_callback *cb)
+diff --git a/drivers/net/wireless/admtek/adm8211.c b/drivers/net/wireless/admtek/adm8211.c
+index 70ecd82..70b4da0 100644
+--- a/drivers/net/wireless/admtek/adm8211.c
++++ b/drivers/net/wireless/admtek/adm8211.c
+@@ -1765,8 +1765,8 @@ static int adm8211_probe(struct pci_dev *pdev,
  {
-@@ -2285,20 +2295,15 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 	rcu_read_lock_bh();
- 	nht = rcu_dereference_bh(tbl->nht);
- 
--	for (h = s_h; h < (1 << nht->hash_shift); h++) {
--		if (h > s_h)
--			s_idx = 0;
-+	for (h = s_h; h < (1 << nht->hash_shift); h++, s_idx = 0) {
- 		for (n = rcu_dereference_bh(nht->hash_buckets[h]), idx = 0;
- 		     n != NULL;
--		     n = rcu_dereference_bh(n->next)) {
--			if (!net_eq(dev_net(n->dev), net))
--				continue;
--			if (neigh_ifindex_filtered(n->dev, filter_idx))
-+		     n = rcu_dereference_bh(n->next), idx++) {
-+			if (idx < s_idx || !net_eq(dev_net(n->dev), net))
- 				continue;
--			if (neigh_master_filtered(n->dev, filter_master_idx))
-+			if (neigh_dump_filtered(n->dev, filter_idx,
-+						filter_master_idx))
- 				continue;
--			if (idx < s_idx)
--				goto next;
- 			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
- 					    cb->nlh->nlmsg_seq,
- 					    RTM_NEWNEIGH,
-@@ -2306,8 +2311,6 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 				rc = -1;
- 				goto out;
- 			}
--next:
--			idx++;
- 		}
- 	}
- 	rc = skb->len;
-@@ -2328,14 +2331,10 @@ static int pneigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 
- 	read_lock_bh(&tbl->lock);
- 
--	for (h = s_h; h <= PNEIGH_HASHMASK; h++) {
--		if (h > s_h)
--			s_idx = 0;
--		for (n = tbl->phash_buckets[h], idx = 0; n; n = n->next) {
--			if (pneigh_net(n) != net)
-+	for (h = s_h; h <= PNEIGH_HASHMASK; h++, s_idx = 0) {
-+		for (n = tbl->phash_buckets[h], idx = 0; n; n = n->next, idx++) {
-+			if (idx < s_idx || pneigh_net(n) != net)
- 				continue;
--			if (idx < s_idx)
--				goto next;
- 			if (pneigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
- 					    cb->nlh->nlmsg_seq,
- 					    RTM_NEWNEIGH,
-@@ -2344,8 +2343,6 @@ static int pneigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 				rc = -1;
- 				goto out;
- 			}
--		next:
--			idx++;
- 		}
- 	}
- 
--- 
-1.8.3.1
+	struct ieee80211_hw *dev;
+	struct adm8211_priv *priv;
+-	unsigned long mem_addr, mem_len;
+-	unsigned int io_addr, io_len;
++	unsigned long mem_len;
++	unsigned int io_len;
+	int err;
+	u32 reg;
+	u8 perm_addr[ETH_ALEN];
+@@ -1778,9 +1778,7 @@ static int adm8211_probe(struct pci_dev *pdev,
+		return err;
+	}
+
+-	io_addr = pci_resource_start(pdev, 0);
+	io_len = pci_resource_len(pdev, 0);
+-	mem_addr = pci_resource_start(pdev, 1);
+	mem_len = pci_resource_len(pdev, 1);
+	if (io_len < 256 || mem_len < 1024) {
+		printk(KERN_ERR "%s (adm8211): Too short PCI resources\n",
