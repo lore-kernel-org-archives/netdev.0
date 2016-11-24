@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdevice.h: fix kernel-doc warning
-Date: Wed, 23 Nov 2016 20:27:02 -0500 (EST)
-Message-ID: <20161123.202702.1190966424251782715.davem@davemloft.net>
-References: <89f2d6da-89e1-1962-9f6f-e81dece8a101@infradead.org>
+Subject: Re: [PATCH] bnxt_en: Fix a VXLAN vs GENEVE issue
+Date: Wed, 23 Nov 2016 20:27:31 -0500 (EST)
+Message-ID: <20161123.202731.15246104261953121.davem@davemloft.net>
+References: <20161122051440.9748-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rdunlap@infradead.org
+Cc: michael.chan@broadcom.com, prashant.sreedharan@broadcom.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41928 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41934 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935508AbcKXB1E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 20:27:04 -0500
-In-Reply-To: <89f2d6da-89e1-1962-9f6f-e81dece8a101@infradead.org>
+        with ESMTP id S935508AbcKXB1e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Nov 2016 20:27:34 -0500
+In-Reply-To: <20161122051440.9748-1-christophe.jaillet@wanadoo.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Mon, 21 Nov 2016 18:28:36 -0800
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Tue, 22 Nov 2016 06:14:40 +0100
 
-> From: Randy Dunlap <rdunlap@infradead.org>
+> Knowing that:
+>   #define TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_VXLAN        (0x1UL << 0)
+>   #define TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_GENEVE       (0x5UL << 0)
+> and that 'bnxt_hwrm_tunnel_dst_port_alloc()' is only called with one of
+> these 2 constants, the TUNNEL_DST_PORT_ALLOC_REQ_TUNNEL_TYPE_GENEVE can not
+> trigger.
 > 
-> Fix kernel-doc warning in <linux/netdevice.h> (missing ':'):
+> Replace the bit test that overlap by an equality test, just as in
+> 'bnxt_hwrm_tunnel_dst_port_free()' above.
 > 
-> ..//include/linux/netdevice.h:1904: warning: No description found for parameter 'prio_tc_map[TC_BITMASK + 1]'
-> 
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
 Applied.
