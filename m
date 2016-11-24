@@ -1,46 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] udplite: call proper backlog handlers
-Date: Thu, 24 Nov 2016 15:32:42 -0500 (EST)
-Message-ID: <20161124.153242.718978368287315233.davem@davemloft.net>
-References: <CAAeHK+zZSc28e4LMg-YvEztKO4X0VVxqCStkZW8LL4ZA_rYyMQ@mail.gmail.com>
-        <CANn89iKewy1iMa=dUGpE=8UjHUi4o=s=6P_-ngLr_S_ZDByTwg@mail.gmail.com>
-        <1479834405.8455.437.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+Subject: RE: [PATCH v9 0/8] thunderbolt: Introducing Thunderbolt(TM)
+ Networking
+Date: Thu, 24 Nov 2016 20:35:24 +0000
+Message-ID: <E607265CB020454880711A6F96C05A03C0C9CE05@hasmsx107.ger.corp.intel.com>
+References: <1478701208-4585-1-git-send-email-amir.jer.levy@intel.com>
+ <20161109143632.GE6167@kw.sim.vm.gnt>
+ <E607265CB020454880711A6F96C05A03B677E4C9@hasmsx107.ger.corp.intel.com>
+ <20161115105920.GH6167@kw.sim.vm.gnt>
+ <E607265CB020454880711A6F96C05A03BE2199EE@hasmsx108.ger.corp.intel.com>
+ <20161118112007.GB1230@kw.sim.vm.gnt> <20161122172828.GB31492@kw.sim.vm.gnt>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, herbert@gondor.apana.org.au, bcrl@kvack.org,
-        willemb@google.com, andreyknvl@google.com,
-        samanthakumar@google.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479834405.8455.437.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        "corbet@lwn.net" <corbet@lwn.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+        "mario_limonciello@dell.com" <mario_limonciello@dell.com>,
+        thunderbolt-linux <thunderbolt-linux@intel.com>,
+        "Westerberg, Mika" <mika.westerberg@intel.com>,
+        "Winkler, Tomas" <tomas.winkler@intel.com>,
+        "Zhang, Xiong Y" <xiong.y.zhang@intel.com>,
+        "remi.rerolle@seagate.com" <remi.rerolle@seagate.com>
+To: Simon Guinot <simon.guinot@sequanux.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20161122172828.GB31492@kw.sim.vm.gnt>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 22 Nov 2016 09:06:45 -0800
+On Tue, Nov 22 2016, 07:28 PM, Simon Guinot wrote:
+> Hi Amir,
+> 
+> I tested the thunderbolt-icm driver (v9 series) on an Gigabyte 
+> motherboard
+> (Z170X-UD5 TH-CF) with a Thunderbolt 3 controller (Alpine Ridge 4C).
+> 
+> I can see that the network interface is well created when the 
+> motherboard is connected to a MacBook Pro (Thunderbolt 2 or 3).
+> 
+> And here are the TCP bandwidths measured using the iperf3 benchmark:
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commits 93821778def10 ("udp: Fix rcv socket locking") and
-> f7ad74fef3af ("net/ipv6/udp: UDP encapsulation: break backlog_rcv into
-> __udpv6_queue_rcv_skb") UDP backlog handlers were renamed, but UDPlite
-> was forgotten.
-> 
-> This leads to crashes if UDPlite header is pulled twice, which happens
-> starting from commit e6afc8ace6dd ("udp: remove headers from UDP packets
-> before queueing")
-> 
-> Bug found by syzkaller team, thanks a lot guys !
-> 
-> Note that backlog use in UDP/UDPlite is scheduled to be removed starting
-> from linux-4.10, so this patch is only needed up to linux-4.9
-> 
-> Fixes: 93821778def1 ("udp: Fix rcv socket locking")
-> Fixes: f7ad74fef3af ("net/ipv6/udp: UDP encapsulation: break backlog_rcv into __udpv6_queue_rcv_skb")
-> Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+AFAIK, in UD5, Thunderbolt 3 is installed on 4 lanes of PCI Express Gen 3,
+which is good for performance.
 
-Applied and queued up for -stable, thanks Eric.
+> 
+> - MacBook Pro Thunderbolt 2: 8.46Gbits/sec
+> - MacBook Pro Thunderbolt 3: 11.8Gbits/sec
+> 
+> Are this results consistent with your expectations ?
+
+Thunderbolt 2 - yes,
+Thunderbolt 3 - we didn't check the bandwidth with MacBook Pro Thunderbolt 3 yet.
+The bandwidth in Linux<->Linux and Linux<->Windows setups with Thunderbolt 3
+is around 15G (one direction).
+
+> 
+> From the MacOS system interface on the MacBook Pro Thunderbolt 3, I 
+> noticed that the interface appears as dual lane (2x 20Gb/sec). But 
+> when two MacBook Pro are connected together, the interface appears as 
+> single lane (1x 40Gb/sec). Is some lane bonding support missing in the 
+> Linux implementation ?
+
+At the moment the iCM doesn't lane bond the inter domain link.
+This will be added in a future drop of the iCM once the networking BW will be such that requires the bonding.
+
+> 
+> Here are a couple of additional questions:
+> 
+> - When the network interface is created, there is no IP address
+>   assigned (or negotiated ?) on the Linux side. But it is done on the
+>   MacOS side. And in the Linux kernel logs I can also read the message:
+>   "ready for ThunderboltIP negotiation". Is there something missing or
+>   not working on the Linux side ? What is the correct way to configure
+>   or negotiate the IP address. For my tests I did it manually...
+
+This is not related to Thunderbolt, but to OS administration.
+I usually use ZeroConf in any OS that support Thunderbolt Networking, but static IP also works.
+"ready for ThunderboltIP negotiation" is an important part of the path establishment, but isn't related to IP address.
+
+Thanks,
+Amir
