@@ -1,59 +1,64 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) Bus driver
-Date: Thu, 24 Nov 2016 18:13:50 -0800
-Message-ID: <20161125021350.GA74946@knc-06.sc.intel.com>
-References: <20161121213017.GB67872@knc-06.sc.intel.com>
- <20161121213930.GA30111@obsidianresearch.com>
- <20161121232629.GA67988@knc-06.sc.intel.com>
- <20161121233118.GA31132@obsidianresearch.com>
- <20161122015304.GB67988@knc-06.sc.intel.com>
- <20161122170407.GE3956@obsidianresearch.com>
- <20161123000502.GA27968@phlsvsds.ph.intel.com>
- <20161123004932.GA13598@obsidianresearch.com>
- <20161124000825.GA73280@knc-06.sc.intel.com>
- <20161124161545.GA20818@obsidianresearch.com>
+From: Eli Cooper <elicooper@gmx.com>
+Subject: Re: Large performance regression with 6in4 tunnel (sit)
+Date: Fri, 25 Nov 2016 10:18:12 +0800
+Message-ID: <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
+References: <20161125120947.142c3af5@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161124161545.GA20818-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.21]:56020 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750984AbcKYCSX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 21:18:23 -0500
+In-Reply-To: <20161125120947.142c3af5@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 24, 2016 at 09:15:45AM -0700, Jason Gunthorpe wrote:
->On Wed, Nov 23, 2016 at 04:08:25PM -0800, Vishwanathapura, Niranjana wrote:
->
->> In order to pass the hfi function pointers to the hfi_vnic ULP, I can,
->> a) Have hfi_vnic ULP define an interface API for hfi1 driver to call to
->> register its callback (as you pointed). Unfortunately there will be a module
->> dependency here.
->> Or,
->
->That is probably backwards
->
->> b) Add a new member ‘struct vnic_ops’ either to the ib_device structure or
->> ib_port_immutable structure. As it is hfi1 specific, only hfi1 driver will
->> set it. No module dependency here.
->
->You can add a hfi1_get_vnic_ops(struct ib_device *) and implement it
->in your module..
->
+Hi Stephen,
 
-In order to be truely device independent the hfi_vnic ULP should not depend on 
-a device exported symbol. Instead device should register its functions with the 
-ULP. Hence the approaches a) and b).
+On 2016/11/25 9:09, Stephen Rothwell wrote:
+> Hi all,
+>
+> This is a typical user error report i.e. a net well specified one :-)
+>
+> I am using a 6in4 tunnel from my Linux server at home (since my ISP
+> does not provide native IPv6) to another hosted Linus server (that has
+> native IPv6 connectivity).  The throughput for IPv6 connections has
+> dropped from megabits per second to 10s of kilobits per second.
+>
+> First, I am using Debian supplied kernels, so strike one, right?
+>
+> Second, I don't actually remember when the problem started - it probably
+> started when I upgraded from a v4.4 based kernel to a v4.7 based one.
+> This server does not get rebooted very often as it runs hosted services
+> for quite a few people (its is ozlabs.org ...).
+>
+> I tried creating the same tunnel to another hosted server I have access
+> to that is running a v3.16 based kernel and the performance is fine
+> (actually upward of 40MB/s).
+>
+> I noticed from a tcpdump on the hosted server that (when I fetch a
+> large file over HTTP) the server is sending packets larger than the MTU
+> of the tunnel.  These packets don't get acked and are later resent as
+> MTU sized packets.  I will then send more larger packets and repeat ...
 
-Niranjana
+Sounds like TSO/GSO packets are not properly segmented and therefore
+dropped.
 
->Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Could you first try turning off segmentation offloading for the tunnel
+interface?
+    ethtool -K sit0 tso off gso off
+
+> The mtu of the tunnel is set to 1280 (though leaving it unset and using
+> the default gave the same results).  The tunnel is using sit and is
+> statically set up at both ends (though the hosted server end does not
+> specify a remote ipv4 end point).
+>
+> Is there anything else I can tell you?  Testing patches is a bit of a
+> pain, unfortunately, but I was hoping that someone may remember
+> something that may have caused this.
+
+Regards,
+Eli
