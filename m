@@ -1,7 +1,7 @@
 From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH v2 2/7] net: stmmac: dwmac-meson8b: make the RGMII TX delay configurable
-Date: Fri, 25 Nov 2016 14:01:51 +0100
-Message-ID: <20161125130156.17879-3-martin.blumenstingl@googlemail.com>
+Subject: [PATCH v2 3/7] ARM64: dts: meson-gx: move the MDIO node to meson-gx
+Date: Fri, 25 Nov 2016 14:01:52 +0100
+Message-ID: <20161125130156.17879-4-martin.blumenstingl@googlemail.com>
 References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
  <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
 Cc: linux-arm-kernel@lists.infradead.org, alexandre.torgue@st.com,
@@ -12,96 +12,57 @@ To: linux-amlogic@lists.infradead.org, devicetree@vger.kernel.org,
         netdev@vger.kernel.org, davem@davemloft.net, khilman@baylibre.com,
         mark.rutland@arm.com, robh+dt@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:35889 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754158AbcKYNC3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 08:02:29 -0500
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:35181 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753255AbcKYNCa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 08:02:30 -0500
 In-Reply-To: <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prior to this patch we were using a hardcoded RGMII TX clock delay of
-2ns (= 1/4 cycle of the 125MHz RGMII TX clock). This value works for
-many boards, but unfortunately not for all (due to the way the actual
-circuit is designed, sometimes because the TX delay is enabled in the
-PHY, etc.). Making the TX delay on the MAC side configurable allows us
-to support all possible hardware combinations.
-
-This allows fixing a compatibility issue on some boards, where the
-RTL8211F PHY is configured to generate the TX delay. We can now turn
-off the TX delay in the MAC, because otherwise we would be applying the
-delay twice (which results in non-working TX traffic).
+stmmac's MDIO bus is currently only defined in meson-gxl.dtsi. Move it
+up to meson-gx to allow us to keep the stmmac configuration for
+meson-gxbb similar to the configuration on meson-gxl.
 
 Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 ---
- .../net/ethernet/stmicro/stmmac/dwmac-meson8b.c    | 26 +++++++++++++++++-----
- 1 file changed, 20 insertions(+), 6 deletions(-)
+ arch/arm64/boot/dts/amlogic/meson-gx.dtsi  | 6 ++++++
+ arch/arm64/boot/dts/amlogic/meson-gxl.dtsi | 6 ------
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-index 250e4ce..8ba33be 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-@@ -35,10 +35,6 @@
- 
- #define PRG_ETH0_TXDLY_SHIFT		5
- #define PRG_ETH0_TXDLY_MASK		GENMASK(6, 5)
--#define PRG_ETH0_TXDLY_OFF		(0x0 << PRG_ETH0_TXDLY_SHIFT)
--#define PRG_ETH0_TXDLY_QUARTER		(0x1 << PRG_ETH0_TXDLY_SHIFT)
--#define PRG_ETH0_TXDLY_HALF		(0x2 << PRG_ETH0_TXDLY_SHIFT)
--#define PRG_ETH0_TXDLY_THREE_QUARTERS	(0x3 << PRG_ETH0_TXDLY_SHIFT)
- 
- /* divider for the result of m250_sel */
- #define PRG_ETH0_CLK_M250_DIV_SHIFT	7
-@@ -69,6 +65,8 @@ struct meson8b_dwmac {
- 
- 	struct clk_divider	m25_div;
- 	struct clk		*m25_div_clk;
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gx.dtsi b/arch/arm64/boot/dts/amlogic/meson-gx.dtsi
+index 47ab306..a2c3ca6 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gx.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-gx.dtsi
+@@ -371,6 +371,12 @@
+ 			interrupt-names = "macirq";
+ 			phy-mode = "rgmii";
+ 			status = "disabled";
 +
-+	u32			tx_delay_ns;
++			mdio0: mdio {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				compatible = "snps,dwmac-mdio";
++			};
+ 		};
+ 
+ 		apb: apb@d0000000 {
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
+index 3af54dc..aa3cd80 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
+@@ -57,12 +57,6 @@
+ 		 <&clkc CLKID_FCLK_DIV2>,
+ 		 <&clkc CLKID_MPLL2>;
+ 	clock-names = "stmmaceth", "clkin0", "clkin1";
+-
+-	mdio0: mdio {
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-		compatible = "snps,dwmac-mdio";
+-	};
  };
  
- static void meson8b_dwmac_mask_bits(struct meson8b_dwmac *dwmac, u32 reg,
-@@ -179,6 +177,7 @@ static int meson8b_init_prg_eth(struct meson8b_dwmac *dwmac)
- {
- 	int ret;
- 	unsigned long clk_rate;
-+	u8 tx_dly_val;
- 
- 	switch (dwmac->phy_mode) {
- 	case PHY_INTERFACE_MODE_RGMII:
-@@ -196,9 +195,13 @@ static int meson8b_init_prg_eth(struct meson8b_dwmac *dwmac)
- 		meson8b_dwmac_mask_bits(dwmac, PRG_ETH0,
- 					PRG_ETH0_INVERTED_RMII_CLK, 0);
- 
--		/* TX clock delay - all known boards use a 1/4 cycle delay */
-+		/* TX clock delay in ns = "8ns / 4 * tx_dly_val" (where
-+		 * 8ns are exactly one cycle of the 125MHz RGMII TX clock):
-+		 * 0ns = 0x0, 2ns = 0x1, 4ns = 0x2, 6ns = 0x3
-+		 */
-+		tx_dly_val = dwmac->tx_delay_ns >> 1;
- 		meson8b_dwmac_mask_bits(dwmac, PRG_ETH0, PRG_ETH0_TXDLY_MASK,
--					PRG_ETH0_TXDLY_QUARTER);
-+					tx_dly_val << PRG_ETH0_TXDLY_SHIFT);
- 		break;
- 
- 	case PHY_INTERFACE_MODE_RMII:
-@@ -277,6 +280,17 @@ static int meson8b_dwmac_probe(struct platform_device *pdev)
- 	if (dwmac->phy_mode < 0) {
- 		dev_err(&pdev->dev, "missing phy-mode property\n");
- 		return -EINVAL;
-+	} else if (dwmac->phy_mode != PHY_INTERFACE_MODE_RMII) {
-+		ret = of_property_read_u32(pdev->dev.of_node,
-+					   "amlogic,tx-delay-ns",
-+					   &dwmac->tx_delay_ns);
-+		if (ret && dwmac->phy_mode == PHY_INTERFACE_MODE_RGMII)
-+			/* default to a TX clock delay of 2ns when the PHY is
-+			 * connected via RGMII (with RGMII_ID and RGMII_TXID
-+			 * the TX clock delay is generated by the PHY and thus
-+			 * we use the default 0ns delay in these case).
-+			 */
-+			dwmac->tx_delay_ns = 2;
- 	}
- 
- 	ret = meson8b_init_clk(dwmac);
+ &aobus {
 -- 
 2.10.2
