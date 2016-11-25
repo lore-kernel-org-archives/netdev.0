@@ -1,94 +1,45 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v2 0/2] can: Add r8a7796 support to CAN/CAN FD
-Date: Fri, 25 Nov 2016 08:19:07 +0100
-Message-ID: <1207930c-e9ad-27eb-f5a6-d889771fd840@pengutronix.de>
-References: <1479903243-1860-1-git-send-email-chris.paterson2@renesas.com>
- <1480003917-3953-1-git-send-email-chris.paterson2@renesas.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: net/arp: ARP cache aging failed.
+Date: Fri, 25 Nov 2016 10:18:40 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1611250957100.1966@ja.home.ssi.bg>
+References: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com> <alpine.LFD.2.11.1611230928140.1659@ja.home.ssi.bg> <1479902729.8455.479.camel@edumazet-glaptop3.roam.corp.google.com> <250d3a88-45ad-891f-389a-997f39d7bdad@stressinduktion.org>
+ <1479944967.8455.516.camel@edumazet-glaptop3.roam.corp.google.com> <alpine.LFD.2.11.1611240931560.1685@ja.home.ssi.bg> <c82b7b44-c0ad-9ee7-1114-3eae3b5cf75a@huawei.com> <1fdf938e-600c-ce58-ece1-06b816ddba1c@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="QxBqHiksG8pIPKJlKpD3AVNwOgmPSv9bh"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Simon Horman <horms@verge.net.au>,
-        Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: Chris Paterson <chris.paterson2@renesas.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1480003917-3953-1-git-send-email-chris.paterson2@renesas.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---QxBqHiksG8pIPKJlKpD3AVNwOgmPSv9bh
-Content-Type: multipart/mixed; boundary="ITqXwFTsfhkdXiHXNwrbkeqfkxBJKer66";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Chris Paterson <chris.paterson2@renesas.com>
-Cc: Wolfgang Grandegger <wg@grandegger.com>, Rob Herring
- <robh+dt@kernel.org>, Mark Rutland <mark.rutland@arm.com>,
- Geert Uytterhoeven <geert+renesas@glider.be>,
- Simon Horman <horms@verge.net.au>,
- Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
- linux-can@vger.kernel.org, netdev@vger.kernel.org,
- devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-Message-ID: <1207930c-e9ad-27eb-f5a6-d889771fd840@pengutronix.de>
-Subject: Re: [PATCH v2 0/2] can: Add r8a7796 support to CAN/CAN FD
-References: <1479903243-1860-1-git-send-email-chris.paterson2@renesas.com>
- <1480003917-3953-1-git-send-email-chris.paterson2@renesas.com>
-In-Reply-To: <1480003917-3953-1-git-send-email-chris.paterson2@renesas.com>
-
---ITqXwFTsfhkdXiHXNwrbkeqfkxBJKer66
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-On 11/24/2016 05:11 PM, Chris Paterson wrote:
-> This series adds support for r8a7796 to rcar_can and rcar_canfd.
->=20
-> Original series: [PATCH 0/3] arm64: dts: r8a7796: Add CAN/CAN FD suppor=
-t.
->=20
-> Changes since v1:
-> - Split bindings documentation changes from device tree changes.
-> - Rebased on renesas-devel-20161123v2-v4.9-rc6.
->=20
->=20
-> Chris Paterson (2):
->   can: rcar_can: Add r8a7796 support
->   can: rcar_canfd: Add r8a7796 support
-
-Both added to can-next.
-
-Thanks,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: YueHaibing <yuehaibing@huawei.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:50036 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751368AbcKYITI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 03:19:08 -0500
+In-Reply-To: <1fdf938e-600c-ce58-ece1-06b816ddba1c@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---ITqXwFTsfhkdXiHXNwrbkeqfkxBJKer66--
+	Hello,
 
---QxBqHiksG8pIPKJlKpD3AVNwOgmPSv9bh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+On Thu, 24 Nov 2016, Hannes Frederic Sowa wrote:
 
------BEGIN PGP SIGNATURE-----
+> I think some people are thinking about it already (me also ;) ).
+> 
+> But it is not easy to come up with a solution. First of all, we need to
+> look up the L2 address again in the neighbor cache and confirm the
+> appropriate neighbor. Secondly we should only do that for packets which
+> we can actually confirm (that means passing the TCP recv tests or some
+> other kind of confirmation besides simply spamming the box etc). Also it
+> needs to be fast.
 
-iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlg35e0ACgkQPTuqJayp
-JWpoqggAh7NurPpr5AyJuBGperq4j/0gMKUU3wXN2oaSLaRQOP2+vWwp7pjo48SS
-upuiicgFGNe9d7favlzbWPGjlmXgWGWyX9X6exQ2mTD0jd8fvP/axdzfCKdN6/e7
-cG40wB+P7BNIklMtkJSA7FhtpxSPI+Zuny4AVpT8qyJhWrEkaMh/Rp7tjy4c0aFu
-kKEW9Gi9uKn2G7fotiRI6zMTImtAxuHtxySJ/nQ6ZMf/g/7geGRW1iycTnBouwFe
-/+/hf/ESJCUVwo+NydsJ/m3smz6Oh372H+NIi981hfXD06MihqXPVlqcMp5snccH
-NzL/KSUd/V6c3oYdOxmtHFJCo018DA==
-=KYai
------END PGP SIGNATURE-----
+	Another option would be to add similar bit to
+struct sock (sk_dst_pending_confirm), may be ip_finish_output2
+can propagate it to dst_neigh_output via new arg and then to
+reset it. Or to change n->confirmed via some new inline sock
+function instead of changing dst_neigh_output. At this place 
+skb->sk is optional, may be we need (skb->sk && dst ==
+skb->sk->sk_dst_cache) check. Also, when sk_dst_cache changes
+we should clear this flag.
 
---QxBqHiksG8pIPKJlKpD3AVNwOgmPSv9bh--
+Regards
