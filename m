@@ -1,111 +1,184 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net-next 5/5] ARM64: dts: marvell: Add network support for
- Armada 3700
-Date: Fri, 25 Nov 2016 16:30:18 +0100
-Message-ID: <88d69f125ff8557f95313687d16f7e01a1b0f083.1480087510.git-series.gregory.clement@free-electrons.com>
-References: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: fix link statistics counter
+	errors
+Date: Fri, 25 Nov 2016 10:35:02 -0500
+Message-ID: <1480088102-31516-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jisheng Zhang <jszhang@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
- Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
- Dmitri Epshtein <dima@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Yelena Krivosheev <yelena@marvell.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Marcin Wojtas <mw@semihalf.com>,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
-In-Reply-To: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
-References: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Add neta nodes for network support both in device tree for the SoC and
-the board.
+In commit e4bf4f76962b ("tipc: simplify packet sequence number
+handling") we changed the internal representation of the packet
+sequence number counters from u32 to u16, reflecting what is really
+sent over the wire.
 
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Since then some link statistics counters have been displaying incorrect
+values, partially because the counters meant to be used as sequence
+number snapshots are now used as direct counters, stored as u32, and
+partially because some counter updates are just missing in the code.
+
+In this commit we correct this in two ways. First, we base the
+displayed packet sent/received values on direct counters instead
+of as previously a calculated difference between current sequence
+number and a snapshot. Second, we add the missing updates of the
+counters.
+
+This change is compatible with the current netlink API, and requires
+no changes to the user space tools.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- arch/arm64/boot/dts/marvell/armada-3720-db.dts | 23 +++++++++++++++++++-
- arch/arm64/boot/dts/marvell/armada-37xx.dtsi   | 23 +++++++++++++++++++-
- 2 files changed, 46 insertions(+), 0 deletions(-)
+ net/tipc/link.c | 35 +++++++++++++++++++----------------
+ 1 file changed, 19 insertions(+), 16 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-3720-db.dts b/arch/arm64/boot/dts/marvell/armada-3720-db.dts
-index 1372e9a6aaa4..c8b82e4145de 100644
---- a/arch/arm64/boot/dts/marvell/armada-3720-db.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-3720-db.dts
-@@ -81,3 +81,26 @@
- &pcie0 {
- 	status = "okay";
- };
-+
-+&mdio {
-+	status = "okay";
-+	phy0: ethernet-phy@0 {
-+		reg = <0>;
-+	};
-+
-+	phy1: ethernet-phy@1 {
-+		reg = <1>;
-+	};
-+};
-+
-+&eth0 {
-+	phy-mode = "rgmii-id";
-+	phy = <&phy0>;
-+	status = "okay";
-+};
-+
-+&eth1 {
-+	phy-mode = "rgmii-id";
-+	phy = <&phy1>;
-+	status = "okay";
-+};
-diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index e9bd58793464..3b8eb45bdc76 100644
---- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-@@ -140,6 +140,29 @@
- 				};
- 			};
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index ecc12411..bda89bf 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -47,8 +47,8 @@
+ #include <linux/pkt_sched.h>
  
-+			eth0: ethernet@30000 {
-+				   compatible = "marvell,armada-3700-neta";
-+				   reg = <0x30000 0x4000>;
-+				   interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
-+				   clocks = <&sb_periph_clk 8>;
-+				   status = "disabled";
-+			};
+ struct tipc_stats {
+-	u32 sent_info;		/* used in counting # sent packets */
+-	u32 recv_info;		/* used in counting # recv'd packets */
++	u32 sent_pkts;
++	u32 recv_pkts;
+ 	u32 sent_states;
+ 	u32 recv_states;
+ 	u32 sent_probes;
+@@ -857,7 +857,6 @@ void tipc_link_reset(struct tipc_link *l)
+ 	l->acked = 0;
+ 	l->silent_intv_cnt = 0;
+ 	l->rst_cnt = 0;
+-	l->stats.recv_info = 0;
+ 	l->stale_count = 0;
+ 	l->bc_peer_is_up = false;
+ 	memset(&l->mon_state, 0, sizeof(l->mon_state));
+@@ -888,6 +887,7 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
+ 	struct sk_buff_head *transmq = &l->transmq;
+ 	struct sk_buff_head *backlogq = &l->backlogq;
+ 	struct sk_buff *skb, *_skb, *bskb;
++	int pkt_cnt = skb_queue_len(list);
+ 
+ 	/* Match msg importance against this and all higher backlog limits: */
+ 	if (!skb_queue_empty(backlogq)) {
+@@ -901,6 +901,11 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
+ 		return -EMSGSIZE;
+ 	}
+ 
++	if (pkt_cnt > 1) {
++		l->stats.sent_fragmented++;
++		l->stats.sent_fragments += pkt_cnt;
++	}
 +
-+			mdio: mdio@32004 {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				compatible = "marvell,orion-mdio";
-+				reg = <0x32004 0x4>;
-+			};
-+
-+			eth1: ethernet@40000 {
-+				compatible = "marvell,armada-3700-neta";
-+				reg = <0x40000 0x4000>;
-+				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
-+				clocks = <&sb_periph_clk 7>;
-+				status = "disabled";
-+			};
-+
- 			usb3: usb@58000 {
- 				compatible = "marvell,armada3700-xhci",
- 				"generic-xhci";
+ 	/* Prepare each packet for sending, and add to relevant queue: */
+ 	while (skb_queue_len(list)) {
+ 		skb = skb_peek(list);
+@@ -920,6 +925,7 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
+ 			__skb_queue_tail(xmitq, _skb);
+ 			TIPC_SKB_CB(skb)->ackers = l->ackers;
+ 			l->rcv_unacked = 0;
++			l->stats.sent_pkts++;
+ 			seqno++;
+ 			continue;
+ 		}
+@@ -968,6 +974,7 @@ void tipc_link_advance_backlog(struct tipc_link *l, struct sk_buff_head *xmitq)
+ 		msg_set_ack(hdr, ack);
+ 		msg_set_bcast_ack(hdr, bc_ack);
+ 		l->rcv_unacked = 0;
++		l->stats.sent_pkts++;
+ 		seqno++;
+ 	}
+ 	l->snd_nxt = seqno;
+@@ -1260,7 +1267,7 @@ int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
+ 
+ 		/* Deliver packet */
+ 		l->rcv_nxt++;
+-		l->stats.recv_info++;
++		l->stats.recv_pkts++;
+ 		if (!tipc_data_input(l, skb, l->inputq))
+ 			rc |= tipc_link_input(l, skb, l->inputq);
+ 		if (unlikely(++l->rcv_unacked >= TIPC_MIN_LINK_WIN))
+@@ -1800,10 +1807,6 @@ void tipc_link_set_queue_limits(struct tipc_link *l, u32 win)
+ void tipc_link_reset_stats(struct tipc_link *l)
+ {
+ 	memset(&l->stats, 0, sizeof(l->stats));
+-	if (!link_is_bc_sndlink(l)) {
+-		l->stats.sent_info = l->snd_nxt;
+-		l->stats.recv_info = l->rcv_nxt;
+-	}
+ }
+ 
+ static void link_print(struct tipc_link *l, const char *str)
+@@ -1867,12 +1870,12 @@ static int __tipc_nl_add_stats(struct sk_buff *skb, struct tipc_stats *s)
+ 	};
+ 
+ 	struct nla_map map[] = {
+-		{TIPC_NLA_STATS_RX_INFO, s->recv_info},
++		{TIPC_NLA_STATS_RX_INFO, 0},
+ 		{TIPC_NLA_STATS_RX_FRAGMENTS, s->recv_fragments},
+ 		{TIPC_NLA_STATS_RX_FRAGMENTED, s->recv_fragmented},
+ 		{TIPC_NLA_STATS_RX_BUNDLES, s->recv_bundles},
+ 		{TIPC_NLA_STATS_RX_BUNDLED, s->recv_bundled},
+-		{TIPC_NLA_STATS_TX_INFO, s->sent_info},
++		{TIPC_NLA_STATS_TX_INFO, 0},
+ 		{TIPC_NLA_STATS_TX_FRAGMENTS, s->sent_fragments},
+ 		{TIPC_NLA_STATS_TX_FRAGMENTED, s->sent_fragmented},
+ 		{TIPC_NLA_STATS_TX_BUNDLES, s->sent_bundles},
+@@ -1947,9 +1950,9 @@ int __tipc_nl_add_link(struct net *net, struct tipc_nl_msg *msg,
+ 		goto attr_msg_full;
+ 	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_MTU, link->mtu))
+ 		goto attr_msg_full;
+-	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_RX, link->rcv_nxt))
++	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_RX, link->stats.recv_pkts))
+ 		goto attr_msg_full;
+-	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_TX, link->snd_nxt))
++	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_TX, link->stats.sent_pkts))
+ 		goto attr_msg_full;
+ 
+ 	if (tipc_link_is_up(link))
+@@ -2004,12 +2007,12 @@ static int __tipc_nl_add_bc_link_stat(struct sk_buff *skb,
+ 	};
+ 
+ 	struct nla_map map[] = {
+-		{TIPC_NLA_STATS_RX_INFO, stats->recv_info},
++		{TIPC_NLA_STATS_RX_INFO, stats->recv_pkts},
+ 		{TIPC_NLA_STATS_RX_FRAGMENTS, stats->recv_fragments},
+ 		{TIPC_NLA_STATS_RX_FRAGMENTED, stats->recv_fragmented},
+ 		{TIPC_NLA_STATS_RX_BUNDLES, stats->recv_bundles},
+ 		{TIPC_NLA_STATS_RX_BUNDLED, stats->recv_bundled},
+-		{TIPC_NLA_STATS_TX_INFO, stats->sent_info},
++		{TIPC_NLA_STATS_TX_INFO, stats->sent_pkts},
+ 		{TIPC_NLA_STATS_TX_FRAGMENTS, stats->sent_fragments},
+ 		{TIPC_NLA_STATS_TX_FRAGMENTED, stats->sent_fragmented},
+ 		{TIPC_NLA_STATS_TX_BUNDLES, stats->sent_bundles},
+@@ -2076,9 +2079,9 @@ int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg)
+ 		goto attr_msg_full;
+ 	if (nla_put_string(msg->skb, TIPC_NLA_LINK_NAME, bcl->name))
+ 		goto attr_msg_full;
+-	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_RX, bcl->rcv_nxt))
++	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_RX, 0))
+ 		goto attr_msg_full;
+-	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_TX, bcl->snd_nxt))
++	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_TX, 0))
+ 		goto attr_msg_full;
+ 
+ 	prop = nla_nest_start(msg->skb, TIPC_NLA_LINK_PROP);
 -- 
-git-series 0.8.10
+2.7.4
+
+
+------------------------------------------------------------------------------
