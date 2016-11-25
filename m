@@ -1,73 +1,132 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Fri, 25 Nov 2016 07:49:35 -0500
-Message-ID: <1816ec7e-2733-f4ba-5d30-29dbabd20aad@pobox.com>
-References: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
- <20161124.112152.692025478489876693.davem@davemloft.net>
- <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
- <20161124.121140.2054576632424977475.davem@davemloft.net>
- <c3ca9e10-64de-2454-b99a-19e8302f5c12@pobox.com>
- <20161125002702.GA14085@electric-eye.fr.zoreil.com>
- <ed0c9790-57be-8bca-cdd6-3a54ca24f0bd@pobox.com>
- <20161125095350.GA20653@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-        David Miller <davem@davemloft.net>, hayeswang@realtek.com,
-        netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: [PATCH v2 0/7] stmmac: dwmac-meson8b: configurable RGMII TX delay
+Date: Fri, 25 Nov 2016 14:01:49 +0100
+Message-ID: <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
+References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
+Cc: linux-arm-kernel@lists.infradead.org, alexandre.torgue@st.com,
+        peppe.cavallaro@st.com, will.deacon@arm.com,
+        catalin.marinas@arm.com, carlo@caione.org, f.fainelli@gmail.com,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+To: linux-amlogic@lists.infradead.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, davem@davemloft.net, khilman@baylibre.com,
+        mark.rutland@arm.com, robh+dt@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pb-sasl2.pobox.com ([64.147.108.67]:51333 "EHLO
-        sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752480AbcKYMuT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 07:50:19 -0500
-In-Reply-To: <20161125095350.GA20653@kroah.com>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:35159 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753255AbcKYNCZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 08:02:25 -0500
+In-Reply-To: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-11-25 04:53 AM, Greg KH wrote:
-> On Thu, Nov 24, 2016 at 10:49:33PM -0500, Mark Lord wrote:
->> There is no possibility for them to be used for anything other than
->> USB receive buffers, for this driver only.  Nothing in the driver
->> or kernel ever writes to those buffers after initial allocation,
->> and only the driver and USB host controller ever have pointers to the buffers.
-> 
-> You really are going to have to break out that USB monitor to verify
-> that this is the data coming across the wire.
+Currently the dwmac-meson8b stmmac glue driver uses a hardcoded 1/4
+cycle TX clock delay. This seems to work fine for many boards (for
+example Odroid-C2 or Amlogic's reference boards) but there are some
+others where TX traffic is simply broken.
+There are probably multiple reasons why it's working on some boards
+while it's broken on others:
+- some of Amlogic's reference boards are using a Micrel PHY
+- hardware circuit design
+- maybe more...
 
-Not sure why, because there really is no other way for the data to
-appear where it does at the beginning of that URB buffer.
+iperf3 results on my Mecool BB2 board (Meson GXM, RTL8211F PHY) with
+TX clock delay disabled on the MAC (as it's enabled in the PHY driver).
+TX throughput was virtually zero before:
+$ iperf3 -c 192.168.1.100 -R
+Connecting to host 192.168.1.100, port 5201
+Reverse mode, remote host 192.168.1.100 is sending
+[  4] local 192.168.1.206 port 52828 connected to 192.168.1.100 port 5201
+[ ID] Interval           Transfer     Bandwidth
+[  4]   0.00-1.00   sec   108 MBytes   901 Mbits/sec
+[  4]   1.00-2.00   sec  94.2 MBytes   791 Mbits/sec
+[  4]   2.00-3.00   sec  96.5 MBytes   810 Mbits/sec
+[  4]   3.00-4.00   sec  96.2 MBytes   808 Mbits/sec
+[  4]   4.00-5.00   sec  96.6 MBytes   810 Mbits/sec
+[  4]   5.00-6.00   sec  96.5 MBytes   810 Mbits/sec
+[  4]   6.00-7.00   sec  96.6 MBytes   810 Mbits/sec
+[  4]   7.00-8.00   sec  96.5 MBytes   809 Mbits/sec
+[  4]   8.00-9.00   sec   105 MBytes   884 Mbits/sec
+[  4]   9.00-10.00  sec   111 MBytes   934 Mbits/sec
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec  1000 MBytes   839 Mbits/sec    0             sender
+[  4]   0.00-10.00  sec   998 MBytes   837 Mbits/sec                  receiver
 
-This does seem a rather unexpected burden to place upon someone
-reporting a regression in a USB network driver that corrupts user data.
+iperf Done.
+$ iperf3 -c 192.168.1.100
+Connecting to host 192.168.1.100, port 5201
+[  4] local 192.168.1.206 port 52832 connected to 192.168.1.100 port 5201
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.01   sec  99.5 MBytes   829 Mbits/sec  117    139 KBytes
+[  4]   1.01-2.00   sec   105 MBytes   884 Mbits/sec  129   70.7 KBytes
+[  4]   2.00-3.01   sec   107 MBytes   889 Mbits/sec  106    187 KBytes
+[  4]   3.01-4.01   sec   105 MBytes   878 Mbits/sec   92    143 KBytes
+[  4]   4.01-5.00   sec   105 MBytes   882 Mbits/sec  140    129 KBytes
+[  4]   5.00-6.01   sec   106 MBytes   883 Mbits/sec  115    195 KBytes
+[  4]   6.01-7.00   sec   102 MBytes   863 Mbits/sec  133   70.7 KBytes
+[  4]   7.00-8.01   sec   106 MBytes   884 Mbits/sec  143   97.6 KBytes
+[  4]   8.01-9.01   sec   104 MBytes   875 Mbits/sec  124    107 KBytes
+[  4]   9.01-10.01  sec   105 MBytes   876 Mbits/sec   90    139 KBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.01  sec  1.02 GBytes   874 Mbits/sec  1189             sender
+[  4]   0.00-10.01  sec  1.02 GBytes   873 Mbits/sec                  receiver
 
-I have already spent about 50 hours looking at this issue,
-and everything now points firmly at some kind of FIFO overflow
-within the dongle itself.  There is no evidence to the contrary.
+iperf Done.
 
-I am very happy to test any driver updates, or data collection mods
-provided by the author, to help the author find/fix the issue.
+I get similar TX throughput on my Meson GXBB "MXQ Pro+" board when I
+disable the PHY's TX-delay and configure a 4ms TX-delay on the MAC.
+So changes to at least the RTL8211F PHY driver are needed to get it
+working properly in all situations.
 
-One idea, might be to have the author try testing with the dongle
-connected through a USB1.1 hub, forcing it to slower speeds.
-This might make reproducing the issue (if indeed a FIFO overflow)
-easier, as the host transfers will then be slower than the
-ethernet wire speed.
 
-I have access to the hardware here next Tuesday.
-If we can scrounge up the USB analyzer, cables, and a suitable
-MS-Windows (ugh) machine of some kind, then I'll see if it can
-be programmed to somewhow capture the event.  Probably just set it
-in continuous capture mode, and have the target system halt
-when it sees bad data at offset zero.
+NOTE: patches 3-7 should be taken though the Amlogic tree. patches 1
+and 2 can be taken through the net-tree or through the Amlogic tree.
+There shouldn't be a runtime dependency as long as phy-mode "rgmii"
+(or the not-relevant-for-this-case "rmii") is used (which is currently
+the case for all ARM64 meson-gx boards) due to the dwmac-meson8b's
+default 2ns TX-delay.
 
-This can take days to reproduce, so don't hold your breaths.
 
-Something useful to do in the meanwhile, is to then think
-about "what next" after the analyzer confirms the issue.
+Changes since v1:
+- renamed the devicetree property "amlogic,tx-delay" to
+  "amlogic,tx-delay-ns", which makes the .dts easier to read as we can
+  simply specify human-readable values instead of having "preprocessor
+  defines and calculation in human brain". Thanks to Andrew Lunn for
+  the suggestion!
+- improved documentation to indicate when the MAC TX-delay should be
+  configured and how to use the PHY's TX-delay
+- changed the default TX-delay in the dwmac-meson8b driver from 2ns
+  to 0ms when any of the rgmii-*id modes are used (the 2ns default
+  value still applies for phy-mode "rgmii")
+- added patches to properly reset the PHY on Meson GXBB devices and to
+  use a similar configuration than the one we use on Meson GXL devices
+  (by passing a phy-handle to stmmac and defining the PHY in the mdio0
+  bus - patch 3-6)
+- add the "amlogic,tx-delay-ns" property to all boards which are using
+  the RGMII PHY (patch 7)
+
+
+Martin Blumenstingl (7):
+  net: dt-bindings: add RGMII TX delay configuration to meson8b-dwmac
+  net: stmmac: dwmac-meson8b: make the RGMII TX delay configurable
+  ARM64: dts: meson-gx: move the MDIO node to meson-gx
+  ARM64: dts: meson-gxbb-odroidc2: add reset for the ethernet PHY
+  ARM64: dts: meson-gxbb-p20x: add reset for the ethernet PHY
+  ARM64: dts: meson-gxbb-vega-s95: add reset for the ethernet PHY
+  ARM64: dts: amlogic: add the ethernet TX delay configuration
+
+ .../devicetree/bindings/net/meson-dwmac.txt        | 14 ++++++++++++
+ arch/arm64/boot/dts/amlogic/meson-gx.dtsi          |  6 +++++
+ .../arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts | 17 ++++++++++++++
+ arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi   | 17 ++++++++++++++
+ .../boot/dts/amlogic/meson-gxbb-vega-s95.dtsi      | 17 ++++++++++++++
+ .../boot/dts/amlogic/meson-gxl-s905d-p230.dts      |  2 ++
+ arch/arm64/boot/dts/amlogic/meson-gxl.dtsi         |  6 -----
+ .../arm64/boot/dts/amlogic/meson-gxm-nexbox-a1.dts |  2 ++
+ .../arm64/boot/dts/amlogic/meson-gxm-s912-q200.dts |  2 ++
+ .../net/ethernet/stmicro/stmmac/dwmac-meson8b.c    | 26 +++++++++++++++++-----
+ 10 files changed, 97 insertions(+), 12 deletions(-)
+
 -- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+2.10.2
