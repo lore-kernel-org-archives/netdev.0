@@ -1,68 +1,64 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH v2 3/7] ARM64: dts: meson-gx: move the MDIO node to meson-gx
-Date: Fri, 25 Nov 2016 14:01:52 +0100
-Message-ID: <20161125130156.17879-4-martin.blumenstingl@googlemail.com>
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH v2 5/7] ARM64: dts: meson-gxbb-p20x: add reset for the ethernet PHY
+Date: Fri, 25 Nov 2016 14:01:54 +0100
+Message-ID: <20161125130156.17879-6-martin.blumenstingl@googlemail.com>
 References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
  <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
-Cc: linux-arm-kernel@lists.infradead.org, alexandre.torgue@st.com,
-        peppe.cavallaro@st.com, will.deacon@arm.com,
-        catalin.marinas@arm.com, carlo@caione.org, f.fainelli@gmail.com,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-To: linux-amlogic@lists.infradead.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, davem@davemloft.net, khilman@baylibre.com,
-        mark.rutland@arm.com, robh+dt@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f193.google.com ([209.85.210.193]:35181 "EHLO
-        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753255AbcKYNCa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 08:02:30 -0500
-In-Reply-To: <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        peppe.cavallaro-qxv4g6HH51o@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+        catalin.marinas-5wv7dgnIgG8@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161125130156.17879-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-stmmac's MDIO bus is currently only defined in meson-gxl.dtsi. Move it
-up to meson-gx to allow us to keep the stmmac configuration for
-meson-gxbb similar to the configuration on meson-gxl.
+This resets the ethernet PHY during boot to get the PHY into a "clean"
+state. While here also specify the phy-handle of the ethmac node to
+make the PHY configuration similar to the one we have on GXL devices.
 
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 ---
- arch/arm64/boot/dts/amlogic/meson-gx.dtsi  | 6 ++++++
- arch/arm64/boot/dts/amlogic/meson-gxl.dtsi | 6 ------
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gx.dtsi b/arch/arm64/boot/dts/amlogic/meson-gx.dtsi
-index 47ab306..a2c3ca6 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gx.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gx.dtsi
-@@ -371,6 +371,12 @@
- 			interrupt-names = "macirq";
- 			phy-mode = "rgmii";
- 			status = "disabled";
-+
-+			mdio0: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				compatible = "snps,dwmac-mdio";
-+			};
- 		};
- 
- 		apb: apb@d0000000 {
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
-index 3af54dc..aa3cd80 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
-@@ -57,12 +57,6 @@
- 		 <&clkc CLKID_FCLK_DIV2>,
- 		 <&clkc CLKID_MPLL2>;
- 	clock-names = "stmmaceth", "clkin0", "clkin1";
--
--	mdio0: mdio {
--		#address-cells = <1>;
--		#size-cells = <0>;
--		compatible = "snps,dwmac-mdio";
--	};
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi
+index 203be28..2abc553 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi
+@@ -134,10 +134,25 @@
+ 	pinctrl-names = "default";
  };
  
- &aobus {
++&mdio0 {
++	ethernet_phy0: ethernet-phy@0 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <0>;
++	};
++};
++
+ &ethmac {
+ 	status = "okay";
+ 	pinctrl-0 = <&eth_rgmii_pins>;
+ 	pinctrl-names = "default";
++
++	phy-handle = <&ethernet_phy0>;
++
++	snps,reset-gpio = <&gpio GPIOZ_14 0>;
++	snps,reset-delays-us = <0 10000 1000000>;
++	snps,reset-active-low;
++
++	phy-mode = "rgmii";
+ };
+ 
+ &ir {
 -- 
 2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
