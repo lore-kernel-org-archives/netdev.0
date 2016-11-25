@@ -1,53 +1,46 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Fri, 25 Nov 2016 09:52:20 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB20105653D@RTITMBSV03.realtek.com.tw>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Fri, 25 Nov 2016 10:53:50 +0100
+Message-ID: <20161125095350.GA20653@kroah.com>
 References: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
  <20161124.112152.692025478489876693.davem@davemloft.net>
  <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
  <20161124.121140.2054576632424977475.davem@davemloft.net>
  <c3ca9e10-64de-2454-b99a-19e8302f5c12@pobox.com>
- <20161124190055.GA3642@kroah.com>
- <9e8ff5b4-1c72-3106-7821-73484de133c2@pobox.com>
+ <20161125002702.GA14085@electric-eye.fr.zoreil.com>
+ <ed0c9790-57be-8bca-cdd6-3a54ca24f0bd@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        nic_swsd <nic_swsd@realtek.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Mark Lord <mlord@pobox.com>, Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9e8ff5b4-1c72-3106-7821-73484de133c2@pobox.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <ed0c9790-57be-8bca-cdd6-3a54ca24f0bd-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-TWFyayBMb3JkIFttYWlsdG86bWxvcmRAcG9ib3guY29tXQ0KPiBTZW50OiBGcmlkYXksIE5vdmVt
-YmVyIDI1LCAyMDE2IDM6MTEgQU0NClsuLi5dDQo+IE9uIDE2LTExLTI0IDAyOjAwIFBNLCBHcmVn
-IEtIIHdyb3RlOg0KPiA+IE9uIFRodSwgTm92IDI0LCAyMDE2IGF0IDAxOjM0OjA4UE0gLTA1MDAs
-IE1hcmsgTG9yZCB3cm90ZToNCj4gPj4gT25lIHRob3VnaHQ6ICBidWxrIGRhdGEgc3RyZWFtcyBh
-cmUgYnl0ZSBzdHJlYW1zLCBub3QgcGFja2V0cy4NCj4gPj4gU2NoZWR1bGluZyBvbiB0aGUgVVNC
-IGJ1cyBjYW4gYnJlYWsgdXAgbGFyZ2VyIHRyYW5zZmVycyBhY3Jvc3MNCj4gPj4gbXVsdGlwbGUg
-aW4ta2VybmVsIGJ1ZmZlcnMuICBBICJyZWFsIiBVUkIgYnVmZmVyIG9uIFVTQjIgaXMgbWF4IDUx
-MiBieXRlcy4NCj4gPj4gVGhlIGRyaXZlciBpcyBwcm92aWRpbmcgMTYzODQtYnl0ZSBidWZmZXJz
-LCBhbmQgYXNzdW1lcyB0aGF0IGRhdGEgd2lsbA0KPiA+PiBuZXZlciBzcGlsbCBvdmVyIGZyb20g
-b25lIHN1Y2ggYnVmZmVyIHRvIHRoZSBuZXh0Lg0KPiA+PiBZZXQgdGhlIG9ic2VydmF0aW9ucyBo
-ZXJlIGNvbnNpc3RlbnRseSBzaG93IG90aGVyd2lzZS4NCj4gPg0KPiA+IFdhaXQsIGhvdyBkbyB5
-b3Uga25vdyB0aGF0IGRhdGEgd2lsbCBub3Qgc3BpbGwgb3Zlcj8gIFdoYXQgaXMgbWFraW5nDQo+
-ID4gdGhhdCBndWFyYW50ZWU/ICBXaWxsIHRoZSBVU0IgZGV2aWNlIHNlbmQgYSAiemVybyBwYWNr
-ZXQiIGluIG9yZGVyIHRvDQo+ID4gc2hvdyB0aGF0IGFsbCBvZiB0aGUgImxvZ2ljYWwiIGRhdGEg
-aXMgbm93IHNlbnQgZm9yIHRoaXMgc3BlY2lmaWMNCj4gPiBlbmRwb2ludD8gIElzIHRoZXJlIHNv
-bWUgc29ydCBvZiAiZnJhbWluZyIgdGhhdCB0aGUgZGV2aWNlIGRvZXMgd2l0aCB0aGUNCj4gPiBV
-U0IgZGF0YSBzbyB0aGF0IHRoZSBkcml2ZXIgImtub3dzIiB3aGVyZSB0aGUgZW5kIG9mIHBhY2tl
-dCBpcz8NCj4gDQo+IEV4YWN0bHkgbXkgcG9pbnQuDQo+IA0KPiA+IENoZWNrIHRoZSB6ZXJvLXBh
-Y2tldCBzdHVmZiBmb3IgdGhpcyBkZXZpY2UsIHRoYXQncyB0cmlwcGVkIHVwIG1hbnkgYQ0KPiA+
-IFVTQiBkcml2ZXIgd3JpdGVyIG92ZXIgdGhlIHllYXJzLCBteXNlbGYgaW5jbHVkZWQuDQo+IA0K
-PiBJIGhhdmVuJ3QgdHJpcHBlZCBvdmVyIGl0IG15c2VsZiwgYnV0IG9ubHkgYmVjYXVzZSB3ZSB3
-ZXJlIGNhcmVmdWwNCj4gdG8gYWxsb3cgZm9yIHN1Y2ggaW4gdGhlIFVTQiBkcml2ZXJzIEkgaGF2
-ZSB3b3JrZWQgb24uDQo+IA0KPiBUaGUgcjgxNTIgZHJpdmVyIGp1c3QgYXNzdW1lcyBpdCBuZXZl
-ciBoYXBwZW5zLg0KDQpXaGF0IGlzIHRoZSB2YWx1ZSBvZiAvc3lzL2J1cy91c2IvZGV2aWNlcy8u
-Li4vcG93ZXIvY29udHJvbCA/DQpDb3VsZCB5b3UgbWFrZSBzdXJlIGl0IGlzICJvbiIgYW5kIHRy
-eSBhZ2Fpbj8NCk9yIHlvdSBjb3VsZCBjYWxsIHVzYl9kaXNhYmxlX2F1dG9zdXNwZW5kKCkgaW4g
-cHJvYmUoKS4NCg0KQmVzdCBSZWdhcmRzLA0KSGF5ZXMNCg0KDQo=
+On Thu, Nov 24, 2016 at 10:49:33PM -0500, Mark Lord wrote:
+> There is no possibility for them to be used for anything other than
+> USB receive buffers, for this driver only.  Nothing in the driver
+> or kernel ever writes to those buffers after initial allocation,
+> and only the driver and USB host controller ever have pointers to the buffers.
+
+You really are going to have to break out that USB monitor to verify
+that this is the data coming across the wire.  Note, there are "cheap"
+USB monitors that can be quite handy and that work on Linux:
+	http://www.totalphase.com/products/beagle-usb12/
+
+Or most high-end scopes have a USB mode that you can use to catch stuff
+like this (but they are usually harder to use/trigger and only store a
+very limited buffer).
+
+good luck!
+
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
