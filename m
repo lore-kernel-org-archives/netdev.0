@@ -1,184 +1,103 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: fix link statistics counter
-	errors
-Date: Fri, 25 Nov 2016 10:35:02 -0500
-Message-ID: <1480088102-31516-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 0/5] net: add protocol level recvmmsg support
+Date: Fri, 25 Nov 2016 16:39:51 +0100
+Message-ID: <cover.1480086321.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35028 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754801AbcKYPlS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 10:41:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit e4bf4f76962b ("tipc: simplify packet sequence number
-handling") we changed the internal representation of the packet
-sequence number counters from u32 to u16, reflecting what is really
-sent over the wire.
+The goal of recvmmsg() is to amortize the syscall overhead on a possible
+long messages batch, but for most networking protocols, e.g. udp the
+syscall overhead is negligible compared to the protocol specific operations
+like dequeuing.
 
-Since then some link statistics counters have been displaying incorrect
-values, partially because the counters meant to be used as sequence
-number snapshots are now used as direct counters, stored as u32, and
-partially because some counter updates are just missing in the code.
+Moreover, the current recvmmsg() implementation has a long-standing bug with
+the timeout argument that can be solved only with protocol level support for
+recvmmsg().
 
-In this commit we correct this in two ways. First, we base the
-displayed packet sent/received values on direct counters instead
-of as previously a calculated difference between current sequence
-number and a snapshot. Second, we add the missing updates of the
-counters.
+This patch series aims to solve both issues, introducing support for
+the recvmmsg implementation at the protocol level, adding some generic helpers
+for such operation, and finally implementing recvmmsg() support for
+udp[v6]/udplite[v6]. Such support does not cover MSG_PEEK and MSG_ERRQUEUE,
+as a trade-off between benefit and implementation complexity.
 
-This change is compatible with the current netlink API, and requires
-no changes to the user space tools.
+The udp version of recvmmsg() tries to bulk-dequeue skbs from the receive queue,
+each burst acquires the lock once to extract as many skbs from the receive
+queue as possible, up to the number needed to reach the specified maximum.
+rmem_alloc and fwd memory are touched once per burst.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/link.c | 35 +++++++++++++++++++----------------
- 1 file changed, 19 insertions(+), 16 deletions(-)
+When the protocol-level recvmmsg() is not available or it does not support the
+specified flags, the code falls-back to the current generic implementation.
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index ecc12411..bda89bf 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -47,8 +47,8 @@
- #include <linux/pkt_sched.h>
- 
- struct tipc_stats {
--	u32 sent_info;		/* used in counting # sent packets */
--	u32 recv_info;		/* used in counting # recv'd packets */
-+	u32 sent_pkts;
-+	u32 recv_pkts;
- 	u32 sent_states;
- 	u32 recv_states;
- 	u32 sent_probes;
-@@ -857,7 +857,6 @@ void tipc_link_reset(struct tipc_link *l)
- 	l->acked = 0;
- 	l->silent_intv_cnt = 0;
- 	l->rst_cnt = 0;
--	l->stats.recv_info = 0;
- 	l->stale_count = 0;
- 	l->bc_peer_is_up = false;
- 	memset(&l->mon_state, 0, sizeof(l->mon_state));
-@@ -888,6 +887,7 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
- 	struct sk_buff_head *transmq = &l->transmq;
- 	struct sk_buff_head *backlogq = &l->backlogq;
- 	struct sk_buff *skb, *_skb, *bskb;
-+	int pkt_cnt = skb_queue_len(list);
- 
- 	/* Match msg importance against this and all higher backlog limits: */
- 	if (!skb_queue_empty(backlogq)) {
-@@ -901,6 +901,11 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
- 		return -EMSGSIZE;
- 	}
- 
-+	if (pkt_cnt > 1) {
-+		l->stats.sent_fragmented++;
-+		l->stats.sent_fragments += pkt_cnt;
-+	}
-+
- 	/* Prepare each packet for sending, and add to relevant queue: */
- 	while (skb_queue_len(list)) {
- 		skb = skb_peek(list);
-@@ -920,6 +925,7 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
- 			__skb_queue_tail(xmitq, _skb);
- 			TIPC_SKB_CB(skb)->ackers = l->ackers;
- 			l->rcv_unacked = 0;
-+			l->stats.sent_pkts++;
- 			seqno++;
- 			continue;
- 		}
-@@ -968,6 +974,7 @@ void tipc_link_advance_backlog(struct tipc_link *l, struct sk_buff_head *xmitq)
- 		msg_set_ack(hdr, ack);
- 		msg_set_bcast_ack(hdr, bc_ack);
- 		l->rcv_unacked = 0;
-+		l->stats.sent_pkts++;
- 		seqno++;
- 	}
- 	l->snd_nxt = seqno;
-@@ -1260,7 +1267,7 @@ int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
- 
- 		/* Deliver packet */
- 		l->rcv_nxt++;
--		l->stats.recv_info++;
-+		l->stats.recv_pkts++;
- 		if (!tipc_data_input(l, skb, l->inputq))
- 			rc |= tipc_link_input(l, skb, l->inputq);
- 		if (unlikely(++l->rcv_unacked >= TIPC_MIN_LINK_WIN))
-@@ -1800,10 +1807,6 @@ void tipc_link_set_queue_limits(struct tipc_link *l, u32 win)
- void tipc_link_reset_stats(struct tipc_link *l)
- {
- 	memset(&l->stats, 0, sizeof(l->stats));
--	if (!link_is_bc_sndlink(l)) {
--		l->stats.sent_info = l->snd_nxt;
--		l->stats.recv_info = l->rcv_nxt;
--	}
- }
- 
- static void link_print(struct tipc_link *l, const char *str)
-@@ -1867,12 +1870,12 @@ static int __tipc_nl_add_stats(struct sk_buff *skb, struct tipc_stats *s)
- 	};
- 
- 	struct nla_map map[] = {
--		{TIPC_NLA_STATS_RX_INFO, s->recv_info},
-+		{TIPC_NLA_STATS_RX_INFO, 0},
- 		{TIPC_NLA_STATS_RX_FRAGMENTS, s->recv_fragments},
- 		{TIPC_NLA_STATS_RX_FRAGMENTED, s->recv_fragmented},
- 		{TIPC_NLA_STATS_RX_BUNDLES, s->recv_bundles},
- 		{TIPC_NLA_STATS_RX_BUNDLED, s->recv_bundled},
--		{TIPC_NLA_STATS_TX_INFO, s->sent_info},
-+		{TIPC_NLA_STATS_TX_INFO, 0},
- 		{TIPC_NLA_STATS_TX_FRAGMENTS, s->sent_fragments},
- 		{TIPC_NLA_STATS_TX_FRAGMENTED, s->sent_fragmented},
- 		{TIPC_NLA_STATS_TX_BUNDLES, s->sent_bundles},
-@@ -1947,9 +1950,9 @@ int __tipc_nl_add_link(struct net *net, struct tipc_nl_msg *msg,
- 		goto attr_msg_full;
- 	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_MTU, link->mtu))
- 		goto attr_msg_full;
--	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_RX, link->rcv_nxt))
-+	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_RX, link->stats.recv_pkts))
- 		goto attr_msg_full;
--	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_TX, link->snd_nxt))
-+	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_TX, link->stats.sent_pkts))
- 		goto attr_msg_full;
- 
- 	if (tipc_link_is_up(link))
-@@ -2004,12 +2007,12 @@ static int __tipc_nl_add_bc_link_stat(struct sk_buff *skb,
- 	};
- 
- 	struct nla_map map[] = {
--		{TIPC_NLA_STATS_RX_INFO, stats->recv_info},
-+		{TIPC_NLA_STATS_RX_INFO, stats->recv_pkts},
- 		{TIPC_NLA_STATS_RX_FRAGMENTS, stats->recv_fragments},
- 		{TIPC_NLA_STATS_RX_FRAGMENTED, stats->recv_fragmented},
- 		{TIPC_NLA_STATS_RX_BUNDLES, stats->recv_bundles},
- 		{TIPC_NLA_STATS_RX_BUNDLED, stats->recv_bundled},
--		{TIPC_NLA_STATS_TX_INFO, stats->sent_info},
-+		{TIPC_NLA_STATS_TX_INFO, stats->sent_pkts},
- 		{TIPC_NLA_STATS_TX_FRAGMENTS, stats->sent_fragments},
- 		{TIPC_NLA_STATS_TX_FRAGMENTED, stats->sent_fragmented},
- 		{TIPC_NLA_STATS_TX_BUNDLES, stats->sent_bundles},
-@@ -2076,9 +2079,9 @@ int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg)
- 		goto attr_msg_full;
- 	if (nla_put_string(msg->skb, TIPC_NLA_LINK_NAME, bcl->name))
- 		goto attr_msg_full;
--	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_RX, bcl->rcv_nxt))
-+	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_RX, 0))
- 		goto attr_msg_full;
--	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_TX, bcl->snd_nxt))
-+	if (nla_put_u32(msg->skb, TIPC_NLA_LINK_TX, 0))
- 		goto attr_msg_full;
- 
- 	prop = nla_nest_start(msg->skb, TIPC_NLA_LINK_PROP);
+This series introduces some behavior changes for the recvmmsg() syscall (only
+for udp):
+- the timeout argument now works as expected
+- recvmmsg() does not stop anymore when getting the first error, instead
+  it keeps processing the current burst and then handle the error code as
+  in the generic implementation.
+
+The measured performance delta is as follow:
+
+		before		after
+		(Kpps)		(Kpps)
+
+udp flood[1]	570		1800(+215%)
+max tput[2]	1850		3500(+89%)
+single queue[3]	1850		1630(-11%)
+
+[1] line rate flood using multiple 64 bytes packets and multiple flows
+[2] like [1], but using the minimum number of flows to saturate the user space
+ sink, that is 1 flow for the old kernel and 3 for the patched one.
+ the tput increases since the contention on the rx lock is low.
+[3] like [1] but using a single flow with both old and new kernel. All the
+ packets land on the same rx queue and there is a single ksoftirqd instance
+ running
+
+The regression in the single queue scenario is actually due to the improved
+performance of the recvmmsg() syscall: the user space process is now
+significantly faster than the ksoftirqd process so that the latter needs often
+to wake up the user space process.
+
+Since ksoftirqd is the bottle-neck is such scenario, overall this causes a
+tput reduction. In a real use case, where the udp sink is performing some
+actual processing of the received data, such regression is unlikely to really
+have an effect.
+
+Join work with Sabrina Dubroca <sd@queasysnail.net>.
+
+Paolo Abeni (5):
+  net/socket: factor out msghdr manipulation helpers
+  net/socket: add per protocol mmesg support
+  net/udp: factor out main skb processing routine
+  net/socket: add helpers for recvmmsg
+  udp: add recvmmsg implementation
+
+ include/linux/net.h       |   5 ++
+ include/linux/skbuff.h    |  20 +++++
+ include/net/inet_common.h |   3 +
+ include/net/sock.h        |  43 +++++++++++
+ include/net/udp.h         |   7 ++
+ net/core/datagram.c       |  65 ++++++++++++++++
+ net/ipv4/af_inet.c        |  16 ++++
+ net/ipv4/udp.c            | 188 +++++++++++++++++++++++++++++++++++++++-------
+ net/ipv4/udp_impl.h       |   3 +
+ net/ipv4/udplite.c        |   1 +
+ net/ipv6/af_inet6.c       |   1 +
+ net/ipv6/udp.c            |  89 +++++++++++++++-------
+ net/ipv6/udp_impl.h       |   3 +
+ net/ipv6/udplite.c        |   1 +
+ net/socket.c              | 183 ++++++++++++++++++++++++++++++++------------
+ 15 files changed, 528 insertions(+), 100 deletions(-)
+
 -- 
-2.7.4
-
-
-------------------------------------------------------------------------------
+1.8.3.1
