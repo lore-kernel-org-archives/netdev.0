@@ -1,77 +1,73 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: dsa: fix unbalanced dsa_switch_tree reference
- counting
-Date: Fri, 25 Nov 2016 17:14:15 +0100
-Message-ID: <20161125161415.GJ26806@lunn.ch>
-References: <1480090133-30412-1-git-send-email-nikita.yoush@cogentembedded.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [patch v2 net-next] sfc: remove unneeded variable
+Date: Fri, 25 Nov 2016 16:12:56 +0000
+Message-ID: <2ba88df9-1335-b7e1-49bf-c8b50fc54b51@solarflare.com>
+References: <20161125104304.GA5938@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        John Crispin <john@phrozen.org>,
-        Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Chris Healy <cphealy@gmail.com>
-To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1480090133-30412-1-git-send-email-nikita.yoush@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Bert Kenward <bkenward@solarflare.com>, <netdev@vger.kernel.org>,
+        <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+        Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:16782 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755412AbcKYQOJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 11:14:09 -0500
+In-Reply-To: <20161125104304.GA5938@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 25, 2016 at 07:08:53PM +0300, Nikita Yushchenko wrote:
-> _dsa_register_switch() gets a dsa_switch_tree object either via
-> dsa_get_dst() or via dsa_add_dst(). Former path does not increase kref
-> in returned object (resulting into caller not owning a reference),
-> while later path does create a new object (resulting into caller owning
-> a reference).
-> 
-> The rest of _dsa_register_switch() assumes that it owns a reference, and
-> calls dsa_put_dst().
-> 
-> This causes a memory breakage if first switch in the tree initialized
-> successfully, but second failed to initialize. In particular, freed
-> dsa_swith_tree object is left referenced by switch that was initialized,
-> and later access to sysfs attributes of that switch cause OOPS.
-> 
-> To fix, need to add kref_get() call to dsa_get_dst().
-> 
-> Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-
-Hi Nikita
-
-What tree is this against? It should be net. Please make the subject
-[patch net] ... so it is clear what tree this is for.
-
-And it should have a fixes-tag
-
-Fixes: 83c0afaec7b7 ("net: dsa: Add new binding implementation")
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
-
-> ---
->  net/dsa/dsa2.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-> index f8a7d9aab437..5fff951a0a49 100644
-> --- a/net/dsa/dsa2.c
-> +++ b/net/dsa/dsa2.c
-> @@ -28,8 +28,10 @@ static struct dsa_switch_tree *dsa_get_dst(u32 tree)
->  	struct dsa_switch_tree *dst;
+On 25/11/16 10:43, Dan Carpenter wrote:
+> We don't use ->heap_buf after commit 46d1efd852cc ("sfc: remove Software
+> TSO") so let's remove the last traces.
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Acked-by: Edward Cree <ecree@solarflare.com>
+> diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+> index f97f828..18aceb2 100644
+> --- a/drivers/net/ethernet/sfc/net_driver.h
+> +++ b/drivers/net/ethernet/sfc/net_driver.h
+> @@ -139,8 +139,6 @@ struct efx_special_buffer {
+>   * struct efx_tx_buffer - buffer state for a TX descriptor
+>   * @skb: When @flags & %EFX_TX_BUF_SKB, the associated socket buffer to be
+>   *	freed when descriptor completes
+> - * @heap_buf: When @flags & %EFX_TX_BUF_HEAP, the associated heap buffer to be
+> - *	freed when descriptor completes.
+>   * @option: When @flags & %EFX_TX_BUF_OPTION, a NIC-specific option descriptor.
+>   * @dma_addr: DMA address of the fragment.
+>   * @flags: Flags for allocation and DMA mapping type
+> @@ -151,10 +149,7 @@ struct efx_special_buffer {
+>   * Only valid if @unmap_len != 0.
+>   */
+>  struct efx_tx_buffer {
+> -	union {
+> -		const struct sk_buff *skb;
+> -		void *heap_buf;
+> -	};
+> +	const struct sk_buff *skb;
+>  	union {
+>  		efx_qword_t option;
+>  		dma_addr_t dma_addr;
+> @@ -166,7 +161,6 @@ struct efx_tx_buffer {
+>  };
+>  #define EFX_TX_BUF_CONT		1	/* not last descriptor of packet */
+>  #define EFX_TX_BUF_SKB		2	/* buffer is last part of skb */
+> -#define EFX_TX_BUF_HEAP		4	/* buffer was allocated with kmalloc() */
+>  #define EFX_TX_BUF_MAP_SINGLE	8	/* buffer was mapped with dma_map_single() */
+>  #define EFX_TX_BUF_OPTION	0x10	/* empty buffer for option descriptor */
 >  
->  	list_for_each_entry(dst, &dsa_switch_trees, list)
-> -		if (dst->tree == tree)
-> +		if (dst->tree == tree) {
-> +			kref_get(&dst->refcount);
->  			return dst;
-> +		}
->  	return NULL;
->  }
+> diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+> index 1aa728c..bb07034 100644
+> --- a/drivers/net/ethernet/sfc/tx.c
+> +++ b/drivers/net/ethernet/sfc/tx.c
+> @@ -84,8 +84,6 @@ static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
+>  		netif_vdbg(tx_queue->efx, tx_done, tx_queue->efx->net_dev,
+>  			   "TX queue %d transmission id %x complete\n",
+>  			   tx_queue->queue, tx_queue->read_count);
+> -	} else if (buffer->flags & EFX_TX_BUF_HEAP) {
+> -		kfree(buffer->heap_buf);
+>  	}
 >  
-> -- 
-> 2.1.4
-> 
+>  	buffer->len = 0;
