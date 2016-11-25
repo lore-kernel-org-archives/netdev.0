@@ -1,49 +1,61 @@
-From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Subject: Aw: Re: [PATCH] mlx4: give precise rx/tx bytes/packets counters
-Date: Fri, 25 Nov 2016 17:30:57 +0100
-Message-ID: <trinity-a100658c-7fd5-47b3-ab3f-1f0a80774ccc-1480091457793@3capp-gmx-bs57>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
- <063D6719AE5E284EB5DD2968C1650D6DB0228849@AcuExch.aculab.com>,
- <1480090590.8455.549.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
+Date: Fri, 25 Nov 2016 16:32:21 +0000
+Message-ID: <20161125163220.GB30181@leverpostej>
+References: <20161124222357-mutt-send-email-mst@kernel.org>
+ <20161125112203.GA26611@leverpostej>
+ <32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com>
+ <20161125122356.GB26611@leverpostej>
+ <20161125124044.GN3092@twins.programming.kicks-ass.net>
+ <20161125124404.GI3174@twins.programming.kicks-ass.net>
+ <20161125145512.GA4014@Boquns-MacBook-Pro.local>
+ <CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
+ <20161125161004.GA30181@leverpostej>
+ <20161125161709.GQ3092@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David Laight" <David.Laight@ACULAB.COM>,
-        "David Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Boqun Feng <boqun.feng@gmail.com>,
+        Christian Borntraeger <borntraeger@de.ibm.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Davidlohr Bueso <dave@stgolabs.net>, dbueso@suse.de,
+        jasowang@redhat.com, KVM list <kvm@vger.kernel.org>,
         netdev <netdev@vger.kernel.org>,
-        "Tariq Toukan" <tariqt@mellanox.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:60061 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755530AbcKYQbg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Nov 2016 11:31:36 -0500
-In-Reply-To: <1480090590.8455.549.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Paul McKenney <paulmck@linux.vnet.ibm.com>,
+        virtualization@lists.linux-foundation.org,
+        Linus Torvalds <torvalds@linux-foundation.org>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161125161709.GQ3092@twins.programming.kicks-ass.net>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, Nov 25, 2016 at 05:17:09PM +0100, Peter Zijlstra wrote:
+> On Fri, Nov 25, 2016 at 04:10:04PM +0000, Mark Rutland wrote:
+> > On Fri, Nov 25, 2016 at 04:21:39PM +0100, Dmitry Vyukov wrote:
+> 
+> > > What are use cases for such primitive that won't be OK with "read once
+> > > _and_ atomically"?
+> > 
+> > I have none to hand.
+> 
+> Whatever triggers the __builtin_memcpy() paths, and even the size==8
+> paths on 32bit.
 
+Lockref, per:
 
-> 
-> The READ_ONCE() are documenting the fact that no lock is taken to fetch
-> the stats, while another cpus might being changing them.
-> 
-> I had no answer yet from https://patchwork.ozlabs.org/patch/698449/
-> 
-> So I thought it was not needed to explain this in the changelog, given
-> that it apparently is one of the few things that can block someone to
-> understand one of my changes :/
-> 
-> Apparently nobody really understands READ_ONCE() purpose, it is really a
-> pity we have to explain this over and over.
-> 
+http://lkml.iu.edu/hypermail/linux/kernel/1503.3/02294.html
 
-Even at the risk of showing once more a lack of understanding for READ_ONCE():
-Does not a READ_ONCE() have to e paired with some kind of WRITE_ONCE()? 
-Furthermore: there a quite some network drivers that ensure visibility of 
-the descriptor queue indices between xmit and xmit completion function by means of
-smp barriers. Could all these drivers theoretically be adjusted to use READ_ONCE(),
-WRITE_ONCE() for the indices instead?
+In that specific case, a torn value just means we'll retry until we get
+a non torn value, due to the cmpxchg. For that case, all we need is the
+value to be reloaded per invocation of READ_ONCE().
 
-Regards,
-Lino
+This guy seems to have the full story:
+
+http://lkml.iu.edu/hypermail/linux/kernel/1503.3/02389.html
+http://lkml.iu.edu/hypermail/linux/kernel/1503.3/02558.html
+
+Thanks,
+Mark.
