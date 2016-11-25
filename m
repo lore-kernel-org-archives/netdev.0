@@ -1,7 +1,8 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 0/5] net: add protocol level recvmmsg support
-Date: Fri, 25 Nov 2016 16:39:51 +0100
-Message-ID: <cover.1480086321.git.pabeni@redhat.com>
+Subject: [PATCH net-next 1/5] net/socket: factor out msghdr manipulation helpers
+Date: Fri, 25 Nov 2016 16:39:52 +0100
+Message-ID: <d22a859f37a8e696e552ce2f1a73d92aefa7f0e0.1480086321.git.pabeni@redhat.com>
+References: <cover.1480086321.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>,
         Jesper Dangaard Brouer <brouer@redhat.com>,
@@ -9,95 +10,202 @@ Cc: "David S. Miller" <davem@davemloft.net>,
         Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35028 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35952 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754801AbcKYPlS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754803AbcKYPlS (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 25 Nov 2016 10:41:18 -0500
+In-Reply-To: <cover.1480086321.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of recvmmsg() is to amortize the syscall overhead on a possible
-long messages batch, but for most networking protocols, e.g. udp the
-syscall overhead is negligible compared to the protocol specific operations
-like dequeuing.
+so that they can be later used for recvmmsg refactor
 
-Moreover, the current recvmmsg() implementation has a long-standing bug with
-the timeout argument that can be solved only with protocol level support for
-recvmmsg().
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/net/sock.h | 18 ++++++++++
+ net/socket.c       | 97 +++++++++++++++++++++++++++++-------------------------
+ 2 files changed, 70 insertions(+), 45 deletions(-)
 
-This patch series aims to solve both issues, introducing support for
-the recvmmsg implementation at the protocol level, adding some generic helpers
-for such operation, and finally implementing recvmmsg() support for
-udp[v6]/udplite[v6]. Such support does not cover MSG_PEEK and MSG_ERRQUEUE,
-as a trade-off between benefit and implementation complexity.
-
-The udp version of recvmmsg() tries to bulk-dequeue skbs from the receive queue,
-each burst acquires the lock once to extract as many skbs from the receive
-queue as possible, up to the number needed to reach the specified maximum.
-rmem_alloc and fwd memory are touched once per burst.
-
-When the protocol-level recvmmsg() is not available or it does not support the
-specified flags, the code falls-back to the current generic implementation.
-
-This series introduces some behavior changes for the recvmmsg() syscall (only
-for udp):
-- the timeout argument now works as expected
-- recvmmsg() does not stop anymore when getting the first error, instead
-  it keeps processing the current burst and then handle the error code as
-  in the generic implementation.
-
-The measured performance delta is as follow:
-
-		before		after
-		(Kpps)		(Kpps)
-
-udp flood[1]	570		1800(+215%)
-max tput[2]	1850		3500(+89%)
-single queue[3]	1850		1630(-11%)
-
-[1] line rate flood using multiple 64 bytes packets and multiple flows
-[2] like [1], but using the minimum number of flows to saturate the user space
- sink, that is 1 flow for the old kernel and 3 for the patched one.
- the tput increases since the contention on the rx lock is low.
-[3] like [1] but using a single flow with both old and new kernel. All the
- packets land on the same rx queue and there is a single ksoftirqd instance
- running
-
-The regression in the single queue scenario is actually due to the improved
-performance of the recvmmsg() syscall: the user space process is now
-significantly faster than the ksoftirqd process so that the latter needs often
-to wake up the user space process.
-
-Since ksoftirqd is the bottle-neck is such scenario, overall this causes a
-tput reduction. In a real use case, where the udp sink is performing some
-actual processing of the received data, such regression is unlikely to really
-have an effect.
-
-Join work with Sabrina Dubroca <sd@queasysnail.net>.
-
-Paolo Abeni (5):
-  net/socket: factor out msghdr manipulation helpers
-  net/socket: add per protocol mmesg support
-  net/udp: factor out main skb processing routine
-  net/socket: add helpers for recvmmsg
-  udp: add recvmmsg implementation
-
- include/linux/net.h       |   5 ++
- include/linux/skbuff.h    |  20 +++++
- include/net/inet_common.h |   3 +
- include/net/sock.h        |  43 +++++++++++
- include/net/udp.h         |   7 ++
- net/core/datagram.c       |  65 ++++++++++++++++
- net/ipv4/af_inet.c        |  16 ++++
- net/ipv4/udp.c            | 188 +++++++++++++++++++++++++++++++++++++++-------
- net/ipv4/udp_impl.h       |   3 +
- net/ipv4/udplite.c        |   1 +
- net/ipv6/af_inet6.c       |   1 +
- net/ipv6/udp.c            |  89 +++++++++++++++-------
- net/ipv6/udp_impl.h       |   3 +
- net/ipv6/udplite.c        |   1 +
- net/socket.c              | 183 ++++++++++++++++++++++++++++++++------------
- 15 files changed, 528 insertions(+), 100 deletions(-)
-
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 442cbb1..c92dc19 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1528,6 +1528,24 @@ int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
+ int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
+ 		   struct sockcm_cookie *sockc);
+ 
++static inline bool sock_recvmmsg_timeout(struct timespec *timeout,
++					 struct timespec64 end_time)
++{
++	struct timespec64 timeout64;
++
++	if (!timeout)
++		return false;
++
++	ktime_get_ts64(&timeout64);
++	*timeout = timespec64_to_timespec(timespec64_sub(end_time, timeout64));
++	if (timeout->tv_sec < 0) {
++		timeout->tv_sec = timeout->tv_nsec = 0;
++		return true;
++	}
++
++	return timeout->tv_nsec == 0 && timeout->tv_sec == 0;
++}
++
+ /*
+  * Functions to fill in entries in struct proto_ops when a protocol
+  * does not implement a particular function.
+diff --git a/net/socket.c b/net/socket.c
+index e2584c5..9b5f360 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1903,6 +1903,21 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
+ 			    UIO_FASTIOV, iov, &kmsg->msg_iter);
+ }
+ 
++static int copy_msghdr_from_user_gen(struct msghdr *msg_sys, unsigned int flags,
++				     struct compat_msghdr __user *msg_compat,
++				     struct user_msghdr __user *msg,
++				     struct sockaddr __user **uaddr,
++				     struct iovec **iov,
++				     struct sockaddr_storage *addr)
++{
++	msg_sys->msg_name = addr;
++
++	if (MSG_CMSG_COMPAT & flags)
++		return get_compat_msghdr(msg_sys, msg_compat, uaddr, iov);
++	else
++		return copy_msghdr_from_user(msg_sys, msg, uaddr, iov);
++}
++
+ static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 			 struct msghdr *msg_sys, unsigned int flags,
+ 			 struct used_address *used_address,
+@@ -1919,12 +1934,8 @@ static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 	int ctl_len;
+ 	ssize_t err;
+ 
+-	msg_sys->msg_name = &address;
+-
+-	if (MSG_CMSG_COMPAT & flags)
+-		err = get_compat_msghdr(msg_sys, msg_compat, NULL, &iov);
+-	else
+-		err = copy_msghdr_from_user(msg_sys, msg, NULL, &iov);
++	err = copy_msghdr_from_user_gen(msg_sys, flags, msg_compat, msg, NULL,
++					&iov, &address);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -2101,6 +2112,34 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 	return __sys_sendmmsg(fd, mmsg, vlen, flags);
+ }
+ 
++static int copy_msghdr_to_user_gen(struct msghdr *msg_sys, int flags,
++				   struct compat_msghdr __user *msg_compat,
++				   struct user_msghdr __user *msg,
++				   struct sockaddr __user *uaddr,
++				   struct sockaddr_storage *addr,
++				   unsigned long cmsgptr)
++{
++	int __user *uaddr_len = COMPAT_NAMELEN(msg);
++	int err;
++
++	if (uaddr) {
++		err = move_addr_to_user(addr, msg_sys->msg_namelen, uaddr,
++					uaddr_len);
++		if (err < 0)
++			return err;
++	}
++	err = __put_user((msg_sys->msg_flags & ~MSG_CMSG_COMPAT),
++			 COMPAT_FLAGS(msg));
++	if (err)
++		return err;
++	if (MSG_CMSG_COMPAT & flags)
++		return __put_user((unsigned long)msg_sys->msg_control -
++				  cmsgptr, &msg_compat->msg_controllen);
++	else
++		return __put_user((unsigned long)msg_sys->msg_control - cmsgptr,
++				  &msg->msg_controllen);
++}
++
+ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 			 struct msghdr *msg_sys, unsigned int flags, int nosec)
+ {
+@@ -2117,14 +2156,9 @@ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 
+ 	/* user mode address pointers */
+ 	struct sockaddr __user *uaddr;
+-	int __user *uaddr_len = COMPAT_NAMELEN(msg);
+ 
+-	msg_sys->msg_name = &addr;
+-
+-	if (MSG_CMSG_COMPAT & flags)
+-		err = get_compat_msghdr(msg_sys, msg_compat, &uaddr, &iov);
+-	else
+-		err = copy_msghdr_from_user(msg_sys, msg, &uaddr, &iov);
++	err = copy_msghdr_from_user_gen(msg_sys, flags, msg_compat, msg, &uaddr,
++					&iov, &addr);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -2140,24 +2174,8 @@ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 	if (err < 0)
+ 		goto out_freeiov;
+ 	len = err;
+-
+-	if (uaddr != NULL) {
+-		err = move_addr_to_user(&addr,
+-					msg_sys->msg_namelen, uaddr,
+-					uaddr_len);
+-		if (err < 0)
+-			goto out_freeiov;
+-	}
+-	err = __put_user((msg_sys->msg_flags & ~MSG_CMSG_COMPAT),
+-			 COMPAT_FLAGS(msg));
+-	if (err)
+-		goto out_freeiov;
+-	if (MSG_CMSG_COMPAT & flags)
+-		err = __put_user((unsigned long)msg_sys->msg_control - cmsg_ptr,
+-				 &msg_compat->msg_controllen);
+-	else
+-		err = __put_user((unsigned long)msg_sys->msg_control - cmsg_ptr,
+-				 &msg->msg_controllen);
++	err = copy_msghdr_to_user_gen(msg_sys, flags, msg_compat, msg, uaddr,
++				      &addr, cmsg_ptr);
+ 	if (err)
+ 		goto out_freeiov;
+ 	err = len;
+@@ -2209,7 +2227,6 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 	struct compat_mmsghdr __user *compat_entry;
+ 	struct msghdr msg_sys;
+ 	struct timespec64 end_time;
+-	struct timespec64 timeout64;
+ 
+ 	if (timeout &&
+ 	    poll_select_set_timeout(&end_time, timeout->tv_sec,
+@@ -2260,19 +2277,9 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 		if (flags & MSG_WAITFORONE)
+ 			flags |= MSG_DONTWAIT;
+ 
+-		if (timeout) {
+-			ktime_get_ts64(&timeout64);
+-			*timeout = timespec64_to_timespec(
+-					timespec64_sub(end_time, timeout64));
+-			if (timeout->tv_sec < 0) {
+-				timeout->tv_sec = timeout->tv_nsec = 0;
+-				break;
+-			}
+-
+-			/* Timeout, return less than vlen datagrams */
+-			if (timeout->tv_nsec == 0 && timeout->tv_sec == 0)
+-				break;
+-		}
++		/* Timeout, return less than vlen datagrams */
++		if (sock_recvmmsg_timeout(timeout, end_time))
++			break;
+ 
+ 		/* Out of band data, return right away */
+ 		if (msg_sys.msg_flags & MSG_OOB)
 -- 
 1.8.3.1
