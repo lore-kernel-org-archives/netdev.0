@@ -1,53 +1,37 @@
-From: <chacoma4018@windstream.net>
-Subject: 47858 netdev
-Date: Fri, 25 Nov 2016 13:57:45 -0000
-Message-ID: <148008226504.6552.4115504923646821562@smsarena.pl>
-Mime-Version: 1.0
-Content-Type: application/zip; name="INFO_70879003471922_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [iproute2] link: add team and team_slave link type
+Date: Fri, 25 Nov 2016 22:01:29 +0800
+Message-ID: <1480082489-3135-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from api.smsarena.pl ([195.140.188.232]:47281 "HELO smsarena.pl"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1754284AbcKYN5s (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Nov 2016 08:57:48 -0500
-Content-Disposition: attachment
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:19788 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753663AbcKYOCm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 09:02:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-BwAAAAA=
+Add missing team and team_slave link type.
+
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ ip/iplink.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/ip/iplink.c b/ip/iplink.c
+index a8b49c5..1e603e7 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -98,8 +98,8 @@ void iplink_usage(void)
+ 		fprintf(stderr,
+ 			"       ip link help [ TYPE ]\n\n"
+ 			"TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n"
+-			"          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n"
+-			"          gre | gretap | ip6gre | ip6gretap | vti | nlmon |\n"
++			"          bridge | bond | team | ipoib | ip6tnl | ipip | sit | vxlan |\n"
++			"          gre | gretap | ip6gre | ip6gretap | vti | nlmon | team_slave |\n"
+ 			"          bond_slave | ipvlan | geneve | bridge_slave | vrf | macsec }\n");
+ 	}
+ 	exit(-1);
+-- 
+1.8.3.1
