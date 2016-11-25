@@ -1,79 +1,87 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH 2/2] net: phy: realtek: fix enabling of the TX-delay for RTL8211F
-Date: Fri, 25 Nov 2016 14:12:01 +0100
-Message-ID: <20161125131201.19994-3-martin.blumenstingl@googlemail.com>
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH 1/2] Documentation: devicetree: clarify usage of the RGMII phy-modes
+Date: Fri, 25 Nov 2016 14:12:00 +0100
+Message-ID: <20161125131201.19994-2-martin.blumenstingl@googlemail.com>
 References: <20161125131201.19994-1-martin.blumenstingl@googlemail.com>
-Cc: linux-amlogic@lists.infradead.org, jbrunet@baylibre.com,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-To: f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        davem@davemloft.net, sean.wang@mediatek.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35543 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753305AbcKYN1e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 08:27:34 -0500
-In-Reply-To: <20161125131201.19994-1-martin.blumenstingl@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161125131201.19994-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The old logic always enabled the TX-delay when the phy-mode was set to
-PHY_INTERFACE_MODE_RGMII. There are dedicated phy-modes which tell the
-PHY driver to enable the RX and/or TX delays:
-- PHY_INTERFACE_MODE_RGMII should disable the RX and TX delay in the
-  PHY (if required, the MAC should add the delays in this case)
-- PHY_INTERFACE_MODE_RGMII_ID should enable RX and TX delay in the PHY
-- PHY_INTERFACE_MODE_RGMII_TXID should enable the TX delay in the PHY
-- PHY_INTERFACE_MODE_RGMII_RXID should enable the RX delay in the PHY
-  (currently not supported by RTL8211F)
+RGMII requires special RX and/or TX delays depending on the actual
+hardware circuit/wiring. These delays can be added by the MAC, the PHY
+or the designer of the circuit (the latter means that no delay has to
+be added by PHY or MAC).
+There are 4 RGMII phy-modes used describe where a delay should be
+applied:
+- rgmii: the RX and TX delays are either added by the MAC (where the
+  exact delay is typically configurable, and can be turned off when no
+  extra delay is needed) or not needed at all (because the hardware
+  wiring adds the delay already). The PHY should neither add the RX nor
+  TX delay in this case.
+- rgmii-rxid: configures the PHY to enable the RX delay. The MAC should
+  not add the RX delay in this case.
+- rgmii-txid: configures the PHY to enable the TX delay. The MAC should
+  not add the TX delay in this case.
+- rgmii-id: combines rgmii-rxid and rgmii-txid and thus configures the
+  PHY to enable the RX and TX delays. The MAC should neither add the RX
+  nor TX delay in this case.
 
-With this patch we enable the TX delay for PHY_INTERFACE_MODE_RGMII_ID
-and PHY_INTERFACE_MODE_RGMII_TXID.
-Additionally we now explicity disable the TX-delay, which seems to be
-enabled automatically after a hard-reset of the PHY (by triggering it's
-reset pin) to get a consistent state (as defined by the phy-mode).
+Document these cases in the ethernet.txt documentation to make it clear
+when to use each mode.
+If applied incorrectly one might end up with MAC and PHY both enabling
+for example the TX delay, which breaks ethernet TX traffic on 1000Mbit/s
+links.
 
-This fixes a compatibility problem with some SoCs where the TX-delay was
-also added by the MAC. With the TX-delay being applied twice the TX
-clock was off and TX traffic was broken or very slow (<10Mbit/s) on
-1000Mbit/s links.
-
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 ---
- drivers/net/phy/realtek.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
+ Documentation/devicetree/bindings/net/ethernet.txt | 24 ++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-index aadd6e9..9cbe645 100644
---- a/drivers/net/phy/realtek.c
-+++ b/drivers/net/phy/realtek.c
-@@ -102,15 +102,19 @@ static int rtl8211f_config_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
- 
--	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
--		/* enable TXDLY */
--		phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
--		reg = phy_read(phydev, 0x11);
-+	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
-+	reg = phy_read(phydev, 0x11);
-+
-+	/* enable TX-delay for rgmii-id and rgmii-txid, otherwise disable it */
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
-+	    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
- 		reg |= RTL8211F_TX_DELAY;
--		phy_write(phydev, 0x11, reg);
--		/* restore to default page 0 */
--		phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
--	}
-+	else
-+		reg &= ~RTL8211F_TX_DELAY;
-+
-+	phy_write(phydev, 0x11, reg);
-+	/* restore to default page 0 */
-+	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
- 
- 	return 0;
- }
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index e1d7681..0515095 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -9,10 +9,26 @@ The following properties are common to the Ethernet controllers:
+ - max-speed: number, specifies maximum speed in Mbit/s supported by the device;
+ - max-frame-size: number, maximum transfer unit (IEEE defined MTU), rather than
+   the maximum frame size (there's contradiction in ePAPR).
+-- phy-mode: string, operation mode of the PHY interface; supported values are
+-  "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
+-  "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii", "trgmii"; this is now a
+-  de-facto standard property;
++- phy-mode: string, operation mode of the PHY interface. This is now a de-facto
++  standard property; supported values are:
++  * "mii"
++  * "gmii"
++  * "sgmii"
++  * "qsgmii"
++  * "tbi"
++  * "rev-mii"
++  * "rmii"
++  * "rgmii" (RX and TX delays are added by the MAC when required)
++  * "rgmii-id" (RGMII with internal RX and TX delays provided by the PHY, the
++     MAC should not add the RX or TX delays in this case)
++  * "rgmii-rxid" (RGMII with internal RX delay provided by the PHY, the MAC
++     should not add an RX delay in this case)
++  * "rgmii-txid" (RGMII with internal TX delay provided by the PHY, the MAC
++     should not add an TX delay in this case)
++  * "rtbi"
++  * "smii"
++  * "xgmii"
++  * "trgmii"
+ - phy-connection-type: the same as "phy-mode" property but described in ePAPR;
+ - phy-handle: phandle, specifies a reference to a node representing a PHY
+   device; this property is described in ePAPR and so preferred;
 -- 
 2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
