@@ -1,80 +1,130 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Aw: Re: [PATCH] mlx4: give precise rx/tx bytes/packets counters
-Date: Fri, 25 Nov 2016 11:19:11 -0800
-Message-ID: <1480101551.8455.557.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
-         <063D6719AE5E284EB5DD2968C1650D6DB0228849@AcuExch.aculab.com>
-        , <1480090590.8455.549.camel@edumazet-glaptop3.roam.corp.google.com>
-         <trinity-a100658c-7fd5-47b3-ab3f-1f0a80774ccc-1480091457793@3capp-gmx-bs57>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: net/arp: ARP cache aging failed.
+Date: Fri, 25 Nov 2016 22:40:11 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1611252140120.1888@ja.home.ssi.bg>
+References: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com> <alpine.LFD.2.11.1611230928140.1659@ja.home.ssi.bg> <1479902729.8455.479.camel@edumazet-glaptop3.roam.corp.google.com> <250d3a88-45ad-891f-389a-997f39d7bdad@stressinduktion.org>
+ <1479944967.8455.516.camel@edumazet-glaptop3.roam.corp.google.com> <alpine.LFD.2.11.1611240931560.1685@ja.home.ssi.bg> <c82b7b44-c0ad-9ee7-1114-3eae3b5cf75a@huawei.com> <1fdf938e-600c-ce58-ece1-06b816ddba1c@stressinduktion.org> <alpine.LFD.2.11.1611250957100.1966@ja.home.ssi.bg>
+ <40b84d35-4185-bfbc-7f85-9d6abf984d31@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: YueHaibing <yuehaibing@huawei.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35477 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932162AbcKYTTO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 14:19:14 -0500
-Received: by mail-pg0-f65.google.com with SMTP id p66so6172285pga.2
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 11:19:14 -0800 (PST)
-In-Reply-To: <trinity-a100658c-7fd5-47b3-ab3f-1f0a80774ccc-1480091457793@3capp-gmx-bs57>
+Received: from ja.ssi.bg ([178.16.129.10]:59124 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932731AbcKYUkg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 15:40:36 -0500
+In-Reply-To: <40b84d35-4185-bfbc-7f85-9d6abf984d31@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-11-25 at 17:30 +0100, Lino Sanfilippo wrote:
-> Hi,
+
+	Hello,
+
+On Fri, 25 Nov 2016, Hannes Frederic Sowa wrote:
+
+> On 25.11.2016 09:18, Julian Anastasov wrote:
+> > 
+> > 	Another option would be to add similar bit to
+> > struct sock (sk_dst_pending_confirm), may be ip_finish_output2
+> > can propagate it to dst_neigh_output via new arg and then to
+> > reset it.
 > 
+> I don't understand how this can help? Maybe I understood it wrong?
+
+	The idea is, the indication from highest level (TCP) to
+be propagated to lowest level (neigh).
+
+> > Or to change n->confirmed via some new inline sock
+> > function instead of changing dst_neigh_output. At this place 
+> > skb->sk is optional, may be we need (skb->sk && dst ==
+> > skb->sk->sk_dst_cache) check. Also, when sk_dst_cache changes
+> > we should clear this flag.
 > 
-> > 
-> > The READ_ONCE() are documenting the fact that no lock is taken to fetch
-> > the stats, while another cpus might being changing them.
-> > 
-> > I had no answer yet from https://patchwork.ozlabs.org/patch/698449/
-> > 
-> > So I thought it was not needed to explain this in the changelog, given
-> > that it apparently is one of the few things that can block someone to
-> > understand one of my changes :/
-> > 
-> > Apparently nobody really understands READ_ONCE() purpose, it is really a
-> > pity we have to explain this over and over.
-> > 
-> 
-> Even at the risk of showing once more a lack of understanding for
-> READ_ONCE():
-> Does not a READ_ONCE() have to e paired with some kind of
-> WRITE_ONCE()? 
+> In "(skb->sk && dst == skb->sk->sk_dst_cache)" where does dst come from?
 
-You are right.
+	This is in case we do not want to propagate indication
+from TCP to tunnels, see below...
 
-Although in this case, the producers are using a lock, and do
+> I don't see a possibility besides using mac_header or inner_mac_header
+> to look up the incoming MAC address and confirm that one in the neighbor
+> cache so far (we could try to optimize this case for rt_gateway though).
 
-ring->packets++;
+	My idea is as follows:
 
-We hopefully have compilers/cpus that do not put intermediate garbage in
-ring->packets while doing the increment.
+- TCP instead of calling dst_confirm should call new func
+dst_confirm_sk(sk) where sk->sk_dst_pending_confirm is set,
+not dst->pending_confirm.
 
-One problem with :
+- ip_finish_output2: use skb->sk (TCP) to check for
+sk_dst_pending_confirm and update n->confirmed in some
+new inline func
 
-WRITE_ONCE(ring->packets, ring->packets + 1);
+	Correct me if I'm wrong but here is how I see the
+situation:
 
-is that gcc no longer uses an INC instruction.
+- TCP caches output dst in socket, for example, dst1,
+sets it as skb->dst
 
-Maybe we need some ADD_ONCE(ptr, val) macro doing the proper thing.
+- if xfrm tunnels are used then dst1 can point to some tunnel,
+i.e. it is not in all cases the same skb->dst, as seen by 
+ip_finish_output2
 
-> Furthermore: there a quite some network drivers that ensure visibility
-> of 
-> the descriptor queue indices between xmit and xmit completion function
-> by means of
-> smp barriers. Could all these drivers theoretically be adjusted to use
-> READ_ONCE(),
-> WRITE_ONCE() for the indices instead?
-> 
+- netfilter can DNAT and assign different skb->dst
 
-Well, for this precise case we do need appropriate smp barriers.
+- as result, before now, dst1->pending_confirm is set but
+it is not used properly because ip_finish_output2 uses
+the final skb->dst which can be different or with
+rt_gateway = 0
 
-READ_ONCE() can be better than poor barrier(), look at 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=b668534c1d9b80f4cda4d761eb11d3a6c9f4ced8
+- considering that tunnels do not use dst_confirm,
+n->confirmed is not changed every time. There are some
+interesting cases:
+
+1. both dst1 and the final skb->dst point to same
+dst with rt_gateway = 0: n->confirmed is updated but
+as wee see it can be for wrong neigh.
+
+2. dst1 is different from skb->dst, so n->confirmed is
+not changed. This can happen on DNAT or when using
+tunnel to secure gateway.
+
+- in ip_finish_output2 we have skb->sk (original TCP sk) and
+sk arg (equal to skb->sk or second option is sock of some UDP
+tunnel, etc). The idea is to use skb->sk->sk_dst_pending_confirm,
+i.e. highest level sk because the sk arg, if different, does not
+have such flag set (tunnels do not call dst_confirm).
+
+- ip_finish_output2 should call new func dst_neigh_confirm_sk
+(which has nothing related to dst, hm... better name is needed):
+
+ 	if (!IS_ERR(neigh)) {
+-		int res = dst_neigh_output(dst, neigh, skb);
++		int res;
++
++		dst_neigh_confirm_sk(skb->sk, neigh);
++		res = dst_neigh_output(dst, neigh, skb);
+
+	which should do something like this:
+
+	if (sk && sk->sk_dst_pending_confirm) {
+		unsigned long now = jiffies;
+
+		sk->sk_dst_pending_confirm = 0;
+		/* avoid dirtying neighbour */
+		if (n->confirmed != now)
+			n->confirmed = now;
+	}
+
+	Additional dst == skb->sk->sk_dst_cache check will
+not propagate the indication on DNAT/tunnel. For me,
+it is better without such check.
+
+	So, the idea is to move TCP and other similar
+users to the new dst_confirm_sk() method. If other
+dst_confirm() users are left, they should be checked
+if dsts with rt_gateway = 0 can be wrongly used.
+
+Regards
