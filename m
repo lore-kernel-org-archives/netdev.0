@@ -1,39 +1,55 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Thu, 24 Nov 2016 22:49:33 -0500
-Message-ID: <ed0c9790-57be-8bca-cdd6-3a54ca24f0bd@pobox.com>
-References: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
- <20161124.112152.692025478489876693.davem@davemloft.net>
- <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
- <20161124.121140.2054576632424977475.davem@davemloft.net>
- <c3ca9e10-64de-2454-b99a-19e8302f5c12@pobox.com>
- <20161125002702.GA14085@electric-eye.fr.zoreil.com>
+From: =?utf-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
+Subject: Re: [scr265482] ip_tunnel.c
+Date: Fri, 25 Nov 2016 03:52:33 +0000
+Message-ID: <F41877A268BCDE49BAEE2286FA8C269F6FECFD83@LETV-MBX-IDC09.letv.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, hayeswang@realtek.com,
-        netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161125002702.GA14085@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.letv.com ([115.182.93.109]:38577 "EHLO letvspm.imsa.com"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750991AbcKYDxK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 22:53:10 -0500
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-11-24 07:27 PM, Francois Romieu wrote:
->
-> Through aliasing the URB was given a page that contains said (previously)
-> received file. The ethernet chip/usb host does not write anything in it.
-
-I don't see how that could be possible.  Please elaborate.
-
-The URB buffers are statically allocated by the driver at probe time,
-ten of them in all, allocated with usb_alloc_coherent() in the copy of
-the driver I am testing with.
-
-There is no possibility for them to be used for anything other than
-USB receive buffers, for this driver only.  Nothing in the driver
-or kernel ever writes to those buffers after initial allocation,
-and only the driver and USB host controller ever have pointers to the buffers.
--- 
-Mark Lord
+IEkgYWNjZXB0IHRoYXQgdGhlIGlzc3VlIGlzIG5vdCBhIENWRSBjYW5kaWRhdGUuIEJ1dCBpdCdz
+IGEgYnVnIGlzbid0IGl0DQogDQogVGhhbmsgeW91IGZvciB5b3VyIHN1Z2dlc3Rpb25zLCBhYm91
+dCB0aGUgZm9ybWF0IG9mIG1haWwsIGFuZCBub3QgbmV4dCB0aW1lLiANCg0KIEV2ZXJ5dGhpbmcg
+aGFzIGl0cyBtZWFuaW5nLiBJZiBzZXF1ZW5jZSBudW1iZXIgaXMgYSBqb2tlLCB3aHkgdGhlIGd1
+eXMgcHV0IGl0IGludG8gUkZDICwgZXZlbiBpbXBsZW1lbnRlZCB0aGUgZmVhdHVyZS4NCg0KIEFu
+ZCBpZiB5b3UgbWVhbnMgdGhhdCBTTVAgKCBTeW1tZXRyaWMgTXVsdGkgUHJvY2Vzc2luZyApPyAN
+Cg0KDQoNCk9uIFRodSwgTm92IDI0LCAyMDE2IGF0IDU6MzkgUE0sIExpeWFuZyBZdSAo5LqO56uL
+5rSLMSkgPHl1bGl5YW5nMUBsZS5jb20+IHdyb3RlOg0KPg0KPg0KPg0KPg0KPg0KPg0KPg0KPiBC
+VFc6DQo+DQo+ICAgIFdoaWNoIFJGQyBzdWdnZXN0cyBVSU5UX01BWCBhcyBHUkUgc2VxdWVuY2Ug
+bnVtYmVyPyAgQ2FuIHlvdSBzaG93IG1lPw0KPg0KPg0KPg0KPg0KPg0KPg0KDQoNClJGQyAyODkw
+DQoNCkluIGFueSBjYXNlcywgdGhpcyBpcyBhYnNvbHV0ZWx5IG5vdCBhIHNlY3VyaXR5IGlzc3Vl
+IG5vciBhIENWRSBjYW5kaWRhdGUuDQpQbGVhc2UgcmVtb3ZlIHNlY3VyaXR5QGtlcm5lbC5vcmcg
+ZnJvbSBDQywgbm8gbmVlZCB0byBzcGFtIHNlY3VyaXR5IGd1eXMsIHRoZXkgaGF2ZSBlbm91Z2gg
+b24gdGhlaXIgcGxhdGUuDQoNClBsZWFzZSBzZW5kIHRleHQgbWVzc2FnZXMsIG5vIEhUTUwgaXMg
+YWxsb3dlZCBvbiBuZXRkZXYNCg0KTm9ib2R5IHNhbmUgdXNlcyBHUkUgc2VxdWVuY2UgbnVtYmVy
+cywgcHJlY2lzZWx5IGJlY2F1c2UgR1JFIGhhcyBubyBkb2N1bWVudGVkIHdheSB0byBzeW5jaHJv
+bml6ZSB0aGUgc291cmNlIGFuZCBkZXN0aW5hdGlvbiBvZiB0aGUgdHVubmVsLg0KQmFzaWNhbGx5
+LCBpZiB5b3UgdXNlIEdSRSBzZXF1ZW5jZSBudW1iZXJzLCB5b3UgbXVzdCByZS1zdGFydCBvdGhl
+ciBzaWRlIG9mIHRoZSB0dW5uZWwgaWYgb25lIHNpZGUgaGFkIHRvIHJlc3RhcnQsIG9yIHJpc2sg
+ZHJvcHBpbmcgdXAgdG8gMl4zMSBwYWNrZXRzLg0KDQpSZWFsbHksIHRoaXMgaXMgbm90IHNvbWV0
+aGluZyB0aGF0IGNhbiBiZSBzb2x2ZWQgYnkgdXNpbmcgJ2EgZGlmZmVyZW50IGluaXRpYWwgc2Vx
+dWVuY2UgbnVtYmVyJw0KDQpsaW51eCBHUkUgc2VxdWVuY2UgbnVtYmVyIHN1cHBvcnQgaXMgYSBq
+b2tlLCBpdCBkb2VzIG5vdCBzdXBwb3J0IFNNUCBmb3IgYSBzdGFydC4NCg0KDQoNCj4NCj4NCj4N
+Cj4gT24gV2VkLCBOb3YgMjMsIDIwMTYgYXQgMTE6NDUgUE0sIExpeWFuZyBZdSAo5LqO56uL5rSL
+MSkgPHl1bGl5YW5nMUBsZS5jb20+IHdyb3RlOg0KPg0KPiA+IFllYWjvvIxJIG1lYW5zIHRoYXQg
+cmVjcmVhdGUgdGhlIHR1bm5lbCBhZ2FpbiwgQnV0IEkgZG9u4oCZdCB0aGluayB0aGUNCj4NCj4g
+PiBwYXRjaCBjYW4gZml4IHRoZSBidWcuIEl0IG9ubHkgY2FuIG1ha2UgdGhlIGZpcnN0IHBhY2tl
+dCByZWNlaXZlZCBzdWNjZXNzZWQuIEFuZCB0aGUgZm9sbG93IHBhY2tldCB3aWxsIGRyb3BlZCBh
+bHNvLg0KPg0KPiA+IEluIGZ1bmN0aW9uIF9fZ3JlX3htaXQgIGxpbmUgMzY2DQo+DQo+ID4gICB0
+dW5uZWwtPm9fc2Vxbm8rKzsNCj4NCj4gPg0KPg0KPiA+IElmIHlvdSByZXN0YXJ0IGZyb20gVUlO
+VF9NQVgsIHRoZSAnb19zZXFubycgb2Ygc2Vjb25kIHBhY2tldCB3aWxsIHJldHVybiB0byAwIGFn
+YWluLg0KPg0KPg0KPg0KPiBUaGUgZmlyc3QgcGFja2V0IGFmdGVyIHJlc3RhcnQ6IG9fc2Vxbm8g
+PT0gVUlOVF9NQVgsIHRoZSBvdGhlciBlbmQ6IA0KPiBpX3NlcW5vID0gMCBUaGUgc2Vjb25kIHBh
+Y2tldCBhZnRlciByZXN0YXJ0OiBvX3NlcW5vID09IDAsIHRoZSBvdGhlciANCj4gZW5kOiBpX3Nl
+cW5vID0gMQ0KPg0KPg0KPg0KPiBTbyB0cmFmZmljIHNob3VsZCBiZSBiYWNrIHRvIG5vcm1hbC4N
+Cj4NCj4NCj4NCj4gVUlOVF9NQVggaXMgYWxzbyB3aGF0IFJGQyBzdWdnZXN0cy4NCg==
