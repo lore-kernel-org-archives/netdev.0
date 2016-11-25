@@ -1,54 +1,62 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] mlx4: give precise rx/tx bytes/packets counters
-Date: Fri, 25 Nov 2016 16:03:37 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0228849@AcuExch.aculab.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Subject: [PATCH] net: dsa: fix unbalanced dsa_switch_tree reference counting
+Date: Fri, 25 Nov 2016 19:08:53 +0300
+Message-ID: <1480090133-30412-1-git-send-email-nikita.yoush@cogentembedded.com>
+Cc: Chris Healy <cphealy@gmail.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        John Crispin <john@phrozen.org>,
+        Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:58766 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755117AbcKYQEF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 11:04:05 -0500
-In-Reply-To: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:35040 "EHLO
+        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754878AbcKYQJj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 11:09:39 -0500
+Received: by mail-lf0-f41.google.com with SMTP id b14so53770427lfg.2
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 08:09:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogT2YgRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDI1IE5vdmVtYmVyIDIwMTYgMTU6NDYNCj4g
-bWx4NCBzdGF0cyBhcmUgY2hhb3RpYyBiZWNhdXNlIGEgZGVmZXJyZWQgd29yayBxdWV1ZSBpcyBy
-ZXNwb25zaWJsZQ0KPiB0byB1cGRhdGUgdGhlbSBldmVyeSAyNTAgbXMuDQo+IA0KPiBFdmVuIHNh
-bXBsaW5nIHN0YXRzIGV2ZXJ5IG9uZSBzZWNvbmQgd2l0aCAic2FyIC1uIERFViAxIiBnaXZlcw0K
-PiB2YXJpYXRpb25zIGxpa2UgdGhlIGZvbGxvd2luZyA6DQouLi4NCj4gVGhpcyBwYXRjaCBhbGxv
-d3MgcngvdHggYnl0ZXMvcGFja2V0cyBjb3VudGVycyBiZWluZyBmb2xkZWQgYXQgdGhlDQo+IHRp
-bWUgd2UgbmVlZCBzdGF0cy4NCj4gDQo+IFdlIG5vdyBjYW4gZmV0Y2ggc3RhdHMgZXZlcnkgMSBt
-cyBpZiB3ZSB3YW50IHRvIGNoZWNrIE5JQyBiZWhhdmlvcg0KPiBvbiBhIHNtYWxsIHRpbWUgd2lu
-ZG93LiBJdCBpcyBhbHNvIGVhc2llciB0byBkZXRlY3QgYW5vbWFsaWVzLg0KLi4uDQo+IFNpZ25l
-ZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gQ2M6IFRhcmlx
-IFRvdWthbiA8dGFyaXF0QG1lbGxhbm94LmNvbT4NCi4uLg0KPiAgCWZvciAoaSA9IDA7IGkgPCBw
-cml2LT5yeF9yaW5nX251bTsgaSsrKSB7DQo+IC0JCXN0YXRzLT5yeF9wYWNrZXRzICs9IHByaXYt
-PnJ4X3JpbmdbaV0tPnBhY2tldHM7DQo+IC0JCXN0YXRzLT5yeF9ieXRlcyArPSBwcml2LT5yeF9y
-aW5nW2ldLT5ieXRlczsNCj4gLQkJc3dfcnhfZHJvcHBlZCArPSBwcml2LT5yeF9yaW5nW2ldLT5k
-cm9wcGVkOw0KPiAtCQlwcml2LT5wb3J0X3N0YXRzLnJ4X2Noa3N1bV9nb29kICs9IHByaXYtPnJ4
-X3JpbmdbaV0tPmNzdW1fb2s7DQo+IC0JCXByaXYtPnBvcnRfc3RhdHMucnhfY2hrc3VtX25vbmUg
-Kz0gcHJpdi0+cnhfcmluZ1tpXS0+Y3N1bV9ub25lOw0KPiAtCQlwcml2LT5wb3J0X3N0YXRzLnJ4
-X2Noa3N1bV9jb21wbGV0ZSArPSBwcml2LT5yeF9yaW5nW2ldLT5jc3VtX2NvbXBsZXRlOw0KPiAt
-CQlwcml2LT54ZHBfc3RhdHMucnhfeGRwX2Ryb3AgICAgKz0gcHJpdi0+cnhfcmluZ1tpXS0+eGRw
-X2Ryb3A7DQo+IC0JCXByaXYtPnhkcF9zdGF0cy5yeF94ZHBfdHggICAgICArPSBwcml2LT5yeF9y
-aW5nW2ldLT54ZHBfdHg7DQo+IC0JCXByaXYtPnhkcF9zdGF0cy5yeF94ZHBfdHhfZnVsbCArPSBw
-cml2LT5yeF9yaW5nW2ldLT54ZHBfdHhfZnVsbDsNCj4gKwkJY29uc3Qgc3RydWN0IG1seDRfZW5f
-cnhfcmluZyAqcmluZyA9IHByaXYtPnJ4X3JpbmdbaV07DQo+ICsNCj4gKwkJc3dfcnhfZHJvcHBl
-ZAkJCSs9IFJFQURfT05DRShyaW5nLT5kcm9wcGVkKTsNCj4gKwkJcHJpdi0+cG9ydF9zdGF0cy5y
-eF9jaGtzdW1fZ29vZCArPSBSRUFEX09OQ0UocmluZy0+Y3N1bV9vayk7DQo+ICsJCXByaXYtPnBv
-cnRfc3RhdHMucnhfY2hrc3VtX25vbmUgKz0gUkVBRF9PTkNFKHJpbmctPmNzdW1fbm9uZSk7DQo+
-ICsJCXByaXYtPnBvcnRfc3RhdHMucnhfY2hrc3VtX2NvbXBsZXRlICs9IFJFQURfT05DRShyaW5n
-LT5jc3VtX2NvbXBsZXRlKTsNCj4gKwkJcHJpdi0+eGRwX3N0YXRzLnJ4X3hkcF9kcm9wCSs9IFJF
-QURfT05DRShyaW5nLT54ZHBfZHJvcCk7DQo+ICsJCXByaXYtPnhkcF9zdGF0cy5yeF94ZHBfdHgJ
-Kz0gUkVBRF9PTkNFKHJpbmctPnhkcF90eCk7DQo+ICsJCXByaXYtPnhkcF9zdGF0cy5yeF94ZHBf
-dHhfZnVsbAkrPSBSRUFEX09OQ0UocmluZy0+eGRwX3R4X2Z1bGwpOw0KDQpUaGlzIGNodW5rIChh
-bmQgdGhlIG9uZSBhZnRlcikgc2VlbSB0byBiZSBhZGRpbmcgUkVBRF9PTkNFKCkgYW5kIGRvbid0
-DQpzZWVtIHRvIGJlIHJlbGF0ZWQgdG8gdGhlIGNvbW1pdCBtZXNzYWdlLg0KDQoJRGF2aWQNCg0K
+_dsa_register_switch() gets a dsa_switch_tree object either via
+dsa_get_dst() or via dsa_add_dst(). Former path does not increase kref
+in returned object (resulting into caller not owning a reference),
+while later path does create a new object (resulting into caller owning
+a reference).
+
+The rest of _dsa_register_switch() assumes that it owns a reference, and
+calls dsa_put_dst().
+
+This causes a memory breakage if first switch in the tree initialized
+successfully, but second failed to initialize. In particular, freed
+dsa_swith_tree object is left referenced by switch that was initialized,
+and later access to sysfs attributes of that switch cause OOPS.
+
+To fix, need to add kref_get() call to dsa_get_dst().
+
+Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+---
+ net/dsa/dsa2.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index f8a7d9aab437..5fff951a0a49 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -28,8 +28,10 @@ static struct dsa_switch_tree *dsa_get_dst(u32 tree)
+ 	struct dsa_switch_tree *dst;
+ 
+ 	list_for_each_entry(dst, &dsa_switch_trees, list)
+-		if (dst->tree == tree)
++		if (dst->tree == tree) {
++			kref_get(&dst->refcount);
+ 			return dst;
++		}
+ 	return NULL;
+ }
+ 
+-- 
+2.1.4
