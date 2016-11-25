@@ -1,60 +1,36 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: enable multiqueue by default
-Date: Fri, 25 Nov 2016 13:36:42 +0800
-Message-ID: <8e2080e3-a299-10e5-aca3-7c9d723d313c@redhat.com>
-References: <1480048646-17536-1-git-send-email-jasowang@redhat.com>
-	<20161125064201-mutt-send-email-mst@kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: =?UTF-8?B?UmU6IOetlOWkjTogW3NjcjI2NTQ4Ml0gaXBfdHVubmVsLmM=?=
+Date: Thu, 24 Nov 2016 21:41:09 -0800
+Message-ID: <CAM_iQpX9yG4vPFKmTUKVz6MyspQRjd34ncZ4Psby8eHdfTBj+w@mail.gmail.com>
+References: <F41877A268BCDE49BAEE2286FA8C269F6FECFC5E@LETV-MBX-IDC09.letv.local>
+ <CAM_iQpVCwrdzWztMVyjdqNqoHPK9xuGCiEUWy5iUH3u7VWOaqw@mail.gmail.com> <F41877A268BCDE49BAEE2286FA8C269F6FECFDBC@LETV-MBX-IDC09.letv.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Neil Horman <nhorman@redhat.com>, Jeremy Eder <jeder@redhat.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Marko Myllynen <myllynen@redhat.com>,
-	Maxime Coquelin <maxime.coquelin@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161125064201-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Eric Dumazet <edumazet@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: =?UTF-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:34036 "EHLO
+        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750922AbcKYFmD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 00:42:03 -0500
+Received: by mail-io0-f181.google.com with SMTP id c21so104731172ioj.1
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 21:41:30 -0800 (PST)
+In-Reply-To: <F41877A268BCDE49BAEE2286FA8C269F6FECFDBC@LETV-MBX-IDC09.letv.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE25bm0MTHmnIgyNeaXpSAxMjo0MywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIEZyaSwgTm92IDI1LCAyMDE2IGF0IDEyOjM3OjI2UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+ID5XZSB1c2Ugc2luZ2xlIHF1ZXVlIGV2ZW4gaWYgbXVsdGlxdWV1ZSBpcyBlbmFibGVk
-IGFuZCBsZXQgYWRtaW4gdG8KPj4gPmVuYWJsZSBpdCB0aHJvdWdoIGV0aHRvb2wgbGF0ZXIuIFRo
-aXMgaXMgdXNlZCB0byBhdm9pZCBwb3NzaWJsZQo+PiA+cmVncmVzc2lvbiAoc21hbGwgcGFja2V0
-IFRDUCBzdHJlYW0gdHJhbnNtaXNzaW9uKS4gQnV0IGxvb2tzIGxpa2UgYW4KPj4gPm92ZXJraWxs
-IHNpbmNlOgo+PiA+Cj4+ID4tIHNpbmdsZSBxdWV1ZSB1c2VyIGNhbiBkaXNhYmxlIG11bHRpcXVl
-dWUgd2hlbiBsYXVuY2hpbmcgcWVtdQo+PiA+LSBicmluZ3MgZXh0cmEgdHJvdWJsZXMgZm9yIHRo
-ZSBtYW5hZ2VtZW50IHNpbmNlIGl0IG5lZWRzIGV4dHJhIGFkbWluCj4+ID4gICB0b29sIGluIGd1
-ZXN0IHRvIGVuYWJsZSBtdWx0aXF1ZXVlCj4+ID4tIG11bHRpcXVldWUgcGVyZm9ybXMgbXVjaCBi
-ZXR0ZXIgdGhhbiBzaW5nbGUgcXVldWUgaW4gbW9zdCBvZiB0aGUKPj4gPiAgIGNhc2VzCj4+ID4K
-Pj4gPlNvIHRoaXMgcGF0Y2ggZW5hYmxlcyBtdWx0aXF1ZXVlIGJ5IGRlZmF1bHQ6IGlmICNxdWV1
-ZXMgaXMgbGVzcyB0aGFuIG9yCj4+ID5lcXVhbCB0byAjdmNwdSwgZW5hYmxlIGFzIG11Y2ggYXMg
-cXVldWUgcGFpcnM7IGlmICNxdWV1ZXMgaXMgZ3JlYXRlcgo+PiA+dGhhbiAjdmNwdSwgZW5hYmxl
-ICN2Y3B1IHF1ZXVlIHBhaXJzLgo+PiA+Cj4+ID5DYzogSGFubmVzIEZyZWRlcmljIFNvd2E8aGFu
-bmVzQHJlZGhhdC5jb20+Cj4+ID5DYzogTWljaGFlbCBTLiBUc2lya2luPG1zdEByZWRoYXQuY29t
-Pgo+PiA+Q2M6IE5laWwgSG9ybWFuPG5ob3JtYW5AcmVkaGF0LmNvbT4KPj4gPkNjOiBKZXJlbXkg
-RWRlcjxqZWRlckByZWRoYXQuY29tPgo+PiA+Q2M6IE1hcmtvIE15bGx5bmVuPG15bGx5bmVuQHJl
-ZGhhdC5jb20+Cj4+ID5DYzogTWF4aW1lIENvcXVlbGluPG1heGltZS5jb3F1ZWxpbkByZWRoYXQu
-Y29tPgo+PiA+U2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+
-IE9LIGF0IHNvbWUgbGV2ZWwgYnV0IGFsbCB1c2VzIG9mIG51bV9vbmxpbmVfY3B1cygpCj4gbGlr
-ZSB0aGlzIGFyZSByYWN5IHZlcnN1cyBob3RwbHVnLgo+IEkga25vdyB3ZSBhbHJlYWR5IGhhdmUg
-dGhpcyBidWcgYnV0IHNob3VsZG4ndCB3ZSBmaXggaXQKPiBiZWZvcmUgd2UgYWRkIG1vcmU/CgpO
-b3Qgc3VyZSBJIGdldCB0aGUgcG9pbnQsIGRvIHlvdSBtZWFuIGFkZGluZyBnZXQvcHV0X29ubGlu
-ZV9jcHVzKCk/IEJ1dCAKaXMgaXQgYSByZWFsIGJ1Zz8gV2UgZG9uJ3QgZG8gYW55IGNwdSBzcGVj
-aWZpYyB0aGluZ3Mgc28gSSBiZWxpZXZlIGl0J3MgCm5vdCBuZWNlc3NhcnkgKHVubGVzcyB3ZSB3
-YW50IHRvIGtlZXAgI3F1ZXVlcyA9PSAjdmNwdXMgbWFnaWNhbGx5IGJ1dCBJIApkb24ndCB0aGlu
-ayBzbykuIEFkbWluIG5lZWQgdG8gcmUtY29uZmlndXJlICNxdWV1ZXMgYWZ0ZXIgY3B1IGhvdHBs
-dWcgaWYgCnRoZXkgd2lzaC4KClRoYW5rcwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRp
-b25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRp
-b24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+On Thu, Nov 24, 2016 at 9:11 PM, Liyang Yu (=E4=BA=8E=E7=AB=8B=E6=B4=8B1) <=
+yuliyang1@le.com> wrote:
+>> Please test my patch since you can reproduce it.
+>
+>         Thanks cong, but Eric had said: "Really, this is not something th=
+at can be solved by using 'a different initial sequence number'"
+>         So I don't think it's nessary to test you patch, anyway thank you=
+ very much.
+
+That is correct, I missed the signed cast, it is similar to the jiffies tes=
+t,
+for the overflow case, which means no matter which value we pick,
+we could drop packet as it is.
