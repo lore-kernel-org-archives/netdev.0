@@ -1,41 +1,53 @@
 From: Eli Cooper <elicooper@gmx.com>
-Subject: [PATCH net] sit: Set skb->protocol properly in ipip6_tunnel_xmit()
-Date: Fri, 25 Nov 2016 13:50:17 +0800
-Message-ID: <20161125055017.7053-1-elicooper@gmx.com>
-To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: Large performance regression with 6in4 tunnel (sit)
+Date: Fri, 25 Nov 2016 14:05:04 +0800
+Message-ID: <a4a7b888-04d1-55ce-28de-cc15f01a15fc@gmx.com>
+References: <20161125120947.142c3af5@canb.auug.org.au>
+ <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
+ <20161125134520.68ca0969@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:51362 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.17.21]:55636 "EHLO mout.gmx.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751625AbcKYF50 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Nov 2016 00:57:26 -0500
+        id S1751645AbcKYGF5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 01:05:57 -0500
+In-Reply-To: <20161125134520.68ca0969@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to commit ae148b085876
-("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"),
-sit tunnels also need to update skb->protocol; otherwise, TSO/GSO packets
-might not be properly segmented, which causes the packets being dropped.
+Hi Stephen,
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Tested-by: Eli Cooper <elicooper@gmx.com>
-Cc: stable@vger.kernel.org
-Signed-off-by: Eli Cooper <elicooper@gmx.com>
----
- net/ipv6/sit.c | 1 +
- 1 file changed, 1 insertion(+)
+On 2016/11/25 10:45, Stephen Rothwell wrote:
+> Hi Eli,
+>
+> On Fri, 25 Nov 2016 10:18:12 +0800 Eli Cooper <elicooper@gmx.com> wrote:
+>> Sounds like TSO/GSO packets are not properly segmented and therefore
+>> dropped.
+>>
+>> Could you first try turning off segmentation offloading for the tunnel
+>> interface?
+>>     ethtool -K sit0 tso off gso off
+> On Thu, 24 Nov 2016 18:30:14 -0800 Eric Dumazet <eric.dumazet@gmail.com>
+>> You also could try to disable TSO and see if this makes a difference
+>>
+>> ethtool -K sixtofour0 tso off
+> So turning off tso brings performance up to IPv4 levels ...
+>
+> Thanks for that, it solves my immediate problem.
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index b1cdf80..a05dceb 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -972,6 +972,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	}
- 
- 	skb_set_inner_ipproto(skb, IPPROTO_IPV6);
-+	skb->protocol = htons(ETH_P_IP);
- 
- 	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol, tos, ttl,
- 		      df, !net_eq(tunnel->net, dev_net(dev)));
--- 
-2.10.2
+I think this is similar to the bug I fixed in commit ae148b085876
+("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()").
+
+I can reproduce a similar problem by applying xfrm to sit traffic.
+TSO/GSO packets are dropped when IPSec is enabled, and IPv6 throughput
+drops to 10s of Kbps. I am not sure if this is the same issue you
+experienced, but I wrote a patch that fixed at least the issue I had.
+
+Could you test the patch I sent to the mailing list just now?
+
+Thanks,
+Eli
