@@ -1,152 +1,62 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [net-next PATCH v1 0/2] stmmac: dwmac-meson8b: configurable RGMII
- TX delay
-Date: Fri, 25 Nov 2016 09:59:33 +0100
-Message-ID: <d14f43e6-73f7-665f-28f4-cbe6e762cab0@st.com>
-References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
- <1480003681.17538.142.camel@baylibre.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Fri, 25 Nov 2016 09:55:39 +0100
+Message-ID: <5d59aac4-1616-5316-a624-192b390d1569@st.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+ <BFA799B0-BB22-4515-AC14-3544A3167B0A@axis.com>
+ <ffd3b27c-0bc9-b53b-cc65-c7808595a553@st.com>
+ <b126021d-e902-7a53-4d7a-e73ea89a66cf@synopsys.com>
+ <A001080B-2DC8-48D9-BD82-8276A9B3BE3D@axis.com>
+ <7c7798b5-8cd4-ba99-f526-22d3e06e05db@synopsys.com>
+ <2eefdb8f-7e87-6009-6e50-c536d4b95dd6@synopsys.com>
+ <c37c47e1-8e21-1b11-ed15-6b899ed1dd03@st.com>
+ <7c259adb-5c73-f997-6b96-5be427157b08@synopsys.com>
+ <899DC02E-84BB-489E-A1FE-5D8F3BB795B6@axis.com>
+ <f4dd5d22-4467-d046-6b65-2a28f3fc5a7c@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>
-To: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        <linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1480003681.17538.142.camel-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "idosch@mellanox.com" <idosch@mellanox.com>,
+ "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+ "saeedm@mellanox.com" <saeedm@mellanox.com>, netdev <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "CARLOS.PALMINHA@synopsys.com" <CARLOS.PALMINHA@synopsys.com>,
+ Rabin Vincent <rabin@rab.in>, mued dib <kreptor@gmail.com>,
+ "jiri@mellanox.com" <jiri@mellanox.com>,
+ Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ =?UTF-8?Q?Andreas_Irest=c3=a5l?= <andire@axis.com>,
+ David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, Lars Persson <lars.persson@axis.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <f4dd5d22-4467-d046-6b65-2a28f3fc5a7c@synopsys.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 11/24/2016 5:08 PM, Jerome Brunet wrote:
-> On Thu, 2016-11-24 at 15:34 +0100, Martin Blumenstingl wrote:
->> Currently the dwmac-meson8b stmmac glue driver uses a hardcoded 1/4
->> cycle TX clock delay. This seems to work fine for many boards (for
->> example Odroid-C2 or Amlogic's reference boards) but there are some
->> others where TX traffic is simply broken.
->> There are probably multiple reasons why it's working on some boards
->> while it's broken on others:
->> - some of Amlogic's reference boards are using a Micrel PHY
->> - hardware circuit design
->> - maybe more...
->>
->> This raises a question though:
->> Which device is supposed to enable the TX delay when both MAC and PHY
->> support it? And should we implement it for each PHY / MAC separately
->> or should we think about a more generic solution (currently it's not
->> possible to disable the TX delay generated by the RTL8211F PHY via
->> devicetree when using phy-mode "rgmii")?
->>
->> iperf3 results on my Mecool BB2 board (Meson GXM, RTL8211F PHY) with
->> TX clock delay disabled on the MAC (as it's enabled in the PHY
->> driver).
->> TX throughput was virtually zero before:
->> $ iperf3 -c 192.168.1.100 -R
->> Connecting to host 192.168.1.100, port 5201
->> Reverse mode, remote host 192.168.1.100 is sending
->> [  4] local 192.168.1.206 port 52828 connected to 192.168.1.100 port
->> 5201
->> [ ID] Interval           Transfer     Bandwidth
->> [  4]   0.00-1.00   sec   108 MBytes   901
->> Mbits/sec
->> [  4]   1.00-2.00   sec  94.2 MBytes   791
->> Mbits/sec
->> [  4]   2.00-3.00   sec  96.5 MBytes   810
->> Mbits/sec
->> [  4]   3.00-4.00   sec  96.2 MBytes   808
->> Mbits/sec
->> [  4]   4.00-5.00   sec  96.6 MBytes   810
->> Mbits/sec
->> [  4]   5.00-6.00   sec  96.5 MBytes   810
->> Mbits/sec
->> [  4]   6.00-7.00   sec  96.6 MBytes   810
->> Mbits/sec
->> [  4]   7.00-8.00   sec  96.5 MBytes   809
->> Mbits/sec
->> [  4]   8.00-9.00   sec   105 MBytes   884
->> Mbits/sec
->> [  4]   9.00-10.00  sec   111 MBytes   934
->> Mbits/sec
->> - - - - - - - - - - - - - - - - - - - - - - - - -
->> [ ID] Interval           Transfer     Bandwidth       Retr
->> [  4]   0.00-10.00  sec  1000 MBytes   839
->> Mbits/sec    0             sender
->> [  4]   0.00-10.00  sec   998 MBytes   837
->> Mbits/sec                  receiver
->>
->> iperf Done.
->> $ iperf3 -c 192.168.1.100
->> Connecting to host 192.168.1.100, port 5201
->> [  4] local 192.168.1.206 port 52832 connected to 192.168.1.100 port
->> 5201
->> [ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
->> [  4]   0.00-1.01   sec  99.5 MBytes   829 Mbits/sec  117    139
->> KBytes
->> [  4]   1.01-2.00   sec   105 MBytes   884 Mbits/sec  129   70.7
->> KBytes
->> [  4]   2.00-3.01   sec   107 MBytes   889 Mbits/sec  106    187
->> KBytes
->> [  4]   3.01-4.01   sec   105 MBytes   878 Mbits/sec   92    143
->> KBytes
->> [  4]   4.01-5.00   sec   105 MBytes   882 Mbits/sec  140    129
->> KBytes
->> [  4]   5.00-6.01   sec   106 MBytes   883 Mbits/sec  115    195
->> KBytes
->> [  4]   6.01-7.00   sec   102 MBytes   863 Mbits/sec  133   70.7
->> KBytes
->> [  4]   7.00-8.01   sec   106 MBytes   884 Mbits/sec  143   97.6
->> KBytes
->> [  4]   8.01-9.01   sec   104 MBytes   875 Mbits/sec  124    107
->> KBytes
->> [  4]   9.01-10.01  sec   105 MBytes   876 Mbits/sec   90    139
->> KBytes
->> - - - - - - - - - - - - - - - - - - - - - - - - -
->> [ ID] Interval           Transfer     Bandwidth       Retr
->> [  4]   0.00-10.01  sec  1.02 GBytes   874
->> Mbits/sec  1189             sender
->> [  4]   0.00-10.01  sec  1.02 GBytes   873
->> Mbits/sec                  receiver
->>
+On 11/23/2016 12:43 PM, Joao Pinto wrote:
+>> > Rabin Vincent can review and test that the port works properly on our Artpec-chips that use dwc_eth_qos.c today.
+>> >
+>> > The main porting step is to implement the device tree binding in bindings/net/snps,dwc-qos-ethernet.txt. Also our chip has a strict requirement that the phy is enabled when the SWR reset bit is set (it needs a tx clock to complete the reset).
+>> >
+>> > - Lars
+> Ok, I will do the task.
 >
-> Cool, one more board working ;)
-> I tried your patch on another board (MXQ_V2.1, with sheep printed on
-> the PCB). It 's not improving the situation for this one unfortunately.
-> Actually I already tried playing with the TX delay on the MAC and PHY
-> but I could get any good results with the boards I have.
->
-> It is strange that we can adjust the delay by 2ns steps, when delay
-> seens by the phy should be 2ns ...
->
+> @Peppe: Agree with the plan?
 
-Ok, as said, I could expect that extra delay was needed on GiGa.
-FYI, on ST platforms, this extra delay was added in the pintctrl
-dtsi. I mean, in some way, ad-hoc setup was solved at device-tree
-level. Usually, extra delay could depend on the PCB.
+Agree
 
 peppe
-
->> iperf Done.
->>
->>
->> Martin Blumenstingl (2):
->>   net: dt-bindings: add RGMII TX delay configuration to meson8b-dwmac
->>   net: stmmac: dwmac-meson8b: make the RGMII TX delay configurable
->>
->>  Documentation/devicetree/bindings/net/meson-dwmac.txt | 11
->> +++++++++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c   | 16
->> +++++++++++-----
->>  include/dt-bindings/net/dwmac-meson8b.h               | 18
->> ++++++++++++++++++
->>  3 files changed, 40 insertions(+), 5 deletions(-)
->>  create mode 100644 include/dt-bindings/net/dwmac-meson8b.h
->>
->
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
