@@ -1,55 +1,65 @@
-From: =?utf-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
-Subject: Re: [scr265482] ip_tunnel.c
-Date: Fri, 25 Nov 2016 03:52:33 +0000
-Message-ID: <F41877A268BCDE49BAEE2286FA8C269F6FECFD83@LETV-MBX-IDC09.letv.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Large performance regression with 6in4 tunnel (sit)
+Date: Thu, 24 Nov 2016 19:54:04 -0800
+Message-ID: <1480046044.8455.529.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161125120947.142c3af5@canb.auug.org.au>
+         <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
+         <20161125134520.68ca0969@canb.auug.org.au>
+         <1480042888.8455.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161125140938.24538f97@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eli Cooper <elicooper@gmx.com>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.letv.com ([115.182.93.109]:38577 "EHLO letvspm.imsa.com"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750991AbcKYDxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 22:53:10 -0500
-Content-Language: zh-CN
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:35503 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751544AbcKYECc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 23:02:32 -0500
+Received: by mail-pg0-f47.google.com with SMTP id p66so24993532pga.2
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 20:02:30 -0800 (PST)
+In-Reply-To: <20161125140938.24538f97@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IEkgYWNjZXB0IHRoYXQgdGhlIGlzc3VlIGlzIG5vdCBhIENWRSBjYW5kaWRhdGUuIEJ1dCBpdCdz
-IGEgYnVnIGlzbid0IGl0DQogDQogVGhhbmsgeW91IGZvciB5b3VyIHN1Z2dlc3Rpb25zLCBhYm91
-dCB0aGUgZm9ybWF0IG9mIG1haWwsIGFuZCBub3QgbmV4dCB0aW1lLiANCg0KIEV2ZXJ5dGhpbmcg
-aGFzIGl0cyBtZWFuaW5nLiBJZiBzZXF1ZW5jZSBudW1iZXIgaXMgYSBqb2tlLCB3aHkgdGhlIGd1
-eXMgcHV0IGl0IGludG8gUkZDICwgZXZlbiBpbXBsZW1lbnRlZCB0aGUgZmVhdHVyZS4NCg0KIEFu
-ZCBpZiB5b3UgbWVhbnMgdGhhdCBTTVAgKCBTeW1tZXRyaWMgTXVsdGkgUHJvY2Vzc2luZyApPyAN
-Cg0KDQoNCk9uIFRodSwgTm92IDI0LCAyMDE2IGF0IDU6MzkgUE0sIExpeWFuZyBZdSAo5LqO56uL
-5rSLMSkgPHl1bGl5YW5nMUBsZS5jb20+IHdyb3RlOg0KPg0KPg0KPg0KPg0KPg0KPg0KPg0KPiBC
-VFc6DQo+DQo+ICAgIFdoaWNoIFJGQyBzdWdnZXN0cyBVSU5UX01BWCBhcyBHUkUgc2VxdWVuY2Ug
-bnVtYmVyPyAgQ2FuIHlvdSBzaG93IG1lPw0KPg0KPg0KPg0KPg0KPg0KPg0KDQoNClJGQyAyODkw
-DQoNCkluIGFueSBjYXNlcywgdGhpcyBpcyBhYnNvbHV0ZWx5IG5vdCBhIHNlY3VyaXR5IGlzc3Vl
-IG5vciBhIENWRSBjYW5kaWRhdGUuDQpQbGVhc2UgcmVtb3ZlIHNlY3VyaXR5QGtlcm5lbC5vcmcg
-ZnJvbSBDQywgbm8gbmVlZCB0byBzcGFtIHNlY3VyaXR5IGd1eXMsIHRoZXkgaGF2ZSBlbm91Z2gg
-b24gdGhlaXIgcGxhdGUuDQoNClBsZWFzZSBzZW5kIHRleHQgbWVzc2FnZXMsIG5vIEhUTUwgaXMg
-YWxsb3dlZCBvbiBuZXRkZXYNCg0KTm9ib2R5IHNhbmUgdXNlcyBHUkUgc2VxdWVuY2UgbnVtYmVy
-cywgcHJlY2lzZWx5IGJlY2F1c2UgR1JFIGhhcyBubyBkb2N1bWVudGVkIHdheSB0byBzeW5jaHJv
-bml6ZSB0aGUgc291cmNlIGFuZCBkZXN0aW5hdGlvbiBvZiB0aGUgdHVubmVsLg0KQmFzaWNhbGx5
-LCBpZiB5b3UgdXNlIEdSRSBzZXF1ZW5jZSBudW1iZXJzLCB5b3UgbXVzdCByZS1zdGFydCBvdGhl
-ciBzaWRlIG9mIHRoZSB0dW5uZWwgaWYgb25lIHNpZGUgaGFkIHRvIHJlc3RhcnQsIG9yIHJpc2sg
-ZHJvcHBpbmcgdXAgdG8gMl4zMSBwYWNrZXRzLg0KDQpSZWFsbHksIHRoaXMgaXMgbm90IHNvbWV0
-aGluZyB0aGF0IGNhbiBiZSBzb2x2ZWQgYnkgdXNpbmcgJ2EgZGlmZmVyZW50IGluaXRpYWwgc2Vx
-dWVuY2UgbnVtYmVyJw0KDQpsaW51eCBHUkUgc2VxdWVuY2UgbnVtYmVyIHN1cHBvcnQgaXMgYSBq
-b2tlLCBpdCBkb2VzIG5vdCBzdXBwb3J0IFNNUCBmb3IgYSBzdGFydC4NCg0KDQoNCj4NCj4NCj4N
-Cj4gT24gV2VkLCBOb3YgMjMsIDIwMTYgYXQgMTE6NDUgUE0sIExpeWFuZyBZdSAo5LqO56uL5rSL
-MSkgPHl1bGl5YW5nMUBsZS5jb20+IHdyb3RlOg0KPg0KPiA+IFllYWjvvIxJIG1lYW5zIHRoYXQg
-cmVjcmVhdGUgdGhlIHR1bm5lbCBhZ2FpbiwgQnV0IEkgZG9u4oCZdCB0aGluayB0aGUNCj4NCj4g
-PiBwYXRjaCBjYW4gZml4IHRoZSBidWcuIEl0IG9ubHkgY2FuIG1ha2UgdGhlIGZpcnN0IHBhY2tl
-dCByZWNlaXZlZCBzdWNjZXNzZWQuIEFuZCB0aGUgZm9sbG93IHBhY2tldCB3aWxsIGRyb3BlZCBh
-bHNvLg0KPg0KPiA+IEluIGZ1bmN0aW9uIF9fZ3JlX3htaXQgIGxpbmUgMzY2DQo+DQo+ID4gICB0
-dW5uZWwtPm9fc2Vxbm8rKzsNCj4NCj4gPg0KPg0KPiA+IElmIHlvdSByZXN0YXJ0IGZyb20gVUlO
-VF9NQVgsIHRoZSAnb19zZXFubycgb2Ygc2Vjb25kIHBhY2tldCB3aWxsIHJldHVybiB0byAwIGFn
-YWluLg0KPg0KPg0KPg0KPiBUaGUgZmlyc3QgcGFja2V0IGFmdGVyIHJlc3RhcnQ6IG9fc2Vxbm8g
-PT0gVUlOVF9NQVgsIHRoZSBvdGhlciBlbmQ6IA0KPiBpX3NlcW5vID0gMCBUaGUgc2Vjb25kIHBh
-Y2tldCBhZnRlciByZXN0YXJ0OiBvX3NlcW5vID09IDAsIHRoZSBvdGhlciANCj4gZW5kOiBpX3Nl
-cW5vID0gMQ0KPg0KPg0KPg0KPiBTbyB0cmFmZmljIHNob3VsZCBiZSBiYWNrIHRvIG5vcm1hbC4N
-Cj4NCj4NCj4NCj4gVUlOVF9NQVggaXMgYWxzbyB3aGF0IFJGQyBzdWdnZXN0cy4NCg==
+On Fri, 2016-11-25 at 14:09 +1100, Stephen Rothwell wrote:
+> Hi Eric,
+> 
+> On Thu, 24 Nov 2016 19:01:28 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > Since I do not have this problem at all on my hosts, it could be a buggy
+> > ethernet driver.
+> > 
+> > Could you share what NIC card and driver you are using ?
+> 
+> 
+> # uname -a
+> Linux bilbo 4.7.0-1-amd64 #1 SMP Debian 4.7.8-1 (2016-10-19) x86_64 GNU/Linux
+> 
+> # lspci | grep -i net
+> 03:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
+> 04:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
+> 
+> from boot dmesg:
+> 
+> [    7.573725] igb: Intel(R) Gigabit Ethernet Network Driver - version 5.3.0-k
+> [    7.573726] igb: Copyright (c) 2007-2014 Intel Corporation.
+> [    7.752918] igb 0000:03:00.0: added PHC on eth0
+> [    7.752925] igb 0000:03:00.0: Intel(R) Gigabit Ethernet Network Connection
+> [    7.752927] igb 0000:03:00.0: eth0: (PCIe:2.5Gb/s:Width x1) 00:1e:67:9f:d4:24
+> [    7.753460] igb 0000:03:00.0: eth0: PBA No: 102100-000
+> [    7.753460] igb 0000:03:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s)
+> [    7.902433] igb 0000:04:00.0: added PHC on eth1
+> [    7.902434] igb 0000:04:00.0: Intel(R) Gigabit Ethernet Network Connection
+> [    7.902435] igb 0000:04:00.0: eth1: (PCIe:2.5Gb/s:Width x1) 00:1e:67:9f:d4:25
+> [    7.902484] igb 0000:04:00.0: eth1: PBA No: 102100-000
+> [    7.902485] igb 0000:04:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s)
+> [   19.753325] igb 0000:03:00.0 eth0: igb: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX
+> 
+
+Could you now report : 
+
+ethtool -k eth0
+
+Thanks
