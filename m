@@ -1,75 +1,60 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH 1/1] net: macb: fix the RX queue reset in macb_rx()
-Date: Fri, 25 Nov 2016 10:11:20 +0100
-Message-ID: <8c91d53a-3556-4305-ce9d-589753445e19@atmel.com>
-References: <fd8131cbe6c0546b2b8ee35bcaac5e7eb1a1647f.1480063339.git.cyrille.pitchen@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <Andrei.Pistirica@microchip.com>,
-        <linux-arm-kernel@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>
-To: Cyrille Pitchen <cyrille.pitchen@atmel.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <soren.brinkmann@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <fd8131cbe6c0546b2b8ee35bcaac5e7eb1a1647f.1480063339.git.cyrille.pitchen@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 03/19] mlxsw: core: Expose generic macros for rx trap
+Date: Fri, 25 Nov 2016 10:33:31 +0100
+Message-ID: <1480066427-3961-4-git-send-email-jiri@resnulli.us>
+References: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:33400 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751691AbcKYJem (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 04:34:42 -0500
+Received: by mail-wj0-f195.google.com with SMTP id kp2so4928149wjc.0
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 01:33:53 -0800 (PST)
+In-Reply-To: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 25/11/2016 à 09:49, Cyrille Pitchen a écrit :
-> On macb only (not gem), when a RX queue corruption was detected from
-> macb_rx(), the RX queue was reset: during this process the RX ring
-> buffer descriptor was initialized by macb_init_rx_ring() but we forgot
-> to also set bp->rx_tail to 0.
-> 
-> Indeed, when processing the received frames, bp->rx_tail provides the
-> macb driver with the index in the RX ring buffer of the next buffer to
-> process. So when the whole ring buffer is reset we must also reset
-> bp->rx_tail so the driver is synchronized again with the hardware.
-> 
-> Since macb_init_rx_ring() is called from many locations, currently from
-> macb_rx() and macb_init_rings(), we'd rather add the "bp->rx_tail = 0;"
-> line inside macb_init_rx_ring() than add the very same line after each
-> call of this function.
-> 
-> Without this fix, the rx queue is not reset properly to recover from
-> queue corruption and connection drop may occur.
-> 
-> Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-> Fixes: 9ba723b081a2 ("net: macb: remove BUG_ON() and reset the queue to handle RX errors")
+From: Nogah Frankel <nogahf@mellanox.com>
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Thanks.
+In Spectrum, there is a macro to arrange the traps list.
+This macro is useful for everyone who is using rx traps.
+Create a similar macro in core.h for creating the generic listener struct
+for rx traps.
 
-Regards,
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core.h | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-> ---
->  drivers/net/ethernet/cadence/macb.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 0e489bb82456..8ee303b8da08 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -991,6 +991,7 @@ static inline void macb_init_rx_ring(struct macb *bp)
->  		addr += bp->rx_buffer_size;
->  	}
->  	bp->rx_ring[bp->rx_ring_size - 1].addr |= MACB_BIT(RX_WRAP);
-> +	bp->rx_tail = 0;
->  }
->  
->  static int macb_rx(struct macb *bp, int budget)
-> @@ -1736,8 +1737,6 @@ static void macb_init_rings(struct macb *bp)
->  	bp->queues[0].tx_head = 0;
->  	bp->queues[0].tx_tail = 0;
->  	bp->queues[0].tx_ring[bp->tx_ring_size - 1].ctrl |= MACB_BIT(TX_WRAP);
-> -
-> -	bp->rx_tail = 0;
->  }
->  
->  static void macb_reset_hw(struct macb *bp)
-> 
-
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 66d97c4..5f6fed1 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -101,6 +101,20 @@ struct mlxsw_listener {
+ 	bool is_event;
+ };
+ 
++#define MLXSW_RXL(_func, _trap_id, _action, _unreg_action)		\
++	{								\
++		.trap_id = MLXSW_TRAP_ID_##_trap_id,			\
++		.u.rx_listener =					\
++		{							\
++			.func = _func,					\
++			.local_port = MLXSW_PORT_DONT_CARE,		\
++			.trap_id = MLXSW_TRAP_ID_##_trap_id,		\
++		},							\
++		.action = MLXSW_REG_HPKT_ACTION_##_action,		\
++		.unreg_action = MLXSW_REG_HPKT_ACTION_##_unreg_action,	\
++		.is_event = false,					\
++	}
++
+ int mlxsw_core_rx_listener_register(struct mlxsw_core *mlxsw_core,
+ 				    const struct mlxsw_rx_listener *rxl,
+ 				    void *priv);
 -- 
-Nicolas Ferre
+2.7.4
