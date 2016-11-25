@@ -1,46 +1,59 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net 1/1] driver: macvtap: Unregister netdev rx_handler if macvtap_newlink fails
-Date: Fri, 25 Nov 2016 10:05:06 +0800
-Message-ID: <1480039506-29740-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, jasowang@redhat.com, edumazet@google.com,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg291.qq.com ([113.108.11.223]:34016 "EHLO smtpbg291.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750909AbcKYCFs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 21:05:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Thu, 24 Nov 2016 18:13:50 -0800
+Message-ID: <20161125021350.GA74946@knc-06.sc.intel.com>
+References: <20161121213017.GB67872@knc-06.sc.intel.com>
+ <20161121213930.GA30111@obsidianresearch.com>
+ <20161121232629.GA67988@knc-06.sc.intel.com>
+ <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
+ <20161122170407.GE3956@obsidianresearch.com>
+ <20161123000502.GA27968@phlsvsds.ph.intel.com>
+ <20161123004932.GA13598@obsidianresearch.com>
+ <20161124000825.GA73280@knc-06.sc.intel.com>
+ <20161124161545.GA20818@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161124161545.GA20818-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+On Thu, Nov 24, 2016 at 09:15:45AM -0700, Jason Gunthorpe wrote:
+>On Wed, Nov 23, 2016 at 04:08:25PM -0800, Vishwanathapura, Niranjana wrote:
+>
+>> In order to pass the hfi function pointers to the hfi_vnic ULP, I can,
+>> a) Have hfi_vnic ULP define an interface API for hfi1 driver to call to
+>> register its callback (as you pointed). Unfortunately there will be a module
+>> dependency here.
+>> Or,
+>
+>That is probably backwards
+>
+>> b) Add a new member ‘struct vnic_ops’ either to the ib_device structure or
+>> ib_port_immutable structure. As it is hfi1 specific, only hfi1 driver will
+>> set it. No module dependency here.
+>
+>You can add a hfi1_get_vnic_ops(struct ib_device *) and implement it
+>in your module..
+>
 
-The macvtap_newlink registers the netdev rx_handler firstly, but it
-does not unregister the handler if macvlan_common_newlink failed.
+In order to be truely device independent the hfi_vnic ULP should not depend on 
+a device exported symbol. Instead device should register its functions with the 
+ULP. Hence the approaches a) and b).
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- drivers/net/macvtap.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+Niranjana
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 070e329..bceca28 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -491,7 +491,13 @@ static int macvtap_newlink(struct net *src_net,
- 	/* Don't put anything that may fail after macvlan_common_newlink
- 	 * because we can't undo what it does.
- 	 */
--	return macvlan_common_newlink(src_net, dev, tb, data);
-+	err = macvlan_common_newlink(src_net, dev, tb, data);
-+	if (err) {
-+		netdev_rx_handler_unregister(dev);
-+		return err;
-+	}
-+
-+	return 0;
- }
- 
- static void macvtap_dellink(struct net_device *dev,
--- 
-1.9.1
+>Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
