@@ -1,176 +1,286 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/19] mlxsw: switchx2: Use generic listener struct for events
-Date: Fri, 25 Nov 2016 10:33:36 +0100
-Message-ID: <1480066427-3961-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 14/19] mlxsw: Change trap groups setting
+Date: Fri, 25 Nov 2016 10:33:42 +0100
+Message-ID: <1480066427-3961-15-git-send-email-jiri@resnulli.us>
 References: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, yotamg@mellanox.com, arkadis@mellanox.com,
         ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33861 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752288AbcKYJem (ORCPT
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:33449 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752839AbcKYJem (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 04:34:42 -0500
-Received: by mail-wm0-f68.google.com with SMTP id g23so7223628wme.1
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 01:33:58 -0800 (PST)
+Received: by mail-wj0-f195.google.com with SMTP id kp2so4928506wjc.0
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 01:34:06 -0800 (PST)
 In-Reply-To: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-Change the events to use the generic listener struct.
-Merge the event list into the trap list, so the same functions will
-handle both.
+Trap groups have many options which we currently set to default values.
+In the next patches we will use many of them with non-default values.
+
+Some of these options have no default value, so this patch sets them as
+params for the trap group set function. Others almost always use the same
+values, so the set function will use this default values. In the rare cases
+when they will need to be with other values, these values can be set
+directly (using the macros for fields in registers).
+
+Parameters without default value:
+TC - the traffic class for packets that hit this trap group.
+    (old default is the max tc)
+priority - if one packet hits multiple trap groups, the group with the
+	   higher priority will "catch" it. (old default is 0)
+policer - limit rate policer (old default is disabled)
+
+Default parameters:
+swid - switch id, relevant for the emad trap only, ignored on Spectrum.
+       (new default is 0)
+rdq - CPU receive descriptor queue (new default is identical to trap
+      group id)
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 78 ++++----------------------
- 1 file changed, 12 insertions(+), 66 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      | 53 +++++++++++++-------------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 47 ++++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlxsw/switchib.c |  8 +++-
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 24 ++++++++++--
+ 4 files changed, 92 insertions(+), 40 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index df6afdd..675ce12 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -1396,52 +1396,6 @@ static void mlxsw_sx_pude_event_func(const struct mlxsw_reg_info *reg,
- 		mlxsw_sx_pude_ib_event_func(mlxsw_sx_port, status);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 68a0e63..2116f8f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3057,6 +3057,8 @@ enum {
+  */
+ MLXSW_ITEM32(reg, htgt, pide, 0x04, 15, 1);
+ 
++#define MLXSW_REG_HTGT_INVALID_POLICER 0xff
++
+ /* reg_htgt_pid
+  * Policer ID for the trap group.
+  * Access: RW
+@@ -3082,6 +3084,8 @@ MLXSW_ITEM32(reg, htgt, mirror_action, 0x08, 8, 2);
+  */
+ MLXSW_ITEM32(reg, htgt, mirroring_agent, 0x08, 0, 3);
+ 
++#define MLXSW_REG_HTGT_DEFAULT_PRIORITY 0
++
+ /* reg_htgt_priority
+  * Trap group priority.
+  * In case a packet matches multiple classification rules, the packet will
+@@ -3095,52 +3099,47 @@ MLXSW_ITEM32(reg, htgt, mirroring_agent, 0x08, 0, 3);
+  */
+ MLXSW_ITEM32(reg, htgt, priority, 0x0C, 0, 4);
+ 
++#define MLXSW_REG_HTGT_DEFAULT_TC 7
++
+ /* reg_htgt_local_path_cpu_tclass
+  * CPU ingress traffic class for the trap group.
+  * Access: RW
+  */
+ MLXSW_ITEM32(reg, htgt, local_path_cpu_tclass, 0x10, 16, 6);
+ 
+-#define MLXSW_REG_HTGT_LOCAL_PATH_RDQ_EMAD	0x15
+-#define MLXSW_REG_HTGT_LOCAL_PATH_RDQ_RX	0x14
+-#define MLXSW_REG_HTGT_LOCAL_PATH_RDQ_CTRL	0x13
+-
++enum mlxsw_reg_htgt_local_path_rdq {
++	MLXSW_REG_HTGT_LOCAL_PATH_RDQ_SX2_CTRL = 0x13,
++	MLXSW_REG_HTGT_LOCAL_PATH_RDQ_SX2_RX = 0x14,
++	MLXSW_REG_HTGT_LOCAL_PATH_RDQ_SX2_EMAD = 0x15,
++	MLXSW_REG_HTGT_LOCAL_PATH_RDQ_SIB_EMAD = 0x15,
++};
+ /* reg_htgt_local_path_rdq
+  * Receive descriptor queue (RDQ) to use for the trap group.
+  * Access: RW
+  */
+ MLXSW_ITEM32(reg, htgt, local_path_rdq, 0x10, 0, 6);
+ 
+-static inline void mlxsw_reg_htgt_pack(char *payload,
+-				       enum mlxsw_reg_htgt_trap_group group)
++static inline void mlxsw_reg_htgt_pack(char *payload, u8 group, u8 policer_id,
++				       u8 priority, u8 tc)
+ {
+-	u8 swid, rdq;
+-
+ 	MLXSW_REG_ZERO(htgt, payload);
+-	switch (group) {
+-	case MLXSW_REG_HTGT_TRAP_GROUP_EMAD:
+-		swid = MLXSW_PORT_SWID_ALL_SWIDS;
+-		rdq = MLXSW_REG_HTGT_LOCAL_PATH_RDQ_EMAD;
+-		break;
+-	case MLXSW_REG_HTGT_TRAP_GROUP_RX:
+-		swid = 0;
+-		rdq = MLXSW_REG_HTGT_LOCAL_PATH_RDQ_RX;
+-		break;
+-	case MLXSW_REG_HTGT_TRAP_GROUP_CTRL:
+-		swid = 0;
+-		rdq = MLXSW_REG_HTGT_LOCAL_PATH_RDQ_CTRL;
+-		break;
++
++	if (policer_id == MLXSW_REG_HTGT_INVALID_POLICER) {
++		mlxsw_reg_htgt_pide_set(payload,
++					MLXSW_REG_HTGT_POLICER_DISABLE);
++	} else {
++		mlxsw_reg_htgt_pide_set(payload,
++					MLXSW_REG_HTGT_POLICER_ENABLE);
++		mlxsw_reg_htgt_pid_set(payload, policer_id);
+ 	}
+-	mlxsw_reg_htgt_swid_set(payload, swid);
++
+ 	mlxsw_reg_htgt_type_set(payload, MLXSW_REG_HTGT_PATH_TYPE_LOCAL);
+ 	mlxsw_reg_htgt_trap_group_set(payload, group);
+-	mlxsw_reg_htgt_pide_set(payload, MLXSW_REG_HTGT_POLICER_DISABLE);
+-	mlxsw_reg_htgt_pid_set(payload, 0);
+ 	mlxsw_reg_htgt_mirror_action_set(payload, MLXSW_REG_HTGT_TRAP_TO_CPU);
+ 	mlxsw_reg_htgt_mirroring_agent_set(payload, 0);
+-	mlxsw_reg_htgt_priority_set(payload, 0);
+-	mlxsw_reg_htgt_local_path_cpu_tclass_set(payload, 7);
+-	mlxsw_reg_htgt_local_path_rdq_set(payload, rdq);
++	mlxsw_reg_htgt_priority_set(payload, priority);
++	mlxsw_reg_htgt_local_path_cpu_tclass_set(payload, tc);
++	mlxsw_reg_htgt_local_path_rdq_set(payload, group);
  }
  
--static struct mlxsw_event_listener mlxsw_sx_pude_event = {
--	.func = mlxsw_sx_pude_event_func,
--	.trap_id = MLXSW_TRAP_ID_PUDE,
--};
--
--static int mlxsw_sx_event_register(struct mlxsw_sx *mlxsw_sx,
--				   enum mlxsw_event_trap_id trap_id)
--{
--	struct mlxsw_event_listener *el;
--	char hpkt_pl[MLXSW_REG_HPKT_LEN];
--	int err;
--
--	switch (trap_id) {
--	case MLXSW_TRAP_ID_PUDE:
--		el = &mlxsw_sx_pude_event;
--		break;
--	}
--	err = mlxsw_core_event_listener_register(mlxsw_sx->core, el, mlxsw_sx);
+ /* HPKT - Host Packet Trap
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 79c0a01..75ba22a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2763,19 +2763,45 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
+ 	MLXSW_SP_RXL_NO_MARK(HOST_MISS_IPV4, TRAP_TO_CPU, false),
+ };
+ 
+-static int mlxsw_sp_traps_init(struct mlxsw_sp *mlxsw_sp)
++static int mlxsw_sp_trap_groups_set(struct mlxsw_core *mlxsw_core)
+ {
+ 	char htgt_pl[MLXSW_REG_HTGT_LEN];
++	int max_trap_groups;
++	u8 priority, tc;
++	int i, err;
++
++	if (!MLXSW_CORE_RES_VALID(mlxsw_core, MAX_TRAP_GROUPS))
++		return -EIO;
++
++	max_trap_groups = MLXSW_CORE_RES_GET(mlxsw_core, MAX_TRAP_GROUPS);
++
++	for (i = 0; i < max_trap_groups; i++) {
++		switch (i) {
++		case MLXSW_REG_HTGT_TRAP_GROUP_EMAD:
++		case MLXSW_REG_HTGT_TRAP_GROUP_RX:
++		case MLXSW_REG_HTGT_TRAP_GROUP_CTRL:
++			priority = MLXSW_REG_HTGT_DEFAULT_PRIORITY;
++			tc = MLXSW_REG_HTGT_DEFAULT_TC;
++			break;
++		default:
++			continue;
++		}
++		mlxsw_reg_htgt_pack(htgt_pl, i, MLXSW_REG_HTGT_INVALID_POLICER,
++				    priority, tc);
++		err = mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
++static int mlxsw_sp_traps_init(struct mlxsw_sp *mlxsw_sp)
++{
+ 	int i;
+ 	int err;
+ 
+-	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_RX);
+-	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(htgt), htgt_pl);
 -	if (err)
 -		return err;
 -
--	mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_FORWARD, trap_id);
--	err = mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(hpkt), hpkt_pl);
--	if (err)
--		goto err_event_trap_set;
--
--	return 0;
--
--err_event_trap_set:
--	mlxsw_core_event_listener_unregister(mlxsw_sx->core, el, mlxsw_sx);
--	return err;
--}
--
--static void mlxsw_sx_event_unregister(struct mlxsw_sx *mlxsw_sx,
--				      enum mlxsw_event_trap_id trap_id)
--{
--	struct mlxsw_event_listener *el;
--
--	switch (trap_id) {
--	case MLXSW_TRAP_ID_PUDE:
--		el = &mlxsw_sx_pude_event;
--		break;
--	}
--	mlxsw_core_event_listener_unregister(mlxsw_sx->core, el, mlxsw_sx);
--}
--
- static void mlxsw_sx_rx_listener_func(struct sk_buff *skb, u8 local_port,
- 				      void *priv)
- {
-@@ -1497,7 +1451,8 @@ static int mlxsw_sx_port_type_set(struct mlxsw_core *mlxsw_core, u8 local_port,
- #define MLXSW_SX_RXL(_trap_id) \
- 	MLXSW_RXL(mlxsw_sx_rx_listener_func, _trap_id, TRAP_TO_CPU, FORWARD)
- 
--static const struct mlxsw_listener mlxsw_sx_rx_listener[] = {
-+static const struct mlxsw_listener mlxsw_sx_listener[] = {
-+	MLXSW_EVENTL(mlxsw_sx_pude_event_func, PUDE),
- 	MLXSW_SX_RXL(FDB_MC),
- 	MLXSW_SX_RXL(STP),
- 	MLXSW_SX_RXL(LACP),
-@@ -1530,20 +1485,20 @@ static int mlxsw_sx_traps_init(struct mlxsw_sx *mlxsw_sx)
+-	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_CTRL);
+-	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(htgt), htgt_pl);
++	err = mlxsw_sp_trap_groups_set(mlxsw_sp->core);
  	if (err)
  		return err;
  
--	for (i = 0; i < ARRAY_SIZE(mlxsw_sx_rx_listener); i++) {
-+	for (i = 0; i < ARRAY_SIZE(mlxsw_sx_listener); i++) {
- 		err = mlxsw_core_trap_register(mlxsw_sx->core,
--					       &mlxsw_sx_rx_listener[i],
-+					       &mlxsw_sx_listener[i],
- 					       mlxsw_sx);
- 		if (err)
--			goto err_rx_listener_register;
-+			goto err_listener_register;
- 
- 	}
- 	return 0;
- 
--err_rx_listener_register:
-+err_listener_register:
- 	for (i--; i >= 0; i--) {
- 		mlxsw_core_trap_unregister(mlxsw_sx->core,
--					   &mlxsw_sx_rx_listener[i],
-+					   &mlxsw_sx_listener[i],
- 					   mlxsw_sx);
- 	}
- 	return err;
-@@ -1553,9 +1508,9 @@ static void mlxsw_sx_traps_fini(struct mlxsw_sx *mlxsw_sx)
+@@ -2894,7 +2920,10 @@ static int mlxsw_sp_basic_trap_groups_set(struct mlxsw_core *mlxsw_core)
  {
+ 	char htgt_pl[MLXSW_REG_HTGT_LEN];
+ 
+-	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD);
++	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD,
++			    MLXSW_REG_HTGT_INVALID_POLICER,
++			    MLXSW_REG_HTGT_DEFAULT_PRIORITY,
++			    MLXSW_REG_HTGT_DEFAULT_TC);
+ 	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchib.c b/drivers/net/ethernet/mellanox/mlxsw/switchib.c
+index 9a5f829..74341fe 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchib.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchib.c
+@@ -451,7 +451,13 @@ static int mlxsw_sib_basic_trap_groups_set(struct mlxsw_core *mlxsw_core)
+ {
+ 	char htgt_pl[MLXSW_REG_HTGT_LEN];
+ 
+-	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD);
++	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD,
++			    MLXSW_REG_HTGT_INVALID_POLICER,
++			    MLXSW_REG_HTGT_DEFAULT_PRIORITY,
++			    MLXSW_REG_HTGT_DEFAULT_TC);
++	mlxsw_reg_htgt_swid_set(htgt_pl, MLXSW_PORT_SWID_ALL_SWIDS);
++	mlxsw_reg_htgt_local_path_rdq_set(htgt_pl,
++					MLXSW_REG_HTGT_LOCAL_PATH_RDQ_SIB_EMAD);
+ 	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index 8caa962..4cdc02c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -1476,12 +1476,24 @@ static int mlxsw_sx_traps_init(struct mlxsw_sx *mlxsw_sx)
  	int i;
+ 	int err;
  
--	for (i = 0; i < ARRAY_SIZE(mlxsw_sx_rx_listener); i++) {
-+	for (i = 0; i < ARRAY_SIZE(mlxsw_sx_listener); i++) {
- 		mlxsw_core_trap_unregister(mlxsw_sx->core,
--					   &mlxsw_sx_rx_listener[i],
-+					   &mlxsw_sx_listener[i],
- 					   mlxsw_sx);
- 	}
- }
-@@ -1649,16 +1604,10 @@ static int mlxsw_sx_init(struct mlxsw_core *mlxsw_core,
+-	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_RX);
++	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_RX,
++			    MLXSW_REG_HTGT_INVALID_POLICER,
++			    MLXSW_REG_HTGT_DEFAULT_PRIORITY,
++			    MLXSW_REG_HTGT_DEFAULT_TC);
++	mlxsw_reg_htgt_local_path_rdq_set(htgt_pl,
++					  MLXSW_REG_HTGT_LOCAL_PATH_RDQ_SX2_RX);
++
+ 	err = mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(htgt), htgt_pl);
+ 	if (err)
  		return err;
- 	}
  
--	err = mlxsw_sx_event_register(mlxsw_sx, MLXSW_TRAP_ID_PUDE);
--	if (err) {
--		dev_err(mlxsw_sx->bus_info->dev, "Failed to register for PUDE events\n");
--		goto err_event_register;
--	}
--
- 	err = mlxsw_sx_traps_init(mlxsw_sx);
- 	if (err) {
--		dev_err(mlxsw_sx->bus_info->dev, "Failed to set traps for RX\n");
--		goto err_rx_listener_register;
-+		dev_err(mlxsw_sx->bus_info->dev, "Failed to set traps\n");
-+		goto err_listener_register;
- 	}
+-	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_CTRL);
++	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_CTRL,
++			    MLXSW_REG_HTGT_INVALID_POLICER,
++			    MLXSW_REG_HTGT_DEFAULT_PRIORITY,
++			    MLXSW_REG_HTGT_DEFAULT_TC);
++	mlxsw_reg_htgt_local_path_rdq_set(htgt_pl,
++					MLXSW_REG_HTGT_LOCAL_PATH_RDQ_SX2_CTRL);
++
+ 	err = mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(htgt), htgt_pl);
+ 	if (err)
+ 		return err;
+@@ -1588,7 +1600,13 @@ static int mlxsw_sx_basic_trap_groups_set(struct mlxsw_core *mlxsw_core)
+ {
+ 	char htgt_pl[MLXSW_REG_HTGT_LEN];
  
- 	err = mlxsw_sx_flood_init(mlxsw_sx);
-@@ -1671,9 +1620,7 @@ static int mlxsw_sx_init(struct mlxsw_core *mlxsw_core,
- 
- err_flood_init:
- 	mlxsw_sx_traps_fini(mlxsw_sx);
--err_rx_listener_register:
--	mlxsw_sx_event_unregister(mlxsw_sx, MLXSW_TRAP_ID_PUDE);
--err_event_register:
-+err_listener_register:
- 	mlxsw_sx_ports_remove(mlxsw_sx);
- 	return err;
- }
-@@ -1683,7 +1630,6 @@ static void mlxsw_sx_fini(struct mlxsw_core *mlxsw_core)
- 	struct mlxsw_sx *mlxsw_sx = mlxsw_core_driver_priv(mlxsw_core);
- 
- 	mlxsw_sx_traps_fini(mlxsw_sx);
--	mlxsw_sx_event_unregister(mlxsw_sx, MLXSW_TRAP_ID_PUDE);
- 	mlxsw_sx_ports_remove(mlxsw_sx);
+-	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD);
++	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD,
++			    MLXSW_REG_HTGT_INVALID_POLICER,
++			    MLXSW_REG_HTGT_DEFAULT_PRIORITY,
++			    MLXSW_REG_HTGT_DEFAULT_TC);
++	mlxsw_reg_htgt_swid_set(htgt_pl, MLXSW_PORT_SWID_ALL_SWIDS);
++	mlxsw_reg_htgt_local_path_rdq_set(htgt_pl,
++					MLXSW_REG_HTGT_LOCAL_PATH_RDQ_SX2_EMAD);
+ 	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
  }
  
 -- 
