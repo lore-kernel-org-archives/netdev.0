@@ -1,94 +1,41 @@
-From: =?utf-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
-Subject: Re: [scr265482] ip_tunnel.c
-Date: Fri, 25 Nov 2016 05:44:45 +0000
-Message-ID: <F41877A268BCDE49BAEE2286FA8C269F6FECFDEB@LETV-MBX-IDC09.letv.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+From: Eli Cooper <elicooper@gmx.com>
+Subject: [PATCH net] sit: Set skb->protocol properly in ipip6_tunnel_xmit()
+Date: Fri, 25 Nov 2016 13:50:17 +0800
+Message-ID: <20161125055017.7053-1-elicooper@gmx.com>
+To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+        Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.letv.com ([115.182.93.109]:36990 "EHLO letvspm.imsa.com"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750995AbcKYFpJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Nov 2016 00:45:09 -0500
-Content-Language: zh-CN
+Received: from mout.gmx.net ([212.227.17.20]:51362 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751625AbcKYF50 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 00:57:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PkJ1ZyBpcyBpbiB0aGUgUkZDIGZvciBub3QgZGVzY3JpYmluZyBob3cgYm90aCBlbmRzIHdvdWxk
-IG1hZ2ljYWxseSBzeW5jaHJvbml6ZSwgd2l0aCBhIHNlcXVlbmNlIHByb3RvY29sIHdoaWNoIGlz
-IHVuaWRpcmVjdGlvbmFsLCB3aXRoIG5vIEFDSyBwYWNrZXRzIG9yIHdoYXRldmVyIGdvaW5nIGJh
-Y2suDQo+V2l0aCBubyBkZXNjcmlwdGlvbiwgaXQgbWVhbnMgdGhhdCBSRkMgYXV0aG9yKHMpIG5l
-dmVyIGNvbnNpZGVyZWQgb25lIHNpZGUgb2YgdGhlIHR1bm5lbCBjb3VsZCBkaWUgYW5kIHJlc3Rh
-cnQuDQo+Q29udGFjdCB0aGUgYXV0aG9yKHMpIHRvIGdldCBoaXMgdGhvdWdodHMgbWF5YmUgPw0K
-DQogCUkgYWdyZWUgd2l0aCB5b3UsIGJ1dCBJIGRvbid0IGtub3cgaG93IHRvIGNvbnRhY3RlZCB0
-aGUgYXV0aG9yKHMpLiBJZiBhbnkgbmV3cyBhYm91dCB0aGlzLCBpdCB3aWxsIGJlIGdyYXRlZnVs
-IGxldCBtZSBrbm93LiAgDQoNCj5Zb3Ugd2lsbCBsZWFybiB0aGF0IG5vdCBldmVyeXRoaW5nIHB1
-dCBpbiBSRkMgb3Igb3RoZXIgcGllY2Ugb2YgcGFwZXIgbWFrZXMgc2Vuc2UuDQo+QW5kIHRoZSBp
-bXBsZW1lbnRhdGlvbiBpcyBleGFjdGx5IGltcGxlbWVudGluZyB0aGUgUkZDIGJ1ZywgYmVjYXVz
-ZSwgd2h5IG5vdCA/DQoNCj5Ob3cgaWYgeW91IGJlbGlldmUgeW91IGNhbiBtYWtlIHRoaXMgd29y
-aywgcGxlYXNlIHNlbmQgcGF0Y2hlcy4NCg0KCU5vdyBJIG5lZWRzIHRvIHJlZ2FpbiBhIHNlbnNl
-IG9mIHRoZSBSRkMuIFRoYW5rIHlvdS4NCiAgICBJIGhhZCB0aG91Z2h0IGFib3V0IHRoaXMgaXNz
-dWUsIGJ1dCBHUkUgZGlkbid0IGVuY3J5cHQgdGhlIFNFUSBmaWVsZCwgc28gaXQncyBkaWZmaWN1
-bHQgdG8gbGV0IHRoZSBvdGhlciBlbmQgdG8gdXBkYXRlIHRoZSBsb2NhbCBTRVEsIFdoZW4gdGhl
-IHBlZXIgaGFzIHJlc3RhcnRlZC4NCiAgICBCZWNhdXNlIHRoZSBhdHRhY2tlciBjYW4gaGFjayB0
-aGUgcGFja2V0IGVhc2lseS4NCiAgICBNYXliZSBkbyBub3QgdXNlIHRoZSBTRVEgaXMgYSBnb29k
-IGNob2ljZS4NCg0KDQpJbiBvdGhlciB3b3JkcyBJZiB0aGUgYXR0YWNrZXIgcmVwbHkgdGhlIHBh
-Y2tldHMgd2l0aCBzZXF1ZW5jZSBudW1iZXIgYmlnZ2VyIHRoYW4gdGhlIG5vcm1hbCBwYWNrZXRz
-LCBjYW4gdGhlIHR1bm5lbCB3b3JrIHdlbGw/ICBoYXctaGF3LCBpcyB0aGlzIGNvbmRpdGlvbiBh
-YmxlIHRvIG1lZXQNCmEgQ1ZFLiANCg0KDQoNCg0KT24gVGh1LCBOb3YgMjQsIDIwMTYgYXQgNzo1
-MiBQTSwgTGl5YW5nIFl1ICjkuo7nq4vmtIsxKSA8eXVsaXlhbmcxQGxlLmNvbT4gd3JvdGU6DQo+
-ICBJIGFjY2VwdCB0aGF0IHRoZSBpc3N1ZSBpcyBub3QgYSBDVkUgY2FuZGlkYXRlLiBCdXQgaXQn
-cyBhIGJ1ZyBpc24ndCANCj4gaXQNCg0KDQpCdWcgaXMgaW4gdGhlIFJGQyBmb3Igbm90IGRlc2Ny
-aWJpbmcgaG93IGJvdGggZW5kcyB3b3VsZCBtYWdpY2FsbHkgc3luY2hyb25pemUsIHdpdGggYSBz
-ZXF1ZW5jZSBwcm90b2NvbCB3aGljaCBpcyB1bmlkaXJlY3Rpb25hbCwgd2l0aCBubyBBQ0sgcGFj
-a2V0cyBvciB3aGF0ZXZlciBnb2luZyBiYWNrLg0KDQpXaXRoIG5vIGRlc2NyaXB0aW9uLCBpdCBt
-ZWFucyB0aGF0IFJGQyBhdXRob3IocykgbmV2ZXIgY29uc2lkZXJlZCBvbmUgc2lkZSBvZiB0aGUg
-dHVubmVsIGNvdWxkIGRpZSBhbmQgcmVzdGFydC4NCg0KQ29udGFjdCB0aGUgYXV0aG9yKHMpIHRv
-IGdldCBoaXMgdGhvdWdodHMgbWF5YmUgPw0KDQo+DQo+ICBUaGFuayB5b3UgZm9yIHlvdXIgc3Vn
-Z2VzdGlvbnMsIGFib3V0IHRoZSBmb3JtYXQgb2YgbWFpbCwgYW5kIG5vdCBuZXh0IHRpbWUuDQo+
-DQo+ICBFdmVyeXRoaW5nIGhhcyBpdHMgbWVhbmluZy4gSWYgc2VxdWVuY2UgbnVtYmVyIGlzIGEg
-am9rZSwgd2h5IHRoZSBndXlzIHB1dCBpdCBpbnRvIFJGQyAsIGV2ZW4gaW1wbGVtZW50ZWQgdGhl
-IGZlYXR1cmUuDQoNCllvdSB3aWxsIGxlYXJuIHRoYXQgbm90IGV2ZXJ5dGhpbmcgcHV0IGluIFJG
-QyBvciBvdGhlciBwaWVjZSBvZiBwYXBlciBtYWtlcyBzZW5zZS4NCkFuZCB0aGUgaW1wbGVtZW50
-YXRpb24gaXMgZXhhY3RseSBpbXBsZW1lbnRpbmcgdGhlIFJGQyBidWcsIGJlY2F1c2UsIHdoeSBu
-b3QgPw0KDQpOb3cgaWYgeW91IGJlbGlldmUgeW91IGNhbiBtYWtlIHRoaXMgd29yaywgcGxlYXNl
-IHNlbmQgcGF0Y2hlcy4NCg0KDQo+DQo+ICBBbmQgaWYgeW91IG1lYW5zIHRoYXQgU01QICggU3lt
-bWV0cmljIE11bHRpIFByb2Nlc3NpbmcgKT8NCg0KWWVzLg0KDQpJZiB5b3UgZW5hYmxlIHNlcXVl
-bmNlcywgR1JFIHBlcmZvcm1hbmNlIGlzIGFieXNtYWwgb24gU01QLCAgYmVjYXVzZSBsaW51eCB1
-c2VzIGFuIGV4dHJhIGxvY2ssIGluc3RlYWQgb2YgYWxsb3dpbmcgbXVsdGlwbGUgY3B1cyB1c2lu
-ZyBHUkUgdHVubmVsIGF0IHRoZSBzYW1lIHRpbWUsIGFuZCBHU08vVFNPIGFyZSBkaXNhYmxlZCAu
-DQoNCg0KDQo+DQo+DQo+DQo+IE9uIFRodSwgTm92IDI0LCAyMDE2IGF0IDU6MzkgUE0sIExpeWFu
-ZyBZdSAo5LqO56uL5rSLMSkgPHl1bGl5YW5nMUBsZS5jb20+IHdyb3RlOg0KPj4NCj4+DQo+Pg0K
-Pj4NCj4+DQo+Pg0KPj4NCj4+IEJUVzoNCj4+DQo+PiAgICBXaGljaCBSRkMgc3VnZ2VzdHMgVUlO
-VF9NQVggYXMgR1JFIHNlcXVlbmNlIG51bWJlcj8gIENhbiB5b3Ugc2hvdyBtZT8NCj4+DQo+Pg0K
-Pj4NCj4+DQo+Pg0KPj4NCj4NCj4NCj4gUkZDIDI4OTANCj4NCj4gSW4gYW55IGNhc2VzLCB0aGlz
-IGlzIGFic29sdXRlbHkgbm90IGEgc2VjdXJpdHkgaXNzdWUgbm9yIGEgQ1ZFIGNhbmRpZGF0ZS4N
-Cj4gUGxlYXNlIHJlbW92ZSBzZWN1cml0eUBrZXJuZWwub3JnIGZyb20gQ0MsIG5vIG5lZWQgdG8g
-c3BhbSBzZWN1cml0eSBndXlzLCB0aGV5IGhhdmUgZW5vdWdoIG9uIHRoZWlyIHBsYXRlLg0KPg0K
-PiBQbGVhc2Ugc2VuZCB0ZXh0IG1lc3NhZ2VzLCBubyBIVE1MIGlzIGFsbG93ZWQgb24gbmV0ZGV2
-DQo+DQo+IE5vYm9keSBzYW5lIHVzZXMgR1JFIHNlcXVlbmNlIG51bWJlcnMsIHByZWNpc2VseSBi
-ZWNhdXNlIEdSRSBoYXMgbm8gZG9jdW1lbnRlZCB3YXkgdG8gc3luY2hyb25pemUgdGhlIHNvdXJj
-ZSBhbmQgZGVzdGluYXRpb24gb2YgdGhlIHR1bm5lbC4NCj4gQmFzaWNhbGx5LCBpZiB5b3UgdXNl
-IEdSRSBzZXF1ZW5jZSBudW1iZXJzLCB5b3UgbXVzdCByZS1zdGFydCBvdGhlciBzaWRlIG9mIHRo
-ZSB0dW5uZWwgaWYgb25lIHNpZGUgaGFkIHRvIHJlc3RhcnQsIG9yIHJpc2sgZHJvcHBpbmcgdXAg
-dG8gMl4zMSBwYWNrZXRzLg0KPg0KPiBSZWFsbHksIHRoaXMgaXMgbm90IHNvbWV0aGluZyB0aGF0
-IGNhbiBiZSBzb2x2ZWQgYnkgdXNpbmcgJ2EgZGlmZmVyZW50IGluaXRpYWwgc2VxdWVuY2UgbnVt
-YmVyJw0KPg0KPiBsaW51eCBHUkUgc2VxdWVuY2UgbnVtYmVyIHN1cHBvcnQgaXMgYSBqb2tlLCBp
-dCBkb2VzIG5vdCBzdXBwb3J0IFNNUCBmb3IgYSBzdGFydC4NCj4NCj4NCj4NCj4+DQo+Pg0KPj4N
-Cj4+IE9uIFdlZCwgTm92IDIzLCAyMDE2IGF0IDExOjQ1IFBNLCBMaXlhbmcgWXUgKOS6jueri+a0
-izEpIDx5dWxpeWFuZzFAbGUuY29tPiB3cm90ZToNCj4+DQo+PiA+IFllYWjvvIxJIG1lYW5zIHRo
-YXQgcmVjcmVhdGUgdGhlIHR1bm5lbCBhZ2FpbiwgQnV0IEkgZG9u4oCZdCB0aGluayB0aGUNCj4+
-DQo+PiA+IHBhdGNoIGNhbiBmaXggdGhlIGJ1Zy4gSXQgb25seSBjYW4gbWFrZSB0aGUgZmlyc3Qg
-cGFja2V0IHJlY2VpdmVkIHN1Y2Nlc3NlZC4gQW5kIHRoZSBmb2xsb3cgcGFja2V0IHdpbGwgZHJv
-cGVkIGFsc28uDQo+Pg0KPj4gPiBJbiBmdW5jdGlvbiBfX2dyZV94bWl0ICBsaW5lIDM2Ng0KPj4N
-Cj4+ID4gICB0dW5uZWwtPm9fc2Vxbm8rKzsNCj4+DQo+PiA+DQo+Pg0KPj4gPiBJZiB5b3UgcmVz
-dGFydCBmcm9tIFVJTlRfTUFYLCB0aGUgJ29fc2Vxbm8nIG9mIHNlY29uZCBwYWNrZXQgd2lsbCBy
-ZXR1cm4gdG8gMCBhZ2Fpbi4NCj4+DQo+Pg0KPj4NCj4+IFRoZSBmaXJzdCBwYWNrZXQgYWZ0ZXIg
-cmVzdGFydDogb19zZXFubyA9PSBVSU5UX01BWCwgdGhlIG90aGVyIGVuZDoNCj4+IGlfc2Vxbm8g
-PSAwIFRoZSBzZWNvbmQgcGFja2V0IGFmdGVyIHJlc3RhcnQ6IG9fc2Vxbm8gPT0gMCwgdGhlIG90
-aGVyDQo+PiBlbmQ6IGlfc2Vxbm8gPSAxDQo+Pg0KPj4NCj4+DQo+PiBTbyB0cmFmZmljIHNob3Vs
-ZCBiZSBiYWNrIHRvIG5vcm1hbC4NCj4+DQo+Pg0KPj4NCj4+IFVJTlRfTUFYIGlzIGFsc28gd2hh
-dCBSRkMgc3VnZ2VzdHMuDQo=
+Similar to commit ae148b085876
+("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"),
+sit tunnels also need to update skb->protocol; otherwise, TSO/GSO packets
+might not be properly segmented, which causes the packets being dropped.
+
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Tested-by: Eli Cooper <elicooper@gmx.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Eli Cooper <elicooper@gmx.com>
+---
+ net/ipv6/sit.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index b1cdf80..a05dceb 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -972,6 +972,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 	}
+ 
+ 	skb_set_inner_ipproto(skb, IPPROTO_IPV6);
++	skb->protocol = htons(ETH_P_IP);
+ 
+ 	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol, tos, ttl,
+ 		      df, !net_eq(tunnel->net, dev_net(dev)));
+-- 
+2.10.2
