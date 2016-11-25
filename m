@@ -1,45 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 3/8] irda: w83977af_ir: Remove unnecessary blank lines
-Date: Fri, 25 Nov 2016 13:31:50 +0300
-Message-ID: <ea272463-7af8-87d5-235c-631d280714b9@cogentembedded.com>
-References: <cover.1480014088.git.joe@perches.com>
- <27a5cbfc2f59a978ad84ff19ddd76d6a333adfba.1480014088.git.joe@perches.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2 net-next] sfc: remove unneeded variable
+Date: Fri, 25 Nov 2016 13:43:04 +0300
+Message-ID: <20161125104304.GA5938@mwanda>
+References: <698affdd-d4e0-53c0-fff0-9b66252504a0@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>, Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <27a5cbfc2f59a978ad84ff19ddd76d6a333adfba.1480014088.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+        Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1050.oracle.com ([141.146.126.70]:46582 "EHLO
+        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751135AbcKYKyV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 05:54:21 -0500
+Content-Disposition: inline
+In-Reply-To: <698affdd-d4e0-53c0-fff0-9b66252504a0@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+We don't use ->heap_buf after commit 46d1efd852cc ("sfc: remove Software
+TSO") so let's remove the last traces.
 
-On 11/24/2016 10:10 PM, Joe Perches wrote:
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> These just add unnecessary vertical whitespace.
->
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/irda/w83977af_ir.c | 5 +----
->  1 file changed, 1 insertion(+), 4 deletions(-)
->
-> diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
-> index 4ad91f4f867f..5aa61413aea8 100644
-> --- a/drivers/net/irda/w83977af_ir.c
-> +++ b/drivers/net/irda/w83977af_ir.c
-[...]
-> @@ -553,6 +552,7 @@ static netdev_tx_t w83977af_hard_xmit(struct sk_buff *skb,
->  static void w83977af_dma_write(struct w83977af_ir *self, int iobase)
->  {
->  	__u8 set;
-> +
->  	pr_debug("%s(), len=%d\n", __func__, self->tx_buff.len);
->
->  	/* Save current set */
-
-    Removing, really? :-)
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index f97f828..18aceb2 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -139,8 +139,6 @@ struct efx_special_buffer {
+  * struct efx_tx_buffer - buffer state for a TX descriptor
+  * @skb: When @flags & %EFX_TX_BUF_SKB, the associated socket buffer to be
+  *	freed when descriptor completes
+- * @heap_buf: When @flags & %EFX_TX_BUF_HEAP, the associated heap buffer to be
+- *	freed when descriptor completes.
+  * @option: When @flags & %EFX_TX_BUF_OPTION, a NIC-specific option descriptor.
+  * @dma_addr: DMA address of the fragment.
+  * @flags: Flags for allocation and DMA mapping type
+@@ -151,10 +149,7 @@ struct efx_special_buffer {
+  * Only valid if @unmap_len != 0.
+  */
+ struct efx_tx_buffer {
+-	union {
+-		const struct sk_buff *skb;
+-		void *heap_buf;
+-	};
++	const struct sk_buff *skb;
+ 	union {
+ 		efx_qword_t option;
+ 		dma_addr_t dma_addr;
+@@ -166,7 +161,6 @@ struct efx_tx_buffer {
+ };
+ #define EFX_TX_BUF_CONT		1	/* not last descriptor of packet */
+ #define EFX_TX_BUF_SKB		2	/* buffer is last part of skb */
+-#define EFX_TX_BUF_HEAP		4	/* buffer was allocated with kmalloc() */
+ #define EFX_TX_BUF_MAP_SINGLE	8	/* buffer was mapped with dma_map_single() */
+ #define EFX_TX_BUF_OPTION	0x10	/* empty buffer for option descriptor */
+ 
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 1aa728c..bb07034 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -84,8 +84,6 @@ static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
+ 		netif_vdbg(tx_queue->efx, tx_done, tx_queue->efx->net_dev,
+ 			   "TX queue %d transmission id %x complete\n",
+ 			   tx_queue->queue, tx_queue->read_count);
+-	} else if (buffer->flags & EFX_TX_BUF_HEAP) {
+-		kfree(buffer->heap_buf);
+ 	}
+ 
+ 	buffer->len = 0;
