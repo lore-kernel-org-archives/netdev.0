@@ -1,145 +1,65 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [scr265482] ip_tunnel.c
-Date: Thu, 24 Nov 2016 20:15:16 -0800
-Message-ID: <CANn89iKDfndPr3KTwph3TTQF3V+3E_RhwUuHg1JtOHhG1ExtAg@mail.gmail.com>
-References: <F41877A268BCDE49BAEE2286FA8C269F6FECFD83@LETV-MBX-IDC09.letv.local>
+From: Sven-Haegar Koch <haegar@sdinet.de>
+Subject: Re: Large performance regression with 6in4 tunnel (sit)
+Date: Fri, 25 Nov 2016 05:06:53 +0100 (CET)
+Message-ID: <alpine.DEB.2.20.1611250503250.22094@aurora.sdinet.de>
+References: <20161125120947.142c3af5@canb.auug.org.au>        <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com> <20161125134520.68ca0969@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?UTF-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Eli Cooper <elicooper@gmx.com>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:36705 "EHLO
-        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752344AbcKYEPS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 23:15:18 -0500
-Received: by mail-io0-f180.google.com with SMTP id x94so107321021ioi.3
-        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 20:15:17 -0800 (PST)
-In-Reply-To: <F41877A268BCDE49BAEE2286FA8C269F6FECFD83@LETV-MBX-IDC09.letv.local>
+Received: from hydra.sdinet.de ([136.243.3.21]:59862 "EHLO mail.sdinet.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751500AbcKYEQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 23:16:16 -0500
+In-Reply-To: <20161125134520.68ca0969@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 24, 2016 at 7:52 PM, Liyang Yu (=E4=BA=8E=E7=AB=8B=E6=B4=8B1) <=
-yuliyang1@le.com> wrote:
->  I accept that the issue is not a CVE candidate. But it's a bug isn't it
+On Fri, 25 Nov 2016, Stephen Rothwell wrote:
 
+> On Fri, 25 Nov 2016 10:18:12 +0800 Eli Cooper <elicooper@gmx.com> wrote:
+> >
+> > Sounds like TSO/GSO packets are not properly segmented and therefore
+> > dropped.
+> > 
+> > Could you first try turning off segmentation offloading for the tunnel
+> > interface?
+> >     ethtool -K sit0 tso off gso off
+> 
+> On Thu, 24 Nov 2016 18:30:14 -0800 Eric Dumazet <eric.dumazet@gmail.com>
+> >
+> > You also could try to disable TSO and see if this makes a difference
+> > 
+> > ethtool -K sixtofour0 tso off
+> 
+> So turning off tso brings performance up to IPv4 levels ...
+> 
+> Thanks for that, it solves my immediate problem.
 
-Bug is in the RFC for not describing how both ends would magically synchron=
-ize,
-with a sequence protocol which is unidirectional, with no ACK packets
-or whatever going back.
+Somehow this problem description really reminds me of a report on 
+netdev a bit ago, which the following patch fixed:
 
-With no description, it means that RFC author(s) never considered one
-side of the tunnel could die and restart.
+commit 9ee6c5dc816aa8256257f2cd4008a9291ec7e985
+Author: Lance Richardson <lrichard@redhat.com>
+Date:   Wed Nov 2 16:36:17 2016 -0400
 
-Contact the author(s) to get his thoughts maybe ?
+    ipv4: allow local fragmentation in ip_finish_output_gso()
+    
+    Some configurations (e.g. geneve interface with default
+    MTU of 1500 over an ethernet interface with 1500 MTU) result
+    in the transmission of packets that exceed the configured MTU.
+    While this should be considered to be a "bad" configuration,
+    it is still allowed and should not result in the sending
+    of packets that exceed the configured MTU.
 
->
->  Thank you for your suggestions, about the format of mail, and not next t=
-ime.
->
->  Everything has its meaning. If sequence number is a joke, why the guys p=
-ut it into RFC , even implemented the feature.
+Could this be related?
 
-You will learn that not everything put in RFC or other piece of paper
-makes sense.
-And the implementation is exactly implementing the RFC bug, because, why no=
-t ?
+I suppose it would be difficult to test this patch on this machine?
 
-Now if you believe you can make this work, please send patches.
+c'ya
+sven-haegar
 
-
->
->  And if you means that SMP ( Symmetric Multi Processing )?
-
-Yes.
-
-If you enable sequences, GRE performance is abysmal on SMP,
- because linux uses an extra lock, instead of allowing multiple cpus
-using GRE tunnel at the same time,
-and GSO/TSO are disabled .
-
-
-
->
->
->
-> On Thu, Nov 24, 2016 at 5:39 PM, Liyang Yu (=E4=BA=8E=E7=AB=8B=E6=B4=8B1)=
- <yuliyang1@le.com> wrote:
->>
->>
->>
->>
->>
->>
->>
->> BTW:
->>
->>    Which RFC suggests UINT_MAX as GRE sequence number?  Can you show me?
->>
->>
->>
->>
->>
->>
->
->
-> RFC 2890
->
-> In any cases, this is absolutely not a security issue nor a CVE candidate=
-.
-> Please remove security@kernel.org from CC, no need to spam security guys,=
- they have enough on their plate.
->
-> Please send text messages, no HTML is allowed on netdev
->
-> Nobody sane uses GRE sequence numbers, precisely because GRE has no docum=
-ented way to synchronize the source and destination of the tunnel.
-> Basically, if you use GRE sequence numbers, you must re-start other side =
-of the tunnel if one side had to restart, or risk dropping up to 2^31 packe=
-ts.
->
-> Really, this is not something that can be solved by using 'a different in=
-itial sequence number'
->
-> linux GRE sequence number support is a joke, it does not support SMP for =
-a start.
->
->
->
->>
->>
->>
->> On Wed, Nov 23, 2016 at 11:45 PM, Liyang Yu (=E4=BA=8E=E7=AB=8B=E6=B4=8B=
-1) <yuliyang1@le.com> wrote:
->>
->> > Yeah=EF=BC=8CI means that recreate the tunnel again, But I don=E2=80=
-=99t think the
->>
->> > patch can fix the bug. It only can make the first packet received succ=
-essed. And the follow packet will droped also.
->>
->> > In function __gre_xmit  line 366
->>
->> >   tunnel->o_seqno++;
->>
->> >
->>
->> > If you restart from UINT_MAX, the 'o_seqno' of second packet will retu=
-rn to 0 again.
->>
->>
->>
->> The first packet after restart: o_seqno =3D=3D UINT_MAX, the other end:
->> i_seqno =3D 0 The second packet after restart: o_seqno =3D=3D 0, the oth=
-er
->> end: i_seqno =3D 1
->>
->>
->>
->> So traffic should be back to normal.
->>
->>
->>
->> UINT_MAX is also what RFC suggests.
+-- 
+Three may keep a secret, if two of them are dead.
+- Ben F.
