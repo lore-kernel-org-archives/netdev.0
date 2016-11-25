@@ -1,228 +1,250 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 12/19] mlxsw: core: Change emad trap group settings
-Date: Fri, 25 Nov 2016 10:33:40 +0100
-Message-ID: <1480066427-3961-13-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 10/19] mlxsw: Change trap set function
+Date: Fri, 25 Nov 2016 10:33:38 +0100
+Message-ID: <1480066427-3961-11-git-send-email-jiri@resnulli.us>
 References: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, yotamg@mellanox.com, arkadis@mellanox.com,
         ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:36224 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752625AbcKYJem (ORCPT
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:33429 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752441AbcKYJem (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 04:34:42 -0500
-Received: by mail-wj0-f196.google.com with SMTP id jb2so4927052wjb.3
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 01:34:04 -0800 (PST)
+Received: by mail-wj0-f193.google.com with SMTP id kp2so4928357wjc.0
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 01:34:01 -0800 (PST)
 In-Reply-To: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-Currently, the emad trap init was done in the core. In the future we will
-want to add some changes to the traps groups, according to device type.
-This commit create a driver function to create the trap group for the
-emad, so later it can be changed by devices. It also changes the emad
-registration to use the new generic functions.
+Change trap setting function so instead of determining the trap group by
+trap id, it gets it as a parameter (so later we can have different trap
+groups for Spectrum and Switchx2).
+Add "is_ctrl" parameter to the trap setting function. It control whether
+the trapped packets wait in a designated control buffer or in their
+default one. This parameter is ignored by Switchx2 and Switchib.
+Add these parameters to the traps array in Spectrum, Switchx2 and
+Switchib.
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c     | 49 ++++++--------------------
- drivers/net/ethernet/mellanox/mlxsw/core.h     |  1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c |  9 +++++
- drivers/net/ethernet/mellanox/mlxsw/switchib.c | 10 ++++++
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  9 +++++
- 5 files changed, 39 insertions(+), 39 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/core.c     | 14 +++++---
+ drivers/net/ethernet/mellanox/mlxsw/core.h     |  8 ++++-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      | 20 ++++-------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 46 +++++++++++++-------------
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  5 +--
+ 5 files changed, 49 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index d3b82d6..b21f88c 100644
+index a8cff78..d3b82d6 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/core.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -572,28 +572,9 @@ static void mlxsw_emad_rx_listener_func(struct sk_buff *skb, u8 local_port,
- 	dev_kfree_skb(skb);
+@@ -590,7 +590,8 @@ static int mlxsw_emad_traps_set(struct mlxsw_core *mlxsw_core)
+ 		return err;
+ 
+ 	mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_TRAP_TO_CPU,
+-			    MLXSW_TRAP_ID_ETHEMAD);
++			    MLXSW_TRAP_ID_ETHEMAD,
++			    MLXSW_REG_HTGT_TRAP_GROUP_EMAD, false);
+ 	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(hpkt), hpkt_pl);
  }
  
--static const struct mlxsw_rx_listener mlxsw_emad_rx_listener = {
--	.func = mlxsw_emad_rx_listener_func,
--	.local_port = MLXSW_PORT_DONT_CARE,
--	.trap_id = MLXSW_TRAP_ID_ETHEMAD,
--};
--
--static int mlxsw_emad_traps_set(struct mlxsw_core *mlxsw_core)
--{
--	char htgt_pl[MLXSW_REG_HTGT_LEN];
--	char hpkt_pl[MLXSW_REG_HPKT_LEN];
--	int err;
--
--	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD);
--	err = mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
--	if (err)
--		return err;
--
--	mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_TRAP_TO_CPU,
--			    MLXSW_TRAP_ID_ETHEMAD,
--			    MLXSW_REG_HTGT_TRAP_GROUP_EMAD, false);
--	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(hpkt), hpkt_pl);
--}
-+static const struct mlxsw_listener mlxsw_emad_rx_listener =
-+	MLXSW_RXL(mlxsw_emad_rx_listener_func, ETHEMAD, TRAP_TO_CPU, false,
-+		  EMAD, DISCARD);
+@@ -643,7 +644,8 @@ static void mlxsw_emad_fini(struct mlxsw_core *mlxsw_core)
  
- static int mlxsw_emad_init(struct mlxsw_core *mlxsw_core)
- {
-@@ -614,43 +595,33 @@ static int mlxsw_emad_init(struct mlxsw_core *mlxsw_core)
- 	INIT_LIST_HEAD(&mlxsw_core->emad.trans_list);
- 	spin_lock_init(&mlxsw_core->emad.trans_list_lock);
+ 	mlxsw_core->emad.use_emad = false;
+ 	mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_DISCARD,
+-			    MLXSW_TRAP_ID_ETHEMAD);
++			    MLXSW_TRAP_ID_ETHEMAD,
++			    MLXSW_REG_HTGT_TRAP_GROUP_EMAD, false);
+ 	mlxsw_reg_write(mlxsw_core, MLXSW_REG(hpkt), hpkt_pl);
  
--	err = mlxsw_core_rx_listener_register(mlxsw_core,
--					      &mlxsw_emad_rx_listener,
--					      mlxsw_core);
-+	err = mlxsw_core_trap_register(mlxsw_core, &mlxsw_emad_rx_listener,
-+				       mlxsw_core);
+ 	mlxsw_core_rx_listener_unregister(mlxsw_core,
+@@ -1430,8 +1432,9 @@ int mlxsw_core_trap_register(struct mlxsw_core *mlxsw_core,
  	if (err)
  		return err;
  
--	err = mlxsw_emad_traps_set(mlxsw_core);
-+	err = mlxsw_core->driver->basic_trap_groups_set(mlxsw_core);
+-	mlxsw_reg_hpkt_pack(hpkt_pl, listener->action, listener->trap_id);
+-	err = mlxsw_reg_write(mlxsw_core, MLXSW_REG(hpkt), hpkt_pl);
++	mlxsw_reg_hpkt_pack(hpkt_pl, listener->action, listener->trap_id,
++			    listener->trap_group, listener->is_ctrl);
++	err = mlxsw_reg_write(mlxsw_core,  MLXSW_REG(hpkt), hpkt_pl);
  	if (err)
- 		goto err_emad_trap_set;
+ 		goto err_trap_set;
+ 
+@@ -1451,7 +1454,8 @@ void mlxsw_core_trap_unregister(struct mlxsw_core *mlxsw_core,
+ 
+ 	if (!listener->is_event) {
+ 		mlxsw_reg_hpkt_pack(hpkt_pl, listener->unreg_action,
+-				    listener->trap_id);
++				    listener->trap_id, listener->trap_group,
++				    listener->is_ctrl);
+ 		mlxsw_reg_write(mlxsw_core, MLXSW_REG(hpkt), hpkt_pl);
+ 	}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 852218e..b5b5b36 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -98,10 +98,12 @@ struct mlxsw_listener {
+ 	} u;
+ 	enum mlxsw_reg_hpkt_action action;
+ 	enum mlxsw_reg_hpkt_action unreg_action;
++	u8 trap_group;
++	bool is_ctrl; /* should go via control buffer or not */
+ 	bool is_event;
+ };
+ 
+-#define MLXSW_RXL(_func, _trap_id, _action, _unreg_action)		\
++#define MLXSW_RXL(_func, _trap_id, _action, _is_ctrl, _unreg_action)	\
+ 	{								\
+ 		.trap_id = MLXSW_TRAP_ID_##_trap_id,			\
+ 		.u.rx_listener =					\
+@@ -112,6 +114,8 @@ struct mlxsw_listener {
+ 		},							\
+ 		.action = MLXSW_REG_HPKT_ACTION_##_action,		\
+ 		.unreg_action = MLXSW_REG_HPKT_ACTION_##_unreg_action,	\
++		.trap_group = MLXSW_REG_HTGT_TRAP_GROUP_RX,		\
++		.is_ctrl = _is_ctrl,					\
+ 		.is_event = false,					\
+ 	}
+ 
+@@ -124,6 +128,8 @@ struct mlxsw_listener {
+ 			.trap_id = MLXSW_TRAP_ID_##_trap_id,	\
+ 		},						\
+ 		.action = MLXSW_REG_HPKT_ACTION_TRAP_TO_CPU,	\
++		.trap_group = MLXSW_REG_HTGT_TRAP_GROUP_EMAD,	\
++		.is_ctrl = false,				\
+ 		.is_event = true,				\
+ 	}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 2618e9c..68a0e63 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3214,6 +3214,7 @@ enum {
+ 
+ /* reg_hpkt_ctrl
+  * Configure dedicated buffer resources for control packets.
++ * Ignored by SwitchX-2.
+  * 0 - Keep factory defaults.
+  * 1 - Do not use control buffer for this trap ID.
+  * 2 - Use control buffer for this trap ID.
+@@ -3221,25 +3222,18 @@ enum {
+  */
+ MLXSW_ITEM32(reg, hpkt, ctrl, 0x04, 16, 2);
+ 
+-static inline void mlxsw_reg_hpkt_pack(char *payload, u8 action, u16 trap_id)
++static inline void mlxsw_reg_hpkt_pack(char *payload, u8 action, u16 trap_id,
++				       enum mlxsw_reg_htgt_trap_group trap_group,
++				       bool is_ctrl)
+ {
+-	enum mlxsw_reg_htgt_trap_group trap_group;
 -
- 	mlxsw_core->emad.use_emad = true;
+ 	MLXSW_REG_ZERO(hpkt, payload);
+ 	mlxsw_reg_hpkt_ack_set(payload, MLXSW_REG_HPKT_ACK_NOT_REQUIRED);
+ 	mlxsw_reg_hpkt_action_set(payload, action);
+-	switch (trap_id) {
+-	case MLXSW_TRAP_ID_ETHEMAD:
+-	case MLXSW_TRAP_ID_PUDE:
+-		trap_group = MLXSW_REG_HTGT_TRAP_GROUP_EMAD;
+-		break;
+-	default:
+-		trap_group = MLXSW_REG_HTGT_TRAP_GROUP_RX;
+-		break;
+-	}
+ 	mlxsw_reg_hpkt_trap_group_set(payload, trap_group);
+ 	mlxsw_reg_hpkt_trap_id_set(payload, trap_id);
+-	mlxsw_reg_hpkt_ctrl_set(payload, MLXSW_REG_HPKT_CTRL_PACKET_DEFAULT);
++	mlxsw_reg_hpkt_ctrl_set(payload, is_ctrl ?
++				MLXSW_REG_HPKT_CTRL_PACKET_USE_BUFFER :
++				MLXSW_REG_HPKT_CTRL_PACKET_NO_BUFFER);
+ }
  
- 	return 0;
+ /* RGCR - Router General Configuration Register
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index d758ce6..3582e3f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2730,37 +2730,37 @@ static void mlxsw_sp_rx_listener_mark_func(struct sk_buff *skb, u8 local_port,
+ 	return mlxsw_sp_rx_listener_no_mark_func(skb, local_port, priv);
+ }
  
- err_emad_trap_set:
--	mlxsw_core_rx_listener_unregister(mlxsw_core,
--					  &mlxsw_emad_rx_listener,
--					  mlxsw_core);
-+	mlxsw_core_trap_unregister(mlxsw_core, &mlxsw_emad_rx_listener,
-+				   mlxsw_core);
+-#define MLXSW_SP_RXL_NO_MARK(_trap_id, _action)				\
+-	MLXSW_RXL(mlxsw_sp_rx_listener_no_mark_func, _trap_id, _action,	\
+-		  DISCARD)
++#define MLXSW_SP_RXL_NO_MARK(_trap_id, _action, _is_ctrl)		\
++	MLXSW_RXL(mlxsw_sp_rx_listener_no_mark_func, _trap_id, _action, \
++		  _is_ctrl, DISCARD)
+ 
+-#define MLXSW_SP_RXL_MARK(_trap_id, _action)				\
++#define MLXSW_SP_RXL_MARK(_trap_id, _action, _is_ctrl)			\
+ 	MLXSW_RXL(mlxsw_sp_rx_listener_mark_func, _trap_id, _action,	\
+-		  DISCARD)
++		  _is_ctrl, DISCARD)
+ 
+ static const struct mlxsw_listener mlxsw_sp_listener[] = {
+ 	/* Events */
+ 	MLXSW_EVENTL(mlxsw_sp_pude_event_func, PUDE),
+ 	/* L2 traps */
+-	MLXSW_SP_RXL_NO_MARK(STP, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(LACP, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(LLDP, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_MARK(DHCP, MIRROR_TO_CPU),
+-	MLXSW_SP_RXL_MARK(IGMP_QUERY, MIRROR_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(IGMP_V1_REPORT, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(IGMP_V2_REPORT, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(IGMP_V2_LEAVE, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(IGMP_V3_REPORT, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_MARK(ARPBC, MIRROR_TO_CPU),
+-	MLXSW_SP_RXL_MARK(ARPUC, MIRROR_TO_CPU),
++	MLXSW_SP_RXL_NO_MARK(STP, TRAP_TO_CPU, true),
++	MLXSW_SP_RXL_NO_MARK(LACP, TRAP_TO_CPU, true),
++	MLXSW_SP_RXL_NO_MARK(LLDP, TRAP_TO_CPU, true),
++	MLXSW_SP_RXL_MARK(DHCP, MIRROR_TO_CPU, false),
++	MLXSW_SP_RXL_MARK(IGMP_QUERY, MIRROR_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(IGMP_V1_REPORT, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(IGMP_V2_REPORT, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(IGMP_V2_LEAVE, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(IGMP_V3_REPORT, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_MARK(ARPBC, MIRROR_TO_CPU, false),
++	MLXSW_SP_RXL_MARK(ARPUC, MIRROR_TO_CPU, false),
+ 	/* L3 traps */
+-	MLXSW_SP_RXL_NO_MARK(MTUERROR, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(TTLERROR, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(LBERROR, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_MARK(OSPF, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(IP2ME, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(RTR_INGRESS0, TRAP_TO_CPU),
+-	MLXSW_SP_RXL_NO_MARK(HOST_MISS_IPV4, TRAP_TO_CPU),
++	MLXSW_SP_RXL_NO_MARK(MTUERROR, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(TTLERROR, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(LBERROR, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_MARK(OSPF, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(IP2ME, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(RTR_INGRESS0, TRAP_TO_CPU, false),
++	MLXSW_SP_RXL_NO_MARK(HOST_MISS_IPV4, TRAP_TO_CPU, false),
+ };
+ 
+ static int mlxsw_sp_traps_init(struct mlxsw_sp *mlxsw_sp)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index 675ce12..a158756 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -1448,8 +1448,9 @@ static int mlxsw_sx_port_type_set(struct mlxsw_core *mlxsw_core, u8 local_port,
  	return err;
  }
  
- static void mlxsw_emad_fini(struct mlxsw_core *mlxsw_core)
- {
--	char hpkt_pl[MLXSW_REG_HPKT_LEN];
+-#define MLXSW_SX_RXL(_trap_id) \
+-	MLXSW_RXL(mlxsw_sx_rx_listener_func, _trap_id, TRAP_TO_CPU, FORWARD)
++#define MLXSW_SX_RXL(_trap_id)						\
++	MLXSW_RXL(mlxsw_sx_rx_listener_func, _trap_id, TRAP_TO_CPU,	\
++		  false, FORWARD)
  
- 	if (!(mlxsw_core->bus->features & MLXSW_BUS_F_TXRX))
- 		return;
- 
- 	mlxsw_core->emad.use_emad = false;
--	mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_DISCARD,
--			    MLXSW_TRAP_ID_ETHEMAD,
--			    MLXSW_REG_HTGT_TRAP_GROUP_EMAD, false);
--	mlxsw_reg_write(mlxsw_core, MLXSW_REG(hpkt), hpkt_pl);
--
--	mlxsw_core_rx_listener_unregister(mlxsw_core,
--					  &mlxsw_emad_rx_listener,
--					  mlxsw_core);
-+	mlxsw_core_trap_unregister(mlxsw_core, &mlxsw_emad_rx_listener,
-+				   mlxsw_core);
- }
- 
- static struct sk_buff *mlxsw_emad_alloc(const struct mlxsw_core *mlxsw_core,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index d663b8e..e856b49 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -265,6 +265,7 @@ struct mlxsw_driver {
- 	int (*init)(struct mlxsw_core *mlxsw_core,
- 		    const struct mlxsw_bus_info *mlxsw_bus_info);
- 	void (*fini)(struct mlxsw_core *mlxsw_core);
-+	int (*basic_trap_groups_set)(struct mlxsw_core *mlxsw_core);
- 	int (*port_type_set)(struct mlxsw_core *mlxsw_core, u8 local_port,
- 			     enum devlink_port_type new_type);
- 	int (*port_split)(struct mlxsw_core *mlxsw_core, u8 local_port,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 44243a4..79c0a01 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2890,6 +2890,14 @@ static void mlxsw_sp_lag_fini(struct mlxsw_sp *mlxsw_sp)
- 	kfree(mlxsw_sp->lags);
- }
- 
-+static int mlxsw_sp_basic_trap_groups_set(struct mlxsw_core *mlxsw_core)
-+{
-+	char htgt_pl[MLXSW_REG_HTGT_LEN];
-+
-+	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD);
-+	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
-+}
-+
- static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 			 const struct mlxsw_bus_info *mlxsw_bus_info)
- {
-@@ -3026,6 +3034,7 @@ static struct mlxsw_driver mlxsw_sp_driver = {
- 	.priv_size			= sizeof(struct mlxsw_sp),
- 	.init				= mlxsw_sp_init,
- 	.fini				= mlxsw_sp_fini,
-+	.basic_trap_groups_set		= mlxsw_sp_basic_trap_groups_set,
- 	.port_split			= mlxsw_sp_port_split,
- 	.port_unsplit			= mlxsw_sp_port_unsplit,
- 	.sb_pool_get			= mlxsw_sp_sb_pool_get,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchib.c b/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-index b798711..9a5f829 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-@@ -447,6 +447,14 @@ static void mlxsw_sib_traps_fini(struct mlxsw_sib *mlxsw_sib)
- 	}
- }
- 
-+static int mlxsw_sib_basic_trap_groups_set(struct mlxsw_core *mlxsw_core)
-+{
-+	char htgt_pl[MLXSW_REG_HTGT_LEN];
-+
-+	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD);
-+	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
-+}
-+
- static int mlxsw_sib_init(struct mlxsw_core *mlxsw_core,
- 			  const struct mlxsw_bus_info *mlxsw_bus_info)
- {
-@@ -504,6 +512,7 @@ static struct mlxsw_driver mlxsw_sib_driver = {
- 	.priv_size		= sizeof(struct mlxsw_sib),
- 	.init			= mlxsw_sib_init,
- 	.fini			= mlxsw_sib_fini,
-+	.basic_trap_groups_set	= mlxsw_sib_basic_trap_groups_set,
- 	.txhdr_construct	= mlxsw_sib_tx_v1_hdr_construct,
- 	.txhdr_len		= MLXSW_TXHDR_LEN,
- 	.profile		= &mlxsw_sib_config_profile,
-@@ -514,6 +523,7 @@ static struct mlxsw_driver mlxsw_sib2_driver = {
- 	.priv_size		= sizeof(struct mlxsw_sib),
- 	.init			= mlxsw_sib_init,
- 	.fini			= mlxsw_sib_fini,
-+	.basic_trap_groups_set	= mlxsw_sib_basic_trap_groups_set,
- 	.txhdr_construct	= mlxsw_sib_tx_v1_hdr_construct,
- 	.txhdr_len		= MLXSW_TXHDR_LEN,
- 	.profile		= &mlxsw_sib_config_profile,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 1bcb391..8caa962 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -1584,6 +1584,14 @@ static int mlxsw_sx_flood_init(struct mlxsw_sx *mlxsw_sx)
- 	return mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(sgcr), sgcr_pl);
- }
- 
-+static int mlxsw_sx_basic_trap_groups_set(struct mlxsw_core *mlxsw_core)
-+{
-+	char htgt_pl[MLXSW_REG_HTGT_LEN];
-+
-+	mlxsw_reg_htgt_pack(htgt_pl, MLXSW_REG_HTGT_TRAP_GROUP_EMAD);
-+	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
-+}
-+
- static int mlxsw_sx_init(struct mlxsw_core *mlxsw_core,
- 			 const struct mlxsw_bus_info *mlxsw_bus_info)
- {
-@@ -1674,6 +1682,7 @@ static struct mlxsw_driver mlxsw_sx_driver = {
- 	.priv_size		= sizeof(struct mlxsw_sx),
- 	.init			= mlxsw_sx_init,
- 	.fini			= mlxsw_sx_fini,
-+	.basic_trap_groups_set	= mlxsw_sx_basic_trap_groups_set,
- 	.txhdr_construct	= mlxsw_sx_txhdr_construct,
- 	.txhdr_len		= MLXSW_TXHDR_LEN,
- 	.profile		= &mlxsw_sx_config_profile,
+ static const struct mlxsw_listener mlxsw_sx_listener[] = {
+ 	MLXSW_EVENTL(mlxsw_sx_pude_event_func, PUDE),
 -- 
 2.7.4
