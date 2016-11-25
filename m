@@ -1,112 +1,49 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 0/2] sfc: split out Falcon driver
-Date: Fri, 25 Nov 2016 17:44:46 +0000
-Message-ID: <e897bd71-1772-705c-5640-25112140b009@solarflare.com>
+Subject: [PATCH net-next 2/2] sfc: remove obvious Falcon-related code
+Date: Fri, 25 Nov 2016 17:47:35 +0000
+Message-ID: <455fc7b9-d7a1-58a7-7f2f-01401e22c0eb@solarflare.com>
+References: <e897bd71-1772-705c-5640-25112140b009@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 Cc: <bkenward@solarflare.com>, <netdev@vger.kernel.org>
 To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:55293 "EHLO
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:19454 "EHLO
         nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932463AbcKYRpC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 12:45:02 -0500
+        by vger.kernel.org with ESMTP id S933204AbcKYRru (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 12:47:50 -0500
+In-Reply-To: <e897bd71-1772-705c-5640-25112140b009@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series splits out support for the obsolescent SFC4000 family into its
- own driver, sfc-falcon.
-See patch #1 for rationale.
+Removed Falcon NIC functions, Falcon PHY code, and EFX_REV_FALCON_*, then
+ fixed up everything that referenced them.
 
-Edward Cree (2):
-  sfc: separate out SFC4000 ("Falcon") support into new sfc-falcon
-    driver
-  sfc: remove obvious Falcon-related code
-
- drivers/net/ethernet/Kconfig                    |    1 +
- drivers/net/ethernet/Makefile                   |    1 +
- drivers/net/ethernet/sfc/Kconfig                |    8 +-
- drivers/net/ethernet/sfc/Makefile               |    7 +-
- drivers/net/ethernet/sfc/efx.c                  |   29 +-
- drivers/net/ethernet/sfc/ethtool.c              |   15 +-
- drivers/net/ethernet/sfc/falcon.c               | 2907 --------------------
- drivers/net/ethernet/sfc/falcon/Kconfig         |   21 +
- drivers/net/ethernet/sfc/falcon/Makefile        |    6 +
- drivers/net/ethernet/sfc/falcon/bitfield.h      |  542 ++++
- drivers/net/ethernet/sfc/falcon/efx.c           | 3350 +++++++++++++++++++++++
- drivers/net/ethernet/sfc/falcon/efx.h           |  277 ++
- drivers/net/ethernet/sfc/falcon/enum.h          |  171 ++
- drivers/net/ethernet/sfc/falcon/ethtool.c       | 1343 +++++++++
- drivers/net/ethernet/sfc/falcon/falcon.c        | 2903 ++++++++++++++++++++
- drivers/net/ethernet/sfc/falcon/falcon_boards.c |  764 ++++++
- drivers/net/ethernet/sfc/falcon/farch.c         | 2892 +++++++++++++++++++
- drivers/net/ethernet/sfc/falcon/farch_regs.h    | 2932 ++++++++++++++++++++
- drivers/net/ethernet/sfc/falcon/filter.h        |  272 ++
- drivers/net/ethernet/sfc/falcon/io.h            |  290 ++
- drivers/net/ethernet/sfc/falcon/mdio_10g.c      |  323 +++
- drivers/net/ethernet/sfc/falcon/mdio_10g.h      |  110 +
- drivers/net/ethernet/sfc/falcon/mtd.c           |  133 +
- drivers/net/ethernet/sfc/falcon/net_driver.h    | 1464 ++++++++++
- drivers/net/ethernet/sfc/falcon/nic.c           |  527 ++++
- drivers/net/ethernet/sfc/falcon/nic.h           |  513 ++++
- drivers/net/ethernet/sfc/falcon/phy.h           |   50 +
- drivers/net/ethernet/sfc/falcon/qt202x_phy.c    |  495 ++++
- drivers/net/ethernet/sfc/falcon/rx.c            |  974 +++++++
- drivers/net/ethernet/sfc/falcon/selftest.c      |  808 ++++++
- drivers/net/ethernet/sfc/falcon/selftest.h      |   55 +
- drivers/net/ethernet/sfc/falcon/tenxpress.c     |  494 ++++
- drivers/net/ethernet/sfc/falcon/tx.c            |  649 +++++
- drivers/net/ethernet/sfc/falcon/tx.h            |   27 +
- drivers/net/ethernet/sfc/falcon/txc43128_phy.c  |  560 ++++
- drivers/net/ethernet/sfc/falcon/workarounds.h   |   44 +
- drivers/net/ethernet/sfc/falcon_boards.c        |  764 ------
- drivers/net/ethernet/sfc/farch.c                |  165 +-
- drivers/net/ethernet/sfc/mcdi.c                 |    1 -
- drivers/net/ethernet/sfc/mcdi_port.c            |    1 -
- drivers/net/ethernet/sfc/mdio_10g.c             |  323 ---
- drivers/net/ethernet/sfc/mdio_10g.h             |  110 -
- drivers/net/ethernet/sfc/net_driver.h           |    4 +-
- drivers/net/ethernet/sfc/nic.h                  |  172 +-
- drivers/net/ethernet/sfc/phy.h                  |   50 -
- drivers/net/ethernet/sfc/qt202x_phy.c           |  495 ----
- drivers/net/ethernet/sfc/rx.c                   |   19 +-
- drivers/net/ethernet/sfc/siena.c                |    1 -
- drivers/net/ethernet/sfc/tenxpress.c            |  494 ----
- drivers/net/ethernet/sfc/tx.c                   |   22 +-
- drivers/net/ethernet/sfc/txc43128_phy.c         |  560 ----
- drivers/net/ethernet/sfc/workarounds.h          |   21 -
- 52 files changed, 23076 insertions(+), 6083 deletions(-)
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ drivers/net/ethernet/sfc/Makefile        |    7 +-
+ drivers/net/ethernet/sfc/efx.c           |   23 +-
+ drivers/net/ethernet/sfc/ethtool.c       |   15 +-
+ drivers/net/ethernet/sfc/falcon.c        | 2907 ------------------------------
+ drivers/net/ethernet/sfc/falcon_boards.c |  764 --------
+ drivers/net/ethernet/sfc/farch.c         |  165 +-
+ drivers/net/ethernet/sfc/mcdi.c          |    1 -
+ drivers/net/ethernet/sfc/mcdi_port.c     |    1 -
+ drivers/net/ethernet/sfc/mdio_10g.c      |  323 ----
+ drivers/net/ethernet/sfc/mdio_10g.h      |  110 --
+ drivers/net/ethernet/sfc/net_driver.h    |    2 -
+ drivers/net/ethernet/sfc/nic.h           |  172 +-
+ drivers/net/ethernet/sfc/phy.h           |   50 -
+ drivers/net/ethernet/sfc/qt202x_phy.c    |  495 -----
+ drivers/net/ethernet/sfc/rx.c            |   19 +-
+ drivers/net/ethernet/sfc/siena.c         |    1 -
+ drivers/net/ethernet/sfc/tenxpress.c     |  494 -----
+ drivers/net/ethernet/sfc/tx.c            |   22 +-
+ drivers/net/ethernet/sfc/txc43128_phy.c  |  560 ------
+ drivers/net/ethernet/sfc/workarounds.h   |   21 -
+ 20 files changed, 80 insertions(+), 6072 deletions(-)
  delete mode 100644 drivers/net/ethernet/sfc/falcon.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/Kconfig
- create mode 100644 drivers/net/ethernet/sfc/falcon/Makefile
- create mode 100644 drivers/net/ethernet/sfc/falcon/bitfield.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/efx.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/efx.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/enum.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/ethtool.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/falcon.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/falcon_boards.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/farch.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/farch_regs.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/filter.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/io.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/mdio_10g.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/mdio_10g.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/mtd.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/net_driver.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/nic.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/nic.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/phy.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/qt202x_phy.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/rx.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/selftest.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/selftest.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/tenxpress.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/tx.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/tx.h
- create mode 100644 drivers/net/ethernet/sfc/falcon/txc43128_phy.c
- create mode 100644 drivers/net/ethernet/sfc/falcon/workarounds.h
  delete mode 100644 drivers/net/ethernet/sfc/falcon_boards.c
  delete mode 100644 drivers/net/ethernet/sfc/mdio_10g.c
  delete mode 100644 drivers/net/ethernet/sfc/mdio_10g.h
@@ -114,3 +51,6596 @@ Edward Cree (2):
  delete mode 100644 drivers/net/ethernet/sfc/qt202x_phy.c
  delete mode 100644 drivers/net/ethernet/sfc/tenxpress.c
  delete mode 100644 drivers/net/ethernet/sfc/txc43128_phy.c
+
+diff --git a/drivers/net/ethernet/sfc/Makefile b/drivers/net/ethernet/sfc/Makefile
+index b3b620f..520cfcc 100644
+--- a/drivers/net/ethernet/sfc/Makefile
++++ b/drivers/net/ethernet/sfc/Makefile
+@@ -1,7 +1,6 @@
+-sfc-y			+= efx.o nic.o farch.o falcon.o siena.o ef10.o tx.o \
+-			   rx.o selftest.o ethtool.o qt202x_phy.o mdio_10g.o \
+-			   tenxpress.o txc43128_phy.o falcon_boards.o \
+-			   mcdi.o mcdi_port.o mcdi_mon.o ptp.o tx_tso.o
++sfc-y			+= efx.o nic.o farch.o siena.o ef10.o tx.o rx.o \
++			   selftest.o ethtool.o ptp.o tx_tso.o \
++			   mcdi.o mcdi_port.o mcdi_mon.o
+ sfc-$(CONFIG_SFC_MTD)	+= mtd.o
+ sfc-$(CONFIG_SFC_SRIOV)	+= sriov.o siena_sriov.o ef10_sriov.o
+ 
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 5f6d00d..4a234a8 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -733,16 +733,7 @@ static void efx_stop_datapath(struct efx_nic *efx)
+ 	}
+ 
+ 	rc = efx->type->fini_dmaq(efx);
+-	if (rc && EFX_WORKAROUND_7803(efx)) {
+-		/* Schedule a reset to recover from the flush failure. The
+-		 * descriptor caches reference memory we're about to free,
+-		 * but falcon_reconfigure_mac_wrapper() won't reconnect
+-		 * the MACs because of the pending reset.
+-		 */
+-		netif_err(efx, drv, efx->net_dev,
+-			  "Resetting to recover from flush failure\n");
+-		efx_schedule_reset(efx, RESET_TYPE_ALL);
+-	} else if (rc) {
++	if (rc) {
+ 		netif_err(efx, drv, efx->net_dev, "failed to flush queues\n");
+ 	} else {
+ 		netif_dbg(efx, drv, efx->net_dev,
+@@ -1892,15 +1883,13 @@ static void efx_start_all(struct efx_nic *efx)
+ 		queue_delayed_work(efx->workqueue, &efx->monitor_work,
+ 				   efx_monitor_interval);
+ 
+-	/* If link state detection is normally event-driven, we have
++	/* Link state detection is normally event-driven; we have
+ 	 * to poll now because we could have missed a change
+ 	 */
+-	if (efx_nic_rev(efx) >= EFX_REV_SIENA_A0) {
+-		mutex_lock(&efx->mac_lock);
+-		if (efx->phy_op->poll(efx))
+-			efx_link_status_changed(efx);
+-		mutex_unlock(&efx->mac_lock);
+-	}
++	mutex_lock(&efx->mac_lock);
++	if (efx->phy_op->poll(efx))
++		efx_link_status_changed(efx);
++	mutex_unlock(&efx->mac_lock);
+ 
+ 	efx->type->start_stats(efx);
+ 	efx->type->pull_stats(efx);
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 740cdf0..ca29d3d 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -169,9 +169,8 @@ static void efx_ethtool_get_drvinfo(struct net_device *net_dev,
+ 
+ 	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
+ 	strlcpy(info->version, EFX_DRIVER_VERSION, sizeof(info->version));
+-	if (efx_nic_rev(efx) >= EFX_REV_SIENA_A0)
+-		efx_mcdi_print_fwver(efx, info->fw_version,
+-				     sizeof(info->fw_version));
++	efx_mcdi_print_fwver(efx, info->fw_version,
++			     sizeof(info->fw_version));
+ 	strlcpy(info->bus_info, pci_name(efx->pci_dev), sizeof(info->bus_info));
+ }
+ 
+@@ -966,8 +965,6 @@ efx_ethtool_get_rxnfc(struct net_device *net_dev,
+ 		return 0;
+ 
+ 	case ETHTOOL_GRXFH: {
+-		unsigned min_revision = 0;
+-
+ 		info->data = 0;
+ 		switch (info->flow_type) {
+ 		case UDP_V4_FLOW:
+@@ -980,7 +977,6 @@ efx_ethtool_get_rxnfc(struct net_device *net_dev,
+ 		case AH_ESP_V4_FLOW:
+ 		case IPV4_FLOW:
+ 			info->data |= RXH_IP_SRC | RXH_IP_DST;
+-			min_revision = EFX_REV_FALCON_B0;
+ 			break;
+ 		case UDP_V6_FLOW:
+ 			if (efx->rx_hash_udp_4tuple)
+@@ -992,13 +988,10 @@ efx_ethtool_get_rxnfc(struct net_device *net_dev,
+ 		case AH_ESP_V6_FLOW:
+ 		case IPV6_FLOW:
+ 			info->data |= RXH_IP_SRC | RXH_IP_DST;
+-			min_revision = EFX_REV_SIENA_A0;
+ 			break;
+ 		default:
+ 			break;
+ 		}
+-		if (efx_nic_rev(efx) < min_revision)
+-			info->data = 0;
+ 		return 0;
+ 	}
+ 
+@@ -1271,9 +1264,7 @@ static u32 efx_ethtool_get_rxfh_indir_size(struct net_device *net_dev)
+ {
+ 	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+-	return ((efx_nic_rev(efx) < EFX_REV_FALCON_B0 ||
+-		 efx->n_rx_channels == 1) ?
+-		0 : ARRAY_SIZE(efx->rx_indir_table));
++	return (efx->n_rx_channels == 1) ? 0 : ARRAY_SIZE(efx->rx_indir_table);
+ }
+ 
+ static int efx_ethtool_get_rxfh(struct net_device *net_dev, u32 *indir, u8 *key,
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+deleted file mode 100644
+index 6a1e74b..0000000
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ /dev/null
+@@ -1,2907 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare network controllers and boards
+- * Copyright 2005-2006 Fen Systems Ltd.
+- * Copyright 2006-2013 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-
+-#include <linux/bitops.h>
+-#include <linux/delay.h>
+-#include <linux/pci.h>
+-#include <linux/module.h>
+-#include <linux/seq_file.h>
+-#include <linux/i2c.h>
+-#include <linux/mii.h>
+-#include <linux/slab.h>
+-#include "net_driver.h"
+-#include "bitfield.h"
+-#include "efx.h"
+-#include "nic.h"
+-#include "farch_regs.h"
+-#include "io.h"
+-#include "phy.h"
+-#include "workarounds.h"
+-#include "selftest.h"
+-#include "mdio_10g.h"
+-
+-/* Hardware control for SFC4000 (aka Falcon). */
+-
+-/**************************************************************************
+- *
+- * NIC stats
+- *
+- **************************************************************************
+- */
+-
+-#define FALCON_MAC_STATS_SIZE 0x100
+-
+-#define XgRxOctets_offset 0x0
+-#define XgRxOctets_WIDTH 48
+-#define XgRxOctetsOK_offset 0x8
+-#define XgRxOctetsOK_WIDTH 48
+-#define XgRxPkts_offset 0x10
+-#define XgRxPkts_WIDTH 32
+-#define XgRxPktsOK_offset 0x14
+-#define XgRxPktsOK_WIDTH 32
+-#define XgRxBroadcastPkts_offset 0x18
+-#define XgRxBroadcastPkts_WIDTH 32
+-#define XgRxMulticastPkts_offset 0x1C
+-#define XgRxMulticastPkts_WIDTH 32
+-#define XgRxUnicastPkts_offset 0x20
+-#define XgRxUnicastPkts_WIDTH 32
+-#define XgRxUndersizePkts_offset 0x24
+-#define XgRxUndersizePkts_WIDTH 32
+-#define XgRxOversizePkts_offset 0x28
+-#define XgRxOversizePkts_WIDTH 32
+-#define XgRxJabberPkts_offset 0x2C
+-#define XgRxJabberPkts_WIDTH 32
+-#define XgRxUndersizeFCSerrorPkts_offset 0x30
+-#define XgRxUndersizeFCSerrorPkts_WIDTH 32
+-#define XgRxDropEvents_offset 0x34
+-#define XgRxDropEvents_WIDTH 32
+-#define XgRxFCSerrorPkts_offset 0x38
+-#define XgRxFCSerrorPkts_WIDTH 32
+-#define XgRxAlignError_offset 0x3C
+-#define XgRxAlignError_WIDTH 32
+-#define XgRxSymbolError_offset 0x40
+-#define XgRxSymbolError_WIDTH 32
+-#define XgRxInternalMACError_offset 0x44
+-#define XgRxInternalMACError_WIDTH 32
+-#define XgRxControlPkts_offset 0x48
+-#define XgRxControlPkts_WIDTH 32
+-#define XgRxPausePkts_offset 0x4C
+-#define XgRxPausePkts_WIDTH 32
+-#define XgRxPkts64Octets_offset 0x50
+-#define XgRxPkts64Octets_WIDTH 32
+-#define XgRxPkts65to127Octets_offset 0x54
+-#define XgRxPkts65to127Octets_WIDTH 32
+-#define XgRxPkts128to255Octets_offset 0x58
+-#define XgRxPkts128to255Octets_WIDTH 32
+-#define XgRxPkts256to511Octets_offset 0x5C
+-#define XgRxPkts256to511Octets_WIDTH 32
+-#define XgRxPkts512to1023Octets_offset 0x60
+-#define XgRxPkts512to1023Octets_WIDTH 32
+-#define XgRxPkts1024to15xxOctets_offset 0x64
+-#define XgRxPkts1024to15xxOctets_WIDTH 32
+-#define XgRxPkts15xxtoMaxOctets_offset 0x68
+-#define XgRxPkts15xxtoMaxOctets_WIDTH 32
+-#define XgRxLengthError_offset 0x6C
+-#define XgRxLengthError_WIDTH 32
+-#define XgTxPkts_offset 0x80
+-#define XgTxPkts_WIDTH 32
+-#define XgTxOctets_offset 0x88
+-#define XgTxOctets_WIDTH 48
+-#define XgTxMulticastPkts_offset 0x90
+-#define XgTxMulticastPkts_WIDTH 32
+-#define XgTxBroadcastPkts_offset 0x94
+-#define XgTxBroadcastPkts_WIDTH 32
+-#define XgTxUnicastPkts_offset 0x98
+-#define XgTxUnicastPkts_WIDTH 32
+-#define XgTxControlPkts_offset 0x9C
+-#define XgTxControlPkts_WIDTH 32
+-#define XgTxPausePkts_offset 0xA0
+-#define XgTxPausePkts_WIDTH 32
+-#define XgTxPkts64Octets_offset 0xA4
+-#define XgTxPkts64Octets_WIDTH 32
+-#define XgTxPkts65to127Octets_offset 0xA8
+-#define XgTxPkts65to127Octets_WIDTH 32
+-#define XgTxPkts128to255Octets_offset 0xAC
+-#define XgTxPkts128to255Octets_WIDTH 32
+-#define XgTxPkts256to511Octets_offset 0xB0
+-#define XgTxPkts256to511Octets_WIDTH 32
+-#define XgTxPkts512to1023Octets_offset 0xB4
+-#define XgTxPkts512to1023Octets_WIDTH 32
+-#define XgTxPkts1024to15xxOctets_offset 0xB8
+-#define XgTxPkts1024to15xxOctets_WIDTH 32
+-#define XgTxPkts1519toMaxOctets_offset 0xBC
+-#define XgTxPkts1519toMaxOctets_WIDTH 32
+-#define XgTxUndersizePkts_offset 0xC0
+-#define XgTxUndersizePkts_WIDTH 32
+-#define XgTxOversizePkts_offset 0xC4
+-#define XgTxOversizePkts_WIDTH 32
+-#define XgTxNonTcpUdpPkt_offset 0xC8
+-#define XgTxNonTcpUdpPkt_WIDTH 16
+-#define XgTxMacSrcErrPkt_offset 0xCC
+-#define XgTxMacSrcErrPkt_WIDTH 16
+-#define XgTxIpSrcErrPkt_offset 0xD0
+-#define XgTxIpSrcErrPkt_WIDTH 16
+-#define XgDmaDone_offset 0xD4
+-#define XgDmaDone_WIDTH 32
+-
+-#define FALCON_XMAC_STATS_DMA_FLAG(efx)				\
+-	(*(u32 *)((efx)->stats_buffer.addr + XgDmaDone_offset))
+-
+-#define FALCON_DMA_STAT(ext_name, hw_name)				\
+-	[FALCON_STAT_ ## ext_name] =					\
+-	{ #ext_name,							\
+-	  /* 48-bit stats are zero-padded to 64 on DMA */		\
+-	  hw_name ## _ ## WIDTH == 48 ? 64 : hw_name ## _ ## WIDTH,	\
+-	  hw_name ## _ ## offset }
+-#define FALCON_OTHER_STAT(ext_name)					\
+-	[FALCON_STAT_ ## ext_name] = { #ext_name, 0, 0 }
+-#define GENERIC_SW_STAT(ext_name)				\
+-	[GENERIC_STAT_ ## ext_name] = { #ext_name, 0, 0 }
+-
+-static const struct efx_hw_stat_desc falcon_stat_desc[FALCON_STAT_COUNT] = {
+-	FALCON_DMA_STAT(tx_bytes, XgTxOctets),
+-	FALCON_DMA_STAT(tx_packets, XgTxPkts),
+-	FALCON_DMA_STAT(tx_pause, XgTxPausePkts),
+-	FALCON_DMA_STAT(tx_control, XgTxControlPkts),
+-	FALCON_DMA_STAT(tx_unicast, XgTxUnicastPkts),
+-	FALCON_DMA_STAT(tx_multicast, XgTxMulticastPkts),
+-	FALCON_DMA_STAT(tx_broadcast, XgTxBroadcastPkts),
+-	FALCON_DMA_STAT(tx_lt64, XgTxUndersizePkts),
+-	FALCON_DMA_STAT(tx_64, XgTxPkts64Octets),
+-	FALCON_DMA_STAT(tx_65_to_127, XgTxPkts65to127Octets),
+-	FALCON_DMA_STAT(tx_128_to_255, XgTxPkts128to255Octets),
+-	FALCON_DMA_STAT(tx_256_to_511, XgTxPkts256to511Octets),
+-	FALCON_DMA_STAT(tx_512_to_1023, XgTxPkts512to1023Octets),
+-	FALCON_DMA_STAT(tx_1024_to_15xx, XgTxPkts1024to15xxOctets),
+-	FALCON_DMA_STAT(tx_15xx_to_jumbo, XgTxPkts1519toMaxOctets),
+-	FALCON_DMA_STAT(tx_gtjumbo, XgTxOversizePkts),
+-	FALCON_DMA_STAT(tx_non_tcpudp, XgTxNonTcpUdpPkt),
+-	FALCON_DMA_STAT(tx_mac_src_error, XgTxMacSrcErrPkt),
+-	FALCON_DMA_STAT(tx_ip_src_error, XgTxIpSrcErrPkt),
+-	FALCON_DMA_STAT(rx_bytes, XgRxOctets),
+-	FALCON_DMA_STAT(rx_good_bytes, XgRxOctetsOK),
+-	FALCON_OTHER_STAT(rx_bad_bytes),
+-	FALCON_DMA_STAT(rx_packets, XgRxPkts),
+-	FALCON_DMA_STAT(rx_good, XgRxPktsOK),
+-	FALCON_DMA_STAT(rx_bad, XgRxFCSerrorPkts),
+-	FALCON_DMA_STAT(rx_pause, XgRxPausePkts),
+-	FALCON_DMA_STAT(rx_control, XgRxControlPkts),
+-	FALCON_DMA_STAT(rx_unicast, XgRxUnicastPkts),
+-	FALCON_DMA_STAT(rx_multicast, XgRxMulticastPkts),
+-	FALCON_DMA_STAT(rx_broadcast, XgRxBroadcastPkts),
+-	FALCON_DMA_STAT(rx_lt64, XgRxUndersizePkts),
+-	FALCON_DMA_STAT(rx_64, XgRxPkts64Octets),
+-	FALCON_DMA_STAT(rx_65_to_127, XgRxPkts65to127Octets),
+-	FALCON_DMA_STAT(rx_128_to_255, XgRxPkts128to255Octets),
+-	FALCON_DMA_STAT(rx_256_to_511, XgRxPkts256to511Octets),
+-	FALCON_DMA_STAT(rx_512_to_1023, XgRxPkts512to1023Octets),
+-	FALCON_DMA_STAT(rx_1024_to_15xx, XgRxPkts1024to15xxOctets),
+-	FALCON_DMA_STAT(rx_15xx_to_jumbo, XgRxPkts15xxtoMaxOctets),
+-	FALCON_DMA_STAT(rx_gtjumbo, XgRxOversizePkts),
+-	FALCON_DMA_STAT(rx_bad_lt64, XgRxUndersizeFCSerrorPkts),
+-	FALCON_DMA_STAT(rx_bad_gtjumbo, XgRxJabberPkts),
+-	FALCON_DMA_STAT(rx_overflow, XgRxDropEvents),
+-	FALCON_DMA_STAT(rx_symbol_error, XgRxSymbolError),
+-	FALCON_DMA_STAT(rx_align_error, XgRxAlignError),
+-	FALCON_DMA_STAT(rx_length_error, XgRxLengthError),
+-	FALCON_DMA_STAT(rx_internal_error, XgRxInternalMACError),
+-	FALCON_OTHER_STAT(rx_nodesc_drop_cnt),
+-	GENERIC_SW_STAT(rx_nodesc_trunc),
+-	GENERIC_SW_STAT(rx_noskb_drops),
+-};
+-static const unsigned long falcon_stat_mask[] = {
+-	[0 ... BITS_TO_LONGS(FALCON_STAT_COUNT) - 1] = ~0UL,
+-};
+-
+-/**************************************************************************
+- *
+- * Basic SPI command set and bit definitions
+- *
+- *************************************************************************/
+-
+-#define SPI_WRSR 0x01		/* Write status register */
+-#define SPI_WRITE 0x02		/* Write data to memory array */
+-#define SPI_READ 0x03		/* Read data from memory array */
+-#define SPI_WRDI 0x04		/* Reset write enable latch */
+-#define SPI_RDSR 0x05		/* Read status register */
+-#define SPI_WREN 0x06		/* Set write enable latch */
+-#define SPI_SST_EWSR 0x50	/* SST: Enable write to status register */
+-
+-#define SPI_STATUS_WPEN 0x80	/* Write-protect pin enabled */
+-#define SPI_STATUS_BP2 0x10	/* Block protection bit 2 */
+-#define SPI_STATUS_BP1 0x08	/* Block protection bit 1 */
+-#define SPI_STATUS_BP0 0x04	/* Block protection bit 0 */
+-#define SPI_STATUS_WEN 0x02	/* State of the write enable latch */
+-#define SPI_STATUS_NRDY 0x01	/* Device busy flag */
+-
+-/**************************************************************************
+- *
+- * Non-volatile memory layout
+- *
+- **************************************************************************
+- */
+-
+-/* SFC4000 flash is partitioned into:
+- *     0-0x400       chip and board config (see struct falcon_nvconfig)
+- *     0x400-0x8000  unused (or may contain VPD if EEPROM not present)
+- *     0x8000-end    boot code (mapped to PCI expansion ROM)
+- * SFC4000 small EEPROM (size < 0x400) is used for VPD only.
+- * SFC4000 large EEPROM (size >= 0x400) is partitioned into:
+- *     0-0x400       chip and board config
+- *     configurable  VPD
+- *     0x800-0x1800  boot config
+- * Aside from the chip and board config, all of these are optional and may
+- * be absent or truncated depending on the devices used.
+- */
+-#define FALCON_NVCONFIG_END 0x400U
+-#define FALCON_FLASH_BOOTCODE_START 0x8000U
+-#define FALCON_EEPROM_BOOTCONFIG_START 0x800U
+-#define FALCON_EEPROM_BOOTCONFIG_END 0x1800U
+-
+-/* Board configuration v2 (v1 is obsolete; later versions are compatible) */
+-struct falcon_nvconfig_board_v2 {
+-	__le16 nports;
+-	u8 port0_phy_addr;
+-	u8 port0_phy_type;
+-	u8 port1_phy_addr;
+-	u8 port1_phy_type;
+-	__le16 asic_sub_revision;
+-	__le16 board_revision;
+-} __packed;
+-
+-/* Board configuration v3 extra information */
+-struct falcon_nvconfig_board_v3 {
+-	__le32 spi_device_type[2];
+-} __packed;
+-
+-/* Bit numbers for spi_device_type */
+-#define SPI_DEV_TYPE_SIZE_LBN 0
+-#define SPI_DEV_TYPE_SIZE_WIDTH 5
+-#define SPI_DEV_TYPE_ADDR_LEN_LBN 6
+-#define SPI_DEV_TYPE_ADDR_LEN_WIDTH 2
+-#define SPI_DEV_TYPE_ERASE_CMD_LBN 8
+-#define SPI_DEV_TYPE_ERASE_CMD_WIDTH 8
+-#define SPI_DEV_TYPE_ERASE_SIZE_LBN 16
+-#define SPI_DEV_TYPE_ERASE_SIZE_WIDTH 5
+-#define SPI_DEV_TYPE_BLOCK_SIZE_LBN 24
+-#define SPI_DEV_TYPE_BLOCK_SIZE_WIDTH 5
+-#define SPI_DEV_TYPE_FIELD(type, field)					\
+-	(((type) >> EFX_LOW_BIT(field)) & EFX_MASK32(EFX_WIDTH(field)))
+-
+-#define FALCON_NVCONFIG_OFFSET 0x300
+-
+-#define FALCON_NVCONFIG_BOARD_MAGIC_NUM 0xFA1C
+-struct falcon_nvconfig {
+-	efx_oword_t ee_vpd_cfg_reg;			/* 0x300 */
+-	u8 mac_address[2][8];			/* 0x310 */
+-	efx_oword_t pcie_sd_ctl0123_reg;		/* 0x320 */
+-	efx_oword_t pcie_sd_ctl45_reg;			/* 0x330 */
+-	efx_oword_t pcie_pcs_ctl_stat_reg;		/* 0x340 */
+-	efx_oword_t hw_init_reg;			/* 0x350 */
+-	efx_oword_t nic_stat_reg;			/* 0x360 */
+-	efx_oword_t glb_ctl_reg;			/* 0x370 */
+-	efx_oword_t srm_cfg_reg;			/* 0x380 */
+-	efx_oword_t spare_reg;				/* 0x390 */
+-	__le16 board_magic_num;			/* 0x3A0 */
+-	__le16 board_struct_ver;
+-	__le16 board_checksum;
+-	struct falcon_nvconfig_board_v2 board_v2;
+-	efx_oword_t ee_base_page_reg;			/* 0x3B0 */
+-	struct falcon_nvconfig_board_v3 board_v3;	/* 0x3C0 */
+-} __packed;
+-
+-/*************************************************************************/
+-
+-static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method);
+-static void falcon_reconfigure_mac_wrapper(struct efx_nic *efx);
+-
+-static const unsigned int
+-/* "Large" EEPROM device: Atmel AT25640 or similar
+- * 8 KB, 16-bit address, 32 B write block */
+-large_eeprom_type = ((13 << SPI_DEV_TYPE_SIZE_LBN)
+-		     | (2 << SPI_DEV_TYPE_ADDR_LEN_LBN)
+-		     | (5 << SPI_DEV_TYPE_BLOCK_SIZE_LBN)),
+-/* Default flash device: Atmel AT25F1024
+- * 128 KB, 24-bit address, 32 KB erase block, 256 B write block */
+-default_flash_type = ((17 << SPI_DEV_TYPE_SIZE_LBN)
+-		      | (3 << SPI_DEV_TYPE_ADDR_LEN_LBN)
+-		      | (0x52 << SPI_DEV_TYPE_ERASE_CMD_LBN)
+-		      | (15 << SPI_DEV_TYPE_ERASE_SIZE_LBN)
+-		      | (8 << SPI_DEV_TYPE_BLOCK_SIZE_LBN));
+-
+-/**************************************************************************
+- *
+- * I2C bus - this is a bit-bashing interface using GPIO pins
+- * Note that it uses the output enables to tristate the outputs
+- * SDA is the data pin and SCL is the clock
+- *
+- **************************************************************************
+- */
+-static void falcon_setsda(void *data, int state)
+-{
+-	struct efx_nic *efx = (struct efx_nic *)data;
+-	efx_oword_t reg;
+-
+-	efx_reado(efx, &reg, FR_AB_GPIO_CTL);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_GPIO3_OEN, !state);
+-	efx_writeo(efx, &reg, FR_AB_GPIO_CTL);
+-}
+-
+-static void falcon_setscl(void *data, int state)
+-{
+-	struct efx_nic *efx = (struct efx_nic *)data;
+-	efx_oword_t reg;
+-
+-	efx_reado(efx, &reg, FR_AB_GPIO_CTL);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_GPIO0_OEN, !state);
+-	efx_writeo(efx, &reg, FR_AB_GPIO_CTL);
+-}
+-
+-static int falcon_getsda(void *data)
+-{
+-	struct efx_nic *efx = (struct efx_nic *)data;
+-	efx_oword_t reg;
+-
+-	efx_reado(efx, &reg, FR_AB_GPIO_CTL);
+-	return EFX_OWORD_FIELD(reg, FRF_AB_GPIO3_IN);
+-}
+-
+-static int falcon_getscl(void *data)
+-{
+-	struct efx_nic *efx = (struct efx_nic *)data;
+-	efx_oword_t reg;
+-
+-	efx_reado(efx, &reg, FR_AB_GPIO_CTL);
+-	return EFX_OWORD_FIELD(reg, FRF_AB_GPIO0_IN);
+-}
+-
+-static const struct i2c_algo_bit_data falcon_i2c_bit_operations = {
+-	.setsda		= falcon_setsda,
+-	.setscl		= falcon_setscl,
+-	.getsda		= falcon_getsda,
+-	.getscl		= falcon_getscl,
+-	.udelay		= 5,
+-	/* Wait up to 50 ms for slave to let us pull SCL high */
+-	.timeout	= DIV_ROUND_UP(HZ, 20),
+-};
+-
+-static void falcon_push_irq_moderation(struct efx_channel *channel)
+-{
+-	efx_dword_t timer_cmd;
+-	struct efx_nic *efx = channel->efx;
+-
+-	/* Set timer register */
+-	if (channel->irq_moderation_us) {
+-		unsigned int ticks;
+-
+-		ticks = efx_usecs_to_ticks(efx, channel->irq_moderation_us);
+-		EFX_POPULATE_DWORD_2(timer_cmd,
+-				     FRF_AB_TC_TIMER_MODE,
+-				     FFE_BB_TIMER_MODE_INT_HLDOFF,
+-				     FRF_AB_TC_TIMER_VAL,
+-				     ticks - 1);
+-	} else {
+-		EFX_POPULATE_DWORD_2(timer_cmd,
+-				     FRF_AB_TC_TIMER_MODE,
+-				     FFE_BB_TIMER_MODE_DIS,
+-				     FRF_AB_TC_TIMER_VAL, 0);
+-	}
+-	BUILD_BUG_ON(FR_AA_TIMER_COMMAND_KER != FR_BZ_TIMER_COMMAND_P0);
+-	efx_writed_page_locked(efx, &timer_cmd, FR_BZ_TIMER_COMMAND_P0,
+-			       channel->channel);
+-}
+-
+-static void falcon_deconfigure_mac_wrapper(struct efx_nic *efx);
+-
+-static void falcon_prepare_flush(struct efx_nic *efx)
+-{
+-	falcon_deconfigure_mac_wrapper(efx);
+-
+-	/* Wait for the tx and rx fifo's to get to the next packet boundary
+-	 * (~1ms without back-pressure), then to drain the remainder of the
+-	 * fifo's at data path speeds (negligible), with a healthy margin. */
+-	msleep(10);
+-}
+-
+-/* Acknowledge a legacy interrupt from Falcon
+- *
+- * This acknowledges a legacy (not MSI) interrupt via INT_ACK_KER_REG.
+- *
+- * Due to SFC bug 3706 (silicon revision <=A1) reads can be duplicated in the
+- * BIU. Interrupt acknowledge is read sensitive so must write instead
+- * (then read to ensure the BIU collector is flushed)
+- *
+- * NB most hardware supports MSI interrupts
+- */
+-static inline void falcon_irq_ack_a1(struct efx_nic *efx)
+-{
+-	efx_dword_t reg;
+-
+-	EFX_POPULATE_DWORD_1(reg, FRF_AA_INT_ACK_KER_FIELD, 0xb7eb7e);
+-	efx_writed(efx, &reg, FR_AA_INT_ACK_KER);
+-	efx_readd(efx, &reg, FR_AA_WORK_AROUND_BROKEN_PCI_READS);
+-}
+-
+-static irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
+-{
+-	struct efx_nic *efx = dev_id;
+-	efx_oword_t *int_ker = efx->irq_status.addr;
+-	int syserr;
+-	int queues;
+-
+-	/* Check to see if this is our interrupt.  If it isn't, we
+-	 * exit without having touched the hardware.
+-	 */
+-	if (unlikely(EFX_OWORD_IS_ZERO(*int_ker))) {
+-		netif_vdbg(efx, intr, efx->net_dev,
+-			   "IRQ %d on CPU %d not for me\n", irq,
+-			   raw_smp_processor_id());
+-		return IRQ_NONE;
+-	}
+-	efx->last_irq_cpu = raw_smp_processor_id();
+-	netif_vdbg(efx, intr, efx->net_dev,
+-		   "IRQ %d on CPU %d status " EFX_OWORD_FMT "\n",
+-		   irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
+-
+-	if (!likely(ACCESS_ONCE(efx->irq_soft_enabled)))
+-		return IRQ_HANDLED;
+-
+-	/* Check to see if we have a serious error condition */
+-	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
+-	if (unlikely(syserr))
+-		return efx_farch_fatal_interrupt(efx);
+-
+-	/* Determine interrupting queues, clear interrupt status
+-	 * register and acknowledge the device interrupt.
+-	 */
+-	BUILD_BUG_ON(FSF_AZ_NET_IVEC_INT_Q_WIDTH > EFX_MAX_CHANNELS);
+-	queues = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_INT_Q);
+-	EFX_ZERO_OWORD(*int_ker);
+-	wmb(); /* Ensure the vector is cleared before interrupt ack */
+-	falcon_irq_ack_a1(efx);
+-
+-	if (queues & 1)
+-		efx_schedule_channel_irq(efx_get_channel(efx, 0));
+-	if (queues & 2)
+-		efx_schedule_channel_irq(efx_get_channel(efx, 1));
+-	return IRQ_HANDLED;
+-}
+-
+-/**************************************************************************
+- *
+- * RSS
+- *
+- **************************************************************************
+- */
+-static int dummy_rx_push_rss_config(struct efx_nic *efx, bool user,
+-				    const u32 *rx_indir_table)
+-{
+-	(void) efx;
+-	(void) user;
+-	(void) rx_indir_table;
+-	return -ENOSYS;
+-}
+-
+-static int falcon_b0_rx_push_rss_config(struct efx_nic *efx, bool user,
+-					const u32 *rx_indir_table)
+-{
+-	efx_oword_t temp;
+-
+-	(void) user;
+-	/* Set hash key for IPv4 */
+-	memcpy(&temp, efx->rx_hash_key, sizeof(temp));
+-	efx_writeo(efx, &temp, FR_BZ_RX_RSS_TKEY);
+-
+-	memcpy(efx->rx_indir_table, rx_indir_table,
+-	       sizeof(efx->rx_indir_table));
+-	efx_farch_rx_push_indir_table(efx);
+-	return 0;
+-}
+-
+-/**************************************************************************
+- *
+- * EEPROM/flash
+- *
+- **************************************************************************
+- */
+-
+-#define FALCON_SPI_MAX_LEN sizeof(efx_oword_t)
+-
+-static int falcon_spi_poll(struct efx_nic *efx)
+-{
+-	efx_oword_t reg;
+-	efx_reado(efx, &reg, FR_AB_EE_SPI_HCMD);
+-	return EFX_OWORD_FIELD(reg, FRF_AB_EE_SPI_HCMD_CMD_EN) ? -EBUSY : 0;
+-}
+-
+-/* Wait for SPI command completion */
+-static int falcon_spi_wait(struct efx_nic *efx)
+-{
+-	/* Most commands will finish quickly, so we start polling at
+-	 * very short intervals.  Sometimes the command may have to
+-	 * wait for VPD or expansion ROM access outside of our
+-	 * control, so we allow up to 100 ms. */
+-	unsigned long timeout = jiffies + 1 + DIV_ROUND_UP(HZ, 10);
+-	int i;
+-
+-	for (i = 0; i < 10; i++) {
+-		if (!falcon_spi_poll(efx))
+-			return 0;
+-		udelay(10);
+-	}
+-
+-	for (;;) {
+-		if (!falcon_spi_poll(efx))
+-			return 0;
+-		if (time_after_eq(jiffies, timeout)) {
+-			netif_err(efx, hw, efx->net_dev,
+-				  "timed out waiting for SPI\n");
+-			return -ETIMEDOUT;
+-		}
+-		schedule_timeout_uninterruptible(1);
+-	}
+-}
+-
+-static int
+-falcon_spi_cmd(struct efx_nic *efx, const struct falcon_spi_device *spi,
+-	       unsigned int command, int address,
+-	       const void *in, void *out, size_t len)
+-{
+-	bool addressed = (address >= 0);
+-	bool reading = (out != NULL);
+-	efx_oword_t reg;
+-	int rc;
+-
+-	/* Input validation */
+-	if (len > FALCON_SPI_MAX_LEN)
+-		return -EINVAL;
+-
+-	/* Check that previous command is not still running */
+-	rc = falcon_spi_poll(efx);
+-	if (rc)
+-		return rc;
+-
+-	/* Program address register, if we have an address */
+-	if (addressed) {
+-		EFX_POPULATE_OWORD_1(reg, FRF_AB_EE_SPI_HADR_ADR, address);
+-		efx_writeo(efx, &reg, FR_AB_EE_SPI_HADR);
+-	}
+-
+-	/* Program data register, if we have data */
+-	if (in != NULL) {
+-		memcpy(&reg, in, len);
+-		efx_writeo(efx, &reg, FR_AB_EE_SPI_HDATA);
+-	}
+-
+-	/* Issue read/write command */
+-	EFX_POPULATE_OWORD_7(reg,
+-			     FRF_AB_EE_SPI_HCMD_CMD_EN, 1,
+-			     FRF_AB_EE_SPI_HCMD_SF_SEL, spi->device_id,
+-			     FRF_AB_EE_SPI_HCMD_DABCNT, len,
+-			     FRF_AB_EE_SPI_HCMD_READ, reading,
+-			     FRF_AB_EE_SPI_HCMD_DUBCNT, 0,
+-			     FRF_AB_EE_SPI_HCMD_ADBCNT,
+-			     (addressed ? spi->addr_len : 0),
+-			     FRF_AB_EE_SPI_HCMD_ENC, command);
+-	efx_writeo(efx, &reg, FR_AB_EE_SPI_HCMD);
+-
+-	/* Wait for read/write to complete */
+-	rc = falcon_spi_wait(efx);
+-	if (rc)
+-		return rc;
+-
+-	/* Read data */
+-	if (out != NULL) {
+-		efx_reado(efx, &reg, FR_AB_EE_SPI_HDATA);
+-		memcpy(out, &reg, len);
+-	}
+-
+-	return 0;
+-}
+-
+-static inline u8
+-falcon_spi_munge_command(const struct falcon_spi_device *spi,
+-			 const u8 command, const unsigned int address)
+-{
+-	return command | (((address >> 8) & spi->munge_address) << 3);
+-}
+-
+-static int
+-falcon_spi_read(struct efx_nic *efx, const struct falcon_spi_device *spi,
+-		loff_t start, size_t len, size_t *retlen, u8 *buffer)
+-{
+-	size_t block_len, pos = 0;
+-	unsigned int command;
+-	int rc = 0;
+-
+-	while (pos < len) {
+-		block_len = min(len - pos, FALCON_SPI_MAX_LEN);
+-
+-		command = falcon_spi_munge_command(spi, SPI_READ, start + pos);
+-		rc = falcon_spi_cmd(efx, spi, command, start + pos, NULL,
+-				    buffer + pos, block_len);
+-		if (rc)
+-			break;
+-		pos += block_len;
+-
+-		/* Avoid locking up the system */
+-		cond_resched();
+-		if (signal_pending(current)) {
+-			rc = -EINTR;
+-			break;
+-		}
+-	}
+-
+-	if (retlen)
+-		*retlen = pos;
+-	return rc;
+-}
+-
+-#ifdef CONFIG_SFC_MTD
+-
+-struct falcon_mtd_partition {
+-	struct efx_mtd_partition common;
+-	const struct falcon_spi_device *spi;
+-	size_t offset;
+-};
+-
+-#define to_falcon_mtd_partition(mtd)				\
+-	container_of(mtd, struct falcon_mtd_partition, common.mtd)
+-
+-static size_t
+-falcon_spi_write_limit(const struct falcon_spi_device *spi, size_t start)
+-{
+-	return min(FALCON_SPI_MAX_LEN,
+-		   (spi->block_size - (start & (spi->block_size - 1))));
+-}
+-
+-/* Wait up to 10 ms for buffered write completion */
+-static int
+-falcon_spi_wait_write(struct efx_nic *efx, const struct falcon_spi_device *spi)
+-{
+-	unsigned long timeout = jiffies + 1 + DIV_ROUND_UP(HZ, 100);
+-	u8 status;
+-	int rc;
+-
+-	for (;;) {
+-		rc = falcon_spi_cmd(efx, spi, SPI_RDSR, -1, NULL,
+-				    &status, sizeof(status));
+-		if (rc)
+-			return rc;
+-		if (!(status & SPI_STATUS_NRDY))
+-			return 0;
+-		if (time_after_eq(jiffies, timeout)) {
+-			netif_err(efx, hw, efx->net_dev,
+-				  "SPI write timeout on device %d"
+-				  " last status=0x%02x\n",
+-				  spi->device_id, status);
+-			return -ETIMEDOUT;
+-		}
+-		schedule_timeout_uninterruptible(1);
+-	}
+-}
+-
+-static int
+-falcon_spi_write(struct efx_nic *efx, const struct falcon_spi_device *spi,
+-		 loff_t start, size_t len, size_t *retlen, const u8 *buffer)
+-{
+-	u8 verify_buffer[FALCON_SPI_MAX_LEN];
+-	size_t block_len, pos = 0;
+-	unsigned int command;
+-	int rc = 0;
+-
+-	while (pos < len) {
+-		rc = falcon_spi_cmd(efx, spi, SPI_WREN, -1, NULL, NULL, 0);
+-		if (rc)
+-			break;
+-
+-		block_len = min(len - pos,
+-				falcon_spi_write_limit(spi, start + pos));
+-		command = falcon_spi_munge_command(spi, SPI_WRITE, start + pos);
+-		rc = falcon_spi_cmd(efx, spi, command, start + pos,
+-				    buffer + pos, NULL, block_len);
+-		if (rc)
+-			break;
+-
+-		rc = falcon_spi_wait_write(efx, spi);
+-		if (rc)
+-			break;
+-
+-		command = falcon_spi_munge_command(spi, SPI_READ, start + pos);
+-		rc = falcon_spi_cmd(efx, spi, command, start + pos,
+-				    NULL, verify_buffer, block_len);
+-		if (memcmp(verify_buffer, buffer + pos, block_len)) {
+-			rc = -EIO;
+-			break;
+-		}
+-
+-		pos += block_len;
+-
+-		/* Avoid locking up the system */
+-		cond_resched();
+-		if (signal_pending(current)) {
+-			rc = -EINTR;
+-			break;
+-		}
+-	}
+-
+-	if (retlen)
+-		*retlen = pos;
+-	return rc;
+-}
+-
+-static int
+-falcon_spi_slow_wait(struct falcon_mtd_partition *part, bool uninterruptible)
+-{
+-	const struct falcon_spi_device *spi = part->spi;
+-	struct efx_nic *efx = part->common.mtd.priv;
+-	u8 status;
+-	int rc, i;
+-
+-	/* Wait up to 4s for flash/EEPROM to finish a slow operation. */
+-	for (i = 0; i < 40; i++) {
+-		__set_current_state(uninterruptible ?
+-				    TASK_UNINTERRUPTIBLE : TASK_INTERRUPTIBLE);
+-		schedule_timeout(HZ / 10);
+-		rc = falcon_spi_cmd(efx, spi, SPI_RDSR, -1, NULL,
+-				    &status, sizeof(status));
+-		if (rc)
+-			return rc;
+-		if (!(status & SPI_STATUS_NRDY))
+-			return 0;
+-		if (signal_pending(current))
+-			return -EINTR;
+-	}
+-	pr_err("%s: timed out waiting for %s\n",
+-	       part->common.name, part->common.dev_type_name);
+-	return -ETIMEDOUT;
+-}
+-
+-static int
+-falcon_spi_unlock(struct efx_nic *efx, const struct falcon_spi_device *spi)
+-{
+-	const u8 unlock_mask = (SPI_STATUS_BP2 | SPI_STATUS_BP1 |
+-				SPI_STATUS_BP0);
+-	u8 status;
+-	int rc;
+-
+-	rc = falcon_spi_cmd(efx, spi, SPI_RDSR, -1, NULL,
+-			    &status, sizeof(status));
+-	if (rc)
+-		return rc;
+-
+-	if (!(status & unlock_mask))
+-		return 0; /* already unlocked */
+-
+-	rc = falcon_spi_cmd(efx, spi, SPI_WREN, -1, NULL, NULL, 0);
+-	if (rc)
+-		return rc;
+-	rc = falcon_spi_cmd(efx, spi, SPI_SST_EWSR, -1, NULL, NULL, 0);
+-	if (rc)
+-		return rc;
+-
+-	status &= ~unlock_mask;
+-	rc = falcon_spi_cmd(efx, spi, SPI_WRSR, -1, &status,
+-			    NULL, sizeof(status));
+-	if (rc)
+-		return rc;
+-	rc = falcon_spi_wait_write(efx, spi);
+-	if (rc)
+-		return rc;
+-
+-	return 0;
+-}
+-
+-#define FALCON_SPI_VERIFY_BUF_LEN 16
+-
+-static int
+-falcon_spi_erase(struct falcon_mtd_partition *part, loff_t start, size_t len)
+-{
+-	const struct falcon_spi_device *spi = part->spi;
+-	struct efx_nic *efx = part->common.mtd.priv;
+-	unsigned pos, block_len;
+-	u8 empty[FALCON_SPI_VERIFY_BUF_LEN];
+-	u8 buffer[FALCON_SPI_VERIFY_BUF_LEN];
+-	int rc;
+-
+-	if (len != spi->erase_size)
+-		return -EINVAL;
+-
+-	if (spi->erase_command == 0)
+-		return -EOPNOTSUPP;
+-
+-	rc = falcon_spi_unlock(efx, spi);
+-	if (rc)
+-		return rc;
+-	rc = falcon_spi_cmd(efx, spi, SPI_WREN, -1, NULL, NULL, 0);
+-	if (rc)
+-		return rc;
+-	rc = falcon_spi_cmd(efx, spi, spi->erase_command, start, NULL,
+-			    NULL, 0);
+-	if (rc)
+-		return rc;
+-	rc = falcon_spi_slow_wait(part, false);
+-
+-	/* Verify the entire region has been wiped */
+-	memset(empty, 0xff, sizeof(empty));
+-	for (pos = 0; pos < len; pos += block_len) {
+-		block_len = min(len - pos, sizeof(buffer));
+-		rc = falcon_spi_read(efx, spi, start + pos, block_len,
+-				     NULL, buffer);
+-		if (rc)
+-			return rc;
+-		if (memcmp(empty, buffer, block_len))
+-			return -EIO;
+-
+-		/* Avoid locking up the system */
+-		cond_resched();
+-		if (signal_pending(current))
+-			return -EINTR;
+-	}
+-
+-	return rc;
+-}
+-
+-static void falcon_mtd_rename(struct efx_mtd_partition *part)
+-{
+-	struct efx_nic *efx = part->mtd.priv;
+-
+-	snprintf(part->name, sizeof(part->name), "%s %s",
+-		 efx->name, part->type_name);
+-}
+-
+-static int falcon_mtd_read(struct mtd_info *mtd, loff_t start,
+-			   size_t len, size_t *retlen, u8 *buffer)
+-{
+-	struct falcon_mtd_partition *part = to_falcon_mtd_partition(mtd);
+-	struct efx_nic *efx = mtd->priv;
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	int rc;
+-
+-	rc = mutex_lock_interruptible(&nic_data->spi_lock);
+-	if (rc)
+-		return rc;
+-	rc = falcon_spi_read(efx, part->spi, part->offset + start,
+-			     len, retlen, buffer);
+-	mutex_unlock(&nic_data->spi_lock);
+-	return rc;
+-}
+-
+-static int falcon_mtd_erase(struct mtd_info *mtd, loff_t start, size_t len)
+-{
+-	struct falcon_mtd_partition *part = to_falcon_mtd_partition(mtd);
+-	struct efx_nic *efx = mtd->priv;
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	int rc;
+-
+-	rc = mutex_lock_interruptible(&nic_data->spi_lock);
+-	if (rc)
+-		return rc;
+-	rc = falcon_spi_erase(part, part->offset + start, len);
+-	mutex_unlock(&nic_data->spi_lock);
+-	return rc;
+-}
+-
+-static int falcon_mtd_write(struct mtd_info *mtd, loff_t start,
+-			    size_t len, size_t *retlen, const u8 *buffer)
+-{
+-	struct falcon_mtd_partition *part = to_falcon_mtd_partition(mtd);
+-	struct efx_nic *efx = mtd->priv;
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	int rc;
+-
+-	rc = mutex_lock_interruptible(&nic_data->spi_lock);
+-	if (rc)
+-		return rc;
+-	rc = falcon_spi_write(efx, part->spi, part->offset + start,
+-			      len, retlen, buffer);
+-	mutex_unlock(&nic_data->spi_lock);
+-	return rc;
+-}
+-
+-static int falcon_mtd_sync(struct mtd_info *mtd)
+-{
+-	struct falcon_mtd_partition *part = to_falcon_mtd_partition(mtd);
+-	struct efx_nic *efx = mtd->priv;
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	int rc;
+-
+-	mutex_lock(&nic_data->spi_lock);
+-	rc = falcon_spi_slow_wait(part, true);
+-	mutex_unlock(&nic_data->spi_lock);
+-	return rc;
+-}
+-
+-static int falcon_mtd_probe(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	struct falcon_mtd_partition *parts;
+-	struct falcon_spi_device *spi;
+-	size_t n_parts;
+-	int rc = -ENODEV;
+-
+-	ASSERT_RTNL();
+-
+-	/* Allocate space for maximum number of partitions */
+-	parts = kcalloc(2, sizeof(*parts), GFP_KERNEL);
+-	if (!parts)
+-		return -ENOMEM;
+-	n_parts = 0;
+-
+-	spi = &nic_data->spi_flash;
+-	if (falcon_spi_present(spi) && spi->size > FALCON_FLASH_BOOTCODE_START) {
+-		parts[n_parts].spi = spi;
+-		parts[n_parts].offset = FALCON_FLASH_BOOTCODE_START;
+-		parts[n_parts].common.dev_type_name = "flash";
+-		parts[n_parts].common.type_name = "sfc_flash_bootrom";
+-		parts[n_parts].common.mtd.type = MTD_NORFLASH;
+-		parts[n_parts].common.mtd.flags = MTD_CAP_NORFLASH;
+-		parts[n_parts].common.mtd.size = spi->size - FALCON_FLASH_BOOTCODE_START;
+-		parts[n_parts].common.mtd.erasesize = spi->erase_size;
+-		n_parts++;
+-	}
+-
+-	spi = &nic_data->spi_eeprom;
+-	if (falcon_spi_present(spi) && spi->size > FALCON_EEPROM_BOOTCONFIG_START) {
+-		parts[n_parts].spi = spi;
+-		parts[n_parts].offset = FALCON_EEPROM_BOOTCONFIG_START;
+-		parts[n_parts].common.dev_type_name = "EEPROM";
+-		parts[n_parts].common.type_name = "sfc_bootconfig";
+-		parts[n_parts].common.mtd.type = MTD_RAM;
+-		parts[n_parts].common.mtd.flags = MTD_CAP_RAM;
+-		parts[n_parts].common.mtd.size =
+-			min(spi->size, FALCON_EEPROM_BOOTCONFIG_END) -
+-			FALCON_EEPROM_BOOTCONFIG_START;
+-		parts[n_parts].common.mtd.erasesize = spi->erase_size;
+-		n_parts++;
+-	}
+-
+-	rc = efx_mtd_add(efx, &parts[0].common, n_parts, sizeof(*parts));
+-	if (rc)
+-		kfree(parts);
+-	return rc;
+-}
+-
+-#endif /* CONFIG_SFC_MTD */
+-
+-/**************************************************************************
+- *
+- * XMAC operations
+- *
+- **************************************************************************
+- */
+-
+-/* Configure the XAUI driver that is an output from Falcon */
+-static void falcon_setup_xaui(struct efx_nic *efx)
+-{
+-	efx_oword_t sdctl, txdrv;
+-
+-	/* Move the XAUI into low power, unless there is no PHY, in
+-	 * which case the XAUI will have to drive a cable. */
+-	if (efx->phy_type == PHY_TYPE_NONE)
+-		return;
+-
+-	efx_reado(efx, &sdctl, FR_AB_XX_SD_CTL);
+-	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVD, FFE_AB_XX_SD_CTL_DRV_DEF);
+-	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVD, FFE_AB_XX_SD_CTL_DRV_DEF);
+-	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVC, FFE_AB_XX_SD_CTL_DRV_DEF);
+-	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVC, FFE_AB_XX_SD_CTL_DRV_DEF);
+-	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVB, FFE_AB_XX_SD_CTL_DRV_DEF);
+-	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVB, FFE_AB_XX_SD_CTL_DRV_DEF);
+-	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_HIDRVA, FFE_AB_XX_SD_CTL_DRV_DEF);
+-	EFX_SET_OWORD_FIELD(sdctl, FRF_AB_XX_LODRVA, FFE_AB_XX_SD_CTL_DRV_DEF);
+-	efx_writeo(efx, &sdctl, FR_AB_XX_SD_CTL);
+-
+-	EFX_POPULATE_OWORD_8(txdrv,
+-			     FRF_AB_XX_DEQD, FFE_AB_XX_TXDRV_DEQ_DEF,
+-			     FRF_AB_XX_DEQC, FFE_AB_XX_TXDRV_DEQ_DEF,
+-			     FRF_AB_XX_DEQB, FFE_AB_XX_TXDRV_DEQ_DEF,
+-			     FRF_AB_XX_DEQA, FFE_AB_XX_TXDRV_DEQ_DEF,
+-			     FRF_AB_XX_DTXD, FFE_AB_XX_TXDRV_DTX_DEF,
+-			     FRF_AB_XX_DTXC, FFE_AB_XX_TXDRV_DTX_DEF,
+-			     FRF_AB_XX_DTXB, FFE_AB_XX_TXDRV_DTX_DEF,
+-			     FRF_AB_XX_DTXA, FFE_AB_XX_TXDRV_DTX_DEF);
+-	efx_writeo(efx, &txdrv, FR_AB_XX_TXDRV_CTL);
+-}
+-
+-int falcon_reset_xaui(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	efx_oword_t reg;
+-	int count;
+-
+-	/* Don't fetch MAC statistics over an XMAC reset */
+-	WARN_ON(nic_data->stats_disable_count == 0);
+-
+-	/* Start reset sequence */
+-	EFX_POPULATE_OWORD_1(reg, FRF_AB_XX_RST_XX_EN, 1);
+-	efx_writeo(efx, &reg, FR_AB_XX_PWR_RST);
+-
+-	/* Wait up to 10 ms for completion, then reinitialise */
+-	for (count = 0; count < 1000; count++) {
+-		efx_reado(efx, &reg, FR_AB_XX_PWR_RST);
+-		if (EFX_OWORD_FIELD(reg, FRF_AB_XX_RST_XX_EN) == 0 &&
+-		    EFX_OWORD_FIELD(reg, FRF_AB_XX_SD_RST_ACT) == 0) {
+-			falcon_setup_xaui(efx);
+-			return 0;
+-		}
+-		udelay(10);
+-	}
+-	netif_err(efx, hw, efx->net_dev,
+-		  "timed out waiting for XAUI/XGXS reset\n");
+-	return -ETIMEDOUT;
+-}
+-
+-static void falcon_ack_status_intr(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	efx_oword_t reg;
+-
+-	if ((efx_nic_rev(efx) != EFX_REV_FALCON_B0) || LOOPBACK_INTERNAL(efx))
+-		return;
+-
+-	/* We expect xgmii faults if the wireside link is down */
+-	if (!efx->link_state.up)
+-		return;
+-
+-	/* We can only use this interrupt to signal the negative edge of
+-	 * xaui_align [we have to poll the positive edge]. */
+-	if (nic_data->xmac_poll_required)
+-		return;
+-
+-	efx_reado(efx, &reg, FR_AB_XM_MGT_INT_MSK);
+-}
+-
+-static bool falcon_xgxs_link_ok(struct efx_nic *efx)
+-{
+-	efx_oword_t reg;
+-	bool align_done, link_ok = false;
+-	int sync_status;
+-
+-	/* Read link status */
+-	efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
+-
+-	align_done = EFX_OWORD_FIELD(reg, FRF_AB_XX_ALIGN_DONE);
+-	sync_status = EFX_OWORD_FIELD(reg, FRF_AB_XX_SYNC_STAT);
+-	if (align_done && (sync_status == FFE_AB_XX_STAT_ALL_LANES))
+-		link_ok = true;
+-
+-	/* Clear link status ready for next read */
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_COMMA_DET, FFE_AB_XX_STAT_ALL_LANES);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_CHAR_ERR, FFE_AB_XX_STAT_ALL_LANES);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_DISPERR, FFE_AB_XX_STAT_ALL_LANES);
+-	efx_writeo(efx, &reg, FR_AB_XX_CORE_STAT);
+-
+-	return link_ok;
+-}
+-
+-static bool falcon_xmac_link_ok(struct efx_nic *efx)
+-{
+-	/*
+-	 * Check MAC's XGXS link status except when using XGMII loopback
+-	 * which bypasses the XGXS block.
+-	 * If possible, check PHY's XGXS link status except when using
+-	 * MAC loopback.
+-	 */
+-	return (efx->loopback_mode == LOOPBACK_XGMII ||
+-		falcon_xgxs_link_ok(efx)) &&
+-		(!(efx->mdio.mmds & (1 << MDIO_MMD_PHYXS)) ||
+-		 LOOPBACK_INTERNAL(efx) ||
+-		 efx_mdio_phyxgxs_lane_sync(efx));
+-}
+-
+-static void falcon_reconfigure_xmac_core(struct efx_nic *efx)
+-{
+-	unsigned int max_frame_len;
+-	efx_oword_t reg;
+-	bool rx_fc = !!(efx->link_state.fc & EFX_FC_RX);
+-	bool tx_fc = !!(efx->link_state.fc & EFX_FC_TX);
+-
+-	/* Configure MAC  - cut-thru mode is hard wired on */
+-	EFX_POPULATE_OWORD_3(reg,
+-			     FRF_AB_XM_RX_JUMBO_MODE, 1,
+-			     FRF_AB_XM_TX_STAT_EN, 1,
+-			     FRF_AB_XM_RX_STAT_EN, 1);
+-	efx_writeo(efx, &reg, FR_AB_XM_GLB_CFG);
+-
+-	/* Configure TX */
+-	EFX_POPULATE_OWORD_6(reg,
+-			     FRF_AB_XM_TXEN, 1,
+-			     FRF_AB_XM_TX_PRMBL, 1,
+-			     FRF_AB_XM_AUTO_PAD, 1,
+-			     FRF_AB_XM_TXCRC, 1,
+-			     FRF_AB_XM_FCNTL, tx_fc,
+-			     FRF_AB_XM_IPG, 0x3);
+-	efx_writeo(efx, &reg, FR_AB_XM_TX_CFG);
+-
+-	/* Configure RX */
+-	EFX_POPULATE_OWORD_5(reg,
+-			     FRF_AB_XM_RXEN, 1,
+-			     FRF_AB_XM_AUTO_DEPAD, 0,
+-			     FRF_AB_XM_ACPT_ALL_MCAST, 1,
+-			     FRF_AB_XM_ACPT_ALL_UCAST, !efx->unicast_filter,
+-			     FRF_AB_XM_PASS_CRC_ERR, 1);
+-	efx_writeo(efx, &reg, FR_AB_XM_RX_CFG);
+-
+-	/* Set frame length */
+-	max_frame_len = EFX_MAX_FRAME_LEN(efx->net_dev->mtu);
+-	EFX_POPULATE_OWORD_1(reg, FRF_AB_XM_MAX_RX_FRM_SIZE, max_frame_len);
+-	efx_writeo(efx, &reg, FR_AB_XM_RX_PARAM);
+-	EFX_POPULATE_OWORD_2(reg,
+-			     FRF_AB_XM_MAX_TX_FRM_SIZE, max_frame_len,
+-			     FRF_AB_XM_TX_JUMBO_MODE, 1);
+-	efx_writeo(efx, &reg, FR_AB_XM_TX_PARAM);
+-
+-	EFX_POPULATE_OWORD_2(reg,
+-			     FRF_AB_XM_PAUSE_TIME, 0xfffe, /* MAX PAUSE TIME */
+-			     FRF_AB_XM_DIS_FCNTL, !rx_fc);
+-	efx_writeo(efx, &reg, FR_AB_XM_FC);
+-
+-	/* Set MAC address */
+-	memcpy(&reg, &efx->net_dev->dev_addr[0], 4);
+-	efx_writeo(efx, &reg, FR_AB_XM_ADR_LO);
+-	memcpy(&reg, &efx->net_dev->dev_addr[4], 2);
+-	efx_writeo(efx, &reg, FR_AB_XM_ADR_HI);
+-}
+-
+-static void falcon_reconfigure_xgxs_core(struct efx_nic *efx)
+-{
+-	efx_oword_t reg;
+-	bool xgxs_loopback = (efx->loopback_mode == LOOPBACK_XGXS);
+-	bool xaui_loopback = (efx->loopback_mode == LOOPBACK_XAUI);
+-	bool xgmii_loopback = (efx->loopback_mode == LOOPBACK_XGMII);
+-	bool old_xgmii_loopback, old_xgxs_loopback, old_xaui_loopback;
+-
+-	/* XGXS block is flaky and will need to be reset if moving
+-	 * into our out of XGMII, XGXS or XAUI loopbacks. */
+-	efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
+-	old_xgxs_loopback = EFX_OWORD_FIELD(reg, FRF_AB_XX_XGXS_LB_EN);
+-	old_xgmii_loopback = EFX_OWORD_FIELD(reg, FRF_AB_XX_XGMII_LB_EN);
+-
+-	efx_reado(efx, &reg, FR_AB_XX_SD_CTL);
+-	old_xaui_loopback = EFX_OWORD_FIELD(reg, FRF_AB_XX_LPBKA);
+-
+-	/* The PHY driver may have turned XAUI off */
+-	if ((xgxs_loopback != old_xgxs_loopback) ||
+-	    (xaui_loopback != old_xaui_loopback) ||
+-	    (xgmii_loopback != old_xgmii_loopback))
+-		falcon_reset_xaui(efx);
+-
+-	efx_reado(efx, &reg, FR_AB_XX_CORE_STAT);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_FORCE_SIG,
+-			    (xgxs_loopback || xaui_loopback) ?
+-			    FFE_AB_XX_FORCE_SIG_ALL_LANES : 0);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_XGXS_LB_EN, xgxs_loopback);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_XGMII_LB_EN, xgmii_loopback);
+-	efx_writeo(efx, &reg, FR_AB_XX_CORE_STAT);
+-
+-	efx_reado(efx, &reg, FR_AB_XX_SD_CTL);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKD, xaui_loopback);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKC, xaui_loopback);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKB, xaui_loopback);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_XX_LPBKA, xaui_loopback);
+-	efx_writeo(efx, &reg, FR_AB_XX_SD_CTL);
+-}
+-
+-
+-/* Try to bring up the Falcon side of the Falcon-Phy XAUI link */
+-static bool falcon_xmac_link_ok_retry(struct efx_nic *efx, int tries)
+-{
+-	bool mac_up = falcon_xmac_link_ok(efx);
+-
+-	if (LOOPBACK_MASK(efx) & LOOPBACKS_EXTERNAL(efx) & LOOPBACKS_WS ||
+-	    efx_phy_mode_disabled(efx->phy_mode))
+-		/* XAUI link is expected to be down */
+-		return mac_up;
+-
+-	falcon_stop_nic_stats(efx);
+-
+-	while (!mac_up && tries) {
+-		netif_dbg(efx, hw, efx->net_dev, "bashing xaui\n");
+-		falcon_reset_xaui(efx);
+-		udelay(200);
+-
+-		mac_up = falcon_xmac_link_ok(efx);
+-		--tries;
+-	}
+-
+-	falcon_start_nic_stats(efx);
+-
+-	return mac_up;
+-}
+-
+-static bool falcon_xmac_check_fault(struct efx_nic *efx)
+-{
+-	return !falcon_xmac_link_ok_retry(efx, 5);
+-}
+-
+-static int falcon_reconfigure_xmac(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-
+-	efx_farch_filter_sync_rx_mode(efx);
+-
+-	falcon_reconfigure_xgxs_core(efx);
+-	falcon_reconfigure_xmac_core(efx);
+-
+-	falcon_reconfigure_mac_wrapper(efx);
+-
+-	nic_data->xmac_poll_required = !falcon_xmac_link_ok_retry(efx, 5);
+-	falcon_ack_status_intr(efx);
+-
+-	return 0;
+-}
+-
+-static void falcon_poll_xmac(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-
+-	/* We expect xgmii faults if the wireside link is down */
+-	if (!efx->link_state.up || !nic_data->xmac_poll_required)
+-		return;
+-
+-	nic_data->xmac_poll_required = !falcon_xmac_link_ok_retry(efx, 1);
+-	falcon_ack_status_intr(efx);
+-}
+-
+-/**************************************************************************
+- *
+- * MAC wrapper
+- *
+- **************************************************************************
+- */
+-
+-static void falcon_push_multicast_hash(struct efx_nic *efx)
+-{
+-	union efx_multicast_hash *mc_hash = &efx->multicast_hash;
+-
+-	WARN_ON(!mutex_is_locked(&efx->mac_lock));
+-
+-	efx_writeo(efx, &mc_hash->oword[0], FR_AB_MAC_MC_HASH_REG0);
+-	efx_writeo(efx, &mc_hash->oword[1], FR_AB_MAC_MC_HASH_REG1);
+-}
+-
+-static void falcon_reset_macs(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	efx_oword_t reg, mac_ctrl;
+-	int count;
+-
+-	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0) {
+-		/* It's not safe to use GLB_CTL_REG to reset the
+-		 * macs, so instead use the internal MAC resets
+-		 */
+-		EFX_POPULATE_OWORD_1(reg, FRF_AB_XM_CORE_RST, 1);
+-		efx_writeo(efx, &reg, FR_AB_XM_GLB_CFG);
+-
+-		for (count = 0; count < 10000; count++) {
+-			efx_reado(efx, &reg, FR_AB_XM_GLB_CFG);
+-			if (EFX_OWORD_FIELD(reg, FRF_AB_XM_CORE_RST) ==
+-			    0)
+-				return;
+-			udelay(10);
+-		}
+-
+-		netif_err(efx, hw, efx->net_dev,
+-			  "timed out waiting for XMAC core reset\n");
+-	}
+-
+-	/* Mac stats will fail whist the TX fifo is draining */
+-	WARN_ON(nic_data->stats_disable_count == 0);
+-
+-	efx_reado(efx, &mac_ctrl, FR_AB_MAC_CTRL);
+-	EFX_SET_OWORD_FIELD(mac_ctrl, FRF_BB_TXFIFO_DRAIN_EN, 1);
+-	efx_writeo(efx, &mac_ctrl, FR_AB_MAC_CTRL);
+-
+-	efx_reado(efx, &reg, FR_AB_GLB_CTL);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_RST_XGTX, 1);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_RST_XGRX, 1);
+-	EFX_SET_OWORD_FIELD(reg, FRF_AB_RST_EM, 1);
+-	efx_writeo(efx, &reg, FR_AB_GLB_CTL);
+-
+-	count = 0;
+-	while (1) {
+-		efx_reado(efx, &reg, FR_AB_GLB_CTL);
+-		if (!EFX_OWORD_FIELD(reg, FRF_AB_RST_XGTX) &&
+-		    !EFX_OWORD_FIELD(reg, FRF_AB_RST_XGRX) &&
+-		    !EFX_OWORD_FIELD(reg, FRF_AB_RST_EM)) {
+-			netif_dbg(efx, hw, efx->net_dev,
+-				  "Completed MAC reset after %d loops\n",
+-				  count);
+-			break;
+-		}
+-		if (count > 20) {
+-			netif_err(efx, hw, efx->net_dev, "MAC reset failed\n");
+-			break;
+-		}
+-		count++;
+-		udelay(10);
+-	}
+-
+-	/* Ensure the correct MAC is selected before statistics
+-	 * are re-enabled by the caller */
+-	efx_writeo(efx, &mac_ctrl, FR_AB_MAC_CTRL);
+-
+-	falcon_setup_xaui(efx);
+-}
+-
+-static void falcon_drain_tx_fifo(struct efx_nic *efx)
+-{
+-	efx_oword_t reg;
+-
+-	if ((efx_nic_rev(efx) < EFX_REV_FALCON_B0) ||
+-	    (efx->loopback_mode != LOOPBACK_NONE))
+-		return;
+-
+-	efx_reado(efx, &reg, FR_AB_MAC_CTRL);
+-	/* There is no point in draining more than once */
+-	if (EFX_OWORD_FIELD(reg, FRF_BB_TXFIFO_DRAIN_EN))
+-		return;
+-
+-	falcon_reset_macs(efx);
+-}
+-
+-static void falcon_deconfigure_mac_wrapper(struct efx_nic *efx)
+-{
+-	efx_oword_t reg;
+-
+-	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0)
+-		return;
+-
+-	/* Isolate the MAC -> RX */
+-	efx_reado(efx, &reg, FR_AZ_RX_CFG);
+-	EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_INGR_EN, 0);
+-	efx_writeo(efx, &reg, FR_AZ_RX_CFG);
+-
+-	/* Isolate TX -> MAC */
+-	falcon_drain_tx_fifo(efx);
+-}
+-
+-static void falcon_reconfigure_mac_wrapper(struct efx_nic *efx)
+-{
+-	struct efx_link_state *link_state = &efx->link_state;
+-	efx_oword_t reg;
+-	int link_speed, isolate;
+-
+-	isolate = !!ACCESS_ONCE(efx->reset_pending);
+-
+-	switch (link_state->speed) {
+-	case 10000: link_speed = 3; break;
+-	case 1000:  link_speed = 2; break;
+-	case 100:   link_speed = 1; break;
+-	default:    link_speed = 0; break;
+-	}
+-
+-	/* MAC_LINK_STATUS controls MAC backpressure but doesn't work
+-	 * as advertised.  Disable to ensure packets are not
+-	 * indefinitely held and TX queue can be flushed at any point
+-	 * while the link is down. */
+-	EFX_POPULATE_OWORD_5(reg,
+-			     FRF_AB_MAC_XOFF_VAL, 0xffff /* max pause time */,
+-			     FRF_AB_MAC_BCAD_ACPT, 1,
+-			     FRF_AB_MAC_UC_PROM, !efx->unicast_filter,
+-			     FRF_AB_MAC_LINK_STATUS, 1, /* always set */
+-			     FRF_AB_MAC_SPEED, link_speed);
+-	/* On B0, MAC backpressure can be disabled and packets get
+-	 * discarded. */
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
+-		EFX_SET_OWORD_FIELD(reg, FRF_BB_TXFIFO_DRAIN_EN,
+-				    !link_state->up || isolate);
+-	}
+-
+-	efx_writeo(efx, &reg, FR_AB_MAC_CTRL);
+-
+-	/* Restore the multicast hash registers. */
+-	falcon_push_multicast_hash(efx);
+-
+-	efx_reado(efx, &reg, FR_AZ_RX_CFG);
+-	/* Enable XOFF signal from RX FIFO (we enabled it during NIC
+-	 * initialisation but it may read back as 0) */
+-	EFX_SET_OWORD_FIELD(reg, FRF_AZ_RX_XOFF_MAC_EN, 1);
+-	/* Unisolate the MAC -> RX */
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_INGR_EN, !isolate);
+-	efx_writeo(efx, &reg, FR_AZ_RX_CFG);
+-}
+-
+-static void falcon_stats_request(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	efx_oword_t reg;
+-
+-	WARN_ON(nic_data->stats_pending);
+-	WARN_ON(nic_data->stats_disable_count);
+-
+-	FALCON_XMAC_STATS_DMA_FLAG(efx) = 0;
+-	nic_data->stats_pending = true;
+-	wmb(); /* ensure done flag is clear */
+-
+-	/* Initiate DMA transfer of stats */
+-	EFX_POPULATE_OWORD_2(reg,
+-			     FRF_AB_MAC_STAT_DMA_CMD, 1,
+-			     FRF_AB_MAC_STAT_DMA_ADR,
+-			     efx->stats_buffer.dma_addr);
+-	efx_writeo(efx, &reg, FR_AB_MAC_STAT_DMA);
+-
+-	mod_timer(&nic_data->stats_timer, round_jiffies_up(jiffies + HZ / 2));
+-}
+-
+-static void falcon_stats_complete(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-
+-	if (!nic_data->stats_pending)
+-		return;
+-
+-	nic_data->stats_pending = false;
+-	if (FALCON_XMAC_STATS_DMA_FLAG(efx)) {
+-		rmb(); /* read the done flag before the stats */
+-		efx_nic_update_stats(falcon_stat_desc, FALCON_STAT_COUNT,
+-				     falcon_stat_mask, nic_data->stats,
+-				     efx->stats_buffer.addr, true);
+-	} else {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "timed out waiting for statistics\n");
+-	}
+-}
+-
+-static void falcon_stats_timer_func(unsigned long context)
+-{
+-	struct efx_nic *efx = (struct efx_nic *)context;
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-
+-	spin_lock(&efx->stats_lock);
+-
+-	falcon_stats_complete(efx);
+-	if (nic_data->stats_disable_count == 0)
+-		falcon_stats_request(efx);
+-
+-	spin_unlock(&efx->stats_lock);
+-}
+-
+-static bool falcon_loopback_link_poll(struct efx_nic *efx)
+-{
+-	struct efx_link_state old_state = efx->link_state;
+-
+-	WARN_ON(!mutex_is_locked(&efx->mac_lock));
+-	WARN_ON(!LOOPBACK_INTERNAL(efx));
+-
+-	efx->link_state.fd = true;
+-	efx->link_state.fc = efx->wanted_fc;
+-	efx->link_state.up = true;
+-	efx->link_state.speed = 10000;
+-
+-	return !efx_link_state_equal(&efx->link_state, &old_state);
+-}
+-
+-static int falcon_reconfigure_port(struct efx_nic *efx)
+-{
+-	int rc;
+-
+-	WARN_ON(efx_nic_rev(efx) > EFX_REV_FALCON_B0);
+-
+-	/* Poll the PHY link state *before* reconfiguring it. This means we
+-	 * will pick up the correct speed (in loopback) to select the correct
+-	 * MAC.
+-	 */
+-	if (LOOPBACK_INTERNAL(efx))
+-		falcon_loopback_link_poll(efx);
+-	else
+-		efx->phy_op->poll(efx);
+-
+-	falcon_stop_nic_stats(efx);
+-	falcon_deconfigure_mac_wrapper(efx);
+-
+-	falcon_reset_macs(efx);
+-
+-	efx->phy_op->reconfigure(efx);
+-	rc = falcon_reconfigure_xmac(efx);
+-	BUG_ON(rc);
+-
+-	falcon_start_nic_stats(efx);
+-
+-	/* Synchronise efx->link_state with the kernel */
+-	efx_link_status_changed(efx);
+-
+-	return 0;
+-}
+-
+-/* TX flow control may automatically turn itself off if the link
+- * partner (intermittently) stops responding to pause frames. There
+- * isn't any indication that this has happened, so the best we do is
+- * leave it up to the user to spot this and fix it by cycling transmit
+- * flow control on this end.
+- */
+-
+-static void falcon_a1_prepare_enable_fc_tx(struct efx_nic *efx)
+-{
+-	/* Schedule a reset to recover */
+-	efx_schedule_reset(efx, RESET_TYPE_INVISIBLE);
+-}
+-
+-static void falcon_b0_prepare_enable_fc_tx(struct efx_nic *efx)
+-{
+-	/* Recover by resetting the EM block */
+-	falcon_stop_nic_stats(efx);
+-	falcon_drain_tx_fifo(efx);
+-	falcon_reconfigure_xmac(efx);
+-	falcon_start_nic_stats(efx);
+-}
+-
+-/**************************************************************************
+- *
+- * PHY access via GMII
+- *
+- **************************************************************************
+- */
+-
+-/* Wait for GMII access to complete */
+-static int falcon_gmii_wait(struct efx_nic *efx)
+-{
+-	efx_oword_t md_stat;
+-	int count;
+-
+-	/* wait up to 50ms - taken max from datasheet */
+-	for (count = 0; count < 5000; count++) {
+-		efx_reado(efx, &md_stat, FR_AB_MD_STAT);
+-		if (EFX_OWORD_FIELD(md_stat, FRF_AB_MD_BSY) == 0) {
+-			if (EFX_OWORD_FIELD(md_stat, FRF_AB_MD_LNFL) != 0 ||
+-			    EFX_OWORD_FIELD(md_stat, FRF_AB_MD_BSERR) != 0) {
+-				netif_err(efx, hw, efx->net_dev,
+-					  "error from GMII access "
+-					  EFX_OWORD_FMT"\n",
+-					  EFX_OWORD_VAL(md_stat));
+-				return -EIO;
+-			}
+-			return 0;
+-		}
+-		udelay(10);
+-	}
+-	netif_err(efx, hw, efx->net_dev, "timed out waiting for GMII\n");
+-	return -ETIMEDOUT;
+-}
+-
+-/* Write an MDIO register of a PHY connected to Falcon. */
+-static int falcon_mdio_write(struct net_device *net_dev,
+-			     int prtad, int devad, u16 addr, u16 value)
+-{
+-	struct efx_nic *efx = netdev_priv(net_dev);
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	efx_oword_t reg;
+-	int rc;
+-
+-	netif_vdbg(efx, hw, efx->net_dev,
+-		   "writing MDIO %d register %d.%d with 0x%04x\n",
+-		    prtad, devad, addr, value);
+-
+-	mutex_lock(&nic_data->mdio_lock);
+-
+-	/* Check MDIO not currently being accessed */
+-	rc = falcon_gmii_wait(efx);
+-	if (rc)
+-		goto out;
+-
+-	/* Write the address/ID register */
+-	EFX_POPULATE_OWORD_1(reg, FRF_AB_MD_PHY_ADR, addr);
+-	efx_writeo(efx, &reg, FR_AB_MD_PHY_ADR);
+-
+-	EFX_POPULATE_OWORD_2(reg, FRF_AB_MD_PRT_ADR, prtad,
+-			     FRF_AB_MD_DEV_ADR, devad);
+-	efx_writeo(efx, &reg, FR_AB_MD_ID);
+-
+-	/* Write data */
+-	EFX_POPULATE_OWORD_1(reg, FRF_AB_MD_TXD, value);
+-	efx_writeo(efx, &reg, FR_AB_MD_TXD);
+-
+-	EFX_POPULATE_OWORD_2(reg,
+-			     FRF_AB_MD_WRC, 1,
+-			     FRF_AB_MD_GC, 0);
+-	efx_writeo(efx, &reg, FR_AB_MD_CS);
+-
+-	/* Wait for data to be written */
+-	rc = falcon_gmii_wait(efx);
+-	if (rc) {
+-		/* Abort the write operation */
+-		EFX_POPULATE_OWORD_2(reg,
+-				     FRF_AB_MD_WRC, 0,
+-				     FRF_AB_MD_GC, 1);
+-		efx_writeo(efx, &reg, FR_AB_MD_CS);
+-		udelay(10);
+-	}
+-
+-out:
+-	mutex_unlock(&nic_data->mdio_lock);
+-	return rc;
+-}
+-
+-/* Read an MDIO register of a PHY connected to Falcon. */
+-static int falcon_mdio_read(struct net_device *net_dev,
+-			    int prtad, int devad, u16 addr)
+-{
+-	struct efx_nic *efx = netdev_priv(net_dev);
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	efx_oword_t reg;
+-	int rc;
+-
+-	mutex_lock(&nic_data->mdio_lock);
+-
+-	/* Check MDIO not currently being accessed */
+-	rc = falcon_gmii_wait(efx);
+-	if (rc)
+-		goto out;
+-
+-	EFX_POPULATE_OWORD_1(reg, FRF_AB_MD_PHY_ADR, addr);
+-	efx_writeo(efx, &reg, FR_AB_MD_PHY_ADR);
+-
+-	EFX_POPULATE_OWORD_2(reg, FRF_AB_MD_PRT_ADR, prtad,
+-			     FRF_AB_MD_DEV_ADR, devad);
+-	efx_writeo(efx, &reg, FR_AB_MD_ID);
+-
+-	/* Request data to be read */
+-	EFX_POPULATE_OWORD_2(reg, FRF_AB_MD_RDC, 1, FRF_AB_MD_GC, 0);
+-	efx_writeo(efx, &reg, FR_AB_MD_CS);
+-
+-	/* Wait for data to become available */
+-	rc = falcon_gmii_wait(efx);
+-	if (rc == 0) {
+-		efx_reado(efx, &reg, FR_AB_MD_RXD);
+-		rc = EFX_OWORD_FIELD(reg, FRF_AB_MD_RXD);
+-		netif_vdbg(efx, hw, efx->net_dev,
+-			   "read from MDIO %d register %d.%d, got %04x\n",
+-			   prtad, devad, addr, rc);
+-	} else {
+-		/* Abort the read operation */
+-		EFX_POPULATE_OWORD_2(reg,
+-				     FRF_AB_MD_RIC, 0,
+-				     FRF_AB_MD_GC, 1);
+-		efx_writeo(efx, &reg, FR_AB_MD_CS);
+-
+-		netif_dbg(efx, hw, efx->net_dev,
+-			  "read from MDIO %d register %d.%d, got error %d\n",
+-			  prtad, devad, addr, rc);
+-	}
+-
+-out:
+-	mutex_unlock(&nic_data->mdio_lock);
+-	return rc;
+-}
+-
+-/* This call is responsible for hooking in the MAC and PHY operations */
+-static int falcon_probe_port(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	int rc;
+-
+-	switch (efx->phy_type) {
+-	case PHY_TYPE_SFX7101:
+-		efx->phy_op = &falcon_sfx7101_phy_ops;
+-		break;
+-	case PHY_TYPE_QT2022C2:
+-	case PHY_TYPE_QT2025C:
+-		efx->phy_op = &falcon_qt202x_phy_ops;
+-		break;
+-	case PHY_TYPE_TXC43128:
+-		efx->phy_op = &falcon_txc_phy_ops;
+-		break;
+-	default:
+-		netif_err(efx, probe, efx->net_dev, "Unknown PHY type %d\n",
+-			  efx->phy_type);
+-		return -ENODEV;
+-	}
+-
+-	/* Fill out MDIO structure and loopback modes */
+-	mutex_init(&nic_data->mdio_lock);
+-	efx->mdio.mdio_read = falcon_mdio_read;
+-	efx->mdio.mdio_write = falcon_mdio_write;
+-	rc = efx->phy_op->probe(efx);
+-	if (rc != 0)
+-		return rc;
+-
+-	/* Initial assumption */
+-	efx->link_state.speed = 10000;
+-	efx->link_state.fd = true;
+-
+-	/* Hardware flow ctrl. FalconA RX FIFO too small for pause generation */
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
+-		efx->wanted_fc = EFX_FC_RX | EFX_FC_TX;
+-	else
+-		efx->wanted_fc = EFX_FC_RX;
+-	if (efx->mdio.mmds & MDIO_DEVS_AN)
+-		efx->wanted_fc |= EFX_FC_AUTO;
+-
+-	/* Allocate buffer for stats */
+-	rc = efx_nic_alloc_buffer(efx, &efx->stats_buffer,
+-				  FALCON_MAC_STATS_SIZE, GFP_KERNEL);
+-	if (rc)
+-		return rc;
+-	netif_dbg(efx, probe, efx->net_dev,
+-		  "stats buffer at %llx (virt %p phys %llx)\n",
+-		  (u64)efx->stats_buffer.dma_addr,
+-		  efx->stats_buffer.addr,
+-		  (u64)virt_to_phys(efx->stats_buffer.addr));
+-
+-	return 0;
+-}
+-
+-static void falcon_remove_port(struct efx_nic *efx)
+-{
+-	efx->phy_op->remove(efx);
+-	efx_nic_free_buffer(efx, &efx->stats_buffer);
+-}
+-
+-/* Global events are basically PHY events */
+-static bool
+-falcon_handle_global_event(struct efx_channel *channel, efx_qword_t *event)
+-{
+-	struct efx_nic *efx = channel->efx;
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-
+-	if (EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_G_PHY0_INTR) ||
+-	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XG_PHY0_INTR) ||
+-	    EFX_QWORD_FIELD(*event, FSF_AB_GLB_EV_XFP_PHY0_INTR))
+-		/* Ignored */
+-		return true;
+-
+-	if ((efx_nic_rev(efx) == EFX_REV_FALCON_B0) &&
+-	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_XG_MGT_INTR)) {
+-		nic_data->xmac_poll_required = true;
+-		return true;
+-	}
+-
+-	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1 ?
+-	    EFX_QWORD_FIELD(*event, FSF_AA_GLB_EV_RX_RECOVERY) :
+-	    EFX_QWORD_FIELD(*event, FSF_BB_GLB_EV_RX_RECOVERY)) {
+-		netif_err(efx, rx_err, efx->net_dev,
+-			  "channel %d seen global RX_RESET event. Resetting.\n",
+-			  channel->channel);
+-
+-		atomic_inc(&efx->rx_reset);
+-		efx_schedule_reset(efx, EFX_WORKAROUND_6555(efx) ?
+-				   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
+-		return true;
+-	}
+-
+-	return false;
+-}
+-
+-/**************************************************************************
+- *
+- * Falcon test code
+- *
+- **************************************************************************/
+-
+-static int
+-falcon_read_nvram(struct efx_nic *efx, struct falcon_nvconfig *nvconfig_out)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	struct falcon_nvconfig *nvconfig;
+-	struct falcon_spi_device *spi;
+-	void *region;
+-	int rc, magic_num, struct_ver;
+-	__le16 *word, *limit;
+-	u32 csum;
+-
+-	if (falcon_spi_present(&nic_data->spi_flash))
+-		spi = &nic_data->spi_flash;
+-	else if (falcon_spi_present(&nic_data->spi_eeprom))
+-		spi = &nic_data->spi_eeprom;
+-	else
+-		return -EINVAL;
+-
+-	region = kmalloc(FALCON_NVCONFIG_END, GFP_KERNEL);
+-	if (!region)
+-		return -ENOMEM;
+-	nvconfig = region + FALCON_NVCONFIG_OFFSET;
+-
+-	mutex_lock(&nic_data->spi_lock);
+-	rc = falcon_spi_read(efx, spi, 0, FALCON_NVCONFIG_END, NULL, region);
+-	mutex_unlock(&nic_data->spi_lock);
+-	if (rc) {
+-		netif_err(efx, hw, efx->net_dev, "Failed to read %s\n",
+-			  falcon_spi_present(&nic_data->spi_flash) ?
+-			  "flash" : "EEPROM");
+-		rc = -EIO;
+-		goto out;
+-	}
+-
+-	magic_num = le16_to_cpu(nvconfig->board_magic_num);
+-	struct_ver = le16_to_cpu(nvconfig->board_struct_ver);
+-
+-	rc = -EINVAL;
+-	if (magic_num != FALCON_NVCONFIG_BOARD_MAGIC_NUM) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "NVRAM bad magic 0x%x\n", magic_num);
+-		goto out;
+-	}
+-	if (struct_ver < 2) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "NVRAM has ancient version 0x%x\n", struct_ver);
+-		goto out;
+-	} else if (struct_ver < 4) {
+-		word = &nvconfig->board_magic_num;
+-		limit = (__le16 *) (nvconfig + 1);
+-	} else {
+-		word = region;
+-		limit = region + FALCON_NVCONFIG_END;
+-	}
+-	for (csum = 0; word < limit; ++word)
+-		csum += le16_to_cpu(*word);
+-
+-	if (~csum & 0xffff) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "NVRAM has incorrect checksum\n");
+-		goto out;
+-	}
+-
+-	rc = 0;
+-	if (nvconfig_out)
+-		memcpy(nvconfig_out, nvconfig, sizeof(*nvconfig));
+-
+- out:
+-	kfree(region);
+-	return rc;
+-}
+-
+-static int falcon_test_nvram(struct efx_nic *efx)
+-{
+-	return falcon_read_nvram(efx, NULL);
+-}
+-
+-static const struct efx_farch_register_test falcon_b0_register_tests[] = {
+-	{ FR_AZ_ADR_REGION,
+-	  EFX_OWORD32(0x0003FFFF, 0x0003FFFF, 0x0003FFFF, 0x0003FFFF) },
+-	{ FR_AZ_RX_CFG,
+-	  EFX_OWORD32(0xFFFFFFFE, 0x00017FFF, 0x00000000, 0x00000000) },
+-	{ FR_AZ_TX_CFG,
+-	  EFX_OWORD32(0x7FFF0037, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AZ_TX_RESERVED,
+-	  EFX_OWORD32(0xFFFEFE80, 0x1FFFFFFF, 0x020000FE, 0x007FFFFF) },
+-	{ FR_AB_MAC_CTRL,
+-	  EFX_OWORD32(0xFFFF0000, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AZ_SRM_TX_DC_CFG,
+-	  EFX_OWORD32(0x001FFFFF, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AZ_RX_DC_CFG,
+-	  EFX_OWORD32(0x0000000F, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AZ_RX_DC_PF_WM,
+-	  EFX_OWORD32(0x000003FF, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_BZ_DP_CTRL,
+-	  EFX_OWORD32(0x00000FFF, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_GM_CFG2,
+-	  EFX_OWORD32(0x00007337, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_GMF_CFG0,
+-	  EFX_OWORD32(0x00001F1F, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_XM_GLB_CFG,
+-	  EFX_OWORD32(0x00000C68, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_XM_TX_CFG,
+-	  EFX_OWORD32(0x00080164, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_XM_RX_CFG,
+-	  EFX_OWORD32(0x07100A0C, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_XM_RX_PARAM,
+-	  EFX_OWORD32(0x00001FF8, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_XM_FC,
+-	  EFX_OWORD32(0xFFFF0001, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_XM_ADR_LO,
+-	  EFX_OWORD32(0xFFFFFFFF, 0x00000000, 0x00000000, 0x00000000) },
+-	{ FR_AB_XX_SD_CTL,
+-	  EFX_OWORD32(0x0003FF0F, 0x00000000, 0x00000000, 0x00000000) },
+-};
+-
+-static int
+-falcon_b0_test_chip(struct efx_nic *efx, struct efx_self_tests *tests)
+-{
+-	enum reset_type reset_method = RESET_TYPE_INVISIBLE;
+-	int rc, rc2;
+-
+-	mutex_lock(&efx->mac_lock);
+-	if (efx->loopback_modes) {
+-		/* We need the 312 clock from the PHY to test the XMAC
+-		 * registers, so move into XGMII loopback if available */
+-		if (efx->loopback_modes & (1 << LOOPBACK_XGMII))
+-			efx->loopback_mode = LOOPBACK_XGMII;
+-		else
+-			efx->loopback_mode = __ffs(efx->loopback_modes);
+-	}
+-	__efx_reconfigure_port(efx);
+-	mutex_unlock(&efx->mac_lock);
+-
+-	efx_reset_down(efx, reset_method);
+-
+-	tests->registers =
+-		efx_farch_test_registers(efx, falcon_b0_register_tests,
+-					 ARRAY_SIZE(falcon_b0_register_tests))
+-		? -1 : 1;
+-
+-	rc = falcon_reset_hw(efx, reset_method);
+-	rc2 = efx_reset_up(efx, reset_method, rc == 0);
+-	return rc ? rc : rc2;
+-}
+-
+-/**************************************************************************
+- *
+- * Device reset
+- *
+- **************************************************************************
+- */
+-
+-static enum reset_type falcon_map_reset_reason(enum reset_type reason)
+-{
+-	switch (reason) {
+-	case RESET_TYPE_RX_RECOVERY:
+-	case RESET_TYPE_DMA_ERROR:
+-	case RESET_TYPE_TX_SKIP:
+-		/* These can occasionally occur due to hardware bugs.
+-		 * We try to reset without disrupting the link.
+-		 */
+-		return RESET_TYPE_INVISIBLE;
+-	default:
+-		return RESET_TYPE_ALL;
+-	}
+-}
+-
+-static int falcon_map_reset_flags(u32 *flags)
+-{
+-	enum {
+-		FALCON_RESET_INVISIBLE = (ETH_RESET_DMA | ETH_RESET_FILTER |
+-					  ETH_RESET_OFFLOAD | ETH_RESET_MAC),
+-		FALCON_RESET_ALL = FALCON_RESET_INVISIBLE | ETH_RESET_PHY,
+-		FALCON_RESET_WORLD = FALCON_RESET_ALL | ETH_RESET_IRQ,
+-	};
+-
+-	if ((*flags & FALCON_RESET_WORLD) == FALCON_RESET_WORLD) {
+-		*flags &= ~FALCON_RESET_WORLD;
+-		return RESET_TYPE_WORLD;
+-	}
+-
+-	if ((*flags & FALCON_RESET_ALL) == FALCON_RESET_ALL) {
+-		*flags &= ~FALCON_RESET_ALL;
+-		return RESET_TYPE_ALL;
+-	}
+-
+-	if ((*flags & FALCON_RESET_INVISIBLE) == FALCON_RESET_INVISIBLE) {
+-		*flags &= ~FALCON_RESET_INVISIBLE;
+-		return RESET_TYPE_INVISIBLE;
+-	}
+-
+-	return -EINVAL;
+-}
+-
+-/* Resets NIC to known state.  This routine must be called in process
+- * context and is allowed to sleep. */
+-static int __falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	efx_oword_t glb_ctl_reg_ker;
+-	int rc;
+-
+-	netif_dbg(efx, hw, efx->net_dev, "performing %s hardware reset\n",
+-		  RESET_TYPE(method));
+-
+-	/* Initiate device reset */
+-	if (method == RESET_TYPE_WORLD) {
+-		rc = pci_save_state(efx->pci_dev);
+-		if (rc) {
+-			netif_err(efx, drv, efx->net_dev,
+-				  "failed to backup PCI state of primary "
+-				  "function prior to hardware reset\n");
+-			goto fail1;
+-		}
+-		if (efx_nic_is_dual_func(efx)) {
+-			rc = pci_save_state(nic_data->pci_dev2);
+-			if (rc) {
+-				netif_err(efx, drv, efx->net_dev,
+-					  "failed to backup PCI state of "
+-					  "secondary function prior to "
+-					  "hardware reset\n");
+-				goto fail2;
+-			}
+-		}
+-
+-		EFX_POPULATE_OWORD_2(glb_ctl_reg_ker,
+-				     FRF_AB_EXT_PHY_RST_DUR,
+-				     FFE_AB_EXT_PHY_RST_DUR_10240US,
+-				     FRF_AB_SWRST, 1);
+-	} else {
+-		EFX_POPULATE_OWORD_7(glb_ctl_reg_ker,
+-				     /* exclude PHY from "invisible" reset */
+-				     FRF_AB_EXT_PHY_RST_CTL,
+-				     method == RESET_TYPE_INVISIBLE,
+-				     /* exclude EEPROM/flash and PCIe */
+-				     FRF_AB_PCIE_CORE_RST_CTL, 1,
+-				     FRF_AB_PCIE_NSTKY_RST_CTL, 1,
+-				     FRF_AB_PCIE_SD_RST_CTL, 1,
+-				     FRF_AB_EE_RST_CTL, 1,
+-				     FRF_AB_EXT_PHY_RST_DUR,
+-				     FFE_AB_EXT_PHY_RST_DUR_10240US,
+-				     FRF_AB_SWRST, 1);
+-	}
+-	efx_writeo(efx, &glb_ctl_reg_ker, FR_AB_GLB_CTL);
+-
+-	netif_dbg(efx, hw, efx->net_dev, "waiting for hardware reset\n");
+-	schedule_timeout_uninterruptible(HZ / 20);
+-
+-	/* Restore PCI configuration if needed */
+-	if (method == RESET_TYPE_WORLD) {
+-		if (efx_nic_is_dual_func(efx))
+-			pci_restore_state(nic_data->pci_dev2);
+-		pci_restore_state(efx->pci_dev);
+-		netif_dbg(efx, drv, efx->net_dev,
+-			  "successfully restored PCI config\n");
+-	}
+-
+-	/* Assert that reset complete */
+-	efx_reado(efx, &glb_ctl_reg_ker, FR_AB_GLB_CTL);
+-	if (EFX_OWORD_FIELD(glb_ctl_reg_ker, FRF_AB_SWRST) != 0) {
+-		rc = -ETIMEDOUT;
+-		netif_err(efx, hw, efx->net_dev,
+-			  "timed out waiting for hardware reset\n");
+-		goto fail3;
+-	}
+-	netif_dbg(efx, hw, efx->net_dev, "hardware reset complete\n");
+-
+-	return 0;
+-
+-	/* pci_save_state() and pci_restore_state() MUST be called in pairs */
+-fail2:
+-	pci_restore_state(efx->pci_dev);
+-fail1:
+-fail3:
+-	return rc;
+-}
+-
+-static int falcon_reset_hw(struct efx_nic *efx, enum reset_type method)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	int rc;
+-
+-	mutex_lock(&nic_data->spi_lock);
+-	rc = __falcon_reset_hw(efx, method);
+-	mutex_unlock(&nic_data->spi_lock);
+-
+-	return rc;
+-}
+-
+-static void falcon_monitor(struct efx_nic *efx)
+-{
+-	bool link_changed;
+-	int rc;
+-
+-	BUG_ON(!mutex_is_locked(&efx->mac_lock));
+-
+-	rc = falcon_board(efx)->type->monitor(efx);
+-	if (rc) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "Board sensor %s; shutting down PHY\n",
+-			  (rc == -ERANGE) ? "reported fault" : "failed");
+-		efx->phy_mode |= PHY_MODE_LOW_POWER;
+-		rc = __efx_reconfigure_port(efx);
+-		WARN_ON(rc);
+-	}
+-
+-	if (LOOPBACK_INTERNAL(efx))
+-		link_changed = falcon_loopback_link_poll(efx);
+-	else
+-		link_changed = efx->phy_op->poll(efx);
+-
+-	if (link_changed) {
+-		falcon_stop_nic_stats(efx);
+-		falcon_deconfigure_mac_wrapper(efx);
+-
+-		falcon_reset_macs(efx);
+-		rc = falcon_reconfigure_xmac(efx);
+-		BUG_ON(rc);
+-
+-		falcon_start_nic_stats(efx);
+-
+-		efx_link_status_changed(efx);
+-	}
+-
+-	falcon_poll_xmac(efx);
+-}
+-
+-/* Zeroes out the SRAM contents.  This routine must be called in
+- * process context and is allowed to sleep.
+- */
+-static int falcon_reset_sram(struct efx_nic *efx)
+-{
+-	efx_oword_t srm_cfg_reg_ker, gpio_cfg_reg_ker;
+-	int count;
+-
+-	/* Set the SRAM wake/sleep GPIO appropriately. */
+-	efx_reado(efx, &gpio_cfg_reg_ker, FR_AB_GPIO_CTL);
+-	EFX_SET_OWORD_FIELD(gpio_cfg_reg_ker, FRF_AB_GPIO1_OEN, 1);
+-	EFX_SET_OWORD_FIELD(gpio_cfg_reg_ker, FRF_AB_GPIO1_OUT, 1);
+-	efx_writeo(efx, &gpio_cfg_reg_ker, FR_AB_GPIO_CTL);
+-
+-	/* Initiate SRAM reset */
+-	EFX_POPULATE_OWORD_2(srm_cfg_reg_ker,
+-			     FRF_AZ_SRM_INIT_EN, 1,
+-			     FRF_AZ_SRM_NB_SZ, 0);
+-	efx_writeo(efx, &srm_cfg_reg_ker, FR_AZ_SRM_CFG);
+-
+-	/* Wait for SRAM reset to complete */
+-	count = 0;
+-	do {
+-		netif_dbg(efx, hw, efx->net_dev,
+-			  "waiting for SRAM reset (attempt %d)...\n", count);
+-
+-		/* SRAM reset is slow; expect around 16ms */
+-		schedule_timeout_uninterruptible(HZ / 50);
+-
+-		/* Check for reset complete */
+-		efx_reado(efx, &srm_cfg_reg_ker, FR_AZ_SRM_CFG);
+-		if (!EFX_OWORD_FIELD(srm_cfg_reg_ker, FRF_AZ_SRM_INIT_EN)) {
+-			netif_dbg(efx, hw, efx->net_dev,
+-				  "SRAM reset complete\n");
+-
+-			return 0;
+-		}
+-	} while (++count < 20);	/* wait up to 0.4 sec */
+-
+-	netif_err(efx, hw, efx->net_dev, "timed out waiting for SRAM reset\n");
+-	return -ETIMEDOUT;
+-}
+-
+-static void falcon_spi_device_init(struct efx_nic *efx,
+-				  struct falcon_spi_device *spi_device,
+-				  unsigned int device_id, u32 device_type)
+-{
+-	if (device_type != 0) {
+-		spi_device->device_id = device_id;
+-		spi_device->size =
+-			1 << SPI_DEV_TYPE_FIELD(device_type, SPI_DEV_TYPE_SIZE);
+-		spi_device->addr_len =
+-			SPI_DEV_TYPE_FIELD(device_type, SPI_DEV_TYPE_ADDR_LEN);
+-		spi_device->munge_address = (spi_device->size == 1 << 9 &&
+-					     spi_device->addr_len == 1);
+-		spi_device->erase_command =
+-			SPI_DEV_TYPE_FIELD(device_type, SPI_DEV_TYPE_ERASE_CMD);
+-		spi_device->erase_size =
+-			1 << SPI_DEV_TYPE_FIELD(device_type,
+-						SPI_DEV_TYPE_ERASE_SIZE);
+-		spi_device->block_size =
+-			1 << SPI_DEV_TYPE_FIELD(device_type,
+-						SPI_DEV_TYPE_BLOCK_SIZE);
+-	} else {
+-		spi_device->size = 0;
+-	}
+-}
+-
+-/* Extract non-volatile configuration */
+-static int falcon_probe_nvconfig(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	struct falcon_nvconfig *nvconfig;
+-	int rc;
+-
+-	nvconfig = kmalloc(sizeof(*nvconfig), GFP_KERNEL);
+-	if (!nvconfig)
+-		return -ENOMEM;
+-
+-	rc = falcon_read_nvram(efx, nvconfig);
+-	if (rc)
+-		goto out;
+-
+-	efx->phy_type = nvconfig->board_v2.port0_phy_type;
+-	efx->mdio.prtad = nvconfig->board_v2.port0_phy_addr;
+-
+-	if (le16_to_cpu(nvconfig->board_struct_ver) >= 3) {
+-		falcon_spi_device_init(
+-			efx, &nic_data->spi_flash, FFE_AB_SPI_DEVICE_FLASH,
+-			le32_to_cpu(nvconfig->board_v3
+-				    .spi_device_type[FFE_AB_SPI_DEVICE_FLASH]));
+-		falcon_spi_device_init(
+-			efx, &nic_data->spi_eeprom, FFE_AB_SPI_DEVICE_EEPROM,
+-			le32_to_cpu(nvconfig->board_v3
+-				    .spi_device_type[FFE_AB_SPI_DEVICE_EEPROM]));
+-	}
+-
+-	/* Read the MAC addresses */
+-	ether_addr_copy(efx->net_dev->perm_addr, nvconfig->mac_address[0]);
+-
+-	netif_dbg(efx, probe, efx->net_dev, "PHY is %d phy_id %d\n",
+-		  efx->phy_type, efx->mdio.prtad);
+-
+-	rc = falcon_probe_board(efx,
+-				le16_to_cpu(nvconfig->board_v2.board_revision));
+-out:
+-	kfree(nvconfig);
+-	return rc;
+-}
+-
+-static int falcon_dimension_resources(struct efx_nic *efx)
+-{
+-	efx->rx_dc_base = 0x20000;
+-	efx->tx_dc_base = 0x26000;
+-	return 0;
+-}
+-
+-/* Probe all SPI devices on the NIC */
+-static void falcon_probe_spi_devices(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	efx_oword_t nic_stat, gpio_ctl, ee_vpd_cfg;
+-	int boot_dev;
+-
+-	efx_reado(efx, &gpio_ctl, FR_AB_GPIO_CTL);
+-	efx_reado(efx, &nic_stat, FR_AB_NIC_STAT);
+-	efx_reado(efx, &ee_vpd_cfg, FR_AB_EE_VPD_CFG0);
+-
+-	if (EFX_OWORD_FIELD(gpio_ctl, FRF_AB_GPIO3_PWRUP_VALUE)) {
+-		boot_dev = (EFX_OWORD_FIELD(nic_stat, FRF_AB_SF_PRST) ?
+-			    FFE_AB_SPI_DEVICE_FLASH : FFE_AB_SPI_DEVICE_EEPROM);
+-		netif_dbg(efx, probe, efx->net_dev, "Booted from %s\n",
+-			  boot_dev == FFE_AB_SPI_DEVICE_FLASH ?
+-			  "flash" : "EEPROM");
+-	} else {
+-		/* Disable VPD and set clock dividers to safe
+-		 * values for initial programming. */
+-		boot_dev = -1;
+-		netif_dbg(efx, probe, efx->net_dev,
+-			  "Booted from internal ASIC settings;"
+-			  " setting SPI config\n");
+-		EFX_POPULATE_OWORD_3(ee_vpd_cfg, FRF_AB_EE_VPD_EN, 0,
+-				     /* 125 MHz / 7 ~= 20 MHz */
+-				     FRF_AB_EE_SF_CLOCK_DIV, 7,
+-				     /* 125 MHz / 63 ~= 2 MHz */
+-				     FRF_AB_EE_EE_CLOCK_DIV, 63);
+-		efx_writeo(efx, &ee_vpd_cfg, FR_AB_EE_VPD_CFG0);
+-	}
+-
+-	mutex_init(&nic_data->spi_lock);
+-
+-	if (boot_dev == FFE_AB_SPI_DEVICE_FLASH)
+-		falcon_spi_device_init(efx, &nic_data->spi_flash,
+-				       FFE_AB_SPI_DEVICE_FLASH,
+-				       default_flash_type);
+-	if (boot_dev == FFE_AB_SPI_DEVICE_EEPROM)
+-		falcon_spi_device_init(efx, &nic_data->spi_eeprom,
+-				       FFE_AB_SPI_DEVICE_EEPROM,
+-				       large_eeprom_type);
+-}
+-
+-static unsigned int falcon_a1_mem_map_size(struct efx_nic *efx)
+-{
+-	return 0x20000;
+-}
+-
+-static unsigned int falcon_b0_mem_map_size(struct efx_nic *efx)
+-{
+-	/* Map everything up to and including the RSS indirection table.
+-	 * The PCI core takes care of mapping the MSI-X tables.
+-	 */
+-	return FR_BZ_RX_INDIRECTION_TBL +
+-		FR_BZ_RX_INDIRECTION_TBL_STEP * FR_BZ_RX_INDIRECTION_TBL_ROWS;
+-}
+-
+-static int falcon_probe_nic(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data;
+-	struct falcon_board *board;
+-	int rc;
+-
+-	efx->primary = efx; /* only one usable function per controller */
+-
+-	/* Allocate storage for hardware specific data */
+-	nic_data = kzalloc(sizeof(*nic_data), GFP_KERNEL);
+-	if (!nic_data)
+-		return -ENOMEM;
+-	efx->nic_data = nic_data;
+-
+-	rc = -ENODEV;
+-
+-	if (efx_farch_fpga_ver(efx) != 0) {
+-		netif_err(efx, probe, efx->net_dev,
+-			  "Falcon FPGA not supported\n");
+-		goto fail1;
+-	}
+-
+-	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1) {
+-		efx_oword_t nic_stat;
+-		struct pci_dev *dev;
+-		u8 pci_rev = efx->pci_dev->revision;
+-
+-		if ((pci_rev == 0xff) || (pci_rev == 0)) {
+-			netif_err(efx, probe, efx->net_dev,
+-				  "Falcon rev A0 not supported\n");
+-			goto fail1;
+-		}
+-		efx_reado(efx, &nic_stat, FR_AB_NIC_STAT);
+-		if (EFX_OWORD_FIELD(nic_stat, FRF_AB_STRAP_10G) == 0) {
+-			netif_err(efx, probe, efx->net_dev,
+-				  "Falcon rev A1 1G not supported\n");
+-			goto fail1;
+-		}
+-		if (EFX_OWORD_FIELD(nic_stat, FRF_AA_STRAP_PCIE) == 0) {
+-			netif_err(efx, probe, efx->net_dev,
+-				  "Falcon rev A1 PCI-X not supported\n");
+-			goto fail1;
+-		}
+-
+-		dev = pci_dev_get(efx->pci_dev);
+-		while ((dev = pci_get_device(PCI_VENDOR_ID_SOLARFLARE,
+-					     PCI_DEVICE_ID_SOLARFLARE_SFC4000A_1,
+-					     dev))) {
+-			if (dev->bus == efx->pci_dev->bus &&
+-			    dev->devfn == efx->pci_dev->devfn + 1) {
+-				nic_data->pci_dev2 = dev;
+-				break;
+-			}
+-		}
+-		if (!nic_data->pci_dev2) {
+-			netif_err(efx, probe, efx->net_dev,
+-				  "failed to find secondary function\n");
+-			rc = -ENODEV;
+-			goto fail2;
+-		}
+-	}
+-
+-	/* Now we can reset the NIC */
+-	rc = __falcon_reset_hw(efx, RESET_TYPE_ALL);
+-	if (rc) {
+-		netif_err(efx, probe, efx->net_dev, "failed to reset NIC\n");
+-		goto fail3;
+-	}
+-
+-	/* Allocate memory for INT_KER */
+-	rc = efx_nic_alloc_buffer(efx, &efx->irq_status, sizeof(efx_oword_t),
+-				  GFP_KERNEL);
+-	if (rc)
+-		goto fail4;
+-	BUG_ON(efx->irq_status.dma_addr & 0x0f);
+-
+-	netif_dbg(efx, probe, efx->net_dev,
+-		  "INT_KER at %llx (virt %p phys %llx)\n",
+-		  (u64)efx->irq_status.dma_addr,
+-		  efx->irq_status.addr,
+-		  (u64)virt_to_phys(efx->irq_status.addr));
+-
+-	falcon_probe_spi_devices(efx);
+-
+-	/* Read in the non-volatile configuration */
+-	rc = falcon_probe_nvconfig(efx);
+-	if (rc) {
+-		if (rc == -EINVAL)
+-			netif_err(efx, probe, efx->net_dev, "NVRAM is invalid\n");
+-		goto fail5;
+-	}
+-
+-	efx->max_channels = (efx_nic_rev(efx) <= EFX_REV_FALCON_A1 ? 4 :
+-			     EFX_MAX_CHANNELS);
+-	efx->max_tx_channels = efx->max_channels;
+-	efx->timer_quantum_ns = 4968; /* 621 cycles */
+-	efx->timer_max_ns = efx->type->timer_period_max *
+-			    efx->timer_quantum_ns;
+-
+-	/* Initialise I2C adapter */
+-	board = falcon_board(efx);
+-	board->i2c_adap.owner = THIS_MODULE;
+-	board->i2c_data = falcon_i2c_bit_operations;
+-	board->i2c_data.data = efx;
+-	board->i2c_adap.algo_data = &board->i2c_data;
+-	board->i2c_adap.dev.parent = &efx->pci_dev->dev;
+-	strlcpy(board->i2c_adap.name, "SFC4000 GPIO",
+-		sizeof(board->i2c_adap.name));
+-	rc = i2c_bit_add_bus(&board->i2c_adap);
+-	if (rc)
+-		goto fail5;
+-
+-	rc = falcon_board(efx)->type->init(efx);
+-	if (rc) {
+-		netif_err(efx, probe, efx->net_dev,
+-			  "failed to initialise board\n");
+-		goto fail6;
+-	}
+-
+-	nic_data->stats_disable_count = 1;
+-	setup_timer(&nic_data->stats_timer, &falcon_stats_timer_func,
+-		    (unsigned long)efx);
+-
+-	return 0;
+-
+- fail6:
+-	i2c_del_adapter(&board->i2c_adap);
+-	memset(&board->i2c_adap, 0, sizeof(board->i2c_adap));
+- fail5:
+-	efx_nic_free_buffer(efx, &efx->irq_status);
+- fail4:
+- fail3:
+-	if (nic_data->pci_dev2) {
+-		pci_dev_put(nic_data->pci_dev2);
+-		nic_data->pci_dev2 = NULL;
+-	}
+- fail2:
+- fail1:
+-	kfree(efx->nic_data);
+-	return rc;
+-}
+-
+-static void falcon_init_rx_cfg(struct efx_nic *efx)
+-{
+-	/* RX control FIFO thresholds (32 entries) */
+-	const unsigned ctrl_xon_thr = 20;
+-	const unsigned ctrl_xoff_thr = 25;
+-	efx_oword_t reg;
+-
+-	efx_reado(efx, &reg, FR_AZ_RX_CFG);
+-	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1) {
+-		/* Data FIFO size is 5.5K.  The RX DMA engine only
+-		 * supports scattering for user-mode queues, but will
+-		 * split DMA writes at intervals of RX_USR_BUF_SIZE
+-		 * (32-byte units) even for kernel-mode queues.  We
+-		 * set it to be so large that that never happens.
+-		 */
+-		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_DESC_PUSH_EN, 0);
+-		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_USR_BUF_SIZE,
+-				    (3 * 4096) >> 5);
+-		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_XON_MAC_TH, 512 >> 8);
+-		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_XOFF_MAC_TH, 2048 >> 8);
+-		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_XON_TX_TH, ctrl_xon_thr);
+-		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_XOFF_TX_TH, ctrl_xoff_thr);
+-	} else {
+-		/* Data FIFO size is 80K; register fields moved */
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_DESC_PUSH_EN, 0);
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_USR_BUF_SIZE,
+-				    EFX_RX_USR_BUF_SIZE >> 5);
+-		/* Send XON and XOFF at ~3 * max MTU away from empty/full */
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_XON_MAC_TH, 27648 >> 8);
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_XOFF_MAC_TH, 54272 >> 8);
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_XON_TX_TH, ctrl_xon_thr);
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_XOFF_TX_TH, ctrl_xoff_thr);
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_INGR_EN, 1);
+-
+-		/* Enable hash insertion. This is broken for the
+-		 * 'Falcon' hash so also select Toeplitz TCP/IPv4 and
+-		 * IPv4 hashes. */
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_HASH_INSRT_HDR, 1);
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_HASH_ALG, 1);
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_IP_HASH, 1);
+-	}
+-	/* Always enable XOFF signal from RX FIFO.  We enable
+-	 * or disable transmission of pause frames at the MAC. */
+-	EFX_SET_OWORD_FIELD(reg, FRF_AZ_RX_XOFF_MAC_EN, 1);
+-	efx_writeo(efx, &reg, FR_AZ_RX_CFG);
+-}
+-
+-/* This call performs hardware-specific global initialisation, such as
+- * defining the descriptor cache sizes and number of RSS channels.
+- * It does not set up any buffers, descriptor rings or event queues.
+- */
+-static int falcon_init_nic(struct efx_nic *efx)
+-{
+-	efx_oword_t temp;
+-	int rc;
+-
+-	/* Use on-chip SRAM */
+-	efx_reado(efx, &temp, FR_AB_NIC_STAT);
+-	EFX_SET_OWORD_FIELD(temp, FRF_AB_ONCHIP_SRAM, 1);
+-	efx_writeo(efx, &temp, FR_AB_NIC_STAT);
+-
+-	rc = falcon_reset_sram(efx);
+-	if (rc)
+-		return rc;
+-
+-	/* Clear the parity enables on the TX data fifos as
+-	 * they produce false parity errors because of timing issues
+-	 */
+-	if (EFX_WORKAROUND_5129(efx)) {
+-		efx_reado(efx, &temp, FR_AZ_CSR_SPARE);
+-		EFX_SET_OWORD_FIELD(temp, FRF_AB_MEM_PERR_EN_TX_DATA, 0);
+-		efx_writeo(efx, &temp, FR_AZ_CSR_SPARE);
+-	}
+-
+-	if (EFX_WORKAROUND_7244(efx)) {
+-		efx_reado(efx, &temp, FR_BZ_RX_FILTER_CTL);
+-		EFX_SET_OWORD_FIELD(temp, FRF_BZ_UDP_FULL_SRCH_LIMIT, 8);
+-		EFX_SET_OWORD_FIELD(temp, FRF_BZ_UDP_WILD_SRCH_LIMIT, 8);
+-		EFX_SET_OWORD_FIELD(temp, FRF_BZ_TCP_FULL_SRCH_LIMIT, 8);
+-		EFX_SET_OWORD_FIELD(temp, FRF_BZ_TCP_WILD_SRCH_LIMIT, 8);
+-		efx_writeo(efx, &temp, FR_BZ_RX_FILTER_CTL);
+-	}
+-
+-	/* XXX This is documented only for Falcon A0/A1 */
+-	/* Setup RX.  Wait for descriptor is broken and must
+-	 * be disabled.  RXDP recovery shouldn't be needed, but is.
+-	 */
+-	efx_reado(efx, &temp, FR_AA_RX_SELF_RST);
+-	EFX_SET_OWORD_FIELD(temp, FRF_AA_RX_NODESC_WAIT_DIS, 1);
+-	EFX_SET_OWORD_FIELD(temp, FRF_AA_RX_SELF_RST_EN, 1);
+-	if (EFX_WORKAROUND_5583(efx))
+-		EFX_SET_OWORD_FIELD(temp, FRF_AA_RX_ISCSI_DIS, 1);
+-	efx_writeo(efx, &temp, FR_AA_RX_SELF_RST);
+-
+-	/* Do not enable TX_NO_EOP_DISC_EN, since it limits packets to 16
+-	 * descriptors (which is bad).
+-	 */
+-	efx_reado(efx, &temp, FR_AZ_TX_CFG);
+-	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_NO_EOP_DISC_EN, 0);
+-	efx_writeo(efx, &temp, FR_AZ_TX_CFG);
+-
+-	falcon_init_rx_cfg(efx);
+-
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
+-		falcon_b0_rx_push_rss_config(efx, false, efx->rx_indir_table);
+-
+-		/* Set destination of both TX and RX Flush events */
+-		EFX_POPULATE_OWORD_1(temp, FRF_BZ_FLS_EVQ_ID, 0);
+-		efx_writeo(efx, &temp, FR_BZ_DP_CTRL);
+-	}
+-
+-	efx_farch_init_common(efx);
+-
+-	return 0;
+-}
+-
+-static void falcon_remove_nic(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	struct falcon_board *board = falcon_board(efx);
+-
+-	board->type->fini(efx);
+-
+-	/* Remove I2C adapter and clear it in preparation for a retry */
+-	i2c_del_adapter(&board->i2c_adap);
+-	memset(&board->i2c_adap, 0, sizeof(board->i2c_adap));
+-
+-	efx_nic_free_buffer(efx, &efx->irq_status);
+-
+-	__falcon_reset_hw(efx, RESET_TYPE_ALL);
+-
+-	/* Release the second function after the reset */
+-	if (nic_data->pci_dev2) {
+-		pci_dev_put(nic_data->pci_dev2);
+-		nic_data->pci_dev2 = NULL;
+-	}
+-
+-	/* Tear down the private nic state */
+-	kfree(efx->nic_data);
+-	efx->nic_data = NULL;
+-}
+-
+-static size_t falcon_describe_nic_stats(struct efx_nic *efx, u8 *names)
+-{
+-	return efx_nic_describe_stats(falcon_stat_desc, FALCON_STAT_COUNT,
+-				      falcon_stat_mask, names);
+-}
+-
+-static size_t falcon_update_nic_stats(struct efx_nic *efx, u64 *full_stats,
+-				      struct rtnl_link_stats64 *core_stats)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	u64 *stats = nic_data->stats;
+-	efx_oword_t cnt;
+-
+-	if (!nic_data->stats_disable_count) {
+-		efx_reado(efx, &cnt, FR_AZ_RX_NODESC_DROP);
+-		stats[FALCON_STAT_rx_nodesc_drop_cnt] +=
+-			EFX_OWORD_FIELD(cnt, FRF_AB_RX_NODESC_DROP_CNT);
+-
+-		if (nic_data->stats_pending &&
+-		    FALCON_XMAC_STATS_DMA_FLAG(efx)) {
+-			nic_data->stats_pending = false;
+-			rmb(); /* read the done flag before the stats */
+-			efx_nic_update_stats(
+-				falcon_stat_desc, FALCON_STAT_COUNT,
+-				falcon_stat_mask,
+-				stats, efx->stats_buffer.addr, true);
+-		}
+-
+-		/* Update derived statistic */
+-		efx_update_diff_stat(&stats[FALCON_STAT_rx_bad_bytes],
+-				     stats[FALCON_STAT_rx_bytes] -
+-				     stats[FALCON_STAT_rx_good_bytes] -
+-				     stats[FALCON_STAT_rx_control] * 64);
+-		efx_update_sw_stats(efx, stats);
+-	}
+-
+-	if (full_stats)
+-		memcpy(full_stats, stats, sizeof(u64) * FALCON_STAT_COUNT);
+-
+-	if (core_stats) {
+-		core_stats->rx_packets = stats[FALCON_STAT_rx_packets];
+-		core_stats->tx_packets = stats[FALCON_STAT_tx_packets];
+-		core_stats->rx_bytes = stats[FALCON_STAT_rx_bytes];
+-		core_stats->tx_bytes = stats[FALCON_STAT_tx_bytes];
+-		core_stats->rx_dropped = stats[FALCON_STAT_rx_nodesc_drop_cnt] +
+-					 stats[GENERIC_STAT_rx_nodesc_trunc] +
+-					 stats[GENERIC_STAT_rx_noskb_drops];
+-		core_stats->multicast = stats[FALCON_STAT_rx_multicast];
+-		core_stats->rx_length_errors =
+-			stats[FALCON_STAT_rx_gtjumbo] +
+-			stats[FALCON_STAT_rx_length_error];
+-		core_stats->rx_crc_errors = stats[FALCON_STAT_rx_bad];
+-		core_stats->rx_frame_errors = stats[FALCON_STAT_rx_align_error];
+-		core_stats->rx_fifo_errors = stats[FALCON_STAT_rx_overflow];
+-
+-		core_stats->rx_errors = (core_stats->rx_length_errors +
+-					 core_stats->rx_crc_errors +
+-					 core_stats->rx_frame_errors +
+-					 stats[FALCON_STAT_rx_symbol_error]);
+-	}
+-
+-	return FALCON_STAT_COUNT;
+-}
+-
+-void falcon_start_nic_stats(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-
+-	spin_lock_bh(&efx->stats_lock);
+-	if (--nic_data->stats_disable_count == 0)
+-		falcon_stats_request(efx);
+-	spin_unlock_bh(&efx->stats_lock);
+-}
+-
+-/* We don't acutally pull stats on falcon. Wait 10ms so that
+- * they arrive when we call this just after start_stats
+- */
+-static void falcon_pull_nic_stats(struct efx_nic *efx)
+-{
+-	msleep(10);
+-}
+-
+-void falcon_stop_nic_stats(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	int i;
+-
+-	might_sleep();
+-
+-	spin_lock_bh(&efx->stats_lock);
+-	++nic_data->stats_disable_count;
+-	spin_unlock_bh(&efx->stats_lock);
+-
+-	del_timer_sync(&nic_data->stats_timer);
+-
+-	/* Wait enough time for the most recent transfer to
+-	 * complete. */
+-	for (i = 0; i < 4 && nic_data->stats_pending; i++) {
+-		if (FALCON_XMAC_STATS_DMA_FLAG(efx))
+-			break;
+-		msleep(1);
+-	}
+-
+-	spin_lock_bh(&efx->stats_lock);
+-	falcon_stats_complete(efx);
+-	spin_unlock_bh(&efx->stats_lock);
+-}
+-
+-static void falcon_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
+-{
+-	falcon_board(efx)->type->set_id_led(efx, mode);
+-}
+-
+-/**************************************************************************
+- *
+- * Wake on LAN
+- *
+- **************************************************************************
+- */
+-
+-static void falcon_get_wol(struct efx_nic *efx, struct ethtool_wolinfo *wol)
+-{
+-	wol->supported = 0;
+-	wol->wolopts = 0;
+-	memset(&wol->sopass, 0, sizeof(wol->sopass));
+-}
+-
+-static int falcon_set_wol(struct efx_nic *efx, u32 type)
+-{
+-	if (type != 0)
+-		return -EINVAL;
+-	return 0;
+-}
+-
+-/**************************************************************************
+- *
+- * Revision-dependent attributes used by efx.c and nic.c
+- *
+- **************************************************************************
+- */
+-
+-const struct efx_nic_type falcon_a1_nic_type = {
+-	.is_vf = false,
+-	.mem_bar = EFX_MEM_BAR,
+-	.mem_map_size = falcon_a1_mem_map_size,
+-	.probe = falcon_probe_nic,
+-	.remove = falcon_remove_nic,
+-	.init = falcon_init_nic,
+-	.dimension_resources = falcon_dimension_resources,
+-	.fini = falcon_irq_ack_a1,
+-	.monitor = falcon_monitor,
+-	.map_reset_reason = falcon_map_reset_reason,
+-	.map_reset_flags = falcon_map_reset_flags,
+-	.reset = falcon_reset_hw,
+-	.probe_port = falcon_probe_port,
+-	.remove_port = falcon_remove_port,
+-	.handle_global_event = falcon_handle_global_event,
+-	.fini_dmaq = efx_farch_fini_dmaq,
+-	.prepare_flush = falcon_prepare_flush,
+-	.finish_flush = efx_port_dummy_op_void,
+-	.prepare_flr = efx_port_dummy_op_void,
+-	.finish_flr = efx_farch_finish_flr,
+-	.describe_stats = falcon_describe_nic_stats,
+-	.update_stats = falcon_update_nic_stats,
+-	.start_stats = falcon_start_nic_stats,
+-	.pull_stats = falcon_pull_nic_stats,
+-	.stop_stats = falcon_stop_nic_stats,
+-	.set_id_led = falcon_set_id_led,
+-	.push_irq_moderation = falcon_push_irq_moderation,
+-	.reconfigure_port = falcon_reconfigure_port,
+-	.prepare_enable_fc_tx = falcon_a1_prepare_enable_fc_tx,
+-	.reconfigure_mac = falcon_reconfigure_xmac,
+-	.check_mac_fault = falcon_xmac_check_fault,
+-	.get_wol = falcon_get_wol,
+-	.set_wol = falcon_set_wol,
+-	.resume_wol = efx_port_dummy_op_void,
+-	.test_nvram = falcon_test_nvram,
+-	.irq_enable_master = efx_farch_irq_enable_master,
+-	.irq_test_generate = efx_farch_irq_test_generate,
+-	.irq_disable_non_ev = efx_farch_irq_disable_master,
+-	.irq_handle_msi = efx_farch_msi_interrupt,
+-	.irq_handle_legacy = falcon_legacy_interrupt_a1,
+-	.tx_probe = efx_farch_tx_probe,
+-	.tx_init = efx_farch_tx_init,
+-	.tx_remove = efx_farch_tx_remove,
+-	.tx_write = efx_farch_tx_write,
+-	.tx_limit_len = efx_farch_tx_limit_len,
+-	.rx_push_rss_config = dummy_rx_push_rss_config,
+-	.rx_probe = efx_farch_rx_probe,
+-	.rx_init = efx_farch_rx_init,
+-	.rx_remove = efx_farch_rx_remove,
+-	.rx_write = efx_farch_rx_write,
+-	.rx_defer_refill = efx_farch_rx_defer_refill,
+-	.ev_probe = efx_farch_ev_probe,
+-	.ev_init = efx_farch_ev_init,
+-	.ev_fini = efx_farch_ev_fini,
+-	.ev_remove = efx_farch_ev_remove,
+-	.ev_process = efx_farch_ev_process,
+-	.ev_read_ack = efx_farch_ev_read_ack,
+-	.ev_test_generate = efx_farch_ev_test_generate,
+-
+-	/* We don't expose the filter table on Falcon A1 as it is not
+-	 * mapped into function 0, but these implementations still
+-	 * work with a degenerate case of all tables set to size 0.
+-	 */
+-	.filter_table_probe = efx_farch_filter_table_probe,
+-	.filter_table_restore = efx_farch_filter_table_restore,
+-	.filter_table_remove = efx_farch_filter_table_remove,
+-	.filter_insert = efx_farch_filter_insert,
+-	.filter_remove_safe = efx_farch_filter_remove_safe,
+-	.filter_get_safe = efx_farch_filter_get_safe,
+-	.filter_clear_rx = efx_farch_filter_clear_rx,
+-	.filter_count_rx_used = efx_farch_filter_count_rx_used,
+-	.filter_get_rx_id_limit = efx_farch_filter_get_rx_id_limit,
+-	.filter_get_rx_ids = efx_farch_filter_get_rx_ids,
+-
+-#ifdef CONFIG_SFC_MTD
+-	.mtd_probe = falcon_mtd_probe,
+-	.mtd_rename = falcon_mtd_rename,
+-	.mtd_read = falcon_mtd_read,
+-	.mtd_erase = falcon_mtd_erase,
+-	.mtd_write = falcon_mtd_write,
+-	.mtd_sync = falcon_mtd_sync,
+-#endif
+-
+-	.revision = EFX_REV_FALCON_A1,
+-	.txd_ptr_tbl_base = FR_AA_TX_DESC_PTR_TBL_KER,
+-	.rxd_ptr_tbl_base = FR_AA_RX_DESC_PTR_TBL_KER,
+-	.buf_tbl_base = FR_AA_BUF_FULL_TBL_KER,
+-	.evq_ptr_tbl_base = FR_AA_EVQ_PTR_TBL_KER,
+-	.evq_rptr_tbl_base = FR_AA_EVQ_RPTR_KER,
+-	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
+-	.rx_buffer_padding = 0x24,
+-	.can_rx_scatter = false,
+-	.max_interrupt_mode = EFX_INT_MODE_MSI,
+-	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
+-	.offload_features = NETIF_F_IP_CSUM,
+-	.mcdi_max_ver = -1,
+-};
+-
+-const struct efx_nic_type falcon_b0_nic_type = {
+-	.is_vf = false,
+-	.mem_bar = EFX_MEM_BAR,
+-	.mem_map_size = falcon_b0_mem_map_size,
+-	.probe = falcon_probe_nic,
+-	.remove = falcon_remove_nic,
+-	.init = falcon_init_nic,
+-	.dimension_resources = falcon_dimension_resources,
+-	.fini = efx_port_dummy_op_void,
+-	.monitor = falcon_monitor,
+-	.map_reset_reason = falcon_map_reset_reason,
+-	.map_reset_flags = falcon_map_reset_flags,
+-	.reset = falcon_reset_hw,
+-	.probe_port = falcon_probe_port,
+-	.remove_port = falcon_remove_port,
+-	.handle_global_event = falcon_handle_global_event,
+-	.fini_dmaq = efx_farch_fini_dmaq,
+-	.prepare_flush = falcon_prepare_flush,
+-	.finish_flush = efx_port_dummy_op_void,
+-	.prepare_flr = efx_port_dummy_op_void,
+-	.finish_flr = efx_farch_finish_flr,
+-	.describe_stats = falcon_describe_nic_stats,
+-	.update_stats = falcon_update_nic_stats,
+-	.start_stats = falcon_start_nic_stats,
+-	.pull_stats = falcon_pull_nic_stats,
+-	.stop_stats = falcon_stop_nic_stats,
+-	.set_id_led = falcon_set_id_led,
+-	.push_irq_moderation = falcon_push_irq_moderation,
+-	.reconfigure_port = falcon_reconfigure_port,
+-	.prepare_enable_fc_tx = falcon_b0_prepare_enable_fc_tx,
+-	.reconfigure_mac = falcon_reconfigure_xmac,
+-	.check_mac_fault = falcon_xmac_check_fault,
+-	.get_wol = falcon_get_wol,
+-	.set_wol = falcon_set_wol,
+-	.resume_wol = efx_port_dummy_op_void,
+-	.test_chip = falcon_b0_test_chip,
+-	.test_nvram = falcon_test_nvram,
+-	.irq_enable_master = efx_farch_irq_enable_master,
+-	.irq_test_generate = efx_farch_irq_test_generate,
+-	.irq_disable_non_ev = efx_farch_irq_disable_master,
+-	.irq_handle_msi = efx_farch_msi_interrupt,
+-	.irq_handle_legacy = efx_farch_legacy_interrupt,
+-	.tx_probe = efx_farch_tx_probe,
+-	.tx_init = efx_farch_tx_init,
+-	.tx_remove = efx_farch_tx_remove,
+-	.tx_write = efx_farch_tx_write,
+-	.tx_limit_len = efx_farch_tx_limit_len,
+-	.rx_push_rss_config = falcon_b0_rx_push_rss_config,
+-	.rx_probe = efx_farch_rx_probe,
+-	.rx_init = efx_farch_rx_init,
+-	.rx_remove = efx_farch_rx_remove,
+-	.rx_write = efx_farch_rx_write,
+-	.rx_defer_refill = efx_farch_rx_defer_refill,
+-	.ev_probe = efx_farch_ev_probe,
+-	.ev_init = efx_farch_ev_init,
+-	.ev_fini = efx_farch_ev_fini,
+-	.ev_remove = efx_farch_ev_remove,
+-	.ev_process = efx_farch_ev_process,
+-	.ev_read_ack = efx_farch_ev_read_ack,
+-	.ev_test_generate = efx_farch_ev_test_generate,
+-	.filter_table_probe = efx_farch_filter_table_probe,
+-	.filter_table_restore = efx_farch_filter_table_restore,
+-	.filter_table_remove = efx_farch_filter_table_remove,
+-	.filter_update_rx_scatter = efx_farch_filter_update_rx_scatter,
+-	.filter_insert = efx_farch_filter_insert,
+-	.filter_remove_safe = efx_farch_filter_remove_safe,
+-	.filter_get_safe = efx_farch_filter_get_safe,
+-	.filter_clear_rx = efx_farch_filter_clear_rx,
+-	.filter_count_rx_used = efx_farch_filter_count_rx_used,
+-	.filter_get_rx_id_limit = efx_farch_filter_get_rx_id_limit,
+-	.filter_get_rx_ids = efx_farch_filter_get_rx_ids,
+-#ifdef CONFIG_RFS_ACCEL
+-	.filter_rfs_insert = efx_farch_filter_rfs_insert,
+-	.filter_rfs_expire_one = efx_farch_filter_rfs_expire_one,
+-#endif
+-#ifdef CONFIG_SFC_MTD
+-	.mtd_probe = falcon_mtd_probe,
+-	.mtd_rename = falcon_mtd_rename,
+-	.mtd_read = falcon_mtd_read,
+-	.mtd_erase = falcon_mtd_erase,
+-	.mtd_write = falcon_mtd_write,
+-	.mtd_sync = falcon_mtd_sync,
+-#endif
+-
+-	.revision = EFX_REV_FALCON_B0,
+-	.txd_ptr_tbl_base = FR_BZ_TX_DESC_PTR_TBL,
+-	.rxd_ptr_tbl_base = FR_BZ_RX_DESC_PTR_TBL,
+-	.buf_tbl_base = FR_BZ_BUF_FULL_TBL,
+-	.evq_ptr_tbl_base = FR_BZ_EVQ_PTR_TBL,
+-	.evq_rptr_tbl_base = FR_BZ_EVQ_RPTR,
+-	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
+-	.rx_prefix_size = FS_BZ_RX_PREFIX_SIZE,
+-	.rx_hash_offset = FS_BZ_RX_PREFIX_HASH_OFST,
+-	.rx_buffer_padding = 0,
+-	.can_rx_scatter = true,
+-	.max_interrupt_mode = EFX_INT_MODE_MSIX,
+-	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
+-	.offload_features = NETIF_F_IP_CSUM | NETIF_F_RXHASH | NETIF_F_NTUPLE,
+-	.mcdi_max_ver = -1,
+-	.max_rx_ip_filters = FR_BZ_RX_FILTER_TBL0_ROWS,
+-};
+diff --git a/drivers/net/ethernet/sfc/falcon_boards.c b/drivers/net/ethernet/sfc/falcon_boards.c
+deleted file mode 100644
+index f6883b2..0000000
+--- a/drivers/net/ethernet/sfc/falcon_boards.c
++++ /dev/null
+@@ -1,764 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare network controllers and boards
+- * Copyright 2007-2012 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-
+-#include <linux/rtnetlink.h>
+-
+-#include "net_driver.h"
+-#include "phy.h"
+-#include "efx.h"
+-#include "nic.h"
+-#include "workarounds.h"
+-
+-/* Macros for unpacking the board revision */
+-/* The revision info is in host byte order. */
+-#define FALCON_BOARD_TYPE(_rev) (_rev >> 8)
+-#define FALCON_BOARD_MAJOR(_rev) ((_rev >> 4) & 0xf)
+-#define FALCON_BOARD_MINOR(_rev) (_rev & 0xf)
+-
+-/* Board types */
+-#define FALCON_BOARD_SFE4001 0x01
+-#define FALCON_BOARD_SFE4002 0x02
+-#define FALCON_BOARD_SFE4003 0x03
+-#define FALCON_BOARD_SFN4112F 0x52
+-
+-/* Board temperature is about 15°C above ambient when air flow is
+- * limited.  The maximum acceptable ambient temperature varies
+- * depending on the PHY specifications but the critical temperature
+- * above which we should shut down to avoid damage is 80°C. */
+-#define FALCON_BOARD_TEMP_BIAS	15
+-#define FALCON_BOARD_TEMP_CRIT	(80 + FALCON_BOARD_TEMP_BIAS)
+-
+-/* SFC4000 datasheet says: 'The maximum permitted junction temperature
+- * is 125°C; the thermal design of the environment for the SFC4000
+- * should aim to keep this well below 100°C.' */
+-#define FALCON_JUNC_TEMP_MIN	0
+-#define FALCON_JUNC_TEMP_MAX	90
+-#define FALCON_JUNC_TEMP_CRIT	125
+-
+-/*****************************************************************************
+- * Support for LM87 sensor chip used on several boards
+- */
+-#define LM87_REG_TEMP_HW_INT_LOCK	0x13
+-#define LM87_REG_TEMP_HW_EXT_LOCK	0x14
+-#define LM87_REG_TEMP_HW_INT		0x17
+-#define LM87_REG_TEMP_HW_EXT		0x18
+-#define LM87_REG_TEMP_EXT1		0x26
+-#define LM87_REG_TEMP_INT		0x27
+-#define LM87_REG_ALARMS1		0x41
+-#define LM87_REG_ALARMS2		0x42
+-#define LM87_IN_LIMITS(nr, _min, _max)			\
+-	0x2B + (nr) * 2, _max, 0x2C + (nr) * 2, _min
+-#define LM87_AIN_LIMITS(nr, _min, _max)			\
+-	0x3B + (nr), _max, 0x1A + (nr), _min
+-#define LM87_TEMP_INT_LIMITS(_min, _max)		\
+-	0x39, _max, 0x3A, _min
+-#define LM87_TEMP_EXT1_LIMITS(_min, _max)		\
+-	0x37, _max, 0x38, _min
+-
+-#define LM87_ALARM_TEMP_INT		0x10
+-#define LM87_ALARM_TEMP_EXT1		0x20
+-
+-#if IS_ENABLED(CONFIG_SENSORS_LM87)
+-
+-static int efx_poke_lm87(struct i2c_client *client, const u8 *reg_values)
+-{
+-	while (*reg_values) {
+-		u8 reg = *reg_values++;
+-		u8 value = *reg_values++;
+-		int rc = i2c_smbus_write_byte_data(client, reg, value);
+-		if (rc)
+-			return rc;
+-	}
+-	return 0;
+-}
+-
+-static const u8 falcon_lm87_common_regs[] = {
+-	LM87_REG_TEMP_HW_INT_LOCK, FALCON_BOARD_TEMP_CRIT,
+-	LM87_REG_TEMP_HW_INT, FALCON_BOARD_TEMP_CRIT,
+-	LM87_TEMP_EXT1_LIMITS(FALCON_JUNC_TEMP_MIN, FALCON_JUNC_TEMP_MAX),
+-	LM87_REG_TEMP_HW_EXT_LOCK, FALCON_JUNC_TEMP_CRIT,
+-	LM87_REG_TEMP_HW_EXT, FALCON_JUNC_TEMP_CRIT,
+-	0
+-};
+-
+-static int efx_init_lm87(struct efx_nic *efx, const struct i2c_board_info *info,
+-			 const u8 *reg_values)
+-{
+-	struct falcon_board *board = falcon_board(efx);
+-	struct i2c_client *client = i2c_new_device(&board->i2c_adap, info);
+-	int rc;
+-
+-	if (!client)
+-		return -EIO;
+-
+-	/* Read-to-clear alarm/interrupt status */
+-	i2c_smbus_read_byte_data(client, LM87_REG_ALARMS1);
+-	i2c_smbus_read_byte_data(client, LM87_REG_ALARMS2);
+-
+-	rc = efx_poke_lm87(client, reg_values);
+-	if (rc)
+-		goto err;
+-	rc = efx_poke_lm87(client, falcon_lm87_common_regs);
+-	if (rc)
+-		goto err;
+-
+-	board->hwmon_client = client;
+-	return 0;
+-
+-err:
+-	i2c_unregister_device(client);
+-	return rc;
+-}
+-
+-static void efx_fini_lm87(struct efx_nic *efx)
+-{
+-	i2c_unregister_device(falcon_board(efx)->hwmon_client);
+-}
+-
+-static int efx_check_lm87(struct efx_nic *efx, unsigned mask)
+-{
+-	struct i2c_client *client = falcon_board(efx)->hwmon_client;
+-	bool temp_crit, elec_fault, is_failure;
+-	u16 alarms;
+-	s32 reg;
+-
+-	/* If link is up then do not monitor temperature */
+-	if (EFX_WORKAROUND_7884(efx) && efx->link_state.up)
+-		return 0;
+-
+-	reg = i2c_smbus_read_byte_data(client, LM87_REG_ALARMS1);
+-	if (reg < 0)
+-		return reg;
+-	alarms = reg;
+-	reg = i2c_smbus_read_byte_data(client, LM87_REG_ALARMS2);
+-	if (reg < 0)
+-		return reg;
+-	alarms |= reg << 8;
+-	alarms &= mask;
+-
+-	temp_crit = false;
+-	if (alarms & LM87_ALARM_TEMP_INT) {
+-		reg = i2c_smbus_read_byte_data(client, LM87_REG_TEMP_INT);
+-		if (reg < 0)
+-			return reg;
+-		if (reg > FALCON_BOARD_TEMP_CRIT)
+-			temp_crit = true;
+-	}
+-	if (alarms & LM87_ALARM_TEMP_EXT1) {
+-		reg = i2c_smbus_read_byte_data(client, LM87_REG_TEMP_EXT1);
+-		if (reg < 0)
+-			return reg;
+-		if (reg > FALCON_JUNC_TEMP_CRIT)
+-			temp_crit = true;
+-	}
+-	elec_fault = alarms & ~(LM87_ALARM_TEMP_INT | LM87_ALARM_TEMP_EXT1);
+-	is_failure = temp_crit || elec_fault;
+-
+-	if (alarms)
+-		netif_err(efx, hw, efx->net_dev,
+-			  "LM87 detected a hardware %s (status %02x:%02x)"
+-			  "%s%s%s%s\n",
+-			  is_failure ? "failure" : "problem",
+-			  alarms & 0xff, alarms >> 8,
+-			  (alarms & LM87_ALARM_TEMP_INT) ?
+-			  "; board is overheating" : "",
+-			  (alarms & LM87_ALARM_TEMP_EXT1) ?
+-			  "; controller is overheating" : "",
+-			  temp_crit ? "; reached critical temperature" : "",
+-			  elec_fault ? "; electrical fault" : "");
+-
+-	return is_failure ? -ERANGE : 0;
+-}
+-
+-#else /* !CONFIG_SENSORS_LM87 */
+-
+-static inline int
+-efx_init_lm87(struct efx_nic *efx, const struct i2c_board_info *info,
+-	      const u8 *reg_values)
+-{
+-	return 0;
+-}
+-static inline void efx_fini_lm87(struct efx_nic *efx)
+-{
+-}
+-static inline int efx_check_lm87(struct efx_nic *efx, unsigned mask)
+-{
+-	return 0;
+-}
+-
+-#endif /* CONFIG_SENSORS_LM87 */
+-
+-/*****************************************************************************
+- * Support for the SFE4001 NIC.
+- *
+- * The SFE4001 does not power-up fully at reset due to its high power
+- * consumption.  We control its power via a PCA9539 I/O expander.
+- * It also has a MAX6647 temperature monitor which we expose to
+- * the lm90 driver.
+- *
+- * This also provides minimal support for reflashing the PHY, which is
+- * initiated by resetting it with the FLASH_CFG_1 pin pulled down.
+- * On SFE4001 rev A2 and later this is connected to the 3V3X output of
+- * the IO-expander.
+- * We represent reflash mode as PHY_MODE_SPECIAL and make it mutually
+- * exclusive with the network device being open.
+- */
+-
+-/**************************************************************************
+- * Support for I2C IO Expander device on SFE4001
+- */
+-#define	PCA9539 0x74
+-
+-#define	P0_IN 0x00
+-#define	P0_OUT 0x02
+-#define	P0_INVERT 0x04
+-#define	P0_CONFIG 0x06
+-
+-#define	P0_EN_1V0X_LBN 0
+-#define	P0_EN_1V0X_WIDTH 1
+-#define	P0_EN_1V2_LBN 1
+-#define	P0_EN_1V2_WIDTH 1
+-#define	P0_EN_2V5_LBN 2
+-#define	P0_EN_2V5_WIDTH 1
+-#define	P0_EN_3V3X_LBN 3
+-#define	P0_EN_3V3X_WIDTH 1
+-#define	P0_EN_5V_LBN 4
+-#define	P0_EN_5V_WIDTH 1
+-#define	P0_SHORTEN_JTAG_LBN 5
+-#define	P0_SHORTEN_JTAG_WIDTH 1
+-#define	P0_X_TRST_LBN 6
+-#define	P0_X_TRST_WIDTH 1
+-#define	P0_DSP_RESET_LBN 7
+-#define	P0_DSP_RESET_WIDTH 1
+-
+-#define	P1_IN 0x01
+-#define	P1_OUT 0x03
+-#define	P1_INVERT 0x05
+-#define	P1_CONFIG 0x07
+-
+-#define	P1_AFE_PWD_LBN 0
+-#define	P1_AFE_PWD_WIDTH 1
+-#define	P1_DSP_PWD25_LBN 1
+-#define	P1_DSP_PWD25_WIDTH 1
+-#define	P1_RESERVED_LBN 2
+-#define	P1_RESERVED_WIDTH 2
+-#define	P1_SPARE_LBN 4
+-#define	P1_SPARE_WIDTH 4
+-
+-/* Temperature Sensor */
+-#define MAX664X_REG_RSL		0x02
+-#define MAX664X_REG_WLHO	0x0B
+-
+-static void sfe4001_poweroff(struct efx_nic *efx)
+-{
+-	struct i2c_client *ioexp_client = falcon_board(efx)->ioexp_client;
+-	struct i2c_client *hwmon_client = falcon_board(efx)->hwmon_client;
+-
+-	/* Turn off all power rails and disable outputs */
+-	i2c_smbus_write_byte_data(ioexp_client, P0_OUT, 0xff);
+-	i2c_smbus_write_byte_data(ioexp_client, P1_CONFIG, 0xff);
+-	i2c_smbus_write_byte_data(ioexp_client, P0_CONFIG, 0xff);
+-
+-	/* Clear any over-temperature alert */
+-	i2c_smbus_read_byte_data(hwmon_client, MAX664X_REG_RSL);
+-}
+-
+-static int sfe4001_poweron(struct efx_nic *efx)
+-{
+-	struct i2c_client *ioexp_client = falcon_board(efx)->ioexp_client;
+-	struct i2c_client *hwmon_client = falcon_board(efx)->hwmon_client;
+-	unsigned int i, j;
+-	int rc;
+-	u8 out;
+-
+-	/* Clear any previous over-temperature alert */
+-	rc = i2c_smbus_read_byte_data(hwmon_client, MAX664X_REG_RSL);
+-	if (rc < 0)
+-		return rc;
+-
+-	/* Enable port 0 and port 1 outputs on IO expander */
+-	rc = i2c_smbus_write_byte_data(ioexp_client, P0_CONFIG, 0x00);
+-	if (rc)
+-		return rc;
+-	rc = i2c_smbus_write_byte_data(ioexp_client, P1_CONFIG,
+-				       0xff & ~(1 << P1_SPARE_LBN));
+-	if (rc)
+-		goto fail_on;
+-
+-	/* If PHY power is on, turn it all off and wait 1 second to
+-	 * ensure a full reset.
+-	 */
+-	rc = i2c_smbus_read_byte_data(ioexp_client, P0_OUT);
+-	if (rc < 0)
+-		goto fail_on;
+-	out = 0xff & ~((0 << P0_EN_1V2_LBN) | (0 << P0_EN_2V5_LBN) |
+-		       (0 << P0_EN_3V3X_LBN) | (0 << P0_EN_5V_LBN) |
+-		       (0 << P0_EN_1V0X_LBN));
+-	if (rc != out) {
+-		netif_info(efx, hw, efx->net_dev, "power-cycling PHY\n");
+-		rc = i2c_smbus_write_byte_data(ioexp_client, P0_OUT, out);
+-		if (rc)
+-			goto fail_on;
+-		schedule_timeout_uninterruptible(HZ);
+-	}
+-
+-	for (i = 0; i < 20; ++i) {
+-		/* Turn on 1.2V, 2.5V, 3.3V and 5V power rails */
+-		out = 0xff & ~((1 << P0_EN_1V2_LBN) | (1 << P0_EN_2V5_LBN) |
+-			       (1 << P0_EN_3V3X_LBN) | (1 << P0_EN_5V_LBN) |
+-			       (1 << P0_X_TRST_LBN));
+-		if (efx->phy_mode & PHY_MODE_SPECIAL)
+-			out |= 1 << P0_EN_3V3X_LBN;
+-
+-		rc = i2c_smbus_write_byte_data(ioexp_client, P0_OUT, out);
+-		if (rc)
+-			goto fail_on;
+-		msleep(10);
+-
+-		/* Turn on 1V power rail */
+-		out &= ~(1 << P0_EN_1V0X_LBN);
+-		rc = i2c_smbus_write_byte_data(ioexp_client, P0_OUT, out);
+-		if (rc)
+-			goto fail_on;
+-
+-		netif_info(efx, hw, efx->net_dev,
+-			   "waiting for DSP boot (attempt %d)...\n", i);
+-
+-		/* In flash config mode, DSP does not turn on AFE, so
+-		 * just wait 1 second.
+-		 */
+-		if (efx->phy_mode & PHY_MODE_SPECIAL) {
+-			schedule_timeout_uninterruptible(HZ);
+-			return 0;
+-		}
+-
+-		for (j = 0; j < 10; ++j) {
+-			msleep(100);
+-
+-			/* Check DSP has asserted AFE power line */
+-			rc = i2c_smbus_read_byte_data(ioexp_client, P1_IN);
+-			if (rc < 0)
+-				goto fail_on;
+-			if (rc & (1 << P1_AFE_PWD_LBN))
+-				return 0;
+-		}
+-	}
+-
+-	netif_info(efx, hw, efx->net_dev, "timed out waiting for DSP boot\n");
+-	rc = -ETIMEDOUT;
+-fail_on:
+-	sfe4001_poweroff(efx);
+-	return rc;
+-}
+-
+-static ssize_t show_phy_flash_cfg(struct device *dev,
+-				  struct device_attribute *attr, char *buf)
+-{
+-	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
+-	return sprintf(buf, "%d\n", !!(efx->phy_mode & PHY_MODE_SPECIAL));
+-}
+-
+-static ssize_t set_phy_flash_cfg(struct device *dev,
+-				 struct device_attribute *attr,
+-				 const char *buf, size_t count)
+-{
+-	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
+-	enum efx_phy_mode old_mode, new_mode;
+-	int err;
+-
+-	rtnl_lock();
+-	old_mode = efx->phy_mode;
+-	if (count == 0 || *buf == '0')
+-		new_mode = old_mode & ~PHY_MODE_SPECIAL;
+-	else
+-		new_mode = PHY_MODE_SPECIAL;
+-	if (!((old_mode ^ new_mode) & PHY_MODE_SPECIAL)) {
+-		err = 0;
+-	} else if (efx->state != STATE_READY || netif_running(efx->net_dev)) {
+-		err = -EBUSY;
+-	} else {
+-		/* Reset the PHY, reconfigure the MAC and enable/disable
+-		 * MAC stats accordingly. */
+-		efx->phy_mode = new_mode;
+-		if (new_mode & PHY_MODE_SPECIAL)
+-			falcon_stop_nic_stats(efx);
+-		err = sfe4001_poweron(efx);
+-		if (!err)
+-			err = efx_reconfigure_port(efx);
+-		if (!(new_mode & PHY_MODE_SPECIAL))
+-			falcon_start_nic_stats(efx);
+-	}
+-	rtnl_unlock();
+-
+-	return err ? err : count;
+-}
+-
+-static DEVICE_ATTR(phy_flash_cfg, 0644, show_phy_flash_cfg, set_phy_flash_cfg);
+-
+-static void sfe4001_fini(struct efx_nic *efx)
+-{
+-	struct falcon_board *board = falcon_board(efx);
+-
+-	netif_info(efx, drv, efx->net_dev, "%s\n", __func__);
+-
+-	device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_flash_cfg);
+-	sfe4001_poweroff(efx);
+-	i2c_unregister_device(board->ioexp_client);
+-	i2c_unregister_device(board->hwmon_client);
+-}
+-
+-static int sfe4001_check_hw(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+-	s32 status;
+-
+-	/* If XAUI link is up then do not monitor */
+-	if (EFX_WORKAROUND_7884(efx) && !nic_data->xmac_poll_required)
+-		return 0;
+-
+-	/* Check the powered status of the PHY. Lack of power implies that
+-	 * the MAX6647 has shut down power to it, probably due to a temp.
+-	 * alarm. Reading the power status rather than the MAX6647 status
+-	 * directly because the later is read-to-clear and would thus
+-	 * start to power up the PHY again when polled, causing us to blip
+-	 * the power undesirably.
+-	 * We know we can read from the IO expander because we did
+-	 * it during power-on. Assume failure now is bad news. */
+-	status = i2c_smbus_read_byte_data(falcon_board(efx)->ioexp_client, P1_IN);
+-	if (status >= 0 &&
+-	    (status & ((1 << P1_AFE_PWD_LBN) | (1 << P1_DSP_PWD25_LBN))) != 0)
+-		return 0;
+-
+-	/* Use board power control, not PHY power control */
+-	sfe4001_poweroff(efx);
+-	efx->phy_mode = PHY_MODE_OFF;
+-
+-	return (status < 0) ? -EIO : -ERANGE;
+-}
+-
+-static const struct i2c_board_info sfe4001_hwmon_info = {
+-	I2C_BOARD_INFO("max6647", 0x4e),
+-};
+-
+-/* This board uses an I2C expander to provider power to the PHY, which needs to
+- * be turned on before the PHY can be used.
+- * Context: Process context, rtnl lock held
+- */
+-static int sfe4001_init(struct efx_nic *efx)
+-{
+-	struct falcon_board *board = falcon_board(efx);
+-	int rc;
+-
+-#if IS_ENABLED(CONFIG_SENSORS_LM90)
+-	board->hwmon_client =
+-		i2c_new_device(&board->i2c_adap, &sfe4001_hwmon_info);
+-#else
+-	board->hwmon_client =
+-		i2c_new_dummy(&board->i2c_adap, sfe4001_hwmon_info.addr);
+-#endif
+-	if (!board->hwmon_client)
+-		return -EIO;
+-
+-	/* Raise board/PHY high limit from 85 to 90 degrees Celsius */
+-	rc = i2c_smbus_write_byte_data(board->hwmon_client,
+-				       MAX664X_REG_WLHO, 90);
+-	if (rc)
+-		goto fail_hwmon;
+-
+-	board->ioexp_client = i2c_new_dummy(&board->i2c_adap, PCA9539);
+-	if (!board->ioexp_client) {
+-		rc = -EIO;
+-		goto fail_hwmon;
+-	}
+-
+-	if (efx->phy_mode & PHY_MODE_SPECIAL) {
+-		/* PHY won't generate a 156.25 MHz clock and MAC stats fetch
+-		 * will fail. */
+-		falcon_stop_nic_stats(efx);
+-	}
+-	rc = sfe4001_poweron(efx);
+-	if (rc)
+-		goto fail_ioexp;
+-
+-	rc = device_create_file(&efx->pci_dev->dev, &dev_attr_phy_flash_cfg);
+-	if (rc)
+-		goto fail_on;
+-
+-	netif_info(efx, hw, efx->net_dev, "PHY is powered on\n");
+-	return 0;
+-
+-fail_on:
+-	sfe4001_poweroff(efx);
+-fail_ioexp:
+-	i2c_unregister_device(board->ioexp_client);
+-fail_hwmon:
+-	i2c_unregister_device(board->hwmon_client);
+-	return rc;
+-}
+-
+-/*****************************************************************************
+- * Support for the SFE4002
+- *
+- */
+-static u8 sfe4002_lm87_channel = 0x03; /* use AIN not FAN inputs */
+-
+-static const u8 sfe4002_lm87_regs[] = {
+-	LM87_IN_LIMITS(0, 0x7c, 0x99),		/* 2.5V:  1.8V +/- 10% */
+-	LM87_IN_LIMITS(1, 0x4c, 0x5e),		/* Vccp1: 1.2V +/- 10% */
+-	LM87_IN_LIMITS(2, 0xac, 0xd4),		/* 3.3V:  3.3V +/- 10% */
+-	LM87_IN_LIMITS(3, 0xac, 0xd4),		/* 5V:    5.0V +/- 10% */
+-	LM87_IN_LIMITS(4, 0xac, 0xe0),		/* 12V:   10.8-14V */
+-	LM87_IN_LIMITS(5, 0x3f, 0x4f),		/* Vccp2: 1.0V +/- 10% */
+-	LM87_AIN_LIMITS(0, 0x98, 0xbb),		/* AIN1:  1.66V +/- 10% */
+-	LM87_AIN_LIMITS(1, 0x8a, 0xa9),		/* AIN2:  1.5V +/- 10% */
+-	LM87_TEMP_INT_LIMITS(0, 80 + FALCON_BOARD_TEMP_BIAS),
+-	LM87_TEMP_EXT1_LIMITS(0, FALCON_JUNC_TEMP_MAX),
+-	0
+-};
+-
+-static const struct i2c_board_info sfe4002_hwmon_info = {
+-	I2C_BOARD_INFO("lm87", 0x2e),
+-	.platform_data	= &sfe4002_lm87_channel,
+-};
+-
+-/****************************************************************************/
+-/* LED allocations. Note that on rev A0 boards the schematic and the reality
+- * differ: red and green are swapped. Below is the fixed (A1) layout (there
+- * are only 3 A0 boards in existence, so no real reason to make this
+- * conditional).
+- */
+-#define SFE4002_FAULT_LED (2)	/* Red */
+-#define SFE4002_RX_LED    (0)	/* Green */
+-#define SFE4002_TX_LED    (1)	/* Amber */
+-
+-static void sfe4002_init_phy(struct efx_nic *efx)
+-{
+-	/* Set the TX and RX LEDs to reflect status and activity, and the
+-	 * fault LED off */
+-	falcon_qt202x_set_led(efx, SFE4002_TX_LED,
+-			      QUAKE_LED_TXLINK | QUAKE_LED_LINK_ACTSTAT);
+-	falcon_qt202x_set_led(efx, SFE4002_RX_LED,
+-			      QUAKE_LED_RXLINK | QUAKE_LED_LINK_ACTSTAT);
+-	falcon_qt202x_set_led(efx, SFE4002_FAULT_LED, QUAKE_LED_OFF);
+-}
+-
+-static void sfe4002_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
+-{
+-	falcon_qt202x_set_led(
+-		efx, SFE4002_FAULT_LED,
+-		(mode == EFX_LED_ON) ? QUAKE_LED_ON : QUAKE_LED_OFF);
+-}
+-
+-static int sfe4002_check_hw(struct efx_nic *efx)
+-{
+-	struct falcon_board *board = falcon_board(efx);
+-
+-	/* A0 board rev. 4002s report a temperature fault the whole time
+-	 * (bad sensor) so we mask it out. */
+-	unsigned alarm_mask =
+-		(board->major == 0 && board->minor == 0) ?
+-		~LM87_ALARM_TEMP_EXT1 : ~0;
+-
+-	return efx_check_lm87(efx, alarm_mask);
+-}
+-
+-static int sfe4002_init(struct efx_nic *efx)
+-{
+-	return efx_init_lm87(efx, &sfe4002_hwmon_info, sfe4002_lm87_regs);
+-}
+-
+-/*****************************************************************************
+- * Support for the SFN4112F
+- *
+- */
+-static u8 sfn4112f_lm87_channel = 0x03; /* use AIN not FAN inputs */
+-
+-static const u8 sfn4112f_lm87_regs[] = {
+-	LM87_IN_LIMITS(0, 0x7c, 0x99),		/* 2.5V:  1.8V +/- 10% */
+-	LM87_IN_LIMITS(1, 0x4c, 0x5e),		/* Vccp1: 1.2V +/- 10% */
+-	LM87_IN_LIMITS(2, 0xac, 0xd4),		/* 3.3V:  3.3V +/- 10% */
+-	LM87_IN_LIMITS(4, 0xac, 0xe0),		/* 12V:   10.8-14V */
+-	LM87_IN_LIMITS(5, 0x3f, 0x4f),		/* Vccp2: 1.0V +/- 10% */
+-	LM87_AIN_LIMITS(1, 0x8a, 0xa9),		/* AIN2:  1.5V +/- 10% */
+-	LM87_TEMP_INT_LIMITS(0, 60 + FALCON_BOARD_TEMP_BIAS),
+-	LM87_TEMP_EXT1_LIMITS(0, FALCON_JUNC_TEMP_MAX),
+-	0
+-};
+-
+-static const struct i2c_board_info sfn4112f_hwmon_info = {
+-	I2C_BOARD_INFO("lm87", 0x2e),
+-	.platform_data	= &sfn4112f_lm87_channel,
+-};
+-
+-#define SFN4112F_ACT_LED	0
+-#define SFN4112F_LINK_LED	1
+-
+-static void sfn4112f_init_phy(struct efx_nic *efx)
+-{
+-	falcon_qt202x_set_led(efx, SFN4112F_ACT_LED,
+-			      QUAKE_LED_RXLINK | QUAKE_LED_LINK_ACT);
+-	falcon_qt202x_set_led(efx, SFN4112F_LINK_LED,
+-			      QUAKE_LED_RXLINK | QUAKE_LED_LINK_STAT);
+-}
+-
+-static void sfn4112f_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
+-{
+-	int reg;
+-
+-	switch (mode) {
+-	case EFX_LED_OFF:
+-		reg = QUAKE_LED_OFF;
+-		break;
+-	case EFX_LED_ON:
+-		reg = QUAKE_LED_ON;
+-		break;
+-	default:
+-		reg = QUAKE_LED_RXLINK | QUAKE_LED_LINK_STAT;
+-		break;
+-	}
+-
+-	falcon_qt202x_set_led(efx, SFN4112F_LINK_LED, reg);
+-}
+-
+-static int sfn4112f_check_hw(struct efx_nic *efx)
+-{
+-	/* Mask out unused sensors */
+-	return efx_check_lm87(efx, ~0x48);
+-}
+-
+-static int sfn4112f_init(struct efx_nic *efx)
+-{
+-	return efx_init_lm87(efx, &sfn4112f_hwmon_info, sfn4112f_lm87_regs);
+-}
+-
+-/*****************************************************************************
+- * Support for the SFE4003
+- *
+- */
+-static u8 sfe4003_lm87_channel = 0x03; /* use AIN not FAN inputs */
+-
+-static const u8 sfe4003_lm87_regs[] = {
+-	LM87_IN_LIMITS(0, 0x67, 0x7f),		/* 2.5V:  1.5V +/- 10% */
+-	LM87_IN_LIMITS(1, 0x4c, 0x5e),		/* Vccp1: 1.2V +/- 10% */
+-	LM87_IN_LIMITS(2, 0xac, 0xd4),		/* 3.3V:  3.3V +/- 10% */
+-	LM87_IN_LIMITS(4, 0xac, 0xe0),		/* 12V:   10.8-14V */
+-	LM87_IN_LIMITS(5, 0x3f, 0x4f),		/* Vccp2: 1.0V +/- 10% */
+-	LM87_TEMP_INT_LIMITS(0, 70 + FALCON_BOARD_TEMP_BIAS),
+-	0
+-};
+-
+-static const struct i2c_board_info sfe4003_hwmon_info = {
+-	I2C_BOARD_INFO("lm87", 0x2e),
+-	.platform_data	= &sfe4003_lm87_channel,
+-};
+-
+-/* Board-specific LED info. */
+-#define SFE4003_RED_LED_GPIO	11
+-#define SFE4003_LED_ON		1
+-#define SFE4003_LED_OFF		0
+-
+-static void sfe4003_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
+-{
+-	struct falcon_board *board = falcon_board(efx);
+-
+-	/* The LEDs were not wired to GPIOs before A3 */
+-	if (board->minor < 3 && board->major == 0)
+-		return;
+-
+-	falcon_txc_set_gpio_val(
+-		efx, SFE4003_RED_LED_GPIO,
+-		(mode == EFX_LED_ON) ? SFE4003_LED_ON : SFE4003_LED_OFF);
+-}
+-
+-static void sfe4003_init_phy(struct efx_nic *efx)
+-{
+-	struct falcon_board *board = falcon_board(efx);
+-
+-	/* The LEDs were not wired to GPIOs before A3 */
+-	if (board->minor < 3 && board->major == 0)
+-		return;
+-
+-	falcon_txc_set_gpio_dir(efx, SFE4003_RED_LED_GPIO, TXC_GPIO_DIR_OUTPUT);
+-	falcon_txc_set_gpio_val(efx, SFE4003_RED_LED_GPIO, SFE4003_LED_OFF);
+-}
+-
+-static int sfe4003_check_hw(struct efx_nic *efx)
+-{
+-	struct falcon_board *board = falcon_board(efx);
+-
+-	/* A0/A1/A2 board rev. 4003s  report a temperature fault the whole time
+-	 * (bad sensor) so we mask it out. */
+-	unsigned alarm_mask =
+-		(board->major == 0 && board->minor <= 2) ?
+-		~LM87_ALARM_TEMP_EXT1 : ~0;
+-
+-	return efx_check_lm87(efx, alarm_mask);
+-}
+-
+-static int sfe4003_init(struct efx_nic *efx)
+-{
+-	return efx_init_lm87(efx, &sfe4003_hwmon_info, sfe4003_lm87_regs);
+-}
+-
+-static const struct falcon_board_type board_types[] = {
+-	{
+-		.id		= FALCON_BOARD_SFE4001,
+-		.init		= sfe4001_init,
+-		.init_phy	= efx_port_dummy_op_void,
+-		.fini		= sfe4001_fini,
+-		.set_id_led	= tenxpress_set_id_led,
+-		.monitor	= sfe4001_check_hw,
+-	},
+-	{
+-		.id		= FALCON_BOARD_SFE4002,
+-		.init		= sfe4002_init,
+-		.init_phy	= sfe4002_init_phy,
+-		.fini		= efx_fini_lm87,
+-		.set_id_led	= sfe4002_set_id_led,
+-		.monitor	= sfe4002_check_hw,
+-	},
+-	{
+-		.id		= FALCON_BOARD_SFE4003,
+-		.init		= sfe4003_init,
+-		.init_phy	= sfe4003_init_phy,
+-		.fini		= efx_fini_lm87,
+-		.set_id_led	= sfe4003_set_id_led,
+-		.monitor	= sfe4003_check_hw,
+-	},
+-	{
+-		.id		= FALCON_BOARD_SFN4112F,
+-		.init		= sfn4112f_init,
+-		.init_phy	= sfn4112f_init_phy,
+-		.fini		= efx_fini_lm87,
+-		.set_id_led	= sfn4112f_set_id_led,
+-		.monitor	= sfn4112f_check_hw,
+-	},
+-};
+-
+-int falcon_probe_board(struct efx_nic *efx, u16 revision_info)
+-{
+-	struct falcon_board *board = falcon_board(efx);
+-	u8 type_id = FALCON_BOARD_TYPE(revision_info);
+-	int i;
+-
+-	board->major = FALCON_BOARD_MAJOR(revision_info);
+-	board->minor = FALCON_BOARD_MINOR(revision_info);
+-
+-	for (i = 0; i < ARRAY_SIZE(board_types); i++)
+-		if (board_types[i].id == type_id)
+-			board->type = &board_types[i];
+-
+-	if (board->type) {
+-		return 0;
+-	} else {
+-		netif_err(efx, probe, efx->net_dev, "unknown board type %d\n",
+-			  type_id);
+-		return -ENODEV;
+-	}
+-}
+diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
+index 3d5b91b..c282d66 100644
+--- a/drivers/net/ethernet/sfc/farch.c
++++ b/drivers/net/ethernet/sfc/farch.c
+@@ -25,7 +25,7 @@
+ #include "io.h"
+ #include "workarounds.h"
+ 
+-/* Falcon-architecture (SFC4000 and SFC9000-family) support */
++/* Falcon-architecture (SFC9000-family) support */
+ 
+ /**************************************************************************
+  *
+@@ -364,9 +364,6 @@ unsigned int efx_farch_tx_limit_len(struct efx_tx_queue *tx_queue,
+ 
+ 	len = min(limit, len);
+ 
+-	if (EFX_WORKAROUND_5391(tx_queue->efx) && (dma_addr & 0xf))
+-		len = min_t(unsigned int, len, 512 - (dma_addr & 0xf));
+-
+ 	return len;
+ }
+ 
+@@ -384,6 +381,7 @@ int efx_farch_tx_probe(struct efx_tx_queue *tx_queue)
+ 
+ void efx_farch_tx_init(struct efx_tx_queue *tx_queue)
+ {
++	int csum = tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD;
+ 	struct efx_nic *efx = tx_queue->efx;
+ 	efx_oword_t reg;
+ 
+@@ -405,37 +403,18 @@ void efx_farch_tx_init(struct efx_tx_queue *tx_queue)
+ 			      FRF_AZ_TX_DESCQ_TYPE, 0,
+ 			      FRF_BZ_TX_NON_IP_DROP_DIS, 1);
+ 
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
+-		int csum = tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD;
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_TX_IP_CHKSM_DIS, !csum);
+-		EFX_SET_OWORD_FIELD(reg, FRF_BZ_TX_TCP_CHKSM_DIS,
+-				    !csum);
+-	}
++	EFX_SET_OWORD_FIELD(reg, FRF_BZ_TX_IP_CHKSM_DIS, !csum);
++	EFX_SET_OWORD_FIELD(reg, FRF_BZ_TX_TCP_CHKSM_DIS, !csum);
+ 
+ 	efx_writeo_table(efx, &reg, efx->type->txd_ptr_tbl_base,
+ 			 tx_queue->queue);
+ 
+-	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0) {
+-		/* Only 128 bits in this register */
+-		BUILD_BUG_ON(EFX_MAX_TX_QUEUES > 128);
+-
+-		efx_reado(efx, &reg, FR_AA_TX_CHKSM_CFG);
+-		if (tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD)
+-			__clear_bit_le(tx_queue->queue, &reg);
+-		else
+-			__set_bit_le(tx_queue->queue, &reg);
+-		efx_writeo(efx, &reg, FR_AA_TX_CHKSM_CFG);
+-	}
+-
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
+-		EFX_POPULATE_OWORD_1(reg,
+-				     FRF_BZ_TX_PACE,
+-				     (tx_queue->queue & EFX_TXQ_TYPE_HIGHPRI) ?
+-				     FFE_BZ_TX_PACE_OFF :
+-				     FFE_BZ_TX_PACE_RESERVED);
+-		efx_writeo_table(efx, &reg, FR_BZ_TX_PACE_TBL,
+-				 tx_queue->queue);
+-	}
++	EFX_POPULATE_OWORD_1(reg,
++			     FRF_BZ_TX_PACE,
++			     (tx_queue->queue & EFX_TXQ_TYPE_HIGHPRI) ?
++			     FFE_BZ_TX_PACE_OFF :
++			     FFE_BZ_TX_PACE_RESERVED);
++	efx_writeo_table(efx, &reg, FR_BZ_TX_PACE_TBL, tx_queue->queue);
+ }
+ 
+ static void efx_farch_flush_tx_queue(struct efx_tx_queue *tx_queue)
+@@ -532,16 +511,10 @@ void efx_farch_rx_init(struct efx_rx_queue *rx_queue)
+ {
+ 	efx_oword_t rx_desc_ptr;
+ 	struct efx_nic *efx = rx_queue->efx;
+-	bool is_b0 = efx_nic_rev(efx) >= EFX_REV_FALCON_B0;
+-	bool iscsi_digest_en = is_b0;
+ 	bool jumbo_en;
+ 
+-	/* For kernel-mode queues in Falcon A1, the JUMBO flag enables
+-	 * DMA to continue after a PCIe page boundary (and scattering
+-	 * is not possible).  In Falcon B0 and Siena, it enables
+-	 * scatter.
+-	 */
+-	jumbo_en = !is_b0 || efx->rx_scatter;
++	/* For kernel-mode queues in Siena, the JUMBO flag enables scatter. */
++	jumbo_en = efx->rx_scatter;
+ 
+ 	netif_dbg(efx, hw, efx->net_dev,
+ 		  "RX queue %d ring in special buffers %d-%d\n",
+@@ -555,8 +528,8 @@ void efx_farch_rx_init(struct efx_rx_queue *rx_queue)
+ 
+ 	/* Push RX descriptor ring to card */
+ 	EFX_POPULATE_OWORD_10(rx_desc_ptr,
+-			      FRF_AZ_RX_ISCSI_DDIG_EN, iscsi_digest_en,
+-			      FRF_AZ_RX_ISCSI_HDIG_EN, iscsi_digest_en,
++			      FRF_AZ_RX_ISCSI_DDIG_EN, true,
++			      FRF_AZ_RX_ISCSI_HDIG_EN, true,
+ 			      FRF_AZ_RX_DESCQ_BUF_BASE_ID, rx_queue->rxd.index,
+ 			      FRF_AZ_RX_DESCQ_EVQ_ID,
+ 			      efx_rx_queue_channel(rx_queue)->channel,
+@@ -895,7 +868,7 @@ static u16 efx_farch_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	bool rx_ev_buf_owner_id_err, rx_ev_ip_hdr_chksum_err;
+ 	bool rx_ev_tcp_udp_chksum_err, rx_ev_eth_crc_err;
+-	bool rx_ev_frm_trunc, rx_ev_drib_nib, rx_ev_tobe_disc;
++	bool rx_ev_frm_trunc, rx_ev_tobe_disc;
+ 	bool rx_ev_other_err, rx_ev_pause_frm;
+ 	bool rx_ev_hdr_type, rx_ev_mcast_pkt;
+ 	unsigned rx_ev_pkt_type;
+@@ -912,12 +885,10 @@ static u16 efx_farch_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
+ 						   FSF_AZ_RX_EV_TCP_UDP_CHKSUM_ERR);
+ 	rx_ev_eth_crc_err = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_ETH_CRC_ERR);
+ 	rx_ev_frm_trunc = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_FRM_TRUNC);
+-	rx_ev_drib_nib = ((efx_nic_rev(efx) >= EFX_REV_FALCON_B0) ?
+-			  0 : EFX_QWORD_FIELD(*event, FSF_AA_RX_EV_DRIB_NIB));
+ 	rx_ev_pause_frm = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PAUSE_FRM_ERR);
+ 
+ 	/* Every error apart from tobe_disc and pause_frm */
+-	rx_ev_other_err = (rx_ev_drib_nib | rx_ev_tcp_udp_chksum_err |
++	rx_ev_other_err = (rx_ev_tcp_udp_chksum_err |
+ 			   rx_ev_buf_owner_id_err | rx_ev_eth_crc_err |
+ 			   rx_ev_frm_trunc | rx_ev_ip_hdr_chksum_err);
+ 
+@@ -951,14 +922,13 @@ static u16 efx_farch_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
+ 			  " [TCP_UDP_CHKSUM_ERR]" : "",
+ 			  rx_ev_eth_crc_err ? " [ETH_CRC_ERR]" : "",
+ 			  rx_ev_frm_trunc ? " [FRM_TRUNC]" : "",
+-			  rx_ev_drib_nib ? " [DRIB_NIB]" : "",
+ 			  rx_ev_tobe_disc ? " [TOBE_DISC]" : "",
+ 			  rx_ev_pause_frm ? " [PAUSE]" : "");
+ 	}
+ #endif
+ 
+ 	/* The frame must be discarded if any of these are true. */
+-	return (rx_ev_eth_crc_err | rx_ev_frm_trunc | rx_ev_drib_nib |
++	return (rx_ev_eth_crc_err | rx_ev_frm_trunc |
+ 		rx_ev_tobe_disc | rx_ev_pause_frm) ?
+ 		EFX_RX_PKT_DISCARD : 0;
+ }
+@@ -987,8 +957,7 @@ efx_farch_handle_rx_bad_index(struct efx_rx_queue *rx_queue, unsigned index)
+ 		   "dropped %d events (index=%d expected=%d)\n",
+ 		   dropped, index, expected);
+ 
+-	efx_schedule_reset(efx, EFX_WORKAROUND_5676(efx) ?
+-			   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
++	efx_schedule_reset(efx, RESET_TYPE_DISABLE);
+ 	return false;
+ }
+ 
+@@ -1254,10 +1223,7 @@ efx_farch_handle_driver_event(struct efx_channel *channel, efx_qword_t *event)
+ 			  "channel %d seen DRIVER RX_RESET event. "
+ 			"Resetting.\n", channel->channel);
+ 		atomic_inc(&efx->rx_reset);
+-		efx_schedule_reset(efx,
+-				   EFX_WORKAROUND_6555(efx) ?
+-				   RESET_TYPE_RX_RECOVERY :
+-				   RESET_TYPE_DISABLE);
++		efx_schedule_reset(efx, RESET_TYPE_DISABLE);
+ 		break;
+ 	case FSE_BZ_RX_DSC_ERROR_EV:
+ 		if (ev_sub_data < EFX_VI_BASE) {
+@@ -1394,13 +1360,11 @@ int efx_farch_ev_init(struct efx_channel *channel)
+ 		  channel->channel, channel->eventq.index,
+ 		  channel->eventq.index + channel->eventq.entries - 1);
+ 
+-	if (efx_nic_rev(efx) >= EFX_REV_SIENA_A0) {
+-		EFX_POPULATE_OWORD_3(reg,
+-				     FRF_CZ_TIMER_Q_EN, 1,
+-				     FRF_CZ_HOST_NOTIFY_MODE, 0,
+-				     FRF_CZ_TIMER_MODE, FFE_CZ_TIMER_MODE_DIS);
+-		efx_writeo_table(efx, &reg, FR_BZ_TIMER_TBL, channel->channel);
+-	}
++	EFX_POPULATE_OWORD_3(reg,
++			     FRF_CZ_TIMER_Q_EN, 1,
++			     FRF_CZ_HOST_NOTIFY_MODE, 0,
++			     FRF_CZ_TIMER_MODE, FFE_CZ_TIMER_MODE_DIS);
++	efx_writeo_table(efx, &reg, FR_BZ_TIMER_TBL, channel->channel);
+ 
+ 	/* Pin event queue buffer */
+ 	efx_init_special_buffer(efx, &channel->eventq);
+@@ -1428,8 +1392,7 @@ void efx_farch_ev_fini(struct efx_channel *channel)
+ 	EFX_ZERO_OWORD(reg);
+ 	efx_writeo_table(efx, &reg, efx->type->evq_ptr_tbl_base,
+ 			 channel->channel);
+-	if (efx_nic_rev(efx) >= EFX_REV_SIENA_A0)
+-		efx_writeo_table(efx, &reg, FR_BZ_TIMER_TBL, channel->channel);
++	efx_writeo_table(efx, &reg, FR_BZ_TIMER_TBL, channel->channel);
+ 
+ 	/* Unpin event queue */
+ 	efx_fini_special_buffer(efx, &channel->eventq);
+@@ -1503,7 +1466,6 @@ int efx_farch_irq_test_generate(struct efx_nic *efx)
+  */
+ irqreturn_t efx_farch_fatal_interrupt(struct efx_nic *efx)
+ {
+-	struct falcon_nic_data *nic_data = efx->nic_data;
+ 	efx_oword_t *int_ker = efx->irq_status.addr;
+ 	efx_oword_t fatal_intr;
+ 	int error, mem_perr;
+@@ -1529,8 +1491,6 @@ irqreturn_t efx_farch_fatal_interrupt(struct efx_nic *efx)
+ 
+ 	/* Disable both devices */
+ 	pci_clear_master(efx->pci_dev);
+-	if (efx_nic_is_dual_func(efx))
+-		pci_clear_master(nic_data->pci_dev2);
+ 	efx_farch_irq_disable_master(efx);
+ 
+ 	/* Count errors and reset or disable the NIC accordingly */
+@@ -1677,8 +1637,6 @@ void efx_farch_rx_push_indir_table(struct efx_nic *efx)
+ 	size_t i = 0;
+ 	efx_dword_t dword;
+ 
+-	BUG_ON(efx_nic_rev(efx) < EFX_REV_FALCON_B0);
+-
+ 	BUILD_BUG_ON(ARRAY_SIZE(efx->rx_indir_table) !=
+ 		     FR_BZ_RX_INDIRECTION_TBL_ROWS);
+ 
+@@ -1806,8 +1764,7 @@ void efx_farch_init_common(struct efx_nic *efx)
+ 			     FRF_AZ_ILL_ADR_INT_KER_EN, 1,
+ 			     FRF_AZ_RBUF_OWN_INT_KER_EN, 1,
+ 			     FRF_AZ_TBUF_OWN_INT_KER_EN, 1);
+-	if (efx_nic_rev(efx) >= EFX_REV_SIENA_A0)
+-		EFX_SET_OWORD_FIELD(temp, FRF_CZ_SRAM_PERR_INT_P_KER_EN, 1);
++	EFX_SET_OWORD_FIELD(temp, FRF_CZ_SRAM_PERR_INT_P_KER_EN, 1);
+ 	EFX_INVERT_OWORD(temp);
+ 	efx_writeo(efx, &temp, FR_AZ_FATAL_INTR_KER);
+ 
+@@ -1827,22 +1784,18 @@ void efx_farch_init_common(struct efx_nic *efx)
+ 	/* Disable hardware watchdog which can misfire */
+ 	EFX_SET_OWORD_FIELD(temp, FRF_AZ_TX_PREF_WD_TMR, 0x3fffff);
+ 	/* Squash TX of packets of 16 bytes or less */
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0)
+-		EFX_SET_OWORD_FIELD(temp, FRF_BZ_TX_FLUSH_MIN_LEN_EN, 1);
++	EFX_SET_OWORD_FIELD(temp, FRF_BZ_TX_FLUSH_MIN_LEN_EN, 1);
+ 	efx_writeo(efx, &temp, FR_AZ_TX_RESERVED);
+ 
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
+-		EFX_POPULATE_OWORD_4(temp,
+-				     /* Default values */
+-				     FRF_BZ_TX_PACE_SB_NOT_AF, 0x15,
+-				     FRF_BZ_TX_PACE_SB_AF, 0xb,
+-				     FRF_BZ_TX_PACE_FB_BASE, 0,
+-				     /* Allow large pace values in the
+-				      * fast bin. */
+-				     FRF_BZ_TX_PACE_BIN_TH,
+-				     FFE_BZ_TX_PACE_RESERVED);
+-		efx_writeo(efx, &temp, FR_BZ_TX_PACE);
+-	}
++	EFX_POPULATE_OWORD_4(temp,
++			     /* Default values */
++			     FRF_BZ_TX_PACE_SB_NOT_AF, 0x15,
++			     FRF_BZ_TX_PACE_SB_AF, 0xb,
++			     FRF_BZ_TX_PACE_FB_BASE, 0,
++			     /* Allow large pace values in the fast bin. */
++			     FRF_BZ_TX_PACE_BIN_TH,
++			     FFE_BZ_TX_PACE_RESERVED);
++	efx_writeo(efx, &temp, FR_BZ_TX_PACE);
+ }
+ 
+ /**************************************************************************
+@@ -2026,7 +1979,7 @@ static void efx_farch_filter_push_rx_config(struct efx_nic *efx)
+ 			!!(table->spec[EFX_FARCH_FILTER_INDEX_UC_DEF].flags &
+ 			   table->spec[EFX_FARCH_FILTER_INDEX_MC_DEF].flags &
+ 			   EFX_FILTER_FLAG_RX_SCATTER));
+-	} else if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
++	} else {
+ 		/* We don't expose 'default' filters because unmatched
+ 		 * packets always go to the queue number found in the
+ 		 * RSS table.  But we still need to set the RX scatter
+@@ -2834,31 +2787,27 @@ int efx_farch_filter_table_probe(struct efx_nic *efx)
+ 		return -ENOMEM;
+ 	efx->filter_state = state;
+ 
+-	if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
+-		table = &state->table[EFX_FARCH_FILTER_TABLE_RX_IP];
+-		table->id = EFX_FARCH_FILTER_TABLE_RX_IP;
+-		table->offset = FR_BZ_RX_FILTER_TBL0;
+-		table->size = FR_BZ_RX_FILTER_TBL0_ROWS;
+-		table->step = FR_BZ_RX_FILTER_TBL0_STEP;
+-	}
++	table = &state->table[EFX_FARCH_FILTER_TABLE_RX_IP];
++	table->id = EFX_FARCH_FILTER_TABLE_RX_IP;
++	table->offset = FR_BZ_RX_FILTER_TBL0;
++	table->size = FR_BZ_RX_FILTER_TBL0_ROWS;
++	table->step = FR_BZ_RX_FILTER_TBL0_STEP;
+ 
+-	if (efx_nic_rev(efx) >= EFX_REV_SIENA_A0) {
+-		table = &state->table[EFX_FARCH_FILTER_TABLE_RX_MAC];
+-		table->id = EFX_FARCH_FILTER_TABLE_RX_MAC;
+-		table->offset = FR_CZ_RX_MAC_FILTER_TBL0;
+-		table->size = FR_CZ_RX_MAC_FILTER_TBL0_ROWS;
+-		table->step = FR_CZ_RX_MAC_FILTER_TBL0_STEP;
+-
+-		table = &state->table[EFX_FARCH_FILTER_TABLE_RX_DEF];
+-		table->id = EFX_FARCH_FILTER_TABLE_RX_DEF;
+-		table->size = EFX_FARCH_FILTER_SIZE_RX_DEF;
+-
+-		table = &state->table[EFX_FARCH_FILTER_TABLE_TX_MAC];
+-		table->id = EFX_FARCH_FILTER_TABLE_TX_MAC;
+-		table->offset = FR_CZ_TX_MAC_FILTER_TBL0;
+-		table->size = FR_CZ_TX_MAC_FILTER_TBL0_ROWS;
+-		table->step = FR_CZ_TX_MAC_FILTER_TBL0_STEP;
+-	}
++	table = &state->table[EFX_FARCH_FILTER_TABLE_RX_MAC];
++	table->id = EFX_FARCH_FILTER_TABLE_RX_MAC;
++	table->offset = FR_CZ_RX_MAC_FILTER_TBL0;
++	table->size = FR_CZ_RX_MAC_FILTER_TBL0_ROWS;
++	table->step = FR_CZ_RX_MAC_FILTER_TBL0_STEP;
++
++	table = &state->table[EFX_FARCH_FILTER_TABLE_RX_DEF];
++	table->id = EFX_FARCH_FILTER_TABLE_RX_DEF;
++	table->size = EFX_FARCH_FILTER_SIZE_RX_DEF;
++
++	table = &state->table[EFX_FARCH_FILTER_TABLE_TX_MAC];
++	table->id = EFX_FARCH_FILTER_TABLE_TX_MAC;
++	table->offset = FR_CZ_TX_MAC_FILTER_TBL0;
++	table->size = FR_CZ_TX_MAC_FILTER_TBL0_ROWS;
++	table->step = FR_CZ_TX_MAC_FILTER_TBL0_STEP;
+ 
+ 	for (table_id = 0; table_id < EFX_FARCH_FILTER_TABLE_COUNT; table_id++) {
+ 		table = &state->table[table_id];
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 2415209..9956513 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -15,7 +15,6 @@
+ #include "io.h"
+ #include "farch_regs.h"
+ #include "mcdi_pcol.h"
+-#include "phy.h"
+ 
+ /**************************************************************************
+  *
+diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
+index 2a9228a..0f0eb27 100644
+--- a/drivers/net/ethernet/sfc/mcdi_port.c
++++ b/drivers/net/ethernet/sfc/mcdi_port.c
+@@ -13,7 +13,6 @@
+ 
+ #include <linux/slab.h>
+ #include "efx.h"
+-#include "phy.h"
+ #include "mcdi.h"
+ #include "mcdi_pcol.h"
+ #include "nic.h"
+diff --git a/drivers/net/ethernet/sfc/mdio_10g.c b/drivers/net/ethernet/sfc/mdio_10g.c
+deleted file mode 100644
+index 8ff954c..0000000
+--- a/drivers/net/ethernet/sfc/mdio_10g.c
++++ /dev/null
+@@ -1,323 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare network controllers and boards
+- * Copyright 2006-2011 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-/*
+- * Useful functions for working with MDIO clause 45 PHYs
+- */
+-#include <linux/types.h>
+-#include <linux/ethtool.h>
+-#include <linux/delay.h>
+-#include "net_driver.h"
+-#include "mdio_10g.h"
+-#include "workarounds.h"
+-
+-unsigned efx_mdio_id_oui(u32 id)
+-{
+-	unsigned oui = 0;
+-	int i;
+-
+-	/* The bits of the OUI are designated a..x, with a=0 and b variable.
+-	 * In the id register c is the MSB but the OUI is conventionally
+-	 * written as bytes h..a, p..i, x..q.  Reorder the bits accordingly. */
+-	for (i = 0; i < 22; ++i)
+-		if (id & (1 << (i + 10)))
+-			oui |= 1 << (i ^ 7);
+-
+-	return oui;
+-}
+-
+-int efx_mdio_reset_mmd(struct efx_nic *port, int mmd,
+-			    int spins, int spintime)
+-{
+-	u32 ctrl;
+-
+-	/* Catch callers passing values in the wrong units (or just silly) */
+-	EFX_BUG_ON_PARANOID(spins * spintime >= 5000);
+-
+-	efx_mdio_write(port, mmd, MDIO_CTRL1, MDIO_CTRL1_RESET);
+-	/* Wait for the reset bit to clear. */
+-	do {
+-		msleep(spintime);
+-		ctrl = efx_mdio_read(port, mmd, MDIO_CTRL1);
+-		spins--;
+-
+-	} while (spins && (ctrl & MDIO_CTRL1_RESET));
+-
+-	return spins ? spins : -ETIMEDOUT;
+-}
+-
+-static int efx_mdio_check_mmd(struct efx_nic *efx, int mmd)
+-{
+-	int status;
+-
+-	if (mmd != MDIO_MMD_AN) {
+-		/* Read MMD STATUS2 to check it is responding. */
+-		status = efx_mdio_read(efx, mmd, MDIO_STAT2);
+-		if ((status & MDIO_STAT2_DEVPRST) != MDIO_STAT2_DEVPRST_VAL) {
+-			netif_err(efx, hw, efx->net_dev,
+-				  "PHY MMD %d not responding.\n", mmd);
+-			return -EIO;
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+-/* This ought to be ridiculous overkill. We expect it to fail rarely */
+-#define MDIO45_RESET_TIME	1000 /* ms */
+-#define MDIO45_RESET_ITERS	100
+-
+-int efx_mdio_wait_reset_mmds(struct efx_nic *efx, unsigned int mmd_mask)
+-{
+-	const int spintime = MDIO45_RESET_TIME / MDIO45_RESET_ITERS;
+-	int tries = MDIO45_RESET_ITERS;
+-	int rc = 0;
+-	int in_reset;
+-
+-	while (tries) {
+-		int mask = mmd_mask;
+-		int mmd = 0;
+-		int stat;
+-		in_reset = 0;
+-		while (mask) {
+-			if (mask & 1) {
+-				stat = efx_mdio_read(efx, mmd, MDIO_CTRL1);
+-				if (stat < 0) {
+-					netif_err(efx, hw, efx->net_dev,
+-						  "failed to read status of"
+-						  " MMD %d\n", mmd);
+-					return -EIO;
+-				}
+-				if (stat & MDIO_CTRL1_RESET)
+-					in_reset |= (1 << mmd);
+-			}
+-			mask = mask >> 1;
+-			mmd++;
+-		}
+-		if (!in_reset)
+-			break;
+-		tries--;
+-		msleep(spintime);
+-	}
+-	if (in_reset != 0) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "not all MMDs came out of reset in time."
+-			  " MMDs still in reset: %x\n", in_reset);
+-		rc = -ETIMEDOUT;
+-	}
+-	return rc;
+-}
+-
+-int efx_mdio_check_mmds(struct efx_nic *efx, unsigned int mmd_mask)
+-{
+-	int mmd = 0, probe_mmd, devs1, devs2;
+-	u32 devices;
+-
+-	/* Historically we have probed the PHYXS to find out what devices are
+-	 * present,but that doesn't work so well if the PHYXS isn't expected
+-	 * to exist, if so just find the first item in the list supplied. */
+-	probe_mmd = (mmd_mask & MDIO_DEVS_PHYXS) ? MDIO_MMD_PHYXS :
+-	    __ffs(mmd_mask);
+-
+-	/* Check all the expected MMDs are present */
+-	devs1 = efx_mdio_read(efx, probe_mmd, MDIO_DEVS1);
+-	devs2 = efx_mdio_read(efx, probe_mmd, MDIO_DEVS2);
+-	if (devs1 < 0 || devs2 < 0) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "failed to read devices present\n");
+-		return -EIO;
+-	}
+-	devices = devs1 | (devs2 << 16);
+-	if ((devices & mmd_mask) != mmd_mask) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "required MMDs not present: got %x, wanted %x\n",
+-			  devices, mmd_mask);
+-		return -ENODEV;
+-	}
+-	netif_vdbg(efx, hw, efx->net_dev, "Devices present: %x\n", devices);
+-
+-	/* Check all required MMDs are responding and happy. */
+-	while (mmd_mask) {
+-		if ((mmd_mask & 1) && efx_mdio_check_mmd(efx, mmd))
+-			return -EIO;
+-		mmd_mask = mmd_mask >> 1;
+-		mmd++;
+-	}
+-
+-	return 0;
+-}
+-
+-bool efx_mdio_links_ok(struct efx_nic *efx, unsigned int mmd_mask)
+-{
+-	/* If the port is in loopback, then we should only consider a subset
+-	 * of mmd's */
+-	if (LOOPBACK_INTERNAL(efx))
+-		return true;
+-	else if (LOOPBACK_MASK(efx) & LOOPBACKS_WS)
+-		return false;
+-	else if (efx_phy_mode_disabled(efx->phy_mode))
+-		return false;
+-	else if (efx->loopback_mode == LOOPBACK_PHYXS)
+-		mmd_mask &= ~(MDIO_DEVS_PHYXS |
+-			      MDIO_DEVS_PCS |
+-			      MDIO_DEVS_PMAPMD |
+-			      MDIO_DEVS_AN);
+-	else if (efx->loopback_mode == LOOPBACK_PCS)
+-		mmd_mask &= ~(MDIO_DEVS_PCS |
+-			      MDIO_DEVS_PMAPMD |
+-			      MDIO_DEVS_AN);
+-	else if (efx->loopback_mode == LOOPBACK_PMAPMD)
+-		mmd_mask &= ~(MDIO_DEVS_PMAPMD |
+-			      MDIO_DEVS_AN);
+-
+-	return mdio45_links_ok(&efx->mdio, mmd_mask);
+-}
+-
+-void efx_mdio_transmit_disable(struct efx_nic *efx)
+-{
+-	efx_mdio_set_flag(efx, MDIO_MMD_PMAPMD,
+-			  MDIO_PMA_TXDIS, MDIO_PMD_TXDIS_GLOBAL,
+-			  efx->phy_mode & PHY_MODE_TX_DISABLED);
+-}
+-
+-void efx_mdio_phy_reconfigure(struct efx_nic *efx)
+-{
+-	efx_mdio_set_flag(efx, MDIO_MMD_PMAPMD,
+-			  MDIO_CTRL1, MDIO_PMA_CTRL1_LOOPBACK,
+-			  efx->loopback_mode == LOOPBACK_PMAPMD);
+-	efx_mdio_set_flag(efx, MDIO_MMD_PCS,
+-			  MDIO_CTRL1, MDIO_PCS_CTRL1_LOOPBACK,
+-			  efx->loopback_mode == LOOPBACK_PCS);
+-	efx_mdio_set_flag(efx, MDIO_MMD_PHYXS,
+-			  MDIO_CTRL1, MDIO_PHYXS_CTRL1_LOOPBACK,
+-			  efx->loopback_mode == LOOPBACK_PHYXS_WS);
+-}
+-
+-static void efx_mdio_set_mmd_lpower(struct efx_nic *efx,
+-				    int lpower, int mmd)
+-{
+-	int stat = efx_mdio_read(efx, mmd, MDIO_STAT1);
+-
+-	netif_vdbg(efx, drv, efx->net_dev, "Setting low power mode for MMD %d to %d\n",
+-		  mmd, lpower);
+-
+-	if (stat & MDIO_STAT1_LPOWERABLE) {
+-		efx_mdio_set_flag(efx, mmd, MDIO_CTRL1,
+-				  MDIO_CTRL1_LPOWER, lpower);
+-	}
+-}
+-
+-void efx_mdio_set_mmds_lpower(struct efx_nic *efx,
+-			      int low_power, unsigned int mmd_mask)
+-{
+-	int mmd = 0;
+-	mmd_mask &= ~MDIO_DEVS_AN;
+-	while (mmd_mask) {
+-		if (mmd_mask & 1)
+-			efx_mdio_set_mmd_lpower(efx, low_power, mmd);
+-		mmd_mask = (mmd_mask >> 1);
+-		mmd++;
+-	}
+-}
+-
+-/**
+- * efx_mdio_set_settings - Set (some of) the PHY settings over MDIO.
+- * @efx:		Efx NIC
+- * @ecmd:		New settings
+- */
+-int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+-{
+-	struct ethtool_cmd prev = { .cmd = ETHTOOL_GSET };
+-
+-	efx->phy_op->get_settings(efx, &prev);
+-
+-	if (ecmd->advertising == prev.advertising &&
+-	    ethtool_cmd_speed(ecmd) == ethtool_cmd_speed(&prev) &&
+-	    ecmd->duplex == prev.duplex &&
+-	    ecmd->port == prev.port &&
+-	    ecmd->autoneg == prev.autoneg)
+-		return 0;
+-
+-	/* We can only change these settings for -T PHYs */
+-	if (prev.port != PORT_TP || ecmd->port != PORT_TP)
+-		return -EINVAL;
+-
+-	/* Check that PHY supports these settings */
+-	if (!ecmd->autoneg ||
+-	    (ecmd->advertising | SUPPORTED_Autoneg) & ~prev.supported)
+-		return -EINVAL;
+-
+-	efx_link_set_advertising(efx, ecmd->advertising | ADVERTISED_Autoneg);
+-	efx_mdio_an_reconfigure(efx);
+-	return 0;
+-}
+-
+-/**
+- * efx_mdio_an_reconfigure - Push advertising flags and restart autonegotiation
+- * @efx:		Efx NIC
+- */
+-void efx_mdio_an_reconfigure(struct efx_nic *efx)
+-{
+-	int reg;
+-
+-	WARN_ON(!(efx->mdio.mmds & MDIO_DEVS_AN));
+-
+-	/* Set up the base page */
+-	reg = ADVERTISE_CSMA | ADVERTISE_RESV;
+-	if (efx->link_advertising & ADVERTISED_Pause)
+-		reg |= ADVERTISE_PAUSE_CAP;
+-	if (efx->link_advertising & ADVERTISED_Asym_Pause)
+-		reg |= ADVERTISE_PAUSE_ASYM;
+-	efx_mdio_write(efx, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
+-
+-	/* Set up the (extended) next page */
+-	efx->phy_op->set_npage_adv(efx, efx->link_advertising);
+-
+-	/* Enable and restart AN */
+-	reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_CTRL1);
+-	reg |= MDIO_AN_CTRL1_ENABLE | MDIO_AN_CTRL1_RESTART | MDIO_AN_CTRL1_XNP;
+-	efx_mdio_write(efx, MDIO_MMD_AN, MDIO_CTRL1, reg);
+-}
+-
+-u8 efx_mdio_get_pause(struct efx_nic *efx)
+-{
+-	BUILD_BUG_ON(EFX_FC_AUTO & (EFX_FC_RX | EFX_FC_TX));
+-
+-	if (!(efx->wanted_fc & EFX_FC_AUTO))
+-		return efx->wanted_fc;
+-
+-	WARN_ON(!(efx->mdio.mmds & MDIO_DEVS_AN));
+-
+-	return mii_resolve_flowctrl_fdx(
+-		mii_advertise_flowctrl(efx->wanted_fc),
+-		efx_mdio_read(efx, MDIO_MMD_AN, MDIO_AN_LPA));
+-}
+-
+-int efx_mdio_test_alive(struct efx_nic *efx)
+-{
+-	int rc;
+-	int devad = __ffs(efx->mdio.mmds);
+-	u16 physid1, physid2;
+-
+-	mutex_lock(&efx->mac_lock);
+-
+-	physid1 = efx_mdio_read(efx, devad, MDIO_DEVID1);
+-	physid2 = efx_mdio_read(efx, devad, MDIO_DEVID2);
+-
+-	if ((physid1 == 0x0000) || (physid1 == 0xffff) ||
+-	    (physid2 == 0x0000) || (physid2 == 0xffff)) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "no MDIO PHY present with ID %d\n", efx->mdio.prtad);
+-		rc = -EINVAL;
+-	} else {
+-		rc = efx_mdio_check_mmds(efx, efx->mdio.mmds);
+-	}
+-
+-	mutex_unlock(&efx->mac_lock);
+-	return rc;
+-}
+diff --git a/drivers/net/ethernet/sfc/mdio_10g.h b/drivers/net/ethernet/sfc/mdio_10g.h
+deleted file mode 100644
+index 4a2dc4c..0000000
+--- a/drivers/net/ethernet/sfc/mdio_10g.h
++++ /dev/null
+@@ -1,110 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare network controllers and boards
+- * Copyright 2006-2011 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-
+-#ifndef EFX_MDIO_10G_H
+-#define EFX_MDIO_10G_H
+-
+-#include <linux/mdio.h>
+-
+-/*
+- * Helper functions for doing 10G MDIO as specified in IEEE 802.3 clause 45.
+- */
+-
+-#include "efx.h"
+-
+-static inline unsigned efx_mdio_id_rev(u32 id) { return id & 0xf; }
+-static inline unsigned efx_mdio_id_model(u32 id) { return (id >> 4) & 0x3f; }
+-unsigned efx_mdio_id_oui(u32 id);
+-
+-static inline int efx_mdio_read(struct efx_nic *efx, int devad, int addr)
+-{
+-	return efx->mdio.mdio_read(efx->net_dev, efx->mdio.prtad, devad, addr);
+-}
+-
+-static inline void
+-efx_mdio_write(struct efx_nic *efx, int devad, int addr, int value)
+-{
+-	efx->mdio.mdio_write(efx->net_dev, efx->mdio.prtad, devad, addr, value);
+-}
+-
+-static inline u32 efx_mdio_read_id(struct efx_nic *efx, int mmd)
+-{
+-	u16 id_low = efx_mdio_read(efx, mmd, MDIO_DEVID2);
+-	u16 id_hi = efx_mdio_read(efx, mmd, MDIO_DEVID1);
+-	return (id_hi << 16) | (id_low);
+-}
+-
+-static inline bool efx_mdio_phyxgxs_lane_sync(struct efx_nic *efx)
+-{
+-	int i, lane_status;
+-	bool sync;
+-
+-	for (i = 0; i < 2; ++i)
+-		lane_status = efx_mdio_read(efx, MDIO_MMD_PHYXS,
+-					    MDIO_PHYXS_LNSTAT);
+-
+-	sync = !!(lane_status & MDIO_PHYXS_LNSTAT_ALIGN);
+-	if (!sync)
+-		netif_dbg(efx, hw, efx->net_dev, "XGXS lane status: %x\n",
+-			  lane_status);
+-	return sync;
+-}
+-
+-const char *efx_mdio_mmd_name(int mmd);
+-
+-/*
+- * Reset a specific MMD and wait for reset to clear.
+- * Return number of spins left (>0) on success, -%ETIMEDOUT on failure.
+- *
+- * This function will sleep
+- */
+-int efx_mdio_reset_mmd(struct efx_nic *efx, int mmd, int spins, int spintime);
+-
+-/* As efx_mdio_check_mmd but for multiple MMDs */
+-int efx_mdio_check_mmds(struct efx_nic *efx, unsigned int mmd_mask);
+-
+-/* Check the link status of specified mmds in bit mask */
+-bool efx_mdio_links_ok(struct efx_nic *efx, unsigned int mmd_mask);
+-
+-/* Generic transmit disable support though PMAPMD */
+-void efx_mdio_transmit_disable(struct efx_nic *efx);
+-
+-/* Generic part of reconfigure: set/clear loopback bits */
+-void efx_mdio_phy_reconfigure(struct efx_nic *efx);
+-
+-/* Set the power state of the specified MMDs */
+-void efx_mdio_set_mmds_lpower(struct efx_nic *efx, int low_power,
+-			      unsigned int mmd_mask);
+-
+-/* Set (some of) the PHY settings over MDIO */
+-int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd);
+-
+-/* Push advertising flags and restart autonegotiation */
+-void efx_mdio_an_reconfigure(struct efx_nic *efx);
+-
+-/* Get pause parameters from AN if available (otherwise return
+- * requested pause parameters)
+- */
+-u8 efx_mdio_get_pause(struct efx_nic *efx);
+-
+-/* Wait for specified MMDs to exit reset within a timeout */
+-int efx_mdio_wait_reset_mmds(struct efx_nic *efx, unsigned int mmd_mask);
+-
+-/* Set or clear flag, debouncing */
+-static inline void
+-efx_mdio_set_flag(struct efx_nic *efx, int devad, int addr,
+-		  int mask, bool state)
+-{
+-	mdio_set_flag(&efx->mdio, efx->mdio.prtad, devad, addr, mask, state);
+-}
+-
+-/* Liveness self-test for MDIO PHYs */
+-int efx_mdio_test_alive(struct efx_nic *efx);
+-
+-#endif /* EFX_MDIO_10G_H */
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index df22926..f391c16 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -197,7 +197,6 @@ struct efx_tx_buffer {
+  *	Size of the region is efx_piobuf_size.
+  * @piobuf_offset: Buffer offset to be specified in PIO descriptors
+  * @initialised: Has hardware queue been initialised?
+- * @tx_min_size: Minimum transmit size for this queue. Depends on HW.
+  * @handle_tso: TSO xmit preparation handler.  Sets up the TSO metadata and
+  *	may also map tx data, depending on the nature of the TSO implementation.
+  * @read_count: Current read pointer.
+@@ -248,7 +247,6 @@ struct efx_tx_queue {
+ 	void __iomem *piobuf;
+ 	unsigned int piobuf_offset;
+ 	bool initialised;
+-	unsigned int tx_min_size;
+ 
+ 	/* Function pointers used in the fast path. */
+ 	int (*handle_tso)(struct efx_tx_queue*, struct sk_buff*, bool *);
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index 06dd96e..2237746 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -18,11 +18,8 @@
+ #include "mcdi.h"
+ 
+ enum {
+-	EFX_REV_FALCON_A0 = 0,
+-	EFX_REV_FALCON_A1 = 1,
+-	EFX_REV_FALCON_B0 = 2,
+-	EFX_REV_SIENA_A0 = 3,
+-	EFX_REV_HUNT_A0 = 4,
++	EFX_REV_SIENA_A0 = 0,
++	EFX_REV_HUNT_A0 = 1,
+ };
+ 
+ static inline int efx_nic_rev(struct efx_nic *efx)
+@@ -32,12 +29,6 @@ static inline int efx_nic_rev(struct efx_nic *efx)
+ 
+ u32 efx_farch_fpga_ver(struct efx_nic *efx);
+ 
+-/* NIC has two interlinked PCI functions for the same port. */
+-static inline bool efx_nic_is_dual_func(struct efx_nic *efx)
+-{
+-	return efx_nic_rev(efx) < EFX_REV_FALCON_B0;
+-}
+-
+ /* Read the current event from the event queue */
+ static inline efx_qword_t *efx_event(struct efx_channel *channel,
+ 				     unsigned int index)
+@@ -144,11 +135,6 @@ enum {
+ 	PHY_TYPE_SFT9001B = 10,
+ };
+ 
+-#define FALCON_XMAC_LOOPBACKS			\
+-	((1 << LOOPBACK_XGMII) |		\
+-	 (1 << LOOPBACK_XGXS) |			\
+-	 (1 << LOOPBACK_XAUI))
+-
+ /* Alignment of PCIe DMA boundaries (4KB) */
+ #define EFX_PAGE_SIZE	4096
+ /* Size and alignment of buffer table entries (same) */
+@@ -161,160 +147,6 @@ enum {
+ 	GENERIC_STAT_COUNT
+ };
+ 
+-/**
+- * struct falcon_board_type - board operations and type information
+- * @id: Board type id, as found in NVRAM
+- * @init: Allocate resources and initialise peripheral hardware
+- * @init_phy: Do board-specific PHY initialisation
+- * @fini: Shut down hardware and free resources
+- * @set_id_led: Set state of identifying LED or revert to automatic function
+- * @monitor: Board-specific health check function
+- */
+-struct falcon_board_type {
+-	u8 id;
+-	int (*init) (struct efx_nic *nic);
+-	void (*init_phy) (struct efx_nic *efx);
+-	void (*fini) (struct efx_nic *nic);
+-	void (*set_id_led) (struct efx_nic *efx, enum efx_led_mode mode);
+-	int (*monitor) (struct efx_nic *nic);
+-};
+-
+-/**
+- * struct falcon_board - board information
+- * @type: Type of board
+- * @major: Major rev. ('A', 'B' ...)
+- * @minor: Minor rev. (0, 1, ...)
+- * @i2c_adap: I2C adapter for on-board peripherals
+- * @i2c_data: Data for bit-banging algorithm
+- * @hwmon_client: I2C client for hardware monitor
+- * @ioexp_client: I2C client for power/port control
+- */
+-struct falcon_board {
+-	const struct falcon_board_type *type;
+-	int major;
+-	int minor;
+-	struct i2c_adapter i2c_adap;
+-	struct i2c_algo_bit_data i2c_data;
+-	struct i2c_client *hwmon_client, *ioexp_client;
+-};
+-
+-/**
+- * struct falcon_spi_device - a Falcon SPI (Serial Peripheral Interface) device
+- * @device_id:		Controller's id for the device
+- * @size:		Size (in bytes)
+- * @addr_len:		Number of address bytes in read/write commands
+- * @munge_address:	Flag whether addresses should be munged.
+- *	Some devices with 9-bit addresses (e.g. AT25040A EEPROM)
+- *	use bit 3 of the command byte as address bit A8, rather
+- *	than having a two-byte address.  If this flag is set, then
+- *	commands should be munged in this way.
+- * @erase_command:	Erase command (or 0 if sector erase not needed).
+- * @erase_size:		Erase sector size (in bytes)
+- *	Erase commands affect sectors with this size and alignment.
+- *	This must be a power of two.
+- * @block_size:		Write block size (in bytes).
+- *	Write commands are limited to blocks with this size and alignment.
+- */
+-struct falcon_spi_device {
+-	int device_id;
+-	unsigned int size;
+-	unsigned int addr_len;
+-	unsigned int munge_address:1;
+-	u8 erase_command;
+-	unsigned int erase_size;
+-	unsigned int block_size;
+-};
+-
+-static inline bool falcon_spi_present(const struct falcon_spi_device *spi)
+-{
+-	return spi->size != 0;
+-}
+-
+-enum {
+-	FALCON_STAT_tx_bytes = GENERIC_STAT_COUNT,
+-	FALCON_STAT_tx_packets,
+-	FALCON_STAT_tx_pause,
+-	FALCON_STAT_tx_control,
+-	FALCON_STAT_tx_unicast,
+-	FALCON_STAT_tx_multicast,
+-	FALCON_STAT_tx_broadcast,
+-	FALCON_STAT_tx_lt64,
+-	FALCON_STAT_tx_64,
+-	FALCON_STAT_tx_65_to_127,
+-	FALCON_STAT_tx_128_to_255,
+-	FALCON_STAT_tx_256_to_511,
+-	FALCON_STAT_tx_512_to_1023,
+-	FALCON_STAT_tx_1024_to_15xx,
+-	FALCON_STAT_tx_15xx_to_jumbo,
+-	FALCON_STAT_tx_gtjumbo,
+-	FALCON_STAT_tx_non_tcpudp,
+-	FALCON_STAT_tx_mac_src_error,
+-	FALCON_STAT_tx_ip_src_error,
+-	FALCON_STAT_rx_bytes,
+-	FALCON_STAT_rx_good_bytes,
+-	FALCON_STAT_rx_bad_bytes,
+-	FALCON_STAT_rx_packets,
+-	FALCON_STAT_rx_good,
+-	FALCON_STAT_rx_bad,
+-	FALCON_STAT_rx_pause,
+-	FALCON_STAT_rx_control,
+-	FALCON_STAT_rx_unicast,
+-	FALCON_STAT_rx_multicast,
+-	FALCON_STAT_rx_broadcast,
+-	FALCON_STAT_rx_lt64,
+-	FALCON_STAT_rx_64,
+-	FALCON_STAT_rx_65_to_127,
+-	FALCON_STAT_rx_128_to_255,
+-	FALCON_STAT_rx_256_to_511,
+-	FALCON_STAT_rx_512_to_1023,
+-	FALCON_STAT_rx_1024_to_15xx,
+-	FALCON_STAT_rx_15xx_to_jumbo,
+-	FALCON_STAT_rx_gtjumbo,
+-	FALCON_STAT_rx_bad_lt64,
+-	FALCON_STAT_rx_bad_gtjumbo,
+-	FALCON_STAT_rx_overflow,
+-	FALCON_STAT_rx_symbol_error,
+-	FALCON_STAT_rx_align_error,
+-	FALCON_STAT_rx_length_error,
+-	FALCON_STAT_rx_internal_error,
+-	FALCON_STAT_rx_nodesc_drop_cnt,
+-	FALCON_STAT_COUNT
+-};
+-
+-/**
+- * struct falcon_nic_data - Falcon NIC state
+- * @pci_dev2: Secondary function of Falcon A
+- * @board: Board state and functions
+- * @stats: Hardware statistics
+- * @stats_disable_count: Nest count for disabling statistics fetches
+- * @stats_pending: Is there a pending DMA of MAC statistics.
+- * @stats_timer: A timer for regularly fetching MAC statistics.
+- * @spi_flash: SPI flash device
+- * @spi_eeprom: SPI EEPROM device
+- * @spi_lock: SPI bus lock
+- * @mdio_lock: MDIO bus lock
+- * @xmac_poll_required: XMAC link state needs polling
+- */
+-struct falcon_nic_data {
+-	struct pci_dev *pci_dev2;
+-	struct falcon_board board;
+-	u64 stats[FALCON_STAT_COUNT];
+-	unsigned int stats_disable_count;
+-	bool stats_pending;
+-	struct timer_list stats_timer;
+-	struct falcon_spi_device spi_flash;
+-	struct falcon_spi_device spi_eeprom;
+-	struct mutex spi_lock;
+-	struct mutex mdio_lock;
+-	bool xmac_poll_required;
+-};
+-
+-static inline struct falcon_board *falcon_board(struct efx_nic *efx)
+-{
+-	struct falcon_nic_data *data = efx->nic_data;
+-	return &data->board;
+-}
+-
+ enum {
+ 	SIENA_STAT_tx_bytes = GENERIC_STAT_COUNT,
+ 	SIENA_STAT_tx_good_bytes,
+diff --git a/drivers/net/ethernet/sfc/phy.h b/drivers/net/ethernet/sfc/phy.h
+deleted file mode 100644
+index 803bf44..0000000
+--- a/drivers/net/ethernet/sfc/phy.h
++++ /dev/null
+@@ -1,50 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare network controllers and boards
+- * Copyright 2007-2010 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-
+-#ifndef EFX_PHY_H
+-#define EFX_PHY_H
+-
+-/****************************************************************************
+- * 10Xpress (SFX7101) PHY
+- */
+-extern const struct efx_phy_operations falcon_sfx7101_phy_ops;
+-
+-void tenxpress_set_id_led(struct efx_nic *efx, enum efx_led_mode mode);
+-
+-/****************************************************************************
+- * AMCC/Quake QT202x PHYs
+- */
+-extern const struct efx_phy_operations falcon_qt202x_phy_ops;
+-
+-/* These PHYs provide various H/W control states for LEDs */
+-#define QUAKE_LED_LINK_INVAL	(0)
+-#define QUAKE_LED_LINK_STAT	(1)
+-#define QUAKE_LED_LINK_ACT	(2)
+-#define QUAKE_LED_LINK_ACTSTAT	(3)
+-#define QUAKE_LED_OFF		(4)
+-#define QUAKE_LED_ON		(5)
+-#define QUAKE_LED_LINK_INPUT	(6)	/* Pin is an input. */
+-/* What link the LED tracks */
+-#define QUAKE_LED_TXLINK	(0)
+-#define QUAKE_LED_RXLINK	(8)
+-
+-void falcon_qt202x_set_led(struct efx_nic *p, int led, int state);
+-
+-/****************************************************************************
+-* Transwitch CX4 retimer
+-*/
+-extern const struct efx_phy_operations falcon_txc_phy_ops;
+-
+-#define TXC_GPIO_DIR_INPUT	0
+-#define TXC_GPIO_DIR_OUTPUT	1
+-
+-void falcon_txc_set_gpio_dir(struct efx_nic *efx, int pin, int dir);
+-void falcon_txc_set_gpio_val(struct efx_nic *efx, int pin, int val);
+-
+-#endif
+diff --git a/drivers/net/ethernet/sfc/qt202x_phy.c b/drivers/net/ethernet/sfc/qt202x_phy.c
+deleted file mode 100644
+index efa3612..0000000
+--- a/drivers/net/ethernet/sfc/qt202x_phy.c
++++ /dev/null
+@@ -1,495 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare network controllers and boards
+- * Copyright 2006-2012 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-/*
+- * Driver for AMCC QT202x SFP+ and XFP adapters; see www.amcc.com for details
+- */
+-
+-#include <linux/slab.h>
+-#include <linux/timer.h>
+-#include <linux/delay.h>
+-#include "efx.h"
+-#include "mdio_10g.h"
+-#include "phy.h"
+-#include "nic.h"
+-
+-#define QT202X_REQUIRED_DEVS (MDIO_DEVS_PCS |		\
+-			      MDIO_DEVS_PMAPMD |	\
+-			      MDIO_DEVS_PHYXS)
+-
+-#define QT202X_LOOPBACKS ((1 << LOOPBACK_PCS) |		\
+-			  (1 << LOOPBACK_PMAPMD) |	\
+-			  (1 << LOOPBACK_PHYXS_WS))
+-
+-/****************************************************************************/
+-/* Quake-specific MDIO registers */
+-#define MDIO_QUAKE_LED0_REG	(0xD006)
+-
+-/* QT2025C only */
+-#define PCS_FW_HEARTBEAT_REG	0xd7ee
+-#define PCS_FW_HEARTB_LBN	0
+-#define PCS_FW_HEARTB_WIDTH	8
+-#define PCS_FW_PRODUCT_CODE_1	0xd7f0
+-#define PCS_FW_VERSION_1	0xd7f3
+-#define PCS_FW_BUILD_1		0xd7f6
+-#define PCS_UC8051_STATUS_REG	0xd7fd
+-#define PCS_UC_STATUS_LBN	0
+-#define PCS_UC_STATUS_WIDTH	8
+-#define PCS_UC_STATUS_FW_SAVE	0x20
+-#define PMA_PMD_MODE_REG	0xc301
+-#define PMA_PMD_RXIN_SEL_LBN	6
+-#define PMA_PMD_FTX_CTRL2_REG	0xc309
+-#define PMA_PMD_FTX_STATIC_LBN	13
+-#define PMA_PMD_VEND1_REG	0xc001
+-#define PMA_PMD_VEND1_LBTXD_LBN	15
+-#define PCS_VEND1_REG		0xc000
+-#define PCS_VEND1_LBTXD_LBN	5
+-
+-void falcon_qt202x_set_led(struct efx_nic *p, int led, int mode)
+-{
+-	int addr = MDIO_QUAKE_LED0_REG + led;
+-	efx_mdio_write(p, MDIO_MMD_PMAPMD, addr, mode);
+-}
+-
+-struct qt202x_phy_data {
+-	enum efx_phy_mode phy_mode;
+-	bool bug17190_in_bad_state;
+-	unsigned long bug17190_timer;
+-	u32 firmware_ver;
+-};
+-
+-#define QT2022C2_MAX_RESET_TIME 500
+-#define QT2022C2_RESET_WAIT 10
+-
+-#define QT2025C_MAX_HEARTB_TIME (5 * HZ)
+-#define QT2025C_HEARTB_WAIT 100
+-#define QT2025C_MAX_FWSTART_TIME (25 * HZ / 10)
+-#define QT2025C_FWSTART_WAIT 100
+-
+-#define BUG17190_INTERVAL (2 * HZ)
+-
+-static int qt2025c_wait_heartbeat(struct efx_nic *efx)
+-{
+-	unsigned long timeout = jiffies + QT2025C_MAX_HEARTB_TIME;
+-	int reg, old_counter = 0;
+-
+-	/* Wait for firmware heartbeat to start */
+-	for (;;) {
+-		int counter;
+-		reg = efx_mdio_read(efx, MDIO_MMD_PCS, PCS_FW_HEARTBEAT_REG);
+-		if (reg < 0)
+-			return reg;
+-		counter = ((reg >> PCS_FW_HEARTB_LBN) &
+-			    ((1 << PCS_FW_HEARTB_WIDTH) - 1));
+-		if (old_counter == 0)
+-			old_counter = counter;
+-		else if (counter != old_counter)
+-			break;
+-		if (time_after(jiffies, timeout)) {
+-			/* Some cables have EEPROMs that conflict with the
+-			 * PHY's on-board EEPROM so it cannot load firmware */
+-			netif_err(efx, hw, efx->net_dev,
+-				  "If an SFP+ direct attach cable is"
+-				  " connected, please check that it complies"
+-				  " with the SFP+ specification\n");
+-			return -ETIMEDOUT;
+-		}
+-		msleep(QT2025C_HEARTB_WAIT);
+-	}
+-
+-	return 0;
+-}
+-
+-static int qt2025c_wait_fw_status_good(struct efx_nic *efx)
+-{
+-	unsigned long timeout = jiffies + QT2025C_MAX_FWSTART_TIME;
+-	int reg;
+-
+-	/* Wait for firmware status to look good */
+-	for (;;) {
+-		reg = efx_mdio_read(efx, MDIO_MMD_PCS, PCS_UC8051_STATUS_REG);
+-		if (reg < 0)
+-			return reg;
+-		if ((reg &
+-		     ((1 << PCS_UC_STATUS_WIDTH) - 1) << PCS_UC_STATUS_LBN) >=
+-		    PCS_UC_STATUS_FW_SAVE)
+-			break;
+-		if (time_after(jiffies, timeout))
+-			return -ETIMEDOUT;
+-		msleep(QT2025C_FWSTART_WAIT);
+-	}
+-
+-	return 0;
+-}
+-
+-static void qt2025c_restart_firmware(struct efx_nic *efx)
+-{
+-	/* Restart microcontroller execution of firmware from RAM */
+-	efx_mdio_write(efx, 3, 0xe854, 0x00c0);
+-	efx_mdio_write(efx, 3, 0xe854, 0x0040);
+-	msleep(50);
+-}
+-
+-static int qt2025c_wait_reset(struct efx_nic *efx)
+-{
+-	int rc;
+-
+-	rc = qt2025c_wait_heartbeat(efx);
+-	if (rc != 0)
+-		return rc;
+-
+-	rc = qt2025c_wait_fw_status_good(efx);
+-	if (rc == -ETIMEDOUT) {
+-		/* Bug 17689: occasionally heartbeat starts but firmware status
+-		 * code never progresses beyond 0x00.  Try again, once, after
+-		 * restarting execution of the firmware image. */
+-		netif_dbg(efx, hw, efx->net_dev,
+-			  "bashing QT2025C microcontroller\n");
+-		qt2025c_restart_firmware(efx);
+-		rc = qt2025c_wait_heartbeat(efx);
+-		if (rc != 0)
+-			return rc;
+-		rc = qt2025c_wait_fw_status_good(efx);
+-	}
+-
+-	return rc;
+-}
+-
+-static void qt2025c_firmware_id(struct efx_nic *efx)
+-{
+-	struct qt202x_phy_data *phy_data = efx->phy_data;
+-	u8 firmware_id[9];
+-	size_t i;
+-
+-	for (i = 0; i < sizeof(firmware_id); i++)
+-		firmware_id[i] = efx_mdio_read(efx, MDIO_MMD_PCS,
+-					       PCS_FW_PRODUCT_CODE_1 + i);
+-	netif_info(efx, probe, efx->net_dev,
+-		   "QT2025C firmware %xr%d v%d.%d.%d.%d [20%02d-%02d-%02d]\n",
+-		   (firmware_id[0] << 8) | firmware_id[1], firmware_id[2],
+-		   firmware_id[3] >> 4, firmware_id[3] & 0xf,
+-		   firmware_id[4], firmware_id[5],
+-		   firmware_id[6], firmware_id[7], firmware_id[8]);
+-	phy_data->firmware_ver = ((firmware_id[3] & 0xf0) << 20) |
+-				 ((firmware_id[3] & 0x0f) << 16) |
+-				 (firmware_id[4] << 8) | firmware_id[5];
+-}
+-
+-static void qt2025c_bug17190_workaround(struct efx_nic *efx)
+-{
+-	struct qt202x_phy_data *phy_data = efx->phy_data;
+-
+-	/* The PHY can get stuck in a state where it reports PHY_XS and PMA/PMD
+-	 * layers up, but PCS down (no block_lock).  If we notice this state
+-	 * persisting for a couple of seconds, we switch PMA/PMD loopback
+-	 * briefly on and then off again, which is normally sufficient to
+-	 * recover it.
+-	 */
+-	if (efx->link_state.up ||
+-	    !efx_mdio_links_ok(efx, MDIO_DEVS_PMAPMD | MDIO_DEVS_PHYXS)) {
+-		phy_data->bug17190_in_bad_state = false;
+-		return;
+-	}
+-
+-	if (!phy_data->bug17190_in_bad_state) {
+-		phy_data->bug17190_in_bad_state = true;
+-		phy_data->bug17190_timer = jiffies + BUG17190_INTERVAL;
+-		return;
+-	}
+-
+-	if (time_after_eq(jiffies, phy_data->bug17190_timer)) {
+-		netif_dbg(efx, hw, efx->net_dev, "bashing QT2025C PMA/PMD\n");
+-		efx_mdio_set_flag(efx, MDIO_MMD_PMAPMD, MDIO_CTRL1,
+-				  MDIO_PMA_CTRL1_LOOPBACK, true);
+-		msleep(100);
+-		efx_mdio_set_flag(efx, MDIO_MMD_PMAPMD, MDIO_CTRL1,
+-				  MDIO_PMA_CTRL1_LOOPBACK, false);
+-		phy_data->bug17190_timer = jiffies + BUG17190_INTERVAL;
+-	}
+-}
+-
+-static int qt2025c_select_phy_mode(struct efx_nic *efx)
+-{
+-	struct qt202x_phy_data *phy_data = efx->phy_data;
+-	struct falcon_board *board = falcon_board(efx);
+-	int reg, rc, i;
+-	uint16_t phy_op_mode;
+-
+-	/* Only 2.0.1.0+ PHY firmware supports the more optimal SFP+
+-	 * Self-Configure mode.  Don't attempt any switching if we encounter
+-	 * older firmware. */
+-	if (phy_data->firmware_ver < 0x02000100)
+-		return 0;
+-
+-	/* In general we will get optimal behaviour in "SFP+ Self-Configure"
+-	 * mode; however, that powers down most of the PHY when no module is
+-	 * present, so we must use a different mode (any fixed mode will do)
+-	 * to be sure that loopbacks will work. */
+-	phy_op_mode = (efx->loopback_mode == LOOPBACK_NONE) ? 0x0038 : 0x0020;
+-
+-	/* Only change mode if really necessary */
+-	reg = efx_mdio_read(efx, 1, 0xc319);
+-	if ((reg & 0x0038) == phy_op_mode)
+-		return 0;
+-	netif_dbg(efx, hw, efx->net_dev, "Switching PHY to mode 0x%04x\n",
+-		  phy_op_mode);
+-
+-	/* This sequence replicates the register writes configured in the boot
+-	 * EEPROM (including the differences between board revisions), except
+-	 * that the operating mode is changed, and the PHY is prevented from
+-	 * unnecessarily reloading the main firmware image again. */
+-	efx_mdio_write(efx, 1, 0xc300, 0x0000);
+-	/* (Note: this portion of the boot EEPROM sequence, which bit-bashes 9
+-	 * STOPs onto the firmware/module I2C bus to reset it, varies across
+-	 * board revisions, as the bus is connected to different GPIO/LED
+-	 * outputs on the PHY.) */
+-	if (board->major == 0 && board->minor < 2) {
+-		efx_mdio_write(efx, 1, 0xc303, 0x4498);
+-		for (i = 0; i < 9; i++) {
+-			efx_mdio_write(efx, 1, 0xc303, 0x4488);
+-			efx_mdio_write(efx, 1, 0xc303, 0x4480);
+-			efx_mdio_write(efx, 1, 0xc303, 0x4490);
+-			efx_mdio_write(efx, 1, 0xc303, 0x4498);
+-		}
+-	} else {
+-		efx_mdio_write(efx, 1, 0xc303, 0x0920);
+-		efx_mdio_write(efx, 1, 0xd008, 0x0004);
+-		for (i = 0; i < 9; i++) {
+-			efx_mdio_write(efx, 1, 0xc303, 0x0900);
+-			efx_mdio_write(efx, 1, 0xd008, 0x0005);
+-			efx_mdio_write(efx, 1, 0xc303, 0x0920);
+-			efx_mdio_write(efx, 1, 0xd008, 0x0004);
+-		}
+-		efx_mdio_write(efx, 1, 0xc303, 0x4900);
+-	}
+-	efx_mdio_write(efx, 1, 0xc303, 0x4900);
+-	efx_mdio_write(efx, 1, 0xc302, 0x0004);
+-	efx_mdio_write(efx, 1, 0xc316, 0x0013);
+-	efx_mdio_write(efx, 1, 0xc318, 0x0054);
+-	efx_mdio_write(efx, 1, 0xc319, phy_op_mode);
+-	efx_mdio_write(efx, 1, 0xc31a, 0x0098);
+-	efx_mdio_write(efx, 3, 0x0026, 0x0e00);
+-	efx_mdio_write(efx, 3, 0x0027, 0x0013);
+-	efx_mdio_write(efx, 3, 0x0028, 0xa528);
+-	efx_mdio_write(efx, 1, 0xd006, 0x000a);
+-	efx_mdio_write(efx, 1, 0xd007, 0x0009);
+-	efx_mdio_write(efx, 1, 0xd008, 0x0004);
+-	/* This additional write is not present in the boot EEPROM.  It
+-	 * prevents the PHY's internal boot ROM doing another pointless (and
+-	 * slow) reload of the firmware image (the microcontroller's code
+-	 * memory is not affected by the microcontroller reset). */
+-	efx_mdio_write(efx, 1, 0xc317, 0x00ff);
+-	/* PMA/PMD loopback sets RXIN to inverse polarity and the firmware
+-	 * restart doesn't reset it. We need to do that ourselves. */
+-	efx_mdio_set_flag(efx, 1, PMA_PMD_MODE_REG,
+-			  1 << PMA_PMD_RXIN_SEL_LBN, false);
+-	efx_mdio_write(efx, 1, 0xc300, 0x0002);
+-	msleep(20);
+-
+-	/* Restart microcontroller execution of firmware from RAM */
+-	qt2025c_restart_firmware(efx);
+-
+-	/* Wait for the microcontroller to be ready again */
+-	rc = qt2025c_wait_reset(efx);
+-	if (rc < 0) {
+-		netif_err(efx, hw, efx->net_dev,
+-			  "PHY microcontroller reset during mode switch "
+-			  "timed out\n");
+-		return rc;
+-	}
+-
+-	return 0;
+-}
+-
+-static int qt202x_reset_phy(struct efx_nic *efx)
+-{
+-	int rc;
+-
+-	if (efx->phy_type == PHY_TYPE_QT2025C) {
+-		/* Wait for the reset triggered by falcon_reset_hw()
+-		 * to complete */
+-		rc = qt2025c_wait_reset(efx);
+-		if (rc < 0)
+-			goto fail;
+-	} else {
+-		/* Reset the PHYXS MMD. This is documented as doing
+-		 * a complete soft reset. */
+-		rc = efx_mdio_reset_mmd(efx, MDIO_MMD_PHYXS,
+-					QT2022C2_MAX_RESET_TIME /
+-					QT2022C2_RESET_WAIT,
+-					QT2022C2_RESET_WAIT);
+-		if (rc < 0)
+-			goto fail;
+-	}
+-
+-	/* Wait 250ms for the PHY to complete bootup */
+-	msleep(250);
+-
+-	falcon_board(efx)->type->init_phy(efx);
+-
+-	return 0;
+-
+- fail:
+-	netif_err(efx, hw, efx->net_dev, "PHY reset timed out\n");
+-	return rc;
+-}
+-
+-static int qt202x_phy_probe(struct efx_nic *efx)
+-{
+-	struct qt202x_phy_data *phy_data;
+-
+-	phy_data = kzalloc(sizeof(struct qt202x_phy_data), GFP_KERNEL);
+-	if (!phy_data)
+-		return -ENOMEM;
+-	efx->phy_data = phy_data;
+-	phy_data->phy_mode = efx->phy_mode;
+-	phy_data->bug17190_in_bad_state = false;
+-	phy_data->bug17190_timer = 0;
+-
+-	efx->mdio.mmds = QT202X_REQUIRED_DEVS;
+-	efx->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
+-	efx->loopback_modes = QT202X_LOOPBACKS | FALCON_XMAC_LOOPBACKS;
+-	return 0;
+-}
+-
+-static int qt202x_phy_init(struct efx_nic *efx)
+-{
+-	u32 devid;
+-	int rc;
+-
+-	rc = qt202x_reset_phy(efx);
+-	if (rc) {
+-		netif_err(efx, probe, efx->net_dev, "PHY init failed\n");
+-		return rc;
+-	}
+-
+-	devid = efx_mdio_read_id(efx, MDIO_MMD_PHYXS);
+-	netif_info(efx, probe, efx->net_dev,
+-		   "PHY ID reg %x (OUI %06x model %02x revision %x)\n",
+-		   devid, efx_mdio_id_oui(devid), efx_mdio_id_model(devid),
+-		   efx_mdio_id_rev(devid));
+-
+-	if (efx->phy_type == PHY_TYPE_QT2025C)
+-		qt2025c_firmware_id(efx);
+-
+-	return 0;
+-}
+-
+-static int qt202x_link_ok(struct efx_nic *efx)
+-{
+-	return efx_mdio_links_ok(efx, QT202X_REQUIRED_DEVS);
+-}
+-
+-static bool qt202x_phy_poll(struct efx_nic *efx)
+-{
+-	bool was_up = efx->link_state.up;
+-
+-	efx->link_state.up = qt202x_link_ok(efx);
+-	efx->link_state.speed = 10000;
+-	efx->link_state.fd = true;
+-	efx->link_state.fc = efx->wanted_fc;
+-
+-	if (efx->phy_type == PHY_TYPE_QT2025C)
+-		qt2025c_bug17190_workaround(efx);
+-
+-	return efx->link_state.up != was_up;
+-}
+-
+-static int qt202x_phy_reconfigure(struct efx_nic *efx)
+-{
+-	struct qt202x_phy_data *phy_data = efx->phy_data;
+-
+-	if (efx->phy_type == PHY_TYPE_QT2025C) {
+-		int rc = qt2025c_select_phy_mode(efx);
+-		if (rc)
+-			return rc;
+-
+-		/* There are several different register bits which can
+-		 * disable TX (and save power) on direct-attach cables
+-		 * or optical transceivers, varying somewhat between
+-		 * firmware versions.  Only 'static mode' appears to
+-		 * cover everything. */
+-		mdio_set_flag(
+-			&efx->mdio, efx->mdio.prtad, MDIO_MMD_PMAPMD,
+-			PMA_PMD_FTX_CTRL2_REG, 1 << PMA_PMD_FTX_STATIC_LBN,
+-			efx->phy_mode & PHY_MODE_TX_DISABLED ||
+-			efx->phy_mode & PHY_MODE_LOW_POWER ||
+-			efx->loopback_mode == LOOPBACK_PCS ||
+-			efx->loopback_mode == LOOPBACK_PMAPMD);
+-	} else {
+-		/* Reset the PHY when moving from tx off to tx on */
+-		if (!(efx->phy_mode & PHY_MODE_TX_DISABLED) &&
+-		    (phy_data->phy_mode & PHY_MODE_TX_DISABLED))
+-			qt202x_reset_phy(efx);
+-
+-		efx_mdio_transmit_disable(efx);
+-	}
+-
+-	efx_mdio_phy_reconfigure(efx);
+-
+-	phy_data->phy_mode = efx->phy_mode;
+-
+-	return 0;
+-}
+-
+-static void qt202x_phy_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+-{
+-	mdio45_ethtool_gset(&efx->mdio, ecmd);
+-}
+-
+-static void qt202x_phy_remove(struct efx_nic *efx)
+-{
+-	/* Free the context block */
+-	kfree(efx->phy_data);
+-	efx->phy_data = NULL;
+-}
+-
+-static int qt202x_phy_get_module_info(struct efx_nic *efx,
+-				      struct ethtool_modinfo *modinfo)
+-{
+-	modinfo->type = ETH_MODULE_SFF_8079;
+-	modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
+-	return 0;
+-}
+-
+-static int qt202x_phy_get_module_eeprom(struct efx_nic *efx,
+-					struct ethtool_eeprom *ee, u8 *data)
+-{
+-	int mmd, reg_base, rc, i;		
+-
+-	if (efx->phy_type == PHY_TYPE_QT2025C) {
+-		mmd = MDIO_MMD_PCS;
+-		reg_base = 0xd000;
+-	} else {
+-		mmd = MDIO_MMD_PMAPMD;
+-		reg_base = 0x8007;
+-	}
+-
+-	for (i = 0; i < ee->len; i++) {
+-		rc = efx_mdio_read(efx, mmd, reg_base + ee->offset + i);
+-		if (rc < 0)
+-			return rc;
+-		data[i] = rc;
+-	}
+-
+-	return 0;
+-}
+-
+-const struct efx_phy_operations falcon_qt202x_phy_ops = {
+-	.probe		 = qt202x_phy_probe,
+-	.init		 = qt202x_phy_init,
+-	.reconfigure	 = qt202x_phy_reconfigure,
+-	.poll		 = qt202x_phy_poll,
+-	.fini		 = efx_port_dummy_op_void,
+-	.remove		 = qt202x_phy_remove,
+-	.get_settings	 = qt202x_phy_get_settings,
+-	.set_settings	 = efx_mdio_set_settings,
+-	.test_alive	 = efx_mdio_test_alive,
+-	.get_module_eeprom = qt202x_phy_get_module_eeprom,
+-	.get_module_info = qt202x_phy_get_module_info,
+-};
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 02b0b527..7893a73 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -400,21 +400,10 @@ static void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
+ 	 */
+ 	rx_buf->flags |= EFX_RX_PKT_DISCARD;
+ 
+-	if ((len > rx_buf->len) && EFX_WORKAROUND_8071(efx)) {
+-		if (net_ratelimit())
+-			netif_err(efx, rx_err, efx->net_dev,
+-				  " RX queue %d seriously overlength "
+-				  "RX event (0x%x > 0x%x+0x%x). Leaking\n",
+-				  efx_rx_queue_index(rx_queue), len, max_len,
+-				  efx->type->rx_buffer_padding);
+-		efx_schedule_reset(efx, RESET_TYPE_RX_RECOVERY);
+-	} else {
+-		if (net_ratelimit())
+-			netif_err(efx, rx_err, efx->net_dev,
+-				  " RX queue %d overlength RX event "
+-				  "(0x%x > 0x%x)\n",
+-				  efx_rx_queue_index(rx_queue), len, max_len);
+-	}
++	if (net_ratelimit())
++		netif_err(efx, rx_err, efx->net_dev,
++			  "RX queue %d overlength RX event (%#x > %#x)\n",
++			  efx_rx_queue_index(rx_queue), len, max_len);
+ 
+ 	efx_rx_queue_channel(rx_queue)->n_rx_overlength++;
+ }
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index 3975cad..0c4a8dd 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -20,7 +20,6 @@
+ #include "nic.h"
+ #include "farch_regs.h"
+ #include "io.h"
+-#include "phy.h"
+ #include "workarounds.h"
+ #include "mcdi.h"
+ #include "mcdi_pcol.h"
+diff --git a/drivers/net/ethernet/sfc/tenxpress.c b/drivers/net/ethernet/sfc/tenxpress.c
+deleted file mode 100644
+index 2c90e6b..0000000
+--- a/drivers/net/ethernet/sfc/tenxpress.c
++++ /dev/null
+@@ -1,494 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare network controllers and boards
+- * Copyright 2007-2011 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-
+-#include <linux/delay.h>
+-#include <linux/rtnetlink.h>
+-#include <linux/seq_file.h>
+-#include <linux/slab.h>
+-#include "efx.h"
+-#include "mdio_10g.h"
+-#include "nic.h"
+-#include "phy.h"
+-#include "workarounds.h"
+-
+-/* We expect these MMDs to be in the package. */
+-#define TENXPRESS_REQUIRED_DEVS (MDIO_DEVS_PMAPMD	| \
+-				 MDIO_DEVS_PCS		| \
+-				 MDIO_DEVS_PHYXS	| \
+-				 MDIO_DEVS_AN)
+-
+-#define SFX7101_LOOPBACKS ((1 << LOOPBACK_PHYXS) |	\
+-			   (1 << LOOPBACK_PCS) |	\
+-			   (1 << LOOPBACK_PMAPMD) |	\
+-			   (1 << LOOPBACK_PHYXS_WS))
+-
+-/* We complain if we fail to see the link partner as 10G capable this many
+- * times in a row (must be > 1 as sampling the autoneg. registers is racy)
+- */
+-#define MAX_BAD_LP_TRIES	(5)
+-
+-/* Extended control register */
+-#define PMA_PMD_XCONTROL_REG	49152
+-#define PMA_PMD_EXT_GMII_EN_LBN	1
+-#define PMA_PMD_EXT_GMII_EN_WIDTH 1
+-#define PMA_PMD_EXT_CLK_OUT_LBN	2
+-#define PMA_PMD_EXT_CLK_OUT_WIDTH 1
+-#define PMA_PMD_LNPGA_POWERDOWN_LBN 8
+-#define PMA_PMD_LNPGA_POWERDOWN_WIDTH 1
+-#define PMA_PMD_EXT_CLK312_WIDTH 1
+-#define PMA_PMD_EXT_LPOWER_LBN  12
+-#define PMA_PMD_EXT_LPOWER_WIDTH 1
+-#define PMA_PMD_EXT_ROBUST_LBN	14
+-#define PMA_PMD_EXT_ROBUST_WIDTH 1
+-#define PMA_PMD_EXT_SSR_LBN	15
+-#define PMA_PMD_EXT_SSR_WIDTH	1
+-
+-/* extended status register */
+-#define PMA_PMD_XSTATUS_REG	49153
+-#define PMA_PMD_XSTAT_MDIX_LBN	14
+-#define PMA_PMD_XSTAT_FLP_LBN   (12)
+-
+-/* LED control register */
+-#define PMA_PMD_LED_CTRL_REG	49159
+-#define PMA_PMA_LED_ACTIVITY_LBN	(3)
+-
+-/* LED function override register */
+-#define PMA_PMD_LED_OVERR_REG	49161
+-/* Bit positions for different LEDs (there are more but not wired on SFE4001)*/
+-#define PMA_PMD_LED_LINK_LBN	(0)
+-#define PMA_PMD_LED_SPEED_LBN	(2)
+-#define PMA_PMD_LED_TX_LBN	(4)
+-#define PMA_PMD_LED_RX_LBN	(6)
+-/* Override settings */
+-#define	PMA_PMD_LED_AUTO	(0)	/* H/W control */
+-#define	PMA_PMD_LED_ON		(1)
+-#define	PMA_PMD_LED_OFF		(2)
+-#define PMA_PMD_LED_FLASH	(3)
+-#define PMA_PMD_LED_MASK	3
+-/* All LEDs under hardware control */
+-/* Green and Amber under hardware control, Red off */
+-#define SFX7101_PMA_PMD_LED_DEFAULT (PMA_PMD_LED_OFF << PMA_PMD_LED_RX_LBN)
+-
+-#define PMA_PMD_SPEED_ENABLE_REG 49192
+-#define PMA_PMD_100TX_ADV_LBN    1
+-#define PMA_PMD_100TX_ADV_WIDTH  1
+-#define PMA_PMD_1000T_ADV_LBN    2
+-#define PMA_PMD_1000T_ADV_WIDTH  1
+-#define PMA_PMD_10000T_ADV_LBN   3
+-#define PMA_PMD_10000T_ADV_WIDTH 1
+-#define PMA_PMD_SPEED_LBN        4
+-#define PMA_PMD_SPEED_WIDTH      4
+-
+-/* Misc register defines */
+-#define PCS_CLOCK_CTRL_REG	55297
+-#define PLL312_RST_N_LBN 2
+-
+-#define PCS_SOFT_RST2_REG	55302
+-#define SERDES_RST_N_LBN 13
+-#define XGXS_RST_N_LBN 12
+-
+-#define	PCS_TEST_SELECT_REG	55303	/* PRM 10.5.8 */
+-#define	CLK312_EN_LBN 3
+-
+-/* PHYXS registers */
+-#define PHYXS_XCONTROL_REG	49152
+-#define PHYXS_RESET_LBN		15
+-#define PHYXS_RESET_WIDTH	1
+-
+-#define PHYXS_TEST1         (49162)
+-#define LOOPBACK_NEAR_LBN   (8)
+-#define LOOPBACK_NEAR_WIDTH (1)
+-
+-/* Boot status register */
+-#define PCS_BOOT_STATUS_REG		53248
+-#define PCS_BOOT_FATAL_ERROR_LBN	0
+-#define PCS_BOOT_PROGRESS_LBN		1
+-#define PCS_BOOT_PROGRESS_WIDTH		2
+-#define PCS_BOOT_PROGRESS_INIT		0
+-#define PCS_BOOT_PROGRESS_WAIT_MDIO	1
+-#define PCS_BOOT_PROGRESS_CHECKSUM	2
+-#define PCS_BOOT_PROGRESS_JUMP		3
+-#define PCS_BOOT_DOWNLOAD_WAIT_LBN	3
+-#define PCS_BOOT_CODE_STARTED_LBN	4
+-
+-/* 100M/1G PHY registers */
+-#define GPHY_XCONTROL_REG	49152
+-#define GPHY_ISOLATE_LBN	10
+-#define GPHY_ISOLATE_WIDTH	1
+-#define GPHY_DUPLEX_LBN		8
+-#define GPHY_DUPLEX_WIDTH	1
+-#define GPHY_LOOPBACK_NEAR_LBN	14
+-#define GPHY_LOOPBACK_NEAR_WIDTH 1
+-
+-#define C22EXT_STATUS_REG       49153
+-#define C22EXT_STATUS_LINK_LBN  2
+-#define C22EXT_STATUS_LINK_WIDTH 1
+-
+-#define C22EXT_MSTSLV_CTRL			49161
+-#define C22EXT_MSTSLV_CTRL_ADV_1000_HD_LBN	8
+-#define C22EXT_MSTSLV_CTRL_ADV_1000_FD_LBN	9
+-
+-#define C22EXT_MSTSLV_STATUS			49162
+-#define C22EXT_MSTSLV_STATUS_LP_1000_HD_LBN	10
+-#define C22EXT_MSTSLV_STATUS_LP_1000_FD_LBN	11
+-
+-/* Time to wait between powering down the LNPGA and turning off the power
+- * rails */
+-#define LNPGA_PDOWN_WAIT	(HZ / 5)
+-
+-struct tenxpress_phy_data {
+-	enum efx_loopback_mode loopback_mode;
+-	enum efx_phy_mode phy_mode;
+-	int bad_lp_tries;
+-};
+-
+-static int tenxpress_init(struct efx_nic *efx)
+-{
+-	/* Enable 312.5 MHz clock */
+-	efx_mdio_write(efx, MDIO_MMD_PCS, PCS_TEST_SELECT_REG,
+-		       1 << CLK312_EN_LBN);
+-
+-	/* Set the LEDs up as: Green = Link, Amber = Link/Act, Red = Off */
+-	efx_mdio_set_flag(efx, MDIO_MMD_PMAPMD, PMA_PMD_LED_CTRL_REG,
+-			  1 << PMA_PMA_LED_ACTIVITY_LBN, true);
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD, PMA_PMD_LED_OVERR_REG,
+-		       SFX7101_PMA_PMD_LED_DEFAULT);
+-
+-	return 0;
+-}
+-
+-static int tenxpress_phy_probe(struct efx_nic *efx)
+-{
+-	struct tenxpress_phy_data *phy_data;
+-
+-	/* Allocate phy private storage */
+-	phy_data = kzalloc(sizeof(*phy_data), GFP_KERNEL);
+-	if (!phy_data)
+-		return -ENOMEM;
+-	efx->phy_data = phy_data;
+-	phy_data->phy_mode = efx->phy_mode;
+-
+-	efx->mdio.mmds = TENXPRESS_REQUIRED_DEVS;
+-	efx->mdio.mode_support = MDIO_SUPPORTS_C45;
+-
+-	efx->loopback_modes = SFX7101_LOOPBACKS | FALCON_XMAC_LOOPBACKS;
+-
+-	efx->link_advertising = (ADVERTISED_TP | ADVERTISED_Autoneg |
+-				 ADVERTISED_10000baseT_Full);
+-
+-	return 0;
+-}
+-
+-static int tenxpress_phy_init(struct efx_nic *efx)
+-{
+-	int rc;
+-
+-	falcon_board(efx)->type->init_phy(efx);
+-
+-	if (!(efx->phy_mode & PHY_MODE_SPECIAL)) {
+-		rc = efx_mdio_wait_reset_mmds(efx, TENXPRESS_REQUIRED_DEVS);
+-		if (rc < 0)
+-			return rc;
+-
+-		rc = efx_mdio_check_mmds(efx, TENXPRESS_REQUIRED_DEVS);
+-		if (rc < 0)
+-			return rc;
+-	}
+-
+-	rc = tenxpress_init(efx);
+-	if (rc < 0)
+-		return rc;
+-
+-	/* Reinitialise flow control settings */
+-	efx_link_set_wanted_fc(efx, efx->wanted_fc);
+-	efx_mdio_an_reconfigure(efx);
+-
+-	schedule_timeout_uninterruptible(HZ / 5); /* 200ms */
+-
+-	/* Let XGXS and SerDes out of reset */
+-	falcon_reset_xaui(efx);
+-
+-	return 0;
+-}
+-
+-/* Perform a "special software reset" on the PHY. The caller is
+- * responsible for saving and restoring the PHY hardware registers
+- * properly, and masking/unmasking LASI */
+-static int tenxpress_special_reset(struct efx_nic *efx)
+-{
+-	int rc, reg;
+-
+-	/* The XGMAC clock is driven from the SFX7101 312MHz clock, so
+-	 * a special software reset can glitch the XGMAC sufficiently for stats
+-	 * requests to fail. */
+-	falcon_stop_nic_stats(efx);
+-
+-	/* Initiate reset */
+-	reg = efx_mdio_read(efx, MDIO_MMD_PMAPMD, PMA_PMD_XCONTROL_REG);
+-	reg |= (1 << PMA_PMD_EXT_SSR_LBN);
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD, PMA_PMD_XCONTROL_REG, reg);
+-
+-	mdelay(200);
+-
+-	/* Wait for the blocks to come out of reset */
+-	rc = efx_mdio_wait_reset_mmds(efx, TENXPRESS_REQUIRED_DEVS);
+-	if (rc < 0)
+-		goto out;
+-
+-	/* Try and reconfigure the device */
+-	rc = tenxpress_init(efx);
+-	if (rc < 0)
+-		goto out;
+-
+-	/* Wait for the XGXS state machine to churn */
+-	mdelay(10);
+-out:
+-	falcon_start_nic_stats(efx);
+-	return rc;
+-}
+-
+-static void sfx7101_check_bad_lp(struct efx_nic *efx, bool link_ok)
+-{
+-	struct tenxpress_phy_data *pd = efx->phy_data;
+-	bool bad_lp;
+-	int reg;
+-
+-	if (link_ok) {
+-		bad_lp = false;
+-	} else {
+-		/* Check that AN has started but not completed. */
+-		reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_STAT1);
+-		if (!(reg & MDIO_AN_STAT1_LPABLE))
+-			return; /* LP status is unknown */
+-		bad_lp = !(reg & MDIO_AN_STAT1_COMPLETE);
+-		if (bad_lp)
+-			pd->bad_lp_tries++;
+-	}
+-
+-	/* Nothing to do if all is well and was previously so. */
+-	if (!pd->bad_lp_tries)
+-		return;
+-
+-	/* Use the RX (red) LED as an error indicator once we've seen AN
+-	 * failure several times in a row, and also log a message. */
+-	if (!bad_lp || pd->bad_lp_tries == MAX_BAD_LP_TRIES) {
+-		reg = efx_mdio_read(efx, MDIO_MMD_PMAPMD,
+-				    PMA_PMD_LED_OVERR_REG);
+-		reg &= ~(PMA_PMD_LED_MASK << PMA_PMD_LED_RX_LBN);
+-		if (!bad_lp) {
+-			reg |= PMA_PMD_LED_OFF << PMA_PMD_LED_RX_LBN;
+-		} else {
+-			reg |= PMA_PMD_LED_FLASH << PMA_PMD_LED_RX_LBN;
+-			netif_err(efx, link, efx->net_dev,
+-				  "appears to be plugged into a port"
+-				  " that is not 10GBASE-T capable. The PHY"
+-				  " supports 10GBASE-T ONLY, so no link can"
+-				  " be established\n");
+-		}
+-		efx_mdio_write(efx, MDIO_MMD_PMAPMD,
+-			       PMA_PMD_LED_OVERR_REG, reg);
+-		pd->bad_lp_tries = bad_lp;
+-	}
+-}
+-
+-static bool sfx7101_link_ok(struct efx_nic *efx)
+-{
+-	return efx_mdio_links_ok(efx,
+-				 MDIO_DEVS_PMAPMD |
+-				 MDIO_DEVS_PCS |
+-				 MDIO_DEVS_PHYXS);
+-}
+-
+-static void tenxpress_ext_loopback(struct efx_nic *efx)
+-{
+-	efx_mdio_set_flag(efx, MDIO_MMD_PHYXS, PHYXS_TEST1,
+-			  1 << LOOPBACK_NEAR_LBN,
+-			  efx->loopback_mode == LOOPBACK_PHYXS);
+-}
+-
+-static void tenxpress_low_power(struct efx_nic *efx)
+-{
+-	efx_mdio_set_mmds_lpower(
+-		efx, !!(efx->phy_mode & PHY_MODE_LOW_POWER),
+-		TENXPRESS_REQUIRED_DEVS);
+-}
+-
+-static int tenxpress_phy_reconfigure(struct efx_nic *efx)
+-{
+-	struct tenxpress_phy_data *phy_data = efx->phy_data;
+-	bool phy_mode_change, loop_reset;
+-
+-	if (efx->phy_mode & (PHY_MODE_OFF | PHY_MODE_SPECIAL)) {
+-		phy_data->phy_mode = efx->phy_mode;
+-		return 0;
+-	}
+-
+-	phy_mode_change = (efx->phy_mode == PHY_MODE_NORMAL &&
+-			   phy_data->phy_mode != PHY_MODE_NORMAL);
+-	loop_reset = (LOOPBACK_OUT_OF(phy_data, efx, LOOPBACKS_EXTERNAL(efx)) ||
+-		      LOOPBACK_CHANGED(phy_data, efx, 1 << LOOPBACK_GPHY));
+-
+-	if (loop_reset || phy_mode_change) {
+-		tenxpress_special_reset(efx);
+-		falcon_reset_xaui(efx);
+-	}
+-
+-	tenxpress_low_power(efx);
+-	efx_mdio_transmit_disable(efx);
+-	efx_mdio_phy_reconfigure(efx);
+-	tenxpress_ext_loopback(efx);
+-	efx_mdio_an_reconfigure(efx);
+-
+-	phy_data->loopback_mode = efx->loopback_mode;
+-	phy_data->phy_mode = efx->phy_mode;
+-
+-	return 0;
+-}
+-
+-static void
+-tenxpress_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd);
+-
+-/* Poll for link state changes */
+-static bool tenxpress_phy_poll(struct efx_nic *efx)
+-{
+-	struct efx_link_state old_state = efx->link_state;
+-
+-	efx->link_state.up = sfx7101_link_ok(efx);
+-	efx->link_state.speed = 10000;
+-	efx->link_state.fd = true;
+-	efx->link_state.fc = efx_mdio_get_pause(efx);
+-
+-	sfx7101_check_bad_lp(efx, efx->link_state.up);
+-
+-	return !efx_link_state_equal(&efx->link_state, &old_state);
+-}
+-
+-static void sfx7101_phy_fini(struct efx_nic *efx)
+-{
+-	int reg;
+-
+-	/* Power down the LNPGA */
+-	reg = (1 << PMA_PMD_LNPGA_POWERDOWN_LBN);
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD, PMA_PMD_XCONTROL_REG, reg);
+-
+-	/* Waiting here ensures that the board fini, which can turn
+-	 * off the power to the PHY, won't get run until the LNPGA
+-	 * powerdown has been given long enough to complete. */
+-	schedule_timeout_uninterruptible(LNPGA_PDOWN_WAIT); /* 200 ms */
+-}
+-
+-static void tenxpress_phy_remove(struct efx_nic *efx)
+-{
+-	kfree(efx->phy_data);
+-	efx->phy_data = NULL;
+-}
+-
+-
+-/* Override the RX, TX and link LEDs */
+-void tenxpress_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
+-{
+-	int reg;
+-
+-	switch (mode) {
+-	case EFX_LED_OFF:
+-		reg = (PMA_PMD_LED_OFF << PMA_PMD_LED_TX_LBN) |
+-			(PMA_PMD_LED_OFF << PMA_PMD_LED_RX_LBN) |
+-			(PMA_PMD_LED_OFF << PMA_PMD_LED_LINK_LBN);
+-		break;
+-	case EFX_LED_ON:
+-		reg = (PMA_PMD_LED_ON << PMA_PMD_LED_TX_LBN) |
+-			(PMA_PMD_LED_ON << PMA_PMD_LED_RX_LBN) |
+-			(PMA_PMD_LED_ON << PMA_PMD_LED_LINK_LBN);
+-		break;
+-	default:
+-		reg = SFX7101_PMA_PMD_LED_DEFAULT;
+-		break;
+-	}
+-
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD, PMA_PMD_LED_OVERR_REG, reg);
+-}
+-
+-static const char *const sfx7101_test_names[] = {
+-	"bist"
+-};
+-
+-static const char *sfx7101_test_name(struct efx_nic *efx, unsigned int index)
+-{
+-	if (index < ARRAY_SIZE(sfx7101_test_names))
+-		return sfx7101_test_names[index];
+-	return NULL;
+-}
+-
+-static int
+-sfx7101_run_tests(struct efx_nic *efx, int *results, unsigned flags)
+-{
+-	int rc;
+-
+-	if (!(flags & ETH_TEST_FL_OFFLINE))
+-		return 0;
+-
+-	/* BIST is automatically run after a special software reset */
+-	rc = tenxpress_special_reset(efx);
+-	results[0] = rc ? -1 : 1;
+-
+-	efx_mdio_an_reconfigure(efx);
+-
+-	return rc;
+-}
+-
+-static void
+-tenxpress_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+-{
+-	u32 adv = 0, lpa = 0;
+-	int reg;
+-
+-	reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_AN_10GBT_CTRL);
+-	if (reg & MDIO_AN_10GBT_CTRL_ADV10G)
+-		adv |= ADVERTISED_10000baseT_Full;
+-	reg = efx_mdio_read(efx, MDIO_MMD_AN, MDIO_AN_10GBT_STAT);
+-	if (reg & MDIO_AN_10GBT_STAT_LP10G)
+-		lpa |= ADVERTISED_10000baseT_Full;
+-
+-	mdio45_ethtool_gset_npage(&efx->mdio, ecmd, adv, lpa);
+-
+-	/* In loopback, the PHY automatically brings up the correct interface,
+-	 * but doesn't advertise the correct speed. So override it */
+-	if (LOOPBACK_EXTERNAL(efx))
+-		ethtool_cmd_speed_set(ecmd, SPEED_10000);
+-}
+-
+-static int tenxpress_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+-{
+-	if (!ecmd->autoneg)
+-		return -EINVAL;
+-
+-	return efx_mdio_set_settings(efx, ecmd);
+-}
+-
+-static void sfx7101_set_npage_adv(struct efx_nic *efx, u32 advertising)
+-{
+-	efx_mdio_set_flag(efx, MDIO_MMD_AN, MDIO_AN_10GBT_CTRL,
+-			  MDIO_AN_10GBT_CTRL_ADV10G,
+-			  advertising & ADVERTISED_10000baseT_Full);
+-}
+-
+-const struct efx_phy_operations falcon_sfx7101_phy_ops = {
+-	.probe		  = tenxpress_phy_probe,
+-	.init             = tenxpress_phy_init,
+-	.reconfigure      = tenxpress_phy_reconfigure,
+-	.poll             = tenxpress_phy_poll,
+-	.fini             = sfx7101_phy_fini,
+-	.remove		  = tenxpress_phy_remove,
+-	.get_settings	  = tenxpress_get_settings,
+-	.set_settings	  = tenxpress_set_settings,
+-	.set_npage_adv    = sfx7101_set_npage_adv,
+-	.test_alive	  = efx_mdio_test_alive,
+-	.test_name	  = sfx7101_test_name,
+-	.run_tests	  = sfx7101_run_tests,
+-};
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 1aa728c..afb56f8 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -99,10 +99,8 @@ unsigned int efx_tx_max_skb_descs(struct efx_nic *efx)
+ 	 */
+ 	unsigned int max_descs = EFX_TSO_MAX_SEGS * 2 + MAX_SKB_FRAGS;
+ 
+-	/* Possibly one more per segment for the alignment workaround,
+-	 * or for option descriptors
+-	 */
+-	if (EFX_WORKAROUND_5391(efx) || efx_nic_rev(efx) >= EFX_REV_HUNT_A0)
++	/* Possibly one more per segment for option descriptors */
++	if (efx_nic_rev(efx) >= EFX_REV_HUNT_A0)
+ 		max_descs += EFX_TSO_MAX_SEGS;
+ 
+ 	/* Possibly more for PCIe page boundaries within input fragments */
+@@ -157,7 +155,6 @@ static void efx_tx_maybe_stop_queue(struct efx_tx_queue *txq1)
+ static int efx_enqueue_skb_copy(struct efx_tx_queue *tx_queue,
+ 				struct sk_buff *skb)
+ {
+-	unsigned int min_len = tx_queue->tx_min_size;
+ 	unsigned int copy_len = skb->len;
+ 	struct efx_tx_buffer *buffer;
+ 	u8 *copy_buffer;
+@@ -173,12 +170,7 @@ static int efx_enqueue_skb_copy(struct efx_tx_queue *tx_queue,
+ 
+ 	rc = skb_copy_bits(skb, 0, copy_buffer, copy_len);
+ 	EFX_WARN_ON_PARANOID(rc);
+-	if (unlikely(copy_len < min_len)) {
+-		memset(copy_buffer + copy_len, 0, min_len - copy_len);
+-		buffer->len = min_len;
+-	} else {
+-		buffer->len = copy_len;
+-	}
++	buffer->len = copy_len;
+ 
+ 	buffer->skb = skb;
+ 	buffer->flags = EFX_TX_BUF_SKB;
+@@ -532,8 +524,7 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+ 		tx_queue->pio_packets++;
+ 		data_mapped = true;
+ #endif
+-	} else if (skb_len < tx_queue->tx_min_size ||
+-			(skb->data_len && skb_len <= EFX_TX_CB_SIZE)) {
++	} else if (skb->data_len && skb_len <= EFX_TX_CB_SIZE) {
+ 		/* Pad short packets or coalesce short fragmented packets. */
+ 		if (efx_enqueue_skb_copy(tx_queue, skb))
+ 			goto err;
+@@ -679,7 +670,7 @@ int efx_setup_tc(struct net_device *net_dev, u32 handle, __be16 proto,
+ 
+ 	num_tc = ntc->tc;
+ 
+-	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0 || num_tc > EFX_MAX_TX_TC)
++	if (num_tc > EFX_MAX_TX_TC)
+ 		return -EINVAL;
+ 
+ 	if (num_tc == net_dev->num_tc)
+@@ -839,9 +830,6 @@ void efx_init_tx_queue(struct efx_tx_queue *tx_queue)
+ 	 */
+ 	tx_queue->handle_tso = efx_enqueue_skb_tso;
+ 
+-	/* Some older hardware requires Tx writes larger than 32. */
+-	tx_queue->tx_min_size = EFX_WORKAROUND_15592(efx) ? 33 : 0;
+-
+ 	/* Set up TX descriptor ring */
+ 	efx_nic_init_tx(tx_queue);
+ 
+diff --git a/drivers/net/ethernet/sfc/txc43128_phy.c b/drivers/net/ethernet/sfc/txc43128_phy.c
+deleted file mode 100644
+index 194f67d..0000000
+--- a/drivers/net/ethernet/sfc/txc43128_phy.c
++++ /dev/null
+@@ -1,560 +0,0 @@
+-/****************************************************************************
+- * Driver for Solarflare network controllers and boards
+- * Copyright 2006-2011 Solarflare Communications Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published
+- * by the Free Software Foundation, incorporated herein by reference.
+- */
+-
+-/*
+- * Driver for Transwitch/Mysticom CX4 retimer
+- * see www.transwitch.com, part is TXC-43128
+- */
+-
+-#include <linux/delay.h>
+-#include <linux/slab.h>
+-#include "efx.h"
+-#include "mdio_10g.h"
+-#include "phy.h"
+-#include "nic.h"
+-
+-/* We expect these MMDs to be in the package */
+-#define TXC_REQUIRED_DEVS (MDIO_DEVS_PCS |	\
+-			   MDIO_DEVS_PMAPMD |	\
+-			   MDIO_DEVS_PHYXS)
+-
+-#define TXC_LOOPBACKS ((1 << LOOPBACK_PCS) |	\
+-		       (1 << LOOPBACK_PMAPMD) |	\
+-		       (1 << LOOPBACK_PHYXS_WS))
+-
+-/**************************************************************************
+- *
+- * Compile-time config
+- *
+- **************************************************************************
+- */
+-#define TXCNAME "TXC43128"
+-/* Total length of time we'll wait for the PHY to come out of reset (ms) */
+-#define TXC_MAX_RESET_TIME	500
+-/* Interval between checks (ms) */
+-#define TXC_RESET_WAIT		10
+-/* How long to run BIST (us) */
+-#define TXC_BIST_DURATION	50
+-
+-/**************************************************************************
+- *
+- * Register definitions
+- *
+- **************************************************************************
+- */
+-
+-/* Command register */
+-#define TXC_GLRGS_GLCMD		0xc004
+-/* Useful bits in command register */
+-/* Lane power-down */
+-#define TXC_GLCMD_L01PD_LBN	5
+-#define TXC_GLCMD_L23PD_LBN	6
+-/* Limited SW reset: preserves configuration but
+- * initiates a logic reset. Self-clearing */
+-#define TXC_GLCMD_LMTSWRST_LBN	14
+-
+-/* Signal Quality Control */
+-#define TXC_GLRGS_GSGQLCTL	0xc01a
+-/* Enable bit */
+-#define TXC_GSGQLCT_SGQLEN_LBN	15
+-/* Lane selection */
+-#define TXC_GSGQLCT_LNSL_LBN	13
+-#define TXC_GSGQLCT_LNSL_WIDTH	2
+-
+-/* Analog TX control */
+-#define TXC_ALRGS_ATXCTL	0xc040
+-/* Lane power-down */
+-#define TXC_ATXCTL_TXPD3_LBN	15
+-#define TXC_ATXCTL_TXPD2_LBN	14
+-#define TXC_ATXCTL_TXPD1_LBN	13
+-#define TXC_ATXCTL_TXPD0_LBN	12
+-
+-/* Amplitude on lanes 0, 1 */
+-#define TXC_ALRGS_ATXAMP0	0xc041
+-/* Amplitude on lanes 2, 3 */
+-#define TXC_ALRGS_ATXAMP1	0xc042
+-/* Bit position of value for lane 0 (or 2) */
+-#define TXC_ATXAMP_LANE02_LBN	3
+-/* Bit position of value for lane 1 (or 3) */
+-#define TXC_ATXAMP_LANE13_LBN	11
+-
+-#define TXC_ATXAMP_1280_mV	0
+-#define TXC_ATXAMP_1200_mV	8
+-#define TXC_ATXAMP_1120_mV	12
+-#define TXC_ATXAMP_1060_mV	14
+-#define TXC_ATXAMP_0820_mV	25
+-#define TXC_ATXAMP_0720_mV	26
+-#define TXC_ATXAMP_0580_mV	27
+-#define TXC_ATXAMP_0440_mV	28
+-
+-#define TXC_ATXAMP_0820_BOTH					\
+-	((TXC_ATXAMP_0820_mV << TXC_ATXAMP_LANE02_LBN)		\
+-	 | (TXC_ATXAMP_0820_mV << TXC_ATXAMP_LANE13_LBN))
+-
+-#define TXC_ATXAMP_DEFAULT	0x6060 /* From databook */
+-
+-/* Preemphasis on lanes 0, 1 */
+-#define TXC_ALRGS_ATXPRE0	0xc043
+-/* Preemphasis on lanes 2, 3 */
+-#define TXC_ALRGS_ATXPRE1	0xc044
+-
+-#define TXC_ATXPRE_NONE 0
+-#define TXC_ATXPRE_DEFAULT	0x1010 /* From databook */
+-
+-#define TXC_ALRGS_ARXCTL	0xc045
+-/* Lane power-down */
+-#define TXC_ARXCTL_RXPD3_LBN	15
+-#define TXC_ARXCTL_RXPD2_LBN	14
+-#define TXC_ARXCTL_RXPD1_LBN	13
+-#define TXC_ARXCTL_RXPD0_LBN	12
+-
+-/* Main control */
+-#define TXC_MRGS_CTL		0xc340
+-/* Bits in main control */
+-#define TXC_MCTL_RESET_LBN	15	/* Self clear */
+-#define TXC_MCTL_TXLED_LBN	14	/* 1 to show align status */
+-#define TXC_MCTL_RXLED_LBN	13	/* 1 to show align status */
+-
+-/* GPIO output */
+-#define TXC_GPIO_OUTPUT		0xc346
+-#define TXC_GPIO_DIR		0xc348
+-
+-/* Vendor-specific BIST registers */
+-#define TXC_BIST_CTL		0xc280
+-#define TXC_BIST_TXFRMCNT	0xc281
+-#define TXC_BIST_RX0FRMCNT	0xc282
+-#define TXC_BIST_RX1FRMCNT	0xc283
+-#define TXC_BIST_RX2FRMCNT	0xc284
+-#define TXC_BIST_RX3FRMCNT	0xc285
+-#define TXC_BIST_RX0ERRCNT	0xc286
+-#define TXC_BIST_RX1ERRCNT	0xc287
+-#define TXC_BIST_RX2ERRCNT	0xc288
+-#define TXC_BIST_RX3ERRCNT	0xc289
+-
+-/* BIST type (controls bit patter in test) */
+-#define TXC_BIST_CTRL_TYPE_LBN	10
+-#define TXC_BIST_CTRL_TYPE_TSD	0	/* TranSwitch Deterministic */
+-#define TXC_BIST_CTRL_TYPE_CRP	1	/* CRPAT standard */
+-#define TXC_BIST_CTRL_TYPE_CJP	2	/* CJPAT standard */
+-#define TXC_BIST_CTRL_TYPE_TSR	3	/* TranSwitch pseudo-random */
+-/* Set this to 1 for 10 bit and 0 for 8 bit */
+-#define TXC_BIST_CTRL_B10EN_LBN	12
+-/* Enable BIST (write 0 to disable) */
+-#define TXC_BIST_CTRL_ENAB_LBN	13
+-/* Stop BIST (self-clears when stop complete) */
+-#define TXC_BIST_CTRL_STOP_LBN	14
+-/* Start BIST (cleared by writing 1 to STOP) */
+-#define TXC_BIST_CTRL_STRT_LBN	15
+-
+-/* Mt. Diablo test configuration */
+-#define TXC_MTDIABLO_CTRL	0xc34f
+-#define TXC_MTDIABLO_CTRL_PMA_LOOP_LBN	10
+-
+-struct txc43128_data {
+-	unsigned long bug10934_timer;
+-	enum efx_phy_mode phy_mode;
+-	enum efx_loopback_mode loopback_mode;
+-};
+-
+-/* The PHY sometimes needs a reset to bring the link back up.  So long as
+- * it reports link down, we reset it every 5 seconds.
+- */
+-#define BUG10934_RESET_INTERVAL (5 * HZ)
+-
+-/* Perform a reset that doesn't clear configuration changes */
+-static void txc_reset_logic(struct efx_nic *efx);
+-
+-/* Set the output value of a gpio */
+-void falcon_txc_set_gpio_val(struct efx_nic *efx, int pin, int on)
+-{
+-	efx_mdio_set_flag(efx, MDIO_MMD_PHYXS, TXC_GPIO_OUTPUT, 1 << pin, on);
+-}
+-
+-/* Set up the GPIO direction register */
+-void falcon_txc_set_gpio_dir(struct efx_nic *efx, int pin, int dir)
+-{
+-	efx_mdio_set_flag(efx, MDIO_MMD_PHYXS, TXC_GPIO_DIR, 1 << pin, dir);
+-}
+-
+-/* Reset the PMA/PMD MMD. The documentation is explicit that this does a
+- * global reset (it's less clear what reset of other MMDs does).*/
+-static int txc_reset_phy(struct efx_nic *efx)
+-{
+-	int rc = efx_mdio_reset_mmd(efx, MDIO_MMD_PMAPMD,
+-				    TXC_MAX_RESET_TIME / TXC_RESET_WAIT,
+-				    TXC_RESET_WAIT);
+-	if (rc < 0)
+-		goto fail;
+-
+-	/* Check that all the MMDs we expect are present and responding. */
+-	rc = efx_mdio_check_mmds(efx, TXC_REQUIRED_DEVS);
+-	if (rc < 0)
+-		goto fail;
+-
+-	return 0;
+-
+-fail:
+-	netif_err(efx, hw, efx->net_dev, TXCNAME ": reset timed out!\n");
+-	return rc;
+-}
+-
+-/* Run a single BIST on one MMD */
+-static int txc_bist_one(struct efx_nic *efx, int mmd, int test)
+-{
+-	int ctrl, bctl;
+-	int lane;
+-	int rc = 0;
+-
+-	/* Set PMA to test into loopback using Mt Diablo reg as per app note */
+-	ctrl = efx_mdio_read(efx, MDIO_MMD_PCS, TXC_MTDIABLO_CTRL);
+-	ctrl |= (1 << TXC_MTDIABLO_CTRL_PMA_LOOP_LBN);
+-	efx_mdio_write(efx, MDIO_MMD_PCS, TXC_MTDIABLO_CTRL, ctrl);
+-
+-	/* The BIST app. note lists these  as 3 distinct steps. */
+-	/* Set the BIST type */
+-	bctl = (test << TXC_BIST_CTRL_TYPE_LBN);
+-	efx_mdio_write(efx, mmd, TXC_BIST_CTL, bctl);
+-
+-	/* Set the BSTEN bit in the BIST Control register to enable */
+-	bctl |= (1 << TXC_BIST_CTRL_ENAB_LBN);
+-	efx_mdio_write(efx, mmd, TXC_BIST_CTL, bctl);
+-
+-	/* Set the BSTRT bit in the BIST Control register */
+-	efx_mdio_write(efx, mmd, TXC_BIST_CTL,
+-		       bctl | (1 << TXC_BIST_CTRL_STRT_LBN));
+-
+-	/* Wait. */
+-	udelay(TXC_BIST_DURATION);
+-
+-	/* Set the BSTOP bit in the BIST Control register */
+-	bctl |= (1 << TXC_BIST_CTRL_STOP_LBN);
+-	efx_mdio_write(efx, mmd, TXC_BIST_CTL, bctl);
+-
+-	/* The STOP bit should go off when things have stopped */
+-	while (bctl & (1 << TXC_BIST_CTRL_STOP_LBN))
+-		bctl = efx_mdio_read(efx, mmd, TXC_BIST_CTL);
+-
+-	/* Check all the error counts are 0 and all the frame counts are
+-	   non-zero */
+-	for (lane = 0; lane < 4; lane++) {
+-		int count = efx_mdio_read(efx, mmd, TXC_BIST_RX0ERRCNT + lane);
+-		if (count != 0) {
+-			netif_err(efx, hw, efx->net_dev, TXCNAME": BIST error. "
+-				  "Lane %d had %d errs\n", lane, count);
+-			rc = -EIO;
+-		}
+-		count = efx_mdio_read(efx, mmd, TXC_BIST_RX0FRMCNT + lane);
+-		if (count == 0) {
+-			netif_err(efx, hw, efx->net_dev, TXCNAME": BIST error. "
+-				  "Lane %d got 0 frames\n", lane);
+-			rc = -EIO;
+-		}
+-	}
+-
+-	if (rc == 0)
+-		netif_info(efx, hw, efx->net_dev, TXCNAME": BIST pass\n");
+-
+-	/* Disable BIST */
+-	efx_mdio_write(efx, mmd, TXC_BIST_CTL, 0);
+-
+-	/* Turn off loopback */
+-	ctrl &= ~(1 << TXC_MTDIABLO_CTRL_PMA_LOOP_LBN);
+-	efx_mdio_write(efx, MDIO_MMD_PCS, TXC_MTDIABLO_CTRL, ctrl);
+-
+-	return rc;
+-}
+-
+-static int txc_bist(struct efx_nic *efx)
+-{
+-	return txc_bist_one(efx, MDIO_MMD_PCS, TXC_BIST_CTRL_TYPE_TSD);
+-}
+-
+-/* Push the non-configurable defaults into the PHY. This must be
+- * done after every full reset */
+-static void txc_apply_defaults(struct efx_nic *efx)
+-{
+-	int mctrl;
+-
+-	/* Turn amplitude down and preemphasis off on the host side
+-	 * (PHY<->MAC) as this is believed less likely to upset Falcon
+-	 * and no adverse effects have been noted. It probably also
+-	 * saves a picowatt or two */
+-
+-	/* Turn off preemphasis */
+-	efx_mdio_write(efx, MDIO_MMD_PHYXS, TXC_ALRGS_ATXPRE0, TXC_ATXPRE_NONE);
+-	efx_mdio_write(efx, MDIO_MMD_PHYXS, TXC_ALRGS_ATXPRE1, TXC_ATXPRE_NONE);
+-
+-	/* Turn down the amplitude */
+-	efx_mdio_write(efx, MDIO_MMD_PHYXS,
+-		       TXC_ALRGS_ATXAMP0, TXC_ATXAMP_0820_BOTH);
+-	efx_mdio_write(efx, MDIO_MMD_PHYXS,
+-		       TXC_ALRGS_ATXAMP1, TXC_ATXAMP_0820_BOTH);
+-
+-	/* Set the line side amplitude and preemphasis to the databook
+-	 * defaults as an erratum causes them to be 0 on at least some
+-	 * PHY rev.s */
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD,
+-		       TXC_ALRGS_ATXPRE0, TXC_ATXPRE_DEFAULT);
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD,
+-		       TXC_ALRGS_ATXPRE1, TXC_ATXPRE_DEFAULT);
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD,
+-		       TXC_ALRGS_ATXAMP0, TXC_ATXAMP_DEFAULT);
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD,
+-		       TXC_ALRGS_ATXAMP1, TXC_ATXAMP_DEFAULT);
+-
+-	/* Set up the LEDs  */
+-	mctrl = efx_mdio_read(efx, MDIO_MMD_PHYXS, TXC_MRGS_CTL);
+-
+-	/* Set the Green and Red LEDs to their default modes */
+-	mctrl &= ~((1 << TXC_MCTL_TXLED_LBN) | (1 << TXC_MCTL_RXLED_LBN));
+-	efx_mdio_write(efx, MDIO_MMD_PHYXS, TXC_MRGS_CTL, mctrl);
+-
+-	/* Databook recommends doing this after configuration changes */
+-	txc_reset_logic(efx);
+-
+-	falcon_board(efx)->type->init_phy(efx);
+-}
+-
+-static int txc43128_phy_probe(struct efx_nic *efx)
+-{
+-	struct txc43128_data *phy_data;
+-
+-	/* Allocate phy private storage */
+-	phy_data = kzalloc(sizeof(*phy_data), GFP_KERNEL);
+-	if (!phy_data)
+-		return -ENOMEM;
+-	efx->phy_data = phy_data;
+-	phy_data->phy_mode = efx->phy_mode;
+-
+-	efx->mdio.mmds = TXC_REQUIRED_DEVS;
+-	efx->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
+-
+-	efx->loopback_modes = TXC_LOOPBACKS | FALCON_XMAC_LOOPBACKS;
+-
+-	return 0;
+-}
+-
+-/* Initialisation entry point for this PHY driver */
+-static int txc43128_phy_init(struct efx_nic *efx)
+-{
+-	int rc;
+-
+-	rc = txc_reset_phy(efx);
+-	if (rc < 0)
+-		return rc;
+-
+-	rc = txc_bist(efx);
+-	if (rc < 0)
+-		return rc;
+-
+-	txc_apply_defaults(efx);
+-
+-	return 0;
+-}
+-
+-/* Set the lane power down state in the global registers */
+-static void txc_glrgs_lane_power(struct efx_nic *efx, int mmd)
+-{
+-	int pd = (1 << TXC_GLCMD_L01PD_LBN) | (1 << TXC_GLCMD_L23PD_LBN);
+-	int ctl = efx_mdio_read(efx, mmd, TXC_GLRGS_GLCMD);
+-
+-	if (!(efx->phy_mode & PHY_MODE_LOW_POWER))
+-		ctl &= ~pd;
+-	else
+-		ctl |= pd;
+-
+-	efx_mdio_write(efx, mmd, TXC_GLRGS_GLCMD, ctl);
+-}
+-
+-/* Set the lane power down state in the analog control registers */
+-static void txc_analog_lane_power(struct efx_nic *efx, int mmd)
+-{
+-	int txpd = (1 << TXC_ATXCTL_TXPD3_LBN) | (1 << TXC_ATXCTL_TXPD2_LBN)
+-		| (1 << TXC_ATXCTL_TXPD1_LBN) | (1 << TXC_ATXCTL_TXPD0_LBN);
+-	int rxpd = (1 << TXC_ARXCTL_RXPD3_LBN) | (1 << TXC_ARXCTL_RXPD2_LBN)
+-		| (1 << TXC_ARXCTL_RXPD1_LBN) | (1 << TXC_ARXCTL_RXPD0_LBN);
+-	int txctl = efx_mdio_read(efx, mmd, TXC_ALRGS_ATXCTL);
+-	int rxctl = efx_mdio_read(efx, mmd, TXC_ALRGS_ARXCTL);
+-
+-	if (!(efx->phy_mode & PHY_MODE_LOW_POWER)) {
+-		txctl &= ~txpd;
+-		rxctl &= ~rxpd;
+-	} else {
+-		txctl |= txpd;
+-		rxctl |= rxpd;
+-	}
+-
+-	efx_mdio_write(efx, mmd, TXC_ALRGS_ATXCTL, txctl);
+-	efx_mdio_write(efx, mmd, TXC_ALRGS_ARXCTL, rxctl);
+-}
+-
+-static void txc_set_power(struct efx_nic *efx)
+-{
+-	/* According to the data book, all the MMDs can do low power */
+-	efx_mdio_set_mmds_lpower(efx,
+-				 !!(efx->phy_mode & PHY_MODE_LOW_POWER),
+-				 TXC_REQUIRED_DEVS);
+-
+-	/* Global register bank is in PCS, PHY XS. These control the host
+-	 * side and line side settings respectively. */
+-	txc_glrgs_lane_power(efx, MDIO_MMD_PCS);
+-	txc_glrgs_lane_power(efx, MDIO_MMD_PHYXS);
+-
+-	/* Analog register bank in PMA/PMD, PHY XS */
+-	txc_analog_lane_power(efx, MDIO_MMD_PMAPMD);
+-	txc_analog_lane_power(efx, MDIO_MMD_PHYXS);
+-}
+-
+-static void txc_reset_logic_mmd(struct efx_nic *efx, int mmd)
+-{
+-	int val = efx_mdio_read(efx, mmd, TXC_GLRGS_GLCMD);
+-	int tries = 50;
+-
+-	val |= (1 << TXC_GLCMD_LMTSWRST_LBN);
+-	efx_mdio_write(efx, mmd, TXC_GLRGS_GLCMD, val);
+-	while (--tries) {
+-		val = efx_mdio_read(efx, mmd, TXC_GLRGS_GLCMD);
+-		if (!(val & (1 << TXC_GLCMD_LMTSWRST_LBN)))
+-			break;
+-		udelay(1);
+-	}
+-	if (!tries)
+-		netif_info(efx, hw, efx->net_dev,
+-			   TXCNAME " Logic reset timed out!\n");
+-}
+-
+-/* Perform a logic reset. This preserves the configuration registers
+- * and is needed for some configuration changes to take effect */
+-static void txc_reset_logic(struct efx_nic *efx)
+-{
+-	/* The data sheet claims we can do the logic reset on either the
+-	 * PCS or the PHYXS and the result is a reset of both host- and
+-	 * line-side logic. */
+-	txc_reset_logic_mmd(efx, MDIO_MMD_PCS);
+-}
+-
+-static bool txc43128_phy_read_link(struct efx_nic *efx)
+-{
+-	return efx_mdio_links_ok(efx, TXC_REQUIRED_DEVS);
+-}
+-
+-static int txc43128_phy_reconfigure(struct efx_nic *efx)
+-{
+-	struct txc43128_data *phy_data = efx->phy_data;
+-	enum efx_phy_mode mode_change = efx->phy_mode ^ phy_data->phy_mode;
+-	bool loop_change = LOOPBACK_CHANGED(phy_data, efx, TXC_LOOPBACKS);
+-
+-	if (efx->phy_mode & mode_change & PHY_MODE_TX_DISABLED) {
+-		txc_reset_phy(efx);
+-		txc_apply_defaults(efx);
+-		falcon_reset_xaui(efx);
+-		mode_change &= ~PHY_MODE_TX_DISABLED;
+-	}
+-
+-	efx_mdio_transmit_disable(efx);
+-	efx_mdio_phy_reconfigure(efx);
+-	if (mode_change & PHY_MODE_LOW_POWER)
+-		txc_set_power(efx);
+-
+-	/* The data sheet claims this is required after every reconfiguration
+-	 * (note at end of 7.1), but we mustn't do it when nothing changes as
+-	 * it glitches the link, and reconfigure gets called on link change,
+-	 * so we get an IRQ storm on link up. */
+-	if (loop_change || mode_change)
+-		txc_reset_logic(efx);
+-
+-	phy_data->phy_mode = efx->phy_mode;
+-	phy_data->loopback_mode = efx->loopback_mode;
+-
+-	return 0;
+-}
+-
+-static void txc43128_phy_fini(struct efx_nic *efx)
+-{
+-	/* Disable link events */
+-	efx_mdio_write(efx, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_CTRL, 0);
+-}
+-
+-static void txc43128_phy_remove(struct efx_nic *efx)
+-{
+-	kfree(efx->phy_data);
+-	efx->phy_data = NULL;
+-}
+-
+-/* Periodic callback: this exists mainly to poll link status as we
+- * don't use LASI interrupts */
+-static bool txc43128_phy_poll(struct efx_nic *efx)
+-{
+-	struct txc43128_data *data = efx->phy_data;
+-	bool was_up = efx->link_state.up;
+-
+-	efx->link_state.up = txc43128_phy_read_link(efx);
+-	efx->link_state.speed = 10000;
+-	efx->link_state.fd = true;
+-	efx->link_state.fc = efx->wanted_fc;
+-
+-	if (efx->link_state.up || (efx->loopback_mode != LOOPBACK_NONE)) {
+-		data->bug10934_timer = jiffies;
+-	} else {
+-		if (time_after_eq(jiffies, (data->bug10934_timer +
+-					    BUG10934_RESET_INTERVAL))) {
+-			data->bug10934_timer = jiffies;
+-			txc_reset_logic(efx);
+-		}
+-	}
+-
+-	return efx->link_state.up != was_up;
+-}
+-
+-static const char *const txc43128_test_names[] = {
+-	"bist"
+-};
+-
+-static const char *txc43128_test_name(struct efx_nic *efx, unsigned int index)
+-{
+-	if (index < ARRAY_SIZE(txc43128_test_names))
+-		return txc43128_test_names[index];
+-	return NULL;
+-}
+-
+-static int txc43128_run_tests(struct efx_nic *efx, int *results, unsigned flags)
+-{
+-	int rc;
+-
+-	if (!(flags & ETH_TEST_FL_OFFLINE))
+-		return 0;
+-
+-	rc = txc_reset_phy(efx);
+-	if (rc < 0)
+-		return rc;
+-
+-	rc = txc_bist(efx);
+-	txc_apply_defaults(efx);
+-	results[0] = rc ? -1 : 1;
+-	return rc;
+-}
+-
+-static void txc43128_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+-{
+-	mdio45_ethtool_gset(&efx->mdio, ecmd);
+-}
+-
+-const struct efx_phy_operations falcon_txc_phy_ops = {
+-	.probe		= txc43128_phy_probe,
+-	.init		= txc43128_phy_init,
+-	.reconfigure	= txc43128_phy_reconfigure,
+-	.poll		= txc43128_phy_poll,
+-	.fini		= txc43128_phy_fini,
+-	.remove		= txc43128_phy_remove,
+-	.get_settings	= txc43128_get_settings,
+-	.set_settings	= efx_mdio_set_settings,
+-	.test_alive	= efx_mdio_test_alive,
+-	.run_tests	= txc43128_run_tests,
+-	.test_name	= txc43128_test_name,
+-};
+diff --git a/drivers/net/ethernet/sfc/workarounds.h b/drivers/net/ethernet/sfc/workarounds.h
+index 351cd14..103f827 100644
+--- a/drivers/net/ethernet/sfc/workarounds.h
++++ b/drivers/net/ethernet/sfc/workarounds.h
+@@ -15,35 +15,14 @@
+  * Bug numbers are from Solarflare's Bugzilla.
+  */
+ 
+-#define EFX_WORKAROUND_FALCON_A(efx) (efx_nic_rev(efx) <= EFX_REV_FALCON_A1)
+-#define EFX_WORKAROUND_FALCON_AB(efx) (efx_nic_rev(efx) <= EFX_REV_FALCON_B0)
+ #define EFX_WORKAROUND_SIENA(efx) (efx_nic_rev(efx) == EFX_REV_SIENA_A0)
+ #define EFX_WORKAROUND_10G(efx) 1
+ 
+ /* Bit-bashed I2C reads cause performance drop */
+ #define EFX_WORKAROUND_7884 EFX_WORKAROUND_10G
+-/* Truncated IPv4 packets can confuse the TX packet parser */
+-#define EFX_WORKAROUND_15592 EFX_WORKAROUND_FALCON_AB
+ /* Legacy interrupt storm when interrupt fifo fills */
+ #define EFX_WORKAROUND_17213 EFX_WORKAROUND_SIENA
+ 
+-/* Spurious parity errors in TSORT buffers */
+-#define EFX_WORKAROUND_5129 EFX_WORKAROUND_FALCON_A
+-/* Unaligned read request >512 bytes after aligning may break TSORT */
+-#define EFX_WORKAROUND_5391 EFX_WORKAROUND_FALCON_A
+-/* iSCSI parsing errors */
+-#define EFX_WORKAROUND_5583 EFX_WORKAROUND_FALCON_A
+-/* RX events go missing */
+-#define EFX_WORKAROUND_5676 EFX_WORKAROUND_FALCON_A
+-/* RX_RESET on A1 */
+-#define EFX_WORKAROUND_6555 EFX_WORKAROUND_FALCON_A
+-/* Increase filter depth to avoid RX_RESET */
+-#define EFX_WORKAROUND_7244 EFX_WORKAROUND_FALCON_A
+-/* Flushes may never complete */
+-#define EFX_WORKAROUND_7803 EFX_WORKAROUND_FALCON_AB
+-/* Leak overlength packets rather than free */
+-#define EFX_WORKAROUND_8071 EFX_WORKAROUND_FALCON_A
+-
+ /* Lockup when writing event block registers at gen2/gen3 */
+ #define EFX_EF10_WORKAROUND_35388(efx)					\
+ 	(((struct efx_ef10_nic_data *)efx->nic_data)->workaround_35388)
