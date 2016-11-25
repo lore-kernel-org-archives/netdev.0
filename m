@@ -1,67 +1,139 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
-Date: Fri, 25 Nov 2016 17:49:45 +0100
-Message-ID: <d7f3740b-e343-68fc-4996-f712dd8c07f3@de.ibm.com>
-References: <1479983114-17190-1-git-send-email-mark.rutland@arm.com>
-	<20161124222357-mutt-send-email-mst@kernel.org>
-	<20161125112203.GA26611@leverpostej>
-	<32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com>
-	<20161125122356.GB26611@leverpostej>
-	<20161125124044.GN3092@twins.programming.kicks-ass.net>
-	<20161125124404.GI3174@twins.programming.kicks-ass.net>
-	<20161125145512.GA4014@Boquns-MacBook-Pro.local>
-	<CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
-	<20161125161004.GA30181@leverpostej>
-	<20161125161709.GQ3092@twins.programming.kicks-ass.net>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: [PATCH] net: stmmac: enable tx queue 0 for gmac4 IPs synthesized
+ with multiple TX queues
+Date: Fri, 25 Nov 2016 17:49:44 +0100
+Message-ID: <985541ce-d455-d47a-d88a-69f0af12ff6e@axis.com>
+References: <1479998194-7113-1-git-send-email-niklass@axis.com>
+ <0516ebe9-6b66-5991-1f96-1cc10178977a@st.com>
+ <95ed6d38-cc5e-402f-6772-710b6ad0c930@axis.com>
+ <c97ee9f8-c656-20a9-c41a-e66041540013@axis.com>
+ <42278c19-52f9-8faa-1be7-2a43265f697f@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Davidlohr Bueso <dave@stgolabs.net>, KVM list <kvm@vger.kernel.org>,
-	dbueso@suse.de, netdev <netdev@vger.kernel.org>,
-	Boqun Feng <boqun.feng@gmail.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Dmitry Vyukov <dvyukov@google.com>
-To: Peter Zijlstra <peterz@infradead.org>, Mark Rutland <mark.rutland@arm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161125161709.GQ3092@twins.programming.kicks-ass.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Alexandre Torgue <alexandre.torgue@st.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bastet.se.axis.com ([195.60.68.11]:33176 "EHLO
+        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932811AbcKYQtt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 11:49:49 -0500
+In-Reply-To: <42278c19-52f9-8faa-1be7-2a43265f697f@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/25/2016 05:17 PM, Peter Zijlstra wrote:
-> On Fri, Nov 25, 2016 at 04:10:04PM +0000, Mark Rutland wrote:
->> On Fri, Nov 25, 2016 at 04:21:39PM +0100, Dmitry Vyukov wrote:
-> 
->>> What are use cases for such primitive that won't be OK with "read once
->>> _and_ atomically"?
+On 11/25/2016 04:40 PM, Alexandre Torgue wrote:
+> Hi Niklas
+>
+> On 11/25/2016 01:14 PM, Niklas Cassel wrote:
+>> On 11/25/2016 01:10 PM, Niklas Cassel wrote:
+>>> On 11/24/2016 07:11 PM, Alexandre Torgue wrote:
+>>>> Hi Niklas,
+>>> Hello Alexandre
+>>>
+>>>> On 11/24/2016 03:36 PM, Niklas Cassel wrote:
+>>>>> From: Niklas Cassel <niklas.cassel@axis.com>
+>>>>>
+>>>>> The dwmac4 IP can synthesized with 1-8 number of tx queues.
+>>>>> On an IP synthesized with DWC_EQOS_NUM_TXQ > 1, all txqueues are disabled
+>>>>> by default. For these IPs, the bitfield TXQEN is R/W.
+>>>>>
+>>>>> Always enable tx queue 0. The write will have no effect on IPs synthesized
+>>>>> with DWC_EQOS_NUM_TXQ == 1.
+>>>>>
+>>>>> The driver does still not utilize more than one tx queue in the IP.
+>>>>>
+>>>>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+>>>>> ---
+>>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h     |  3 +++
+>>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 12 +++++++++++-
+>>>>>  2 files changed, 14 insertions(+), 1 deletion(-)
+>>>>>
+>>>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>>>>> index 6f4f5ce25114..3e8d4fefa5e0 100644
+>>>>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>>>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>>>>> @@ -155,8 +155,11 @@ enum power_event {
+>>>>>  #define MTL_CHAN_RX_DEBUG(x)        (MTL_CHANX_BASE_ADDR(x) + 0x38)
+>>>>>
+>>>>>  #define MTL_OP_MODE_RSF            BIT(5)
+>>>>> +#define MTL_OP_MODE_TXQEN        BIT(3)
+>>>>>  #define MTL_OP_MODE_TSF            BIT(1)
+>>>>>
+>>>>> +#define MTL_OP_MODE_TQS_MASK        GENMASK(24, 16)
+>>>>> +
+>>>>>  #define MTL_OP_MODE_TTC_MASK        0x70
+>>>>>  #define MTL_OP_MODE_TTC_SHIFT        4
+>>>>>
+>>>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+>>>>> index 116151cd6a95..577316de6ba8 100644
+>>>>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+>>>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+>>>>> @@ -213,7 +213,17 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
+>>>>>          else
+>>>>>              mtl_tx_op |= MTL_OP_MODE_TTC_512;
+>>>>>      }
+>>>>> -
+>>>>> +    /* For an IP with DWC_EQOS_NUM_TXQ == 1, the fields TXQEN and TQS are RO
+>>>>> +     * with reset values: TXQEN on, TQS == DWC_EQOS_TXFIFO_SIZE.
+>>>>> +     * For an IP with DWC_EQOS_NUM_TXQ > 1, the fields TXQEN and TQS are R/W
+>>>>> +     * with reset values: TXQEN off, TQS 256 bytes.
+>>>>> +     *
+>>>>> +     * Write the bits in both cases, since it will have no effect when RO.
+>>>>> +     * For DWC_EQOS_NUM_TXQ > 1, the top bits in MTL_OP_MODE_TQS_MASK might
+>>>>> +     * be RO, however, writing the whole TQS field will result in a value
+>>>>> +     * equal to DWC_EQOS_TXFIFO_SIZE, just like for DWC_EQOS_NUM_TXQ == 1.
+>>>>> +     */
+>>>>> +    mtl_tx_op |= MTL_OP_MODE_TXQEN | MTL_OP_MODE_TQS_MASK;
+>>>> Your patch sounds good. Just one question:
+>>>>
+>>>> In synopsys databook I use, I see that MTL_OP_MODE_TXQEN for channel 2 can take several values "disabled / enabled / Enabled in AV mode":
+>>>>
+>>>> Transmit Queue Enable
+>>>> This field is used to enable/disable the transmit queue 1. 00 R/W
+>>>> ■ 2'b00 - Not enabled
+>>>> ■ 2'b01 - Enable in AV mode (Reserved when Enable Audio Video
+>>>> Bridging is not selected while configuring the core)
+>>>> ■ 2'b10 - Enabled
+>>>> ■ 2'b11 - Reserved
+>>>>
+>>>> Do you plan to manage av mode in a future patch ?
+>>> We are not planning on using the AV mode.
+>>> We will probably not use TXQ1 at all.
+>>>
+>>> I noticed that the MAC_HW_Feature2 Register actually has a TXQCNT field.
+>>> It is currently saved in priv->dma_cap.number_tx_channel.
+>>> If you prefer, I could do a patch V2 where we only set the bits if
+>>> priv->dma_cap.number_tx_channel > 1
 >>
->> I have none to hand.
-> 
-> Whatever triggers the __builtin_memcpy() paths, and even the size==8
-> paths on 32bit.
-> 
-> You could put a WARN in there to easily find them.
+>> Oh, sorry, that was number of tx _channels_,
+>> not number of tx _queues_.
+>>
+>> However, we could add a number_tx_queue to struct dma_features,
+>> if you would prefer that.
+>
+> I agree your patch is good. It will work even if we use several tx channels. We will see in the future for AV mode.
 
-There were several cases that I found during writing the *ONCE stuff.
-For example there are some 32bit ppc variants with 64bit PTEs. Some for
-others (I think sparc). And the mm/ code is perfectly fine with these
-PTE accesses being done NOT atomic.
+Excellent :)
 
+Can I convert that into an Acked-by?
 
-> 
-> The advantage of introducing the SINGLE_{LOAD,STORE}() helpers is that
-> they compiletime validate this the size is 'right' and can runtime check
-> alignment constraints.
-> 
-> IE, they are strictly stronger than {READ,WRITE}_ONCE().
-> 
+>
+> regards
+> alex
+>
+>>
+>>>
+>>> However, I don't think the current patch is too bad either, since the bits
+>>> are RO when number_tx_channel == 1.
+>>>
+>>>
+>>>> Regards
+>>>> Alex
+>>>>
+>>>>>      writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
+>>>>>
+>>>>>      mtl_rx_op = readl(ioaddr + MTL_CHAN_RX_OP_MODE(channel));
+>>>>>
+>>
