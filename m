@@ -1,116 +1,64 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 0/5] net: add protocol level recvmmsg support
-Date: Fri, 25 Nov 2016 18:37:11 +0100
-Message-ID: <20161125183711.675fa4a7@redhat.com>
-References: <cover.1480086321.git.pabeni@redhat.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
+Date: Fri, 25 Nov 2016 18:42:23 +0100
+Message-ID: <20161125174223.GS3092@twins.programming.kicks-ass.net>
+References: <32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com>
+	<20161125122356.GB26611@leverpostej>
+	<20161125124044.GN3092@twins.programming.kicks-ass.net>
+	<20161125124404.GI3174@twins.programming.kicks-ass.net>
+	<20161125145512.GA4014@Boquns-MacBook-Pro.local>
+	<CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
+	<20161125161004.GA30181@leverpostej>
+	<20161125161709.GQ3092@twins.programming.kicks-ass.net>
+	<d7f3740b-e343-68fc-4996-f712dd8c07f3@de.ibm.com>
+	<20161125172624.GA30811@leverpostej>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Sabrina Dubroca <sd@queasysnail.net>, brouer@redhat.com
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60890 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932411AbcKYRiD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Nov 2016 12:38:03 -0500
-In-Reply-To: <cover.1480086321.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Davidlohr Bueso <dave@stgolabs.net>, KVM list <kvm@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev <netdev@vger.kernel.org>,
+	Boqun Feng <boqun.feng@gmail.com>, dbueso@suse.de,
+	LKML <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Dmitry Vyukov <dvyukov@google.com>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20161125172624.GA30811@leverpostej>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Nov 2016 16:39:51 +0100
-Paolo Abeni <pabeni@redhat.com> wrote:
+On Fri, Nov 25, 2016 at 05:28:01PM +0000, Mark Rutland wrote:
+> On Fri, Nov 25, 2016 at 05:49:45PM +0100, Christian Borntraeger wrote:
+> > On 11/25/2016 05:17 PM, Peter Zijlstra wrote:
 
-> The goal of recvmmsg() is to amortize the syscall overhead on a possible
-> long messages batch, but for most networking protocols, e.g. udp the
-> syscall overhead is negligible compared to the protocol specific operations
-> like dequeuing.
-
-Sounds good. I'm excited to see work in this area! :-)
- 
-[...]
-> The udp version of recvmmsg() tries to bulk-dequeue skbs from the receive queue,
-> each burst acquires the lock once to extract as many skbs from the receive
-> queue as possible, up to the number needed to reach the specified maximum.
-> rmem_alloc and fwd memory are touched once per burst.
-
-Sounds good.
- 
-> When the protocol-level recvmmsg() is not available or it does not support the
-> specified flags, the code falls-back to the current generic implementation.
+> > There were several cases that I found during writing the *ONCE stuff.
+> > For example there are some 32bit ppc variants with 64bit PTEs. Some for
+> > others (I think sparc).
 > 
-> This series introduces some behavior changes for the recvmmsg() syscall (only
-> for udp):
-> - the timeout argument now works as expected
-> - recvmmsg() does not stop anymore when getting the first error, instead
->   it keeps processing the current burst and then handle the error code as
->   in the generic implementation.
+> We have similar on 32-bit ARM w/ LPAE. LPAE implies that a naturally
+> aligned 64-bit access is single-copy atomic, which is what makes that
+> ok.
 > 
-> The measured performance delta is as follow:
+> > And the mm/ code is perfectly fine with these PTE accesses being done
+> > NOT atomic.
 > 
-> 		before		after
-> 		(Kpps)		(Kpps)
+> That strikes me as surprising. Is there some mutual exclusion that
+> prevents writes from occuring wherever a READ_ONCE() happens to a PTE?
 > 
-> udp flood[1]	570		1800(+215%)
-> max tput[2]	1850		3500(+89%)
-> single queue[3]	1850		1630(-11%)
-> 
-> [1] line rate flood using multiple 64 bytes packets and multiple flows
+> Otherwise, how is tearing not a problem? Does it have some pattern like
+> the lockref cmpxchg?
 
-Is [1] sending multiple flow in the a single UDP-sink?
+On x86 PAE we play silly games, see arch/x86/mm/gup.c:gup_get_ptr().
 
-
-> [2] like [1], but using the minimum number of flows to saturate the user space
->  sink, that is 1 flow for the old kernel and 3 for the patched one.
->  the tput increases since the contention on the rx lock is low.
-> [3] like [1] but using a single flow with both old and new kernel. All the
->  packets land on the same rx queue and there is a single ksoftirqd instance
->  running
-
-It is important to know, if ksoftirqd and the UDP-sink runs on the same CPU?
-
-
-> The regression in the single queue scenario is actually due to the improved
-> performance of the recvmmsg() syscall: the user space process is now
-> significantly faster than the ksoftirqd process so that the latter needs often
-> to wake up the user space process.
-
-When measuring these things, make sure that we/you measure both the packets
-actually received in the userspace UDP-sink, and also measure packets
-RX processed by ksoftirq (and I often also look at what HW got delivered).
-Some times, when userspace is too slow, the kernel can/will drop packets.
-
-It is actually quite easily verified with cmdline:
-
- nstat > /dev/null && sleep 1  && nstat
-
-For HW measurements I use the tool ethtool_stats.pl:
- https://github.com/netoptimizer/network-testing/blob/master/bin/ethtool_stats.pl
-
-
-> Since ksoftirqd is the bottle-neck is such scenario, overall this causes a
-> tput reduction. In a real use case, where the udp sink is performing some
-> actual processing of the received data, such regression is unlikely to really
-> have an effect.
-
-My experience is that the performance of RX UDP is affected by:
- * if socket is connected or not (yes, RX side also)
- * state of /proc/sys/net/ipv4/ip_early_demux
-
-You don't need to run with all the combinations, but it would be nice
-if you specify what config your have based your measurements on (and
-keep them stable in your runs).
-
-I've actually implemented the "--connect" option to my udp_sink
-program[1] today, but I've not pushed it yet, if you are interested.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-[1] 
+Those two loads really should be READ_ONCE()/LOAD_SINGLE().
