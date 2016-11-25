@@ -1,50 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC v1] ethtool: implement helper to get flow_type value
-Date: Fri, 25 Nov 2016 16:06:34 -0500 (EST)
-Message-ID: <20161125.160634.944615331208897862.davem@davemloft.net>
-References: <20161122234453.31611-1-jacob.e.keller@intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
+Date: Fri, 25 Nov 2016 23:08:48 +0200
+Message-ID: <20161125230735-mutt-send-email-mst@kernel.org>
+References: <20161125112203.GA26611@leverpostej>
+	<32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com>
+	<20161125122356.GB26611@leverpostej>
+	<20161125124044.GN3092@twins.programming.kicks-ass.net>
+	<20161125124404.GI3174@twins.programming.kicks-ass.net>
+	<20161125145512.GA4014@Boquns-MacBook-Pro.local>
+	<CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
+	<20161125161004.GA30181@leverpostej>
+	<20161125161709.GQ3092@twins.programming.kicks-ass.net>
+	<d7f3740b-e343-68fc-4996-f712dd8c07f3@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: jacob.e.keller@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52398 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750942AbcKYVI1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 16:08:27 -0500
-In-Reply-To: <20161122234453.31611-1-jacob.e.keller@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>, Davidlohr Bueso <dave@stgolabs.net>,
+	KVM list <kvm@vger.kernel.org>, dbueso@suse.de,
+	Peter Zijlstra <peterz@infradead.org>, netdev <netdev@vger.kernel.org>,
+	Boqun Feng <boqun.feng@gmail.com>, LKML <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Dmitry Vyukov <dvyukov@google.com>
+To: Christian Borntraeger <borntraeger@de.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <d7f3740b-e343-68fc-4996-f712dd8c07f3@de.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Jacob Keller <jacob.e.keller@intel.com>
-Date: Tue, 22 Nov 2016 15:44:53 -0800
+On Fri, Nov 25, 2016 at 05:49:45PM +0100, Christian Borntraeger wrote:
+> On 11/25/2016 05:17 PM, Peter Zijlstra wrote:
+> > On Fri, Nov 25, 2016 at 04:10:04PM +0000, Mark Rutland wrote:
+> >> On Fri, Nov 25, 2016 at 04:21:39PM +0100, Dmitry Vyukov wrote:
+> > 
+> >>> What are use cases for such primitive that won't be OK with "read once
+> >>> _and_ atomically"?
+> >>
+> >> I have none to hand.
+> > 
+> > Whatever triggers the __builtin_memcpy() paths, and even the size==8
+> > paths on 32bit.
+> > 
+> > You could put a WARN in there to easily find them.
+> 
+> There were several cases that I found during writing the *ONCE stuff.
+> For example there are some 32bit ppc variants with 64bit PTEs. Some for
+> others (I think sparc). And the mm/ code is perfectly fine with these
+> PTE accesses being done NOT atomic.
 
-> @@ -880,6 +880,14 @@ struct ethtool_rx_flow_spec {
->  	__u32		location;
->  };
->  
-> +/* Flag to enable additional fields in struct ethtool_rx_flow_spec */
-> +#define	FLOW_EXT	0x80000000
-> +#define	FLOW_MAC_EXT	0x40000000
-> +static inline __u32 ethtool_get_flow_spec_type(__u32 flow_type)
-> +{
-> +	return flow_type & (FLOW_EXT | FLOW_MAC_EXT);
-> +}
-> +
->  /* How rings are layed out when accessing virtual functions or
->   * offloaded queues is device specific. To allow users to do flow
->   * steering and specify these queues the ring cookie is partitioned
-> @@ -1579,9 +1587,6 @@ static inline int ethtool_validate_duplex(__u8 duplex)
->  #define	IPV4_FLOW	0x10	/* hash only */
->  #define	IPV6_FLOW	0x11	/* hash only */
->  #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
-> -/* Flag to enable additional fields in struct ethtool_rx_flow_spec */
-> -#define	FLOW_EXT	0x80000000
-> -#define	FLOW_MAC_EXT	0x40000000
->  
->  /* L3-L4 network traffic flow hash options */
->  #define	RXH_L2DA	(1 << 1)
+In that case do we even need _ONCE at all?
+Are there assumptions these are two 32 bit reads?
 
-Please put the helper after the FLOW_* definitions rather than moving
-them earlier in the file.
+
+> 
+> > 
+> > The advantage of introducing the SINGLE_{LOAD,STORE}() helpers is that
+> > they compiletime validate this the size is 'right' and can runtime check
+> > alignment constraints.
+> > 
+> > IE, they are strictly stronger than {READ,WRITE}_ONCE().
+> > 
