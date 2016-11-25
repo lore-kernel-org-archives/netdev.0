@@ -1,67 +1,68 @@
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: [PATCH 1/1] net: macb: fix the RX queue reset in macb_rx()
-Date: Fri, 25 Nov 2016 09:49:32 +0100
-Message-ID: <fd8131cbe6c0546b2b8ee35bcaac5e7eb1a1647f.1480063339.git.cyrille.pitchen@atmel.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 3/4] net: stmmac: dwmac-generic: add missing compatible
+ strings
+Date: Fri, 25 Nov 2016 09:54:40 +0100
+Message-ID: <4d7e4ba0-d212-6a11-85fa-04babd7da35b@st.com>
+References: <1479911104-19864-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Andrei.Pistirica@microchip.com>,
-        <linux-arm-kernel@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>,
-        Cyrille Pitchen <cyrille.pitchen@atmel.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <soren.brinkmann@xilinx.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:20117 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752985AbcKYItw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 03:49:52 -0500
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:57783 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753985AbcKYIzU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 03:55:20 -0500
+In-Reply-To: <1479911104-19864-1-git-send-email-niklass@axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On macb only (not gem), when a RX queue corruption was detected from
-macb_rx(), the RX queue was reset: during this process the RX ring
-buffer descriptor was initialized by macb_init_rx_ring() but we forgot
-to also set bp->rx_tail to 0.
+Hello Niklas
 
-Indeed, when processing the received frames, bp->rx_tail provides the
-macb driver with the index in the RX ring buffer of the next buffer to
-process. So when the whole ring buffer is reset we must also reset
-bp->rx_tail so the driver is synchronized again with the hardware.
+On 11/23/2016 3:25 PM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
+>
+> devicetree binding for stmmac states:
+> - compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
+> 	For backwards compatibility: "st,spear600-gmac" is also supported.
+>
+> Since dwmac-generic.c calls stmmac_probe_config_dt explicitly,
+> another alternative would have been to remove all compatible strings
+> other than "snps,dwmac" and "st,spear600-gmac" from dwmac-generic.c.
+>
+> However, that would probably do more good than harm, since when trying
+> to figure out what hardware a certain driver supports, you usually look
+> at the compatible strings in the struct of_device_id, and not in some
+> function defined in a completely different file.
+>
+> No functional change intended.
+>
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
-Since macb_init_rx_ring() is called from many locations, currently from
-macb_rx() and macb_init_rings(), we'd rather add the "bp->rx_tail = 0;"
-line inside macb_init_rx_ring() than add the very same line after each
-call of this function.
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Without this fix, the rx queue is not reset properly to recover from
-queue corruption and connection drop may occur.
-
-Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Fixes: 9ba723b081a2 ("net: macb: remove BUG_ON() and reset the queue to handle RX errors")
----
- drivers/net/ethernet/cadence/macb.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 0e489bb82456..8ee303b8da08 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -991,6 +991,7 @@ static inline void macb_init_rx_ring(struct macb *bp)
- 		addr += bp->rx_buffer_size;
- 	}
- 	bp->rx_ring[bp->rx_ring_size - 1].addr |= MACB_BIT(RX_WRAP);
-+	bp->rx_tail = 0;
- }
- 
- static int macb_rx(struct macb *bp, int budget)
-@@ -1736,8 +1737,6 @@ static void macb_init_rings(struct macb *bp)
- 	bp->queues[0].tx_head = 0;
- 	bp->queues[0].tx_tail = 0;
- 	bp->queues[0].tx_ring[bp->tx_ring_size - 1].ctrl |= MACB_BIT(TX_WRAP);
--
--	bp->rx_tail = 0;
- }
- 
- static void macb_reset_hw(struct macb *bp)
--- 
-2.7.4
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
+> index b1e5f24708c9..52cd365b8e5e 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
+> @@ -58,9 +58,12 @@ static int dwmac_generic_probe(struct platform_device *pdev)
+>
+>  static const struct of_device_id dwmac_generic_match[] = {
+>  	{ .compatible = "st,spear600-gmac"},
+> +	{ .compatible = "snps,dwmac-3.50a"},
+>  	{ .compatible = "snps,dwmac-3.610"},
+>  	{ .compatible = "snps,dwmac-3.70a"},
+>  	{ .compatible = "snps,dwmac-3.710"},
+> +	{ .compatible = "snps,dwmac-4.00"},
+> +	{ .compatible = "snps,dwmac-4.10a"},
+>  	{ .compatible = "snps,dwmac"},
+>  	{ }
+>  };
+>
