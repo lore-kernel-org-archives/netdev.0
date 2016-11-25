@@ -1,55 +1,72 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 5/5] udp: add recvmmsg implementation
-Date: Fri, 25 Nov 2016 18:09:00 +0100
-Message-ID: <1165706e-b828-cb12-4bea-b77ccca1cb95@stressinduktion.org>
-References: <cover.1480086321.git.pabeni@redhat.com>
- <68bfaa7480400457e712fb04ee781410d1bb9479.1480086321.git.pabeni@redhat.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
+Date: Fri, 25 Nov 2016 17:28:01 +0000
+Message-ID: <20161125172624.GA30811@leverpostej>
+References: <20161125112203.GA26611@leverpostej>
+ <32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com>
+ <20161125122356.GB26611@leverpostej>
+ <20161125124044.GN3092@twins.programming.kicks-ass.net>
+ <20161125124404.GI3174@twins.programming.kicks-ass.net>
+ <20161125145512.GA4014@Boquns-MacBook-Pro.local>
+ <CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
+ <20161125161004.GA30181@leverpostej>
+ <20161125161709.GQ3092@twins.programming.kicks-ass.net>
+ <d7f3740b-e343-68fc-4996-f712dd8c07f3@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>
-To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <peterz@infradead.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Boqun Feng <boqun.feng@gmail.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Davidlohr Bueso <dave@stgolabs.net>, dbueso@suse.de,
+        jasowang@redhat.com, KVM list <kvm@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        Paul McKenney <paulmck@linux.vnet.ibm.com>,
+        virtualization@lists.linux-foundation.org,
+        Linus Torvalds <torvalds@linux-foundation.org>
+To: Christian Borntraeger <borntraeger@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:36937 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932395AbcKYRJD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 12:09:03 -0500
-In-Reply-To: <68bfaa7480400457e712fb04ee781410d1bb9479.1480086321.git.pabeni@redhat.com>
+Received: from foss.arm.com ([217.140.101.70]:52038 "EHLO foss.arm.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932124AbcKYR2s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 12:28:48 -0500
+Content-Disposition: inline
+In-Reply-To: <d7f3740b-e343-68fc-4996-f712dd8c07f3@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25.11.2016 16:39, Paolo Abeni wrote:
-> skbs are extracted from the receive queue in burts, and a single
-> sk_rmem_alloc/forward allocated memory update is performed for
-> each burst.
-> MSG_PEEK and MSG_ERRQUEUE are not supported to keep the implementation
-> as simple as possible.
+On Fri, Nov 25, 2016 at 05:49:45PM +0100, Christian Borntraeger wrote:
+> On 11/25/2016 05:17 PM, Peter Zijlstra wrote:
+> > On Fri, Nov 25, 2016 at 04:10:04PM +0000, Mark Rutland wrote:
+> >> On Fri, Nov 25, 2016 at 04:21:39PM +0100, Dmitry Vyukov wrote:
+> > 
+> >>> What are use cases for such primitive that won't be OK with "read once
+> >>> _and_ atomically"?
+> >>
+> >> I have none to hand.
+> > 
+> > Whatever triggers the __builtin_memcpy() paths, and even the size==8
+> > paths on 32bit.
+> > 
+> > You could put a WARN in there to easily find them.
 > 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> There were several cases that I found during writing the *ONCE stuff.
+> For example there are some 32bit ppc variants with 64bit PTEs. Some for
+> others (I think sparc).
 
-During review we discussed on how to handle major errors in the kernel:
+We have similar on 32-bit ARM w/ LPAE. LPAE implies that a naturally
+aligned 64-bit access is single-copy atomic, which is what makes that
+ok.
 
-The old code and the new code still can report back success even though
-the kernel got back an EFAULT while copying from kernel space to user
-space (due to bad pointers).
+> And the mm/ code is perfectly fine with these PTE accesses being done
+> NOT atomic.
 
-I favor that we drop all packets (also the already received batches) in
-this case and let the code report -EFAULT and increase sk_drops for all
-dropped packets from the queue.
+That strikes me as surprising. Is there some mutual exclusion that
+prevents writes from occuring wherever a READ_ONCE() happens to a PTE?
 
-Currently sk_err is set so the next syscall would get an -EFAULT, which
-seems very bad and can also be overwritten by incoming icmp packets, so
-we never get a notification that we actually had a bad pointer somewhere
-in the mmsghdr. Also delivering -EFAULT on the follow-up syscalls really
-will make people confused that use strace.
+Otherwise, how is tearing not a problem? Does it have some pattern like
+the lockref cmpxchg?
 
-If people would like to know the amount of packets dropped we can make
-sk_drops readable by an getsockopt.
-
-Thoughts?
-
-Unfortunately the interface doesn't allow for better error handling.
+Thanks,
+Mark.
