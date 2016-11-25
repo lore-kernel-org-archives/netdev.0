@@ -1,59 +1,117 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [net-next PATCH v1 0/2] stmmac: dwmac-meson8b: configurable RGMII TX delay
-Date: Fri, 25 Nov 2016 12:01:28 +0000
-Message-ID: <yw1x60nbahuv.fsf@unicorn.mansr.com>
-References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
-        <1480002964.17538.131.camel@baylibre.com>
-        <CAFBinCB7sXjXor++W+PW0-j_VxATRzhexjqHgXj2jD10tBpZFg@mail.gmail.com>
-        <e6ca0941-e2e3-dd93-d4d3-8fbd76b60e17@gmail.com>
-        <6a6af561-4e83-ca6e-d989-f421e18bce1e@laposte.net>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: [PATCH] net: stmmac: enable tx queue 0 for gmac4 IPs synthesized
+ with multiple TX queues
+Date: Fri, 25 Nov 2016 13:10:24 +0100
+Message-ID: <95ed6d38-cc5e-402f-6772-710b6ad0c930@axis.com>
+References: <1479998194-7113-1-git-send-email-niklass@axis.com>
+ <0516ebe9-6b66-5991-1f96-1cc10178977a@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Jerome Brunet <jbrunet@baylibre.com>,
-        linux-amlogic@lists.infradead.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, davem@davemloft.net, khilman@baylibre.com,
-        mark.rutland@arm.com, robh+dt@kernel.org,
-        linux-arm-kernel@lists.infradead.org, alexandre.torgue@st.com,
-        peppe.cavallaro@st.com, carlo@caione.org,
-        Andrew Lunn <andrew@lunn.ch>
-To: Sebastian Frias <sf84@laposte.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Alexandre Torgue <alexandre.torgue@st.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:41788 "EHLO unicorn.mansr.com"
+Received: from bes.se.axis.com ([195.60.68.10]:42401 "EHLO bes.se.axis.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750916AbcKYMC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Nov 2016 07:02:27 -0500
-In-Reply-To: <6a6af561-4e83-ca6e-d989-f421e18bce1e@laposte.net> (Sebastian
-        Frias's message of "Fri, 25 Nov 2016 12:13:32 +0100")
+        id S1752814AbcKYMKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 07:10:31 -0500
+In-Reply-To: <0516ebe9-6b66-5991-1f96-1cc10178977a@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sebastian Frias <sf84@laposte.net> writes:
+On 11/24/2016 07:11 PM, Alexandre Torgue wrote:
+> Hi Niklas,
 
-> On 24/11/16 19:55, Florian Fainelli wrote:
->> Le 24/11/2016 à 09:05, Martin Blumenstingl a écrit :
->>> Based on what I found it seems that rgmii-id, rgmii-txid and
->>> rgmii-rxid are supposed to be handled by the PHY.
->> 
->> Correct, the meaning of PHY_INTERFACE_MODE should be from the
->> perspective of the PHY device:
->> 
->> - PHY_INTERFACE_MODE_RGMII_TXID means that the PHY is responsible for
->> adding a delay when the MAC transmits (TX MAC -> PHY (delay) -> wire)
->> - PHY_INTERFACE_MODE_RGMII_RXID means that the PHY is responsible for
->> adding a delay when the MAC receives (RX MAC <- (delay) PHY) <- wire)
->> 
+Hello Alexandre
+
 >
-> Thanks for the explanation.
-> Actually I had thought that the delay was to account for board routing
-> (wires) between the MAC and the PHY.
-> From your explanation it appears that the delay is to account for board
-> routing (wires) between the PHY and the RJ45 socket.
+> On 11/24/2016 03:36 PM, Niklas Cassel wrote:
+>> From: Niklas Cassel <niklas.cassel@axis.com>
+>>
+>> The dwmac4 IP can synthesized with 1-8 number of tx queues.
+>> On an IP synthesized with DWC_EQOS_NUM_TXQ > 1, all txqueues are disabled
+>> by default. For these IPs, the bitfield TXQEN is R/W.
+>>
+>> Always enable tx queue 0. The write will have no effect on IPs synthesized
+>> with DWC_EQOS_NUM_TXQ == 1.
+>>
+>> The driver does still not utilize more than one tx queue in the IP.
+>>
+>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+>> ---
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h     |  3 +++
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 12 +++++++++++-
+>>  2 files changed, 14 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> index 6f4f5ce25114..3e8d4fefa5e0 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> @@ -155,8 +155,11 @@ enum power_event {
+>>  #define MTL_CHAN_RX_DEBUG(x)        (MTL_CHANX_BASE_ADDR(x) + 0x38)
+>>
+>>  #define MTL_OP_MODE_RSF            BIT(5)
+>> +#define MTL_OP_MODE_TXQEN        BIT(3)
+>>  #define MTL_OP_MODE_TSF            BIT(1)
+>>
+>> +#define MTL_OP_MODE_TQS_MASK        GENMASK(24, 16)
+>> +
+>>  #define MTL_OP_MODE_TTC_MASK        0x70
+>>  #define MTL_OP_MODE_TTC_SHIFT        4
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+>> index 116151cd6a95..577316de6ba8 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+>> @@ -213,7 +213,17 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
+>>          else
+>>              mtl_tx_op |= MTL_OP_MODE_TTC_512;
+>>      }
+>> -
+>> +    /* For an IP with DWC_EQOS_NUM_TXQ == 1, the fields TXQEN and TQS are RO
+>> +     * with reset values: TXQEN on, TQS == DWC_EQOS_TXFIFO_SIZE.
+>> +     * For an IP with DWC_EQOS_NUM_TXQ > 1, the fields TXQEN and TQS are R/W
+>> +     * with reset values: TXQEN off, TQS 256 bytes.
+>> +     *
+>> +     * Write the bits in both cases, since it will have no effect when RO.
+>> +     * For DWC_EQOS_NUM_TXQ > 1, the top bits in MTL_OP_MODE_TQS_MASK might
+>> +     * be RO, however, writing the whole TQS field will result in a value
+>> +     * equal to DWC_EQOS_TXFIFO_SIZE, just like for DWC_EQOS_NUM_TXQ == 1.
+>> +     */
+>> +    mtl_tx_op |= MTL_OP_MODE_TXQEN | MTL_OP_MODE_TQS_MASK;
+>
+> Your patch sounds good. Just one question:
+>
+> In synopsys databook I use, I see that MTL_OP_MODE_TXQEN for channel 2 can take several values "disabled / enabled / Enabled in AV mode":
+>
+> Transmit Queue Enable
+> This field is used to enable/disable the transmit queue 1. 00 R/W
+> â–  2'b00 - Not enabled
+> â–  2'b01 - Enable in AV mode (Reserved when Enable Audio Video
+> Bridging is not selected while configuring the core)
+> â–  2'b10 - Enabled
+> â–  2'b11 - Reserved
+>
+> Do you plan to manage av mode in a future patch ?
 
-The delay pertains to the RGMII link between MAC and PHY.  The external
-connection is self-clocking.
+We are not planning on using the AV mode.
+We will probably not use TXQ1 at all.
 
--- 
-Måns Rullgård
+I noticed that the MAC_HW_Feature2 Register actually has a TXQCNT field.
+It is currently saved in priv->dma_cap.number_tx_channel.
+If you prefer, I could do a patch V2 where we only set the bits if
+priv->dma_cap.number_tx_channel > 1
+
+However, I don't think the current patch is too bad either, since the bits
+are RO when number_tx_channel == 1.
+
+
+>
+> Regards
+> Alex
+>
+>>      writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
+>>
+>>      mtl_rx_op = readl(ioaddr + MTL_CHAN_RX_OP_MODE(channel));
+>>
