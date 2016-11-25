@@ -1,64 +1,100 @@
-From: Eli Cooper <elicooper@gmx.com>
-Subject: Re: Large performance regression with 6in4 tunnel (sit)
-Date: Fri, 25 Nov 2016 10:18:12 +0800
-Message-ID: <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
-References: <20161125120947.142c3af5@canb.auug.org.au>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [scr265482] ip_tunnel.c
+Date: Thu, 24 Nov 2016 18:27:43 -0800
+Message-ID: <CANn89iJKmO0oiJjw5y59B_DdA+4xzkbtVDWnz3NA8UvoSYt4Pw@mail.gmail.com>
+References: <F41877A268BCDE49BAEE2286FA8C269F6FECFC5E@LETV-MBX-IDC09.letv.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        "security@kernel.org" <security@kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "cve-request@mitre.org" <cve-request@mitre.org>
+To: =?UTF-8?B?TGl5YW5nIFl1ICjkuo7nq4vmtIsxKQ==?= <yuliyang1@le.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:56020 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750984AbcKYCSX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 21:18:23 -0500
-In-Reply-To: <20161125120947.142c3af5@canb.auug.org.au>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:35943 "EHLO
+        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751171AbcKYC1p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 21:27:45 -0500
+Received: by mail-io0-f181.google.com with SMTP id x94so104555540ioi.3
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 18:27:44 -0800 (PST)
+In-Reply-To: <F41877A268BCDE49BAEE2286FA8C269F6FECFC5E@LETV-MBX-IDC09.letv.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+On Thu, Nov 24, 2016 at 5:39 PM, Liyang Yu (=E4=BA=8E=E7=AB=8B=E6=B4=8B1) <=
+yuliyang1@le.com> wrote:
+>
+>
+>
+>
+>
+>
+>
+> BTW:
+>
+>    Which RFC suggests UINT_MAX as GRE sequence number?  Can you show me?
+>
+>
+>
+>
+>
+>
 
-On 2016/11/25 9:09, Stephen Rothwell wrote:
-> Hi all,
->
-> This is a typical user error report i.e. a net well specified one :-)
->
-> I am using a 6in4 tunnel from my Linux server at home (since my ISP
-> does not provide native IPv6) to another hosted Linus server (that has
-> native IPv6 connectivity).  The throughput for IPv6 connections has
-> dropped from megabits per second to 10s of kilobits per second.
->
-> First, I am using Debian supplied kernels, so strike one, right?
->
-> Second, I don't actually remember when the problem started - it probably
-> started when I upgraded from a v4.4 based kernel to a v4.7 based one.
-> This server does not get rebooted very often as it runs hosted services
-> for quite a few people (its is ozlabs.org ...).
->
-> I tried creating the same tunnel to another hosted server I have access
-> to that is running a v3.16 based kernel and the performance is fine
-> (actually upward of 40MB/s).
->
-> I noticed from a tcpdump on the hosted server that (when I fetch a
-> large file over HTTP) the server is sending packets larger than the MTU
-> of the tunnel.  These packets don't get acked and are later resent as
-> MTU sized packets.  I will then send more larger packets and repeat ...
 
-Sounds like TSO/GSO packets are not properly segmented and therefore
-dropped.
+RFC 2890
 
-Could you first try turning off segmentation offloading for the tunnel
-interface?
-    ethtool -K sit0 tso off gso off
+In any cases, this is absolutely not a security issue nor a CVE candidate.
+Please remove security@kernel.org from CC, no need to spam security guys,
+they have enough on their plate.
 
-> The mtu of the tunnel is set to 1280 (though leaving it unset and using
-> the default gave the same results).  The tunnel is using sit and is
-> statically set up at both ends (though the hosted server end does not
-> specify a remote ipv4 end point).
+Please send text messages, no HTML is allowed on netdev
+
+Nobody sane uses GRE sequence numbers, precisely because GRE has
+no documented way to synchronize the source and destination of the tunnel.
+Basically, if you use GRE sequence numbers, you must re-start other side
+of the tunnel if one side had to restart, or risk dropping up to 2^31 packe=
+ts.
+
+Really, this is not something that can be solved by using
+'a different initial sequence number'
+
+linux GRE sequence number support is a joke, it does not support SMP
+for a start.
+
+
+
 >
-> Is there anything else I can tell you?  Testing patches is a bit of a
-> pain, unfortunately, but I was hoping that someone may remember
-> something that may have caused this.
-
-Regards,
-Eli
+>
+>
+> On Wed, Nov 23, 2016 at 11:45 PM, Liyang Yu (=E4=BA=8E=E7=AB=8B=E6=B4=8B1=
+) <yuliyang1@le.com> wrote:
+>
+> > Yeah=EF=BC=8CI means that recreate the tunnel again, But I don=E2=80=99=
+t think the
+>
+> > patch can fix the bug. It only can make the first packet received succe=
+ssed. And the follow packet will droped also.
+>
+> > In function __gre_xmit  line 366
+>
+> >   tunnel->o_seqno++;
+>
+> >
+>
+> > If you restart from UINT_MAX, the 'o_seqno' of second packet will retur=
+n to 0 again.
+>
+>
+>
+> The first packet after restart: o_seqno =3D=3D UINT_MAX, the other end: i=
+_seqno =3D 0 The second packet after restart: o_seqno =3D=3D 0, the other e=
+nd: i_seqno =3D 1
+>
+>
+>
+> So traffic should be back to normal.
+>
+>
+>
+> UINT_MAX is also what RFC suggests.
