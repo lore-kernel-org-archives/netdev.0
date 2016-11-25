@@ -1,81 +1,229 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
-Date: Fri, 25 Nov 2016 17:43:00 +0000
-Message-ID: <20161125174259.GB30811@leverpostej>
-References: <20161125112203.GA26611@leverpostej>
- <32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com>
- <20161125122356.GB26611@leverpostej>
- <20161125124044.GN3092@twins.programming.kicks-ass.net>
- <20161125124404.GI3174@twins.programming.kicks-ass.net>
- <20161125145512.GA4014@Boquns-MacBook-Pro.local>
- <CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
- <20161125161004.GA30181@leverpostej>
- <20161125161709.GQ3092@twins.programming.kicks-ass.net>
- <CACT4Y+YJUUjU_FCR1FOcF2DmkkcjiRFpnU7Q4=yzbgvKv0VhyQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [net-next PATCH v1 0/2] stmmac: dwmac-meson8b: configurable RGMII
+ TX delay
+Date: Fri, 25 Nov 2016 09:44:04 -0800
+Message-ID: <1b7f113e-34f9-69f4-a45f-9fd687d87990@gmail.com>
+References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
+ <1480002964.17538.131.camel@baylibre.com>
+ <CAFBinCB7sXjXor++W+PW0-j_VxATRzhexjqHgXj2jD10tBpZFg@mail.gmail.com>
+ <e6ca0941-e2e3-dd93-d4d3-8fbd76b60e17@gmail.com>
+ <6a6af561-4e83-ca6e-d989-f421e18bce1e@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Boqun Feng <boqun.feng@gmail.com>,
-        Christian Borntraeger <borntraeger@de.ibm.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Davidlohr Bueso <dave@stgolabs.net>, dbueso@suse.de,
-        jasowang@redhat.com, KVM list <kvm@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        Paul McKenney <paulmck@linux.vnet.ibm.com>,
-        virtualization@lists.linux-foundation.org,
-        Linus Torvalds <torvalds@linux-foundation.org>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+YJUUjU_FCR1FOcF2DmkkcjiRFpnU7Q4=yzbgvKv0VhyQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        peppe.cavallaro-qxv4g6HH51o@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org,
+        Mans Rullgard <mans-2StjZFpD7GcAvxtiuMwx3w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+To: Sebastian Frias <sf84-QFKgK+z4sOrR7s880joybQ@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <6a6af561-4e83-ca6e-d989-f421e18bce1e-QFKgK+z4sOrR7s880joybQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 25, 2016 at 06:28:53PM +0100, Dmitry Vyukov wrote:
-> On Fri, Nov 25, 2016 at 5:17 PM, Peter Zijlstra <peterz@infradead.org> wrote:
-> >> > What are use cases for such primitive that won't be OK with "read once
-> >> > _and_ atomically"?
-> >>
-> >> I have none to hand.
-> >
-> > Whatever triggers the __builtin_memcpy() paths, and even the size==8
-> > paths on 32bit.
-> >
-> > You could put a WARN in there to easily find them.
-> >
-> > The advantage of introducing the SINGLE_{LOAD,STORE}() helpers is that
-> > they compiletime validate this the size is 'right' and can runtime check
-> > alignment constraints.
-> >
-> > IE, they are strictly stronger than {READ,WRITE}_ONCE().
+On 11/25/2016 03:13 AM, Sebastian Frias wrote:
+> On 24/11/16 19:55, Florian Fainelli wrote:
+>> Le 24/11/2016 à 09:05, Martin Blumenstingl a écrit :
+>>> On Thu, Nov 24, 2016 at 4:56 PM, Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org> wrote:
+>>>> On Thu, 2016-11-24 at 15:34 +0100, Martin Blumenstingl wrote:
+>>>>> Currently the dwmac-meson8b stmmac glue driver uses a hardcoded 1/4
+>>>>> cycle TX clock delay. This seems to work fine for many boards (for
+>>>>> example Odroid-C2 or Amlogic's reference boards) but there are some
+>>>>> others where TX traffic is simply broken.
+>>>>> There are probably multiple reasons why it's working on some boards
+>>>>> while it's broken on others:
+>>>>> - some of Amlogic's reference boards are using a Micrel PHY
+>>>>> - hardware circuit design
+>>>>> - maybe more...
+>>>>>
+>>>>> This raises a question though:
+>>>>> Which device is supposed to enable the TX delay when both MAC and PHY
+>>>>> support it? And should we implement it for each PHY / MAC separately
+>>>>> or should we think about a more generic solution (currently it's not
+>>>>> possible to disable the TX delay generated by the RTL8211F PHY via
+>>>>> devicetree when using phy-mode "rgmii")?
+>>>>
+>>>> Actually you can skip the part which activate the Tx-delay on the phy
+>>>> by setting "phy-mode = "rgmii-id" instead of "rgmii"
+>>>>
+>>>> phy->interface will no longer be PHY_INTERFACE_MODE_RGMII
+>>>> but PHY_INTERFACE_MODE_RGMII_ID.
+>>> unfortunately this is not true for RTL8211F (I did my previous tests
+>>> with the same expectation in mind)!
+>>> the code seems to suggest that TX-delay is disabled whenever mode !=
+>>> PHY_INTERFACE_MODE_RGMII.
+>>> BUT: on my device RTL8211F_TX_DELAY is set even before
+>>> "phy_write(phydev, 0x11, reg);"!
 > 
-> Uh, so, READ/WRITE_ONCE are non-atomic now. I missed that.
+> If you look at the Atheros 803x PHY and its driver
+> 'drivers/net/phy/at803x.c':
+> - by default (as HW reset preset) the PHY has RX delay enabled, TX
+> delay disabled
+> - the driver only enables RX, or TX, or both, according to "rgmii-rxid",
+> "rgmii-txid", or "rgmii-id" respectively, but does not alter HW reset
+> presets. In other words:
+>   a "rgmii-rxid" results in RX enabled (expected)
+>   b "rgmii-txid" results in RX *and* TX enabled (unexpected?)
+>   c "rgmii-id"   results in RX *and* TX enabled (expected)
+>   d "rgmii"      results in RX enabled (unexpected?)
+> 
+> This is a bit surprising and I think that some boards and PHY<->MAC
+> combinations are working a little bit by chance, unless I'm missing
+> something.
+> 
+>>
+>> (Adding Sebastian (and Mans, and Andrew) since he raised the same
+>> question a while ago. I think I now understand a bit better what
+>> Sebastian was after a couple of weeks ago)
+>>
+> 
+> Thanks for CCing us, it is indeed a very similar issue.
+> 
+>>>
+>>> Based on what I found it seems that rgmii-id, rgmii-txid and
+>>> rgmii-rxid are supposed to be handled by the PHY.
+>>
+>> Correct, the meaning of PHY_INTERFACE_MODE should be from the
+>> perspective of the PHY device:
+>>
+>> - PHY_INTERFACE_MODE_RGMII_TXID means that the PHY is responsible for
+>> adding a delay when the MAC transmits (TX MAC -> PHY (delay) -> wire)
+>> - PHY_INTERFACE_MODE_RGMII_RXID means that the PHY is responsible for
+>> adding a delay when the MAC receives (RX MAC <- (delay) PHY) <- wire)
+>>
+> 
+> Thanks for the explanation.
+> Actually I had thought that the delay was to account for board routing
+> (wires) between the MAC and the PHY.
+> From your explanation it appears that the delay is to account for board
+> routing (wires) between the PHY and the RJ45 socket.
 
-Yes, but *only* for types larger than word size. That has *always* been
-the case.
+The placement of the (delay) was not meant to be exact, but it was
+wrongly place anyway, so it should be between the MAC and PHY, always.
+This is why you see people either fixing the need for a delay by
+appropriately programming the PHY, or the MAC, or by just inserting a
+fixed delay on the PCB between the PHY and the MAC and programming no
+delays (or using the default values and hoping this works).
 
-It's still assumed that *_ONCE are single-copy-atomic for word size (or
-smaller). Some architectures may also provide that guarnatee for
-accesses larger than word size (e.g. 32-bit ARM w/ LPAE).
+> 
+>>> That would mean that we have two problems here:
+>>> 1) drivers/net/phy/realtek.c:rtl8211f_config_init should check for
+>>> PHY_INTERFACE_MODE_RGMII_ID or PHY_INTERFACE_MODE_RGMII_TXID and
+>>> enable the TX-delay in that case - otherwise explicitly disable it
+>>
+>> Agreed.
+>>
+>>> 2) dwmac-meson8b.c should only use the configured TX-delay for
+>>> PHY_INTERFACE_MODE_RGMII
+>>> @Florian: could you please share your thoughts on this (who handles
+>>> the TX delay in which case)?
+>>
+>> This also seems reasonable to do, provided that the PHY is also properly
+>> configured not to add delays in both directions, and therefore assumes
+>> that the MAC does it.
+>>
+>> We have a fairly large problem with how RGMII delays are done in PHYLIB
+>> and Ethernet MAC drivers (or just in general), where we can't really
+>> intersect properly what a PHY is supporting (in terms of internal
+>> delays), and what the MAC supports either. One possible approach could
+>> be to update PHY drivers a list of PHY_INTERFACE_MODE_* that they
+>> support (ideally, even with normalized nanosecond delay values), 
+> 
+> Just to make sure I understood this, the DT would say something like:
+> 
+> phy-connection-type = "rgmii-txid";
+> txid-delay-ns = <3>;
+> 
+> For a 3ns TX delay, would that be good?
 
-... It's just that as things stand we can't put checks in *_ONCE() for
-the access size, since they're *also* used for larger accesses that
-don't need atomicity.
+That's one possibility, although, see below, some PHYs support
+sub-nanosecond values, but in general, that seems like a good
+representation. If the "txid-delay-ns" property is omitted, a standard
+2ns delay is assumed.
 
-> If READ/WRITE_ONCE are non-atomic, half of kernel is broken. All these
-> loads of flags, ringbuffer positions, pointers, etc are broken.
+> 
+>> and
+>> then intersect that with the requested phy_interface_t during
+>> phy_{attach,connect} time, and feed this back to the MAC with a special
+>> error code/callback, so we could gracefully try to choose another
+>> PHY_INTERFACE_MODE_* value that the MAC supports....
+>>
+>> A larger problem is that a number of drivers have been deployed, and
+>> Device Trees, possibly with the meaning of "phy-mode" and
+>> "phy-connection-type" being from the MAC perspective, and not the PHY
+>> perspective *sigh*, good luck auditing those.
+>>
+>> So from there, here is possibly what we could do
+>>
+>> - submit a series of patches that update the PHYLIB documentation (there
+>> are other things missing here) and make it clear from which entity (PHY
+>> or MAC) does the delay apply to, document the "intersection" problem here
+> 
+> I think documenting is necessary, thanks in advance!
+> 
+> However, I'm wondering if there's a way to make this work in all cases.
+> Indeed, if we consider for example that TX delay is required, we have 4
+> cases:
+> 
+>        PHY         |       MAC          | Who applies?
+> TXID supported     | TXID supported     | PHY
+> TXID supported     | TXID not supported | PHY
+> TXID not supported | TXID supported     | MAC
+> TXID not supported | TXID not supported | cannot be done
+> 
+> That is basically what my patch:
+> 
+> https://marc.info/?l=linux-netdev&m=147869658031783&w=2
+> 
+> attempted to achieve. That would allow more combinations of MAC<->PHY to
+> work, right?
 
-Most of these will be fine, as above.
+Yes, indeed.
 
-> What about restoring READ/WRITE_ONCE as atomic, and introducing
-> separate primitives for _non_ atomic loads/stores?
+> 
+> Nevertheless, I think we also need to keep in mind that most of this
+> discussion assumes the case where both, MAC and PHY have equal capabilities.
+> Could it happen that the PHY supports only 2ns delay, and the MAC only
+> 1ns delay?
 
-Having a separate *_ONCE_TEARABLE() would certainly limit the number of
-things we have to fix up, and would also make it clear that atomicity is
-not expected.
+I doubt this exists at the MAC level what we should have is either a 2ns
+delay, in either RX or TX path, or nothing, because that's the value
+that results in shifting the data lines and the RX/TX lines by 90
+degrees at 125Mhz (1/125^6 = 8 ns, one quarter shift is 90 degrees =
+2ns). The PHY may have a similar set of pre-programmed, fixed 2ns
+delays, but it is not uncommon to see 0.X ns resolution available:
 
-... but we might have to go with SINGLE_*() if we can't convince Linus.
+drivers/net/phy/mscc.c
+drivers/net/phy/dp83867.c w/ arch/arm/boot/dts/dra72-evm-revc.dts
 
-Thanks,
-Mark.
+In these cases, if you end-up using a non 2ns delay, you are fixing a
+PCB problem more than an interoperability problem between your MAC and PHY.
+
+> Could it happen that the delay is bigger than what is supported by
+> either the PHY or MAC alone? maybe if combined it could work, for example
+> a 3ns delay required and the PHY supporting 2ns and the MAC 1ns, combined
+> it could work?
+
+I suppose such a thing would work yes, but it would be difficult to
+report correctly to the core PHYLIB how this can work considering the
+vast array of options available to introduce delays in that case:
+MAC-level, PHY-level, pinctrl/pad level and possibly at the PCB itself.
+
+Once we can't rely on the fixed 2ns delay to work, we are going to have
+people do various experiments until they can either measure what the
+right delay value is for the specific PCB, or they just found the value
+that happens to work. I don't think we can do much at that point from a
+core PHYLIB perspective other than tell the network driver that the PHY
+supports delay in either RX, TX or both directions, and have the MAC
+decide what to apply that makes sense here, considering that this is
+already kind of an exceptional situation to be in.
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
