@@ -1,70 +1,52 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Subject: [PATCH] net: fec: turn on device when extracting statistics
-Date: Fri, 25 Nov 2016 13:02:00 +0300
-Message-ID: <1480068120-22137-1-git-send-email-nikita.yoush@cogentembedded.com>
-Cc: Chris Healy <cphealy@gmail.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-To: Fugang Duan <fugang.duan@nxp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f51.google.com ([209.85.215.51]:33509 "EHLO
-        mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751694AbcKYKD0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 05:03:26 -0500
-Received: by mail-lf0-f51.google.com with SMTP id c13so46657114lfg.0
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 02:02:25 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
+Subject: Aw: Re: [PATCH v2 net-next 1/2] net: ethernet: slicoss: add slicoss
+ gigabit ethernet driver
+Date: Fri, 25 Nov 2016 11:22:04 +0100
+Message-ID: <trinity-f6bac8fe-afba-425b-bf3b-6f563726d75c-1480069324790@3capp-gmx-bs16>
+References: <1480029185-14140-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1480029185-14140-2-git-send-email-LinoSanfilippo@gmx.de>,
+ <20161125095947.GA21048@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, andrew@lunn.ch, f.fainelli@gmail.com,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org, liodot@gmail.com,
+ davem@davemloft.net
+To: "Greg KH" <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20161125095947.GA21048@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Execution 'ethtool -S' on fec device that is down causes OOPS on Vybrid
-board:
+Hi,
 
-Unhandled fault: external abort on non-linefetch (0x1008) at 0xe0898200
-pgd = ddecc000
-[e0898200] *pgd=9e406811, *pte=400d1653, *ppte=400d1453
-Internal error: : 1008 [#1] SMP ARM
-...
+>
+> On Fri, Nov 25, 2016 at 12:13:04AM +0100, Lino Sanfilippo wrote:
+> > --- a/include/linux/pci_ids.h
+> > +++ b/include/linux/pci_ids.h
+> > @@ -2015,6 +2015,24 @@
+> >  #define PCI_SUBDEVICE_ID_CCD_OV4S	0xE888
+> >  #define PCI_SUBDEVICE_ID_CCD_OV8S	0xE998
+> >  
+> > +#define PCI_VENDOR_ID_ALACRITECH		0x139A
+> > +#define PCI_DEVICE_ID_ALACRITECH_MOAVE		0x0005
+> 
+> <snip>
+> 
+> Please read the top of this file for why you should not need to ever
+> modify this file again :)
+> 
 
-Reason of OOPS is that fec_enet_get_ethtool_stats() accesses fec
-registers while IPG clock is stopped by PM.
+Youre right, I totally overlooked the comment. Will fix this in the next version,
+thanks!
 
-Fix that by wrapping statistics extraction into pm_runtime_get_sync()
-... pm_runtime_put_autosuspend() braces.
-
-Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 5aa9d4ded214..9c7592b80ce8 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2317,10 +2317,19 @@ static void fec_enet_get_ethtool_stats(struct net_device *dev,
- 	struct ethtool_stats *stats, u64 *data)
- {
- 	struct fec_enet_private *fep = netdev_priv(dev);
--	int i;
-+	int i, ret;
-+
-+	ret = pm_runtime_get_sync(&fep->pdev->dev);
-+	if (IS_ERR_VALUE(ret)) {
-+		memset(data, 0, sizeof(*data) * ARRAY_SIZE(fec_stats));
-+		return;
-+	}
- 
- 	for (i = 0; i < ARRAY_SIZE(fec_stats); i++)
- 		data[i] = readl(fep->hwp + fec_stats[i].offset);
-+
-+	pm_runtime_mark_last_busy(&fep->pdev->dev);
-+	pm_runtime_put_autosuspend(&fep->pdev->dev);
- }
- 
- static void fec_enet_get_strings(struct net_device *netdev,
--- 
-2.1.4
+Regards,
+Lino
