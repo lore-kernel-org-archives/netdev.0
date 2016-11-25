@@ -1,42 +1,80 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) Bus driver
-Date: Fri, 25 Nov 2016 12:05:09 -0700
-Message-ID: <20161125190509.GB16504@obsidianresearch.com>
-References: <20161121213930.GA30111@obsidianresearch.com>
- <20161121232629.GA67988@knc-06.sc.intel.com>
- <20161121233118.GA31132@obsidianresearch.com>
- <20161122015304.GB67988@knc-06.sc.intel.com>
- <20161122170407.GE3956@obsidianresearch.com>
- <20161123000502.GA27968@phlsvsds.ph.intel.com>
- <20161123004932.GA13598@obsidianresearch.com>
- <20161124000825.GA73280@knc-06.sc.intel.com>
- <20161124161545.GA20818@obsidianresearch.com>
- <20161125021350.GA74946@knc-06.sc.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Aw: Re: [PATCH] mlx4: give precise rx/tx bytes/packets counters
+Date: Fri, 25 Nov 2016 11:19:11 -0800
+Message-ID: <1480101551.8455.557.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB0228849@AcuExch.aculab.com>
+        , <1480090590.8455.549.camel@edumazet-glaptop3.roam.corp.google.com>
+         <trinity-a100658c-7fd5-47b3-ab3f-1f0a80774ccc-1480091457793@3capp-gmx-bs57>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161125021350.GA74946-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35477 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932162AbcKYTTO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 14:19:14 -0500
+Received: by mail-pg0-f65.google.com with SMTP id p66so6172285pga.2
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 11:19:14 -0800 (PST)
+In-Reply-To: <trinity-a100658c-7fd5-47b3-ab3f-1f0a80774ccc-1480091457793@3capp-gmx-bs57>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 24, 2016 at 06:13:50PM -0800, Vishwanathapura, Niranjana wrote:
+On Fri, 2016-11-25 at 17:30 +0100, Lino Sanfilippo wrote:
+> Hi,
+> 
+> 
+> > 
+> > The READ_ONCE() are documenting the fact that no lock is taken to fetch
+> > the stats, while another cpus might being changing them.
+> > 
+> > I had no answer yet from https://patchwork.ozlabs.org/patch/698449/
+> > 
+> > So I thought it was not needed to explain this in the changelog, given
+> > that it apparently is one of the few things that can block someone to
+> > understand one of my changes :/
+> > 
+> > Apparently nobody really understands READ_ONCE() purpose, it is really a
+> > pity we have to explain this over and over.
+> > 
+> 
+> Even at the risk of showing once more a lack of understanding for
+> READ_ONCE():
+> Does not a READ_ONCE() have to e paired with some kind of
+> WRITE_ONCE()? 
 
-> In order to be truely device independent the hfi_vnic ULP should not depend
-> on a device exported symbol. Instead device should register its functions
-> with the ULP. Hence the approaches a) and b).
+You are right.
 
-It is not device independent, it is hard linked to hfi1, just like our
-other multi-component drivers.. So don't worry about that.
+Although in this case, the producers are using a lock, and do
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ring->packets++;
+
+We hopefully have compilers/cpus that do not put intermediate garbage in
+ring->packets while doing the increment.
+
+One problem with :
+
+WRITE_ONCE(ring->packets, ring->packets + 1);
+
+is that gcc no longer uses an INC instruction.
+
+Maybe we need some ADD_ONCE(ptr, val) macro doing the proper thing.
+
+> Furthermore: there a quite some network drivers that ensure visibility
+> of 
+> the descriptor queue indices between xmit and xmit completion function
+> by means of
+> smp barriers. Could all these drivers theoretically be adjusted to use
+> READ_ONCE(),
+> WRITE_ONCE() for the indices instead?
+> 
+
+Well, for this precise case we do need appropriate smp barriers.
+
+READ_ONCE() can be better than poor barrier(), look at 
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=b668534c1d9b80f4cda4d761eb11d3a6c9f4ced8
