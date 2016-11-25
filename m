@@ -1,33 +1,45 @@
-From: Julian Wollrath <jwollrath@web.de>
-Subject: [PATCH] Set DEFAULT_TCP_CONG to bbr if DEFAULT_BBR is set
-Date: Fri, 25 Nov 2016 15:05:26 +0100
-Message-ID: <20161125140526.2486-1-jwollrath@web.de>
-Cc: Julian Wollrath <jwollrath@web.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.3]:65251 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754566AbcKYOGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Nov 2016 09:06:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH 0/2] net: phy: realtek: fix RTL8211F TX-delay handling
+Date: Fri, 25 Nov 2016 14:11:59 +0100
+Message-ID: <20161125131201.19994-1-martin.blumenstingl@googlemail.com>
+Cc: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Julian Wollrath <jwollrath@web.de>
----
- net/ipv4/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
+The RTL8211F PHY driver currently enables the TX-delay only when the
+phy-mode is PHY_INTERFACE_MODE_RGMII. This is incorrect, because there
+are three RGMII variations of the phy-mode which explicitly request the
+PHY to enable the RX and/or TX delay, while PHY_INTERFACE_MODE_RGMII
+specifies that the PHY should disable the RX and/or TX delays.
 
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 300b06888fdf..b54b3ca939db 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -715,6 +715,7 @@ config DEFAULT_TCP_CONG
- 	default "reno" if DEFAULT_RENO
- 	default "dctcp" if DEFAULT_DCTCP
- 	default "cdg" if DEFAULT_CDG
-+	default "bbr" if DEFAULT_BBR
- 	default "cubic"
- 
- config TCP_MD5SIG
+Additionally to the RTL8211F PHY driver change this contains a small
+update to the phy-mode documentation to clarify the purpose of the
+RGMII phy-modes.
+While this may not be perfect yet it's at least a start. Please feel
+free to drop this patch from this series and send an improved version
+yourself.
+
+These patches are the results of recent discussions, see [0]
+
+[0] http://lists.infradead.org/pipermail/linux-amlogic/2016-November/001688.html
+
+Martin Blumenstingl (2):
+  Documentation: devicetree: clarify usage of the RGMII phy-modes
+  net: phy: realtek: fix enabling of the TX-delay for RTL8211F
+
+ Documentation/devicetree/bindings/net/ethernet.txt | 24 ++++++++++++++++++----
+ drivers/net/phy/realtek.c                          | 20 ++++++++++--------
+ 2 files changed, 32 insertions(+), 12 deletions(-)
+
 -- 
 2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
