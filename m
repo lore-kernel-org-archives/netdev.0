@@ -1,66 +1,66 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Fri, 25 Nov 2016 06:51:19 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB201056317@RTITMBSV03.realtek.com.tw>
-References: <95fa9f67-3af6-6749-0e2b-c95406486f7d@pobox.com>
- <baf5246d-9d8a-4029-6823-350ed561fd33@pobox.com>
- <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
- <20161124.112152.692025478489876693.davem@davemloft.net>
- <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
- <0835B3720019904CB8F7AA43166CEEB2010562B1@RTITMBSV03.realtek.com.tw>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 3/3] flowcache: Increase threshold for refusing new allocations
+Date: Fri, 25 Nov 2016 07:58:00 +0100
+Message-ID: <1480057080-20177-4-git-send-email-steffen.klassert@secunet.com>
+References: <1480057080-20177-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2010562B1-JIZ+AM9kKNzuvTFwvkocLypo8c9IxeqyAjHCUHv49ws@public.gmane.org>
-Content-Language: zh-TW
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from c.mx.secunet.com ([62.96.220.56]:45290 "EHLO c.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752756AbcKYHHW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 02:07:22 -0500
+In-Reply-To: <1480057080-20177-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Mark Lord [mailto:mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org]
-> > Sent: Friday, November 25, 2016 12:44 AM
-> [...]
-> > The bad data in this case is ASCII:
-> >
-> >          "SRC=m3400:/ TARGET=/m340"
-> >
-> > This data is what is seen in /run/mount/utab, a file that is read/written over NFS
-> on
-> > each boot.
-> >
-> >          "SRC=m3400:/ TARGET=/m3400 ROOT=/
-> > ATTRS=nolock,addr=192.168.8.1\n"
-> >
-> > But how does this ASCII data end up at offset zero of the rx buffer??
-> > Not possible -- this isn't even stale data, because only an rx_desc could
-> > be at that offset in that buffer.
-> >
-> > So even if this were a platform memory coherency issue, one should still
-> > never see ASCII data at the beginning of an rx buffer.  The driver NEVER
-> > writes anything to the rx buffers.  Only the USB hardware ever does.
-> >
-> > And only the r8152 dongle/driver exhibits this issue.
-> > Other USB dongles do not.  They *might* still have such issues,
-> > but because they use software checksums, the bad packets are caught/rejected.
-> 
-> Do you test it by rebooting? Maybe you could try a patch
-> commit 93fe9b183840 ("r8152: reset the bmu"). However, it should
-> only occur for the first urb buffer after rx is reset. I don't
-> think you would reset the rx frequently, so the situation seems
-> to be different.
+From: Miroslav Urbanek <mu@miroslavurbanek.com>
 
-Forgive me. I provide wrong information. This is about RTL8153,
-not RTL8152.
+The threshold for OOM protection is too small for systems with large
+number of CPUs. Applications report ENOBUFs on connect() every 10
+minutes.
 
-Best Regards,
-Hayes
+The problem is that the variable net->xfrm.flow_cache_gc_count is a
+global counter while the variable fc->high_watermark is a per-CPU
+constant. Take the number of CPUs into account as well.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fixes: 6ad3122a08e3 ("flowcache: Avoid OOM condition under preasure")
+Reported-by: Lukáš Koldrt <lk@excello.cz>
+Tested-by: Jan Hejl <jh@excello.cz>
+Signed-off-by: Miroslav Urbanek <mu@miroslavurbanek.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/core/flow.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/flow.c b/net/core/flow.c
+index 3937b1b..18e8893 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -95,7 +95,6 @@ static void flow_cache_gc_task(struct work_struct *work)
+ 	list_for_each_entry_safe(fce, n, &gc_list, u.gc_list) {
+ 		flow_entry_kill(fce, xfrm);
+ 		atomic_dec(&xfrm->flow_cache_gc_count);
+-		WARN_ON(atomic_read(&xfrm->flow_cache_gc_count) < 0);
+ 	}
+ }
+ 
+@@ -236,9 +235,8 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
+ 		if (fcp->hash_count > fc->high_watermark)
+ 			flow_cache_shrink(fc, fcp);
+ 
+-		if (fcp->hash_count > 2 * fc->high_watermark ||
+-		    atomic_read(&net->xfrm.flow_cache_gc_count) > fc->high_watermark) {
+-			atomic_inc(&net->xfrm.flow_cache_genid);
++		if (atomic_read(&net->xfrm.flow_cache_gc_count) >
++		    2 * num_online_cpus() * fc->high_watermark) {
+ 			flo = ERR_PTR(-ENOBUFS);
+ 			goto ret_object;
+ 		}
+-- 
+1.9.1
