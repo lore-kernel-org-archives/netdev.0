@@ -1,65 +1,81 @@
-From: Sven-Haegar Koch <haegar@sdinet.de>
-Subject: Re: Large performance regression with 6in4 tunnel (sit)
-Date: Fri, 25 Nov 2016 05:06:53 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1611250503250.22094@aurora.sdinet.de>
-References: <20161125120947.142c3af5@canb.auug.org.au>        <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com> <20161125134520.68ca0969@canb.auug.org.au>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next] virtio-net: enable multiqueue by default
+Date: Fri, 25 Nov 2016 12:37:26 +0800
+Message-ID: <1480048646-17536-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eli Cooper <elicooper@gmx.com>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hydra.sdinet.de ([136.243.3.21]:59862 "EHLO mail.sdinet.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751500AbcKYEQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 23:16:16 -0500
-In-Reply-To: <20161125134520.68ca0969@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@redhat.com>, Jeremy Eder <jeder@redhat.com>,
+	"Michael S . Tsirkin" <mst@redhat.com>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Marko Myllynen <myllynen@redhat.com>,
+	Maxime Coquelin <maxime.coquelin@redhat.com>
+To: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Nov 2016, Stephen Rothwell wrote:
+We use single queue even if multiqueue is enabled and let admin to
+enable it through ethtool later. This is used to avoid possible
+regression (small packet TCP stream transmission). But looks like an
+overkill since:
 
-> On Fri, 25 Nov 2016 10:18:12 +0800 Eli Cooper <elicooper@gmx.com> wrote:
-> >
-> > Sounds like TSO/GSO packets are not properly segmented and therefore
-> > dropped.
-> > 
-> > Could you first try turning off segmentation offloading for the tunnel
-> > interface?
-> >     ethtool -K sit0 tso off gso off
-> 
-> On Thu, 24 Nov 2016 18:30:14 -0800 Eric Dumazet <eric.dumazet@gmail.com>
-> >
-> > You also could try to disable TSO and see if this makes a difference
-> > 
-> > ethtool -K sixtofour0 tso off
-> 
-> So turning off tso brings performance up to IPv4 levels ...
-> 
-> Thanks for that, it solves my immediate problem.
+- single queue user can disable multiqueue when launching qemu
+- brings extra troubles for the management since it needs extra admin
+  tool in guest to enable multiqueue
+- multiqueue performs much better than single queue in most of the
+  cases
 
-Somehow this problem description really reminds me of a report on 
-netdev a bit ago, which the following patch fixed:
+So this patch enables multiqueue by default: if #queues is less than or
+equal to #vcpu, enable as much as queue pairs; if #queues is greater
+than #vcpu, enable #vcpu queue pairs.
 
-commit 9ee6c5dc816aa8256257f2cd4008a9291ec7e985
-Author: Lance Richardson <lrichard@redhat.com>
-Date:   Wed Nov 2 16:36:17 2016 -0400
+Cc: Hannes Frederic Sowa <hannes@redhat.com>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Neil Horman <nhorman@redhat.com>
+Cc: Jeremy Eder <jeder@redhat.com>
+Cc: Marko Myllynen <myllynen@redhat.com>
+Cc: Maxime Coquelin <maxime.coquelin@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/virtio_net.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-    ipv4: allow local fragmentation in ip_finish_output_gso()
-    
-    Some configurations (e.g. geneve interface with default
-    MTU of 1500 over an ethernet interface with 1500 MTU) result
-    in the transmission of packets that exceed the configured MTU.
-    While this should be considered to be a "bad" configuration,
-    it is still allowed and should not result in the sending
-    of packets that exceed the configured MTU.
-
-Could this be related?
-
-I suppose it would be difficult to test this patch on this machine?
-
-c'ya
-sven-haegar
-
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index d4ac7a6..a21d93a 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1886,8 +1886,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (vi->any_header_sg)
+ 		dev->needed_headroom = vi->hdr_len;
+ 
+-	/* Use single tx/rx queue pair as default */
+-	vi->curr_queue_pairs = 1;
++	/* Enable multiqueue by default */
++	if (num_online_cpus() >= max_queue_pairs)
++		vi->curr_queue_pairs = max_queue_pairs;
++	else
++		vi->curr_queue_pairs = num_online_cpus();
+ 	vi->max_queue_pairs = max_queue_pairs;
+ 
+ 	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
+@@ -1918,6 +1921,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		goto free_unregister_netdev;
+ 	}
+ 
++	virtnet_set_affinity(vi);
++
+ 	/* Assume link up if device can't report link status,
+ 	   otherwise get link status from config. */
+ 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
 -- 
-Three may keep a secret, if two of them are dead.
-- Ben F.
+2.7.4
