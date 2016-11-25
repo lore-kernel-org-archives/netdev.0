@@ -1,133 +1,230 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [PATCH] net: stmmac: enable tx queue 0 for gmac4 IPs synthesized
- with multiple TX queues
-Date: Fri, 25 Nov 2016 16:40:30 +0100
-Message-ID: <42278c19-52f9-8faa-1be7-2a43265f697f@st.com>
-References: <1479998194-7113-1-git-send-email-niklass@axis.com>
- <0516ebe9-6b66-5991-1f96-1cc10178977a@st.com>
- <95ed6d38-cc5e-402f-6772-710b6ad0c930@axis.com>
- <c97ee9f8-c656-20a9-c41a-e66041540013@axis.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] mlx4: give precise rx/tx bytes/packets counters
+Date: Fri, 25 Nov 2016 07:46:20 -0800
+Message-ID: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:33183 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754393AbcKYPlT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 10:41:19 -0500
-In-Reply-To: <c97ee9f8-c656-20a9-c41a-e66041540013@axis.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33101 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755107AbcKYPqW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 10:46:22 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so5824967pgd.0
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 07:46:22 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas
+From: Eric Dumazet <edumazet@google.com>
 
-On 11/25/2016 01:14 PM, Niklas Cassel wrote:
-> On 11/25/2016 01:10 PM, Niklas Cassel wrote:
->> On 11/24/2016 07:11 PM, Alexandre Torgue wrote:
->>> Hi Niklas,
->> Hello Alexandre
->>
->>> On 11/24/2016 03:36 PM, Niklas Cassel wrote:
->>>> From: Niklas Cassel <niklas.cassel@axis.com>
->>>>
->>>> The dwmac4 IP can synthesized with 1-8 number of tx queues.
->>>> On an IP synthesized with DWC_EQOS_NUM_TXQ > 1, all txqueues are disabled
->>>> by default. For these IPs, the bitfield TXQEN is R/W.
->>>>
->>>> Always enable tx queue 0. The write will have no effect on IPs synthesized
->>>> with DWC_EQOS_NUM_TXQ == 1.
->>>>
->>>> The driver does still not utilize more than one tx queue in the IP.
->>>>
->>>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
->>>> ---
->>>>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h     |  3 +++
->>>>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c | 12 +++++++++++-
->>>>  2 files changed, 14 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
->>>> index 6f4f5ce25114..3e8d4fefa5e0 100644
->>>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
->>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
->>>> @@ -155,8 +155,11 @@ enum power_event {
->>>>  #define MTL_CHAN_RX_DEBUG(x)        (MTL_CHANX_BASE_ADDR(x) + 0x38)
->>>>
->>>>  #define MTL_OP_MODE_RSF            BIT(5)
->>>> +#define MTL_OP_MODE_TXQEN        BIT(3)
->>>>  #define MTL_OP_MODE_TSF            BIT(1)
->>>>
->>>> +#define MTL_OP_MODE_TQS_MASK        GENMASK(24, 16)
->>>> +
->>>>  #define MTL_OP_MODE_TTC_MASK        0x70
->>>>  #define MTL_OP_MODE_TTC_SHIFT        4
->>>>
->>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
->>>> index 116151cd6a95..577316de6ba8 100644
->>>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
->>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
->>>> @@ -213,7 +213,17 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
->>>>          else
->>>>              mtl_tx_op |= MTL_OP_MODE_TTC_512;
->>>>      }
->>>> -
->>>> +    /* For an IP with DWC_EQOS_NUM_TXQ == 1, the fields TXQEN and TQS are RO
->>>> +     * with reset values: TXQEN on, TQS == DWC_EQOS_TXFIFO_SIZE.
->>>> +     * For an IP with DWC_EQOS_NUM_TXQ > 1, the fields TXQEN and TQS are R/W
->>>> +     * with reset values: TXQEN off, TQS 256 bytes.
->>>> +     *
->>>> +     * Write the bits in both cases, since it will have no effect when RO.
->>>> +     * For DWC_EQOS_NUM_TXQ > 1, the top bits in MTL_OP_MODE_TQS_MASK might
->>>> +     * be RO, however, writing the whole TQS field will result in a value
->>>> +     * equal to DWC_EQOS_TXFIFO_SIZE, just like for DWC_EQOS_NUM_TXQ == 1.
->>>> +     */
->>>> +    mtl_tx_op |= MTL_OP_MODE_TXQEN | MTL_OP_MODE_TQS_MASK;
->>> Your patch sounds good. Just one question:
->>>
->>> In synopsys databook I use, I see that MTL_OP_MODE_TXQEN for channel 2 can take several values "disabled / enabled / Enabled in AV mode":
->>>
->>> Transmit Queue Enable
->>> This field is used to enable/disable the transmit queue 1. 00 R/W
->>> ■ 2'b00 - Not enabled
->>> ■ 2'b01 - Enable in AV mode (Reserved when Enable Audio Video
->>> Bridging is not selected while configuring the core)
->>> ■ 2'b10 - Enabled
->>> ■ 2'b11 - Reserved
->>>
->>> Do you plan to manage av mode in a future patch ?
->> We are not planning on using the AV mode.
->> We will probably not use TXQ1 at all.
->>
->> I noticed that the MAC_HW_Feature2 Register actually has a TXQCNT field.
->> It is currently saved in priv->dma_cap.number_tx_channel.
->> If you prefer, I could do a patch V2 where we only set the bits if
->> priv->dma_cap.number_tx_channel > 1
->
-> Oh, sorry, that was number of tx _channels_,
-> not number of tx _queues_.
->
-> However, we could add a number_tx_queue to struct dma_features,
-> if you would prefer that.
+mlx4 stats are chaotic because a deferred work queue is responsible
+to update them every 250 ms.
 
-I agree your patch is good. It will work even if we use several tx 
-channels. We will see in the future for AV mode.
+Even sampling stats every one second with "sar -n DEV 1" gives
+variations like the following :
 
-regards
-alex
+lpaa23:~# sar -n DEV 1 10 | grep eth0 | cut -c1-65
+07:39:22         eth0 146877.00 3265554.00   9467.15 4828168.50  
+07:39:23         eth0 146587.00 3260329.00   9448.15 4820445.98  
+07:39:24         eth0 146894.00 3259989.00   9468.55 4819943.26  
+07:39:25         eth0 110368.00 2454497.00   7113.95 3629012.17  <<>>
+07:39:26         eth0 146563.00 3257502.00   9447.25 4816266.23  
+07:39:27         eth0 145678.00 3258292.00   9389.79 4817414.39  
+07:39:28         eth0 145268.00 3253171.00   9363.85 4809852.46  
+07:39:29         eth0 146439.00 3262185.00   9438.97 4823172.48  
+07:39:30         eth0 146758.00 3264175.00   9459.94 4826124.13  
+07:39:31         eth0 146843.00 3256903.00   9465.44 4815381.97  
+Average:         eth0 142827.50 3179259.70   9206.30 4700578.16  
 
->
->>
->> However, I don't think the current patch is too bad either, since the bits
->> are RO when number_tx_channel == 1.
->>
->>
->>> Regards
->>> Alex
->>>
->>>>      writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
->>>>
->>>>      mtl_rx_op = readl(ioaddr + MTL_CHAN_RX_OP_MODE(channel));
->>>>
->
+This patch allows rx/tx bytes/packets counters being folded at the
+time we need stats.
+
+We now can fetch stats every 1 ms if we want to check NIC behavior
+on a small time window. It is also easier to detect anomalies.
+
+lpaa23:~# sar -n DEV 1 10 | grep eth0 | cut -c1-65
+07:42:50         eth0 142915.00 3177696.00   9212.06 4698270.42  
+07:42:51         eth0 143741.00 3200232.00   9265.15 4731593.02  
+07:42:52         eth0 142781.00 3171600.00   9202.92 4689260.16  
+07:42:53         eth0 143835.00 3192932.00   9271.80 4720761.39  
+07:42:54         eth0 141922.00 3165174.00   9147.64 4679759.21  
+07:42:55         eth0 142993.00 3207038.00   9216.78 4741653.05  
+07:42:56         eth0 141394.06 3154335.64   9113.85 4663731.73  
+07:42:57         eth0 141850.00 3161202.00   9144.48 4673866.07  
+07:42:58         eth0 143439.00 3180736.00   9246.05 4702755.35  
+07:42:59         eth0 143501.00 3210992.00   9249.99 4747501.84  
+Average:         eth0 142835.66 3182165.93   9206.98 4704874.08  
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2 
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    1 
+ drivers/net/ethernet/mellanox/mlx4/en_port.c    |   77 +++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    1 
+ 4 files changed, 58 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 487a58f9c192896852fef271b6cce9bde132deb7..d9c9f86a30df953fa555934c5406057dcaf28960 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -367,6 +367,8 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
+ 
+ 	spin_lock_bh(&priv->stats_lock);
+ 
++	mlx4_en_fold_software_stats(dev);
++
+ 	for (i = 0; i < NUM_MAIN_STATS; i++, bitmap_iterator_inc(&it))
+ 		if (bitmap_iterator_test(&it))
+ 			data[index++] = ((unsigned long *)&dev->stats)[i];
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 9018bb1b2e12142e048281a9d28ddf95e0023a61..d28d841db23ce885d2011877a156bacf23f65afe 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1321,6 +1321,7 @@ mlx4_en_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 
+ 	spin_lock_bh(&priv->stats_lock);
++	mlx4_en_fold_software_stats(dev);
+ 	netdev_stats_to_stats64(stats, &dev->stats);
+ 	spin_unlock_bh(&priv->stats_lock);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+index 1eb4c1e10bad1dad26049876acf107a2073a6ab1..c6c4f1238923e09eced547454b86c68720292859 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+@@ -147,6 +147,39 @@ static unsigned long en_stats_adder(__be64 *start, __be64 *next, int num)
+ 	return ret;
+ }
+ 
++void mlx4_en_fold_software_stats(struct net_device *dev)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	unsigned long packets, bytes;
++	int i;
++
++	if (mlx4_is_master(mdev->dev))
++		return;
++
++	packets = 0;
++	bytes = 0;
++	for (i = 0; i < priv->rx_ring_num; i++) {
++		const struct mlx4_en_rx_ring *ring = priv->rx_ring[i];
++
++		packets += READ_ONCE(ring->packets);
++		bytes   += READ_ONCE(ring->bytes);
++	}
++	dev->stats.rx_packets = packets;
++	dev->stats.rx_bytes = bytes;
++
++	packets = 0;
++	bytes = 0;
++	for (i = 0; i < priv->tx_ring_num[TX]; i++) {
++		const struct mlx4_en_tx_ring *ring = priv->tx_ring[TX][i];
++
++		packets += READ_ONCE(ring->packets);
++		bytes   += READ_ONCE(ring->bytes);
++	}
++	dev->stats.tx_packets = packets;
++	dev->stats.tx_bytes = bytes;
++}
++
+ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ {
+ 	struct mlx4_counter tmp_counter_stats;
+@@ -159,6 +192,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	u64 in_mod = reset << 8 | port;
+ 	int err;
+ 	int i, counter_index;
++	unsigned long sw_tx_dropped = 0;
+ 	unsigned long sw_rx_dropped = 0;
+ 
+ 	mailbox = mlx4_alloc_cmd_mailbox(mdev->dev);
+@@ -174,8 +208,8 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 
+ 	spin_lock_bh(&priv->stats_lock);
+ 
+-	stats->rx_packets = 0;
+-	stats->rx_bytes = 0;
++	mlx4_en_fold_software_stats(dev);
++
+ 	priv->port_stats.rx_chksum_good = 0;
+ 	priv->port_stats.rx_chksum_none = 0;
+ 	priv->port_stats.rx_chksum_complete = 0;
+@@ -183,19 +217,16 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	priv->xdp_stats.rx_xdp_tx      = 0;
+ 	priv->xdp_stats.rx_xdp_tx_full = 0;
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+-		stats->rx_packets += priv->rx_ring[i]->packets;
+-		stats->rx_bytes += priv->rx_ring[i]->bytes;
+-		sw_rx_dropped += priv->rx_ring[i]->dropped;
+-		priv->port_stats.rx_chksum_good += priv->rx_ring[i]->csum_ok;
+-		priv->port_stats.rx_chksum_none += priv->rx_ring[i]->csum_none;
+-		priv->port_stats.rx_chksum_complete += priv->rx_ring[i]->csum_complete;
+-		priv->xdp_stats.rx_xdp_drop    += priv->rx_ring[i]->xdp_drop;
+-		priv->xdp_stats.rx_xdp_tx      += priv->rx_ring[i]->xdp_tx;
+-		priv->xdp_stats.rx_xdp_tx_full += priv->rx_ring[i]->xdp_tx_full;
++		const struct mlx4_en_rx_ring *ring = priv->rx_ring[i];
++
++		sw_rx_dropped			+= READ_ONCE(ring->dropped);
++		priv->port_stats.rx_chksum_good += READ_ONCE(ring->csum_ok);
++		priv->port_stats.rx_chksum_none += READ_ONCE(ring->csum_none);
++		priv->port_stats.rx_chksum_complete += READ_ONCE(ring->csum_complete);
++		priv->xdp_stats.rx_xdp_drop	+= READ_ONCE(ring->xdp_drop);
++		priv->xdp_stats.rx_xdp_tx	+= READ_ONCE(ring->xdp_tx);
++		priv->xdp_stats.rx_xdp_tx_full	+= READ_ONCE(ring->xdp_tx_full);
+ 	}
+-	stats->tx_packets = 0;
+-	stats->tx_bytes = 0;
+-	stats->tx_dropped = 0;
+ 	priv->port_stats.tx_chksum_offload = 0;
+ 	priv->port_stats.queue_stopped = 0;
+ 	priv->port_stats.wake_queue = 0;
+@@ -205,15 +236,14 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	for (i = 0; i < priv->tx_ring_num[TX]; i++) {
+ 		const struct mlx4_en_tx_ring *ring = priv->tx_ring[TX][i];
+ 
+-		stats->tx_packets += ring->packets;
+-		stats->tx_bytes += ring->bytes;
+-		stats->tx_dropped += ring->tx_dropped;
+-		priv->port_stats.tx_chksum_offload += ring->tx_csum;
+-		priv->port_stats.queue_stopped     += ring->queue_stopped;
+-		priv->port_stats.wake_queue        += ring->wake_queue;
+-		priv->port_stats.tso_packets       += ring->tso_packets;
+-		priv->port_stats.xmit_more         += ring->xmit_more;
++		sw_tx_dropped			   += READ_ONCE(ring->tx_dropped);
++		priv->port_stats.tx_chksum_offload += READ_ONCE(ring->tx_csum);
++		priv->port_stats.queue_stopped     += READ_ONCE(ring->queue_stopped);
++		priv->port_stats.wake_queue        += READ_ONCE(ring->wake_queue);
++		priv->port_stats.tso_packets       += READ_ONCE(ring->tso_packets);
++		priv->port_stats.xmit_more         += READ_ONCE(ring->xmit_more);
+ 	}
++
+ 	if (mlx4_is_master(mdev->dev)) {
+ 		stats->rx_packets = en_stats_adder(&mlx4_en_stats->RTOT_prio_0,
+ 						   &mlx4_en_stats->RTOT_prio_1,
+@@ -251,7 +281,8 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	stats->rx_length_errors = be32_to_cpu(mlx4_en_stats->RdropLength);
+ 	stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
+ 	stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
+-	stats->tx_dropped += be32_to_cpu(mlx4_en_stats->TDROP);
++	stats->tx_dropped = be32_to_cpu(mlx4_en_stats->TDROP) +
++			    sw_tx_dropped;
+ 
+ 	/* RX stats */
+ 	priv->pkstats.rx_multicast_packets = stats->multicast;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 574bcbb1b38fc4758511d8f7bd17a87b0a507a73..20a936428f4a44c8ca0a7161855da310f9166b50 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -755,6 +755,7 @@ void mlx4_en_rx_irq(struct mlx4_cq *mcq);
+ int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port, u64 mac, u64 clear, u8 mode);
+ int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, struct mlx4_en_priv *priv);
+ 
++void mlx4_en_fold_software_stats(struct net_device *dev);
+ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset);
+ int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
+ 
