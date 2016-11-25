@@ -1,65 +1,56 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/19] mlxsw: traps, trap groups and policers
-Date: Fri, 25 Nov 2016 10:33:28 +0100
-Message-ID: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 06/19] mlxsw: core: Introduce generic macro for event
+Date: Fri, 25 Nov 2016 10:33:34 +0100
+Message-ID: <1480066427-3961-7-git-send-email-jiri@resnulli.us>
+References: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, yotamg@mellanox.com, arkadis@mellanox.com,
         ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f193.google.com ([209.85.210.193]:33390 "EHLO
-        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751917AbcKYJem (ORCPT
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33663 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752253AbcKYJem (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 04:34:42 -0500
-Received: by mail-wj0-f193.google.com with SMTP id kp2so4928068wjc.0
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 01:33:54 -0800 (PST)
+Received: by mail-wm0-f66.google.com with SMTP id u144so7192160wmu.0
+        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 01:33:56 -0800 (PST)
+In-Reply-To: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Nogah Frankel <nogahf@mellanox.com>
 
-Nogah says:
+Create a macro for creating the generic listener struct for events,
+similar to the one for rx traps.
 
-For a packet to be sent from the HW to the cpu, it needs to be trapped.
-For a trap to be activate it should be assigned to a trap group.
-Those trap groups can have policers, to limit the packet rate (the max
-number of packets that can be sent to the cpu in a time slot, the rest
-will be discarded) or the data rate (the same, but the count is not by the
-number of packets but by their total length in bytes).
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-This patchset rearrange the trap setting API, re-write the traps and the
-trap groups list in spectrum and assign them policers.
-
-Nogah Frankel (19):
-  mlxsw: spectrum: Remove unused traps
-  mlxsw: core: Create a generic function to register / unregister traps
-  mlxsw: core: Expose generic macros for rx trap
-  mlxsw: spectrum: Use generic listener struct for rx traps
-  mlxsw: switchx2: Use generic listener struct for rx traps
-  mlxsw: core: Introduce generic macro for event
-  mlxsw: spectrum: Use generic listener struct for events
-  mlxsw: switchx2: Use generic listener struct for events
-  mlxsw: switchib: Use generic listener struct for events
-  mlxsw: Change trap set function
-  mlxsw: Add option to choose trap group
-  mlxsw: core: Change emad trap group settings
-  mlxsw: resources: Add max trap groups resource
-  mlxsw: Change trap groups setting
-  mlxsw: spectrum: Add BGP trap
-  mlxsw: Create a different trap group list for each device
-  mlxsw: resources: Add max cpu policers resource
-  mlxsw: reg: Add QoS Policer Configuration Register
-  mlxsw: spectrum: Add policers for trap groups
-
- drivers/net/ethernet/mellanox/mlxsw/core.c      | 116 ++++++---
- drivers/net/ethernet/mellanox/mlxsw/core.h      |  52 ++++
- drivers/net/ethernet/mellanox/mlxsw/reg.h       | 231 +++++++++++++----
- drivers/net/ethernet/mellanox/mlxsw/resources.h |   4 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c  | 322 ++++++++++++++----------
- drivers/net/ethernet/mellanox/mlxsw/switchib.c  |  78 +++---
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c  | 229 +++++------------
- drivers/net/ethernet/mellanox/mlxsw/trap.h      |   1 +
- 8 files changed, 625 insertions(+), 408 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 5f6fed1..852218e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -115,6 +115,18 @@ struct mlxsw_listener {
+ 		.is_event = false,					\
+ 	}
+ 
++#define MLXSW_EVENTL(_func, _trap_id)				\
++	{							\
++		.trap_id = MLXSW_TRAP_ID_##_trap_id,		\
++		.u.event_listener =				\
++		{						\
++			.func = _func,				\
++			.trap_id = MLXSW_TRAP_ID_##_trap_id,	\
++		},						\
++		.action = MLXSW_REG_HPKT_ACTION_TRAP_TO_CPU,	\
++		.is_event = true,				\
++	}
++
+ int mlxsw_core_rx_listener_register(struct mlxsw_core *mlxsw_core,
+ 				    const struct mlxsw_rx_listener *rxl,
+ 				    void *priv);
 -- 
 2.7.4
