@@ -1,64 +1,81 @@
-From: Peter Zijlstra <peterz@infradead.org>
+From: Mark Rutland <mark.rutland@arm.com>
 Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
-Date: Fri, 25 Nov 2016 18:42:23 +0100
-Message-ID: <20161125174223.GS3092@twins.programming.kicks-ass.net>
-References: <32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com>
-	<20161125122356.GB26611@leverpostej>
-	<20161125124044.GN3092@twins.programming.kicks-ass.net>
-	<20161125124404.GI3174@twins.programming.kicks-ass.net>
-	<20161125145512.GA4014@Boquns-MacBook-Pro.local>
-	<CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
-	<20161125161004.GA30181@leverpostej>
-	<20161125161709.GQ3092@twins.programming.kicks-ass.net>
-	<d7f3740b-e343-68fc-4996-f712dd8c07f3@de.ibm.com>
-	<20161125172624.GA30811@leverpostej>
+Date: Fri, 25 Nov 2016 17:43:00 +0000
+Message-ID: <20161125174259.GB30811@leverpostej>
+References: <20161125112203.GA26611@leverpostej>
+ <32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com>
+ <20161125122356.GB26611@leverpostej>
+ <20161125124044.GN3092@twins.programming.kicks-ass.net>
+ <20161125124404.GI3174@twins.programming.kicks-ass.net>
+ <20161125145512.GA4014@Boquns-MacBook-Pro.local>
+ <CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
+ <20161125161004.GA30181@leverpostej>
+ <20161125161709.GQ3092@twins.programming.kicks-ass.net>
+ <CACT4Y+YJUUjU_FCR1FOcF2DmkkcjiRFpnU7Q4=yzbgvKv0VhyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Davidlohr Bueso <dave@stgolabs.net>, KVM list <kvm@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev <netdev@vger.kernel.org>,
-	Boqun Feng <boqun.feng@gmail.com>, dbueso@suse.de,
-	LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Dmitry Vyukov <dvyukov@google.com>
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <peterz@infradead.org>,
+        Boqun Feng <boqun.feng@gmail.com>,
+        Christian Borntraeger <borntraeger@de.ibm.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Davidlohr Bueso <dave@stgolabs.net>, dbueso@suse.de,
+        jasowang@redhat.com, KVM list <kvm@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        Paul McKenney <paulmck@linux.vnet.ibm.com>,
+        virtualization@lists.linux-foundation.org,
+        Linus Torvalds <torvalds@linux-foundation.org>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161125172624.GA30811@leverpostej>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <CACT4Y+YJUUjU_FCR1FOcF2DmkkcjiRFpnU7Q4=yzbgvKv0VhyQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 25, 2016 at 05:28:01PM +0000, Mark Rutland wrote:
-> On Fri, Nov 25, 2016 at 05:49:45PM +0100, Christian Borntraeger wrote:
-> > On 11/25/2016 05:17 PM, Peter Zijlstra wrote:
+On Fri, Nov 25, 2016 at 06:28:53PM +0100, Dmitry Vyukov wrote:
+> On Fri, Nov 25, 2016 at 5:17 PM, Peter Zijlstra <peterz@infradead.org> wrote:
+> >> > What are use cases for such primitive that won't be OK with "read once
+> >> > _and_ atomically"?
+> >>
+> >> I have none to hand.
+> >
+> > Whatever triggers the __builtin_memcpy() paths, and even the size==8
+> > paths on 32bit.
+> >
+> > You could put a WARN in there to easily find them.
+> >
+> > The advantage of introducing the SINGLE_{LOAD,STORE}() helpers is that
+> > they compiletime validate this the size is 'right' and can runtime check
+> > alignment constraints.
+> >
+> > IE, they are strictly stronger than {READ,WRITE}_ONCE().
+> 
+> Uh, so, READ/WRITE_ONCE are non-atomic now. I missed that.
 
-> > There were several cases that I found during writing the *ONCE stuff.
-> > For example there are some 32bit ppc variants with 64bit PTEs. Some for
-> > others (I think sparc).
-> 
-> We have similar on 32-bit ARM w/ LPAE. LPAE implies that a naturally
-> aligned 64-bit access is single-copy atomic, which is what makes that
-> ok.
-> 
-> > And the mm/ code is perfectly fine with these PTE accesses being done
-> > NOT atomic.
-> 
-> That strikes me as surprising. Is there some mutual exclusion that
-> prevents writes from occuring wherever a READ_ONCE() happens to a PTE?
-> 
-> Otherwise, how is tearing not a problem? Does it have some pattern like
-> the lockref cmpxchg?
+Yes, but *only* for types larger than word size. That has *always* been
+the case.
 
-On x86 PAE we play silly games, see arch/x86/mm/gup.c:gup_get_ptr().
+It's still assumed that *_ONCE are single-copy-atomic for word size (or
+smaller). Some architectures may also provide that guarnatee for
+accesses larger than word size (e.g. 32-bit ARM w/ LPAE).
 
-Those two loads really should be READ_ONCE()/LOAD_SINGLE().
+... It's just that as things stand we can't put checks in *_ONCE() for
+the access size, since they're *also* used for larger accesses that
+don't need atomicity.
+
+> If READ/WRITE_ONCE are non-atomic, half of kernel is broken. All these
+> loads of flags, ringbuffer positions, pointers, etc are broken.
+
+Most of these will be fine, as above.
+
+> What about restoring READ/WRITE_ONCE as atomic, and introducing
+> separate primitives for _non_ atomic loads/stores?
+
+Having a separate *_ONCE_TEARABLE() would certainly limit the number of
+things we have to fix up, and would also make it clear that atomicity is
+not expected.
+
+... but we might have to go with SINGLE_*() if we can't convince Linus.
+
+Thanks,
+Mark.
