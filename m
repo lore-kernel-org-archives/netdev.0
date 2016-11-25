@@ -1,7 +1,7 @@
 From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: [PATCH v2 6/7] ARM64: dts: meson-gxbb-vega-s95: add reset for the ethernet PHY
-Date: Fri, 25 Nov 2016 14:01:55 +0100
-Message-ID: <20161125130156.17879-7-martin.blumenstingl@googlemail.com>
+Subject: [PATCH v2 4/7] ARM64: dts: meson-gxbb-odroidc2: add reset for the ethernet PHY
+Date: Fri, 25 Nov 2016 14:01:53 +0100
+Message-ID: <20161125130156.17879-5-martin.blumenstingl@googlemail.com>
 References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
  <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
 Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
@@ -22,14 +22,14 @@ make the PHY configuration similar to the one we have on GXL devices.
 
 Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 ---
- arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi | 15 +++++++++++++++
+ arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts | 15 +++++++++++++++
  1 file changed, 15 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi
-index e59ad30..a0e92e3 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi
-@@ -113,10 +113,25 @@
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
+index 238fbea..cbaf024 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
+@@ -143,10 +143,25 @@
  	pinctrl-names = "default";
  };
  
@@ -54,7 +54,7 @@ index e59ad30..a0e92e3 100644
 +	phy-mode = "rgmii";
  };
  
- &usb0_phy {
+ &ir {
 -- 
 2.10.2
 
