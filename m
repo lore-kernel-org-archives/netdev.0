@@ -1,88 +1,236 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH 0/3] virtio/vringh: kill off ACCESS_ONCE()
-Date: Fri, 25 Nov 2016 16:21:39 +0100
-Message-ID: <CACT4Y+ZpzFhmSqOG+dG7QHSNObWatLOjPjNK2BznnRLeRQpF8A@mail.gmail.com>
-References: <1479983114-17190-1-git-send-email-mark.rutland@arm.com>
- <20161124222357-mutt-send-email-mst@kernel.org> <20161125112203.GA26611@leverpostej>
- <32dfca07-59f3-b75a-3154-cf6b6c8538f0@de.ibm.com> <20161125122356.GB26611@leverpostej>
- <20161125124044.GN3092@twins.programming.kicks-ass.net> <20161125124404.GI3174@twins.programming.kicks-ass.net>
- <20161125145512.GA4014@Boquns-MacBook-Pro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Christian Borntraeger <borntraeger@de.ibm.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Davidlohr Bueso <dave@stgolabs.net>, dbueso@suse.de,
-        jasowang@redhat.com, KVM list <kvm@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        Paul McKenney <paulmck@linux.vnet.ibm.com>,
-        virtualization@lists.linux-foundation.org,
-        Linus Torvalds <torvalds@linux-foundation.org>
-To: Boqun Feng <boqun.feng@gmail.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH net-next 1/5] net: mvneta: Use cacheable memory to store the rx buffer virtual address
+Date: Fri, 25 Nov 2016 16:30:14 +0100
+Message-ID: <7e6004f918d3fcde9ae71e7893d26b19086236a3.1480087510.git-series.gregory.clement@free-electrons.com>
+References: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
+Cc: Jisheng Zhang <jszhang@marvell.com>, Arnd Bergmann <arnd@arndb.de>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Dmitri Epshtein <dima@marvell.com>,
+        Yelena Krivosheev <yelena@marvell.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:36171 "EHLO
-        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754975AbcKYPWQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 10:22:16 -0500
-Received: by mail-lf0-f53.google.com with SMTP id t196so53024915lff.3
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 07:22:01 -0800 (PST)
-In-Reply-To: <20161125145512.GA4014@Boquns-MacBook-Pro.local>
+Received: from mail.free-electrons.com ([62.4.15.54]:43979 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754801AbcKYPbB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 10:31:01 -0500
+In-Reply-To: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
+In-Reply-To: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
+References: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 25, 2016 at 3:56 PM, Boqun Feng <boqun.feng@gmail.com> wrote:
-> On Fri, Nov 25, 2016 at 01:44:04PM +0100, Peter Zijlstra wrote:
->> On Fri, Nov 25, 2016 at 01:40:44PM +0100, Peter Zijlstra wrote:
->> > #define SINGLE_LOAD(x)                                              \
->> > {(                                                          \
->> >     compiletime_assert_atomic_type(typeof(x));              \
->>
->> Should be:
->>
->>       compiletime_assert_atomic_type(x);
->>
->> >     WARN_SINGLE_COPY_ALIGNMENT(&(x));                       \
->
-> Do we need to worry about the side effect on x? Maybe
->
-> #define SINGLE_LOAD(x)                                  \
-> ({                                                      \
->         typeof(x) *_____ptr;                            \
->                                                         \
->         compiletime_assert_atomic_type(typeof(x));      \
->                                                         \
->         _____ptr = &(x);                                \
->                                                         \
->         WARN_SINGLE_COPY_ALIGNMENT(_____ptr);           \
->                                                         \
->         READ_ONCE(*_____ptr);                           \
-> })
->
-> Ditto for SINGLE_STORE()
->
-> Regards,
-> Boqun
->
->> >     READ_ONCE(x);                                           \
->> > })
->> >
->> > #define SINGLE_STORE(x, v)                                  \
->> > ({                                                          \
->> >     compiletime_assert_atomic_type(typeof(x));              \
->>
->> idem
->>
->> >     WARN_SINGLE_COPY_ALIGNMENT(&(x));                       \
->> >     WRITE_ONCE(x, v);                                       \
->> > })
+Until now the virtual address of the received buffer were stored in the
+cookie field of the rx descriptor. However, this field is 32-bits only
+which prevents to use the driver on a 64-bits architecture.
 
+With this patch the virtual address is stored in an array not shared with
+the hardware (no more need to use the DMA API). Thanks to this, it is
+possible to use cache contrary to the access of the rx descriptor member.
 
-READ/WRITE_ONCE imply atomicity. Even if their names don't spell it (a
-function name doesn't have to spell all of its guarantees). Most of
-the uses of READ/WRITE_ONCE will be broken if they are not atomic.
-"Read once but not necessary atomically" is a very subtle primitive
-which is very easy to misuse. What are use cases for such primitive
-that won't be OK with "read once _and_ atomically"? Copy to/from user
-is obviously one such case, but it is already handled specially.
+The change is done in the swbm path only because the hwbm uses the cookie
+field, this also means that currently the hwbm is not usable in 64-bits.
+
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 96 ++++++++++++++++++++++++----
+ 1 file changed, 84 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 87274d4ab102..b6849f88cab7 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -561,6 +561,9 @@ struct mvneta_rx_queue {
+ 	u32 pkts_coal;
+ 	u32 time_coal;
+ 
++	/* Virtual address of the RX buffer */
++	void  **buf_virt_addr;
++
+ 	/* Virtual address of the RX DMA descriptors array */
+ 	struct mvneta_rx_desc *descs;
+ 
+@@ -1573,10 +1576,14 @@ static void mvneta_tx_done_pkts_coal_set(struct mvneta_port *pp,
+ 
+ /* Handle rx descriptor fill by setting buf_cookie and buf_phys_addr */
+ static void mvneta_rx_desc_fill(struct mvneta_rx_desc *rx_desc,
+-				u32 phys_addr, u32 cookie)
++				u32 phys_addr, void *virt_addr,
++				struct mvneta_rx_queue *rxq)
+ {
+-	rx_desc->buf_cookie = cookie;
++	int i;
++
+ 	rx_desc->buf_phys_addr = phys_addr;
++	i = rx_desc - rxq->descs;
++	rxq->buf_virt_addr[i] = virt_addr;
+ }
+ 
+ /* Decrement sent descriptors counter */
+@@ -1781,7 +1788,8 @@ EXPORT_SYMBOL_GPL(mvneta_frag_free);
+ 
+ /* Refill processing for SW buffer management */
+ static int mvneta_rx_refill(struct mvneta_port *pp,
+-			    struct mvneta_rx_desc *rx_desc)
++			    struct mvneta_rx_desc *rx_desc,
++			    struct mvneta_rx_queue *rxq)
+ 
+ {
+ 	dma_addr_t phys_addr;
+@@ -1799,7 +1807,7 @@ static int mvneta_rx_refill(struct mvneta_port *pp,
+ 		return -ENOMEM;
+ 	}
+ 
+-	mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)data);
++	mvneta_rx_desc_fill(rx_desc, phys_addr, data, rxq);
+ 	return 0;
+ }
+ 
+@@ -1861,7 +1869,12 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+ 
+ 	for (i = 0; i < rxq->size; i++) {
+ 		struct mvneta_rx_desc *rx_desc = rxq->descs + i;
+-		void *data = (void *)rx_desc->buf_cookie;
++		void *data;
++
++		if (!pp->bm_priv)
++			data = rxq->buf_virt_addr[i];
++		else
++			data = (void *)(uintptr_t)rx_desc->buf_cookie;
+ 
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+ 				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+@@ -1894,12 +1907,13 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
+ 		unsigned char *data;
+ 		dma_addr_t phys_addr;
+ 		u32 rx_status, frag_size;
+-		int rx_bytes, err;
++		int rx_bytes, err, index;
+ 
+ 		rx_done++;
+ 		rx_status = rx_desc->status;
+ 		rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+-		data = (unsigned char *)rx_desc->buf_cookie;
++		index = rx_desc - rxq->descs;
++		data = (unsigned char *)rxq->buf_virt_addr[index];
+ 		phys_addr = rx_desc->buf_phys_addr;
+ 
+ 		if (!mvneta_rxq_desc_is_first_last(rx_status) ||
+@@ -1938,7 +1952,7 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
+ 		}
+ 
+ 		/* Refill processing */
+-		err = mvneta_rx_refill(pp, rx_desc);
++		err = mvneta_rx_refill(pp, rx_desc, rxq);
+ 		if (err) {
+ 			netdev_err(dev, "Linux processing - Can't refill\n");
+ 			rxq->missed++;
+@@ -2020,7 +2034,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
+ 		rx_done++;
+ 		rx_status = rx_desc->status;
+ 		rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+-		data = (unsigned char *)rx_desc->buf_cookie;
++		data = (u8 *)(uintptr_t)rx_desc->buf_cookie;
+ 		phys_addr = rx_desc->buf_phys_addr;
+ 		pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
+ 		bm_pool = &pp->bm_priv->bm_pools[pool_id];
+@@ -2708,6 +2722,57 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
+ 	return rx_done;
+ }
+ 
++/* Refill processing for HW buffer management */
++static int mvneta_rx_hwbm_refill(struct mvneta_port *pp,
++				 struct mvneta_rx_desc *rx_desc)
++
++{
++	dma_addr_t phys_addr;
++	void *data;
++
++	data = mvneta_frag_alloc(pp->frag_size);
++	if (!data)
++		return -ENOMEM;
++
++	phys_addr = dma_map_single(pp->dev->dev.parent, data,
++				   MVNETA_RX_BUF_SIZE(pp->pkt_size),
++				   DMA_FROM_DEVICE);
++	if (unlikely(dma_mapping_error(pp->dev->dev.parent, phys_addr))) {
++		mvneta_frag_free(pp->frag_size, data);
++		return -ENOMEM;
++	}
++
++	phys_addr += pp->rx_offset_correction;
++	rx_desc->buf_phys_addr = phys_addr;
++	rx_desc->buf_cookie = (uintptr_t)data;
++
++	return 0;
++}
++
++/* Handle rxq fill: allocates rxq skbs; called when initializing a port */
++static int mvneta_rxq_bm_fill(struct mvneta_port *pp,
++			      struct mvneta_rx_queue *rxq,
++			      int num)
++{
++	int i;
++
++	for (i = 0; i < num; i++) {
++		memset(rxq->descs + i, 0, sizeof(struct mvneta_rx_desc));
++		if (mvneta_rx_hwbm_refill(pp, rxq->descs + i) != 0) {
++			netdev_err(pp->dev, "%s:rxq %d, %d of %d buffs  filled\n",
++				   __func__, rxq->id, i, num);
++			break;
++		}
++	}
++
++	/* Add this number of RX descriptors as non occupied (ready to
++	 * get packets)
++	 */
++	mvneta_rxq_non_occup_desc_add(pp, rxq, i);
++
++	return i;
++}
++
+ /* Handle rxq fill: allocates rxq skbs; called when initializing a port */
+ static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
+ 			   int num)
+@@ -2716,7 +2781,7 @@ static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
+ 
+ 	for (i = 0; i < num; i++) {
+ 		memset(rxq->descs + i, 0, sizeof(struct mvneta_rx_desc));
+-		if (mvneta_rx_refill(pp, rxq->descs + i) != 0) {
++		if (mvneta_rx_refill(pp, rxq->descs + i, rxq) != 0) {
+ 			netdev_err(pp->dev, "%s:rxq %d, %d of %d buffs  filled\n",
+ 				__func__, rxq->id, i, num);
+ 			break;
+@@ -2784,14 +2849,21 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
+ 		mvneta_rxq_buf_size_set(pp, rxq,
+ 					MVNETA_RX_BUF_SIZE(pp->pkt_size));
+ 		mvneta_rxq_bm_disable(pp, rxq);
++
++		rxq->buf_virt_addr = devm_kmalloc(pp->dev->dev.parent,
++						  rxq->size * sizeof(void *),
++						  GFP_KERNEL);
++		if (!rxq->buf_virt_addr)
++			return -ENOMEM;
++
++		mvneta_rxq_fill(pp, rxq, rxq->size);
+ 	} else {
+ 		mvneta_rxq_bm_enable(pp, rxq);
+ 		mvneta_rxq_long_pool_set(pp, rxq);
+ 		mvneta_rxq_short_pool_set(pp, rxq);
++		mvneta_rxq_bm_fill(pp, rxq, rxq->size);
+ 	}
+ 
+-	mvneta_rxq_fill(pp, rxq, rxq->size);
+-
+ 	return 0;
+ }
+ 
+-- 
+git-series 0.8.10
