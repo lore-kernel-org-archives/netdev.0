@@ -1,54 +1,36 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 1/1] driver: macvtap: Unregister netdev rx_handler if
- macvtap_newlink fails
-Date: Fri, 25 Nov 2016 10:48:58 +0800
-Message-ID: <a2941cab-03bc-9ff1-9a9e-9ab1af5c861f@redhat.com>
-References: <1480039506-29740-1-git-send-email-fgao@ikuai8.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Large performance regression with 6in4 tunnel (sit)
+Date: Thu, 24 Nov 2016 19:01:28 -0800
+Message-ID: <1480042888.8455.527.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161125120947.142c3af5@canb.auug.org.au>
+         <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
+         <20161125134520.68ca0969@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: fgao@48lvckh6395k16k5.yundunddos.com, davem@davemloft.net,
-        edumazet@google.com, netdev@vger.kernel.org, gfree.wind@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eli Cooper <elicooper@gmx.com>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44830 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751439AbcKYCtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Nov 2016 21:49:09 -0500
-In-Reply-To: <1480039506-29740-1-git-send-email-fgao@ikuai8.com>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:35408 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752087AbcKYDBa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Nov 2016 22:01:30 -0500
+Received: by mail-pg0-f52.google.com with SMTP id p66so24456969pga.2
+        for <netdev@vger.kernel.org>; Thu, 24 Nov 2016 19:01:30 -0800 (PST)
+In-Reply-To: <20161125134520.68ca0969@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2016-11-25 at 13:45 +1100, Stephen Rothwell wrote:
 
+> So turning off tso brings performance up to IPv4 levels ...
 
-On 2016年11月25日 10:05, fgao@48lvckh6395k16k5.yundunddos.com wrote:
-> From: Gao Feng <fgao@ikuai8.com>
->
-> The macvtap_newlink registers the netdev rx_handler firstly, but it
-> does not unregister the handler if macvlan_common_newlink failed.
->
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
->   drivers/net/macvtap.c | 8 +++++++-
->   1 file changed, 7 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 070e329..bceca28 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -491,7 +491,13 @@ static int macvtap_newlink(struct net *src_net,
->   	/* Don't put anything that may fail after macvlan_common_newlink
->   	 * because we can't undo what it does.
->   	 */
-> -	return macvlan_common_newlink(src_net, dev, tb, data);
-> +	err = macvlan_common_newlink(src_net, dev, tb, data);
-> +	if (err) {
-> +		netdev_rx_handler_unregister(dev);
-> +		return err;
-> +	}
-> +
-> +	return 0;
->   }
->   
->   static void macvtap_dellink(struct net_device *dev,
+ok.
 
-Acked-by: Jason Wang <jasowang@redhat.com>
+> 
+> Thanks for that, it solves my immediate problem.
+
+Since I do not have this problem at all on my hosts, it could be a buggy
+ethernet driver.
+
+Could you share what NIC card and driver you are using ?
