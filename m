@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 3/5] net/udp: factor out main skb processing routine
-Date: Fri, 25 Nov 2016 16:39:54 +0100
-Message-ID: <49cd43223aa03a70189983514b53a1d41a522d3e.1480086321.git.pabeni@redhat.com>
+Subject: [PATCH net-next 2/5] net/socket: add per protocol mmesg support
+Date: Fri, 25 Nov 2016 16:39:53 +0100
+Message-ID: <34a5941b05089c68d398fed56fc65dada5ccacb5.1480086321.git.pabeni@redhat.com>
 References: <cover.1480086321.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>,
@@ -10,212 +10,192 @@ Cc: "David S. Miller" <davem@davemloft.net>,
         Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50854 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35050 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754900AbcKYPlS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754928AbcKYPlS (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 25 Nov 2016 10:41:18 -0500
 In-Reply-To: <cover.1480086321.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-we will reuse it later for mmsg implementation
+proto->recvmmsg allows leveraging per protocol optimization,
+amortizing the protocol/locking overhead on multiple packets.
+
+This commit introduces the procotol level callbacks and change
+to generic implementation to use them.
+
+We explicitly pass down to the protocol level both 'timeout'
+and 'end_time' to avoid duplicating there the call to
+poll_select_set_timeout().
 
 Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- net/ipv4/udp.c | 67 ++++++++++++++++++++++++++++++++---------------------
- net/ipv6/udp.c | 73 ++++++++++++++++++++++++++++++++++++----------------------
- 2 files changed, 86 insertions(+), 54 deletions(-)
+ include/linux/net.h       |  5 +++++
+ include/net/inet_common.h |  3 +++
+ include/net/sock.h        |  6 ++++++
+ net/ipv4/af_inet.c        | 16 ++++++++++++++++
+ net/ipv6/af_inet6.c       |  1 +
+ net/socket.c              | 26 +++++++++++++++++++++++++-
+ 6 files changed, 56 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b3b6bc5..d99429d 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1350,34 +1350,18 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+diff --git a/include/linux/net.h b/include/linux/net.h
+index cd0c8bd..95f1bc5 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -182,6 +182,11 @@ struct proto_ops {
+ 	 */
+ 	int		(*recvmsg)   (struct socket *sock, struct msghdr *m,
+ 				      size_t total_len, int flags);
++	int		(*recvmmsg)  (struct socket *sock,
++				      struct mmsghdr __user *user_mmsg,
++				      unsigned int *vlen, unsigned int flags,
++				      struct timespec *timeout,
++				      const struct timespec64 *end_time);
+ 	int		(*mmap)	     (struct file *file, struct socket *sock,
+ 				      struct vm_area_struct * vma);
+ 	ssize_t		(*sendpage)  (struct socket *sock, struct page *page,
+diff --git a/include/net/inet_common.h b/include/net/inet_common.h
+index 5d68342..c7d5875 100644
+--- a/include/net/inet_common.h
++++ b/include/net/inet_common.h
+@@ -26,6 +26,9 @@ ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
+ 		      size_t size, int flags);
+ int inet_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
+ 		 int flags);
++int inet_recvmmsg(struct socket *sock, struct mmsghdr __user *user_mmsg,
++		  unsigned int *vlen, unsigned int flags,
++		  struct timespec *timeout, const struct timespec64 *end_time);
+ int inet_shutdown(struct socket *sock, int how);
+ int inet_listen(struct socket *sock, int backlog);
+ void inet_sock_destruct(struct sock *sk);
+diff --git a/include/net/sock.h b/include/net/sock.h
+index c92dc19..11126f4 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1010,6 +1010,12 @@ struct proto {
+ 	int			(*recvmsg)(struct sock *sk, struct msghdr *msg,
+ 					   size_t len, int noblock, int flags,
+ 					   int *addr_len);
++	int			(*recvmmsg)(struct sock *sk,
++					    struct mmsghdr __user *user_mmsg,
++					    unsigned int *nr,
++					    unsigned int flags,
++					    struct timespec *timeout,
++					    const struct timespec64 *end_time);
+ 	int			(*sendpage)(struct sock *sk, struct page *page,
+ 					int offset, size_t size, int flags);
+ 	int			(*bind)(struct sock *sk,
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 5ddf5cd..747558d 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -770,6 +770,21 @@ int inet_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
  }
- EXPORT_SYMBOL(udp_ioctl);
+ EXPORT_SYMBOL(inet_recvmsg);
  
--/*
-- * 	This should be easy, if there is something there we
-- * 	return it, otherwise we block.
-- */
--
--int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
--		int flags, int *addr_len)
-+static int udp_process_skb(struct sock *sk, struct sk_buff *skb,
-+			   struct msghdr *msg, size_t len, int flags,
-+			   int *addr_len, int off, int peeking, int peeked)
++int inet_recvmmsg(struct socket *sock, struct mmsghdr __user *ummsg,
++		  unsigned int *vlen, unsigned int flags,
++		  struct timespec *timeout, const struct timespec64 *end_time)
++{
++	struct sock *sk = sock->sk;
++
++	if (!sk->sk_prot->recvmmsg)
++		return -EOPNOTSUPP;
++
++	sock_rps_record_flow(sk);
++
++	return sk->sk_prot->recvmmsg(sk, ummsg, vlen, flags, timeout, end_time);
++}
++EXPORT_SYMBOL(inet_recvmmsg);
++
+ int inet_shutdown(struct socket *sock, int how)
  {
--	struct inet_sock *inet = inet_sk(sk);
- 	DECLARE_SOCKADDR(struct sockaddr_in *, sin, msg->msg_name);
--	struct sk_buff *skb;
--	unsigned int ulen, copied;
--	int peeked, peeking, off;
--	int err;
-+	struct inet_sock *inet = inet_sk(sk);
- 	int is_udplite = IS_UDPLITE(sk);
- 	bool checksum_valid = false;
-+	int ulen = skb->len;
-+	int copied = len;
-+	int err;
+ 	struct sock *sk = sock->sk;
+@@ -942,6 +957,7 @@ static int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned lon
+ 	.getsockopt	   = sock_common_getsockopt,
+ 	.sendmsg	   = inet_sendmsg,
+ 	.recvmsg	   = inet_recvmsg,
++	.recvmmsg	   = inet_recvmmsg,
+ 	.mmap		   = sock_no_mmap,
+ 	.sendpage	   = inet_sendpage,
+ 	.set_peek_off	   = sk_set_peek_off,
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index d424f3a..f7ce6a2 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -571,6 +571,7 @@ int inet6_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 	.getsockopt	   = sock_common_getsockopt,	/* ok		*/
+ 	.sendmsg	   = inet_sendmsg,		/* ok		*/
+ 	.recvmsg	   = inet_recvmsg,		/* ok		*/
++	.recvmmsg	   = inet_recvmmsg,		/* ok		*/
+ 	.mmap		   = sock_no_mmap,
+ 	.sendpage	   = sock_no_sendpage,
+ 	.set_peek_off	   = sk_set_peek_off,
+diff --git a/net/socket.c b/net/socket.c
+index 9b5f360..49e6cd6 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2140,6 +2140,8 @@ static int copy_msghdr_to_user_gen(struct msghdr *msg_sys, int flags,
+ 				  &msg->msg_controllen);
+ }
  
--	if (flags & MSG_ERRQUEUE)
--		return ip_recv_error(sk, msg, len, addr_len);
--
--try_again:
--	peeking = off = sk_peek_offset(sk, flags);
--	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
--	if (!skb)
--		return err;
--
--	ulen = skb->len;
--	copied = len;
- 	if (copied > ulen - off)
- 		copied = ulen - off;
- 	else if (copied < ulen)
-@@ -1446,10 +1430,41 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
- 	}
- 	kfree_skb(skb);
++#define MSG_CMSG_MASK (MSG_CMSG_CLOEXEC | MSG_CMSG_COMPAT)
++
+ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 			 struct msghdr *msg_sys, unsigned int flags, int nosec)
+ {
+@@ -2163,7 +2165,7 @@ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+ 		return err;
  
--	/* starting over for a new packet, but check if we need to yield */
--	cond_resched();
- 	msg->msg_flags &= ~MSG_TRUNC;
--	goto try_again;
-+	return -EINVAL;
+ 	cmsg_ptr = (unsigned long)msg_sys->msg_control;
+-	msg_sys->msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
++	msg_sys->msg_flags = flags & MSG_CMSG_MASK;
+ 
+ 	/* We assume all kernel code knows the size of sockaddr_storage */
+ 	msg_sys->msg_namelen = 0;
+@@ -2218,6 +2220,21 @@ long __sys_recvmsg(int fd, struct user_msghdr __user *msg, unsigned flags)
+  *     Linux recvmmsg interface
+  */
+ 
++static int __proto_recvmmsg(struct socket *sock, struct mmsghdr __user *ummsg,
++			    unsigned int *vlen, unsigned int flags,
++			    struct timespec *timeout,
++			    const struct timespec64 *end_time)
++{
++	if (!sock->ops->recvmmsg)
++		return -EOPNOTSUPP;
++
++	if (sock->file->f_flags & O_NONBLOCK)
++		flags |= MSG_DONTWAIT;
++
++	/* defer LSM check and mmsg parsing to the proto operation */
++	return sock->ops->recvmmsg(sock, ummsg, vlen, flags, timeout, end_time);
 +}
 +
-+/*
-+ *	This should be easy, if there is something there we
-+ *	return it, otherwise we block.
-+ */
-+int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
-+		int flags, int *addr_len)
-+{
-+	struct sk_buff *skb;
-+	int peeked, peeking, off;
-+	int err;
-+
-+	if (flags & MSG_ERRQUEUE)
-+		return ip_recv_error(sk, msg, len, addr_len);
-+
-+try_again:
-+	peeking = off = sk_peek_offset(sk, flags);
-+	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
-+	if (!skb)
-+		return err;
-+
-+	err = udp_process_skb(sk, skb, msg, len, flags, addr_len, off, peeking,
-+			      peeked);
-+	if (err < 0) {
-+		if (err != -EINVAL)
-+			return err;
-+
-+		/* restarting for a new packet, but check if we need to yield */
-+		cond_resched();
-+		goto try_again;
-+	}
-+	return err;
- }
- 
- int __udp_disconnect(struct sock *sk, int flags)
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index ba25ec2..3218c64 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -318,38 +318,19 @@ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be
- EXPORT_SYMBOL_GPL(udp6_lib_lookup);
- #endif
- 
--/*
-- *	This should be easy, if there is something there we
-- *	return it, otherwise we block.
-- */
--
--int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
--		  int noblock, int flags, int *addr_len)
-+static int udp6_process_skb(struct sock *sk, struct sk_buff *skb,
-+			    struct msghdr *msg, size_t len, int flags,
-+			    int *addr_len, int off, int peeking, int peeked)
+ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 		   unsigned int flags, struct timespec *timeout)
  {
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct inet_sock *inet = inet_sk(sk);
--	struct sk_buff *skb;
--	unsigned int ulen, copied;
--	int peeked, peeking, off;
--	int err;
- 	int is_udplite = IS_UDPLITE(sk);
- 	bool checksum_valid = false;
-+	int ulen = skb->len;
-+	int copied = len;
- 	int is_udp4;
-+	int err;
+@@ -2243,6 +2260,12 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 	if (err)
+ 		goto out_put;
  
--	if (flags & MSG_ERRQUEUE)
--		return ipv6_recv_error(sk, msg, len, addr_len);
--
--	if (np->rxpmtu && np->rxopt.bits.rxpmtu)
--		return ipv6_recv_rxpmtu(sk, msg, len, addr_len);
--
--try_again:
--	peeking = off = sk_peek_offset(sk, flags);
--	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
--	if (!skb)
--		return err;
--
--	ulen = skb->len;
--	copied = len;
- 	if (copied > ulen - off)
- 		copied = ulen - off;
- 	else if (copied < ulen)
-@@ -456,10 +437,46 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
- 	}
- 	kfree_skb(skb);
- 
--	/* starting over for a new packet, but check if we need to yield */
--	cond_resched();
- 	msg->msg_flags &= ~MSG_TRUNC;
--	goto try_again;
-+	return -EINVAL;
-+}
-+
-+/*
-+ *	This should be easy, if there is something there we
-+ *	return it, otherwise we block.
-+ */
-+int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
-+		  int noblock, int flags, int *addr_len)
-+{
-+	struct ipv6_pinfo *np = inet6_sk(sk);
-+	int peeked, peeking, off;
-+	struct sk_buff *skb;
-+	int err;
-+
-+	if (flags & MSG_ERRQUEUE)
-+		return ipv6_recv_error(sk, msg, len, addr_len);
-+
-+	if (np->rxpmtu && np->rxopt.bits.rxpmtu)
-+		return ipv6_recv_rxpmtu(sk, msg, len, addr_len);
-+
-+try_again:
-+	peeking = off = sk_peek_offset(sk, flags);
-+	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
-+	if (!skb)
-+		return err;
-+
-+	err = udp6_process_skb(sk, skb, msg, len, flags, addr_len, off, peeking,
-+			       peeked);
-+	if (err < 0) {
-+		if (err != -EINVAL)
-+			return err;
-+
-+		/* restarting for a new packet, but check if we need to yield */
-+		cond_resched();
-+		goto try_again;
++	err = __proto_recvmmsg(sock, mmsg, &vlen, flags, timeout, &end_time);
++	if (err != -EOPNOTSUPP) {
++		datagrams = vlen;
++		goto chk_error;
 +	}
-+	return err;
 +
- }
+ 	entry = mmsg;
+ 	compat_entry = (struct compat_mmsghdr __user *)mmsg;
  
- void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+@@ -2287,6 +2310,7 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ 		cond_resched();
+ 	}
+ 
++chk_error:
+ 	if (err == 0)
+ 		goto out_put;
+ 
 -- 
 1.8.3.1
