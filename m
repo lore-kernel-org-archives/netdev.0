@@ -1,66 +1,59 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 3/3] flowcache: Increase threshold for refusing new allocations
-Date: Fri, 25 Nov 2016 07:58:00 +0100
-Message-ID: <1480057080-20177-4-git-send-email-steffen.klassert@secunet.com>
-References: <1480057080-20177-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net): ipsec 2016-11-25
+Date: Fri, 25 Nov 2016 07:57:57 +0100
+Message-ID: <1480057080-20177-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         Steffen Klassert <steffen.klassert@secunet.com>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c.mx.secunet.com ([62.96.220.56]:45290 "EHLO c.mx.secunet.com"
+Received: from c.mx.secunet.com ([62.96.220.56]:45292 "EHLO c.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752756AbcKYHHW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Nov 2016 02:07:22 -0500
-In-Reply-To: <1480057080-20177-1-git-send-email-steffen.klassert@secunet.com>
+        id S1752756AbcKYHH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 02:07:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Miroslav Urbanek <mu@miroslavurbanek.com>
+1) Fix a refcount leak in vti6.
+   From Nicolas Dichtel.
 
-The threshold for OOM protection is too small for systems with large
-number of CPUs. Applications report ENOBUFs on connect() every 10
-minutes.
+2) Fix a wrong if statement in xfrm_sk_policy_lookup.
+   From Florian Westphal.
 
-The problem is that the variable net->xfrm.flow_cache_gc_count is a
-global counter while the variable fc->high_watermark is a per-CPU
-constant. Take the number of CPUs into account as well.
+3) The flowcache watermarks are per cpu. Take this into
+   account when comparing to the threshold where we
+   refusing new allocations. From Miroslav Urbanek.
 
-Fixes: 6ad3122a08e3 ("flowcache: Avoid OOM condition under preasure")
-Reported-by: Lukáš Koldrt <lk@excello.cz>
-Tested-by: Jan Hejl <jh@excello.cz>
-Signed-off-by: Miroslav Urbanek <mu@miroslavurbanek.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/core/flow.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Please pull or let me know if there are problems.
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 3937b1b..18e8893 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -95,7 +95,6 @@ static void flow_cache_gc_task(struct work_struct *work)
- 	list_for_each_entry_safe(fce, n, &gc_list, u.gc_list) {
- 		flow_entry_kill(fce, xfrm);
- 		atomic_dec(&xfrm->flow_cache_gc_count);
--		WARN_ON(atomic_read(&xfrm->flow_cache_gc_count) < 0);
- 	}
- }
- 
-@@ -236,9 +235,8 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
- 		if (fcp->hash_count > fc->high_watermark)
- 			flow_cache_shrink(fc, fcp);
- 
--		if (fcp->hash_count > 2 * fc->high_watermark ||
--		    atomic_read(&net->xfrm.flow_cache_gc_count) > fc->high_watermark) {
--			atomic_inc(&net->xfrm.flow_cache_genid);
-+		if (atomic_read(&net->xfrm.flow_cache_gc_count) >
-+		    2 * num_online_cpus() * fc->high_watermark) {
- 			flo = ERR_PTR(-ENOBUFS);
- 			goto ret_object;
- 		}
--- 
-1.9.1
+Thanks!
+
+The following changes since commit d24cd733bae8fc6c121c437b3197ab7f3930ca66:
+
+  Merge branch 'be2net-fixes' (2016-10-09 09:30:45 -0400)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
+
+for you to fetch changes up to 6b226487815574193c1da864f2eac274781a2b0c:
+
+  flowcache: Increase threshold for refusing new allocations (2016-11-23 06:37:09 +0100)
+
+----------------------------------------------------------------
+Florian Westphal (1):
+      xfrm: unbreak xfrm_sk_policy_lookup
+
+Miroslav Urbanek (1):
+      flowcache: Increase threshold for refusing new allocations
+
+Nicolas Dichtel (1):
+      vti6: flush x-netns xfrm cache when vti interface is removed
+
+ net/core/flow.c        |  6 ++----
+ net/ipv6/ip6_vti.c     | 31 +++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_policy.c | 10 ++++++----
+ 3 files changed, 39 insertions(+), 8 deletions(-)
