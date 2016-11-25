@@ -1,7 +1,7 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+From: Greg KH <greg@kroah.com>
 Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Fri, 25 Nov 2016 15:22:42 +0100
-Message-ID: <20161125142242.GA22642@kroah.com>
+Date: Fri, 25 Nov 2016 15:24:16 +0100
+Message-ID: <20161125142416.GB22642@kroah.com>
 References: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
  <20161124.112152.692025478489876693.davem@davemloft.net>
  <23e0c132-8844-0a34-3e0b-e412f76493ba@pobox.com>
@@ -10,40 +10,42 @@ References: <0835B3720019904CB8F7AA43166CEEB201055ED8@RTITMBSV03.realtek.com.tw>
  <20161125002702.GA14085@electric-eye.fr.zoreil.com>
  <ed0c9790-57be-8bca-cdd6-3a54ca24f0bd@pobox.com>
  <20161125095350.GA20653@kroah.com>
- <4e370db9-f6b2-edd4-537b-d5a45b2ddea1@pobox.com>
- <630308a2-1933-11a8-9b95-116e3f5a9d61@pobox.com>
+ <1816ec7e-2733-f4ba-5d30-29dbabd20aad@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+        David Miller <davem@davemloft.net>, hayeswang@realtek.com,
+        netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: Mark Lord <mlord@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:46028 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754263AbcKYOgd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 09:36:33 -0500
 Content-Disposition: inline
-In-Reply-To: <630308a2-1933-11a8-9b95-116e3f5a9d61-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1816ec7e-2733-f4ba-5d30-29dbabd20aad@pobox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 25, 2016 at 07:41:42AM -0500, Mark Lord wrote:
-> On 16-11-25 07:34 AM, Mark Lord wrote:
-> > On 16-11-25 04:53 AM, Greg KH wrote:
-> >> Note, there are "cheap" USB monitors that can be quite handy and that work on Linux:
-> >> 	http://www.totalphase.com/products/beagle-usb12/
+On Fri, Nov 25, 2016 at 07:49:35AM -0500, Mark Lord wrote:
+> On 16-11-25 04:53 AM, Greg KH wrote:
+> > On Thu, Nov 24, 2016 at 10:49:33PM -0500, Mark Lord wrote:
+> >> There is no possibility for them to be used for anything other than
+> >> USB receive buffers, for this driver only.  Nothing in the driver
+> >> or kernel ever writes to those buffers after initial allocation,
+> >> and only the driver and USB host controller ever have pointers to the buffers.
 > > 
-> > USD$455/each in quantity, vs. USD$8 for the USB ethernet dongle.
+> > You really are going to have to break out that USB monitor to verify
+> > that this is the data coming across the wire.
 > 
-> Oh, wrong model.  That one doesn't do USB2.
-> The USB2 version is a mere USD$1300 in quantity.
-> 
-> Seems like rather a lot of money just to report a bug in a USB driver.
-> Perhaps the Linux Foundation might purchase one and loan it for this task?
+> Not sure why, because there really is no other way for the data to
+> appear where it does at the beginning of that URB buffer.
 
-You already have access to a USB analyzer you said, why would I try to
-buy one and ship it around the world instead?  Makes no sense...
+Broken USB host controller driver, or the device really is sending that
+data to the host.  It's either one or the other, and the only way you
+can rule one of them out is to look at the data on the wire.
+
+best of luck,
 
 greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
