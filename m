@@ -1,62 +1,43 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 3/3] tools/virtio: use {READ,WRITE}_ONCE() in uaccess.h
-Date: Fri, 25 Nov 2016 10:40:48 +0800
-Message-ID: <e26ac270-b855-7b0e-b291-b85aa1838ee1@redhat.com>
-References: <1479983114-17190-1-git-send-email-mark.rutland@arm.com>
-	<1479983114-17190-4-git-send-email-mark.rutland@arm.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: Large performance regression with 6in4 tunnel (sit)
+Date: Fri, 25 Nov 2016 13:45:20 +1100
+Message-ID: <20161125134520.68ca0969@canb.auug.org.au>
+References: <20161125120947.142c3af5@canb.auug.org.au>
+        <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: dave@stgolabs.net, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, dbueso@suse.de,
-	virtualization@lists.linux-foundation.org,
-	paulmck@linux.vnet.ibm.com, dvyukov@google.com
-To: Mark Rutland <mark.rutland@arm.com>, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1479983114-17190-4-git-send-email-mark.rutland@arm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eli Cooper <elicooper@gmx.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:41793 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751303AbcKYCpW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Nov 2016 21:45:22 -0500
+In-Reply-To: <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE25bm0MTHmnIgyNOaXpSAxODoyNSwgTWFyayBSdXRsYW5kIHdyb3RlOgo+IEFzIGEg
-c3RlcCB0b3dhcmRzIGtpbGxpbmcgb2ZmIEFDQ0VTU19PTkNFLCB1c2Uge1JFQUQsV1JJVEV9X09O
-Q0UoKSBmb3IgdGhlCj4gdmlydGlvIHRvb2xzIHVhY2Nlc3MgcHJpbWl0aXZlcywgcHVsbGluZyB0
-aGVzZSBpbiBmcm9tIDxsaW51eC9jb21waWxlci5oPi4KPgo+IFdpdGggdGhpcyBkb25lLCB3ZSBj
-YW4ga2lsbCBvZmYgdGhlIG5vdy11bnVzZWQgQUNDRVNTX09OQ0UoKSBkZWZpbml0aW9uLgo+Cj4g
-U2lnbmVkLW9mZi1ieTogTWFyayBSdXRsYW5kIDxtYXJrLnJ1dGxhbmRAYXJtLmNvbT4KPiBDYzog
-SmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPiBDYzogTWljaGFlbCBTLiBUc2lya2lu
-IDxtc3RAcmVkaGF0LmNvbT4KPiBDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZwo+IENj
-OiB2aXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwo+IC0tLQo+ICAgdG9v
-bHMvdmlydGlvL2xpbnV4L3VhY2Nlc3MuaCB8IDkgKysrKystLS0tCj4gICAxIGZpbGUgY2hhbmdl
-ZCwgNSBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQo+Cj4gZGlmZiAtLWdpdCBhL3Rvb2xz
-L3ZpcnRpby9saW51eC91YWNjZXNzLmggYi90b29scy92aXJ0aW8vbGludXgvdWFjY2Vzcy5oCj4g
-aW5kZXggMGE1NzhmZS4uZmEwNWQwMSAxMDA2NDQKPiAtLS0gYS90b29scy92aXJ0aW8vbGludXgv
-dWFjY2Vzcy5oCj4gKysrIGIvdG9vbHMvdmlydGlvL2xpbnV4L3VhY2Nlc3MuaAo+IEBAIC0xLDgg
-KzEsOSBAQAo+ICAgI2lmbmRlZiBVQUNDRVNTX0gKPiAgICNkZWZpbmUgVUFDQ0VTU19ICj4gLWV4
-dGVybiB2b2lkICpfX3VzZXJfYWRkcl9taW4sICpfX3VzZXJfYWRkcl9tYXg7Cj4gICAKPiAtI2Rl
-ZmluZSBBQ0NFU1NfT05DRSh4KSAoKih2b2xhdGlsZSB0eXBlb2YoeCkgKikmKHgpKQo+ICsjaW5j
-bHVkZSA8bGludXgvY29tcGlsZXIuaD4KPiArCj4gK2V4dGVybiB2b2lkICpfX3VzZXJfYWRkcl9t
-aW4sICpfX3VzZXJfYWRkcl9tYXg7Cj4gICAKPiAgIHN0YXRpYyBpbmxpbmUgdm9pZCBfX2Noa191
-c2VyX3B0cihjb25zdCB2b2xhdGlsZSB2b2lkICpwLCBzaXplX3Qgc2l6ZSkKPiAgIHsKPiBAQCAt
-MTMsNyArMTQsNyBAQCBzdGF0aWMgaW5saW5lIHZvaWQgX19jaGtfdXNlcl9wdHIoY29uc3Qgdm9s
-YXRpbGUgdm9pZCAqcCwgc2l6ZV90IHNpemUpCj4gICAoewkJCQkJCQkJXAo+ICAgCXR5cGVvZihw
-dHIpIF9fcHVfcHRyID0gKHB0cik7CQkJCVwKPiAgIAlfX2Noa191c2VyX3B0cihfX3B1X3B0ciwg
-c2l6ZW9mKCpfX3B1X3B0cikpOwkJXAo+IC0JQUNDRVNTX09OQ0UoKihfX3B1X3B0cikpID0geDsJ
-CQkJXAo+ICsJV1JJVEVfT05DRSgqKF9fcHVfcHRyKSwgeCk7CQkJCVwKPiAgIAkwOwkJCQkJCQlc
-Cj4gICB9KQo+ICAgCj4gQEAgLTIxLDcgKzIyLDcgQEAgc3RhdGljIGlubGluZSB2b2lkIF9fY2hr
-X3VzZXJfcHRyKGNvbnN0IHZvbGF0aWxlIHZvaWQgKnAsIHNpemVfdCBzaXplKQo+ICAgKHsJCQkJ
-CQkJCVwKPiAgIAl0eXBlb2YocHRyKSBfX3B1X3B0ciA9IChwdHIpOwkJCQlcCj4gICAJX19jaGtf
-dXNlcl9wdHIoX19wdV9wdHIsIHNpemVvZigqX19wdV9wdHIpKTsJCVwKPiAtCXggPSBBQ0NFU1Nf
-T05DRSgqKF9fcHVfcHRyKSk7CQkJCVwKPiArCXggPSBSRUFEX09OQ0UoKihfX3B1X3B0cikpOwkJ
-CQlcCj4gICAJMDsJCQkJCQkJXAo+ICAgfSkKPiAgIAoKUmV2aWV3ZWQtYnk6IEphc29uIFdhbmcg
-PGphc293YW5nQHJlZGhhdC5jb20+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBs
-aXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5v
-cmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+Hi Eli,
+
+On Fri, 25 Nov 2016 10:18:12 +0800 Eli Cooper <elicooper@gmx.com> wrote:
+>
+> Sounds like TSO/GSO packets are not properly segmented and therefore
+> dropped.
+> 
+> Could you first try turning off segmentation offloading for the tunnel
+> interface?
+>     ethtool -K sit0 tso off gso off
+
+On Thu, 24 Nov 2016 18:30:14 -0800 Eric Dumazet <eric.dumazet@gmail.com>
+>
+> You also could try to disable TSO and see if this makes a difference
+> 
+> ethtool -K sixtofour0 tso off
+
+So turning off tso brings performance up to IPv4 levels ...
+
+Thanks for that, it solves my immediate problem.
+-- 
+Cheers,
+Stephen Rothwell
