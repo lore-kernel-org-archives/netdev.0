@@ -1,230 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] mlx4: give precise rx/tx bytes/packets counters
-Date: Fri, 25 Nov 2016 07:46:20 -0800
-Message-ID: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] mlx4: give precise rx/tx bytes/packets counters
+Date: Fri, 25 Nov 2016 16:03:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0228849@AcuExch.aculab.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>
-To: David Miller <davem@davemloft.net>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33101 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755107AbcKYPqW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 10:46:22 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 3so5824967pgd.0
-        for <netdev@vger.kernel.org>; Fri, 25 Nov 2016 07:46:22 -0800 (PST)
+Received: from smtp-out6.electric.net ([192.162.217.192]:58766 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755117AbcKYQEF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 11:04:05 -0500
+In-Reply-To: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-mlx4 stats are chaotic because a deferred work queue is responsible
-to update them every 250 ms.
-
-Even sampling stats every one second with "sar -n DEV 1" gives
-variations like the following :
-
-lpaa23:~# sar -n DEV 1 10 | grep eth0 | cut -c1-65
-07:39:22         eth0 146877.00 3265554.00   9467.15 4828168.50  
-07:39:23         eth0 146587.00 3260329.00   9448.15 4820445.98  
-07:39:24         eth0 146894.00 3259989.00   9468.55 4819943.26  
-07:39:25         eth0 110368.00 2454497.00   7113.95 3629012.17  <<>>
-07:39:26         eth0 146563.00 3257502.00   9447.25 4816266.23  
-07:39:27         eth0 145678.00 3258292.00   9389.79 4817414.39  
-07:39:28         eth0 145268.00 3253171.00   9363.85 4809852.46  
-07:39:29         eth0 146439.00 3262185.00   9438.97 4823172.48  
-07:39:30         eth0 146758.00 3264175.00   9459.94 4826124.13  
-07:39:31         eth0 146843.00 3256903.00   9465.44 4815381.97  
-Average:         eth0 142827.50 3179259.70   9206.30 4700578.16  
-
-This patch allows rx/tx bytes/packets counters being folded at the
-time we need stats.
-
-We now can fetch stats every 1 ms if we want to check NIC behavior
-on a small time window. It is also easier to detect anomalies.
-
-lpaa23:~# sar -n DEV 1 10 | grep eth0 | cut -c1-65
-07:42:50         eth0 142915.00 3177696.00   9212.06 4698270.42  
-07:42:51         eth0 143741.00 3200232.00   9265.15 4731593.02  
-07:42:52         eth0 142781.00 3171600.00   9202.92 4689260.16  
-07:42:53         eth0 143835.00 3192932.00   9271.80 4720761.39  
-07:42:54         eth0 141922.00 3165174.00   9147.64 4679759.21  
-07:42:55         eth0 142993.00 3207038.00   9216.78 4741653.05  
-07:42:56         eth0 141394.06 3154335.64   9113.85 4663731.73  
-07:42:57         eth0 141850.00 3161202.00   9144.48 4673866.07  
-07:42:58         eth0 143439.00 3180736.00   9246.05 4702755.35  
-07:42:59         eth0 143501.00 3210992.00   9249.99 4747501.84  
-Average:         eth0 142835.66 3182165.93   9206.98 4704874.08  
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2 
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    1 
- drivers/net/ethernet/mellanox/mlx4/en_port.c    |   77 +++++++++-----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    1 
- 4 files changed, 58 insertions(+), 23 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 487a58f9c192896852fef271b6cce9bde132deb7..d9c9f86a30df953fa555934c5406057dcaf28960 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -367,6 +367,8 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
- 
- 	spin_lock_bh(&priv->stats_lock);
- 
-+	mlx4_en_fold_software_stats(dev);
-+
- 	for (i = 0; i < NUM_MAIN_STATS; i++, bitmap_iterator_inc(&it))
- 		if (bitmap_iterator_test(&it))
- 			data[index++] = ((unsigned long *)&dev->stats)[i];
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 9018bb1b2e12142e048281a9d28ddf95e0023a61..d28d841db23ce885d2011877a156bacf23f65afe 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1321,6 +1321,7 @@ mlx4_en_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 
- 	spin_lock_bh(&priv->stats_lock);
-+	mlx4_en_fold_software_stats(dev);
- 	netdev_stats_to_stats64(stats, &dev->stats);
- 	spin_unlock_bh(&priv->stats_lock);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-index 1eb4c1e10bad1dad26049876acf107a2073a6ab1..c6c4f1238923e09eced547454b86c68720292859 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-@@ -147,6 +147,39 @@ static unsigned long en_stats_adder(__be64 *start, __be64 *next, int num)
- 	return ret;
- }
- 
-+void mlx4_en_fold_software_stats(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	unsigned long packets, bytes;
-+	int i;
-+
-+	if (mlx4_is_master(mdev->dev))
-+		return;
-+
-+	packets = 0;
-+	bytes = 0;
-+	for (i = 0; i < priv->rx_ring_num; i++) {
-+		const struct mlx4_en_rx_ring *ring = priv->rx_ring[i];
-+
-+		packets += READ_ONCE(ring->packets);
-+		bytes   += READ_ONCE(ring->bytes);
-+	}
-+	dev->stats.rx_packets = packets;
-+	dev->stats.rx_bytes = bytes;
-+
-+	packets = 0;
-+	bytes = 0;
-+	for (i = 0; i < priv->tx_ring_num[TX]; i++) {
-+		const struct mlx4_en_tx_ring *ring = priv->tx_ring[TX][i];
-+
-+		packets += READ_ONCE(ring->packets);
-+		bytes   += READ_ONCE(ring->bytes);
-+	}
-+	dev->stats.tx_packets = packets;
-+	dev->stats.tx_bytes = bytes;
-+}
-+
- int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- {
- 	struct mlx4_counter tmp_counter_stats;
-@@ -159,6 +192,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	u64 in_mod = reset << 8 | port;
- 	int err;
- 	int i, counter_index;
-+	unsigned long sw_tx_dropped = 0;
- 	unsigned long sw_rx_dropped = 0;
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(mdev->dev);
-@@ -174,8 +208,8 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 
- 	spin_lock_bh(&priv->stats_lock);
- 
--	stats->rx_packets = 0;
--	stats->rx_bytes = 0;
-+	mlx4_en_fold_software_stats(dev);
-+
- 	priv->port_stats.rx_chksum_good = 0;
- 	priv->port_stats.rx_chksum_none = 0;
- 	priv->port_stats.rx_chksum_complete = 0;
-@@ -183,19 +217,16 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	priv->xdp_stats.rx_xdp_tx      = 0;
- 	priv->xdp_stats.rx_xdp_tx_full = 0;
- 	for (i = 0; i < priv->rx_ring_num; i++) {
--		stats->rx_packets += priv->rx_ring[i]->packets;
--		stats->rx_bytes += priv->rx_ring[i]->bytes;
--		sw_rx_dropped += priv->rx_ring[i]->dropped;
--		priv->port_stats.rx_chksum_good += priv->rx_ring[i]->csum_ok;
--		priv->port_stats.rx_chksum_none += priv->rx_ring[i]->csum_none;
--		priv->port_stats.rx_chksum_complete += priv->rx_ring[i]->csum_complete;
--		priv->xdp_stats.rx_xdp_drop    += priv->rx_ring[i]->xdp_drop;
--		priv->xdp_stats.rx_xdp_tx      += priv->rx_ring[i]->xdp_tx;
--		priv->xdp_stats.rx_xdp_tx_full += priv->rx_ring[i]->xdp_tx_full;
-+		const struct mlx4_en_rx_ring *ring = priv->rx_ring[i];
-+
-+		sw_rx_dropped			+= READ_ONCE(ring->dropped);
-+		priv->port_stats.rx_chksum_good += READ_ONCE(ring->csum_ok);
-+		priv->port_stats.rx_chksum_none += READ_ONCE(ring->csum_none);
-+		priv->port_stats.rx_chksum_complete += READ_ONCE(ring->csum_complete);
-+		priv->xdp_stats.rx_xdp_drop	+= READ_ONCE(ring->xdp_drop);
-+		priv->xdp_stats.rx_xdp_tx	+= READ_ONCE(ring->xdp_tx);
-+		priv->xdp_stats.rx_xdp_tx_full	+= READ_ONCE(ring->xdp_tx_full);
- 	}
--	stats->tx_packets = 0;
--	stats->tx_bytes = 0;
--	stats->tx_dropped = 0;
- 	priv->port_stats.tx_chksum_offload = 0;
- 	priv->port_stats.queue_stopped = 0;
- 	priv->port_stats.wake_queue = 0;
-@@ -205,15 +236,14 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	for (i = 0; i < priv->tx_ring_num[TX]; i++) {
- 		const struct mlx4_en_tx_ring *ring = priv->tx_ring[TX][i];
- 
--		stats->tx_packets += ring->packets;
--		stats->tx_bytes += ring->bytes;
--		stats->tx_dropped += ring->tx_dropped;
--		priv->port_stats.tx_chksum_offload += ring->tx_csum;
--		priv->port_stats.queue_stopped     += ring->queue_stopped;
--		priv->port_stats.wake_queue        += ring->wake_queue;
--		priv->port_stats.tso_packets       += ring->tso_packets;
--		priv->port_stats.xmit_more         += ring->xmit_more;
-+		sw_tx_dropped			   += READ_ONCE(ring->tx_dropped);
-+		priv->port_stats.tx_chksum_offload += READ_ONCE(ring->tx_csum);
-+		priv->port_stats.queue_stopped     += READ_ONCE(ring->queue_stopped);
-+		priv->port_stats.wake_queue        += READ_ONCE(ring->wake_queue);
-+		priv->port_stats.tso_packets       += READ_ONCE(ring->tso_packets);
-+		priv->port_stats.xmit_more         += READ_ONCE(ring->xmit_more);
- 	}
-+
- 	if (mlx4_is_master(mdev->dev)) {
- 		stats->rx_packets = en_stats_adder(&mlx4_en_stats->RTOT_prio_0,
- 						   &mlx4_en_stats->RTOT_prio_1,
-@@ -251,7 +281,8 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	stats->rx_length_errors = be32_to_cpu(mlx4_en_stats->RdropLength);
- 	stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
- 	stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
--	stats->tx_dropped += be32_to_cpu(mlx4_en_stats->TDROP);
-+	stats->tx_dropped = be32_to_cpu(mlx4_en_stats->TDROP) +
-+			    sw_tx_dropped;
- 
- 	/* RX stats */
- 	priv->pkstats.rx_multicast_packets = stats->multicast;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 574bcbb1b38fc4758511d8f7bd17a87b0a507a73..20a936428f4a44c8ca0a7161855da310f9166b50 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -755,6 +755,7 @@ void mlx4_en_rx_irq(struct mlx4_cq *mcq);
- int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port, u64 mac, u64 clear, u8 mode);
- int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, struct mlx4_en_priv *priv);
- 
-+void mlx4_en_fold_software_stats(struct net_device *dev);
- int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset);
- int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
- 
+RnJvbTogT2YgRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDI1IE5vdmVtYmVyIDIwMTYgMTU6NDYNCj4g
+bWx4NCBzdGF0cyBhcmUgY2hhb3RpYyBiZWNhdXNlIGEgZGVmZXJyZWQgd29yayBxdWV1ZSBpcyBy
+ZXNwb25zaWJsZQ0KPiB0byB1cGRhdGUgdGhlbSBldmVyeSAyNTAgbXMuDQo+IA0KPiBFdmVuIHNh
+bXBsaW5nIHN0YXRzIGV2ZXJ5IG9uZSBzZWNvbmQgd2l0aCAic2FyIC1uIERFViAxIiBnaXZlcw0K
+PiB2YXJpYXRpb25zIGxpa2UgdGhlIGZvbGxvd2luZyA6DQouLi4NCj4gVGhpcyBwYXRjaCBhbGxv
+d3MgcngvdHggYnl0ZXMvcGFja2V0cyBjb3VudGVycyBiZWluZyBmb2xkZWQgYXQgdGhlDQo+IHRp
+bWUgd2UgbmVlZCBzdGF0cy4NCj4gDQo+IFdlIG5vdyBjYW4gZmV0Y2ggc3RhdHMgZXZlcnkgMSBt
+cyBpZiB3ZSB3YW50IHRvIGNoZWNrIE5JQyBiZWhhdmlvcg0KPiBvbiBhIHNtYWxsIHRpbWUgd2lu
+ZG93LiBJdCBpcyBhbHNvIGVhc2llciB0byBkZXRlY3QgYW5vbWFsaWVzLg0KLi4uDQo+IFNpZ25l
+ZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gQ2M6IFRhcmlx
+IFRvdWthbiA8dGFyaXF0QG1lbGxhbm94LmNvbT4NCi4uLg0KPiAgCWZvciAoaSA9IDA7IGkgPCBw
+cml2LT5yeF9yaW5nX251bTsgaSsrKSB7DQo+IC0JCXN0YXRzLT5yeF9wYWNrZXRzICs9IHByaXYt
+PnJ4X3JpbmdbaV0tPnBhY2tldHM7DQo+IC0JCXN0YXRzLT5yeF9ieXRlcyArPSBwcml2LT5yeF9y
+aW5nW2ldLT5ieXRlczsNCj4gLQkJc3dfcnhfZHJvcHBlZCArPSBwcml2LT5yeF9yaW5nW2ldLT5k
+cm9wcGVkOw0KPiAtCQlwcml2LT5wb3J0X3N0YXRzLnJ4X2Noa3N1bV9nb29kICs9IHByaXYtPnJ4
+X3JpbmdbaV0tPmNzdW1fb2s7DQo+IC0JCXByaXYtPnBvcnRfc3RhdHMucnhfY2hrc3VtX25vbmUg
+Kz0gcHJpdi0+cnhfcmluZ1tpXS0+Y3N1bV9ub25lOw0KPiAtCQlwcml2LT5wb3J0X3N0YXRzLnJ4
+X2Noa3N1bV9jb21wbGV0ZSArPSBwcml2LT5yeF9yaW5nW2ldLT5jc3VtX2NvbXBsZXRlOw0KPiAt
+CQlwcml2LT54ZHBfc3RhdHMucnhfeGRwX2Ryb3AgICAgKz0gcHJpdi0+cnhfcmluZ1tpXS0+eGRw
+X2Ryb3A7DQo+IC0JCXByaXYtPnhkcF9zdGF0cy5yeF94ZHBfdHggICAgICArPSBwcml2LT5yeF9y
+aW5nW2ldLT54ZHBfdHg7DQo+IC0JCXByaXYtPnhkcF9zdGF0cy5yeF94ZHBfdHhfZnVsbCArPSBw
+cml2LT5yeF9yaW5nW2ldLT54ZHBfdHhfZnVsbDsNCj4gKwkJY29uc3Qgc3RydWN0IG1seDRfZW5f
+cnhfcmluZyAqcmluZyA9IHByaXYtPnJ4X3JpbmdbaV07DQo+ICsNCj4gKwkJc3dfcnhfZHJvcHBl
+ZAkJCSs9IFJFQURfT05DRShyaW5nLT5kcm9wcGVkKTsNCj4gKwkJcHJpdi0+cG9ydF9zdGF0cy5y
+eF9jaGtzdW1fZ29vZCArPSBSRUFEX09OQ0UocmluZy0+Y3N1bV9vayk7DQo+ICsJCXByaXYtPnBv
+cnRfc3RhdHMucnhfY2hrc3VtX25vbmUgKz0gUkVBRF9PTkNFKHJpbmctPmNzdW1fbm9uZSk7DQo+
+ICsJCXByaXYtPnBvcnRfc3RhdHMucnhfY2hrc3VtX2NvbXBsZXRlICs9IFJFQURfT05DRShyaW5n
+LT5jc3VtX2NvbXBsZXRlKTsNCj4gKwkJcHJpdi0+eGRwX3N0YXRzLnJ4X3hkcF9kcm9wCSs9IFJF
+QURfT05DRShyaW5nLT54ZHBfZHJvcCk7DQo+ICsJCXByaXYtPnhkcF9zdGF0cy5yeF94ZHBfdHgJ
+Kz0gUkVBRF9PTkNFKHJpbmctPnhkcF90eCk7DQo+ICsJCXByaXYtPnhkcF9zdGF0cy5yeF94ZHBf
+dHhfZnVsbAkrPSBSRUFEX09OQ0UocmluZy0+eGRwX3R4X2Z1bGwpOw0KDQpUaGlzIGNodW5rIChh
+bmQgdGhlIG9uZSBhZnRlcikgc2VlbSB0byBiZSBhZGRpbmcgUkVBRF9PTkNFKCkgYW5kIGRvbid0
+DQpzZWVtIHRvIGJlIHJlbGF0ZWQgdG8gdGhlIGNvbW1pdCBtZXNzYWdlLg0KDQoJRGF2aWQNCg0K
