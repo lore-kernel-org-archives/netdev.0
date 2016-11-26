@@ -1,60 +1,59 @@
-From: Eric Dumazet <erdlkml@gmail.com>
-Subject: Re: net: GPF in eth_header
-Date: Sat, 26 Nov 2016 12:34:38 -0800
-Message-ID: <CACPEyM8k1OA1UzYB+HsPn7EmB7qY-CuGo=-XMoodd_Fhi1Cbrg@mail.gmail.com>
-References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
- <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
- <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com> <CACPEyM-4dwvmEvq3uTN_8Y-YosP8qA3cYV+oxkufFOn8M+=hew@mail.gmail.com>
+From: Borislav Petkov <bp@alien8.de>
+Subject: [PATCH] amd-xgbe: Fix unused suspend handlers build warning
+Date: Sat, 26 Nov 2016 21:53:52 +0100
+Message-ID: <20161126205352.19577-1-bp@alien8.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Andrey Konovalov <andreyknvl@google.com>
+Content-Transfer-Encoding: 8bit
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36814 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751123AbcKZUek (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:34:40 -0500
-In-Reply-To: <CACPEyM-4dwvmEvq3uTN_8Y-YosP8qA3cYV+oxkufFOn8M+=hew@mail.gmail.com>
+Received: from mail.skyhub.de ([78.46.96.112]:51873 "EHLO mail.skyhub.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751325AbcKZUx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 26 Nov 2016 15:53:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-11-26 12:05 GMT-08:00 Eric Dumazet <erdlkml@gmail.com>:
->> Hi Eric,
->>
->> The crash happens when the kernel tries to access shadow for nonmapped memory.
->>
->> The issue here is an integer overflow which happens in neigh_resolve_output().
->> skb_network_offset(skb) can return negative number, but __skb_pull()
->> accepts unsigned int as len.
->> As a result, the least significat bit in higher 32 bits of skb->data
->> gets set and we get an out-of-bounds with offset of 4 GB.
->>
->> I've attached a short reproducer, but you either need KASAN or to add
->> a BUG_ON to see the crash.
->> In this reproducer skb_network_offset() becomes negative after merging
->> two ipv6 fragments.
->>
->> I actually see multiple places where skb_network_offset() is used as
->> an argument to skb_pull().
->> So I guess every place can potentially be buggy.
->
-> Well, I think the intent is to accept a negative number.
->
-> This definitely was assumed by commit e1f165032c8bade authors !
->
-> I guess they were using a 32bit kernel for their tests.
+From: Borislav Petkov <bp@suse.de>
 
-Correct fix would be to use
+Fix:
 
-skb_push(skb, -skb_network_offset(skb));
+  drivers/net/ethernet/amd/xgbe/xgbe-main.c:835:12: warning: ‘xgbe_suspend’ defined
+    but not used [-Wunused-function]
+  drivers/net/ethernet/amd/xgbe/xgbe-main.c:855:12: warning: ‘xgbe_resume’ defined
+    but not used [-Wunused-function]
 
-As done in other locations...
+I see it during randconfig builds here.
+
+Signed-off-by: Borislav Petkov <bp@suse.de>
+Cc: Tom Lendacky <thomas.lendacky@amd.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index e10e569c0d5f..2e8451b0a74a 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -831,7 +831,7 @@ static int xgbe_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ static int xgbe_suspend(struct device *dev)
+ {
+ 	struct net_device *netdev = dev_get_drvdata(dev);
+@@ -876,7 +876,7 @@ static int xgbe_resume(struct device *dev)
+ 
+ 	return ret;
+ }
+-#endif /* CONFIG_PM */
++#endif /* CONFIG_PM_SLEEP */
+ 
+ #ifdef CONFIG_ACPI
+ static const struct acpi_device_id xgbe_acpi_match[] = {
+-- 
+2.10.0
