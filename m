@@ -1,30 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [patch] net/mlx5: remove a duplicate condition
-Date: Fri, 25 Nov 2016 20:30:17 -0500 (EST)
-Message-ID: <20161125.203017.430757314871566294.davem@davemloft.net>
-References: <20161124110345.GC17225@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] fsl/fman: fix a leak in tgec_free()
+Date: Fri, 25 Nov 2016 20:30:26 -0500 (EST)
+Message-ID: <20161125.203026.453934005279145007.davem@davemloft.net>
+References: <20161124111931.GK17225@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161124110345.GC17225@mwanda>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: madalin.bucur@nxp.com, igal.liberman@freescale.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20161124111931.GK17225@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 24 Nov 2016 14:03:45 +0300
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 24 Nov 2016 14:20:43 +0300
 
-> We verified that MLX5_FLOW_CONTEXT_ACTION_COUNT was set on the first
-> line of the function so we don't need to check again here.
+> We set "tgec->cfg" to NULL before passing it to kfree().  There is no
+> need to set it to NULL at all.  Let's just delete it.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Fixes: 57ba4c9b56d8 ("fsl/fman: Add FMan MAC support")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
