@@ -1,45 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [Patch net-next] net_sched: move the empty tp check from ->destroy()
- to ->delete()
-Date: Sat, 26 Nov 2016 12:09:37 +0100
-Message-ID: <58396D71.8070703@iogearbox.net>
-References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com> <5836A4D4.2010500@mellanox.com> <5836BD82.6080407@iogearbox.net> <5836C87E.8050506@mellanox.com> <58370558.9070004@iogearbox.net> <CAM_iQpVxevmk3rgsnALC0JCqx7pOF2OBc=kpg9QDK8Cwb6P9Zw@mail.gmail.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Gigabit ethernet driver for Alacritechs SLIC devices (v3)
+Date: Sat, 26 Nov 2016 13:20:48 +0100
+Message-ID: <1480162850-8014-1-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Roi Dayan <roid@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47716 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751072AbcKZLbA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 06:31:00 -0500
-In-Reply-To: <CAM_iQpVxevmk3rgsnALC0JCqx7pOF2OBc=kpg9QDK8Cwb6P9Zw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+To: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
+ gregkh@linuxfoundation.org, andrew@lunn.ch
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 11/26/2016 07:46 AM, Cong Wang wrote:
-> On Thu, Nov 24, 2016 at 7:20 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->>
->> Ok, strange, qdisc_destroy() calls into ops->destroy(), where ingress
->> drops its entire chain via tcf_destroy_chain(), so that will be NULL
->> eventually. The tps are freed by call_rcu() as well as qdisc itself
->> later on via qdisc_rcu_free(), where it frees per-cpu bstats as well.
->> Outstanding readers should either bail out due to if (!cl) or can still
->> process the chain until read section ends, but during that time, cl->q
->> resp. bstats should be good. Do you happen to know what's at address
->> ffff880a68b04028? I was wondering wrt call_rcu() vs call_rcu_bh(), but
->> at least on ingress (netif_receive_skb_internal()) we hold rcu_read_lock()
->> here. The KASAN report is reliably happening at this location, right?
->
-> I am confused as well, I don't see how it could be related to my patch yet.
-> I will take a deep look in the weekend.
+Hi,
 
-Ok, I'm currently on the run. Got too late yesterday night, but I'll
-write what I found in the evening today, not related to ingress though.
+this is the third version of the slicoss gigabit ethernet driver (which is a
+rework of the driver from Alacritech which can currently be found under
+drivers/staging/slicoss). The driver is supposed to support Mojave, Oasis and
+Kalahari cards, for both copper and fiber.
 
-Cheers,
-Daniel
+If this code is accepted the staging version can be removed.
+
+The driver has been tested on a SEN2104ET adapter (4 Port PCIe copper).
+
+v3:
+- dont add defines to pci.h but instead put it into the drivers header file
+(requested by Greg Kroah-Hartman)
+
+v2:
+- remove unusual padding in statistic strings (suggested by Andrew Lunn)
+- for mdio register and bit names use defines from mii.h instead of own ones
+  (suggested by Andrew Lunn)
+- remove unused defines
+- ensure PCI flush at two more places
+- use mmiowb before lock to prevent mmio writes leaking out of lock
+- fix some typos in comments
+- add copyright and GPL header
+
+Regards,
+Lino 
