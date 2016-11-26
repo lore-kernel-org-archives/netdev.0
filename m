@@ -1,47 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 net-next 05/15] smc: CLC handshake (incl.
- preparation steps)
-Date: Fri, 25 Nov 2016 20:53:50 -0500 (EST)
-Message-ID: <20161125.205350.1040136769411513088.davem@davemloft.net>
-References: <20161124150645.90881-1-ubraun@linux.vnet.ibm.com>
-        <20161124150645.90881-6-ubraun@linux.vnet.ibm.com>
+Subject: Re: [PATCH] irda: fix overly long udelay()
+Date: Fri, 25 Nov 2016 20:56:38 -0500 (EST)
+Message-ID: <20161125.205638.2032421932060534687.davem@davemloft.net>
+References: <20161124162630.3802535-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        utz.bacher@de.ibm.com
-To: ubraun@linux.vnet.ibm.com
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58906 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58916 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752461AbcKZBxy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 20:53:54 -0500
-In-Reply-To: <20161124150645.90881-6-ubraun@linux.vnet.ibm.com>
+        with ESMTP id S1752461AbcKZB4n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 20:56:43 -0500
+In-Reply-To: <20161124162630.3802535-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Thu, 24 Nov 2016 16:06:35 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 24 Nov 2016 17:26:22 +0100
 
-> +struct smc_clc_msg_hdr {	/* header1 of clc messages */
-> +	u8 eyecatcher[4];	/* eye catcher */
-> +	u8 type;		/* proposal / accept / confirm / decline */
-> +	__be16 length;
-> +#if defined(__BIG_ENDIAN_BITFIELD)
-> +	u8 version : 4,
-> +	   flag    : 1,
-> +	   rsvd	   : 3;
-> +#elif defined(__LITTLE_ENDIAN_BITFIELD)
-> +	u8 rsvd    : 3,
-> +	   flag    : 1,
-> +	   version : 4;
-> +#endif
-> +} __packed;
+> irda_get_mtt() returns a hardcoded '10000' in some cases,
+> and with gcc-7, we get a build error because this triggers a
+> compile-time check in udelay():
+> 
+> drivers/net/irda/w83977af_ir.o: In function `w83977af_hard_xmit':
+> w83977af_ir.c:(.text.w83977af_hard_xmit+0x14c): undefined reference to `__bad_udelay'
+> 
+> Older compilers did not run into this because they either did not
+> completely inline the irda_get_mtt() or did not consider the
+> 10000 value a constant expression.
+> 
+> The code has been wrong since the start of git history.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+ ...
+> @@ -518,7 +518,9 @@ static netdev_tx_t w83977af_hard_xmit(struct sk_buff *skb,
+>  		
+>  		mtt = irda_get_mtt(skb);
+>  		pr_debug("%s(%ld), mtt=%d\n", __func__ , jiffies, mtt);
+> -			if (mtt)
+> +			if (mtt > 1000)
+> +				mdelay(mtt/1000);
+> +			else if (mtt)
+>  				udelay(mtt);
 
-Please get rid of all of these __packed attributes.  They are likely
-completely unnecessary and the code generated for this construct on
-certain architectures is amazingly inefficient.
-
-Describe the on-wire datastructures properly with fixed sized types
-and any padding or overlapping, as needed.
+I know this isn't caused by you, but wow what is going on with the
+indentation here?!?!?
