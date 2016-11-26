@@ -1,51 +1,39 @@
-From: subashab@codeaurora.org
-Subject: Crash due to mutex genl_lock called from RCU context
-Date: Fri, 25 Nov 2016 19:15:56 -0700
-Message-ID: <c669cd06c3e50febd95b5ed4aaa78532@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 00/19] mlxsw: traps, trap groups and policers
+Date: Fri, 25 Nov 2016 21:22:53 -0500 (EST)
+Message-ID: <20161125.212253.1659605651075984675.davem@davemloft.net>
+References: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com
-To: tgraf@suug.ch, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, nogahf@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:49768 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753040AbcKZCP6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 21:15:58 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:59578 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752810AbcKZCXA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 21:23:00 -0500
+In-Reply-To: <1480066427-3961-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are seeing a crash due to gen_lock mutex being acquired in RCU 
-context.
-Crash is seen on a 4.4 based kernel ARM64 device. This occurred in a
-regression rack, so unfortunately I don't have steps for a reproducer.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 25 Nov 2016 10:33:28 +0100
 
-It looks like freeing socket in RCU was brought in through commit
-21e4902aea80ef35afc00ee8d2abdea4f519b7f7 ("netlink: Lockless lookup with
-RCU grace period in socket release").
-I am not very familiar with generic netlink sockets so I am not sure
-if there is any other way to fix this apart from reverting this patch.
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Nogah says:
+> 
+> For a packet to be sent from the HW to the cpu, it needs to be trapped.
+> For a trap to be activate it should be assigned to a trap group.
+> Those trap groups can have policers, to limit the packet rate (the max
+> number of packets that can be sent to the cpu in a time slot, the rest
+> will be discarded) or the data rate (the same, but the count is not by the
+> number of packets but by their total length in bytes).
+> 
+> This patchset rearrange the trap setting API, re-write the traps and the
+> trap groups list in spectrum and assign them policers.
 
-Any pointers to debug this would be appreciated.
-
-Here is the call stack -
-
-BUG: sleeping function called from invalid context 
-kernel/locking/mutex.c:98
-in_atomic(): 1, irqs_disabled(): 0, pid: 16400, name: busybox
-[<ffffff80080cad20>] ___might_sleep+0x134/0x144
-[<ffffff80080cadac>] __might_sleep+0x7c/0x8c
-[<ffffff8008ef09a8>] mutex_lock+0x2c/0x4c
-[<ffffff8008d307f0>] genl_lock+0x1c/0x24
-[<ffffff8008d30848>] genl_lock_done+0x2c/0x50
-[<ffffff8008d2ccac>] netlink_sock_destruct+0x30/0x94
-[<ffffff8008cdef44>] sk_destruct+0x2c/0x150
-[<ffffff8008cdf104>] __sk_free+0x9c/0xc4
-[<ffffff8008cdf16c>] sk_free+0x40/0x4c
-[<ffffff8008d2c7fc>] deferred_put_nlk_sk+0x40/0x4c
-[<ffffff800810b104>] rcu_process_callbacks+0x4d4/0x644
-[<ffffff80080a6598>] __do_softirq+0x1b8/0x3c4
-[<ffffff80080a6a60>] irq_exit+0x80/0xd4
-[<ffffff800808e554>] handle_IPI+0x1c0/0x364
-[<ffffff80080817f8>] gic_handle_irq+0x154/0x1a4
+Series applied, thanks.
