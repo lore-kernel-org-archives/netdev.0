@@ -1,217 +1,226 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 05/10] net/mlx5e: ConnectX-4 firmware support for DCBX
-Date: Sat, 26 Nov 2016 16:18:29 +0200
-Message-ID: <1480169914-22347-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 10/10] net/mlx5e: Add CQE compression user control
+Date: Sat, 26 Nov 2016 16:18:34 +0200
+Message-ID: <1480169914-22347-11-git-send-email-saeedm@mellanox.com>
 References: <1480169914-22347-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
+Cc: netdev@vger.kernel.org, Shaker Daibes <shakerd@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41840 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41838 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751660AbcKZOTb (ORCPT
+        with ESMTP id S1751675AbcKZOTb (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 09:19:31 -0500
 In-Reply-To: <1480169914-22347-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Huy Nguyen <huyn@mellanox.com>
+From: Shaker Daibes <shakerd@mellanox.com>
 
-This patch sets up the infrastructure to support the new
-DCBX firmware.
+The user can now override the automatic driver decision using the
+rx_cqe_compress flag, which is the preference for CQE compression.
+The flag is initialized with the automatic driver decision.
 
-Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 +
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 92 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 26 +-----
- 3 files changed, 95 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  5 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_clock.c |  3 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 39 ++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 13 ++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  4 +--
+ 5 files changed, 51 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 60aa13b..6c954cd 100644
+index 84ac78f..442dbc3 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -234,6 +234,7 @@ enum {
+@@ -171,10 +171,12 @@ extern const char mlx5e_self_tests[][ETH_GSTRING_LEN];
+ 
+ static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] = {
+ 	"rx_cqe_moder",
++	"rx_cqe_compress",
  };
  
- struct mlx5e_dcbx {
-+	enum mlx5_dcbx_oper_mode   mode;
- 	struct mlx5e_cee_config    cee_cfg; /* pending configuration */
+ enum mlx5e_priv_flag {
+ 	MLX5E_PFLAG_RX_CQE_BASED_MODER = (1 << 0),
++	MLX5E_PFLAG_RX_CQE_COMPRESS = (1 << 1),
+ };
  
- 	/* The only setting that cannot be read from FW */
-@@ -843,6 +844,7 @@ extern const struct ethtool_ops mlx5e_ethtool_ops;
- #ifdef CONFIG_MLX5_CORE_EN_DCB
- extern const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops;
- int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets);
-+void mlx5e_dcbnl_initialize(struct mlx5e_priv *priv);
- #endif
+ #define MLX5E_SET_PFLAG(priv, pflag, enable)			\
+@@ -205,8 +207,7 @@ struct mlx5e_params {
+ 	u16 num_channels;
+ 	u8  num_tc;
+ 	u8  rx_cq_period_mode;
+-	bool rx_cqe_compress_admin;
+-	bool rx_cqe_compress;
++	bool rx_cqe_compress_def;
+ 	struct mlx5e_cq_moder rx_cq_moderation;
+ 	struct mlx5e_cq_moder tx_cq_moderation;
+ 	u16 min_rx_wqes;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+index 13dc388..2cd8e56 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+@@ -94,7 +94,7 @@ int mlx5e_hwstamp_set(struct net_device *dev, struct ifreq *ifr)
+ 	switch (config.rx_filter) {
+ 	case HWTSTAMP_FILTER_NONE:
+ 		/* Reset CQE compression to Admin default */
+-		mlx5e_modify_rx_cqe_compression(priv, priv->params.rx_cqe_compress_admin);
++		mlx5e_modify_rx_cqe_compression(priv, priv->params.rx_cqe_compress_def);
+ 		break;
+ 	case HWTSTAMP_FILTER_ALL:
+ 	case HWTSTAMP_FILTER_SOME:
+@@ -111,6 +111,7 @@ int mlx5e_hwstamp_set(struct net_device *dev, struct ifreq *ifr)
+ 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+ 		/* Disable CQE compression */
++		netdev_warn(dev, "Disabling cqe compression");
+ 		mlx5e_modify_rx_cqe_compression(priv, false);
+ 		config.rx_filter = HWTSTAMP_FILTER_ALL;
+ 		break;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index d2bdccb..aa963d7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -1481,6 +1481,35 @@ static int set_pflag_rx_cqe_based_moder(struct net_device *netdev, bool enable)
+ 	return err;
+ }
  
- #ifndef CONFIG_RFS_ACCEL
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index 8f6b5a7..2e94717 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -41,6 +41,43 @@
- #define MLX5E_CEE_STATE_UP    1
- #define MLX5E_CEE_STATE_DOWN  0
- 
-+/* If dcbx mode is non-host set the dcbx mode to host.
-+ */
-+static int mlx5e_dcbnl_set_dcbx_mode(struct mlx5e_priv *priv,
-+				     enum mlx5_dcbx_oper_mode mode)
++static int set_pflag_rx_cqe_compress(struct net_device *netdev,
++				     bool enable)
 +{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
 +	struct mlx5_core_dev *mdev = priv->mdev;
-+	u32 param[MLX5_ST_SZ_DW(dcbx_param)];
-+	int err;
++	int err = 0;
++	bool reset;
 +
-+	err = mlx5_query_port_dcbx_param(mdev, param);
-+	if (err)
-+		return err;
-+
-+	MLX5_SET(dcbx_param, param, version_admin, mode);
-+	if (mode != MLX5E_DCBX_PARAM_VER_OPER_HOST)
-+		MLX5_SET(dcbx_param, param, willing_admin, 1);
-+
-+	return mlx5_set_port_dcbx_param(mdev, param);
-+}
-+
-+static int mlx5e_dcbnl_switch_to_host_mode(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_dcbx *dcbx = &priv->dcbx;
-+
-+	if (!MLX5_CAP_GEN(priv->mdev, dcbx))
-+		return 0;
-+
-+	if (dcbx->mode == MLX5E_DCBX_PARAM_VER_OPER_HOST)
-+		return 0;
-+
-+	if (mlx5e_dcbnl_set_dcbx_mode(priv, MLX5E_DCBX_PARAM_VER_OPER_HOST))
-+		return 1;
-+
-+	dcbx->mode = MLX5E_DCBX_PARAM_VER_OPER_HOST;
-+	return 0;
-+}
-+
- static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
- 				   struct ieee_ets *ets)
- {
-@@ -199,6 +236,9 @@ static int mlx5e_dcbnl_ieee_setets(struct net_device *netdev,
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	int err;
- 
-+	if (!MLX5_CAP_GEN(priv->mdev, ets))
++	if (!MLX5_CAP_GEN(mdev, cqe_compression))
 +		return -ENOTSUPP;
 +
- 	err = mlx5e_dbcnl_validate_ets(netdev, ets);
- 	if (err)
- 		return err;
-@@ -255,6 +295,9 @@ static u8 mlx5e_dcbnl_getdcbx(struct net_device *dev)
- 
- static u8 mlx5e_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- {
-+	if (mlx5e_dcbnl_switch_to_host_mode(netdev_priv(dev)))
-+		return 1;
-+
- 	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
- 	    !(mode & DCB_CAP_DCBX_VER_CEE) ||
- 	    !(mode & DCB_CAP_DCBX_VER_IEEE) ||
-@@ -634,3 +677,52 @@ const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops = {
- 	.getpfcstate    = mlx5e_dcbnl_getpfcstate,
- 	.setpfcstate    = mlx5e_dcbnl_setpfcstate,
- };
-+
-+static void mlx5e_dcbnl_query_dcbx_mode(struct mlx5e_priv *priv,
-+					enum mlx5_dcbx_oper_mode *mode)
-+{
-+	u32 out[MLX5_ST_SZ_DW(dcbx_param)];
-+
-+	*mode = MLX5E_DCBX_PARAM_VER_OPER_HOST;
-+
-+	if (!mlx5_query_port_dcbx_param(priv->mdev, out))
-+		*mode = MLX5_GET(dcbx_param, out, version_oper);
-+
-+	/* From driver's point of view, we only care if the mode
-+	 * is host (HOST) or non-host (AUTO)
-+	 */
-+	if (*mode != MLX5E_DCBX_PARAM_VER_OPER_HOST)
-+		*mode = MLX5E_DCBX_PARAM_VER_OPER_AUTO;
-+}
-+
-+static void mlx5e_ets_init(struct mlx5e_priv *priv)
-+{
-+	int i;
-+	struct ieee_ets ets;
-+
-+	memset(&ets, 0, sizeof(ets));
-+	ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
-+	for (i = 0; i < ets.ets_cap; i++) {
-+		ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
-+		ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
-+		ets.prio_tc[i] = i;
++	if (enable && priv->tstamp.hwtstamp_config.rx_filter != HWTSTAMP_FILTER_NONE) {
++		netdev_err(netdev, "Can't enable cqe compression while timestamping is enabled.\n");
++		return -EINVAL;
 +	}
 +
-+	memcpy(priv->dcbx.tc_tsa, ets.tc_tsa, sizeof(ets.tc_tsa));
++	reset = test_bit(MLX5E_STATE_OPENED, &priv->state);
 +
-+	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
-+	ets.prio_tc[0] = 1;
-+	ets.prio_tc[1] = 0;
++	if (reset)
++		mlx5e_close_locked(netdev);
 +
-+	mlx5e_dcbnl_ieee_setets_core(priv, &ets);
++	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS, enable);
++	priv->params.rx_cqe_compress_def = enable;
++
++	if (reset)
++		err = mlx5e_open_locked(netdev);
++	return err;
 +}
 +
-+void mlx5e_dcbnl_initialize(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_dcbx *dcbx = &priv->dcbx;
+ static int mlx5e_handle_pflag(struct net_device *netdev,
+ 			      u32 wanted_flags,
+ 			      enum mlx5e_priv_flag flag,
+@@ -1511,13 +1540,19 @@ static int mlx5e_set_priv_flags(struct net_device *netdev, u32 pflags)
+ 	int err;
+ 
+ 	mutex_lock(&priv->state_lock);
+-
+ 	err = mlx5e_handle_pflag(netdev, pflags,
+ 				 MLX5E_PFLAG_RX_CQE_BASED_MODER,
+ 				 set_pflag_rx_cqe_based_moder);
++	if (err)
++		goto out;
+ 
++	err = mlx5e_handle_pflag(netdev, pflags,
++				 MLX5E_PFLAG_RX_CQE_COMPRESS,
++				 set_pflag_rx_cqe_compress);
 +
-+	if (MLX5_CAP_GEN(priv->mdev, dcbx))
-+		mlx5e_dcbnl_query_dcbx_mode(priv, &dcbx->mode);
-+
-+	mlx5e_ets_init(priv);
-+}
++out:
+ 	mutex_unlock(&priv->state_lock);
+-	return err ? -EINVAL : 0;
++	return err;
+ }
+ 
+ static u32 mlx5e_get_priv_flags(struct net_device *netdev)
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 9743c4c..f5b93c2 100644
+index 004940a..6b492ca 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3325,30 +3325,6 @@ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
- 	       2 /*sizeof(mlx5e_tx_wqe.inline_hdr_start)*/;
+@@ -84,7 +84,8 @@ static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
+ 	switch (priv->params.rq_wq_type) {
+ 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
+ 		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW;
+-		priv->params.mpwqe_log_stride_sz = priv->params.rx_cqe_compress ?
++		priv->params.mpwqe_log_stride_sz =
++			MLX5E_GET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS) ?
+ 			MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS :
+ 			MLX5_MPWRQ_LOG_STRIDE_SIZE;
+ 		priv->params.mpwqe_log_num_strides = MLX5_MPWRQ_LOG_WQE_SZ -
+@@ -101,7 +102,7 @@ static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
+ 		       priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ,
+ 		       BIT(priv->params.log_rq_size),
+ 		       BIT(priv->params.mpwqe_log_stride_sz),
+-		       priv->params.rx_cqe_compress_admin);
++		       MLX5E_GET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS));
  }
  
--#ifdef CONFIG_MLX5_CORE_EN_DCB
--static void mlx5e_ets_init(struct mlx5e_priv *priv)
--{
--	int i;
--	struct ieee_ets ets;
--
--	memset(&ets, 0, sizeof(ets));
--	ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
--	for (i = 0; i < ets.ets_cap; i++) {
--		ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
--		ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
--		ets.prio_tc[i] = i;
--	}
--
--	memcpy(priv->dcbx.tc_tsa, ets.tc_tsa, sizeof(ets.tc_tsa));
--
--	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
--	ets.prio_tc[0] = 1;
--	ets.prio_tc[1] = 0;
--
--	mlx5e_dcbnl_ieee_setets_core(priv, &ets);
--}
--#endif
--
- void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
- 				   u32 *indirection_rqt, int len,
- 				   int num_channels)
-@@ -3791,7 +3767,7 @@ static int mlx5e_init_nic_tx(struct mlx5e_priv *priv)
+ static void mlx5e_set_rq_priv_params(struct mlx5e_priv *priv)
+@@ -1664,7 +1665,7 @@ static void mlx5e_build_rx_cq_param(struct mlx5e_priv *priv,
  	}
  
- #ifdef CONFIG_MLX5_CORE_EN_DCB
--	mlx5e_ets_init(priv);
-+	mlx5e_dcbnl_initialize(priv);
- #endif
- 	return 0;
- }
+ 	MLX5_SET(cqc, cqc, log_cq_size, log_cq_size);
+-	if (priv->params.rx_cqe_compress) {
++	if (MLX5E_GET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS)) {
+ 		MLX5_SET(cqc, cqc, mini_cqe_res_format, MLX5_CQE_FORMAT_CSUM);
+ 		MLX5_SET(cqc, cqc, cqe_comp_en, 1);
+ 	}
+@@ -3447,17 +3448,16 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 	priv->params.log_sq_size = MLX5E_PARAMS_DEFAULT_LOG_SQ_SIZE;
+ 
+ 	/* set CQE compression */
+-	priv->params.rx_cqe_compress_admin = false;
++	priv->params.rx_cqe_compress_def = false;
+ 	if (MLX5_CAP_GEN(mdev, cqe_compression) &&
+ 	    MLX5_CAP_GEN(mdev, vport_group_manager)) {
+ 		mlx5e_get_max_linkspeed(mdev, &link_speed);
+ 		mlx5e_get_pci_bw(mdev, &pci_bw);
+ 		mlx5_core_dbg(mdev, "Max link speed = %d, PCI BW = %d\n",
+ 			      link_speed, pci_bw);
+-		priv->params.rx_cqe_compress_admin =
++		priv->params.rx_cqe_compress_def =
+ 			cqe_compress_heuristic(link_speed, pci_bw);
+ 	}
+-	priv->params.rx_cqe_compress = priv->params.rx_cqe_compress_admin;
+ 
+ 	mlx5e_set_rq_priv_params(priv);
+ 	if (priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ)
+@@ -3490,6 +3490,7 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 	/* Initialize pflags */
+ 	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_BASED_MODER,
+ 			priv->params.rx_cq_period_mode == MLX5_CQ_PERIOD_MODE_START_FROM_CQE);
++	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS, priv->params.rx_cqe_compress_def);
+ 
+ 	mutex_init(&priv->state_lock);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index c6de6fb..b036710 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -164,14 +164,14 @@ void mlx5e_modify_rx_cqe_compression(struct mlx5e_priv *priv, bool val)
+ 
+ 	mutex_lock(&priv->state_lock);
+ 
+-	if (priv->params.rx_cqe_compress == val)
++	if (MLX5E_GET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS) == val)
+ 		goto unlock;
+ 
+ 	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+ 	if (was_opened)
+ 		mlx5e_close_locked(priv->netdev);
+ 
+-	priv->params.rx_cqe_compress = val;
++	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS, val);
+ 
+ 	if (was_opened)
+ 		mlx5e_open_locked(priv->netdev);
 -- 
 2.7.4
