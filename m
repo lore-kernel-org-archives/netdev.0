@@ -1,14 +1,13 @@
 From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [PATCH v3 net-next 2/2] MAINTAINERS: add entry for slicoss ethernet
- driver
-Date: Sat, 26 Nov 2016 13:20:50 +0100
-Message-ID: <1480162850-8014-3-git-send-email-LinoSanfilippo@gmx.de>
+Subject: Re: Gigabit ethernet driver for Alacritechs SLIC devices (v3)
+Date: Sat, 26 Nov 2016 13:36:35 +0100
+Message-ID: <80734dd5-900f-07b7-3b96-dbd5cac61291@gmx.de>
 References: <1480162850-8014-1-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Lino Sanfilippo <LinoSanfilippo@gmx.de>, linux-kernel@vger.kernel.org
+ linux-kernel@vger.kernel.org
 To: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
  gregkh@linuxfoundation.org, andrew@lunn.ch
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
@@ -24,28 +23,12 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Add myself as maintainer for the slicoss ethernet driver.
+On 26.11.2016 13:20, Lino Sanfilippo wrote:
 
-Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
----
- MAINTAINERS | 5 +++++
- 1 file changed, 5 insertions(+)
+> v3:
+> - dont add defines to pci.h but instead put it into the drivers header file
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 6781a3f..bb9af28 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -562,6 +562,11 @@ T:	git git://linuxtv.org/anttip/media_tree.git
- S:	Maintained
- F:	drivers/media/usb/airspy/
- 
-+ALACRITECH GIGABIT ETHERNET DRIVER
-+M:	Lino Sanfilippo <LinoSanfilippo@gmx.de>
-+S:	Maintained
-+F:	drivers/net/ethernet/alacritech/*
-+
- ALCATEL SPEEDTOUCH USB DRIVER
- M:	Duncan Sands <duncan.sands@free.fr>
- L:	linux-usb@vger.kernel.org
--- 
-1.9.1
+This should of course be "pci_ids.h".
+
+Regards,
+Lino
