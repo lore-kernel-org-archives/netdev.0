@@ -1,29 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethtool: don't require CAP_NET_ADMIN for
- ETHTOOL_GLINKSETTINGS
-Date: Fri, 25 Nov 2016 20:23:45 -0500 (EST)
-Message-ID: <20161125.202345.843230215255119728.davem@davemloft.net>
-References: <20161124095506.25791-1-mlichvar@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch] net/mlx5: remove a duplicate condition
+Date: Fri, 25 Nov 2016 20:30:17 -0500 (EST)
+Message-ID: <20161125.203017.430757314871566294.davem@davemloft.net>
+References: <20161124110345.GC17225@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, decot@googlers.com
-To: mlichvar@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58324 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751968AbcKZBXt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 20:23:49 -0500
-In-Reply-To: <20161124095506.25791-1-mlichvar@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161124110345.GC17225@mwanda>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Date: Thu, 24 Nov 2016 10:55:06 +0100
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Thu, 24 Nov 2016 14:03:45 +0300
 
-> The ETHTOOL_GLINKSETTINGS command is deprecating the ETHTOOL_GSET
-> command and likewise it shouldn't require the CAP_NET_ADMIN capability.
+> We verified that MLX5_FLOW_CONTEXT_ACTION_COUNT was set on the first
+> line of the function so we don't need to check again here.
 > 
-> Signed-off-by: Miroslav Lichvar <mlichvar@redhat.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Good catch, applied, thanks.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
