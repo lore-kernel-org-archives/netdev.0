@@ -1,17 +1,17 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 3/6] tcp: instrument how long TCP is limited by receive window
-Date: Sat, 26 Nov 2016 12:10:13 -0800
-Message-ID: <1480191016-73210-4-git-send-email-ycheng@google.com>
+Subject: [PATCH net-next 2/6] tcp: instrument how long TCP is busy sending
+Date: Sat, 26 Nov 2016 12:10:12 -0800
+Message-ID: <1480191016-73210-3-git-send-email-ycheng@google.com>
 References: <1480191016-73210-1-git-send-email-ycheng@google.com>
 Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
         Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, soheil@google.com, francisyyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:34013 "EHLO
-        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751373AbcKZUKi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:10:38 -0500
-Received: by mail-io0-f172.google.com with SMTP id c21so166766549ioj.1
+Received: from mail-io0-f177.google.com ([209.85.223.177]:36115 "EHLO
+        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751385AbcKZUKj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:10:39 -0500
+Received: by mail-io0-f177.google.com with SMTP id m5so33677314ioe.3
         for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 12:10:38 -0800 (PST)
 In-Reply-To: <1480191016-73210-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,54 +19,115 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Francis Yan <francisyyan@gmail.com>
 
-This patch measures the total time when the TCP stops sending because
-the receiver's advertised window is not large enough. Note that
-once the limit is lifted we are likely in the busy status if we
-have data pending.
+This patch measures TCP busy time, which is defined as the period
+of time when sender has data (or FIN) to send. The time starts when
+data is buffered and stops when the write queue is flushed by ACKs
+or error events.
+
+Note the busy time does not include SYN time, unless data is
+included in SYN (i.e. Fast Open). It does include FIN time even
+if the FIN carries no payload. Excluding pure FIN is possible but
+would incur one additional test in the fast path, which may not
+be worth it.
 
 Signed-off-by: Francis Yan <francisyyan@gmail.com>
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- net/ipv4/tcp_output.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ include/net/tcp.h     |  6 +++++-
+ net/ipv4/tcp_input.c  |  3 +++
+ net/ipv4/tcp_output.c | 19 ++++++++++++++++---
+ 3 files changed, 24 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e8ea584..b74444c 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2144,7 +2144,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 	unsigned int tso_segs, sent_pkts;
- 	int cwnd_quota;
- 	int result;
--	bool is_cwnd_limited = false;
-+	bool is_cwnd_limited = false, is_rwnd_limited = false;
- 	u32 max_segs;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index e5ff408..3e097e3 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1535,6 +1535,7 @@ static inline void tcp_write_queue_purge(struct sock *sk)
+ {
+ 	struct sk_buff *skb;
  
- 	sent_pkts = 0;
-@@ -2181,8 +2181,10 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 				break;
- 		}
++	tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
+ 	while ((skb = __skb_dequeue(&sk->sk_write_queue)) != NULL)
+ 		sk_wmem_free_skb(sk, skb);
+ 	sk_mem_reclaim(sk);
+@@ -1593,8 +1594,10 @@ static inline void tcp_advance_send_head(struct sock *sk, const struct sk_buff *
  
--		if (unlikely(!tcp_snd_wnd_test(tp, skb, mss_now)))
-+		if (unlikely(!tcp_snd_wnd_test(tp, skb, mss_now))) {
-+			is_rwnd_limited = true;
- 			break;
-+		}
+ static inline void tcp_check_send_head(struct sock *sk, struct sk_buff *skb_unlinked)
+ {
+-	if (sk->sk_send_head == skb_unlinked)
++	if (sk->sk_send_head == skb_unlinked) {
+ 		sk->sk_send_head = NULL;
++		tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
++	}
+ 	if (tcp_sk(sk)->highest_sack == skb_unlinked)
+ 		tcp_sk(sk)->highest_sack = NULL;
+ }
+@@ -1616,6 +1619,7 @@ static inline void tcp_add_write_queue_tail(struct sock *sk, struct sk_buff *skb
+ 	/* Queue it, remembering where we must start sending. */
+ 	if (sk->sk_send_head == NULL) {
+ 		sk->sk_send_head = skb;
++		tcp_chrono_start(sk, TCP_CHRONO_BUSY);
  
- 		if (tso_segs == 1) {
- 			if (unlikely(!tcp_nagle_test(tp, skb, mss_now,
-@@ -2227,6 +2229,11 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 			break;
+ 		if (tcp_sk(sk)->highest_sack == NULL)
+ 			tcp_sk(sk)->highest_sack = skb;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 22e6a20..a5d1727 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3178,6 +3178,9 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			tp->lost_skb_hint = NULL;
  	}
  
-+	if (is_rwnd_limited)
-+		tcp_chrono_start(sk, TCP_CHRONO_RWND_LIMITED);
-+	else
-+		tcp_chrono_stop(sk, TCP_CHRONO_RWND_LIMITED);
++	if (!skb)
++		tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
 +
- 	if (likely(sent_pkts)) {
- 		if (tcp_in_cwnd_reduction(sk))
- 			tp->prr_out += sent_pkts;
+ 	if (likely(between(tp->snd_up, prior_snd_una, tp->snd_una)))
+ 		tp->snd_up = tp->snd_una;
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 34f7517..e8ea584 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2096,8 +2096,8 @@ void tcp_chrono_start(struct sock *sk, const enum tcp_chrono type)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+ 	/* If there are multiple conditions worthy of tracking in a
+-	 * chronograph then the highest priority enum takes precedence over
+-	 * the other conditions. So that if something "more interesting"
++	 * chronograph then the highest priority enum takes precedence
++	 * over the other conditions. So that if something "more interesting"
+ 	 * starts happening, stop the previous chrono and start a new one.
+ 	 */
+ 	if (type > tp->chrono_type)
+@@ -2108,7 +2108,18 @@ void tcp_chrono_stop(struct sock *sk, const enum tcp_chrono type)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	tcp_chrono_set(tp, TCP_CHRONO_UNSPEC);
++
++	/* There are multiple conditions worthy of tracking in a
++	 * chronograph, so that the highest priority enum takes
++	 * precedence over the other conditions (see tcp_chrono_start).
++	 * If a condition stops, we only stop chrono tracking if
++	 * it's the "most interesting" or current chrono we are
++	 * tracking and starts busy chrono if we have pending data.
++	 */
++	if (tcp_write_queue_empty(sk))
++		tcp_chrono_set(tp, TCP_CHRONO_UNSPEC);
++	else if (type == tp->chrono_type)
++		tcp_chrono_set(tp, TCP_CHRONO_BUSY);
+ }
+ 
+ /* This routine writes packets to the network.  It advances the
+@@ -3328,6 +3339,8 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
+ 	fo->copied = space;
+ 
+ 	tcp_connect_queue_skb(sk, syn_data);
++	if (syn_data->len)
++		tcp_chrono_start(sk, TCP_CHRONO_BUSY);
+ 
+ 	err = tcp_transmit_skb(sk, syn_data, 1, sk->sk_allocation);
+ 
 -- 
 2.8.0.rc3.226.g39d4020
