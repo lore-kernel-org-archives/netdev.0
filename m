@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] phy: fix error case of
- phy_led_triggers_(un)register
-Date: Fri, 25 Nov 2016 19:59:27 -0500 (EST)
-Message-ID: <20161125.195927.635503212934790387.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D40969DE2@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH net] net: ethernet: mvneta: Remove IFF_UNICAST_FLT
+ which is not implemented
+Date: Fri, 25 Nov 2016 19:59:33 -0500 (EST)
+Message-ID: <20161125.195933.694389582684212468.davem@davemloft.net>
+References: <1479942493-19784-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zach.brown@ni.com, netdev@vger.kernel.org, f.fainelli@gmail.com,
-        andrew@lunn.ch
-To: Woojung.Huh@microchip.com
+Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57656 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57668 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751968AbcKZA7b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 19:59:31 -0500
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40969DE2@CHN-SV-EXMX02.mchp-main.com>
+        with ESMTP id S1751968AbcKZA7g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 19:59:36 -0500
+In-Reply-To: <1479942493-19784-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Woojung.Huh@microchip.com>
-Date: Wed, 23 Nov 2016 23:10:33 +0000
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Thu, 24 Nov 2016 00:08:13 +0100
 
-> From: Woojung Huh <woojung.huh@microchip.com>
+> The mvneta driver advertises it supports IFF_UNICAST_FLT. However, it
+> actually does not. The hardware probably does support it, but there is
+> no code to configure the filter. As a quick and simple fix, remove the
+> flag. This will cause the core to fall back to promiscuous mode.
 > 
-> When phy_init_hw() fails at phy_attach_direct();
-> - phy_detach() calls phy_led_triggers_unregister() without
->   previous call of phy_led_triggers_register().
-> - still call phy_led_triggers_register() and cause memory leak.
-> 
-> Fixes: 2e0bc452f472 ("net: phy: leds: add support for led triggers on phy link state change")
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Fixes: b50b72de2f2f ("net: mvneta: enable features before registering the driver")
 
-Applied to net-next.
+Applied.
