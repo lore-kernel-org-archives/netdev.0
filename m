@@ -1,50 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: fix overly long udelay()
-Date: Fri, 25 Nov 2016 20:56:38 -0500 (EST)
-Message-ID: <20161125.205638.2032421932060534687.davem@davemloft.net>
-References: <20161124162630.3802535-1-arnd@arndb.de>
+Subject: Re: [PATCH net] mvpp2: use correct size for memset
+Date: Fri, 25 Nov 2016 20:57:35 -0500 (EST)
+Message-ID: <20161125.205735.849551572881291744.davem@davemloft.net>
+References: <20161124162843.3849988-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Cc: jszhang@marvell.com, mw@semihalf.com, tremyfr@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58916 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58996 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752461AbcKZB4n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 20:56:43 -0500
-In-Reply-To: <20161124162630.3802535-1-arnd@arndb.de>
+        with ESMTP id S1752478AbcKZB5h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 20:57:37 -0500
+In-Reply-To: <20161124162843.3849988-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 24 Nov 2016 17:26:22 +0100
+Date: Thu, 24 Nov 2016 17:28:12 +0100
 
-> irda_get_mtt() returns a hardcoded '10000' in some cases,
-> and with gcc-7, we get a build error because this triggers a
-> compile-time check in udelay():
+> gcc-7 detects a short memset in mvpp2, introduced in the original
+> merge of the driver:
 > 
-> drivers/net/irda/w83977af_ir.o: In function `w83977af_hard_xmit':
-> w83977af_ir.c:(.text.w83977af_hard_xmit+0x14c): undefined reference to `__bad_udelay'
+> drivers/net/ethernet/marvell/mvpp2.c: In function 'mvpp2_cls_init':
+> drivers/net/ethernet/marvell/mvpp2.c:3296:2: error: 'memset' used with length equal to number of elements without multiplication by element size [-Werror=memset-elt-size]
 > 
-> Older compilers did not run into this because they either did not
-> completely inline the irda_get_mtt() or did not consider the
-> 10000 value a constant expression.
+> The result seems to be that we write uninitialized data into the
+> flow table registers, although we did not get any warning about
+> that uninitialized data usage.
 > 
-> The code has been wrong since the start of git history.
+> Using sizeof() lets us initialize then entire array instead.
 > 
+> Fixes: 3f518509dedc ("ethernet: Add new driver for Marvell Armada 375 network unit")
 > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
- ...
-> @@ -518,7 +518,9 @@ static netdev_tx_t w83977af_hard_xmit(struct sk_buff *skb,
->  		
->  		mtt = irda_get_mtt(skb);
->  		pr_debug("%s(%ld), mtt=%d\n", __func__ , jiffies, mtt);
-> -			if (mtt)
-> +			if (mtt > 1000)
-> +				mdelay(mtt/1000);
-> +			else if (mtt)
->  				udelay(mtt);
 
-I know this isn't caused by you, but wow what is going on with the
-indentation here?!?!?
+Applied, thanks.
