@@ -1,402 +1,164 @@
-From: Ben Dooks <ben.dooks@codethink.com>
-Subject: Re: net: stmmac: Meson GXBB: attempting to execute userspace memory
-Date: Sat, 26 Nov 2016 18:57:02 +0000
-Message-ID: <4e11227f1094b96f52094a1a1d2bb5d0@codethink.com>
-References: <c8280798-453e-bd1d-bd4d-bf0956a169cc@gmx.de>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net: GPF in eth_header
+Date: Sat, 26 Nov 2016 20:07:07 +0100
+Message-ID: <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
+References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
+ <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Alexandre Torgue <alexandre.torgue@st.com>,
- Kevin Hilman <khilman@baylibre.com>,
- Giuseppe Cavallaro <peppe.cavallaro@st.com>,
- lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
- Carlo Caione <carlo@caione.org>, linux-amlogic@lists.infradead.org,
- linux-arm-kernel@lists.infradead.org
-To: Heinrich Schuchardt <heinrich.schuchardt@gmx.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <c8280798-453e-bd1d-bd4d-bf0956a169cc@gmx.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: multipart/mixed; boundary=94eb2c1a0b9cf4ee68054238f1f6
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jiri Benc <jbenc@redhat.com>,
+        Sabrina Dubroca <sd@queasysnail.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: syzkaller <syzkaller@googlegroups.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--94eb2c1a0b9cf4ee68054238f1f6
+Content-Type: text/plain; charset=UTF-8
+
+On Sat, Nov 26, 2016 at 7:28 PM, 'Eric Dumazet' via syzkaller
+<syzkaller@googlegroups.com> wrote:
+> On Sat, Nov 26, 2016 at 9:30 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>> Hello,
+>>
+>> The following program triggers GPF in eth_header:
+>>
+>> https://gist.githubusercontent.com/dvyukov/613cadf05543b55a419f237e419cd495/raw/5471231523d1a07c3de55f11f87472c2816ee06c/gistfile1.txt
+>>
+>> On commit 16ae16c6e5616c084168740990fc508bda6655d4 (Nov 24).
+>>
+>> BUG: unable to handle kernel paging request at ffffed002d14d74a
+>> IP: [<ffffffff86be3295>] eth_header+0x75/0x260 net/ethernet/eth.c:88
+>> PGD 7fff6067 [   50.787819] PUD 7fff5067
+>> PMD 0 [   50.787819]
+>> Oops: 0000 [#1] SMP DEBUG_PAGEALLOC KASAN
+>> Modules linked in:
+>> CPU: 2 PID: 6712 Comm: a.out Not tainted 4.9.0-rc6+ #55
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>> task: ffff88003a1841c0 task.stack: ffff880034d08000
+>> RIP: 0010:[<ffffffff86be3295>]  [<ffffffff86be3295>]
+>> eth_header+0x75/0x260 net/ethernet/eth.c:88
+>> RSP: 0018:ffff880034d0eb68  EFLAGS: 00010a03
+>> RAX: 1ffff1002d14d74a RBX: ffff880168a6ba4a RCX: ffff88006a9c7858
+>> RDX: 000000000000dd86 RSI: dffffc0000000000 RDI: ffff880168a6ba56
+>> RBP: ffff880034d0eb98 R08: 0000000000000000 R09: 0000000000000031
+>> R10: 0000000000000002 R11: 0000000000000000 R12: 0000000000000000
+>> R13: ffff88006c208d80 R14: 00000000000086dd R15: ffff88006a9c7858
+>> FS:  0000000001a02940(0000) GS:ffff88006d000000(0000) knlGS:0000000000000000
+>> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> CR2: ffffed002d14d74a CR3: 0000000037373000 CR4: 00000000000006e0
+>> Stack:
+>>  000000316881ab40 ffff88006a9c76c0 ffff88006881ab40 ffff88006a9c77f8
+>>  0000000000000000 dffffc0000000000 ffff880034d0ee98 ffffffff86b31af9
+>>  ffffffff8719605c ffff880034d0f0f8 ffffffff000086dd ffffffff86be3220
+>> Call Trace:
+>>  [<     inline     >] dev_hard_header ./include/linux/netdevice.h:2762
+>>  [<ffffffff86b31af9>] neigh_resolve_output+0x659/0xb20 net/core/neighbour.c:1302
+>>  [<     inline     >] dst_neigh_output ./include/net/dst.h:464
+>>  [<ffffffff8719605c>] ip6_finish_output2+0xb3c/0x2500 net/ipv6/ip6_output.c:121
+>>  [<ffffffff871a0b0b>] ip6_finish_output+0x2eb/0x760 net/ipv6/ip6_output.c:139
+>>  [<     inline     >] NF_HOOK_COND ./include/linux/netfilter.h:246
+>>  [<ffffffff871a1157>] ip6_output+0x1d7/0x9a0 net/ipv6/ip6_output.c:153
+>>  [<     inline     >] dst_output ./include/net/dst.h:501
+>>  [<ffffffff873312ea>] ip6_local_out+0x9a/0x180 net/ipv6/output_core.c:170
+>>  [<ffffffff871a3886>] ip6_send_skb+0xa6/0x340 net/ipv6/ip6_output.c:1712
+>>  [<ffffffff871a3bd8>] ip6_push_pending_frames+0xb8/0xe0
+>> net/ipv6/ip6_output.c:1732
+>>  [<     inline     >] rawv6_push_pending_frames net/ipv6/raw.c:607
+>>  [<ffffffff8722acfb>] rawv6_sendmsg+0x250b/0x2c20 net/ipv6/raw.c:920
+>>  [<ffffffff8701c4f5>] inet_sendmsg+0x385/0x590 net/ipv4/af_inet.c:734
+>>  [<     inline     >] sock_sendmsg_nosec net/socket.c:621
+>>  [<ffffffff86a6ea9f>] sock_sendmsg+0xcf/0x110 net/socket.c:631
+>>  [<ffffffff86a6ee0b>] sock_write_iter+0x32b/0x620 net/socket.c:829
+>>  [<ffffffff81a6f153>] do_iter_readv_writev+0x363/0x670 fs/read_write.c:695
+>>  [<ffffffff81a71ba1>] do_readv_writev+0x431/0x9b0 fs/read_write.c:872
+>>  [<ffffffff81a726dc>] vfs_writev+0x8c/0xc0 fs/read_write.c:911
+>>  [<ffffffff81a72825>] do_writev+0x115/0x2d0 fs/read_write.c:944
+>>  [<     inline     >] SYSC_writev fs/read_write.c:1017
+>>  [<ffffffff81a75fdc>] SyS_writev+0x2c/0x40 fs/read_write.c:1014
+>>  [<ffffffff8814cf85>] entry_SYSCALL_64_fastpath+0x23/0xc6
+>> arch/x86/entry/entry_64.S:209
+>> Code: 41 83 fe 04 0f 84 aa 00 00 00 e8 17 4e b0 fa 48 8d 7b 0c 48 be
+>> 00 00 00 00 00 fc ff df 44 89 f2 66 c1 c2 08 48 89 f8 48 c1 e8 03 <0f>
+>> b6 0c 30 48 8d 43 0d 49 89 c0 49 c1 e8 03 41 0f b6 34 30 49
+>> RIP  [<ffffffff86be3295>] eth_header+0x75/0x260 net/ethernet/eth.c:88
+>>  RSP <ffff880034d0eb68>
+>> CR2: ffffed002d14d74a
+>> ---[ end trace a73fedfdc11bd60c ]---
+>
+>
+> Hi Dmitry
+>
+> I could not reproduce the issue. Might need some specific configuration...
+>
+> loopback device has proper ethernet header (all 0)
+>
+> Fault happens in :
+>
+> 0f b6 0c 30             movzbl (%rax,%rsi,1),%ecx
+>
+> RAX=1ffff1002d14d74a  which is RDI>>3, and RSI=dffffc0000000000
+>
+> Could this be a KASAN problem ?
+
+Hi Eric,
+
+The crash happens when the kernel tries to access shadow for nonmapped memory.
+
+The issue here is an integer overflow which happens in neigh_resolve_output().
+skb_network_offset(skb) can return negative number, but __skb_pull()
+accepts unsigned int as len.
+As a result, the least significat bit in higher 32 bits of skb->data
+gets set and we get an out-of-bounds with offset of 4 GB.
+
+I've attached a short reproducer, but you either need KASAN or to add
+a BUG_ON to see the crash.
+In this reproducer skb_network_offset() becomes negative after merging
+two ipv6 fragments.
+
+I actually see multiple places where skb_network_offset() is used as
+an argument to skb_pull().
+So I guess every place can potentially be buggy.
+
+Thanks!
 
 
-On 2016-11-26 07:53, Heinrich Schuchardt wrote:
-> For Odroid C2 I have compiled kernel
-> 4.9.0-rc6-next-20161124-00001-gbf7e142
-> with one additional patch
-> https://github.com/xypron/kernel-odroid-c2/blob/master/patch/0001-stmmac-RTL8211F-Meson-GXBB-TX-throughput-problems.patch
-> 
-> I repeatedly see faults like the one below:
-> 
-> [ 2557.400796] Unhandled fault: synchronous external abort (0x92000010)
-> at 0x000040001e8ee4b0
-> [ 2557.952413] CPU: 0 PID: 22837 Comm: cc1 Tainted: G      D
-> 4.9.0-rc6-next-20161124-00001-gbf7e142 #1
-> [ 2557.962062] Hardware name: Hardkernel ODROID-C2 (DT)
-> [ 2557.966980] task: ffff80006ddb7080 task.stack: ffff80006dd9c000
-> [ 2557.972846] PC is at 0x6a0d98
-> [ 2557.975776] LR is at 0x6a0e54
-> [ 2557.978709] pc : [<00000000006a0d98>] lr : [<00000000006a0e54>]
-> pstate: 80000000
-> [ 2557.986040] sp : 0000fffff3ee5f80
-> [ 2557.989318] x29: 0000fffff3ee5f80 x28: 000040000b3f1240
-> [ 2557.994578] x27: 00000000012a7000 x26: 000040000b3f1288
-> [ 2557.999840] x25: 0000000000f58f88 x24: 000040000b3f1240
-> [ 2558.005101] x23: 0000000000000000 x22: 0000000000000001
-> [ 2558.010362] x21: 0000000000000001 x20: 000040000b3f1250
-> [ 2558.015623] x19: 0000000000000054 x18: 0000000000000001
-> [ 2558.020885] x17: 0000400008acaa10 x16: 0000000001285050
-> [ 2558.026146] x15: 000040000ad96dc8 x14: 000000000000001f
-> [ 2558.031407] x13: 000040000b3f1270 x12: 000040000b3f1258
-> [ 2558.036668] x11: 0000000001347000 x10: 0000000000000661
-> [ 2558.041930] x9 : 0000000000000005 x8 : 0000000000000003
-> [ 2558.047191] x7 : 000040000b3f1240 x6 : 0000000020020033
-> [ 2558.052452] x5 : 000040000b402020 x4 : 000040000b3e1aa0
-> [ 2558.057713] x3 : 000000000000000c x2 : 0000000000000020
-> [ 2558.062974] x1 : 0000000000f45000 x0 : 0000000000000065
-> [ 2558.068235]
-> [ 2558.069712] Internal error: Attempting to execute userspace memory:
-> 8600000f [#7] PREEMPT SMP
-> [ 2558.078155] Modules linked in: meson_rng rng_core meson_gxbb_wdt
-> ip_tables x_tables ipv6 dwmac_generic realtek dwmac_meson8b
-> stmmac_platform stmmac
-> [ 2558.091267] CPU: 0 PID: 22837 Comm: cc1 Tainted: G      D
-> 4.9.0-rc6-next-20161124-00001-gbf7e142 #1
-> [ 2558.100925] Hardware name: Hardkernel ODROID-C2 (DT)
-> [ 2558.105841] task: ffff80006ddb7080 task.stack: ffff80006dd9c000
-> [ 2558.111706] PC is at 0x6a0e54
-> [ 2558.114638] LR is at 0x6a0e54
-> [ 2558.117571] pc : [<00000000006a0e54>] lr : [<00000000006a0e54>]
-> pstate: 600003c5
-> [ 2558.124902] sp : ffff80006dd9fec0
-> [ 2558.128179] x29: 0000000000000000 x28: ffff80006ddb7080
-> [ 2558.133441] x27: 00000000012a7000 x26: 000040000b3f1288
-> [ 2558.138702] x25: 0000000000f58f88 x24: 000040000b3f1240
-> [ 2558.143963] x23: 0000000080000000 x22: 00000000006a0d98
-> [ 2558.149225] x21: ffffffffffffffff x20: 000080006e223000
-> [ 2558.154486] x19: 0000000000000000 x18: 0000000000000010
-> [ 2558.159747] x17: 0000400008acaa10 x16: 0000000001285050
-> [ 2558.165008] x15: ffff000088e91f07 x14: 0000000000000006
-> [ 2558.170270] x13: ffff000008e91f15 x12: 000000000000000f
-> [ 2558.175531] x11: 0000000000000002 x10: 00000000000002ea
-> [ 2558.180792] x9 : ffff80006dd9fb40 x8 : 0000000000010a8b
-> [ 2558.186053] x7 : 0000000000000000 x6 : 000000000000020e
-> [ 2558.191315] x5 : 00000000020f020e x4 : 0000000000000000
-> [ 2558.196576] x3 : 0000000000000000 x2 : 000000000000020f
-> [ 2558.201837] x1 : ffff80006ddb7080 x0 : 0000000000000000
-> [ 2558.207098]
-> [ 2558.208565] Process cc1 (pid: 22837, stack limit = 
-> 0xffff80006dd9c000)
-> [ 2558.215035] Stack: (0xffff80006dd9fec0 to 0xffff80006dda0000)
-> [ 2558.220728] fec0: 0000000000000065 0000000000f45000 0000000000000020
-> 000000000000000c
-> [ 2558.228490] fee0: 000040000b3e1aa0 000040000b402020 0000000020020033
-> 000040000b3f1240
-> [ 2558.236253] ff00: 0000000000000003 0000000000000005 0000000000000661
-> 0000000001347000
-> [ 2558.244015] ff20: 000040000b3f1258 000040000b3f1270 000000000000001f
-> 000040000ad96dc8
-> [ 2558.251778] ff40: 0000000001285050 0000400008acaa10 0000000000000001
-> 0000000000000054
-> [ 2558.259540] ff60: 000040000b3f1250 0000000000000001 0000000000000001
-> 0000000000000000
-> [ 2558.267303] ff80: 000040000b3f1240 0000000000f58f88 000040000b3f1288
-> 00000000012a7000
-> [ 2558.275065] ffa0: 000040000b3f1240 0000fffff3ee5f80 00000000006a0e54
-> 0000fffff3ee5f80
-> [ 2558.282828] ffc0: 00000000006a0d98 0000000080000000 0000000000000003
-> ffffffffffffffff
-> [ 2558.290590] ffe0: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2558.298351] Call trace:
-> [ 2558.300769] Exception stack(0xffff80006dd9fcf0 to 
-> 0xffff80006dd9fe20)
-> [ 2558.307149] fce0:                                   0000000000000000
-> 0001000000000000
-> [ 2558.314913] fd00: ffff80006dd9fec0 00000000006a0e54 ffff800073acf500
-> 0000000000000004
-> [ 2558.322675] fd20: 0000000000000000 ffff000008dbbc18 ffff80006ddb7080
-> 000000006dd9fdd0
-> [ 2558.330438] fd40: ffff80006dd9fd90 ffff0000080ca878 ffff80006dd9fe40
-> ffff80006ddb7080
-> [ 2558.338200] fd60: 0000000000000004 00000000000003c0 ffff80006dd9fe40
-> 000040000b3f1240
-> [ 2558.345963] fd80: 0000000000f58f88 000040000b3f1288 0000000000000000
-> ffff80006ddb7080
-> [ 2558.353725] fda0: 000000000000020f 0000000000000000 0000000000000000
-> 00000000020f020e
-> [ 2558.361487] fdc0: 000000000000020e 0000000000000000 0000000000010a8b
-> ffff80006dd9fb40
-> [ 2558.369250] fde0: 00000000000002ea 0000000000000002 000000000000000f
-> ffff000008e91f15
-> [ 2558.377012] fe00: 0000000000000006 ffff000088e91f07 0000000001285050
-> 0000400008acaa10
-> [ 2558.384775] [<00000000006a0e54>] 0x6a0e54
-> [ 2558.388743] Code: d503201f f9400280 2a1703e1 97ffff0a (aa0003f3)
-> [ 2558.395241] ---[ end trace 7d280955c14d4ff1 ]---
-> [ 2558.584022] Bad mode in Error handler detected on CPU0, code
-> 0xbf000000 -- SError
-> [ 2558.585871] CPU: 0 PID: 22867 Comm: cc1 Tainted: G      D
-> 4.9.0-rc6-next-20161124-00001-gbf7e142 #1
-> [ 2558.595527] Hardware name: Hardkernel ODROID-C2 (DT)
-> [ 2558.600444] task: ffff80007454d780 task.stack: ffff8000660bc000
-> [ 2558.606310] PC is at 0x631928
-> [ 2558.609240] LR is at 0xb59ce0
-> [ 2558.612172] pc : [<0000000000631928>] lr : [<0000000000b59ce0>]
-> pstate: 80000000
-> [ 2558.619503] sp : 0000ffffed764d90
-> [ 2558.622782] x29: 0000ffffed764d90 x28: 0000000000000028
-> [ 2558.628042] x27: 000000001a1062f0 x26: 0000000001299198
-> [ 2558.633303] x25: 0000000000000001 x24: 0000000000000000
-> [ 2558.638564] x23: 0000000000000004 x22: 00000000013513c8
-> [ 2558.643825] x21: 0000400039d43488 x20: 0000000000000000
-> [ 2558.649086] x19: 0000400039d2d730 x18: 0000000000000000
-> [ 2558.654348] x17: 0000400039a7c378 x16: 0000000001285138
-> [ 2558.659609] x15: 0000000000000001 x14: 0000000000000000
-> [ 2558.664870] x13: ffffff0000000000 x12: 0000000000000000
-> [ 2558.670131] x11: 0000000000000028 x10: 000000000129b2b8
-> [ 2558.675393] x9 : 0000000000000041 x8 : 0000000000000003
-> [ 2558.680654] x7 : 0000000000000050 x6 : 000000000003d2c8
-> [ 2558.685915] x5 : 0000000000000002 x4 : 0000000000000004
-> [ 2558.691176] x3 : 0000000000000003 x2 : 0000000001349000
-> [ 2558.696438] x1 : 000000000003cb90 x0 : 0000400039d45050
-> [ 2558.701699]
-> [ 2558.703177] Internal error: Attempting to execute userspace memory:
-> 8600000f [#8] PREEMPT SMP
-> [ 2558.711618] Modules linked in: meson_rng rng_core meson_gxbb_wdt
-> ip_tables x_tables ipv6 dwmac_generic realtek dwmac_meson8b
-> stmmac_platform stmmac
-> [ 2558.724731] CPU: 0 PID: 22867 Comm: cc1 Tainted: G      D
-> 4.9.0-rc6-next-20161124-00001-gbf7e142 #1
-> [ 2558.734388] Hardware name: Hardkernel ODROID-C2 (DT)
-> [ 2558.739304] task: ffff80007454d780 task.stack: ffff8000660bc000
-> [ 2558.745169] PC is at 0xb59ce0
-> [ 2558.748102] LR is at 0xb59ce0
-> [ 2558.751035] pc : [<0000000000b59ce0>] lr : [<0000000000b59ce0>]
-> pstate: 600003c5
-> [ 2558.758365] sp : ffff8000660bfec0
-> [ 2558.761643] x29: 0000000000000000 x28: ffff80007454d780
-> [ 2558.766904] x27: 000000001a1062f0 x26: 0000000001299198
-> [ 2558.772165] x25: 0000000000000001 x24: 0000000000000000
-> [ 2558.777426] x23: 0000000080000000 x22: 0000000000631928
-> [ 2558.782688] x21: ffffffffffffffff x20: 000080006e223000
-> [ 2558.787949] x19: 0000000000000000 x18: 0000000000000010
-> [ 2558.793210] x17: 0000400039a7c378 x16: 0000000001285138
-> [ 2558.798471] x15: ffff000088e91f07 x14: 0000000000000006
-> [ 2558.803733] x13: ffff000008e91f15 x12: 000000000000000f
-> [ 2558.808994] x11: 0000000000000002 x10: 0000000000000336
-> [ 2558.814255] x9 : ffff8000660bfb40 x8 : 00000000000ab503
-> [ 2558.819516] x7 : 0000000000000000 x6 : 00000000000000dd
-> [ 2558.824778] x5 : 0000000000de00dd x4 : 0000000000000000
-> [ 2558.830039] x3 : 0000000000000000 x2 : 00000000000000de
-> [ 2558.835300] x1 : ffff80007454d780 x0 : 0000000000000000
-> [ 2558.840561]
-> [ 2558.842029] Process cc1 (pid: 22867, stack limit = 
-> 0xffff8000660bc000)
-> [ 2558.848498] Stack: (0xffff8000660bfec0 to 0xffff8000660c0000)
-> [ 2558.854191] fec0: 0000400039d45050 000000000003cb90 0000000001349000
-> 0000000000000003
-> [ 2558.861953] fee0: 0000000000000004 0000000000000002 000000000003d2c8
-> 0000000000000050
-> [ 2558.869716] ff00: 0000000000000003 0000000000000041 000000000129b2b8
-> 0000000000000028
-> [ 2558.877478] ff20: 0000000000000000 ffffff0000000000 0000000000000000
-> 0000000000000001
-> [ 2558.885241] ff40: 0000000001285138 0000400039a7c378 0000000000000000
-> 0000400039d2d730
-> [ 2558.893003] ff60: 0000000000000000 0000400039d43488 00000000013513c8
-> 0000000000000004
-> [ 2558.900766] ff80: 0000000000000000 0000000000000001 0000000001299198
-> 000000001a1062f0
-> [ 2558.908529] ffa0: 0000000000000028 0000ffffed764d90 0000000000b59ce0
-> 0000ffffed764d90
-> [ 2558.916291] ffc0: 0000000000631928 0000000080000000 000000001a18c000
-> ffffffffffffffff
-> [ 2558.924053] ffe0: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2558.931814] Call trace:
-> [ 2558.934232] Exception stack(0xffff8000660bfcf0 to 
-> 0xffff8000660bfe20)
-> [ 2558.940613] fce0:                                   0000000000000000
-> 0001000000000000
-> [ 2558.948376] fd00: ffff8000660bfec0 0000000000b59ce0 ffff800073acf640
-> 0000000000000004
-> [ 2558.956138] fd20: 0000000000000000 ffff000008dbbc18 ffff80007454d780
-> 00000000660bfdd0
-> [ 2558.963901] fd40: ffff8000660bfd90 ffff0000080ca878 ffff8000660bfe40
-> ffff80007454d780
-> [ 2558.971663] fd60: 0000000000000004 00000000000003c0 ffff8000660bfe40
-> 0000000000000000
-> [ 2558.979426] fd80: 0000000000000001 0000000001299198 0000000000000000
-> ffff80007454d780
-> [ 2558.987188] fda0: 00000000000000de 0000000000000000 0000000000000000
-> 0000000000de00dd
-> [ 2558.994951] fdc0: 00000000000000dd 0000000000000000 00000000000ab503
-> ffff8000660bfb40
-> [ 2559.002713] fde0: 0000000000000336 0000000000000002 000000000000000f
-> ffff000008e91f15
-> [ 2559.010476] fe00: 0000000000000006 ffff000088e91f07 0000000001285138
-> 0000400039a7c378
-> [ 2559.018238] [<0000000000b59ce0>] 0xb59ce0
-> [ 2559.022207] Code: d2800001 d2800002 d2800500 97eb5e9d (a9007c1f)
-> [ 2559.028376] ---[ end trace 7d280955c14d4ff2 ]---
-> [ 2559.034397] Bad mode in Error handler detected on CPU2, code
-> 0xbf000000 -- SError
-> [ 2559.040235] CPU: 2 PID: 22866 Comm: gcc Tainted: G      D
-> 4.9.0-rc6-next-20161124-00001-gbf7e142 #1
-> [ 2559.049892] Hardware name: Hardkernel ODROID-C2 (DT)
-> [ 2559.054808] task: ffff80007454e400 task.stack: ffff80006de9c000
-> [ 2559.060674] PC is at 0x40003c0400d8
-> [ 2559.064122] LR is at 0x46d4e0
-> [ 2559.067055] pc : [<000040003c0400d8>] lr : [<000000000046d4e0>]
-> pstate: 80000000
-> [ 2559.074385] sp : 0000ffffe6387270
-> [ 2559.077664] x29: 0000ffffe6387270 x28: 0000000016c0ff90
-> [ 2559.082924] x27: 0000000000000002 x26: 0000000000000001
-> [ 2559.088185] x25: 0000ffffe63873f4 x24: 0000ffffe63873f8
-> [ 2559.093447] x23: 0000ffffe63873f4 x22: 0000ffffe63873f8
-> [ 2559.098708] x21: 0000000016c104e0 x20: 0000000000005953
-> [ 2559.103969] x19: 0000000000000000 [ 2559.107102] Unhandled fault:
-> synchronous external abort (0x96000010) at 0xffff800000c1e000
-> [ 2559.107108] Internal error: : 96000010 [#9] PREEMPT SMP
-> [ 2559.107110] Modules linked in:
-> [ 2559.107113]  meson_rng rng_core meson_gxbb_wdt ip_tables x_tables
-> ipv6 dwmac_generic realtek dwmac_meson8b stmmac_platform stmmac[
-> 2559.107131] CPU: 0 PID: 1124 Comm: mmcqd/1 Tainted: G      D     1
-> [ 2559.107132] Hardware name: Hardkernel ODROID-C2 (DT)
-> [ 2559.107135] task: ffff8000704abe80 task.stack: ffff8000734d0000
-> [ 2559.107147] PC is at __memcpy+0x100/0x180
-> [ 2559.107152] LR is at sg_copy_buffer+0xb0/0x110
-> [ 2559.107155] pc : [<ffff00000837ee00>] lr : [<ffff00000838e928>]
-> pstate: 200001c5
-> [ 2559.107155] sp : ffff8000734d3bb0
-> [ 2559.107157] x29: ffff8000734d3bb0
-> [ 2559.107158] x28: ffff800073a14800 x27: ffff800073a14b68
-> [ 2559.107162] x26: 0000000000000000 x25: 0000000000000140
-> [ 2559.107165] x24: 0000000000000001 x23: 0000000000001000
-> [ 2559.107168] x22: ffff8000746a2000 x21: 0000000000001000
-> [ 2559.107170] x20: 0000000000000000 x19: 0000000000001000
-> [ 2559.107172] x18: 0000000000000000 x17: ffffffffffffffff
-> [ 2559.107175] x16: 00000000000006be x15: ffff000008c34000
-> [ 2559.107178] x14: 747962342e090a34 x13: 3278302038323162
-> [ 2559.107181] x12: 656c752e090a3864 x11: ffff800073866800
-> [ 2559.107183] x10: ffff80006bf68eb0 x9 : 0000000000000000
-> [ 2559.107186] x8 : ffff800073a94920 x7 : 0000000000000000
-> [ 2559.107188] x6 : ffff8000746a2000 x5 : 0000820000000000
-> [ 2559.107191] x4 : 0000000000000000 x3 : 0000000000000000
-> [ 2559.107193] x2 : 0000000000000f80 x1 : ffff800000c1e000
-> [ 2559.107196] x0 : ffff8000746a2000
-> [ 2559.107199] Process mmcqd/1 (pid: 1124, stack limit = 
-> 0xffff8000734d0000)
-> [ 2559.107202] Stack: (0xffff8000734d3bb0 to 0xffff8000734d4000)
-> [ 2559.107205] 3ba0:                                   ffff8000734d3c50
-> ffff00000838e9bc
-> [ 2559.107208] 3bc0: ffff800073a14000 ffff800073a14a30 ffff80006bf68eb0
-> ffff800073a14a28
-> [ 2559.107212] 3be0: ffff800073a14818 ffff800073a14800 0000000000000000
-> ffff00000838e1c4
-> [ 2559.107215] 3c00: ffff800073a94900 ffff7e0000030780 ffff800000c1e000
-> 0000000000001000
-> [ 2559.107218] 3c20: 0000000000001000 ffff800073ad0a00 0000000100000000
-> 0000000000000001
-> [ 2559.107221] 3c40: 0000100000000000 0000000000000005 ffff8000734d3c60
-> ffff00000874c1bc
-> [ 2559.107224] 3c60: ffff8000734d3c70 ffff000008748010 ffff8000734d3cd0
-> ffff000008749908
-> [ 2559.107228] 3c80: ffff80006bf68eb0 ffff800073a14000 ffff8000734c8000
-> ffff800073a14818
-> [ 2559.107231] 3ca0: ffff800073a14800 ffff800073a14800 ffff80006bf68eb0
-> ffff800073a14a28
-> [ 2559.107234] 3cc0: ffff80006bf68eb0 ffff000008749bc8 ffff8000734d3d70
-> ffff00000874b298
-> [ 2559.107237] 3ce0: ffff800073a14000 ffff800073a14818 ffff8000734c8000
-> 0000000000000000
-> [ 2559.107240] 3d00: ffff800073a14800 ffff800073a14800 ffff800073a13800
-> 0000000000000000
-> [ 2559.107243] 3d20: ffff80006bf68eb0 0000000000000000 00000000012853f0
-> ffff000008c0fcb8
-> [ 2559.107246] 3d40: 0000000000000000 000000000835bf14 ffff000008a05f58
-> ffff800000000000
-> [ 2559.107249] 3d60: ffff8000734c8000 0000000000000001 ffff8000734d3de0
-> ffff00000874b6f4
-> [ 2559.107252] 3d80: ffff800073a14818 ffff80006bf68eb0 ffff8000734c8000
-> 0000000000000001
-> [ 2559.107255] 3da0: ffff800073a14828 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107258] 3dc0: 0000000000000000 0000000000000000 ffff800073a14818
-> ffff00000874b6c4
-> [ 2559.107261] 3de0: ffff8000734d3e20 ffff0000080daa84 ffff800073a94980
-> ffff000008e8eb08
-> [ 2559.107264] 3e00: ffff000008b75b50 ffff800073a14818 ffff00000874b658
-> 0000000000000000
-> [ 2559.107267] 3e20: 0000000000000000 ffff000008082ec0 ffff0000080da9b8
-> ffff800073a94980
-> [ 2559.107270] 3e40: 0000000000000000 0000000000000000 0000000000000000
-> 000003ff01893600
-> [ 2559.107273] 3e60: ffff8000734d3ea0 0000000000000000 ffff0000080da9b8
-> ffff800073a14818
-> [ 2559.107276] 3e80: 0000000000000000 0000000000000000 ffff8000734d3e90
-> ffff8000734d3e90
-> [ 2559.107279] 3ea0: 0000000000000000 ffff000000000000 ffff8000734d3eb0
-> ffff8000734d3eb0
-> [ 2559.107281] 3ec0: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107284] 3ee0: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107287] 3f00: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107290] 3f20: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107293] 3f40: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107295] 3f60: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107298] 3f80: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107300] 3fa0: 0000000000000000 0000000000000000 0000000000000000
-> 0000000000000000
-> [ 2559.107303] 3fc0: 0000000000000000 0000000000000005 0000000000000000
-> 0000000000000000
-> [ 2559.107306] 3fe0: 0000000000000000 0000000000000000 0000001800002cba
-> 26000000a01b3800
-> [ 2559.107308] Call trace:
-> [ 2559.107312] Exception stack(0xffff8000734d39e0 to 
-> 0xffff8000734d3b10)
-> [ 2559.107315] 39e0: 0000000000001000 0001000000000000 ffff8000734d3bb0
-> ffff00000837ee00
-> [ 2559.107318] 3a00: 0000000000000007 ffff800000000000 ffff800000c1e000
-> 0000000100100010
-> [ 2559.107321] 3a20: ffff8000734d3ac0 ffff000008748d88 ffff8000734d3b8c
-> 0000000000000001
-> [ 2559.107324] 3a40: ffff8000734d3b40 ffff0000081c9dac ffff800074401d00
-> ffff0000081745d8
-> [ 2559.107327] 3a60: ffff7e0001b72f80 ffff80006dcbe300 00000000031fda40
-> 0000000000000000
-> [ 2559.107330] 3a80: ffff8000746a2000 ffff800000c1e000 0000000000000f80
-> 0000000000000000
-> [ 2559.107333] 3aa0: 0000000000000000 0000820000000000 ffff8000746a2000
-> 0000000000000000
-> [ 2559.107336] 3ac0: ffff800073a94920 0000000000000000 ffff80006bf68eb0
-> ffff800073866800
-> [ 2559.107339] 3ae0: 656c752e090a3864 3278302038323162 747962342e090a34
-> ffff000008c34000
-> [ 2559.107341] 3b00: 00000000000006be ffffffffffffffff
-> [ 2559.107346] [<ffff00000837ee00>] __memcpy+0x100/0x180
-> [ 2559.107349] [<ffff00000838e9bc>] sg_copy_to_buffer+0x14/0x20
-> [ 2559.107357] [<ffff00000874c1bc>] mmc_queue_bounce_pre+0x34/0x40
-> [ 2559.107362] [<ffff000008748010>] mmc_blk_rw_rq_prep+0x288/0x3a0
-> [ 2559.107365] [<ffff000008749908>] mmc_blk_issue_rw_rq+0x3c0/0x998
-> [ 2559.107368] [<ffff00000874b298>] mmc_blk_issue_rq+0x150/0x510
-> [ 2559.107371] [<ffff00000874b6f4>] mmc_queue_thread+0x9c/0x140
-> [ 2559.107377] [<ffff0000080daa84>] kthread+0xcc/0xe0
-> [ 2559.107383] [<ffff000008082ec0>] ret_from_fork+0x10/0x50
+>
+> --
+> You received this message because you are subscribed to the Google Groups "syzkaller" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
+> For more options, visit https://groups.google.com/d/optout.
 
-Looks like it died whilst processing an mmc request.
+--94eb2c1a0b9cf4ee68054238f1f6
+Content-Type: application/octet-stream; name="ipv6-poc1.c"
+Content-Disposition: attachment; filename="ipv6-poc1.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ivzl7w5q0
+
+I2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8c3lzL3NvY2tldC5oPgojaW5jbHVkZSA8
+bmV0aW5ldC9pbi5oPgojaW5jbHVkZSA8c3RyaW5nLmg+CgppbnQgbWFpbigpCnsKICBtbWFwKDB4
+MjAwMDAwMDB1bCwgMHgyODAwMHVsLCAweDN1bCwgMHgzMnVsLCAweGZmZmZmZmZmZmZmZmZmZmZ1
+bCwgMHgwdWwpOwogIGxvbmcgc29jayA9IHNvY2tldCgweGF1bCwgMHgzdWwsIDB4MmN1bCk7Cgog
+IHN0cnVjdCBzb2NrYWRkcl9pbjYgYWRkcjsKICBtZW1zZXQoJmFkZHIsIDAsIHNpemVvZihhZGRy
+KSk7CiAgYWRkci5zaW42X2ZhbWlseSA9IEFGX0lORVQ2OwogIGFkZHIuc2luNl9wb3J0ID0gaHRv
+bnMoMHg0MjQyKTsKICBhZGRyLnNpbjZfYWRkciA9IGluNmFkZHJfbG9vcGJhY2s7Ci8vICBhZGRy
+LnNpbjZfYWRkci5zNl9hZGRyWzFdID0gNDI7CiAgY29ubmVjdChzb2NrLCAoY29uc3Qgc3RydWN0
+IHNvY2thZGRyICopJmFkZHIsIHNpemVvZihhZGRyKSk7CgogIG1lbWNweSgodm9pZCopMHgyMDAy
+NTAwMCwKICAgICJceDA2XHgwMFx4MDFceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4
+MDAiCiAgICAiXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
+IgogICAgIlx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMCIK
+ICAgICJceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDAiCiAg
+ICAiXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwIgogICAg
+Ilx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMCIsCiAgICA3
+Mik7CiAgc2VuZHRvKHNvY2ssIChjb25zdCB2b2lkICopMHgyMDAyNTAwMHVsLCAweDQ4dWwsIDB4
+NHVsLCAweDB1bCwgMHgwdWwpOwogIHNlbmR0byhzb2NrLCAoY29uc3Qgdm9pZCAqKTB4MjAwMjUw
+MDB1bCwgMHg0OHVsLCAweDR1bCwgMHgwdWwsIDB4MHVsKTsKCiAgcmV0dXJuIDA7Cn0K
+--94eb2c1a0b9cf4ee68054238f1f6--
