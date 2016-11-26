@@ -1,136 +1,236 @@
 From: Dmitry Vyukov <dvyukov@google.com>
-Subject: net: GPF in rt6_get_cookie
-Date: Sat, 26 Nov 2016 17:23:59 +0100
-Message-ID: <CACT4Y+Y-B_GCDGpcLHt1CtXs3u9MBFD82MSFWTcL_v4Vi3+=HQ@mail.gmail.com>
+Subject: net: deadlock on genl_mutex
+Date: Sat, 26 Nov 2016 18:04:12 +0100
+Message-ID: <CACT4Y+ZdSNVhF2MH0=t=kBUrgNSSnCSO5uwnnc5c0KNLG+VNFQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: syzkaller <syzkaller@googlegroups.com>
 To: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
+        Matti Vaittinen <matti.vaittinen@nokia.com>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Florian Westphal <fw@strlen.de>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Tom Herbert <tom@herbertland.com>,
         netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
+        Eric Dumazet <edumazet@google.com>, rgb@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:35619 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751230AbcKZQYW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 11:24:22 -0500
-Received: by mail-lf0-f45.google.com with SMTP id b14so68704312lfg.2
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 08:24:21 -0800 (PST)
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:35675 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751721AbcKZREf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 12:04:35 -0500
+Received: by mail-lf0-f47.google.com with SMTP id b14so69099425lfg.2
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 09:04:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello,
 
-I got several GPFs in rt6_get_cookie while running syzkaller:
+The following program triggers deadlock warnings on genl_mutex:
 
-general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC KASAN
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Modules linked in:
-CPU: 2 PID: 10156 Comm: syz-executor Not tainted 4.9.0-rc5+ #54
+https://gist.githubusercontent.com/dvyukov/65e33d053e507d2ab0bf6ae83d989585/raw/b3c640ec58e894b50bcbf255c471406466cfa5d0/gistfile1.txt
+
+On commit 16ae16c6e5616c084168740990fc508bda6655d4 (Nov 24).
+
+BUG: sleeping function called from invalid context at kernel/locking/mutex.c:620
+in_atomic(): 1, irqs_disabled(): 0, pid: 32289, name: syz-executor
+CPU: 0 PID: 32289 Comm: syz-executor Not tainted 4.9.0-rc5+ #54
 Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-task: ffff880016f40480 task.stack: ffff88000fc00000
-RIP: 0010:[<ffffffff87a209e8>]  [<     inline     >] rt6_get_cookie
-include/net/ip6_fib.h:174
-RIP: 0010:[<ffffffff87a209e8>]  [<ffffffff87a209e8>]
-sctp_v6_get_dst+0x7c8/0x1960 net/sctp/ipv6.c:340
-RSP: 0018:ffff88000fc07298  EFLAGS: 00010202
-RAX: dffffc0000000000 RBX: 0000000000000000 RCX: ffffc900029f5000
-RDX: 0000000000000015 RSI: 0000000000000001 RDI: 00000000000000a8
-RBP: ffff88000fc07580 R08: 0000000000000000 R09: 0000000000000001
-R10: 0000000000000000 R11: 0000000000000000 R12: ffff880066cd0068
-R13: 1ffff10001f80e92 R14: ffff880066cd0040 R15: ffff88005f2d2808
-FS:  00007f52c41f7700(0000) GS:ffff88006d000000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000020016000 CR3: 0000000065dd7000 CR4: 00000000000006e0
-DR0: 0000000000000400 DR1: 0000000000000400 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
-Stack:
- ffffffff87a210f6 ffffffff8701ad45 ffff88006768ec20 ffff88006768ec20
- 0000000000000000 0000000016f40480 ffff88000fc07450 1ffff1000cd9a017
- ffff88006768ec00 ffff880066fc0730 ffff880066cd0068 1ffff10001f80e66
+ ffff88003ec06420 ffffffff834c2e39 ffffffff00000000 1ffff10007d80c17
+ ffffed0007d80c0f 0000000041b58ab3 ffffffff89575550 ffffffff834c2b4b
+ ffffffff8baab1a0 dffffc0000000000 0000000000000000 ffff880068f794e0
 Call Trace:
- [<ffffffff879a313d>] sctp_transport_route+0xad/0x430 net/sctp/transport.c:279
- [<ffffffff8799b106>] sctp_assoc_add_peer+0x5a6/0x13e0 net/sctp/associola.c:641
- [<ffffffff879e8911>] sctp_sendmsg+0x1921/0x3bc0 net/sctp/socket.c:1864
- [<ffffffff8701ad45>] inet_sendmsg+0x385/0x590 net/ipv4/af_inet.c:734
- [<     inline     >] sock_sendmsg_nosec net/socket.c:621
- [<ffffffff86a6d54f>] sock_sendmsg+0xcf/0x110 net/socket.c:631
- [<ffffffff86a6ede0>] SYSC_sendto+0x660/0x810 net/socket.c:1656
- [<ffffffff86a71dd5>] SyS_sendto+0x45/0x60 net/socket.c:1624
+ <IRQ> [  287.394552]  [<     inline     >] __dump_stack lib/dump_stack.c:15
+ <IRQ> [  287.394552]  [<ffffffff834c2e39>] dump_stack+0x2ee/0x3f5
+lib/dump_stack.c:51
+ [<ffffffff814b6ac3>] ___might_sleep+0x483/0x660 kernel/sched/core.c:7761
+ [<ffffffff814b6d3a>] __might_sleep+0x9a/0x1a0 kernel/sched/core.c:7720
+ [<ffffffff88139aaa>] mutex_lock_nested+0x1ea/0xf20 kernel/locking/mutex.c:620
+ [<     inline     >] genl_lock net/netlink/genetlink.c:31
+ [<ffffffff86cb5a11>] genl_lock_done+0x71/0xd0 net/netlink/genetlink.c:531
+ [<ffffffff86ca5458>] netlink_sock_destruct+0xf8/0x400
+net/netlink/af_netlink.c:331
+ [<ffffffff86a7b234>] __sk_destruct+0xf4/0x7f0 net/core/sock.c:1423
+ [<ffffffff86a87d6c>] sk_destruct+0x4c/0x80 net/core/sock.c:1453
+ [<ffffffff86a87dfc>] __sk_free+0x5c/0x230 net/core/sock.c:1461
+ [<ffffffff86a87ff8>] sk_free+0x28/0x30 net/core/sock.c:1472
+ [<     inline     >] sock_put include/net/sock.h:1591
+ [<ffffffff86ca6cd1>] deferred_put_nlk_sk+0x31/0x40 net/netlink/af_netlink.c:652
+ [<     inline     >] __rcu_reclaim kernel/rcu/rcu.h:118
+ [<ffffffff815cbc9d>] rcu_do_batch.isra.70+0x9ed/0xe20 kernel/rcu/tree.c:2776
+ [<     inline     >] invoke_rcu_callbacks kernel/rcu/tree.c:3040
+ [<     inline     >] __rcu_process_callbacks kernel/rcu/tree.c:3007
+ [<ffffffff815cc55c>] rcu_process_callbacks+0x48c/0xd70 kernel/rcu/tree.c:3024
+ [<ffffffff8814d53b>] __do_softirq+0x32b/0xca8 kernel/softirq.c:284
+ [<     inline     >] invoke_softirq kernel/softirq.c:364
+ [<ffffffff8141a941>] irq_exit+0x1d1/0x210 kernel/softirq.c:405
+ [<     inline     >] exiting_irq arch/x86/include/asm/apic.h:659
+ [<ffffffff8814ca30>] smp_apic_timer_interrupt+0x80/0xa0
+arch/x86/kernel/apic/apic.c:960
+ [<ffffffff8814badc>] apic_timer_interrupt+0x8c/0xa0
+arch/x86/entry/entry_64.S:489
+ <EOI> [  287.403717]  [<ffffffff8155c987>] ? lock_is_held+0x247/0x310
+ [<ffffffff814b6bde>] ___might_sleep+0x59e/0x660 kernel/sched/core.c:7729
+ [<ffffffff814b6d3a>] __might_sleep+0x9a/0x1a0 kernel/sched/core.c:7720
+ [<ffffffff88142d08>] down_read+0x78/0x160 kernel/locking/rwsem.c:21
+ [<     inline     >] anon_vma_lock_read include/linux/rmap.h:127
+ [<ffffffff81968295>] validate_mm+0xe5/0x880 mm/mmap.c:347
+ [<ffffffff8196bf0b>] vma_link+0x11b/0x180 mm/mmap.c:605
+ [<ffffffff81977f46>] mmap_region+0x1076/0x1880 mm/mmap.c:1692
+ [<ffffffff81978e4f>] do_mmap+0x6ff/0xe80 mm/mmap.c:1450
+ [<     inline     >] do_mmap_pgoff include/linux/mm.h:2039
+ [<ffffffff818fd527>] vm_mmap_pgoff+0x1b7/0x210 mm/util.c:305
+ [<     inline     >] SYSC_mmap_pgoff mm/mmap.c:1500
+ [<ffffffff8196f961>] SyS_mmap_pgoff+0x231/0x5e0 mm/mmap.c:1458
+ [<     inline     >] SYSC_mmap arch/x86/kernel/sys_x86_64.c:95
+ [<ffffffff8124bf4b>] SyS_mmap+0x1b/0x30 arch/x86/kernel/sys_x86_64.c:86
  [<ffffffff88149dc5>] entry_SYSCALL_64_fastpath+0x23/0xc6
-Code: 00 00 48 8b 84 24 88 00 00 00 48 8b 58 40 e8 80 76 cc f9 48 8d
-bb a8 00 00 00 48 b8 00 00 00 00 00 fc ff df 48 89 fa 48 c1 ea 03 <80>
-3c 02 00 0f 85 56 0f 00 00 48 8b 9b a8 00 00 00 45 31 ed 48
-RIP  [<     inline     >] rt6_get_cookie include/net/ip6_fib.h:174
-RIP  [<ffffffff87a209e8>] sctp_v6_get_dst+0x7c8/0x1960 net/sctp/ipv6.c:340
- RSP <ffff88000fc07298>
----[ end trace b8d1354fa571700d ]---
 
+=================================
+[ INFO: inconsistent lock state ]
+4.9.0-rc5+ #54 Tainted: G        W
+---------------------------------
+inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+syz-executor/32289 [HC0[0]:SC1[1]:HE1:SE0] takes:
+ ([  287.580014] genl_mutex
+[<     inline     >] genl_lock net/netlink/genetlink.c:31
+[<ffffffff86cb5a11>] genl_lock_done+0x71/0xd0 net/netlink/genetlink.c:531
+{SOFTIRQ-ON-W} state was registered at:
+  [  287.580014] [<     inline     >] mark_irqflags
+kernel/locking/lockdep.c:2938
+  [  287.580014] [<ffffffff81567ad7>] __lock_acquire+0x6e7/0x3380
+kernel/locking/lockdep.c:3292
+  [  287.580014] [<ffffffff8156b642>] lock_acquire+0x2a2/0x790
+kernel/locking/lockdep.c:3746
+  [  287.580014] [<     inline     >] __mutex_lock_common
+kernel/locking/mutex.c:521
+  [  287.580014] [<ffffffff88139aff>] mutex_lock_nested+0x23f/0xf20
+kernel/locking/mutex.c:621
+  [  287.580014] [<     inline     >] genl_lock net/netlink/genetlink.c:31
+  [  287.580014] [<     inline     >] genl_lock_all net/netlink/genetlink.c:52
+  [  287.580014] [<ffffffff86cba52e>]
+__genl_register_family+0x2ce/0x1870 net/netlink/genetlink.c:374
+  [  287.580014] [<     inline     >]
+_genl_register_family_with_ops_grps include/net/genetlink.h:173
+  [  287.580014] [<ffffffff8ab90c02>] genl_init+0x11d/0x185
+net/netlink/genetlink.c:1084
+  [  287.580014] [<ffffffff8100244b>] do_one_initcall+0xfb/0x3f0 init/main.c:778
+  [  287.580014] [<     inline     >] do_initcall_level init/main.c:844
+  [  287.580014] [<     inline     >] do_initcalls init/main.c:852
+  [  287.580014] [<     inline     >] do_basic_setup init/main.c:870
+  [  287.580014] [<ffffffff8aa3d03d>] kernel_init_freeable+0x5c4/0x69e
+init/main.c:1017
+  [  287.580014] [<ffffffff88129c88>] kernel_init+0x18/0x180 init/main.c:943
+  [  287.580014] [<ffffffff8814a05a>] ret_from_fork+0x2a/0x40
+arch/x86/entry/entry_64.S:433
 
-general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC KASAN
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Modules linked in:
-CPU: 3 PID: 22744 Comm: syz-executor Not tainted 4.9.0-rc5+ #54
+[   78.258919] [ INFO: inconsistent lock state ]
+[   78.258919] 4.9.0-rc5+ #54 Tainted: G        W
+[   78.258919] ---------------------------------
+[   78.258919] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+[   78.258919] syz-fuzzer/5211 [HC0[0]:SC1[1]:HE1:SE0] takes:
+[   78.258919]  ([   78.258919] genl_mutex
+){+.?.+.}[   78.258919] , at:
+[   78.258919] [<ffffffff86cb5a11>] genl_lock_done+0x71/0xd0
+[   78.258919] {SOFTIRQ-ON-W} state was registered at:
+[   78.258919]   [   78.258919] [<ffffffff81567ad7>] __lock_acquire+0x6e7/0x3380
+[   78.258919]   [   78.258919] [<ffffffff8156b642>] lock_acquire+0x2a2/0x790
+[   78.258919]   [   78.258919] [<ffffffff88139aff>]
+mutex_lock_nested+0x23f/0xf20
+[   78.258919]   [   78.258919] [<ffffffff86cba52e>]
+__genl_register_family+0x2ce/0x1870
+[   78.258919]   [   78.258919] [<ffffffff8ab90c02>] genl_init+0x11d/0x185
+[   78.258919]   [   78.258919] [<ffffffff8100244b>] do_one_initcall+0xfb/0x3f0
+[   78.258919]   [   78.258919] [<ffffffff8aa3d03d>]
+kernel_init_freeable+0x5c4/0x69e
+[   78.258919]   [   78.258919] [<ffffffff88129c88>] kernel_init+0x18/0x180
+[   78.258919]   [   78.258919] [<ffffffff8814a05a>] ret_from_fork+0x2a/0x40
+[   78.258919] irq event stamp: 149484
+[   78.258919] hardirqs last  enabled at (149484): [   78.258919]
+[<ffffffff8814a7df>] restore_regs_and_iret+0x0/0x1d
+[   78.258919] hardirqs last disabled at (149483): [   78.258919]
+[<ffffffff8814bad7>] apic_timer_interrupt+0x87/0xa0
+[   78.258919] softirqs last  enabled at (149302): [   78.258919]
+[<ffffffff8814da39>] __do_softirq+0x829/0xca8
+[   78.258919] softirqs last disabled at (149437): [   78.258919]
+[<ffffffff8141a941>] irq_exit+0x1d1/0x210
+
+[   78.258919]
+[   78.258919] other info that might help us debug this:
+[   78.258919]  Possible unsafe locking scenario:
+[   78.258919]
+[   78.258919]        CPU0
+[   78.258919]        ----
+[   78.258919]   lock([   78.258919] genl_mutex
+[   78.258919] );
+[   78.258919]   <Interrupt>
+[   78.258919]     lock([   78.258919] genl_mutex
+[   78.258919] );
+[   78.258919]
+[   78.258919]  *** DEADLOCK ***
+[   78.258919]
+[   78.258919] 1 lock held by syz-fuzzer/5211:
+[   78.258919]  #0: [   78.258919]  (
+rcu_callback[   78.258919] ){......}
+, at: [   78.258919] [<ffffffff815cbc43>] rcu_do_batch.isra.70+0x993/0xe20
+[   78.258919]
+[   78.258919] stack backtrace:
+
+CPU: 0 PID: 32289 Comm: syz-executor Tainted: G        W       4.9.0-rc5+ #54
 Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-task: ffff88006b92a840 task.stack: ffff88006a730000
-RIP: 0010:[<ffffffff87a209e8>]  [<     inline     >] rt6_get_cookie
-include/net/ip6_fib.h:174
-RIP: 0010:[<ffffffff87a209e8>]  [<ffffffff87a209e8>]
-sctp_v6_get_dst+0x7c8/0x1960 net/sctp/ipv6.c:340
-RSP: 0018:ffff88006a736b88  EFLAGS: 00010202
-RAX: dffffc0000000000 RBX: 0000000000000000 RCX: ffffc90003c4f000
-RDX: 0000000000000015 RSI: 0000000000000001 RDI: 00000000000000a8
-RBP: ffff88006a736e68 R08: 0000000000000000 R09: 0000000000000001
-R10: 0000000000000000 R11: 0000000000000000 R12: ffff880064cff268
-R13: 1ffff1000d4e6db0 R14: ffff880064cff240 R15: ffff88006a4b6808
-FS:  00007f74f4ec9700(0000) GS:ffff88006d100000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 000000002070effc CR3: 000000003bd2f000 CR4: 00000000000006e0
-DR0: 0000000000000400 DR1: 0000000000000400 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
-Stack:
- ffffffff87a210f6 ffffffff000bbd2d ffff88006c2cd5a0 ffff88006c2cd5a0
- 0000000000000000 000000006ccb46c0 ffff88006a736d40 1ffff1000c99fe57
- ffff88006c2cd500 ffff8800658b1f30 ffff880064cff268 1ffff1000d4e6d84
+ ffff88003ec05db8 ffffffff834c2e39 ffffffff00000000 1ffff10007d80b4a
+ ffffed0007d80b42 0000000041b58ab3 ffffffff89575550 ffffffff834c2b4b
+ ffff88003948a340 ffff88003ec22cc0 ffff8800384dd280 0000000041b58ab3
 Call Trace:
- [<ffffffff879a313d>] sctp_transport_route+0xad/0x430 net/sctp/transport.c:279
- [<ffffffff8799b106>] sctp_assoc_add_peer+0x5a6/0x13e0 net/sctp/associola.c:641
- [<ffffffff879e4358>] __sctp_connect+0x288/0xc90 net/sctp/socket.c:1178
- [<ffffffff879e4f0b>] __sctp_setsockopt_connectx+0x1ab/0x200
-net/sctp/socket.c:1332
- [<     inline     >] sctp_getsockopt_connectx3 net/sctp/socket.c:1417
- [<ffffffff879fd2bd>] sctp_getsockopt+0x36ed/0x6800 net/sctp/socket.c:6474
- [<ffffffff86a76c0a>] sock_common_getsockopt+0x9a/0xe0 net/core/sock.c:2649
- [<     inline     >] SYSC_getsockopt net/socket.c:1788
- [<ffffffff86a724d7>] SyS_getsockopt+0x257/0x390 net/socket.c:1770
+ <IRQ> [  287.580014]  [<     inline     >] __dump_stack lib/dump_stack.c:15
+ <IRQ> [  287.580014]  [<ffffffff834c2e39>] dump_stack+0x2ee/0x3f5
+lib/dump_stack.c:51
+ [<ffffffff815648df>] print_usage_bug+0x3ef/0x450 kernel/locking/lockdep.c:2388
+ [<     inline     >] valid_state kernel/locking/lockdep.c:2401
+ [<     inline     >] mark_lock_irq kernel/locking/lockdep.c:2599
+ [<ffffffff81565870>] mark_lock+0xf30/0x1410 kernel/locking/lockdep.c:3062
+ [<     inline     >] mark_irqflags kernel/locking/lockdep.c:2920
+ [<ffffffff8156811e>] __lock_acquire+0xd2e/0x3380 kernel/locking/lockdep.c:3292
+ [<ffffffff8156b642>] lock_acquire+0x2a2/0x790 kernel/locking/lockdep.c:3746
+ [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:521
+ [<ffffffff88139aff>] mutex_lock_nested+0x23f/0xf20 kernel/locking/mutex.c:621
+ [<     inline     >] genl_lock net/netlink/genetlink.c:31
+ [<ffffffff86cb5a11>] genl_lock_done+0x71/0xd0 net/netlink/genetlink.c:531
+ [<ffffffff86ca5458>] netlink_sock_destruct+0xf8/0x400
+net/netlink/af_netlink.c:331
+ [<ffffffff86a7b234>] __sk_destruct+0xf4/0x7f0 net/core/sock.c:1423
+ [<ffffffff86a87d6c>] sk_destruct+0x4c/0x80 net/core/sock.c:1453
+ [<ffffffff86a87dfc>] __sk_free+0x5c/0x230 net/core/sock.c:1461
+ [<ffffffff86a87ff8>] sk_free+0x28/0x30 net/core/sock.c:1472
+ [<     inline     >] sock_put include/net/sock.h:1591
+ [<ffffffff86ca6cd1>] deferred_put_nlk_sk+0x31/0x40 net/netlink/af_netlink.c:652
+ [<     inline     >] __rcu_reclaim kernel/rcu/rcu.h:118
+ [<ffffffff815cbc9d>] rcu_do_batch.isra.70+0x9ed/0xe20 kernel/rcu/tree.c:2776
+ [<     inline     >] invoke_rcu_callbacks kernel/rcu/tree.c:3040
+ [<     inline     >] __rcu_process_callbacks kernel/rcu/tree.c:3007
+ [<ffffffff815cc55c>] rcu_process_callbacks+0x48c/0xd70 kernel/rcu/tree.c:3024
+ [<ffffffff8814d53b>] __do_softirq+0x32b/0xca8 kernel/softirq.c:284
+ [<     inline     >] invoke_softirq kernel/softirq.c:364
+ [<ffffffff8141a941>] irq_exit+0x1d1/0x210 kernel/softirq.c:405
+ [<     inline     >] exiting_irq arch/x86/include/asm/apic.h:659
+ [<ffffffff8814ca30>] smp_apic_timer_interrupt+0x80/0xa0
+arch/x86/kernel/apic/apic.c:960
+ [<ffffffff8814badc>] apic_timer_interrupt+0x8c/0xa0
+arch/x86/entry/entry_64.S:489
+ <EOI> [  287.580014]  [<ffffffff8155c987>] ? lock_is_held+0x247/0x310
+ [<ffffffff814b6bde>] ___might_sleep+0x59e/0x660 kernel/sched/core.c:7729
+ [<ffffffff814b6d3a>] __might_sleep+0x9a/0x1a0 kernel/sched/core.c:7720
+ [<ffffffff88142d08>] down_read+0x78/0x160 kernel/locking/rwsem.c:21
+ [<     inline     >] anon_vma_lock_read include/linux/rmap.h:127
+ [<ffffffff81968295>] validate_mm+0xe5/0x880 mm/mmap.c:347
+ [<ffffffff8196bf0b>] vma_link+0x11b/0x180 mm/mmap.c:605
+ [<ffffffff81977f46>] mmap_region+0x1076/0x1880 mm/mmap.c:1692
+ [<ffffffff81978e4f>] do_mmap+0x6ff/0xe80 mm/mmap.c:1450
+ [<     inline     >] do_mmap_pgoff include/linux/mm.h:2039
+ [<ffffffff818fd527>] vm_mmap_pgoff+0x1b7/0x210 mm/util.c:305
+ [<     inline     >] SYSC_mmap_pgoff mm/mmap.c:1500
+ [<ffffffff8196f961>] SyS_mmap_pgoff+0x231/0x5e0 mm/mmap.c:1458
+ [<     inline     >] SYSC_mmap arch/x86/kernel/sys_x86_64.c:95
+ [<ffffffff8124bf4b>] SyS_mmap+0x1b/0x30 arch/x86/kernel/sys_x86_64.c:86
  [<ffffffff88149dc5>] entry_SYSCALL_64_fastpath+0x23/0xc6
-Code: 00 00 48 8b 84 24 88 00 00 00 48 8b 58 40 e8 80 76 cc f9 48 8d
-bb a8 00 00 00 48 b8 00 00 00 00 00 fc ff df 48 89 fa 48 c1 ea 03 <80>
-3c 02 00 0f 85 56 0f 00 00 48 8b 9b a8 00 00 00 45 31 ed 48
-RIP  [<     inline     >] rt6_get_cookie include/net/ip6_fib.h:174
-RIP  [<ffffffff87a209e8>] sctp_v6_get_dst+0x7c8/0x1960 net/sctp/ipv6.c:340
- RSP <ffff88006a736b88>
----[ end trace f42d1c14cb6d2835 ]---
-
-This happened on commit a25f0944ba9b1d8a6813fd6f1a86f1bd59ac25a6 (Nov 13).
-
-Unfortunately this is not reproducible.
-
-The line is:
-
-    return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
-
-Can it be a data race? rt->rt6i_node != NULL, but the next moment it
-is already NULL? That would explain the crash and non-reproducibility
-(need ThreadSanitizer!).
-
-This always happened when called from sctp code, but I don't know if
-it is relevant or not. It happened only 3 times.
-
-Thanks.
