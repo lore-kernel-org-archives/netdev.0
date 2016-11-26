@@ -1,92 +1,136 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: netlink: GPF in sock_sndtimeo
-Date: Sat, 26 Nov 2016 08:17:43 -0800
-Message-ID: <CANn89iLR=LHwHO=69Aw=VAe0yN2R19CHpy8DmsiGs9EE-vOw+Q@mail.gmail.com>
-References: <CACT4Y+aG1+91U1PWMTwpE_6vbEuqG7CdLCM1H=3WVJWtz=F7Ug@mail.gmail.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net: GPF in rt6_get_cookie
+Date: Sat, 26 Nov 2016 17:23:59 +0100
+Message-ID: <CACT4Y+Y-B_GCDGpcLHt1CtXs3u9MBFD82MSFWTcL_v4Vi3+=HQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Florian Westphal <fw@strlen.de>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: syzkaller <syzkaller@googlegroups.com>
+To: David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
         netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>,
-        Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+aG1+91U1PWMTwpE_6vbEuqG7CdLCM1H=3WVJWtz=F7Ug@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:35619 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751230AbcKZQYW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 11:24:22 -0500
+Received: by mail-lf0-f45.google.com with SMTP id b14so68704312lfg.2
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 08:24:21 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CC Richard Guy Briggs <rgb@redhat.com>
+Hello,
 
-On Sat, Nov 26, 2016 at 7:44 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> Hello,
->
-> The following program triggers GPF in sock_sndtimeo:
-> https://gist.githubusercontent.com/dvyukov/c19cadd309791cf5cb9b2bf936d3f48d/raw/1743ba0211079a5465d039512b427bc6b59b1a76/gistfile1.txt
->
-> On commit 16ae16c6e5616c084168740990fc508bda6655d4 (Nov 24).
->
-> general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC KASAN
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in:
-> CPU: 1 PID: 19950 Comm: syz-executor Not tainted 4.9.0-rc5+ #54
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> task: ffff88002a0d0840 task.stack: ffff880036920000
-> RIP: 0010:[<ffffffff86cb35e1>]  [<     inline     >] sock_sndtimeo
-> include/net/sock.h:2075
-> RIP: 0010:[<ffffffff86cb35e1>]  [<ffffffff86cb35e1>]
-> netlink_unicast+0xe1/0x730 net/netlink/af_netlink.c:1232
-> RSP: 0018:ffff880036926f68  EFLAGS: 00010202
-> RAX: 0000000000000068 RBX: ffff880036927000 RCX: ffffc900021d0000
-> RDX: 0000000000000d63 RSI: 00000000024000c0 RDI: 0000000000000340
-> RBP: ffff880036927028 R08: ffffed0006ea7aab R09: ffffed0006ea7aab
-> R10: 0000000000000001 R11: ffffed0006ea7aaa R12: dffffc0000000000
-> R13: 0000000000000000 R14: ffff880035de3400 R15: ffff880035de3400
-> FS:  00007f90a2fc7700(0000) GS:ffff88003ed00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 00000000006de0c0 CR3: 0000000035de6000 CR4: 00000000000006e0
-> Stack:
->  ffff880035de3400 ffffffff819f02a1 1ffff10006d24df4 0000000000000004
->  00004db400000014 ffff880036926fd8 ffffffff00000000 0000000041b58ab3
->  ffffffff89653c11 ffffffff86cb3500 ffffffff819f0345 ffff880035de3400
-> Call Trace:
->  [<     inline     >] audit_replace kernel/audit.c:817
->  [<ffffffff816c34b9>] audit_receive_msg+0x22c9/0x2ce0 kernel/audit.c:894
->  [<     inline     >] audit_receive_skb kernel/audit.c:1120
->  [<ffffffff816c40ac>] audit_receive+0x1dc/0x360 kernel/audit.c:1133
->  [<     inline     >] netlink_unicast_kernel net/netlink/af_netlink.c:1214
->  [<ffffffff86cb3a14>] netlink_unicast+0x514/0x730 net/netlink/af_netlink.c:1240
->  [<ffffffff86cb46d4>] netlink_sendmsg+0xaa4/0xe50 net/netlink/af_netlink.c:1786
->  [<     inline     >] sock_sendmsg_nosec net/socket.c:621
->  [<ffffffff86a6d54f>] sock_sendmsg+0xcf/0x110 net/socket.c:631
->  [<ffffffff86a6d8bb>] sock_write_iter+0x32b/0x620 net/socket.c:829
->  [<     inline     >] new_sync_write fs/read_write.c:499
->  [<ffffffff81a6f24e>] __vfs_write+0x4fe/0x830 fs/read_write.c:512
->  [<ffffffff81a70cf5>] vfs_write+0x175/0x4e0 fs/read_write.c:560
->  [<     inline     >] SYSC_write fs/read_write.c:607
->  [<ffffffff81a75180>] SyS_write+0x100/0x240 fs/read_write.c:599
->  [<ffffffff81009a24>] do_syscall_64+0x2f4/0x940 arch/x86/entry/common.c:280
->  [<ffffffff88149e8d>] entry_SYSCALL64_slow_path+0x25/0x25
-> Code: fe 4c 89 f7 e8 31 16 ff ff 8b 8d 70 ff ff ff 49 89 c7 31 c0 85
-> c9 75 25 e8 7d 4a a3 fa 49 8d bd 40 03 00 00 48 89 f8 48 c1 e8 03 <42>
-> 80 3c 20 00 0f 85 3a 06 00 00 49 8b 85 40 03 00 00 4c 8d 73
-> RIP  [<     inline     >] sock_sndtimeo include/net/sock.h:2075
-> RIP  [<ffffffff86cb35e1>] netlink_unicast+0xe1/0x730
-> net/netlink/af_netlink.c:1232
->  RSP <ffff880036926f68>
-> ---[ end trace 8383a15fba6fdc59 ]---
+I got several GPFs in rt6_get_cookie while running syzkaller:
+
+general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC KASAN
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Modules linked in:
+CPU: 2 PID: 10156 Comm: syz-executor Not tainted 4.9.0-rc5+ #54
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff880016f40480 task.stack: ffff88000fc00000
+RIP: 0010:[<ffffffff87a209e8>]  [<     inline     >] rt6_get_cookie
+include/net/ip6_fib.h:174
+RIP: 0010:[<ffffffff87a209e8>]  [<ffffffff87a209e8>]
+sctp_v6_get_dst+0x7c8/0x1960 net/sctp/ipv6.c:340
+RSP: 0018:ffff88000fc07298  EFLAGS: 00010202
+RAX: dffffc0000000000 RBX: 0000000000000000 RCX: ffffc900029f5000
+RDX: 0000000000000015 RSI: 0000000000000001 RDI: 00000000000000a8
+RBP: ffff88000fc07580 R08: 0000000000000000 R09: 0000000000000001
+R10: 0000000000000000 R11: 0000000000000000 R12: ffff880066cd0068
+R13: 1ffff10001f80e92 R14: ffff880066cd0040 R15: ffff88005f2d2808
+FS:  00007f52c41f7700(0000) GS:ffff88006d000000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000020016000 CR3: 0000000065dd7000 CR4: 00000000000006e0
+DR0: 0000000000000400 DR1: 0000000000000400 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+Stack:
+ ffffffff87a210f6 ffffffff8701ad45 ffff88006768ec20 ffff88006768ec20
+ 0000000000000000 0000000016f40480 ffff88000fc07450 1ffff1000cd9a017
+ ffff88006768ec00 ffff880066fc0730 ffff880066cd0068 1ffff10001f80e66
+Call Trace:
+ [<ffffffff879a313d>] sctp_transport_route+0xad/0x430 net/sctp/transport.c:279
+ [<ffffffff8799b106>] sctp_assoc_add_peer+0x5a6/0x13e0 net/sctp/associola.c:641
+ [<ffffffff879e8911>] sctp_sendmsg+0x1921/0x3bc0 net/sctp/socket.c:1864
+ [<ffffffff8701ad45>] inet_sendmsg+0x385/0x590 net/ipv4/af_inet.c:734
+ [<     inline     >] sock_sendmsg_nosec net/socket.c:621
+ [<ffffffff86a6d54f>] sock_sendmsg+0xcf/0x110 net/socket.c:631
+ [<ffffffff86a6ede0>] SYSC_sendto+0x660/0x810 net/socket.c:1656
+ [<ffffffff86a71dd5>] SyS_sendto+0x45/0x60 net/socket.c:1624
+ [<ffffffff88149dc5>] entry_SYSCALL_64_fastpath+0x23/0xc6
+Code: 00 00 48 8b 84 24 88 00 00 00 48 8b 58 40 e8 80 76 cc f9 48 8d
+bb a8 00 00 00 48 b8 00 00 00 00 00 fc ff df 48 89 fa 48 c1 ea 03 <80>
+3c 02 00 0f 85 56 0f 00 00 48 8b 9b a8 00 00 00 45 31 ed 48
+RIP  [<     inline     >] rt6_get_cookie include/net/ip6_fib.h:174
+RIP  [<ffffffff87a209e8>] sctp_v6_get_dst+0x7c8/0x1960 net/sctp/ipv6.c:340
+ RSP <ffff88000fc07298>
+---[ end trace b8d1354fa571700d ]---
 
 
-Looks a bug added in commit 32a1dbaece7e37cea415e03cd426172249aa859e
-("audit: try harder to send to auditd upon netlink failure")
-or 133e1e5acd4a63c4a0dcc413e90d5decdbce9c4a ("audit: stop an old
-auditd being starved out by a new auditd")
+general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC KASAN
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Modules linked in:
+CPU: 3 PID: 22744 Comm: syz-executor Not tainted 4.9.0-rc5+ #54
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff88006b92a840 task.stack: ffff88006a730000
+RIP: 0010:[<ffffffff87a209e8>]  [<     inline     >] rt6_get_cookie
+include/net/ip6_fib.h:174
+RIP: 0010:[<ffffffff87a209e8>]  [<ffffffff87a209e8>]
+sctp_v6_get_dst+0x7c8/0x1960 net/sctp/ipv6.c:340
+RSP: 0018:ffff88006a736b88  EFLAGS: 00010202
+RAX: dffffc0000000000 RBX: 0000000000000000 RCX: ffffc90003c4f000
+RDX: 0000000000000015 RSI: 0000000000000001 RDI: 00000000000000a8
+RBP: ffff88006a736e68 R08: 0000000000000000 R09: 0000000000000001
+R10: 0000000000000000 R11: 0000000000000000 R12: ffff880064cff268
+R13: 1ffff1000d4e6db0 R14: ffff880064cff240 R15: ffff88006a4b6808
+FS:  00007f74f4ec9700(0000) GS:ffff88006d100000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 000000002070effc CR3: 000000003bd2f000 CR4: 00000000000006e0
+DR0: 0000000000000400 DR1: 0000000000000400 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+Stack:
+ ffffffff87a210f6 ffffffff000bbd2d ffff88006c2cd5a0 ffff88006c2cd5a0
+ 0000000000000000 000000006ccb46c0 ffff88006a736d40 1ffff1000c99fe57
+ ffff88006c2cd500 ffff8800658b1f30 ffff880064cff268 1ffff1000d4e6d84
+Call Trace:
+ [<ffffffff879a313d>] sctp_transport_route+0xad/0x430 net/sctp/transport.c:279
+ [<ffffffff8799b106>] sctp_assoc_add_peer+0x5a6/0x13e0 net/sctp/associola.c:641
+ [<ffffffff879e4358>] __sctp_connect+0x288/0xc90 net/sctp/socket.c:1178
+ [<ffffffff879e4f0b>] __sctp_setsockopt_connectx+0x1ab/0x200
+net/sctp/socket.c:1332
+ [<     inline     >] sctp_getsockopt_connectx3 net/sctp/socket.c:1417
+ [<ffffffff879fd2bd>] sctp_getsockopt+0x36ed/0x6800 net/sctp/socket.c:6474
+ [<ffffffff86a76c0a>] sock_common_getsockopt+0x9a/0xe0 net/core/sock.c:2649
+ [<     inline     >] SYSC_getsockopt net/socket.c:1788
+ [<ffffffff86a724d7>] SyS_getsockopt+0x257/0x390 net/socket.c:1770
+ [<ffffffff88149dc5>] entry_SYSCALL_64_fastpath+0x23/0xc6
+Code: 00 00 48 8b 84 24 88 00 00 00 48 8b 58 40 e8 80 76 cc f9 48 8d
+bb a8 00 00 00 48 b8 00 00 00 00 00 fc ff df 48 89 fa 48 c1 ea 03 <80>
+3c 02 00 0f 85 56 0f 00 00 48 8b 9b a8 00 00 00 45 31 ed 48
+RIP  [<     inline     >] rt6_get_cookie include/net/ip6_fib.h:174
+RIP  [<ffffffff87a209e8>] sctp_v6_get_dst+0x7c8/0x1960 net/sctp/ipv6.c:340
+ RSP <ffff88006a736b88>
+---[ end trace f42d1c14cb6d2835 ]---
 
-Richard, can you take a look ?
+This happened on commit a25f0944ba9b1d8a6813fd6f1a86f1bd59ac25a6 (Nov 13).
 
-Thanks !
+Unfortunately this is not reproducible.
+
+The line is:
+
+    return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
+
+Can it be a data race? rt->rt6i_node != NULL, but the next moment it
+is already NULL? That would explain the crash and non-reproducibility
+(need ThreadSanitizer!).
+
+This always happened when called from sctp code, but I don't know if
+it is relevant or not. It happened only 3 times.
+
+Thanks.
