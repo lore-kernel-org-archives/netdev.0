@@ -1,52 +1,74 @@
-From: Eric Dumazet <erdlkml@gmail.com>
-Subject: Re: net: GPF in eth_header
-Date: Sat, 26 Nov 2016 12:05:08 -0800
-Message-ID: <CACPEyM-4dwvmEvq3uTN_8Y-YosP8qA3cYV+oxkufFOn8M+=hew@mail.gmail.com>
-References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
- <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com> <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Andrey Konovalov <andreyknvl@google.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next 0/6] tcp: sender chronographs instrumentation
+Date: Sat, 26 Nov 2016 12:10:10 -0800
+Message-ID: <1480191016-73210-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
+        Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, soheil@google.com, francisyyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:35846 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750947AbcKZUFK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:05:10 -0500
-In-Reply-To: <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
+Received: from mail-io0-f178.google.com ([209.85.223.178]:36100 "EHLO
+        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751070AbcKZUKf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:10:35 -0500
+Received: by mail-io0-f178.google.com with SMTP id m5so33676501ioe.3
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 12:10:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hi Eric,
->
-> The crash happens when the kernel tries to access shadow for nonmapped memory.
->
-> The issue here is an integer overflow which happens in neigh_resolve_output().
-> skb_network_offset(skb) can return negative number, but __skb_pull()
-> accepts unsigned int as len.
-> As a result, the least significat bit in higher 32 bits of skb->data
-> gets set and we get an out-of-bounds with offset of 4 GB.
->
-> I've attached a short reproducer, but you either need KASAN or to add
-> a BUG_ON to see the crash.
-> In this reproducer skb_network_offset() becomes negative after merging
-> two ipv6 fragments.
->
-> I actually see multiple places where skb_network_offset() is used as
-> an argument to skb_pull().
-> So I guess every place can potentially be buggy.
+This patch set provides instrumentation on TCP sender limitations.
+While developing the BBR congestion control, we noticed that TCP
+sending process is often limited by factors unrelated to congestion
+control: insufficient sender buffer and/or insufficient receive
+window/buffer to saturate the network bandwidth. Unfortunately these
+limits are not visible to the users and often the poor performance
+is attributed to the congestion control of choice.
 
-Well, I think the intent is to accept a negative number.
+Thie patch aims to help users get the high level understanding of
+where sending process is limited by, similar to the TCP_INFO design.
+It is not to replace detailed kernel tracing and instrumentation
+facilities.
 
-This definitely was assumed by commit e1f165032c8bade authors !
+In addition this patch set provides a new option to the timestamping
+work to instrument these limits on application data unit. For exampe,
+one can use SO_TIMESTAMPING and this patch set to measure the how
+long a particular HTTP response is limited by small receive window.
 
-I guess they were using a 32bit kernel for their tests.
+Patch set was initially written by Francis Yan then polished
+by Yuchung Cheng, with lots of help from Eric Dumazet and Soheil
+Hassas Yeganeh.
+
+Francis Yan (6):
+  tcp: instrument tcp sender limits chronographs
+  tcp: instrument how long TCP is busy sending
+  tcp: instrument how long TCP is limited by receive window
+  tcp: instrument how long TCP is limited by insufficient send buffer
+  tcp: export sender limits chronographs to TCP_INFO
+  tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING
+
+ Documentation/networking/timestamping.txt | 10 +++++
+ arch/alpha/include/uapi/asm/socket.h      |  2 +
+ arch/frv/include/uapi/asm/socket.h        |  2 +
+ arch/ia64/include/uapi/asm/socket.h       |  2 +
+ arch/m32r/include/uapi/asm/socket.h       |  2 +
+ arch/mips/include/uapi/asm/socket.h       |  2 +
+ arch/mn10300/include/uapi/asm/socket.h    |  2 +
+ arch/parisc/include/uapi/asm/socket.h     |  2 +
+ arch/powerpc/include/uapi/asm/socket.h    |  2 +
+ arch/s390/include/uapi/asm/socket.h       |  2 +
+ arch/sparc/include/uapi/asm/socket.h      |  2 +
+ arch/xtensa/include/uapi/asm/socket.h     |  2 +
+ include/linux/tcp.h                       |  9 ++++-
+ include/net/tcp.h                         | 20 +++++++++-
+ include/uapi/asm-generic/socket.h         |  2 +
+ include/uapi/linux/net_tstamp.h           |  3 +-
+ include/uapi/linux/tcp.h                  | 12 ++++++
+ net/core/skbuff.c                         | 12 ++++--
+ net/core/sock.c                           |  7 ++++
+ net/ipv4/tcp.c                            | 50 ++++++++++++++++++++++-
+ net/ipv4/tcp_input.c                      |  8 +++-
+ net/ipv4/tcp_output.c                     | 66 ++++++++++++++++++++++++++++++-
+ net/socket.c                              |  7 +++-
+ 23 files changed, 215 insertions(+), 13 deletions(-)
+
+-- 
+2.8.0.rc3.226.g39d4020
