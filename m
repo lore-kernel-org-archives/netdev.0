@@ -1,133 +1,90 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 2/6] tcp: instrument how long TCP is busy sending
-Date: Sat, 26 Nov 2016 12:10:12 -0800
-Message-ID: <1480191016-73210-3-git-send-email-ycheng@google.com>
+Subject: [PATCH net-next 5/6] tcp: export sender limits chronographs to TCP_INFO
+Date: Sat, 26 Nov 2016 12:10:15 -0800
+Message-ID: <1480191016-73210-6-git-send-email-ycheng@google.com>
 References: <1480191016-73210-1-git-send-email-ycheng@google.com>
 Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
         Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, soheil@google.com, francisyyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:36115 "EHLO
-        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751385AbcKZUKj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:10:39 -0500
-Received: by mail-io0-f177.google.com with SMTP id m5so33677314ioe.3
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 12:10:38 -0800 (PST)
+Received: from mail-io0-f179.google.com ([209.85.223.179]:33018 "EHLO
+        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751070AbcKZUKk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:10:40 -0500
+Received: by mail-io0-f179.google.com with SMTP id j65so171980343iof.0
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 12:10:40 -0800 (PST)
 In-Reply-To: <1480191016-73210-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Francis Yan <francisyyan@gmail.com>
 
-This patch measures TCP busy time, which is defined as the period
-of time when sender has data (or FIN) to send. The time starts when
-data is buffered and stops when the write queue is flushed by ACKs
-or error events.
-
-Note the busy time does not include SYN time, unless data is
-included in SYN (i.e. Fast Open). It does include FIN time even
-if the FIN carries no payload. Excluding pure FIN is possible but
-would incur one additional test in the fast path, which may not
-be worth it.
+This patch exports all the sender chronograph measurements collected
+in the previous patches to TCP_INFO interface. Note that busy time
+exported includes all the other sending limits (rwnd-limited,
+sndbuf-limited). Internally the time unit is jiffy but externally
+the measurements are in microseconds for future extensions.
 
 Signed-off-by: Francis Yan <francisyyan@gmail.com>
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 ---
- include/net/tcp.h     |  6 +++++-
- net/ipv4/tcp_input.c  |  3 +++
- net/ipv4/tcp_output.c | 19 ++++++++++++++++---
- 3 files changed, 24 insertions(+), 4 deletions(-)
+ include/uapi/linux/tcp.h |  4 ++++
+ net/ipv4/tcp.c           | 20 ++++++++++++++++++++
+ 2 files changed, 24 insertions(+)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index e5ff408..3e097e3 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1535,6 +1535,7 @@ static inline void tcp_write_queue_purge(struct sock *sk)
- {
- 	struct sk_buff *skb;
+diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+index 73ac0db..2863b66 100644
+--- a/include/uapi/linux/tcp.h
++++ b/include/uapi/linux/tcp.h
+@@ -214,6 +214,10 @@ struct tcp_info {
+ 	__u32	tcpi_data_segs_out;	/* RFC4898 tcpEStatsDataSegsOut */
  
-+	tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
- 	while ((skb = __skb_dequeue(&sk->sk_write_queue)) != NULL)
- 		sk_wmem_free_skb(sk, skb);
- 	sk_mem_reclaim(sk);
-@@ -1593,8 +1594,10 @@ static inline void tcp_advance_send_head(struct sock *sk, const struct sk_buff *
+ 	__u64   tcpi_delivery_rate;
++
++	__u64	tcpi_busy_time;      /* Time (usec) busy sending data */
++	__u64	tcpi_rwnd_limited;   /* Time (usec) limited by receive window */
++	__u64	tcpi_sndbuf_limited; /* Time (usec) limited by send buffer */
+ };
  
- static inline void tcp_check_send_head(struct sock *sk, struct sk_buff *skb_unlinked)
- {
--	if (sk->sk_send_head == skb_unlinked)
-+	if (sk->sk_send_head == skb_unlinked) {
- 		sk->sk_send_head = NULL;
-+		tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
+ /* for TCP_MD5SIG socket option */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 259ffb5..cdde20f 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2708,6 +2708,25 @@ int compat_tcp_setsockopt(struct sock *sk, int level, int optname,
+ EXPORT_SYMBOL(compat_tcp_setsockopt);
+ #endif
+ 
++static void tcp_get_info_chrono_stats(const struct tcp_sock *tp,
++				      struct tcp_info *info)
++{
++	u64 stats[__TCP_CHRONO_MAX], total = 0;
++	enum tcp_chrono i;
++
++	for (i = TCP_CHRONO_BUSY; i < __TCP_CHRONO_MAX; ++i) {
++		stats[i] = tp->chrono_stat[i - 1];
++		if (i == tp->chrono_type)
++			stats[i] += tcp_time_stamp - tp->chrono_start;
++		stats[i] *= USEC_PER_SEC / HZ;
++		total += stats[i];
 +	}
- 	if (tcp_sk(sk)->highest_sack == skb_unlinked)
- 		tcp_sk(sk)->highest_sack = NULL;
- }
-@@ -1616,6 +1619,7 @@ static inline void tcp_add_write_queue_tail(struct sock *sk, struct sk_buff *skb
- 	/* Queue it, remembering where we must start sending. */
- 	if (sk->sk_send_head == NULL) {
- 		sk->sk_send_head = skb;
-+		tcp_chrono_start(sk, TCP_CHRONO_BUSY);
- 
- 		if (tcp_sk(sk)->highest_sack == NULL)
- 			tcp_sk(sk)->highest_sack = skb;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 22e6a20..a5d1727 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3178,6 +3178,9 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 			tp->lost_skb_hint = NULL;
- 	}
- 
-+	if (!skb)
-+		tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
 +
- 	if (likely(between(tp->snd_up, prior_snd_una, tp->snd_una)))
- 		tp->snd_up = tp->snd_una;
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 34f7517..e8ea584 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2096,8 +2096,8 @@ void tcp_chrono_start(struct sock *sk, const enum tcp_chrono type)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
- 	/* If there are multiple conditions worthy of tracking in a
--	 * chronograph then the highest priority enum takes precedence over
--	 * the other conditions. So that if something "more interesting"
-+	 * chronograph then the highest priority enum takes precedence
-+	 * over the other conditions. So that if something "more interesting"
- 	 * starts happening, stop the previous chrono and start a new one.
- 	 */
- 	if (type > tp->chrono_type)
-@@ -2108,7 +2108,18 @@ void tcp_chrono_stop(struct sock *sk, const enum tcp_chrono type)
++	info->tcpi_busy_time = total;
++	info->tcpi_rwnd_limited = stats[TCP_CHRONO_RWND_LIMITED];
++	info->tcpi_sndbuf_limited = stats[TCP_CHRONO_SNDBUF_LIMITED];
++}
++
+ /* Return information about state of tcp endpoint in API format. */
+ void tcp_get_info(struct sock *sk, struct tcp_info *info)
  {
- 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -2800,6 +2819,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_bytes_acked = tp->bytes_acked;
+ 	info->tcpi_bytes_received = tp->bytes_received;
+ 	info->tcpi_notsent_bytes = max_t(int, 0, tp->write_seq - tp->snd_nxt);
++	tcp_get_info_chrono_stats(tp, info);
  
--	tcp_chrono_set(tp, TCP_CHRONO_UNSPEC);
-+
-+	/* There are multiple conditions worthy of tracking in a
-+	 * chronograph, so that the highest priority enum takes
-+	 * precedence over the other conditions (see tcp_chrono_start).
-+	 * If a condition stops, we only stop chrono tracking if
-+	 * it's the "most interesting" or current chrono we are
-+	 * tracking and starts busy chrono if we have pending data.
-+	 */
-+	if (tcp_write_queue_empty(sk))
-+		tcp_chrono_set(tp, TCP_CHRONO_UNSPEC);
-+	else if (type == tp->chrono_type)
-+		tcp_chrono_set(tp, TCP_CHRONO_BUSY);
- }
- 
- /* This routine writes packets to the network.  It advances the
-@@ -3328,6 +3339,8 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
- 	fo->copied = space;
- 
- 	tcp_connect_queue_skb(sk, syn_data);
-+	if (syn_data->len)
-+		tcp_chrono_start(sk, TCP_CHRONO_BUSY);
- 
- 	err = tcp_transmit_skb(sk, syn_data, 1, sk->sk_allocation);
+ 	unlock_sock_fast(sk, slow);
  
 -- 
 2.8.0.rc3.226.g39d4020
