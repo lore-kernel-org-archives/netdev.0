@@ -1,74 +1,139 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 0/6] tcp: sender chronographs instrumentation
-Date: Sat, 26 Nov 2016 12:10:10 -0800
-Message-ID: <1480191016-73210-1-git-send-email-ycheng@google.com>
+Subject: [PATCH net-next 1/6] tcp: instrument tcp sender limits chronographs
+Date: Sat, 26 Nov 2016 12:10:11 -0800
+Message-ID: <1480191016-73210-2-git-send-email-ycheng@google.com>
+References: <1480191016-73210-1-git-send-email-ycheng@google.com>
 Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
         Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, soheil@google.com, francisyyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:36100 "EHLO
-        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751070AbcKZUKf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:10:35 -0500
-Received: by mail-io0-f178.google.com with SMTP id m5so33676501ioe.3
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 12:10:35 -0800 (PST)
+Received: from mail-io0-f171.google.com ([209.85.223.171]:32995 "EHLO
+        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751211AbcKZUKg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 15:10:36 -0500
+Received: by mail-io0-f171.google.com with SMTP id j65so171979058iof.0
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 12:10:36 -0800 (PST)
+In-Reply-To: <1480191016-73210-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set provides instrumentation on TCP sender limitations.
-While developing the BBR congestion control, we noticed that TCP
-sending process is often limited by factors unrelated to congestion
-control: insufficient sender buffer and/or insufficient receive
-window/buffer to saturate the network bandwidth. Unfortunately these
-limits are not visible to the users and often the poor performance
-is attributed to the congestion control of choice.
+From: Francis Yan <francisyyan@gmail.com>
 
-Thie patch aims to help users get the high level understanding of
-where sending process is limited by, similar to the TCP_INFO design.
-It is not to replace detailed kernel tracing and instrumentation
-facilities.
+This patch implements the skeleton of the TCP chronograph
+instrumentation on sender side limits:
 
-In addition this patch set provides a new option to the timestamping
-work to instrument these limits on application data unit. For exampe,
-one can use SO_TIMESTAMPING and this patch set to measure the how
-long a particular HTTP response is limited by small receive window.
+	1) idle (unspec)
+	2) busy sending data other than 3-4 below
+	3) rwnd-limited
+	4) sndbuf-limited
 
-Patch set was initially written by Francis Yan then polished
-by Yuchung Cheng, with lots of help from Eric Dumazet and Soheil
-Hassas Yeganeh.
+The limits are enumerated 'tcp_chrono'. Since a connection in
+theory can idle forever, we do not track the actual length of this
+uninteresting idle period. For the rest we track how long the sender
+spends in each limit. At any point during the life time of a
+connection, the sender must be in one of the four states.
 
-Francis Yan (6):
-  tcp: instrument tcp sender limits chronographs
-  tcp: instrument how long TCP is busy sending
-  tcp: instrument how long TCP is limited by receive window
-  tcp: instrument how long TCP is limited by insufficient send buffer
-  tcp: export sender limits chronographs to TCP_INFO
-  tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING
+If there are multiple conditions worthy of tracking in a chronograph
+then the highest priority enum takes precedence over
+the other conditions. So that if something "more interesting"
+starts happening, stop the previous chrono and start a new one.
 
- Documentation/networking/timestamping.txt | 10 +++++
- arch/alpha/include/uapi/asm/socket.h      |  2 +
- arch/frv/include/uapi/asm/socket.h        |  2 +
- arch/ia64/include/uapi/asm/socket.h       |  2 +
- arch/m32r/include/uapi/asm/socket.h       |  2 +
- arch/mips/include/uapi/asm/socket.h       |  2 +
- arch/mn10300/include/uapi/asm/socket.h    |  2 +
- arch/parisc/include/uapi/asm/socket.h     |  2 +
- arch/powerpc/include/uapi/asm/socket.h    |  2 +
- arch/s390/include/uapi/asm/socket.h       |  2 +
- arch/sparc/include/uapi/asm/socket.h      |  2 +
- arch/xtensa/include/uapi/asm/socket.h     |  2 +
- include/linux/tcp.h                       |  9 ++++-
- include/net/tcp.h                         | 20 +++++++++-
- include/uapi/asm-generic/socket.h         |  2 +
- include/uapi/linux/net_tstamp.h           |  3 +-
- include/uapi/linux/tcp.h                  | 12 ++++++
- net/core/skbuff.c                         | 12 ++++--
- net/core/sock.c                           |  7 ++++
- net/ipv4/tcp.c                            | 50 ++++++++++++++++++++++-
- net/ipv4/tcp_input.c                      |  8 +++-
- net/ipv4/tcp_output.c                     | 66 ++++++++++++++++++++++++++++++-
- net/socket.c                              |  7 +++-
- 23 files changed, 215 insertions(+), 13 deletions(-)
+The time unit is jiffy(u32) in order to save space in tcp_sock.
+This implies application must sample the stats no longer than every
+49 days of 1ms jiffy.
 
+Signed-off-by: Francis Yan <francisyyan@gmail.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+---
+ include/linux/tcp.h   |  7 +++++--
+ include/net/tcp.h     | 14 ++++++++++++++
+ net/ipv4/tcp_output.c | 30 ++++++++++++++++++++++++++++++
+ 3 files changed, 49 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 32a7c7e..d5d3bd8 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -211,8 +211,11 @@ struct tcp_sock {
+ 		u8 reord;    /* reordering detected */
+ 	} rack;
+ 	u16	advmss;		/* Advertised MSS			*/
+-	u8	rate_app_limited:1,  /* rate_{delivered,interval_us} limited? */
+-		unused:7;
++	u32	chrono_start;	/* Start time in jiffies of a TCP chrono */
++	u32	chrono_stat[3];	/* Time in jiffies for chrono_stat stats */
++	u8	chrono_type:2,	/* current chronograph type */
++		rate_app_limited:1,  /* rate_{delivered,interval_us} limited? */
++		unused:5;
+ 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
+ 		thin_lto    : 1,/* Use linear timeouts for thin streams */
+ 		thin_dupack : 1,/* Fast retransmit on first dupack      */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 7de8073..e5ff408 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1516,6 +1516,20 @@ struct tcp_fastopen_context {
+ 	struct rcu_head		rcu;
+ };
+ 
++/* Latencies incurred by various limits for a sender. They are
++ * chronograph-like stats that are mutually exclusive.
++ */
++enum tcp_chrono {
++	TCP_CHRONO_UNSPEC,
++	TCP_CHRONO_BUSY, /* Actively sending data (non-empty write queue) */
++	TCP_CHRONO_RWND_LIMITED, /* Stalled by insufficient receive window */
++	TCP_CHRONO_SNDBUF_LIMITED, /* Stalled by insufficient send buffer */
++	__TCP_CHRONO_MAX,
++};
++
++void tcp_chrono_start(struct sock *sk, const enum tcp_chrono type);
++void tcp_chrono_stop(struct sock *sk, const enum tcp_chrono type);
++
+ /* write queue abstraction */
+ static inline void tcp_write_queue_purge(struct sock *sk)
+ {
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 19105b4..34f7517 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2081,6 +2081,36 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
+ 	return false;
+ }
+ 
++static void tcp_chrono_set(struct tcp_sock *tp, const enum tcp_chrono new)
++{
++	const u32 now = tcp_time_stamp;
++
++	if (tp->chrono_type > TCP_CHRONO_UNSPEC)
++		tp->chrono_stat[tp->chrono_type - 1] += now - tp->chrono_start;
++	tp->chrono_start = now;
++	tp->chrono_type = new;
++}
++
++void tcp_chrono_start(struct sock *sk, const enum tcp_chrono type)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	/* If there are multiple conditions worthy of tracking in a
++	 * chronograph then the highest priority enum takes precedence over
++	 * the other conditions. So that if something "more interesting"
++	 * starts happening, stop the previous chrono and start a new one.
++	 */
++	if (type > tp->chrono_type)
++		tcp_chrono_set(tp, type);
++}
++
++void tcp_chrono_stop(struct sock *sk, const enum tcp_chrono type)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	tcp_chrono_set(tp, TCP_CHRONO_UNSPEC);
++}
++
+ /* This routine writes packets to the network.  It advances the
+  * send_head.  This happens as incoming acks open up the remote
+  * window for us.
 -- 
 2.8.0.rc3.226.g39d4020
