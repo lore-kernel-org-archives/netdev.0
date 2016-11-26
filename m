@@ -1,26 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/mlx5: drop duplicate header delay.h
-Date: Fri, 25 Nov 2016 20:33:29 -0500 (EST)
-Message-ID: <20161125.203329.2121430718570497042.davem@davemloft.net>
-References: <15299de49216a2360976ca37ff774cae9d27d88b.1479991297.git.geliangtang@gmail.com>
-        <03d5a2a0f03458cdb4f2b139cfabc11b5c334f95.1479990943.git.geliangtang@gmail.com>
+Subject: Re: [PATCH V3 net-next 01/15] net: introduce keepalive function in
+ struct proto
+Date: Fri, 25 Nov 2016 20:41:38 -0500 (EST)
+Message-ID: <20161125.204138.170049617838570584.davem@davemloft.net>
+References: <20161124150645.90881-1-ubraun@linux.vnet.ibm.com>
+        <20161124150645.90881-2-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: geliangtang@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <03d5a2a0f03458cdb4f2b139cfabc11b5c334f95.1479990943.git.geliangtang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        utz.bacher@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58700 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752461AbcKZBlm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 20:41:42 -0500
+In-Reply-To: <20161124150645.90881-2-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geliang Tang <geliangtang@gmail.com>
-Date: Thu, 24 Nov 2016 21:58:33 +0800
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Thu, 24 Nov 2016 16:06:31 +0100
 
-> Drop duplicate header delay.h from mlx5/core/main.c.
-> 
-> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> index 3ea1cf8..9b1602a 100644
+> --- a/net/ipv4/tcp_timer.c
+> +++ b/net/ipv4/tcp_timer.c
+> @@ -617,6 +617,7 @@ void tcp_set_keepalive(struct sock *sk, int val)
+>  	else if (!val)
+>  		inet_csk_delete_keepalive_timer(sk);
+>  }
+> +EXPORT_SYMBOL(tcp_set_keepalive);
 
-Applied.
+Please use EXPORT_SYMBOL_GPL().
