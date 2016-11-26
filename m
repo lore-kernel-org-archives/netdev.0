@@ -1,26 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] fsl/fman: fix a leak in tgec_free()
-Date: Fri, 25 Nov 2016 20:30:26 -0500 (EST)
-Message-ID: <20161125.203026.453934005279145007.davem@davemloft.net>
-References: <20161124111931.GK17225@mwanda>
+Subject: Re: [PATCH] ibmvnic: drop duplicate header seq_file.h
+Date: Fri, 25 Nov 2016 20:32:38 -0500 (EST)
+Message-ID: <20161125.203238.454691729914835681.davem@davemloft.net>
+References: <15299de49216a2360976ca37ff774cae9d27d88b.1479991297.git.geliangtang@gmail.com>
+        <9f2baee4e0a81ba8b5089a2b5a42f67678de4b06.1479989017.git.geliangtang@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: madalin.bucur@nxp.com, igal.liberman@freescale.com,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20161124111931.GK17225@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tlfalcon@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+        benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
+        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org
+To: geliangtang@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58550 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752101AbcKZBcl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Nov 2016 20:32:41 -0500
+In-Reply-To: <9f2baee4e0a81ba8b5089a2b5a42f67678de4b06.1479989017.git.geliangtang@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 24 Nov 2016 14:20:43 +0300
+From: Geliang Tang <geliangtang@gmail.com>
+Date: Thu, 24 Nov 2016 21:58:29 +0800
 
-> We set "tgec->cfg" to NULL before passing it to kfree().  There is no
-> need to set it to NULL at all.  Let's just delete it.
+> Drop duplicate header seq_file.h from ibmvnic.c.
 > 
-> Fixes: 57ba4c9b56d8 ("fsl/fman: Add FMan MAC support")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
 
 Applied.
