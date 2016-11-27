@@ -1,55 +1,143 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/2] net: dsa: mv88e6xxx: Add 88E6176 device tree support
-Date: Sun, 27 Nov 2016 23:08:46 +0100
-Message-ID: <20161127220846.GH13318@lunn.ch>
-References: <1480280279-9552-1-git-send-email-afaerber@suse.de>
- <1480280279-9552-2-git-send-email-afaerber@suse.de>
- <20161127212709.GD13318@lunn.ch>
- <9500470d-09c3-3ecb-994b-3d108bffc99e@suse.de>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH net-next v2 3/4] Documentation: net: phy: Add blurb about
+ RGMII
+Date: Sun, 27 Nov 2016 16:24:59 -0600
+Message-ID: <583B5D3B.4040108@codeaurora.org>
+References: <20161127184449.12351-1-f.fainelli@gmail.com>
+ <20161127184449.12351-4-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <uwe@kleine-koenig.org>,
-        Michal Hrusecki <Michal.Hrusecky@nic.cz>,
-        Tomas Hlavacek <tomas.hlavacek@nic.cz>,
-        Bed??icha Ko??atu <bedrich.kosata@nic.cz>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        linux-kernel@vger.kernel.org
-To: Andreas =?iso-8859-1?Q?F=E4rber?= <afaerber@suse.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, andrew@lunn.ch, sf84@laposte.net,
+        martin.blumenstingl@googlemail.com, mans@mansr.com,
+        alexandre.torgue@st.com, peppe.cavallaro@st.com,
+        jbrunet@baylibre.com
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58822 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752203AbcK0WJA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Nov 2016 17:09:00 -0500
-Content-Disposition: inline
-In-Reply-To: <9500470d-09c3-3ecb-994b-3d108bffc99e@suse.de>
+Received: from smtp.codeaurora.org ([198.145.29.96]:34474 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751230AbcK0WZD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 17:25:03 -0500
+In-Reply-To: <20161127184449.12351-4-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > This driver already supports nearly 30 different Marvell switch
-> > models. Please document why the marvell,mv88e6176 is special and why
-> > it needs its own compatible string when the others don't.
-> 
-> I don't understand.
+Just some grammatical corrections.  You might want to run a spellchecker 
+on all the patches.
 
-Think about what i said. Why does the 6176 need its own compatible
-string, when the two 6352s and the 6165 on the zii-devel-b don't have
-one? And the DIR 665 has a 6171, which does not have a compatible
-string of its own. The clearfog actually has a 6176, and it seems to
-work fine without a compatible string.
+Florian Fainelli wrote:
+> + The Reduced Gigabit Medium Independent Interface (RGMII) is a 12 pins
 
-> You as driver author should know that the .data pointer is vital to your
-> driver
+"is a 12-pin"
 
-Exactly, so if i ask why is it needed, maybe you should stop and think
-for a while.
+> + electrical signal interface using a synchronous 125Mhz clock signal and several
+> + data lines. Due to this design decision, a 1.5ns to 2ns delay must be added
+> + between the clock line (RXC or TXC) and the data lines to let the PHY (clock
+> + sink) have enough setup and hold times to sample the data lines correctly. The
+> + PHY library offers different types of PHY_INTERFACE_MODE_RGMII* values to let
+> + the PHY driver and optionaly the MAC driver implement the required delay. The
 
-> you even recently accepted another model that conflicted with
-> my patch.
+"driver, and optionally the MAC driver, implement"
 
-And think about that also, and you will find the 6390 family, who's
-first device is 6190, is not compatible with the 6085, and so needs a
-different compatible string.
+> + values of phy_interface_t must be understood from the perspective of the PHY
+> + device itself, leading to the following:
+> +
+> + * PHY_INTERFACE_MODE_RGMII: the PHY is not responsible for inserting any
+> +   internal delay by itself, it assumes that either the Ethernet MAC (if capable
+> +   or the PCB traces) insert the correct 1.5-2ns delay
+> +
+> + * PHY_INTERFACE_MODE_RGMII_TXID: the PHY should be inserting an internal delay
 
-	  Andrew
+"should insert"
+
+
+> +   for the transmit data lines (TXD[3:0]) processed by the PHY device
+> +
+> + * PHY_INTERFACE_MODE_RGMII_RXID: the PHY should be inserting an internal delay
+
+"should insert"
+
+
+> +   for the receive data lines (RXD[3:0]) processed by the PHY device
+> +
+> + * PHY_INTERFACE_MODE_RGMII_ID: the PHY should be inserting internal delays for
+
+"should insert"
+
+> +   both transmit AND receive data lines from/to the PHY device
+> +
+> + Whenever it is possible, it is preferrable to utilize the PHY side RGMII delay
+> + for several reasons:
+
+"Whenever possible, use the PHY side RGMII delay for these reasons:"
+
+> + * PHY devices may offer sub-nanosecond granularity in how they allow a
+> +   receiver/transmitter side delay (e.g: 0.5, 1.0, 1.5ns) to be specified. Such
+> +   precision may be required to account for differences in PCB trace lengths
+> +
+> + * PHY devices are typically qualified for a large range of applications
+> +   (industrial, medical, automotive...), and they provide a constant and
+> +   reliable delay across temperature/pressure/voltage ranges
+> +
+> + * PHY device drivers in PHYLIB being reusable by nature, being able to
+> +   configure correctly a specified delay enables more designs with similar delay
+> +   requirements to be operate correctly
+
+Ok, this one I don't know how to fix.  I'm not really sure what you're 
+trying to say.
+
+> +
+> + For cases where the PHY is not capable of providing this delay, but the
+> + Ethernet MAC driver is capable of doing it, the correct phy_interface_t value
+
+"doing so,"
+
+> + should be PHY_INTERFACE_MODE_RGMII, and the Ethernet MAC driver should be
+> + configured correctly in order to provide the required transmit and/or receive
+> + side delay from the perspective of the PHY device. Conversely, if the Ethernet
+> + MAC driver looks at the phy_interface_t value, for any other mode but
+> + PHY_INTERFACE_MODE_RGMII, it should make sure that the MAC-level delays are
+> + disabled.
+> +
+> + In case neither the Ethernet MAC, nor the PHY are capable of providing the
+> + required delays, as defined per the RGMII standard, several options may be
+> + available:
+> +
+> + * Some SoCs may offer a pin pad/mux/controller capable of configuring a given
+> +   set of pins' drive strength, delays and voltage, and it may be a suitable
+
+"strength, delays, and voltage; and"
+
+> +   option to insert the expected 2ns RGMII delay
+> +
+> + * Modifying the PCB design to include a fixed delay (e.g: using a specifically
+> +   designed serpentine), which may not require software configuration at all
+
+period after "all".
+
+> +
+> +Common problems with RGMII delay mismatch
+> +
+> + When there is a RGMII delay mismatch between the Ethernet MAC and the PHY, this
+> + will most likely result in the clock and data line sampling to capture unstable
+
+I'm not sure what "sampling to capture unstable" is supposed to mean.
+
+> + signals, typical symptoms include:
+> +
+> + * Transmission/reception partially works, and there is frequent or occasional
+> +   packet loss observed
+> +
+> + * Ethernet MAC may report some, or all packets ingressing with a FCS/CRC error,
+
+No comma after "some".
+
+> +   or just discard them all
+> +
+> + * Switching to lower speeds such as 10/100Mbits/sec makes the problem go away
+> +   (since there is enough setup/hold time in that case)
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
