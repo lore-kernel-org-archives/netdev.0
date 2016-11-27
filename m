@@ -1,66 +1,162 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 00/10] mlx4 misc improvements
-Date: Sun, 27 Nov 2016 17:51:07 +0200
-Message-ID: <1480261877-19720-1-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 10/10] net/mlx4_core: Fix racy CQ (Completion Queue) free
+Date: Sun, 27 Nov 2016 17:51:17 +0200
+Message-ID: <1480261877-19720-11-git-send-email-tariqt@mellanox.com>
+References: <1480261877-19720-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Jack Morgenstein <jackm@dev.mellanox.co.il>,
+        Matan Barak <matanb@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50415 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50463 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753021AbcK0Pv3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 10:51:29 -0500
+        with ESMTP id S1753067AbcK0Pve (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 10:51:34 -0500
+In-Reply-To: <1480261877-19720-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-This patchset contains several improvements, cleanups, and bug fixes
-from the team to the mlx4 Eth and core drivers.
+In function mlx4_cq_completion() and mlx4_cq_event(), the
+radix_tree_lookup requires a rcu_read_lock.
+This is mandatory: if another core frees the CQ, it could
+run the radix_tree_node_rcu_free() call_rcu() callback while
+its being used by the radix tree lookup function.
 
-Series generated against net-next commit:
-e5f12b3f5ebb Merge branch 'mlxsw-trap-groups-and-policers'
+Additionally, in function mlx4_cq_event(), since we are adding
+the rcu lock around the radix-tree lookup, we no longer need to take
+the spinlock. Also, the synchronize_irq() call for the async event
+eliminates the need for incrementing the cq reference count in
+mlx4_cq_event().
 
-Thanks,
-Tariq.
+Other changes:
+1. In function mlx4_cq_free(), replace spin_lock_irq with spin_lock:
+   we no longer take this spinlock in the interrupt context.
+   The spinlock here, therefore, simply protects against different
+   threads simultaneously invoking mlx4_cq_free() for different cq's.
 
-Alaa Hleihel (1):
-  net/mlx4_core: Get num_tc using netdev_get_num_tc
+2. In function mlx4_cq_free(), we move the radix tree delete to before
+   the synchronize_irq() calls. This guarantees that we will not
+   access this cq during any subsequent interrupts, and therefore can
+   safely free the CQ after the synchronize_irq calls. The rcu_read_lock
+   in the interrupt handlers only needs to protect against corrupting the
+   radix tree; the interrupt handlers may access the cq outside the
+   rcu_read_lock due to the synchronize_irq calls which protect against
+   premature freeing of the cq.
 
-Daniel Jurgens (1):
-  net/mlx4_core: Set EQ affinity hint to local NUMA CPUs
+3. In function mlx4_cq_event(), we change the mlx_warn message to mlx4_dbg.
 
-Eran Ben Elisha (1):
-  net/mlx4_core: Dynamically allocate structs at mlx4_slave_cap
+4. We leave the cq reference count mechanism in place, because it is
+   still needed for the cq completion tasklet mechanism.
 
-Erez Shitrit (2):
-  net/mlx4_core: Make each VF manage its own mac table
-  net/mlx4_en: Add new FDB entry only if there is space in the mac table
+Fixes: 6d90aa5cf17b ("net/mlx4_core: Make sure there are no pending async events when freeing CQ")
+Fixes: 225c7b1feef1 ("IB/mlx4: Add a driver Mellanox ConnectX InfiniBand adapters")
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/cq.c | 38 +++++++++++++++++----------------
+ 1 file changed, 20 insertions(+), 18 deletions(-)
 
-Jack Morgenstein (1):
-  net/mlx4_core: Fix racy CQ (Completion Queue) free
-
-Matan Barak (2):
-  net/mlx4_core: Add resource alloc/dealloc debugging
-  net/mlx4: Change number of max MSIXs from 64 to 1024
-
-Tariq Toukan (1):
-  net/mlx4: Replace ENOSYS with better fitting error codes
-
-Yishai Hadas (1):
-  net/mlx4_core: Device revision support
-
- drivers/net/ethernet/mellanox/mlx4/cq.c            |  38 ++--
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |   4 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   6 +
- drivers/net/ethernet/mellanox/mlx4/en_tx.c         |   2 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |  17 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          | 253 ++++++++++++---------
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   1 +
- drivers/net/ethernet/mellanox/mlx4/port.c          |  98 +++++++-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  57 ++++-
- include/linux/mlx4/device.h                        |   4 +-
- 10 files changed, 342 insertions(+), 138 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
+index a849da92f857..6b8635378f1f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
+@@ -101,13 +101,19 @@ void mlx4_cq_completion(struct mlx4_dev *dev, u32 cqn)
+ {
+ 	struct mlx4_cq *cq;
+ 
++	rcu_read_lock();
+ 	cq = radix_tree_lookup(&mlx4_priv(dev)->cq_table.tree,
+ 			       cqn & (dev->caps.num_cqs - 1));
++	rcu_read_unlock();
++
+ 	if (!cq) {
+ 		mlx4_dbg(dev, "Completion event for bogus CQ %08x\n", cqn);
+ 		return;
+ 	}
+ 
++	/* Acessing the CQ outside of rcu_read_lock is safe, because
++	 * the CQ is freed only after interrupt handling is completed.
++	 */
+ 	++cq->arm_sn;
+ 
+ 	cq->comp(cq);
+@@ -118,23 +124,19 @@ void mlx4_cq_event(struct mlx4_dev *dev, u32 cqn, int event_type)
+ 	struct mlx4_cq_table *cq_table = &mlx4_priv(dev)->cq_table;
+ 	struct mlx4_cq *cq;
+ 
+-	spin_lock(&cq_table->lock);
+-
++	rcu_read_lock();
+ 	cq = radix_tree_lookup(&cq_table->tree, cqn & (dev->caps.num_cqs - 1));
+-	if (cq)
+-		atomic_inc(&cq->refcount);
+-
+-	spin_unlock(&cq_table->lock);
++	rcu_read_unlock();
+ 
+ 	if (!cq) {
+-		mlx4_warn(dev, "Async event for bogus CQ %08x\n", cqn);
++		mlx4_dbg(dev, "Async event for bogus CQ %08x\n", cqn);
+ 		return;
+ 	}
+ 
++	/* Acessing the CQ outside of rcu_read_lock is safe, because
++	 * the CQ is freed only after interrupt handling is completed.
++	 */
+ 	cq->event(cq, event_type);
+-
+-	if (atomic_dec_and_test(&cq->refcount))
+-		complete(&cq->free);
+ }
+ 
+ static int mlx4_SW2HW_CQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
+@@ -301,9 +303,9 @@ int mlx4_cq_alloc(struct mlx4_dev *dev, int nent,
+ 	if (err)
+ 		return err;
+ 
+-	spin_lock_irq(&cq_table->lock);
++	spin_lock(&cq_table->lock);
+ 	err = radix_tree_insert(&cq_table->tree, cq->cqn, cq);
+-	spin_unlock_irq(&cq_table->lock);
++	spin_unlock(&cq_table->lock);
+ 	if (err)
+ 		goto err_icm;
+ 
+@@ -349,9 +351,9 @@ int mlx4_cq_alloc(struct mlx4_dev *dev, int nent,
+ 	return 0;
+ 
+ err_radix:
+-	spin_lock_irq(&cq_table->lock);
++	spin_lock(&cq_table->lock);
+ 	radix_tree_delete(&cq_table->tree, cq->cqn);
+-	spin_unlock_irq(&cq_table->lock);
++	spin_unlock(&cq_table->lock);
+ 
+ err_icm:
+ 	mlx4_cq_free_icm(dev, cq->cqn);
+@@ -370,15 +372,15 @@ void mlx4_cq_free(struct mlx4_dev *dev, struct mlx4_cq *cq)
+ 	if (err)
+ 		mlx4_warn(dev, "HW2SW_CQ failed (%d) for CQN %06x\n", err, cq->cqn);
+ 
++	spin_lock(&cq_table->lock);
++	radix_tree_delete(&cq_table->tree, cq->cqn);
++	spin_unlock(&cq_table->lock);
++
+ 	synchronize_irq(priv->eq_table.eq[MLX4_CQ_TO_EQ_VECTOR(cq->vector)].irq);
+ 	if (priv->eq_table.eq[MLX4_CQ_TO_EQ_VECTOR(cq->vector)].irq !=
+ 	    priv->eq_table.eq[MLX4_EQ_ASYNC].irq)
+ 		synchronize_irq(priv->eq_table.eq[MLX4_EQ_ASYNC].irq);
+ 
+-	spin_lock_irq(&cq_table->lock);
+-	radix_tree_delete(&cq_table->tree, cq->cqn);
+-	spin_unlock_irq(&cq_table->lock);
+-
+ 	if (atomic_dec_and_test(&cq->refcount))
+ 		complete(&cq->free);
+ 	wait_for_completion(&cq->free);
 -- 
 1.8.3.1
