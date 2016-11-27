@@ -1,15 +1,15 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 05/10] net/mlx5e: ConnectX-4 firmware support for DCBX
-Date: Sun, 27 Nov 2016 17:02:07 +0200
-Message-ID: <1480258932-10302-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 04/10] net/mlx5: Add DCBX firmware commands support
+Date: Sun, 27 Nov 2016 17:02:06 +0200
+Message-ID: <1480258932-10302-5-git-send-email-saeedm@mellanox.com>
 References: <1480258932-10302-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43778 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43766 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752126AbcK0PC3 (ORCPT
+        with ESMTP id S1752134AbcK0PC3 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 10:02:29 -0500
 In-Reply-To: <1480258932-10302-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,200 +17,82 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Huy Nguyen <huyn@mellanox.com>
 
-DBCX by default is controlled by firmware where dcbx capability bit
-is set. In this mode, firmware is responsible for reading/sending the
-TLV packets from/to the remote partner.
-
-This patch sets up the infrastructure to move between HOST/FW DCBX
-control mode.
+Add set/query commands for DCBX_PARAM register
 
 Signed-off-by: Huy Nguyen <huyn@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 +
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 91 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 29 +------
- 3 files changed, 94 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/port.c | 20 ++++++++++++++++++++
+ include/linux/mlx5/driver.h                    |  7 +++++++
+ include/linux/mlx5/port.h                      |  2 ++
+ 3 files changed, 29 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 60aa13b..6c954cd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -234,6 +234,7 @@ enum {
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index ed4898f..d2ec9d2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -548,6 +548,26 @@ int mlx5_max_tc(struct mlx5_core_dev *mdev)
+ 	return num_tc - 1;
+ }
  
- struct mlx5e_dcbx {
-+	enum mlx5_dcbx_oper_mode   mode;
- 	struct mlx5e_cee_config    cee_cfg; /* pending configuration */
- 
- 	/* The only setting that cannot be read from FW */
-@@ -843,6 +844,7 @@ extern const struct ethtool_ops mlx5e_ethtool_ops;
- #ifdef CONFIG_MLX5_CORE_EN_DCB
- extern const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops;
- int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets);
-+void mlx5e_dcbnl_initialize(struct mlx5e_priv *priv);
- #endif
- 
- #ifndef CONFIG_RFS_ACCEL
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index 35e90d1..1753182 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -41,6 +41,45 @@
- #define MLX5E_CEE_STATE_UP    1
- #define MLX5E_CEE_STATE_DOWN  0
- 
-+/* If dcbx mode is non-host set the dcbx mode to host.
-+ */
-+static int mlx5e_dcbnl_set_dcbx_mode(struct mlx5e_priv *priv,
-+				     enum mlx5_dcbx_oper_mode mode)
++int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out)
 +{
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u32 param[MLX5_ST_SZ_DW(dcbx_param)];
-+	int err;
++	u32 in[MLX5_ST_SZ_DW(dcbx_param)] = {0};
 +
-+	err = mlx5_query_port_dcbx_param(mdev, param);
-+	if (err)
-+		return err;
++	MLX5_SET(dcbx_param, in, port_number, 1);
 +
-+	MLX5_SET(dcbx_param, param, version_admin, mode);
-+	if (mode != MLX5E_DCBX_PARAM_VER_OPER_HOST)
-+		MLX5_SET(dcbx_param, param, willing_admin, 1);
-+
-+	return mlx5_set_port_dcbx_param(mdev, param);
++	return  mlx5_core_access_reg(mdev, in, sizeof(in), out,
++				    sizeof(in), MLX5_REG_DCBX_PARAM, 0, 0);
 +}
 +
-+static int mlx5e_dcbnl_switch_to_host_mode(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_dcbx *dcbx = &priv->dcbx;
-+	int err;
-+
-+	if (!MLX5_CAP_GEN(priv->mdev, dcbx))
-+		return 0;
-+
-+	if (dcbx->mode == MLX5E_DCBX_PARAM_VER_OPER_HOST)
-+		return 0;
-+
-+	err = mlx5e_dcbnl_set_dcbx_mode(priv, MLX5E_DCBX_PARAM_VER_OPER_HOST);
-+	if (err)
-+		return err;
-+
-+	dcbx->mode = MLX5E_DCBX_PARAM_VER_OPER_HOST;
-+	return 0;
-+}
-+
- static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
- 				   struct ieee_ets *ets)
- {
-@@ -255,6 +294,9 @@ static u8 mlx5e_dcbnl_getdcbx(struct net_device *dev)
- 
- static u8 mlx5e_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- {
-+	if (mlx5e_dcbnl_switch_to_host_mode(netdev_priv(dev)))
-+		return 1;
-+
- 	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
- 	    !(mode & DCB_CAP_DCBX_VER_CEE) ||
- 	    !(mode & DCB_CAP_DCBX_VER_IEEE) ||
-@@ -637,3 +679,52 @@ const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops = {
- 	.getpfcstate    = mlx5e_dcbnl_getpfcstate,
- 	.setpfcstate    = mlx5e_dcbnl_setpfcstate,
- };
-+
-+static void mlx5e_dcbnl_query_dcbx_mode(struct mlx5e_priv *priv,
-+					enum mlx5_dcbx_oper_mode *mode)
++int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in)
 +{
 +	u32 out[MLX5_ST_SZ_DW(dcbx_param)];
 +
-+	*mode = MLX5E_DCBX_PARAM_VER_OPER_HOST;
++	MLX5_SET(dcbx_param, in, port_number, 1);
 +
-+	if (!mlx5_query_port_dcbx_param(priv->mdev, out))
-+		*mode = MLX5_GET(dcbx_param, out, version_oper);
-+
-+	/* From driver's point of view, we only care if the mode
-+	 * is host (HOST) or non-host (AUTO)
-+	 */
-+	if (*mode != MLX5E_DCBX_PARAM_VER_OPER_HOST)
-+		*mode = MLX5E_DCBX_PARAM_VER_OPER_AUTO;
++	return mlx5_core_access_reg(mdev, in, sizeof(out), out,
++				    sizeof(out), MLX5_REG_DCBX_PARAM, 0, 1);
 +}
 +
-+static void mlx5e_ets_init(struct mlx5e_priv *priv)
-+{
-+	int i;
-+	struct ieee_ets ets;
-+
-+	memset(&ets, 0, sizeof(ets));
-+	ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
-+	for (i = 0; i < ets.ets_cap; i++) {
-+		ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
-+		ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
-+		ets.prio_tc[i] = i;
-+	}
-+
-+	memcpy(priv->dcbx.tc_tsa, ets.tc_tsa, sizeof(ets.tc_tsa));
-+
-+	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
-+	ets.prio_tc[0] = 1;
-+	ets.prio_tc[1] = 0;
-+
-+	mlx5e_dcbnl_ieee_setets_core(priv, &ets);
-+}
-+
-+void mlx5e_dcbnl_initialize(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_dcbx *dcbx = &priv->dcbx;
-+
-+	if (MLX5_CAP_GEN(priv->mdev, dcbx))
-+		mlx5e_dcbnl_query_dcbx_mode(priv, &dcbx->mode);
-+
-+	mlx5e_ets_init(priv);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index b1e8ec5..f5b93c2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3325,33 +3325,6 @@ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
- 	       2 /*sizeof(mlx5e_tx_wqe.inline_hdr_start)*/;
- }
+ int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(qtct_reg)] = {0};
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index ae1f451..68b85ef 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -104,6 +104,8 @@ enum {
+ enum {
+ 	MLX5_REG_QETCR		 = 0x4005,
+ 	MLX5_REG_QTCT		 = 0x400a,
++	MLX5_REG_DCBX_PARAM      = 0x4020,
++	MLX5_REG_DCBX_APP        = 0x4021,
+ 	MLX5_REG_PCAP		 = 0x5001,
+ 	MLX5_REG_PMTU		 = 0x5003,
+ 	MLX5_REG_PTYS		 = 0x5004,
+@@ -124,6 +126,11 @@ enum {
+ 	MLX5_REG_MPCNT		 = 0x9051,
+ };
  
--#ifdef CONFIG_MLX5_CORE_EN_DCB
--static void mlx5e_ets_init(struct mlx5e_priv *priv)
--{
--	struct ieee_ets ets;
--	int i;
--
--	if (!MLX5_CAP_GEN(priv->mdev, ets))
--		return;
--
--	memset(&ets, 0, sizeof(ets));
--	ets.ets_cap = mlx5_max_tc(priv->mdev) + 1;
--	for (i = 0; i < ets.ets_cap; i++) {
--		ets.tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
--		ets.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
--		ets.prio_tc[i] = i;
--	}
--
--	memcpy(priv->dcbx.tc_tsa, ets.tc_tsa, sizeof(ets.tc_tsa));
--
--	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
--	ets.prio_tc[0] = 1;
--	ets.prio_tc[1] = 0;
--
--	mlx5e_dcbnl_ieee_setets_core(priv, &ets);
--}
--#endif
--
- void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
- 				   u32 *indirection_rqt, int len,
- 				   int num_channels)
-@@ -3794,7 +3767,7 @@ static int mlx5e_init_nic_tx(struct mlx5e_priv *priv)
- 	}
++enum mlx5_dcbx_oper_mode {
++	MLX5E_DCBX_PARAM_VER_OPER_HOST  = 0x0,
++	MLX5E_DCBX_PARAM_VER_OPER_AUTO  = 0x3,
++};
++
+ enum {
+ 	MLX5_ATOMIC_OPS_CMP_SWAP	= 1 << 0,
+ 	MLX5_ATOMIC_OPS_FETCH_ADD	= 1 << 1,
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index bdee439..e527732 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -162,4 +162,6 @@ void mlx5_query_port_fcs(struct mlx5_core_dev *mdev, bool *supported,
+ int mlx5_query_module_eeprom(struct mlx5_core_dev *dev,
+ 			     u16 offset, u16 size, u8 *data);
  
- #ifdef CONFIG_MLX5_CORE_EN_DCB
--	mlx5e_ets_init(priv);
-+	mlx5e_dcbnl_initialize(priv);
- #endif
- 	return 0;
- }
++int mlx5_query_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *out);
++int mlx5_set_port_dcbx_param(struct mlx5_core_dev *mdev, u32 *in);
+ #endif /* __MLX5_PORT_H__ */
 -- 
 2.7.4
