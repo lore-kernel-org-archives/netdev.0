@@ -1,256 +1,359 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 01/11] qede: Optimize aggregation information size
-Date: Sun, 27 Nov 2016 16:51:03 +0200
-Message-ID: <1480258273-24973-2-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 02/11] qed: Optimize qed_chain datapath usage
+Date: Sun, 27 Nov 2016 16:51:04 +0200
+Message-ID: <1480258273-24973-3-git-send-email-Yuval.Mintz@cavium.com>
 References: <1480258273-24973-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47045 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47077 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752135AbcK0Ows (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 09:52:48 -0500
+        by vger.kernel.org with ESMTP id S1752207AbcK0Owt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 09:52:49 -0500
 In-Reply-To: <1480258273-24973-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Driver needs to maintain a structure per-each concurrent possible
-open aggregation, but the structure storing that metadata is far from
-being optimized - biggest waste in it is that there are 2 buffer metadata,
-one for a replacement buffer when the aggregation begins and the other for
-holding the first aggregation's buffer after it begins [as firmware might
-still update it]. Those 2 can safely be united into a single metadata
-structure.
+The chain structure and functions are widely used by the qed* modules,
+both for configuration and datapath.
+E.g., qede's Tx has one such chain and its Rx has two.
 
-struct qede_agg_info changes the following:
+Currently, the strucutre's fields which are required for datapath
+related functions [produce/consume] are intertwined with fields which
+are required only for configuration purposes [init/destroy/etc.].
 
-	/* size: 120, cachelines: 2, members: 9 */
-	/* sum members: 114, holes: 1, sum holes: 4 */
-	/* padding: 2 */
-	/* paddings: 2, sum paddings: 8 */
-	/* last cacheline: 56 bytes */
- -->
-	/* size: 48, cachelines: 1, members: 9 */
-	/* paddings: 1, sum paddings: 4 */
-	/* last cacheline: 48 bytes */
+This patch re-arranges the chain structure so that all the fields which
+are required for datapath usage could reside in a single cacheline instead
+of the two which are required today.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede.h      | 29 +++++++++----
- drivers/net/ethernet/qlogic/qede/qede_main.c | 63 ++++++++++++----------------
- 2 files changed, 48 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c         |   7 +-
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |   4 +-
+ include/linux/qed/qed_chain.h                     | 144 ++++++++++++----------
+ 3 files changed, 86 insertions(+), 69 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index 0cba21b..1d4c7e0 100644
---- a/drivers/net/ethernet/qlogic/qede/qede.h
-+++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -225,15 +225,30 @@ enum qede_agg_state {
- };
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index 5be7b8a..80162ee 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -2283,12 +2283,12 @@ static void qed_chain_free_pbl(struct qed_dev *cdev, struct qed_chain *p_chain)
+ {
+ 	void **pp_virt_addr_tbl = p_chain->pbl.pp_virt_addr_tbl;
+ 	u32 page_cnt = p_chain->page_cnt, i, pbl_size;
+-	u8 *p_pbl_virt = p_chain->pbl.p_virt_table;
++	u8 *p_pbl_virt = p_chain->pbl_sp.p_virt_table;
  
- struct qede_agg_info {
--	struct sw_rx_data replace_buf;
--	dma_addr_t replace_buf_mapping;
--	struct sw_rx_data start_buf;
--	dma_addr_t start_buf_mapping;
--	struct eth_fast_path_rx_tpa_start_cqe start_cqe;
--	enum qede_agg_state agg_state;
-+	/* rx_buf is a data buffer that can be placed /consumed from rx bd
-+	 * chain. It has two purposes: We will preallocate the data buffer
-+	 * for each aggregation when we open the interface and will place this
-+	 * buffer on the rx-bd-ring when we receive TPA_START. We don't want
-+	 * to be in a state where allocation fails, as we can't reuse the
-+	 * consumer buffer in the rx-chain since FW may still be writing to it
-+	 * (since header needs to be modified for TPA).
-+	 * The second purpose is to keep a pointer to the bd buffer during
-+	 * aggregation.
-+	 */
-+	struct sw_rx_data buffer;
-+	dma_addr_t buffer_mapping;
-+
- 	struct sk_buff *skb;
--	int frag_id;
-+
-+	/* We need some structs from the start cookie until termination */
- 	u16 vlan_tag;
-+	u16 start_cqe_bd_len;
-+	u8 start_cqe_placement_offset;
-+
-+	u8 state;
-+	u8 frag_id;
-+
-+	u8 tunnel_type;
- };
+ 	if (!pp_virt_addr_tbl)
+ 		return;
  
- struct qede_rx_queue {
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index b84a2c4..653be22 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -1058,7 +1058,7 @@ static int qede_fill_frag_skb(struct qede_dev *edev,
- 	struct qede_agg_info *tpa_info = &rxq->tpa_info[tpa_agg_index];
- 	struct sk_buff *skb = tpa_info->skb;
- 
--	if (unlikely(tpa_info->agg_state != QEDE_AGG_STATE_START))
-+	if (unlikely(tpa_info->state != QEDE_AGG_STATE_START))
+-	if (!p_chain->pbl.p_virt_table)
++	if (!p_pbl_virt)
  		goto out;
  
- 	/* Add one frag and update the appropriate fields in the skb */
-@@ -1084,7 +1084,7 @@ static int qede_fill_frag_skb(struct qede_dev *edev,
- 	return 0;
- 
+ 	for (i = 0; i < page_cnt; i++) {
+@@ -2306,7 +2306,8 @@ static void qed_chain_free_pbl(struct qed_dev *cdev, struct qed_chain *p_chain)
+ 	pbl_size = page_cnt * QED_CHAIN_PBL_ENTRY_SIZE;
+ 	dma_free_coherent(&cdev->pdev->dev,
+ 			  pbl_size,
+-			  p_chain->pbl.p_virt_table, p_chain->pbl.p_phys_table);
++			  p_chain->pbl_sp.p_virt_table,
++			  p_chain->pbl_sp.p_phys_table);
  out:
--	tpa_info->agg_state = QEDE_AGG_STATE_ERROR;
-+	tpa_info->state = QEDE_AGG_STATE_ERROR;
- 	qede_recycle_rx_bd_ring(rxq, edev, 1);
- 	return -ENOMEM;
+ 	vfree(p_chain->pbl.pp_virt_addr_tbl);
  }
-@@ -1096,8 +1096,8 @@ static void qede_tpa_start(struct qede_dev *edev,
- 	struct qede_agg_info *tpa_info = &rxq->tpa_info[cqe->tpa_agg_index];
- 	struct eth_rx_bd *rx_bd_cons = qed_chain_consume(&rxq->rx_bd_ring);
- 	struct eth_rx_bd *rx_bd_prod = qed_chain_produce(&rxq->rx_bd_ring);
--	struct sw_rx_data *replace_buf = &tpa_info->replace_buf;
--	dma_addr_t mapping = tpa_info->replace_buf_mapping;
-+	struct sw_rx_data *replace_buf = &tpa_info->buffer;
-+	dma_addr_t mapping = tpa_info->buffer_mapping;
- 	struct sw_rx_data *sw_rx_data_cons;
- 	struct sw_rx_data *sw_rx_data_prod;
- 	enum pkt_hash_types rxhash_type;
-@@ -1122,11 +1122,11 @@ static void qede_tpa_start(struct qede_dev *edev,
- 	/* move partial skb from cons to pool (don't unmap yet)
- 	 * save mapping, incase we drop the packet later on.
- 	 */
--	tpa_info->start_buf = *sw_rx_data_cons;
-+	tpa_info->buffer = *sw_rx_data_cons;
- 	mapping = HILO_U64(le32_to_cpu(rx_bd_cons->addr.hi),
- 			   le32_to_cpu(rx_bd_cons->addr.lo));
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+index 2888eb0..d0a5828 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+@@ -347,11 +347,11 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
  
--	tpa_info->start_buf_mapping = mapping;
-+	tpa_info->buffer_mapping = mapping;
- 	rxq->sw_rx_cons++;
+ 	/* Place EQ address in RAMROD */
+ 	DMA_REGPAIR_LE(p_ramrod->event_ring_pbl_addr,
+-		       p_hwfn->p_eq->chain.pbl.p_phys_table);
++		       p_hwfn->p_eq->chain.pbl_sp.p_phys_table);
+ 	page_cnt = (u8)qed_chain_get_page_cnt(&p_hwfn->p_eq->chain);
+ 	p_ramrod->event_ring_num_pages = page_cnt;
+ 	DMA_REGPAIR_LE(p_ramrod->consolid_q_pbl_addr,
+-		       p_hwfn->p_consq->chain.pbl.p_phys_table);
++		       p_hwfn->p_consq->chain.pbl_sp.p_phys_table);
  
- 	/* set tpa state to start only if we are able to allocate skb
-@@ -1137,23 +1137,25 @@ static void qede_tpa_start(struct qede_dev *edev,
- 					 le16_to_cpu(cqe->len_on_first_bd));
- 	if (unlikely(!tpa_info->skb)) {
- 		DP_NOTICE(edev, "Failed to allocate SKB for gro\n");
--		tpa_info->agg_state = QEDE_AGG_STATE_ERROR;
-+		tpa_info->state = QEDE_AGG_STATE_ERROR;
- 		goto cons_buf;
- 	}
+ 	qed_tunn_set_pf_start_params(p_hwfn, p_tunn, &p_ramrod->tunnel_config);
  
--	skb_put(tpa_info->skb, le16_to_cpu(cqe->len_on_first_bd));
--	memcpy(&tpa_info->start_cqe, cqe, sizeof(tpa_info->start_cqe));
+diff --git a/include/linux/qed/qed_chain.h b/include/linux/qed/qed_chain.h
+index 72d88cf..615f34c 100644
+--- a/include/linux/qed/qed_chain.h
++++ b/include/linux/qed/qed_chain.h
+@@ -56,23 +56,6 @@ struct qed_chain_pbl_u32 {
+ 	u32 cons_page_idx;
+ };
+ 
+-struct qed_chain_pbl {
+-	/* Base address of a pre-allocated buffer for pbl */
+-	dma_addr_t	p_phys_table;
+-	void		*p_virt_table;
 -
- 	/* Start filling in the aggregation info */
-+	skb_put(tpa_info->skb, le16_to_cpu(cqe->len_on_first_bd));
- 	tpa_info->frag_id = 0;
--	tpa_info->agg_state = QEDE_AGG_STATE_START;
-+	tpa_info->state = QEDE_AGG_STATE_START;
- 
- 	rxhash = qede_get_rxhash(edev, cqe->bitfields,
- 				 cqe->rss_hash, &rxhash_type);
- 	skb_set_hash(tpa_info->skb, rxhash, rxhash_type);
-+
-+	/* Store some information from first CQE */
-+	tpa_info->start_cqe_placement_offset = cqe->placement_offset;
-+	tpa_info->start_cqe_bd_len = le16_to_cpu(cqe->len_on_first_bd);
- 	if ((le16_to_cpu(cqe->pars_flags.flags) >>
- 	     PARSING_AND_ERR_FLAGS_TAG8021QEXIST_SHIFT) &
--		    PARSING_AND_ERR_FLAGS_TAG8021QEXIST_MASK)
-+	    PARSING_AND_ERR_FLAGS_TAG8021QEXIST_MASK)
- 		tpa_info->vlan_tag = le16_to_cpu(cqe->vlan_tag);
- 	else
- 		tpa_info->vlan_tag = 0;
-@@ -1169,7 +1171,7 @@ static void qede_tpa_start(struct qede_dev *edev,
- 	if (unlikely(cqe->ext_bd_len_list[1])) {
- 		DP_ERR(edev,
- 		       "Unlikely - got a TPA aggregation with more than one ext_bd_len_list entry in the TPA start\n");
--		tpa_info->agg_state = QEDE_AGG_STATE_ERROR;
-+		tpa_info->state = QEDE_AGG_STATE_ERROR;
- 	}
- }
- 
-@@ -1276,7 +1278,7 @@ static void qede_tpa_end(struct qede_dev *edev,
- 		DP_ERR(edev,
- 		       "Strange - TPA emd with more than a single len_list entry\n");
- 
--	if (unlikely(tpa_info->agg_state != QEDE_AGG_STATE_START))
-+	if (unlikely(tpa_info->state != QEDE_AGG_STATE_START))
- 		goto err;
- 
- 	/* Sanity */
-@@ -1290,14 +1292,9 @@ static void qede_tpa_end(struct qede_dev *edev,
- 		       le16_to_cpu(cqe->total_packet_len), skb->len);
- 
- 	memcpy(skb->data,
--	       page_address(tpa_info->start_buf.data) +
--		tpa_info->start_cqe.placement_offset +
--		tpa_info->start_buf.page_offset,
--	       le16_to_cpu(tpa_info->start_cqe.len_on_first_bd));
--
--	/* Recycle [mapped] start buffer for the next replacement */
--	tpa_info->replace_buf = tpa_info->start_buf;
--	tpa_info->replace_buf_mapping = tpa_info->start_buf_mapping;
-+	       page_address(tpa_info->buffer.data) +
-+	       tpa_info->start_cqe_placement_offset +
-+	       tpa_info->buffer.page_offset, tpa_info->start_cqe_bd_len);
- 
- 	/* Finalize the SKB */
- 	skb->protocol = eth_type_trans(skb, edev->ndev);
-@@ -1310,18 +1307,11 @@ static void qede_tpa_end(struct qede_dev *edev,
- 
- 	qede_gro_receive(edev, fp, skb, tpa_info->vlan_tag);
- 
--	tpa_info->agg_state = QEDE_AGG_STATE_NONE;
-+	tpa_info->state = QEDE_AGG_STATE_NONE;
- 
- 	return;
- err:
--	/* The BD starting the aggregation is still mapped; Re-use it for
--	 * future aggregations [as replacement buffer]
+-	/* Table for keeping the virtual addresses of the chain pages,
+-	 * respectively to the physical addresses in the pbl table.
 -	 */
--	memcpy(&tpa_info->replace_buf, &tpa_info->start_buf,
--	       sizeof(struct sw_rx_data));
--	tpa_info->replace_buf_mapping = tpa_info->start_buf_mapping;
--	tpa_info->start_buf.data = NULL;
--	tpa_info->agg_state = QEDE_AGG_STATE_NONE;
-+	tpa_info->state = QEDE_AGG_STATE_NONE;
- 	dev_kfree_skb_any(tpa_info->skb);
- 	tpa_info->skb = NULL;
- }
-@@ -2823,7 +2813,7 @@ static void qede_free_sge_mem(struct qede_dev *edev, struct qede_rx_queue *rxq)
- 
- 	for (i = 0; i < ETH_TPA_MAX_AGGS_NUM; i++) {
- 		struct qede_agg_info *tpa_info = &rxq->tpa_info[i];
--		struct sw_rx_data *replace_buf = &tpa_info->replace_buf;
-+		struct sw_rx_data *replace_buf = &tpa_info->buffer;
- 
- 		if (replace_buf->data) {
- 			dma_unmap_page(&edev->pdev->dev,
-@@ -2905,7 +2895,7 @@ static int qede_alloc_sge_mem(struct qede_dev *edev, struct qede_rx_queue *rxq)
- 
- 	for (i = 0; i < ETH_TPA_MAX_AGGS_NUM; i++) {
- 		struct qede_agg_info *tpa_info = &rxq->tpa_info[i];
--		struct sw_rx_data *replace_buf = &tpa_info->replace_buf;
-+		struct sw_rx_data *replace_buf = &tpa_info->buffer;
- 
- 		replace_buf->data = alloc_pages(GFP_ATOMIC, 0);
- 		if (unlikely(!replace_buf->data)) {
-@@ -2923,10 +2913,9 @@ static int qede_alloc_sge_mem(struct qede_dev *edev, struct qede_rx_queue *rxq)
- 		}
- 
- 		replace_buf->mapping = mapping;
--		tpa_info->replace_buf.page_offset = 0;
+-	void **pp_virt_addr_tbl;
 -
--		tpa_info->replace_buf_mapping = mapping;
--		tpa_info->agg_state = QEDE_AGG_STATE_NONE;
-+		tpa_info->buffer.page_offset = 0;
-+		tpa_info->buffer_mapping = mapping;
-+		tpa_info->state = QEDE_AGG_STATE_NONE;
+-	/* Index to current used page by producer/consumer */
+-	union {
+-		struct qed_chain_pbl_u16 pbl16;
+-		struct qed_chain_pbl_u32 pbl32;
+-	} u;
+-};
+-
+ struct qed_chain_u16 {
+ 	/* Cyclic index of next element to produce/consme */
+ 	u16 prod_idx;
+@@ -86,46 +69,78 @@ struct qed_chain_u32 {
+ };
+ 
+ struct qed_chain {
+-	void			*p_virt_addr;
+-	dma_addr_t		p_phys_addr;
+-	void			*p_prod_elem;
+-	void			*p_cons_elem;
++	/* fastpath portion of the chain - required for commands such
++	 * as produce / consume.
++	 */
++	/* Point to next element to produce/consume */
++	void *p_prod_elem;
++	void *p_cons_elem;
++
++	/* Fastpath portions of the PBL [if exists] */
++	struct {
++		/* Table for keeping the virtual addresses of the chain pages,
++		 * respectively to the physical addresses in the pbl table.
++		 */
++		void **pp_virt_addr_tbl;
+ 
+-	enum qed_chain_mode	mode;
+-	enum qed_chain_use_mode intended_use; /* used to produce/consume */
+-	enum qed_chain_cnt_type cnt_type;
++		union {
++			struct qed_chain_pbl_u16 u16;
++			struct qed_chain_pbl_u32 u32;
++		} c;
++	} pbl;
+ 
+ 	union {
+ 		struct qed_chain_u16 chain16;
+ 		struct qed_chain_u32 chain32;
+ 	} u;
+ 
++	/* Capacity counts only usable elements */
++	u32 capacity;
+ 	u32 page_cnt;
+ 
+-	/* Number of elements - capacity is for usable elements only,
+-	 * while size will contain total number of elements [for entire chain].
++	enum qed_chain_mode mode;
++
++	/* Elements information for fast calculations */
++	u16 elem_per_page;
++	u16 elem_per_page_mask;
++	u16 elem_size;
++	u16 next_page_mask;
++	u16 usable_per_page;
++	u8 elem_unusable;
++
++	u8 cnt_type;
++
++	/* Slowpath of the chain - required for initialization and destruction,
++	 * but isn't involved in regular functionality.
+ 	 */
+-	u32 capacity;
++
++	/* Base address of a pre-allocated buffer for pbl */
++	struct {
++		dma_addr_t p_phys_table;
++		void *p_virt_table;
++	} pbl_sp;
++
++	/* Address of first page of the chain  - the address is required
++	 * for fastpath operation [consume/produce] but only for the the SINGLE
++	 * flavour which isn't considered fastpath [== SPQ].
++	 */
++	void *p_virt_addr;
++	dma_addr_t p_phys_addr;
++
++	/* Total number of elements [for entire chain] */
+ 	u32 size;
+ 
+-	/* Elements information for fast calculations */
+-	u16			elem_per_page;
+-	u16			elem_per_page_mask;
+-	u16			elem_unusable;
+-	u16			usable_per_page;
+-	u16			elem_size;
+-	u16			next_page_mask;
+-	struct qed_chain_pbl	pbl;
++	u8 intended_use;
+ };
+ 
+ #define QED_CHAIN_PBL_ENTRY_SIZE        (8)
+ #define QED_CHAIN_PAGE_SIZE             (0x1000)
+ #define ELEMS_PER_PAGE(elem_size)       (QED_CHAIN_PAGE_SIZE / (elem_size))
+ 
+-#define UNUSABLE_ELEMS_PER_PAGE(elem_size, mode)     \
+-	((mode == QED_CHAIN_MODE_NEXT_PTR) ?	     \
+-	 (1 + ((sizeof(struct qed_chain_next) - 1) / \
+-	       (elem_size))) : 0)
++#define UNUSABLE_ELEMS_PER_PAGE(elem_size, mode)	 \
++	(((mode) == QED_CHAIN_MODE_NEXT_PTR) ?		 \
++	 (u8)(1 + ((sizeof(struct qed_chain_next) - 1) / \
++		   (elem_size))) : 0)
+ 
+ #define USABLE_ELEMS_PER_PAGE(elem_size, mode) \
+ 	((u32)(ELEMS_PER_PAGE(elem_size) -     \
+@@ -186,7 +201,7 @@ static inline u16 qed_chain_get_usable_per_page(struct qed_chain *p_chain)
+ 	return p_chain->usable_per_page;
+ }
+ 
+-static inline u16 qed_chain_get_unusable_per_page(struct qed_chain *p_chain)
++static inline u8 qed_chain_get_unusable_per_page(struct qed_chain *p_chain)
+ {
+ 	return p_chain->elem_unusable;
+ }
+@@ -198,7 +213,7 @@ static inline u32 qed_chain_get_page_cnt(struct qed_chain *p_chain)
+ 
+ static inline dma_addr_t qed_chain_get_pbl_phys(struct qed_chain *p_chain)
+ {
+-	return p_chain->pbl.p_phys_table;
++	return p_chain->pbl_sp.p_phys_table;
+ }
+ 
+ /**
+@@ -214,10 +229,10 @@ static inline dma_addr_t qed_chain_get_pbl_phys(struct qed_chain *p_chain)
+ static inline void
+ qed_chain_advance_page(struct qed_chain *p_chain,
+ 		       void **p_next_elem, void *idx_to_inc, void *page_to_inc)
+-
+ {
+ 	struct qed_chain_next *p_next = NULL;
+ 	u32 page_index = 0;
++
+ 	switch (p_chain->mode) {
+ 	case QED_CHAIN_MODE_NEXT_PTR:
+ 		p_next = *p_next_elem;
+@@ -305,7 +320,7 @@ static inline void *qed_chain_produce(struct qed_chain *p_chain)
+ 		if ((p_chain->u.chain16.prod_idx &
+ 		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
+ 			p_prod_idx = &p_chain->u.chain16.prod_idx;
+-			p_prod_page_idx = &p_chain->pbl.u.pbl16.prod_page_idx;
++			p_prod_page_idx = &p_chain->pbl.c.u16.prod_page_idx;
+ 			qed_chain_advance_page(p_chain, &p_chain->p_prod_elem,
+ 					       p_prod_idx, p_prod_page_idx);
+ 		}
+@@ -314,7 +329,7 @@ static inline void *qed_chain_produce(struct qed_chain *p_chain)
+ 		if ((p_chain->u.chain32.prod_idx &
+ 		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
+ 			p_prod_idx = &p_chain->u.chain32.prod_idx;
+-			p_prod_page_idx = &p_chain->pbl.u.pbl32.prod_page_idx;
++			p_prod_page_idx = &p_chain->pbl.c.u32.prod_page_idx;
+ 			qed_chain_advance_page(p_chain, &p_chain->p_prod_elem,
+ 					       p_prod_idx, p_prod_page_idx);
+ 		}
+@@ -378,7 +393,7 @@ static inline void *qed_chain_consume(struct qed_chain *p_chain)
+ 		if ((p_chain->u.chain16.cons_idx &
+ 		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
+ 			p_cons_idx = &p_chain->u.chain16.cons_idx;
+-			p_cons_page_idx = &p_chain->pbl.u.pbl16.cons_page_idx;
++			p_cons_page_idx = &p_chain->pbl.c.u16.cons_page_idx;
+ 			qed_chain_advance_page(p_chain, &p_chain->p_cons_elem,
+ 					       p_cons_idx, p_cons_page_idx);
+ 		}
+@@ -387,8 +402,8 @@ static inline void *qed_chain_consume(struct qed_chain *p_chain)
+ 		if ((p_chain->u.chain32.cons_idx &
+ 		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
+ 			p_cons_idx = &p_chain->u.chain32.cons_idx;
+-			p_cons_page_idx = &p_chain->pbl.u.pbl32.cons_page_idx;
+-		qed_chain_advance_page(p_chain, &p_chain->p_cons_elem,
++			p_cons_page_idx = &p_chain->pbl.c.u32.cons_page_idx;
++			qed_chain_advance_page(p_chain, &p_chain->p_cons_elem,
+ 					       p_cons_idx, p_cons_page_idx);
+ 		}
+ 		p_chain->u.chain32.cons_idx++;
+@@ -429,25 +444,26 @@ static inline void qed_chain_reset(struct qed_chain *p_chain)
+ 		u32 reset_val = p_chain->page_cnt - 1;
+ 
+ 		if (is_chain_u16(p_chain)) {
+-			p_chain->pbl.u.pbl16.prod_page_idx = (u16)reset_val;
+-			p_chain->pbl.u.pbl16.cons_page_idx = (u16)reset_val;
++			p_chain->pbl.c.u16.prod_page_idx = (u16)reset_val;
++			p_chain->pbl.c.u16.cons_page_idx = (u16)reset_val;
+ 		} else {
+-			p_chain->pbl.u.pbl32.prod_page_idx = reset_val;
+-			p_chain->pbl.u.pbl32.cons_page_idx = reset_val;
++			p_chain->pbl.c.u32.prod_page_idx = reset_val;
++			p_chain->pbl.c.u32.cons_page_idx = reset_val;
+ 		}
  	}
  
- 	return 0;
+ 	switch (p_chain->intended_use) {
+-	case QED_CHAIN_USE_TO_CONSUME_PRODUCE:
+-	case QED_CHAIN_USE_TO_PRODUCE:
+-		/* Do nothing */
+-		break;
+-
+ 	case QED_CHAIN_USE_TO_CONSUME:
+ 		/* produce empty elements */
+ 		for (i = 0; i < p_chain->capacity; i++)
+ 			qed_chain_recycle_consumed(p_chain);
+ 		break;
++
++	case QED_CHAIN_USE_TO_CONSUME_PRODUCE:
++	case QED_CHAIN_USE_TO_PRODUCE:
++	default:
++		/* Do nothing */
++		break;
+ 	}
+ }
+ 
+@@ -473,13 +489,13 @@ static inline void qed_chain_init_params(struct qed_chain *p_chain,
+ 	p_chain->p_virt_addr = NULL;
+ 	p_chain->p_phys_addr = 0;
+ 	p_chain->elem_size	= elem_size;
+-	p_chain->intended_use = intended_use;
++	p_chain->intended_use = (u8)intended_use;
+ 	p_chain->mode		= mode;
+-	p_chain->cnt_type = cnt_type;
++	p_chain->cnt_type = (u8)cnt_type;
+ 
+-	p_chain->elem_per_page		= ELEMS_PER_PAGE(elem_size);
++	p_chain->elem_per_page = ELEMS_PER_PAGE(elem_size);
+ 	p_chain->usable_per_page = USABLE_ELEMS_PER_PAGE(elem_size, mode);
+-	p_chain->elem_per_page_mask	= p_chain->elem_per_page - 1;
++	p_chain->elem_per_page_mask = p_chain->elem_per_page - 1;
+ 	p_chain->elem_unusable = UNUSABLE_ELEMS_PER_PAGE(elem_size, mode);
+ 	p_chain->next_page_mask = (p_chain->usable_per_page &
+ 				   p_chain->elem_per_page_mask);
+@@ -488,8 +504,8 @@ static inline void qed_chain_init_params(struct qed_chain *p_chain,
+ 	p_chain->capacity = p_chain->usable_per_page * page_cnt;
+ 	p_chain->size = p_chain->elem_per_page * page_cnt;
+ 
+-	p_chain->pbl.p_phys_table = 0;
+-	p_chain->pbl.p_virt_table = NULL;
++	p_chain->pbl_sp.p_phys_table = 0;
++	p_chain->pbl_sp.p_virt_table = NULL;
+ 	p_chain->pbl.pp_virt_addr_tbl = NULL;
+ }
+ 
+@@ -530,8 +546,8 @@ static inline void qed_chain_init_pbl_mem(struct qed_chain *p_chain,
+ 					  dma_addr_t p_phys_pbl,
+ 					  void **pp_virt_addr_tbl)
+ {
+-	p_chain->pbl.p_phys_table = p_phys_pbl;
+-	p_chain->pbl.p_virt_table = p_virt_pbl;
++	p_chain->pbl_sp.p_phys_table = p_phys_pbl;
++	p_chain->pbl_sp.p_virt_table = p_virt_pbl;
+ 	p_chain->pbl.pp_virt_addr_tbl = pp_virt_addr_tbl;
+ }
+ 
 -- 
 1.9.3
