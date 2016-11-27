@@ -1,122 +1,234 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 09/10] net/mlx5e: Moves pflags to priv->params
-Date: Sun, 27 Nov 2016 17:02:11 +0200
-Message-ID: <1480258932-10302-10-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 07/10] net/mlx5e: Add support for ethtool self diagnostics test
+Date: Sun, 27 Nov 2016 17:02:09 +0200
+Message-ID: <1480258932-10302-8-git-send-email-saeedm@mellanox.com>
 References: <1480258932-10302-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Shaker Daibes <shakerd@mellanox.com>,
+Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43776 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43795 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752128AbcK0PC3 (ORCPT
+        with ESMTP id S1752387AbcK0PC3 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 10:02:29 -0500
 In-Reply-To: <1480258932-10302-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shaker Daibes <shakerd@mellanox.com>
+From: Kamal Heib <kamalh@mellanox.com>
 
-pflags is a configuration parameter for the netdev, naturally it belongs
-to priv->params.
-Also introduce MLX5E_GET_PFLAG
+The self diagnostics test implementaion include the following features:
+1. Link Test: Check that link is in up state.
+2. Speed Test: Check that link was negotiated correctly.
+3. Health Test: Check the device health.
 
-Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
+Signed-off-by: Kamal Heib <kamalh@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h         | 16 +++++++++-------
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c |  6 +++---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c    |  4 ++--
- 3 files changed, 14 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   5 +
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   8 +-
+ .../net/ethernet/mellanox/mlx5/core/en_selftest.c  | 126 +++++++++++++++++++++
+ 4 files changed, 139 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 0343725..9f43beb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -8,6 +8,6 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
+ 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
+ 		en_rx.o en_rx_am.o en_txrx.o en_clock.o vxlan.o \
+-		en_tc.o en_arfs.o en_rep.o en_fs_ethtool.o
++		en_tc.o en_arfs.o en_rep.o en_fs_ethtool.o en_selftest.o
+ 
+ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 9cf32d3..84ac78f 100644
+index 6c954cd..f7bb4a7 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -177,14 +177,16 @@ enum mlx5e_priv_flag {
- 	MLX5E_PFLAG_RX_CQE_BASED_MODER = (1 << 0),
+@@ -167,6 +167,8 @@ struct mlx5e_umr_wqe {
+ 	struct mlx5_wqe_data_seg       data;
  };
  
--#define MLX5E_SET_PRIV_FLAG(priv, pflag, enable)    \
--	do {                                        \
--		if (enable)                         \
--			priv->pflags |= pflag;      \
--		else                                \
--			priv->pflags &= ~pflag;     \
-+#define MLX5E_SET_PFLAG(priv, pflag, enable)			\
-+	do {							\
-+		if (enable)					\
-+			(priv)->params.pflags |= (pflag);	\
-+		else						\
-+			(priv)->params.pflags &= ~(pflag);	\
- 	} while (0)
- 
-+#define MLX5E_GET_PFLAG(priv, pflag) (!!((priv)->params.pflags & (pflag)))
++extern const char mlx5e_self_tests[][ETH_GSTRING_LEN];
 +
- #ifdef CONFIG_MLX5_CORE_EN_DCB
- #define MLX5E_MAX_BW_ALLOC 100 /* Max percentage of BW allocation */
- #endif
-@@ -218,6 +220,7 @@ struct mlx5e_params {
- 	bool vlan_strip_disable;
- 	bool rx_am_enabled;
- 	u32 lro_timeout;
-+	u32 pflags;
+ static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] = {
+ 	"rx_cqe_moder",
  };
- 
- #ifdef CONFIG_MLX5_CORE_EN_DCB
-@@ -705,7 +708,6 @@ struct mlx5e_priv {
- 	struct work_struct         tx_timeout_work;
- 	struct delayed_work        update_stats_work;
- 
--	u32                        pflags;
- 	struct mlx5_core_dev      *mdev;
- 	struct net_device         *netdev;
- 	struct mlx5e_stats         stats;
+@@ -754,6 +756,9 @@ int mlx5e_create_flow_steering(struct mlx5e_priv *priv);
+ void mlx5e_destroy_flow_steering(struct mlx5e_priv *priv);
+ void mlx5e_init_l2_addr(struct mlx5e_priv *priv);
+ void mlx5e_destroy_flow_table(struct mlx5e_flow_table *ft);
++int mlx5e_self_test_num(struct mlx5e_priv *priv);
++void mlx5e_self_test(struct net_device *ndev, struct ethtool_test *etest,
++		     u64 *buf);
+ int mlx5e_ethtool_get_flow(struct mlx5e_priv *priv, struct ethtool_rxnfc *info,
+ 			   int location);
+ int mlx5e_ethtool_get_all_flows(struct mlx5e_priv *priv,
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 839c4e9..d2bdccb 100644
+index 9ea7b37..839c4e9 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -1488,7 +1488,7 @@ static int mlx5e_handle_pflag(struct net_device *netdev,
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	bool enable = !!(wanted_flags & flag);
--	u32 changes = wanted_flags ^ priv->pflags;
-+	u32 changes = wanted_flags ^ priv->params.pflags;
- 	int err;
+@@ -180,6 +180,8 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
  
- 	if (!(changes & flag))
-@@ -1501,7 +1501,7 @@ static int mlx5e_handle_pflag(struct net_device *netdev,
- 		return err;
- 	}
+ 	case ETH_SS_PRIV_FLAGS:
+ 		return ARRAY_SIZE(mlx5e_priv_flags);
++	case ETH_SS_TEST:
++		return mlx5e_self_test_num(priv);
+ 	/* fallthrough */
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -286,6 +288,9 @@ static void mlx5e_get_strings(struct net_device *dev,
+ 		break;
  
--	MLX5E_SET_PRIV_FLAG(priv, flag, enable);
-+	MLX5E_SET_PFLAG(priv, flag, enable);
- 	return 0;
- }
+ 	case ETH_SS_TEST:
++		for (i = 0; i < mlx5e_self_test_num(priv); i++)
++			strcpy(data + i * ETH_GSTRING_LEN,
++			       mlx5e_self_tests[i]);
+ 		break;
  
-@@ -1524,7 +1524,7 @@ static u32 mlx5e_get_priv_flags(struct net_device *netdev)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 
--	return priv->pflags;
-+	return priv->params.pflags;
- }
- 
- static int mlx5e_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 89d5c65..004940a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3488,8 +3488,8 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
- 		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 
- 	/* Initialize pflags */
--	MLX5E_SET_PRIV_FLAG(priv, MLX5E_PFLAG_RX_CQE_BASED_MODER,
--			    priv->params.rx_cq_period_mode == MLX5_CQ_PERIOD_MODE_START_FROM_CQE);
-+	MLX5E_SET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_BASED_MODER,
-+			priv->params.rx_cq_period_mode == MLX5_CQ_PERIOD_MODE_START_FROM_CQE);
- 
- 	mutex_init(&priv->state_lock);
- 
+ 	case ETH_SS_STATS:
+@@ -1573,5 +1578,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_module_info   = mlx5e_get_module_info,
+ 	.get_module_eeprom = mlx5e_get_module_eeprom,
+ 	.get_priv_flags    = mlx5e_get_priv_flags,
+-	.set_priv_flags    = mlx5e_set_priv_flags
++	.set_priv_flags    = mlx5e_set_priv_flags,
++	.self_test         = mlx5e_self_test,
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
+new file mode 100644
+index 0000000..49504a7
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
+@@ -0,0 +1,126 @@
++/*
++ * Copyright (c) 2016, Mellanox Technologies, Ltd.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include "en.h"
++
++enum {
++	MLX5E_ST_LINK_STATE,
++	MLX5E_ST_LINK_SPEED,
++	MLX5E_ST_HEALTH_INFO,
++	MLX5E_ST_NUM,
++};
++
++const char mlx5e_self_tests[MLX5E_ST_NUM][ETH_GSTRING_LEN] = {
++	"Link Test",
++	"Speed Test",
++	"Health Test",
++};
++
++int mlx5e_self_test_num(struct mlx5e_priv *priv)
++{
++	return ARRAY_SIZE(mlx5e_self_tests);
++}
++
++static int mlx5e_test_health_info(struct mlx5e_priv *priv)
++{
++	struct mlx5_core_health *health = &priv->mdev->priv.health;
++
++	return health->sick ? 1 : 0;
++}
++
++static int mlx5e_test_link_state(struct mlx5e_priv *priv)
++{
++	u8 port_state;
++
++	if (!netif_carrier_ok(priv->netdev))
++		return 1;
++
++	port_state = mlx5_query_vport_state(priv->mdev, MLX5_QUERY_VPORT_STATE_IN_OP_MOD_VNIC_VPORT, 0);
++	return port_state == VPORT_STATE_UP ? 0 : 1;
++}
++
++static int mlx5e_test_link_speed(struct mlx5e_priv *priv)
++{
++	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
++	u32 eth_proto_oper;
++	int i;
++
++	if (!netif_carrier_ok(priv->netdev))
++		return 1;
++
++	if (mlx5_query_port_ptys(priv->mdev, out, sizeof(out), MLX5_PTYS_EN, 1))
++		return 1;
++
++	eth_proto_oper = MLX5_GET(ptys_reg, out, eth_proto_oper);
++	for (i = 0; i < MLX5E_LINK_MODES_NUMBER; i++) {
++		if (eth_proto_oper & MLX5E_PROT_MASK(i))
++			return 0;
++	}
++	return 1;
++}
++
++static int (*mlx5e_st_func[MLX5E_ST_NUM])(struct mlx5e_priv *) = {
++	mlx5e_test_link_state,
++	mlx5e_test_link_speed,
++	mlx5e_test_health_info,
++};
++
++void mlx5e_self_test(struct net_device *ndev, struct ethtool_test *etest,
++		     u64 *buf)
++{
++	struct mlx5e_priv *priv = netdev_priv(ndev);
++	int i;
++
++	memset(buf, 0, sizeof(u64) * MLX5E_ST_NUM);
++
++	mutex_lock(&priv->state_lock);
++	netdev_info(ndev, "Self test begin..\n");
++
++	for (i = 0; i < MLX5E_ST_NUM; i++) {
++		netdev_info(ndev, "\t[%d] %s start..\n",
++			    i, mlx5e_self_tests[i]);
++		buf[i] = mlx5e_st_func[i](priv);
++		netdev_info(ndev, "\t[%d] %s end: result(%lld)\n",
++			    i, mlx5e_self_tests[i], buf[i]);
++	}
++
++	mutex_unlock(&priv->state_lock);
++
++	for (i = 0; i < MLX5E_ST_NUM; i++) {
++		if (buf[i]) {
++			etest->flags |= ETH_TEST_FL_FAILED;
++			break;
++		}
++	}
++	netdev_info(ndev, "Self test out: status flags(0x%x)\n",
++		    etest->flags);
++}
 -- 
 2.7.4
