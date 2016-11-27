@@ -1,278 +1,57 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] net, sched: respect rcu grace period on cls destruction
-Date: Sun, 27 Nov 2016 01:18:01 +0100
-Message-ID: <0d6d89f885033f1739e97f7f3372ae6e1db72892.1480204343.git.daniel@iogearbox.net>
-Cc: xiyou.wangcong@gmail.com, john.fastabend@gmail.com,
-        roid@mellanox.com, ast@fb.com, hannes@stressinduktion.org,
-        jiri@mellanox.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+Subject: Re: [Patch net-next] net_sched: move the empty tp check from ->destroy()
+ to ->delete()
+Date: Sun, 27 Nov 2016 01:33:39 +0100
+Message-ID: <583A29E3.8030809@iogearbox.net>
+References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com> <5836A4D4.2010500@mellanox.com> <5836BD82.6080407@iogearbox.net> <5836C87E.8050506@mellanox.com> <58370558.9070004@iogearbox.net> <CAM_iQpVxevmk3rgsnALC0JCqx7pOF2OBc=kpg9QDK8Cwb6P9Zw@mail.gmail.com> <58396D71.8070703@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roi Dayan <roid@mellanox.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44349 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:45403 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752063AbcK0ASN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 19:18:13 -0500
+        with ESMTP id S1750723AbcK0Adm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 19:33:42 -0500
+In-Reply-To: <58396D71.8070703@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roi reported a crash in flower where tp->root was NULL in ->classify()
-callbacks. Reason is that in ->destroy() tp->root is set to NULL via
-RCU_INIT_POINTER(). It's problematic for some of the classifiers, because
-this doesn't respect RCU grace period for them, and as a result, still
-outstanding readers from tc_classify() will try to blindly dereference
-a NULL tp->root.
+On 11/26/2016 12:09 PM, Daniel Borkmann wrote:
+> On 11/26/2016 07:46 AM, Cong Wang wrote:
+>> On Thu, Nov 24, 2016 at 7:20 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+[...]
+>>> Ok, strange, qdisc_destroy() calls into ops->destroy(), where ingress
+>>> drops its entire chain via tcf_destroy_chain(), so that will be NULL
+>>> eventually. The tps are freed by call_rcu() as well as qdisc itself
+>>> later on via qdisc_rcu_free(), where it frees per-cpu bstats as well.
+>>> Outstanding readers should either bail out due to if (!cl) or can still
+>>> process the chain until read section ends, but during that time, cl->q
+>>> resp. bstats should be good. Do you happen to know what's at address
+>>> ffff880a68b04028? I was wondering wrt call_rcu() vs call_rcu_bh(), but
+>>> at least on ingress (netif_receive_skb_internal()) we hold rcu_read_lock()
+>>> here. The KASAN report is reliably happening at this location, right?
+>>
+>> I am confused as well, I don't see how it could be related to my patch yet.
+>> I will take a deep look in the weekend.
+>
+> Ok, I'm currently on the run. Got too late yesterday night, but I'll
+> write what I found in the evening today, not related to ingress though.
 
-The tp->root object is strictly private to the classifier implementation
-and holds internal data the core such as tc_ctl_tfilter() doesn't know
-about. Within some classifiers, such as cls_bpf, cls_basic, etc, tp->root
-is only checked for NULL in ->get() callback, but nowhere else. This is
-misleading and seemed to be copied from old classifier code that was not
-cleaned up properly. For example, d3fa76ee6b4a ("[NET_SCHED]: cls_basic:
-fix NULL pointer dereference") moved tp->root initialization into ->init()
-routine, where before it was part of ->change(), so ->get() had to deal
-with tp->root being NULL back then, so that was indeed a valid case, after
-d3fa76ee6b4a, not really anymore. We used to set tp->root to NULL long
-ago in ->destroy(), see 47a1a1d4be29 ("pkt_sched: remove unnecessary xchg()
-in packet classifiers"); but the NULLifying was reintroduced with the
-RCUification, but it's not correct for every classifier implementation.
+Just pushed out my analysis to netdev under "[PATCH net] net, sched: respect
+rcu grace period on cls destruction". My conclusion is that both issues are
+actually separate, and that one is small enough where we could route it via
+net actually. Perhaps this at the same time shrinks your "[PATCH net-next]
+net_sched: move the empty tp check from ->destroy() to ->delete()" to a
+reasonable size that it's suitable to net as well. Your ->delete()/->destroy()
+one is definitely needed, too. The tp->root one is independant of ->delete()/
+->destroy() as they are different races and tp->root could also happen when
+you just destroy the whole tp directly. I think that seems like a good path
+forward to me.
 
-In the cases that are fixed here with one exception of cls_cgroup, tp->root
-object is allocated and initialized inside ->init() callback, which is always
-performed at a point in time after we allocate a new tp, which means tp and
-thus tp->root was not globally visible in the tp chain yet (see tc_ctl_tfilter()).
-Also, on destruction tp->root is strictly kfree_rcu()'ed in ->destroy()
-handler, same for the tp which is kfree_rcu()'ed right when we return
-from ->destroy() in tcf_destroy(). This means, the head object's lifetime
-for such classifiers is always tied to the tp lifetime. The RCU callback
-invocation for the two kfree_rcu() could be out of order, but that's fine
-since both are independent.
-
-Dropping the RCU_INIT_POINTER(tp->root, NULL) for these classifiers here
-means that 1) we don't need a useless NULL check in fast-path and, 2) that
-outstanding readers of that tp in tc_classify() can still execute under
-respect with RCU grace period as it is actually expected.
-
-Things that haven't been touched here: cls_fw and cls_route. They each
-handle tp->root being NULL in ->classify() path for historic reasons, so
-their ->destroy() implementation can stay as is. If someone actually
-cares, they could get cleaned up at some point to avoid the test in fast
-path. cls_u32 doesn't set tp->root to NULL. For cls_rsvp, I just added a
-!head should anyone actually be using/testing it, so it at least aligns with
-cls_fw and cls_route. For cls_flower we additionally need to defer rhashtable
-destruction (to a sleepable context) after RCU grace period as concurrent
-readers might still access it. (Note that in this case we need to hold module
-reference to keep work callback address intact, since we only wait on module
-unload for all call_rcu()s to finish.)
-
-This fixes one race to bring RCU grace period guarantees back. Next step
-as worked on by Cong however is to fix 1e052be69d04 ("net_sched: destroy
-proto tp when all filters are gone") to get the order of unlinking the tp
-in tc_ctl_tfilter() for the RTM_DELTFILTER case right by moving
-RCU_INIT_POINTER() before tcf_destroy() and let the notification for
-removal be done through the prior ->delete() callback. Both are independant
-issues. Once we have that right, we can then clean tp->root up for a number
-of classifiers by not making them RCU pointers, which requires a new callback
-(->uninit) that is triggered from tp's RCU callback, where we just kfree()
-tp->root from there.
-
-Fixes: 1f947bf151e9 ("net: sched: rcu'ify cls_bpf")
-Fixes: 9888faefe132 ("net: sched: cls_basic use RCU")
-Fixes: 70da9f0bf999 ("net: sched: cls_flow use RCU")
-Fixes: 77b9900ef53a ("tc: introduce Flower classifier")
-Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-Fixes: 952313bd6258 ("net: sched: cls_cgroup use RCU")
-Reported-by: Roi Dayan <roid@mellanox.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Cc: John Fastabend <john.fastabend@gmail.com>
-Cc: Roi Dayan <roid@mellanox.com>
-Cc: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_basic.c    |  4 ----
- net/sched/cls_bpf.c      |  4 ----
- net/sched/cls_cgroup.c   |  7 +++----
- net/sched/cls_flow.c     |  1 -
- net/sched/cls_flower.c   | 31 ++++++++++++++++++++++++++-----
- net/sched/cls_matchall.c |  1 -
- net/sched/cls_rsvp.h     |  3 ++-
- net/sched/cls_tcindex.c  |  1 -
- 8 files changed, 31 insertions(+), 21 deletions(-)
-
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index eb219b7..5877f60 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -62,9 +62,6 @@ static unsigned long basic_get(struct tcf_proto *tp, u32 handle)
- 	struct basic_head *head = rtnl_dereference(tp->root);
- 	struct basic_filter *f;
- 
--	if (head == NULL)
--		return 0UL;
--
- 	list_for_each_entry(f, &head->flist, link) {
- 		if (f->handle == handle) {
- 			l = (unsigned long) f;
-@@ -109,7 +106,6 @@ static bool basic_destroy(struct tcf_proto *tp, bool force)
- 		tcf_unbind_filter(tp, &f->res);
- 		call_rcu(&f->rcu, basic_delete_filter);
- 	}
--	RCU_INIT_POINTER(tp->root, NULL);
- 	kfree_rcu(head, rcu);
- 	return true;
- }
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index bb1d5a4..0a47ba5 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -292,7 +292,6 @@ static bool cls_bpf_destroy(struct tcf_proto *tp, bool force)
- 		call_rcu(&prog->rcu, __cls_bpf_delete_prog);
- 	}
- 
--	RCU_INIT_POINTER(tp->root, NULL);
- 	kfree_rcu(head, rcu);
- 	return true;
- }
-@@ -303,9 +302,6 @@ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
- 	struct cls_bpf_prog *prog;
- 	unsigned long ret = 0UL;
- 
--	if (head == NULL)
--		return 0UL;
--
- 	list_for_each_entry(prog, &head->plist, link) {
- 		if (prog->handle == handle) {
- 			ret = (unsigned long) prog;
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 85233c47..c1f2007 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -137,11 +137,10 @@ static bool cls_cgroup_destroy(struct tcf_proto *tp, bool force)
- 
- 	if (!force)
- 		return false;
--
--	if (head) {
--		RCU_INIT_POINTER(tp->root, NULL);
-+	/* Head can still be NULL due to cls_cgroup_init(). */
-+	if (head)
- 		call_rcu(&head->rcu, cls_cgroup_destroy_rcu);
--	}
-+
- 	return true;
- }
- 
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index e396723..6575aba 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -596,7 +596,6 @@ static bool flow_destroy(struct tcf_proto *tp, bool force)
- 		list_del_rcu(&f->list);
- 		call_rcu(&f->rcu, flow_destroy_filter);
- 	}
--	RCU_INIT_POINTER(tp->root, NULL);
- 	kfree_rcu(head, rcu);
- 	return true;
- }
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index f6f40fb..b296f39 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -13,6 +13,7 @@
- #include <linux/init.h>
- #include <linux/module.h>
- #include <linux/rhashtable.h>
-+#include <linux/workqueue.h>
- 
- #include <linux/if_ether.h>
- #include <linux/in6.h>
-@@ -64,7 +65,10 @@ struct cls_fl_head {
- 	bool mask_assigned;
- 	struct list_head filters;
- 	struct rhashtable_params ht_params;
--	struct rcu_head rcu;
-+	union {
-+		struct work_struct work;
-+		struct rcu_head	rcu;
-+	};
- };
- 
- struct cls_fl_filter {
-@@ -269,6 +273,24 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
- }
- 
-+static void fl_destroy_sleepable(struct work_struct *work)
-+{
-+	struct cls_fl_head *head = container_of(work, struct cls_fl_head,
-+						work);
-+	if (head->mask_assigned)
-+		rhashtable_destroy(&head->ht);
-+	kfree(head);
-+	module_put(THIS_MODULE);
-+}
-+
-+static void fl_destroy_rcu(struct rcu_head *rcu)
-+{
-+	struct cls_fl_head *head = container_of(rcu, struct cls_fl_head, rcu);
-+
-+	INIT_WORK(&head->work, fl_destroy_sleepable);
-+	schedule_work(&head->work);
-+}
-+
- static bool fl_destroy(struct tcf_proto *tp, bool force)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
-@@ -282,10 +304,9 @@ static bool fl_destroy(struct tcf_proto *tp, bool force)
- 		list_del_rcu(&f->list);
- 		call_rcu(&f->rcu, fl_destroy_filter);
- 	}
--	RCU_INIT_POINTER(tp->root, NULL);
--	if (head->mask_assigned)
--		rhashtable_destroy(&head->ht);
--	kfree_rcu(head, rcu);
-+
-+	__module_get(THIS_MODULE);
-+	call_rcu(&head->rcu, fl_destroy_rcu);
- 	return true;
- }
- 
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index 25927b6..f935429 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -114,7 +114,6 @@ static bool mall_destroy(struct tcf_proto *tp, bool force)
- 
- 		call_rcu(&f->rcu, mall_destroy_filter);
- 	}
--	RCU_INIT_POINTER(tp->root, NULL);
- 	kfree_rcu(head, rcu);
- 	return true;
- }
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index 4f05a19..322438f 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -152,7 +152,8 @@ static int rsvp_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 		return -1;
- 	nhptr = ip_hdr(skb);
- #endif
--
-+	if (unlikely(!head))
-+		return -1;
- restart:
- 
- #if RSVP_DST_LEN == 4
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 96144bd..0751245 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -543,7 +543,6 @@ static bool tcindex_destroy(struct tcf_proto *tp, bool force)
- 	walker.fn = tcindex_destroy_element;
- 	tcindex_walk(tp, &walker);
- 
--	RCU_INIT_POINTER(tp->root, NULL);
- 	call_rcu(&p->rcu, __tcindex_destroy);
- 	return true;
- }
--- 
-1.9.3
+Thanks,
+Daniel
