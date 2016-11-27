@@ -1,67 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Crash due to mutex genl_lock called from RCU context
-Date: Sat, 26 Nov 2016 18:26:10 -0800
-Message-ID: <1480213570.18162.31.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <c669cd06c3e50febd95b5ed4aaa78532@codeaurora.org>
-         <1480133493.8455.584.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480136078.8455.589.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpU+7arMOHSwDhE5npH_82R9LTNrmny6jK1H-fkW2+9Jcg@mail.gmail.com>
+From: Jon LaBadie <jonfu@jgcomp.com>
+Subject: ip manpage comments
+Date: Sat, 26 Nov 2016 21:49:32 -0500
+Message-ID: <20161127024932.GA9954@cyber.jgcomp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: subashab@codeaurora.org, Thomas Graf <tgraf@suug.ch>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34421 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752872AbcK0C0N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 21:26:13 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so9266686pgc.1
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 18:26:12 -0800 (PST)
-In-Reply-To: <CAM_iQpU+7arMOHSwDhE5npH_82R9LTNrmny6jK1H-fkW2+9Jcg@mail.gmail.com>
+Received: from a2i805.smtp2go.com ([103.47.207.37]:57453 "EHLO
+        a2i805.smtp2go.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752830AbcK0DAT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 22:00:19 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-11-26 at 18:08 -0800, Cong Wang wrote:
-> On Fri, Nov 25, 2016 at 8:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > Oh well, this wont work, since sk->sk_destruct will be called from RCU
-> > callback.
-> >
-> > Grabbing the mutex should not be done from netlink_sock_destruct() but
-> > from netlink_release()
-> 
-> But you also change the behavior of cb.done(), currently it is called when the
-> last sock ref is gone, with your patch it is called when the first
-> sock is closed.
+Though not new to *nix, I am new to using the ip(8) command.
+Thus some of my historical assumptions about ip may be wrong.
 
-No. It will be called when last refcount on the socket is released,
-sk_refcnt transitions to final 0.
+It seems that an inclusive manpage for the ip command was
+broken up into a shorter ip(8) manpage and 15 or more
+ip-<subcommand>(8) manpages.  I'm basing this assumption
+on long, inclusive manpages on https://linux.die.net/man/8/ip
+and CentOS 6 while CentOS 7 and Fedora 24 each have the
+sub-divided style.
 
+I won't debate the wisdom of this subdivision, only comment
+on how it was done.
 
-My patch changes the sock_hold() to the variant that makes sure
-sk_refcnt is not 0 before increase, otherwise a race can happen and
-release could be called twice.
+The ip(8) manpage make no mention of additional subordinate
+documents.  The listing of the additional documents in the
+See Also section is insufficient.  This section is typically
+used to mention related commands and other sources of reference
+materials such as info docs, wikis, blogs, or mailing lists.
 
-Classic refcounting stuff coupled to rcu rules.
+When one does investigate one of the subordinate manpages,
+they do not state that they document subcommands of the
+ip command.  In fact, on the ip-address(8) manpage it says
 
-> No?
+  The `ip address command' ...   (quotes added)
 
+My first thought was "typo", this is the manpage about the
+"ip-address" command.  Of course there is no ip-address command.
+But "ip address" is not a command either, it is the "ip" command
+with an argument.
 
-Are you telling me inet_release() is called when we close() the first
-file descriptor ?
+There are several commands that have broken their manpage into
+several manpages.  Two which come to mind are zsh(1) and perl(1).
+The authors of those pages clearly state on the primary manpage
+that this is an overview page and give clear pointers to the
+additional manpages as well as additional documentation.  I would
+recommend reorganizing the ip(8) manpage in a similar fashion.
 
-fd1 = socket()
-fd2 = dup(fd1);
-close(fd2) -> release() ???
+Thank you for consideration of my opinion and for the development
+of an awesome tool.
 
-
-> 
-> I don't see why we need to get genl_lock in ->done() here, because we are
-> already the last sock using it and module ref protects the ops from being
-> removed via module, seems we are pretty safe without any lock.
-
-Well, at least this exposes a real bug in Thomas patch.
-
-Removing the lock might be done for net-next, not stable branches.
+Jon
+-- 
+Jon H. LaBadie                  jonfu@jgcomp.com
