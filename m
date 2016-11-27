@@ -1,43 +1,47 @@
-From: Roi Dayan <roid@mellanox.com>
-Subject: [PATCH net] net/sched: Export tc_tunnel_key so its UAPI accessible
-Date: Sun, 27 Nov 2016 12:14:49 +0200
-Message-ID: <1480241689-51131-1-git-send-email-roid@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
-        Roi Dayan <roid@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: fgao@ikuai8.com
+Subject: [PATCH net-next 1/1] driver: ipvlan: Use NF_IP_PRI_LAST as hook priority instead of INT_MAX
+Date: Sun, 27 Nov 2016 18:24:05 +0800
+Message-ID: <1480242245-7516-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, maheshb@google.com, edumazet@google.com,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55289 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753467AbcK0KPI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 05:15:08 -0500
+Received: from smtpbg291.qq.com ([113.108.11.223]:59207 "EHLO smtpbg291.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753517AbcK0KYv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Nov 2016 05:24:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Export tc_tunnel_key so it can be used from user space.
+From: Gao Feng <fgao@ikuai8.com>
 
-Signed-off-by: Roi Dayan <roid@mellanox.com>
-Reviewed-by: Amir Vadai <amir@vadai.me>
+It is better to use NF_IP_PRI_LAST instead of INT_MAX as hook priority.
+The former is good at readability and easier to maintain.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 ---
+ drivers/net/ipvlan/ipvlan_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Hi,
-
-I previously sent the patch targeted for net-next but should be for net.
-
-Thanks,
-Roi
-
-
- include/uapi/linux/tc_act/Kbuild | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/include/uapi/linux/tc_act/Kbuild b/include/uapi/linux/tc_act/Kbuild
-index e3969bd..9611c7b 100644
---- a/include/uapi/linux/tc_act/Kbuild
-+++ b/include/uapi/linux/tc_act/Kbuild
-@@ -11,3 +11,4 @@ header-y += tc_vlan.h
- header-y += tc_bpf.h
- header-y += tc_connmark.h
- header-y += tc_ife.h
-+header-y += tc_tunnel_key.h
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index ab90b22..d70d245 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -16,13 +16,13 @@
+ 		.hook     = ipvlan_nf_input,
+ 		.pf       = NFPROTO_IPV4,
+ 		.hooknum  = NF_INET_LOCAL_IN,
+-		.priority = INT_MAX,
++		.priority = NF_IP_PRI_LAST,
+ 	},
+ 	{
+ 		.hook     = ipvlan_nf_input,
+ 		.pf       = NFPROTO_IPV6,
+ 		.hooknum  = NF_INET_LOCAL_IN,
+-		.priority = INT_MAX,
++		.priority = NF_IP_PRI_LAST,
+ 	},
+ };
+ 
 -- 
-2.7.4
+1.9.1
