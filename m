@@ -1,60 +1,73 @@
-From: Eli Cooper <elicooper@gmx.com>
-Subject: Re: Large performance regression with 6in4 tunnel (sit)
-Date: Mon, 28 Nov 2016 00:22:15 +0800
-Message-ID: <bcd6c5eb-8a47-6e34-96fc-a1c5bba0e033@gmx.com>
-References: <20161125120947.142c3af5@canb.auug.org.au>
- <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
- <20161125134520.68ca0969@canb.auug.org.au>
- <a4a7b888-04d1-55ce-28de-cc15f01a15fc@gmx.com>
- <20161127115441.7654a4e0@canb.auug.org.au>
- <20161127130229.4c88cc2c@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Crash due to mutex genl_lock called from RCU context
+Date: Sun, 27 Nov 2016 08:23:44 -0800
+Message-ID: <1480263824.18162.44.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <c669cd06c3e50febd95b5ed4aaa78532@codeaurora.org>
+         <1480133493.8455.584.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480136078.8455.589.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpU+7arMOHSwDhE5npH_82R9LTNrmny6jK1H-fkW2+9Jcg@mail.gmail.com>
+         <1480213570.18162.31.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpUnz2kkjOFuk3fKKEYDh54b9WHk1dvH098mGtrGTPjZFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Thomas Graf <tgraf@suug.ch>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:52293 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752376AbcK0QWa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Nov 2016 11:22:30 -0500
-In-Reply-To: <20161127130229.4c88cc2c@canb.auug.org.au>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35083 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752302AbcK0QXq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 11:23:46 -0500
+Received: by mail-pf0-f195.google.com with SMTP id i88so5138286pfk.2
+        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 08:23:46 -0800 (PST)
+In-Reply-To: <CAM_iQpUnz2kkjOFuk3fKKEYDh54b9WHk1dvH098mGtrGTPjZFQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+On Sat, 2016-11-26 at 22:28 -0800, Cong Wang wrote:
+> On Sat, Nov 26, 2016 at 6:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > Are you telling me inet_release() is called when we close() the first
+> > file descriptor ?
+> >
+> > fd1 = socket()
+> > fd2 = dup(fd1);
+> > close(fd2) -> release() ???
+> 
+> Sorry, I didn't express myself clearly, I meant your change,
+> if exclude the SOCK_RCU_FREE part, basically reverts this commit:
+> 
+> commit 3f660d66dfbc13ea4b61d3865851b348444c24b4
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Thu May 3 03:17:14 2007 -0700
+> 
+>     [NETLINK]: Kill CB only when socket is unused
+> 
+> IOW, ->release() is called when the last sock fd ref is gone, but ->destructor()
+> is called with the last sock ref is gone. They are very different.
+
+Hmm...
 
 
-On 2016/11/27 10:02, Stephen Rothwell wrote:
-> Hi Eli,
->
-> On Sun, 27 Nov 2016 11:54:41 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->> On Fri, 25 Nov 2016 14:05:04 +0800 Eli Cooper <elicooper@gmx.com> wrote:
->>> I think this is similar to the bug I fixed in commit ae148b085876
->>> ("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()").
->>>
->>> I can reproduce a similar problem by applying xfrm to sit traffic.
->>> TSO/GSO packets are dropped when IPSec is enabled, and IPv6 throughput
->>> drops to 10s of Kbps. I am not sure if this is the same issue you
->>> experienced, but I wrote a patch that fixed at least the issue I had.
->>>
->>> Could you test the patch I sent to the mailing list just now?  
->> Thanks for the patch!
->>
->> Its a bit tricky to test since the problem only occurs in a production
->> machine (I tried reproducing in a VM, but the problem did not occur),
-That's probably because the ethernet NIC in your VM does not support
-segmentation offloading. You could, however, try reproducing it on
-another (real) machine with the same driver.
->> but I will try to just rebuild the sit module and see if I can insert
->> the modified one.
-> OK, I tried your patch and unfortunately, it doesn't seem to have
-> worked ... I still get the large packets dropped and resent smaller.
->
-It's a shame ... In my case, large packets are dropped only when xfrm is
-in effect (therefore another output path is taken), and probably that's
-not your case. Well, on the plus side, at least you reminded me that sit
-device also needs to update skb's protocol.
+> I am confused, what Subash reported is a kernel warning which can
+> surely be fixed by removing genl lock (if it is correct, I need to double
+> check), so why for net-next?
 
-Thanks,
-Eli
+Because Subash pointed to a buggy commit.
+
+We want to fix all issues bring by this commit, not only the immediate
+problem about mutex.
+
+I have no idea if we can safely remove the mutex from genl_lock_done() :
+
+The genl_lock() is not only protecting the socket itself, it might
+protect global data as well, or protect some kind of lock ordering among
+multiple mutexes.
+
+Have you checked all genl users, down to linux-4.0 , point where commit
+21e4902aea80ef35a was added ?
+
+Herbert, Thomas, your help would be appreciated, thanks.
