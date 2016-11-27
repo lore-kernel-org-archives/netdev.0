@@ -1,46 +1,125 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: Large performance regression with 6in4 tunnel (sit)
-Date: Sun, 27 Nov 2016 11:54:41 +1100
-Message-ID: <20161127115441.7654a4e0@canb.auug.org.au>
-References: <20161125120947.142c3af5@canb.auug.org.au>
-        <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
-        <20161125134520.68ca0969@canb.auug.org.au>
-        <a4a7b888-04d1-55ce-28de-cc15f01a15fc@gmx.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH v3 net-next 1/2] net: ethernet: slicoss: add slicoss
+ gigabit ethernet driver
+Date: Sun, 27 Nov 2016 02:02:27 +0100
+Message-ID: <48c6a5d1-cde3-6e23-9c6c-d26838fce332@gmx.de>
+References: <1480162850-8014-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1480162850-8014-2-git-send-email-LinoSanfilippo@gmx.de>
+ <CAKoUArncMYtQZQZ62efWsXr25RZPiAx4USJFjf2emzVRkhELjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eli Cooper <elicooper@gmx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:50205 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751990AbcK0Ayr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 26 Nov 2016 19:54:47 -0500
-In-Reply-To: <a4a7b888-04d1-55ce-28de-cc15f01a15fc@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, andrew@lunn.ch, gregkh@linuxfoundation.org,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ liodot@gmail.com, Netdev <netdev@vger.kernel.org>,
+ David Miller <davem@davemloft.net>
+To: Rami Rosen <roszenrami@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CAKoUArncMYtQZQZ62efWsXr25RZPiAx4USJFjf2emzVRkhELjg@mail.gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Eli,
 
-On Fri, 25 Nov 2016 14:05:04 +0800 Eli Cooper <elicooper@gmx.com> wrote:
->
-> I think this is similar to the bug I fixed in commit ae148b085876
-> ("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()").
+Hi Rami,
+
+
+On 26.11.2016 16:48, Rami Rosen wrote:
+>> @@ -0,0 +1,28 @@
+>> +config NET_VENDOR_ALACRITECH
+>> +        bool "Alacritech devices"
+>> +        default y
+>> +        ---help---
+>> +          If you have a network (Ethernet) card belonging to this class, say Y.
+>> +
+>> +          Note that the answer to this question doesn't directly affect the
+>> +          kernel: saying N will just cause the configurator to skip all
 > 
-> I can reproduce a similar problem by applying xfrm to sit traffic.
-> TSO/GSO packets are dropped when IPSec is enabled, and IPv6 throughput
-> drops to 10s of Kbps. I am not sure if this is the same issue you
-> experienced, but I wrote a patch that fixed at least the issue I had.
+> Shouldn't it be "Alacritech devices" here, as appears earlier ?
 > 
-> Could you test the patch I sent to the mailing list just now?
+>> +          the questions about Renesas devices. If you say Y, you will be asked
 
-Thanks for the patch!
+Yes, it definitely should not be Renesas :). This is a stupid copy and paste error, I will fix it,
+thank you! 
 
-Its a bit tricky to test since the problem only occurs in a production
-machine (I tried reproducing in a VM, but the problem did not occur),
-but I will try to just rebuild the sit module and see if I can insert
-the modified one.
+>> +          for your specific device in the following questions.
+>> +
+> 
+> ...
+> ...
+> ...
+>> +struct slic_device {
+>> +       struct pci_dev *pdev;
+> ...
+>> +       bool promisc;
+> 
+> Seems that the autoneg boolean is not used anywhere, apart from
+> setting it once to true in
+> the slic_set_link_autoneg() method. Apart from this member it is not
+> accessed anywhere, so it seems it should be removed.
+> 
+>> +       bool autoneg;
+>> +       int speed;
 
--- 
-Cheers,
-Stephen Rothwell
+Agreed, this variable can be removed.
+
+> ...
+> 
+>> +static int slic_load_rcvseq_firmware(struct slic_device *sdev)
+>> +{
+>> +       const struct firmware *fw;
+>> +       const char *file;
+>> +       u32 codelen;
+>> +       int idx = 0;
+>> +       u32 instr;
+>> +       u32 addr;
+>> +       int err;
+>> +
+> ...
+>> +       /* Do an initial sanity check concerning firmware size now. A further
+>> +        * check follows below.
+>> +        */
+>> +       if (fw->size < SLIC_FIRMWARE_MIN_SIZE) {
+>> +               dev_err(&sdev->pdev->dev,
+>> +                       "invalid firmware size %zu (min %u expected)\n",
+>> +                       fw->size, SLIC_FIRMWARE_MIN_SIZE);
+>> +               err = -EINVAL;
+> 
+> in the release label, always 0 is returned:
+> 
+>> +               goto release;
+>> +       }
+>> +
+>> +       codelen = slic_read_dword_from_firmware(fw, &idx);
+>> +
+>> +       /* do another sanity check against firmware size */
+>> +       if ((codelen + 4) > fw->size) {
+>> +               dev_err(&sdev->pdev->dev,
+>> +                       "invalid rcv-sequencer firmware size %zu\n", fw->size);
+>> +               err = -EINVAL;
+> 
+> Again, in the release label, always 0 is returned:
+> 
+>> +               goto release;
+>> +       }
+>> +
+>>
+>> +release:
+>> +       release_firmware(fw);
+>> +
+>> +       return 0;
+>> +}
+
+This should return "err", I will fix it.
+
+Thanks a lot for the review!
+
+Regards,
+Lino
