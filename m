@@ -1,265 +1,278 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH] mlx4: give precise rx/tx bytes/packets counters
-Date: Sun, 27 Nov 2016 00:47:48 +0200
-Message-ID: <CALzJLG8nFBFy=-pjy-XBYb-y-F=grC5wjN35zTt9eUOT-612Eg@mail.gmail.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] net, sched: respect rcu grace period on cls destruction
+Date: Sun, 27 Nov 2016 01:18:01 +0100
+Message-ID: <0d6d89f885033f1739e97f7f3372ae6e1db72892.1480204343.git.daniel@iogearbox.net>
+Cc: xiyou.wangcong@gmail.com, john.fastabend@gmail.com,
+        roid@mellanox.com, ast@fb.com, hannes@stressinduktion.org,
+        jiri@mellanox.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35602 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752136AbcKZWsL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 17:48:11 -0500
-Received: by mail-lf0-f67.google.com with SMTP id p100so6149270lfg.2
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 14:48:10 -0800 (PST)
-In-Reply-To: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:44349 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752063AbcK0ASN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 19:18:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 25, 2016 at 5:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> mlx4 stats are chaotic because a deferred work queue is responsible
-> to update them every 250 ms.
->
-Hello Eric,
+Roi reported a crash in flower where tp->root was NULL in ->classify()
+callbacks. Reason is that in ->destroy() tp->root is set to NULL via
+RCU_INIT_POINTER(). It's problematic for some of the classifiers, because
+this doesn't respect RCU grace period for them, and as a result, still
+outstanding readers from tc_classify() will try to blindly dereference
+a NULL tp->root.
 
-Well the only historical reason for this deferred work is that we
-query FW for some counters which might sleep.
-and there is one place in the kernel where dev_get_stats(dev, &temp)
-is called under a rw lock "read_lock(&dev_base_lock);"
-in http://lxr.free-electrons.com/source/net/core/net-sysfs.c#L552, i
-am not sure why is it this way ? Maybe it is time fix this and get rid
-of the deferred work, which will give you the same precision even for
-when reading ehttool stats, which this patch didn't take care off.
-this will also improve other drivers who might sleep while reading
-stats.
+The tp->root object is strictly private to the classifier implementation
+and holds internal data the core such as tc_ctl_tfilter() doesn't know
+about. Within some classifiers, such as cls_bpf, cls_basic, etc, tp->root
+is only checked for NULL in ->get() callback, but nowhere else. This is
+misleading and seemed to be copied from old classifier code that was not
+cleaned up properly. For example, d3fa76ee6b4a ("[NET_SCHED]: cls_basic:
+fix NULL pointer dereference") moved tp->root initialization into ->init()
+routine, where before it was part of ->change(), so ->get() had to deal
+with tp->root being NULL back then, so that was indeed a valid case, after
+d3fa76ee6b4a, not really anymore. We used to set tp->root to NULL long
+ago in ->destroy(), see 47a1a1d4be29 ("pkt_sched: remove unnecessary xchg()
+in packet classifiers"); but the NULLifying was reintroduced with the
+RCUification, but it's not correct for every classifier implementation.
 
-> Even sampling stats every one second with "sar -n DEV 1" gives
-> variations like the following :
->
-> lpaa23:~# sar -n DEV 1 10 | grep eth0 | cut -c1-65
-> 07:39:22         eth0 146877.00 3265554.00   9467.15 4828168.50
-> 07:39:23         eth0 146587.00 3260329.00   9448.15 4820445.98
-> 07:39:24         eth0 146894.00 3259989.00   9468.55 4819943.26
-> 07:39:25         eth0 110368.00 2454497.00   7113.95 3629012.17  <<>>
-> 07:39:26         eth0 146563.00 3257502.00   9447.25 4816266.23
-> 07:39:27         eth0 145678.00 3258292.00   9389.79 4817414.39
-> 07:39:28         eth0 145268.00 3253171.00   9363.85 4809852.46
-> 07:39:29         eth0 146439.00 3262185.00   9438.97 4823172.48
-> 07:39:30         eth0 146758.00 3264175.00   9459.94 4826124.13
-> 07:39:31         eth0 146843.00 3256903.00   9465.44 4815381.97
-> Average:         eth0 142827.50 3179259.70   9206.30 4700578.16
->
-> This patch allows rx/tx bytes/packets counters being folded at the
-> time we need stats.
->
-> We now can fetch stats every 1 ms if we want to check NIC behavior
-> on a small time window. It is also easier to detect anomalies.
->
-> lpaa23:~# sar -n DEV 1 10 | grep eth0 | cut -c1-65
-> 07:42:50         eth0 142915.00 3177696.00   9212.06 4698270.42
-> 07:42:51         eth0 143741.00 3200232.00   9265.15 4731593.02
-> 07:42:52         eth0 142781.00 3171600.00   9202.92 4689260.16
-> 07:42:53         eth0 143835.00 3192932.00   9271.80 4720761.39
-> 07:42:54         eth0 141922.00 3165174.00   9147.64 4679759.21
-> 07:42:55         eth0 142993.00 3207038.00   9216.78 4741653.05
-> 07:42:56         eth0 141394.06 3154335.64   9113.85 4663731.73
-> 07:42:57         eth0 141850.00 3161202.00   9144.48 4673866.07
-> 07:42:58         eth0 143439.00 3180736.00   9246.05 4702755.35
-> 07:42:59         eth0 143501.00 3210992.00   9249.99 4747501.84
-> Average:         eth0 142835.66 3182165.93   9206.98 4704874.08
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Tariq Toukan <tariqt@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    1
->  drivers/net/ethernet/mellanox/mlx4/en_port.c    |   77 +++++++++-----
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    1
->  4 files changed, 58 insertions(+), 23 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-> index 487a58f9c192896852fef271b6cce9bde132deb7..d9c9f86a30df953fa555934c5406057dcaf28960 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-> @@ -367,6 +367,8 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
->
->         spin_lock_bh(&priv->stats_lock);
->
-> +       mlx4_en_fold_software_stats(dev);
-> +
->         for (i = 0; i < NUM_MAIN_STATS; i++, bitmap_iterator_inc(&it))
->                 if (bitmap_iterator_test(&it))
->                         data[index++] = ((unsigned long *)&dev->stats)[i];
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 9018bb1b2e12142e048281a9d28ddf95e0023a61..d28d841db23ce885d2011877a156bacf23f65afe 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -1321,6 +1321,7 @@ mlx4_en_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
->         struct mlx4_en_priv *priv = netdev_priv(dev);
->
->         spin_lock_bh(&priv->stats_lock);
-> +       mlx4_en_fold_software_stats(dev);
->         netdev_stats_to_stats64(stats, &dev->stats);
->         spin_unlock_bh(&priv->stats_lock);
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> index 1eb4c1e10bad1dad26049876acf107a2073a6ab1..c6c4f1238923e09eced547454b86c68720292859 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> @@ -147,6 +147,39 @@ static unsigned long en_stats_adder(__be64 *start, __be64 *next, int num)
->         return ret;
->  }
->
-> +void mlx4_en_fold_software_stats(struct net_device *dev)
-> +{
-> +       struct mlx4_en_priv *priv = netdev_priv(dev);
-> +       struct mlx4_en_dev *mdev = priv->mdev;
-> +       unsigned long packets, bytes;
-> +       int i;
-> +
-> +       if (mlx4_is_master(mdev->dev))
-> +               return;
+In the cases that are fixed here with one exception of cls_cgroup, tp->root
+object is allocated and initialized inside ->init() callback, which is always
+performed at a point in time after we allocate a new tp, which means tp and
+thus tp->root was not globally visible in the tp chain yet (see tc_ctl_tfilter()).
+Also, on destruction tp->root is strictly kfree_rcu()'ed in ->destroy()
+handler, same for the tp which is kfree_rcu()'ed right when we return
+from ->destroy() in tcf_destroy(). This means, the head object's lifetime
+for such classifiers is always tied to the tp lifetime. The RCU callback
+invocation for the two kfree_rcu() could be out of order, but that's fine
+since both are independent.
 
-hmm, I think here you are just dragging a wrong discussion made in
-mlx4 driver that the PF (only in SRIOV mode) netdev stats should
-report the whole port stats from MLX4_CMD_DUMP_ETH_STATS FW command.
+Dropping the RCU_INIT_POINTER(tp->root, NULL) for these classifiers here
+means that 1) we don't need a useless NULL check in fast-path and, 2) that
+outstanding readers of that tp in tc_classify() can still execute under
+respect with RCU grace period as it is actually expected.
 
-IMHO mlx4_en_get_stats64 should always report SW stats.
-regardless, this function "mlx4_en_fold_software_stats" should always
-fold the SW stats unconditionally, and W/A it somewhere else if SW
-stats should be reported from FW. otherwise we will keep dragging this
-confusion.
+Things that haven't been touched here: cls_fw and cls_route. They each
+handle tp->root being NULL in ->classify() path for historic reasons, so
+their ->destroy() implementation can stay as is. If someone actually
+cares, they could get cleaned up at some point to avoid the test in fast
+path. cls_u32 doesn't set tp->root to NULL. For cls_rsvp, I just added a
+!head should anyone actually be using/testing it, so it at least aligns with
+cls_fw and cls_route. For cls_flower we additionally need to defer rhashtable
+destruction (to a sleepable context) after RCU grace period as concurrent
+readers might still access it. (Note that in this case we need to hold module
+reference to keep work callback address intact, since we only wait on module
+unload for all call_rcu()s to finish.)
 
-> +
-> +       packets = 0;
-> +       bytes = 0;
-> +       for (i = 0; i < priv->rx_ring_num; i++) {
-> +               const struct mlx4_en_rx_ring *ring = priv->rx_ring[i];
-> +
-> +               packets += READ_ONCE(ring->packets);
-> +               bytes   += READ_ONCE(ring->bytes);
-> +       }
-> +       dev->stats.rx_packets = packets;
-> +       dev->stats.rx_bytes = bytes;
-> +
-> +       packets = 0;
-> +       bytes = 0;
-> +       for (i = 0; i < priv->tx_ring_num[TX]; i++) {
-> +               const struct mlx4_en_tx_ring *ring = priv->tx_ring[TX][i];
-> +
-> +               packets += READ_ONCE(ring->packets);
-> +               bytes   += READ_ONCE(ring->bytes);
-> +       }
-> +       dev->stats.tx_packets = packets;
-> +       dev->stats.tx_bytes = bytes;
-> +}
-> +
->  int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
->  {
->         struct mlx4_counter tmp_counter_stats;
-> @@ -159,6 +192,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
->         u64 in_mod = reset << 8 | port;
->         int err;
->         int i, counter_index;
-> +       unsigned long sw_tx_dropped = 0;
->         unsigned long sw_rx_dropped = 0;
->
->         mailbox = mlx4_alloc_cmd_mailbox(mdev->dev);
-> @@ -174,8 +208,8 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
->
->         spin_lock_bh(&priv->stats_lock);
->
-> -       stats->rx_packets = 0;
-> -       stats->rx_bytes = 0;
-> +       mlx4_en_fold_software_stats(dev);
-> +
->         priv->port_stats.rx_chksum_good = 0;
->         priv->port_stats.rx_chksum_none = 0;
->         priv->port_stats.rx_chksum_complete = 0;
-> @@ -183,19 +217,16 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
->         priv->xdp_stats.rx_xdp_tx      = 0;
->         priv->xdp_stats.rx_xdp_tx_full = 0;
->         for (i = 0; i < priv->rx_ring_num; i++) {
-> -               stats->rx_packets += priv->rx_ring[i]->packets;
-> -               stats->rx_bytes += priv->rx_ring[i]->bytes;
-> -               sw_rx_dropped += priv->rx_ring[i]->dropped;
-> -               priv->port_stats.rx_chksum_good += priv->rx_ring[i]->csum_ok;
-> -               priv->port_stats.rx_chksum_none += priv->rx_ring[i]->csum_none;
-> -               priv->port_stats.rx_chksum_complete += priv->rx_ring[i]->csum_complete;
-> -               priv->xdp_stats.rx_xdp_drop    += priv->rx_ring[i]->xdp_drop;
-> -               priv->xdp_stats.rx_xdp_tx      += priv->rx_ring[i]->xdp_tx;
-> -               priv->xdp_stats.rx_xdp_tx_full += priv->rx_ring[i]->xdp_tx_full;
-> +               const struct mlx4_en_rx_ring *ring = priv->rx_ring[i];
-> +
-> +               sw_rx_dropped                   += READ_ONCE(ring->dropped);
-> +               priv->port_stats.rx_chksum_good += READ_ONCE(ring->csum_ok);
-> +               priv->port_stats.rx_chksum_none += READ_ONCE(ring->csum_none);
-> +               priv->port_stats.rx_chksum_complete += READ_ONCE(ring->csum_complete);
-> +               priv->xdp_stats.rx_xdp_drop     += READ_ONCE(ring->xdp_drop);
-> +               priv->xdp_stats.rx_xdp_tx       += READ_ONCE(ring->xdp_tx);
-> +               priv->xdp_stats.rx_xdp_tx_full  += READ_ONCE(ring->xdp_tx_full);
->         }
-> -       stats->tx_packets = 0;
-> -       stats->tx_bytes = 0;
-> -       stats->tx_dropped = 0;
->         priv->port_stats.tx_chksum_offload = 0;
->         priv->port_stats.queue_stopped = 0;
->         priv->port_stats.wake_queue = 0;
-> @@ -205,15 +236,14 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
->         for (i = 0; i < priv->tx_ring_num[TX]; i++) {
->                 const struct mlx4_en_tx_ring *ring = priv->tx_ring[TX][i];
->
-> -               stats->tx_packets += ring->packets;
-> -               stats->tx_bytes += ring->bytes;
-> -               stats->tx_dropped += ring->tx_dropped;
-> -               priv->port_stats.tx_chksum_offload += ring->tx_csum;
-> -               priv->port_stats.queue_stopped     += ring->queue_stopped;
-> -               priv->port_stats.wake_queue        += ring->wake_queue;
-> -               priv->port_stats.tso_packets       += ring->tso_packets;
-> -               priv->port_stats.xmit_more         += ring->xmit_more;
-> +               sw_tx_dropped                      += READ_ONCE(ring->tx_dropped);
-> +               priv->port_stats.tx_chksum_offload += READ_ONCE(ring->tx_csum);
-> +               priv->port_stats.queue_stopped     += READ_ONCE(ring->queue_stopped);
-> +               priv->port_stats.wake_queue        += READ_ONCE(ring->wake_queue);
-> +               priv->port_stats.tso_packets       += READ_ONCE(ring->tso_packets);
-> +               priv->port_stats.xmit_more         += READ_ONCE(ring->xmit_more);
->         }
-> +
->         if (mlx4_is_master(mdev->dev)) {
->                 stats->rx_packets = en_stats_adder(&mlx4_en_stats->RTOT_prio_0,
->                                                    &mlx4_en_stats->RTOT_prio_1,
+This fixes one race to bring RCU grace period guarantees back. Next step
+as worked on by Cong however is to fix 1e052be69d04 ("net_sched: destroy
+proto tp when all filters are gone") to get the order of unlinking the tp
+in tc_ctl_tfilter() for the RTM_DELTFILTER case right by moving
+RCU_INIT_POINTER() before tcf_destroy() and let the notification for
+removal be done through the prior ->delete() callback. Both are independant
+issues. Once we have that right, we can then clean tp->root up for a number
+of classifiers by not making them RCU pointers, which requires a new callback
+(->uninit) that is triggered from tp's RCU callback, where we just kfree()
+tp->root from there.
 
-As you see here in SRIOV mode (PF only) reads   sw stats from FW.
-Tariq, I think we need to fix this.
+Fixes: 1f947bf151e9 ("net: sched: rcu'ify cls_bpf")
+Fixes: 9888faefe132 ("net: sched: cls_basic use RCU")
+Fixes: 70da9f0bf999 ("net: sched: cls_flow use RCU")
+Fixes: 77b9900ef53a ("tc: introduce Flower classifier")
+Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
+Fixes: 952313bd6258 ("net: sched: cls_cgroup use RCU")
+Reported-by: Roi Dayan <roid@mellanox.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: John Fastabend <john.fastabend@gmail.com>
+Cc: Roi Dayan <roid@mellanox.com>
+Cc: Jiri Pirko <jiri@mellanox.com>
+---
+ net/sched/cls_basic.c    |  4 ----
+ net/sched/cls_bpf.c      |  4 ----
+ net/sched/cls_cgroup.c   |  7 +++----
+ net/sched/cls_flow.c     |  1 -
+ net/sched/cls_flower.c   | 31 ++++++++++++++++++++++++++-----
+ net/sched/cls_matchall.c |  1 -
+ net/sched/cls_rsvp.h     |  3 ++-
+ net/sched/cls_tcindex.c  |  1 -
+ 8 files changed, 31 insertions(+), 21 deletions(-)
 
-
-> @@ -251,7 +281,8 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
->         stats->rx_length_errors = be32_to_cpu(mlx4_en_stats->RdropLength);
->         stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
->         stats->rx_fifo_errors = be32_to_cpu(mlx4_en_stats->RdropOvflw);
-> -       stats->tx_dropped += be32_to_cpu(mlx4_en_stats->TDROP);
-> +       stats->tx_dropped = be32_to_cpu(mlx4_en_stats->TDROP) +
-> +                           sw_tx_dropped;
->
->         /* RX stats */
->         priv->pkstats.rx_multicast_packets = stats->multicast;
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> index 574bcbb1b38fc4758511d8f7bd17a87b0a507a73..20a936428f4a44c8ca0a7161855da310f9166b50 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> @@ -755,6 +755,7 @@ void mlx4_en_rx_irq(struct mlx4_cq *mcq);
->  int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port, u64 mac, u64 clear, u8 mode);
->  int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, struct mlx4_en_priv *priv);
->
-> +void mlx4_en_fold_software_stats(struct net_device *dev);
->  int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset);
->  int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
->
->
->
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index eb219b7..5877f60 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -62,9 +62,6 @@ static unsigned long basic_get(struct tcf_proto *tp, u32 handle)
+ 	struct basic_head *head = rtnl_dereference(tp->root);
+ 	struct basic_filter *f;
+ 
+-	if (head == NULL)
+-		return 0UL;
+-
+ 	list_for_each_entry(f, &head->flist, link) {
+ 		if (f->handle == handle) {
+ 			l = (unsigned long) f;
+@@ -109,7 +106,6 @@ static bool basic_destroy(struct tcf_proto *tp, bool force)
+ 		tcf_unbind_filter(tp, &f->res);
+ 		call_rcu(&f->rcu, basic_delete_filter);
+ 	}
+-	RCU_INIT_POINTER(tp->root, NULL);
+ 	kfree_rcu(head, rcu);
+ 	return true;
+ }
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index bb1d5a4..0a47ba5 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -292,7 +292,6 @@ static bool cls_bpf_destroy(struct tcf_proto *tp, bool force)
+ 		call_rcu(&prog->rcu, __cls_bpf_delete_prog);
+ 	}
+ 
+-	RCU_INIT_POINTER(tp->root, NULL);
+ 	kfree_rcu(head, rcu);
+ 	return true;
+ }
+@@ -303,9 +302,6 @@ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
+ 	struct cls_bpf_prog *prog;
+ 	unsigned long ret = 0UL;
+ 
+-	if (head == NULL)
+-		return 0UL;
+-
+ 	list_for_each_entry(prog, &head->plist, link) {
+ 		if (prog->handle == handle) {
+ 			ret = (unsigned long) prog;
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 85233c47..c1f2007 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -137,11 +137,10 @@ static bool cls_cgroup_destroy(struct tcf_proto *tp, bool force)
+ 
+ 	if (!force)
+ 		return false;
+-
+-	if (head) {
+-		RCU_INIT_POINTER(tp->root, NULL);
++	/* Head can still be NULL due to cls_cgroup_init(). */
++	if (head)
+ 		call_rcu(&head->rcu, cls_cgroup_destroy_rcu);
+-	}
++
+ 	return true;
+ }
+ 
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index e396723..6575aba 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -596,7 +596,6 @@ static bool flow_destroy(struct tcf_proto *tp, bool force)
+ 		list_del_rcu(&f->list);
+ 		call_rcu(&f->rcu, flow_destroy_filter);
+ 	}
+-	RCU_INIT_POINTER(tp->root, NULL);
+ 	kfree_rcu(head, rcu);
+ 	return true;
+ }
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index f6f40fb..b296f39 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -13,6 +13,7 @@
+ #include <linux/init.h>
+ #include <linux/module.h>
+ #include <linux/rhashtable.h>
++#include <linux/workqueue.h>
+ 
+ #include <linux/if_ether.h>
+ #include <linux/in6.h>
+@@ -64,7 +65,10 @@ struct cls_fl_head {
+ 	bool mask_assigned;
+ 	struct list_head filters;
+ 	struct rhashtable_params ht_params;
+-	struct rcu_head rcu;
++	union {
++		struct work_struct work;
++		struct rcu_head	rcu;
++	};
+ };
+ 
+ struct cls_fl_filter {
+@@ -269,6 +273,24 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
+ }
+ 
++static void fl_destroy_sleepable(struct work_struct *work)
++{
++	struct cls_fl_head *head = container_of(work, struct cls_fl_head,
++						work);
++	if (head->mask_assigned)
++		rhashtable_destroy(&head->ht);
++	kfree(head);
++	module_put(THIS_MODULE);
++}
++
++static void fl_destroy_rcu(struct rcu_head *rcu)
++{
++	struct cls_fl_head *head = container_of(rcu, struct cls_fl_head, rcu);
++
++	INIT_WORK(&head->work, fl_destroy_sleepable);
++	schedule_work(&head->work);
++}
++
+ static bool fl_destroy(struct tcf_proto *tp, bool force)
+ {
+ 	struct cls_fl_head *head = rtnl_dereference(tp->root);
+@@ -282,10 +304,9 @@ static bool fl_destroy(struct tcf_proto *tp, bool force)
+ 		list_del_rcu(&f->list);
+ 		call_rcu(&f->rcu, fl_destroy_filter);
+ 	}
+-	RCU_INIT_POINTER(tp->root, NULL);
+-	if (head->mask_assigned)
+-		rhashtable_destroy(&head->ht);
+-	kfree_rcu(head, rcu);
++
++	__module_get(THIS_MODULE);
++	call_rcu(&head->rcu, fl_destroy_rcu);
+ 	return true;
+ }
+ 
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index 25927b6..f935429 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -114,7 +114,6 @@ static bool mall_destroy(struct tcf_proto *tp, bool force)
+ 
+ 		call_rcu(&f->rcu, mall_destroy_filter);
+ 	}
+-	RCU_INIT_POINTER(tp->root, NULL);
+ 	kfree_rcu(head, rcu);
+ 	return true;
+ }
+diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+index 4f05a19..322438f 100644
+--- a/net/sched/cls_rsvp.h
++++ b/net/sched/cls_rsvp.h
+@@ -152,7 +152,8 @@ static int rsvp_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		return -1;
+ 	nhptr = ip_hdr(skb);
+ #endif
+-
++	if (unlikely(!head))
++		return -1;
+ restart:
+ 
+ #if RSVP_DST_LEN == 4
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index 96144bd..0751245 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -543,7 +543,6 @@ static bool tcindex_destroy(struct tcf_proto *tp, bool force)
+ 	walker.fn = tcindex_destroy_element;
+ 	tcindex_walk(tp, &walker);
+ 
+-	RCU_INIT_POINTER(tp->root, NULL);
+ 	call_rcu(&p->rcu, __tcindex_destroy);
+ 	return true;
+ }
+-- 
+1.9.3
