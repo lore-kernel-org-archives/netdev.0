@@ -1,15 +1,15 @@
 From: Roi Dayan <roid@mellanox.com>
-Subject: [PATCH net-next] net/sched: Export tc_tunnel_key so its UAPI accessible
-Date: Sun, 27 Nov 2016 12:07:13 +0200
-Message-ID: <1480241233-50097-1-git-send-email-roid@mellanox.com>
+Subject: [PATCH net] net/sched: Export tc_tunnel_key so its UAPI accessible
+Date: Sun, 27 Nov 2016 12:14:49 +0200
+Message-ID: <1480241689-51131-1-git-send-email-roid@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
         Roi Dayan <roid@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54042 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55289 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753358AbcK0KHb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 05:07:31 -0500
+        with ESMTP id S1753467AbcK0KPI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 05:15:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -18,6 +18,15 @@ Export tc_tunnel_key so it can be used from user space.
 Signed-off-by: Roi Dayan <roid@mellanox.com>
 Reviewed-by: Amir Vadai <amir@vadai.me>
 ---
+
+Hi,
+
+I previously sent the patch targeted for net-next but should be for net.
+
+Thanks,
+Roi
+
+
  include/uapi/linux/tc_act/Kbuild | 1 +
  1 file changed, 1 insertion(+)
 
