@@ -1,234 +1,339 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 07/10] net/mlx5e: Add support for ethtool self diagnostics test
-Date: Sun, 27 Nov 2016 17:02:09 +0200
-Message-ID: <1480258932-10302-8-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 08/10] net/mlx5e: Add support for loopback selftest
+Date: Sun, 27 Nov 2016 17:02:10 +0200
+Message-ID: <1480258932-10302-9-git-send-email-saeedm@mellanox.com>
 References: <1480258932-10302-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        Kamal Heib <kamalh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43795 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43793 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752387AbcK0PC3 (ORCPT
+        with ESMTP id S1752406AbcK0PC3 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 10:02:29 -0500
 In-Reply-To: <1480258932-10302-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamal Heib <kamalh@mellanox.com>
+Extend the self diagnostic tests to support loopback test.
 
-The self diagnostics test implementaion include the following features:
-1. Link Test: Check that link is in up state.
-2. Speed Test: Check that link was negotiated correctly.
-3. Health Test: Check the device health.
+The loopback test doesn't require the offline flag, it will use the
+generic dev_queue_xmit and a dedicated packet_type to capture and verify
+mlx5e selftest loopback packets.
 
-Signed-off-by: Kamal Heib <kamalh@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Kamal Heib <kamalh@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   5 +
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   8 +-
- .../net/ethernet/mellanox/mlx5/core/en_selftest.c  | 126 +++++++++++++++++++++
- 4 files changed, 139 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   3 +-
+ .../net/ethernet/mellanox/mlx5/core/en_common.c    |   7 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   2 +-
+ .../net/ethernet/mellanox/mlx5/core/en_selftest.c  | 218 +++++++++++++++++++++
+ 4 files changed, 227 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 0343725..9f43beb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -8,6 +8,6 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
- 		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
- 		en_rx.o en_rx_am.o en_txrx.o en_clock.o vxlan.o \
--		en_tc.o en_arfs.o en_rep.o en_fs_ethtool.o
-+		en_tc.o en_arfs.o en_rep.o en_fs_ethtool.o en_selftest.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 6c954cd..f7bb4a7 100644
+index f7bb4a7..9cf32d3 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -167,6 +167,8 @@ struct mlx5e_umr_wqe {
- 	struct mlx5_wqe_data_seg       data;
- };
+@@ -885,7 +885,8 @@ void mlx5e_destroy_tir(struct mlx5_core_dev *mdev,
+ 		       struct mlx5e_tir *tir);
+ int mlx5e_create_mdev_resources(struct mlx5_core_dev *mdev);
+ void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev);
+-int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5_core_dev *mdev);
++int mlx5e_refresh_tirs_self_loopback(struct mlx5_core_dev *mdev,
++				     bool enable_uc_lb);
  
-+extern const char mlx5e_self_tests[][ETH_GSTRING_LEN];
+ struct mlx5_eswitch_rep;
+ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
+index 029e856..f175518 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
+@@ -137,7 +137,8 @@ void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev)
+ 	mlx5_unmap_free_uar(mdev, &res->cq_uar);
+ }
+ 
+-int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5_core_dev *mdev)
++int mlx5e_refresh_tirs_self_loopback(struct mlx5_core_dev *mdev,
++				     bool enable_uc_lb)
+ {
+ 	struct mlx5e_tir *tir;
+ 	void *in;
+@@ -149,6 +150,10 @@ int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5_core_dev *mdev)
+ 	if (!in)
+ 		return -ENOMEM;
+ 
++	if (enable_uc_lb)
++		MLX5_SET(modify_tir_in, in, ctx.self_lb_block,
++			 MLX5_TIRC_SELF_LB_BLOCK_BLOCK_UNICAST_);
 +
- static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] = {
- 	"rx_cqe_moder",
- };
-@@ -754,6 +756,9 @@ int mlx5e_create_flow_steering(struct mlx5e_priv *priv);
- void mlx5e_destroy_flow_steering(struct mlx5e_priv *priv);
- void mlx5e_init_l2_addr(struct mlx5e_priv *priv);
- void mlx5e_destroy_flow_table(struct mlx5e_flow_table *ft);
-+int mlx5e_self_test_num(struct mlx5e_priv *priv);
-+void mlx5e_self_test(struct net_device *ndev, struct ethtool_test *etest,
-+		     u64 *buf);
- int mlx5e_ethtool_get_flow(struct mlx5e_priv *priv, struct ethtool_rxnfc *info,
- 			   int location);
- int mlx5e_ethtool_get_all_flows(struct mlx5e_priv *priv,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 9ea7b37..839c4e9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -180,6 +180,8 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 	MLX5_SET(modify_tir_in, in, bitmask.self_lb_en, 1);
  
- 	case ETH_SS_PRIV_FLAGS:
- 		return ARRAY_SIZE(mlx5e_priv_flags);
-+	case ETH_SS_TEST:
-+		return mlx5e_self_test_num(priv);
- 	/* fallthrough */
- 	default:
- 		return -EOPNOTSUPP;
-@@ -286,6 +288,9 @@ static void mlx5e_get_strings(struct net_device *dev,
- 		break;
+ 	list_for_each_entry(tir, &mdev->mlx5e_res.td.tirs_list, list) {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index f5b93c2..89d5c65 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2136,7 +2136,7 @@ int mlx5e_open_locked(struct net_device *netdev)
+ 		goto err_clear_state_opened_flag;
+ 	}
  
- 	case ETH_SS_TEST:
-+		for (i = 0; i < mlx5e_self_test_num(priv); i++)
-+			strcpy(data + i * ETH_GSTRING_LEN,
-+			       mlx5e_self_tests[i]);
- 		break;
- 
- 	case ETH_SS_STATS:
-@@ -1573,5 +1578,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_module_info   = mlx5e_get_module_info,
- 	.get_module_eeprom = mlx5e_get_module_eeprom,
- 	.get_priv_flags    = mlx5e_get_priv_flags,
--	.set_priv_flags    = mlx5e_set_priv_flags
-+	.set_priv_flags    = mlx5e_set_priv_flags,
-+	.self_test         = mlx5e_self_test,
- };
+-	err = mlx5e_refresh_tirs_self_loopback_enable(priv->mdev);
++	err = mlx5e_refresh_tirs_self_loopback(priv->mdev, false);
+ 	if (err) {
+ 		netdev_err(netdev, "%s: mlx5e_refresh_tirs_self_loopback_enable failed, %d\n",
+ 			   __func__, err);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
-new file mode 100644
-index 0000000..49504a7
---- /dev/null
+index 49504a7..c32af7d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
-@@ -0,0 +1,126 @@
-+/*
-+ * Copyright (c) 2016, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
+@@ -30,12 +30,16 @@
+  * SOFTWARE.
+  */
+ 
++#include <linux/ip.h>
++#include <linux/udp.h>
++#include <net/udp.h>
+ #include "en.h"
+ 
+ enum {
+ 	MLX5E_ST_LINK_STATE,
+ 	MLX5E_ST_LINK_SPEED,
+ 	MLX5E_ST_HEALTH_INFO,
++	MLX5E_ST_LOOPBACK,
+ 	MLX5E_ST_NUM,
+ };
+ 
+@@ -43,6 +47,7 @@ const char mlx5e_self_tests[MLX5E_ST_NUM][ETH_GSTRING_LEN] = {
+ 	"Link Test",
+ 	"Speed Test",
+ 	"Health Test",
++	"Loopback Test",
+ };
+ 
+ int mlx5e_self_test_num(struct mlx5e_priv *priv)
+@@ -88,10 +93,223 @@ static int mlx5e_test_link_speed(struct mlx5e_priv *priv)
+ 	return 1;
+ }
+ 
++/* loopback test */
++#define MLX5E_TEST_PKT_SIZE (MLX5_MPWRQ_SMALL_PACKET_THRESHOLD - NET_IP_ALIGN)
++static const char mlx5e_test_text[ETH_GSTRING_LEN] = "MLX5E SELF TEST";
++#define MLX5E_TEST_MAGIC 0x5AEED15C001ULL
 +
-+#include "en.h"
-+
-+enum {
-+	MLX5E_ST_LINK_STATE,
-+	MLX5E_ST_LINK_SPEED,
-+	MLX5E_ST_HEALTH_INFO,
-+	MLX5E_ST_NUM,
++struct mlx5ehdr {
++	__be32 version;
++	__be64 magic;
++	char   text[ETH_GSTRING_LEN];
 +};
 +
-+const char mlx5e_self_tests[MLX5E_ST_NUM][ETH_GSTRING_LEN] = {
-+	"Link Test",
-+	"Speed Test",
-+	"Health Test",
++static struct sk_buff *mlx5e_test_get_udp_skb(struct mlx5e_priv *priv)
++{
++	struct sk_buff *skb = NULL;
++	struct mlx5ehdr *mlxh;
++	struct ethhdr *ethh;
++	struct udphdr *udph;
++	struct iphdr *iph;
++	int datalen, iplen;
++
++	datalen = MLX5E_TEST_PKT_SIZE -
++		  (sizeof(*ethh) + sizeof(*iph) + sizeof(*udph));
++
++	skb = netdev_alloc_skb(priv->netdev, MLX5E_TEST_PKT_SIZE);
++	if (!skb) {
++		netdev_err(priv->netdev, "\tFailed to alloc loopback skb\n");
++		return NULL;
++	}
++
++	prefetchw(skb->data);
++	skb_reserve(skb, NET_IP_ALIGN);
++
++	/*  Reserve for ethernet and IP header  */
++	ethh = (struct ethhdr *)skb_push(skb, ETH_HLEN);
++	skb_reset_mac_header(skb);
++
++	skb_set_network_header(skb, skb->len);
++	iph = (struct iphdr *)skb_put(skb, sizeof(struct iphdr));
++
++	skb_set_transport_header(skb, skb->len);
++	udph = (struct udphdr *)skb_put(skb, sizeof(struct udphdr));
++
++	/* Fill ETH header */
++	ether_addr_copy(ethh->h_dest, priv->netdev->dev_addr);
++	eth_zero_addr(ethh->h_source);
++	ethh->h_proto = htons(ETH_P_IP);
++
++	/* Fill UDP header */
++	udph->source = htons(9);
++	udph->dest = htons(9); /* Discard Protocol */
++	udph->len = htons(datalen + sizeof(struct udphdr));
++	udph->check = 0;
++
++	/* Fill IP header */
++	iph->ihl = 5;
++	iph->ttl = 32;
++	iph->version = 4;
++	iph->protocol = IPPROTO_UDP;
++	iplen = sizeof(struct iphdr) + sizeof(struct udphdr) + datalen;
++	iph->tot_len = htons(iplen);
++	iph->frag_off = 0;
++	iph->saddr = 0;
++	iph->daddr = 0;
++	iph->tos = 0;
++	iph->id = 0;
++	ip_send_check(iph);
++
++	/* Fill test header and data */
++	mlxh = (struct mlx5ehdr *)skb_put(skb, sizeof(*mlxh));
++	mlxh->version = 0;
++	mlxh->magic = cpu_to_be64(MLX5E_TEST_MAGIC);
++	strlcpy(mlxh->text, mlx5e_test_text, sizeof(mlxh->text));
++	datalen -= sizeof(*mlxh);
++	memset(skb_put(skb, datalen), 0, datalen);
++
++	skb->csum = 0;
++	skb->ip_summed = CHECKSUM_PARTIAL;
++	udp4_hwcsum(skb, iph->saddr, iph->daddr);
++
++	skb->protocol = htons(ETH_P_IP);
++	skb->pkt_type = PACKET_HOST;
++	skb->dev = priv->netdev;
++
++	return skb;
++}
++
++struct mlx5e_lbt_priv {
++	struct packet_type pt;
++	struct completion comp;
++	bool loopback_ok;
 +};
 +
-+int mlx5e_self_test_num(struct mlx5e_priv *priv)
++static int
++mlx5e_test_loopback_validate(struct sk_buff *skb,
++			     struct net_device *ndev,
++			     struct packet_type *pt,
++			     struct net_device *orig_ndev)
 +{
-+	return ARRAY_SIZE(mlx5e_self_tests);
++	struct mlx5e_lbt_priv *lbtp = pt->af_packet_priv;
++	struct mlx5ehdr *mlxh;
++	struct ethhdr *ethh;
++	struct udphdr *udph;
++	struct iphdr *iph;
++
++	/* We are only going to peek, no need to clone the SKB */
++	if (skb->protocol != htons(ETH_P_IP))
++		goto out;
++
++	if (MLX5E_TEST_PKT_SIZE - ETH_HLEN > skb_headlen(skb))
++		goto out;
++
++	ethh = (struct ethhdr *)skb_mac_header(skb);
++	if (!ether_addr_equal(ethh->h_dest, orig_ndev->dev_addr))
++		goto out;
++
++	iph = ip_hdr(skb);
++	if (iph->protocol != IPPROTO_UDP)
++		goto out;
++
++	udph = udp_hdr(skb);
++	if (udph->dest != htons(9))
++		goto out;
++
++	mlxh = (struct mlx5ehdr *)((char *)udph + sizeof(*udph));
++	if (mlxh->magic != cpu_to_be64(MLX5E_TEST_MAGIC))
++		goto out; /* so close ! */
++
++	/* bingo */
++	lbtp->loopback_ok = true;
++	complete(&lbtp->comp);
++out:
++	kfree_skb(skb);
++	return 0;
 +}
 +
-+static int mlx5e_test_health_info(struct mlx5e_priv *priv)
++static int mlx5e_test_loopback_setup(struct mlx5e_priv *priv,
++				     struct mlx5e_lbt_priv *lbtp)
 +{
-+	struct mlx5_core_health *health = &priv->mdev->priv.health;
++	int err = 0;
 +
-+	return health->sick ? 1 : 0;
-+}
-+
-+static int mlx5e_test_link_state(struct mlx5e_priv *priv)
-+{
-+	u8 port_state;
-+
-+	if (!netif_carrier_ok(priv->netdev))
-+		return 1;
-+
-+	port_state = mlx5_query_vport_state(priv->mdev, MLX5_QUERY_VPORT_STATE_IN_OP_MOD_VNIC_VPORT, 0);
-+	return port_state == VPORT_STATE_UP ? 0 : 1;
-+}
-+
-+static int mlx5e_test_link_speed(struct mlx5e_priv *priv)
-+{
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	u32 eth_proto_oper;
-+	int i;
-+
-+	if (!netif_carrier_ok(priv->netdev))
-+		return 1;
-+
-+	if (mlx5_query_port_ptys(priv->mdev, out, sizeof(out), MLX5_PTYS_EN, 1))
-+		return 1;
-+
-+	eth_proto_oper = MLX5_GET(ptys_reg, out, eth_proto_oper);
-+	for (i = 0; i < MLX5E_LINK_MODES_NUMBER; i++) {
-+		if (eth_proto_oper & MLX5E_PROT_MASK(i))
-+			return 0;
-+	}
-+	return 1;
-+}
-+
-+static int (*mlx5e_st_func[MLX5E_ST_NUM])(struct mlx5e_priv *) = {
-+	mlx5e_test_link_state,
-+	mlx5e_test_link_speed,
-+	mlx5e_test_health_info,
-+};
-+
-+void mlx5e_self_test(struct net_device *ndev, struct ethtool_test *etest,
-+		     u64 *buf)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(ndev);
-+	int i;
-+
-+	memset(buf, 0, sizeof(u64) * MLX5E_ST_NUM);
-+
-+	mutex_lock(&priv->state_lock);
-+	netdev_info(ndev, "Self test begin..\n");
-+
-+	for (i = 0; i < MLX5E_ST_NUM; i++) {
-+		netdev_info(ndev, "\t[%d] %s start..\n",
-+			    i, mlx5e_self_tests[i]);
-+		buf[i] = mlx5e_st_func[i](priv);
-+		netdev_info(ndev, "\t[%d] %s end: result(%lld)\n",
-+			    i, mlx5e_self_tests[i], buf[i]);
++	err = mlx5e_refresh_tirs_self_loopback(priv->mdev, true);
++	if (err) {
++		netdev_err(priv->netdev,
++			   "\tFailed to enable UC loopback err(%d)\n", err);
++		return err;
 +	}
 +
-+	mutex_unlock(&priv->state_lock);
++	lbtp->loopback_ok = false;
++	init_completion(&lbtp->comp);
 +
-+	for (i = 0; i < MLX5E_ST_NUM; i++) {
-+		if (buf[i]) {
-+			etest->flags |= ETH_TEST_FL_FAILED;
-+			break;
-+		}
-+	}
-+	netdev_info(ndev, "Self test out: status flags(0x%x)\n",
-+		    etest->flags);
++	lbtp->pt.type = htons(ETH_P_ALL);
++	lbtp->pt.func = mlx5e_test_loopback_validate;
++	lbtp->pt.dev = priv->netdev;
++	lbtp->pt.af_packet_priv = lbtp;
++	dev_add_pack(&lbtp->pt);
++	return err;
 +}
++
++static void mlx5e_test_loopback_cleanup(struct mlx5e_priv *priv,
++					struct mlx5e_lbt_priv *lbtp)
++{
++	dev_remove_pack(&lbtp->pt);
++	mlx5e_refresh_tirs_self_loopback(priv->mdev, false);
++}
++
++#define MLX5E_LB_VERIFY_TIMEOUT (msecs_to_jiffies(200))
++static int mlx5e_test_loopback(struct mlx5e_priv *priv)
++{
++	struct mlx5e_lbt_priv *lbtp;
++	struct sk_buff *skb = NULL;
++	int err;
++
++	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
++		netdev_err(priv->netdev,
++			   "\tCan't perform loobpack test while device is down\n");
++		return -ENODEV;
++	}
++
++	lbtp = kzalloc(sizeof(*lbtp), GFP_KERNEL);
++	if (!lbtp)
++		return -ENOMEM;
++	lbtp->loopback_ok = false;
++
++	err = mlx5e_test_loopback_setup(priv, lbtp);
++	if (err)
++		goto out;
++
++	skb = mlx5e_test_get_udp_skb(priv);
++	if (!skb) {
++		err = -ENOMEM;
++		goto cleanup;
++	}
++
++	skb_set_queue_mapping(skb, 0);
++	err = dev_queue_xmit(skb);
++	if (err) {
++		netdev_err(priv->netdev,
++			   "\tFailed to xmit loopback packet err(%d)\n",
++			   err);
++		goto cleanup;
++	}
++
++	wait_for_completion_timeout(&lbtp->comp, MLX5E_LB_VERIFY_TIMEOUT);
++	err = !lbtp->loopback_ok;
++
++cleanup:
++	mlx5e_test_loopback_cleanup(priv, lbtp);
++out:
++	kfree(lbtp);
++	return err;
++}
++
+ static int (*mlx5e_st_func[MLX5E_ST_NUM])(struct mlx5e_priv *) = {
+ 	mlx5e_test_link_state,
+ 	mlx5e_test_link_speed,
+ 	mlx5e_test_health_info,
++	mlx5e_test_loopback
+ };
+ 
+ void mlx5e_self_test(struct net_device *ndev, struct ethtool_test *etest,
 -- 
 2.7.4
