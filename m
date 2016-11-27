@@ -1,55 +1,103 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: Large performance regression with 6in4 tunnel (sit)
-Date: Sun, 27 Nov 2016 14:23:40 +1100
-Message-ID: <20161127142340.3a5c197e@canb.auug.org.au>
-References: <20161125120947.142c3af5@canb.auug.org.au>
-        <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
-        <20161125134520.68ca0969@canb.auug.org.au>
-        <alpine.DEB.2.20.1611250503250.22094@aurora.sdinet.de>
+From: Roi Dayan <roid@mellanox.com>
+Subject: Re: [Patch net-next] net_sched: move the empty tp check from
+ ->destroy() to ->delete()
+Date: Sun, 27 Nov 2016 06:47:35 +0200
+Message-ID: <583A6567.30003@mellanox.com>
+References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com>
+ <5836A4D4.2010500@mellanox.com> <5836BD82.6080407@iogearbox.net>
+ <5836C87E.8050506@mellanox.com> <58370558.9070004@iogearbox.net>
+ <CAM_iQpVxevmk3rgsnALC0JCqx7pOF2OBc=kpg9QDK8Cwb6P9Zw@mail.gmail.com>
+ <58396D71.8070703@iogearbox.net> <583A29E3.8030809@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eli Cooper <elicooper@gmx.com>, netdev@vger.kernel.org,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Sven-Haegar Koch <haegar@sdinet.de>
+Cc: <roid@mellanox.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:43409 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752505AbcK0DXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 26 Nov 2016 22:23:43 -0500
-In-Reply-To: <alpine.DEB.2.20.1611250503250.22094@aurora.sdinet.de>
+Received: from mail-db5eur01on0051.outbound.protection.outlook.com ([104.47.2.51]:26853
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750828AbcK0FUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Nov 2016 00:20:35 -0500
+In-Reply-To: <583A29E3.8030809@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sven-Haegar,
 
-On Fri, 25 Nov 2016 05:06:53 +0100 (CET) Sven-Haegar Koch <haegar@sdinet.de> wrote:
+
+On 27/11/2016 02:33, Daniel Borkmann wrote:
+> On 11/26/2016 12:09 PM, Daniel Borkmann wrote:
+>> On 11/26/2016 07:46 AM, Cong Wang wrote:
+>>> On Thu, Nov 24, 2016 at 7:20 AM, Daniel Borkmann 
+>>> <daniel@iogearbox.net> wrote:
+> [...]
+>>>> Ok, strange, qdisc_destroy() calls into ops->destroy(), where ingress
+>>>> drops its entire chain via tcf_destroy_chain(), so that will be NULL
+>>>> eventually. The tps are freed by call_rcu() as well as qdisc itself
+>>>> later on via qdisc_rcu_free(), where it frees per-cpu bstats as well.
+>>>> Outstanding readers should either bail out due to if (!cl) or can 
+>>>> still
+>>>> process the chain until read section ends, but during that time, cl->q
+>>>> resp. bstats should be good. Do you happen to know what's at address
+>>>> ffff880a68b04028? I was wondering wrt call_rcu() vs call_rcu_bh(), but
+>>>> at least on ingress (netif_receive_skb_internal()) we hold 
+>>>> rcu_read_lock()
+>>>> here. The KASAN report is reliably happening at this location, right?
+>>>
+>>> I am confused as well, I don't see how it could be related to my 
+>>> patch yet.
+>>> I will take a deep look in the weekend.
+
+
+
+Hi Cong,
+
+When reported the new trace I didn't mean it's related to your patch, I 
+just wanted to point it out it exposed something. I should have been 
+clear about it.
+
+
+>>
+>> Ok, I'm currently on the run. Got too late yesterday night, but I'll
+>> write what I found in the evening today, not related to ingress though.
 >
-> Somehow this problem description really reminds me of a report on 
-> netdev a bit ago, which the following patch fixed:
-> 
-> commit 9ee6c5dc816aa8256257f2cd4008a9291ec7e985
-> Author: Lance Richardson <lrichard@redhat.com>
-> Date:   Wed Nov 2 16:36:17 2016 -0400
-> 
->     ipv4: allow local fragmentation in ip_finish_output_gso()
->     
->     Some configurations (e.g. geneve interface with default
->     MTU of 1500 over an ethernet interface with 1500 MTU) result
->     in the transmission of packets that exceed the configured MTU.
->     While this should be considered to be a "bad" configuration,
->     it is still allowed and should not result in the sending
->     of packets that exceed the configured MTU.
-> 
-> Could this be related?
-> 
-> I suppose it would be difficult to test this patch on this machine?
+> Just pushed out my analysis to netdev under "[PATCH net] net, sched: 
+> respect
+> rcu grace period on cls destruction". My conclusion is that both 
+> issues are
+> actually separate, and that one is small enough where we could route 
+> it via
+> net actually. Perhaps this at the same time shrinks your "[PATCH 
+> net-next]
+> net_sched: move the empty tp check from ->destroy() to ->delete()" to a
+> reasonable size that it's suitable to net as well. Your 
+> ->delete()/->destroy()
+> one is definitely needed, too. The tp->root one is independant of 
+> ->delete()/
+> ->destroy() as they are different races and tp->root could also happen 
+> when
+> you just destroy the whole tp directly. I think that seems like a good 
+> path
+> forward to me.
+>
+> Thanks,
+> Daniel
 
-The kernel I am running on is based on 4.7.8, so the above patch
-doesn't come close to applying. Most fo what it is reverting was
-introduced in commit 359ebda25aa0 ("net/ipv4: Introduce IPSKB_FRAG_SEGS
-bit to inet_skb_parm.flags") in v4.8-rc1.
 
--- 
-Cheers,
-Stephen Rothwell
+
+Hi Daniel,
+
+As for the tainted kernel. I was in old (week or two) net-next tree and 
+only cherry-picked from latest net-next related patches to Mellanox HCA, 
+cls_api, cls_flower, devlink. so those are the tainted modules.
+I have the issue reproducing in that tree so wanted it to check it with 
+Cong's patch instead of latest net-next.
+I'll try running reproducing the issue with your new patch and later try 
+latest net-next as well.
+
+Thanks,
+Roi
