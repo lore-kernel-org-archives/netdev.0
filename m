@@ -1,59 +1,55 @@
-From: Jon LaBadie <jonfu@jgcomp.com>
-Subject: ip manpage comments
-Date: Sat, 26 Nov 2016 21:49:32 -0500
-Message-ID: <20161127024932.GA9954@cyber.jgcomp.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: Large performance regression with 6in4 tunnel (sit)
+Date: Sun, 27 Nov 2016 14:23:40 +1100
+Message-ID: <20161127142340.3a5c197e@canb.auug.org.au>
+References: <20161125120947.142c3af5@canb.auug.org.au>
+        <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
+        <20161125134520.68ca0969@canb.auug.org.au>
+        <alpine.DEB.2.20.1611250503250.22094@aurora.sdinet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eli Cooper <elicooper@gmx.com>, netdev@vger.kernel.org,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Sven-Haegar Koch <haegar@sdinet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a2i805.smtp2go.com ([103.47.207.37]:57453 "EHLO
-        a2i805.smtp2go.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752830AbcK0DAT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 22:00:19 -0500
-Content-Disposition: inline
+Received: from ozlabs.org ([103.22.144.67]:43409 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752505AbcK0DXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 26 Nov 2016 22:23:43 -0500
+In-Reply-To: <alpine.DEB.2.20.1611250503250.22094@aurora.sdinet.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Though not new to *nix, I am new to using the ip(8) command.
-Thus some of my historical assumptions about ip may be wrong.
+Hi Sven-Haegar,
 
-It seems that an inclusive manpage for the ip command was
-broken up into a shorter ip(8) manpage and 15 or more
-ip-<subcommand>(8) manpages.  I'm basing this assumption
-on long, inclusive manpages on https://linux.die.net/man/8/ip
-and CentOS 6 while CentOS 7 and Fedora 24 each have the
-sub-divided style.
+On Fri, 25 Nov 2016 05:06:53 +0100 (CET) Sven-Haegar Koch <haegar@sdinet.de> wrote:
+>
+> Somehow this problem description really reminds me of a report on 
+> netdev a bit ago, which the following patch fixed:
+> 
+> commit 9ee6c5dc816aa8256257f2cd4008a9291ec7e985
+> Author: Lance Richardson <lrichard@redhat.com>
+> Date:   Wed Nov 2 16:36:17 2016 -0400
+> 
+>     ipv4: allow local fragmentation in ip_finish_output_gso()
+>     
+>     Some configurations (e.g. geneve interface with default
+>     MTU of 1500 over an ethernet interface with 1500 MTU) result
+>     in the transmission of packets that exceed the configured MTU.
+>     While this should be considered to be a "bad" configuration,
+>     it is still allowed and should not result in the sending
+>     of packets that exceed the configured MTU.
+> 
+> Could this be related?
+> 
+> I suppose it would be difficult to test this patch on this machine?
 
-I won't debate the wisdom of this subdivision, only comment
-on how it was done.
+The kernel I am running on is based on 4.7.8, so the above patch
+doesn't come close to applying. Most fo what it is reverting was
+introduced in commit 359ebda25aa0 ("net/ipv4: Introduce IPSKB_FRAG_SEGS
+bit to inet_skb_parm.flags") in v4.8-rc1.
 
-The ip(8) manpage make no mention of additional subordinate
-documents.  The listing of the additional documents in the
-See Also section is insufficient.  This section is typically
-used to mention related commands and other sources of reference
-materials such as info docs, wikis, blogs, or mailing lists.
-
-When one does investigate one of the subordinate manpages,
-they do not state that they document subcommands of the
-ip command.  In fact, on the ip-address(8) manpage it says
-
-  The `ip address command' ...   (quotes added)
-
-My first thought was "typo", this is the manpage about the
-"ip-address" command.  Of course there is no ip-address command.
-But "ip address" is not a command either, it is the "ip" command
-with an argument.
-
-There are several commands that have broken their manpage into
-several manpages.  Two which come to mind are zsh(1) and perl(1).
-The authors of those pages clearly state on the primary manpage
-that this is an overview page and give clear pointers to the
-additional manpages as well as additional documentation.  I would
-recommend reorganizing the ip(8) manpage in a similar fashion.
-
-Thank you for consideration of my opinion and for the development
-of an awesome tool.
-
-Jon
 -- 
-Jon H. LaBadie                  jonfu@jgcomp.com
+Cheers,
+Stephen Rothwell
