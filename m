@@ -1,49 +1,66 @@
-From: Roi Dayan <roid@mellanox.com>
-Subject: Re: [PATCH iproute2 0/2] Adding help and inline mode control to
- eswitch
-Date: Sun, 27 Nov 2016 13:30:21 +0200
-Message-ID: <583AC3CD.20904@mellanox.com>
-References: <1480245663-814-1-git-send-email-roid@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <roid@mellanox.com>, <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net-next 00/10] mlx4 misc improvements
+Date: Sun, 27 Nov 2016 17:51:07 +0200
+Message-ID: <1480261877-19720-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0056.outbound.protection.outlook.com ([104.47.2.56]:29424
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751425AbcK0PFj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Nov 2016 10:05:39 -0500
-In-Reply-To: <1480245663-814-1-git-send-email-roid@mellanox.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50415 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753021AbcK0Pv3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 10:51:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+Hi Dave,
 
-I forgot to mention that the patches are for net-next branch of iproute2.
+This patchset contains several improvements, cleanups, and bug fixes
+from the team to the mlx4 Eth and core drivers.
+
+Series generated against net-next commit:
+e5f12b3f5ebb Merge branch 'mlxsw-trap-groups-and-policers'
 
 Thanks,
-Roi
+Tariq.
 
+Alaa Hleihel (1):
+  net/mlx4_core: Get num_tc using netdev_get_num_tc
 
-On 27/11/2016 13:21, Roi Dayan wrote:
-> Hi,
->
-> The first patch is adding missing help message for eswitch.
-> The second patch is adding functionality to show/modify eswitch inline mode.
->
-> Thanks,
-> Roi
->
->
-> Roi Dayan (2):
->    devlink: Add usage help for eswitch subcommand
->    devlink: Add option to set and show eswitch inline mode
->
->   devlink/devlink.c       |   89 +++++++++++++++++++++++++++++++++++++++++++++-
->   include/linux/devlink.h |    8 ++++
->   man/man8/devlink-dev.8  |   21 ++++++++++-
->   3 files changed, 115 insertions(+), 3 deletions(-)
->
+Daniel Jurgens (1):
+  net/mlx4_core: Set EQ affinity hint to local NUMA CPUs
+
+Eran Ben Elisha (1):
+  net/mlx4_core: Dynamically allocate structs at mlx4_slave_cap
+
+Erez Shitrit (2):
+  net/mlx4_core: Make each VF manage its own mac table
+  net/mlx4_en: Add new FDB entry only if there is space in the mac table
+
+Jack Morgenstein (1):
+  net/mlx4_core: Fix racy CQ (Completion Queue) free
+
+Matan Barak (2):
+  net/mlx4_core: Add resource alloc/dealloc debugging
+  net/mlx4: Change number of max MSIXs from 64 to 1024
+
+Tariq Toukan (1):
+  net/mlx4: Replace ENOSYS with better fitting error codes
+
+Yishai Hadas (1):
+  net/mlx4_core: Device revision support
+
+ drivers/net/ethernet/mellanox/mlx4/cq.c            |  38 ++--
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |   4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   6 +
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c         |   2 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |  17 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c          | 253 ++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   1 +
+ drivers/net/ethernet/mellanox/mlx4/port.c          |  98 +++++++-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  57 ++++-
+ include/linux/mlx4/device.h                        |   4 +-
+ 10 files changed, 342 insertions(+), 138 deletions(-)
+
+-- 
+1.8.3.1
