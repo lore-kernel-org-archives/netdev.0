@@ -1,79 +1,413 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 1/4] bnxt_en: Re-factor bnxt_setup_tc().
-Date: Sat, 26 Nov 2016 19:38:32 -0500
-Message-ID: <1480207115-21294-2-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 2/4] bnxt_en: Update firmware header file to include DCB command structs.
+Date: Sat, 26 Nov 2016 19:38:33 -0500
+Message-ID: <1480207115-21294-3-git-send-email-michael.chan@broadcom.com>
 References: <1480207115-21294-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:34722 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751268AbcK0Ait (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 19:38:49 -0500
-Received: by mail-pg0-f50.google.com with SMTP id x23so42418931pgx.1
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 16:38:48 -0800 (PST)
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:33162 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752307AbcK0Aiu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 19:38:50 -0500
+Received: by mail-pg0-f42.google.com with SMTP id 3so42450032pgd.0
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 16:38:50 -0800 (PST)
 In-Reply-To: <1480207115-21294-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new function bnxt_setup_mq_tc() to handle MQPRIO.  This new function
-will be called during ETS setup when we add DCBNL in the next patch.
+Get and store the max number of lossless TCs the hardware can support.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 18 ++++++++++--------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
- 2 files changed, 11 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     |   4 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h     |   1 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h | 326 ++++++++++++++++++++++++++
+ 3 files changed, 331 insertions(+)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 8c7bdbe..b75f4d0 100644
+index b75f4d0..58a75f4 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -6328,17 +6328,10 @@ static int bnxt_change_mtu(struct net_device *dev, int new_mtu)
- 	return 0;
- }
+@@ -4252,12 +4252,16 @@ static int bnxt_hwrm_queue_qportcfg(struct bnxt *bp)
+ 		goto qportcfg_exit;
+ 	}
+ 	bp->max_tc = resp->max_configurable_queues;
++	bp->max_lltc = resp->max_configurable_lossless_queues;
+ 	if (bp->max_tc > BNXT_MAX_QUEUE)
+ 		bp->max_tc = BNXT_MAX_QUEUE;
  
--static int bnxt_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
--			 struct tc_to_netdev *ntc)
-+int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
- {
- 	struct bnxt *bp = netdev_priv(dev);
- 	bool sh = false;
--	u8 tc;
--
--	if (ntc->type != TC_SETUP_MQPRIO)
--		return -EINVAL;
--
--	tc = ntc->tc;
+ 	if (resp->queue_cfg_info & QUEUE_QPORTCFG_RESP_QUEUE_CFG_INFO_ASYM_CFG)
+ 		bp->max_tc = 1;
  
- 	if (tc > bp->max_tc) {
- 		netdev_err(dev, "too many traffic classes requested: %d Max supported is %d\n",
-@@ -6381,6 +6374,15 @@ static int bnxt_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
- 	return 0;
- }
- 
-+static int bnxt_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
-+			 struct tc_to_netdev *ntc)
-+{
-+	if (ntc->type != TC_SETUP_MQPRIO)
-+		return -EINVAL;
++	if (bp->max_lltc > bp->max_tc)
++		bp->max_lltc = bp->max_tc;
 +
-+	return bnxt_setup_mq_tc(dev, ntc->tc);
-+}
-+
- #ifdef CONFIG_RFS_ACCEL
- static bool bnxt_fltr_match(struct bnxt_ntuple_filter *f1,
- 			    struct bnxt_ntuple_filter *f2)
+ 	qptr = &resp->queue_id0;
+ 	for (i = 0; i < bp->max_tc; i++) {
+ 		bp->q_info[i].queue_id = *qptr++;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 47be789..fcd07ee 100644
+index fcd07ee..edde11e 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1225,5 +1225,6 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
- int bnxt_hwrm_fw_set_time(struct bnxt *);
- int bnxt_open_nic(struct bnxt *, bool, bool);
- int bnxt_close_nic(struct bnxt *, bool, bool);
-+int bnxt_setup_mq_tc(struct net_device *dev, u8 tc);
- int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
- #endif
+@@ -1010,6 +1010,7 @@ struct bnxt {
+ 	u32			rss_hash_cfg;
+ 
+ 	u8			max_tc;
++	u8			max_lltc;	/* lossless TCs */
+ 	struct bnxt_queue_info	q_info[BNXT_MAX_QUEUE];
+ 
+ 	unsigned int		current_interval;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
+index 0456d5b..5565612 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
+@@ -2355,6 +2355,39 @@ struct hwrm_queue_cfg_output {
+ 	u8 valid;
+ };
+ 
++/* hwrm_queue_pfcenable_qcfg */
++/* Input (24 bytes) */
++struct hwrm_queue_pfcenable_qcfg_input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le16 port_id;
++	__le16 unused_0[3];
++};
++
++/* Output (16 bytes) */
++struct hwrm_queue_pfcenable_qcfg_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	__le32 flags;
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI0_PFC_ENABLED   0x1UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI1_PFC_ENABLED   0x2UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI2_PFC_ENABLED   0x4UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI3_PFC_ENABLED   0x8UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI4_PFC_ENABLED   0x10UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI5_PFC_ENABLED   0x20UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI6_PFC_ENABLED   0x40UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI7_PFC_ENABLED   0x80UL
++	u8 unused_0;
++	u8 unused_1;
++	u8 unused_2;
++	u8 valid;
++};
++
+ /* hwrm_queue_pfcenable_cfg */
+ /* Input (24 bytes) */
+ struct hwrm_queue_pfcenable_cfg_input {
+@@ -2389,6 +2422,48 @@ struct hwrm_queue_pfcenable_cfg_output {
+ 	u8 valid;
+ };
+ 
++/* hwrm_queue_pri2cos_qcfg */
++/* Input (24 bytes) */
++struct hwrm_queue_pri2cos_qcfg_input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le32 flags;
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH		    0x1UL
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_TX		   (0x0UL << 0)
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_RX		   (0x1UL << 0)
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_LAST    QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_RX
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_IVLAN		    0x2UL
++	u8 port_id;
++	u8 unused_0[3];
++};
++
++/* Output (24 bytes) */
++struct hwrm_queue_pri2cos_qcfg_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	u8 pri0_cos_queue_id;
++	u8 pri1_cos_queue_id;
++	u8 pri2_cos_queue_id;
++	u8 pri3_cos_queue_id;
++	u8 pri4_cos_queue_id;
++	u8 pri5_cos_queue_id;
++	u8 pri6_cos_queue_id;
++	u8 pri7_cos_queue_id;
++	u8 queue_cfg_info;
++	#define QUEUE_PRI2COS_QCFG_RESP_QUEUE_CFG_INFO_ASYM_CFG    0x1UL
++	u8 unused_0;
++	__le16 unused_1;
++	u8 unused_2;
++	u8 unused_3;
++	u8 unused_4;
++	u8 valid;
++};
++
+ /* hwrm_queue_pri2cos_cfg */
+ /* Input (40 bytes) */
+ struct hwrm_queue_pri2cos_cfg_input {
+@@ -2439,6 +2514,257 @@ struct hwrm_queue_pri2cos_cfg_output {
+ 	u8 valid;
+ };
+ 
++/* hwrm_queue_cos2bw_qcfg */
++/* Input (24 bytes) */
++struct hwrm_queue_cos2bw_qcfg_input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le16 port_id;
++	__le16 unused_0[3];
++};
++
++/* Output (112 bytes) */
++struct hwrm_queue_cos2bw_qcfg_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	u8 queue_id0;
++	u8 unused_0;
++	__le16 unused_1;
++	__le32 queue_id0_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id0_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id0_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id0_pri_lvl;
++	u8 queue_id0_bw_weight;
++	u8 queue_id1;
++	__le32 queue_id1_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id1_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id1_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id1_pri_lvl;
++	u8 queue_id1_bw_weight;
++	u8 queue_id2;
++	__le32 queue_id2_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id2_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id2_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id2_pri_lvl;
++	u8 queue_id2_bw_weight;
++	u8 queue_id3;
++	__le32 queue_id3_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id3_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id3_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id3_pri_lvl;
++	u8 queue_id3_bw_weight;
++	u8 queue_id4;
++	__le32 queue_id4_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id4_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id4_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id4_pri_lvl;
++	u8 queue_id4_bw_weight;
++	u8 queue_id5;
++	__le32 queue_id5_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id5_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id5_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id5_pri_lvl;
++	u8 queue_id5_bw_weight;
++	u8 queue_id6;
++	__le32 queue_id6_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id6_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id6_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id6_pri_lvl;
++	u8 queue_id6_bw_weight;
++	u8 queue_id7;
++	__le32 queue_id7_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id7_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id7_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id7_pri_lvl;
++	u8 queue_id7_bw_weight;
++	u8 unused_2;
++	u8 unused_3;
++	u8 unused_4;
++	u8 unused_5;
++	u8 valid;
++};
++
+ /* hwrm_queue_cos2bw_cfg */
+ /* Input (128 bytes) */
+ struct hwrm_queue_cos2bw_cfg_input {
 -- 
 1.8.3.1
