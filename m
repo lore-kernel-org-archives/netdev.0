@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdevice: fix sparse warning for HARD_TX_LOCK
-Date: Sun, 27 Nov 2016 15:44:39 -0500 (EST)
-Message-ID: <20161127.154439.845919200540679482.davem@davemloft.net>
-References: <1479963754-24105-1-git-send-email-mst@redhat.com>
+From: =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>
+Subject: [PATCH 1/2] Documentation: net: dsa: marvell: Add 88E6176
+Date: Sun, 27 Nov 2016 21:57:58 +0100
+Message-ID: <1480280279-9552-1-git-send-email-afaerber@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58252 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752693AbcK0Uol (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 15:44:41 -0500
-In-Reply-To: <1479963754-24105-1-git-send-email-mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <uwe-rXY34ruvC2xidJT2blvkqNi2O/JbrIOy@public.gmane.org>,
+        Michal Hrusecki <Michal.Hrusecky-x+rMaJPWets@public.gmane.org>,
+        Tomas Hlavacek <tomas.hlavacek-x+rMaJPWets@public.gmane.org>,
+        =?UTF-8?q?Bed=C5=99icha=20Ko=C5=A1atu?= <bedrich.kosata-x+rMaJPWets@public.gmane.org>,
+        =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 24 Nov 2016 07:04:08 +0200
+Signed-off-by: Andreas Färber <afaerber-l3A5Bk7waGM@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/dsa/marvell.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
-> sparse warns about context imbalance in any code
-> that uses HARD_TX_LOCK/UNLOCK - this is because it's
-> unable to determine that flags don't change so
-> lock and unlock are paired.
-> 
-> Seems easy enough to fix by adding __acquire/__release
-> calls.
-> 
-> With this patch af_packet.c is now sparse-clean,
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+diff --git a/Documentation/devicetree/bindings/net/dsa/marvell.txt b/Documentation/devicetree/bindings/net/dsa/marvell.txt
+index b3dd6b40e0de..000bc3b16edd 100644
+--- a/Documentation/devicetree/bindings/net/dsa/marvell.txt
++++ b/Documentation/devicetree/bindings/net/dsa/marvell.txt
+@@ -15,6 +15,7 @@ Additional required and optional properties can be found in dsa.txt.
+ 
+ Required properties:
+ - compatible	       : Should be one of "marvell,mv88e6085" or
++			 "marvell,mv88e6176" or
+ 			 "marvell,mv88e6190"
+ - reg                  : Address on the MII bus for the switch.
+ 
+-- 
+2.6.6
 
-Applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
