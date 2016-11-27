@@ -1,42 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] cpsw: ethtool: add support for getting/setting EEE
- registers
-Date: Sun, 27 Nov 2016 15:27:18 -0500 (EST)
-Message-ID: <20161127.152718.2014239474427472145.davem@davemloft.net>
-References: <1479979021-13715-1-git-send-email-yegorslists@googlemail.com>
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: Re: [PATCH net-next v2 0/4] Documentation: net: phy: Improve documentation
+Date: Sun, 27 Nov 2016 21:32:38 +0100
+Message-ID: <CAFBinCAuTnRvfEpAYxjJP5a=vQHjB3UWPxKvKjB8B60-bUtwrQ@mail.gmail.com>
+References: <20161127184449.12351-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        grygorii.strashko@ti.com, mugunthanvnm@ti.com,
-        roszenrami@gmail.com, f.fainelli@gmail.com
-To: yegorslists@googlemail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
+        sf84@laposte.net, mans@mansr.com, alexandre.torgue@st.com,
+        peppe.cavallaro@st.com, timur@codeaurora.org, jbrunet@baylibre.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57918 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753450AbcK0U1U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 15:27:20 -0500
-In-Reply-To: <1479979021-13715-1-git-send-email-yegorslists@googlemail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33861 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752661AbcK0UdM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 15:33:12 -0500
+Received: by mail-wm0-f67.google.com with SMTP id g23so15890060wme.1
+        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 12:33:00 -0800 (PST)
+In-Reply-To: <20161127184449.12351-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yegorslists@googlemail.com
-Date: Thu, 24 Nov 2016 10:17:01 +0100
+On Sun, Nov 27, 2016 at 7:44 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> Hi all,
+>
+> This patch series addresses discussions and feedback that was recently received
+> on the mailing-list in the area of: flow control/pause frames, interpretation of
+> phy_interface_t and finally add some links to useful standards documents.
+>
+> Changes in v2:
+>
+> - clarify a few things in the RGMII section, add a paragraph about common issues
+>   with RGMII delay mismatches
+Reviewed-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 
-> From: Yegor Yefremov <yegorslists@googlemail.com>
-> 
-> Add the ability to query and set Energy Efficient Ethernet parameters
-> via ethtool for applicable devices.
-> 
-> This patch doesn't activate full EEE support in cpsw driver, but it
-> enables reading and writing EEE advertising settings. This way one
-> can disable advertising EEE for certain speeds.
-> 
-> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
-> Acked-by: Rami Rosen <roszenrami@gmail.com>
-> ---
-> Changes:
-> 	v3: explain what features will be available with this patch (Florian Fainelli)
-> 	v2: make routines static (Rami Rosen)
+Thanks a lot Florian, this will definitely help others in the future!
 
-Does not apply cleanly to net-next, please respin.
+> Florian Fainelli (4):
+>   Documentation: net: phy: remove description of function pointers
+>   Documentation: net: phy: Add a paragraph about pause frames/flow
+>     control
+>   Documentation: net: phy: Add blurb about RGMII
+>   Documentation: net: phy: Add links to several standards documents
+>
+>  Documentation/networking/phy.txt | 139 +++++++++++++++++++++++++++++----------
+>  1 file changed, 104 insertions(+), 35 deletions(-)
+>
+> --
+> 2.9.3
+>
