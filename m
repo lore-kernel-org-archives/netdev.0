@@ -1,53 +1,79 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 2/2] net/mlx4: Fix uninitialized fields in rule when adding promiscuous mode to device managed flow steering
-Date: Sun, 27 Nov 2016 19:20:52 +0200
-Message-ID: <1480267252-26146-3-git-send-email-tariqt@mellanox.com>
-References: <1480267252-26146-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Sebastian Ott <sebott@linux.vnet.ibm.com>,
-        Steve Wise <swise@opengridcomputing.com>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next 09/11] qede: Better utilize the qede_[rt]x_queue
+Date: Sun, 27 Nov 2016 16:15:42 +0000
+Message-ID: <BL2PR07MB23064E75618105466EAA79A68D8B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1480258273-24973-10-git-send-email-Yuval.Mintz@cavium.com>
+ <201611272330.xRUonBtv%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+To: kbuild test robot <lkp@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34731 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751872AbcK0RVN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 12:21:13 -0500
-In-Reply-To: <1480267252-26146-1-git-send-email-tariqt@mellanox.com>
+Received: from mail-bn3nam01on0068.outbound.protection.outlook.com ([104.47.33.68]:24548
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751532AbcK0RtO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Nov 2016 12:49:14 -0500
+In-Reply-To: <201611272330.xRUonBtv%fengguang.wu@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> Hi Yuval,
+>=20
+> [auto build test WARNING on net-next/master]
+>=20
+> url:    https://github.com/0day-ci/linux/commits/Yuval-Mintz/qed-Add-XDP-
+> support/20161127-225956
+> config: tile-allmodconfig (attached as .config)
+> compiler: tilegx-linux-gcc (GCC) 4.6.2
+> reproduce:
+>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-
+> tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=3Dtile
+>=20
+> All warnings (new ones prefixed by >>):
+>=20
+>    drivers/net/ethernet/qlogic/qede/qede_main.c: In function
+> 'qede_alloc_mem_rxq':
+> >> drivers/net/ethernet/qlogic/qede/qede_main.c:2960:3: warning: large
+> >> integer implicitly truncated to unsigned type [-Woverflow]
+>=20
+> vim +2960 drivers/net/ethernet/qlogic/qede/qede_main.c
+>=20
+> 55482edc Manish Chopra 2016-03-04  2944  err:
+> 55482edc Manish Chopra 2016-03-04  2945  	qede_free_sge_mem(edev,
+> rxq);
+> 55482edc Manish Chopra 2016-03-04  2946  	edev->gro_disable =3D 1;
+> 55482edc Manish Chopra 2016-03-04  2947  	return -ENOMEM;
+> 55482edc Manish Chopra 2016-03-04  2948  } 55482edc Manish Chopra 2016-
+> 03-04  2949
+> 2950219d Yuval Mintz   2015-10-26  2950  /* This function allocates all
+> memory needed per Rx queue */
+> 1a635e48 Yuval Mintz   2016-08-15  2951  static int
+> qede_alloc_mem_rxq(struct qede_dev *edev, struct qede_rx_queue *rxq)
+> 2950219d Yuval Mintz   2015-10-26  2952  {
+> f86af2df Manish Chopra 2016-04-20  2953  	int i, rc, size;
+> 2950219d Yuval Mintz   2015-10-26  2954
+> 2950219d Yuval Mintz   2015-10-26  2955  	rxq->num_rx_buffers =3D edev-
+> >q_num_rx_buffers;
+> 2950219d Yuval Mintz   2015-10-26  2956
+> 1a635e48 Yuval Mintz   2016-08-15  2957  	rxq->rx_buf_size =3D
+> NET_IP_ALIGN + ETH_OVERHEAD + edev->ndev->mtu;
+> 1a635e48 Yuval Mintz   2016-08-15  2958
+> fc48b7a6 Yuval Mintz   2016-02-15  2959  	if (rxq->rx_buf_size >
+> PAGE_SIZE)
+> fc48b7a6 Yuval Mintz   2016-02-15 @2960  		rxq->rx_buf_size =3D
+> PAGE_SIZE;
 
-In procedure mlx4_flow_steer_promisc_add(), several fields
-were left uninitialized in the rule structure.
-Correctly initialize these fields.
+I'd say this is a false positive, given that MTU can't be so large.
+Although patch #10 is going to hit the same when setting rx_buf_seg_size
+[also a u16] to PAGE_SIZE to make sure there's a single packet per page.
 
-Fixes: 592e49dda812 ("net/mlx4: Implement promiscuous mode with device managed flow-steering")
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 94b891c118c1..1a670b681555 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -1457,7 +1457,12 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- int mlx4_flow_steer_promisc_add(struct mlx4_dev *dev, u8 port,
- 				u32 qpn, enum mlx4_net_trans_promisc_mode mode)
- {
--	struct mlx4_net_trans_rule rule;
-+	struct mlx4_net_trans_rule rule = {
-+		.queue_mode = MLX4_NET_TRANS_Q_FIFO,
-+		.exclusive = 0,
-+		.allow_loopback = 1,
-+	};
-+
- 	u64 *regid_p;
- 
- 	switch (mode) {
--- 
-1.8.3.1
+While I can surely address that, I was just wondering about whether this
+is an interesting scenario at the moment. I.e., using XDP with 64 Kb pages
+is going to be very costly from a memory perspective.
