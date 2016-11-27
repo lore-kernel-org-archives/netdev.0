@@ -1,413 +1,699 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 2/4] bnxt_en: Update firmware header file to include DCB command structs.
-Date: Sat, 26 Nov 2016 19:38:33 -0500
-Message-ID: <1480207115-21294-3-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 3/4] bnxt_en: Implement DCBNL to support host-based DCBX.
+Date: Sat, 26 Nov 2016 19:38:34 -0500
+Message-ID: <1480207115-21294-4-git-send-email-michael.chan@broadcom.com>
 References: <1480207115-21294-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:33162 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752307AbcK0Aiu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 19:38:50 -0500
-Received: by mail-pg0-f42.google.com with SMTP id 3so42450032pgd.0
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 16:38:50 -0800 (PST)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:34724 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752564AbcK0Aiv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 19:38:51 -0500
+Received: by mail-pg0-f52.google.com with SMTP id x23so42419119pgx.1
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 16:38:51 -0800 (PST)
 In-Reply-To: <1480207115-21294-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Get and store the max number of lossless TCs the hardware can support.
+Support only IEEE DCBX initially.  Add IEEE DCBNL ops and functions to
+get and set the hardware DCBX parameters.  The DCB code is conditional on
+Kconfig CONFIG_BNXT_DCB.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     |   4 +
- drivers/net/ethernet/broadcom/bnxt/bnxt.h     |   1 +
- drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h | 326 ++++++++++++++++++++++++++
- 3 files changed, 331 insertions(+)
+ drivers/net/ethernet/broadcom/Kconfig         |  10 +
+ drivers/net/ethernet/broadcom/bnxt/Makefile   |   2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     |   8 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h     |   9 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c | 490 ++++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h |  59 ++++
+ 6 files changed, 575 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
 
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index bd8c80c..404c020 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -203,4 +203,14 @@ config BNXT_SRIOV
+ 	  Virtualization support in the NetXtreme-C/E products. This
+ 	  allows for virtual function acceleration in virtual environments.
+ 
++config BNXT_DCB
++	bool "Data Center Bridging (DCB) Support"
++	default n
++	depends on BNXT && DCB
++	---help---
++	  Say Y here if you want to use Data Center Bridging (DCB) in the
++	  driver.
++
++	  If unsure, say N.
++
+ endif # NET_VENDOR_BROADCOM
+diff --git a/drivers/net/ethernet/broadcom/bnxt/Makefile b/drivers/net/ethernet/broadcom/bnxt/Makefile
+index 97e78e2..b233a86 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/Makefile
++++ b/drivers/net/ethernet/broadcom/bnxt/Makefile
+@@ -1,3 +1,3 @@
+ obj-$(CONFIG_BNXT) += bnxt_en.o
+ 
+-bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o
++bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index b75f4d0..58a75f4 100644
+index 58a75f4..cec24b4 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4252,12 +4252,16 @@ static int bnxt_hwrm_queue_qportcfg(struct bnxt *bp)
- 		goto qportcfg_exit;
+@@ -54,6 +54,7 @@
+ #include "bnxt.h"
+ #include "bnxt_sriov.h"
+ #include "bnxt_ethtool.h"
++#include "bnxt_dcb.h"
+ 
+ #define BNXT_TX_TIMEOUT		(5 * HZ)
+ 
+@@ -4988,7 +4989,7 @@ static void bnxt_enable_napi(struct bnxt *bp)
  	}
- 	bp->max_tc = resp->max_configurable_queues;
-+	bp->max_lltc = resp->max_configurable_lossless_queues;
- 	if (bp->max_tc > BNXT_MAX_QUEUE)
- 		bp->max_tc = BNXT_MAX_QUEUE;
+ }
  
- 	if (resp->queue_cfg_info & QUEUE_QPORTCFG_RESP_QUEUE_CFG_INFO_ASYM_CFG)
- 		bp->max_tc = 1;
+-static void bnxt_tx_disable(struct bnxt *bp)
++void bnxt_tx_disable(struct bnxt *bp)
+ {
+ 	int i;
+ 	struct bnxt_tx_ring_info *txr;
+@@ -5006,7 +5007,7 @@ static void bnxt_tx_disable(struct bnxt *bp)
+ 	netif_carrier_off(bp->dev);
+ }
  
-+	if (bp->max_lltc > bp->max_tc)
-+		bp->max_lltc = bp->max_tc;
+-static void bnxt_tx_enable(struct bnxt *bp)
++void bnxt_tx_enable(struct bnxt *bp)
+ {
+ 	int i;
+ 	struct bnxt_tx_ring_info *txr;
+@@ -6677,6 +6678,7 @@ static void bnxt_remove_one(struct pci_dev *pdev)
+ 
+ 	bnxt_hwrm_func_drv_unrgtr(bp);
+ 	bnxt_free_hwrm_resources(bp);
++	bnxt_dcb_free(bp);
+ 	pci_iounmap(pdev, bp->bar2);
+ 	pci_iounmap(pdev, bp->bar1);
+ 	pci_iounmap(pdev, bp->bar0);
+@@ -6904,6 +6906,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->min_mtu = ETH_ZLEN;
+ 	dev->max_mtu = 9500;
+ 
++	bnxt_dcb_init(bp);
 +
- 	qptr = &resp->queue_id0;
- 	for (i = 0; i < bp->max_tc; i++) {
- 		bp->q_info[i].queue_id = *qptr++;
+ #ifdef CONFIG_BNXT_SRIOV
+ 	init_waitqueue_head(&bp->sriov_cfg_wait);
+ #endif
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index fcd07ee..edde11e 100644
+index edde11e..275e560 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1010,6 +1010,7 @@ struct bnxt {
- 	u32			rss_hash_cfg;
+@@ -1026,6 +1026,13 @@ struct bnxt {
+ 	struct bnxt_irq	*irq_tbl;
+ 	u8			mac_addr[ETH_ALEN];
  
- 	u8			max_tc;
-+	u8			max_lltc;	/* lossless TCs */
- 	struct bnxt_queue_info	q_info[BNXT_MAX_QUEUE];
++#ifdef CONFIG_BNXT_DCB
++	struct ieee_pfc		*ieee_pfc;
++	struct ieee_ets		*ieee_ets;
++	u8			dcbx_cap;
++	u8			default_pri;
++#endif /* CONFIG_BNXT_DCB */
++
+ 	u32			msg_enable;
  
- 	unsigned int		current_interval;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
-index 0456d5b..5565612 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
-@@ -2355,6 +2355,39 @@ struct hwrm_queue_cfg_output {
- 	u8 valid;
- };
- 
-+/* hwrm_queue_pfcenable_qcfg */
-+/* Input (24 bytes) */
-+struct hwrm_queue_pfcenable_qcfg_input {
-+	__le16 req_type;
-+	__le16 cmpl_ring;
-+	__le16 seq_id;
-+	__le16 target_id;
-+	__le64 resp_addr;
-+	__le16 port_id;
-+	__le16 unused_0[3];
+ 	u32			hwrm_spec_code;
+@@ -1221,6 +1228,8 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
+ int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
+ int bnxt_hwrm_set_coal(struct bnxt *);
+ int bnxt_hwrm_func_qcaps(struct bnxt *);
++void bnxt_tx_disable(struct bnxt *bp);
++void bnxt_tx_enable(struct bnxt *bp);
+ int bnxt_hwrm_set_pause(struct bnxt *);
+ int bnxt_hwrm_set_link_setting(struct bnxt *, bool, bool);
+ int bnxt_hwrm_fw_set_time(struct bnxt *);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
+new file mode 100644
+index 0000000..f391b47
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
+@@ -0,0 +1,490 @@
++/* Broadcom NetXtreme-C/E network driver.
++ *
++ * Copyright (c) 2014-2016 Broadcom Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
++ */
++
++#include <linux/netdevice.h>
++#include <linux/types.h>
++#include <linux/errno.h>
++#include <linux/rtnetlink.h>
++#include <linux/interrupt.h>
++#include <linux/pci.h>
++#include <linux/etherdevice.h>
++#include "bnxt_hsi.h"
++#include "bnxt.h"
++#include "bnxt_dcb.h"
++
++#ifdef CONFIG_BNXT_DCB
++static int bnxt_hwrm_queue_pri2cos_cfg(struct bnxt *bp, struct ieee_ets *ets)
++{
++	struct hwrm_queue_pri2cos_cfg_input req = {0};
++	int rc = 0, i;
++	u8 *pri2cos;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_PRI2COS_CFG, -1, -1);
++	req.flags = cpu_to_le32(QUEUE_PRI2COS_CFG_REQ_FLAGS_PATH_BIDIR |
++				QUEUE_PRI2COS_CFG_REQ_FLAGS_IVLAN);
++
++	pri2cos = &req.pri0_cos_queue_id;
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		req.enables |= cpu_to_le32(
++			QUEUE_PRI2COS_CFG_REQ_ENABLES_PRI0_COS_QUEUE_ID << i);
++
++		pri2cos[i] = bp->q_info[ets->prio_tc[i]].queue_id;
++	}
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	return rc;
++}
++
++static int bnxt_hwrm_queue_pri2cos_qcfg(struct bnxt *bp, struct ieee_ets *ets)
++{
++	struct hwrm_queue_pri2cos_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
++	struct hwrm_queue_pri2cos_qcfg_input req = {0};
++	int rc = 0;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_PRI2COS_QCFG, -1, -1);
++	req.flags = cpu_to_le32(QUEUE_PRI2COS_QCFG_REQ_FLAGS_IVLAN);
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (!rc) {
++		u8 *pri2cos = &resp->pri0_cos_queue_id;
++		int i, j;
++
++		for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++			u8 queue_id = pri2cos[i];
++
++			for (j = 0; j < bp->max_tc; j++) {
++				if (bp->q_info[j].queue_id == queue_id) {
++					ets->prio_tc[i] = j;
++					break;
++				}
++			}
++		}
++	}
++	return rc;
++}
++
++static int bnxt_hwrm_queue_cos2bw_cfg(struct bnxt *bp, struct ieee_ets *ets,
++				      u8 max_tc)
++{
++	struct hwrm_queue_cos2bw_cfg_input req = {0};
++	struct bnxt_cos2bw_cfg cos2bw;
++	int rc = 0, i;
++	void *data;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_COS2BW_CFG, -1, -1);
++	data = &req.unused_0;
++	for (i = 0; i < max_tc; i++, data += sizeof(cos2bw) - 4) {
++		req.enables |= cpu_to_le32(
++			QUEUE_COS2BW_CFG_REQ_ENABLES_COS_QUEUE_ID0_VALID << i);
++
++		memset(&cos2bw, 0, sizeof(cos2bw));
++		cos2bw.queue_id = bp->q_info[i].queue_id;
++		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_STRICT) {
++			cos2bw.tsa =
++				QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_SP;
++			cos2bw.pri_lvl = i;
++		} else {
++			cos2bw.tsa =
++				QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_ETS;
++			cos2bw.bw_weight = ets->tc_tx_bw[i];
++		}
++		memcpy(data, &cos2bw.queue_id, sizeof(cos2bw) - 4);
++		if (i == 0) {
++			req.queue_id0 = cos2bw.queue_id;
++			req.unused_0 = 0;
++		}
++	}
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	return rc;
++}
++
++static int bnxt_hwrm_queue_cos2bw_qcfg(struct bnxt *bp, struct ieee_ets *ets)
++{
++	struct hwrm_queue_cos2bw_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
++	struct hwrm_queue_cos2bw_qcfg_input req = {0};
++	struct bnxt_cos2bw_cfg cos2bw;
++	void *data;
++	int rc, i;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_COS2BW_QCFG, -1, -1);
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (rc)
++		return rc;
++
++	data = &resp->queue_id0 + offsetof(struct bnxt_cos2bw_cfg, queue_id);
++	for (i = 0; i < bp->max_tc; i++, data += sizeof(cos2bw) - 4) {
++		int j;
++
++		memcpy(&cos2bw.queue_id, data, sizeof(cos2bw) - 4);
++		if (i == 0)
++			cos2bw.queue_id = resp->queue_id0;
++
++		for (j = 0; j < bp->max_tc; j++) {
++			if (bp->q_info[j].queue_id != cos2bw.queue_id)
++				continue;
++			if (cos2bw.tsa ==
++			    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_SP) {
++				ets->tc_tsa[j] = IEEE_8021QAZ_TSA_STRICT;
++			} else {
++				ets->tc_tsa[j] = IEEE_8021QAZ_TSA_ETS;
++				ets->tc_tx_bw[j] = cos2bw.bw_weight;
++			}
++		}
++	}
++	return 0;
++}
++
++static int bnxt_hwrm_queue_cfg(struct bnxt *bp, unsigned int lltc_mask)
++{
++	struct hwrm_queue_cfg_input req = {0};
++	int i;
++
++	if (netif_running(bp->dev))
++		bnxt_tx_disable(bp);
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_CFG, -1, -1);
++	req.flags = cpu_to_le32(QUEUE_CFG_REQ_FLAGS_PATH_BIDIR);
++	req.enables = cpu_to_le32(QUEUE_CFG_REQ_ENABLES_SERVICE_PROFILE);
++
++	/* Configure lossless queues to lossy first */
++	req.service_profile = QUEUE_CFG_REQ_SERVICE_PROFILE_LOSSY;
++	for (i = 0; i < bp->max_tc; i++) {
++		if (BNXT_LLQ(bp->q_info[i].queue_profile)) {
++			req.queue_id = cpu_to_le32(bp->q_info[i].queue_id);
++			hwrm_send_message(bp, &req, sizeof(req),
++					  HWRM_CMD_TIMEOUT);
++			bp->q_info[i].queue_profile =
++				QUEUE_CFG_REQ_SERVICE_PROFILE_LOSSY;
++		}
++	}
++
++	/* Now configure desired queues to lossless */
++	req.service_profile = QUEUE_CFG_REQ_SERVICE_PROFILE_LOSSLESS;
++	for (i = 0; i < bp->max_tc; i++) {
++		if (lltc_mask & (1 << i)) {
++			req.queue_id = cpu_to_le32(bp->q_info[i].queue_id);
++			hwrm_send_message(bp, &req, sizeof(req),
++					  HWRM_CMD_TIMEOUT);
++			bp->q_info[i].queue_profile =
++				QUEUE_CFG_REQ_SERVICE_PROFILE_LOSSLESS;
++		}
++	}
++	if (netif_running(bp->dev))
++		bnxt_tx_enable(bp);
++
++	return 0;
++}
++
++static int bnxt_hwrm_queue_pfc_cfg(struct bnxt *bp, struct ieee_pfc *pfc)
++{
++	struct hwrm_queue_pfcenable_cfg_input req = {0};
++	struct ieee_ets *my_ets = bp->ieee_ets;
++	unsigned int tc_mask = 0, pri_mask = 0;
++	u8 i, pri, lltc_count = 0;
++	bool need_q_recfg = false;
++	int rc;
++
++	if (!my_ets)
++		return -EINVAL;
++
++	for (i = 0; i < bp->max_tc; i++) {
++		for (pri = 0; pri < IEEE_8021QAZ_MAX_TCS; pri++) {
++			if ((pfc->pfc_en & (1 << pri)) &&
++			    (my_ets->prio_tc[pri] == i)) {
++				pri_mask |= 1 << pri;
++				tc_mask |= 1 << i;
++			}
++		}
++		if (tc_mask & (1 << i))
++			lltc_count++;
++	}
++	if (lltc_count > bp->max_lltc)
++		return -EINVAL;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_PFCENABLE_CFG, -1, -1);
++	req.flags = cpu_to_le32(pri_mask);
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (rc)
++		return rc;
++
++	for (i = 0; i < bp->max_tc; i++) {
++		if (tc_mask & (1 << i)) {
++			if (!BNXT_LLQ(bp->q_info[i].queue_profile))
++				need_q_recfg = true;
++		}
++	}
++
++	if (need_q_recfg)
++		rc = bnxt_hwrm_queue_cfg(bp, tc_mask);
++
++	return rc;
++}
++
++static int bnxt_hwrm_queue_pfc_qcfg(struct bnxt *bp, struct ieee_pfc *pfc)
++{
++	struct hwrm_queue_pfcenable_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
++	struct hwrm_queue_pfcenable_qcfg_input req = {0};
++	u8 pri_mask;
++	int rc;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_PFCENABLE_QCFG, -1, -1);
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (rc)
++		return rc;
++
++	pri_mask = le32_to_cpu(resp->flags);
++	pfc->pfc_en = pri_mask;
++	return 0;
++}
++
++static int bnxt_ets_validate(struct bnxt *bp, struct ieee_ets *ets, u8 *tc)
++{
++	int total_ets_bw = 0;
++	u8 max_tc = 0;
++	int i;
++
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		if (ets->prio_tc[i] > bp->max_tc) {
++			netdev_err(bp->dev, "priority to TC mapping exceeds TC count %d\n",
++				   ets->prio_tc[i]);
++			return -EINVAL;
++		}
++		if (ets->prio_tc[i] > max_tc)
++			max_tc = ets->prio_tc[i];
++
++		if ((ets->tc_tx_bw[i] || ets->tc_tsa[i]) && i > bp->max_tc)
++			return -EINVAL;
++
++		switch (ets->tc_tsa[i]) {
++		case IEEE_8021QAZ_TSA_STRICT:
++			break;
++		case IEEE_8021QAZ_TSA_ETS:
++			total_ets_bw += ets->tc_tx_bw[i];
++			break;
++		default:
++			return -ENOTSUPP;
++		}
++	}
++	if (total_ets_bw > 100)
++		return -EINVAL;
++
++	*tc = max_tc + 1;
++	return 0;
++}
++
++static int bnxt_dcbnl_ieee_getets(struct net_device *dev, struct ieee_ets *ets)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	struct ieee_ets *my_ets = bp->ieee_ets;
++
++	ets->ets_cap = bp->max_tc;
++
++	if (!my_ets) {
++		int rc;
++
++		if (bp->dcbx_cap & DCB_CAP_DCBX_HOST)
++			return 0;
++
++		my_ets = kzalloc(sizeof(*my_ets), GFP_KERNEL);
++		if (!my_ets)
++			return 0;
++		rc = bnxt_hwrm_queue_cos2bw_qcfg(bp, my_ets);
++		if (rc)
++			return 0;
++		rc = bnxt_hwrm_queue_pri2cos_qcfg(bp, my_ets);
++		if (rc)
++			return 0;
++	}
++
++	ets->cbs = my_ets->cbs;
++	memcpy(ets->tc_tx_bw, my_ets->tc_tx_bw, sizeof(ets->tc_tx_bw));
++	memcpy(ets->tc_rx_bw, my_ets->tc_rx_bw, sizeof(ets->tc_rx_bw));
++	memcpy(ets->tc_tsa, my_ets->tc_tsa, sizeof(ets->tc_tsa));
++	memcpy(ets->prio_tc, my_ets->prio_tc, sizeof(ets->prio_tc));
++	return 0;
++}
++
++static int bnxt_dcbnl_ieee_setets(struct net_device *dev, struct ieee_ets *ets)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	struct ieee_ets *my_ets = bp->ieee_ets;
++	u8 max_tc = 0;
++	int rc, i;
++
++	if (!(bp->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) ||
++	    !(bp->dcbx_cap & DCB_CAP_DCBX_HOST))
++		return -EINVAL;
++
++	rc = bnxt_ets_validate(bp, ets, &max_tc);
++	if (!rc) {
++		if (!my_ets) {
++			my_ets = kzalloc(sizeof(*my_ets), GFP_KERNEL);
++			if (!my_ets)
++				return -ENOMEM;
++			/* initialize PRI2TC mappings to invalid value */
++			for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++				my_ets->prio_tc[i] = IEEE_8021QAZ_MAX_TCS;
++			bp->ieee_ets = my_ets;
++		}
++		rc = bnxt_setup_mq_tc(dev, max_tc);
++		if (rc)
++			return rc;
++		rc = bnxt_hwrm_queue_cos2bw_cfg(bp, ets, max_tc);
++		if (rc)
++			return rc;
++		rc = bnxt_hwrm_queue_pri2cos_cfg(bp, ets);
++		if (rc)
++			return rc;
++		memcpy(my_ets, ets, sizeof(*my_ets));
++	}
++	return rc;
++}
++
++static int bnxt_dcbnl_ieee_getpfc(struct net_device *dev, struct ieee_pfc *pfc)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	struct ieee_pfc *my_pfc = bp->ieee_pfc;
++	int rc;
++
++	pfc->pfc_cap = bp->max_lltc;
++
++	if (!my_pfc) {
++		if (bp->dcbx_cap & DCB_CAP_DCBX_HOST)
++			return 0;
++
++		my_pfc = kzalloc(sizeof(*my_pfc), GFP_KERNEL);
++		if (!my_pfc)
++			return 0;
++		bp->ieee_pfc = my_pfc;
++		rc = bnxt_hwrm_queue_pfc_qcfg(bp, my_pfc);
++		if (rc)
++			return 0;
++	}
++
++	pfc->pfc_en = my_pfc->pfc_en;
++	pfc->mbc = my_pfc->mbc;
++	pfc->delay = my_pfc->delay;
++
++	return 0;
++}
++
++static int bnxt_dcbnl_ieee_setpfc(struct net_device *dev, struct ieee_pfc *pfc)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	struct ieee_pfc *my_pfc = bp->ieee_pfc;
++	int rc;
++
++	if (!(bp->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) ||
++	    !(bp->dcbx_cap & DCB_CAP_DCBX_HOST))
++		return -EINVAL;
++
++	if (!my_pfc) {
++		my_pfc = kzalloc(sizeof(*my_pfc), GFP_KERNEL);
++		if (!my_pfc)
++			return -ENOMEM;
++		bp->ieee_pfc = my_pfc;
++	}
++	rc = bnxt_hwrm_queue_pfc_cfg(bp, pfc);
++	if (!rc)
++		memcpy(my_pfc, pfc, sizeof(*my_pfc));
++
++	return rc;
++}
++
++static int bnxt_dcbnl_ieee_setapp(struct net_device *dev, struct dcb_app *app)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	int rc = -EINVAL;
++
++	if (!(bp->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) ||
++	    !(bp->dcbx_cap & DCB_CAP_DCBX_HOST))
++		return -EINVAL;
++
++	rc = dcb_ieee_setapp(dev, app);
++	return rc;
++}
++
++static int bnxt_dcbnl_ieee_delapp(struct net_device *dev, struct dcb_app *app)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	int rc;
++
++	if (!(bp->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
++		return -EINVAL;
++
++	rc = dcb_ieee_delapp(dev, app);
++	return rc;
++}
++
++static u8 bnxt_dcbnl_getdcbx(struct net_device *dev)
++{
++	struct bnxt *bp = netdev_priv(dev);
++
++	return bp->dcbx_cap;
++}
++
++static u8 bnxt_dcbnl_setdcbx(struct net_device *dev, u8 mode)
++{
++	struct bnxt *bp = netdev_priv(dev);
++
++	/* only support IEEE */
++	if ((mode & DCB_CAP_DCBX_VER_CEE) || !(mode & DCB_CAP_DCBX_VER_IEEE))
++		return 1;
++
++	if ((mode & DCB_CAP_DCBX_HOST) && BNXT_VF(bp))
++		return 1;
++
++	if (mode == bp->dcbx_cap)
++		return 0;
++
++	bp->dcbx_cap = mode;
++	return 0;
++}
++
++static const struct dcbnl_rtnl_ops dcbnl_ops = {
++	.ieee_getets	= bnxt_dcbnl_ieee_getets,
++	.ieee_setets	= bnxt_dcbnl_ieee_setets,
++	.ieee_getpfc	= bnxt_dcbnl_ieee_getpfc,
++	.ieee_setpfc	= bnxt_dcbnl_ieee_setpfc,
++	.ieee_setapp	= bnxt_dcbnl_ieee_setapp,
++	.ieee_delapp	= bnxt_dcbnl_ieee_delapp,
++	.getdcbx	= bnxt_dcbnl_getdcbx,
++	.setdcbx	= bnxt_dcbnl_setdcbx,
 +};
 +
-+/* Output (16 bytes) */
-+struct hwrm_queue_pfcenable_qcfg_output {
-+	__le16 error_code;
-+	__le16 req_type;
-+	__le16 seq_id;
-+	__le16 resp_len;
-+	__le32 flags;
-+	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI0_PFC_ENABLED   0x1UL
-+	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI1_PFC_ENABLED   0x2UL
-+	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI2_PFC_ENABLED   0x4UL
-+	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI3_PFC_ENABLED   0x8UL
-+	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI4_PFC_ENABLED   0x10UL
-+	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI5_PFC_ENABLED   0x20UL
-+	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI6_PFC_ENABLED   0x40UL
-+	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI7_PFC_ENABLED   0x80UL
-+	u8 unused_0;
-+	u8 unused_1;
-+	u8 unused_2;
-+	u8 valid;
++void bnxt_dcb_init(struct bnxt *bp)
++{
++	if (bp->hwrm_spec_code < 0x10501)
++		return;
++
++	bp->dcbx_cap = DCB_CAP_DCBX_VER_IEEE;
++	if (BNXT_PF(bp))
++		bp->dcbx_cap |= DCB_CAP_DCBX_HOST;
++	else
++		bp->dcbx_cap |= DCB_CAP_DCBX_LLD_MANAGED;
++	bp->dev->dcbnl_ops = &dcbnl_ops;
++}
++
++void bnxt_dcb_free(struct bnxt *bp)
++{
++	kfree(bp->ieee_pfc);
++	kfree(bp->ieee_ets);
++	bp->ieee_pfc = NULL;
++	bp->ieee_ets = NULL;
++}
++
++#else
++
++void bnxt_dcb_init(struct bnxt *bp)
++{
++}
++
++void bnxt_dcb_free(struct bnxt *bp)
++{
++}
++
++#endif
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
+new file mode 100644
+index 0000000..bef31fb
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
+@@ -0,0 +1,59 @@
++/* Broadcom NetXtreme-C/E network driver.
++ *
++ * Copyright (c) 2014-2016 Broadcom Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
++ */
++
++#ifndef BNXT_DCB_H
++#define BNXT_DCB_H
++
++#include <net/dcbnl.h>
++
++struct bnxt_dcb {
++	u8			max_tc;
++	struct ieee_pfc		*ieee_pfc;
++	struct ieee_ets		*ieee_ets;
++	u8			dcbx_cap;
++	u8			default_pri;
 +};
 +
- /* hwrm_queue_pfcenable_cfg */
- /* Input (24 bytes) */
- struct hwrm_queue_pfcenable_cfg_input {
-@@ -2389,6 +2422,48 @@ struct hwrm_queue_pfcenable_cfg_output {
- 	u8 valid;
- };
- 
-+/* hwrm_queue_pri2cos_qcfg */
-+/* Input (24 bytes) */
-+struct hwrm_queue_pri2cos_qcfg_input {
-+	__le16 req_type;
-+	__le16 cmpl_ring;
-+	__le16 seq_id;
-+	__le16 target_id;
-+	__le64 resp_addr;
-+	__le32 flags;
-+	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH		    0x1UL
-+	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_TX		   (0x0UL << 0)
-+	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_RX		   (0x1UL << 0)
-+	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_LAST    QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_RX
-+	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_IVLAN		    0x2UL
-+	u8 port_id;
-+	u8 unused_0[3];
++struct bnxt_cos2bw_cfg {
++	u8			pad[3];
++	u8			queue_id;
++	__le32			min_bw;
++	__le32			max_bw;
++	u8			tsa;
++	u8			pri_lvl;
++	u8			bw_weight;
++	u8			unused;
 +};
 +
-+/* Output (24 bytes) */
-+struct hwrm_queue_pri2cos_qcfg_output {
-+	__le16 error_code;
-+	__le16 req_type;
-+	__le16 seq_id;
-+	__le16 resp_len;
-+	u8 pri0_cos_queue_id;
-+	u8 pri1_cos_queue_id;
-+	u8 pri2_cos_queue_id;
-+	u8 pri3_cos_queue_id;
-+	u8 pri4_cos_queue_id;
-+	u8 pri5_cos_queue_id;
-+	u8 pri6_cos_queue_id;
-+	u8 pri7_cos_queue_id;
-+	u8 queue_cfg_info;
-+	#define QUEUE_PRI2COS_QCFG_RESP_QUEUE_CFG_INFO_ASYM_CFG    0x1UL
-+	u8 unused_0;
-+	__le16 unused_1;
-+	u8 unused_2;
-+	u8 unused_3;
-+	u8 unused_4;
-+	u8 valid;
++#define BNXT_LLQ(q_profile)	\
++	((q_profile) == QUEUE_QPORTCFG_RESP_QUEUE_ID0_SERVICE_PROFILE_LOSSLESS)
++
++struct struct_data_dcbx_app_cfg {
++	__le16		protocol_id;
++	u8		protocol_selector;
++	u8		priority;
++	u8		valid;
++	u8		rsvd1[3];
 +};
 +
- /* hwrm_queue_pri2cos_cfg */
- /* Input (40 bytes) */
- struct hwrm_queue_pri2cos_cfg_input {
-@@ -2439,6 +2514,257 @@ struct hwrm_queue_pri2cos_cfg_output {
- 	u8 valid;
- };
- 
-+/* hwrm_queue_cos2bw_qcfg */
-+/* Input (24 bytes) */
-+struct hwrm_queue_cos2bw_qcfg_input {
-+	__le16 req_type;
-+	__le16 cmpl_ring;
-+	__le16 seq_id;
-+	__le16 target_id;
-+	__le64 resp_addr;
-+	__le16 port_id;
-+	__le16 unused_0[3];
++struct hwrm_struct_data_hdr {
++	__le16		struct_id;
++#define HWRM_STRUCT_DATA_HDR_STRUCT_ID_DCBX_CFG_APP	0x0421
++	__le16		len;
++	u8		version;
++	u8		count;
++	__le16		subtype;
++#define HWRM_STRUCT_DATA_SUBTYPE_HOST_OPERATIONAL	0x0300
++	__le16		next_offset;
++	u8		rsvd1[6];
 +};
 +
-+/* Output (112 bytes) */
-+struct hwrm_queue_cos2bw_qcfg_output {
-+	__le16 error_code;
-+	__le16 req_type;
-+	__le16 seq_id;
-+	__le16 resp_len;
-+	u8 queue_id0;
-+	u8 unused_0;
-+	__le16 unused_1;
-+	__le32 queue_id0_min_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_INVALID
-+	__le32 queue_id0_max_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_INVALID
-+	u8 queue_id0_tsa_assign;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_SP    0x0UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_ETS   0x1UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_RESERVED_FIRST 0x2UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_RESERVED_LAST 0xffUL
-+	u8 queue_id0_pri_lvl;
-+	u8 queue_id0_bw_weight;
-+	u8 queue_id1;
-+	__le32 queue_id1_min_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_INVALID
-+	__le32 queue_id1_max_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_INVALID
-+	u8 queue_id1_tsa_assign;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_SP    0x0UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_ETS   0x1UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_RESERVED_FIRST 0x2UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_RESERVED_LAST 0xffUL
-+	u8 queue_id1_pri_lvl;
-+	u8 queue_id1_bw_weight;
-+	u8 queue_id2;
-+	__le32 queue_id2_min_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_INVALID
-+	__le32 queue_id2_max_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_INVALID
-+	u8 queue_id2_tsa_assign;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_SP    0x0UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_ETS   0x1UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_RESERVED_FIRST 0x2UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_RESERVED_LAST 0xffUL
-+	u8 queue_id2_pri_lvl;
-+	u8 queue_id2_bw_weight;
-+	u8 queue_id3;
-+	__le32 queue_id3_min_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_INVALID
-+	__le32 queue_id3_max_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_INVALID
-+	u8 queue_id3_tsa_assign;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_SP    0x0UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_ETS   0x1UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_RESERVED_FIRST 0x2UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_RESERVED_LAST 0xffUL
-+	u8 queue_id3_pri_lvl;
-+	u8 queue_id3_bw_weight;
-+	u8 queue_id4;
-+	__le32 queue_id4_min_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_INVALID
-+	__le32 queue_id4_max_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_INVALID
-+	u8 queue_id4_tsa_assign;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_SP    0x0UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_ETS   0x1UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_RESERVED_FIRST 0x2UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_RESERVED_LAST 0xffUL
-+	u8 queue_id4_pri_lvl;
-+	u8 queue_id4_bw_weight;
-+	u8 queue_id5;
-+	__le32 queue_id5_min_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_INVALID
-+	__le32 queue_id5_max_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_INVALID
-+	u8 queue_id5_tsa_assign;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_SP    0x0UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_ETS   0x1UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_RESERVED_FIRST 0x2UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_RESERVED_LAST 0xffUL
-+	u8 queue_id5_pri_lvl;
-+	u8 queue_id5_bw_weight;
-+	u8 queue_id6;
-+	__le32 queue_id6_min_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_INVALID
-+	__le32 queue_id6_max_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_INVALID
-+	u8 queue_id6_tsa_assign;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_SP    0x0UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_ETS   0x1UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_RESERVED_FIRST 0x2UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_RESERVED_LAST 0xffUL
-+	u8 queue_id6_pri_lvl;
-+	u8 queue_id6_bw_weight;
-+	u8 queue_id7;
-+	__le32 queue_id7_min_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_INVALID
-+	__le32 queue_id7_max_bw;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_MASK 0xfffffffUL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_SFT 0
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_RSVD       0x10000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_SFT 29
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_INVALID
-+	u8 queue_id7_tsa_assign;
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_SP    0x0UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_ETS   0x1UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_RESERVED_FIRST 0x2UL
-+	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_RESERVED_LAST 0xffUL
-+	u8 queue_id7_pri_lvl;
-+	u8 queue_id7_bw_weight;
-+	u8 unused_2;
-+	u8 unused_3;
-+	u8 unused_4;
-+	u8 unused_5;
-+	u8 valid;
-+};
-+
- /* hwrm_queue_cos2bw_cfg */
- /* Input (128 bytes) */
- struct hwrm_queue_cos2bw_cfg_input {
++void bnxt_dcb_init(struct bnxt *bp);
++void bnxt_dcb_free(struct bnxt *bp);
++#endif
 -- 
 1.8.3.1
