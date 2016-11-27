@@ -1,91 +1,58 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] net: fec: turn on device when extracting statistics
-Date: Sun, 27 Nov 2016 06:25:54 +0000
-Message-ID: <AM4PR0401MB22601ACDFB926E5AE58A0B69FF8B0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <1480068120-22137-1-git-send-email-nikita.yoush@cogentembedded.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Crash due to mutex genl_lock called from RCU context
+Date: Sat, 26 Nov 2016 22:28:21 -0800
+Message-ID: <CAM_iQpUnz2kkjOFuk3fKKEYDh54b9WHk1dvH098mGtrGTPjZFQ@mail.gmail.com>
+References: <c669cd06c3e50febd95b5ed4aaa78532@codeaurora.org>
+ <1480133493.8455.584.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480136078.8455.589.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpU+7arMOHSwDhE5npH_82R9LTNrmny6jK1H-fkW2+9Jcg@mail.gmail.com> <1480213570.18162.31.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Chris Healy <cphealy@gmail.com>
-To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        "Andrew Lunn" <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Thomas Graf <tgraf@suug.ch>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0088.outbound.protection.outlook.com ([104.47.2.88]:59712
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753222AbcK0GZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Nov 2016 01:25:59 -0500
-In-Reply-To: <1480068120-22137-1-git-send-email-nikita.yoush@cogentembedded.com>
-Content-Language: en-US
+Received: from mail-io0-f174.google.com ([209.85.223.174]:34841 "EHLO
+        mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751516AbcK0G2n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 01:28:43 -0500
+Received: by mail-io0-f174.google.com with SMTP id a124so182565648ioe.2
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 22:28:42 -0800 (PST)
+In-Reply-To: <1480213570.18162.31.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com> Sent: Friday, Nov=
-ember 25, 2016 6:02 PM
- >To: Andy Duan <fugang.duan@nxp.com>; David S. Miller
- ><davem@davemloft.net>; Troy Kisky <troy.kisky@boundarydevices.com>;
- >Andrew Lunn <andrew@lunn.ch>; Eric Nelson <eric@nelint.com>; Philippe
- >Reynes <tremyfr@gmail.com>; Johannes Berg <johannes@sipsolutions.net>;
- >netdev@vger.kernel.org; linux-kernel@vger.kernel.org
- >Cc: Chris Healy <cphealy@gmail.com>; Nikita Yushchenko
- ><nikita.yoush@cogentembedded.com>
- >Subject: [PATCH] net: fec: turn on device when extracting statistics
- >
- >Execution 'ethtool -S' on fec device that is down causes OOPS on Vybrid
- >board:
- >
- >Unhandled fault: external abort on non-linefetch (0x1008) at 0xe0898200 p=
-gd
- >=3D ddecc000 [e0898200] *pgd=3D9e406811, *pte=3D400d1653, *ppte=3D400d145=
-3
- >Internal error: : 1008 [#1] SMP ARM ...
- >
- >Reason of OOPS is that fec_enet_get_ethtool_stats() accesses fec register=
-s
- >while IPG clock is stopped by PM.
- >
- >Fix that by wrapping statistics extraction into pm_runtime_get_sync() ...
- >pm_runtime_put_autosuspend() braces.
- >
- >Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
- >---
+On Sat, Nov 26, 2016 at 6:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> Are you telling me inet_release() is called when we close() the first
+> file descriptor ?
+>
+> fd1 = socket()
+> fd2 = dup(fd1);
+> close(fd2) -> release() ???
 
-Acked-by: Fugang Duan <fugang.duan@nxp.com>
+Sorry, I didn't express myself clearly, I meant your change,
+if exclude the SOCK_RCU_FREE part, basically reverts this commit:
 
- > drivers/net/ethernet/freescale/fec_main.c | 11 ++++++++++-
- > 1 file changed, 10 insertions(+), 1 deletion(-)
- >
- >diff --git a/drivers/net/ethernet/freescale/fec_main.c
- >b/drivers/net/ethernet/freescale/fec_main.c
- >index 5aa9d4ded214..9c7592b80ce8 100644
- >--- a/drivers/net/ethernet/freescale/fec_main.c
- >+++ b/drivers/net/ethernet/freescale/fec_main.c
- >@@ -2317,10 +2317,19 @@ static void fec_enet_get_ethtool_stats(struct
- >net_device *dev,
- > 	struct ethtool_stats *stats, u64 *data)  {
- > 	struct fec_enet_private *fep =3D netdev_priv(dev);
- >-	int i;
- >+	int i, ret;
- >+
- >+	ret =3D pm_runtime_get_sync(&fep->pdev->dev);
- >+	if (IS_ERR_VALUE(ret)) {
- >+		memset(data, 0, sizeof(*data) * ARRAY_SIZE(fec_stats));
- >+		return;
- >+	}
- >
- > 	for (i =3D 0; i < ARRAY_SIZE(fec_stats); i++)
- > 		data[i] =3D readl(fep->hwp + fec_stats[i].offset);
- >+
- >+	pm_runtime_mark_last_busy(&fep->pdev->dev);
- >+	pm_runtime_put_autosuspend(&fep->pdev->dev);
- > }
- >
- > static void fec_enet_get_strings(struct net_device *netdev,
- >--
- >2.1.4
+commit 3f660d66dfbc13ea4b61d3865851b348444c24b4
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Thu May 3 03:17:14 2007 -0700
+
+    [NETLINK]: Kill CB only when socket is unused
+
+IOW, ->release() is called when the last sock fd ref is gone, but ->destructor()
+is called with the last sock ref is gone. They are very different.
+
+
+>> I don't see why we need to get genl_lock in ->done() here, because we are
+>> already the last sock using it and module ref protects the ops from being
+>> removed via module, seems we are pretty safe without any lock.
+>
+> Well, at least this exposes a real bug in Thomas patch.
+>
+> Removing the lock might be done for net-next, not stable branches.
+
+I am confused, what Subash reported is a kernel warning which can
+surely be fixed by removing genl lock (if it is correct, I need to double
+check), so why for net-next?
