@@ -1,38 +1,38 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Crash due to mutex genl_lock called from RCU context
-Date: Sat, 26 Nov 2016 18:08:28 -0800
-Message-ID: <CAM_iQpU+7arMOHSwDhE5npH_82R9LTNrmny6jK1H-fkW2+9Jcg@mail.gmail.com>
-References: <c669cd06c3e50febd95b5ed4aaa78532@codeaurora.org>
- <1480133493.8455.584.camel@edumazet-glaptop3.roam.corp.google.com> <1480136078.8455.589.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] mlx4: give precise rx/tx bytes/packets counters
+Date: Sat, 26 Nov 2016 18:16:00 -0800
+Message-ID: <1480212960.18162.23.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG8nFBFy=-pjy-XBYb-y-F=grC5wjN35zTt9eUOT-612Eg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: subashab@codeaurora.org, Thomas Graf <tgraf@suug.ch>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:33328 "EHLO
-        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752677AbcK0CIt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 21:08:49 -0500
-Received: by mail-io0-f181.google.com with SMTP id j65so178723083iof.0
-        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 18:08:49 -0800 (PST)
-In-Reply-To: <1480136078.8455.589.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35462 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752505AbcK0CQD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Nov 2016 21:16:03 -0500
+Received: by mail-pf0-f194.google.com with SMTP id i88so4562432pfk.2
+        for <netdev@vger.kernel.org>; Sat, 26 Nov 2016 18:16:03 -0800 (PST)
+In-Reply-To: <CALzJLG8nFBFy=-pjy-XBYb-y-F=grC5wjN35zTt9eUOT-612Eg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 25, 2016 at 8:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Oh well, this wont work, since sk->sk_destruct will be called from RCU
-> callback.
->
-> Grabbing the mutex should not be done from netlink_sock_destruct() but
-> from netlink_release()
+On Sun, 2016-11-27 at 00:47 +0200, Saeed Mahameed wrote:
+> On Fri, Nov 25, 2016 at 5:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-But you also change the behavior of cb.done(), currently it is called when the
-last sock ref is gone, with your patch it is called when the first
-sock is closed.
-No?
+> As you see here in SRIOV mode (PF only) reads   sw stats from FW.
+> Tariq, I think we need to fix this.
 
-I don't see why we need to get genl_lock in ->done() here, because we are
-already the last sock using it and module ref protects the ops from being
-removed via module, seems we are pretty safe without any lock.
+Sure, my patch does not change this at all.
+
+If mlx4_is_master() is false, then we aggregate the software states and
+only the software stats.
+
+My patch makes this aggregation possible at the time ethtool or
+ndo_get_stat64() are called, since this absolutely not depend on the 250
+ms timer fetching hardware stats.
