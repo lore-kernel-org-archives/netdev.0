@@ -1,359 +1,248 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 02/11] qed: Optimize qed_chain datapath usage
-Date: Sun, 27 Nov 2016 16:51:04 +0200
-Message-ID: <1480258273-24973-3-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 04/11] qede: Refactor statistics gathering
+Date: Sun, 27 Nov 2016 16:51:06 +0200
+Message-ID: <1480258273-24973-5-git-send-email-Yuval.Mintz@cavium.com>
 References: <1480258273-24973-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47077 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:47087 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752207AbcK0Owt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 09:52:49 -0500
+        by vger.kernel.org with ESMTP id S1752245AbcK0Owu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 09:52:50 -0500
 In-Reply-To: <1480258273-24973-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The chain structure and functions are widely used by the qed* modules,
-both for configuration and datapath.
-E.g., qede's Tx has one such chain and its Rx has two.
+Refactor logic for gathering statistics into a per-queue function.
+This improves readability of the driver statistics' flows.
 
-Currently, the strucutre's fields which are required for datapath
-related functions [produce/consume] are intertwined with fields which
-are required only for configuration purposes [init/destroy/etc.].
-
-This patch re-arranges the chain structure so that all the fields which
-are required for datapath usage could reside in a single cacheline instead
-of the two which are required today.
+In addition, this would be required by the XDP forwarding queues
+[as we'll need the Txq statistics gathering methods for those as well].
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c         |   7 +-
- drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |   4 +-
- include/linux/qed/qed_chain.h                     | 144 ++++++++++++----------
- 3 files changed, 86 insertions(+), 69 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 142 ++++++++++++++----------
+ 1 file changed, 86 insertions(+), 56 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 5be7b8a..80162ee 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -2283,12 +2283,12 @@ static void qed_chain_free_pbl(struct qed_dev *cdev, struct qed_chain *p_chain)
- {
- 	void **pp_virt_addr_tbl = p_chain->pbl.pp_virt_addr_tbl;
- 	u32 page_cnt = p_chain->page_cnt, i, pbl_size;
--	u8 *p_pbl_virt = p_chain->pbl.p_virt_table;
-+	u8 *p_pbl_virt = p_chain->pbl_sp.p_virt_table;
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index a892843..d2c23d1 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -16,13 +16,6 @@
+ #include <linux/capability.h>
+ #include "qede.h"
  
- 	if (!pp_virt_addr_tbl)
- 		return;
- 
--	if (!p_chain->pbl.p_virt_table)
-+	if (!p_pbl_virt)
- 		goto out;
- 
- 	for (i = 0; i < page_cnt; i++) {
-@@ -2306,7 +2306,8 @@ static void qed_chain_free_pbl(struct qed_dev *cdev, struct qed_chain *p_chain)
- 	pbl_size = page_cnt * QED_CHAIN_PBL_ENTRY_SIZE;
- 	dma_free_coherent(&cdev->pdev->dev,
- 			  pbl_size,
--			  p_chain->pbl.p_virt_table, p_chain->pbl.p_phys_table);
-+			  p_chain->pbl_sp.p_virt_table,
-+			  p_chain->pbl_sp.p_phys_table);
- out:
- 	vfree(p_chain->pbl.pp_virt_addr_tbl);
- }
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-index 2888eb0..d0a5828 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-@@ -347,11 +347,11 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
- 
- 	/* Place EQ address in RAMROD */
- 	DMA_REGPAIR_LE(p_ramrod->event_ring_pbl_addr,
--		       p_hwfn->p_eq->chain.pbl.p_phys_table);
-+		       p_hwfn->p_eq->chain.pbl_sp.p_phys_table);
- 	page_cnt = (u8)qed_chain_get_page_cnt(&p_hwfn->p_eq->chain);
- 	p_ramrod->event_ring_num_pages = page_cnt;
- 	DMA_REGPAIR_LE(p_ramrod->consolid_q_pbl_addr,
--		       p_hwfn->p_consq->chain.pbl.p_phys_table);
-+		       p_hwfn->p_consq->chain.pbl_sp.p_phys_table);
- 
- 	qed_tunn_set_pf_start_params(p_hwfn, p_tunn, &p_ramrod->tunnel_config);
- 
-diff --git a/include/linux/qed/qed_chain.h b/include/linux/qed/qed_chain.h
-index 72d88cf..615f34c 100644
---- a/include/linux/qed/qed_chain.h
-+++ b/include/linux/qed/qed_chain.h
-@@ -56,23 +56,6 @@ struct qed_chain_pbl_u32 {
- 	u32 cons_page_idx;
+-#define QEDE_STAT_OFFSET(stat_name) (offsetof(struct qede_stats, stat_name))
+-#define QEDE_STAT_STRING(stat_name) (#stat_name)
+-#define _QEDE_STAT(stat_name, pf_only) \
+-	 {QEDE_STAT_OFFSET(stat_name), QEDE_STAT_STRING(stat_name), pf_only}
+-#define QEDE_PF_STAT(stat_name)		_QEDE_STAT(stat_name, true)
+-#define QEDE_STAT(stat_name)		_QEDE_STAT(stat_name, false)
+-
+ #define QEDE_RQSTAT_OFFSET(stat_name) \
+ 	 (offsetof(struct qede_rx_queue, stat_name))
+ #define QEDE_RQSTAT_STRING(stat_name) (#stat_name)
+@@ -42,9 +35,6 @@
  };
  
--struct qed_chain_pbl {
--	/* Base address of a pre-allocated buffer for pbl */
--	dma_addr_t	p_phys_table;
--	void		*p_virt_table;
--
--	/* Table for keeping the virtual addresses of the chain pages,
--	 * respectively to the physical addresses in the pbl table.
--	 */
--	void **pp_virt_addr_tbl;
--
--	/* Index to current used page by producer/consumer */
--	union {
--		struct qed_chain_pbl_u16 pbl16;
--		struct qed_chain_pbl_u32 pbl32;
--	} u;
--};
--
- struct qed_chain_u16 {
- 	/* Cyclic index of next element to produce/consme */
- 	u16 prod_idx;
-@@ -86,46 +69,78 @@ struct qed_chain_u32 {
+ #define QEDE_NUM_RQSTATS ARRAY_SIZE(qede_rqstats_arr)
+-#define QEDE_RQSTATS_DATA(dev, sindex, rqindex) \
+-	(*((u64 *)(((char *)(dev->fp_array[(rqindex)].rxq)) +\
+-		    qede_rqstats_arr[(sindex)].offset)))
+ #define QEDE_TQSTAT_OFFSET(stat_name) \
+ 	(offsetof(struct qede_tx_queue, stat_name))
+ #define QEDE_TQSTAT_STRING(stat_name) (#stat_name)
+@@ -59,10 +49,12 @@
+ 	QEDE_TQSTAT(stopped_cnt),
  };
  
- struct qed_chain {
--	void			*p_virt_addr;
--	dma_addr_t		p_phys_addr;
--	void			*p_prod_elem;
--	void			*p_cons_elem;
-+	/* fastpath portion of the chain - required for commands such
-+	 * as produce / consume.
-+	 */
-+	/* Point to next element to produce/consume */
-+	void *p_prod_elem;
-+	void *p_cons_elem;
-+
-+	/* Fastpath portions of the PBL [if exists] */
-+	struct {
-+		/* Table for keeping the virtual addresses of the chain pages,
-+		 * respectively to the physical addresses in the pbl table.
-+		 */
-+		void **pp_virt_addr_tbl;
- 
--	enum qed_chain_mode	mode;
--	enum qed_chain_use_mode intended_use; /* used to produce/consume */
--	enum qed_chain_cnt_type cnt_type;
-+		union {
-+			struct qed_chain_pbl_u16 u16;
-+			struct qed_chain_pbl_u32 u32;
-+		} c;
-+	} pbl;
- 
- 	union {
- 		struct qed_chain_u16 chain16;
- 		struct qed_chain_u32 chain32;
- 	} u;
- 
-+	/* Capacity counts only usable elements */
-+	u32 capacity;
- 	u32 page_cnt;
- 
--	/* Number of elements - capacity is for usable elements only,
--	 * while size will contain total number of elements [for entire chain].
-+	enum qed_chain_mode mode;
-+
-+	/* Elements information for fast calculations */
-+	u16 elem_per_page;
-+	u16 elem_per_page_mask;
-+	u16 elem_size;
-+	u16 next_page_mask;
-+	u16 usable_per_page;
-+	u8 elem_unusable;
-+
-+	u8 cnt_type;
-+
-+	/* Slowpath of the chain - required for initialization and destruction,
-+	 * but isn't involved in regular functionality.
- 	 */
--	u32 capacity;
-+
-+	/* Base address of a pre-allocated buffer for pbl */
-+	struct {
-+		dma_addr_t p_phys_table;
-+		void *p_virt_table;
-+	} pbl_sp;
-+
-+	/* Address of first page of the chain  - the address is required
-+	 * for fastpath operation [consume/produce] but only for the the SINGLE
-+	 * flavour which isn't considered fastpath [== SPQ].
-+	 */
-+	void *p_virt_addr;
-+	dma_addr_t p_phys_addr;
-+
-+	/* Total number of elements [for entire chain] */
- 	u32 size;
- 
--	/* Elements information for fast calculations */
--	u16			elem_per_page;
--	u16			elem_per_page_mask;
--	u16			elem_unusable;
--	u16			usable_per_page;
--	u16			elem_size;
--	u16			next_page_mask;
--	struct qed_chain_pbl	pbl;
-+	u8 intended_use;
+-#define QEDE_TQSTATS_DATA(dev, sindex, tssid) \
+-	(*((u64 *)(((void *)((dev)->fp_array[tssid].txq)) + \
+-		   qede_tqstats_arr[(sindex)].offset)))
+-
++#define QEDE_STAT_OFFSET(stat_name) (offsetof(struct qede_stats, stat_name))
++#define QEDE_STAT_STRING(stat_name) (#stat_name)
++#define _QEDE_STAT(stat_name, pf_only) \
++	 {QEDE_STAT_OFFSET(stat_name), QEDE_STAT_STRING(stat_name), pf_only}
++#define QEDE_PF_STAT(stat_name)	_QEDE_STAT(stat_name, true)
++#define QEDE_STAT(stat_name)	_QEDE_STAT(stat_name, false)
+ static const struct {
+ 	u64 offset;
+ 	char string[ETH_GSTRING_LEN];
+@@ -136,10 +128,6 @@
+ 	QEDE_STAT(coalesced_bytes),
  };
  
- #define QED_CHAIN_PBL_ENTRY_SIZE        (8)
- #define QED_CHAIN_PAGE_SIZE             (0x1000)
- #define ELEMS_PER_PAGE(elem_size)       (QED_CHAIN_PAGE_SIZE / (elem_size))
- 
--#define UNUSABLE_ELEMS_PER_PAGE(elem_size, mode)     \
--	((mode == QED_CHAIN_MODE_NEXT_PTR) ?	     \
--	 (1 + ((sizeof(struct qed_chain_next) - 1) / \
--	       (elem_size))) : 0)
-+#define UNUSABLE_ELEMS_PER_PAGE(elem_size, mode)	 \
-+	(((mode) == QED_CHAIN_MODE_NEXT_PTR) ?		 \
-+	 (u8)(1 + ((sizeof(struct qed_chain_next) - 1) / \
-+		   (elem_size))) : 0)
- 
- #define USABLE_ELEMS_PER_PAGE(elem_size, mode) \
- 	((u32)(ELEMS_PER_PAGE(elem_size) -     \
-@@ -186,7 +201,7 @@ static inline u16 qed_chain_get_usable_per_page(struct qed_chain *p_chain)
- 	return p_chain->usable_per_page;
- }
- 
--static inline u16 qed_chain_get_unusable_per_page(struct qed_chain *p_chain)
-+static inline u8 qed_chain_get_unusable_per_page(struct qed_chain *p_chain)
- {
- 	return p_chain->elem_unusable;
- }
-@@ -198,7 +213,7 @@ static inline u32 qed_chain_get_page_cnt(struct qed_chain *p_chain)
- 
- static inline dma_addr_t qed_chain_get_pbl_phys(struct qed_chain *p_chain)
- {
--	return p_chain->pbl.p_phys_table;
-+	return p_chain->pbl_sp.p_phys_table;
- }
- 
- /**
-@@ -214,10 +229,10 @@ static inline dma_addr_t qed_chain_get_pbl_phys(struct qed_chain *p_chain)
- static inline void
- qed_chain_advance_page(struct qed_chain *p_chain,
- 		       void **p_next_elem, void *idx_to_inc, void *page_to_inc)
+-#define QEDE_STATS_DATA(dev, index) \
+-	(*((u64 *)(((char *)(dev)) + offsetof(struct qede_dev, stats) \
+-			+ qede_stats_arr[(index)].offset)))
 -
- {
- 	struct qed_chain_next *p_next = NULL;
- 	u32 page_index = 0;
-+
- 	switch (p_chain->mode) {
- 	case QED_CHAIN_MODE_NEXT_PTR:
- 		p_next = *p_next_elem;
-@@ -305,7 +320,7 @@ static inline void *qed_chain_produce(struct qed_chain *p_chain)
- 		if ((p_chain->u.chain16.prod_idx &
- 		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
- 			p_prod_idx = &p_chain->u.chain16.prod_idx;
--			p_prod_page_idx = &p_chain->pbl.u.pbl16.prod_page_idx;
-+			p_prod_page_idx = &p_chain->pbl.c.u16.prod_page_idx;
- 			qed_chain_advance_page(p_chain, &p_chain->p_prod_elem,
- 					       p_prod_idx, p_prod_page_idx);
- 		}
-@@ -314,7 +329,7 @@ static inline void *qed_chain_produce(struct qed_chain *p_chain)
- 		if ((p_chain->u.chain32.prod_idx &
- 		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
- 			p_prod_idx = &p_chain->u.chain32.prod_idx;
--			p_prod_page_idx = &p_chain->pbl.u.pbl32.prod_page_idx;
-+			p_prod_page_idx = &p_chain->pbl.c.u32.prod_page_idx;
- 			qed_chain_advance_page(p_chain, &p_chain->p_prod_elem,
- 					       p_prod_idx, p_prod_page_idx);
- 		}
-@@ -378,7 +393,7 @@ static inline void *qed_chain_consume(struct qed_chain *p_chain)
- 		if ((p_chain->u.chain16.cons_idx &
- 		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
- 			p_cons_idx = &p_chain->u.chain16.cons_idx;
--			p_cons_page_idx = &p_chain->pbl.u.pbl16.cons_page_idx;
-+			p_cons_page_idx = &p_chain->pbl.c.u16.cons_page_idx;
- 			qed_chain_advance_page(p_chain, &p_chain->p_cons_elem,
- 					       p_cons_idx, p_cons_page_idx);
- 		}
-@@ -387,8 +402,8 @@ static inline void *qed_chain_consume(struct qed_chain *p_chain)
- 		if ((p_chain->u.chain32.cons_idx &
- 		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
- 			p_cons_idx = &p_chain->u.chain32.cons_idx;
--			p_cons_page_idx = &p_chain->pbl.u.pbl32.cons_page_idx;
--		qed_chain_advance_page(p_chain, &p_chain->p_cons_elem,
-+			p_cons_page_idx = &p_chain->pbl.c.u32.cons_page_idx;
-+			qed_chain_advance_page(p_chain, &p_chain->p_cons_elem,
- 					       p_cons_idx, p_cons_page_idx);
- 		}
- 		p_chain->u.chain32.cons_idx++;
-@@ -429,25 +444,26 @@ static inline void qed_chain_reset(struct qed_chain *p_chain)
- 		u32 reset_val = p_chain->page_cnt - 1;
+ #define QEDE_NUM_STATS	ARRAY_SIZE(qede_stats_arr)
  
- 		if (is_chain_u16(p_chain)) {
--			p_chain->pbl.u.pbl16.prod_page_idx = (u16)reset_val;
--			p_chain->pbl.u.pbl16.cons_page_idx = (u16)reset_val;
-+			p_chain->pbl.c.u16.prod_page_idx = (u16)reset_val;
-+			p_chain->pbl.c.u16.cons_page_idx = (u16)reset_val;
- 		} else {
--			p_chain->pbl.u.pbl32.prod_page_idx = reset_val;
--			p_chain->pbl.u.pbl32.cons_page_idx = reset_val;
-+			p_chain->pbl.c.u32.prod_page_idx = reset_val;
-+			p_chain->pbl.c.u32.cons_page_idx = reset_val;
- 		}
+ enum {
+@@ -170,36 +158,52 @@ enum qede_ethtool_tests {
+ 	"Nvram (online)\t\t",
+ };
+ 
++static void qede_get_strings_stats_txq(struct qede_dev *edev,
++				       struct qede_tx_queue *txq, u8 **buf)
++{
++	int i;
++
++	for (i = 0; i < QEDE_NUM_TQSTATS; i++) {
++		sprintf(*buf, "%d: %s", txq->index,
++			qede_tqstats_arr[i].string);
++		*buf += ETH_GSTRING_LEN;
++	}
++}
++
++static void qede_get_strings_stats_rxq(struct qede_dev *edev,
++				       struct qede_rx_queue *rxq, u8 **buf)
++{
++	int i;
++
++	for (i = 0; i < QEDE_NUM_RQSTATS; i++) {
++		sprintf(*buf, "%d: %s", rxq->rxq_id,
++			qede_rqstats_arr[i].string);
++		*buf += ETH_GSTRING_LEN;
++	}
++}
++
+ static void qede_get_strings_stats(struct qede_dev *edev, u8 *buf)
+ {
+-	int i, j, k;
++	struct qede_fastpath *fp;
++	int i;
+ 
+-	for (i = 0, k = 0; i < QEDE_QUEUE_CNT(edev); i++) {
++	/* Account for queue statistics */
++	for (i = 0; i < QEDE_QUEUE_CNT(edev); i++) {
++		fp = &edev->fp_array[i];
+ 
+-		if (edev->fp_array[i].type & QEDE_FASTPATH_RX) {
+-			for (j = 0; j < QEDE_NUM_RQSTATS; j++)
+-				sprintf(buf + (k + j) * ETH_GSTRING_LEN,
+-					"%d:   %s", i,
+-					qede_rqstats_arr[j].string);
+-			k += QEDE_NUM_RQSTATS;
+-		}
++		if (fp->type & QEDE_FASTPATH_RX)
++			qede_get_strings_stats_rxq(edev, fp->rxq, &buf);
+ 
+-		if (edev->fp_array[i].type & QEDE_FASTPATH_TX) {
+-			for (j = 0; j < QEDE_NUM_TQSTATS; j++)
+-				sprintf(buf + (k + j) *
+-					ETH_GSTRING_LEN,
+-					"%d: %s", i,
+-					qede_tqstats_arr[j].string);
+-			k += QEDE_NUM_TQSTATS;
+-		}
++		if (fp->type & QEDE_FASTPATH_TX)
++			qede_get_strings_stats_txq(edev, fp->txq, &buf);
  	}
  
- 	switch (p_chain->intended_use) {
--	case QED_CHAIN_USE_TO_CONSUME_PRODUCE:
--	case QED_CHAIN_USE_TO_PRODUCE:
--		/* Do nothing */
--		break;
--
- 	case QED_CHAIN_USE_TO_CONSUME:
- 		/* produce empty elements */
- 		for (i = 0; i < p_chain->capacity; i++)
- 			qed_chain_recycle_consumed(p_chain);
- 		break;
-+
-+	case QED_CHAIN_USE_TO_CONSUME_PRODUCE:
-+	case QED_CHAIN_USE_TO_PRODUCE:
-+	default:
-+		/* Do nothing */
-+		break;
+-	for (i = 0, j = 0; i < QEDE_NUM_STATS; i++) {
++	/* Account for non-queue statistics */
++	for (i = 0; i < QEDE_NUM_STATS; i++) {
+ 		if (IS_VF(edev) && qede_stats_arr[i].pf_only)
+ 			continue;
+-		strcpy(buf + (k + j) * ETH_GSTRING_LEN,
+-		       qede_stats_arr[i].string);
+-		j++;
++		strcpy(buf, qede_stats_arr[i].string);
++		buf += ETH_GSTRING_LEN;
  	}
  }
  
-@@ -473,13 +489,13 @@ static inline void qed_chain_init_params(struct qed_chain *p_chain,
- 	p_chain->p_virt_addr = NULL;
- 	p_chain->p_phys_addr = 0;
- 	p_chain->elem_size	= elem_size;
--	p_chain->intended_use = intended_use;
-+	p_chain->intended_use = (u8)intended_use;
- 	p_chain->mode		= mode;
--	p_chain->cnt_type = cnt_type;
-+	p_chain->cnt_type = (u8)cnt_type;
- 
--	p_chain->elem_per_page		= ELEMS_PER_PAGE(elem_size);
-+	p_chain->elem_per_page = ELEMS_PER_PAGE(elem_size);
- 	p_chain->usable_per_page = USABLE_ELEMS_PER_PAGE(elem_size, mode);
--	p_chain->elem_per_page_mask	= p_chain->elem_per_page - 1;
-+	p_chain->elem_per_page_mask = p_chain->elem_per_page - 1;
- 	p_chain->elem_unusable = UNUSABLE_ELEMS_PER_PAGE(elem_size, mode);
- 	p_chain->next_page_mask = (p_chain->usable_per_page &
- 				   p_chain->elem_per_page_mask);
-@@ -488,8 +504,8 @@ static inline void qed_chain_init_params(struct qed_chain *p_chain,
- 	p_chain->capacity = p_chain->usable_per_page * page_cnt;
- 	p_chain->size = p_chain->elem_per_page * page_cnt;
- 
--	p_chain->pbl.p_phys_table = 0;
--	p_chain->pbl.p_virt_table = NULL;
-+	p_chain->pbl_sp.p_phys_table = 0;
-+	p_chain->pbl_sp.p_virt_table = NULL;
- 	p_chain->pbl.pp_virt_addr_tbl = NULL;
+@@ -225,34 +229,53 @@ static void qede_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ 	}
  }
  
-@@ -530,8 +546,8 @@ static inline void qed_chain_init_pbl_mem(struct qed_chain *p_chain,
- 					  dma_addr_t p_phys_pbl,
- 					  void **pp_virt_addr_tbl)
++static void qede_get_ethtool_stats_txq(struct qede_tx_queue *txq, u64 **buf)
++{
++	int i;
++
++	for (i = 0; i < QEDE_NUM_TQSTATS; i++) {
++		**buf = *((u64 *)(((void *)txq) + qede_tqstats_arr[i].offset));
++		(*buf)++;
++	}
++}
++
++static void qede_get_ethtool_stats_rxq(struct qede_rx_queue *rxq, u64 **buf)
++{
++	int i;
++
++	for (i = 0; i < QEDE_NUM_RQSTATS; i++) {
++		**buf = *((u64 *)(((void *)rxq) + qede_rqstats_arr[i].offset));
++		(*buf)++;
++	}
++}
++
+ static void qede_get_ethtool_stats(struct net_device *dev,
+ 				   struct ethtool_stats *stats, u64 *buf)
  {
--	p_chain->pbl.p_phys_table = p_phys_pbl;
--	p_chain->pbl.p_virt_table = p_virt_pbl;
-+	p_chain->pbl_sp.p_phys_table = p_phys_pbl;
-+	p_chain->pbl_sp.p_virt_table = p_virt_pbl;
- 	p_chain->pbl.pp_virt_addr_tbl = pp_virt_addr_tbl;
- }
+ 	struct qede_dev *edev = netdev_priv(dev);
+-	int sidx, cnt = 0;
+-	int qid;
++	struct qede_fastpath *fp;
++	int i;
  
+ 	qede_fill_by_demand_stats(edev);
+ 
+ 	mutex_lock(&edev->qede_lock);
++	for (i = 0; i < QEDE_QUEUE_CNT(edev); i++) {
++		fp = &edev->fp_array[i];
+ 
+-	for (qid = 0; qid < QEDE_QUEUE_CNT(edev); qid++) {
+-
+-		if (edev->fp_array[qid].type & QEDE_FASTPATH_RX)
+-			for (sidx = 0; sidx < QEDE_NUM_RQSTATS; sidx++)
+-				buf[cnt++] = QEDE_RQSTATS_DATA(edev, sidx, qid);
++		if (fp->type & QEDE_FASTPATH_RX)
++			qede_get_ethtool_stats_rxq(fp->rxq, &buf);
+ 
+-		if (edev->fp_array[qid].type & QEDE_FASTPATH_TX)
+-			for (sidx = 0; sidx < QEDE_NUM_TQSTATS; sidx++)
+-				buf[cnt++] = QEDE_TQSTATS_DATA(edev,
+-							       sidx,
+-							       qid);
++		if (fp->type & QEDE_FASTPATH_TX)
++			qede_get_ethtool_stats_txq(fp->txq, &buf);
+ 	}
+ 
+-	for (sidx = 0; sidx < QEDE_NUM_STATS; sidx++) {
+-		if (IS_VF(edev) && qede_stats_arr[sidx].pf_only)
++	for (i = 0; i < QEDE_NUM_STATS; i++) {
++		if (IS_VF(edev) && qede_stats_arr[i].pf_only)
+ 			continue;
+-		buf[cnt++] = QEDE_STATS_DATA(edev, sidx);
++		*buf = *((u64 *)(((void *)&edev->stats) +
++				 qede_stats_arr[i].offset));
++
++		buf++;
+ 	}
+ 
+ 	mutex_unlock(&edev->qede_lock);
+@@ -272,8 +295,15 @@ static int qede_get_sset_count(struct net_device *dev, int stringset)
+ 				if (qede_stats_arr[i].pf_only)
+ 					num_stats--;
+ 		}
+-		return num_stats + QEDE_RSS_COUNT(edev) * QEDE_NUM_RQSTATS +
+-		       QEDE_TSS_COUNT(edev) * QEDE_NUM_TQSTATS;
++
++		/* Account for the Regular Tx statistics */
++		num_stats += QEDE_TSS_COUNT(edev) * QEDE_NUM_TQSTATS;
++
++		/* Account for the Regular Rx statistics */
++		num_stats += QEDE_RSS_COUNT(edev) * QEDE_NUM_RQSTATS;
++
++		return num_stats;
++
+ 	case ETH_SS_PRIV_FLAGS:
+ 		return QEDE_PRI_FLAG_LEN;
+ 	case ETH_SS_TEST:
 -- 
 1.9.3
