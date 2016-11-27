@@ -1,103 +1,57 @@
-From: Roi Dayan <roid@mellanox.com>
-Subject: Re: [Patch net-next] net_sched: move the empty tp check from
- ->destroy() to ->delete()
-Date: Sun, 27 Nov 2016 06:47:35 +0200
-Message-ID: <583A6567.30003@mellanox.com>
-References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com>
- <5836A4D4.2010500@mellanox.com> <5836BD82.6080407@iogearbox.net>
- <5836C87E.8050506@mellanox.com> <58370558.9070004@iogearbox.net>
- <CAM_iQpVxevmk3rgsnALC0JCqx7pOF2OBc=kpg9QDK8Cwb6P9Zw@mail.gmail.com>
- <58396D71.8070703@iogearbox.net> <583A29E3.8030809@iogearbox.net>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2] Documentation: devicetree: clarify usage of the RGMII
+ phy-modes
+Date: Sat, 26 Nov 2016 21:53:47 -0800
+Message-ID: <61b8fa1b-e947-16ca-fb97-02a1125042aa@gmail.com>
+References: <20161125131201.19994-1-martin.blumenstingl@googlemail.com>
+ <20161125131201.19994-2-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <roid@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0051.outbound.protection.outlook.com ([104.47.2.51]:26853
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750828AbcK0FUf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Nov 2016 00:20:35 -0500
-In-Reply-To: <583A29E3.8030809@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
+To: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161125131201.19994-2-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 27/11/2016 02:33, Daniel Borkmann wrote:
-> On 11/26/2016 12:09 PM, Daniel Borkmann wrote:
->> On 11/26/2016 07:46 AM, Cong Wang wrote:
->>> On Thu, Nov 24, 2016 at 7:20 AM, Daniel Borkmann 
->>> <daniel@iogearbox.net> wrote:
-> [...]
->>>> Ok, strange, qdisc_destroy() calls into ops->destroy(), where ingress
->>>> drops its entire chain via tcf_destroy_chain(), so that will be NULL
->>>> eventually. The tps are freed by call_rcu() as well as qdisc itself
->>>> later on via qdisc_rcu_free(), where it frees per-cpu bstats as well.
->>>> Outstanding readers should either bail out due to if (!cl) or can 
->>>> still
->>>> process the chain until read section ends, but during that time, cl->q
->>>> resp. bstats should be good. Do you happen to know what's at address
->>>> ffff880a68b04028? I was wondering wrt call_rcu() vs call_rcu_bh(), but
->>>> at least on ingress (netif_receive_skb_internal()) we hold 
->>>> rcu_read_lock()
->>>> here. The KASAN report is reliably happening at this location, right?
->>>
->>> I am confused as well, I don't see how it could be related to my 
->>> patch yet.
->>> I will take a deep look in the weekend.
+On 11/25/2016 05:12 AM, Martin Blumenstingl wrote:
+> RGMII requires special RX and/or TX delays depending on the actual
+> hardware circuit/wiring. These delays can be added by the MAC, the PHY
+> or the designer of the circuit (the latter means that no delay has to
+> be added by PHY or MAC).
+> There are 4 RGMII phy-modes used describe where a delay should be
+> applied:
+> - rgmii: the RX and TX delays are either added by the MAC (where the
+>   exact delay is typically configurable, and can be turned off when no
+>   extra delay is needed) or not needed at all (because the hardware
+>   wiring adds the delay already). The PHY should neither add the RX nor
+>   TX delay in this case.
+> - rgmii-rxid: configures the PHY to enable the RX delay. The MAC should
+>   not add the RX delay in this case.
+> - rgmii-txid: configures the PHY to enable the TX delay. The MAC should
+>   not add the TX delay in this case.
+> - rgmii-id: combines rgmii-rxid and rgmii-txid and thus configures the
+>   PHY to enable the RX and TX delays. The MAC should neither add the RX
+>   nor TX delay in this case.
+> 
+> Document these cases in the ethernet.txt documentation to make it clear
+> when to use each mode.
+> If applied incorrectly one might end up with MAC and PHY both enabling
+> for example the TX delay, which breaks ethernet TX traffic on 1000Mbit/s
+> links.
+> 
+> Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 
-
-
-Hi Cong,
-
-When reported the new trace I didn't mean it's related to your patch, I 
-just wanted to point it out it exposed something. I should have been 
-clear about it.
-
-
->>
->> Ok, I'm currently on the run. Got too late yesterday night, but I'll
->> write what I found in the evening today, not related to ingress though.
->
-> Just pushed out my analysis to netdev under "[PATCH net] net, sched: 
-> respect
-> rcu grace period on cls destruction". My conclusion is that both 
-> issues are
-> actually separate, and that one is small enough where we could route 
-> it via
-> net actually. Perhaps this at the same time shrinks your "[PATCH 
-> net-next]
-> net_sched: move the empty tp check from ->destroy() to ->delete()" to a
-> reasonable size that it's suitable to net as well. Your 
-> ->delete()/->destroy()
-> one is definitely needed, too. The tp->root one is independant of 
-> ->delete()/
-> ->destroy() as they are different races and tp->root could also happen 
-> when
-> you just destroy the whole tp directly. I think that seems like a good 
-> path
-> forward to me.
->
-> Thanks,
-> Daniel
-
-
-
-Hi Daniel,
-
-As for the tainted kernel. I was in old (week or two) net-next tree and 
-only cherry-picked from latest net-next related patches to Mellanox HCA, 
-cls_api, cls_flower, devlink. so those are the tainted modules.
-I have the issue reproducing in that tree so wanted it to check it with 
-Cong's patch instead of latest net-next.
-I'll try running reproducing the issue with your new patch and later try 
-latest net-next as well.
-
-Thanks,
-Roi
+Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
