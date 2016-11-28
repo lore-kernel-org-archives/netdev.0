@@ -1,178 +1,80 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [Patch net-next] net_sched: move the empty tp check from
- ->destroy() to ->delete()
-Date: Sun, 27 Nov 2016 18:51:56 -0800
-Message-ID: <583B9BCC.2020904@gmail.com>
-References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com>
- <5836A4D4.2010500@mellanox.com> <5836BD82.6080407@iogearbox.net>
- <5836C87E.8050506@mellanox.com> <58370558.9070004@iogearbox.net>
- <CAM_iQpVxevmk3rgsnALC0JCqx7pOF2OBc=kpg9QDK8Cwb6P9Zw@mail.gmail.com>
- <58396D71.8070703@iogearbox.net> <583A29E3.8030809@iogearbox.net>
- <583A6567.30003@mellanox.com> <583A7D67.50003@mellanox.com>
- <583B95CE.7080309@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Roi Dayan <roid@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: handle no dst on skb in icmp6_send
+Date: Sun, 27 Nov 2016 18:52:53 -0800
+Message-ID: <1480301573-21183-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: andreyknvl@google.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:34877 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753640AbcK1Cw1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 21:52:27 -0500
-Received: by mail-pg0-f49.google.com with SMTP id p66so51606485pga.2
-        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 18:52:27 -0800 (PST)
-In-Reply-To: <583B95CE.7080309@gmail.com>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:33548 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753640AbcK1Cw7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 21:52:59 -0500
+Received: by mail-pg0-f46.google.com with SMTP id 3so51640486pgd.0
+        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 18:52:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-11-27 06:26 PM, John Fastabend wrote:
-> On 16-11-26 10:29 PM, Roi Dayan wrote:
->>
->>
->> On 27/11/2016 06:47, Roi Dayan wrote:
->>>
->>>
->>> On 27/11/2016 02:33, Daniel Borkmann wrote:
->>>> On 11/26/2016 12:09 PM, Daniel Borkmann wrote:
->>>>> On 11/26/2016 07:46 AM, Cong Wang wrote:
->>>>>> On Thu, Nov 24, 2016 at 7:20 AM, Daniel Borkmann
->>>>>> <daniel@iogearbox.net> wrote:
->>>> [...]
->>>>>>> Ok, strange, qdisc_destroy() calls into ops->destroy(), where ingress
->>>>>>> drops its entire chain via tcf_destroy_chain(), so that will be NULL
->>>>>>> eventually. The tps are freed by call_rcu() as well as qdisc itself
->>>>>>> later on via qdisc_rcu_free(), where it frees per-cpu bstats as well.
->>>>>>> Outstanding readers should either bail out due to if (!cl) or can
->>>>>>> still
->>>>>>> process the chain until read section ends, but during that time,
->>>>>>> cl->q
->>>>>>> resp. bstats should be good. Do you happen to know what's at address
->>>>>>> ffff880a68b04028? I was wondering wrt call_rcu() vs call_rcu_bh(),
->>>>>>> but
->>>>>>> at least on ingress (netif_receive_skb_internal()) we hold
->>>>>>> rcu_read_lock()
->>>>>>> here. The KASAN report is reliably happening at this location, right?
->>>>>>
->>>>>> I am confused as well, I don't see how it could be related to my
->>>>>> patch yet.
->>>>>> I will take a deep look in the weekend.
->>>
->>>
->>>
->>> Hi Cong,
->>>
->>> When reported the new trace I didn't mean it's related to your patch,
->>> I just wanted to point it out it exposed something. I should have been
->>> clear about it.
->>>
->>>
->>>>>
->>>>> Ok, I'm currently on the run. Got too late yesterday night, but I'll
->>>>> write what I found in the evening today, not related to ingress though.
->>>>
->>>> Just pushed out my analysis to netdev under "[PATCH net] net, sched:
->>>> respect
->>>> rcu grace period on cls destruction". My conclusion is that both
->>>> issues are
->>>> actually separate, and that one is small enough where we could route
->>>> it via
->>>> net actually. Perhaps this at the same time shrinks your "[PATCH
->>>> net-next]
->>>> net_sched: move the empty tp check from ->destroy() to ->delete()" to a
->>>> reasonable size that it's suitable to net as well. Your
->>>> ->delete()/->destroy()
->>>> one is definitely needed, too. The tp->root one is independant of
->>>> ->delete()/
->>>> ->destroy() as they are different races and tp->root could also
->>>> happen when
->>>> you just destroy the whole tp directly. I think that seems like a
->>>> good path
->>>> forward to me.
->>>>
->>>> Thanks,
->>>> Daniel
->>>
->>>
->>>
->>> Hi Daniel,
->>>
->>> As for the tainted kernel. I was in old (week or two) net-next tree
->>> and only cherry-picked from latest net-next related patches to
->>> Mellanox HCA, cls_api, cls_flower, devlink. so those are the tainted
->>> modules.
->>> I have the issue reproducing in that tree so wanted it to check it
->>> with Cong's patch instead of latest net-next.
->>> I'll try running reproducing the issue with your new patch and later
->>> try latest net-next as well.
->>>
->>> Thanks,
->>> Roi
->>>
->>
->> Hi,
->>
->> I tested "[PATCH net] net, sched: respect rcu grace period on cls
->> destruction" and could not reproduce my original issue.
-> 
-> Hi Roi,
-> 
-> Just so I'm 100% clear. No issue with just the above "respect rcu grace
-> period on cls destruction" per above statement.
-> 
->> I rebased "[Patch net-next] net_sched: move the empty tp check from
->> ->destroy() to ->delete()" over to test it in the same tree and got into
->> a new trace in fl_delete.
-> 
-> In this case did you test with "net_sched: move the empty tp check from
-> ->destroy() to ->delete()" _only_ or did this include both patches when
-> you see the error below.
-> 
-> From my inspection we really need both patches to get correct behavior.
-> 
-> Thanks!
-> John
+Andrey reported the following while fuzzing the kernel with syzkaller:
 
-Ah dang nevermind I just read both patches in detail and applying them
-both at the same time is nonsense. Let me reply with comments directly
-to the patches.
+kasan: CONFIG_KASAN_INLINE enabled
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Modules linked in:
+CPU: 0 PID: 3859 Comm: a.out Not tainted 4.9.0-rc6+ #429
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff8800666d4200 task.stack: ffff880067348000
+RIP: 0010:[<ffffffff833617ec>]  [<ffffffff833617ec>]
+icmp6_send+0x5fc/0x1e30 net/ipv6/icmp.c:451
+RSP: 0018:ffff88006734f2c0  EFLAGS: 00010206
+RAX: ffff8800666d4200 RBX: 0000000000000000 RCX: 0000000000000000
+RDX: 0000000000000000 RSI: dffffc0000000000 RDI: 0000000000000018
+RBP: ffff88006734f630 R08: ffff880064138418 R09: 0000000000000003
+R10: dffffc0000000000 R11: 0000000000000005 R12: 0000000000000000
+R13: ffffffff84e7e200 R14: ffff880064138484 R15: ffff8800641383c0
+FS:  00007fb3887a07c0(0000) GS:ffff88006cc00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000020000000 CR3: 000000006b040000 CR4: 00000000000006f0
+Stack:
+ ffff8800666d4200 ffff8800666d49f8 ffff8800666d4200 ffffffff84c02460
+ ffff8800666d4a1a 1ffff1000ccdaa2f ffff88006734f498 0000000000000046
+ ffff88006734f440 ffffffff832f4269 ffff880064ba7456 0000000000000000
+Call Trace:
+ [<ffffffff83364ddc>] icmpv6_param_prob+0x2c/0x40 net/ipv6/icmp.c:557
+ [<     inline     >] ip6_tlvopt_unknown net/ipv6/exthdrs.c:88
+ [<ffffffff83394405>] ip6_parse_tlv+0x555/0x670 net/ipv6/exthdrs.c:157
+ [<ffffffff8339a759>] ipv6_parse_hopopts+0x199/0x460 net/ipv6/exthdrs.c:663
+ [<ffffffff832ee773>] ipv6_rcv+0xfa3/0x1dc0 net/ipv6/ip6_input.c:191
+ ...
 
-Thanks. sorry for the noise.
+icmp6_send / icmpv6_send is invoked for both rx and tx paths. In both
+cases the dst->dev should be preferred for determining the L3 domain
+if the dst has been set on the skb. Fallback to the skb->dev if it has
+not. This covers the case reported here where icmp6_send is invoked on
+Rx before the route lookup.
 
-> 
->>
->> [35659.012123] BUG: KASAN: wild-memory-access on address 1ffffffff803ca31
->> [35659.020042] Write of size 1 by task ovs-vswitchd/20135
->> [35659.025878] CPU: 19 PID: 20135 Comm: ovs-vswitchd Tainted:
->> G           O    4.9.0-rc3+ #18
->> [35659.035948] Hardware name: HP ProLiant DL380p Gen8, BIOS P70 07/01/2015
->> [35659.043730] Call Trace:
->> [35659.046619]  [<ffffffff95b6dc42>] dump_stack+0x63/0x81
->> [35659.052456]  [<ffffffff955fbbf8>] kasan_report_error+0x408/0x4e0
->> [35659.059402]  [<ffffffff955fc2e8>] kasan_report+0x58/0x60
->> [35659.065428]  [<ffffffff952d5e8d>] ? call_rcu_sched+0x1d/0x20
->> [35659.072119]  [<ffffffffc01e0701>] ? fl_destroy_filter+0x21/0x30
->> [cls_flower]
->> [35659.080217]  [<ffffffffc01e1ccf>] ? fl_delete+0x1df/0x2e0 [cls_flower]
->> [35659.087580]  [<ffffffff955fa4ca>] __asan_store1+0x4a/0x50
->> [35659.093697]  [<ffffffffc01e1ccf>] fl_delete+0x1df/0x2e0 [cls_flower]
->> [35659.100870]  [<ffffffff9653ecba>] tc_ctl_tfilter+0x10da/0x1b90
->>
->>
->> 0x1d02 is in fl_delete (net/sched/cls_flower.c:805).
->> 800             struct cls_fl_filter *f = (struct cls_fl_filter *) arg;
->> 801
->> 802             rhashtable_remove_fast(&head->ht, &f->ht_node,
->> 803                                    head->ht_params);
->> 804             __fl_delete(tp, f);
->> 805             *last = list_empty(&head->filters);
->> 806             return 0;
->> 807     }
->>
->>
->> Thanks,
->> Roi
-> 
+Fixes: 5d41ce29e ("net: icmp6_send should use dst dev to determine L3 domain")
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv6/icmp.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 7370ad2e693a..2772004ba5a1 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -447,8 +447,10 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
+ 
+ 	if (__ipv6_addr_needs_scope_id(addr_type))
+ 		iif = skb->dev->ifindex;
+-	else
+-		iif = l3mdev_master_ifindex(skb_dst(skb)->dev);
++	else {
++		dst = skb_dst(skb);
++		iif = l3mdev_master_ifindex(dst ? dst->dev : skb->dev);
++	}
+ 
+ 	/*
+ 	 *	Must not send error if the source does not uniquely
+-- 
+2.1.4
