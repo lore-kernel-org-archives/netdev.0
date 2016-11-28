@@ -1,56 +1,76 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next v2] mlxsw: switchib: add MLXSW_PCI dependency
-Date: Mon, 28 Nov 2016 15:26:04 +0100
-Message-ID: <20161128142622.2758614-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Jiri Pirko <jiri@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Vadim Pasternak <vadimp@mellanox.com>,
-        Ivan Vecera <cera@cera.cz>, Elad Raz <eladr@mellanox.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net/dccp: fix use-after-free in dccp_invalid_packet
+Date: Mon, 28 Nov 2016 06:26:49 -0800
+Message-ID: <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:53267 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932626AbcK1O0e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 09:26:34 -0500
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36003 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932626AbcK1O0v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 09:26:51 -0500
+In-Reply-To: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The newly added switchib driver fails to link if MLXSW_PCI=m:
+From: Eric Dumazet <edumazet@google.com>
 
-drivers/net/ethernet/mellanox/mlxsw/mlxsw_switchib.o: In function^Cmlxsw_sib_module_exit':
-switchib.c:(.exit.text+0x8): undefined reference to `mlxsw_pci_driver_unregister'
-switchib.c:(.exit.text+0x10): undefined reference to `mlxsw_pci_driver_unregister'
-drivers/net/ethernet/mellanox/mlxsw/mlxsw_switchib.o: In function `mlxsw_sib_module_init':
-switchib.c:(.init.text+0x28): undefined reference to `mlxsw_pci_driver_register'
-switchib.c:(.init.text+0x38): undefined reference to `mlxsw_pci_driver_register'
-switchib.c:(.init.text+0x48): undefined reference to `mlxsw_pci_driver_unregister'
+pskb_may_pull() can reallocate skb->head, we need to reload dh pointer
+in dccp_invalid_packet() or risk use after free.
 
-The other two such sub-drivers have a dependency, so add the same one
-here. In theory we could allow this driver if MLXSW_PCI is disabled,
-but it's probably not worth it.
+Bug found by Andrey Konovalov using syzkaller.
 
-Fixes: d1ba52638456 ("mlxsw: switchib: Introduce SwitchIB and SwitchIB silicon driver")
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
 ---
-v2: add Fixes tag
+ net/dccp/ipv4.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
- drivers/net/ethernet/mellanox/mlxsw/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-index 95ae4c0d3a18..16f44b9aa076 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-@@ -50,7 +50,7 @@ config MLXSW_I2C
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index b567c8725aea..edbe59d203ef 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -700,6 +700,7 @@ int dccp_invalid_packet(struct sk_buff *skb)
+ {
+ 	const struct dccp_hdr *dh;
+ 	unsigned int cscov;
++	u8 dccph_doff;
  
- config MLXSW_SWITCHIB
- 	tristate "Mellanox Technologies SwitchIB and SwitchIB-2 support"
--	depends on MLXSW_CORE && NET_SWITCHDEV
-+	depends on MLXSW_CORE && MLXSW_PCI && NET_SWITCHDEV
- 	default m
- 	---help---
- 	  This driver supports Mellanox Technologies SwitchIB and SwitchIB-2
--- 
-2.9.0
+ 	if (skb->pkt_type != PACKET_HOST)
+ 		return 1;
+@@ -721,18 +722,19 @@ int dccp_invalid_packet(struct sk_buff *skb)
+ 	/*
+ 	 * If P.Data Offset is too small for packet type, drop packet and return
+ 	 */
+-	if (dh->dccph_doff < dccp_hdr_len(skb) / sizeof(u32)) {
+-		DCCP_WARN("P.Data Offset(%u) too small\n", dh->dccph_doff);
++	dccph_doff = dh->dccph_doff;
++	if (dccph_doff < dccp_hdr_len(skb) / sizeof(u32)) {
++		DCCP_WARN("P.Data Offset(%u) too small\n", dccph_doff);
+ 		return 1;
+ 	}
+ 	/*
+ 	 * If P.Data Offset is too too large for packet, drop packet and return
+ 	 */
+-	if (!pskb_may_pull(skb, dh->dccph_doff * sizeof(u32))) {
+-		DCCP_WARN("P.Data Offset(%u) too large\n", dh->dccph_doff);
++	if (!pskb_may_pull(skb, dccph_doff * sizeof(u32))) {
++		DCCP_WARN("P.Data Offset(%u) too large\n", dccph_doff);
+ 		return 1;
+ 	}
+-
++	dh = dccp_hdr(skb);
+ 	/*
+ 	 * If P.type is not Data, Ack, or DataAck and P.X == 0 (the packet
+ 	 * has short sequence numbers), drop packet and return
