@@ -1,45 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net] net: dsa: fix unbalanced dsa_switch_tree reference
- counting
-Date: Mon, 28 Nov 2016 16:16:23 -0500 (EST)
-Message-ID: <20161128.161623.368993152050525938.davem@davemloft.net>
-References: <1480315728-23398-1-git-send-email-nikita.yoush@cogentembedded.com>
+Subject: Re: [PATCH net-next 0/6] tcp: sender chronographs instrumentation
+Date: Mon, 28 Nov 2016 16:19:06 -0500 (EST)
+Message-ID: <20161128.161906.1900426045355871354.davem@davemloft.net>
+References: <1480191016-73210-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cphealy@gmail.com, andrew@lunn.ch,
-        linux-kernel@vger.kernel.org
-To: nikita.yoush@cogentembedded.com
+Cc: soheil@google.com, francisyyan@gmail.com, netdev@vger.kernel.org,
+        ncardwell@google.com, edumazet@google.com
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42480 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42538 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753164AbcK1VQZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:16:25 -0500
-In-Reply-To: <1480315728-23398-1-git-send-email-nikita.yoush@cogentembedded.com>
+        with ESMTP id S1753105AbcK1VTI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:19:08 -0500
+In-Reply-To: <1480191016-73210-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Date: Mon, 28 Nov 2016 09:48:48 +0300
+From: Yuchung Cheng <ycheng@google.com>
+Date: Sat, 26 Nov 2016 12:10:10 -0800
 
-> _dsa_register_switch() gets a dsa_switch_tree object either via
-> dsa_get_dst() or via dsa_add_dst(). Former path does not increase kref
-> in returned object (resulting into caller not owning a reference),
-> while later path does create a new object (resulting into caller owning
-> a reference).
+> This patch set provides instrumentation on TCP sender limitations.
+> While developing the BBR congestion control, we noticed that TCP
+> sending process is often limited by factors unrelated to congestion
+> control: insufficient sender buffer and/or insufficient receive
+> window/buffer to saturate the network bandwidth. Unfortunately these
+> limits are not visible to the users and often the poor performance
+> is attributed to the congestion control of choice.
 > 
-> The rest of _dsa_register_switch() assumes that it owns a reference, and
-> calls dsa_put_dst().
+> Thie patch aims to help users get the high level understanding of
+> where sending process is limited by, similar to the TCP_INFO design.
+> It is not to replace detailed kernel tracing and instrumentation
+> facilities.
 > 
-> This causes a memory breakage if first switch in the tree initialized
-> successfully, but second failed to initialize. In particular, freed
-> dsa_swith_tree object is left referenced by switch that was initialized,
-> and later access to sysfs attributes of that switch cause OOPS.
+> In addition this patch set provides a new option to the timestamping
+> work to instrument these limits on application data unit. For exampe,
+> one can use SO_TIMESTAMPING and this patch set to measure the how
+> long a particular HTTP response is limited by small receive window.
 > 
-> To fix, need to add kref_get() call to dsa_get_dst().
-> 
-> Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-> Fixes: 83c0afaec7b7 ("net: dsa: Add new binding implementation")
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> Patch set was initially written by Francis Yan then polished
+> by Yuchung Cheng, with lots of help from Eric Dumazet and Soheil
+> Hassas Yeganeh.
 
-Applied and queued up for -stable, thanks.
+Looks great, series applied, thanks!
