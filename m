@@ -1,7 +1,7 @@
 From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 14/16] net: ethernet: dwc_eth_qos: fix fixed-link phydev leaks
-Date: Mon, 28 Nov 2016 19:25:07 +0100
-Message-ID: <1480357509-28074-15-git-send-email-johan@kernel.org>
+Subject: [PATCH net 15/16] net: ethernet: ti: davinci_emac: fix fixed-link phydev and of-node leaks
+Date: Mon, 28 Nov 2016 19:25:08 +0100
+Message-ID: <1480357509-28074-16-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Cc: Vince Bridgers <vbridger-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
         Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
@@ -31,90 +31,64 @@ List-Id: netdev.vger.kernel.org
 Make sure to deregister and free any fixed-link PHY registered using
 of_phy_register_fixed_link() on probe errors and on driver unbind.
 
-Fixes: 077742dac2c7 ("dwc_eth_qos: Add support for Synopsys DWC Ethernet
-QoS")
+Also remember to put the of-node reference on probe errors.
+
+Fixes: 1bb6aa56bb38 ("net: davinci_emac: Add support for fixed-link
+PHY")
 Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/synopsys/dwc_eth_qos.c | 20 +++++++++++++-------
- 1 file changed, 13 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/ti/davinci_emac.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-index 4ba2421e625d..97d64bfed465 100644
---- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-+++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-@@ -2881,7 +2881,7 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	ret = of_get_phy_mode(lp->pdev->dev.of_node);
- 	if (ret < 0) {
- 		dev_err(&lp->pdev->dev, "error in getting phy i/f\n");
--		goto err_out_clk_dis_phy;
-+		goto err_out_deregister_fixed_link;
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 84fbe5714f8b..481c7bf0395b 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1767,6 +1767,7 @@ static int davinci_emac_try_get_mac(struct platform_device *pdev,
+  */
+ static int davinci_emac_probe(struct platform_device *pdev)
+ {
++	struct device_node *np = pdev->dev.of_node;
+ 	int rc = 0;
+ 	struct resource *res, *res_ctrl;
+ 	struct net_device *ndev;
+@@ -1805,7 +1806,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 	if (!pdata) {
+ 		dev_err(&pdev->dev, "no platform data\n");
+ 		rc = -ENODEV;
+-		goto no_pdata;
++		goto err_free_netdev;
  	}
  
- 	lp->phy_interface = ret;
-@@ -2889,14 +2889,14 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	ret = dwceqos_mii_init(lp);
- 	if (ret) {
- 		dev_err(&lp->pdev->dev, "error in dwceqos_mii_init\n");
--		goto err_out_clk_dis_phy;
-+		goto err_out_deregister_fixed_link;
- 	}
+ 	/* MAC addr and PHY mask , RMII enable info from platform_data */
+@@ -1941,6 +1942,10 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 		cpdma_chan_destroy(priv->rxchan);
+ 	cpdma_ctlr_destroy(priv->dma);
+ no_pdata:
++	if (of_phy_is_fixed_link(np))
++		of_phy_deregister_fixed_link(np);
++	of_node_put(priv->phy_node);
++err_free_netdev:
+ 	free_netdev(ndev);
+ 	return rc;
+ }
+@@ -1956,6 +1961,7 @@ static int davinci_emac_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct emac_priv *priv = netdev_priv(ndev);
++	struct device_node *np = pdev->dev.of_node;
  
- 	ret = dwceqos_mii_probe(ndev);
- 	if (ret != 0) {
- 		netdev_err(ndev, "mii_probe fail.\n");
- 		ret = -ENXIO;
--		goto err_out_clk_dis_phy;
-+		goto err_out_deregister_fixed_link;
- 	}
+ 	dev_notice(&ndev->dev, "DaVinci EMAC: davinci_emac_remove()\n");
  
- 	dwceqos_set_umac_addr(lp, lp->ndev->dev_addr, 0);
-@@ -2914,7 +2914,7 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	if (ret) {
- 		dev_err(&lp->pdev->dev, "Unable to retrieve DT, error %d\n",
- 			ret);
--		goto err_out_clk_dis_phy;
-+		goto err_out_deregister_fixed_link;
- 	}
- 	dev_info(&lp->pdev->dev, "pdev->id %d, baseaddr 0x%08lx, irq %d\n",
- 		 pdev->id, ndev->base_addr, ndev->irq);
-@@ -2924,7 +2924,7 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	if (ret) {
- 		dev_err(&lp->pdev->dev, "Unable to request IRQ %d, error %d\n",
- 			ndev->irq, ret);
--		goto err_out_clk_dis_phy;
-+		goto err_out_deregister_fixed_link;
- 	}
- 
- 	if (netif_msg_probe(lp))
-@@ -2935,11 +2935,14 @@ static int dwceqos_probe(struct platform_device *pdev)
- 	ret = register_netdev(ndev);
- 	if (ret) {
- 		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
--			goto err_out_clk_dis_phy;
-+		goto err_out_deregister_fixed_link;
- 	}
+@@ -1968,6 +1974,8 @@ static int davinci_emac_remove(struct platform_device *pdev)
+ 	unregister_netdev(ndev);
+ 	of_node_put(priv->phy_node);
+ 	pm_runtime_disable(&pdev->dev);
++	if (of_phy_is_fixed_link(np))
++		of_phy_deregister_fixed_link(np);
+ 	free_netdev(ndev);
  
  	return 0;
- 
-+err_out_deregister_fixed_link:
-+	if (of_phy_is_fixed_link(pdev->dev.of_node))
-+		of_phy_deregister_fixed_link(pdev->dev.of_node);
- err_out_clk_dis_phy:
- 	clk_disable_unprepare(lp->phy_ref_clk);
- err_out_clk_dis_aper:
-@@ -2959,8 +2962,11 @@ static int dwceqos_remove(struct platform_device *pdev)
- 	if (ndev) {
- 		lp = netdev_priv(ndev);
- 
--		if (ndev->phydev)
-+		if (ndev->phydev) {
- 			phy_disconnect(ndev->phydev);
-+			if (of_phy_is_fixed_link(pdev->dev.of_node))
-+				of_phy_deregister_fixed_link(pdev->dev.of_node);
-+		}
- 		mdiobus_unregister(lp->mii_bus);
- 		mdiobus_free(lp->mii_bus);
- 
 -- 
 2.7.3
 
