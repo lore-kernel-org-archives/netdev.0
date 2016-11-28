@@ -1,131 +1,120 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 3/4] Documentation: net: phy: Add blurb about
- RGMII
-Date: Mon, 28 Nov 2016 09:43:42 -0800
-Message-ID: <60473447-423c-7dff-6647-cce7cf2d4ab2@gmail.com>
-References: <20161127184449.12351-1-f.fainelli@gmail.com>
- <20161127184449.12351-4-f.fainelli@gmail.com>
- <4c71a69c-2942-f177-ef25-04686f5e4149@laposte.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net] sit: Set skb->protocol properly in ipip6_tunnel_xmit()
+Date: Mon, 28 Nov 2016 09:45:35 -0800
+Message-ID: <CAKgT0Uf+wS40vcb7nmx91wdkNTfd2Vq6kCxz1QVveGJiSKrJCA@mail.gmail.com>
+References: <20161125055017.7053-1-elicooper@gmx.com> <20161127130400.4a69ff1b@canb.auug.org.au>
+ <20161128.114703.154301432767947066.davem@davemloft.net> <1480352023.18162.63.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        martin.blumenstingl@googlemail.com, mans@mansr.com,
-        alexandre.torgue@st.com, peppe.cavallaro@st.com,
-        timur@codeaurora.org, jbrunet@baylibre.com,
-        mason <slash.tmp@free.fr>
-To: Sebastian Frias <sf84@laposte.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
+        elicooper@gmx.com, Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33639 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751226AbcK1Rnr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:43:47 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 144so6815498pfv.0
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 09:43:46 -0800 (PST)
-In-Reply-To: <4c71a69c-2942-f177-ef25-04686f5e4149@laposte.net>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:32905 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751033AbcK1Rpg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:45:36 -0500
+Received: by mail-io0-f193.google.com with SMTP id j92so24196968ioi.0
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 09:45:36 -0800 (PST)
+In-Reply-To: <1480352023.18162.63.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2016 02:34 AM, Sebastian Frias wrote:
-> On 27/11/16 19:44, Florian Fainelli wrote:
->> RGMII is a recurring source of pain for people with Gigabit Ethernet
->> hardware since it may require PHY driver and MAC driver level
->> configuration hints. Document what are the expectations from PHYLIB and
->> what options exist.
+On Mon, Nov 28, 2016 at 8:53 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2016-11-28 at 11:47 -0500, David Miller wrote:
+>> From: Stephen Rothwell <sfr@canb.auug.org.au>
+>> Date: Sun, 27 Nov 2016 13:04:00 +1100
 >>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  Documentation/networking/phy.txt | 76 ++++++++++++++++++++++++++++++++++++++++
->>  1 file changed, 76 insertions(+)
+>> > [Just for Dave's information]
+>> >
+>> > On Fri, 25 Nov 2016 13:50:17 +0800 Eli Cooper <elicooper@gmx.com> wrote:
+>> >>
+>> >> Similar to commit ae148b085876
+>> >> ("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"),
+>> >> sit tunnels also need to update skb->protocol; otherwise, TSO/GSO packets
+>> >> might not be properly segmented, which causes the packets being dropped.
+>> >>
+>> >> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+>> >> Tested-by: Eli Cooper <elicooper@gmx.com>
+>> >> Cc: stable@vger.kernel.org
+>> >> Signed-off-by: Eli Cooper <elicooper@gmx.com>
+>> >
+>> > I tested this patch and it does *not* solve my problem.
 >>
->> diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
->> index 9a42a9414cea..7a0cb1212b9e 100644
->> --- a/Documentation/networking/phy.txt
->> +++ b/Documentation/networking/phy.txt
->> @@ -65,6 +65,82 @@ The MDIO bus
->>   drivers/net/ethernet/freescale/fsl_pq_mdio.c and an associated DTS file
->>   for one of the users. (e.g. "git grep fsl,.*-mdio arch/powerpc/boot/dts/")
->>  
->> +(RG)MII/electrical interface considerations
->> +
->> + The Reduced Gigabit Medium Independent Interface (RGMII) is a 12 pins
->> + electrical signal interface using a synchronous 125Mhz clock signal and several
->> + data lines. Due to this design decision, a 1.5ns to 2ns delay must be added
->> + between the clock line (RXC or TXC) and the data lines to let the PHY (clock
->> + sink) have enough setup and hold times to sample the data lines correctly. The
->> + PHY library offers different types of PHY_INTERFACE_MODE_RGMII* values to let
->> + the PHY driver and optionaly the MAC driver implement the required delay. The
->> + values of phy_interface_t must be understood from the perspective of the PHY
->> + device itself, leading to the following:
->> +
->> + * PHY_INTERFACE_MODE_RGMII: the PHY is not responsible for inserting any
->> +   internal delay by itself, it assumes that either the Ethernet MAC (if capable
->> +   or the PCB traces) insert the correct 1.5-2ns delay
-> 
-> For what is worth, the Atheros at803x driver comes with RX delay enabled as per HW
-> reset.
+>> I'm torn on this patch, because it looked exactly like it would solve the
+>> kind of problem Stephen is running into.
+>>
+>> Even though it doesn't fix his case, it seems correct to me.
+>>
+>> I was wondering if it was also important to set the skb->protocol
+>> before the call to ip_tunnel_encap() but I couldn't find a dependency.
+>>
+>> In any event I'd like to see some other people review this change
+>> before I apply it.
+>>
+>> My only other guess for Stephen's problem is somehow the SKB headers
+>> aren't set up properly for what the GSO engine expects.
+>
+> Well, mlx4 just works, and uses GSO engine just fine.
+>
+> So my guess is this is a bug in Intel IGB driver.
+>
+>
+> Alexander, can you take a look ?
+>
+> Features for eth0:
+> rx-checksumming: on
+> tx-checksumming: on
+>         tx-checksum-ipv4: off [fixed]
+>         tx-checksum-ip-generic: on
+>         tx-checksum-ipv6: off [fixed]
+>         tx-checksum-fcoe-crc: off [fixed]
+>         tx-checksum-sctp: on
+> scatter-gather: on
+>         tx-scatter-gather: on
+>         tx-scatter-gather-fraglist: off [fixed]
+> tcp-segmentation-offload: on
+>         tx-tcp-segmentation: on
+>         tx-tcp-ecn-segmentation: off [fixed]
+>         tx-tcp-mangleid-segmentation: off
+>         tx-tcp6-segmentation: on
+> udp-fragmentation-offload: off [fixed]
+> generic-segmentation-offload: on
+> generic-receive-offload: on
+> large-receive-offload: off [fixed]
+> rx-vlan-offload: on
+> tx-vlan-offload: on
+> ntuple-filters: off
+> receive-hashing: on
+> highdma: on [fixed]
+> rx-vlan-filter: on [fixed]
+> vlan-challenged: off [fixed]
+> tx-lockless: off [fixed]
+> netns-local: off [fixed]
+> tx-gso-robust: off [fixed]
+> tx-fcoe-segmentation: off [fixed]
+> tx-gre-segmentation: on
+> tx-gre-csum-segmentation: on
+> tx-ipxip4-segmentation: on
+> tx-ipxip6-segmentation: on
+> tx-udp_tnl-segmentation: on
+> tx-udp_tnl-csum-segmentation: on
+> tx-gso-partial: on
+> fcoe-mtu: off [fixed]
+> tx-nocache-copy: off
+> loopback: off [fixed]
+> rx-fcs: off [fixed]
+> rx-all: off
+> tx-vlan-stag-hw-insert: off [fixed]
+> rx-vlan-stag-hw-parse: off [fixed]
+> rx-vlan-stag-filter: off [fixed]
+> l2-fwd-offload: off [fixed]
+> busy-poll: off [fixed]
+> hw-tc-offload: off [fixed]
 
-Always, or is this a behavior possibly defined via a stra-pin that can
-be changed?
+I agree.  This sounds like a bug with the GSO partial on igb.
 
-> I understand that enforcing this documentation as is would result in changing the
-> driver to disable RX delay, but it could break existing DTs, so I don't know if that
-> path will be pursued.
+I'll try setting up a SIT tunnel on my systems here and see if I can
+reproduce the issue.
 
-Which is why the documentation update proposed indicates preferred vs.
-mandatory.
-
-> 
-> Would explicit "versioning" the DT nodes be something worth exploring? So far it
-> seems the versioning is implicit: driver probably check the presence of some property
-> and conclude that it has to behave in a way or another.
-
-I would not go that route, can of worms.
-
-> 
->> +
->> + * PHY_INTERFACE_MODE_RGMII_TXID: the PHY should be inserting an internal delay
->> +   for the transmit data lines (TXD[3:0]) processed by the PHY device
->> +
->> + * PHY_INTERFACE_MODE_RGMII_RXID: the PHY should be inserting an internal delay
->> +   for the receive data lines (RXD[3:0]) processed by the PHY device
->> +
->> + * PHY_INTERFACE_MODE_RGMII_ID: the PHY should be inserting internal delays for
->> +   both transmit AND receive data lines from/to the PHY device
->> +
->> + Whenever it is possible, it is preferrable to utilize the PHY side RGMII delay
->> + for several reasons:
->> +
->> + * PHY devices may offer sub-nanosecond granularity in how they allow a
->> +   receiver/transmitter side delay (e.g: 0.5, 1.0, 1.5ns) to be specified. Such
->> +   precision may be required to account for differences in PCB trace lengths
->> +
->> + * PHY devices are typically qualified for a large range of applications
->> +   (industrial, medical, automotive...), and they provide a constant and
->> +   reliable delay across temperature/pressure/voltage ranges
->> +
->> + * PHY device drivers in PHYLIB being reusable by nature, being able to
->> +   configure correctly a specified delay enables more designs with similar delay
->> +   requirements to be operate correctly
->> +
->> + For cases where the PHY is not capable of providing this delay, but the
->> + Ethernet MAC driver is capable of doing it, the correct phy_interface_t value
->> + should be PHY_INTERFACE_MODE_RGMII, and the Ethernet MAC driver should be
->> + configured correctly in order to provide the required transmit and/or receive
->> + side delay from the perspective of the PHY device. 
-> 
-> While this clarifies the current situation very well, wouldn't the proposed approach
-> require that a property such as "txid-delay-ns" on the PHY's DT node to be duplicated
-> for the MAC?
-
-The property name can be identical and represent essentially the same
-things, but as as described, if the delay is implemented by the PHY,
-then the MAC should disable it, conversely if the MAC needs to implement
-it, the PHY should not contain any delay property. If both are found,
-because the DTS is miswritten, then, the drivers should ignore/error out.
-
-Or are you thinking about the case you described earlier with delays
-that are neither 0 or 2, but e.g: 1 and 3 and you still want to have the
-end-result be somewhere around 2ns?
--- 
-Florian
+- Alex
