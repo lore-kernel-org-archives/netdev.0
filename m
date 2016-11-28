@@ -1,123 +1,178 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 3/4] Documentation: net: phy: Add blurb about RGMII
-Date: Sun, 27 Nov 2016 18:45:14 -0800
-Message-ID: <20161128024515.13070-4-f.fainelli@gmail.com>
-References: <20161128024515.13070-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, sf84@laposte.net,
-        martin.blumenstingl@googlemail.com, mans@mansr.com,
-        alexandre.torgue@st.com, peppe.cavallaro@st.com,
-        timur@codeaurora.org, jbrunet@baylibre.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [Patch net-next] net_sched: move the empty tp check from
+ ->destroy() to ->delete()
+Date: Sun, 27 Nov 2016 18:51:56 -0800
+Message-ID: <583B9BCC.2020904@gmail.com>
+References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com>
+ <5836A4D4.2010500@mellanox.com> <5836BD82.6080407@iogearbox.net>
+ <5836C87E.8050506@mellanox.com> <58370558.9070004@iogearbox.net>
+ <CAM_iQpVxevmk3rgsnALC0JCqx7pOF2OBc=kpg9QDK8Cwb6P9Zw@mail.gmail.com>
+ <58396D71.8070703@iogearbox.net> <583A29E3.8030809@iogearbox.net>
+ <583A6567.30003@mellanox.com> <583A7D67.50003@mellanox.com>
+ <583B95CE.7080309@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Roi Dayan <roid@mellanox.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35391 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753805AbcK1CpY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 21:45:24 -0500
-Received: by mail-oi0-f68.google.com with SMTP id v84so11762591oie.2
-        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 18:45:24 -0800 (PST)
-In-Reply-To: <20161128024515.13070-1-f.fainelli@gmail.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:34877 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753640AbcK1Cw1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 21:52:27 -0500
+Received: by mail-pg0-f49.google.com with SMTP id p66so51606485pga.2
+        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 18:52:27 -0800 (PST)
+In-Reply-To: <583B95CE.7080309@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RGMII is a recurring source of pain for people with Gigabit Ethernet
-hardware since it may require PHY driver and MAC driver level
-configuration hints. Document what are the expectations from PHYLIB and
-what options exist.
+On 16-11-27 06:26 PM, John Fastabend wrote:
+> On 16-11-26 10:29 PM, Roi Dayan wrote:
+>>
+>>
+>> On 27/11/2016 06:47, Roi Dayan wrote:
+>>>
+>>>
+>>> On 27/11/2016 02:33, Daniel Borkmann wrote:
+>>>> On 11/26/2016 12:09 PM, Daniel Borkmann wrote:
+>>>>> On 11/26/2016 07:46 AM, Cong Wang wrote:
+>>>>>> On Thu, Nov 24, 2016 at 7:20 AM, Daniel Borkmann
+>>>>>> <daniel@iogearbox.net> wrote:
+>>>> [...]
+>>>>>>> Ok, strange, qdisc_destroy() calls into ops->destroy(), where ingress
+>>>>>>> drops its entire chain via tcf_destroy_chain(), so that will be NULL
+>>>>>>> eventually. The tps are freed by call_rcu() as well as qdisc itself
+>>>>>>> later on via qdisc_rcu_free(), where it frees per-cpu bstats as well.
+>>>>>>> Outstanding readers should either bail out due to if (!cl) or can
+>>>>>>> still
+>>>>>>> process the chain until read section ends, but during that time,
+>>>>>>> cl->q
+>>>>>>> resp. bstats should be good. Do you happen to know what's at address
+>>>>>>> ffff880a68b04028? I was wondering wrt call_rcu() vs call_rcu_bh(),
+>>>>>>> but
+>>>>>>> at least on ingress (netif_receive_skb_internal()) we hold
+>>>>>>> rcu_read_lock()
+>>>>>>> here. The KASAN report is reliably happening at this location, right?
+>>>>>>
+>>>>>> I am confused as well, I don't see how it could be related to my
+>>>>>> patch yet.
+>>>>>> I will take a deep look in the weekend.
+>>>
+>>>
+>>>
+>>> Hi Cong,
+>>>
+>>> When reported the new trace I didn't mean it's related to your patch,
+>>> I just wanted to point it out it exposed something. I should have been
+>>> clear about it.
+>>>
+>>>
+>>>>>
+>>>>> Ok, I'm currently on the run. Got too late yesterday night, but I'll
+>>>>> write what I found in the evening today, not related to ingress though.
+>>>>
+>>>> Just pushed out my analysis to netdev under "[PATCH net] net, sched:
+>>>> respect
+>>>> rcu grace period on cls destruction". My conclusion is that both
+>>>> issues are
+>>>> actually separate, and that one is small enough where we could route
+>>>> it via
+>>>> net actually. Perhaps this at the same time shrinks your "[PATCH
+>>>> net-next]
+>>>> net_sched: move the empty tp check from ->destroy() to ->delete()" to a
+>>>> reasonable size that it's suitable to net as well. Your
+>>>> ->delete()/->destroy()
+>>>> one is definitely needed, too. The tp->root one is independant of
+>>>> ->delete()/
+>>>> ->destroy() as they are different races and tp->root could also
+>>>> happen when
+>>>> you just destroy the whole tp directly. I think that seems like a
+>>>> good path
+>>>> forward to me.
+>>>>
+>>>> Thanks,
+>>>> Daniel
+>>>
+>>>
+>>>
+>>> Hi Daniel,
+>>>
+>>> As for the tainted kernel. I was in old (week or two) net-next tree
+>>> and only cherry-picked from latest net-next related patches to
+>>> Mellanox HCA, cls_api, cls_flower, devlink. so those are the tainted
+>>> modules.
+>>> I have the issue reproducing in that tree so wanted it to check it
+>>> with Cong's patch instead of latest net-next.
+>>> I'll try running reproducing the issue with your new patch and later
+>>> try latest net-next as well.
+>>>
+>>> Thanks,
+>>> Roi
+>>>
+>>
+>> Hi,
+>>
+>> I tested "[PATCH net] net, sched: respect rcu grace period on cls
+>> destruction" and could not reproduce my original issue.
+> 
+> Hi Roi,
+> 
+> Just so I'm 100% clear. No issue with just the above "respect rcu grace
+> period on cls destruction" per above statement.
+> 
+>> I rebased "[Patch net-next] net_sched: move the empty tp check from
+>> ->destroy() to ->delete()" over to test it in the same tree and got into
+>> a new trace in fl_delete.
+> 
+> In this case did you test with "net_sched: move the empty tp check from
+> ->destroy() to ->delete()" _only_ or did this include both patches when
+> you see the error below.
+> 
+> From my inspection we really need both patches to get correct behavior.
+> 
+> Thanks!
+> John
 
-Reviewed-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- Documentation/networking/phy.txt | 77 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 77 insertions(+)
+Ah dang nevermind I just read both patches in detail and applying them
+both at the same time is nonsense. Let me reply with comments directly
+to the patches.
 
-diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
-index 9a42a9414cea..c7ba84b5d912 100644
---- a/Documentation/networking/phy.txt
-+++ b/Documentation/networking/phy.txt
-@@ -65,6 +65,83 @@ The MDIO bus
-  drivers/net/ethernet/freescale/fsl_pq_mdio.c and an associated DTS file
-  for one of the users. (e.g. "git grep fsl,.*-mdio arch/powerpc/boot/dts/")
- 
-+(RG)MII/electrical interface considerations
-+
-+ The Reduced Gigabit Medium Independent Interface (RGMII) is a 12-pin
-+ electrical signal interface using a synchronous 125Mhz clock signal and several
-+ data lines. Due to this design decision, a 1.5ns to 2ns delay must be added
-+ between the clock line (RXC or TXC) and the data lines to let the PHY (clock
-+ sink) have enough setup and hold times to sample the data lines correctly. The
-+ PHY library offers different types of PHY_INTERFACE_MODE_RGMII* values to let
-+ the PHY driver and optionally the MAC driver, implement the required delay. The
-+ values of phy_interface_t must be understood from the perspective of the PHY
-+ device itself, leading to the following:
-+
-+ * PHY_INTERFACE_MODE_RGMII: the PHY is not responsible for inserting any
-+   internal delay by itself, it assumes that either the Ethernet MAC (if capable
-+   or the PCB traces) insert the correct 1.5-2ns delay
-+
-+ * PHY_INTERFACE_MODE_RGMII_TXID: the PHY should insert an internal delay
-+   for the transmit data lines (TXD[3:0]) processed by the PHY device
-+
-+ * PHY_INTERFACE_MODE_RGMII_RXID: the PHY should insert an internal delay
-+   for the receive data lines (RXD[3:0]) processed by the PHY device
-+
-+ * PHY_INTERFACE_MODE_RGMII_ID: the PHY should insert internal delays for
-+   both transmit AND receive data lines from/to the PHY device
-+
-+ Whenever possible, use the PHY side RGMII delay for these reasons:
-+
-+ * PHY devices may offer sub-nanosecond granularity in how they allow a
-+   receiver/transmitter side delay (e.g: 0.5, 1.0, 1.5ns) to be specified. Such
-+   precision may be required to account for differences in PCB trace lengths
-+
-+ * PHY devices are typically qualified for a large range of applications
-+   (industrial, medical, automotive...), and they provide a constant and
-+   reliable delay across temperature/pressure/voltage ranges
-+
-+ * PHY device drivers in PHYLIB being reusable by nature, being able to
-+   configure correctly a specified delay enables more designs with similar delay
-+   requirements to be operate correctly
-+
-+ For cases where the PHY is not capable of providing this delay, but the
-+ Ethernet MAC driver is capable of doing so, the correct phy_interface_t value
-+ should be PHY_INTERFACE_MODE_RGMII, and the Ethernet MAC driver should be
-+ configured correctly in order to provide the required transmit and/or receive
-+ side delay from the perspective of the PHY device. Conversely, if the Ethernet
-+ MAC driver looks at the phy_interface_t value, for any other mode but
-+ PHY_INTERFACE_MODE_RGMII, it should make sure that the MAC-level delays are
-+ disabled.
-+
-+ In case neither the Ethernet MAC, nor the PHY are capable of providing the
-+ required delays, as defined per the RGMII standard, several options may be
-+ available:
-+
-+ * Some SoCs may offer a pin pad/mux/controller capable of configuring a given
-+   set of pins'strength, delays, and voltage; and it may be a suitable
-+   option to insert the expected 2ns RGMII delay.
-+
-+ * Modifying the PCB design to include a fixed delay (e.g: using a specifically
-+   designed serpentine), which may not require software configuration at all.
-+
-+Common problems with RGMII delay mismatch
-+
-+ When there is a RGMII delay mismatch between the Ethernet MAC and the PHY, this
-+ will most likely result in the clock and data line signals to be unstable when
-+ the PHY or MAC take a snapshot of these signals to translate them into logical
-+ 1 or 0 states and reconstruct the data being transmitted/received. Typical
-+ symptoms include:
-+
-+ * Transmission/reception partially works, and there is frequent or occasional
-+   packet loss observed
-+
-+ * Ethernet MAC may report some or all packets ingressing with a FCS/CRC error,
-+   or just discard them all
-+
-+ * Switching to lower speeds such as 10/100Mbits/sec makes the problem go away
-+   (since there is enough setup/hold time in that case)
-+
-+
- Connecting to a PHY
- 
-  Sometime during startup, the network driver needs to establish a connection
--- 
-2.9.3
+Thanks. sorry for the noise.
+
+> 
+>>
+>> [35659.012123] BUG: KASAN: wild-memory-access on address 1ffffffff803ca31
+>> [35659.020042] Write of size 1 by task ovs-vswitchd/20135
+>> [35659.025878] CPU: 19 PID: 20135 Comm: ovs-vswitchd Tainted:
+>> G           O    4.9.0-rc3+ #18
+>> [35659.035948] Hardware name: HP ProLiant DL380p Gen8, BIOS P70 07/01/2015
+>> [35659.043730] Call Trace:
+>> [35659.046619]  [<ffffffff95b6dc42>] dump_stack+0x63/0x81
+>> [35659.052456]  [<ffffffff955fbbf8>] kasan_report_error+0x408/0x4e0
+>> [35659.059402]  [<ffffffff955fc2e8>] kasan_report+0x58/0x60
+>> [35659.065428]  [<ffffffff952d5e8d>] ? call_rcu_sched+0x1d/0x20
+>> [35659.072119]  [<ffffffffc01e0701>] ? fl_destroy_filter+0x21/0x30
+>> [cls_flower]
+>> [35659.080217]  [<ffffffffc01e1ccf>] ? fl_delete+0x1df/0x2e0 [cls_flower]
+>> [35659.087580]  [<ffffffff955fa4ca>] __asan_store1+0x4a/0x50
+>> [35659.093697]  [<ffffffffc01e1ccf>] fl_delete+0x1df/0x2e0 [cls_flower]
+>> [35659.100870]  [<ffffffff9653ecba>] tc_ctl_tfilter+0x10da/0x1b90
+>>
+>>
+>> 0x1d02 is in fl_delete (net/sched/cls_flower.c:805).
+>> 800             struct cls_fl_filter *f = (struct cls_fl_filter *) arg;
+>> 801
+>> 802             rhashtable_remove_fast(&head->ht, &f->ht_node,
+>> 803                                    head->ht_params);
+>> 804             __fl_delete(tp, f);
+>> 805             *last = list_empty(&head->filters);
+>> 806             return 0;
+>> 807     }
+>>
+>>
+>> Thanks,
+>> Roi
+> 
