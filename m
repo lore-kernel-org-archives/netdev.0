@@ -1,71 +1,57 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v2 1/1] net: macb: ensure ordering write to re-enable RX
- smoothly
-Date: Mon, 28 Nov 2016 15:04:15 +0100
-Message-ID: <3d22926d-e892-e824-4bee-a52b4945f9ed@atmel.com>
-References: <1480341300-17384-1-git-send-email-zumeng.chen@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fec: turn on device when extracting statistics
+Date: Mon, 28 Nov 2016 09:11:49 -0500 (EST)
+Message-ID: <20161128.091149.2039527154584013771.davem@davemloft.net>
+References: <1480068120-22137-1-git-send-email-nikita.yoush@cogentembedded.com>
+        <20161127.202945.1759992980026862076.davem@davemloft.net>
+        <4ddb5842-0ece-2950-214f-f56db808ffbd@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        Cyrille Pitchen <cyrille.pitchen@atmel.com>,
-        Andrei Pistirica <Andrei.Pistirica@microchip.com>
-To: Zumeng Chen <zumeng.chen@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480341300-17384-1-git-send-email-zumeng.chen@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=koi8-r
+Content-Transfer-Encoding: 8BIT
+Cc: fugang.duan@nxp.com, troy.kisky@boundarydevices.com,
+        andrew@lunn.ch, eric@nelint.com, tremyfr@gmail.com,
+        johannes@sipsolutions.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, cphealy@gmail.com,
+        fabio.estevam@nxp.com
+To: nikita.yoush@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56732 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932283AbcK1OLx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 09:11:53 -0500
+In-Reply-To: <4ddb5842-0ece-2950-214f-f56db808ffbd@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 28/11/2016 à 14:55, Zumeng Chen a écrit :
-> When a hardware issue happened as described by inline comments, the register
-> write pattern looks like the following:
-> 
-> <write ~MACB_BIT(RE)>
-> + wmb();
-> <write MACB_BIT(RE)>
-> 
-> There might be a memory barrier between these two write operations, so add wmb
-> to ensure an flip from 0 to 1 for NCR.
-> 
-> Signed-off-by: Zumeng Chen <zumeng.chen@windriver.com>
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Date: Mon, 28 Nov 2016 10:06:31 +0300
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> 
+> 
+> 28.11.2016 04:29, David Miller ÐÉÛÅÔ:
+>> From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+>> Date: Fri, 25 Nov 2016 13:02:00 +0300
+>> 
+>>> +	int i, ret;
+>>> +
+>>> +	ret = pm_runtime_get_sync(&fep->pdev->dev);
+>>> +	if (IS_ERR_VALUE(ret)) {
+>>> +		memset(data, 0, sizeof(*data) * ARRAY_SIZE(fec_stats));
+>>> +		return;
+>>> +	}
+>> 
+>> This really isn't the way to do this.
+>> 
+>> When the device is suspended and the clocks are going to be stopped,
+>> you must fetch the statistic values into a software copy and provide
+>> those if the device is suspended when statistics are requested.
+> 
+> Ok, can do that, although can't see what's wrong with waking device
+> here. The situation of requesting stats on down device isn't something
+> widely used, thus keeping handling of that as local as possible looks
+> better for me.
 
-Thanks, best regards,
-
-> ---
-> 
-> V2 changes:
-> 
-> Add the same wmb for at91ether as well based on reviewer's suggestion.
-> 
-> Cheers,
->  drivers/net/ethernet/cadence/macb.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 533653b..6d7cfa7 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -1156,6 +1156,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
->  		if (status & MACB_BIT(RXUBR)) {
->  			ctrl = macb_readl(bp, NCR);
->  			macb_writel(bp, NCR, ctrl & ~MACB_BIT(RE));
-> +			wmb();
->  			macb_writel(bp, NCR, ctrl | MACB_BIT(RE));
->  
->  			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-> @@ -2770,6 +2771,7 @@ static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
->  	if (intstatus & MACB_BIT(RXUBR)) {
->  		ctl = macb_readl(lp, NCR);
->  		macb_writel(lp, NCR, ctl & ~MACB_BIT(RE));
-> +		wmb();
->  		macb_writel(lp, NCR, ctl | MACB_BIT(RE));
->  	}
->  
-> 
-
-
--- 
-Nicolas Ferre
+The issue is the fact that you need error handling at all and might
+therefore provide a set of zero stats to the user when that entire
+possibility could have been avoided in the first place by recording
+the stats at suspend time.
