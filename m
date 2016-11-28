@@ -1,49 +1,57 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: samples: Fix compile of test_lru_dist.c
-Date: Mon, 28 Nov 2016 10:17:23 +0100
-Message-ID: <583BF623.7030103@iogearbox.net>
-References: <1480307539-30187-1-git-send-email-dsa@cumulusnetworks.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 1/1] net: macb: ensure ordering write to re-enable RX
+ smoothly
+Date: Mon, 28 Nov 2016 10:22:21 +0100
+Message-ID: <599275f8-f40c-e550-cef6-f902e80d1738@atmel.com>
+References: <1480319850-15296-1-git-send-email-zumeng.chen@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 8bit
-Cc: Martin KaFai Lau <kafai@fb.com>, ast@fb.com
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        Cyrille Pitchen <cyrille.pitchen@atmel.com>
+To: Zumeng Chen <zumeng.chen@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33821 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932094AbcK1JR0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 04:17:26 -0500
-In-Reply-To: <1480307539-30187-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from eusmtp01.atmel.com ([212.144.249.242]:47796 "EHLO
+        eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752805AbcK1JXB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 04:23:01 -0500
+In-Reply-To: <1480319850-15296-1-git-send-email-zumeng.chen@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2016 05:32 AM, David Ahern wrote:
-> Build of samples/bpf on debian/jessie fails with:
->
->    HOSTCC  /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.o
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c: In function ‘main’:
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c:490:9: error: variable ‘r’ has initializer but incomplete type
->    struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
->           ^
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c:490:21: error: ‘RLIM_INFINITY’ undeclared (first use in this function)
->    struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
->                       ^
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c:490:21: note: each undeclared identifier is reported only once for each function it appears in
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c:490:9: warning: excess elements in struct initializer
->    struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
->           ^
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c:490:9: warning: (near initialization for ‘r’)
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c:490:9: warning: excess elements in struct initializer
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c:490:9: warning: (near initialization for ‘r’)
-> /home/dsa/kernel-3.git/samples/bpf/test_lru_dist.c:490:16: error: storage size of ‘r’ isn’t known
->    struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
->
-> Add sys/resource.h to the include list
->
-> Fixes: 5db58faf989f ("bpf: Add tests for the LRU bpf_htab")
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> Cc: Martin KaFai Lau <kafai@fb.com>
+Le 28/11/2016 � 08:57, Zumeng Chen a �crit :
+> When a hardware issue happened as described by inline comments, the register
+> write pattern looks like the following:
+> 
+>   <write ~MACB_BIT(RE)>
+>   + wmb();
+>   <write MACB_BIT(RE)>
+> 
+> There might be a memory barrier between these two write operations, so add wmb
+> to ensure an flip from 0 to 1 for NCR.
+> 
+> Signed-off-by: Zumeng Chen <zumeng.chen@windriver.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 533653b..2f9c5b2 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -1156,6 +1156,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+>  		if (status & MACB_BIT(RXUBR)) {
+>  			ctrl = macb_readl(bp, NCR);
+>  			macb_writel(bp, NCR, ctrl & ~MACB_BIT(RE));
+> +			wmb();
+>  			macb_writel(bp, NCR, ctrl | MACB_BIT(RE));
+>  
+>  			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
 
-Ran into the same issue, fixed here already:
+It seems that there is exactly the same pattern in function
+at91ether_interrupt() can you fix both locations in your patch please?
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=e00c7b216f34444252f3771f7d4ed48d4f032636
+Thanks, best regards,
+-- 
+Nicolas Ferre
