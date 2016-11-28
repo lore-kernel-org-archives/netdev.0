@@ -1,119 +1,68 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Checking for MDIO phy address 0
-Date: Mon, 28 Nov 2016 12:25:54 -0800
-Message-ID: <acbf27e0-48d3-736c-2ff4-69969ced9da7@gmail.com>
-References: <1480359230293@dmwebmail.dmwebmail.chezphil.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3 1/3] bpf: Refactor cgroups code in prep for
+ new type
+Date: Mon, 28 Nov 2016 13:31:43 -0700
+Message-ID: <8c67174f-1f03-b0bb-08ea-ec07c40c4466@cumulusnetworks.com>
+References: <1480348130-31354-1-git-send-email-dsa@cumulusnetworks.com>
+ <1480348130-31354-2-git-send-email-dsa@cumulusnetworks.com>
+ <20161128200641.GA7634@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: Phil Endecott <spam_from_netdev@chezphil.org>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
+        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:36083 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753088AbcK1UZ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 15:25:56 -0500
-Received: by mail-pg0-f43.google.com with SMTP id f188so60192074pgc.3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 12:25:56 -0800 (PST)
-In-Reply-To: <1480359230293@dmwebmail.dmwebmail.chezphil.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33723 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752668AbcK1Ubp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 15:31:45 -0500
+Received: by mail-pf0-f170.google.com with SMTP id d2so26696043pfd.0
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 12:31:45 -0800 (PST)
+In-Reply-To: <20161128200641.GA7634@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2016 10:53 AM, Phil Endecott wrote:
-> Dear Experts,
+On 11/28/16 1:06 PM, Alexei Starovoitov wrote:
+> On Mon, Nov 28, 2016 at 07:48:48AM -0800, David Ahern wrote:
+>> Code move only; no functional change intended.
 > 
-> Is it true that phy address 0 is special, and should not be used?
-
-It is special in that it can be made special, or not (very helpful, I
-know). AFAIR, address 0 was defined a while ago (by Cisco) to be a
-special broadcast address which could be used to e.g: blast the same
-write to several devices. As you may imagine this can be helpful in a
-switch environment where you may have to reset e.g: 48-ports.
-
-In practice, the behavior varies a lot depending on:
-
-- whether address 0 is potentially used to access a built-in PHY within
-e.g: an Ethernet switch
-
-- what kind of strapping options/configurations are selected for the
-PHY, and whether address 0 is going to be snooped by the PHY devices's
-MDIO block and how it
-
-> I have this in my device tree (edited for brevity):
+> not quite...
 > 
->         mdio@17020000 {
->             compatible = "apm,xgene-mdio-rgmii";
->             #address-cells = <0x00000001>;
->             #size-cells = <0x00000000>;
->             phy@4 {
->                 reg = <0x00000000>;
-
-Nit: why not make the unit address and the actual reg property match, e.g:
-
-	phy@0 {
-		reg = <0>;
-	};
-
-	phy@1 {
-		reg = <1>;
-	};
-
->                 linux,phandle = <0x00000021>;
->                 phandle = <0x00000021>;
->             };
->             phy@5 {
->                 reg = <0x00000001>;
->                 linux,phandle = <0x00000022>;
->                 phandle = <0x00000022>;
->             };
->         };
->         ethernet@1f210000 {
->             compatible = "apm,xgene1-sgenet";
->             phy-connection-type = "sgmii";
->             phy-handle = <0x00000021>;
->         };
->         ethernet@1f210030 {
->             compatible = "apm,xgene1-sgenet";
->             phy-connection-type = "sgmii";
->             phy-handle = <0x00000022>;
->         };
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ...
+>>   * @sk: The socken sending or receiving traffic
+>> @@ -153,11 +166,15 @@ int __cgroup_bpf_run_filter(struct sock *sk,
+>>  
+>>  	prog = rcu_dereference(cgrp->bpf.effective[type]);
+>>  	if (prog) {
+>> -		unsigned int offset = skb->data - skb_network_header(skb);
+>> -
+>> -		__skb_push(skb, offset);
+>> -		ret = bpf_prog_run_save_cb(prog, skb) == 1 ? 0 : -EPERM;
+>> -		__skb_pull(skb, offset);
+>> +		switch (type) {
+>> +		case BPF_CGROUP_INET_INGRESS:
+>> +		case BPF_CGROUP_INET_EGRESS:
+>> +			ret = __cgroup_bpf_run_filter_skb(skb, prog);
+>> +			break;
 > 
-> (This is on a Gigabyte MP30-AR1, which has an X-Gene ARM64 processor.)
+> hmm. what's a point of double jump table? It's only burning cycles
+> in the fast path. We already have
+> prog = rcu_dereference(cgrp->bpf.effective[type]); if (prog) {...}
+> Could you do a variant of __cgroup_bpf_run_filter() instead ?
+> That doesnt't take 'skb' as an argument.
+> It will also solve scary looking NULL skb from patch 2:
+> __cgroup_bpf_run_filter(sk, NULL, ...
 > 
-> I've spent a long time trying to get the two gigabit ethernet ports to 
-> correctly auto-negotiate down to 100 Mbit, and it's possible that the 
-> underlying problem is that one of the phys is using address 0.  Does 
-> that make sense?
-
-Maybe, but you are not exactly describing the problems you are seeing.
-
-If the issue is that both PHYs are configured to respond to MDIO address
-0, what could happen is that the Ethernet instance which references this
-address 0 may end-up clobbering the other PHY's settings as well because
-of the broadcast properties applied to this special address.
-
-Few things for you to check:
-
-- can you scan the entire bus range and see which addresses are valid,
-outside of address 0 and 1, there is possibly another address at which
-one of the two PHYs should respond, if not, check the next recommendation
-
-- if you have access to the MV88E1512 datasheet, can you check if the
-PHY is configured to respond to MDIO address 0, and what this implies
-for reads and writes towards that address? Can you disable this and just
-have address 0 be a normal (non-broadcast) address?
-
+> and to avoid copy-pasting first dozen lines of current
+> __cgroup_bpf_run_filter can be moved into a helper that
+> __cgroup_bpf_run_filter_skb and
+> __cgroup_bpf_run_filter_sk will call.
+> Or some other way to rearrange that code.
 > 
-> Anyway, my reason for this message is to suggest a runtime diagnostic 
-> message somewhere if address 0 is used - this could have saved me a lot of 
-> work! If someone can suggest the right place to add this I can prepare a 
-> patch.
 
-Address 0 can be made special or not, but there is no programmatic way
-to tell without scanning the MDIO bus for devices, so I don't think a
-warning is going to help at all to warn about that. There are also tons
-of cases where the address is just treated like any other address, which
-is typical with MDIO connected Ethernet switches where PHY@0 is just the
-switch's port 0 built-in PHY for instance.
--- 
-Florian
+sure
+1. rename the existing __cgroup_bpf_run_filter to __cgroup_bpf_run_filter_skb
+
+2. create new __cgroup_bpf_run_filter_sk for this new program type. the new run_filter does not need the family or full sock checks for this use case so the common code is only the sock_cgroup_ptr and prog lookups.
