@@ -1,55 +1,58 @@
-From: <salome.khum@vision-france.net>
-Subject: (unknown)
-Date: Mon, 28 Nov 2016 21:46:12 -0000
-Message-ID: <148036957274.14474.9706479526621246835@goldenhomes.co.nz>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH] mlx4: give precise rx/tx bytes/packets counters
+Date: Mon, 28 Nov 2016 23:55:25 +0200
+Message-ID: <CALzJLG8qjz7Qx8rWbthtJ1uJt2c8w_1gMeRkmB+SZ+xv2Eu3EQ@mail.gmail.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG8nFBFy=-pjy-XBYb-y-F=grC5wjN35zTt9eUOT-612Eg@mail.gmail.com>
+ <1480212960.18162.23.camel@edumazet-glaptop3.roam.corp.google.com> <20161128.154057.1355209532933900181.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: application/zip; name="MESSAGE_5999780_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.goldenhomes.co.nz ([111.69.28.34]:57524 "HELO
-        goldenhomes.co.nz" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1752456AbcK1VqU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:46:20 -0500
-Subject: 
-Content-Disposition: attachment
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:35351 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755724AbcK1Vzt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:55:49 -0500
+Received: by mail-lf0-f67.google.com with SMTP id p100so10844100lfg.2
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 13:55:46 -0800 (PST)
+In-Reply-To: <20161128.154057.1355209532933900181.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-SwAAAK0HAAAAAA==
+On Mon, Nov 28, 2016 at 10:40 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sat, 26 Nov 2016 18:16:00 -0800
+>
+>> On Sun, 2016-11-27 at 00:47 +0200, Saeed Mahameed wrote:
+>>> On Fri, Nov 25, 2016 at 5:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>
+>>> As you see here in SRIOV mode (PF only) reads   sw stats from FW.
+>>> Tariq, I think we need to fix this.
+>>
+>> Sure, my patch does not change this at all.
+>>
+>> If mlx4_is_master() is false, then we aggregate the software states and
+>> only the software stats.
+>>
+>> My patch makes this aggregation possible at the time ethtool or
+>> ndo_get_stat64() are called, since this absolutely not depend on the 250
+>> ms timer fetching hardware stats.
+>
+> Saeed please provide counter arguments or ACK this patch, thank you.
+
+I have nothing against this patch, I just wanted to point out that
+this patch is just fixing the symptom.
+We keep ignoring the root cause that dev_get_stats is called under a
+spin_lock which really ties our hands "us device drivers developers"
+and push us towards those fragile solutions like deferred work for
+caching statistics.
+I am not saying that Eric should fix this in his patch, i just wanted
+to raise the awareness of the root cause.
+
+Regarding the SRIOV PF stats, i will take it with Tariq internally.
+
+Bottom line, I ACK this patch, I might even do the same myself for
+mlx5 :), but there are some follow ups that need to be done.
