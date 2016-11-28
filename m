@@ -1,145 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net/dccp: fix use-after-free in dccp_invalid_packet
-Date: Mon, 28 Nov 2016 07:20:58 -0800
-Message-ID: <1480346458.18162.54.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
-         <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161128144001.GE16426@kernel.org>
-         <1480344434.18162.51.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161128150518.GA17913@kernel.org>
+From: Neil Horman <nhorman@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: enable multiqueue by default
+Date: Mon, 28 Nov 2016 10:25:07 -0500
+Message-ID: <20161128152507.GB14706@hmsreliant.think-freely.org>
+References: <1480048646-17536-1-git-send-email-jasowang@redhat.com>
+ <20161125064201-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Alexander Duyck <aduyck@mirantis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36526 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932342AbcK1PVD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 10:21:03 -0500
-In-Reply-To: <20161128150518.GA17913@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@redhat.com>,
+        Jeremy Eder <jeder@redhat.com>,
+        Marko Myllynen <myllynen@redhat.com>,
+        Maxime Coquelin <maxime.coquelin@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161125064201-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-11-28 at 12:05 -0300, Arnaldo Carvalho de Melo wrote:
-> Em Mon, Nov 28, 2016 at 06:47:14AM -0800, Eric Dumazet escreveu:
-> > On Mon, 2016-11-28 at 11:40 -0300, Arnaldo Carvalho de Melo wrote:
-> > > Em Mon, Nov 28, 2016 at 06:26:49AM -0800, Eric Dumazet escreveu:
-> > > > From: Eric Dumazet <edumazet@google.com>
-> > > > 
-> > > > pskb_may_pull() can reallocate skb->head, we need to reload dh pointer
-> > > > in dccp_invalid_packet() or risk use after free.
-> > > > 
-> > > > Bug found by Andrey Konovalov using syzkaller.
-> > > > 
-> > > > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > > > Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> > > 
-> > > Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> > > 
-> > > I was about to send exactly this patch, and while looking at it I think
-> > > the patch below needs to go in as well, no? To follow the advice of that
-> > > Warning line there :-)
-> > > 
-> > > From: Arnaldo Carvalho de Melo <acme@redhat.com>
-> > > 
-> > > pskb_may_pull() can reallocate skb->head, so we can't access
-> > > iph->frag_off or risk use after free, save it to a variable and us that
-> > > later.
-> > > 
-> > > Cc: Andrey Konovalov <andreyknvl@google.com>
-> > > Cc: Eric Dumazet <edumazet@google.com>
-> > > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> > > 
-> > > diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> > > index 5ddf5cda07f4..9462070561a3 100644
-> > > --- a/net/ipv4/af_inet.c
-> > > +++ b/net/ipv4/af_inet.c
-> > > @@ -1198,6 +1198,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> > >  	struct iphdr *iph;
-> > >  	int proto, tot_len;
-> > >  	int nhoff;
-> > > +	u16 frag_off;
-> > >  	int ihl;
-> > >  	int id;
-> > >  
-> > > @@ -1213,6 +1214,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> > >  
-> > >  	id = ntohs(iph->id);
-> > >  	proto = iph->protocol;
-> > > +	frag_off = iph->frag_off;
-> > >  
-> > >  	/* Warning: after this point, iph might be no longer valid */
-> > >  	if (unlikely(!pskb_may_pull(skb, ihl)))
-> > > @@ -1233,7 +1235,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> > >  		fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
-> > >  
-> > >  		/* fixed ID is invalid if DF bit is not set */
-> > > -		if (fixedid && !(iph->frag_off & htons(IP_DF)))
-> > > +		if (fixedid && !(frag_off & htons(IP_DF)))
-> > >  			goto out;
-> > >  	}
-> > >  
+On Fri, Nov 25, 2016 at 06:43:08AM +0200, Michael S. Tsirkin wrote:
+> On Fri, Nov 25, 2016 at 12:37:26PM +0800, Jason Wang wrote:
+> > We use single queue even if multiqueue is enabled and let admin to
+> > enable it through ethtool later. This is used to avoid possible
+> > regression (small packet TCP stream transmission). But looks like an
+> > overkill since:
 > > 
+> > - single queue user can disable multiqueue when launching qemu
+> > - brings extra troubles for the management since it needs extra admin
+> >   tool in guest to enable multiqueue
+> > - multiqueue performs much better than single queue in most of the
+> >   cases
 > > 
-> > I do not see why this patch would be needed ?
+> > So this patch enables multiqueue by default: if #queues is less than or
+> > equal to #vcpu, enable as much as queue pairs; if #queues is greater
+> > than #vcpu, enable #vcpu queue pairs.
+> > 
+> > Cc: Hannes Frederic Sowa <hannes@redhat.com>
+> > Cc: Michael S. Tsirkin <mst@redhat.com>
+> > Cc: Neil Horman <nhorman@redhat.com>
+> > Cc: Jeremy Eder <jeder@redhat.com>
+> > Cc: Marko Myllynen <myllynen@redhat.com>
+> > Cc: Maxime Coquelin <maxime.coquelin@redhat.com>
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
 > 
-> Where is iph being reloaded after that pskb_may_pull() and thus at line 1236 we
-> could use after free? The warning at line 1217?
+> OK at some level but all uses of num_online_cpus()
+> like this are racy versus hotplug.
+> I know we already have this bug but shouldn't we fix it
+> before we add more?
 > 
-> 1209         iph = ip_hdr(skb);
-> 1210         ihl = iph->ihl * 4;
-> 1211         if (ihl < sizeof(*iph))
-> 1212                 goto out;
-> 1213 
-> 1214         id = ntohs(iph->id);
-> 1215         proto = iph->protocol;
-> 1216 
-> 1217         /* Warning: after this point, iph might be no longer valid */
-> 1218         if (unlikely(!pskb_may_pull(skb, ihl)))
-> 1219                 goto out;
-> 1220         __skb_pull(skb, ihl);
-> 1221 
-> 1222         encap = SKB_GSO_CB(skb)->encap_level > 0;
-> 1223         if (encap)
-> 1224                 features &= skb->dev->hw_enc_features;
-> 1225         SKB_GSO_CB(skb)->encap_level += ihl;
-> 1226 
-> 1227         skb_reset_transport_header(skb);
-> 1228 
-> 1229         segs = ERR_PTR(-EPROTONOSUPPORT);
-> 1230 
-> 1231         if (!skb->encapsulation || encap) {
-> 1232                 udpfrag = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
-> 1233                 fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
-> 1234 
-> 1235                 /* fixed ID is invalid if DF bit is not set */
-> 1236                 if (fixedid && !(iph->frag_off & htons(IP_DF)))
-> 1237                         goto out;
-> 1238         }
+Isn't the fix orthogonal to this use though?  That is to say, you shoudl
+register a hotplug notifier first, and use the handler to adjust the number of
+queues on hotplug add/remove?
+
+Neil
+
 > 
-
-Arg, I was looking at an old tree.
-
-Please then add
-
-Fixes: cbc53e08a793b ("GSO: Add GSO type for fixed IPv4 ID")
-
-To ease stable backports.
-
-Also, it looks comments are not read, we might kill this one and reload
-iph.
-
-( Saving 3 fields is now more expensive than simply reloading iph )
-
-Thanks.
+> > ---
+> >  drivers/net/virtio_net.c | 9 +++++++--
+> >  1 file changed, 7 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index d4ac7a6..a21d93a 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -1886,8 +1886,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+> >  	if (vi->any_header_sg)
+> >  		dev->needed_headroom = vi->hdr_len;
+> >  
+> > -	/* Use single tx/rx queue pair as default */
+> > -	vi->curr_queue_pairs = 1;
+> > +	/* Enable multiqueue by default */
+> > +	if (num_online_cpus() >= max_queue_pairs)
+> > +		vi->curr_queue_pairs = max_queue_pairs;
+> > +	else
+> > +		vi->curr_queue_pairs = num_online_cpus();
+> >  	vi->max_queue_pairs = max_queue_pairs;
+> >  
+> >  	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
+> > @@ -1918,6 +1921,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+> >  		goto free_unregister_netdev;
+> >  	}
+> >  
+> > +	virtnet_set_affinity(vi);
+> > +
+> >  	/* Assume link up if device can't report link status,
+> >  	   otherwise get link status from config. */
+> >  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
+> > -- 
+> > 2.7.4
