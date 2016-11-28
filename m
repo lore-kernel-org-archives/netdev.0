@@ -1,44 +1,41 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/sctp: vmalloc allocation failure in
- sctp_setsockopt/xt_alloc_table_info
-Date: Mon, 28 Nov 2016 10:26:40 -0800
-Message-ID: <1480357600.18162.74.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+wecw6ST_DWJQBLFNwVsOVgderGE-EEJiN0-kf796XHtw@mail.gmail.com>
-         <20161128141340.GA29839@hmsreliant.think-freely.org>
-         <CAAeHK+xJmwF6hddS-sO-y3HQkRicwQN=ZceFWTZT2M_0h4E2hQ@mail.gmail.com>
-         <20161128143931.GB29839@hmsreliant.think-freely.org>
-         <20161128151312.GA13172@localhost.localdomain>
-         <20161128174647.GC29839@hmsreliant.think-freely.org>
-         <20161128174710.GE28510@breakpoint.cc>
-         <20161128175626.GD29839@hmsreliant.think-freely.org>
-         <20161128180925.GF28510@breakpoint.cc>
+Subject: Re: [PATCH net] sit: Set skb->protocol properly in
+ ipip6_tunnel_xmit()
+Date: Mon, 28 Nov 2016 10:32:15 -0800
+Message-ID: <1480357935.18162.76.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161128.114703.154301432767947066.davem@davemloft.net>
+         <1480352023.18162.63.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480354467.18162.66.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161128.130142.1225482479870737422.davem@davemloft.net>
+         <1480357043.18162.70.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20161128180925.GF28510@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexander.duyck@gmail.com, sfr@canb.auug.org.au, elicooper@gmx.com,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34178 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754852AbcK1SdR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 13:33:17 -0500
+Received: by mail-pg0-f65.google.com with SMTP id e9so13774706pgc.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 10:33:17 -0800 (PST)
+In-Reply-To: <1480357043.18162.70.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-11-28 at 19:09 +0100, Florian Westphal wrote:
+On Mon, 2016-11-28 at 10:17 -0800, Eric Dumazet wrote:
 
-> We should prevent OOM killer from running in first place (GFP_NORETRY should work).
+> I was referring to Stephen bug report.
+> 
+> It appears that Eli changelog was not very precise, because his bug was
+> because of XFRM being involved.
+> 
+> xfrm_output() -> xfrm_output_gso() -> skb_gso_segment()
+> 
+> So XFRM calls skb_gso_segment() before ip_output() or
+> ip6_finish_output2() had a chance to change skb->protocol
 
-Make sure that a vmalloc(80000) will succeed, even if few pages need to
-be swapped out.
-
-Otherwise, some scripts using iptables will die while they where okay
-before ?
-
-I am not sure how GFP_NORETRY really works among different linux
-kernels.
-
-Maybe this flag has no effect for order-0 allocations anyway.
-
-
+So maybe the real fix would be to set skb->protocol at the right place,
+before xfrm can be called, instead of chasing all skb producers ;)
