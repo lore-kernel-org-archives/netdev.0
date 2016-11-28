@@ -1,120 +1,95 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net] sit: Set skb->protocol properly in ipip6_tunnel_xmit()
-Date: Mon, 28 Nov 2016 09:45:35 -0800
-Message-ID: <CAKgT0Uf+wS40vcb7nmx91wdkNTfd2Vq6kCxz1QVveGJiSKrJCA@mail.gmail.com>
-References: <20161125055017.7053-1-elicooper@gmx.com> <20161127130400.4a69ff1b@canb.auug.org.au>
- <20161128.114703.154301432767947066.davem@davemloft.net> <1480352023.18162.63.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: net/sctp: vmalloc allocation failure in
+ sctp_setsockopt/xt_alloc_table_info
+Date: Mon, 28 Nov 2016 12:46:47 -0500
+Message-ID: <20161128174647.GC29839@hmsreliant.think-freely.org>
+References: <CAAeHK+wecw6ST_DWJQBLFNwVsOVgderGE-EEJiN0-kf796XHtw@mail.gmail.com>
+ <20161128141340.GA29839@hmsreliant.think-freely.org>
+ <CAAeHK+xJmwF6hddS-sO-y3HQkRicwQN=ZceFWTZT2M_0h4E2hQ@mail.gmail.com>
+ <20161128143931.GB29839@hmsreliant.think-freely.org>
+ <20161128151312.GA13172@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
-        elicooper@gmx.com, Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:32905 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751033AbcK1Rpg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:45:36 -0500
-Received: by mail-io0-f193.google.com with SMTP id j92so24196968ioi.0
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 09:45:36 -0800 (PST)
-In-Reply-To: <1480352023.18162.63.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161128151312.GA13172@localhost.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 28, 2016 at 8:53 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2016-11-28 at 11:47 -0500, David Miller wrote:
->> From: Stephen Rothwell <sfr@canb.auug.org.au>
->> Date: Sun, 27 Nov 2016 13:04:00 +1100
->>
->> > [Just for Dave's information]
->> >
->> > On Fri, 25 Nov 2016 13:50:17 +0800 Eli Cooper <elicooper@gmx.com> wrote:
->> >>
->> >> Similar to commit ae148b085876
->> >> ("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"),
->> >> sit tunnels also need to update skb->protocol; otherwise, TSO/GSO packets
->> >> might not be properly segmented, which causes the packets being dropped.
->> >>
->> >> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
->> >> Tested-by: Eli Cooper <elicooper@gmx.com>
->> >> Cc: stable@vger.kernel.org
->> >> Signed-off-by: Eli Cooper <elicooper@gmx.com>
->> >
->> > I tested this patch and it does *not* solve my problem.
->>
->> I'm torn on this patch, because it looked exactly like it would solve the
->> kind of problem Stephen is running into.
->>
->> Even though it doesn't fix his case, it seems correct to me.
->>
->> I was wondering if it was also important to set the skb->protocol
->> before the call to ip_tunnel_encap() but I couldn't find a dependency.
->>
->> In any event I'd like to see some other people review this change
->> before I apply it.
->>
->> My only other guess for Stephen's problem is somehow the SKB headers
->> aren't set up properly for what the GSO engine expects.
->
-> Well, mlx4 just works, and uses GSO engine just fine.
->
-> So my guess is this is a bug in Intel IGB driver.
->
->
-> Alexander, can you take a look ?
->
-> Features for eth0:
-> rx-checksumming: on
-> tx-checksumming: on
->         tx-checksum-ipv4: off [fixed]
->         tx-checksum-ip-generic: on
->         tx-checksum-ipv6: off [fixed]
->         tx-checksum-fcoe-crc: off [fixed]
->         tx-checksum-sctp: on
-> scatter-gather: on
->         tx-scatter-gather: on
->         tx-scatter-gather-fraglist: off [fixed]
-> tcp-segmentation-offload: on
->         tx-tcp-segmentation: on
->         tx-tcp-ecn-segmentation: off [fixed]
->         tx-tcp-mangleid-segmentation: off
->         tx-tcp6-segmentation: on
-> udp-fragmentation-offload: off [fixed]
-> generic-segmentation-offload: on
-> generic-receive-offload: on
-> large-receive-offload: off [fixed]
-> rx-vlan-offload: on
-> tx-vlan-offload: on
-> ntuple-filters: off
-> receive-hashing: on
-> highdma: on [fixed]
-> rx-vlan-filter: on [fixed]
-> vlan-challenged: off [fixed]
-> tx-lockless: off [fixed]
-> netns-local: off [fixed]
-> tx-gso-robust: off [fixed]
-> tx-fcoe-segmentation: off [fixed]
-> tx-gre-segmentation: on
-> tx-gre-csum-segmentation: on
-> tx-ipxip4-segmentation: on
-> tx-ipxip6-segmentation: on
-> tx-udp_tnl-segmentation: on
-> tx-udp_tnl-csum-segmentation: on
-> tx-gso-partial: on
-> fcoe-mtu: off [fixed]
-> tx-nocache-copy: off
-> loopback: off [fixed]
-> rx-fcs: off [fixed]
-> rx-all: off
-> tx-vlan-stag-hw-insert: off [fixed]
-> rx-vlan-stag-hw-parse: off [fixed]
-> rx-vlan-stag-filter: off [fixed]
-> l2-fwd-offload: off [fixed]
-> busy-poll: off [fixed]
-> hw-tc-offload: off [fixed]
+On Mon, Nov 28, 2016 at 01:13:12PM -0200, Marcelo Ricardo Leitner wrote:
+> On Mon, Nov 28, 2016 at 09:39:31AM -0500, Neil Horman wrote:
+> > On Mon, Nov 28, 2016 at 03:33:40PM +0100, Andrey Konovalov wrote:
+> > > On Mon, Nov 28, 2016 at 3:13 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
+> > > > On Mon, Nov 28, 2016 at 02:00:19PM +0100, Andrey Konovalov wrote:
+> > > >> Hi!
+> > > >>
+> > > >> I've got the following error report while running the syzkaller fuzzer.
+> > > >>
+> > > >> On commit d8e435f3ab6fea2ea324dce72b51dd7761747523 (Nov 26).
+> > > >>
+> > > >> A reproducer is attached.
+> > > >>
+> > > >> a.out: vmalloc: allocation failure, allocated 823562240 of 1427091456
+> > > >> bytes, mode:0x24000c2(GFP_KERNEL|__GFP_HIGHMEM)
+> > > >>
+> > > > How much total ram do you have in this system?  The call appears to be
+> > > > attempting to allocate 1.3 Gb of data.  Even using vmalloc to allow
+> > > > discontiguous allocation, thats alot of memory, and if enough is in use already,
+> > > > I could make the argument that this might be expected behavior.
+> > > 
+> > > Hi Neail,
+> > > 
+> > > I have 2 Gb.
+> > > 
+> > That would be why.  Allocating 65% of the available system memory will almost
+> > certainly lead to OOM failures quickly.
+> > 
+> > > Just tested with 4 Gb, everything seems to be working fine.
+> > > So I guess this is not actually a bug and allocating 1.3 Gb is OK.
+> 
+> Still we probably should avoid the warn triggered by an userspace
+> application: (untested)
+> 
+I'm not sure I agree with that.  Generally speaking it seems like the right
+thing to do, if you want to avoid filling logs with warnings, but this is the
+sort of error that is going to be accompanied by severe service interruption.
+I'd rather see a reason behind that in the logs, than just have it occur
+silently.
 
-I agree.  This sounds like a bug with the GSO partial on igb.
+Neil
 
-I'll try setting up a SIT tunnel on my systems here and see if I can
-reproduce the issue.
-
-- Alex
+> --8<--
+> 
+> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+> index fc4977456c30..b56a0e128fc3 100644
+> --- a/net/netfilter/x_tables.c
+> +++ b/net/netfilter/x_tables.c
+> @@ -958,7 +958,8 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
+>  	if (sz <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
+>  		info = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
+>  	if (!info) {
+> -		info = vmalloc(sz);
+> +		info = __vmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_HIGHMEM,
+> +				 PAGE_KERNEL);
+>  		if (!info)
+>  			return NULL;
+>  	}
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
