@@ -1,7 +1,7 @@
 From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 09/16] net: ethernet: gianfar: fix fixed-link phydev leaks
-Date: Mon, 28 Nov 2016 19:25:02 +0100
-Message-ID: <1480357509-28074-10-git-send-email-johan@kernel.org>
+Subject: [PATCH net 10/16] net: ethernet: ucc_geth: fix fixed-link phydev leaks
+Date: Mon, 28 Nov 2016 19:25:03 +0100
+Message-ID: <1480357509-28074-11-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -38,49 +38,69 @@ List-Id: netdev.vger.kernel.org
 Make sure to deregister and free any fixed-link PHY registered using
 of_phy_register_fixed_link() on probe errors and on driver unbind.
 
-Fixes: be40364544bd ("gianfar: use the new fixed PHY helpers")
+Fixes: 87009814cdbb ("ucc_geth: use the new fixed PHY helpers")
 Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/gianfar.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/freescale/ucc_geth.c | 23 ++++++++++++++++-------
+ 1 file changed, 16 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4b4f5bc0e279..9061c2f82b9c 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1312,6 +1312,7 @@ static void gfar_init_addr_hash_table(struct gfar_private *priv)
-  */
- static int gfar_probe(struct platform_device *ofdev)
- {
-+	struct device_node *np = ofdev->dev.of_node;
- 	struct net_device *dev = NULL;
- 	struct gfar_private *priv = NULL;
- 	int err = 0, i;
-@@ -1462,6 +1463,8 @@ static int gfar_probe(struct platform_device *ofdev)
+diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+index 186ef8f16c80..f76d33279454 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth.c
++++ b/drivers/net/ethernet/freescale/ucc_geth.c
+@@ -3868,9 +3868,8 @@ static int ucc_geth_probe(struct platform_device* ofdev)
+ 	dev = alloc_etherdev(sizeof(*ugeth));
+ 
+ 	if (dev == NULL) {
+-		of_node_put(ug_info->tbi_node);
+-		of_node_put(ug_info->phy_node);
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto err_deregister_fixed_link;
+ 	}
+ 
+ 	ugeth = netdev_priv(dev);
+@@ -3907,10 +3906,7 @@ static int ucc_geth_probe(struct platform_device* ofdev)
+ 		if (netif_msg_probe(ugeth))
+ 			pr_err("%s: Cannot register net device, aborting\n",
+ 			       dev->name);
+-		free_netdev(dev);
+-		of_node_put(ug_info->tbi_node);
+-		of_node_put(ug_info->phy_node);
+-		return err;
++		goto err_free_netdev;
+ 	}
+ 
+ 	mac_addr = of_get_mac_address(np);
+@@ -3923,16 +3919,29 @@ static int ucc_geth_probe(struct platform_device* ofdev)
+ 	ugeth->node = np;
+ 
  	return 0;
- 
- register_fail:
++
++err_free_netdev:
++	free_netdev(dev);
++err_deregister_fixed_link:
 +	if (of_phy_is_fixed_link(np))
 +		of_phy_deregister_fixed_link(np);
- 	unmap_group_regs(priv);
- 	gfar_free_rx_queues(priv);
- 	gfar_free_tx_queues(priv);
-@@ -1474,11 +1477,16 @@ static int gfar_probe(struct platform_device *ofdev)
- static int gfar_remove(struct platform_device *ofdev)
++	of_node_put(ug_info->tbi_node);
++	of_node_put(ug_info->phy_node);
++
++	return err;
+ }
+ 
+ static int ucc_geth_remove(struct platform_device* ofdev)
  {
- 	struct gfar_private *priv = platform_get_drvdata(ofdev);
+ 	struct net_device *dev = platform_get_drvdata(ofdev);
+ 	struct ucc_geth_private *ugeth = netdev_priv(dev);
 +	struct device_node *np = ofdev->dev.of_node;
  
- 	of_node_put(priv->phy_node);
- 	of_node_put(priv->tbi_node);
- 
- 	unregister_netdev(priv->ndev);
-+
+ 	unregister_netdev(dev);
+ 	free_netdev(dev);
+ 	ucc_geth_memclean(ugeth);
 +	if (of_phy_is_fixed_link(np))
 +		of_phy_deregister_fixed_link(np);
-+
- 	unmap_group_regs(priv);
- 	gfar_free_rx_queues(priv);
- 	gfar_free_tx_queues(priv);
+ 	of_node_put(ugeth->ug_info->tbi_node);
+ 	of_node_put(ugeth->ug_info->phy_node);
+ 
 -- 
 2.7.3
