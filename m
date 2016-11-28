@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] Documentation: net: phy: Improve
- documentation
-Date: Mon, 28 Nov 2016 16:08:10 -0500 (EST)
-Message-ID: <20161128.160810.806369410602036587.davem@davemloft.net>
-References: <20161128024515.13070-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, sf84@laposte.net,
-        martin.blumenstingl@googlemail.com, mans@mansr.com,
-        alexandre.torgue@st.com, peppe.cavallaro@st.com,
-        timur@codeaurora.org, jbrunet@baylibre.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42128 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753647AbcK1VIQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:08:16 -0500
-In-Reply-To: <20161128024515.13070-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] rtl8xxxu: fix tx rate debug output
+Date: Mon, 28 Nov 2016 22:08:04 +0100
+Message-ID: <20161128210815.2368509-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Sun, 27 Nov 2016 18:45:11 -0800
+We accidentally print the rate before we know it for txdesc_v2:
 
-> This patch series addresses discussions and feedback that was recently received
-> on the mailing-list in the area of: flow control/pause frames, interpretation of
-> phy_interface_t and finally add some links to useful standards documents.
+wireless/realtek/rtl8xxxu/rtl8xxxu_core.c: In function 'rtl8xxxu_fill_txdesc_v2':
+wireless/realtek/rtl8xxxu/rtl8xxxu_core.c:4848:3: error: 'rate' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-I'm always happy to see documentation improvements, series applied,
-thanks!
+txdesc_v1 got it right, so let's do it the same way here.
+
+Fixes: b4c3d9cfb607 ("rtl8xxxu: Pass tx_info to fill_txdesc in order to have access to retry count")
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+---
+ drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+index 04141e57b8ae..a9137abc3ad9 100644
+--- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
++++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+@@ -4844,16 +4844,16 @@ rtl8xxxu_fill_txdesc_v2(struct ieee80211_hw *hw, struct ieee80211_hdr *hdr,
+ 
+ 	tx_desc40 = (struct rtl8xxxu_txdesc40 *)tx_desc32;
+ 
+-	if (rtl8xxxu_debug & RTL8XXXU_DEBUG_TX)
+-		dev_info(dev, "%s: TX rate: %d, pkt size %d\n",
+-			 __func__, rate, cpu_to_le16(tx_desc40->pkt_size));
