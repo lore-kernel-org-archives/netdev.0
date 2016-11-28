@@ -1,142 +1,92 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [[PATCH net-next RFC] 4/4] net: dsa: mv88e6xxx: Refactor CPU and DSA port setup
-Date: Mon, 28 Nov 2016 11:00:34 -0500
-Message-ID: <87bmwzfvbx.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1479944598-20372-1-git-send-email-andrew@lunn.ch> <1479944598-20372-5-git-send-email-andrew@lunn.ch>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] stmmac ethernet: remove cut & paste code
+Date: Mon, 28 Nov 2016 08:03:52 -0800
+Message-ID: <1480349032.17012.1.camel@perches.com>
+References: <20161124085506.GA25007@amd> <20161124102901.GA27793@amd>
+         <20161124103630.GB27793@amd> <20161124104619.GA30723@amd>
+         <20161124110548.GB30723@amd> <1480017925.19726.13.camel@perches.com>
+         <20161124214401.GA25662@amd> <1480026433.19726.17.camel@perches.com>
+         <20161128115023.GA15034@amd> <1480343068.14294.5.camel@perches.com>
+         <20161128143539.GB31224@amd>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:45106 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932617AbcK1QAh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:00:37 -0500
-In-Reply-To: <1479944598-20372-5-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+        kernel list <linux-kernel@vger.kernel.org>,
+        ezequiel@vanguardiasur.com.ar, sonic.zhang@analog.com,
+        fabrice.gasnier@st.com
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161128143539.GB31224@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Mon, 2016-11-28 at 15:35 +0100, Pavel Machek wrote:
+> On Mon 2016-11-28 06:24:28, Joe Perches wrote:
+> > On Mon, 2016-11-28 at 12:50 +0100, Pavel Machek wrote:
+> > > On Thu 2016-11-24 14:27:13, Joe Perches wrote:
+> > > > On Thu, 2016-11-24 at 22:44 +0100, Pavel Machek wrote:
+> > > > > On Thu 2016-11-24 12:05:25, Joe Perches wrote:
+> > > > > > On Thu, 2016-11-24 at 12:05 +0100, Pavel Machek wrote:
+> > > > > > > Remove duplicate code from _tx routines.
+> > > > > > 
+> > > > > > trivia:
+> > > > > > 
+> > > > > > > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> > > > > > 
+> > > > > > []
+> > > > > > > @@ -1960,6 +1960,38 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
+> > > > > > >  	}
+> > > > > > >  }
+> > > > > > >  
+> > > > > > > +static void stmmac_xmit_common(struct sk_buff *skb, struct net_device *dev, int nfrags, struct dma_desc *desc)
+> > > > > > > +{
+> > > > > > > +	struct stmmac_priv *priv = netdev_priv(dev);
+> > > > > > > +
+> > > > > > > +	if (unlikely(stmmac_tx_avail(priv) <= (MAX_SKB_FRAGS + 1))) {
+> > > > > > > +		if (netif_msg_hw(priv))
+> > > > > > > +			pr_debug("%s: stop transmitted packets\n", __func__);
+> > > > > > 
+> > > > > > 		netif_dbg(priv, hw, dev, "%s: stop transmitted packets\n",
+> > > > > > 			  __func__);
+> > > > > 
+> > > > > Not now. Modifying the code while de-duplicating would be bad idea.
+> > > > 
+> > > > Too many people think overly granular patches are the
+> > > > best and only way to make changes.
+> > > > Deduplication and consolidation can happen simultaneously.
+> > > 
+> > > Can, but should not at this point. Please take a look at the driver in
+> > > question before commenting on trivial printk style.
+> > 
+> > I had.
+> > 
+> > It's perfectly acceptable and already uses netif_<level> properly.
+> > 
+> > This consolidation now introduces the _only_ instance where it is
+> > now improperly using a netif_msg_<type> then single pr_<level>
+> > function sequence that should be consolidated into netif_dbg.
+> > Every other use of netif_msg_<level> then either emits multiple
+> > lines or is used in an if/else.
+> 
+> Are you looking at right driver?
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Yes and I think you should make changes against -next
+and not Linus' where this is:
 
->  static const struct mv88e6xxx_ops mv88e6391_ops = {
-> diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> index a0d0f79a7de8..b846a33c024c 100644
-> --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> @@ -123,6 +123,10 @@
->  #define PORT_CONTROL_USE_TAG		BIT(4)
->  #define PORT_CONTROL_FORWARD_UNKNOWN_MC	BIT(3)
->  #define PORT_CONTROL_FORWARD_UNKNOWN	BIT(2)
-> +#define PORT_CONTROL_NOT_EGREES_UNKNOWN_DA		(0x0 << 2)
-> +#define PORT_CONTROL_NOT_EGREES_UNKNOWN_MULTICAST_DA	(0x1 << 2)
-> +#define PORT_CONTROL_NOT_EGREES_UNKNOWN_UNITCAST_DA	(0x2 << 2)
+b3e51069627e2 drivers/net/ethernet/stmicro/stmmac/stmmac_main.c (LABBE Corentin            2016-11-16 20:09:41 +0100  755)                              netif_warn(priv, link, priv->dev,
+b3e51069627e2 drivers/net/ethernet/stmicro/stmmac/stmmac_main.c (LABBE Corentin            2016-11-16 20:09:41 +0100  756)                                         "Speed (%d) not 10/100\n",
+b3e51069627e2 drivers/net/ethernet/stmicro/stmmac/stmmac_main.c (LABBE Corentin            2016-11-16 20:09:41 +0100  757)                                         phydev->speed);
 
-s/EGREES/EGRESS/.
+>  I don't see single use of
+> netif_msg_<level>, but see this at stmmac_main.c:756. Code is actually
+> pretty consistent using pr_*.
+> 
+>                                 if (netif_msg_link(priv))
+>                                         pr_warn("%s: Speed (%d) not 10/100\n",
+>                                                 dev->name, phydev->speed);
+> 
+> Anyway, I'm moving code around, if you want to do trivial cleanups, do
+> them yourself.
 
-> +#define PORT_CONTROL_EGREES_ALL_UNKNOWN_DA		(0x3 << 2)
->  #define PORT_CONTROL_STATE_MASK		0x03
->  #define PORT_CONTROL_STATE_DISABLED	0x00
->  #define PORT_CONTROL_STATE_BLOCKING	0x01
-> @@ -821,6 +825,8 @@ struct mv88e6xxx_ops {
->  				uint64_t *data);
->  	int (*tag_remap)(struct mv88e6xxx_chip *chip, int port);
->  	int (*monitor_ctrl)(struct mv88e6xxx_chip *chip, int upstream_port);
-> +	int (*cpu_port_config)(struct mv88e6xxx_chip *chip, int port);
-> +	int (*dsa_port_config)(struct mv88e6xxx_chip *chip, int port);
->  };
-
-Hum, I dislike having config wrappers in the library. The functions
-stored in the mv88e6xxx_ops structure should reflect the features
-exposed by the SMI device (Port, Global X, PHY, etc.) registers.
-
-They should not handle configuration logic, we should see them as an
-MV88E6XXX API used to implement a chip (usually wrapped in chip.c).
-
->  
->  #define STATS_TYPE_PORT		BIT(0)
-> diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-> index b7fab70f6cd7..a37d7d72df47 100644
-> --- a/drivers/net/dsa/mv88e6xxx/port.c
-> +++ b/drivers/net/dsa/mv88e6xxx/port.c
-> @@ -553,3 +553,78 @@ int mv88e6390_tag_remap(struct mv88e6xxx_chip *chip, int port)
->  
->  	return 0;
->  }
-> +
-> +int mv88e6095_cpu_port_config(struct mv88e6xxx_chip *chip, int port)
-> +{
-> +	u16 reg;
-> +	int err;
-> +
-> +	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL, &reg);
-> +	if (err)
-> +		return err;
-> +
-> +	reg |= PORT_CONTROL_DSA_TAG |
-> +		PORT_CONTROL_EGRESS_ADD_TAG |
-> +		PORT_CONTROL_FORWARD_UNKNOWN;
-> +
-> +	return mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
-> +}
-> +
-> +int mv88e6351_cpu_port_config(struct mv88e6xxx_chip *chip, int port)
-> +{
-> +	u16 reg;
-> +	int err;
-> +
-> +	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL, &reg);
-> +	if (err)
-> +		return err;
-> +
-> +	if (chip->info->tag_protocol == DSA_TAG_PROTO_EDSA) {
-> +		reg |= PORT_CONTROL_FRAME_ETHER_TYPE_DSA |
-> +			PORT_CONTROL_EGRESS_ADD_TAG;
-> +
-> +		/* Port Ethertype: use the Ethertype DSA Ethertype
-> +		 * value.
-> +		 */
-> +		err = mv88e6xxx_port_write(chip, port, PORT_ETH_TYPE,
-> +					   ETH_P_EDSA);
-> +		if (err)
-> +			return err;
-> +	} else {
-> +		reg |= PORT_CONTROL_FRAME_MODE_DSA;
-> +	}
-> +
-> +	reg |= PORT_CONTROL_EGREES_ALL_UNKNOWN_DA;
-> +
-> +	return mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
-> +}
-
-The device (Port, Global X, etc.) functions should reflect and implement
-the feature described in the register(s) they read from/write to.
-
-Please provide generic functions to configure a port's Frame mode and
-Egress mode under the comment /* Offset 0x04: Port Control Register */
-
-mv88e6xxx_port_set_{frame,egress}_mode() would work. The Frame mode bits
-changed between chips, but the Egress mode bits are the same since 6065.
-
-A frame mode can be "Normal Network mode", "DSA mode", "Provider mode",
-or "Ether Type DSA mode". Maybe use an enum, or switching on the u8
-frame_mode value might be enough, as you wish.
-
-Please also provide a generic function to set the Port EType under an
-ordered comment:
-
-/* Offset 0x0F: Port E Type */
-
-int mv88e6xxx_port_set_etype(struct mv88e6xxx_chip *chip, int port,
-                             u16 etype)
-{
-    return mv88e6xxx_port_write(chip, port, PORT_ETH_TYPE, etype);
-}
-
-Then, some nice wrappers in chip.c can use them depending on the chip's
-tag_protocol to configure what net/dsa calls cpu, dsa, or user port.
-
-Thanks,
-
-        Vivien
+cheers, Joe
