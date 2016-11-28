@@ -1,7 +1,7 @@
 From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: [RFC PATCH 2/2] Documentation: devictree: Add macb mdio bindings
-Date: Mon, 28 Nov 2016 15:19:27 +0530
-Message-ID: <1480326567-6132-1-git-send-email-harinik@xilinx.com>
+Subject: [RFC PATCH 0/2] Multi phy management
+Date: Mon, 28 Nov 2016 15:19:01 +0530
+Message-ID: <1480326541-5947-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
@@ -17,50 +17,28 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add documentations for macb mdio driver.
+This series is to add support for the hardware with multiple ethernet
+MAC controllers and a single MDIO bus connected to multiple PHY devices.
+MDIO lines are connected to any one of the ethernet MAC controllers and
+all the PHY devices will be accessed using the PHY maintenance interface
+in that MAC controller.
+This handling along with PHY functionality is moved to macb_mdio.c
+within the macb driver space.
+This is because of the phy maintenance register is within the MAC.
+Please advise on how to proceed with handling such a requirement.
 
-Signed-off-by: Harini Katakam <harinik@xilinx.com>
----
- .../devicetree/bindings/net/macb-mdio.txt          | 31 ++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
+Harini Katakam (2):
+  net: macb: Add MDIO driver for accessing multiple PHY devices
+  Documentation: devictree: Add macb mdio bindings
+
+ .../devicetree/bindings/net/macb-mdio.txt          |  31 +++
+ drivers/net/ethernet/cadence/Makefile              |   2 +-
+ drivers/net/ethernet/cadence/macb.c                | 169 ++-----------
+ drivers/net/ethernet/cadence/macb.h                |   2 +
+ drivers/net/ethernet/cadence/macb_mdio.c           | 266 +++++++++++++++++++++
+ 5 files changed, 325 insertions(+), 145 deletions(-)
  create mode 100644 Documentation/devicetree/bindings/net/macb-mdio.txt
+ create mode 100644 drivers/net/ethernet/cadence/macb_mdio.c
 
-diff --git a/Documentation/devicetree/bindings/net/macb-mdio.txt b/Documentation/devicetree/bindings/net/macb-mdio.txt
-new file mode 100644
-index 0000000..014cedf
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/macb-mdio.txt
-@@ -0,0 +1,31 @@
-+* Cadence MACB MDIO controller
-+
-+Required properties:
-+- compatible: Should be "cdns,macb-mdio"
-+- reg: Address and length of the register set of MAC to be used
-+- clock-names: Tuple listing input clock names.
-+	Required elements: 'pclk', 'hclk'
-+	Optional elements: 'tx_clk'
-+- clocks: Phandles to input clocks.
-+
-+Examples:
-+
-+	mdio {
-+		compatible = "cdns,macb-mdio";
-+		reg = <0x0 0xff0b0000 0x0 0x1000>;
-+		clocks = <&clk125>, <&clk125>, <&clk125>;
-+		clock-names = "pclk", "hclk", "tx_clk";
-+		ethernet_phyC: ethernet-phy@C {
-+			reg = <0xC>;
-+		};
-+		ethernet_phy7: ethernet-phy@7 {
-+			reg = <0x7>;
-+		};
-+		ethernet_phy3: ethernet-phy@3 {
-+			reg = <0x3>;
-+		};
-+		ethernet_phy8: ethernet-phy@8 {
-+			reg = <0x8>;
-+		};
-+	};
-+
 -- 
 2.7.4
