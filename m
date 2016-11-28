@@ -1,91 +1,43 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net V2] net/sched: pedit: make sure that offset is valid
-Date: Mon, 28 Nov 2016 12:56:40 +0200
-Message-ID: <20161128105640.32363-1-amir@vadai.me>
-Cc: netdev@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: "David S. Miller" <davem@davemloft.net>
+From: Daniel Mack <daniel@zonque.org>
+Subject: [PATCH] bpf: cgroup: fix documentation of __cgroup_bpf_update()
+Date: Mon, 28 Nov 2016 12:04:59 +0100
+Message-ID: <1480331099-20216-1-git-send-email-daniel@zonque.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, roszenrami@gmail.com,
+        cgroups@vger.kernel.org, Daniel Mack <daniel@zonque.org>
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:33799 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932105AbcK1K5q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 05:57:46 -0500
-Received: by mail-wj0-f196.google.com with SMTP id xy5so13545596wjc.1
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 02:57:45 -0800 (PST)
+Received: from svenfoo.org ([82.94.215.22]:34285 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932094AbcK1LFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 06:05:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a validation function to make sure offset is valid:
-1. Not below skb head (could happen when offset is negative).
-2. Validate both 'offset' and 'at'.
+There's a 'not' missing in one paragraph. Add it.
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
+Signed-off-by: Daniel Mack <daniel@zonque.org>
+Reported-by: Rami Rosen <roszenrami@gmail.com>
+Fixes: 3007098494be ("cgroup: add support for eBPF programs")
 ---
-Hi Dave,
+ kernel/bpf/cgroup.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Please pull to -stable branches.
-
-Changes from V0:
-- Add a validation to the 'at' value (this is used as an offset too)
-- Instead of validating the output of skb_header_pointer(), make sure that the
-	offset is good before calling it.
-
-Thanks,
-Amir
- net/sched/act_pedit.c | 24 ++++++++++++++++++++----
- 1 file changed, 20 insertions(+), 4 deletions(-)
-
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index b54d56d4959b..cf9b2fe8eac6 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
- 	kfree(keys);
- }
- 
-+static bool offset_valid(struct sk_buff *skb, int offset)
-+{
-+	if (offset > 0 && offset > skb->len)
-+		return false;
-+
-+	if  (offset < 0 && -offset > skb_headroom(skb))
-+		return false;
-+
-+	return true;
-+}
-+
- static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
- 		     struct tcf_result *res)
- {
-@@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
- 			if (tkey->offmask) {
- 				char *d, _d;
- 
-+				if (!offset_valid(skb, off + tkey->at)) {
-+					pr_info("tc filter pedit 'at' offset %d out of bounds\n",
-+						off + tkey->at);
-+					goto bad;
-+				}
- 				d = skb_header_pointer(skb, off + tkey->at, 1,
- 						       &_d);
- 				if (!d)
-@@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
- 					" offset must be on 32 bit boundaries\n");
- 				goto bad;
- 			}
--			if (offset > 0 && offset > skb->len) {
--				pr_info("tc filter pedit"
--					" offset %d can't exceed pkt length %d\n",
--				       offset, skb->len);
-+
-+			if (!offset_valid(skb, off + offset)) {
-+				pr_info("tc filter pedit offset %d out of bounds\n",
-+					offset);
- 				goto bad;
- 			}
- 
+diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+index a0ab43f..b708e6e 100644
+--- a/kernel/bpf/cgroup.c
++++ b/kernel/bpf/cgroup.c
+@@ -70,9 +70,9 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
+  * releases the one that is currently attached, if any. @prog is then made
+  * the effective program of type @type in that cgroup.
+  *
+- * If @prog is %NULL, the currently attached program of type @type is released,
+- * and the effective program of the parent cgroup (if any) is inherited to
+- * @cgrp.
++ * If @prog is not %NULL, the currently attached program of type @type is
++ * released, and the effective program of the parent cgroup (if any) is
++ * inherited to @cgrp.
+  *
+  * Then, the descendants of @cgrp are walked and the effective program for
+  * each of them is set to the effective program of @cgrp unless the
 -- 
-2.10.2
+2.7.4
