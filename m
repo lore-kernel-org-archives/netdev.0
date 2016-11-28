@@ -1,56 +1,41 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: net/sctp: vmalloc allocation failure in
- sctp_setsockopt/xt_alloc_table_info
-Date: Mon, 28 Nov 2016 16:18:03 -0200
-Message-ID: <20161128181803.GA13159@localhost.localdomain>
-References: <CAAeHK+wecw6ST_DWJQBLFNwVsOVgderGE-EEJiN0-kf796XHtw@mail.gmail.com>
- <20161128141340.GA29839@hmsreliant.think-freely.org>
- <CAAeHK+xJmwF6hddS-sO-y3HQkRicwQN=ZceFWTZT2M_0h4E2hQ@mail.gmail.com>
- <20161128143931.GB29839@hmsreliant.think-freely.org>
- <20161128151312.GA13172@localhost.localdomain>
- <20161128174647.GC29839@hmsreliant.think-freely.org>
- <20161128174710.GE28510@breakpoint.cc>
- <20161128175626.GD29839@hmsreliant.think-freely.org>
- <20161128180925.GF28510@breakpoint.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] sit: Set skb->protocol properly in
+ ipip6_tunnel_xmit()
+Date: Mon, 28 Nov 2016 10:17:23 -0800
+Message-ID: <1480357043.18162.70.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161128.114703.154301432767947066.davem@davemloft.net>
+         <1480352023.18162.63.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480354467.18162.66.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161128.130142.1225482479870737422.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161128180925.GF28510@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: alexander.duyck@gmail.com, sfr@canb.auug.org.au, elicooper@gmx.com,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35539 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754068AbcK1SSZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 13:18:25 -0500
+Received: by mail-pg0-f67.google.com with SMTP id p66so13775392pga.2
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 10:18:25 -0800 (PST)
+In-Reply-To: <20161128.130142.1225482479870737422.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 07:09:25PM +0100, Florian Westphal wrote:
-> Neil Horman <nhorman@tuxdriver.com> wrote:
-> 
-> [ trimming CCs ]
-> 
-> > On Mon, Nov 28, 2016 at 06:47:10PM +0100, Florian Westphal wrote:
-> > > Neil Horman <nhorman@tuxdriver.com> wrote:
-> > > > I'm not sure I agree with that.  Generally speaking it seems like the right
-> > > > thing to do, if you want to avoid filling logs with warnings, but this is the
-> > > > sort of error that is going to be accompanied by severe service interruption.
-> > > > I'd rather see a reason behind that in the logs, than just have it occur
-> > > > silently.
-> > > 
-> > > Its not silent -- the setsockopt call will fail and userspace should
-> > > display an error.
-> > > 
-> > Thats not true.  If the OOM succedes in freeing enough memory to fulfill the
-> > request the setsockopt may complete without error, you're just left with a
-> > killed process...somewhere.  Thats seems a bit dodgy to me
-> 
+On Mon, 2016-11-28 at 13:01 -0500, David Miller wrote:
 
-__GFP_NOWARN is about allocation failures only and it won't disable OOM
-kill messages.  oom_kill_process() has no idea on GFP_NOWARN when doing
-the logging.
+> Hmmm, ip6_finish_output2() also does a proper assignment of skb->protocol,
+> therefore why was commit ae148b085876fa771d9ef2c05f85d4b4bf09ce0d
+> ("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()")
+> necessary at all?
+I was referring to Stephen bug report.
 
-> We should prevent OOM killer from running in first place (GFP_NORETRY should work).
+It appears that Eli changelog was not very precise, because his bug was
+because of XFRM being involved.
 
-Oh. Really?
+xfrm_output() -> xfrm_output_gso() -> skb_gso_segment()
 
+So XFRM calls skb_gso_segment() before ip_output() or
+ip6_finish_output2() had a chance to change skb->protocol
