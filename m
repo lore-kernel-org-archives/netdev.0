@@ -1,41 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: enable tx queue 0 for gmac4 IPs
- synthesized with multiple TX queues
-Date: Mon, 28 Nov 2016 11:29:21 -0500 (EST)
-Message-ID: <20161128.112921.631621178188973017.davem@davemloft.net>
-References: <1479998194-7113-1-git-send-email-niklass@axis.com>
+Subject: Re: [PATCH net] sit: Set skb->protocol properly in
+ ipip6_tunnel_xmit()
+Date: Mon, 28 Nov 2016 11:47:03 -0500 (EST)
+Message-ID: <20161128.114703.154301432767947066.davem@davemloft.net>
+References: <20161125055017.7053-1-elicooper@gmx.com>
+        <20161127130400.4a69ff1b@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: niklas.cassel@axis.com
+Cc: elicooper@gmx.com, netdev@vger.kernel.org
+To: sfr@canb.auug.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32870 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33106 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932930AbcK1Qjh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:39:37 -0500
-In-Reply-To: <1479998194-7113-1-git-send-email-niklass@axis.com>
+        with ESMTP id S933245AbcK1QrM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:47:12 -0500
+In-Reply-To: <20161127130400.4a69ff1b@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Thu, 24 Nov 2016 15:36:33 +0100
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Sun, 27 Nov 2016 13:04:00 +1100
 
-> From: Niklas Cassel <niklas.cassel@axis.com>
+> [Just for Dave's information]
 > 
-> The dwmac4 IP can synthesized with 1-8 number of tx queues.
-> On an IP synthesized with DWC_EQOS_NUM_TXQ > 1, all txqueues are disabled
-> by default. For these IPs, the bitfield TXQEN is R/W.
+> On Fri, 25 Nov 2016 13:50:17 +0800 Eli Cooper <elicooper@gmx.com> wrote:
+>>
+>> Similar to commit ae148b085876
+>> ("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"),
+>> sit tunnels also need to update skb->protocol; otherwise, TSO/GSO packets
+>> might not be properly segmented, which causes the packets being dropped.
+>> 
+>> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+>> Tested-by: Eli Cooper <elicooper@gmx.com>
+>> Cc: stable@vger.kernel.org
+>> Signed-off-by: Eli Cooper <elicooper@gmx.com>
 > 
-> Always enable tx queue 0. The write will have no effect on IPs synthesized
-> with DWC_EQOS_NUM_TXQ == 1.
-> 
-> The driver does still not utilize more than one tx queue in the IP.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> I tested this patch and it does *not* solve my problem.
 
-Alexandre, we are still waiting for your implicit/explicit ACK on this
-change.
+I'm torn on this patch, because it looked exactly like it would solve the
+kind of problem Stephen is running into.
 
-Thank you.
+Even though it doesn't fix his case, it seems correct to me.
+
+I was wondering if it was also important to set the skb->protocol
+before the call to ip_tunnel_encap() but I couldn't find a dependency.
+
+In any event I'd like to see some other people review this change
+before I apply it.
+
+My only other guess for Stephen's problem is somehow the SKB headers
+aren't set up properly for what the GSO engine expects.
