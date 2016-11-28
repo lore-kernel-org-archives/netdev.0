@@ -1,38 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: turn on device when extracting statistics
-Date: Sun, 27 Nov 2016 20:29:45 -0500 (EST)
-Message-ID: <20161127.202945.1759992980026862076.davem@davemloft.net>
-References: <1480068120-22137-1-git-send-email-nikita.yoush@cogentembedded.com>
+Subject: Re: [patch v2 net-next] sfc: remove unneeded variable
+Date: Sun, 27 Nov 2016 20:30:25 -0500 (EST)
+Message-ID: <20161127.203025.1356720731286532574.davem@davemloft.net>
+References: <698affdd-d4e0-53c0-fff0-9b66252504a0@solarflare.com>
+        <20161125104304.GA5938@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@nxp.com, troy.kisky@boundarydevices.com,
-        andrew@lunn.ch, eric@nelint.com, tremyfr@gmail.com,
-        johannes@sipsolutions.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, cphealy@gmail.com
-To: nikita.yoush@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36444 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752675AbcK1B3s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 20:29:48 -0500
-In-Reply-To: <1480068120-22137-1-git-send-email-nikita.yoush@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-net-drivers@solarflare.com, ecree@solarflare.com,
+        bkenward@solarflare.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20161125104304.GA5938@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Date: Fri, 25 Nov 2016 13:02:00 +0300
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 25 Nov 2016 13:43:04 +0300
 
-> +	int i, ret;
-> +
-> +	ret = pm_runtime_get_sync(&fep->pdev->dev);
-> +	if (IS_ERR_VALUE(ret)) {
-> +		memset(data, 0, sizeof(*data) * ARRAY_SIZE(fec_stats));
-> +		return;
-> +	}
+> We don't use ->heap_buf after commit 46d1efd852cc ("sfc: remove Software
+> TSO") so let's remove the last traces.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-This really isn't the way to do this.
-
-When the device is suspended and the clocks are going to be stopped,
-you must fetch the statistic values into a software copy and provide
-those if the device is suspended when statistics are requested.
+Applied, thanks Dan.
