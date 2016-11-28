@@ -1,29 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2016-11-25
-Date: Sun, 27 Nov 2016 20:27:35 -0500 (EST)
-Message-ID: <20161127.202735.878321128703384587.davem@davemloft.net>
-References: <8760nbaoey.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fec: turn on device when extracting statistics
+Date: Sun, 27 Nov 2016 20:29:45 -0500 (EST)
+Message-ID: <20161127.202945.1759992980026862076.davem@davemloft.net>
+References: <1480068120-22137-1-git-send-email-nikita.yoush@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8760nbaoey.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: fugang.duan@nxp.com, troy.kisky@boundarydevices.com,
+        andrew@lunn.ch, eric@nelint.com, tremyfr@gmail.com,
+        johannes@sipsolutions.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, cphealy@gmail.com
+To: nikita.yoush@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36444 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752675AbcK1B3s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 20:29:48 -0500
+In-Reply-To: <1480068120-22137-1-git-send-email-nikita.yoush@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Fri, 25 Nov 2016 11:39:49 +0200
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Date: Fri, 25 Nov 2016 13:02:00 +0300
 
-> here's a pull request for 4.10. ath9k has now been converted to use
-> mac80211 intermediate software queues to fix bufferbloat problems. rsi
-> has become active again and latevy mwifiex has been getting a _lot_ of
-> love.
-> 
-> I'm not expecting to see any problems with this pull request. When you
-> pull git will do lots of automerging but at least I didn't see any
-> conflicts. Please let me know if you have any problems.
+> +	int i, ret;
+> +
+> +	ret = pm_runtime_get_sync(&fep->pdev->dev);
+> +	if (IS_ERR_VALUE(ret)) {
+> +		memset(data, 0, sizeof(*data) * ARRAY_SIZE(fec_stats));
+> +		return;
+> +	}
 
-Pulled, thanks Kalle.
+This really isn't the way to do this.
+
+When the device is suspended and the clocks are going to be stopped,
+you must fetch the statistic values into a software copy and provide
+those if the device is suspended when statistics are requested.
