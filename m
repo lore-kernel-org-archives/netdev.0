@@ -1,55 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: hns: Fix to conditionally convey RX
- checksum flag to stack
-Date: Mon, 28 Nov 2016 12:12:40 -0500 (EST)
-Message-ID: <20161128.121240.1321057221950786765.davem@davemloft.net>
-References: <20161125133240.1264224-1-salil.mehta@huawei.com>
+Subject: Re: [PATCH] Set DEFAULT_TCP_CONG to bbr if DEFAULT_BBR is set
+Date: Mon, 28 Nov 2016 12:15:20 -0500 (EST)
+Message-ID: <20161128.121520.1429895006711465979.davem@davemloft.net>
+References: <20161125140526.2486-1-jwollrath@web.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, mehta.salil.lnk@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: salil.mehta@huawei.com
+Cc: netdev@vger.kernel.org
+To: jwollrath@web.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33850 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33988 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932669AbcK1RMm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:12:42 -0500
-In-Reply-To: <20161125133240.1264224-1-salil.mehta@huawei.com>
+        with ESMTP id S1754278AbcK1RPW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:15:22 -0500
+In-Reply-To: <20161125140526.2486-1-jwollrath@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Salil Mehta <salil.mehta@huawei.com>
-Date: Fri, 25 Nov 2016 13:32:40 +0000
+From: Julian Wollrath <jwollrath@web.de>
+Date: Fri, 25 Nov 2016 15:05:26 +0100
 
-> @@ -778,6 +778,35 @@ int hns_ae_get_regs_len(struct hnae_handle *handle)
->  	return total_num;
->  }
->  
-> +static bool hns_ae_is_l3l4_csum_err(struct hnae_handle *handle)
-> +{
-> +	struct hns_ppe_cb *ppe_cb = hns_get_ppe_cb(handle);
-> +	u32 regval;
-> +	bool retval = false;
-> +
-> +	/* read PPE_HIS_PRO_ERR register and check for the checksum errors */
-> +	regval = dsaf_read_dev(ppe_cb, PPE_HIS_PRO_ERR_REG);
-> +
+> Signed-off-by: Julian Wollrath <jwollrath@web.de>
 
-I don't see how a single register can properly provide error status for a ring
-of pending received packets.
-
-No matter how this register is implemented, it is either going to result in
-packets erroneously being marked as having errors, or error status being
-lost when multiple packets in a row have such errors.
-
-For example, if you receive several packets in a row that have errors,
-you'll read this register for the first one.  If this read clears the error
-status, which I am guessing it does, then you won't see the error status
-for the next packet that had one of these errors as well.
-
-If you don't have something which is provided on a per-packet basis
-then you can't determine the error properly.  Therefore you will just
-have to always ignore the checksum if there is any error indicated in
-the ring descriptor.
+Applied, thanks.
