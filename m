@@ -1,37 +1,46 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: selftests: include <sys/resource.h> to
- fix build error
-Date: Mon, 28 Nov 2016 13:22:17 +0100
-Message-ID: <583C2179.7040101@iogearbox.net>
-References: <20161128114541.10829-1-colin.king@canonical.com>
+From: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH net-next v3 3/4] dt: bindings: add ethernet phy
+ eee-broken-modes option documentation
+Date: Mon, 28 Nov 2016 13:22:31 +0100
+Message-ID: <2f653d06-4a5f-a167-f96e-0170996fdcd0@suse.de>
+References: <1480326409-25419-1-git-send-email-jbrunet@baylibre.com>
+ <1480326409-25419-4-git-send-email-jbrunet@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161128114541.10829-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1480326409-25419-4-git-send-email-jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11/28/2016 12:45 PM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> Fix incomplete type build error on struct rlimit by including
-> <sys/resource.h>, fixes:
->
-> test_lru_map.c:552:9: error: variable â€˜râ€™ has initializer
->   but incomplete type
->    struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
->           ^
-> test_lru_map.c:552:21: error: â€˜RLIM_INFINITYâ€™ undeclared
->   (first use in this function)
->    struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Am 28.11.2016 um 10:46 schrieb Jerome Brunet:
+> Signed-off-by: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/phy.txt | 2 ++
+>  1 file changed, 2 insertions(+)
 
-Thanks for the patch, fixed here already:
+Reviewed-by: Andreas Färber <afaerber-l3A5Bk7waGM@public.gmane.org>
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=e00c7b216f34444252f3771f7d4ed48d4f032636
+Regards,
+Andreas
+
+-- 
+SUSE Linux GmbH, Maxfeldstr. 5, 90409 Nürnberg, Germany
+GF: Felix Imendörffer, Jane Smithard, Graham Norton
+HRB 21284 (AG Nürnberg)
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
