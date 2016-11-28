@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V2 1/9] liquidio CN23XX: VF register definitions
-Date: Mon, 28 Nov 2016 00:50:30 -0800
-Message-ID: <1480323038-13702-2-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 8/9] liquidio CN23XX: VF interrupt
+Date: Mon, 28 Nov 2016 00:50:37 -0800
+Message-ID: <1480323038-13702-9-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1480323038-13702-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,302 +16,591 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-by2nam01on0085.outbound.protection.outlook.com ([104.47.34.85]:8992
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752805AbcK1IvA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 03:51:00 -0500
+        id S1754539AbcK1IvW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 03:51:22 -0500
 In-Reply-To: <1480323038-13702-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for CN23xx VF registers.
+Adds support for VF interrupt processing.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- .../net/ethernet/cavium/liquidio/cn23xx_vf_regs.h  | 274 +++++++++++++++++++++
- 1 file changed, 274 insertions(+)
- create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.c    | 265 +++++++++++++++++++++
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.h    |   6 +
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    |   7 -
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 162 +++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |   3 +
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   2 +
+ 6 files changed, 438 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h
-new file mode 100644
-index 0000000..d33dd8f
---- /dev/null
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h
-@@ -0,0 +1,274 @@
-+/**********************************************************************
-+ * Author: Cavium, Inc.
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
+index 7dfec44..108e487 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
+@@ -27,6 +27,26 @@
+ #include "octeon_main.h"
+ #include "octeon_mailbox.h"
+ 
++u32 cn23xx_vf_get_oq_ticks(struct octeon_device *oct, u32 time_intr_in_us)
++{
++	/* This gives the SLI clock per microsec */
++	u32 oqticks_per_us = (u32)oct->pfvf_hsword.coproc_tics_per_us;
++
++	/* This gives the clock cycles per millisecond */
++	oqticks_per_us *= 1000;
++
++	/* This gives the oq ticks (1024 core clock cycles) per millisecond */
++	oqticks_per_us /= 1024;
++
++	/* time_intr is in microseconds. The next 2 steps gives the oq ticks
++	 * corressponding to time_intr.
++	 */
++	oqticks_per_us *= time_intr_in_us;
++	oqticks_per_us /= 1000;
++
++	return oqticks_per_us;
++}
++
+ static int cn23xx_vf_reset_io_queues(struct octeon_device *oct, u32 num_queues)
+ {
+ 	u32 loop = BUSY_READING_REG_VF_LOOP_COUNT;
+@@ -212,6 +232,11 @@ static void cn23xx_setup_vf_iq_regs(struct octeon_device *oct, u32 iq_no)
+ 	 */
+ 	pkt_in_done = readq(iq->inst_cnt_reg);
+ 
++	if (oct->msix_on) {
++		/* Set CINT_ENB to enable IQ interrupt */
++		writeq((pkt_in_done | CN23XX_INTR_CINT_ENB),
++		       iq->inst_cnt_reg);
++	}
+ 	iq->reset_instr_cnt = 0;
+ }
+ 
+@@ -342,6 +367,240 @@ static void cn23xx_disable_vf_io_queues(struct octeon_device *oct)
+ 	cn23xx_vf_reset_io_queues(oct, num_queues);
+ }
+ 
++void cn23xx_vf_ask_pf_to_do_flr(struct octeon_device *oct)
++{
++	struct octeon_mbox_cmd mbox_cmd;
++
++	mbox_cmd.msg.u64 = 0;
++	mbox_cmd.msg.s.type = OCTEON_MBOX_REQUEST;
++	mbox_cmd.msg.s.resp_needed = 0;
++	mbox_cmd.msg.s.cmd = OCTEON_VF_FLR_REQUEST;
++	mbox_cmd.msg.s.len = 1;
++	mbox_cmd.q_no = 0;
++	mbox_cmd.recv_len = 0;
++	mbox_cmd.recv_status = 0;
++	mbox_cmd.fn = NULL;
++	mbox_cmd.fn_arg = 0;
++
++	octeon_mbox_write(oct, &mbox_cmd);
++}
++
++static void octeon_pfvf_hs_callback(struct octeon_device *oct,
++				    struct octeon_mbox_cmd *cmd,
++				    void *arg)
++{
++	u32 major = 0;
++
++	memcpy((uint8_t *)&oct->pfvf_hsword, cmd->msg.s.params,
++	       CN23XX_MAILBOX_MSGPARAM_SIZE);
++	if (cmd->recv_len > 1)  {
++		major = ((struct lio_version *)(cmd->data))->major;
++		major = major << 16;
++	}
++
++	atomic_set((atomic_t *)arg, major | 1);
++}
++
++int cn23xx_octeon_pfvf_handshake(struct octeon_device *oct)
++{
++	struct octeon_mbox_cmd mbox_cmd;
++	u32 q_no, count = 0;
++	atomic_t status;
++	u32 pfmajor;
++	u32 vfmajor;
++	u32 ret;
++
++	/* Sending VF_ACTIVE indication to the PF driver */
++	dev_dbg(&oct->pci_dev->dev, "requesting info from pf\n");
++
++	mbox_cmd.msg.u64 = 0;
++	mbox_cmd.msg.s.type = OCTEON_MBOX_REQUEST;
++	mbox_cmd.msg.s.resp_needed = 1;
++	mbox_cmd.msg.s.cmd = OCTEON_VF_ACTIVE;
++	mbox_cmd.msg.s.len = 2;
++	mbox_cmd.data[0] = 0;
++	((struct lio_version *)&mbox_cmd.data[0])->major =
++						LIQUIDIO_BASE_MAJOR_VERSION;
++	((struct lio_version *)&mbox_cmd.data[0])->minor =
++						LIQUIDIO_BASE_MINOR_VERSION;
++	((struct lio_version *)&mbox_cmd.data[0])->micro =
++						LIQUIDIO_BASE_MICRO_VERSION;
++	mbox_cmd.q_no = 0;
++	mbox_cmd.recv_len = 0;
++	mbox_cmd.recv_status = 0;
++	mbox_cmd.fn = (octeon_mbox_callback_t)octeon_pfvf_hs_callback;
++	mbox_cmd.fn_arg = &status;
++
++	/* Interrupts are not enabled at this point.
++	 * Enable them with default oq ticks
++	 */
++	oct->fn_list.enable_interrupt(oct, OCTEON_ALL_INTR);
++
++	octeon_mbox_write(oct, &mbox_cmd);
++
++	atomic_set(&status, 0);
++
++	do {
++		schedule_timeout_uninterruptible(1);
++	} while ((!atomic_read(&status)) && (count++ < 100000));
++
++	/* Disable the interrupt so that the interrupsts will be reenabled
++	 * with the oq ticks received from the PF
++	 */
++	oct->fn_list.disable_interrupt(oct, OCTEON_ALL_INTR);
++
++	ret = atomic_read(&status);
++	if (!ret) {
++		dev_err(&oct->pci_dev->dev, "octeon_pfvf_handshake timeout\n");
++		return 1;
++	}
++
++	for (q_no = 0 ; q_no < oct->num_iqs ; q_no++)
++		oct->instr_queue[q_no]->txpciq.s.pkind = oct->pfvf_hsword.pkind;
++
++	vfmajor = LIQUIDIO_BASE_MAJOR_VERSION;
++	pfmajor = ret >> 16;
++	if (pfmajor != vfmajor) {
++		dev_err(&oct->pci_dev->dev,
++			"VF Liquidio driver (major version %d) is not compatible with Liquidio PF driver (major version %d)\n",
++			vfmajor, pfmajor);
++		return 1;
++	}
++
++	dev_dbg(&oct->pci_dev->dev,
++		"VF Liquidio driver (major version %d), Liquidio PF driver (major version %d)\n",
++		vfmajor, pfmajor);
++
++	dev_dbg(&oct->pci_dev->dev, "got data from pf pkind is %d\n",
++		oct->pfvf_hsword.pkind);
++
++	return 0;
++}
++
++static void cn23xx_handle_vf_mbox_intr(struct octeon_ioq_vector *ioq_vector)
++{
++	struct octeon_device *oct = ioq_vector->oct_dev;
++	u64 mbox_int_val;
++
++	if (!ioq_vector->droq_index) {
++		/* read and clear by writing 1 */
++		mbox_int_val = readq(oct->mbox[0]->mbox_int_reg);
++		writeq(mbox_int_val, oct->mbox[0]->mbox_int_reg);
++		if (octeon_mbox_read(oct->mbox[0]))
++			schedule_delayed_work(&oct->mbox[0]->mbox_poll_wk.work,
++					      msecs_to_jiffies(0));
++	}
++}
++
++static u64 cn23xx_vf_msix_interrupt_handler(void *dev)
++{
++	struct octeon_ioq_vector *ioq_vector = (struct octeon_ioq_vector *)dev;
++	struct octeon_device *oct = ioq_vector->oct_dev;
++	struct octeon_droq *droq = oct->droq[ioq_vector->droq_index];
++	u64 pkts_sent;
++	u64 ret = 0;
++
++	dev_dbg(&oct->pci_dev->dev, "In %s octeon_dev @ %p\n", __func__, oct);
++	pkts_sent = readq(droq->pkts_sent_reg);
++
++	/* If our device has interrupted, then proceed. Also check
++	 * for all f's if interrupt was triggered on an error
++	 * and the PCI read fails.
++	 */
++	if (!pkts_sent || (pkts_sent == 0xFFFFFFFFFFFFFFFFULL))
++		return ret;
++
++	/* Write count reg in sli_pkt_cnts to clear these int. */
++	if ((pkts_sent & CN23XX_INTR_PO_INT) ||
++	    (pkts_sent & CN23XX_INTR_PI_INT)) {
++		if (pkts_sent & CN23XX_INTR_PO_INT)
++			ret |= MSIX_PO_INT;
++	}
++
++	if (pkts_sent & CN23XX_INTR_PI_INT)
++		/* We will clear the count when we update the read_index. */
++		ret |= MSIX_PI_INT;
++
++	if (pkts_sent & CN23XX_INTR_MBOX_INT) {
++		cn23xx_handle_vf_mbox_intr(ioq_vector);
++		ret |= MSIX_MBOX_INT;
++	}
++
++	return ret;
++}
++
++static void cn23xx_enable_vf_interrupt(struct octeon_device *oct, u8 intr_flag)
++{
++	struct octeon_cn23xx_vf *cn23xx = (struct octeon_cn23xx_vf *)oct->chip;
++	u32 q_no, time_threshold;
++
++	if (intr_flag & OCTEON_OUTPUT_INTR) {
++		for (q_no = 0; q_no < oct->num_oqs; q_no++) {
++			/* Set up interrupt packet and time thresholds
++			 * for all the OQs
++			 */
++			time_threshold = cn23xx_vf_get_oq_ticks(
++				oct, (u32)CFG_GET_OQ_INTR_TIME(cn23xx->conf));
++
++			octeon_write_csr64(
++			    oct, CN23XX_VF_SLI_OQ_PKT_INT_LEVELS(q_no),
++			    (CFG_GET_OQ_INTR_PKT(cn23xx->conf) |
++			     ((u64)time_threshold << 32)));
++		}
++	}
++
++	if (intr_flag & OCTEON_INPUT_INTR) {
++		for (q_no = 0; q_no < oct->num_oqs; q_no++) {
++			/* Set CINT_ENB to enable IQ interrupt */
++			octeon_write_csr64(
++			    oct, CN23XX_VF_SLI_IQ_INSTR_COUNT64(q_no),
++			    ((octeon_read_csr64(
++				  oct, CN23XX_VF_SLI_IQ_INSTR_COUNT64(q_no)) &
++			      ~CN23XX_PKT_IN_DONE_CNT_MASK) |
++			     CN23XX_INTR_CINT_ENB));
++		}
++	}
++
++	/* Set queue-0 MBOX_ENB to enable VF mailbox interrupt */
++	if (intr_flag & OCTEON_MBOX_INTR) {
++		octeon_write_csr64(
++		    oct, CN23XX_VF_SLI_PKT_MBOX_INT(0),
++		    (octeon_read_csr64(oct, CN23XX_VF_SLI_PKT_MBOX_INT(0)) |
++		     CN23XX_INTR_MBOX_ENB));
++	}
++}
++
++static void cn23xx_disable_vf_interrupt(struct octeon_device *oct, u8 intr_flag)
++{
++	u32 q_no;
++
++	if (intr_flag & OCTEON_OUTPUT_INTR) {
++		for (q_no = 0; q_no < oct->num_oqs; q_no++) {
++			/* Write all 1's in INT_LEVEL reg to disable PO_INT */
++			octeon_write_csr64(
++			    oct, CN23XX_VF_SLI_OQ_PKT_INT_LEVELS(q_no),
++			    0x3fffffffffffff);
++		}
++	}
++	if (intr_flag & OCTEON_INPUT_INTR) {
++		for (q_no = 0; q_no < oct->num_oqs; q_no++) {
++			octeon_write_csr64(
++			    oct, CN23XX_VF_SLI_IQ_INSTR_COUNT64(q_no),
++			    (octeon_read_csr64(
++				 oct, CN23XX_VF_SLI_IQ_INSTR_COUNT64(q_no)) &
++			     ~(CN23XX_INTR_CINT_ENB |
++			       CN23XX_PKT_IN_DONE_CNT_MASK)));
++		}
++	}
++
++	if (intr_flag & OCTEON_MBOX_INTR) {
++		octeon_write_csr64(
++		    oct, CN23XX_VF_SLI_PKT_MBOX_INT(0),
++		    (octeon_read_csr64(oct, CN23XX_VF_SLI_PKT_MBOX_INT(0)) &
++		     ~CN23XX_INTR_MBOX_ENB));
++	}
++}
++
+ int cn23xx_setup_octeon_vf_device(struct octeon_device *oct)
+ {
+ 	struct octeon_cn23xx_vf *cn23xx = (struct octeon_cn23xx_vf *)oct->chip;
+@@ -397,8 +656,14 @@ int cn23xx_setup_octeon_vf_device(struct octeon_device *oct)
+ 	oct->fn_list.setup_oq_regs = cn23xx_setup_vf_oq_regs;
+ 	oct->fn_list.setup_mbox = cn23xx_setup_vf_mbox;
+ 	oct->fn_list.free_mbox = cn23xx_free_vf_mbox;
++
++	oct->fn_list.msix_interrupt_handler = cn23xx_vf_msix_interrupt_handler;
++
+ 	oct->fn_list.setup_device_regs = cn23xx_setup_vf_device_regs;
+ 
++	oct->fn_list.enable_interrupt = cn23xx_enable_vf_interrupt;
++	oct->fn_list.disable_interrupt = cn23xx_disable_vf_interrupt;
++
+ 	oct->fn_list.enable_io_queues = cn23xx_enable_vf_io_queues;
+ 	oct->fn_list.disable_io_queues = cn23xx_disable_vf_io_queues;
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+index d17c1ce..8590bdb 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+@@ -34,6 +34,12 @@ struct octeon_cn23xx_vf {
+ 
+ #define BUSY_READING_REG_VF_LOOP_COUNT		10000
+ 
++#define CN23XX_MAILBOX_MSGPARAM_SIZE		6
++
++void cn23xx_vf_ask_pf_to_do_flr(struct octeon_device *oct);
++
++int cn23xx_octeon_pfvf_handshake(struct octeon_device *oct);
++
+ int cn23xx_setup_octeon_vf_device(struct octeon_device *oct);
+ 
+ void cn23xx_dump_vf_initialized_regs(struct octeon_device *oct);
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+index 403bcaa..f629c2f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+@@ -85,13 +85,6 @@ void octeon_update_tx_completion_counters(void *buf, int reqtype,
+ 	}
+ 
+ 	(*pkts_compl)++;
+-/*TODO, Use some other pound define to suggest
+- * the fact that iqs are not tied to netdevs
+- * and can take traffic from different netdevs
+- * hence bql reporting is done per packet
+- * than in bulk. Usage of NO_NAPI in txq completion is
+- * a little confusing
+- */
+ 	*bytes_compl += skb->len;
+ }
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 43a1e3f..3d5c61a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -59,6 +59,118 @@ struct octeon_device_priv {
+ 	.remove		= liquidio_vf_remove,
+ };
+ 
++static
++int liquidio_schedule_msix_droq_pkt_handler(struct octeon_droq *droq, u64 ret)
++{
++	struct octeon_device *oct = droq->oct_dev;
++	struct octeon_device_priv *oct_priv =
++	    (struct octeon_device_priv *)oct->priv;
++
++	if (droq->ops.poll_mode) {
++		droq->ops.napi_fn(droq);
++	} else {
++		if (ret & MSIX_PO_INT) {
++			dev_err(&oct->pci_dev->dev,
++				"should not come here should not get rx when poll mode = 0 for vf\n");
++			tasklet_schedule(&oct_priv->droq_tasklet);
++			return 1;
++		}
++		/* this will be flushed periodically by check iq db */
++		if (ret & MSIX_PI_INT)
++			return 0;
++	}
++	return 0;
++}
++
++static irqreturn_t
++liquidio_msix_intr_handler(int irq __attribute__((unused)), void *dev)
++{
++	struct octeon_ioq_vector *ioq_vector = (struct octeon_ioq_vector *)dev;
++	struct octeon_device *oct = ioq_vector->oct_dev;
++	struct octeon_droq *droq = oct->droq[ioq_vector->droq_index];
++	u64 ret;
++
++	ret = oct->fn_list.msix_interrupt_handler(ioq_vector);
++
++	if ((ret & MSIX_PO_INT) || (ret & MSIX_PI_INT))
++		liquidio_schedule_msix_droq_pkt_handler(droq, ret);
++
++	return IRQ_HANDLED;
++}
++
++/**
++ * \brief Setup interrupt for octeon device
++ * @param oct octeon device
 + *
-+ * Contact: support@cavium.com
-+ *          Please include "LiquidIO" in the subject.
-+ *
-+ * Copyright (c) 2003-2016 Cavium, Inc.
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License, Version 2, as
-+ * published by the Free Software Foundation.
-+ *
-+ * This file is distributed in the hope that it will be useful, but
-+ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
-+ * NONINFRINGEMENT.  See the GNU General Public License for more details.
-+ ***********************************************************************/
-+/*! \file cn23xx_vf_regs.h
-+ * \brief Host Driver: Register Address and Register Mask values for
-+ * Octeon CN23XX vf functions.
++ *  Enable interrupt in Octeon device as given in the PCI interrupt mask.
 + */
++static int octeon_setup_interrupt(struct octeon_device *oct)
++{
++	struct msix_entry *msix_entries;
++	int num_alloc_ioq_vectors;
++	int num_ioq_vectors;
++	int irqret;
++	int i;
 +
-+#ifndef __CN23XX_VF_REGS_H__
-+#define __CN23XX_VF_REGS_H__
++	if (oct->msix_on) {
++		oct->num_msix_irqs = oct->sriov_info.rings_per_vf;
 +
-+#define     CN23XX_CONFIG_XPANSION_BAR             0x38
++		oct->msix_entries = kcalloc(
++		    oct->num_msix_irqs, sizeof(struct msix_entry), GFP_KERNEL);
++		if (!oct->msix_entries)
++			return 1;
 +
-+#define     CN23XX_CONFIG_PCIE_CAP                 0x70
-+#define     CN23XX_CONFIG_PCIE_DEVCAP              0x74
-+#define     CN23XX_CONFIG_PCIE_DEVCTL              0x78
-+#define     CN23XX_CONFIG_PCIE_LINKCAP             0x7C
-+#define     CN23XX_CONFIG_PCIE_LINKCTL             0x80
-+#define     CN23XX_CONFIG_PCIE_SLOTCAP             0x84
-+#define     CN23XX_CONFIG_PCIE_SLOTCTL             0x88
++		msix_entries = (struct msix_entry *)oct->msix_entries;
 +
-+#define     CN23XX_CONFIG_PCIE_FLTMSK              0x720
++		for (i = 0; i < oct->num_msix_irqs; i++)
++			msix_entries[i].entry = i;
++		num_alloc_ioq_vectors = pci_enable_msix_range(
++						oct->pci_dev, msix_entries,
++						oct->num_msix_irqs,
++						oct->num_msix_irqs);
++		if (num_alloc_ioq_vectors < 0) {
++			dev_err(&oct->pci_dev->dev, "unable to Allocate MSI-X interrupts\n");
++			kfree(oct->msix_entries);
++			oct->msix_entries = NULL;
++			return 1;
++		}
++		dev_dbg(&oct->pci_dev->dev, "OCTEON: Enough MSI-X interrupts are allocated...\n");
 +
-+/* The input jabber is used to determine the TSO max size.
-+ * Due to H/W limitation, this need to be reduced to 60000
-+ * in order to to H/W TSO and avoid the WQE malfarmation
-+ * PKO_BUG_24989_WQE_LEN
-+ */
-+#define    CN23XX_DEFAULT_INPUT_JABBER             0xEA60 /*60000*/
++		num_ioq_vectors = oct->num_msix_irqs;
 +
-+/* ##############  BAR0 Registers ################ */
++		for (i = 0; i < num_ioq_vectors; i++) {
++			irqret = request_irq(msix_entries[i].vector,
++					     liquidio_msix_intr_handler, 0,
++					     "octeon", &oct->ioq_vector[i]);
++			if (irqret) {
++				dev_err(&oct->pci_dev->dev,
++					"OCTEON: Request_irq failed for MSIX interrupt Error: %d\n",
++					irqret);
 +
-+/* Each Input Queue register is at a 16-byte Offset in BAR0 */
-+#define    CN23XX_VF_IQ_OFFSET                     0x20000
++				while (i) {
++					i--;
++					irq_set_affinity_hint(
++					    msix_entries[i].vector, NULL);
++					free_irq(msix_entries[i].vector,
++						 &oct->ioq_vector[i]);
++				}
++				pci_disable_msix(oct->pci_dev);
++				kfree(oct->msix_entries);
++				oct->msix_entries = NULL;
++				return 1;
++			}
++			oct->ioq_vector[i].vector = msix_entries[i].vector;
++			/* assign the cpu mask for this msix interrupt vector */
++			irq_set_affinity_hint(
++			    msix_entries[i].vector,
++			    (&oct->ioq_vector[i].affinity_mask));
++		}
++		dev_dbg(&oct->pci_dev->dev,
++			"OCTEON[%d]: MSI-X enabled\n", oct->octeon_id);
++	}
++	return 0;
++}
 +
-+/*###################### REQUEST QUEUE #########################*/
+ /**
+  * \brief PCI probe handler
+  * @param pdev PCI device structure
+@@ -77,6 +189,7 @@ struct octeon_device_priv {
+ 		dev_err(&pdev->dev, "Unable to allocate device\n");
+ 		return -ENOMEM;
+ 	}
++	oct_dev->msix_on = LIO_FLAG_MSIX_ENABLED;
+ 
+ 	dev_info(&pdev->dev, "Initializing device %x:%x.\n",
+ 		 (u32)pdev->vendor, (u32)pdev->device);
+@@ -140,9 +253,37 @@ static void octeon_pci_flr(struct octeon_device *oct)
+  */
+ static void octeon_destroy_resources(struct octeon_device *oct)
+ {
++	struct msix_entry *msix_entries;
+ 	int i;
+ 
+ 	switch (atomic_read(&oct->status)) {
++	case OCT_DEV_INTR_SET_DONE:
++		/* Disable interrupts  */
++		oct->fn_list.disable_interrupt(oct, OCTEON_ALL_INTR);
 +
-+/* 64 registers for Input Queue Instr Count - SLI_PKT_IN_DONE0_CNTS */
-+#define    CN23XX_VF_SLI_IQ_INSTR_COUNT_START64     0x10040
++		if (oct->msix_on) {
++			msix_entries = (struct msix_entry *)oct->msix_entries;
++			for (i = 0; i < oct->num_msix_irqs; i++) {
++				irq_set_affinity_hint(msix_entries[i].vector,
++						      NULL);
++				free_irq(msix_entries[i].vector,
++					 &oct->ioq_vector[i]);
++			}
++			pci_disable_msix(oct->pci_dev);
++			kfree(oct->msix_entries);
++			oct->msix_entries = NULL;
++		}
++		/* Soft reset the octeon device before exiting */
++		if (oct->pci_dev->reset_fn)
++			octeon_pci_flr(oct);
++		else
++			cn23xx_vf_ask_pf_to_do_flr(oct);
 +
-+/* 64 registers for Input Queues Start Addr - SLI_PKT0_INSTR_BADDR */
-+#define    CN23XX_VF_SLI_IQ_BASE_ADDR_START64       0x10010
++		/* fallthrough */
++	case OCT_DEV_MSIX_ALLOC_VECTOR_DONE:
++		octeon_free_ioq_vector(oct);
 +
-+/* 64 registers for Input Doorbell - SLI_PKT0_INSTR_BAOFF_DBELL */
-+#define    CN23XX_VF_SLI_IQ_DOORBELL_START          0x10020
++		/* fallthrough */
+ 	case OCT_DEV_MBOX_SETUP_DONE:
+ 		oct->fn_list.free_mbox(oct);
+ 
+@@ -326,6 +467,27 @@ static int octeon_device_init(struct octeon_device *oct)
+ 	}
+ 	atomic_set(&oct->status, OCT_DEV_MBOX_SETUP_DONE);
+ 
++	if (octeon_allocate_ioq_vector(oct)) {
++		dev_err(&oct->pci_dev->dev, "ioq vector allocation failed\n");
++		return 1;
++	}
++	atomic_set(&oct->status, OCT_DEV_MSIX_ALLOC_VECTOR_DONE);
 +
-+/* 64 registers for Input Queue size - SLI_PKT0_INSTR_FIFO_RSIZE */
-+#define    CN23XX_VF_SLI_IQ_SIZE_START              0x10030
++	dev_info(&oct->pci_dev->dev, "OCTEON_CN23XX VF Version: %s, %d ioqs\n",
++		 LIQUIDIO_VERSION, oct->sriov_info.rings_per_vf);
 +
-+/* 64 registers (64-bit) - ES, RO, NS, Arbitration for Input Queue Data &
-+ * gather list fetches. SLI_PKT(0..63)_INPUT_CONTROL.
-+ */
-+#define    CN23XX_VF_SLI_IQ_PKT_CONTROL_START64     0x10000
++	/* Setup the interrupt handler and record the INT SUM register address*/
++	if (octeon_setup_interrupt(oct))
++		return 1;
 +
-+/*------- Request Queue Macros ---------*/
-+#define CN23XX_VF_SLI_IQ_PKT_CONTROL64(iq)		\
-+	(CN23XX_VF_SLI_IQ_PKT_CONTROL_START64 + ((iq) * CN23XX_VF_IQ_OFFSET))
++	if (cn23xx_octeon_pfvf_handshake(oct))
++		return 1;
 +
-+#define CN23XX_VF_SLI_IQ_BASE_ADDR64(iq)		\
-+	(CN23XX_VF_SLI_IQ_BASE_ADDR_START64 + ((iq) * CN23XX_VF_IQ_OFFSET))
++	/* Enable Octeon device interrupts */
++	oct->fn_list.enable_interrupt(oct, OCTEON_ALL_INTR);
 +
-+#define CN23XX_VF_SLI_IQ_SIZE(iq)			\
-+	(CN23XX_VF_SLI_IQ_SIZE_START + ((iq) * CN23XX_VF_IQ_OFFSET))
++	atomic_set(&oct->status, OCT_DEV_INTR_SET_DONE);
 +
-+#define CN23XX_VF_SLI_IQ_DOORBELL(iq)			\
-+	(CN23XX_VF_SLI_IQ_DOORBELL_START + ((iq) * CN23XX_VF_IQ_OFFSET))
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+index fcc5f10..6d54032 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+@@ -754,6 +754,9 @@ struct octeon_device *octeon_allocate_device(u32 pci_id,
+ 
+ 	if (OCTEON_CN23XX_PF(oct))
+ 		num_ioqs = oct->sriov_info.num_pf_rings;
++	else if (OCTEON_CN23XX_VF(oct))
++		num_ioqs = oct->sriov_info.rings_per_vf;
 +
-+#define CN23XX_VF_SLI_IQ_INSTR_COUNT64(iq)		\
-+	(CN23XX_VF_SLI_IQ_INSTR_COUNT_START64 + ((iq) * CN23XX_VF_IQ_OFFSET))
-+
-+/*------------------ Masks ----------------*/
-+#define    CN23XX_PKT_INPUT_CTL_VF_NUM                  BIT_ULL(32)
-+#define    CN23XX_PKT_INPUT_CTL_MAC_NUM                 BIT(29)
-+/* Number of instructions to be read in one MAC read request.
-+ * setting to Max value(4)
-+ */
-+#define    CN23XX_PKT_INPUT_CTL_RDSIZE                  (3 << 25)
-+#define    CN23XX_PKT_INPUT_CTL_IS_64B                  BIT(24)
-+#define    CN23XX_PKT_INPUT_CTL_RST                     BIT(23)
-+#define    CN23XX_PKT_INPUT_CTL_QUIET                   BIT(28)
-+#define    CN23XX_PKT_INPUT_CTL_RING_ENB                BIT(22)
-+#define    CN23XX_PKT_INPUT_CTL_DATA_NS                 BIT(8)
-+#define    CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP        BIT(6)
-+#define    CN23XX_PKT_INPUT_CTL_DATA_RO                 BIT(5)
-+#define    CN23XX_PKT_INPUT_CTL_USE_CSR                 BIT(4)
-+#define    CN23XX_PKT_INPUT_CTL_GATHER_NS               BIT(3)
-+#define    CN23XX_PKT_INPUT_CTL_GATHER_ES_64B_SWAP      (2)
-+#define    CN23XX_PKT_INPUT_CTL_GATHER_RO               (1)
-+
-+/** Rings per Virtual Function [RO] **/
-+#define    CN23XX_PKT_INPUT_CTL_RPVF_MASK               (0x3F)
-+#define    CN23XX_PKT_INPUT_CTL_RPVF_POS                (48)
-+/* These bits[47:44][RO] give the Physical function number info within the MAC*/
-+#define    CN23XX_PKT_INPUT_CTL_PF_NUM_MASK             (0x7)
-+#define    CN23XX_PKT_INPUT_CTL_PF_NUM_POS              (45)
-+/** These bits[43:32][RO] give the virtual function number info within the PF*/
-+#define    CN23XX_PKT_INPUT_CTL_VF_NUM_MASK             (0x1FFF)
-+#define    CN23XX_PKT_INPUT_CTL_VF_NUM_POS              (32)
-+#define    CN23XX_PKT_INPUT_CTL_MAC_NUM_MASK            (0x3)
-+#define    CN23XX_PKT_INPUT_CTL_MAC_NUM_POS             (29)
-+#define    CN23XX_PKT_IN_DONE_WMARK_MASK                (0xFFFFULL)
-+#define    CN23XX_PKT_IN_DONE_WMARK_BIT_POS             (32)
-+#define    CN23XX_PKT_IN_DONE_CNT_MASK                  (0x00000000FFFFFFFFULL)
-+
-+#ifdef __LITTLE_ENDIAN_BITFIELD
-+#define CN23XX_PKT_INPUT_CTL_MASK			\
-+	(CN23XX_PKT_INPUT_CTL_RDSIZE			\
-+	 | CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP	\
-+	 | CN23XX_PKT_INPUT_CTL_USE_CSR)
-+#else
-+#define CN23XX_PKT_INPUT_CTL_MASK			\
-+	(CN23XX_PKT_INPUT_CTL_RDSIZE			\
-+	 | CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP	\
-+	 | CN23XX_PKT_INPUT_CTL_USE_CSR			\
-+	 | CN23XX_PKT_INPUT_CTL_GATHER_ES_64B_SWAP)
-+#endif
-+
-+/** Masks for SLI_PKT_IN_DONE(0..63)_CNTS Register */
-+#define    CN23XX_IN_DONE_CNTS_PI_INT               BIT_ULL(62)
-+#define    CN23XX_IN_DONE_CNTS_CINT_ENB             BIT_ULL(48)
-+
-+/*############################ OUTPUT QUEUE #########################*/
-+
-+/* 64 registers for Output queue control - SLI_PKT(0..63)_OUTPUT_CONTROL */
-+#define    CN23XX_VF_SLI_OQ_PKT_CONTROL_START       0x10050
-+
-+/* 64 registers for Output queue buffer and info size - SLI_PKT0_OUT_SIZE */
-+#define    CN23XX_VF_SLI_OQ0_BUFF_INFO_SIZE         0x10060
-+
-+/* 64 registers for Output Queue Start Addr - SLI_PKT0_SLIST_BADDR */
-+#define    CN23XX_VF_SLI_OQ_BASE_ADDR_START64       0x10070
-+
-+/* 64 registers for Output Queue Packet Credits - SLI_PKT0_SLIST_BAOFF_DBELL */
-+#define    CN23XX_VF_SLI_OQ_PKT_CREDITS_START       0x10080
-+
-+/* 64 registers for Output Queue size - SLI_PKT0_SLIST_FIFO_RSIZE */
-+#define    CN23XX_VF_SLI_OQ_SIZE_START              0x10090
-+
-+/* 64 registers for Output Queue Packet Count - SLI_PKT0_CNTS */
-+#define    CN23XX_VF_SLI_OQ_PKT_SENT_START          0x100B0
-+
-+/* 64 registers for Output Queue INT Levels - SLI_PKT0_INT_LEVELS */
-+#define    CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_START64  0x100A0
-+
-+/* Each Output Queue register is at a 16-byte Offset in BAR0 */
-+#define    CN23XX_VF_OQ_OFFSET                      0x20000
-+
-+/*------- Output Queue Macros ---------*/
-+
-+#define CN23XX_VF_SLI_OQ_PKT_CONTROL(oq)		\
-+	(CN23XX_VF_SLI_OQ_PKT_CONTROL_START + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_OQ_BASE_ADDR64(oq)		\
-+	(CN23XX_VF_SLI_OQ_BASE_ADDR_START64 + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_OQ_SIZE(oq)			\
-+	(CN23XX_VF_SLI_OQ_SIZE_START + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_OQ_BUFF_INFO_SIZE(oq)		\
-+	(CN23XX_VF_SLI_OQ0_BUFF_INFO_SIZE + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_OQ_PKTS_SENT(oq)		\
-+	(CN23XX_VF_SLI_OQ_PKT_SENT_START + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_OQ_PKTS_CREDIT(oq)		\
-+	(CN23XX_VF_SLI_OQ_PKT_CREDITS_START + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_OQ_PKT_INT_LEVELS(oq)		\
-+	(CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_START64 + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+/* Macro's for accessing CNT and TIME separately from INT_LEVELS */
-+#define CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_CNT(oq)	\
-+	(CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_START64 + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_TIME(oq)	\
-+	(CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_START64 +	\
-+	 ((oq) * CN23XX_VF_OQ_OFFSET) + 4)
-+
-+/*------------------ Masks ----------------*/
-+#define    CN23XX_PKT_OUTPUT_CTL_TENB                  BIT(13)
-+#define    CN23XX_PKT_OUTPUT_CTL_CENB                  BIT(12)
-+#define    CN23XX_PKT_OUTPUT_CTL_IPTR                  BIT(11)
-+#define    CN23XX_PKT_OUTPUT_CTL_ES                    BIT(9)
-+#define    CN23XX_PKT_OUTPUT_CTL_NSR                   BIT(8)
-+#define    CN23XX_PKT_OUTPUT_CTL_ROR                   BIT(7)
-+#define    CN23XX_PKT_OUTPUT_CTL_DPTR                  BIT(6)
-+#define    CN23XX_PKT_OUTPUT_CTL_BMODE                 BIT(5)
-+#define    CN23XX_PKT_OUTPUT_CTL_ES_P                  BIT(3)
-+#define    CN23XX_PKT_OUTPUT_CTL_NSR_P                 BIT(2)
-+#define    CN23XX_PKT_OUTPUT_CTL_ROR_P                 BIT(1)
-+#define    CN23XX_PKT_OUTPUT_CTL_RING_ENB              BIT(0)
-+
-+/*######################### Mailbox Reg Macros ########################*/
-+#define    CN23XX_VF_SLI_PKT_MBOX_INT_START            0x10210
-+#define    CN23XX_SLI_PKT_PF_VF_MBOX_SIG_START         0x10200
-+
-+#define    CN23XX_SLI_MBOX_OFFSET                      0x20000
-+#define    CN23XX_SLI_MBOX_SIG_IDX_OFFSET              0x8
-+
-+#define CN23XX_VF_SLI_PKT_MBOX_INT(q)	\
-+	(CN23XX_VF_SLI_PKT_MBOX_INT_START + ((q) * CN23XX_SLI_MBOX_OFFSET))
-+
-+#define CN23XX_SLI_PKT_PF_VF_MBOX_SIG(q, idx)		\
-+	(CN23XX_SLI_PKT_PF_VF_MBOX_SIG_START +		\
-+	 ((q) * CN23XX_SLI_MBOX_OFFSET +		\
-+	  (idx) * CN23XX_SLI_MBOX_SIG_IDX_OFFSET))
-+
-+/*######################## INTERRUPTS #########################*/
-+
-+#define    CN23XX_VF_SLI_INT_SUM_START		  0x100D0
-+
-+#define CN23XX_VF_SLI_INT_SUM(q)			\
-+	(CN23XX_VF_SLI_INT_SUM_START + ((q) * CN23XX_VF_IQ_OFFSET))
-+
-+/*------------------ Interrupt Masks ----------------*/
-+
-+#define    CN23XX_INTR_PO_INT                   BIT_ULL(63)
-+#define    CN23XX_INTR_PI_INT                   BIT_ULL(62)
-+#define    CN23XX_INTR_MBOX_INT                 BIT_ULL(61)
-+#define    CN23XX_INTR_RESEND                   BIT_ULL(60)
-+
-+#define    CN23XX_INTR_CINT_ENB                 BIT_ULL(48)
-+#define    CN23XX_INTR_MBOX_ENB                 BIT(0)
-+
-+/*############################ MIO #########################*/
-+#define    CN23XX_MIO_PTP_CLOCK_CFG       0x0001070000000f00ULL
-+#define    CN23XX_MIO_PTP_CLOCK_LO        0x0001070000000f08ULL
-+#define    CN23XX_MIO_PTP_CLOCK_HI        0x0001070000000f10ULL
-+#define    CN23XX_MIO_PTP_CLOCK_COMP      0x0001070000000f18ULL
-+#define    CN23XX_MIO_PTP_TIMESTAMP       0x0001070000000f20ULL
-+#define    CN23XX_MIO_PTP_EVT_CNT         0x0001070000000f28ULL
-+#define    CN23XX_MIO_PTP_CKOUT_THRESH_LO 0x0001070000000f30ULL
-+#define    CN23XX_MIO_PTP_CKOUT_THRESH_HI 0x0001070000000f38ULL
-+#define    CN23XX_MIO_PTP_CKOUT_HI_INCR   0x0001070000000f40ULL
-+#define    CN23XX_MIO_PTP_CKOUT_LO_INCR   0x0001070000000f48ULL
-+#define    CN23XX_MIO_PTP_PPS_THRESH_LO   0x0001070000000f50ULL
-+#define    CN23XX_MIO_PTP_PPS_THRESH_HI   0x0001070000000f58ULL
-+#define    CN23XX_MIO_PTP_PPS_HI_INCR     0x0001070000000f60ULL
-+#define    CN23XX_MIO_PTP_PPS_LO_INCR     0x0001070000000f68ULL
-+
-+/*############################ RST #########################*/
-+#define    CN23XX_RST_BOOT                0x0001180006001600ULL
-+
-+/*######################## MSIX TABLE #########################*/
-+
-+#define    CN23XX_MSIX_TABLE_ADDR_START    0x0
-+#define    CN23XX_MSIX_TABLE_DATA_START    0x8
-+
-+#define    CN23XX_MSIX_TABLE_SIZE          0x10
-+#define    CN23XX_MSIX_TABLE_ENTRIES       0x41
-+
-+#define    CN23XX_MSIX_ENTRY_VECTOR_CTL    BIT_ULL(32)
-+
-+#define CN23XX_MSIX_TABLE_ADDR(idx)		\
-+	(CN23XX_MSIX_TABLE_ADDR_START + ((idx) * CN23XX_MSIX_TABLE_SIZE))
-+
-+#define CN23XX_MSIX_TABLE_DATA(idx)		\
-+	(CN23XX_MSIX_TABLE_DATA_START + ((idx) * CN23XX_MSIX_TABLE_SIZE))
-+
-+#endif
+ 	size = sizeof(struct octeon_ioq_vector) * num_ioqs;
+ 
+ 	oct->ioq_vector = vmalloc(size);
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 1e6bfa1..18f6836 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -53,6 +53,7 @@ enum {
+ 	NUM_OCTEON_CONFS,
+ };
+ 
++#define  OCTEON_INPUT_INTR    (1)
+ #define  OCTEON_OUTPUT_INTR   (2)
+ #define  OCTEON_MBOX_INTR     (4)
+ #define  OCTEON_ALL_INTR      0xff
+@@ -294,6 +295,7 @@ struct octdev_props {
+ #define LIO_FLAG_MSIX_ENABLED	0x1
+ #define MSIX_PO_INT		0x1
+ #define MSIX_PI_INT		0x2
++#define MSIX_MBOX_INT		0x4
+ 
+ struct octeon_pf_vf_hs_word {
+ #ifdef __LITTLE_ENDIAN_BITFIELD
 -- 
 1.8.3.1
