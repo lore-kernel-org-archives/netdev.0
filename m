@@ -1,61 +1,58 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] bpf: cgroup: fix documentation of __cgroup_bpf_update()
-Date: Mon, 28 Nov 2016 14:03:21 +0100
-Message-ID: <583C2B19.7010506@iogearbox.net>
-References: <1480331099-20216-1-git-send-email-daniel@zonque.org>
+From: Lino Sanfilippo <lsanfil@marvell.com>
+Subject: Re: stmmac ethernet in kernel 4.4: coalescing related pauses?
+Date: Mon, 28 Nov 2016 14:07:51 +0100
+Message-ID: <f14255ee-7fa8-afef-23ec-fc4f9a74eec8@marvell.com>
+References: <20161123105125.GA26394@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, roszenrami@gmail.com,
-        cgroups@vger.kernel.org
-To: Daniel Mack <daniel@zonque.org>, ast@fb.com
+To: Pavel Machek <pavel@ucw.cz>, <peppe.cavallaro@st.com>,
+        <netdev@vger.kernel.org>,
+        kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57507 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753790AbcK1ND2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 08:03:28 -0500
-In-Reply-To: <1480331099-20216-1-git-send-email-daniel@zonque.org>
+Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:48020 "EHLO
+        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753751AbcK1NJH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 08:09:07 -0500
+In-Reply-To: <20161123105125.GA26394@amd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2016 12:04 PM, Daniel Mack wrote:
-> There's a 'not' missing in one paragraph. Add it.
+Hi Pavel,
+
+On 23.11.2016 11:51, Pavel Machek wrote:
+
+> I'm debugging strange delays during transmit in stmmac driver. They
+> seem to be present in 4.4 kernel (and older kernels, too). Workload is
+> burst of udp packets being sent, pause, burst of udp packets, ...
 >
-> Signed-off-by: Daniel Mack <daniel@zonque.org>
-> Reported-by: Rami Rosen <roszenrami@gmail.com>
-> Fixes: 3007098494be ("cgroup: add support for eBPF programs")
-
-Small nit in subject: s/[PATCH]/[PATCH net-next]/
-
->   kernel/bpf/cgroup.c | 6 +++---
->   1 file changed, 3 insertions(+), 3 deletions(-)
+> Test code is attached, I use these parameters for testing:
 >
-> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-> index a0ab43f..b708e6e 100644
-> --- a/kernel/bpf/cgroup.c
-> +++ b/kernel/bpf/cgroup.c
-> @@ -70,9 +70,9 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
->    * releases the one that is currently attached, if any. @prog is then made
->    * the effective program of type @type in that cgroup.
->    *
-> - * If @prog is %NULL, the currently attached program of type @type is released,
-> - * and the effective program of the parent cgroup (if any) is inherited to
-> - * @cgrp.
-> + * If @prog is not %NULL, the currently attached program of type @type is
-> + * released, and the effective program of the parent cgroup (if any) is
-> + * inherited to @cgrp.
+> ./udp-test raw 10.0.0.6 1234 1000 100 30
+>
+> The delays seem to be related to coalescing:
+>
+> drivers/net/ethernet/stmicro/stmmac/common.h
+> #define STMMAC_COAL_TX_TIMER    40000
+> #define STMMAC_MAX_COAL_TX_TICK 100000
+> #define STMMAC_TX_MAX_FRAMES    256
+>
+> If I lower the parameters, delays are gone, but I get netdev watchdog
+> backtrace followed by broken driver.
+>
+> Any ideas what is going on there?
+>
+> [I'm currently trying to get newer kernels working on affected
+> hardware.]
+>
+> Best regards,
+>
+> 									Pavel
 
-Both paragraphs for __cgroup_bpf_update() currently say:
+I once encountered a similar behaviour with a driver. The reason was that the socket
+queue limit was temporarily exhausted because the irq handler did not free the tx skbs
+fast enough (that driver also used irq coalescing).
+Calling skb_orphan() in the xmit handler made this issue disappear.
 
-[...]
-  * If @prog is %NULL, this function attaches a new program to the cgroup and
-  * releases the one that is currently attached, if any. @prog is then made
-  * the effective program of type @type in that cgroup.
-  *
-  * If @prog is %NULL, the currently attached program of type @type is released,
-  * and the effective program of the parent cgroup (if any) is inherited to
-  * @cgrp.
-[...]
-
-It looks to me that you are 'fixing' the wrong location. First paragraph is
-actually missing a "not", which would then also align with what the code does.
+Regards,
+Lino  
