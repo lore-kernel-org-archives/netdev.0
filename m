@@ -1,78 +1,64 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: Re: Large performance regression with 6in4 tunnel (sit)
-Date: Mon, 28 Nov 2016 12:54:07 -0500 (EST)
-Message-ID: <1428298236.4223309.1480355647336.JavaMail.zimbra@redhat.com>
-References: <20161125120947.142c3af5@canb.auug.org.au> <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com> <20161125134520.68ca0969@canb.auug.org.au> <alpine.DEB.2.20.1611250503250.22094@aurora.sdinet.de> <20161127142340.3a5c197e@canb.auug.org.au>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v4 0/4] Fix OdroidC2 Gigabit Tx link issue
+Date: Mon, 28 Nov 2016 09:54:28 -0800
+Message-ID: <049b1efc-3bad-92e0-45ef-0563dc5d81de@gmail.com>
+References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Sven-Haegar Koch <haegar@sdinet.de>,
-        Eli Cooper <elicooper@gmx.com>, netdev@vger.kernel.org,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:42173 "EHLO
-        mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751033AbcK1RyY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:54:24 -0500
-In-Reply-To: <20161127142340.3a5c197e@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+        Yegor Yefremov <yegorslists-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>
+To: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1480348229-25672-1-git-send-email-jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: "Stephen Rothwell" <sfr@canb.auug.org.au>
-> To: "Sven-Haegar Koch" <haegar@sdinet.de>
-> Cc: "Eli Cooper" <elicooper@gmx.com>, netdev@vger.kernel.org, "Eric Dumazet" <eric.dumazet@gmail.com>
-> Sent: Saturday, November 26, 2016 10:23:40 PM
-> Subject: Re: Large performance regression with 6in4 tunnel (sit)
+On 11/28/2016 07:50 AM, Jerome Brunet wrote:
+> This patchset fixes an issue with the OdroidC2 board (DWMAC + RTL8211F).
+> The platform seems to enter LPI on the Rx path too often while performing
+> relatively high TX transfer. This eventually break the link (both Tx and
+> Rx), and require to bring the interface down and up again to get the Rx
+> path working again.
 > 
-> Hi Sven-Haegar,
+> The root cause of this issue is not fully understood yet but disabling EEE
+> advertisement on the PHY prevent this feature to be negotiated.
+> With this change, the link is stable and reliable, with the expected
+> throughput performance.
 > 
-> On Fri, 25 Nov 2016 05:06:53 +0100 (CET) Sven-Haegar Koch <haegar@sdinet.de>
-> wrote:
-> >
-> > Somehow this problem description really reminds me of a report on
-> > netdev a bit ago, which the following patch fixed:
-> > 
-> > commit 9ee6c5dc816aa8256257f2cd4008a9291ec7e985
-> > Author: Lance Richardson <lrichard@redhat.com>
-> > Date:   Wed Nov 2 16:36:17 2016 -0400
-> > 
-> >     ipv4: allow local fragmentation in ip_finish_output_gso()
-> >     
-> >     Some configurations (e.g. geneve interface with default
-> >     MTU of 1500 over an ethernet interface with 1500 MTU) result
-> >     in the transmission of packets that exceed the configured MTU.
-> >     While this should be considered to be a "bad" configuration,
-> >     it is still allowed and should not result in the sending
-> >     of packets that exceed the configured MTU.
-> > 
-> > Could this be related?
-> > 
-> > I suppose it would be difficult to test this patch on this machine?
+> The patchset adds options in the generic phy driver to disable EEE
+> advertisement, through device tree. The way it is done is very similar
+> to the handling of the max-speed property.
 > 
-> The kernel I am running on is based on 4.7.8, so the above patch
-> doesn't come close to applying. Most fo what it is reverting was
-> introduced in commit 359ebda25aa0 ("net/ipv4: Introduce IPSKB_FRAG_SEGS
-> bit to inet_skb_parm.flags") in v4.8-rc1.
-> 
-> --
-> Cheers,
-> Stephen Rothwell
-> 
+> Patch 4 is provided here for testing purpose only. Please don't merge
+> patch 4, this change will go through the amlogic's tree.
 
-This should be equivalent for 4.7.x:
+Sorry, but I really don't like the route this is going, and I should
+have made myself clearer before on that, I really think utilizing a PHY
+fixup is more appropriate here than an extremely generic DT property.
+The fixup code can be in the affected PHY driver, or it can be somewhere
+else, your call. There is no shortage of option on how to implement it,
+and this would be something easy to enable/disable for known good
+configurations (ala PCI/USB fixups).
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 4bd4921..8a253e2 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -224,8 +224,7 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
-        int ret = 0;
- 
-        /* common case: locally created skb or seglen is <= mtu */
--       if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
--             skb_gso_network_seglen(skb) <= mtu)
-+       if (skb_gso_network_seglen(skb) <= mtu)
-                return ip_finish_output2(net, sk, skb);
- 
-        /* Slowpath -  GSO segment length is exceeding the dst MTU.
+If we start supporting generic "enable", "disable" type of properties
+with values that map directly to register definitions of the HW, we
+leave too much room for these properties to be utilized to implement a
+specific policy, and this is not acceptable.
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
