@@ -1,8 +1,8 @@
 From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 13/16] net: ethernet: renesas: ravb: fix fixed-link phydev
+Subject: [PATCH net 05/16] net: ethernet: bcmsysport: fix fixed-link phydev
  leaks
-Date: Mon, 28 Nov 2016 19:25:06 +0100
-Message-ID: <1480357509-28074-14-git-send-email-johan@kernel.org>
+Date: Mon, 28 Nov 2016 19:24:58 +0100
+Message-ID: <1480357509-28074-6-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,70 +37,79 @@ Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7u
 List-Id: netdev.vger.kernel.org
 
 Make sure to deregister and free any fixed-link PHY registered using
-of_phy_register_fixed_link() on initialisation errors and on device
-close after having disconnected the PHY.
+of_phy_register_fixed_link() on probe errors and on driver unbind.
 
-Fixes: b4bc88a868ed ("ravb: Add fixed-link support")
+Fixes: 186534a3f832 ("net: systemport: use the new fixed PHY helpers")
 Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/renesas/ravb_main.c | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bcmsysport.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 630536bc72f9..f1f3be2cfe21 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1008,7 +1008,8 @@ static int ravb_phy_init(struct net_device *ndev)
- 	of_node_put(pn);
- 	if (!phydev) {
- 		netdev_err(ndev, "failed to connect PHY\n");
--		return -ENOENT;
-+		err = -ENOENT;
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index c3354b9941d1..25d1eb4933d0 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -1755,13 +1755,13 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ 	if (priv->irq0 <= 0 || priv->irq1 <= 0) {
+ 		dev_err(&pdev->dev, "invalid interrupts\n");
+ 		ret = -EINVAL;
+-		goto err;
++		goto err_free_netdev;
+ 	}
+ 
+ 	priv->base = devm_ioremap_resource(&pdev->dev, r);
+ 	if (IS_ERR(priv->base)) {
+ 		ret = PTR_ERR(priv->base);
+-		goto err;
++		goto err_free_netdev;
+ 	}
+ 
+ 	priv->netdev = dev;
+@@ -1779,7 +1779,7 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ 		ret = of_phy_register_fixed_link(dn);
+ 		if (ret) {
+ 			dev_err(&pdev->dev, "failed to register fixed PHY\n");
+-			goto err;
++			goto err_free_netdev;
+ 		}
+ 
+ 		priv->phy_dn = dn;
+@@ -1821,7 +1821,7 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ 	ret = register_netdev(dev);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "failed to register net_device\n");
+-		goto err;
 +		goto err_deregister_fixed_link;
  	}
  
- 	/* This driver only support 10/100Mbit speeds on Gen3
-@@ -1020,8 +1021,7 @@ static int ravb_phy_init(struct net_device *ndev)
- 		err = phy_set_max_speed(phydev, SPEED_100);
- 		if (err) {
- 			netdev_err(ndev, "failed to limit PHY to 100Mbit/s\n");
--			phy_disconnect(phydev);
--			return err;
-+			goto err_phy_disconnect;
- 		}
- 
- 		netdev_info(ndev, "limited PHY to 100Mbit/s\n");
-@@ -1033,6 +1033,14 @@ static int ravb_phy_init(struct net_device *ndev)
- 	phy_attached_info(phydev);
+ 	priv->rev = topctrl_readl(priv, REV_CNTL) & REV_MASK;
+@@ -1832,7 +1832,11 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ 		 priv->base, priv->irq0, priv->irq1, txq, rxq);
  
  	return 0;
+-err:
 +
-+err_phy_disconnect:
-+	phy_disconnect(phydev);
 +err_deregister_fixed_link:
-+	if (of_phy_is_fixed_link(np))
-+		of_phy_deregister_fixed_link(np);
-+
-+	return err;
++	if (of_phy_is_fixed_link(dn))
++		of_phy_deregister_fixed_link(dn);
++err_free_netdev:
+ 	free_netdev(dev);
+ 	return ret;
  }
- 
- /* PHY control start function */
-@@ -1634,6 +1642,7 @@ static void ravb_set_rx_mode(struct net_device *ndev)
- /* Device close function for Ethernet AVB */
- static int ravb_close(struct net_device *ndev)
+@@ -1840,11 +1844,14 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ static int bcm_sysport_remove(struct platform_device *pdev)
  {
-+	struct device_node *np = ndev->dev.parent->of_node;
- 	struct ravb_private *priv = netdev_priv(ndev);
- 	struct ravb_tstamp_skb *ts_skb, *ts_skb2;
+ 	struct net_device *dev = dev_get_drvdata(&pdev->dev);
++	struct device_node *dn = pdev->dev.of_node;
  
-@@ -1663,6 +1672,8 @@ static int ravb_close(struct net_device *ndev)
- 	if (ndev->phydev) {
- 		phy_stop(ndev->phydev);
- 		phy_disconnect(ndev->phydev);
-+		if (of_phy_is_fixed_link(np))
-+			of_phy_deregister_fixed_link(np);
- 	}
+ 	/* Not much to do, ndo_close has been called
+ 	 * and we use managed allocations
+ 	 */
+ 	unregister_netdev(dev);
++	if (of_phy_is_fixed_link(dn))
++		of_phy_deregister_fixed_link(dn);
+ 	free_netdev(dev);
+ 	dev_set_drvdata(&pdev->dev, NULL);
  
- 	if (priv->chip_id != RCAR_GEN2) {
 -- 
 2.7.3
