@@ -1,7 +1,7 @@
 From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 08/16] net: ethernet: fs_enet: fix fixed-link phydev leaks
-Date: Mon, 28 Nov 2016 19:25:01 +0100
-Message-ID: <1480357509-28074-9-git-send-email-johan@kernel.org>
+Subject: [PATCH net 06/16] net: ethernet: bcmgenet: fix fixed-link phydev leaks
+Date: Mon, 28 Nov 2016 19:24:59 +0100
+Message-ID: <1480357509-28074-7-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -38,43 +38,46 @@ List-Id: netdev.vger.kernel.org
 Make sure to deregister and free any fixed-link PHY registered using
 of_phy_register_fixed_link() on probe errors and on driver unbind.
 
-Fixes: bb74d9a4a87b ("fs_enet: use the new fixed PHY helpers")
+Note that we're still leaking any fixed-link PHY registered in the
+non-OF probe path.
+
+Fixes: 9abf0c2b717a ("net: bcmgenet: use the new fixed PHY helpers")
 Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/genet/bcmmii.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index dc120c148d97..4b86260584a0 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -980,7 +980,7 @@ static int fs_enet_probe(struct platform_device *ofdev)
- 		err = clk_prepare_enable(clk);
- 		if (err) {
- 			ret = err;
--			goto out_free_fpi;
-+			goto out_deregister_fixed_link;
- 		}
- 		fpi->clk_per = clk;
- 	}
-@@ -1061,6 +1061,9 @@ static int fs_enet_probe(struct platform_device *ofdev)
- 	of_node_put(fpi->phy_node);
- 	if (fpi->clk_per)
- 		clk_disable_unprepare(fpi->clk_per);
-+out_deregister_fixed_link:
-+	if (of_phy_is_fixed_link(ofdev->dev.of_node))
-+		of_phy_deregister_fixed_link(ofdev->dev.of_node);
- out_free_fpi:
- 	kfree(fpi);
- 	return ret;
-@@ -1079,6 +1082,8 @@ static int fs_enet_remove(struct platform_device *ofdev)
- 	of_node_put(fep->fpi->phy_node);
- 	if (fep->fpi->clk_per)
- 		clk_disable_unprepare(fep->fpi->clk_per);
-+	if (of_phy_is_fixed_link(ofdev->dev.of_node))
-+		of_phy_deregister_fixed_link(ofdev->dev.of_node);
- 	free_netdev(ndev);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index 2e745bd51df4..e87607621e62 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -627,6 +627,7 @@ static int bcmgenet_mii_bus_init(struct bcmgenet_priv *priv)
+ int bcmgenet_mii_init(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
++	struct device_node *dn = priv->pdev->dev.of_node;
+ 	int ret;
+ 
+ 	ret = bcmgenet_mii_alloc(priv);
+@@ -640,6 +641,8 @@ int bcmgenet_mii_init(struct net_device *dev)
  	return 0;
- }
+ 
+ out:
++	if (of_phy_is_fixed_link(dn))
++		of_phy_deregister_fixed_link(dn);
+ 	of_node_put(priv->phy_dn);
+ 	mdiobus_unregister(priv->mii_bus);
+ 	mdiobus_free(priv->mii_bus);
+@@ -649,7 +652,10 @@ int bcmgenet_mii_init(struct net_device *dev)
+ void bcmgenet_mii_exit(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
++	struct device_node *dn = priv->pdev->dev.of_node;
+ 
++	if (of_phy_is_fixed_link(dn))
++		of_phy_deregister_fixed_link(dn);
+ 	of_node_put(priv->phy_dn);
+ 	mdiobus_unregister(priv->mii_bus);
+ 	mdiobus_free(priv->mii_bus);
 -- 
 2.7.3
