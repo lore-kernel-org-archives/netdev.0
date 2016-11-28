@@ -1,65 +1,52 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: Re: [PATCH net-next 2/2] openvswitch: Fix skb->protocol for vlan frames.
-Date: Mon, 28 Nov 2016 14:58:33 -0800
-Message-ID: <D9AE51E6-A695-4B66-8285-56635E08B225@ovn.org>
-References: <1479874174-75329-1-git-send-email-jarno@ovn.org> <1479874174-75329-2-git-send-email-jarno@ovn.org> <20161124171046.7eb0e287@griffin> <76814927-D373-4C3A-BC85-5771304235A7@ovn.org> <20161128234246.1a886246@griffin>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: Jiri Benc <jbenc@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] mlx4: give precise rx/tx bytes/packets counters
+Date: Mon, 28 Nov 2016 14:57:43 -0800
+Message-ID: <1480373863.18162.99.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG8nFBFy=-pjy-XBYb-y-F=grC5wjN35zTt9eUOT-612Eg@mail.gmail.com>
+         <1480212960.18162.23.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161128.154057.1355209532933900181.davem@davemloft.net>
+         <CALzJLG8qjz7Qx8rWbthtJ1uJt2c8w_1gMeRkmB+SZ+xv2Eu3EQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33039 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754980AbcK1W6g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 17:58:36 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 3so14339180pgd.0
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 14:58:36 -0800 (PST)
-In-Reply-To: <20161128234246.1a886246@griffin>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34242 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755318AbcK1W6p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 17:58:45 -0500
+Received: by mail-pg0-f67.google.com with SMTP id e9so14300460pgc.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 14:58:44 -0800 (PST)
+In-Reply-To: <CALzJLG8qjz7Qx8rWbthtJ1uJt2c8w_1gMeRkmB+SZ+xv2Eu3EQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2016-11-28 at 23:55 +0200, Saeed Mahameed wrote:
 
-> On Nov 28, 2016, at 2:42 PM, Jiri Benc <jbenc@redhat.com> wrote:
-> 
-> On Mon, 28 Nov 2016 14:29:39 -0800, Jarno Rajahalme wrote:
->> I’m not sure what you suggest here. Obviously the kernel ABI can not
->> be changed as existing userspace code expects upcalled packets to be
->> non-accelerated. Also, if userspace pushes vlan headers, the packet
->> will actually have them.
-> 
-> The user space API needs to be preserved, of course. I'm talking about
-> what happens internally in the kernel.
-> 
-> See this patchset: https://www.spinics.net/lists/netdev/msg398827.html
-> 
+> I have nothing against this patch, I just wanted to point out that
+> this patch is just fixing the symptom.
 
-I did not try to apply this series yet, but given the recent L3 changes maybe it needs a rebase?
 
->> Would this incremental fix this:
->> 
->> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
->> index 9be9fda..37f1bb9 100644
->> --- a/net/openvswitch/flow.c
->> +++ b/net/openvswitch/flow.c
->> @@ -354,6 +354,8 @@ static int parse_vlan(struct sk_buff *skb, struct
->> sw_flow_key *key) res = parse_vlan_tag(skb, &key->eth.vlan);
->> 		if (res <= 0)
->> 			return res;
->> +		if (skb->protocol == htons(ETH_P_TEB))
->> +			skb->protocol = key->eth.vlan.tpid;
->> 	}
->> 
->> 	/* Parse inner vlan tag. */
-> 
-> I'll look at this tomorrow. But it seems we're adding more and more
-> hacks instead of cleaning up the vlan handling.
-> 
+> We keep ignoring the root cause that dev_get_stats is called under a
+> spin_lock which really ties our hands "us device drivers developers"
+> and push us towards those fragile solutions like deferred work for
+> caching statistics.
 
-Right, I just noticed that the incremental only handles the VLAN case.
+Well, we do not want to allow a driver to wait several ms to fetch
+stats, or allowing the operation to fail is memory for the transaction
+can not be allocated.
 
-I’ll post a v2 later today with a proper fix that solves the immediate issue. IMO this should be fixed independently of the VLAN handling series for which I have no informed opinion yet.
+Otherwise, some monitoring tools could really have serious problems
+under stress.
 
-  Jarno
+We really don't care of how often the 'not really hot counters' are
+fetched from the NIC. I guess even once per second should be good
+enough.
 
-> Jiri
+But these 4 counters (bytes/packets rx/tx), especially if they are
+given by counters managed in the driver, should reflect the most current
+value.
