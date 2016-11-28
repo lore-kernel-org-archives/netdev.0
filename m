@@ -1,42 +1,101 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] net, sched: respect rcu grace period on cls destruction
-Date: Mon, 28 Nov 2016 11:51:12 +0100
-Message-ID: <583C0C20.3020703@iogearbox.net>
-References: <0d6d89f885033f1739e97f7f3372ae6e1db72892.1480204343.git.daniel@iogearbox.net> <CAM_iQpVRDnLM_Cmp63PVkpYtmdtNECP-2m89=DGdidkUYyHwug@mail.gmail.com> <583BF43C.4020103@iogearbox.net> <20161128104736.GX31360@linux.vnet.ibm.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next 0/5] net: add protocol level recvmmsg support
+Date: Mon, 28 Nov 2016 11:52:38 +0100
+Message-ID: <1480330358.6718.13.camel@redhat.com>
+References: <cover.1480086321.git.pabeni@redhat.com>
+         <20161125183711.675fa4a7@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Roi Dayan <roid@mellanox.com>, ast@fb.com,
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: paulmck@linux.vnet.ibm.com
+        Sabrina Dubroca <sd@queasysnail.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42283 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932282AbcK1KvZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 05:51:25 -0500
-In-Reply-To: <20161128104736.GX31360@linux.vnet.ibm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50936 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932329AbcK1Kwl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 05:52:41 -0500
+In-Reply-To: <20161125183711.675fa4a7@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2016 11:47 AM, Paul E. McKenney wrote:
-> On Mon, Nov 28, 2016 at 10:09:16AM +0100, Daniel Borkmann wrote:
->> On 11/28/2016 07:57 AM, Cong Wang wrote:
-[...]
->>> The ugly part is the work struct, I am not an RCU expert so don't know if we
->>> have any API to execute an RCU callback in process context. Paul?
->>
->> Same way we do this in BPF with prog destruction, by the way. I'm not aware
->> of any callback API for RCU that lets you do this, but maybe Paul knows.
->
-> RCU callbacks are always executed in softirq context, so yes, you do need
-> to use something like a work struct.  (Or a wakeup to a kthread or
-> whatever.)
+Hi Jesper,
 
-Ok, thanks for the confirmation!
+On Fri, 2016-11-25 at 18:37 +0100, Jesper Dangaard Brouer wrote:
+> > The measured performance delta is as follow:
+> > 
+> > 		before		after
+> > 		(Kpps)		(Kpps)
+> > 
+> > udp flood[1]	570		1800(+215%)
+> > max tput[2]	1850		3500(+89%)
+> > single queue[3]	1850		1630(-11%)
+> > 
+> > [1] line rate flood using multiple 64 bytes packets and multiple flows
+> 
+> Is [1] sending multiple flow in the a single UDP-sink?
 
-Daniel
+Yes, in the test scenario [1] there are multiple UDP flows using 16
+different rx queues on the receiver host, and a single user space
+reader.
+
+> > [2] like [1], but using the minimum number of flows to saturate the user space
+> >  sink, that is 1 flow for the old kernel and 3 for the patched one.
+> >  the tput increases since the contention on the rx lock is low.
+> > [3] like [1] but using a single flow with both old and new kernel. All the
+> >  packets land on the same rx queue and there is a single ksoftirqd instance
+> >  running
+> 
+> It is important to know, if ksoftirqd and the UDP-sink runs on the same CPU?
+
+No pinning is enforced. The scheduler moves the user space process on a
+different cpu in respect to the ksoftriqd kernel thread.
+
+> > The regression in the single queue scenario is actually due to the improved
+> > performance of the recvmmsg() syscall: the user space process is now
+> > significantly faster than the ksoftirqd process so that the latter needs often
+> > to wake up the user space process.
+> 
+> When measuring these things, make sure that we/you measure both the packets
+> actually received in the userspace UDP-sink, and also measure packets
+> RX processed by ksoftirq (and I often also look at what HW got delivered).
+> Some times, when userspace is too slow, the kernel can/will drop packets.
+> 
+> It is actually quite easily verified with cmdline:
+> 
+>  nstat > /dev/null && sleep 1  && nstat
+> 
+> For HW measurements I use the tool ethtool_stats.pl:
+>  https://github.com/netoptimizer/network-testing/blob/master/bin/ethtool_stats.pl
+
+We collected the UDP stats for all the three scenarios; we have lot of
+drop in test[1] and little, by design, in test[2]. In test [3], with the
+patched kernel, the drops are 0: ksoftirqd is way slower than the user
+space sink. 
+
+> > Since ksoftirqd is the bottle-neck is such scenario, overall this causes a
+> > tput reduction. In a real use case, where the udp sink is performing some
+> > actual processing of the received data, such regression is unlikely to really
+> > have an effect.
+> 
+> My experience is that the performance of RX UDP is affected by:
+>  * if socket is connected or not (yes, RX side also)
+>  * state of /proc/sys/net/ipv4/ip_early_demux
+> 
+> You don't need to run with all the combinations, but it would be nice
+> if you specify what config your have based your measurements on (and
+> keep them stable in your runs).
+> 
+> I've actually implemented the "--connect" option to my udp_sink
+> program[1] today, but I've not pushed it yet, if you are interested.
+
+The reported numbers are all gathered with unconnected sockets and early
+demux enabled.
+
+We also used connected socket for test[3], with relative little
+difference (the tput increased for both unpatched and patched kernel, 
+and the difference was roughly the same).
+
+Paolo
