@@ -1,18 +1,18 @@
 From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
 Subject: [PATCH net-next 0/3] Adding PHY Loopback tunable
-Date: Mon, 28 Nov 2016 14:23:31 +0100
-Message-ID: <1480339411-5768-1-git-send-email-allan.nielsen@microsemi.com>
+Date: Mon, 28 Nov 2016 14:24:29 +0100
+Message-ID: <1480339472-5823-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
         <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0065.outbound.protection.outlook.com ([104.47.40.65]:15232
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0048.outbound.protection.outlook.com ([104.47.41.48]:25952
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754473AbcK1NXz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 08:23:55 -0500
+        id S1754475AbcK1NZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 08:25:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
