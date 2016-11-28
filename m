@@ -1,64 +1,63 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: Netperf UDP issue with connected sockets
-Date: Mon, 28 Nov 2016 10:40:32 -0800
-Message-ID: <ee2ba554-80e3-aa10-9a95-c3a44e9aac2f@hpe.com>
-References: <20140903165943.372b897b@redhat.com>
- <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
- <20161116131609.4e5726b4@redhat.com>
- <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
- <20161116234022.2bad179b@redhat.com>
- <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161117091638.5fab8494@redhat.com>
- <20730b37-d218-a1bb-d0fb-0f838e2a77b5@hpe.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3428.houston.hpe.com ([15.241.140.76]:25056 "EHLO
-        g4t3428.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751432AbcK1Skd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 13:40:33 -0500
-In-Reply-To: <20730b37-d218-a1bb-d0fb-0f838e2a77b5@hpe.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH net 12/16] net: ethernet: mediatek: fix fixed-link phydev leaks
+Date: Mon, 28 Nov 2016 19:25:05 +0100
+Message-ID: <1480357509-28074-13-git-send-email-johan@kernel.org>
+References: <1480357509-28074-1-git-send-email-johan@kernel.org>
+Cc: Vince Bridgers <vbridger@opensource.altera.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+        Vitaly Bordug <vbordug@ru.mvista.com>,
+        Claudiu Manoil <claudiu.manoil@freescale.com>,
+        Li Yang <leoli@freescale.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Felix Fietkau <nbd@openwrt.org>,
+        John Crispin <blogic@openwrt.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Lars Persson <lars.persson@axis.com>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1480357509-28074-1-git-send-email-johan@kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/28/2016 10:33 AM, Rick Jones wrote:
-> On 11/17/2016 12:16 AM, Jesper Dangaard Brouer wrote:
->>> time to try IP_MTU_DISCOVER ;)
->>
->> To Rick, maybe you can find a good solution or option with Eric's hint,
->> to send appropriate sized UDP packets with Don't Fragment (DF).
->
-> Jesper -
->
-> Top of trunk has a change adding an omni, test-specific -f option which
-> will set IP_MTU_DISCOVER:IP_PMTUDISC_DO on the data socket.  Is that
-> sufficient to your needs?
+Make sure to deregister and free any fixed-link PHY registered using
+of_phy_register_fixed_link() on initialisation errors and on uninit.
 
-Usage examples:
+Fixes: 0c72c50f6f93 ("net-next: mediatek: add fixed-phy support")
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-raj@tardy:~/netperf2_trunk/src$ ./netperf -t UDP_STREAM -l 1 -H 
-raj-folio.americas.hpqcorp.net -- -m 1472 -f
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
-raj-folio.americas.hpqcorp.net () port 0 AF_INET
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992    1472   1.00        77495      0     912.35
-212992           1.00        77495            912.35
-
-[1]+  Done                    emacs nettest_omni.c
-raj@tardy:~/netperf2_trunk/src$ ./netperf -t UDP_STREAM -l 1 -H 
-raj-folio.americas.hpqcorp.net -- -m 14720 -f
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
-raj-folio.americas.hpqcorp.net () port 0 AF_INET
-send_data: data send error: Message too long (errno 90)
-netperf: send_omni: send_data failed: Message too long
-
-happy benchmarking,
-
-rick jones
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 4a62ffd7729d..86a89cbd3ec9 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -318,6 +318,8 @@ static int mtk_phy_connect(struct net_device *dev)
+ 	return 0;
+ 
+ err_phy:
++	if (of_phy_is_fixed_link(mac->of_node))
++		of_phy_deregister_fixed_link(mac->of_node);
+ 	of_node_put(np);
+ 	dev_err(eth->dev, "%s: invalid phy\n", __func__);
+ 	return -EINVAL;
+@@ -1923,6 +1925,8 @@ static void mtk_uninit(struct net_device *dev)
+ 	struct mtk_eth *eth = mac->hw;
+ 
+ 	phy_disconnect(dev->phydev);
++	if (of_phy_is_fixed_link(mac->of_node))
++		of_phy_deregister_fixed_link(mac->of_node);
+ 	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, ~0);
+ 	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, ~0);
+ }
+-- 
+2.7.3
