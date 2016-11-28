@@ -1,71 +1,84 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: [PATCH net] bpf: fix states equal logic for varlen access
-Date: Mon, 28 Nov 2016 14:44:10 -0500
-Message-ID: <1480362250-2132-1-git-send-email-jbacik@fb.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 3/4] Documentation: net: phy: Add blurb about
+ RGMII
+Date: Mon, 28 Nov 2016 11:47:44 -0800
+Message-ID: <c4146d81-712e-0f8d-f7f3-4a229efd99e6@gmail.com>
+References: <20161127184449.12351-1-f.fainelli@gmail.com>
+ <20161127184449.12351-4-f.fainelli@gmail.com>
+ <4c71a69c-2942-f177-ef25-04686f5e4149@laposte.net>
+ <60473447-423c-7dff-6647-cce7cf2d4ab2@gmail.com>
+ <b6a19ca6-8bda-8573-eb7b-9ed7f80ca480@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <daniel@iogearbox.net>, <ast@kernel.org>, <jannh@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        martin.blumenstingl@googlemail.com, mans@mansr.com,
+        alexandre.torgue@st.com, peppe.cavallaro@st.com,
+        timur@codeaurora.org, jbrunet@baylibre.com
+To: Mason <slash.tmp@free.fr>, Sebastian Frias <sf84@laposte.net>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49919 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751438AbcK1Tom (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 14:44:42 -0500
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34728 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752333AbcK1Trr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 14:47:47 -0500
+Received: by mail-pg0-f68.google.com with SMTP id e9so13922505pgc.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 11:47:47 -0800 (PST)
+In-Reply-To: <b6a19ca6-8bda-8573-eb7b-9ed7f80ca480@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we have a branch that looks something like this
+On 11/28/2016 11:15 AM, Mason wrote:
+> On 28/11/2016 18:43, Florian Fainelli wrote:
+> 
+>> On 11/28/2016 02:34 AM, Sebastian Frias wrote:
+>>
+>>> For what is worth, the Atheros at803x driver comes with RX delay enabled
+>>> as per HW reset.
+>>
+>> Always, or is this a behavior possibly defined via a stra-pin that can
+>> be changed?
+> 
+> Here's the data sheet:
+> 
+>   http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
+> 
+> 4.2.25 rgmii rx clock delay control
+> Offset: 0x00
+> bit 15: Control bit for rgmii interface rx clock delay:
+> 1 = rgmii rx clock delay enable
+> 0 = rgmii rx clock delay disable
+> HW Rst. 1
+> SW Rst. 1
+> 
+> As far as I can tell, rx delay is enabled by default, always.
+> 
+> The "Features" list mentions
+> "RGMII timing modes support internal delay and external delay on Rx path"
+> (Not sure about the internal vs external distinction.)
+> 
+> Table 3-6. RGMII AC Characteristics — no Internal Delay
+> Table 3-7. RGMII AC Characteristics — with internal delay added (Default)
+> 
+> Delay is 2 ns apparently.
+> 
+> There's also
+> 4.2.27 Hib ctrl and rgmii gtx clock delay register
+> Offset: 0x0B
+> 
+> bits 6:5 Gtx_dly_val
+> Select the delay of gtx_clk.
+> 00:0.25ns
+> 01:1.3ns
+> 10:2.4ns
+> 11:3.4ns
+> 
+> I don't know what that is used for.
+> Maybe this is the external vs internal delay?
 
-int foo = map->value;
-if (condition) {
-  foo += blah;
-} else {
-  foo = bar;
-}
-map->array[foo] = baz;
-
-We will incorrectly assume that the !condition branch is equal to the condition
-branch as the register for foo will be UNKNOWN_VALUE in both cases.  We need to
-adjust this logic to only do this if we didn't do a varlen access after we
-processed the !condition branch, otherwise we have different ranges and need to
-check the other branch as well.
-
-Signed-off-by: Josef Bacik <jbacik@fb.com>
----
- kernel/bpf/verifier.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 89f787c..2c8a688 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2478,6 +2478,7 @@ static bool states_equal(struct bpf_verifier_env *env,
- {
- 	struct bpf_reg_state *rold, *rcur;
- 	int i;
-+	bool map_access = env->varlen_map_value_access;
- 
- 	for (i = 0; i < MAX_BPF_REG; i++) {
- 		rold = &old->regs[i];
-@@ -2489,12 +2490,17 @@ static bool states_equal(struct bpf_verifier_env *env,
- 		/* If the ranges were not the same, but everything else was and
- 		 * we didn't do a variable access into a map then we are a-ok.
- 		 */
--		if (!env->varlen_map_value_access &&
-+		if (!map_access &&
- 		    rold->type == rcur->type && rold->imm == rcur->imm)
- 			continue;
- 
-+		/* If we didn't map access then again we don't care about the
-+		 * mismatched range values and it's ok if our old type was
-+		 * UNKNOWN and we didn't go to a NOT_INIT'ed reg.
-+		 */
- 		if (rold->type == NOT_INIT ||
--		    (rold->type == UNKNOWN_VALUE && rcur->type != NOT_INIT))
-+		    (!map_access && (rold->type == UNKNOWN_VALUE &&
-+				     rcur->type != NOT_INIT)))
- 			continue;
- 
- 		if (rold->type == PTR_TO_PACKET && rcur->type == PTR_TO_PACKET &&
+First, this has little to do with the initial patch series being
+discussed now, and second, this still looks like an internal delay
+programming, just that it applies to the received transmit clock from
+the MAC, that's how I read it though.
 -- 
-2.7.4
+Florian
