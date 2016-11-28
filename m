@@ -1,89 +1,88 @@
-From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 01/16] net: dsa: slave: fix of-node leak and phy priority
-Date: Mon, 28 Nov 2016 19:24:54 +0100
-Message-ID: <1480357509-28074-2-git-send-email-johan@kernel.org>
-References: <1480357509-28074-1-git-send-email-johan@kernel.org>
-Cc: Vince Bridgers <vbridger-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Fugang Duan <fugang.duan-3arQi8VN3Tc@public.gmane.org>,
-        Pantelis Antoniou <pantelis.antoniou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Vitaly Bordug <vbordug-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>,
-        Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-        Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-        John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-        Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        Lars Persson <lars.persson-VrBV9hrLPhE@public.gmane.org>,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH net 00/16] net: fix fixed-link phydev leaks
+Date: Mon, 28 Nov 2016 19:24:53 +0100
+Message-ID: <1480357509-28074-1-git-send-email-johan@kernel.org>
+Cc: Vince Bridgers <vbridger@opensource.altera.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+        Vitaly Bordug <vbordug@ru.mvista.com>,
+        Claudiu Manoil <claudiu.manoil@freescale.com>,
+        Li Yang <leoli@freescale.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Felix Fietkau <nbd@openwrt.org>,
+        John Crispin <blogic@openwrt.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Lars Persson <lars.persson@axis.com>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1480357509-28074-1-git-send-email-johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure to drop the reference taken by of_parse_phandle() before
-returning from dsa_slave_phy_setup().
+This series fixes failures to deregister and free fixed-link phydevs
+that have been registered using the of_phy_register_fixed_link()
+interface.
 
-Note that this also modifies the PHY priority so that any fixed-link
-node is only parsed when no phy-handle is given, which is in accordance
-with the common scheme for this.
+All but two drivers currently fail to do this and this series fixes most
+of them with the exception of a staging driver and the stmmac drivers
+which will be fixed by follow-on patches.
 
-Fixes: 0d8bcdd383b8 ("net: dsa: allow for more complex PHY setups")
-Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
----
- net/dsa/slave.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+Included are also a couple of fixes for related of-node leaks.
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 6b1282c006b1..2a5c20a13fe4 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1125,7 +1125,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 	p->phy_interface = mode;
- 
- 	phy_dn = of_parse_phandle(port_dn, "phy-handle", 0);
--	if (of_phy_is_fixed_link(port_dn)) {
-+	if (!phy_dn && of_phy_is_fixed_link(port_dn)) {
- 		/* In the case of a fixed PHY, the DT node associated
- 		 * to the fixed PHY is the Port DT node
- 		 */
-@@ -1135,7 +1135,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 			return ret;
- 		}
- 		phy_is_fixed = true;
--		phy_dn = port_dn;
-+		phy_dn = of_node_get(port_dn);
- 	}
- 
- 	if (ds->ops->get_phy_flags)
-@@ -1154,6 +1154,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 			ret = dsa_slave_phy_connect(p, slave_dev, phy_id);
- 			if (ret) {
- 				netdev_err(slave_dev, "failed to connect to phy%d: %d\n", phy_id, ret);
-+				of_node_put(phy_dn);
- 				return ret;
- 			}
- 		} else {
-@@ -1162,6 +1163,8 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 						phy_flags,
- 						p->phy_interface);
- 		}
-+
-+		of_node_put(phy_dn);
- 	}
- 
- 	if (p->phy && phy_is_fixed)
+Note that all patches except the of_mdio one have been compile-tested
+only.
+
+Also note that the series is against net due to dependencies not yet in
+net-next.
+
+Johan
+
+
+Johan Hovold (16):
+  net: dsa: slave: fix of-node leak and phy priority
+  of_mdio: add helper to deregister fixed-link PHYs
+  net: ethernet: altera: fix fixed-link phydev leaks
+  net: ethernet: aurora: nb8800: fix fixed-link phydev leaks
+  net: ethernet: bcmsysport: fix fixed-link phydev leaks
+  net: ethernet: bcmgenet: fix fixed-link phydev leaks
+  net: ethernet: fec: fix fixed-link phydev leaks
+  net: ethernet: fs_enet: fix fixed-link phydev leaks
+  net: ethernet: gianfar: fix fixed-link phydev leaks
+  net: ethernet: ucc_geth: fix fixed-link phydev leaks
+  net: ethernet: marvell: mvneta: fix fixed-link phydev leaks
+  net: ethernet: mediatek: fix fixed-link phydev leaks
+  net: ethernet: renesas: ravb: fix fixed-link phydev leaks
+  net: ethernet: dwc_eth_qos: fix fixed-link phydev leaks
+  net: ethernet: ti: davinci_emac: fix fixed-link phydev and of-node
+    leaks
+  net: dsa: slave: fix fixed-link phydev leaks
+
+ drivers/net/ethernet/altera/altera_tse_main.c      |  9 ++++++++-
+ drivers/net/ethernet/aurora/nb8800.c               |  9 +++++++--
+ drivers/net/ethernet/broadcom/bcmsysport.c         | 17 +++++++++++-----
+ drivers/net/ethernet/broadcom/genet/bcmmii.c       |  6 ++++++
+ drivers/net/ethernet/freescale/fec_main.c          |  5 +++++
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |  7 ++++++-
+ drivers/net/ethernet/freescale/gianfar.c           |  8 ++++++++
+ drivers/net/ethernet/freescale/ucc_geth.c          | 23 +++++++++++++++-------
+ drivers/net/ethernet/marvell/mvneta.c              |  5 +++++
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c        |  4 ++++
+ drivers/net/ethernet/renesas/ravb_main.c           | 17 +++++++++++++---
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c        | 20 ++++++++++++-------
+ drivers/net/ethernet/ti/cpsw.c                     | 16 ++-------------
+ drivers/net/ethernet/ti/davinci_emac.c             | 10 +++++++++-
+ drivers/of/of_mdio.c                               | 15 ++++++++++++++
+ include/linux/of_mdio.h                            |  4 ++++
+ net/dsa/dsa.c                                      | 12 ++---------
+ net/dsa/slave.c                                    | 19 +++++++++++++++---
+ 18 files changed, 152 insertions(+), 54 deletions(-)
+
 -- 
 2.7.3
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
