@@ -1,114 +1,86 @@
-From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next v3 4/4] ARM64: dts: meson: odroidc2: disable
- advertisement EEE for GbE.
-Date: Mon, 28 Nov 2016 13:40:33 +0100
-Message-ID: <1480336833.17538.164.camel@baylibre.com>
-References: <1480326409-25419-1-git-send-email-jbrunet@baylibre.com>
-         <1480326409-25419-5-git-send-email-jbrunet@baylibre.com>
-         <9709dd57-e536-9281-6b56-5ff5f9e8035c@suse.de>
+From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Subject: [PATCH]  bpf/samples: Fix PT_REGS_IP on s390x and use it
+Date: Mon, 28 Nov 2016 13:48:30 +0100
+Message-ID: <20161128134830.44cd7c1f@TP-holzheu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
-        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9709dd57-e536-9281-6b56-5ff5f9e8035c-l3A5Bk7waGM@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:55090 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932362AbcK1Msi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 07:48:38 -0500
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uASCiCF5053001
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 07:48:38 -0500
+Received: from e06smtp08.uk.ibm.com (e06smtp08.uk.ibm.com [195.75.94.104])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 270he4dsvp-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 07:48:37 -0500
+Received: from localhost
+        by e06smtp08.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <holzheu@linux.vnet.ibm.com>;
+        Mon, 28 Nov 2016 12:48:35 -0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-11-28 at 13:31 +0100, Andreas Färber wrote:
-> Am 28.11.2016 um 10:46 schrieb Jerome Brunet:
-> > 
-> > Signed-off-by: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-> > ---
-> >  arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts | 16
-> > ++++++++++++++++
-> >  1 file changed, 16 insertions(+)
-> > 
-> > diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
-> > b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
-> > index e6e3491d48a5..5624714d2b16 100644
-> > --- a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
-> > +++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
-> > @@ -46,6 +46,7 @@
-> >  
-> >  #include "meson-gxbb.dtsi"
-> >  #include <dt-bindings/gpio/gpio.h>
-> > +#include <dt-bindings/net/mdio.h>
-> >  
-> >  / {
-> >  	compatible = "hardkernel,odroid-c2", "amlogic,meson-gxbb";
-> > @@ -98,3 +99,18 @@
-> >  	pinctrl-0 = <&i2c_a_pins>;
-> >  	pinctrl-names = "default";
-> >  };
-> > +
-> > +&ethmac {
-> > +	phy-handle = <&eth_phy0>;
-> > +
-> > +	mdio {
-> > +		compatible = "snps,dwmac-mdio";
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +
-> > +		eth_phy0: ethernet-phy@0 {
-> > +			reg = <0>;
-> > +			eee-broken-modes = <MDIO_EEE_1000T>;
-> > +		};
-> > +	};
-> > +};
-> 
-6I've tested this hand-applied because it applies to neither amlogic
-> v4.10/integ nor linux-next.git and will conflict if applied through
-> the
-> net-next tree.
+The files "sampleip_kern.c" and "trace_event_kern.c" directly access
+"ctx->regs.ip" which is not available on s390x. Fix this and use the
+PT_REGS_IP() macro instead.
 
-I've rebased on net-next this morning. I just checked again and now
-there is a conflict indeed. Something got applied between in the last 6
-ours which conflict with patch 4.
+Also fix the macro for s390x and use "psw.addr" from "pt_regs".
 
-> 
-> Note that there already is an &ethmac node that you should be
-> extending
-> rather than duplicating:
-> 
-> &ethmac {
-> 	status = "okay";
-> 	pinctrl-0 = <&eth_rgmii_pins>;
-> 	pinctrl-names = "default";
-> };
-> 
-> If you or your colleagues could please fix the sort order of the
-> nodes
-> to be alphabetical again (ethmac after i2c_A here; between uart_A and
-> ir
-> in-tree) this wouldn't happen so easily again.
+Reported-by: Zvonko Kosic <zvonko.kosic@de.ibm.com>
+Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ samples/bpf/bpf_helpers.h      | 2 +-
+ samples/bpf/sampleip_kern.c    | 2 +-
+ samples/bpf/trace_event_kern.c | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-OK
-
-> 
-> I therefore suggest to not apply this patch 4/4 through net-next but
-> through the amlogic tree instead.
-
-Agreed. The change is provided here so people can test.
-If the other patches get accepted, I'll submit the dts change through
-the amlogic tree.
-
-> 
-> Thanks,
-> Andreas
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index 90f44bd..dadd516 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -113,7 +113,7 @@ static int (*bpf_skb_under_cgroup)(void *ctx, void *map, int index) =
+ #define PT_REGS_FP(x) ((x)->gprs[11]) /* Works only with CONFIG_FRAME_POINTER */
+ #define PT_REGS_RC(x) ((x)->gprs[2])
+ #define PT_REGS_SP(x) ((x)->gprs[15])
+-#define PT_REGS_IP(x) ((x)->ip)
++#define PT_REGS_IP(x) ((x)->psw.addr)
+ 
+ #elif defined(__aarch64__)
+ 
+diff --git a/samples/bpf/sampleip_kern.c b/samples/bpf/sampleip_kern.c
+index 774a681..ceabf31 100644
+--- a/samples/bpf/sampleip_kern.c
++++ b/samples/bpf/sampleip_kern.c
+@@ -25,7 +25,7 @@ int do_sample(struct bpf_perf_event_data *ctx)
+ 	u64 ip;
+ 	u32 *value, init_val = 1;
+ 
+-	ip = ctx->regs.ip;
++	ip = PT_REGS_IP(&ctx->regs);
+ 	value = bpf_map_lookup_elem(&ip_map, &ip);
+ 	if (value)
+ 		*value += 1;
+diff --git a/samples/bpf/trace_event_kern.c b/samples/bpf/trace_event_kern.c
+index 71a8ed3..41b6115 100644
+--- a/samples/bpf/trace_event_kern.c
++++ b/samples/bpf/trace_event_kern.c
+@@ -50,7 +50,7 @@ int bpf_prog1(struct bpf_perf_event_data *ctx)
+ 	key.userstack = bpf_get_stackid(ctx, &stackmap, USER_STACKID_FLAGS);
+ 	if ((int)key.kernstack < 0 && (int)key.userstack < 0) {
+ 		bpf_trace_printk(fmt, sizeof(fmt), cpu, ctx->sample_period,
+-				 ctx->regs.ip);
++				 PT_REGS_IP(&ctx->regs));
+ 		return 0;
+ 	}
+ 
+-- 
+2.8.4
