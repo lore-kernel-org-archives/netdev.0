@@ -1,105 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: GPF in eth_header
-Date: Mon, 28 Nov 2016 13:18:06 -0800
-Message-ID: <1480367886.18162.88.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
-         <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
-         <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
-         <1480359019.18162.79.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAeHK+wWVp46ej0tk5mDnOHpH5Ky0+HiH9_SUqGcT0iTppLaGw@mail.gmail.com>
-         <CACT4Y+Yr6UJxXosjx2FO=KtxGr40X07_UBiscs1BP1s8cTaqAA@mail.gmail.com>
-         <1480362459.18162.83.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480367152.18162.86.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4] cpsw: ethtool: add support for getting/setting EEE
+ registers
+Date: Mon, 28 Nov 2016 16:23:20 -0500 (EST)
+Message-ID: <20161128.162320.1497118051889266063.davem@davemloft.net>
+References: <1480322493-25308-1-git-send-email-yegorslists@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+        grygorii.strashko@ti.com, mugunthanvnm@ti.com
+To: yegorslists@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34800 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754172AbcK1VTJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:19:09 -0500
-In-Reply-To: <1480367152.18162.86.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42718 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752420AbcK1VX2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:23:28 -0500
+In-Reply-To: <1480322493-25308-1-git-send-email-yegorslists@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-11-28 at 13:05 -0800, Eric Dumazet wrote:
-> On Mon, 2016-11-28 at 11:47 -0800, Eric Dumazet wrote:
-> > On Mon, 2016-11-28 at 20:34 +0100, Dmitry Vyukov wrote:
-> > > On Mon, Nov 28, 2016 at 8:04 PM, 'Andrey Konovalov' via syzkaller
-> > 
-> > > > Hi Eric,
-> > > >
-> > > > As far as I can see, skb_network_offset() becomes negative after
-> > > > pskb_pull(skb, (u8 *) (fhdr + 1) - skb->data) in nf_ct_frag6_queue().
-> > > > At least I'm able to detect that with a BUG_ON().
-> > > >
-> > > > Also it seems that the issue is only reproducible (at least with the
-> > > > poc I provided) for a short time after boot.
-> > > 
-> > > 
-> > > Eric,
-> > > 
-> > > Is it enough to debug? Or maybe Andrey can trace some values for you.
-> > 
-> > Well, now we are talking, if you tell me how many modules you load, it
-> > might help ;)
-> > 
-> > nf_ct_frag6_queue is nowhere to be seen in my kernels, that might
-> > explain why I could not reproduce the bug.
-> > 
-> > Let me try ;)
-> > 
-> 
-> Might be a bug added in commit daaa7d647f81f3
-> ("netfilter: ipv6: avoid nf_iterate recursion")
-> 
-> Florian, what do you think of dropping a packet that presumably was
-> mangled badly by nf_ct_frag6_queue() ?
-> 
-> (Like about 48 byte pulled :(, and/or skb->csum changed )
-> 
-> diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-> index f7aab5ab93a5..31aa947332d8 100644
-> --- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-> +++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-> @@ -65,8 +65,8 @@ static unsigned int ipv6_defrag(void *priv,
->  
->  	err = nf_ct_frag6_gather(state->net, skb,
->  				 nf_ct6_defrag_user(state->hook, skb));
-> -	/* queued */
-> -	if (err == -EINPROGRESS)
-> +	/* queued or mangled ... */
-> +	if (err)
->  		return NF_STOLEN;
+From: yegorslists@googlemail.com
+Date: Mon, 28 Nov 2016 09:41:33 +0100
 
-Or more exactly , returning NF_DROP so that skb is really freed ;)
+> From: Yegor Yefremov <yegorslists@googlemail.com>
+> 
+> Add the ability to query and set Energy Efficient Ethernet parameters
+> via ethtool for applicable devices.
+> 
+> This patch doesn't activate full EEE support in cpsw driver, but it
+> enables reading and writing EEE advertising settings. This way one
+> can disable advertising EEE for certain speeds.
+> 
+> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+> Acked-by: Rami Rosen <roszenrami@gmail.com>
+> ---
+> Changes:
+> 	v4: respine against net-next (David Miller)
+> 	v3: explain what features will be available with this patch (Florian Fainelli)
+> 	v2: make routines static (Rami Rosen)
 
-
-diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-index f7aab5ab93a5..508739a3ca2a 100644
---- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-+++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-@@ -65,9 +65,9 @@ static unsigned int ipv6_defrag(void *priv,
- 
- 	err = nf_ct_frag6_gather(state->net, skb,
- 				 nf_ct6_defrag_user(state->hook, skb));
--	/* queued */
--	if (err == -EINPROGRESS)
--		return NF_STOLEN;
-+	/* queued or mangled ... */
-+	if (err)
-+		return (err == -EINPROGRESS) ? NF_STOLEN : NF_DROP;
- 
- 	return NF_ACCEPT;
- }
+Applied, thank you.
