@@ -1,44 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/sched: act_pedit: limit negative offset
-Date: Mon, 28 Nov 2016 00:49:36 -0500 (EST)
-Message-ID: <20161128.004936.2064564176474656911.davem@davemloft.net>
-References: <20161127155815.10359-1-amir@vadai.me>
-        <CAM_iQpX1at1w=3OfRFchn3STTDJGXj640tGetxXToR=EyddpEw@mail.gmail.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH] geneve: fix ip_hdr_len reserved for geneve6 tunnel.
+Date: Sun, 27 Nov 2016 21:57:31 -0800
+Message-ID: <CAOrHB_Dr+jKDKSY9FOqhoLkLZCqupmHm6pv8tAT773AXOaRWPw@mail.gmail.com>
+References: <1480310818-78456-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amir@vadai.me, netdev@vger.kernel.org, jhs@mojatatu.com,
-        ogerlitz@mellanox.com, hadarh@mellanox.com, jiri@mellanox.com
-To: xiyou.wangcong@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42508 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751623AbcK1Ftm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 00:49:42 -0500
-In-Reply-To: <CAM_iQpX1at1w=3OfRFchn3STTDJGXj640tGetxXToR=EyddpEw@mail.gmail.com>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:54031 "EHLO
+        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751304AbcK1F5g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 00:57:36 -0500
+In-Reply-To: <1480310818-78456-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Sun, 27 Nov 2016 21:39:33 -0800
+On Sun, Nov 27, 2016 at 9:26 PM, Haishuang Yan
+<yanhaishuang@cmss.chinamobile.com> wrote:
+> It shold reserved sizeof(ipv6hdr) for geneve in ipv6 tunnel.
+>
+> Fixes: c3ef5aa5e5 ('geneve: Merge ipv4 and ipv6 geneve_build_skb()')
+>
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-> On Sun, Nov 27, 2016 at 7:58 AM, Amir Vadai <amir@vadai.me> wrote:
->> Should not allow setting a negative offset that goes below the skb head.
-> ...
->> diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
->> index b54d56d4959b..e79e8a88f2d2 100644
->> --- a/net/sched/act_pedit.c
->> +++ b/net/sched/act_pedit.c
->> @@ -154,8 +154,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
->>                         }
->>
->>                         ptr = skb_header_pointer(skb, off + offset, 4, &_data);
->> -                       if (!ptr)
->> +                       if ((unsigned char *)ptr < skb->head) {
-> 
-> 
-> ptr returned could be &_data, which is on stack, so why this comparison
-> makes sense for this case?
+Thanks for fix.
 
-Indeed, this will definitely do the wrong thing when the on-stack area
-passed back to ptr.
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
