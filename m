@@ -1,91 +1,130 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: SNAT --random & fully is not actually random for ips
-Date: Mon, 28 Nov 2016 13:12:07 +0200
-Message-ID: <fb3151804cc3b2c57e69d1059b3417ee@nuclearcat.com>
-References: <97a6a1c557f0f1e6d55d8d09b326f8b1@nuclearcat.com>
- <20161128110651.GA1024@salvia>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Crash due to mutex genl_lock called from RCU context
+Date: Mon, 28 Nov 2016 19:22:12 +0800
+Message-ID: <20161128112211.GA990@gondor.apana.org.au>
+References: <c669cd06c3e50febd95b5ed4aaa78532@codeaurora.org>
+ <1480133493.8455.584.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480136078.8455.589.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpU+7arMOHSwDhE5npH_82R9LTNrmny6jK1H-fkW2+9Jcg@mail.gmail.com>
+ <1480213570.18162.31.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpUnz2kkjOFuk3fKKEYDh54b9WHk1dvH098mGtrGTPjZFQ@mail.gmail.com>
+ <1480263824.18162.44.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXB_LRqE83cWwU0ZDckLWPrMcZg-yD4+NKy+rBVz3YAyw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Thomas Graf <tgraf@suug.ch>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:49590 "EHLO nuclearcat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754525AbcK1LMM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 06:12:12 -0500
-In-Reply-To: <20161128110651.GA1024@salvia>
+Received: from helcar.hengli.com.au ([209.40.204.226]:48989 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753929AbcK1LWo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 06:22:44 -0500
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpXB_LRqE83cWwU0ZDckLWPrMcZg-yD4+NKy+rBVz3YAyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016-11-28 13:06, Pablo Neira Ayuso wrote:
-> On Mon, Nov 28, 2016 at 12:45:59PM +0200, Denys Fedoryshchenko wrote:
->> Hello,
->> 
->> I noticed that if i specify -j SNAT with options --random 
->> --random-fully
->> still it keeps persistence for source IP.
-> 
-> So you specify both?
-> 
->> Actually truly random src ip required in some scenarios like links 
->> balanced
->> by IPs, but seems since 2012 at least it is not possible.
->> 
->> But actually if i do something like:
->> --- nf_nat_core.c.new	2016-11-28 09:55:54.000000000 +0000
->> +++ nf_nat_core.c	2016-11-21 09:11:59.000000000 +0000
->> @@ -282,13 +282,9 @@
->>  	 * client coming from the same IP (some Internet Banking sites
->>  	 * like this), even across reboots.
->>  	 */
->> -	if (range->flags & NF_NAT_RANGE_PROTO_RANDOM_FULLY) {
->> -	    j = prandom_u32();
->> -	} else {
->> -	    j = jhash2((u32 *)&tuple->src.u3, sizeof(tuple->src.u3) / 
->> sizeof(u32),
->> +	j = jhash2((u32 *)&tuple->src.u3, sizeof(tuple->src.u3) / 
->> sizeof(u32),
->>  		   range->flags & NF_NAT_RANGE_PERSISTENT ?
->>  			0 : (__force u32)tuple->dst.u3.all[max] ^ zone->id);
->> -	}
->> 
->>  	full_range = false;
->>  	for (i = 0; i <= max; i++) {
->> 
->> It works as intended. But i guess to not break compatibility it is 
->> better
->> should be introduced as new option?
->> Or maybe there is no really need for such option?
-> 
-> Why does your patch reverts NF_NAT_RANGE_PROTO_RANDOM_FULLY?
-Ops, sorry i just did mistake with files, actually it is in reverse ( 
-did this patch, and it worked properly with it, with random source ip).
---- nf_nat_core.c	2016-11-21 09:11:59.000000000 +0000
-+++ nf_nat_core.c.new	2016-11-28 09:55:54.000000000 +0000
-@@ -282,9 +282,13 @@
-  	 * client coming from the same IP (some Internet Banking sites
-  	 * like this), even across reboots.
-  	 */
--	j = jhash2((u32 *)&tuple->src.u3, sizeof(tuple->src.u3) / sizeof(u32),
-+	if (range->flags & NF_NAT_RANGE_PROTO_RANDOM_FULLY) {
-+	    j = prandom_u32();
-+	} else {
-+	    j = jhash2((u32 *)&tuple->src.u3, sizeof(tuple->src.u3) / 
-sizeof(u32),
-  		   range->flags & NF_NAT_RANGE_PERSISTENT ?
-  			0 : (__force u32)tuple->dst.u3.all[max] ^ zone->id);
+On Sun, Nov 27, 2016 at 10:53:21PM -0800, Cong Wang wrote:
+>
+> I just took a deeper look, some user calls rhashtable_destroy() in ->done(),
+> so even removing that genl lock is not enough, perhaps we should just
+> move it to a work struct like what Daniel does for the tcf_proto, but that is
+> ugly... I don't know if RCU provides any API to execute the callback in process
+> context.
+
+I looked into doing it without a worker struct, but basically it
+means that we'd have to add more crap to the common code path for
+what is essentially a very rare case.
+
+So I think we should go with the worker struct because all we lose
+is a bit of memory.
+
+---8<---
+netlink: Call cb->done from a worker thread
+
+The cb->done interface expects to be called in process context.
+This was broken by the netlink RCU conversion.  This patch fixes
+it by adding a worker struct to make the cb->done call where
+necessary.
+
+Fixes: 21e4902aea80 ("netlink: Lockless lookup with RCU grace...")
+Reported-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 62bea45..602e5eb 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -322,14 +322,11 @@ static void netlink_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ 	sk_mem_charge(sk, skb->truesize);
+ }
+ 
+-static void netlink_sock_destruct(struct sock *sk)
++static void __netlink_sock_destruct(struct sock *sk)
+ {
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 
+ 	if (nlk->cb_running) {
+-		if (nlk->cb.done)
+-			nlk->cb.done(&nlk->cb);
+-
+ 		module_put(nlk->cb.module);
+ 		kfree_skb(nlk->cb.skb);
+ 	}
+@@ -346,6 +343,28 @@ static void netlink_sock_destruct(struct sock *sk)
+ 	WARN_ON(nlk_sk(sk)->groups);
+ }
+ 
++static void netlink_sock_destruct_work(struct work_struct *work)
++{
++	struct netlink_sock *nlk = container_of(work, struct netlink_sock,
++						work);
++
++	nlk->cb.done(&nlk->cb);
++	__netlink_sock_destruct(&nlk->sk);
++}
++
++static void netlink_sock_destruct(struct sock *sk)
++{
++	struct netlink_sock *nlk = nlk_sk(sk);
++
++	if (nlk->cb_running && nlk->cb.done) {
++		INIT_WORK(&nlk->work, netlink_sock_destruct_work);
++		schedule_work(&nlk->work);
++		return;
 +	}
++
++	__netlink_sock_destruct(sk);
++}
++
+ /* This lock without WQ_FLAG_EXCLUSIVE is good on UP and it is _very_ bad on
+  * SMP. Look, when several writers sleep and reader wakes them up, all but one
+  * immediately hit write lock and grab all the cpus. Exclusive sleep solves
+diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
+index 3cfd6cc..4fdb383 100644
+--- a/net/netlink/af_netlink.h
++++ b/net/netlink/af_netlink.h
+@@ -3,6 +3,7 @@
+ 
+ #include <linux/rhashtable.h>
+ #include <linux/atomic.h>
++#include <linux/workqueue.h>
+ #include <net/sock.h>
+ 
+ #define NLGRPSZ(x)	(ALIGN(x, sizeof(unsigned long) * 8) / 8)
+@@ -33,6 +34,7 @@ struct netlink_sock {
+ 
+ 	struct rhash_head	node;
+ 	struct rcu_head		rcu;
++	struct work_struct	work;
+ };
+ 
+ static inline struct netlink_sock *nlk_sk(struct sock *sk)
 
-  	full_range = false;
-  	for (i = 0; i <= max; i++) {
-
-This is current situation, RANDOM_FULLY actually does prandom_u32 for 
-source port only, but not for IP.
-IP kept as persistent and kind of predictable, because hash function 
-based on source ip.
-
-Sure i did tried to specify any combination of flags, but looking to 
-"find_best_ips_proto" function, it wont have any effect.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
