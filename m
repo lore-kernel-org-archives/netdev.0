@@ -1,54 +1,53 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 2/2] openvswitch: Fix skb->protocol for vlan
- frames.
-Date: Mon, 28 Nov 2016 23:42:46 +0100
-Message-ID: <20161128234246.1a886246@griffin>
-References: <1479874174-75329-1-git-send-email-jarno@ovn.org>
-        <1479874174-75329-2-git-send-email-jarno@ovn.org>
-        <20161124171046.7eb0e287@griffin>
-        <76814927-D373-4C3A-BC85-5771304235A7@ovn.org>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH RFC v1] ethtool: implement helper to get flow_type value
+Date: Mon, 28 Nov 2016 22:49:38 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5857CCA45D@ORSMSX115.amr.corp.intel.com>
+References: <20161122234453.31611-1-jacob.e.keller@intel.com>
+ <20161125.160634.944615331208897862.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: Jarno Rajahalme <jarno@ovn.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34752 "EHLO mx1.redhat.com"
+Received: from mga04.intel.com ([192.55.52.120]:4581 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755071AbcK1Wmt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 17:42:49 -0500
-In-Reply-To: <76814927-D373-4C3A-BC85-5771304235A7@ovn.org>
+        id S1755606AbcK1Wtl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 17:49:41 -0500
+In-Reply-To: <20161125.160634.944615331208897862.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Nov 2016 14:29:39 -0800, Jarno Rajahalme wrote:
-> I’m not sure what you suggest here. Obviously the kernel ABI can not
-> be changed as existing userspace code expects upcalled packets to be
-> non-accelerated. Also, if userspace pushes vlan headers, the packet
-> will actually have them.
-
-The user space API needs to be preserved, of course. I'm talking about
-what happens internally in the kernel.
-
-See this patchset: https://www.spinics.net/lists/netdev/msg398827.html
-
-> Would this incremental fix this:
-> 
-> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> index 9be9fda..37f1bb9 100644
-> --- a/net/openvswitch/flow.c
-> +++ b/net/openvswitch/flow.c
-> @@ -354,6 +354,8 @@ static int parse_vlan(struct sk_buff *skb, struct
-> sw_flow_key *key) res = parse_vlan_tag(skb, &key->eth.vlan);
->  		if (res <= 0)
->  			return res;
-> +		if (skb->protocol == htons(ETH_P_TEB))
-> +			skb->protocol = key->eth.vlan.tpid;
->  	}
->  
->  	/* Parse inner vlan tag. */
-
-I'll look at this tomorrow. But it seems we're adding more and more
-hacks instead of cleaning up the vlan handling.
-
- Jiri
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj4gQmVo
+YWxmIE9mIERhdmlkIE1pbGxlcg0KPiBTZW50OiBGcmlkYXksIE5vdmVtYmVyIDI1LCAyMDE2IDE6
+MDcgUE0NCj4gVG86IEtlbGxlciwgSmFjb2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0K
+PiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgaW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9z
+bC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBSRkMgdjFdIGV0aHRvb2w6IGltcGxlbWVudCBo
+ZWxwZXIgdG8gZ2V0IGZsb3dfdHlwZSB2YWx1ZQ0KPiANCj4gRnJvbTogSmFjb2IgS2VsbGVyIDxq
+YWNvYi5lLmtlbGxlckBpbnRlbC5jb20+DQo+IERhdGU6IFR1ZSwgMjIgTm92IDIwMTYgMTU6NDQ6
+NTMgLTA4MDANCj4gDQo+ID4gQEAgLTg4MCw2ICs4ODAsMTQgQEAgc3RydWN0IGV0aHRvb2xfcnhf
+Zmxvd19zcGVjIHsNCj4gPiAgCV9fdTMyCQlsb2NhdGlvbjsNCj4gPiAgfTsNCj4gPg0KPiA+ICsv
+KiBGbGFnIHRvIGVuYWJsZSBhZGRpdGlvbmFsIGZpZWxkcyBpbiBzdHJ1Y3QgZXRodG9vbF9yeF9m
+bG93X3NwZWMgKi8NCj4gPiArI2RlZmluZQlGTE9XX0VYVAkweDgwMDAwMDAwDQo+ID4gKyNkZWZp
+bmUJRkxPV19NQUNfRVhUCTB4NDAwMDAwMDANCj4gPiArc3RhdGljIGlubGluZSBfX3UzMiBldGh0
+b29sX2dldF9mbG93X3NwZWNfdHlwZShfX3UzMiBmbG93X3R5cGUpDQo+ID4gK3sNCj4gPiArCXJl
+dHVybiBmbG93X3R5cGUgJiAoRkxPV19FWFQgfCBGTE9XX01BQ19FWFQpOw0KPiA+ICt9DQo+ID4g
+Kw0KPiA+ICAvKiBIb3cgcmluZ3MgYXJlIGxheWVkIG91dCB3aGVuIGFjY2Vzc2luZyB2aXJ0dWFs
+IGZ1bmN0aW9ucyBvcg0KPiA+ICAgKiBvZmZsb2FkZWQgcXVldWVzIGlzIGRldmljZSBzcGVjaWZp
+Yy4gVG8gYWxsb3cgdXNlcnMgdG8gZG8gZmxvdw0KPiA+ICAgKiBzdGVlcmluZyBhbmQgc3BlY2lm
+eSB0aGVzZSBxdWV1ZXMgdGhlIHJpbmcgY29va2llIGlzIHBhcnRpdGlvbmVkDQo+ID4gQEAgLTE1
+NzksOSArMTU4Nyw2IEBAIHN0YXRpYyBpbmxpbmUgaW50IGV0aHRvb2xfdmFsaWRhdGVfZHVwbGV4
+KF9fdTggZHVwbGV4KQ0KPiA+ICAjZGVmaW5lCUlQVjRfRkxPVwkweDEwCS8qIGhhc2ggb25seSAq
+Lw0KPiA+ICAjZGVmaW5lCUlQVjZfRkxPVwkweDExCS8qIGhhc2ggb25seSAqLw0KPiA+ICAjZGVm
+aW5lCUVUSEVSX0ZMT1cJMHgxMgkvKiBzcGVjIG9ubHkgKGV0aGVyX3NwZWMpICovDQo+ID4gLS8q
+IEZsYWcgdG8gZW5hYmxlIGFkZGl0aW9uYWwgZmllbGRzIGluIHN0cnVjdCBldGh0b29sX3J4X2Zs
+b3dfc3BlYyAqLw0KPiA+IC0jZGVmaW5lCUZMT1dfRVhUCTB4ODAwMDAwMDANCj4gPiAtI2RlZmlu
+ZQlGTE9XX01BQ19FWFQJMHg0MDAwMDAwMA0KPiA+DQo+ID4gIC8qIEwzLUw0IG5ldHdvcmsgdHJh
+ZmZpYyBmbG93IGhhc2ggb3B0aW9ucyAqLw0KPiA+ICAjZGVmaW5lCVJYSF9MMkRBCSgxIDw8IDEp
+DQo+IA0KPiBQbGVhc2UgcHV0IHRoZSBoZWxwZXIgYWZ0ZXIgdGhlIEZMT1dfKiBkZWZpbml0aW9u
+cyByYXRoZXIgdGhhbiBtb3ZpbmcNCj4gdGhlbSBlYXJsaWVyIGluIHRoZSBmaWxlLg0KDQpXaWxs
+IGRvLiBJIG9yaWdpbmFsbHkgbW92ZWQgdGhlbSB0byBwbGFjZSB0aGVzZSB3aXRoIG90aGVyIHNp
+bWlsYXIgaGVscGVycyBidXQgSSBjYW4gcmUtc3BpbiB0aGlzLg0KDQpUaGFua3MsDQpKYWtlDQo=
