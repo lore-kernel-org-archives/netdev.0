@@ -1,42 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sit: Set skb->protocol properly in
- ipip6_tunnel_xmit()
-Date: Mon, 28 Nov 2016 15:00:30 -0500 (EST)
-Message-ID: <20161128.150030.370640725503436541.davem@davemloft.net>
-References: <20161128.130142.1225482479870737422.davem@davemloft.net>
-        <1480357043.18162.70.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1480357935.18162.76.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v3 1/3] bpf: Refactor cgroups code in prep for
+ new type
+Date: Mon, 28 Nov 2016 12:06:43 -0800
+Message-ID: <20161128200641.GA7634@ast-mbp.thefacebook.com>
+References: <1480348130-31354-1-git-send-email-dsa@cumulusnetworks.com>
+ <1480348130-31354-2-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, sfr@canb.auug.org.au, elicooper@gmx.com,
-        netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
+        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39944 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755011AbcK1UAj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 15:00:39 -0500
-In-Reply-To: <1480357935.18162.76.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35579 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754873AbcK1UGt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 15:06:49 -0500
+Received: by mail-pg0-f65.google.com with SMTP id p66so13992889pga.2
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 12:06:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1480348130-31354-2-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 28 Nov 2016 10:32:15 -0800
+On Mon, Nov 28, 2016 at 07:48:48AM -0800, David Ahern wrote:
+> Code move only; no functional change intended.
 
-> On Mon, 2016-11-28 at 10:17 -0800, Eric Dumazet wrote:
-> 
->> I was referring to Stephen bug report.
->> 
->> It appears that Eli changelog was not very precise, because his bug was
->> because of XFRM being involved.
->> 
->> xfrm_output() -> xfrm_output_gso() -> skb_gso_segment()
->> 
->> So XFRM calls skb_gso_segment() before ip_output() or
->> ip6_finish_output2() had a chance to change skb->protocol
-> 
-> So maybe the real fix would be to set skb->protocol at the right place,
-> before xfrm can be called, instead of chasing all skb producers ;)
+not quite...
 
-And the key for this would be dst_output() invocations.
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+...
+>   * @sk: The socken sending or receiving traffic
+> @@ -153,11 +166,15 @@ int __cgroup_bpf_run_filter(struct sock *sk,
+>  
+>  	prog = rcu_dereference(cgrp->bpf.effective[type]);
+>  	if (prog) {
+> -		unsigned int offset = skb->data - skb_network_header(skb);
+> -
+> -		__skb_push(skb, offset);
+> -		ret = bpf_prog_run_save_cb(prog, skb) == 1 ? 0 : -EPERM;
+> -		__skb_pull(skb, offset);
+> +		switch (type) {
+> +		case BPF_CGROUP_INET_INGRESS:
+> +		case BPF_CGROUP_INET_EGRESS:
+> +			ret = __cgroup_bpf_run_filter_skb(skb, prog);
+> +			break;
+
+hmm. what's a point of double jump table? It's only burning cycles
+in the fast path. We already have
+prog = rcu_dereference(cgrp->bpf.effective[type]); if (prog) {...}
+Could you do a variant of __cgroup_bpf_run_filter() instead ?
+That doesnt't take 'skb' as an argument.
+It will also solve scary looking NULL skb from patch 2:
+__cgroup_bpf_run_filter(sk, NULL, ...
+
+and to avoid copy-pasting first dozen lines of current
+__cgroup_bpf_run_filter can be moved into a helper that
+__cgroup_bpf_run_filter_skb and
+__cgroup_bpf_run_filter_sk will call.
+Or some other way to rearrange that code.
