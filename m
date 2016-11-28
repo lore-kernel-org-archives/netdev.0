@@ -1,115 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] sit: Set skb->protocol properly in
- ipip6_tunnel_xmit()
-Date: Mon, 28 Nov 2016 08:53:43 -0800
-Message-ID: <1480352023.18162.63.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20161125055017.7053-1-elicooper@gmx.com>
-         <20161127130400.4a69ff1b@canb.auug.org.au>
-         <20161128.114703.154301432767947066.davem@davemloft.net>
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: Re: AF_VSOCK network namespace support
+Date: Mon, 28 Nov 2016 15:24:36 +0000
+Message-ID: <4DA0F029-EE07-4E51-879C-2033D1F8AFCD@vmware.com>
+References: <20161123145535.GA16465@stefanha-x1.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, elicooper@gmx.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "imbrenda@linux.vnet.ibm.com" <imbrenda@linux.vnet.ibm.com>
+To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33931 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932495AbcK1Qyp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:54:45 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so13571019pgc.1
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 08:54:45 -0800 (PST)
-In-Reply-To: <20161128.114703.154301432767947066.davem@davemloft.net>
+Received: from mail-by2nam01on0070.outbound.protection.outlook.com ([104.47.34.70]:53952
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933248AbcK1Q6b (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 11:58:31 -0500
+In-Reply-To: <20161123145535.GA16465@stefanha-x1.localdomain>
+Content-Language: en-US
+Content-ID: <D4E45ECE1A269E4B980A908D346968F1@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-11-28 at 11:47 -0500, David Miller wrote:
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Sun, 27 Nov 2016 13:04:00 +1100
-> 
-> > [Just for Dave's information]
-> > 
-> > On Fri, 25 Nov 2016 13:50:17 +0800 Eli Cooper <elicooper@gmx.com> wrote:
-> >>
-> >> Similar to commit ae148b085876
-> >> ("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"),
-> >> sit tunnels also need to update skb->protocol; otherwise, TSO/GSO packets
-> >> might not be properly segmented, which causes the packets being dropped.
-> >> 
-> >> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> >> Tested-by: Eli Cooper <elicooper@gmx.com>
-> >> Cc: stable@vger.kernel.org
-> >> Signed-off-by: Eli Cooper <elicooper@gmx.com>
-> > 
-> > I tested this patch and it does *not* solve my problem.
-> 
-> I'm torn on this patch, because it looked exactly like it would solve the
-> kind of problem Stephen is running into.
-> 
-> Even though it doesn't fix his case, it seems correct to me.
-> 
-> I was wondering if it was also important to set the skb->protocol
-> before the call to ip_tunnel_encap() but I couldn't find a dependency.
-> 
-> In any event I'd like to see some other people review this change
-> before I apply it.
-> 
-> My only other guess for Stephen's problem is somehow the SKB headers
-> aren't set up properly for what the GSO engine expects.
-
-Well, mlx4 just works, and uses GSO engine just fine.
-
-So my guess is this is a bug in Intel IGB driver.
-
-
-Alexander, can you take a look ?
-
-Features for eth0:
-rx-checksumming: on
-tx-checksumming: on
-        tx-checksum-ipv4: off [fixed]
-        tx-checksum-ip-generic: on
-        tx-checksum-ipv6: off [fixed]
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: on
-scatter-gather: on
-        tx-scatter-gather: on
-        tx-scatter-gather-fraglist: off [fixed]
-tcp-segmentation-offload: on
-        tx-tcp-segmentation: on
-        tx-tcp-ecn-segmentation: off [fixed]
-        tx-tcp-mangleid-segmentation: off
-        tx-tcp6-segmentation: on
-udp-fragmentation-offload: off [fixed]
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: on
-tx-vlan-offload: on
-ntuple-filters: off
-receive-hashing: on
-highdma: on [fixed]
-rx-vlan-filter: on [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: off [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: on
-tx-gre-csum-segmentation: on
-tx-ipxip4-segmentation: on
-tx-ipxip6-segmentation: on
-tx-udp_tnl-segmentation: on
-tx-udp_tnl-csum-segmentation: on
-tx-gso-partial: on
-fcoe-mtu: off [fixed]
-tx-nocache-copy: off
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off [fixed]
-busy-poll: off [fixed]
-hw-tc-offload: off [fixed]
+SGkgU3RlZmFuLA0KDQo+IE9uIE5vdiAyMywgMjAxNiwgYXQgMzo1NSBQTSwgU3RlZmFuIEhham5v
+Y3ppIDxzdGVmYW5oYUByZWRoYXQuY29tPiB3cm90ZToNCj4gDQo+IEhpIEpvcmdlbiwNCj4gVGhl
+cmUgYXJlIHR3byB1c2UgY2FzZXMgd2hlcmUgbmV0d29yayBuYW1lc3BhY2Ugc3VwcG9ydCBpbiBB
+Rl9WU09DSw0KPiBjb3VsZCBiZSB1c2VmdWw6DQo+IA0KPiAxLiBDbGF1ZGlvIEltYnJlbmRhIHBv
+aW50ZWQgb3V0IHRoYXQgYSBtYWNoaW5lIGNhbm5vdCBhY3QgYXMgYm90aCBob3N0DQo+ICAgYW5k
+IGd1ZXN0IGF0IHRoZSBzYW1lIHRpbWUuICBUaGlzIGlzIG5lY2Vzc2FyeSBmb3IgbmVzdGVkDQo+
+ICAgdmlydHVhbGl6YXRpb24uICBDdXJyZW50bHkgb25seSBvbmUgdHJhbnNwb3J0ICh0aGUgaG9z
+dCBzaWRlIG9yIHRoZQ0KPiAgIGd1ZXN0IHNpZGUpIGNhbiBiZSByZWdpc3RlcmVkIGF0IGEgdGlt
+ZS4NCg0KVk1DSSBiYXNlZCBBRl9WU09DSyByZWxpZXMgb24gdGhlIFZNQ0kgZHJpdmVyIGZvciBu
+ZXN0ZWQgdmlydHVhbGl6YXRpb24gc3VwcG9ydC4gVGhlIFZNQ0kgZHJpdmVyIGlzIGEgY29tYmlu
+ZWQgaG9zdC9ndWVzdCBkcml2ZXIgd2l0aCBhIHJvdXRpbmcgY29tcG9uZW50LCB0aGF0IHdpbGwg
+ZWl0aGVyIGRpcmVjdCB0cmFmZmljIHRvIFZNcyBtYW5hZ2VkIGJ5IHRoZSBob3N0IOKAnHBlcnNv
+bmFsaXR54oCdIG9mIHRoZSBkcml2ZXIsIG9yIHRvIHRoZSBvdXRlciBob3N0LiBTbyBhbnkgVk1D
+SSBkcml2ZXIgZHJpdmVyIGlzIGFibGUgdG8gZnVuY3Rpb24gc2ltdWx0YW5lb3VzbHkgYXMgYm90
+aCBhIGd1ZXN0IGFuZCBhIGhvc3QgZHJpdmVyIC0gZXhhY3RseSB0byBiZSBhYmxlIHRvIHN1cHBv
+cnQgbmVzdGVkIHZpcnR1YWxpemF0aW9uLg0KDQpTaW5jZSwgZm9yIFZNQ0kgYmFzZWQgdlNvY2tl
+dCwgdGhlIGhvc3QgaGFzIGEgZml4ZWQgQ0lEICgyKSwgYW55IHRyYWZmaWMgZ2VuZXJhdGVkIGJ5
+IGFuIGFwcGxpY2F0aW9uIGluc2lkZSBhIFZNIGRlc3RpbmVkIGZvciBDSUQgMiB3aWxsIGJlIHJv
+dXRlZCBvdXQgb2YgdGhlIFZNICh0byB0aGUgaG9zdCAtIGVpdGhlciBhIHZpcnR1YWwgb3IgcGh5
+c2ljYWwgb25lKS4gQW55IHRyYWZmaWMgZm9yIGEgQ0lEID4gMiB3aWxsIGJlIGRpcmVjdGVkIHRv
+d2FyZHMgVk1zIG1hbmFnZWQgYnkgdGhlIGhvc3QgcGVyc29uYWxpdHkgb2YgdGhlIFZNQ0kgZHJp
+dmVyLg0KDQpTaW5jZSBWTUNJIHByZWRhdGVzIG5lc3RlZCB2aXJ0dWFsaXphdGlvbiwgdGhlIHNv
+bHV0aW9uIGFib3ZlIHdhcyBwYXJ0bHkgYSByZXN1bHQgb2YgaGF2aW5nIHRvIHN1cHBvcnQgZXhp
+c3RpbmcgY29uZmlndXJhdGlvbnMgaW4gYSB0cmFuc3BhcmVudCB3YXkuDQoNCj4gMi4gVXNlcnMg
+bWF5IHdpc2ggdG8gaXNvbGF0ZSB0aGUgQUZfVlNPQ0sgYWRkcmVzcyBuYW1lc3BhY2Ugc28gdGhh
+dCB0d28NCj4gICBWTXMgaGF2ZSBjb21wbGV0ZWx5IGluZGVwZW5kZW50IENJRCBhbmQgcG9ydHMg
+KHRoZXkgY291bGQgZXZlbiB1c2UNCj4gICB0aGUgc2FtZSBDSUQgYW5kIHBvcnRzIGJlY2F1c2Ug
+dGhleSdyZSBpbiBzZXBhcmF0ZSBuYW1lc3BhY2VzKS4gIFRoaXMNCj4gICBlbnN1cmVzIHRoYXQg
+YSBob3N0IHNlcnZpY2UgdmlzaWJsZSB0byBWTTEgaXMgbm90IGF1dG9tYXRpY2FsbHkNCj4gICB2
+aXNpYmxlIHRvIFZNMi4NCg0KSWYgdGhlIGdvYWwgaXMgdG8gcHJvdmlkZSBmaW5lIGdyYWluZWQg
+c2VydmljZSBhY2Nlc3MgY29udHJvbCwgd29u4oCZdCB0aGlzIGVuZCB1cCByZXF1aXJpbmcgYSBu
+YW1lc3BhY2UgcGVyIFZNPyBGb3IgRVNYLCB3ZSBoYXZlIGEgbWVjaGFuaXNtIHRvIHRhZyBWTXMg
+dGhhdCBhbGxvd3MgdGhlbSB0byBiZSBncmFudGVkIGFjY2VzcyB0byBhIHNlcnZpY2Ugb2ZmZXJl
+ZCB0aHJvdWdoIEFGX1ZTT0NLLCBidXQgdGhpcyBpcyBub3QgcGFydCBvZiB0aGUgTGludXggaHlw
+ZXJ2aXNvci4NCg0KSWYgdGhlIGludGVudCBpcyB0byBiZSBhYmxlIHRvIHN1cHBvcnQgbXVsdGkg
+dGVuYW5jeSwgdGhlbiB0aGlzIHNvdW5kcyBsaWtlIGEgYmV0dGVyIGZpdC4gQWxzbywgaW4gdGhl
+IG11bHRpIHRlbmFuY3kgY2FzZSwgaXNvbGF0aW5nIHRoZSBvdGhlciBBRnMgaXMgcHJvYmFibHkg
+d2hhdCB5b3Ugd2FudCBhcyB3ZWxsLg0KDQo+IE5ldHdvcmsgbmFtZXNwYWNlcyBjb3VsZCBzb2x2
+ZSBib3RoIHByb2JsZW1zLg0KPiANCj4gQSBkcmF3YmFjayBvZiBuYW1lc3BhY2VzIGlzIHRoYXQg
+ZXhpc3RpbmcgY29uZmlndXJhdGlvbnMgdXNpbmcgbmV0d29yaw0KPiBuYW1lc3BhY2VzIGZvciBJ
+UHY0LzYgb3Igb3RoZXIgcHVycG9zZXMgYnJlYWsgaWYgQUZfVlNPQ0sgZ2FpbnMgbmV0d29yaw0K
+PiBuYW1lc3BhY2Ugc3VwcG9ydC4gIFRoaXMgaXMgbm90IGEgYmlnIHByb2JsZW0gZm9yIHZpcnRp
+by12c29jayBpZiB3ZQ0KPiBpbXBsZW1lbnQgbmFtZXNwYWNlIHN1cHBvcnQgc29vbiBzaW5jZSB0
+aGVyZSBhcmUgbm8gZXhpc3RpbmcgdXNlcnMuDQo+IA0KPiBJIHdvbmRlciBob3cgb3RoZXIgYWRk
+cmVzcyBmYW1pbGllcyBoYXZlIHNvbHZlZCB0aGlzIHRyYW5zaXRpb24gdG8NCj4gbmV0d29yayBu
+YW1lc3BhY2VzLiAgSXQncyBhbG1vc3QgbGlrZSB3ZSBuZWVkIGZpbmUtZ3JhaW5lZCBuYW1lc3Bh
+Y2VzDQo+IGluc3RlYWQgb2YgYSBibGFua2V0IG5ldHdvcmsgbmFtZXNwYWNlIHRoYXQgYXBwbGll
+cyBhY3Jvc3MgYWxsIGFkZHJlc3MNCj4gZmFtaWxpZXMuLi4NCj4gDQo+IEknbSBwbGF5aW5nIGFy
+b3VuZCB3aXRoIHRoZSBjb2RlIG5vdyBidXQgd2FudGVkIHRvIGdldCB5b3VyIHRob3VnaHRzIGlu
+DQo+IGNhc2UgeW91J3ZlIGFscmVhZHkgY29uc2lkZXJlZCB0aGVzZSBwcm9ibGVtcy4NCj4gDQo+
+IFN0ZWZhbg0KDQpUaGFua3MsDQpKw7hyZ2Vu
