@@ -1,43 +1,58 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH] net/iucv: use explicit clean up labels in iucv_init()
-Date: Mon, 28 Nov 2016 17:31:36 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1611281731110.3512@nanos>
-References: <20161124091046.hixy3j4ibt7xzezr@linutronix.de> <20161124141415.llqki5vo7nqdusqv@linutronix.de> <20161124161013.dukr42y2nwscosk6@linutronix.de> <20161128.112433.295947046706527102.davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 1/1] GSO: Reload iph after pskb_may_pull
+Date: Mon, 28 Nov 2016 08:34:59 -0800
+Message-ID: <CAKgT0UdeSd91LUYWsHnnuKgM9bTydkzQ7r3B3n-nsVnT0gmzvg@mail.gmail.com>
+References: <20161128153658.GB4778@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: bigeasy@linutronix.de, ubraun@linux.vnet.ibm.com,
-        linux-kernel@vger.kernel.org, rt@linutronix.de,
-        linux-s390@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Linux Networking Development Mailing List
+        <netdev@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:46394 "EHLO
-        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933033AbcK1QeT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:34:19 -0500
-In-Reply-To: <20161128.112433.295947046706527102.davem@davemloft.net>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33395 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933181AbcK1QfB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:35:01 -0500
+Received: by mail-io0-f194.google.com with SMTP id j92so23799961ioi.0
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 08:35:00 -0800 (PST)
+In-Reply-To: <20161128153658.GB4778@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Nov 2016, David Miller wrote:
-> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> Date: Thu, 24 Nov 2016 17:10:13 +0100
-> 
-> > Ursula suggested to use explicit labels for clean up in the error path
-> > instead of one `out_free' label which handles multiple exits.
-> > Since the previous patch got already applied, here is a follow up patch.
-> > 
-> > Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> 
-> "Previous patch" doesn't tell readers anything specific enough to identify
-> the change you are referring to.  This will be even more true years down
-> the line if someone tries to read this commit and figure out what you
-> are referring to.
-> 
-> We have a standard mechanism to refer to commits, via SHA1_ID and commit
-> header line text, please use it.
+On Mon, Nov 28, 2016 at 7:36 AM, Arnaldo Carvalho de Melo
+<acme@kernel.org> wrote:
+> As it may get stale and lead to use after free.
+>
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Alexander Duyck <aduyck@mirantis.com>
+> Cc: Andrey Konovalov <andreyknvl@google.com>
+> Fixes: cbc53e08a793 ("GSO: Add GSO type for fixed IPv4 ID")
+> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> ---
+>  net/ipv4/af_inet.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 5ddf5cda07f4..215143246e4b 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1233,7 +1233,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+>                 fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
+>
+>                 /* fixed ID is invalid if DF bit is not set */
+> -               if (fixedid && !(iph->frag_off & htons(IP_DF)))
+> +               if (fixedid && !(ip_hdr(skb)->frag_off & htons(IP_DF)))
+>                         goto out;
+>         }
+>
+> --
+> 2.9.3
+>
 
-I amended the commit message.
+Looks good to me.
 
-Thanks,
-
-	tglx
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
