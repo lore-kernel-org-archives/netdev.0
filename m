@@ -1,89 +1,26 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net/dccp: fix use-after-free in dccp_invalid_packet
-Date: Mon, 28 Nov 2016 06:47:14 -0800
-Message-ID: <1480344434.18162.51.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
-         <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161128144001.GE16426@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: stmmac ethernet in kernel 4.4: coalescing related pauses?
+Date: Mon, 28 Nov 2016 09:54:31 -0500 (EST)
+Message-ID: <20161128.095431.856183735501262965.davem@davemloft.net>
+References: <20161123105125.GA26394@amd>
+        <f14255ee-7fa8-afef-23ec-fc4f9a74eec8@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35565 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932874AbcK1OrQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 09:47:16 -0500
-In-Reply-To: <20161128144001.GE16426@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pavel@ucw.cz, peppe.cavallaro@st.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: lsanfil@marvell.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f14255ee-7fa8-afef-23ec-fc4f9a74eec8@marvell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-11-28 at 11:40 -0300, Arnaldo Carvalho de Melo wrote:
-> Em Mon, Nov 28, 2016 at 06:26:49AM -0800, Eric Dumazet escreveu:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > pskb_may_pull() can reallocate skb->head, we need to reload dh pointer
-> > in dccp_invalid_packet() or risk use after free.
-> > 
-> > Bug found by Andrey Konovalov using syzkaller.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> 
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> 
-> I was about to send exactly this patch, and while looking at it I think
-> the patch below needs to go in as well, no? To follow the advice of that
-> Warning line there :-)
-> 
-> From: Arnaldo Carvalho de Melo <acme@redhat.com>
-> 
-> pskb_may_pull() can reallocate skb->head, so we can't access
-> iph->frag_off or risk use after free, save it to a variable and us that
-> later.
-> 
-> Cc: Andrey Konovalov <andreyknvl@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> 
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 5ddf5cda07f4..9462070561a3 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1198,6 +1198,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->  	struct iphdr *iph;
->  	int proto, tot_len;
->  	int nhoff;
-> +	u16 frag_off;
->  	int ihl;
->  	int id;
->  
-> @@ -1213,6 +1214,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->  
->  	id = ntohs(iph->id);
->  	proto = iph->protocol;
-> +	frag_off = iph->frag_off;
->  
->  	/* Warning: after this point, iph might be no longer valid */
->  	if (unlikely(!pskb_may_pull(skb, ihl)))
-> @@ -1233,7 +1235,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->  		fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
->  
->  		/* fixed ID is invalid if DF bit is not set */
-> -		if (fixedid && !(iph->frag_off & htons(IP_DF)))
-> +		if (fixedid && !(frag_off & htons(IP_DF)))
->  			goto out;
->  	}
->  
+From: Lino Sanfilippo <lsanfil@marvell.com>
+Date: Mon, 28 Nov 2016 14:07:51 +0100
 
+> Calling skb_orphan() in the xmit handler made this issue disappear.
 
-I do not see why this patch would be needed ?
+This is not the way to handle this problem.
+
+The solution is to free the SKBs in a timely manner after the
+chip has transmitted the frame.
