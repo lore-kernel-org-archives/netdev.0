@@ -1,48 +1,75 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] ethernet :mellanox :mlx5: Replace pci_pool_alloc by
- pci_pool_zalloc
-Date: Mon, 28 Nov 2016 22:08:32 +0300
-Message-ID: <1508ea17-928d-d506-18bd-55373e89a4c6@cogentembedded.com>
-References: <20161128133740.GA688@gnr743-HP-ZBook-15>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH net-next v2 3/4] Documentation: net: phy: Add blurb about
+ RGMII
+Date: Mon, 28 Nov 2016 20:15:27 +0100
+Message-ID: <b6a19ca6-8bda-8573-eb7b-9ed7f80ca480@free.fr>
+References: <20161127184449.12351-1-f.fainelli@gmail.com>
+ <20161127184449.12351-4-f.fainelli@gmail.com>
+ <4c71a69c-2942-f177-ef25-04686f5e4149@laposte.net>
+ <60473447-423c-7dff-6647-cce7cf2d4ab2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sahu.rameshwar73-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161128133740.GA688@gnr743-HP-ZBook-15>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        martin.blumenstingl@googlemail.com, mans@mansr.com,
+        alexandre.torgue@st.com, peppe.cavallaro@st.com,
+        timur@codeaurora.org, jbrunet@baylibre.com
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Sebastian Frias <sf84@laposte.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:6629 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754361AbcK1TP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 14:15:59 -0500
+In-Reply-To: <60473447-423c-7dff-6647-cce7cf2d4ab2@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2016 04:37 PM, Souptick Joarder wrote:
+On 28/11/2016 18:43, Florian Fainelli wrote:
 
-> In alloc_cmd_box(), pci_pool_alloc() followed by memset will be
-> replaced by pci_pool_zalloc()
+> On 11/28/2016 02:34 AM, Sebastian Frias wrote:
 >
-> Signed-off-by: Souptick joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> index 1e639f8..d96ebd4 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> @@ -1063,14 +1063,13 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
->  	if (!mailbox)
->  		return ERR_PTR(-ENOMEM);
->
-> -	mailbox->buf = pci_pool_alloc(dev->cmd.pool, flags,
-> +	mailbox->buf = pci_pool_zalloc(dev->cmd.pool, flags,
->  				      &mailbox->dma);
+>> For what is worth, the Atheros at803x driver comes with RX delay enabled
+>> as per HW reset.
+> 
+> Always, or is this a behavior possibly defined via a stra-pin that can
+> be changed?
 
-    Same here, the & needs to start under 'dev' on the broken up line.
+Here's the data sheet:
 
-MBR, Sergei
+  http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+4.2.25 rgmii rx clock delay control
+Offset: 0x00
+bit 15: Control bit for rgmii interface rx clock delay:
+1 = rgmii rx clock delay enable
+0 = rgmii rx clock delay disable
+HW Rst. 1
+SW Rst. 1
+
+As far as I can tell, rx delay is enabled by default, always.
+
+The "Features" list mentions
+"RGMII timing modes support internal delay and external delay on Rx path"
+(Not sure about the internal vs external distinction.)
+
+Table 3-6. RGMII AC Characteristics — no Internal Delay
+Table 3-7. RGMII AC Characteristics — with internal delay added (Default)
+
+Delay is 2 ns apparently.
+
+There's also
+4.2.27 Hib ctrl and rgmii gtx clock delay register
+Offset: 0x0B
+
+bits 6:5 Gtx_dly_val
+Select the delay of gtx_clk.
+00:0.25ns
+01:1.3ns
+10:2.4ns
+11:3.4ns
+
+I don't know what that is used for.
+Maybe this is the external vs internal delay?
+
+Regards.
