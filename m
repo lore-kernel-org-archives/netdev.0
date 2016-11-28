@@ -1,7 +1,7 @@
 From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 06/16] net: ethernet: bcmgenet: fix fixed-link phydev leaks
-Date: Mon, 28 Nov 2016 19:24:59 +0100
-Message-ID: <1480357509-28074-7-git-send-email-johan@kernel.org>
+Subject: [PATCH net 09/16] net: ethernet: gianfar: fix fixed-link phydev leaks
+Date: Mon, 28 Nov 2016 19:25:02 +0100
+Message-ID: <1480357509-28074-10-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -38,46 +38,49 @@ List-Id: netdev.vger.kernel.org
 Make sure to deregister and free any fixed-link PHY registered using
 of_phy_register_fixed_link() on probe errors and on driver unbind.
 
-Note that we're still leaking any fixed-link PHY registered in the
-non-OF probe path.
-
-Fixes: 9abf0c2b717a ("net: bcmgenet: use the new fixed PHY helpers")
+Fixes: be40364544bd ("gianfar: use the new fixed PHY helpers")
 Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/broadcom/genet/bcmmii.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/freescale/gianfar.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index 2e745bd51df4..e87607621e62 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -627,6 +627,7 @@ static int bcmgenet_mii_bus_init(struct bcmgenet_priv *priv)
- int bcmgenet_mii_init(struct net_device *dev)
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 4b4f5bc0e279..9061c2f82b9c 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1312,6 +1312,7 @@ static void gfar_init_addr_hash_table(struct gfar_private *priv)
+  */
+ static int gfar_probe(struct platform_device *ofdev)
  {
- 	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	struct device_node *dn = priv->pdev->dev.of_node;
- 	int ret;
- 
- 	ret = bcmgenet_mii_alloc(priv);
-@@ -640,6 +641,8 @@ int bcmgenet_mii_init(struct net_device *dev)
++	struct device_node *np = ofdev->dev.of_node;
+ 	struct net_device *dev = NULL;
+ 	struct gfar_private *priv = NULL;
+ 	int err = 0, i;
+@@ -1462,6 +1463,8 @@ static int gfar_probe(struct platform_device *ofdev)
  	return 0;
  
- out:
-+	if (of_phy_is_fixed_link(dn))
-+		of_phy_deregister_fixed_link(dn);
- 	of_node_put(priv->phy_dn);
- 	mdiobus_unregister(priv->mii_bus);
- 	mdiobus_free(priv->mii_bus);
-@@ -649,7 +652,10 @@ int bcmgenet_mii_init(struct net_device *dev)
- void bcmgenet_mii_exit(struct net_device *dev)
+ register_fail:
++	if (of_phy_is_fixed_link(np))
++		of_phy_deregister_fixed_link(np);
+ 	unmap_group_regs(priv);
+ 	gfar_free_rx_queues(priv);
+ 	gfar_free_tx_queues(priv);
+@@ -1474,11 +1477,16 @@ static int gfar_probe(struct platform_device *ofdev)
+ static int gfar_remove(struct platform_device *ofdev)
  {
- 	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	struct device_node *dn = priv->pdev->dev.of_node;
+ 	struct gfar_private *priv = platform_get_drvdata(ofdev);
++	struct device_node *np = ofdev->dev.of_node;
  
-+	if (of_phy_is_fixed_link(dn))
-+		of_phy_deregister_fixed_link(dn);
- 	of_node_put(priv->phy_dn);
- 	mdiobus_unregister(priv->mii_bus);
- 	mdiobus_free(priv->mii_bus);
+ 	of_node_put(priv->phy_node);
+ 	of_node_put(priv->tbi_node);
+ 
+ 	unregister_netdev(priv->ndev);
++
++	if (of_phy_is_fixed_link(np))
++		of_phy_deregister_fixed_link(np);
++
+ 	unmap_group_regs(priv);
+ 	gfar_free_rx_queues(priv);
+ 	gfar_free_tx_queues(priv);
 -- 
 2.7.3
