@@ -1,48 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] ipv6: implement consistent hashing for
- equal-cost multipath routing
-Date: Mon, 28 Nov 2016 15:32:09 -0500 (EST)
-Message-ID: <20161128.153209.2135257061368558724.davem@davemloft.net>
-References: <1480017556-25988-1-git-send-email-david.lebrun@uclouvain.be>
-        <20161128.112248.2198395724649783009.davem@davemloft.net>
-        <583C9093.7060404@uclouvain.be>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v3 2/3] bpf: Add new cgroup attach type to
+ enable sock modifications
+Date: Mon, 28 Nov 2016 12:32:53 -0800
+Message-ID: <20161128203252.GB7634@ast-mbp.thefacebook.com>
+References: <1480348130-31354-1-git-send-email-dsa@cumulusnetworks.com>
+ <1480348130-31354-3-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.lebrun@uclouvain.be
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
+        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41018 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751223AbcK1UcL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 15:32:11 -0500
-In-Reply-To: <583C9093.7060404@uclouvain.be>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35339 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755033AbcK1Uc6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 15:32:58 -0500
+Received: by mail-pf0-f195.google.com with SMTP id i88so6934482pfk.2
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 12:32:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1480348130-31354-3-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lebrun <david.lebrun@uclouvain.be>
-Date: Mon, 28 Nov 2016 21:16:19 +0100
+On Mon, Nov 28, 2016 at 07:48:49AM -0800, David Ahern wrote:
+> Add new cgroup based program type, BPF_PROG_TYPE_CGROUP_SOCK. Similar to
+> BPF_PROG_TYPE_CGROUP_SKB programs can be attached to a cgroup and run
+> any time a process in the cgroup opens an AF_INET or AF_INET6 socket.
+> Currently only sk_bound_dev_if is exported to userspace for modification
+> by a bpf program.
+> 
+> This allows a cgroup to be configured such that AF_INET{6} sockets opened
+> by processes are automatically bound to a specific device. In turn, this
+> enables the running of programs that do not support SO_BINDTODEVICE in a
+> specific VRF context / L3 domain.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+...
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index 1f09c521adfe..808e158742a2 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -408,7 +408,7 @@ struct bpf_prog {
+>  	enum bpf_prog_type	type;		/* Type of BPF program */
+>  	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
+>  	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
+> -	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+> +	unsigned int		(*bpf_func)(const void *ctx,
+>  					    const struct bpf_insn *filter);
 
-> The advantage of my solution over RFC2992 is lowest possible disruption
-> and equal rebalancing of affected flows. The disadvantage is the lookup
-> complexity of O(log n) vs O(1). Although from a theoretical viewpoint
-> O(1) is obviously better, would O(log n) have an effectively measurable
-> negative impact on scalability ? If we consider 32 next-hops for a route
-> and 100 pseudo-random numbers generated per next-hop, the lookup
-> algorithm would have to perform in the worst case log2 3200 = 11
-> comparisons to select a next-hop for that route.
+Daniel already tweaked it. pls rebase.
 
-When I was working on the routing cache removal in ipv4 I compared
-using a stupid O(1) hash lookup of the FIB entries vs. the O(log n)
-fib_trie stuff actually in use.
+> +static const struct bpf_func_proto *
+> +cg_sock_func_proto(enum bpf_func_id func_id)
+> +{
+> +	return NULL;
+> +}
 
-It did make a difference.
+if you don't want any helpers, just don't set .get_func_proto.
+See check_call() in verifier.
+Though why not allow socket filter like helpers that
+sk_filter_func_proto() provides?
+tail call, bpf_trace_printk, maps are useful things that you get for free.
+Developing programs without bpf_trace_printk is pretty hard.
 
-This is a lookup that can be invoked 20 million times per second or
-more.
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 5ddf5cda07f4..24d2550492ee 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -374,8 +374,18 @@ static int inet_create(struct net *net, struct socket *sock, int protocol,
+>  
+>  	if (sk->sk_prot->init) {
+>  		err = sk->sk_prot->init(sk);
+> -		if (err)
+> +		if (err) {
+> +			sk_common_release(sk);
+> +			goto out;
+> +		}
+> +	}
+> +
+> +	if (!kern) {
+> +		err = BPF_CGROUP_RUN_PROG_INET_SOCK(sk);
 
-Every cycle matters.
-
-We already have a lot of trouble getting under the cycle budget one
-has for routing at wire speed for very high link rates, please don't
-make it worse.
+i guess from vrf use case point of view this is the best place,
+since so_bindtodevice can still override it,
+but thinking little bit into other use case like port binding
+restrictions and port rewrites can we move it into inet_bind ?
+My understanding nothing will be using bound_dev_if until that
+time, so we can set it there?
+And at that point we can extend 'struct bpf_sock' with other
+fields like port and sockaddr...
+and single BPF_PROG_TYPE_CGROUP_SOCK type will be used for
+vrf and port binding use cases...
+More users, more testing of that code path...
