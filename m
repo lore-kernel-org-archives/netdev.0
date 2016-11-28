@@ -1,43 +1,48 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH] bpf: cgroup: fix documentation of __cgroup_bpf_update()
-Date: Mon, 28 Nov 2016 12:04:59 +0100
-Message-ID: <1480331099-20216-1-git-send-email-daniel@zonque.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org, roszenrami@gmail.com,
-        cgroups@vger.kernel.org, Daniel Mack <daniel@zonque.org>
-To: ast@fb.com
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: SNAT --random & fully is not actually random for ips
+Date: Mon, 28 Nov 2016 12:45:59 +0200
+Message-ID: <97a6a1c557f0f1e6d55d8d09b326f8b1@nuclearcat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:34285 "EHLO mail.zonque.de"
+Received: from nuclearcat.com ([144.76.183.226]:47548 "EHLO nuclearcat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932094AbcK1LFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 06:05:09 -0500
+        id S932765AbcK1LHS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 06:07:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's a 'not' missing in one paragraph. Add it.
+Hello,
 
-Signed-off-by: Daniel Mack <daniel@zonque.org>
-Reported-by: Rami Rosen <roszenrami@gmail.com>
-Fixes: 3007098494be ("cgroup: add support for eBPF programs")
----
- kernel/bpf/cgroup.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I noticed that if i specify -j SNAT with options --random --random-fully 
+still it keeps persistence for source IP.
+Actually truly random src ip required in some scenarios like links 
+balanced by IPs, but seems since 2012 at least it is not possible.
 
-diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-index a0ab43f..b708e6e 100644
---- a/kernel/bpf/cgroup.c
-+++ b/kernel/bpf/cgroup.c
-@@ -70,9 +70,9 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
-  * releases the one that is currently attached, if any. @prog is then made
-  * the effective program of type @type in that cgroup.
-  *
-- * If @prog is %NULL, the currently attached program of type @type is released,
-- * and the effective program of the parent cgroup (if any) is inherited to
-- * @cgrp.
-+ * If @prog is not %NULL, the currently attached program of type @type is
-+ * released, and the effective program of the parent cgroup (if any) is
-+ * inherited to @cgrp.
-  *
-  * Then, the descendants of @cgrp are walked and the effective program for
-  * each of them is set to the effective program of @cgrp unless the
--- 
-2.7.4
+But actually if i do something like:
+--- nf_nat_core.c.new	2016-11-28 09:55:54.000000000 +0000
++++ nf_nat_core.c	2016-11-21 09:11:59.000000000 +0000
+@@ -282,13 +282,9 @@
+  	 * client coming from the same IP (some Internet Banking sites
+  	 * like this), even across reboots.
+  	 */
+-	if (range->flags & NF_NAT_RANGE_PROTO_RANDOM_FULLY) {
+-	    j = prandom_u32();
+-	} else {
+-	    j = jhash2((u32 *)&tuple->src.u3, sizeof(tuple->src.u3) / 
+sizeof(u32),
++	j = jhash2((u32 *)&tuple->src.u3, sizeof(tuple->src.u3) / sizeof(u32),
+  		   range->flags & NF_NAT_RANGE_PERSISTENT ?
+  			0 : (__force u32)tuple->dst.u3.all[max] ^ zone->id);
+-	}
+
+  	full_range = false;
+  	for (i = 0; i <= max; i++) {
+
+It works as intended. But i guess to not break compatibility it is 
+better should be introduced as new option?
+Or maybe there is no really need for such option?
