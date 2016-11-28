@@ -1,7 +1,7 @@
 From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 07/16] net: ethernet: fec: fix fixed-link phydev leaks
-Date: Mon, 28 Nov 2016 19:25:00 +0100
-Message-ID: <1480357509-28074-8-git-send-email-johan@kernel.org>
+Subject: [PATCH net 08/16] net: ethernet: fs_enet: fix fixed-link phydev leaks
+Date: Mon, 28 Nov 2016 19:25:01 +0100
+Message-ID: <1480357509-28074-9-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -38,42 +38,43 @@ List-Id: netdev.vger.kernel.org
 Make sure to deregister and free any fixed-link PHY registered using
 of_phy_register_fixed_link() on probe errors and on driver unbind.
 
-Fixes: 407066f8f371 ("net: fec: Support phys probed from devicetree and
-fixed-link")
+Fixes: bb74d9a4a87b ("fs_enet: use the new fixed PHY helpers")
 Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 5aa9d4ded214..74dcdf097348 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3475,6 +3475,8 @@ fec_probe(struct platform_device *pdev)
- failed_clk_ipg:
- 	fec_enet_clk_enable(ndev, false);
- failed_clk:
-+	if (of_phy_is_fixed_link(np))
-+		of_phy_deregister_fixed_link(np);
- failed_phy:
- 	of_node_put(phy_node);
- failed_ioremap:
-@@ -3488,6 +3490,7 @@ fec_drv_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct fec_enet_private *fep = netdev_priv(ndev);
-+	struct device_node *np = pdev->dev.of_node;
- 
- 	cancel_work_sync(&fep->tx_timeout_work);
- 	fec_ptp_stop(pdev);
-@@ -3495,6 +3498,8 @@ fec_drv_remove(struct platform_device *pdev)
- 	fec_enet_mii_remove(fep);
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
-+	if (of_phy_is_fixed_link(np))
-+		of_phy_deregister_fixed_link(np);
- 	of_node_put(fep->phy_node);
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index dc120c148d97..4b86260584a0 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -980,7 +980,7 @@ static int fs_enet_probe(struct platform_device *ofdev)
+ 		err = clk_prepare_enable(clk);
+ 		if (err) {
+ 			ret = err;
+-			goto out_free_fpi;
++			goto out_deregister_fixed_link;
+ 		}
+ 		fpi->clk_per = clk;
+ 	}
+@@ -1061,6 +1061,9 @@ static int fs_enet_probe(struct platform_device *ofdev)
+ 	of_node_put(fpi->phy_node);
+ 	if (fpi->clk_per)
+ 		clk_disable_unprepare(fpi->clk_per);
++out_deregister_fixed_link:
++	if (of_phy_is_fixed_link(ofdev->dev.of_node))
++		of_phy_deregister_fixed_link(ofdev->dev.of_node);
+ out_free_fpi:
+ 	kfree(fpi);
+ 	return ret;
+@@ -1079,6 +1082,8 @@ static int fs_enet_remove(struct platform_device *ofdev)
+ 	of_node_put(fep->fpi->phy_node);
+ 	if (fep->fpi->clk_per)
+ 		clk_disable_unprepare(fep->fpi->clk_per);
++	if (of_phy_is_fixed_link(ofdev->dev.of_node))
++		of_phy_deregister_fixed_link(ofdev->dev.of_node);
  	free_netdev(ndev);
- 
+ 	return 0;
+ }
 -- 
 2.7.3
