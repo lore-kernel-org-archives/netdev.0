@@ -1,74 +1,28 @@
-From: "Jorgen S. Hansen" <jhansen@vmware.com>
-Subject: Re: AF_VSOCK network namespace support
-Date: Mon, 28 Nov 2016 15:24:36 +0000
-Message-ID: <4DA0F029-EE07-4E51-879C-2033D1F8AFCD@vmware.com>
-References: <20161123145535.GA16465@stefanha-x1.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] Fix support for the MV88E6097
+Date: Mon, 28 Nov 2016 11:59:26 -0500 (EST)
+Message-ID: <20161128.115926.1343675405080500799.davem@davemloft.net>
+References: <20161125084130.3210-1-stefan.eichenberger@netmodule.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "imbrenda@linux.vnet.ibm.com" <imbrenda@linux.vnet.ibm.com>
-To: Stefan Hajnoczi <stefanha@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        netdev@vger.kernel.org, stefan.eichenberger@netmodule.com
+To: eichest@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0070.outbound.protection.outlook.com ([104.47.34.70]:53952
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933248AbcK1Q6b (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 11:58:31 -0500
-In-Reply-To: <20161123145535.GA16465@stefanha-x1.localdomain>
-Content-Language: en-US
-Content-ID: <D4E45ECE1A269E4B980A908D346968F1@namprd05.prod.outlook.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33428 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933248AbcK1Q72 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:59:28 -0500
+In-Reply-To: <20161125084130.3210-1-stefan.eichenberger@netmodule.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgU3RlZmFuLA0KDQo+IE9uIE5vdiAyMywgMjAxNiwgYXQgMzo1NSBQTSwgU3RlZmFuIEhham5v
-Y3ppIDxzdGVmYW5oYUByZWRoYXQuY29tPiB3cm90ZToNCj4gDQo+IEhpIEpvcmdlbiwNCj4gVGhl
-cmUgYXJlIHR3byB1c2UgY2FzZXMgd2hlcmUgbmV0d29yayBuYW1lc3BhY2Ugc3VwcG9ydCBpbiBB
-Rl9WU09DSw0KPiBjb3VsZCBiZSB1c2VmdWw6DQo+IA0KPiAxLiBDbGF1ZGlvIEltYnJlbmRhIHBv
-aW50ZWQgb3V0IHRoYXQgYSBtYWNoaW5lIGNhbm5vdCBhY3QgYXMgYm90aCBob3N0DQo+ICAgYW5k
-IGd1ZXN0IGF0IHRoZSBzYW1lIHRpbWUuICBUaGlzIGlzIG5lY2Vzc2FyeSBmb3IgbmVzdGVkDQo+
-ICAgdmlydHVhbGl6YXRpb24uICBDdXJyZW50bHkgb25seSBvbmUgdHJhbnNwb3J0ICh0aGUgaG9z
-dCBzaWRlIG9yIHRoZQ0KPiAgIGd1ZXN0IHNpZGUpIGNhbiBiZSByZWdpc3RlcmVkIGF0IGEgdGlt
-ZS4NCg0KVk1DSSBiYXNlZCBBRl9WU09DSyByZWxpZXMgb24gdGhlIFZNQ0kgZHJpdmVyIGZvciBu
-ZXN0ZWQgdmlydHVhbGl6YXRpb24gc3VwcG9ydC4gVGhlIFZNQ0kgZHJpdmVyIGlzIGEgY29tYmlu
-ZWQgaG9zdC9ndWVzdCBkcml2ZXIgd2l0aCBhIHJvdXRpbmcgY29tcG9uZW50LCB0aGF0IHdpbGwg
-ZWl0aGVyIGRpcmVjdCB0cmFmZmljIHRvIFZNcyBtYW5hZ2VkIGJ5IHRoZSBob3N0IOKAnHBlcnNv
-bmFsaXR54oCdIG9mIHRoZSBkcml2ZXIsIG9yIHRvIHRoZSBvdXRlciBob3N0LiBTbyBhbnkgVk1D
-SSBkcml2ZXIgZHJpdmVyIGlzIGFibGUgdG8gZnVuY3Rpb24gc2ltdWx0YW5lb3VzbHkgYXMgYm90
-aCBhIGd1ZXN0IGFuZCBhIGhvc3QgZHJpdmVyIC0gZXhhY3RseSB0byBiZSBhYmxlIHRvIHN1cHBv
-cnQgbmVzdGVkIHZpcnR1YWxpemF0aW9uLg0KDQpTaW5jZSwgZm9yIFZNQ0kgYmFzZWQgdlNvY2tl
-dCwgdGhlIGhvc3QgaGFzIGEgZml4ZWQgQ0lEICgyKSwgYW55IHRyYWZmaWMgZ2VuZXJhdGVkIGJ5
-IGFuIGFwcGxpY2F0aW9uIGluc2lkZSBhIFZNIGRlc3RpbmVkIGZvciBDSUQgMiB3aWxsIGJlIHJv
-dXRlZCBvdXQgb2YgdGhlIFZNICh0byB0aGUgaG9zdCAtIGVpdGhlciBhIHZpcnR1YWwgb3IgcGh5
-c2ljYWwgb25lKS4gQW55IHRyYWZmaWMgZm9yIGEgQ0lEID4gMiB3aWxsIGJlIGRpcmVjdGVkIHRv
-d2FyZHMgVk1zIG1hbmFnZWQgYnkgdGhlIGhvc3QgcGVyc29uYWxpdHkgb2YgdGhlIFZNQ0kgZHJp
-dmVyLg0KDQpTaW5jZSBWTUNJIHByZWRhdGVzIG5lc3RlZCB2aXJ0dWFsaXphdGlvbiwgdGhlIHNv
-bHV0aW9uIGFib3ZlIHdhcyBwYXJ0bHkgYSByZXN1bHQgb2YgaGF2aW5nIHRvIHN1cHBvcnQgZXhp
-c3RpbmcgY29uZmlndXJhdGlvbnMgaW4gYSB0cmFuc3BhcmVudCB3YXkuDQoNCj4gMi4gVXNlcnMg
-bWF5IHdpc2ggdG8gaXNvbGF0ZSB0aGUgQUZfVlNPQ0sgYWRkcmVzcyBuYW1lc3BhY2Ugc28gdGhh
-dCB0d28NCj4gICBWTXMgaGF2ZSBjb21wbGV0ZWx5IGluZGVwZW5kZW50IENJRCBhbmQgcG9ydHMg
-KHRoZXkgY291bGQgZXZlbiB1c2UNCj4gICB0aGUgc2FtZSBDSUQgYW5kIHBvcnRzIGJlY2F1c2Ug
-dGhleSdyZSBpbiBzZXBhcmF0ZSBuYW1lc3BhY2VzKS4gIFRoaXMNCj4gICBlbnN1cmVzIHRoYXQg
-YSBob3N0IHNlcnZpY2UgdmlzaWJsZSB0byBWTTEgaXMgbm90IGF1dG9tYXRpY2FsbHkNCj4gICB2
-aXNpYmxlIHRvIFZNMi4NCg0KSWYgdGhlIGdvYWwgaXMgdG8gcHJvdmlkZSBmaW5lIGdyYWluZWQg
-c2VydmljZSBhY2Nlc3MgY29udHJvbCwgd29u4oCZdCB0aGlzIGVuZCB1cCByZXF1aXJpbmcgYSBu
-YW1lc3BhY2UgcGVyIFZNPyBGb3IgRVNYLCB3ZSBoYXZlIGEgbWVjaGFuaXNtIHRvIHRhZyBWTXMg
-dGhhdCBhbGxvd3MgdGhlbSB0byBiZSBncmFudGVkIGFjY2VzcyB0byBhIHNlcnZpY2Ugb2ZmZXJl
-ZCB0aHJvdWdoIEFGX1ZTT0NLLCBidXQgdGhpcyBpcyBub3QgcGFydCBvZiB0aGUgTGludXggaHlw
-ZXJ2aXNvci4NCg0KSWYgdGhlIGludGVudCBpcyB0byBiZSBhYmxlIHRvIHN1cHBvcnQgbXVsdGkg
-dGVuYW5jeSwgdGhlbiB0aGlzIHNvdW5kcyBsaWtlIGEgYmV0dGVyIGZpdC4gQWxzbywgaW4gdGhl
-IG11bHRpIHRlbmFuY3kgY2FzZSwgaXNvbGF0aW5nIHRoZSBvdGhlciBBRnMgaXMgcHJvYmFibHkg
-d2hhdCB5b3Ugd2FudCBhcyB3ZWxsLg0KDQo+IE5ldHdvcmsgbmFtZXNwYWNlcyBjb3VsZCBzb2x2
-ZSBib3RoIHByb2JsZW1zLg0KPiANCj4gQSBkcmF3YmFjayBvZiBuYW1lc3BhY2VzIGlzIHRoYXQg
-ZXhpc3RpbmcgY29uZmlndXJhdGlvbnMgdXNpbmcgbmV0d29yaw0KPiBuYW1lc3BhY2VzIGZvciBJ
-UHY0LzYgb3Igb3RoZXIgcHVycG9zZXMgYnJlYWsgaWYgQUZfVlNPQ0sgZ2FpbnMgbmV0d29yaw0K
-PiBuYW1lc3BhY2Ugc3VwcG9ydC4gIFRoaXMgaXMgbm90IGEgYmlnIHByb2JsZW0gZm9yIHZpcnRp
-by12c29jayBpZiB3ZQ0KPiBpbXBsZW1lbnQgbmFtZXNwYWNlIHN1cHBvcnQgc29vbiBzaW5jZSB0
-aGVyZSBhcmUgbm8gZXhpc3RpbmcgdXNlcnMuDQo+IA0KPiBJIHdvbmRlciBob3cgb3RoZXIgYWRk
-cmVzcyBmYW1pbGllcyBoYXZlIHNvbHZlZCB0aGlzIHRyYW5zaXRpb24gdG8NCj4gbmV0d29yayBu
-YW1lc3BhY2VzLiAgSXQncyBhbG1vc3QgbGlrZSB3ZSBuZWVkIGZpbmUtZ3JhaW5lZCBuYW1lc3Bh
-Y2VzDQo+IGluc3RlYWQgb2YgYSBibGFua2V0IG5ldHdvcmsgbmFtZXNwYWNlIHRoYXQgYXBwbGll
-cyBhY3Jvc3MgYWxsIGFkZHJlc3MNCj4gZmFtaWxpZXMuLi4NCj4gDQo+IEknbSBwbGF5aW5nIGFy
-b3VuZCB3aXRoIHRoZSBjb2RlIG5vdyBidXQgd2FudGVkIHRvIGdldCB5b3VyIHRob3VnaHRzIGlu
-DQo+IGNhc2UgeW91J3ZlIGFscmVhZHkgY29uc2lkZXJlZCB0aGVzZSBwcm9ibGVtcy4NCj4gDQo+
-IFN0ZWZhbg0KDQpUaGFua3MsDQpKw7hyZ2Vu
+From: Stefan Eichenberger <eichest@gmail.com>
+Date: Fri, 25 Nov 2016 09:41:28 +0100
+
+> This patchset fixes the following two issues for the MV88E6097:
+> - Add missing definition of g1_irqs
+> - Add missing comment
+
+Series applied, thanks Stefan.
