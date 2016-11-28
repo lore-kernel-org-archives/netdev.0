@@ -1,39 +1,35 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net] sched: cls_flower: remove from hashtable only in case
- skip sw flag is not set
-Date: Mon, 28 Nov 2016 23:04:56 +0200
-Message-ID: <CAJ3xEMhdyBfgtOgJqsY_x-Qr6hrhF01nm3VPL-kJnCofA0r3nA@mail.gmail.com>
-References: <1480344013-4812-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>, Amir Vadai <amir@vadai.me>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/2] net: phy: broadcom: Support for PHY counters
+Date: Mon, 28 Nov 2016 13:06:12 -0800
+Message-ID: <20161128210614.12621-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
+        raju.lakkaraju@microsemi.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:36492 "EHLO
-        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754243AbcK1VE5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:04:57 -0500
-Received: by mail-oi0-f46.google.com with SMTP id v84so166141360oie.3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 13:04:57 -0800 (PST)
-In-Reply-To: <1480344013-4812-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34113 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751660AbcK1VGR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:06:17 -0500
+Received: by mail-pf0-f193.google.com with SMTP id y68so6973288pfb.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 13:06:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 4:40 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> Be symmetric to hashtable insert and remove filter from hashtable only
-> in case skip sw flag is not set.
->
-> Fixes: e69985c67c33 ("net/sched: cls_flower: Introduce support in SKIP SW flag")
+Hi all,
 
-Amir, Jiri - what was the impact of running without this fix for the
-last 3-4 kernels? I haven't seen any crashes, is that leaking took
-place? or this is just a cleanup to make things more clear and
-maintainable?
+This patch series adds support for reading the Broadcom PHYs internal counters.
+
+Florian Fainelli (2):
+  net: phy: broadcom: Add support code for reading PHY counters
+  net: phy: bcm7xxx: Plug in support for reading PHY error counters
+
+ drivers/net/phy/bcm-phy-lib.c | 67 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/bcm-phy-lib.h |  5 ++++
+ drivers/net/phy/bcm7xxx.c     | 34 ++++++++++++++++++++++
+ include/linux/brcmphy.h       |  3 ++
+ 4 files changed, 109 insertions(+)
+
+-- 
+2.9.3
