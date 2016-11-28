@@ -1,104 +1,254 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <uwe@kleine-koenig.org>
-Subject: Re: [PATCH 2/2] net: dsa: mv88e6xxx: Add 88E6176 device tree support
-Date: Mon, 28 Nov 2016 09:09:40 +0100
-Message-ID: <20161128080939.ippqlytvojitefkp@perseus.defre.kleine-koenig.org>
-References: <1480280279-9552-1-git-send-email-afaerber@suse.de>
- <1480280279-9552-2-git-send-email-afaerber@suse.de>
- <20161127212709.GD13318@lunn.ch>
- <9500470d-09c3-3ecb-994b-3d108bffc99e@suse.de>
- <20161127220846.GH13318@lunn.ch>
- <e5d45b55-a4c1-3b5e-0bdc-a5e340b072d0@suse.de>
- <20161127231009.GA17704@lunn.ch>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: [PATCH net-next 1/5] net: mvneta: Use cacheable memory to store
+ the rx buffer virtual address
+Date: Mon, 28 Nov 2016 16:35:48 +0800
+Message-ID: <20161128163548.70181560@xhacker>
+References: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
+        <7e6004f918d3fcde9ae71e7893d26b19086236a3.1480087510.git-series.gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="f5cgf4jnlrji24wl"
-Cc: Andreas =?iso-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        Michal Hrusecki <Michal.Hrusecky@nic.cz>,
-        Tomas Hlavacek <tomas.hlavacek@nic.cz>,
-        Bed??icha Ko??atu <bedrich.kosata@nic.cz>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>, Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:60699 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754060AbcK1IJ6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 03:09:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20161127231009.GA17704@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        "Sebastian Hesselbarth" <sebastian.hesselbarth@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        <linux-arm-kernel@lists.infradead.org>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Dmitri Epshtein <dima@marvell.com>,
+        Yelena Krivosheev <yelena@marvell.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7e6004f918d3fcde9ae71e7893d26b19086236a3.1480087510.git-series.gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Gregory,
 
---f5cgf4jnlrji24wl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Fri, 25 Nov 2016 16:30:14 +0100 Gregory CLEMENT wrote:
 
-Hello Andrew,
+> Until now the virtual address of the received buffer were stored in the
+> cookie field of the rx descriptor. However, this field is 32-bits only
+> which prevents to use the driver on a 64-bits architecture.
+> 
+> With this patch the virtual address is stored in an array not shared with
+> the hardware (no more need to use the DMA API). Thanks to this, it is
+> possible to use cache contrary to the access of the rx descriptor member.
+> 
+> The change is done in the swbm path only because the hwbm uses the cookie
+> field, this also means that currently the hwbm is not usable in 64-bits.
+> 
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 96 ++++++++++++++++++++++++----
+>  1 file changed, 84 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index 87274d4ab102..b6849f88cab7 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -561,6 +561,9 @@ struct mvneta_rx_queue {
+>  	u32 pkts_coal;
+>  	u32 time_coal;
+>  
+> +	/* Virtual address of the RX buffer */
+> +	void  **buf_virt_addr;
 
-On Mon, Nov 28, 2016 at 12:10:09AM +0100, Andrew Lunn wrote:
-> > Try to see it from my perspective: I see that some vf610 device I don't
-> > have (found via `git grep marvell,mv88e6` or so) uses
-> > "marvell,mv88e6085". I then assume it has that device on board. How
-> > would I know it doesn't? Same for the other boards you mention.
-> >=20
-> > Unfortunately some of your replies are slightly cryptic. Had you simply
-> > replied 'please just use "marvell,mv88e6085" instead', it would've been
-> > much more clear what you want. (Same for extending the subject instead
-> > of just pointing to some FAQ.)
->=20
-> By reading the FAQ you have learnt more than me saying put the correct
-> tree in the subject line. By asking you to explain why you need a
-> compatible string, i'm trying to make you think, look at the code and
-> understand it. In the future, you might think and understand the code
-> before posting a patch, and then we all save time.
+can we store buf_phys_addr in cacheable memory as well?
 
-I agree to Andreas though, that it makes an school teacher impression.
-Something like:
+> +
+>  	/* Virtual address of the RX DMA descriptors array */
+>  	struct mvneta_rx_desc *descs;
+>  
+> @@ -1573,10 +1576,14 @@ static void mvneta_tx_done_pkts_coal_set(struct mvneta_port *pp,
+>  
+>  /* Handle rx descriptor fill by setting buf_cookie and buf_phys_addr */
+>  static void mvneta_rx_desc_fill(struct mvneta_rx_desc *rx_desc,
+> -				u32 phys_addr, u32 cookie)
+> +				u32 phys_addr, void *virt_addr,
+> +				struct mvneta_rx_queue *rxq)
+>  {
+> -	rx_desc->buf_cookie = cookie;
+> +	int i;
+> +
+>  	rx_desc->buf_phys_addr = phys_addr;
+> +	i = rx_desc - rxq->descs;
+> +	rxq->buf_virt_addr[i] = virt_addr;
+>  }
+>  
+>  /* Decrement sent descriptors counter */
+> @@ -1781,7 +1788,8 @@ EXPORT_SYMBOL_GPL(mvneta_frag_free);
+>  
+>  /* Refill processing for SW buffer management */
+>  static int mvneta_rx_refill(struct mvneta_port *pp,
+> -			    struct mvneta_rx_desc *rx_desc)
+> +			    struct mvneta_rx_desc *rx_desc,
+> +			    struct mvneta_rx_queue *rxq)
+>  
+>  {
+>  	dma_addr_t phys_addr;
+> @@ -1799,7 +1807,7 @@ static int mvneta_rx_refill(struct mvneta_port *pp,
+>  		return -ENOMEM;
+>  	}
+>  
+> -	mvneta_rx_desc_fill(rx_desc, phys_addr, (u32)data);
+> +	mvneta_rx_desc_fill(rx_desc, phys_addr, data, rxq);
+>  	return 0;
+>  }
+>  
+> @@ -1861,7 +1869,12 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+>  
+>  	for (i = 0; i < rxq->size; i++) {
+>  		struct mvneta_rx_desc *rx_desc = rxq->descs + i;
+> -		void *data = (void *)rx_desc->buf_cookie;
+> +		void *data;
+> +
+> +		if (!pp->bm_priv)
+> +			data = rxq->buf_virt_addr[i];
+> +		else
+> +			data = (void *)(uintptr_t)rx_desc->buf_cookie;
+>  
+>  		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+>  				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+> @@ -1894,12 +1907,13 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
+>  		unsigned char *data;
+>  		dma_addr_t phys_addr;
+>  		u32 rx_status, frag_size;
+> -		int rx_bytes, err;
+> +		int rx_bytes, err, index;
+>  
+>  		rx_done++;
+>  		rx_status = rx_desc->status;
+>  		rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+> -		data = (unsigned char *)rx_desc->buf_cookie;
+> +		index = rx_desc - rxq->descs;
+> +		data = (unsigned char *)rxq->buf_virt_addr[index];
+>  		phys_addr = rx_desc->buf_phys_addr;
+>  
+>  		if (!mvneta_rxq_desc_is_first_last(rx_status) ||
+> @@ -1938,7 +1952,7 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
+>  		}
+>  
+>  		/* Refill processing */
+> -		err = mvneta_rx_refill(pp, rx_desc);
+> +		err = mvneta_rx_refill(pp, rx_desc, rxq);
+>  		if (err) {
+>  			netdev_err(dev, "Linux processing - Can't refill\n");
+>  			rxq->missed++;
+> @@ -2020,7 +2034,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
+>  		rx_done++;
+>  		rx_status = rx_desc->status;
+>  		rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+> -		data = (unsigned char *)rx_desc->buf_cookie;
+> +		data = (u8 *)(uintptr_t)rx_desc->buf_cookie;
+>  		phys_addr = rx_desc->buf_phys_addr;
+>  		pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
+>  		bm_pool = &pp->bm_priv->bm_pools[pool_id];
+> @@ -2708,6 +2722,57 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
+>  	return rx_done;
+>  }
+>  
+> +/* Refill processing for HW buffer management */
+> +static int mvneta_rx_hwbm_refill(struct mvneta_port *pp,
+> +				 struct mvneta_rx_desc *rx_desc)
+> +
+> +{
+> +	dma_addr_t phys_addr;
+> +	void *data;
+> +
+> +	data = mvneta_frag_alloc(pp->frag_size);
+> +	if (!data)
+> +		return -ENOMEM;
+> +
+> +	phys_addr = dma_map_single(pp->dev->dev.parent, data,
+> +				   MVNETA_RX_BUF_SIZE(pp->pkt_size),
+> +				   DMA_FROM_DEVICE);
+> +	if (unlikely(dma_mapping_error(pp->dev->dev.parent, phys_addr))) {
+> +		mvneta_frag_free(pp->frag_size, data);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	phys_addr += pp->rx_offset_correction;
+> +	rx_desc->buf_phys_addr = phys_addr;
+> +	rx_desc->buf_cookie = (uintptr_t)data;
+> +
+> +	return 0;
+> +}
+> +
+> +/* Handle rxq fill: allocates rxq skbs; called when initializing a port */
+> +static int mvneta_rxq_bm_fill(struct mvneta_port *pp,
+> +			      struct mvneta_rx_queue *rxq,
+> +			      int num)
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < num; i++) {
+> +		memset(rxq->descs + i, 0, sizeof(struct mvneta_rx_desc));
+> +		if (mvneta_rx_hwbm_refill(pp, rxq->descs + i) != 0) {
+> +			netdev_err(pp->dev, "%s:rxq %d, %d of %d buffs  filled\n",
+> +				   __func__, rxq->id, i, num);
+> +			break;
+> +		}
+> +	}
+> +
+> +	/* Add this number of RX descriptors as non occupied (ready to
+> +	 * get packets)
+> +	 */
+> +	mvneta_rxq_non_occup_desc_add(pp, rxq, i);
+> +
+> +	return i;
+> +}
+> +
+>  /* Handle rxq fill: allocates rxq skbs; called when initializing a port */
+>  static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
+>  			   int num)
+> @@ -2716,7 +2781,7 @@ static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
+>  
+>  	for (i = 0; i < num; i++) {
+>  		memset(rxq->descs + i, 0, sizeof(struct mvneta_rx_desc));
+> -		if (mvneta_rx_refill(pp, rxq->descs + i) != 0) {
+> +		if (mvneta_rx_refill(pp, rxq->descs + i, rxq) != 0) {
+>  			netdev_err(pp->dev, "%s:rxq %d, %d of %d buffs  filled\n",
+>  				__func__, rxq->id, i, num);
+>  			break;
+> @@ -2784,14 +2849,21 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
+>  		mvneta_rxq_buf_size_set(pp, rxq,
+>  					MVNETA_RX_BUF_SIZE(pp->pkt_size));
+>  		mvneta_rxq_bm_disable(pp, rxq);
+> +
+> +		rxq->buf_virt_addr = devm_kmalloc(pp->dev->dev.parent,
+> +						  rxq->size * sizeof(void *),
+> +						  GFP_KERNEL);
 
-	Please fix the subject. Check the FAQ for the details, which btw
-	is worth a read completely.
+I would suggest allocate this buffer during probe. Otherwise, there's
+memory leak if we either change the mtu or close then open the eth in
+a loop, e.g
 
-is IMHO better in this regard and once you found the problem there you
-don't need to ask back if it's that what was meant.
+while true
+do
+	ifconfig eth0 up
+	ifconfig eth0 down
+done
 
-> > So are you okay with patch 1/2 documenting the compatible? Then we could
-> > drop 2/2 and use "marvell,mv88e6176", "marvell,mv88e6085" instead of
-> > just the latter. Or would you rather drop both and keep the actual chip
-> > a comment?
->=20
-> A comment only please.
+Thanks,
+Jisheng
 
-I still wonder (and didn't get an answer back when I asked about this)
-why a comment is preferred here. For other devices I know it's usual and
-requested by the maintainers to use:
-
-	compatible =3D "exact name", "earlyer device to match driver";
-
-=2E This is more robust, documents the situation more formally and makes
-it better greppable. The price to pay is only a few bytes in the dtb
-which IMO is ok.
-
-Best regards
-Uwe
-
---f5cgf4jnlrji24wl
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAABCgAdFiEEfnIqFpAYrP8+dKQLwfwUeK3K7AkFAlg75kAACgkQwfwUeK3K
-7Amp1Af8Djhoytsdm7xFsAHwRRAmvzasbH0hBOEkn1cRn8GWH6J58pFJs9qyAMZY
-C+9apAJW+CaEp4dONvDBvx8oHegxwK7MQIkjhOmo0rnx7Kw54m7bcdFIGsNbdyI5
-ZifbKVVIlKrC5grulckNRWsvOJJaxc44zFVI9yg+okQIZEPv1Xtu0HWvp3Xc8ORA
-7W31OolUYPdtguiw9Xh59P+/85ob1akxb+cC7+19hhrMCFF6WbIjXdAs596lc1Rj
-HcyEfmyLhpZFodQC5YDIWqe/Y0H+pC4FF6H7B2PWab/6FshzklssYda29D2oYdG2
-obHoL1O4X3Ipr2dDw+QLVcobyQ2nyA==
-=KSyR
------END PGP SIGNATURE-----
-
---f5cgf4jnlrji24wl--
+> +		if (!rxq->buf_virt_addr)
+> +			return -ENOMEM;
+> +
+> +		mvneta_rxq_fill(pp, rxq, rxq->size);
+>  	} else {
+>  		mvneta_rxq_bm_enable(pp, rxq);
+>  		mvneta_rxq_long_pool_set(pp, rxq);
+>  		mvneta_rxq_short_pool_set(pp, rxq);
+> +		mvneta_rxq_bm_fill(pp, rxq, rxq->size);
+>  	}
+>  
+> -	mvneta_rxq_fill(pp, rxq, rxq->size);
+> -
+>  	return 0;
+>  }
+>  
