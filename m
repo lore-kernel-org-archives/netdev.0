@@ -1,51 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: Large performance regression with 6in4 tunnel (sit)
-Date: Tue, 29 Nov 2016 09:38:09 +1100
-Message-ID: <20161129093809.45bae6d1@canb.auug.org.au>
-References: <20161125120947.142c3af5@canb.auug.org.au>
-        <cf2fff0a-7d41-1416-0056-3718ea50a5bd@gmx.com>
-        <20161125134520.68ca0969@canb.auug.org.au>
-        <alpine.DEB.2.20.1611250503250.22094@aurora.sdinet.de>
-        <20161127142340.3a5c197e@canb.auug.org.au>
-        <CAKgT0Ue3f0hUnCvwBupqmhBE_bbxZUO7ODXsz2cbHrPu5gAqyA@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 2/2] openvswitch: Fix skb->protocol for vlan
+ frames.
+Date: Mon, 28 Nov 2016 23:42:46 +0100
+Message-ID: <20161128234246.1a886246@griffin>
+References: <1479874174-75329-1-git-send-email-jarno@ovn.org>
+        <1479874174-75329-2-git-send-email-jarno@ovn.org>
+        <20161124171046.7eb0e287@griffin>
+        <76814927-D373-4C3A-BC85-5771304235A7@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Sven-Haegar Koch <haegar@sdinet.de>,
-        Eli Cooper <elicooper@gmx.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Jarno Rajahalme <jarno@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:51113 "EHLO ozlabs.org"
+Received: from mx1.redhat.com ([209.132.183.28]:34752 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755608AbcK1WiW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 17:38:22 -0500
-In-Reply-To: <CAKgT0Ue3f0hUnCvwBupqmhBE_bbxZUO7ODXsz2cbHrPu5gAqyA@mail.gmail.com>
+        id S1755071AbcK1Wmt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 17:42:49 -0500
+In-Reply-To: <76814927-D373-4C3A-BC85-5771304235A7@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alex,
+On Mon, 28 Nov 2016 14:29:39 -0800, Jarno Rajahalme wrote:
+> I’m not sure what you suggest here. Obviously the kernel ABI can not
+> be changed as existing userspace code expects upcalled packets to be
+> non-accelerated. Also, if userspace pushes vlan headers, the packet
+> will actually have them.
 
-On Mon, 28 Nov 2016 13:32:21 -0800 Alexander Duyck <alexander.duyck@gmail.com> wrote:
->
-> So I think I have this root caused.  The problem seems to be the fact
-> that I chose to use lco_csum when trying to cancel out the inner IP
-> header from the checksum and it turns out that the transport offset is
-> never updated in the case of these tunnels.
+The user space API needs to be preserved, of course. I'm talking about
+what happens internally in the kernel.
+
+See this patchset: https://www.spinics.net/lists/netdev/msg398827.html
+
+> Would this incremental fix this:
 > 
-> For now a workaround is to just set tx-gso-partial to off on the
-> interface the tunnel is running over and you should be able to pass
-> traffic without any issues.
+> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+> index 9be9fda..37f1bb9 100644
+> --- a/net/openvswitch/flow.c
+> +++ b/net/openvswitch/flow.c
+> @@ -354,6 +354,8 @@ static int parse_vlan(struct sk_buff *skb, struct
+> sw_flow_key *key) res = parse_vlan_tag(skb, &key->eth.vlan);
+>  		if (res <= 0)
+>  			return res;
+> +		if (skb->protocol == htons(ETH_P_TEB))
+> +			skb->protocol = key->eth.vlan.tpid;
+>  	}
+>  
+>  	/* Parse inner vlan tag. */
 
-OK, so that works (even with gso and tso set to "on" on the sit
-interface).  Thanks.
+I'll look at this tomorrow. But it seems we're adding more and more
+hacks instead of cleaning up the vlan handling.
 
-> I have a patch for igb/igbvf that should be out in the next hour or so
-> which should address it.
-
-That will be a bit harder to test, but I will see what I can do.
-
--- 
-Cheers,
-Stephen Rothwell
+ Jiri
