@@ -1,172 +1,147 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v2 3/5] virtio_net: Add XDP support
-Date: Mon, 28 Nov 2016 06:07:18 +0200
-Message-ID: <20161128060446-mutt-send-email-mst@kernel.org>
-References: <20161120024710.19187.31037.stgit@john-Precision-Tower-5810>
- <20161120025033.19187.11082.stgit@john-Precision-Tower-5810>
- <20161122011638-mutt-send-email-mst@kernel.org>
- <58340157.8060103@gmail.com>
- <20161122165400-mutt-send-email-mst@kernel.org>
- <5838ABF3.8060308@gmail.com>
- <20161128052211-mutt-send-email-mst@kernel.org>
- <583BAAD9.4080408@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC net-next 2/3] net: dsa: Propagate VLAN add/del to CPU
+ port(s)
+Date: Sun, 27 Nov 2016 20:30:38 -0800
+Message-ID: <7d7189ac-d5d5-d22b-4f9a-1f9c890236c2@gmail.com>
+References: <20161121190925.14530-1-f.fainelli@gmail.com>
+ <20161121190925.14530-3-f.fainelli@gmail.com>
+ <87eg23zcf5.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, kubakici@wp.pl,
-        shm@cumulusnetworks.com, davem@davemloft.net,
-        alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        bblanco@plumgrid.com, john.r.fastabend@intel.com,
-        brouer@redhat.com, tgraf@suug.ch
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, bridge@lists.linux-foundation.org,
+        stephen@networkplumber.org, andrew@lunn.ch, jiri@mellanox.com,
+        idosch@mellanox.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34470 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752020AbcK1EHV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Nov 2016 23:07:21 -0500
-Content-Disposition: inline
-In-Reply-To: <583BAAD9.4080408@gmail.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:34267 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753647AbcK1Eam (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 23:30:42 -0500
+Received: by mail-oi0-f67.google.com with SMTP id m75so12032473oig.1
+        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 20:30:42 -0800 (PST)
+In-Reply-To: <87eg23zcf5.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 27, 2016 at 07:56:09PM -0800, John Fastabend wrote:
-> On 16-11-27 07:36 PM, Michael S. Tsirkin wrote:
-> > On Fri, Nov 25, 2016 at 01:24:03PM -0800, John Fastabend wrote:
-> >> On 16-11-22 06:58 AM, Michael S. Tsirkin wrote:
-> >>> On Tue, Nov 22, 2016 at 12:27:03AM -0800, John Fastabend wrote:
-> >>>> On 16-11-21 03:20 PM, Michael S. Tsirkin wrote:
-> >>>>> On Sat, Nov 19, 2016 at 06:50:33PM -0800, John Fastabend wrote:
-> >>>>>> From: Shrijeet Mukherjee <shrijeet@gmail.com>
-> >>>>>>
-> >>>>>> This adds XDP support to virtio_net. Some requirements must be
-> >>>>>> met for XDP to be enabled depending on the mode. First it will
-> >>>>>> only be supported with LRO disabled so that data is not pushed
-> >>>>>> across multiple buffers. The MTU must be less than a page size
-> >>>>>> to avoid having to handle XDP across multiple pages.
-> >>>>>>
-> >>>>>> If mergeable receive is enabled this first series only supports
-> >>>>>> the case where header and data are in the same buf which we can
-> >>>>>> check when a packet is received by looking at num_buf. If the
-> >>>>>> num_buf is greater than 1 and a XDP program is loaded the packet
-> >>>>>> is dropped and a warning is thrown. When any_header_sg is set this
-> >>>>>> does not happen and both header and data is put in a single buffer
-> >>>>>> as expected so we check this when XDP programs are loaded. Note I
-> >>>>>> have only tested this with Linux vhost backend.
-> >>>>>>
-> >>>>>> If big packets mode is enabled and MTU/LRO conditions above are
-> >>>>>> met then XDP is allowed.
-> >>>>>>
-> >>>>>> A follow on patch can be generated to solve the mergeable receive
-> >>>>>> case with num_bufs equal to 2. Buffers greater than two may not
-> >>>>>> be handled has easily.
-> >>>>>
-> >>>>>
-> >>>>> I would very much prefer support for other layouts without drops
-> >>>>> before merging this.
-> >>>>> header by itself can certainly be handled by skipping it.
-> >>>>> People wanted to use that e.g. for zero copy.
-> >>>>
-> >>>> OK fair enough I'll do this now rather than push it out.
-> >>>>
-> >>
-> >> Hi Michael,
-> >>
-> >> The header skip logic however complicates the xmit handling a fair
-> >> amount. Specifically when we release the buffers after xmit then
-> >> both the hdr and data portions need to be released which requires
-> >> some tracking.
-> > 
-> > I thought you disable all checksum offloads so why not discard the
-> > header immediately?
+
+
+On 11/22/2016 08:50 AM, Vivien Didelot wrote:
+> Hi Florian,
 > 
-> Well in the "normal" case where the header is part of the same buffer
-> we keep it to use the same space for the header on the TX path.
+> Open question: will we need to do the same for FDB and MDB objects?
+
+(overlooked that question early this week), I do expect that this could
+be helpful for FDB and MBD objects as well, yes.
+
 > 
-> If we discard it in the header split case we have to push the header
-> somewhere else. In the skb case the cb[] region is used it looks like.
-> In our case I guess free space at the end of the page could be used.
-
-You don't have to put start of page in a buffer, you
-can put an offset there. Will result in some waste in the
-common case, but it's just several bytes so likely not a big deal.
-
-> My thinking is if we handle the general case of more than one buffer
-> being used with a copy we can handle the case above using the same
-> logic and no need to handle it as a special case. It seems to be an odd
-> case that doesn't really exist anyways. At least not in qemu/Linux. I
-> have not tested anything else.
-
-OK
-
-> > 
-> >> Is the header split logic actually in use somewhere today? It looks
-> >> like its not being used in Linux case. And zero copy RX is currently as
-> >> best I can tell not supported anywhere so I would prefer not to
-> >> complicate the XDP path at the moment with a possible future feature.
-> > 
-> > Well it's part of the documented interface so we never
-> > know who implemented it. Normally if we want to make
-> > restrictions we would do the reverse and add a feature.
-> > 
-> > We can do this easily, but I'd like to first look into
-> > just handling all possible inputs as the spec asks us to.
-> > I'm a bit too busy with other stuff next week but will
-> > look into this a week after that if you don't beat me to it.
-> > 
+> Florian Fainelli <f.fainelli@gmail.com> writes:
 > 
-> Well I've almost got it working now with some logic to copy everything
-> into a single page if we hit this case so should be OK but slow. I'll
-> finish testing this and send it out hopefully in the next few days.
+>> Now that the bridge layer can call into switchdev to signal programming
+>> requests targeting the bridge master device itself, allow the switch
+>> drivers to implement separate programming of downstream and
+>> upstream/management ports.
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  net/dsa/slave.c | 45 +++++++++++++++++++++++++++++++++------------
+>>  1 file changed, 33 insertions(+), 12 deletions(-)
+>>
+>> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+>> index d0c7bce88743..18288261b964 100644
+>> --- a/net/dsa/slave.c
+>> +++ b/net/dsa/slave.c
+>> @@ -223,35 +223,30 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
+>>  	return 0;
+>>  }
+>>  
+>> -static int dsa_slave_port_vlan_add(struct net_device *dev,
+>> +static int dsa_slave_port_vlan_add(struct dsa_switch *ds, int port,
+>>  				   const struct switchdev_obj_port_vlan *vlan,
+>>  				   struct switchdev_trans *trans)
+>>  {
+>> -	struct dsa_slave_priv *p = netdev_priv(dev);
+>> -	struct dsa_switch *ds = p->parent;
+>>  
 > 
-> >>>>>
-> >>>>> Anything else can be handled by copying the packet.
-> >>
-> >> Any idea how to test this? At the moment I have some code to linearize
-> >> the data in all cases with more than a single buffer. But wasn't clear
-> >> to me which features I could negotiate with vhost/qemu to get more than
-> >> a single buffer in the receive path.
-> >>
-> >> Thanks,
-> >> John
-> > 
-> > ATM you need to hack qemu. Here's a hack to make header completely
-> > separate.
-> > 
+> Extra newline ^.
 > 
-> Perfect! hacking qemu for testing is no problem this helps a lot thanks
-> and saves me time trying to figure out how to get qemu to do this.
+>>  	if (switchdev_trans_ph_prepare(trans)) {
+>>  		if (!ds->ops->port_vlan_prepare || !ds->ops->port_vlan_add)
+>>  			return -EOPNOTSUPP;
+>>  
+>> -		return ds->ops->port_vlan_prepare(ds, p->port, vlan, trans);
+>> +		return ds->ops->port_vlan_prepare(ds, port, vlan, trans);
+>>  	}
+>>  
+>> -	ds->ops->port_vlan_add(ds, p->port, vlan, trans);
+>> +	ds->ops->port_vlan_add(ds, port, vlan, trans);
+>>  
+>>  	return 0;
+>>  }
+>>  
+>> -static int dsa_slave_port_vlan_del(struct net_device *dev,
+>> +static int dsa_slave_port_vlan_del(struct dsa_switch *ds, int port,
+>>  				   const struct switchdev_obj_port_vlan *vlan)
+>>  {
+>> -	struct dsa_slave_priv *p = netdev_priv(dev);
+>> -	struct dsa_switch *ds = p->parent;
+>> -
+>>  	if (!ds->ops->port_vlan_del)
+>>  		return -EOPNOTSUPP;
+>>  
+>> -	return ds->ops->port_vlan_del(ds, p->port, vlan);
+>> +	return ds->ops->port_vlan_del(ds, port, vlan);
+>>  }
+>>  
+>>  static int dsa_slave_port_vlan_dump(struct net_device *dev,
+>> @@ -465,8 +460,21 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+>>  				  const struct switchdev_obj *obj,
+>>  				  struct switchdev_trans *trans)
+>>  {
+>> +	struct dsa_slave_priv *p = netdev_priv(dev);
+>> +	struct dsa_switch *ds = p->parent;
+>> +	int port = p->port;
+>>  	int err;
+>>  
+>> +	/* Here we may be called with an orig_dev which is different from dev,
+>> +	 * on purpose, to receive request coming from e.g the bridge master
+>> +	 * device. Although there are no network device associated with CPU/DSA
+>> +	 * ports, we may still have programming operation for these ports.
+>> +	 */
+>> +	if (obj->orig_dev == p->bridge_dev) {
+>> +		ds = ds->dst->ds[0];
+>> +		port = ds->dst->cpu_port;
+>> +	}
+>> +
+>>  	/* For the prepare phase, ensure the full set of changes is feasable in
+>>  	 * one go in order to signal a failure properly. If an operation is not
+>>  	 * supported, return -EOPNOTSUPP.
+>> @@ -483,7 +491,7 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+>>  					     trans);
+>>  		break;
+>>  	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+>> -		err = dsa_slave_port_vlan_add(dev,
+>> +		err = dsa_slave_port_vlan_add(ds, port,
+>>  					      SWITCHDEV_OBJ_PORT_VLAN(obj),
+>>  					      trans);
+> 
+> Note that dsa_slave_port_vlan_add() will be called N times, N being the
+> number of bridge ports. This is not an issue for the moment though.
+> Programming it only once requires caching, so leave it for an eventual
+> future patch.
+> 
+> When issuing the following command (lan0 being a member of br0):
+> 
+>     # bridge vlan add vid 42 dev lan0
+> 
+> the CPU port is also programmed as tagged in VLAN 42. Is that expected?
 
-Pls note I didn't try this at all, so might not work, but should
-give you the idea.
-
-> > 
-> > diff --git a/hw/net/virtio-net.c b/hw/net/virtio-net.c
-> > index b68c69d..4866144 100644
-> > --- a/hw/net/virtio-net.c
-> > +++ b/hw/net/virtio-net.c
-> > @@ -1164,6 +1164,7 @@ static ssize_t virtio_net_receive(NetClientState *nc, const uint8_t *buf, size_t
-> >              offset = n->host_hdr_len;
-> >              total += n->guest_hdr_len;
-> >              guest_offset = n->guest_hdr_len;
-> > +            continue;
-> >          } else {
-> >              guest_offset = 0;
-> >          }
-> > 
-> > 
-> > 
-> > here's one that should cap the 1st s/g to 100 bytes:
-> > 
-> > 
-> > diff --git a/hw/net/virtio-net.c b/hw/net/virtio-net.c
-> > index b68c69d..7943004 100644
-> > --- a/hw/net/virtio-net.c
-> > +++ b/hw/net/virtio-net.c
-> > @@ -1164,6 +1164,7 @@ static ssize_t virtio_net_receive(NetClientState *nc, const uint8_t *buf, size_t
-> >              offset = n->host_hdr_len;
-> >              total += n->guest_hdr_len;
-> >              guest_offset = n->guest_hdr_len;
-> > +            sg.iov_len = MIN(sg.iov_len, 100);
-> >          } else {
-> >              guest_offset = 0;
-> >          }
-> > 
+The first time the VLAN id is programmed to either lan0 or br0, and it
+did not exist prior to that call, it also gets populated into the bridge
+VLAN database, which is why both the lan0 interface and the CPU port get
+programmed.
+-- 
+Florian
