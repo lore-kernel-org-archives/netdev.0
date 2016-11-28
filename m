@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] driver: ipvlan: Fix one possible memleak in
- ipvlan_link_new
-Date: Sun, 27 Nov 2016 19:58:56 -0500 (EST)
-Message-ID: <20161127.195856.2031792373036023546.davem@davemloft.net>
-References: <1480001999-10500-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH] irda: fix overly long udelay()
+Date: Sun, 27 Nov 2016 20:00:08 -0500 (EST)
+Message-ID: <20161127.200008.611727107565298640.davem@davemloft.net>
+References: <20161124162630.3802535-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org,
-        gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35712 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35728 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751093AbcK1A7n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 19:59:43 -0500
-In-Reply-To: <1480001999-10500-1-git-send-email-fgao@ikuai8.com>
+        with ESMTP id S1751241AbcK1BAJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 20:00:09 -0500
+In-Reply-To: <20161124162630.3802535-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fgao@ikuai8.com
-Date: Thu, 24 Nov 2016 23:39:59 +0800
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 24 Nov 2016 17:26:22 +0100
 
-> From: Gao Feng <fgao@ikuai8.com>
+> irda_get_mtt() returns a hardcoded '10000' in some cases,
+> and with gcc-7, we get a build error because this triggers a
+> compile-time check in udelay():
 > 
-> When ipvlan_link_new fails and creates one ipvlan port, it does not
-> destroy the ipvlan port created. It causes mem leak and the physical
-> device contains invalid ipvlan data.
+> drivers/net/irda/w83977af_ir.o: In function `w83977af_hard_xmit':
+> w83977af_ir.c:(.text.w83977af_hard_xmit+0x14c): undefined reference to `__bad_udelay'
 > 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> Older compilers did not run into this because they either did not
+> completely inline the irda_get_mtt() or did not consider the
+> 10000 value a constant expression.
+> 
+> The code has been wrong since the start of git history.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thanks.
+Applied, thanks Arnd.
