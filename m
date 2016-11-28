@@ -1,59 +1,80 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] sched: cls_flower: remove from hashtable only in case skip sw flag is not set
-Date: Mon, 28 Nov 2016 15:40:13 +0100
-Message-ID: <1480344013-4812-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, idosch@mellanox.com,
-        eladr@mellanox.com, ogerlitz@mellanox.com, hadarh@mellanox.com,
-        amir@vadai.me
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:35891 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933286AbcK1OkQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 09:40:16 -0500
-Received: by mail-wj0-f196.google.com with SMTP id jb2so14348977wjb.3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 06:40:15 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH net] net/dccp: fix use-after-free in dccp_invalid_packet
+Date: Mon, 28 Nov 2016 11:40:01 -0300
+Message-ID: <20161128144001.GE16426@kernel.org>
+References: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
+ <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+Em Mon, Nov 28, 2016 at 06:26:49AM -0800, Eric Dumazet escreveu:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> pskb_may_pull() can reallocate skb->head, we need to reload dh pointer
+> in dccp_invalid_packet() or risk use after free.
+> 
+> Bug found by Andrey Konovalov using syzkaller.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
 
-Be symmetric to hashtable insert and remove filter from hashtable only
-in case skip sw flag is not set.
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Fixes: e69985c67c33 ("net/sched: cls_flower: Introduce support in SKIP SW flag")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_flower.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+I was about to send exactly this patch, and while looking at it I think
+the patch below needs to go in as well, no? To follow the advice of that
+Warning line there :-)
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index f6f40fb..641c44c 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -711,8 +711,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 		goto errout;
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+pskb_may_pull() can reallocate skb->head, so we can't access
+iph->frag_off or risk use after free, save it to a variable and us that
+later.
+
+Cc: Andrey Konovalov <andreyknvl@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 5ddf5cda07f4..9462070561a3 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1198,6 +1198,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	struct iphdr *iph;
+ 	int proto, tot_len;
+ 	int nhoff;
++	u16 frag_off;
+ 	int ihl;
+ 	int id;
  
- 	if (fold) {
--		rhashtable_remove_fast(&head->ht, &fold->ht_node,
--				       head->ht_params);
-+		if (!tc_skip_sw(fold->flags))
-+			rhashtable_remove_fast(&head->ht, &fold->ht_node,
-+					       head->ht_params);
- 		fl_hw_destroy_filter(tp, (unsigned long)fold);
+@@ -1213,6 +1214,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 
+ 	id = ntohs(iph->id);
+ 	proto = iph->protocol;
++	frag_off = iph->frag_off;
+ 
+ 	/* Warning: after this point, iph might be no longer valid */
+ 	if (unlikely(!pskb_may_pull(skb, ihl)))
+@@ -1233,7 +1235,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 		fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
+ 
+ 		/* fixed ID is invalid if DF bit is not set */
+-		if (fixedid && !(iph->frag_off & htons(IP_DF)))
++		if (fixedid && !(frag_off & htons(IP_DF)))
+ 			goto out;
  	}
  
-@@ -739,8 +740,9 @@ static int fl_delete(struct tcf_proto *tp, unsigned long arg)
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
- 	struct cls_fl_filter *f = (struct cls_fl_filter *) arg;
- 
--	rhashtable_remove_fast(&head->ht, &f->ht_node,
--			       head->ht_params);
-+	if (!tc_skip_sw(f->flags))
-+		rhashtable_remove_fast(&head->ht, &f->ht_node,
-+				       head->ht_params);
- 	list_del_rcu(&f->list);
- 	fl_hw_destroy_filter(tp, (unsigned long)f);
- 	tcf_unbind_filter(tp, &f->res);
--- 
-2.7.4
