@@ -1,44 +1,71 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 0/5] l2tp: fixes for l2tp_ip and l2tp_ip6 socket handling
-Date: Mon, 28 Nov 2016 20:39:54 +0100
-Message-ID: <cover.1480360512.git.g.nault@alphalink.fr>
+From: Josef Bacik <jbacik@fb.com>
+Subject: [PATCH net] bpf: fix states equal logic for varlen access
+Date: Mon, 28 Nov 2016 14:44:10 -0500
+Message-ID: <1480362250-2132-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>,
-        Chris Elston <celston@katalix.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <daniel@iogearbox.net>, <ast@kernel.org>, <jannh@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:48819 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752420AbcK1Tj6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 14:39:58 -0500
-Content-Disposition: inline
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49919 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751438AbcK1Tom (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 14:44:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series addresses problems found while working on commit 32c231164b76
-("l2tp: fix racy SOCK_ZAPPED flag check in l2tp_ip{,6}_bind()").
+If we have a branch that looks something like this
 
-The first three patches fix races in socket's connect, recv and bind
-operations. The last two ones fix scenarios where l2tp fails to
-correctly lookup its userspace sockets.
+int foo = map->value;
+if (condition) {
+  foo += blah;
+} else {
+  foo = bar;
+}
+map->array[foo] = baz;
 
-Apart from the last patch, which is l2tp_ip6 specific, every patch fixes
-the same problem in the L2TP IPv4 and IPv6 code.
+We will incorrectly assume that the !condition branch is equal to the condition
+branch as the register for foo will be UNKNOWN_VALUE in both cases.  We need to
+adjust this logic to only do this if we didn't do a varlen access after we
+processed the !condition branch, otherwise we have different ranges and need to
+check the other branch as well.
 
+Signed-off-by: Josef Bacik <jbacik@fb.com>
+---
+ kernel/bpf/verifier.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-Guillaume Nault (5):
-  l2tp: lock socket before checking flags in connect()
-  l2tp: hold socket before dropping lock in l2tp_ip{,6}_recv()
-  l2tp: fix racy socket lookup in l2tp_ip and l2tp_ip6 bind()
-  l2tp: fix lookup for sockets not bound to a device in l2tp_ip
-  l2tp: fix address test in __l2tp_ip6_bind_lookup()
-
- include/net/ipv6.h  |  2 ++
- net/ipv6/datagram.c |  4 ++-
- net/l2tp/l2tp_ip.c  | 61 +++++++++++++++++++++--------------------
- net/l2tp/l2tp_ip6.c | 79 ++++++++++++++++++++++++++++-------------------------
- 4 files changed, 79 insertions(+), 67 deletions(-)
-
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 89f787c..2c8a688 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2478,6 +2478,7 @@ static bool states_equal(struct bpf_verifier_env *env,
+ {
+ 	struct bpf_reg_state *rold, *rcur;
+ 	int i;
++	bool map_access = env->varlen_map_value_access;
+ 
+ 	for (i = 0; i < MAX_BPF_REG; i++) {
+ 		rold = &old->regs[i];
+@@ -2489,12 +2490,17 @@ static bool states_equal(struct bpf_verifier_env *env,
+ 		/* If the ranges were not the same, but everything else was and
+ 		 * we didn't do a variable access into a map then we are a-ok.
+ 		 */
+-		if (!env->varlen_map_value_access &&
++		if (!map_access &&
+ 		    rold->type == rcur->type && rold->imm == rcur->imm)
+ 			continue;
+ 
++		/* If we didn't map access then again we don't care about the
++		 * mismatched range values and it's ok if our old type was
++		 * UNKNOWN and we didn't go to a NOT_INIT'ed reg.
++		 */
+ 		if (rold->type == NOT_INIT ||
+-		    (rold->type == UNKNOWN_VALUE && rcur->type != NOT_INIT))
++		    (!map_access && (rold->type == UNKNOWN_VALUE &&
++				     rcur->type != NOT_INIT)))
+ 			continue;
+ 
+ 		if (rold->type == PTR_TO_PACKET && rcur->type == PTR_TO_PACKET &&
 -- 
-2.10.2
+2.7.4
