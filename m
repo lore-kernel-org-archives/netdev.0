@@ -1,126 +1,80 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH net] net/dccp: fix use-after-free in dccp_invalid_packet
-Date: Mon, 28 Nov 2016 12:05:18 -0300
-Message-ID: <20161128150518.GA17913@kernel.org>
-References: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
- <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161128144001.GE16426@kernel.org>
- <1480344434.18162.51.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: net/sctp: vmalloc allocation failure in
+ sctp_setsockopt/xt_alloc_table_info
+Date: Mon, 28 Nov 2016 13:13:12 -0200
+Message-ID: <20161128151312.GA13172@localhost.localdomain>
+References: <CAAeHK+wecw6ST_DWJQBLFNwVsOVgderGE-EEJiN0-kf796XHtw@mail.gmail.com>
+ <20161128141340.GA29839@hmsreliant.think-freely.org>
+ <CAAeHK+xJmwF6hddS-sO-y3HQkRicwQN=ZceFWTZT2M_0h4E2hQ@mail.gmail.com>
+ <20161128143931.GB29839@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
         Dmitry Vyukov <dvyukov@google.com>,
         Kostya Serebryany <kcc@google.com>,
         Eric Dumazet <edumazet@google.com>,
         syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:34404 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932532AbcK1PGV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 10:06:21 -0500
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1480344434.18162.51.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161128143931.GB29839@hmsreliant.think-freely.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em Mon, Nov 28, 2016 at 06:47:14AM -0800, Eric Dumazet escreveu:
-> On Mon, 2016-11-28 at 11:40 -0300, Arnaldo Carvalho de Melo wrote:
-> > Em Mon, Nov 28, 2016 at 06:26:49AM -0800, Eric Dumazet escreveu:
-> > > From: Eric Dumazet <edumazet@google.com>
-> > > 
-> > > pskb_may_pull() can reallocate skb->head, we need to reload dh pointer
-> > > in dccp_invalid_packet() or risk use after free.
-> > > 
-> > > Bug found by Andrey Konovalov using syzkaller.
-> > > 
-> > > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > > Reported-by: Andrey Konovalov <andreyknvl@google.com>
+On Mon, Nov 28, 2016 at 09:39:31AM -0500, Neil Horman wrote:
+> On Mon, Nov 28, 2016 at 03:33:40PM +0100, Andrey Konovalov wrote:
+> > On Mon, Nov 28, 2016 at 3:13 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
+> > > On Mon, Nov 28, 2016 at 02:00:19PM +0100, Andrey Konovalov wrote:
+> > >> Hi!
+> > >>
+> > >> I've got the following error report while running the syzkaller fuzzer.
+> > >>
+> > >> On commit d8e435f3ab6fea2ea324dce72b51dd7761747523 (Nov 26).
+> > >>
+> > >> A reproducer is attached.
+> > >>
+> > >> a.out: vmalloc: allocation failure, allocated 823562240 of 1427091456
+> > >> bytes, mode:0x24000c2(GFP_KERNEL|__GFP_HIGHMEM)
+> > >>
+> > > How much total ram do you have in this system?  The call appears to be
+> > > attempting to allocate 1.3 Gb of data.  Even using vmalloc to allow
+> > > discontiguous allocation, thats alot of memory, and if enough is in use already,
+> > > I could make the argument that this might be expected behavior.
 > > 
-> > Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> > Hi Neail,
 > > 
-> > I was about to send exactly this patch, and while looking at it I think
-> > the patch below needs to go in as well, no? To follow the advice of that
-> > Warning line there :-)
+> > I have 2 Gb.
 > > 
-> > From: Arnaldo Carvalho de Melo <acme@redhat.com>
-> > 
-> > pskb_may_pull() can reallocate skb->head, so we can't access
-> > iph->frag_off or risk use after free, save it to a variable and us that
-> > later.
-> > 
-> > Cc: Andrey Konovalov <andreyknvl@google.com>
-> > Cc: Eric Dumazet <edumazet@google.com>
-> > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> > 
-> > diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> > index 5ddf5cda07f4..9462070561a3 100644
-> > --- a/net/ipv4/af_inet.c
-> > +++ b/net/ipv4/af_inet.c
-> > @@ -1198,6 +1198,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> >  	struct iphdr *iph;
-> >  	int proto, tot_len;
-> >  	int nhoff;
-> > +	u16 frag_off;
-> >  	int ihl;
-> >  	int id;
-> >  
-> > @@ -1213,6 +1214,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> >  
-> >  	id = ntohs(iph->id);
-> >  	proto = iph->protocol;
-> > +	frag_off = iph->frag_off;
-> >  
-> >  	/* Warning: after this point, iph might be no longer valid */
-> >  	if (unlikely(!pskb_may_pull(skb, ihl)))
-> > @@ -1233,7 +1235,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
-> >  		fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
-> >  
-> >  		/* fixed ID is invalid if DF bit is not set */
-> > -		if (fixedid && !(iph->frag_off & htons(IP_DF)))
-> > +		if (fixedid && !(frag_off & htons(IP_DF)))
-> >  			goto out;
-> >  	}
-> >  
+> That would be why.  Allocating 65% of the available system memory will almost
+> certainly lead to OOM failures quickly.
 > 
-> 
-> I do not see why this patch would be needed ?
+> > Just tested with 4 Gb, everything seems to be working fine.
+> > So I guess this is not actually a bug and allocating 1.3 Gb is OK.
 
-Where is iph being reloaded after that pskb_may_pull() and thus at line 1236 we
-could use after free? The warning at line 1217?
+Still we probably should avoid the warn triggered by an userspace
+application: (untested)
 
-1209         iph = ip_hdr(skb);
-1210         ihl = iph->ihl * 4;
-1211         if (ihl < sizeof(*iph))
-1212                 goto out;
-1213 
-1214         id = ntohs(iph->id);
-1215         proto = iph->protocol;
-1216 
-1217         /* Warning: after this point, iph might be no longer valid */
-1218         if (unlikely(!pskb_may_pull(skb, ihl)))
-1219                 goto out;
-1220         __skb_pull(skb, ihl);
-1221 
-1222         encap = SKB_GSO_CB(skb)->encap_level > 0;
-1223         if (encap)
-1224                 features &= skb->dev->hw_enc_features;
-1225         SKB_GSO_CB(skb)->encap_level += ihl;
-1226 
-1227         skb_reset_transport_header(skb);
-1228 
-1229         segs = ERR_PTR(-EPROTONOSUPPORT);
-1230 
-1231         if (!skb->encapsulation || encap) {
-1232                 udpfrag = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
-1233                 fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
-1234 
-1235                 /* fixed ID is invalid if DF bit is not set */
-1236                 if (fixedid && !(iph->frag_off & htons(IP_DF)))
-1237                         goto out;
-1238         }
+--8<--
+
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index fc4977456c30..b56a0e128fc3 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -958,7 +958,8 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
+ 	if (sz <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
+ 		info = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
+ 	if (!info) {
+-		info = vmalloc(sz);
++		info = __vmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_HIGHMEM,
++				 PAGE_KERNEL);
+ 		if (!info)
+ 			return NULL;
+ 	}
