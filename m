@@ -1,76 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net/dccp: fix use-after-free in dccp_invalid_packet
-Date: Mon, 28 Nov 2016 06:26:49 -0800
-Message-ID: <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36003 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932626AbcK1O0v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 09:26:51 -0500
-In-Reply-To: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Subject: [patch net] net: fec: cache statistics while device is down
+Date: Mon, 28 Nov 2016 17:27:07 +0300
+Message-ID: <1480343227-725-1-git-send-email-nikita.yoush@cogentembedded.com>
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        linux-kernel@vger.kernel.org,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Execution 'ethtool -S' on fec device that is down causes OOPS on Vybrid
+board:
 
-pskb_may_pull() can reallocate skb->head, we need to reload dh pointer
-in dccp_invalid_packet() or risk use after free.
+Unhandled fault: external abort on non-linefetch (0x1008) at 0xe0898200
+pgd = ddecc000
+[e0898200] *pgd=9e406811, *pte=400d1653, *ppte=400d1453
+Internal error: : 1008 [#1] SMP ARM
+...
 
-Bug found by Andrey Konovalov using syzkaller.
+Reason of OOPS is that fec_enet_get_ethtool_stats() accesses fec
+registers while IPG clock is stopped by PM.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Fix that by caching statistics in fec_enet_private. Cache is updated
+just before statistics request if device is up, and also just before
+turning device off on down path.
+
+Additional locking is not needed, since cached statistics is always
+updated under rtnl_lock().
+
+Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
 ---
- net/dccp/ipv4.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  2 ++
+ drivers/net/ethernet/freescale/fec_main.c | 21 +++++++++++++++++----
+ 2 files changed, 19 insertions(+), 4 deletions(-)
 
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index b567c8725aea..edbe59d203ef 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -700,6 +700,7 @@ int dccp_invalid_packet(struct sk_buff *skb)
- {
- 	const struct dccp_hdr *dh;
- 	unsigned int cscov;
-+	u8 dccph_doff;
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index c865135f3cb9..5ea740b4cf14 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -574,6 +574,8 @@ struct fec_enet_private {
+ 	unsigned int reload_period;
+ 	int pps_enable;
+ 	unsigned int next_counter;
++
++	u64 ethtool_stats[0];
+ };
  
- 	if (skb->pkt_type != PACKET_HOST)
- 		return 1;
-@@ -721,18 +722,19 @@ int dccp_invalid_packet(struct sk_buff *skb)
- 	/*
- 	 * If P.Data Offset is too small for packet type, drop packet and return
- 	 */
--	if (dh->dccph_doff < dccp_hdr_len(skb) / sizeof(u32)) {
--		DCCP_WARN("P.Data Offset(%u) too small\n", dh->dccph_doff);
-+	dccph_doff = dh->dccph_doff;
-+	if (dccph_doff < dccp_hdr_len(skb) / sizeof(u32)) {
-+		DCCP_WARN("P.Data Offset(%u) too small\n", dccph_doff);
- 		return 1;
- 	}
- 	/*
- 	 * If P.Data Offset is too too large for packet, drop packet and return
- 	 */
--	if (!pskb_may_pull(skb, dh->dccph_doff * sizeof(u32))) {
--		DCCP_WARN("P.Data Offset(%u) too large\n", dh->dccph_doff);
-+	if (!pskb_may_pull(skb, dccph_doff * sizeof(u32))) {
-+		DCCP_WARN("P.Data Offset(%u) too large\n", dccph_doff);
- 		return 1;
- 	}
--
-+	dh = dccp_hdr(skb);
- 	/*
- 	 * If P.type is not Data, Ack, or DataAck and P.X == 0 (the packet
- 	 * has short sequence numbers), drop packet and return
+ void fec_ptp_init(struct platform_device *pdev);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 5aa9d4ded214..7da2d94ec8e5 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2313,14 +2313,24 @@ static const struct fec_stat {
+ 	{ "IEEE_rx_octets_ok", IEEE_R_OCTETS_OK },
+ };
+ 
+-static void fec_enet_get_ethtool_stats(struct net_device *dev,
+-	struct ethtool_stats *stats, u64 *data)
++static void fec_enet_update_ethtool_stats(struct net_device *dev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(dev);
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(fec_stats); i++)
+-		data[i] = readl(fep->hwp + fec_stats[i].offset);
++		fep->ethtool_stats[i] = readl(fep->hwp + fec_stats[i].offset);
++}
++
++static void fec_enet_get_ethtool_stats(struct net_device *dev,
++				       struct ethtool_stats *stats, u64 *data)
++{
++	struct fec_enet_private *fep = netdev_priv(dev);
++
++	if (netif_running(dev))
++		fec_enet_update_ethtool_stats(dev);
++
++	memcpy(data, fep->ethtool_stats, ARRAY_SIZE(fec_stats) * sizeof(u64));
+ }
+ 
+ static void fec_enet_get_strings(struct net_device *netdev,
+@@ -2874,6 +2884,8 @@ fec_enet_close(struct net_device *ndev)
+ 	if (fep->quirks & FEC_QUIRK_ERR006687)
+ 		imx6q_cpuidle_fec_irqs_unused();
+ 
++	fec_enet_update_ethtool_stats(ndev);
++
+ 	fec_enet_clk_enable(ndev, false);
+ 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 	pm_runtime_mark_last_busy(&fep->pdev->dev);
+@@ -3278,7 +3290,8 @@ fec_probe(struct platform_device *pdev)
+ 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
+ 
+ 	/* Init network device */
+-	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private),
++	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private) +
++				  ARRAY_SIZE(fec_stats) * sizeof(u64),
+ 				  num_tx_qs, num_rx_qs);
+ 	if (!ndev)
+ 		return -ENOMEM;
+-- 
+2.1.4
