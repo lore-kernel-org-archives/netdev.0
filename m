@@ -1,82 +1,63 @@
-From: yegorslists@googlemail.com
-Subject: [PATCH v4] cpsw: ethtool: add support for getting/setting EEE registers
-Date: Mon, 28 Nov 2016 09:41:33 +0100
-Message-ID: <1480322493-25308-1-git-send-email-yegorslists@googlemail.com>
-Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
-        mugunthanvnm@ti.com, davem@davemloft.net,
-        Yegor Yefremov <yegorslists@googlemail.com>
-To: netdev@vger.kernel.org
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: [PATCH net-next 0/5] Support Armada 37xx SoC (ARMv8 64-bits) in
+ mvneta driver
+Date: Mon, 28 Nov 2016 16:40:49 +0800
+Message-ID: <20161128164049.77137347@xhacker>
+References: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        "Sebastian Hesselbarth" <sebastian.hesselbarth@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        <linux-arm-kernel@lists.infradead.org>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Dmitri Epshtein <dima@marvell.com>,
+        Yelena Krivosheev <yelena@marvell.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33912 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932141AbcK1Ilt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 03:41:49 -0500
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:54576 "EHLO
+        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752805AbcK1Ip6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 03:45:58 -0500
+In-Reply-To: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yegor Yefremov <yegorslists@googlemail.com>
+Hi Gregory,
 
-Add the ability to query and set Energy Efficient Ethernet parameters
-via ethtool for applicable devices.
+On Fri, 25 Nov 2016 16:30:13 +0100 Gregory CLEMENT wrote:
 
-This patch doesn't activate full EEE support in cpsw driver, but it
-enables reading and writing EEE advertising settings. This way one
-can disable advertising EEE for certain speeds.
+> Hi,
+> 
+> The Armada 37xx is a new ARMv8 SoC from Marvell using same network
+> controller as the older Armada 370/38x/XP SoCs. This series adapts the
+> driver in order to be able to use it on this new SoC. The main changes
+> are:
+> 
+> - 64-bits support: the first patches allow using the driver on a 64-bit
+>   architecture.
+> 
+> - MBUS support: the mbus configuration is different on Armada 37xx
+>   from the older SoCs.
+> 
+> - per cpu interrupt: Armada 37xx do not support per cpu interrupt for
+>   the NETA IP, the non-per-CPU behavior was added back.
+> 
+> The first item is solved by patches 1 to 3.
+> The 2 last items are solved by patch 4.
+> In patch 5 the dt support is added.
+> 
+> Beside Armada 37xx, the series have been tested on Armada XP and
+> Armada 38x (with Hardware Buffer Management and with Software Buffer
+> Managment).
 
-Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
-Acked-by: Rami Rosen <roszenrami@gmail.com>
----
-Changes:
-	v4: respine against net-next (David Miller)
-	v3: explain what features will be available with this patch (Florian Fainelli)
-	v2: make routines static (Rami Rosen)
+AFAICT, this is a V2? seems no Change log ;)
 
- drivers/net/ethernet/ti/cpsw.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index da40ea5..df87bff 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2237,6 +2237,30 @@ static int cpsw_set_channels(struct net_device *ndev,
- 	return ret;
- }
- 
-+static int cpsw_get_eee(struct net_device *ndev, struct ethtool_eee *edata)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	struct cpsw_common *cpsw = priv->cpsw;
-+	int slave_no = cpsw_slave_index(cpsw, priv);
-+
-+	if (cpsw->slaves[slave_no].phy)
-+		return phy_ethtool_get_eee(cpsw->slaves[slave_no].phy, edata);
-+	else
-+		return -EOPNOTSUPP;
-+}
-+
-+static int cpsw_set_eee(struct net_device *ndev, struct ethtool_eee *edata)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	struct cpsw_common *cpsw = priv->cpsw;
-+	int slave_no = cpsw_slave_index(cpsw, priv);
-+
-+	if (cpsw->slaves[slave_no].phy)
-+		return phy_ethtool_set_eee(cpsw->slaves[slave_no].phy, edata);
-+	else
-+		return -EOPNOTSUPP;
-+}
-+
- static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_drvinfo	= cpsw_get_drvinfo,
- 	.get_msglevel	= cpsw_get_msglevel,
-@@ -2260,6 +2284,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.set_channels	= cpsw_set_channels,
- 	.get_link_ksettings	= cpsw_get_link_ksettings,
- 	.set_link_ksettings	= cpsw_set_link_ksettings,
-+	.get_eee	= cpsw_get_eee,
-+	.set_eee	= cpsw_set_eee,
- };
- 
- static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_common *cpsw,
--- 
-2.1.4
+Thanks,
+Jisheng
