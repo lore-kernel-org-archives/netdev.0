@@ -1,42 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 0/7] stmmac: dwmac-meson8b: configurable RGMII TX
- delay
-Date: Sun, 27 Nov 2016 20:33:24 -0500 (EST)
-Message-ID: <20161127.203324.1634866862730391239.davem@davemloft.net>
-References: <20161124143417.10178-1-martin.blumenstingl@googlemail.com>
-        <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] tipc: fix link statistics counter errors
+Date: Sun, 27 Nov 2016 20:37:36 -0500 (EST)
+Message-ID: <20161127.203736.1937105888251361121.davem@davemloft.net>
+References: <1480088102-31516-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161125130156.17879-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, parthasarathy.bhuvaragan@ericsson.com,
+        ying.xue@windriver.com, maloy@donjonn.com,
+        tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36622 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752439AbcK1Bhi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 20:37:38 -0500
+In-Reply-To: <1480088102-31516-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Date: Fri, 25 Nov 2016 14:01:49 +0100
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Fri, 25 Nov 2016 10:35:02 -0500
 
-> Currently the dwmac-meson8b stmmac glue driver uses a hardcoded 1/4
-> cycle TX clock delay. This seems to work fine for many boards (for
-> example Odroid-C2 or Amlogic's reference boards) but there are some
-> others where TX traffic is simply broken.
-> There are probably multiple reasons why it's working on some boards
-> while it's broken on others:
-> - some of Amlogic's reference boards are using a Micrel PHY
-> - hardware circuit design
-> - maybe more...
+> In commit e4bf4f76962b ("tipc: simplify packet sequence number
+> handling") we changed the internal representation of the packet
+> sequence number counters from u32 to u16, reflecting what is really
+> sent over the wire.
+> 
+> Since then some link statistics counters have been displaying incorrect
+> values, partially because the counters meant to be used as sequence
+> number snapshots are now used as direct counters, stored as u32, and
+> partially because some counter updates are just missing in the code.
+> 
+> In this commit we correct this in two ways. First, we base the
+> displayed packet sent/received values on direct counters instead
+> of as previously a calculated difference between current sequence
+> number and a snapshot. Second, we add the missing updates of the
+> counters.
+> 
+> This change is compatible with the current netlink API, and requires
+> no changes to the user space tools.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-The ARM arch file changes do not apply cleanly to net-next, you probably
-want to merge them via the ARM tree instead of mine, and respin this series
-to be without the .dts file changes.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
