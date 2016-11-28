@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
-Date: Mon, 28 Nov 2016 17:04:26 -0600
-Message-ID: <20161128230428.6872-5-grygorii.strashko@ti.com>
+Subject: [PATCH 1/6] net: ethernet: ti: netcp: add support of cpts
+Date: Mon, 28 Nov 2016 17:04:23 -0600
+Message-ID: <20161128230428.6872-2-grygorii.strashko@ti.com>
 References: <20161128230428.6872-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,512 +14,772 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:42794 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756047AbcK1XEk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 18:04:40 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161128230428.6872-1-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The TS_COMP output in the CPSW CPTS module is asserted for
-ts_comp_length[15:0] RCLK periods when the time_stamp value compares
-with the ts_comp_val[31:0] and the length value is non-zero. The
-TS_COMP pulse edge occurs three RCLK periods after the values
-compare. A timestamp compare event is pushed into the event FIFO when
-TS_COMP is asserted.
+From: WingMan Kwok <w-kwok2@ti.com>
 
-This patch adds support of Pulse-Per-Second (PPS) by using the
-timestamp compare output. The CPTS driver adds one second of counter
-value to the ts_comp_val register after each assertion of the TS_COMP
-output. The TS_COMP pulse polarity and width are configurable in DT.
+This patch adds support of the cpts device found in the
+gbe and 10gbe ethernet switches on the keystone 2 SoCs
+(66AK2E/L/Hx, 66AK2Gx).
 
 Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- .../devicetree/bindings/net/keystone-netcp.txt     |  10 +
- drivers/net/ethernet/ti/cpts.c                     | 237 ++++++++++++++++++++-
- drivers/net/ethernet/ti/cpts.h                     |  14 +-
- 3 files changed, 251 insertions(+), 10 deletions(-)
+ .../devicetree/bindings/net/keystone-netcp.txt     |   9 +
+ drivers/net/ethernet/ti/Kconfig                    |   7 +-
+ drivers/net/ethernet/ti/netcp.h                    |   2 +-
+ drivers/net/ethernet/ti/netcp_core.c               |  18 +-
+ drivers/net/ethernet/ti/netcp_ethss.c              | 437 ++++++++++++++++++++-
+ 5 files changed, 459 insertions(+), 14 deletions(-)
 
 diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-index 1c805319..060af96 100644
+index 04ba1dc..c37b54e 100644
 --- a/Documentation/devicetree/bindings/net/keystone-netcp.txt
 +++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-@@ -127,6 +127,16 @@ Optional properties:
- 		The number of external time stamp channels.
- 		The different CPTS versions might support up 8
- 		external time stamp channels. if absent - unsupported.
-+	- cpts-ts-comp-length:
-+		Enable time stamp comparison event and TS_COMP signal output
-+		generation when CPTS counter reaches a value written to
-+		the TS_COMP_VAL register.
-+		The generated pulse width is 3 refclk cycles if this property
-+		has no value (empty) or, otherwise, it should specify desired
-+		pulse width in number of refclk periods - max value 2^16.
-+		TS_COMP functionality will be disabled if not present.
-+	- cpts-ts-comp-polarity-low:
-+		Set polarity of TS_COMP signal to low. Default is hight.
+@@ -113,6 +113,15 @@ Optional properties:
+ 				will only initialize these ports and attach PHY
+ 				driver to them if needed.
  
++ Properties related to cpts configurations.
++	- cpts_clock_mult/cpts_clock_shift:
++		used for converting time counter cycles to ns as in
++
++		ns = (cycles * clock_mult) >> _shift
++
++		Defaults: clock_mult, clock_shift = calculated from
++		CPTS refclk
++
  NetCP interface properties: Interface specification for NetCP sub-modules.
  Required properties:
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 2f7641a..8ff70cc 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -31,9 +31,13 @@
+ - rx-channel:	the navigator packet dma channel name for rx.
+diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+index ff7f518..dc217fd 100644
+--- a/drivers/net/ethernet/ti/Kconfig
++++ b/drivers/net/ethernet/ti/Kconfig
+@@ -75,12 +75,13 @@ config TI_CPSW
  
- #include "cpts.h"
+ config TI_CPTS
+ 	tristate "TI Common Platform Time Sync (CPTS) Support"
+-	depends on TI_CPSW
++	depends on TI_CPSW || TI_KEYSTONE_NETCP
+ 	select PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports the Common Platform Time Sync unit of
+-	  the CPSW Ethernet Switch. The unit can time stamp PTP UDP/IPv4
+-	  and Layer 2 packets, and the driver offers a PTP Hardware Clock.
++	  the CPSW Ethernet Switch and Keystone 2 1g/10g Switch Subsystem.
++	  The unit can time stamp PTP UDP/IPv4 and Layer 2 packets, and the
++	  driver offers a PTP Hardware Clock.
  
-+#define CPTS_TS_COMP_PULSE_LENGTH_DEF	3
+ config TI_KEYSTONE_NETCP
+ 	tristate "TI Keystone NETCP Core Support"
+diff --git a/drivers/net/ethernet/ti/netcp.h b/drivers/net/ethernet/ti/netcp.h
+index 17a26a4..0f58c58 100644
+--- a/drivers/net/ethernet/ti/netcp.h
++++ b/drivers/net/ethernet/ti/netcp.h
+@@ -121,7 +121,7 @@ struct netcp_packet {
+ 	bool			rxtstamp_complete;
+ 	void			*ts_context;
+ 
+-	int	(*txtstamp_complete)(void *ctx, struct netcp_packet *pkt);
++	void (*txtstamp)(void *ctx, struct sk_buff *skb);
+ };
+ 
+ static inline u32 *netcp_push_psdata(struct netcp_packet *p_info,
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 3251666..a740e60 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -100,6 +100,11 @@ struct netcp_intf_modpriv {
+ 	void			*module_priv;
+ };
+ 
++struct netcp_tx_cb {
++	void	*ts_context;
++	void	(*txtstamp)(void *context, struct sk_buff *skb);
++};
 +
- #define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
- #define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
+ static LIST_HEAD(netcp_devices);
+ static LIST_HEAD(netcp_modules);
+ static DEFINE_MUTEX(netcp_modules_lock);
+@@ -730,6 +735,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
  
-+static int cpts_report_ts_events(struct cpts *cpts, bool pps_reload);
-+
- static int cpts_event_port(struct cpts_event *event)
+ 	/* Call each of the RX hooks */
+ 	p_info.skb = skb;
++	skb->dev = netcp->ndev;
+ 	p_info.rxtstamp_complete = false;
+ 	list_for_each_entry(rx_hook, &netcp->rxhook_list_head, list) {
+ 		int ret;
+@@ -987,6 +993,7 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
+ 					  unsigned int budget)
  {
- 	return (event->high >> PORT_NUMBER_SHIFT) & PORT_NUMBER_MASK;
-@@ -108,6 +112,7 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
- 		type = event_type(event);
- 		switch (type) {
- 		case CPTS_EV_HW:
-+		case CPTS_EV_COMP:
- 			event->tmo +=
- 				msecs_to_jiffies(CPTS_EVENT_HWSTAMP_TIMEOUT);
- 		case CPTS_EV_PUSH:
-@@ -153,6 +158,60 @@ static cycle_t cpts_systim_read(const struct cyclecounter *cc)
- 	return val;
+ 	struct knav_dma_desc *desc;
++	struct netcp_tx_cb *tx_cb;
+ 	struct sk_buff *skb;
+ 	unsigned int dma_sz;
+ 	dma_addr_t dma;
+@@ -1014,6 +1021,10 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
+ 			continue;
+ 		}
+ 
++		tx_cb = (struct netcp_tx_cb *)skb->cb;
++		if (tx_cb->txtstamp)
++			tx_cb->txtstamp(tx_cb->ts_context, skb);
++
+ 		if (netif_subqueue_stopped(netcp->ndev, skb) &&
+ 		    netif_running(netcp->ndev) &&
+ 		    (knav_pool_count(netcp->tx_pool) >
+@@ -1154,6 +1165,7 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+ 	struct netcp_tx_pipe *tx_pipe = NULL;
+ 	struct netcp_hook_list *tx_hook;
+ 	struct netcp_packet p_info;
++	struct netcp_tx_cb *tx_cb;
+ 	unsigned int dma_sz;
+ 	dma_addr_t dma;
+ 	u32 tmp = 0;
+@@ -1164,7 +1176,7 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+ 	p_info.tx_pipe = NULL;
+ 	p_info.psdata_len = 0;
+ 	p_info.ts_context = NULL;
+-	p_info.txtstamp_complete = NULL;
++	p_info.txtstamp = NULL;
+ 	p_info.epib = desc->epib;
+ 	p_info.psdata = (u32 __force *)desc->psdata;
+ 	memset(p_info.epib, 0, KNAV_DMA_NUM_EPIB_WORDS * sizeof(__le32));
+@@ -1189,6 +1201,10 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+ 		goto out;
+ 	}
+ 
++	tx_cb = (struct netcp_tx_cb *)skb->cb;
++	tx_cb->ts_context = p_info.ts_context;
++	tx_cb->txtstamp = p_info.txtstamp;
++
+ 	/* update descriptor */
+ 	if (p_info.psdata_len) {
+ 		/* psdata points to both native-endian and device-endian data */
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index d543298..4856521 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -23,10 +23,13 @@
+ #include <linux/of_mdio.h>
+ #include <linux/of_address.h>
+ #include <linux/if_vlan.h>
++#include <linux/ptp_classify.h>
++#include <linux/net_tstamp.h>
+ #include <linux/ethtool.h>
+ 
+ #include "cpsw_ale.h"
+ #include "netcp.h"
++#include "cpts.h"
+ 
+ #define NETCP_DRIVER_NAME		"TI KeyStone Ethernet Driver"
+ #define NETCP_DRIVER_VERSION		"v1.0"
+@@ -51,6 +54,7 @@
+ #define GBE13_EMAC_OFFSET		0x100
+ #define GBE13_SLAVE_PORT2_OFFSET	0x200
+ #define GBE13_HW_STATS_OFFSET		0x300
++#define GBE13_CPTS_OFFSET		0x500
+ #define GBE13_ALE_OFFSET		0x600
+ #define GBE13_HOST_PORT_NUM		0
+ #define GBE13_NUM_ALE_ENTRIES		1024
+@@ -74,6 +78,7 @@
+ #define GBENU_SLAVE_PORT_OFFSET		0x2000
+ #define GBENU_EMAC_OFFSET		0x2330
+ #define GBENU_HW_STATS_OFFSET		0x1a000
++#define GBENU_CPTS_OFFSET		0x1d000
+ #define GBENU_ALE_OFFSET		0x1e000
+ #define GBENU_HOST_PORT_NUM		0
+ #define GBENU_NUM_ALE_ENTRIES		1024
+@@ -93,6 +98,7 @@
+ #define XGBE10_HOST_PORT_OFFSET		0x34
+ #define XGBE10_SLAVE_PORT_OFFSET	0x64
+ #define XGBE10_EMAC_OFFSET		0x400
++#define XGBE10_CPTS_OFFSET		0x600
+ #define XGBE10_ALE_OFFSET		0x700
+ #define XGBE10_HW_STATS_OFFSET		0x800
+ #define XGBE10_HOST_PORT_NUM		0
+@@ -155,6 +161,7 @@
+ 
+ #define GBE_TX_QUEUE				648
+ #define	GBE_TXHOOK_ORDER			0
++#define	GBE_RXHOOK_ORDER			0
+ #define GBE_DEFAULT_ALE_AGEOUT			30
+ #define SLAVE_LINK_IS_XGMII(s) ((s)->link_interface >= XGMII_LINK_MAC_PHY)
+ #define NETCP_LINK_STATE_INVALID		-1
+@@ -169,6 +176,56 @@
+ 
+ #define HOST_TX_PRI_MAP_DEFAULT			0x00000000
+ 
++#if IS_ENABLED(CONFIG_TI_CPTS)
++/* Px_TS_CTL register fields */
++#define TS_RX_ANX_F_EN				BIT(0)
++#define TS_RX_VLAN_LT1_EN			BIT(1)
++#define TS_RX_VLAN_LT2_EN			BIT(2)
++#define TS_RX_ANX_D_EN				BIT(3)
++#define TS_TX_ANX_F_EN				BIT(4)
++#define TS_TX_VLAN_LT1_EN			BIT(5)
++#define TS_TX_VLAN_LT2_EN			BIT(6)
++#define TS_TX_ANX_D_EN				BIT(7)
++#define TS_LT2_EN				BIT(8)
++#define TS_RX_ANX_E_EN				BIT(9)
++#define TS_TX_ANX_E_EN				BIT(10)
++#define TS_MSG_TYPE_EN_SHIFT			16
++#define TS_MSG_TYPE_EN_MASK			0xffff
++
++/* Px_TS_SEQ_LTYPE register fields */
++#define TS_SEQ_ID_OFS_SHIFT			16
++#define TS_SEQ_ID_OFS_MASK			0x3f
++
++/* Px_TS_CTL_LTYPE2 register fields */
++#define TS_107					BIT(16)
++#define TS_129					BIT(17)
++#define TS_130					BIT(18)
++#define TS_131					BIT(19)
++#define TS_132					BIT(20)
++#define TS_319					BIT(21)
++#define TS_320					BIT(22)
++#define TS_TTL_NONZERO				BIT(23)
++#define TS_UNI_EN				BIT(24)
++#define TS_UNI_EN_SHIFT				24
++
++#define TS_TX_ANX_ALL_EN	 \
++	(TS_TX_ANX_D_EN	| TS_TX_ANX_E_EN | TS_TX_ANX_F_EN)
++
++#define TS_RX_ANX_ALL_EN	 \
++	(TS_RX_ANX_D_EN	| TS_RX_ANX_E_EN | TS_RX_ANX_F_EN)
++
++#define TS_CTL_DST_PORT				TS_319
++#define TS_CTL_DST_PORT_SHIFT			21
++
++#define TS_CTL_MADDR_ALL	\
++	(TS_107 | TS_129 | TS_130 | TS_131 | TS_132)
++
++#define TS_CTL_MADDR_SHIFT			16
++
++/* The PTP event messages - Sync, Delay_Req, Pdelay_Req, and Pdelay_Resp. */
++#define EVENT_MSG_BITS (BIT(0) | BIT(1) | BIT(2) | BIT(3))
++#endif /* CONFIG_TI_CPTS */
++
+ struct xgbe_ss_regs {
+ 	u32	id_ver;
+ 	u32	synce_count;
+@@ -616,6 +673,13 @@ struct gbe_hw_stats {
+ #define GBE_MAX_HW_STAT_MODS			9
+ #define GBE_HW_STATS_REG_MAP_SZ			0x100
+ 
++struct ts_ctl {
++	int     uni;
++	u8      dst_port_map;
++	u8      maddr_map;
++	u8      ts_mcast_type;
++};
++
+ struct gbe_slave {
+ 	void __iomem			*port_regs;
+ 	void __iomem			*emac_regs;
+@@ -630,6 +694,7 @@ struct gbe_slave {
+ 	u32				mac_control;
+ 	u8				phy_port_t;
+ 	struct device_node		*phy_node;
++	struct ts_ctl                   ts_ctl;
+ 	struct list_head		slave_list;
+ };
+ 
+@@ -655,6 +720,7 @@ struct gbe_priv {
+ 	void __iomem			*switch_regs;
+ 	void __iomem			*host_port_regs;
+ 	void __iomem			*ale_reg;
++	void __iomem                    *cpts_reg;
+ 	void __iomem			*sgmii_port_regs;
+ 	void __iomem			*sgmii_port34_regs;
+ 	void __iomem			*xgbe_serdes_regs;
+@@ -678,6 +744,9 @@ struct gbe_priv {
+ 	int				num_et_stats;
+ 	/*  Lock for updating the hwstats */
+ 	spinlock_t			hw_stats_lock;
++
++	int                             cpts_registered;
++	struct cpts                     *cpts;
+ };
+ 
+ struct gbe_intf {
+@@ -1904,6 +1973,49 @@ static int keystone_set_settings(struct net_device *ndev,
+ 	return phy_ethtool_sset(phy, cmd);
  }
  
-+static cycle_t cpts_cc_ns2cyc(struct cpts *cpts, u64 nsecs)
++#if IS_ENABLED(CONFIG_TI_CPTS)
++static int keystone_get_ts_info(struct net_device *ndev,
++				struct ethtool_ts_info *info)
 +{
-+	cycle_t cyc = (nsecs << cpts->cc.shift) + nsecs;
++	struct netcp_intf *netcp = netdev_priv(ndev);
++	struct gbe_intf *gbe_intf;
 +
-+	do_div(cyc, cpts->cc.mult);
++	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
++	if (!gbe_intf || !gbe_intf->gbe_dev->cpts)
++		return -EINVAL;
 +
-+	return cyc;
++	info->so_timestamping =
++		SOF_TIMESTAMPING_TX_HARDWARE |
++		SOF_TIMESTAMPING_TX_SOFTWARE |
++		SOF_TIMESTAMPING_RX_HARDWARE |
++		SOF_TIMESTAMPING_RX_SOFTWARE |
++		SOF_TIMESTAMPING_SOFTWARE |
++		SOF_TIMESTAMPING_RAW_HARDWARE;
++	info->phc_index = gbe_intf->gbe_dev->cpts->phc_index;
++	info->tx_types =
++		(1 << HWTSTAMP_TX_OFF) |
++		(1 << HWTSTAMP_TX_ON);
++	info->rx_filters =
++		(1 << HWTSTAMP_FILTER_NONE) |
++		(1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
++		(1 << HWTSTAMP_FILTER_PTP_V2_EVENT);
++	return 0;
 +}
-+
-+static void cpts_ts_comp_disable(struct cpts *cpts)
++#else
++static int keystone_get_ts_info(struct net_device *ndev,
++				struct ethtool_ts_info *info)
 +{
-+	cpts_write32(cpts, 0, ts_comp_length);
++	info->so_timestamping =
++		SOF_TIMESTAMPING_TX_SOFTWARE |
++		SOF_TIMESTAMPING_RX_SOFTWARE |
++		SOF_TIMESTAMPING_SOFTWARE;
++	info->phc_index = -1;
++	info->tx_types = 0;
++	info->rx_filters = 0;
++	return 0;
 +}
++#endif /* CONFIG_TI_CPTS */
 +
-+static void cpts_ts_comp_enable(struct cpts *cpts)
-+{
-+	/* TS_COMP_LENGTH should be 0 while the TS_COMP_VAL value is
-+	 * being written
-+	 */
-+	cpts_write32(cpts, 0, ts_comp_length);
-+	cpts_write32(cpts, cpts->ts_comp_next, ts_comp_val);
-+	cpts_write32(cpts, cpts->ts_comp_length, ts_comp_length);
-+}
-+
-+static void cpts_ts_comp_add_ns(struct cpts *cpts, s64 add_ns)
-+{
-+	cycle_t cyc_next;
-+
-+	if (add_ns == NSEC_PER_SEC)
-+		/* avoid calculation */
-+		cyc_next = cpts->ts_comp_one_sec_cycs;
-+	else
-+		cyc_next = cpts_cc_ns2cyc(cpts, add_ns);
-+
-+	cyc_next += cpts->ts_comp_next;
-+	cpts->ts_comp_next = cyc_next & cpts->cc.mask;
-+	pr_debug("cpts comp ts_comp_next: %u\n", cpts->ts_comp_next);
-+}
-+
-+static void cpts_ts_comp_settime(struct cpts *cpts, s64 now_ns)
-+{
-+	struct timespec64 ts;
-+
-+	if (cpts->ts_comp_enabled) {
-+		ts = ns_to_timespec64(now_ns);
-+
-+		/* align pulse to next sec boundary and add one sec */
-+		cpts_ts_comp_add_ns(cpts, NSEC_PER_SEC - ts.tv_nsec);
-+
-+		/* enable ts_comp pulse */
-+		cpts_ts_comp_enable(cpts);
-+	}
-+}
-+
- /* PTP clock operations */
+ static const struct ethtool_ops keystone_ethtool_ops = {
+ 	.get_drvinfo		= keystone_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+@@ -1914,6 +2026,7 @@ static const struct ethtool_ops keystone_ethtool_ops = {
+ 	.get_ethtool_stats	= keystone_get_ethtool_stats,
+ 	.get_settings		= keystone_get_settings,
+ 	.set_settings		= keystone_set_settings,
++	.get_ts_info		= keystone_get_ts_info,
+ };
  
- static int cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-@@ -162,6 +221,7 @@ static int cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 	int neg_adj = 0;
- 	unsigned long flags;
- 	struct cpts *cpts = container_of(ptp, struct cpts, info);
-+	u64 ns;
- 
- 	if (ppb < 0) {
- 		neg_adj = 1;
-@@ -172,14 +232,31 @@ static int cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 	adj *= ppb;
- 	diff = div_u64(adj, 1000000000ULL);
- 
-+	mutex_lock(&cpts->ptp_clk_mutex);
-+
- 	spin_lock_irqsave(&cpts->lock, flags);
-+	if (cpts->ts_comp_enabled) {
-+		cpts_ts_comp_disable(cpts);
-+		/* if any, report existing pulse before adj */
-+		cpts_fifo_read(cpts, CPTS_EV_COMP);
-+		/* if any, report existing pulse before adj */
-+		cpts_report_ts_events(cpts, false);
-+	}
- 
- 	timecounter_read(&cpts->tc);
- 
- 	cpts->cc.mult = neg_adj ? mult - diff : mult + diff;
--
-+	/* get updated time with adj */
-+	ns = timecounter_read(&cpts->tc);
-+	cpts->ts_comp_next = cpts->tc.cycle_last;
- 	spin_unlock_irqrestore(&cpts->lock, flags);
- 
-+	if (cpts->ts_comp_enabled)
-+		cpts->ts_comp_one_sec_cycs = cpts_cc_ns2cyc(cpts, NSEC_PER_SEC);
-+	cpts_ts_comp_settime(cpts, ns);
-+
-+	mutex_unlock(&cpts->ptp_clk_mutex);
-+
+ #define mac_hi(mac)	(((mac)[0] << 0) | ((mac)[1] << 8) |	\
+@@ -2357,16 +2470,279 @@ static int gbe_del_vid(void *intf_priv, int vid)
  	return 0;
  }
  
-@@ -187,11 +264,28 @@ static int cpts_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- {
- 	unsigned long flags;
- 	struct cpts *cpts = container_of(ptp, struct cpts, info);
-+	u64 ns;
++#if IS_ENABLED(CONFIG_TI_CPTS)
++#define HAS_PHY_TXTSTAMP(p) ((p)->drv && (p)->drv->txtstamp)
++#define HAS_PHY_RXTSTAMP(p) ((p)->drv && (p)->drv->rxtstamp)
 +
-+	mutex_lock(&cpts->ptp_clk_mutex);
- 
- 	spin_lock_irqsave(&cpts->lock, flags);
-+	if (cpts->ts_comp_enabled) {
-+		cpts_ts_comp_disable(cpts);
-+		/* if any, report existing pulse before adj */
-+		cpts_fifo_read(cpts, CPTS_EV_COMP);
-+		/* if any, report existing pulse before adj */
-+		cpts_report_ts_events(cpts, false);
-+	}
-+
- 	timecounter_adjtime(&cpts->tc, delta);
-+	ns = timecounter_read(&cpts->tc);
-+	cpts->ts_comp_next = cpts->tc.cycle_last;
- 	spin_unlock_irqrestore(&cpts->lock, flags);
- 
-+	cpts_ts_comp_settime(cpts, ns);
-+
-+	mutex_unlock(&cpts->ptp_clk_mutex);
-+
- 	return 0;
- }
- 
-@@ -213,25 +307,90 @@ static int cpts_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
- static int cpts_ptp_settime(struct ptp_clock_info *ptp,
- 			    const struct timespec64 *ts)
- {
--	u64 ns;
--	unsigned long flags;
- 	struct cpts *cpts = container_of(ptp, struct cpts, info);
-+	unsigned long flags;
-+	u64 ns;
- 
- 	ns = timespec64_to_ns(ts);
- 
-+	mutex_lock(&cpts->ptp_clk_mutex);
-+
- 	spin_lock_irqsave(&cpts->lock, flags);
-+	if (cpts->ts_comp_enabled) {
-+		cpts_ts_comp_disable(cpts);
-+		/* if any, get existing pulse event before adj */
-+		cpts_fifo_read(cpts, CPTS_EV_COMP);
-+		/* if any, report existing pulse before adj */
-+		cpts_report_ts_events(cpts, false);
-+	}
-+
- 	timecounter_init(&cpts->tc, &cpts->cc, ns);
-+	cpts->ts_comp_next = cpts->tc.cycle_last;
- 	spin_unlock_irqrestore(&cpts->lock, flags);
- 
-+	cpts_ts_comp_settime(cpts, ns);
-+
-+	mutex_unlock(&cpts->ptp_clk_mutex);
-+
- 	return 0;
- }
- 
--static int cpts_report_ts_events(struct cpts *cpts)
-+static int cpts_pps_enable(struct cpts *cpts, int on)
++static void gbe_txtstamp(void *context, struct sk_buff *skb)
 +{
-+	struct timespec64 ts;
-+	unsigned long flags;
-+	u64 ns;
++	struct gbe_intf *gbe_intf = context;
++	struct gbe_priv *gbe_dev = gbe_intf->gbe_dev;
 +
-+	if (cpts->ts_comp_enabled == on)
++	cpts_tx_timestamp(gbe_dev->cpts, skb);
++}
++
++static bool gbe_need_txtstamp(struct gbe_intf *gbe_intf,
++			      const struct netcp_packet *p_info)
++{
++	struct sk_buff *skb = p_info->skb;
++	unsigned int class = ptp_classify_raw(skb);
++
++	if (class == PTP_CLASS_NONE)
++		return false;
++
++	switch (class) {
++	case PTP_CLASS_V1_IPV4:
++	case PTP_CLASS_V1_IPV6:
++	case PTP_CLASS_V2_IPV4:
++	case PTP_CLASS_V2_IPV6:
++	case PTP_CLASS_V2_L2:
++	case (PTP_CLASS_V2_VLAN | PTP_CLASS_L2):
++	case (PTP_CLASS_V2_VLAN | PTP_CLASS_IPV4):
++	case (PTP_CLASS_V2_VLAN | PTP_CLASS_IPV6):
++		return true;
++	}
++
++	return false;
++}
++
++static int gbe_txtstamp_mark_pkt(struct gbe_intf *gbe_intf,
++				 struct netcp_packet *p_info)
++{
++	struct phy_device *phydev = p_info->skb->dev->phydev;
++	struct gbe_priv *gbe_dev = gbe_intf->gbe_dev;
++
++	if (!(skb_shinfo(p_info->skb)->tx_flags & SKBTX_HW_TSTAMP) ||
++	    !cpts_is_tx_enabled(gbe_dev->cpts))
 +		return 0;
 +
-+	mutex_lock(&cpts->ptp_clk_mutex);
-+	cpts->ts_comp_enabled = on;
-+
-+	if (!on) {
-+		cpts_ts_comp_disable(cpts);
-+		if (!cpts->hw_ts_enable)
-+			cpts->ov_check_period = cpts->ov_check_period_slow;
-+		mutex_unlock(&cpts->ptp_clk_mutex);
++	/* If phy has the txtstamp api, assume it will do it.
++	 * We mark it here because skb_tx_timestamp() is called
++	 * after all the txhooks are called.
++	 */
++	if (phydev && HAS_PHY_TXTSTAMP(phydev)) {
++		skb_shinfo(p_info->skb)->tx_flags |= SKBTX_IN_PROGRESS;
 +		return 0;
 +	}
 +
-+	/* get current counter value */
-+	spin_lock_irqsave(&cpts->lock, flags);
-+	ns = timecounter_read(&cpts->tc);
-+	cpts->ts_comp_next = cpts->tc.cycle_last;
-+	spin_unlock_irqrestore(&cpts->lock, flags);
-+
-+	ts = ns_to_timespec64(ns);
-+	cpts->ts_comp_one_sec_cycs = cpts_cc_ns2cyc(cpts, NSEC_PER_SEC);
-+	/* align to next sec boundary and add one sec to avoid the situation
-+	 * when the current time is very close to the next second point and
-+	 * it might be possible that ts_comp_val will be configured to
-+	 * the time in the past.
-+	 */
-+	cpts_ts_comp_add_ns(cpts, 2 * NSEC_PER_SEC - ts.tv_nsec);
-+
-+	/* enable ts_comp pulse */
-+	cpts_ts_comp_enable(cpts);
-+
-+	/* poll for events faster - evry 200 ms */
-+	cpts->ov_check_period = msecs_to_jiffies(CPTS_EVENT_HWSTAMP_TIMEOUT);
-+
-+	mod_delayed_work(system_wq, &cpts->overflow_work,
-+			 cpts->ov_check_period);
-+
-+	mutex_unlock(&cpts->ptp_clk_mutex);
++	if (gbe_need_txtstamp(gbe_intf, p_info)) {
++		p_info->txtstamp = gbe_txtstamp;
++		p_info->ts_context = (void *)gbe_intf;
++		skb_shinfo(p_info->skb)->tx_flags |= SKBTX_IN_PROGRESS;
++	}
 +
 +	return 0;
 +}
 +
-+static int cpts_report_ts_events(struct cpts *cpts, bool pps_reload)
++static int gbe_rxtstamp(struct gbe_intf *gbe_intf, struct netcp_packet *p_info)
++{
++	struct phy_device *phydev = p_info->skb->dev->phydev;
++	struct gbe_priv *gbe_dev = gbe_intf->gbe_dev;
++
++	if (p_info->rxtstamp_complete)
++		return 0;
++
++	if (phydev && HAS_PHY_RXTSTAMP(phydev)) {
++		p_info->rxtstamp_complete = true;
++		return 0;
++	}
++
++	cpts_rx_timestamp(gbe_dev->cpts, p_info->skb);
++	p_info->rxtstamp_complete = true;
++
++	return 0;
++}
++
++static int gbe_hwtstamp_get(struct gbe_intf *gbe_intf, struct ifreq *ifr)
++{
++	struct gbe_priv *gbe_dev = gbe_intf->gbe_dev;
++	struct cpts *cpts = gbe_dev->cpts;
++	struct hwtstamp_config cfg;
++
++	if (!cpts)
++		return -EOPNOTSUPP;
++
++	cfg.flags = 0;
++	cfg.tx_type = cpts_is_tx_enabled(cpts) ?
++		      HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
++	cfg.rx_filter = (cpts_is_rx_enabled(cpts) ?
++			 cpts->rx_enable : HWTSTAMP_FILTER_NONE);
++
++	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
++}
++
++static void gbe_hwtstamp(struct gbe_intf *gbe_intf)
++{
++	struct gbe_priv *gbe_dev = gbe_intf->gbe_dev;
++	struct gbe_slave *slave = gbe_intf->slave;
++	u32 ts_en, seq_id, ctl;
++
++	if (!cpts_is_rx_enabled(gbe_dev->cpts) &&
++	    !cpts_is_tx_enabled(gbe_dev->cpts)) {
++		writel(0, GBE_REG_ADDR(slave, port_regs, ts_ctl));
++		return;
++	}
++
++	seq_id = (30 << TS_SEQ_ID_OFS_SHIFT) | ETH_P_1588;
++	ts_en = EVENT_MSG_BITS << TS_MSG_TYPE_EN_SHIFT;
++	ctl = ETH_P_1588 | TS_TTL_NONZERO |
++		(slave->ts_ctl.dst_port_map << TS_CTL_DST_PORT_SHIFT) |
++		(slave->ts_ctl.uni ?  TS_UNI_EN :
++			slave->ts_ctl.maddr_map << TS_CTL_MADDR_SHIFT);
++
++	if (cpts_is_tx_enabled(gbe_dev->cpts))
++		ts_en |= (TS_TX_ANX_ALL_EN | TS_TX_VLAN_LT1_EN);
++
++	if (cpts_is_rx_enabled(gbe_dev->cpts))
++		ts_en |= (TS_RX_ANX_ALL_EN | TS_RX_VLAN_LT1_EN);
++
++	writel(ts_en,  GBE_REG_ADDR(slave, port_regs, ts_ctl));
++	writel(seq_id, GBE_REG_ADDR(slave, port_regs, ts_seq_ltype));
++	writel(ctl,    GBE_REG_ADDR(slave, port_regs, ts_ctl_ltype2));
++}
++
++static int gbe_hwtstamp_set(struct gbe_intf *gbe_intf, struct ifreq *ifr)
++{
++	struct gbe_priv *gbe_dev = gbe_intf->gbe_dev;
++	struct cpts *cpts = gbe_dev->cpts;
++	struct hwtstamp_config cfg;
++
++	if (!cpts)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
++		return -EFAULT;
++
++	/* reserved for future extensions */
++	if (cfg.flags)
++		return -EINVAL;
++
++	switch (cfg.tx_type) {
++	case HWTSTAMP_TX_OFF:
++		cpts_tx_enable(cpts, 0);
++		break;
++	case HWTSTAMP_TX_ON:
++		cpts_tx_enable(cpts, 1);
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	switch (cfg.rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		cpts_rx_enable(cpts, 0);
++		break;
++	case HWTSTAMP_FILTER_ALL:
++	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
++		cpts_rx_enable(cpts, HWTSTAMP_FILTER_PTP_V1_L4_EVENT);
++		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
++		cpts_rx_enable(cpts, HWTSTAMP_FILTER_PTP_V2_EVENT);
++		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	gbe_hwtstamp(gbe_intf);
++
++	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
++}
++
++static void gbe_register_cpts(struct gbe_priv *gbe_dev)
++{
++	if (!gbe_dev->cpts)
++		return;
++
++	if (gbe_dev->cpts_registered > 0)
++		goto done;
++
++	if (cpts_register(gbe_dev->cpts)) {
++		dev_err(gbe_dev->dev, "error registering cpts device\n");
++		return;
++	}
++
++done:
++	++gbe_dev->cpts_registered;
++}
++
++static void gbe_unregister_cpts(struct gbe_priv *gbe_dev)
++{
++	if (!gbe_dev->cpts || (gbe_dev->cpts_registered <= 0))
++		return;
++
++	if (--gbe_dev->cpts_registered)
++		return;
++
++	cpts_unregister(gbe_dev->cpts);
++}
++#else
++static inline int gbe_txtstamp_mark_pkt(struct gbe_intf *gbe_intf,
++					struct netcp_packet *p_info)
++{
++	return 0;
++}
++
++static inline int gbe_rxtstamp(struct gbe_intf *gbe_intf,
++			       struct netcp_packet *p_info)
++{
++	return 0;
++}
++
++static inline int gbe_hwtstamp(struct gbe_intf *gbe_intf,
++			       struct ifreq *ifr, int cmd)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline void gbe_register_cpts(struct gbe_priv *gbe_dev)
++{
++}
++
++static inline void gbe_unregister_cpts(struct gbe_priv *gbe_dev)
++{
++}
++
++static inline int gbe_hwtstamp_get(struct gbe_intf *gbe_intf, struct ifreq *req)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int gbe_hwtstamp_set(struct gbe_intf *gbe_intf, struct ifreq *req)
++{
++	return -EOPNOTSUPP;
++}
++#endif /* CONFIG_TI_CPTS */
++
+ static int gbe_ioctl(void *intf_priv, struct ifreq *req, int cmd)
  {
- 	struct list_head *this, *next;
- 	struct ptp_clock_event pevent;
- 	struct cpts_event *event;
- 	int reported = 0, ev;
-+	u64 ns;
- 
- 	list_for_each_safe(this, next, &cpts->events) {
- 		event = list_entry(this, struct cpts_event, list);
-@@ -248,6 +407,33 @@ static int cpts_report_ts_events(struct cpts *cpts)
- 			++reported;
- 			continue;
- 		}
+ 	struct gbe_intf *gbe_intf = intf_priv;
+ 	struct phy_device *phy = gbe_intf->slave->phy;
+-	int ret = -EOPNOTSUPP;
 +
-+		if (event_type(event) == CPTS_EV_COMP) {
-+			list_del_init(&event->list);
-+			list_add(&event->list, &cpts->pool);
-+			if (cpts->ts_comp_next != event->low) {
-+				pr_err("cpts ts_comp mismatch: %08x %08x\n",
-+				       cpts->ts_comp_next, event->low);
-+				continue;
-+			} else
-+				pr_debug("cpts comp ev tstamp: %u\n",
-+					 event->low);
-+
-+			/* report the event */
-+			ns = timecounter_cyc2time(&cpts->tc, event->low);
-+			pevent.type = PTP_CLOCK_PPSUSR;
-+			pevent.pps_times.ts_real = ns_to_timespec64(ns);
-+			ptp_clock_event(cpts->clock, &pevent);
-+
-+			if (pps_reload) {
-+				/* reload: add ns to ts_comp */
-+				cpts_ts_comp_add_ns(cpts, NSEC_PER_SEC);
-+				/* enable ts_comp pulse with new val */
-+				cpts_ts_comp_enable(cpts);
-+			}
-+			++reported;
-+			continue;
++	if (!phy || !phy->drv->hwtstamp) {
++		switch (cmd) {
++		case SIOCGHWTSTAMP:
++			return gbe_hwtstamp_get(gbe_intf, req);
++		case SIOCSHWTSTAMP:
++			return gbe_hwtstamp_set(gbe_intf, req);
 +		}
- 	}
- 	return reported;
++	}
+ 
+ 	if (phy)
+-		ret = phy_mii_ioctl(phy, req, cmd);
++		return phy_mii_ioctl(phy, req, cmd);
+ 
+-	return ret;
++	return -EOPNOTSUPP;
  }
-@@ -264,6 +450,8 @@ static int cpts_extts_enable(struct cpts *cpts, u32 index, int on)
- 	if (((cpts->hw_ts_enable & BIT(index)) >> index) == on)
- 		return 0;
  
-+	mutex_lock(&cpts->ptp_clk_mutex);
+ static void netcp_ethss_timer(unsigned long arg)
+@@ -2402,12 +2778,20 @@ static void netcp_ethss_timer(unsigned long arg)
+ 	add_timer(&gbe_dev->timer);
+ }
+ 
+-static int gbe_tx_hook(int order, void *data, struct netcp_packet *p_info)
++static int gbe_txhook(int order, void *data, struct netcp_packet *p_info)
+ {
+ 	struct gbe_intf *gbe_intf = data;
+ 
+ 	p_info->tx_pipe = &gbe_intf->tx_pipe;
+-	return 0;
 +
- 	spin_lock_irqsave(&cpts->lock, flags);
++	return gbe_txtstamp_mark_pkt(gbe_intf, p_info);
++}
++
++static int gbe_rxhook(int order, void *data, struct netcp_packet *p_info)
++{
++	struct gbe_intf *gbe_intf = data;
++
++	return gbe_rxtstamp(gbe_intf, p_info);
+ }
  
- 	v = cpts_read32(cpts, control);
-@@ -282,12 +470,12 @@ static int cpts_extts_enable(struct cpts *cpts, u32 index, int on)
- 		/* poll for events faster - evry 200 ms */
- 		cpts->ov_check_period =
- 			msecs_to_jiffies(CPTS_EVENT_HWSTAMP_TIMEOUT);
--	else
-+	else if (!cpts->ts_comp_enabled)
- 		cpts->ov_check_period = cpts->ov_check_period_slow;
+ static int gbe_open(void *intf_priv, struct net_device *ndev)
+@@ -2457,11 +2841,14 @@ static int gbe_open(void *intf_priv, struct net_device *ndev)
+ 	if (ret)
+ 		goto fail;
  
- 	mod_delayed_work(system_wq, &cpts->overflow_work,
- 			 cpts->ov_check_period);
--
-+	mutex_unlock(&cpts->ptp_clk_mutex);
+-	netcp_register_txhook(netcp, GBE_TXHOOK_ORDER, gbe_tx_hook,
+-			      gbe_intf);
++	netcp_register_txhook(netcp, GBE_TXHOOK_ORDER, gbe_txhook, gbe_intf);
++	netcp_register_rxhook(netcp, GBE_RXHOOK_ORDER, gbe_rxhook, gbe_intf);
+ 
+ 	slave->open = true;
+ 	netcp_ethss_update_link_state(gbe_dev, slave, ndev);
++
++	gbe_register_cpts(gbe_dev);
++
+ 	return 0;
+ 
+ fail:
+@@ -2473,16 +2860,36 @@ static int gbe_close(void *intf_priv, struct net_device *ndev)
+ {
+ 	struct gbe_intf *gbe_intf = intf_priv;
+ 	struct netcp_intf *netcp = netdev_priv(ndev);
++	struct gbe_priv *gbe_dev = gbe_intf->gbe_dev;
++
++	gbe_unregister_cpts(gbe_dev);
+ 
+ 	gbe_slave_stop(gbe_intf);
+-	netcp_unregister_txhook(netcp, GBE_TXHOOK_ORDER, gbe_tx_hook,
+-				gbe_intf);
++
++	netcp_unregister_rxhook(netcp, GBE_RXHOOK_ORDER, gbe_rxhook, gbe_intf);
++	netcp_unregister_txhook(netcp, GBE_TXHOOK_ORDER, gbe_txhook, gbe_intf);
+ 
+ 	gbe_intf->slave->open = false;
+ 	atomic_set(&gbe_intf->slave->link_state, NETCP_LINK_STATE_INVALID);
  	return 0;
  }
  
-@@ -299,6 +487,8 @@ static int cpts_ptp_enable(struct ptp_clock_info *ptp,
- 	switch (rq->type) {
- 	case PTP_CLK_REQ_EXTTS:
- 		return cpts_extts_enable(cpts, rq->extts.index, on);
-+	case PTP_CLK_REQ_PPS:
-+		return cpts_pps_enable(cpts, on);
- 	default:
- 		break;
- 	}
-@@ -326,12 +516,15 @@ static void cpts_overflow_check(struct work_struct *work)
- 	struct timespec64 ts;
- 	unsigned long flags;
- 
-+	mutex_lock(&cpts->ptp_clk_mutex);
- 	spin_lock_irqsave(&cpts->lock, flags);
- 	ts = ns_to_timespec64(timecounter_read(&cpts->tc));
- 	spin_unlock_irqrestore(&cpts->lock, flags);
- 
--	if (cpts->hw_ts_enable)
--		cpts_report_ts_events(cpts);
-+	if (cpts->hw_ts_enable || cpts->ts_comp_enabled)
-+		cpts_report_ts_events(cpts, true);
-+	mutex_unlock(&cpts->ptp_clk_mutex);
++#if IS_ENABLED(CONFIG_TI_CPTS)
++static void init_slave_ts_ctl(struct gbe_slave *slave)
++{
++	slave->ts_ctl.uni = 1;
++	slave->ts_ctl.dst_port_map =
++		(TS_CTL_DST_PORT >> TS_CTL_DST_PORT_SHIFT) & 0x3;
++	slave->ts_ctl.maddr_map =
++		(TS_CTL_MADDR_ALL >> TS_CTL_MADDR_SHIFT) & 0x1f;
++}
 +
- 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
- 	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
- }
-@@ -445,6 +638,7 @@ EXPORT_SYMBOL_GPL(cpts_tx_timestamp);
- int cpts_register(struct cpts *cpts)
++#else
++static void init_slave_ts_ctl(struct gbe_slave *slave)
++{
++}
++#endif /* CONFIG_TI_CPTS */
++
+ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
+ 		      struct device_node *node)
  {
- 	int err, i;
-+	u32 control;
- 
- 	INIT_LIST_HEAD(&cpts->events);
- 	INIT_LIST_HEAD(&cpts->pool);
-@@ -453,7 +647,14 @@ int cpts_register(struct cpts *cpts)
- 
- 	clk_enable(cpts->refclk);
- 
--	cpts_write32(cpts, CPTS_EN, control);
-+	control = CPTS_EN;
-+	if (cpts->caps & CPTS_CAP_TS_COMP_EN) {
-+		if (cpts->caps & CPTS_CAP_TS_COMP_POL_LOW_SEL)
-+			control &= ~TS_COMP_POL;
-+		else
-+			control |= TS_COMP_POL;
-+	}
-+	cpts_write32(cpts, control, control);
- 	cpts_write32(cpts, TS_PEND_EN, int_enable);
- 
- 	cpts->cc.mult = cpts->cc_mult;
-@@ -558,6 +759,20 @@ static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
- 		cpts->rftclk_sel = prop & CPTS_RFTCLK_SEL_MASK;
+@@ -2597,6 +3004,8 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
  	}
  
-+	if (of_property_read_bool(node, "cpts-ts-comp-length")) {
-+		cpts->caps |= CPTS_CAP_TS_COMP_EN;
-+		cpts->ts_comp_length = CPTS_TS_COMP_PULSE_LENGTH_DEF;
+ 	atomic_set(&slave->link_state, NETCP_LINK_STATE_INVALID);
++
++	init_slave_ts_ctl(slave);
+ 	return 0;
+ }
+ 
+@@ -2787,6 +3196,7 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
+ 			XGBE10_HW_STATS_OFFSET + (GBE_HW_STATS_REG_MAP_SZ * i);
+ 
+ 	gbe_dev->ale_reg = gbe_dev->switch_regs + XGBE10_ALE_OFFSET;
++	gbe_dev->cpts_reg = gbe_dev->switch_regs + XGBE10_CPTS_OFFSET;
+ 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
+ 	gbe_dev->host_port = XGBE10_HOST_PORT_NUM;
+ 	gbe_dev->ale_entries = XGBE10_NUM_ALE_ENTRIES;
+@@ -2909,6 +3319,7 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
+ 			(GBE_HW_STATS_REG_MAP_SZ * (i & 0x1));
+ 	}
+ 
++	gbe_dev->cpts_reg = gbe_dev->switch_regs + GBE13_CPTS_OFFSET;
+ 	gbe_dev->ale_reg = gbe_dev->switch_regs + GBE13_ALE_OFFSET;
+ 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
+ 	gbe_dev->host_port = GBE13_HOST_PORT_NUM;
+@@ -2998,6 +3409,7 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
+ 		gbe_dev->hw_stats_regs[i] = gbe_dev->switch_regs +
+ 			GBENU_HW_STATS_OFFSET + (GBENU_HW_STATS_REG_MAP_SZ * i);
+ 
++	gbe_dev->cpts_reg = gbe_dev->switch_regs + GBENU_CPTS_OFFSET;
+ 	gbe_dev->ale_reg = gbe_dev->switch_regs + GBENU_ALE_OFFSET;
+ 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
+ 	gbe_dev->host_port = GBENU_HOST_PORT_NUM;
+@@ -3179,6 +3591,12 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
+ 		dev_dbg(gbe_dev->dev, "Created a gbe ale engine\n");
+ 	}
+ 
++	gbe_dev->cpts = cpts_create(gbe_dev->dev, gbe_dev->cpts_reg, node);
++	if (IS_ENABLED(CONFIG_TI_CPTS) && IS_ERR(gbe_dev->cpts)) {
++		ret = PTR_ERR(gbe_dev->cpts);
++		goto free_sec_ports;
 +	}
 +
-+	if (cpts->caps & CPTS_CAP_TS_COMP_EN) {
-+		ret = of_property_read_u32(node, "cpts-ts-comp-length", &prop);
-+		if (!ret)
-+			cpts->ts_comp_length = prop;
-+
-+		if (of_property_read_bool(node, "cpts-ts-comp-polarity-low"))
-+			cpts->caps |= CPTS_CAP_TS_COMP_POL_LOW_SEL;
-+	}
-+
- 	if (!of_property_read_u32(node, "cpts-ext-ts-inputs", &prop))
- 		cpts->ext_ts_inputs = prop;
+ 	/* initialize host port */
+ 	gbe_init_host_port(gbe_dev);
  
-@@ -584,6 +799,7 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
- 	cpts->dev = dev;
- 	cpts->reg = (struct cpsw_cpts __iomem *)regs;
- 	spin_lock_init(&cpts->lock);
-+	mutex_init(&cpts->ptp_clk_mutex);
- 	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
+@@ -3267,6 +3685,7 @@ static int gbe_remove(struct netcp_device *netcp_device, void *inst_priv)
+ 	struct gbe_priv *gbe_dev = inst_priv;
  
- 	ret = cpts_of_parse(cpts, node);
-@@ -608,6 +824,9 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
- 	if (cpts->ext_ts_inputs)
- 		cpts->info.n_ext_ts = cpts->ext_ts_inputs;
- 
-+	if (cpts->caps & CPTS_CAP_TS_COMP_EN)
-+		cpts->info.pps = 1;
-+
- 	cpts_calc_mult_shift(cpts);
- 
- 	return cpts;
-diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
-index ad80c95..a82520d 100644
---- a/drivers/net/ethernet/ti/cpts.h
-+++ b/drivers/net/ethernet/ti/cpts.h
-@@ -39,7 +39,8 @@ struct cpsw_cpts {
- 	u32 ts_push;              /* Time stamp event push */
- 	u32 ts_load_val;          /* Time stamp load value */
- 	u32 ts_load_en;           /* Time stamp load enable */
--	u32 res2[2];
-+	u32 ts_comp_val;          /* Time stamp comparison value, v1.5 & up */
-+	u32 ts_comp_length;       /* Time stamp comp assert len, v1.5 & up */
- 	u32 intstat_raw;          /* Time sync interrupt status raw */
- 	u32 intstat_masked;       /* Time sync interrupt status masked */
- 	u32 int_enable;           /* Time sync interrupt enable */
-@@ -64,11 +65,14 @@ struct cpsw_cpts {
- #define HW3_TS_PUSH_EN       (1<<10) /* Hardware push 3 enable */
- #define HW2_TS_PUSH_EN       (1<<9)  /* Hardware push 2 enable */
- #define HW1_TS_PUSH_EN       (1<<8)  /* Hardware push 1 enable */
-+#define TS_COMP_POL	     BIT(2)  /* TS_COMP Polarity */
- #define INT_TEST             (1<<1)  /* Interrupt Test */
- #define CPTS_EN              (1<<0)  /* Time Sync Enable */
- 
- #define CPTS_RFTCLK_SEL_MASK 0x1f
- 
-+#define CPTS_TS_COMP_LENGTH_MASK 0xffff
-+
- /*
-  * Definitions for the single bit resisters:
-  * TS_PUSH TS_LOAD_EN  INTSTAT_RAW INTSTAT_MASKED INT_ENABLE EVENT_POP
-@@ -97,6 +101,7 @@ enum {
- 	CPTS_EV_HW,   /* Hardware Time Stamp Push Event */
- 	CPTS_EV_RX,   /* Ethernet Receive Event */
- 	CPTS_EV_TX,   /* Ethernet Transmit Event */
-+	CPTS_EV_COMP, /* Time Stamp Compare Event */
- };
- 
- #define CPTS_FIFO_DEPTH 16
-@@ -113,6 +118,8 @@ struct cpts_event {
- };
- 
- #define CPTS_CAP_RFTCLK_SEL BIT(0)
-+#define CPTS_CAP_TS_COMP_EN BIT(1)
-+#define CPTS_CAP_TS_COMP_POL_LOW_SEL BIT(2)
- 
- struct cpts {
- 	struct device *dev;
-@@ -137,6 +144,11 @@ struct cpts {
- 	u32 ext_ts_inputs;
- 	u32 hw_ts_enable;
- 	u32 caps;
-+	u32 ts_comp_next;	/* next time_stamp value to compare with */
-+	u32 ts_comp_length;	/* TS_COMP Output pulse width */
-+	u32 ts_comp_one_sec_cycs; /* number of counter cycles in one sec */
-+	int ts_comp_enabled;
-+	struct mutex ptp_clk_mutex; /* sync PTP interface with overflow_work */
- };
- 
- void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+ 	del_timer_sync(&gbe_dev->timer);
++	cpts_release(gbe_dev->cpts);
+ 	cpsw_ale_stop(gbe_dev->ale);
+ 	cpsw_ale_destroy(gbe_dev->ale);
+ 	netcp_txpipe_close(&gbe_dev->tx_pipe);
 -- 
 2.10.1
