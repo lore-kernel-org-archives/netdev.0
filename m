@@ -1,90 +1,120 @@
-From: Sebastian Frias <sf84@laposte.net>
-Subject: Re: [PATCH net-next v2 2/4] Documentation: net: phy: Add a paragraph
- about pause frames/flow control
-Date: Mon, 28 Nov 2016 11:38:19 +0100
-Message-ID: <1b7425f7-9183-69d4-76e8-42eefffeb1c6@laposte.net>
-References: <20161127184449.12351-1-f.fainelli@gmail.com>
- <20161127184449.12351-3-f.fainelli@gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH net] net, sched: respect rcu grace period on cls
+ destruction
+Date: Mon, 28 Nov 2016 02:47:36 -0800
+Message-ID: <20161128104736.GX31360@linux.vnet.ibm.com>
+References: <0d6d89f885033f1739e97f7f3372ae6e1db72892.1480204343.git.daniel@iogearbox.net>
+ <CAM_iQpVRDnLM_Cmp63PVkpYtmdtNECP-2m89=DGdidkUYyHwug@mail.gmail.com>
+ <583BF43C.4020103@iogearbox.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        martin.blumenstingl@googlemail.com, mans@mansr.com,
-        alexandre.torgue@st.com, peppe.cavallaro@st.com,
-        timur@codeaurora.org, jbrunet@baylibre.com
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Roi Dayan <roid@mellanox.com>, ast@fb.com,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpoutz298.laposte.net ([178.22.154.198]:40248 "EHLO
-        smtp.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932469AbcK1KiW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 05:38:22 -0500
-Received: from smtp.laposte.net (localhost [127.0.0.1])
-        by lpn-prd-vrout010 (Postfix) with ESMTP id CC81C45CDD3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 11:38:20 +0100 (CET)
-Received: from smtp.laposte.net (localhost [127.0.0.1])
-        by lpn-prd-vrout010 (Postfix) with ESMTP id BCE3845CDE2
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 11:38:20 +0100 (CET)
-Received: from lpn-prd-vrin004 (lpn-prd-vrin004.prosodie [10.128.63.5])
-        by lpn-prd-vrout010 (Postfix) with ESMTP id B7AF145CDD3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 11:38:20 +0100 (CET)
-Received: from lpn-prd-vrin004 (localhost [127.0.0.1])
-        by lpn-prd-vrin004 (Postfix) with ESMTP id A5BCB710312
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 11:38:20 +0100 (CET)
-In-Reply-To: <20161127184449.12351-3-f.fainelli@gmail.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:40709 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932645AbcK1Kro (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 05:47:44 -0500
+Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uASAiBGU003628
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 05:47:42 -0500
+Received: from e32.co.us.ibm.com (e32.co.us.ibm.com [32.97.110.150])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 270fyba461-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 05:47:42 -0500
+Received: from localhost
+        by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+        Mon, 28 Nov 2016 03:47:41 -0700
+Content-Disposition: inline
+In-Reply-To: <583BF43C.4020103@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/11/16 19:44, Florian Fainelli wrote:
-> Describe that the Ethernet MAC controller is ultimately responsible for
-> dealing with proper pause frames/flow control advertisement and
-> enabling, and that it is therefore allowed to have it change
-> phydev->supported/advertising with SUPPORTED_Pause and
-> SUPPORTED_AsymPause.
+On Mon, Nov 28, 2016 at 10:09:16AM +0100, Daniel Borkmann wrote:
+> On 11/28/2016 07:57 AM, Cong Wang wrote:
+> >On Sat, Nov 26, 2016 at 4:18 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> >>Roi reported a crash in flower where tp->root was NULL in ->classify()
+> >>callbacks. Reason is that in ->destroy() tp->root is set to NULL via
+> >>RCU_INIT_POINTER(). It's problematic for some of the classifiers, because
+> >>this doesn't respect RCU grace period for them, and as a result, still
+> >>outstanding readers from tc_classify() will try to blindly dereference
+> >>a NULL tp->root.
+> >>
+> >>The tp->root object is strictly private to the classifier implementation
+> >>and holds internal data the core such as tc_ctl_tfilter() doesn't know
+> >>about. Within some classifiers, such as cls_bpf, cls_basic, etc, tp->root
+> >>is only checked for NULL in ->get() callback, but nowhere else. This is
+> >>misleading and seemed to be copied from old classifier code that was not
+> >>cleaned up properly. For example, d3fa76ee6b4a ("[NET_SCHED]: cls_basic:
+> >>fix NULL pointer dereference") moved tp->root initialization into ->init()
+> >>routine, where before it was part of ->change(), so ->get() had to deal
+> >>with tp->root being NULL back then, so that was indeed a valid case, after
+> >>d3fa76ee6b4a, not really anymore. We used to set tp->root to NULL long
+> >>ago in ->destroy(), see 47a1a1d4be29 ("pkt_sched: remove unnecessary xchg()
+> >>in packet classifiers"); but the NULLifying was reintroduced with the
+> >>RCUification, but it's not correct for every classifier implementation.
+> >>
+> >>In the cases that are fixed here with one exception of cls_cgroup, tp->root
+> >>object is allocated and initialized inside ->init() callback, which is always
+> >>performed at a point in time after we allocate a new tp, which means tp and
+> >>thus tp->root was not globally visible in the tp chain yet (see tc_ctl_tfilter()).
+> >>Also, on destruction tp->root is strictly kfree_rcu()'ed in ->destroy()
+> >>handler, same for the tp which is kfree_rcu()'ed right when we return
+> >>from ->destroy() in tcf_destroy(). This means, the head object's lifetime
+> >>for such classifiers is always tied to the tp lifetime. The RCU callback
+> >>invocation for the two kfree_rcu() could be out of order, but that's fine
+> >>since both are independent.
+> >>
+> >>Dropping the RCU_INIT_POINTER(tp->root, NULL) for these classifiers here
+> >>means that 1) we don't need a useless NULL check in fast-path and, 2) that
+> >>outstanding readers of that tp in tc_classify() can still execute under
+> >>respect with RCU grace period as it is actually expected.
+> >>
+> >>Things that haven't been touched here: cls_fw and cls_route. They each
+> >>handle tp->root being NULL in ->classify() path for historic reasons, so
+> >>their ->destroy() implementation can stay as is. If someone actually
+> >>cares, they could get cleaned up at some point to avoid the test in fast
+> >>path. cls_u32 doesn't set tp->root to NULL. For cls_rsvp, I just added a
+> >>!head should anyone actually be using/testing it, so it at least aligns with
+> >>cls_fw and cls_route. For cls_flower we additionally need to defer rhashtable
+> >>destruction (to a sleepable context) after RCU grace period as concurrent
+> >>readers might still access it. (Note that in this case we need to hold module
+> >>reference to keep work callback address intact, since we only wait on module
+> >>unload for all call_rcu()s to finish.)
+> >>
+> >>This fixes one race to bring RCU grace period guarantees back. Next step
+> >>as worked on by Cong however is to fix 1e052be69d04 ("net_sched: destroy
+> >>proto tp when all filters are gone") to get the order of unlinking the tp
+> >>in tc_ctl_tfilter() for the RTM_DELTFILTER case right by moving
+> >>RCU_INIT_POINTER() before tcf_destroy() and let the notification for
+> >>removal be done through the prior ->delete() callback. Both are independant
+> >>issues. Once we have that right, we can then clean tp->root up for a number
+> >>of classifiers by not making them RCU pointers, which requires a new callback
+> >>(->uninit) that is triggered from tp's RCU callback, where we just kfree()
+> >>tp->root from there.
+> >
+> >Looks good to my eyes,
+> >
+> >Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  Documentation/networking/phy.txt | 18 ++++++++++++++++--
->  1 file changed, 16 insertions(+), 2 deletions(-)
+> Thanks for the review (also to John)!
 > 
-> diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
-> index 4b25c0f24201..9a42a9414cea 100644
-> --- a/Documentation/networking/phy.txt
-> +++ b/Documentation/networking/phy.txt
-> @@ -127,8 +127,9 @@ Letting the PHY Abstraction Layer do Everything
->   values pruned from them which don't make sense for your controller (a 10/100
->   controller may be connected to a gigabit capable PHY, so you would need to
->   mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for definitions
-> - for these bitfields. Note that you should not SET any bits, or the PHY may
-> - get put into an unsupported state.
-> + for these bitfields. Note that you should not SET any bits, except the
-> + SUPPORTED_Pause and SUPPORTED_AsymPause bits (see below), or the PHY may get
-> + put into an unsupported state.
->  
->   Lastly, once the controller is ready to handle network traffic, you call
->   phy_start(phydev).  This tells the PAL that you are ready, and configures the
-> @@ -139,6 +140,19 @@ Letting the PHY Abstraction Layer do Everything
->   When you want to disconnect from the network (even if just briefly), you call
->   phy_stop(phydev).
->  
-> +Pause frames / flow control
-> +
-> + The PHY does not participate directly in flow control/pause frames except by
-> + making sure that the SUPPORTED_Pause and SUPPORTED_AsymPause bits are set in
-> + MII_ADVERTISE to indicate towards the link partner that the Ethernet MAC
-> + controller supports such a thing. Since flow control/pause frames generation
-> + involves the Ethernet MAC driver, it is recommended that this driver takes care
-> + of properly indicating advertisement and support for such features by setting
-> + the SUPPORTED_Pause and SUPPORTED_AsymPause bits accordingly. This can be done
-> + either before or after phy_connect() 
+> >The ugly part is the work struct, I am not an RCU expert so don't know if we
+> >have any API to execute an RCU callback in process context. Paul?
+> 
+> Same way we do this in BPF with prog destruction, by the way. I'm not aware
+> of any callback API for RCU that lets you do this, but maybe Paul knows.
 
-If the bits are set after phy_connect(), how does the PHY framework knows there's
-an update to the bits? Should some call be made?
+RCU callbacks are always executed in softirq context, so yes, you do need
+to use something like a work struct.  (Or a wakeup to a kthread or
+whatever.)
 
-and/or as a result of implementing the
-> + ethtool::set_pauseparam feature.
-> +
-> +
->  Keeping Close Tabs on the PAL
->  
->   It is possible that the PAL's built-in state machine needs a little help to
-> 
+							Thanx, Paul
