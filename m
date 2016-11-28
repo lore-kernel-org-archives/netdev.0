@@ -1,45 +1,41 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH ethtool 0/2] Adding PHY Loopback tunable
-Date: Mon, 28 Nov 2016 14:25:10 +0100
-Message-ID: <1480339512-5882-1-git-send-email-allan.nielsen@microsemi.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linville@tuxdriver.com>, <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
-To: <netdev@vger.kernel.org>
+From: fgao@ikuai8.com
+Subject: [PATCH net-next 1/1] driver: ipvlan: Add the sanity check for ipvlan mode
+Date: Mon, 28 Nov 2016 21:23:55 +0800
+Message-ID: <1480339435-15551-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, maheshb@google.com, edumazet@google.com,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0057.outbound.protection.outlook.com ([104.47.41.57]:43568
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932464AbcK1NZe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 08:25:34 -0500
+Received: from smtpbg292.qq.com ([113.108.11.231]:32827 "EHLO smtpbg292.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754514AbcK1NZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 08:25:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Gao Feng <fgao@ikuai8.com>
 
-This patch implements for support for PHY Loopback using PHY-Tunables.
+The ipvlan mode variable "nval" is from userspace, so the ipvlan codes
+should check if the mode variable "nval" is valid.
 
-The patch will add the following options:
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ drivers/net/ipvlan/ipvlan_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-    ethtool --set-phy-tunable DEVNAME      Set PHY tunable
-                [ loopback off|near|far|extn ]
-    ethtool --get-phy-tunable DEVNAME      Get PHY tunable
-                [ loopback ]
-
-Please review.
-
-Best regards
-Allan and Raju
-
-Raju Lakkaraju (2):
-  ethtool-copy.h:sync with net
-  Ethtool: Implements PHY Loopback
-
- ethtool-copy.h |  23 +++++++++-
- ethtool.8.in   |  49 ++++++++++++++++++++
- ethtool.c      | 139 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 210 insertions(+), 1 deletion(-)
-
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index ab90b22..537b5a9 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -65,6 +65,9 @@ static int ipvlan_set_port_mode(struct ipvl_port *port, u16 nval)
+ 	struct net_device *mdev = port->dev;
+ 	int err = 0;
+ 
++	if (nval >= IPVLAN_MODE_MAX)
++		return -EINVAL;
++
+ 	ASSERT_RTNL();
+ 	if (port->mode != nval) {
+ 		if (nval == IPVLAN_MODE_L3S) {
 -- 
-2.7.3
+1.9.1
