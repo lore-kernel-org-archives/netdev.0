@@ -1,80 +1,59 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: handle no dst on skb in icmp6_send
-Date: Sun, 27 Nov 2016 18:52:53 -0800
-Message-ID: <1480301573-21183-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: andreyknvl@google.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
+Subject: RE: [net,v2] neigh: fix the loop index error in neigh dump
+Date: Mon, 28 Nov 2016 10:53:25 +0800
+Message-ID: <001d01d24922$9a16b1e0$ce4415a0$@cmss.chinamobile.com>
+References: <1480296725-5563-1-git-send-email-zhangshengju@cmss.chinamobile.com> <caa11887-00b9-d2f1-7c0b-5b5096b42f56@cumulusnetworks.com> <001c01d2491f$fcd53250$f67f96f0$@cmss.chinamobile.com> <6d1a324e-e29e-e2dd-a6fc-1e9b4455cb3d@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+        charset="gb2312"
+Content-Transfer-Encoding: 8BIT
+To: "'David Ahern'" <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33548 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753640AbcK1Cw7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 21:52:59 -0500
-Received: by mail-pg0-f46.google.com with SMTP id 3so51640486pgd.0
-        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 18:52:59 -0800 (PST)
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:14225 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753640AbcK1CyS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 21:54:18 -0500
+In-Reply-To: <6d1a324e-e29e-e2dd-a6fc-1e9b4455cb3d@cumulusnetworks.com>
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrey reported the following while fuzzing the kernel with syzkaller:
 
-kasan: CONFIG_KASAN_INLINE enabled
-kasan: GPF could be caused by NULL-ptr deref or user memory access
-general protection fault: 0000 [#1] SMP KASAN
-Modules linked in:
-CPU: 0 PID: 3859 Comm: a.out Not tainted 4.9.0-rc6+ #429
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-task: ffff8800666d4200 task.stack: ffff880067348000
-RIP: 0010:[<ffffffff833617ec>]  [<ffffffff833617ec>]
-icmp6_send+0x5fc/0x1e30 net/ipv6/icmp.c:451
-RSP: 0018:ffff88006734f2c0  EFLAGS: 00010206
-RAX: ffff8800666d4200 RBX: 0000000000000000 RCX: 0000000000000000
-RDX: 0000000000000000 RSI: dffffc0000000000 RDI: 0000000000000018
-RBP: ffff88006734f630 R08: ffff880064138418 R09: 0000000000000003
-R10: dffffc0000000000 R11: 0000000000000005 R12: 0000000000000000
-R13: ffffffff84e7e200 R14: ffff880064138484 R15: ffff8800641383c0
-FS:  00007fb3887a07c0(0000) GS:ffff88006cc00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000020000000 CR3: 000000006b040000 CR4: 00000000000006f0
-Stack:
- ffff8800666d4200 ffff8800666d49f8 ffff8800666d4200 ffffffff84c02460
- ffff8800666d4a1a 1ffff1000ccdaa2f ffff88006734f498 0000000000000046
- ffff88006734f440 ffffffff832f4269 ffff880064ba7456 0000000000000000
-Call Trace:
- [<ffffffff83364ddc>] icmpv6_param_prob+0x2c/0x40 net/ipv6/icmp.c:557
- [<     inline     >] ip6_tlvopt_unknown net/ipv6/exthdrs.c:88
- [<ffffffff83394405>] ip6_parse_tlv+0x555/0x670 net/ipv6/exthdrs.c:157
- [<ffffffff8339a759>] ipv6_parse_hopopts+0x199/0x460 net/ipv6/exthdrs.c:663
- [<ffffffff832ee773>] ipv6_rcv+0xfa3/0x1dc0 net/ipv6/ip6_input.c:191
- ...
 
-icmp6_send / icmpv6_send is invoked for both rx and tx paths. In both
-cases the dst->dev should be preferred for determining the L3 domain
-if the dst has been set on the skb. Fallback to the skb->dev if it has
-not. This covers the case reported here where icmp6_send is invoked on
-Rx before the route lookup.
+> -----Original Message-----
+> From: David Ahern [mailto:dsa@cumulusnetworks.com]
+> Sent: Monday, November 28, 2016 10:39 AM
+> To: 张胜举 <zhangshengju@cmss.chinamobile.com>;
+> netdev@vger.kernel.org
+> Subject: Re: [net,v2] neigh: fix the loop index error in neigh dump
+> 
+> On 11/27/16 7:34 PM, 张胜举 wrote:
+> >> -----Original Message-----
+> >> From: David Ahern [mailto:dsa@cumulusnetworks.com]
+> >> Sent: Monday, November 28, 2016 10:10 AM
+> >> To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>;
+> >> netdev@vger.kernel.org
+> >> Subject: Re: [net,v2] neigh: fix the loop index error in neigh dump
+> >>
+> >> On 11/27/16 6:32 PM, Zhang Shengju wrote:
+> >>> Loop index in neigh dump function is not updated correctly under
+> >>> some circumstances, this patch will fix it.
+> >>
+> >> What's an example?
+> >
+> > If dev is filtered out, the original code goes to next loop without
+> > updating loop index 'idx'.
+> 
+> And you have a use case with missing or redundant data? Or is your
+> comment based on a review of code only?
+It's on my code review. No use case currently,  this is uncommon to happen.
 
-Fixes: 5d41ce29e ("net: icmp6_send should use dst dev to determine L3 domain")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv6/icmp.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 7370ad2e693a..2772004ba5a1 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -447,8 +447,10 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
- 
- 	if (__ipv6_addr_needs_scope_id(addr_type))
- 		iif = skb->dev->ifindex;
--	else
--		iif = l3mdev_master_ifindex(skb_dst(skb)->dev);
-+	else {
-+		dst = skb_dst(skb);
-+		iif = l3mdev_master_ifindex(dst ? dst->dev : skb->dev);
-+	}
- 
- 	/*
- 	 *	Must not send error if the source does not uniquely
--- 
-2.1.4
+> 
+> >> You are completely rewriting the dump loops.
+> >
+> > I put 'idx++' into for loop,  so I replace 'goto' with 'continue'.
+> > The other change is style related.
+> 
+> A "fixes" should not include 'style related' changes.
+Okay, I will send another version without style changes.
