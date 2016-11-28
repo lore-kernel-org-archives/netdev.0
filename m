@@ -1,39 +1,54 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] geneve: fix ip_hdr_len reserved for geneve6 tunnel.
-Date: Mon, 28 Nov 2016 13:26:58 +0800
-Message-ID: <1480310818-78456-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Pravin B Shelar <pshelar@nicira.com>,
-        Jiri Benc <jbenc@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net/sched: act_pedit: limit negative offset
+Date: Sun, 27 Nov 2016 21:39:33 -0800
+Message-ID: <CAM_iQpX1at1w=3OfRFchn3STTDJGXj640tGetxXToR=EyddpEw@mail.gmail.com>
+References: <20161127155815.10359-1-amir@vadai.me>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Amir Vadai <amir@vadai.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33886 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751623AbcK1Fjy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 00:39:54 -0500
+Received: by mail-io0-f194.google.com with SMTP id r94so20641517ioe.1
+        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 21:39:54 -0800 (PST)
+In-Reply-To: <20161127155815.10359-1-amir@vadai.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It shold reserved sizeof(ipv6hdr) for geneve in ipv6 tunnel.
+On Sun, Nov 27, 2016 at 7:58 AM, Amir Vadai <amir@vadai.me> wrote:
+> Should not allow setting a negative offset that goes below the skb head.
+...
+> diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+> index b54d56d4959b..e79e8a88f2d2 100644
+> --- a/net/sched/act_pedit.c
+> +++ b/net/sched/act_pedit.c
+> @@ -154,8 +154,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+>                         }
+>
+>                         ptr = skb_header_pointer(skb, off + offset, 4, &_data);
+> -                       if (!ptr)
+> +                       if ((unsigned char *)ptr < skb->head) {
 
-Fixes: c3ef5aa5e5 ('geneve: Merge ipv4 and ipv6 geneve_build_skb()')
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- drivers/net/geneve.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ptr returned could be &_data, which is on stack, so why this comparison
+makes sense for this case?
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 7b80e28..45301cb 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -852,7 +852,7 @@ static int geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 					   ip_hdr(skb), skb);
- 		ttl = key->ttl ? : ip6_dst_hoplimit(dst);
- 	}
--	err = geneve_build_skb(dst, skb, info, xnet, sizeof(struct iphdr));
-+	err = geneve_build_skb(dst, skb, info, xnet, sizeof(struct ipv6hdr));
- 	if (unlikely(err))
- 		return err;
- 
--- 
-1.8.3.1
+
+> +                               pr_info("tc filter pedit offset out of bounds\n");
+>                                 goto bad;
+> +                       }
+> +
+>                         /* just do it, baby */
+>                         *ptr = ((*ptr & tkey->mask) ^ tkey->val);
+>                         if (ptr == &_data)
+> --
+> 2.10.2
+>
