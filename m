@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next 2/9] liquidio CN23XX: VF registration
-Date: Sun, 27 Nov 2016 20:51:35 -0800
-Message-ID: <1480308702-6261-3-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next 3/9] liquidio CN23XX: VF config setup
+Date: Sun, 27 Nov 2016 20:51:36 -0800
+Message-ID: <1480308702-6261-4-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1480308702-6261-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,124 +16,45 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-dm3nam03on0089.outbound.protection.outlook.com ([104.47.41.89]:13344
         "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753327AbcK1EwX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Nov 2016 23:52:23 -0500
+        id S1753784AbcK1Ew2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Nov 2016 23:52:28 -0500
 In-Reply-To: <1480308702-6261-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for cn23xx VF probe and registration.
+Adds support for setting up VF configuration.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/Kconfig                |  12 +++
- drivers/net/ethernet/cavium/liquidio/Makefile      |  21 ++++
- .../ethernet/cavium/liquidio/cn23xx_vf_device.h    |  34 ++++++
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 120 +++++++++++++++++++++
- .../net/ethernet/cavium/liquidio/octeon_device.c   |   4 +
- 5 files changed, 191 insertions(+)
- create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
- create mode 100644 drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+ drivers/net/ethernet/cavium/liquidio/Makefile      |   1 +
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.c    |  44 +++++++
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.h    |   2 +
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 136 +++++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |   3 +
+ 5 files changed, 186 insertions(+)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
 
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index 92f411c..c0679c2 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -74,4 +74,16 @@ config OCTEON_MGMT_ETHERNET
- 	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
- 	  CN54XX, CN52XX, and CN6XXX chips.
- 
-+config LIQUIDIO_VF
-+	tristate "Cavium LiquidIO VF support"
-+	depends on 64BIT && PCI_MSI
-+	select PTP_1588_CLOCK
-+	---help---
-+	  This driver supports Cavium LiquidIO Intelligent Server Adapter
-+	  based on CN23XX chips.
-+
-+	  To compile this driver as a module, choose M here: The module
-+	  will be called liquidio_vf. MSI-X interrupt support is required
-+	  for this driver to work correctly
-+
- endif # NET_VENDOR_CAVIUM
 diff --git a/drivers/net/ethernet/cavium/liquidio/Makefile b/drivers/net/ethernet/cavium/liquidio/Makefile
-index 14958de..69d23fc 100644
+index 69d23fc..cca903a 100644
 --- a/drivers/net/ethernet/cavium/liquidio/Makefile
 +++ b/drivers/net/ethernet/cavium/liquidio/Makefile
-@@ -17,3 +17,24 @@ liquidio-$(CONFIG_LIQUIDIO) += lio_ethtool.o \
- 			octeon_nic.o
- 
- liquidio-objs := lio_main.o octeon_console.o $(liquidio-y)
-+
-+obj-$(CONFIG_LIQUIDIO_VF) += liquidio_vf.o
-+
-+ifeq ($(CONFIG_LIQUIDIO)$(CONFIG_LIQUIDIO_VF), yy)
-+	liquidio_vf-objs := lio_vf_main.o
-+else
-+liquidio_vf-$(CONFIG_LIQUIDIO_VF) += lio_ethtool.o \
-+			lio_core.o         \
-+			request_manager.o  \
-+			response_manager.o \
-+			octeon_device.o    \
-+			cn66xx_device.o    \
-+			cn68xx_device.o    \
-+			cn23xx_pf_device.o \
-+			octeon_mailbox.o   \
-+			octeon_mem_ops.o   \
-+			octeon_droq.o      \
-+			octeon_nic.o
-+
-+liquidio_vf-objs := lio_vf_main.o $(liquidio_vf-y)
-+endif
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+@@ -31,6 +31,7 @@ liquidio_vf-$(CONFIG_LIQUIDIO_VF) += lio_ethtool.o \
+ 			cn66xx_device.o    \
+ 			cn68xx_device.o    \
+ 			cn23xx_pf_device.o \
++			cn23xx_vf_device.o \
+ 			octeon_mailbox.o   \
+ 			octeon_mem_ops.o   \
+ 			octeon_droq.o      \
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
 new file mode 100644
-index 0000000..015b6d4
+index 0000000..d683bda
 --- /dev/null
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
-@@ -0,0 +1,34 @@
-+/**********************************************************************
-+ * Author: Cavium, Inc.
-+ *
-+ * Contact: support@cavium.com
-+ *          Please include "LiquidIO" in the subject.
-+ *
-+ * Copyright (c) 2003-2016 Cavium, Inc.
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License, Version 2, as
-+ * published by the Free Software Foundation.
-+ *
-+ * This file is distributed in the hope that it will be useful, but
-+ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
-+ * NONINFRINGEMENT.  See the GNU General Public License for more details.
-+ ***********************************************************************/
-+/*! \file  cn23xx_device.h
-+ * \brief Host Driver: Routines that perform CN23XX specific operations.
-+ */
-+
-+#ifndef __CN23XX_VF_DEVICE_H__
-+#define __CN23XX_VF_DEVICE_H__
-+
-+#include "cn23xx_vf_regs.h"
-+
-+/* Register address and configuration for a CN23XX devices.
-+ * If device specific changes need to be made then add a struct to include
-+ * device specific fields as shown in the commented section
-+ */
-+struct octeon_cn23xx_vf {
-+	struct octeon_config *conf;
-+};
-+#endif
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-new file mode 100644
-index 0000000..d1b1a24
---- /dev/null
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -0,0 +1,120 @@
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
+@@ -0,0 +1,44 @@
 +/**********************************************************************
 + * Author: Cavium, Inc.
 + *
@@ -152,129 +73,241 @@ index 0000000..d1b1a24
 + * NONINFRINGEMENT.  See the GNU General Public License for more details.
 + ***********************************************************************/
 +#include <linux/pci.h>
-+#include <net/vxlan.h>
++#include <linux/netdevice.h>
 +#include "liquidio_common.h"
 +#include "octeon_droq.h"
 +#include "octeon_iq.h"
 +#include "response_manager.h"
 +#include "octeon_device.h"
++#include "cn23xx_vf_device.h"
++#include "octeon_main.h"
 +
-+MODULE_AUTHOR("Cavium Networks, <support@cavium.com>");
-+MODULE_DESCRIPTION("Cavium LiquidIO Intelligent Server Adapter Virtual Function Driver");
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION(LIQUIDIO_VERSION);
-+
-+struct octeon_device_priv {
-+	/* Tasklet structures for this device. */
-+	struct tasklet_struct droq_tasklet;
-+	unsigned long napi_mask;
-+};
-+
-+static int
-+liquidio_vf_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
-+static void liquidio_vf_remove(struct pci_dev *pdev);
-+
-+static const struct pci_device_id liquidio_vf_pci_tbl[] = {
-+	{
-+		PCI_VENDOR_ID_CAVIUM, OCTEON_CN23XX_VF_VID,
-+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0
-+	},
-+	{
-+		0, 0, 0, 0, 0, 0, 0
-+	}
-+};
-+MODULE_DEVICE_TABLE(pci, liquidio_vf_pci_tbl);
-+
-+static struct pci_driver liquidio_vf_pci_driver = {
-+	.name		= "LiquidIO_VF",
-+	.id_table	= liquidio_vf_pci_tbl,
-+	.probe		= liquidio_vf_probe,
-+	.remove		= liquidio_vf_remove,
-+};
-+
-+/**
-+ * \brief PCI probe handler
-+ * @param pdev PCI device structure
-+ * @param ent unused
-+ */
-+static int
-+liquidio_vf_probe(struct pci_dev *pdev,
-+		  const struct pci_device_id *ent __attribute__((unused)))
++int cn23xx_setup_octeon_vf_device(struct octeon_device *oct)
 +{
-+	struct octeon_device *oct_dev = NULL;
++	struct octeon_cn23xx_vf *cn23xx = (struct octeon_cn23xx_vf *)oct->chip;
 +
-+	oct_dev = octeon_allocate_device(pdev->device,
-+					 sizeof(struct octeon_device_priv));
++	if (octeon_map_pci_barx(oct, 0, 0))
++		return 1;
 +
-+	if (!oct_dev) {
-+		dev_err(&pdev->dev, "Unable to allocate device\n");
++	cn23xx->conf  = oct_get_config_info(oct, LIO_23XX);
++	if (!cn23xx->conf) {
++		dev_err(&oct->pci_dev->dev, "%s No Config found for CN23XX\n",
++			__func__);
++		octeon_unmap_pci_barx(oct, 0);
++		return 1;
++	}
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+index 015b6d4..9e4fb50 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+@@ -31,4 +31,6 @@
+ struct octeon_cn23xx_vf {
+ 	struct octeon_config *conf;
+ };
++
++int cn23xx_setup_octeon_vf_device(struct octeon_device *oct);
+ #endif
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index d1b1a24..721ee66 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -22,6 +22,8 @@
+ #include "octeon_iq.h"
+ #include "response_manager.h"
+ #include "octeon_device.h"
++#include "octeon_main.h"
++#include "cn23xx_vf_device.h"
+ 
+ MODULE_AUTHOR("Cavium Networks, <support@cavium.com>");
+ MODULE_DESCRIPTION("Cavium LiquidIO Intelligent Server Adapter Virtual Function Driver");
+@@ -37,6 +39,7 @@ struct octeon_device_priv {
+ static int
+ liquidio_vf_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
+ static void liquidio_vf_remove(struct pci_dev *pdev);
++static int octeon_device_init(struct octeon_device *oct);
+ 
+ static const struct pci_device_id liquidio_vf_pci_tbl[] = {
+ 	{
+@@ -84,10 +87,78 @@ struct octeon_device_priv {
+ 	/* set linux specific device pointer */
+ 	oct_dev->pci_dev = (void *)pdev;
+ 
++	if (octeon_device_init(oct_dev)) {
++		liquidio_vf_remove(pdev);
 +		return -ENOMEM;
 +	}
 +
-+	dev_info(&pdev->dev, "Initializing device %x:%x.\n",
-+		 (u32)pdev->vendor, (u32)pdev->device);
++	dev_dbg(&oct_dev->pci_dev->dev, "Device is ready\n");
 +
-+	/* Assign octeon_device for this device to the private data area. */
-+	pci_set_drvdata(pdev, oct_dev);
+ 	return 0;
+ }
+ 
+ /**
++ * \brief PCI FLR for each Octeon device.
++ * @param oct octeon device
++ */
++static void octeon_pci_flr(struct octeon_device *oct)
++{
++	u16 status;
 +
-+	/* set linux specific device pointer */
-+	oct_dev->pci_dev = (void *)pdev;
++	pci_save_state(oct->pci_dev);
++
++	pci_cfg_access_lock(oct->pci_dev);
++
++	/* Quiesce the device completely */
++	pci_write_config_word(oct->pci_dev, PCI_COMMAND,
++			      PCI_COMMAND_INTX_DISABLE);
++
++	/* Wait for Transaction Pending bit clean */
++	msleep(100);
++	pcie_capability_read_word(oct->pci_dev, PCI_EXP_DEVSTA, &status);
++	if (status & PCI_EXP_DEVSTA_TRPND) {
++		dev_info(&oct->pci_dev->dev, "Function reset incomplete after 100ms, sleeping for 5 seconds\n");
++		ssleep(5);
++		pcie_capability_read_word(oct->pci_dev, PCI_EXP_DEVSTA,
++					  &status);
++		if (status & PCI_EXP_DEVSTA_TRPND)
++			dev_info(&oct->pci_dev->dev, "Function reset still incomplete after 5s, reset anyway\n");
++	}
++	pcie_capability_set_word(oct->pci_dev, PCI_EXP_DEVCTL,
++				 PCI_EXP_DEVCTL_BCR_FLR);
++	mdelay(100);
++
++	pci_cfg_access_unlock(oct->pci_dev);
++
++	pci_restore_state(oct->pci_dev);
++}
++
++/**
++ *\brief Destroy resources associated with octeon device
++ * @param pdev PCI device structure
++ * @param ent unused
++ */
++static void octeon_destroy_resources(struct octeon_device *oct)
++{
++	switch (atomic_read(&oct->status)) {
++	case OCT_DEV_PCI_MAP_DONE:
++		octeon_unmap_pci_barx(oct, 0);
++		octeon_unmap_pci_barx(oct, 1);
++
++	/* fallthrough */
++	case OCT_DEV_PCI_ENABLE_DONE:
++		pci_clear_master(oct->pci_dev);
++		/* Disable the device, releasing the PCI INT */
++		pci_disable_device(oct->pci_dev);
++
++	/* fallthrough */
++	case OCT_DEV_BEGIN_STATE:
++		/* Nothing to be done here either */
++		break;
++	}
++}
++
++/**
+  * \brief Cleans up resources at unload time
+  * @param pdev PCI device structure
+  */
+@@ -97,12 +168,77 @@ static void liquidio_vf_remove(struct pci_dev *pdev)
+ 
+ 	dev_dbg(&oct_dev->pci_dev->dev, "Stopping device\n");
+ 
++	/* Reset the octeon device and cleanup all memory allocated for
++	 * the octeon device by driver.
++	 */
++	octeon_destroy_resources(oct_dev);
++
++	dev_info(&oct_dev->pci_dev->dev, "Device removed\n");
++
+ 	/* This octeon device has been removed. Update the global
+ 	 * data structure to reflect this. Free the device structure.
+ 	 */
+ 	octeon_free_device_mem(oct_dev);
+ }
+ 
++/**
++ * \brief PCI initialization for each Octeon device.
++ * @param oct octeon device
++ */
++static int octeon_pci_os_setup(struct octeon_device *oct)
++{
++#ifdef CONFIG_PCI_IOV
++	/* setup PCI stuff first */
++	if (!oct->pci_dev->physfn)
++		octeon_pci_flr(oct);
++#endif
++
++	if (pci_enable_device(oct->pci_dev)) {
++		dev_err(&oct->pci_dev->dev, "pci_enable_device failed\n");
++		return 1;
++	}
++
++	if (dma_set_mask_and_coherent(&oct->pci_dev->dev, DMA_BIT_MASK(64))) {
++		dev_err(&oct->pci_dev->dev, "Unexpected DMA device capability\n");
++		pci_disable_device(oct->pci_dev);
++		return 1;
++	}
++
++	/* Enable PCI DMA Master. */
++	pci_set_master(oct->pci_dev);
 +
 +	return 0;
 +}
 +
 +/**
-+ * \brief Cleans up resources at unload time
-+ * @param pdev PCI device structure
++ * \brief Device initialization for each Octeon device that is probed
++ * @param octeon_dev  octeon device
 + */
-+static void liquidio_vf_remove(struct pci_dev *pdev)
++static int octeon_device_init(struct octeon_device *oct)
 +{
-+	struct octeon_device *oct_dev = pci_get_drvdata(pdev);
++	u32 rev_id;
 +
-+	dev_dbg(&oct_dev->pci_dev->dev, "Stopping device\n");
++	atomic_set(&oct->status, OCT_DEV_BEGIN_STATE);
 +
-+	/* This octeon device has been removed. Update the global
-+	 * data structure to reflect this. Free the device structure.
++	/* Enable access to the octeon device and make its DMA capability
++	 * known to the OS.
 +	 */
-+	octeon_free_device_mem(oct_dev);
++	if (octeon_pci_os_setup(oct))
++		return 1;
++	atomic_set(&oct->status, OCT_DEV_PCI_ENABLE_DONE);
++
++	oct->chip_id = OCTEON_CN23XX_VF_VID;
++	pci_read_config_dword(oct->pci_dev, 8, &rev_id);
++	oct->rev_id = rev_id & 0xff;
++
++	if (cn23xx_setup_octeon_vf_device(oct))
++		return 1;
++
++	atomic_set(&oct->status, OCT_DEV_PCI_MAP_DONE);
++
++	return 0;
 +}
 +
-+static int __init liquidio_vf_init(void)
-+{
-+	octeon_init_device_list(0);
-+	return pci_register_driver(&liquidio_vf_pci_driver);
-+}
-+
-+static void __exit liquidio_vf_exit(void)
-+{
-+	pci_unregister_driver(&liquidio_vf_pci_driver);
-+
-+	pr_info("LiquidIO_VF network module is now unloaded\n");
-+}
-+
-+module_init(liquidio_vf_init);
-+module_exit(liquidio_vf_exit);
+ static int __init liquidio_vf_init(void)
+ {
+ 	octeon_init_device_list(0);
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 79c8875..05bb0fd 100644
+index 05bb0fd..b4c8ee4 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -28,6 +28,7 @@
- #include "cn66xx_regs.h"
- #include "cn66xx_device.h"
- #include "cn23xx_pf_device.h"
-+#include "cn23xx_vf_device.h"
- 
- /** Default configuration
-  *  for CN66XX OCTEON Models.
-@@ -672,6 +673,9 @@ static struct octeon_device *octeon_allocate_device_mem(u32 pci_id,
- 	case OCTEON_CN23XX_PF_VID:
- 		configsize = sizeof(struct octeon_cn23xx_pf);
+@@ -581,6 +581,8 @@ static void *__retrieve_octeon_config_info(struct octeon_device *oct,
+ 			ret =  (void *)&default_cn68xx_conf;
+ 		} else if (oct->chip_id == OCTEON_CN23XX_PF_VID) {
+ 			ret =  (void *)&default_cn23xx_conf;
++		} else if (oct->chip_id == OCTEON_CN23XX_VF_VID) {
++			ret =  (void *)&default_cn23xx_conf;
+ 		}
  		break;
-+	case OCTEON_CN23XX_VF_VID:
-+		configsize = sizeof(struct octeon_cn23xx_vf);
-+		break;
  	default:
- 		pr_err("%s: Unknown PCI Device: 0x%x\n",
- 		       __func__,
+@@ -596,6 +598,7 @@ static int __verify_octeon_config_info(struct octeon_device *oct, void *conf)
+ 	case OCTEON_CN68XX:
+ 		return lio_validate_cn6xxx_config_info(oct, conf);
+ 	case OCTEON_CN23XX_PF_VID:
++	case OCTEON_CN23XX_VF_VID:
+ 		return 0;
+ 	default:
+ 		break;
 -- 
 1.8.3.1
