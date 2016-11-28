@@ -1,56 +1,50 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: SNAT --random & fully is not actually random for ips
-Date: Mon, 28 Nov 2016 12:29:55 +0100
-Message-ID: <20161128112955.GA1691@salvia>
-References: <97a6a1c557f0f1e6d55d8d09b326f8b1@nuclearcat.com>
- <20161128110651.GA1024@salvia>
- <fb3151804cc3b2c57e69d1059b3417ee@nuclearcat.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net-next 1/2] sfc: separate out SFC4000 ("Falcon") support
+ into new sfc-falcon driver
+Date: Mon, 28 Nov 2016 11:29:47 +0000
+Message-ID: <bfad810e-0086-166f-b426-142296604687@solarflare.com>
+References: <201611260855.aKMo9XWI%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <fb3151804cc3b2c57e69d1059b3417ee@nuclearcat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <kbuild-all@01.org>, <linux-net-drivers@solarflare.com>,
+        <davem@davemloft.net>, <bkenward@solarflare.com>,
+        <netdev@vger.kernel.org>
+To: kbuild test robot <lkp@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:45800 "EHLO
+        nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753732AbcK1LaB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 06:30:01 -0500
+In-Reply-To: <201611260855.aKMo9XWI%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 01:12:07PM +0200, Denys Fedoryshchenko wrote:
-> On 2016-11-28 13:06, Pablo Neira Ayuso wrote:
-> >Why does your patch reverts NF_NAT_RANGE_PROTO_RANDOM_FULLY?
+On 26/11/16 00:58, kbuild test robot wrote:
+> Hi Edward,
 >
-> Ops, sorry i just did mistake with files, actually it is in reverse ( did
-> this patch, and it worked properly with it, with random source ip).
-
-Oh, I see 8)
-
-> --- nf_nat_core.c	2016-11-21 09:11:59.000000000 +0000
-> +++ nf_nat_core.c.new	2016-11-28 09:55:54.000000000 +0000
-> @@ -282,9 +282,13 @@
->  	 * client coming from the same IP (some Internet Banking sites
->  	 * like this), even across reboots.
->  	 */
-> -	j = jhash2((u32 *)&tuple->src.u3, sizeof(tuple->src.u3) / sizeof(u32),
-> +	if (range->flags & NF_NAT_RANGE_PROTO_RANDOM_FULLY) {
-> +	    j = prandom_u32();
-> +	} else {
-> +	    j = jhash2((u32 *)&tuple->src.u3, sizeof(tuple->src.u3) / sizeof(u32),
->  		   range->flags & NF_NAT_RANGE_PERSISTENT ?
->  			0 : (__force u32)tuple->dst.u3.all[max] ^ zone->id);
-> +	}
-> 
->  	full_range = false;
->  	for (i = 0; i <= max; i++) {
-> 
-> This is current situation, RANDOM_FULLY actually does prandom_u32 for source
-> port only, but not for IP.
-> IP kept as persistent and kind of predictable, because hash function based
-> on source ip.
-> 
-> Sure i did tried to specify any combination of flags, but looking to
-> "find_best_ips_proto" function, it wont have any effect.
-
-IIRC the original intention on random-fully was to cover only ports.
-Did you interpret from git history otherwise? Otherwise, safe
-procedure is to add a new flag.
+> [auto build test ERROR on net-next/master]
+>
+> url:    https://github.com/0day-ci/linux/commits/Edward-Cree/sfc-split-out-Falcon-driver/20161126-033439
+> config: i386-randconfig-h1-11260702 (attached as .config)
+> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=i386 
+>
+> Note: the linux-review/Edward-Cree/sfc-split-out-Falcon-driver/20161126-033439 HEAD 738d215da7cf33cb4f2916dfba4fdb1558829e5a builds fine.
+>       It only hurts bisectibility.
+>
+> All error/warnings (new ones prefixed by >>):
+>
+>    drivers/net/ethernet/sfc/falcon/built-in.o: In function `tenxpress_set_id_led':
+>>> (.text+0x28db4): multiple definition of `tenxpress_set_id_led'
+>    drivers/net/ethernet/sfc/built-in.o:(.text+0x3bac7): first defined here
+Right, I have to do at least some of the rip-stuff-out in the first patch, else
+building both drivers built-in breaks.  (I only tested building them as modules,
+that was silly of me.)
+Wondering if the right thing to do is just squash both patches together: it
+could hardly make the series _less_ reviewable, and it might help git recognise
+more of the copies as file renames.
+Opinions?
+-Ed
