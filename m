@@ -1,8 +1,8 @@
 From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 11/16] net: ethernet: marvell: mvneta: fix fixed-link
- phydev leaks
-Date: Mon, 28 Nov 2016 19:25:04 +0100
-Message-ID: <1480357509-28074-12-git-send-email-johan@kernel.org>
+Subject: [PATCH net 13/16] net: ethernet: renesas: ravb: fix fixed-link phydev
+ leaks
+Date: Mon, 28 Nov 2016 19:25:06 +0100
+Message-ID: <1480357509-28074-14-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -37,43 +37,70 @@ Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7u
 List-Id: netdev.vger.kernel.org
 
 Make sure to deregister and free any fixed-link PHY registered using
-of_phy_register_fixed_link() on probe errors and on driver unbind.
+of_phy_register_fixed_link() on initialisation errors and on device
+close after having disconnected the PHY.
 
-Fixes: 83895bedeee6 ("net: mvneta: add support for fixed links")
+Fixes: b4bc88a868ed ("ravb: Add fixed-link support")
 Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/renesas/ravb_main.c | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 0c0a45af950f..707bc4680b9b 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -4191,6 +4191,8 @@ static int mvneta_probe(struct platform_device *pdev)
- 	clk_disable_unprepare(pp->clk);
- err_put_phy_node:
- 	of_node_put(phy_node);
-+	if (of_phy_is_fixed_link(dn))
-+		of_phy_deregister_fixed_link(dn);
- err_free_irq:
- 	irq_dispose_mapping(dev->irq);
- err_free_netdev:
-@@ -4202,6 +4204,7 @@ static int mvneta_probe(struct platform_device *pdev)
- static int mvneta_remove(struct platform_device *pdev)
- {
- 	struct net_device  *dev = platform_get_drvdata(pdev);
-+	struct device_node *dn = pdev->dev.of_node;
- 	struct mvneta_port *pp = netdev_priv(dev);
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 630536bc72f9..f1f3be2cfe21 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1008,7 +1008,8 @@ static int ravb_phy_init(struct net_device *ndev)
+ 	of_node_put(pn);
+ 	if (!phydev) {
+ 		netdev_err(ndev, "failed to connect PHY\n");
+-		return -ENOENT;
++		err = -ENOENT;
++		goto err_deregister_fixed_link;
+ 	}
  
- 	unregister_netdev(dev);
-@@ -4209,6 +4212,8 @@ static int mvneta_remove(struct platform_device *pdev)
- 	clk_disable_unprepare(pp->clk);
- 	free_percpu(pp->ports);
- 	free_percpu(pp->stats);
-+	if (of_phy_is_fixed_link(dn))
-+		of_phy_deregister_fixed_link(dn);
- 	irq_dispose_mapping(dev->irq);
- 	of_node_put(pp->phy_node);
- 	free_netdev(dev);
+ 	/* This driver only support 10/100Mbit speeds on Gen3
+@@ -1020,8 +1021,7 @@ static int ravb_phy_init(struct net_device *ndev)
+ 		err = phy_set_max_speed(phydev, SPEED_100);
+ 		if (err) {
+ 			netdev_err(ndev, "failed to limit PHY to 100Mbit/s\n");
+-			phy_disconnect(phydev);
+-			return err;
++			goto err_phy_disconnect;
+ 		}
+ 
+ 		netdev_info(ndev, "limited PHY to 100Mbit/s\n");
+@@ -1033,6 +1033,14 @@ static int ravb_phy_init(struct net_device *ndev)
+ 	phy_attached_info(phydev);
+ 
+ 	return 0;
++
++err_phy_disconnect:
++	phy_disconnect(phydev);
++err_deregister_fixed_link:
++	if (of_phy_is_fixed_link(np))
++		of_phy_deregister_fixed_link(np);
++
++	return err;
+ }
+ 
+ /* PHY control start function */
+@@ -1634,6 +1642,7 @@ static void ravb_set_rx_mode(struct net_device *ndev)
+ /* Device close function for Ethernet AVB */
+ static int ravb_close(struct net_device *ndev)
+ {
++	struct device_node *np = ndev->dev.parent->of_node;
+ 	struct ravb_private *priv = netdev_priv(ndev);
+ 	struct ravb_tstamp_skb *ts_skb, *ts_skb2;
+ 
+@@ -1663,6 +1672,8 @@ static int ravb_close(struct net_device *ndev)
+ 	if (ndev->phydev) {
+ 		phy_stop(ndev->phydev);
+ 		phy_disconnect(ndev->phydev);
++		if (of_phy_is_fixed_link(np))
++			of_phy_deregister_fixed_link(np);
+ 	}
+ 
+ 	if (priv->chip_id != RCAR_GEN2) {
 -- 
 2.7.3
