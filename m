@@ -1,53 +1,113 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH RFC v1] ethtool: implement helper to get flow_type value
-Date: Mon, 28 Nov 2016 22:49:38 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5857CCA45D@ORSMSX115.amr.corp.intel.com>
-References: <20161122234453.31611-1-jacob.e.keller@intel.com>
- <20161125.160634.944615331208897862.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:4581 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755606AbcK1Wtl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 17:49:41 -0500
-In-Reply-To: <20161125.160634.944615331208897862.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: brocade: bna: use new api ethtool_{get|set}_link_ksettings
+Date: Mon, 28 Nov 2016 23:52:19 +0100
+Message-ID: <1480373539-3257-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: rasesh.mody@cavium.com, sudarsana.kalluru@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj4gQmVo
-YWxmIE9mIERhdmlkIE1pbGxlcg0KPiBTZW50OiBGcmlkYXksIE5vdmVtYmVyIDI1LCAyMDE2IDE6
-MDcgUE0NCj4gVG86IEtlbGxlciwgSmFjb2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0K
-PiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgaW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9z
-bC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBSRkMgdjFdIGV0aHRvb2w6IGltcGxlbWVudCBo
-ZWxwZXIgdG8gZ2V0IGZsb3dfdHlwZSB2YWx1ZQ0KPiANCj4gRnJvbTogSmFjb2IgS2VsbGVyIDxq
-YWNvYi5lLmtlbGxlckBpbnRlbC5jb20+DQo+IERhdGU6IFR1ZSwgMjIgTm92IDIwMTYgMTU6NDQ6
-NTMgLTA4MDANCj4gDQo+ID4gQEAgLTg4MCw2ICs4ODAsMTQgQEAgc3RydWN0IGV0aHRvb2xfcnhf
-Zmxvd19zcGVjIHsNCj4gPiAgCV9fdTMyCQlsb2NhdGlvbjsNCj4gPiAgfTsNCj4gPg0KPiA+ICsv
-KiBGbGFnIHRvIGVuYWJsZSBhZGRpdGlvbmFsIGZpZWxkcyBpbiBzdHJ1Y3QgZXRodG9vbF9yeF9m
-bG93X3NwZWMgKi8NCj4gPiArI2RlZmluZQlGTE9XX0VYVAkweDgwMDAwMDAwDQo+ID4gKyNkZWZp
-bmUJRkxPV19NQUNfRVhUCTB4NDAwMDAwMDANCj4gPiArc3RhdGljIGlubGluZSBfX3UzMiBldGh0
-b29sX2dldF9mbG93X3NwZWNfdHlwZShfX3UzMiBmbG93X3R5cGUpDQo+ID4gK3sNCj4gPiArCXJl
-dHVybiBmbG93X3R5cGUgJiAoRkxPV19FWFQgfCBGTE9XX01BQ19FWFQpOw0KPiA+ICt9DQo+ID4g
-Kw0KPiA+ICAvKiBIb3cgcmluZ3MgYXJlIGxheWVkIG91dCB3aGVuIGFjY2Vzc2luZyB2aXJ0dWFs
-IGZ1bmN0aW9ucyBvcg0KPiA+ICAgKiBvZmZsb2FkZWQgcXVldWVzIGlzIGRldmljZSBzcGVjaWZp
-Yy4gVG8gYWxsb3cgdXNlcnMgdG8gZG8gZmxvdw0KPiA+ICAgKiBzdGVlcmluZyBhbmQgc3BlY2lm
-eSB0aGVzZSBxdWV1ZXMgdGhlIHJpbmcgY29va2llIGlzIHBhcnRpdGlvbmVkDQo+ID4gQEAgLTE1
-NzksOSArMTU4Nyw2IEBAIHN0YXRpYyBpbmxpbmUgaW50IGV0aHRvb2xfdmFsaWRhdGVfZHVwbGV4
-KF9fdTggZHVwbGV4KQ0KPiA+ICAjZGVmaW5lCUlQVjRfRkxPVwkweDEwCS8qIGhhc2ggb25seSAq
-Lw0KPiA+ICAjZGVmaW5lCUlQVjZfRkxPVwkweDExCS8qIGhhc2ggb25seSAqLw0KPiA+ICAjZGVm
-aW5lCUVUSEVSX0ZMT1cJMHgxMgkvKiBzcGVjIG9ubHkgKGV0aGVyX3NwZWMpICovDQo+ID4gLS8q
-IEZsYWcgdG8gZW5hYmxlIGFkZGl0aW9uYWwgZmllbGRzIGluIHN0cnVjdCBldGh0b29sX3J4X2Zs
-b3dfc3BlYyAqLw0KPiA+IC0jZGVmaW5lCUZMT1dfRVhUCTB4ODAwMDAwMDANCj4gPiAtI2RlZmlu
-ZQlGTE9XX01BQ19FWFQJMHg0MDAwMDAwMA0KPiA+DQo+ID4gIC8qIEwzLUw0IG5ldHdvcmsgdHJh
-ZmZpYyBmbG93IGhhc2ggb3B0aW9ucyAqLw0KPiA+ICAjZGVmaW5lCVJYSF9MMkRBCSgxIDw8IDEp
-DQo+IA0KPiBQbGVhc2UgcHV0IHRoZSBoZWxwZXIgYWZ0ZXIgdGhlIEZMT1dfKiBkZWZpbml0aW9u
-cyByYXRoZXIgdGhhbiBtb3ZpbmcNCj4gdGhlbSBlYXJsaWVyIGluIHRoZSBmaWxlLg0KDQpXaWxs
-IGRvLiBJIG9yaWdpbmFsbHkgbW92ZWQgdGhlbSB0byBwbGFjZSB0aGVzZSB3aXRoIG90aGVyIHNp
-bWlsYXIgaGVscGVycyBidXQgSSBjYW4gcmUtc3BpbiB0aGlzLg0KDQpUaGFua3MsDQpKYWtlDQo=
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
+
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |   54 +++++++++++++----------
+ 1 files changed, 30 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+index 31f61a7..2865939 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
++++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+@@ -240,40 +240,46 @@
+ #define BNAD_ETHTOOL_STATS_NUM	ARRAY_SIZE(bnad_net_stats_strings)
+ 
+ static int
+-bnad_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
++bnad_get_link_ksettings(struct net_device *netdev,
++			struct ethtool_link_ksettings *cmd)
+ {
+-	cmd->supported = SUPPORTED_10000baseT_Full;
+-	cmd->advertising = ADVERTISED_10000baseT_Full;
+-	cmd->autoneg = AUTONEG_DISABLE;
+-	cmd->supported |= SUPPORTED_FIBRE;
+-	cmd->advertising |= ADVERTISED_FIBRE;
+-	cmd->port = PORT_FIBRE;
+-	cmd->phy_address = 0;
++	u32 supported, advertising;
++
++	supported = SUPPORTED_10000baseT_Full;
++	advertising = ADVERTISED_10000baseT_Full;
++	cmd->base.autoneg = AUTONEG_DISABLE;
++	supported |= SUPPORTED_FIBRE;
++	advertising |= ADVERTISED_FIBRE;
++	cmd->base.port = PORT_FIBRE;
++	cmd->base.phy_address = 0;
+ 
+ 	if (netif_carrier_ok(netdev)) {
+-		ethtool_cmd_speed_set(cmd, SPEED_10000);
+-		cmd->duplex = DUPLEX_FULL;
++		cmd->base.speed = SPEED_10000;
++		cmd->base.duplex = DUPLEX_FULL;
+ 	} else {
+-		ethtool_cmd_speed_set(cmd, SPEED_UNKNOWN);
+-		cmd->duplex = DUPLEX_UNKNOWN;
++		cmd->base.speed = SPEED_UNKNOWN;
++		cmd->base.duplex = DUPLEX_UNKNOWN;
+ 	}
+-	cmd->transceiver = XCVR_EXTERNAL;
+-	cmd->maxtxpkt = 0;
+-	cmd->maxrxpkt = 0;
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						advertising);
+ 
+ 	return 0;
+ }
+ 
+ static int
+-bnad_set_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
++bnad_set_link_ksettings(struct net_device *netdev,
++			const struct ethtool_link_ksettings *cmd)
+ {
+ 	/* 10G full duplex setting supported only */
+-	if (cmd->autoneg == AUTONEG_ENABLE)
+-		return -EOPNOTSUPP; else {
+-		if ((ethtool_cmd_speed(cmd) == SPEED_10000)
+-		    && (cmd->duplex == DUPLEX_FULL))
+-			return 0;
+-	}
++	if (cmd->base.autoneg == AUTONEG_ENABLE)
++		return -EOPNOTSUPP;
++
++	if ((cmd->base.speed == SPEED_10000) &&
++	    (cmd->base.duplex == DUPLEX_FULL))
++		return 0;
+ 
+ 	return -EOPNOTSUPP;
+ }
+@@ -1118,8 +1124,6 @@
+ }
+ 
+ static const struct ethtool_ops bnad_ethtool_ops = {
+-	.get_settings = bnad_get_settings,
+-	.set_settings = bnad_set_settings,
+ 	.get_drvinfo = bnad_get_drvinfo,
+ 	.get_wol = bnad_get_wol,
+ 	.get_link = ethtool_op_get_link,
+@@ -1137,6 +1141,8 @@
+ 	.set_eeprom = bnad_set_eeprom,
+ 	.flash_device = bnad_flash_device,
+ 	.get_ts_info = ethtool_op_get_ts_info,
++	.get_link_ksettings = bnad_get_link_ksettings,
++	.set_link_ksettings = bnad_set_link_ksettings,
+ };
+ 
+ void
+-- 
+1.7.4.4
