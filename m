@@ -1,63 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] ipv6: implement consistent hashing for
- equal-cost multipath routing
-Date: Mon, 28 Nov 2016 11:22:48 -0500 (EST)
-Message-ID: <20161128.112248.2198395724649783009.davem@davemloft.net>
-References: <1480017556-25988-1-git-send-email-david.lebrun@uclouvain.be>
+Subject: Re: [PATCH] net/iucv: use explicit clean up labels in iucv_init()
+Date: Mon, 28 Nov 2016 11:24:33 -0500 (EST)
+Message-ID: <20161128.112433.295947046706527102.davem@davemloft.net>
+References: <20161124091046.hixy3j4ibt7xzezr@linutronix.de>
+        <20161124141415.llqki5vo7nqdusqv@linutronix.de>
+        <20161124161013.dukr42y2nwscosk6@linutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.lebrun@uclouvain.be
+Cc: ubraun@linux.vnet.ibm.com, tglx@linutronix.de,
+        linux-kernel@vger.kernel.org, rt@linutronix.de,
+        linux-s390@vger.kernel.org, netdev@vger.kernel.org
+To: bigeasy@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60544 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60568 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932468AbcK1QWz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:22:55 -0500
-In-Reply-To: <1480017556-25988-1-git-send-email-david.lebrun@uclouvain.be>
+        with ESMTP id S932406AbcK1QYf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:24:35 -0500
+In-Reply-To: <20161124161013.dukr42y2nwscosk6@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lebrun <david.lebrun@uclouvain.be>
-Date: Thu, 24 Nov 2016 20:59:16 +0100
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 24 Nov 2016 17:10:13 +0100
 
-> When multiple nexthops are available for a given route, the routing engine
-> chooses a nexthop by computing the flow hash through get_hash_from_flowi6
-> and by taking that value modulo the number of nexthops. The resulting value
-> indexes the nexthop to select. This method causes issues when a new nexthop
-> is added or one is removed (e.g. link failure). In that case, the number
-> of nexthops changes and potentially all the flows get re-routed to another
-> nexthop.
+> Ursula suggested to use explicit labels for clean up in the error path
+> instead of one `out_free' label which handles multiple exits.
+> Since the previous patch got already applied, here is a follow up patch.
 > 
-> This patch implements a consistent hash method to select the nexthop in
-> case of ECMP. The idea is to generate N random numbers (__u32) for each
-> nexthop, where N is configurable. In order to select a nexthop, we find the
-> number that is directly higher than the flow hash (which is also __u32).
-> The nexthop associated to the number is then selected. The lookup method
-> performs a binary search over the sorted array of numbers, which yields a
-> time complexity of O(log n), where n is the number of nexthops times the
-> number of random values generated for each number.
-> 
-> This feature can be enabled through the CONFIG_IPV6_MULTIPATH_CONSISTENT
-> option and the number of random values generated for each nexthop is
-> defined through CONFIG_IPV6_MPCONSIST_BUCKETSIZE.
-> 
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Thanks for trying to solve this problem.
+"Previous patch" doesn't tell readers anything specific enough to identify
+the change you are referring to.  This will be even more true years down
+the line if someone tries to read this commit and figure out what you
+are referring to.
 
-But we really don't want this to be Kconfig gated.  If we decide to
-support this it should be a run-time selectable option.  Every
-distribution on the planet is going to turn your Kconfig option on, so
-whatever you think we might be saving by putting this behind Kconfig
-checks won't be realized for large swaths of the userbase.
+We have a standard mechanism to refer to commits, via SHA1_ID and commit
+header line text, please use it.
 
-I also question how necessary %100 consistent hashing of ECMP really
-is.
-
-If we can do something at extremely low cost and arrive at a very low
-disruption rate, honestly that's probably good enough.
-
-I assume you've looked over RFC2992.  A low disrutpion algorithm is
-described there and if we could just get rid of the divide it might
-be extremely desirable.
+Thank you.
