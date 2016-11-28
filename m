@@ -1,47 +1,51 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH] vxlan: fix a potential issue when create a new vxlan
- fdb entry.
-Date: Mon, 28 Nov 2016 12:37:33 +0100
-Message-ID: <20161128123733.592c7876@griffin>
-References: <1480316543-23298-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH net-next] bpf: selftests: include <sys/resource.h> to fix build error
+Date: Mon, 28 Nov 2016 11:45:41 +0000
+Message-ID: <20161128114541.10829-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Pravin B Shelar <pshelar@nicira.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org
+To: Alexei Starovoitov <ast@kernel.org>, Shuah Khan <shuah@kernel.org>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58238 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754332AbcK1Lhn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 06:37:43 -0500
-In-Reply-To: <1480316543-23298-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:37237 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753751AbcK1LqC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 06:46:02 -0500
+Content-Type: text/plain; charset="utf-8"
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Nov 2016 15:02:23 +0800, Haishuang Yan wrote:
-> vxlan_fdb_append may return error, so add the proper check,
-> otherwise it will cause memory leak.
-> 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-> ---
->  drivers/net/vxlan.c | 10 +++++++---
->  1 file changed, 7 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 21e92be..3b7b237 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -611,6 +611,7 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
->  	struct vxlan_rdst *rd = NULL;
->  	struct vxlan_fdb *f;
->  	int notify = 0;
-> +	int rc = 0;
+From: Colin Ian King <colin.king@canonical.com>
 
-The initialization to 0 should not be needed. Looks good otherwise.
+Fix incomplete type build error on struct rlimit by including
+<sys/resource.h>, fixes:
 
-Thanks,
+test_lru_map.c:552:9: error: variable ‘r’ has initializer
+ but incomplete type
+  struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+         ^
+test_lru_map.c:552:21: error: ‘RLIM_INFINITY’ undeclared
+ (first use in this function)
+  struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
 
- Jiri
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ tools/testing/selftests/bpf/test_lru_map.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
+index 627757e..fde54a2 100644
+--- a/tools/testing/selftests/bpf/test_lru_map.c
++++ b/tools/testing/selftests/bpf/test_lru_map.c
+@@ -13,6 +13,7 @@
+ #include <assert.h>
+ #include <sched.h>
+ #include <sys/wait.h>
++#include <sys/resource.h>
+ #include <stdlib.h>
+ #include <time.h>
+ #include "bpf_sys.h"
+-- 
+2.10.2
