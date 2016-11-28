@@ -1,8 +1,8 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next v2 1/6] tcp: instrument tcp sender limits chronographs
-Date: Mon, 28 Nov 2016 12:23:14 -0500
-Message-ID: <CADVnQy=xJCneqv7YL+1C8kOUuZB9pEGYrAOSyih1xTN_NbqwtA@mail.gmail.com>
-References: <1480316838-154141-1-git-send-email-ycheng@google.com> <1480316838-154141-2-git-send-email-ycheng@google.com>
+Subject: Re: [PATCH net-next v2 2/6] tcp: instrument how long TCP is busy sending
+Date: Mon, 28 Nov 2016 12:24:30 -0500
+Message-ID: <CADVnQymOPai5GqELLEVSr+myj6Zg=6HTnbZxwy1O74OciWgTPQ@mail.gmail.com>
+References: <1480316838-154141-1-git-send-email-ycheng@google.com> <1480316838-154141-3-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
@@ -11,41 +11,29 @@ Cc: David Miller <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>
 To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:32889 "EHLO
-        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754372AbcK1RXq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:23:46 -0500
-Received: by mail-oi0-f43.google.com with SMTP id w63so158912794oiw.0
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 09:23:45 -0800 (PST)
-In-Reply-To: <1480316838-154141-2-git-send-email-ycheng@google.com>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:36522 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750799AbcK1RZB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:25:01 -0500
+Received: by mail-oi0-f45.google.com with SMTP id v84so158426350oie.3
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 09:25:00 -0800 (PST)
+In-Reply-To: <1480316838-154141-3-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, Nov 28, 2016 at 2:07 AM, Yuchung Cheng <ycheng@google.com> wrote:
 > From: Francis Yan <francisyyan@gmail.com>
 >
-> This patch implements the skeleton of the TCP chronograph
-> instrumentation on sender side limits:
+> This patch measures TCP busy time, which is defined as the period
+> of time when sender has data (or FIN) to send. The time starts when
+> data is buffered and stops when the write queue is flushed by ACKs
+> or error events.
 >
->         1) idle (unspec)
->         2) busy sending data other than 3-4 below
->         3) rwnd-limited
->         4) sndbuf-limited
->
-> The limits are enumerated 'tcp_chrono'. Since a connection in
-> theory can idle forever, we do not track the actual length of this
-> uninteresting idle period. For the rest we track how long the sender
-> spends in each limit. At any point during the life time of a
-> connection, the sender must be in one of the four states.
->
-> If there are multiple conditions worthy of tracking in a chronograph
-> then the highest priority enum takes precedence over
-> the other conditions. So that if something "more interesting"
-> starts happening, stop the previous chrono and start a new one.
->
-> The time unit is jiffy(u32) in order to save space in tcp_sock.
-> This implies application must sample the stats no longer than every
-> 49 days of 1ms jiffy.
+> Note the busy time does not include SYN time, unless data is
+> included in SYN (i.e. Fast Open). It does include FIN time even
+> if the FIN carries no payload. Excluding pure FIN is possible but
+> would incur one additional test in the fast path, which may not
+> be worth it.
 >
 > Signed-off-by: Francis Yan <francisyyan@gmail.com>
 > Signed-off-by: Yuchung Cheng <ycheng@google.com>
