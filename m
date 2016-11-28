@@ -1,63 +1,57 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH net-next 0/5] Support Armada 37xx SoC (ARMv8 64-bits) in
- mvneta driver
-Date: Mon, 28 Nov 2016 16:40:49 +0800
-Message-ID: <20161128164049.77137347@xhacker>
-References: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 0/9] liquidio VF operations
+Date: Mon, 28 Nov 2016 00:50:29 -0800
+Message-ID: <1480323038-13702-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        "Sebastian Hesselbarth" <sebastian.hesselbarth@gmail.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        <linux-arm-kernel@lists.infradead.org>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Dmitri Epshtein <dima@marvell.com>,
-        Yelena Krivosheev <yelena@marvell.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:54576 "EHLO
-        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752805AbcK1Ip6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 03:45:58 -0500
-In-Reply-To: <cover.2b146800967005632cd02d4da77397e6e2fdf51f.1480087510.git-series.gregory.clement@free-electrons.com>
+Received: from mail-by2nam01on0085.outbound.protection.outlook.com ([104.47.34.85]:8992
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754112AbcK1Iu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 03:50:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Gregory,
+Hi Dave,
 
-On Fri, 25 Nov 2016 16:30:13 +0100 Gregory CLEMENT wrote:
+This patchseries adds support for VF device specific operations
+like mailbox, queues and register access. I also removed extra 'void *'
+casting that was reported in V1 patch. Please apply the patches in
+following order as these patches depend on each other.
 
-> Hi,
-> 
-> The Armada 37xx is a new ARMv8 SoC from Marvell using same network
-> controller as the older Armada 370/38x/XP SoCs. This series adapts the
-> driver in order to be able to use it on this new SoC. The main changes
-> are:
-> 
-> - 64-bits support: the first patches allow using the driver on a 64-bit
->   architecture.
-> 
-> - MBUS support: the mbus configuration is different on Armada 37xx
->   from the older SoCs.
-> 
-> - per cpu interrupt: Armada 37xx do not support per cpu interrupt for
->   the NETA IP, the non-per-CPU behavior was added back.
-> 
-> The first item is solved by patches 1 to 3.
-> The 2 last items are solved by patch 4.
-> In patch 5 the dt support is added.
-> 
-> Beside Armada 37xx, the series have been tested on Armada XP and
-> Armada 38x (with Hardware Buffer Management and with Software Buffer
-> Managment).
+Thanks
 
-AFAICT, this is a V2? seems no Change log ;)
+Raghu Vatsavayi (9):
+  liquidio CN23XX: VF register definitions
+  liquidio CN23XX: VF registration
+  liquidio CN23XX: VF config setup
+  liquidio CN23XX: VF queue setup
+  liquidio CN23XX: VF register access
+  liquidio CN23XX: init VF softcommand queues
+  liquidio CN23XX: VF mailbox
+  liquidio CN23XX: VF interrupt
+  liquidio CN23XX: VF init and destroy
 
-Thanks,
-Jisheng
+ drivers/net/ethernet/cavium/Kconfig                |  12 +
+ drivers/net/ethernet/cavium/liquidio/Makefile      |  22 +
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.c    | 701 +++++++++++++++++++++
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.h    |  48 ++
+ .../net/ethernet/cavium/liquidio/cn23xx_vf_regs.h  | 274 ++++++++
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    |   7 -
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |   6 +-
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 614 ++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |  66 +-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   9 +-
+ .../net/ethernet/cavium/liquidio/request_manager.c |  11 +-
+ 11 files changed, 1755 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+
+-- 
+1.8.3.1
