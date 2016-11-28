@@ -1,51 +1,100 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH net-next] bpf: selftests: include <sys/resource.h> to fix build error
-Date: Mon, 28 Nov 2016 11:45:41 +0000
-Message-ID: <20161128114541.10829-1-colin.king@canonical.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] stmmac ethernet: remove cut & paste code
+Date: Mon, 28 Nov 2016 12:50:23 +0100
+Message-ID: <20161128115023.GA15034@amd>
+References: <20161123105125.GA26394@amd>
+ <20161124085506.GA25007@amd>
+ <20161124102901.GA27793@amd>
+ <20161124103630.GB27793@amd>
+ <20161124104619.GA30723@amd>
+ <20161124110548.GB30723@amd>
+ <1480017925.19726.13.camel@perches.com>
+ <20161124214401.GA25662@amd>
+ <1480026433.19726.17.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org
-To: Alexei Starovoitov <ast@kernel.org>, Shuah Khan <shuah@kernel.org>,
-        netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="sm4nu43k4a2Rpi4c"
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+        kernel list <linux-kernel@vger.kernel.org>,
+        ezequiel@vanguardiasur.com.ar, sonic.zhang@analog.com,
+        fabrice.gasnier@st.com
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:37237 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753751AbcK1LqC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 06:46:02 -0500
-Content-Type: text/plain; charset="utf-8"
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:56632 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754036AbcK1Lu0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 06:50:26 -0500
+Content-Disposition: inline
+In-Reply-To: <1480026433.19726.17.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
 
-Fix incomplete type build error on struct rlimit by including
-<sys/resource.h>, fixes:
+--sm4nu43k4a2Rpi4c
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-test_lru_map.c:552:9: error: variable ‘r’ has initializer
- but incomplete type
-  struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
-         ^
-test_lru_map.c:552:21: error: ‘RLIM_INFINITY’ undeclared
- (first use in this function)
-  struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+On Thu 2016-11-24 14:27:13, Joe Perches wrote:
+> On Thu, 2016-11-24 at 22:44 +0100, Pavel Machek wrote:
+> > On Thu 2016-11-24 12:05:25, Joe Perches wrote:
+> > > On Thu, 2016-11-24 at 12:05 +0100, Pavel Machek wrote:
+> > > > Remove duplicate code from _tx routines.
+> > >=20
+> > > trivia:
+> > >=20
+> > > > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/dr=
+ivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> > >=20
+> > > []
+> > > > @@ -1960,6 +1960,38 @@ static void stmmac_tso_allocator(struct stmm=
+ac_priv *priv, unsigned int des,
+> > > >  	}
+> > > >  }
+> > > > =20
+> > > > +static void stmmac_xmit_common(struct sk_buff *skb, struct net_dev=
+ice *dev, int nfrags, struct dma_desc *desc)
+> > > > +{
+> > > > +	struct stmmac_priv *priv =3D netdev_priv(dev);
+> > > > +
+> > > > +	if (unlikely(stmmac_tx_avail(priv) <=3D (MAX_SKB_FRAGS + 1))) {
+> > > > +		if (netif_msg_hw(priv))
+> > > > +			pr_debug("%s: stop transmitted packets\n", __func__);
+> > >=20
+> > > 		netif_dbg(priv, hw, dev, "%s: stop transmitted packets\n",
+> > > 			  __func__);
+> >=20
+> > Not now. Modifying the code while de-duplicating would be bad idea.
+>=20
+> Too many people think overly granular patches are the
+> best and only way to make changes.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- tools/testing/selftests/bpf/test_lru_map.c | 1 +
- 1 file changed, 1 insertion(+)
+> Deduplication and consolidation can happen simultaneously.
 
-diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
-index 627757e..fde54a2 100644
---- a/tools/testing/selftests/bpf/test_lru_map.c
-+++ b/tools/testing/selftests/bpf/test_lru_map.c
-@@ -13,6 +13,7 @@
- #include <assert.h>
- #include <sched.h>
- #include <sys/wait.h>
-+#include <sys/resource.h>
- #include <stdlib.h>
- #include <time.h>
- #include "bpf_sys.h"
--- 
-2.10.2
+Can, but should not at this point. Please take a look at the driver in
+question before commenting on trivial printk style.
+
+Feel free to do your favourite cleanup on whole tree, or per-driver
+basis. Doing it on per-message basis would be wrong thing to do.
+
+Thanks,
+									Pavel
+
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--sm4nu43k4a2Rpi4c
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlg8Gf8ACgkQMOfwapXb+vKNHQCfUNWZTeRRCqfOchQEIHGg+kgm
++MsAoKkTQUY4IBeEgxAK0p/dZO8988Sc
+=kzEN
+-----END PGP SIGNATURE-----
+
+--sm4nu43k4a2Rpi4c--
