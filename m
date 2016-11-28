@@ -1,84 +1,89 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net 04/16] net: ethernet: aurora: nb8800: fix fixed-link phydev leaks
-Date: Mon, 28 Nov 2016 19:24:57 +0100
-Message-ID: <1480357509-28074-5-git-send-email-johan@kernel.org>
+From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH net 01/16] net: dsa: slave: fix of-node leak and phy priority
+Date: Mon, 28 Nov 2016 19:24:54 +0100
+Message-ID: <1480357509-28074-2-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
-Cc: Vince Bridgers <vbridger@opensource.altera.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Fugang Duan <fugang.duan@nxp.com>,
-        Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-        Vitaly Bordug <vbordug@ru.mvista.com>,
-        Claudiu Manoil <claudiu.manoil@freescale.com>,
-        Li Yang <leoli@freescale.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Felix Fietkau <nbd@openwrt.org>,
-        John Crispin <blogic@openwrt.org>,
-        Matthias Brugger <matthias.bgg@gmail.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Lars Persson <lars.persson@axis.com>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
+Cc: Vince Bridgers <vbridger-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Fugang Duan <fugang.duan-3arQi8VN3Tc@public.gmane.org>,
+        Pantelis Antoniou <pantelis.antoniou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Vitaly Bordug <vbordug-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>,
+        Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+        Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+        John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+        Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        Lars Persson <lars.persson-VrBV9hrLPhE@public.gmane.org>,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
         Vivien Didelot <
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:36295 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751120AbcK1S12 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 13:27:28 -0500
-In-Reply-To: <1480357509-28074-1-git-send-email-johan@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1480357509-28074-1-git-send-email-johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Make sure to deregister and free any fixed-link PHY registered using
-of_phy_register_fixed_link() on probe errors and on driver unbind.
+Make sure to drop the reference taken by of_parse_phandle() before
+returning from dsa_slave_phy_setup().
 
-Fixes: c7dfe3abf40e ("net: ethernet: nb8800: support fixed-link DT
-node")
-Signed-off-by: Johan Hovold <johan@kernel.org>
+Note that this also modifies the PHY priority so that any fixed-link
+node is only parsed when no phy-handle is given, which is in accordance
+with the common scheme for this.
+
+Fixes: 0d8bcdd383b8 ("net: dsa: allow for more complex PHY setups")
+Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/aurora/nb8800.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ net/dsa/slave.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-index 00c38bf151e6..e078d8da978c 100644
---- a/drivers/net/ethernet/aurora/nb8800.c
-+++ b/drivers/net/ethernet/aurora/nb8800.c
-@@ -1466,12 +1466,12 @@ static int nb8800_probe(struct platform_device *pdev)
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 6b1282c006b1..2a5c20a13fe4 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1125,7 +1125,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 	p->phy_interface = mode;
  
- 	ret = nb8800_hw_init(dev);
- 	if (ret)
--		goto err_free_bus;
-+		goto err_deregister_fixed_link;
- 
- 	if (ops && ops->init) {
- 		ret = ops->init(dev);
- 		if (ret)
--			goto err_free_bus;
-+			goto err_deregister_fixed_link;
+ 	phy_dn = of_parse_phandle(port_dn, "phy-handle", 0);
+-	if (of_phy_is_fixed_link(port_dn)) {
++	if (!phy_dn && of_phy_is_fixed_link(port_dn)) {
+ 		/* In the case of a fixed PHY, the DT node associated
+ 		 * to the fixed PHY is the Port DT node
+ 		 */
+@@ -1135,7 +1135,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 			return ret;
+ 		}
+ 		phy_is_fixed = true;
+-		phy_dn = port_dn;
++		phy_dn = of_node_get(port_dn);
  	}
  
- 	dev->netdev_ops = &nb8800_netdev_ops;
-@@ -1504,6 +1504,9 @@ static int nb8800_probe(struct platform_device *pdev)
+ 	if (ds->ops->get_phy_flags)
+@@ -1154,6 +1154,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 			ret = dsa_slave_phy_connect(p, slave_dev, phy_id);
+ 			if (ret) {
+ 				netdev_err(slave_dev, "failed to connect to phy%d: %d\n", phy_id, ret);
++				of_node_put(phy_dn);
+ 				return ret;
+ 			}
+ 		} else {
+@@ -1162,6 +1163,8 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 						phy_flags,
+ 						p->phy_interface);
+ 		}
++
++		of_node_put(phy_dn);
+ 	}
  
- err_free_dma:
- 	nb8800_dma_free(dev);
-+err_deregister_fixed_link:
-+	if (of_phy_is_fixed_link(pdev->dev.of_node))
-+		of_phy_deregister_fixed_link(pdev->dev.of_node);
- err_free_bus:
- 	of_node_put(priv->phy_node);
- 	mdiobus_unregister(bus);
-@@ -1521,6 +1524,8 @@ static int nb8800_remove(struct platform_device *pdev)
- 	struct nb8800_priv *priv = netdev_priv(ndev);
- 
- 	unregister_netdev(ndev);
-+	if (of_phy_is_fixed_link(pdev->dev.of_node))
-+		of_phy_deregister_fixed_link(pdev->dev.of_node);
- 	of_node_put(priv->phy_node);
- 
- 	mdiobus_unregister(priv->mii_bus);
+ 	if (p->phy && phy_is_fixed)
 -- 
 2.7.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
