@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: fix overly long udelay()
-Date: Sun, 27 Nov 2016 20:00:08 -0500 (EST)
-Message-ID: <20161127.200008.611727107565298640.davem@davemloft.net>
-References: <20161124162630.3802535-1-arnd@arndb.de>
+Subject: Re: [PATCH net v2 0/5] net: fix phydev reference leaks
+Date: Sun, 27 Nov 2016 20:02:38 -0500 (EST)
+Message-ID: <20161127.200238.2048371945400616113.davem@davemloft.net>
+References: <1480011691-13278-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35728 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751241AbcK1BAJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 20:00:09 -0500
-In-Reply-To: <20161124162630.3802535-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, madalin.bucur@nxp.com, timur@codeaurora.org,
+        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: johan@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480011691-13278-1-git-send-email-johan@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 24 Nov 2016 17:26:22 +0100
+From: Johan Hovold <johan@kernel.org>
+Date: Thu, 24 Nov 2016 19:21:26 +0100
 
-> irda_get_mtt() returns a hardcoded '10000' in some cases,
-> and with gcc-7, we get a build error because this triggers a
-> compile-time check in udelay():
+> This series fixes a number of phydev reference leaks (and one of_node
+> leak) due to failure to put the reference taken by of_phy_find_device().
 > 
-> drivers/net/irda/w83977af_ir.o: In function `w83977af_hard_xmit':
-> w83977af_ir.c:(.text.w83977af_hard_xmit+0x14c): undefined reference to `__bad_udelay'
+> Note that I did not try to fix drivers/net/phy/xilinx_gmii2rgmii.c which
+> still leaks a reference.
 > 
-> Older compilers did not run into this because they either did not
-> completely inline the irda_get_mtt() or did not consider the
-> 10000 value a constant expression.
-> 
-> The code has been wrong since the start of git history.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Against net but should apply just as fine to net-next.
+ ...
+> v2: 
+>  - use put_device() instead of phy_dev_free() to put the references
+>    taken in net/dsa (patch 1/4).
+>  - add four new patches fixing similar leaks
 
-Applied, thanks Arnd.
+Series applied, thanks.
