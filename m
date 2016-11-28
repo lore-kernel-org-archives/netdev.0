@@ -1,80 +1,45 @@
 From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next 1/3] ethtool: (uapi) Add ETHTOOL_PHY_LOOPBACK to PHY tunables
-Date: Mon, 28 Nov 2016 14:24:30 +0100
-Message-ID: <1480339472-5823-2-git-send-email-allan.nielsen@microsemi.com>
-References: <1480339472-5823-1-git-send-email-allan.nielsen@microsemi.com>
+Subject: [PATCH ethtool 0/2] Adding PHY Loopback tunable
+Date: Mon, 28 Nov 2016 14:25:10 +0100
+Message-ID: <1480339512-5882-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Cc: <linville@tuxdriver.com>, <andrew@lunn.ch>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0048.outbound.protection.outlook.com ([104.47.33.48]:2464
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0057.outbound.protection.outlook.com ([104.47.41.57]:43568
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754482AbcK1NZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 08:25:26 -0500
-In-Reply-To: <1480339472-5823-1-git-send-email-allan.nielsen@microsemi.com>
+        id S932464AbcK1NZe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 08:25:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Hi All,
 
-3 types of PHY loopback are supported.
-i.e. Near-End Loopback, Far-End Loopback and External Loopback.
+This patch implements for support for PHY Loopback using PHY-Tunables.
 
-Near-End Loopback:
-Transmitted data (TXD) is looped back in the PCS block onto the receive
-data signal (RXD). When Near-End loopback enable, no data is transmitted
-over the network. no data receive from the network.
+The patch will add the following options:
 
-Far-End Loopback:
-This loopback is a special test mode to allow testing the PHY from link
-partner side. In this mode data that is received from the link partner pass
-through the PHY's receiver, looped back on the MII and transmitted back to
-the link partner.
-Data present on the transmit data pins of the MAC interface is ignored when
-using this test.
+    ethtool --set-phy-tunable DEVNAME      Set PHY tunable
+                [ loopback off|near|far|extn ]
+    ethtool --get-phy-tunable DEVNAME      Get PHY tunable
+                [ loopback ]
 
-External Loopback:
-An RJ45 loopback cable can be used to route the transmit signals an the
-output of the trnsformer back to the receiver inputs. This loopback will
-work at either 10 or 100 or 1000 Mbps speed.
-RJ45 Loopback cable created by conncting pin 1 to pin 3 and connecting pin
-2 to pin 6.
+Please review.
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
----
- include/uapi/linux/ethtool.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Best regards
+Allan and Raju
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index f0db778..59629f5 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -254,6 +254,7 @@ struct ethtool_tunable {
- enum phy_tunable_id {
- 	ETHTOOL_PHY_ID_UNSPEC,
- 	ETHTOOL_PHY_DOWNSHIFT,
-+	ETHTOOL_PHY_LOOPBACK,
- 	/*
- 	 * Add your fresh new phy tunable attribute above and remember to update
- 	 * phy_tunable_strings[] in net/core/ethtool.c
-@@ -261,6 +262,13 @@ enum phy_tunable_id {
- 	__ETHTOOL_PHY_TUNABLE_COUNT,
- };
- 
-+enum phy_loopback_type {
-+	ETHTOOL_PHY_LOOPBACK_DISABLE,
-+	ETHTOOL_PHY_LOOPBACK_NEAR,
-+	ETHTOOL_PHY_LOOPBACK_FAR,
-+	ETHTOOL_PHY_LOOPBACK_EXTN
-+};
-+
- /**
-  * struct ethtool_regs - hardware register dump
-  * @cmd: Command number = %ETHTOOL_GREGS
+Raju Lakkaraju (2):
+  ethtool-copy.h:sync with net
+  Ethtool: Implements PHY Loopback
+
+ ethtool-copy.h |  23 +++++++++-
+ ethtool.8.in   |  49 ++++++++++++++++++++
+ ethtool.c      | 139 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 210 insertions(+), 1 deletion(-)
+
 -- 
 2.7.3
