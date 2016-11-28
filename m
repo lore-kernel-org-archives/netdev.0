@@ -1,34 +1,148 @@
-From: Lino Sanfilippo <lsanfil@marvell.com>
-Subject: Re: stmmac ethernet in kernel 4.4: coalescing related pauses?
-Date: Mon, 28 Nov 2016 16:33:11 +0100
-Message-ID: <5a9748bb-26ec-b97a-1e98-582b760024f7@marvell.com>
-References: <20161123105125.GA26394@amd>
- <f14255ee-7fa8-afef-23ec-fc4f9a74eec8@marvell.com>
- <20161128.095431.856183735501262965.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH net] net/dccp: fix use-after-free in dccp_invalid_packet
+Date: Mon, 28 Nov 2016 12:36:40 -0300
+Message-ID: <20161128153640.GA4778@kernel.org>
+References: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
+ <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161128144001.GE16426@kernel.org>
+ <1480344434.18162.51.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161128150518.GA17913@kernel.org>
+ <1480346458.18162.54.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <pavel@ucw.cz>, <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+        Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161128.095431.856183735501262965.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <1480346458.18162.54.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Em Mon, Nov 28, 2016 at 07:20:58AM -0800, Eric Dumazet escreveu:
+> On Mon, 2016-11-28 at 12:05 -0300, Arnaldo Carvalho de Melo wrote:
+> > Em Mon, Nov 28, 2016 at 06:47:14AM -0800, Eric Dumazet escreveu:
+> > > On Mon, 2016-11-28 at 11:40 -0300, Arnaldo Carvalho de Melo wrote:
+> > > > Em Mon, Nov 28, 2016 at 06:26:49AM -0800, Eric Dumazet escreveu:
+> > > > > From: Eric Dumazet <edumazet@google.com>
+> > > > > 
+> > > > > pskb_may_pull() can reallocate skb->head, we need to reload dh pointer
+> > > > > in dccp_invalid_packet() or risk use after free.
+> > > > > 
+> > > > > Bug found by Andrey Konovalov using syzkaller.
+> > > > > 
+> > > > > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > > > > Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> > > > 
+> > > > Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> > > > 
+> > > > I was about to send exactly this patch, and while looking at it I think
+> > > > the patch below needs to go in as well, no? To follow the advice of that
+> > > > Warning line there :-)
+> > > > 
+> > > > From: Arnaldo Carvalho de Melo <acme@redhat.com>
+> > > > 
+> > > > pskb_may_pull() can reallocate skb->head, so we can't access
+> > > > iph->frag_off or risk use after free, save it to a variable and us that
+> > > > later.
+> > > > 
+> > > > Cc: Andrey Konovalov <andreyknvl@google.com>
+> > > > Cc: Eric Dumazet <edumazet@google.com>
+> > > > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> > > > 
+> > > > diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> > > > index 5ddf5cda07f4..9462070561a3 100644
+> > > > --- a/net/ipv4/af_inet.c
+> > > > +++ b/net/ipv4/af_inet.c
+> > > > @@ -1198,6 +1198,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+> > > >  	struct iphdr *iph;
+> > > >  	int proto, tot_len;
+> > > >  	int nhoff;
+> > > > +	u16 frag_off;
+> > > >  	int ihl;
+> > > >  	int id;
+> > > >  
+> > > > @@ -1213,6 +1214,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+> > > >  
+> > > >  	id = ntohs(iph->id);
+> > > >  	proto = iph->protocol;
+> > > > +	frag_off = iph->frag_off;
+> > > >  
+> > > >  	/* Warning: after this point, iph might be no longer valid */
+> > > >  	if (unlikely(!pskb_may_pull(skb, ihl)))
+> > > > @@ -1233,7 +1235,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+> > > >  		fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
+> > > >  
+> > > >  		/* fixed ID is invalid if DF bit is not set */
+> > > > -		if (fixedid && !(iph->frag_off & htons(IP_DF)))
+> > > > +		if (fixedid && !(frag_off & htons(IP_DF)))
+> > > >  			goto out;
+> > > >  	}
+> > > >  
+> > > 
+> > > 
+> > > I do not see why this patch would be needed ?
+> > 
+> > Where is iph being reloaded after that pskb_may_pull() and thus at line 1236 we
+> > could use after free? The warning at line 1217?
+> > 
+> > 1209         iph = ip_hdr(skb);
+> > 1210         ihl = iph->ihl * 4;
+> > 1211         if (ihl < sizeof(*iph))
+> > 1212                 goto out;
+> > 1213 
+> > 1214         id = ntohs(iph->id);
+> > 1215         proto = iph->protocol;
+> > 1216 
+> > 1217         /* Warning: after this point, iph might be no longer valid */
+> > 1218         if (unlikely(!pskb_may_pull(skb, ihl)))
+> > 1219                 goto out;
+> > 1220         __skb_pull(skb, ihl);
+> > 1221 
+> > 1222         encap = SKB_GSO_CB(skb)->encap_level > 0;
+> > 1223         if (encap)
+> > 1224                 features &= skb->dev->hw_enc_features;
+> > 1225         SKB_GSO_CB(skb)->encap_level += ihl;
+> > 1226 
+> > 1227         skb_reset_transport_header(skb);
+> > 1228 
+> > 1229         segs = ERR_PTR(-EPROTONOSUPPORT);
+> > 1230 
+> > 1231         if (!skb->encapsulation || encap) {
+> > 1232                 udpfrag = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
+> > 1233                 fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
+> > 1234 
+> > 1235                 /* fixed ID is invalid if DF bit is not set */
+> > 1236                 if (fixedid && !(iph->frag_off & htons(IP_DF)))
+> > 1237                         goto out;
+> > 1238         }
+> > 
+> 
+> Arg, I was looking at an old tree.
+> 
+> Please then add
+> 
+> Fixes: cbc53e08a793b ("GSO: Add GSO type for fixed IPv4 ID")
+> 
+> To ease stable backports.
+> 
+> Also, it looks comments are not read, we might kill this one and reload
+> iph.
+> 
+> ( Saving 3 fields is now more expensive than simply reloading iph )
 
-On 28.11.2016 15:54, David Miller wrote:
-> From: Lino Sanfilippo <lsanfil@marvell.com>
-> Date: Mon, 28 Nov 2016 14:07:51 +0100
->
->> Calling skb_orphan() in the xmit handler made this issue disappear.
->
-> This is not the way to handle this problem.
->
+Ok, I instead used ip_hdr(skb)->frag_off at that place, as it is the
+only use after the pskb_may_pull(), right after that use it will reload
+iph in another fashion anyway, sending the patch in another message,
+holler if you disagree, i.e. nacking that ack 8-)
 
-I agree, its not a clean solution. But if the use of skb_orphan makes the delays
-disappear, it can at least be a hint that socket queue limits are involved.
-
-Regards,
-Lino
+- Arnaldo
