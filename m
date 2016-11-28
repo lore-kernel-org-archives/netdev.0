@@ -1,84 +1,77 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: net: GPF in eth_header
-Date: Mon, 28 Nov 2016 23:19:23 +0100
-Message-ID: <20161128221923.GC9858@breakpoint.cc>
-References: <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
- <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
- <1480359019.18162.79.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAeHK+wWVp46ej0tk5mDnOHpH5Ky0+HiH9_SUqGcT0iTppLaGw@mail.gmail.com>
- <CACT4Y+Yr6UJxXosjx2FO=KtxGr40X07_UBiscs1BP1s8cTaqAA@mail.gmail.com>
- <1480362459.18162.83.camel@edumazet-glaptop3.roam.corp.google.com>
- <1480367152.18162.86.camel@edumazet-glaptop3.roam.corp.google.com>
- <1480367886.18162.88.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161128213444.GA9858@breakpoint.cc>
- <1480371244.18162.91.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net PATCH 0/2] Don't use lco_csum to compute IPv4 checksum
+Date: Mon, 28 Nov 2016 14:26:02 -0800
+Message-ID: <1480371962.2402.36.camel@intel.com>
+References: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-XTOq6R28/WTO9WngQ8bU"
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net
+To: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:38602 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755337AbcK1WWY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 17:22:24 -0500
-Content-Disposition: inline
-In-Reply-To: <1480371244.18162.91.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mga03.intel.com ([134.134.136.65]:58294 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755156AbcK1W0K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 17:26:10 -0500
+In-Reply-To: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2016-11-28 at 22:34 +0100, Florian Westphal wrote:
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > > Might be a bug added in commit daaa7d647f81f3
-> > > > ("netfilter: ipv6: avoid nf_iterate recursion")
-> > > > 
-> > > > Florian, what do you think of dropping a packet that presumably was
-> > > > mangled badly by nf_ct_frag6_queue() ?
-> > 
-> > ipv4 definitely frees malformed packets.
-> > In general, I think netfilter should avoid 'silent' drops if possible
-> > and let skb continue, but of course such skbs should not be made worse
-> > as what we ate to begin with...
-> > 
-> > > > (Like about 48 byte pulled :(, and/or skb->csum changed )
-> > 
-> > I think this warrants a review of ipv6 reassembly too, bug reported here
-> > is because ipv6 nf defrag is also done on output.
-> 
-> 
-> ip6_frag_queue() definitely frees bad/mangled skbs()
 
-Yes, sorry.  nf_ct_frag6_queue is mostly derived from ip6_frag_queue
-so any bugs in one might also exist in other.
-Thats all I wanted to say here.  I'll check this tomorrow.
+--=-XTOq6R28/WTO9WngQ8bU
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> > Looks good, we'll need to change some of the errno return codes in
-> > nf_ct_frag6_gather to 0 though for this to work, which should not be too
-> > hard ;)
-> 
-> If the goal is to let buggy packets pass, then we might need to undo
-> changes in nf_ct_frag6_queue()
+On Mon, 2016-11-28 at 10:42 -0500, Alexander Duyck wrote:
+> When I implemented the GSO partial support in the Intel drivers I was
+> using
+> lco_csum to compute the checksum that we needed to plug into the IPv4
+> checksum field in order to cancel out the data that was not a part of the
+> IPv4 header.=C2=A0 However this didn't take into account that the transpo=
+rt
+> offset might be pointing to the inner transport header.
+>=20
+> Instead of using lco_csum I have just coded around it so that we can use
+> the outer IP header plus the IP header length to determine where we need
+> to
+> start our checksum and then just call csum_partial ourselves.
+>=20
+> This should fix the SIT issue reported on igb interfaces as well as
+> simliar
+> issues that would pop up on other Intel NICs.
+>=20
+> ---
+>=20
+> Alexander Duyck (2):
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 igb/igbvf: Don't use lco_csum to compute I=
+Pv4 checksum
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ixgbe/ixgbevf: Don't use lco_csum to compu=
+te IPv4 checksum
 
-It currently returns -EINVAL in cases where skb wasn't changed/altered
-(e.g. because it doesn't have a fragment header), so we should ACCEPT in
-that case.
+Stephen, I have applied Alex's patches to my net-queue tree. =C2=A0Can you
+confirm they resolve the bug seen?
+--=-XTOq6R28/WTO9WngQ8bU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-As for 'buggy' packet, I think its ok to mimic ip6_frag_queue, i.e.
-if it tosses returning NF_DROP under same circumstance seems ok.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-(Passing however will -- on ingress side -- cause snmp stat increments
- in ipv6 reassembly, this still might be desireable).
+iQIcBAABCgAGBQJYPK76AAoJEOVv75VaS+3OQpQP/1Y4Sz1XRrrVgGSOGVktznII
+HLO61br6UeYcvVOYnpyGwk/5z97ndjUa6dLdfW0iPfc7Cw9UilMe/34G5X9Htu2J
+XkG3JJy3Xe1iVhLe/IcHiYkGLy771pZO/OIQLUSKbt+jpSuu2Z7XxPfIy+yVE/Ij
+/fH+EiuoAaToCB0DBCf8dwt32JrdYxxXJvOmD4gaYtJAdcyOanZmTqtke9i7pjLE
+fgvq8CpijQjALAgO6uFGk+uuyt1ZDN7vXpzJIJ9rIrI1TmsflKHEO9ULJJEKT0mZ
+QDfbaPBdUAoAa4ECweoVQ6B9rCOcEEitvWWxpx5KLzh0+vMRYYK2zRhtbtLp53uz
+E70mr8eRAxdZi5C5u4V3659m8E6g3WXhbZJAEHIpUEWFNJHgzBtC/XP+Kpy9YXQV
+7tJzPQTLy562+UnQcJdc34W8ulIhbgX+lfHlPIj9NrZXrBl3WJn824adyDiSPz5K
+GPkJbWU64/2hehyEIvni7HwB0HVqk+iXCGpkW1mrCFXx3Ir70tP+w50dqBijg9O+
+e6HlRrM5ifihduM6K8pAqYDLGfmxC7qmp+FeNMtaMuykHWtBE9kTjHRxVokSYEJt
+3sZoWOEd8KI2bEOcexjlIeIhScoiGScYdM2Bs8Wh5WNQFz3844dO73GW1+R2V6XA
+0SFH98S3BmjbAWagScj3
+=Qr03
+-----END PGP SIGNATURE-----
 
-I'll check where undo might be possible/not too hard.
-
-Thanks Eric for debugging this!
+--=-XTOq6R28/WTO9WngQ8bU--
