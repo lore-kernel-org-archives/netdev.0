@@ -1,58 +1,63 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH] mlx4: give precise rx/tx bytes/packets counters
-Date: Mon, 28 Nov 2016 23:55:25 +0200
-Message-ID: <CALzJLG8qjz7Qx8rWbthtJ1uJt2c8w_1gMeRkmB+SZ+xv2Eu3EQ@mail.gmail.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG8nFBFy=-pjy-XBYb-y-F=grC5wjN35zTt9eUOT-612Eg@mail.gmail.com>
- <1480212960.18162.23.camel@edumazet-glaptop3.roam.corp.google.com> <20161128.154057.1355209532933900181.davem@davemloft.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: Receive offloads, small RCVBUF and zero TCP window
+Date: Mon, 28 Nov 2016 20:01:46 -0200
+Message-ID: <20161128220146.GA13169@localhost.localdomain>
+References: <2080597.A38JFJZ1AD@zbook>
+ <20161128.155459.1527519991492144879.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: alexandre.sidorenko@hpe.com, netdev@vger.kernel.org,
+        jmaxwell37@gmail.com, eric.dumazet@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35351 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755724AbcK1Vzt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:55:49 -0500
-Received: by mail-lf0-f67.google.com with SMTP id p100so10844100lfg.2
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 13:55:46 -0800 (PST)
-In-Reply-To: <20161128.154057.1355209532933900181.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:60838 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752857AbcK1WBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 17:01:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20161128.155459.1527519991492144879.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 10:40 PM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sat, 26 Nov 2016 18:16:00 -0800
->
->> On Sun, 2016-11-27 at 00:47 +0200, Saeed Mahameed wrote:
->>> On Fri, Nov 25, 2016 at 5:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>
->>> As you see here in SRIOV mode (PF only) reads   sw stats from FW.
->>> Tariq, I think we need to fix this.
->>
->> Sure, my patch does not change this at all.
->>
->> If mlx4_is_master() is false, then we aggregate the software states and
->> only the software stats.
->>
->> My patch makes this aggregation possible at the time ethtool or
->> ndo_get_stat64() are called, since this absolutely not depend on the 250
->> ms timer fetching hardware stats.
->
-> Saeed please provide counter arguments or ACK this patch, thank you.
+On Mon, Nov 28, 2016 at 03:54:59PM -0500, David Miller wrote:
+> From: Alex Sidorenko <alexandre.sidorenko@hpe.com>
+> Date: Mon, 28 Nov 2016 15:49:26 -0500
+> 
+> > Now the question is whether is is OK to have icsk->icsk_ack.rcv_mss
+> > larger than MTU.
+> 
+> It absolutely is not OK.
+> 
 
-I have nothing against this patch, I just wanted to point out that
-this patch is just fixing the symptom.
-We keep ignoring the root cause that dev_get_stats is called under a
-spin_lock which really ties our hands "us device drivers developers"
-and push us towards those fragile solutions like deferred work for
-caching statistics.
-I am not saying that Eric should fix this in his patch, i just wanted
-to raise the awareness of the root cause.
+Would it make sense to add a pr_warn_once() and perhaps even clamp it
+down to known/saner MSS?
 
-Regarding the SRIOV PF stats, i will take it with Tariq internally.
+> If VMWare wants to receive large frames for batching purposes it must
+> use GRO or similar to achieve that, not just send vanilla frames into
+> the stack which are larger than the device MTU.
+> 
 
-Bottom line, I ACK this patch, I might even do the same myself for
-mlx5 :), but there are some follow ups that need to be done.
+It's not the first report I've seen on this type of issue. IBM also had
+this issue recently while not being able to send the gso_size from tx
+side to rx, and the warning probably could have saved quite some
+debugging time.
+
+Something like (but with a better msg, for sure):
+
+--8<--
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a27b9c0e27c0..3a59cffae3fa 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -144,7 +144,9 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
+ 	 */
+ 	len = skb_shinfo(skb)->gso_size ? : skb->len;
+ 	if (len >= icsk->icsk_ack.rcv_mss) {
+-		icsk->icsk_ack.rcv_mss = len;
++		icsk->icsk_ack.rcv_mss = max(len, tcp_sk(sk)->advmss);
++		if (icsk->icsk_ack.rcv_mss != len)
++			pr_warn_once("Your driver is likely doing bad rx acceleration.\n");
+ 	} else {
+ 		/* Otherwise, we make more careful check taking into account,
+ 		 * that SACKs block is variable.
