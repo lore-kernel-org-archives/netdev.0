@@ -1,94 +1,79 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/2] net: phy: bcm7xxx: Plug in support for reading PHY error counters
-Date: Mon, 28 Nov 2016 13:06:14 -0800
-Message-ID: <20161128210614.12621-3-f.fainelli@gmail.com>
-References: <20161128210614.12621-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34123 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754868AbcK1VGU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:06:20 -0500
-Received: by mail-pf0-f194.google.com with SMTP id y68so6973327pfb.1
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 13:06:19 -0800 (PST)
-In-Reply-To: <20161128210614.12621-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net: GPF in eth_header
+Date: Mon, 28 Nov 2016 13:05:52 -0800
+Message-ID: <1480367152.18162.86.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
+         <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
+         <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
+         <1480359019.18162.79.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAAeHK+wWVp46ej0tk5mDnOHpH5Ky0+HiH9_SUqGcT0iTppLaGw@mail.gmail.com>
+         <CACT4Y+Yr6UJxXosjx2FO=KtxGr40X07_UBiscs1BP1s8cTaqAA@mail.gmail.com>
+         <1480362459.18162.83.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: syzkaller <syzkaller@googlegroups.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        David Miller <davem@davemloft.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        Sabrina Dubroca <sd@queasysnail.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Dmitry Vyukov <dvyukov@google.com>, Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480362459.18162.83.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Broadcom BCM7xxx internal PHYs can leverage the Broadcom PHY library
-module PHY error counters helper functions, just implement the
-appropriate PHY driver function calls to do so. We need to allocate some
-storage space for our PHY statistics, and provide it to the Broadcom PHY
-library, so do this in a specific probe function, and slightly wrap the
-get_stats function call.
+On Mon, 2016-11-28 at 11:47 -0800, Eric Dumazet wrote:
+> On Mon, 2016-11-28 at 20:34 +0100, Dmitry Vyukov wrote:
+> > On Mon, Nov 28, 2016 at 8:04 PM, 'Andrey Konovalov' via syzkaller
+> 
+> > > Hi Eric,
+> > >
+> > > As far as I can see, skb_network_offset() becomes negative after
+> > > pskb_pull(skb, (u8 *) (fhdr + 1) - skb->data) in nf_ct_frag6_queue().
+> > > At least I'm able to detect that with a BUG_ON().
+> > >
+> > > Also it seems that the issue is only reproducible (at least with the
+> > > poc I provided) for a short time after boot.
+> > 
+> > 
+> > Eric,
+> > 
+> > Is it enough to debug? Or maybe Andrey can trace some values for you.
+> 
+> Well, now we are talking, if you tell me how many modules you load, it
+> might help ;)
+> 
+> nf_ct_frag6_queue is nowhere to be seen in my kernels, that might
+> explain why I could not reproduce the bug.
+> 
+> Let me try ;)
+> 
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/bcm7xxx.c | 34 ++++++++++++++++++++++++++++++++++
- 1 file changed, 34 insertions(+)
+Might be a bug added in commit daaa7d647f81f3
+("netfilter: ipv6: avoid nf_iterate recursion")
 
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index 5b3be4c67be8..fb976ab2ab92 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -45,6 +45,10 @@
- #define AFE_VDAC_OTHERS_0		MISC_ADDR(0x39, 3)
- #define AFE_HPF_TRIM_OTHERS		MISC_ADDR(0x3a, 0)
+Florian, what do you think of dropping a packet that presumably was
+mangled badly by nf_ct_frag6_queue() ?
+
+(Like about 48 byte pulled :(, and/or skb->csum changed )
+
+diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+index f7aab5ab93a5..31aa947332d8 100644
+--- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
++++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+@@ -65,8 +65,8 @@ static unsigned int ipv6_defrag(void *priv,
  
-+struct bcm7xxx_phy_priv {
-+	u64	*stats;
-+};
-+
- static void r_rc_cal_reset(struct phy_device *phydev)
- {
- 	/* Reset R_CAL/RC_CAL Engine */
-@@ -350,6 +354,32 @@ static int bcm7xxx_28nm_set_tunable(struct phy_device *phydev,
- 	return genphy_restart_aneg(phydev);
- }
+ 	err = nf_ct_frag6_gather(state->net, skb,
+ 				 nf_ct6_defrag_user(state->hook, skb));
+-	/* queued */
+-	if (err == -EINPROGRESS)
++	/* queued or mangled ... */
++	if (err)
+ 		return NF_STOLEN;
  
-+static void bcm7xxx_28nm_get_phy_stats(struct phy_device *phydev,
-+				       struct ethtool_stats *stats, u64 *data)
-+{
-+	struct bcm7xxx_phy_priv *priv = phydev->priv;
-+
-+	bcm_phy_get_stats(phydev, priv->stats, stats, data);
-+}
-+
-+static int bcm7xxx_28nm_probe(struct phy_device *phydev)
-+{
-+	struct bcm7xxx_phy_priv *priv;
-+
-+	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
-+	if (!priv)
-+		return -ENOMEM;
-+
-+	phydev->priv = priv;
-+
-+	priv->stats = devm_kzalloc(&phydev->mdio.dev,
-+				   bcm_phy_get_sset_count(phydev), GFP_KERNEL);
-+	if (!priv->stats)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
- #define BCM7XXX_28NM_GPHY(_oui, _name)					\
- {									\
- 	.phy_id		= (_oui),					\
-@@ -364,6 +394,10 @@ static int bcm7xxx_28nm_set_tunable(struct phy_device *phydev,
- 	.resume		= bcm7xxx_28nm_resume,				\
- 	.get_tunable	= bcm7xxx_28nm_get_tunable,			\
- 	.set_tunable	= bcm7xxx_28nm_set_tunable,			\
-+	.get_sset_count	= bcm_phy_get_sset_count,			\
-+	.get_strings	= bcm_phy_get_strings,				\
-+	.get_stats	= bcm7xxx_28nm_get_phy_stats,			\
-+	.probe		= bcm7xxx_28nm_probe,				\
- }
- 
- #define BCM7XXX_40NM_EPHY(_oui, _name)					\
--- 
-2.9.3
+ 	return NF_ACCEPT;
