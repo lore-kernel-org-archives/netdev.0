@@ -1,46 +1,114 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 5/5] udp: add recvmmsg implementation
-Date: Mon, 28 Nov 2016 12:32:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB022A28F@AcuExch.aculab.com>
-References: <cover.1480086321.git.pabeni@redhat.com>
- <68bfaa7480400457e712fb04ee781410d1bb9479.1480086321.git.pabeni@redhat.com>
- <1165706e-b828-cb12-4bea-b77ccca1cb95@stressinduktion.org>
+From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next v3 4/4] ARM64: dts: meson: odroidc2: disable
+ advertisement EEE for GbE.
+Date: Mon, 28 Nov 2016 13:40:33 +0100
+Message-ID: <1480336833.17538.164.camel@baylibre.com>
+References: <1480326409-25419-1-git-send-email-jbrunet@baylibre.com>
+         <1480326409-25419-5-git-send-email-jbrunet@baylibre.com>
+         <9709dd57-e536-9281-6b56-5ff5f9e8035c@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        "Sabrina Dubroca" <sd@queasysnail.net>
-To: 'Hannes Frederic Sowa' <hannes@stressinduktion.org>,
-        Paolo Abeni <pabeni@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.193]:57596 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932094AbcK1McX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 07:32:23 -0500
-In-Reply-To: <1165706e-b828-cb12-4bea-b77ccca1cb95@stressinduktion.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9709dd57-e536-9281-6b56-5ff5f9e8035c-l3A5Bk7waGM@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2ENCj4gU2VudDogMjUgTm92ZW1iZXIgMjAxNiAxNzow
-OQ0KLi4uDQo+IEN1cnJlbnRseSBza19lcnIgaXMgc2V0IHNvIHRoZSBuZXh0IHN5c2NhbGwgd291
-bGQgZ2V0IGFuIC1FRkFVTFQsIHdoaWNoDQo+IHNlZW1zIHZlcnkgYmFkIGFuZCBjYW4gYWxzbyBi
-ZSBvdmVyd3JpdHRlbiBieSBpbmNvbWluZyBpY21wIHBhY2tldHMsIHNvDQo+IHdlIG5ldmVyIGdl
-dCBhIG5vdGlmaWNhdGlvbiB0aGF0IHdlIGFjdHVhbGx5IGhhZCBhIGJhZCBwb2ludGVyIHNvbWV3
-aGVyZQ0KPiBpbiB0aGUgbW1zZ2hkci4gQWxzbyBkZWxpdmVyaW5nIC1FRkFVTFQgb24gdGhlIGZv
-bGxvdy11cCBzeXNjYWxscyByZWFsbHkNCj4gd2lsbCBtYWtlIHBlb3BsZSBjb25mdXNlZCB0aGF0
-IHVzZSBzdHJhY2UuDQoNClNhdmluZyBhbiBlcnJvciBjb2RlIGxpa2UgdGhhdCBzZWVtcyBjb21w
-bGV0ZWx5IHdyb25nIHRvIG1lLg0KDQpJdCBpcyBub3QgdW5yZWFzb25hYmxlIGZvciB0aGVyZSB0
-byBiZSBtdWx0aXBsZSBzeXN0ZW0gY2FsbHMgYWN0aXZlDQpvbiBhIHNpbmdsZSBzb2NrZXQgYXQg
-dGhlIHNhbWUgdGltZSAtIHNvIGFueSBlcnJvciBoYXMgdG8gYmUgcmV0dXJuZWQgdG8NCnRoZSBz
-eXN0ZW0gY2FsbCB0aGF0IGdlbmVyYXRlZCBpdC4NCihDdXJyZW50IGxvY2tpbmcgcnVsZXMgbWln
-aHQgaW1wb3NlIHJlc3RyaWN0aW9ucywgYnV0IHRoZXkgY291bGQgY2hhbmdlLikNCg0KQSBjb21w
-bGV0ZWx5IHN0aWNreSBlcnJvciBjb2RlIG1pZ2h0IGJlIHVzZWZ1bCBpZiB0aGUgb25seSB2YWxp
-ZCBhY3Rpb24NCmlzIGNsb3NlKCkuDQoNCklmIGNvcHl0b3VzZXIoKSBmYWlscyBJJ2QgZ3Vlc3Mg
-dGhhdCBtb3N0IHN5c3RlbSBjYWxscyBqdXN0IHJldHVybiBFRkFVTFQNCmFuZCBkaXNjYXJkIGFu
-eSBkYXRhIHRoYXQgbWlnaHQgaGF2ZSBiZWVuIGNvcGllZCB0byB0aGUgc3RhcnQgb2YgdGhlIHVz
-ZXJzDQpidWZmZXIuDQpOb3QgdW5yZWFzb25hYmxlIHNpbmNlIGl0IGlzIGxpa2VseSB0byBiZSBh
-IGNvZGluZyBlcnJvci4NCg0KCURhdmlkDQoNCg==
+On Mon, 2016-11-28 at 13:31 +0100, Andreas Färber wrote:
+> Am 28.11.2016 um 10:46 schrieb Jerome Brunet:
+> > 
+> > Signed-off-by: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+> > ---
+> >  arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts | 16
+> > ++++++++++++++++
+> >  1 file changed, 16 insertions(+)
+> > 
+> > diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
+> > b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
+> > index e6e3491d48a5..5624714d2b16 100644
+> > --- a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
+> > +++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
+> > @@ -46,6 +46,7 @@
+> >  
+> >  #include "meson-gxbb.dtsi"
+> >  #include <dt-bindings/gpio/gpio.h>
+> > +#include <dt-bindings/net/mdio.h>
+> >  
+> >  / {
+> >  	compatible = "hardkernel,odroid-c2", "amlogic,meson-gxbb";
+> > @@ -98,3 +99,18 @@
+> >  	pinctrl-0 = <&i2c_a_pins>;
+> >  	pinctrl-names = "default";
+> >  };
+> > +
+> > +&ethmac {
+> > +	phy-handle = <&eth_phy0>;
+> > +
+> > +	mdio {
+> > +		compatible = "snps,dwmac-mdio";
+> > +		#address-cells = <1>;
+> > +		#size-cells = <0>;
+> > +
+> > +		eth_phy0: ethernet-phy@0 {
+> > +			reg = <0>;
+> > +			eee-broken-modes = <MDIO_EEE_1000T>;
+> > +		};
+> > +	};
+> > +};
+> 
+6I've tested this hand-applied because it applies to neither amlogic
+> v4.10/integ nor linux-next.git and will conflict if applied through
+> the
+> net-next tree.
+
+I've rebased on net-next this morning. I just checked again and now
+there is a conflict indeed. Something got applied between in the last 6
+ours which conflict with patch 4.
+
+> 
+> Note that there already is an &ethmac node that you should be
+> extending
+> rather than duplicating:
+> 
+> &ethmac {
+> 	status = "okay";
+> 	pinctrl-0 = <&eth_rgmii_pins>;
+> 	pinctrl-names = "default";
+> };
+> 
+> If you or your colleagues could please fix the sort order of the
+> nodes
+> to be alphabetical again (ethmac after i2c_A here; between uart_A and
+> ir
+> in-tree) this wouldn't happen so easily again.
+
+OK
+
+> 
+> I therefore suggest to not apply this patch 4/4 through net-next but
+> through the amlogic tree instead.
+
+Agreed. The change is provided here so people can test.
+If the other patches get accepted, I'll submit the dts change through
+the amlogic tree.
+
+> 
+> Thanks,
+> Andreas
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
