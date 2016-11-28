@@ -1,47 +1,53 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: net/sctp: vmalloc allocation failure in
- sctp_setsockopt/xt_alloc_table_info
-Date: Mon, 28 Nov 2016 19:09:25 +0100
-Message-ID: <20161128180925.GF28510@breakpoint.cc>
-References: <CAAeHK+wecw6ST_DWJQBLFNwVsOVgderGE-EEJiN0-kf796XHtw@mail.gmail.com>
- <20161128141340.GA29839@hmsreliant.think-freely.org>
- <CAAeHK+xJmwF6hddS-sO-y3HQkRicwQN=ZceFWTZT2M_0h4E2hQ@mail.gmail.com>
- <20161128143931.GB29839@hmsreliant.think-freely.org>
- <20161128151312.GA13172@localhost.localdomain>
- <20161128174647.GC29839@hmsreliant.think-freely.org>
- <20161128174710.GE28510@breakpoint.cc>
- <20161128175626.GD29839@hmsreliant.think-freely.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] virtio-net: enable multiqueue by default
+Date: Mon, 28 Nov 2016 13:18:05 -0500 (EST)
+Message-ID: <20161128.131805.1395686082038152344.davem@davemloft.net>
+References: <1480048646-17536-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161128175626.GD29839@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@redhat.com, jeder@redhat.com, hannes@redhat.com,
+	netdev@vger.kernel.org, mst@redhat.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, myllynen@redhat.com,
+	maxime.coquelin@redhat.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1480048646-17536-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Neil Horman <nhorman@tuxdriver.com> wrote:
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 25 Nov 2016 12:37:26 +0800
 
-[ trimming CCs ]
+> We use single queue even if multiqueue is enabled and let admin to
+> enable it through ethtool later. This is used to avoid possible
+> regression (small packet TCP stream transmission). But looks like an
+> overkill since:
+> 
+> - single queue user can disable multiqueue when launching qemu
+> - brings extra troubles for the management since it needs extra admin
+>   tool in guest to enable multiqueue
+> - multiqueue performs much better than single queue in most of the
+>   cases
+> 
+> So this patch enables multiqueue by default: if #queues is less than or
+> equal to #vcpu, enable as much as queue pairs; if #queues is greater
+> than #vcpu, enable #vcpu queue pairs.
+> 
+> Cc: Hannes Frederic Sowa <hannes@redhat.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Neil Horman <nhorman@redhat.com>
+> Cc: Jeremy Eder <jeder@redhat.com>
+> Cc: Marko Myllynen <myllynen@redhat.com>
+> Cc: Maxime Coquelin <maxime.coquelin@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-> On Mon, Nov 28, 2016 at 06:47:10PM +0100, Florian Westphal wrote:
-> > Neil Horman <nhorman@tuxdriver.com> wrote:
-> > > I'm not sure I agree with that.  Generally speaking it seems like the right
-> > > thing to do, if you want to avoid filling logs with warnings, but this is the
-> > > sort of error that is going to be accompanied by severe service interruption.
-> > > I'd rather see a reason behind that in the logs, than just have it occur
-> > > silently.
-> > 
-> > Its not silent -- the setsockopt call will fail and userspace should
-> > display an error.
-> > 
-> Thats not true.  If the OOM succedes in freeing enough memory to fulfill the
-> request the setsockopt may complete without error, you're just left with a
-> killed process...somewhere.  Thats seems a bit dodgy to me
-
-We should prevent OOM killer from running in first place (GFP_NORETRY should work).
+Applied, thanks Jason.
