@@ -1,50 +1,52 @@
-From: Jerome Brunet <jbrunet@baylibre.com>
-Subject: [PATCH net-next v4 3/4] dt: bindings: add ethernet phy eee-broken-modes option documentation
-Date: Mon, 28 Nov 2016 16:50:27 +0100
-Message-ID: <1480348229-25672-4-git-send-email-jbrunet@baylibre.com>
-References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
+From: Lino Sanfilippo <lsanfil@marvell.com>
+Subject: Re: stmmac ethernet in kernel 4.4: coalescing related pauses?
+Date: Mon, 28 Nov 2016 16:57:35 +0100
+Message-ID: <920b1148-a77d-0b69-01b0-b14bcbdf8648@marvell.com>
+References: <20161123105125.GA26394@amd>
+ <f14255ee-7fa8-afef-23ec-fc4f9a74eec8@marvell.com>
+ <20161128.095431.856183735501262965.davem@davemloft.net>
+ <1480347103.18162.58.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Jerome Brunet <jbrunet@baylibre.com>,
-        Carlo Caione <carlo@caione.org>,
-        Kevin Hilman <khilman@baylibre.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre TORGUE <alexandre.torgue@st.com>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Andre Roth <neolynx@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
-        Neil Armstrong <narmstrong@baylibre.com>,
-        linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>,
-        Yegor Yefremov <yegorslists@googlemail.com>,
-        =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>
-To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <pavel@ucw.cz>, <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
+In-Reply-To: <1480347103.18162.58.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
-Reviewed-by: Andreas Färber <afaerber@suse.de>
-Tested-by: Neil Armstrong <narmstrong@baylibre.com>
----
- Documentation/devicetree/bindings/net/phy.txt | 2 ++
- 1 file changed, 2 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-index 4627da3d52c4..54749b60a466 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -38,6 +38,8 @@ Optional Properties:
- - enet-phy-lane-swap: If set, indicates the PHY will swap the TX/RX lanes to
-   compensate for the board being designed with the lanes swapped.
- 
-+- eee-broken-modes: Bits to clear in the MDIO_AN_EEE_ADV register to
-+  disable EEE broken modes.
- 
- Example:
- 
--- 
-2.7.4
+
+On 28.11.2016 16:31, Eric Dumazet wrote:
+> On Mon, 2016-11-28 at 09:54 -0500, David Miller wrote:
+>> From: Lino Sanfilippo <lsanfil@marvell.com>
+>> Date: Mon, 28 Nov 2016 14:07:51 +0100
+>>
+>>> Calling skb_orphan() in the xmit handler made this issue disappear.
+>>
+>> This is not the way to handle this problem.
+>>
+>> The solution is to free the SKBs in a timely manner after the
+>> chip has transmitted the frame.
+>
+> Note that the 'pauses' described by Pavel are also caused by a too small
+> SO_SNDBUF value on the UDP socket.
+>
+> An immediate fix, with no kernel change is to increase it.
+>
+> echo 1000000 >/proc/sys/net/core/wmem_default
+>
+> or
+>
+> val = 1000000;
+> setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
+>
+
+I wonder if the best fix would be indeed to deactivate irq coalescing completely.
+Does it make any sense at all to use it if a driver uses NAPI already?
+
+Regards,
+Lino
