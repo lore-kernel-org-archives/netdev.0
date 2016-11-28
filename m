@@ -1,75 +1,77 @@
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: [PATCH net v2 1/1] net: macb: fix the RX queue reset in macb_rx()
-Date: Mon, 28 Nov 2016 14:40:55 +0100
-Message-ID: <80ebb550eb6155e3b882cab1fb8d78a7385f8227.1480339901.git.cyrille.pitchen@atmel.com>
+From: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next v3 0/4] Fix OdroidC2 Gigabit Tx link issue
+Date: Mon, 28 Nov 2016 14:42:36 +0100
+Message-ID: <47182829-240d-e4d3-420e-7ee9f08a3dcf@baylibre.com>
+References: <1480326409-25419-1-git-send-email-jbrunet@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Andrei.Pistirica@microchip.com>,
-        <linux-arm-kernel@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>,
-        Cyrille Pitchen <cyrille.pitchen@atmel.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <soren.brinkmann@xilinx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout.microchip.com ([198.175.253.82]:44038 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932469AbcK1NlO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 08:41:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1480326409-25419-1-git-send-email-jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On macb only (not gem), when a RX queue corruption was detected from
-macb_rx(), the RX queue was reset: during this process the RX ring
-buffer descriptor was initialized by macb_init_rx_ring() but we forgot
-to also set bp->rx_tail to 0.
+On 11/28/2016 10:46 AM, Jerome Brunet wrote:
+> This patchset fixes an issue with the OdroidC2 board (DWMAC + RTL8211F).
+> The platform seems to enter LPI on the Rx path too often while performing
+> relatively high TX transfer. This eventually break the link (both Tx and
+> Rx), and require to bring the interface down and up again to get the Rx
+> path working again.
+> 
+> The root cause of this issue is not fully understood yet but disabling EEE
+> advertisement on the PHY prevent this feature to be negotiated.
+> With this change, the link is stable and reliable, with the expected
+> throughput performance.
+> 
+> The patchset adds options in the generic phy driver to disable EEE
+> advertisement, through device tree. The way it is done is very similar
+> to the handling of the max-speed property.
+> 
+> Changes since V2: [2]
+>  - Rename "eee-advert-disable" to "eee-broken-modes" to make the intended
+>    purpose of this option clear (flag broken configuration, not a
+>    configuration option)
+>  - Add DT bindings constants so the DT configuration is more user friendly
+>  - Submit to net-next instead of net.
+> 
+> Changes since V1: [1]
+>  - Disable the advertisement of EEE in the generic code instead of the
+>    realtek driver.
+> 
+> [1] : http://lkml.kernel.org/r/1479220154-25851-1-git-send-email-jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
+> [2] : http://lkml.kernel.org/r/1479742524-30222-1-git-send-email-jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
+> 
+> 
+> Jerome Brunet (4):
+>   net: phy: add an option to disable EEE advertisement
+>   dt-bindings: net: add EEE capability constants
+>   dt: bindings: add ethernet phy eee-broken-modes option documentation
+>   ARM64: dts: meson: odroidc2: disable advertisement EEE for GbE.
+> 
+>  Documentation/devicetree/bindings/net/phy.txt      |  2 +
+>  .../arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts | 16 +++++
+>  drivers/net/phy/phy.c                              |  3 +
+>  drivers/net/phy/phy_device.c                       | 80 +++++++++++++++++++---
+>  include/dt-bindings/net/mdio.h                     | 19 +++++
+>  include/linux/phy.h                                |  3 +
+>  6 files changed, 114 insertions(+), 9 deletions(-)
+>  create mode 100644 include/dt-bindings/net/mdio.h
+> 
 
-Indeed, when processing the received frames, bp->rx_tail provides the
-macb driver with the index in the RX ring buffer of the next buffer to
-process. So when the whole ring buffer is reset we must also reset
-bp->rx_tail so the driver is synchronized again with the hardware.
+Tested using Nexbox A1 (S912) and Amlogic P230 (S905D) devices (DWMAC + RTL8211F).
 
-Since macb_init_rx_ring() is called from many locations, currently from
-macb_rx() and macb_init_rings(), we'd rather add the "bp->rx_tail = 0;"
-line inside macb_init_rx_ring() than add the very same line after each
-call of this function.
-
-Without this fix, the rx queue is not reset properly to recover from
-queue corruption and connection drop may occur.
-
-Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Fixes: 9ba723b081a2 ("net: macb: remove BUG_ON() and reset the queue to handle RX errors")
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
-
-ChangeLog:
-
-v1 -> v2:
-- rebase on net/master (v1 was based on net-next/master)
-- add "Acked-by:" tag from Nicolas Ferre.
-
- drivers/net/ethernet/cadence/macb.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 533653bd7aec..3ede59c9cae0 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -975,6 +975,7 @@ static inline void macb_init_rx_ring(struct macb *bp)
- 		addr += bp->rx_buffer_size;
- 	}
- 	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
-+	bp->rx_tail = 0;
- }
- 
- static int macb_rx(struct macb *bp, int budget)
-@@ -1616,8 +1617,6 @@ static void macb_init_rings(struct macb *bp)
- 	bp->queues[0].tx_head = 0;
- 	bp->queues[0].tx_tail = 0;
- 	bp->queues[0].tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
--
--	bp->rx_tail = 0;
- }
- 
- static void macb_reset_hw(struct macb *bp)
--- 
-2.7.4
+Tested-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
