@@ -1,104 +1,63 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: dsa: mv88e6xxx: Add 88E6176 device tree support
-Date: Mon, 28 Nov 2016 17:14:15 +0100
-Message-ID: <20161128161415.GI17704@lunn.ch>
-References: <1480280279-9552-1-git-send-email-afaerber@suse.de>
- <1480280279-9552-2-git-send-email-afaerber@suse.de>
- <20161127212709.GD13318@lunn.ch>
- <9500470d-09c3-3ecb-994b-3d108bffc99e@suse.de>
- <20161127220846.GH13318@lunn.ch>
- <e5d45b55-a4c1-3b5e-0bdc-a5e340b072d0@suse.de>
- <20161127231009.GA17704@lunn.ch>
- <20161128080939.ippqlytvojitefkp@perseus.defre.kleine-koenig.org>
- <20161128131735.GA4379@lunn.ch>
- <2c59cc79-b6dc-9920-1725-a7785ff3b6bf@kleine-koenig.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next] ipv6: implement consistent hashing for
+ equal-cost multipath routing
+Date: Mon, 28 Nov 2016 11:22:48 -0500 (EST)
+Message-ID: <20161128.112248.2198395724649783009.davem@davemloft.net>
+References: <1480017556-25988-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andreas =?iso-8859-1?Q?F=E4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Michal Hrusecki <Michal.Hrusecky-x+rMaJPWets@public.gmane.org>,
-        Tomas Hlavacek <tomas.hlavacek-x+rMaJPWets@public.gmane.org>,
-        Bed??icha Ko??atu <bedrich.kosata-x+rMaJPWets@public.gmane.org>,
-        Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <uwe-rXY34ruvC2xidJT2blvkqNi2O/JbrIOy@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <2c59cc79-b6dc-9920-1725-a7785ff3b6bf-rXY34ruvC2xidJT2blvkqNi2O/JbrIOy@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: david.lebrun@uclouvain.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60544 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932468AbcK1QWz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:22:55 -0500
+In-Reply-To: <1480017556-25988-1-git-send-email-david.lebrun@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 04:44:47PM +0100, Uwe Kleine-König wrote:
-> On 11/28/2016 02:17 PM, Andrew Lunn wrote:
-> >> I still wonder (and didn't get an answer back when I asked about this)
-> >> why a comment is preferred here. For other devices I know it's usual and
-> >> requested by the maintainers to use:
-> >>
-> >> 	compatible = "exact name", "earlyer device to match driver";
-> >>
-> >> . This is more robust, documents the situation more formally and makes
-> >> it better greppable. The price to pay is only a few bytes in the dtb
-> >> which IMO is ok.
-> > 
-> > We did discuss this a while back. The information is useless and
-> > should to be ignored if present.
+From: David Lebrun <david.lebrun@uclouvain.be>
+Date: Thu, 24 Nov 2016 20:59:16 +0100
+
+> When multiple nexthops are available for a given route, the routing engine
+> chooses a nexthop by computing the flow hash through get_hash_from_flowi6
+> and by taking that value modulo the number of nexthops. The resulting value
+> indexes the nexthop to select. This method causes issues when a new nexthop
+> is added or one is removed (e.g. link failure). In that case, the number
+> of nexthops changes and potentially all the flows get re-routed to another
+> nexthop.
 > 
-> Who is "we"?
-
-Anybody on netdev a while back, but mostly Vivien and myself.
-
-> I'd say fail to probe is the right thing to do. Of course that doesn't
-> work for already supported models because it will break compatibility.
-
-And that is the first rule of device tree, never break backwards
-compatibility.
-
-> Also it seems wrong to write "marvell,mv88e6085" (only) if I know the
-> hardware is really a "marvell,mv88e6176".
-
-Why? Remember, the property name is called "compatible", not "is".
-
-> > Linus has said he does not like ARM devices because of all the busses
-> > which are not enumerable. Here we have a device which with a little
-> > bit of help we can enumerate. So we should. 
+> This patch implements a consistent hash method to select the nexthop in
+> case of ECMP. The idea is to generate N random numbers (__u32) for each
+> nexthop, where N is configurable. In order to select a nexthop, we find the
+> number that is directly higher than the flow hash (which is also __u32).
+> The nexthop associated to the number is then selected. The lookup method
+> performs a binary search over the sorted array of numbers, which yields a
+> time complexity of O(log n), where n is the number of nexthops times the
+> number of random values generated for each number.
 > 
-> If you write
+> This feature can be enabled through the CONFIG_IPV6_MULTIPATH_CONSISTENT
+> option and the number of random values generated for each nexthop is
+> defined through CONFIG_IPV6_MPCONSIST_BUCKETSIZE.
 > 
-> 	compatible = "marvell,mv88e6176", "marvell,mv88e6085";
-> 
-> you can still enumerate in the same way as before.
+> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 
-Sure it would. But if the driver decides to ignore it, it is likely to
-be wrong. Developers are used to comments being wrong. We are
-suspicious of comments, we don't trust them 100%. But if somebody sees
-a property in a device tree, they put a higher 'trustability' value on
-it. But it actually has less trustable than a comment.
- 
-> There are several more instances where the device tree specifies
-> something that could be probed instead. Some examples:
-> 
-> 	compatible = "ethernet-phy-id0141.0DD1", "ethernet-phy-ieee802.3-c22";
+Thanks for trying to solve this problem.
 
-There are examples of phys which don't implemented register 2 and
-3. In that case, you do need to specify the ID, if you want the
-correct driver to load.
+But we really don't want this to be Kconfig gated.  If we decide to
+support this it should be a run-time selectable option.  Every
+distribution on the planet is going to turn your Kconfig option on, so
+whatever you think we might be saving by putting this behind Kconfig
+checks won't be realized for large swaths of the userbase.
 
-> 	compatible = "spansion,s25fl164k", "jedec,spi-nor";
+I also question how necessary %100 consistent hashing of ECMP really
+is.
 
-And there was a push recently to add "jedec,spi-nor" everywhere and
-deprecate a specific compatible because it is also not needed.
+If we can do something at extremely low cost and arrive at a very low
+disruption rate, honestly that's probably good enough.
 
-> 	compatible = "fsl,imx25-flexcan", "fsl,p1010-flexcan";
-> 	compatible = "arm,pl011", "arm,primecell";
-
-I don't know these hardwares, so cannot comment.
-
-  Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I assume you've looked over RFC2992.  A low disrutpion algorithm is
+described there and if we could just get rid of the divide it might
+be extremely desirable.
