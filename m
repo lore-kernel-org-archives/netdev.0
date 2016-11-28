@@ -1,65 +1,159 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: GPF in eth_header
-Date: Mon, 28 Nov 2016 14:14:04 -0800
-Message-ID: <1480371244.18162.91.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
-         <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
-         <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
-         <1480359019.18162.79.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAeHK+wWVp46ej0tk5mDnOHpH5Ky0+HiH9_SUqGcT0iTppLaGw@mail.gmail.com>
-         <CACT4Y+Yr6UJxXosjx2FO=KtxGr40X07_UBiscs1BP1s8cTaqAA@mail.gmail.com>
-         <1480362459.18162.83.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480367152.18162.86.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480367886.18162.88.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161128213444.GA9858@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf, xdp: allow to pass flags to dev_change_xdp_fd
+Date: Mon, 28 Nov 2016 23:16:54 +0100
+Message-ID: <cd0871f11c476f8d7fee1cb356940a13cf7d4807.1480370617.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34531 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753423AbcK1WPH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 17:15:07 -0500
-In-Reply-To: <20161128213444.GA9858@breakpoint.cc>
+Received: from www62.your-server.de ([213.133.104.62]:54657 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751660AbcK1WQ7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 17:16:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-11-28 at 22:34 +0100, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > Might be a bug added in commit daaa7d647f81f3
-> > > ("netfilter: ipv6: avoid nf_iterate recursion")
-> > > 
-> > > Florian, what do you think of dropping a packet that presumably was
-> > > mangled badly by nf_ct_frag6_queue() ?
-> 
-> ipv4 definitely frees malformed packets.
-> In general, I think netfilter should avoid 'silent' drops if possible
-> and let skb continue, but of course such skbs should not be made worse
-> as what we ate to begin with...
-> 
-> > > (Like about 48 byte pulled :(, and/or skb->csum changed )
-> 
-> I think this warrants a review of ipv6 reassembly too, bug reported here
-> is because ipv6 nf defrag is also done on output.
+Add an IFLA_XDP_FLAGS attribute that can be passed for setting up
+XDP along with IFLA_XDP_FD, which eventually allows user space to
+implement typical add/replace/delete logic for programs. Right now,
+calling into dev_change_xdp_fd() will always replace previous programs.
 
+When passed XDP_FLAGS_UPDATE_IF_NOEXIST, we can handle this more
+graceful when requested by returning -EBUSY in case we try to
+attach a new program, but we find that another one is already
+attached. This will be used by upcoming front-end for iproute2 as
+well.
 
-ip6_frag_queue() definitely frees bad/mangled skbs()
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/linux/netdevice.h    |  2 +-
+ include/uapi/linux/if_link.h |  4 ++++
+ net/core/dev.c               | 20 ++++++++++++++++++--
+ net/core/rtnetlink.c         | 14 +++++++++++++-
+ 4 files changed, 36 insertions(+), 4 deletions(-)
 
-
-> Looks good, we'll need to change some of the errno return codes in
-> nf_ct_frag6_gather to 0 though for this to work, which should not be too
-> hard ;)
-
-If the goal is to let buggy packets pass, then we might need to undo
-changes in nf_ct_frag6_queue()
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4ffcd87..3755317 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3253,7 +3253,7 @@ int dev_get_phys_port_id(struct net_device *dev,
+ int dev_get_phys_port_name(struct net_device *dev,
+ 			   char *name, size_t len);
+ int dev_change_proto_down(struct net_device *dev, bool proto_down);
+-int dev_change_xdp_fd(struct net_device *dev, int fd);
++int dev_change_xdp_fd(struct net_device *dev, int fd, u32 flags);
+ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev);
+ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 				    struct netdev_queue *txq, int *ret);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 92b2d49..6b13e59 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -876,10 +876,14 @@ enum {
+ 
+ /* XDP section */
+ 
++#define XDP_FLAGS_UPDATE_IF_NOEXIST	(1U << 0)
++#define XDP_FLAGS_MASK			(XDP_FLAGS_UPDATE_IF_NOEXIST)
++
+ enum {
+ 	IFLA_XDP_UNSPEC,
+ 	IFLA_XDP_FD,
+ 	IFLA_XDP_ATTACHED,
++	IFLA_XDP_FLAGS,
+ 	__IFLA_XDP_MAX,
+ };
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 048b46b..a44aefe 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6692,26 +6692,42 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
+  *	dev_change_xdp_fd - set or clear a bpf program for a device rx path
+  *	@dev: device
+  *	@fd: new program fd or negative value to clear
++ *	@flags: xdp-related flags
+  *
+  *	Set or clear a bpf program for a device
+  */
+-int dev_change_xdp_fd(struct net_device *dev, int fd)
++int dev_change_xdp_fd(struct net_device *dev, int fd, u32 flags)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	struct bpf_prog *prog = NULL;
+-	struct netdev_xdp xdp = {};
++	struct netdev_xdp xdp;
+ 	int err;
+ 
++	ASSERT_RTNL();
++
+ 	if (!ops->ndo_xdp)
+ 		return -EOPNOTSUPP;
+ 	if (fd >= 0) {
++		if (flags & XDP_FLAGS_UPDATE_IF_NOEXIST) {
++			memset(&xdp, 0, sizeof(xdp));
++			xdp.command = XDP_QUERY_PROG;
++
++			err = ops->ndo_xdp(dev, &xdp);
++			if (err < 0)
++				return err;
++			if (xdp.prog_attached)
++				return -EBUSY;
++		}
++
+ 		prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
+ 		if (IS_ERR(prog))
+ 			return PTR_ERR(prog);
+ 	}
+ 
++	memset(&xdp, 0, sizeof(xdp));
+ 	xdp.command = XDP_SETUP_PROG;
+ 	xdp.prog = prog;
++
+ 	err = ops->ndo_xdp(dev, &xdp);
+ 	if (err < 0 && prog)
+ 		bpf_prog_put(prog);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 4e60525..bd85570 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1505,6 +1505,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ static const struct nla_policy ifla_xdp_policy[IFLA_XDP_MAX + 1] = {
+ 	[IFLA_XDP_FD]		= { .type = NLA_S32 },
+ 	[IFLA_XDP_ATTACHED]	= { .type = NLA_U8 },
++	[IFLA_XDP_FLAGS]	= { .type = NLA_U32 },
+ };
+ 
+ static const struct rtnl_link_ops *linkinfo_to_kind_ops(const struct nlattr *nla)
+@@ -2164,6 +2165,7 @@ static int do_setlink(const struct sk_buff *skb,
+ 
+ 	if (tb[IFLA_XDP]) {
+ 		struct nlattr *xdp[IFLA_XDP_MAX + 1];
++		u32 xdp_flags = 0;
+ 
+ 		err = nla_parse_nested(xdp, IFLA_XDP_MAX, tb[IFLA_XDP],
+ 				       ifla_xdp_policy);
+@@ -2174,9 +2176,19 @@ static int do_setlink(const struct sk_buff *skb,
+ 			err = -EINVAL;
+ 			goto errout;
+ 		}
++
++		if (xdp[IFLA_XDP_FLAGS]) {
++			xdp_flags = nla_get_u32(xdp[IFLA_XDP_FLAGS]);
++			if (xdp_flags & ~XDP_FLAGS_MASK) {
++				err = -EINVAL;
++				goto errout;
++			}
++		}
++
+ 		if (xdp[IFLA_XDP_FD]) {
+ 			err = dev_change_xdp_fd(dev,
+-						nla_get_s32(xdp[IFLA_XDP_FD]));
++						nla_get_s32(xdp[IFLA_XDP_FD]),
++						xdp_flags);
+ 			if (err)
+ 				goto errout;
+ 			status |= DO_SETLINK_NOTIFY;
+-- 
+1.9.3
