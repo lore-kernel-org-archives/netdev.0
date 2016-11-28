@@ -1,7 +1,7 @@
 From: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH net 03/16] net: ethernet: altera: fix fixed-link phydev leaks
-Date: Mon, 28 Nov 2016 19:24:56 +0100
-Message-ID: <1480357509-28074-4-git-send-email-johan@kernel.org>
+Subject: [PATCH net 14/16] net: ethernet: dwc_eth_qos: fix fixed-link phydev leaks
+Date: Mon, 28 Nov 2016 19:25:07 +0100
+Message-ID: <1480357509-28074-15-git-send-email-johan@kernel.org>
 References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Cc: Vince Bridgers <vbridger-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org>,
         Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
@@ -31,42 +31,90 @@ List-Id: netdev.vger.kernel.org
 Make sure to deregister and free any fixed-link PHY registered using
 of_phy_register_fixed_link() on probe errors and on driver unbind.
 
-Fixes: 7cdbc6f74f8e ("altera tse: add support for fixed-links.")
+Fixes: 077742dac2c7 ("dwc_eth_qos: Add support for Synopsys DWC Ethernet
+QoS")
 Signed-off-by: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/altera/altera_tse_main.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
-index bda31f308cc2..6532829b70d2 100644
---- a/drivers/net/ethernet/altera/altera_tse_main.c
-+++ b/drivers/net/ethernet/altera/altera_tse_main.c
-@@ -819,6 +819,8 @@ static int init_phy(struct net_device *dev)
- 
- 	if (!phydev) {
- 		netdev_err(dev, "Could not find the PHY\n");
-+		if (fixed_link)
-+			of_phy_deregister_fixed_link(priv->device->of_node);
- 		return -ENODEV;
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 4ba2421e625d..97d64bfed465 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -2881,7 +2881,7 @@ static int dwceqos_probe(struct platform_device *pdev)
+ 	ret = of_get_phy_mode(lp->pdev->dev.of_node);
+ 	if (ret < 0) {
+ 		dev_err(&lp->pdev->dev, "error in getting phy i/f\n");
+-		goto err_out_clk_dis_phy;
++		goto err_out_deregister_fixed_link;
  	}
  
-@@ -1545,10 +1547,15 @@ static int altera_tse_probe(struct platform_device *pdev)
- static int altera_tse_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct altera_tse_private *priv = netdev_priv(ndev);
+ 	lp->phy_interface = ret;
+@@ -2889,14 +2889,14 @@ static int dwceqos_probe(struct platform_device *pdev)
+ 	ret = dwceqos_mii_init(lp);
+ 	if (ret) {
+ 		dev_err(&lp->pdev->dev, "error in dwceqos_mii_init\n");
+-		goto err_out_clk_dis_phy;
++		goto err_out_deregister_fixed_link;
+ 	}
  
--	if (ndev->phydev)
-+	if (ndev->phydev) {
- 		phy_disconnect(ndev->phydev);
+ 	ret = dwceqos_mii_probe(ndev);
+ 	if (ret != 0) {
+ 		netdev_err(ndev, "mii_probe fail.\n");
+ 		ret = -ENXIO;
+-		goto err_out_clk_dis_phy;
++		goto err_out_deregister_fixed_link;
+ 	}
  
-+		if (of_phy_is_fixed_link(priv->device->of_node))
-+			of_phy_deregister_fixed_link(priv->device->of_node);
-+	}
-+
- 	platform_set_drvdata(pdev, NULL);
- 	altera_tse_mdio_destroy(ndev);
- 	unregister_netdev(ndev);
+ 	dwceqos_set_umac_addr(lp, lp->ndev->dev_addr, 0);
+@@ -2914,7 +2914,7 @@ static int dwceqos_probe(struct platform_device *pdev)
+ 	if (ret) {
+ 		dev_err(&lp->pdev->dev, "Unable to retrieve DT, error %d\n",
+ 			ret);
+-		goto err_out_clk_dis_phy;
++		goto err_out_deregister_fixed_link;
+ 	}
+ 	dev_info(&lp->pdev->dev, "pdev->id %d, baseaddr 0x%08lx, irq %d\n",
+ 		 pdev->id, ndev->base_addr, ndev->irq);
+@@ -2924,7 +2924,7 @@ static int dwceqos_probe(struct platform_device *pdev)
+ 	if (ret) {
+ 		dev_err(&lp->pdev->dev, "Unable to request IRQ %d, error %d\n",
+ 			ndev->irq, ret);
+-		goto err_out_clk_dis_phy;
++		goto err_out_deregister_fixed_link;
+ 	}
+ 
+ 	if (netif_msg_probe(lp))
+@@ -2935,11 +2935,14 @@ static int dwceqos_probe(struct platform_device *pdev)
+ 	ret = register_netdev(ndev);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
+-			goto err_out_clk_dis_phy;
++		goto err_out_deregister_fixed_link;
+ 	}
+ 
+ 	return 0;
+ 
++err_out_deregister_fixed_link:
++	if (of_phy_is_fixed_link(pdev->dev.of_node))
++		of_phy_deregister_fixed_link(pdev->dev.of_node);
+ err_out_clk_dis_phy:
+ 	clk_disable_unprepare(lp->phy_ref_clk);
+ err_out_clk_dis_aper:
+@@ -2959,8 +2962,11 @@ static int dwceqos_remove(struct platform_device *pdev)
+ 	if (ndev) {
+ 		lp = netdev_priv(ndev);
+ 
+-		if (ndev->phydev)
++		if (ndev->phydev) {
+ 			phy_disconnect(ndev->phydev);
++			if (of_phy_is_fixed_link(pdev->dev.of_node))
++				of_phy_deregister_fixed_link(pdev->dev.of_node);
++		}
+ 		mdiobus_unregister(lp->mii_bus);
+ 		mdiobus_free(lp->mii_bus);
+ 
 -- 
 2.7.3
 
