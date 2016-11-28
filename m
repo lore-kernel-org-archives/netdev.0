@@ -1,132 +1,131 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [[PATCH net-next RFC] 2/4] net: dsa: mv88e6xxx: Monitor and Management tables
-Date: Mon, 28 Nov 2016 12:42:33 -0500
-Message-ID: <878ts3fqly.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1479944598-20372-1-git-send-email-andrew@lunn.ch> <1479944598-20372-3-git-send-email-andrew@lunn.ch>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 3/4] Documentation: net: phy: Add blurb about
+ RGMII
+Date: Mon, 28 Nov 2016 09:43:42 -0800
+Message-ID: <60473447-423c-7dff-6647-cce7cf2d4ab2@gmail.com>
+References: <20161127184449.12351-1-f.fainelli@gmail.com>
+ <20161127184449.12351-4-f.fainelli@gmail.com>
+ <4c71a69c-2942-f177-ef25-04686f5e4149@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        martin.blumenstingl@googlemail.com, mans@mansr.com,
+        alexandre.torgue@st.com, peppe.cavallaro@st.com,
+        timur@codeaurora.org, jbrunet@baylibre.com,
+        mason <slash.tmp@free.fr>
+To: Sebastian Frias <sf84@laposte.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:55630 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751070AbcK1Rmg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:42:36 -0500
-In-Reply-To: <1479944598-20372-3-git-send-email-andrew@lunn.ch>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33639 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751226AbcK1Rnr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 12:43:47 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 144so6815498pfv.0
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 09:43:46 -0800 (PST)
+In-Reply-To: <4c71a69c-2942-f177-ef25-04686f5e4149@laposte.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On 11/28/2016 02:34 AM, Sebastian Frias wrote:
+> On 27/11/16 19:44, Florian Fainelli wrote:
+>> RGMII is a recurring source of pain for people with Gigabit Ethernet
+>> hardware since it may require PHY driver and MAC driver level
+>> configuration hints. Document what are the expectations from PHYLIB and
+>> what options exist.
+>>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  Documentation/networking/phy.txt | 76 ++++++++++++++++++++++++++++++++++++++++
+>>  1 file changed, 76 insertions(+)
+>>
+>> diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
+>> index 9a42a9414cea..7a0cb1212b9e 100644
+>> --- a/Documentation/networking/phy.txt
+>> +++ b/Documentation/networking/phy.txt
+>> @@ -65,6 +65,82 @@ The MDIO bus
+>>   drivers/net/ethernet/freescale/fsl_pq_mdio.c and an associated DTS file
+>>   for one of the users. (e.g. "git grep fsl,.*-mdio arch/powerpc/boot/dts/")
+>>  
+>> +(RG)MII/electrical interface considerations
+>> +
+>> + The Reduced Gigabit Medium Independent Interface (RGMII) is a 12 pins
+>> + electrical signal interface using a synchronous 125Mhz clock signal and several
+>> + data lines. Due to this design decision, a 1.5ns to 2ns delay must be added
+>> + between the clock line (RXC or TXC) and the data lines to let the PHY (clock
+>> + sink) have enough setup and hold times to sample the data lines correctly. The
+>> + PHY library offers different types of PHY_INTERFACE_MODE_RGMII* values to let
+>> + the PHY driver and optionaly the MAC driver implement the required delay. The
+>> + values of phy_interface_t must be understood from the perspective of the PHY
+>> + device itself, leading to the following:
+>> +
+>> + * PHY_INTERFACE_MODE_RGMII: the PHY is not responsible for inserting any
+>> +   internal delay by itself, it assumes that either the Ethernet MAC (if capable
+>> +   or the PCB traces) insert the correct 1.5-2ns delay
+> 
+> For what is worth, the Atheros at803x driver comes with RX delay enabled as per HW
+> reset.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Always, or is this a behavior possibly defined via a stra-pin that can
+be changed?
 
-> +/* Offset 0x1a: Monitor Control */
+> I understand that enforcing this documentation as is would result in changing the
+> driver to disable RX delay, but it could break existing DTs, so I don't know if that
+> path will be pursued.
 
-Thanks. We could also optionally add another line Offset 0x1A: Monitor &
-MGMT Control, to mention the change on newer chips.
+Which is why the documentation update proposed indicates preferred vs.
+mandatory.
 
-> +
-> +int mv88e6095_monitor_ctrl(struct mv88e6xxx_chip *chip, int upstream_port)
-> +{
-> +	u16 reg;
-> +
-> +	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
-> +		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
-> +		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
-> +
-> +	return mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
-> +}
+> 
+> Would explicit "versioning" the DT nodes be something worth exploring? So far it
+> seems the versioning is implicit: driver probably check the presence of some property
+> and conclude that it has to behave in a way or another.
 
-Monitor Control is just one of these registers which control several
-stuffs.
+I would not go that route, can of worms.
 
-On 6185, it controls only the monitor destination port for ingress,
-egress and ARP. On 6352, it controls the monitor destination port for
-ingress and egress, sets the CPU destination port and the mirror port.
+> 
+>> +
+>> + * PHY_INTERFACE_MODE_RGMII_TXID: the PHY should be inserting an internal delay
+>> +   for the transmit data lines (TXD[3:0]) processed by the PHY device
+>> +
+>> + * PHY_INTERFACE_MODE_RGMII_RXID: the PHY should be inserting an internal delay
+>> +   for the receive data lines (RXD[3:0]) processed by the PHY device
+>> +
+>> + * PHY_INTERFACE_MODE_RGMII_ID: the PHY should be inserting internal delays for
+>> +   both transmit AND receive data lines from/to the PHY device
+>> +
+>> + Whenever it is possible, it is preferrable to utilize the PHY side RGMII delay
+>> + for several reasons:
+>> +
+>> + * PHY devices may offer sub-nanosecond granularity in how they allow a
+>> +   receiver/transmitter side delay (e.g: 0.5, 1.0, 1.5ns) to be specified. Such
+>> +   precision may be required to account for differences in PCB trace lengths
+>> +
+>> + * PHY devices are typically qualified for a large range of applications
+>> +   (industrial, medical, automotive...), and they provide a constant and
+>> +   reliable delay across temperature/pressure/voltage ranges
+>> +
+>> + * PHY device drivers in PHYLIB being reusable by nature, being able to
+>> +   configure correctly a specified delay enables more designs with similar delay
+>> +   requirements to be operate correctly
+>> +
+>> + For cases where the PHY is not capable of providing this delay, but the
+>> + Ethernet MAC driver is capable of doing it, the correct phy_interface_t value
+>> + should be PHY_INTERFACE_MODE_RGMII, and the Ethernet MAC driver should be
+>> + configured correctly in order to provide the required transmit and/or receive
+>> + side delay from the perspective of the PHY device. 
+> 
+> While this clarifies the current situation very well, wouldn't the proposed approach
+> require that a property such as "txid-delay-ns" on the PHY's DT node to be duplicated
+> for the MAC?
 
-Hence using GLOBAL_MONITOR_CONTROL_ARP_SHIFT is bad since bits 7:4
-differ in those two (CPU Dest vs. ARP Dest). Unless you tell me that
-these are the same.
+The property name can be identical and represent essentially the same
+things, but as as described, if the delay is implemented by the PHY,
+then the MAC should disable it, conversely if the MAC needs to implement
+it, the PHY should not contain any delay property. If both are found,
+because the DTS is miswritten, then, the drivers should ignore/error out.
 
-Please add a .set_monitor_port ops and provide a more explicit function
-like mv88e6xxx_g1_set_monitor_port() which configures the ingress/egress
-monitor destination port and eventually the CPU/ARP dest if the effect
-is similar (otherwise a .set_cpu_port ops is needed).
-
-> +
-> +int mv88e6390_monitor_ctrl(struct mv88e6xxx_chip *chip, int upstream_port)
-> +{
-> +	u16 reg;
-> +	int err;
-> +
-> +	/* Trap destination */
-> +	reg = GLOBAL_MONITOR_CONTROL_UPDATE |
-> +		GLOBAL_MONITOR_CONTROL_CPU_DEST |
-> +		upstream_port;
-> +	err = mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
-> +	if (err)
-> +		return err;
-> +
-> +	/* 01:c2:80:00:00:00:00-01:c2:80:00:00:00:07 are Management */
-> +	reg = GLOBAL_MONITOR_CONTROL_UPDATE |
-> +		GLOBAL_MONITOR_CONTROL_0180C280000000XLO | 0xff;
-> +	err = mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
-> +	if (err)
-> +		return err;
-> +
-> +	/* 01:c2:80:00:00:00:08-01:c2:80:00:00:00:0f are Management */
-> +	reg = GLOBAL_MONITOR_CONTROL_UPDATE |
-> +		GLOBAL_MONITOR_CONTROL_0180C280000000XHI | 0xff;
-> +	err = mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
-> +	if (err)
-> +		return err;
-> +
-> +	/* 01:c2:80:00:00:00:20-01:c2:80:00:00:00:27 are Management */
-> +	reg = GLOBAL_MONITOR_CONTROL_UPDATE |
-> +		GLOBAL_MONITOR_CONTROL_0180C280000002XLO | 0xff;
-> +	err = mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
-> +	if (err)
-> +		return err;
-> +
-> +	/* 01:c2:80:00:00:00:28-01:c2:80:00:00:00:2f are Management */
-> +	reg = GLOBAL_MONITOR_CONTROL_UPDATE |
-> +		GLOBAL_MONITOR_CONTROL_0180C280000002XHI | 0xff;
-> +
-> +	return mv88e6xxx_g1_write(chip, GLOBAL_MONITOR_CONTROL, reg);
-> +}
-> +
-
-This function does more that the 6095 implementation.
-
-First please provide a static helper to write the Monitor & MGMT Control
-table. Something like:
-
-    mv88e6xxx_g1_monitor_mgmt_write(struct mv88e6xxx_chip *chip,
-                                    u8 pointer, u8 data)
-
-Then use it to implement a mv88e6xxx_g1_set_trap_port() function.
-
-Rsvd2CPU is a different thing. 6352 has 2 dedicated registers in Global
-2 to configure the management addresses 01:c2:80:00:00:00:2x (offset
-0x2) and 01:c2:80:00:00:00:0x (offset 0x3). 6185 only has register 0x3.
-Then 6390 stores the Rsvd2CPU addresses in this MGMT table.
-
-I'd expect something like new .set_rsvd2cpu{0,2}(chip, u16 x) ops and
-the following implementation:
-
-    int mv88e6xxx_g2_set_rsvd2cpu2(struct mv88e6xxx_chip *chip, u16 x);
-    int mv88e6xxx_g2_set_rsvd2cpu0(struct mv88e6xxx_chip *chip, u16 x);
-
-int global2.c, and:
-
-    int mv88e6xxx_g1_set_rsvd2cpu2(struct mv88e6xxx_chip *chip, u16 x);
-    int mv88e6xxx_g1_set_rsvd2cpu0(struct mv88e6xxx_chip *chip, u16 x);
-
-in global1.c (which use mv88e6xxx_g1_monitor_mgmt_write()).
-
-Later (not required now), a nice wrapper in chip.c could set a rsvd2cpu
-bit for a given address, or fallback to loading it in the ATU as MGMT.
-
-Thanks,
-
-        Vivien
+Or are you thinking about the case you described earlier with delays
+that are neither 0 or 2, but e.g: 1 and 3 and you still want to have the
+end-result be somewhere around 2ns?
+-- 
+Florian
