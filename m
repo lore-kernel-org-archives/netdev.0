@@ -1,42 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] cpsw: ethtool: add support for getting/setting EEE
- registers
-Date: Mon, 28 Nov 2016 16:23:20 -0500 (EST)
-Message-ID: <20161128.162320.1497118051889266063.davem@davemloft.net>
-References: <1480322493-25308-1-git-send-email-yegorslists@googlemail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net] sched: cls_flower: remove from hashtable only in
+ case skip sw flag is not set
+Date: Mon, 28 Nov 2016 22:23:28 +0100
+Message-ID: <20161128212328.GD1813@nanopsycho.orion>
+References: <1480344013-4812-1-git-send-email-jiri@resnulli.us>
+ <CAJ3xEMhdyBfgtOgJqsY_x-Qr6hrhF01nm3VPL-kJnCofA0r3nA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        grygorii.strashko@ti.com, mugunthanvnm@ti.com
-To: yegorslists@googlemail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Amir Vadai <amir@vadai.me>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42718 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752420AbcK1VX2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:23:28 -0500
-In-Reply-To: <1480322493-25308-1-git-send-email-yegorslists@googlemail.com>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:33335 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752420AbcK1VXc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 16:23:32 -0500
+Received: by mail-wj0-f195.google.com with SMTP id kp2so15745472wjc.0
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 13:23:31 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMhdyBfgtOgJqsY_x-Qr6hrhF01nm3VPL-kJnCofA0r3nA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yegorslists@googlemail.com
-Date: Mon, 28 Nov 2016 09:41:33 +0100
+Mon, Nov 28, 2016 at 10:04:56PM CET, gerlitz.or@gmail.com wrote:
+>On Mon, Nov 28, 2016 at 4:40 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Be symmetric to hashtable insert and remove filter from hashtable only
+>> in case skip sw flag is not set.
+>>
+>> Fixes: e69985c67c33 ("net/sched: cls_flower: Introduce support in SKIP SW flag")
+>
+>Amir, Jiri - what was the impact of running without this fix for the
+>last 3-4 kernels? I haven't seen any crashes, is that leaking took
+>place? or this is just a cleanup to make things more clear and
+>maintainable?
 
-> From: Yegor Yefremov <yegorslists@googlemail.com>
-> 
-> Add the ability to query and set Energy Efficient Ethernet parameters
-> via ethtool for applicable devices.
-> 
-> This patch doesn't activate full EEE support in cpsw driver, but it
-> enables reading and writing EEE advertising settings. This way one
-> can disable advertising EEE for certain speeds.
-> 
-> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
-> Acked-by: Rami Rosen <roszenrami@gmail.com>
-> ---
-> Changes:
-> 	v4: respine against net-next (David Miller)
-> 	v3: explain what features will be available with this patch (Florian Fainelli)
-> 	v2: make routines static (Rami Rosen)
-
-Applied, thank you.
+It's a fix for real bug. If you add rule with skip_sw flag, it is not
+inserted into hashtable. But once you remove it, the current code
+removes it from hashtable (did not inspect how rhashtable implementation
+handles this).
