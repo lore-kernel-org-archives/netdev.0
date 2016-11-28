@@ -1,67 +1,72 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [PATCH] net: macb: Write only necessary bits in NCR in macb reset
-Date: Mon, 28 Nov 2016 15:10:50 +0530
-Message-ID: <CAFcVEC+T_m710aT5pcOEMfzRL=DYtRyLi6sO7r-UUiChs4qXKw@mail.gmail.com>
-References: <1480325029-39224-1-git-send-email-harinik@xilinx.com> <ddb3f476-928d-e235-3e7e-e78434074b04@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Harini Katakam <harini.katakam@xilinx.com>, davem@davemloft.net,
-        netdev@vger.kernel.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "michals@xilinx.com" <michals@xilinx.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33374 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753232AbcK1Jkz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 04:40:55 -0500
-In-Reply-To: <ddb3f476-928d-e235-3e7e-e78434074b04@atmel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next v3 0/4] Fix OdroidC2 Gigabit Tx link issue
+Date: Mon, 28 Nov 2016 10:46:45 +0100
+Message-ID: <1480326409-25419-1-git-send-email-jbrunet@baylibre.com>
+Cc: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Andre Roth <neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Nicolas,
+This patchset fixes an issue with the OdroidC2 board (DWMAC + RTL8211F).
+The platform seems to enter LPI on the Rx path too often while performing
+relatively high TX transfer. This eventually break the link (both Tx and
+Rx), and require to bring the interface down and up again to get the Rx
+path working again.
 
-On Mon, Nov 28, 2016 at 3:01 PM, Nicolas Ferre <nicolas.ferre@atmel.com> wr=
-ote:
-> Le 28/11/2016 =C3=A0 10:23, Harini Katakam a =C3=A9crit :
->> In macb_reset_hw, use read-modify-write to disable RX and TX.
->> This way exiting settings and reserved bits wont be disturbed.
->
-> Yes, indeed... but I would have liked a line about how you discovered it
-> was an issue for you ;  what did it break, etc...
+The root cause of this issue is not fully understood yet but disabling EEE
+advertisement on the PHY prevent this feature to be negotiated.
+With this change, the link is stable and reliable, with the expected
+throughput performance.
 
-Thanks for the review.
-It did not necessarily break anything but we noticed
-during some experiments that management port was being
-enabled and disabled.
-In addition, I thought it would be good to do
-just because there were reserved read only bits in
-the register.
+The patchset adds options in the generic phy driver to disable EEE
+advertisement, through device tree. The way it is done is very similar
+to the handling of the max-speed property.
 
->
->> Use the same method for clearing statistics as well.
->>
->> Signed-off-by: Harini Katakam <harinik@xilinx.com>
->> ---
->>  drivers/net/ethernet/cadence/macb.c | 9 ++++++---
->>  1 file changed, 6 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/=
-cadence/macb.c
->> index 0e489bb..80ccfc4 100644
->> --- a/drivers/net/ethernet/cadence/macb.c
->> +++ b/drivers/net/ethernet/cadence/macb.c
->> @@ -1743,15 +1743,18 @@ static void macb_init_rings(struct macb *bp)
->>  static void macb_reset_hw(struct macb *bp)
->>  {
->>       struct macb_queue *queue;
->> -     unsigned int q;
->> +     unsigned int q, ctrl;
->
-> I would have preferred a different line with u32 type.
+Changes since V2: [2]
+ - Rename "eee-advert-disable" to "eee-broken-modes" to make the intended
+   purpose of this option clear (flag broken configuration, not a
+   configuration option)
+ - Add DT bindings constants so the DT configuration is more user friendly
+ - Submit to net-next instead of net.
 
-Sure, I'll add and send a v2
+Changes since V1: [1]
+ - Disable the advertisement of EEE in the generic code instead of the
+   realtek driver.
 
-Regards,
-Harini
+[1] : http://lkml.kernel.org/r/1479220154-25851-1-git-send-email-jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
+[2] : http://lkml.kernel.org/r/1479742524-30222-1-git-send-email-jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
+
+
+Jerome Brunet (4):
+  net: phy: add an option to disable EEE advertisement
+  dt-bindings: net: add EEE capability constants
+  dt: bindings: add ethernet phy eee-broken-modes option documentation
+  ARM64: dts: meson: odroidc2: disable advertisement EEE for GbE.
+
+ Documentation/devicetree/bindings/net/phy.txt      |  2 +
+ .../arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts | 16 +++++
+ drivers/net/phy/phy.c                              |  3 +
+ drivers/net/phy/phy_device.c                       | 80 +++++++++++++++++++---
+ include/dt-bindings/net/mdio.h                     | 19 +++++
+ include/linux/phy.h                                |  3 +
+ 6 files changed, 114 insertions(+), 9 deletions(-)
+ create mode 100644 include/dt-bindings/net/mdio.h
+
+-- 
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
