@@ -1,26 +1,76 @@
-From: SAVELIEVA COSTA <deng4920@gmail.com>
-Subject: INFO
-Date: Mon, 28 Nov 2016 12:42:41 +0000 (UTC)
-Message-ID: <602143687.1912725.1480336961878@mail.yahoo.com>
-References: <1645231299.1224330.1479984443528.ref@mail.yahoo.com> <1645231299.1224330.1479984443528@mail.yahoo.com> <1693479610.309238.1480079642662@mail.yahoo.com>
-Reply-To: SAVELIEVA COSTA <costa.savelieva@yandex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-To: unlisted-recipients:; (no To-header on input)
+From: Amir Vadai <amir@vadai.me>
+Subject: [PATCH iproute2 V2 0/2] tc/cls_flower: Support for ip tunnel metadata set/unset/classify
+Date: Mon, 28 Nov 2016 14:51:34 +0200
+Message-ID: <20161128125136.3393-1-amir@vadai.me>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Jiri Benc <jbenc@redhat.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm32-vm6.bullet.mail.gq1.yahoo.com ([98.136.216.229]:36827 "EHLO
-        nm32-vm6.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754466AbcK1Mvl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 07:51:41 -0500
-In-Reply-To: <1693479610.309238.1480079642662@mail.yahoo.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34480 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754388AbcK1MwG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 07:52:06 -0500
+Received: by mail-wm0-f65.google.com with SMTP id g23so18850841wme.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 04:52:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
+This short series adds support for matching and setting metadata for ip tunnel
+shared device using the TC system, introduced in kernel 4.9 [1].
 
-Did you receive my last e-mail =E2=80=A6=E2=80=A6=E2=80=A6=E2=80=A6=E2=80=
-=A6
+Applied and tested on top of commit f3f339e9590a ("cleanup debris from revert")
 
-You=E2=80=99re sincerely,
-Savelieva Costa=20
+Example usage:
+
+$ tc filter add dev vxlan0 protocol ip parent ffff: \
+    flower \
+      enc_src_ip 11.11.0.2 \
+      enc_dst_ip 11.11.0.1 \
+      enc_key_id 11 \
+      dst_ip 11.11.11.1 \
+    action mirred egress redirect dev vnet0
+
+$ tc filter add dev net0 protocol ip parent ffff: \
+    flower \
+      ip_proto 1 \
+      dst_ip 11.11.11.2 \
+    action tunnel_key set \
+      src_ip 11.11.0.1 \
+      dst_ip 11.11.0.2 \
+      id 11 \
+    action mirred egress redirect dev vxlan0
+
+[1] - d1ba24feb466 ("Merge branch 'act_tunnel_key'")
+
+Thanks,
+Amir
+
+Changes from V1:
+- Updated Patch 2/2 ("tc/act_tunnel: Introduce ip tunnel action") commit log
+	and the man page tc-tunnel_key to reflect the fact that 'unset' operation is
+	no mandatory.
+	And describe when it might be needed.
+- Rename the 'release' operation to 'unset'
+
+Amir Vadai (2):
+  tc/cls_flower: Classify packet in ip tunnels
+  tc/act_tunnel: Introduce ip tunnel action
+
+ include/linux/tc_act/tc_tunnel_key.h |  42 ++++++
+ man/man8/tc-flower.8                 |  17 ++-
+ man/man8/tc-tunnel_key.8             | 113 +++++++++++++++
+ tc/Makefile                          |   1 +
+ tc/f_flower.c                        |  85 +++++++++++-
+ tc/m_tunnel_key.c                    | 259 +++++++++++++++++++++++++++++++++++
+ 6 files changed, 513 insertions(+), 4 deletions(-)
+ create mode 100644 include/linux/tc_act/tc_tunnel_key.h
+ create mode 100644 man/man8/tc-tunnel_key.8
+ create mode 100644 tc/m_tunnel_key.c
+
+-- 
+2.10.2
