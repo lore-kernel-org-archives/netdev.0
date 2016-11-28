@@ -1,150 +1,76 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v3 3/3] samples: bpf: add userspace example for modifying sk_bound_dev_if
-Date: Mon, 28 Nov 2016 07:48:50 -0800
-Message-ID: <1480348130-31354-4-git-send-email-dsa@cumulusnetworks.com>
-References: <1480348130-31354-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 0/3] net: Add bpf support to set sk_bound_dev_if
+Date: Mon, 28 Nov 2016 07:48:47 -0800
+Message-ID: <1480348130-31354-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
         maheshb@google.com, tgraf@suug.ch,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:36343 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754549AbcK1PtE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 10:49:04 -0500
-Received: by mail-pg0-f47.google.com with SMTP id f188so58015506pgc.3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 07:49:04 -0800 (PST)
-In-Reply-To: <1480348130-31354-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:32939 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754473AbcK1Ps5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 10:48:57 -0500
+Received: by mail-pg0-f53.google.com with SMTP id 3so58317560pgd.0
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 07:48:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a simple program to demonstrate the ability to attach a bpf program
-to a cgroup that sets sk_bound_dev_if for AF_INET{6} sockets when they
-are created.
+The recently added VRF support in Linux leverages the bind-to-device
+API for programs to specify an L3 domain for a socket. While
+SO_BINDTODEVICE has been around for ages, not every ipv4/ipv6 capable
+program has support for it. Even for those programs that do support it,
+the API requires processes to be started as root (CAP_NET_RAW) which
+is not desirable from a general security perspective.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-v3
-- revert to BPF_PROG_TYPE_CGROUP_SOCK prog type
+This patch set leverages Daniel Mack's work to attach bpf programs to
+a cgroup to provide a capability to set sk_bound_dev_if for all
+AF_INET{6} sockets opened by a process in a cgroup when the sockets
+are allocated.
 
-v2
-- removed bpf_sock_store_u32 references
-- changed BPF_CGROUP_INET_SOCK_CREATE to BPF_CGROUP_INET_SOCK
-- remove BPF_PROG_TYPE_CGROUP_SOCK prog type and add prog_subtype
+For example:
+ 1. configure vrf (e.g., using ifupdown2)
+        auto eth0
+        iface eth0 inet dhcp
+            vrf mgmt
 
+        auto mgmt
+        iface mgmt
+            vrf-table auto
+
+ 2. configure cgroup
+        mount -t cgroup2 none /tmp/cgroupv2
+        mkdir /tmp/cgroupv2/mgmt
+        test_cgrp2_sock /tmp/cgroupv2/mgmt 15
+
+ 3. set shell into cgroup (e.g., can be done at login using pam)
+        echo $$ >> /tmp/cgroupv2/mgmt/cgroup.procs
+
+At this point all commands run in the shell (e.g, apt) have sockets
+automatically bound to the VRF (see output of ss -ap 'dev == <vrf>'),
+including processes not running as root.
+
+This capability enables running any program in a VRF context and is key
+to deploying Management VRF, a fundamental configuration for networking
+gear, with any Linux OS installation.
+
+David Ahern (3):
+  bpf: Refactor cgroups code in prep for new type
+  bpf: Add new cgroup attach type to enable sock modifications
+  samples: bpf: add userspace example for modifying sk_bound_dev_if
+
+ include/linux/bpf-cgroup.h    | 11 ++++++
+ include/linux/filter.h        |  2 +-
+ include/uapi/linux/bpf.h      |  6 ++++
+ kernel/bpf/cgroup.c           | 36 ++++++++++++++++---
+ kernel/bpf/syscall.c          | 33 +++++++++--------
+ net/core/filter.c             | 65 +++++++++++++++++++++++++++++++++
+ net/ipv4/af_inet.c            | 12 ++++++-
+ net/ipv6/af_inet6.c           |  8 +++++
  samples/bpf/Makefile          |  2 ++
  samples/bpf/test_cgrp2_sock.c | 83 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 85 insertions(+)
+ 10 files changed, 237 insertions(+), 21 deletions(-)
  create mode 100644 samples/bpf/test_cgrp2_sock.c
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index fb17206ddb57..7de5cd9849c2 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -23,6 +23,7 @@ hostprogs-y += map_perf_test
- hostprogs-y += test_overhead
- hostprogs-y += test_cgrp2_array_pin
- hostprogs-y += test_cgrp2_attach
-+hostprogs-y += test_cgrp2_sock
- hostprogs-y += xdp1
- hostprogs-y += xdp2
- hostprogs-y += test_current_task_under_cgroup
-@@ -51,6 +52,7 @@ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
- test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
- test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
- test_cgrp2_attach-objs := libbpf.o test_cgrp2_attach.o
-+test_cgrp2_sock-objs := libbpf.o test_cgrp2_sock.o
- xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
- # reuse xdp1 source intentionally
- xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
-diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
-new file mode 100644
-index 000000000000..2831e5f41f86
---- /dev/null
-+++ b/samples/bpf/test_cgrp2_sock.c
-@@ -0,0 +1,83 @@
-+/* eBPF example program:
-+ *
-+ * - Loads eBPF program
-+ *
-+ *   The eBPF program sets the sk_bound_dev_if index in new AF_INET{6}
-+ *   sockets opened by processes in the cgroup.
-+ *
-+ * - Attaches the new program to a cgroup using BPF_PROG_ATTACH
-+ */
-+
-+#define _GNU_SOURCE
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <stddef.h>
-+#include <string.h>
-+#include <unistd.h>
-+#include <assert.h>
-+#include <errno.h>
-+#include <fcntl.h>
-+#include <linux/bpf.h>
-+
-+#include "libbpf.h"
-+
-+static int prog_load(int idx)
-+{
-+	struct bpf_insn prog[] = {
-+		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+		BPF_MOV64_IMM(BPF_REG_3, idx),
-+		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, bound_dev_if)),
-+		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, bound_dev_if)),
-+		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
-+		BPF_EXIT_INSN(),
-+	};
-+
-+	return bpf_prog_load(BPF_PROG_TYPE_CGROUP_SOCK, prog, sizeof(prog),
-+			     "GPL", 0);
-+}
-+
-+static int usage(const char *argv0)
-+{
-+	printf("Usage: %s cg-path device-index\n", argv0);
-+	return EXIT_FAILURE;
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	int cg_fd, prog_fd, ret;
-+	int idx = 0;
-+
-+	if (argc < 2)
-+		return usage(argv[0]);
-+
-+	idx = atoi(argv[2]);
-+	if (!idx) {
-+		printf("Invalid device index\n");
-+		return EXIT_FAILURE;
-+	}
-+
-+	cg_fd = open(argv[1], O_DIRECTORY | O_RDONLY);
-+	if (cg_fd < 0) {
-+		printf("Failed to open cgroup path: '%s'\n", strerror(errno));
-+		return EXIT_FAILURE;
-+	}
-+
-+	prog_fd = prog_load(idx);
-+	printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
-+
-+	if (prog_fd < 0) {
-+		printf("Failed to load prog: '%s'\n", strerror(errno));
-+		return EXIT_FAILURE;
-+	}
-+
-+	ret = bpf_prog_detach(cg_fd, BPF_CGROUP_INET_SOCK);
-+	ret = bpf_prog_attach(prog_fd, cg_fd, BPF_CGROUP_INET_SOCK);
-+	if (ret < 0) {
-+		printf("Failed to attach prog to cgroup: '%s'\n",
-+		       strerror(errno));
-+		return EXIT_FAILURE;
-+	}
-+
-+	return EXIT_SUCCESS;
-+}
 -- 
 2.1.4
