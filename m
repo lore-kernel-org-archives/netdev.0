@@ -1,68 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] virtio-net: enable multiqueue by default
-Date: Mon, 28 Nov 2016 11:28:23 -0500 (EST)
-Message-ID: <20161128.112823.2263657283777032168.davem@davemloft.net>
-References: <1480048646-17536-1-git-send-email-jasowang@redhat.com>
-	<20161125064201-mutt-send-email-mst@kernel.org>
+Subject: Re: stmmac ethernet in kernel 4.4: coalescing related pauses?
+Date: Mon, 28 Nov 2016 11:30:31 -0500 (EST)
+Message-ID: <20161128.113031.964579744326063048.davem@davemloft.net>
+References: <20161128.095431.856183735501262965.davem@davemloft.net>
+        <1480347103.18162.58.camel@edumazet-glaptop3.roam.corp.google.com>
+        <920b1148-a77d-0b69-01b0-b14bcbdf8648@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@redhat.com, jeder@redhat.com, hannes@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, myllynen@redhat.com,
-	maxime.coquelin@redhat.com
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161125064201-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, pavel@ucw.cz, peppe.cavallaro@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: lsanfil@marvell.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60876 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754728AbcK1Qad (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 11:30:33 -0500
+In-Reply-To: <920b1148-a77d-0b69-01b0-b14bcbdf8648@marvell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Fri, 25 Nov 2016 06:43:08 +0200
+From: Lino Sanfilippo <lsanfil@marvell.com>
+Date: Mon, 28 Nov 2016 16:57:35 +0100
 
-> On Fri, Nov 25, 2016 at 12:37:26PM +0800, Jason Wang wrote:
->> We use single queue even if multiqueue is enabled and let admin to
->> enable it through ethtool later. This is used to avoid possible
->> regression (small packet TCP stream transmission). But looks like an
->> overkill since:
->> 
->> - single queue user can disable multiqueue when launching qemu
->> - brings extra troubles for the management since it needs extra admin
->>   tool in guest to enable multiqueue
->> - multiqueue performs much better than single queue in most of the
->>   cases
->> 
->> So this patch enables multiqueue by default: if #queues is less than or
->> equal to #vcpu, enable as much as queue pairs; if #queues is greater
->> than #vcpu, enable #vcpu queue pairs.
->> 
->> Cc: Hannes Frederic Sowa <hannes@redhat.com>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Cc: Neil Horman <nhorman@redhat.com>
->> Cc: Jeremy Eder <jeder@redhat.com>
->> Cc: Marko Myllynen <myllynen@redhat.com>
->> Cc: Maxime Coquelin <maxime.coquelin@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> 
-> OK at some level but all uses of num_online_cpus()
-> like this are racy versus hotplug.
-> I know we already have this bug but shouldn't we fix it
-> before we add more?
+> I wonder if the best fix would be indeed to deactivate irq coalescing
+> completely.
+> Does it make any sense at all to use it if a driver uses NAPI already?
 
-This is more being used like a heuristic in this scenerio, and in
-fact I would say one would keep the code this way even once proper
-hotplug handlers are installed to adjust the queued dynamically if
-there is a desired (which is also not necessarily the case).
-
-I really don't think this change should be held on up on this issue.
-So can we please make some forward progress here?
-
-Thanks.
+It absolutely does make sense, when it is implemented and functions
+properly.
