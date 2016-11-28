@@ -1,51 +1,91 @@
-From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: [PATCH] net: macb: Write only necessary bits in NCR in macb reset
-Date: Mon, 28 Nov 2016 14:53:49 +0530
-Message-ID: <1480325029-39224-1-git-send-email-harinik@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <harinik@xilinx.com>, <michals@xilinx.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-        <harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amir@vadai.me>
+Subject: [PATCH net V2] net/sched: pedit: make sure that offset is valid
+Date: Mon, 28 Nov 2016 12:56:40 +0200
+Message-ID: <20161128105640.32363-1-amir@vadai.me>
+Cc: netdev@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f196.google.com ([209.85.210.196]:33799 "EHLO
+        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932105AbcK1K5q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 05:57:46 -0500
+Received: by mail-wj0-f196.google.com with SMTP id xy5so13545596wjc.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 02:57:45 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In macb_reset_hw, use read-modify-write to disable RX and TX.
-This way exiting settings and reserved bits wont be disturbed.
-Use the same method for clearing statistics as well.
+Add a validation function to make sure offset is valid:
+1. Not below skb head (could happen when offset is negative).
+2. Validate both 'offset' and 'at'.
 
-Signed-off-by: Harini Katakam <harinik@xilinx.com>
+Signed-off-by: Amir Vadai <amir@vadai.me>
 ---
- drivers/net/ethernet/cadence/macb.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+Hi Dave,
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 0e489bb..80ccfc4 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1743,15 +1743,18 @@ static void macb_init_rings(struct macb *bp)
- static void macb_reset_hw(struct macb *bp)
+Please pull to -stable branches.
+
+Changes from V0:
+- Add a validation to the 'at' value (this is used as an offset too)
+- Instead of validating the output of skb_header_pointer(), make sure that the
+	offset is good before calling it.
+
+Thanks,
+Amir
+ net/sched/act_pedit.c | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+index b54d56d4959b..cf9b2fe8eac6 100644
+--- a/net/sched/act_pedit.c
++++ b/net/sched/act_pedit.c
+@@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
+ 	kfree(keys);
+ }
+ 
++static bool offset_valid(struct sk_buff *skb, int offset)
++{
++	if (offset > 0 && offset > skb->len)
++		return false;
++
++	if  (offset < 0 && -offset > skb_headroom(skb))
++		return false;
++
++	return true;
++}
++
+ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+ 		     struct tcf_result *res)
  {
- 	struct macb_queue *queue;
--	unsigned int q;
-+	unsigned int q, ctrl;
+@@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+ 			if (tkey->offmask) {
+ 				char *d, _d;
  
- 	/* Disable RX and TX (XXX: Should we halt the transmission
- 	 * more gracefully?)
- 	 */
--	macb_writel(bp, NCR, 0);
-+	ctrl = macb_readl(bp, NCR);
-+	ctrl &= ~(MACB_BIT(RE) | MACB_BIT(TE));
-+	macb_writel(bp, NCR, ctrl);
++				if (!offset_valid(skb, off + tkey->at)) {
++					pr_info("tc filter pedit 'at' offset %d out of bounds\n",
++						off + tkey->at);
++					goto bad;
++				}
+ 				d = skb_header_pointer(skb, off + tkey->at, 1,
+ 						       &_d);
+ 				if (!d)
+@@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+ 					" offset must be on 32 bit boundaries\n");
+ 				goto bad;
+ 			}
+-			if (offset > 0 && offset > skb->len) {
+-				pr_info("tc filter pedit"
+-					" offset %d can't exceed pkt length %d\n",
+-				       offset, skb->len);
++
++			if (!offset_valid(skb, off + offset)) {
++				pr_info("tc filter pedit offset %d out of bounds\n",
++					offset);
+ 				goto bad;
+ 			}
  
- 	/* Clear the stats registers (XXX: Update stats first?) */
--	macb_writel(bp, NCR, MACB_BIT(CLRSTAT));
-+	ctrl |= MACB_BIT(CLRSTAT);
-+	macb_writel(bp, NCR, ctrl);
- 
- 	/* Clear all status flags */
- 	macb_writel(bp, TSR, -1);
 -- 
-2.7.4
+2.10.2
