@@ -1,41 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] sit: Set skb->protocol properly in
- ipip6_tunnel_xmit()
-Date: Mon, 28 Nov 2016 10:17:23 -0800
-Message-ID: <1480357043.18162.70.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20161128.114703.154301432767947066.davem@davemloft.net>
-         <1480352023.18162.63.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480354467.18162.66.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161128.130142.1225482479870737422.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, sfr@canb.auug.org.au, elicooper@gmx.com,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Johan Hovold <johan@kernel.org>
+Subject: [PATCH net 04/16] net: ethernet: aurora: nb8800: fix fixed-link phydev leaks
+Date: Mon, 28 Nov 2016 19:24:57 +0100
+Message-ID: <1480357509-28074-5-git-send-email-johan@kernel.org>
+References: <1480357509-28074-1-git-send-email-johan@kernel.org>
+Cc: Vince Bridgers <vbridger@opensource.altera.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+        Vitaly Bordug <vbordug@ru.mvista.com>,
+        Claudiu Manoil <claudiu.manoil@freescale.com>,
+        Li Yang <leoli@freescale.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Felix Fietkau <nbd@openwrt.org>,
+        John Crispin <blogic@openwrt.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Lars Persson <lars.persson@axis.com>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35539 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754068AbcK1SSZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 13:18:25 -0500
-Received: by mail-pg0-f67.google.com with SMTP id p66so13775392pga.2
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 10:18:25 -0800 (PST)
-In-Reply-To: <20161128.130142.1225482479870737422.davem@davemloft.net>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:36295 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751120AbcK1S12 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 13:27:28 -0500
+In-Reply-To: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-11-28 at 13:01 -0500, David Miller wrote:
+Make sure to deregister and free any fixed-link PHY registered using
+of_phy_register_fixed_link() on probe errors and on driver unbind.
 
-> Hmmm, ip6_finish_output2() also does a proper assignment of skb->protocol,
-> therefore why was commit ae148b085876fa771d9ef2c05f85d4b4bf09ce0d
-> ("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()")
-> necessary at all?
-I was referring to Stephen bug report.
+Fixes: c7dfe3abf40e ("net: ethernet: nb8800: support fixed-link DT
+node")
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
+ drivers/net/ethernet/aurora/nb8800.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-It appears that Eli changelog was not very precise, because his bug was
-because of XFRM being involved.
-
-xfrm_output() -> xfrm_output_gso() -> skb_gso_segment()
-
-So XFRM calls skb_gso_segment() before ip_output() or
-ip6_finish_output2() had a chance to change skb->protocol
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index 00c38bf151e6..e078d8da978c 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -1466,12 +1466,12 @@ static int nb8800_probe(struct platform_device *pdev)
+ 
+ 	ret = nb8800_hw_init(dev);
+ 	if (ret)
+-		goto err_free_bus;
++		goto err_deregister_fixed_link;
+ 
+ 	if (ops && ops->init) {
+ 		ret = ops->init(dev);
+ 		if (ret)
+-			goto err_free_bus;
++			goto err_deregister_fixed_link;
+ 	}
+ 
+ 	dev->netdev_ops = &nb8800_netdev_ops;
+@@ -1504,6 +1504,9 @@ static int nb8800_probe(struct platform_device *pdev)
+ 
+ err_free_dma:
+ 	nb8800_dma_free(dev);
++err_deregister_fixed_link:
++	if (of_phy_is_fixed_link(pdev->dev.of_node))
++		of_phy_deregister_fixed_link(pdev->dev.of_node);
+ err_free_bus:
+ 	of_node_put(priv->phy_node);
+ 	mdiobus_unregister(bus);
+@@ -1521,6 +1524,8 @@ static int nb8800_remove(struct platform_device *pdev)
+ 	struct nb8800_priv *priv = netdev_priv(ndev);
+ 
+ 	unregister_netdev(ndev);
++	if (of_phy_is_fixed_link(pdev->dev.of_node))
++		of_phy_deregister_fixed_link(pdev->dev.of_node);
+ 	of_node_put(priv->phy_node);
+ 
+ 	mdiobus_unregister(priv->mii_bus);
+-- 
+2.7.3
