@@ -1,103 +1,68 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net] net, sched: respect rcu grace period on cls
- destruction
-Date: Sun, 27 Nov 2016 18:55:08 -0800
-Message-ID: <583B9C8C.9040703@gmail.com>
-References: <0d6d89f885033f1739e97f7f3372ae6e1db72892.1480204343.git.daniel@iogearbox.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [net,v2] neigh: fix the loop index error in neigh dump
+Date: Sun, 27 Nov 2016 19:56:02 -0700
+Message-ID: <a01fcd54-c0ed-9d05-743a-27592d845c56@cumulusnetworks.com>
+References: <1480296725-5563-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+ <caa11887-00b9-d2f1-7c0b-5b5096b42f56@cumulusnetworks.com>
+ <001c01d2491f$fcd53250$f67f96f0$@cmss.chinamobile.com>
+ <6d1a324e-e29e-e2dd-a6fc-1e9b4455cb3d@cumulusnetworks.com>
+ <001d01d24922$9a16b1e0$ce4415a0$@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, roid@mellanox.com, ast@fb.com,
-        hannes@stressinduktion.org, jiri@mellanox.com,
+Content-Type: text/plain; charset=gbk
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>,
         netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36502 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754077AbcK1Czv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 21:55:51 -0500
-Received: by mail-pf0-f195.google.com with SMTP id c4so5546616pfb.3
-        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 18:55:50 -0800 (PST)
-In-Reply-To: <0d6d89f885033f1739e97f7f3372ae6e1db72892.1480204343.git.daniel@iogearbox.net>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33264 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753963AbcK1C4F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Nov 2016 21:56:05 -0500
+Received: by mail-pf0-f175.google.com with SMTP id d2so21804994pfd.0
+        for <netdev@vger.kernel.org>; Sun, 27 Nov 2016 18:56:05 -0800 (PST)
+In-Reply-To: <001d01d24922$9a16b1e0$ce4415a0$@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-11-26 04:18 PM, Daniel Borkmann wrote:
-> Roi reported a crash in flower where tp->root was NULL in ->classify()
-> callbacks. Reason is that in ->destroy() tp->root is set to NULL via
-> RCU_INIT_POINTER(). It's problematic for some of the classifiers, because
-> this doesn't respect RCU grace period for them, and as a result, still
-> outstanding readers from tc_classify() will try to blindly dereference
-> a NULL tp->root.
+On 11/27/16 7:53 PM, 张胜举 wrote:
 > 
-> The tp->root object is strictly private to the classifier implementation
-> and holds internal data the core such as tc_ctl_tfilter() doesn't know
-> about. Within some classifiers, such as cls_bpf, cls_basic, etc, tp->root
-> is only checked for NULL in ->get() callback, but nowhere else. This is
-> misleading and seemed to be copied from old classifier code that was not
-> cleaned up properly. For example, d3fa76ee6b4a ("[NET_SCHED]: cls_basic:
-> fix NULL pointer dereference") moved tp->root initialization into ->init()
-> routine, where before it was part of ->change(), so ->get() had to deal
-> with tp->root being NULL back then, so that was indeed a valid case, after
-> d3fa76ee6b4a, not really anymore. We used to set tp->root to NULL long
-> ago in ->destroy(), see 47a1a1d4be29 ("pkt_sched: remove unnecessary xchg()
-> in packet classifiers"); but the NULLifying was reintroduced with the
-> RCUification, but it's not correct for every classifier implementation.
 > 
-> In the cases that are fixed here with one exception of cls_cgroup, tp->root
-> object is allocated and initialized inside ->init() callback, which is always
-> performed at a point in time after we allocate a new tp, which means tp and
-> thus tp->root was not globally visible in the tp chain yet (see tc_ctl_tfilter()).
-> Also, on destruction tp->root is strictly kfree_rcu()'ed in ->destroy()
-> handler, same for the tp which is kfree_rcu()'ed right when we return
-> from ->destroy() in tcf_destroy(). This means, the head object's lifetime
-> for such classifiers is always tied to the tp lifetime. The RCU callback
-> invocation for the two kfree_rcu() could be out of order, but that's fine
-> since both are independent.
+>> -----Original Message-----
+>> From: David Ahern [mailto:dsa@cumulusnetworks.com]
+>> Sent: Monday, November 28, 2016 10:39 AM
+>> To: 张胜举 <zhangshengju@cmss.chinamobile.com>;
+>> netdev@vger.kernel.org
+>> Subject: Re: [net,v2] neigh: fix the loop index error in neigh dump
+>>
+>> On 11/27/16 7:34 PM, 张胜举 wrote:
+>>>> -----Original Message-----
+>>>> From: David Ahern [mailto:dsa@cumulusnetworks.com]
+>>>> Sent: Monday, November 28, 2016 10:10 AM
+>>>> To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>;
+>>>> netdev@vger.kernel.org
+>>>> Subject: Re: [net,v2] neigh: fix the loop index error in neigh dump
+>>>>
+>>>> On 11/27/16 6:32 PM, Zhang Shengju wrote:
+>>>>> Loop index in neigh dump function is not updated correctly under
+>>>>> some circumstances, this patch will fix it.
+>>>>
+>>>> What's an example?
+>>>
+>>> If dev is filtered out, the original code goes to next loop without
+>>> updating loop index 'idx'.
+>>
+>> And you have a use case with missing or redundant data? Or is your
+>> comment based on a review of code only?
+> It's on my code review. No use case currently,  this is uncommon to happen.
 > 
-> Dropping the RCU_INIT_POINTER(tp->root, NULL) for these classifiers here
-> means that 1) we don't need a useless NULL check in fast-path and, 2) that
-> outstanding readers of that tp in tc_classify() can still execute under
-> respect with RCU grace period as it is actually expected.
 > 
-> Things that haven't been touched here: cls_fw and cls_route. They each
-> handle tp->root being NULL in ->classify() path for historic reasons, so
-> their ->destroy() implementation can stay as is. If someone actually
-> cares, they could get cleaned up at some point to avoid the test in fast
-> path. cls_u32 doesn't set tp->root to NULL. For cls_rsvp, I just added a
-> !head should anyone actually be using/testing it, so it at least aligns with
-> cls_fw and cls_route. For cls_flower we additionally need to defer rhashtable
-> destruction (to a sleepable context) after RCU grace period as concurrent
-> readers might still access it. (Note that in this case we need to hold module
-> reference to keep work callback address intact, since we only wait on module
-> unload for all call_rcu()s to finish.)
+>>
+>>>> You are completely rewriting the dump loops.
+>>>
+>>> I put 'idx++' into for loop,  so I replace 'goto' with 'continue'.
+>>> The other change is style related.
+>>
+>> A "fixes" should not include 'style related' changes.
+> Okay, I will send another version without style changes.
 > 
-> This fixes one race to bring RCU grace period guarantees back. Next step
-> as worked on by Cong however is to fix 1e052be69d04 ("net_sched: destroy
-> proto tp when all filters are gone") to get the order of unlinking the tp
-> in tc_ctl_tfilter() for the RTM_DELTFILTER case right by moving
-> RCU_INIT_POINTER() before tcf_destroy() and let the notification for
-> removal be done through the prior ->delete() callback. Both are independant
-> issues. Once we have that right, we can then clean tp->root up for a number
-> of classifiers by not making them RCU pointers, which requires a new callback
-> (->uninit) that is triggered from tp's RCU callback, where we just kfree()
-> tp->root from there.
 
-Thanks looks good to me and appreciate the detailed commit message.
-
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
-
-> 
-> Fixes: 1f947bf151e9 ("net: sched: rcu'ify cls_bpf")
-> Fixes: 9888faefe132 ("net: sched: cls_basic use RCU")
-> Fixes: 70da9f0bf999 ("net: sched: cls_flow use RCU")
-> Fixes: 77b9900ef53a ("tc: introduce Flower classifier")
-> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-> Fixes: 952313bd6258 ("net: sched: cls_cgroup use RCU")
-> Reported-by: Roi Dayan <roid@mellanox.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Cong Wang <xiyou.wangcong@gmail.com>
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Cc: Roi Dayan <roid@mellanox.com>
-> Cc: Jiri Pirko <jiri@mellanox.com>
-> ---
+Personally, I think you need to produce a use case that fails before sending another patch. I have not seen a problem with this code.
