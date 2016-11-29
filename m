@@ -1,48 +1,62 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH] netns: avoid disabling irq for netns id
-Date: Tue, 29 Nov 2016 17:14:43 -0500
-Message-ID: <CAGH-KgsK=Dc=Ptfg8P39pemFAsxVr9NKccev7sOW=w1suqKk+w@mail.gmail.com>
-References: <148045748887.22539.3188295553967836703.stgit@sifl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org, linux-audit@redhat.com
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 0/7] Mellanox 100G mlx5 updates 2016-11-29
+Date: Wed, 30 Nov 2016 00:19:25 +0200
+Message-ID: <1480457972-31286-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Sebastian Ott <sebott@linux.vnet.ibm.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:36389 "EHLO
-        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752526AbcK2WOp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 17:14:45 -0500
-Received: by mail-oi0-f47.google.com with SMTP id v84so207871455oie.3
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 14:14:44 -0800 (PST)
-In-Reply-To: <148045748887.22539.3188295553967836703.stgit@sifl>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45845 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752677AbcK2WT4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 17:19:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 5:11 PM, Paul Moore <pmoore@redhat.com> wrote:
-> From: Paul Moore <paul@paul-moore.com>
->
-> Bring back commit bc51dddf98c9 ("netns: avoid disabling irq for netns
-> id") now that we've fixed some audit multicast issues that caused
-> problems with original attempt.  Additional information, and history,
-> can be found in the links below:
->
->  * https://github.com/linux-audit/audit-kernel/issues/22
->  * https://github.com/linux-audit/audit-kernel/issues/23
->
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Paul Moore <paul@paul-moore.com>
-> ---
->  net/core/net_namespace.c |   35 +++++++++++++++--------------------
->  1 file changed, 15 insertions(+), 20 deletions(-)
+Hi Dave,
 
-Cong Wang, I added your sign-off to the patch since you were the
-original author, if you would prefer I leave it off or want it changed
-just let me know.
+The following series from Tariq and Roi, provides some critical fixes
+and updates for the mlx5e driver.
 
-David/netdev, since this depends on a bunch of audit changes (about
-nine patches) I went ahead and just merged this into the audit#next
-branch.  If you have a problem with that let me know.
+>From Tariq: 
+ - Fix driver coherent memory huge allocation issues by fragmenting
+   completion queues, in a way that is transparent to the netdev driver by
+   providing a new buffer type "mlx5_frag_buf" with the same access API.
+ - Create UMR MKey per RQ to have better scalability.
+
+>From Roi:
+ - Some fixes for the encap-decap support and tc flower added lately to the
+   mlx5e driver.
+
+This series was generated against commit:
+31ac1c19455f ("geneve: fix ip_hdr_len reserved for geneve6 tunnel.")
+
+Thanks,
+Saeed.
+
+Roi Dayan (4):
+  net/mlx5e: Remove redundant hashtable lookup in configure flower
+  net/mlx5e: Correct cleanup order when deleting offloaded TC rules
+  net/mlx5e: Refactor tc del flow to accept mlx5e_tc_flow instance
+  net/mlx5e: Remove flow encap entry in the correct place
+
+Tariq Toukan (3):
+  net/mlx5e: Implement Fragmented Work Queue (WQ)
+  net/mlx5e: Move function mlx5e_create_umr_mkey
+  net/mlx5e: Create UMR MKey per RQ
+
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |  66 +++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  14 +--
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  12 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 121 +++++++++++----------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  82 ++++++--------
+ drivers/net/ethernet/mellanox/mlx5/core/wq.c       |  26 +++--
+ drivers/net/ethernet/mellanox/mlx5/core/wq.h       |  18 ++-
+ include/linux/mlx5/driver.h                        |  11 ++
+ 8 files changed, 215 insertions(+), 135 deletions(-)
 
 -- 
-paul moore
-security @ redhat
+2.7.4
