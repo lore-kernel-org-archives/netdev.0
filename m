@@ -1,65 +1,72 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] openvswitch: Fix skb leak in IPv6 reassembly.
-Date: Tue, 29 Nov 2016 01:45:05 +0100
-Message-ID: <20161129004505.GB11456@breakpoint.cc>
-References: <20161128234353.4262-1-diproiettod@ovn.org>
- <1480378950.18162.107.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/3] ethtool: (uapi) Add ETHTOOL_PHY_LOOPBACK to
+ PHY tunables
+Date: Tue, 29 Nov 2016 01:46:53 +0100
+Message-ID: <20161129004653.GA24782@lunn.ch>
+References: <1480339472-5823-1-git-send-email-allan.nielsen@microsemi.com>
+ <1480339472-5823-2-git-send-email-allan.nielsen@microsemi.com>
+ <20161128141410.GF4379@lunn.ch>
+ <20161128192306.GA11474@microsemi.com>
+ <20161128202114.GM17704@lunn.ch>
+ <fabb91cd-9fc5-d935-727e-ff57e441e919@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniele Di Proietto <diproiettod@ovn.org>, netdev@vger.kernel.org,
-        Florian Westphal <fw@strlen.de>,
-        Pravin B Shelar <pshelar@ovn.org>, Joe Stringer <joe@ovn.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Allan W. Nielsen" <allan.nielsen@microsemi.com>,
+        netdev@vger.kernel.org, raju.lakkaraju@microsemi.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:39118 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752872AbcK2AsB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 19:48:01 -0500
+Received: from vps0.lunn.ch ([178.209.37.122]:60950 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752889AbcK2Aq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 19:46:56 -0500
 Content-Disposition: inline
-In-Reply-To: <1480378950.18162.107.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <fabb91cd-9fc5-d935-727e-ff57e441e919@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2016-11-28 at 15:43 -0800, Daniele Di Proietto wrote:
-> > If nf_ct_frag6_gather() returns an error other than -EINPROGRESS, it
-> > means that we still have a reference to the skb.  We should free it
-> > before returning from handle_fragments, as stated in the comment above.
+> > If you really do what to do this, you should look at NETIF_F_LOOPBACK
+> > and consider how this concept can be applied at the PHY, not the MAC.
+> > But you need the full concept, so you see things like:
 > > 
-> > Fixes: daaa7d647f81 ("netfilter: ipv6: avoid nf_iterate recursion")
-> > CC: Florian Westphal <fw@strlen.de>
-> > CC: Pravin B Shelar <pshelar@ovn.org>
-> > CC: Joe Stringer <joe@ovn.org>
-> > Signed-off-by: Daniele Di Proietto <diproiettod@ovn.org>
-> > ---
-> >  net/openvswitch/conntrack.c | 5 ++++-
-> >  1 file changed, 4 insertions(+), 1 deletion(-)
+> > 2: eth0: <LOOPBACK,BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
+> >     link/ether 80:ee:73:83:60:27 brd ff:ff:ff:ff:ff:ff
 > > 
-> > diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-> > index 31045ef..fecefa2 100644
-> > --- a/net/openvswitch/conntrack.c
-> > +++ b/net/openvswitch/conntrack.c
-> > @@ -370,8 +370,11 @@ static int handle_fragments(struct net *net, struct sw_flow_key *key,
-> >  		skb_orphan(skb);
-> >  		memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
-> >  		err = nf_ct_frag6_gather(net, skb, user);
-> > -		if (err)
-> > +		if (err) {
-> > +			if (err != -EINPROGRESS)
-> > +				kfree_skb(skb);
-> >  			return err;
-> > +		}
-> >  
-> >  		key->ip.proto = ipv6_hdr(skb)->nexthdr;
-> >  		ovs_cb.mru = IP6CB(skb)->frag_max_size;
+> > Humm, i've no idea how you actually enable the MAC loopback
+> > NETIF_F_LOOPBACK represents. I don't see anything with ip link set.
 > 
-> Interesting, have you followed the "GPF in eth_header" thread today ?
-> 
-> In a nutshell, we want a complete patch, not something that would solve
-> part of the problem.
+> I am afraid you lost me on this, NETIF_F_LOOPBACK is a netdev_features_t
+> bit, so it tells ethtool that this is a potential feature to be turned
+> on with ethtool -K <iface>. 
 
-I think this patch is fine, intent seems to be to only take fully reassembled
-skb, rather than a stray fragment (ovs does NOT seem to call handle_fragments
-in case skb is already known to not contain a fragment header, afaics).
+Yep, i'm talking rubbish after jumping to a wrong conclusion.
 
-I'll send a patch for the GPF in eth_header thing soon.
+> The semantics of this loopack feature are
+> not defined AFAICT, but a reasonable behavior from the driver is to put
+> itself in a mode where packets send by a socket-level application are
+> looped through the Ethernet adapter itself. Whether this happens at the
+> DMA level, the MII signals, or somewhere in the PHY, is driver specific
+> unfortunately.
+
+Yes, the interesting one might be forcedeth which writes to the PHY
+BMCR_LOOPBACK | BMCR_FULLDPLX | BMCR_SPEED1000;
+when the NETIF_F_LOOPBACK feature is set.
+
+Maybe this could be generalised and made available for all MACs which
+don't support MAC loopback?
+
+What needs considering is the correct duplex and speed. We need to
+ensure the MAC and PHY agree on this.
+ 
+> Now, there is another way to toggle a loopback for a given Ethernet
+> adapter which is to actually set IFF_LOOPBACK in dev->flags for this
+> interface. Some drivers seem to be able to properly react to that as
+> well, although I see no way this can be done looking at the iproute2 or
+> ifconfig man pages..
+
+I prefer this one, since i expect this will set LOOPBACK in
+
+2: eth0: <LOOPBACK,BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
+
+making it lot more obvious something funny is going on.
+
+       Andrew
