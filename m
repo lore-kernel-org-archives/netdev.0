@@ -1,51 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] net: phy: bcm7xxx: Plug in support for
- reading PHY error counters
-Date: Mon, 28 Nov 2016 19:20:30 -0800
-Message-ID: <0ec8808f-76df-d441-b4f4-8c0fd9136a3b@gmail.com>
-References: <20161129010457.17438-1-f.fainelli@gmail.com>
- <20161129010457.17438-3-f.fainelli@gmail.com>
- <20161129025018.GA28968@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com
-To: Andrew Lunn <andrew@lunn.ch>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] macvtap: replace printk with netdev_err
+Date: Tue, 29 Nov 2016 11:26:32 +0800
+Message-ID: <1480389992-69609-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Cc: jasowang@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:36701 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751758AbcK2DUc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 22:20:32 -0500
-Received: by mail-oi0-f67.google.com with SMTP id u15so16610790oie.3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 19:20:32 -0800 (PST)
-In-Reply-To: <20161129025018.GA28968@lunn.ch>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:51946 "EHLO
+        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751095AbcK2D0n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 22:26:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 11/28/16 à 18:50, Andrew Lunn a écrit :
->> +struct bcm7xxx_phy_priv {
->> +	u64	*stats;
->> +};
-> 
->> +static int bcm7xxx_28nm_probe(struct phy_device *phydev)
->> +{
->> +	struct bcm7xxx_phy_priv *priv;
->> +
->> +	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
->> +	if (!priv)
->> +		return -ENOMEM;
->> +
->> +	phydev->priv = priv;
->> +
->> +	priv->stats = devm_kzalloc(&phydev->mdio.dev,
->> +				   bcm_phy_get_sset_count(phydev), GFP_KERNEL);
-> 
-> Hi Florian
-> 
-> Should there be a * sizeof(u64) in there?
+This patch replaces printk() with netdev_err() for macvtap device.
 
-It should thanks for noticing!
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ drivers/net/macvtap.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 5da9861..2513939 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -437,7 +437,7 @@ static int macvtap_get_minor(struct macvlan_dev *vlan)
+ 	if (retval >= 0) {
+ 		vlan->minor = retval;
+ 	} else if (retval == -ENOSPC) {
+-		printk(KERN_ERR "too many macvtap devices\n");
++		netdev_err(vlan->dev, "Too many macvtap devices\n");
+ 		retval = -EINVAL;
+ 	}
+ 	mutex_unlock(&minor_lock);
 -- 
-Florian
+1.8.3.1
