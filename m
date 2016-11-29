@@ -1,595 +1,582 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH v2 net-next 11/11] qede: Add support for XDP_TX
-Date: Tue, 29 Nov 2016 16:47:10 +0200
-Message-ID: <1480430830-17671-12-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH v2 net-next 09/11] qede: Better utilize the qede_[rt]x_queue
+Date: Tue, 29 Nov 2016 16:47:08 +0200
+Message-ID: <1480430830-17671-10-git-send-email-Yuval.Mintz@cavium.com>
 References: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:52310 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:52304 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1757914AbcK2Orq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 09:47:46 -0500
+        by vger.kernel.org with ESMTP id S1757907AbcK2Ork (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 09:47:40 -0500
 In-Reply-To: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for forwarding via XDP. Once the eBPF is attached,
-driver would allocate & configure a designated transmission queue
-meant solely for forwarding packets. Said queue would share the
-receive-queue's interrupt line, and would have it's own Tx statistics.
+Improve the cacheline usage of both queues by reordering -
+This reduces the cachelines required for egress datapath processing
+from 3 to 2 and those required by ingress datapath processing by 2.
 
-Infrastructure changes required for this [spread-out through the code]:
- - Determine the DMA direction of the receive buffers based on the presence
-of the eBPF program.
- - Turn the sw Tx ring into a union, as regular/XDP queues have different
-needs for releasing resources after completion [regular requires the SKB,
-XDP requires the transmitted page].
+It also changes a couple of datapath related functions that currently
+require either the fastpath or the qede_dev, changing them to be based
+on the tx/rx queue instead.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede.h         |  16 +-
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  22 ++-
- drivers/net/ethernet/qlogic/qede/qede_main.c    | 213 ++++++++++++++++++++----
- 3 files changed, 216 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede.h         |  79 ++++++-----
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |   4 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c    | 166 +++++++++++-------------
+ 3 files changed, 124 insertions(+), 125 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index 56ab446..fcd9741 100644
+index 4ebc638..21e8533 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede.h
 +++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -258,6 +258,7 @@ struct qede_rx_queue {
- 	u16 sw_rx_prod;
+@@ -243,27 +243,33 @@ struct qede_agg_info {
+ };
  
- 	u16 num_rx_buffers; /* Slowpath */
-+	u8 data_direction;
- 	u8 rxq_id;
+ struct qede_rx_queue {
+-	__le16			*hw_cons_ptr;
+-	struct sw_rx_data	*sw_rx_ring;
+-	u16			sw_rx_cons;
+-	u16			sw_rx_prod;
+-	struct qed_chain	rx_bd_ring;
+-	struct qed_chain	rx_comp_ring;
+-	void __iomem		*hw_rxq_prod_addr;
++	__le16 *hw_cons_ptr;
++	void __iomem *hw_rxq_prod_addr;
  
- 	u32 rx_buf_size;
-@@ -294,6 +295,7 @@ struct sw_tx_bd {
+-	/* GRO */
+-	struct qede_agg_info	tpa_info[ETH_TPA_MAX_AGGS_NUM];
++	/* Required for the allocation of replacement buffers */
++	struct device *dev;
++
++	u16 sw_rx_cons;
++	u16 sw_rx_prod;
+ 
+-	int			rx_buf_size;
+-	unsigned int		rx_buf_seg_size;
++	u16 num_rx_buffers; /* Slowpath */
++	u8 rxq_id;
+ 
+-	u16			num_rx_buffers;
+-	u16			rxq_id;
++	u32 rx_buf_size;
++	u32 rx_buf_seg_size;
+ 
+-	u64			rcv_pkts;
+-	u64			rx_hw_errors;
+-	u64			rx_alloc_errors;
+-	u64			rx_ip_frags;
++	u64 rcv_pkts;
++
++	struct sw_rx_data *sw_rx_ring;
++	struct qed_chain rx_bd_ring;
++	struct qed_chain rx_comp_ring ____cacheline_aligned;
++
++	/* GRO */
++	struct qede_agg_info tpa_info[ETH_TPA_MAX_AGGS_NUM];
++
++	u64 rx_hw_errors;
++	u64 rx_alloc_errors;
++	u64 rx_ip_frags;
+ 
+ 	void *handle;
+ };
+@@ -281,22 +287,28 @@ struct sw_tx_bd {
  };
  
  struct qede_tx_queue {
-+	u8 is_xdp;
- 	bool is_legacy;
- 	u16 sw_tx_cons;
- 	u16 sw_tx_prod;
-@@ -310,8 +312,18 @@ struct qede_tx_queue {
- 	void __iomem *doorbell_addr;
- 	union db_prod tx_db;
- 	int index; /* Slowpath only */
-+#define QEDE_TXQ_XDP_TO_IDX(edev, txq)	((txq)->index - \
-+					 QEDE_MAX_TSS_CNT(edev))
-+#define QEDE_TXQ_IDX_TO_XDP(edev, idx)	((idx) + QEDE_MAX_TSS_CNT(edev))
+-	int			index; /* Queue index */
+-	__le16			*hw_cons_ptr;
+-	struct sw_tx_bd		*sw_tx_ring;
+-	u16			sw_tx_cons;
+-	u16			sw_tx_prod;
+-	struct qed_chain	tx_pbl;
+-	void __iomem		*doorbell_addr;
+-	union db_prod		tx_db;
+-
+-	u16			num_tx_buffers;
+-	u64			xmit_pkts;
+-	u64			stopped_cnt;
+-
+-	bool			is_legacy;
+-	void *handle;
++	bool is_legacy;
++	u16 sw_tx_cons;
++	u16 sw_tx_prod;
++	u16 num_tx_buffers; /* Slowpath only */
+ 
++	u64 xmit_pkts;
++	u64 stopped_cnt;
 +
-+	/* Regular Tx requires skb + metadata for release purpose,
-+	 * while XDP requires only the pages themselves.
-+	 */
-+	union {
-+		struct sw_tx_bd *skbs;
-+		struct page **pages;
-+	} sw_tx_ring;
++	__le16 *hw_cons_ptr;
++
++	/* Needed for the mapping of packets */
++	struct device *dev;
++
++	void __iomem *doorbell_addr;
++	union db_prod tx_db;
++	int index; /* Slowpath only */
++
++	struct sw_tx_bd *sw_tx_ring;
++	struct qed_chain tx_pbl;
++
++	/* Slowpath; Should be kept in end [unless missing padding] */
++	void *handle;
+ };
  
--	struct sw_tx_bd *sw_tx_ring;
- 	struct qed_chain tx_pbl;
+ #define BD_UNMAP_ADDR(bd)		HILO_U64(le32_to_cpu((bd)->addr.hi), \
+@@ -363,8 +375,7 @@ void qede_reload(struct qede_dev *edev,
+ void __qede_unlock(struct qede_dev *edev);
+ bool qede_has_rx_work(struct qede_rx_queue *rxq);
+ int qede_txq_has_work(struct qede_tx_queue *txq);
+-void qede_recycle_rx_bd_ring(struct qede_rx_queue *rxq, struct qede_dev *edev,
+-			     u8 count);
++void qede_recycle_rx_bd_ring(struct qede_rx_queue *rxq, u8 count);
+ void qede_update_rx_prod(struct qede_dev *edev, struct qede_rx_queue *rxq);
  
- 	/* Slowpath; Should be kept in end [unless missing padding] */
-@@ -336,10 +348,12 @@ struct qede_fastpath {
- #define QEDE_FASTPATH_COMBINED	(QEDE_FASTPATH_TX | QEDE_FASTPATH_RX)
- 	u8			type;
- 	u8			id;
-+	u8			xdp_xmit;
- 	struct napi_struct	napi;
- 	struct qed_sb_info	*sb_info;
- 	struct qede_rx_queue	*rxq;
- 	struct qede_tx_queue	*txq;
-+	struct qede_tx_queue	*xdp_tx;
- 
- #define VEC_NAME_SIZE	(sizeof(((struct net_device *)0)->name) + 8)
- 	char	name[VEC_NAME_SIZE];
+ #define RX_RING_SIZE_POW	13
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 6c70e29..1c48f44 100644
+index ef8c327..60a2e58 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -165,8 +165,13 @@ static void qede_get_strings_stats_txq(struct qede_dev *edev,
- 	int i;
+@@ -1337,13 +1337,13 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
+ 					break;
+ 				}
  
- 	for (i = 0; i < QEDE_NUM_TQSTATS; i++) {
--		sprintf(*buf, "%d: %s", txq->index,
--			qede_tqstats_arr[i].string);
-+		if (txq->is_xdp)
-+			sprintf(*buf, "%d [XDP]: %s",
-+				QEDE_TXQ_XDP_TO_IDX(edev, txq),
-+				qede_tqstats_arr[i].string);
-+		else
-+			sprintf(*buf, "%d: %s", txq->index,
-+				qede_tqstats_arr[i].string);
- 		*buf += ETH_GSTRING_LEN;
+-			qede_recycle_rx_bd_ring(rxq, edev, 1);
++			qede_recycle_rx_bd_ring(rxq, 1);
+ 			qed_chain_recycle_consumed(&rxq->rx_comp_ring);
+ 			break;
+ 		}
+ 
+ 		DP_INFO(edev, "Not the transmitted packet\n");
+-		qede_recycle_rx_bd_ring(rxq, edev, 1);
++		qede_recycle_rx_bd_ring(rxq, 1);
+ 		qed_chain_recycle_consumed(&rxq->rx_comp_ring);
  	}
- }
-@@ -195,6 +200,9 @@ static void qede_get_strings_stats(struct qede_dev *edev, u8 *buf)
- 		if (fp->type & QEDE_FASTPATH_RX)
- 			qede_get_strings_stats_rxq(edev, fp->rxq, &buf);
  
-+		if (fp->type & QEDE_FASTPATH_XDP)
-+			qede_get_strings_stats_txq(edev, fp->xdp_tx, &buf);
-+
- 		if (fp->type & QEDE_FASTPATH_TX)
- 			qede_get_strings_stats_txq(edev, fp->txq, &buf);
- 	}
-@@ -268,6 +276,9 @@ static void qede_get_ethtool_stats(struct net_device *dev,
- 		if (fp->type & QEDE_FASTPATH_RX)
- 			qede_get_ethtool_stats_rxq(fp->rxq, &buf);
- 
-+		if (fp->type & QEDE_FASTPATH_XDP)
-+			qede_get_ethtool_stats_txq(fp->xdp_tx, &buf);
-+
- 		if (fp->type & QEDE_FASTPATH_TX)
- 			qede_get_ethtool_stats_txq(fp->txq, &buf);
- 	}
-@@ -305,6 +316,9 @@ static int qede_get_sset_count(struct net_device *dev, int stringset)
- 		/* Account for the Regular Rx statistics */
- 		num_stats += QEDE_RSS_COUNT(edev) * QEDE_NUM_RQSTATS;
- 
-+		/* Account for XDP statistics [if needed] */
-+		if (edev->xdp_prog)
-+			num_stats += QEDE_RSS_COUNT(edev) * QEDE_NUM_TQSTATS;
- 		return num_stats;
- 
- 	case ETH_SS_PRIV_FLAGS:
-@@ -1216,7 +1230,7 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
- 
- 	/* Fill the entry in the SW ring and the BDs in the FW ring */
- 	idx = txq->sw_tx_prod & NUM_TX_BDS_MAX;
--	txq->sw_tx_ring[idx].skb = skb;
-+	txq->sw_tx_ring.skbs[idx].skb = skb;
- 	first_bd = qed_chain_produce(&txq->tx_pbl);
- 	memset(first_bd, 0, sizeof(*first_bd));
- 	val = 1 << ETH_TX_1ST_BD_FLAGS_START_BD_SHIFT;
-@@ -1270,7 +1284,7 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
- 	dma_unmap_single(&edev->pdev->dev, BD_UNMAP_ADDR(first_bd),
- 			 BD_UNMAP_LEN(first_bd), DMA_TO_DEVICE);
- 	txq->sw_tx_cons++;
--	txq->sw_tx_ring[idx].skb = NULL;
-+	txq->sw_tx_ring.skbs[idx].skb = NULL;
- 
- 	return 0;
- }
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 67e08c6..f787f2f 100644
+index ec01de2..15520bf 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -94,6 +94,9 @@ enum qede_pci_private {
+@@ -96,8 +96,6 @@ enum qede_pci_private {
  
- #define TX_TIMEOUT		(5 * HZ)
- 
-+/* Utilize last protocol index for XDP */
-+#define XDP_PI	11
-+
  static void qede_remove(struct pci_dev *pdev);
  static void qede_shutdown(struct pci_dev *pdev);
+-static int qede_alloc_rx_buffer(struct qede_dev *edev,
+-				struct qede_rx_queue *rxq);
  static void qede_link_update(void *dev, struct qed_link_output *link);
-@@ -301,12 +304,12 @@ static int qede_free_tx_pkt(struct qede_dev *edev,
- 			    struct qede_tx_queue *txq, int *len)
- {
- 	u16 idx = txq->sw_tx_cons & NUM_TX_BDS_MAX;
--	struct sk_buff *skb = txq->sw_tx_ring[idx].skb;
-+	struct sk_buff *skb = txq->sw_tx_ring.skbs[idx].skb;
- 	struct eth_tx_1st_bd *first_bd;
- 	struct eth_tx_bd *tx_data_bd;
- 	int bds_consumed = 0;
- 	int nbds;
--	bool data_split = txq->sw_tx_ring[idx].flags & QEDE_TSO_SPLIT_BD;
-+	bool data_split = txq->sw_tx_ring.skbs[idx].flags & QEDE_TSO_SPLIT_BD;
- 	int i, split_bd_len = 0;
  
- 	if (unlikely(!skb)) {
-@@ -346,8 +349,8 @@ static int qede_free_tx_pkt(struct qede_dev *edev,
- 
- 	/* Free skb */
- 	dev_kfree_skb_any(skb);
--	txq->sw_tx_ring[idx].skb = NULL;
--	txq->sw_tx_ring[idx].flags = 0;
-+	txq->sw_tx_ring.skbs[idx].skb = NULL;
-+	txq->sw_tx_ring.skbs[idx].flags = 0;
- 
- 	return 0;
+ /* The qede lock is used to protect driver state change and driver flows that
+@@ -355,8 +353,7 @@ static int qede_free_tx_pkt(struct qede_dev *edev,
  }
-@@ -358,7 +361,7 @@ static void qede_free_failed_tx_pkt(struct qede_tx_queue *txq,
+ 
+ /* Unmap the data and free skb when mapping failed during start_xmit */
+-static void qede_free_failed_tx_pkt(struct qede_dev *edev,
+-				    struct qede_tx_queue *txq,
++static void qede_free_failed_tx_pkt(struct qede_tx_queue *txq,
+ 				    struct eth_tx_1st_bd *first_bd,
  				    int nbd, bool data_split)
  {
- 	u16 idx = txq->sw_tx_prod & NUM_TX_BDS_MAX;
--	struct sk_buff *skb = txq->sw_tx_ring[idx].skb;
-+	struct sk_buff *skb = txq->sw_tx_ring.skbs[idx].skb;
- 	struct eth_tx_bd *tx_data_bd;
- 	int i, split_bd_len = 0;
+@@ -378,7 +375,7 @@ static void qede_free_failed_tx_pkt(struct qede_dev *edev,
+ 		nbd--;
+ 	}
  
-@@ -394,8 +397,8 @@ static void qede_free_failed_tx_pkt(struct qede_tx_queue *txq,
+-	dma_unmap_single(&edev->pdev->dev, BD_UNMAP_ADDR(first_bd),
++	dma_unmap_single(txq->dev, BD_UNMAP_ADDR(first_bd),
+ 			 BD_UNMAP_LEN(first_bd) + split_bd_len, DMA_TO_DEVICE);
  
- 	/* Free skb */
- 	dev_kfree_skb_any(skb);
--	txq->sw_tx_ring[idx].skb = NULL;
--	txq->sw_tx_ring[idx].flags = 0;
-+	txq->sw_tx_ring.skbs[idx].skb = NULL;
-+	txq->sw_tx_ring.skbs[idx].flags = 0;
+ 	/* Unmap the data of the skb frags */
+@@ -386,7 +383,7 @@ static void qede_free_failed_tx_pkt(struct qede_dev *edev,
+ 		tx_data_bd = (struct eth_tx_bd *)
+ 			qed_chain_produce(&txq->tx_pbl);
+ 		if (tx_data_bd->nbytes)
+-			dma_unmap_page(&edev->pdev->dev,
++			dma_unmap_page(txq->dev,
+ 				       BD_UNMAP_ADDR(tx_data_bd),
+ 				       BD_UNMAP_LEN(tx_data_bd), DMA_TO_DEVICE);
+ 	}
+@@ -401,8 +398,7 @@ static void qede_free_failed_tx_pkt(struct qede_dev *edev,
+ 	txq->sw_tx_ring[idx].flags = 0;
  }
  
- static u32 qede_xmit_type(struct sk_buff *skb, int *ipv6_ext)
-@@ -530,6 +533,47 @@ static inline void qede_update_tx_producer(struct qede_tx_queue *txq)
- 	mmiowb();
+-static u32 qede_xmit_type(struct qede_dev *edev,
+-			  struct sk_buff *skb, int *ipv6_ext)
++static u32 qede_xmit_type(struct sk_buff *skb, int *ipv6_ext)
+ {
+ 	u32 rc = XMIT_L4_CSUM;
+ 	__be16 l3_proto;
+@@ -469,18 +465,16 @@ static void qede_set_params_for_ipv6_ext(struct sk_buff *skb,
+ 	second_bd->data.bitfields2 = cpu_to_le16(bd2_bits2);
  }
  
-+static int qede_xdp_xmit(struct qede_dev *edev, struct qede_fastpath *fp,
-+			 struct sw_rx_data *metadata, u16 padding, u16 length)
+-static int map_frag_to_bd(struct qede_dev *edev,
++static int map_frag_to_bd(struct qede_tx_queue *txq,
+ 			  skb_frag_t *frag, struct eth_tx_bd *bd)
+ {
+ 	dma_addr_t mapping;
+ 
+ 	/* Map skb non-linear frag data for DMA */
+-	mapping = skb_frag_dma_map(&edev->pdev->dev, frag, 0,
++	mapping = skb_frag_dma_map(txq->dev, frag, 0,
+ 				   skb_frag_size(frag), DMA_TO_DEVICE);
+-	if (unlikely(dma_mapping_error(&edev->pdev->dev, mapping))) {
+-		DP_NOTICE(edev, "Unable to map frag - dropping packet\n");
++	if (unlikely(dma_mapping_error(txq->dev, mapping)))
+ 		return -ENOMEM;
+-	}
+ 
+ 	/* Setup the data pointer of the frag data */
+ 	BD_SET_UNMAP_ADDR_LEN(bd, mapping, skb_frag_size(frag));
+@@ -500,8 +494,7 @@ static u16 qede_get_skb_hlen(struct sk_buff *skb, bool is_encap_pkt)
+ 
+ /* +2 for 1st BD for headers and 2nd BD for headlen (if required) */
+ #if ((MAX_SKB_FRAGS + 2) > ETH_TX_MAX_BDS_PER_NON_LSO_PACKET)
+-static bool qede_pkt_req_lin(struct qede_dev *edev, struct sk_buff *skb,
+-			     u8 xmit_type)
++static bool qede_pkt_req_lin(struct sk_buff *skb, u8 xmit_type)
+ {
+ 	int allowed_frags = ETH_TX_MAX_BDS_PER_NON_LSO_PACKET - 1;
+ 
+@@ -565,10 +558,10 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 
+ 	WARN_ON(qed_chain_get_elem_left(&txq->tx_pbl) < (MAX_SKB_FRAGS + 1));
+ 
+-	xmit_type = qede_xmit_type(edev, skb, &ipv6_ext);
++	xmit_type = qede_xmit_type(skb, &ipv6_ext);
+ 
+ #if ((MAX_SKB_FRAGS + 2) > ETH_TX_MAX_BDS_PER_NON_LSO_PACKET)
+-	if (qede_pkt_req_lin(edev, skb, xmit_type)) {
++	if (qede_pkt_req_lin(skb, xmit_type)) {
+ 		if (skb_linearize(skb)) {
+ 			DP_NOTICE(edev,
+ 				  "SKB linearization failed - silently dropping this SKB\n");
+@@ -588,11 +581,11 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 		1 << ETH_TX_1ST_BD_FLAGS_START_BD_SHIFT;
+ 
+ 	/* Map skb linear data for DMA and set in the first BD */
+-	mapping = dma_map_single(&edev->pdev->dev, skb->data,
++	mapping = dma_map_single(txq->dev, skb->data,
+ 				 skb_headlen(skb), DMA_TO_DEVICE);
+-	if (unlikely(dma_mapping_error(&edev->pdev->dev, mapping))) {
++	if (unlikely(dma_mapping_error(txq->dev, mapping))) {
+ 		DP_NOTICE(edev, "SKB mapping failed\n");
+-		qede_free_failed_tx_pkt(edev, txq, first_bd, 0, false);
++		qede_free_failed_tx_pkt(txq, first_bd, 0, false);
+ 		qede_update_tx_producer(txq);
+ 		return NETDEV_TX_OK;
+ 	}
+@@ -716,12 +709,11 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 	/* Handle fragmented skb */
+ 	/* special handle for frags inside 2nd and 3rd bds.. */
+ 	while (tx_data_bd && frag_idx < skb_shinfo(skb)->nr_frags) {
+-		rc = map_frag_to_bd(edev,
++		rc = map_frag_to_bd(txq,
+ 				    &skb_shinfo(skb)->frags[frag_idx],
+ 				    tx_data_bd);
+ 		if (rc) {
+-			qede_free_failed_tx_pkt(edev, txq, first_bd, nbd,
+-						data_split);
++			qede_free_failed_tx_pkt(txq, first_bd, nbd, data_split);
+ 			qede_update_tx_producer(txq);
+ 			return NETDEV_TX_OK;
+ 		}
+@@ -741,12 +733,11 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 
+ 		memset(tx_data_bd, 0, sizeof(*tx_data_bd));
+ 
+-		rc = map_frag_to_bd(edev,
++		rc = map_frag_to_bd(txq,
+ 				    &skb_shinfo(skb)->frags[frag_idx],
+ 				    tx_data_bd);
+ 		if (rc) {
+-			qede_free_failed_tx_pkt(edev, txq, first_bd, nbd,
+-						data_split);
++			qede_free_failed_tx_pkt(txq, first_bd, nbd, data_split);
+ 			qede_update_tx_producer(txq);
+ 			return NETDEV_TX_OK;
+ 		}
+@@ -903,8 +894,7 @@ static inline void qede_rx_bd_ring_consume(struct qede_rx_queue *rxq)
+ /* This function reuses the buffer(from an offset) from
+  * consumer index to producer index in the bd ring
+  */
+-static inline void qede_reuse_page(struct qede_dev *edev,
+-				   struct qede_rx_queue *rxq,
++static inline void qede_reuse_page(struct qede_rx_queue *rxq,
+ 				   struct sw_rx_data *curr_cons)
+ {
+ 	struct eth_rx_bd *rx_bd_prod = qed_chain_produce(&rxq->rx_bd_ring);
+@@ -926,27 +916,62 @@ static inline void qede_reuse_page(struct qede_dev *edev,
+ /* In case of allocation failures reuse buffers
+  * from consumer index to produce buffers for firmware
+  */
+-void qede_recycle_rx_bd_ring(struct qede_rx_queue *rxq,
+-			     struct qede_dev *edev, u8 count)
++void qede_recycle_rx_bd_ring(struct qede_rx_queue *rxq, u8 count)
+ {
+ 	struct sw_rx_data *curr_cons;
+ 
+ 	for (; count > 0; count--) {
+ 		curr_cons = &rxq->sw_rx_ring[rxq->sw_rx_cons & NUM_RX_BDS_MAX];
+-		qede_reuse_page(edev, rxq, curr_cons);
++		qede_reuse_page(rxq, curr_cons);
+ 		qede_rx_bd_ring_consume(rxq);
+ 	}
+ }
+ 
+-static inline int qede_realloc_rx_buffer(struct qede_dev *edev,
+-					 struct qede_rx_queue *rxq,
++static int qede_alloc_rx_buffer(struct qede_rx_queue *rxq)
 +{
-+	struct qede_tx_queue *txq = fp->xdp_tx;
-+	u16 idx = txq->sw_tx_prod & NUM_TX_BDS_MAX;
-+	struct eth_tx_1st_bd *first_bd;
++	struct sw_rx_data *sw_rx_data;
++	struct eth_rx_bd *rx_bd;
++	dma_addr_t mapping;
++	struct page *data;
 +
-+	if (!qed_chain_get_elem_left(&txq->tx_pbl)) {
-+		txq->stopped_cnt++;
++	data = alloc_pages(GFP_ATOMIC, 0);
++	if (unlikely(!data))
++		return -ENOMEM;
++
++	/* Map the entire page as it would be used
++	 * for multiple RX buffer segment size mapping.
++	 */
++	mapping = dma_map_page(rxq->dev, data, 0,
++			       PAGE_SIZE, DMA_FROM_DEVICE);
++	if (unlikely(dma_mapping_error(rxq->dev, mapping))) {
++		__free_page(data);
 +		return -ENOMEM;
 +	}
 +
-+	first_bd = (struct eth_tx_1st_bd *)qed_chain_produce(&txq->tx_pbl);
++	sw_rx_data = &rxq->sw_rx_ring[rxq->sw_rx_prod & NUM_RX_BDS_MAX];
++	sw_rx_data->page_offset = 0;
++	sw_rx_data->data = data;
++	sw_rx_data->mapping = mapping;
 +
-+	memset(first_bd, 0, sizeof(*first_bd));
-+	first_bd->data.bd_flags.bitfields =
-+	    BIT(ETH_TX_1ST_BD_FLAGS_START_BD_SHIFT);
-+	first_bd->data.bitfields |=
-+	    (length & ETH_TX_DATA_1ST_BD_PKT_LEN_MASK) <<
-+	    ETH_TX_DATA_1ST_BD_PKT_LEN_SHIFT;
-+	first_bd->data.nbds = 1;
++	/* Advance PROD and get BD pointer */
++	rx_bd = (struct eth_rx_bd *)qed_chain_produce(&rxq->rx_bd_ring);
++	WARN_ON(!rx_bd);
++	rx_bd->addr.hi = cpu_to_le32(upper_32_bits(mapping));
++	rx_bd->addr.lo = cpu_to_le32(lower_32_bits(mapping));
 +
-+	/* We can safely ignore the offset, as it's 0 for XDP */
-+	BD_SET_UNMAP_ADDR_LEN(first_bd, metadata->mapping + padding, length);
-+
-+	/* Synchronize the buffer back to device, as program [probably]
-+	 * has changed it.
-+	 */
-+	dma_sync_single_for_device(&edev->pdev->dev,
-+				   metadata->mapping + padding,
-+				   length, PCI_DMA_TODEVICE);
-+
-+	txq->sw_tx_ring.pages[idx] = metadata->data;
-+	txq->sw_tx_prod++;
-+
-+	/* Mark the fastpath for future XDP doorbell */
-+	fp->xdp_xmit = 1;
++	rxq->sw_rx_prod++;
 +
 +	return 0;
 +}
 +
- /* Main transmit function */
- static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 				   struct net_device *ndev)
-@@ -573,7 +617,7 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 
- 	/* Fill the entry in the SW ring and the BDs in the FW ring */
- 	idx = txq->sw_tx_prod & NUM_TX_BDS_MAX;
--	txq->sw_tx_ring[idx].skb = skb;
-+	txq->sw_tx_ring.skbs[idx].skb = skb;
- 	first_bd = (struct eth_tx_1st_bd *)
- 		   qed_chain_produce(&txq->tx_pbl);
- 	memset(first_bd, 0, sizeof(*first_bd));
-@@ -693,7 +737,7 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 			/* this marks the BD as one that has no
- 			 * individual mapping
- 			 */
--			txq->sw_tx_ring[idx].flags |= QEDE_TSO_SPLIT_BD;
-+			txq->sw_tx_ring.skbs[idx].flags |= QEDE_TSO_SPLIT_BD;
- 
- 			first_bd->nbytes = cpu_to_le16(hlen);
- 
-@@ -802,6 +846,27 @@ int qede_txq_has_work(struct qede_tx_queue *txq)
- 	return hw_bd_cons != qed_chain_get_cons_idx(&txq->tx_pbl);
- }
- 
-+static void qede_xdp_tx_int(struct qede_dev *edev, struct qede_tx_queue *txq)
-+{
-+	struct eth_tx_1st_bd *bd;
-+	u16 hw_bd_cons;
-+
-+	hw_bd_cons = le16_to_cpu(*txq->hw_cons_ptr);
-+	barrier();
-+
-+	while (hw_bd_cons != qed_chain_get_cons_idx(&txq->tx_pbl)) {
-+		bd = (struct eth_tx_1st_bd *)qed_chain_consume(&txq->tx_pbl);
-+
-+		dma_unmap_single(&edev->pdev->dev, BD_UNMAP_ADDR(bd),
-+				 PAGE_SIZE, DMA_BIDIRECTIONAL);
-+		__free_page(txq->sw_tx_ring.pages[txq->sw_tx_cons &
-+						  NUM_TX_BDS_MAX]);
-+
-+		txq->sw_tx_cons++;
-+		txq->xmit_pkts++;
-+	}
-+}
-+
- static int qede_tx_int(struct qede_dev *edev, struct qede_tx_queue *txq)
++static inline int qede_realloc_rx_buffer(struct qede_rx_queue *rxq,
+ 					 struct sw_rx_data *curr_cons)
  {
- 	struct netdev_queue *netdev_txq;
-@@ -942,7 +1007,7 @@ static int qede_alloc_rx_buffer(struct qede_rx_queue *rxq)
- 	 * for multiple RX buffer segment size mapping.
- 	 */
- 	mapping = dma_map_page(rxq->dev, data, 0,
--			       PAGE_SIZE, DMA_FROM_DEVICE);
-+			       PAGE_SIZE, rxq->data_direction);
- 	if (unlikely(dma_mapping_error(rxq->dev, mapping))) {
- 		__free_page(data);
- 		return -ENOMEM;
-@@ -981,7 +1046,7 @@ static inline int qede_realloc_rx_buffer(struct qede_rx_queue *rxq,
+ 	/* Move to the next segment in the page */
+ 	curr_cons->page_offset += rxq->rx_buf_seg_size;
+ 
+ 	if (curr_cons->page_offset == PAGE_SIZE) {
+-		if (unlikely(qede_alloc_rx_buffer(edev, rxq))) {
++		if (unlikely(qede_alloc_rx_buffer(rxq))) {
+ 			/* Since we failed to allocate new buffer
+ 			 * current buffer can be used again.
+ 			 */
+@@ -955,7 +980,7 @@ static inline int qede_realloc_rx_buffer(struct qede_dev *edev,
+ 			return -ENOMEM;
  		}
  
- 		dma_unmap_page(rxq->dev, curr_cons->mapping,
--			       PAGE_SIZE, DMA_FROM_DEVICE);
-+			       PAGE_SIZE, rxq->data_direction);
+-		dma_unmap_page(&edev->pdev->dev, curr_cons->mapping,
++		dma_unmap_page(rxq->dev, curr_cons->mapping,
+ 			       PAGE_SIZE, DMA_FROM_DEVICE);
  	} else {
  		/* Increment refcount of the page as we don't want
- 		 * network stack to take the ownership of the page
-@@ -1441,6 +1506,26 @@ static bool qede_rx_xdp(struct qede_dev *edev,
- 	rxq->xdp_no_pass++;
- 
- 	switch (act) {
-+	case XDP_TX:
-+		/* We need the replacement buffer before transmit. */
-+		if (qede_alloc_rx_buffer(rxq)) {
-+			qede_recycle_rx_bd_ring(rxq, 1);
-+			return false;
-+		}
-+
-+		/* Now if there's a transmission problem, we'd still have to
-+		 * throw current buffer, as replacement was already allocated.
-+		 */
-+		if (qede_xdp_xmit(edev, fp, bd, cqe->placement_offset, len)) {
-+			dma_unmap_page(rxq->dev, bd->mapping,
-+				       PAGE_SIZE, DMA_BIDIRECTIONAL);
-+			__free_page(bd->data);
-+		}
-+
-+		/* Regardless, we've consumed an Rx BD */
-+		qede_rx_bd_ring_consume(rxq);
-+		return false;
-+
- 	default:
- 		bpf_warn_invalid_xdp_action(act);
- 	case XDP_ABORTED:
-@@ -1740,6 +1825,10 @@ static bool qede_poll_is_more_work(struct qede_fastpath *fp)
- 		if (qede_has_rx_work(fp->rxq))
- 			return true;
- 
-+	if (fp->type & QEDE_FASTPATH_XDP)
-+		if (qede_txq_has_work(fp->xdp_tx))
-+			return true;
-+
- 	if (likely(fp->type & QEDE_FASTPATH_TX))
- 		if (qede_txq_has_work(fp->txq))
- 			return true;
-@@ -1757,6 +1846,9 @@ static int qede_poll(struct napi_struct *napi, int budget)
- 	if (likely(fp->type & QEDE_FASTPATH_TX) && qede_txq_has_work(fp->txq))
- 		qede_tx_int(edev, fp->txq);
- 
-+	if ((fp->type & QEDE_FASTPATH_XDP) && qede_txq_has_work(fp->xdp_tx))
-+		qede_xdp_tx_int(edev, fp->xdp_tx);
-+
- 	rx_work_done = (likely(fp->type & QEDE_FASTPATH_RX) &&
- 			qede_has_rx_work(fp->rxq)) ?
- 			qede_rx_int(fp, budget) : 0;
-@@ -1771,6 +1863,14 @@ static int qede_poll(struct napi_struct *napi, int budget)
- 		}
+@@ -963,7 +988,7 @@ static inline int qede_realloc_rx_buffer(struct qede_dev *edev,
+ 		 * which can be recycled multiple times by the driver.
+ 		 */
+ 		page_ref_inc(curr_cons->data);
+-		qede_reuse_page(edev, rxq, curr_cons);
++		qede_reuse_page(rxq, curr_cons);
  	}
  
-+	if (fp->xdp_xmit) {
-+		u16 xdp_prod = qed_chain_get_prod_idx(&fp->xdp_tx->tx_pbl);
+ 	return 0;
+@@ -1026,6 +1051,7 @@ static void qede_set_skb_csum(struct sk_buff *skb, u8 csum_flag)
+ 
+ static inline void qede_skb_receive(struct qede_dev *edev,
+ 				    struct qede_fastpath *fp,
++				    struct qede_rx_queue *rxq,
+ 				    struct sk_buff *skb, u16 vlan_tag)
+ {
+ 	if (vlan_tag)
+@@ -1068,7 +1094,7 @@ static int qede_fill_frag_skb(struct qede_dev *edev,
+ 			   current_bd->data, current_bd->page_offset,
+ 			   len_on_bd);
+ 
+-	if (unlikely(qede_realloc_rx_buffer(edev, rxq, current_bd))) {
++	if (unlikely(qede_realloc_rx_buffer(rxq, current_bd))) {
+ 		/* Incr page ref count to reuse on allocation failure
+ 		 * so that it doesn't get freed while freeing SKB.
+ 		 */
+@@ -1087,7 +1113,8 @@ static int qede_fill_frag_skb(struct qede_dev *edev,
+ 
+ out:
+ 	tpa_info->state = QEDE_AGG_STATE_ERROR;
+-	qede_recycle_rx_bd_ring(rxq, edev, 1);
++	qede_recycle_rx_bd_ring(rxq, 1);
 +
-+		fp->xdp_xmit = 0;
-+		fp->xdp_tx->tx_db.data.bd_prod = cpu_to_le16(xdp_prod);
-+		qede_update_tx_producer(fp->xdp_tx);
-+	}
-+
- 	return rx_work_done;
+ 	return -ENOMEM;
  }
  
-@@ -2586,6 +2686,7 @@ static void qede_free_fp_array(struct qede_dev *edev)
+@@ -1239,7 +1266,7 @@ static void qede_gro_receive(struct qede_dev *edev,
  
- 			kfree(fp->sb_info);
- 			kfree(fp->rxq);
-+			kfree(fp->xdp_tx);
- 			kfree(fp->txq);
- 		}
- 		kfree(edev->fp_array);
-@@ -2646,8 +2747,13 @@ static int qede_alloc_fp_array(struct qede_dev *edev)
- 			if (!fp->rxq)
- 				goto err;
- 
--			if (edev->xdp_prog)
-+			if (edev->xdp_prog) {
-+				fp->xdp_tx = kzalloc(sizeof(*fp->xdp_tx),
-+						     GFP_KERNEL);
-+				if (!fp->xdp_tx)
-+					goto err;
- 				fp->type |= QEDE_FASTPATH_XDP;
-+			}
- 		}
- 	}
- 
-@@ -2694,9 +2800,9 @@ static void qede_update_pf_params(struct qed_dev *cdev)
- {
- 	struct qed_pf_params pf_params;
- 
--	/* 64 rx + 64 tx */
-+	/* 64 rx + 64 tx + 64 XDP */
- 	memset(&pf_params, 0, sizeof(struct qed_pf_params));
--	pf_params.eth_pf_params.num_cons = 128;
-+	pf_params.eth_pf_params.num_cons = 192;
- 	qed_ops->common->update_pf_params(cdev, &pf_params);
+ send_skb:
+ 	skb_record_rx_queue(skb, fp->rxq->rxq_id);
+-	qede_skb_receive(edev, fp, skb, vlan_tag);
++	qede_skb_receive(edev, fp, fp->rxq, skb, vlan_tag);
  }
  
-@@ -2953,7 +3059,7 @@ static void qede_free_rx_buffers(struct qede_dev *edev,
- 		data = rx_buf->data;
- 
- 		dma_unmap_page(&edev->pdev->dev,
--			       rx_buf->mapping, PAGE_SIZE, DMA_FROM_DEVICE);
-+			       rx_buf->mapping, PAGE_SIZE, rxq->data_direction);
- 
- 		rx_buf->data = NULL;
- 		__free_page(data);
-@@ -3114,7 +3220,10 @@ static int qede_alloc_mem_rxq(struct qede_dev *edev, struct qede_rx_queue *rxq)
- static void qede_free_mem_txq(struct qede_dev *edev, struct qede_tx_queue *txq)
- {
- 	/* Free the parallel SW ring */
--	kfree(txq->sw_tx_ring);
-+	if (txq->is_xdp)
-+		kfree(txq->sw_tx_ring.pages);
-+	else
-+		kfree(txq->sw_tx_ring.skbs);
- 
- 	/* Free the real RQ ring used by FW */
- 	edev->ops->common->chain_free(edev->cdev, &txq->tx_pbl);
-@@ -3123,17 +3232,22 @@ static void qede_free_mem_txq(struct qede_dev *edev, struct qede_tx_queue *txq)
- /* This function allocates all memory needed per Tx queue */
- static int qede_alloc_mem_txq(struct qede_dev *edev, struct qede_tx_queue *txq)
- {
--	int size, rc;
- 	union eth_tx_bd_types *p_virt;
-+	int size, rc;
- 
- 	txq->num_tx_buffers = edev->q_num_tx_buffers;
- 
- 	/* Allocate the parallel driver ring for Tx buffers */
--	size = sizeof(*txq->sw_tx_ring) * TX_RING_SIZE;
--	txq->sw_tx_ring = kzalloc(size, GFP_KERNEL);
--	if (!txq->sw_tx_ring) {
--		DP_NOTICE(edev, "Tx buffers ring allocation failed\n");
--		goto err;
-+	if (txq->is_xdp) {
-+		size = sizeof(*txq->sw_tx_ring.pages) * TX_RING_SIZE;
-+		txq->sw_tx_ring.pages = kzalloc(size, GFP_KERNEL);
-+		if (!txq->sw_tx_ring.pages)
-+			goto err;
-+	} else {
-+		size = sizeof(*txq->sw_tx_ring.skbs) * TX_RING_SIZE;
-+		txq->sw_tx_ring.skbs = kzalloc(size, GFP_KERNEL);
-+		if (!txq->sw_tx_ring.skbs)
-+			goto err;
+ static inline void qede_tpa_cont(struct qede_dev *edev,
+@@ -1414,7 +1441,7 @@ static struct sk_buff *qede_rx_allocate_skb(struct qede_dev *edev,
+ 	if (len + pad <= edev->rx_copybreak) {
+ 		memcpy(skb_put(skb, len),
+ 		       page_address(page) + pad + offset, len);
+-		qede_reuse_page(edev, rxq, bd);
++		qede_reuse_page(rxq, bd);
+ 		goto out;
  	}
  
- 	rc = edev->ops->common->chain_alloc(edev->cdev,
-@@ -3169,26 +3283,31 @@ static void qede_free_mem_fp(struct qede_dev *edev, struct qede_fastpath *fp)
-  */
- static int qede_alloc_mem_fp(struct qede_dev *edev, struct qede_fastpath *fp)
- {
--	int rc;
-+	int rc = 0;
+@@ -1435,7 +1462,7 @@ static struct sk_buff *qede_rx_allocate_skb(struct qede_dev *edev,
+ 	skb->data_len -= pull_len;
+ 	skb->tail += pull_len;
  
- 	rc = qede_alloc_mem_sb(edev, fp->sb_info, fp->id);
- 	if (rc)
--		goto err;
-+		goto out;
+-	if (unlikely(qede_realloc_rx_buffer(edev, rxq, bd))) {
++	if (unlikely(qede_realloc_rx_buffer(rxq, bd))) {
+ 		/* Incr page ref count to reuse on allocation failure so
+ 		 * that it doesn't get freed while freeing SKB [as its
+ 		 * already mapped there].
+@@ -1477,7 +1504,7 @@ static int qede_rx_build_jumbo(struct qede_dev *edev,
+ 		}
  
- 	if (fp->type & QEDE_FASTPATH_RX) {
- 		rc = qede_alloc_mem_rxq(edev, fp->rxq);
- 		if (rc)
--			goto err;
-+			goto out;
-+	}
-+
-+	if (fp->type & QEDE_FASTPATH_XDP) {
-+		rc = qede_alloc_mem_txq(edev, fp->xdp_tx);
-+		if (rc)
-+			goto out;
+ 		/* We need a replacement buffer for each BD */
+-		if (unlikely(qede_alloc_rx_buffer(edev, rxq)))
++		if (unlikely(qede_alloc_rx_buffer(rxq)))
+ 			goto out;
+ 
+ 		/* Now that we've allocated the replacement buffer,
+@@ -1487,7 +1514,7 @@ static int qede_rx_build_jumbo(struct qede_dev *edev,
+ 		bd = &rxq->sw_rx_ring[bd_cons_idx];
+ 		qede_rx_bd_ring_consume(rxq);
+ 
+-		dma_unmap_page(&edev->pdev->dev, bd->mapping,
++		dma_unmap_page(rxq->dev, bd->mapping,
+ 			       PAGE_SIZE, DMA_FROM_DEVICE);
+ 
+ 		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags++,
+@@ -1582,7 +1609,7 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
+ 				  "CQE has error, flags = %x, dropping incoming packet\n",
+ 				  parse_flag);
+ 			rxq->rx_hw_errors++;
+-			qede_recycle_rx_bd_ring(rxq, edev, fp_cqe->bd_num);
++			qede_recycle_rx_bd_ring(rxq, fp_cqe->bd_num);
+ 			return 0;
+ 		}
+ 	}
+@@ -1593,7 +1620,7 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
+ 	skb = qede_rx_allocate_skb(edev, rxq, bd, len, pad);
+ 	if (!skb) {
+ 		rxq->rx_alloc_errors++;
+-		qede_recycle_rx_bd_ring(rxq, edev, fp_cqe->bd_num);
++		qede_recycle_rx_bd_ring(rxq, fp_cqe->bd_num);
+ 		return 0;
  	}
  
- 	if (fp->type & QEDE_FASTPATH_TX) {
- 		rc = qede_alloc_mem_txq(edev, fp->txq);
- 		if (rc)
--			goto err;
-+			goto out;
- 	}
+@@ -1605,7 +1632,7 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
+ 							 fp_cqe, len);
  
+ 		if (unlikely(unmapped_frags > 0)) {
+-			qede_recycle_rx_bd_ring(rxq, edev, unmapped_frags);
++			qede_recycle_rx_bd_ring(rxq, unmapped_frags);
+ 			dev_kfree_skb_any(skb);
+ 			return 0;
+ 		}
+@@ -1618,7 +1645,7 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
+ 	skb_record_rx_queue(skb, rxq->rxq_id);
+ 
+ 	/* SKB is prepared - pass it to stack */
+-	qede_skb_receive(edev, fp, skb, le16_to_cpu(fp_cqe->vlan_tag));
++	qede_skb_receive(edev, fp, rxq, skb, le16_to_cpu(fp_cqe->vlan_tag));
+ 
+ 	return 1;
+ }
+@@ -2875,47 +2902,6 @@ static void qede_free_mem_rxq(struct qede_dev *edev, struct qede_rx_queue *rxq)
+ 	edev->ops->common->chain_free(edev->cdev, &rxq->rx_comp_ring);
+ }
+ 
+-static int qede_alloc_rx_buffer(struct qede_dev *edev,
+-				struct qede_rx_queue *rxq)
+-{
+-	struct sw_rx_data *sw_rx_data;
+-	struct eth_rx_bd *rx_bd;
+-	dma_addr_t mapping;
+-	struct page *data;
+-
+-	data = alloc_pages(GFP_ATOMIC, 0);
+-	if (unlikely(!data)) {
+-		DP_NOTICE(edev, "Failed to allocate Rx data [page]\n");
+-		return -ENOMEM;
+-	}
+-
+-	/* Map the entire page as it would be used
+-	 * for multiple RX buffer segment size mapping.
+-	 */
+-	mapping = dma_map_page(&edev->pdev->dev, data, 0,
+-			       PAGE_SIZE, DMA_FROM_DEVICE);
+-	if (unlikely(dma_mapping_error(&edev->pdev->dev, mapping))) {
+-		__free_page(data);
+-		DP_NOTICE(edev, "Failed to map Rx buffer\n");
+-		return -ENOMEM;
+-	}
+-
+-	sw_rx_data = &rxq->sw_rx_ring[rxq->sw_rx_prod & NUM_RX_BDS_MAX];
+-	sw_rx_data->page_offset = 0;
+-	sw_rx_data->data = data;
+-	sw_rx_data->mapping = mapping;
+-
+-	/* Advance PROD and get BD pointer */
+-	rx_bd = (struct eth_rx_bd *)qed_chain_produce(&rxq->rx_bd_ring);
+-	WARN_ON(!rx_bd);
+-	rx_bd->addr.hi = cpu_to_le32(upper_32_bits(mapping));
+-	rx_bd->addr.lo = cpu_to_le32(lower_32_bits(mapping));
+-
+-	rxq->sw_rx_prod++;
+-
 -	return 0;
--err:
-+out:
- 	return rc;
- }
+-}
+-
+ static int qede_alloc_sge_mem(struct qede_dev *edev, struct qede_rx_queue *rxq)
+ {
+ 	dma_addr_t mapping;
+@@ -3010,7 +2996,7 @@ static int qede_alloc_mem_rxq(struct qede_dev *edev, struct qede_rx_queue *rxq)
  
-@@ -3236,9 +3355,20 @@ static void qede_init_fp(struct qede_dev *edev)
- 		fp->edev = edev;
- 		fp->id = queue_id;
- 
-+		if (fp->type & QEDE_FASTPATH_XDP) {
-+			fp->xdp_tx->index = QEDE_TXQ_IDX_TO_XDP(edev,
-+								rxq_index);
-+			fp->xdp_tx->is_xdp = 1;
-+		}
+ 	/* Allocate buffers for the Rx ring */
+ 	for (i = 0; i < rxq->num_rx_buffers; i++) {
+-		rc = qede_alloc_rx_buffer(edev, rxq);
++		rc = qede_alloc_rx_buffer(rxq);
+ 		if (rc) {
+ 			DP_ERR(edev,
+ 			       "Rx buffers allocation failed at index %d\n", i);
+@@ -3151,12 +3137,14 @@ static void qede_init_fp(struct qede_dev *edev)
  
  		if (fp->type & QEDE_FASTPATH_RX) {
  			fp->rxq->rxq_id = rxq_index++;
-+
-+			/* Determine how to map buffers for this queue */
-+			if (fp->type & QEDE_FASTPATH_XDP)
-+				fp->rxq->data_direction = DMA_BIDIRECTIONAL;
-+			else
-+				fp->rxq->data_direction = DMA_FROM_DEVICE;
- 			fp->rxq->dev = &edev->pdev->dev;
++			fp->rxq->dev = &edev->pdev->dev;
  		}
  
-@@ -3449,6 +3579,12 @@ static int qede_stop_queues(struct qede_dev *edev)
- 			if (rc)
- 				return rc;
- 		}
-+
-+		if (fp->type & QEDE_FASTPATH_XDP) {
-+			rc = qede_drain_txq(edev, fp->xdp_tx, true);
-+			if (rc)
-+				return rc;
-+		}
- 	}
- 
- 	/* Stop all Queues in reverse order */
-@@ -3471,8 +3607,14 @@ static int qede_stop_queues(struct qede_dev *edev)
- 			}
+ 		if (fp->type & QEDE_FASTPATH_TX) {
+ 			fp->txq->index = txq_index++;
+ 			if (edev->dev_info.is_legacy)
+ 				fp->txq->is_legacy = 1;
++			fp->txq->dev = &edev->pdev->dev;
  		}
  
--		if (fp->type & QEDE_FASTPATH_XDP)
-+		/* Stop the XDP forwarding queue */
-+		if (fp->type & QEDE_FASTPATH_XDP) {
-+			rc = qede_stop_txq(edev, fp->xdp_tx, i);
-+			if (rc)
-+				return rc;
-+
- 			bpf_prog_put(fp->rxq->xdp_prog);
-+		}
- 	}
- 
- 	/* Stop the vport */
-@@ -3496,7 +3638,14 @@ static int qede_start_txq(struct qede_dev *edev,
- 	memset(&params, 0, sizeof(params));
- 	memset(&ret_params, 0, sizeof(ret_params));
- 
--	params.queue_id = txq->index;
-+	/* Let the XDP queue share the queue-zone with one of the regular txq.
-+	 * We don't really care about its coalescing.
-+	 */
-+	if (txq->is_xdp)
-+		params.queue_id = QEDE_TXQ_XDP_TO_IDX(edev, txq);
-+	else
-+		params.queue_id = txq->index;
-+
- 	params.sb = fp->sb_info->igu_sb_id;
- 	params.sb_idx = sb_idx;
- 
-@@ -3601,6 +3750,10 @@ static int qede_start_queues(struct qede_dev *edev, bool clear_stats)
- 		}
- 
- 		if (fp->type & QEDE_FASTPATH_XDP) {
-+			rc = qede_start_txq(edev, fp, fp->xdp_tx, i, XDP_PI);
-+			if (rc)
-+				return rc;
-+
- 			fp->rxq->xdp_prog = bpf_prog_add(edev->xdp_prog, 1);
- 			if (IS_ERR(fp->rxq->xdp_prog)) {
- 				rc = PTR_ERR(fp->rxq->xdp_prog);
+ 		snprintf(fp->name, sizeof(fp->name), "%s-fp-%d",
 -- 
 1.9.3
