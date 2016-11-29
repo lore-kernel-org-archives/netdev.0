@@ -1,152 +1,117 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: bpf debug info
-Date: Tue, 29 Nov 2016 16:11:32 +0100
-Message-ID: <583D9AA4.8050601@iogearbox.net>
-References: <20161129064217.GA20124@ast-mbp.thefacebook.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH RFC v2] ethtool: implement helper to get flow_type value
+Date: Tue, 29 Nov 2016 15:21:44 +0000
+Message-ID: <20161129152144.484bea62@jkicinski-Precision-T1700>
+References: <20161128230343.19110-1-jacob.e.keller@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>, Thomas Graf <tgraf@suug.ch>,
-        Wangnan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
-        kernel-team@fb.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+        Intel Wired LAN <intel-wired-lan@lists.osuosl.org>,
+        David Miller <davem@davemloft.net>
+To: Jacob Keller <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59517 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932360AbcK2PLf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 10:11:35 -0500
-In-Reply-To: <20161129064217.GA20124@ast-mbp.thefacebook.com>
+Received: from mx3.wp.pl ([212.77.101.10]:55780 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932360AbcK2PVv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Nov 2016 10:21:51 -0500
+In-Reply-To: <20161128230343.19110-1-jacob.e.keller@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 07:42 AM, Alexei Starovoitov wrote:
-[...]
-> The support for debug information in BPF was recently added to llvm.
->
-> In order to use it recompile bpf programs with the following patch
-> in samples/bpf/Makefile
-> @@ -155,4 +155,4 @@ $(obj)/%.o: $(src)/%.c
->          $(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
->                  -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
->                  -Wno-compare-distinct-pointer-types \
-> -               -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
-> +               -O2 -emit-llvm -g -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
->
-> and compiled .o files can be consumed by standard llvm-objdump utility.
->
-> $ llvm-objdump -S -no-show-raw-insn samples/bpf/xdp1_kern.o
-> xdp1_kern.o:    file format ELF64-BPF
->
-> Disassembly of section xdp1:
-> xdp_prog1:
-> ; {
->         0:       r2 = *(u32 *)(r1 + 4)
-> ; void *data = (void *)(long)ctx->data;
->         8:       r1 = *(u32 *)(r1 + 0)
-> ; if (data + nh_off > data_end)
->        10:       r3 = r1
->        18:       r3 += 14
->        20:       if r3 > r2 goto 55
-> ; h_proto = eth->h_proto;
->        28:       r3 = *(u8 *)(r1 + 12)
->        30:       r4 = *(u8 *)(r1 + 13)
->        38:       r4 <<= 8
->        40:       r4 |= r3
-> ; if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
->        48:       if r4 == 43144 goto 2
->        50:       r3 = 14
->        58:       if r4 != 129 goto 5
->
-> LBB0_3:
-> ; if (data + nh_off > data_end)
->        60:       r3 = r1
->        68:       r3 += 18
->        70:       if r3 > r2 goto 45
->        78:       r3 = 18
-> ; h_proto = vhdr->h_vlan_encapsulated_proto;
->        80:       r4 = *(u16 *)(r1 + 16)
->
-> LBB0_5:
->        88:       r5 = r4
->        90:       r5 &= 65535
-> ; if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
->        98:       if r5 == 43144 goto 1
->        a0:       if r5 != 129 goto 9
->
-> Notice that 'clang -S -o a.s' output and llvm-objdump disassembler
-> were changed to use kernel verifier style, so now it should be easier
-> to see what's going on.
+On Mon, 28 Nov 2016 15:03:43 -0800, Jacob Keller wrote:
+> Often a driver wants to store the flow type and thus it must mask the
+> extra fields. This is a task that could grow more complex as more flags
+> are added in the future. Add a helper function that masks the flags for
+> marking additional fields.
+> 
+> Modify drivers in drivers/net/ethernet that currently check for FLOW_EXT
+> and FLOW_MAC_EXT to use the helper. Currently this is only the mellanox
+> drivers.
+> 
+> I chose not to modify other drivers as I'm actually unsure whether we
+> should always mask the flow type even for drivers which don't recognize
+> the newer flags. On the one hand, today's drivers (generally)
+> automatically fail when a new flag is used because they won't mask it
+> and their checks against flow_type will not match. On the other hand, it
+> means another place that you have to update when you begin implementing
+> a flag.
+> 
+> An alternative is to have the driver store a set of flags that it knows
+> about, and then have ethtool core do the check for us to discard frames.
+> I haven't implemented this quite yet.
+> 
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c         | 4 ++--
+>  drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c | 6 +++---
+>  include/uapi/linux/ethtool.h                            | 5 +++++
+>  3 files changed, 10 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> index 487a58f9c192..d8f9839ce2a3 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> @@ -1270,7 +1270,7 @@ static int mlx4_en_validate_flow(struct net_device *dev,
+>  			return -EINVAL;
+>  	}
+>  
+> -	switch (cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+> +	switch (ethtool_get_flow_spec_type(cmd->fs.flow_type)) {
+>  	case TCP_V4_FLOW:
+>  	case UDP_V4_FLOW:
+>  		if (cmd->fs.m_u.tcp_ip4_spec.tos)
+> @@ -1493,7 +1493,7 @@ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
+>  	if (err)
+>  		return err;
+>  
+> -	switch (cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+> +	switch (ethtool_get_flow_spec_type(cmd->fs.flow_type)) {
+>  	case ETHER_FLOW:
+>  		spec_l2 = kzalloc(sizeof(*spec_l2), GFP_KERNEL);
+>  		if (!spec_l2)
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
+> index 3691451c728c..066e6c5cf38b 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
+> @@ -63,7 +63,7 @@ static struct mlx5e_ethtool_table *get_flow_table(struct mlx5e_priv *priv,
+>  	int table_size;
+>  	int prio;
+>  
+> -	switch (fs->flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+> +	switch (ethtool_get_flow_spec_type(fs->flow_type)) {
+>  	case TCP_V4_FLOW:
+>  	case UDP_V4_FLOW:
+>  		max_tuples = ETHTOOL_NUM_L3_L4_FTS;
+> @@ -147,7 +147,7 @@ static int set_flow_attrs(u32 *match_c, u32 *match_v,
+>  					     outer_headers);
+>  	void *outer_headers_v = MLX5_ADDR_OF(fte_match_param, match_v,
+>  					     outer_headers);
+> -	u32 flow_type = fs->flow_type & ~(FLOW_EXT | FLOW_MAC_EXT);
+> +	u32 flow_type = ethtool_get_flow_spec_type(fs->flow_type);
+>  	struct ethtool_tcpip4_spec *l4_mask;
+>  	struct ethtool_tcpip4_spec *l4_val;
+>  	struct ethtool_usrip4_spec *l3_mask;
+> @@ -393,7 +393,7 @@ static int validate_flow(struct mlx5e_priv *priv,
+>  	    fs->ring_cookie != RX_CLS_FLOW_DISC)
+>  		return -EINVAL;
+>  
+> -	switch (fs->flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+> +	switch (ethtool_get_flow_spec_type(fs->flow_type)) {
+>  	case ETHER_FLOW:
+>  		eth_mask = &fs->m_u.ether_spec;
+>  		if (!is_zero_ether_addr(eth_mask->h_dest))
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index f0db7788f887..e92ad725c9d0 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -1583,6 +1583,11 @@ static inline int ethtool_validate_duplex(__u8 duplex)
+>  #define	FLOW_EXT	0x80000000
+>  #define	FLOW_MAC_EXT	0x40000000
+>  
+> +static inline __u32 ethtool_get_flow_spec_type(__u32 flow_type)
+> +{
+> +	return flow_type & (FLOW_EXT | FLOW_MAC_EXT);
 
-Sounds really useful, is that scheduled for llvm 3.10 release?
-
-That debugging info is stored in dwarf format into the obj, right?
-Would be nice if also pahole could work on bpf object files.
-
-> The main advantage of debug info is that verifier error messages
-> are now easier to correlate to original C code.
-
-Does that mean that the old -S output format is not available anymore?
-Personally, I liked that one better tbh, was hoping someone would have
-added asm parsing for it, so compilation from .S to .o also works.
-
-> For example, say, in samples/bpf/parse_varlen.c I forgot
-> to compare pointer into packet with data_end:
-> --- a/samples/bpf/parse_varlen.c
-> +++ b/samples/bpf/parse_varlen.c
-> @@ -33,8 +33,8 @@ static int udp(void *data, uint64_t tp_off, void *data_end)
->   {
->          struct udphdr *udp = data + tp_off;
->
-> -       if (udp + 1 > data_end)
-> -               return 0;
-> +//     if (udp + 1 > data_end)
-> +//             return 0;
->          if (udp->dest == htons(DEFAULT_PKTGEN_UDP_PORT) ||
->              udp->source == htons(DEFAULT_PKTGEN_UDP_PORT)) {
->
-> If I try to run samples/bpf/test_cls_bpf.sh the verifier will complain:
-> R0=imm0,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=42) R2=pkt_end
-> 112: (0f) r4 += r3
-> 113: (0f) r1 += r4
-> 114: (b7) r0 = 2
-> 115: (69) r2 = *(u16 *)(r1 +2)
-> invalid access to packet, off=2 size=2, R1(id=3,off=0,r=0)
->
-> Now multiply 115 * 8 and convert to hex. This is address 0x398 in llvm-objdump:
-> ; struct udphdr *udp = data + tp_off;
->       388:       r1 += r4
->       390:       r0 = 2
-> ; if (udp->dest == htons(DEFAULT_PKTGEN_UDP_PORT) ||
->       398:       r2 = *(u16 *)(r1 + 2)
->       3a0:       if r2 == 2304 goto 16
->
-> Now it's clear which line of C code is causing the verifier to reject.
-[...]
-
-Could llvm-objdump switch line numbering for bpf same way as verifier
-output, so mapping step is not really needed? Alternatively, on each
-verifier error, there could be a hint with cmd to use regarding llvm-objdump.
-
-> So next step is to improve verifier messages to be more human friendly.
-> The step after is to introduce BPF_COMMENT pseudo instruction
-> that will be ignored by the interpreter yet it will contain the text
-> of original source code. Then llvm-objdump step won't be necessary.
-> The bpf loader will load both instructions and pieces of C sources.
-> Then verifier errors should be even easier to read and humans
-> can easily understand the purpose of the program.
-
-So the BPF_COMMENT pseudo insn will get stripped away from the insn array
-after verification step, so we don't need to hold/account for this mem? I
-assume in it's ->imm member it will just hold offset into text blob?
-
-Given that the generated verifier log can already become huge nowadays up
-to a point where less than 4k insns prog fails to load due to reaching max
-kernel allowed verifier buffer size, is the plan to only dump C code for
-last few lines or for everything?
-
-> PS
-> A year ago He Kuang reported that dwarf emitted by bpf llvm backend is broken.
-> Sorry it took so long to fix. It's probably still broken on big endian,
-> since I've only tested on x86.
->
+I don't have anything of substance to say but I think you are missing a
+negation (~) here compared to the code you are replacing ;)
