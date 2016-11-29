@@ -1,139 +1,57 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net: GPF in eth_header
-Date: Tue, 29 Nov 2016 16:31:03 +0100
-Message-ID: <CAAeHK+zLO=Gv33TqS6tGTTC=QUYO-HOPgSB2oS1SBOAyJzPDTQ@mail.gmail.com>
-References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
- <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
- <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
- <CACPEyM-4dwvmEvq3uTN_8Y-YosP8qA3cYV+oxkufFOn8M+=hew@mail.gmail.com>
- <CAAeHK+xr+GdLbLch7XatW5rifOz+=cjRCGf1ro8WxEZWziyU4Q@mail.gmail.com> <1480431501.18162.131.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: adm80211: Removed unused 'io_addr' 'mem_addr' variables
+Date: Tue, 29 Nov 2016 15:32:06 +0000 (UTC)
+Message-ID: <20161129153206.0E7EF611A6@smtp.codeaurora.org>
+References: <20161124064045.GA8836@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: syzkaller <syzkaller@googlegroups.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480431501.18162.131.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161124064045.GA8836-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2016 at 3:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2016-11-29 at 11:26 +0100, Andrey Konovalov wrote:
->> On Sat, Nov 26, 2016 at 9:05 PM, Eric Dumazet <erdlkml@gmail.com> wrote:
->> >> I actually see multiple places where skb_network_offset() is used as
->> >> an argument to skb_pull().
->> >> So I guess every place can potentially be buggy.
->> >
->> > Well, I think the intent is to accept a negative number.
->>
->> I'm not sure that was the intent since it results in a signedness
->> issue which leads to an out-of-bounds.
->>
->
-> Hey, I already mentioned where was the bug.
->
-> You missed the investigation where I pointed it to FLorian ?
->
->> A quick grep shows that the same issue can potentially happen in
->> multiple places across the kernel:
->>
->> net/ipv6/ip6_output.c:1655: __skb_pull(skb, skb_network_offset(skb));
->> net/packet/af_packet.c:2043: skb_pull(skb, skb_network_offset(skb));
->> net/packet/af_packet.c:2165: skb_pull(skb, skb_network_offset(skb));
->> net/core/neighbour.c:1301: __skb_pull(skb, skb_network_offset(skb));
->> net/core/neighbour.c:1331: __skb_pull(skb, skb_network_offset(skb));
->> net/core/dev.c:3157: __skb_pull(skb, skb_network_offset(skb));
->> net/sched/sch_teql.c:337: __skb_pull(skb, skb_network_offset(skb));
->> net/sched/sch_atm.c:479: skb_pull(skb, skb_network_offset(skb));
->> net/ipv4/ip_output.c:1385: __skb_pull(skb, skb_network_offset(skb));
->> net/ipv4/ip_fragment.c:391: if (!pskb_pull(skb, skb_network_offset(skb) + ihl))
->> drivers/net/vxlan.c:1440: __skb_pull(reply, skb_network_offset(reply));
->> drivers/net/vxlan.c:1902: __skb_pull(skb, skb_network_offset(skb));
->> drivers/net/vrf.c:220: __skb_pull(skb, skb_network_offset(skb));
->> drivers/net/vrf.c:314: __skb_pull(skb, skb_network_offset(skb));
->>
->> A similar thing also happened to somebody else (on a receive path!):
->> https://forums.grsecurity.net/viewtopic.php?f=3&t=4550
->>
->> Does it make sense to check skb_network_offset() before passing it to
->> skb_pull() everywhere?
->
-> Well, sure, we could add safety checks everywhere and slow the kernel
-> when debugging is requested.
->
-> But skb_network_offset() is not the problem here. Why are you focusing
-> on it ?
->
-> The real problem is in __skb_pull() or __skb_push() and all similar
-> helpers. Lots of added checks and slowdowns.
+Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Initial commit cc0b88cf5ecf ([PATCH] Add adm8211 802.11b wireless driver)
+> introduced variables mem_addr and io_addr in adm80211_probe() that are
+> set but not used. Compiling with W=1 gives the following warnings,
+> fix them.
+> 
+> drivers/net/wireless/admtek/adm8211.c: In function ‘adm8211_probe’:
+> drivers/net/wireless/admtek/adm8211.c:1769:15: warning: variable ‘io_addr’ set but not used [-Wunused-but-set-variable]
+>   unsigned int io_addr, io_len;
+>                ^
+> drivers/net/wireless/admtek/adm8211.c:1768:16: warning: variable ‘mem_addr’ set but not used [-Wunused-but-set-variable]
+>   unsigned long mem_addr, mem_len;
+>                 ^
+> 
+> These are harmless warnings and are only being fixed to reduce the
+> noise with W=1 in the kernel. The calls to pci_resource_start do not
+> have any side-effects and are safe to remove.
+> 
+> Fixes: cc0b88cf5ecf ("[PATCH] Add adm8211 802.11b wireless driver")
+> Cc: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+> Cc: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Signed-off-by: Kirtika Ruchandani <kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 
-The issue is not with skb_network_offset(), but with __skb_pull()
-using skb_network_offset() as an argument.
+The patch failed to apply:
 
-I'm not sure what would be the beast way to fix this, to add a check
-before every __skb_pull(skb_network_offset()), to fix __skb_pull() to
-work with signed ints, to add BUG_ON()'s in __skb_pull, or something
-else.
+fatal: corrupt patch at line 14
+Applying: adm80211: Removed unused 'io_addr' 'mem_addr' variables
+Repository lacks necessary blobs to fall back on 3-way merge.
+Cannot fall back to three-way merge.
+Patch failed at 0001 adm80211: Removed unused 'io_addr' 'mem_addr' variables
 
-What I meant is that you fixed this very instance of the bug, and I'm
-pointing out that a similar one might hit us again.
+Patch set to Changes Requested.
 
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 9c535fbccf2c7dbfae04cee393460e86d588c26b..d6116e37d054fc1536114347ed3c41fc7dc7a882 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -1923,6 +1923,7 @@ static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
->  unsigned char *skb_push(struct sk_buff *skb, unsigned int len);
->  static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned int len)
->  {
-> +       BUG_ON((int)len < 0);
->         skb->data -= len;
->         skb->len  += len;
->         return skb->data;
-> @@ -1931,6 +1932,7 @@ static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned int len)
->  unsigned char *skb_pull(struct sk_buff *skb, unsigned int len);
->  static inline unsigned char *__skb_pull(struct sk_buff *skb, unsigned int len)
->  {
-> +       BUG_ON((int)len < 0);
->         skb->len -= len;
->         BUG_ON(skb->len < skb->data_len);
->         return skb->data += len;
-> @@ -1938,6 +1940,7 @@ static inline unsigned char *__skb_pull(struct sk_buff *skb, unsigned int len)
->
->  static inline unsigned char *skb_pull_inline(struct sk_buff *skb, unsigned int len)
->  {
-> +       BUG_ON((int)len < 0);
->         return unlikely(len > skb->len) ? NULL : __skb_pull(skb, len);
->  }
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index d1d1a5a5ad24ded523fc12ffba8c602b03bd0830..7bf098c848fd857ba5d287fc91d43f62f381bd55 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -1450,6 +1450,7 @@ EXPORT_SYMBOL(skb_put);
->   */
->  unsigned char *skb_push(struct sk_buff *skb, unsigned int len)
->  {
-> +       BUG_ON((int)len < 0);
->         skb->data -= len;
->         skb->len  += len;
->         if (unlikely(skb->data<skb->head))
->
->
->
->
->
->
->
-> --
-> You received this message because you are subscribed to the Google Groups "syzkaller" group.
-> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
-> For more options, visit https://groups.google.com/d/optout.
+-- 
+https://patchwork.kernel.org/patch/9444901/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
