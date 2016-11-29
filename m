@@ -1,107 +1,83 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH net-next v2 1/1] driver: ipvlan: Use NF_IP_PRI_LAST as
- hook priority instead of INT_MAX
-Date: Tue, 29 Nov 2016 09:14:45 +0800
-Message-ID: <CA+6hz4qXYzC-mEfTqa5HOf9GtL1S1Q=rcz_CtFW5mbvUtj7niA@mail.gmail.com>
-References: <1480245482-10357-1-git-send-email-fgao@ikuai8.com> <CAF2d9jhdJ55ednEnj7PUezRJ+HJ-3PTH0=B3D9DyYtDVp7RBfw@mail.gmail.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH net] openvswitch: Fix skb leak in IPv6 reassembly.
+Date: Mon, 28 Nov 2016 17:16:15 -0800
+Message-ID: <CAPWQB7GR3V5Q8FNMDG27TLyjGhAc=yTcKk5EiNSsfmaDkQjyJg@mail.gmail.com>
+References: <20161128234353.4262-1-diproiettod@ovn.org> <1480378950.18162.107.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161129004505.GB11456@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        linux-netdev <netdev@vger.kernel.org>
-To: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Daniele Di Proietto <diproiettod@ovn.org>,
+        netdev <netdev@vger.kernel.org>,
+        Pravin B Shelar <pshelar@ovn.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg202.qq.com ([184.105.206.29]:36500 "EHLO smtpbg202.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754906AbcK2BPK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 20:15:10 -0500
-Received: from mail-vk0-f41.google.com (unknown [209.85.213.41])
-        by esmtp4.qq.com (ESMTP) with SMTP id 0
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 09:14:46 +0800 (CST)
-Received: by mail-vk0-f41.google.com with SMTP id x186so83803023vkd.1
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 17:14:47 -0800 (PST)
-In-Reply-To: <CAF2d9jhdJ55ednEnj7PUezRJ+HJ-3PTH0=B3D9DyYtDVp7RBfw@mail.gmail.com>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:40924 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755447AbcK2BQk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 20:16:40 -0500
+Received: from mfilter14-d.gandi.net (mfilter14-d.gandi.net [217.70.178.142])
+        by relay2-d.mail.gandi.net (Postfix) with ESMTP id E5639C5A44
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 02:16:38 +0100 (CET)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+        by mfilter14-d.gandi.net (mfilter14-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id 7KHJ1DrytbCo for <netdev@vger.kernel.org>;
+        Tue, 29 Nov 2016 02:16:37 +0100 (CET)
+Received: from mail-oi0-f52.google.com (mail-oi0-f52.google.com [209.85.218.52])
+        (Authenticated sender: joe@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 652E1C5A4F
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 02:16:37 +0100 (CET)
+Received: by mail-oi0-f52.google.com with SMTP id w63so173278737oiw.0
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 17:16:37 -0800 (PST)
+In-Reply-To: <20161129004505.GB11456@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Mahesh,
-
-On Tue, Nov 29, 2016 at 3:26 AM, Mahesh Bandewar (महेश बंडेवार)
-<maheshb@google.com> wrote:
-> On Sun, Nov 27, 2016 at 3:18 AM,  <fgao@ikuai8.com> wrote:
->> From: Gao Feng <fgao@ikuai8.com>
+On 28 November 2016 at 16:45, Florian Westphal <fw@strlen.de> wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Mon, 2016-11-28 at 15:43 -0800, Daniele Di Proietto wrote:
+>> > If nf_ct_frag6_gather() returns an error other than -EINPROGRESS, it
+>> > means that we still have a reference to the skb.  We should free it
+>> > before returning from handle_fragments, as stated in the comment above.
+>> >
+>> > Fixes: daaa7d647f81 ("netfilter: ipv6: avoid nf_iterate recursion")
+>> > CC: Florian Westphal <fw@strlen.de>
+>> > CC: Pravin B Shelar <pshelar@ovn.org>
+>> > CC: Joe Stringer <joe@ovn.org>
+>> > Signed-off-by: Daniele Di Proietto <diproiettod@ovn.org>
+>> > ---
+>> >  net/openvswitch/conntrack.c | 5 ++++-
+>> >  1 file changed, 4 insertions(+), 1 deletion(-)
+>> >
+>> > diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+>> > index 31045ef..fecefa2 100644
+>> > --- a/net/openvswitch/conntrack.c
+>> > +++ b/net/openvswitch/conntrack.c
+>> > @@ -370,8 +370,11 @@ static int handle_fragments(struct net *net, struct sw_flow_key *key,
+>> >             skb_orphan(skb);
+>> >             memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
+>> >             err = nf_ct_frag6_gather(net, skb, user);
+>> > -           if (err)
+>> > +           if (err) {
+>> > +                   if (err != -EINPROGRESS)
+>> > +                           kfree_skb(skb);
+>> >                     return err;
+>> > +           }
+>> >
+>> >             key->ip.proto = ipv6_hdr(skb)->nexthdr;
+>> >             ovs_cb.mru = IP6CB(skb)->frag_max_size;
 >>
->> It is better to use NF_IP_PRI_LAST instead of INT_MAX as hook priority.
->> The former is good at readability and easier to maintain.
+>> Interesting, have you followed the "GPF in eth_header" thread today ?
 >>
-> This IPvlan hook has to be "absolute" last hook and at this moment
-> NF_IP_PRI_LAST is set as INT_MAX so it's not altering anything.
-
-Yes. It is same now.
-So I prefer to use NF_IP_PRI_LAST than INT_MAX.
-Because the nf_hook_ops belongs to the netfilter module. i think the
-ipvlan codes should follow its rule.
-Since netfilter has defined some specific priority enum value, why
-don't we follow it?
-
+>> In a nutshell, we want a complete patch, not something that would solve
+>> part of the problem.
 >
-> If for whatever reasons the value of NF_IP_PRI_LAST changes, there
-> could be random IPvlan failure. Since that possibility cannot be
-> denied and there are several places INT_MAX is still used as hook
-> priority, I don't see any gain in having this patch in fact there
-> could be future (possible) downside.
+> I think this patch is fine, intent seems to be to only take fully reassembled
+> skb, rather than a stray fragment (ovs does NOT seem to call handle_fragments
+> in case skb is already known to not contain a fragment header, afaics).
 
-If the netfilter module changed the value of NF_IP_PRI_LAST, it may
-decrease it and add one check for the hook priority.
-As a result, the ipvlan may fail to register because of invalid priority.
+Correct, this is used in OVS only for fragmented packets and this
+function either morphs the skb into the full skb fragment chain, or
+steals/frees the skb.
 
-When use INT_MAX not NF_IP_PRI_LAST, there is one assumption that the
-hook priority is never changed.
-I think it is not good as two different modules.
-
-Regards
-Feng
-
->
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->> ---
->>  v2: Add the lost header file. It is added in local but not in v1 patch
->>  v1: Inital patch
->>
->>  drivers/net/ipvlan/ipvlan_main.c | 5 +++--
->>  1 file changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
->> index ab90b22..01c7446 100644
->> --- a/drivers/net/ipvlan/ipvlan_main.c
->> +++ b/drivers/net/ipvlan/ipvlan_main.c
->> @@ -7,6 +7,7 @@
->>   *
->>   */
->>
->> +#include "linux/netfilter_ipv4.h"
->>  #include "ipvlan.h"
->>
->>  static u32 ipvl_nf_hook_refcnt = 0;
->> @@ -16,13 +17,13 @@
->>                 .hook     = ipvlan_nf_input,
->>                 .pf       = NFPROTO_IPV4,
->>                 .hooknum  = NF_INET_LOCAL_IN,
->> -               .priority = INT_MAX,
->> +               .priority = NF_IP_PRI_LAST,
->>         },
->>         {
->>                 .hook     = ipvlan_nf_input,
->>                 .pf       = NFPROTO_IPV6,
->>                 .hooknum  = NF_INET_LOCAL_IN,
->> -               .priority = INT_MAX,
->> +               .priority = NF_IP_PRI_LAST,
->>         },
->>  };
->>
->> --
->> 1.9.1
->>
->>
+> I'll send a patch for the GPF in eth_header thing soon.
