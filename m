@@ -1,107 +1,90 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: bpf debug info
-Date: Tue, 29 Nov 2016 15:38:18 +0000
-Message-ID: <20161129153818.51104fab@jkicinski-Precision-T1700>
-References: <20161129064217.GA20124@ast-mbp.thefacebook.com>
-        <583D9AA4.8050601@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        netdev@vger.kernel.org, Brenden Blanco <bblanco@plumgrid.com>,
-        Thomas Graf <tgraf@suug.ch>, Wangnan <wangnan0@huawei.com>,
-        He Kuang <hekuang@huawei.com>, kernel-team@fb.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next 2/2] tcp: allow to turn tcp timestamp randomization off
+Date: Tue, 29 Nov 2016 16:45:42 +0100
+Message-ID: <1480434342-12367-2-git-send-email-fw@strlen.de>
+References: <1480434342-12367-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:39374 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932753AbcK2PiW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 10:38:22 -0500
-In-Reply-To: <583D9AA4.8050601@iogearbox.net>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:42224 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755727AbcK2Ppf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 10:45:35 -0500
+In-Reply-To: <1480434342-12367-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Nov 2016 16:11:32 +0100, Daniel Borkmann wrote:
-> On 11/29/2016 07:42 AM, Alexei Starovoitov wrote:
-> [...]
-> > The support for debug information in BPF was recently added to llvm.
-> >
-> > In order to use it recompile bpf programs with the following patch
-> > in samples/bpf/Makefile
-> > @@ -155,4 +155,4 @@ $(obj)/%.o: $(src)/%.c
-> >          $(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
-> >                  -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-> >                  -Wno-compare-distinct-pointer-types \
-> > -               -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
-> > +               -O2 -emit-llvm -g -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
-> >
-> > and compiled .o files can be consumed by standard llvm-objdump utility.
-> >
-> > $ llvm-objdump -S -no-show-raw-insn samples/bpf/xdp1_kern.o
-> > xdp1_kern.o:    file format ELF64-BPF
-> >
-> > Disassembly of section xdp1:
-> > xdp_prog1:
-> > ; {
-> >         0:       r2 = *(u32 *)(r1 + 4)
-> > ; void *data = (void *)(long)ctx->data;
-> >         8:       r1 = *(u32 *)(r1 + 0)
-> > ; if (data + nh_off > data_end)
-> >        10:       r3 = r1
-> >        18:       r3 += 14
-> >        20:       if r3 > r2 goto 55
-> > ; h_proto = eth->h_proto;
-> >        28:       r3 = *(u8 *)(r1 + 12)
-> >        30:       r4 = *(u8 *)(r1 + 13)
-> >        38:       r4 <<= 8
-> >        40:       r4 |= r3
-> > ; if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
-> >        48:       if r4 == 43144 goto 2
-> >        50:       r3 = 14
-> >        58:       if r4 != 129 goto 5
-> >
-> > LBB0_3:
-> > ; if (data + nh_off > data_end)
-> >        60:       r3 = r1
-> >        68:       r3 += 18
-> >        70:       if r3 > r2 goto 45
-> >        78:       r3 = 18
-> > ; h_proto = vhdr->h_vlan_encapsulated_proto;
-> >        80:       r4 = *(u16 *)(r1 + 16)
-> >
-> > LBB0_5:
-> >        88:       r5 = r4
-> >        90:       r5 &= 65535
-> > ; if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
-> >        98:       if r5 == 43144 goto 1
-> >        a0:       if r5 != 129 goto 9
-> >
-> > Notice that 'clang -S -o a.s' output and llvm-objdump disassembler
-> > were changed to use kernel verifier style, so now it should be easier
-> > to see what's going on.  
+Eric says: "By looking at tcpdump, and TS val of xmit packets of multiple
+flows, we can deduct the relative qdisc delays (think of fq pacing).
+This should work even if we have one flow per remote peer."
 
-This sounds super useful!  Thanks a lot!
+Having random per flow (or host) offsets doesn't allow that anymore so add
+a way to turn this off.
 
->>> [...]
-> > So next step is to improve verifier messages to be more human friendly.
-> > The step after is to introduce BPF_COMMENT pseudo instruction
-> > that will be ignored by the interpreter yet it will contain the text
-> > of original source code. Then llvm-objdump step won't be necessary.
-> > The bpf loader will load both instructions and pieces of C sources.
-> > Then verifier errors should be even easier to read and humans
-> > can easily understand the purpose of the program.  
-> 
-> So the BPF_COMMENT pseudo insn will get stripped away from the insn array
-> after verification step, so we don't need to hold/account for this mem? I
-> assume in it's ->imm member it will just hold offset into text blob?
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Documentation/networking/ip-sysctl.txt |  9 +++++++--
+ net/ipv4/tcp_input.c                   | 10 +++++++---
+ 2 files changed, 14 insertions(+), 5 deletions(-)
 
-Associating any form of opaque data with programs always makes me
-worried about opening a side channel of communication with a specialized
-user space implementations/compilers.  But I guess if the BPF_COMMENTs
-are stripped in the verifier as Daniel assumes drivers and JITs will
-never see it.
-
-Just to clarify, however - is there any reason why pushing the source
-code into the kernel is necessary?  Or is it just for convenience?
-Provided the user space loader has access to the debug info it should
-have no problems matching the verifier output to code lines?
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 5af48dd7c5fc..de2448313799 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -610,8 +610,13 @@ tcp_syn_retries - INTEGER
+ 	with the current initial RTO of 1second. With this the final timeout
+ 	for an active TCP connection attempt will happen after 127seconds.
+ 
+-tcp_timestamps - BOOLEAN
+-	Enable timestamps as defined in RFC1323.
++tcp_timestamps - INTEGER
++Enable timestamps as defined in RFC1323.
++	0: Disabled.
++	1: Enable timestamps as defined in RFC1323.
++	2: Like 1, but also use a random offset for each connection
++	rather than only using the current time.
++	Default: 2
+ 
+ tcp_min_tso_segs - INTEGER
+ 	Minimal number of segments per TSO frame.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 1b1921c71f7c..ebed73703198 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -76,7 +76,7 @@
+ #include <asm/unaligned.h>
+ #include <linux/errqueue.h>
+ 
+-int sysctl_tcp_timestamps __read_mostly = 1;
++int sysctl_tcp_timestamps __read_mostly = 2;
+ int sysctl_tcp_window_scaling __read_mostly = 1;
+ int sysctl_tcp_sack __read_mostly = 1;
+ int sysctl_tcp_fack __read_mostly = 1;
+@@ -6323,10 +6323,12 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	if (security_inet_conn_request(sk, skb, req))
+ 		goto drop_and_free;
+ 
+-	if (isn && tmp_opt.tstamp_ok)
++	if (isn && tmp_opt.tstamp_ok && sysctl_tcp_timestamps == 2)
+ 		af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
+ 
+ 	if (!want_cookie && !isn) {
++		u32 ts_off;
++
+ 		/* VJ's idea. We save last timestamp seen
+ 		 * from the destination in peer table, when entering
+ 		 * state TIME-WAIT, and check against it before
+@@ -6366,7 +6368,9 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 			goto drop_and_release;
+ 		}
+ 
+-		isn = af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
++		isn = af_ops->init_seq(skb, &ts_off);
++		if (sysctl_tcp_timestamps == 2)
++			tcp_rsk(req)->ts_off = ts_off;
+ 	}
+ 	if (!dst) {
+ 		dst = af_ops->route_req(sk, &fl, req, NULL);
+-- 
+2.7.3
