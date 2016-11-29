@@ -1,80 +1,86 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH v2 net-next 2/2] openvswitch: Fix skb->protocol for vlan frames.
-Date: Mon, 28 Nov 2016 23:21:16 -0800
-Message-ID: <CAOrHB_B15uBYL-nVhsCoRKzZ1Akmn0ZDcee57VUXGAjMNEAAWQ@mail.gmail.com>
-References: <1480387276-123557-1-git-send-email-jarno@ovn.org> <1480387276-123557-2-git-send-email-jarno@ovn.org>
+From: Brice Goglin <Brice.Goglin@inria.fr>
+Subject: Re: bnx2 breaks Dell R815 BMC IPMI since 4.8
+Date: Tue, 29 Nov 2016 08:21:48 +0100
+Message-ID: <583D2C8C.9070902@inria.fr>
+References: <583D26EF.60207@inria.fr> <20161129070211.GC3126@x1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Benc <jbenc@redhat.com>
-To: Jarno Rajahalme <jarno@ovn.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Baoquan He <bhe@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:58517 "EHLO
-        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751566AbcK2HVp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 02:21:45 -0500
-Received: from mfilter6-d.gandi.net (mfilter6-d.gandi.net [217.70.178.135])
-        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 42F01C5A4F
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 08:21:43 +0100 (CET)
-Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
-        by mfilter6-d.gandi.net (mfilter6-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 0t7TJgaZzMSS for <netdev@vger.kernel.org>;
-        Tue, 29 Nov 2016 08:21:18 +0100 (CET)
-Received: from mail-io0-f175.google.com (mail-io0-f175.google.com [209.85.223.175])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 5B634C5A50
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 08:21:18 +0100 (CET)
-Received: by mail-io0-f175.google.com with SMTP id j65so275385113iof.0
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 23:21:18 -0800 (PST)
-In-Reply-To: <1480387276-123557-2-git-send-email-jarno@ovn.org>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:63306 "EHLO
+        mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751566AbcK2HVu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 02:21:50 -0500
+In-Reply-To: <20161129070211.GC3126@x1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 6:41 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
-> Do not set skb->protocol to be the ethertype of the L3 header, unless
-> the packet only has the L3 header.  For a non-hardware offloaded VLAN
-> frame skb->protocol needs to be one of the VLAN ethertypes.
->
-> Any VLAN offloading is undone on the OVS netlink interface.  Also any
-> VLAN tags added by userspace are non-offloaded.
->
-> Incorrect skb->protocol value on a full-size non-offloaded VLAN skb
-> causes packet drop due to failing MTU check, as the VLAN header should
-> not be counted in when considering MTU in ovs_vport_send().
->
-I think we should move to is_skb_forwardable() type of packet length
-check in vport-send and get rid of skb-protocol checks altogether.
+I only tested 4.8.5 and 4.9-rc5 unfortunately, they came later. I'll
+ping my distro.
+Thanks for the quick reply!
+Brice
 
-> Fixes: 5108bbaddc ("openvswitch: add processing of L3 packets")
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
-> v2: Set skb->protocol when an ETH_P_TEB frame is received via ARPHRD_NONE
->     interface.
->
->  net/openvswitch/datapath.c |  1 -
->  net/openvswitch/flow.c     | 30 ++++++++++++++++++++++--------
->  2 files changed, 22 insertions(+), 9 deletions(-)
-...
-...
-> @@ -531,15 +538,22 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
->                 if (unlikely(parse_vlan(skb, key)))
->                         return -ENOMEM;
->
-> -               skb->protocol = parse_ethertype(skb);
-> -               if (unlikely(skb->protocol == htons(0)))
-> +               key->eth.type = parse_ethertype(skb);
-> +               if (unlikely(key->eth.type == htons(0)))
->                         return -ENOMEM;
->
-> +               if (skb->protocol == htons(ETH_P_TEB)) {
-> +                       if (key->eth.vlan.tci & htons(VLAN_TAG_PRESENT)
-> +                           && !skb_vlan_tag_present(skb))
-> +                               skb->protocol = key->eth.vlan.tpid;
-> +                       else
-> +                               skb->protocol = key->eth.type;
-> +               }
-> +
 
-I am not sure if this work in case of nested vlans.
-Can we move skb-protocol assignment to parse_vlan() to avoid checking
-for non-accelerated vlan case again here?
+
+Le 29/11/2016 08:02, Baoquan He a écrit :
+> Sorry, Brice. This has been reported by people, and it has been fixed by
+> later post. The commits within linus's tree are:
+>
+> commit 6df77862f63f389df3b1ad879738e04440d7385d
+> Author: Baoquan He <bhe@redhat.com>
+> Date:   Sun Nov 13 13:01:33 2016 +0800
+>
+>     bnx2: Wait for in-flight DMA to complete at probe stage
+>
+> commit 5d0d4b91bf627f14f95167b738d524156c9d440b
+> Author: Baoquan He <bhe@redhat.com>
+> Date:   Sun Nov 13 13:01:32 2016 +0800
+>
+>     Revert "bnx2: Reset device during driver initialization"
+>     
+>     This reverts commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c.
+>
+> And I believe both of them also are picked up into 4.8-stable kernel.
+> Please have a way to get them.
+>
+> Sorry again!
+>
+> Thanks
+> Baoquan
+>
+>
+> On 11/29/16 at 07:57am, Brice Goglin wrote:
+>> Hello
+>>
+>> My Dell PowerEdge R815 doesn't have IPMI anymore when I boot a 4.8
+>> kernel, the BMC doesn't even ping anymore. Its Ethernet devices are 4 of
+>> those:
+>>
+>> 01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
+>> 	DeviceName: Embedded NIC 1                          
+>> 	Subsystem: Dell NetXtreme II BCM5709 Gigabit Ethernet
+>> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+>> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+>> 	Latency: 0, Cache Line Size: 64 bytes
+>> 	Interrupt: pin A routed to IRQ 42
+>> 	Region 0: Memory at e6000000 (64-bit, non-prefetchable) [size=32M]
+>> 	Capabilities: <access denied>
+>> 	Kernel driver in use: bnx2
+>> 	Kernel modules: bnx2
+>>
+>> The only change in bnx2 between 4.7 and 4.8 appears to be this one:
+>>
+>> commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c
+>> Author: Baoquan He <bhe@redhat.com>
+>> Date:   Fri Sep 9 22:43:12 2016 +0800
+>>
+>>     bnx2: Reset device during driver initialization
+>>
+>> Could you patch actually break the BMC? What do I need to further debug
+>> this issue?
+>>
+>> Thanks
+>> Brice
+>>
