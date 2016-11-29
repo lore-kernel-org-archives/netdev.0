@@ -1,45 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 2/2] net: phy: bcm7xxx: Plug in support for
- reading PHY error counters
-Date: Tue, 29 Nov 2016 03:50:18 +0100
-Message-ID: <20161129025018.GA28968@lunn.ch>
-References: <20161129010457.17438-1-f.fainelli@gmail.com>
- <20161129010457.17438-3-f.fainelli@gmail.com>
+From: Marquell Woodson <mwoodson@k12albemarle.org>
+Subject: RE: Account Verification
+Date: Tue, 29 Nov 2016 02:53:28 +0000
+Message-ID: <3028D1F0EBE1C644B0D3566CC9ACA34C097C212A@SMS3.schls.albco>
+References: <3028D1F0EBE1C644B0D3566CC9ACA34C097BFA6F@SMS3.schls.albco>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Marquell Woodson <mwoodson@k12albemarle.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:32807 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754981AbcK2Cu0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 21:50:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20161129010457.17438-3-f.fainelli@gmail.com>
+Received: from mail.k12albemarle.org ([76.7.60.221]:55528 "EHLO
+        mail.k12albemarle.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756072AbcK2C65 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 21:58:57 -0500
+In-Reply-To: <3028D1F0EBE1C644B0D3566CC9ACA34C097BFA6F@SMS3.schls.albco>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +struct bcm7xxx_phy_priv {
-> +	u64	*stats;
-> +};
 
-> +static int bcm7xxx_28nm_probe(struct phy_device *phydev)
-> +{
-> +	struct bcm7xxx_phy_priv *priv;
-> +
-> +	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
-> +	if (!priv)
-> +		return -ENOMEM;
-> +
-> +	phydev->priv = priv;
-> +
-> +	priv->stats = devm_kzalloc(&phydev->mdio.dev,
-> +				   bcm_phy_get_sset_count(phydev), GFP_KERNEL);
+________________________________
+From: Marquell Woodson
+Sent: Monday, November 28, 2016 9:35 PM
+Subject: Account Verification
 
-Hi Florian
+Dear Account Owner,
 
-Should there be a * sizeof(u64) in there?
-
-       Andrew
+we noticed your account being used in sending spam emails from an IP Address situated in Malaysia 689.9087.0987. we have placed a stop on your account for security reason Your mail has been placed on hold for security reason, For Account Verification Click Help Desk:<http://mailboxvalidation2016.moonfruit.com>
+ICT Service Desk Support
+21/11/2016.
