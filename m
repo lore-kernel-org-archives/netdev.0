@@ -1,78 +1,67 @@
 From: Josef Bacik <jbacik@fb.com>
-Subject: [PATCH net][v2] bpf: fix states equal logic for varlen access
-Date: Tue, 29 Nov 2016 12:27:09 -0500
-Message-ID: <1480440429-2531-1-git-send-email-jbacik@fb.com>
+Subject: [PATCH net-next] bpf: add test for the verifier equal logic bug
+Date: Tue, 29 Nov 2016 12:35:19 -0500
+Message-ID: <1480440919-3252-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>, <ast@kernel.org>,
         <jannh@google.com>, <daniel@iogearbox.net>, <kernel-team@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59273 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60743 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750795AbcK2R1e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 12:27:34 -0500
+        by vger.kernel.org with ESMTP id S1753048AbcK2Rfo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 12:35:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we have a branch that looks something like this
+This is a test to verify that
 
-int foo = map->value;
-if (condition) {
-  foo += blah;
-} else {
-  foo = bar;
-}
-map->array[foo] = baz;
+bpf: fix states equal logic for varlen access
 
-We will incorrectly assume that the !condition branch is equal to the condition
-branch as the register for foo will be UNKNOWN_VALUE in both cases.  We need to
-adjust this logic to only do this if we didn't do a varlen access after we
-processed the !condition branch, otherwise we have different ranges and need to
-check the other branch as well.
+actually fixed the problem.  The problem was if the register we added to our map
+register was UNKNOWN in both the false and true branches and the only thing that
+changed was the range then we'd incorrectly assume that the true branch was
+valid, which it really wasnt.  This tests this case and properly fails without
+my fix in place and passes with it in place.
 
-Fixes: 484611357c19 ("bpf: allow access into map value arrays")
-Reported-by: Jann Horn <jannh@google.com>
 Signed-off-by: Josef Bacik <jbacik@fb.com>
 ---
-v1->v2:
-- renamed and moved varlen_map_access variable.
-- dropped the extra () in the second if statement.
-- added the Fixes and Reported-by tag.
+ tools/testing/selftests/bpf/test_verifier.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
 
- kernel/bpf/verifier.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 6a93615..8199821 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2454,6 +2454,7 @@ static bool states_equal(struct bpf_verifier_env *env,
- 			 struct bpf_verifier_state *old,
- 			 struct bpf_verifier_state *cur)
- {
-+	bool varlen_map_access = env->varlen_map_value_access;
- 	struct bpf_reg_state *rold, *rcur;
- 	int i;
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 3c4a1fb..5da2e9d 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -2660,6 +2660,29 @@ static struct bpf_test tests[] = {
+ 		.result = ACCEPT,
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS
+ 	},
++	{
++		"invalid map access from else condition",
++		.insns = {
++			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 6),
++			BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JGE, BPF_REG_1, MAX_ENTRIES-1, 1),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 1),
++			BPF_ALU64_IMM(BPF_LSH, BPF_REG_1, 2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
++			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0, offsetof(struct test_val, foo)),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.errstr = "R0 unbounded memory access, make sure to bounds check any array access into a map",
++		.result = REJECT,
++		.errstr_unpriv = "R0 pointer arithmetic prohibited",
++		.result_unpriv = REJECT,
++	},
+ };
  
-@@ -2467,12 +2468,17 @@ static bool states_equal(struct bpf_verifier_env *env,
- 		/* If the ranges were not the same, but everything else was and
- 		 * we didn't do a variable access into a map then we are a-ok.
- 		 */
--		if (!env->varlen_map_value_access &&
-+		if (!varlen_map_access &&
- 		    rold->type == rcur->type && rold->imm == rcur->imm)
- 			continue;
- 
-+		/* If we didn't map access then again we don't care about the
-+		 * mismatched range values and it's ok if our old type was
-+		 * UNKNOWN and we didn't go to a NOT_INIT'ed reg.
-+		 */
- 		if (rold->type == NOT_INIT ||
--		    (rold->type == UNKNOWN_VALUE && rcur->type != NOT_INIT))
-+		    (!varlen_map_access && rold->type == UNKNOWN_VALUE &&
-+		     rcur->type != NOT_INIT))
- 			continue;
- 
- 		if (rold->type == PTR_TO_PACKET && rcur->type == PTR_TO_PACKET &&
+ static int probe_filter_length(const struct bpf_insn *fp)
 -- 
 2.7.4
