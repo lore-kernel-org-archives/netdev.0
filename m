@@ -1,79 +1,122 @@
-From: Jon Hunter <jonathanh@nvidia.com>
-Subject: Re: [PATCH v3 3/5] net: asix: Fix AX88772x resume failures
-Date: Tue, 29 Nov 2016 10:51:20 +0000
-Message-ID: <a0815b0b-2d28-cb98-3ceb-817b74e25f49@nvidia.com>
-References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
- <c708db3f1e006df543284cf5215b965ce4fc44ec.1472155176.git-series.robert.foss@collabora.com>
- <77fa76d6-ef63-47db-a316-93b3a0c0705b@nvidia.com>
- <00e501d23e54$337d4b70$9a77e250$@asix.com.tw>
- <f0d21edc-060b-bd9b-fced-faf1f51e8467@nvidia.com>
- <010d01d23e5b$d8993130$89cb9390$@asix.com.tw>
- <1fff2d2a-7bbe-298c-3d27-7dc44df08675@nvidia.com>
- <6aebd7f5-188a-f6b0-7eb0-75b764e069d3@nvidia.com>
- <014301d24a1e$34513fe0$9cf3bfa0$@asix.com.tw>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH net V2] net/sched: pedit: make sure that offset is valid
+Date: Tue, 29 Nov 2016 13:03:13 +0200
+Message-ID: <20161129110313.GA7168@office.localdomain>
+References: <20161128105640.32363-1-amir@vadai.me>
+ <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
+ <20161129071434.GA22491@office.localdomain>
+ <CAD=hENc11HmXdAgZ+CNk54s9vORATOJAr9Ex8yybDcwHK4dSfQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-To: <allan@asix.com.tw>, <robert.foss@collabora.com>,
-        <freddy@asix.com.tw>, <Dean_Jenkins@mentor.com>,
-        <Mark_Craske@mentor.com>, <davem@davemloft.net>,
-        <ivecera@redhat.com>, <john.stultz@linaro.org>,
-        <vpalatin@chromium.org>, <stephen@networkplumber.org>,
-        <grundler@chromium.org>, <changchias@gmail.com>, <andrew@lunn.ch>,
-        <tremyfr@gmail.com>, <colin.king@canonical.com>,
-        <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <vpalatin@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: zhuyj <zyjzyj2000@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate15.nvidia.com ([216.228.121.64]:9347 "EHLO
-        hqemgate15.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756034AbcK2Kvh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 05:51:37 -0500
-In-Reply-To: <014301d24a1e$34513fe0$9cf3bfa0$@asix.com.tw>
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:34305 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753048AbcK2LDS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 06:03:18 -0500
+Received: by mail-wj0-f193.google.com with SMTP id xy5so17635790wjc.1
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 03:03:17 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAD=hENc11HmXdAgZ+CNk54s9vORATOJAr9Ex8yybDcwHK4dSfQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Allan,
+On Tue, Nov 29, 2016 at 05:27:05PM +0800, zhuyj wrote:
+>  Thanks a lot.
+> When will offset become -1?
+offset is supplied by userspace. For example iproute2 tc tool.
+It is valid to supply a negative value, since offset is relative to the
+networking layer, one might want to edit a MAC layer field.
 
-On 29/11/16 08:54, ASIX_Allan [Office] wrote:
-> Dear Jon ,
-> 
-> We can reproduce your issue on x86 Linux kernel 4.9.0-rc system in our site
-> and modified the following code can fix this issue. Please let us know if
-> you still have problems. Thanks a lot.
-> 
-> static void ax88772_suspend(struct usbnet *dev)
-> {
->         struct asix_common_private *priv = dev->driver_priv;
->         u16 medium;
-> 
->         /* Stop MAC operation */
-> -       medium = asix_read_medium_status(dev, 0);
-> +      medium = asix_read_medium_status(dev, 1);
->         medium &= ~AX_MEDIUM_RE;
-> -       asix_write_medium_mode(dev, medium, 0);
-> +      asix_write_medium_mode(dev, medium, 1);
-> 
->         netdev_dbg(dev->net, "ax88772_suspend: medium=0x%04x\n",
-> -                  asix_read_medium_status(dev, 0));
-> +                 asix_read_medium_status(dev, 1));
-> 
->         /* Preserve BMCR for restoring */
->         priv->presvd_phy_bmcr =
->                 asix_mdio_read_nopm(dev->net, dev->mii.phy_id, MII_BMCR);
-> 
->         /* Preserve ANAR for restoring */
->         priv->presvd_phy_advertise =
->                 asix_mdio_read_nopm(dev->net, dev->mii.phy_id,
-> MII_ADVERTISE);
-> } 
+Please use bottom posting when replying to mails...
 
-I gave this a quick test this morning and I can confirm that with the
-above change I no longer see the error messages. So feel free to add my ...
-
-Tested-by: Jon Hunter <jonathanh@nvidia.com>
-
-Cheers
-Jon
-
--- 
-nvpublic
+> 
+> On Tue, Nov 29, 2016 at 3:14 PM, Amir Vadai <amir@vadai.me> wrote:
+> > On Tue, Nov 29, 2016 at 10:32:05AM +0800, zhuyj wrote:
+> >>  +       if (offset > 0 && offset > skb->len)
+> >>
+> >> offset > skb->len is enough?
+> > offset is signed and skb->len is unsigned. Therefore for example if
+> > offset=-1 and skb->len=10, the actual comparison is 0xff...>10
+> >
+> >>
+> >> On Mon, Nov 28, 2016 at 6:56 PM, Amir Vadai <amir@vadai.me> wrote:
+> >> > Add a validation function to make sure offset is valid:
+> >> > 1. Not below skb head (could happen when offset is negative).
+> >> > 2. Validate both 'offset' and 'at'.
+> >> >
+> >> > Signed-off-by: Amir Vadai <amir@vadai.me>
+> >> > ---
+> >> > Hi Dave,
+> >> >
+> >> > Please pull to -stable branches.
+> >> >
+> >> > Changes from V0:
+> >> > - Add a validation to the 'at' value (this is used as an offset too)
+> >> > - Instead of validating the output of skb_header_pointer(), make sure that the
+> >> >         offset is good before calling it.
+> >> >
+> >> > Thanks,
+> >> > Amir
+> >> >  net/sched/act_pedit.c | 24 ++++++++++++++++++++----
+> >> >  1 file changed, 20 insertions(+), 4 deletions(-)
+> >> >
+> >> > diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+> >> > index b54d56d4959b..cf9b2fe8eac6 100644
+> >> > --- a/net/sched/act_pedit.c
+> >> > +++ b/net/sched/act_pedit.c
+> >> > @@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
+> >> >         kfree(keys);
+> >> >  }
+> >> >
+> >> > +static bool offset_valid(struct sk_buff *skb, int offset)
+> >> > +{
+> >> > +       if (offset > 0 && offset > skb->len)
+> >> > +               return false;
+> >> > +
+> >> > +       if  (offset < 0 && -offset > skb_headroom(skb))
+> >> > +               return false;
+> >> > +
+> >> > +       return true;
+> >> > +}
+> >> > +
+> >> >  static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+> >> >                      struct tcf_result *res)
+> >> >  {
+> >> > @@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+> >> >                         if (tkey->offmask) {
+> >> >                                 char *d, _d;
+> >> >
+> >> > +                               if (!offset_valid(skb, off + tkey->at)) {
+> >> > +                                       pr_info("tc filter pedit 'at' offset %d out of bounds\n",
+> >> > +                                               off + tkey->at);
+> >> > +                                       goto bad;
+> >> > +                               }
+> >> >                                 d = skb_header_pointer(skb, off + tkey->at, 1,
+> >> >                                                        &_d);
+> >> >                                 if (!d)
+> >> > @@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+> >> >                                         " offset must be on 32 bit boundaries\n");
+> >> >                                 goto bad;
+> >> >                         }
+> >> > -                       if (offset > 0 && offset > skb->len) {
+> >> > -                               pr_info("tc filter pedit"
+> >> > -                                       " offset %d can't exceed pkt length %d\n",
+> >> > -                                      offset, skb->len);
+> >> > +
+> >> > +                       if (!offset_valid(skb, off + offset)) {
+> >> > +                               pr_info("tc filter pedit offset %d out of bounds\n",
+> >> > +                                       offset);
+> >> >                                 goto bad;
+> >> >                         }
+> >> >
+> >> > --
+> >> > 2.10.2
+> >> >
