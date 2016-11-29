@@ -1,34 +1,73 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH  v2 01/13] net: ethernet: ti: cpts: switch to
- readl/writel_relaxed()
-Date: Tue, 29 Nov 2016 10:38:17 +0100
-Message-ID: <20161129093817.GB3110@localhost.localdomain>
-References: <20161128230337.6731-1-grygorii.strashko@ti.com>
- <20161128230337.6731-2-grygorii.strashko@ti.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH v3 net-next 4/6] net: mvneta: Only disable mvneta_bm for
+ 64-bits
+Date: Tue, 29 Nov 2016 10:37:24 +0100
+Message-ID: <040255efd08ba2497ab28edae78ca5e1835d5824.1480412215.git-series.gregory.clement@free-electrons.com>
+References: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33298 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756779AbcK2JiW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 04:38:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20161128230337.6731-2-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jisheng Zhang <jszhang@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+ Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
+ Dmitri Epshtein <dima@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
+ Yelena Krivosheev <yelena@marvell.com>,
+ Gregory CLEMENT <gregory.clement@free-electrons.com>,
+ Marcin Wojtas <mw@semihalf.com>,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
+In-Reply-To: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
+References: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 28, 2016 at 05:03:25PM -0600, Grygorii Strashko wrote:
-> Switch to readl/writel_relaxed() APIs, because this is recommended
-> API and the CPTS IP is reused on Keystone 2 SoCs
-> where LE/BE modes are supported.
-> 
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Actually only the mvneta_bm support is not 64-bits compatible.
+The mvneta code itself can run on 64-bits architecture.
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/Kconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index 66fd9dbb2ca7..2ccea9dd9248 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -44,6 +44,7 @@ config MVMDIO
+ config MVNETA_BM_ENABLE
+ 	tristate "Marvell Armada 38x/XP network interface BM support"
+ 	depends on MVNETA
++	depends on !64BIT
+ 	---help---
+ 	  This driver supports auxiliary block of the network
+ 	  interface units in the Marvell ARMADA XP and ARMADA 38x SoC
+@@ -58,7 +59,6 @@ config MVNETA
+ 	tristate "Marvell Armada 370/38x/XP network interface support"
+ 	depends on PLAT_ORION || COMPILE_TEST
+ 	depends on HAS_DMA
+-	depends on !64BIT
+ 	select MVMDIO
+ 	select FIXED_PHY
+ 	---help---
+@@ -71,6 +71,7 @@ config MVNETA
+ 
+ config MVNETA_BM
+ 	tristate
++	depends on !64BIT
+ 	default y if MVNETA=y && MVNETA_BM_ENABLE!=n
+ 	default MVNETA_BM_ENABLE
+ 	select HWBM
+-- 
+git-series 0.8.10
