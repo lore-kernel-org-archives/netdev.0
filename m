@@ -1,7 +1,8 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH v2 net 5/5] l2tp: fix address test in __l2tp_ip6_bind_lookup()
-Date: Tue, 29 Nov 2016 13:09:48 +0100
-Message-ID: <017236a1113ff42aab77d6ce62c0a571e67d36c6.1480419658.git.g.nault@alphalink.fr>
+Subject: [PATCH v2 net 2/5] l2tp: hold socket before dropping lock in
+ l2tp_ip{,6}_recv()
+Date: Tue, 29 Nov 2016 13:09:45 +0100
+Message-ID: <3d9b7200e50d280ca05565687169a207282c4853.1480419658.git.g.nault@alphalink.fr>
 References: <cover.1480419658.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,41 +10,75 @@ Cc: James Chapman <jchapman@katalix.com>,
         Chris Elston <celston@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:42376 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:42374 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756654AbcK2MKC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:10:02 -0500
+        with ESMTP id S1751485AbcK2MKo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:10:44 -0500
 Content-Disposition: inline
 In-Reply-To: <cover.1480419658.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The '!(addr && ipv6_addr_equal(addr, laddr))' part of the conditional
-matches if addr is NULL or if addr != laddr.
-But the intend of __l2tp_ip6_bind_lookup() is to find a sockets with
-the same address, so the ipv6_addr_equal() condition needs to be
-inverted.
+Socket must be held while under the protection of the l2tp lock; there
+is no guarantee that sk remains valid after the read_unlock_bh() call.
 
-For better clarity and consistency with the rest of the expression, the
-(!X || X == Y) notation is used instead of !(X && X != Y).
+Same issue for l2tp_ip and l2tp_ip6.
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/l2tp/l2tp_ip6.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/l2tp/l2tp_ip.c  | 11 ++++++-----
+ net/l2tp/l2tp_ip6.c | 11 ++++++-----
+ 2 files changed, 12 insertions(+), 10 deletions(-)
 
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 1f57094..4d1c942 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -183,14 +183,15 @@ static int l2tp_ip_recv(struct sk_buff *skb)
+ 
+ 		read_lock_bh(&l2tp_ip_lock);
+ 		sk = __l2tp_ip_bind_lookup(net, iph->daddr, 0, tunnel_id);
++		if (!sk) {
++			read_unlock_bh(&l2tp_ip_lock);
++			goto discard;
++		}
++
++		sock_hold(sk);
+ 		read_unlock_bh(&l2tp_ip_lock);
+ 	}
+ 
+-	if (sk == NULL)
+-		goto discard;
+-
+-	sock_hold(sk);
+-
+ 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto discard_put;
+ 
 diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index 4a86440..aa821cb 100644
+index af9abff..e3fc778 100644
 --- a/net/l2tp/l2tp_ip6.c
 +++ b/net/l2tp/l2tp_ip6.c
-@@ -72,7 +72,7 @@ static struct sock *__l2tp_ip6_bind_lookup(struct net *net,
+@@ -198,14 +198,15 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
+ 		read_lock_bh(&l2tp_ip6_lock);
+ 		sk = __l2tp_ip6_bind_lookup(net, &iph->daddr,
+ 					    0, tunnel_id);
++		if (!sk) {
++			read_unlock_bh(&l2tp_ip6_lock);
++			goto discard;
++		}
++
++		sock_hold(sk);
+ 		read_unlock_bh(&l2tp_ip6_lock);
+ 	}
  
- 		if ((l2tp->conn_id == tunnel_id) &&
- 		    net_eq(sock_net(sk), net) &&
--		    !(addr && ipv6_addr_equal(addr, laddr)) &&
-+		    (!addr || ipv6_addr_equal(addr, laddr)) &&
- 		    (!sk->sk_bound_dev_if || !dif ||
- 		     sk->sk_bound_dev_if == dif))
- 			goto found;
+-	if (sk == NULL)
+-		goto discard;
+-
+-	sock_hold(sk);
+-
+ 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto discard_put;
+ 
 -- 
 2.10.2
