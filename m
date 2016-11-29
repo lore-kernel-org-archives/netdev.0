@@ -1,41 +1,48 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: move the empty tp check from
- ->destroy() to ->delete()
-Date: Mon, 28 Nov 2016 22:57:38 -0800
-Message-ID: <CAM_iQpXqv7MvcTwCgsbgpK30xra9kjnTbcJu8nT0QuMh_ZFz7Q@mail.gmail.com>
-References: <1479952708-26763-1-git-send-email-xiyou.wangcong@gmail.com> <583B9D22.8090906@gmail.com>
+From: Brice Goglin <Brice.Goglin@inria.fr>
+Subject: bnx2 breaks Dell R815 BMC IPMI since 4.8
+Date: Tue, 29 Nov 2016 07:57:51 +0100
+Message-ID: <583D26EF.60207@inria.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Linux Network Development list <netdev@vger.kernel.org>,
+        Baoquan He <bhe@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:32951 "EHLO
-        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932912AbcK2G6F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 01:58:05 -0500
-Received: by mail-io0-f169.google.com with SMTP id j65so274640520iof.0
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 22:58:04 -0800 (PST)
-In-Reply-To: <583B9D22.8090906@gmail.com>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:1998 "EHLO
+        mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756222AbcK2G5x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 01:57:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 27, 2016 at 6:57 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> Hi Cong,
->
-> Thanks a lot for doing this. Can you rebase it on top of Daniel's patch
-> though,
->
->  [PATCH net] net, sched: respect rcu grace period on cls destruction
->
-> And then push the NULL pointer work for the cls_fw and cls_route
-> classifiers into another patch.
->
-> Then I believe the last thing to make this correct is to convert the
-> call_rcu() paths to call_rcu_bh().
+Hello
 
-Sure, will rebase my patch once DaveM merges net into net-next.
+My Dell PowerEdge R815 doesn't have IPMI anymore when I boot a 4.8
+kernel, the BMC doesn't even ping anymore. Its Ethernet devices are 4 of
+those:
 
-Thanks.
+01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
+	DeviceName: Embedded NIC 1                          
+	Subsystem: Dell NetXtreme II BCM5709 Gigabit Ethernet
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0, Cache Line Size: 64 bytes
+	Interrupt: pin A routed to IRQ 42
+	Region 0: Memory at e6000000 (64-bit, non-prefetchable) [size=32M]
+	Capabilities: <access denied>
+	Kernel driver in use: bnx2
+	Kernel modules: bnx2
+
+The only change in bnx2 between 4.7 and 4.8 appears to be this one:
+
+commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c
+Author: Baoquan He <bhe@redhat.com>
+Date:   Fri Sep 9 22:43:12 2016 +0800
+
+    bnx2: Reset device during driver initialization
+
+Could you patch actually break the BMC? What do I need to further debug
+this issue?
+
+Thanks
+Brice
