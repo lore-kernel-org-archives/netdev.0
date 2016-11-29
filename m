@@ -1,92 +1,41 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: fix states equal logic for varlen access
-Date: Tue, 29 Nov 2016 10:33:45 +0100
-Message-ID: <583D4B79.9050202@iogearbox.net>
-References: <1480362250-2132-1-git-send-email-jbacik@fb.com> <20161129030446.GA13735@ast-mbp.thefacebook.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH  v2 02/13] net: ethernet: ti: allow cpts to be built
+ separately
+Date: Tue, 29 Nov 2016 10:37:50 +0100
+Message-ID: <20161129093750.GA3110@localhost.localdomain>
+References: <20161128230337.6731-1-grygorii.strashko@ti.com>
+ <20161128230337.6731-3-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ast@kernel.org,
-        jannh@google.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Josef Bacik <jbacik@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:55650 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753284AbcK2Jdv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 04:33:51 -0500
-In-Reply-To: <20161129030446.GA13735@ast-mbp.thefacebook.com>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:34932 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751586AbcK2Jhz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 04:37:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20161128230337.6731-3-grygorii.strashko@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 04:04 AM, Alexei Starovoitov wrote:
-> On Mon, Nov 28, 2016 at 02:44:10PM -0500, Josef Bacik wrote:
->> If we have a branch that looks something like this
->>
->> int foo = map->value;
->> if (condition) {
->>    foo += blah;
->> } else {
->>    foo = bar;
->> }
->> map->array[foo] = baz;
->>
->> We will incorrectly assume that the !condition branch is equal to the condition
->> branch as the register for foo will be UNKNOWN_VALUE in both cases.  We need to
->> adjust this logic to only do this if we didn't do a varlen access after we
->> processed the !condition branch, otherwise we have different ranges and need to
->> check the other branch as well.
+On Mon, Nov 28, 2016 at 05:03:26PM -0600, Grygorii Strashko wrote:
 
-Fixes: 484611357c19 ("bpf: allow access into map value arrays")
-Reported-by: Jann Horn <jannh@google.com>
+> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
 
->> Signed-off-by: Josef Bacik <jbacik@fb.com>
+> +EXPORT_SYMBOL_GPL(cpts_unregister);
+> +
+> +MODULE_LICENSE("GPL v2");
+> +MODULE_DESCRIPTION("TI CPTS ALE driver");
 
-Please also add a test case to tools/testing/selftests/bpf/test_verifier.c for
-net-next tree, so we can make sure we catch this in future. Test could look
-like that after this fix it fails by the verifier, but before it doesn't due
-to false state pruning.
+ALE?
 
->>   kernel/bpf/verifier.c | 10 ++++++++--
->>   1 file changed, 8 insertions(+), 2 deletions(-)
->>
->> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->> index 89f787c..2c8a688 100644
->> --- a/kernel/bpf/verifier.c
->> +++ b/kernel/bpf/verifier.c
->> @@ -2478,6 +2478,7 @@ static bool states_equal(struct bpf_verifier_env *env,
->>   {
->>   	struct bpf_reg_state *rold, *rcur;
->>   	int i;
->> +	bool map_access = env->varlen_map_value_access;
->
-> that's a bit misleading name for the variable.
-> Pls call it varlen_map_access.
+Also, MODULE_AUTHOR (that's me) is missing.
 
-Nit: while at it, please also move it up as first var (netdev has reverse
-xmas tree style).
-
->>   	for (i = 0; i < MAX_BPF_REG; i++) {
->>   		rold = &old->regs[i];
->> @@ -2489,12 +2490,17 @@ static bool states_equal(struct bpf_verifier_env *env,
->>   		/* If the ranges were not the same, but everything else was and
->>   		 * we didn't do a variable access into a map then we are a-ok.
->>   		 */
->> -		if (!env->varlen_map_value_access &&
->> +		if (!map_access &&
->>   		    rold->type == rcur->type && rold->imm == rcur->imm)
->
-> just noticed that this one is missing comparing rold->id == rcur->id
->
->>   			continue;
->>
->> +		/* If we didn't map access then again we don't care about the
->> +		 * mismatched range values and it's ok if our old type was
->> +		 * UNKNOWN and we didn't go to a NOT_INIT'ed reg.
->> +		 */
->>   		if (rold->type == NOT_INIT ||
->> -		    (rold->type == UNKNOWN_VALUE && rcur->type != NOT_INIT))
->> +		    (!map_access && (rold->type == UNKNOWN_VALUE &&
->> +				     rcur->type != NOT_INIT)))
->
-> please drop unnecessary ( )
+Thanks,
+Richard
