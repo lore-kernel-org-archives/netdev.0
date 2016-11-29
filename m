@@ -1,83 +1,67 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [net PATCH 0/2] Don't use lco_csum to compute IPv4 checksum
-Date: Tue, 29 Nov 2016 20:07:08 +1100
-Message-ID: <20161129200708.3490344a@canb.auug.org.au>
-References: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
-        <1480371962.2402.36.camel@intel.com>
-        <20161129104253.00ada847@canb.auug.org.au>
+From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: [PATCH v2 11/13] clocksource: export the clocks_calc_mult_shift
+ to use by timestamp code
+Date: Tue, 29 Nov 2016 10:08:53 +0100 (CET)
+Message-ID: <alpine.DEB.2.20.1611291008410.4358@nanos>
+References: <20161128230337.6731-1-grygorii.strashko@ti.com> <20161128230337.6731-12-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        davem@davemloft.net, Eric Dumazet <eric.dumazet@gmail.com>,
-        Eli Cooper <elicooper@gmx.com>,
-        Lance Richardson <lrichard@redhat.com>,
-        Sven-Haegar Koch <haegar@sdinet.de>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:55661 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753356AbcK2JHL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 04:07:11 -0500
-In-Reply-To: <20161129104253.00ada847@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>,
+        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161128230337.6731-12-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+On Mon, 28 Nov 2016, Grygorii Strashko wrote:
 
-On Tue, 29 Nov 2016 10:43:04 +1100 Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
->
-> On Mon, 28 Nov 2016 14:26:02 -0800 Jeff Kirsher <jeffrey.t.kirsher@intel.=
-com> wrote:
-> >
-> > On Mon, 2016-11-28 at 10:42 -0500, Alexander Duyck wrote: =20
-> > > When I implemented the GSO partial support in the Intel drivers I was
-> > > using
-> > > lco_csum to compute the checksum that we needed to plug into the IPv4
-> > > checksum field in order to cancel out the data that was not a part of=
- the
-> > > IPv4 header.=C2=A0 However this didn't take into account that the tra=
-nsport
-> > > offset might be pointing to the inner transport header.
-> > >=20
-> > > Instead of using lco_csum I have just coded around it so that we can =
-use
-> > > the outer IP header plus the IP header length to determine where we n=
-eed
-> > > to
-> > > start our checksum and then just call csum_partial ourselves.
-> > >=20
-> > > This should fix the SIT issue reported on igb interfaces as well as
-> > > simliar
-> > > issues that would pop up on other Intel NICs.
-> > >=20
-> > > ---
-> > >=20
-> > > Alexander Duyck (2):
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 igb/igbvf: Don't use lco_csum to compu=
-te IPv4 checksum
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ixgbe/ixgbevf: Don't use lco_csum to c=
-ompute IPv4 checksum   =20
-> >=20
-> > Stephen, I have applied Alex's patches to my net-queue tree. =C2=A0Can =
-you
-> > confirm they resolve the bug seen? =20
->=20
-> Its a bit tricky because the origin problem only happens on my
-> production server (ozlabs.org), but I will see if I can manage to just
-> remove and reload the driver ...  though, the server is running a 4.7.8
-> kernel and I am wondering how well these patches will apply?
+> From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+> 
+> The CPSW CPTS driver is capable of doing timestamping on tx/rx packets and
+> requires to know mult and shift factors for timestamp conversion from raw
+> value to nanoseconds (ptp clock). Now these mult and shift factors are
+> calculated manually and provided through DT, which makes very hard to
+> support of a lot number of platforms, especially if CPTS refclk is not the
+> same for some kind of boards and depends on efuse settings (Keystone 2
+> platforms). Hence, export clocks_calc_mult_shift() to allow drivers like
+> CPSW CPTS (and other ptp drivesr) to benefit from automaitc calculation of
+> mult and shift factors.
+> 
+> Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+> Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
 
-We have a winner!  This fixes my problem, so I can run at full speed
-with gso and tso enabled in the sit interface and tx-gso-partial
-enabled on the underlying ethernet.
+Acked-by: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
 
-Thanks to everyone for diagnosis and solution.
-
-It would be nice if this fix went into the stable kernels as well so it
-will turn up in the distro kernels eventually.
---=20
-Cheers,
-Stephen Rothwell
+> ---
+>  kernel/time/clocksource.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
+> index 7e4fad7..150242c 100644
+> --- a/kernel/time/clocksource.c
+> +++ b/kernel/time/clocksource.c
+> @@ -89,6 +89,7 @@ clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
+>  	*mult = tmp;
+>  	*shift = sft;
+>  }
+> +EXPORT_SYMBOL_GPL(clocks_calc_mult_shift);
+>  
+>  /*[Clocksource internal variables]---------
+>   * curr_clocksource:
+> -- 
+> 2.10.1
+> 
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
