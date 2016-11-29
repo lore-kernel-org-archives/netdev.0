@@ -1,36 +1,60 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Subject: Re: [patch net] net: fec: cache statistics while device is down
-Date: Tue, 29 Nov 2016 08:43:17 +0300
-Message-ID: <bd33a3da-ae19-151a-6616-dde242f25320@cogentembedded.com>
-References: <1480343227-725-1-git-send-email-nikita.yoush@cogentembedded.com>
- <AM4PR0401MB2260081367AC9A140448A631FF8D0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next 1/1] samples: bpf: Refactor test_cgrp2_attach -- use
+ getopt, and add mode
+Date: Mon, 28 Nov 2016 21:50:16 -0800
+Message-ID: <20161129055014.GA17751@ast-mbp.thefacebook.com>
+References: <20161128225240.GA8761@ircssh.c.rugged-nimbus-611.internal>
+ <20161129035020.GA15161@ast-mbp.thefacebook.com>
+ <CAMp4zn8tGFxEBSMicv51hSofE_bRT9xd6rgtLFnVSLmhZ_sF_w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Chris Healy <cphealy@gmail.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Duan <fugang.duan@nxp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM4PR0401MB2260081367AC9A140448A631FF8D0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Daniel Mack <daniel@zonque.org>,
+        Alexei Starovoitov <ast@fb.com>
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34961 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755490AbcK2FuV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 00:50:21 -0500
+Received: by mail-pf0-f196.google.com with SMTP id i88so7624002pfk.2
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 21:50:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAMp4zn8tGFxEBSMicv51hSofE_bRT9xd6rgtLFnVSLmhZ_sF_w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->  >
->  >+	fec_enet_update_ethtool_stats(ndev);
->  >+
-> If user never open the interface, ethtool_stats[] always is 0 that are not expected.
-> So, it also should be called at . fec_enet_init() ?
+On Mon, Nov 28, 2016 at 09:42:25PM -0800, Sargun Dhillon wrote:
+> On Mon, Nov 28, 2016 at 7:50 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+> > On Mon, Nov 28, 2016 at 02:52:42PM -0800, Sargun Dhillon wrote:
+> >> This patch modifies test_cgrp2_attach to use getopt so we can use standard
+> >> command line parsing.
+> >>
+> >> It also adds an option to run the program in detach only mode. This does
+> >> not attach a new filter at the cgroup, but only runs the detach command.
+> >>
+> >> Lastly, it changes the attach code to not detach and then attach. It relies
+> >> on the 'hotswap' behaviour of CGroup BPF programs to be able to change
+> >> in-place. If detach-then-attach behaviour needs to be tested, the example
+> >> can be run in detach only mode prior to attachment.
+> >>
+> >> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+> >
+> > looks fine to me.
+> > I'd really prefer this example to become an automated test eventually.
+> I can do that. As far as test cases:
+> 
+> 1. create /foo
+> 2. enter foo
+> 3. attach drop filter to foo
+> 4. try to ping 127.0.0.1 (make sure it returns 0 replies)
+> 5. create /foo/bar
+> 6. enter /foo/bar
+> 7. try to ping 127.0.0.1 (make sure it returns 0 replies)
+> 8. attach passthrough filter to foo/bar
+> 9. try to ping 127.0.0.1 (make sure it returns 1 replies)
+> 10. Detach filter from foo/bar
+> 11. try to ping 127.0.0.1 (make sure it returns 0 replies)
+> Reasonable?
 
-I don't think that zero stats is wrong for never-opened interface.
-
-However a call at init path won't hurt, so I'll add it, just to clear
-the question.
-
-Nikita
+awesome. sounds like a plan.
