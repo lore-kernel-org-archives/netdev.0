@@ -1,103 +1,42 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH net V2] net/sched: pedit: make sure that offset is valid
-Date: Tue, 29 Nov 2016 10:32:05 +0800
-Message-ID: <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
-References: <20161128105640.32363-1-amir@vadai.me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+From: Eli Cooper <elicooper@gmx.com>
+Subject: [PATCH net 2/2] Revert: "ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"
+Date: Tue, 29 Nov 2016 10:35:29 +0800
+Message-ID: <20161129023529.17645-2-elicooper@gmx.com>
+References: <20161129023529.17645-1-elicooper@gmx.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:36799 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755427AbcK2CcG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 21:32:06 -0500
-Received: by mail-oi0-f68.google.com with SMTP id u15so16490316oie.3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 18:32:06 -0800 (PST)
-In-Reply-To: <20161128105640.32363-1-amir@vadai.me>
+Received: from mout.gmx.net ([212.227.17.21]:50935 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753188AbcK2Cfs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 21:35:48 -0500
+In-Reply-To: <20161129023529.17645-1-elicooper@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- +       if (offset > 0 && offset > skb->len)
+This reverts commit ae148b085876fa771d9ef2c05f85d4b4bf09ce0d
+("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()").
 
-offset > skb->len is enough?
+skb->protocol is now set in ip_local_out() and ip6_local_out() right before
+dst_output() is called. It is no longer necessary to do it in each tunnel.
 
-On Mon, Nov 28, 2016 at 6:56 PM, Amir Vadai <amir@vadai.me> wrote:
-> Add a validation function to make sure offset is valid:
-> 1. Not below skb head (could happen when offset is negative).
-> 2. Validate both 'offset' and 'at'.
->
-> Signed-off-by: Amir Vadai <amir@vadai.me>
-> ---
-> Hi Dave,
->
-> Please pull to -stable branches.
->
-> Changes from V0:
-> - Add a validation to the 'at' value (this is used as an offset too)
-> - Instead of validating the output of skb_header_pointer(), make sure that the
->         offset is good before calling it.
->
-> Thanks,
-> Amir
->  net/sched/act_pedit.c | 24 ++++++++++++++++++++----
->  1 file changed, 20 insertions(+), 4 deletions(-)
->
-> diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-> index b54d56d4959b..cf9b2fe8eac6 100644
-> --- a/net/sched/act_pedit.c
-> +++ b/net/sched/act_pedit.c
-> @@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
->         kfree(keys);
->  }
->
-> +static bool offset_valid(struct sk_buff *skb, int offset)
-> +{
-> +       if (offset > 0 && offset > skb->len)
-> +               return false;
-> +
-> +       if  (offset < 0 && -offset > skb_headroom(skb))
-> +               return false;
-> +
-> +       return true;
-> +}
-> +
->  static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
->                      struct tcf_result *res)
->  {
-> @@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
->                         if (tkey->offmask) {
->                                 char *d, _d;
->
-> +                               if (!offset_valid(skb, off + tkey->at)) {
-> +                                       pr_info("tc filter pedit 'at' offset %d out of bounds\n",
-> +                                               off + tkey->at);
-> +                                       goto bad;
-> +                               }
->                                 d = skb_header_pointer(skb, off + tkey->at, 1,
->                                                        &_d);
->                                 if (!d)
-> @@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
->                                         " offset must be on 32 bit boundaries\n");
->                                 goto bad;
->                         }
-> -                       if (offset > 0 && offset > skb->len) {
-> -                               pr_info("tc filter pedit"
-> -                                       " offset %d can't exceed pkt length %d\n",
-> -                                      offset, skb->len);
-> +
-> +                       if (!offset_valid(skb, off + offset)) {
-> +                               pr_info("tc filter pedit offset %d out of bounds\n",
-> +                                       offset);
->                                 goto bad;
->                         }
->
-> --
-> 2.10.2
->
+Cc: stable@vger.kernel.org
+Signed-off-by: Eli Cooper <elicooper@gmx.com>
+---
+ net/ipv6/ip6_tunnel.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 0a4759b..d76674e 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1181,7 +1181,6 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 	if (err)
+ 		return err;
+ 
+-	skb->protocol = htons(ETH_P_IPV6);
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+ 	ipv6h = ipv6_hdr(skb);
+-- 
+2.10.2
