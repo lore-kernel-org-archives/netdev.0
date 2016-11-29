@@ -1,71 +1,107 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH net-next 1/1] driver: ipvlan: Add the sanity check for
- ipvlan mode
-Date: Tue, 29 Nov 2016 09:06:44 +0800
-Message-ID: <CA+6hz4qiUVLJDiF-sX8ckcMm-wq4=Z-3HGPCXXsAdqNbugzb5A@mail.gmail.com>
-References: <1480339435-15551-1-git-send-email-fgao@ikuai8.com>
- <CAF2d9ji2_JhiNv9P9aUt7wV2Vfjv+z_q-MWSKKH8tzO_1THobg@mail.gmail.com> <20161128.150808.1499148970176655699.davem@davemloft.net>
+From: Gao Feng <fgao@ikuai8.com>
+Subject: Re: [PATCH net-next v2 1/1] driver: ipvlan: Use NF_IP_PRI_LAST as
+ hook priority instead of INT_MAX
+Date: Tue, 29 Nov 2016 09:14:45 +0800
+Message-ID: <CA+6hz4qXYzC-mEfTqa5HOf9GtL1S1Q=rcz_CtFW5mbvUtj7niA@mail.gmail.com>
+References: <1480245482-10357-1-git-send-email-fgao@ikuai8.com> <CAF2d9jhdJ55ednEnj7PUezRJ+HJ-3PTH0=B3D9DyYtDVp7RBfw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Mahesh Bandewar <maheshb@google.com>,
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+        linux-netdev <netdev@vger.kernel.org>
+To: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f194.google.com ([209.85.217.194]:36145 "EHLO
-        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751432AbcK2BGq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 20:06:46 -0500
-Received: by mail-ua0-f194.google.com with SMTP id 12so12201665uas.3
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 17:06:45 -0800 (PST)
-In-Reply-To: <20161128.150808.1499148970176655699.davem@davemloft.net>
+Received: from smtpbg202.qq.com ([184.105.206.29]:36500 "EHLO smtpbg202.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754906AbcK2BPK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 20:15:10 -0500
+Received: from mail-vk0-f41.google.com (unknown [209.85.213.41])
+        by esmtp4.qq.com (ESMTP) with SMTP id 0
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 09:14:46 +0800 (CST)
+Received: by mail-vk0-f41.google.com with SMTP id x186so83803023vkd.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 17:14:47 -0800 (PST)
+In-Reply-To: <CAF2d9jhdJ55ednEnj7PUezRJ+HJ-3PTH0=B3D9DyYtDVp7RBfw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David & Mahesh,
+Hi Mahesh,
 
-On Tue, Nov 29, 2016 at 4:08 AM, David Miller <davem@davemloft.net> wrote:
-> From: Mahesh Bandewar (=E0=A4=AE=E0=A4=B9=E0=A5=87=E0=A4=B6 =E0=A4=AC=E0=
-=A4=82=E0=A4=A1=E0=A5=87=E0=A4=B5=E0=A4=BE=E0=A4=B0) <maheshb@google.com>
-> Date: Mon, 28 Nov 2016 11:02:45 -0800
->
->> On Mon, Nov 28, 2016 at 5:23 AM, <fgao@ikuai8.com> wrote:
+On Tue, Nov 29, 2016 at 3:26 AM, Mahesh Bandewar (महेश बंडेवार)
+<maheshb@google.com> wrote:
+> On Sun, Nov 27, 2016 at 3:18 AM,  <fgao@ikuai8.com> wrote:
+>> From: Gao Feng <fgao@ikuai8.com>
 >>
->>> From: Gao Feng <fgao@ikuai8.com>
->>>
->>> The ipvlan mode variable "nval" is from userspace, so the ipvlan codes
->>> should check if the mode variable "nval" is valid.
->>>
->>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->>> ---
->>>  drivers/net/ipvlan/ipvlan_main.c | 3 +++
->>>  1 file changed, 3 insertions(+)
->>>
->>> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvl=
-an_
->>> main.c
->>> index ab90b22..537b5a9 100644
->>> --- a/drivers/net/ipvlan/ipvlan_main.c
->>> +++ b/drivers/net/ipvlan/ipvlan_main.c
->>> @@ -65,6 +65,9 @@ static int ipvlan_set_port_mode(struct ipvl_port *por=
-t,
->>> u16 nval)
->>>         struct net_device *mdev =3D port->dev;
->>>         int err =3D 0;
->>>
->>> +       if (nval >=3D IPVLAN_MODE_MAX)
->>> +               return -EINVAL;
->>> +
->>>
->> I'm curious to know how you encountered this issue? The values are
->> validated in ipvlan_nl_validate() and it should fail at that time itself=
-.
->
-> I'm not applying this without at least a better explanation.
+>> It is better to use NF_IP_PRI_LAST instead of INT_MAX as hook priority.
+>> The former is good at readability and easier to maintain.
+>>
+> This IPvlan hook has to be "absolute" last hook and at this moment
+> NF_IP_PRI_LAST is set as INT_MAX so it's not altering anything.
 
-Sorry, I didn't find the function "ipvlan_nl_validate" during reading
-the ipvlan codes.
+Yes. It is same now.
+So I prefer to use NF_IP_PRI_LAST than INT_MAX.
+Because the nf_hook_ops belongs to the netfilter module. i think the
+ipvlan codes should follow its rule.
+Since netfilter has defined some specific priority enum value, why
+don't we follow it?
+
+>
+> If for whatever reasons the value of NF_IP_PRI_LAST changes, there
+> could be random IPvlan failure. Since that possibility cannot be
+> denied and there are several places INT_MAX is still used as hook
+> priority, I don't see any gain in having this patch in fact there
+> could be future (possible) downside.
+
+If the netfilter module changed the value of NF_IP_PRI_LAST, it may
+decrease it and add one check for the hook priority.
+As a result, the ipvlan may fail to register because of invalid priority.
+
+When use INT_MAX not NF_IP_PRI_LAST, there is one assumption that the
+hook priority is never changed.
+I think it is not good as two different modules.
 
 Regards
 Feng
+
+>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>> ---
+>>  v2: Add the lost header file. It is added in local but not in v1 patch
+>>  v1: Inital patch
+>>
+>>  drivers/net/ipvlan/ipvlan_main.c | 5 +++--
+>>  1 file changed, 3 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+>> index ab90b22..01c7446 100644
+>> --- a/drivers/net/ipvlan/ipvlan_main.c
+>> +++ b/drivers/net/ipvlan/ipvlan_main.c
+>> @@ -7,6 +7,7 @@
+>>   *
+>>   */
+>>
+>> +#include "linux/netfilter_ipv4.h"
+>>  #include "ipvlan.h"
+>>
+>>  static u32 ipvl_nf_hook_refcnt = 0;
+>> @@ -16,13 +17,13 @@
+>>                 .hook     = ipvlan_nf_input,
+>>                 .pf       = NFPROTO_IPV4,
+>>                 .hooknum  = NF_INET_LOCAL_IN,
+>> -               .priority = INT_MAX,
+>> +               .priority = NF_IP_PRI_LAST,
+>>         },
+>>         {
+>>                 .hook     = ipvlan_nf_input,
+>>                 .pf       = NFPROTO_IPV6,
+>>                 .hooknum  = NF_INET_LOCAL_IN,
+>> -               .priority = INT_MAX,
+>> +               .priority = NF_IP_PRI_LAST,
+>>         },
+>>  };
+>>
+>> --
+>> 1.9.1
+>>
+>>
