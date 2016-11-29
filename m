@@ -1,74 +1,78 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [PATCH net] bpf: fix states equal logic for varlen access
-Date: Tue, 29 Nov 2016 09:45:33 -0500
-Message-ID: <db0d1d81-b497-4f95-48c1-87f5f52a906e@fb.com>
-References: <1480362250-2132-1-git-send-email-jbacik@fb.com>
- <20161129030446.GA13735@ast-mbp.thefacebook.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH v2 net-next 00/11] qed*: Add XDP support
+Date: Tue, 29 Nov 2016 16:46:59 +0200
+Message-ID: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <daniel@iogearbox.net>, <ast@kernel.org>, <jannh@google.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53527 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1757299AbcK2OqE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 09:46:04 -0500
-In-Reply-To: <20161129030446.GA13735@ast-mbp.thefacebook.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:52271 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1757643AbcK2OrT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 09:47:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2016 10:04 PM, Alexei Starovoitov wrote:
-> On Mon, Nov 28, 2016 at 02:44:10PM -0500, Josef Bacik wrote:
->> If we have a branch that looks something like this
->>
->> int foo = map->value;
->> if (condition) {
->>   foo += blah;
->> } else {
->>   foo = bar;
->> }
->> map->array[foo] = baz;
->>
->> We will incorrectly assume that the !condition branch is equal to the condition
->> branch as the register for foo will be UNKNOWN_VALUE in both cases.  We need to
->> adjust this logic to only do this if we didn't do a varlen access after we
->> processed the !condition branch, otherwise we have different ranges and need to
->> check the other branch as well.
->>
->> Signed-off-by: Josef Bacik <jbacik@fb.com>
->> ---
->>  kernel/bpf/verifier.c | 10 ++++++++--
->>  1 file changed, 8 insertions(+), 2 deletions(-)
->>
->> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->> index 89f787c..2c8a688 100644
->> --- a/kernel/bpf/verifier.c
->> +++ b/kernel/bpf/verifier.c
->> @@ -2478,6 +2478,7 @@ static bool states_equal(struct bpf_verifier_env *env,
->>  {
->>  	struct bpf_reg_state *rold, *rcur;
->>  	int i;
->> +	bool map_access = env->varlen_map_value_access;
->
-> that's a bit misleading name for the variable.
-> Pls call it varlen_map_access.
->
->>  	for (i = 0; i < MAX_BPF_REG; i++) {
->>  		rold = &old->regs[i];
->> @@ -2489,12 +2490,17 @@ static bool states_equal(struct bpf_verifier_env *env,
->>  		/* If the ranges were not the same, but everything else was and
->>  		 * we didn't do a variable access into a map then we are a-ok.
->>  		 */
->> -		if (!env->varlen_map_value_access &&
->> +		if (!map_access &&
->>  		    rold->type == rcur->type && rold->imm == rcur->imm)
->
-> just noticed that this one is missing comparing rold->id == rcur->id
->
+This patch series is intended to add XDP to the qede driver, although
+it contains quite a bit of cleanups, refactorings and infrastructure
+changes as well.
 
-Do you want me to fix that here?  I'll fix up the rest of the stuff, and Daniels 
-things as well.  Thanks,
+The content of this series can be roughly divided into:
 
-Josef
+ - Datapath improvements - mostly focused on having the datapath utilize
+parameters which can be more tightly contained in cachelines.
+Patches #1, #2, #8, #9 belong to this group.
+
+ - Refactoring - done mostly in favour of XDP. Patches #3, #4, #5, #9.
+
+ - Infrastructure changes - done in favour of XDP. Paches #6 and #7 belong
+to this category [#7 being by far the biggest patch in the series].
+
+ - Actual XDP support - last two patches [#10, #11].
+
+Hi Dave,
+
+Please consider applying this to `net-next'.
+
+Thanks,
+Yuval
+
+Changes from previous versions
+------------------------------
+
+ v2:
+  - Allow setting of the eBPF even when interface is DOWN.
+  - Fix warnings when compiling for an arch with 64Kb pages.
+
+Yuval Mintz (11):
+  qede: Optimize aggregation information size
+  qed: Optimize qed_chain datapath usage
+  qede: Remove 'num_tc'.
+  qede: Refactor statistics gathering
+  qede: Refactor data-path Rx flow
+  qede: Revise state locking scheme
+  qed*: Handle-based L2-queues.
+  qede: Don't check netdevice for rx-hash
+  qede: Better utilize the qede_[rt]x_queue
+  qede: Add basic XDP support
+  qede: Add support for XDP_TX
+
+ drivers/net/ethernet/qlogic/qed/qed.h             |   12 -
+ drivers/net/ethernet/qlogic/qed/qed_dev.c         |   33 +-
+ drivers/net/ethernet/qlogic/qed/qed_l2.c          |  595 +++++----
+ drivers/net/ethernet/qlogic/qed/qed_l2.h          |  133 +-
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |    4 +-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c       |  275 ++--
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h       |   21 +-
+ drivers/net/ethernet/qlogic/qed/qed_vf.c          |   90 +-
+ drivers/net/ethernet/qlogic/qed/qed_vf.h          |   40 +-
+ drivers/net/ethernet/qlogic/qede/qede.h           |  162 ++-
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c   |  210 ++--
+ drivers/net/ethernet/qlogic/qede/qede_main.c      | 1395 ++++++++++++---------
+ include/linux/qed/qed_chain.h                     |  144 ++-
+ include/linux/qed/qed_eth_if.h                    |   56 +-
+ 14 files changed, 1879 insertions(+), 1291 deletions(-)
+
+-- 
+1.9.3
