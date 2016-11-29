@@ -1,44 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: add test for the verifier equal logic bug
-Date: Tue, 29 Nov 2016 21:23:59 +0100
-Message-ID: <583DE3DF.5070507@iogearbox.net>
-References: <1480440919-3252-1-git-send-email-jbacik@fb.com> <583DD1C0.1010209@iogearbox.net> <c2ea35d1-302c-671e-f976-9bb7ccf56197@fb.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] debugfs: improve formatting of debugfs_real_fops()
+Date: Tue, 29 Nov 2016 21:27:57 +0100
+Message-ID: <20161129202756.GA14599@kroah.com>
+References: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
+ <20161129195805.GA2180@kroah.com>
+ <CAJpBn1xRuJYfDewZhOs4GvGpXKxndL+ux5c69ACA4Y4RS+X8kA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Josef Bacik <jbacik@fb.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, ast@kernel.org, jannh@google.com,
-        kernel-team@fb.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Nicolai Stange <nicstange@gmail.com>,
+        Christian Lamparter <chunkeey@gmail.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33970 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756691AbcK2UYD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:24:03 -0500
-In-Reply-To: <c2ea35d1-302c-671e-f976-9bb7ccf56197@fb.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:38956 "EHLO
+        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752706AbcK2U1s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:27:48 -0500
+Content-Disposition: inline
+In-Reply-To: <CAJpBn1xRuJYfDewZhOs4GvGpXKxndL+ux5c69ACA4Y4RS+X8kA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 08:50 PM, Josef Bacik wrote:
-> On 11/29/2016 02:06 PM, Daniel Borkmann wrote:
->> On 11/29/2016 06:35 PM, Josef Bacik wrote:
->>> This is a test to verify that
->>>
->>> bpf: fix states equal logic for varlen access
->>>
->>> actually fixed the problem.  The problem was if the register we added to our map
->>> register was UNKNOWN in both the false and true branches and the only thing that
->>> changed was the range then we'd incorrectly assume that the true branch was
->>> valid, which it really wasnt.  This tests this case and properly fails without
->>> my fix in place and passes with it in place.
->>>
->>> Signed-off-by: Josef Bacik <jbacik@fb.com>
->>
->> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->>
->> Thanks a lot for the test case! They are always useful to have ... which
->> just reminds me: it seems we didn't add anything for f23cc643f9ba ("bpf:
->> fix range arithmetic for bpf map access"). ;-)
->
-> I was hoping you wouldn't notice ;).  I'll add one in the next couple of days. Thanks,
+On Tue, Nov 29, 2016 at 12:11:37PM -0800, Jakub Kicinski wrote:
+> On Tue, Nov 29, 2016 at 11:58 AM, Greg Kroah-Hartman
+> <gregkh@linuxfoundation.org> wrote:
+> > On Thu, Nov 10, 2016 at 05:23:49PM +0000, Jakub Kicinski wrote:
+> >> Type of debugfs_real_fops() is longer than parameters and
+> >> the name, so there is no way to break the declaration nicely.
+> >> We have to go over 80 characters.
+> >>
+> >> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> >> ---
+> >>  include/linux/debugfs.h | 3 +--
+> >>  1 file changed, 1 insertion(+), 2 deletions(-)
+> >
+> > Doesn't apply to my tree, what did you make this against?
+> 
+> net-next, sorry, it
+> 
+> Fixes: 68f929ff2654 ("debugfs: constify argument to debugfs_real_fops()")
+> 
+> I think that change still haven't propagated out of Dave's tree.  Dave
+> didn't take my fix up patch, though, so my plan was to resend it to
+> you during the merge window?  Would that make sense?
 
-Awesome, thanks a lot! :-)
+Sure, that will work.
+
+thanks,
+
+greg k-h
