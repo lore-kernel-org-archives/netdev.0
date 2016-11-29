@@ -1,47 +1,52 @@
-From: Yi Zhao <yi.zhao@windriver.com>
-Subject: [PATCH] xfrm_user: fix return value from xfrm_user_rcv_msg
-Date: Tue, 29 Nov 2016 18:09:01 +0800
-Message-ID: <1480414141-17801-1-git-send-email-yi.zhao@windriver.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH  v2 08/13] net: ethernet: ti: cpts: move dt props parsing
+ to cpts driver
+Date: Tue, 29 Nov 2016 11:11:12 +0100
+Message-ID: <20161129101112.GG3110@localhost.localdomain>
+References: <20161128230337.6731-1-grygorii.strashko@ti.com>
+ <20161128230337.6731-9-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <fan.du@intel.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:58084 "EHLO mail5.wrs.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933530AbcK2KJW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 05:09:22 -0500
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34834 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755394AbcK2KLR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 05:11:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20161128230337.6731-9-grygorii.strashko@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It doesn't support to run 32bit 'ip' to set xfrm objdect on 64bit host.
-But the return value is unknown for user program:
+On Mon, Nov 28, 2016 at 05:03:32PM -0600, Grygorii Strashko wrote:
+> +static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
+> +{
+> +	int ret = -EINVAL;
+> +	u32 prop;
+> +
+> +	if (of_property_read_u32(node, "cpts_clock_mult", &prop))
+> +		goto  of_error;
+> +	cpts->cc_mult = prop;
 
-ip xfrm policy list
-RTNETLINK answers: Unknown error 524
+Why not set cc.mult here at the same time?
 
-Replace ENOTSUPP with EOPNOTSUPP:
+> +
+> +	if (of_property_read_u32(node, "cpts_clock_shift", &prop))
+> +		goto  of_error;
+> +	cpts->cc.shift = prop;
+> +
+> +	return 0;
+> +
+> +of_error:
+> +	dev_err(cpts->dev, "CPTS: Missing property in the DT.\n");
+> +	return ret;
+> +}
 
-ip xfrm policy list
-RTNETLINK answers: Operation not supported
-
-Signed-off-by: Yi Zhao <yi.zhao@windriver.com>
----
- net/xfrm/xfrm_user.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 0889209..671a1d0 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2450,7 +2450,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 
- #ifdef CONFIG_COMPAT
- 	if (in_compat_syscall())
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- #endif
- 
- 	type = nlh->nlmsg_type;
--- 
-2.7.4
+Thanks,
+Richard
