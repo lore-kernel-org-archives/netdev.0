@@ -1,78 +1,46 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] bpf: fix states equal logic for varlen access
-Date: Tue, 29 Nov 2016 08:49:11 -0800
-Message-ID: <20161129164907.GA22217@ast-mbp.thefacebook.com>
-References: <1480362250-2132-1-git-send-email-jbacik@fb.com>
- <20161129030446.GA13735@ast-mbp.thefacebook.com>
- <db0d1d81-b497-4f95-48c1-87f5f52a906e@fb.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Tue, 29 Nov 2016 09:50:09 -0700
+Message-ID: <20161129165009.GA3167@obsidianresearch.com>
+References: <20161122170407.GE3956@obsidianresearch.com>
+ <20161123000502.GA27968@phlsvsds.ph.intel.com>
+ <20161123004932.GA13598@obsidianresearch.com>
+ <20161124000825.GA73280@knc-06.sc.intel.com>
+ <20161124161545.GA20818@obsidianresearch.com>
+ <20161125021350.GA74946@knc-06.sc.intel.com>
+ <20161125190509.GB16504@obsidianresearch.com>
+ <20161129063106.GB84990@knc-06.sc.intel.com>
+ <20161129161950.GB742@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373AB0B9B46@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
-        ast@kernel.org, jannh@google.com
-To: Josef Bacik <jbacik@fb.com>
+Cc: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>,
+        "Weiny, Ira" <ira.weiny@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Dalessandro, Dennis" <dennis.dalessandro@intel.com>
+To: "Hefty, Sean" <sean.hefty@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34972 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933459AbcK2QtQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 11:49:16 -0500
-Received: by mail-pg0-f67.google.com with SMTP id p66so16898936pga.2
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 08:49:15 -0800 (PST)
+Received: from quartz.orcorp.ca ([184.70.90.242]:54790 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756379AbcK2QuM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Nov 2016 11:50:12 -0500
 Content-Disposition: inline
-In-Reply-To: <db0d1d81-b497-4f95-48c1-87f5f52a906e@fb.com>
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373AB0B9B46@ORSMSX109.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 09:45:33AM -0500, Josef Bacik wrote:
-> On 11/28/2016 10:04 PM, Alexei Starovoitov wrote:
-> >On Mon, Nov 28, 2016 at 02:44:10PM -0500, Josef Bacik wrote:
-> >>If we have a branch that looks something like this
-> >>
-> >>int foo = map->value;
-> >>if (condition) {
-> >>  foo += blah;
-> >>} else {
-> >>  foo = bar;
-> >>}
-> >>map->array[foo] = baz;
-> >>
-> >>We will incorrectly assume that the !condition branch is equal to the condition
-> >>branch as the register for foo will be UNKNOWN_VALUE in both cases.  We need to
-> >>adjust this logic to only do this if we didn't do a varlen access after we
-> >>processed the !condition branch, otherwise we have different ranges and need to
-> >>check the other branch as well.
-> >>
-> >>Signed-off-by: Josef Bacik <jbacik@fb.com>
-> >>---
-> >> kernel/bpf/verifier.c | 10 ++++++++--
-> >> 1 file changed, 8 insertions(+), 2 deletions(-)
-> >>
-> >>diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> >>index 89f787c..2c8a688 100644
-> >>--- a/kernel/bpf/verifier.c
-> >>+++ b/kernel/bpf/verifier.c
-> >>@@ -2478,6 +2478,7 @@ static bool states_equal(struct bpf_verifier_env *env,
-> >> {
-> >> 	struct bpf_reg_state *rold, *rcur;
-> >> 	int i;
-> >>+	bool map_access = env->varlen_map_value_access;
-> >
-> >that's a bit misleading name for the variable.
-> >Pls call it varlen_map_access.
-> >
-> >> 	for (i = 0; i < MAX_BPF_REG; i++) {
-> >> 		rold = &old->regs[i];
-> >>@@ -2489,12 +2490,17 @@ static bool states_equal(struct bpf_verifier_env *env,
-> >> 		/* If the ranges were not the same, but everything else was and
-> >> 		 * we didn't do a variable access into a map then we are a-ok.
-> >> 		 */
-> >>-		if (!env->varlen_map_value_access &&
-> >>+		if (!map_access &&
-> >> 		    rold->type == rcur->type && rold->imm == rcur->imm)
-> >
-> >just noticed that this one is missing comparing rold->id == rcur->id
-> >
+On Tue, Nov 29, 2016 at 04:44:37PM +0000, Hefty, Sean wrote:
+> > You are not making a subsystem. Don't overcomplicate things. A
+> > multi-part device device can just directly link.
 > 
-> Do you want me to fix that here?  I'll fix up the rest of the stuff, and
-> Daniels things as well.  Thanks,
+> The VNIC may be usable over multiple generations of HFIs, but I
+> don't know if that is the intent.
 
-Nevermind. Comparing 'id' is not needed in net, only in net-next.
+If Intel wants to build a HFI subystem within RDMA with multiple
+drivers then sure, but they are not there yet, and we don't even know
+what that could look like. So it is better to leave it simple for now.
+
+Jason
