@@ -1,55 +1,55 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] samples/bpf: fix include path
-Date: Mon, 28 Nov 2016 22:07:22 -0800
-Message-ID: <1480399642-2475887-1-git-send-email-ast@fb.com>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Mon, 28 Nov 2016 22:29:38 -0800
+Message-ID: <20161129062938.GA84990@knc-06.sc.intel.com>
+References: <20161121213017.GB67872@knc-06.sc.intel.com>
+ <20161121213930.GA30111@obsidianresearch.com>
+ <20161121232629.GA67988@knc-06.sc.intel.com>
+ <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
+ <20161122170407.GE3956@obsidianresearch.com>
+ <20161123000502.GA27968@phlsvsds.ph.intel.com>
+ <20161123004932.GA13598@obsidianresearch.com>
+ <20161124000825.GA73280@knc-06.sc.intel.com>
+ <20161124161545.GA20818@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:49032 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754281AbcK2GHZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 01:07:25 -0500
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uAT658PM005120
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 22:07:24 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 270yr7bcwn-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 22:07:24 -0800
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- 183585e4b5fa11e68b100002c9521c9e-45bf3a50 for <netdev@vger.kernel.org>;        Mon,
- 28 Nov 2016 22:07:23 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161124161545.GA20818-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fix the following build error:
-HOSTCC  samples/bpf/test_lru_dist.o
-../samples/bpf/test_lru_dist.c:25:22: fatal error: bpf_util.h: No such file or directory
+On Thu, Nov 24, 2016 at 09:15:45AM -0700, Jason Gunthorpe wrote:
+>> And will move the hfi_vnic module under
+>> ‘drivers/infiniband/ulp/hfi_vnic’.
+>
+>I would prefer drivers/net/ethernet
+>
+>This is clearly not a ULP since it doesn't use verbs.
+>
 
-This is due to objtree != srctree.
-Use srctree, since that's where bpf_util.h is located.
+I understand it is not using verbs, but the control path (ib_device client) is 
+using verbs (IB MAD).
+Our prefernce is to keep it somewhere under drivers/infiniband. Summarizing 
+reasons again here,
 
-Fixes: e00c7b216f34 ("bpf: fix multiple issues in selftest suite and samples")
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
- samples/bpf/Makefile | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+- VNIC control driver (ib_device client) is an IB MAD agent.
+- It is purly a software construct, encapsualtes ethernet packets in Omni-path 
+packet and depends on hfi1 driver here for HW access.
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 22b6407efa4f..3ceb5a9d86df 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -91,7 +91,7 @@ always += trace_event_kern.o
- always += sampleip_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
--HOSTCFLAGS += -I$(objtree)/tools/testing/selftests/bpf/
-+HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
- 
- HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
- HOSTLOADLIBES_fds_example += -lelf
--- 
-2.8.0
+Doug,
+Any comments?
+
+>Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
