@@ -1,78 +1,109 @@
-From: Baoquan He <bhe@redhat.com>
-Subject: Re: bnx2 breaks Dell R815 BMC IPMI since 4.8
-Date: Tue, 29 Nov 2016 15:02:11 +0800
-Message-ID: <20161129070211.GC3126@x1>
-References: <583D26EF.60207@inria.fr>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH net V2] net/sched: pedit: make sure that offset is valid
+Date: Tue, 29 Nov 2016 09:14:34 +0200
+Message-ID: <20161129071434.GA22491@office.localdomain>
+References: <20161128105640.32363-1-amir@vadai.me>
+ <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Brice Goglin <Brice.Goglin@inria.fr>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: zhuyj <zyjzyj2000@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39268 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753196AbcK2HCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 02:02:15 -0500
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33825 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756234AbcK2HOi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 02:14:38 -0500
+Received: by mail-wm0-f67.google.com with SMTP id g23so22767836wme.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 23:14:37 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <583D26EF.60207@inria.fr>
+In-Reply-To: <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, Brice. This has been reported by people, and it has been fixed by
-later post. The commits within linus's tree are:
-
-commit 6df77862f63f389df3b1ad879738e04440d7385d
-Author: Baoquan He <bhe@redhat.com>
-Date:   Sun Nov 13 13:01:33 2016 +0800
-
-    bnx2: Wait for in-flight DMA to complete at probe stage
-
-commit 5d0d4b91bf627f14f95167b738d524156c9d440b
-Author: Baoquan He <bhe@redhat.com>
-Date:   Sun Nov 13 13:01:32 2016 +0800
-
-    Revert "bnx2: Reset device during driver initialization"
-    
-    This reverts commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c.
-
-And I believe both of them also are picked up into 4.8-stable kernel.
-Please have a way to get them.
-
-Sorry again!
-
-Thanks
-Baoquan
-
-
-On 11/29/16 at 07:57am, Brice Goglin wrote:
-> Hello
+On Tue, Nov 29, 2016 at 10:32:05AM +0800, zhuyj wrote:
+>  +       if (offset > 0 && offset > skb->len)
 > 
-> My Dell PowerEdge R815 doesn't have IPMI anymore when I boot a 4.8
-> kernel, the BMC doesn't even ping anymore. Its Ethernet devices are 4 of
-> those:
+> offset > skb->len is enough?
+offset is signed and skb->len is unsigned. Therefore for example if
+offset=-1 and skb->len=10, the actual comparison is 0xff...>10
+
 > 
-> 01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
-> 	DeviceName: Embedded NIC 1                          
-> 	Subsystem: Dell NetXtreme II BCM5709 Gigabit Ethernet
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-> 	Latency: 0, Cache Line Size: 64 bytes
-> 	Interrupt: pin A routed to IRQ 42
-> 	Region 0: Memory at e6000000 (64-bit, non-prefetchable) [size=32M]
-> 	Capabilities: <access denied>
-> 	Kernel driver in use: bnx2
-> 	Kernel modules: bnx2
-> 
-> The only change in bnx2 between 4.7 and 4.8 appears to be this one:
-> 
-> commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c
-> Author: Baoquan He <bhe@redhat.com>
-> Date:   Fri Sep 9 22:43:12 2016 +0800
-> 
->     bnx2: Reset device during driver initialization
-> 
-> Could you patch actually break the BMC? What do I need to further debug
-> this issue?
-> 
-> Thanks
-> Brice
-> 
+> On Mon, Nov 28, 2016 at 6:56 PM, Amir Vadai <amir@vadai.me> wrote:
+> > Add a validation function to make sure offset is valid:
+> > 1. Not below skb head (could happen when offset is negative).
+> > 2. Validate both 'offset' and 'at'.
+> >
+> > Signed-off-by: Amir Vadai <amir@vadai.me>
+> > ---
+> > Hi Dave,
+> >
+> > Please pull to -stable branches.
+> >
+> > Changes from V0:
+> > - Add a validation to the 'at' value (this is used as an offset too)
+> > - Instead of validating the output of skb_header_pointer(), make sure that the
+> >         offset is good before calling it.
+> >
+> > Thanks,
+> > Amir
+> >  net/sched/act_pedit.c | 24 ++++++++++++++++++++----
+> >  1 file changed, 20 insertions(+), 4 deletions(-)
+> >
+> > diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+> > index b54d56d4959b..cf9b2fe8eac6 100644
+> > --- a/net/sched/act_pedit.c
+> > +++ b/net/sched/act_pedit.c
+> > @@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
+> >         kfree(keys);
+> >  }
+> >
+> > +static bool offset_valid(struct sk_buff *skb, int offset)
+> > +{
+> > +       if (offset > 0 && offset > skb->len)
+> > +               return false;
+> > +
+> > +       if  (offset < 0 && -offset > skb_headroom(skb))
+> > +               return false;
+> > +
+> > +       return true;
+> > +}
+> > +
+> >  static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+> >                      struct tcf_result *res)
+> >  {
+> > @@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+> >                         if (tkey->offmask) {
+> >                                 char *d, _d;
+> >
+> > +                               if (!offset_valid(skb, off + tkey->at)) {
+> > +                                       pr_info("tc filter pedit 'at' offset %d out of bounds\n",
+> > +                                               off + tkey->at);
+> > +                                       goto bad;
+> > +                               }
+> >                                 d = skb_header_pointer(skb, off + tkey->at, 1,
+> >                                                        &_d);
+> >                                 if (!d)
+> > @@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+> >                                         " offset must be on 32 bit boundaries\n");
+> >                                 goto bad;
+> >                         }
+> > -                       if (offset > 0 && offset > skb->len) {
+> > -                               pr_info("tc filter pedit"
+> > -                                       " offset %d can't exceed pkt length %d\n",
+> > -                                      offset, skb->len);
+> > +
+> > +                       if (!offset_valid(skb, off + offset)) {
+> > +                               pr_info("tc filter pedit offset %d out of bounds\n",
+> > +                                       offset);
+> >                                 goto bad;
+> >                         }
+> >
+> > --
+> > 2.10.2
+> >
