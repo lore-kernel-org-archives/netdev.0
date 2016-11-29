@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 2/2] net: phy: bcm7xxx: Plug in support for reading PHY error counters
-Date: Tue, 29 Nov 2016 09:57:18 -0800
-Message-ID: <20161129175718.20213-3-f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 1/2] net: phy: broadcom: Add support code for reading PHY counters
+Date: Tue, 29 Nov 2016 09:57:17 -0800
+Message-ID: <20161129175718.20213-2-f.fainelli@gmail.com>
 References: <20161129175718.20213-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
@@ -9,87 +9,144 @@ Cc: davem@davemloft.net, andrew@lunn.ch,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35061 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753695AbcK2R53 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 12:57:29 -0500
-Received: by mail-pg0-f65.google.com with SMTP id p66so17045967pga.2
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 09:57:28 -0800 (PST)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34004 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756199AbcK2R51 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 12:57:27 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y68so8713692pfb.1
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 09:57:27 -0800 (PST)
 In-Reply-To: <20161129175718.20213-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Broadcom BCM7xxx internal PHYs can leverage the Broadcom PHY library
-module PHY error counters helper functions, just implement the
-appropriate PHY driver function calls to do so. We need to allocate some
-storage space for our PHY statistics, and provide it to the Broadcom PHY
-library, so do this in a specific probe function, and slightly wrap the
-get_stats function call.
+Broadcom PHYs expose a number of PHY error counters: receive errors,
+false carrier sense, SerDes BER count, local and remote receive errors.
+Add support code to allow retrieving these error counters. Since the
+Broadcom PHY library code is used by several drivers, make it possible
+for them to specify the storage for the software copy of the statistics.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/bcm7xxx.c | 35 +++++++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ drivers/net/phy/bcm-phy-lib.c | 70 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/bcm-phy-lib.h |  5 ++++
+ include/linux/brcmphy.h       |  3 ++
+ 3 files changed, 78 insertions(+)
 
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index 5b3be4c67be8..aae00bde5980 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -45,6 +45,10 @@
- #define AFE_VDAC_OTHERS_0		MISC_ADDR(0x39, 3)
- #define AFE_HPF_TRIM_OTHERS		MISC_ADDR(0x3a, 0)
+diff --git a/drivers/net/phy/bcm-phy-lib.c b/drivers/net/phy/bcm-phy-lib.c
+index 3156ce6d5861..ab9ad689617c 100644
+--- a/drivers/net/phy/bcm-phy-lib.c
++++ b/drivers/net/phy/bcm-phy-lib.c
+@@ -17,6 +17,7 @@
+ #include <linux/mdio.h>
+ #include <linux/module.h>
+ #include <linux/phy.h>
++#include <linux/ethtool.h>
  
-+struct bcm7xxx_phy_priv {
-+	u64	*stats;
+ #define MII_BCM_CHANNEL_WIDTH     0x2000
+ #define BCM_CL45VEN_EEE_ADV       0x3c
+@@ -317,6 +318,75 @@ int bcm_phy_downshift_set(struct phy_device *phydev, u8 count)
+ }
+ EXPORT_SYMBOL_GPL(bcm_phy_downshift_set);
+ 
++struct bcm_phy_hw_stat {
++	const char *string;
++	u8 reg;
++	u8 shift;
++	u8 bits;
 +};
 +
- static void r_rc_cal_reset(struct phy_device *phydev)
- {
- 	/* Reset R_CAL/RC_CAL Engine */
-@@ -350,6 +354,33 @@ static int bcm7xxx_28nm_set_tunable(struct phy_device *phydev,
- 	return genphy_restart_aneg(phydev);
- }
- 
-+static void bcm7xxx_28nm_get_phy_stats(struct phy_device *phydev,
-+				       struct ethtool_stats *stats, u64 *data)
-+{
-+	struct bcm7xxx_phy_priv *priv = phydev->priv;
++/* Counters freeze at either 0xffff or 0xff, better than nothing */
++static const struct bcm_phy_hw_stat bcm_phy_hw_stats[] = {
++	{ "phy_receive_errors", MII_BRCM_CORE_BASE12, 0, 16 },
++	{ "phy_serdes_ber_errors", MII_BRCM_CORE_BASE13, 8, 8 },
++	{ "phy_false_carrier_sense_errors", MII_BRCM_CORE_BASE13, 0, 8 },
++	{ "phy_local_rcvr_nok", MII_BRCM_CORE_BASE14, 8, 8 },
++	{ "phy_remote_rcv_nok", MII_BRCM_CORE_BASE14, 0, 8 },
++};
 +
-+	bcm_phy_get_stats(phydev, priv->stats, stats, data);
++int bcm_phy_get_sset_count(struct phy_device *phydev)
++{
++	return ARRAY_SIZE(bcm_phy_hw_stats);
++}
++EXPORT_SYMBOL_GPL(bcm_phy_get_sset_count);
++
++void bcm_phy_get_strings(struct phy_device *phydev, u8 *data)
++{
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(bcm_phy_hw_stats); i++)
++		memcpy(data + i * ETH_GSTRING_LEN,
++		       bcm_phy_hw_stats[i].string, ETH_GSTRING_LEN);
++}
++EXPORT_SYMBOL_GPL(bcm_phy_get_strings);
++
++#ifndef UINT64_MAX
++#define UINT64_MAX              (u64)(~((u64)0))
++#endif
++
++/* Caller is supposed to provide appropriate storage for the library code to
++ * access the shadow copy
++ */
++static u64 bcm_phy_get_stat(struct phy_device *phydev, u64 *shadow,
++			    unsigned int i)
++{
++	struct bcm_phy_hw_stat stat = bcm_phy_hw_stats[i];
++	int val;
++	u64 ret;
++
++	val = phy_read(phydev, stat.reg);
++	if (val < 0) {
++		ret = UINT64_MAX;
++	} else {
++		val >>= stat.shift;
++		val = val & ((1 << stat.bits) - 1);
++		shadow[i] += val;
++		ret = shadow[i];
++	}
++
++	return ret;
 +}
 +
-+static int bcm7xxx_28nm_probe(struct phy_device *phydev)
++void bcm_phy_get_stats(struct phy_device *phydev, u64 *shadow,
++		       struct ethtool_stats *stats, u64 *data)
 +{
-+	struct bcm7xxx_phy_priv *priv;
++	unsigned int i;
 +
-+	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
-+	if (!priv)
-+		return -ENOMEM;
-+
-+	phydev->priv = priv;
-+
-+	priv->stats = devm_kcalloc(&phydev->mdio.dev,
-+				   bcm_phy_get_sset_count(phydev), sizeof(u64),
-+				   GFP_KERNEL);
-+	if (!priv->stats)
-+		return -ENOMEM;
-+
-+	return 0;
++	for (i = 0; i < ARRAY_SIZE(bcm_phy_hw_stats); i++)
++		data[i] = bcm_phy_get_stat(phydev, shadow, i);
 +}
++EXPORT_SYMBOL_GPL(bcm_phy_get_stats);
 +
- #define BCM7XXX_28NM_GPHY(_oui, _name)					\
- {									\
- 	.phy_id		= (_oui),					\
-@@ -364,6 +395,10 @@ static int bcm7xxx_28nm_set_tunable(struct phy_device *phydev,
- 	.resume		= bcm7xxx_28nm_resume,				\
- 	.get_tunable	= bcm7xxx_28nm_get_tunable,			\
- 	.set_tunable	= bcm7xxx_28nm_set_tunable,			\
-+	.get_sset_count	= bcm_phy_get_sset_count,			\
-+	.get_strings	= bcm_phy_get_strings,				\
-+	.get_stats	= bcm7xxx_28nm_get_phy_stats,			\
-+	.probe		= bcm7xxx_28nm_probe,				\
- }
+ MODULE_DESCRIPTION("Broadcom PHY Library");
+ MODULE_LICENSE("GPL v2");
+ MODULE_AUTHOR("Broadcom Corporation");
+diff --git a/drivers/net/phy/bcm-phy-lib.h b/drivers/net/phy/bcm-phy-lib.h
+index a117f657c6d7..7c73808cbbde 100644
+--- a/drivers/net/phy/bcm-phy-lib.h
++++ b/drivers/net/phy/bcm-phy-lib.h
+@@ -42,4 +42,9 @@ int bcm_phy_downshift_get(struct phy_device *phydev, u8 *count);
  
- #define BCM7XXX_40NM_EPHY(_oui, _name)					\
+ int bcm_phy_downshift_set(struct phy_device *phydev, u8 count);
+ 
++int bcm_phy_get_sset_count(struct phy_device *phydev);
++void bcm_phy_get_strings(struct phy_device *phydev, u8 *data);
++void bcm_phy_get_stats(struct phy_device *phydev, u64 *shadow,
++		       struct ethtool_stats *stats, u64 *data);
++
+ #endif /* _LINUX_BCM_PHY_LIB_H */
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index f9f8aaf9c943..4f7d8be9ddbf 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -244,6 +244,9 @@
+ #define LPI_FEATURE_EN_DIG1000X		0x4000
+ 
+ /* Core register definitions*/
++#define MII_BRCM_CORE_BASE12	0x12
++#define MII_BRCM_CORE_BASE13	0x13
++#define MII_BRCM_CORE_BASE14	0x14
+ #define MII_BRCM_CORE_BASE1E	0x1E
+ #define MII_BRCM_CORE_EXPB0	0xB0
+ #define MII_BRCM_CORE_EXPB1	0xB1
 -- 
 2.9.3
