@@ -1,60 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: GPF in eth_header
-Date: Tue, 29 Nov 2016 08:15:14 -0800
-Message-ID: <1480436114.18162.143.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
-         <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
-         <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
-         <CACPEyM-4dwvmEvq3uTN_8Y-YosP8qA3cYV+oxkufFOn8M+=hew@mail.gmail.com>
-         <CAAeHK+xr+GdLbLch7XatW5rifOz+=cjRCGf1ro8WxEZWziyU4Q@mail.gmail.com>
-         <1480431501.18162.131.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAeHK+zLO=Gv33TqS6tGTTC=QUYO-HOPgSB2oS1SBOAyJzPDTQ@mail.gmail.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) Bus driver
+Date: Tue, 29 Nov 2016 09:19:50 -0700
+Message-ID: <20161129161950.GB742@obsidianresearch.com>
+References: <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
+ <20161122170407.GE3956@obsidianresearch.com>
+ <20161123000502.GA27968@phlsvsds.ph.intel.com>
+ <20161123004932.GA13598@obsidianresearch.com>
+ <20161124000825.GA73280@knc-06.sc.intel.com>
+ <20161124161545.GA20818@obsidianresearch.com>
+ <20161125021350.GA74946@knc-06.sc.intel.com>
+ <20161125190509.GB16504@obsidianresearch.com>
+ <20161129063106.GB84990@knc-06.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36219 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753639AbcK2QPR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 11:15:17 -0500
-In-Reply-To: <CAAeHK+zLO=Gv33TqS6tGTTC=QUYO-HOPgSB2oS1SBOAyJzPDTQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161129063106.GB84990-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-11-29 at 16:31 +0100, Andrey Konovalov wrote:
-=
-> The issue is not with skb_network_offset(), but with __skb_pull()
-> using skb_network_offset() as an argument.
+On Mon, Nov 28, 2016 at 10:31:06PM -0800, Vishwanathapura, Niranjana wrote:
+> On Fri, Nov 25, 2016 at 12:05:09PM -0700, Jason Gunthorpe wrote:
+> >On Thu, Nov 24, 2016 at 06:13:50PM -0800, Vishwanathapura, Niranjana wrote:
+> >
+> >>In order to be truely device independent the hfi_vnic ULP should not depend
+> >>on a device exported symbol. Instead device should register its functions
+> >>with the ULP. Hence the approaches a) and b).
+> >
+> >It is not device independent, it is hard linked to hfi1, just like our
+> >other multi-component drivers.. So don't worry about that.
+> >
 > 
+> We would like to keep the design clean and avoid any tight coupling here
+> (our original design in this series tackled these).
+> Any strong reason not to go with a) or b) ?
 
-No. The issue can happen with _any_ __skb_pull() with a 'negative'
-argument, on 64bit arches.
+You are not making a subsystem. Don't overcomplicate things. A
+multi-part device device can just directly link.
 
-skb_network_offset() is only one of the many cases this could happen if
-a bug is added at some random place, including memory corruption from
-a different kernel layer, or buggy hardware.
-
-> I'm not sure what would be the beast way to fix this, to add a check
-> before every __skb_pull(skb_network_offset()), to fix __skb_pull() to
-> work with signed ints, to add BUG_ON()'s in __skb_pull, or something
-> else.
-> 
-> What I meant is that you fixed this very instance of the bug, and I'm
-> pointing out that a similar one might hit us again.
-
-As I said, adding a check in skb_network_offset() would not be generic
-enough.
-
-Sure, we can be proactive and add tests everywhere in the kernel, but we
-also want to keep it reasonably fast.
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
