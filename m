@@ -1,72 +1,63 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/3] ethtool: (uapi) Add ETHTOOL_PHY_LOOPBACK to
- PHY tunables
-Date: Tue, 29 Nov 2016 01:46:53 +0100
-Message-ID: <20161129004653.GA24782@lunn.ch>
-References: <1480339472-5823-1-git-send-email-allan.nielsen@microsemi.com>
- <1480339472-5823-2-git-send-email-allan.nielsen@microsemi.com>
- <20161128141410.GF4379@lunn.ch>
- <20161128192306.GA11474@microsemi.com>
- <20161128202114.GM17704@lunn.ch>
- <fabb91cd-9fc5-d935-727e-ff57e441e919@gmail.com>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 0/9] liquidio VF operations
+Date: Mon, 28 Nov 2016 16:54:32 -0800
+Message-ID: <1480380881-19255-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Allan W. Nielsen" <allan.nielsen@microsemi.com>,
-        netdev@vger.kernel.org, raju.lakkaraju@microsemi.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60950 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752889AbcK2Aq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 19:46:56 -0500
-Content-Disposition: inline
-In-Reply-To: <fabb91cd-9fc5-d935-727e-ff57e441e919@gmail.com>
+Received: from mail-cys01nam02on0088.outbound.protection.outlook.com ([104.47.37.88]:23744
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753542AbcK2AzF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 19:55:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > If you really do what to do this, you should look at NETIF_F_LOOPBACK
-> > and consider how this concept can be applied at the PHY, not the MAC.
-> > But you need the full concept, so you see things like:
-> > 
-> > 2: eth0: <LOOPBACK,BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
-> >     link/ether 80:ee:73:83:60:27 brd ff:ff:ff:ff:ff:ff
-> > 
-> > Humm, i've no idea how you actually enable the MAC loopback
-> > NETIF_F_LOOPBACK represents. I don't see anything with ip link set.
-> 
-> I am afraid you lost me on this, NETIF_F_LOOPBACK is a netdev_features_t
-> bit, so it tells ethtool that this is a potential feature to be turned
-> on with ethtool -K <iface>. 
+Hi Dave,
 
-Yep, i'm talking rubbish after jumping to a wrong conclusion.
+This patchseries adds support for VF device specific operations
+like mailbox, queues and register access. This V3 patchset also
+has changes based on comments form earlier versions:
 
-> The semantics of this loopack feature are
-> not defined AFAICT, but a reasonable behavior from the driver is to put
-> itself in a mode where packets send by a socket-level application are
-> looped through the Ethernet adapter itself. Whether this happens at the
-> DMA level, the MII signals, or somewhere in the PHY, is driver specific
-> unfortunately.
+1) Removed extra 'void *' casting.
+2) Fixed all cross compilations issues reported on S390 and Powerpc
+   architectures.
 
-Yes, the interesting one might be forcedeth which writes to the PHY
-BMCR_LOOPBACK | BMCR_FULLDPLX | BMCR_SPEED1000;
-when the NETIF_F_LOOPBACK feature is set.
+Please apply the patches in following order as these patches depend
+on each other.
 
-Maybe this could be generalised and made available for all MACs which
-don't support MAC loopback?
+Thanks
 
-What needs considering is the correct duplex and speed. We need to
-ensure the MAC and PHY agree on this.
- 
-> Now, there is another way to toggle a loopback for a given Ethernet
-> adapter which is to actually set IFF_LOOPBACK in dev->flags for this
-> interface. Some drivers seem to be able to properly react to that as
-> well, although I see no way this can be done looking at the iproute2 or
-> ifconfig man pages..
+Raghu Vatsavayi (9):
+  liquidio CN23XX: VF register definitions
+  liquidio CN23XX: VF registration
+  liquidio CN23XX: VF config setup
+  liquidio CN23XX: VF queue setup
+  liquidio CN23XX: VF register access
+  liquidio CN23XX: init VF softcommand queues
+  liquidio CN23XX: VF mailbox
+  liquidio CN23XX: VF interrupt
+  liquidio CN23XX: VF init and destroy
 
-I prefer this one, since i expect this will set LOOPBACK in
+ drivers/net/ethernet/cavium/Kconfig                |  12 +
+ drivers/net/ethernet/cavium/liquidio/Makefile      |  23 +
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.c    | 701 +++++++++++++++++++++
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.h    |  48 ++
+ .../net/ethernet/cavium/liquidio/cn23xx_vf_regs.h  | 274 ++++++++
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    |   7 -
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |   6 +-
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 614 ++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |  66 +-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   9 +-
+ .../net/ethernet/cavium/liquidio/request_manager.c |  11 +-
+ 11 files changed, 1756 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 
-2: eth0: <LOOPBACK,BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
-
-making it lot more obvious something funny is going on.
-
-       Andrew
+-- 
+1.8.3.1
