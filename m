@@ -1,48 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Crash due to mutex genl_lock called from RCU context
-Date: Mon, 28 Nov 2016 20:33:55 -0800
-Message-ID: <CAM_iQpWE2ZZLyT6wi7WVUOWs_m=CSEtH0magKgt8JafZLBf0ig@mail.gmail.com>
-References: <c669cd06c3e50febd95b5ed4aaa78532@codeaurora.org>
- <1480133493.8455.584.camel@edumazet-glaptop3.roam.corp.google.com>
- <1480136078.8455.589.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpU+7arMOHSwDhE5npH_82R9LTNrmny6jK1H-fkW2+9Jcg@mail.gmail.com>
- <1480213570.18162.31.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUnz2kkjOFuk3fKKEYDh54b9WHk1dvH098mGtrGTPjZFQ@mail.gmail.com>
- <1480263824.18162.44.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXB_LRqE83cWwU0ZDckLWPrMcZg-yD4+NKy+rBVz3YAyw@mail.gmail.com> <20161128112211.GA990@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        Thomas Graf <tgraf@suug.ch>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH] openvswitch: add sanity check in queue_userspace_packet.
+Date: Tue, 29 Nov 2016 12:36:36 +0800
+Message-ID: <1480394196-73882-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: Pravin Shelar <pshelar@nicira.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:33289 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752240AbcK2EeR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 23:34:17 -0500
-Received: by mail-io0-f170.google.com with SMTP id j65so270428499iof.0
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 20:34:17 -0800 (PST)
-In-Reply-To: <20161128112211.GA990@gondor.apana.org.au>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:19748 "EHLO
+        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752250AbcK2Egt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 23:36:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 3:22 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> netlink: Call cb->done from a worker thread
->
-> The cb->done interface expects to be called in process context.
-> This was broken by the netlink RCU conversion.  This patch fixes
-> it by adding a worker struct to make the cb->done call where
-> necessary.
->
-> Fixes: 21e4902aea80 ("netlink: Lockless lookup with RCU grace...")
-> Reported-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+kernel will crash in oops if genlmsg_put return NULL,
+so add the sanity check.
 
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+---
+ net/openvswitch/datapath.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Looks good,
-
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
-
-Thanks!
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 2d4c4d3..ceb1b1e 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -474,6 +474,10 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 
+ 	upcall = genlmsg_put(user_skb, 0, 0, &dp_packet_genl_family,
+ 			     0, upcall_info->cmd);
++	if (!upcall) {
++		err = -EMSGSIZE;
++		goto out;
++	}
+ 	upcall->dp_ifindex = dp_ifindex;
+ 
+ 	err = ovs_nla_put_key(key, key, OVS_PACKET_ATTR_KEY, false, user_skb);
+-- 
+1.8.3.1
