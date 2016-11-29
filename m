@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 1/9] liquidio CN23XX: VF register definitions
-Date: Mon, 28 Nov 2016 16:54:33 -0800
-Message-ID: <1480380881-19255-2-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 2/9] liquidio CN23XX: VF registration
+Date: Mon, 28 Nov 2016 16:54:34 -0800
+Message-ID: <1480380881-19255-3-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1480380881-19255-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,29 +16,84 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-cys01nam02on0088.outbound.protection.outlook.com ([104.47.37.88]:23744
         "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753935AbcK2AzG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 19:55:06 -0500
+        id S1753542AbcK2AzL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 19:55:11 -0500
 In-Reply-To: <1480380881-19255-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for CN23xx VF registers.
+Adds support for cn23xx VF probe and registration.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- .../net/ethernet/cavium/liquidio/cn23xx_vf_regs.h  | 274 +++++++++++++++++++++
- 1 file changed, 274 insertions(+)
- create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h
+ drivers/net/ethernet/cavium/Kconfig                |  12 +++
+ drivers/net/ethernet/cavium/liquidio/Makefile      |  21 ++++
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.h    |  34 ++++++
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 120 +++++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |   4 +
+ 5 files changed, 191 insertions(+)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h
+diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+index 92f411c..c0679c2 100644
+--- a/drivers/net/ethernet/cavium/Kconfig
++++ b/drivers/net/ethernet/cavium/Kconfig
+@@ -74,4 +74,16 @@ config OCTEON_MGMT_ETHERNET
+ 	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
+ 	  CN54XX, CN52XX, and CN6XXX chips.
+ 
++config LIQUIDIO_VF
++	tristate "Cavium LiquidIO VF support"
++	depends on 64BIT && PCI_MSI
++	select PTP_1588_CLOCK
++	---help---
++	  This driver supports Cavium LiquidIO Intelligent Server Adapter
++	  based on CN23XX chips.
++
++	  To compile this driver as a module, choose M here: The module
++	  will be called liquidio_vf. MSI-X interrupt support is required
++	  for this driver to work correctly
++
+ endif # NET_VENDOR_CAVIUM
+diff --git a/drivers/net/ethernet/cavium/liquidio/Makefile b/drivers/net/ethernet/cavium/liquidio/Makefile
+index 14958de..69d23fc 100644
+--- a/drivers/net/ethernet/cavium/liquidio/Makefile
++++ b/drivers/net/ethernet/cavium/liquidio/Makefile
+@@ -17,3 +17,24 @@ liquidio-$(CONFIG_LIQUIDIO) += lio_ethtool.o \
+ 			octeon_nic.o
+ 
+ liquidio-objs := lio_main.o octeon_console.o $(liquidio-y)
++
++obj-$(CONFIG_LIQUIDIO_VF) += liquidio_vf.o
++
++ifeq ($(CONFIG_LIQUIDIO)$(CONFIG_LIQUIDIO_VF), yy)
++	liquidio_vf-objs := lio_vf_main.o
++else
++liquidio_vf-$(CONFIG_LIQUIDIO_VF) += lio_ethtool.o \
++			lio_core.o         \
++			request_manager.o  \
++			response_manager.o \
++			octeon_device.o    \
++			cn66xx_device.o    \
++			cn68xx_device.o    \
++			cn23xx_pf_device.o \
++			octeon_mailbox.o   \
++			octeon_mem_ops.o   \
++			octeon_droq.o      \
++			octeon_nic.o
++
++liquidio_vf-objs := lio_vf_main.o $(liquidio_vf-y)
++endif
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
 new file mode 100644
-index 0000000..d33dd8f
+index 0000000..015b6d4
 --- /dev/null
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_regs.h
-@@ -0,0 +1,274 @@
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
+@@ -0,0 +1,34 @@
 +/**********************************************************************
 + * Author: Cavium, Inc.
 + *
@@ -56,262 +111,170 @@ index 0000000..d33dd8f
 + * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
 + * NONINFRINGEMENT.  See the GNU General Public License for more details.
 + ***********************************************************************/
-+/*! \file cn23xx_vf_regs.h
-+ * \brief Host Driver: Register Address and Register Mask values for
-+ * Octeon CN23XX vf functions.
++/*! \file  cn23xx_device.h
++ * \brief Host Driver: Routines that perform CN23XX specific operations.
 + */
 +
-+#ifndef __CN23XX_VF_REGS_H__
-+#define __CN23XX_VF_REGS_H__
++#ifndef __CN23XX_VF_DEVICE_H__
++#define __CN23XX_VF_DEVICE_H__
 +
-+#define     CN23XX_CONFIG_XPANSION_BAR             0x38
++#include "cn23xx_vf_regs.h"
 +
-+#define     CN23XX_CONFIG_PCIE_CAP                 0x70
-+#define     CN23XX_CONFIG_PCIE_DEVCAP              0x74
-+#define     CN23XX_CONFIG_PCIE_DEVCTL              0x78
-+#define     CN23XX_CONFIG_PCIE_LINKCAP             0x7C
-+#define     CN23XX_CONFIG_PCIE_LINKCTL             0x80
-+#define     CN23XX_CONFIG_PCIE_SLOTCAP             0x84
-+#define     CN23XX_CONFIG_PCIE_SLOTCTL             0x88
-+
-+#define     CN23XX_CONFIG_PCIE_FLTMSK              0x720
-+
-+/* The input jabber is used to determine the TSO max size.
-+ * Due to H/W limitation, this need to be reduced to 60000
-+ * in order to to H/W TSO and avoid the WQE malfarmation
-+ * PKO_BUG_24989_WQE_LEN
++/* Register address and configuration for a CN23XX devices.
++ * If device specific changes need to be made then add a struct to include
++ * device specific fields as shown in the commented section
 + */
-+#define    CN23XX_DEFAULT_INPUT_JABBER             0xEA60 /*60000*/
-+
-+/* ##############  BAR0 Registers ################ */
-+
-+/* Each Input Queue register is at a 16-byte Offset in BAR0 */
-+#define    CN23XX_VF_IQ_OFFSET                     0x20000
-+
-+/*###################### REQUEST QUEUE #########################*/
-+
-+/* 64 registers for Input Queue Instr Count - SLI_PKT_IN_DONE0_CNTS */
-+#define    CN23XX_VF_SLI_IQ_INSTR_COUNT_START64     0x10040
-+
-+/* 64 registers for Input Queues Start Addr - SLI_PKT0_INSTR_BADDR */
-+#define    CN23XX_VF_SLI_IQ_BASE_ADDR_START64       0x10010
-+
-+/* 64 registers for Input Doorbell - SLI_PKT0_INSTR_BAOFF_DBELL */
-+#define    CN23XX_VF_SLI_IQ_DOORBELL_START          0x10020
-+
-+/* 64 registers for Input Queue size - SLI_PKT0_INSTR_FIFO_RSIZE */
-+#define    CN23XX_VF_SLI_IQ_SIZE_START              0x10030
-+
-+/* 64 registers (64-bit) - ES, RO, NS, Arbitration for Input Queue Data &
-+ * gather list fetches. SLI_PKT(0..63)_INPUT_CONTROL.
-+ */
-+#define    CN23XX_VF_SLI_IQ_PKT_CONTROL_START64     0x10000
-+
-+/*------- Request Queue Macros ---------*/
-+#define CN23XX_VF_SLI_IQ_PKT_CONTROL64(iq)		\
-+	(CN23XX_VF_SLI_IQ_PKT_CONTROL_START64 + ((iq) * CN23XX_VF_IQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_IQ_BASE_ADDR64(iq)		\
-+	(CN23XX_VF_SLI_IQ_BASE_ADDR_START64 + ((iq) * CN23XX_VF_IQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_IQ_SIZE(iq)			\
-+	(CN23XX_VF_SLI_IQ_SIZE_START + ((iq) * CN23XX_VF_IQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_IQ_DOORBELL(iq)			\
-+	(CN23XX_VF_SLI_IQ_DOORBELL_START + ((iq) * CN23XX_VF_IQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_IQ_INSTR_COUNT64(iq)		\
-+	(CN23XX_VF_SLI_IQ_INSTR_COUNT_START64 + ((iq) * CN23XX_VF_IQ_OFFSET))
-+
-+/*------------------ Masks ----------------*/
-+#define    CN23XX_PKT_INPUT_CTL_VF_NUM                  BIT_ULL(32)
-+#define    CN23XX_PKT_INPUT_CTL_MAC_NUM                 BIT(29)
-+/* Number of instructions to be read in one MAC read request.
-+ * setting to Max value(4)
-+ */
-+#define    CN23XX_PKT_INPUT_CTL_RDSIZE                  (3 << 25)
-+#define    CN23XX_PKT_INPUT_CTL_IS_64B                  BIT(24)
-+#define    CN23XX_PKT_INPUT_CTL_RST                     BIT(23)
-+#define    CN23XX_PKT_INPUT_CTL_QUIET                   BIT(28)
-+#define    CN23XX_PKT_INPUT_CTL_RING_ENB                BIT(22)
-+#define    CN23XX_PKT_INPUT_CTL_DATA_NS                 BIT(8)
-+#define    CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP        BIT(6)
-+#define    CN23XX_PKT_INPUT_CTL_DATA_RO                 BIT(5)
-+#define    CN23XX_PKT_INPUT_CTL_USE_CSR                 BIT(4)
-+#define    CN23XX_PKT_INPUT_CTL_GATHER_NS               BIT(3)
-+#define    CN23XX_PKT_INPUT_CTL_GATHER_ES_64B_SWAP      (2)
-+#define    CN23XX_PKT_INPUT_CTL_GATHER_RO               (1)
-+
-+/** Rings per Virtual Function [RO] **/
-+#define    CN23XX_PKT_INPUT_CTL_RPVF_MASK               (0x3F)
-+#define    CN23XX_PKT_INPUT_CTL_RPVF_POS                (48)
-+/* These bits[47:44][RO] give the Physical function number info within the MAC*/
-+#define    CN23XX_PKT_INPUT_CTL_PF_NUM_MASK             (0x7)
-+#define    CN23XX_PKT_INPUT_CTL_PF_NUM_POS              (45)
-+/** These bits[43:32][RO] give the virtual function number info within the PF*/
-+#define    CN23XX_PKT_INPUT_CTL_VF_NUM_MASK             (0x1FFF)
-+#define    CN23XX_PKT_INPUT_CTL_VF_NUM_POS              (32)
-+#define    CN23XX_PKT_INPUT_CTL_MAC_NUM_MASK            (0x3)
-+#define    CN23XX_PKT_INPUT_CTL_MAC_NUM_POS             (29)
-+#define    CN23XX_PKT_IN_DONE_WMARK_MASK                (0xFFFFULL)
-+#define    CN23XX_PKT_IN_DONE_WMARK_BIT_POS             (32)
-+#define    CN23XX_PKT_IN_DONE_CNT_MASK                  (0x00000000FFFFFFFFULL)
-+
-+#ifdef __LITTLE_ENDIAN_BITFIELD
-+#define CN23XX_PKT_INPUT_CTL_MASK			\
-+	(CN23XX_PKT_INPUT_CTL_RDSIZE			\
-+	 | CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP	\
-+	 | CN23XX_PKT_INPUT_CTL_USE_CSR)
-+#else
-+#define CN23XX_PKT_INPUT_CTL_MASK			\
-+	(CN23XX_PKT_INPUT_CTL_RDSIZE			\
-+	 | CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP	\
-+	 | CN23XX_PKT_INPUT_CTL_USE_CSR			\
-+	 | CN23XX_PKT_INPUT_CTL_GATHER_ES_64B_SWAP)
++struct octeon_cn23xx_vf {
++	struct octeon_config *conf;
++};
 +#endif
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+new file mode 100644
+index 0000000..fd108cd
+--- /dev/null
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -0,0 +1,120 @@
++/**********************************************************************
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
++#include <linux/pci.h>
++#include <net/vxlan.h>
++#include "liquidio_common.h"
++#include "octeon_droq.h"
++#include "octeon_iq.h"
++#include "response_manager.h"
++#include "octeon_device.h"
 +
-+/** Masks for SLI_PKT_IN_DONE(0..63)_CNTS Register */
-+#define    CN23XX_IN_DONE_CNTS_PI_INT               BIT_ULL(62)
-+#define    CN23XX_IN_DONE_CNTS_CINT_ENB             BIT_ULL(48)
++MODULE_AUTHOR("Cavium Networks, <support@cavium.com>");
++MODULE_DESCRIPTION("Cavium LiquidIO Intelligent Server Adapter Virtual Function Driver");
++MODULE_LICENSE("GPL");
++MODULE_VERSION(LIQUIDIO_VERSION);
 +
-+/*############################ OUTPUT QUEUE #########################*/
++struct octeon_device_priv {
++	/* Tasklet structures for this device. */
++	struct tasklet_struct droq_tasklet;
++	unsigned long napi_mask;
++};
 +
-+/* 64 registers for Output queue control - SLI_PKT(0..63)_OUTPUT_CONTROL */
-+#define    CN23XX_VF_SLI_OQ_PKT_CONTROL_START       0x10050
++static int
++liquidio_vf_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
++static void liquidio_vf_remove(struct pci_dev *pdev);
 +
-+/* 64 registers for Output queue buffer and info size - SLI_PKT0_OUT_SIZE */
-+#define    CN23XX_VF_SLI_OQ0_BUFF_INFO_SIZE         0x10060
++static const struct pci_device_id liquidio_vf_pci_tbl[] = {
++	{
++		PCI_VENDOR_ID_CAVIUM, OCTEON_CN23XX_VF_VID,
++		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0
++	},
++	{
++		0, 0, 0, 0, 0, 0, 0
++	}
++};
++MODULE_DEVICE_TABLE(pci, liquidio_vf_pci_tbl);
 +
-+/* 64 registers for Output Queue Start Addr - SLI_PKT0_SLIST_BADDR */
-+#define    CN23XX_VF_SLI_OQ_BASE_ADDR_START64       0x10070
++static struct pci_driver liquidio_vf_pci_driver = {
++	.name		= "LiquidIO_VF",
++	.id_table	= liquidio_vf_pci_tbl,
++	.probe		= liquidio_vf_probe,
++	.remove		= liquidio_vf_remove,
++};
 +
-+/* 64 registers for Output Queue Packet Credits - SLI_PKT0_SLIST_BAOFF_DBELL */
-+#define    CN23XX_VF_SLI_OQ_PKT_CREDITS_START       0x10080
++/**
++ * \brief PCI probe handler
++ * @param pdev PCI device structure
++ * @param ent unused
++ */
++static int
++liquidio_vf_probe(struct pci_dev *pdev,
++		  const struct pci_device_id *ent __attribute__((unused)))
++{
++	struct octeon_device *oct_dev = NULL;
 +
-+/* 64 registers for Output Queue size - SLI_PKT0_SLIST_FIFO_RSIZE */
-+#define    CN23XX_VF_SLI_OQ_SIZE_START              0x10090
++	oct_dev = octeon_allocate_device(pdev->device,
++					 sizeof(struct octeon_device_priv));
 +
-+/* 64 registers for Output Queue Packet Count - SLI_PKT0_CNTS */
-+#define    CN23XX_VF_SLI_OQ_PKT_SENT_START          0x100B0
++	if (!oct_dev) {
++		dev_err(&pdev->dev, "Unable to allocate device\n");
++		return -ENOMEM;
++	}
 +
-+/* 64 registers for Output Queue INT Levels - SLI_PKT0_INT_LEVELS */
-+#define    CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_START64  0x100A0
++	dev_info(&pdev->dev, "Initializing device %x:%x.\n",
++		 (u32)pdev->vendor, (u32)pdev->device);
 +
-+/* Each Output Queue register is at a 16-byte Offset in BAR0 */
-+#define    CN23XX_VF_OQ_OFFSET                      0x20000
++	/* Assign octeon_device for this device to the private data area. */
++	pci_set_drvdata(pdev, oct_dev);
 +
-+/*------- Output Queue Macros ---------*/
++	/* set linux specific device pointer */
++	oct_dev->pci_dev = pdev;
 +
-+#define CN23XX_VF_SLI_OQ_PKT_CONTROL(oq)		\
-+	(CN23XX_VF_SLI_OQ_PKT_CONTROL_START + ((oq) * CN23XX_VF_OQ_OFFSET))
++	return 0;
++}
 +
-+#define CN23XX_VF_SLI_OQ_BASE_ADDR64(oq)		\
-+	(CN23XX_VF_SLI_OQ_BASE_ADDR_START64 + ((oq) * CN23XX_VF_OQ_OFFSET))
++/**
++ * \brief Cleans up resources at unload time
++ * @param pdev PCI device structure
++ */
++static void liquidio_vf_remove(struct pci_dev *pdev)
++{
++	struct octeon_device *oct_dev = pci_get_drvdata(pdev);
 +
-+#define CN23XX_VF_SLI_OQ_SIZE(oq)			\
-+	(CN23XX_VF_SLI_OQ_SIZE_START + ((oq) * CN23XX_VF_OQ_OFFSET))
++	dev_dbg(&oct_dev->pci_dev->dev, "Stopping device\n");
 +
-+#define CN23XX_VF_SLI_OQ_BUFF_INFO_SIZE(oq)		\
-+	(CN23XX_VF_SLI_OQ0_BUFF_INFO_SIZE + ((oq) * CN23XX_VF_OQ_OFFSET))
++	/* This octeon device has been removed. Update the global
++	 * data structure to reflect this. Free the device structure.
++	 */
++	octeon_free_device_mem(oct_dev);
++}
 +
-+#define CN23XX_VF_SLI_OQ_PKTS_SENT(oq)		\
-+	(CN23XX_VF_SLI_OQ_PKT_SENT_START + ((oq) * CN23XX_VF_OQ_OFFSET))
++static int __init liquidio_vf_init(void)
++{
++	octeon_init_device_list(0);
++	return pci_register_driver(&liquidio_vf_pci_driver);
++}
 +
-+#define CN23XX_VF_SLI_OQ_PKTS_CREDIT(oq)		\
-+	(CN23XX_VF_SLI_OQ_PKT_CREDITS_START + ((oq) * CN23XX_VF_OQ_OFFSET))
++static void __exit liquidio_vf_exit(void)
++{
++	pci_unregister_driver(&liquidio_vf_pci_driver);
 +
-+#define CN23XX_VF_SLI_OQ_PKT_INT_LEVELS(oq)		\
-+	(CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_START64 + ((oq) * CN23XX_VF_OQ_OFFSET))
++	pr_info("LiquidIO_VF network module is now unloaded\n");
++}
 +
-+/* Macro's for accessing CNT and TIME separately from INT_LEVELS */
-+#define CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_CNT(oq)	\
-+	(CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_START64 + ((oq) * CN23XX_VF_OQ_OFFSET))
-+
-+#define CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_TIME(oq)	\
-+	(CN23XX_VF_SLI_OQ_PKT_INT_LEVELS_START64 +	\
-+	 ((oq) * CN23XX_VF_OQ_OFFSET) + 4)
-+
-+/*------------------ Masks ----------------*/
-+#define    CN23XX_PKT_OUTPUT_CTL_TENB                  BIT(13)
-+#define    CN23XX_PKT_OUTPUT_CTL_CENB                  BIT(12)
-+#define    CN23XX_PKT_OUTPUT_CTL_IPTR                  BIT(11)
-+#define    CN23XX_PKT_OUTPUT_CTL_ES                    BIT(9)
-+#define    CN23XX_PKT_OUTPUT_CTL_NSR                   BIT(8)
-+#define    CN23XX_PKT_OUTPUT_CTL_ROR                   BIT(7)
-+#define    CN23XX_PKT_OUTPUT_CTL_DPTR                  BIT(6)
-+#define    CN23XX_PKT_OUTPUT_CTL_BMODE                 BIT(5)
-+#define    CN23XX_PKT_OUTPUT_CTL_ES_P                  BIT(3)
-+#define    CN23XX_PKT_OUTPUT_CTL_NSR_P                 BIT(2)
-+#define    CN23XX_PKT_OUTPUT_CTL_ROR_P                 BIT(1)
-+#define    CN23XX_PKT_OUTPUT_CTL_RING_ENB              BIT(0)
-+
-+/*######################### Mailbox Reg Macros ########################*/
-+#define    CN23XX_VF_SLI_PKT_MBOX_INT_START            0x10210
-+#define    CN23XX_SLI_PKT_PF_VF_MBOX_SIG_START         0x10200
-+
-+#define    CN23XX_SLI_MBOX_OFFSET                      0x20000
-+#define    CN23XX_SLI_MBOX_SIG_IDX_OFFSET              0x8
-+
-+#define CN23XX_VF_SLI_PKT_MBOX_INT(q)	\
-+	(CN23XX_VF_SLI_PKT_MBOX_INT_START + ((q) * CN23XX_SLI_MBOX_OFFSET))
-+
-+#define CN23XX_SLI_PKT_PF_VF_MBOX_SIG(q, idx)		\
-+	(CN23XX_SLI_PKT_PF_VF_MBOX_SIG_START +		\
-+	 ((q) * CN23XX_SLI_MBOX_OFFSET +		\
-+	  (idx) * CN23XX_SLI_MBOX_SIG_IDX_OFFSET))
-+
-+/*######################## INTERRUPTS #########################*/
-+
-+#define    CN23XX_VF_SLI_INT_SUM_START		  0x100D0
-+
-+#define CN23XX_VF_SLI_INT_SUM(q)			\
-+	(CN23XX_VF_SLI_INT_SUM_START + ((q) * CN23XX_VF_IQ_OFFSET))
-+
-+/*------------------ Interrupt Masks ----------------*/
-+
-+#define    CN23XX_INTR_PO_INT                   BIT_ULL(63)
-+#define    CN23XX_INTR_PI_INT                   BIT_ULL(62)
-+#define    CN23XX_INTR_MBOX_INT                 BIT_ULL(61)
-+#define    CN23XX_INTR_RESEND                   BIT_ULL(60)
-+
-+#define    CN23XX_INTR_CINT_ENB                 BIT_ULL(48)
-+#define    CN23XX_INTR_MBOX_ENB                 BIT(0)
-+
-+/*############################ MIO #########################*/
-+#define    CN23XX_MIO_PTP_CLOCK_CFG       0x0001070000000f00ULL
-+#define    CN23XX_MIO_PTP_CLOCK_LO        0x0001070000000f08ULL
-+#define    CN23XX_MIO_PTP_CLOCK_HI        0x0001070000000f10ULL
-+#define    CN23XX_MIO_PTP_CLOCK_COMP      0x0001070000000f18ULL
-+#define    CN23XX_MIO_PTP_TIMESTAMP       0x0001070000000f20ULL
-+#define    CN23XX_MIO_PTP_EVT_CNT         0x0001070000000f28ULL
-+#define    CN23XX_MIO_PTP_CKOUT_THRESH_LO 0x0001070000000f30ULL
-+#define    CN23XX_MIO_PTP_CKOUT_THRESH_HI 0x0001070000000f38ULL
-+#define    CN23XX_MIO_PTP_CKOUT_HI_INCR   0x0001070000000f40ULL
-+#define    CN23XX_MIO_PTP_CKOUT_LO_INCR   0x0001070000000f48ULL
-+#define    CN23XX_MIO_PTP_PPS_THRESH_LO   0x0001070000000f50ULL
-+#define    CN23XX_MIO_PTP_PPS_THRESH_HI   0x0001070000000f58ULL
-+#define    CN23XX_MIO_PTP_PPS_HI_INCR     0x0001070000000f60ULL
-+#define    CN23XX_MIO_PTP_PPS_LO_INCR     0x0001070000000f68ULL
-+
-+/*############################ RST #########################*/
-+#define    CN23XX_RST_BOOT                0x0001180006001600ULL
-+
-+/*######################## MSIX TABLE #########################*/
-+
-+#define    CN23XX_MSIX_TABLE_ADDR_START    0x0
-+#define    CN23XX_MSIX_TABLE_DATA_START    0x8
-+
-+#define    CN23XX_MSIX_TABLE_SIZE          0x10
-+#define    CN23XX_MSIX_TABLE_ENTRIES       0x41
-+
-+#define    CN23XX_MSIX_ENTRY_VECTOR_CTL    BIT_ULL(32)
-+
-+#define CN23XX_MSIX_TABLE_ADDR(idx)		\
-+	(CN23XX_MSIX_TABLE_ADDR_START + ((idx) * CN23XX_MSIX_TABLE_SIZE))
-+
-+#define CN23XX_MSIX_TABLE_DATA(idx)		\
-+	(CN23XX_MSIX_TABLE_DATA_START + ((idx) * CN23XX_MSIX_TABLE_SIZE))
-+
-+#endif
++module_init(liquidio_vf_init);
++module_exit(liquidio_vf_exit);
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+index 79c8875..05bb0fd 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+@@ -28,6 +28,7 @@
+ #include "cn66xx_regs.h"
+ #include "cn66xx_device.h"
+ #include "cn23xx_pf_device.h"
++#include "cn23xx_vf_device.h"
+ 
+ /** Default configuration
+  *  for CN66XX OCTEON Models.
+@@ -672,6 +673,9 @@ static struct octeon_device *octeon_allocate_device_mem(u32 pci_id,
+ 	case OCTEON_CN23XX_PF_VID:
+ 		configsize = sizeof(struct octeon_cn23xx_pf);
+ 		break;
++	case OCTEON_CN23XX_VF_VID:
++		configsize = sizeof(struct octeon_cn23xx_vf);
++		break;
+ 	default:
+ 		pr_err("%s: Unknown PCI Device: 0x%x\n",
+ 		       __func__,
 -- 
 1.8.3.1
