@@ -1,42 +1,51 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH net-next] cgroup, bpf: remove unnecessary #include
-Date: Tue, 29 Nov 2016 15:05:40 +0100
-Message-ID: <c69b39de-60ad-8f88-a771-911dbca09f8b@zonque.org>
-References: <1480145027-3524392-1-git-send-email-ast@fb.com>
- <583D5D00.4070101@iogearbox.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v3 net-next 0/4] bpf: BPF for lightweight tunnel
+ encapsulation
+Date: Tue, 29 Nov 2016 15:15:15 +0100
+Message-ID: <50764658-4bf7-966b-bc61-d6840d7c03f2@stressinduktion.org>
+References: <cover.1480424542.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, tom@herbertland.com,
+        roopa@cumulusnetworks.com
+To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:46760 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756906AbcK2OFo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 09:05:44 -0500
-In-Reply-To: <583D5D00.4070101@iogearbox.net>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:37595 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755250AbcK2OPT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 09:15:19 -0500
+In-Reply-To: <cover.1480424542.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 11:48 AM, Daniel Borkmann wrote:
-> On 11/26/2016 08:23 AM, Alexei Starovoitov wrote:
->> this #include is unnecessary and brings whole set of
->> other headers into cgroup-defs.h. Remove it.
->>
->> Fixes: 3007098494be ("cgroup: add support for eBPF programs")
->> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> 
-> This fixes many build errors in samples/bpf/ due to wrong helper
-> redefinitions (originating from kernel includes conflicting with
-> samples' helper declarations).
-> 
-> I don't see it pushed out to net-next yet, so:
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> 
+Hi Thomas,
 
-FWIW:
+On 29.11.2016 14:21, Thomas Graf wrote:
+> This series implements BPF program invocation from dst entries via the
+> lightweight tunnels infrastructure. The BPF program can be attached to
+> lwtunnel_input(), lwtunnel_output() or lwtunnel_xmit() and see an L3
+> skb as context. Programs attached to input and output are read-only.
+> Programs attached to lwtunnel_xmit() can modify and redirect, push headers
+> and redirect packets.
+> 
+> The facility can be used to:
+>  - Collect statistics and generate sampling data for a subset of traffic
+>    based on the dst utilized by the packet thus allowing to extend the
+>    existing realms.
+>  - Apply additional per route/dst filters to prohibit certain outgoing
+>    or incoming packets based on BPF filters. In particular, this allows
+>    to maintain per dst custom state across multiple packets in BPF maps
+>    and apply filters based on statistics and behaviour observed over time.
+>  - Attachment of L2 headers at transmit where resolving the L2 address
+>    is not required.
+>  - Possibly many more.
 
-Acked-by: Daniel Mack <daniel@zonque.org>
+Did you look at the cgroup based hooks which were added recently in
+ip_finish_output for cgroup ebpf support and in general the cgroup bpf
+subsystem. Does some of this solve the problem for you already? Would be
+interesting to hear your opinion on that.
+
+Thanks,
+Hannes
