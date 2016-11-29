@@ -1,8 +1,8 @@
 From: Marcin Wojtas <mw@semihalf.com>
 Subject: Re: [PATCH v3 net-next 2/6] net: mvneta: Use cacheable memory to
  store the rx buffer virtual address
-Date: Tue, 29 Nov 2016 10:50:39 +0100
-Message-ID: <CAPv3WKcn27QsqLamzS2QV-RF1GD3bgsYCYD-2q9tpTtqF+eiWQ@mail.gmail.com>
+Date: Tue, 29 Nov 2016 10:59:25 +0100
+Message-ID: <CAPv3WKeFXJA1RjFZ5VoRfBtU+QGUx+AT3LYuoMHamQtNWCCMVA@mail.gmail.com>
 References: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
  <a010f2cde3de80132d82acb2812b82343ea54c95.1480412215.git-series.gregory.clement@free-electrons.com>
 Mime-Version: 1.0
@@ -21,14 +21,20 @@ Cc: "David S. Miller" <davem@davemloft.net>,
         Dmitri Epshtein <dima@marvell.com>,
         Yelena Krivosheev <yelena@marvell.com>
 To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:33305 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755449AbcK2J70 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 04:59:26 -0500
+Received: by mail-io0-f172.google.com with SMTP id j65so280767388iof.0
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 01:59:26 -0800 (PST)
 In-Reply-To: <a010f2cde3de80132d82acb2812b82343ea54c95.1480412215.git-series.gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Gregory,
 
-Apparently HWBM had a mistake in implementation, please see below.
+Another remark below, sorry for noise.
 
 2016-11-29 10:37 GMT+01:00 Gregory CLEMENT <gregory.clement@free-electrons.com>:
 > Until now the virtual address of the received buffer were stored in the
@@ -108,126 +114,10 @@ Apparently HWBM had a mistake in implementation, please see below.
 > +                       data = rxq->buf_virt_addr[i];
 > +               else
 > +                       data = (void *)(uintptr_t)rx_desc->buf_cookie;
->
->                 dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
->                                  MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
-> @@ -1894,12 +1907,13 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
->                 unsigned char *data;
->                 dma_addr_t phys_addr;
->                 u32 rx_status, frag_size;
-> -               int rx_bytes, err;
-> +               int rx_bytes, err, index;
->
->                 rx_done++;
->                 rx_status = rx_desc->status;
->                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
-> -               data = (unsigned char *)rx_desc->buf_cookie;
-> +               index = rx_desc - rxq->descs;
-> +               data = (unsigned char *)rxq->buf_virt_addr[index];
->                 phys_addr = rx_desc->buf_phys_addr;
->
->                 if (!mvneta_rxq_desc_is_first_last(rx_status) ||
-> @@ -1938,7 +1952,7 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
->                 }
->
->                 /* Refill processing */
-> -               err = mvneta_rx_refill(pp, rx_desc);
-> +               err = mvneta_rx_refill(pp, rx_desc, rxq);
->                 if (err) {
->                         netdev_err(dev, "Linux processing - Can't refill\n");
->                         rxq->missed++;
-> @@ -2020,7 +2034,7 @@ static int mvneta_rx_hwbm(struct mvneta_port *pp, int rx_todo,
->                 rx_done++;
->                 rx_status = rx_desc->status;
->                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
-> -               data = (unsigned char *)rx_desc->buf_cookie;
-> +               data = (u8 *)(uintptr_t)rx_desc->buf_cookie;
->                 phys_addr = rx_desc->buf_phys_addr;
->                 pool_id = MVNETA_RX_GET_BM_POOL_ID(rx_desc);
->                 bm_pool = &pp->bm_priv->bm_pools[pool_id];
-> @@ -2708,6 +2722,56 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
->         return rx_done;
->  }
->
-> +/* Refill processing for HW buffer management */
-> +static int mvneta_rx_hwbm_refill(struct mvneta_port *pp,
-> +                                struct mvneta_rx_desc *rx_desc)
-> +
-> +{
-> +       dma_addr_t phys_addr;
-> +       void *data;
-> +
-> +       data = mvneta_frag_alloc(pp->frag_size);
-> +       if (!data)
-> +               return -ENOMEM;
-> +
-> +       phys_addr = dma_map_single(pp->dev->dev.parent, data,
-> +                                  MVNETA_RX_BUF_SIZE(pp->pkt_size),
-> +                                  DMA_FROM_DEVICE);
-> +       if (unlikely(dma_mapping_error(pp->dev->dev.parent, phys_addr))) {
-> +               mvneta_frag_free(pp->frag_size, data);
-> +               return -ENOMEM;
-> +       }
-> +
-> +       rx_desc->buf_phys_addr = phys_addr;
-> +       rx_desc->buf_cookie = (uintptr_t)data;
-> +
-> +       return 0;
-> +}
-> +
-> +/* Handle rxq fill: allocates rxq skbs; called when initializing a port */
-> +static int mvneta_rxq_bm_fill(struct mvneta_port *pp,
-> +                             struct mvneta_rx_queue *rxq,
-> +                             int num)
-> +{
-> +       int i;
-> +
-> +       for (i = 0; i < num; i++) {
-> +               memset(rxq->descs + i, 0, sizeof(struct mvneta_rx_desc));
-> +               if (mvneta_rx_hwbm_refill(pp, rxq->descs + i) != 0) {
-> +                       netdev_err(pp->dev, "%s:rxq %d, %d of %d buffs  filled\n",
-> +                                  __func__, rxq->id, i, num);
-> +                       break;
-> +               }
-> +       }
-> +
-> +       /* Add this number of RX descriptors as non occupied (ready to
-> +        * get packets)
-> +        */
-> +       mvneta_rxq_non_occup_desc_add(pp, rxq, i);
-> +
-> +       return i;
-> +}
-> +
->  /* Handle rxq fill: allocates rxq skbs; called when initializing a port */
->  static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
->                            int num)
-> @@ -2716,7 +2780,7 @@ static int mvneta_rxq_fill(struct mvneta_port *pp, struct mvneta_rx_queue *rxq,
->
->         for (i = 0; i < num; i++) {
->                 memset(rxq->descs + i, 0, sizeof(struct mvneta_rx_desc));
-> -               if (mvneta_rx_refill(pp, rxq->descs + i) != 0) {
-> +               if (mvneta_rx_refill(pp, rxq->descs + i, rxq) != 0) {
->                         netdev_err(pp->dev, "%s:rxq %d, %d of %d buffs  filled\n",
->                                 __func__, rxq->id, i, num);
->                         break;
-> @@ -2784,14 +2848,14 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
->                 mvneta_rxq_buf_size_set(pp, rxq,
->                                         MVNETA_RX_BUF_SIZE(pp->pkt_size));
->                 mvneta_rxq_bm_disable(pp, rxq);
-> +               mvneta_rxq_fill(pp, rxq, rxq->size);
->         } else {
->                 mvneta_rxq_bm_enable(pp, rxq);
->                 mvneta_rxq_long_pool_set(pp, rxq);
->                 mvneta_rxq_short_pool_set(pp, rxq);
-> +               mvneta_rxq_bm_fill(pp, rxq, rxq->size);
 
-Manual filling descriptors with new buffers is redundant. For HWBM,
-all buffers are allocated in mvneta_bm_construct() and in runtime they
-are put into descriptors by hardware. I think it's enough to add here:
-mvneta_rxq_non_occup_desc_add(pp, rxq, rxq->size);
-
-And remove mvneta_rxq_bm_fill and mvneta_rx_hwbm_refill.
+Dropping packets for HWBM (in fact returning dropped buffers to the
+pool) is done a couple of lines above. This point will never be
+reached with HWBM enabled (and it's also incorrect).
 
 Best regards,
 Marcin
