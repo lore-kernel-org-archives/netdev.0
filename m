@@ -1,37 +1,34 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 -net-next] bpf: make tc's bpf loader generic
- and move into lib
-Date: Tue, 29 Nov 2016 12:37:53 -0800
-Message-ID: <20161129123753.79ee1dfb@samsung9>
-References: <32ad4312197becd442b8bf136ded8859dd593340.1478736685.git.daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 v1 1/2] iproute2: avoid exit in case of error.
+Date: Tue, 29 Nov 2016 12:46:55 -0800
+Message-ID: <20161129124655.3be4f948@samsung9>
+References: <1478890537-88715-1-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@vger.kernel.org
+To: David Decotigny <ddecotig@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:34991 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757020AbcK2Uh4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:37:56 -0500
-Received: by mail-pg0-f52.google.com with SMTP id p66so73186422pga.2
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 12:37:56 -0800 (PST)
-In-Reply-To: <32ad4312197becd442b8bf136ded8859dd593340.1478736685.git.daniel@iogearbox.net>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:33421 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750823AbcK2Uq6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:46:58 -0500
+Received: by mail-pg0-f46.google.com with SMTP id 3so73272739pgd.0
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 12:46:58 -0800 (PST)
+In-Reply-To: <1478890537-88715-1-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 Nov 2016 01:20:59 +0100
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+On Fri, 11 Nov 2016 10:55:36 -0800
+David Decotigny <ddecotig@gmail.com> wrote:
 
-> This work moves the bpf loader into the iproute2 library and reworks
-> the tc specific parts into generic code. It's useful as we can then
-> more easily support new program types by just having the same ELF
-> loader backend. Joint work with Thomas Graf. I hacked a rough start
-> of a test suite to make sure nothing breaks [1] and looks all good.
+> Be consistent with how non-0 print_route() return values are handled
+> elesewhere: return -1.
 > 
->   [1] https://github.com/borkmann/clsact/blob/master/test_bpf.sh
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+>  ip/iproute.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied to net-next, will push soon.
+Applied, and queued for next push.
+Please use Signed-off-by: on future patches.
