@@ -1,334 +1,209 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v4 2/3] bpf: Add new cgroup attach type to enable sock modifications
-Date: Mon, 28 Nov 2016 20:38:48 -0800
-Message-ID: <1480394329-24847-3-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v4 3/3] samples: bpf: add userspace example for modifying sk_bound_dev_if
+Date: Mon, 28 Nov 2016 20:38:49 -0800
+Message-ID: <1480394329-24847-4-git-send-email-dsa@cumulusnetworks.com>
 References: <1480394329-24847-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
         maheshb@google.com, tgraf@suug.ch,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33935 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753135AbcK2Ei5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 23:38:57 -0500
-Received: by mail-pf0-f169.google.com with SMTP id c4so29269564pfb.1
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 20:38:57 -0800 (PST)
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:35298 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752196AbcK2Ei7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 23:38:59 -0500
+Received: by mail-pg0-f48.google.com with SMTP id p66so64867505pga.2
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 20:38:58 -0800 (PST)
 In-Reply-To: <1480394329-24847-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new cgroup based program type, BPF_PROG_TYPE_CGROUP_SOCK. Similar to
-BPF_PROG_TYPE_CGROUP_SKB programs can be attached to a cgroup and run
-any time a process in the cgroup opens an AF_INET or AF_INET6 socket.
-Currently only sk_bound_dev_if is exported to userspace for modification
-by a bpf program.
-
-This allows a cgroup to be configured such that AF_INET{6} sockets opened
-by processes are automatically bound to a specific device. In turn, this
-enables the running of programs that do not support SO_BINDTODEVICE in a
-specific VRF context / L3 domain.
+Add a simple program to demonstrate the ability to attach a bpf program
+to a cgroup that sets sk_bound_dev_if for AF_INET{6} sockets when they
+are created.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
 v4
-- dropped tweak to bpf_func signature
-- dropped cg_sock_func_proto in favor of sk_filter_func_proto
-- new __cgroup_bpf_run_filter_sk versus overloading __cgroup_bpf_run_filter
-- reverted BPF_CGROUP_INET_SOCK to BPF_CGROUP_INET_SOCK_CREATE
+- added test_cgrp2_sock.sh for an automated test
 
 v3
-- reverted to new prog type BPF_PROG_TYPE_CGROUP_SOCK
-- dropped the subtype
+- revert to BPF_PROG_TYPE_CGROUP_SOCK prog type
 
 v2
-- dropped the bpf_sock_store_u32 helper
-- dropped the new prog type BPF_PROG_TYPE_CGROUP_SOCK
-- moved valid access and context conversion to use subtype
-- dropped CREATE from BPF_CGROUP_INET_SOCK and related function names
-- moved running of filter from sk_alloc to inet{6}_create
+- removed bpf_sock_store_u32 references
+- changed BPF_CGROUP_INET_SOCK_CREATE to BPF_CGROUP_INET_SOCK
+- remove BPF_PROG_TYPE_CGROUP_SOCK prog type and add prog_subtype
 
- include/linux/bpf-cgroup.h | 14 +++++++++++
- include/uapi/linux/bpf.h   |  6 +++++
- kernel/bpf/cgroup.c        | 33 ++++++++++++++++++++++++++
- kernel/bpf/syscall.c       |  5 +++-
- net/core/filter.c          | 59 ++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/af_inet.c         | 12 +++++++++-
- net/ipv6/af_inet6.c        |  8 +++++++
- 7 files changed, 135 insertions(+), 2 deletions(-)
+ samples/bpf/Makefile           |  2 +
+ samples/bpf/test_cgrp2_sock.c  | 83 ++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/test_cgrp2_sock.sh | 48 ++++++++++++++++++++++++
+ 3 files changed, 133 insertions(+)
+ create mode 100644 samples/bpf/test_cgrp2_sock.c
+ create mode 100755 samples/bpf/test_cgrp2_sock.sh
 
-diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
-index 7f0fc635b13e..7de376e37c5c 100644
---- a/include/linux/bpf-cgroup.h
-+++ b/include/linux/bpf-cgroup.h
-@@ -41,6 +41,9 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
- 				struct sk_buff *skb,
- 				enum bpf_attach_type type);
- 
-+int __cgroup_bpf_run_filter_sk(struct sock *sk,
-+			       enum bpf_attach_type type);
-+
- /* Wrappers for __cgroup_bpf_run_filter_skb() guarded by cgroup_bpf_enabled. */
- #define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk, skb)			      \
- ({									      \
-@@ -64,6 +67,16 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
- 	__ret;								       \
- })
- 
-+#define BPF_CGROUP_RUN_PROG_INET_SOCK(sk)				       \
-+({									       \
-+	int __ret = 0;							       \
-+	if (cgroup_bpf_enabled && sk) {					       \
-+		__ret = __cgroup_bpf_run_filter_sk(sk,			       \
-+						 BPF_CGROUP_INET_SOCK_CREATE); \
-+	}								       \
-+	__ret;								       \
-+})
-+
- #else
- 
- struct cgroup_bpf {};
-@@ -73,6 +86,7 @@ static inline void cgroup_bpf_inherit(struct cgroup *cgrp,
- 
- #define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk,skb) ({ 0; })
- #define BPF_CGROUP_RUN_PROG_INET_EGRESS(sk,skb) ({ 0; })
-+#define BPF_CGROUP_RUN_PROG_INET_SOCK(sk) ({ 0; })
- 
- #endif /* CONFIG_CGROUP_BPF */
- 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 1370a9d1456f..75964e00d947 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -101,11 +101,13 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_XDP,
- 	BPF_PROG_TYPE_PERF_EVENT,
- 	BPF_PROG_TYPE_CGROUP_SKB,
-+	BPF_PROG_TYPE_CGROUP_SOCK,
- };
- 
- enum bpf_attach_type {
- 	BPF_CGROUP_INET_INGRESS,
- 	BPF_CGROUP_INET_EGRESS,
-+	BPF_CGROUP_INET_SOCK_CREATE,
- 	__MAX_BPF_ATTACH_TYPE
- };
- 
-@@ -537,6 +539,10 @@ struct bpf_tunnel_key {
- 	__u32 tunnel_label;
- };
- 
-+struct bpf_sock {
-+	__u32 bound_dev_if;
-+};
-+
- /* User return codes for XDP prog type.
-  * A valid XDP program must return one of these defined values. All other
-  * return codes are reserved for future use. Unknown return codes will result
-diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-index 19892973a78a..fe1c9ad03a36 100644
---- a/kernel/bpf/cgroup.c
-+++ b/kernel/bpf/cgroup.c
-@@ -165,3 +165,36 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
- 	return ret;
- }
- EXPORT_SYMBOL(__cgroup_bpf_run_filter_skb);
-+
-+/**
-+ * __cgroup_bpf_run_filter_sk() - Run a program on a sock
-+ * @sk: sock structure to manipulate
-+ * @type: The type of program to be exectuted
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 22b6407efa4f..3a404dd4bb46 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -23,6 +23,7 @@ hostprogs-y += map_perf_test
+ hostprogs-y += test_overhead
+ hostprogs-y += test_cgrp2_array_pin
+ hostprogs-y += test_cgrp2_attach
++hostprogs-y += test_cgrp2_sock
+ hostprogs-y += xdp1
+ hostprogs-y += xdp2
+ hostprogs-y += test_current_task_under_cgroup
+@@ -51,6 +52,7 @@ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
+ test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
+ test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
+ test_cgrp2_attach-objs := libbpf.o test_cgrp2_attach.o
++test_cgrp2_sock-objs := libbpf.o test_cgrp2_sock.o
+ xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
+ # reuse xdp1 source intentionally
+ xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
+diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
+new file mode 100644
+index 000000000000..2831e5f41f86
+--- /dev/null
++++ b/samples/bpf/test_cgrp2_sock.c
+@@ -0,0 +1,83 @@
++/* eBPF example program:
 + *
-+ * socket is passed is expected to be of type INET or INET6.
++ * - Loads eBPF program
 + *
-+ * The program type passed in via @type must be suitable for sock
-+ * filtering. No further check is performed to assert that.
++ *   The eBPF program sets the sk_bound_dev_if index in new AF_INET{6}
++ *   sockets opened by processes in the cgroup.
 + *
-+ * This function will return %-EPERM if any if an attached program was found
-+ * and if it returned != 1 during execution. In all other cases, 0 is returned.
++ * - Attaches the new program to a cgroup using BPF_PROG_ATTACH
 + */
-+int __cgroup_bpf_run_filter_sk(struct sock *sk,
-+			       enum bpf_attach_type type)
++
++#define _GNU_SOURCE
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <stddef.h>
++#include <string.h>
++#include <unistd.h>
++#include <assert.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <linux/bpf.h>
++
++#include "libbpf.h"
++
++static int prog_load(int idx)
 +{
-+	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
-+	struct bpf_prog *prog;
-+	int ret = 0;
++	struct bpf_insn prog[] = {
++		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
++		BPF_MOV64_IMM(BPF_REG_3, idx),
++		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, bound_dev_if)),
++		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, bound_dev_if)),
++		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
++		BPF_EXIT_INSN(),
++	};
 +
-+
-+	rcu_read_lock();
-+
-+	prog = rcu_dereference(cgrp->bpf.effective[type]);
-+	if (prog)
-+		ret = BPF_PROG_RUN(prog, sk) == 1 ? 0 : -EPERM;
-+
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(__cgroup_bpf_run_filter_sk);
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 5518a6839ab1..85af86c496cd 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -869,7 +869,9 @@ static int bpf_prog_attach(const union bpf_attr *attr)
- 	case BPF_CGROUP_INET_EGRESS:
- 		ptype = BPF_PROG_TYPE_CGROUP_SKB;
- 		break;
--
-+	case BPF_CGROUP_INET_SOCK_CREATE:
-+		ptype = BPF_PROG_TYPE_CGROUP_SOCK;
-+		break;
- 	default:
- 		return -EINVAL;
- 	}
-@@ -905,6 +907,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
- 	switch (attr->attach_type) {
- 	case BPF_CGROUP_INET_INGRESS:
- 	case BPF_CGROUP_INET_EGRESS:
-+	case BPF_CGROUP_INET_SOCK_CREATE:
- 		cgrp = cgroup_get_from_fd(attr->target_fd);
- 		if (IS_ERR(cgrp))
- 			return PTR_ERR(cgrp);
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 698a262b8ebb..404aaa1bfa1f 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2676,6 +2676,29 @@ static bool sk_filter_is_valid_access(int off, int size,
- 	return __is_valid_access(off, size, type);
- }
- 
-+static bool sock_filter_is_valid_access(int off, int size,
-+					enum bpf_access_type type,
-+					enum bpf_reg_type *reg_type)
-+{
-+	if (type == BPF_WRITE) {
-+		switch (off) {
-+		case offsetof(struct bpf_sock, bound_dev_if):
-+			break;
-+		default:
-+			return false;
-+		}
-+	}
-+
-+	if (off < 0 || off + size > sizeof(struct bpf_sock))
-+		return false;
-+
-+	/* The verifier guarantees that size > 0. */
-+	if (off % size != 0)
-+		return false;
-+
-+	return true;
++	return bpf_prog_load(BPF_PROG_TYPE_CGROUP_SOCK, prog, sizeof(prog),
++			     "GPL", 0);
 +}
 +
- static int tc_cls_act_prologue(struct bpf_insn *insn_buf, bool direct_write,
- 			       const struct bpf_prog *prog)
- {
-@@ -2934,6 +2957,30 @@ static u32 sk_filter_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 	return insn - insn_buf;
- }
- 
-+static u32 sock_filter_convert_ctx_access(enum bpf_access_type type,
-+					  int dst_reg, int src_reg,
-+					  int ctx_off,
-+					  struct bpf_insn *insn_buf,
-+					  struct bpf_prog *prog)
++static int usage(const char *argv0)
 +{
-+	struct bpf_insn *insn = insn_buf;
-+
-+	switch (ctx_off) {
-+	case offsetof(struct bpf_sock, bound_dev_if):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock, sk_bound_dev_if) != 4);
-+
-+		if (type == BPF_WRITE)
-+			*insn++ = BPF_STX_MEM(BPF_W, dst_reg, src_reg,
-+					offsetof(struct sock, sk_bound_dev_if));
-+		else
-+			*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
-+				      offsetof(struct sock, sk_bound_dev_if));
-+		break;
-+	}
-+
-+	return insn - insn_buf;
++	printf("Usage: %s cg-path device-index\n", argv0);
++	return EXIT_FAILURE;
 +}
 +
- static u32 tc_cls_act_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 					 int src_reg, int ctx_off,
- 					 struct bpf_insn *insn_buf,
-@@ -3007,6 +3054,12 @@ static const struct bpf_verifier_ops cg_skb_ops = {
- 	.convert_ctx_access	= sk_filter_convert_ctx_access,
- };
- 
-+static const struct bpf_verifier_ops cg_sock_ops = {
-+	.get_func_proto		= sk_filter_func_proto,
-+	.is_valid_access	= sock_filter_is_valid_access,
-+	.convert_ctx_access	= sock_filter_convert_ctx_access,
-+};
++int main(int argc, char **argv)
++{
++	int cg_fd, prog_fd, ret;
++	int idx = 0;
 +
- static struct bpf_prog_type_list sk_filter_type __read_mostly = {
- 	.ops	= &sk_filter_ops,
- 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
-@@ -3032,6 +3085,11 @@ static struct bpf_prog_type_list cg_skb_type __read_mostly = {
- 	.type	= BPF_PROG_TYPE_CGROUP_SKB,
- };
- 
-+static struct bpf_prog_type_list cg_sock_type __read_mostly = {
-+	.ops	= &cg_sock_ops,
-+	.type	= BPF_PROG_TYPE_CGROUP_SOCK
-+};
++	if (argc < 2)
++		return usage(argv[0]);
 +
- static int __init register_sk_filter_ops(void)
- {
- 	bpf_register_prog_type(&sk_filter_type);
-@@ -3039,6 +3097,7 @@ static int __init register_sk_filter_ops(void)
- 	bpf_register_prog_type(&sched_act_type);
- 	bpf_register_prog_type(&xdp_type);
- 	bpf_register_prog_type(&cg_skb_type);
-+	bpf_register_prog_type(&cg_sock_type);
- 
- 	return 0;
- }
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 5ddf5cda07f4..24d2550492ee 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -374,8 +374,18 @@ static int inet_create(struct net *net, struct socket *sock, int protocol,
- 
- 	if (sk->sk_prot->init) {
- 		err = sk->sk_prot->init(sk);
--		if (err)
-+		if (err) {
-+			sk_common_release(sk);
-+			goto out;
-+		}
++	idx = atoi(argv[2]);
++	if (!idx) {
++		printf("Invalid device index\n");
++		return EXIT_FAILURE;
 +	}
 +
-+	if (!kern) {
-+		err = BPF_CGROUP_RUN_PROG_INET_SOCK(sk);
-+		if (err) {
- 			sk_common_release(sk);
-+			goto out;
-+		}
- 	}
- out:
- 	return err;
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index d424f3a3737a..237e654ba717 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -258,6 +258,14 @@ static int inet6_create(struct net *net, struct socket *sock, int protocol,
- 			goto out;
- 		}
- 	}
-+
-+	if (!kern) {
-+		err = BPF_CGROUP_RUN_PROG_INET_SOCK(sk);
-+		if (err) {
-+			sk_common_release(sk);
-+			goto out;
-+		}
++	cg_fd = open(argv[1], O_DIRECTORY | O_RDONLY);
++	if (cg_fd < 0) {
++		printf("Failed to open cgroup path: '%s'\n", strerror(errno));
++		return EXIT_FAILURE;
 +	}
- out:
- 	return err;
- out_rcu_unlock:
++
++	prog_fd = prog_load(idx);
++	printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
++
++	if (prog_fd < 0) {
++		printf("Failed to load prog: '%s'\n", strerror(errno));
++		return EXIT_FAILURE;
++	}
++
++	ret = bpf_prog_detach(cg_fd, BPF_CGROUP_INET_SOCK);
++	ret = bpf_prog_attach(prog_fd, cg_fd, BPF_CGROUP_INET_SOCK);
++	if (ret < 0) {
++		printf("Failed to attach prog to cgroup: '%s'\n",
++		       strerror(errno));
++		return EXIT_FAILURE;
++	}
++
++	return EXIT_SUCCESS;
++}
+diff --git a/samples/bpf/test_cgrp2_sock.sh b/samples/bpf/test_cgrp2_sock.sh
+new file mode 100755
+index 000000000000..35ce9e1566d8
+--- /dev/null
++++ b/samples/bpf/test_cgrp2_sock.sh
+@@ -0,0 +1,48 @@
++#!/bin/bash
++
++function config_device {
++	ip netns add at_ns0
++	ip link add veth0 type veth peer name veth0b
++	ip link set veth0b up
++	ip link set veth0 netns at_ns0
++	ip netns exec at_ns0 ip addr add 172.16.1.100/24 dev veth0
++	ip netns exec at_ns0 ip addr add 2401:db00::1/64 dev veth0 nodad
++	ip netns exec at_ns0 ip link set dev veth0 up
++	ip link add foo type vrf table 1234
++	ip link set foo up
++	ip addr add 172.16.1.101/24 dev veth0b
++	ip addr add 2401:db00::2/64 dev veth0b nodad
++	ip link set veth0b master foo
++}
++
++function attach_bpf {
++	idx=$(ip -o li sh dev foo | awk -F':' '{print $1}')
++	rm -rf /tmp/cgroupv2
++	mkdir -p /tmp/cgroupv2
++	mount -t cgroup2 none /tmp/cgroupv2
++	mkdir -p /tmp/cgroupv2/foo
++	test_cgrp2_sock /tmp/cgroupv2/foo $idx
++	echo $$ >> /tmp/cgroupv2/foo/cgroup.procs
++}
++
++function cleanup {
++	set +ex
++	ip netns delete at_ns0
++	ip link del veth0
++	ip link del foo
++	umount /tmp/cgroupv2
++	rm -rf /tmp/cgroupv2
++	set -ex
++}
++
++function do_test {
++	ping -c1 -w1 172.16.1.100
++	ping6 -c1 -w1 2401:db00::1
++}
++
++cleanup 2>/dev/null
++config_device
++attach_bpf
++do_test
++cleanup
++echo "*** PASS ***"
 -- 
 2.1.4
