@@ -1,45 +1,35 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [PATCH net-next] bpf: add test for the verifier equal logic bug
-Date: Tue, 29 Nov 2016 14:50:15 -0500
-Message-ID: <c2ea35d1-302c-671e-f976-9bb7ccf56197@fb.com>
-References: <1480440919-3252-1-git-send-email-jbacik@fb.com>
- <583DD1C0.1010209@iogearbox.net>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] debugfs: improve formatting of debugfs_real_fops()
+Date: Tue, 29 Nov 2016 20:58:05 +0100
+Message-ID: <20161129195805.GA2180@kroah.com>
+References: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <ast@kernel.org>, <jannh@google.com>,
-        <kernel-team@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Nicolai Stange <nicstange@gmail.com>,
+        Christian Lamparter <chunkeey@gmail.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58516 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751148AbcK2TwC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 14:52:02 -0500
-In-Reply-To: <583DD1C0.1010209@iogearbox.net>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:37710 "EHLO
+        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755083AbcK2T54 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 14:57:56 -0500
+Content-Disposition: inline
+In-Reply-To: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 02:06 PM, Daniel Borkmann wrote:
-> On 11/29/2016 06:35 PM, Josef Bacik wrote:
->> This is a test to verify that
->>
->> bpf: fix states equal logic for varlen access
->>
->> actually fixed the problem.  The problem was if the register we added to our map
->> register was UNKNOWN in both the false and true branches and the only thing that
->> changed was the range then we'd incorrectly assume that the true branch was
->> valid, which it really wasnt.  This tests this case and properly fails without
->> my fix in place and passes with it in place.
->>
->> Signed-off-by: Josef Bacik <jbacik@fb.com>
->
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->
-> Thanks a lot for the test case! They are always useful to have ... which
-> just reminds me: it seems we didn't add anything for f23cc643f9ba ("bpf:
-> fix range arithmetic for bpf map access"). ;-)
+On Thu, Nov 10, 2016 at 05:23:49PM +0000, Jakub Kicinski wrote:
+> Type of debugfs_real_fops() is longer than parameters and
+> the name, so there is no way to break the declaration nicely.
+> We have to go over 80 characters.
+> 
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+>  include/linux/debugfs.h | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
 
-I was hoping you wouldn't notice ;).  I'll add one in the next couple of days. 
-Thanks,
+Doesn't apply to my tree, what did you make this against?
 
-Josef
+thanks,
+
+greg k-h
