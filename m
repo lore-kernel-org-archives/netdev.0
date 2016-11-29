@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 4/9] liquidio CN23XX: VF queue setup
-Date: Mon, 28 Nov 2016 16:54:36 -0800
-Message-ID: <1480380881-19255-5-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 6/9] liquidio CN23XX: init VF softcommand queues
+Date: Mon, 28 Nov 2016 16:54:38 -0800
+Message-ID: <1480380881-19255-7-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1480380881-19255-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,348 +16,188 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-cys01nam02on0088.outbound.protection.outlook.com ([104.47.37.88]:23744
         "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754986AbcK2AzP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Nov 2016 19:55:15 -0500
+        id S1755228AbcK2AzU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Nov 2016 19:55:20 -0500
 In-Reply-To: <1480380881-19255-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for configuring VF input/output queues.
+Adds support for initializing softcommand, dispatch and
+instructions queues for VF.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- .../ethernet/cavium/liquidio/cn23xx_vf_device.c    | 144 +++++++++++++++++++++
- .../ethernet/cavium/liquidio/cn23xx_vf_device.h    |   2 +
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |   6 +-
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c |   5 +
- .../net/ethernet/cavium/liquidio/octeon_device.c   |  43 +++++-
- .../net/ethernet/cavium/liquidio/octeon_device.h   |   7 +-
- .../net/ethernet/cavium/liquidio/request_manager.c |   4 +-
- 7 files changed, 207 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 74 +++++++++++++++++++++-
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |  5 ++
+ .../net/ethernet/cavium/liquidio/request_manager.c |  7 ++
+ 3 files changed, 84 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
-index d683bda..60fd138 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
-@@ -25,13 +25,134 @@
- #include "cn23xx_vf_device.h"
- #include "octeon_main.h"
- 
-+static int cn23xx_vf_reset_io_queues(struct octeon_device *oct, u32 num_queues)
-+{
-+	u32 loop = BUSY_READING_REG_VF_LOOP_COUNT;
-+	int ret_val = 0;
-+	u32 q_no;
-+	u64 d64;
-+
-+	for (q_no = 0; q_no < num_queues; q_no++) {
-+		/* set RST bit to 1. This bit applies to both IQ and OQ */
-+		d64 = octeon_read_csr64(oct,
-+					CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no));
-+		d64 |= CN23XX_PKT_INPUT_CTL_RST;
-+		octeon_write_csr64(oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no),
-+				   d64);
-+	}
-+
-+	/* wait until the RST bit is clear or the RST and QUIET bits are set */
-+	for (q_no = 0; q_no < num_queues; q_no++) {
-+		u64 reg_val = octeon_read_csr64(oct,
-+					CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no));
-+		while ((READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_RST) &&
-+		       !(READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_QUIET) &&
-+		       loop) {
-+			WRITE_ONCE(reg_val, octeon_read_csr64(
-+			    oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no)));
-+			loop--;
-+		}
-+		if (!loop) {
-+			dev_err(&oct->pci_dev->dev,
-+				"clearing the reset reg failed or setting the quiet reg failed for qno: %u\n",
-+				q_no);
-+			return -1;
-+		}
-+		WRITE_ONCE(reg_val, READ_ONCE(reg_val) &
-+			   ~CN23XX_PKT_INPUT_CTL_RST);
-+		octeon_write_csr64(oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no),
-+				   READ_ONCE(reg_val));
-+
-+		WRITE_ONCE(reg_val, octeon_read_csr64(
-+		    oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no)));
-+		if (READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_RST) {
-+			dev_err(&oct->pci_dev->dev,
-+				"clearing the reset failed for qno: %u\n",
-+				q_no);
-+			ret_val = -1;
-+		}
-+	}
-+
-+	return ret_val;
-+}
-+
-+static int cn23xx_enable_vf_io_queues(struct octeon_device *oct)
-+{
-+	u32 q_no;
-+
-+	for (q_no = 0; q_no < oct->num_iqs; q_no++) {
-+		u64 reg_val;
-+
-+		/* set the corresponding IQ IS_64B bit */
-+		if (oct->io_qmask.iq64B & BIT_ULL(q_no)) {
-+			reg_val = octeon_read_csr64(
-+			    oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no));
-+			reg_val |= CN23XX_PKT_INPUT_CTL_IS_64B;
-+			octeon_write_csr64(
-+			    oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no), reg_val);
-+		}
-+
-+		/* set the corresponding IQ ENB bit */
-+		if (oct->io_qmask.iq & BIT_ULL(q_no)) {
-+			reg_val = octeon_read_csr64(
-+			    oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no));
-+			reg_val |= CN23XX_PKT_INPUT_CTL_RING_ENB;
-+			octeon_write_csr64(
-+			    oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no), reg_val);
-+		}
-+	}
-+	for (q_no = 0; q_no < oct->num_oqs; q_no++) {
-+		u32 reg_val;
-+
-+		/* set the corresponding OQ ENB bit */
-+		if (oct->io_qmask.oq & BIT_ULL(q_no)) {
-+			reg_val = octeon_read_csr(
-+			    oct, CN23XX_VF_SLI_OQ_PKT_CONTROL(q_no));
-+			reg_val |= CN23XX_PKT_OUTPUT_CTL_RING_ENB;
-+			octeon_write_csr(
-+			    oct, CN23XX_VF_SLI_OQ_PKT_CONTROL(q_no), reg_val);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static void cn23xx_disable_vf_io_queues(struct octeon_device *oct)
-+{
-+	u32 num_queues = oct->num_iqs;
-+
-+	/* per HRM, rings can only be disabled via reset operation,
-+	 * NOT via SLI_PKT()_INPUT/OUTPUT_CONTROL[ENB]
-+	 */
-+	if (num_queues < oct->num_oqs)
-+		num_queues = oct->num_oqs;
-+
-+	cn23xx_vf_reset_io_queues(oct, num_queues);
-+}
-+
- int cn23xx_setup_octeon_vf_device(struct octeon_device *oct)
- {
- 	struct octeon_cn23xx_vf *cn23xx = (struct octeon_cn23xx_vf *)oct->chip;
-+	u32 rings_per_vf, ring_flag;
-+	u64 reg_val;
- 
- 	if (octeon_map_pci_barx(oct, 0, 0))
- 		return 1;
- 
-+	/* INPUT_CONTROL[RPVF] gives the VF IOq count */
-+	reg_val = octeon_read_csr64(oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(0));
-+
-+	oct->pf_num = (reg_val >> CN23XX_PKT_INPUT_CTL_PF_NUM_POS) &
-+		      CN23XX_PKT_INPUT_CTL_PF_NUM_MASK;
-+	oct->vf_num = (reg_val >> CN23XX_PKT_INPUT_CTL_VF_NUM_POS) &
-+		      CN23XX_PKT_INPUT_CTL_VF_NUM_MASK;
-+
-+	reg_val = reg_val >> CN23XX_PKT_INPUT_CTL_RPVF_POS;
-+
-+	rings_per_vf = reg_val & CN23XX_PKT_INPUT_CTL_RPVF_MASK;
-+
-+	ring_flag = 0;
-+
- 	cn23xx->conf  = oct_get_config_info(oct, LIO_23XX);
- 	if (!cn23xx->conf) {
- 		dev_err(&oct->pci_dev->dev, "%s No Config found for CN23XX\n",
-@@ -40,5 +161,28 @@ int cn23xx_setup_octeon_vf_device(struct octeon_device *oct)
- 		return 1;
- 	}
- 
-+	if (oct->sriov_info.rings_per_vf > rings_per_vf) {
-+		dev_warn(&oct->pci_dev->dev,
-+			 "num_queues:%d greater than PF configured rings_per_vf:%d. Reducing to %d.\n",
-+			 oct->sriov_info.rings_per_vf, rings_per_vf,
-+			 rings_per_vf);
-+		oct->sriov_info.rings_per_vf = rings_per_vf;
-+	} else {
-+		if (rings_per_vf > num_present_cpus()) {
-+			dev_warn(&oct->pci_dev->dev,
-+				 "PF configured rings_per_vf:%d greater than num_cpu:%d. Using rings_per_vf:%d equal to num cpus\n",
-+				 rings_per_vf,
-+				 num_present_cpus(),
-+				 num_present_cpus());
-+			oct->sriov_info.rings_per_vf =
-+				num_present_cpus();
-+		} else {
-+			oct->sriov_info.rings_per_vf = rings_per_vf;
-+		}
-+	}
-+
-+	oct->fn_list.enable_io_queues = cn23xx_enable_vf_io_queues;
-+	oct->fn_list.disable_io_queues = cn23xx_disable_vf_io_queues;
-+
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
-index 9e4fb50..6785796 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.h
-@@ -32,5 +32,7 @@ struct octeon_cn23xx_vf {
- 	struct octeon_config *conf;
- };
- 
-+#define BUSY_READING_REG_VF_LOOP_COUNT		10000
-+
- int cn23xx_setup_octeon_vf_device(struct octeon_device *oct);
- #endif
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 3d05b2f..39a9665 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -40,6 +40,7 @@
- MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_210SV_NAME LIO_FW_NAME_SUFFIX);
- MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_210NV_NAME LIO_FW_NAME_SUFFIX);
- MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_410NV_NAME LIO_FW_NAME_SUFFIX);
-+MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_23XX_NAME LIO_FW_NAME_SUFFIX);
- 
- static int ddr_timeout = 10000;
- module_param(ddr_timeout, int, 0644);
-@@ -4484,7 +4485,10 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 
- 	atomic_set(&octeon_dev->status, OCT_DEV_DISPATCH_INIT_DONE);
- 
--	octeon_set_io_queues_off(octeon_dev);
-+	if (octeon_set_io_queues_off(octeon_dev)) {
-+		dev_err(&octeon_dev->pci_dev->dev, "setting io queues off failed\n");
-+		return 1;
-+	}
- 
- 	if (OCTEON_CN23XX_PF(octeon_dev)) {
- 		ret = octeon_dev->fn_list.setup_device_regs(octeon_dev);
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index dd1dad1..41fc9d2 100644
+index 61c8b78..162e47b 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -236,6 +236,11 @@ static int octeon_device_init(struct octeon_device *oct)
+@@ -140,18 +140,51 @@ static void octeon_pci_flr(struct octeon_device *oct)
+  */
+ static void octeon_destroy_resources(struct octeon_device *oct)
+ {
++	int i;
++
+ 	switch (atomic_read(&oct->status)) {
++	case OCT_DEV_IN_RESET:
++	case OCT_DEV_DROQ_INIT_DONE:
++		mdelay(100);
++		for (i = 0; i < MAX_OCTEON_OUTPUT_QUEUES(oct); i++) {
++			if (!(oct->io_qmask.oq & BIT_ULL(i)))
++				continue;
++			octeon_delete_droq(oct, i);
++		}
++
++		/* fallthrough */
++	case OCT_DEV_RESP_LIST_INIT_DONE:
++		octeon_delete_response_list(oct);
++
++		/* fallthrough */
++	case OCT_DEV_INSTR_QUEUE_INIT_DONE:
++		for (i = 0; i < MAX_OCTEON_INSTR_QUEUES(oct); i++) {
++			if (!(oct->io_qmask.iq & BIT_ULL(i)))
++				continue;
++			octeon_delete_instr_queue(oct, i);
++		}
++
++		/* fallthrough */
++	case OCT_DEV_SC_BUFF_POOL_INIT_DONE:
++		octeon_free_sc_buffer_pool(oct);
++
++		/* fallthrough */
++	case OCT_DEV_DISPATCH_INIT_DONE:
++		octeon_delete_dispatch_list(oct);
++		cancel_delayed_work_sync(&oct->nic_poll_work.work);
++
++		/* fallthrough */
+ 	case OCT_DEV_PCI_MAP_DONE:
+ 		octeon_unmap_pci_barx(oct, 0);
+ 		octeon_unmap_pci_barx(oct, 1);
+ 
+-	/* fallthrough */
++		/* fallthrough */
+ 	case OCT_DEV_PCI_ENABLE_DONE:
+ 		pci_clear_master(oct->pci_dev);
+ 		/* Disable the device, releasing the PCI INT */
+ 		pci_disable_device(oct->pci_dev);
+ 
+-	/* fallthrough */
++		/* fallthrough */
+ 	case OCT_DEV_BEGIN_STATE:
+ 		/* Nothing to be done here either */
+ 		break;
+@@ -236,6 +269,14 @@ static int octeon_device_init(struct octeon_device *oct)
  
  	atomic_set(&oct->status, OCT_DEV_PCI_MAP_DONE);
  
-+	if (octeon_set_io_queues_off(oct)) {
-+		dev_err(&oct->pci_dev->dev, "setting io queues off failed\n");
++	/* Initialize the dispatch mechanism used to push packets arriving on
++	 * Octeon Output queues.
++	 */
++	if (octeon_init_dispatch_list(oct))
++		return 1;
++
++	atomic_set(&oct->status, OCT_DEV_DISPATCH_INIT_DONE);
++
+ 	if (octeon_set_io_queues_off(oct)) {
+ 		dev_err(&oct->pci_dev->dev, "setting io queues off failed\n");
+ 		return 1;
+@@ -246,6 +287,35 @@ static int octeon_device_init(struct octeon_device *oct)
+ 		return 1;
+ 	}
+ 
++	/* Initialize soft command buffer pool */
++	if (octeon_setup_sc_buffer_pool(oct)) {
++		dev_err(&oct->pci_dev->dev, "sc buffer pool allocation failed\n");
 +		return 1;
 +	}
++	atomic_set(&oct->status, OCT_DEV_SC_BUFF_POOL_INIT_DONE);
++
++	/* Setup the data structures that manage this Octeon's Input queues. */
++	if (octeon_setup_instr_queues(oct)) {
++		dev_err(&oct->pci_dev->dev, "instruction queue initialization failed\n");
++		return 1;
++	}
++	atomic_set(&oct->status, OCT_DEV_INSTR_QUEUE_INIT_DONE);
++
++	/* Initialize lists to manage the requests of different types that
++	 * arrive from user & kernel applications for this octeon device.
++	 */
++	if (octeon_setup_response_list(oct)) {
++		dev_err(&oct->pci_dev->dev, "Response list allocation failed\n");
++		return 1;
++	}
++	atomic_set(&oct->status, OCT_DEV_RESP_LIST_INIT_DONE);
++
++	if (octeon_setup_output_queues(oct)) {
++		dev_err(&oct->pci_dev->dev, "Output queue initialization failed\n");
++		return 1;
++	}
++	atomic_set(&oct->status, OCT_DEV_DROQ_INIT_DONE);
 +
  	return 0;
  }
  
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 7e6c8b8..fe84e90 100644
+index fe84e90..fcc5f10 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -860,12 +860,53 @@ int octeon_setup_output_queues(struct octeon_device *oct)
- 	return 0;
- }
+@@ -797,6 +797,8 @@ int octeon_setup_instr_queues(struct octeon_device *oct)
+ 			CFG_GET_NUM_DEF_TX_DESCS(CHIP_CONF(oct, cn6xxx));
+ 	else if (OCTEON_CN23XX_PF(oct))
+ 		num_descs = CFG_GET_NUM_DEF_TX_DESCS(CHIP_CONF(oct, cn23xx_pf));
++	else if (OCTEON_CN23XX_VF(oct))
++		num_descs = CFG_GET_NUM_DEF_TX_DESCS(CHIP_CONF(oct, cn23xx_vf));
  
--void octeon_set_io_queues_off(struct octeon_device *oct)
-+int octeon_set_io_queues_off(struct octeon_device *oct)
- {
-+	int loop = BUSY_READING_REG_VF_LOOP_COUNT;
-+
- 	if (OCTEON_CN6XXX(oct)) {
- 		octeon_write_csr(oct, CN6XXX_SLI_PKT_INSTR_ENB, 0);
- 		octeon_write_csr(oct, CN6XXX_SLI_PKT_OUT_ENB, 0);
-+	} else if (oct->chip_id == OCTEON_CN23XX_VF_VID) {
-+		u32 q_no;
-+
-+		/* IOQs will already be in reset.
-+		 * If RST bit is set, wait for quiet bit to be set.
-+		 * Once quiet bit is set, clear the RST bit.
-+		 */
-+		for (q_no = 0; q_no < oct->sriov_info.rings_per_vf; q_no++) {
-+			u64 reg_val = octeon_read_csr64(
-+				oct, CN23XX_VF_SLI_IQ_PKT_CONTROL64(q_no));
-+
-+			while ((reg_val & CN23XX_PKT_INPUT_CTL_RST) &&
-+			       !(reg_val &  CN23XX_PKT_INPUT_CTL_QUIET) &&
-+			       loop) {
-+				reg_val = octeon_read_csr64(
-+					oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+				loop--;
-+			}
-+			if (!loop) {
-+				dev_err(&oct->pci_dev->dev,
-+					"clearing the reset reg failed or setting the quiet reg failed for qno: %u\n",
-+					q_no);
-+				return -1;
-+			}
-+
-+			reg_val = reg_val & ~CN23XX_PKT_INPUT_CTL_RST;
-+			octeon_write_csr64(oct,
-+					   CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
-+					   reg_val);
-+
-+			reg_val = octeon_read_csr64(
-+					oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+			if (reg_val & CN23XX_PKT_INPUT_CTL_RST) {
-+				dev_err(&oct->pci_dev->dev,
-+					"unable to reset qno %u\n", q_no);
-+				return -1;
-+			}
-+		}
+ 	oct->num_iqs = 0;
+ 
+@@ -842,6 +844,9 @@ int octeon_setup_output_queues(struct octeon_device *oct)
+ 	} else if (OCTEON_CN23XX_PF(oct)) {
+ 		num_descs = CFG_GET_NUM_DEF_RX_DESCS(CHIP_CONF(oct, cn23xx_pf));
+ 		desc_size = CFG_GET_DEF_RX_BUF_SIZE(CHIP_CONF(oct, cn23xx_pf));
++	} else if (OCTEON_CN23XX_VF(oct)) {
++		num_descs = CFG_GET_NUM_DEF_RX_DESCS(CHIP_CONF(oct, cn23xx_vf));
++		desc_size = CFG_GET_DEF_RX_BUF_SIZE(CHIP_CONF(oct, cn23xx_vf));
  	}
-+	return 0;
- }
- 
- void octeon_set_droq_pkt_op(struct octeon_device *oct,
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 5ce2048..1e6bfa1 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -401,8 +401,13 @@ struct octeon_device {
- 
- 	/** Octeon Chip type. */
- 	u16 chip_id;
-+
- 	u16 rev_id;
-+
- 	u16 pf_num;
-+
-+	u16 vf_num;
-+
- 	/** This device's id - set by the driver. */
- 	u32 octeon_id;
- 
-@@ -766,7 +771,7 @@ int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
- /** Turns off the input and output queues for the device
-  *  @param oct which octeon to disable
-  */
--void octeon_set_io_queues_off(struct octeon_device *oct);
-+int octeon_set_io_queues_off(struct octeon_device *oct);
- 
- /** Turns on or off the given output queue for the device
-  *  @param oct which octeon to change
+ 	oct->num_oqs = 0;
+ 	oct->droq[0] = vmalloc_node(sizeof(*oct->droq[0]), numa_node);
 diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-index 8531a00..0e10e2a 100644
+index 0e10e2a..ea2b7e4 100644
 --- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
 +++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-@@ -235,7 +235,9 @@ int octeon_setup_iq(struct octeon_device *oct,
- 	}
+@@ -28,6 +28,7 @@
+ #include "octeon_network.h"
+ #include "cn66xx_device.h"
+ #include "cn23xx_pf_device.h"
++#include "cn23xx_vf_device.h"
  
- 	oct->num_iqs++;
--	oct->fn_list.enable_io_queues(oct);
-+	if (oct->fn_list.enable_io_queues(oct))
-+		return 1;
+ struct iq_post_status {
+ 	int status;
+@@ -68,6 +69,9 @@ int octeon_init_instr_queue(struct octeon_device *oct,
+ 		conf = &(CFG_GET_IQ_CFG(CHIP_CONF(oct, cn6xxx)));
+ 	else if (OCTEON_CN23XX_PF(oct))
+ 		conf = &(CFG_GET_IQ_CFG(CHIP_CONF(oct, cn23xx_pf)));
++	else if (OCTEON_CN23XX_VF(oct))
++		conf = &(CFG_GET_IQ_CFG(CHIP_CONF(oct, cn23xx_vf)));
 +
- 	return 0;
- }
+ 	if (!conf) {
+ 		dev_err(&oct->pci_dev->dev, "Unsupported Chip %x\n",
+ 			oct->chip_id);
+@@ -183,6 +187,9 @@ int octeon_delete_instr_queue(struct octeon_device *oct, u32 iq_no)
+ 	else if (OCTEON_CN23XX_PF(oct))
+ 		desc_size =
+ 		    CFG_GET_IQ_INSTR_TYPE(CHIP_CONF(oct, cn23xx_pf));
++	else if (OCTEON_CN23XX_VF(oct))
++		desc_size =
++		    CFG_GET_IQ_INSTR_TYPE(CHIP_CONF(oct, cn23xx_vf));
+ 
+ 	vfree(iq->request_list);
  
 -- 
 1.8.3.1
