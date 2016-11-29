@@ -1,56 +1,40 @@
-From: Souptick Joarder <jrdr.linux@gmail.com>
-Subject: [PATCH v3] ethernet :mellanox :mlx4: Replace pci_pool_alloc by
- pci_pool_zalloc
-Date: Wed, 30 Nov 2016 01:16:12 +0530
-Message-ID: <20161129194611.GA4088@jordon-HP-15-Notebook-PC>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 4.9-rc7: (forcedeth?) BUG: sleeping function called from invalid
+ context at kernel/irq/manage.c:110
+Date: Tue, 29 Nov 2016 11:50:36 -0800
+Message-ID: <CA+55aFyX0o9GpZfvk5UGptR6iYL0eSnHNXJBP50PByZ3qNHHzw@mail.gmail.com>
+References: <alpine.LRH.2.20.1611292222200.31348@math.ut.ee>
+ <CAADWXX8GM5Xdf1Of09ABXEB8eb=eVqPjHTaT7ZzcStnX8=cO_A@mail.gmail.com> <alpine.LRH.2.20.1611292309490.31348@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        sahu.rameshwar73@gmail.com
-To: sergei.shtylyov@cogentembedded.com, yishaih@mellanox.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34252 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751726AbcK2TqQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 14:46:16 -0500
-Content-Disposition: inline
+Received: from mail-io0-f170.google.com ([209.85.223.170]:35179 "EHLO
+        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751726AbcK2Tuh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 14:50:37 -0500
+In-Reply-To: <alpine.LRH.2.20.1611292309490.31348@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In mlx4_alloc_cmd_mailbox(), pci_pool_alloc() followed by memset will be
-replaced by pci_pool_zalloc()
+On Tue, Nov 29, 2016 at 1:16 PM, Meelis Roos <mroos@linux.ee> wrote:
+> [...]
+>> But none of this looks new. I don't see _anything_ in any of these
+>> areas that has changed since 4.8.
+>>
+>> Which is why I suspect you changed something in your setup wrt
+>> netconsole or your kernel config?
+>
+> No changes that I could see. Only answered oldconfig questions, diff
+> below. /etc/default/grub is from May so not changed recently. Just
+> verified that 4.8.0 dmesg did not contain these warnings.
 
-Signed-off-by: Souptick joarder <jrdr.linux@gmail.com>
----
-v3:
-  - Fixed alignment issues
+Hmm. I wonder if it might just be timing (the netpoll_poll_dev() thing
+is only called conditionally, and it depends on magic details and I
+guess you might just have gotten unlucky).
 
-v2:
-  - Address comment from sergei
-    Alignment was not proper
+But it would be good if you can bisect it...
 
- drivers/net/ethernet/mellanox/mlx4/cmd.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index e36bebc..a49072b4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2679,15 +2679,13 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
- 	if (!mailbox)
- 		return ERR_PTR(-ENOMEM);
-
--	mailbox->buf = pci_pool_alloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
--				      &mailbox->dma);
-+	mailbox->buf = pci_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
-+				       &mailbox->dma);
- 	if (!mailbox->buf) {
- 		kfree(mailbox);
- 		return ERR_PTR(-ENOMEM);
- 	}
-
--	memset(mailbox->buf, 0, MLX4_MAILBOX_SIZE);
--
- 	return mailbox;
- }
- EXPORT_SYMBOL_GPL(mlx4_alloc_cmd_mailbox);
+           Linus
