@@ -1,134 +1,122 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: bpf debug info
-Date: Mon, 28 Nov 2016 22:42:19 -0800
-Message-ID: <20161129064217.GA20124@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Thomas Graf <tgraf@suug.ch>, Wangnan <wangnan0@huawei.com>,
-        He Kuang <hekuang@huawei.com>, kernel-team@fb.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35459 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751317AbcK2GmY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 01:42:24 -0500
-Received: by mail-pg0-f66.google.com with SMTP id p66so15421126pga.2
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 22:42:24 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Subject: [patch net v2] net: fec: cache statistics while device is down
+Date: Tue, 29 Nov 2016 09:44:51 +0300
+Message-ID: <1480401891-19333-1-git-send-email-nikita.yoush@cogentembedded.com>
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        linux-kernel@vger.kernel.org,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+Execution 'ethtool -S' on fec device that is down causes OOPS on Vybrid
+board:
 
-The support for debug information in BPF was recently added to llvm.
+Unhandled fault: external abort on non-linefetch (0x1008) at 0xe0898200
+pgd = ddecc000
+[e0898200] *pgd=9e406811, *pte=400d1653, *ppte=400d1453
+Internal error: : 1008 [#1] SMP ARM
+...
 
-In order to use it recompile bpf programs with the following patch
-in samples/bpf/Makefile
-@@ -155,4 +155,4 @@ $(obj)/%.o: $(src)/%.c
-        $(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
-                -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-                -Wno-compare-distinct-pointer-types \
--               -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
-+               -O2 -emit-llvm -g -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+Reason of OOPS is that fec_enet_get_ethtool_stats() accesses fec
+registers while IPG clock is stopped by PM.
 
-and compiled .o files can be consumed by standard llvm-objdump utility.
+Fix that by caching statistics in fec_enet_private. Cache is initialized
+at device probe time, and updated at statistics request time if device
+is up, and also just before turning device off on down path.
 
-$ llvm-objdump -S -no-show-raw-insn samples/bpf/xdp1_kern.o
-xdp1_kern.o:    file format ELF64-BPF
+Additional locking is not needed, since cached statistics is accessed
+either before device is registered, or under rtnl_lock().
 
-Disassembly of section xdp1:
-xdp_prog1:
-; {
-       0:       r2 = *(u32 *)(r1 + 4)
-; void *data = (void *)(long)ctx->data;
-       8:       r1 = *(u32 *)(r1 + 0)
-; if (data + nh_off > data_end)
-      10:       r3 = r1
-      18:       r3 += 14
-      20:       if r3 > r2 goto 55
-; h_proto = eth->h_proto;
-      28:       r3 = *(u8 *)(r1 + 12)
-      30:       r4 = *(u8 *)(r1 + 13)
-      38:       r4 <<= 8
-      40:       r4 |= r3
-; if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
-      48:       if r4 == 43144 goto 2
-      50:       r3 = 14
-      58:       if r4 != 129 goto 5
+Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+---
+Changes since v1:
+- initialize cache at device probe time
 
-LBB0_3:
-; if (data + nh_off > data_end)
-      60:       r3 = r1
-      68:       r3 += 18
-      70:       if r3 > r2 goto 45
-      78:       r3 = 18
-; h_proto = vhdr->h_vlan_encapsulated_proto;
-      80:       r4 = *(u16 *)(r1 + 16)
+ drivers/net/ethernet/freescale/fec.h      |  2 ++
+ drivers/net/ethernet/freescale/fec_main.c | 23 +++++++++++++++++++----
+ 2 files changed, 21 insertions(+), 4 deletions(-)
 
-LBB0_5:
-      88:       r5 = r4
-      90:       r5 &= 65535
-; if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
-      98:       if r5 == 43144 goto 1
-      a0:       if r5 != 129 goto 9
-
-Notice that 'clang -S -o a.s' output and llvm-objdump disassembler
-were changed to use kernel verifier style, so now it should be easier
-to see what's going on.
-
-The main advantage of debug info is that verifier error messages
-are now easier to correlate to original C code.
-
-For example, say, in samples/bpf/parse_varlen.c I forgot
-to compare pointer into packet with data_end:
---- a/samples/bpf/parse_varlen.c
-+++ b/samples/bpf/parse_varlen.c
-@@ -33,8 +33,8 @@ static int udp(void *data, uint64_t tp_off, void *data_end)
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index c865135f3cb9..5ea740b4cf14 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -574,6 +574,8 @@ struct fec_enet_private {
+ 	unsigned int reload_period;
+ 	int pps_enable;
+ 	unsigned int next_counter;
++
++	u64 ethtool_stats[0];
+ };
+ 
+ void fec_ptp_init(struct platform_device *pdev);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 5aa9d4ded214..6a20c24a2003 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2313,14 +2313,24 @@ static const struct fec_stat {
+ 	{ "IEEE_rx_octets_ok", IEEE_R_OCTETS_OK },
+ };
+ 
+-static void fec_enet_get_ethtool_stats(struct net_device *dev,
+-	struct ethtool_stats *stats, u64 *data)
++static void fec_enet_update_ethtool_stats(struct net_device *dev)
  {
-        struct udphdr *udp = data + tp_off;
-
--       if (udp + 1 > data_end)
--               return 0;
-+//     if (udp + 1 > data_end)
-+//             return 0;
-        if (udp->dest == htons(DEFAULT_PKTGEN_UDP_PORT) ||
-            udp->source == htons(DEFAULT_PKTGEN_UDP_PORT)) {
-
-If I try to run samples/bpf/test_cls_bpf.sh the verifier will complain:
-R0=imm0,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=42) R2=pkt_end
-112: (0f) r4 += r3
-113: (0f) r1 += r4
-114: (b7) r0 = 2
-115: (69) r2 = *(u16 *)(r1 +2)
-invalid access to packet, off=2 size=2, R1(id=3,off=0,r=0)
-
-Now multiply 115 * 8 and convert to hex. This is address 0x398 in llvm-objdump:
-; struct udphdr *udp = data + tp_off;
-     388:       r1 += r4
-     390:       r0 = 2
-; if (udp->dest == htons(DEFAULT_PKTGEN_UDP_PORT) ||
-     398:       r2 = *(u16 *)(r1 + 2)
-     3a0:       if r2 == 2304 goto 16
-
-Now it's clear which line of C code is causing the verifier to reject.
-
-It's still not obvious why register R1 is 'invalid pointer to packet'.
-The 'r=0' part of 'R1(id=3,off=0,r=0)' stands for zero bytes were
-verified to be valid in this register.
-Since 'if (udp + 1 > data_end)' was not done, the kernel doesn't
-know that there are valid bytes in the packet after 'udp' pointer.
-
-So next step is to improve verifier messages to be more human friendly.
-The step after is to introduce BPF_COMMENT pseudo instruction
-that will be ignored by the interpreter yet it will contain the text
-of original source code. Then llvm-objdump step won't be necessary.
-The bpf loader will load both instructions and pieces of C sources.
-Then verifier errors should be even easier to read and humans
-can easily understand the purpose of the program.
-
-PS
-A year ago He Kuang reported that dwarf emitted by bpf llvm backend is broken.
-Sorry it took so long to fix. It's probably still broken on big endian,
-since I've only tested on x86.
+ 	struct fec_enet_private *fep = netdev_priv(dev);
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(fec_stats); i++)
+-		data[i] = readl(fep->hwp + fec_stats[i].offset);
++		fep->ethtool_stats[i] = readl(fep->hwp + fec_stats[i].offset);
++}
++
++static void fec_enet_get_ethtool_stats(struct net_device *dev,
++				       struct ethtool_stats *stats, u64 *data)
++{
++	struct fec_enet_private *fep = netdev_priv(dev);
++
++	if (netif_running(dev))
++		fec_enet_update_ethtool_stats(dev);
++
++	memcpy(data, fep->ethtool_stats, ARRAY_SIZE(fec_stats) * sizeof(u64));
+ }
+ 
+ static void fec_enet_get_strings(struct net_device *netdev,
+@@ -2874,6 +2884,8 @@ fec_enet_close(struct net_device *ndev)
+ 	if (fep->quirks & FEC_QUIRK_ERR006687)
+ 		imx6q_cpuidle_fec_irqs_unused();
+ 
++	fec_enet_update_ethtool_stats(ndev);
++
+ 	fec_enet_clk_enable(ndev, false);
+ 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 	pm_runtime_mark_last_busy(&fep->pdev->dev);
+@@ -3180,6 +3192,8 @@ static int fec_enet_init(struct net_device *ndev)
+ 
+ 	fec_restart(ndev);
+ 
++	fec_enet_update_ethtool_stats(ndev);
++
+ 	return 0;
+ }
+ 
+@@ -3278,7 +3292,8 @@ fec_probe(struct platform_device *pdev)
+ 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
+ 
+ 	/* Init network device */
+-	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private),
++	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private) +
++				  ARRAY_SIZE(fec_stats) * sizeof(u64),
+ 				  num_tx_qs, num_rx_qs);
+ 	if (!ndev)
+ 		return -ENOMEM;
+-- 
+2.1.4
