@@ -1,8 +1,8 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH v2 net 4/5] l2tp: fix lookup for sockets not bound to a
- device in l2tp_ip
-Date: Tue, 29 Nov 2016 13:09:47 +0100
-Message-ID: <5462a7216410cf63714e7f24f2223b39235981f8.1480419658.git.g.nault@alphalink.fr>
+Subject: [PATCH v2 net 1/5] l2tp: lock socket before checking flags in
+ connect()
+Date: Tue, 29 Nov 2016 13:09:44 +0100
+Message-ID: <becf2111f4a956db39f67b4ac4748deb6a91e33c.1480419658.git.g.nault@alphalink.fr>
 References: <cover.1480419658.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -10,92 +10,152 @@ Cc: James Chapman <jchapman@katalix.com>,
         Chris Elston <celston@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:42379 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:42366 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756553AbcK2MJ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:09:57 -0500
+        with ESMTP id S1756329AbcK2MJy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:09:54 -0500
 Content-Disposition: inline
 In-Reply-To: <cover.1480419658.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When looking up an l2tp socket, we must consider a null netdevice id as
-wild card. There are currently two problems caused by
-__l2tp_ip_bind_lookup() not considering 'dif' as wild card when set to 0:
+Socket flags aren't updated atomically, so the socket must be locked
+while reading the SOCK_ZAPPED flag.
 
-  * A socket bound to a device (i.e. with sk->sk_bound_dev_if != 0)
-    never receives any packet. Since __l2tp_ip_bind_lookup() is called
-    with dif == 0 in l2tp_ip_recv(), sk->sk_bound_dev_if is always
-    different from 'dif' so the socket doesn't match.
-
-  * Two sockets, one bound to a device but not the other, can be bound
-    to the same address. If the first socket binding to the address is
-    the one that is also bound to a device, the second socket can bind
-    to the same address without __l2tp_ip_bind_lookup() noticing the
-    overlap.
-
-To fix this issue, we need to consider that any null device index, be
-it 'sk->sk_bound_dev_if' or 'dif', matches with any other value.
-We also need to pass the input device index to __l2tp_ip_bind_lookup()
-on reception so that sockets bound to a device never receive packets
-from other devices.
-
-This patch fixes l2tp_ip6 in the same way.
+This issue exists for both l2tp_ip and l2tp_ip6. For IPv6, this patch
+also brings error handling for __ip6_datagram_connect() failures.
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/l2tp/l2tp_ip.c  | 6 ++++--
- net/l2tp/l2tp_ip6.c | 7 ++++---
- 2 files changed, 8 insertions(+), 5 deletions(-)
+ include/net/ipv6.h  |  2 ++
+ net/ipv6/datagram.c |  4 +++-
+ net/l2tp/l2tp_ip.c  | 19 ++++++++++++-------
+ net/l2tp/l2tp_ip6.c | 16 +++++++++++-----
+ 4 files changed, 28 insertions(+), 13 deletions(-)
 
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 8fed1cd..f11ca83 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -970,6 +970,8 @@ int compat_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ int compat_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 			   char __user *optval, int __user *optlen);
+ 
++int __ip6_datagram_connect(struct sock *sk, struct sockaddr *addr,
++			   int addr_len);
+ int ip6_datagram_connect(struct sock *sk, struct sockaddr *addr, int addr_len);
+ int ip6_datagram_connect_v6_only(struct sock *sk, struct sockaddr *addr,
+ 				 int addr_len);
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 37874e2..ccf4055 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -139,7 +139,8 @@ void ip6_datagram_release_cb(struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(ip6_datagram_release_cb);
+ 
+-static int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
++int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr,
++			   int addr_len)
+ {
+ 	struct sockaddr_in6	*usin = (struct sockaddr_in6 *) uaddr;
+ 	struct inet_sock	*inet = inet_sk(sk);
+@@ -252,6 +253,7 @@ static int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int a
+ out:
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(__ip6_datagram_connect);
+ 
+ int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ {
 diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index b517c33..8938b6b 100644
+index 982f6c4..1f57094 100644
 --- a/net/l2tp/l2tp_ip.c
 +++ b/net/l2tp/l2tp_ip.c
-@@ -61,7 +61,8 @@ static struct sock *__l2tp_ip_bind_lookup(struct net *net, __be32 laddr, int dif
- 		if ((l2tp->conn_id == tunnel_id) &&
- 		    net_eq(sock_net(sk), net) &&
- 		    !(inet->inet_rcv_saddr && inet->inet_rcv_saddr != laddr) &&
--		    !(sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif))
-+		    (!sk->sk_bound_dev_if || !dif ||
-+		     sk->sk_bound_dev_if == dif))
- 			goto found;
- 	}
+@@ -308,21 +308,24 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
+ 	struct sockaddr_l2tpip *lsa = (struct sockaddr_l2tpip *) uaddr;
+ 	int rc;
  
-@@ -182,7 +183,8 @@ static int l2tp_ip_recv(struct sk_buff *skb)
- 		struct iphdr *iph = (struct iphdr *) skb_network_header(skb);
+-	if (sock_flag(sk, SOCK_ZAPPED)) /* Must bind first - autobinding does not work */
+-		return -EINVAL;
+-
+ 	if (addr_len < sizeof(*lsa))
+ 		return -EINVAL;
  
- 		read_lock_bh(&l2tp_ip_lock);
--		sk = __l2tp_ip_bind_lookup(net, iph->daddr, 0, tunnel_id);
-+		sk = __l2tp_ip_bind_lookup(net, iph->daddr, inet_iif(skb),
-+					   tunnel_id);
- 		if (!sk) {
- 			read_unlock_bh(&l2tp_ip_lock);
- 			goto discard;
+ 	if (ipv4_is_multicast(lsa->l2tp_addr.s_addr))
+ 		return -EINVAL;
+ 
+-	rc = ip4_datagram_connect(sk, uaddr, addr_len);
+-	if (rc < 0)
+-		return rc;
+-
+ 	lock_sock(sk);
+ 
++	/* Must bind first - autobinding does not work */
++	if (sock_flag(sk, SOCK_ZAPPED)) {
++		rc = -EINVAL;
++		goto out_sk;
++	}
++
++	rc = __ip4_datagram_connect(sk, uaddr, addr_len);
++	if (rc < 0)
++		goto out_sk;
++
+ 	l2tp_ip_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
+ 
+ 	write_lock_bh(&l2tp_ip_lock);
+@@ -330,7 +333,9 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
+ 	sk_add_bind_node(sk, &l2tp_ip_bind_table);
+ 	write_unlock_bh(&l2tp_ip_lock);
+ 
++out_sk:
+ 	release_sock(sk);
++
+ 	return rc;
+ }
+ 
 diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index 5f2ae61..4a86440 100644
+index 9978d01..af9abff 100644
 --- a/net/l2tp/l2tp_ip6.c
 +++ b/net/l2tp/l2tp_ip6.c
-@@ -73,7 +73,8 @@ static struct sock *__l2tp_ip6_bind_lookup(struct net *net,
- 		if ((l2tp->conn_id == tunnel_id) &&
- 		    net_eq(sock_net(sk), net) &&
- 		    !(addr && ipv6_addr_equal(addr, laddr)) &&
--		    !(sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif))
-+		    (!sk->sk_bound_dev_if || !dif ||
-+		     sk->sk_bound_dev_if == dif))
- 			goto found;
+@@ -371,9 +371,6 @@ static int l2tp_ip6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 	int	addr_type;
+ 	int rc;
+ 
+-	if (sock_flag(sk, SOCK_ZAPPED)) /* Must bind first - autobinding does not work */
+-		return -EINVAL;
+-
+ 	if (addr_len < sizeof(*lsa))
+ 		return -EINVAL;
+ 
+@@ -390,10 +387,18 @@ static int l2tp_ip6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 			return -EINVAL;
  	}
  
-@@ -196,8 +197,8 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
- 		struct ipv6hdr *iph = ipv6_hdr(skb);
+-	rc = ip6_datagram_connect(sk, uaddr, addr_len);
+-
+ 	lock_sock(sk);
  
- 		read_lock_bh(&l2tp_ip6_lock);
--		sk = __l2tp_ip6_bind_lookup(net, &iph->daddr,
--					    0, tunnel_id);
-+		sk = __l2tp_ip6_bind_lookup(net, &iph->daddr, inet6_iif(skb),
-+					    tunnel_id);
- 		if (!sk) {
- 			read_unlock_bh(&l2tp_ip6_lock);
- 			goto discard;
++	 /* Must bind first - autobinding does not work */
++	if (sock_flag(sk, SOCK_ZAPPED)) {
++		rc = -EINVAL;
++		goto out_sk;
++	}
++
++	rc = __ip6_datagram_connect(sk, uaddr, addr_len);
++	if (rc < 0)
++		goto out_sk;
++
+ 	l2tp_ip6_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
+ 
+ 	write_lock_bh(&l2tp_ip6_lock);
+@@ -401,6 +406,7 @@ static int l2tp_ip6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 	sk_add_bind_node(sk, &l2tp_ip6_bind_table);
+ 	write_unlock_bh(&l2tp_ip6_lock);
+ 
++out_sk:
+ 	release_sock(sk);
+ 
+ 	return rc;
 -- 
 2.10.2
