@@ -1,84 +1,53 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [net-next] neigh: remove duplicate check for same neigh
-Date: Tue, 29 Nov 2016 09:22:49 -0700
-Message-ID: <d641245a-8442-9238-a507-6f94184354a0@cumulusnetworks.com>
-References: <1480407771-12884-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH net-next] net: can: usb: kvaser_usb: fix spelling mistake of "outstanding"
+Date: Tue, 29 Nov 2016 16:27:17 +0000
+Message-ID: <20161129162717.8785-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:32984 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753639AbcK2QWx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 11:22:53 -0500
-Received: by mail-pf0-f176.google.com with SMTP id d2so32810612pfd.0
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 08:22:52 -0800 (PST)
-In-Reply-To: <1480407771-12884-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        Jimmy Assarsson <jimmyassarsson@gmail.com>,
+        Wolfram Sang <wsa-dev@sang-engineering.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/29/16 1:22 AM, Zhang Shengju wrote:
-> @@ -2285,20 +2295,15 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
->  	rcu_read_lock_bh();
->  	nht = rcu_dereference_bh(tbl->nht);
->  
-> -	for (h = s_h; h < (1 << nht->hash_shift); h++) {
-> -		if (h > s_h)
-> -			s_idx = 0;
-> +	for (h = s_h; h < (1 << nht->hash_shift); h++, s_idx = 0) {
->  		for (n = rcu_dereference_bh(nht->hash_buckets[h]), idx = 0;
->  		     n != NULL;
-> -		     n = rcu_dereference_bh(n->next)) {
-> -			if (!net_eq(dev_net(n->dev), net))
-> -				continue;
-> -			if (neigh_ifindex_filtered(n->dev, filter_idx))
-> +		     n = rcu_dereference_bh(n->next), idx++) {
+From: Colin Ian King <colin.king@canonical.com>
 
-incrementing idx here ...
+Trivial fix to spelling mistake "oustanding" to "outstanding" in
+comment and dev_dbg message.
 
-> +			if (idx < s_idx || !net_eq(dev_net(n->dev), net))
->  				continue;
-> -			if (neigh_master_filtered(n->dev, filter_master_idx))
-> +			if (neigh_dump_filtered(n->dev, filter_idx,
-> +						filter_master_idx))
->  				continue;
-> -			if (idx < s_idx)
-> -				goto next;
->  			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
->  					    cb->nlh->nlmsg_seq,
->  					    RTM_NEWNEIGH,
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/can/usb/kvaser_usb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-... causes a missed entry when an error happens here
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index d51e0c4..18cc529 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -459,7 +459,7 @@ struct kvaser_usb {
+ 	struct usb_endpoint_descriptor *bulk_in, *bulk_out;
+ 	struct usb_anchor rx_submitted;
+ 
+-	/* @max_tx_urbs: Firmware-reported maximum number of oustanding,
++	/* @max_tx_urbs: Firmware-reported maximum number of outstanding,
+ 	 * not yet ACKed, transmissions on this device. This value is
+ 	 * also used as a sentinel for marking free tx contexts.
+ 	 */
+@@ -2027,7 +2027,7 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+ 		((dev->fw_version >> 16) & 0xff),
+ 		(dev->fw_version & 0xffff));
+ 
+-	dev_dbg(&intf->dev, "Max oustanding tx = %d URBs\n", dev->max_tx_urbs);
++	dev_dbg(&intf->dev, "Max outstanding tx = %d URBs\n", dev->max_tx_urbs);
+ 
+ 	err = kvaser_usb_get_card_info(dev);
+ 	if (err) {
+-- 
+2.10.2
 
-idx is only incremented when a neigh has been successfully added to the skb.
-
-
-Your intention is to save a few cycles by making idx an absolute index within the hash bucket and jumping to the next entry to be dumped without evaluating any filters per entry.
-
-So why not keep it simple and do this:
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 2ae929f9bd06..2e49a85e696a 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2291,14 +2291,12 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
-                for (n = rcu_dereference_bh(nht->hash_buckets[h]), idx = 0;
-                     n != NULL;
-                     n = rcu_dereference_bh(n->next)) {
--                       if (!net_eq(dev_net(n->dev), net))
--                               continue;
--                       if (neigh_ifindex_filtered(n->dev, filter_idx))
--                               continue;
--                       if (neigh_master_filtered(n->dev, filter_master_idx))
--                               continue;
-                        if (idx < s_idx)
-                                goto next;
-+                       if (!net_eq(dev_net(n->dev), net) ||
-+                           neigh_ifindex_filtered(n->dev, filter_idx) ||
-+                           neigh_master_filtered(n->dev, filter_master_idx))
-+                               goto next;
-                        if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
-                                            cb->nlh->nlmsg_seq,
-                                            RTM_NEWNEIGH,
