@@ -1,94 +1,70 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v2 07/13] net: ethernet: ti: cpts: rework
- initialization/deinitialization
-Date: Tue, 29 Nov 2016 09:50:30 -0600
-Message-ID: <2037427d-0ab6-9446-450d-21c34123c03b@ti.com>
-References: <20161128230337.6731-1-grygorii.strashko@ti.com>
- <20161128230337.6731-8-grygorii.strashko@ti.com>
- <20161129100737.GF3110@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161129100737.GF3110-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH iproute2 net-next 3/4] tc: flower: correct name of ip_proto parameter to flower_parse_port()
+Date: Tue, 29 Nov 2016 16:51:32 +0100
+Message-ID: <1480434693-29397-4-git-send-email-simon.horman@netronome.com>
+References: <1480434693-29397-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f172.google.com ([209.85.210.172]:36850 "EHLO
+        mail-wj0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934050AbcK2PwR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 10:52:17 -0500
+Received: by mail-wj0-f172.google.com with SMTP id qp4so149071798wjc.3
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 07:52:16 -0800 (PST)
+In-Reply-To: <1480434693-29397-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+This corrects a typo.
 
-On 11/29/2016 04:07 AM, Richard Cochran wrote:
-> On Mon, Nov 28, 2016 at 05:03:31PM -0600, Grygorii Strashko wrote:
->> +int cpts_register(struct cpts *cpts)
->>  {
->>  	int err, i;
->>  
->> -	cpts->info = cpts_info;
->> -	spin_lock_init(&cpts->lock);
->> -
->> -	cpts->cc.read = cpts_systim_read;
->> -	cpts->cc.mask = CLOCKSOURCE_MASK(32);
->> -	cpts->cc_mult = mult;
->> -	cpts->cc.mult = mult;
->> -	cpts->cc.shift = shift;
->> -
->>  	INIT_LIST_HEAD(&cpts->events);
->>  	INIT_LIST_HEAD(&cpts->pool);
->>  	for (i = 0; i < CPTS_MAX_EVENTS; i++)
->>  		list_add(&cpts->pool_data[i].list, &cpts->pool);
->>  
->> -	cpts_clk_init(dev, cpts);
->> +	clk_enable(cpts->refclk);
->> +
->>  	cpts_write32(cpts, CPTS_EN, control);
->>  	cpts_write32(cpts, TS_PEND_EN, int_enable);
->>  
->> +	cpts->cc.mult = cpts->cc_mult;
-> 
-> It is not clear why you set cc.mult in a different place than
-> cc.shift.  That isn't logical, but maybe later patches make it
-> clear...
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+This a follow-up to ("tc: flower: Support matching on SCTP ports")
+---
+ tc/f_flower.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-cc.mult has to be reloaded to original value each time CPTS is registered(restarted)
-as it can be modified by cpts_ptp_adjfreq().
-
-While cc.shift is static.
-
-
-
-> 
->>  	timecounter_init(&cpts->tc, &cpts->cc, ktime_to_ns(ktime_get_real()));
->>  
-
-[...]
-
->>  }
->>  EXPORT_SYMBOL_GPL(cpts_unregister);
->>  
->> +struct cpts *cpts_create(struct device *dev, void __iomem *regs,
->> +			 u32 mult, u32 shift)
->> +{
->> +	struct cpts *cpts;
->> +
->> +	if (!regs || !dev)
->> +		return ERR_PTR(-EINVAL);
-> 
-> There is no need for this test, as the caller will always pass valid
-> pointers.  (This isn't a user space library!)
-> 
-ok
-
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index c74a0244e244..bca910d95729 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -157,15 +157,15 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
+ 	return 0;
+ }
+ 
+-static int flower_port_attr_type(__u8 ip_port, bool is_src)
++static int flower_port_attr_type(__u8 ip_proto, bool is_src)
+ {
+-	if (ip_port == IPPROTO_TCP) {
++	if (ip_proto == IPPROTO_TCP) {
+ 		return is_src ? TCA_FLOWER_KEY_TCP_SRC :
+ 			TCA_FLOWER_KEY_TCP_DST;
+-	} else if (ip_port == IPPROTO_UDP) {
++	} else if (ip_proto == IPPROTO_UDP) {
+ 		return is_src ? TCA_FLOWER_KEY_UDP_SRC :
+ 			TCA_FLOWER_KEY_UDP_DST;
+-	} else if (ip_port == IPPROTO_SCTP) {
++	} else if (ip_proto == IPPROTO_SCTP) {
+ 		return is_src ? TCA_FLOWER_KEY_SCTP_SRC :
+ 			TCA_FLOWER_KEY_SCTP_DST;
+ 	} else {
+@@ -174,14 +174,14 @@ static int flower_port_attr_type(__u8 ip_port, bool is_src)
+ 	}
+ }
+ 
+-static int flower_parse_port(char *str, __u8 ip_port, bool is_src,
++static int flower_parse_port(char *str, __u8 ip_proto, bool is_src,
+ 			     struct nlmsghdr *n)
+ {
+ 	int ret;
+ 	int type;
+ 	__be16 port;
+ 
+-	type = flower_port_attr_type(ip_port, is_src);
++	type = flower_port_attr_type(ip_proto, is_src);
+ 	if (type < 0)
+ 		return -1;
+ 
 -- 
-regards,
--grygorii
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.0.rc3.207.g0ac5344
