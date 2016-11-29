@@ -1,67 +1,83 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: [PATCH v2 11/13] clocksource: export the clocks_calc_mult_shift
- to use by timestamp code
-Date: Tue, 29 Nov 2016 10:08:53 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1611291008410.4358@nanos>
-References: <20161128230337.6731-1-grygorii.strashko@ti.com> <20161128230337.6731-12-grygorii.strashko@ti.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH net-next] net: hns: Fix to conditionally convey RX
+ checksum flag to stack
+Date: Tue, 29 Nov 2016 09:13:22 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A7C688B@lhreml503-mbs>
+References: <20161125133240.1264224-1-salil.mehta@huawei.com>
+ <20161128.121240.1321057221950786765.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>,
-        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161128230337.6731-12-grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lhrrgout.huawei.com ([194.213.3.17]:4628 "EHLO
+        lhrrgout.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756513AbcK2JNh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 04:13:37 -0500
+In-Reply-To: <20161128.121240.1321057221950786765.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Nov 2016, Grygorii Strashko wrote:
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, November 28, 2016 5:13 PM
+> To: Salil Mehta
+> Cc: Zhuangyuzeng (Yisen); mehta.salil.lnk@gmail.com;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm
+> Subject: Re: [PATCH net-next] net: hns: Fix to conditionally convey RX
+> checksum flag to stack
+> 
+> From: Salil Mehta <salil.mehta@huawei.com>
+> Date: Fri, 25 Nov 2016 13:32:40 +0000
+> 
+> > @@ -778,6 +778,35 @@ int hns_ae_get_regs_len(struct hnae_handle
+> *handle)
+> >  	return total_num;
+> >  }
+> >
+> > +static bool hns_ae_is_l3l4_csum_err(struct hnae_handle *handle)
+> > +{
+> > +	struct hns_ppe_cb *ppe_cb = hns_get_ppe_cb(handle);
+> > +	u32 regval;
+> > +	bool retval = false;
+> > +
+> > +	/* read PPE_HIS_PRO_ERR register and check for the checksum
+> errors */
+> > +	regval = dsaf_read_dev(ppe_cb, PPE_HIS_PRO_ERR_REG);
+> > +
+> 
+> I don't see how a single register can properly provide error status for
+> a ring
+> of pending received packets.
+> 
+> No matter how this register is implemented, it is either going to
+> result in
+> packets erroneously being marked as having errors, or error status
+> being
+> lost when multiple packets in a row have such errors.
+> 
+> For example, if you receive several packets in a row that have errors,
+> you'll read this register for the first one.  If this read clears the
+> error
+> status, which I am guessing it does, then you won't see the error
+> status
+> for the next packet that had one of these errors as well.
+Agreed David. I think I missed this part. This register is 
+not well thought of and looks useless for checksum. Thanks
+for identifying this!
 
-> From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
 > 
-> The CPSW CPTS driver is capable of doing timestamping on tx/rx packets and
-> requires to know mult and shift factors for timestamp conversion from raw
-> value to nanoseconds (ptp clock). Now these mult and shift factors are
-> calculated manually and provided through DT, which makes very hard to
-> support of a lot number of platforms, especially if CPTS refclk is not the
-> same for some kind of boards and depends on efuse settings (Keystone 2
-> platforms). Hence, export clocks_calc_mult_shift() to allow drivers like
-> CPSW CPTS (and other ptp drivesr) to benefit from automaitc calculation of
-> mult and shift factors.
-> 
-> Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-> Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-> Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+> If you don't have something which is provided on a per-packet basis
+> then you can't determine the error properly.  Therefore you will just
+> have to always ignore the checksum if there is any error indicated in
+> the ring descriptor.
+Yes, will float another patch ignoring the checksum.
 
-Acked-by: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-
-> ---
->  kernel/time/clocksource.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
-> index 7e4fad7..150242c 100644
-> --- a/kernel/time/clocksource.c
-> +++ b/kernel/time/clocksource.c
-> @@ -89,6 +89,7 @@ clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
->  	*mult = tmp;
->  	*shift = sft;
->  }
-> +EXPORT_SYMBOL_GPL(clocks_calc_mult_shift);
->  
->  /*[Clocksource internal variables]---------
->   * curr_clocksource:
-> -- 
-> 2.10.1
-> 
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+Salil 
