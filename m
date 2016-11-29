@@ -1,152 +1,161 @@
-From: =?UTF-8?Q?Markus_B=c3=b6hme?= <markus.boehme@mailbox.org>
-Subject: Re: [PATCH v3 net-next 1/2] net: ethernet: slicoss: add slicoss
- gigabit ethernet driver
-Date: Tue, 29 Nov 2016 13:15:55 +0100
-Message-ID: <7da8cd2d-c570-d2c8-12b3-031d1226bf50@mailbox.org>
-References: <1480162850-8014-1-git-send-email-LinoSanfilippo@gmx.de>
- <1480162850-8014-2-git-send-email-LinoSanfilippo@gmx.de>
- <910890ec-7acf-1ced-55c6-d854ee2cdccc@mailbox.org>
- <9a789bda-7d98-fa2c-8759-e046c6dd5145@gmx.de>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V2 net-next] net: hns: Fix to conditionally convey RX checksum flag to stack
+Date: Tue, 29 Nov 2016 13:09:45 +0000
+Message-ID: <20161129130945.919372-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>, davem@davemloft.net,
-        charrer@alacritech.com, liodot@gmail.com,
-        gregkh@linuxfoundation.org, andrew@lunn.ch
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mailbox.org ([80.241.60.215]:40445 "EHLO mx2.mailbox.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754216AbcK2MQX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 07:16:23 -0500
-In-Reply-To: <9a789bda-7d98-fa2c-8759-e046c6dd5145@gmx.de>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:50148 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752161AbcK2NKQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 08:10:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2016 09:46 PM, Lino Sanfilippo wrote:
-> Hi Markus,
-> 
-> On 27.11.2016 18:59, Markus Böhme wrote:
->> Hello Lino,
->>
->> just some things barely worth mentioning:
->>
-> 
->>
->> I found a bunch of unused #defines in slic.h. I cannot judge if they are
->> worth keeping:
->>
->> 	SLIC_VRHSTATB_LONGE
->> 	SLIC_VRHSTATB_PREA
->> 	SLIC_ISR_IO
->> 	SLIC_ISR_PING_MASK
->> 	SLIC_GIG_SPEED_MASK
->> 	SLIC_GMCR_RESET
->> 	SLIC_XCR_RESET
->> 	SLIC_XCR_XMTEN
->> 	SLIC_XCR_PAUSEEN
->> 	SLIC_XCR_LOADRNG
->> 	SLIC_REG_DBAR
->> 	SLIC_REG_PING
->> 	SLIC_REG_DUMP_CMD
->> 	SLIC_REG_DUMP_DATA
->> 	SLIC_REG_WRHOSTID
->> 	SLIC_REG_LOW_POWER
->> 	SLIC_REG_RESET_IFACE
->> 	SLIC_REG_ADDR_UPPER
->> 	SLIC_REG_HBAR64
->> 	SLIC_REG_DBAR64
->> 	SLIC_REG_CBAR64
->> 	SLIC_REG_RBAR64
->> 	SLIC_REG_WRVLANID
->> 	SLIC_REG_READ_XF_INFO
->> 	SLIC_REG_WRITE_XF_INFO
->> 	SLIC_REG_TICKS_PER_SEC
->>
->> These device IDs are not used, either, but maybe it's good to keep them
->> for documentation purposes:
->>
->> 	PCI_SUBDEVICE_ID_ALACRITECH_1000X1_2
->> 	PCI_SUBDEVICE_ID_ALACRITECH_SES1001T
->> 	PCI_SUBDEVICE_ID_ALACRITECH_SEN2002XT
->> 	PCI_SUBDEVICE_ID_ALACRITECH_SEN2001XT
->> 	PCI_SUBDEVICE_ID_ALACRITECH_SEN2104ET
->> 	PCI_SUBDEVICE_ID_ALACRITECH_SEN2102ET
->>
-> 
-> I left these defines in for both documentation and to avoid gaps in
-> register ranges. I would like to keep this as it is.
+This patch introduces the RX checksum function to check the
+status of the hardware calculated checksum and its error and
+appropriately convey status to the upper stack in skb->ip_summed
+field.
 
-Seems reasonable.
+We only support checksum for IPv4, UDP(over IPv4 or IPv6),
+TCP(over IPv4 or IPv6) and SCTP but we support many L3(IPv4, IPv6,
+MPLS, PPPoE etc) and L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.)
+protocols. We want to filter out L3 and L4 protocols early on for
+which checksum is not supported.
 
-[...]
+Our present hardware RX Descriptor lacks L3/L4 "Checksum
+Status & Error" bit (indicating whether checksum was calculated
+and if there was an error encountered) for the supported protocol
+received in the packet. Therefore, we do the following:
+1. Filter the protocols for which checksum is not supported.
+2. Check if there were any errors encountered in L3 or L4
+   protocols. These errors might not just be Checksum errors but
+   could be related to version, length of IPv4, UDP, TCP etc.
+   2a. If L3 Errors amd L4 Errors exists, then return as our RX
+       descriptor lacks Status-and-Error bits for checksum so
+       cannot identify specifically if error was because of
+       checksum error or other error for this packet.
+   2b. If above errors do not exists, then we set checksum
+       un-necessary for upper layers.
 
->>> +static int slic_init_tx_queue(struct slic_device *sdev)
->>> +{
->>> +	struct slic_tx_queue *txq = &sdev->txq;
->>> +	struct slic_tx_buffer *buff;
->>> +	struct slic_tx_desc *desc;
->>> +	int err;
->>> +	int i;
->>
->> You could make i unsigned...
->>
-> 
->>> +
->>> +	txq->len = SLIC_NUM_TX_DESCS;
->>> +	txq->put_idx = 0;
->>> +	txq->done_idx = 0;
->>> +
->>> +	txq->txbuffs = kcalloc(txq->len, sizeof(*buff), GFP_KERNEL);
->>> +	if (!txq->txbuffs)
->>> +		return -ENOMEM;
->>> +
->>> +	txq->dma_pool = dma_pool_create("slic_pool", &sdev->pdev->dev,
->>> +					sizeof(*desc), SLIC_TX_DESC_ALIGN,
->>> +					4096);
->>> +	if (!txq->dma_pool) {
->>> +		err = -ENOMEM;
->>> +		netdev_err(sdev->netdev, "failed to create dma pool\n");
->>> +		goto free_buffs;
->>> +	}
->>> +
->>> +	for (i = 0; i < txq->len; i++) {
->>
->> ...to fix a signed/unsigned comparison warning here, but...
->>
->>> +		buff = &txq->txbuffs[i];
->>> +		desc = dma_pool_zalloc(txq->dma_pool, GFP_KERNEL,
->>> +				       &buff->desc_paddr);
->>> +		if (!desc) {
->>> +			netdev_err(sdev->netdev,
->>> +				   "failed to alloc pool chunk (%i)\n", i);
->>> +			err = -ENOMEM;
->>> +			goto free_descs;
->>> +		}
->>> +
->>> +		desc->hnd = cpu_to_le32((u32)(i + 1));
->>> +		desc->cmd = SLIC_CMD_XMT_REQ;
->>> +		desc->flags = 0;
->>> +		desc->type = cpu_to_le32(SLIC_CMD_TYPE_DUMB);
->>> +		buff->desc = desc;
->>> +	}
->>> +
->>> +	return 0;
->>> +
->>> +free_descs:
->>> +	while (i--) {
->>
->> ...this would require reworking this logic to prevent an endless loop,
->> so probably not worth bothering, considering that txq->len is well
->> within the positive signed range.
-> 
-> AFAICS the logic does not have to be changed. The while loop will also work
-> fine if "i" is unsigned.
-> 
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+Change Log:
+Patch V2: Addressed the comment by David Miller
+          Link: https://www.spinics.net/lists/netdev/msg406697.html
+Patch V1: This patch is a result of the comments given by
+          David Miller <davem@davemloft.net>
+          Link: https://lkml.org/lkml/2016/6/15/27
+---
+ drivers/net/ethernet/hisilicon/hns/hnae.h     |    2 +
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c |   71 ++++++++++++++++++++++---
+ 2 files changed, 66 insertions(+), 7 deletions(-)
 
-My bad! Of course you are right.
-
-
-Regards,
-Markus
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index 09602f1..8016854 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -99,6 +99,8 @@ enum hnae_led_state {
+ #define HNS_RX_FLAG_L3ID_IPV6 0x1
+ #define HNS_RX_FLAG_L4ID_UDP 0x0
+ #define HNS_RX_FLAG_L4ID_TCP 0x1
++#define HNS_RX_FLAG_L4ID_SCTP 0x3
++
+ 
+ #define HNS_TXD_ASID_S 0
+ #define HNS_TXD_ASID_M (0xff << HNS_TXD_ASID_S)
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 255fede..6450d0e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -565,6 +565,66 @@ static void get_rx_desc_bnum(u32 bnum_flag, int *out_bnum)
+ 				   HNS_RXD_BUFNUM_M, HNS_RXD_BUFNUM_S);
+ }
+ 
++static void hns_nic_rx_checksum(struct hns_nic_ring_data *ring_data,
++				struct sk_buff *skb, u32 flag)
++{
++	struct net_device *netdev = ring_data->napi.dev;
++	u32 l3id;
++	u32 l4id;
++
++	/* check if RX checksum offload is enabled */
++	if (unlikely(!(netdev->features & NETIF_F_RXCSUM)))
++		return;
++
++	/* We only support checksum for IPv4,UDP(over IPv4 or IPv6), TCP(over
++	 * IPv4 or IPv6) and SCTP but we support many L3(IPv4, IPv6, MPLS,
++	 * PPPoE etc) and L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.) protocols.
++	 * We want to filter out L3 and L4 protocols early on for which checksum
++	 * is not supported.
++	 *
++	 * Our present hardware RX Descriptor lacks L3/L4 "Checksum Status &
++	 * Error" bit (indicating whether checksum was calculated and if there
++	 * was an error encountered) for the supported protocol received in the
++	 * packet. Therefore, we do the following:
++	 * 1. Filter the protocols for which checksum is not supported.
++	 * 2. Check if there were any errors encountered in L3 or L4 protocols.
++	 *    These errors might not just be Checksum errors but could be
++	 *    related to version, length of IPv4, UDP, TCP etc.
++	 *    2a. If L3 Errors amd L4 Errors exists, then return as our RX
++	 *        descriptor lacks Status-and-Error bits for checksum so cannot
++	 *        identify specifically if error was because of checksum error
++	 *        or other error for this packet.
++	 *    2b. If above errors do not exists, then we set checksum
++	 *        un-necessary for upper layers.
++	 */
++	l3id = hnae_get_field(flag, HNS_RXD_L3ID_M, HNS_RXD_L3ID_S);
++	l4id = hnae_get_field(flag, HNS_RXD_L4ID_M, HNS_RXD_L4ID_S);
++	if ((l3id != HNS_RX_FLAG_L3ID_IPV4) &&
++	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
++	     (l4id != HNS_RX_FLAG_L4ID_UDP)) &&
++	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
++	     (l4id != HNS_RX_FLAG_L4ID_TCP)) &&
++	    (l4id != HNS_RX_FLAG_L4ID_SCTP))
++		return;
++
++	/* We do not support checksum of fragmented packets */
++	if (unlikely(hnae_get_bit(flag, HNS_RXD_FRAG_B)))
++		return;
++
++	/* Check if there are any L3/L4 errors encountered during RX checksum */
++	if (unlikely(hnae_get_bit(flag, HNS_RXD_L3E_B) ||
++		     hnae_get_bit(flag, HNS_RXD_L4E_B))) {
++		/* we dont have any way to detect if this is checksum error or
++		 * any specific protocol error. Therefore, return no checksum
++		 * all protocol errors.
++		 */
++		return;
++	}
++
++	/* Now, this is a packet with valid RX checksum */
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++}
++
+ static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
+ 			       struct sk_buff **out_skb, int *out_bnum)
+ {
+@@ -683,13 +743,10 @@ static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
+ 	ring->stats.rx_pkts++;
+ 	ring->stats.rx_bytes += skb->len;
+ 
+-	if (unlikely(hnae_get_bit(bnum_flag, HNS_RXD_L3E_B) ||
+-		     hnae_get_bit(bnum_flag, HNS_RXD_L4E_B))) {
+-		ring->stats.l3l4_csum_err++;
+-		return 0;
+-	}
+-
+-	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	/* indicate to upper stack if our hardware has already calculated
++	 * the RX checksum
++	 */
++	hns_nic_rx_checksum(ring_data, skb, bnum_flag);
+ 
+ 	return 0;
+ }
+-- 
+1.7.9.5
