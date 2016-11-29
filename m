@@ -1,57 +1,34 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v3 net-next 1/6] net: mvneta: Optimize rx path for small frame
-Date: Tue, 29 Nov 2016 10:37:21 +0100
-Message-ID: <50c3bed2264b0755205c622e72fc5e00cbe28233.1480412215.git-series.gregory.clement@free-electrons.com>
-References: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH  v2 01/13] net: ethernet: ti: cpts: switch to
+ readl/writel_relaxed()
+Date: Tue, 29 Nov 2016 10:38:17 +0100
+Message-ID: <20161129093817.GB3110@localhost.localdomain>
+References: <20161128230337.6731-1-grygorii.strashko@ti.com>
+ <20161128230337.6731-2-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jisheng Zhang <jszhang@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
- Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
- Dmitri Epshtein <dima@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Yelena Krivosheev <yelena@marvell.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Marcin Wojtas <mw@semihalf.com>,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
-In-Reply-To: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
-References: <cover.a09aeaf5ba62853d595153626b6121ef52a3e9b4.1480412215.git-series.gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33298 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756779AbcK2JiW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 04:38:22 -0500
+Content-Disposition: inline
+In-Reply-To: <20161128230337.6731-2-grygorii.strashko@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For small frame reuse the phys_addr variable instead of accessing the
-uncacheable value in the rx descriptor.
+On Mon, Nov 28, 2016 at 05:03:25PM -0600, Grygorii Strashko wrote:
+> Switch to readl/writel_relaxed() APIs, because this is recommended
+> API and the CPTS IP is reused on Keystone 2 SoCs
+> where LE/BE modes are supported.
+> 
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 87274d4ab102..1b84f746d748 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1918,7 +1918,7 @@ static int mvneta_rx_swbm(struct mvneta_port *pp, int rx_todo,
- 				goto err_drop_frame;
- 
- 			dma_sync_single_range_for_cpu(dev->dev.parent,
--						      rx_desc->buf_phys_addr,
-+						      phys_addr,
- 						      MVNETA_MH_SIZE + NET_SKB_PAD,
- 						      rx_bytes,
- 						      DMA_FROM_DEVICE);
--- 
-git-series 0.8.10
+Acked-by: Richard Cochran <richardcochran@gmail.com>
