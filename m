@@ -1,35 +1,44 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] debugfs: improve formatting of debugfs_real_fops()
-Date: Tue, 29 Nov 2016 20:58:05 +0100
-Message-ID: <20161129195805.GA2180@kroah.com>
-References: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 4.9-rc7: (forcedeth?) BUG: sleeping function called from
+ invalid context at kernel/irq/manage.c:110
+Date: Tue, 29 Nov 2016 11:58:15 -0800
+Message-ID: <1480449495.18162.152.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <alpine.LRH.2.20.1611292222200.31348@math.ut.ee>
+         <CAADWXX8GM5Xdf1Of09ABXEB8eb=eVqPjHTaT7ZzcStnX8=cO_A@mail.gmail.com>
+         <alpine.LRH.2.20.1611292309490.31348@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Nicolai Stange <nicstange@gmail.com>,
-        Christian Lamparter <chunkeey@gmail.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:37710 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755083AbcK2T54 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 14:57:56 -0500
-Content-Disposition: inline
-In-Reply-To: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Linux Kernel list <linux-kernel@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Meelis Roos <mroos@linux.ee>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LRH.2.20.1611292309490.31348@math.ut.ee>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 10, 2016 at 05:23:49PM +0000, Jakub Kicinski wrote:
-> Type of debugfs_real_fops() is longer than parameters and
-> the name, so there is no way to break the declaration nicely.
-> We have to go over 80 characters.
+On Tue, 2016-11-29 at 23:16 +0200, Meelis Roos wrote:
+> > On Tue, Nov 29, 2016 at 12:26 PM, Meelis Roos <mroos@linux.ee> wrote:
+> > > This is 4.9-rc7 on Sun Ultra 20 (Opteron 175 on NVidia chipset PC with
+> > > NVidia ethernet).
+> > >
+> > > BUG: sleeping function called from invalid context at kernel/irq/manage.c:110
+> > 
+> > Hmm. No changes in either forcedeth or in the synchronize_irq() debugging.
+> [...]
+> > But none of this looks new. I don't see _anything_ in any of these
+> > areas that has changed since 4.8.
+> > 
+> > Which is why I suspect you changed something in your setup wrt
+> > netconsole or your kernel config?
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->  include/linux/debugfs.h | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
+> No changes that I could see. Only answered oldconfig questions, diff 
+> below. /etc/default/grub is from May so not changed recently. Just 
+> verified that 4.8.0 dmesg did not contain these warnings.
+> 
+> Conf diff and current config are below:
 
-Doesn't apply to my tree, what did you make this against?
+nv_do_nic_poll() is simply buggy and needs a fix.
 
-thanks,
-
-greg k-h
+synchronize_irq() can sleep.
