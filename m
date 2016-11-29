@@ -1,86 +1,59 @@
-From: Brice Goglin <Brice.Goglin@inria.fr>
-Subject: Re: bnx2 breaks Dell R815 BMC IPMI since 4.8
-Date: Tue, 29 Nov 2016 08:21:48 +0100
-Message-ID: <583D2C8C.9070902@inria.fr>
-References: <583D26EF.60207@inria.fr> <20161129070211.GC3126@x1>
+From: Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2] ethernet :mellanox :mlx4: Replace pci_pool_alloc by pci_pool_zalloc
+Date: Tue, 29 Nov 2016 12:55:19 +0530
+Message-ID: <CAFqt6zYzUyZ__7iVH3LwhGzeU7RN59-md4rcmwngRZW_ahDeAQ@mail.gmail.com>
+References: <20161129065931.GA3245@gnr743-HP-ZBook-15>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Baoquan He <bhe@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:63306 "EHLO
-        mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751566AbcK2HVu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 02:21:50 -0500
-In-Reply-To: <20161129070211.GC3126@x1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Rameshwar Sahu <sahu.rameshwar73-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161129065931.GA3245@gnr743-HP-ZBook-15>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I only tested 4.8.5 and 4.9-rc5 unfortunately, they came later. I'll
-ping my distro.
-Thanks for the quick reply!
-Brice
+Please ignore this v2 patch.
 
-
-
-Le 29/11/2016 08:02, Baoquan He a écrit :
-> Sorry, Brice. This has been reported by people, and it has been fixed by
-> later post. The commits within linus's tree are:
+On Tue, Nov 29, 2016 at 12:29 PM, Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> In mlx4_alloc_cmd_mailbox(), pci_pool_alloc() followed by memset will be
+> replaced by pci_pool_zalloc().
 >
-> commit 6df77862f63f389df3b1ad879738e04440d7385d
-> Author: Baoquan He <bhe@redhat.com>
-> Date:   Sun Nov 13 13:01:33 2016 +0800
+> Signed-off-by: Souptick joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> v2:
+>   - Address comment from sergei
+>     Alignment was not proper
 >
->     bnx2: Wait for in-flight DMA to complete at probe stage
+>  drivers/net/ethernet/mellanox/mlx4/cmd.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
 >
-> commit 5d0d4b91bf627f14f95167b738d524156c9d440b
-> Author: Baoquan He <bhe@redhat.com>
-> Date:   Sun Nov 13 13:01:32 2016 +0800
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> index e36bebc..96cdf9a 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> @@ -2679,14 +2679,13 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
+>         if (!mailbox)
+>                 return ERR_PTR(-ENOMEM);
 >
->     Revert "bnx2: Reset device during driver initialization"
->     
->     This reverts commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c.
+> -       mailbox->buf = pci_pool_alloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
+> -                                     &mailbox->dma);
+> +       mailbox->buf = pci_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
+> +                                      &mailbox->dma);
+>         if (!mailbox->buf) {
+>                 kfree(mailbox);
+>                 return ERR_PTR(-ENOMEM);
+>         }
 >
-> And I believe both of them also are picked up into 4.8-stable kernel.
-> Please have a way to get them.
+> -       memset(mailbox->buf, 0, MLX4_MAILBOX_SIZE);
 >
-> Sorry again!
+>         return mailbox;
+>  }
+> --
+> 1.9.1
 >
-> Thanks
-> Baoquan
->
->
-> On 11/29/16 at 07:57am, Brice Goglin wrote:
->> Hello
->>
->> My Dell PowerEdge R815 doesn't have IPMI anymore when I boot a 4.8
->> kernel, the BMC doesn't even ping anymore. Its Ethernet devices are 4 of
->> those:
->>
->> 01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
->> 	DeviceName: Embedded NIC 1                          
->> 	Subsystem: Dell NetXtreme II BCM5709 Gigabit Ethernet
->> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
->> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
->> 	Latency: 0, Cache Line Size: 64 bytes
->> 	Interrupt: pin A routed to IRQ 42
->> 	Region 0: Memory at e6000000 (64-bit, non-prefetchable) [size=32M]
->> 	Capabilities: <access denied>
->> 	Kernel driver in use: bnx2
->> 	Kernel modules: bnx2
->>
->> The only change in bnx2 between 4.7 and 4.8 appears to be this one:
->>
->> commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c
->> Author: Baoquan He <bhe@redhat.com>
->> Date:   Fri Sep 9 22:43:12 2016 +0800
->>
->>     bnx2: Reset device during driver initialization
->>
->> Could you patch actually break the BMC? What do I need to further debug
->> this issue?
->>
->> Thanks
->> Brice
->>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
