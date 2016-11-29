@@ -1,100 +1,65 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 29 Nov 2016 11:31:26 +1100
-Message-ID: <20161129113126.2626e7fe@canb.auug.org.au>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net] openvswitch: Fix skb leak in IPv6 reassembly.
+Date: Tue, 29 Nov 2016 01:45:05 +0100
+Message-ID: <20161129004505.GB11456@breakpoint.cc>
+References: <20161128234353.4262-1-diproiettod@ovn.org>
+ <1480378950.18162.107.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniele Di Proietto <diproiettod@ovn.org>, netdev@vger.kernel.org,
+        Florian Westphal <fw@strlen.de>,
+        Pravin B Shelar <pshelar@ovn.org>, Joe Stringer <joe@ovn.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:39118 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752872AbcK2AsB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 19:48:01 -0500
+Content-Disposition: inline
+In-Reply-To: <1480378950.18162.107.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2016-11-28 at 15:43 -0800, Daniele Di Proietto wrote:
+> > If nf_ct_frag6_gather() returns an error other than -EINPROGRESS, it
+> > means that we still have a reference to the skb.  We should free it
+> > before returning from handle_fragments, as stated in the comment above.
+> > 
+> > Fixes: daaa7d647f81 ("netfilter: ipv6: avoid nf_iterate recursion")
+> > CC: Florian Westphal <fw@strlen.de>
+> > CC: Pravin B Shelar <pshelar@ovn.org>
+> > CC: Joe Stringer <joe@ovn.org>
+> > Signed-off-by: Daniele Di Proietto <diproiettod@ovn.org>
+> > ---
+> >  net/openvswitch/conntrack.c | 5 ++++-
+> >  1 file changed, 4 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+> > index 31045ef..fecefa2 100644
+> > --- a/net/openvswitch/conntrack.c
+> > +++ b/net/openvswitch/conntrack.c
+> > @@ -370,8 +370,11 @@ static int handle_fragments(struct net *net, struct sw_flow_key *key,
+> >  		skb_orphan(skb);
+> >  		memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
+> >  		err = nf_ct_frag6_gather(net, skb, user);
+> > -		if (err)
+> > +		if (err) {
+> > +			if (err != -EINPROGRESS)
+> > +				kfree_skb(skb);
+> >  			return err;
+> > +		}
+> >  
+> >  		key->ip.proto = ipv6_hdr(skb)->nexthdr;
+> >  		ovs_cb.mru = IP6CB(skb)->frag_max_size;
+> 
+> Interesting, have you followed the "GPF in eth_header" thread today ?
+> 
+> In a nutshell, we want a complete patch, not something that would solve
+> part of the problem.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+I think this patch is fine, intent seems to be to only take fully reassembled
+skb, rather than a stray fragment (ovs does NOT seem to call handle_fragments
+in case skb is already known to not contain a fragment header, afaics).
 
-  net/sched/cls_flower.c
-
-between commit:
-
-  d936377414fa ("net, sched: respect rcu grace period on cls destruction")
-
-from the net tree and commit:
-
-  13fa876ebd03 ("net/sched: cls_flower: merge filter delete/destroy common code")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/sched/cls_flower.c
-index b296f3991ab2,e8dd09af0d0c..000000000000
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@@ -273,24 -272,14 +276,32 @@@ static void fl_hw_update_stats(struct t
-  	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
-  }
-  
- +static void fl_destroy_sleepable(struct work_struct *work)
- +{
- +	struct cls_fl_head *head = container_of(work, struct cls_fl_head,
- +						work);
- +	if (head->mask_assigned)
- +		rhashtable_destroy(&head->ht);
- +	kfree(head);
- +	module_put(THIS_MODULE);
- +}
- +
- +static void fl_destroy_rcu(struct rcu_head *rcu)
- +{
- +	struct cls_fl_head *head = container_of(rcu, struct cls_fl_head, rcu);
- +
- +	INIT_WORK(&head->work, fl_destroy_sleepable);
- +	schedule_work(&head->work);
- +}
- +
-+ static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
-+ {
-+ 	list_del_rcu(&f->list);
-+ 	fl_hw_destroy_filter(tp, (unsigned long)f);
-+ 	tcf_unbind_filter(tp, &f->res);
-+ 	call_rcu(&f->rcu, fl_destroy_filter);
-+ }
-+ 
-  static bool fl_destroy(struct tcf_proto *tp, bool force)
-  {
-  	struct cls_fl_head *head = rtnl_dereference(tp->root);
-@@@ -299,14 -288,12 +310,11 @@@
-  	if (!force && !list_empty(&head->filters))
-  		return false;
-  
-- 	list_for_each_entry_safe(f, next, &head->filters, list) {
-- 		fl_hw_destroy_filter(tp, (unsigned long)f);
-- 		list_del_rcu(&f->list);
-- 		call_rcu(&f->rcu, fl_destroy_filter);
-- 	}
-+ 	list_for_each_entry_safe(f, next, &head->filters, list)
-+ 		__fl_delete(tp, f);
- -	RCU_INIT_POINTER(tp->root, NULL);
- -	if (head->mask_assigned)
- -		rhashtable_destroy(&head->ht);
- -	kfree_rcu(head, rcu);
- +
- +	__module_get(THIS_MODULE);
- +	call_rcu(&head->rcu, fl_destroy_rcu);
-  	return true;
-  }
-  
+I'll send a patch for the GPF in eth_header thing soon.
