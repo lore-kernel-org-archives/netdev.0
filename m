@@ -1,317 +1,52 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 1/2] tcp: randomize tcp timestamp offsets for each connection
-Date: Tue, 29 Nov 2016 16:45:41 +0100
-Message-ID: <1480434342-12367-1-git-send-email-fw@strlen.de>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next 10/11] qede: Add basic XDP support
+Date: Tue, 29 Nov 2016 16:48:50 +0100
+Message-ID: <583DA362.7010702@iogearbox.net>
+References: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com> <1480430830-17671-11-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Florian Westphal <fw@strlen.de>,
-        =?UTF-8?q?Mirja=20K=C3=BChlewind?=
-        <mirja.kuehlewind@tik.ee.ethz.ch>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com
+To: Yuval Mintz <Yuval.Mintz@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:42220 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755989AbcK2Ppi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 10:45:38 -0500
+Received: from www62.your-server.de ([213.133.104.62]:34945 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754235AbcK2Ps7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 10:48:59 -0500
+In-Reply-To: <1480430830-17671-11-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jiffies based timestamps allow for easy inference of number of devices
-behind NAT translators and also makes tracking of hosts simpler.
+On 11/29/2016 03:47 PM, Yuval Mintz wrote:
+> Add support for the ndo_xdp callback. This patch would support XDP_PASS,
+> XDP_DROP and XDP_ABORTED commands.
+>
+> This also adds a per Rx queue statistic which counts number of packets
+> which didn't reach the stack [due to XDP].
+>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+[...]
+> @@ -1560,6 +1593,7 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
+>   			       struct qede_fastpath *fp,
+>   			       struct qede_rx_queue *rxq)
+>   {
+> +	struct bpf_prog *xdp_prog = READ_ONCE(rxq->xdp_prog);
+>   	struct eth_fast_path_rx_reg_cqe *fp_cqe;
+>   	u16 len, pad, bd_cons_idx, parse_flag;
+>   	enum eth_rx_cqe_type cqe_type;
+> @@ -1596,6 +1630,11 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
+>   	len = le16_to_cpu(fp_cqe->len_on_first_bd);
+>   	pad = fp_cqe->placement_offset;
+>
+> +	/* Run eBPF program if one is attached */
+> +	if (xdp_prog)
+> +		if (!qede_rx_xdp(edev, fp, rxq, xdp_prog, bd, fp_cqe))
+> +			return 1;
+> +
 
-commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
-added the main infrastructure that is needed for per-connection ts
-randomization, in particular writing/reading the on-wire tcp header
-format takes the offset into account so rest of stack can use normal
-tcp_time_stamp (jiffies).
-
-So only two items are left:
- - add a tsoffset for request sockets
- - extend the tcp isn generator to also return another 32bit number
-   in addition to the ISN.
-
-Re-use of ISN generator also means timestamps are still monotonically
-increasing for same connection quadruple, i.e. PAWS will still work.
-
-Includes fixes from Eric Dumazet.
-
-Cc: Mirja Kühlewind <mirja.kuehlewind@tik.ee.ethz.ch>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/tcp.h      |  1 +
- include/net/secure_seq.h |  8 ++++----
- include/net/tcp.h        |  2 +-
- net/core/secure_seq.c    | 10 ++++++----
- net/ipv4/syncookies.c    |  1 +
- net/ipv4/tcp_input.c     |  7 ++++++-
- net/ipv4/tcp_ipv4.c      |  9 +++++----
- net/ipv4/tcp_minisocks.c |  4 +++-
- net/ipv4/tcp_output.c    |  2 +-
- net/ipv6/syncookies.c    |  1 +
- net/ipv6/tcp_ipv6.c      | 10 ++++++----
- 11 files changed, 35 insertions(+), 20 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 32a7c7e35b71..2408bcc579f1 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -123,6 +123,7 @@ struct tcp_request_sock {
- 	u32				txhash;
- 	u32				rcv_isn;
- 	u32				snt_isn;
-+	u32				ts_off;
- 	u32				last_oow_ack_time; /* last SYNACK */
- 	u32				rcv_nxt; /* the ack # by SYNACK. For
- 						  * FastOpen it's the seq#
-diff --git a/include/net/secure_seq.h b/include/net/secure_seq.h
-index 3f36d45b714a..0caee631a836 100644
---- a/include/net/secure_seq.h
-+++ b/include/net/secure_seq.h
-@@ -6,10 +6,10 @@
- u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport);
- u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
- 			       __be16 dport);
--__u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
--				 __be16 sport, __be16 dport);
--__u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
--				   __be16 sport, __be16 dport);
-+u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
-+			       __be16 sport, __be16 dport, u32 *tsoff);
-+u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
-+				 __be16 sport, __be16 dport, u32 *tsoff);
- u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
- 				__be16 sport, __be16 dport);
- u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7de80739adab..1c09d909bd43 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1809,7 +1809,7 @@ struct tcp_request_sock_ops {
- 	struct dst_entry *(*route_req)(const struct sock *sk, struct flowi *fl,
- 				       const struct request_sock *req,
- 				       bool *strict);
--	__u32 (*init_seq)(const struct sk_buff *skb);
-+	__u32 (*init_seq)(const struct sk_buff *skb, u32 *tsoff);
- 	int (*send_synack)(const struct sock *sk, struct dst_entry *dst,
- 			   struct flowi *fl, struct request_sock *req,
- 			   struct tcp_fastopen_cookie *foc,
-diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-index fd3ce461fbe6..a8d6062cbb4a 100644
---- a/net/core/secure_seq.c
-+++ b/net/core/secure_seq.c
-@@ -40,8 +40,8 @@ static u32 seq_scale(u32 seq)
- #endif
- 
- #if IS_ENABLED(CONFIG_IPV6)
--__u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
--				   __be16 sport, __be16 dport)
-+u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
-+				 __be16 sport, __be16 dport, u32 *tsoff)
- {
- 	u32 secret[MD5_MESSAGE_BYTES / 4];
- 	u32 hash[MD5_DIGEST_WORDS];
-@@ -58,6 +58,7 @@ __u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
- 
- 	md5_transform(hash, secret);
- 
-+	*tsoff = hash[1];
- 	return seq_scale(hash[0]);
- }
- EXPORT_SYMBOL(secure_tcpv6_sequence_number);
-@@ -86,8 +87,8 @@ EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
- 
- #ifdef CONFIG_INET
- 
--__u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
--				 __be16 sport, __be16 dport)
-+u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
-+			       __be16 sport, __be16 dport, u32 *tsoff)
- {
- 	u32 hash[MD5_DIGEST_WORDS];
- 
-@@ -99,6 +100,7 @@ __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
- 
- 	md5_transform(hash, net_secret);
- 
-+	*tsoff = hash[1];
- 	return seq_scale(hash[0]);
- }
- 
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 0dc6286272aa..3e88467d70ee 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -334,6 +334,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	treq = tcp_rsk(req);
- 	treq->rcv_isn		= ntohl(th->seq) - 1;
- 	treq->snt_isn		= cookie;
-+	treq->ts_off		= 0;
- 	req->mss		= mss;
- 	ireq->ir_num		= ntohs(th->dest);
- 	ireq->ir_rmt_port	= th->source;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 22e6a2097ff6..1b1921c71f7c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6301,6 +6301,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		goto drop;
- 
- 	tcp_rsk(req)->af_specific = af_ops;
-+	tcp_rsk(req)->ts_off = 0;
- 
- 	tcp_clear_options(&tmp_opt);
- 	tmp_opt.mss_clamp = af_ops->mss_clamp;
-@@ -6322,6 +6323,9 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
- 
-+	if (isn && tmp_opt.tstamp_ok)
-+		af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
-+
- 	if (!want_cookie && !isn) {
- 		/* VJ's idea. We save last timestamp seen
- 		 * from the destination in peer table, when entering
-@@ -6362,7 +6366,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 			goto drop_and_release;
- 		}
- 
--		isn = af_ops->init_seq(skb);
-+		isn = af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
- 	}
- 	if (!dst) {
- 		dst = af_ops->route_req(sk, &fl, req, NULL);
-@@ -6374,6 +6378,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 
- 	if (want_cookie) {
- 		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
-+		tcp_rsk(req)->ts_off = 0;
- 		req->cookie_ts = tmp_opt.tstamp_ok;
- 		if (!tmp_opt.tstamp_ok)
- 			inet_rsk(req)->ecn_ok = 0;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5555eb86e549..b50f05905ced 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -95,12 +95,12 @@ static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
- struct inet_hashinfo tcp_hashinfo;
- EXPORT_SYMBOL(tcp_hashinfo);
- 
--static  __u32 tcp_v4_init_sequence(const struct sk_buff *skb)
-+static u32 tcp_v4_init_sequence(const struct sk_buff *skb, u32 *tsoff)
- {
- 	return secure_tcp_sequence_number(ip_hdr(skb)->daddr,
- 					  ip_hdr(skb)->saddr,
- 					  tcp_hdr(skb)->dest,
--					  tcp_hdr(skb)->source);
-+					  tcp_hdr(skb)->source, tsoff);
- }
- 
- int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
-@@ -237,7 +237,8 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		tp->write_seq = secure_tcp_sequence_number(inet->inet_saddr,
- 							   inet->inet_daddr,
- 							   inet->inet_sport,
--							   usin->sin_port);
-+							   usin->sin_port,
-+							   &tp->tsoffset);
- 
- 	inet->inet_id = tp->write_seq ^ jiffies;
- 
-@@ -824,7 +825,7 @@ static void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
- 	tcp_v4_send_ack(sk, skb, seq,
- 			tcp_rsk(req)->rcv_nxt,
- 			req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
--			tcp_time_stamp,
-+			tcp_time_stamp + tcp_rsk(req)->ts_off,
- 			req->ts_recent,
- 			0,
- 			tcp_md5_do_lookup(sk, (union tcp_md5_addr *)&ip_hdr(skb)->daddr,
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 6234ebaa7db1..28ce5ee831f5 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -532,7 +532,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 			newtp->rx_opt.ts_recent_stamp = 0;
- 			newtp->tcp_header_len = sizeof(struct tcphdr);
- 		}
--		newtp->tsoffset = 0;
-+		newtp->tsoffset = treq->ts_off;
- #ifdef CONFIG_TCP_MD5SIG
- 		newtp->md5sig_info = NULL;	/*XXX*/
- 		if (newtp->af_specific->md5_lookup(sk, newsk))
-@@ -581,6 +581,8 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- 
- 		if (tmp_opt.saw_tstamp) {
- 			tmp_opt.ts_recent = req->ts_recent;
-+			if (tmp_opt.rcv_tsecr)
-+				tmp_opt.rcv_tsecr -= tcp_rsk(req)->ts_off;
- 			/* We do not store true stamp, but it is not required,
- 			 * it can be estimated (approximately)
- 			 * from another data.
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 19105b46a304..1b6d5f34bf45 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -640,7 +640,7 @@ static unsigned int tcp_synack_options(struct request_sock *req,
- 	}
- 	if (likely(ireq->tstamp_ok)) {
- 		opts->options |= OPTION_TS;
--		opts->tsval = tcp_skb_timestamp(skb);
-+		opts->tsval = tcp_skb_timestamp(skb) + tcp_rsk(req)->ts_off;
- 		opts->tsecr = req->ts_recent;
- 		remaining -= TCPOLEN_TSTAMP_ALIGNED;
- 	}
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 97830a6a9cbb..a4d49760bf43 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -209,6 +209,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	treq->snt_synack.v64	= 0;
- 	treq->rcv_isn = ntohl(th->seq) - 1;
- 	treq->snt_isn = cookie;
-+	treq->ts_off = 0;
- 
- 	/*
- 	 * We need to lookup the dst_entry to get the correct window size.
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 28ec0a2e7b72..a2185a214abc 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -101,12 +101,12 @@ static void inet6_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
- 	}
- }
- 
--static __u32 tcp_v6_init_sequence(const struct sk_buff *skb)
-+static u32 tcp_v6_init_sequence(const struct sk_buff *skb, u32 *tsoff)
- {
- 	return secure_tcpv6_sequence_number(ipv6_hdr(skb)->daddr.s6_addr32,
- 					    ipv6_hdr(skb)->saddr.s6_addr32,
- 					    tcp_hdr(skb)->dest,
--					    tcp_hdr(skb)->source);
-+					    tcp_hdr(skb)->source, tsoff);
- }
- 
- static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
-@@ -283,7 +283,8 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 		tp->write_seq = secure_tcpv6_sequence_number(np->saddr.s6_addr32,
- 							     sk->sk_v6_daddr.s6_addr32,
- 							     inet->inet_sport,
--							     inet->inet_dport);
-+							     inet->inet_dport,
-+							     &tp->tsoffset);
- 
- 	err = tcp_connect(sk);
- 	if (err)
-@@ -956,7 +957,8 @@ static void tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
- 			tcp_rsk(req)->snt_isn + 1 : tcp_sk(sk)->snd_nxt,
- 			tcp_rsk(req)->rcv_nxt,
- 			req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
--			tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
-+			tcp_time_stamp + tcp_rsk(req)->ts_off,
-+			req->ts_recent, sk->sk_bound_dev_if,
- 			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
- 			0, 0);
- }
--- 
-2.7.3
+You also need to wrap this under rcu_read_lock() (at least I haven't seen
+it in your patches) for same reasons as stated in 326fe02d1ed6 ("net/mlx4_en:
+protect ring->xdp_prog with rcu_read_lock"), as otherwise xdp_prog could
+disappear underneath you. mlx4 and nfp does it correctly, looks like mlx5
+doesn't.
