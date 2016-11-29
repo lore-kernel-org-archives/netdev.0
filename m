@@ -1,94 +1,71 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 2/2] net: phy: bcm7xxx: Plug in support for reading PHY error counters
-Date: Mon, 28 Nov 2016 17:04:57 -0800
-Message-ID: <20161129010457.17438-3-f.fainelli@gmail.com>
-References: <20161129010457.17438-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH net-next 1/1] driver: ipvlan: Add the sanity check for
+ ipvlan mode
+Date: Tue, 29 Nov 2016 09:06:44 +0800
+Message-ID: <CA+6hz4qiUVLJDiF-sX8ckcMm-wq4=Z-3HGPCXXsAdqNbugzb5A@mail.gmail.com>
+References: <1480339435-15551-1-git-send-email-fgao@ikuai8.com>
+ <CAF2d9ji2_JhiNv9P9aUt7wV2Vfjv+z_q-MWSKKH8tzO_1THobg@mail.gmail.com> <20161128.150808.1499148970176655699.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35041 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753696AbcK2BFE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 20:05:04 -0500
-Received: by mail-pg0-f67.google.com with SMTP id p66so14591588pga.2
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 17:05:03 -0800 (PST)
-In-Reply-To: <20161129010457.17438-1-f.fainelli@gmail.com>
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:36145 "EHLO
+        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751432AbcK2BGq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 20:06:46 -0500
+Received: by mail-ua0-f194.google.com with SMTP id 12so12201665uas.3
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 17:06:45 -0800 (PST)
+In-Reply-To: <20161128.150808.1499148970176655699.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Broadcom BCM7xxx internal PHYs can leverage the Broadcom PHY library
-module PHY error counters helper functions, just implement the
-appropriate PHY driver function calls to do so. We need to allocate some
-storage space for our PHY statistics, and provide it to the Broadcom PHY
-library, so do this in a specific probe function, and slightly wrap the
-get_stats function call.
+Hi David & Mahesh,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/bcm7xxx.c | 34 ++++++++++++++++++++++++++++++++++
- 1 file changed, 34 insertions(+)
+On Tue, Nov 29, 2016 at 4:08 AM, David Miller <davem@davemloft.net> wrote:
+> From: Mahesh Bandewar (=E0=A4=AE=E0=A4=B9=E0=A5=87=E0=A4=B6 =E0=A4=AC=E0=
+=A4=82=E0=A4=A1=E0=A5=87=E0=A4=B5=E0=A4=BE=E0=A4=B0) <maheshb@google.com>
+> Date: Mon, 28 Nov 2016 11:02:45 -0800
+>
+>> On Mon, Nov 28, 2016 at 5:23 AM, <fgao@ikuai8.com> wrote:
+>>
+>>> From: Gao Feng <fgao@ikuai8.com>
+>>>
+>>> The ipvlan mode variable "nval" is from userspace, so the ipvlan codes
+>>> should check if the mode variable "nval" is valid.
+>>>
+>>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>>> ---
+>>>  drivers/net/ipvlan/ipvlan_main.c | 3 +++
+>>>  1 file changed, 3 insertions(+)
+>>>
+>>> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvl=
+an_
+>>> main.c
+>>> index ab90b22..537b5a9 100644
+>>> --- a/drivers/net/ipvlan/ipvlan_main.c
+>>> +++ b/drivers/net/ipvlan/ipvlan_main.c
+>>> @@ -65,6 +65,9 @@ static int ipvlan_set_port_mode(struct ipvl_port *por=
+t,
+>>> u16 nval)
+>>>         struct net_device *mdev =3D port->dev;
+>>>         int err =3D 0;
+>>>
+>>> +       if (nval >=3D IPVLAN_MODE_MAX)
+>>> +               return -EINVAL;
+>>> +
+>>>
+>> I'm curious to know how you encountered this issue? The values are
+>> validated in ipvlan_nl_validate() and it should fail at that time itself=
+.
+>
+> I'm not applying this without at least a better explanation.
 
-diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index 5b3be4c67be8..fb976ab2ab92 100644
---- a/drivers/net/phy/bcm7xxx.c
-+++ b/drivers/net/phy/bcm7xxx.c
-@@ -45,6 +45,10 @@
- #define AFE_VDAC_OTHERS_0		MISC_ADDR(0x39, 3)
- #define AFE_HPF_TRIM_OTHERS		MISC_ADDR(0x3a, 0)
- 
-+struct bcm7xxx_phy_priv {
-+	u64	*stats;
-+};
-+
- static void r_rc_cal_reset(struct phy_device *phydev)
- {
- 	/* Reset R_CAL/RC_CAL Engine */
-@@ -350,6 +354,32 @@ static int bcm7xxx_28nm_set_tunable(struct phy_device *phydev,
- 	return genphy_restart_aneg(phydev);
- }
- 
-+static void bcm7xxx_28nm_get_phy_stats(struct phy_device *phydev,
-+				       struct ethtool_stats *stats, u64 *data)
-+{
-+	struct bcm7xxx_phy_priv *priv = phydev->priv;
-+
-+	bcm_phy_get_stats(phydev, priv->stats, stats, data);
-+}
-+
-+static int bcm7xxx_28nm_probe(struct phy_device *phydev)
-+{
-+	struct bcm7xxx_phy_priv *priv;
-+
-+	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
-+	if (!priv)
-+		return -ENOMEM;
-+
-+	phydev->priv = priv;
-+
-+	priv->stats = devm_kzalloc(&phydev->mdio.dev,
-+				   bcm_phy_get_sset_count(phydev), GFP_KERNEL);
-+	if (!priv->stats)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
- #define BCM7XXX_28NM_GPHY(_oui, _name)					\
- {									\
- 	.phy_id		= (_oui),					\
-@@ -364,6 +394,10 @@ static int bcm7xxx_28nm_set_tunable(struct phy_device *phydev,
- 	.resume		= bcm7xxx_28nm_resume,				\
- 	.get_tunable	= bcm7xxx_28nm_get_tunable,			\
- 	.set_tunable	= bcm7xxx_28nm_set_tunable,			\
-+	.get_sset_count	= bcm_phy_get_sset_count,			\
-+	.get_strings	= bcm_phy_get_strings,				\
-+	.get_stats	= bcm7xxx_28nm_get_phy_stats,			\
-+	.probe		= bcm7xxx_28nm_probe,				\
- }
- 
- #define BCM7XXX_40NM_EPHY(_oui, _name)					\
--- 
-2.9.3
+Sorry, I didn't find the function "ipvlan_nl_validate" during reading
+the ipvlan codes.
+
+Regards
+Feng
