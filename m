@@ -1,50 +1,42 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) Bus driver
-Date: Mon, 28 Nov 2016 22:31:06 -0800
-Message-ID: <20161129063106.GB84990@knc-06.sc.intel.com>
-References: <20161121232629.GA67988@knc-06.sc.intel.com>
- <20161121233118.GA31132@obsidianresearch.com>
- <20161122015304.GB67988@knc-06.sc.intel.com>
- <20161122170407.GE3956@obsidianresearch.com>
- <20161123000502.GA27968@phlsvsds.ph.intel.com>
- <20161123004932.GA13598@obsidianresearch.com>
- <20161124000825.GA73280@knc-06.sc.intel.com>
- <20161124161545.GA20818@obsidianresearch.com>
- <20161125021350.GA74946@knc-06.sc.intel.com>
- <20161125190509.GB16504@obsidianresearch.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 29 Nov 2016 07:32:30 +0100
+Message-ID: <583D20FE.7060707@iogearbox.net>
+References: <20161129113126.2626e7fe@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161125190509.GB16504-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20161129113126.2626e7fe@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 25, 2016 at 12:05:09PM -0700, Jason Gunthorpe wrote:
->On Thu, Nov 24, 2016 at 06:13:50PM -0800, Vishwanathapura, Niranjana wrote:
+On 11/29/2016 01:31 AM, Stephen Rothwell wrote:
+> Hi all,
 >
->> In order to be truely device independent the hfi_vnic ULP should not depend
->> on a device exported symbol. Instead device should register its functions
->> with the ULP. Hence the approaches a) and b).
+> Today's linux-next merge of the net-next tree got a conflict in:
 >
->It is not device independent, it is hard linked to hfi1, just like our
->other multi-component drivers.. So don't worry about that.
+>    net/sched/cls_flower.c
 >
+> between commit:
+>
+>    d936377414fa ("net, sched: respect rcu grace period on cls destruction")
+>
+> from the net tree and commit:
+>
+>    13fa876ebd03 ("net/sched: cls_flower: merge filter delete/destroy common code")
+>
+> from the net-next tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
 
-We would like to keep the design clean and avoid any tight coupling here (our 
-original design in this series tackled these).
-Any strong reason not to go with a) or b) ?
-
-Niranjana
-
->Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks good to me, thanks!
