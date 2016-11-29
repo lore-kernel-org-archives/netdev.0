@@ -1,100 +1,44 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: bpf debug info
-Date: Tue, 29 Nov 2016 21:23:10 +0100
-Message-ID: <583DE3AE.8030103@iogearbox.net>
-References: <20161129064217.GA20124@ast-mbp.thefacebook.com> <583D9AA4.8050601@iogearbox.net> <20161129153818.51104fab@jkicinski-Precision-T1700> <20161129185116.GA22581@ast-mbp.thefacebook.com>
+Subject: Re: [PATCH net-next] bpf: add test for the verifier equal logic bug
+Date: Tue, 29 Nov 2016 21:23:59 +0100
+Message-ID: <583DE3DF.5070507@iogearbox.net>
+References: <1480440919-3252-1-git-send-email-jbacik@fb.com> <583DD1C0.1010209@iogearbox.net> <c2ea35d1-302c-671e-f976-9bb7ccf56197@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Brenden Blanco <bblanco@plumgrid.com>,
-        Thomas Graf <tgraf@suug.ch>, Wangnan <wangnan0@huawei.com>,
-        He Kuang <hekuang@huawei.com>, kernel-team@fb.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jakub Kicinski <kubakici@wp.pl>
+To: Josef Bacik <jbacik@fb.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, ast@kernel.org, jannh@google.com,
+        kernel-team@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33907 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:33970 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756691AbcK2UXP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:23:15 -0500
-In-Reply-To: <20161129185116.GA22581@ast-mbp.thefacebook.com>
+        with ESMTP id S1756691AbcK2UYD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:24:03 -0500
+In-Reply-To: <c2ea35d1-302c-671e-f976-9bb7ccf56197@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 07:51 PM, Alexei Starovoitov wrote:
-> On Tue, Nov 29, 2016 at 03:38:18PM +0000, Jakub Kicinski wrote:
-[...]
->>>> So next step is to improve verifier messages to be more human friendly.
->>>> The step after is to introduce BPF_COMMENT pseudo instruction
->>>> that will be ignored by the interpreter yet it will contain the text
->>>> of original source code. Then llvm-objdump step won't be necessary.
->>>> The bpf loader will load both instructions and pieces of C sources.
->>>> Then verifier errors should be even easier to read and humans
->>>> can easily understand the purpose of the program.
+On 11/29/2016 08:50 PM, Josef Bacik wrote:
+> On 11/29/2016 02:06 PM, Daniel Borkmann wrote:
+>> On 11/29/2016 06:35 PM, Josef Bacik wrote:
+>>> This is a test to verify that
 >>>
->>> So the BPF_COMMENT pseudo insn will get stripped away from the insn array
->>> after verification step, so we don't need to hold/account for this mem? I
->>> assume in it's ->imm member it will just hold offset into text blob?
+>>> bpf: fix states equal logic for varlen access
+>>>
+>>> actually fixed the problem.  The problem was if the register we added to our map
+>>> register was UNKNOWN in both the false and true branches and the only thing that
+>>> changed was the range then we'd incorrectly assume that the true branch was
+>>> valid, which it really wasnt.  This tests this case and properly fails without
+>>> my fix in place and passes with it in place.
+>>>
+>>> Signed-off-by: Josef Bacik <jbacik@fb.com>
 >>
->> Associating any form of opaque data with programs always makes me
->> worried about opening a side channel of communication with a specialized
->> user space implementations/compilers.  But I guess if the BPF_COMMENTs
->> are stripped in the verifier as Daniel assumes drivers and JITs will
->> never see it.
+>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>>
+>> Thanks a lot for the test case! They are always useful to have ... which
+>> just reminds me: it seems we didn't add anything for f23cc643f9ba ("bpf:
+>> fix range arithmetic for bpf map access"). ;-)
 >
-> yes. the idea that it's a comment. It can contain any text,
-> not only C code, but any other language.
-> It's definitely going to be stripped before JITs and kernel will
-> not make any safety or translation decisions based on such comment.
->
->> Just to clarify, however - is there any reason why pushing the source
->> code into the kernel is necessary?  Or is it just for convenience?
->> Provided the user space loader has access to the debug info it should
->> have no problems matching the verifier output to code lines?
->
-> correct. just for convenience. The user space has to keep .o around,
-> since it can crash, would have to reload and so on.
-> Only for some script that ssh-es into servers and wants to see
-> what is being loaded, it might help to dump full asm and these comments
-> along with prog_digest that Daniel is working on in parallel.
+> I was hoping you wouldn't notice ;).  I'll add one in the next couple of days. Thanks,
 
-Which would mean we'd need to keep it around somewhere (prog aux data?)
-in post-verification time (so potentially drivers/JITs could see it, too,
-just not inside insn stream). Some API glue code could probably blind
-this information for the JITing time to stop incentive of playing side
-channel games (e.g. core code could encrypt the pointer value and only
-core kernel knows how to access that data, no modules, no out-of-tree
-code). The other thing I'm wondering is, when we strip this info anyway
-from the insn stream to keep it in aux data (so it can later be reconstructed
-on a dump), then perhaps that is best done before prog loading time? It
-would then allow to keep complexity with stripping that insns out of the
-verifier. If semantics are that these comments are acting as a hole/gap
-(in a similar sense of what we have with cBPF today), then it can never
-become a jmp target and loaders could strip it out already (instead of
-teaching DFS, etc about it), and prepare a meta data structure in bpf_attr
-for bpf(2), and verifier works based on that one. What makes this problematic
-however is when you have rewrites in the kernel (ctx access, constant
-blinding, etc), but perhaps they could just adjust the offsets from that
-meta data thing as well?
-
-> Alternatively instead of doing BPF_COMMENT we can load the whole .o
-> as-is into bpffs as a blob. Later (based on digest) the kernel can
-> dump such .o back for user space to run objdump on. It all can be
-> done without kernel involvement. Like tc command can copy .o and so on.
-> But not everything is using tc.
-
-That means kernel must ensure/verify that loaded insns also come from
-that claimed object file; not sure if easily possible w/o parsing elf.
-It could work if the kernel loads everything based on the content of
-the object file itself, but that is not possible anymore since we have
-bpf(2) already for doing that (but also would add a lot of complexity).
-
-> Another alternative is to do a decompiler from bpf binary
-> into meaningful C code. It's not trivial and names will be lost.
-> bpf_comment approach is pretty cheap from kernel point of view
-> and greatly helps visibility when users don't cheat with debug info.
-
-Agree, it's non-trivial, would be really nice to have, though, so also
-non-cooperative -g users could be better examined.
-
-Thanks,
-Daniel
+Awesome, thanks a lot! :-)
