@@ -1,50 +1,54 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH for-next 6/6] IB/hns: Fix the IB device name
-Date: Tue, 29 Nov 2016 23:10:30 +0000
-Message-ID: <20161129231030.1105600-7-salil.mehta@huawei.com>
-References: <20161129231030.1105600-1-salil.mehta@huawei.com>
+From: Arun Easi <arun.easi@cavium.com>
+Subject: Re: qed, qedi patchset submission
+Date: Tue, 29 Nov 2016 15:11:26 -0800
+Message-ID: <alpine.LRH.2.00.1611291452030.28058@mvluser05.qlc.com>
+References: <alpine.LRH.2.00.1611141256340.28058@mvluser05.qlc.com> <yq11sydfwts.fsf@sermon.lab.mkp.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xushaobo2-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <lijun_nudt-9Onoh4P/yGk@public.gmane.org>,
-        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161129231030.1105600-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: <linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <yq11sydfwts.fsf@sermon.lab.mkp.net>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Hi David,
 
-This patch mainly fix the name for IB device in order
-to match with libhns.
+As we are preparing to post V3 of the qed (drivers/net/) and qedi 
+(drivers/scsi/), I would like to get your opinion on the "qedi" part. As 
+qedi (the iSCSI driver) is dependent on the accompanying "qed" changes, 
+qedi changes have to follow or be together with qed changes. Martin is ok 
+in having you taking the qedi part as well (see below discussion) or wait 
+until qed is in, and then take qedi through SCSI tree.
 
-Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
----
- drivers/infiniband/hw/hns/hns_roce_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi David, Martin,
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index 28a8f24..eddb053 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -433,7 +433,7 @@ static int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	spin_lock_init(&iboe->lock);
- 
- 	ib_dev = &hr_dev->ib_dev;
--	strlcpy(ib_dev->name, "hisi_%d", IB_DEVICE_NAME_MAX);
-+	strlcpy(ib_dev->name, "hns_%d", IB_DEVICE_NAME_MAX);
- 
- 	ib_dev->owner			= THIS_MODULE;
- 	ib_dev->node_type		= RDMA_NODE_IB_CA;
--- 
-1.7.9.5
+So far, we have been posting qedi changes split into functional blocks, 
+for review, but was not bisectable. With Martin ok to our request to 
+squash all patches while committing to tree, we were wondering if we 
+should post the qedi patches squashed, with all the Reviewed-by added, or 
+continue to post as before?
 
+Regards,
+-Arun
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Mon, 14 Nov 2016, 3:47pm, Martin K. Petersen wrote:
+
+> >>>>> "Arun" == Arun Easi <arun.easi@cavium.com> writes:
+> 
+> Arun,
+> 
+> Arun> Do you have any preference or thoughts on how the "qed" patches be
+> Arun> approached? Just as a reference, our rdma driver "qedr" went
+> Arun> through something similar[1], and eventually "qed" patches were
+> Arun> taken by David in the net tree and "qedr", in the rdma tree
+> Arun> (obviously) by Doug L.
+> 
+> DaveM can queue the whole series or I can hold the SCSI pieces for
+> rc1. Either way works for me.
+> 
+> However, I would like to do a review of the driver first. I will try to
+> get it done this week.
+> 
+> 
