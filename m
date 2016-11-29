@@ -1,52 +1,84 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) Bus driver
-Date: Tue, 29 Nov 2016 09:19:50 -0700
-Message-ID: <20161129161950.GB742@obsidianresearch.com>
-References: <20161121233118.GA31132@obsidianresearch.com>
- <20161122015304.GB67988@knc-06.sc.intel.com>
- <20161122170407.GE3956@obsidianresearch.com>
- <20161123000502.GA27968@phlsvsds.ph.intel.com>
- <20161123004932.GA13598@obsidianresearch.com>
- <20161124000825.GA73280@knc-06.sc.intel.com>
- <20161124161545.GA20818@obsidianresearch.com>
- <20161125021350.GA74946@knc-06.sc.intel.com>
- <20161125190509.GB16504@obsidianresearch.com>
- <20161129063106.GB84990@knc-06.sc.intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] tun: Use netif_receive_skb instead of netif_rx
+Date: Tue, 29 Nov 2016 18:20:22 +0200
+Message-ID: <20161129181631-mutt-send-email-mst@kernel.org>
+References: <1480433136-7922-1-git-send-email-andreyknvl@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S . Miller" <davem@davemloft.net>,
+        Jason Wang <jasowang@redhat.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Markus Elfring <elfring@users.sourceforge.net>,
+        Mike Rapoport <rppt@linux.vnet.ibm.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>, syzkaller@googlegroups.com
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35262 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753188AbcK2QUZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Nov 2016 11:20:25 -0500
 Content-Disposition: inline
-In-Reply-To: <20161129063106.GB84990-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1480433136-7922-1-git-send-email-andreyknvl@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 10:31:06PM -0800, Vishwanathapura, Niranjana wrote:
-> On Fri, Nov 25, 2016 at 12:05:09PM -0700, Jason Gunthorpe wrote:
-> >On Thu, Nov 24, 2016 at 06:13:50PM -0800, Vishwanathapura, Niranjana wrote:
-> >
-> >>In order to be truely device independent the hfi_vnic ULP should not depend
-> >>on a device exported symbol. Instead device should register its functions
-> >>with the ULP. Hence the approaches a) and b).
-> >
-> >It is not device independent, it is hard linked to hfi1, just like our
-> >other multi-component drivers.. So don't worry about that.
-> >
+On Tue, Nov 29, 2016 at 04:25:36PM +0100, Andrey Konovalov wrote:
+> This patch changes tun.c to call netif_receive_skb instead of netif_rx
+> when a packet is received. The difference between the two is that netif_rx
+> queues the packet into the backlog, and netif_receive_skb proccesses the
+> packet in the current context.
 > 
-> We would like to keep the design clean and avoid any tight coupling here
-> (our original design in this series tackled these).
-> Any strong reason not to go with a) or b) ?
+> This patch is required for syzkaller [1] to collect coverage from packet
+> receive paths, when a packet being received through tun (syzkaller collects
+> coverage per process in the process context).
+> 
+> A similar patch was introduced back in 2010 [2, 3], but the author found
+> out that the patch doesn't help with the task he had in mind (for cgroups
+> to shape network traffic based on the original process) and decided not to
+> go further with it. The main concern back then was about possible stack
+> exhaustion with 4K stacks, but CONFIG_4KSTACKS was removed and stacks are
+> 8K now.
+> 
+> [1] https://github.com/google/syzkaller
+> 
+> [2] https://www.spinics.net/lists/netdev/thrd440.html#130570
+> 
+> [3] https://www.spinics.net/lists/netdev/msg130570.html
+> 
+> Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
 
-You are not making a subsystem. Don't overcomplicate things. A
-multi-part device device can just directly link.
+This was on my list of things to investigate ever since
+8k stack default went in. Thanks for looking into this!
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I note that there are still seem to exit 3 architectures that do have
+CONFIG_4KSTACKS.
+
+How about a wrapper that does netif_rx_ni with CONFIG_4KSTACKS.
+
+
+> ---
+>  drivers/net/tun.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 8093e39..4b56e91 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1304,7 +1304,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  	skb_probe_transport_header(skb, 0);
+>  
+>  	rxhash = skb_get_hash(skb);
+> -	netif_rx_ni(skb);
+> +	local_bh_disable();
+> +	netif_receive_skb(skb);
+> +	local_bh_enable();
+>  
+>  	stats = get_cpu_ptr(tun->pcpu_stats);
+>  	u64_stats_update_begin(&stats->syncp);
+> -- 
+> 2.8.0.rc3.226.g39d4020
