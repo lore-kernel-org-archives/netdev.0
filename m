@@ -1,122 +1,64 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Subject: [patch net v2] net: fec: cache statistics while device is down
-Date: Tue, 29 Nov 2016 09:44:51 +0300
-Message-ID: <1480401891-19333-1-git-send-email-nikita.yoush@cogentembedded.com>
-Cc: Chris Healy <cphealy@gmail.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        linux-kernel@vger.kernel.org,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Fugang Duan <fugang.duan@nxp.com>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Souptick Joarder <jrdr.linux@gmail.com>
+Subject: Re: [PATCH] ethernet :mellanox :mlx4: Replace pci_pool_alloc by pci_pool_zalloc
+Date: Tue, 29 Nov 2016 12:19:46 +0530
+Message-ID: <CAFqt6zbkyquX73bPgm0dTmq-_8cAC0O8yKS0r4+s0PR1AGZ57w@mail.gmail.com>
+References: <20161128132819.GA500@gnr743-HP-ZBook-15> <a1b6f877-c40b-656d-2278-d32af1a93bc7@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: yishaih@mellanox.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org,
+        Rameshwar Sahu <sahu.rameshwar73@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:35693 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753566AbcK2Gts (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 01:49:48 -0500
+In-Reply-To: <a1b6f877-c40b-656d-2278-d32af1a93bc7@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Execution 'ethtool -S' on fec device that is down causes OOPS on Vybrid
-board:
+On Tue, Nov 29, 2016 at 12:36 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+> On 11/28/2016 04:28 PM, Souptick Joarder wrote:
+>
+>> In mlx4_alloc_cmd_mailbox(), pci_pool_alloc() followed by memset will be
+>> replaced by pci_pool_zalloc()
+>>
+>> Signed-off-by: Souptick joarder <jrdr.linux@gmail.com>
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx4/cmd.c | 3 +--
+>>  1 file changed, 1 insertion(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>> b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>> index e36bebc..ee3bd76 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>> @@ -2679,14 +2679,13 @@ struct mlx4_cmd_mailbox
+>> *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
+>>         if (!mailbox)
+>>                 return ERR_PTR(-ENOMEM);
+>>
+>> -       mailbox->buf = pci_pool_alloc(mlx4_priv(dev)->cmd.pool,
+>> GFP_KERNEL,
+>> +       mailbox->buf = pci_pool_zalloc(mlx4_priv(dev)->cmd.pool,
+>> GFP_KERNEL,
+>>                                       &mailbox->dma);
+>
+>
+>    You need to realign he continuation line now, the way it was aligned in
+> the original code.
+>
 
-Unhandled fault: external abort on non-linefetch (0x1008) at 0xe0898200
-pgd = ddecc000
-[e0898200] *pgd=9e406811, *pte=400d1653, *ppte=400d1453
-Internal error: : 1008 [#1] SMP ARM
-...
+Ok, I will do that.
 
-Reason of OOPS is that fec_enet_get_ethtool_stats() accesses fec
-registers while IPG clock is stopped by PM.
 
-Fix that by caching statistics in fec_enet_private. Cache is initialized
-at device probe time, and updated at statistics request time if device
-is up, and also just before turning device off on down path.
 
-Additional locking is not needed, since cached statistics is accessed
-either before device is registered, or under rtnl_lock().
 
-Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
----
-Changes since v1:
-- initialize cache at device probe time
 
- drivers/net/ethernet/freescale/fec.h      |  2 ++
- drivers/net/ethernet/freescale/fec_main.c | 23 +++++++++++++++++++----
- 2 files changed, 21 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index c865135f3cb9..5ea740b4cf14 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -574,6 +574,8 @@ struct fec_enet_private {
- 	unsigned int reload_period;
- 	int pps_enable;
- 	unsigned int next_counter;
-+
-+	u64 ethtool_stats[0];
- };
- 
- void fec_ptp_init(struct platform_device *pdev);
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 5aa9d4ded214..6a20c24a2003 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2313,14 +2313,24 @@ static const struct fec_stat {
- 	{ "IEEE_rx_octets_ok", IEEE_R_OCTETS_OK },
- };
- 
--static void fec_enet_get_ethtool_stats(struct net_device *dev,
--	struct ethtool_stats *stats, u64 *data)
-+static void fec_enet_update_ethtool_stats(struct net_device *dev)
- {
- 	struct fec_enet_private *fep = netdev_priv(dev);
- 	int i;
- 
- 	for (i = 0; i < ARRAY_SIZE(fec_stats); i++)
--		data[i] = readl(fep->hwp + fec_stats[i].offset);
-+		fep->ethtool_stats[i] = readl(fep->hwp + fec_stats[i].offset);
-+}
-+
-+static void fec_enet_get_ethtool_stats(struct net_device *dev,
-+				       struct ethtool_stats *stats, u64 *data)
-+{
-+	struct fec_enet_private *fep = netdev_priv(dev);
-+
-+	if (netif_running(dev))
-+		fec_enet_update_ethtool_stats(dev);
-+
-+	memcpy(data, fep->ethtool_stats, ARRAY_SIZE(fec_stats) * sizeof(u64));
- }
- 
- static void fec_enet_get_strings(struct net_device *netdev,
-@@ -2874,6 +2884,8 @@ fec_enet_close(struct net_device *ndev)
- 	if (fep->quirks & FEC_QUIRK_ERR006687)
- 		imx6q_cpuidle_fec_irqs_unused();
- 
-+	fec_enet_update_ethtool_stats(ndev);
-+
- 	fec_enet_clk_enable(ndev, false);
- 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
- 	pm_runtime_mark_last_busy(&fep->pdev->dev);
-@@ -3180,6 +3192,8 @@ static int fec_enet_init(struct net_device *ndev)
- 
- 	fec_restart(ndev);
- 
-+	fec_enet_update_ethtool_stats(ndev);
-+
- 	return 0;
- }
- 
-@@ -3278,7 +3292,8 @@ fec_probe(struct platform_device *pdev)
- 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
- 
- 	/* Init network device */
--	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private),
-+	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private) +
-+				  ARRAY_SIZE(fec_stats) * sizeof(u64),
- 				  num_tx_qs, num_rx_qs);
- 	if (!ndev)
- 		return -ENOMEM;
--- 
-2.1.4
+>
+> MBR, Sergei
+>
