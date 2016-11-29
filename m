@@ -1,152 +1,51 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 1/2] net: phy: broadcom: Add support code for reading PHY counters
-Date: Tue, 29 Nov 2016 09:57:17 -0800
-Message-ID: <20161129175718.20213-2-f.fainelli@gmail.com>
-References: <20161129175718.20213-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] tcp: randomize tcp timestamp offsets for
+ each connection
+Date: Tue, 29 Nov 2016 10:06:03 -0800
+Message-ID: <1480442763.18162.147.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480434342-12367-1-git-send-email-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+        Mirja =?ISO-8859-1?Q?K=FChlewind?=
+        <mirja.kuehlewind@tik.ee.ethz.ch>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34004 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756199AbcK2R51 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 12:57:27 -0500
-Received: by mail-pf0-f194.google.com with SMTP id y68so8713692pfb.1
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 09:57:27 -0800 (PST)
-In-Reply-To: <20161129175718.20213-1-f.fainelli@gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34677 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754392AbcK2SGG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 13:06:06 -0500
+Received: by mail-pf0-f193.google.com with SMTP id y68so8723479pfb.1
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 10:06:05 -0800 (PST)
+In-Reply-To: <1480434342-12367-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Broadcom PHYs expose a number of PHY error counters: receive errors,
-false carrier sense, SerDes BER count, local and remote receive errors.
-Add support code to allow retrieving these error counters. Since the
-Broadcom PHY library code is used by several drivers, make it possible
-for them to specify the storage for the software copy of the statistics.
+On Tue, 2016-11-29 at 16:45 +0100, Florian Westphal wrote:
+> jiffies based timestamps allow for easy inference of number of devices
+> behind NAT translators and also makes tracking of hosts simpler.
+> 
+> commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
+> added the main infrastructure that is needed for per-connection ts
+> randomization, in particular writing/reading the on-wire tcp header
+> format takes the offset into account so rest of stack can use normal
+> tcp_time_stamp (jiffies).
+> 
+> So only two items are left:
+>  - add a tsoffset for request sockets
+>  - extend the tcp isn generator to also return another 32bit number
+>    in addition to the ISN.
+> 
+> Re-use of ISN generator also means timestamps are still monotonically
+> increasing for same connection quadruple, i.e. PAWS will still work.
+> 
+> Includes fixes from Eric Dumazet.
+> 
+> Cc: Mirja Kühlewind <mirja.kuehlewind@tik.ee.ethz.ch>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/bcm-phy-lib.c | 70 +++++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/bcm-phy-lib.h |  5 ++++
- include/linux/brcmphy.h       |  3 ++
- 3 files changed, 78 insertions(+)
+Very nice work, thanks !
 
-diff --git a/drivers/net/phy/bcm-phy-lib.c b/drivers/net/phy/bcm-phy-lib.c
-index 3156ce6d5861..ab9ad689617c 100644
---- a/drivers/net/phy/bcm-phy-lib.c
-+++ b/drivers/net/phy/bcm-phy-lib.c
-@@ -17,6 +17,7 @@
- #include <linux/mdio.h>
- #include <linux/module.h>
- #include <linux/phy.h>
-+#include <linux/ethtool.h>
- 
- #define MII_BCM_CHANNEL_WIDTH     0x2000
- #define BCM_CL45VEN_EEE_ADV       0x3c
-@@ -317,6 +318,75 @@ int bcm_phy_downshift_set(struct phy_device *phydev, u8 count)
- }
- EXPORT_SYMBOL_GPL(bcm_phy_downshift_set);
- 
-+struct bcm_phy_hw_stat {
-+	const char *string;
-+	u8 reg;
-+	u8 shift;
-+	u8 bits;
-+};
-+
-+/* Counters freeze at either 0xffff or 0xff, better than nothing */
-+static const struct bcm_phy_hw_stat bcm_phy_hw_stats[] = {
-+	{ "phy_receive_errors", MII_BRCM_CORE_BASE12, 0, 16 },
-+	{ "phy_serdes_ber_errors", MII_BRCM_CORE_BASE13, 8, 8 },
-+	{ "phy_false_carrier_sense_errors", MII_BRCM_CORE_BASE13, 0, 8 },
-+	{ "phy_local_rcvr_nok", MII_BRCM_CORE_BASE14, 8, 8 },
-+	{ "phy_remote_rcv_nok", MII_BRCM_CORE_BASE14, 0, 8 },
-+};
-+
-+int bcm_phy_get_sset_count(struct phy_device *phydev)
-+{
-+	return ARRAY_SIZE(bcm_phy_hw_stats);
-+}
-+EXPORT_SYMBOL_GPL(bcm_phy_get_sset_count);
-+
-+void bcm_phy_get_strings(struct phy_device *phydev, u8 *data)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(bcm_phy_hw_stats); i++)
-+		memcpy(data + i * ETH_GSTRING_LEN,
-+		       bcm_phy_hw_stats[i].string, ETH_GSTRING_LEN);
-+}
-+EXPORT_SYMBOL_GPL(bcm_phy_get_strings);
-+
-+#ifndef UINT64_MAX
-+#define UINT64_MAX              (u64)(~((u64)0))
-+#endif
-+
-+/* Caller is supposed to provide appropriate storage for the library code to
-+ * access the shadow copy
-+ */
-+static u64 bcm_phy_get_stat(struct phy_device *phydev, u64 *shadow,
-+			    unsigned int i)
-+{
-+	struct bcm_phy_hw_stat stat = bcm_phy_hw_stats[i];
-+	int val;
-+	u64 ret;
-+
-+	val = phy_read(phydev, stat.reg);
-+	if (val < 0) {
-+		ret = UINT64_MAX;
-+	} else {
-+		val >>= stat.shift;
-+		val = val & ((1 << stat.bits) - 1);
-+		shadow[i] += val;
-+		ret = shadow[i];
-+	}
-+
-+	return ret;
-+}
-+
-+void bcm_phy_get_stats(struct phy_device *phydev, u64 *shadow,
-+		       struct ethtool_stats *stats, u64 *data)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(bcm_phy_hw_stats); i++)
-+		data[i] = bcm_phy_get_stat(phydev, shadow, i);
-+}
-+EXPORT_SYMBOL_GPL(bcm_phy_get_stats);
-+
- MODULE_DESCRIPTION("Broadcom PHY Library");
- MODULE_LICENSE("GPL v2");
- MODULE_AUTHOR("Broadcom Corporation");
-diff --git a/drivers/net/phy/bcm-phy-lib.h b/drivers/net/phy/bcm-phy-lib.h
-index a117f657c6d7..7c73808cbbde 100644
---- a/drivers/net/phy/bcm-phy-lib.h
-+++ b/drivers/net/phy/bcm-phy-lib.h
-@@ -42,4 +42,9 @@ int bcm_phy_downshift_get(struct phy_device *phydev, u8 *count);
- 
- int bcm_phy_downshift_set(struct phy_device *phydev, u8 count);
- 
-+int bcm_phy_get_sset_count(struct phy_device *phydev);
-+void bcm_phy_get_strings(struct phy_device *phydev, u8 *data);
-+void bcm_phy_get_stats(struct phy_device *phydev, u64 *shadow,
-+		       struct ethtool_stats *stats, u64 *data);
-+
- #endif /* _LINUX_BCM_PHY_LIB_H */
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index f9f8aaf9c943..4f7d8be9ddbf 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -244,6 +244,9 @@
- #define LPI_FEATURE_EN_DIG1000X		0x4000
- 
- /* Core register definitions*/
-+#define MII_BRCM_CORE_BASE12	0x12
-+#define MII_BRCM_CORE_BASE13	0x13
-+#define MII_BRCM_CORE_BASE14	0x14
- #define MII_BRCM_CORE_BASE1E	0x1E
- #define MII_BRCM_CORE_EXPB0	0xB0
- #define MII_BRCM_CORE_EXPB1	0xB1
--- 
-2.9.3
+Acked-by: Eric Dumazet <edumazet@google.com>
