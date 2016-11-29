@@ -1,91 +1,113 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: The ubufs->refcount maybe be subtracted twice when tun_get_user
- failed
-Date: Tue, 29 Nov 2016 18:06:37 +0800
-Message-ID: <30e4c704-70b4-d318-68bd-742eb5f9bfc7@redhat.com>
-References: <34EFBCA9F01B0748BEB6B629CE643AE60B0A553E@szxeml561-mbx.china.huawei.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH  v2 07/13] net: ethernet: ti: cpts: rework
+ initialization/deinitialization
+Date: Tue, 29 Nov 2016 11:07:37 +0100
+Message-ID: <20161129100737.GF3110@localhost.localdomain>
+References: <20161128230337.6731-1-grygorii.strashko@ti.com>
+ <20161128230337.6731-8-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: caihe <caihe@huawei.com>
-To: wangyunjian <wangyunjian@huawei.com>,
-        "mst@redhat.com" <mst@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41056 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756584AbcK2KGl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 05:06:41 -0500
-In-Reply-To: <34EFBCA9F01B0748BEB6B629CE643AE60B0A553E@szxeml561-mbx.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
+To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161128230337.6731-8-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 28, 2016 at 05:03:31PM -0600, Grygorii Strashko wrote:
+> +int cpts_register(struct cpts *cpts)
+>  {
+>  	int err, i;
+>  
+> -	cpts->info = cpts_info;
+> -	spin_lock_init(&cpts->lock);
+> -
+> -	cpts->cc.read = cpts_systim_read;
+> -	cpts->cc.mask = CLOCKSOURCE_MASK(32);
+> -	cpts->cc_mult = mult;
+> -	cpts->cc.mult = mult;
+> -	cpts->cc.shift = shift;
+> -
+>  	INIT_LIST_HEAD(&cpts->events);
+>  	INIT_LIST_HEAD(&cpts->pool);
+>  	for (i = 0; i < CPTS_MAX_EVENTS; i++)
+>  		list_add(&cpts->pool_data[i].list, &cpts->pool);
+>  
+> -	cpts_clk_init(dev, cpts);
+> +	clk_enable(cpts->refclk);
+> +
+>  	cpts_write32(cpts, CPTS_EN, control);
+>  	cpts_write32(cpts, TS_PEND_EN, int_enable);
+>  
+> +	cpts->cc.mult = cpts->cc_mult;
 
+It is not clear why you set cc.mult in a different place than
+cc.shift.  That isn't logical, but maybe later patches make it
+clear...
 
-On 2016年11月29日 17:30, wangyunjian wrote:
-> In function tun_get_user , the ubufs->refcount may be subtracted twice, when msg_control is true and zerocopy is false.
->
-> About the below code:
->
-> static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->                                  void *msg_control, struct iov_iter *from,
->                                  int noblock)
-> {
->           ...
->
->           if (zerocopy)
->                     err = zerocopy_sg_from_iter(skb, from);
->           else {
->                     err = skb_copy_datagram_from_iter(skb, 0, from, len);
->                     if (!err && msg_control) {
->                              struct ubuf_info *uarg = msg_control;
->                              uarg->callback(uarg, false);                       --> the ubufs->refcount is subtracted frist.
->                     }
->           }
->
->           if (err) {
->                     this_cpu_inc(tun->pcpu_stats->rx_dropped);
->                     kfree_skb(skb);
->                     return -EFAULT;
->           }
->
->           err = virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun));
->           if (err) {
->                     this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
->                     kfree_skb(skb);
->                     return -EINVAL;                                   -->here, the ubufs->refcount will be subtracted twice, when virtio_net_hdr_to_skb execution err.
->           }
+>  	timecounter_init(&cpts->tc, &cpts->cc, ktime_to_ns(ktime_get_real()));
+>  
+> -	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
+> -
+> -	cpts->clock = ptp_clock_register(&cpts->info, dev);
+> +	cpts->clock = ptp_clock_register(&cpts->info, cpts->dev);
+>  	if (IS_ERR(cpts->clock)) {
+>  		err = PTR_ERR(cpts->clock);
+>  		cpts->clock = NULL;
+> @@ -392,26 +364,74 @@ int cpts_register(struct device *dev, struct cpts *cpts,
+>  	return 0;
+>  
+>  err_ptp:
+> -	if (cpts->refclk)
+> -		cpts_clk_release(cpts);
+> +	clk_disable(cpts->refclk);
+>  	return err;
+>  }
+>  EXPORT_SYMBOL_GPL(cpts_register);
+>  
+>  void cpts_unregister(struct cpts *cpts)
+>  {
+> -	if (cpts->clock) {
+> -		ptp_clock_unregister(cpts->clock);
+> -		cancel_delayed_work_sync(&cpts->overflow_work);
+> -	}
+> +	if (WARN_ON(!cpts->clock))
+> +		return;
+> +
+> +	cancel_delayed_work_sync(&cpts->overflow_work);
+> +
+> +	ptp_clock_unregister(cpts->clock);
+> +	cpts->clock = NULL;
+>  
+>  	cpts_write32(cpts, 0, int_enable);
+>  	cpts_write32(cpts, 0, control);
+>  
+> -	if (cpts->refclk)
+> -		cpts_clk_release(cpts);
+> +	clk_disable(cpts->refclk);
+>  }
+>  EXPORT_SYMBOL_GPL(cpts_unregister);
+>  
+> +struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+> +			 u32 mult, u32 shift)
+> +{
+> +	struct cpts *cpts;
+> +
+> +	if (!regs || !dev)
+> +		return ERR_PTR(-EINVAL);
 
-Just make sure I understand the problem. Since we don't set 
-SKBTX_DEV_ZEROCOPY here if zerocopy is false, callback won't be even 
-trigged in skb_release_data(). So we are in fact safe here?
+There is no need for this test, as the caller will always pass valid
+pointers.  (This isn't a user space library!)
 
-Thanks
-
-> switch (tun->flags & TUN_TYPE_MASK) {
->           case IFF_TUN:
->                     if (tun->flags & IFF_NO_PI) {
->                              switch (skb->data[0] & 0xf0) {
->                              case 0x40:
->                                       pi.proto = htons(ETH_P_IP);
->                                       break;
->                              case 0x60:
->                                       pi.proto = htons(ETH_P_IPV6);
->                                       break;
->                              default:
->                                       this_cpu_inc(tun->pcpu_stats->rx_dropped);
->                                       kfree_skb(skb);
->                                       return -EINVAL;                          --> this will also be subtracted twice.
->                              }
->                     }
->
->                     skb_reset_mac_header(skb);
->                     skb->protocol = pi.proto;
->                     skb->dev = tun->dev;
->                     break;
->           case IFF_TAP:
->                     skb->protocol = eth_type_trans(skb, tun->dev);
->                     break;
->           }
-> 		...
-> }
+Thanks,
+Richard
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
