@@ -1,161 +1,88 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 net-next] net: hns: Fix to conditionally convey RX checksum flag to stack
-Date: Tue, 29 Nov 2016 13:09:45 +0000
-Message-ID: <20161129130945.919372-1-salil.mehta@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
-        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH v3 net-next 0/4] bpf: BPF for lightweight tunnel encapsulation
+Date: Tue, 29 Nov 2016 14:21:19 +0100
+Message-ID: <cover.1480424542.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, tom@herbertland.com,
+        roopa@cumulusnetworks.com, hannes@stressinduktion.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:50148 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752161AbcK2NKQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 08:10:16 -0500
+Received: from bombadil.infradead.org ([198.137.202.9]:38865 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753356AbcK2NVa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 08:21:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces the RX checksum function to check the
-status of the hardware calculated checksum and its error and
-appropriately convey status to the upper stack in skb->ip_summed
-field.
+This series implements BPF program invocation from dst entries via the
+lightweight tunnels infrastructure. The BPF program can be attached to
+lwtunnel_input(), lwtunnel_output() or lwtunnel_xmit() and see an L3
+skb as context. Programs attached to input and output are read-only.
+Programs attached to lwtunnel_xmit() can modify and redirect, push headers
+and redirect packets.
 
-We only support checksum for IPv4, UDP(over IPv4 or IPv6),
-TCP(over IPv4 or IPv6) and SCTP but we support many L3(IPv4, IPv6,
-MPLS, PPPoE etc) and L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.)
-protocols. We want to filter out L3 and L4 protocols early on for
-which checksum is not supported.
+The facility can be used to:
+ - Collect statistics and generate sampling data for a subset of traffic
+   based on the dst utilized by the packet thus allowing to extend the
+   existing realms.
+ - Apply additional per route/dst filters to prohibit certain outgoing
+   or incoming packets based on BPF filters. In particular, this allows
+   to maintain per dst custom state across multiple packets in BPF maps
+   and apply filters based on statistics and behaviour observed over time.
+ - Attachment of L2 headers at transmit where resolving the L2 address
+   is not required.
+ - Possibly many more.
 
-Our present hardware RX Descriptor lacks L3/L4 "Checksum
-Status & Error" bit (indicating whether checksum was calculated
-and if there was an error encountered) for the supported protocol
-received in the packet. Therefore, we do the following:
-1. Filter the protocols for which checksum is not supported.
-2. Check if there were any errors encountered in L3 or L4
-   protocols. These errors might not just be Checksum errors but
-   could be related to version, length of IPv4, UDP, TCP etc.
-   2a. If L3 Errors amd L4 Errors exists, then return as our RX
-       descriptor lacks Status-and-Error bits for checksum so
-       cannot identify specifically if error was because of
-       checksum error or other error for this packet.
-   2b. If above errors do not exists, then we set checksum
-       un-necessary for upper layers.
+v2 -> v3:
+ - Added real world sample lwt_len_hist_kern.c which demonstrates how to
+   collect a histogram on packet sizes for all packets flowing through
+   a number of routes.
+ - Restricted output to be read-only. Since the header can no longer
+   be modified, the rerouting functionality has been removed again.
+ - Added test case which cover destructive modification of packet data.
 
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
----
-Change Log:
-Patch V2: Addressed the comment by David Miller
-          Link: https://www.spinics.net/lists/netdev/msg406697.html
-Patch V1: This patch is a result of the comments given by
-          David Miller <davem@davemloft.net>
-          Link: https://lkml.org/lkml/2016/6/15/27
----
- drivers/net/ethernet/hisilicon/hns/hnae.h     |    2 +
- drivers/net/ethernet/hisilicon/hns/hns_enet.c |   71 ++++++++++++++++++++++---
- 2 files changed, 66 insertions(+), 7 deletions(-)
+v1 -> v2:
+ - Added new BPF_LWT_REROUTE return code for program to indicate
+   that new route lookup should be performed. Suggested by Tom.
+ - New sample to illustrate rerouting
+ - New patch 05: Recursion limit for lwtunnel_output for the case
+   when user creates circular dst redirection. Also resolves the
+   issue for ILA.
+ - Fix to ensure headroom for potential future L2 header is still
+   guaranteed
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index 09602f1..8016854 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -99,6 +99,8 @@ enum hnae_led_state {
- #define HNS_RX_FLAG_L3ID_IPV6 0x1
- #define HNS_RX_FLAG_L4ID_UDP 0x0
- #define HNS_RX_FLAG_L4ID_TCP 0x1
-+#define HNS_RX_FLAG_L4ID_SCTP 0x3
-+
- 
- #define HNS_TXD_ASID_S 0
- #define HNS_TXD_ASID_M (0xff << HNS_TXD_ASID_S)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 255fede..6450d0e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -565,6 +565,66 @@ static void get_rx_desc_bnum(u32 bnum_flag, int *out_bnum)
- 				   HNS_RXD_BUFNUM_M, HNS_RXD_BUFNUM_S);
- }
- 
-+static void hns_nic_rx_checksum(struct hns_nic_ring_data *ring_data,
-+				struct sk_buff *skb, u32 flag)
-+{
-+	struct net_device *netdev = ring_data->napi.dev;
-+	u32 l3id;
-+	u32 l4id;
-+
-+	/* check if RX checksum offload is enabled */
-+	if (unlikely(!(netdev->features & NETIF_F_RXCSUM)))
-+		return;
-+
-+	/* We only support checksum for IPv4,UDP(over IPv4 or IPv6), TCP(over
-+	 * IPv4 or IPv6) and SCTP but we support many L3(IPv4, IPv6, MPLS,
-+	 * PPPoE etc) and L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.) protocols.
-+	 * We want to filter out L3 and L4 protocols early on for which checksum
-+	 * is not supported.
-+	 *
-+	 * Our present hardware RX Descriptor lacks L3/L4 "Checksum Status &
-+	 * Error" bit (indicating whether checksum was calculated and if there
-+	 * was an error encountered) for the supported protocol received in the
-+	 * packet. Therefore, we do the following:
-+	 * 1. Filter the protocols for which checksum is not supported.
-+	 * 2. Check if there were any errors encountered in L3 or L4 protocols.
-+	 *    These errors might not just be Checksum errors but could be
-+	 *    related to version, length of IPv4, UDP, TCP etc.
-+	 *    2a. If L3 Errors amd L4 Errors exists, then return as our RX
-+	 *        descriptor lacks Status-and-Error bits for checksum so cannot
-+	 *        identify specifically if error was because of checksum error
-+	 *        or other error for this packet.
-+	 *    2b. If above errors do not exists, then we set checksum
-+	 *        un-necessary for upper layers.
-+	 */
-+	l3id = hnae_get_field(flag, HNS_RXD_L3ID_M, HNS_RXD_L3ID_S);
-+	l4id = hnae_get_field(flag, HNS_RXD_L4ID_M, HNS_RXD_L4ID_S);
-+	if ((l3id != HNS_RX_FLAG_L3ID_IPV4) &&
-+	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
-+	     (l4id != HNS_RX_FLAG_L4ID_UDP)) &&
-+	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
-+	     (l4id != HNS_RX_FLAG_L4ID_TCP)) &&
-+	    (l4id != HNS_RX_FLAG_L4ID_SCTP))
-+		return;
-+
-+	/* We do not support checksum of fragmented packets */
-+	if (unlikely(hnae_get_bit(flag, HNS_RXD_FRAG_B)))
-+		return;
-+
-+	/* Check if there are any L3/L4 errors encountered during RX checksum */
-+	if (unlikely(hnae_get_bit(flag, HNS_RXD_L3E_B) ||
-+		     hnae_get_bit(flag, HNS_RXD_L4E_B))) {
-+		/* we dont have any way to detect if this is checksum error or
-+		 * any specific protocol error. Therefore, return no checksum
-+		 * all protocol errors.
-+		 */
-+		return;
-+	}
-+
-+	/* Now, this is a packet with valid RX checksum */
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+}
-+
- static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
- 			       struct sk_buff **out_skb, int *out_bnum)
- {
-@@ -683,13 +743,10 @@ static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
- 	ring->stats.rx_pkts++;
- 	ring->stats.rx_bytes += skb->len;
- 
--	if (unlikely(hnae_get_bit(bnum_flag, HNS_RXD_L3E_B) ||
--		     hnae_get_bit(bnum_flag, HNS_RXD_L4E_B))) {
--		ring->stats.l3l4_csum_err++;
--		return 0;
--	}
--
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	/* indicate to upper stack if our hardware has already calculated
-+	 * the RX checksum
-+	 */
-+	hns_nic_rx_checksum(ring_data, skb, bnum_flag);
- 
- 	return 0;
- }
+
+Thomas Graf (4):
+  route: Set orig_output when redirecting to lwt on locally generated
+    traffic
+  route: Set lwtstate for local traffic and cached input dsts
+  bpf: BPF for lightweight tunnel infrastructure
+  bpf: Add tests and samples for LWT-BPF
+
+ include/linux/filter.h          |   2 +-
+ include/uapi/linux/bpf.h        |  32 +++-
+ include/uapi/linux/lwtunnel.h   |  23 +++
+ kernel/bpf/verifier.c           |  14 +-
+ net/Kconfig                     |   8 +
+ net/core/Makefile               |   1 +
+ net/core/filter.c               | 148 ++++++++++++++-
+ net/core/lwt_bpf.c              | 397 ++++++++++++++++++++++++++++++++++++++++
+ net/core/lwtunnel.c             |   2 +
+ net/ipv4/route.c                |  37 ++--
+ samples/bpf/Makefile            |   4 +
+ samples/bpf/bpf_helpers.h       |   4 +
+ samples/bpf/lwt_len_hist.sh     |  37 ++++
+ samples/bpf/lwt_len_hist_kern.c |  82 +++++++++
+ samples/bpf/lwt_len_hist_user.c |  76 ++++++++
+ samples/bpf/test_lwt_bpf.c      | 247 +++++++++++++++++++++++++
+ samples/bpf/test_lwt_bpf.sh     | 385 ++++++++++++++++++++++++++++++++++++++
+ 17 files changed, 1482 insertions(+), 17 deletions(-)
+ create mode 100644 net/core/lwt_bpf.c
+ create mode 100755 samples/bpf/lwt_len_hist.sh
+ create mode 100644 samples/bpf/lwt_len_hist_kern.c
+ create mode 100644 samples/bpf/lwt_len_hist_user.c
+ create mode 100644 samples/bpf/test_lwt_bpf.c
+ create mode 100755 samples/bpf/test_lwt_bpf.sh
+
 -- 
-1.7.9.5
+2.7.4
