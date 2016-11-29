@@ -1,83 +1,114 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [mm PATCH 3/3] mm: Add documentation for page fragment APIs
-Date: Tue, 29 Nov 2016 10:23:28 -0800
-Message-ID: <20161129182328.13445.5874.stgit@localhost.localdomain>
-References: <20161129182010.13445.31256.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net,
- jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161129182010.13445.31256.stgit@localhost.localdomain>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Subject: [patch net / RFC] net: fec: increase frame size limitation to actually available buffer
+Date: Tue, 29 Nov 2016 21:35:28 +0300
+Message-ID: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        linux-kernel@vger.kernel.org,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:33284 "EHLO
+        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752376AbcK2Sfj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 13:35:39 -0500
+Received: by mail-lf0-f41.google.com with SMTP id c13so128412986lfg.0
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 10:35:38 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Fec driver uses Rx buffers of 2k, but programs hardware to limit
+incoming frames to 1522 bytes. This raises issues when FEC device
+is used with DSA (since DSA tag can make frame larger), and also
+disallows manual sending and receiving larger frames.
 
-This is a first pass at trying to add documentation for the page_frag APIs.
-They may still change over time but for now I thought I would try to get
-these documented so that as more network drivers and stack calls make use
-of them we have one central spot to document how they are meant to be used.
+This patch removes the limitation, allowing Rx size up to entire buffer.
+At the same time possible Tx size is increased as well, because hardware
+uses the same register field to limit Rx and Tx.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
 ---
- Documentation/vm/page_frags |   42 ++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 42 insertions(+)
- create mode 100644 Documentation/vm/page_frags
+ drivers/net/ethernet/freescale/fec_main.c | 33 +++++++++++--------------------
+ 1 file changed, 12 insertions(+), 21 deletions(-)
 
-diff --git a/Documentation/vm/page_frags b/Documentation/vm/page_frags
-new file mode 100644
-index 000000000000..a6714565dbf9
---- /dev/null
-+++ b/Documentation/vm/page_frags
-@@ -0,0 +1,42 @@
-+Page fragments
-+--------------
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 73ac35780611..c09789a71024 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -171,30 +171,12 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ #endif
+ #endif /* CONFIG_M5272 */
+ 
+-/* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
+- */
+-#define PKT_MAXBUF_SIZE		1522
+-#define PKT_MINBUF_SIZE		64
+-#define PKT_MAXBLR_SIZE		1536
+-
+ /* FEC receive acceleration */
+ #define FEC_RACC_IPDIS		(1 << 1)
+ #define FEC_RACC_PRODIS		(1 << 2)
+ #define FEC_RACC_SHIFT16	BIT(7)
+ #define FEC_RACC_OPTIONS	(FEC_RACC_IPDIS | FEC_RACC_PRODIS)
+ 
+-/*
+- * The 5270/5271/5280/5282/532x RX control register also contains maximum frame
+- * size bits. Other FEC hardware does not, so we need to take that into
+- * account when setting it.
+- */
+-#if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
+-    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARM)
+-#define	OPT_FRAME_SIZE	(PKT_MAXBUF_SIZE << 16)
+-#else
+-#define	OPT_FRAME_SIZE	0
+-#endif
+-
+ /* FEC MII MMFR bits definition */
+ #define FEC_MMFR_ST		(1 << 30)
+ #define FEC_MMFR_OP_READ	(2 << 28)
+@@ -847,7 +829,8 @@ static void fec_enet_enable_ring(struct net_device *ndev)
+ 	for (i = 0; i < fep->num_rx_queues; i++) {
+ 		rxq = fep->rx_queue[i];
+ 		writel(rxq->bd.dma, fep->hwp + FEC_R_DES_START(i));
+-		writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE(i));
++		writel(FEC_ENET_RX_FRSIZE - fep->rx_align,
++		       fep->hwp + FEC_R_BUFF_SIZE(i));
+ 
+ 		/* enable DMA1/2 */
+ 		if (i)
+@@ -895,9 +878,17 @@ fec_restart(struct net_device *ndev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	u32 val;
+ 	u32 temp_mac[2];
+-	u32 rcntl = OPT_FRAME_SIZE | 0x04;
++	u32 rcntl = 0x04;
+ 	u32 ecntl = 0x2; /* ETHEREN */
+ 
++	/* The 5270/5271/5280/5282/532x RX control register also contains
++	 * maximum frame * size bits. Other FEC hardware does not.
++	 */
++#if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
++    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARM)
++	rcntl |= (FEC_ENET_RX_FRSIZE - fep->rx_align) << 16;
++#endif
 +
-+A page fragment is an arbitrary-length arbitrary-offset area of memory
-+which resides within a 0 or higher order compound page.  Multiple
-+fragments within that page are individually refcounted, in the page's
-+reference counter.
-+
-+The page_frag functions, page_frag_alloc and page_frag_free, provide a
-+simple allocation framework for page fragments.  This is used by the
-+network stack and network device drivers to provide a backing region of
-+memory for use as either an sk_buff->head, or to be used in the "frags"
-+portion of skb_shared_info.
-+
-+In order to make use of the page fragment APIs a backing page fragment
-+cache is needed.  This provides a central point for the fragment allocation
-+and tracks allows multiple calls to make use of a cached page.  The
-+advantage to doing this is that multiple calls to get_page can be avoided
-+which can be expensive at allocation time.  However due to the nature of
-+this caching it is required that any calls to the cache be protected by
-+either a per-cpu limitation, or a per-cpu limitation and forcing interrupts
-+to be disabled when executing the fragment allocation.
-+
-+The network stack uses two separate caches per CPU to handle fragment
-+allocation.  The netdev_alloc_cache is used by callers making use of the
-+__netdev_alloc_frag and __netdev_alloc_skb calls.  The napi_alloc_cache is
-+used by callers of the __napi_alloc_frag and __napi_alloc_skb calls.  The
-+main difference between these two calls is the context in which they may be
-+called.  The "netdev" prefixed functions are usable in any context as these
-+functions will disable interrupts, while the "napi" prefixed functions are
-+only usable within the softirq context.
-+
-+Many network device drivers use a similar methodology for allocating page
-+fragments, but the page fragments are cached at the ring or descriptor
-+level.  In order to enable these cases it is necessary to provide a generic
-+way of tearing down a page cache.  For this reason __page_frag_cache_drain
-+was implemented.  It allows for freeing multiple references from a single
-+page via a single call.  The advantage to doing this is that it allows for
-+cleaning up the multiple references that were added to a page in order to
-+avoid calling get_page per allocation.
-+
-+Alexander Duyck, Nov 29, 2016.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ 	/* Whack a reset.  We should wait for this.
+ 	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
+ 	 * instead of reset MAC itself.
+@@ -953,7 +944,7 @@ fec_restart(struct net_device *ndev)
+ 		else
+ 			val &= ~FEC_RACC_OPTIONS;
+ 		writel(val, fep->hwp + FEC_RACC);
+-		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
++		writel(FEC_ENET_RX_FRSIZE - fep->rx_align, fep->hwp + FEC_FTRL);
+ 	}
+ #endif
+ 
+-- 
+2.1.4
