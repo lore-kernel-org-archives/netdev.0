@@ -1,67 +1,48 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next 10/11] qede: Add basic XDP support
-Date: Tue, 29 Nov 2016 19:28:56 +0100
-Message-ID: <583DC8E8.1060408@iogearbox.net>
-References: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com>  <1480430830-17671-11-git-send-email-Yuval.Mintz@cavium.com>     <583DA362.7010702@iogearbox.net> <20161129171020.6b8b552d@jkicinski-Precision-T1700>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-netx] net: lan78xx: add LAN7801 MAC-only support
+Date: Tue, 29 Nov 2016 18:49:45 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D4096FC85@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D4096E268@CHN-SV-EXMX02.mchp-main.com>
+ <007d0bc0-378c-da93-d730-28f7b5b5073a@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yuval Mintz <Yuval.Mintz@cavium.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <UNGLinuxDriver@microchip.com>
+To: <f.fainelli@gmail.com>, <davem@davemloft.net>, <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52118 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751566AbcK2SsM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 13:48:12 -0500
-In-Reply-To: <20161129171020.6b8b552d@jkicinski-Precision-T1700>
+Received: from exsmtp02.microchip.com ([198.175.253.38]:19690 "EHLO
+        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750754AbcK2Sts (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 13:49:48 -0500
+In-Reply-To: <007d0bc0-378c-da93-d730-28f7b5b5073a@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 06:10 PM, Jakub Kicinski wrote:
-> On Tue, 29 Nov 2016 16:48:50 +0100, Daniel Borkmann wrote:
->> On 11/29/2016 03:47 PM, Yuval Mintz wrote:
->>> Add support for the ndo_xdp callback. This patch would support XDP_PASS,
->>> XDP_DROP and XDP_ABORTED commands.
->>>
->>> This also adds a per Rx queue statistic which counts number of packets
->>> which didn't reach the stack [due to XDP].
->>>
->>> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
->> [...]
->>> @@ -1560,6 +1593,7 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
->>>    			       struct qede_fastpath *fp,
->>>    			       struct qede_rx_queue *rxq)
->>>    {
->>> +	struct bpf_prog *xdp_prog = READ_ONCE(rxq->xdp_prog);
->>>    	struct eth_fast_path_rx_reg_cqe *fp_cqe;
->>>    	u16 len, pad, bd_cons_idx, parse_flag;
->>>    	enum eth_rx_cqe_type cqe_type;
->>> @@ -1596,6 +1630,11 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
->>>    	len = le16_to_cpu(fp_cqe->len_on_first_bd);
->>>    	pad = fp_cqe->placement_offset;
->>>
->>> +	/* Run eBPF program if one is attached */
->>> +	if (xdp_prog)
->>> +		if (!qede_rx_xdp(edev, fp, rxq, xdp_prog, bd, fp_cqe))
->>> +			return 1;
->>> +
->>
->> You also need to wrap this under rcu_read_lock() (at least I haven't seen
->> it in your patches) for same reasons as stated in 326fe02d1ed6 ("net/mlx4_en:
->> protect ring->xdp_prog with rcu_read_lock"), as otherwise xdp_prog could
->> disappear underneath you. mlx4 and nfp does it correctly, looks like mlx5
->> doesn't.
->
-> My understanding was that Yuval is always doing full stop()/start() so
-> there should be no RX packets in flight while the XDP prog is being
-> changed.  But thinking about it again, perhaps is worth adding the
-
-Ohh, true, thanks for pointing this out. I guess I got confused by
-the READ_ONCE() then.
-
-> optimization to forego the full qede_reload() in qede_xdp_set() if there
-> is a program already loaded and just do the xchg()+put() (and add RCU
-> protection on the fast path)?
-
-Would be worth it as a follow-up later on, yes.
+PiA+ICsJLyogTEVEMi9QTUVfTi9JUlFfTi9SR01JSV9JRCBwaW4gdG8gSVJRX04gbW9kZSAqLw0K
+PiA+ICsJYnVmID0gcGh5X3JlYWRfbW1kX2luZGlyZWN0KHBoeWRldiwgMzI3ODQsIDMpOw0KPiA+
+ICsJYnVmICY9IH4weDE4MDA7DQo+ID4gKwlidWYgfD0gMHgwODAwOw0KPiA+ICsJcGh5X3dyaXRl
+X21tZF9pbmRpcmVjdChwaHlkZXYsIDMyNzg0LCAzLCBidWYpOw0KPiANCj4gVXNpbmcgZGVjaW1h
+bCBudW1iZXJzIGZvciByZWdpc3RlciBhZGRyZXNzZXMgaXMgYSBiaXQgdW51c3VhbC4NCg0KT0su
+IFdpbGwgY2hhbmdlIGl0Lg0KDQo+ID4gKw0KPiA+ICsJLyogUkdNSUkgTUFDIFRYQyBEZWxheSBF
+bmFibGUgKi8NCj4gPiArCXJldCA9IGxhbjc4eHhfd3JpdGVfcmVnKGRldiwgTUFDX1JHTUlJX0lE
+LA0KPiA+ICsJCQkJTUFDX1JHTUlJX0lEX1RYQ19ERUxBWV9FTl8pOw0KPiA+ICsNCj4gPiArCS8q
+IFJHTUlJIFRYIERMTCBUdW5lIEFkanVzdCAqLw0KPiA+ICsJcmV0ID0gbGFuNzh4eF93cml0ZV9y
+ZWcoZGV2LCBSR01JSV9UWF9CWVBfRExMLCAweDNEMDApOw0KPiA+ICsNCj4gPiArCSppbnRlcmZh
+Y2UgPSBQSFlfSU5URVJGQUNFX01PREVfUkdNSUlfVFhJRDsNCj4gPiArfQ0KPiA+ICsNCj4gPiAr
+c3RhdGljIHZvaWQga3N6OTAzMXJueF9wcmVfY29uZmlnKHN0cnVjdCBsYW43OHh4X25ldCAqZGV2
+LA0KPiA+ICsJCQkJICBzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2LA0KPiA+ICsJCQkJICBwaHlf
+aW50ZXJmYWNlX3QgKmludGVyZmFjZSkNCj4gPiArew0KPiA+ICsJLyogTWljcmVsOTMwMVJOWCBQ
+SFkgY29uZmlndXJhdGlvbiAqLw0KPiA+ICsJLyogUkdNSUkgQ29udHJvbCBTaWduYWwgUGFkIFNr
+ZXcgKi8NCj4gPiArCXBoeV93cml0ZV9tbWRfaW5kaXJlY3QocGh5ZGV2LCA0LCAyLCAweDAwNzcp
+Ow0KPiA+ICsJLyogUkdNSUkgUlggRGF0YSBQYWQgU2tldyAqLw0KPiA+ICsJcGh5X3dyaXRlX21t
+ZF9pbmRpcmVjdChwaHlkZXYsIDUsIDIsIDB4Nzc3Nyk7DQo+ID4gKwkvKiBSR01JSSBSWCBDbG9j
+ayBQYWQgU2tldyAqLw0KPiA+ICsJcGh5X3dyaXRlX21tZF9pbmRpcmVjdChwaHlkZXYsIDgsIDIs
+IDB4MUZGKTsNCj4gPiArDQo+ID4gKwkqaW50ZXJmYWNlID0gUEhZX0lOVEVSRkFDRV9NT0RFX1JH
+TUlJX1JYSUQ7DQo+ID4gK30NCj4gDQo+IFRoaXMgc2hvdWxkIHJlYWxseSBiZWxvbmcgaW4gdGhl
+IHJlc3BlY3RpdmUgUEhZIGRyaXZlcnMgZm9yIHRoZXNlIFBIWXMsDQo+IGlzIHRoZXJlIGEgcGFy
+dGljdWxhciByZWFzb24geW91IGRlY2lkZWQgdG8gZG8gdGhpcyBoZXJlPw0KDQpNYWluIHJlYXNv
+biBpcyBiZWNhdXNlIHRoZXNlIGFyZSBNQUMgZGVwZW5kZW50Lg0KSW4gY2FzZSB0aGVzZSBhcmUg
+aW4gUEhZIGRyaXZlciwgSSBleHBlY3Qgc29tZSBwYXJhbWV0ZXJzL2RlZmluZXMgbWF5IG5lZWQg
+dG8gYmUgcGFzc2VkIHRvIGl0Lg0KVHJ5aW5nIHRvIGtlZXAgUEhZIGRyaXZlciBhcyBnZW5lcmlj
+IGFzIHBvc3NpYmxlLg0KDQpUaGFua3MgZm9yIHlvdXIgY29tbWVudHMuDQotIFdvb2p1bmcNCg==
