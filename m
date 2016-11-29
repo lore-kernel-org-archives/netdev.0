@@ -1,42 +1,54 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net][v2] bpf: fix states equal logic for varlen access
-Date: Tue, 29 Nov 2016 20:09:37 +0100
-Message-ID: <583DD271.2020900@iogearbox.net>
-References: <1480440429-2531-1-git-send-email-jbacik@fb.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 4.9-rc7: (forcedeth?) BUG: sleeping function called from invalid
+ context at kernel/irq/manage.c:110
+Date: Tue, 29 Nov 2016 11:11:08 -0800
+Message-ID: <CAADWXX8GM5Xdf1Of09ABXEB8eb=eVqPjHTaT7ZzcStnX8=cO_A@mail.gmail.com>
+References: <alpine.LRH.2.20.1611292222200.31348@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Josef Bacik <jbacik@fb.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, ast@kernel.org, jannh@google.com,
-        kernel-team@fb.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54200 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750971AbcK2TJl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 14:09:41 -0500
-In-Reply-To: <1480440429-2531-1-git-send-email-jbacik@fb.com>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:36519 "EHLO
+        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752046AbcK2TLJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 14:11:09 -0500
+Received: by mail-io0-f170.google.com with SMTP id m5so169272228ioe.3
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 11:11:09 -0800 (PST)
+In-Reply-To: <alpine.LRH.2.20.1611292222200.31348@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 06:27 PM, Josef Bacik wrote:
-> If we have a branch that looks something like this
+On Tue, Nov 29, 2016 at 12:26 PM, Meelis Roos <mroos@linux.ee> wrote:
+> This is 4.9-rc7 on Sun Ultra 20 (Opteron 175 on NVidia chipset PC with
+> NVidia ethernet).
 >
-> int foo = map->value;
-> if (condition) {
->    foo += blah;
-> } else {
->    foo = bar;
-> }
-> map->array[foo] = baz;
->
-> We will incorrectly assume that the !condition branch is equal to the condition
-> branch as the register for foo will be UNKNOWN_VALUE in both cases.  We need to
-> adjust this logic to only do this if we didn't do a varlen access after we
-> processed the !condition branch, otherwise we have different ranges and need to
-> check the other branch as well.
->
-> Fixes: 484611357c19 ("bpf: allow access into map value arrays")
-> Reported-by: Jann Horn <jannh@google.com>
-> Signed-off-by: Josef Bacik <jbacik@fb.com>
+> BUG: sleeping function called from invalid context at kernel/irq/manage.c:110
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Hmm. No changes in either forcedeth or in the synchronize_irq() debugging.
+
+It seems to be due to netconsole. Did you enable new debugging (like
+the DEBUG_ATOMIC_SLEEP config option) or change any netconsole things?
+
+It looks like it's simply the dev_info() call in usb_add_hcd():
+
+        dev_info(hcd->self.controller, "%s\n", hcd->product_desc);
+
+and the printk() in amd64_edac_init():
+
+        printk(KERN_INFO "AMD64 EDAC driver v%s\n", EDAC_AMD64_VERSION);
+
+and yes, netconsole does "write_msg()" which is run with interrupts
+disabled and the 'target_list_lock' spinlock held.
+
+So when netpoll_send_udp() then calls down to the NIC poll routine, we
+definitely are in an atomic context.
+
+But none of this looks new. I don't see _anything_ in any of these
+areas that has changed since 4.8.
+
+Which is why I suspect you changed something in your setup wrt
+netconsole or your kernel config?
+
+                 Linus
