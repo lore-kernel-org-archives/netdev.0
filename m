@@ -1,97 +1,52 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v4 net-next 4/7] net: mvneta: Convert to be 64 bits compatible
-Date: Tue, 29 Nov 2016 15:55:22 +0100
-Message-ID: <11ab1babc89e797bed861944b2ec144f5f3ef0a6.1480431285.git-series.gregory.clement@free-electrons.com>
-References: <cover.654978388d6811b943dd58ecb9a9d9b6cceeaee3.1480431285.git-series.gregory.clement@free-electrons.com>
-Cc: Jisheng Zhang <jszhang@marvell.com>, Arnd Bergmann <arnd@arndb.de>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Dmitri Epshtein <dima@marvell.com>,
-        Yelena Krivosheev <yelena@marvell.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.654978388d6811b943dd58ecb9a9d9b6cceeaee3.1480431285.git-series.gregory.clement@free-electrons.com>
-In-Reply-To: <cover.654978388d6811b943dd58ecb9a9d9b6cceeaee3.1480431285.git-series.gregory.clement@free-electrons.com>
-References: <cover.654978388d6811b943dd58ecb9a9d9b6cceeaee3.1480431285.git-series.gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v3 net-next 0/4] bpf: BPF for lightweight tunnel
+ encapsulation
+Date: Tue, 29 Nov 2016 15:58:02 +0100
+Message-ID: <20161129145802.GA16856@pox.localdomain>
+References: <cover.1480424542.git.tgraf@suug.ch>
+ <50764658-4bf7-966b-bc61-d6840d7c03f2@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        tom@herbertland.com, roopa@cumulusnetworks.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f174.google.com ([209.85.210.174]:35737 "EHLO
+        mail-wj0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933770AbcK2O6K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 09:58:10 -0500
+Received: by mail-wj0-f174.google.com with SMTP id v7so147492183wjy.2
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 06:58:10 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <50764658-4bf7-966b-bc61-d6840d7c03f2@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcin Wojtas <mw@semihalf.com>
+Hi Hannes,
 
-Prepare the mvneta driver in order to be usable on the 64 bits platform
-such as the Armada 3700.
+On 11/29/16 at 03:15pm, Hannes Frederic Sowa wrote:
+> Did you look at the cgroup based hooks which were added recently in
+> ip_finish_output for cgroup ebpf support and in general the cgroup bpf
+> subsystem. Does some of this solve the problem for you already? Would be
+> interesting to hear your opinion on that.
 
-[gregory.clement@free-electrons.com]: this patch was extract from a larger
-one to ease review and maintenance.
+What I'm looking for is the ability to collect statistics and generate
+samples for a subset of the traffic, e.g. all intra data center
+traffic, all packets hitting the default route in a network namespace,
+all packets which use a dst tying a certain endpoint to particular TCP
+metrics. For the examples above, LWT provides a very intuitive and
+natural way to do so while amortizing the cost of the route lookup
+which is required anyway.
 
-Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+The cgroup hook provides similar semantics but if the application
+context is of interest. Obviously, tasks in a cgroup may be sharing
+routes so I can't use it as a replacement. However, using the two in
+combination will become highly useful as it allows to gather statistics
+individually for both application context and routing context and then
+aggregate them to see how applications are using different network
+segments.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index b4810b0c0ffc..6421402ef394 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -296,6 +296,12 @@
- /* descriptor aligned size */
- #define MVNETA_DESC_ALIGNED_SIZE	32
- 
-+/* Number of bytes to be taken into account by HW when putting incoming data
-+ * to the buffers. It is needed in case NET_SKB_PAD exceeds maximum packet
-+ * offset supported in MVNETA_RXQ_CONFIG_REG(q) registers.
-+ */
-+#define MVNETA_RX_PKT_OFFSET_CORRECTION		64
-+
- #define MVNETA_RX_PKT_SIZE(mtu) \
- 	ALIGN((mtu) + MVNETA_MH_SIZE + MVNETA_VLAN_TAG_LEN + \
- 	      ETH_HLEN + ETH_FCS_LEN,			     \
-@@ -416,6 +422,7 @@ struct mvneta_port {
- 	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
- 
- 	u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
-+	u16 rx_offset_correction;
- };
- 
- /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-@@ -1807,6 +1814,7 @@ static int mvneta_rx_refill(struct mvneta_port *pp,
- 		return -ENOMEM;
- 	}
- 
-+	phys_addr += pp->rx_offset_correction;
- 	mvneta_rx_desc_fill(rx_desc, phys_addr, data, rxq);
- 	return 0;
- }
-@@ -2782,7 +2790,7 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
- 	mvreg_write(pp, MVNETA_RXQ_SIZE_REG(rxq->id), rxq->size);
- 
- 	/* Set Offset */
--	mvneta_rxq_offset_set(pp, rxq, NET_SKB_PAD);
-+	mvneta_rxq_offset_set(pp, rxq, NET_SKB_PAD - pp->rx_offset_correction);
- 
- 	/* Set coalescing pkts and time */
- 	mvneta_rx_pkts_coal_set(pp, rxq, rxq->pkts_coal);
-@@ -4033,6 +4041,13 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	pp->rxq_def = rxq_def;
- 
-+	/* Set RX packet offset correction for platforms, whose
-+	 * NET_SKB_PAD, exceeds 64B. It should be 64B for 64-bit
-+	 * platforms and 0B for 32-bit ones.
-+	 */
-+	pp->rx_offset_correction =
-+		max(0, NET_SKB_PAD - MVNETA_RX_PKT_OFFSET_CORRECTION);
-+
- 	pp->indir[0] = rxq_def;
- 
- 	pp->clk = devm_clk_get(&pdev->dev, "core");
--- 
-git-series 0.8.10
+Aside from the different context matching, the cgroup hook will not
+allow to modify the packet as the lwtunnel_xmit() post
+ip_finish_output does.
