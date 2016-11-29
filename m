@@ -1,84 +1,47 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH v2 net 2/5] l2tp: hold socket before dropping lock in
- l2tp_ip{,6}_recv()
-Date: Tue, 29 Nov 2016 13:09:45 +0100
-Message-ID: <3d9b7200e50d280ca05565687169a207282c4853.1480419658.git.g.nault@alphalink.fr>
-References: <cover.1480419658.git.g.nault@alphalink.fr>
+Subject: Re: [PATCH net 3/5] l2tp: fix racy socket lookup in l2tp_ip and
+ l2tp_ip6 bind()
+Date: Tue, 29 Nov 2016 13:12:07 +0100
+Message-ID: <20161129121206.32xn7gmrtv42s6nm@alphalink.fr>
+References: <de1fbe689e143ca160dd4da9a61c585c44ff6e78.1480360512.git.g.nault@alphalink.fr>
+ <201611290515.BXajf2gX%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>,
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+        James Chapman <jchapman@katalix.com>,
         Chris Elston <celston@katalix.com>
-To: netdev@vger.kernel.org
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:42374 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:42646 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751485AbcK2MKo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:10:44 -0500
+        with ESMTP id S1751063AbcK2MMW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:12:22 -0500
 Content-Disposition: inline
-In-Reply-To: <cover.1480419658.git.g.nault@alphalink.fr>
+In-Reply-To: <201611290515.BXajf2gX%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Socket must be held while under the protection of the l2tp lock; there
-is no guarantee that sk remains valid after the read_unlock_bh() call.
-
-Same issue for l2tp_ip and l2tp_ip6.
-
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- net/l2tp/l2tp_ip.c  | 11 ++++++-----
- net/l2tp/l2tp_ip6.c | 11 ++++++-----
- 2 files changed, 12 insertions(+), 10 deletions(-)
-
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index 1f57094..4d1c942 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -183,14 +183,15 @@ static int l2tp_ip_recv(struct sk_buff *skb)
- 
- 		read_lock_bh(&l2tp_ip_lock);
- 		sk = __l2tp_ip_bind_lookup(net, iph->daddr, 0, tunnel_id);
-+		if (!sk) {
-+			read_unlock_bh(&l2tp_ip_lock);
-+			goto discard;
-+		}
-+
-+		sock_hold(sk);
- 		read_unlock_bh(&l2tp_ip_lock);
- 	}
- 
--	if (sk == NULL)
--		goto discard;
--
--	sock_hold(sk);
--
- 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto discard_put;
- 
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index af9abff..e3fc778 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -198,14 +198,15 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
- 		read_lock_bh(&l2tp_ip6_lock);
- 		sk = __l2tp_ip6_bind_lookup(net, &iph->daddr,
- 					    0, tunnel_id);
-+		if (!sk) {
-+			read_unlock_bh(&l2tp_ip6_lock);
-+			goto discard;
-+		}
-+
-+		sock_hold(sk);
- 		read_unlock_bh(&l2tp_ip6_lock);
- 	}
- 
--	if (sk == NULL)
--		goto discard;
--
--	sock_hold(sk);
--
- 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto discard_put;
- 
--- 
-2.10.2
+On Tue, Nov 29, 2016 at 05:10:40AM +0800, kbuild test robot wrote:
+> Hi Guillaume,
+> 
+> [auto build test WARNING on net/master]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Guillaume-Nault/l2tp-fixes-for-l2tp_ip-and-l2tp_ip6-socket-handling/20161129-043208
+> config: x86_64-rhel (attached as .config)
+> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64 
+> 
+> Note: it may well be a FALSE warning. FWIW you are at least aware of it now.
+> http://gcc.gnu.org/wiki/Better_Uninitialized_Warnings
+> 
+> All warnings (new ones prefixed by >>):
+> 
+>    net/l2tp/l2tp_ip.c: In function 'l2tp_ip_bind':
+> >> net/l2tp/l2tp_ip.c:299:9: warning: 'ret' may be used uninitialized in this function [-Wmaybe-uninitialized]
+>      return ret;
+>             ^~~
+> 
+I should have seen this earlier, sorry.
+This is now fixed in v2.
