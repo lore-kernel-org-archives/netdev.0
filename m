@@ -1,109 +1,80 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH net V2] net/sched: pedit: make sure that offset is valid
-Date: Tue, 29 Nov 2016 09:14:34 +0200
-Message-ID: <20161129071434.GA22491@office.localdomain>
-References: <20161128105640.32363-1-amir@vadai.me>
- <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH v2 net-next 2/2] openvswitch: Fix skb->protocol for vlan frames.
+Date: Mon, 28 Nov 2016 23:21:16 -0800
+Message-ID: <CAOrHB_B15uBYL-nVhsCoRKzZ1Akmn0ZDcee57VUXGAjMNEAAWQ@mail.gmail.com>
+References: <1480387276-123557-1-git-send-email-jarno@ovn.org> <1480387276-123557-2-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: zhuyj <zyjzyj2000@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Benc <jbenc@redhat.com>
+To: Jarno Rajahalme <jarno@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33825 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756234AbcK2HOi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 02:14:38 -0500
-Received: by mail-wm0-f67.google.com with SMTP id g23so22767836wme.1
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 23:14:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:58517 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751566AbcK2HVp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 02:21:45 -0500
+Received: from mfilter6-d.gandi.net (mfilter6-d.gandi.net [217.70.178.135])
+        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 42F01C5A4F
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 08:21:43 +0100 (CET)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+        by mfilter6-d.gandi.net (mfilter6-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id 0t7TJgaZzMSS for <netdev@vger.kernel.org>;
+        Tue, 29 Nov 2016 08:21:18 +0100 (CET)
+Received: from mail-io0-f175.google.com (mail-io0-f175.google.com [209.85.223.175])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 5B634C5A50
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 08:21:18 +0100 (CET)
+Received: by mail-io0-f175.google.com with SMTP id j65so275385113iof.0
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 23:21:18 -0800 (PST)
+In-Reply-To: <1480387276-123557-2-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 10:32:05AM +0800, zhuyj wrote:
->  +       if (offset > 0 && offset > skb->len)
-> 
-> offset > skb->len is enough?
-offset is signed and skb->len is unsigned. Therefore for example if
-offset=-1 and skb->len=10, the actual comparison is 0xff...>10
+On Mon, Nov 28, 2016 at 6:41 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
+> Do not set skb->protocol to be the ethertype of the L3 header, unless
+> the packet only has the L3 header.  For a non-hardware offloaded VLAN
+> frame skb->protocol needs to be one of the VLAN ethertypes.
+>
+> Any VLAN offloading is undone on the OVS netlink interface.  Also any
+> VLAN tags added by userspace are non-offloaded.
+>
+> Incorrect skb->protocol value on a full-size non-offloaded VLAN skb
+> causes packet drop due to failing MTU check, as the VLAN header should
+> not be counted in when considering MTU in ovs_vport_send().
+>
+I think we should move to is_skb_forwardable() type of packet length
+check in vport-send and get rid of skb-protocol checks altogether.
 
-> 
-> On Mon, Nov 28, 2016 at 6:56 PM, Amir Vadai <amir@vadai.me> wrote:
-> > Add a validation function to make sure offset is valid:
-> > 1. Not below skb head (could happen when offset is negative).
-> > 2. Validate both 'offset' and 'at'.
-> >
-> > Signed-off-by: Amir Vadai <amir@vadai.me>
-> > ---
-> > Hi Dave,
-> >
-> > Please pull to -stable branches.
-> >
-> > Changes from V0:
-> > - Add a validation to the 'at' value (this is used as an offset too)
-> > - Instead of validating the output of skb_header_pointer(), make sure that the
-> >         offset is good before calling it.
-> >
-> > Thanks,
-> > Amir
-> >  net/sched/act_pedit.c | 24 ++++++++++++++++++++----
-> >  1 file changed, 20 insertions(+), 4 deletions(-)
-> >
-> > diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-> > index b54d56d4959b..cf9b2fe8eac6 100644
-> > --- a/net/sched/act_pedit.c
-> > +++ b/net/sched/act_pedit.c
-> > @@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
-> >         kfree(keys);
-> >  }
-> >
-> > +static bool offset_valid(struct sk_buff *skb, int offset)
-> > +{
-> > +       if (offset > 0 && offset > skb->len)
-> > +               return false;
-> > +
-> > +       if  (offset < 0 && -offset > skb_headroom(skb))
-> > +               return false;
-> > +
-> > +       return true;
-> > +}
-> > +
-> >  static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
-> >                      struct tcf_result *res)
-> >  {
-> > @@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
-> >                         if (tkey->offmask) {
-> >                                 char *d, _d;
-> >
-> > +                               if (!offset_valid(skb, off + tkey->at)) {
-> > +                                       pr_info("tc filter pedit 'at' offset %d out of bounds\n",
-> > +                                               off + tkey->at);
-> > +                                       goto bad;
-> > +                               }
-> >                                 d = skb_header_pointer(skb, off + tkey->at, 1,
-> >                                                        &_d);
-> >                                 if (!d)
-> > @@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
-> >                                         " offset must be on 32 bit boundaries\n");
-> >                                 goto bad;
-> >                         }
-> > -                       if (offset > 0 && offset > skb->len) {
-> > -                               pr_info("tc filter pedit"
-> > -                                       " offset %d can't exceed pkt length %d\n",
-> > -                                      offset, skb->len);
-> > +
-> > +                       if (!offset_valid(skb, off + offset)) {
-> > +                               pr_info("tc filter pedit offset %d out of bounds\n",
-> > +                                       offset);
-> >                                 goto bad;
-> >                         }
-> >
-> > --
-> > 2.10.2
-> >
+> Fixes: 5108bbaddc ("openvswitch: add processing of L3 packets")
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+> ---
+> v2: Set skb->protocol when an ETH_P_TEB frame is received via ARPHRD_NONE
+>     interface.
+>
+>  net/openvswitch/datapath.c |  1 -
+>  net/openvswitch/flow.c     | 30 ++++++++++++++++++++++--------
+>  2 files changed, 22 insertions(+), 9 deletions(-)
+...
+...
+> @@ -531,15 +538,22 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+>                 if (unlikely(parse_vlan(skb, key)))
+>                         return -ENOMEM;
+>
+> -               skb->protocol = parse_ethertype(skb);
+> -               if (unlikely(skb->protocol == htons(0)))
+> +               key->eth.type = parse_ethertype(skb);
+> +               if (unlikely(key->eth.type == htons(0)))
+>                         return -ENOMEM;
+>
+> +               if (skb->protocol == htons(ETH_P_TEB)) {
+> +                       if (key->eth.vlan.tci & htons(VLAN_TAG_PRESENT)
+> +                           && !skb_vlan_tag_present(skb))
+> +                               skb->protocol = key->eth.vlan.tpid;
+> +                       else
+> +                               skb->protocol = key->eth.type;
+> +               }
+> +
+
+I am not sure if this work in case of nested vlans.
+Can we move skb-protocol assignment to parse_vlan() to avoid checking
+for non-accelerated vlan case again here?
