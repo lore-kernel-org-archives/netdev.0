@@ -1,108 +1,59 @@
-From: Roi Dayan <roid@mellanox.com>
-Subject: Re: [PATCH net] net, sched: respect rcu grace period on cls
- destruction
-Date: Tue, 29 Nov 2016 07:16:49 +0200
-Message-ID: <1aeb7c6a-ff9b-98d4-ab46-4b8e7331c971@mellanox.com>
-References: <0d6d89f885033f1739e97f7f3372ae6e1db72892.1480204343.git.daniel@iogearbox.net>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: Re: [net-next 1/1] samples: bpf: Refactor test_cgrp2_attach -- use
+ getopt, and add mode
+Date: Mon, 28 Nov 2016 21:42:25 -0800
+Message-ID: <CAMp4zn8tGFxEBSMicv51hSofE_bRT9xd6rgtLFnVSLmhZ_sF_w@mail.gmail.com>
+References: <20161128225240.GA8761@ircssh.c.rugged-nimbus-611.internal> <20161129035020.GA15161@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <roid@mellanox.com>, <xiyou.wangcong@gmail.com>,
-        <john.fastabend@gmail.com>, <ast@fb.com>,
-        <hannes@stressinduktion.org>, <jiri@mellanox.com>,
-        <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Daniel Mack <daniel@zonque.org>,
+        Alexei Starovoitov <ast@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0056.outbound.protection.outlook.com ([104.47.2.56]:28598
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751308AbcK2FRA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 00:17:00 -0500
-In-Reply-To: <0d6d89f885033f1739e97f7f3372ae6e1db72892.1480204343.git.daniel@iogearbox.net>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:35084 "EHLO
+        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752611AbcK2FnG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 00:43:06 -0500
+Received: by mail-oi0-f43.google.com with SMTP id b126so178209762oia.2
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 21:43:06 -0800 (PST)
+In-Reply-To: <20161129035020.GA15161@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Nov 28, 2016 at 7:50 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Mon, Nov 28, 2016 at 02:52:42PM -0800, Sargun Dhillon wrote:
+>> This patch modifies test_cgrp2_attach to use getopt so we can use standard
+>> command line parsing.
+>>
+>> It also adds an option to run the program in detach only mode. This does
+>> not attach a new filter at the cgroup, but only runs the detach command.
+>>
+>> Lastly, it changes the attach code to not detach and then attach. It relies
+>> on the 'hotswap' behaviour of CGroup BPF programs to be able to change
+>> in-place. If detach-then-attach behaviour needs to be tested, the example
+>> can be run in detach only mode prior to attachment.
+>>
+>> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+>
+> looks fine to me.
+> I'd really prefer this example to become an automated test eventually.
+I can do that. As far as test cases:
 
-On 27/11/2016 02:18, Daniel Borkmann wrote:
-> Roi reported a crash in flower where tp->root was NULL in ->classify()
-> callbacks. Reason is that in ->destroy() tp->root is set to NULL via
-> RCU_INIT_POINTER(). It's problematic for some of the classifiers, because
-> this doesn't respect RCU grace period for them, and as a result, still
-> outstanding readers from tc_classify() will try to blindly dereference
-> a NULL tp->root.
->
-> The tp->root object is strictly private to the classifier implementation
-> and holds internal data the core such as tc_ctl_tfilter() doesn't know
-> about. Within some classifiers, such as cls_bpf, cls_basic, etc, tp->root
-> is only checked for NULL in ->get() callback, but nowhere else. This is
-> misleading and seemed to be copied from old classifier code that was not
-> cleaned up properly. For example, d3fa76ee6b4a ("[NET_SCHED]: cls_basic:
-> fix NULL pointer dereference") moved tp->root initialization into ->init()
-> routine, where before it was part of ->change(), so ->get() had to deal
-> with tp->root being NULL back then, so that was indeed a valid case, after
-> d3fa76ee6b4a, not really anymore. We used to set tp->root to NULL long
-> ago in ->destroy(), see 47a1a1d4be29 ("pkt_sched: remove unnecessary xchg()
-> in packet classifiers"); but the NULLifying was reintroduced with the
-> RCUification, but it's not correct for every classifier implementation.
->
-> In the cases that are fixed here with one exception of cls_cgroup, tp->root
-> object is allocated and initialized inside ->init() callback, which is always
-> performed at a point in time after we allocate a new tp, which means tp and
-> thus tp->root was not globally visible in the tp chain yet (see tc_ctl_tfilter()).
-> Also, on destruction tp->root is strictly kfree_rcu()'ed in ->destroy()
-> handler, same for the tp which is kfree_rcu()'ed right when we return
-> from ->destroy() in tcf_destroy(). This means, the head object's lifetime
-> for such classifiers is always tied to the tp lifetime. The RCU callback
-> invocation for the two kfree_rcu() could be out of order, but that's fine
-> since both are independent.
->
-> Dropping the RCU_INIT_POINTER(tp->root, NULL) for these classifiers here
-> means that 1) we don't need a useless NULL check in fast-path and, 2) that
-> outstanding readers of that tp in tc_classify() can still execute under
-> respect with RCU grace period as it is actually expected.
->
-> Things that haven't been touched here: cls_fw and cls_route. They each
-> handle tp->root being NULL in ->classify() path for historic reasons, so
-> their ->destroy() implementation can stay as is. If someone actually
-> cares, they could get cleaned up at some point to avoid the test in fast
-> path. cls_u32 doesn't set tp->root to NULL. For cls_rsvp, I just added a
-> !head should anyone actually be using/testing it, so it at least aligns with
-> cls_fw and cls_route. For cls_flower we additionally need to defer rhashtable
-> destruction (to a sleepable context) after RCU grace period as concurrent
-> readers might still access it. (Note that in this case we need to hold module
-> reference to keep work callback address intact, since we only wait on module
-> unload for all call_rcu()s to finish.)
->
-> This fixes one race to bring RCU grace period guarantees back. Next step
-> as worked on by Cong however is to fix 1e052be69d04 ("net_sched: destroy
-> proto tp when all filters are gone") to get the order of unlinking the tp
-> in tc_ctl_tfilter() for the RTM_DELTFILTER case right by moving
-> RCU_INIT_POINTER() before tcf_destroy() and let the notification for
-> removal be done through the prior ->delete() callback. Both are independant
-> issues. Once we have that right, we can then clean tp->root up for a number
-> of classifiers by not making them RCU pointers, which requires a new callback
-> (->uninit) that is triggered from tp's RCU callback, where we just kfree()
-> tp->root from there.
->
-> Fixes: 1f947bf151e9 ("net: sched: rcu'ify cls_bpf")
-> Fixes: 9888faefe132 ("net: sched: cls_basic use RCU")
-> Fixes: 70da9f0bf999 ("net: sched: cls_flow use RCU")
-> Fixes: 77b9900ef53a ("tc: introduce Flower classifier")
-> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-> Fixes: 952313bd6258 ("net: sched: cls_cgroup use RCU")
-> Reported-by: Roi Dayan <roid@mellanox.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Cong Wang <xiyou.wangcong@gmail.com>
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Cc: Roi Dayan <roid@mellanox.com>
-> Cc: Jiri Pirko <jiri@mellanox.com>
-> ---
->
+1. create /foo
+2. enter foo
+3. attach drop filter to foo
+4. try to ping 127.0.0.1 (make sure it returns 0 replies)
+5. create /foo/bar
+6. enter /foo/bar
+7. try to ping 127.0.0.1 (make sure it returns 0 replies)
+8. attach passthrough filter to foo/bar
+9. try to ping 127.0.0.1 (make sure it returns 1 replies)
+10. Detach filter from foo/bar
+11. try to ping 127.0.0.1 (make sure it returns 0 replies)
+Reasonable?
 
-Hi,
 
-replying also here instead of in the other thread. I could not reproduce 
-my original issue after applying this patch.
-
-Thanks,
-Roi
+>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+>
