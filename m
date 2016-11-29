@@ -1,42 +1,58 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 29 Nov 2016 11:22:32 +1100
-Message-ID: <20161129112232.333d3363@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] openvswitch: Fix skb leak in IPv6 reassembly.
+Date: Mon, 28 Nov 2016 16:22:30 -0800
+Message-ID: <1480378950.18162.107.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161128234353.4262-1-diproiettod@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Borislav Petkov <bp@suse.de>,
-        Tom Lendacky <thomas.lendacky@amd.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+        Pravin B Shelar <pshelar@ovn.org>, Joe Stringer <joe@ovn.org>
+To: Daniele Di Proietto <diproiettod@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35273 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751282AbcK2AXc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 19:23:32 -0500
+Received: by mail-pg0-f65.google.com with SMTP id p66so14504849pga.2
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 16:23:32 -0800 (PST)
+In-Reply-To: <20161128234353.4262-1-diproiettod@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Mon, 2016-11-28 at 15:43 -0800, Daniele Di Proietto wrote:
+> If nf_ct_frag6_gather() returns an error other than -EINPROGRESS, it
+> means that we still have a reference to the skb.  We should free it
+> before returning from handle_fragments, as stated in the comment above.
+> 
+> Fixes: daaa7d647f81 ("netfilter: ipv6: avoid nf_iterate recursion")
+> CC: Florian Westphal <fw@strlen.de>
+> CC: Pravin B Shelar <pshelar@ovn.org>
+> CC: Joe Stringer <joe@ovn.org>
+> Signed-off-by: Daniele Di Proietto <diproiettod@ovn.org>
+> ---
+>  net/openvswitch/conntrack.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+> index 31045ef..fecefa2 100644
+> --- a/net/openvswitch/conntrack.c
+> +++ b/net/openvswitch/conntrack.c
+> @@ -370,8 +370,11 @@ static int handle_fragments(struct net *net, struct sw_flow_key *key,
+>  		skb_orphan(skb);
+>  		memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
+>  		err = nf_ct_frag6_gather(net, skb, user);
+> -		if (err)
+> +		if (err) {
+> +			if (err != -EINPROGRESS)
+> +				kfree_skb(skb);
+>  			return err;
+> +		}
+>  
+>  		key->ip.proto = ipv6_hdr(skb)->nexthdr;
+>  		ovs_cb.mru = IP6CB(skb)->frag_max_size;
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Interesting, have you followed the "GPF in eth_header" thread today ?
 
-  drivers/net/ethernet/amd/xgbe/xgbe-main.c
-
-between commit:
-
-  91eefaabf102 ("amd-xgbe: Fix unused suspend handlers build warning")
-
-from the net tree and commit:
-
-  bd8255d8ba35 ("amd-xgbe: Prepare for supporting PCI devices")
-
-from the net-next tree.
-
-I fixed it up (the latter removed the code modified by the former)
-and can carry the fix as necessary. This is now fixed as far as linux-next
-is concerned, but any non trivial conflicts should be mentioned to your
-upstream maintainer when your tree is submitted for merging.  You may
-also want to consider cooperating with the maintainer of the conflicting
-tree to minimise any particularly complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
+In a nutshell, we want a complete patch, not something that would solve
+part of the problem.
