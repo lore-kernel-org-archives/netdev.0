@@ -1,60 +1,64 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next 1/1] samples: bpf: Refactor test_cgrp2_attach -- use
- getopt, and add mode
-Date: Mon, 28 Nov 2016 21:50:16 -0800
-Message-ID: <20161129055014.GA17751@ast-mbp.thefacebook.com>
-References: <20161128225240.GA8761@ircssh.c.rugged-nimbus-611.internal>
- <20161129035020.GA15161@ast-mbp.thefacebook.com>
- <CAMp4zn8tGFxEBSMicv51hSofE_bRT9xd6rgtLFnVSLmhZ_sF_w@mail.gmail.com>
+From: Harini Katakam <harini.katakam@xilinx.com>
+Subject: [PATCH v2] net: macb: Write only necessary bits in NCR in macb reset
+Date: Tue, 29 Nov 2016 11:26:25 +0530
+Message-ID: <1480398985-24037-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Daniel Mack <daniel@zonque.org>,
-        Alexei Starovoitov <ast@fb.com>
-To: Sargun Dhillon <sargun@sargun.me>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <harinik@xilinx.com>, <michals@xilinx.com>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+        <harinikatakamlinux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34961 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755490AbcK2FuV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 00:50:21 -0500
-Received: by mail-pf0-f196.google.com with SMTP id i88so7624002pfk.2
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 21:50:21 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAMp4zn8tGFxEBSMicv51hSofE_bRT9xd6rgtLFnVSLmhZ_sF_w@mail.gmail.com>
+Received: from mail-cys01nam02on0051.outbound.protection.outlook.com ([104.47.37.51]:3808
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752592AbcK2F4r (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Nov 2016 00:56:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 09:42:25PM -0800, Sargun Dhillon wrote:
-> On Mon, Nov 28, 2016 at 7:50 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Mon, Nov 28, 2016 at 02:52:42PM -0800, Sargun Dhillon wrote:
-> >> This patch modifies test_cgrp2_attach to use getopt so we can use standard
-> >> command line parsing.
-> >>
-> >> It also adds an option to run the program in detach only mode. This does
-> >> not attach a new filter at the cgroup, but only runs the detach command.
-> >>
-> >> Lastly, it changes the attach code to not detach and then attach. It relies
-> >> on the 'hotswap' behaviour of CGroup BPF programs to be able to change
-> >> in-place. If detach-then-attach behaviour needs to be tested, the example
-> >> can be run in detach only mode prior to attachment.
-> >>
-> >> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-> >
-> > looks fine to me.
-> > I'd really prefer this example to become an automated test eventually.
-> I can do that. As far as test cases:
-> 
-> 1. create /foo
-> 2. enter foo
-> 3. attach drop filter to foo
-> 4. try to ping 127.0.0.1 (make sure it returns 0 replies)
-> 5. create /foo/bar
-> 6. enter /foo/bar
-> 7. try to ping 127.0.0.1 (make sure it returns 0 replies)
-> 8. attach passthrough filter to foo/bar
-> 9. try to ping 127.0.0.1 (make sure it returns 1 replies)
-> 10. Detach filter from foo/bar
-> 11. try to ping 127.0.0.1 (make sure it returns 0 replies)
-> Reasonable?
+In macb_reset_hw, use read-modify-write to disable RX and TX.
+Existing settings, for ex. management port enable,
+are being cleared in the current implementation.
+Also certain reserved bits are read only.
+Hence it is better to use read-modify-write.
+Use the same method for clearing statistics as well.
 
-awesome. sounds like a plan.
+Signed-off-by: Harini Katakam <harinik@xilinx.com>
+---
+
+v2:
+Make ctrl type as u32
+Improve commit description
+
+---
+ drivers/net/ethernet/cadence/macb.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 0e489bb..2ce3407 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1744,14 +1744,18 @@ static void macb_reset_hw(struct macb *bp)
+ {
+ 	struct macb_queue *queue;
+ 	unsigned int q;
++	u32 ctrl;
+ 
+ 	/* Disable RX and TX (XXX: Should we halt the transmission
+ 	 * more gracefully?)
+ 	 */
+-	macb_writel(bp, NCR, 0);
++	ctrl = macb_readl(bp, NCR);
++	ctrl &= ~(MACB_BIT(RE) | MACB_BIT(TE));
++	macb_writel(bp, NCR, ctrl);
+ 
+ 	/* Clear the stats registers (XXX: Update stats first?) */
+-	macb_writel(bp, NCR, MACB_BIT(CLRSTAT));
++	ctrl |= MACB_BIT(CLRSTAT);
++	macb_writel(bp, NCR, ctrl);
+ 
+ 	/* Clear all status flags */
+ 	macb_writel(bp, TSR, -1);
+-- 
+2.7.4
