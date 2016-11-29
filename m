@@ -1,50 +1,83 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] debugfs: improve formatting of debugfs_real_fops()
-Date: Tue, 29 Nov 2016 21:27:57 +0100
-Message-ID: <20161129202756.GA14599@kroah.com>
-References: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
- <20161129195805.GA2180@kroah.com>
- <CAJpBn1xRuJYfDewZhOs4GvGpXKxndL+ux5c69ACA4Y4RS+X8kA@mail.gmail.com>
+From: Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3] ethernet :mellanox :mlx4: Replace pci_pool_alloc by pci_pool_zalloc
+Date: Wed, 30 Nov 2016 01:59:16 +0530
+Message-ID: <CAFqt6zY4ct_AS90P-Lm4UBdcrZETwh28xEYG1u-OCvhnNpkNGA@mail.gmail.com>
+References: <20161129194611.GA4088@jordon-HP-15-Notebook-PC> <20161129195811.GA4221@yuval-lap.uk.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Nicolai Stange <nicstange@gmail.com>,
-        Christian Lamparter <chunkeey@gmail.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:38956 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752706AbcK2U1s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:27:48 -0500
-Content-Disposition: inline
-In-Reply-To: <CAJpBn1xRuJYfDewZhOs4GvGpXKxndL+ux5c69ACA4Y4RS+X8kA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Rameshwar Sahu <sahu.rameshwar73-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161129195811.GA4221-Hxa29pjIrETlQW142y8m19+IiqhCXseY@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2016 at 12:11:37PM -0800, Jakub Kicinski wrote:
-> On Tue, Nov 29, 2016 at 11:58 AM, Greg Kroah-Hartman
-> <gregkh@linuxfoundation.org> wrote:
-> > On Thu, Nov 10, 2016 at 05:23:49PM +0000, Jakub Kicinski wrote:
-> >> Type of debugfs_real_fops() is longer than parameters and
-> >> the name, so there is no way to break the declaration nicely.
-> >> We have to go over 80 characters.
-> >>
-> >> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> >> ---
-> >>  include/linux/debugfs.h | 3 +--
-> >>  1 file changed, 1 insertion(+), 2 deletions(-)
-> >
-> > Doesn't apply to my tree, what did you make this against?
-> 
-> net-next, sorry, it
-> 
-> Fixes: 68f929ff2654 ("debugfs: constify argument to debugfs_real_fops()")
-> 
-> I think that change still haven't propagated out of Dave's tree.  Dave
-> didn't take my fix up patch, though, so my plan was to resend it to
-> you during the merge window?  Would that make sense?
+Hi Yuval,
 
-Sure, that will work.
+> v3:
+>   - Fixed alignment issues
 
-thanks,
+You mean remove extra empty line?
 
-greg k-h
+Yes, I removed the empty line and also I had fixed one alignment issue
+which was mentioned
+by Sergei in v2 patch.
+
+On Wed, Nov 30, 2016 at 1:28 AM, Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
+> On Wed, Nov 30, 2016 at 01:16:12AM +0530, Souptick Joarder wrote:
+>> In mlx4_alloc_cmd_mailbox(), pci_pool_alloc() followed by memset will be
+>> replaced by pci_pool_zalloc()
+>>
+>> Signed-off-by: Souptick joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> ---
+>> v3:
+>>   - Fixed alignment issues
+>
+> You mean remove extra empty line?
+>
+> Reviewed-by: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+>
+>>
+>> v2:
+>>   - Address comment from sergei
+>>     Alignment was not proper
+>>
+>>  drivers/net/ethernet/mellanox/mlx4/cmd.c | 6 ++----
+>>  1 file changed, 2 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>> index e36bebc..a49072b4 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>> @@ -2679,15 +2679,13 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
+>>       if (!mailbox)
+>>               return ERR_PTR(-ENOMEM);
+>>
+>> -     mailbox->buf = pci_pool_alloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
+>> -                                   &mailbox->dma);
+>> +     mailbox->buf = pci_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
+>> +                                    &mailbox->dma);
+>>       if (!mailbox->buf) {
+>>               kfree(mailbox);
+>>               return ERR_PTR(-ENOMEM);
+>>       }
+>>
+>> -     memset(mailbox->buf, 0, MLX4_MAILBOX_SIZE);
+>> -
+>>       return mailbox;
+>>  }
+>>  EXPORT_SYMBOL_GPL(mlx4_alloc_cmd_mailbox);
+>> --
+>> 1.9.1
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
