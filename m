@@ -1,25 +1,101 @@
-From: "Mrs. Maria-Elisabeth Schaeffler"
-        <MariaElisabethSchaeffler_group@onecommail.com>
-Subject: re
-Date: Tue, 29 Nov 2016 06:42:54 -0500
-Message-ID: <20161129064254.21093if0kwst85a6@webmail.earthlinkbusiness.com>
-Reply-To: mariaelisabethschaeffler76@gmail.com
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH v2 net 4/5] l2tp: fix lookup for sockets not bound to a
+ device in l2tp_ip
+Date: Tue, 29 Nov 2016 13:09:47 +0100
+Message-ID: <5462a7216410cf63714e7f24f2223b39235981f8.1480419658.git.g.nault@alphalink.fr>
+References: <cover.1480419658.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+        Chris Elston <celston@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtphost004.earthlinkbusiness.com ([69.95.226.34]:54110 "HELO
-        smtphost004.earthlinkbusiness.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with SMTP id S1757382AbcK2LuM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 06:50:12 -0500
+Received: from zimbra.alphalink.fr ([217.15.80.77]:42379 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756553AbcK2MJ5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:09:57 -0500
 Content-Disposition: inline
+In-Reply-To: <cover.1480419658.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+When looking up an l2tp socket, we must consider a null netdevice id as
+wild card. There are currently two problems caused by
+__l2tp_ip_bind_lookup() not considering 'dif' as wild card when set to 0:
 
+  * A socket bound to a device (i.e. with sk->sk_bound_dev_if != 0)
+    never receives any packet. Since __l2tp_ip_bind_lookup() is called
+    with dif == 0 in l2tp_ip_recv(), sk->sk_bound_dev_if is always
+    different from 'dif' so the socket doesn't match.
 
-Did you get my request?
+  * Two sockets, one bound to a device but not the other, can be bound
+    to the same address. If the first socket binding to the address is
+    the one that is also bound to a device, the second socket can bind
+    to the same address without __l2tp_ip_bind_lookup() noticing the
+    overlap.
+
+To fix this issue, we need to consider that any null device index, be
+it 'sk->sk_bound_dev_if' or 'dif', matches with any other value.
+We also need to pass the input device index to __l2tp_ip_bind_lookup()
+on reception so that sockets bound to a device never receive packets
+from other devices.
+
+This patch fixes l2tp_ip6 in the same way.
+
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_ip.c  | 6 ++++--
+ net/l2tp/l2tp_ip6.c | 7 ++++---
+ 2 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index b517c33..8938b6b 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -61,7 +61,8 @@ static struct sock *__l2tp_ip_bind_lookup(struct net *net, __be32 laddr, int dif
+ 		if ((l2tp->conn_id == tunnel_id) &&
+ 		    net_eq(sock_net(sk), net) &&
+ 		    !(inet->inet_rcv_saddr && inet->inet_rcv_saddr != laddr) &&
+-		    !(sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif))
++		    (!sk->sk_bound_dev_if || !dif ||
++		     sk->sk_bound_dev_if == dif))
+ 			goto found;
+ 	}
+ 
+@@ -182,7 +183,8 @@ static int l2tp_ip_recv(struct sk_buff *skb)
+ 		struct iphdr *iph = (struct iphdr *) skb_network_header(skb);
+ 
+ 		read_lock_bh(&l2tp_ip_lock);
+-		sk = __l2tp_ip_bind_lookup(net, iph->daddr, 0, tunnel_id);
++		sk = __l2tp_ip_bind_lookup(net, iph->daddr, inet_iif(skb),
++					   tunnel_id);
+ 		if (!sk) {
+ 			read_unlock_bh(&l2tp_ip_lock);
+ 			goto discard;
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 5f2ae61..4a86440 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -73,7 +73,8 @@ static struct sock *__l2tp_ip6_bind_lookup(struct net *net,
+ 		if ((l2tp->conn_id == tunnel_id) &&
+ 		    net_eq(sock_net(sk), net) &&
+ 		    !(addr && ipv6_addr_equal(addr, laddr)) &&
+-		    !(sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif))
++		    (!sk->sk_bound_dev_if || !dif ||
++		     sk->sk_bound_dev_if == dif))
+ 			goto found;
+ 	}
+ 
+@@ -196,8 +197,8 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
+ 		struct ipv6hdr *iph = ipv6_hdr(skb);
+ 
+ 		read_lock_bh(&l2tp_ip6_lock);
+-		sk = __l2tp_ip6_bind_lookup(net, &iph->daddr,
+-					    0, tunnel_id);
++		sk = __l2tp_ip6_bind_lookup(net, &iph->daddr, inet6_iif(skb),
++					    tunnel_id);
+ 		if (!sk) {
+ 			read_unlock_bh(&l2tp_ip6_lock);
+ 			goto discard;
+-- 
+2.10.2
