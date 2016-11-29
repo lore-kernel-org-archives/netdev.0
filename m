@@ -1,48 +1,71 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-netx] net: lan78xx: add LAN7801 MAC-only support
-Date: Tue, 29 Nov 2016 18:49:45 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D4096FC85@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D4096E268@CHN-SV-EXMX02.mchp-main.com>
- <007d0bc0-378c-da93-d730-28f7b5b5073a@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: bpf debug info
+Date: Tue, 29 Nov 2016 10:51:17 -0800
+Message-ID: <20161129185116.GA22581@ast-mbp.thefacebook.com>
+References: <20161129064217.GA20124@ast-mbp.thefacebook.com>
+ <583D9AA4.8050601@iogearbox.net>
+ <20161129153818.51104fab@jkicinski-Precision-T1700>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <UNGLinuxDriver@microchip.com>
-To: <f.fainelli@gmail.com>, <davem@davemloft.net>, <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Thomas Graf <tgraf@suug.ch>, Wangnan <wangnan0@huawei.com>,
+        He Kuang <hekuang@huawei.com>, kernel-team@fb.com
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp02.microchip.com ([198.175.253.38]:19690 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750754AbcK2Sts (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 13:49:48 -0500
-In-Reply-To: <007d0bc0-378c-da93-d730-28f7b5b5073a@gmail.com>
-Content-Language: en-US
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33189 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751758AbcK2SvW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 13:51:22 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 3so17156416pgd.0
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 10:51:22 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161129153818.51104fab@jkicinski-Precision-T1700>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ICsJLyogTEVEMi9QTUVfTi9JUlFfTi9SR01JSV9JRCBwaW4gdG8gSVJRX04gbW9kZSAqLw0K
-PiA+ICsJYnVmID0gcGh5X3JlYWRfbW1kX2luZGlyZWN0KHBoeWRldiwgMzI3ODQsIDMpOw0KPiA+
-ICsJYnVmICY9IH4weDE4MDA7DQo+ID4gKwlidWYgfD0gMHgwODAwOw0KPiA+ICsJcGh5X3dyaXRl
-X21tZF9pbmRpcmVjdChwaHlkZXYsIDMyNzg0LCAzLCBidWYpOw0KPiANCj4gVXNpbmcgZGVjaW1h
-bCBudW1iZXJzIGZvciByZWdpc3RlciBhZGRyZXNzZXMgaXMgYSBiaXQgdW51c3VhbC4NCg0KT0su
-IFdpbGwgY2hhbmdlIGl0Lg0KDQo+ID4gKw0KPiA+ICsJLyogUkdNSUkgTUFDIFRYQyBEZWxheSBF
-bmFibGUgKi8NCj4gPiArCXJldCA9IGxhbjc4eHhfd3JpdGVfcmVnKGRldiwgTUFDX1JHTUlJX0lE
-LA0KPiA+ICsJCQkJTUFDX1JHTUlJX0lEX1RYQ19ERUxBWV9FTl8pOw0KPiA+ICsNCj4gPiArCS8q
-IFJHTUlJIFRYIERMTCBUdW5lIEFkanVzdCAqLw0KPiA+ICsJcmV0ID0gbGFuNzh4eF93cml0ZV9y
-ZWcoZGV2LCBSR01JSV9UWF9CWVBfRExMLCAweDNEMDApOw0KPiA+ICsNCj4gPiArCSppbnRlcmZh
-Y2UgPSBQSFlfSU5URVJGQUNFX01PREVfUkdNSUlfVFhJRDsNCj4gPiArfQ0KPiA+ICsNCj4gPiAr
-c3RhdGljIHZvaWQga3N6OTAzMXJueF9wcmVfY29uZmlnKHN0cnVjdCBsYW43OHh4X25ldCAqZGV2
-LA0KPiA+ICsJCQkJICBzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2LA0KPiA+ICsJCQkJICBwaHlf
-aW50ZXJmYWNlX3QgKmludGVyZmFjZSkNCj4gPiArew0KPiA+ICsJLyogTWljcmVsOTMwMVJOWCBQ
-SFkgY29uZmlndXJhdGlvbiAqLw0KPiA+ICsJLyogUkdNSUkgQ29udHJvbCBTaWduYWwgUGFkIFNr
-ZXcgKi8NCj4gPiArCXBoeV93cml0ZV9tbWRfaW5kaXJlY3QocGh5ZGV2LCA0LCAyLCAweDAwNzcp
-Ow0KPiA+ICsJLyogUkdNSUkgUlggRGF0YSBQYWQgU2tldyAqLw0KPiA+ICsJcGh5X3dyaXRlX21t
-ZF9pbmRpcmVjdChwaHlkZXYsIDUsIDIsIDB4Nzc3Nyk7DQo+ID4gKwkvKiBSR01JSSBSWCBDbG9j
-ayBQYWQgU2tldyAqLw0KPiA+ICsJcGh5X3dyaXRlX21tZF9pbmRpcmVjdChwaHlkZXYsIDgsIDIs
-IDB4MUZGKTsNCj4gPiArDQo+ID4gKwkqaW50ZXJmYWNlID0gUEhZX0lOVEVSRkFDRV9NT0RFX1JH
-TUlJX1JYSUQ7DQo+ID4gK30NCj4gDQo+IFRoaXMgc2hvdWxkIHJlYWxseSBiZWxvbmcgaW4gdGhl
-IHJlc3BlY3RpdmUgUEhZIGRyaXZlcnMgZm9yIHRoZXNlIFBIWXMsDQo+IGlzIHRoZXJlIGEgcGFy
-dGljdWxhciByZWFzb24geW91IGRlY2lkZWQgdG8gZG8gdGhpcyBoZXJlPw0KDQpNYWluIHJlYXNv
-biBpcyBiZWNhdXNlIHRoZXNlIGFyZSBNQUMgZGVwZW5kZW50Lg0KSW4gY2FzZSB0aGVzZSBhcmUg
-aW4gUEhZIGRyaXZlciwgSSBleHBlY3Qgc29tZSBwYXJhbWV0ZXJzL2RlZmluZXMgbWF5IG5lZWQg
-dG8gYmUgcGFzc2VkIHRvIGl0Lg0KVHJ5aW5nIHRvIGtlZXAgUEhZIGRyaXZlciBhcyBnZW5lcmlj
-IGFzIHBvc3NpYmxlLg0KDQpUaGFua3MgZm9yIHlvdXIgY29tbWVudHMuDQotIFdvb2p1bmcNCg==
+On Tue, Nov 29, 2016 at 03:38:18PM +0000, Jakub Kicinski wrote:
+> 
+> >>> [...]
+> > > So next step is to improve verifier messages to be more human friendly.
+> > > The step after is to introduce BPF_COMMENT pseudo instruction
+> > > that will be ignored by the interpreter yet it will contain the text
+> > > of original source code. Then llvm-objdump step won't be necessary.
+> > > The bpf loader will load both instructions and pieces of C sources.
+> > > Then verifier errors should be even easier to read and humans
+> > > can easily understand the purpose of the program.  
+> > 
+> > So the BPF_COMMENT pseudo insn will get stripped away from the insn array
+> > after verification step, so we don't need to hold/account for this mem? I
+> > assume in it's ->imm member it will just hold offset into text blob?
+> 
+> Associating any form of opaque data with programs always makes me
+> worried about opening a side channel of communication with a specialized
+> user space implementations/compilers.  But I guess if the BPF_COMMENTs
+> are stripped in the verifier as Daniel assumes drivers and JITs will
+> never see it.
+
+yes. the idea that it's a comment. It can contain any text,
+not only C code, but any other language.
+It's definitely going to be stripped before JITs and kernel will
+not make any safety or translation decisions based on such comment.
+
+> Just to clarify, however - is there any reason why pushing the source
+> code into the kernel is necessary?  Or is it just for convenience?
+> Provided the user space loader has access to the debug info it should
+> have no problems matching the verifier output to code lines?
+
+correct. just for convenience. The user space has to keep .o around,
+since it can crash, would have to reload and so on.
+Only for some script that ssh-es into servers and wants to see
+what is being loaded, it might help to dump full asm and these comments
+along with prog_digest that Daniel is working on in parallel.
+Alternatively instead of doing BPF_COMMENT we can load the whole .o
+as-is into bpffs as a blob. Later (based on digest) the kernel can
+dump such .o back for user space to run objdump on. It all can be
+done without kernel involvement. Like tc command can copy .o and so on.
+But not everything is using tc.
+Another alternative is to do a decompiler from bpf binary
+into meaningful C code. It's not trivial and names will be lost.
+bpf_comment approach is pretty cheap from kernel point of view
+and greatly helps visibility when users don't cheat with debug info.
