@@ -1,65 +1,43 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH v2 08/13] net: ethernet: ti: cpts: move dt props parsing
- to cpts driver
-Date: Tue, 29 Nov 2016 09:54:26 -0600
-Message-ID: <b4503f15-6927-9b09-7cb0-ce1c8a8c4f59@ti.com>
-References: <20161128230337.6731-1-grygorii.strashko@ti.com>
- <20161128230337.6731-9-grygorii.strashko@ti.com>
- <20161129101112.GG3110@localhost.localdomain>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] samples/bpf: fix include path
+Date: Tue, 29 Nov 2016 08:55:50 -0700
+Message-ID: <c1ccee76-949a-fa1c-9775-49bcdaea7a26@cumulusnetworks.com>
+References: <1480399642-2475887-1-git-send-email-ast@fb.com>
+ <583D2187.7060405@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
-        <devicetree@vger.kernel.org>,
-        Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:13473 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756324AbcK2Pya (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 10:54:30 -0500
-In-Reply-To: <20161129101112.GG3110@localhost.localdomain>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:35521 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757258AbcK2Pzx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 10:55:53 -0500
+Received: by mail-pf0-f169.google.com with SMTP id i88so32576173pfk.2
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 07:55:53 -0800 (PST)
+In-Reply-To: <583D2187.7060405@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 11/29/2016 04:11 AM, Richard Cochran wrote:
-> On Mon, Nov 28, 2016 at 05:03:32PM -0600, Grygorii Strashko wrote:
->> +static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
->> +{
->> +	int ret = -EINVAL;
->> +	u32 prop;
->> +
->> +	if (of_property_read_u32(node, "cpts_clock_mult", &prop))
->> +		goto  of_error;
->> +	cpts->cc_mult = prop;
+On 11/28/16 11:34 PM, Daniel Borkmann wrote:
+> On 11/29/2016 07:07 AM, Alexei Starovoitov wrote:
+>> Fix the following build error:
+>> HOSTCC  samples/bpf/test_lru_dist.o
+>> ../samples/bpf/test_lru_dist.c:25:22: fatal error: bpf_util.h: No such file or directory
+>>
+>> This is due to objtree != srctree.
+>> Use srctree, since that's where bpf_util.h is located.
+>>
+>> Fixes: e00c7b216f34 ("bpf: fix multiple issues in selftest suite and samples")
+>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 > 
-> Why not set cc.mult here at the same time?
-
-The same reason as in prev patch - cpts->cc_mult is original/initial mult
-value loaded from DT (or calculated), while cc.mult is dynamic value
-which can be changed as part of freq adjustment.
-
+> Didn't run into this so far, thanks for fixing!
 > 
->> +
->> +	if (of_property_read_u32(node, "cpts_clock_shift", &prop))
->> +		goto  of_error;
->> +	cpts->cc.shift = prop;
->> +
->> +	return 0;
->> +
->> +of_error:
->> +	dev_err(cpts->dev, "CPTS: Missing property in the DT.\n");
->> +	return ret;
->> +}
-> 
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
+I have and this fixed it for me.
 
--- 
-regards,
--grygorii
+Tested-by: David Ahern <dsa@cumulusnetworks.com>
