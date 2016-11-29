@@ -1,122 +1,35 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH net V2] net/sched: pedit: make sure that offset is valid
-Date: Tue, 29 Nov 2016 13:03:13 +0200
-Message-ID: <20161129110313.GA7168@office.localdomain>
-References: <20161128105640.32363-1-amir@vadai.me>
- <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
- <20161129071434.GA22491@office.localdomain>
- <CAD=hENc11HmXdAgZ+CNk54s9vORATOJAr9Ex8yybDcwHK4dSfQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: zhuyj <zyjzyj2000@gmail.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4: Add PCI device ID for new adapter
+Date: Tue, 29 Nov 2016 17:14:52 +0530
+Message-ID: <1480419892-30842-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com,
+        swise@opengridcomputing.com, nirranjan@chelsio.com,
+        Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f193.google.com ([209.85.210.193]:34305 "EHLO
-        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753048AbcK2LDS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 06:03:18 -0500
-Received: by mail-wj0-f193.google.com with SMTP id xy5so17635790wjc.1
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 03:03:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAD=hENc11HmXdAgZ+CNk54s9vORATOJAr9Ex8yybDcwHK4dSfQ@mail.gmail.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:54530 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754270AbcK2LjT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 06:39:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 05:27:05PM +0800, zhuyj wrote:
->  Thanks a lot.
-> When will offset become -1?
-offset is supplied by userspace. For example iproute2 tc tool.
-It is valid to supply a negative value, since offset is relative to the
-networking layer, one might want to edit a MAC layer field.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-Please use bottom posting when replying to mails...
-
-> 
-> On Tue, Nov 29, 2016 at 3:14 PM, Amir Vadai <amir@vadai.me> wrote:
-> > On Tue, Nov 29, 2016 at 10:32:05AM +0800, zhuyj wrote:
-> >>  +       if (offset > 0 && offset > skb->len)
-> >>
-> >> offset > skb->len is enough?
-> > offset is signed and skb->len is unsigned. Therefore for example if
-> > offset=-1 and skb->len=10, the actual comparison is 0xff...>10
-> >
-> >>
-> >> On Mon, Nov 28, 2016 at 6:56 PM, Amir Vadai <amir@vadai.me> wrote:
-> >> > Add a validation function to make sure offset is valid:
-> >> > 1. Not below skb head (could happen when offset is negative).
-> >> > 2. Validate both 'offset' and 'at'.
-> >> >
-> >> > Signed-off-by: Amir Vadai <amir@vadai.me>
-> >> > ---
-> >> > Hi Dave,
-> >> >
-> >> > Please pull to -stable branches.
-> >> >
-> >> > Changes from V0:
-> >> > - Add a validation to the 'at' value (this is used as an offset too)
-> >> > - Instead of validating the output of skb_header_pointer(), make sure that the
-> >> >         offset is good before calling it.
-> >> >
-> >> > Thanks,
-> >> > Amir
-> >> >  net/sched/act_pedit.c | 24 ++++++++++++++++++++----
-> >> >  1 file changed, 20 insertions(+), 4 deletions(-)
-> >> >
-> >> > diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-> >> > index b54d56d4959b..cf9b2fe8eac6 100644
-> >> > --- a/net/sched/act_pedit.c
-> >> > +++ b/net/sched/act_pedit.c
-> >> > @@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
-> >> >         kfree(keys);
-> >> >  }
-> >> >
-> >> > +static bool offset_valid(struct sk_buff *skb, int offset)
-> >> > +{
-> >> > +       if (offset > 0 && offset > skb->len)
-> >> > +               return false;
-> >> > +
-> >> > +       if  (offset < 0 && -offset > skb_headroom(skb))
-> >> > +               return false;
-> >> > +
-> >> > +       return true;
-> >> > +}
-> >> > +
-> >> >  static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
-> >> >                      struct tcf_result *res)
-> >> >  {
-> >> > @@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
-> >> >                         if (tkey->offmask) {
-> >> >                                 char *d, _d;
-> >> >
-> >> > +                               if (!offset_valid(skb, off + tkey->at)) {
-> >> > +                                       pr_info("tc filter pedit 'at' offset %d out of bounds\n",
-> >> > +                                               off + tkey->at);
-> >> > +                                       goto bad;
-> >> > +                               }
-> >> >                                 d = skb_header_pointer(skb, off + tkey->at, 1,
-> >> >                                                        &_d);
-> >> >                                 if (!d)
-> >> > @@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
-> >> >                                         " offset must be on 32 bit boundaries\n");
-> >> >                                 goto bad;
-> >> >                         }
-> >> > -                       if (offset > 0 && offset > skb->len) {
-> >> > -                               pr_info("tc filter pedit"
-> >> > -                                       " offset %d can't exceed pkt length %d\n",
-> >> > -                                      offset, skb->len);
-> >> > +
-> >> > +                       if (!offset_valid(skb, off + offset)) {
-> >> > +                               pr_info("tc filter pedit offset %d out of bounds\n",
-> >> > +                                       offset);
-> >> >                                 goto bad;
-> >> >                         }
-> >> >
-> >> > --
-> >> > 2.10.2
-> >> >
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+index df1573c4a659..ecf3ccc257bc 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+@@ -168,6 +168,7 @@ CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN
+ 	CH_PCI_ID_TABLE_FENTRY(0x509a),	/* Custom T520-CR */
+ 	CH_PCI_ID_TABLE_FENTRY(0x509b),	/* Custom T540-CR LOM */
+ 	CH_PCI_ID_TABLE_FENTRY(0x509c),	/* Custom T520-CR*/
++	CH_PCI_ID_TABLE_FENTRY(0x509d),	/* Custom T540-CR*/
+ 
+ 	/* T6 adapters:
+ 	 */
+-- 
+2.3.4
