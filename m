@@ -1,62 +1,37 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv2 iproute2 net-next] tc: m_mirred: Fix parsing of
- 'index' optional argument
-Date: Tue, 29 Nov 2016 12:34:05 -0800
-Message-ID: <20161129123405.4008d526@samsung9>
-References: <20161027073606.6112-1-shmulik.ladkani@gmail.com>
-        <20161027094633.GR5640@orbyte.nwl.cc>
-        <20161027172239.7bf5cc40@pixies>
-        <20161027145643.GS5640@orbyte.nwl.cc>
-        <20161027220040.4e109d99@halley>
+Subject: Re: [PATCH iproute2 -net-next] bpf: make tc's bpf loader generic
+ and move into lib
+Date: Tue, 29 Nov 2016 12:37:53 -0800
+Message-ID: <20161129123753.79ee1dfb@samsung9>
+References: <32ad4312197becd442b8bf136ded8859dd593340.1478736685.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>, Jamal Hadi Salim <jhs@mojatatu.com>,
-        netdev@vger.kernel.org
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Cc: tgraf@suug.ch, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:36485 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754468AbcK2UeI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:34:08 -0500
-Received: by mail-pg0-f50.google.com with SMTP id f188so72842440pgc.3
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 12:34:07 -0800 (PST)
-In-Reply-To: <20161027220040.4e109d99@halley>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:34991 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757020AbcK2Uh4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 15:37:56 -0500
+Received: by mail-pg0-f52.google.com with SMTP id p66so73186422pga.2
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 12:37:56 -0800 (PST)
+In-Reply-To: <32ad4312197becd442b8bf136ded8859dd593340.1478736685.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 27 Oct 2016 22:00:40 +0300
-Shmulik Ladkani <shmulik.ladkani@gmail.com> wrote:
+On Thu, 10 Nov 2016 01:20:59 +0100
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> Hi,
+> This work moves the bpf loader into the iproute2 library and reworks
+> the tc specific parts into generic code. It's useful as we can then
+> more easily support new program types by just having the same ELF
+> loader backend. Joint work with Thomas Graf. I hacked a rough start
+> of a test suite to make sure nothing breaks [1] and looks all good.
 > 
-> On Thu, 27 Oct 2016 16:56:43 +0200 Phil Sutter <phil@nwl.cc> wrote:
-> > > Actual code, since first committed, attempts to parse "index" as 1st
-> > > argument (without success), see parse_mirred():
-> > > 
-> > > 	if (matches(*argv, "egress") == 0 || matches(*argv, "index") == 0) {
-> > > 		int ret = parse_egress(a, &argc, &argv, tca_id, n);    
-> > 
-> > Oh, I missed that! But to me this looks like the author wanted to avoid
-> > erroring out with "mirred option not supported index" in case of missing
-> > 'egress' keyword.  
+>   [1] https://github.com/borkmann/clsact/blob/master/test_bpf.sh
 > 
-> Could be; Not that it matters much, but evidence in parse_egress() shows
-> that it DOES try to parse and store "index" EVEN if no "egress" seen YET.
-> 
-> > Yeah, I'd go with least effort approach, i.e. not adding any additional
-> > flexibility in arg parsing. Since the docs never stated otherwise, I
-> > don't think it was a real issue for users.  
-> 
-> Sure. It never really worked ;)
-> 
-> If we go that way, then some code in parse_direction needs to be
-> eliminated/restructured; So we'll end up with:
->  - less code in parse_direction
->  - not adding any additional flexibility in arg parsing
->  - bigger diff than suggested
-> 
-> Stephen, Jamal, do you have any preference here?
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-My only demand is not to break existing users.
-Jamal is the original developer of mirred so I would like his feedback.
+Applied to net-next, will push soon.
