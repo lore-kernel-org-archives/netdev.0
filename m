@@ -1,75 +1,139 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6:ip6_xmit remove unnecessary np NULL check
-Date: Tue, 29 Nov 2016 07:26:10 -0800
-Message-ID: <1480433170.18162.135.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480401179-9220-1-git-send-email-manjeet.p@samsung.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net: GPF in eth_header
+Date: Tue, 29 Nov 2016 16:31:03 +0100
+Message-ID: <CAAeHK+zLO=Gv33TqS6tGTTC=QUYO-HOPgSB2oS1SBOAyJzPDTQ@mail.gmail.com>
+References: <CACT4Y+at4Fp6i7WRggYq7M1+z1aHo=Bff63p+1DzC2SnTjuWdA@mail.gmail.com>
+ <CANn89iJeWV9YnOzy4eXL4Sbcyw_kj_CA8JrfGaFxMse_MUFL6Q@mail.gmail.com>
+ <CAAeHK+x48aKLcKfN2aYA1pBPr4Y4ESUvjCTu0xGPoYZuiRbaaw@mail.gmail.com>
+ <CACPEyM-4dwvmEvq3uTN_8Y-YosP8qA3cYV+oxkufFOn8M+=hew@mail.gmail.com>
+ <CAAeHK+xr+GdLbLch7XatW5rifOz+=cjRCGf1ro8WxEZWziyU4Q@mail.gmail.com> <1480431501.18162.131.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, pankaj.m@samsung.com,
-        ajeet.y@samsung.com, Rohit Thapliyal <r.thapliyal@samsung.com>
-To: Manjeet Pawar <manjeet.p@samsung.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jiri Benc <jbenc@redhat.com>,
+        Sabrina Dubroca <sd@queasysnail.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: syzkaller <syzkaller@googlegroups.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480401179-9220-1-git-send-email-manjeet.p@samsung.com>
+In-Reply-To: <1480431501.18162.131.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-11-29 at 12:02 +0530, Manjeet Pawar wrote:
-> From: Rohit Thapliyal <r.thapliyal@samsung.com>
-> 
-> np NULL check doesn't seem required here as it shall never
-> be NULL anyways in inet6_sk(sk).
-> 
-> Signed-off-by: Rohit Thapliyal <r.thapliyal@samsung.com>
-> Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
-> Signed-off-by: David Miller <davem@davemloft.net>
-> Reviewed-by: Akhilesh Kumar <akhilesh.k@samsung.com>
-> 
-> ---
-> v2->v3: Modified as per the suggestion from David Miller
->         ip6_xmit calls are made without checking NULL np
->         pointer, so no need to explicitly check NULL np in
->         ip6_xmit.
-> 
->  include/linux/ipv6.h  | 2 +-
->  net/ipv6/ip6_output.c | 3 +--
->  2 files changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> index a064997..6c9c604 100644
-> --- a/include/linux/ipv6.h
-> +++ b/include/linux/ipv6.h
-> @@ -299,7 +299,7 @@ struct tcp6_timewait_sock {
->  
->  static inline struct ipv6_pinfo *inet6_sk(const struct sock *__sk)
+On Tue, Nov 29, 2016 at 3:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2016-11-29 at 11:26 +0100, Andrey Konovalov wrote:
+>> On Sat, Nov 26, 2016 at 9:05 PM, Eric Dumazet <erdlkml@gmail.com> wrote:
+>> >> I actually see multiple places where skb_network_offset() is used as
+>> >> an argument to skb_pull().
+>> >> So I guess every place can potentially be buggy.
+>> >
+>> > Well, I think the intent is to accept a negative number.
+>>
+>> I'm not sure that was the intent since it results in a signedness
+>> issue which leads to an out-of-bounds.
+>>
+>
+> Hey, I already mentioned where was the bug.
+>
+> You missed the investigation where I pointed it to FLorian ?
+>
+>> A quick grep shows that the same issue can potentially happen in
+>> multiple places across the kernel:
+>>
+>> net/ipv6/ip6_output.c:1655: __skb_pull(skb, skb_network_offset(skb));
+>> net/packet/af_packet.c:2043: skb_pull(skb, skb_network_offset(skb));
+>> net/packet/af_packet.c:2165: skb_pull(skb, skb_network_offset(skb));
+>> net/core/neighbour.c:1301: __skb_pull(skb, skb_network_offset(skb));
+>> net/core/neighbour.c:1331: __skb_pull(skb, skb_network_offset(skb));
+>> net/core/dev.c:3157: __skb_pull(skb, skb_network_offset(skb));
+>> net/sched/sch_teql.c:337: __skb_pull(skb, skb_network_offset(skb));
+>> net/sched/sch_atm.c:479: skb_pull(skb, skb_network_offset(skb));
+>> net/ipv4/ip_output.c:1385: __skb_pull(skb, skb_network_offset(skb));
+>> net/ipv4/ip_fragment.c:391: if (!pskb_pull(skb, skb_network_offset(skb) + ihl))
+>> drivers/net/vxlan.c:1440: __skb_pull(reply, skb_network_offset(reply));
+>> drivers/net/vxlan.c:1902: __skb_pull(skb, skb_network_offset(skb));
+>> drivers/net/vrf.c:220: __skb_pull(skb, skb_network_offset(skb));
+>> drivers/net/vrf.c:314: __skb_pull(skb, skb_network_offset(skb));
+>>
+>> A similar thing also happened to somebody else (on a receive path!):
+>> https://forums.grsecurity.net/viewtopic.php?f=3&t=4550
+>>
+>> Does it make sense to check skb_network_offset() before passing it to
+>> skb_pull() everywhere?
+>
+> Well, sure, we could add safety checks everywhere and slow the kernel
+> when debugging is requested.
+>
+> But skb_network_offset() is not the problem here. Why are you focusing
+> on it ?
+>
+> The real problem is in __skb_pull() or __skb_push() and all similar
+> helpers. Lots of added checks and slowdowns.
+
+The issue is not with skb_network_offset(), but with __skb_pull()
+using skb_network_offset() as an argument.
+
+I'm not sure what would be the beast way to fix this, to add a check
+before every __skb_pull(skb_network_offset()), to fix __skb_pull() to
+work with signed ints, to add BUG_ON()'s in __skb_pull, or something
+else.
+
+What I meant is that you fixed this very instance of the bug, and I'm
+pointing out that a similar one might hit us again.
+
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 9c535fbccf2c7dbfae04cee393460e86d588c26b..d6116e37d054fc1536114347ed3c41fc7dc7a882 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -1923,6 +1923,7 @@ static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
+>  unsigned char *skb_push(struct sk_buff *skb, unsigned int len);
+>  static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned int len)
 >  {
-> -	return sk_fullsock(__sk) ? inet_sk(__sk)->pinet6 : NULL;
-> +	return inet_sk(__sk)->pinet6;
-
-
-David suggestion was about np being NULL or not in ip6_xmit()
-
-But have you checked inet6_sk() was never called for a TCPv6 TIMEWAIT or
-SYN_RECV request ?
-
+> +       BUG_ON((int)len < 0);
+>         skb->data -= len;
+>         skb->len  += len;
+>         return skb->data;
+> @@ -1931,6 +1932,7 @@ static inline unsigned char *__skb_push(struct sk_buff *skb, unsigned int len)
+>  unsigned char *skb_pull(struct sk_buff *skb, unsigned int len);
+>  static inline unsigned char *__skb_pull(struct sk_buff *skb, unsigned int len)
+>  {
+> +       BUG_ON((int)len < 0);
+>         skb->len -= len;
+>         BUG_ON(skb->len < skb->data_len);
+>         return skb->data += len;
+> @@ -1938,6 +1940,7 @@ static inline unsigned char *__skb_pull(struct sk_buff *skb, unsigned int len)
+>
+>  static inline unsigned char *skb_pull_inline(struct sk_buff *skb, unsigned int len)
+>  {
+> +       BUG_ON((int)len < 0);
+>         return unlikely(len > skb->len) ? NULL : __skb_pull(skb, len);
 >  }
->  
->  static inline struct raw6_sock *raw6_sk(const struct sock *sk)
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 59eb4ed..f8c63ec 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -213,8 +213,7 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
->  	/*
->  	 *	Fill in the IPv6 header
->  	 */
-> -	if (np)
-> -		hlimit = np->hop_limit;
-> +	hlimit = np->hop_limit;
->  	if (hlimit < 0)
->  		hlimit = ip6_dst_hoplimit(dst);
->  
-
-This part is fine.
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index d1d1a5a5ad24ded523fc12ffba8c602b03bd0830..7bf098c848fd857ba5d287fc91d43f62f381bd55 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -1450,6 +1450,7 @@ EXPORT_SYMBOL(skb_put);
+>   */
+>  unsigned char *skb_push(struct sk_buff *skb, unsigned int len)
+>  {
+> +       BUG_ON((int)len < 0);
+>         skb->data -= len;
+>         skb->len  += len;
+>         if (unlikely(skb->data<skb->head))
+>
+>
+>
+>
+>
+>
+>
+> --
+> You received this message because you are subscribed to the Google Groups "syzkaller" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
+> For more options, visit https://groups.google.com/d/optout.
