@@ -1,66 +1,103 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH v2] vxlan: fix a potential issue when create a new vxlan fdb entry.
-Date: Tue, 29 Nov 2016 09:59:36 +0800
-Message-ID: <1480384776-8252-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Pravin B Shelar <pshelar@nicira.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH net V2] net/sched: pedit: make sure that offset is valid
+Date: Tue, 29 Nov 2016 10:32:05 +0800
+Message-ID: <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
+References: <20161128105640.32363-1-amir@vadai.me>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:24667 "EHLO
-        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750754AbcK2B7t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 20:59:49 -0500
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36799 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755427AbcK2CcG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 21:32:06 -0500
+Received: by mail-oi0-f68.google.com with SMTP id u15so16490316oie.3
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 18:32:06 -0800 (PST)
+In-Reply-To: <20161128105640.32363-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vxlan_fdb_append may return error, so add the proper check,
-otherwise it will cause memory leak.
+ +       if (offset > 0 && offset > skb->len)
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+offset > skb->len is enough?
 
-Changes in v2:
-  - Unnecessary to initialize rc to zero.
----
- drivers/net/vxlan.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 21e92be..bb70dd5 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -611,6 +611,7 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
- 	struct vxlan_rdst *rd = NULL;
- 	struct vxlan_fdb *f;
- 	int notify = 0;
-+	int rc;
- 
- 	f = __vxlan_find_mac(vxlan, mac);
- 	if (f) {
-@@ -641,8 +642,7 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
- 		if ((flags & NLM_F_APPEND) &&
- 		    (is_multicast_ether_addr(f->eth_addr) ||
- 		     is_zero_ether_addr(f->eth_addr))) {
--			int rc = vxlan_fdb_append(f, ip, port, vni, ifindex,
--						  &rd);
-+			rc = vxlan_fdb_append(f, ip, port, vni, ifindex, &rd);
- 
- 			if (rc < 0)
- 				return rc;
-@@ -673,7 +673,11 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
- 		INIT_LIST_HEAD(&f->remotes);
- 		memcpy(f->eth_addr, mac, ETH_ALEN);
- 
--		vxlan_fdb_append(f, ip, port, vni, ifindex, &rd);
-+		rc = vxlan_fdb_append(f, ip, port, vni, ifindex, &rd);
-+		if (rc < 0) {
-+			kfree(f);
-+			return rc;
-+		}
- 
- 		++vxlan->addrcnt;
- 		hlist_add_head_rcu(&f->hlist,
--- 
-1.8.3.1
+On Mon, Nov 28, 2016 at 6:56 PM, Amir Vadai <amir@vadai.me> wrote:
+> Add a validation function to make sure offset is valid:
+> 1. Not below skb head (could happen when offset is negative).
+> 2. Validate both 'offset' and 'at'.
+>
+> Signed-off-by: Amir Vadai <amir@vadai.me>
+> ---
+> Hi Dave,
+>
+> Please pull to -stable branches.
+>
+> Changes from V0:
+> - Add a validation to the 'at' value (this is used as an offset too)
+> - Instead of validating the output of skb_header_pointer(), make sure that the
+>         offset is good before calling it.
+>
+> Thanks,
+> Amir
+>  net/sched/act_pedit.c | 24 ++++++++++++++++++++----
+>  1 file changed, 20 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+> index b54d56d4959b..cf9b2fe8eac6 100644
+> --- a/net/sched/act_pedit.c
+> +++ b/net/sched/act_pedit.c
+> @@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
+>         kfree(keys);
+>  }
+>
+> +static bool offset_valid(struct sk_buff *skb, int offset)
+> +{
+> +       if (offset > 0 && offset > skb->len)
+> +               return false;
+> +
+> +       if  (offset < 0 && -offset > skb_headroom(skb))
+> +               return false;
+> +
+> +       return true;
+> +}
+> +
+>  static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+>                      struct tcf_result *res)
+>  {
+> @@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+>                         if (tkey->offmask) {
+>                                 char *d, _d;
+>
+> +                               if (!offset_valid(skb, off + tkey->at)) {
+> +                                       pr_info("tc filter pedit 'at' offset %d out of bounds\n",
+> +                                               off + tkey->at);
+> +                                       goto bad;
+> +                               }
+>                                 d = skb_header_pointer(skb, off + tkey->at, 1,
+>                                                        &_d);
+>                                 if (!d)
+> @@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+>                                         " offset must be on 32 bit boundaries\n");
+>                                 goto bad;
+>                         }
+> -                       if (offset > 0 && offset > skb->len) {
+> -                               pr_info("tc filter pedit"
+> -                                       " offset %d can't exceed pkt length %d\n",
+> -                                      offset, skb->len);
+> +
+> +                       if (!offset_valid(skb, off + offset)) {
+> +                               pr_info("tc filter pedit offset %d out of bounds\n",
+> +                                       offset);
+>                                 goto bad;
+>                         }
+>
+> --
+> 2.10.2
+>
