@@ -1,77 +1,187 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v4 0/3] net: Add bpf support to set sk_bound_dev_if
-Date: Mon, 28 Nov 2016 20:38:46 -0800
-Message-ID: <1480394329-24847-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v4 1/3] bpf: Refactor cgroups code in prep for new type
+Date: Mon, 28 Nov 2016 20:38:47 -0800
+Message-ID: <1480394329-24847-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1480394329-24847-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
         maheshb@google.com, tgraf@suug.ch,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:33561 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752196AbcK2Eiz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 23:38:55 -0500
-Received: by mail-pg0-f44.google.com with SMTP id 3so64881297pgd.0
-        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 20:38:55 -0800 (PST)
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:34226 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752592AbcK2Ei4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Nov 2016 23:38:56 -0500
+Received: by mail-pg0-f49.google.com with SMTP id x23so64856826pgx.1
+        for <netdev@vger.kernel.org>; Mon, 28 Nov 2016 20:38:56 -0800 (PST)
+In-Reply-To: <1480394329-24847-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recently added VRF support in Linux leverages the bind-to-device
-API for programs to specify an L3 domain for a socket. While
-SO_BINDTODEVICE has been around for ages, not every ipv4/ipv6 capable
-program has support for it. Even for those programs that do support it,
-the API requires processes to be started as root (CAP_NET_RAW) which
-is not desirable from a general security perspective.
+Code move and rename only; no functional change intended.
 
-This patch set leverages Daniel Mack's work to attach bpf programs to
-a cgroup to provide a capability to set sk_bound_dev_if for all
-AF_INET{6} sockets opened by a process in a cgroup when the sockets
-are allocated.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v4
+- dropped refactor of __cgroup_bpf_run_filter and renamed it
+  to __cgroup_bpf_run_filter_skb
 
-For example:
- 1. configure vrf (e.g., using ifupdown2)
-        auto eth0
-        iface eth0 inet dhcp
-            vrf mgmt
+v3
+- dropped the rename
 
-        auto mgmt
-        iface mgmt
-            vrf-table auto
+v2
+- fix bpf_prog_run_clear_cb to bpf_prog_run_save_cb as caught by Daniel
 
- 2. configure cgroup
-        mount -t cgroup2 none /tmp/cgroupv2
-        mkdir /tmp/cgroupv2/mgmt
-        test_cgrp2_sock /tmp/cgroupv2/mgmt 15
+- rename BPF_PROG_TYPE_CGROUP_SKB and its cg_skb functions to
+  BPF_PROG_TYPE_CGROUP and cgroup
 
- 3. set shell into cgroup (e.g., can be done at login using pam)
-        echo $$ >> /tmp/cgroupv2/mgmt/cgroup.procs
+ include/linux/bpf-cgroup.h | 46 +++++++++++++++++++++++-----------------------
+ kernel/bpf/cgroup.c        | 10 +++++-----
+ kernel/bpf/syscall.c       | 28 +++++++++++++++-------------
+ 3 files changed, 43 insertions(+), 41 deletions(-)
 
-At this point all commands run in the shell (e.g, apt) have sockets
-automatically bound to the VRF (see output of ss -ap 'dev == <vrf>'),
-including processes not running as root.
-
-This capability enables running any program in a VRF context and is key
-to deploying Management VRF, a fundamental configuration for networking
-gear, with any Linux OS installation.
-
-David Ahern (3):
-  bpf: Refactor cgroups code in prep for new type
-  bpf: Add new cgroup attach type to enable sock modifications
-  samples: bpf: add userspace example for modifying sk_bound_dev_if
-
- include/linux/bpf-cgroup.h     | 60 ++++++++++++++++++------------
- include/uapi/linux/bpf.h       |  6 +++
- kernel/bpf/cgroup.c            | 43 +++++++++++++++++++---
- kernel/bpf/syscall.c           | 33 ++++++++++-------
- net/core/filter.c              | 59 ++++++++++++++++++++++++++++++
- net/ipv4/af_inet.c             | 12 +++++-
- net/ipv6/af_inet6.c            |  8 ++++
- samples/bpf/Makefile           |  2 +
- samples/bpf/test_cgrp2_sock.c  | 83 ++++++++++++++++++++++++++++++++++++++++++
- samples/bpf/test_cgrp2_sock.sh | 48 ++++++++++++++++++++++++
- 10 files changed, 311 insertions(+), 43 deletions(-)
- create mode 100644 samples/bpf/test_cgrp2_sock.c
- create mode 100755 samples/bpf/test_cgrp2_sock.sh
-
+diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
+index ec80d0c0953e..7f0fc635b13e 100644
+--- a/include/linux/bpf-cgroup.h
++++ b/include/linux/bpf-cgroup.h
+@@ -37,31 +37,31 @@ void cgroup_bpf_update(struct cgroup *cgrp,
+ 		       struct bpf_prog *prog,
+ 		       enum bpf_attach_type type);
+ 
+-int __cgroup_bpf_run_filter(struct sock *sk,
+-			    struct sk_buff *skb,
+-			    enum bpf_attach_type type);
+-
+-/* Wrappers for __cgroup_bpf_run_filter() guarded by cgroup_bpf_enabled. */
+-#define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk,skb)			\
+-({									\
+-	int __ret = 0;							\
+-	if (cgroup_bpf_enabled)						\
+-		__ret = __cgroup_bpf_run_filter(sk, skb,		\
+-						BPF_CGROUP_INET_INGRESS); \
+-									\
+-	__ret;								\
++int __cgroup_bpf_run_filter_skb(struct sock *sk,
++				struct sk_buff *skb,
++				enum bpf_attach_type type);
++
++/* Wrappers for __cgroup_bpf_run_filter_skb() guarded by cgroup_bpf_enabled. */
++#define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk, skb)			      \
++({									      \
++	int __ret = 0;							      \
++	if (cgroup_bpf_enabled)						      \
++		__ret = __cgroup_bpf_run_filter_skb(sk, skb,		      \
++						    BPF_CGROUP_INET_INGRESS); \
++									      \
++	__ret;								      \
+ })
+ 
+-#define BPF_CGROUP_RUN_PROG_INET_EGRESS(sk,skb)				\
+-({									\
+-	int __ret = 0;							\
+-	if (cgroup_bpf_enabled && sk && sk == skb->sk) {		\
+-		typeof(sk) __sk = sk_to_full_sk(sk);			\
+-		if (sk_fullsock(__sk))					\
+-			__ret = __cgroup_bpf_run_filter(__sk, skb,	\
+-						BPF_CGROUP_INET_EGRESS); \
+-	}								\
+-	__ret;								\
++#define BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb)			       \
++({									       \
++	int __ret = 0;							       \
++	if (cgroup_bpf_enabled && sk && sk == skb->sk) {		       \
++		typeof(sk) __sk = sk_to_full_sk(sk);			       \
++		if (sk_fullsock(__sk))					       \
++			__ret = __cgroup_bpf_run_filter_skb(__sk, skb,	       \
++						      BPF_CGROUP_INET_EGRESS); \
++	}								       \
++	__ret;								       \
+ })
+ 
+ #else
+diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+index a0ab43f264b0..19892973a78a 100644
+--- a/kernel/bpf/cgroup.c
++++ b/kernel/bpf/cgroup.c
+@@ -118,7 +118,7 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
+ }
+ 
+ /**
+- * __cgroup_bpf_run_filter() - Run a program for packet filtering
++ * __cgroup_bpf_run_filter_skb() - Run a program for packet filtering
+  * @sk: The socken sending or receiving traffic
+  * @skb: The skb that is being sent or received
+  * @type: The type of program to be exectuted
+@@ -132,9 +132,9 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
+  * This function will return %-EPERM if any if an attached program was found
+  * and if it returned != 1 during execution. In all other cases, 0 is returned.
+  */
+-int __cgroup_bpf_run_filter(struct sock *sk,
+-			    struct sk_buff *skb,
+-			    enum bpf_attach_type type)
++int __cgroup_bpf_run_filter_skb(struct sock *sk,
++				struct sk_buff *skb,
++				enum bpf_attach_type type)
+ {
+ 	struct bpf_prog *prog;
+ 	struct cgroup *cgrp;
+@@ -164,4 +164,4 @@ int __cgroup_bpf_run_filter(struct sock *sk,
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL(__cgroup_bpf_run_filter);
++EXPORT_SYMBOL(__cgroup_bpf_run_filter_skb);
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 4caa18e6860a..5518a6839ab1 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -856,6 +856,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
+ {
+ 	struct bpf_prog *prog;
+ 	struct cgroup *cgrp;
++	enum bpf_prog_type ptype;
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+@@ -866,25 +867,26 @@ static int bpf_prog_attach(const union bpf_attr *attr)
+ 	switch (attr->attach_type) {
+ 	case BPF_CGROUP_INET_INGRESS:
+ 	case BPF_CGROUP_INET_EGRESS:
+-		prog = bpf_prog_get_type(attr->attach_bpf_fd,
+-					 BPF_PROG_TYPE_CGROUP_SKB);
+-		if (IS_ERR(prog))
+-			return PTR_ERR(prog);
+-
+-		cgrp = cgroup_get_from_fd(attr->target_fd);
+-		if (IS_ERR(cgrp)) {
+-			bpf_prog_put(prog);
+-			return PTR_ERR(cgrp);
+-		}
+-
+-		cgroup_bpf_update(cgrp, prog, attr->attach_type);
+-		cgroup_put(cgrp);
++		ptype = BPF_PROG_TYPE_CGROUP_SKB;
+ 		break;
+ 
+ 	default:
+ 		return -EINVAL;
+ 	}
+ 
++	prog = bpf_prog_get_type(attr->attach_bpf_fd, ptype);
++	if (IS_ERR(prog))
++		return PTR_ERR(prog);
++
++	cgrp = cgroup_get_from_fd(attr->target_fd);
++	if (IS_ERR(cgrp)) {
++		bpf_prog_put(prog);
++		return PTR_ERR(cgrp);
++	}
++
++	cgroup_bpf_update(cgrp, prog, attr->attach_type);
++	cgroup_put(cgrp);
++
+ 	return 0;
+ }
+ 
 -- 
 2.1.4
