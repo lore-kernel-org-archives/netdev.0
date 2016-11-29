@@ -1,66 +1,81 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2] ethernet :mellanox :mlx4: Replace pci_pool_alloc by
- pci_pool_zalloc
-Date: Tue, 29 Nov 2016 12:28:56 +0300
-Message-ID: <09fcb40b-cbca-b119-239d-215fcf8ae580@cogentembedded.com>
-References: <20161129065931.GA3245@gnr743-HP-ZBook-15>
+From: wangyunjian <wangyunjian@huawei.com>
+Subject: The ubufs->refcount maybe be subtracted twice when tun_get_user
+ failed
+Date: Tue, 29 Nov 2016 09:30:19 +0000
+Message-ID: <34EFBCA9F01B0748BEB6B629CE643AE60B0A553E@szxeml561-mbx.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sahu.rameshwar73-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161129065931.GA3245@gnr743-HP-ZBook-15>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: caihe <caihe@huawei.com>
+To: "mst@redhat.com" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:42153 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754838AbcK2JbR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 04:31:17 -0500
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+In function tun_get_user , the ubufs->refcount may be subtracted twice, when msg_control is true and zerocopy is false.
 
-On 11/29/2016 9:59 AM, Souptick Joarder wrote:
+About the below code:
 
-> In mlx4_alloc_cmd_mailbox(), pci_pool_alloc() followed by memset will be
-> replaced by pci_pool_zalloc().
+static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+                                void *msg_control, struct iov_iter *from,
+                                int noblock)
+{
+         ...
 
-    One more nit since you're going to send it again...
+         if (zerocopy)
+                   err = zerocopy_sg_from_iter(skb, from);
+         else {
+                   err = skb_copy_datagram_from_iter(skb, 0, from, len);
+                   if (!err && msg_control) {
+                            struct ubuf_info *uarg = msg_control;
+                            uarg->callback(uarg, false);                       --> the ubufs->refcount is subtracted frist.
+                   }
+         }
 
-> Signed-off-by: Souptick joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> v2:
->   - Address comment from sergei
->     Alignment was not proper
->
->  drivers/net/ethernet/mellanox/mlx4/cmd.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> index e36bebc..96cdf9a 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-> @@ -2679,14 +2679,13 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
->  	if (!mailbox)
->  		return ERR_PTR(-ENOMEM);
->
-> -	mailbox->buf = pci_pool_alloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
-> -				      &mailbox->dma);
-> +	mailbox->buf = pci_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
-> +				       &mailbox->dma);
->  	if (!mailbox->buf) {
->  		kfree(mailbox);
->  		return ERR_PTR(-ENOMEM);
->  	}
->
-> -	memset(mailbox->buf, 0, MLX4_MAILBOX_SIZE);
->
+         if (err) {
+                   this_cpu_inc(tun->pcpu_stats->rx_dropped);
+                   kfree_skb(skb);
+                   return -EFAULT;
+         }
 
-    Remove empty line here -- one is enough.
+         err = virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun));
+         if (err) {
+                   this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
+                   kfree_skb(skb);
+                   return -EINVAL;                                   -->here, the ubufs->refcount will be subtracted twice, when virtio_net_hdr_to_skb execution err.
+         }
 
->  	return mailbox;
->  }
+switch (tun->flags & TUN_TYPE_MASK) {
+         case IFF_TUN:
+                   if (tun->flags & IFF_NO_PI) {
+                            switch (skb->data[0] & 0xf0) {
+                            case 0x40:
+                                     pi.proto = htons(ETH_P_IP);
+                                     break;
+                            case 0x60:
+                                     pi.proto = htons(ETH_P_IPV6);
+                                     break;
+                            default:
+                                     this_cpu_inc(tun->pcpu_stats->rx_dropped);
+                                     kfree_skb(skb);
+                                     return -EINVAL;                          --> this will also be subtracted twice.
+                            }
+                   }
 
-MBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+                   skb_reset_mac_header(skb);
+                   skb->protocol = pi.proto;
+                   skb->dev = tun->dev;
+                   break;
+         case IFF_TAP:
+                   skb->protocol = eth_type_trans(skb, tun->dev);
+                   break;
+         }
+		...
+}
