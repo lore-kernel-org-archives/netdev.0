@@ -1,112 +1,66 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH net V2] net/sched: pedit: make sure that offset is valid
-Date: Tue, 29 Nov 2016 17:27:05 +0800
-Message-ID: <CAD=hENc11HmXdAgZ+CNk54s9vORATOJAr9Ex8yybDcwHK4dSfQ@mail.gmail.com>
-References: <20161128105640.32363-1-amir@vadai.me> <CAD=hENcSiWiH-9e6=gjn+wK4R6ZQsNa21R_w_eWzDtCxiUDNVQ@mail.gmail.com>
- <20161129071434.GA22491@office.localdomain>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v2] ethernet :mellanox :mlx4: Replace pci_pool_alloc by
+ pci_pool_zalloc
+Date: Tue, 29 Nov 2016 12:28:56 +0300
+Message-ID: <09fcb40b-cbca-b119-239d-215fcf8ae580@cogentembedded.com>
+References: <20161129065931.GA3245@gnr743-HP-ZBook-15>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:34412 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756676AbcK2J1M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 04:27:12 -0500
-Received: by mail-oi0-f65.google.com with SMTP id m75so17506486oig.1
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 01:27:06 -0800 (PST)
-In-Reply-To: <20161129071434.GA22491@office.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        sahu.rameshwar73-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Souptick Joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161129065931.GA3245@gnr743-HP-ZBook-15>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
- Thanks a lot.
-When will offset become -1?
+Hello.
 
-On Tue, Nov 29, 2016 at 3:14 PM, Amir Vadai <amir@vadai.me> wrote:
-> On Tue, Nov 29, 2016 at 10:32:05AM +0800, zhuyj wrote:
->>  +       if (offset > 0 && offset > skb->len)
->>
->> offset > skb->len is enough?
-> offset is signed and skb->len is unsigned. Therefore for example if
-> offset=-1 and skb->len=10, the actual comparison is 0xff...>10
+On 11/29/2016 9:59 AM, Souptick Joarder wrote:
+
+> In mlx4_alloc_cmd_mailbox(), pci_pool_alloc() followed by memset will be
+> replaced by pci_pool_zalloc().
+
+    One more nit since you're going to send it again...
+
+> Signed-off-by: Souptick joarder <jrdr.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> v2:
+>   - Address comment from sergei
+>     Alignment was not proper
 >
->>
->> On Mon, Nov 28, 2016 at 6:56 PM, Amir Vadai <amir@vadai.me> wrote:
->> > Add a validation function to make sure offset is valid:
->> > 1. Not below skb head (could happen when offset is negative).
->> > 2. Validate both 'offset' and 'at'.
->> >
->> > Signed-off-by: Amir Vadai <amir@vadai.me>
->> > ---
->> > Hi Dave,
->> >
->> > Please pull to -stable branches.
->> >
->> > Changes from V0:
->> > - Add a validation to the 'at' value (this is used as an offset too)
->> > - Instead of validating the output of skb_header_pointer(), make sure that the
->> >         offset is good before calling it.
->> >
->> > Thanks,
->> > Amir
->> >  net/sched/act_pedit.c | 24 ++++++++++++++++++++----
->> >  1 file changed, 20 insertions(+), 4 deletions(-)
->> >
->> > diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
->> > index b54d56d4959b..cf9b2fe8eac6 100644
->> > --- a/net/sched/act_pedit.c
->> > +++ b/net/sched/act_pedit.c
->> > @@ -108,6 +108,17 @@ static void tcf_pedit_cleanup(struct tc_action *a, int bind)
->> >         kfree(keys);
->> >  }
->> >
->> > +static bool offset_valid(struct sk_buff *skb, int offset)
->> > +{
->> > +       if (offset > 0 && offset > skb->len)
->> > +               return false;
->> > +
->> > +       if  (offset < 0 && -offset > skb_headroom(skb))
->> > +               return false;
->> > +
->> > +       return true;
->> > +}
->> > +
->> >  static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
->> >                      struct tcf_result *res)
->> >  {
->> > @@ -134,6 +145,11 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
->> >                         if (tkey->offmask) {
->> >                                 char *d, _d;
->> >
->> > +                               if (!offset_valid(skb, off + tkey->at)) {
->> > +                                       pr_info("tc filter pedit 'at' offset %d out of bounds\n",
->> > +                                               off + tkey->at);
->> > +                                       goto bad;
->> > +                               }
->> >                                 d = skb_header_pointer(skb, off + tkey->at, 1,
->> >                                                        &_d);
->> >                                 if (!d)
->> > @@ -146,10 +162,10 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
->> >                                         " offset must be on 32 bit boundaries\n");
->> >                                 goto bad;
->> >                         }
->> > -                       if (offset > 0 && offset > skb->len) {
->> > -                               pr_info("tc filter pedit"
->> > -                                       " offset %d can't exceed pkt length %d\n",
->> > -                                      offset, skb->len);
->> > +
->> > +                       if (!offset_valid(skb, off + offset)) {
->> > +                               pr_info("tc filter pedit offset %d out of bounds\n",
->> > +                                       offset);
->> >                                 goto bad;
->> >                         }
->> >
->> > --
->> > 2.10.2
->> >
+>  drivers/net/ethernet/mellanox/mlx4/cmd.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> index e36bebc..96cdf9a 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> @@ -2679,14 +2679,13 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
+>  	if (!mailbox)
+>  		return ERR_PTR(-ENOMEM);
+>
+> -	mailbox->buf = pci_pool_alloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
+> -				      &mailbox->dma);
+> +	mailbox->buf = pci_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
+> +				       &mailbox->dma);
+>  	if (!mailbox->buf) {
+>  		kfree(mailbox);
+>  		return ERR_PTR(-ENOMEM);
+>  	}
+>
+> -	memset(mailbox->buf, 0, MLX4_MAILBOX_SIZE);
+>
+
+    Remove empty line here -- one is enough.
+
+>  	return mailbox;
+>  }
+
+MBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
