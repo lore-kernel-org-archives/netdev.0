@@ -1,161 +1,51 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH v2 net 1/5] l2tp: lock socket before checking flags in
- connect()
-Date: Tue, 29 Nov 2016 13:09:44 +0100
-Message-ID: <becf2111f4a956db39f67b4ac4748deb6a91e33c.1480419658.git.g.nault@alphalink.fr>
-References: <cover.1480419658.git.g.nault@alphalink.fr>
+Subject: [PATCH v2 net 0/5] l2tp: fixes for l2tp_ip and l2tp_ip6 socket
+ handling
+Date: Tue, 29 Nov 2016 13:09:42 +0100
+Message-ID: <cover.1480419658.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: James Chapman <jchapman@katalix.com>,
         Chris Elston <celston@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:42366 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:42331 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756329AbcK2MJy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:09:54 -0500
+        with ESMTP id S1755340AbcK2MJv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 07:09:51 -0500
 Content-Disposition: inline
-In-Reply-To: <cover.1480419658.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Socket flags aren't updated atomically, so the socket must be locked
-while reading the SOCK_ZAPPED flag.
+This series addresses problems found while working on commit 32c231164b76
+("l2tp: fix racy SOCK_ZAPPED flag check in l2tp_ip{,6}_bind()").
 
-This issue exists for both l2tp_ip and l2tp_ip6. For IPv6, this patch
-also brings error handling for __ip6_datagram_connect() failures.
+The first three patches fix races in socket's connect, recv and bind
+operations. The last two ones fix scenarios where l2tp fails to
+correctly lookup its userspace sockets.
 
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
+Apart from the last patch, which is l2tp_ip6 specific, every patch
+fixes the same problem in the L2TP IPv4 and IPv6 code.
+
+All problems fixed by this series exist since the creation of the
+l2tp_ip and l2tp_ip6 modules.
+
+Changes since v1:
+  * Patch #3: fix possible uninitialised use of 'ret' in l2tp_ip_bind().
+
+
+Guillaume Nault (5):
+  l2tp: lock socket before checking flags in connect()
+  l2tp: hold socket before dropping lock in l2tp_ip{,6}_recv()
+  l2tp: fix racy socket lookup in l2tp_ip and l2tp_ip6 bind()
+  l2tp: fix lookup for sockets not bound to a device in l2tp_ip
+  l2tp: fix address test in __l2tp_ip6_bind_lookup()
+
  include/net/ipv6.h  |  2 ++
- net/ipv6/datagram.c |  4 +++-
- net/l2tp/l2tp_ip.c  | 19 ++++++++++++-------
- net/l2tp/l2tp_ip6.c | 16 +++++++++++-----
- 4 files changed, 28 insertions(+), 13 deletions(-)
+ net/ipv6/datagram.c |  4 ++-
+ net/l2tp/l2tp_ip.c  | 63 ++++++++++++++++++++++--------------------
+ net/l2tp/l2tp_ip6.c | 79 ++++++++++++++++++++++++++++-------------------------
+ 4 files changed, 81 insertions(+), 67 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 8fed1cd..f11ca83 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -970,6 +970,8 @@ int compat_ipv6_setsockopt(struct sock *sk, int level, int optname,
- int compat_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 			   char __user *optval, int __user *optlen);
- 
-+int __ip6_datagram_connect(struct sock *sk, struct sockaddr *addr,
-+			   int addr_len);
- int ip6_datagram_connect(struct sock *sk, struct sockaddr *addr, int addr_len);
- int ip6_datagram_connect_v6_only(struct sock *sk, struct sockaddr *addr,
- 				 int addr_len);
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 37874e2..ccf4055 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -139,7 +139,8 @@ void ip6_datagram_release_cb(struct sock *sk)
- }
- EXPORT_SYMBOL_GPL(ip6_datagram_release_cb);
- 
--static int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
-+int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr,
-+			   int addr_len)
- {
- 	struct sockaddr_in6	*usin = (struct sockaddr_in6 *) uaddr;
- 	struct inet_sock	*inet = inet_sk(sk);
-@@ -252,6 +253,7 @@ static int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int a
- out:
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(__ip6_datagram_connect);
- 
- int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- {
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index 982f6c4..1f57094 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -308,21 +308,24 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
- 	struct sockaddr_l2tpip *lsa = (struct sockaddr_l2tpip *) uaddr;
- 	int rc;
- 
--	if (sock_flag(sk, SOCK_ZAPPED)) /* Must bind first - autobinding does not work */
--		return -EINVAL;
--
- 	if (addr_len < sizeof(*lsa))
- 		return -EINVAL;
- 
- 	if (ipv4_is_multicast(lsa->l2tp_addr.s_addr))
- 		return -EINVAL;
- 
--	rc = ip4_datagram_connect(sk, uaddr, addr_len);
--	if (rc < 0)
--		return rc;
--
- 	lock_sock(sk);
- 
-+	/* Must bind first - autobinding does not work */
-+	if (sock_flag(sk, SOCK_ZAPPED)) {
-+		rc = -EINVAL;
-+		goto out_sk;
-+	}
-+
-+	rc = __ip4_datagram_connect(sk, uaddr, addr_len);
-+	if (rc < 0)
-+		goto out_sk;
-+
- 	l2tp_ip_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
- 
- 	write_lock_bh(&l2tp_ip_lock);
-@@ -330,7 +333,9 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
- 	sk_add_bind_node(sk, &l2tp_ip_bind_table);
- 	write_unlock_bh(&l2tp_ip_lock);
- 
-+out_sk:
- 	release_sock(sk);
-+
- 	return rc;
- }
- 
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index 9978d01..af9abff 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -371,9 +371,6 @@ static int l2tp_ip6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	int	addr_type;
- 	int rc;
- 
--	if (sock_flag(sk, SOCK_ZAPPED)) /* Must bind first - autobinding does not work */
--		return -EINVAL;
--
- 	if (addr_len < sizeof(*lsa))
- 		return -EINVAL;
- 
-@@ -390,10 +387,18 @@ static int l2tp_ip6_connect(struct sock *sk, struct sockaddr *uaddr,
- 			return -EINVAL;
- 	}
- 
--	rc = ip6_datagram_connect(sk, uaddr, addr_len);
--
- 	lock_sock(sk);
- 
-+	 /* Must bind first - autobinding does not work */
-+	if (sock_flag(sk, SOCK_ZAPPED)) {
-+		rc = -EINVAL;
-+		goto out_sk;
-+	}
-+
-+	rc = __ip6_datagram_connect(sk, uaddr, addr_len);
-+	if (rc < 0)
-+		goto out_sk;
-+
- 	l2tp_ip6_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
- 
- 	write_lock_bh(&l2tp_ip6_lock);
-@@ -401,6 +406,7 @@ static int l2tp_ip6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	sk_add_bind_node(sk, &l2tp_ip6_bind_table);
- 	write_unlock_bh(&l2tp_ip6_lock);
- 
-+out_sk:
- 	release_sock(sk);
- 
- 	return rc;
 -- 
 2.10.2
