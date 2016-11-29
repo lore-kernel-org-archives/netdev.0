@@ -1,39 +1,36 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH  v2 09/13] net: ethernet: ti: cpts: clean up event list
- if event pool is empty
-Date: Tue, 29 Nov 2016 11:13:43 +0100
-Message-ID: <20161129101343.GH3110@localhost.localdomain>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 10/13] net: ethernet: ti: cpts: drop excessive writes
+ to CTRL and INT_EN regs
+Date: Tue, 29 Nov 2016 11:14:45 +0100
+Message-ID: <20161129101444.GI3110@localhost.localdomain>
 References: <20161128230337.6731-1-grygorii.strashko@ti.com>
- <20161128230337.6731-10-grygorii.strashko@ti.com>
+ <20161128230337.6731-11-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
+To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20161128230337.6731-10-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20161128230337.6731-11-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 28, 2016 at 05:03:33PM -0600, Grygorii Strashko wrote:
-> From: WingMan Kwok <w-kwok2@ti.com>
+On Mon, Nov 28, 2016 at 05:03:34PM -0600, Grygorii Strashko wrote:
+> CPTS module and IRQs are always enabled when CPTS is registered,
+> before starting overflow check work, and disabled during
+> deregistration, when overflow check work has been canceled already.
+> So, It doesn't require to (re)enable CPTS module and IRQs in
+> cpts_overflow_check().
 > 
-> When a CPTS user does not exit gracefully by disabling cpts
-> timestamping and leaving a joined multicast group, the system
-> continues to receive and timestamps the ptp packets which eventually
-> occupy all the event list entries.  When this happns, the added code
-> tries to remove some list entries which are expired.
-> 
-> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
 
-This patch belongs earlier in the series, before the re-structuring.
-It doesn't depend on the others, AFAICT.
-
-Thanks,
-Richard
+Acked-by: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
