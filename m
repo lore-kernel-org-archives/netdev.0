@@ -1,37 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 1/1] samples: bpf: Refactor test_cgrp2_attach -- use
- getopt, and add mode
-Date: Wed, 30 Nov 2016 10:29:59 -0500 (EST)
-Message-ID: <20161130.102959.1171017574583467201.davem@davemloft.net>
-References: <20161128225240.GA8761@ircssh.c.rugged-nimbus-611.internal>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com
-To: sargun@sargun.me
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: [PATCH net-next 0/8] Offloading tc rules using underline Hardware device
+Date: Wed, 30 Nov 2016 16:41:27 +0200
+Message-ID: <1480516895-29545-1-git-send-email-hadarh@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33482 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756551AbcK3PaA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:30:00 -0500
-In-Reply-To: <20161128225240.GA8761@ircssh.c.rugged-nimbus-611.internal>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45995 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752889AbcK3PhJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:37:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sargun Dhillon <sargun@sargun.me>
-Date: Mon, 28 Nov 2016 14:52:42 -0800
+This series adds flower classifier support in offloading tc rules when the
+Software ingress device is different from the Hardware ingress device, 
+such as when dealing with IP tunnels  
 
-> This patch modifies test_cgrp2_attach to use getopt so we can use standard
-> command line parsing.
-> 
-> It also adds an option to run the program in detach only mode. This does
-> not attach a new filter at the cgroup, but only runs the detach command.
-> 
-> Lastly, it changes the attach code to not detach and then attach. It relies
-> on the 'hotswap' behaviour of CGroup BPF programs to be able to change
-> in-place. If detach-then-attach behaviour needs to be tested, the example
-> can be run in detach only mode prior to attachment.
-> 
-> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+The first two patches are a small fixes to flower, checking the skip_hw flag
+wasn't set before calling the Hardware offloading functions which will try to
+offload the rule.
 
-Applied, thanks.
+The next two patches are infrastructure patches, a preparation for the fourth
+patch which is adding support in flower to offload rules when the ingress
+device is not a Hardware device and therefore can't offload.
+In this case ndo_setup_tc is called with the mirred (egress) device.
+
+The last three patchs are adding mlx5e support to offload rules using the new
+"egress_device" flag.
+
+Thanks,
+Hadar
+
+Hadar Hen Zion (8):
+  net/sched: Add separate check for skip_hw flag
+  net/sched: cls_flower: Try to offload only if skip_hw flag isn't set
+  net/sched: cls_flower: Provide a filter to replace/destroy hardware
+    filter functions
+  net/sched: act_mirred: Add new tc_action_ops get_dev()
+  net/sched: cls_flower: Add offload support using egress Hardware
+    device
+  net/mlx5e: Bring back representor's ndos that were accidentally
+    removed
+  net/mlx5e: Save the represntor netdevice as part of the representor
+  net/mlx5e: Support adding ingress tc rule when egress device flag is
+    set
+
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   | 25 +++++--
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  3 +-
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 12 ++-
+ include/linux/netdevice.h                          |  1 +
+ include/net/act_api.h                              |  2 +
+ include/net/pkt_cls.h                              | 21 +++++-
+ net/sched/act_mirred.c                             | 12 +++
+ net/sched/cls_api.c                                | 22 ++++++
+ net/sched/cls_flower.c                             | 87 ++++++++++++----------
+ 10 files changed, 133 insertions(+), 54 deletions(-)
+
+-- 
+1.8.3.1
