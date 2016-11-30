@@ -1,131 +1,112 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 V2 1/2] tc/cls_flower: Classify packet in ip
- tunnels
-Date: Tue, 29 Nov 2016 19:26:58 -0800
-Message-ID: <20161129192658.5a4c3e2c@samsung9.wavecable.com>
-References: <20161128125136.3393-1-amir@vadai.me>
-        <20161128125136.3393-2-amir@vadai.me>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 5/5] udp: add recvmmsg implementation
+Date: Wed, 30 Nov 2016 04:47:48 +0100
+Message-ID: <1480477668.3699487.803285169.4BFDC4D6@webmail.messagingengine.com>
+References: <cover.1480086321.git.pabeni@redhat.com>
+ <68bfaa7480400457e712fb04ee781410d1bb9479.1480086321.git.pabeni@redhat.com>
+ <1165706e-b828-cb12-4bea-b77ccca1cb95@stressinduktion.org>
+ <20161129.192233.392359849404330043.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Cc: pabeni@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
+        brouer@redhat.com, sd@queasysnail.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:34377 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752168AbcK3D1B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 22:27:01 -0500
-Received: by mail-pg0-f42.google.com with SMTP id x23so76736852pgx.1
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 19:27:01 -0800 (PST)
-In-Reply-To: <20161128125136.3393-2-amir@vadai.me>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:44404 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753042AbcK3Drt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 22:47:49 -0500
+In-Reply-To: <20161129.192233.392359849404330043.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The overall design is fine, just a couple nits with the code.
+Hello,
 
-> diff --git a/tc/f_flower.c b/tc/f_flower.c
-> index 2d31d1aa832d..1cf0750b5b83 100644
-> --- a/tc/f_flower.c
-> +++ b/tc/f_flower.c
+On Wed, Nov 30, 2016, at 01:22, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Fri, 25 Nov 2016 18:09:00 +0100
+> 
+> > During review we discussed on how to handle major errors in the kernel:
+> > 
+> > The old code and the new code still can report back success even though
+> > the kernel got back an EFAULT while copying from kernel space to user
+> > space (due to bad pointers).
+> > 
+> > I favor that we drop all packets (also the already received batches) in
+> > this case and let the code report -EFAULT and increase sk_drops for all
+> > dropped packets from the queue.
+> > 
+> > Currently sk_err is set so the next syscall would get an -EFAULT, which
+> > seems very bad and can also be overwritten by incoming icmp packets, so
+> > we never get a notification that we actually had a bad pointer somewhere
+> > in the mmsghdr. Also delivering -EFAULT on the follow-up syscalls really
+> > will make people confused that use strace.
+> > 
+> > If people would like to know the amount of packets dropped we can make
+> > sk_drops readable by an getsockopt.
+> > 
+> > Thoughts?
+> > 
+> > Unfortunately the interface doesn't allow for better error handling.
+> 
+> I think this is a major problem.
+> 
+> If, as a side effect of batch dequeueing the SKBs from the socket,
+> you cannot stop properly mid-transfer if an error occurs, well then
+> you simply cannot batch like that.
+> 
+> You have to stop the exact byte where an error occurs mid-stream,
+> return the successful amount of bytes transferred, and then return
+> the error on the next recvmmsg call.
+> 
+> There is no other sane error reporting strategy.
 
->  
-> +static int flower_parse_key_id(char *str, int type, struct nlmsghdr *n)
+Actually I think there is no sane error handling strategy at all.
 
-str is not modified, therefore use: const char *str
+SIGSEGV and EFAULT should be delivered reliable in my opinion and all
+the details become very difficult suddenly.
 
-> +{
-> +	int ret;
-> +	__be32 key_id;
-> +
-> +	ret = get_be32(&key_id, str, 10);
-> +	if (ret)
-> +		return -1;
+E.g. if we recvmmsg with -EFAULT and we try to deliver the fault on the
+following socket call, I am pretty certain most programs don't bother
+with close() return values, so the application might simply ignore it.
+Also -EFAULT is not in our repository for error codes to return.
 
-Traditionally netlink attributes are in host order, why was flower
-chosen to be different?
+In case of UDP we can simply drop the packets and I would be okay with
+that (in some cases we actually guarantee correctly ordered packets,
+even for UDP, so we can't simply queue those packets back).
 
-> +
-> +	addattr32(n, MAX_MSG, type, key_id);
-> +
-> +	return 0;
+Also I would very much prefer ptrace/gdb to show me the syscall where
+the memory management fault happened and not the next one.
 
+> If I get 4 frames, and the kernel can successfully copy the first
+> three and get an -EFAULT on the 4th.  Dammit you better tell the
+> application this so it can properly process the first 3 packets and
+> then determine how it is going to error out and recover for the 4th
+> one.
+> 
+> If we need to add prioritized sk_err stuff, or another value like
+> "sk_app_err" to handle the ICMP vs. -EFAULT issue, so be it.
+> 
+> I know what you guys are thinking, in that you can't figure out a
+> way to avoid the transactional overhead if it is necessary to
+> "put back" some SKBs if one of them in the batch gets a fault.
 
-Why lose the return value here?  Why not:
+I prefer correctness over performance all the time. :)
 
-	ret = get_be32(&key_id, str, 10);
-	if (!ret)
-		addattr32(n, MAX_MSG, type, key_id);
+> That's too bad, we need a proper implementation and proper error
+> reporting.  Those performance numbers are useless if we effectively
+> lose error notifications.
 
-> +}
-> +
->  static int flower_parse_opt(struct filter_util *qu, char *handle,
->  			    int argc, char **argv, struct nlmsghdr *n)
->  {
-> @@ -339,6 +359,38 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
->  				fprintf(stderr, "Illegal \"src_port\"\n");
->  				return -1;
->  			}
-> +		} else if (matches(*argv, "enc_dst_ip") == 0) {
-> +			NEXT_ARG();
-> +			ret = flower_parse_ip_addr(*argv, 0,
-> +						   TCA_FLOWER_KEY_ENC_IPV4_DST,
-> +						   TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,
-> +						   TCA_FLOWER_KEY_ENC_IPV6_DST,
-> +						   TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,
-> +						   n);
-> +			if (ret < 0) {
-> +				fprintf(stderr, "Illegal \"enc_dst_ip\"\n");
-> +				return -1;
-> +			}
-> +		} else if (matches(*argv, "enc_src_ip") == 0) {
-> +			NEXT_ARG();
-> +			ret = flower_parse_ip_addr(*argv, 0,
-> +						   TCA_FLOWER_KEY_ENC_IPV4_SRC,
-> +						   TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,
-> +						   TCA_FLOWER_KEY_ENC_IPV6_SRC,
-> +						   TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK,
-> +						   n);
-> +			if (ret < 0) {
-> +				fprintf(stderr, "Illegal \"enc_src_ip\"\n");
-> +				return -1;
-> +			}
-> +		} else if (matches(*argv, "enc_key_id") == 0) {
-> +			NEXT_ARG();
-> +			ret = flower_parse_key_id(*argv,
-> +						  TCA_FLOWER_KEY_ENC_KEY_ID, n);
-> +			if (ret < 0) {
-> +				fprintf(stderr, "Illegal \"enc_key_id\"\n");
-> +				return -1;
-> +			}
->  		} else if (matches(*argv, "action") == 0) {
->  			NEXT_ARG();
->  			ret = parse_action(&argc, &argv, TCA_FLOWER_ACT, n);
-> @@ -509,6 +561,14 @@ static void flower_print_port(FILE *f, char *name, __u8 ip_proto,
->  	fprintf(f, "\n  %s %d", name, ntohs(rta_getattr_u16(attr)));
->  }
->  
-> +static void flower_print_key_id(FILE *f, char *name,
-> +				struct rtattr *attr)
+We have those problems right now and besides deprecating the syscalls I
+have no idea how to fix this reliably and would probably need a lot of
+changes (besides the sk_app_err solution, which I don't really favor at
+all).
 
-const char *name?
+The syscall should have been designed in a way that the struct mmsghdr
+-> msg_len would be ssize_t, so we could return error codes per fragment
+and test before starting the batch that we have proper memory, so we
+don't fail in the management code. :(
 
-
-> +{
-> +	if (!attr)
-> +		return;
-> +	fprintf(f, "\n  %s %d", name, ntohl(rta_getattr_u32(attr)));
-> +}
-> +
-
-Why short circuit, just change the order:
-
-	if (attr)
-		fprintf(f, "\n  %s %s", name, ntohl(rta_getattr_u32(attr));
-
-You might also want to introduce rta_getattr_be32()
-
-Please change, retest and resubmit both patches.
+Bye,
+Hannes
