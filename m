@@ -1,35 +1,62 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] audit: remove useless synchronize_net()
-Date: Wed, 30 Nov 2016 09:20:04 -0800
-Message-ID: <CAM_iQpW1Dt-HKW6fyx_k8E_K8BfAjCqDnw5ud7qVtAWmQ+GviA@mail.gmail.com>
-References: <1480439696-21818-1-git-send-email-xiyou.wangcong@gmail.com> <20161130091643.GA32562@madcap2.tricolour.ca>
+From: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next V2 1/7] net/mlx5e: Implement Fragmented Work
+ Queue (WQ)
+Date: Wed, 30 Nov 2016 18:26:56 +0100 (CET)
+Message-ID: <alpine.LFD.2.20.1611301822410.8710@schleppi>
+References: <1480521583-12755-1-git-send-email-saeedm@mellanox.com> <1480521583-12755-2-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        linux-audit@redhat.com, Paul Moore <pmoore@redhat.com>
-To: Richard Guy Briggs <rgb@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33676 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755100AbcK3RUZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 12:20:25 -0500
-Received: by mail-oi0-f68.google.com with SMTP id f201so23946384oib.0
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 09:20:25 -0800 (PST)
-In-Reply-To: <20161130091643.GA32562@madcap2.tricolour.ca>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:51804 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1758307AbcK3R1E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 12:27:04 -0500
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uAUHNeo8036547
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 12:27:03 -0500
+Received: from e06smtp08.uk.ibm.com (e06smtp08.uk.ibm.com [195.75.94.104])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2722hgjcnc-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 12:27:03 -0500
+Received: from localhost
+        by e06smtp08.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <sebott@linux.vnet.ibm.com>;
+        Wed, 30 Nov 2016 17:27:01 -0000
+Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
+        by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id 3C9141B08072
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 17:29:20 +0000 (GMT)
+Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
+        by b06cxnps3074.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id uAUHQwSh15925632
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 17:26:58 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+        by d06av02.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id uAUHQvZF031319
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 10:26:57 -0700
+In-Reply-To: <1480521583-12755-2-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2016 at 1:16 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> On 2016-11-29 09:14, Cong Wang wrote:
->> netlink kernel socket is protected by refcount, not RCU.
->> Its rcv path is neither protected by RCU. So the synchronize_net()
->> is just pointless.
->
-> If I understand correctly, xfrm_user_net_exit() usage of
-> RCU_INIT_POINTER() and synchronize_net() is similarly pointless?  Also
-> net/phonet/socket.c?  I probably modelled things based on the former...
+Hi,
 
-Possibly, but xfrm case is slightly different, it has two copies of the pointer
-to the netlink socket, also it uses exit_batch(). I need to double check.
+On Wed, 30 Nov 2016, Saeed Mahameed wrote:
+> From: Tariq Toukan <tariqt@mellanox.com>
+> 
+> Add new type of struct mlx5_frag_buf which is used to allocate fragmented
+> buffers rather than contiguous, and make the Completion Queues (CQs) use
+> it as they are big (default of 2MB per CQ in Striding RQ).
+> 
+> This fixes the failures of type:
+> "mlx5e_open_locked: mlx5e_open_channels failed, -12"
+> due to dma_zalloc_coherent insufficient contiguous coherent memory to
+> satisfy the driver's request when the user tries to setup more or larger
+> rings.
 
-Take a look at better examples, fib_front, genetlink, rtnetlink.
+Thanks for that patch! I can confirm that this fixes the lage allocation
+issue.
+
+Regards,
+Sebastian
