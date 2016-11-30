@@ -1,76 +1,70 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v2 07/13] net: ethernet: ti: cpts: rework
- initialization/deinitialization
-Date: Wed, 30 Nov 2016 12:30:06 -0600
-Message-ID: <79e4cb8d-b824-d7cb-56e1-7828ded5caef@ti.com>
-References: <20161128230337.6731-1-grygorii.strashko@ti.com>
- <20161128230337.6731-8-grygorii.strashko@ti.com>
- <20161129100737.GF3110@localhost.localdomain>
- <2037427d-0ab6-9446-450d-21c34123c03b@ti.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next PATCH v3 0/6] XDP for virtio_net
+Date: Wed, 30 Nov 2016 20:35:52 +0200
+Message-ID: <20161130203450-mutt-send-email-mst@kernel.org>
+References: <20161129200450.26752.86882.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2037427d-0ab6-9446-450d-21c34123c03b-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37800 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756593AbcK3Sf6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 13:35:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20161129200450.26752.86882.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+On Tue, Nov 29, 2016 at 12:05:20PM -0800, John Fastabend wrote:
+> This implements virtio_net for the mergeable buffers and big_packet
+> modes. I tested this with vhost_net running on qemu and did not see
+> any issues. For testing num_buf > 1 I added a hack to vhost driver
+> to only but 100 bytes per buffer.
+> 
+> There are some restrictions for XDP to be enabled and work well
+> (see patch 3) for more details.
+> 
+>   1. LRO must be off
+>   2. MTU must be less than PAGE_SIZE
+>   3. queues must be available to dedicate to XDP
+>   4. num_bufs received in mergeable buffers must be 1
+>   5. big_packet mode must have all data on single page
+> 
+> Please review any comments/feedback welcome as always.
+> 
+> v2, fixes rcu usage throughout thanks to Eric and the use of
+> num_online_cpus() usage thanks to Jakub.
+> 
+> v3, add slowpath patch to handle num_bufs > 1
+> 
+> Thanks,
+> John
 
-On 11/29/2016 09:50 AM, Grygorii Strashko wrote:
-> On 11/29/2016 04:07 AM, Richard Cochran wrote:
->> On Mon, Nov 28, 2016 at 05:03:31PM -0600, Grygorii Strashko wrote:
->>> +int cpts_register(struct cpts *cpts)
->>>  {
->>>  	int err, i;
->>>
->>> -	cpts->info = cpts_info;
->>> -	spin_lock_init(&cpts->lock);
->>> -
->>> -	cpts->cc.read = cpts_systim_read;
->>> -	cpts->cc.mask = CLOCKSOURCE_MASK(32);
->>> -	cpts->cc_mult = mult;
->>> -	cpts->cc.mult = mult;
->>> -	cpts->cc.shift = shift;
->>> -
->>>  	INIT_LIST_HEAD(&cpts->events);
->>>  	INIT_LIST_HEAD(&cpts->pool);
->>>  	for (i = 0; i < CPTS_MAX_EVENTS; i++)
->>>  		list_add(&cpts->pool_data[i].list, &cpts->pool);
->>>
->>> -	cpts_clk_init(dev, cpts);
->>> +	clk_enable(cpts->refclk);
->>> +
->>>  	cpts_write32(cpts, CPTS_EN, control);
->>>  	cpts_write32(cpts, TS_PEND_EN, int_enable);
->>>
->>> +	cpts->cc.mult = cpts->cc_mult;
->>
->> It is not clear why you set cc.mult in a different place than
->> cc.shift.  That isn't logical, but maybe later patches make it
->> clear...
->
-> cc.mult has to be reloaded to original value each time CPTS is registered(restarted)
-> as it can be modified by cpts_ptp_adjfreq().
->
-> While cc.shift is static.
->
->
+BTW this is threaded incorrectly: patch 1/6 isn't a reply to 0/6,
+patches 2 and on are replies to patch 1.
 
-Will it ok if i will add comment here and re-send series?
+I'm busy until end of week, I'll review Monday. Sorry about the delay.
 
--- 
-regards,
--grygorii
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+> 
+> John Fastabend (6):
+>       net: virtio dynamically disable/enable LRO
+>       net: xdp: add invalid buffer warning
+>       virtio_net: Add XDP support
+>       virtio_net: add dedicated XDP transmit queues
+>       virtio_net: add XDP_TX support
+>       virtio_net: xdp, add slowpath case for non contiguous buffers
+> 
+> 
+>  drivers/net/virtio_net.c |  344 +++++++++++++++++++++++++++++++++++++++++++++-
+>  include/linux/filter.h   |    1 
+>  net/core/filter.c        |    6 +
+>  3 files changed, 346 insertions(+), 5 deletions(-)
+> 
+> --
+> Signature
