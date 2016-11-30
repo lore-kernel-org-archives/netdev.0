@@ -1,74 +1,38 @@
-From: "ASIX_Allan [Office]" <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Subject: RE: [PATCH v4 3/5] net: asix: Fix AX88772x resume failures
-Date: Wed, 30 Nov 2016 16:28:25 +0800
-Message-ID: <00d601d24ae3$bc68c4a0$353a4de0$@asix.com.tw>
-References: <00a601d24ab6$4e9274d0$ebb75e70$@asix.com.tw> <b24b2fa4-88d8-5772-b79c-aa2cadd7aa1e@nvidia.com>
-Reply-To: <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "'Jon Hunter'" <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-        <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>, <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>,
-        <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
-        <ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        <vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, <changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-        <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b24b2fa4-88d8-5772-b79c-aa2cadd7aa1e-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-Content-Language: zh-tw
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] man: ip-route.8: Add notes about dropped IPv4 route cache
+Date: Wed, 30 Nov 2016 09:29:48 +0100
+Message-ID: <20161130082948.21925-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:34862 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753042AbcK3IaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 03:30:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Jon,
-
-Thanks a lot for your reminding. I will submit a new driver patch soon.
-
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
-Best regards,
-Allan Chou
+ man/man8/ip-route.8.in | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-
------Original Message-----
-From: Jon Hunter [mailto:jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org] 
-Sent: Wednesday, November 30, 2016 4:08 PM
-To: allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org; freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org; Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org;
-Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org;
-ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org; john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org;
-stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org; grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org; changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org;
-andrew-g2DYL2Zd6BY@public.gmane.org; tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org;
-linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
-Subject: Re: [PATCH v4 3/5] net: asix: Fix AX88772x resume failures
-
-Hi Allan,
-
-On 30/11/16 03:03, ASIX_Allan [Office] wrote:
-> The change fixes AX88772x resume failure by
-> - Restore incorrect AX88772A PHY registers when resetting
-> - Need to stop MAC operation when suspending
-> - Need to restart MII when restoring PHY
-> 
-> Signed-off-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-> Signed-off-by: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> Tested-by: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-> Tested-by: Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-> Tested-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-
-V3 of this patch is already in the current mainline branch. So you need to
-send a patch on top of V3 (or v4.9-rc7) to get this fixed. Also you should
-highlight the fact that this is a fix needed for v4.9.
-
-Cheers
-Jon
-
---
-nvpublic
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index d4fae3cc783ba..c0acaa0020ef7 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -924,6 +924,12 @@ routes are left unchanged. Any routes specified in the data stream that
+ already exist in the table will be ignored.
+ .RE
+ 
++.SH NOTES
++Starting with Linux kernel version 3.6, there is no routing cache for IPv4
++anymore. Hence
++.B "ip route show cached"
++will never print any entries on systems with this or newer kernel versions.
++
+ .SH EXAMPLES
+ .PP
+ ip ro
+-- 
+2.10.0
