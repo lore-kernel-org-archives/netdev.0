@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] GSO: Reload iph after pskb_may_pull
-Date: Tue, 29 Nov 2016 20:46:31 -0500 (EST)
-Message-ID: <20161129.204631.2015697427915386486.davem@davemloft.net>
-References: <20161128153658.GB4778@kernel.org>
+Subject: Re: [patch net-next 0/4] mlxsw: couple of enhancements and fixes
+Date: Tue, 29 Nov 2016 20:49:46 -0500 (EST)
+Message-ID: <20161129.204946.237612005588284190.davem@davemloft.net>
+References: <1480352486-18518-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, aduyck@mirantis.com, andreyknvl@google.com,
-        netdev@vger.kernel.org
-To: acme@kernel.org
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39636 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39792 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750708AbcK3Bqc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:46:32 -0500
-In-Reply-To: <20161128153658.GB4778@kernel.org>
+        with ESMTP id S1750708AbcK3Btt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:49:49 -0500
+In-Reply-To: <1480352486-18518-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Date: Mon, 28 Nov 2016 12:36:58 -0300
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 28 Nov 2016 18:01:22 +0100
 
-> As it may get stale and lead to use after free.
-> 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Alexander Duyck <aduyck@mirantis.com>
-> Cc: Andrey Konovalov <andreyknvl@google.com>
-> Fixes: cbc53e08a793 ("GSO: Add GSO type for fixed IPv4 ID")
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Couple of enhancements and fixes from Ido.
 
-Applied and queued up for -stable, thanks Arnaldo!
+Series applied, thanks Jiri.
