@@ -1,105 +1,76 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] packet: fix race condition in packet_set_ring
-Date: Wed, 30 Nov 2016 14:55:36 -0800
-Message-ID: <1480546536.18162.216.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [WIP] net+mlx4: auto doorbell
+Date: Wed, 30 Nov 2016 14:40:17 -0800
+Message-ID: <1480545617.18162.212.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20140903165943.372b897b@redhat.com>
+         <20161116234022.2bad179b@redhat.com>
+         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117091638.5fab8494@redhat.com>
+         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117144248.23500001@redhat.com>
+         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117155753.17b76f5a@redhat.com>
+         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117193021.580589ae@redhat.com>
+         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161121170351.50a09ee1@redhat.com>
+         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161130123810.581ba21f@redhat.com>
+         <1480521386.18162.189.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161130201711.2f353a76@redhat.com>
+         <1480534200.18162.203.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161130233015.3de95356@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Philip Pettersson <philip.pettersson@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Achiad Shochat <achiad@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33887 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752346AbcK3W4i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 17:56:38 -0500
-Received: by mail-pg0-f68.google.com with SMTP id e9so2566440pgc.1
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 14:56:38 -0800 (PST)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35724 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752856AbcK3W5t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 17:57:49 -0500
+Received: by mail-pg0-f65.google.com with SMTP id p66so2577741pga.2
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 14:57:49 -0800 (PST)
+In-Reply-To: <20161130233015.3de95356@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philip Pettersson <philip.pettersson@gmail.com>
+On Wed, 2016-11-30 at 23:30 +0100, Jesper Dangaard Brouer wrote:
+> On Wed, 30 Nov 2016 11:30:00 -0800
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > On Wed, 2016-11-30 at 20:17 +0100, Jesper Dangaard Brouer wrote:
+> > 
+> > > Don't take is as critique Eric.  I was hoping your patch would have
+> > > solved this issue of being sensitive to TX completion adjustments.  You
+> > > usually have good solutions for difficult issues. I basically rejected
+> > > Achiad's approach/patch because it was too sensitive to these kind of
+> > > adjustments.  
+> > 
+> > Well, this patch can hurt latencies, because a doorbell can be delayed,
+> > and softirqs can be delayed by many hundred of usec in some cases.
+> > 
+> > I would not enable this behavior by default.
+> 
+> What about another scheme, where dev_hard_start_xmit() can return an
+> indication that driver choose not to flush (based on TX queue depth),
+> and there by requesting stack to call flush at a later point.
+> 
+> Would that introduce less latency issues?
 
-When packet_set_ring creates a ring buffer it will initialize a
-struct timer_list if the packet version is TPACKET_V3. This value
-can then be raced by a different thread calling setsockopt to
-set the version to TPACKET_V1 before packet_set_ring has finished.
 
-This leads to a use-after-free on a function pointer in the
-struct timer_list when the socket is closed as the previously
-initialized timer will not be deleted.
+Again, how is it going to change anything when your netperf UDP sends
+one packet at a time ?
 
-The bug is fixed by taking lock_sock(sk) in packet_setsockopt when
-changing the packet version while also taking the lock at the start
-of packet_set_ring.
+qdisc gets one packet , dequeue it immediately.
 
-Fixes: f6fb8f100b80 ("af-packet: TPACKET_V3 flexible buffer implementation.")
-Signed-off-by: Philip Pettersson <philip.pettersson@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/packet/af_packet.c | 18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
+No pressure. -> doorbell will be sent as before.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index d2238b204691b8e4f2e3acb9bc167b553ba32d50..dd2332390c45bbff7c3fc5d259453f2e1ca352bf 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3648,19 +3648,25 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 
- 		if (optlen != sizeof(val))
- 			return -EINVAL;
--		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
--			return -EBUSY;
- 		if (copy_from_user(&val, optval, sizeof(val)))
- 			return -EFAULT;
- 		switch (val) {
- 		case TPACKET_V1:
- 		case TPACKET_V2:
- 		case TPACKET_V3:
--			po->tp_version = val;
--			return 0;
-+			break;
- 		default:
- 			return -EINVAL;
- 		}
-+		lock_sock(sk);
-+		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec) {
-+			ret = -EBUSY;
-+		} else {
-+			po->tp_version = val;
-+			ret = 0;
-+		}
-+		release_sock(sk);
-+		return ret;
- 	}
- 	case PACKET_RESERVE:
- 	{
-@@ -4164,6 +4170,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 	/* Added to avoid minimal code churn */
- 	struct tpacket_req *req = &req_u->req;
- 
-+	lock_sock(sk);
- 	/* Opening a Tx-ring is NOT supported in TPACKET_V3 */
- 	if (!closing && tx_ring && (po->tp_version > TPACKET_V2)) {
- 		net_warn_ratelimited("Tx-ring is not supported.\n");
-@@ -4245,7 +4252,6 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 			goto out;
- 	}
- 
--	lock_sock(sk);
- 
- 	/* Detach socket from network */
- 	spin_lock(&po->bind_lock);
-@@ -4294,11 +4300,11 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 		if (!tx_ring)
- 			prb_shutdown_retire_blk_timer(po, rb_queue);
- 	}
--	release_sock(sk);
- 
- 	if (pg_vec)
- 		free_pg_vec(pg_vec, order, req->tp_block_nr);
- out:
-+	release_sock(sk);
- 	return err;
- }
- 
+Some TX producers do not even use a qdisc to begin with.
+
+Please think of a solution that does not involve qdisc layer at all.
