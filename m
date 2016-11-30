@@ -1,53 +1,45 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH 2/6] net: ethernet: ti: cpts: add support for ext rftclk
- selection
-Date: Wed, 30 Nov 2016 11:35:06 -0600
-Message-ID: <bf207ac4-0f9f-d4a7-14ac-704d93fb7764@ti.com>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-3-grygorii.strashko@ti.com>
- <20161130095632.GC28680@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Regression: [PATCH] mlx4: give precise rx/tx bytes/packets
+ counters
+Date: Wed, 30 Nov 2016 09:35:21 -0800
+Message-ID: <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161130150839.5203ece0@redhat.com>
+         <1480521514.18162.191.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161130095632.GC28680-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35760 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932539AbcK3RgX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 12:36:23 -0500
+Received: by mail-pg0-f66.google.com with SMTP id p66so1913499pga.2
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 09:36:23 -0800 (PST)
+In-Reply-To: <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2016-11-30 at 18:46 +0200, Saeed Mahameed wrote:
 
-
-On 11/30/2016 03:56 AM, Richard Cochran wrote:
-> On Mon, Nov 28, 2016 at 05:04:24PM -0600, Grygorii Strashko wrote:
->> Some CPTS instances, which can be found on KeyStone 2 1/10G Ethernet
->> Switch Subsystems, can control an external multiplexer that selects
->> one of up to 32 clocks for time sync reference (RFTCLK). This feature
->> can be configured through CPTS_RFTCLK_SEL register (offset: x08).
->>
->> Hence, introduce optional DT cpts_rftclk_sel poperty wich, if present,
->> will specify CPTS reference clock. The cpts_rftclk_sel should be
->> omitted in DT if HW doesn't support this feature. The external fixed
->> rate clocks can be defined in board files as "fixed-clock".
+> we had/still have the proper stats they are the ones that
+> mlx4_en_fold_software_stats is trying to cache into  (they always
+> exist),
+> but the ones that you are trying to read from (the mlx4 rings) are gone !
 > 
-> Can't you implement this using the clock tree, rather than an ad-hoc
-> DT property?
+> This bug is totally new and as i warned, this is another symptom of
+> the real root cause (can't sleep while reading stats).
 > 
+> Eric what do you suggest ? Keep pre-allocated MAX_RINGS stats  and
+> always iterate over all of them to query stats ?
+> what if you have one ring/none/1K ? how would you know how many to query ?
 
-I've thought about this, but decided to move forward with this impl
- which is pretty simple. I will try.
+I am suggesting I will fix the bug I introduced.
 
-
--- 
-regards,
--grygorii
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Do not panic.
