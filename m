@@ -1,31 +1,44 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH] can: rcar_canfd: Correct order of interrupt specifiers
-Date: Wed, 30 Nov 2016 14:38:34 -0600
-Message-ID: <20161130203834.iinxujdkegmd6fa7@rob-hp-laptop>
-References: <1479908686-14028-1-git-send-email-geert+renesas@glider.be>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/4] bindings: net: stmmac: correct note about TSO
+Date: Wed, 30 Nov 2016 14:41:07 -0600
+Message-ID: <20161130204107.5w636jlptwrovntd@rob-hp-laptop>
+References: <1479911066-19752-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
-        Chris Paterson <chris.paterson2@renesas.com>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: Geert Uytterhoeven <geert+renesas@glider.be>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>,
+        Niklas Cassel <niklass-VrBV9hrLPhE@public.gmane.org>,
+        Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1479908686-14028-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+In-Reply-To: <1479911066-19752-1-git-send-email-niklass-VrBV9hrLPhE@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2016 at 02:44:46PM +0100, Geert Uytterhoeven wrote:
-> According to both DTS (example and actual files), and Linux driver code,
-> the first interrupt specifier should be the Channel interrupt, while the
-> second interrupt specifier should be the Global interrupt.
+On Wed, Nov 23, 2016 at 03:24:25PM +0100, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
 > 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> snps,tso was previously placed under AXI BUS Mode parameters,
+> suggesting that the property should be in the stmmac-axi-config node.
+> 
+> TSO (TCP Segmentation Offloading) has nothing to do with AXI BUS Mode
+> parameters, and the parser actually expects it to be in the root node,
+> not in the stmmac-axi-config.
+> 
+> Also added a note about snps,tso only being available on GMAC4 and newer.
+> 
+> Signed-off-by: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
 > ---
->  Documentation/devicetree/bindings/net/can/rcar_canfd.txt | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  Documentation/devicetree/bindings/net/stmmac.txt | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
 
-Acked-by: Rob Herring <robh@kernel.org>
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
