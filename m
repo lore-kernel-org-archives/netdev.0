@@ -1,44 +1,42 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: [PATCH] cpsw: ethtool: add support for nway reset
-Date: Wed, 30 Nov 2016 10:31:30 +0100
-Message-ID: <CAGm1_ktxyxVxYdF0Aq-Nv2rVGjEccPsGRZSXHBOE9egybiV1Lg@mail.gmail.com>
-References: <1480326472-5849-1-git-send-email-yegorslists@googlemail.com> <20161129.194158.1482957574907674651.davem@davemloft.net>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/6] net: ethernet: ti: cpts: add support for ext rftclk
+ selection
+Date: Wed, 30 Nov 2016 10:56:32 +0100
+Message-ID: <20161130095632.GC28680@localhost.localdomain>
+References: <20161128230428.6872-1-grygorii.strashko@ti.com>
+ <20161128230428.6872-3-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "N, Mugunthan V" <mugunthanvnm@ti.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f169.google.com ([209.85.217.169]:35038 "EHLO
-        mail-ua0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754166AbcK3Jbw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 04:31:52 -0500
-In-Reply-To: <20161129.194158.1482957574907674651.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
+To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161128230428.6872-3-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Mon, Nov 28, 2016 at 05:04:24PM -0600, Grygorii Strashko wrote:
+> Some CPTS instances, which can be found on KeyStone 2 1/10G Ethernet
+> Switch Subsystems, can control an external multiplexer that selects
+> one of up to 32 clocks for time sync reference (RFTCLK). This feature
+> can be configured through CPTS_RFTCLK_SEL register (offset: x08).
+> 
+> Hence, introduce optional DT cpts_rftclk_sel poperty wich, if present,
+> will specify CPTS reference clock. The cpts_rftclk_sel should be
+> omitted in DT if HW doesn't support this feature. The external fixed
+> rate clocks can be defined in board files as "fixed-clock".
 
-On Wed, Nov 30, 2016 at 1:41 AM, David Miller <davem@davemloft.net> wrote:
-> From: yegorslists@googlemail.com
-> Date: Mon, 28 Nov 2016 10:47:52 +0100
->
->> From: Yegor Yefremov <yegorslists@googlemail.com>
->>
->> This patch adds support for ethtool's '-r' command. Restarting
->> N-WAY negotiation can be useful to activate newly changed EEE
->> settings etc.
->>
->> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
->
-> This doesn't apply cleanly to net-next.
+Can't you implement this using the clock tree, rather than an ad-hoc
+DT property?
 
-My previous patch [1] doesn't show up in net-next. This could explain,
-why nway patch doesn't apply.
-Should I resend them both as series?
-
-[1] http://marc.info/?l=linux-omap&m=148036822211869&w=2
-
-Yegor
+Thanks,
+Richard
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
