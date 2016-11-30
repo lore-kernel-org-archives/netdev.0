@@ -1,127 +1,326 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v3 6/6] virtio_net: xdp, add slowpath case for
- non contiguous buffers
-Date: Wed, 30 Nov 2016 20:49:16 +0200
-Message-ID: <20161130204803-mutt-send-email-mst@kernel.org>
+Subject: Re: [net-next PATCH v3 3/6] virtio_net: Add XDP support
+Date: Wed, 30 Nov 2016 20:54:52 +0200
+Message-ID: <20161130203851-mutt-send-email-mst@kernel.org>
 References: <20161129200933.26851.41883.stgit@john-Precision-Tower-5810>
- <20161129201133.26851.31803.stgit@john-Precision-Tower-5810>
- <20161130143031.2fc64ab4@jkicinski-Precision-T1700>
- <583F0361.5030804@gmail.com>
+ <20161129201021.26851.34352.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jakub Kicinski <kubakici@wp.pl>, eric.dumazet@gmail.com,
-        daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
-        tgraf@suug.ch, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        bblanco@plumgrid.com, brouer@redhat.com
+Cc: eric.dumazet@gmail.com, daniel@iogearbox.net,
+        shm@cumulusnetworks.com, davem@davemloft.net, tgraf@suug.ch,
+        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55954 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59186 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752668AbcK3StW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 13:49:22 -0500
+        id S1752668AbcK3SzA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 13:55:00 -0500
 Content-Disposition: inline
-In-Reply-To: <583F0361.5030804@gmail.com>
+In-Reply-To: <20161129201021.26851.34352.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2016 at 08:50:41AM -0800, John Fastabend wrote:
-> On 16-11-30 06:30 AM, Jakub Kicinski wrote:
-> > [add MST]
-> > 
+On Tue, Nov 29, 2016 at 12:10:21PM -0800, John Fastabend wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
 > 
-> Thanks sorry MST. I did a cut'n'paste of an old list of CC's and missed
-> you were not on the list.
+> This adds XDP support to virtio_net. Some requirements must be
+> met for XDP to be enabled depending on the mode. First it will
+> only be supported with LRO disabled so that data is not pushed
+> across multiple buffers. Second the MTU must be less than a page
+> size to avoid having to handle XDP across multiple pages.
 > 
-> [...]
+> If mergeable receive is enabled this patch only supports the case
+> where header and data are in the same buf which we can check when
+> a packet is received by looking at num_buf. If the num_buf is
+> greater than 1 and a XDP program is loaded the packet is dropped
+> and a warning is thrown. When any_header_sg is set this does not
+> happen and both header and data is put in a single buffer as expected
+> so we check this when XDP programs are loaded.  Subsequent patches
+> will process the packet in a degraded mode to ensure connectivity
+> and correctness is not lost even if backend pushes packets into
+> multiple buffers.
 > 
-> >> +	memcpy(page_address(page) + page_off, page_address(p) + offset, *len);
-> >> +	while (--num_buf) {
-> >> +		unsigned int buflen;
-> >> +		unsigned long ctx;
-> >> +		void *buf;
-> >> +		int off;
-> >> +
-> >> +		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &buflen);
-> >> +		if (unlikely(!ctx))
-> >> +			goto err_buf;
-> >> +
-> >> +		buf = mergeable_ctx_to_buf_address(ctx);
-> >> +		p = virt_to_head_page(buf);
-> >> +		off = buf - page_address(p);
-> >> +
-> >> +		memcpy(page_address(page) + page_off,
-> >> +		       page_address(p) + off, buflen);
-> >> +		page_off += buflen;
-> > 
-> > Could malicious user potentially submit a frame bigger than MTU?
+> If big packets mode is enabled and MTU/LRO conditions above are
+> met then XDP is allowed.
 > 
-> Well presumably if the MTU is greater than PAGE_SIZE the xdp program
-> would not have been loaded. And the malicious user in this case would
-> have to be qemu which seems like everything is already lost if qemu
-> is trying to attack its VM.
+> This patch was tested with qemu with vhost=on and vhost=off where
+> mergable and big_packet modes were forced via hard coding feature
+> negotiation. Multiple buffers per packet was forced via a small
+> test patch to vhost.c in the vhost=on qemu mode.
 > 
-> But this is a good point because it looks like there is nothing in
-> virtio or qemu that drops frames with MTU greater than the virtio
-> configured setting. Maybe Michael can confirm this or I'll poke at it
-> more. I think qemu should drop these frames in general.
+> Suggested-by: Shrijeet Mukherjee <shrijeet@gmail.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  drivers/net/virtio_net.c |  154 +++++++++++++++++++++++++++++++++++++++++++++-
+>  1 file changed, 150 insertions(+), 4 deletions(-)
 > 
-> So I think adding a guard here is sensible I'll go ahead and do that.
-> Also the MTU guard at set_xdp time needs to account for header length.
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 8189e5b..32126bf 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -22,6 +22,7 @@
+>  #include <linux/module.h>
+>  #include <linux/virtio.h>
+>  #include <linux/virtio_net.h>
+> +#include <linux/bpf.h>
+>  #include <linux/scatterlist.h>
+>  #include <linux/if_vlan.h>
+>  #include <linux/slab.h>
+> @@ -81,6 +82,8 @@ struct receive_queue {
+>  
+>  	struct napi_struct napi;
+>  
+> +	struct bpf_prog __rcu *xdp_prog;
+> +
+>  	/* Chain pages by the private ptr. */
+>  	struct page *pages;
+>  
+> @@ -324,6 +327,38 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+>  	return skb;
+>  }
+>  
+> +static u32 do_xdp_prog(struct virtnet_info *vi,
+> +		       struct bpf_prog *xdp_prog,
+> +		       struct page *page, int offset, int len)
+> +{
+> +	int hdr_padded_len;
+> +	struct xdp_buff xdp;
+> +	u32 act;
+> +	u8 *buf;
+> +
+> +	buf = page_address(page) + offset;
+> +
+> +	if (vi->mergeable_rx_bufs)
+> +		hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> +	else
+> +		hdr_padded_len = sizeof(struct padded_vnet_hdr);
+> +
+> +	xdp.data = buf + hdr_padded_len;
+> +	xdp.data_end = xdp.data + (len - vi->hdr_len);
 
-I agree. Further, offloads are disabled dynamically and we could
-get a packet that was processed with LRO.
+so header seems to be ignored completely.
+but the packet could be from the time when
+e.g. checksum offloading was on, and
+so it might gave DATA_VALID (from CHECKSUM_UNNECESSARY
+in host).
 
-> Thanks nice catch.
-> 
-> > 
-> >> +	}
-> >> +
-> >> +	*len = page_off;
-> >> +	return page;
-> >> +err_buf:
-> >> +	__free_pages(page, 0);
-> >> +	return NULL;
-> >> +}
-> >> +
-> >>  static struct sk_buff *receive_mergeable(struct net_device *dev,
-> >>  					 struct virtnet_info *vi,
-> >>  					 struct receive_queue *rq,
-> >> @@ -469,21 +519,37 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
-> >>  	rcu_read_lock();
-> >>  	xdp_prog = rcu_dereference(rq->xdp_prog);
-> >>  	if (xdp_prog) {
-> >> +		struct page *xdp_page;
-> >>  		u32 act;
-> >>  
-> >>  		if (num_buf > 1) {
-> >>  			bpf_warn_invalid_xdp_buffer();
-> >> -			goto err_xdp;
-> >> +
-> >> +			/* linearize data for XDP */
-> >> +			xdp_page = xdp_linearize_page(rq, num_buf,
-> >> +						      page, offset, &len);
-> >> +			if (!xdp_page)
-> >> +				goto err_xdp;
-> >> +			offset = len;
-> >> +		} else {
-> >> +			xdp_page = page;
-> >>  		}
-> >>  
-> >> -		act = do_xdp_prog(vi, xdp_prog, page, offset, len);
-> >> +		act = do_xdp_prog(vi, xdp_prog, xdp_page, offset, len);
-> >>  		switch (act) {
-> >>  		case XDP_PASS:
-> >> +			if (unlikely(xdp_page != page))
-> >> +				__free_pages(xdp_page, 0);
-> >>  			break;
-> >>  		case XDP_TX:
-> >> +			if (unlikely(xdp_page != page))
-> >> +				goto err_xdp;
-> >> +			rcu_read_unlock();
-> > 
-> > Only if there is a reason for v4 - this unlock could go to the previous
-> > patch.
-> > 
-> 
-> Sure will do this.
+I think you want to verify that flags and gso type
+are 0.
+
+
+> +
+> +	act = bpf_prog_run_xdp(xdp_prog, &xdp);
+> +	switch (act) {
+> +	case XDP_PASS:
+> +		return XDP_PASS;
+> +	default:
+> +		bpf_warn_invalid_xdp_action(act);
+> +	case XDP_TX:
+> +	case XDP_ABORTED:
+> +	case XDP_DROP:
+> +		return XDP_DROP;
+> +	}
+> +}
+
+do we really want this switch just to warn?
+How about doing != XDP_PASS in the caller?
+
+> +
+>  static struct sk_buff *receive_small(struct virtnet_info *vi, void *buf, unsigned int len)
+>  {
+>  	struct sk_buff * skb = buf;
+> @@ -340,14 +375,28 @@ static struct sk_buff *receive_big(struct net_device *dev,
+>  				   void *buf,
+>  				   unsigned int len)
+>  {
+> +	struct bpf_prog *xdp_prog;
+>  	struct page *page = buf;
+> -	struct sk_buff *skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
+> +	struct sk_buff *skb;
+>  
+> +	rcu_read_lock();
+> +	xdp_prog = rcu_dereference(rq->xdp_prog);
+> +	if (xdp_prog) {
+> +		u32 act = do_xdp_prog(vi, xdp_prog, page, 0, len);
+> +
+> +		if (act == XDP_DROP)
+> +			goto err_xdp;
+> +	}
+> +	rcu_read_unlock();
+> +
+> +	skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
+>  	if (unlikely(!skb))
+>  		goto err;
+>  
+>  	return skb;
+>  
+> +err_xdp:
+> +	rcu_read_unlock();
+>  err:
+>  	dev->stats.rx_dropped++;
+>  	give_pages(rq, page);
+> @@ -366,10 +415,27 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  	struct page *page = virt_to_head_page(buf);
+>  	int offset = buf - page_address(page);
+>  	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
+
+This is some useless computation when XDP is used, isn't it?
+
+> +	struct sk_buff *head_skb, *curr_skb;
+> +	struct bpf_prog *xdp_prog;
+>  
+> -	struct sk_buff *head_skb = page_to_skb(vi, rq, page, offset, len,
+> -					       truesize);
+> -	struct sk_buff *curr_skb = head_skb;
+> +	rcu_read_lock();
+> +	xdp_prog = rcu_dereference(rq->xdp_prog);
+> +	if (xdp_prog) {
+> +		u32 act;
+> +
+> +		if (num_buf > 1) {
+> +			bpf_warn_invalid_xdp_buffer();
+> +			goto err_xdp;
+> +		}
+> +
+> +		act = do_xdp_prog(vi, xdp_prog, page, offset, len);
+> +		if (act == XDP_DROP)
+> +			goto err_xdp;
+> +	}
+> +	rcu_read_unlock();
+> +
+> +	head_skb = page_to_skb(vi, rq, page, offset, len, truesize);
+> +	curr_skb = head_skb;
+>  
+>  	if (unlikely(!curr_skb))
+>  		goto err_skb;
+
+I'm confused. Did the requirement to have a page per packet go away?
+I don't think this mode is doing it here.
+
+
+> @@ -423,6 +489,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  	ewma_pkt_len_add(&rq->mrg_avg_pkt_len, head_skb->len);
+>  	return head_skb;
+>  
+> +err_xdp:
+> +	rcu_read_unlock();
+>  err_skb:
+>  	put_page(page);
+>  	while (--num_buf) {
+> @@ -1328,6 +1396,13 @@ static int virtnet_set_channels(struct net_device *dev,
+>  	if (queue_pairs > vi->max_queue_pairs || queue_pairs == 0)
+>  		return -EINVAL;
+>  
+> +	/* For now we don't support modifying channels while XDP is loaded
+> +	 * also when XDP is loaded all RX queues have XDP programs so we only
+> +	 * need to check a single RX queue.
+> +	 */
+> +	if (vi->rq[0].xdp_prog)
+> +		return -EINVAL;
+> +
+>  	get_online_cpus();
+>  	err = virtnet_set_queues(vi, queue_pairs);
+>  	if (!err) {
+> @@ -1454,6 +1529,68 @@ static int virtnet_set_features(struct net_device *netdev,
+>  	return 0;
+>  }
+>  
+> +static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +	struct bpf_prog *old_prog;
+> +	int i;
+> +
+> +	if ((dev->features & NETIF_F_LRO) && prog) {
+> +		netdev_warn(dev, "can't set XDP while LRO is on, disable LRO first\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (vi->mergeable_rx_bufs && !vi->any_header_sg) {
+> +		netdev_warn(dev, "XDP expects header/data in single page\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (dev->mtu > PAGE_SIZE) {
+> +		netdev_warn(dev, "XDP requires MTU less than %lu\n", PAGE_SIZE);
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (prog) {
+> +		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
+> +		if (IS_ERR(prog))
+> +			return PTR_ERR(prog);
+> +	}
+> +
+> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+> +		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+> +		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
+> +		if (old_prog)
+> +			bpf_prog_put(old_prog);
+
+don't we need to sync before put?
+
+
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static bool virtnet_xdp_query(struct net_device *dev)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +	int i;
+> +
+> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+> +		if (vi->rq[i].xdp_prog)
+> +			return true;
+> +	}
+> +	return false;
+> +}
+> +
+> +static int virtnet_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+> +{
+> +	switch (xdp->command) {
+> +	case XDP_SETUP_PROG:
+> +		return virtnet_xdp_set(dev, xdp->prog);
+> +	case XDP_QUERY_PROG:
+> +		xdp->prog_attached = virtnet_xdp_query(dev);
+> +		return 0;
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +}
+> +
+>  static const struct net_device_ops virtnet_netdev = {
+>  	.ndo_open            = virtnet_open,
+>  	.ndo_stop   	     = virtnet_close,
+> @@ -1471,6 +1608,7 @@ static int virtnet_set_features(struct net_device *netdev,
+>  	.ndo_busy_poll		= virtnet_busy_poll,
+>  #endif
+>  	.ndo_set_features	= virtnet_set_features,
+> +	.ndo_xdp		= virtnet_xdp,
+>  };
+>  
+>  static void virtnet_config_changed_work(struct work_struct *work)
+> @@ -1527,12 +1665,20 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+>  
+>  static void free_receive_bufs(struct virtnet_info *vi)
+>  {
+> +	struct bpf_prog *old_prog;
+>  	int i;
+>  
+> +	rtnl_lock();
+>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		while (vi->rq[i].pages)
+>  			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
+> +
+> +		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+> +		RCU_INIT_POINTER(vi->rq[i].xdp_prog, NULL);
+> +		if (old_prog)
+> +			bpf_prog_put(old_prog);
+>  	}
+> +	rtnl_unlock();
+>  }
+>  
+>  static void free_receive_page_frags(struct virtnet_info *vi)
