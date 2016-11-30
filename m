@@ -1,65 +1,92 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net] tcp: warn on bogus MSS and try to amend it
-Date: Wed, 30 Nov 2016 11:14:32 -0200
-Message-ID: <0d41deb00d57206f518e6bffae1b0be355bbc726.1480511277.git.marcelo.leitner@gmail.com>
-Cc: Jon Maxwell <jmaxwell37@gmail.com>,
-        Alex Sidorenko <alexandre.sidorenko@hpe.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, tlfalcon@linux.vnet.ibm.com,
-        Brian King <brking@linux.vnet.ibm.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Sebastian Frias <sf84@laposte.net>
+Subject: Re: [PATCH net-next v2 2/4] Documentation: net: phy: Add a paragraph
+ about pause frames/flow control
+Date: Wed, 30 Nov 2016 14:20:27 +0100
+Message-ID: <c47507af-2384-62af-f416-1ddd5582cdeb@laposte.net>
+References: <20161127184449.12351-1-f.fainelli@gmail.com>
+ <20161127184449.12351-3-f.fainelli@gmail.com>
+ <1b7425f7-9183-69d4-76e8-42eefffeb1c6@laposte.net>
+ <0a923150-582c-16dc-d14d-11d8a2620871@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        martin.blumenstingl@googlemail.com, mans@mansr.com,
+        alexandre.torgue@st.com, peppe.cavallaro@st.com,
+        timur@codeaurora.org, jbrunet@baylibre.com
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53170 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750922AbcK3NO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 08:14:59 -0500
+Received: from smtpoutz28.laposte.net ([194.117.213.103]:42752 "EHLO
+        smtp.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754223AbcK3NUb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 08:20:31 -0500
+Received: from smtp.laposte.net (localhost [127.0.0.1])
+        by lpn-prd-vrout016 (Postfix) with ESMTP id B99D911779E
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 14:20:28 +0100 (CET)
+Received: from smtp.laposte.net (localhost [127.0.0.1])
+        by lpn-prd-vrout016 (Postfix) with ESMTP id A6D5D1183C3
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 14:20:28 +0100 (CET)
+Received: from lpn-prd-vrin003 (lpn-prd-vrin003.laposte [10.128.63.4])
+        by lpn-prd-vrout016 (Postfix) with ESMTP id 9C11A11779E
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 14:20:28 +0100 (CET)
+Received: from lpn-prd-vrin003 (localhost [127.0.0.1])
+        by lpn-prd-vrin003 (Postfix) with ESMTP id 86C1348E1D6
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 14:20:28 +0100 (CET)
+In-Reply-To: <0a923150-582c-16dc-d14d-11d8a2620871@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There have been some reports lately about TCP connection stalls caused
-by NIC drivers that aren't setting gso_size on aggregated packets on rx
-path. This causes TCP to assume that the MSS is actually the size of the
-aggregated packet, which is invalid.
+On 28/11/16 18:33, Florian Fainelli wrote:
+> On 11/28/2016 02:38 AM, Sebastian Frias wrote:
+>> On 27/11/16 19:44, Florian Fainelli wrote:
+>>> Describe that the Ethernet MAC controller is ultimately responsible for
+>>> dealing with proper pause frames/flow control advertisement and
+>>> enabling, and that it is therefore allowed to have it change
+>>> phydev->supported/advertising with SUPPORTED_Pause and
+>>> SUPPORTED_AsymPause.
+>>>
+>>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>>> ---
+>>>  Documentation/networking/phy.txt | 18 ++++++++++++++++--
+>>>  1 file changed, 16 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
+>>> index 4b25c0f24201..9a42a9414cea 100644
+>>> --- a/Documentation/networking/phy.txt
+>>> +++ b/Documentation/networking/phy.txt
+>>> @@ -127,8 +127,9 @@ Letting the PHY Abstraction Layer do Everything
+>>>   values pruned from them which don't make sense for your controller (a 10/100
+>>>   controller may be connected to a gigabit capable PHY, so you would need to
+>>>   mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for definitions
+>>> - for these bitfields. Note that you should not SET any bits, or the PHY may
+>>> - get put into an unsupported state.
+>>> + for these bitfields. Note that you should not SET any bits, except the
+>>> + SUPPORTED_Pause and SUPPORTED_AsymPause bits (see below), or the PHY may get
+>>> + put into an unsupported state.
+>>>  
+>>>   Lastly, once the controller is ready to handle network traffic, you call
+>>>   phy_start(phydev).  This tells the PAL that you are ready, and configures the
+>>> @@ -139,6 +140,19 @@ Letting the PHY Abstraction Layer do Everything
+>>>   When you want to disconnect from the network (even if just briefly), you call
+>>>   phy_stop(phydev).
+>>>  
+>>> +Pause frames / flow control
+>>> +
+>>> + The PHY does not participate directly in flow control/pause frames except by
+>>> + making sure that the SUPPORTED_Pause and SUPPORTED_AsymPause bits are set in
+>>> + MII_ADVERTISE to indicate towards the link partner that the Ethernet MAC
+>>> + controller supports such a thing. Since flow control/pause frames generation
+>>> + involves the Ethernet MAC driver, it is recommended that this driver takes care
+>>> + of properly indicating advertisement and support for such features by setting
+>>> + the SUPPORTED_Pause and SUPPORTED_AsymPause bits accordingly. This can be done
+>>> + either before or after phy_connect() 
+>>
+>> If the bits are set after phy_connect(), how does the PHY framework knows there's
+>> an update to the bits? Should some call be made?
+> 
+> You would most likely either call phy_start() to start the PHY state
+> machine (again) or have to re-negotiate the link with e.g:
+> genphy_restart_aneg().
+> 
 
-Although the proper fix is to be done at each driver, it's often hard
-and cumbersome for one to debug, come to such root cause and report/fix
-it.
-
-This patch amends this situation in two ways. First, it adds a warning
-on when this situation occurs, so it gives a hint to those trying to
-debug this. It also limit the maximum probed MSS to the adverised MSS,
-as it should never be any higher than that.
-
-The result is that the connection may not have the best performance ever
-but it shouldn't stall, and the admin will have a hint on what to look
-for.
-
-Tested with virtio by forcing gso_size to 0.
-
-Cc: Jonathan Maxwell <jmaxwell37@gmail.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/ipv4/tcp_input.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index a27b9c0e27c08b4e4aeaff3d0bfdf3ae561ba4d8..ecc86105eb479de9b80db71af6a16a5af612a61c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -144,7 +144,10 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
- 	 */
- 	len = skb_shinfo(skb)->gso_size ? : skb->len;
- 	if (len >= icsk->icsk_ack.rcv_mss) {
--		icsk->icsk_ack.rcv_mss = len;
-+		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
-+					       tcp_sk(sk)->advmss);
-+		if (icsk->icsk_ack.rcv_mss != len)
-+			pr_warn_once("Seems your NIC driver is doing bad RX acceleration. TCP performance may be compromised.\n");
- 	} else {
- 		/* Otherwise, we make more careful check taking into account,
- 		 * that SACKs block is variable.
--- 
-2.9.3
+Thanks, I think that would be worth adding to the documentation, right?
