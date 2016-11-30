@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next 5/8] net/sched: cls_flower: Add offload support using egress Hardware device
-Date: Wed, 30 Nov 2016 16:41:32 +0200
-Message-ID: <1480516895-29545-6-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next 7/8] net/mlx5e: Save the represntor netdevice as part of the representor
+Date: Wed, 30 Nov 2016 16:41:34 +0200
+Message-ID: <1480516895-29545-8-git-send-email-hadarh@mellanox.com>
 References: <1480516895-29545-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Jiri Pirko <jiri@mellanox.com>,
@@ -11,199 +11,143 @@ Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46043 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46047 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752889AbcK3PhO (ORCPT
+        with ESMTP id S1755920AbcK3PhO (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:37:14 -0500
 In-Reply-To: <1480516895-29545-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to support hardware offloading when the device given by the tc
-rule is different from the Hardware underline device, extract the mirred
-(egress) device from the tc action when a filter is added, using the new
-tc_action_ops, get_dev().
+Replace the representor private data to a net_device pointer holding the
+representor netdevice, instead of void pointer holding mlx5e_priv.
 
-Flower caches the information about the mirred device and use it for
-calling ndo_setup_tc in filter change, update stats and delete.
-
-Calling ndo_setup_tc of the mirred (egress) device instead of the
-ingress device will allow a resolution between the software ingress
-device and the underline hardware device.
-
-The resolution will take place inside the offloading driver using
-'egress_device' flag added to tc_to_netdev struct which is provided to
-the offloading driver.
+It will be used by a new eswitch service function, returning the uplink representor
+netdevice.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/linux/netdevice.h |  1 +
- include/net/pkt_cls.h     |  2 ++
- net/sched/cls_api.c       | 22 ++++++++++++++++++++++
- net/sched/cls_flower.c    | 41 ++++++++++++++++++++++++-----------------
- 4 files changed, 49 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c         |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c          | 15 ++++++++-------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h         |  3 ++-
+ .../net/ethernet/mellanox/mlx5/core/eswitch_offloads.c    | 12 +++++++++++-
+ 4 files changed, 22 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 4ffcd87..00c351c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -802,6 +802,7 @@ struct tc_to_netdev {
- 		struct tc_cls_matchall_offload *cls_mall;
- 		struct tc_cls_bpf_offload *cls_bpf;
- 	};
-+	bool egress_dev;
- };
- 
- /* These structures hold the attributes of xdp state that are being passed
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 45ad9aa..f0a0514 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -171,6 +171,8 @@ void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
- 		     struct tcf_exts *src);
- int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts);
- int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts);
-+int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
-+		     struct net_device **hw_dev);
- 
- /**
-  * struct tcf_pkt_info - packet information
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index b05d4a2..e7aeab9 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -682,6 +682,28 @@ int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 6b492ca..37c0d84 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3796,7 +3796,7 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
+ 		rep.load = mlx5e_nic_rep_load;
+ 		rep.unload = mlx5e_nic_rep_unload;
+ 		rep.vport = FDB_UPLINK_VPORT;
+-		rep.priv_data = priv;
++		rep.netdev = netdev;
+ 		mlx5_eswitch_register_vport_rep(esw, 0, &rep);
+ 	}
  }
- EXPORT_SYMBOL(tcf_exts_dump_stats);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 9b1e351..0868677 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -208,7 +208,8 @@ int mlx5e_add_sqs_fwd_rules(struct mlx5e_priv *priv)
  
-+int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
-+		     struct net_device **hw_dev)
+ int mlx5e_nic_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
+ {
+-	struct mlx5e_priv *priv = rep->priv_data;
++	struct net_device *netdev = rep->netdev;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
+ 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return mlx5e_add_sqs_fwd_rules(priv);
+@@ -226,7 +227,8 @@ void mlx5e_remove_sqs_fwd_rules(struct mlx5e_priv *priv)
+ void mlx5e_nic_rep_unload(struct mlx5_eswitch *esw,
+ 			  struct mlx5_eswitch_rep *rep)
+ {
+-	struct mlx5e_priv *priv = rep->priv_data;
++	struct net_device *netdev = rep->netdev;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
+ 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		mlx5e_remove_sqs_fwd_rules(priv);
+@@ -555,7 +557,7 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+ 		return -EINVAL;
+ 	}
+ 
+-	rep->priv_data = netdev_priv(netdev);
++	rep->netdev = netdev;
+ 
+ 	err = mlx5e_attach_netdev(esw->dev, netdev);
+ 	if (err) {
+@@ -577,7 +579,7 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+ 	mlx5e_detach_netdev(esw->dev, netdev);
+ 
+ err_destroy_netdev:
+-	mlx5e_destroy_netdev(esw->dev, rep->priv_data);
++	mlx5e_destroy_netdev(esw->dev, netdev_priv(netdev));
+ 
+ 	return err;
+ 
+@@ -586,10 +588,9 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+ void mlx5e_vport_rep_unload(struct mlx5_eswitch *esw,
+ 			    struct mlx5_eswitch_rep *rep)
+ {
+-	struct mlx5e_priv *priv = rep->priv_data;
+-	struct net_device *netdev = priv->netdev;
++	struct net_device *netdev = rep->netdev;
+ 
+ 	unregister_netdev(netdev);
+ 	mlx5e_detach_netdev(esw->dev, netdev);
+-	mlx5e_destroy_netdev(esw->dev, priv);
++	mlx5e_destroy_netdev(esw->dev, netdev_priv(netdev));
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index cf1aa56..8661dd3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -186,7 +186,7 @@ struct mlx5_eswitch_rep {
+ 					 struct mlx5_eswitch_rep *rep);
+ 	u16		       vport;
+ 	u8		       hw_id[ETH_ALEN];
+-	void		      *priv_data;
++	struct net_device      *netdev;
+ 
+ 	struct mlx5_flow_handle *vport_rx_rule;
+ 	struct list_head       vport_sqs_list;
+@@ -318,6 +318,7 @@ void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
+ 				     struct mlx5_eswitch_rep *rep);
+ void mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw,
+ 				       int vport_index);
++struct net_device *mlx5_eswitch_get_uplink_netdev(struct mlx5_eswitch *esw);
+ 
+ int mlx5_eswitch_add_vlan_action(struct mlx5_eswitch *esw,
+ 				 struct mlx5_esw_flow_attr *attr);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 5c01550..466e161 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -970,7 +970,7 @@ void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
+ 	rep->load   = __rep->load;
+ 	rep->unload = __rep->unload;
+ 	rep->vport  = __rep->vport;
+-	rep->priv_data = __rep->priv_data;
++	rep->netdev = __rep->netdev;
+ 	ether_addr_copy(rep->hw_id, __rep->hw_id);
+ 
+ 	INIT_LIST_HEAD(&rep->vport_sqs_list);
+@@ -990,3 +990,13 @@ void mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw,
+ 
+ 	rep->valid = false;
+ }
++
++struct net_device *mlx5_eswitch_get_uplink_netdev(struct mlx5_eswitch *esw)
 +{
-+	const struct tc_action *a;
-+	LIST_HEAD(actions);
++#define UPLINK_REP_INDEX 0
++	struct mlx5_esw_offload *offloads = &esw->offloads;
++	struct mlx5_eswitch_rep *rep;
 +
-+	if (tc_no_actions(exts))
-+		return -EINVAL;
-+
-+	tcf_exts_to_list(exts, &actions);
-+	list_for_each_entry(a, &actions, list) {
-+		if (a->ops->get_dev) {
-+			a->ops->get_dev(a, dev_net(dev), hw_dev);
-+			break;
-+		}
-+	}
-+	if (*hw_dev)
-+		return 0;
-+	return -EOPNOTSUPP;
++	rep = &offloads->vport_reps[UPLINK_REP_INDEX];
++	return rep->netdev;
 +}
-+EXPORT_SYMBOL(tcf_exts_get_dev);
-+
- static int __init tc_filter_init(void)
- {
- 	rtnl_register(PF_UNSPEC, RTM_NEWTFILTER, tc_ctl_tfilter, NULL, NULL);
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 13b349f..1cacfa5 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -78,6 +78,8 @@ struct cls_fl_filter {
- 	u32 handle;
- 	u32 flags;
- 	struct rcu_head	rcu;
-+	struct tc_to_netdev tc;
-+	struct net_device *hw_dev;
- };
- 
- static unsigned short int fl_mask_range(const struct fl_flow_mask *mask)
-@@ -203,9 +205,9 @@ static void fl_destroy_filter(struct rcu_head *head)
- 
- static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
--	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_flower_offload offload = {0};
--	struct tc_to_netdev tc;
-+	struct net_device *dev = f->hw_dev;
-+	struct tc_to_netdev *tc = &f->tc;
- 
- 	if (!tc_can_offload(dev, tp))
- 		return;
-@@ -213,10 +215,10 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	offload.command = TC_CLSFLOWER_DESTROY;
- 	offload.cookie = (unsigned long)f;
- 
--	tc.type = TC_SETUP_CLSFLOWER;
--	tc.cls_flower = &offload;
-+	tc->type = TC_SETUP_CLSFLOWER;
-+	tc->cls_flower = &offload;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
-+	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, tc);
- }
- 
- static int fl_hw_replace_filter(struct tcf_proto *tp,
-@@ -226,11 +228,17 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_flower_offload offload = {0};
--	struct tc_to_netdev tc;
-+	struct tc_to_netdev *tc = &f->tc;
- 	int err;
- 
--	if (!tc_can_offload(dev, tp))
--		return tc_skip_sw(f->flags) ? -EINVAL : 0;
-+	if (!tc_can_offload(dev, tp)) {
-+		if (tcf_exts_get_dev(dev, &f->exts, &f->hw_dev))
-+			return tc_skip_sw(f->flags) ? -EINVAL : 0;
-+		dev = f->hw_dev;
-+		tc->egress_dev = true;
-+	} else {
-+		f->hw_dev = dev;
-+	}
- 
- 	offload.command = TC_CLSFLOWER_REPLACE;
- 	offload.cookie = (unsigned long)f;
-@@ -239,23 +247,22 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 	offload.key = &f->key;
- 	offload.exts = &f->exts;
- 
--	tc.type = TC_SETUP_CLSFLOWER;
--	tc.cls_flower = &offload;
-+	tc->type = TC_SETUP_CLSFLOWER;
-+	tc->cls_flower = &offload;
- 
- 	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol,
--					    &tc);
-+					    tc);
- 
- 	if (tc_skip_sw(f->flags))
- 		return err;
--
- 	return 0;
- }
- 
- static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
--	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_flower_offload offload = {0};
--	struct tc_to_netdev tc;
-+	struct net_device *dev = f->hw_dev;
-+	struct tc_to_netdev *tc = &f->tc;
- 
- 	if (!tc_can_offload(dev, tp))
- 		return;
-@@ -264,10 +271,10 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	offload.cookie = (unsigned long)f;
- 	offload.exts = &f->exts;
- 
--	tc.type = TC_SETUP_CLSFLOWER;
--	tc.cls_flower = &offload;
-+	tc->type = TC_SETUP_CLSFLOWER;
-+	tc->cls_flower = &offload;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
-+	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, tc);
- }
- 
- static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
 -- 
 1.8.3.1
