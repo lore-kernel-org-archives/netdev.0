@@ -1,46 +1,116 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
-Date: Wed, 30 Nov 2016 11:05:19 +0100
-Message-ID: <20161130100519.GD28680@localhost.localdomain>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-5-grygorii.strashko@ti.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH net-next 1/7] net/mlx5e: Implement Fragmented Work Queue
+ (WQ)
+Date: Wed, 30 Nov 2016 12:02:05 +0200
+Message-ID: <0d8cf1b0-a152-aedc-e475-503727feb723@gmail.com>
+References: <1480457972-31286-1-git-send-email-saeedm@mellanox.com>
+ <1480457972-31286-2-git-send-email-saeedm@mellanox.com>
+ <1480462282.18162.161.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161128230428.6872-5-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Tariq Toukan <tariqt@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Sebastian Ott <sebott@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34343 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754943AbcK3KCJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:02:09 -0500
+Received: by mail-wm0-f67.google.com with SMTP id g23so28614376wme.1
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 02:02:08 -0800 (PST)
+In-Reply-To: <1480462282.18162.161.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 05:04:26PM -0600, Grygorii Strashko wrote:
-> The TS_COMP output in the CPSW CPTS module is asserted for
-> ts_comp_length[15:0] RCLK periods when the time_stamp value compares
-> with the ts_comp_val[31:0] and the length value is non-zero. The
-> TS_COMP pulse edge occurs three RCLK periods after the values
-> compare. A timestamp compare event is pushed into the event FIFO when
-> TS_COMP is asserted.
-> 
-> This patch adds support of Pulse-Per-Second (PPS) by using the
-> timestamp compare output. The CPTS driver adds one second of counter
-> value to the ts_comp_val register after each assertion of the TS_COMP
-> output. The TS_COMP pulse polarity and width are configurable in DT.
 
-I really dislike this patch.  You go through contortions to get from
-the timecounter back to the raw HW counter.  That is rather ugly.
-
-Can you adjust the frequency of the keystone devices in hardware?  If
-so, then please implement it, and just disable PPS for the CPSW.
-
-The only reason I used the timecounter for frequency adjustment was
-because the am335x HW is broken.  But this shouldn't hold back other
-newer HW without the same silicon flaws.
+On 30/11/2016 1:31 AM, Eric Dumazet wrote:
+> On Wed, 2016-11-30 at 00:19 +0200, Saeed Mahameed wrote:
+>> From: Tariq Toukan <tariqt@mellanox.com>
+>>
+>> Add new type of struct mlx5_frag_buf which is used to allocate fragmented
+>> buffers rather than contiguous, and make the Completion Queues (CQs) use
+>> it as they are big (default of 2MB per CQ in Striding RQ).
+>>
+>> This fixes the failures of type:
+>> "mlx5e_open_locked: mlx5e_open_channels failed, -12"
+>> due to dma_zalloc_coherent insufficient contiguous coherent memory to
+>> satisfy the driver's request when the user tries to setup more or larger
+>> rings.
+>>
+>> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+>> Reported-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
+>> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+>> ---
+>>   drivers/net/ethernet/mellanox/mlx5/core/alloc.c   | 66 +++++++++++++++++++++++
+>>   drivers/net/ethernet/mellanox/mlx5/core/en.h      |  2 +-
+>>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 10 ++--
+>>   drivers/net/ethernet/mellanox/mlx5/core/wq.c      | 26 ++++++---
+>>   drivers/net/ethernet/mellanox/mlx5/core/wq.h      | 18 +++++--
+>>   include/linux/mlx5/driver.h                       | 11 ++++
+>>   6 files changed, 116 insertions(+), 17 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+>> index 2c6e3c7..bc8357d 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+>> @@ -106,6 +106,63 @@ void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf)
+>>   }
+>>   EXPORT_SYMBOL_GPL(mlx5_buf_free);
+>>   
+>> +int mlx5_frag_buf_alloc_node(struct mlx5_core_dev *dev, int size,
+>> +			     struct mlx5_frag_buf *buf, int node)
+>> +{
+>> +	int i;
+>> +
+>> +	buf->size = size;
+>> +	buf->npages = 1 << get_order(size);
+>> +	buf->page_shift = PAGE_SHIFT;
+>> +	buf->frags = kcalloc(buf->npages, sizeof(struct mlx5_buf_list),
+>> +			     GFP_KERNEL);
+>> +	if (!buf->frags)
+>> +		goto err_out;
+>> +
+>> +	for (i = 0; i < buf->npages; i++) {
+>> +		struct mlx5_buf_list *frag = &buf->frags[i];
+>> +		int frag_sz = min_t(int, size, PAGE_SIZE);
+>> +
+>> +		frag->buf = mlx5_dma_zalloc_coherent_node(dev, frag_sz,
+>> +							  &frag->map, node);
+>> +		if (!frag->buf)
+>> +			goto err_free_buf;
+>> +		if (frag->map & ((1 << buf->page_shift) - 1)) {
+>> +			dma_free_coherent(&dev->pdev->dev, frag_sz,
+>> +					  buf->frags[i].buf, buf->frags[i].map);
+> There is a bug if this happens with i = 0
+>
+>> +			mlx5_core_warn(dev, "unexpected map alignment: 0x%p, page_shift=%d\n",
+>> +				       (void *)frag->map, buf->page_shift);
+>> +			goto err_free_buf;
+>> +		}
+>> +		size -= frag_sz;
+>> +	}
+>> +
+>> +	return 0;
+>> +
+>> +err_free_buf:
+>> +	while (--i)
+> Because this loop will be done about 2^32 times.
+Right. I'll fix this.
 
 Thanks,
-Richard
+Tariq.
+>
+>> +		dma_free_coherent(&dev->pdev->dev, PAGE_SIZE, buf->frags[i].buf,
+>> +				  buf->frags[i].map);
+>> +	kfree(buf->frags);
+>> +err_out:
+>> +	return -ENOMEM;
+>> +}
+>
+>
+>
