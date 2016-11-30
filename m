@@ -1,49 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net][v2] bpf: fix states equal logic for varlen access
-Date: Wed, 30 Nov 2016 14:51:25 -0500 (EST)
-Message-ID: <20161130.145125.1593093027365850160.davem@davemloft.net>
-References: <1480440429-2531-1-git-send-email-jbacik@fb.com>
+Subject: Re: [PATCH] net: ipv4: Don't crash if passing a null sk to
+ ip_rt_update_pmtu.
+Date: Wed, 30 Nov 2016 14:54:19 -0500 (EST)
+Message-ID: <20161130.145419.801141163874925780.davem@davemloft.net>
+References: <1480442207-43618-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, jannh@google.com,
-        daniel@iogearbox.net, kernel-team@fb.com
-To: jbacik@fb.com
+Cc: netdev@vger.kernel.org, erezsh@dev.mellanox.co.il
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40980 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41090 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754371AbcK3Tv1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:51:27 -0500
-In-Reply-To: <1480440429-2531-1-git-send-email-jbacik@fb.com>
+        with ESMTP id S1755215AbcK3Tyb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:54:31 -0500
+In-Reply-To: <1480442207-43618-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Josef Bacik <jbacik@fb.com>
-Date: Tue, 29 Nov 2016 12:27:09 -0500
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Wed, 30 Nov 2016 02:56:47 +0900
 
-> If we have a branch that looks something like this
+> Commit e2d118a1cb5e ("net: inet: Support UID-based routing in IP
+> protocols.") made __build_flow_key call sock_net(sk) to determine
+> the network namespace of the passed-in socket. This crashes if sk
+> is NULL.
 > 
-> int foo = map->value;
-> if (condition) {
->   foo += blah;
-> } else {
->   foo = bar;
-> }
-> map->array[foo] = baz;
+> Fix this by getting the network namespace from the skb instead.
 > 
-> We will incorrectly assume that the !condition branch is equal to the condition
-> branch as the register for foo will be UNKNOWN_VALUE in both cases.  We need to
-> adjust this logic to only do this if we didn't do a varlen access after we
-> processed the !condition branch, otherwise we have different ranges and need to
-> check the other branch as well.
-> 
-> Fixes: 484611357c19 ("bpf: allow access into map value arrays")
-> Reported-by: Jann Horn <jannh@google.com>
-> Signed-off-by: Josef Bacik <jbacik@fb.com>
-> ---
-> v1->v2:
-> - renamed and moved varlen_map_access variable.
-> - dropped the extra () in the second if statement.
-> - added the Fixes and Reported-by tag.
+> Reported-by: Erez Shitrit <erezsh@dev.mellanox.co.il>
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
 Applied, thanks.
