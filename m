@@ -1,38 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] net: phy: broadcom: Support for PHY
- counters
-Date: Wed, 30 Nov 2016 10:22:48 -0500 (EST)
-Message-ID: <20161130.102248.1508476415464032953.davem@davemloft.net>
-References: <20161129175718.20213-1-f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: DSA vs. SWTICHDEV ?
+Date: Wed, 30 Nov 2016 16:25:03 +0100
+Message-ID: <20161130152503.GE21645@lunn.ch>
+References: <1480495831.3563.135.camel@infinera.com>
+ <20161130135257.GC18716@lunn.ch>
+ <1480516241.3563.142.camel@infinera.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
-        raju.lakkaraju@microsemi.com
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33228 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753817AbcK3PWu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:22:50 -0500
-In-Reply-To: <20161129175718.20213-1-f.fainelli@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:35121 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756000AbcK3PZE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 10:25:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1480516241.3563.142.camel@infinera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 29 Nov 2016 09:57:16 -0800
+On Wed, Nov 30, 2016 at 02:30:43PM +0000, Joakim Tjernlund wrote:
+> On Wed, 2016-11-30 at 14:52 +0100, Andrew Lunn wrote:
+> > On Wed, Nov 30, 2016 at 08:50:34AM +0000, Joakim Tjernlund wrote:
+> > > I am trying to wrap my head around these two "devices" and have a hard time telling them apart.
+> > > We are looking att adding a faily large switch(over PCIe) to our board and from what I can tell
+> > > switchdev is the new way to do it but DSA is still there. Is it possible to just list
+> > > how they differ?
+> > 
+> > Hi Joakim
+> 
+> Hi Andrew, thanks for answering
+> 
+> > 
+> > If the interface you use to send frames from the host to the switch is
+> > PCIe, you probably want to use switchdev directly.
+> 
+> OK, we will have a few ethernet I/F's connected too but I these should be used
+> as normal interfaces just interfacing a switch.
 
-> This patch series adds support for reading the Broadcom PHYs internal counters.
-> 
-> Changes in v3:
-> 
-> - fixed the allocation of priv->stats in bcm7xxx
-> 
-> Changes in v2:
-> 
-> - fixed modular build reported by kbuild
-> 
-> - constify array of stats
+That does not make much sense.
 
-Series applied, thanks Florian.
+Maybe time to backtrack a bit. The Linux concept for switch/router
+chips is that they are just hardware accelerators for what Linux can
+already do in software. Each port of the switch is just a normal Linux
+interface.  ip link show will list each port. ip addr add can be used
+to add an IP address to the interface.  You want to switch frames
+between two ports: Create a linux bridge and put the interfaces into
+it. Via switchdev you get a call into the hardware to accelerate
+this. If the hardware cannot accelerate it, it is done in software as
+normal.  Want to combine two ports into a trunk: Add a team interface
+and make the port interfaces slaves of the team interface. Via
+switchdev, you ask the hardware to accelerate this. If it cannot, it
+is done in software.
+
+So back your connecting a few host interfaces to the switch. This is
+logically putting a cable between two interfaces on the same host. You
+are making a loopback. Why do that? Sure it is possible, but it is an
+odd architecture.
+
+> And switchdev can do all this over PCIe instead? Can you have a
+> switch tree in switchdev too?
+
+Mellonex says so, but i don't think they have actually implemented it.
+
+	 Andrew
