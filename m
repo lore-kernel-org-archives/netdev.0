@@ -1,130 +1,36 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] tipc: check minimum bearer MTU
-Date: Wed, 30 Nov 2016 10:57:02 +0100 (CET)
-Message-ID: <20161130095702.DD033A0F14@unicorn.suse.cz>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net 1/2] esp4: Fix integrity verification when ESN are
+ used
+Date: Wed, 30 Nov 2016 17:58:27 +0800
+Message-ID: <20161130095827.GA3138@gondor.apana.org.au>
+References: <091e32fb-ad85-4dc8-2864-f2b97141f097@strongswan.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
-        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
-        Qian Zhang <zhangqian-c@360.cn>
-To: Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        netdev@vger.kernel.org
+To: Tobias Brunner <tobias@strongswan.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:39267 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757409AbcK3J5I (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 04:57:08 -0500
+Received: from helcar.hengli.com.au ([209.40.204.226]:38624 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754970AbcK3J6s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 04:58:48 -0500
+Content-Disposition: inline
+In-Reply-To: <091e32fb-ad85-4dc8-2864-f2b97141f097@strongswan.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Qian Zhang (张谦) reported a potential socket buffer overflow in
-tipc_msg_build() which is also known as CVE-2016-8632: due to
-insufficient checks, a buffer overflow can occur if MTU is too short for
-even tipc headers. As anyone can set device MTU in a user/net namespace,
-this issue can be abused by a regular user.
+On Tue, Nov 29, 2016 at 05:05:20PM +0100, Tobias Brunner wrote:
+> When handling inbound packets, the two halves of the sequence number
+> stored on the skb are already in network order.
+> 
+> Fixes: 7021b2e1cddd ("esp4: Switch to new AEAD interface")
+> Signed-off-by: Tobias Brunner <tobias@strongswan.org>
 
-As agreed in the discussion on Ben Hutchings' original patch, we should
-check the MTU at the moment a bearer is attached rather than for each
-processed packet. We also need to repeat the check when bearer MTU is
-adjusted to new device MTU. UDP case also needs a check to avoid
-overflow when calculating bearer MTU.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Fixes: b97bf3fd8f6a ("[TIPC] Initial merge")
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Reported-by: Qian Zhang (张谦) <zhangqian-c@360.cn>
----
- net/tipc/bearer.c    |  9 +++++++--
- net/tipc/bearer.h    | 13 +++++++++++++
- net/tipc/udp_media.c |  5 +++++
- 3 files changed, 25 insertions(+), 2 deletions(-)
-
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 975dbeb60ab0..dd4b19e8bb43 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -421,6 +421,10 @@ int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b,
- 	dev = dev_get_by_name(net, driver_name);
- 	if (!dev)
- 		return -ENODEV;
-+	if (tipc_check_mtu(dev, 0)) {
-+		dev_put(dev);
-+		return -EINVAL;
-+	}
- 
- 	/* Associate TIPC bearer with L2 bearer */
- 	rcu_assign_pointer(b->media_ptr, dev);
-@@ -610,8 +614,6 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 	if (!b)
- 		return NOTIFY_DONE;
- 
--	b->mtu = dev->mtu;
--
- 	switch (evt) {
- 	case NETDEV_CHANGE:
- 		if (netif_carrier_ok(dev))
-@@ -624,6 +626,9 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 		tipc_reset_bearer(net, b);
- 		break;
- 	case NETDEV_CHANGEMTU:
-+		if (tipc_check_mtu(dev, 0))
-+			return -EINVAL;
-+		b->mtu = dev->mtu;
- 		tipc_reset_bearer(net, b);
- 		break;
- 	case NETDEV_CHANGEADDR:
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 78892e2f53e3..1a0b7434ec24 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -39,6 +39,7 @@
- 
- #include "netlink.h"
- #include "core.h"
-+#include "msg.h"
- #include <net/genetlink.h>
- 
- #define MAX_MEDIA	3
-@@ -59,6 +60,9 @@
- #define TIPC_MEDIA_TYPE_IB	2
- #define TIPC_MEDIA_TYPE_UDP	3
- 
-+/* minimum bearer MTU */
-+#define TIPC_MIN_BEARER_MTU	(MAX_H_SIZE + INT_H_SIZE)
-+
- /**
-  * struct tipc_media_addr - destination address used by TIPC bearers
-  * @value: address info (format defined by media)
-@@ -215,4 +219,13 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
- void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
- 			 struct sk_buff_head *xmitq);
- 
-+/* check if device MTU is sufficient for tipc headers */
-+inline bool tipc_check_mtu(struct net_device *dev, unsigned int reserve)
-+{
-+	if (dev->mtu >= TIPC_MIN_BEARER_MTU + reserve)
-+		return false;
-+	netdev_warn(dev, "MTU too low for tipc bearer\n");
-+	return true;
-+}
-+
- #endif	/* _TIPC_BEARER_H */
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 78cab9c5a445..376ed3e3ed46 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -697,6 +697,11 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 		udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
- 		udp_conf.use_udp_checksums = false;
- 		ub->ifindex = dev->ifindex;
-+		if (tipc_check_mtu(dev, sizeof(struct iphdr) +
-+					sizeof(struct udphdr))) {
-+			err = -EINVAL;
-+			goto err;
-+		}
- 		b->mtu = dev->mtu - sizeof(struct iphdr)
- 			- sizeof(struct udphdr);
- #if IS_ENABLED(CONFIG_IPV6)
+Thanks for catching this!
 -- 
-2.10.2
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
