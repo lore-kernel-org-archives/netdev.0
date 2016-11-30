@@ -1,7 +1,8 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 0/7] Mellanox 100G mlx5 updates 2016-11-29
-Date: Wed, 30 Nov 2016 17:59:36 +0200
-Message-ID: <1480521583-12755-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 5/7] net/mlx5e: Correct cleanup order when deleting offloaded TC rules
+Date: Wed, 30 Nov 2016 17:59:41 +0200
+Message-ID: <1480521583-12755-6-git-send-email-saeedm@mellanox.com>
+References: <1480521583-12755-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
@@ -9,57 +10,45 @@ Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59014 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59035 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1757986AbcK3Q2E (ORCPT
+        with ESMTP id S1757992AbcK3Q2E (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:28:04 -0500
+In-Reply-To: <1480521583-12755-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Roi Dayan <roid@mellanox.com>
 
-The following series from Tariq and Roi, provides some critical fixes
-and updates for the mlx5e driver.
+According to the reverse unwinding principle, on delete time we should
+first handle deletion of the steering rule and later handle the vlan
+deletion from the eswitch.
 
->From Tariq: 
- - Fix driver coherent memory huge allocation issues by fragmenting
-   completion queues, in a way that is transparent to the netdev driver by
-   providing a new buffer type "mlx5_frag_buf" with the same access API.
- - Create UMR MKey per RQ to have better scalability.
+Fixes: 8b32580df1cb ("net/mlx5e: Add TC vlan action for SRIOV offloads")
+Signed-off-by: Roi Dayan <roid@mellanox.com>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
->From Roi:
- - Some fixes for the encap-decap support and tc flower added lately to the
-   mlx5e driver.
-
-v1->v2:
- - Fix start index in error flow of mlx5_frag_buf_alloc_node, pointed out by Eric.
-
-This series was generated against commit:
-31ac1c19455f ("geneve: fix ip_hdr_len reserved for geneve6 tunnel.")
-
-Thanks,
-Saeed.
-
-Roi Dayan (4):
-  net/mlx5e: Remove redundant hashtable lookup in configure flower
-  net/mlx5e: Correct cleanup order when deleting offloaded TC rules
-  net/mlx5e: Refactor tc del flow to accept mlx5e_tc_flow instance
-  net/mlx5e: Remove flow encap entry in the correct place
-
-Tariq Toukan (3):
-  net/mlx5e: Implement Fragmented Work Queue (WQ)
-  net/mlx5e: Move function mlx5e_create_umr_mkey
-  net/mlx5e: Create UMR MKey per RQ
-
- drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |  66 +++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  14 +--
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  12 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 121 +++++++++++----------
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  82 ++++++--------
- drivers/net/ethernet/mellanox/mlx5/core/wq.c       |  26 +++--
- drivers/net/ethernet/mellanox/mlx5/core/wq.h       |  18 ++-
- include/linux/mlx5/driver.h                        |  11 ++
- 8 files changed, 215 insertions(+), 135 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index dd6d954..4d71445 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -151,11 +151,11 @@ static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
+ 
+ 	counter = mlx5_flow_rule_counter(rule);
+ 
++	mlx5_del_flow_rules(rule);
++
+ 	if (esw && esw->mode == SRIOV_OFFLOADS)
+ 		mlx5_eswitch_del_vlan_action(esw, attr);
+ 
+-	mlx5_del_flow_rules(rule);
+-
+ 	mlx5_fc_destroy(priv->mdev, counter);
+ 
+ 	if (!mlx5e_tc_num_filters(priv) && (priv->fs.tc.t)) {
 -- 
 2.7.4
