@@ -1,27 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] sfc: separate out SFC4000 ("Falcon")
- support into new sfc-falcon driver
-Date: Wed, 30 Nov 2016 10:18:21 -0500 (EST)
-Message-ID: <20161130.101821.802133826107860380.davem@davemloft.net>
-References: <624b8ce9-12dd-1b89-ae9f-8a092751bf12@solarflare.com>
+Subject: Re: [PATCH net-next v3 0/2] net: phy: broadcom: Support for PHY
+ counters
+Date: Wed, 30 Nov 2016 10:22:48 -0500 (EST)
+Message-ID: <20161130.102248.1508476415464032953.davem@davemloft.net>
+References: <20161129175718.20213-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, bkenward@solarflare.com,
-        netdev@vger.kernel.org
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        bcm-kernel-feedback-list@broadcom.com, allan.nielsen@microsemi.com,
+        raju.lakkaraju@microsemi.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33132 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33228 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751758AbcK3PSX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:18:23 -0500
-In-Reply-To: <624b8ce9-12dd-1b89-ae9f-8a092751bf12@solarflare.com>
+        with ESMTP id S1753817AbcK3PWu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:22:50 -0500
+In-Reply-To: <20161129175718.20213-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 29 Nov 2016 09:57:16 -0800
 
-Applied, but yes you should really rethink the Kconfig stuff.
+> This patch series adds support for reading the Broadcom PHYs internal counters.
+> 
+> Changes in v3:
+> 
+> - fixed the allocation of priv->stats in bcm7xxx
+> 
+> Changes in v2:
+> 
+> - fixed modular build reported by kbuild
+> 
+> - constify array of stats
 
-I would strongly suggest you simply make them independent Kconfig
-options with no attachment to eachother.  No depends, no implies,
-nothing like that.
+Series applied, thanks Florian.
