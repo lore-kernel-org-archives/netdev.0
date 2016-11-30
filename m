@@ -1,46 +1,33 @@
-From: Vladis Dronov <vdronov@redhat.com>
-Subject: Re: BUG() can be hit in tcp_collapse()
-Date: Wed, 30 Nov 2016 12:00:17 -0500 (EST)
-Message-ID: <1418136049.827916.1480525217226.JavaMail.zimbra@redhat.com>
-References: <1623420310.11961160.1478789246631.JavaMail.zimbra@redhat.com> <1478792652.8455.3.camel@edumazet-glaptop3.roam.corp.google.com> <1478805992.8455.20.camel@edumazet-glaptop3.roam.corp.google.com> <1478807366.8455.21.camel@edumazet-glaptop3.roam.corp.google.com> <1478808780.8455.23.camel@edumazet-glaptop3.roam.corp.google.com> <1716309808.12143903.1478869689618.JavaMail.zimbra@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] vxlan: fix a potential issue when create a new
+ vxlan fdb entry.
+Date: Wed, 30 Nov 2016 12:03:12 -0500 (EST)
+Message-ID: <20161130.120312.1290411449256338013.davem@davemloft.net>
+References: <1480384776-8252-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-        Marco Grassi <marco.gra@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1716309808.12143903.1478869689618.JavaMail.zimbra@redhat.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jbenc@redhat.com, hannes@stressinduktion.org, pshelar@nicira.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36442 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758277AbcK3RDQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 12:03:16 -0500
+In-Reply-To: <1480384776-8252-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Eric, Marco, all,
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Date: Tue, 29 Nov 2016 09:59:36 +0800
 
-This is JFYI and a follow-up message.
+> vxlan_fdb_append may return error, so add the proper check,
+> otherwise it will cause memory leak.
+> 
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> 
+> Changes in v2:
+>   - Unnecessary to initialize rc to zero.
 
-A further investigation was made to find out the Linux kernel commit which has
-introduced the flaw. It appeared that previous Linux kernel versions are vulnerable,
-down to v3.6-rc1. This fact was hidden by 'net.ipv4.tcp_fastopen' set to 0 by default,
-and now it is easier to notice since kernel v3.12 due to commit 0d41cca490 where the
-default was changed to 1. With 'net.ipv4.tcp_fastopen' set to 1, previous Linux
-kernels (including RHEL-7 ones) are also vulnerable.
-
-The bug is here since tcp-fastopen feature was introduced in kernel v3.6-rc1, the first
-commit when the reproducer starts to panic the kernel with net.ipv4.tcp_fastopen=1 set
-is cf60af03ca, which is a part of commit sequence 2100c8d2d9..67da22d23f introducing
-net-tcp-fastopen feature:
-
-$ git bisect bad cf60af03ca4e71134206809ea892e49b92a88896
-cf60af03ca4e71134206809ea892e49b92a88896 is the first bad commit
-commit cf60af03ca4e71134206809ea892e49b92a88896
-Author: Yuchung Cheng <ycheng@google.com>
-Date:   Thu Jul 19 06:43:09 2012 +0000
-
-So, ideally, the upstream commit ac6e780070 which fixes the bug should have
-"Fixes: cf60af03ca" statement, unfortunately, this investigation was not completed at
-the time the patch was accepted upstream. And unfortunately I do not see other way
-to add this information except making notes in a comment in the related code, which
-seems weird.
-
-Best regards,
-Vladis Dronov | Red Hat, Inc. | Product Security Engineer
+Applied, thanks.
