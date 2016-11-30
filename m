@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 03/12] mlxsw: core: Create an ordered workqueue for FIB offload
-Date: Wed, 30 Nov 2016 11:08:57 +0100
-Message-ID: <1480500546-2544-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 01/12] ipv4: fib: Export free_fib_info()
+Date: Wed, 30 Nov 2016 11:08:55 +0100
+Message-ID: <1480500546-2544-2-git-send-email-jiri@resnulli.us>
 References: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
@@ -12,112 +12,47 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35841 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33482 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754740AbcK3KJN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:09:13 -0500
-Received: by mail-wm0-f65.google.com with SMTP id m203so28537254wma.3
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 02:09:12 -0800 (PST)
+        with ESMTP id S1754355AbcK3KJK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:09:10 -0500
+Received: by mail-wm0-f65.google.com with SMTP id u144so28523153wmu.0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 02:09:10 -0800 (PST)
 In-Reply-To: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-We're going to start processing FIB entries addition / deletion events
-in deferred work. These work items must be processed in the order they
-were submitted or otherwise we can have differences between the kernel's
-FIB table and the device's.
+The FIB notification chain is going to be converted to an atomic chain,
+which means switchdev drivers will have to offload FIB entries in
+deferred work, as hardware operations entail sleeping.
 
-Solve this by creating an ordered workqueue to which these work items
-will be submitted to. Note that we can't simply convert the current
-workqueue to be ordered, as EMADs re-transmissions are also processed in
-deferred work.
+However, while the work is queued fib info might be freed, so a
+reference must be taken. To release the reference (and potentially free
+the fib info) fib_info_put() will be called, which in turn calls
+free_fib_info().
 
-Later on, we can migrate other work items to this workqueue, such as FDB
-notification processing and nexthop resolution, since they all take the
-same lock anyway.
+Export free_fib_info() so that modules will be able to invoke
+fib_info_put().
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c | 22 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/core.h |  2 ++
- 2 files changed, 24 insertions(+)
+ net/ipv4/fib_semantics.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 4dc028b..57a9884 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -77,6 +77,7 @@ static const char mlxsw_core_driver_name[] = "mlxsw_core";
- static struct dentry *mlxsw_core_dbg_root;
- 
- static struct workqueue_struct *mlxsw_wq;
-+static struct workqueue_struct *mlxsw_owq;
- 
- struct mlxsw_core_pcpu_stats {
- 	u64			trap_rx_packets[MLXSW_TRAP_ID_MAX];
-@@ -1900,6 +1901,18 @@ int mlxsw_core_schedule_dw(struct delayed_work *dwork, unsigned long delay)
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 388d3e2..c1bc1e9 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -234,6 +234,7 @@ void free_fib_info(struct fib_info *fi)
+ #endif
+ 	call_rcu(&fi->rcu, free_fib_info_rcu);
  }
- EXPORT_SYMBOL(mlxsw_core_schedule_dw);
++EXPORT_SYMBOL_GPL(free_fib_info);
  
-+int mlxsw_core_schedule_odw(struct delayed_work *dwork, unsigned long delay)
-+{
-+	return queue_delayed_work(mlxsw_owq, dwork, delay);
-+}
-+EXPORT_SYMBOL(mlxsw_core_schedule_odw);
-+
-+void mlxsw_core_flush_owq(void)
-+{
-+	flush_workqueue(mlxsw_owq);
-+}
-+EXPORT_SYMBOL(mlxsw_core_flush_owq);
-+
- static int __init mlxsw_core_module_init(void)
+ void fib_release_info(struct fib_info *fi)
  {
- 	int err;
-@@ -1907,6 +1920,12 @@ static int __init mlxsw_core_module_init(void)
- 	mlxsw_wq = alloc_workqueue(mlxsw_core_driver_name, WQ_MEM_RECLAIM, 0);
- 	if (!mlxsw_wq)
- 		return -ENOMEM;
-+	mlxsw_owq = alloc_ordered_workqueue("%s_ordered", WQ_MEM_RECLAIM,
-+					    mlxsw_core_driver_name);
-+	if (!mlxsw_owq) {
-+		err = -ENOMEM;
-+		goto err_alloc_ordered_workqueue;
-+	}
- 	mlxsw_core_dbg_root = debugfs_create_dir(mlxsw_core_driver_name, NULL);
- 	if (!mlxsw_core_dbg_root) {
- 		err = -ENOMEM;
-@@ -1915,6 +1934,8 @@ static int __init mlxsw_core_module_init(void)
- 	return 0;
- 
- err_debugfs_create_dir:
-+	destroy_workqueue(mlxsw_owq);
-+err_alloc_ordered_workqueue:
- 	destroy_workqueue(mlxsw_wq);
- 	return err;
- }
-@@ -1922,6 +1943,7 @@ static int __init mlxsw_core_module_init(void)
- static void __exit mlxsw_core_module_exit(void)
- {
- 	debugfs_remove_recursive(mlxsw_core_dbg_root);
-+	destroy_workqueue(mlxsw_owq);
- 	destroy_workqueue(mlxsw_wq);
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index e856b49..a7f94fb 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -207,6 +207,8 @@ enum devlink_port_type mlxsw_core_port_type_get(struct mlxsw_core *mlxsw_core,
- 						u8 local_port);
- 
- int mlxsw_core_schedule_dw(struct delayed_work *dwork, unsigned long delay);
-+int mlxsw_core_schedule_odw(struct delayed_work *dwork, unsigned long delay);
-+void mlxsw_core_flush_owq(void);
- 
- #define MLXSW_CONFIG_PROFILE_SWID_COUNT 8
- 
 -- 
 2.7.4
