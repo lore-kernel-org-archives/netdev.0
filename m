@@ -1,37 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: remove excessive logging on MTU
- change
-Date: Tue, 29 Nov 2016 20:50:31 -0500 (EST)
-Message-ID: <20161129.205031.2039514266183636638.davem@davemloft.net>
-References: <20161128172544.2491-1-vkuznets@redhat.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [net-next] neigh: remove duplicate check for same neigh
+Date: Tue, 29 Nov 2016 18:56:45 -0700
+Message-ID: <5e12cb25-516a-8b52-2768-eb87bca1c6f8@cumulusnetworks.com>
+References: <1480407771-12884-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+ <d641245a-8442-9238-a507-6f94184354a0@cumulusnetworks.com>
+ <000201d24aa8$f63c6500$e2b52f00$@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kys@microsoft.com, haiyangz@microsoft.com
-To: vkuznets@redhat.com
+Content-Type: text/plain; charset=gbk
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39812 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750708AbcK3Buc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:50:32 -0500
-In-Reply-To: <20161128172544.2491-1-vkuznets@redhat.com>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:36486 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751061AbcK3B4s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:56:48 -0500
+Received: by mail-pg0-f50.google.com with SMTP id f188so75567456pgc.3
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 17:56:47 -0800 (PST)
+In-Reply-To: <000201d24aa8$f63c6500$e2b52f00$@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Mon, 28 Nov 2016 18:25:44 +0100
+On 11/29/16 6:27 PM, уей╓╬ы wrote:
+> This has less changes, but I preferred to add a new function to do the
+> filter logic, this is the same as your code  @rtnl_dump_ifinfo().
 
-> When we change MTU or the number of channels on a netvsc device we get the
-> following logged:
-> 
->  hv_netvsc bf5edba8...: net device safe to remove
->  hv_netvsc: hv_netvsc channel opened successfully
->  hv_netvsc bf5edba8...: Send section size: 6144, Section count:2560
->  hv_netvsc bf5edba8...: Device MAC 00:15:5d:1e:91:12 link state up
-> 
-> This information is useful as debug at most.
-> 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-
-Applied, thanks.
+I'd prefer it to stay in line as it is now. You can save the cycles of filtering on already viewed entries without an overhaul of this code.
