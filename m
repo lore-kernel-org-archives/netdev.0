@@ -1,54 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [WIP] net+mlx4: auto doorbell
-Date: Wed, 30 Nov 2016 11:30:00 -0800
-Message-ID: <1480534200.18162.203.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20140903165943.372b897b@redhat.com>
-         <20161116131609.4e5726b4@redhat.com>
-         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
-         <20161116234022.2bad179b@redhat.com>
-         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117091638.5fab8494@redhat.com>
-         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117144248.23500001@redhat.com>
-         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117155753.17b76f5a@redhat.com>
-         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117193021.580589ae@redhat.com>
-         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161121170351.50a09ee1@redhat.com>
-         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161130123810.581ba21f@redhat.com>
-         <1480521386.18162.189.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161130201711.2f353a76@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 00/11] qed*: Add XDP support
+Date: Wed, 30 Nov 2016 14:32:21 -0500 (EST)
+Message-ID: <20161130.143221.1609717089304684754.davem@davemloft.net>
+References: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hpe.com>, netdev@vger.kernel.org,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Achiad Shochat <achiad@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33854 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754527AbcK3TbC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:31:02 -0500
-Received: by mail-pf0-f195.google.com with SMTP id y68so10618680pfb.1
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 11:31:02 -0800 (PST)
-In-Reply-To: <20161130201711.2f353a76@redhat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40478 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753657AbcK3TcX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:32:23 -0500
+In-Reply-To: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-30 at 20:17 +0100, Jesper Dangaard Brouer wrote:
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Tue, 29 Nov 2016 16:46:59 +0200
 
-> Don't take is as critique Eric.  I was hoping your patch would have
-> solved this issue of being sensitive to TX completion adjustments.  You
-> usually have good solutions for difficult issues. I basically rejected
-> Achiad's approach/patch because it was too sensitive to these kind of
-> adjustments.
+> This patch series is intended to add XDP to the qede driver, although
+> it contains quite a bit of cleanups, refactorings and infrastructure
+> changes as well.
+> 
+> The content of this series can be roughly divided into:
+> 
+>  - Datapath improvements - mostly focused on having the datapath utilize
+> parameters which can be more tightly contained in cachelines.
+> Patches #1, #2, #8, #9 belong to this group.
+> 
+>  - Refactoring - done mostly in favour of XDP. Patches #3, #4, #5, #9.
+> 
+>  - Infrastructure changes - done in favour of XDP. Paches #6 and #7 belong
+> to this category [#7 being by far the biggest patch in the series].
+> 
+>  - Actual XDP support - last two patches [#10, #11].
 
-Well, this patch can hurt latencies, because a doorbell can be delayed,
-and softirqs can be delayed by many hundred of usec in some cases.
-
-I would not enable this behavior by default.
+Series applied, thank you.
