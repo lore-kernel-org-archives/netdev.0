@@ -1,83 +1,73 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [PATCH net 04/16] net: ethernet: aurora: nb8800: fix fixed-link
- phydev leaks
-Date: Wed, 30 Nov 2016 10:36:45 +0100
-Message-ID: <583E9DAD.8090205@free.fr>
-References: <1480357509-28074-1-git-send-email-johan@kernel.org>
- <1480357509-28074-5-git-send-email-johan@kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/6] net: ethernet: ti: netcp: add support of cpts
+Date: Wed, 30 Nov 2016 10:44:41 +0100
+Message-ID: <20161130094441.GB28680@localhost.localdomain>
+References: <20161128230428.6872-1-grygorii.strashko@ti.com>
+ <20161128230428.6872-2-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joe Perches <joe@perches.com>,
-        Brian Norris <computersforpeace@gmail.com>
-To: Johan Hovold <johan@kernel.org>, Mans Rullgard <mans@mansr.com>,
-        Sebastian Frias <sf84@laposte.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480357509-28074-5-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:34307 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754190AbcK3Jos (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 04:44:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20161128230428.6872-2-grygorii.strashko@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28/11/2016 19:24, Johan Hovold wrote:
+On Mon, Nov 28, 2016 at 05:04:23PM -0600, Grygorii Strashko wrote:
+> @@ -678,6 +744,9 @@ struct gbe_priv {
+>  	int				num_et_stats;
+>  	/*  Lock for updating the hwstats */
+>  	spinlock_t			hw_stats_lock;
+> +
+> +	int                             cpts_registered;
 
-> Make sure to deregister and free any fixed-link PHY registered using
-> of_phy_register_fixed_link() on probe errors and on driver unbind.
-> 
-> Fixes: c7dfe3abf40e ("net: ethernet: nb8800: support fixed-link DT node")
-> Signed-off-by: Johan Hovold <johan@kernel.org>
-> ---
->  drivers/net/ethernet/aurora/nb8800.c | 9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
+The usage of this counter is racy.
 
-Did you use scripts/get_maintainer.pl ?
+> +	struct cpts                     *cpts;
+>  };
 
-Neither the author of the driver (Mans) nor the author of
-the code in question (Sebastian) were CCed on this patch.
+This ++ and -- business ...
 
-It looks like the CC list was truncated, the last entry being
+> +static void gbe_register_cpts(struct gbe_priv *gbe_dev)
+> +{
+> +	if (!gbe_dev->cpts)
+> +		return;
+> +
+> +	if (gbe_dev->cpts_registered > 0)
+> +		goto done;
+> +
+> +	if (cpts_register(gbe_dev->cpts)) {
+> +		dev_err(gbe_dev->dev, "error registering cpts device\n");
+> +		return;
+> +	}
+> +
+> +done:
+> +	++gbe_dev->cpts_registered;
+> +}
+> +
+> +static void gbe_unregister_cpts(struct gbe_priv *gbe_dev)
+> +{
+> +	if (!gbe_dev->cpts || (gbe_dev->cpts_registered <= 0))
+> +		return;
+> +
+> +	if (--gbe_dev->cpts_registered)
+> +		return;
+> +
+> +	cpts_unregister(gbe_dev->cpts);
+> +}
 
-  Vivien Didelot <
+is invoked from your open() and close() methods, but those methods
+are not serialized among multiple ports.
 
-Regards.
-
-
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> index 00c38bf151e6..e078d8da978c 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -1466,12 +1466,12 @@ static int nb8800_probe(struct platform_device *pdev)
->  
->  	ret = nb8800_hw_init(dev);
->  	if (ret)
-> -		goto err_free_bus;
-> +		goto err_deregister_fixed_link;
->  
->  	if (ops && ops->init) {
->  		ret = ops->init(dev);
->  		if (ret)
-> -			goto err_free_bus;
-> +			goto err_deregister_fixed_link;
->  	}
->  
->  	dev->netdev_ops = &nb8800_netdev_ops;
-> @@ -1504,6 +1504,9 @@ static int nb8800_probe(struct platform_device *pdev)
->  
->  err_free_dma:
->  	nb8800_dma_free(dev);
-> +err_deregister_fixed_link:
-> +	if (of_phy_is_fixed_link(pdev->dev.of_node))
-> +		of_phy_deregister_fixed_link(pdev->dev.of_node);
->  err_free_bus:
->  	of_node_put(priv->phy_node);
->  	mdiobus_unregister(bus);
-> @@ -1521,6 +1524,8 @@ static int nb8800_remove(struct platform_device *pdev)
->  	struct nb8800_priv *priv = netdev_priv(ndev);
->  
->  	unregister_netdev(ndev);
-> +	if (of_phy_is_fixed_link(pdev->dev.of_node))
-> +		of_phy_deregister_fixed_link(pdev->dev.of_node);
->  	of_node_put(priv->phy_node);
->  
->  	mdiobus_unregister(priv->mii_bus);
+Thanks,
+Richard
