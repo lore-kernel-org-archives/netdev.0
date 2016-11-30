@@ -1,108 +1,193 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Regression: [PATCH] mlx4: give precise rx/tx bytes/packets counters
-Date: Wed, 30 Nov 2016 15:08:39 +0100
-Message-ID: <20161130150839.5203ece0@redhat.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Neill Whillans <neill.whillans@codethink.co.uk>
+Subject: [PATCH 2/2] net: ethernet: altera_tse: add support for SGMII PCS
+Date: Wed, 30 Nov 2016 13:41:05 +0000
+Message-ID: <f5e74eafa8ebc70bcab1ef7982c5d027c3e1b4c4.1480497966.git.neill.whillans@codethink.co.uk>
+References: <cover.1480497966.git.neill.whillans@codethink.co.uk>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-kernel@lists.codethink.co.uk,
+        nios2-dev@lists.rocketboards.org, vbridger@opensource.altera.com,
+        f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40724 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753639AbcK3OIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 09:08:43 -0500
-In-Reply-To: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from imap0.codethink.co.uk ([185.43.218.159]:43535 "EHLO
+        imap0.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757575AbcK3OOF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 09:14:05 -0500
+In-Reply-To: <cover.1480497966.git.neill.whillans@codethink.co.uk>
+In-Reply-To: <cover.1480497966.git.neill.whillans@codethink.co.uk>
+References: <cover.1480497966.git.neill.whillans@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add support for the (optional) SGMII PCS functionality of the Altera
+TSE MAC. If the phy-mode is set to 'sgmii' then we attempt to discover
+and initialise the PCS so that the MAC can communicate to the PHY.
 
-On Fri, 25 Nov 2016 07:46:20 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+The PCS IP block provides a scratch register for testing presence of
+the PCS, which is mapped into one of the two MDIO spaces present in
+the MAC's register space.  Once we have determined that the scratch
+register is functioning, we attempt to initialise the PCS to
+auto-negotiate an SGMII link with the PHY. There is no need to monitor
+or manage the SGMII link beyond this, since the normal PHY MDIO will
+then be used to monitor the media layer.
 
-> From: Eric Dumazet <edumazet@google.com>
+The Altera TSE MAC has only one way in which it can be configured with an
+SGMII PCS, and as such, this patch only looks to the phy-mode to select
+whether or not to attempt to initialise the PCS registers.  During
+initialisation, we report the PCS's equivalent of a PHY ID register.
+This can be parameterised during the IP instantiation and is often left
+as '0x00000000' which is not an error.
 
-Ended up-in net-next as:
+Signed-off-by: Neill Whillans <neill.whillans@codethink.co.uk>
+Reviewed-by: Daniel Silverstone <daniel.silverstone@codethink.co.uk>
+---
+ drivers/net/ethernet/altera/altera_tse.h      | 11 ++++
+ drivers/net/ethernet/altera/altera_tse_main.c | 91 +++++++++++++++++++++++++++
+ 2 files changed, 102 insertions(+)
 
- commit 40931b85113dad7881d49e8759e5ad41d30a5e6c
- Author: Eric Dumazet <edumazet@google.com>
- Date:   Fri Nov 25 07:46:20 2016 -0800
-
-    mlx4: give precise rx/tx bytes/packets counters
-    
-    mlx4 stats are chaotic because a deferred work queue is responsible
-    to update them every 250 ms.
-
-Likely after this patch I get this crash (below), when rebooting my machine.
-Looks like a device removal order thing.
-Tested with net-next at commit 93ba22225504.   
-
-[...]
-[ 1967.248453] mlx5_core 0000:02:00.1: Shutdown was called
-[ 1967.854556] mlx5_core 0000:02:00.0: Shutdown was called
-[ 1968.443015] e1000e: EEE TX LPI TIMER: 00000011
-[ 1968.484676] sd 3:0:0:0: [sda] Synchronizing SCSI cache
-[ 1968.528354] mlx4_core 0000:01:00.0: mlx4_shutdown was called
-[ 1968.534054] mlx4_en: mlx4p1: Close port called
-[ 1968.571156] mlx4_en 0000:01:00.0: removed PHC
-[ 1968.575677] mlx4_en: mlx4p2: Close port called
-[ 1969.506602] BUG: unable to handle kernel NULL pointer dereference at 0000000000000d08
-[ 1969.514530] IP: [<ffffffffa0127ca4>] mlx4_en_fold_software_stats.part.1+0x34/0xb0 [mlx4_en]
-[ 1969.522963] PGD 0 [ 1969.524803] 
-[ 1969.526332] Oops: 0000 [#1] PREEMPT SMP
-[ 1969.530201] Modules linked in: coretemp kvm_intel kvm irqbypass intel_cstate mxm_wmi i2c_i801 intel_rapl_perf i2c_smbus sg pcspkr i2c_core shpchp nfsd wmi video acpi_pad auth_rpcgss oid_registry nfs_acl lockd grace sunrpc ip_tables x_tables mlx4_en e1000e mlx5_core ptp serio_raw sd_mod mlx4_core pps_core devlink hid_generic
-[ 1969.559616] CPU: 3 PID: 3104 Comm: kworker/3:1 Not tainted 4.9.0-rc6-net-next3-01390-g93ba22225504 #12
-[ 1969.568984] Hardware name: To Be Filled By O.E.M. To Be Filled By O.E.M./Z97 Extreme4, BIOS P2.10 05/12/2015
-[ 1969.578877] Workqueue: events linkwatch_event
-[ 1969.583285] task: ffff8803f42a0000 task.stack: ffff88040b2d0000
-[ 1969.589238] RIP: 0010:[<ffffffffa0127ca4>]  [<ffffffffa0127ca4>] mlx4_en_fold_software_stats.part.1+0x34/0xb0 [mlx4_en]
-[ 1969.600102] RSP: 0018:ffff88040b2d3bd8  EFLAGS: 00010282
-[ 1969.605442] RAX: ffff8803f432efc8 RBX: ffff8803f4320000 RCX: 0000000000000000
-[ 1969.612604] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff8803f4320000
-[ 1969.619772] RBP: ffff88040b2d3bd8 R08: 000000000000000c R09: ffff8803f432f000
-[ 1969.626938] R10: 0000000000000000 R11: ffff88040d64ac00 R12: ffff8803e5aff8dc
-[ 1969.634104] R13: ffff8803f4320a28 R14: ffff8803e5aff800 R15: 0000000000000000
-[ 1969.641273] FS:  0000000000000000(0000) GS:ffff88041fac0000(0000) knlGS:0000000000000000
-[ 1969.649422] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[ 1969.655197] CR2: 0000000000000d08 CR3: 0000000001c07000 CR4: 00000000001406e0
-[ 1969.662366] Stack:
-[ 1969.664412]  ffff88040b2d3be8 ffffffffa0127f8e ffff88040b2d3c10 ffffffffa012a23b
-[ 1969.671948]  ffff8803e5aff8dc ffff8803f4320000 ffff8803f4320000 ffff88040b2d3c30
-[ 1969.679478]  ffffffff8160ae29 ffff8803e5aff8d8 ffff8804088ff300 ffff88040b2d3c58
-[ 1969.687001] Call Trace:
-[ 1969.689484]  [<ffffffffa0127f8e>] mlx4_en_fold_software_stats+0x1e/0x20 [mlx4_en]
-[ 1969.697026]  [<ffffffffa012a23b>] mlx4_en_get_stats64+0x2b/0x50 [mlx4_en]
-[ 1969.703844]  [<ffffffff8160ae29>] dev_get_stats+0x39/0xa0
-[ 1969.709274]  [<ffffffff81622470>] rtnl_fill_stats+0x40/0x130
-[ 1969.714968]  [<ffffffff8162631b>] rtnl_fill_ifinfo+0x55b/0x1010
-[ 1969.720921]  [<ffffffff816285d3>] rtmsg_ifinfo_build_skb+0x73/0xd0
-[ 1969.727136]  [<ffffffff81628646>] rtmsg_ifinfo.part.25+0x16/0x50
-[ 1969.733176]  [<ffffffff81628698>] rtmsg_ifinfo+0x18/0x20
-[ 1969.738522]  [<ffffffff8160e947>] netdev_state_change+0x47/0x50
-[ 1969.744478]  [<ffffffff81629018>] linkwatch_do_dev+0x38/0x50
-[ 1969.750170]  [<ffffffff81629257>] __linkwatch_run_queue+0xe7/0x160
-[ 1969.756385]  [<ffffffff816292f5>] linkwatch_event+0x25/0x30
-[ 1969.761991]  [<ffffffff8107b3cb>] process_one_work+0x15b/0x460
-[ 1969.767857]  [<ffffffff8107b71e>] worker_thread+0x4e/0x480
-[ 1969.773378]  [<ffffffff8107b6d0>] ? process_one_work+0x460/0x460
-[ 1969.779420]  [<ffffffff8107b6d0>] ? process_one_work+0x460/0x460
-[ 1969.785460]  [<ffffffff810811ea>] kthread+0xca/0xe0
-[ 1969.790372]  [<ffffffff81081120>] ? kthread_worker_fn+0x120/0x120
-[ 1969.796495]  [<ffffffff817302d2>] ret_from_fork+0x22/0x30
-[ 1969.801924] Code: 00 00 55 48 89 e5 85 d2 0f 84 90 00 00 00 83 ea 01 31 c9 31 f6 48 8d 87 c0 ef 00 00 4c 8d 8c d7 c8 ef 00 00 48 8b 10 48 83 c0 08 <4c> 8b 82 08 0d 00 00 48 8b 92 00 0d 00 00 4c 01 c6 48 01 d1 4c 
-[ 1969.821969] RIP  [<ffffffffa0127ca4>] mlx4_en_fold_software_stats.part.1+0x34/0xb0 [mlx4_en]
-[ 1969.830486]  RSP <ffff88040b2d3bd8>
-[ 1969.834002] CR2: 0000000000000d08
-[ 1969.837440] ---[ end trace 80b9fbc1e7baed9b ]---
-[ 1969.842102] Kernel panic - not syncing: Fatal exception in interrupt
-[ 1969.848520] Kernel Offset: disabled
-[ 1969.852050] ---[ end Kernel panic - not syncing: Fatal exception in interrupt
-(END)
-
+diff --git a/drivers/net/ethernet/altera/altera_tse.h b/drivers/net/ethernet/altera/altera_tse.h
+index e005200..446e778 100644
+--- a/drivers/net/ethernet/altera/altera_tse.h
++++ b/drivers/net/ethernet/altera/altera_tse.h
+@@ -120,6 +120,17 @@
+ #define MAC_CMDCFG_DISABLE_READ_TIMEOUT_GET(v)	GET_BIT_VALUE(v, 27)
+ #define MAC_CMDCFG_CNT_RESET_GET(v)		GET_BIT_VALUE(v, 31)
+ 
++/* SGMII PCS register addresses
++ */
++#define SGMII_PCS_SCRATCH	0x10
++#define SGMII_PCS_REV		0x11
++#define SGMII_PCS_LINK_TIMER_0	0x12
++#define SGMII_PCS_LINK_TIMER_1	0x13
++#define SGMII_PCS_IF_MODE	0x14
++#define SGMII_PCS_DIS_READ_TO	0x15
++#define SGMII_PCS_READ_TO	0x16
++#define SGMII_PCS_SW_RESET_TIMEOUT 100 /* usecs */
++
+ /* MDIO registers within MAC register Space
+  */
+ struct altera_tse_mdio {
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index bda31f3..afecdd1 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -37,6 +37,7 @@
+ #include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
++#include <linux/mii.h>
+ #include <linux/netdevice.h>
+ #include <linux/of_device.h>
+ #include <linux/of_mdio.h>
+@@ -96,6 +97,27 @@ static inline u32 tse_tx_avail(struct altera_tse_private *priv)
+ 	return priv->tx_cons + priv->tx_ring_size - priv->tx_prod - 1;
+ }
+ 
++/* PCS Register read/write functions
++ */
++static u16 sgmii_pcs_read(struct altera_tse_private *priv, int regnum)
++{
++	return csrrd32(priv->mac_dev,
++		       tse_csroffs(mdio_phy0) + regnum * 4) & 0xffff;
++}
++
++static void sgmii_pcs_write(struct altera_tse_private *priv, int regnum,
++				u16 value)
++{
++	csrwr32(value, priv->mac_dev, tse_csroffs(mdio_phy0) + regnum * 4);
++}
++
++/* Check PCS scratch memory */
++static int sgmii_pcs_scratch_test(struct altera_tse_private *priv, u16 value)
++{
++	sgmii_pcs_write(priv, SGMII_PCS_SCRATCH, value);
++	return (sgmii_pcs_read(priv, SGMII_PCS_SCRATCH) == value);
++}
++
+ /* MDIO specific functions
+  */
+ static int altera_tse_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+@@ -1092,6 +1114,66 @@ static void tse_set_rx_mode(struct net_device *dev)
+ 	spin_unlock(&priv->mac_cfg_lock);
+ }
+ 
++/* Initialise (if necessary) the SGMII PCS component
++ */
++static int init_sgmii_pcs(struct net_device *dev)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	int n;
++	unsigned int tmp_reg = 0;
++
++	if (priv->phy_iface != PHY_INTERFACE_MODE_SGMII)
++		return 0; /* Nothing to do, not in SGMII mode */
++
++	/* The TSE SGMII PCS block looks a little like a PHY, it is
++	 * mapped into the zeroth MDIO space of the MAC and it has
++	 * ID registers like a PHY would.  Sadly this is often
++	 * configured to zeroes, so don't be surprised if it does
++	 * show 0x00000000.
++	 */
++
++	if (sgmii_pcs_scratch_test(priv, 0x0000) &&
++		sgmii_pcs_scratch_test(priv, 0xffff) &&
++		sgmii_pcs_scratch_test(priv, 0xa5a5) &&
++		sgmii_pcs_scratch_test(priv, 0x5a5a)) {
++		netdev_info(dev, "PCS PHY ID: 0x%04x%04x\n",
++				sgmii_pcs_read(priv, MII_PHYSID1),
++				sgmii_pcs_read(priv, MII_PHYSID2));
++	} else {
++		netdev_err(dev, "SGMII PCS Scratch memory test failed.\n");
++		return -ENOMEM;
++	}
++
++	/* Starting on page 5-29 of the MegaCore Function User Guide
++	 * Set SGMII Link timer to 1.6ms
++	 */
++	sgmii_pcs_write(priv, SGMII_PCS_LINK_TIMER_0, 0x0D40);
++	sgmii_pcs_write(priv, SGMII_PCS_LINK_TIMER_1, 0x03);
++
++	/* Enable SGMII Interface and Enable SGMII Auto Negotiation */
++	sgmii_pcs_write(priv, SGMII_PCS_IF_MODE, 0x3);
++
++	/* Enable Autonegotiation */
++	tmp_reg = sgmii_pcs_read(priv, MII_BMCR);
++	tmp_reg |= (BMCR_SPEED1000 | BMCR_FULLDPLX | BMCR_ANENABLE);
++	sgmii_pcs_write(priv, MII_BMCR, tmp_reg);
++
++	/* Reset PCS block */
++	tmp_reg |= BMCR_RESET;
++	sgmii_pcs_write(priv, MII_BMCR, tmp_reg);
++	for (n = 0; n < SGMII_PCS_SW_RESET_TIMEOUT; n++) {
++		if (!(sgmii_pcs_read(priv, MII_BMCR) & BMCR_RESET)) {
++			netdev_info(dev, "SGMII PCS block initialised OK\n");
++			return 0;
++		}
++		udelay(1);
++	}
++
++	/* We failed to reset the block, return a timeout */
++	netdev_err(dev, "SGMII PCS block reset failed.\n");
++	return -ETIMEDOUT;
++}
++
+ /* Open and initialize the interface
+  */
+ static int tse_open(struct net_device *dev)
+@@ -1116,6 +1198,15 @@ static int tse_open(struct net_device *dev)
+ 		netdev_warn(dev, "TSE revision %x\n", priv->revision);
+ 
+ 	spin_lock(&priv->mac_cfg_lock);
++	/* no-op if MAC not operating in SGMII mode*/
++	ret = init_sgmii_pcs(dev);
++	if (ret) {
++		netdev_err(dev,
++			   "Cannot init the SGMII PCS (error: %d)\n", ret);
++		spin_unlock(&priv->mac_cfg_lock);
++		goto phy_error;
++	}
++
+ 	ret = reset_mac(priv);
+ 	/* Note that reset_mac will fail if the clocks are gated by the PHY
+ 	 * due to the PHY being put into isolation or power down mode.
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.1.4
