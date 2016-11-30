@@ -1,199 +1,124 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/11] netfilter: nat: switch to new rhlist interface
-Date: Wed, 30 Nov 2016 22:57:20 +0100
-Message-ID: <1480543045-3389-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/11] netfilter: nf_tables: fix inconsistent element expiration calculation
+Date: Wed, 30 Nov 2016 22:57:21 +0100
+Message-ID: <1480543045-3389-8-git-send-email-pablo@netfilter.org>
 References: <1480543045-3389-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42156 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754830AbcK3V5q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 16:57:46 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 46A3C13C0EB
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:44 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 33D4DDA86E
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:44 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 28F03DA861
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:42 +0100 (CET)
 In-Reply-To: <1480543045-3389-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: "Anders K. Pedersen" <akp@cohaesio.com>
 
-I got offlist bug report about failing connections and high cpu usage.
-This happens because we hit 'elasticity' checks in rhashtable that
-refuses bucket list exceeding 16 entries.
+As Liping Zhang reports, after commit a8b1e36d0d1d ("netfilter: nft_dynset:
+fix element timeout for HZ != 1000"), priv->timeout was stored in jiffies,
+while set->timeout was stored in milliseconds. This is inconsistent and
+incorrect.
 
-The nat bysrc hash unfortunately needs to insert distinct objects that
-share same key and are identical (have same source tuple), this cannot
-be avoided.
+Firstly, we already call msecs_to_jiffies in nft_set_elem_init, so
+priv->timeout will be converted to jiffies twice.
 
-Switch to the rhlist interface which is designed for this.
+Secondly, if the user did not specify the NFTA_DYNSET_TIMEOUT attr,
+set->timeout will be used, but we forget to call msecs_to_jiffies
+when do update elements.
 
-The nulls_base is removed here, I don't think its needed:
+Fix this by using jiffies internally for traditional sets and doing the
+conversions to/from msec when interacting with userspace - as dynset
+already does.
 
-A (unlikely) false positive results in unneeded port clash resolution,
-a false negative results in packet drop during conntrack confirmation,
-when we try to insert the duplicate into main conntrack hash table.
+This is preferable to doing the conversions, when elements are inserted or
+updated, because this can happen very frequently on busy dynsets.
 
-Tested by adding multiple ip addresses to host, then adding
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-
-... and then creating multiple connections, from same source port but
-different addresses:
-
-for i in $(seq 2000 2032);do nc -p 1234 192.168.7.1 $i > /dev/null  & done
-
-(all of these then get hashed to same bysource slot)
-
-Then, to test that nat conflict resultion is working:
-
-nc -s 10.0.0.1 -p 1234 192.168.7.1 2000
-nc -s 10.0.0.2 -p 1234 192.168.7.1 2000
-
-tcp  .. src=10.0.0.1 dst=192.168.7.1 sport=1234 dport=2000 src=192.168.7.1 dst=192.168.7.10 sport=2000 dport=1024 [ASSURED]
-tcp  .. src=10.0.0.2 dst=192.168.7.1 sport=1234 dport=2000 src=192.168.7.1 dst=192.168.7.10 sport=2000 dport=1025 [ASSURED]
-tcp  .. src=192.168.7.10 dst=192.168.7.1 sport=1234 dport=2000 src=192.168.7.1 dst=192.168.7.10 sport=2000 dport=1234 [ASSURED]
-tcp  .. src=192.168.7.10 dst=192.168.7.1 sport=1234 dport=2001 src=192.168.7.1 dst=192.168.7.10 sport=2001 dport=1234 [ASSURED]
-[..]
-
--> nat altered source ports to 1024 and 1025, respectively.
-This can also be confirmed on destination host which shows
-ESTAB      0      0   192.168.7.1:2000      192.168.7.10:1024
-ESTAB      0      0   192.168.7.1:2000      192.168.7.10:1025
-ESTAB      0      0   192.168.7.1:2000      192.168.7.10:1234
-
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Fixes: 870190a9ec907 ("netfilter: nat: convert nat bysrc hash to rhashtable")
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Fixes: a8b1e36d0d1d ("netfilter: nft_dynset: fix element timeout for HZ != 1000")
+Reported-by: Liping Zhang <zlpnobody@gmail.com>
+Signed-off-by: Anders K. Pedersen <akp@cohaesio.com>
+Acked-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack.h |  2 +-
- net/netfilter/nf_nat_core.c          | 40 +++++++++++++++++++++---------------
- 2 files changed, 25 insertions(+), 17 deletions(-)
+ include/net/netfilter/nf_tables.h |  2 +-
+ net/netfilter/nf_tables_api.c     | 14 +++++++++-----
+ 2 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 50418052a520..dc143ada9762 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -118,7 +118,7 @@ struct nf_conn {
- 	struct nf_ct_ext *ext;
- 
- #if IS_ENABLED(CONFIG_NF_NAT)
--	struct rhash_head	nat_bysource;
-+	struct rhlist_head nat_bysource;
- #endif
- 	/* Storage reserved for other modules, must be the last member */
- 	union nf_conntrack_proto proto;
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index c632429706eb..5b9c884a452e 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -42,7 +42,7 @@ struct nf_nat_conn_key {
- 	const struct nf_conntrack_zone *zone;
- };
- 
--static struct rhashtable nf_nat_bysource_table;
-+static struct rhltable nf_nat_bysource_table;
- 
- inline const struct nf_nat_l3proto *
- __nf_nat_l3proto_find(u8 family)
-@@ -207,7 +207,6 @@ static struct rhashtable_params nf_nat_bysource_params = {
- 	.obj_cmpfn = nf_nat_bysource_cmp,
- 	.nelem_hint = 256,
- 	.min_size = 1024,
--	.nulls_base = (1U << RHT_BASE_SHIFT),
- };
- 
- /* Only called for SRC manip */
-@@ -226,12 +225,15 @@ find_appropriate_src(struct net *net,
- 		.tuple = tuple,
- 		.zone = zone
- 	};
-+	struct rhlist_head *hl;
- 
--	ct = rhashtable_lookup_fast(&nf_nat_bysource_table, &key,
--				    nf_nat_bysource_params);
--	if (!ct)
-+	hl = rhltable_lookup(&nf_nat_bysource_table, &key,
-+			     nf_nat_bysource_params);
-+	if (!hl)
- 		return 0;
- 
-+	ct = container_of(hl, typeof(*ct), nat_bysource);
-+
- 	nf_ct_invert_tuplepr(result,
- 			     &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
- 	result->dst = tuple->dst;
-@@ -449,11 +451,17 @@ nf_nat_setup_info(struct nf_conn *ct,
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index d79d1e9b9546..b02af0bf5777 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -313,7 +313,7 @@ void nft_unregister_set(struct nft_set_ops *ops);
+  * 	@size: maximum set size
+  * 	@nelems: number of elements
+  * 	@ndeact: number of deactivated elements queued for removal
+- * 	@timeout: default timeout value in msecs
++ *	@timeout: default timeout value in jiffies
+  * 	@gc_int: garbage collection interval in msecs
+  *	@policy: set parameterization (see enum nft_set_policies)
+  *	@udlen: user data length
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 026581b04ea8..e5194f6f906c 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -2570,7 +2570,8 @@ static int nf_tables_fill_set(struct sk_buff *skb, const struct nft_ctx *ctx,
  	}
  
- 	if (maniptype == NF_NAT_MANIP_SRC) {
-+		struct nf_nat_conn_key key = {
-+			.net = nf_ct_net(ct),
-+			.tuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
-+			.zone = nf_ct_zone(ct),
-+		};
- 		int err;
- 
--		err = rhashtable_insert_fast(&nf_nat_bysource_table,
--					     &ct->nat_bysource,
--					     nf_nat_bysource_params);
-+		err = rhltable_insert_key(&nf_nat_bysource_table,
-+					  &key,
-+					  &ct->nat_bysource,
-+					  nf_nat_bysource_params);
- 		if (err)
- 			return NF_DROP;
+ 	if (set->timeout &&
+-	    nla_put_be64(skb, NFTA_SET_TIMEOUT, cpu_to_be64(set->timeout),
++	    nla_put_be64(skb, NFTA_SET_TIMEOUT,
++			 cpu_to_be64(jiffies_to_msecs(set->timeout)),
+ 			 NFTA_SET_PAD))
+ 		goto nla_put_failure;
+ 	if (set->gc_int &&
+@@ -2859,7 +2860,8 @@ static int nf_tables_newset(struct net *net, struct sock *nlsk,
+ 	if (nla[NFTA_SET_TIMEOUT] != NULL) {
+ 		if (!(flags & NFT_SET_TIMEOUT))
+ 			return -EINVAL;
+-		timeout = be64_to_cpu(nla_get_be64(nla[NFTA_SET_TIMEOUT]));
++		timeout = msecs_to_jiffies(be64_to_cpu(nla_get_be64(
++						nla[NFTA_SET_TIMEOUT])));
  	}
-@@ -570,8 +578,8 @@ static int nf_nat_proto_clean(struct nf_conn *ct, void *data)
- 	 * will delete entry from already-freed table.
- 	 */
- 	ct->status &= ~IPS_NAT_DONE_MASK;
--	rhashtable_remove_fast(&nf_nat_bysource_table, &ct->nat_bysource,
--			       nf_nat_bysource_params);
-+	rhltable_remove(&nf_nat_bysource_table, &ct->nat_bysource,
-+			nf_nat_bysource_params);
+ 	gc_int = 0;
+ 	if (nla[NFTA_SET_GC_INTERVAL] != NULL) {
+@@ -3178,7 +3180,8 @@ static int nf_tables_fill_setelem(struct sk_buff *skb,
  
- 	/* don't delete conntrack.  Although that would make things a lot
- 	 * simpler, we'd end up flushing all conntracks on nat rmmod.
-@@ -701,8 +709,8 @@ static void nf_nat_cleanup_conntrack(struct nf_conn *ct)
- 	if (!nat)
- 		return;
+ 	if (nft_set_ext_exists(ext, NFT_SET_EXT_TIMEOUT) &&
+ 	    nla_put_be64(skb, NFTA_SET_ELEM_TIMEOUT,
+-			 cpu_to_be64(*nft_set_ext_timeout(ext)),
++			 cpu_to_be64(jiffies_to_msecs(
++						*nft_set_ext_timeout(ext))),
+ 			 NFTA_SET_ELEM_PAD))
+ 		goto nla_put_failure;
  
--	rhashtable_remove_fast(&nf_nat_bysource_table, &ct->nat_bysource,
--			       nf_nat_bysource_params);
-+	rhltable_remove(&nf_nat_bysource_table, &ct->nat_bysource,
-+			nf_nat_bysource_params);
- }
+@@ -3447,7 +3450,7 @@ void *nft_set_elem_init(const struct nft_set *set,
+ 		memcpy(nft_set_ext_data(ext), data, set->dlen);
+ 	if (nft_set_ext_exists(ext, NFT_SET_EXT_EXPIRATION))
+ 		*nft_set_ext_expiration(ext) =
+-			jiffies + msecs_to_jiffies(timeout);
++			jiffies + timeout;
+ 	if (nft_set_ext_exists(ext, NFT_SET_EXT_TIMEOUT))
+ 		*nft_set_ext_timeout(ext) = timeout;
  
- static struct nf_ct_ext_type nat_extend __read_mostly = {
-@@ -837,13 +845,13 @@ static int __init nf_nat_init(void)
- {
- 	int ret;
- 
--	ret = rhashtable_init(&nf_nat_bysource_table, &nf_nat_bysource_params);
-+	ret = rhltable_init(&nf_nat_bysource_table, &nf_nat_bysource_params);
- 	if (ret)
- 		return ret;
- 
- 	ret = nf_ct_extend_register(&nat_extend);
- 	if (ret < 0) {
--		rhashtable_destroy(&nf_nat_bysource_table);
-+		rhltable_destroy(&nf_nat_bysource_table);
- 		printk(KERN_ERR "nf_nat_core: Unable to register extension\n");
- 		return ret;
+@@ -3535,7 +3538,8 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+ 	if (nla[NFTA_SET_ELEM_TIMEOUT] != NULL) {
+ 		if (!(set->flags & NFT_SET_TIMEOUT))
+ 			return -EINVAL;
+-		timeout = be64_to_cpu(nla_get_be64(nla[NFTA_SET_ELEM_TIMEOUT]));
++		timeout = msecs_to_jiffies(be64_to_cpu(nla_get_be64(
++					nla[NFTA_SET_ELEM_TIMEOUT])));
+ 	} else if (set->flags & NFT_SET_TIMEOUT) {
+ 		timeout = set->timeout;
  	}
-@@ -867,7 +875,7 @@ static int __init nf_nat_init(void)
- 	return 0;
- 
-  cleanup_extend:
--	rhashtable_destroy(&nf_nat_bysource_table);
-+	rhltable_destroy(&nf_nat_bysource_table);
- 	nf_ct_extend_unregister(&nat_extend);
- 	return ret;
- }
-@@ -886,7 +894,7 @@ static void __exit nf_nat_cleanup(void)
- 	for (i = 0; i < NFPROTO_NUMPROTO; i++)
- 		kfree(nf_nat_l4protos[i]);
- 
--	rhashtable_destroy(&nf_nat_bysource_table);
-+	rhltable_destroy(&nf_nat_bysource_table);
- }
- 
- MODULE_LICENSE("GPL");
 -- 
 2.1.4
-
