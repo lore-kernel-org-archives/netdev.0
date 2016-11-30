@@ -1,99 +1,46 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] bpf: BPF for lightweight tunnel
- infrastructure
-Date: Wed, 30 Nov 2016 08:57:25 -0800
-Message-ID: <583F04F5.3030908@gmail.com>
-References: <cover.1480424542.git.tgraf@suug.ch>
- <7cc79a82e49996a9ebbff861af471018fdf118fb.1480424542.git.tgraf@suug.ch>
- <20161130001504.GA28238@ast-mbp.thefacebook.com> <583E3EF4.7030107@gmail.com>
- <20161130053735.GB31581@ast-mbp.thefacebook.com>
+From: Vladis Dronov <vdronov@redhat.com>
+Subject: Re: BUG() can be hit in tcp_collapse()
+Date: Wed, 30 Nov 2016 12:00:17 -0500 (EST)
+Message-ID: <1418136049.827916.1480525217226.JavaMail.zimbra@redhat.com>
+References: <1623420310.11961160.1478789246631.JavaMail.zimbra@redhat.com> <1478792652.8455.3.camel@edumazet-glaptop3.roam.corp.google.com> <1478805992.8455.20.camel@edumazet-glaptop3.roam.corp.google.com> <1478807366.8455.21.camel@edumazet-glaptop3.roam.corp.google.com> <1478808780.8455.23.camel@edumazet-glaptop3.roam.corp.google.com> <1716309808.12143903.1478869689618.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
-        netdev@vger.kernel.org, daniel@iogearbox.net, tom@herbertland.com,
-        roopa@cumulusnetworks.com, hannes@stressinduktion.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:32852 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754171AbcK3Q5l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:57:41 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 144so10485263pfv.0
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 08:57:40 -0800 (PST)
-In-Reply-To: <20161130053735.GB31581@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
+        Marco Grassi <marco.gra@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1716309808.12143903.1478869689618.JavaMail.zimbra@redhat.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-11-29 09:37 PM, Alexei Starovoitov wrote:
-> On Tue, Nov 29, 2016 at 06:52:36PM -0800, John Fastabend wrote:
->> On 16-11-29 04:15 PM, Alexei Starovoitov wrote:
->>> On Tue, Nov 29, 2016 at 02:21:22PM +0100, Thomas Graf wrote:
->>>> Registers new BPF program types which correspond to the LWT hooks:
->>>>   - BPF_PROG_TYPE_LWT_IN   => dst_input()
->>>>   - BPF_PROG_TYPE_LWT_OUT  => dst_output()
->>>>   - BPF_PROG_TYPE_LWT_XMIT => lwtunnel_xmit()
->>>>
->>>> The separate program types are required to differentiate between the
->>>> capabilities each LWT hook allows:
->>>>
->>>>  * Programs attached to dst_input() or dst_output() are restricted and
->>>>    may only read the data of an skb. This prevent modification and
->>>>    possible invalidation of already validated packet headers on receive
->>>>    and the construction of illegal headers while the IP headers are
->>>>    still being assembled.
->>>>
->>>>  * Programs attached to lwtunnel_xmit() are allowed to modify packet
->>>>    content as well as prepending an L2 header via a newly introduced
->>>>    helper bpf_skb_push(). This is safe as lwtunnel_xmit() is invoked
->>>>    after the IP header has been assembled completely.
->>>>
->>>> All BPF programs receive an skb with L3 headers attached and may return
->>>> one of the following error codes:
->>>>
->>>>  BPF_OK - Continue routing as per nexthop
->>>>  BPF_DROP - Drop skb and return EPERM
->>>>  BPF_REDIRECT - Redirect skb to device as per redirect() helper.
->>>>                 (Only valid in lwtunnel_xmit() context)
->>>>
->>>> The return codes are binary compatible with their TC_ACT_
->>>> relatives to ease compatibility.
->>>>
->>>> Signed-off-by: Thomas Graf <tgraf@suug.ch>
->>> ...
->>>> +#define LWT_BPF_MAX_HEADROOM 128
->>>
->>> why 128?
->>> btw I'm thinking for XDP to use 256, so metadata can be stored in there.
->>>
->>
->> hopefully not too off-topic but for XDP I would like to see this get
-> 
-> definitely off-topic. lwt->headroom is existing concept. Too late
-> to do anything about it.
-> 
->> passed down with the program. It would be more generic and drivers could
->> configure the headroom on demand and more importantly verify that a
->> program pushing data is not going to fail at runtime.
-> 
-> For xdp I think it will be problematic, since we'd have to check for
-> that value at prog array access to make sure tailcalls are not broken.
-> Mix and match won't be possible.
-> So what does 'configure the headroom on demand' buys us?
-> Isn't it much easier to tell all drivers "always reserve this much" ?
-> We burn the page anyway.
-> If it's configurable per driver, then we'd need an api
-> to retrieve it. Yet the program author doesn't care what the value is.
-> If program needs to do udp encap, it will try do it. No matter what.
-> If xdp_adjust_head() helper fails, the program will likely decide
-> to drop the packet. In some cases it may decide to punt to stack
-> for further processing, but for high performance dataplane code
-> it's highly unlikely.
-> If it's configurable to something that is not cache line boundary
-> hw dma performance may suffer and so on.
-> So I see only cons in such 'configurable headroom' and propose
-> to have fixed 256 bytes headroom for XDP
-> which is enough for any sensible encap and metadata.
-> 
+Hello, Eric, Marco, all,
 
-OK I'm convinced let it be fixed at some conservative value.
+This is JFYI and a follow-up message.
+
+A further investigation was made to find out the Linux kernel commit which has
+introduced the flaw. It appeared that previous Linux kernel versions are vulnerable,
+down to v3.6-rc1. This fact was hidden by 'net.ipv4.tcp_fastopen' set to 0 by default,
+and now it is easier to notice since kernel v3.12 due to commit 0d41cca490 where the
+default was changed to 1. With 'net.ipv4.tcp_fastopen' set to 1, previous Linux
+kernels (including RHEL-7 ones) are also vulnerable.
+
+The bug is here since tcp-fastopen feature was introduced in kernel v3.6-rc1, the first
+commit when the reproducer starts to panic the kernel with net.ipv4.tcp_fastopen=1 set
+is cf60af03ca, which is a part of commit sequence 2100c8d2d9..67da22d23f introducing
+net-tcp-fastopen feature:
+
+$ git bisect bad cf60af03ca4e71134206809ea892e49b92a88896
+cf60af03ca4e71134206809ea892e49b92a88896 is the first bad commit
+commit cf60af03ca4e71134206809ea892e49b92a88896
+Author: Yuchung Cheng <ycheng@google.com>
+Date:   Thu Jul 19 06:43:09 2012 +0000
+
+So, ideally, the upstream commit ac6e780070 which fixes the bug should have
+"Fixes: cf60af03ca" statement, unfortunately, this investigation was not completed at
+the time the patch was accepted upstream. And unfortunately I do not see other way
+to add this information except making notes in a comment in the related code, which
+seems weird.
+
+Best regards,
+Vladis Dronov | Red Hat, Inc. | Product Security Engineer
