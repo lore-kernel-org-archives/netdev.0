@@ -1,57 +1,47 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: [PATCH net] cdc_ether: Fix handling connection notification
-Date: Wed, 30 Nov 2016 22:59:32 +0100
-Message-ID: <CAKfDRXjfHWyrFbWjffdWBZj2KXb+bnoDu9oHrcU40=XWe7fBjw@mail.gmail.com>
-References: <20161130184216.4224-1-kristian.evensen@gmail.com> <87shq83acr.fsf@miraculix.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Oliver Neukum <oliver@neukum.org>, linux-usb@vger.kernel.org,
-        Network Development <netdev@vger.kernel.org>,
-        linux-kernel@vger.kernel.org,
-        Henning Schild <henning.schild@siemens.com>
-To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87shq83acr.fsf@miraculix.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH] net: atarilance: use %8ph for printing hex string
+Date: Wed, 30 Nov 2016 23:02:54 +0100
+Message-ID: <1480543375-28904-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Felipe Balbi <felipe.balbi@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f173.google.com ([209.85.210.173]:35030 "EHLO
+        mail-wj0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752437AbcK3WDJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 17:03:09 -0500
+Received: by mail-wj0-f173.google.com with SMTP id v7so188087854wjy.2
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 14:03:08 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2016 at 10:51 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
-> Kristian Evensen <kristian.evensen@gmail.com> writes:
->
->> +void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
->> +{
->> +     struct usb_cdc_notification *event;
->> +
->> +     if (urb->actual_length < sizeof(*event))
->> +             return;
->> +
->> +     event =3D urb->transfer_buffer;
->> +
->> +     if (event->bNotificationType !=3D USB_CDC_NOTIFY_NETWORK_CONNECTIO=
-N) {
->> +             usbnet_cdc_status(dev, urb);
->> +             return;
->> +     }
->> +
->> +     netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
->> +               event->wValue ? "on" : "off");
->> +
->> +     if (event->wValue &&
->> +         !test_bit(__LINK_STATE_NOCARRIER, &dev->net->state))
->> +             usbnet_link_change(dev, 0, 0);
->> +
->> +     usbnet_link_change(dev, !!event->wValue, 0);
->> +}
->
-> As Henning said: Use netif_carrier_ok instead of open coding it.
->
-> But I also think you need to replace the first usbnet_link_change() with
-> a plain netif_carrier_off(dev->net).  Calling usbnet_link_change() twice
-> here is only going to set off the "kevent XX may have been dropped"
-> message since you call schedule_work() twice without giving the work
-> queue a chance to be processed.  No need to do that.
+This is already using the %pM printf extension; might as well also use
+%ph to make the code smaller.
 
-Thanks for the feedback and agree. Will submit a v2 tomorrow.
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+---
+ drivers/net/ethernet/amd/atarilance.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
--Kristian
+diff --git a/drivers/net/ethernet/amd/atarilance.c b/drivers/net/ethernet/amd/atarilance.c
+index d2bc8e5dcd23..d208a0532811 100644
+--- a/drivers/net/ethernet/amd/atarilance.c
++++ b/drivers/net/ethernet/amd/atarilance.c
+@@ -1013,13 +1013,9 @@ static int lance_rx( struct net_device *dev )
+ 					u_char *data = PKTBUF_ADDR(head);
+ 
+ 					printk(KERN_DEBUG "%s: RX pkt type 0x%04x from %pM to %pM "
+-						   "data %02x %02x %02x %02x %02x %02x %02x %02x "
+-						   "len %d\n",
++						   "data %8ph len %d\n",
+ 						   dev->name, ((u_short *)data)[6],
+-						   &data[6], data,
+-						   data[15], data[16], data[17], data[18],
+-						   data[19], data[20], data[21], data[22],
+-						   pkt_len);
++						   &data[6], data, &data[15], pkt_len);
+ 				}
+ 
+ 				skb_reserve( skb, 2 );	/* 16 byte align */
+-- 
+2.1.4
