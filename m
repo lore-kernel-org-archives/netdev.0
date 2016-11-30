@@ -1,36 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net 2/2] esp6: Fix integrity verification when ESN are
- used
-Date: Wed, 30 Nov 2016 17:58:38 +0800
-Message-ID: <20161130095837.GB3138@gondor.apana.org.au>
-References: <f3c5eaa5-d1a3-cc7a-1bd8-20fa2c961770@strongswan.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
+Date: Wed, 30 Nov 2016 11:05:19 +0100
+Message-ID: <20161130100519.GD28680@localhost.localdomain>
+References: <20161128230428.6872-1-grygorii.strashko@ti.com>
+ <20161128230428.6872-5-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        netdev@vger.kernel.org
-To: Tobias Brunner <tobias@strongswan.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:40880 "EHLO
-        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932259AbcK3J6v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 04:58:51 -0500
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <f3c5eaa5-d1a3-cc7a-1bd8-20fa2c961770@strongswan.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161128230428.6872-5-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2016 at 05:05:25PM +0100, Tobias Brunner wrote:
-> When handling inbound packets, the two halves of the sequence number
-> stored on the skb are already in network order.
+On Mon, Nov 28, 2016 at 05:04:26PM -0600, Grygorii Strashko wrote:
+> The TS_COMP output in the CPSW CPTS module is asserted for
+> ts_comp_length[15:0] RCLK periods when the time_stamp value compares
+> with the ts_comp_val[31:0] and the length value is non-zero. The
+> TS_COMP pulse edge occurs three RCLK periods after the values
+> compare. A timestamp compare event is pushed into the event FIFO when
+> TS_COMP is asserted.
 > 
-> Fixes: 000ae7b2690e ("esp6: Switch to new AEAD interface")
-> Signed-off-by: Tobias Brunner <tobias@strongswan.org>
+> This patch adds support of Pulse-Per-Second (PPS) by using the
+> timestamp compare output. The CPTS driver adds one second of counter
+> value to the ts_comp_val register after each assertion of the TS_COMP
+> output. The TS_COMP pulse polarity and width are configurable in DT.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+I really dislike this patch.  You go through contortions to get from
+the timecounter back to the raw HW counter.  That is rather ugly.
 
-Thanks.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Can you adjust the frequency of the keystone devices in hardware?  If
+so, then please implement it, and just disable PPS for the CPSW.
+
+The only reason I used the timecounter for frequency adjustment was
+because the am335x HW is broken.  But this shouldn't hold back other
+newer HW without the same silicon flaws.
+
+Thanks,
+Richard
