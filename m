@@ -1,90 +1,149 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] bpf: BPF for lightweight tunnel
- infrastructure
-Date: Tue, 29 Nov 2016 23:01:52 -0800
-Message-ID: <20161130070150.GA33397@ast-mbp.thefacebook.com>
-References: <cover.1480424542.git.tgraf@suug.ch>
- <7cc79a82e49996a9ebbff861af471018fdf118fb.1480424542.git.tgraf@suug.ch>
- <20161130001504.GA28238@ast-mbp.thefacebook.com>
- <20161130064850.GB16856@pox.localdomain>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH iproute2 V2 1/2] tc/cls_flower: Classify packet in ip
+ tunnels
+Date: Wed, 30 Nov 2016 09:17:53 +0200
+Message-ID: <20161130071753.GA1366@office.localdomain>
+References: <20161128125136.3393-1-amir@vadai.me>
+ <20161128125136.3393-2-amir@vadai.me>
+ <20161129192658.5a4c3e2c@samsung9.wavecable.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
-        tom@herbertland.com, roopa@cumulusnetworks.com,
-        hannes@stressinduktion.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Jiri Benc <jbenc@redhat.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36401 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750810AbcK3HCC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 02:02:02 -0500
-Received: by mail-pg0-f66.google.com with SMTP id x23so449416pgx.3
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 23:02:02 -0800 (PST)
+Received: from mail-wj0-f194.google.com ([209.85.210.194]:33222 "EHLO
+        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756521AbcK3HR7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 02:17:59 -0500
+Received: by mail-wj0-f194.google.com with SMTP id kp2so20950090wjc.0
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 23:17:57 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20161130064850.GB16856@pox.localdomain>
+In-Reply-To: <20161129192658.5a4c3e2c@samsung9.wavecable.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2016 at 07:48:51AM +0100, Thomas Graf wrote:
-> On 11/29/16 at 04:15pm, Alexei Starovoitov wrote:
-> > On Tue, Nov 29, 2016 at 02:21:22PM +0100, Thomas Graf wrote:
-> > ...
-> > > +#define LWT_BPF_MAX_HEADROOM 128
-> > 
-> > why 128?
-> > btw I'm thinking for XDP to use 256, so metadata can be stored in there.
+On Tue, Nov 29, 2016 at 07:26:58PM -0800, Stephen Hemminger wrote:
+> The overall design is fine, just a couple nits with the code.
 > 
-> It's an arbitrary limit to catch obvious misconfiguration. I'm absolutely
-> fine with bumping it to 256.
+> > diff --git a/tc/f_flower.c b/tc/f_flower.c
+> > index 2d31d1aa832d..1cf0750b5b83 100644
+> > --- a/tc/f_flower.c
+> > +++ b/tc/f_flower.c
 > 
-> > > +static int run_lwt_bpf(struct sk_buff *skb, struct bpf_lwt_prog *lwt,
-> > > +		       struct dst_entry *dst, bool can_redirect)
-> > > +{
-> > > +	int ret;
-> > > +
-> > > +	/* Preempt disable is needed to protect per-cpu redirect_info between
-> > > +	 * BPF prog and skb_do_redirect(). The call_rcu in bpf_prog_put() and
-> > > +	 * access to maps strictly require a rcu_read_lock() for protection,
-> > > +	 * mixing with BH RCU lock doesn't work.
-> > > +	 */
-> > > +	preempt_disable();
-> > > +	rcu_read_lock();
-> > > +	bpf_compute_data_end(skb);
-> > > +	ret = BPF_PROG_RUN(lwt->prog, skb);
-> > > +	rcu_read_unlock();
-> > > +
-> > > +	switch (ret) {
-> > > +	case BPF_OK:
-> > > +		break;
-> > > +
-> > > +	case BPF_REDIRECT:
-> > > +		if (!can_redirect) {
-> > > +			WARN_ONCE(1, "Illegal redirect return code in prog %s\n",
-> > > +				  lwt->name ? : "<unknown>");
-> > > +			ret = BPF_OK;
-> > > +		} else {
-> > > +			ret = skb_do_redirect(skb);
-> > 
-> > I think this assumes that program did bpf_skb_push and L2 header is present.
-> > Would it make sense to check that mac_header < network_header here to make
-> > sure that it actually happened? I think the cost of single 'if' isn't much.
-> > Also skb_do_redirect() can redirect to l3 tunnels like ipip ;)
-> > so program shouldn't be doing bpf_skb_push in such case...
+> >  
+> > +static int flower_parse_key_id(char *str, int type, struct nlmsghdr *n)
 > 
-> We are currently guaranteeing mac_header <= network_header given that
-> bpf_skb_push() is calling skb_reset_mac_header() unconditionally.
-> 
-> Even if a program were to push an L2 header and then redirect to an l3
-> tunnel, __bpf_redirect_no_mac will pull it off again and correct the
-> mac_header offset.
+> str is not modified, therefore use: const char *str
+ack
 
-yes. that part is fine.
+> 
+> > +{
+> > +	int ret;
+> > +	__be32 key_id;
+> > +
+> > +	ret = get_be32(&key_id, str, 10);
+> > +	if (ret)
+> > +		return -1;
+> 
+> Traditionally netlink attributes are in host order, why was flower
+> chosen to be different?
+I don't know, maybe Jiri (cc'ed) can explain, but it is all over the
+flower code.
 
-> Should we check in __bpf_redirect_common() whether mac_header <
-> nework_header then or add it to lwt-bpf conditional on
-> dev_is_mac_header_xmit()?
+> 
+> > +
+> > +	addattr32(n, MAX_MSG, type, key_id);
+> > +
+> > +	return 0;
+> 
+> 
+> Why lose the return value here?  Why not:
+> 
+> 	ret = get_be32(&key_id, str, 10);
+> 	if (!ret)
+> 		addattr32(n, MAX_MSG, type, key_id);
+The get_*() function can return only -1 or 0. But you are right, and it
+is better the way you suggested.  Changing accordingly in V3.
 
-may be only extra 'if' in lwt-bpf is all we need?
-I'm still missing what will happen if we 'forget' to do
-bpf_skb_push() inside the lwt-bpf program, but still do redirect
-in lwt_xmit stage to l2 netdev...
+> 
+> > +}
+> > +
+> >  static int flower_parse_opt(struct filter_util *qu, char *handle,
+> >  			    int argc, char **argv, struct nlmsghdr *n)
+> >  {
+> > @@ -339,6 +359,38 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+> >  				fprintf(stderr, "Illegal \"src_port\"\n");
+> >  				return -1;
+> >  			}
+> > +		} else if (matches(*argv, "enc_dst_ip") == 0) {
+> > +			NEXT_ARG();
+> > +			ret = flower_parse_ip_addr(*argv, 0,
+> > +						   TCA_FLOWER_KEY_ENC_IPV4_DST,
+> > +						   TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,
+> > +						   TCA_FLOWER_KEY_ENC_IPV6_DST,
+> > +						   TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,
+> > +						   n);
+> > +			if (ret < 0) {
+> > +				fprintf(stderr, "Illegal \"enc_dst_ip\"\n");
+> > +				return -1;
+> > +			}
+> > +		} else if (matches(*argv, "enc_src_ip") == 0) {
+> > +			NEXT_ARG();
+> > +			ret = flower_parse_ip_addr(*argv, 0,
+> > +						   TCA_FLOWER_KEY_ENC_IPV4_SRC,
+> > +						   TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,
+> > +						   TCA_FLOWER_KEY_ENC_IPV6_SRC,
+> > +						   TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK,
+> > +						   n);
+> > +			if (ret < 0) {
+> > +				fprintf(stderr, "Illegal \"enc_src_ip\"\n");
+> > +				return -1;
+> > +			}
+> > +		} else if (matches(*argv, "enc_key_id") == 0) {
+> > +			NEXT_ARG();
+> > +			ret = flower_parse_key_id(*argv,
+> > +						  TCA_FLOWER_KEY_ENC_KEY_ID, n);
+> > +			if (ret < 0) {
+> > +				fprintf(stderr, "Illegal \"enc_key_id\"\n");
+> > +				return -1;
+> > +			}
+> >  		} else if (matches(*argv, "action") == 0) {
+> >  			NEXT_ARG();
+> >  			ret = parse_action(&argc, &argv, TCA_FLOWER_ACT, n);
+> > @@ -509,6 +561,14 @@ static void flower_print_port(FILE *f, char *name, __u8 ip_proto,
+> >  	fprintf(f, "\n  %s %d", name, ntohs(rta_getattr_u16(attr)));
+> >  }
+> >  
+> > +static void flower_print_key_id(FILE *f, char *name,
+> > +				struct rtattr *attr)
+> 
+> const char *name?
+ack
+
+> 
+> 
+> > +{
+> > +	if (!attr)
+> > +		return;
+> > +	fprintf(f, "\n  %s %d", name, ntohl(rta_getattr_u32(attr)));
+> > +}
+> > +
+> 
+> Why short circuit, just change the order:
+> 
+> 	if (attr)
+> 		fprintf(f, "\n  %s %s", name, ntohl(rta_getattr_u32(attr));
+> 
+> You might also want to introduce rta_getattr_be32()
+ack
+
+> 
+> Please change, retest and resubmit both patches.
+ack
+
+Thanks for reviewing,
+Amir
