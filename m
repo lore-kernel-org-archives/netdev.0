@@ -1,60 +1,99 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: DSA vs. SWTICHDEV ?
-Date: Wed, 30 Nov 2016 17:55:00 +0100
-Message-ID: <20161130165500.GH21645@lunn.ch>
-References: <1480495831.3563.135.camel@infinera.com>
- <20161130135257.GC18716@lunn.ch>
- <1480516241.3563.142.camel@infinera.com>
- <20161130152503.GE21645@lunn.ch>
- <1480523716.3563.144.camel@infinera.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next v3 3/4] bpf: BPF for lightweight tunnel
+ infrastructure
+Date: Wed, 30 Nov 2016 08:57:25 -0800
+Message-ID: <583F04F5.3030908@gmail.com>
+References: <cover.1480424542.git.tgraf@suug.ch>
+ <7cc79a82e49996a9ebbff861af471018fdf118fb.1480424542.git.tgraf@suug.ch>
+ <20161130001504.GA28238@ast-mbp.thefacebook.com> <583E3EF4.7030107@gmail.com>
+ <20161130053735.GB31581@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
+        netdev@vger.kernel.org, daniel@iogearbox.net, tom@herbertland.com,
+        roopa@cumulusnetworks.com, hannes@stressinduktion.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35281 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753898AbcK3QzC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 11:55:02 -0500
-Content-Disposition: inline
-In-Reply-To: <1480523716.3563.144.camel@infinera.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:32852 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754171AbcK3Q5l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:57:41 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 144so10485263pfv.0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 08:57:40 -0800 (PST)
+In-Reply-To: <20161130053735.GB31581@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> This is an embedded system with several boards in a subrack.
-> Each board has eth I/F connected to a switch to communicate with each other.
-> One of the board will also house the actual switch device and manage the switch.
-> Then the normal app just communicates over the physical eth I/F like any other board
-> in the system. There is a "manage switch app" which brings the switch up and partition
-> phys VLANs etc. (each phys I/F would be a a separate domain so no loop)
-
-So you are planning on throwing away the "manage switch app", and just
-use standard linux networking commands? That is what switchdev is all
-about really, throwing away the vendor SDK for the switch, making a
-switch just a bunch on interfaces on the host which you manage as
-normal interfaces.
-
-> I guess I could skip the phys I/F and have the switch app create a virtual eth0 I/F over PCIe
-
-No need to create this interface. It will exist if you go the
-switchdev route.
-
-> > > And switchdev can do all this over PCIe instead? Can you have a
-> > > switch tree in switchdev too?
-> > 
-> > Mellonex says so, but i don't think they have actually implemented it.
+On 16-11-29 09:37 PM, Alexei Starovoitov wrote:
+> On Tue, Nov 29, 2016 at 06:52:36PM -0800, John Fastabend wrote:
+>> On 16-11-29 04:15 PM, Alexei Starovoitov wrote:
+>>> On Tue, Nov 29, 2016 at 02:21:22PM +0100, Thomas Graf wrote:
+>>>> Registers new BPF program types which correspond to the LWT hooks:
+>>>>   - BPF_PROG_TYPE_LWT_IN   => dst_input()
+>>>>   - BPF_PROG_TYPE_LWT_OUT  => dst_output()
+>>>>   - BPF_PROG_TYPE_LWT_XMIT => lwtunnel_xmit()
+>>>>
+>>>> The separate program types are required to differentiate between the
+>>>> capabilities each LWT hook allows:
+>>>>
+>>>>  * Programs attached to dst_input() or dst_output() are restricted and
+>>>>    may only read the data of an skb. This prevent modification and
+>>>>    possible invalidation of already validated packet headers on receive
+>>>>    and the construction of illegal headers while the IP headers are
+>>>>    still being assembled.
+>>>>
+>>>>  * Programs attached to lwtunnel_xmit() are allowed to modify packet
+>>>>    content as well as prepending an L2 header via a newly introduced
+>>>>    helper bpf_skb_push(). This is safe as lwtunnel_xmit() is invoked
+>>>>    after the IP header has been assembled completely.
+>>>>
+>>>> All BPF programs receive an skb with L3 headers attached and may return
+>>>> one of the following error codes:
+>>>>
+>>>>  BPF_OK - Continue routing as per nexthop
+>>>>  BPF_DROP - Drop skb and return EPERM
+>>>>  BPF_REDIRECT - Redirect skb to device as per redirect() helper.
+>>>>                 (Only valid in lwtunnel_xmit() context)
+>>>>
+>>>> The return codes are binary compatible with their TC_ACT_
+>>>> relatives to ease compatibility.
+>>>>
+>>>> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>>> ...
+>>>> +#define LWT_BPF_MAX_HEADROOM 128
+>>>
+>>> why 128?
+>>> btw I'm thinking for XDP to use 256, so metadata can be stored in there.
+>>>
+>>
+>> hopefully not too off-topic but for XDP I would like to see this get
 > 
-> Not impl. any of DSAs features? What can you do with a Mellonex switch then?
+> definitely off-topic. lwt->headroom is existing concept. Too late
+> to do anything about it.
+> 
+>> passed down with the program. It would be more generic and drivers could
+>> configure the headroom on demand and more importantly verify that a
+>> program pushing data is not going to fail at runtime.
+> 
+> For xdp I think it will be problematic, since we'd have to check for
+> that value at prog array access to make sure tailcalls are not broken.
+> Mix and match won't be possible.
+> So what does 'configure the headroom on demand' buys us?
+> Isn't it much easier to tell all drivers "always reserve this much" ?
+> We burn the page anyway.
+> If it's configurable per driver, then we'd need an api
+> to retrieve it. Yet the program author doesn't care what the value is.
+> If program needs to do udp encap, it will try do it. No matter what.
+> If xdp_adjust_head() helper fails, the program will likely decide
+> to drop the packet. In some cases it may decide to punt to stack
+> for further processing, but for high performance dataplane code
+> it's highly unlikely.
+> If it's configurable to something that is not cache line boundary
+> hw dma performance may suffer and so on.
+> So I see only cons in such 'configurable headroom' and propose
+> to have fixed 256 bytes headroom for XDP
+> which is enough for any sensible encap and metadata.
+> 
 
-They don't have a tree of switches, as far as i know. Just a single
-switch. But DSA does support a tree of switches, that is what the D in
-DSA means, distributed. And there are a couple of boards which have 2
-to 4 switches in a tree.
-
-I think this is partially down to market segments. Mellonex market is
-top of rack switches. High port count, very high bandwidth. DSA is
-more wireless access points, set top boxes, generally up to 7 ports of
-1Gbps and a few custom embedded products which need more ports, so
-build a tree of switches.
-
-      Andrew
+OK I'm convinced let it be fixed at some conservative value.
