@@ -1,96 +1,63 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH v3 net-next 2/3] openvswitch: Use is_skb_forwardable() for
- length check.
-Date: Tue, 29 Nov 2016 23:23:34 -0800
-Message-ID: <CAOrHB_DP5PL=YNSZxL=aXDoOJNA=sSgMV3HL_mAp1ZBoLTSmvw@mail.gmail.com>
-References: <1480462253-114713-1-git-send-email-jarno@ovn.org> <1480462253-114713-2-git-send-email-jarno@ovn.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [patch net / RFC] net: fec: increase frame size limitation to
+ actually available buffer
+Date: Wed, 30 Nov 2016 16:25:30 +0900
+Message-ID: <f632a0e8-746b-2db5-09af-3a5f6fc78e13@lab.ntt.co.jp>
+References: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
+ <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <dab27a3d-821c-8d07-ad98-2bdd8c442bc5@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Benc <jbenc@redhat.com>, Eric Garver <e@erig.me>
-To: Jarno Rajahalme <jarno@ovn.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Andy Duan <fugang.duan@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:50603 "EHLO
-        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755401AbcK3HXw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 02:23:52 -0500
-Received: from mfilter39-d.gandi.net (mfilter39-d.gandi.net [217.70.178.170])
-        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 138D9C5A6C
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 08:23:38 +0100 (CET)
-Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
-        by mfilter39-d.gandi.net (mfilter39-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id Ws8OfeDd92iz for <netdev@vger.kernel.org>;
-        Wed, 30 Nov 2016 08:23:36 +0100 (CET)
-Received: from mail-io0-f174.google.com (mail-io0-f174.google.com [209.85.223.174])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 715F5C5A78
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 08:23:36 +0100 (CET)
-Received: by mail-io0-f174.google.com with SMTP id m5so196495667ioe.3
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 23:23:36 -0800 (PST)
-In-Reply-To: <1480462253-114713-2-git-send-email-jarno@ovn.org>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:54440 "EHLO
+        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751566AbcK3H1I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 02:27:08 -0500
+In-Reply-To: <dab27a3d-821c-8d07-ad98-2bdd8c442bc5@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 3:30 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
-> Use is_skb_forwardable() instead of an explicit length check.  This
-> gets around the apparent MTU check failure in OVS test cases when
-> skb->protocol is not properly set in case of non-accelerated VLAN
-> skbs.
->
-> Suggested-by: Pravin Shelar <pshelar@ovn.org>
-> Fixes: 5108bbaddc ("openvswitch: add processing of L3 packets")
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> ---
-> v3: New patch suggested by Pravin.
->
-> net/openvswitch/vport.c | 38 ++++++++++++++------------------------
->  1 file changed, 14 insertions(+), 24 deletions(-)
->
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index b6c8524..076b39f 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
+On 2016/11/30 15:36, Nikita Yushchenko wrote:
+>> But I think it is not necessary since the driver don't support jumbo frame.
+> 
+> Hardcoded 1522 raises two separate issues.
+> 
+> (1) When DSA is in use, frames processed by FEC chip contain DSA tag and
+> thus can be larger than hardcoded limit of 1522. This issue is not
+> FEC-specific, any driver that hardcodes maximum frame size to 1522 (many
+> do) will have this issue if used with DSA.
+> 
+> Clean solution for this must take into account that difference between
+> MTU and max frame size is no longer known at compile time. Actually this
+> is the case even without DSA, due to VLANs: max frame size is (MTU + 18)
+> without VLANs, but (MTU + 22) with VLANs. However currently drivers tend
+> to ignore this and hardcode 22.  With DSA, 22 is not enough, need to add
+> switch-specific tag size to that.
+> 
+> Not yet sure how to handle this. DSA-specific API to find out tag size
+> could be added, but generic solution should handle all cases of dynamic
+> difference between MTU and max frame size, not only DSA.
 
->  void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto)
->  {
-> -       int mtu = vport->dev->mtu;
-> -
->         switch (vport->dev->type) {
->         case ARPHRD_NONE:
->                 if (mac_proto == MAC_PROTO_ETHERNET) {
-> @@ -504,11 +485,20 @@ void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto)
->                 goto drop;
->         }
->
-> -       if (unlikely(packet_length(skb, vport->dev) > mtu &&
-> -                    !skb_is_gso(skb))) {
-> -               net_warn_ratelimited("%s: dropped over-mtu packet: %d > %d\n",
-> -                                    vport->dev->name,
-> -                                    packet_length(skb, vport->dev), mtu);
-> +       if (unlikely(!is_skb_forwardable(vport->dev, skb))) {
+BTW I'm trying to introduce envelope frames to solve this kind of problems.
+http://marc.info/?t=147496691500005&r=1&w=2
+http://marc.info/?t=147496691500003&r=1&w=2
+http://marc.info/?t=147496691500002&r=1&w=2
+http://marc.info/?t=147496691500004&r=1&w=2
+http://marc.info/?t=147496691500001&r=1&w=2
 
-This would easy to read if you inverse the if condition here.
+It needs jumbo frame support of NICs though.
 
-> +               /* Log only if the device is up. */
-> +               if (vport->dev->flags & IFF_UP) {
-
-since is_skb_forwardable() is checking for IFF_UP we can remove same
-check from internal-device send() op.
-
-> +                       unsigned int length = skb->len
-> +                               - vport->dev->hard_header_len;
-> +
-> +                       if (!skb_vlan_tag_present(skb)
-> +                           && eth_type_vlan(skb->protocol))
-> +                               length -= VLAN_HLEN;
-> +
-> +                       net_warn_ratelimited("%s: dropped over-mtu packet %d > %d\n",
-> +                                            vport->dev->name, length,
-> +                                            vport->dev->mtu);
-> +               }
->                 vport->dev->stats.tx_errors++;
->                 goto drop;
->         }
-> --
-> 2.1.4
->
+Regards,
+Toshiaki Makita
