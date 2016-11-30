@@ -1,104 +1,41 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v3 6/6] virtio_net: xdp, add slowpath case for
- non contiguous buffers
-Date: Tue, 29 Nov 2016 21:23:42 -0800
-Message-ID: <20161130052340.GA31581@ast-mbp.thefacebook.com>
-References: <20161129200933.26851.41883.stgit@john-Precision-Tower-5810>
- <20161129201133.26851.31803.stgit@john-Precision-Tower-5810>
- <20161130003756.GD28238@ast-mbp.thefacebook.com>
- <583E3E6A.8050706@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: The ubufs->refcount maybe be subtracted twice when tun_get_user
+ failed
+Date: Wed, 30 Nov 2016 13:24:04 +0800
+Message-ID: <9e393b35-2265-fad9-34be-08658ff3c512@redhat.com>
+References: <34EFBCA9F01B0748BEB6B629CE643AE60B0A553E@szxeml561-mbx.china.huawei.com>
+ <30e4c704-70b4-d318-68bd-742eb5f9bfc7@redhat.com>
+ <34EFBCA9F01B0748BEB6B629CE643AE60B0A5826@szxeml561-mbx.china.huawei.com>
+ <fad5d47a-96ee-1afc-b10c-cb2a6d5dc784@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
-        daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
-        tgraf@suug.ch, john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        bblanco@plumgrid.com, brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: caihe <caihe@huawei.com>
+To: wangyunjian <wangyunjian@huawei.com>,
+        "mst@redhat.com" <mst@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34489 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750825AbcK3FXu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 00:23:50 -0500
-Received: by mail-pg0-f67.google.com with SMTP id e9so179575pgc.1
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 21:23:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <583E3E6A.8050706@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56582 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750825AbcK3FYI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 00:24:08 -0500
+In-Reply-To: <fad5d47a-96ee-1afc-b10c-cb2a6d5dc784@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 06:50:18PM -0800, John Fastabend wrote:
-> On 16-11-29 04:37 PM, Alexei Starovoitov wrote:
-> > On Tue, Nov 29, 2016 at 12:11:33PM -0800, John Fastabend wrote:
-> >> virtio_net XDP support expects receive buffers to be contiguous.
-> >> If this is not the case we enable a slowpath to allow connectivity
-> >> to continue but at a significan performance overhead associated with
-> >> linearizing data. To make it painfully aware to users that XDP is
-> >> running in a degraded mode we throw an xdp buffer error.
-> >>
-> >> To linearize packets we allocate a page and copy the segments of
-> >> the data, including the header, into it. After this the page can be
-> >> handled by XDP code flow as normal.
-> >>
-> >> Then depending on the return code the page is either freed or sent
-> >> to the XDP xmit path. There is no attempt to optimize this path.
-> >>
-> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> > ...
-> >> +/* The conditions to enable XDP should preclude the underlying device from
-> >> + * sending packets across multiple buffers (num_buf > 1). However per spec
-> >> + * it does not appear to be illegal to do so but rather just against convention.
-> >> + * So in order to avoid making a system unresponsive the packets are pushed
-> >> + * into a page and the XDP program is run. This will be extremely slow and we
-> >> + * push a warning to the user to fix this as soon as possible. Fixing this may
-> >> + * require resolving the underlying hardware to determine why multiple buffers
-> >> + * are being received or simply loading the XDP program in the ingress stack
-> >> + * after the skb is built because there is no advantage to running it here
-> >> + * anymore.
-> >> + */
-> > ...
-> >>  		if (num_buf > 1) {
-> >>  			bpf_warn_invalid_xdp_buffer();
-> 			^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> 
-> Here is the warn once call. I made it a defined bpf warning so that we
-> can easily identify if needed and it can be used by other drivers as
-> well.
 
-ahh. I thought it has - in front of it :)
-and you're deleting it in this patch.
 
-> >> -			goto err_xdp;
-> >> +
-> >> +			/* linearize data for XDP */
-> >> +			xdp_page = xdp_linearize_page(rq, num_buf,
-> >> +						      page, offset, &len);
-> >> +			if (!xdp_page)
-> >> +				goto err_xdp;
-> > 
-> > in case when we're 'lucky' the performance will silently be bad.
-> 
-> Were you specifically worried about the alloc failing here and no
-> indication? I was thinking a statistic counter could be added as a
-> follow on series to catch this and other such cases in non XDP paths
-> if needed.
-> 
-> > Can we do warn_once here? so at least something in dmesg points out
-> > that performance is not as expected. Am I reading it correctly that
-> > you had to do a special kernel hack to trigger this situation and
-> > in all normal cases it's not the case?
-> > 
-> 
-> Correct the only way to produce this with upstream qemu and Linux is to
-> write a kernel hack to build these types of buffers. AFAIK I caught all
-> the cases where it could happen otherwise in the setup xdp prog call and
-> required user to configure device driver so they can not happen e.g.
-> disable LRO, set MTU < PAGE_SIZE, etc.
-> 
-> If I missed anything, I don't see it now, I would call it a bug and fix
-> it. Again AFAIK everything should be covered though. As Micheal pointed
-> out earlier although unexpected its not strictly against virtio spec to
-> build such packets so we should handle it at least in a degraded mode
-> even though it is not expected in any qemu cases.
+On 2016年11月30日 10:53, Jason Wang wrote:
+>
+>
+> On 2016年11月29日 21:27, wangyunjian wrote:
+>> Sorry, I didn't describe it clearly. In fact, the second subtraction 
+>> happens in the function handle_tx,
+>> when tun_get_user fails and zcopy_used is ture. Fllowing the steps:
+>
+> I get your meaning. Thanks for the reporting. Will post patches (since 
+> macvtap has similar issue).
 
-Ok. Makes sense. The above wasn't clear in the commit log.
+Posted, appreciate if you can have a test on them.
+
 Thanks
