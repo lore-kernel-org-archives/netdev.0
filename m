@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 3/7] net: mvneta: Use cacheable memory to
- store the rx buffer virtual address
-Date: Wed, 30 Nov 2016 13:57:25 -0500 (EST)
-Message-ID: <20161130.135725.407314756675613303.davem@davemloft.net>
-References: <cover.654978388d6811b943dd58ecb9a9d9b6cceeaee3.1480431285.git-series.gregory.clement@free-electrons.com>
-        <cover.654978388d6811b943dd58ecb9a9d9b6cceeaee3.1480431285.git-series.gregory.clement@free-electrons.com>
-        <bb2f1a61e9b912905f8390f7a06c36f9f1e7ab66.1480431285.git-series.gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next] cgroup, bpf: remove unnecessary #include
+Date: Wed, 30 Nov 2016 13:58:42 -0500 (EST)
+Message-ID: <20161130.135842.1335103611336126768.davem@davemloft.net>
+References: <1480529768-1954199-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        jszhang@marvell.com, arnd@arndb.de, jason@lakedaemon.net,
-        andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com,
-        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
-        mw@semihalf.com, dima@marvell.com, yelena@marvell.com
-To: gregory.clement@free-electrons.com
+Cc: daniel@iogearbox.net, daniel@zonque.org, roszenrami@gmail.com,
+        netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39454 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39488 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933106AbcK3S52 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 13:57:28 -0500
-In-Reply-To: <bb2f1a61e9b912905f8390f7a06c36f9f1e7ab66.1480431285.git-series.gregory.clement@free-electrons.com>
+        with ESMTP id S933605AbcK3S6r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 13:58:47 -0500
+In-Reply-To: <1480529768-1954199-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Date: Tue, 29 Nov 2016 15:55:21 +0100
+From: Alexei Starovoitov <ast@fb.com>
+Date: Wed, 30 Nov 2016 10:16:08 -0800
 
-> +	/* Virtual address of the RX buffer */
-> +	void  **buf_virt_addr;
-> +
->  	/* Virtual address of the RX DMA descriptors array */
->  	struct mvneta_rx_desc *descs;
->  
- ...
-> +		data = (unsigned char *)rxq->buf_virt_addr[index];
+> this #include is unnecessary and brings whole set of
+> other headers into cgroup-defs.h. Remove it.
+> 
+> Fixes: 3007098494be ("cgroup: add support for eBPF programs")
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> Acked-by: Rami Rosen <roszenrami@gmail.com>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Daniel Mack <daniel@zonque.org>
+> ---
+> Dave,
+> this patch got lost somehow (marked accepted, but not in net-next).
+> Resending.
 
-This cast is unnecessary, please remove it.
+Applied, thanks ALexei.
