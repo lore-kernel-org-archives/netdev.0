@@ -1,73 +1,100 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/6] net: ethernet: ti: netcp: add support of cpts
-Date: Wed, 30 Nov 2016 10:44:41 +0100
-Message-ID: <20161130094441.GB28680@localhost.localdomain>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-2-grygorii.strashko@ti.com>
+From: Jerome Brunet <jbrunet@baylibre.com>
+Subject: Re: [PATCH net-next v4 0/4] Fix OdroidC2 Gigabit Tx link issue
+Date: Wed, 30 Nov 2016 10:47:26 +0100
+Message-ID: <1480499246.17538.208.camel@baylibre.com>
+References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
+ <049b1efc-3bad-92e0-45ef-0563dc5d81de@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f193.google.com ([209.85.210.193]:34307 "EHLO
-        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754190AbcK3Jos (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 04:44:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20161128230428.6872-2-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrew Lunn <andrew@lunn.ch>, Alexandre TORGUE <alexandre.torgue@st.com>,
+ Neil Armstrong <narmstrong@baylibre.com>,
+ Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+ Kevin Hilman <khilman@baylibre.com>, linux-kernel@vger.kernel.org,
+ Yegor Yefremov <yegorslists@googlemail.com>,
+ Julia Lawall <julia.lawall@lip6.fr>, Andre Roth <neolynx@gmail.com>,
+ linux-amlogic@lists.infradead.org, Carlo Caione <carlo@caione.org>,
+ Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
+ linux-arm-kernel@lists.infradead.org
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+ devicetree@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <049b1efc-3bad-92e0-45ef-0563dc5d81de@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 28, 2016 at 05:04:23PM -0600, Grygorii Strashko wrote:
-> @@ -678,6 +744,9 @@ struct gbe_priv {
->  	int				num_et_stats;
->  	/*  Lock for updating the hwstats */
->  	spinlock_t			hw_stats_lock;
-> +
-> +	int                             cpts_registered;
-
-The usage of this counter is racy.
-
-> +	struct cpts                     *cpts;
->  };
-
-This ++ and -- business ...
-
-> +static void gbe_register_cpts(struct gbe_priv *gbe_dev)
-> +{
-> +	if (!gbe_dev->cpts)
-> +		return;
-> +
-> +	if (gbe_dev->cpts_registered > 0)
-> +		goto done;
-> +
-> +	if (cpts_register(gbe_dev->cpts)) {
-> +		dev_err(gbe_dev->dev, "error registering cpts device\n");
-> +		return;
-> +	}
-> +
-> +done:
-> +	++gbe_dev->cpts_registered;
-> +}
-> +
-> +static void gbe_unregister_cpts(struct gbe_priv *gbe_dev)
-> +{
-> +	if (!gbe_dev->cpts || (gbe_dev->cpts_registered <= 0))
-> +		return;
-> +
-> +	if (--gbe_dev->cpts_registered)
-> +		return;
-> +
-> +	cpts_unregister(gbe_dev->cpts);
-> +}
-
-is invoked from your open() and close() methods, but those methods
-are not serialized among multiple ports.
-
-Thanks,
-Richard
+T24gTW9uLCAyMDE2LTExLTI4IGF0IDA5OjU0IC0wODAwLCBGbG9yaWFuIEZhaW5lbGxpIHdyb3Rl
+Ogo+IE9uIDExLzI4LzIwMTYgMDc6NTAgQU0sIEplcm9tZSBCcnVuZXQgd3JvdGU6Cj4gPiAKPiA+
+IFRoaXMgcGF0Y2hzZXQgZml4ZXMgYW4gaXNzdWUgd2l0aCB0aGUgT2Ryb2lkQzIgYm9hcmQgKERX
+TUFDICsKPiA+IFJUTDgyMTFGKS4KPiA+IFRoZSBwbGF0Zm9ybSBzZWVtcyB0byBlbnRlciBMUEkg
+b24gdGhlIFJ4IHBhdGggdG9vIG9mdGVuIHdoaWxlCj4gPiBwZXJmb3JtaW5nCj4gPiByZWxhdGl2
+ZWx5IGhpZ2ggVFggdHJhbnNmZXIuIFRoaXMgZXZlbnR1YWxseSBicmVhayB0aGUgbGluayAoYm90
+aAo+ID4gVHggYW5kCj4gPiBSeCksIGFuZCByZXF1aXJlIHRvIGJyaW5nIHRoZSBpbnRlcmZhY2Ug
+ZG93biBhbmQgdXAgYWdhaW4gdG8gZ2V0Cj4gPiB0aGUgUngKPiA+IHBhdGggd29ya2luZyBhZ2Fp
+bi4KPiA+IAo+ID4gVGhlIHJvb3QgY2F1c2Ugb2YgdGhpcyBpc3N1ZSBpcyBub3QgZnVsbHkgdW5k
+ZXJzdG9vZCB5ZXQgYnV0Cj4gPiBkaXNhYmxpbmcgRUVFCj4gPiBhZHZlcnRpc2VtZW50IG9uIHRo
+ZSBQSFkgcHJldmVudCB0aGlzIGZlYXR1cmUgdG8gYmUgbmVnb3RpYXRlZC4KPiA+IFdpdGggdGhp
+cyBjaGFuZ2UsIHRoZSBsaW5rIGlzIHN0YWJsZSBhbmQgcmVsaWFibGUsIHdpdGggdGhlCj4gPiBl
+eHBlY3RlZAo+ID4gdGhyb3VnaHB1dCBwZXJmb3JtYW5jZS4KPiA+IAo+ID4gVGhlIHBhdGNoc2V0
+IGFkZHMgb3B0aW9ucyBpbiB0aGUgZ2VuZXJpYyBwaHkgZHJpdmVyIHRvIGRpc2FibGUgRUVFCj4g
+PiBhZHZlcnRpc2VtZW50LCB0aHJvdWdoIGRldmljZSB0cmVlLiBUaGUgd2F5IGl0IGlzIGRvbmUg
+aXMgdmVyeQo+ID4gc2ltaWxhcgo+ID4gdG8gdGhlIGhhbmRsaW5nIG9mIHRoZSBtYXgtc3BlZWQg
+cHJvcGVydHkuCj4gPiAKPiA+IFBhdGNoIDQgaXMgcHJvdmlkZWQgaGVyZSBmb3IgdGVzdGluZyBw
+dXJwb3NlIG9ubHkuIFBsZWFzZSBkb24ndAo+ID4gbWVyZ2UKPiA+IHBhdGNoIDQsIHRoaXMgY2hh
+bmdlIHdpbGwgZ28gdGhyb3VnaCB0aGUgYW1sb2dpYydzIHRyZWUuCj4gCj4gU29ycnksIGJ1dCBJ
+IHJlYWxseSBkb24ndCBsaWtlIHRoZSByb3V0ZSB0aGlzIGlzIGdvaW5nLCBhbmQgSSBzaG91bGQK
+PiBoYXZlIG1hZGUgbXlzZWxmIGNsZWFyZXIgYmVmb3JlIG9uIHRoYXQsIEkgcmVhbGx5IHRoaW5r
+IHV0aWxpemluZyBhCj4gUEhZCj4gZml4dXAgaXMgbW9yZSBhcHByb3ByaWF0ZSBoZXJlIHRoYW4g
+YW4gZXh0cmVtZWx5IGdlbmVyaWMgRFQgcHJvcGVydHkuCj4gVGhlIGZpeHVwIGNvZGUgY2FuIGJl
+IGluIHRoZSBhZmZlY3RlZCBQSFkgZHJpdmVyLCBvciBpdCBjYW4gYmUKPiBzb21ld2hlcmUKPiBl
+bHNlLCB5b3VyIGNhbGwuIFRoZXJlIGlzIG5vIHNob3J0YWdlIG9mIG9wdGlvbiBvbiBob3cgdG8g
+aW1wbGVtZW50Cj4gaXQsCj4gYW5kIHRoaXMgd291bGQgYmUgc29tZXRoaW5nIGVhc3kgdG8gZW5h
+YmxlL2Rpc2FibGUgZm9yIGtub3duIGdvb2QKPiBjb25maWd1cmF0aW9ucyAoYWxhIFBDSS9VU0Ig
+Zml4dXBzKS4KPiAKPiBJZiB3ZSBzdGFydCBzdXBwb3J0aW5nIGdlbmVyaWMgImVuYWJsZSIsICJk
+aXNhYmxlIiB0eXBlIG9mIHByb3BlcnRpZXMKPiB3aXRoIHZhbHVlcyB0aGF0IG1hcCBkaXJlY3Rs
+eSB0byByZWdpc3RlciBkZWZpbml0aW9ucyBvZiB0aGUgSFcsIHdlCj4gbGVhdmUgdG9vIG11Y2gg
+cm9vbSBmb3IgdGhlc2UgcHJvcGVydGllcyB0byBiZSB1dGlsaXplZCB0byBpbXBsZW1lbnQKPiBh
+Cj4gc3BlY2lmaWMgcG9saWN5LCBhbmQgdGhpcyBpcyBub3QgYWNjZXB0YWJsZS4KCkZsb3JpYW4s
+wqAKCkkgYWdyZWUgdGhhdCBEVCBzaG91bGQgbm90IGJlIHVzZWQgdG8gc2V0dXAgYSBwb2xpY3ks
+IGJ1dCB0byBkZXNjcmliZQp3aGF0IHRoZSBIVyBpcy4KCkkgdHJpZWQgdG8gaW1wbGVtZW50IGl0
+IHRoZSB3YXkgeW91IHN1Z2dlc3RlZCwgdXNpbmcgcGh5IGZpeHVwLCB0b28gc2VlCndoYXQgaXQg
+bG9va3MgbGlrZS4KVGhlcmUgaXMgMiBwbGFjZXMgaW4gdGhlIGNvZGUgdGhhdCBzZWVtcyAocmVt
+b3RlbHkpIGxpbmtlZCB0byB0aGUKaXNzdWU6wqAKLSBtZXNvbjhiX2R3bWFjIGRyaXZlciA6IGlm
+IHRoZSBtYWMsIHJlZ2FyZGxlc3Mgb2YgdGhlIGJvYXJkL3BsYXRmb3JtLArCoGNvdWxkIG5vdCB0
+b2xlcmF0ZSB0byBoYXZlIEVFRSBhY3RpdmF0ZWQsIGl0IHdvdWxkIG1ha2Ugc2Vuc2UgdG8gaGF2
+ZQp0aGUgZml4dXAgaGVyZS4gSXQgY2FuIHByb3ZpZGUgYSBDIGNhbGxiYWNrIGZvciBzdWNoIGNh
+c2UuCi0gcmVhbHRlayBwaHkgZHJpdmVyOiBwaGlsb3NvcGh5IGlzIGtpbmQgb2YgdGhlIHNhbWUK
+ClRvIGJlIGNsZWFyLCBpdCBpcyBkb2FibGUgYW5kIGl0IHdvcmtzIHRoYXQgd2F5LCBidXQgSSBk
+b24ndCB0aGluawplbWJlZGRpbmcgdGhpcyBkaXJlY3RseSBpbiB0aGUgY29kZSBpcyB0aGUgcmln
+aHQgd2F5IHRvIGRvIGl0LiBJdCBzZWVtcwp3ZSBhcmUgaGlkaW5nIGFuIGluZm9ybWF0aW9uIHNw
+ZWNpZmljIGFib3V0IHRoZSBib2FyZCBpbnNpZGUgYSBnZW5lcmljCmRyaXZlci4KCldlIGhhdmUg
+c2V2ZXJhbCBhbWxvZ2ljJ3MgZGVzaWduIHdpdGggdGhlIHNhbWUgTUFDLCBzb21ldGltZXMgd2l0
+aCB0aGUKc2FtZSBQSFksIHdoaWNoIGhhdmUgbm8gcHJvYmxlbSB3aXRoIEVFRSBhdCBhbGwuIFRo
+ZSBpc3N1ZSBpcyByZWFsbHkKYWJvdXQgdGhlIGJvYXJkIGRlc2lnbi4KCldoYXQgSSBwcm9wb3Nl
+IGlzIG5vdCBhbiBlbmFibGUvZGlzYWJsZSBjb25maWd1cmF0aW9uIHN3aXRjaCwgYnV0IHRvCmNs
+ZWFybHkgc3RhdGUgdGhhdCBhIHBhcnRpY3VsYXIgbW9kZSBvZiBvcGVyYXRpb24gaXMgYnJva2Vu
+LiBMaWtlIHRoZQoibWF4LXNwZWVkIiBwcm9wZXJ0eSwgaXQgc2V0dXAgYSByZXN0cmljdGlvbi4g
+SU1PLCB0aGlzIGlzIGEKZGVzY3JpcHRpb24gb2Ygd2hhdCB0aGUgSFcgaXMgYW5kIGlzIGNhcGFi
+bGUgb2YsIGFuZCBhcyBzdWNoIGl0IHNob3VsZApiZSBwYXJ0IG9mIHRoZSBEVC4KClllcyB0aGUg
+cHJvcGVydHkgZGlyZWN0bHkgbWFwIHRvIGEgcmVnaXN0ZXIsIGJ1dCBpdCBkb2VzIGxldCB5b3UK
+ZGlyZWN0bHkgbWFuaXB1bGF0ZSBpdCAoeW91IGNhbid0IHBhc3MgdGhlIHZhbHVlIHlvdSB3YW50
+IHRvIHdyaXRlIGluCnRoZSByZWdpc3RlcikuIEhhdmluZyBpdCB0aGlzIHdheSBqdXN0IG1ha2Vz
+IHRoZSBjb2RlIHNpbXBsZSBvbiBib3RoCmVuZHMgKHVzZXIgYW5kIGRyaXZlcikuCgpZZXMgcGVv
+cGxlIGNvdWxkIHN0YXJ0IGFidXNpbmcgdGhpcyB0byBzZXR1cCBwb2xpY3kuIEluIHRoZSBlbmQs
+IGl0IGlzCm91ciByZXNwb25zaWJpbGl0eSwgYXMgY29tbXVuaXR5LCB0byBtYWtlIHN1cmUgQVBJ
+cyBhcmUgdXNlZCBpbiBhCnByb3BlciB3YXksIGFuZCBub3QgbGV0IGl0IGJlIHVzZWQgdGhhdCB3
+YXkuCgpJJ20gb3BlbiB0byBzdWdnZXN0aW9uIG9uIGhvdyBpbXByb3ZlIHRoZSBzb2x1dGlvbiwg
+bWF5YmUgc29tZXRoaW5nCndoaWNoIGNvdWxkIGJyaW5nIG1vcmUgY29uZmlkZW5jZSB0aGF0IHBy
+b3BlcnR5IHdvbid0IGJlIG1pc3VzZWQuCgpKZXJvbWUKCgoKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QK
+bGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRl
+YWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
