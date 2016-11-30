@@ -1,59 +1,49 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 3/6] net: ethernet: ti: cpts: add support of cpts
- HW_TS_PUSH
-Date: Wed, 30 Nov 2016 14:15:04 -0600
-Message-ID: <86be8bbd-39c6-6173-9e84-b8afe92e5474@ti.com>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-4-grygorii.strashko@ti.com>
- <1480504100.9183.72.camel@pengutronix.de>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] netns: avoid disabling irq for netns id
+Date: Wed, 30 Nov 2016 15:35:46 -0500
+Message-ID: <CAGH-Kgv0UpmDdaW=z8pa1VvmrcJeaA57uMneqNEgex6Xa8NSQw@mail.gmail.com>
+References: <148045748887.22539.3188295553967836703.stgit@sifl> <20161130.145822.727604546507312208.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
-        <devicetree@vger.kernel.org>, Wingman Kwok <w-kwok2@ti.com>
-To: =?UTF-8?Q?Jan_L=c3=bcbbe?= <jlu@pengutronix.de>,
-        Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480504100.9183.72.camel@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
+        xiyou.wangcong@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f172.google.com ([209.85.161.172]:33939 "EHLO
+        mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758508AbcK3Ufs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 15:35:48 -0500
+Received: by mail-yw0-f172.google.com with SMTP id t125so165337106ywc.1
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 12:35:47 -0800 (PST)
+In-Reply-To: <20161130.145822.727604546507312208.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Nov 30, 2016 at 2:58 PM, David Miller <davem@davemloft.net> wrote:
+> From: Paul Moore <pmoore@redhat.com>
+> Date: Tue, 29 Nov 2016 17:11:29 -0500
+>
+>> From: Paul Moore <paul@paul-moore.com>
+>>
+>> Bring back commit bc51dddf98c9 ("netns: avoid disabling irq for netns
+>> id") now that we've fixed some audit multicast issues that caused
+>> problems with original attempt.  Additional information, and history,
+>> can be found in the links below:
+>>
+>>  * https://github.com/linux-audit/audit-kernel/issues/22
+>>  * https://github.com/linux-audit/audit-kernel/issues/23
+>>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> Signed-off-by: Paul Moore <paul@paul-moore.com>
+>
+> This doesn't apply cleanly to the net-next tree, could you please
+> respin?
 
-
-On 11/30/2016 05:08 AM, Jan Lübbe wrote:
-> On Mo, 2016-11-28 at 17:04 -0600, Grygorii Strashko wrote:
->> This patch adds support of the CPTS HW_TS_PUSH events which are generated
->> by external low frequency time stamp channels on TI's OMAP CPSW and
->> Keystone 2 platforms. It supports up to 8 external time stamp channels for
->> HW_TS_PUSH input pins (the number of supported channel is different for
->> different SoCs and CPTS versions, check corresponding Data maual before
->> enabling it). Therefore, new DT property "cpts-ext-ts-inputs" is introduced
->> for specifying number of available external timestamp channels.
-> 
-> If this only depends on SoC and CTPS, it should be possible to derive
-> the correct value from the compatible value and possibly a CPTS version
-> register? If the existing compatible strings are not specific enough,
-> possible a new one should be added.
-> 
-
-In general, I can try to add and use new compat strings
-"ti,netcp-k2hk"
-"ti,netcp-k2l"
-"ti,netcp-k2e"
-"ti,netcp-k2g" 
-for determining CPTS capabilities.
-
-CPTS version is not the choice due to very poor documentation
-which do not allow identify relations between CPTS ver and supported
-features :(
-
-Murali, what do you think?
-
+As I mentioned in a reply to the patch posting, because this relies on
+a number of patches in the audit tree I've gone ahead and merged this
+patch into the audit#next branch.  Unless you have any objections,
+I'll send this to Linus with the rest of the v4.10 audit patches.
 
 -- 
-regards,
--grygorii
+paul moore
+security @ redhat
