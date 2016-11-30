@@ -1,106 +1,150 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 09/12] ipv4: fib: Add sysctl to limit number of FIB dump retries
-Date: Wed, 30 Nov 2016 11:09:03 +0100
-Message-ID: <1480500546-2544-10-git-send-email-jiri@resnulli.us>
-References: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        hannes@stressinduktion.org, kaber@trash.net
-To: netdev@vger.kernel.org
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: RE: [patch net / RFC] net: fec: increase frame size limitation to
+ actually available buffer
+Date: Wed, 30 Nov 2016 02:37:50 +0000
+Message-ID: <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+References: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        "Andrew Lunn" <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34829 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932506AbcK3KJU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:09:20 -0500
-Received: by mail-wm0-f66.google.com with SMTP id a20so28642287wme.2
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 02:09:19 -0800 (PST)
-In-Reply-To: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
+Received: from mail-db5eur01on0075.outbound.protection.outlook.com ([104.47.2.75]:20370
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1756148AbcK3KJU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 05:09:20 -0500
+In-Reply-To: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com> Sent: Wednesday, =
+November 30, 2016 2:35 AM
+ >To: David S. Miller <davem@davemloft.net>; Andy Duan
+ ><fugang.duan@nxp.com>; Troy Kisky <troy.kisky@boundarydevices.com>;
+ >Andrew Lunn <andrew@lunn.ch>; Eric Nelson <eric@nelint.com>; Philippe
+ >Reynes <tremyfr@gmail.com>; Johannes Berg <johannes@sipsolutions.net>;
+ >netdev@vger.kernel.org
+ >Cc: Chris Healy <cphealy@gmail.com>; Fabio Estevam
+ ><fabio.estevam@nxp.com>; linux-kernel@vger.kernel.org; Nikita
+ >Yushchenko <nikita.yoush@cogentembedded.com>
+ >Subject: [patch net / RFC] net: fec: increase frame size limitation to ac=
+tually
+ >available buffer
+ >
+ >Fec driver uses Rx buffers of 2k, but programs hardware to limit incoming
+ >frames to 1522 bytes. This raises issues when FEC device is used with DSA
+ >(since DSA tag can make frame larger), and also disallows manual sending =
+and
+ >receiving larger frames.
+ >
+ >This patch removes the limitation, allowing Rx size up to entire buffer.
+ >At the same time possible Tx size is increased as well, because hardware =
+uses
+ >the same register field to limit Rx and Tx.
+ >
+ >Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+ >---
+ > drivers/net/ethernet/freescale/fec_main.c | 33 +++++++++++--------------=
+--
+ >----
+ > 1 file changed, 12 insertions(+), 21 deletions(-)
+ >
+ >diff --git a/drivers/net/ethernet/freescale/fec_main.c
+ >b/drivers/net/ethernet/freescale/fec_main.c
+ >index 73ac35780611..c09789a71024 100644
+ >--- a/drivers/net/ethernet/freescale/fec_main.c
+ >+++ b/drivers/net/ethernet/freescale/fec_main.c
+ >@@ -171,30 +171,12 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet
+ >MAC address");  #endif  #endif /* CONFIG_M5272 */
+ >
+ >-/* The FEC stores dest/src/type/vlan, data, and checksum for receive
+ >packets.
+ >- */
+ >-#define PKT_MAXBUF_SIZE		1522
+ >-#define PKT_MINBUF_SIZE		64
+ >-#define PKT_MAXBLR_SIZE		1536
+ >-
+ > /* FEC receive acceleration */
+ > #define FEC_RACC_IPDIS		(1 << 1)
+ > #define FEC_RACC_PRODIS		(1 << 2)
+ > #define FEC_RACC_SHIFT16	BIT(7)
+ > #define FEC_RACC_OPTIONS	(FEC_RACC_IPDIS | FEC_RACC_PRODIS)
+ >
+ >-/*
+ >- * The 5270/5271/5280/5282/532x RX control register also contains maximu=
+m
+ >frame
+ >- * size bits. Other FEC hardware does not, so we need to take that into
+ >- * account when setting it.
+ >- */
+ >-#if defined(CONFIG_M523x) || defined(CONFIG_M527x) ||
+ >defined(CONFIG_M528x) || \
+ >-    defined(CONFIG_M520x) || defined(CONFIG_M532x) ||
+ >defined(CONFIG_ARM)
+ >-#define	OPT_FRAME_SIZE	(PKT_MAXBUF_SIZE << 16)
+ >-#else
+ >-#define	OPT_FRAME_SIZE	0
+ >-#endif
+ >-
+ > /* FEC MII MMFR bits definition */
+ > #define FEC_MMFR_ST		(1 << 30)
+ > #define FEC_MMFR_OP_READ	(2 << 28)
+ >@@ -847,7 +829,8 @@ static void fec_enet_enable_ring(struct net_device
+ >*ndev)
+ > 	for (i =3D 0; i < fep->num_rx_queues; i++) {
+ > 		rxq =3D fep->rx_queue[i];
+ > 		writel(rxq->bd.dma, fep->hwp + FEC_R_DES_START(i));
+ >-		writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE(i));
+ >+		writel(FEC_ENET_RX_FRSIZE - fep->rx_align,
+ >+		       fep->hwp + FEC_R_BUFF_SIZE(i));
+ >
+ > 		/* enable DMA1/2 */
+ > 		if (i)
+ >@@ -895,9 +878,17 @@ fec_restart(struct net_device *ndev)
+ > 	struct fec_enet_private *fep =3D netdev_priv(ndev);
+ > 	u32 val;
+ > 	u32 temp_mac[2];
+ >-	u32 rcntl =3D OPT_FRAME_SIZE | 0x04;
+ >+	u32 rcntl =3D 0x04;
+ > 	u32 ecntl =3D 0x2; /* ETHEREN */
+ >
+ >+	/* The 5270/5271/5280/5282/532x RX control register also contains
+ >+	 * maximum frame * size bits. Other FEC hardware does not.
+ >+	 */
+ >+#if defined(CONFIG_M523x) || defined(CONFIG_M527x) ||
+ >defined(CONFIG_M528x) || \
+ >+    defined(CONFIG_M520x) || defined(CONFIG_M532x) ||
+ >defined(CONFIG_ARM)
+ >+	rcntl |=3D (FEC_ENET_RX_FRSIZE - fep->rx_align) << 16; #endif
+ >+
+ > 	/* Whack a reset.  We should wait for this.
+ > 	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
+ > 	 * instead of reset MAC itself.
+ >@@ -953,7 +944,7 @@ fec_restart(struct net_device *ndev)
+ > 		else
+ > 			val &=3D ~FEC_RACC_OPTIONS;
+ > 		writel(val, fep->hwp + FEC_RACC);
+ >-		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
+ >+		writel(FEC_ENET_RX_FRSIZE - fep->rx_align, fep->hwp +
+ >FEC_FTRL);
 
-When dumping the FIB tables in the next commit, the dump will be
-considered invalid if notifications were sent in the FIB notification
-chain mid-dump. In systems where routing changes are frequent, the dump
-might need to be restarted multiple times.
+By the patch itself, it seems fine except MRBRn must be evenly divisible by=
+ 64.
+But I think it is not necessary since the driver don't support jumbo frame.
 
-Add sysctl to limit the number of FIB dump retries, thereby preventing
-callers from looping for long periods of time.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- Documentation/networking/ip-sysctl.txt | 8 ++++++++
- include/net/netns/ipv4.h               | 1 +
- net/ipv4/fib_frontend.c                | 1 +
- net/ipv4/sysctl_net_ipv4.c             | 7 +++++++
- 4 files changed, 17 insertions(+)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 5af48dd..5182b23 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -73,6 +73,14 @@ fib_multipath_use_neigh - BOOLEAN
- 	0 - disabled
- 	1 - enabled
- 
-+fib_dump_max_retries - INTEGER
-+	Maximum number of retries until the FIB dump is aborted. For a
-+	given net namespace, a FIB dump is considered invalid if
-+	notifications were sent in the FIB notification chain mid-dump.
-+	The dump will be retried until it is successful or maximum
-+	number of retries has been reached.
-+	Default: 5
-+
- route/max_size - INTEGER
- 	Maximum number of routes allowed in the kernel.  Increase
- 	this when using large numbers of interfaces and/or routes.
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index f0cf5a1..71c4ca8 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -136,6 +136,7 @@ struct netns_ipv4 {
- 	int sysctl_fib_multipath_use_neigh;
- #endif
- 
-+	int sysctl_fib_dump_max_retries;
- 	unsigned int	fib_seq;	/* protected by rtnl_mutex */
- 
- 	atomic_t	rt_genid;
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index dbad5a1..43f7557 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1219,6 +1219,7 @@ static int __net_init ip_fib_net_init(struct net *net)
- 	int err;
- 	size_t size = sizeof(struct hlist_head) * FIB_TABLE_HASHSZ;
- 
-+	net->ipv4.sysctl_fib_dump_max_retries = 5;
- 	net->ipv4.fib_seq = 0;
- 
- 	/* Avoid false sharing : Use at least a full cache line */
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 80bc36b..046147c 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -971,6 +971,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.extra2		= &one,
- 	},
- #endif
-+	{
-+		.procname	= "fib_dump_max_retries",
-+		.data		= &init_net.ipv4.sysctl_fib_dump_max_retries,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
--- 
-2.7.4
+ > 	}
+ > #endif
+ >
+ >--
+ >2.1.4
