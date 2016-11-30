@@ -1,84 +1,132 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net-next] sock: reset sk_err for ICMP packets read from error queue
-Date: Wed, 30 Nov 2016 14:01:08 -0500
-Message-ID: <1480532468-1610-1-git-send-email-soheil.kdev@gmail.com>
-Cc: edumazet@google.com, willemb@google.com, maze@google.com,
-        hannes@stressinduktion.org,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:35577 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755486AbcK3TBR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:01:17 -0500
-Received: by mail-qt0-f193.google.com with SMTP id m48so20730155qta.2
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 11:01:17 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Henning Schild <henning.schild-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH net] cdc_ether: Fix handling connection notification
+Date: Wed, 30 Nov 2016 20:09:09 +0100
+Message-ID: <20161130200909.3a35a29e@md1em3qc>
+References: <20161130184216.4224-1-kristian.evensen@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161130184216.4224-1-kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+Am Wed, 30 Nov 2016 19:42:16 +0100
+schrieb Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
 
-Only when ICMP packets are enqueued onto the error queue,
-sk_err is also set. Before f5f99309fa74 (sock: do not set sk_err
-in sock_dequeue_err_skb), a subsequent error queue read
-would set sk_err to the next error on the queue, or 0 if empty.
-As no error types other than ICMP set this field, sk_err should
-not be modified upon dequeuing them.
+> Commit bfe9b9d2df66 ("cdc_ether: Improve ZTE MF823/831/910 handling")
+> introduced a work-around in usbnet_cdc_status() for devices that
+> exported cdc carrier on twice on connect. Before the commit, this
+> behavior caused the link state to be incorrect. It was assumed that
+> all CDC Ethernet devices would either export this behavior, or send
+> one off and then one on notification (which seems to be the default
+> behavior).
+> 
+> Unfortunately, it turns out multiple devices sends a connection
+> notification multiple times per second (via an interrupt), even when
+> connection state does not change. This has been observed with several
+> different USB LAN dongles (at least), for example 13b1:0041 (Linksys).
+> After bfe9b9d2df66, the link state has been set as down and then up
+> for each notification. This has caused a flood of Netlink NEWLINK
+> messages and syslog to be flooded with messages similar to:
+> 
+> cdc_ether 2-1:2.0 eth1: kevent 12 may have been dropped
+> 
+> This commit fixes the behavior by reverting usbnet_cdc_status() to
+> how it was before bfe9b9d2df66. The work-around has been moved to a
+> separate status-function which is only called when a known, affect
+> device is detected.
+> 
+> Fixes: bfe9b9d2df66 ("cdc_ether: Improve ZTE MF823/831/910 handling")
+> Reported-by: Henning Schild <henning.schild-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
+> Signed-off-by: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/usb/cdc_ether.c | 38
+> +++++++++++++++++++++++++++++++------- 1 file changed, 31
+> insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+> index 45e5e43..8c628ea 100644
+> --- a/drivers/net/usb/cdc_ether.c
+> +++ b/drivers/net/usb/cdc_ether.c
+> @@ -388,12 +388,6 @@ void usbnet_cdc_status(struct usbnet *dev,
+> struct urb *urb) case USB_CDC_NOTIFY_NETWORK_CONNECTION:
+>  		netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
+>  			  event->wValue ? "on" : "off");
+> -
+> -		/* Work-around for devices with broken
+> off-notifications */
+> -		if (event->wValue &&
+> -		    !test_bit(__LINK_STATE_NOCARRIER,
+> &dev->net->state))
+> -			usbnet_link_change(dev, 0, 0);
+> -
+>  		usbnet_link_change(dev, !!event->wValue, 0);
+>  		break;
+>  	case USB_CDC_NOTIFY_SPEED_CHANGE:	/* tx/rx rates */
+> @@ -466,6 +460,36 @@ static int usbnet_cdc_zte_rx_fixup(struct usbnet
+> *dev, struct sk_buff *skb) return 1;
+>  }
+>  
+> +/* Ensure correct link state
+> + *
+> + * Some devices (ZTE MF823/831/910) export two carrier on
+> notifications when
+> + * connected. This causes the link state to be incorrect. Work
+> around this by
+> + * always setting the state to off, then on.
+> + */
+> +void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
+> +{
+> +	struct usb_cdc_notification *event;
+> +
+> +	if (urb->actual_length < sizeof(*event))
+> +		return;
+> +
+> +	event = urb->transfer_buffer;
+> +
+> +	if (event->bNotificationType !=
+> USB_CDC_NOTIFY_NETWORK_CONNECTION) {
+> +		usbnet_cdc_status(dev, urb);
+> +		return;
+> +	}
+> +
+> +	netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
+> +		  event->wValue ? "on" : "off");
+> +
+> +	if (event->wValue &&
+> +	    !test_bit(__LINK_STATE_NOCARRIER, &dev->net->state))
 
-Only for ICMP errors, reset the (racy) sk_err. Some applications,
-like traceroute, rely on it and go into a futile busy POLLERR
-loop otherwise.
+You should probably use netif_carrier_ok(dev->net) instead.
 
-In principle, sk_err has to be set while an ICMP error is queued.
-Testing is_icmp_err_skb(skb_next) approximates this without
-requiring a full queue walk. Applications that receive both ICMP
-and other errors cannot rely on this legacy behavior, as other
-errors do not set sk_err in the first place.
+> +		usbnet_link_change(dev, 0, 0);
+> +
+> +	usbnet_link_change(dev, !!event->wValue, 0);
 
-Fixes: f5f99309fa74 (sock: do not set sk_err in sock_dequeue_err_skb)
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/core/skbuff.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+Would the following work?
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d1d1a5a..8dad391 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3714,20 +3714,29 @@ int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
- }
- EXPORT_SYMBOL(sock_queue_err_skb);
- 
-+static bool is_icmp_err_skb(const struct sk_buff *skb)
-+{
-+	return skb && (SKB_EXT_ERR(skb)->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
-+		       SKB_EXT_ERR(skb)->ee.ee_origin == SO_EE_ORIGIN_ICMP6);
-+}
-+
- struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
- {
- 	struct sk_buff_head *q = &sk->sk_error_queue;
--	struct sk_buff *skb, *skb_next;
-+	struct sk_buff *skb, *skb_next = NULL;
-+	bool icmp_next = false;
- 	unsigned long flags;
--	int err = 0;
- 
- 	spin_lock_irqsave(&q->lock, flags);
- 	skb = __skb_dequeue(q);
- 	if (skb && (skb_next = skb_peek(q)))
--		err = SKB_EXT_ERR(skb_next)->ee.ee_errno;
-+		icmp_next = is_icmp_err_skb(skb_next);
- 	spin_unlock_irqrestore(&q->lock, flags);
- 
--	if (err)
-+        if (is_icmp_err_skb(skb) && !icmp_next)
-+		sk->sk_err = 0;
-+
-+	if (skb_next)
- 		sk->sk_error_report(sk);
- 
- 	return skb;
--- 
-2.8.0.rc3.226.g39d4020
+usbnet_link_change(dev, !!event->wValue, event->wValue &&
+netif_carrier_ok(dev->net));
+
+> +}
+> +
+>  static const struct driver_info	cdc_info = {
+>  	.description =	"CDC Ethernet Device",
+>  	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
+> @@ -481,7 +505,7 @@ static const struct driver_info
+> zte_cdc_info = { .flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
+>  	.bind =		usbnet_cdc_zte_bind,
+>  	.unbind =	usbnet_cdc_unbind,
+> -	.status =	usbnet_cdc_status,
+> +	.status =	usbnet_cdc_zte_status,
+>  	.set_rx_mode =	usbnet_cdc_update_filter,
+>  	.manage_power =	usbnet_manage_power,
+>  	.rx_fixup = usbnet_cdc_zte_rx_fixup,
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
