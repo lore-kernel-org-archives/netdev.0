@@ -1,61 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH net-next] ipv6: implement consistent hashing for
- equal-cost multipath routing
-Date: Wed, 30 Nov 2016 14:12:48 +0100
-Message-ID: <1480511568.3649771.803688521.5B47BE8F@webmail.messagingengine.com>
-References: <1480017556-25988-1-git-send-email-david.lebrun@uclouvain.be>
- <20161128.112248.2198395724649783009.davem@davemloft.net>
- <583C9093.7060404@uclouvain.be>
- <20161128.153209.2135257061368558724.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, david.lebrun@uclouvain.be
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH net] tcp: warn on bogus MSS and try to amend it
+Date: Wed, 30 Nov 2016 11:14:32 -0200
+Message-ID: <0d41deb00d57206f518e6bffae1b0be355bbc726.1480511277.git.marcelo.leitner@gmail.com>
+Cc: Jon Maxwell <jmaxwell37@gmail.com>,
+        Alex Sidorenko <alexandre.sidorenko@hpe.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, tlfalcon@linux.vnet.ibm.com,
+        Brian King <brking@linux.vnet.ibm.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:32911 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756170AbcK3NMt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 08:12:49 -0500
-In-Reply-To: <20161128.153209.2135257061368558724.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:53170 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750922AbcK3NO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 08:14:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016, at 21:32, David Miller wrote:
-> From: David Lebrun <david.lebrun@uclouvain.be>
-> Date: Mon, 28 Nov 2016 21:16:19 +0100
-> 
-> > The advantage of my solution over RFC2992 is lowest possible disruption
-> > and equal rebalancing of affected flows. The disadvantage is the lookup
-> > complexity of O(log n) vs O(1). Although from a theoretical viewpoint
-> > O(1) is obviously better, would O(log n) have an effectively measurable
-> > negative impact on scalability ? If we consider 32 next-hops for a route
-> > and 100 pseudo-random numbers generated per next-hop, the lookup
-> > algorithm would have to perform in the worst case log2 3200 = 11
-> > comparisons to select a next-hop for that route.
-> 
-> When I was working on the routing cache removal in ipv4 I compared
-> using a stupid O(1) hash lookup of the FIB entries vs. the O(log n)
-> fib_trie stuff actually in use.
-> 
-> It did make a difference.
-> 
-> This is a lookup that can be invoked 20 million times per second or
-> more.
-> 
-> Every cycle matters.
-> 
-> We already have a lot of trouble getting under the cycle budget one
-> has for routing at wire speed for very high link rates, please don't
-> make it worse.
+There have been some reports lately about TCP connection stalls caused
+by NIC drivers that aren't setting gso_size on aggregated packets on rx
+path. This causes TCP to assume that the MSS is actually the size of the
+aggregated packet, which is invalid.
 
-David, one question: do you remember if you measured with linked lists
-at that time or also with arrays. I actually would expect small arrays
-that entirely fit into cachelines to be actually faster than our current
-approach, which also walks a linked list, probably the best algorithm to
-trash cache lines. I ask because I currently prefer this approach more
-than having large allocations in the O(1) case because of easier code
-and easier management.
+Although the proper fix is to be done at each driver, it's often hard
+and cumbersome for one to debug, come to such root cause and report/fix
+it.
 
-Thanks,
-Hannes
+This patch amends this situation in two ways. First, it adds a warning
+on when this situation occurs, so it gives a hint to those trying to
+debug this. It also limit the maximum probed MSS to the adverised MSS,
+as it should never be any higher than that.
+
+The result is that the connection may not have the best performance ever
+but it shouldn't stall, and the admin will have a hint on what to look
+for.
+
+Tested with virtio by forcing gso_size to 0.
+
+Cc: Jonathan Maxwell <jmaxwell37@gmail.com>
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/ipv4/tcp_input.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a27b9c0e27c08b4e4aeaff3d0bfdf3ae561ba4d8..ecc86105eb479de9b80db71af6a16a5af612a61c 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -144,7 +144,10 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
+ 	 */
+ 	len = skb_shinfo(skb)->gso_size ? : skb->len;
+ 	if (len >= icsk->icsk_ack.rcv_mss) {
+-		icsk->icsk_ack.rcv_mss = len;
++		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
++					       tcp_sk(sk)->advmss);
++		if (icsk->icsk_ack.rcv_mss != len)
++			pr_warn_once("Seems your NIC driver is doing bad RX acceleration. TCP performance may be compromised.\n");
+ 	} else {
+ 		/* Otherwise, we make more careful check taking into account,
+ 		 * that SACKs block is variable.
+-- 
+2.9.3
