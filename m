@@ -1,48 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 1/1] net: macb: fix the RX queue reset in
- macb_rx()
-Date: Tue, 29 Nov 2016 20:02:29 -0500 (EST)
-Message-ID: <20161129.200229.2088117281049539695.davem@davemloft.net>
-References: <80ebb550eb6155e3b882cab1fb8d78a7385f8227.1480339901.git.cyrille.pitchen@atmel.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5 2/3] bpf: Add new cgroup attach type to enable
+ sock modifications
+Date: Tue, 29 Nov 2016 18:07:18 -0700
+Message-ID: <d3359d0c-8995-d605-cd2d-f0558fdd0408@cumulusnetworks.com>
+References: <1480434813-3141-1-git-send-email-dsa@cumulusnetworks.com>
+ <1480434813-3141-3-git-send-email-dsa@cumulusnetworks.com>
+ <20161129200141.GB24152@ast-mbp.thefacebook.com>
+ <781e66b2-007c-bd56-2cd1-543c1f5dcdb7@cumulusnetworks.com>
+ <20161130005906.GB29591@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-        soren.brinkmann@xilinx.com, Andrei.Pistirica@microchip.com,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: cyrille.pitchen@atmel.com
+Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
+        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38518 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751190AbcK3BCb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:02:31 -0500
-In-Reply-To: <80ebb550eb6155e3b882cab1fb8d78a7385f8227.1480339901.git.cyrille.pitchen@atmel.com>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:34290 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752427AbcK3BHV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:07:21 -0500
+Received: by mail-pg0-f41.google.com with SMTP id x23so75426854pgx.1
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 17:07:21 -0800 (PST)
+In-Reply-To: <20161130005906.GB29591@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Date: Mon, 28 Nov 2016 14:40:55 +0100
+On 11/29/16 5:59 PM, Alexei Starovoitov wrote:
+> On Tue, Nov 29, 2016 at 05:43:08PM -0700, David Ahern wrote:
+>> On 11/29/16 1:01 PM, Alexei Starovoitov wrote:
+>>> Could you also expose sk_protcol and sk_type as read only fields?
+>>
+>> Those are bitfields in struct sock, so can't use offsetof or sizeof. Any existing use cases that try to load a bitfield in a bpf that I can look at?
+> 
+> pkt_type, vlan are also bitfileds in skb. Please see convert_skb_access()
+> There is a bit of ugliness due to __BIG_ENDIAN_BITFIELD though..
+> 
 
-> On macb only (not gem), when a RX queue corruption was detected from
-> macb_rx(), the RX queue was reset: during this process the RX ring
-> buffer descriptor was initialized by macb_init_rx_ring() but we forgot
-> to also set bp->rx_tail to 0.
-> 
-> Indeed, when processing the received frames, bp->rx_tail provides the
-> macb driver with the index in the RX ring buffer of the next buffer to
-> process. So when the whole ring buffer is reset we must also reset
-> bp->rx_tail so the driver is synchronized again with the hardware.
-> 
-> Since macb_init_rx_ring() is called from many locations, currently from
-> macb_rx() and macb_init_rings(), we'd rather add the "bp->rx_tail = 0;"
-> line inside macb_init_rx_ring() than add the very same line after each
-> call of this function.
-> 
-> Without this fix, the rx queue is not reset properly to recover from
-> queue corruption and connection drop may occur.
-> 
-> Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-> Fixes: 9ba723b081a2 ("net: macb: remove BUG_ON() and reset the queue to handle RX errors")
-> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
-Applied and queued up for -stable, thanks.
+Given the added complexity I'd prefer to defer this second use case to a follow on patch set. This one introduces the infra for sockets and I don't see anything needing to change with it to add the read of 3 more sock elements. Agree?
