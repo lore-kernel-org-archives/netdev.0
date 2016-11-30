@@ -1,54 +1,80 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: Regression: [PATCH] mlx4: give precise rx/tx bytes/packets counters
-Date: Wed, 30 Nov 2016 22:42:35 +0200
-Message-ID: <CALzJLG_aT1O1ergGRu8Z0u4nszKYao5RbPfb=1USptwFY1d7PQ@mail.gmail.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161130150839.5203ece0@redhat.com> <1480521514.18162.191.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com> <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
+Date: Wed, 30 Nov 2016 14:43:57 -0600
+Message-ID: <875d4cc2-8a47-b06d-fb46-0cacc28dbaee@ti.com>
+References: <20161128230428.6872-1-grygorii.strashko@ti.com>
+ <20161128230428.6872-5-grygorii.strashko@ti.com>
+ <20161130184511.GB8209@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
+        <devicetree@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>,
+        Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:32835 "EHLO
-        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754091AbcK3Um5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 15:42:57 -0500
-Received: by mail-lf0-f44.google.com with SMTP id c13so155818313lfg.0
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 12:42:57 -0800 (PST)
-In-Reply-To: <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:50295 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756680AbcK3UoC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 15:44:02 -0500
+In-Reply-To: <20161130184511.GB8209@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2016 at 7:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-11-30 at 18:46 +0200, Saeed Mahameed wrote:
->
->> we had/still have the proper stats they are the ones that
->> mlx4_en_fold_software_stats is trying to cache into  (they always
->> exist),
->> but the ones that you are trying to read from (the mlx4 rings) are gone !
->>
->> This bug is totally new and as i warned, this is another symptom of
->> the real root cause (can't sleep while reading stats).
->>
->> Eric what do you suggest ? Keep pre-allocated MAX_RINGS stats  and
->> always iterate over all of them to query stats ?
->> what if you have one ring/none/1K ? how would you know how many to query ?
->
-> I am suggesting I will fix the bug I introduced.
->
-> Do not panic.
->
->
 
-Not at all, I trust you are the only one who is capable of providing
-the best solution.
-I am just trying to read your mind :-).
 
-As i said i like the solution and i want to adapt it to mlx5, so I am
-a little bit enthusiastic :)
+On 11/30/2016 12:45 PM, Richard Cochran wrote:
+> On Mon, Nov 28, 2016 at 05:04:26PM -0600, Grygorii Strashko wrote:
+>> +static cycle_t cpts_cc_ns2cyc(struct cpts *cpts, u64 nsecs)
+>> +{
+>> +	cycle_t cyc = (nsecs << cpts->cc.shift) + nsecs;
+>> +
+>> +	do_div(cyc, cpts->cc.mult);
+>> +
+>> +	return cyc;
+>> +}
+> 
+> So you set the comparison value once per second, based on cc.mult.
+> But when the clock is being actively synchronized, user space calls to
+> clock_adjtimex() will change cc.mult.  This can happen several times
+> per second, depending on the PTP Sync rate.
+> 
 
-Thanks.
+Right.
+
+> In order to produce the PPS edge correctly, you would have to adjust
+> the comparison value whenever cc.mult changes, 
+
+yes. And that is done in cpts_ptp_adjfreq()
+	if (cpts->ts_comp_enabled)
+		cpts->ts_comp_one_sec_cycs = cpts_cc_ns2cyc(cpts, NSEC_PER_SEC);
+	^^^ re-calculate reload value for 
+ 
+	cpts_ts_comp_settime(cpts, ns);
+	^^^ adjust the ts_comp
+
+> but of course this is unworkable.
+> 
+
+Sry, but this is questionable - code for pps comes from TI internal
+branches (SDK releases) where it survived for a pretty long time.
+I'm, of course, agree that without HW support for freq adjustment
+this PPS feature is not super precise and has some limitation,
+but that is what we agree to live with. 
+
+Murali, do you have any comments regarding usability of SW
+freq freq adjustment approach? 
+
+> So I'll have to say NAK for this patch.
+> 
+
+:) 
+
+
+-- 
+regards,
+-grygorii
