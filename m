@@ -1,53 +1,46 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH v4 net-next 3/7] net: mvneta: Use cacheable memory to store the rx buffer virtual address
-Date: Wed, 30 Nov 2016 22:27:47 +0100
-Message-ID: <87k2bklkto.fsf@free-electrons.com>
-References: <cover.654978388d6811b943dd58ecb9a9d9b6cceeaee3.1480431285.git-series.gregory.clement@free-electrons.com>
-        <cover.654978388d6811b943dd58ecb9a9d9b6cceeaee3.1480431285.git-series.gregory.clement@free-electrons.com>
-        <bb2f1a61e9b912905f8390f7a06c36f9f1e7ab66.1480431285.git-series.gregory.clement@free-electrons.com>
-        <20161130.135725.407314756675613303.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        jszhang@marvell.com, arnd@arndb.de, jason@lakedaemon.net,
-        andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com,
-        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
-        mw@semihalf.com, dima@marvell.com, yelena@marvell.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161130.135725.407314756675613303.davem@davemloft.net> (David
-        Miller's message of "Wed, 30 Nov 2016 13:57:25 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi David,
- 
- On mer., nov. 30 2016, David Miller <davem@davemloft.net> wrote:
-
-> From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> Date: Tue, 29 Nov 2016 15:55:21 +0100
->
->> +	/* Virtual address of the RX buffer */
->> +	void  **buf_virt_addr;
->> +
->>  	/* Virtual address of the RX DMA descriptors array */
->>  	struct mvneta_rx_desc *descs;
->>  
->  ...
->> +		data = (unsigned char *)rxq->buf_virt_addr[index];
->
-> This cast is unnecessary, please remove it.
-
-OK I am doing it now.
-
-Thanks,
-
-Gregory
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: Re: [PATCH v3 net-next 2/3] openvswitch: Use is_skb_forwardable() for length check.
+Date: Wed, 30 Nov 2016 13:30:25 -0800
+Message-ID: <AB6C9BA5-377A-4384-86A1-EF1FB148B0C8@ovn.org>
+References: <1480462253-114713-1-git-send-email-jarno@ovn.org> <1480462253-114713-2-git-send-email-jarno@ovn.org> <20161130145159.3cee7ba4@griffin>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Pravin Shelar <pshelar@ovn.org>, e@erig.me
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35313 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758313AbcK3Va2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 16:30:28 -0500
+Received: by mail-pg0-f68.google.com with SMTP id p66so2400358pga.2
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 13:30:28 -0800 (PST)
+In-Reply-To: <20161130145159.3cee7ba4@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+> On Nov 30, 2016, at 5:51 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> 
+> On Tue, 29 Nov 2016 15:30:52 -0800, Jarno Rajahalme wrote:
+>> @@ -504,11 +485,20 @@ void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto)
+>> 		goto drop;
+>> 	}
+>> 
+>> -	if (unlikely(packet_length(skb, vport->dev) > mtu &&
+>> -		     !skb_is_gso(skb))) {
+>> -		net_warn_ratelimited("%s: dropped over-mtu packet: %d > %d\n",
+>> -				     vport->dev->name,
+>> -				     packet_length(skb, vport->dev), mtu);
+>> +	if (unlikely(!is_skb_forwardable(vport->dev, skb))) {
+> 
+> How does this work when the vlan tag is accelerated? Then we can be
+> over MTU, yet the check will pass.
+> 
+
+I’ll check how other call sites use this.
+
+  Jarno
+
+> Jiri
