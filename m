@@ -1,73 +1,115 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v3 0/4] Fix OdroidC2 Gigabit Tx link issue
-Date: Tue, 29 Nov 2016 17:15:07 -0800
-Message-ID: <162595c2-d403-0070-3399-de03c1653065@gmail.com>
-References: <1480326409-25419-1-git-send-email-jbrunet@baylibre.com>
- <20161129.193853.827524417068912706.davem@davemloft.net>
- <e14a3b0c-dc34-be14-48b3-518a0ad0c080@gmail.com>
- <20161129.201331.2207317476589573523.davem@davemloft.net>
+From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
+Subject: RE: [net-next] neigh: remove duplicate check for same neigh
+Date: Wed, 30 Nov 2016 09:27:48 +0800
+Message-ID: <000201d24aa8$f63c6500$e2b52f00$@cmss.chinamobile.com>
+References: <1480407771-12884-1-git-send-email-zhangshengju@cmss.chinamobile.com> <d641245a-8442-9238-a507-6f94184354a0@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain;
+        charset="gb2312"
 Content-Transfer-Encoding: 7bit
-Cc: jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-        peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, neolynx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        andrew-g2DYL2Zd6BY@public.gmane.org, narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161129.201331.2207317476589573523.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: "'David Ahern'" <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:19228 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752694AbcK3B2B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:28:01 -0500
+In-Reply-To: <d641245a-8442-9238-a507-6f94184354a0@cumulusnetworks.com>
+Content-Language: en-us
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 05:13 PM, David Miller wrote:
-> From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Tue, 29 Nov 2016 16:43:20 -0800
+> -----Original Message-----
+> From: David Ahern [mailto:dsa@cumulusnetworks.com]
+> Sent: Wednesday, November 30, 2016 12:23 AM
+> To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>;
+> netdev@vger.kernel.org
+> Subject: Re: [net-next] neigh: remove duplicate check for same neigh
 > 
->> On 11/29/2016 04:38 PM, David Miller wrote:
->>> From: Jerome Brunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
->>> Date: Mon, 28 Nov 2016 10:46:45 +0100
->>>
->>>> This patchset fixes an issue with the OdroidC2 board (DWMAC + RTL8211F).
->>>> The platform seems to enter LPI on the Rx path too often while performing
->>>> relatively high TX transfer. This eventually break the link (both Tx and
->>>> Rx), and require to bring the interface down and up again to get the Rx
->>>> path working again.
->>>>
->>>> The root cause of this issue is not fully understood yet but disabling EEE
->>>> advertisement on the PHY prevent this feature to be negotiated.
->>>> With this change, the link is stable and reliable, with the expected
->>>> throughput performance.
->>>>
->>>> The patchset adds options in the generic phy driver to disable EEE
->>>> advertisement, through device tree. The way it is done is very similar
->>>> to the handling of the max-speed property.
->>>
->>> Patches 1-3 applied to net-next, thanks.
->>
->> Meh, there was a v4 submitted shortly after, and I objected to the whole
->> idea of using that kind of Device Tree properties to disable EEE, we can
->> send reverts though..
+> On 11/29/16 1:22 AM, Zhang Shengju wrote:
+> > @@ -2285,20 +2295,15 @@ static int neigh_dump_table(struct neigh_table
+> *tbl, struct sk_buff *skb,
+> >  	rcu_read_lock_bh();
+> >  	nht = rcu_dereference_bh(tbl->nht);
+> >
+> > -	for (h = s_h; h < (1 << nht->hash_shift); h++) {
+> > -		if (h > s_h)
+> > -			s_idx = 0;
+> > +	for (h = s_h; h < (1 << nht->hash_shift); h++, s_idx = 0) {
+> >  		for (n = rcu_dereference_bh(nht->hash_buckets[h]), idx = 0;
+> >  		     n != NULL;
+> > -		     n = rcu_dereference_bh(n->next)) {
+> > -			if (!net_eq(dev_net(n->dev), net))
+> > -				continue;
+> > -			if (neigh_ifindex_filtered(n->dev, filter_idx))
+> > +		     n = rcu_dereference_bh(n->next), idx++) {
 > 
-> Sorry, I lost this in all the discussion, I can revert.
+> incrementing idx here ...
+> 
+> > +			if (idx < s_idx || !net_eq(dev_net(n->dev), net))
+> >  				continue;
+> > -			if (neigh_master_filtered(n->dev,
+filter_master_idx))
+> > +			if (neigh_dump_filtered(n->dev, filter_idx,
+> > +						filter_master_idx))
+> >  				continue;
+> > -			if (idx < s_idx)
+> > -				goto next;
+> >  			if (neigh_fill_info(skb, n, NETLINK_CB(cb-
+> >skb).portid,
+> >  					    cb->nlh->nlmsg_seq,
+> >  					    RTM_NEWNEIGH,
+> 
+> ... causes a missed entry when an error happens here
+> 
+> idx is only incremented when a neigh has been successfully added to the
+skb.
 
-Yeah, I can understand why, these freaking PHYs tend to generate a lot
-of noise and discussion...
+If an error happens, we just goto 'out' and exit this loop, this will skip
+the 'idx++'.  
+So no missed entry, right?
 
 > 
-> Just send me a revert of the entire merge commit
-> a152c91889556df17ca6d8ea134fb2cb4ac9f893 with a short
-> description of why and I'll apply it.
+> 
+> Your intention is to save a few cycles by making idx an absolute index
+within
+> the hash bucket and jumping to the next entry to be dumped without
+> evaluating any filters per entry.
+> 
+> So why not keep it simple and do this:
 
-OK, I will talk with Jerome first to make sure that we are in agreement
-with the solution to deploy to fix the OdroidC2 problem first.
+This has less changes, but I preferred to add a new function to do the
+filter logic, this is the same as your code  @rtnl_dump_ifinfo().
 
-Thanks!
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And for the 'idx', it should be increased when neigh entry is filter out or
+is successfully added to the skb. Isn't it straight-forward to put it in for
+loop?
+
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c index
+> 2ae929f9bd06..2e49a85e696a 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -2291,14 +2291,12 @@ static int neigh_dump_table(struct neigh_table
+> *tbl, struct sk_buff *skb,
+>                 for (n = rcu_dereference_bh(nht->hash_buckets[h]), idx =
+0;
+>                      n != NULL;
+>                      n = rcu_dereference_bh(n->next)) {
+> -                       if (!net_eq(dev_net(n->dev), net))
+> -                               continue;
+> -                       if (neigh_ifindex_filtered(n->dev, filter_idx))
+> -                               continue;
+> -                       if (neigh_master_filtered(n->dev,
+filter_master_idx))
+> -                               continue;
+>                         if (idx < s_idx)
+>                                 goto next;
+> +                       if (!net_eq(dev_net(n->dev), net) ||
+> +                           neigh_ifindex_filtered(n->dev, filter_idx) ||
+> +                           neigh_master_filtered(n->dev,
+filter_master_idx))
+> +                               goto next;
+>                         if (neigh_fill_info(skb, n,
+NETLINK_CB(cb->skb).portid,
+>                                             cb->nlh->nlmsg_seq,
+>                                             RTM_NEWNEIGH,
