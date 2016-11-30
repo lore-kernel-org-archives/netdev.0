@@ -1,100 +1,82 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>
-Subject: Re: DSA vs. SWTICHDEV ?
-Date: Wed, 30 Nov 2016 16:35:18 +0000
-Message-ID: <1480523716.3563.144.camel@infinera.com>
-References: <1480495831.3563.135.camel@infinera.com>
-         <20161130135257.GC18716@lunn.ch> <1480516241.3563.142.camel@infinera.com>
-         <20161130152503.GE21645@lunn.ch>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 8/8] net/mlx5e: Support adding ingress tc rule
+ when egress device flag is set
+Date: Wed, 30 Nov 2016 08:36:23 -0800
+Message-ID: <583F0007.3090507@gmail.com>
+References: <1480516895-29545-1-git-send-email-hadarh@mellanox.com>
+ <1480516895-29545-9-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "andrew@lunn.ch" <andrew@lunn.ch>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0045.outbound.protection.outlook.com ([104.47.38.45]:19264
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755114AbcK3QfY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 11:35:24 -0500
-In-Reply-To: <20161130152503.GE21645@lunn.ch>
-Content-Language: en-US
-Content-ID: <7CC96F9586E9FD4C88B217BF1BBC9C5C@infinera.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36246 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755563AbcK3Qgj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:36:39 -0500
+Received: by mail-pg0-f68.google.com with SMTP id x23so1782006pgx.3
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 08:36:39 -0800 (PST)
+In-Reply-To: <1480516895-29545-9-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-30 at 16:25 +0100, Andrew Lunn wrote:
-> On Wed, Nov 30, 2016 at 02:30:43PM +0000, Joakim Tjernlund wrote:
-> > On Wed, 2016-11-30 at 14:52 +0100, Andrew Lunn wrote:
-> > > On Wed, Nov 30, 2016 at 08:50:34AM +0000, Joakim Tjernlund wrote:
-> > > > I am trying to wrap my head around these two "devices" and have a h=
-ard time telling them apart.
-> > > > We are looking att adding a faily large switch(over PCIe) to our bo=
-ard and from what I can tell
-> > > > switchdev is the new way to do it but DSA is still there. Is it pos=
-sible to just list
-> > > > how they differ?
-> > >=20
-> > > Hi Joakim
-> >=20
-> > Hi Andrew, thanks for answering
-> >=20
-> > >=20
-> > > If the interface you use to send frames from the host to the switch i=
-s
-> > > PCIe, you probably want to use switchdev directly.
-> >=20
-> > OK, we will have a few ethernet I/F's connected too but I these should =
-be used
-> > as normal interfaces just interfacing a switch.
->=20
-> That does not make much sense.
->=20
-> Maybe time to backtrack a bit. The Linux concept for switch/router
-> chips is that they are just hardware accelerators for what Linux can
-> already do in software. Each port of the switch is just a normal Linux
-> interface.=A0=A0ip link show will list each port. ip addr add can be used
-> to add an IP address to the interface.=A0=A0You want to switch frames
-> between two ports: Create a linux bridge and put the interfaces into
-> it. Via switchdev you get a call into the hardware to accelerate
-> this. If the hardware cannot accelerate it, it is done in software as
-> normal.=A0=A0Want to combine two ports into a trunk: Add a team interface
-> and make the port interfaces slaves of the team interface. Via
-> switchdev, you ask the hardware to accelerate this. If it cannot, it
-> is done in software.
->=20
-> So back your connecting a few host interfaces to the switch. This is
-> logically putting a cable between two interfaces on the same host. You
-> are making a loopback. Why do that? Sure it is possible, but it is an
-> odd architecture.
+On 16-11-30 06:41 AM, Hadar Hen Zion wrote:
+> When ndo_setup_tc is called with an egress_dev flag set, it means that
+> the ndo call was executed on the mirred action (egress) device and not
+> on the ingress device.
+> 
+> In order to support this kind of ndo_setup_tc call, and insert the
+> correct decap rule to the hardware, the uplink device on the same eswitch
+> should be found.
+> 
+> Currently, we use this resolution between the mirred device and the
+> uplink on the same eswitch to offload vxlan shared device decap rules.
+> 
+> Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+> ---
 
-This is an embedded system with several boards in a subrack.
-Each board has eth I/F connected to a switch to communicate with each other=
-.
-One of the board will also house the actual switch device and manage the sw=
-itch.
-Then the normal app just communicates over the physical eth I/F like any ot=
-her board
-in the system. There is a "manage switch app" which brings the switch up an=
-d partition
-phys VLANs etc. (each phys I/F would be a a separate domain so no loop)
+Hi Hadar,
 
-I guess I could skip the phys I/F and have the switch app create a virtual =
-eth0 I/F over PCIe
-instead to save eth MACS but the above is safer should there be some proble=
-ms/limitations in
-swicthdev plus switchdev does not exist in u-boot so it would be a lot of e=
-ffort to
-get a working eth I/F inside u-boot.
-I can still can still create a bridge I/F etc. should I need to.
-Does the above make sense to you ?
-=20
->=20
-> > And switchdev can do all this over PCIe instead? Can you have a
-> > switch tree in switchdev too?
->=20
-> Mellonex says so, but i don't think they have actually implemented it.
+I started to dig through these patches and the last series here,
 
-Not impl. any of DSAs features? What can you do with a Mellonex switch then=
-?
+   Re: [PATCH net-next 00/13] Mellanox 100G SRIOV offloads tunnel_key
+set/release
 
- Jocke=
+Can you explain how these two are related? I'm guessing in that first
+series the actual redirect action to a tunnel device was being ignore?
+
+Does this series clean up that bit of software/hardware alignment.
+
+Thanks,
+John
+
+
+>  drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+> index 0868677..8503788 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+> @@ -289,6 +289,14 @@ static int mlx5e_rep_ndo_setup_tc(struct net_device *dev, u32 handle,
+>  	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
+>  		return -EOPNOTSUPP;
+>  
+> +	if (tc->egress_dev) {
+> +		struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+> +		struct net_device *uplink_dev = mlx5_eswitch_get_uplink_netdev(esw);
+> +
+> +		return uplink_dev->netdev_ops->ndo_setup_tc(uplink_dev, handle,
+> +							    proto, tc);
+> +	}
+> +
+>  	switch (tc->type) {
+>  	case TC_SETUP_CLSFLOWER:
+>  		switch (tc->cls_flower->command) {
+> 
