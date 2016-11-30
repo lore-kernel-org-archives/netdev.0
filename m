@@ -1,8 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 4/7] net/mlx5e: Remove redundant hashtable lookup in configure flower
-Date: Wed, 30 Nov 2016 17:59:40 +0200
-Message-ID: <1480521583-12755-5-git-send-email-saeedm@mellanox.com>
-References: <1480521583-12755-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 0/7] Mellanox 100G mlx5 updates 2016-11-29
+Date: Wed, 30 Nov 2016 17:59:36 +0200
+Message-ID: <1480521583-12755-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>,
@@ -10,81 +9,57 @@ Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59034 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59014 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1757866AbcK3Q2E (ORCPT
+        with ESMTP id S1757986AbcK3Q2E (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:28:04 -0500
-In-Reply-To: <1480521583-12755-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roi Dayan <roid@mellanox.com>
+Hi Dave,
 
-We will never find a flow with the same cookie as cls_flower always
-allocates a new flow and the cookie is the allocated memory address.
+The following series from Tariq and Roi, provides some critical fixes
+and updates for the mlx5e driver.
 
-Fixes: e3a2b7ed018e ("net/mlx5e: Support offload cls_flower with drop action")
-Signed-off-by: Roi Dayan <roid@mellanox.com>
-Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 26 +++++++------------------
- 1 file changed, 7 insertions(+), 19 deletions(-)
+>From Tariq: 
+ - Fix driver coherent memory huge allocation issues by fragmenting
+   completion queues, in a way that is transparent to the netdev driver by
+   providing a new buffer type "mlx5_frag_buf" with the same access API.
+ - Create UMR MKey per RQ to have better scalability.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 4d06fab..dd6d954 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -915,25 +915,17 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 	u32 flow_tag, action;
- 	struct mlx5e_tc_flow *flow;
- 	struct mlx5_flow_spec *spec;
--	struct mlx5_flow_handle *old = NULL;
--	struct mlx5_esw_flow_attr *old_attr = NULL;
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 
- 	if (esw && esw->mode == SRIOV_OFFLOADS)
- 		fdb_flow = true;
- 
--	flow = rhashtable_lookup_fast(&tc->ht, &f->cookie,
--				      tc->ht_params);
--	if (flow) {
--		old = flow->rule;
--		old_attr = flow->attr;
--	} else {
--		if (fdb_flow)
--			flow = kzalloc(sizeof(*flow) + sizeof(struct mlx5_esw_flow_attr),
--				       GFP_KERNEL);
--		else
--			flow = kzalloc(sizeof(*flow), GFP_KERNEL);
--	}
-+	if (fdb_flow)
-+		flow = kzalloc(sizeof(*flow) +
-+			       sizeof(struct mlx5_esw_flow_attr),
-+			       GFP_KERNEL);
-+	else
-+		flow = kzalloc(sizeof(*flow), GFP_KERNEL);
- 
- 	spec = mlx5_vzalloc(sizeof(*spec));
- 	if (!spec || !flow) {
-@@ -970,17 +962,13 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 	if (err)
- 		goto err_del_rule;
- 
--	if (old)
--		mlx5e_tc_del_flow(priv, old, old_attr);
--
- 	goto out;
- 
- err_del_rule:
- 	mlx5_del_flow_rules(flow->rule);
- 
- err_free:
--	if (!old)
--		kfree(flow);
-+	kfree(flow);
- out:
- 	kvfree(spec);
- 	return err;
+>From Roi:
+ - Some fixes for the encap-decap support and tc flower added lately to the
+   mlx5e driver.
+
+v1->v2:
+ - Fix start index in error flow of mlx5_frag_buf_alloc_node, pointed out by Eric.
+
+This series was generated against commit:
+31ac1c19455f ("geneve: fix ip_hdr_len reserved for geneve6 tunnel.")
+
+Thanks,
+Saeed.
+
+Roi Dayan (4):
+  net/mlx5e: Remove redundant hashtable lookup in configure flower
+  net/mlx5e: Correct cleanup order when deleting offloaded TC rules
+  net/mlx5e: Refactor tc del flow to accept mlx5e_tc_flow instance
+  net/mlx5e: Remove flow encap entry in the correct place
+
+Tariq Toukan (3):
+  net/mlx5e: Implement Fragmented Work Queue (WQ)
+  net/mlx5e: Move function mlx5e_create_umr_mkey
+  net/mlx5e: Create UMR MKey per RQ
+
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |  66 +++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  14 +--
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  12 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 121 +++++++++++----------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  82 ++++++--------
+ drivers/net/ethernet/mellanox/mlx5/core/wq.c       |  26 +++--
+ drivers/net/ethernet/mellanox/mlx5/core/wq.h       |  18 ++-
+ include/linux/mlx5/driver.h                        |  11 ++
+ 8 files changed, 215 insertions(+), 135 deletions(-)
+
 -- 
 2.7.4
