@@ -1,60 +1,104 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 2/2] macvtap: handle ubuf refcount correctly when meet erros
-Date: Wed, 30 Nov 2016 13:17:52 +0800
-Message-ID: <1480483072-14201-2-git-send-email-jasowang@redhat.com>
-References: <1480483072-14201-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, wangyunjian@huawei.com,
-        Jason Wang <jasowang@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480483072-14201-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH v3 6/6] virtio_net: xdp, add slowpath case for
+ non contiguous buffers
+Date: Tue, 29 Nov 2016 21:23:42 -0800
+Message-ID: <20161130052340.GA31581@ast-mbp.thefacebook.com>
+References: <20161129200933.26851.41883.stgit@john-Precision-Tower-5810>
+ <20161129201133.26851.31803.stgit@john-Precision-Tower-5810>
+ <20161130003756.GD28238@ast-mbp.thefacebook.com>
+ <583E3E6A.8050706@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
+        daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
+        tgraf@suug.ch, john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        bblanco@plumgrid.com, brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34489 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750825AbcK3FXu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 00:23:50 -0500
+Received: by mail-pg0-f67.google.com with SMTP id e9so179575pgc.1
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 21:23:49 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <583E3E6A.8050706@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We trigger uarg->callback() immediately after we decide do datacopy
-even if caller want to do zerocopy. This will cause the callback
-(vhost_net_zerocopy_callback) decrease the refcount. But when we meet
-an error afterwards, the error handling in vhost handle_tx() will try
-to decrease it again. This is wrong and fix this by delay the
-uarg->callback() until we're sure there's no errors.
+On Tue, Nov 29, 2016 at 06:50:18PM -0800, John Fastabend wrote:
+> On 16-11-29 04:37 PM, Alexei Starovoitov wrote:
+> > On Tue, Nov 29, 2016 at 12:11:33PM -0800, John Fastabend wrote:
+> >> virtio_net XDP support expects receive buffers to be contiguous.
+> >> If this is not the case we enable a slowpath to allow connectivity
+> >> to continue but at a significan performance overhead associated with
+> >> linearizing data. To make it painfully aware to users that XDP is
+> >> running in a degraded mode we throw an xdp buffer error.
+> >>
+> >> To linearize packets we allocate a page and copy the segments of
+> >> the data, including the header, into it. After this the page can be
+> >> handled by XDP code flow as normal.
+> >>
+> >> Then depending on the return code the page is either freed or sent
+> >> to the XDP xmit path. There is no attempt to optimize this path.
+> >>
+> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> > ...
+> >> +/* The conditions to enable XDP should preclude the underlying device from
+> >> + * sending packets across multiple buffers (num_buf > 1). However per spec
+> >> + * it does not appear to be illegal to do so but rather just against convention.
+> >> + * So in order to avoid making a system unresponsive the packets are pushed
+> >> + * into a page and the XDP program is run. This will be extremely slow and we
+> >> + * push a warning to the user to fix this as soon as possible. Fixing this may
+> >> + * require resolving the underlying hardware to determine why multiple buffers
+> >> + * are being received or simply loading the XDP program in the ingress stack
+> >> + * after the skb is built because there is no advantage to running it here
+> >> + * anymore.
+> >> + */
+> > ...
+> >>  		if (num_buf > 1) {
+> >>  			bpf_warn_invalid_xdp_buffer();
+> 			^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 
+> Here is the warn once call. I made it a defined bpf warning so that we
+> can easily identify if needed and it can be used by other drivers as
+> well.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-The patch is needed for -stable.
----
- drivers/net/macvtap.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ahh. I thought it has - in front of it :)
+and you're deleting it in this patch.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index bceca28..7869b06 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -742,13 +742,8 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 
- 	if (zerocopy)
- 		err = zerocopy_sg_from_iter(skb, from);
--	else {
-+	else
- 		err = skb_copy_datagram_from_iter(skb, 0, from, len);
--		if (!err && m && m->msg_control) {
--			struct ubuf_info *uarg = m->msg_control;
--			uarg->callback(uarg, false);
--		}
--	}
- 
- 	if (err)
- 		goto err_kfree;
-@@ -779,7 +774,11 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 		skb_shinfo(skb)->destructor_arg = m->msg_control;
- 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
- 		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
-+	} else if (m && m->msg_control) {
-+		struct ubuf_info *uarg = m->msg_control;
-+		uarg->callback(uarg, false);
- 	}
-+
- 	if (vlan) {
- 		skb->dev = vlan->dev;
- 		dev_queue_xmit(skb);
--- 
-2.7.4
+> >> -			goto err_xdp;
+> >> +
+> >> +			/* linearize data for XDP */
+> >> +			xdp_page = xdp_linearize_page(rq, num_buf,
+> >> +						      page, offset, &len);
+> >> +			if (!xdp_page)
+> >> +				goto err_xdp;
+> > 
+> > in case when we're 'lucky' the performance will silently be bad.
+> 
+> Were you specifically worried about the alloc failing here and no
+> indication? I was thinking a statistic counter could be added as a
+> follow on series to catch this and other such cases in non XDP paths
+> if needed.
+> 
+> > Can we do warn_once here? so at least something in dmesg points out
+> > that performance is not as expected. Am I reading it correctly that
+> > you had to do a special kernel hack to trigger this situation and
+> > in all normal cases it's not the case?
+> > 
+> 
+> Correct the only way to produce this with upstream qemu and Linux is to
+> write a kernel hack to build these types of buffers. AFAIK I caught all
+> the cases where it could happen otherwise in the setup xdp prog call and
+> required user to configure device driver so they can not happen e.g.
+> disable LRO, set MTU < PAGE_SIZE, etc.
+> 
+> If I missed anything, I don't see it now, I would call it a bug and fix
+> it. Again AFAIK everything should be covered though. As Micheal pointed
+> out earlier although unexpected its not strictly against virtio spec to
+> build such packets so we should handle it at least in a degraded mode
+> even though it is not expected in any qemu cases.
+
+Ok. Makes sense. The above wasn't clear in the commit log.
+Thanks
