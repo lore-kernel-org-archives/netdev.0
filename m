@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 6/7] net/mlx5e: Refactor tc del flow to accept mlx5e_tc_flow instance
-Date: Wed, 30 Nov 2016 17:59:42 +0200
-Message-ID: <1480521583-12755-7-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 4/7] net/mlx5e: Remove redundant hashtable lookup in configure flower
+Date: Wed, 30 Nov 2016 17:59:40 +0200
+Message-ID: <1480521583-12755-5-git-send-email-saeedm@mellanox.com>
 References: <1480521583-12755-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
@@ -10,9 +10,9 @@ Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59024 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59034 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756622AbcK3Q2E (ORCPT
+        with ESMTP id S1757866AbcK3Q2E (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:28:04 -0500
 In-Reply-To: <1480521583-12755-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,62 +20,71 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Roi Dayan <roid@mellanox.com>
 
-Change the function that deletes offloaded TC rule to get
-struct mlx5e_tc_flow instance which contains both the flow
-handle and flow attributes. This is a cleanup needed for
-downstream patches, it doesn't change any functionality.
+We will never find a flow with the same cookie as cls_flower always
+allocates a new flow and the cookie is the allocated memory address.
 
+Fixes: e3a2b7ed018e ("net/mlx5e: Support offload cls_flower with drop action")
 Signed-off-by: Roi Dayan <roid@mellanox.com>
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 26 +++++++------------------
+ 1 file changed, 7 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 4d71445..3875c1c 100644
+index 4d06fab..dd6d954 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -143,18 +143,17 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
- }
- 
- static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
--			      struct mlx5_flow_handle *rule,
--			      struct mlx5_esw_flow_attr *attr)
-+			      struct mlx5e_tc_flow *flow)
- {
+@@ -915,25 +915,17 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 	u32 flow_tag, action;
+ 	struct mlx5e_tc_flow *flow;
+ 	struct mlx5_flow_spec *spec;
+-	struct mlx5_flow_handle *old = NULL;
+-	struct mlx5_esw_flow_attr *old_attr = NULL;
  	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 	struct mlx5_fc *counter = NULL;
- 
--	counter = mlx5_flow_rule_counter(rule);
-+	counter = mlx5_flow_rule_counter(flow->rule);
- 
--	mlx5_del_flow_rules(rule);
-+	mlx5_del_flow_rules(flow->rule);
  
  	if (esw && esw->mode == SRIOV_OFFLOADS)
--		mlx5_eswitch_del_vlan_action(esw, attr);
-+		mlx5_eswitch_del_vlan_action(esw, flow->attr);
+ 		fdb_flow = true;
  
- 	mlx5_fc_destroy(priv->mdev, counter);
+-	flow = rhashtable_lookup_fast(&tc->ht, &f->cookie,
+-				      tc->ht_params);
+-	if (flow) {
+-		old = flow->rule;
+-		old_attr = flow->attr;
+-	} else {
+-		if (fdb_flow)
+-			flow = kzalloc(sizeof(*flow) + sizeof(struct mlx5_esw_flow_attr),
+-				       GFP_KERNEL);
+-		else
+-			flow = kzalloc(sizeof(*flow), GFP_KERNEL);
+-	}
++	if (fdb_flow)
++		flow = kzalloc(sizeof(*flow) +
++			       sizeof(struct mlx5_esw_flow_attr),
++			       GFP_KERNEL);
++	else
++		flow = kzalloc(sizeof(*flow), GFP_KERNEL);
  
-@@ -1005,7 +1004,7 @@ int mlx5e_delete_flower(struct mlx5e_priv *priv,
+ 	spec = mlx5_vzalloc(sizeof(*spec));
+ 	if (!spec || !flow) {
+@@ -970,17 +962,13 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 	if (err)
+ 		goto err_del_rule;
  
- 	rhashtable_remove_fast(&tc->ht, &flow->node, tc->ht_params);
+-	if (old)
+-		mlx5e_tc_del_flow(priv, old, old_attr);
+-
+ 	goto out;
  
--	mlx5e_tc_del_flow(priv, flow->rule, flow->attr);
-+	mlx5e_tc_del_flow(priv, flow);
+ err_del_rule:
+ 	mlx5_del_flow_rules(flow->rule);
  
- 	if (flow->attr->action & MLX5_FLOW_CONTEXT_ACTION_ENCAP)
- 		mlx5e_detach_encap(priv, flow);
-@@ -1065,7 +1064,7 @@ static void _mlx5e_tc_del_flow(void *ptr, void *arg)
- 	struct mlx5e_tc_flow *flow = ptr;
- 	struct mlx5e_priv *priv = arg;
- 
--	mlx5e_tc_del_flow(priv, flow->rule, flow->attr);
-+	mlx5e_tc_del_flow(priv, flow);
- 	kfree(flow);
- }
- 
+ err_free:
+-	if (!old)
+-		kfree(flow);
++	kfree(flow);
+ out:
+ 	kvfree(spec);
+ 	return err;
 -- 
 2.7.4
