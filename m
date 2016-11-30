@@ -1,49 +1,44 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH net 04/16] net: ethernet: aurora: nb8800: fix fixed-link
- phydev leaks
-Date: Wed, 30 Nov 2016 10:51:17 +0100
-Message-ID: <20161130095117.GH29872@localhost>
-References: <1480357509-28074-1-git-send-email-johan@kernel.org>
- <1480357509-28074-5-git-send-email-johan@kernel.org>
- <583E9DAD.8090205@free.fr>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [PATCH] cpsw: ethtool: add support for nway reset
+Date: Wed, 30 Nov 2016 10:31:30 +0100
+Message-ID: <CAGm1_ktxyxVxYdF0Aq-Nv2rVGjEccPsGRZSXHBOE9egybiV1Lg@mail.gmail.com>
+References: <1480326472-5849-1-git-send-email-yegorslists@googlemail.com> <20161129.194158.1482957574907674651.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johan Hovold <johan@kernel.org>, Mans Rullgard <mans@mansr.com>,
-        Sebastian Frias <sf84@laposte.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joe Perches <joe@perches.com>,
-        Brian Norris <computersforpeace@gmail.com>
-To: Mason <slash.tmp@free.fr>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        "N, Mugunthan V" <mugunthanvnm@ti.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35898 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933689AbcK3JvY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 04:51:24 -0500
-Content-Disposition: inline
-In-Reply-To: <583E9DAD.8090205@free.fr>
+Received: from mail-ua0-f169.google.com ([209.85.217.169]:35038 "EHLO
+        mail-ua0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754166AbcK3Jbw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 04:31:52 -0500
+In-Reply-To: <20161129.194158.1482957574907674651.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2016 at 10:36:45AM +0100, Mason wrote:
-> On 28/11/2016 19:24, Johan Hovold wrote:
-> 
-> > Make sure to deregister and free any fixed-link PHY registered using
-> > of_phy_register_fixed_link() on probe errors and on driver unbind.
-> > 
-> > Fixes: c7dfe3abf40e ("net: ethernet: nb8800: support fixed-link DT node")
-> > Signed-off-by: Johan Hovold <johan@kernel.org>
-> > ---
-> >  drivers/net/ethernet/aurora/nb8800.c | 9 +++++++--
-> >  1 file changed, 7 insertions(+), 2 deletions(-)
-> 
-> Did you use scripts/get_maintainer.pl ?
-> 
-> Neither the author of the driver (Mans) nor the author of
-> the code in question (Sebastian) were CCed on this patch.
+Hi David,
 
-I did, but I only included parties listed as maintainers, not commit
-signers, to keep the already large CC list down somewhat.
+On Wed, Nov 30, 2016 at 1:41 AM, David Miller <davem@davemloft.net> wrote:
+> From: yegorslists@googlemail.com
+> Date: Mon, 28 Nov 2016 10:47:52 +0100
+>
+>> From: Yegor Yefremov <yegorslists@googlemail.com>
+>>
+>> This patch adds support for ethtool's '-r' command. Restarting
+>> N-WAY negotiation can be useful to activate newly changed EEE
+>> settings etc.
+>>
+>> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+>
+> This doesn't apply cleanly to net-next.
 
-Johan
+My previous patch [1] doesn't show up in net-next. This could explain,
+why nway patch doesn't apply.
+Should I resend them both as series?
+
+[1] http://marc.info/?l=linux-omap&m=148036822211869&w=2
+
+Yegor
