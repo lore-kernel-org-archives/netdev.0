@@ -1,110 +1,124 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next v3 11/12] mlxsw: spectrum_router: Request a dump
- of FIB tables during init
-Date: Wed, 30 Nov 2016 17:49:56 +0100
-Message-ID: <043a2ba9-1e19-c3cd-a930-59e8cb0d5f7a@stressinduktion.org>
-References: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
- <1480500546-2544-12-git-send-email-jiri@resnulli.us>
- <eb7ddecd-d6b4-dfce-5990-9e933227c862@stressinduktion.org>
- <20161130163229.rkxvuwukgg35ktrx@splinter.mtl.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 6/6] virtio_net: xdp, add slowpath case for
+ non contiguous buffers
+Date: Wed, 30 Nov 2016 08:50:41 -0800
+Message-ID: <583F0361.5030804@gmail.com>
+References: <20161129200933.26851.41883.stgit@john-Precision-Tower-5810>
+ <20161129201133.26851.31803.stgit@john-Precision-Tower-5810>
+ <20161130143031.2fc64ab4@jkicinski-Precision-T1700>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kaber@trash.net
-To: Ido Schimmel <idosch@idosch.org>
+Cc: eric.dumazet@gmail.com, daniel@iogearbox.net,
+        shm@cumulusnetworks.com, davem@davemloft.net, tgraf@suug.ch,
+        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
+To: Jakub Kicinski <kubakici@wp.pl>,
+        "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:50377 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754329AbcK3Qum (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:50:42 -0500
-In-Reply-To: <20161130163229.rkxvuwukgg35ktrx@splinter.mtl.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33100 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753898AbcK3QvA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:51:00 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 3so1813679pgd.0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 08:50:59 -0800 (PST)
+In-Reply-To: <20161130143031.2fc64ab4@jkicinski-Precision-T1700>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30.11.2016 17:32, Ido Schimmel wrote:
-> Hi Hannes,
+On 16-11-30 06:30 AM, Jakub Kicinski wrote:
+> [add MST]
 > 
-> On Wed, Nov 30, 2016 at 04:37:48PM +0100, Hannes Frederic Sowa wrote:
->> On 30.11.2016 11:09, Jiri Pirko wrote:
->>> From: Ido Schimmel <idosch@mellanox.com>
->>>
->>> Make sure the device has a complete view of the FIB tables by invoking
->>> their dump during module init.
->>>
->>> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
->>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>> ---
->>>  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 23 ++++++++++++++++++++++
->>>  1 file changed, 23 insertions(+)
->>>
->>> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
->>> index 14bed1d..d176047 100644
->>> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
->>> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
->>> @@ -2027,8 +2027,23 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
->>>  	return NOTIFY_DONE;
->>>  }
->>>  
->>> +static void mlxsw_sp_router_fib_dump_flush(struct notifier_block *nb)
->>> +{
->>> +	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
->>> +
->>> +	/* Flush pending FIB notifications and then flush the device's
->>> +	 * table before requesting another dump. Do that with RTNL held,
->>> +	 * as FIB notification block is already registered.
->>> +	 */
->>> +	mlxsw_core_flush_owq();
->>> +	rtnl_lock();
->>> +	mlxsw_sp_router_fib_flush(mlxsw_sp);
->>> +	rtnl_unlock();
->>> +}
->>> +
->>>  int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
->>>  {
->>> +	fib_dump_cb_t *cb = mlxsw_sp_router_fib_dump_flush;
->>>  	int err;
->>>  
->>>  	INIT_LIST_HEAD(&mlxsw_sp->router.nexthop_neighs_list);
->>> @@ -2048,8 +2063,16 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
->>>  
->>>  	mlxsw_sp->fib_nb.notifier_call = mlxsw_sp_router_fib_event;
->>>  	register_fib_notifier(&mlxsw_sp->fib_nb);
->>
->> Sorry to pick in here again:
->>
->> There is a race here. You need to protect the registration of the fib
->> notifier as well by the sequence counter. Updates here are not ordered
->> in relation to this code below.
+
+Thanks sorry MST. I did a cut'n'paste of an old list of CC's and missed
+you were not on the list.
+
+[...]
+
+>> +	memcpy(page_address(page) + page_off, page_address(p) + offset, *len);
+>> +	while (--num_buf) {
+>> +		unsigned int buflen;
+>> +		unsigned long ctx;
+>> +		void *buf;
+>> +		int off;
+>> +
+>> +		ctx = (unsigned long)virtqueue_get_buf(rq->vq, &buflen);
+>> +		if (unlikely(!ctx))
+>> +			goto err_buf;
+>> +
+>> +		buf = mergeable_ctx_to_buf_address(ctx);
+>> +		p = virt_to_head_page(buf);
+>> +		off = buf - page_address(p);
+>> +
+>> +		memcpy(page_address(page) + page_off,
+>> +		       page_address(p) + off, buflen);
+>> +		page_off += buflen;
 > 
-> You mean updates that can be received after you registered the notifier
-> and until the dump started? I'm aware of that and that's OK. This
-> listener should be able to handle duplicates.
+> Could malicious user potentially submit a frame bigger than MTU?
 
-I am not concerned about duplicates, but about ordering deletes and
-getting an add from the RCU code you will add the node to hw while it is
-deleted in the software path. You probably will ignore the delete
-because nothing is installed in hw and later add the node which was
-actually deleted but just reordered which happend on another CPU, no?
+Well presumably if the MTU is greater than PAGE_SIZE the xdp program
+would not have been loaded. And the malicious user in this case would
+have to be qemu which seems like everything is already lost if qemu
+is trying to attack its VM.
 
-> I've a follow up patchset that introduces a new event in switchdev
-> notification chain called SWITCHDEV_SYNC, which is sent when port
-> netdevs are enslaved / released  from a master device (points in time
-> where kernel<->device can get out of sync). It will invoke
-> re-propagation of configuration from different parts of the stack
-> (e.g. bridge driver, 8021q driver, fib/neigh code), which can result
-> in duplicates.
+But this is a good point because it looks like there is nothing in
+virtio or qemu that drops frames with MTU greater than the virtio
+configured setting. Maybe Michael can confirm this or I'll poke at it
+more. I think qemu should drop these frames in general.
 
-Okay, understood. I wonder how we can protect against accidentally abort
-calls actually. E.g. if I start to inject routes into my routing domain
-how can I make sure the box doesn't die after I try to insert enough
-routes. Do we need to touch quagga etc?
+So I think adding a guard here is sensible I'll go ahead and do that.
+Also the MTU guard at set_xdp time needs to account for header length.
 
-Thanks,
-Hannes
+Thanks nice catch.
+
+> 
+>> +	}
+>> +
+>> +	*len = page_off;
+>> +	return page;
+>> +err_buf:
+>> +	__free_pages(page, 0);
+>> +	return NULL;
+>> +}
+>> +
+>>  static struct sk_buff *receive_mergeable(struct net_device *dev,
+>>  					 struct virtnet_info *vi,
+>>  					 struct receive_queue *rq,
+>> @@ -469,21 +519,37 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>>  	rcu_read_lock();
+>>  	xdp_prog = rcu_dereference(rq->xdp_prog);
+>>  	if (xdp_prog) {
+>> +		struct page *xdp_page;
+>>  		u32 act;
+>>  
+>>  		if (num_buf > 1) {
+>>  			bpf_warn_invalid_xdp_buffer();
+>> -			goto err_xdp;
+>> +
+>> +			/* linearize data for XDP */
+>> +			xdp_page = xdp_linearize_page(rq, num_buf,
+>> +						      page, offset, &len);
+>> +			if (!xdp_page)
+>> +				goto err_xdp;
+>> +			offset = len;
+>> +		} else {
+>> +			xdp_page = page;
+>>  		}
+>>  
+>> -		act = do_xdp_prog(vi, xdp_prog, page, offset, len);
+>> +		act = do_xdp_prog(vi, xdp_prog, xdp_page, offset, len);
+>>  		switch (act) {
+>>  		case XDP_PASS:
+>> +			if (unlikely(xdp_page != page))
+>> +				__free_pages(xdp_page, 0);
+>>  			break;
+>>  		case XDP_TX:
+>> +			if (unlikely(xdp_page != page))
+>> +				goto err_xdp;
+>> +			rcu_read_unlock();
+> 
+> Only if there is a reason for v4 - this unlock could go to the previous
+> patch.
+> 
+
+Sure will do this.
