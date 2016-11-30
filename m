@@ -1,55 +1,111 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: macb: Write only necessary bits in NCR in macb
- reset
-Date: Tue, 29 Nov 2016 19:05:26 -0500 (EST)
-Message-ID: <20161129.190526.1414678491662084583.davem@davemloft.net>
-References: <1480325029-39224-1-git-send-email-harinik@xilinx.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v3 3/4] bpf: BPF for lightweight tunnel
+ infrastructure
+Date: Tue, 29 Nov 2016 16:15:06 -0800
+Message-ID: <20161130001504.GA28238@ast-mbp.thefacebook.com>
+References: <cover.1480424542.git.tgraf@suug.ch>
+ <7cc79a82e49996a9ebbff861af471018fdf118fb.1480424542.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, harinikatakamlinux@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        harinik@xilinx.com, michals@xilinx.com
-To: harini.katakam@xilinx.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480325029-39224-1-git-send-email-harinik@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        tom@herbertland.com, roopa@cumulusnetworks.com,
+        hannes@stressinduktion.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34363 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752078AbcK3APO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 19:15:14 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y68so9049281pfb.1
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 16:15:13 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <7cc79a82e49996a9ebbff861af471018fdf118fb.1480424542.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Harini Katakam <harini.katakam@xilinx.com>
-Date: Mon, 28 Nov 2016 14:53:49 +0530
-
-> In macb_reset_hw, use read-modify-write to disable RX and TX.
-> This way exiting settings and reserved bits wont be disturbed.
-> Use the same method for clearing statistics as well.
+On Tue, Nov 29, 2016 at 02:21:22PM +0100, Thomas Graf wrote:
+> Registers new BPF program types which correspond to the LWT hooks:
+>   - BPF_PROG_TYPE_LWT_IN   => dst_input()
+>   - BPF_PROG_TYPE_LWT_OUT  => dst_output()
+>   - BPF_PROG_TYPE_LWT_XMIT => lwtunnel_xmit()
 > 
-> Signed-off-by: Harini Katakam <harinik@xilinx.com>
+> The separate program types are required to differentiate between the
+> capabilities each LWT hook allows:
+> 
+>  * Programs attached to dst_input() or dst_output() are restricted and
+>    may only read the data of an skb. This prevent modification and
+>    possible invalidation of already validated packet headers on receive
+>    and the construction of illegal headers while the IP headers are
+>    still being assembled.
+> 
+>  * Programs attached to lwtunnel_xmit() are allowed to modify packet
+>    content as well as prepending an L2 header via a newly introduced
+>    helper bpf_skb_push(). This is safe as lwtunnel_xmit() is invoked
+>    after the IP header has been assembled completely.
+> 
+> All BPF programs receive an skb with L3 headers attached and may return
+> one of the following error codes:
+> 
+>  BPF_OK - Continue routing as per nexthop
+>  BPF_DROP - Drop skb and return EPERM
+>  BPF_REDIRECT - Redirect skb to device as per redirect() helper.
+>                 (Only valid in lwtunnel_xmit() context)
+> 
+> The return codes are binary compatible with their TC_ACT_
+> relatives to ease compatibility.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+...
+> +#define LWT_BPF_MAX_HEADROOM 128
 
-This doesn't make much sense to me.
+why 128?
+btw I'm thinking for XDP to use 256, so metadata can be stored in there.
 
-Consider the two callers of this function.
+> +static int run_lwt_bpf(struct sk_buff *skb, struct bpf_lwt_prog *lwt,
+> +		       struct dst_entry *dst, bool can_redirect)
+> +{
+> +	int ret;
+> +
+> +	/* Preempt disable is needed to protect per-cpu redirect_info between
+> +	 * BPF prog and skb_do_redirect(). The call_rcu in bpf_prog_put() and
+> +	 * access to maps strictly require a rcu_read_lock() for protection,
+> +	 * mixing with BH RCU lock doesn't work.
+> +	 */
+> +	preempt_disable();
+> +	rcu_read_lock();
+> +	bpf_compute_data_end(skb);
+> +	ret = BPF_PROG_RUN(lwt->prog, skb);
+> +	rcu_read_unlock();
+> +
+> +	switch (ret) {
+> +	case BPF_OK:
+> +		break;
+> +
+> +	case BPF_REDIRECT:
+> +		if (!can_redirect) {
+> +			WARN_ONCE(1, "Illegal redirect return code in prog %s\n",
+> +				  lwt->name ? : "<unknown>");
+> +			ret = BPF_OK;
+> +		} else {
+> +			ret = skb_do_redirect(skb);
 
-macb_init_hw() is going to do a non-masking write to the NCR
-register:
+I think this assumes that program did bpf_skb_push and L2 header is present.
+Would it make sense to check that mac_header < network_header here to make
+sure that it actually happened? I think the cost of single 'if' isn't much.
+Also skb_do_redirect() can redirect to l3 tunnels like ipip ;)
+so program shouldn't be doing bpf_skb_push in such case...
+May be rename bpf_skb_push to bpf_skb_push_l2 ?
+since it's doing skb_reset_mac_header(skb); at the end of it?
+Or it's probably better to use 'flags' argument to tell whether
+bpf_skb_push() should set mac_header or not ? Then this bit:
 
-	/* Enable TX and RX */
-	macb_writel(bp, NCR, MACB_BIT(RE) | MACB_BIT(TE) | MACB_BIT(MPE));
+> +		case BPF_OK:
+> +			/* If the L3 header was expanded, headroom might be too
+> +			 * small for L2 header now, expand as needed.
+> +			 */
+> +			ret = xmit_check_hhlen(skb);
 
-So obviously no other writable fields matter at all for programming
-the chip properly, otherwise macb_init_hw() would "or" in the bits
-after a read of NCR.  But that's not what this code does, it
-writes "RE | TE | MPE" directly.
+will work fine as well...
+which probably needs "mac_header wasn't set" check? or it's fine?
 
-And the other caller is macb_close() which is shutting down the
-chip so can zero out all the other bits and it can't possibly
-matter, also due to the assertion above about macb_init_hw()
-showing that only the RE, TE, and MPE bits matter for proper
-functioning of the chip.
-
-You haven't shown a issue caused by the way the code works now, so
-this patch isn't fixing a bug.  In fact, the "bit preserving" would
-even be misleading to someone reading the code.  They will ask
-themselves what bits need to be preserved, and as shown above none of
-them need to be.
-
-I'm not applying this, sorry.
+All bpf bits look great. Thanks!
