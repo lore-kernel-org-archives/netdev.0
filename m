@@ -1,31 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers 2016-11-29
-Date: Wed, 30 Nov 2016 14:34:44 -0500 (EST)
-Message-ID: <20161130.143444.242053190479060640.davem@davemloft.net>
-References: <87r35utjq7.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] cpsw: add per channel shaper configuration
+Date: Wed, 30 Nov 2016 14:37:30 -0500 (EST)
+Message-ID: <20161130.143730.198414925220029543.davem@davemloft.net>
+References: <1480431651-6081-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87r35utjq7.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+        linux-omap@vger.kernel.org
+To: ivan.khoronzhuk@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480431651-6081-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Tue, 29 Nov 2016 16:59:44 +0200
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Tue, 29 Nov 2016 17:00:46 +0200
 
-> if there's still time here's one more patch to 3.9. I think this is good
-> to have in 3.9 as it fixes an issue where we were printing uninitialised
-> memory in mwifiex. I had this in wireless-drivers already for some time
-> as I was waiting for other fixes and nothing serious actually came up.
+> This series is intended to allow user to set rate for per channel
+> shapers at cpdma level. This patchset doesn't have impact on performance.
+> The rate can be set with:
 > 
-> If this doesn't make it to 3.9 that's not a problem, I'll just merge
-> this to wireless-drivers-next. Let me know what you prefer.
+> echo 100 > /sys/class/net/ethX/queues/tx-0/tx_maxrate
+> 
+> Tested on am572xx
+> Based on net-next/master
 
-Unless you are in a time-machine of some sort I assume you mean "4.9" not
-"3.9" :-)
-
-Pulled, thanks.
+Series applied, thanks.
