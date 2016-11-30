@@ -1,79 +1,83 @@
-From: "Valo, Kalle" <kvalo@qca.qualcomm.com>
-Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
-Date: Wed, 30 Nov 2016 18:40:36 +0000
-Message-ID: <878ts0u7z3.fsf@kamboji.qca.qualcomm.com>
-References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
-        <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
-        <20161118183541.GI28340@tuxbot> <877f7vimyg.fsf@kamboji.qca.qualcomm.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 0/6] XDP for virtio_net
+Date: Wed, 30 Nov 2016 10:41:04 -0800
+Message-ID: <583F1D40.7060408@gmail.com>
+References: <20161129200450.26752.86882.stgit@john-Precision-Tower-5810>
+ <20161130203450-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "k.eugene.e@gmail.com" <k.eugene.e@gmail.com>,
-        Andy Gross <andy.gross@linaro.org>,
-        "wcn36xx@lists.infradead.org" <wcn36xx@lists.infradead.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <877f7vimyg.fsf@kamboji.qca.qualcomm.com> (Kalle Valo's message
-        of "Tue, 22 Nov 2016 14:55:04 +0000")
-Content-Language: en-US
-Content-ID: <61E5DD4E9277F144B083C9269603481A@qualcomm.com>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:32906 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758704AbcK3SlW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 13:41:22 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so2051385pgd.0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 10:41:21 -0800 (PST)
+In-Reply-To: <20161130203450-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Valo, Kalle" <kvalo@qca.qualcomm.com> writes:
-
-> Bjorn Andersson <bjorn.andersson@linaro.org> writes:
->
->> On Wed 16 Nov 10:49 PST 2016, Kalle Valo wrote:
+On 16-11-30 10:35 AM, Michael S. Tsirkin wrote:
+> On Tue, Nov 29, 2016 at 12:05:20PM -0800, John Fastabend wrote:
+>> This implements virtio_net for the mergeable buffers and big_packet
+>> modes. I tested this with vhost_net running on qemu and did not see
+>> any issues. For testing num_buf > 1 I added a hack to vhost driver
+>> to only but 100 bytes per buffer.
 >>
->>> Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
->>> > The correct include file for getting errno constants and ERR_PTR() is
->>> > linux/err.h, rather than linux/errno.h, so fix the include.
->>> >=20
->>> > Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled s=
-mem_state")
->>> > Acked-by: Andy Gross <andy.gross@linaro.org>
->>> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
->>>=20
->>> For some reason this fails to compile now. Can you take a look, please?
->>>=20
->>> ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wcn3=
-6xx.ko] undefined!
->>> make[1]: *** [__modpost] Error 1
->>> make: *** [modules] Error 2
->>>=20
->>> 5 patches set to Changes Requested.
->>>=20
->>> 9429045 [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
->>> 9429047 [v5,2/5] wcn36xx: Transition driver to SMD client
+>> There are some restrictions for XDP to be enabled and work well
+>> (see patch 3) for more details.
 >>
->> This patch was updated with the necessary depends in Kconfig to catch
->> this exact issue and when I pull in your .config (which has QCOM_SMD=3Dn=
-,
->> QCOM_WCNSS_CTRL=3Dn and WCN36XX=3Dy) I can build this just fine.
+>>   1. LRO must be off
+>>   2. MTU must be less than PAGE_SIZE
+>>   3. queues must be available to dedicate to XDP
+>>   4. num_bufs received in mergeable buffers must be 1
+>>   5. big_packet mode must have all data on single page
 >>
->> I've tested the various combinations and it seems to work fine. Do you
->> have any other patches in your tree?
->
-> This was with the pending branch of my ath.git tree. There are other
-> wireless patches (ath10k etc) but I would guess they don't affect here.
->
->> Any stale objects?
->
-> Not sure what you mean with this question, but I didn't run 'make clean'
-> if that's what you are asking.
->
->> Would you mind retesting this, before I invest more time in trying to
->> reproduce the issue you're seeing?
->
-> Sure, I'll take a look but that might take few days.
+>> Please review any comments/feedback welcome as always.
+>>
+>> v2, fixes rcu usage throughout thanks to Eric and the use of
+>> num_online_cpus() usage thanks to Jakub.
+>>
+>> v3, add slowpath patch to handle num_bufs > 1
+>>
+>> Thanks,
+>> John
+> 
+> BTW this is threaded incorrectly: patch 1/6 isn't a reply to 0/6,
+> patches 2 and on are replies to patch 1.
+> 
 
-I didn't find enough time to look at this in detail. I applied this to
-my ath.git pending branch, let's see what the kbuild bot finds.
+Ah yep, if you mangle the command line git will send the
+cover letter even if you have mangled 'to' email addresses but when
+it hits a real patch it aborts. At least on my version of git.
 
---=20
-Kalle Valo=
+> I'm busy until end of week, I'll review Monday. Sorry about the delay.
+
+In the meantime I'll post a v4 with better commit message (Alexei) and
+address a corner cases Jakub pointed out.
+
+> 
+>> ---
+>>
+>> John Fastabend (6):
+>>       net: virtio dynamically disable/enable LRO
+>>       net: xdp: add invalid buffer warning
+>>       virtio_net: Add XDP support
+>>       virtio_net: add dedicated XDP transmit queues
+>>       virtio_net: add XDP_TX support
+>>       virtio_net: xdp, add slowpath case for non contiguous buffers
+>>
+>>
+>>  drivers/net/virtio_net.c |  344 +++++++++++++++++++++++++++++++++++++++++++++-
+>>  include/linux/filter.h   |    1 
+>>  net/core/filter.c        |    6 +
+>>  3 files changed, 346 insertions(+), 5 deletions(-)
+>>
+>> --
+>> Signature
