@@ -1,30 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: arc_emac: add dependencies on associated arches
- and compile test
-Date: Tue, 29 Nov 2016 18:57:57 -0500 (EST)
-Message-ID: <20161129.185757.897468314817275149.davem@davemloft.net>
-References: <20161128071237.9016-1-pbrobinson@gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-netx] net: lan78xx: add LAN7801 MAC-only support
+Date: Wed, 30 Nov 2016 00:01:13 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40970112@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D4096E268@CHN-SV-EXMX02.mchp-main.com>
+ <007d0bc0-378c-da93-d730-28f7b5b5073a@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D4096FC85@CHN-SV-EXMX02.mchp-main.com>
+ <dcabc07f-ab5f-ad25-5beb-09f717c06e4e@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D409700F2@CHN-SV-EXMX02.mchp-main.com>
+ <b0dea0b1-11d1-3d58-c055-41824eaf1d1f@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zhengxing@rock-chips.com, al.kochet@gmail.com, tremyfr@gmail.com,
-        netdev@vger.kernel.org
-To: pbrobinson@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <UNGLinuxDriver@microchip.com>
+To: <f.fainelli@gmail.com>, <davem@davemloft.net>, <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36546 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754592AbcK2X6C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 18:58:02 -0500
-In-Reply-To: <20161128071237.9016-1-pbrobinson@gmail.com>
+Received: from smtpout.microchip.com ([198.175.253.82]:44884 "EHLO
+        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754666AbcK3ABQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 19:01:16 -0500
+In-Reply-To: <b0dea0b1-11d1-3d58-c055-41824eaf1d1f@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Robinson <pbrobinson@gmail.com>
-Date: Mon, 28 Nov 2016 07:12:37 +0000
-
-> Add dependencies on the architectures that support these devices and
-> add compile test to ensure ongoing code build coverage.
-> 
-> Signed-off-by: Peter Robinson <pbrobinson@gmail.com>
-
-Applied.
+PiA+IEl0IHNlZW1zIHBoeV91bnJlZ2lzdGVyX2ZpeHVwKCkgd2lsbCBiZSBuZWVkZWQgZm9yIG1v
+ZHVsZSBuZXR3b3JrIGRyaXZlci4NCj4gPiBwaHlfZml4dXBfbGlzdCBrZWVwcyB0aGUgbGlzdCBl
+dmVuIGFmdGVyIHVubG9hZGluZyBtb2R1bGUuDQo+ID4gRG8geW91IGtub3cgYW55IHVwZGF0ZSBp
+cyB3YWl0aW5nIGZvciBzdWJtaXNzaW9uPyBJZiBub3QsIEknbGwgbWFrZSBwYXRjaC4NCj4gDQo+
+IE9oLCB5ZXMsIHRoYXQncyBhIGdvb2QgcG9pbnQsIHdlIG5lZWQgc3VjaCBhIHRoaW5nLCBzbyBm
+YXIgZml4dXBzIGhhdmUNCj4gYmVlbiBleGNsdXNpdmVseSB1c2VkIGJ5IGNvZGUgdGhhdCBpcyBi
+dWlsdC1pbiwgYnV0IHRoZXJlIHJlYWxseSBpcyBub3QNCj4gYSByZWFzb24gZm9yIHRoYXQuIFBs
+ZWFzZSBnbyBhaGVhZCBhbmQgY29vayBhIHBhdGNoIGZvciB0aGlzLCB0aGFua3MhDQoNCk9LLiBX
+aWxsIGRvIGl0Lg0KDQpUaGFua3MuDQotIFdvb2p1bmcNCg==
