@@ -1,38 +1,36 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] man: ip-route.8: Add notes about dropped IPv4 route cache
-Date: Wed, 30 Nov 2016 09:29:48 +0100
-Message-ID: <20161130082948.21925-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] rtnetlink: return the correct error code
+Date: Wed, 30 Nov 2016 16:37:34 +0800
+Message-ID: <1480495054-5114-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:34862 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753042AbcK3IaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 03:30:00 -0500
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:41149 "EHLO
+        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755255AbcK3Ihp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 03:37:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- man/man8/ip-route.8.in | 6 ++++++
- 1 file changed, 6 insertions(+)
+Before this patch, function ndo_dflt_fdb_dump() will always return code
+from uc fdb dump. The reture code of mc fdb dump is lost.
 
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index d4fae3cc783ba..c0acaa0020ef7 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -924,6 +924,12 @@ routes are left unchanged. Any routes specified in the data stream that
- already exist in the table will be ignored.
- .RE
- 
-+.SH NOTES
-+Starting with Linux kernel version 3.6, there is no routing cache for IPv4
-+anymore. Hence
-+.B "ip route show cached"
-+will never print any entries on systems with this or newer kernel versions.
-+
- .SH EXAMPLES
- .PP
- ip ro
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ net/core/rtnetlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 4e60525..061415f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3165,7 +3165,7 @@ int ndo_dflt_fdb_dump(struct sk_buff *skb,
+ 	err = nlmsg_populate_fdb(skb, cb, dev, idx, &dev->uc);
+ 	if (err)
+ 		goto out;
+-	nlmsg_populate_fdb(skb, cb, dev, idx, &dev->mc);
++	err = nlmsg_populate_fdb(skb, cb, dev, idx, &dev->mc);
+ out:
+ 	netif_addr_unlock_bh(dev);
+ 	return err;
 -- 
-2.10.0
+1.8.3.1
