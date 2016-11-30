@@ -1,44 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp_bbr: fix Kconfig to be able to make BBR the default
- congestion algorithm
-Date: Wed, 30 Nov 2016 15:04:46 -0800
-Message-ID: <1480547086.18162.218.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <b37e4220-b857-4853-f2e2-b77bb08115e5@gmx.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/6] net: dsa: mv88e6xxx: add helper to disable
+ ports
+Date: Thu, 1 Dec 2016 00:20:49 +0100
+Message-ID: <20161130232049.GQ21645@lunn.ch>
+References: <20161130225930.25510-1-vivien.didelot@savoirfairelinux.com>
+ <20161130225930.25510-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Neal Cardwell <ncardwell@google.com>
-To: Bernhard Held <berny156@gmx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b37e4220-b857-4853-f2e2-b77bb08115e5@gmx.de>
+Content-Disposition: inline
+In-Reply-To: <20161130225930.25510-2-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-11-30 at 23:31 +0100, Bernhard Held wrote:
-> Add missing line to be able to make BBR the default
-> congestion algorithm.
+On Wed, Nov 30, 2016 at 05:59:25PM -0500, Vivien Didelot wrote:
+> Before resetting a switch, the ports should be set to the Disabled state
+> and the transmit queues should be drained.
 > 
-> Signed-off-by: Bernhard Held <berny156@gmx.de>
-> ---
->   net/ipv4/Kconfig | 1 +
->   1 file changed, 1 insertion(+)
+> Add an helper to explicit that.
 > 
-> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> index 300b068..b54b3ca 100644
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -715,6 +715,7 @@ config DEFAULT_TCP_CONG
->          default "reno" if DEFAULT_RENO
->          default "dctcp" if DEFAULT_DCTCP
->          default "cdg" if DEFAULT_CDG
-> +       default "bbr" if DEFAULT_BBR
->          default "cubic"
-> 
->   config TCP_MD5SIG
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Okay, but it seems your patch was mangled (tabulations replaced by
-spaces)
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Please use git, or read Documentation/email-clients.txt for some hints.
+    Andrew
