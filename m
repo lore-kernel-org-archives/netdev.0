@@ -1,48 +1,169 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
-Date: Wed, 30 Nov 2016 19:45:11 +0100
-Message-ID: <20161130184511.GB8209@netboy>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-5-grygorii.strashko@ti.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next PATCH v3 5/6] virtio_net: add XDP_TX support
+Date: Wed, 30 Nov 2016 20:45:20 +0200
+Message-ID: <20161130204250-mutt-send-email-mst@kernel.org>
+References: <20161129200933.26851.41883.stgit@john-Precision-Tower-5810>
+ <20161129201108.26851.1114.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Cc: eric.dumazet@gmail.com, daniel@iogearbox.net,
+        shm@cumulusnetworks.com, davem@davemloft.net, tgraf@suug.ch,
+        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33644 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753815AbcK3SpQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 13:45:16 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:58602 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758779AbcK3SpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 13:45:25 -0500
 Content-Disposition: inline
-In-Reply-To: <20161128230428.6872-5-grygorii.strashko@ti.com>
+In-Reply-To: <20161129201108.26851.1114.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 05:04:26PM -0600, Grygorii Strashko wrote:
-> +static cycle_t cpts_cc_ns2cyc(struct cpts *cpts, u64 nsecs)
+On Tue, Nov 29, 2016 at 12:11:08PM -0800, John Fastabend wrote:
+> This adds support for the XDP_TX action to virtio_net. When an XDP
+> program is run and returns the XDP_TX action the virtio_net XDP
+> implementation will transmit the packet on a TX queue that aligns
+> with the current CPU that the XDP packet was processed on.
+> 
+> Before sending the packet the header is zeroed.  Also XDP is expected
+> to handle checksum correctly so no checksum offload  support is
+> provided.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  drivers/net/virtio_net.c |   59 ++++++++++++++++++++++++++++++++++++++++++++--
+>  1 file changed, 56 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index a1bfa99..9604e55 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -330,12 +330,40 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+>  	return skb;
+>  }
+>  
+> +static void virtnet_xdp_xmit(struct virtnet_info *vi,
+> +			     unsigned int qnum, struct xdp_buff *xdp)
 > +{
-> +	cycle_t cyc = (nsecs << cpts->cc.shift) + nsecs;
+> +	struct send_queue *sq = &vi->sq[qnum];
+> +	struct virtio_net_hdr_mrg_rxbuf *hdr;
+> +	unsigned int num_sg, len;
+> +	void *xdp_sent;
 > +
-> +	do_div(cyc, cpts->cc.mult);
+> +	/* Free up any pending old buffers before queueing new ones. */
+> +	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+> +		struct page *page = virt_to_head_page(xdp_sent);
 > +
-> +	return cyc;
+> +		put_page(page);
+> +	}
+> +
+> +	/* Zero header and leave csum up to XDP layers */
+> +	hdr = xdp->data;
+> +	memset(hdr, 0, vi->hdr_len);
+> +	hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE;
+> +	hdr->hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+
+Do we really want this?
+This is CHECKSUM_UNNECESSARY.
+Does not XDP pass checksummed packets?
+
+
+> +
+> +	num_sg = 1;
+> +	sg_init_one(sq->sg, xdp->data, xdp->data_end - xdp->data);
+> +	virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, xdp->data, GFP_ATOMIC);
+
+This might fail. If it does, you want to at least free up the memory.
+
+> +	virtqueue_kick(sq->vq);
 > +}
-
-So you set the comparison value once per second, based on cc.mult.
-But when the clock is being actively synchronized, user space calls to
-clock_adjtimex() will change cc.mult.  This can happen several times
-per second, depending on the PTP Sync rate.
-
-In order to produce the PPS edge correctly, you would have to adjust
-the comparison value whenever cc.mult changes, but of course this is
-unworkable.
-
-So I'll have to say NAK for this patch.
-
-Thanks,
-Richard
+> +
+>  static u32 do_xdp_prog(struct virtnet_info *vi,
+>  		       struct bpf_prog *xdp_prog,
+>  		       struct page *page, int offset, int len)
+>  {
+>  	int hdr_padded_len;
+>  	struct xdp_buff xdp;
+> +	unsigned int qp;
+>  	u32 act;
+>  	u8 *buf;
+>  
+> @@ -353,9 +381,15 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
+>  	switch (act) {
+>  	case XDP_PASS:
+>  		return XDP_PASS;
+> +	case XDP_TX:
+> +		qp = vi->curr_queue_pairs -
+> +			vi->xdp_queue_pairs +
+> +			smp_processor_id();
+> +		xdp.data = buf + (vi->mergeable_rx_bufs ? 0 : 4);
+> +		virtnet_xdp_xmit(vi, qp, &xdp);
+> +		return XDP_TX;
+>  	default:
+>  		bpf_warn_invalid_xdp_action(act);
+> -	case XDP_TX:
+>  	case XDP_ABORTED:
+>  	case XDP_DROP:
+>  		return XDP_DROP;
+> @@ -387,8 +421,16 @@ static struct sk_buff *receive_big(struct net_device *dev,
+>  	if (xdp_prog) {
+>  		u32 act = do_xdp_prog(vi, xdp_prog, page, 0, len);
+>  
+> -		if (act == XDP_DROP)
+> +		switch (act) {
+> +		case XDP_PASS:
+> +			break;
+> +		case XDP_TX:
+> +			rcu_read_unlock();
+> +			goto xdp_xmit;
+> +		case XDP_DROP:
+> +		default:
+>  			goto err_xdp;
+> +		}
+>  	}
+>  	rcu_read_unlock();
+>  
+> @@ -403,6 +445,7 @@ static struct sk_buff *receive_big(struct net_device *dev,
+>  err:
+>  	dev->stats.rx_dropped++;
+>  	give_pages(rq, page);
+> +xdp_xmit:
+>  	return NULL;
+>  }
+>  
+> @@ -421,6 +464,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  	struct sk_buff *head_skb, *curr_skb;
+>  	struct bpf_prog *xdp_prog;
+>  
+> +	head_skb = NULL;
+> +
+>  	rcu_read_lock();
+>  	xdp_prog = rcu_dereference(rq->xdp_prog);
+>  	if (xdp_prog) {
+> @@ -432,8 +477,15 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  		}
+>  
+>  		act = do_xdp_prog(vi, xdp_prog, page, offset, len);
+> -		if (act == XDP_DROP)
+> +		switch (act) {
+> +		case XDP_PASS:
+> +			break;
+> +		case XDP_TX:
+> +			goto xdp_xmit;
+> +		case XDP_DROP:
+> +		default:
+>  			goto err_xdp;
+> +		}
+>  	}
+>  	rcu_read_unlock();
+>  
+> @@ -510,6 +562,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>  err_buf:
+>  	dev->stats.rx_dropped++;
+>  	dev_kfree_skb(head_skb);
+> +xdp_xmit:
+>  	return NULL;
+>  }
+>  
