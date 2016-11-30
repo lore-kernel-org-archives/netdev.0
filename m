@@ -1,57 +1,90 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v3 4/4] bpf: Add tests and samples for LWT-BPF
-Date: Wed, 30 Nov 2016 07:52:05 +0100
-Message-ID: <20161130065205.GC16856@pox.localdomain>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v3 3/4] bpf: BPF for lightweight tunnel
+ infrastructure
+Date: Tue, 29 Nov 2016 23:01:52 -0800
+Message-ID: <20161130070150.GA33397@ast-mbp.thefacebook.com>
 References: <cover.1480424542.git.tgraf@suug.ch>
- <25a6f8d0d56175bb27a05c18eb54bc3bc5c09fa1.1480424542.git.tgraf@suug.ch>
- <20161130001750.GB28238@ast-mbp.thefacebook.com>
+ <7cc79a82e49996a9ebbff861af471018fdf118fb.1480424542.git.tgraf@suug.ch>
+ <20161130001504.GA28238@ast-mbp.thefacebook.com>
+ <20161130064850.GB16856@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
         tom@herbertland.com, roopa@cumulusnetworks.com,
         hannes@stressinduktion.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:35099 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753128AbcK3GwI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 01:52:08 -0500
-Received: by mail-wm0-f47.google.com with SMTP id a197so259212610wmd.0
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 22:52:07 -0800 (PST)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36401 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750810AbcK3HCC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 02:02:02 -0500
+Received: by mail-pg0-f66.google.com with SMTP id x23so449416pgx.3
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 23:02:02 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20161130001750.GB28238@ast-mbp.thefacebook.com>
+In-Reply-To: <20161130064850.GB16856@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/16 at 04:17pm, Alexei Starovoitov wrote:
-> On Tue, Nov 29, 2016 at 02:21:23PM +0100, Thomas Graf wrote:
-> > Adds a series of test to verify the functionality of attaching
-> > BPF programs at LWT hooks.
+On Wed, Nov 30, 2016 at 07:48:51AM +0100, Thomas Graf wrote:
+> On 11/29/16 at 04:15pm, Alexei Starovoitov wrote:
+> > On Tue, Nov 29, 2016 at 02:21:22PM +0100, Thomas Graf wrote:
+> > ...
+> > > +#define LWT_BPF_MAX_HEADROOM 128
 > > 
-> > Also adds a sample which collects a histogram of packet sizes which
-> > pass through an LWT hook.
+> > why 128?
+> > btw I'm thinking for XDP to use 256, so metadata can be stored in there.
+> 
+> It's an arbitrary limit to catch obvious misconfiguration. I'm absolutely
+> fine with bumping it to 256.
+> 
+> > > +static int run_lwt_bpf(struct sk_buff *skb, struct bpf_lwt_prog *lwt,
+> > > +		       struct dst_entry *dst, bool can_redirect)
+> > > +{
+> > > +	int ret;
+> > > +
+> > > +	/* Preempt disable is needed to protect per-cpu redirect_info between
+> > > +	 * BPF prog and skb_do_redirect(). The call_rcu in bpf_prog_put() and
+> > > +	 * access to maps strictly require a rcu_read_lock() for protection,
+> > > +	 * mixing with BH RCU lock doesn't work.
+> > > +	 */
+> > > +	preempt_disable();
+> > > +	rcu_read_lock();
+> > > +	bpf_compute_data_end(skb);
+> > > +	ret = BPF_PROG_RUN(lwt->prog, skb);
+> > > +	rcu_read_unlock();
+> > > +
+> > > +	switch (ret) {
+> > > +	case BPF_OK:
+> > > +		break;
+> > > +
+> > > +	case BPF_REDIRECT:
+> > > +		if (!can_redirect) {
+> > > +			WARN_ONCE(1, "Illegal redirect return code in prog %s\n",
+> > > +				  lwt->name ? : "<unknown>");
+> > > +			ret = BPF_OK;
+> > > +		} else {
+> > > +			ret = skb_do_redirect(skb);
 > > 
-> > $ ./lwt_len_hist.sh
-> > Starting netserver with host 'IN(6)ADDR_ANY' port '12865' and family AF_UNSPEC
-> > MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.253.2 () port 0 AF_INET : demo
-> > Recv   Send    Send
-> > Socket Socket  Message  Elapsed
-> > Size   Size    Size     Time     Throughput
-> > bytes  bytes   bytes    secs.    10^6bits/sec
-> > 
-> >  87380  16384  16384    10.00    39857.69
+> > I think this assumes that program did bpf_skb_push and L2 header is present.
+> > Would it make sense to check that mac_header < network_header here to make
+> > sure that it actually happened? I think the cost of single 'if' isn't much.
+> > Also skb_do_redirect() can redirect to l3 tunnels like ipip ;)
+> > so program shouldn't be doing bpf_skb_push in such case...
 > 
-> Nice!
+> We are currently guaranteeing mac_header <= network_header given that
+> bpf_skb_push() is calling skb_reset_mac_header() unconditionally.
 > 
-> > +	ret = bpf_redirect(ifindex, 0);
-> > +	if (ret < 0) {
-> > +		printk("bpf_redirect() failed: %d\n", ret);
-> > +		return BPF_DROP;
-> > +	}
-> 
-> this 'if' looks a bit weird. You're passing 0 as flags,
-> so this helper will always succeed.
-> Other sample code often does 'return bpf_redirect(...)'
-> due to this reasoning.
+> Even if a program were to push an L2 header and then redirect to an l3
+> tunnel, __bpf_redirect_no_mac will pull it off again and correct the
+> mac_header offset.
 
-Right, the if branch is absolutely useless. I will remove it.
+yes. that part is fine.
+
+> Should we check in __bpf_redirect_common() whether mac_header <
+> nework_header then or add it to lwt-bpf conditional on
+> dev_is_mac_header_xmit()?
+
+may be only extra 'if' in lwt-bpf is all we need?
+I'm still missing what will happen if we 'forget' to do
+bpf_skb_push() inside the lwt-bpf program, but still do redirect
+in lwt_xmit stage to l2 netdev...
