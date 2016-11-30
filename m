@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next 2/8] net/sched: cls_flower: Try to offload only if skip_hw flag isn't set
-Date: Wed, 30 Nov 2016 16:41:29 +0200
-Message-ID: <1480516895-29545-3-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next 5/8] net/sched: cls_flower: Add offload support using egress Hardware device
+Date: Wed, 30 Nov 2016 16:41:32 +0200
+Message-ID: <1480516895-29545-6-git-send-email-hadarh@mellanox.com>
 References: <1480516895-29545-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Jiri Pirko <jiri@mellanox.com>,
@@ -11,111 +11,199 @@ Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45991 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46043 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753112AbcK3PhJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:37:09 -0500
+        with ESMTP id S1752889AbcK3PhO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:37:14 -0500
 In-Reply-To: <1480516895-29545-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check skip_hw flag isn't set before calling
-fl_hw_{replace/destroy}_filter and fl_hw_update_stats functions.
+In order to support hardware offloading when the device given by the tc
+rule is different from the Hardware underline device, extract the mirred
+(egress) device from the tc action when a filter is added, using the new
+tc_action_ops, get_dev().
 
-Replace the call to tc_should_offload with tc_can_offload.
-tc_can_offload only checks if the device supports offloading, the check for
-skip_hw flag is done earlier in the flow.
+Flower caches the information about the mirred device and use it for
+calling ndo_setup_tc in filter change, update stats and delete.
+
+Calling ndo_setup_tc of the mirred (egress) device instead of the
+ingress device will allow a resolution between the software ingress
+device and the underline hardware device.
+
+The resolution will take place inside the offloading driver using
+'egress_device' flag added to tc_to_netdev struct which is provided to
+the offloading driver.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Acked-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_flower.c | 35 ++++++++++++++++++++---------------
- 1 file changed, 20 insertions(+), 15 deletions(-)
+ include/linux/netdevice.h |  1 +
+ include/net/pkt_cls.h     |  2 ++
+ net/sched/cls_api.c       | 22 ++++++++++++++++++++++
+ net/sched/cls_flower.c    | 41 ++++++++++++++++++++++++-----------------
+ 4 files changed, 49 insertions(+), 17 deletions(-)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4ffcd87..00c351c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -802,6 +802,7 @@ struct tc_to_netdev {
+ 		struct tc_cls_matchall_offload *cls_mall;
+ 		struct tc_cls_bpf_offload *cls_bpf;
+ 	};
++	bool egress_dev;
+ };
+ 
+ /* These structures hold the attributes of xdp state that are being passed
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 45ad9aa..f0a0514 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -171,6 +171,8 @@ void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
+ 		     struct tcf_exts *src);
+ int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts);
+ int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts);
++int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
++		     struct net_device **hw_dev);
+ 
+ /**
+  * struct tcf_pkt_info - packet information
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index b05d4a2..e7aeab9 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -682,6 +682,28 @@ int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts)
+ }
+ EXPORT_SYMBOL(tcf_exts_dump_stats);
+ 
++int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
++		     struct net_device **hw_dev)
++{
++	const struct tc_action *a;
++	LIST_HEAD(actions);
++
++	if (tc_no_actions(exts))
++		return -EINVAL;
++
++	tcf_exts_to_list(exts, &actions);
++	list_for_each_entry(a, &actions, list) {
++		if (a->ops->get_dev) {
++			a->ops->get_dev(a, dev_net(dev), hw_dev);
++			break;
++		}
++	}
++	if (*hw_dev)
++		return 0;
++	return -EOPNOTSUPP;
++}
++EXPORT_SYMBOL(tcf_exts_get_dev);
++
+ static int __init tc_filter_init(void)
+ {
+ 	rtnl_register(PF_UNSPEC, RTM_NEWTFILTER, tc_ctl_tfilter, NULL, NULL);
 diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index e8dd09a..5e70f65 100644
+index 13b349f..1cacfa5 100644
 --- a/net/sched/cls_flower.c
 +++ b/net/sched/cls_flower.c
-@@ -207,7 +207,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, unsigned long cookie)
+@@ -78,6 +78,8 @@ struct cls_fl_filter {
+ 	u32 handle;
+ 	u32 flags;
+ 	struct rcu_head	rcu;
++	struct tc_to_netdev tc;
++	struct net_device *hw_dev;
+ };
+ 
+ static unsigned short int fl_mask_range(const struct fl_flow_mask *mask)
+@@ -203,9 +205,9 @@ static void fl_destroy_filter(struct rcu_head *head)
+ 
+ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
+ {
+-	struct net_device *dev = tp->q->dev_queue->dev;
  	struct tc_cls_flower_offload offload = {0};
- 	struct tc_to_netdev tc;
+-	struct tc_to_netdev tc;
++	struct net_device *dev = f->hw_dev;
++	struct tc_to_netdev *tc = &f->tc;
  
--	if (!tc_should_offload(dev, tp, 0))
-+	if (!tc_can_offload(dev, tp))
+ 	if (!tc_can_offload(dev, tp))
  		return;
- 
+@@ -213,10 +215,10 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
  	offload.command = TC_CLSFLOWER_DESTROY;
-@@ -231,7 +231,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 	struct tc_to_netdev tc;
+ 	offload.cookie = (unsigned long)f;
+ 
+-	tc.type = TC_SETUP_CLSFLOWER;
+-	tc.cls_flower = &offload;
++	tc->type = TC_SETUP_CLSFLOWER;
++	tc->cls_flower = &offload;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
++	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, tc);
+ }
+ 
+ static int fl_hw_replace_filter(struct tcf_proto *tp,
+@@ -226,11 +228,17 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_flower_offload offload = {0};
+-	struct tc_to_netdev tc;
++	struct tc_to_netdev *tc = &f->tc;
  	int err;
  
--	if (!tc_should_offload(dev, tp, flags))
-+	if (!tc_can_offload(dev, tp))
- 		return tc_skip_sw(flags) ? -EINVAL : 0;
- 
- 	offload.command = TC_CLSFLOWER_REPLACE;
-@@ -259,7 +259,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	struct tc_cls_flower_offload offload = {0};
- 	struct tc_to_netdev tc;
- 
--	if (!tc_should_offload(dev, tp, 0))
-+	if (!tc_can_offload(dev, tp))
- 		return;
- 
- 	offload.command = TC_CLSFLOWER_STATS;
-@@ -275,7 +275,8 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
- 	list_del_rcu(&f->list);
--	fl_hw_destroy_filter(tp, (unsigned long)f);
-+	if (!tc_skip_hw(f->flags))
-+		fl_hw_destroy_filter(tp, (unsigned long)f);
- 	tcf_unbind_filter(tp, &f->res);
- 	call_rcu(&f->rcu, fl_destroy_filter);
- }
-@@ -743,20 +744,23 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 			goto errout;
- 	}
- 
--	err = fl_hw_replace_filter(tp,
--				   &head->dissector,
--				   &mask.key,
--				   &fnew->key,
--				   &fnew->exts,
--				   (unsigned long)fnew,
--				   fnew->flags);
--	if (err)
--		goto errout;
-+	if (!tc_skip_hw(fnew->flags)) {
-+		err = fl_hw_replace_filter(tp,
-+					   &head->dissector,
-+					   &mask.key,
-+					   &fnew->key,
-+					   &fnew->exts,
-+					   (unsigned long)fnew,
-+					   fnew->flags);
-+		if (err)
-+			goto errout;
+-	if (!tc_can_offload(dev, tp))
+-		return tc_skip_sw(f->flags) ? -EINVAL : 0;
++	if (!tc_can_offload(dev, tp)) {
++		if (tcf_exts_get_dev(dev, &f->exts, &f->hw_dev))
++			return tc_skip_sw(f->flags) ? -EINVAL : 0;
++		dev = f->hw_dev;
++		tc->egress_dev = true;
++	} else {
++		f->hw_dev = dev;
 +	}
  
- 	if (fold) {
- 		rhashtable_remove_fast(&head->ht, &fold->ht_node,
- 				       head->ht_params);
--		fl_hw_destroy_filter(tp, (unsigned long)fold);
-+		if (!tc_skip_hw(fold->flags))
-+			fl_hw_destroy_filter(tp, (unsigned long)fold);
- 	}
+ 	offload.command = TC_CLSFLOWER_REPLACE;
+ 	offload.cookie = (unsigned long)f;
+@@ -239,23 +247,22 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ 	offload.key = &f->key;
+ 	offload.exts = &f->exts;
  
- 	*arg = (unsigned long) fnew;
-@@ -879,7 +883,8 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 			goto nla_put_failure;
- 	}
+-	tc.type = TC_SETUP_CLSFLOWER;
+-	tc.cls_flower = &offload;
++	tc->type = TC_SETUP_CLSFLOWER;
++	tc->cls_flower = &offload;
  
--	fl_hw_update_stats(tp, f);
-+	if (!tc_skip_hw(f->flags))
-+		fl_hw_update_stats(tp, f);
+ 	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol,
+-					    &tc);
++					    tc);
  
- 	if (fl_dump_key_val(skb, key->eth.dst, TCA_FLOWER_KEY_ETH_DST,
- 			    mask->eth.dst, TCA_FLOWER_KEY_ETH_DST_MASK,
+ 	if (tc_skip_sw(f->flags))
+ 		return err;
+-
+ 	return 0;
+ }
+ 
+ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ {
+-	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_flower_offload offload = {0};
+-	struct tc_to_netdev tc;
++	struct net_device *dev = f->hw_dev;
++	struct tc_to_netdev *tc = &f->tc;
+ 
+ 	if (!tc_can_offload(dev, tp))
+ 		return;
+@@ -264,10 +271,10 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	offload.cookie = (unsigned long)f;
+ 	offload.exts = &f->exts;
+ 
+-	tc.type = TC_SETUP_CLSFLOWER;
+-	tc.cls_flower = &offload;
++	tc->type = TC_SETUP_CLSFLOWER;
++	tc->cls_flower = &offload;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
++	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, tc);
+ }
+ 
+ static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
 -- 
 1.8.3.1
