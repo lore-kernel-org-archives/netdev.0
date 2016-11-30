@@ -1,154 +1,60 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH v3 net-next 1/2] net: ethernet: slicoss: add slicoss
- gigabit ethernet driver
-Date: Wed, 30 Nov 2016 20:48:32 +0100
-Message-ID: <02068116-067a-3df9-b0cd-3ad60bcad9ff@gmx.de>
-References: <1480162850-8014-1-git-send-email-LinoSanfilippo@gmx.de>
- <1480162850-8014-2-git-send-email-LinoSanfilippo@gmx.de>
- <a6f99dc8-60e4-7727-0764-abdfac81c713@gmail.com>
- <6b7de79d-b149-9888-2d0f-2acee5c2905e@gmx.de>
- <34c8e4b3-ccbc-082e-1dd0-3893b56e475a@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next v2] ipv6: implement consistent hashing for
+ equal-cost multipath routing
+Date: Wed, 30 Nov 2016 14:49:46 -0500 (EST)
+Message-ID: <20161130.144946.28181822717893867.davem@davemloft.net>
+References: <1480439718-18019-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
- charrer@alacritech.com, liodot@gmail.com, gregkh@linuxfoundation.org,
- andrew@lunn.ch
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <34c8e4b3-ccbc-082e-1dd0-3893b56e475a@gmail.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: david.lebrun@uclouvain.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40898 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754505AbcK3Ttr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:49:47 -0500
+In-Reply-To: <1480439718-18019-1-git-send-email-david.lebrun@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 29.11.2016 18:14, Florian Fainelli wrote:
-> On 11/28/2016 01:41 PM, Lino Sanfilippo wrote:
->> The problem is that the HW does not provide a tx completion index. Instead we have to 
->> iterate the status descriptors until we get an invalid idx which indicates that there 
->> are no further tx descriptors done for now. I am afraid that if we do not limit the 
->> number of descriptors processed in the tx completion handler, a continuous transmission 
->> of frames could keep the loop in xmit_complete() run endlessly. I dont know if this 
->> can actually happen but I wanted to make sure that this is avoided.
+From: David Lebrun <david.lebrun@uclouvain.be>
+Date: Tue, 29 Nov 2016 18:15:18 +0100
+
+> When multiple nexthops are available for a given route, the routing engine
+> chooses a nexthop by computing the flow hash through get_hash_from_flowi6
+> and by taking that value modulo the number of nexthops. The resulting value
+> indexes the nexthop to select. This method causes issues when a new nexthop
+> is added or one is removed (e.g. link failure). In that case, the number
+> of nexthops changes and potentially all the flows get re-routed to another
+> nexthop.
 > 
-> OK, it might be a good idea to put that comment somewhere around the tx
-> completion handler to understand why it is bounded with a specific value.
+> This patch implements a consistent hash method to select the nexthop in
+> case of ECMP. The idea is to generate K slices (or intervals) for each
+> route with multiple nexthops. The nexthops are randomly assigned to those
+> slices, in a uniform manner. The number K is configurable through a sysctl
+> net.ipv6.route.ecmp_slices and is always an exponent of 2. To select the
+> nexthop, the algorithm takes the flow hash and computes an index which is
+> the flow hash modulo K. As K = 2^x, the modulo can be computed using a
+> simple binary AND operation (idx = hash & (K - 1)). The resulting index
+> references the selected nexthop. The lookup time complexity is thus O(1).
 > 
-
-Agreed, I will add such a comment.
-
->> 
->>> [snip]
->>>
->>>> +	while (slic_get_free_rx_descs(rxq) > SLIC_MAX_REQ_RX_DESCS) {
->>>> +		skb = alloc_skb(maplen + ALIGN_MASK, gfp);
->>>> +		if (!skb)
->>>> +			break;
->>>> +
->>>> +		paddr = dma_map_single(&sdev->pdev->dev, skb->data, maplen,
->>>> +				       DMA_FROM_DEVICE);
->>>> +		if (dma_mapping_error(&sdev->pdev->dev, paddr)) {
->>>> +			netdev_err(dev, "mapping rx packet failed\n");
->>>> +			/* drop skb */
->>>> +			dev_kfree_skb_any(skb);
->>>> +			break;
->>>> +		}
->>>> +		/* ensure head buffer descriptors are 256 byte aligned */
->>>> +		offset = 0;
->>>> +		misalign = paddr & ALIGN_MASK;
->>>> +		if (misalign) {
->>>> +			offset = SLIC_RX_BUFF_ALIGN - misalign;
->>>> +			skb_reserve(skb, offset);
->>>> +		}
->>>> +		/* the HW expects dma chunks for descriptor + frame data */
->>>> +		desc = (struct slic_rx_desc *)skb->data;
->>>> +		memset(desc, 0, sizeof(*desc));
->>>
->>> Do you really need to zero-out the prepending RX descriptor? Are not you
->>> missing a write barrier here?
->> 
->> Indeed, it should be sufficient to make sure that the bit SLIC_IRHDDR_SVALID is not set.
->> I will adjust it. 
->> Concerning the write barrier: You mean a wmb() before slic_write() to ensure that the zeroing
->>  of the status desc is done before the descriptor is passed to the HW, right?
+> When a nexthop is added, it steals K/N slices from the other nexthops,
+> where N is the new number of nexthops. The slices are stolen randomly and
+> uniformly from the other nexthops. When a nexthop is removed, the orphan
+> slices are randomly reassigned to the other nexthops.
 > 
-> Correct, that's what I meant here.
+> The number of slices for a route also fixes the maximum number of nexthops
+> possible for that route.
 > 
+> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 
-Ok, will fix this. Good catch BTW!
+Interesting approach, but like Hannes I worry about the memory consumption
+bounds.
 
->> 
->>> [snip]
->>>
->>>> +
->>>> +		dma_sync_single_for_cpu(&sdev->pdev->dev,
->>>> +					dma_unmap_addr(buff, map_addr),
->>>> +					buff->addr_offset + sizeof(*desc),
->>>> +					DMA_FROM_DEVICE);
->>>> +
->>>> +		status = le32_to_cpu(desc->status);
->>>> +		if (!(status & SLIC_IRHDDR_SVALID))
->>>> +			break;
->>>> +
->>>> +		buff->skb = NULL;
->>>> +
->>>> +		dma_unmap_single(&sdev->pdev->dev,
->>>> +				 dma_unmap_addr(buff, map_addr),
->>>> +				 dma_unmap_len(buff, map_len),
->>>> +				 DMA_FROM_DEVICE);
->>>
->>> This is potentially inefficient, you already did a cache invalidation
->>> for the RX descriptor here, you could be more efficient with just
->>> invalidating the packet length, minus the descriptor length.
->>>
->> 
->> I am not sure I understand: We have to unmap the complete dma area, no matter if we synced
->> part of it before, dont we? AFAIK a dma sync is different from unmapping dma, or do I miss
->> something?
-> 
-> Sorry, I was not very clear, what I meant is that you can allocate and
-> do the initial dma_map_single() of your RX skbs during ndo_open(), and
-> then, in your RX path, you can only do dma_sync_single_for_cpu() twice
-> (once for the RX descriptor status, second time for the actual packet
-> contents), and when you return the SKB to the HW, do a
-> dma_sync_single_for_device(). The advantage of doing that, is that if
-> your cache operations are slow, you only do them on exactly packet
-> length, and not the actual RX buffer size (e.g: 2KB).
+Limiting to 1<<16 is interesting, but if you can limit to 1<<8 (256
+nexthops) maybe the state requirement can be compressed even further?
 
-Um. In the rx path the SKB will be consumed (by napi_gro_receive()).
-AFAIK we _have_ to unmap it before this call. Doing only a dma_sync_single_for_cpu()
-for the packet contents does IMHO only make sense if the corresponding SKB is
-reused somehow. But this is not the case. The rx buffers are refilled with newly
-allocated SKBs each time, and thus we need to create a new dma mapping for each of them.
-
-Or do I still misunderstand when to call the dma sync functions?
-
-
-BTW: I just realized that if the descriptor has not been used by the HW yet, see:
-
-+		dma_sync_single_for_cpu(&sdev->pdev->dev,
-+					dma_unmap_addr(buff, map_addr),
-+					buff->addr_offset + sizeof(*desc),
-+					DMA_FROM_DEVICE);
-+
-+		status = le32_to_cpu(desc->status);
-+		if (!(status & SLIC_IRHDDR_SVALID))
-+			break;
-+		  
-		^^^^^^^^^^^^^^^^^^^^^^^^^^^  dma_sync_single_for_device missing
-
-
-there has to be a dma_sync_single_for_device to undo the sync for cpu (since the
-HW will write to this descr when the next rx packet arrives), right? But this is racy:
-What if the HW writes to that descr after we synced it for cpu but before we synced
-it for the HW again? Any ideas?
-
-Regards,
-Lino
+We can always increase this if necessary in the future if someone
+reports a reasonable use case that really needs it.  Let's start
+simple and small first.
