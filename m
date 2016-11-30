@@ -1,56 +1,59 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] vhost_net: don't continue to call the recvmsg when
- meet errors
-Date: Wed, 30 Nov 2016 15:40:51 +0200
-Message-ID: <20161130152004-mutt-send-email-mst@kernel.org>
-References: <1480507857-22976-1-git-send-email-wangyunjian@huawei.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH net-next v2 3/4] Documentation: net: phy: Add blurb about RGMII
+Date: Wed, 30 Nov 2016 13:43:34 +0000
+Message-ID: <yw1xzikh3wxl.fsf@unicorn.mansr.com>
+References: <20161127184449.12351-1-f.fainelli@gmail.com>
+        <20161127184449.12351-4-f.fainelli@gmail.com>
+        <583B5D3B.4040108@codeaurora.org>
+        <a06d903f-5b80-4683-965f-9a6a1d5fe044@gmail.com>
+        <063D6719AE5E284EB5DD2968C1650D6DB023015E@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, caihe@huawei.com
-To: Yunjian Wang <wangyunjian@huawei.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: 'Florian Fainelli' <f.fainelli@gmail.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem\@davemloft.net" <davem@davemloft.net>,
+        "andrew\@lunn.ch" <andrew@lunn.ch>,
+        "sf84\@laposte.net" <sf84@laposte.net>,
+        "martin.blumenstingl\@googlemail.com"
+        <martin.blumenstingl@googlemail.com>,
+        "alexandre.torgue\@st.com" <alexandre.torgue@st.com>,
+        "peppe.cavallaro\@st.com" <peppe.cavallaro@st.com>,
+        "jbrunet\@baylibre.com" <jbrunet@baylibre.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60644 "EHLO mx1.redhat.com"
+Received: from unicorn.mansr.com ([81.2.72.234]:36902 "EHLO unicorn.mansr.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753106AbcK3Nk4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 08:40:56 -0500
-Content-Disposition: inline
-In-Reply-To: <1480507857-22976-1-git-send-email-wangyunjian@huawei.com>
+        id S1753112AbcK3Nnj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 08:43:39 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB023015E@AcuExch.aculab.com>
+        (David Laight's message of "Wed, 30 Nov 2016 12:32:04 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2016 at 08:10:57PM +0800, Yunjian Wang wrote:
-> When we meet an error(err=-EBADFD) recvmsg,
+David Laight <David.Laight@ACULAB.COM> writes:
 
-How do you get EBADFD? Won't vhost_net_rx_peek_head_len
-return 0 in this case, breaking the loop?
+> From: Florian Fainelli
+>> Sent: 27 November 2016 23:03
+>> Le 27/11/2016  14:24, Timur Tabi a crit :
+>> >> + * PHY device drivers in PHYLIB being reusable by nature, being able to
+>> >> +   configure correctly a specified delay enables more designs with
+>> >> similar delay
+>> >> +   requirements to be operate correctly
+>> >
+>> > Ok, this one I don't know how to fix.  I'm not really sure what you're
+>> > trying to say.
+>> 
+>> What I am trying to say is that once a PHY driver properly configures a
+>> delay that you have specified, there is no reason why this is not
+>> applicable to other platforms using this same PHY driver.
+>
+> As has been stated earlier it can depend on the track lengths on the
+> board itself.
+> (Although 1ns is about 1 foot - so track delays of that length are unlikely.)
 
-> the error handling in vhost
-> handle_rx() will continue. This will cause a soft CPU lockup in vhost thread.
-> 
-> Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
-> ---
->  drivers/vhost/net.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 5dc128a..edc470b 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -717,6 +717,9 @@ static void handle_rx(struct vhost_net *net)
->  			pr_debug("Discarded rx packet: "
->  				 " len %d, expected %zd\n", err, sock_len);
->  			vhost_discard_vq_desc(vq, headcount);
-> +			/* Don't continue to do, when meet errors. */
-> +			if (err < 0)
-> +				goto out;
+There could be a delay element.
 
-You might get e.g. EAGAIN and I think you need to retry
-in this case.
-
->  			continue;
->  		}
->  		/* Supply virtio_net_hdr if VHOST_NET_F_VIRTIO_NET_HDR */
-> -- 
-> 1.9.5.msysgit.1
-> 
+-- 
+Måns Rullgård
