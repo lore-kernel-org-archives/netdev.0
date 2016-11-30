@@ -1,37 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Crash due to mutex genl_lock called from RCU context
-Date: Tue, 29 Nov 2016 19:49:00 -0500 (EST)
-Message-ID: <20161129.194900.805119822120840845.davem@davemloft.net>
-References: <1480263824.18162.44.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CAM_iQpXB_LRqE83cWwU0ZDckLWPrMcZg-yD4+NKy+rBVz3YAyw@mail.gmail.com>
-        <20161128112211.GA990@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        subashab@codeaurora.org, tgraf@suug.ch, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+From: fgao@ikuai8.com
+Subject: [PATCH net-next 1/1] driver: ipvlan: Remove useless member mtu_adj of struct ipvl_dev
+Date: Wed, 30 Nov 2016 08:48:44 +0800
+Message-ID: <1480466924-2436-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, maheshb@google.com, edumazet@google.com,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38160 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752167AbcK3AtC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 19:49:02 -0500
-In-Reply-To: <20161128112211.GA990@gondor.apana.org.au>
+Received: from smtpbg291.qq.com ([113.108.11.223]:54936 "EHLO smtpbg291.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752167AbcK3Atb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Nov 2016 19:49:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 28 Nov 2016 19:22:12 +0800
+From: Gao Feng <fgao@ikuai8.com>
 
-> netlink: Call cb->done from a worker thread
-> 
-> The cb->done interface expects to be called in process context.
-> This was broken by the netlink RCU conversion.  This patch fixes
-> it by adding a worker struct to make the cb->done call where
-> necessary.
-> 
-> Fixes: 21e4902aea80 ("netlink: Lockless lookup with RCU grace...")
-> Reported-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+The mtu_adj is initialized to zero when alloc mem, there is no any
+assignment to mtu_adj. It is only used in ipvlan_adjust_mtu as one
+right value.
+So it is useless member of struct ipvl_dev, then remove it.
 
-Applied and queued up for -stable, thanks Herbert.
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ drivers/net/ipvlan/ipvlan.h      | 1 -
+ drivers/net/ipvlan/ipvlan_main.c | 2 +-
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+index 7e0732f..05a62d2 100644
+--- a/drivers/net/ipvlan/ipvlan.h
++++ b/drivers/net/ipvlan/ipvlan.h
+@@ -73,7 +73,6 @@ struct ipvl_dev {
+ 	DECLARE_BITMAP(mac_filters, IPVLAN_MAC_FILTER_SIZE);
+ 	netdev_features_t	sfeatures;
+ 	u32			msg_enable;
+-	u16			mtu_adj;
+ };
+ 
+ struct ipvl_addr {
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index ab90b22..c6aa667 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -32,7 +32,7 @@
+ 
+ static void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
+ {
+-	ipvlan->dev->mtu = dev->mtu - ipvlan->mtu_adj;
++	ipvlan->dev->mtu = dev->mtu;
+ }
+ 
+ static int ipvlan_register_nf_hook(void)
+-- 
+1.9.1
