@@ -1,73 +1,47 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [PATCH] net: macb: Write only necessary bits in NCR in macb reset
-Date: Wed, 30 Nov 2016 09:47:22 +0530
-Message-ID: <CAFcVECJtjV_jvrZi9Kc=hrMs9u_vKUGHgv5HeROSj=vCmOxNPQ@mail.gmail.com>
-References: <1480325029-39224-1-git-send-email-harinik@xilinx.com> <20161129.190526.1414678491662084583.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 00/16] net: fix fixed-link phydev leaks
+Date: Tue, 29 Nov 2016 23:17:21 -0500 (EST)
+Message-ID: <20161129.231721.971587311467577164.davem@davemloft.net>
+References: <1480357509-28074-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Harini Katakam <harini.katakam@xilinx.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        netdev@vger.kernel.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "michals@xilinx.com" <michals@xilinx.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161129.190526.1414678491662084583.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vbridger@opensource.altera.com, f.fainelli@gmail.com,
+        fugang.duan@nxp.com, pantelis.antoniou@gmail.com,
+        vbordug@ru.mvista.com, claudiu.manoil@freescale.com,
+        leoli@freescale.com, thomas.petazzoni@free-electrons.com,
+        nbd@openwrt.org, blogic@openwrt.org, matthias.bgg@gmail.com,
+        sergei.shtylyov@cogentembedded.com, lars.persson@axis.com,
+        mugunthanvnm@ti.com, grygorii.strashko@ti.com, robh+dt@kernel.org,
+        frowand.list@gmail.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
+        nios2-dev@lists.rocketboards.org, linux-kernel@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-mediatek@lists.infradead.org,
+        linux-renesas-soc@vger.kernel.org, linux-omap@vger.kernel.org,
+        devicetree@vger.kernel.org
+To: johan@kernel.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1480357509-28074-1-git-send-email-johan@kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Johan Hovold <johan@kernel.org>
+Date: Mon, 28 Nov 2016 19:24:53 +0100
 
-On Wed, Nov 30, 2016 at 5:35 AM, David Miller <davem@davemloft.net> wrote:
-> From: Harini Katakam <harini.katakam@xilinx.com>
-> Date: Mon, 28 Nov 2016 14:53:49 +0530
->
->> In macb_reset_hw, use read-modify-write to disable RX and TX.
->> This way exiting settings and reserved bits wont be disturbed.
->> Use the same method for clearing statistics as well.
->>
->> Signed-off-by: Harini Katakam <harinik@xilinx.com>
->
-> This doesn't make much sense to me.
->
-> Consider the two callers of this function.
->
-> macb_init_hw() is going to do a non-masking write to the NCR
-> register:
->
->         /* Enable TX and RX */
->         macb_writel(bp, NCR, MACB_BIT(RE) | MACB_BIT(TE) | MACB_BIT(MPE));
->
-> So obviously no other writable fields matter at all for programming
-> the chip properly, otherwise macb_init_hw() would "or" in the bits
-> after a read of NCR.  But that's not what this code does, it
-> writes "RE | TE | MPE" directly.
->
-> And the other caller is macb_close() which is shutting down the
-> chip so can zero out all the other bits and it can't possibly
-> matter, also due to the assertion above about macb_init_hw()
-> showing that only the RE, TE, and MPE bits matter for proper
-> functioning of the chip.
->
-> You haven't shown a issue caused by the way the code works now, so
-> this patch isn't fixing a bug.  In fact, the "bit preserving" would
-> even be misleading to someone reading the code.  They will ask
-> themselves what bits need to be preserved, and as shown above none of
-> them need to be.
->
-> I'm not applying this, sorry.
->
+> This series fixes failures to deregister and free fixed-link phydevs
+> that have been registered using the of_phy_register_fixed_link()
+> interface.
+> 
+> All but two drivers currently fail to do this and this series fixes most
+> of them with the exception of a staging driver and the stmmac drivers
+> which will be fixed by follow-on patches.
+> 
+> Included are also a couple of fixes for related of-node leaks.
+> 
+> Note that all patches except the of_mdio one have been compile-tested
+> only.
+> 
+> Also note that the series is against net due to dependencies not yet in
+> net-next.
 
-Thanks for the detailed analysis.
-I noticed an issue with respect to management port enable bit
-when working on the patch series for macb mdio driver for
-multi MAC - multi PHY access via same mdio bus.
-MPE bit of the MAC (whose phy management register
-is used) was being reset. But that is a separate
-series still in review.
-You are right, there is no existing bug that this
-patch addresses. I will come back to this later if
-required.
-
-Regards,
-Harini
+Series applied, thanks Johan.
