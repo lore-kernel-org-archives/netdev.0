@@ -1,60 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] net: hns: Fix to conditionally convey RX
- checksum flag to stack
-Date: Wed, 30 Nov 2016 14:25:39 -0500 (EST)
-Message-ID: <20161130.142539.1927956259851457047.davem@davemloft.net>
-References: <20161129130945.919372-1-salil.mehta@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] sock: reset sk_err for ICMP packets read from
+ error queue
+Date: Wed, 30 Nov 2016 11:27:00 -0800
+Message-ID: <1480534020.18162.200.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480532468-1610-1-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, mehta.salil.lnk@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: salil.mehta@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161129130945.919372-1-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com,
+        willemb@google.com, maze@google.com, hannes@stressinduktion.org,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33414 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755249AbcK3T2C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:28:02 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 3so2146781pgd.0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 11:28:02 -0800 (PST)
+In-Reply-To: <1480532468-1610-1-git-send-email-soheil.kdev@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Salil Mehta <salil.mehta@huawei.com>
-Date: Tue, 29 Nov 2016 13:09:45 +0000
+On Wed, 2016-11-30 at 14:01 -0500, Soheil Hassas Yeganeh wrote:
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+> 
+> Only when ICMP packets are enqueued onto the error queue,
+> sk_err is also set. Before f5f99309fa74 (sock: do not set sk_err
+> in sock_dequeue_err_skb), a subsequent error queue read
+> would set sk_err to the next error on the queue, or 0 if empty.
+> As no error types other than ICMP set this field, sk_err should
+> not be modified upon dequeuing them.
+> 
+> Only for ICMP errors, reset the (racy) sk_err. Some applications,
+> like traceroute, rely on it and go into a futile busy POLLERR
+> loop otherwise.
+> 
+> In principle, sk_err has to be set while an ICMP error is queued.
+> Testing is_icmp_err_skb(skb_next) approximates this without
+> requiring a full queue walk. Applications that receive both ICMP
+> and other errors cannot rely on this legacy behavior, as other
+> errors do not set sk_err in the first place.
+> 
+> Fixes: f5f99309fa74 (sock: do not set sk_err in sock_dequeue_err_skb)
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> ---
 
-> +	/* We only support checksum for IPv4,UDP(over IPv4 or IPv6), TCP(over
-> +	 * IPv4 or IPv6) and SCTP but we support many L3(IPv4, IPv6, MPLS,
-> +	 * PPPoE etc) and L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.) protocols.
-> +	 * We want to filter out L3 and L4 protocols early on for which checksum
-> +	 * is not supported.
- ...
-> +	 */
-> +	l3id = hnae_get_field(flag, HNS_RXD_L3ID_M, HNS_RXD_L3ID_S);
-> +	l4id = hnae_get_field(flag, HNS_RXD_L4ID_M, HNS_RXD_L4ID_S);
-> +	if ((l3id != HNS_RX_FLAG_L3ID_IPV4) &&
-> +	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
-> +	     (l4id != HNS_RX_FLAG_L4ID_UDP)) &&
-> +	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
-> +	     (l4id != HNS_RX_FLAG_L4ID_TCP)) &&
-> +	    (l4id != HNS_RX_FLAG_L4ID_SCTP))
-> +		return;
 
-I have a hard time understanding this seemingly overcomplicated
-check.
-
-It looks like if L3 is IPV4 it will accept any underlying L4 protocol,
-but is that what is really intended?  That doesn't match what this new
-comment states.
-
-My understanding is that the chip supports checksums for:
-
-	UDP/IPV4
-	UDP/IPV6
-	TCP/IPV4
-	TCP/IPV6
-	SCTP/IPV4
-	SCTP/IPV6
-
-So the simplest thing is to validate each level one at a time:
-
-	if (l3 != IPV4 && l3 != IPV6)
-		return;
-	if (l4 != UDP && l4 != TCP && l4 != SCTP)
-		return;
+Acked-by: Eric Dumazet <edumazet@google.com>
