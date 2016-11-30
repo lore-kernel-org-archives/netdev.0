@@ -1,45 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Regression: [PATCH] mlx4: give precise rx/tx bytes/packets
- counters
-Date: Wed, 30 Nov 2016 09:35:21 -0800
-Message-ID: <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161130150839.5203ece0@redhat.com>
-         <1480521514.18162.191.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/2] Set skb->protocol properly before calling
+ dst_output()
+Date: Wed, 30 Nov 2016 12:38:32 -0500 (EST)
+Message-ID: <20161130.123832.1622349914382224831.davem@davemloft.net>
+References: <20161129023529.17645-1-elicooper@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: elicooper@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35760 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932539AbcK3RgX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 12:36:23 -0500
-Received: by mail-pg0-f66.google.com with SMTP id p66so1913499pga.2
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 09:36:23 -0800 (PST)
-In-Reply-To: <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37224 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754171AbcK3Rig (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 12:38:36 -0500
+In-Reply-To: <20161129023529.17645-1-elicooper@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-30 at 18:46 +0200, Saeed Mahameed wrote:
+From: Eli Cooper <elicooper@gmx.com>
+Date: Tue, 29 Nov 2016 10:35:28 +0800
 
-> we had/still have the proper stats they are the ones that
-> mlx4_en_fold_software_stats is trying to cache into  (they always
-> exist),
-> but the ones that you are trying to read from (the mlx4 rings) are gone !
+> When xfrm is applied to TSO/GSO packets, it follows this path:
 > 
-> This bug is totally new and as i warned, this is another symptom of
-> the real root cause (can't sleep while reading stats).
+>     xfrm_output() -> xfrm_output_gso() -> skb_gso_segment()
 > 
-> Eric what do you suggest ? Keep pre-allocated MAX_RINGS stats  and
-> always iterate over all of them to query stats ?
-> what if you have one ring/none/1K ? how would you know how many to query ?
+> where skb_gso_segment() relies on skb->protocol to function properly.
+> 
+> This patch sets skb->protocol properly before dst_output() is called,
+> fixing a bug where GSO packets sent through a sit or ipip6 tunnel are
+> dropped when xfrm is involved.
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Eli Cooper <elicooper@gmx.com>
+> ---
+>  net/ipv4/ip_output.c   | 4 +++-
+>  net/ipv6/output_core.c | 4 +++-
+>  2 files changed, 6 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index 105908d..0180e44 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -117,8 +117,10 @@ int ip_local_out(struct net *net, struct sock *sk, struct sk_buff *skb)
+>  	int err;
+>  
+>  	err = __ip_local_out(net, sk, skb);
+> -	if (likely(err == 1))
+> +	if (likely(err == 1)) {
+> +		skb->protocol = htons(ETH_P_IP);
+>  		err = dst_output(net, sk, skb);
+> +	}
+>  
 
-I am suggesting I will fix the bug I introduced.
-
-Do not panic.
+__ip_local_out() potentially does a dst_output() call too via the
+netfilter hook, so you definitely need to place the skb->protocol
+assignment before that netfilter hook.
