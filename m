@@ -1,70 +1,103 @@
-From: Mao Wenan <maowenan@huawei.com>
-Subject: [PATCH] net:phy fix driver reference count error when attach and detach phy device
-Date: Wed, 30 Nov 2016 18:22:58 +0800
-Message-ID: <1480501378-10172-1-git-send-email-maowenan@huawei.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net] tipc: check minimum bearer MTU
+Date: Wed, 30 Nov 2016 18:28:14 +0800
+Message-ID: <4a2da388-d798-11cf-bf2c-84207cae6159@windriver.com>
+References: <20161130095702.DD033A0F14@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
-        <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:49785 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754243AbcK3K0G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:26:06 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Qian, netdev@vger.kernel.org, Zhang <zhangqian-c@360.cn>,
+	linux-kernel@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michal Kubecek <mkubecek@suse.cz>, Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20161130095702.DD033A0F14@unicorn.suse.cz>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-The nic in my board use the phy dev from marvell, and the system will
-load the marvell phy driver automatically, but when I remove the phy
-drivers, the system immediately panic:
-Call trace:
-[ 2582.834493] [<ffff800000715384>] phy_state_machine+0x3c/0x438 [
-2582.851754] [<ffff8000000db3b8>] process_one_work+0x150/0x428 [
-2582.868188] [<ffff8000000db7d4>] worker_thread+0x144/0x4b0 [
-2582.883882] [<ffff8000000e1d0c>] kthread+0xfc/0x110
-
-there should be proper reference counting in place to avoid that.
-I found that phy_attach_direct() forgets to add phy device driver
-reference count, and phy_detach() forgets to subtract reference count.
-This patch is to fix this bug, after that panic is disappeared when remove
-marvell.ko
-
-Signed-off-by: Mao Wenan <maowenan@huawei.com>
----
- drivers/net/phy/phy_device.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 1a4bf8a..a7ec7c2 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -866,6 +866,11 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		return -EIO;
- 	}
- 
-+	if (!try_module_get(d->driver->owner)) {
-+		dev_err(&dev->dev, "failed to get the device driver module\n");
-+		return -EIO;
-+	}
-+
- 	get_device(d);
- 
- 	/* Assume that if there is no driver, that it doesn't
-@@ -921,6 +926,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 
- error:
- 	put_device(d);
-+	module_put(d->driver->owner);
- 	module_put(bus->owner);
- 	return err;
- }
-@@ -998,6 +1004,7 @@ void phy_detach(struct phy_device *phydev)
- 	bus = phydev->mdio.bus;
- 
- 	put_device(&phydev->mdio.dev);
-+	module_put(phydev->mdio.dev.driver->owner);
- 	module_put(bus->owner);
- }
- EXPORT_SYMBOL(phy_detach);
--- 
-2.7.0
+T24gMTEvMzAvMjAxNiAwNTo1NyBQTSwgTWljaGFsIEt1YmVjZWsgd3JvdGU6Cj4gUWlhbiBaaGFu
+ZyAo5byg6LCmKSByZXBvcnRlZCBhIHBvdGVudGlhbCBzb2NrZXQgYnVmZmVyIG92ZXJmbG93IGlu
+Cj4gdGlwY19tc2dfYnVpbGQoKSB3aGljaCBpcyBhbHNvIGtub3duIGFzIENWRS0yMDE2LTg2MzI6
+IGR1ZSB0bwo+IGluc3VmZmljaWVudCBjaGVja3MsIGEgYnVmZmVyIG92ZXJmbG93IGNhbiBvY2N1
+ciBpZiBNVFUgaXMgdG9vIHNob3J0IGZvcgo+IGV2ZW4gdGlwYyBoZWFkZXJzLiBBcyBhbnlvbmUg
+Y2FuIHNldCBkZXZpY2UgTVRVIGluIGEgdXNlci9uZXQgbmFtZXNwYWNlLAo+IHRoaXMgaXNzdWUg
+Y2FuIGJlIGFidXNlZCBieSBhIHJlZ3VsYXIgdXNlci4KPgo+IEFzIGFncmVlZCBpbiB0aGUgZGlz
+Y3Vzc2lvbiBvbiBCZW4gSHV0Y2hpbmdzJyBvcmlnaW5hbCBwYXRjaCwgd2Ugc2hvdWxkCj4gY2hl
+Y2sgdGhlIE1UVSBhdCB0aGUgbW9tZW50IGEgYmVhcmVyIGlzIGF0dGFjaGVkIHJhdGhlciB0aGFu
+IGZvciBlYWNoCj4gcHJvY2Vzc2VkIHBhY2tldC4gV2UgYWxzbyBuZWVkIHRvIHJlcGVhdCB0aGUg
+Y2hlY2sgd2hlbiBiZWFyZXIgTVRVIGlzCj4gYWRqdXN0ZWQgdG8gbmV3IGRldmljZSBNVFUuIFVE
+UCBjYXNlIGFsc28gbmVlZHMgYSBjaGVjayB0byBhdm9pZAo+IG92ZXJmbG93IHdoZW4gY2FsY3Vs
+YXRpbmcgYmVhcmVyIE1UVS4KPgo+IEZpeGVzOiBiOTdiZjNmZDhmNmEgKCJbVElQQ10gSW5pdGlh
+bCBtZXJnZSIpCj4gU2lnbmVkLW9mZi1ieTogTWljaGFsIEt1YmVjZWsgPG1rdWJlY2VrQHN1c2Uu
+Y3o+Cj4gUmVwb3J0ZWQtYnk6IFFpYW4gWmhhbmcgKOW8oOiwpikgPHpoYW5ncWlhbi1jQDM2MC5j
+bj4KPiAtLS0KPiAgbmV0L3RpcGMvYmVhcmVyLmMgICAgfCAgOSArKysrKysrLS0KPiAgbmV0L3Rp
+cGMvYmVhcmVyLmggICAgfCAxMyArKysrKysrKysrKysrCj4gIG5ldC90aXBjL3VkcF9tZWRpYS5j
+IHwgIDUgKysrKysKPiAgMyBmaWxlcyBjaGFuZ2VkLCAyNSBpbnNlcnRpb25zKCspLCAyIGRlbGV0
+aW9ucygtKQo+Cj4gZGlmZiAtLWdpdCBhL25ldC90aXBjL2JlYXJlci5jIGIvbmV0L3RpcGMvYmVh
+cmVyLmMKPiBpbmRleCA5NzVkYmViNjBhYjAuLmRkNGIxOWU4YmI0MyAxMDA2NDQKPiAtLS0gYS9u
+ZXQvdGlwYy9iZWFyZXIuYwo+ICsrKyBiL25ldC90aXBjL2JlYXJlci5jCj4gQEAgLTQyMSw2ICs0
+MjEsMTAgQEAgaW50IHRpcGNfZW5hYmxlX2wyX21lZGlhKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0
+IHRpcGNfYmVhcmVyICpiLAo+ICAJZGV2ID0gZGV2X2dldF9ieV9uYW1lKG5ldCwgZHJpdmVyX25h
+bWUpOwo+ICAJaWYgKCFkZXYpCj4gIAkJcmV0dXJuIC1FTk9ERVY7Cj4gKwlpZiAodGlwY19jaGVj
+a19tdHUoZGV2LCAwKSkgewo+ICsJCWRldl9wdXQoZGV2KTsKPiArCQlyZXR1cm4gLUVJTlZBTDsK
+PiArCX0KPgo+ICAJLyogQXNzb2NpYXRlIFRJUEMgYmVhcmVyIHdpdGggTDIgYmVhcmVyICovCj4g
+IAlyY3VfYXNzaWduX3BvaW50ZXIoYi0+bWVkaWFfcHRyLCBkZXYpOwo+IEBAIC02MTAsOCArNjE0
+LDYgQEAgc3RhdGljIGludCB0aXBjX2wyX2RldmljZV9ldmVudChzdHJ1Y3Qgbm90aWZpZXJfYmxv
+Y2sgKm5iLCB1bnNpZ25lZCBsb25nIGV2dCwKPiAgCWlmICghYikKPiAgCQlyZXR1cm4gTk9USUZZ
+X0RPTkU7Cj4KPiAtCWItPm10dSA9IGRldi0+bXR1Owo+IC0KPiAgCXN3aXRjaCAoZXZ0KSB7Cj4g
+IAljYXNlIE5FVERFVl9DSEFOR0U6Cj4gIAkJaWYgKG5ldGlmX2NhcnJpZXJfb2soZGV2KSkKPiBA
+QCAtNjI0LDYgKzYyNiw5IEBAIHN0YXRpYyBpbnQgdGlwY19sMl9kZXZpY2VfZXZlbnQoc3RydWN0
+IG5vdGlmaWVyX2Jsb2NrICpuYiwgdW5zaWduZWQgbG9uZyBldnQsCj4gIAkJdGlwY19yZXNldF9i
+ZWFyZXIobmV0LCBiKTsKPiAgCQlicmVhazsKPiAgCWNhc2UgTkVUREVWX0NIQU5HRU1UVToKPiAr
+CQlpZiAodGlwY19jaGVja19tdHUoZGV2LCAwKSkKPiArCQkJcmV0dXJuIC1FSU5WQUw7Cj4gKwkJ
+Yi0+bXR1ID0gZGV2LT5tdHU7Cj4gIAkJdGlwY19yZXNldF9iZWFyZXIobmV0LCBiKTsKPiAgCQli
+cmVhazsKPiAgCWNhc2UgTkVUREVWX0NIQU5HRUFERFI6Cj4gZGlmZiAtLWdpdCBhL25ldC90aXBj
+L2JlYXJlci5oIGIvbmV0L3RpcGMvYmVhcmVyLmgKPiBpbmRleCA3ODg5MmUyZjUzZTMuLjFhMGI3
+NDM0ZWMyNCAxMDA2NDQKPiAtLS0gYS9uZXQvdGlwYy9iZWFyZXIuaAo+ICsrKyBiL25ldC90aXBj
+L2JlYXJlci5oCj4gQEAgLTM5LDYgKzM5LDcgQEAKPgo+ICAjaW5jbHVkZSAibmV0bGluay5oIgo+
+ICAjaW5jbHVkZSAiY29yZS5oIgo+ICsjaW5jbHVkZSAibXNnLmgiCj4gICNpbmNsdWRlIDxuZXQv
+Z2VuZXRsaW5rLmg+Cj4KPiAgI2RlZmluZSBNQVhfTUVESUEJMwo+IEBAIC01OSw2ICs2MCw5IEBA
+Cj4gICNkZWZpbmUgVElQQ19NRURJQV9UWVBFX0lCCTIKPiAgI2RlZmluZSBUSVBDX01FRElBX1RZ
+UEVfVURQCTMKPgo+ICsvKiBtaW5pbXVtIGJlYXJlciBNVFUgKi8KPiArI2RlZmluZSBUSVBDX01J
+Tl9CRUFSRVJfTVRVCShNQVhfSF9TSVpFICsgSU5UX0hfU0laRSkKPiArCj4gIC8qKgo+ICAgKiBz
+dHJ1Y3QgdGlwY19tZWRpYV9hZGRyIC0gZGVzdGluYXRpb24gYWRkcmVzcyB1c2VkIGJ5IFRJUEMg
+YmVhcmVycwo+ICAgKiBAdmFsdWU6IGFkZHJlc3MgaW5mbyAoZm9ybWF0IGRlZmluZWQgYnkgbWVk
+aWEpCj4gQEAgLTIxNSw0ICsyMTksMTMgQEAgdm9pZCB0aXBjX2JlYXJlcl94bWl0KHN0cnVjdCBu
+ZXQgKm5ldCwgdTMyIGJlYXJlcl9pZCwKPiAgdm9pZCB0aXBjX2JlYXJlcl9iY194bWl0KHN0cnVj
+dCBuZXQgKm5ldCwgdTMyIGJlYXJlcl9pZCwKPiAgCQkJIHN0cnVjdCBza19idWZmX2hlYWQgKnht
+aXRxKTsKPgo+ICsvKiBjaGVjayBpZiBkZXZpY2UgTVRVIGlzIHN1ZmZpY2llbnQgZm9yIHRpcGMg
+aGVhZGVycyAqLwo+ICtpbmxpbmUgYm9vbCB0aXBjX2NoZWNrX210dShzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqZGV2LCB1bnNpZ25lZCBpbnQgcmVzZXJ2ZSkKCkl0J3MgdW5uZWNlc3NhcnkgdG8gZXhwbGlj
+aXRseSBkZWNsYXJlIGEgZnVuY3Rpb24gYXMgaW5saW5lLCBpbnN0ZWFkIApwbGVhc2UgbGV0IEdD
+QyBzbWFydGx5IGRlY2lkZSB0aGlzLgoKPiArewo+ICsJaWYgKGRldi0+bXR1ID49IFRJUENfTUlO
+X0JFQVJFUl9NVFUgKyByZXNlcnZlKQo+ICsJCXJldHVybiBmYWxzZTsKPiArCW5ldGRldl93YXJu
+KGRldiwgIk1UVSB0b28gbG93IGZvciB0aXBjIGJlYXJlclxuIik7Cj4gKwlyZXR1cm4gdHJ1ZTsK
+PiArfQo+ICsKPiAgI2VuZGlmCS8qIF9USVBDX0JFQVJFUl9IICovCj4gZGlmZiAtLWdpdCBhL25l
+dC90aXBjL3VkcF9tZWRpYS5jIGIvbmV0L3RpcGMvdWRwX21lZGlhLmMKPiBpbmRleCA3OGNhYjlj
+NWE0NDUuLjM3NmVkM2UzZWQ0NiAxMDA2NDQKPiAtLS0gYS9uZXQvdGlwYy91ZHBfbWVkaWEuYwo+
+ICsrKyBiL25ldC90aXBjL3VkcF9tZWRpYS5jCj4gQEAgLTY5Nyw2ICs2OTcsMTEgQEAgc3RhdGlj
+IGludCB0aXBjX3VkcF9lbmFibGUoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgdGlwY19iZWFyZXIg
+KmIsCj4gIAkJdWRwX2NvbmYubG9jYWxfaXAuc19hZGRyID0gaHRvbmwoSU5BRERSX0FOWSk7Cj4g
+IAkJdWRwX2NvbmYudXNlX3VkcF9jaGVja3N1bXMgPSBmYWxzZTsKPiAgCQl1Yi0+aWZpbmRleCA9
+IGRldi0+aWZpbmRleDsKPiArCQlpZiAodGlwY19jaGVja19tdHUoZGV2LCBzaXplb2Yoc3RydWN0
+IGlwaGRyKSArCj4gKwkJCQkJc2l6ZW9mKHN0cnVjdCB1ZHBoZHIpKSkgewo+ICsJCQllcnIgPSAt
+RUlOVkFMOwo+ICsJCQlnb3RvIGVycjsKPiArCQl9CgpGb3IgVURQIGJlYXJlciwgaXQgc2VlbXMg
+aW5zdWZmaWNpZW50IGZvciB1cyB0byBjaGVjayBNVFUgc2l6ZSBvbmx5IHdoZW4gClVEUCBiZWFy
+ZXIgaXMgZW5hYmxlZC4gTWVhbndoaWxlLCB3ZSBzaG91bGQgdXBkYXRlIE1UVSBzaXplIGZvciBV
+RFAgCmJlYXJlciB3aXRoIFBhdGggTVRVIGRpc2NvdmVyeSBwcm90b2NvbCBvbmNlIE1UVSBzaXpl
+IGlzIGNoYW5nZWQgYWZ0ZXIgCmJlYXJlciBpcyBlbmFibGVkLgoKUmVnYXJkcywKWWluZwoKPiAg
+CQliLT5tdHUgPSBkZXYtPm10dSAtIHNpemVvZihzdHJ1Y3QgaXBoZHIpCj4gIAkJCS0gc2l6ZW9m
+KHN0cnVjdCB1ZHBoZHIpOwo+ICAjaWYgSVNfRU5BQkxFRChDT05GSUdfSVBWNikKPgoKCi0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwp0aXBjLWRpc2N1c3Npb24gbWFpbGluZyBsaXN0CnRpcGMtZGlzY3Vzc2lvbkBsaXN0
+cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlz
+dGluZm8vdGlwYy1kaXNjdXNzaW9uCg==
