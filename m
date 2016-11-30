@@ -1,71 +1,47 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: [PATCH] stmmac: simplify flag assignment
-Date: Wed, 30 Nov 2016 12:44:31 +0100
-Message-ID: <20161130114431.GB14296@amd>
-References: <20161123105125.GA26394@amd>
- <20161124085506.GA25007@amd>
- <20161124.110416.198867271899443489.davem@davemloft.net>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Wed, 30 Nov 2016 11:58:58 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB201057793@RTITMBSV03.realtek.com.tw>
+References: <ed0c9790-57be-8bca-cdd6-3a54ca24f0bd@pobox.com>
+        <20161125095350.GA20653@kroah.com>
+        <1816ec7e-2733-f4ba-5d30-29dbabd20aad@pobox.com>
+ <20161125.115827.2014848246966159357.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="cmJC7u66zC7hs+87"
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161124.110416.198867271899443489.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org" <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+        "romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org" <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org" <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161125.115827.2014848246966159357.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+[...]
+> > Not sure why, because there really is no other way for the data to
+> > appear where it does at the beginning of that URB buffer.
+> >
+> > This does seem a rather unexpected burden to place upon someone
+> > reporting a regression in a USB network driver that corrupts user data.
+> 
+> If you are the only person who can actively reproduce this, which
+> seems to be the case right now, this is unfortunately the only way to
+> reach a proper analysis and fix.
 
---cmJC7u66zC7hs+87
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I have tested it with iperf more than five days without any error.
+I would think if there is any other way to reproduce it.
 
+Best Regards,
+Hayes
 
-Simplify flag assignment.
-   =20
-Signed-off-by: Pavel Machek <pavel@denx.de>
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/ne=
-t/ethernet/stmicro/stmmac/stmmac_main.c
-index ed20668..0b706a7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2771,12 +2771,8 @@ static netdev_features_t stmmac_fix_features(struct =
-net_device *dev,
- 		features &=3D ~NETIF_F_CSUM_MASK;
-=20
- 	/* Disable tso if asked by ethtool */
--	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen)) {
--		if (features & NETIF_F_TSO)
--			priv->tso =3D true;
--		else
--			priv->tso =3D false;
--	}
-+	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen))
-+		priv->tso =3D !!(features & NETIF_F_TSO);
-=20
- 	return features;
- }
-
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---cmJC7u66zC7hs+87
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlg+u58ACgkQMOfwapXb+vIh9ACgmbK/R2Cv78z5LahS/YrkEKLF
-z6IAnA3y+l9ZCTifPFMNt462pJPRAh03
-=n5Ag
------END PGP SIGNATURE-----
-
---cmJC7u66zC7hs+87--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
