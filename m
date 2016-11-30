@@ -1,58 +1,90 @@
-From: Arun Easi <arun.easi@cavium.com>
-Subject: Re: qed, qedi patchset submission
-Date: Wed, 30 Nov 2016 09:15:28 -0800
-Message-ID: <alpine.LRH.2.00.1611300858390.28058@mvluser05.qlc.com>
-References: <alpine.LRH.2.00.1611141256340.28058@mvluser05.qlc.com> <yq11sydfwts.fsf@sermon.lab.mkp.net> <alpine.LRH.2.00.1611291452030.28058@mvluser05.qlc.com> <yq1oa0wj4qy.fsf@sermon.lab.mkp.net>
+From: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>
+Subject: Re: DSA vs. SWTICHDEV ?
+Date: Wed, 30 Nov 2016 17:44:14 +0000
+Message-ID: <1480527852.3563.146.camel@infinera.com>
+References: <1480495831.3563.135.camel@infinera.com>
+         <20161130135257.GC18716@lunn.ch> <1480516241.3563.142.camel@infinera.com>
+         <20161130152503.GE21645@lunn.ch> <1480523716.3563.144.camel@infinera.com>
+         <20161130165500.GH21645@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, <linux-scsi@vger.kernel.org>,
-        <netdev@vger.kernel.org>
-To: "Martin K. Petersen" <martin.petersen@oracle.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <yq1oa0wj4qy.fsf@sermon.lab.mkp.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "andrew@lunn.ch" <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0043.outbound.protection.outlook.com ([104.47.40.43]:28257
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752789AbcK3SAf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 13:00:35 -0500
+In-Reply-To: <20161130165500.GH21645@lunn.ch>
+Content-Language: en-US
+Content-ID: <22B2C4AC2FBA7344B429E3E32EC3A3A3@infinera.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for the response, Martin.
+On Wed, 2016-11-30 at 17:55 +0100, Andrew Lunn wrote:
+> > This is an embedded system with several boards in a subrack.
+> > Each board has eth I/F connected to a switch to communicate with each o=
+ther.
+> > One of the board will also house the actual switch device and manage th=
+e switch.
+> > Then the normal app just communicates over the physical eth I/F like an=
+y other board
+> > in the system. There is a "manage switch app" which brings the switch u=
+p and partition
+> > phys VLANs etc. (each phys I/F would be a a separate domain so no loop)
+>=20
+> So you are planning on throwing away the "manage switch app", and just
+> use standard linux networking commands? That is what switchdev is all
+> about really, throwing away the vendor SDK for the switch, making a
+> switch just a bunch on interfaces on the host which you manage as
+> normal interfaces.
 
-On Wed, 30 Nov 2016, 8:45am, Martin K. Petersen wrote:
+Something like that. I need to run routing protocols on the switch I/Fs and=
+ egress
+pkgs on selected switch I/Fs bypassing ARP, just like DSA does with its ven=
+dor
+tags.
 
-> >>>>> "Arun" == Arun Easi <arun.easi@cavium.com> writes:
-> 
-> Arun,
-> 
-> Arun> So far, we have been posting qedi changes split into functional
-> Arun> blocks, for review, but was not bisectable. With Martin ok to our
-> Arun> request to squash all patches while committing to tree, we were
-> Arun> wondering if we should post the qedi patches squashed, with all
-> Arun> the Reviewed-by added, or continue to post as before?
-> 
-> I guess it depends how things can be split up in a bisectable fashion.
+>=20
+> > I guess I could skip the phys I/F and have the switch app create a virt=
+ual eth0 I/F over PCIe
+>=20
+> No need to create this interface. It will exist if you go the
+> switchdev route.
+>=20
+> > > > And switchdev can do all this over PCIe instead? Can you have a
+> > > > switch tree in switchdev too?
+> > >=20
+> > > Mellonex says so, but i don't think they have actually implemented it=
+.
+> >=20
+> > Not impl. any of DSAs features? What can you do with a Mellonex switch =
+then?
+>=20
+> They don't have a tree of switches, as far as i know. Just a single
+> switch. But DSA does support a tree of switches, that is what the D in
+> DSA means, distributed. And there are a couple of boards which have 2
+> to 4 switches in a tree.
 
-These were the patches that was sent:
-  1 qed: Add support for hardware offloaded iSCSI.
-  2 qed: Add iSCSI out of order packet handling.
-  3 qedi: Add QLogic FastLinQ offload iSCSI driver framework.
-  4 qedi: Add LL2 iSCSI interface for offload iSCSI.
-  5 qedi: Add support for iSCSI session management.
-  6 qedi: Add support for data path.
+We might have a tree as well so now I really wonder: Given we write a
+proper switchdev driver, can it support switchtrees without touching
+switchdev infra structure? If not I guess we will attach a physical
+eth I/F to the switch and use both DSA and switchdev to support both trees
+and HW offload.=20
 
-> 
-> If the net/ pieces can be completely separated from the scsi/ pieces
-> maybe it would be best to have two patches?
-> 
+>=20
+> I think this is partially down to market segments. Mellonex market is
+> top of rack switches. High port count, very high bandwidth. DSA is
+> more wireless access points, set top boxes, generally up to 7 ports of
+> 1Gbps and a few custom embedded products which need more ports, so
+> build a tree of switches.
 
-Yes, those pieces can be completely separated; there are actually 3 parts, 
-2 that goes to net/ and 1 to scsi/.
-
-In the list above, 1 & 2 goes to net/ and are bisectable. 3 through 6 are 
-scsi/ pieces, which are the ones requested for collapsing.
-
-We will post these pieces for V3, then:
-
-  1 [PATCH v3 net-next 1/3] qed: Add support for hardware offloaded iSCSI.
-  2 [PATCH v3 net-next 2/3] qed: Add iSCSI out of order packet handling.
-  3 [PATCH v3 3/3] qedi: Add QLogic FastLinQ offload iSCSI driver framework.
-
-Regards,
--Arun
+We have on an existing board with a BCM ROBO switch with lots of ports(>24)=
+,
+managed over SPI. Looking at BCM DSA tag code it looks like it only support=
+s
+some 8 ports or so. I still have to find out if this is a limitation in BCM=
+ tagging
+protocol or if just not impl. in DSA yet.
