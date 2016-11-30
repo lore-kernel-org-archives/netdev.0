@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next 4/8] net/sched: act_mirred: Add new tc_action_ops get_dev()
-Date: Wed, 30 Nov 2016 16:41:31 +0200
-Message-ID: <1480516895-29545-5-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next 6/8] net/mlx5e: Bring back representor's ndos that were accidentally removed
+Date: Wed, 30 Nov 2016 16:41:33 +0200
+Message-ID: <1480516895-29545-7-git-send-email-hadarh@mellanox.com>
 References: <1480516895-29545-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Jiri Pirko <jiri@mellanox.com>,
@@ -11,70 +11,35 @@ Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45994 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46048 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753786AbcK3PhJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:37:09 -0500
+        with ESMTP id S1755966AbcK3PhO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 10:37:14 -0500
 In-Reply-To: <1480516895-29545-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding support to a new tc_action_ops.
-get_dev is a general option which allows to get the underline
-device when trying to offload a tc rule.
+The VF Representor udp tunnel ndo entries were removed by mistake,
+return them.
 
-In case of mirred action the returned device is the mirred (egress)
-device.
-
+Fixes: 370bad0f9a52 ('net/mlx5e: Support HW (offloaded) and SW counters for SRIOV switchdev mode')
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/act_api.h  |  2 ++
- net/sched/act_mirred.c | 12 ++++++++++++
- 2 files changed, 14 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index d8eae87..9dddf77 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -119,6 +119,8 @@ struct tc_action_ops {
- 	int     (*walk)(struct net *, struct sk_buff *,
- 			struct netlink_callback *, int, const struct tc_action_ops *);
- 	void	(*stats_update)(struct tc_action *, u64, u32, u64);
-+	int	(*get_dev)(const struct tc_action *a, struct net *net,
-+			   struct net_device **mirred_dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 5e33f6b..9b1e351 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -384,6 +384,8 @@ int mlx5e_get_offload_stats(int attr_id, const struct net_device *dev,
+ 	.ndo_get_phys_port_name  = mlx5e_rep_get_phys_port_name,
+ 	.ndo_setup_tc            = mlx5e_rep_ndo_setup_tc,
+ 	.ndo_get_stats64         = mlx5e_rep_get_stats,
++	.ndo_udp_tunnel_add      = mlx5e_add_vxlan_port,
++	.ndo_udp_tunnel_del      = mlx5e_del_vxlan_port,
+ 	.ndo_has_offload_stats	 = mlx5e_has_offload_stats,
+ 	.ndo_get_offload_stats	 = mlx5e_get_offload_stats,
  };
- 
- struct tc_action_net {
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 1af7baa..bb09ba3 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -315,6 +315,17 @@ static int mirred_device_event(struct notifier_block *unused,
- 	.notifier_call = mirred_device_event,
- };
- 
-+static int tcf_mirred_device(const struct tc_action *a, struct net *net,
-+			     struct net_device **mirred_dev)
-+{
-+	int ifindex = tcf_mirred_ifindex(a);
-+
-+	*mirred_dev = __dev_get_by_index(net, ifindex);
-+	if (!mirred_dev)
-+		return -EINVAL;
-+	return 0;
-+}
-+
- static struct tc_action_ops act_mirred_ops = {
- 	.kind		=	"mirred",
- 	.type		=	TCA_ACT_MIRRED,
-@@ -327,6 +338,7 @@ static int mirred_device_event(struct notifier_block *unused,
- 	.walk		=	tcf_mirred_walker,
- 	.lookup		=	tcf_mirred_search,
- 	.size		=	sizeof(struct tcf_mirred),
-+	.get_dev	=	tcf_mirred_device,
- };
- 
- static __net_init int mirred_init_net(struct net *net)
 -- 
 1.8.3.1
