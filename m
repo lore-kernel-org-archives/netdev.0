@@ -1,9 +1,10 @@
 From: Jan =?ISO-8859-1?Q?L=FCbbe?= <jlu@pengutronix.de>
-Subject: Re: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
-Date: Wed, 30 Nov 2016 12:01:26 +0100
-Message-ID: <1480503686.9183.69.camel@pengutronix.de>
+Subject: Re: [PATCH 3/6] net: ethernet: ti: cpts: add support of cpts
+ HW_TS_PUSH
+Date: Wed, 30 Nov 2016 12:08:20 +0100
+Message-ID: <1480504100.9183.72.camel@pengutronix.de>
 References: <20161128230428.6872-1-grygorii.strashko@ti.com>
-         <20161128230428.6872-5-grygorii.strashko@ti.com>
+         <20161128230428.6872-4-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
@@ -15,32 +16,28 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
         devicetree@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
         Wingman Kwok <w-kwok2@ti.com>
 To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161128230428.6872-5-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:42455 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754813AbcK3LIZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 06:08:25 -0500
+In-Reply-To: <20161128230428.6872-4-grygorii.strashko@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Mo, 2016-11-28 at 17:04 -0600, Grygorii Strashko wrote:
-> --- a/Documentation/devicetree/bindings/net/keystone-netcp.txt
-> +++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-> @@ -127,6 +127,16 @@ Optional properties:
->                 The number of external time stamp channels.
->                 The different CPTS versions might support up 8
->                 external time stamp channels. if absent - unsupported.
-> +       - cpts-ts-comp-length:
-> +               Enable time stamp comparison event and TS_COMP signal output
-> +               generation when CPTS counter reaches a value written to
-> +               the TS_COMP_VAL register.
-> +               The generated pulse width is 3 refclk cycles if this property
-> +               has no value (empty) or, otherwise, it should specify desired
-> +               pulse width in number of refclk periods - max value 2^16.
-> +               TS_COMP functionality will be disabled if not present.
-> +       - cpts-ts-comp-polarity-low:
-> +               Set polarity of TS_COMP signal to low. Default is hight.
+> This patch adds support of the CPTS HW_TS_PUSH events which are generated
+> by external low frequency time stamp channels on TI's OMAP CPSW and
+> Keystone 2 platforms. It supports up to 8 external time stamp channels for
+> HW_TS_PUSH input pins (the number of supported channel is different for
+> different SoCs and CPTS versions, check corresponding Data maual before
+> enabling it). Therefore, new DT property "cpts-ext-ts-inputs" is introduced
+> for specifying number of available external timestamp channels.
 
-Why is this configured via DT? Are the values fixed for a given board,
-depending on external components? Couldn't this be configured somewhere
-else?
+If this only depends on SoC and CTPS, it should be possible to derive
+the correct value from the compatible value and possibly a CPTS version
+register? If the existing compatible strings are not specific enough,
+possible a new one should be added.
 
 Regards,
 Jan
