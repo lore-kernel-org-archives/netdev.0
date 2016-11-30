@@ -1,42 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net: macb: ensure ordering write to re-enable
- RX smoothly
-Date: Tue, 29 Nov 2016 20:34:12 -0500 (EST)
-Message-ID: <20161129.203412.2165914496634643324.davem@davemloft.net>
-References: <1480341300-17384-1-git-send-email-zumeng.chen@windriver.com>
+Subject: Re: [PATCH v2] net: phy: Fix use after free in phy_detach()
+Date: Tue, 29 Nov 2016 20:35:40 -0500 (EST)
+Message-ID: <20161129.203540.1821619500745777807.davem@davemloft.net>
+References: <1480342711-26407-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: zumeng.chen@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39258 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752739AbcK3BeP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:34:15 -0500
-In-Reply-To: <1480341300-17384-1-git-send-email-zumeng.chen@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, josh.cartwright@ni.com,
+        nathan.sullivan@ni.com, zach.brown@ni.com,
+        woojung.huh@microchip.com, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geert+renesas@glider.be
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1480342711-26407-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zumeng Chen <zumeng.chen@windriver.com>
-Date: Mon, 28 Nov 2016 21:55:00 +0800
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Mon, 28 Nov 2016 15:18:31 +0100
 
-> When a hardware issue happened as described by inline comments, the register
-> write pattern looks like the following:
+> If device_release_driver(&phydev->mdio.dev) is called, it releases all
+> resources belonging to the PHY device. Hence the subsequent call to
+> phy_led_triggers_unregister() will access already freed memory when
+> unregistering the LEDs.
 > 
-> <write ~MACB_BIT(RE)>
-> + wmb();
-> <write MACB_BIT(RE)>
+> Move the call to phy_led_triggers_unregister() before the possible call
+> to device_release_driver() to fix this.
 > 
-> There might be a memory barrier between these two write operations, so add wmb
-> to ensure an flip from 0 to 1 for NCR.
-> 
-> Signed-off-by: Zumeng Chen <zumeng.chen@windriver.com>
+> Fixes: 2e0bc452f4721520 ("net: phy: leds: add support for led triggers on phy link state change")
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 > ---
+> This is v2 of "[RFC] net: phy: Fix double free in phy_detach()".
 > 
-> V2 changes:
-> 
-> Add the same wmb for at91ether as well based on reviewer's suggestion.
+> v2:
+>   - Dropped RFC,
+>   - Reworded, as commit a7dac9f9c1695d74 ("phy: fix error case of
+>     phy_led_triggers_(un)register") fixed the double free, and thus the
+>     warning I was seeing during "poweroff" on sh73a0/kzm9g,
+>   - Verified use after free using CONFIG_DEBUG_DEVRES, log_devres = 1,
+>     and additional debug code printing the address of
+>     phy->phy_led_triggers. Adding poisoning of freed memory to
+>     devres_log() will cause a crash.
 
 Applied, thanks.
