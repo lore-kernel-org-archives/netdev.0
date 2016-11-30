@@ -1,1005 +1,904 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next v4 4/4] bpf: Add tests and samples for LWT-BPF
-Date: Wed, 30 Nov 2016 17:10:11 +0100
-Message-ID: <81603830e3684a9a48d5c18687e47a9a0df6b1bf.1480522144.git.tgraf@suug.ch>
+Subject: [PATCH net-next v4 3/4] bpf: BPF for lightweight tunnel infrastructure
+Date: Wed, 30 Nov 2016 17:10:10 +0100
+Message-ID: <950bbc4f82150683dd87e26dbd41412c26a38eba.1480522144.git.tgraf@suug.ch>
 References: <cover.1480522144.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
         daniel@iogearbox.net, tom@herbertland.com,
         roopa@cumulusnetworks.com, hannes@stressinduktion.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:45444 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:45422 "EHLO
         merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758124AbcK3QKX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:10:23 -0500
+        with ESMTP id S1758123AbcK3QKV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 11:10:21 -0500
 In-Reply-To: <cover.1480522144.git.tgraf@suug.ch>
 In-Reply-To: <cover.1480522144.git.tgraf@suug.ch>
 References: <cover.1480522144.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds a series of tests to verify the functionality of attaching
-BPF programs at LWT hooks.
+Registers new BPF program types which correspond to the LWT hooks:
+  - BPF_PROG_TYPE_LWT_IN   => dst_input()
+  - BPF_PROG_TYPE_LWT_OUT  => dst_output()
+  - BPF_PROG_TYPE_LWT_XMIT => lwtunnel_xmit()
 
-Also adds a sample which collects a histogram of packet sizes which
-pass through an LWT hook.
+The separate program types are required to differentiate between the
+capabilities each LWT hook allows:
 
-$ ./lwt_len_hist.sh
-Starting netserver with host 'IN(6)ADDR_ANY' port '12865' and family AF_UNSPEC
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.253.2 () port 0 AF_INET : demo
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
+ * Programs attached to dst_input() or dst_output() are restricted and
+   may only read the data of an skb. This prevent modification and
+   possible invalidation of already validated packet headers on receive
+   and the construction of illegal headers while the IP headers are
+   still being assembled.
 
- 87380  16384  16384    10.00    39857.69
-       1 -> 1        : 0        |                                      |
-       2 -> 3        : 0        |                                      |
-       4 -> 7        : 0        |                                      |
-       8 -> 15       : 0        |                                      |
-      16 -> 31       : 0        |                                      |
-      32 -> 63       : 22       |                                      |
-      64 -> 127      : 98       |                                      |
-     128 -> 255      : 213      |                                      |
-     256 -> 511      : 1444251  |********                              |
-     512 -> 1023     : 660610   |***                                   |
-    1024 -> 2047     : 535241   |**                                    |
-    2048 -> 4095     : 19       |                                      |
-    4096 -> 8191     : 180      |                                      |
-    8192 -> 16383    : 5578023  |************************************* |
-   16384 -> 32767    : 632099   |***                                   |
-   32768 -> 65535    : 6575     |                                      |
+ * Programs attached to lwtunnel_xmit() are allowed to modify packet
+   content as well as prepending an L2 header via a newly introduced
+   helper bpf_skb_change_head(). This is safe as lwtunnel_xmit() is
+   invoked after the IP header has been assembled completely.
+
+All BPF programs receive an skb with L3 headers attached and may return
+one of the following error codes:
+
+ BPF_OK - Continue routing as per nexthop
+ BPF_DROP - Drop skb and return EPERM
+ BPF_REDIRECT - Redirect skb to device as per redirect() helper.
+                (Only valid in lwtunnel_xmit() context)
+
+The return codes are binary compatible with their TC_ACT_
+relatives to ease compatibility.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- samples/bpf/Makefile            |   4 +
- samples/bpf/bpf_helpers.h       |   4 +
- samples/bpf/lwt_len_hist.sh     |  37 ++++
- samples/bpf/lwt_len_hist_kern.c |  82 +++++++++
- samples/bpf/lwt_len_hist_user.c |  76 ++++++++
- samples/bpf/test_lwt_bpf.c      | 253 +++++++++++++++++++++++++
- samples/bpf/test_lwt_bpf.sh     | 399 ++++++++++++++++++++++++++++++++++++++++
- 7 files changed, 855 insertions(+)
- create mode 100755 samples/bpf/lwt_len_hist.sh
- create mode 100644 samples/bpf/lwt_len_hist_kern.c
- create mode 100644 samples/bpf/lwt_len_hist_user.c
- create mode 100644 samples/bpf/test_lwt_bpf.c
- create mode 100755 samples/bpf/test_lwt_bpf.sh
+ include/linux/filter.h        |   2 +-
+ include/uapi/linux/bpf.h      |  32 +++-
+ include/uapi/linux/lwtunnel.h |  23 +++
+ kernel/bpf/verifier.c         |  14 +-
+ net/Kconfig                   |   8 +
+ net/core/Makefile             |   1 +
+ net/core/filter.c             | 173 ++++++++++++++++++
+ net/core/lwt_bpf.c            | 396 ++++++++++++++++++++++++++++++++++++++++++
+ net/core/lwtunnel.c           |   2 +
+ 9 files changed, 646 insertions(+), 5 deletions(-)
+ create mode 100644 net/core/lwt_bpf.c
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 22b6407e..3161f82 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -29,6 +29,7 @@ hostprogs-y += test_current_task_under_cgroup
- hostprogs-y += trace_event
- hostprogs-y += sampleip
- hostprogs-y += tc_l2_redirect
-+hostprogs-y += lwt_len_hist
- 
- test_lru_dist-objs := test_lru_dist.o libbpf.o
- sock_example-objs := sock_example.o libbpf.o
-@@ -59,6 +60,7 @@ test_current_task_under_cgroup-objs := bpf_load.o libbpf.o \
- trace_event-objs := bpf_load.o libbpf.o trace_event_user.o
- sampleip-objs := bpf_load.o libbpf.o sampleip_user.o
- tc_l2_redirect-objs := bpf_load.o libbpf.o tc_l2_redirect_user.o
-+lwt_len_hist-objs := bpf_load.o libbpf.o lwt_len_hist_user.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -89,6 +91,7 @@ always += xdp2_kern.o
- always += test_current_task_under_cgroup_kern.o
- always += trace_event_kern.o
- always += sampleip_kern.o
-+always += lwt_len_hist_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(objtree)/tools/testing/selftests/bpf/
-@@ -117,6 +120,7 @@ HOSTLOADLIBES_test_current_task_under_cgroup += -lelf
- HOSTLOADLIBES_trace_event += -lelf
- HOSTLOADLIBES_sampleip += -lelf
- HOSTLOADLIBES_tc_l2_redirect += -l elf
-+HOSTLOADLIBES_lwt_len_hist += -l elf
- 
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 90f44bd..a246c61 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -80,6 +80,8 @@ struct bpf_map_def {
- 	unsigned int map_flags;
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 7f246a2..7ba6446 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -438,7 +438,7 @@ struct xdp_buff {
  };
  
-+static int (*bpf_skb_load_bytes)(void *ctx, int off, void *to, int len) =
-+	(void *) BPF_FUNC_skb_load_bytes;
- static int (*bpf_skb_store_bytes)(void *ctx, int off, void *from, int len, int flags) =
- 	(void *) BPF_FUNC_skb_store_bytes;
- static int (*bpf_l3_csum_replace)(void *ctx, int off, int from, int to, int flags) =
-@@ -88,6 +90,8 @@ static int (*bpf_l4_csum_replace)(void *ctx, int off, int from, int to, int flag
- 	(void *) BPF_FUNC_l4_csum_replace;
- static int (*bpf_skb_under_cgroup)(void *ctx, void *map, int index) =
- 	(void *) BPF_FUNC_skb_under_cgroup;
-+static int (*bpf_skb_change_head)(void *, int len, int flags) =
-+	(void *) BPF_FUNC_skb_change_head;
+ /* compute the linear packet data range [data, data_end) which
+- * will be accessed by cls_bpf and act_bpf programs
++ * will be accessed by cls_bpf, act_bpf and lwt programs
+  */
+ static inline void bpf_compute_data_end(struct sk_buff *skb)
+ {
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 1370a9d..22ac827 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -101,6 +101,9 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_XDP,
+ 	BPF_PROG_TYPE_PERF_EVENT,
+ 	BPF_PROG_TYPE_CGROUP_SKB,
++	BPF_PROG_TYPE_LWT_IN,
++	BPF_PROG_TYPE_LWT_OUT,
++	BPF_PROG_TYPE_LWT_XMIT,
+ };
  
- #if defined(__x86_64__)
+ enum bpf_attach_type {
+@@ -409,6 +412,16 @@ union bpf_attr {
+  *
+  * int bpf_get_numa_node_id()
+  *     Return: Id of current NUMA node.
++ *
++ * int bpf_skb_change_head()
++ *     Grows headroom of skb and adjusts MAC header offset accordingly.
++ *     Will extends/reallocae as required automatically.
++ *     May change skb data pointer and will thus invalidate any check
++ *     performed for direct packet access.
++ *     @skb: pointer to skb
++ *     @len: length of header to be pushed in front
++ *     @flags: Flags (unused for now)
++ *     Return: 0 on success or negative error
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -453,7 +466,8 @@ union bpf_attr {
+ 	FN(skb_pull_data),		\
+ 	FN(csum_update),		\
+ 	FN(set_hash_invalid),		\
+-	FN(get_numa_node_id),
++	FN(get_numa_node_id),		\
++	FN(skb_change_head),
  
-diff --git a/samples/bpf/lwt_len_hist.sh b/samples/bpf/lwt_len_hist.sh
-new file mode 100755
-index 0000000..7d56774
---- /dev/null
-+++ b/samples/bpf/lwt_len_hist.sh
-@@ -0,0 +1,37 @@
-+#!/bin/bash
-+
-+NS1=lwt_ns1
-+VETH0=tst_lwt1a
-+VETH1=tst_lwt1b
-+
-+TRACE_ROOT=/sys/kernel/debug/tracing
-+
-+function cleanup {
-+	ip route del 192.168.253.2/32 dev $VETH0 2> /dev/null
-+	ip link del $VETH0 2> /dev/null
-+	ip link del $VETH1 2> /dev/null
-+	ip netns exec $NS1 killall netserver
-+	ip netns delete $NS1 2> /dev/null
-+}
-+
-+cleanup
-+
-+ip netns add $NS1
-+ip link add $VETH0 type veth peer name $VETH1
-+ip link set dev $VETH0 up
-+ip addr add 192.168.253.1/24 dev $VETH0
-+ip link set $VETH1 netns $NS1
-+ip netns exec $NS1 ip link set dev $VETH1 up
-+ip netns exec $NS1 ip addr add 192.168.253.2/24 dev $VETH1
-+ip netns exec $NS1 netserver
-+
-+echo 1 > ${TRACE_ROOT}/tracing_on
-+cp /dev/null ${TRACE_ROOT}/trace
-+ip route add 192.168.253.2/32 encap bpf out obj lwt_len_hist_kern.o section len_hist dev $VETH0
-+netperf -H 192.168.253.2 -t TCP_STREAM
-+cat ${TRACE_ROOT}/trace | grep -v '^#'
-+./lwt_len_hist
-+cleanup
-+echo 0 > ${TRACE_ROOT}/tracing_on
-+
-+exit 0
-diff --git a/samples/bpf/lwt_len_hist_kern.c b/samples/bpf/lwt_len_hist_kern.c
-new file mode 100644
-index 0000000..df75383
---- /dev/null
-+++ b/samples/bpf/lwt_len_hist_kern.c
-@@ -0,0 +1,82 @@
-+/* Copyright (c) 2016 Thomas Graf <tgraf@tgraf.ch>
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+@@ -537,6 +551,22 @@ struct bpf_tunnel_key {
+ 	__u32 tunnel_label;
+ };
+ 
++/* Generic BPF return codes which all BPF program types may support.
++ * The values are binary compatible with their TC_ACT_* counter-part to
++ * provide backwards compatibility with existing SCHED_CLS and SCHED_ACT
++ * programs.
 + *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
++ * XDP is handled seprately, see XDP_*.
 + */
-+
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/if_ether.h>
-+#include <uapi/linux/ip.h>
-+#include <uapi/linux/in.h>
-+#include "bpf_helpers.h"
-+
-+# define printk(fmt, ...)						\
-+		({							\
-+			char ____fmt[] = fmt;				\
-+			bpf_trace_printk(____fmt, sizeof(____fmt),	\
-+				     ##__VA_ARGS__);			\
-+		})
-+
-+struct bpf_elf_map {
-+	__u32 type;
-+	__u32 size_key;
-+	__u32 size_value;
-+	__u32 max_elem;
-+	__u32 flags;
-+	__u32 id;
-+	__u32 pinning;
++enum bpf_ret_code {
++	BPF_OK = 0,
++	/* 1 reserved */
++	BPF_DROP = 2,
++	/* 3-6 reserved */
++	BPF_REDIRECT = 7,
++	/* >127 are reserved for prog type specific return codes */
 +};
 +
-+struct bpf_elf_map SEC("maps") lwt_len_hist_map = {
-+	.type = BPF_MAP_TYPE_PERCPU_HASH,
-+	.size_key = sizeof(__u64),
-+	.size_value = sizeof(__u64),
-+	.pinning = 2,
-+	.max_elem = 1024,
+ /* User return codes for XDP prog type.
+  * A valid XDP program must return one of these defined values. All other
+  * return codes are reserved for future use. Unknown return codes will result
+diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
+index 453cc62..92724cba 100644
+--- a/include/uapi/linux/lwtunnel.h
++++ b/include/uapi/linux/lwtunnel.h
+@@ -10,6 +10,7 @@ enum lwtunnel_encap_types {
+ 	LWTUNNEL_ENCAP_ILA,
+ 	LWTUNNEL_ENCAP_IP6,
+ 	LWTUNNEL_ENCAP_SEG6,
++	LWTUNNEL_ENCAP_BPF,
+ 	__LWTUNNEL_ENCAP_MAX,
+ };
+ 
+@@ -43,4 +44,26 @@ enum lwtunnel_ip6_t {
+ 
+ #define LWTUNNEL_IP6_MAX (__LWTUNNEL_IP6_MAX - 1)
+ 
++enum {
++	LWT_BPF_PROG_UNSPEC,
++	LWT_BPF_PROG_FD,
++	LWT_BPF_PROG_NAME,
++	__LWT_BPF_PROG_MAX,
 +};
 +
-+static unsigned int log2(unsigned int v)
-+{
-+	unsigned int r;
-+	unsigned int shift;
++#define LWT_BPF_PROG_MAX (__LWT_BPF_PROG_MAX - 1)
 +
-+	r = (v > 0xFFFF) << 4; v >>= r;
-+	shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
-+	shift = (v > 0xF) << 2; v >>= shift; r |= shift;
-+	shift = (v > 0x3) << 1; v >>= shift; r |= shift;
-+	r |= (v >> 1);
-+	return r;
-+}
++enum {
++	LWT_BPF_UNSPEC,
++	LWT_BPF_IN,
++	LWT_BPF_OUT,
++	LWT_BPF_XMIT,
++	LWT_BPF_XMIT_HEADROOM,
++	__LWT_BPF_MAX,
++};
 +
-+static unsigned int log2l(unsigned long v)
-+{
-+	unsigned int hi = v >> 32;
-+	if (hi)
-+		return log2(hi) + 32;
-+	else
-+		return log2(v);
-+}
++#define LWT_BPF_MAX (__LWT_BPF_MAX - 1)
 +
-+SEC("len_hist")
-+int do_len_hist(struct __sk_buff *skb)
-+{
-+	__u64 *value, key, init_val = 1;
++#define LWT_BPF_MAX_HEADROOM 256
 +
-+	key = log2l(skb->len);
+ #endif /* _UAPI_LWTUNNEL_H_ */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 8740c5f..8135cb1 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -633,12 +633,19 @@ static int check_map_access(struct bpf_verifier_env *env, u32 regno, int off,
+ #define MAX_PACKET_OFF 0xffff
+ 
+ static bool may_access_direct_pkt_data(struct bpf_verifier_env *env,
+-				       const struct bpf_call_arg_meta *meta)
++				       const struct bpf_call_arg_meta *meta,
++				       enum bpf_access_type t)
+ {
+ 	switch (env->prog->type) {
++	case BPF_PROG_TYPE_LWT_IN:
++	case BPF_PROG_TYPE_LWT_OUT:
++		/* dst_input() and dst_output() can't write for now */
++		if (t == BPF_WRITE)
++			return false;
+ 	case BPF_PROG_TYPE_SCHED_CLS:
+ 	case BPF_PROG_TYPE_SCHED_ACT:
+ 	case BPF_PROG_TYPE_XDP:
++	case BPF_PROG_TYPE_LWT_XMIT:
+ 		if (meta)
+ 			return meta->pkt_access;
+ 
+@@ -837,7 +844,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
+ 			err = check_stack_read(state, off, size, value_regno);
+ 		}
+ 	} else if (state->regs[regno].type == PTR_TO_PACKET) {
+-		if (t == BPF_WRITE && !may_access_direct_pkt_data(env, NULL)) {
++		if (t == BPF_WRITE && !may_access_direct_pkt_data(env, NULL, t)) {
+ 			verbose("cannot write into packet\n");
+ 			return -EACCES;
+ 		}
+@@ -970,7 +977,8 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 regno,
+ 		return 0;
+ 	}
+ 
+-	if (type == PTR_TO_PACKET && !may_access_direct_pkt_data(env, meta)) {
++	if (type == PTR_TO_PACKET &&
++	    !may_access_direct_pkt_data(env, meta, BPF_READ)) {
+ 		verbose("helper access to the packet is not allowed\n");
+ 		return -EACCES;
+ 	}
+diff --git a/net/Kconfig b/net/Kconfig
+index 7b6cd34..a100500 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -402,6 +402,14 @@ config LWTUNNEL
+ 	  weight tunnel endpoint. Tunnel encapsulation parameters are stored
+ 	  with light weight tunnel state associated with fib routes.
+ 
++config LWTUNNEL_BPF
++	bool "Execute BPF program as route nexthop action"
++	depends on LWTUNNEL
++	default y if LWTUNNEL=y
++	---help---
++	  Allows to run BPF programs as a nexthop action following a route
++	  lookup for incoming and outgoing packets.
 +
-+	value = bpf_map_lookup_elem(&lwt_len_hist_map, &key);
-+	if (value)
-+		__sync_fetch_and_add(value, 1);
-+	else
-+		bpf_map_update_elem(&lwt_len_hist_map, &key, &init_val, BPF_ANY);
-+
-+	return BPF_OK;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/lwt_len_hist_user.c b/samples/bpf/lwt_len_hist_user.c
-new file mode 100644
-index 0000000..05d783f
---- /dev/null
-+++ b/samples/bpf/lwt_len_hist_user.c
-@@ -0,0 +1,76 @@
-+#include <linux/unistd.h>
-+#include <linux/bpf.h>
-+
-+#include <stdlib.h>
-+#include <stdio.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <errno.h>
-+#include <arpa/inet.h>
-+
-+#include "libbpf.h"
-+#include "bpf_util.h"
-+
-+#define MAX_INDEX 64
-+#define MAX_STARS 38
-+
-+static void stars(char *str, long val, long max, int width)
-+{
-+	int i;
-+
-+	for (i = 0; i < (width * val / max) - 1 && i < width - 1; i++)
-+		str[i] = '*';
-+	if (val > max)
-+		str[i - 1] = '+';
-+	str[i] = '\0';
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	unsigned int nr_cpus = bpf_num_possible_cpus();
-+	const char *map_filename = "/sys/fs/bpf/tc/globals/lwt_len_hist_map";
-+	uint64_t values[nr_cpus], sum, max_value = 0, data[MAX_INDEX] = {};
-+	uint64_t key = 0, next_key, max_key = 0;
-+	char starstr[MAX_STARS];
-+	int i, map_fd;
-+
-+	map_fd = bpf_obj_get(map_filename);
-+	if (map_fd < 0) {
-+		fprintf(stderr, "bpf_obj_get(%s): %s(%d)\n",
-+			map_filename, strerror(errno), errno);
-+		return -1;
+ config DST_CACHE
+ 	bool
+ 	default n
+diff --git a/net/core/Makefile b/net/core/Makefile
+index d6508c2..f6761b6 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -24,6 +24,7 @@ obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
+ obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
+ obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
+ obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
++obj-$(CONFIG_LWTUNNEL_BPF) += lwt_bpf.o
+ obj-$(CONFIG_DST_CACHE) += dst_cache.o
+ obj-$(CONFIG_HWBM) += hwbm.o
+ obj-$(CONFIG_NET_DEVLINK) += devlink.o
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 698a262..1c4d0fa 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1689,6 +1689,12 @@ static int __bpf_redirect_no_mac(struct sk_buff *skb, struct net_device *dev,
+ static int __bpf_redirect_common(struct sk_buff *skb, struct net_device *dev,
+ 				 u32 flags)
+ {
++	/* Verify that a link layer header is carried */
++	if (unlikely(skb->mac_header >= skb->network_header)) {
++		kfree_skb(skb);
++		return -ERANGE;
 +	}
 +
-+	while (bpf_get_next_key(map_fd, &key, &next_key) == 0) {
-+		if (next_key >= MAX_INDEX) {
-+			fprintf(stderr, "Key %lu out of bounds\n", next_key);
-+			continue;
-+		}
-+
-+		bpf_lookup_elem(map_fd, &next_key, values);
-+
-+		sum = 0;
-+		for (i = 0; i < nr_cpus; i++)
-+			sum += values[i];
-+
-+		data[next_key] = sum;
-+		if (sum && next_key > max_key)
-+			max_key = next_key;
-+
-+		if (sum > max_value)
-+			max_value = sum;
-+
-+		key = next_key;
-+	}
-+
-+	for (i = 1; i <= max_key + 1; i++) {
-+		stars(starstr, data[i - 1], max_value, MAX_STARS);
-+		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
-+		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
-+		       MAX_STARS, starstr);
-+	}
-+
-+	close(map_fd);
-+
-+	return 0;
-+}
-diff --git a/samples/bpf/test_lwt_bpf.c b/samples/bpf/test_lwt_bpf.c
-new file mode 100644
-index 0000000..bacc801
---- /dev/null
-+++ b/samples/bpf/test_lwt_bpf.c
-@@ -0,0 +1,253 @@
-+/* Copyright (c) 2016 Thomas Graf <tgraf@tgraf.ch>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+
-+#include <stdint.h>
-+#include <stddef.h>
-+#include <linux/bpf.h>
-+#include <linux/ip.h>
-+#include <linux/in.h>
-+#include <linux/in6.h>
-+#include <linux/tcp.h>
-+#include <linux/udp.h>
-+#include <linux/icmpv6.h>
-+#include <linux/if_ether.h>
-+#include "bpf_helpers.h"
-+#include <string.h>
-+
-+# define printk(fmt, ...)						\
-+		({							\
-+			char ____fmt[] = fmt;				\
-+			bpf_trace_printk(____fmt, sizeof(____fmt),	\
-+				     ##__VA_ARGS__);			\
-+		})
-+
-+#define CB_MAGIC 1234
-+
-+/* Test: Pass all packets through */
-+SEC("nop")
-+int do_nop(struct __sk_buff *skb)
+ 	bpf_push_mac_rcsum(skb);
+ 	return flags & BPF_F_INGRESS ?
+ 	       __bpf_rx_skb(dev, skb) : __bpf_tx_skb(dev, skb);
+@@ -2188,12 +2194,53 @@ static const struct bpf_func_proto bpf_skb_change_tail_proto = {
+ 	.arg3_type	= ARG_ANYTHING,
+ };
+ 
++BPF_CALL_3(bpf_skb_change_head, struct sk_buff *, skb, u32, head_room,
++	   u64, flags)
 +{
-+	return BPF_OK;
-+}
-+
-+/* Test: Verify context information can be accessed */
-+SEC("test_ctx")
-+int do_test_ctx(struct __sk_buff *skb)
-+{
-+	skb->cb[0] = CB_MAGIC;
-+	printk("len %d hash %d protocol %d\n", skb->len, skb->hash,
-+	       skb->protocol);
-+	printk("cb %d ingress_ifindex %d ifindex %d\n", skb->cb[0],
-+	       skb->ingress_ifindex, skb->ifindex);
-+
-+	return BPF_OK;
-+}
-+
-+/* Test: Ensure skb->cb[] buffer is cleared */
-+SEC("test_cb")
-+int do_test_cb(struct __sk_buff *skb)
-+{
-+	printk("cb0: %x cb1: %x cb2: %x\n", skb->cb[0], skb->cb[1],
-+	       skb->cb[2]);
-+	printk("cb3: %x cb4: %x\n", skb->cb[3], skb->cb[4]);
-+
-+	return BPF_OK;
-+}
-+
-+/* Test: Verify skb data can be read */
-+SEC("test_data")
-+int do_test_data(struct __sk_buff *skb)
-+{
-+	void *data = (void *)(long)skb->data;
-+	void *data_end = (void *)(long)skb->data_end;
-+	struct iphdr *iph = data;
-+
-+	if (data + sizeof(*iph) > data_end) {
-+		printk("packet truncated\n");
-+		return BPF_DROP;
-+	}
-+
-+	printk("src: %x dst: %x\n", iph->saddr, iph->daddr);
-+
-+	return BPF_OK;
-+}
-+
-+#define IP_CSUM_OFF offsetof(struct iphdr, check)
-+#define IP_DST_OFF offsetof(struct iphdr, daddr)
-+#define IP_SRC_OFF offsetof(struct iphdr, saddr)
-+#define IP_PROTO_OFF offsetof(struct iphdr, protocol)
-+#define TCP_CSUM_OFF offsetof(struct tcphdr, check)
-+#define UDP_CSUM_OFF offsetof(struct udphdr, check)
-+#define IS_PSEUDO 0x10
-+
-+static inline int rewrite(struct __sk_buff *skb, uint32_t old_ip,
-+			  uint32_t new_ip, int rw_daddr)
-+{
-+	int ret, off = 0, flags = IS_PSEUDO;
-+	uint8_t proto;
-+
-+	ret = bpf_skb_load_bytes(skb, IP_PROTO_OFF, &proto, 1);
-+	if (ret < 0) {
-+		printk("bpf_l4_csum_replace failed: %d\n", ret);
-+		return BPF_DROP;
-+	}
-+
-+	switch (proto) {
-+	case IPPROTO_TCP:
-+		off = TCP_CSUM_OFF;
-+		break;
-+
-+	case IPPROTO_UDP:
-+		off = UDP_CSUM_OFF;
-+		flags |= BPF_F_MARK_MANGLED_0;
-+		break;
-+
-+	case IPPROTO_ICMPV6:
-+		off = offsetof(struct icmp6hdr, icmp6_cksum);
-+		break;
-+	}
-+
-+	if (off) {
-+		ret = bpf_l4_csum_replace(skb, off, old_ip, new_ip,
-+					  flags | sizeof(new_ip));
-+		if (ret < 0) {
-+			printk("bpf_l4_csum_replace failed: %d\n");
-+			return BPF_DROP;
-+		}
-+	}
-+
-+	ret = bpf_l3_csum_replace(skb, IP_CSUM_OFF, old_ip, new_ip, sizeof(new_ip));
-+	if (ret < 0) {
-+		printk("bpf_l3_csum_replace failed: %d\n", ret);
-+		return BPF_DROP;
-+	}
-+
-+	if (rw_daddr)
-+		ret = bpf_skb_store_bytes(skb, IP_DST_OFF, &new_ip, sizeof(new_ip), 0);
-+	else
-+		ret = bpf_skb_store_bytes(skb, IP_SRC_OFF, &new_ip, sizeof(new_ip), 0);
-+
-+	if (ret < 0) {
-+		printk("bpf_skb_store_bytes() failed: %d\n", ret);
-+		return BPF_DROP;
-+	}
-+
-+	return BPF_OK;
-+}
-+
-+/* Test: Verify skb data can be modified */
-+SEC("test_rewrite")
-+int do_test_rewrite(struct __sk_buff *skb)
-+{
-+	uint32_t old_ip, new_ip = 0x3fea8c0;
++	u32 max_len = __bpf_skb_max_len(skb);
++	u32 new_len = skb->len + head_room;
 +	int ret;
 +
-+	ret = bpf_skb_load_bytes(skb, IP_DST_OFF, &old_ip, 4);
-+	if (ret < 0) {
-+		printk("bpf_skb_load_bytes failed: %d\n", ret);
-+		return BPF_DROP;
++	if (unlikely(flags || (!skb_is_gso(skb) && new_len > max_len) ||
++		     new_len < skb->len))
++		return -EINVAL;
++
++	ret = skb_cow(skb, head_room);
++	if (likely(!ret)) {
++		/* Idea for this helper is that we currently only
++		 * allow to expand on mac header. This means that
++		 * skb->protocol network header, etc, stay as is.
++		 * Compared to bpf_skb_change_tail(), we're more
++		 * flexible due to not needing to linearize or
++		 * reset GSO. Intention for this helper is to be
++		 * used by an L3 skb that needs to push mac header
++		 * for redirection into L2 device.
++		 */
++		__skb_push(skb, head_room);
++		memset(skb->data, 0, head_room);
++		skb_reset_mac_header(skb);
 +	}
 +
-+	if (old_ip == 0x2fea8c0) {
-+		printk("out: rewriting from %x to %x\n", old_ip, new_ip);
-+		return rewrite(skb, old_ip, new_ip, 1);
-+	}
-+
-+	return BPF_OK;
++	bpf_compute_data_end(skb);
++	return 0;
 +}
 +
-+static inline int __do_push_ll_and_redirect(struct __sk_buff *skb)
++static const struct bpf_func_proto bpf_skb_change_head_proto = {
++	.func		= bpf_skb_change_head,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_ANYTHING,
++	.arg3_type	= ARG_ANYTHING,
++};
++
+ bool bpf_helper_changes_skb_data(void *func)
+ {
+ 	if (func == bpf_skb_vlan_push ||
+ 	    func == bpf_skb_vlan_pop ||
+ 	    func == bpf_skb_store_bytes ||
+ 	    func == bpf_skb_change_proto ||
++	    func == bpf_skb_change_head ||
+ 	    func == bpf_skb_change_tail ||
+ 	    func == bpf_skb_pull_data ||
+ 	    func == bpf_l3_csum_replace ||
+@@ -2639,6 +2686,68 @@ cg_skb_func_proto(enum bpf_func_id func_id)
+ 	}
+ }
+ 
++static const struct bpf_func_proto *
++lwt_inout_func_proto(enum bpf_func_id func_id)
 +{
-+	uint64_t smac = SRC_MAC, dmac = DST_MAC;
-+	int ret, ifindex = DST_IFINDEX;
-+	struct ethhdr ehdr;
-+
-+	ret = bpf_skb_change_head(skb, 14, 0);
-+	if (ret < 0) {
-+		printk("skb_change_head() failed: %d\n", ret);
++	switch (func_id) {
++	case BPF_FUNC_skb_load_bytes:
++		return &bpf_skb_load_bytes_proto;
++	case BPF_FUNC_skb_pull_data:
++		return &bpf_skb_pull_data_proto;
++	case BPF_FUNC_csum_diff:
++		return &bpf_csum_diff_proto;
++	case BPF_FUNC_get_cgroup_classid:
++		return &bpf_get_cgroup_classid_proto;
++	case BPF_FUNC_get_route_realm:
++		return &bpf_get_route_realm_proto;
++	case BPF_FUNC_get_hash_recalc:
++		return &bpf_get_hash_recalc_proto;
++	case BPF_FUNC_perf_event_output:
++		return &bpf_skb_event_output_proto;
++	case BPF_FUNC_get_smp_processor_id:
++		return &bpf_get_smp_processor_id_proto;
++	case BPF_FUNC_skb_under_cgroup:
++		return &bpf_skb_under_cgroup_proto;
++	default:
++		return sk_filter_func_proto(func_id);
 +	}
-+
-+	ehdr.h_proto = __constant_htons(ETH_P_IP);
-+	memcpy(&ehdr.h_source, &smac, 6);
-+	memcpy(&ehdr.h_dest, &dmac, 6);
-+
-+	ret = bpf_skb_store_bytes(skb, 0, &ehdr, sizeof(ehdr), 0);
-+	if (ret < 0) {
-+		printk("skb_store_bytes() failed: %d\n", ret);
-+		return BPF_DROP;
-+	}
-+
-+	return bpf_redirect(ifindex, 0);
 +}
 +
-+SEC("push_ll_and_redirect_silent")
-+int do_push_ll_and_redirect_silent(struct __sk_buff *skb)
++static const struct bpf_func_proto *
++lwt_xmit_func_proto(enum bpf_func_id func_id)
 +{
-+	return __do_push_ll_and_redirect(skb);
++	switch (func_id) {
++	case BPF_FUNC_skb_get_tunnel_key:
++		return &bpf_skb_get_tunnel_key_proto;
++	case BPF_FUNC_skb_set_tunnel_key:
++		return bpf_get_skb_set_tunnel_proto(func_id);
++	case BPF_FUNC_skb_get_tunnel_opt:
++		return &bpf_skb_get_tunnel_opt_proto;
++	case BPF_FUNC_skb_set_tunnel_opt:
++		return bpf_get_skb_set_tunnel_proto(func_id);
++	case BPF_FUNC_redirect:
++		return &bpf_redirect_proto;
++	case BPF_FUNC_clone_redirect:
++		return &bpf_clone_redirect_proto;
++	case BPF_FUNC_skb_change_tail:
++		return &bpf_skb_change_tail_proto;
++	case BPF_FUNC_skb_change_head:
++		return &bpf_skb_change_head_proto;
++	case BPF_FUNC_skb_store_bytes:
++		return &bpf_skb_store_bytes_proto;
++	case BPF_FUNC_csum_update:
++		return &bpf_csum_update_proto;
++	case BPF_FUNC_l3_csum_replace:
++		return &bpf_l3_csum_replace_proto;
++	case BPF_FUNC_l4_csum_replace:
++		return &bpf_l4_csum_replace_proto;
++	case BPF_FUNC_set_hash_invalid:
++		return &bpf_set_hash_invalid_proto;
++	default:
++		return lwt_inout_func_proto(func_id);
++	}
 +}
 +
-+SEC("push_ll_and_redirect")
-+int do_push_ll_and_redirect(struct __sk_buff *skb)
+ static bool __is_valid_access(int off, int size, enum bpf_access_type type)
+ {
+ 	if (off < 0 || off >= sizeof(struct __sk_buff))
+@@ -2676,6 +2785,39 @@ static bool sk_filter_is_valid_access(int off, int size,
+ 	return __is_valid_access(off, size, type);
+ }
+ 
++static bool lwt_is_valid_access(int off, int size,
++				enum bpf_access_type type,
++				enum bpf_reg_type *reg_type)
 +{
-+	int ret, ifindex = DST_IFINDEX;
++	switch (off) {
++	case offsetof(struct __sk_buff, tc_classid):
++		return false;
++	}
 +
-+	ret = __do_push_ll_and_redirect(skb);
-+	if (ret >= 0)
-+		printk("redirected to %d\n", ifindex);
++	if (type == BPF_WRITE) {
++		switch (off) {
++		case offsetof(struct __sk_buff, mark):
++		case offsetof(struct __sk_buff, priority):
++		case offsetof(struct __sk_buff, cb[0]) ...
++		     offsetof(struct __sk_buff, cb[4]):
++			break;
++		default:
++			return false;
++		}
++	}
++
++	switch (off) {
++	case offsetof(struct __sk_buff, data):
++		*reg_type = PTR_TO_PACKET;
++		break;
++	case offsetof(struct __sk_buff, data_end):
++		*reg_type = PTR_TO_PACKET_END;
++		break;
++	}
++
++	return __is_valid_access(off, size, type);
++}
++
+ static int tc_cls_act_prologue(struct bpf_insn *insn_buf, bool direct_write,
+ 			       const struct bpf_prog *prog)
+ {
+@@ -3007,6 +3149,19 @@ static const struct bpf_verifier_ops cg_skb_ops = {
+ 	.convert_ctx_access	= sk_filter_convert_ctx_access,
+ };
+ 
++static const struct bpf_verifier_ops lwt_inout_ops = {
++	.get_func_proto		= lwt_inout_func_proto,
++	.is_valid_access	= lwt_is_valid_access,
++	.convert_ctx_access	= sk_filter_convert_ctx_access,
++};
++
++static const struct bpf_verifier_ops lwt_xmit_ops = {
++	.get_func_proto		= lwt_xmit_func_proto,
++	.is_valid_access	= lwt_is_valid_access,
++	.convert_ctx_access	= sk_filter_convert_ctx_access,
++	.gen_prologue		= tc_cls_act_prologue,
++};
++
+ static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+ 	.ops	= &sk_filter_ops,
+ 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
+@@ -3032,6 +3187,21 @@ static struct bpf_prog_type_list cg_skb_type __read_mostly = {
+ 	.type	= BPF_PROG_TYPE_CGROUP_SKB,
+ };
+ 
++static struct bpf_prog_type_list lwt_in_type __read_mostly = {
++	.ops	= &lwt_inout_ops,
++	.type	= BPF_PROG_TYPE_LWT_IN,
++};
++
++static struct bpf_prog_type_list lwt_out_type __read_mostly = {
++	.ops	= &lwt_inout_ops,
++	.type	= BPF_PROG_TYPE_LWT_OUT,
++};
++
++static struct bpf_prog_type_list lwt_xmit_type __read_mostly = {
++	.ops	= &lwt_xmit_ops,
++	.type	= BPF_PROG_TYPE_LWT_XMIT,
++};
++
+ static int __init register_sk_filter_ops(void)
+ {
+ 	bpf_register_prog_type(&sk_filter_type);
+@@ -3039,6 +3209,9 @@ static int __init register_sk_filter_ops(void)
+ 	bpf_register_prog_type(&sched_act_type);
+ 	bpf_register_prog_type(&xdp_type);
+ 	bpf_register_prog_type(&cg_skb_type);
++	bpf_register_prog_type(&lwt_in_type);
++	bpf_register_prog_type(&lwt_out_type);
++	bpf_register_prog_type(&lwt_xmit_type);
+ 
+ 	return 0;
+ }
+diff --git a/net/core/lwt_bpf.c b/net/core/lwt_bpf.c
+new file mode 100644
+index 0000000..71bb3e2
+--- /dev/null
++++ b/net/core/lwt_bpf.c
+@@ -0,0 +1,396 @@
++/* Copyright (c) 2016 Thomas Graf <tgraf@tgraf.ch>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/types.h>
++#include <linux/bpf.h>
++#include <net/lwtunnel.h>
++
++struct bpf_lwt_prog {
++	struct bpf_prog *prog;
++	char *name;
++};
++
++struct bpf_lwt {
++	struct bpf_lwt_prog in;
++	struct bpf_lwt_prog out;
++	struct bpf_lwt_prog xmit;
++	int family;
++};
++
++#define MAX_PROG_NAME 256
++
++static inline struct bpf_lwt *bpf_lwt_lwtunnel(struct lwtunnel_state *lwt)
++{
++	return (struct bpf_lwt *)lwt->data;
++}
++
++#define NO_REDIRECT false
++#define CAN_REDIRECT true
++
++static int run_lwt_bpf(struct sk_buff *skb, struct bpf_lwt_prog *lwt,
++		       struct dst_entry *dst, bool can_redirect)
++{
++	int ret;
++
++	/* Preempt disable is needed to protect per-cpu redirect_info between
++	 * BPF prog and skb_do_redirect(). The call_rcu in bpf_prog_put() and
++	 * access to maps strictly require a rcu_read_lock() for protection,
++	 * mixing with BH RCU lock doesn't work.
++	 */
++	preempt_disable();
++	rcu_read_lock();
++	bpf_compute_data_end(skb);
++	ret = bpf_prog_run_save_cb(lwt->prog, skb);
++	rcu_read_unlock();
++
++	switch (ret) {
++	case BPF_OK:
++		break;
++
++	case BPF_REDIRECT:
++		if (unlikely(!can_redirect)) {
++			pr_warn_once("Illegal redirect return code in prog %s\n",
++				     lwt->name ? : "<unknown>");
++			ret = BPF_OK;
++		} else {
++			ret = skb_do_redirect(skb);
++			if (ret == 0)
++				ret = BPF_REDIRECT;
++		}
++		break;
++
++	case BPF_DROP:
++		kfree_skb(skb);
++		ret = -EPERM;
++		break;
++
++	default:
++		pr_warn_once("bpf-lwt: Illegal return value %u, expect packet loss\n", ret);
++		kfree_skb(skb);
++		ret = -EINVAL;
++		break;
++	}
++
++	preempt_enable();
 +
 +	return ret;
 +}
 +
-+static inline void __fill_garbage(struct __sk_buff *skb)
++static int bpf_input(struct sk_buff *skb)
 +{
-+	uint64_t f = 0xFFFFFFFFFFFFFFFF;
++	struct dst_entry *dst = skb_dst(skb);
++	struct bpf_lwt *bpf;
++	int ret;
 +
-+	bpf_skb_store_bytes(skb, 0, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 8, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 16, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 24, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 32, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 40, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 48, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 56, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 64, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 72, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 80, &f, sizeof(f), 0);
-+	bpf_skb_store_bytes(skb, 88, &f, sizeof(f), 0);
++	bpf = bpf_lwt_lwtunnel(dst->lwtstate);
++	if (bpf->in.prog) {
++		ret = run_lwt_bpf(skb, &bpf->in, dst, NO_REDIRECT);
++		if (ret < 0)
++			return ret;
++	}
++
++	if (unlikely(!dst->lwtstate->orig_input)) {
++		pr_warn_once("orig_input not set on dst for prog %s\n",
++			     bpf->out.name);
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return dst->lwtstate->orig_input(skb);
 +}
 +
-+SEC("fill_garbage")
-+int do_fill_garbage(struct __sk_buff *skb)
++static int bpf_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 +{
-+	__fill_garbage(skb);
-+	printk("Set initial 96 bytes of header to FF\n");
-+	return BPF_OK;
++	struct dst_entry *dst = skb_dst(skb);
++	struct bpf_lwt *bpf;
++	int ret;
++
++	bpf = bpf_lwt_lwtunnel(dst->lwtstate);
++	if (bpf->out.prog) {
++		ret = run_lwt_bpf(skb, &bpf->out, dst, NO_REDIRECT);
++		if (ret < 0)
++			return ret;
++	}
++
++	if (unlikely(!dst->lwtstate->orig_output)) {
++		pr_warn_once("orig_output not set on dst for prog %s\n",
++			     bpf->out.name);
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return dst->lwtstate->orig_output(net, sk, skb);
 +}
 +
-+SEC("fill_garbage_and_redirect")
-+int do_fill_garbage_and_redirect(struct __sk_buff *skb)
++static int xmit_check_hhlen(struct sk_buff *skb)
 +{
-+	int ifindex = DST_IFINDEX;
-+	__fill_garbage(skb);
-+	printk("redirected to %d\n", ifindex);
-+	return bpf_redirect(ifindex, 0);
++	int hh_len = skb_dst(skb)->dev->hard_header_len;
++
++	if (skb_headroom(skb) < hh_len) {
++		int nhead = HH_DATA_ALIGN(hh_len - skb_headroom(skb));
++
++		if (pskb_expand_head(skb, nhead, 0, GFP_ATOMIC))
++			return -ENOMEM;
++	}
++
++	return 0;
 +}
 +
-+/* Drop all packets */
-+SEC("drop_all")
-+int do_drop_all(struct __sk_buff *skb)
++static int bpf_xmit(struct sk_buff *skb)
 +{
-+	printk("dropping with: %d\n", BPF_DROP);
-+	return BPF_DROP;
++	struct dst_entry *dst = skb_dst(skb);
++	struct bpf_lwt *bpf;
++
++	bpf = bpf_lwt_lwtunnel(dst->lwtstate);
++	if (bpf->xmit.prog) {
++		int ret;
++
++		ret = run_lwt_bpf(skb, &bpf->xmit, dst, CAN_REDIRECT);
++		switch (ret) {
++		case BPF_OK:
++			/* If the header was expanded, headroom might be too
++			 * small for L2 header to come, expand as needed.
++			 */
++			ret = xmit_check_hhlen(skb);
++			if (unlikely(ret))
++				return ret;
++
++			return LWTUNNEL_XMIT_CONTINUE;
++		case BPF_REDIRECT:
++			return LWTUNNEL_XMIT_DONE;
++		default:
++			return ret;
++		}
++	}
++
++	return LWTUNNEL_XMIT_CONTINUE;
 +}
 +
-+char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/test_lwt_bpf.sh b/samples/bpf/test_lwt_bpf.sh
-new file mode 100755
-index 0000000..a695ae2
---- /dev/null
-+++ b/samples/bpf/test_lwt_bpf.sh
-@@ -0,0 +1,399 @@
-+#!/bin/bash
-+
-+# Uncomment to see generated bytecode
-+#VERBOSE=verbose
-+
-+NS1=lwt_ns1
-+NS2=lwt_ns2
-+VETH0=tst_lwt1a
-+VETH1=tst_lwt1b
-+VETH2=tst_lwt2a
-+VETH3=tst_lwt2b
-+IPVETH0="192.168.254.1"
-+IPVETH1="192.168.254.2"
-+IPVETH1b="192.168.254.3"
-+
-+IPVETH2="192.168.111.1"
-+IPVETH3="192.168.111.2"
-+
-+IP_LOCAL="192.168.99.1"
-+
-+TRACE_ROOT=/sys/kernel/debug/tracing
-+
-+function lookup_mac()
++static void bpf_lwt_prog_destroy(struct bpf_lwt_prog *prog)
 +{
-+	set +x
-+	if [ ! -z "$2" ]; then
-+		MAC=$(ip netns exec $2 ip link show $1 | grep ether | awk '{print $2}')
-+	else
-+		MAC=$(ip link show $1 | grep ether | awk '{print $2}')
-+	fi
-+	MAC="${MAC//:/}"
-+	echo "0x${MAC:10:2}${MAC:8:2}${MAC:6:2}${MAC:4:2}${MAC:2:2}${MAC:0:2}"
-+	set -x
++	if (prog->prog)
++		bpf_prog_put(prog->prog);
++
++	kfree(prog->name);
 +}
 +
-+function cleanup {
-+	set +ex
-+	rm test_lwt_bpf.o 2> /dev/null
-+	ip link del $VETH0 2> /dev/null
-+	ip link del $VETH1 2> /dev/null
-+	ip link del $VETH2 2> /dev/null
-+	ip link del $VETH3 2> /dev/null
-+	ip netns exec $NS1 killall netserver
-+	ip netns delete $NS1 2> /dev/null
-+	ip netns delete $NS2 2> /dev/null
-+	set -ex
++static void bpf_destroy_state(struct lwtunnel_state *lwt)
++{
++	struct bpf_lwt *bpf = bpf_lwt_lwtunnel(lwt);
++
++	bpf_lwt_prog_destroy(&bpf->in);
++	bpf_lwt_prog_destroy(&bpf->out);
++	bpf_lwt_prog_destroy(&bpf->xmit);
 +}
 +
-+function setup_one_veth {
-+	ip netns add $1
-+	ip link add $2 type veth peer name $3
-+	ip link set dev $2 up
-+	ip addr add $4/24 dev $2
-+	ip link set $3 netns $1
-+	ip netns exec $1 ip link set dev $3 up
-+	ip netns exec $1 ip addr add $5/24 dev $3
++static const struct nla_policy bpf_prog_policy[LWT_BPF_PROG_MAX + 1] = {
++	[LWT_BPF_PROG_FD]   = { .type = NLA_U32, },
++	[LWT_BPF_PROG_NAME] = { .type = NLA_NUL_STRING,
++				.len = MAX_PROG_NAME },
++};
 +
-+	if [ "$6" ]; then
-+		ip netns exec $1 ip addr add $6/32 dev $3
-+	fi
++static int bpf_parse_prog(struct nlattr *attr, struct bpf_lwt_prog *prog,
++			  enum bpf_prog_type type)
++{
++	struct nlattr *tb[LWT_BPF_PROG_MAX + 1];
++	struct bpf_prog *p;
++	int ret;
++	u32 fd;
++
++	ret = nla_parse_nested(tb, LWT_BPF_PROG_MAX, attr, bpf_prog_policy);
++	if (ret < 0)
++		return ret;
++
++	if (!tb[LWT_BPF_PROG_FD] || !tb[LWT_BPF_PROG_NAME])
++		return -EINVAL;
++
++	prog->name = nla_memdup(tb[LWT_BPF_PROG_NAME], GFP_KERNEL);
++	if (!prog->name)
++		return -ENOMEM;
++
++	fd = nla_get_u32(tb[LWT_BPF_PROG_FD]);
++	p = bpf_prog_get_type(fd, type);
++	if (IS_ERR(p))
++		return PTR_ERR(p);
++
++	prog->prog = p;
++
++	return 0;
 +}
 +
-+function get_trace {
-+	set +x
-+	cat ${TRACE_ROOT}/trace | grep -v '^#'
-+	set -x
-+}
++static const struct nla_policy bpf_nl_policy[LWT_BPF_MAX + 1] = {
++	[LWT_BPF_IN]		= { .type = NLA_NESTED, },
++	[LWT_BPF_OUT]		= { .type = NLA_NESTED, },
++	[LWT_BPF_XMIT]		= { .type = NLA_NESTED, },
++	[LWT_BPF_XMIT_HEADROOM]	= { .type = NLA_U32 },
++};
 +
-+function cleanup_routes {
-+	ip route del ${IPVETH1}/32 dev $VETH0 2> /dev/null || true
-+	ip route del table local local ${IP_LOCAL}/32 dev lo 2> /dev/null || true
-+}
++static int bpf_build_state(struct net_device *dev, struct nlattr *nla,
++			   unsigned int family, const void *cfg,
++			   struct lwtunnel_state **ts)
++{
++	struct nlattr *tb[LWT_BPF_MAX + 1];
++	struct lwtunnel_state *newts;
++	struct bpf_lwt *bpf;
++	int ret;
 +
-+function install_test {
-+	cleanup_routes
-+	cp /dev/null ${TRACE_ROOT}/trace
++	if (family != AF_INET && family != AF_INET6)
++		return -EAFNOSUPPORT;
 +
-+	OPTS="encap bpf headroom 14 $1 obj test_lwt_bpf.o section $2 $VERBOSE"
++	ret = nla_parse_nested(tb, LWT_BPF_MAX, nla, bpf_nl_policy);
++	if (ret < 0)
++		return ret;
 +
-+	if [ "$1" == "in" ];  then
-+		ip route add table local local ${IP_LOCAL}/32 $OPTS dev lo
-+	else
-+		ip route add ${IPVETH1}/32 $OPTS dev $VETH0
-+	fi
-+}
++	if (!tb[LWT_BPF_IN] && !tb[LWT_BPF_OUT] && !tb[LWT_BPF_XMIT])
++		return -EINVAL;
 +
-+function remove_prog {
-+	if [ "$1" == "in" ];  then
-+		ip route del table local local ${IP_LOCAL}/32 dev lo
-+	else
-+		ip route del ${IPVETH1}/32 dev $VETH0
-+	fi
-+}
++	newts = lwtunnel_state_alloc(sizeof(*bpf));
++	if (!newts)
++		return -ENOMEM;
 +
-+function filter_trace {
-+	# Add newline to allow starting EXPECT= variables on newline
-+	NL=$'\n'
-+	echo "${NL}$*" | sed -e 's/^.*: : //g'
-+}
++	newts->type = LWTUNNEL_ENCAP_BPF;
++	bpf = bpf_lwt_lwtunnel(newts);
 +
-+function expect_fail {
-+	set +x
-+	echo "FAIL:"
-+	echo "Expected: $1"
-+	echo "Got: $2"
-+	set -x
-+	exit 1
-+}
-+
-+function match_trace {
-+	set +x
-+	RET=0
-+	TRACE=$1
-+	EXPECT=$2
-+	GOT="$(filter_trace "$TRACE")"
-+
-+	[ "$GOT" != "$EXPECT" ] && {
-+		expect_fail "$EXPECT" "$GOT"
-+		RET=1
++	if (tb[LWT_BPF_IN]) {
++		newts->flags |= LWTUNNEL_STATE_INPUT_REDIRECT;
++		ret = bpf_parse_prog(tb[LWT_BPF_IN], &bpf->in,
++				     BPF_PROG_TYPE_LWT_IN);
++		if (ret  < 0)
++			goto errout;
 +	}
-+	set -x
-+	return $RET
-+}
 +
-+function test_start {
-+	set +x
-+	echo "----------------------------------------------------------------"
-+	echo "Starting test: $*"
-+	echo "----------------------------------------------------------------"
-+	set -x
-+}
-+
-+function failure {
-+	get_trace
-+	echo "FAIL: $*"
-+	exit 1
-+}
-+
-+function test_ctx_xmit {
-+	test_start "test_ctx on lwt xmit"
-+	install_test xmit test_ctx
-+	ping -c 3 $IPVETH1 || {
-+		failure "test_ctx xmit: packets are dropped"
++	if (tb[LWT_BPF_OUT]) {
++		newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT;
++		ret = bpf_parse_prog(tb[LWT_BPF_OUT], &bpf->out,
++				     BPF_PROG_TYPE_LWT_OUT);
++		if (ret < 0)
++			goto errout;
 +	}
-+	match_trace "$(get_trace)" "
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 0 ifindex $DST_IFINDEX
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 0 ifindex $DST_IFINDEX
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 0 ifindex $DST_IFINDEX" || exit 1
-+	remove_prog xmit
-+}
 +
-+function test_ctx_out {
-+	test_start "test_ctx on lwt out"
-+	install_test out test_ctx
-+	ping -c 3 $IPVETH1 || {
-+		failure "test_ctx out: packets are dropped"
++	if (tb[LWT_BPF_XMIT]) {
++		newts->flags |= LWTUNNEL_STATE_XMIT_REDIRECT;
++		ret = bpf_parse_prog(tb[LWT_BPF_XMIT], &bpf->xmit,
++				     BPF_PROG_TYPE_LWT_XMIT);
++		if (ret < 0)
++			goto errout;
 +	}
-+	match_trace "$(get_trace)" "
-+len 84 hash 0 protocol 0
-+cb 1234 ingress_ifindex 0 ifindex 0
-+len 84 hash 0 protocol 0
-+cb 1234 ingress_ifindex 0 ifindex 0
-+len 84 hash 0 protocol 0
-+cb 1234 ingress_ifindex 0 ifindex 0" || exit 1
-+	remove_prog out
-+}
 +
-+function test_ctx_in {
-+	test_start "test_ctx on lwt in"
-+	install_test in test_ctx
-+	ping -c 3 $IP_LOCAL || {
-+		failure "test_ctx out: packets are dropped"
++	if (tb[LWT_BPF_XMIT_HEADROOM]) {
++		u32 headroom = nla_get_u32(tb[LWT_BPF_XMIT_HEADROOM]);
++
++		if (headroom > LWT_BPF_MAX_HEADROOM) {
++			ret = -ERANGE;
++			goto errout;
++		}
++
++		newts->headroom = headroom;
 +	}
-+	# We will both request & reply packets as the packets will
-+	# be from $IP_LOCAL => $IP_LOCAL
-+	match_trace "$(get_trace)" "
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 1 ifindex 1
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 1 ifindex 1
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 1 ifindex 1
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 1 ifindex 1
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 1 ifindex 1
-+len 84 hash 0 protocol 8
-+cb 1234 ingress_ifindex 1 ifindex 1" || exit 1
-+	remove_prog in
++
++	bpf->family = family;
++	*ts = newts;
++
++	return 0;
++
++errout:
++	bpf_destroy_state(newts);
++	kfree(newts);
++	return ret;
 +}
 +
-+function test_data {
-+	test_start "test_data on lwt $1"
-+	install_test $1 test_data
-+	ping -c 3 $IPVETH1 || {
-+		failure "test_data ${1}: packets are dropped"
-+	}
-+	match_trace "$(get_trace)" "
-+src: 1fea8c0 dst: 2fea8c0
-+src: 1fea8c0 dst: 2fea8c0
-+src: 1fea8c0 dst: 2fea8c0" || exit 1
-+	remove_prog $1
++static int bpf_fill_lwt_prog(struct sk_buff *skb, int attr,
++			     struct bpf_lwt_prog *prog)
++{
++	struct nlattr *nest;
++
++	if (!prog->prog)
++		return 0;
++
++	nest = nla_nest_start(skb, attr);
++	if (!nest)
++		return -EMSGSIZE;
++
++	if (prog->name &&
++	    nla_put_string(skb, LWT_BPF_PROG_NAME, prog->name))
++		return -EMSGSIZE;
++
++	return nla_nest_end(skb, nest);
 +}
 +
-+function test_data_in {
-+	test_start "test_data on lwt in"
-+	install_test in test_data
-+	ping -c 3 $IP_LOCAL || {
-+		failure "test_data in: packets are dropped"
-+	}
-+	# We will both request & reply packets as the packets will
-+	# be from $IP_LOCAL => $IP_LOCAL
-+	match_trace "$(get_trace)" "
-+src: 163a8c0 dst: 163a8c0
-+src: 163a8c0 dst: 163a8c0
-+src: 163a8c0 dst: 163a8c0
-+src: 163a8c0 dst: 163a8c0
-+src: 163a8c0 dst: 163a8c0
-+src: 163a8c0 dst: 163a8c0" || exit 1
-+	remove_prog in
++static int bpf_fill_encap_info(struct sk_buff *skb, struct lwtunnel_state *lwt)
++{
++	struct bpf_lwt *bpf = bpf_lwt_lwtunnel(lwt);
++
++	if (bpf_fill_lwt_prog(skb, LWT_BPF_IN, &bpf->in) < 0 ||
++	    bpf_fill_lwt_prog(skb, LWT_BPF_OUT, &bpf->out) < 0 ||
++	    bpf_fill_lwt_prog(skb, LWT_BPF_XMIT, &bpf->xmit) < 0)
++		return -EMSGSIZE;
++
++	return 0;
 +}
 +
-+function test_cb {
-+	test_start "test_cb on lwt $1"
-+	install_test $1 test_cb
-+	ping -c 3 $IPVETH1 || {
-+		failure "test_cb ${1}: packets are dropped"
-+	}
-+	match_trace "$(get_trace)" "
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0" || exit 1
-+	remove_prog $1
++static int bpf_encap_nlsize(struct lwtunnel_state *lwtstate)
++{
++	int nest_len = nla_total_size(sizeof(struct nlattr)) +
++		       nla_total_size(MAX_PROG_NAME) + /* LWT_BPF_PROG_NAME */
++		       0;
++
++	return nest_len + /* LWT_BPF_IN */
++	       nest_len + /* LWT_BPF_OUT */
++	       nest_len + /* LWT_BPF_XMIT */
++	       0;
 +}
 +
-+function test_cb_in {
-+	test_start "test_cb on lwt in"
-+	install_test in test_cb
-+	ping -c 3 $IP_LOCAL || {
-+		failure "test_cb in: packets are dropped"
-+	}
-+	# We will both request & reply packets as the packets will
-+	# be from $IP_LOCAL => $IP_LOCAL
-+	match_trace "$(get_trace)" "
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0
-+cb0: 0 cb1: 0 cb2: 0
-+cb3: 0 cb4: 0" || exit 1
-+	remove_prog in
++int bpf_lwt_prog_cmp(struct bpf_lwt_prog *a, struct bpf_lwt_prog *b)
++{
++	/* FIXME:
++	 * The LWT state is currently rebuilt for delete requests which
++	 * results in a new bpf_prog instance. Comparing names for now.
++	 */
++	if (!a->name && !b->name)
++		return 0;
++
++	if (!a->name || !b->name)
++		return 1;
++
++	return strcmp(a->name, b->name);
 +}
 +
-+function test_drop_all {
-+	test_start "test_drop_all on lwt $1"
-+	install_test $1 drop_all
-+	ping -c 3 $IPVETH1 && {
-+		failure "test_drop_all ${1}: Unexpected success of ping"
-+	}
-+	match_trace "$(get_trace)" "
-+dropping with: 2
-+dropping with: 2
-+dropping with: 2" || exit 1
-+	remove_prog $1
++static int bpf_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
++{
++	struct bpf_lwt *a_bpf = bpf_lwt_lwtunnel(a);
++	struct bpf_lwt *b_bpf = bpf_lwt_lwtunnel(b);
++
++	return bpf_lwt_prog_cmp(&a_bpf->in, &b_bpf->in) ||
++	       bpf_lwt_prog_cmp(&a_bpf->out, &b_bpf->out) ||
++	       bpf_lwt_prog_cmp(&a_bpf->xmit, &b_bpf->xmit);
 +}
 +
-+function test_drop_all_in {
-+	test_start "test_drop_all on lwt in"
-+	install_test in drop_all
-+	ping -c 3 $IP_LOCAL && {
-+		failure "test_drop_all in: Unexpected success of ping"
-+	}
-+	match_trace "$(get_trace)" "
-+dropping with: 2
-+dropping with: 2
-+dropping with: 2" || exit 1
-+	remove_prog in
++static const struct lwtunnel_encap_ops bpf_encap_ops = {
++	.build_state	= bpf_build_state,
++	.destroy_state	= bpf_destroy_state,
++	.input		= bpf_input,
++	.output		= bpf_output,
++	.xmit		= bpf_xmit,
++	.fill_encap	= bpf_fill_encap_info,
++	.get_encap_size = bpf_encap_nlsize,
++	.cmp_encap	= bpf_encap_cmp,
++};
++
++static int __init bpf_lwt_init(void)
++{
++	return lwtunnel_encap_add_ops(&bpf_encap_ops, LWTUNNEL_ENCAP_BPF);
 +}
 +
-+function test_push_ll_and_redirect {
-+	test_start "test_push_ll_and_redirect on lwt xmit"
-+	install_test xmit push_ll_and_redirect
-+	ping -c 3 $IPVETH1 || {
-+		failure "Redirected packets appear to be dropped"
-+	}
-+	match_trace "$(get_trace)" "
-+redirected to $DST_IFINDEX
-+redirected to $DST_IFINDEX
-+redirected to $DST_IFINDEX" || exit 1
-+	remove_prog xmit
-+}
-+
-+function test_no_l2_and_redirect {
-+	test_start "test_no_l2_and_redirect on lwt xmit"
-+	install_test xmit fill_garbage_and_redirect
-+	ping -c 3 $IPVETH1 && {
-+		failure "Unexpected success despite lack of L2 header"
-+	}
-+	match_trace "$(get_trace)" "
-+redirected to $DST_IFINDEX
-+redirected to $DST_IFINDEX
-+redirected to $DST_IFINDEX" || exit 1
-+	remove_prog xmit
-+}
-+
-+function test_rewrite {
-+	test_start "test_rewrite on lwt xmit"
-+	install_test xmit test_rewrite
-+	ping -c 3 $IPVETH1 || {
-+		failure "Rewritten packets appear to be dropped"
-+	}
-+	match_trace "$(get_trace)" "
-+out: rewriting from 2fea8c0 to 3fea8c0
-+out: rewriting from 2fea8c0 to 3fea8c0
-+out: rewriting from 2fea8c0 to 3fea8c0" || exit 1
-+	remove_prog out
-+}
-+
-+function test_fill_garbage {
-+	test_start "test_fill_garbage on lwt xmit"
-+	install_test xmit fill_garbage
-+	ping -c 3 $IPVETH1 && {
-+		failure "test_drop_all ${1}: Unexpected success of ping"
-+	}
-+	match_trace "$(get_trace)" "
-+Set initial 96 bytes of header to FF
-+Set initial 96 bytes of header to FF
-+Set initial 96 bytes of header to FF" || exit 1
-+	remove_prog xmit
-+}
-+
-+function test_netperf_nop {
-+	test_start "test_netperf_nop on lwt xmit"
-+	install_test xmit nop
-+	netperf -H $IPVETH1 -t TCP_STREAM || {
-+		failure "packets appear to be dropped"
-+	}
-+	match_trace "$(get_trace)" ""|| exit 1
-+	remove_prog xmit
-+}
-+
-+function test_netperf_redirect {
-+	test_start "test_netperf_redirect on lwt xmit"
-+	install_test xmit push_ll_and_redirect_silent
-+	netperf -H $IPVETH1 -t TCP_STREAM || {
-+		failure "Rewritten packets appear to be dropped"
-+	}
-+	match_trace "$(get_trace)" ""|| exit 1
-+	remove_prog xmit
-+}
-+
-+cleanup
-+setup_one_veth $NS1 $VETH0 $VETH1 $IPVETH0 $IPVETH1 $IPVETH1b
-+setup_one_veth $NS2 $VETH2 $VETH3 $IPVETH2 $IPVETH3
-+ip netns exec $NS1 netserver
-+echo 1 > ${TRACE_ROOT}/tracing_on
-+
-+DST_MAC=$(lookup_mac $VETH1 $NS1)
-+SRC_MAC=$(lookup_mac $VETH0)
-+DST_IFINDEX=$(cat /sys/class/net/$VETH0/ifindex)
-+
-+CLANG_OPTS="-O2 -target bpf -I ../include/"
-+CLANG_OPTS+=" -DSRC_MAC=$SRC_MAC -DDST_MAC=$DST_MAC -DDST_IFINDEX=$DST_IFINDEX"
-+clang $CLANG_OPTS -c test_lwt_bpf.c -o test_lwt_bpf.o
-+
-+test_ctx_xmit
-+test_ctx_out
-+test_ctx_in
-+test_data "xmit"
-+test_data "out"
-+test_data_in
-+test_cb "xmit"
-+test_cb "out"
-+test_cb_in
-+test_drop_all "xmit"
-+test_drop_all "out"
-+test_drop_all_in
-+test_rewrite
-+test_push_ll_and_redirect
-+test_no_l2_and_redirect
-+test_fill_garbage
-+test_netperf_nop
-+test_netperf_redirect
-+
-+cleanup
-+echo 0 > ${TRACE_ROOT}/tracing_on
-+exit 0
++subsys_initcall(bpf_lwt_init)
+diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+index 03976e9..a5d4e86 100644
+--- a/net/core/lwtunnel.c
++++ b/net/core/lwtunnel.c
+@@ -41,6 +41,8 @@ static const char *lwtunnel_encap_str(enum lwtunnel_encap_types encap_type)
+ 		return "ILA";
+ 	case LWTUNNEL_ENCAP_SEG6:
+ 		return "SEG6";
++	case LWTUNNEL_ENCAP_BPF:
++		return "BPF";
+ 	case LWTUNNEL_ENCAP_IP6:
+ 	case LWTUNNEL_ENCAP_IP:
+ 	case LWTUNNEL_ENCAP_NONE:
 -- 
 2.7.4
