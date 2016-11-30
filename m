@@ -1,83 +1,106 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 0/6] XDP for virtio_net
-Date: Wed, 30 Nov 2016 10:41:04 -0800
-Message-ID: <583F1D40.7060408@gmail.com>
-References: <20161129200450.26752.86882.stgit@john-Precision-Tower-5810>
- <20161130203450-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        davem@davemloft.net, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:32906 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758704AbcK3SlW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 13:41:22 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 3so2051385pgd.0
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 10:41:21 -0800 (PST)
-In-Reply-To: <20161130203450-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: [PATCH net] cdc_ether: Fix handling connection notification
+Date: Wed, 30 Nov 2016 19:42:16 +0100
+Message-ID: <20161130184216.4224-1-kristian.evensen@gmail.com>
+Cc: Kristian Evensen <kristian.evensen@gmail.com>
+To: oliver@neukum.org, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        henning.schild@siemens.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-11-30 10:35 AM, Michael S. Tsirkin wrote:
-> On Tue, Nov 29, 2016 at 12:05:20PM -0800, John Fastabend wrote:
->> This implements virtio_net for the mergeable buffers and big_packet
->> modes. I tested this with vhost_net running on qemu and did not see
->> any issues. For testing num_buf > 1 I added a hack to vhost driver
->> to only but 100 bytes per buffer.
->>
->> There are some restrictions for XDP to be enabled and work well
->> (see patch 3) for more details.
->>
->>   1. LRO must be off
->>   2. MTU must be less than PAGE_SIZE
->>   3. queues must be available to dedicate to XDP
->>   4. num_bufs received in mergeable buffers must be 1
->>   5. big_packet mode must have all data on single page
->>
->> Please review any comments/feedback welcome as always.
->>
->> v2, fixes rcu usage throughout thanks to Eric and the use of
->> num_online_cpus() usage thanks to Jakub.
->>
->> v3, add slowpath patch to handle num_bufs > 1
->>
->> Thanks,
->> John
-> 
-> BTW this is threaded incorrectly: patch 1/6 isn't a reply to 0/6,
-> patches 2 and on are replies to patch 1.
-> 
+Commit bfe9b9d2df66 ("cdc_ether: Improve ZTE MF823/831/910 handling")
+introduced a work-around in usbnet_cdc_status() for devices that exported
+cdc carrier on twice on connect. Before the commit, this behavior caused
+the link state to be incorrect. It was assumed that all CDC Ethernet
+devices would either export this behavior, or send one off and then one on
+notification (which seems to be the default behavior).
 
-Ah yep, if you mangle the command line git will send the
-cover letter even if you have mangled 'to' email addresses but when
-it hits a real patch it aborts. At least on my version of git.
+Unfortunately, it turns out multiple devices sends a connection
+notification multiple times per second (via an interrupt), even when
+connection state does not change. This has been observed with several
+different USB LAN dongles (at least), for example 13b1:0041 (Linksys).
+After bfe9b9d2df66, the link state has been set as down and then up for
+each notification. This has caused a flood of Netlink NEWLINK messages and
+syslog to be flooded with messages similar to:
 
-> I'm busy until end of week, I'll review Monday. Sorry about the delay.
+cdc_ether 2-1:2.0 eth1: kevent 12 may have been dropped
 
-In the meantime I'll post a v4 with better commit message (Alexei) and
-address a corner cases Jakub pointed out.
+This commit fixes the behavior by reverting usbnet_cdc_status() to how it
+was before bfe9b9d2df66. The work-around has been moved to a separate
+status-function which is only called when a known, affect device is
+detected.
 
-> 
->> ---
->>
->> John Fastabend (6):
->>       net: virtio dynamically disable/enable LRO
->>       net: xdp: add invalid buffer warning
->>       virtio_net: Add XDP support
->>       virtio_net: add dedicated XDP transmit queues
->>       virtio_net: add XDP_TX support
->>       virtio_net: xdp, add slowpath case for non contiguous buffers
->>
->>
->>  drivers/net/virtio_net.c |  344 +++++++++++++++++++++++++++++++++++++++++++++-
->>  include/linux/filter.h   |    1 
->>  net/core/filter.c        |    6 +
->>  3 files changed, 346 insertions(+), 5 deletions(-)
->>
->> --
->> Signature
+Fixes: bfe9b9d2df66 ("cdc_ether: Improve ZTE MF823/831/910 handling")
+Reported-by: Henning Schild <henning.schild@siemens.com>
+Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+---
+ drivers/net/usb/cdc_ether.c | 38 +++++++++++++++++++++++++++++++-------
+ 1 file changed, 31 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 45e5e43..8c628ea 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -388,12 +388,6 @@ void usbnet_cdc_status(struct usbnet *dev, struct urb *urb)
+ 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
+ 		netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
+ 			  event->wValue ? "on" : "off");
+-
+-		/* Work-around for devices with broken off-notifications */
+-		if (event->wValue &&
+-		    !test_bit(__LINK_STATE_NOCARRIER, &dev->net->state))
+-			usbnet_link_change(dev, 0, 0);
+-
+ 		usbnet_link_change(dev, !!event->wValue, 0);
+ 		break;
+ 	case USB_CDC_NOTIFY_SPEED_CHANGE:	/* tx/rx rates */
+@@ -466,6 +460,36 @@ static int usbnet_cdc_zte_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 	return 1;
+ }
+ 
++/* Ensure correct link state
++ *
++ * Some devices (ZTE MF823/831/910) export two carrier on notifications when
++ * connected. This causes the link state to be incorrect. Work around this by
++ * always setting the state to off, then on.
++ */
++void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
++{
++	struct usb_cdc_notification *event;
++
++	if (urb->actual_length < sizeof(*event))
++		return;
++
++	event = urb->transfer_buffer;
++
++	if (event->bNotificationType != USB_CDC_NOTIFY_NETWORK_CONNECTION) {
++		usbnet_cdc_status(dev, urb);
++		return;
++	}
++
++	netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
++		  event->wValue ? "on" : "off");
++
++	if (event->wValue &&
++	    !test_bit(__LINK_STATE_NOCARRIER, &dev->net->state))
++		usbnet_link_change(dev, 0, 0);
++
++	usbnet_link_change(dev, !!event->wValue, 0);
++}
++
+ static const struct driver_info	cdc_info = {
+ 	.description =	"CDC Ethernet Device",
+ 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
+@@ -481,7 +505,7 @@ static const struct driver_info	zte_cdc_info = {
+ 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
+ 	.bind =		usbnet_cdc_zte_bind,
+ 	.unbind =	usbnet_cdc_unbind,
+-	.status =	usbnet_cdc_status,
++	.status =	usbnet_cdc_zte_status,
+ 	.set_rx_mode =	usbnet_cdc_update_filter,
+ 	.manage_power =	usbnet_manage_power,
+ 	.rx_fixup = usbnet_cdc_zte_rx_fixup,
+-- 
+2.9.3
