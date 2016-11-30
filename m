@@ -1,7 +1,8 @@
 From: "ASIX_Allan [Office]" <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Subject: [PATCH] net: asix: Fix AX88772_suspend() USB vendor commands failure issues
-Date: Wed, 30 Nov 2016 16:29:08 +0800
-Message-ID: <00d701d24ae3$d4f4f2a0$7eded7e0$@asix.com.tw>
+Subject: RE: [PATCH v4 3/5] net: asix: Fix AX88772x resume failures
+Date: Wed, 30 Nov 2016 16:28:25 +0800
+Message-ID: <00d601d24ae3$bc68c4a0$353a4de0$@asix.com.tw>
+References: <00a601d24ab6$4e9274d0$ebb75e70$@asix.com.tw> <b24b2fa4-88d8-5772-b79c-aa2cadd7aa1e@nvidia.com>
 Reply-To: <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -17,37 +18,55 @@ To: "'Jon Hunter'" <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, <freddy-
         <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
         <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b24b2fa4-88d8-5772-b79c-aa2cadd7aa1e-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
 Content-Language: zh-tw
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Dear Jon,
 
-The change fixes AX88772_suspend() USB vendor commands failure issues.
-
-Signed-off-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Tested-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Tested-by: Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+Thanks a lot for your reminding. I will submit a new driver patch soon.
 
 ---
---- a/drivers/net/usb/asix_devices.c	2016-11-28 05:08:04.000000000 +0800
-+++ b/drivers/net/usb/asix_devices.c	2016-11-30 09:31:54.000000000 +0800
-@@ -603,12 +603,12 @@ static void ax88772_suspend(struct usbne
- 	u16 medium;
- 
- 	/* Stop MAC operation */
--	medium = asix_read_medium_status(dev, 0);
-+	medium = asix_read_medium_status(dev, 1);
- 	medium &= ~AX_MEDIUM_RE;
--	asix_write_medium_mode(dev, medium, 0);
-+	asix_write_medium_mode(dev, medium, 1);
- 
- 	netdev_dbg(dev->net, "ax88772_suspend: medium=0x%04x\n",
--		   asix_read_medium_status(dev, 0));
-+		   asix_read_medium_status(dev, 1));
- 
- 	/* Preserve BMCR for restoring */
- 	priv->presvd_phy_bmcr =
+Best regards,
+Allan Chou
 
+
+-----Original Message-----
+From: Jon Hunter [mailto:jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org] 
+Sent: Wednesday, November 30, 2016 4:08 PM
+To: allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org; freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org; Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org;
+Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org;
+ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org; john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org;
+stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org; grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org; changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org;
+andrew-g2DYL2Zd6BY@public.gmane.org; tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org;
+linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
+Subject: Re: [PATCH v4 3/5] net: asix: Fix AX88772x resume failures
+
+Hi Allan,
+
+On 30/11/16 03:03, ASIX_Allan [Office] wrote:
+> The change fixes AX88772x resume failure by
+> - Restore incorrect AX88772A PHY registers when resetting
+> - Need to stop MAC operation when suspending
+> - Need to restart MII when restoring PHY
+> 
+> Signed-off-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+> Signed-off-by: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+> Tested-by: Robert Foss <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+> Tested-by: Jon Hunter <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+> Tested-by: Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+
+V3 of this patch is already in the current mainline branch. So you need to
+send a patch on top of V3 (or v4.9-rc7) to get this fixed. Also you should
+highlight the fact that this is a fix needed for v4.9.
+
+Cheers
+Jon
+
+--
+nvpublic
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
