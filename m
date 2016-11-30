@@ -1,163 +1,84 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>
-Subject: Re: DSA vs. SWTICHDEV ?
-Date: Wed, 30 Nov 2016 18:44:04 +0000
-Message-ID: <1480531441.3563.148.camel@infinera.com>
-References: <1480495831.3563.135.camel@infinera.com>
-         <20161130135257.GC18716@lunn.ch> <1480516241.3563.142.camel@infinera.com>
-         <20161130152503.GE21645@lunn.ch> <1480523716.3563.144.camel@infinera.com>
-         <20161130165500.GH21645@lunn.ch> <1480527852.3563.146.camel@infinera.com>
-         <922521a8-3a33-bbc4-2e07-2b946590c829@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "andrew@lunn.ch" <andrew@lunn.ch>
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Subject: [PATCH net-next] sock: reset sk_err for ICMP packets read from error queue
+Date: Wed, 30 Nov 2016 14:01:08 -0500
+Message-ID: <1480532468-1610-1-git-send-email-soheil.kdev@gmail.com>
+Cc: edumazet@google.com, willemb@google.com, maze@google.com,
+        hannes@stressinduktion.org,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0059.outbound.protection.outlook.com ([104.47.38.59]:59968
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755756AbcK3S7R (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 13:59:17 -0500
-In-Reply-To: <922521a8-3a33-bbc4-2e07-2b946590c829@gmail.com>
-Content-Language: en-US
-Content-ID: <119449F3B21A804B8F00FE385066BBAF@infinera.com>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35577 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755486AbcK3TBR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:01:17 -0500
+Received: by mail-qt0-f193.google.com with SMTP id m48so20730155qta.2
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 11:01:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-30 at 10:10 -0800, Florian Fainelli wrote:
-> On 11/30/2016 09:44 AM, Joakim Tjernlund wrote:
-> > On Wed, 2016-11-30 at 17:55 +0100, Andrew Lunn wrote:
-> > > > This is an embedded system with several boards in a subrack.
-> > > > Each board has eth I/F connected to a switch to communicate with ea=
-ch other.
-> > > > One of the board will also house the actual switch device and manag=
-e the switch.
-> > > > Then the normal app just communicates over the physical eth I/F lik=
-e any other board
-> > > > in the system. There is a "manage switch app" which brings the swit=
-ch up and partition
-> > > > phys VLANs etc. (each phys I/F would be a a separate domain so no l=
-oop)
-> > >=20
-> > > So you are planning on throwing away the "manage switch app", and jus=
-t
-> > > use standard linux networking commands? That is what switchdev is all
-> > > about really, throwing away the vendor SDK for the switch, making a
-> > > switch just a bunch on interfaces on the host which you manage as
-> > > normal interfaces.
-> >=20
-> > Something like that. I need to run routing protocols on the switch I/Fs=
- and egress
-> > pkgs on selected switch I/Fs bypassing ARP, just like DSA does with its=
- vendor
-> > tags.
-> >=20
-> > >=20
-> > > > I guess I could skip the phys I/F and have the switch app create a =
-virtual eth0 I/F over PCIe
-> > >=20
-> > > No need to create this interface. It will exist if you go the
-> > > switchdev route.
-> > >=20
-> > > > > > And switchdev can do all this over PCIe instead? Can you have a
-> > > > > > switch tree in switchdev too?
-> > > > >=20
-> > > > > Mellonex says so, but i don't think they have actually implemente=
-d it.
-> > > >=20
-> > > > Not impl. any of DSAs features? What can you do with a Mellonex swi=
-tch then?
-> > >=20
-> > > They don't have a tree of switches, as far as i know. Just a single
-> > > switch. But DSA does support a tree of switches, that is what the D i=
-n
-> > > DSA means, distributed. And there are a couple of boards which have 2
-> > > to 4 switches in a tree.
-> >=20
-> > We might have a tree as well so now I really wonder: Given we write a
-> > proper switchdev driver, can it support switchtrees without touching
-> > switchdev infra structure? If not I guess we will attach a physical
-> > eth I/F to the switch and use both DSA and switchdev to support both tr=
-ees
-> > and HW offload.=A0
->=20
-> switchdev in itself really is the glue layer between the networking
-> stack and how to push specific objects down to the Ethernet switch
-> driver, and that Ethernet switch driver. Switchdev does not enforce a
-> specific network device driver model object, and just provides standard
-> hooks for your network devices to register with switchdev in order to
-> push/receive offloads. DSA on the other hand, utilizes switchdev to get
-> notifications about offloads from the networking stack, but also exposes
-> a clearly and well defined Ethernet switch device driver model, as
-> Andrew described, it creates per-port network devices, binds the ports
-> to their PHYs (built-in, or external), and also takes care of
-> encapsulating/decapsulating the switch specific tagging protocol.
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-Lets see, switchdev is mainly for offloading L2/L3 into HW and does NOT cre=
-ate
-virtual I/F(one for each phys sw port) so if my only goal is to offload I d=
-on't
-need DSA? (How do one create routes if no virtual I/Fs I wonder ..)=20
+Only when ICMP packets are enqueued onto the error queue,
+sk_err is also set. Before f5f99309fa74 (sock: do not set sk_err
+in sock_dequeue_err_skb), a subsequent error queue read
+would set sk_err to the next error on the queue, or 0 if empty.
+As no error types other than ICMP set this field, sk_err should
+not be modified upon dequeuing them.
 
-DSA then does create virt. I/Fs and manages switch trees, to actually tx pk=
-g it needs
-a phys I/F using vendor specific tags(for PCIe connected switches I can env=
-ision using
-the PCIe connection instead).
+Only for ICMP errors, reset the (racy) sk_err. Some applications,
+like traceroute, rely on it and go into a futile busy POLLERR
+loop otherwise.
 
-Who is the master when using both DSA and switchdev w.r.t initil conf/bring=
- up of switch?
-configuring VLANs?
+In principle, sk_err has to be set while an ICMP error is queued.
+Testing is_icmp_err_skb(skb_next) approximates this without
+requiring a full queue walk. Applications that receive both ICMP
+and other errors cannot rely on this legacy behavior, as other
+errors do not set sk_err in the first place.
 
->=20
-> We should probably put that in some crystal clear sentence somewhere in
-> Documentation/networking/ but switchdev and DSA are complementary and
-> not competitors, they just do not tackle the problems from the same angle=
-.
+Fixes: f5f99309fa74 (sock: do not set sk_err in sock_dequeue_err_skb)
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/core/skbuff.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-Yes :)
-
->=20
-> >=20
-> > >=20
-> > > I think this is partially down to market segments. Mellonex market is
-> > > top of rack switches. High port count, very high bandwidth. DSA is
-> > > more wireless access points, set top boxes, generally up to 7 ports o=
-f
-> > > 1Gbps and a few custom embedded products which need more ports, so
-> > > build a tree of switches.
-> >=20
-> > We have on an existing board with a BCM ROBO switch with lots of ports(=
->24),
-> > managed over SPI. Looking at BCM DSA tag code it looks like it only sup=
-ports
-> > some 8 ports or so. I still have to find out if this is a limitation in=
- BCM tagging
-> > protocol or if just not impl. in DSA yet.
->=20
-> Oh cool, can you share the model by chance? I suspect the tagging format
-
-I think it is an BCM5322
-
-> of that switch is going to be different than what net/dsa/tag_brcm.c, so
-> feel free to add something NET_DSA_TAG_BRCM8B (for 8 bytes) or something
-> like that.
-
-I will have to look at that, don't have an docs handy.
-
->=20
-> Note that DSA currently hardcodes the maximum number of ports to 14
-> (DSA_MAX_PORTS), but this should obviously be something dynamically
-> determined based on probing the switch device.
->=20
-> Can you also evaluate if using drivers/net/dsa/b53/ would work for you?
-> My hope would be that they preserved the register compatibility here,
-> but since this has a large number of ports, it may have completely
-> offset most registers.
-
-I will have a look, I sure want to try out DSA/switchdev on existing boards=
- if I can :)
-
->=20
-> BTW, there is #linuxswitch on Freenode if you want to chat!
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d1d1a5a..8dad391 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3714,20 +3714,29 @@ int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(sock_queue_err_skb);
+ 
++static bool is_icmp_err_skb(const struct sk_buff *skb)
++{
++	return skb && (SKB_EXT_ERR(skb)->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
++		       SKB_EXT_ERR(skb)->ee.ee_origin == SO_EE_ORIGIN_ICMP6);
++}
++
+ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
+ {
+ 	struct sk_buff_head *q = &sk->sk_error_queue;
+-	struct sk_buff *skb, *skb_next;
++	struct sk_buff *skb, *skb_next = NULL;
++	bool icmp_next = false;
+ 	unsigned long flags;
+-	int err = 0;
+ 
+ 	spin_lock_irqsave(&q->lock, flags);
+ 	skb = __skb_dequeue(q);
+ 	if (skb && (skb_next = skb_peek(q)))
+-		err = SKB_EXT_ERR(skb_next)->ee.ee_errno;
++		icmp_next = is_icmp_err_skb(skb_next);
+ 	spin_unlock_irqrestore(&q->lock, flags);
+ 
+-	if (err)
++        if (is_icmp_err_skb(skb) && !icmp_next)
++		sk->sk_err = 0;
++
++	if (skb_next)
+ 		sk->sk_error_report(sk);
+ 
+ 	return skb;
+-- 
+2.8.0.rc3.226.g39d4020
