@@ -1,47 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 00/16] net: fix fixed-link phydev leaks
-Date: Tue, 29 Nov 2016 23:17:21 -0500 (EST)
-Message-ID: <20161129.231721.971587311467577164.davem@davemloft.net>
-References: <1480357509-28074-1-git-send-email-johan@kernel.org>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Tue, 29 Nov 2016 23:52:07 -0500
+Message-ID: <20161130045207.GE26673@madcap2.tricolour.ca>
+References: <20161129164859.GD26673@madcap2.tricolour.ca>
+ <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vbridger@opensource.altera.com, f.fainelli@gmail.com,
-        fugang.duan@nxp.com, pantelis.antoniou@gmail.com,
-        vbordug@ru.mvista.com, claudiu.manoil@freescale.com,
-        leoli@freescale.com, thomas.petazzoni@free-electrons.com,
-        nbd@openwrt.org, blogic@openwrt.org, matthias.bgg@gmail.com,
-        sergei.shtylyov@cogentembedded.com, lars.persson@axis.com,
-        mugunthanvnm@ti.com, grygorii.strashko@ti.com, robh+dt@kernel.org,
-        frowand.list@gmail.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        nios2-dev@lists.rocketboards.org, linux-kernel@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org, linux-mediatek@lists.infradead.org,
-        linux-renesas-soc@vger.kernel.org, linux-omap@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: johan@kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1480357509-28074-1-git-send-email-johan@kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60134 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752344AbcK3EwM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Nov 2016 23:52:12 -0500
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hovold <johan@kernel.org>
-Date: Mon, 28 Nov 2016 19:24:53 +0100
+On 2016-11-29 15:13, Cong Wang wrote:
+> On Tue, Nov 29, 2016 at 8:48 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > On 2016-11-26 17:11, Cong Wang wrote:
+> >> It is racy on audit_sock, especially on the netns exit path.
+> >
+> > I think that is the only place it is racy.  The other places audit_sock
+> > is set is when the socket failure has just triggered a reset.
+> >
+> > Is there a notifier callback for failed or reaped sockets?
+> 
+> Is NETLINK_URELEASE event what you are looking for?
 
-> This series fixes failures to deregister and free fixed-link phydevs
-> that have been registered using the of_phy_register_fixed_link()
-> interface.
-> 
-> All but two drivers currently fail to do this and this series fixes most
-> of them with the exception of a staging driver and the stmmac drivers
-> which will be fixed by follow-on patches.
-> 
-> Included are also a couple of fixes for related of-node leaks.
-> 
-> Note that all patches except the of_mdio one have been compile-tested
-> only.
-> 
-> Also note that the series is against net due to dependencies not yet in
-> net-next.
+Possibly, yes.  Thanks, I'll have a look.
 
-Series applied, thanks Johan.
+- RGB
