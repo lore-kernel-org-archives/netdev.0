@@ -1,44 +1,54 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/4] bindings: net: stmmac: correct note about TSO
-Date: Wed, 30 Nov 2016 14:41:07 -0600
-Message-ID: <20161130204107.5w636jlptwrovntd@rob-hp-laptop>
-References: <1479911066-19752-1-git-send-email-niklass@axis.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: Regression: [PATCH] mlx4: give precise rx/tx bytes/packets counters
+Date: Wed, 30 Nov 2016 22:42:35 +0200
+Message-ID: <CALzJLG_aT1O1ergGRu8Z0u4nszKYao5RbPfb=1USptwFY1d7PQ@mail.gmail.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161130150839.5203ece0@redhat.com> <1480521514.18162.191.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com> <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Phil Reid <preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org>,
-        Niklas Cassel <niklass-VrBV9hrLPhE@public.gmane.org>,
-        Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1479911066-19752-1-git-send-email-niklass-VrBV9hrLPhE@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:32835 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754091AbcK3Um5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 15:42:57 -0500
+Received: by mail-lf0-f44.google.com with SMTP id c13so155818313lfg.0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 12:42:57 -0800 (PST)
+In-Reply-To: <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 23, 2016 at 03:24:25PM +0100, Niklas Cassel wrote:
-> From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
-> 
-> snps,tso was previously placed under AXI BUS Mode parameters,
-> suggesting that the property should be in the stmmac-axi-config node.
-> 
-> TSO (TCP Segmentation Offloading) has nothing to do with AXI BUS Mode
-> parameters, and the parser actually expects it to be in the root node,
-> not in the stmmac-axi-config.
-> 
-> Also added a note about snps,tso only being available on GMAC4 and newer.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+On Wed, Nov 30, 2016 at 7:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2016-11-30 at 18:46 +0200, Saeed Mahameed wrote:
+>
+>> we had/still have the proper stats they are the ones that
+>> mlx4_en_fold_software_stats is trying to cache into  (they always
+>> exist),
+>> but the ones that you are trying to read from (the mlx4 rings) are gone !
+>>
+>> This bug is totally new and as i warned, this is another symptom of
+>> the real root cause (can't sleep while reading stats).
+>>
+>> Eric what do you suggest ? Keep pre-allocated MAX_RINGS stats  and
+>> always iterate over all of them to query stats ?
+>> what if you have one ring/none/1K ? how would you know how many to query ?
+>
+> I am suggesting I will fix the bug I introduced.
+>
+> Do not panic.
+>
+>
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Not at all, I trust you are the only one who is capable of providing
+the best solution.
+I am just trying to read your mind :-).
+
+As i said i like the solution and i want to adapt it to mlx5, so I am
+a little bit enthusiastic :)
+
+Thanks.
