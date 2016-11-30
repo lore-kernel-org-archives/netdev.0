@@ -1,47 +1,61 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] vhost_net: don't continue to call the recvmsg when
- meet errors
-Date: Wed, 30 Nov 2016 21:07:16 +0800
-Message-ID: <e4ac063d-db9f-ec93-30cd-163375ececfc@redhat.com>
-References: <1480507857-22976-1-git-send-email-wangyunjian@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH net-next] ipv6: implement consistent hashing for
+ equal-cost multipath routing
+Date: Wed, 30 Nov 2016 14:12:48 +0100
+Message-ID: <1480511568.3649771.803688521.5B47BE8F@webmail.messagingengine.com>
+References: <1480017556-25988-1-git-send-email-david.lebrun@uclouvain.be>
+ <20161128.112248.2198395724649783009.davem@davemloft.net>
+ <583C9093.7060404@uclouvain.be>
+ <20161128.153209.2135257061368558724.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: caihe@huawei.com
-To: Yunjian Wang <wangyunjian@huawei.com>, mst@redhat.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480507857-22976-1-git-send-email-wangyunjian@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, david.lebrun@uclouvain.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:32911 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756170AbcK3NMt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 08:12:49 -0500
+In-Reply-To: <20161128.153209.2135257061368558724.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Nov 28, 2016, at 21:32, David Miller wrote:
+> From: David Lebrun <david.lebrun@uclouvain.be>
+> Date: Mon, 28 Nov 2016 21:16:19 +0100
+> 
+> > The advantage of my solution over RFC2992 is lowest possible disruption
+> > and equal rebalancing of affected flows. The disadvantage is the lookup
+> > complexity of O(log n) vs O(1). Although from a theoretical viewpoint
+> > O(1) is obviously better, would O(log n) have an effectively measurable
+> > negative impact on scalability ? If we consider 32 next-hops for a route
+> > and 100 pseudo-random numbers generated per next-hop, the lookup
+> > algorithm would have to perform in the worst case log2 3200 = 11
+> > comparisons to select a next-hop for that route.
+> 
+> When I was working on the routing cache removal in ipv4 I compared
+> using a stupid O(1) hash lookup of the FIB entries vs. the O(log n)
+> fib_trie stuff actually in use.
+> 
+> It did make a difference.
+> 
+> This is a lookup that can be invoked 20 million times per second or
+> more.
+> 
+> Every cycle matters.
+> 
+> We already have a lot of trouble getting under the cycle budget one
+> has for routing at wire speed for very high link rates, please don't
+> make it worse.
 
+David, one question: do you remember if you measured with linked lists
+at that time or also with arrays. I actually would expect small arrays
+that entirely fit into cachelines to be actually faster than our current
+approach, which also walks a linked list, probably the best algorithm to
+trash cache lines. I ask because I currently prefer this approach more
+than having large allocations in the O(1) case because of easier code
+and easier management.
 
-On 2016年11月30日 20:10, Yunjian Wang wrote:
-> When we meet an error(err=-EBADFD) recvmsg, the error handling in vhost
-> handle_rx() will continue. This will cause a soft CPU lockup in vhost thread.
->
-> Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
-> ---
->   drivers/vhost/net.c | 3 +++
->   1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 5dc128a..edc470b 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -717,6 +717,9 @@ static void handle_rx(struct vhost_net *net)
->   			pr_debug("Discarded rx packet: "
->   				 " len %d, expected %zd\n", err, sock_len);
->   			vhost_discard_vq_desc(vq, headcount);
-> +			/* Don't continue to do, when meet errors. */
-> +			if (err < 0)
-> +				goto out;
->   			continue;
->   		}
->   		/* Supply virtio_net_hdr if VHOST_NET_F_VIRTIO_NET_HDR */
-
-Acked-by: Jason Wang <jasowang@redhat.com>
-
-We may want to rename vhost_discard_vq_desc() in the future, since it 
-does not discard the desc in fact.
+Thanks,
+Hannes
