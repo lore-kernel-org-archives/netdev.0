@@ -1,7 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH iproute2 V3 1/3] libnetlink: Introduce rta_getattr_be*()
-Date: Wed, 30 Nov 2016 09:38:38 +0200
-Message-ID: <20161130073840.5269-2-amir@vadai.me>
+Subject: [PATCH iproute2 V3 2/3] tc/cls_flower: Classify packet in ip tunnels
+Date: Wed, 30 Nov 2016 09:38:39 +0200
+Message-ID: <20161130073840.5269-3-amir@vadai.me>
 References: <20161130073840.5269-1-amir@vadai.me>
 Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Or Gerlitz <ogerlitz@mellanox.com>,
@@ -10,100 +10,212 @@ Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Amir Vadai <amir@vadai.me>
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:36614 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755401AbcK3HnJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 02:43:09 -0500
-Received: by mail-wj0-f196.google.com with SMTP id jb2so21015101wjb.3
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 23:43:09 -0800 (PST)
+Received: from mail-wj0-f194.google.com ([209.85.210.194]:36625 "EHLO
+        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752078AbcK3HnM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 02:43:12 -0500
+Received: by mail-wj0-f194.google.com with SMTP id jb2so21015203wjb.3
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 23:43:11 -0800 (PST)
 In-Reply-To: <20161130073840.5269-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the utility functions rta_getattr_be16() and rta_getattr_be32(), and
-change existing code to use it.
+Introduce classifying by metadata extracted by the tunnel device.
+Outer header fields - source/dest ip and tunnel id, are extracted from
+the metadata when classifying.
+
+For example, the following will add a filter on the ingress Qdisc of shared
+vxlan device named 'vxlan0'. To forward packets with outer src ip
+11.11.0.2, dst ip 11.11.0.1 and tunnel id 11. The packets will be
+forwarded to tap device 'vnet0':
+
+$ tc filter add dev vxlan0 protocol ip parent ffff: \
+    flower \
+      enc_src_ip 11.11.0.2 \
+      enc_dst_ip 11.11.0.1 \
+      enc_key_id 11 \
+      dst_ip 11.11.11.1 \
+    action mirred egress redirect dev vnet0
 
 Signed-off-by: Amir Vadai <amir@vadai.me>
 ---
- bridge/fdb.c         | 4 ++--
- include/libnetlink.h | 9 +++++++++
- ip/iplink_geneve.c   | 2 +-
- ip/iplink_vxlan.c    | 2 +-
- 4 files changed, 13 insertions(+), 4 deletions(-)
+ man/man8/tc-flower.8 | 17 ++++++++++-
+ tc/f_flower.c        | 84 +++++++++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 96 insertions(+), 5 deletions(-)
 
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index 90f4b154c5dc..a91521776e99 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -168,10 +168,10 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	if (tb[NDA_PORT]) {
- 		if (jw_global)
- 			jsonw_uint_field(jw_global, "port",
--					 ntohs(rta_getattr_u16(tb[NDA_PORT])));
-+					 rta_getattr_be16(tb[NDA_PORT]));
- 		else
- 			fprintf(fp, "port %d ",
--				ntohs(rta_getattr_u16(tb[NDA_PORT])));
-+				rta_getattr_be16(tb[NDA_PORT]));
+diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
+index 74f76647753b..0e0b0cf4bb72 100644
+--- a/man/man8/tc-flower.8
++++ b/man/man8/tc-flower.8
+@@ -36,7 +36,11 @@ flower \- flow based traffic control filter
+ .BR dst_ip " | " src_ip " } { "
+ .IR ipv4_address " | " ipv6_address " } | { "
+ .BR dst_port " | " src_port " } "
+-.IR port_number " }"
++.IR port_number " } | "
++.B enc_key_id
++.IR KEY-ID " | {"
++.BR enc_dst_ip " | " enc_src_ip " } { "
++.IR ipv4_address " | " ipv6_address " } | "
+ .SH DESCRIPTION
+ The
+ .B flower
+@@ -121,6 +125,17 @@ which has to be specified in beforehand.
+ Match on layer 4 protocol source or destination port number. Only available for
+ .BR ip_proto " values " udp " and " tcp ,
+ which has to be specified in beforehand.
++.TP
++.BI enc_key_id " NUMBER"
++.TQ
++.BI enc_dst_ip " ADDRESS"
++.TQ
++.BI enc_src_ip " ADDRESS"
++Match on IP tunnel metadata. Key id
++.I NUMBER
++is a 32 bit tunnel key id (e.g. VNI for VXLAN tunnel).
++.I ADDRESS
++must be a valid IPv4 or IPv6 address.
+ .SH NOTES
+ As stated above where applicable, matches of a certain layer implicitly depend
+ on the matches of the next lower layer. Precisely, layer one and two matches (
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index 2d31d1aa832d..173cfc20f90b 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -41,7 +41,10 @@ static void explain(void)
+ 	fprintf(stderr, "                       dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
+ 	fprintf(stderr, "                       src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
+ 	fprintf(stderr, "                       dst_port PORT-NUMBER |\n");
+-	fprintf(stderr, "                       src_port PORT-NUMBER }\n");
++	fprintf(stderr, "                       src_port PORT-NUMBER |\n");
++	fprintf(stderr, "                       enc_dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
++	fprintf(stderr, "                       enc_src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
++	fprintf(stderr, "                       enc_key_id [ KEY-ID ] }\n");
+ 	fprintf(stderr,	"       FILTERID := X:Y:Z\n");
+ 	fprintf(stderr,	"       ACTION-SPEC := ... look at individual actions\n");
+ 	fprintf(stderr,	"\n");
+@@ -121,8 +124,9 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
+ 		family = AF_INET;
+ 	} else if (eth_type == htons(ETH_P_IPV6)) {
+ 		family = AF_INET6;
++	} else if (!eth_type) {
++		family = AF_UNSPEC;
+ 	} else {
+-		fprintf(stderr, "Illegal \"eth_type\" for ip address\n");
+ 		return -1;
  	}
  
- 	if (tb[NDA_VNI]) {
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index 483509ca9635..751ebf186dd4 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -10,6 +10,7 @@
- #include <linux/if_addr.h>
- #include <linux/neighbour.h>
- #include <linux/netconf.h>
-+#include <arpa/inet.h>
+@@ -130,8 +134,10 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
+ 	if (ret)
+ 		return -1;
  
- struct rtnl_handle {
- 	int			fd;
-@@ -140,10 +141,18 @@ static inline __u16 rta_getattr_u16(const struct rtattr *rta)
- {
- 	return *(__u16 *)RTA_DATA(rta);
+-	if (addr.family != family)
++	if (family && (addr.family != family)) {
++		fprintf(stderr, "Illegal \"eth_type\" for ip address\n");
+ 		return -1;
++	}
+ 
+ 	addattr_l(n, MAX_MSG, addr.family == AF_INET ? addr4_type : addr6_type,
+ 		  addr.data, addr.bytelen);
+@@ -181,6 +187,18 @@ static int flower_parse_port(char *str, __u8 ip_port,
+ 	return 0;
  }
-+static inline __be16 rta_getattr_be16(const struct rtattr *rta)
+ 
++static int flower_parse_key_id(const char *str, int type, struct nlmsghdr *n)
 +{
-+	return ntohs(rta_getattr_u16(rta));
++	int ret;
++	__be32 key_id;
++
++	ret = get_be32(&key_id, str, 10);
++	if (!ret)
++		addattr32(n, MAX_MSG, type, key_id);
++
++	return ret;
 +}
- static inline __u32 rta_getattr_u32(const struct rtattr *rta)
++
+ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 			    int argc, char **argv, struct nlmsghdr *n)
  {
- 	return *(__u32 *)RTA_DATA(rta);
+@@ -339,6 +357,38 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 				fprintf(stderr, "Illegal \"src_port\"\n");
+ 				return -1;
+ 			}
++		} else if (matches(*argv, "enc_dst_ip") == 0) {
++			NEXT_ARG();
++			ret = flower_parse_ip_addr(*argv, 0,
++						   TCA_FLOWER_KEY_ENC_IPV4_DST,
++						   TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,
++						   TCA_FLOWER_KEY_ENC_IPV6_DST,
++						   TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,
++						   n);
++			if (ret < 0) {
++				fprintf(stderr, "Illegal \"enc_dst_ip\"\n");
++				return -1;
++			}
++		} else if (matches(*argv, "enc_src_ip") == 0) {
++			NEXT_ARG();
++			ret = flower_parse_ip_addr(*argv, 0,
++						   TCA_FLOWER_KEY_ENC_IPV4_SRC,
++						   TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,
++						   TCA_FLOWER_KEY_ENC_IPV6_SRC,
++						   TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK,
++						   n);
++			if (ret < 0) {
++				fprintf(stderr, "Illegal \"enc_src_ip\"\n");
++				return -1;
++			}
++		} else if (matches(*argv, "enc_key_id") == 0) {
++			NEXT_ARG();
++			ret = flower_parse_key_id(*argv,
++						  TCA_FLOWER_KEY_ENC_KEY_ID, n);
++			if (ret < 0) {
++				fprintf(stderr, "Illegal \"enc_key_id\"\n");
++				return -1;
++			}
+ 		} else if (matches(*argv, "action") == 0) {
+ 			NEXT_ARG();
+ 			ret = parse_action(&argc, &argv, TCA_FLOWER_ACT, n);
+@@ -506,7 +556,14 @@ static void flower_print_port(FILE *f, char *name, __u8 ip_proto,
+ 		return;
+ 	if (!attr)
+ 		return;
+-	fprintf(f, "\n  %s %d", name, ntohs(rta_getattr_u16(attr)));
++	fprintf(f, "\n  %s %d", name, rta_getattr_be16(attr));
++}
++
++static void flower_print_key_id(FILE *f, const char *name,
++				struct rtattr *attr)
++{
++	if (attr)
++		fprintf(f, "\n  %s %d", name, rta_getattr_be32(attr));
  }
-+static inline __be32 rta_getattr_be32(const struct rtattr *rta)
-+{
-+	return ntohl(rta_getattr_u32(rta));
-+}
- static inline __u64 rta_getattr_u64(const struct rtattr *rta)
- {
- 	__u64 tmp;
-diff --git a/ip/iplink_geneve.c b/ip/iplink_geneve.c
-index 3bfba91c644c..1e6669d07d60 100644
---- a/ip/iplink_geneve.c
-+++ b/ip/iplink_geneve.c
-@@ -234,7 +234,7 @@ static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
  
- 	if (tb[IFLA_GENEVE_PORT])
- 		fprintf(f, "dstport %u ",
--			ntohs(rta_getattr_u16(tb[IFLA_GENEVE_PORT])));
-+			rta_getattr_be16(tb[IFLA_GENEVE_PORT]));
+ static int flower_print_opt(struct filter_util *qu, FILE *f,
+@@ -577,6 +634,25 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
+ 			  tb[TCA_FLOWER_KEY_TCP_SRC],
+ 			  tb[TCA_FLOWER_KEY_UDP_SRC]);
  
- 	if (tb[IFLA_GENEVE_COLLECT_METADATA])
- 		fputs("external ", f);
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index 93af979a1e97..6d02bb47b2f0 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -413,7 +413,7 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
++	flower_print_ip_addr(f, "enc_dst_ip",
++			     tb[TCA_FLOWER_KEY_ENC_IPV4_DST_MASK] ?
++			     htons(ETH_P_IP) : htons(ETH_P_IPV6),
++			     tb[TCA_FLOWER_KEY_ENC_IPV4_DST],
++			     tb[TCA_FLOWER_KEY_ENC_IPV4_DST_MASK],
++			     tb[TCA_FLOWER_KEY_ENC_IPV6_DST],
++			     tb[TCA_FLOWER_KEY_ENC_IPV6_DST_MASK]);
++
++	flower_print_ip_addr(f, "enc_src_ip",
++			     tb[TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK] ?
++			     htons(ETH_P_IP) : htons(ETH_P_IPV6),
++			     tb[TCA_FLOWER_KEY_ENC_IPV4_SRC],
++			     tb[TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK],
++			     tb[TCA_FLOWER_KEY_ENC_IPV6_SRC],
++			     tb[TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK]);
++
++	flower_print_key_id(f, "enc_key_id",
++			    tb[TCA_FLOWER_KEY_ENC_KEY_ID]);
++
+ 	if (tb[TCA_FLOWER_FLAGS])  {
+ 		__u32 flags = rta_getattr_u32(tb[TCA_FLOWER_FLAGS]);
  
- 	if (tb[IFLA_VXLAN_PORT])
- 		fprintf(f, "dstport %u ",
--			ntohs(rta_getattr_u16(tb[IFLA_VXLAN_PORT])));
-+			rta_getattr_be16(tb[IFLA_VXLAN_PORT]));
- 
- 	if (tb[IFLA_VXLAN_LEARNING] &&
- 	    !rta_getattr_u8(tb[IFLA_VXLAN_LEARNING]))
 -- 
 2.10.2
