@@ -1,60 +1,154 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH] netfilter: avoid warn and OOM on vmalloc call
-Date: Wed, 30 Nov 2016 17:42:22 -0200
-Message-ID: <6fd343e83c26c5108d4b6c189e434a5a6e7ebd01.1480534469.git.marcelo.leitner@gmail.com>
-References: <20161130192145.GB13169@localhost.localdomain>
-Cc: fw@strlen.de, nhorman@tuxdriver.com, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andreyknvl@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161130192145.GB13169@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH v3 net-next 1/2] net: ethernet: slicoss: add slicoss
+ gigabit ethernet driver
+Date: Wed, 30 Nov 2016 20:48:32 +0100
+Message-ID: <02068116-067a-3df9-b0cd-3ad60bcad9ff@gmx.de>
+References: <1480162850-8014-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1480162850-8014-2-git-send-email-LinoSanfilippo@gmx.de>
+ <a6f99dc8-60e4-7727-0764-abdfac81c713@gmail.com>
+ <6b7de79d-b149-9888-2d0f-2acee5c2905e@gmx.de>
+ <34c8e4b3-ccbc-082e-1dd0-3893b56e475a@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
+ charrer@alacritech.com, liodot@gmail.com, gregkh@linuxfoundation.org,
+ andrew@lunn.ch
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <34c8e4b3-ccbc-082e-1dd0-3893b56e475a@gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Andrey,
+On 29.11.2016 18:14, Florian Fainelli wrote:
+> On 11/28/2016 01:41 PM, Lino Sanfilippo wrote:
+>> The problem is that the HW does not provide a tx completion index. Instead we have to 
+>> iterate the status descriptors until we get an invalid idx which indicates that there 
+>> are no further tx descriptors done for now. I am afraid that if we do not limit the 
+>> number of descriptors processed in the tx completion handler, a continuous transmission 
+>> of frames could keep the loop in xmit_complete() run endlessly. I dont know if this 
+>> can actually happen but I wanted to make sure that this is avoided.
+> 
+> OK, it might be a good idea to put that comment somewhere around the tx
+> completion handler to understand why it is bounded with a specific value.
+> 
 
-Please let me know how this works for you. It seems good here, though
-your poc may still trigger OOM through other means.
+Agreed, I will add such a comment.
 
-Thanks,
-Marcelo
+>> 
+>>> [snip]
+>>>
+>>>> +	while (slic_get_free_rx_descs(rxq) > SLIC_MAX_REQ_RX_DESCS) {
+>>>> +		skb = alloc_skb(maplen + ALIGN_MASK, gfp);
+>>>> +		if (!skb)
+>>>> +			break;
+>>>> +
+>>>> +		paddr = dma_map_single(&sdev->pdev->dev, skb->data, maplen,
+>>>> +				       DMA_FROM_DEVICE);
+>>>> +		if (dma_mapping_error(&sdev->pdev->dev, paddr)) {
+>>>> +			netdev_err(dev, "mapping rx packet failed\n");
+>>>> +			/* drop skb */
+>>>> +			dev_kfree_skb_any(skb);
+>>>> +			break;
+>>>> +		}
+>>>> +		/* ensure head buffer descriptors are 256 byte aligned */
+>>>> +		offset = 0;
+>>>> +		misalign = paddr & ALIGN_MASK;
+>>>> +		if (misalign) {
+>>>> +			offset = SLIC_RX_BUFF_ALIGN - misalign;
+>>>> +			skb_reserve(skb, offset);
+>>>> +		}
+>>>> +		/* the HW expects dma chunks for descriptor + frame data */
+>>>> +		desc = (struct slic_rx_desc *)skb->data;
+>>>> +		memset(desc, 0, sizeof(*desc));
+>>>
+>>> Do you really need to zero-out the prepending RX descriptor? Are not you
+>>> missing a write barrier here?
+>> 
+>> Indeed, it should be sufficient to make sure that the bit SLIC_IRHDDR_SVALID is not set.
+>> I will adjust it. 
+>> Concerning the write barrier: You mean a wmb() before slic_write() to ensure that the zeroing
+>>  of the status desc is done before the descriptor is passed to the HW, right?
+> 
+> Correct, that's what I meant here.
+> 
 
----8<---
+Ok, will fix this. Good catch BTW!
 
-Andrey Konovalov reported that this vmalloc call is based on an
-userspace request and that it's spewing traces, which may flood the logs
-and cause DoS if abused.
+>> 
+>>> [snip]
+>>>
+>>>> +
+>>>> +		dma_sync_single_for_cpu(&sdev->pdev->dev,
+>>>> +					dma_unmap_addr(buff, map_addr),
+>>>> +					buff->addr_offset + sizeof(*desc),
+>>>> +					DMA_FROM_DEVICE);
+>>>> +
+>>>> +		status = le32_to_cpu(desc->status);
+>>>> +		if (!(status & SLIC_IRHDDR_SVALID))
+>>>> +			break;
+>>>> +
+>>>> +		buff->skb = NULL;
+>>>> +
+>>>> +		dma_unmap_single(&sdev->pdev->dev,
+>>>> +				 dma_unmap_addr(buff, map_addr),
+>>>> +				 dma_unmap_len(buff, map_len),
+>>>> +				 DMA_FROM_DEVICE);
+>>>
+>>> This is potentially inefficient, you already did a cache invalidation
+>>> for the RX descriptor here, you could be more efficient with just
+>>> invalidating the packet length, minus the descriptor length.
+>>>
+>> 
+>> I am not sure I understand: We have to unmap the complete dma area, no matter if we synced
+>> part of it before, dont we? AFAIK a dma sync is different from unmapping dma, or do I miss
+>> something?
+> 
+> Sorry, I was not very clear, what I meant is that you can allocate and
+> do the initial dma_map_single() of your RX skbs during ndo_open(), and
+> then, in your RX path, you can only do dma_sync_single_for_cpu() twice
+> (once for the RX descriptor status, second time for the actual packet
+> contents), and when you return the SKB to the HW, do a
+> dma_sync_single_for_device(). The advantage of doing that, is that if
+> your cache operations are slow, you only do them on exactly packet
+> length, and not the actual RX buffer size (e.g: 2KB).
 
-Florian Westphal also mentioned that this call should not trigger OOM,
-as kmalloc one is already not triggering it.
+Um. In the rx path the SKB will be consumed (by napi_gro_receive()).
+AFAIK we _have_ to unmap it before this call. Doing only a dma_sync_single_for_cpu()
+for the packet contents does IMHO only make sense if the corresponding SKB is
+reused somehow. But this is not the case. The rx buffers are refilled with newly
+allocated SKBs each time, and thus we need to create a new dma mapping for each of them.
 
-This patch brings the vmalloc call in sync to kmalloc and disables the
-warn trace on allocation failure and also disable OOM invocation.
+Or do I still misunderstand when to call the dma sync functions?
 
-Note, however, that under such stress situation, other places may
-trigger OOM invocation.
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Florian Westphal <fw@strlen.de>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/netfilter/x_tables.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+BTW: I just realized that if the descriptor has not been used by the HW yet, see:
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index fc4977456c30e098197b4f987b758072c9cf60d9..dece525bf83a0098dad607fce665cd0bde228362 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -958,7 +958,9 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
- 	if (sz <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
- 		info = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
- 	if (!info) {
--		info = vmalloc(sz);
-+		info = __vmalloc(sz, GFP_KERNEL | __GFP_NOWARN |
-+				     __GFP_NORETRY | __GFP_HIGHMEM,
-+				 PAGE_KERNEL);
- 		if (!info)
- 			return NULL;
- 	}
--- 
-2.9.3
++		dma_sync_single_for_cpu(&sdev->pdev->dev,
++					dma_unmap_addr(buff, map_addr),
++					buff->addr_offset + sizeof(*desc),
++					DMA_FROM_DEVICE);
++
++		status = le32_to_cpu(desc->status);
++		if (!(status & SLIC_IRHDDR_SVALID))
++			break;
++		  
+		^^^^^^^^^^^^^^^^^^^^^^^^^^^  dma_sync_single_for_device missing
+
+
+there has to be a dma_sync_single_for_device to undo the sync for cpu (since the
+HW will write to this descr when the next rx packet arrives), right? But this is racy:
+What if the HW writes to that descr after we synced it for cpu but before we synced
+it for the HW again? Any ideas?
+
+Regards,
+Lino
