@@ -1,43 +1,57 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: netlink: GPF in sock_sndtimeo
-Date: Tue, 29 Nov 2016 23:52:07 -0500
-Message-ID: <20161130045207.GE26673@madcap2.tricolour.ca>
-References: <20161129164859.GD26673@madcap2.tricolour.ca>
- <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60134 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752344AbcK3EwM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Nov 2016 23:52:12 -0500
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net 1/2] tun: handle ubuf refcount correctly when meet erros
+Date: Wed, 30 Nov 2016 13:17:51 +0800
+Message-ID: <1480483072-14201-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, wangyunjian@huawei.com,
+        Jason Wang <jasowang@redhat.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2016-11-29 15:13, Cong Wang wrote:
-> On Tue, Nov 29, 2016 at 8:48 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> > On 2016-11-26 17:11, Cong Wang wrote:
-> >> It is racy on audit_sock, especially on the netns exit path.
-> >
-> > I think that is the only place it is racy.  The other places audit_sock
-> > is set is when the socket failure has just triggered a reset.
-> >
-> > Is there a notifier callback for failed or reaped sockets?
-> 
-> Is NETLINK_URELEASE event what you are looking for?
+We trigger uarg->callback() immediately after we decide do datacopy
+even if caller want to do zerocopy. This will cause the callback
+(vhost_net_zerocopy_callback) decrease the refcount. But when we meet
+an error afterwards, the error handling in vhost handle_tx() will try
+to decrease it again. This is wrong and fix this by delay the
+uarg->callback() until we're sure there's no errors.
 
-Possibly, yes.  Thanks, I'll have a look.
+Reported-by: wangyunjian <wangyunjian@huawei.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+The patch is needed for -stable.
+---
+ drivers/net/tun.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-- RGB
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 8093e39..db6acec 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1246,13 +1246,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 
+ 	if (zerocopy)
+ 		err = zerocopy_sg_from_iter(skb, from);
+-	else {
++	else
+ 		err = skb_copy_datagram_from_iter(skb, 0, from, len);
+-		if (!err && msg_control) {
+-			struct ubuf_info *uarg = msg_control;
+-			uarg->callback(uarg, false);
+-		}
+-	}
+ 
+ 	if (err) {
+ 		this_cpu_inc(tun->pcpu_stats->rx_dropped);
+@@ -1298,6 +1293,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		skb_shinfo(skb)->destructor_arg = msg_control;
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
++	} else if (msg_control) {
++		struct ubuf_info *uarg = msg_control;
++		uarg->callback(uarg, false);
+ 	}
+ 
+ 	skb_reset_network_header(skb);
+-- 
+2.7.4
