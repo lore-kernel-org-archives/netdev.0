@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net] sched: cls_flower: remove from hashtable only in
- case skip sw flag is not set
-Date: Tue, 29 Nov 2016 20:45:19 -0500 (EST)
-Message-ID: <20161129.204519.1127685115175288472.davem@davemloft.net>
-References: <1480344013-4812-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH 1/1] GSO: Reload iph after pskb_may_pull
+Date: Tue, 29 Nov 2016 20:46:31 -0500 (EST)
+Message-ID: <20161129.204631.2015697427915386486.davem@davemloft.net>
+References: <20161128153658.GB4778@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, idosch@mellanox.com,
-        eladr@mellanox.com, ogerlitz@mellanox.com, hadarh@mellanox.com,
-        amir@vadai.me
-To: jiri@resnulli.us
+Cc: eric.dumazet@gmail.com, aduyck@mirantis.com, andreyknvl@google.com,
+        netdev@vger.kernel.org
+To: acme@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39614 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39636 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754475AbcK3Bpl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:45:41 -0500
-In-Reply-To: <1480344013-4812-1-git-send-email-jiri@resnulli.us>
+        with ESMTP id S1750708AbcK3Bqc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:46:32 -0500
+In-Reply-To: <20161128153658.GB4778@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 28 Nov 2016 15:40:13 +0100
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Date: Mon, 28 Nov 2016 12:36:58 -0300
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> As it may get stale and lead to use after free.
 > 
-> Be symmetric to hashtable insert and remove filter from hashtable only
-> in case skip sw flag is not set.
-> 
-> Fixes: e69985c67c33 ("net/sched: cls_flower: Introduce support in SKIP SW flag")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Alexander Duyck <aduyck@mirantis.com>
+> Cc: Andrey Konovalov <andreyknvl@google.com>
+> Fixes: cbc53e08a793 ("GSO: Add GSO type for fixed IPv4 ID")
+> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Applied, thanks Jiri.
+Applied and queued up for -stable, thanks Arnaldo!
