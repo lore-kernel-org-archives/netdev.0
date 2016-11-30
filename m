@@ -1,69 +1,67 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/11] netfilter: Update nf_send_reset6 to consider L3 domain
-Date: Wed, 30 Nov 2016 22:57:16 +0100
-Message-ID: <1480543045-3389-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/11] netfilter: nft_hash: validate maximum value of u32 netlink hash attribute
+Date: Wed, 30 Nov 2016 22:57:18 +0100
+Message-ID: <1480543045-3389-5-git-send-email-pablo@netfilter.org>
 References: <1480543045-3389-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42114 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:42136 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754846AbcK3V5r (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Nov 2016 16:57:47 -0500
+        id S1755024AbcK3V5s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 16:57:48 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 6914F13C0DC
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:40 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id E2A0213C0E5
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:41 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5B5BBDA849
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:40 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D0CFBDA861
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:41 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 4E252DA804
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:38 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id DAC4CDA817
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:39 +0100 (CET)
 In-Reply-To: <1480543045-3389-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
+From: Laura Garcia Liebana <nevola@gmail.com>
 
-nf_send_reset6 is not considering the L3 domain and lookups are sent
-to the wrong table. For example consider the following output rule:
+Use the function nft_parse_u32_check() to fetch the value and validate
+the u32 attribute into the hash len u8 field.
 
-ip6tables -A OUTPUT -p tcp --dport 12345 -j REJECT --reject-with tcp-reset
+This patch revisits 4da449ae1df9 ("netfilter: nft_exthdr: Add size check
+on u8 nft_exthdr attributes").
 
-using perf to analyze lookups via the fib6_table_lookup tracepoint shows:
-
-swapper     0 [001]   248.787816: fib6:fib6_table_lookup: table 255 oif 0 iif 1 src 2100:1::3 dst 2100:1:
-        ffffffff81439cdc perf_trace_fib6_table_lookup ([kernel.kallsyms])
-        ffffffff814c1ce3 trace_fib6_table_lookup ([kernel.kallsyms])
-        ffffffff814c3e89 ip6_pol_route ([kernel.kallsyms])
-        ffffffff814c40d5 ip6_pol_route_output ([kernel.kallsyms])
-        ffffffff814e7b6f fib6_rule_action ([kernel.kallsyms])
-        ffffffff81437f60 fib_rules_lookup ([kernel.kallsyms])
-        ffffffff814e7c79 fib6_rule_lookup ([kernel.kallsyms])
-        ffffffff814c2541 ip6_route_output_flags ([kernel.kallsyms])
-                     528 nf_send_reset6 ([nf_reject_ipv6])
-
-The lookup is directed to table 255 rather than the table associated with
-the device via the L3 domain. Update nf_send_reset6 to pull the L3 domain
-from the dst currently attached to the skb.
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Fixes: cb1b69b0b15b ("netfilter: nf_tables: add hash expression")
+Signed-off-by: Laura Garcia Liebana <nevola@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/nf_reject_ipv6.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/netfilter/nft_hash.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
-index a5400223fd74..10090400c72f 100644
---- a/net/ipv6/netfilter/nf_reject_ipv6.c
-+++ b/net/ipv6/netfilter/nf_reject_ipv6.c
-@@ -156,6 +156,7 @@ void nf_send_reset6(struct net *net, struct sk_buff *oldskb, int hook)
- 	fl6.daddr = oip6h->saddr;
- 	fl6.fl6_sport = otcph->dest;
- 	fl6.fl6_dport = otcph->source;
-+	fl6.flowi6_oif = l3mdev_master_ifindex(skb_dst(oldskb)->dev);
- 	security_skb_classify_flow(oldskb, flowi6_to_flowi(&fl6));
- 	dst = ip6_route_output(net, NULL, &fl6);
- 	if (dst->error) {
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index baf694de3935..d5447a22275c 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -53,6 +53,7 @@ static int nft_hash_init(const struct nft_ctx *ctx,
+ {
+ 	struct nft_hash *priv = nft_expr_priv(expr);
+ 	u32 len;
++	int err;
+ 
+ 	if (!tb[NFTA_HASH_SREG] ||
+ 	    !tb[NFTA_HASH_DREG] ||
+@@ -67,8 +68,10 @@ static int nft_hash_init(const struct nft_ctx *ctx,
+ 	priv->sreg = nft_parse_register(tb[NFTA_HASH_SREG]);
+ 	priv->dreg = nft_parse_register(tb[NFTA_HASH_DREG]);
+ 
+-	len = ntohl(nla_get_be32(tb[NFTA_HASH_LEN]));
+-	if (len == 0 || len > U8_MAX)
++	err = nft_parse_u32_check(tb[NFTA_HASH_LEN], U8_MAX, &len);
++	if (err < 0)
++		return err;
++	if (len == 0)
+ 		return -ERANGE;
+ 
+ 	priv->len = len;
 -- 
 2.1.4
