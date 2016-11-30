@@ -1,44 +1,57 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] netns: avoid disabling irq for netns id
-Date: Tue, 29 Nov 2016 22:51:08 -0800
-Message-ID: <CAM_iQpVd9m=N6S3jPKuFWLJ2oQ7ze9ewzneq97D0ia7_xc1sqg@mail.gmail.com>
-References: <148045748887.22539.3188295553967836703.stgit@sifl> <CAGH-KgsK=Dc=Ptfg8P39pemFAsxVr9NKccev7sOW=w1suqKk+w@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v3 4/4] bpf: Add tests and samples for LWT-BPF
+Date: Wed, 30 Nov 2016 07:52:05 +0100
+Message-ID: <20161130065205.GC16856@pox.localdomain>
+References: <cover.1480424542.git.tgraf@suug.ch>
+ <25a6f8d0d56175bb27a05c18eb54bc3bc5c09fa1.1480424542.git.tgraf@suug.ch>
+ <20161130001750.GB28238@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        linux-audit@redhat.com
-To: Paul Moore <pmoore@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        tom@herbertland.com, roopa@cumulusnetworks.com,
+        hannes@stressinduktion.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:35493 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753128AbcK3Gv3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 01:51:29 -0500
-Received: by mail-io0-f196.google.com with SMTP id h133so566450ioe.2
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 22:51:29 -0800 (PST)
-In-Reply-To: <CAGH-KgsK=Dc=Ptfg8P39pemFAsxVr9NKccev7sOW=w1suqKk+w@mail.gmail.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:35099 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753128AbcK3GwI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 01:52:08 -0500
+Received: by mail-wm0-f47.google.com with SMTP id a197so259212610wmd.0
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 22:52:07 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161130001750.GB28238@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 2:14 PM, Paul Moore <pmoore@redhat.com> wrote:
-> On Tue, Nov 29, 2016 at 5:11 PM, Paul Moore <pmoore@redhat.com> wrote:
->> From: Paul Moore <paul@paul-moore.com>
->>
->> Bring back commit bc51dddf98c9 ("netns: avoid disabling irq for netns
->> id") now that we've fixed some audit multicast issues that caused
->> problems with original attempt.  Additional information, and history,
->> can be found in the links below:
->>
->>  * https://github.com/linux-audit/audit-kernel/issues/22
->>  * https://github.com/linux-audit/audit-kernel/issues/23
->>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> Signed-off-by: Paul Moore <paul@paul-moore.com>
->> ---
->>  net/core/net_namespace.c |   35 +++++++++++++++--------------------
->>  1 file changed, 15 insertions(+), 20 deletions(-)
->
-> Cong Wang, I added your sign-off to the patch since you were the
-> original author, if you would prefer I leave it off or want it changed
-> just let me know.
+On 11/29/16 at 04:17pm, Alexei Starovoitov wrote:
+> On Tue, Nov 29, 2016 at 02:21:23PM +0100, Thomas Graf wrote:
+> > Adds a series of test to verify the functionality of attaching
+> > BPF programs at LWT hooks.
+> > 
+> > Also adds a sample which collects a histogram of packet sizes which
+> > pass through an LWT hook.
+> > 
+> > $ ./lwt_len_hist.sh
+> > Starting netserver with host 'IN(6)ADDR_ANY' port '12865' and family AF_UNSPEC
+> > MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.253.2 () port 0 AF_INET : demo
+> > Recv   Send    Send
+> > Socket Socket  Message  Elapsed
+> > Size   Size    Size     Time     Throughput
+> > bytes  bytes   bytes    secs.    10^6bits/sec
+> > 
+> >  87380  16384  16384    10.00    39857.69
+> 
+> Nice!
+> 
+> > +	ret = bpf_redirect(ifindex, 0);
+> > +	if (ret < 0) {
+> > +		printk("bpf_redirect() failed: %d\n", ret);
+> > +		return BPF_DROP;
+> > +	}
+> 
+> this 'if' looks a bit weird. You're passing 0 as flags,
+> so this helper will always succeed.
+> Other sample code often does 'return bpf_redirect(...)'
+> due to this reasoning.
 
-Thanks for not forgetting it. I am fine with signed-off-by.
+Right, the if branch is absolutely useless. I will remove it.
