@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 04/12] mlxsw: spectrum_router: Implement FIB offload in deferred work
-Date: Wed, 30 Nov 2016 11:08:58 +0100
-Message-ID: <1480500546-2544-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 03/12] mlxsw: core: Create an ordered workqueue for FIB offload
+Date: Wed, 30 Nov 2016 11:08:57 +0100
+Message-ID: <1480500546-2544-4-git-send-email-jiri@resnulli.us>
 References: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
@@ -12,143 +12,112 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:36423 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754772AbcK3KJO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:09:14 -0500
-Received: by mail-wj0-f196.google.com with SMTP id jb2so21487768wjb.3
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 02:09:13 -0800 (PST)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35841 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754740AbcK3KJN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:09:13 -0500
+Received: by mail-wm0-f65.google.com with SMTP id m203so28537254wma.3
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 02:09:12 -0800 (PST)
 In-Reply-To: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-FIB offload is currently done in process context with RTNL held, but
-we're about to dump the FIB tables in RCU critical section, so we can no
-longer sleep.
+We're going to start processing FIB entries addition / deletion events
+in deferred work. These work items must be processed in the order they
+were submitted or otherwise we can have differences between the kernel's
+FIB table and the device's.
 
-Instead, defer the operation to process context using deferred work. Make
-sure fib info isn't freed while the work is queued by taking a reference
-on it and releasing it after the operation is done.
+Solve this by creating an ordered workqueue to which these work items
+will be submitted to. Note that we can't simply convert the current
+workqueue to be ordered, as EMADs re-transmissions are also processed in
+deferred work.
 
-Deferring the operation is valid because the upper layers always assume
-the operation was successful. If it's not, then the driver-specific
-abort mechanism is called and all routed traffic is directed to slow
-path.
-
-The work items are submitted to an ordered workqueue to prevent a
-mismatch between the kernel's FIB table and the device's.
+Later on, we can migrate other work items to this workqueue, such as FDB
+notification processing and nexthop resolution, since they all take the
+same lock anyway.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 72 +++++++++++++++++++---
- 1 file changed, 62 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/core.c | 22 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/core.h |  2 ++
+ 2 files changed, 24 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 683f045..14bed1d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -593,6 +593,14 @@ static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index 4dc028b..57a9884 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -77,6 +77,7 @@ static const char mlxsw_core_driver_name[] = "mlxsw_core";
+ static struct dentry *mlxsw_core_dbg_root;
  
- static void mlxsw_sp_vrs_fini(struct mlxsw_sp *mlxsw_sp)
- {
-+	/* At this stage we're guaranteed not to have new incoming
-+	 * FIB notifications and the work queue is free from FIBs
-+	 * sitting on top of mlxsw netdevs. However, we can still
-+	 * have other FIBs queued. Flush the queue before flushing
-+	 * the device's tables. No need for locks, as we're the only
-+	 * writer.
-+	 */
-+	mlxsw_core_flush_owq();
- 	mlxsw_sp_router_fib_flush(mlxsw_sp);
- 	kfree(mlxsw_sp->router.vrs);
+ static struct workqueue_struct *mlxsw_wq;
++static struct workqueue_struct *mlxsw_owq;
+ 
+ struct mlxsw_core_pcpu_stats {
+ 	u64			trap_rx_packets[MLXSW_TRAP_ID_MAX];
+@@ -1900,6 +1901,18 @@ int mlxsw_core_schedule_dw(struct delayed_work *dwork, unsigned long delay)
  }
-@@ -1948,30 +1956,74 @@ static void __mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
- 	kfree(mlxsw_sp->rifs);
- }
+ EXPORT_SYMBOL(mlxsw_core_schedule_dw);
  
--static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
--				     unsigned long event, void *ptr)
-+struct mlxsw_sp_fib_event_work {
-+	struct delayed_work dw;
-+	struct fib_entry_notifier_info fen_info;
-+	struct mlxsw_sp *mlxsw_sp;
-+	unsigned long event;
-+};
-+
-+static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
- {
--	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
--	struct fib_entry_notifier_info *fen_info = ptr;
-+	struct mlxsw_sp_fib_event_work *fib_work =
-+		container_of(work, struct mlxsw_sp_fib_event_work, dw.work);
-+	struct mlxsw_sp *mlxsw_sp = fib_work->mlxsw_sp;
- 	int err;
- 
--	if (!net_eq(fen_info->info.net, &init_net))
--		return NOTIFY_DONE;
--
--	switch (event) {
-+	/* Protect internal structures from changes */
-+	rtnl_lock();
-+	switch (fib_work->event) {
- 	case FIB_EVENT_ENTRY_ADD:
--		err = mlxsw_sp_router_fib4_add(mlxsw_sp, fen_info);
-+		err = mlxsw_sp_router_fib4_add(mlxsw_sp, &fib_work->fen_info);
- 		if (err)
- 			mlxsw_sp_router_fib4_abort(mlxsw_sp);
-+		fib_info_put(fib_work->fen_info.fi);
- 		break;
- 	case FIB_EVENT_ENTRY_DEL:
--		mlxsw_sp_router_fib4_del(mlxsw_sp, fen_info);
-+		mlxsw_sp_router_fib4_del(mlxsw_sp, &fib_work->fen_info);
-+		fib_info_put(fib_work->fen_info.fi);
- 		break;
- 	case FIB_EVENT_RULE_ADD: /* fall through */
- 	case FIB_EVENT_RULE_DEL:
- 		mlxsw_sp_router_fib4_abort(mlxsw_sp);
- 		break;
- 	}
-+	rtnl_unlock();
-+	kfree(fib_work);
-+}
-+
-+/* Called with rcu_read_lock() */
-+static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
-+				     unsigned long event, void *ptr)
++int mlxsw_core_schedule_odw(struct delayed_work *dwork, unsigned long delay)
 +{
-+	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
-+	struct mlxsw_sp_fib_event_work *fib_work;
-+	struct fib_notifier_info *info = ptr;
++	return queue_delayed_work(mlxsw_owq, dwork, delay);
++}
++EXPORT_SYMBOL(mlxsw_core_schedule_odw);
 +
-+	if (!net_eq(info->net, &init_net))
-+		return NOTIFY_DONE;
++void mlxsw_core_flush_owq(void)
++{
++	flush_workqueue(mlxsw_owq);
++}
++EXPORT_SYMBOL(mlxsw_core_flush_owq);
 +
-+	fib_work = kzalloc(sizeof(*fib_work), GFP_ATOMIC);
-+	if (WARN_ON(!fib_work))
-+		return NOTIFY_BAD;
-+
-+	INIT_DELAYED_WORK(&fib_work->dw, mlxsw_sp_router_fib_event_work);
-+	fib_work->mlxsw_sp = mlxsw_sp;
-+	fib_work->event = event;
-+
-+	switch (event) {
-+	case FIB_EVENT_ENTRY_ADD: /* fall through */
-+	case FIB_EVENT_ENTRY_DEL:
-+		memcpy(&fib_work->fen_info, ptr, sizeof(fib_work->fen_info));
-+		/* Take referece on fib_info to prevent it from being
-+		 * freed while work is queued. Release it afterwards.
-+		 */
-+		fib_info_hold(fib_work->fen_info.fi);
-+		break;
+ static int __init mlxsw_core_module_init(void)
+ {
+ 	int err;
+@@ -1907,6 +1920,12 @@ static int __init mlxsw_core_module_init(void)
+ 	mlxsw_wq = alloc_workqueue(mlxsw_core_driver_name, WQ_MEM_RECLAIM, 0);
+ 	if (!mlxsw_wq)
+ 		return -ENOMEM;
++	mlxsw_owq = alloc_ordered_workqueue("%s_ordered", WQ_MEM_RECLAIM,
++					    mlxsw_core_driver_name);
++	if (!mlxsw_owq) {
++		err = -ENOMEM;
++		goto err_alloc_ordered_workqueue;
 +	}
-+
-+	mlxsw_core_schedule_odw(&fib_work->dw, 0);
-+
- 	return NOTIFY_DONE;
+ 	mlxsw_core_dbg_root = debugfs_create_dir(mlxsw_core_driver_name, NULL);
+ 	if (!mlxsw_core_dbg_root) {
+ 		err = -ENOMEM;
+@@ -1915,6 +1934,8 @@ static int __init mlxsw_core_module_init(void)
+ 	return 0;
+ 
+ err_debugfs_create_dir:
++	destroy_workqueue(mlxsw_owq);
++err_alloc_ordered_workqueue:
+ 	destroy_workqueue(mlxsw_wq);
+ 	return err;
  }
+@@ -1922,6 +1943,7 @@ static int __init mlxsw_core_module_init(void)
+ static void __exit mlxsw_core_module_exit(void)
+ {
+ 	debugfs_remove_recursive(mlxsw_core_dbg_root);
++	destroy_workqueue(mlxsw_owq);
+ 	destroy_workqueue(mlxsw_wq);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index e856b49..a7f94fb 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -207,6 +207,8 @@ enum devlink_port_type mlxsw_core_port_type_get(struct mlxsw_core *mlxsw_core,
+ 						u8 local_port);
+ 
+ int mlxsw_core_schedule_dw(struct delayed_work *dwork, unsigned long delay);
++int mlxsw_core_schedule_odw(struct delayed_work *dwork, unsigned long delay);
++void mlxsw_core_flush_owq(void);
+ 
+ #define MLXSW_CONFIG_PROFILE_SWID_COUNT 8
  
 -- 
 2.7.4
