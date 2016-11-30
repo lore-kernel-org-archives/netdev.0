@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 5/6] net: dsa: mv88e6xxx: add helper for switch ready
-Date: Wed, 30 Nov 2016 17:59:29 -0500
-Message-ID: <20161130225930.25510-6-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/6] net: dsa: mv88e6xxx: add a software reset op
+Date: Wed, 30 Nov 2016 17:59:27 -0500
+Message-ID: <20161130225930.25510-4-vivien.didelot@savoirfairelinux.com>
 References: <20161130225930.25510-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,147 +14,333 @@ In-Reply-To: <20161130225930.25510-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All Marvell switches (even 88E6060) have a bit to inform that the switch
-is ready to accept frames. Implement that in  mv88e6xxx_g1_init_ready().
+Marvell chips have different way to issue a software reset.
 
-If the switch has a PPU, we must wait until its state is active polling,
-otherwise we cannot access PortStatus registers. Nicely wrap all that in
-a mv88e6xxx_wait_switch_ready() helper for the switch reset code.
+Old chips (such as 88E6060) have a reset bit in an ATU control register.
+
+Newer chips moved this bit in a Global control register. Chips with
+controllable PPU should reset the PPU when resetting the switch.
+
+Add a new reset operation to implement these differences and introduce a
+mv88e6xxx_software_reset() helper to wrap it conveniently.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 52 +++++++++++++++++++++--------------
- drivers/net/dsa/mv88e6xxx/global1.c   | 15 ++++++++++
- drivers/net/dsa/mv88e6xxx/global1.h   |  1 +
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
- 4 files changed, 48 insertions(+), 21 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 42 ++++++++++++++++++++++++++++-------
+ drivers/net/dsa/mv88e6xxx/global1.c   | 35 +++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/global1.h   |  4 ++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  3 +++
+ 4 files changed, 76 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index db4014c..f5d5370 100644
+index 4a862c2..6bb7571 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2363,6 +2363,36 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
+@@ -2361,6 +2361,14 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
  	mutex_unlock(&chip->reg_lock);
  }
  
-+static int mv88e6xxx_wait_switch_ready(struct mv88e6xxx_chip *chip)
++static int mv88e6xxx_software_reset(struct mv88e6xxx_chip *chip)
 +{
-+	const unsigned long timeout = jiffies + 1 * HZ;
-+	bool ready;
-+	int err;
-+
-+	/* Wait up to 1 second for switch to be ready.
-+	 * The switch is ready when all units inside the device (ATU, VTU, etc.)
-+	 * have finished their initialization and are ready to accept frames.
-+	 */
-+	while (time_before(jiffies, timeout)) {
-+		err = mv88e6xxx_g1_init_ready(chip, &ready);
-+		if (err)
-+			return err;
-+
-+		if (ready)
-+			break;
-+
-+		usleep_range(1000, 2000);
-+	}
-+
-+	if (time_after(jiffies, timeout))
-+		return -ETIMEDOUT;
-+
-+	/* If there is a PPU, the PortStatus registers must not be written to by
-+	 * software until the PPU is active polling, so wait until then.
-+	 */
-+	return mv88e6xxx_ppu_wait(chip, true);
-+}
-+
- static int mv88e6xxx_software_reset(struct mv88e6xxx_chip *chip)
- {
- 	if (chip->info->ops->reset)
-@@ -2406,10 +2436,6 @@ static int mv88e6xxx_disable_ports(struct mv88e6xxx_chip *chip)
- 
- static int mv88e6xxx_switch_reset(struct mv88e6xxx_chip *chip)
- {
--	bool ppu_active = mv88e6xxx_has(chip, MV88E6XXX_FLAG_PPU_ACTIVE);
--	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
--	unsigned long timeout;
--	u16 reg;
- 	int err;
- 
- 	err = mv88e6xxx_disable_ports(chip);
-@@ -2422,23 +2448,7 @@ static int mv88e6xxx_switch_reset(struct mv88e6xxx_chip *chip)
- 	if (err)
- 		return err;
- 
--	/* Wait up to one second for reset to complete. */
--	timeout = jiffies + 1 * HZ;
--	while (time_before(jiffies, timeout)) {
--		err = mv88e6xxx_g1_read(chip, 0x00, &reg);
--		if (err)
--			return err;
--
--		if ((reg & is_reset) == is_reset)
--			break;
--		usleep_range(1000, 2000);
--	}
--	if (time_after(jiffies, timeout))
--		err = -ETIMEDOUT;
--	else
--		err = 0;
--
--	return err;
-+	return mv88e6xxx_wait_switch_ready(chip);
- }
- 
- static int mv88e6xxx_serdes_power_on(struct mv88e6xxx_chip *chip)
-diff --git a/drivers/net/dsa/mv88e6xxx/global1.c b/drivers/net/dsa/mv88e6xxx/global1.c
-index 371d96a..4d69cec 100644
---- a/drivers/net/dsa/mv88e6xxx/global1.c
-+++ b/drivers/net/dsa/mv88e6xxx/global1.c
-@@ -66,6 +66,21 @@ int mv88e6352_g1_ppu_polling(struct mv88e6xxx_chip *chip, bool *polling)
- 	return 0;
- }
- 
-+int mv88e6xxx_g1_init_ready(struct mv88e6xxx_chip *chip, bool *ready)
-+{
-+	u16 val;
-+	int err;
-+
-+	/* Check the value of the InitReady bit 11 */
-+	err = mv88e6xxx_g1_read(chip, GLOBAL_STATUS, &val);
-+	if (err)
-+		return err;
-+
-+	*ready = !!(val & GLOBAL_STATUS_INIT_READY);
++	if (chip->info->ops->reset)
++		return chip->info->ops->reset(chip);
 +
 +	return 0;
 +}
 +
- /* Offset 0x04: Switch Global Control Register */
+ static void mv88e6xxx_hardware_reset(struct mv88e6xxx_chip *chip)
+ {
+ 	struct gpio_desc *gpiod = chip->reset;
+@@ -2408,14 +2416,7 @@ static int mv88e6xxx_switch_reset(struct mv88e6xxx_chip *chip)
  
- int mv88e6185_g1_reset(struct mv88e6xxx_chip *chip)
+ 	mv88e6xxx_hardware_reset(chip);
+ 
+-	/* Reset the switch. Keep the PPU active if requested. The PPU
+-	 * needs to be active to support indirect phy register access
+-	 * through global registers 0x18 and 0x19.
+-	 */
+-	if (ppu_active)
+-		err = mv88e6xxx_g1_write(chip, 0x04, 0xc000);
+-	else
+-		err = mv88e6xxx_g1_write(chip, 0x04, 0xc400);
++	err = mv88e6xxx_software_reset(chip);
+ 	if (err)
+ 		return err;
+ 
+@@ -3211,6 +3212,7 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6185_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6095_ops = {
+@@ -3225,6 +3227,7 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6185_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6097_ops = {
+@@ -3239,6 +3242,7 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6185_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6123_ops = {
+@@ -3253,6 +3257,7 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6131_ops = {
+@@ -3267,6 +3272,7 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6185_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6161_ops = {
+@@ -3281,6 +3287,7 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6165_ops = {
+@@ -3295,6 +3302,7 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6171_ops = {
+@@ -3310,6 +3318,7 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6172_ops = {
+@@ -3327,6 +3336,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6175_ops = {
+@@ -3342,6 +3352,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6176_ops = {
+@@ -3359,6 +3370,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6185_ops = {
+@@ -3373,6 +3385,7 @@ static const struct mv88e6xxx_ops mv88e6185_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6185_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6190_ops = {
+@@ -3389,6 +3402,7 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6390_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6190x_ops = {
+@@ -3405,6 +3419,7 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6390_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6191_ops = {
+@@ -3421,6 +3436,7 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6390_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6240_ops = {
+@@ -3438,6 +3454,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6290_ops = {
+@@ -3454,6 +3471,7 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6390_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6320_ops = {
+@@ -3470,6 +3488,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6320_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6321_ops = {
+@@ -3486,6 +3505,7 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6320_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6350_ops = {
+@@ -3501,6 +3521,7 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6351_ops = {
+@@ -3516,6 +3537,7 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6352_ops = {
+@@ -3533,6 +3555,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6390_ops = {
+@@ -3549,6 +3572,7 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6390_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6390x_ops = {
+@@ -3565,6 +3589,7 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6390_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6391_ops = {
+@@ -3581,6 +3606,7 @@ static const struct mv88e6xxx_ops mv88e6391_ops = {
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6320_stats_get_strings,
+ 	.stats_get_stats = mv88e6390_stats_get_stats,
++	.reset = mv88e6352_g1_reset,
+ };
+ 
+ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+diff --git a/drivers/net/dsa/mv88e6xxx/global1.c b/drivers/net/dsa/mv88e6xxx/global1.c
+index 5fcf23d..27f37a7 100644
+--- a/drivers/net/dsa/mv88e6xxx/global1.c
++++ b/drivers/net/dsa/mv88e6xxx/global1.c
+@@ -33,6 +33,41 @@ int mv88e6xxx_g1_wait(struct mv88e6xxx_chip *chip, int reg, u16 mask)
+ 	return mv88e6xxx_wait(chip, chip->info->global1_addr, reg, mask);
+ }
+ 
++/* Offset 0x04: Switch Global Control Register */
++
++int mv88e6185_g1_reset(struct mv88e6xxx_chip *chip)
++{
++	u16 val;
++	int err;
++
++	/* Set the SWReset bit 15 along with the PPUEn bit 14, to also restart
++	 * the PPU, including re-doing PHY detection and initialization
++	 */
++	err = mv88e6xxx_g1_read(chip, GLOBAL_CONTROL, &val);
++	if (err)
++		return err;
++
++	val |= GLOBAL_CONTROL_SW_RESET;
++	val |= GLOBAL_CONTROL_PPU_ENABLE;
++
++	return mv88e6xxx_g1_write(chip, GLOBAL_CONTROL, val);
++}
++
++int mv88e6352_g1_reset(struct mv88e6xxx_chip *chip)
++{
++	u16 val;
++	int err;
++
++	/* Set the SWReset bit 15 */
++	err = mv88e6xxx_g1_read(chip, GLOBAL_CONTROL, &val);
++	if (err)
++		return err;
++
++	val |= GLOBAL_CONTROL_SW_RESET;
++
++	return mv88e6xxx_g1_write(chip, GLOBAL_CONTROL, val);
++}
++
+ /* Offset 0x1c: Global Control 2 */
+ 
+ int mv88e6390_g1_stats_set_histogram(struct mv88e6xxx_chip *chip)
 diff --git a/drivers/net/dsa/mv88e6xxx/global1.h b/drivers/net/dsa/mv88e6xxx/global1.h
-index cdccf473..6f0fb7f 100644
+index df3794c..868a281 100644
 --- a/drivers/net/dsa/mv88e6xxx/global1.h
 +++ b/drivers/net/dsa/mv88e6xxx/global1.h
-@@ -22,6 +22,7 @@ int mv88e6xxx_g1_wait(struct mv88e6xxx_chip *chip, int reg, u16 mask);
- 
- int mv88e6185_g1_ppu_polling(struct mv88e6xxx_chip *chip, bool *polling);
- int mv88e6352_g1_ppu_polling(struct mv88e6xxx_chip *chip, bool *polling);
-+int mv88e6xxx_g1_init_ready(struct mv88e6xxx_chip *chip, bool *ready);
- 
- int mv88e6185_g1_reset(struct mv88e6xxx_chip *chip);
- int mv88e6352_g1_reset(struct mv88e6xxx_chip *chip);
+@@ -19,6 +19,10 @@
+ int mv88e6xxx_g1_read(struct mv88e6xxx_chip *chip, int reg, u16 *val);
+ int mv88e6xxx_g1_write(struct mv88e6xxx_chip *chip, int reg, u16 val);
+ int mv88e6xxx_g1_wait(struct mv88e6xxx_chip *chip, int reg, u16 mask);
++
++int mv88e6185_g1_reset(struct mv88e6xxx_chip *chip);
++int mv88e6352_g1_reset(struct mv88e6xxx_chip *chip);
++
+ int mv88e6xxx_g1_stats_wait(struct mv88e6xxx_chip *chip);
+ int mv88e6xxx_g1_stats_snapshot(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6320_g1_stats_snapshot(struct mv88e6xxx_chip *chip, int port);
 diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 9ae228c..cd0f414 100644
+index ab52c37..9e51405 100644
 --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -180,6 +180,7 @@
- #define GLOBAL_STATUS_PPU_STATE_INITIALIZING	(0x1 << 14)
- #define GLOBAL_STATUS_PPU_STATE_DISABLED	(0x2 << 14)
- #define GLOBAL_STATUS_PPU_STATE_POLLING		(0x3 << 14)
-+#define GLOBAL_STATUS_INIT_READY	BIT(11)
- #define GLOBAL_STATUS_IRQ_AVB		8
- #define GLOBAL_STATUS_IRQ_DEVICE	7
- #define GLOBAL_STATUS_IRQ_STATS		6
+@@ -765,6 +765,9 @@ struct mv88e6xxx_ops {
+ 	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
+ 			 u16 val);
+ 
++	/* Switch Software Reset */
++	int (*reset)(struct mv88e6xxx_chip *chip);
++
+ 	/* RGMII Receive/Transmit Timing Control
+ 	 * Add delay on PHY_INTERFACE_MODE_RGMII_*ID, no delay otherwise.
+ 	 */
 -- 
 2.10.2
