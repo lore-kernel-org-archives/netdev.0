@@ -1,73 +1,82 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] bpf: BPF for lightweight tunnel
- infrastructure
-Date: Tue, 29 Nov 2016 18:52:36 -0800
-Message-ID: <583E3EF4.7030107@gmail.com>
-References: <cover.1480424542.git.tgraf@suug.ch>
- <7cc79a82e49996a9ebbff861af471018fdf118fb.1480424542.git.tgraf@suug.ch>
- <20161130001504.GA28238@ast-mbp.thefacebook.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: The ubufs->refcount maybe be subtracted twice when tun_get_user
+ failed
+Date: Wed, 30 Nov 2016 10:53:47 +0800
+Message-ID: <fad5d47a-96ee-1afc-b10c-cb2a6d5dc784@redhat.com>
+References: <34EFBCA9F01B0748BEB6B629CE643AE60B0A553E@szxeml561-mbx.china.huawei.com>
+ <30e4c704-70b4-d318-68bd-742eb5f9bfc7@redhat.com>
+ <34EFBCA9F01B0748BEB6B629CE643AE60B0A5826@szxeml561-mbx.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
-        tom@herbertland.com, roopa@cumulusnetworks.com,
-        hannes@stressinduktion.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: caihe <caihe@huawei.com>
+To: wangyunjian <wangyunjian@huawei.com>,
+        "mst@redhat.com" <mst@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33933 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751913AbcK3Cwv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 21:52:51 -0500
-Received: by mail-pg0-f67.google.com with SMTP id e9so18122457pgc.1
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 18:52:50 -0800 (PST)
-In-Reply-To: <20161130001504.GA28238@ast-mbp.thefacebook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57744 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752044AbcK3Cxw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Nov 2016 21:53:52 -0500
+In-Reply-To: <34EFBCA9F01B0748BEB6B629CE643AE60B0A5826@szxeml561-mbx.china.huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-11-29 04:15 PM, Alexei Starovoitov wrote:
-> On Tue, Nov 29, 2016 at 02:21:22PM +0100, Thomas Graf wrote:
->> Registers new BPF program types which correspond to the LWT hooks:
->>   - BPF_PROG_TYPE_LWT_IN   => dst_input()
->>   - BPF_PROG_TYPE_LWT_OUT  => dst_output()
->>   - BPF_PROG_TYPE_LWT_XMIT => lwtunnel_xmit()
->>
->> The separate program types are required to differentiate between the
->> capabilities each LWT hook allows:
->>
->>  * Programs attached to dst_input() or dst_output() are restricted and
->>    may only read the data of an skb. This prevent modification and
->>    possible invalidation of already validated packet headers on receive
->>    and the construction of illegal headers while the IP headers are
->>    still being assembled.
->>
->>  * Programs attached to lwtunnel_xmit() are allowed to modify packet
->>    content as well as prepending an L2 header via a newly introduced
->>    helper bpf_skb_push(). This is safe as lwtunnel_xmit() is invoked
->>    after the IP header has been assembled completely.
->>
->> All BPF programs receive an skb with L3 headers attached and may return
->> one of the following error codes:
->>
->>  BPF_OK - Continue routing as per nexthop
->>  BPF_DROP - Drop skb and return EPERM
->>  BPF_REDIRECT - Redirect skb to device as per redirect() helper.
->>                 (Only valid in lwtunnel_xmit() context)
->>
->> The return codes are binary compatible with their TC_ACT_
->> relatives to ease compatibility.
->>
->> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ...
->> +#define LWT_BPF_MAX_HEADROOM 128
-> 
-> why 128?
-> btw I'm thinking for XDP to use 256, so metadata can be stored in there.
-> 
 
-hopefully not too off-topic but for XDP I would like to see this get
-passed down with the program. It would be more generic and drivers could
-configure the headroom on demand and more importantly verify that a
-program pushing data is not going to fail at runtime.
 
-.John
+On 2016年11月29日 21:27, wangyunjian wrote:
+> Sorry, I didn't describe it clearly. In fact, the second subtraction happens in the function handle_tx,
+> when tun_get_user fails and zcopy_used is ture. Fllowing the steps:
+
+I get your meaning. Thanks for the reporting. Will post patches (since 
+macvtap has similar issue).
+
+
+>
+> static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>                                    void *msg_control, struct iov_iter *from,
+>                                    int noblock) {
+>             ...
+>
+>             if (zerocopy)
+>                       err = zerocopy_sg_from_iter(skb, from);
+>             else {
+>                       err = skb_copy_datagram_from_iter(skb, 0, from, len);
+>                       if (!err && msg_control) {
+>                                struct ubuf_info *uarg = msg_control;
+>                                uarg->callback(uarg, false);                       --> step 1, the ubufs->refcount is subtracted frist.
+>                       }
+>             }
+>
+>             if (err) {
+>                       this_cpu_inc(tun->pcpu_stats->rx_dropped);
+>                       kfree_skb(skb);
+>                       return -EFAULT;
+>             }
+>
+>             err = virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun));
+>             if (err) {
+>                       this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
+>                       kfree_skb(skb);
+>                       return -EINVAL;                                         -->step 2, return err.
+>             }
+> }
+>
+> static void handle_tx(struct vhost_net *net)
+> {
+> 	...
+> 	/* TODO: Check specific error and bomb out unless ENOBUFS? */
+> 	err = sock->ops->sendmsg(sock, &msg, len);
+> 	if (unlikely(err < 0)) {
+> 		if (zcopy_used) {
+> 			vhost_net_ubuf_put(ubufs);                                        --> step 3, the ubufs->refcount will be subtracted twice, when sendmsg execution err.
+> 			nvq->upend_idx = ((unsigned)nvq->upend_idx - 1)
+> 				% UIO_MAXIOV;
+> 		}
+> 		vhost_discard_vq_desc(vq, 1);
+> 		break;
+> 	}
+> 	...
+> }
+>
+> -----Original Message-----
