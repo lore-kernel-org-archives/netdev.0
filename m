@@ -1,71 +1,57 @@
-From: Dave Gerlach <d-gerlach@ti.com>
-Subject: Re: [PATCH] net: ethernet: ti: cpsw: fix ASSERT_RTNL() warning during
- resume
-Date: Wed, 30 Nov 2016 10:03:40 -0600
-Message-ID: <573b4b9d-190a-c374-d047-5a971653f766@ti.com>
-References: <20161129222703.10908-1-grygorii.strashko@ti.com>
- <20161130001857.GB18604@khorivan>
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: [patch net / RFC] net: fec: increase frame size limitation to
+ actually available buffer
+Date: Wed, 30 Nov 2016 17:05:09 +0100
+Message-ID: <05a7c0a7-b680-af75-963b-5cddeda7f2c4@neratec.com>
+References: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161130001857.GB18604@khorivan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        linux-kernel@vger.kernel.org
+To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.neratec.com ([46.140.151.2]:8895 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757167AbcK3QFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 11:05:12 -0500
+In-Reply-To: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2016 06:18 PM, Ivan Khoronzhuk wrote:
-> On Tue, Nov 29, 2016 at 04:27:03PM -0600, Grygorii Strashko wrote:
->> netif_set_real_num_tx/rx_queues() are required to be called with rtnl_lock
->> taken, otherwise ASSERT_RTNL() warning will be triggered - which happens
->> now during System resume from suspend:
->> cpsw_resume()
->> |- cpsw_ndo_open()
->>   |- netif_set_real_num_tx/rx_queues()
->>      |- ASSERT_RTNL();
->>
->> Hence, fix it by surrounding cpsw_ndo_open() by rtnl_lock/unlock() calls.
->>
->> Cc: Dave Gerlach <d-gerlach@ti.com>
->> Cc: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->> Fixes: commit e05107e6b747 ("net: ethernet: ti: cpsw: add multi queue support")
->> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> Reviewed-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->
+On 11/29/2016 07:35 PM, Nikita Yushchenko wrote:
+> Fec driver uses Rx buffers of 2k, but programs hardware to limit
+> incoming frames to 1522 bytes. This raises issues when FEC device
+> is used with DSA (since DSA tag can make frame larger), and also
+> disallows manual sending and receiving larger frames.
+> 
+> This patch removes the limitation, allowing Rx size up to entire buffer.
+> At the same time possible Tx size is increased as well, because hardware
+> uses the same register field to limit Rx and Tx.
+> 
+> Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+> ---
 
-Tested-by: Dave Gerlach <d-gerlach@ti.com>
+I recently did similar changes to the freescale/gianfar to prevent fragmentation
+of (E)DSA frames [1].
 
->> ---
->>  drivers/net/ethernet/ti/cpsw.c | 4 ++++
->>  1 file changed, 4 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index ae1ec6a..fd6c03b 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -2944,6 +2944,8 @@ static int cpsw_resume(struct device *dev)
->>  	/* Select default pin state */
->>  	pinctrl_pm_select_default_state(dev);
->>
->> +	/* shut up ASSERT_RTNL() warning in netif_set_real_num_tx/rx_queues */
->> +	rtnl_lock();
->>  	if (cpsw->data.dual_emac) {
->>  		int i;
->>
->> @@ -2955,6 +2957,8 @@ static int cpsw_resume(struct device *dev)
->>  		if (netif_running(ndev))
->>  			cpsw_ndo_open(ndev);
->>  	}
->> +	rtnl_unlock();
->> +
->>  	return 0;
->>  }
->>  #endif
->> --
->> 2.10.1
->>
+With the fragmentation kicking in, I noticed a bug in the scatter-gather logic
+which caused the frame-size of fragmented frames to be reported wrong [2]. Not
+sure if the fec driver has SG capabilities and if this issue also applies, you
+might want to double-check.
+
+
+Cheers,
+Zefir
+
+
+[1] http://marc.info/?l=linux-netdev&m=147187438313519&w=2
+[2] http://marc.info/?l=linux-netdev&m=147187430213484&w=2
