@@ -1,62 +1,59 @@
-From: Sebastian Ott <sebott@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next V2 1/7] net/mlx5e: Implement Fragmented Work
- Queue (WQ)
-Date: Wed, 30 Nov 2016 18:26:56 +0100 (CET)
-Message-ID: <alpine.LFD.2.20.1611301822410.8710@schleppi>
-References: <1480521583-12755-1-git-send-email-saeedm@mellanox.com> <1480521583-12755-2-git-send-email-saeedm@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [WIP] net+mlx4: auto doorbell
+Date: Wed, 30 Nov 2016 09:28:30 -0800
+Message-ID: <1480526910.18162.193.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20140903165943.372b897b@redhat.com>
+         <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
+         <20161116131609.4e5726b4@redhat.com>
+         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
+         <20161116234022.2bad179b@redhat.com>
+         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117091638.5fab8494@redhat.com>
+         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117144248.23500001@redhat.com>
+         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117155753.17b76f5a@redhat.com>
+         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117193021.580589ae@redhat.com>
+         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161121170351.50a09ee1@redhat.com>
+         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG_G3G-_jFFD0xiAOfR-k69rhb_2ia4LHZroE-oEFxApnQ@mail.gmail.com>
+         <1480520661.18162.177.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Rick Jones <rick.jones2@hpe.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:51804 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1758307AbcK3R1E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 12:27:04 -0500
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uAUHNeo8036547
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 12:27:03 -0500
-Received: from e06smtp08.uk.ibm.com (e06smtp08.uk.ibm.com [195.75.94.104])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2722hgjcnc-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 12:27:03 -0500
-Received: from localhost
-        by e06smtp08.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <sebott@linux.vnet.ibm.com>;
-        Wed, 30 Nov 2016 17:27:01 -0000
-Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
-        by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id 3C9141B08072
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 17:29:20 +0000 (GMT)
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-        by b06cxnps3074.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id uAUHQwSh15925632
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 17:26:58 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-        by d06av02.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id uAUHQvZF031319
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 10:26:57 -0700
-In-Reply-To: <1480521583-12755-2-git-send-email-saeedm@mellanox.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33245 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161056AbcK3R3d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 12:29:33 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so1898742pgd.0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 09:29:32 -0800 (PST)
+In-Reply-To: <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, 2016-11-30 at 18:27 +0200, Saeed Mahameed wrote:
 
-On Wed, 30 Nov 2016, Saeed Mahameed wrote:
-> From: Tariq Toukan <tariqt@mellanox.com>
 > 
-> Add new type of struct mlx5_frag_buf which is used to allocate fragmented
-> buffers rather than contiguous, and make the Completion Queues (CQs) use
-> it as they are big (default of 2MB per CQ in Striding RQ).
-> 
-> This fixes the failures of type:
-> "mlx5e_open_locked: mlx5e_open_channels failed, -12"
-> due to dma_zalloc_coherent insufficient contiguous coherent memory to
-> satisfy the driver's request when the user tries to setup more or larger
-> rings.
+> In this case, i think they should implement their own bulking (pktgen
+> is not a good example)
+> but XDP can predict if it has more packets to xmit  as long as all of
+> them fall in the same NAPI cycle.
 
-Thanks for that patch! I can confirm that this fixes the lage allocation
-issue.
 
-Regards,
-Sebastian
+> Others should try and do the same.
+
+We can not trust user space to signal us when it is the good time to
+perform a doorbell.
+
+trafgen is using af_packet with qdisc bypass for example.
