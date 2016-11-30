@@ -1,62 +1,111 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Subject: Re: [patch net / RFC] net: fec: increase frame size limitation to
- actually available buffer
-Date: Wed, 30 Nov 2016 09:36:15 +0300
-Message-ID: <dab27a3d-821c-8d07-ad98-2bdd8c442bc5@cogentembedded.com>
-References: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
- <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v3 3/4] bpf: BPF for lightweight tunnel
+ infrastructure
+Date: Wed, 30 Nov 2016 07:48:51 +0100
+Message-ID: <20161130064850.GB16856@pox.localdomain>
+References: <cover.1480424542.git.tgraf@suug.ch>
+ <7cc79a82e49996a9ebbff861af471018fdf118fb.1480424542.git.tgraf@suug.ch>
+ <20161130001504.GA28238@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Chris Healy <cphealy@gmail.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Duan <fugang.duan@nxp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        tom@herbertland.com, roopa@cumulusnetworks.com,
+        hannes@stressinduktion.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:34145 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752857AbcK3GgT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 01:36:19 -0500
-Received: by mail-lf0-f45.google.com with SMTP id o141so138997532lff.1
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 22:36:18 -0800 (PST)
-In-Reply-To: <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:38233 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754928AbcK3GtU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 01:49:20 -0500
+Received: by mail-wm0-f53.google.com with SMTP id f82so210119344wmf.1
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 22:48:53 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161130001504.GA28238@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> But I think it is not necessary since the driver don't support jumbo frame.
+On 11/29/16 at 04:15pm, Alexei Starovoitov wrote:
+> On Tue, Nov 29, 2016 at 02:21:22PM +0100, Thomas Graf wrote:
+> ...
+> > +#define LWT_BPF_MAX_HEADROOM 128
+> 
+> why 128?
+> btw I'm thinking for XDP to use 256, so metadata can be stored in there.
 
-Hardcoded 1522 raises two separate issues.
+It's an arbitrary limit to catch obvious misconfiguration. I'm absolutely
+fine with bumping it to 256.
 
-(1) When DSA is in use, frames processed by FEC chip contain DSA tag and
-thus can be larger than hardcoded limit of 1522. This issue is not
-FEC-specific, any driver that hardcodes maximum frame size to 1522 (many
-do) will have this issue if used with DSA.
+> > +static int run_lwt_bpf(struct sk_buff *skb, struct bpf_lwt_prog *lwt,
+> > +		       struct dst_entry *dst, bool can_redirect)
+> > +{
+> > +	int ret;
+> > +
+> > +	/* Preempt disable is needed to protect per-cpu redirect_info between
+> > +	 * BPF prog and skb_do_redirect(). The call_rcu in bpf_prog_put() and
+> > +	 * access to maps strictly require a rcu_read_lock() for protection,
+> > +	 * mixing with BH RCU lock doesn't work.
+> > +	 */
+> > +	preempt_disable();
+> > +	rcu_read_lock();
+> > +	bpf_compute_data_end(skb);
+> > +	ret = BPF_PROG_RUN(lwt->prog, skb);
+> > +	rcu_read_unlock();
+> > +
+> > +	switch (ret) {
+> > +	case BPF_OK:
+> > +		break;
+> > +
+> > +	case BPF_REDIRECT:
+> > +		if (!can_redirect) {
+> > +			WARN_ONCE(1, "Illegal redirect return code in prog %s\n",
+> > +				  lwt->name ? : "<unknown>");
+> > +			ret = BPF_OK;
+> > +		} else {
+> > +			ret = skb_do_redirect(skb);
+> 
+> I think this assumes that program did bpf_skb_push and L2 header is present.
+> Would it make sense to check that mac_header < network_header here to make
+> sure that it actually happened? I think the cost of single 'if' isn't much.
+> Also skb_do_redirect() can redirect to l3 tunnels like ipip ;)
+> so program shouldn't be doing bpf_skb_push in such case...
 
-Clean solution for this must take into account that difference between
-MTU and max frame size is no longer known at compile time. Actually this
-is the case even without DSA, due to VLANs: max frame size is (MTU + 18)
-without VLANs, but (MTU + 22) with VLANs. However currently drivers tend
-to ignore this and hardcode 22.  With DSA, 22 is not enough, need to add
-switch-specific tag size to that.
+We are currently guaranteeing mac_header <= network_header given that
+bpf_skb_push() is calling skb_reset_mac_header() unconditionally.
 
-Not yet sure how to handle this. DSA-specific API to find out tag size
-could be added, but generic solution should handle all cases of dynamic
-difference between MTU and max frame size, not only DSA.
+Even if a program were to push an L2 header and then redirect to an l3
+tunnel, __bpf_redirect_no_mac will pull it off again and correct the
+mac_header offset.
 
+Should we check in __bpf_redirect_common() whether mac_header <
+nework_header then or add it to lwt-bpf conditional on
+dev_is_mac_header_xmit()?
 
-(2) There is some demand to use larger frames for optimization purposes.
+> May be rename bpf_skb_push to bpf_skb_push_l2 ?
+> since it's doing skb_reset_mac_header(skb); at the end of it?
+> Or it's probably better to use 'flags' argument to tell whether
+> bpf_skb_push() should set mac_header or not ?
 
-FEC register fields that limit frame size are 14-bit, thus allowing
-frames up to (4k-1). I'm about to prepare a larger patch:
-- add ndo_change_mtu handler, allowing MTU up to (4k - overhead),
-- set MAX_FL / TRUNC_FL based on configured MTU,
-- if necessary, do buffer reallocation with larger buffers.
+I added the flags for this purpose but left it unused for now. This
+will allow to add a flag later to extend the l3 header prior to
+pushing an l2 header, hence the current helper name. But even then,
+we would always reset the mac header as well to ensure we never
+leave an skb with mac_header > network_header. Are you seeing a
+scenario where we would want to omit the mac header reset?
 
-Is this suitable for upstreaming?
-Is there any policy related to handling larger frames?
+> Then this bit:
+> 
+> > +		case BPF_OK:
+> > +			/* If the L3 header was expanded, headroom might be too
+> > +			 * small for L2 header now, expand as needed.
+> > +			 */
+> > +			ret = xmit_check_hhlen(skb);
+> 
+> will work fine as well...
+> which probably needs "mac_header wasn't set" check? or it's fine?
+
+Right. The check is not strictly required right now but is a safety net
+to ensure that the skb passed to dst_neigh_output() which will add the
+l2 header in the non-redirect case to always have sufficient headroom.
+It will currently be a NOP as we are not allowing to extend the l3 header
+in bpf_skb_push() yet. I left this in there to ensure that we are not
+missing to add this later.
