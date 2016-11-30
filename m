@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net 1/7] net: ethernet: stmmac: dwmac-socfpga: fix use-after-free on probe errors
-Date: Wed, 30 Nov 2016 15:29:49 +0100
-Message-ID: <1480516195-27696-2-git-send-email-johan@kernel.org>
+Subject: [PATCH net 6/7] net: ethernet: stmmac: platform: fix outdated function header
+Date: Wed, 30 Nov 2016 15:29:54 +0100
+Message-ID: <1480516195-27696-7-git-send-email-johan@kernel.org>
 References: <1480516195-27696-1-git-send-email-johan@kernel.org>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
         Alexandre Torgue <alexandre.torgue@st.com>,
@@ -13,71 +13,36 @@ Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
         Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:35869 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757942AbcK3Ocg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 09:32:36 -0500
 In-Reply-To: <1480516195-27696-1-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure to call stmmac_dvr_remove() before returning on late probe
-errors so that memory is freed, clocks are disabled, and the netdev is
-deregistered before its resources go away.
+Fix the OF-helper function header to reflect that the function no longer
+has a platform-data parameter.
 
-Fixes: 3c201b5a84ed ("net: stmmac: socfpga: Remove re-registration of
-reset controller")
+Fixes: b0003ead75f3 ("stmmac: make stmmac_probe_config_dt return the
+platform data struct")
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 29 ++++++++++++++--------
- 1 file changed, 19 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index bec6963ac71e..47db157da3e8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -304,6 +304,8 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
- 	struct device		*dev = &pdev->dev;
- 	int			ret;
- 	struct socfpga_dwmac	*dwmac;
-+	struct net_device	*ndev;
-+	struct stmmac_priv	*stpriv;
- 
- 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
- 	if (ret)
-@@ -327,19 +329,26 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
- 	plat_dat->fix_mac_speed = socfpga_dwmac_fix_mac_speed;
- 
- 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-+	if (ret)
-+		return ret;
- 
--	if (!ret) {
--		struct net_device *ndev = platform_get_drvdata(pdev);
--		struct stmmac_priv *stpriv = netdev_priv(ndev);
-+	ndev = platform_get_drvdata(pdev);
-+	stpriv = netdev_priv(ndev);
- 
--		/* The socfpga driver needs to control the stmmac reset to
--		 * set the phy mode. Create a copy of the core reset handel
--		 * so it can be used by the driver later.
--		 */
--		dwmac->stmmac_rst = stpriv->stmmac_rst;
-+	/* The socfpga driver needs to control the stmmac reset to set the phy
-+	 * mode. Create a copy of the core reset handle so it can be used by
-+	 * the driver later.
-+	 */
-+	dwmac->stmmac_rst = stpriv->stmmac_rst;
- 
--		ret = socfpga_dwmac_set_phy_mode(dwmac);
--	}
-+	ret = socfpga_dwmac_set_phy_mode(dwmac);
-+	if (ret)
-+		goto err_dvr_remove;
-+
-+	return 0;
-+
-+err_dvr_remove:
-+	stmmac_dvr_remove(&pdev->dev);
- 
- 	return ret;
- }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 0a0d6a86f397..bcbf123d5ba2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -200,7 +200,6 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+ /**
+  * stmmac_probe_config_dt - parse device-tree driver parameters
+  * @pdev: platform_device structure
+- * @plat: driver data platform structure
+  * @mac: MAC address to use
+  * Description:
+  * this function is to read the driver parameters from device-tree and
 -- 
 2.7.3
