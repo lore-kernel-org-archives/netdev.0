@@ -1,103 +1,71 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net] tipc: check minimum bearer MTU
-Date: Wed, 30 Nov 2016 18:28:14 +0800
-Message-ID: <4a2da388-d798-11cf-bf2c-84207cae6159@windriver.com>
-References: <20161130095702.DD033A0F14@unicorn.suse.cz>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: stmmac ethernet in kernel 4.4: coalescing related pauses?
+Date: Wed, 30 Nov 2016 11:28:57 +0100
+Message-ID: <20161130102857.GA14296@amd>
+References: <20161123105125.GA26394@amd>
+ <f14255ee-7fa8-afef-23ec-fc4f9a74eec8@marvell.com>
+ <20161128.095431.856183735501262965.davem@davemloft.net>
+ <1480347103.18162.58.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Qian, netdev@vger.kernel.org, Zhang <zhangqian-c@360.cn>,
-	linux-kernel@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michal Kubecek <mkubecek@suse.cz>, Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <20161130095702.DD033A0F14@unicorn.suse.cz>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="HlL+5n6rz5pIUxbD"
+Cc: David Miller <davem@davemloft.net>, lsanfil@marvell.com,
+        peppe.cavallaro@st.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1480347103.18162.58.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMTEvMzAvMjAxNiAwNTo1NyBQTSwgTWljaGFsIEt1YmVjZWsgd3JvdGU6Cj4gUWlhbiBaaGFu
-ZyAo5byg6LCmKSByZXBvcnRlZCBhIHBvdGVudGlhbCBzb2NrZXQgYnVmZmVyIG92ZXJmbG93IGlu
-Cj4gdGlwY19tc2dfYnVpbGQoKSB3aGljaCBpcyBhbHNvIGtub3duIGFzIENWRS0yMDE2LTg2MzI6
-IGR1ZSB0bwo+IGluc3VmZmljaWVudCBjaGVja3MsIGEgYnVmZmVyIG92ZXJmbG93IGNhbiBvY2N1
-ciBpZiBNVFUgaXMgdG9vIHNob3J0IGZvcgo+IGV2ZW4gdGlwYyBoZWFkZXJzLiBBcyBhbnlvbmUg
-Y2FuIHNldCBkZXZpY2UgTVRVIGluIGEgdXNlci9uZXQgbmFtZXNwYWNlLAo+IHRoaXMgaXNzdWUg
-Y2FuIGJlIGFidXNlZCBieSBhIHJlZ3VsYXIgdXNlci4KPgo+IEFzIGFncmVlZCBpbiB0aGUgZGlz
-Y3Vzc2lvbiBvbiBCZW4gSHV0Y2hpbmdzJyBvcmlnaW5hbCBwYXRjaCwgd2Ugc2hvdWxkCj4gY2hl
-Y2sgdGhlIE1UVSBhdCB0aGUgbW9tZW50IGEgYmVhcmVyIGlzIGF0dGFjaGVkIHJhdGhlciB0aGFu
-IGZvciBlYWNoCj4gcHJvY2Vzc2VkIHBhY2tldC4gV2UgYWxzbyBuZWVkIHRvIHJlcGVhdCB0aGUg
-Y2hlY2sgd2hlbiBiZWFyZXIgTVRVIGlzCj4gYWRqdXN0ZWQgdG8gbmV3IGRldmljZSBNVFUuIFVE
-UCBjYXNlIGFsc28gbmVlZHMgYSBjaGVjayB0byBhdm9pZAo+IG92ZXJmbG93IHdoZW4gY2FsY3Vs
-YXRpbmcgYmVhcmVyIE1UVS4KPgo+IEZpeGVzOiBiOTdiZjNmZDhmNmEgKCJbVElQQ10gSW5pdGlh
-bCBtZXJnZSIpCj4gU2lnbmVkLW9mZi1ieTogTWljaGFsIEt1YmVjZWsgPG1rdWJlY2VrQHN1c2Uu
-Y3o+Cj4gUmVwb3J0ZWQtYnk6IFFpYW4gWmhhbmcgKOW8oOiwpikgPHpoYW5ncWlhbi1jQDM2MC5j
-bj4KPiAtLS0KPiAgbmV0L3RpcGMvYmVhcmVyLmMgICAgfCAgOSArKysrKysrLS0KPiAgbmV0L3Rp
-cGMvYmVhcmVyLmggICAgfCAxMyArKysrKysrKysrKysrCj4gIG5ldC90aXBjL3VkcF9tZWRpYS5j
-IHwgIDUgKysrKysKPiAgMyBmaWxlcyBjaGFuZ2VkLCAyNSBpbnNlcnRpb25zKCspLCAyIGRlbGV0
-aW9ucygtKQo+Cj4gZGlmZiAtLWdpdCBhL25ldC90aXBjL2JlYXJlci5jIGIvbmV0L3RpcGMvYmVh
-cmVyLmMKPiBpbmRleCA5NzVkYmViNjBhYjAuLmRkNGIxOWU4YmI0MyAxMDA2NDQKPiAtLS0gYS9u
-ZXQvdGlwYy9iZWFyZXIuYwo+ICsrKyBiL25ldC90aXBjL2JlYXJlci5jCj4gQEAgLTQyMSw2ICs0
-MjEsMTAgQEAgaW50IHRpcGNfZW5hYmxlX2wyX21lZGlhKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0
-IHRpcGNfYmVhcmVyICpiLAo+ICAJZGV2ID0gZGV2X2dldF9ieV9uYW1lKG5ldCwgZHJpdmVyX25h
-bWUpOwo+ICAJaWYgKCFkZXYpCj4gIAkJcmV0dXJuIC1FTk9ERVY7Cj4gKwlpZiAodGlwY19jaGVj
-a19tdHUoZGV2LCAwKSkgewo+ICsJCWRldl9wdXQoZGV2KTsKPiArCQlyZXR1cm4gLUVJTlZBTDsK
-PiArCX0KPgo+ICAJLyogQXNzb2NpYXRlIFRJUEMgYmVhcmVyIHdpdGggTDIgYmVhcmVyICovCj4g
-IAlyY3VfYXNzaWduX3BvaW50ZXIoYi0+bWVkaWFfcHRyLCBkZXYpOwo+IEBAIC02MTAsOCArNjE0
-LDYgQEAgc3RhdGljIGludCB0aXBjX2wyX2RldmljZV9ldmVudChzdHJ1Y3Qgbm90aWZpZXJfYmxv
-Y2sgKm5iLCB1bnNpZ25lZCBsb25nIGV2dCwKPiAgCWlmICghYikKPiAgCQlyZXR1cm4gTk9USUZZ
-X0RPTkU7Cj4KPiAtCWItPm10dSA9IGRldi0+bXR1Owo+IC0KPiAgCXN3aXRjaCAoZXZ0KSB7Cj4g
-IAljYXNlIE5FVERFVl9DSEFOR0U6Cj4gIAkJaWYgKG5ldGlmX2NhcnJpZXJfb2soZGV2KSkKPiBA
-QCAtNjI0LDYgKzYyNiw5IEBAIHN0YXRpYyBpbnQgdGlwY19sMl9kZXZpY2VfZXZlbnQoc3RydWN0
-IG5vdGlmaWVyX2Jsb2NrICpuYiwgdW5zaWduZWQgbG9uZyBldnQsCj4gIAkJdGlwY19yZXNldF9i
-ZWFyZXIobmV0LCBiKTsKPiAgCQlicmVhazsKPiAgCWNhc2UgTkVUREVWX0NIQU5HRU1UVToKPiAr
-CQlpZiAodGlwY19jaGVja19tdHUoZGV2LCAwKSkKPiArCQkJcmV0dXJuIC1FSU5WQUw7Cj4gKwkJ
-Yi0+bXR1ID0gZGV2LT5tdHU7Cj4gIAkJdGlwY19yZXNldF9iZWFyZXIobmV0LCBiKTsKPiAgCQli
-cmVhazsKPiAgCWNhc2UgTkVUREVWX0NIQU5HRUFERFI6Cj4gZGlmZiAtLWdpdCBhL25ldC90aXBj
-L2JlYXJlci5oIGIvbmV0L3RpcGMvYmVhcmVyLmgKPiBpbmRleCA3ODg5MmUyZjUzZTMuLjFhMGI3
-NDM0ZWMyNCAxMDA2NDQKPiAtLS0gYS9uZXQvdGlwYy9iZWFyZXIuaAo+ICsrKyBiL25ldC90aXBj
-L2JlYXJlci5oCj4gQEAgLTM5LDYgKzM5LDcgQEAKPgo+ICAjaW5jbHVkZSAibmV0bGluay5oIgo+
-ICAjaW5jbHVkZSAiY29yZS5oIgo+ICsjaW5jbHVkZSAibXNnLmgiCj4gICNpbmNsdWRlIDxuZXQv
-Z2VuZXRsaW5rLmg+Cj4KPiAgI2RlZmluZSBNQVhfTUVESUEJMwo+IEBAIC01OSw2ICs2MCw5IEBA
-Cj4gICNkZWZpbmUgVElQQ19NRURJQV9UWVBFX0lCCTIKPiAgI2RlZmluZSBUSVBDX01FRElBX1RZ
-UEVfVURQCTMKPgo+ICsvKiBtaW5pbXVtIGJlYXJlciBNVFUgKi8KPiArI2RlZmluZSBUSVBDX01J
-Tl9CRUFSRVJfTVRVCShNQVhfSF9TSVpFICsgSU5UX0hfU0laRSkKPiArCj4gIC8qKgo+ICAgKiBz
-dHJ1Y3QgdGlwY19tZWRpYV9hZGRyIC0gZGVzdGluYXRpb24gYWRkcmVzcyB1c2VkIGJ5IFRJUEMg
-YmVhcmVycwo+ICAgKiBAdmFsdWU6IGFkZHJlc3MgaW5mbyAoZm9ybWF0IGRlZmluZWQgYnkgbWVk
-aWEpCj4gQEAgLTIxNSw0ICsyMTksMTMgQEAgdm9pZCB0aXBjX2JlYXJlcl94bWl0KHN0cnVjdCBu
-ZXQgKm5ldCwgdTMyIGJlYXJlcl9pZCwKPiAgdm9pZCB0aXBjX2JlYXJlcl9iY194bWl0KHN0cnVj
-dCBuZXQgKm5ldCwgdTMyIGJlYXJlcl9pZCwKPiAgCQkJIHN0cnVjdCBza19idWZmX2hlYWQgKnht
-aXRxKTsKPgo+ICsvKiBjaGVjayBpZiBkZXZpY2UgTVRVIGlzIHN1ZmZpY2llbnQgZm9yIHRpcGMg
-aGVhZGVycyAqLwo+ICtpbmxpbmUgYm9vbCB0aXBjX2NoZWNrX210dShzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqZGV2LCB1bnNpZ25lZCBpbnQgcmVzZXJ2ZSkKCkl0J3MgdW5uZWNlc3NhcnkgdG8gZXhwbGlj
-aXRseSBkZWNsYXJlIGEgZnVuY3Rpb24gYXMgaW5saW5lLCBpbnN0ZWFkIApwbGVhc2UgbGV0IEdD
-QyBzbWFydGx5IGRlY2lkZSB0aGlzLgoKPiArewo+ICsJaWYgKGRldi0+bXR1ID49IFRJUENfTUlO
-X0JFQVJFUl9NVFUgKyByZXNlcnZlKQo+ICsJCXJldHVybiBmYWxzZTsKPiArCW5ldGRldl93YXJu
-KGRldiwgIk1UVSB0b28gbG93IGZvciB0aXBjIGJlYXJlclxuIik7Cj4gKwlyZXR1cm4gdHJ1ZTsK
-PiArfQo+ICsKPiAgI2VuZGlmCS8qIF9USVBDX0JFQVJFUl9IICovCj4gZGlmZiAtLWdpdCBhL25l
-dC90aXBjL3VkcF9tZWRpYS5jIGIvbmV0L3RpcGMvdWRwX21lZGlhLmMKPiBpbmRleCA3OGNhYjlj
-NWE0NDUuLjM3NmVkM2UzZWQ0NiAxMDA2NDQKPiAtLS0gYS9uZXQvdGlwYy91ZHBfbWVkaWEuYwo+
-ICsrKyBiL25ldC90aXBjL3VkcF9tZWRpYS5jCj4gQEAgLTY5Nyw2ICs2OTcsMTEgQEAgc3RhdGlj
-IGludCB0aXBjX3VkcF9lbmFibGUoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgdGlwY19iZWFyZXIg
-KmIsCj4gIAkJdWRwX2NvbmYubG9jYWxfaXAuc19hZGRyID0gaHRvbmwoSU5BRERSX0FOWSk7Cj4g
-IAkJdWRwX2NvbmYudXNlX3VkcF9jaGVja3N1bXMgPSBmYWxzZTsKPiAgCQl1Yi0+aWZpbmRleCA9
-IGRldi0+aWZpbmRleDsKPiArCQlpZiAodGlwY19jaGVja19tdHUoZGV2LCBzaXplb2Yoc3RydWN0
-IGlwaGRyKSArCj4gKwkJCQkJc2l6ZW9mKHN0cnVjdCB1ZHBoZHIpKSkgewo+ICsJCQllcnIgPSAt
-RUlOVkFMOwo+ICsJCQlnb3RvIGVycjsKPiArCQl9CgpGb3IgVURQIGJlYXJlciwgaXQgc2VlbXMg
-aW5zdWZmaWNpZW50IGZvciB1cyB0byBjaGVjayBNVFUgc2l6ZSBvbmx5IHdoZW4gClVEUCBiZWFy
-ZXIgaXMgZW5hYmxlZC4gTWVhbndoaWxlLCB3ZSBzaG91bGQgdXBkYXRlIE1UVSBzaXplIGZvciBV
-RFAgCmJlYXJlciB3aXRoIFBhdGggTVRVIGRpc2NvdmVyeSBwcm90b2NvbCBvbmNlIE1UVSBzaXpl
-IGlzIGNoYW5nZWQgYWZ0ZXIgCmJlYXJlciBpcyBlbmFibGVkLgoKUmVnYXJkcywKWWluZwoKPiAg
-CQliLT5tdHUgPSBkZXYtPm10dSAtIHNpemVvZihzdHJ1Y3QgaXBoZHIpCj4gIAkJCS0gc2l6ZW9m
-KHN0cnVjdCB1ZHBoZHIpOwo+ICAjaWYgSVNfRU5BQkxFRChDT05GSUdfSVBWNikKPgoKCi0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwp0aXBjLWRpc2N1c3Npb24gbWFpbGluZyBsaXN0CnRpcGMtZGlzY3Vzc2lvbkBsaXN0
-cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlz
-dGluZm8vdGlwYy1kaXNjdXNzaW9uCg==
+
+--HlL+5n6rz5pIUxbD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Mon 2016-11-28 07:31:43, Eric Dumazet wrote:
+> On Mon, 2016-11-28 at 09:54 -0500, David Miller wrote:
+> > From: Lino Sanfilippo <lsanfil@marvell.com>
+> > Date: Mon, 28 Nov 2016 14:07:51 +0100
+> >=20
+> > > Calling skb_orphan() in the xmit handler made this issue disappear.
+> >=20
+> > This is not the way to handle this problem.
+> >=20
+> > The solution is to free the SKBs in a timely manner after the
+> > chip has transmitted the frame.
+>=20
+> Note that the 'pauses' described by Pavel are also caused by a too small
+> SO_SNDBUF value on the UDP socket.
+>=20
+> An immediate fix, with no kernel change is to increase it.
+>=20
+> echo 1000000 >/proc/sys/net/core/wmem_default
+
+Thanks a lot. For the record, that works around the problem, too. (Or
+at least helps a lot; it may be possible that problem still remains if
+continuous stream of packets is going to trigger this, if I read the
+sources correctly.)
+
+Best regards,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--HlL+5n6rz5pIUxbD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlg+qekACgkQMOfwapXb+vKB8gCcDZGH6W4A5WADPi/NDNgf9RfF
+RWcAn0gyWtVoGTpGzrtbo23spNXbheYp
+=NrBz
+-----END PGP SIGNATURE-----
+
+--HlL+5n6rz5pIUxbD--
