@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: thunderx: Fix transmit queue timeout
- issue
-Date: Wed, 30 Nov 2016 14:11:21 -0500 (EST)
-Message-ID: <20161130.141121.375154493677208609.davem@davemloft.net>
-References: <1480419620-32500-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH net] cxgb4: Add PCI device ID for new adapter
+Date: Wed, 30 Nov 2016 14:12:46 -0500 (EST)
+Message-ID: <20161130.141246.1903055388587828234.davem@davemloft.net>
+References: <1480419892-30842-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com
-To: sunil.kovvuri@gmail.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com,
+        swise@opengridcomputing.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39832 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39862 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754198AbcK3TL0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:11:26 -0500
-In-Reply-To: <1480419620-32500-1-git-send-email-sunil.kovvuri@gmail.com>
+        with ESMTP id S1757187AbcK3TMs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:12:48 -0500
+In-Reply-To: <1480419892-30842-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sunil.kovvuri@gmail.com
-Date: Tue, 29 Nov 2016 17:10:20 +0530
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue, 29 Nov 2016 17:14:52 +0530
 
-> +		/* Check again, incase another cpu freed descriptors */
-> +		if (atomic_read(&sq->free_cnt) > MIN_SQ_DESC_PER_PKT_XMIT) {
-> +			netif_tx_start_queue(txq);
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-You have to use netif_tx_wake_queue() any time you restart a queue after bringing
-the device up.
+Applied.
