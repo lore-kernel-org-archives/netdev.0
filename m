@@ -1,47 +1,62 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v5 2/3] bpf: Add new cgroup attach type to
- enable sock modifications
-Date: Tue, 29 Nov 2016 21:41:56 -0800
-Message-ID: <20161130054154.GC31581@ast-mbp.thefacebook.com>
-References: <1480434813-3141-1-git-send-email-dsa@cumulusnetworks.com>
- <1480434813-3141-3-git-send-email-dsa@cumulusnetworks.com>
- <20161129200141.GB24152@ast-mbp.thefacebook.com>
- <781e66b2-007c-bd56-2cd1-543c1f5dcdb7@cumulusnetworks.com>
- <20161130005906.GB29591@ast-mbp.thefacebook.com>
- <d3359d0c-8995-d605-cd2d-f0558fdd0408@cumulusnetworks.com>
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Subject: Re: [patch net / RFC] net: fec: increase frame size limitation to
+ actually available buffer
+Date: Wed, 30 Nov 2016 09:36:15 +0300
+Message-ID: <dab27a3d-821c-8d07-ad98-2bdd8c442bc5@cogentembedded.com>
+References: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
+ <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
-        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Duan <fugang.duan@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36339 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751498AbcK3Fm3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 00:42:29 -0500
-Received: by mail-pf0-f195.google.com with SMTP id c4so9527821pfb.3
-        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 21:42:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <d3359d0c-8995-d605-cd2d-f0558fdd0408@cumulusnetworks.com>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:34145 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752857AbcK3GgT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 01:36:19 -0500
+Received: by mail-lf0-f45.google.com with SMTP id o141so138997532lff.1
+        for <netdev@vger.kernel.org>; Tue, 29 Nov 2016 22:36:18 -0800 (PST)
+In-Reply-To: <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 06:07:18PM -0700, David Ahern wrote:
-> On 11/29/16 5:59 PM, Alexei Starovoitov wrote:
-> > On Tue, Nov 29, 2016 at 05:43:08PM -0700, David Ahern wrote:
-> >> On 11/29/16 1:01 PM, Alexei Starovoitov wrote:
-> >>> Could you also expose sk_protcol and sk_type as read only fields?
-> >>
-> >> Those are bitfields in struct sock, so can't use offsetof or sizeof. Any existing use cases that try to load a bitfield in a bpf that I can look at?
-> > 
-> > pkt_type, vlan are also bitfileds in skb. Please see convert_skb_access()
-> > There is a bit of ugliness due to __BIG_ENDIAN_BITFIELD though..
-> > 
-> 
-> Given the added complexity I'd prefer to defer this second use case to a follow on patch set. This one introduces the infra for sockets and I don't see anything needing to change with it to add the read of 3 more sock elements. Agree?
+> But I think it is not necessary since the driver don't support jumbo frame.
 
-I don't see a complexity. It was straightforward for skb bitfields,
-but if there is some unforeseen issue, it's better to tackle it now
-otherwise the feature may never come and this 'infra for sockets' will
-stay as 'infra for vrf only' and I'm struggling to convince myself that it's ok.
-So I'll try to tweak this patch to add these 3 fields...
+Hardcoded 1522 raises two separate issues.
+
+(1) When DSA is in use, frames processed by FEC chip contain DSA tag and
+thus can be larger than hardcoded limit of 1522. This issue is not
+FEC-specific, any driver that hardcodes maximum frame size to 1522 (many
+do) will have this issue if used with DSA.
+
+Clean solution for this must take into account that difference between
+MTU and max frame size is no longer known at compile time. Actually this
+is the case even without DSA, due to VLANs: max frame size is (MTU + 18)
+without VLANs, but (MTU + 22) with VLANs. However currently drivers tend
+to ignore this and hardcode 22.  With DSA, 22 is not enough, need to add
+switch-specific tag size to that.
+
+Not yet sure how to handle this. DSA-specific API to find out tag size
+could be added, but generic solution should handle all cases of dynamic
+difference between MTU and max frame size, not only DSA.
+
+
+(2) There is some demand to use larger frames for optimization purposes.
+
+FEC register fields that limit frame size are 14-bit, thus allowing
+frames up to (4k-1). I'm about to prepare a larger patch:
+- add ndo_change_mtu handler, allowing MTU up to (4k - overhead),
+- set MAX_FL / TRUNC_FL based on configured MTU,
+- if necessary, do buffer reallocation with larger buffers.
+
+Is this suitable for upstreaming?
+Is there any policy related to handling larger frames?
