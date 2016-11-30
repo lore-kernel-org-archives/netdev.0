@@ -1,81 +1,54 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next] net/mlx5e: skip loopback selftest with !CONFIG_INET
-Date: Wed, 30 Nov 2016 22:05:39 +0100
-Message-ID: <20161130210552.1756085-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Kamal Heib <kamalh@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netns: avoid disabling irq for netns id
+Date: Wed, 30 Nov 2016 16:12:43 -0500 (EST)
+Message-ID: <20161130.161243.1093910043528839130.davem@davemloft.net>
+References: <148045748887.22539.3188295553967836703.stgit@sifl>
+	<20161130.145822.727604546507312208.davem@davemloft.net>
+	<CAGH-Kgv0UpmDdaW=z8pa1VvmrcJeaA57uMneqNEgex6Xa8NSQw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com, xiyou.wangcong@gmail.com
+To: pmoore@redhat.com
+Return-path: <linux-audit-bounces@redhat.com>
+In-Reply-To: <CAGH-Kgv0UpmDdaW=z8pa1VvmrcJeaA57uMneqNEgex6Xa8NSQw@mail.gmail.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-When CONFIG_INET is disabled, the new selftest results in a link
-error:
+From: Paul Moore <pmoore@redhat.com>
+Date: Wed, 30 Nov 2016 15:35:46 -0500
 
-drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.o: In function `mlx5e_test_loopback':
-en_selftest.c:(.text.mlx5e_test_loopback+0x2ec): undefined reference to `ip_send_check'
-en_selftest.c:(.text.mlx5e_test_loopback+0x34c): undefined reference to `udp4_hwcsum'
+> On Wed, Nov 30, 2016 at 2:58 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Paul Moore <pmoore@redhat.com>
+>> Date: Tue, 29 Nov 2016 17:11:29 -0500
+>>
+>>> From: Paul Moore <paul@paul-moore.com>
+>>>
+>>> Bring back commit bc51dddf98c9 ("netns: avoid disabling irq for netns
+>>> id") now that we've fixed some audit multicast issues that caused
+>>> problems with original attempt.  Additional information, and history,
+>>> can be found in the links below:
+>>>
+>>>  * https://github.com/linux-audit/audit-kernel/issues/22
+>>>  * https://github.com/linux-audit/audit-kernel/issues/23
+>>>
+>>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>> Signed-off-by: Paul Moore <paul@paul-moore.com>
+>>
+>> This doesn't apply cleanly to the net-next tree, could you please
+>> respin?
+> 
+> As I mentioned in a reply to the patch posting, because this relies on
+> a number of patches in the audit tree I've gone ahead and merged this
+> patch into the audit#next branch.  Unless you have any objections,
+> I'll send this to Linus with the rest of the v4.10 audit patches.
 
-This hides the specific test in that configuration.
-
-Fixes: 0952da791c97 ("net/mlx5e: Add support for loopback selftest")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
-index c32af7daf3ff..65442c36a6e1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_selftest.c
-@@ -39,7 +39,9 @@ enum {
- 	MLX5E_ST_LINK_STATE,
- 	MLX5E_ST_LINK_SPEED,
- 	MLX5E_ST_HEALTH_INFO,
-+#ifdef CONFIG_INET
- 	MLX5E_ST_LOOPBACK,
-+#endif
- 	MLX5E_ST_NUM,
- };
- 
-@@ -47,7 +49,9 @@ const char mlx5e_self_tests[MLX5E_ST_NUM][ETH_GSTRING_LEN] = {
- 	"Link Test",
- 	"Speed Test",
- 	"Health Test",
-+#ifdef CONFIG_INET
- 	"Loopback Test",
-+#endif
- };
- 
- int mlx5e_self_test_num(struct mlx5e_priv *priv)
-@@ -93,6 +97,7 @@ static int mlx5e_test_link_speed(struct mlx5e_priv *priv)
- 	return 1;
- }
- 
-+#ifdef CONFIG_INET
- /* loopback test */
- #define MLX5E_TEST_PKT_SIZE (MLX5_MPWRQ_SMALL_PACKET_THRESHOLD - NET_IP_ALIGN)
- static const char mlx5e_test_text[ETH_GSTRING_LEN] = "MLX5E SELF TEST";
-@@ -304,12 +309,15 @@ static int mlx5e_test_loopback(struct mlx5e_priv *priv)
- 	kfree(lbtp);
- 	return err;
- }
-+#endif
- 
- static int (*mlx5e_st_func[MLX5E_ST_NUM])(struct mlx5e_priv *) = {
- 	mlx5e_test_link_state,
- 	mlx5e_test_link_speed,
- 	mlx5e_test_health_info,
--	mlx5e_test_loopback
-+#ifdef CONFIG_INET
-+	mlx5e_test_loopback,
-+#endif
- };
- 
- void mlx5e_self_test(struct net_device *ndev, struct ethtool_test *etest,
--- 
-2.9.0
+That's fine with me.
