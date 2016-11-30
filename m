@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/dccp: fix use-after-free in dccp_invalid_packet
-Date: Tue, 29 Nov 2016 20:38:01 -0500 (EST)
-Message-ID: <20161129.203801.926114791600466509.davem@davemloft.net>
-References: <CAAeHK+zYNyuFUU+w0rLWvvZqivSedrqMpS5UYt=c4uqajS_Stw@mail.gmail.com>
-        <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [patch net] sched: cls_flower: remove from hashtable only in
+ case skip sw flag is not set
+Date: Tue, 29 Nov 2016 20:45:19 -0500 (EST)
+Message-ID: <20161129.204519.1127685115175288472.davem@davemloft.net>
+References: <1480344013-4812-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andreyknvl@google.com, gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        syzkaller@googlegroups.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, idosch@mellanox.com,
+        eladr@mellanox.com, ogerlitz@mellanox.com, hadarh@mellanox.com,
+        amir@vadai.me
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39388 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39614 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754020AbcK3BiO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:38:14 -0500
-In-Reply-To: <1480343209.18162.50.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1754475AbcK3Bpl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Nov 2016 20:45:41 -0500
+In-Reply-To: <1480344013-4812-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 28 Nov 2016 06:26:49 -0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 28 Nov 2016 15:40:13 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> pskb_may_pull() can reallocate skb->head, we need to reload dh pointer
-> in dccp_invalid_packet() or risk use after free.
+> Be symmetric to hashtable insert and remove filter from hashtable only
+> in case skip sw flag is not set.
 > 
-> Bug found by Andrey Konovalov using syzkaller.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Fixes: e69985c67c33 ("net/sched: cls_flower: Introduce support in SKIP SW flag")
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Applied and queued up for -stable, thanks Eric.
+Applied, thanks Jiri.
