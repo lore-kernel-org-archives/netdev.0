@@ -1,104 +1,93 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/11] Netfilter fixes for net
-Date: Wed, 30 Nov 2016 22:57:14 +0100
-Message-ID: <1480543045-3389-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/11] netfilter: Update ip_route_me_harder to consider L3 domain
+Date: Wed, 30 Nov 2016 22:57:15 +0100
+Message-ID: <1480543045-3389-2-git-send-email-pablo@netfilter.org>
+References: <1480543045-3389-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42096 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753276AbcK3V5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 16:57:38 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 349CF13C0E0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:37 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 24417DA804
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:37 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 26A37DA80B
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 22:57:35 +0100 (CET)
+In-Reply-To: <1480543045-3389-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: David Ahern <dsa@cumulusnetworks.com>
 
-This is a large batch of Netfilter fixes for net, they are:
+ip_route_me_harder is not considering the L3 domain and sending lookups
+to the wrong table. For example consider the following output rule:
 
-1) Three patches to fix NAT conversion to rhashtable: Switch to rhlist
-   structure that allows to have several objects with the same key.
-   Moreover, fix wrong comparison logic in nf_nat_bysource_cmp() as this is
-   expecting a return value similar to memcmp(). Change location of
-   the nat_bysource field in the nf_conn structure to avoid zeroing
-   this as it breaks interaction with SLAB_DESTROY_BY_RCU and lead us
-   to crashes. From Florian Westphal.
+iptables -I OUTPUT -p tcp --dport 12345 -j REJECT --reject-with tcp-reset
 
-2) Don't allow malformed fragments go through in IPv6, drop them,
-   otherwise we hit GPF, patch from Florian Westphal.
+using perf to analyze lookups via the fib_table_lookup tracepoint shows:
 
-3) Fix crash if attributes are missing in nft_range, from Liping Zhang.
+vrf-test  1187 [001] 46887.295927: fib:fib_table_lookup: table 255 oif 0 iif 0 src 0.0.0.0 dst 10.100.1.254 tos 0 scope 0 flags 0
+        ffffffff8143922c perf_trace_fib_table_lookup ([kernel.kallsyms])
+        ffffffff81493aac fib_table_lookup ([kernel.kallsyms])
+        ffffffff8148dda3 __inet_dev_addr_type ([kernel.kallsyms])
+        ffffffff8148ddf6 inet_addr_type ([kernel.kallsyms])
+        ffffffff8149e344 ip_route_me_harder ([kernel.kallsyms])
 
-4) Fix arptables 32-bits userspace 64-bits kernel compat, from Hongxu Jia.
+and
 
-5) Two patches from David Ahern to fix netfilter interaction with vrf.
-   From David Ahern.
+vrf-test  1187 [001] 46887.295933: fib:fib_table_lookup: table 255 oif 0 iif 1 src 10.100.1.254 dst 10.100.1.2 tos 0 scope 0 flags
+        ffffffff8143922c perf_trace_fib_table_lookup ([kernel.kallsyms])
+        ffffffff81493aac fib_table_lookup ([kernel.kallsyms])
+        ffffffff814998ff fib4_rule_action ([kernel.kallsyms])
+        ffffffff81437f35 fib_rules_lookup ([kernel.kallsyms])
+        ffffffff81499758 __fib_lookup ([kernel.kallsyms])
+        ffffffff8144f010 fib_lookup.constprop.34 ([kernel.kallsyms])
+        ffffffff8144f759 __ip_route_output_key_hash ([kernel.kallsyms])
+        ffffffff8144fc6a ip_route_output_flow ([kernel.kallsyms])
+        ffffffff8149e39b ip_route_me_harder ([kernel.kallsyms])
 
-6) Fix element timeout calculation in nf_tables, we take milliseconds
-   from userspace, but we use jiffies from kernelspace. Patch from
-   Anders K.  Pedersen.
+In both cases the lookups are directed to table 255 rather than the
+table associated with the device via the L3 domain. Update both
+lookups to pull the L3 domain from the dst currently attached to the
+skb.
 
-7) Missing validation length netlink attribute for nft_hash, from
-   Laura Garcia.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/ipv4/netfilter.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-8) Fix nf_conntrack_helper documentation, we don't default to off
-   anymore for a bit of time so let's get this in sync with the code.
-
-I know is late but I think these are important, specifically the NAT
-bits, as they are mostly addressing fallout from recent changes. I also
-read there are chances to have -rc8, if that is the case, that would
-also give us a bit more time to test this.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit b6e01232e25629907df9db19f25da7d4e8f5b589:
-
-  net/mlx4_en: Free netdev resources under state lock (2016-11-23 20:18:36 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
-
-for you to fetch changes up to 17a49cd549d9dc8707dc9262210166455c612dde:
-
-  netfilter: arp_tables: fix invoking 32bit "iptable -P INPUT ACCEPT" failed in 64bit kernel (2016-11-30 20:50:23 +0100)
-
-----------------------------------------------------------------
-Anders K. Pedersen (1):
-      netfilter: nf_tables: fix inconsistent element expiration calculation
-
-David Ahern (2):
-      netfilter: Update ip_route_me_harder to consider L3 domain
-      netfilter: Update nf_send_reset6 to consider L3 domain
-
-Florian Westphal (5):
-      netfilter: fix nf_conntrack_helper documentation
-      netfilter: nat: fix cmp return value
-      netfilter: nat: switch to new rhlist interface
-      netfilter: nat: fix crash when conntrack entry is re-used
-      netfilter: ipv6: nf_defrag: drop mangled skb on ream error
-
-Hongxu Jia (1):
-      netfilter: arp_tables: fix invoking 32bit "iptable -P INPUT ACCEPT" failed in 64bit kernel
-
-Laura Garcia Liebana (1):
-      netfilter: nft_hash: validate maximum value of u32 netlink hash attribute
-
-Liping Zhang (1):
-      netfilter: nft_range: add the missing NULL pointer check
-
- Documentation/networking/nf_conntrack-sysctl.txt |  7 +++-
- include/net/netfilter/nf_conntrack.h             |  6 +--
- include/net/netfilter/nf_tables.h                |  2 +-
- net/ipv4/netfilter.c                             |  5 ++-
- net/ipv4/netfilter/arp_tables.c                  |  4 +-
- net/ipv6/netfilter/nf_conntrack_reasm.c          |  4 +-
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c        |  2 +-
- net/ipv6/netfilter/nf_reject_ipv6.c              |  1 +
- net/netfilter/nf_nat_core.c                      | 49 +++++++++++++++---------
- net/netfilter/nf_tables_api.c                    | 14 ++++---
- net/netfilter/nft_hash.c                         |  7 +++-
- net/netfilter/nft_range.c                        |  6 +++
- 12 files changed, 69 insertions(+), 38 deletions(-)
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index c3776ff6749f..b3cc1335adbc 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -24,10 +24,11 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
+ 	struct flowi4 fl4 = {};
+ 	__be32 saddr = iph->saddr;
+ 	__u8 flags = skb->sk ? inet_sk_flowi_flags(skb->sk) : 0;
++	struct net_device *dev = skb_dst(skb)->dev;
+ 	unsigned int hh_len;
+ 
+ 	if (addr_type == RTN_UNSPEC)
+-		addr_type = inet_addr_type(net, saddr);
++		addr_type = inet_addr_type_dev_table(net, dev, saddr);
+ 	if (addr_type == RTN_LOCAL || addr_type == RTN_UNICAST)
+ 		flags |= FLOWI_FLAG_ANYSRC;
+ 	else
+@@ -40,6 +41,8 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
+ 	fl4.saddr = saddr;
+ 	fl4.flowi4_tos = RT_TOS(iph->tos);
+ 	fl4.flowi4_oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
++	if (!fl4.flowi4_oif)
++		fl4.flowi4_oif = l3mdev_master_ifindex(dev);
+ 	fl4.flowi4_mark = skb->mark;
+ 	fl4.flowi4_flags = flags;
+ 	rt = ip_route_output_key(net, &fl4);
+-- 
+2.1.4
