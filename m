@@ -1,40 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 0/2] Don't use lco_csum to compute IPv4 checksum
-Date: Wed, 30 Nov 2016 09:47:46 -0500 (EST)
-Message-ID: <20161130.094746.724735454244491985.davem@davemloft.net>
-References: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Subject: DSA vs envelope frames
+Date: Wed, 30 Nov 2016 17:58:31 +0300
+Message-ID: <d8a6df03-d9bd-eca5-0b9f-73406efe6509@cogentembedded.com>
+References: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
+ <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <dab27a3d-821c-8d07-ad98-2bdd8c442bc5@cogentembedded.com>
+ <f632a0e8-746b-2db5-09af-3a5f6fc78e13@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        sfr@canb.auug.org.au, jeffrey.t.kirsher@intel.com
-To: alexander.h.duyck@intel.com
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        lorian Fainelli <f.fainelli@gmail.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+        Andy Duan <fugang.duan@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60564 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753532AbcK3Oru (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 09:47:50 -0500
-In-Reply-To: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33597 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932242AbcK3O6f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 09:58:35 -0500
+Received: by mail-lf0-f48.google.com with SMTP id c13so148438339lfg.0
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 06:58:34 -0800 (PST)
+In-Reply-To: <f632a0e8-746b-2db5-09af-3a5f6fc78e13@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Mon, 28 Nov 2016 10:42:18 -0500
-
-> When I implemented the GSO partial support in the Intel drivers I was using
-> lco_csum to compute the checksum that we needed to plug into the IPv4
-> checksum field in order to cancel out the data that was not a part of the
-> IPv4 header.  However this didn't take into account that the transport
-> offset might be pointing to the inner transport header.
+>> (1) When DSA is in use, frames processed by FEC chip contain DSA tag and
+>> thus can be larger than hardcoded limit of 1522. This issue is not
+>> FEC-specific, any driver that hardcodes maximum frame size to 1522 (many
+>> do) will have this issue if used with DSA.
 > 
-> Instead of using lco_csum I have just coded around it so that we can use
-> the outer IP header plus the IP header length to determine where we need to
-> start our checksum and then just call csum_partial ourselves.
+> BTW I'm trying to introduce envelope frames to solve this kind of problems.
+> http://marc.info/?t=147496691500005&r=1&w=2
+> http://marc.info/?t=147496691500003&r=1&w=2
+> http://marc.info/?t=147496691500002&r=1&w=2
+> http://marc.info/?t=147496691500004&r=1&w=2
+> http://marc.info/?t=147496691500001&r=1&w=2
 > 
-> This should fix the SIT issue reported on igb interfaces as well as simliar
-> issues that would pop up on other Intel NICs.
+> It needs jumbo frame support of NICs though.
 
-Jeff, are you going to send me a pull request with this stuff or would
-you be OK with my applying these directly to 'net'?
+Thanks for pointing to this.
 
-Thanks.
+Indeed frame with DSA tag conceptually is an envelope frame.
+
+ndev->env_hdr_len introduced by your patches, actually is explicitly
+handled difference between (MTU + 18) and frame that HW should allow.
+If this is known, hardware can be configured to work with DSA. At least
+FEC hardware that can send and receive "slightly larger" frames after
+simple register configuration.
+
+Furthermore, since DSA configuration is known statically (it comes from
+device tree), ndo_set_env_hdr_len method could be automatically called
+at init, making setup working by default if driver supports that. And if
+not, perhaps can automatically lower MTU.
+
+Looks like a solution :)
+
+What's current status of this work?
+
+What is not really clear - what if several tagging protocols are used
+together. AFAIU, things may be more complex that simple appending of
+tags, e.g. EDSA tag can carry VLAN id inside.
+
+Nikita
