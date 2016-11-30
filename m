@@ -1,40 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 00/11] qed*: Add XDP support
-Date: Wed, 30 Nov 2016 14:32:21 -0500 (EST)
-Message-ID: <20161130.143221.1609717089304684754.davem@davemloft.net>
-References: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers 2016-11-29
+Date: Wed, 30 Nov 2016 14:34:44 -0500 (EST)
+Message-ID: <20161130.143444.242053190479060640.davem@davemloft.net>
+References: <87r35utjq7.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40478 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753657AbcK3TcX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:32:23 -0500
-In-Reply-To: <1480430830-17671-1-git-send-email-Yuval.Mintz@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87r35utjq7.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Date: Tue, 29 Nov 2016 16:46:59 +0200
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Tue, 29 Nov 2016 16:59:44 +0200
 
-> This patch series is intended to add XDP to the qede driver, although
-> it contains quite a bit of cleanups, refactorings and infrastructure
-> changes as well.
+> if there's still time here's one more patch to 3.9. I think this is good
+> to have in 3.9 as it fixes an issue where we were printing uninitialised
+> memory in mwifiex. I had this in wireless-drivers already for some time
+> as I was waiting for other fixes and nothing serious actually came up.
 > 
-> The content of this series can be roughly divided into:
-> 
->  - Datapath improvements - mostly focused on having the datapath utilize
-> parameters which can be more tightly contained in cachelines.
-> Patches #1, #2, #8, #9 belong to this group.
-> 
->  - Refactoring - done mostly in favour of XDP. Patches #3, #4, #5, #9.
-> 
->  - Infrastructure changes - done in favour of XDP. Paches #6 and #7 belong
-> to this category [#7 being by far the biggest patch in the series].
-> 
->  - Actual XDP support - last two patches [#10, #11].
+> If this doesn't make it to 3.9 that's not a problem, I'll just merge
+> this to wireless-drivers-next. Let me know what you prefer.
 
-Series applied, thank you.
+Unless you are in a time-machine of some sort I assume you mean "4.9" not
+"3.9" :-)
+
+Pulled, thanks.
