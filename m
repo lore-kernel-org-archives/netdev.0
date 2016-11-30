@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: ti: cpsw: fix ASSERT_RTNL() warning
- during resume
-Date: Wed, 30 Nov 2016 14:59:36 -0500 (EST)
-Message-ID: <20161130.145936.1357519815495012632.davem@davemloft.net>
-References: <20161129222703.10908-1-grygorii.strashko@ti.com>
+Subject: Re: [PATCH net-next 1/1] driver: ipvlan: Remove useless member
+ mtu_adj of struct ipvl_dev
+Date: Wed, 30 Nov 2016 15:02:11 -0500 (EST)
+Message-ID: <20161130.150211.1130717424873353750.davem@davemloft.net>
+References: <1480466924-2436-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com, nsekhar@ti.com,
-        linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-        ivan.khoronzhuk@linaro.org, d-gerlach@ti.com
-To: grygorii.strashko@ti.com
+Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41366 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41476 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754786AbcK3T7i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 14:59:38 -0500
-In-Reply-To: <20161129222703.10908-1-grygorii.strashko@ti.com>
+        with ESMTP id S1755154AbcK3UCN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 15:02:13 -0500
+In-Reply-To: <1480466924-2436-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Tue, 29 Nov 2016 16:27:03 -0600
+From: fgao@ikuai8.com
+Date: Wed, 30 Nov 2016 08:48:44 +0800
 
-> netif_set_real_num_tx/rx_queues() are required to be called with rtnl_lock
-> taken, otherwise ASSERT_RTNL() warning will be triggered - which happens
-> now during System resume from suspend:
-> cpsw_resume()
-> |- cpsw_ndo_open()
->   |- netif_set_real_num_tx/rx_queues()
->      |- ASSERT_RTNL();
+> From: Gao Feng <fgao@ikuai8.com>
 > 
-> Hence, fix it by surrounding cpsw_ndo_open() by rtnl_lock/unlock() calls.
+> The mtu_adj is initialized to zero when alloc mem, there is no any
+> assignment to mtu_adj. It is only used in ipvlan_adjust_mtu as one
+> right value.
+> So it is useless member of struct ipvl_dev, then remove it.
 > 
-> Cc: Dave Gerlach <d-gerlach@ti.com>
-> Cc: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> Fixes: commit e05107e6b747 ("net: ethernet: ti: cpsw: add multi queue support")
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
-Applied.
+Applied, thank you.
