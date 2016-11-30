@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 00/12]  ipv4: fib: Allow modules to dump FIB tables
-Date: Wed, 30 Nov 2016 11:08:54 +0100
-Message-ID: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 04/12] mlxsw: spectrum_router: Implement FIB offload in deferred work
+Date: Wed, 30 Nov 2016 11:08:58 +0100
+Message-ID: <1480500546-2544-5-git-send-email-jiri@resnulli.us>
+References: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
         ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
@@ -11,89 +12,143 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33924 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754190AbcK3KJJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:09:09 -0500
-Received: by mail-wm0-f65.google.com with SMTP id g23so28647382wme.1
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 02:09:08 -0800 (PST)
+Received: from mail-wj0-f196.google.com ([209.85.210.196]:36423 "EHLO
+        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754772AbcK3KJO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 05:09:14 -0500
+Received: by mail-wj0-f196.google.com with SMTP id jb2so21487768wjb.3
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 02:09:13 -0800 (PST)
+In-Reply-To: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Ido says:
+FIB offload is currently done in process context with RTNL held, but
+we're about to dump the FIB tables in RCU critical section, so we can no
+longer sleep.
 
-In kernel 4.9 the switchdev-specific FIB offload mechanism was replaced
-by a new FIB notification chain to which modules could register in order
-to be notified about the addition and deletion of FIB entries. The
-motivation for this change was that switchdev drivers need to be able to
-reflect the entire FIB table and not only FIBs configured on top of the
-port netdevs themselves. This is useful in case of in-band management.
+Instead, defer the operation to process context using deferred work. Make
+sure fib info isn't freed while the work is queued by taking a reference
+on it and releasing it after the operation is done.
 
-The fundamental problem with this approach is that upon registration
-listeners lose all the information previously sent in the chain and
-thus have an incomplete view of the FIB tables, which can result in
-packet loss. This patchset fixes that by introducing a new API to dump
-the FIB tables.
+Deferring the operation is valid because the upper layers always assume
+the operation was successful. If it's not, then the driver-specific
+abort mechanism is called and all routed traffic is directed to slow
+path.
 
-The entire dump process is done under RCU and thus the FIB notification
-chain is converted to be atomic. The listeners are modified accordingly.
-This is done in the first seven patches.
+The work items are submitted to an ordered workqueue to prevent a
+mismatch between the kernel's FIB table and the device's.
 
-The eighth and ninth patches add a change sequence counter to ensure the
-integrity of the FIB dump and a sysctl to set the number of retries,
-respectively. The tenth patch finally introduces the FIB dump itself.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 72 +++++++++++++++++++---
+ 1 file changed, 62 insertions(+), 10 deletions(-)
 
-The last two patches modify current listeners of the FIB notification
-chain to invoke the dump during their init.
-
-v2->v3:
-- Add sysctl to set the number of FIB dump retries
-  (Hannes Frederic Sowa).
-- Read the sequence counter under RTNL to ensure synchronization
-  between the dump process and other processes changing the routing
-  tables (Hannes Frederic Sowa).
-- Pass a callback to the dump function to be executed prior to a retry.
-- Limit the dump to a single net namespace.
-
-v1->v2:
-- Add a sequence counter to ensure the integrity of the FIB dump
-  (David S. Miller, Hannes Frederic Sowa).
-- Protect notifications from re-ordering in listeners by using an
-  ordered workqueue (Hannes Frederic Sowa).
-- Introduce fib_info_hold() (Jiri Pirko).
-- Relieve rocker from the need to invoke the FIB dump by registering
-  to the FIB notification chain prior to ports creation.
-
-Ido Schimmel (12):
-  ipv4: fib: Export free_fib_info()
-  ipv4: fib: Add fib_info_hold() helper
-  mlxsw: core: Create an ordered workqueue for FIB offload
-  mlxsw: spectrum_router: Implement FIB offload in deferred work
-  rocker: Create an ordered workqueue for FIB offload
-  rocker: Implement FIB offload in deferred work
-  ipv4: fib: Convert FIB notification chain to be atomic
-  ipv4: fib: Allow for consistent FIB dumping
-  ipv4: fib: Add sysctl to limit number of FIB dump retries
-  ipv4: fib: Add an API to request a FIB dump
-  mlxsw: spectrum_router: Request a dump of FIB tables during init
-  rocker: Register FIB notifier before creating ports
-
- Documentation/networking/ip-sysctl.txt             |   8 ++
- drivers/net/ethernet/mellanox/mlxsw/core.c         |  22 +++
- drivers/net/ethernet/mellanox/mlxsw/core.h         |   2 +
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  95 +++++++++++--
- drivers/net/ethernet/rocker/rocker.h               |   1 +
- drivers/net/ethernet/rocker/rocker_main.c          |  78 +++++++++--
- drivers/net/ethernet/rocker/rocker_ofdpa.c         |   1 +
- include/net/ip_fib.h                               |   9 ++
- include/net/netns/ipv4.h                           |   4 +
- net/ipv4/fib_frontend.c                            |   3 +
- net/ipv4/fib_semantics.c                           |   1 +
- net/ipv4/fib_trie.c                                | 147 ++++++++++++++++++++-
- net/ipv4/sysctl_net_ipv4.c                         |   7 +
- 13 files changed, 352 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 683f045..14bed1d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -593,6 +593,14 @@ static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp);
+ 
+ static void mlxsw_sp_vrs_fini(struct mlxsw_sp *mlxsw_sp)
+ {
++	/* At this stage we're guaranteed not to have new incoming
++	 * FIB notifications and the work queue is free from FIBs
++	 * sitting on top of mlxsw netdevs. However, we can still
++	 * have other FIBs queued. Flush the queue before flushing
++	 * the device's tables. No need for locks, as we're the only
++	 * writer.
++	 */
++	mlxsw_core_flush_owq();
+ 	mlxsw_sp_router_fib_flush(mlxsw_sp);
+ 	kfree(mlxsw_sp->router.vrs);
+ }
+@@ -1948,30 +1956,74 @@ static void __mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
+ 	kfree(mlxsw_sp->rifs);
+ }
+ 
+-static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
+-				     unsigned long event, void *ptr)
++struct mlxsw_sp_fib_event_work {
++	struct delayed_work dw;
++	struct fib_entry_notifier_info fen_info;
++	struct mlxsw_sp *mlxsw_sp;
++	unsigned long event;
++};
++
++static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
+ {
+-	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
+-	struct fib_entry_notifier_info *fen_info = ptr;
++	struct mlxsw_sp_fib_event_work *fib_work =
++		container_of(work, struct mlxsw_sp_fib_event_work, dw.work);
++	struct mlxsw_sp *mlxsw_sp = fib_work->mlxsw_sp;
+ 	int err;
+ 
+-	if (!net_eq(fen_info->info.net, &init_net))
+-		return NOTIFY_DONE;
+-
+-	switch (event) {
++	/* Protect internal structures from changes */
++	rtnl_lock();
++	switch (fib_work->event) {
+ 	case FIB_EVENT_ENTRY_ADD:
+-		err = mlxsw_sp_router_fib4_add(mlxsw_sp, fen_info);
++		err = mlxsw_sp_router_fib4_add(mlxsw_sp, &fib_work->fen_info);
+ 		if (err)
+ 			mlxsw_sp_router_fib4_abort(mlxsw_sp);
++		fib_info_put(fib_work->fen_info.fi);
+ 		break;
+ 	case FIB_EVENT_ENTRY_DEL:
+-		mlxsw_sp_router_fib4_del(mlxsw_sp, fen_info);
++		mlxsw_sp_router_fib4_del(mlxsw_sp, &fib_work->fen_info);
++		fib_info_put(fib_work->fen_info.fi);
+ 		break;
+ 	case FIB_EVENT_RULE_ADD: /* fall through */
+ 	case FIB_EVENT_RULE_DEL:
+ 		mlxsw_sp_router_fib4_abort(mlxsw_sp);
+ 		break;
+ 	}
++	rtnl_unlock();
++	kfree(fib_work);
++}
++
++/* Called with rcu_read_lock() */
++static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
++				     unsigned long event, void *ptr)
++{
++	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
++	struct mlxsw_sp_fib_event_work *fib_work;
++	struct fib_notifier_info *info = ptr;
++
++	if (!net_eq(info->net, &init_net))
++		return NOTIFY_DONE;
++
++	fib_work = kzalloc(sizeof(*fib_work), GFP_ATOMIC);
++	if (WARN_ON(!fib_work))
++		return NOTIFY_BAD;
++
++	INIT_DELAYED_WORK(&fib_work->dw, mlxsw_sp_router_fib_event_work);
++	fib_work->mlxsw_sp = mlxsw_sp;
++	fib_work->event = event;
++
++	switch (event) {
++	case FIB_EVENT_ENTRY_ADD: /* fall through */
++	case FIB_EVENT_ENTRY_DEL:
++		memcpy(&fib_work->fen_info, ptr, sizeof(fib_work->fen_info));
++		/* Take referece on fib_info to prevent it from being
++		 * freed while work is queued. Release it afterwards.
++		 */
++		fib_info_hold(fib_work->fen_info.fi);
++		break;
++	}
++
++	mlxsw_core_schedule_odw(&fib_work->dw, 0);
++
+ 	return NOTIFY_DONE;
+ }
+ 
 -- 
 2.7.4
