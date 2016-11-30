@@ -1,64 +1,60 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: net/sctp: vmalloc allocation failure in
- sctp_setsockopt/xt_alloc_table_info
-Date: Wed, 30 Nov 2016 17:21:45 -0200
-Message-ID: <20161130192145.GB13169@localhost.localdomain>
-References: <CAAeHK+wecw6ST_DWJQBLFNwVsOVgderGE-EEJiN0-kf796XHtw@mail.gmail.com>
- <20161128141340.GA29839@hmsreliant.think-freely.org>
- <CAAeHK+xJmwF6hddS-sO-y3HQkRicwQN=ZceFWTZT2M_0h4E2hQ@mail.gmail.com>
- <20161128143931.GB29839@hmsreliant.think-freely.org>
- <20161128151312.GA13172@localhost.localdomain>
- <20161128174647.GC29839@hmsreliant.think-freely.org>
- <20161128174710.GE28510@breakpoint.cc>
- <20161128175626.GD29839@hmsreliant.think-freely.org>
- <20161128180925.GF28510@breakpoint.cc>
- <20161128181803.GA13159@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next] net: hns: Fix to conditionally convey RX
+ checksum flag to stack
+Date: Wed, 30 Nov 2016 14:25:39 -0500 (EST)
+Message-ID: <20161130.142539.1927956259851457047.davem@davemloft.net>
+References: <20161129130945.919372-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yisen.zhuang@huawei.com, mehta.salil.lnk@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+To: salil.mehta@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161128181803.GA13159@localhost.localdomain>
+In-Reply-To: <20161129130945.919372-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 28, 2016 at 04:18:03PM -0200, Marcelo Ricardo Leitner wrote:
-> On Mon, Nov 28, 2016 at 07:09:25PM +0100, Florian Westphal wrote:
-> > Neil Horman <nhorman@tuxdriver.com> wrote:
-> > 
-> > [ trimming CCs ]
-> > 
-> > > On Mon, Nov 28, 2016 at 06:47:10PM +0100, Florian Westphal wrote:
-> > > > Neil Horman <nhorman@tuxdriver.com> wrote:
-> > > > > I'm not sure I agree with that.  Generally speaking it seems like the right
-> > > > > thing to do, if you want to avoid filling logs with warnings, but this is the
-> > > > > sort of error that is going to be accompanied by severe service interruption.
-> > > > > I'd rather see a reason behind that in the logs, than just have it occur
-> > > > > silently.
-> > > > 
-> > > > Its not silent -- the setsockopt call will fail and userspace should
-> > > > display an error.
-> > > > 
-> > > Thats not true.  If the OOM succedes in freeing enough memory to fulfill the
-> > > request the setsockopt may complete without error, you're just left with a
-> > > killed process...somewhere.  Thats seems a bit dodgy to me
-> > 
-> 
-> __GFP_NOWARN is about allocation failures only and it won't disable OOM
-> kill messages.  oom_kill_process() has no idea on GFP_NOWARN when doing
-> the logging.
-> 
-> > We should prevent OOM killer from running in first place (GFP_NORETRY should work).
-> 
-> Oh. Really?
-> 
+From: Salil Mehta <salil.mehta@huawei.com>
+Date: Tue, 29 Nov 2016 13:09:45 +0000
 
-Now I see why. Then we're basically saying that's better to fail this
-operation than to kill some random process around.
-And kmalloc() is already using GFP_NORETRY in this same place.
+> +	/* We only support checksum for IPv4,UDP(over IPv4 or IPv6), TCP(over
+> +	 * IPv4 or IPv6) and SCTP but we support many L3(IPv4, IPv6, MPLS,
+> +	 * PPPoE etc) and L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.) protocols.
+> +	 * We want to filter out L3 and L4 protocols early on for which checksum
+> +	 * is not supported.
+ ...
+> +	 */
+> +	l3id = hnae_get_field(flag, HNS_RXD_L3ID_M, HNS_RXD_L3ID_S);
+> +	l4id = hnae_get_field(flag, HNS_RXD_L4ID_M, HNS_RXD_L4ID_S);
+> +	if ((l3id != HNS_RX_FLAG_L3ID_IPV4) &&
+> +	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
+> +	     (l4id != HNS_RX_FLAG_L4ID_UDP)) &&
+> +	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
+> +	     (l4id != HNS_RX_FLAG_L4ID_TCP)) &&
+> +	    (l4id != HNS_RX_FLAG_L4ID_SCTP))
+> +		return;
 
-  Marcelo
+I have a hard time understanding this seemingly overcomplicated
+check.
+
+It looks like if L3 is IPV4 it will accept any underlying L4 protocol,
+but is that what is really intended?  That doesn't match what this new
+comment states.
+
+My understanding is that the chip supports checksums for:
+
+	UDP/IPV4
+	UDP/IPV6
+	TCP/IPV4
+	TCP/IPV6
+	SCTP/IPV4
+	SCTP/IPV6
+
+So the simplest thing is to validate each level one at a time:
+
+	if (l3 != IPV4 && l3 != IPV6)
+		return;
+	if (l4 != UDP && l4 != TCP && l4 != SCTP)
+		return;
