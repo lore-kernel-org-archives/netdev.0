@@ -1,96 +1,115 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [WIP] net+mlx4: auto doorbell
-Date: Thu, 01 Dec 2016 06:24:34 -0800
-Message-ID: <1480602274.18162.285.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20140903165943.372b897b@redhat.com>
-         <20161116234022.2bad179b@redhat.com>
-         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117091638.5fab8494@redhat.com>
-         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117144248.23500001@redhat.com>
-         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117155753.17b76f5a@redhat.com>
-         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117193021.580589ae@redhat.com>
-         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161121170351.50a09ee1@redhat.com>
-         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG_G3G-_jFFD0xiAOfR-k69rhb_2ia4LHZroE-oEFxApnQ@mail.gmail.com>
-         <1480520661.18162.177.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
-         <20161201130505.0b4a5cd5@redhat.com>
+From: Andy Gross <andy.gross-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+Date: Thu, 1 Dec 2016 08:21:51 -0600
+Message-ID: <CAPBZ5Qf8Z7-0Bvsuj88=jY8ZULU9ntCAAOqV_a0OGL4oYSTdWQ@mail.gmail.com>
+References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
+ <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
+ <20161118183541.GI28340@tuxbot> <877f7vimyg.fsf@kamboji.qca.qualcomm.com>
+ <878ts0u7z3.fsf@kamboji.qca.qualcomm.com> <874m2otenv.fsf@kamboji.qca.qualcomm.com>
+ <87r35srm0c.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33557 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751364AbcLAOYg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 09:24:36 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 144so12049219pfv.0
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 06:24:36 -0800 (PST)
-In-Reply-To: <20161201130505.0b4a5cd5@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        "k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Valo, Kalle" <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87r35srm0c.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-12-01 at 13:05 +0100, Jesper Dangaard Brouer wrote:
-> On Wed, 30 Nov 2016 18:27:45 +0200
-> Saeed Mahameed <saeedm@dev.mellanox.co.il> wrote:
-> 
-> > >> All in all, this is risky business :),  the right way to go is to
-> > >> force the upper layer to use xmit-more and delay doorbells/use bulking
-> > >> but from the same context (xmit routine).  For example see
-> > >> Achiad's suggestion (attached in Jesper's response), he used stop
-> > >> queue to force the stack to queue up packets (TX bulking)
-> > >> which would set xmit-more and will use the next completion to
-> > >> release the "stopped" ring TXQ rather than hit the doorbell on
-> > >> behalf of it.  
-> > >
-> > > Well, you depend on having a higher level queue like a qdisc.
-> > >
-> > > Some users do not use a qdisc.
-> > > If you stop the queue, they no longer can send anything -> drops.
-> > >
-> 
-> You do have a point that stopping the device might not be the best way
-> to create a push-back (to allow stack queue packets).
-> 
->  netif_tx_stop_queue() / __QUEUE_STATE_DRV_XOFF
-> 
-> 
-> > In this case, i think they should implement their own bulking (pktgen
-> > is not a good example) but XDP can predict if it has more packets to
-> > xmit  as long as all of them fall in the same NAPI cycle.
-> > Others should try and do the same.
-> 
-> I actually agree with Saeed here.
-> 
-> Maybe we can come up with another __QUEUE_STATE_xxx that informs the
-> upper layer what the driver is doing.  Then users not using a qdisc can
-> use this indication (like the qdisc could).  (qdisc-bypass users already
-> check the QUEUE_STATE flags e.g. via netif_xmit_frozen_or_drv_stopped).
+On 1 December 2016 at 04:17, Valo, Kalle <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org> wrote:
+> Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org> writes:
+>
+>> Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org> writes:
+>>
+>>> "Valo, Kalle" <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org> writes:
+>>>
+>>>> Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> writes:
+>>>>
+>>>>> On Wed 16 Nov 10:49 PST 2016, Kalle Valo wrote:
+>>>>>
+>>>>>> Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
+>>>>>> > The correct include file for getting errno constants and ERR_PTR() is
+>>>>>> > linux/err.h, rather than linux/errno.h, so fix the include.
+>>>>>> >
+>>>>>> > Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled smem_state")
+>>>>>> > Acked-by: Andy Gross <andy.gross-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+>>>>>> > Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+>>>>>>
+>>>>>> For some reason this fails to compile now. Can you take a look, please?
+>>>>>>
+>>>>>> ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wcn36xx.ko] undefined!
+>>>>>> make[1]: *** [__modpost] Error 1
+>>>>>> make: *** [modules] Error 2
+>>>>>>
+>>>>>> 5 patches set to Changes Requested.
+>>>>>>
+>>>>>> 9429045 [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+>>>>>> 9429047 [v5,2/5] wcn36xx: Transition driver to SMD client
+>>>>>
+>>>>> This patch was updated with the necessary depends in Kconfig to catch
+>>>>> this exact issue and when I pull in your .config (which has QCOM_SMD=n,
+>>>>> QCOM_WCNSS_CTRL=n and WCN36XX=y) I can build this just fine.
+>>>>>
+>>>>> I've tested the various combinations and it seems to work fine. Do you
+>>>>> have any other patches in your tree?
+>>>>
+>>>> This was with the pending branch of my ath.git tree. There are other
+>>>> wireless patches (ath10k etc) but I would guess they don't affect here.
+>>>>
+>>>>> Any stale objects?
+>>>>
+>>>> Not sure what you mean with this question, but I didn't run 'make clean'
+>>>> if that's what you are asking.
+>>>>
+>>>>> Would you mind retesting this, before I invest more time in trying to
+>>>>> reproduce the issue you're seeing?
+>>>>
+>>>> Sure, I'll take a look but that might take few days.
+>>>
+>>> I didn't find enough time to look at this in detail. I applied this to
+>>> my ath.git pending branch, let's see what the kbuild bot finds.
+>>
+>> It found the same problem. Interestingly I'm also building x86 with 32
+>> bit, maybe it's related?
+>>
+>> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/ath.git pending
+>> head:   1ea16a1c457939b4564643f7637d5cc639a8d3b7
+>> commit: 5eb09c672b01460804fd49b1c9cc7d1072a102f0 [96/99] wcn36xx: Transition driver to SMD client
+>> config: i386-allmodconfig (attached as .config)
+>> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+>> reproduce:
+>>         git checkout 5eb09c672b01460804fd49b1c9cc7d1072a102f0
+>>         # save the attached .config to linux build tree
+>>         make ARCH=i386
+>>
+>> All errors (new ones prefixed by >>):
+>>
+>>>> ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wcn36xx.ko] undefined!
+>
+> Bjorn mentioned me on IRC that this is because of a missing commit in my
+> tree:
+>
+> daa6e41ce2b5 soc: qcom: wcnss_ctrl: Stub wcnss_ctrl API
+>
+> When I pull the tag below (which contains the above commit) wcn36xx
+> builds fine for me:
+>
+> git://git.kernel.org/pub/scm/linux/kernel/git/agross/linux.git tags/qcom-drivers-for-4.10
+>
+> Andy, is it ok if I pull your tag also to my ath.git tree to solve the
+> wcn36xx build problem? My trees go to Linus via net-next and I don't
+> know when exactly Dave would send a pull request to Linus, before or
+> after the arm trees, but as the tag seems to contain only few patches I
+> hope it doesn't matter.
 
-Can you explain how this is going to help trafgen using AF_PACKET with
-Qdisc bypass ?
+The qcom-drivers-for-4.10 tag was already merged into arm-soc.  But
+having you pull it as well won't cause issues so long as you are using
+the tag (which you are).  I don't see any issues with this approach.
 
-Say trafgen wants to send 10 or 1000 packets back to back (as fast as
-possible)
-
-With my proposal, only the first is triggering a doorbell from
-ndo_start_xmit(). Following ones are driven by TX completion logic, or
-BQL if we can push packets faster than TX interrupt can be
-delivered/handled.
-
-If you stop the queue (with yet another atomic operations to stop/unstop
-btw), packet_direct_xmit() will have to drop trafgen packets on the
-floor.
-
-We already have BQL stopping the queue at a fine granularity.
-I suspect that Saeed proposal will interfere with BQL logic.
+Andy
