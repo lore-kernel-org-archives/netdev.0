@@ -1,55 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ip6_offload: check segs for NULL in ipv6_gso_segment.
-Date: Thu, 01 Dec 2016 07:19:22 -0800
-Message-ID: <1480605562.18162.292.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480597564-32355-1-git-send-email-asavkov@redhat.com>
-         <1480602847.18162.288.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jstancek@redhat.com,
-        steffen.klassert@secunet.com, alexander.h.duyck@intel.com
-To: Artem Savkov <asavkov@redhat.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH 1/2] net: stmmac: avoid Camelcase naming
+Date: Thu,  1 Dec 2016 16:19:40 +0100
+Message-ID: <1480605581-13350-1-git-send-email-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480602847.18162.288.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-12-01 at 06:34 -0800, Eric Dumazet wrote:
-> On Thu, 2016-12-01 at 14:06 +0100, Artem Savkov wrote:
-> > segs needs to be checked for being NULL in ipv6_gso_segment() before calling
-> > skb_shinfo(segs), otherwise kernel can run into a NULL-pointer dereference:
-> 
-> 
-> > Signed-off-by: Artem Savkov <asavkov@redhat.com>
-> > ---
-> >  
-> 
-> > diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-> > index 1fcf61f..89c59e6 100644
-> > --- a/net/ipv6/ip6_offload.c
-> > +++ b/net/ipv6/ip6_offload.c
-> > @@ -99,7 +99,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
-> >  		segs = ops->callbacks.gso_segment(skb, features);
-> >  	}
-> >  
-> > -	if (IS_ERR(segs))
-> > +	if (IS_ERR_OR_NULL(segs))
-> >  		goto out;
-> >  
-> >  	gso_partial = !!(skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL);
-> 
-> Do you know when was this bug added ?
-> 
-> Are you sure this is the right fix ?
-> 
-> Which gso_segment() is returning NULL exactly ?
+This patch simply rename regValue to value, like it was named in other
+mdio functions.
 
-Oh never mind.
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-This is the same fix than 576a30eb64534 but applied to IPv6.
-
-Thanks !
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index e3216e5..6796c28 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -83,14 +83,14 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+ 	unsigned int mii_data = priv->hw->mii.data;
+ 
+ 	int data;
+-	u16 regValue = (((phyaddr << 11) & (0x0000F800)) |
++	u16 value = (((phyaddr << 11) & (0x0000F800)) |
+ 			((phyreg << 6) & (0x000007C0)));
+-	regValue |= MII_BUSY | ((priv->clk_csr & 0xF) << 2);
++	value |= MII_BUSY | ((priv->clk_csr & 0xF) << 2);
+ 
+ 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+ 		return -EBUSY;
+ 
+-	writel(regValue, priv->ioaddr + mii_address);
++	writel(value, priv->ioaddr + mii_address);
+ 
+ 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+ 		return -EBUSY;
+-- 
+2.7.3
