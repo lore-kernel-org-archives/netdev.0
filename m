@@ -1,53 +1,116 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 5/6] net: dsa: mv88e6xxx: add helper for switch ready
-Date: Thu, 01 Dec 2016 15:31:09 -0500
-Message-ID: <87y3zzgzn6.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20161130225930.25510-1-vivien.didelot@savoirfairelinux.com> <20161130225930.25510-6-vivien.didelot@savoirfairelinux.com> <20161130233810.GT21645@lunn.ch>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2016-12-01
+Date: Thu, 1 Dec 2016 21:21:44 +0100
+Message-ID: <de63a1d8-2822-2d98-973c-c1b2f8c493cf@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161130233810.GT21645@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="B4KBEbLD6O0eQjcoKqrecwcbLnhx8xdXV"
+Cc: David Miller <davem@davemloft.net>,
+        "kernel@pengutronix.de" <kernel@pengutronix.de>,
+        "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:39501 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754141AbcLAUhE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:37:04 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--B4KBEbLD6O0eQjcoKqrecwcbLnhx8xdXV
+Content-Type: multipart/mixed; boundary="PsKBTs1ChGK6iG974jPSm4mvAJSVeAEfJ";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+ "kernel@pengutronix.de" <kernel@pengutronix.de>,
+ "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Message-ID: <de63a1d8-2822-2d98-973c-c1b2f8c493cf@pengutronix.de>
+Subject: pull-request: can-next 2016-12-01
 
-Andrew Lunn <andrew@lunn.ch> writes:
+--PsKBTs1ChGK6iG974jPSm4mvAJSVeAEfJ
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> As we have seen in the past, this sort of loop is broken if we end up
-> sleeping for a long time. Please take the opportunity to replace it
-> with one of our _wait() helpers, e.g. mv88e6xxx_g1_wait()
+Hello David,
 
-That won't work. the _wait() helpers are made to wait on self-clear (SC)
-bits, i.e. looping until they are cleared to zero.
+this is a pull request of 4 patches for net-next/master.
 
-Here we want the opposite.
+There are two patches by Chris Paterson for the rcar_can and rcar_canfd
+device tree binding documentation. And a patch by Geert Uytterhoeven
+that corrects the order of interrupt specifiers.
 
-I will keep this existing wait loop for the moment and work soon on a
-new patchset to rework the wait routines. We need a generic access to
-test a given value against a given mask and wrappers for busy bits, etc.
+The fourth patch by Colin Ian King fixes a spelling error in the
+kvaser_usb driver.
 
->> +int mv88e6xxx_g1_init_ready(struct mv88e6xxx_chip *chip, bool *ready)
->> +{
->> +	u16 val;
->> +	int err;
->> +
->> +	/* Check the value of the InitReady bit 11 */
->> +	err = mv88e6xxx_g1_read(chip, GLOBAL_STATUS, &val);
->> +	if (err)
->> +		return err;
->> +
->> +	*ready = !!(val & GLOBAL_STATUS_INIT_READY);
->
-> I would actually do the wait here.
 
-That is better indeed.
+regards,
+Marc
 
-Thanks,
+---
+The following changes since commit 8f679ed88f8860206edddff725e2749b4cdbb0=
+e8:
 
-        Vivien
+  driver: ipvlan: Remove useless member mtu_adj of struct ipvl_dev (2016-=
+11-30 15:01:32 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-4.10-20161201
+
+for you to fetch changes up to 0d8f8efd32bace9f222fcc92d4a3132d877e5df6:
+
+  net: can: usb: kvaser_usb: fix spelling mistake of "outstanding" (2016-=
+12-01 14:27:02 +0100)
+
+----------------------------------------------------------------
+linux-can-next-for-4.10-20161201
+
+----------------------------------------------------------------
+Chris Paterson (2):
+      can: rcar_can: Add r8a7796 support
+      can: rcar_canfd: Add r8a7796 support
+
+Colin Ian King (1):
+      net: can: usb: kvaser_usb: fix spelling mistake of "outstanding"
+
+Geert Uytterhoeven (1):
+      can: rcar_canfd: Correct order of interrupt specifiers
+
+ Documentation/devicetree/bindings/net/can/rcar_can.txt   | 12 +++++++---=
+--
+ Documentation/devicetree/bindings/net/can/rcar_canfd.txt | 14 ++++++++--=
+----
+ drivers/net/can/usb/kvaser_usb.c                         |  4 ++--
+ 3 files changed, 17 insertions(+), 13 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--PsKBTs1ChGK6iG974jPSm4mvAJSVeAEfJ--
+
+--B4KBEbLD6O0eQjcoKqrecwcbLnhx8xdXV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlhAhloACgkQPTuqJayp
+JWrOgggAvEaKSAx2xSJUrFMmWg3XU5XkNLADF3orH0tDy9J0EQTDWhwhSZfvp5mC
+iMWWDxqvhZZUhumpSwdNyCm2RyK7yuM0oR0I05xvCcNv5zT4d0m3xTvLQNNncRfX
+QRqduVJ7tyI0r+K3aemUVQ8+9WUOU8bEuj0FbHiHKP23MPMs1+BMfckziAshlB3F
+9tZn2o00L9wt5Eu5hfA2/JDZNNNFHkuSh+UDPrFzhJQBG8vsfVQq/UDFq3GIoUQH
+uWOj64f9oQ5a740lUaOHTHAfgnImKWiwSSYVzPAt5BSA/1fSB2g77+yxObQnERXX
+tguN4otzQOoHpqh1X3liw1WY222BoQ==
+=WVSN
+-----END PGP SIGNATURE-----
+
+--B4KBEbLD6O0eQjcoKqrecwcbLnhx8xdXV--
