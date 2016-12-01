@@ -1,43 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [patch] net: renesas: ravb: unintialized return value
-Date: Fri, 2 Dec 2016 00:13:57 +0300
-Message-ID: <84f464ed-0ae3-ef5a-92a6-75d6085f32b9@cogentembedded.com>
-References: <20161201205744.GB10701@mwanda>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next v3 11/12] mlxsw: spectrum_router: Request a dump
+ of FIB tables during init
+Date: Thu, 1 Dec 2016 22:09:19 +0100
+Message-ID: <343eadfa-f872-788d-748c-a195c0c4d03a@stressinduktion.org>
+References: <1480500546-2544-12-git-send-email-jiri@resnulli.us>
+ <eb7ddecd-d6b4-dfce-5990-9e933227c862@stressinduktion.org>
+ <20161130163229.rkxvuwukgg35ktrx@splinter.mtl.com>
+ <20161201.150445.558407356269727869.davem@davemloft.net>
+ <d70996c1-be4e-136b-6325-1a8c152e44ce@stressinduktion.org>
+ <20161201205457.xf5evjphjj6mytkf@splinter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Wolfram Sang <wsa+renesas@sang-engineering.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        Johan Hovold <johan@kernel.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20161201205744.GB10701@mwanda>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
+        netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kaber@trash.net
+To: Ido Schimmel <idosch@idosch.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:53801 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753431AbcLAVSh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 16:18:37 -0500
+In-Reply-To: <20161201205457.xf5evjphjj6mytkf@splinter>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On 01.12.2016 21:54, Ido Schimmel wrote:
+> On Thu, Dec 01, 2016 at 09:40:48PM +0100, Hannes Frederic Sowa wrote:
+>> On 01.12.2016 21:04, David Miller wrote:
+>>>
+>>> Hannes and Ido,
+>>>
+>>> It looks like we are very close to having this in mergable shape, can
+>>> you guys work out this final issue and figure out if it really is
+>>> a merge stopped or not?
+>>
+>> Sure, if the fib notification register could be done under protection of
+>> the sequence counter I don't see any more problems.
+> 
+> Did you maybe miss my reply yesterday? Because I was trying to
+> understand what "ordering" you're referring to, but didn't receive a
+> reply from you.
 
-On 12/01/2016 11:57 PM, Dan Carpenter wrote:
+Oh, strange, I am pretty sure I replied to that. Let me resend it.
 
-> We want to set the other "err" variable here so that we can return it
-> later.  My version of GCC misses this issue but I caught it with a
-> static checker.
->
-> Fixes: 9f70eb339f52 ("net: ethernet: renesas: ravb: fix fixed-link phydev leaks")
+>> The sync handler is nice to have and can be done in a later patch series.
+> 
+> Sync handler?
 
-    Hm, I somehow missed this one, probably due to the horrific CC list. :-(
+I was talking about SWITCHDEV_SYNC.
 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-MBR, Sergei
+Bye,
+Hannes
