@@ -1,40 +1,78 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] sh_eth: remove unchecked interrupts
-Date: Thu, 1 Dec 2016 20:40:36 +0300
-Message-ID: <7d50b5e0-ae7c-a39d-625a-c9cfc11e398f@cogentembedded.com>
-References: <20161201140642.28583-1-chris.brandt@renesas.com>
- <228704e3-fe33-1c1f-61a1-7db451af5faf@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: Chris Brandt <chris.brandt@renesas.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <228704e3-fe33-1c1f-61a1-7db451af5faf@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net v2] net: bcmgenet: Utilize correct struct device for all DMA operations
+Date: Thu,  1 Dec 2016 09:45:45 -0800
+Message-ID: <1480614345-5827-1-git-send-email-florian.fainelli@broadcom.com>
+Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
+        opendmb@gmail.com, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33981 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758762AbcLARsv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 12:48:51 -0500
+Received: by mail-pf0-f193.google.com with SMTP id y68so12245888pfb.1
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 09:48:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/01/2016 08:36 PM, Sergei Shtylyov wrote:
+From: Florian Fainelli <f.fainelli@gmail.com>
 
->> When streaming a lot of data and the RZ can't keep up, some status bits
->> will get set that are not being checked or cleared which cause the
->> following messages and the Ethernet driver to stop working. This
->> patch fixes that issue.
->>
->> irq 21: nobody cared (try booting with the "irqpoll" option)
->> handlers:
->> [<c036b71c>] sh_eth_interrupt
->> Disabling IRQ #21
->>
->> Fixes: db893473d313a4ad ("sh_eth: Add support for r7s72100")
->> Signed-off-by: Chris Brandt <chris.brandt@renesas.com>
->
-> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+__bcmgenet_tx_reclaim() and bcmgenet_free_rx_buffers() are not using the
+same struct device during unmap that was used for the map operation,
+which makes DMA-API debugging warn about it. Fix this by always using
+&priv->pdev->dev throughout the driver, using an identical device
+reference for all map/unmap calls.
 
-    One thing you've missed so far is mentioning R7S72100 (RZ/A1) in the 
-subject. This driver supports many SoCs, you're only fixing one of them...
+Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-MBR, Sergei
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 4464bc5db934..a4e60e56c14f 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1172,6 +1172,7 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 					  struct bcmgenet_tx_ring *ring)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
++	struct device *kdev = &priv->pdev->dev;
+ 	struct enet_cb *tx_cb_ptr;
+ 	struct netdev_queue *txq;
+ 	unsigned int pkts_compl = 0;
+@@ -1199,13 +1200,13 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 		if (tx_cb_ptr->skb) {
+ 			pkts_compl++;
+ 			bytes_compl += GENET_CB(tx_cb_ptr->skb)->bytes_sent;
+-			dma_unmap_single(&dev->dev,
++			dma_unmap_single(kdev,
+ 					 dma_unmap_addr(tx_cb_ptr, dma_addr),
+ 					 dma_unmap_len(tx_cb_ptr, dma_len),
+ 					 DMA_TO_DEVICE);
+ 			bcmgenet_free_cb(tx_cb_ptr);
+ 		} else if (dma_unmap_addr(tx_cb_ptr, dma_addr)) {
+-			dma_unmap_page(&dev->dev,
++			dma_unmap_page(kdev,
+ 				       dma_unmap_addr(tx_cb_ptr, dma_addr),
+ 				       dma_unmap_len(tx_cb_ptr, dma_len),
+ 				       DMA_TO_DEVICE);
+@@ -1775,6 +1776,7 @@ static int bcmgenet_alloc_rx_buffers(struct bcmgenet_priv *priv,
+ 
+ static void bcmgenet_free_rx_buffers(struct bcmgenet_priv *priv)
+ {
++	struct device *kdev = &priv->pdev->dev;
+ 	struct enet_cb *cb;
+ 	int i;
+ 
+@@ -1782,7 +1784,7 @@ static void bcmgenet_free_rx_buffers(struct bcmgenet_priv *priv)
+ 		cb = &priv->rx_cbs[i];
+ 
+ 		if (dma_unmap_addr(cb, dma_addr)) {
+-			dma_unmap_single(&priv->dev->dev,
++			dma_unmap_single(kdev,
+ 					 dma_unmap_addr(cb, dma_addr),
+ 					 priv->rx_buf_len, DMA_FROM_DEVICE);
+ 			dma_unmap_addr_set(cb, dma_addr, 0);
+-- 
+1.9.1
