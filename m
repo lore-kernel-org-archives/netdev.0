@@ -1,71 +1,81 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 0/6] XDP for virtio_net
-Date: Wed, 30 Nov 2016 20:26:17 -0800
-Message-ID: <583FA669.4020408@gmail.com>
-References: <20161129200450.26752.86882.stgit@john-Precision-Tower-5810>
- <20161130203450-mutt-send-email-mst@kernel.org> <583F1D40.7060408@gmail.com>
- <20161130205527-mutt-send-email-mst@kernel.org>
+From: wangyunjian <wangyunjian@huawei.com>
+Subject: RE: [PATCH net] vhost_net: don't continue to call the recvmsg when
+ meet errors
+Date: Thu, 1 Dec 2016 04:41:40 +0000
+Message-ID: <34EFBCA9F01B0748BEB6B629CE643AE60B0A7C38@szxeml561-mbx.china.huawei.com>
+References: <1480507857-22976-1-git-send-email-wangyunjian@huawei.com>
+ <20161130152004-mutt-send-email-mst@kernel.org>
+ <34EFBCA9F01B0748BEB6B629CE643AE60B0A7B68@szxeml561-mbx.china.huawei.com>
+ <20161201051207-mutt-send-email-mst@kernel.org>
+ <ee70cb92-3fd9-4148-77ba-739af30b04b6@redhat.com>
+ <20161201052657-mutt-send-email-mst@kernel.org>
+ <936954dd-c8a5-c0f6-c3b0-84a9d67329f5@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        davem@davemloft.net, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, bblanco@plumgrid.com, brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35279 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753591AbcLAE0f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 23:26:35 -0500
-Received: by mail-pg0-f66.google.com with SMTP id p66so3314389pga.2
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 20:26:34 -0800 (PST)
-In-Reply-To: <20161130205527-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        caihe <caihe@huawei.com>
+To: Jason Wang <jasowang@redhat.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <936954dd-c8a5-c0f6-c3b0-84a9d67329f5@redhat.com>
+Content-Language: zh-CN
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-11-30 10:56 AM, Michael S. Tsirkin wrote:
-> On Wed, Nov 30, 2016 at 10:41:04AM -0800, John Fastabend wrote:
->> On 16-11-30 10:35 AM, Michael S. Tsirkin wrote:
->>> On Tue, Nov 29, 2016 at 12:05:20PM -0800, John Fastabend wrote:
->>>> This implements virtio_net for the mergeable buffers and big_packet
->>>> modes. I tested this with vhost_net running on qemu and did not see
->>>> any issues. For testing num_buf > 1 I added a hack to vhost driver
->>>> to only but 100 bytes per buffer.
->>>>
->>>> There are some restrictions for XDP to be enabled and work well
->>>> (see patch 3) for more details.
->>>>
->>>>   1. LRO must be off
->>>>   2. MTU must be less than PAGE_SIZE
->>>>   3. queues must be available to dedicate to XDP
->>>>   4. num_bufs received in mergeable buffers must be 1
->>>>   5. big_packet mode must have all data on single page
->>>>
->>>> Please review any comments/feedback welcome as always.
->>>>
->>>> v2, fixes rcu usage throughout thanks to Eric and the use of
->>>> num_online_cpus() usage thanks to Jakub.
->>>>
->>>> v3, add slowpath patch to handle num_bufs > 1
->>>>
->>>> Thanks,
->>>> John
->>>
->>> BTW this is threaded incorrectly: patch 1/6 isn't a reply to 0/6,
->>> patches 2 and on are replies to patch 1.
->>>
->>
->> Ah yep, if you mangle the command line git will send the
->> cover letter even if you have mangled 'to' email addresses but when
->> it hits a real patch it aborts. At least on my version of git.
->>
->>> I'm busy until end of week, I'll review Monday. Sorry about the delay.
->>
->> In the meantime I'll post a v4 with better commit message (Alexei) and
->> address a corner cases Jakub pointed out.
-> 
-> I did a quick look and found some too, but a detailed review will
-> have to wait till next week.
-
-Thanks! I'll address all the comments and have a v4 by then.
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogSmFzb24gV2FuZyBbbWFpbHRvOmph
+c293YW5nQHJlZGhhdC5jb21dIA0KPlNlbnQ6IFRodXJzZGF5LCBEZWNlbWJlciAwMSwgMjAxNiAx
+MTozNyBBTQ0KPlRvOiBNaWNoYWVsIFMuIFRzaXJraW4NCj5DYzogd2FuZ3l1bmppYW47IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGNhaWhlDQo+
+U3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIHZob3N0X25ldDogZG9uJ3QgY29udGludWUgdG8gY2Fs
+bCB0aGUgcmVjdm1zZyB3aGVuIG1lZXQgZXJyb3JzDQo+DQo+DQo+DQo+T24gMjAxNuW5tDEy5pyI
+MDHml6UgMTE6MjcsIE1pY2hhZWwgUy4gVHNpcmtpbiB3cm90ZToNCj4+IE9uIFRodSwgRGVjIDAx
+LCAyMDE2IGF0IDExOjI2OjIxQU0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6DQo+Pj4gPg0KPj4+
+ID4NCj4+PiA+T24gMjAxNuW5tDEy5pyIMDHml6UgMTE6MjEsIE1pY2hhZWwgUy4gVHNpcmtpbiB3
+cm90ZToNCj4+Pj4gPiA+T24gVGh1LCBEZWMgMDEsIDIwMTYgYXQgMDI6NDg6NTlBTSArMDAwMCwg
+d2FuZ3l1bmppYW4gd3JvdGU6DQo+Pj4+Pj4gPiA+ID4gPi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
+LS0tDQo+Pj4+Pj4gPiA+ID4gPkZyb206IE1pY2hhZWwgUy4gVHNpcmtpbiBbbWFpbHRvOm1zdEBy
+ZWRoYXQuY29tXQ0KPj4+Pj4+ID4gPiA+ID5TZW50OiBXZWRuZXNkYXksIE5vdmVtYmVyIDMwLCAy
+MDE2IDk6NDEgUE0NCj4+Pj4+PiA+ID4gPiA+VG86IHdhbmd5dW5qaWFuDQo+Pj4+Pj4gPiA+ID4g
+PkNjOmphc293YW5nQHJlZGhhdC5jb207bmV0ZGV2QHZnZXIua2VybmVsLm9yZztsaW51eC1rZXJu
+ZWxADQo+Pj4+Pj4gPiA+ID4gPnZnZXIua2VybmVsLm9yZzsgY2FpaGUNCj4+Pj4+PiA+ID4gPiA+
+U3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIHZob3N0X25ldDogZG9uJ3QgY29udGludWUgdG8gY2Fs
+bCANCj4+Pj4+PiA+ID4gPiA+dGhlIHJlY3Ztc2cgd2hlbiBtZWV0IGVycm9ycw0KPj4+Pj4+ID4g
+PiA+ID4NCj4+Pj4+PiA+ID4gPiA+T24gV2VkLCBOb3YgMzAsIDIwMTYgYXQgMDg6MTA6NTdQTSAr
+MDgwMCwgWXVuamlhbiBXYW5nIHdyb3RlOg0KPj4+Pj4+PiA+ID4gPiA+ID5XaGVuIHdlIG1lZXQg
+YW4gZXJyb3IoZXJyPS1FQkFERkQpIHJlY3Ztc2csDQo+Pj4+Pj4gPiA+ID4gPkhvdyBkbyB5b3Ug
+Z2V0IEVCQURGRD8gV29uJ3Qgdmhvc3RfbmV0X3J4X3BlZWtfaGVhZF9sZW4gDQo+Pj4+Pj4gPiA+
+ID4gPnJldHVybiAwIGluIHRoaXMgY2FzZSwgYnJlYWtpbmcgdGhlIGxvb3A/DQo+Pj4+PiA+ID4g
+PldlIHN0YXJ0ZWQgbWFueSBndWVzdCBWTXMgd2hpbGUgYXR0YWNoaW5nL2RldGFjaGluZyBzb21l
+IHZpcnRpby1uZXQgbmljcyBmb3IgbG9vcC4NCj4+Pj4+ID4gPiA+VGhlIHNvZnQgbG9ja3VwIG1p
+Z2h0IGhhcHBlbmVkLiBUaGUgZXJyIGlzIC1FQkFERkQuDQo+Pj4+PiA+ID4gPg0KPj4+PiA+ID5P
+SywgSSdkIGxpa2UgdG8gZmlndXJlIG91dCB3aGF0IGhhcHBlbmVkIGhlcmUuIHdoeSBkb24ndCB3
+ZSBnZXQgMCANCj4+Pj4gPiA+d2hlbiB3ZSBwZWVrIGF0IHRoZSBoZWFkPw0KPj4+PiA+ID4NCj4+
+Pj4gPiA+RUJBREZEIGlzIGZyb20gaGVyZToNCj4+Pj4gPiA+ICAgICAgICAgIHN0cnVjdCB0dW5f
+c3RydWN0ICp0dW4gPSBfX3R1bl9nZXQodGZpbGUpOyAuLi4NCj4+Pj4gPiA+ICAgICAgICAgIGlm
+ICghdHVuKQ0KPj4+PiA+ID4gICAgICAgICAgICAgICAgICByZXR1cm4gLUVCQURGRDsNCj4+Pj4g
+PiA+DQo+Pj4+ID4gPmJ1dCB0aGVuOg0KPj4+PiA+ID5zdGF0aWMgaW50IHR1bl9wZWVrX2xlbihz
+dHJ1Y3Qgc29ja2V0ICpzb2NrKSB7DQo+Pj4+ID4gPg0KPj4+PiA+ID4uLi4NCj4+Pj4gPiA+DQo+
+Pj4+ID4gPiAgICAgICAgICBzdHJ1Y3QgdHVuX3N0cnVjdCAqdHVuOyAuLi4NCj4+Pj4gPiA+ICAg
+ICAgICAgIHR1biA9IF9fdHVuX2dldCh0ZmlsZSk7DQo+Pj4+ID4gPiAgICAgICAgICBpZiAoIXR1
+bikNCj4+Pj4gPiA+ICAgICAgICAgICAgICAgICAgcmV0dXJuIDA7DQo+Pj4+ID4gPg0KPj4+PiA+
+ID4NCj4+Pj4gPiA+c28gcGVlayBsZW4gc2hvdWxkIHJldHVybiAwLg0KPj4+PiA+ID4NCj4+Pj4g
+PiA+dGhlbiB3aGlsZSB3aWxsIGV4aXQ6DQo+Pj4+ID4gPiAgICAgICAgICB3aGlsZSAoKHNvY2tf
+bGVuID0gdmhvc3RfbmV0X3J4X3BlZWtfaGVhZF9sZW4obmV0LCANCj4+Pj4gPiA+c29jay0+c2sp
+KSkgLi4uDQo+Pj4+ID4gPg0KPj4+ID4NCj4+PiA+Q29uc2lkZXIgdGhpcyBjYXNlOiB1c2VyIGRv
+IGlwIGxpbmsgZGVsIGxpbmsgdGFwMCBiZWZvcmUgcmVjdm1zZygpIA0KPj4+ID5idXQgYWZ0ZXIN
+Cj4+PiA+dHVuX3BlZWtfbGVuKCkgPw0KPj4gU3VyZSwgdGhpcyBjYW4gaGFwcGVuLCBidXQgSSB0
+aGluayB3ZSdsbCBqdXN0IGV4aXQgb24gdGhlIG5leHQgbG9vcCwgDQo+PiB3b24ndCB3ZT8NCj4+
+DQo+DQo+UmlnaHQsIHRoaXMgaXMgdGhlIG9ubHkgY2FzZSBJIGNhbiBpbWFnZSBmb3IgLUVCQURG
+RCwgbGV0J3Mgd2FpdCBmb3IgdGhlIGF1dGhvciB0byB0aGUgc3RlcHMuDQo+DQoNClRoYW5rcywg
+SSB1bmRlcnN0YW5kIGl0IGRvbid0IGhhcHBlbiBpbiB0aGUgbGF0ZXN0IGtlcm5lbCB2ZXJzaW9u
+Lg0KTXkgcHJvYmxlbSBoYXBwZW5lZCB1c2luZyBrZXJuZWwgdmVyc2lvbiAzLjEwLjAteHgNCg0K
+VGhlIHBlZWsgbGVuIHdpbGxuJ3QgcmV0dXJuIDAuDQoNCnN0YXRpYyBpbnQgcGVla19oZWFkX2xl
+bihzdHJ1Y3Qgc29jayAqc2spDQp7DQoJc3RydWN0IHNrX2J1ZmYgKmhlYWQ7DQoJaW50IGxlbiA9
+IDA7DQoJdW5zaWduZWQgbG9uZyBmbGFnczsNCg0KCXNwaW5fbG9ja19pcnFzYXZlKCZzay0+c2tf
+cmVjZWl2ZV9xdWV1ZS5sb2NrLCBmbGFncyk7DQoJaGVhZCA9IHNrYl9wZWVrKCZzay0+c2tfcmVj
+ZWl2ZV9xdWV1ZSk7DQoJaWYgKGxpa2VseShoZWFkKSkgew0KCQlsZW4gPSBoZWFkLT5sZW47DQoJ
+CWlmIChza2Jfdmxhbl90YWdfcHJlc2VudChoZWFkKSkNCgkJCWxlbiArPSBWTEFOX0hMRU47DQoJ
+fQ0KDQoJc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSgmc2stPnNrX3JlY2VpdmVfcXVldWUubG9jaywg
+ZmxhZ3MpOw0KCXJldHVybiBsZW47DQp9DQo=
