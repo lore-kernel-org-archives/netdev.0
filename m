@@ -1,176 +1,330 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Re: [PATCH] ipv6:ip6_xmit remove unnecessary np NULL check
-Date: Wed, 30 Nov 2016 22:29:29 -0800
-Message-ID: <1480573769.18162.265.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480401179-9220-1-git-send-email-manjeet.p@samsung.com>
-         <CGME20161129152615epcas3p4929492c0e63d8e859bbff6264a13c56d@epcas3p4.samsung.com>
-         <20161201061422epcms5p83ef5b41a335c4556dd2bc725eed38d8d@epcms5p8>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next v2 1/2] tcp: randomize tcp timestamp offsets for
+ each connection
+Date: Wed, 30 Nov 2016 23:05:06 -0800
+Message-ID: <CAK6E8=e5vTo+YC5CE=v20-eez1z6rGMoeL=4OdJ2nPQkTY+Zjw@mail.gmail.com>
+References: <1480508930-24406-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Manjeet Pawar <manjeet.p@samsung.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "jmorris@namei.org" <jmorris@namei.org>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "kaber@trash.net" <kaber@trash.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        PANKAJ MISHRA <pankaj.m@samsung.com>,
-        Ajeet Kumar Yadav <ajeet.y@samsung.com>
-To: r.thapliyal@samsung.com, Lorenzo Colitti <lorenzo@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161201061422epcms5p83ef5b41a335c4556dd2bc725eed38d8d@epcms5p8>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f178.google.com ([209.85.223.178]:35042 "EHLO
+        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750789AbcLAHMg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 02:12:36 -0500
+Received: by mail-io0-f178.google.com with SMTP id a124so403956345ioe.2
+        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 23:12:35 -0800 (PST)
+In-Reply-To: <1480508930-24406-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-12-01 at 06:14 +0000, Rohit Thapliyal wrote:
-> Hi,
-> 
-Hi,
+On Wed, Nov 30, 2016 at 4:28 AM, Florian Westphal <fw@strlen.de> wrote:
+>
+> jiffies based timestamps allow for easy inference of number of devices
+> behind NAT translators and also makes tracking of hosts simpler.
+>
+> commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
+> added the main infrastructure that is needed for per-connection ts
+> randomization, in particular writing/reading the on-wire tcp header
+> format takes the offset into account so rest of stack can use normal
+> tcp_time_stamp (jiffies).
+>
+> So only two items are left:
+>  - add a tsoffset for request sockets
+>  - extend the tcp isn generator to also return another 32bit number
+>    in addition to the ISN.
+>
+> Re-use of ISN generator also means timestamps are still monotonically
+> increasing for same connection quadruple, i.e. PAWS will still work.
+>
+> Includes fixes from Eric Dumazet.
+>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-Do not top post on netdev, and do not use HTML format : it wont reach
-netdev.
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
- 
-> 
-> Found at just one place in ping_v6_sendmsg, where np is checked for
-> NULL.
-> 
-> And I am not sure, if it is really required there also. 
-> 
-> So, I am not sure if sk_fullsock will ever return NULL in inet6_sk.
-> 
-Well I am sure. You can trust me. You can read git history for the
-details.
-> 
-> sk_fullsock(__sk) ? inet_sk(__sk)->pinet6 : NULL;
-> 
+Nice feature!
 
-
-Yes, Lorenzo mentioned this ping_v6_sendmsg() useless code, but
-apparently never sent the cleanup. This is really minor you know...
-
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index 66e2d9dfc43a87ebed092d024e5bf2752b755d0e..775a9365725dd400c36e2510c685d08bf4a7d4b0 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -125,12 +125,6 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 		return PTR_ERR(dst);
- 	rt = (struct rt6_info *) dst;
- 
--	np = inet6_sk(sk);
--	if (!np) {
--		err = -EBADF;
--		goto dst_err_out;
--	}
--
- 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
- 		fl6.flowi6_oif = np->mcast_oif;
- 	else if (!fl6.flowi6_oif)
-@@ -165,7 +159,6 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 	}
- 	release_sock(sk);
- 
--dst_err_out:
- 	dst_release(dst);
- 
- 	if (err)
-
-
-
-
-> 
-> Thanks, 
-> 
-> Rohit Thapliyal
-> 
->  
-> 
-> --------- Original Message ---------
-> 
-> Sender : Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Date : 2016-11-30 00:26 (GMT+9)
-> 
-> Title : Re: [PATCH] ipv6:ip6_xmit remove unnecessary np NULL check
-> 
->  
-> 
-> On Tue, 2016-11-29 at 12:02 +0530, Manjeet Pawar wrote:
-> > From: Rohit Thapliyal <r.thapliyal@samsung.com>
-> > 
-> > np NULL check doesn't seem required here as it shall never
-> > be NULL anyways in inet6_sk(sk).
-> > 
-> > Signed-off-by: Rohit Thapliyal <r.thapliyal@samsung.com>
-> > Signed-off-by: Manjeet Pawar <manjeet.p@samsung.com>
-> > Signed-off-by: David Miller <davem@davemloft.net>
-> > Reviewed-by: Akhilesh Kumar <akhilesh.k@samsung.com>
-> > 
-> > ---
-> > v2->v3: Modified as per the suggestion from David Miller
-> >         ip6_xmit calls are made without checking NULL np
-> >         pointer, so no need to explicitly check NULL np in
-> >         ip6_xmit.
-> > 
-> >  include/linux/ipv6.h  | 2 +-
-> >  net/ipv6/ip6_output.c | 3 +--
-> >  2 files changed, 2 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> > index a064997..6c9c604 100644
-> > --- a/include/linux/ipv6.h
-> > +++ b/include/linux/ipv6.h
-> > @@ -299,7 +299,7 @@ struct tcp6_timewait_sock {
-> >  
-> >  static inline struct ipv6_pinfo *inet6_sk(const struct sock *__sk)
-> >  {
-> > -	return sk_fullsock(__sk) ? inet_sk(__sk)->pinet6 : NULL;
-> > +	return inet_sk(__sk)->pinet6;
-> 
-> 
-> David suggestion was about np being NULL or not in ip6_xmit()
-> 
-> But have you checked inet6_sk() was never called for a TCPv6 TIMEWAIT or
-> SYN_RECV request ?
-> 
-> >  }
-> >  
-> >  static inline struct raw6_sock *raw6_sk(const struct sock *sk)
-> > diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> > index 59eb4ed..f8c63ec 100644
-> > --- a/net/ipv6/ip6_output.c
-> > +++ b/net/ipv6/ip6_output.c
-> > @@ -213,8 +213,7 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
-> >  	/*
-> >  	 *	Fill in the IPv6 header
-> >  	 */
-> > -	if (np)
-> > -		hlimit = np->hop_limit;
-> > +	hlimit = np->hop_limit;
-> >  	if (hlimit < 0)
-> >  		hlimit = ip6_dst_hoplimit(dst);
-> >  
-> 
-> This part is fine.
-> 
-> 
-> 
-> 
+>
+>  No changes since v1, preserved Erics ack.
+>
+>  include/linux/tcp.h      |  1 +
+>  include/net/secure_seq.h |  8 ++++----
+>  include/net/tcp.h        |  2 +-
+>  net/core/secure_seq.c    | 10 ++++++----
+>  net/ipv4/syncookies.c    |  1 +
+>  net/ipv4/tcp_input.c     |  7 ++++++-
+>  net/ipv4/tcp_ipv4.c      |  9 +++++----
+>  net/ipv4/tcp_minisocks.c |  4 +++-
+>  net/ipv4/tcp_output.c    |  2 +-
+>  net/ipv6/syncookies.c    |  1 +
+>  net/ipv6/tcp_ipv6.c      | 10 ++++++----
+>  11 files changed, 35 insertions(+), 20 deletions(-)
+>
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index 32a7c7e35b71..2408bcc579f1 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -123,6 +123,7 @@ struct tcp_request_sock {
+>         u32                             txhash;
+>         u32                             rcv_isn;
+>         u32                             snt_isn;
+> +       u32                             ts_off;
+>         u32                             last_oow_ack_time; /* last SYNACK */
+>         u32                             rcv_nxt; /* the ack # by SYNACK. For
+>                                                   * FastOpen it's the seq#
+> diff --git a/include/net/secure_seq.h b/include/net/secure_seq.h
+> index 3f36d45b714a..0caee631a836 100644
+> --- a/include/net/secure_seq.h
+> +++ b/include/net/secure_seq.h
+> @@ -6,10 +6,10 @@
+>  u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport);
+>  u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+>                                __be16 dport);
+> -__u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+> -                                __be16 sport, __be16 dport);
+> -__u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+> -                                  __be16 sport, __be16 dport);
+> +u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+> +                              __be16 sport, __be16 dport, u32 *tsoff);
+> +u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+> +                                __be16 sport, __be16 dport, u32 *tsoff);
+>  u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
+>                                 __be16 sport, __be16 dport);
+>  u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 7de80739adab..1c09d909bd43 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -1809,7 +1809,7 @@ struct tcp_request_sock_ops {
+>         struct dst_entry *(*route_req)(const struct sock *sk, struct flowi *fl,
+>                                        const struct request_sock *req,
+>                                        bool *strict);
+> -       __u32 (*init_seq)(const struct sk_buff *skb);
+> +       __u32 (*init_seq)(const struct sk_buff *skb, u32 *tsoff);
+>         int (*send_synack)(const struct sock *sk, struct dst_entry *dst,
+>                            struct flowi *fl, struct request_sock *req,
+>                            struct tcp_fastopen_cookie *foc,
+> diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+> index fd3ce461fbe6..a8d6062cbb4a 100644
+> --- a/net/core/secure_seq.c
+> +++ b/net/core/secure_seq.c
+> @@ -40,8 +40,8 @@ static u32 seq_scale(u32 seq)
+>  #endif
+>
+>  #if IS_ENABLED(CONFIG_IPV6)
+> -__u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+> -                                  __be16 sport, __be16 dport)
+> +u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+> +                                __be16 sport, __be16 dport, u32 *tsoff)
+>  {
+>         u32 secret[MD5_MESSAGE_BYTES / 4];
+>         u32 hash[MD5_DIGEST_WORDS];
+> @@ -58,6 +58,7 @@ __u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+>
+>         md5_transform(hash, secret);
+>
+> +       *tsoff = hash[1];
+>         return seq_scale(hash[0]);
+>  }
+>  EXPORT_SYMBOL(secure_tcpv6_sequence_number);
+> @@ -86,8 +87,8 @@ EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
+>
+>  #ifdef CONFIG_INET
+>
+> -__u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+> -                                __be16 sport, __be16 dport)
+> +u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+> +                              __be16 sport, __be16 dport, u32 *tsoff)
+>  {
+>         u32 hash[MD5_DIGEST_WORDS];
+>
+> @@ -99,6 +100,7 @@ __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+>
+>         md5_transform(hash, net_secret);
+>
+> +       *tsoff = hash[1];
+>         return seq_scale(hash[0]);
+>  }
+>
+> diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+> index 0dc6286272aa..3e88467d70ee 100644
+> --- a/net/ipv4/syncookies.c
+> +++ b/net/ipv4/syncookies.c
+> @@ -334,6 +334,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+>         treq = tcp_rsk(req);
+>         treq->rcv_isn           = ntohl(th->seq) - 1;
+>         treq->snt_isn           = cookie;
+> +       treq->ts_off            = 0;
+>         req->mss                = mss;
+>         ireq->ir_num            = ntohs(th->dest);
+>         ireq->ir_rmt_port       = th->source;
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 22e6a2097ff6..1b1921c71f7c 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -6301,6 +6301,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+>                 goto drop;
+>
+>         tcp_rsk(req)->af_specific = af_ops;
+> +       tcp_rsk(req)->ts_off = 0;
+>
+>         tcp_clear_options(&tmp_opt);
+>         tmp_opt.mss_clamp = af_ops->mss_clamp;
+> @@ -6322,6 +6323,9 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+>         if (security_inet_conn_request(sk, skb, req))
+>                 goto drop_and_free;
+>
+> +       if (isn && tmp_opt.tstamp_ok)
+> +               af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
+> +
+>         if (!want_cookie && !isn) {
+>                 /* VJ's idea. We save last timestamp seen
+>                  * from the destination in peer table, when entering
+> @@ -6362,7 +6366,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+>                         goto drop_and_release;
+>                 }
+>
+> -               isn = af_ops->init_seq(skb);
+> +               isn = af_ops->init_seq(skb, &tcp_rsk(req)->ts_off);
+>         }
+>         if (!dst) {
+>                 dst = af_ops->route_req(sk, &fl, req, NULL);
+> @@ -6374,6 +6378,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+>
+>         if (want_cookie) {
+>                 isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
+> +               tcp_rsk(req)->ts_off = 0;
+>                 req->cookie_ts = tmp_opt.tstamp_ok;
+>                 if (!tmp_opt.tstamp_ok)
+>                         inet_rsk(req)->ecn_ok = 0;
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 5555eb86e549..b50f05905ced 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -95,12 +95,12 @@ static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
+>  struct inet_hashinfo tcp_hashinfo;
+>  EXPORT_SYMBOL(tcp_hashinfo);
+>
+> -static  __u32 tcp_v4_init_sequence(const struct sk_buff *skb)
+> +static u32 tcp_v4_init_sequence(const struct sk_buff *skb, u32 *tsoff)
+>  {
+>         return secure_tcp_sequence_number(ip_hdr(skb)->daddr,
+>                                           ip_hdr(skb)->saddr,
+>                                           tcp_hdr(skb)->dest,
+> -                                         tcp_hdr(skb)->source);
+> +                                         tcp_hdr(skb)->source, tsoff);
+>  }
+>
+>  int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
+> @@ -237,7 +237,8 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+>                 tp->write_seq = secure_tcp_sequence_number(inet->inet_saddr,
+>                                                            inet->inet_daddr,
+>                                                            inet->inet_sport,
+> -                                                          usin->sin_port);
+> +                                                          usin->sin_port,
+> +                                                          &tp->tsoffset);
+>
+>         inet->inet_id = tp->write_seq ^ jiffies;
+>
+> @@ -824,7 +825,7 @@ static void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+>         tcp_v4_send_ack(sk, skb, seq,
+>                         tcp_rsk(req)->rcv_nxt,
+>                         req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
+> -                       tcp_time_stamp,
+> +                       tcp_time_stamp + tcp_rsk(req)->ts_off,
+>                         req->ts_recent,
+>                         0,
+>                         tcp_md5_do_lookup(sk, (union tcp_md5_addr *)&ip_hdr(skb)->daddr,
+> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> index 6234ebaa7db1..28ce5ee831f5 100644
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+> @@ -532,7 +532,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
+>                         newtp->rx_opt.ts_recent_stamp = 0;
+>                         newtp->tcp_header_len = sizeof(struct tcphdr);
+>                 }
+> -               newtp->tsoffset = 0;
+> +               newtp->tsoffset = treq->ts_off;
+>  #ifdef CONFIG_TCP_MD5SIG
+>                 newtp->md5sig_info = NULL;      /*XXX*/
+>                 if (newtp->af_specific->md5_lookup(sk, newsk))
+> @@ -581,6 +581,8 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+>
+>                 if (tmp_opt.saw_tstamp) {
+>                         tmp_opt.ts_recent = req->ts_recent;
+> +                       if (tmp_opt.rcv_tsecr)
+> +                               tmp_opt.rcv_tsecr -= tcp_rsk(req)->ts_off;
+>                         /* We do not store true stamp, but it is not required,
+>                          * it can be estimated (approximately)
+>                          * from another data.
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 19105b46a304..1b6d5f34bf45 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -640,7 +640,7 @@ static unsigned int tcp_synack_options(struct request_sock *req,
+>         }
+>         if (likely(ireq->tstamp_ok)) {
+>                 opts->options |= OPTION_TS;
+> -               opts->tsval = tcp_skb_timestamp(skb);
+> +               opts->tsval = tcp_skb_timestamp(skb) + tcp_rsk(req)->ts_off;
+>                 opts->tsecr = req->ts_recent;
+>                 remaining -= TCPOLEN_TSTAMP_ALIGNED;
+>         }
+> diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+> index 97830a6a9cbb..a4d49760bf43 100644
+> --- a/net/ipv6/syncookies.c
+> +++ b/net/ipv6/syncookies.c
+> @@ -209,6 +209,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+>         treq->snt_synack.v64    = 0;
+>         treq->rcv_isn = ntohl(th->seq) - 1;
+>         treq->snt_isn = cookie;
+> +       treq->ts_off = 0;
+>
+>         /*
+>          * We need to lookup the dst_entry to get the correct window size.
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 28ec0a2e7b72..a2185a214abc 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -101,12 +101,12 @@ static void inet6_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
+>         }
+>  }
+>
+> -static __u32 tcp_v6_init_sequence(const struct sk_buff *skb)
+> +static u32 tcp_v6_init_sequence(const struct sk_buff *skb, u32 *tsoff)
+>  {
+>         return secure_tcpv6_sequence_number(ipv6_hdr(skb)->daddr.s6_addr32,
+>                                             ipv6_hdr(skb)->saddr.s6_addr32,
+>                                             tcp_hdr(skb)->dest,
+> -                                           tcp_hdr(skb)->source);
+> +                                           tcp_hdr(skb)->source, tsoff);
+>  }
+>
+>  static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+> @@ -283,7 +283,8 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+>                 tp->write_seq = secure_tcpv6_sequence_number(np->saddr.s6_addr32,
+>                                                              sk->sk_v6_daddr.s6_addr32,
+>                                                              inet->inet_sport,
+> -                                                            inet->inet_dport);
+> +                                                            inet->inet_dport,
+> +                                                            &tp->tsoffset);
+>
+>         err = tcp_connect(sk);
+>         if (err)
+> @@ -956,7 +957,8 @@ static void tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+>                         tcp_rsk(req)->snt_isn + 1 : tcp_sk(sk)->snd_nxt,
+>                         tcp_rsk(req)->rcv_nxt,
+>                         req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
+> -                       tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
+> +                       tcp_time_stamp + tcp_rsk(req)->ts_off,
+> +                       req->ts_recent, sk->sk_bound_dev_if,
+>                         tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
+>                         0, 0);
+>  }
 > --
-> 
-> Thanks and Regards,
-> 
-> Rohit Thapliyal
-> 
-> Lead Engineer
-> 
-> Samsung SRI-D
-> Phone: +91-9717627969
-> 
-> 
-> 
-> 
-> 
-> 
+> 2.7.3
+>
