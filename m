@@ -1,57 +1,112 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tun: Use netif_receive_skb instead of netif_rx
-Date: Thu, 01 Dec 2016 14:43:57 -0500 (EST)
-Message-ID: <20161201.144357.33718747165573960.davem@davemloft.net>
-References: <1480584880-48651-1-git-send-email-andreyknvl@google.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: Initial thoughts on TXDP
+Date: Thu, 1 Dec 2016 11:48:14 -0800
+Message-ID: <aac93b13-6298-b9eb-7f3c-b074f22c388c@hpe.com>
+References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
+ <20161201135508.GB24547@oracle.com>
+ <CALx6S35DCyi_2z1pqCLaB1bVyNykP_J3YaYEXUT8xxmuzyBDwA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jasowang@redhat.com,
-        edumazet@google.com, pmk@google.com, pabeni@redhat.com,
-        mst@redhat.com, soheil@google.com, elfring@users.sourceforge.net,
-        rppt@linux.vnet.ibm.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, dvyukov@google.com, kcc@google.com,
-        syzkaller@googlegroups.com
-To: andreyknvl@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480584880-48651-1-git-send-email-andreyknvl@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t2352.austin.hpe.com ([15.233.44.25]:26846 "EHLO
+        g2t2352.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932933AbcLATsQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 14:48:16 -0500
+In-Reply-To: <CALx6S35DCyi_2z1pqCLaB1bVyNykP_J3YaYEXUT8xxmuzyBDwA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Konovalov <andreyknvl@google.com>
-Date: Thu,  1 Dec 2016 10:34:40 +0100
+On 12/01/2016 11:05 AM, Tom Herbert wrote:
+> For the GSO and GRO the rationale is that performing the extra SW
+> processing to do the offloads is significantly less expensive than
+> running each packet through the full stack. This is true in a
+> multi-layered generalized stack. In TXDP, however, we should be able
+> to optimize the stack data path such that that would no longer be
+> true. For instance, if we can process the packets received on a
+> connection quickly enough so that it's about the same or just a little
+> more costly than GRO processing then we might bypass GRO entirely.
+> TSO is probably still relevant in TXDP since it reduces overheads
+> processing TX in the device itself.
 
-> This patch changes tun.c to call netif_receive_skb instead of netif_rx
-> when a packet is received (if CONFIG_4KSTACKS is not enabled to avoid
-> stack exhaustion). The difference between the two is that netif_rx queues
-> the packet into the backlog, and netif_receive_skb proccesses the packet
-> in the current context.
-> 
-> This patch is required for syzkaller [1] to collect coverage from packet
-> receive paths, when a packet being received through tun (syzkaller collects
-> coverage per process in the process context).
-> 
-> As mentioned by Eric this change also speeds up tun/tap. As measured by
-> Peter it speeds up his closed-loop single-stream tap/OVS benchmark by
-> about 23%, from 700k packets/second to 867k packets/second.
-> 
-> A similar patch was introduced back in 2010 [2, 3], but the author found
-> out that the patch doesn't help with the task he had in mind (for cgroups
-> to shape network traffic based on the original process) and decided not to
-> go further with it. The main concern back then was about possible stack
-> exhaustion with 4K stacks.
-> 
-> [1] https://github.com/google/syzkaller
-> 
-> [2] https://www.spinics.net/lists/netdev/thrd440.html#130570
-> 
-> [3] https://www.spinics.net/lists/netdev/msg130570.html
-> 
-> Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
-> ---
-> 
-> Changes since v1:
-> - incorporate Eric's note about speed improvements in commit description
-> - use netif_receive_skb CONFIG_4KSTACKS is not enabled
+Just how much per-packet path-length are you thinking will go away under 
+the likes of TXDP?  It is admittedly "just" netperf but losing TSO/GSO 
+does some non-trivial things to effective overhead (service demand) and 
+so throughput:
 
-Applied to net-next, thanks!
+stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -- 
+-P 12867
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 12867 AF_INET to 
+np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo
+Recv   Send    Send                          Utilization       Service 
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local 
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+
+  87380  16384  16384    10.00      9260.24   2.02     -1.00    0.428 
+-1.000
+stack@np-cp1-c0-m1-mgmt:~/rjones2$ sudo ethtool -K hed0 tso off gso off
+stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -- 
+-P 12867
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 12867 AF_INET to 
+np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo
+Recv   Send    Send                          Utilization       Service 
+Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local 
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+
+  87380  16384  16384    10.00      5621.82   4.25     -1.00    1.486 
+-1.000
+
+And that is still with the stretch-ACKs induced by GRO at the receiver.
+
+Losing GRO has quite similar results:
+stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t 
+TCP_MAERTS -- -P 12867
+MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 12867 AF_INET to 
+np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo
+Recv   Send    Send                          Utilization       Service 
+Demand
+Socket Socket  Message  Elapsed              Recv     Send     Recv    Send
+Size   Size    Size     Time     Throughput  local    remote   local 
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+
+  87380  16384  16384    10.00      9154.02   4.00     -1.00    0.860 
+-1.000
+stack@np-cp1-c0-m1-mgmt:~/rjones2$ sudo ethtool -K hed0 gro off
+
+stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t 
+TCP_MAERTS -- -P 12867
+MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 12867 AF_INET to 
+np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo
+Recv   Send    Send                          Utilization       Service 
+Demand
+Socket Socket  Message  Elapsed              Recv     Send     Recv    Send
+Size   Size    Size     Time     Throughput  local    remote   local 
+remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
+
+  87380  16384  16384    10.00      4212.06   5.36     -1.00    2.502 
+-1.000
+
+I'm sure there is a very non-trivial "it depends" component here - 
+netperf will get the peak benefit from *SO and so one will see the peak 
+difference in service demands - but even if one gets only 6 segments per 
+*SO that is a lot of path-length to make-up.
+
+4.4 kernel, BE3 NICs ... E5-2640 0 @ 2.50GHz
+
+And even if one does have the CPU cycles to burn so to speak, the effect 
+on power consumption needs to be included in the calculus.
+
+happy benchmarking,
+
+rick jones
