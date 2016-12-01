@@ -1,45 +1,100 @@
-From: Chris Brandt <Chris.Brandt@renesas.com>
-Subject: RE: [PATCH v2] sh_eth: remove unchecked interrupts
-Date: Thu, 1 Dec 2016 18:53:22 +0000
-Message-ID: <SG2PR06MB1165C7D7B7DFBAC4B5BAB09A8A8F0@SG2PR06MB1165.apcprd06.prod.outlook.com>
-References: <20161201140642.28583-1-chris.brandt@renesas.com>
- <CAMuHMdU80M2qcK74YgPC8SZ20tNcKrZhj7MXo_Ok=6m4Aa0=-w@mail.gmail.com>
- <25b92de0-806b-342b-7556-06b96b948b2c@cogentembedded.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 V4 0/3] tc: Support for ip tunnel metadata
+ set/unset/classify
+Date: Thu, 1 Dec 2016 10:54:25 -0800
+Message-ID: <20161201105425.2a068555@xeon-e3>
+References: <20161201114446.30333-1-amir@vadai.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <25b92de0-806b-342b-7556-06b96b948b2c@cogentembedded.com>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Jiri Benc <jbenc@redhat.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Amir Vadai <amir@vadai.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33668 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755160AbcLASya (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 13:54:30 -0500
+Received: by mail-pg0-f49.google.com with SMTP id 3so97851738pgd.0
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 10:54:28 -0800 (PST)
+In-Reply-To: <20161201114446.30333-1-amir@vadai.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgR2VlcnQsDQoNCk9uIDEyLzEvMjAxNiwgU2VyZ2VpIFNodHlseW92IHdyb3RlOg0KPiANCj4g
-T24gMTIvMDEvMjAxNiAwNTo0MiBQTSwgR2VlcnQgVXl0dGVyaG9ldmVuIHdyb3RlOg0KPiANCj4g
-Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVuZXNhcy9zaF9ldGguYw0KPiA+PiArKysg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZW5lc2FzL3NoX2V0aC5jDQo+ID4+IEBAIC01MTgsNyAr
-NTE4LDcgQEAgc3RhdGljIHN0cnVjdCBzaF9ldGhfY3B1X2RhdGEgcjdzNzIxMDBfZGF0YSA9IHsN
-Cj4gPj4NCj4gPj4gICAgICAgICAuZWNzcl92YWx1ZSAgICAgPSBFQ1NSX0lDRCwNCj4gPj4gICAg
-ICAgICAuZWNzaXByX3ZhbHVlICAgPSBFQ1NJUFJfSUNESVAsDQo+ID4+IC0gICAgICAgLmVlc2lw
-cl92YWx1ZSAgID0gMHhmZjdmMDA5ZiwNCj4gPj4gKyAgICAgICAuZWVzaXByX3ZhbHVlICAgPSAw
-eGU3N2YwMDlmLA0KPiA+DQo+ID4gQ29tbWVudCBub3QgZGlyZWN0bHkgcmVsYXRlZCB0byB0aGUg
-bWVyaXRzIG9mIHRoaXMgcGF0Y2g6IHRoZSBFRVNJUFINCj4gPiBiaXQgZGVmaW5pdGlvbnMgc2Vl
-bSB0byBiZSBpZGVudGljYWwgdG8gdGhvc2UgZm9yIEVFU1IsIHNvIHdlIGNhbiBnZXQNCj4gPiBy
-aWQgb2YgdGhlIGhhcmRjb2RlZCB2YWx1ZXMgaGVyZT8NCj4gDQo+ICAgICBEbyB5b3UgbWVhbiB1
-c2luZyB0aGUgQGRlZmluZSdzPyBXZSBoYXZlIEVFU0lQUiBiaXRzIGFsc28gZGVjbGFyZWQsDQo+
-IHNlZSBlbnVtIERNQUNfSU1fQklULA0KDQoNCklzIHlvdXIgaWRlYSB0byBnZXQgcmlkIG9mIC5l
-ZXNpcHJfdmFsdWUgZm9yIGRldmljZXMgdGhhdCBoYXZlIHZhbHVlcw0KdGhhdCBhcmUgdGhlIHNh
-bWUgYXMgLmVlc3JfZXJyX2NoZWNrPw0KDQoNCkZvciBleGFtcGxlIGluIHNoX2V0aF9kZXZfaW5p
-dCgpOg0KDQoJc2hfZXRoX21vZGlmeShuZGV2LCBFRVNSLCAwLCAwKTsNCgltZHAtPmlycV9lbmFi
-bGVkID0gdHJ1ZTsNCi0Jc2hfZXRoX3dyaXRlKG5kZXYsIG1kcC0+Y2QtPmVlc2lwcl92YWx1ZSwg
-RUVTSVBSKTsNCisJaWYgKG1kcC0+Y2QtPmVlc2lwcl92YWx1ZSkNCisJCXNoX2V0aF93cml0ZShu
-ZGV2LCBtZHAtPmNkLT5lZXNpcHJfdmFsdWUsIEVFU0lQUik7DQorCWVsc2UNCisJCXNoX2V0aF93
-cml0ZShuZGV2LCBtZHAtPmNkLT5lZXNyX2Vycl9jaGVjaywgRUVTSVBSKTsNCg0KDQpDaHJpcw0K
-DQo=
+On Thu,  1 Dec 2016 13:44:43 +0200
+Amir Vadai <amir@vadai.me> wrote:
+
+> Hi,
+> 
+> This short series adds support for matching and setting metadata for ip tunnel
+> shared device using the TC system, introduced in kernel 4.9 [1].
+> 
+> Applied and tested on top of commit f3f339e9590a ("cleanup debris from revert")
+> 
+> Example usage:
+> 
+> $ tc filter add dev vxlan0 protocol ip parent ffff: \
+>     flower \
+>       enc_src_ip 11.11.0.2 \
+>       enc_dst_ip 11.11.0.1 \
+>       enc_key_id 11 \
+>       dst_ip 11.11.11.1 \
+>     action mirred egress redirect dev vnet0
+> 
+> $ tc filter add dev net0 protocol ip parent ffff: \
+>     flower \
+>       ip_proto 1 \
+>       dst_ip 11.11.11.2 \
+>     action tunnel_key set \
+>       src_ip 11.11.0.1 \
+>       dst_ip 11.11.0.2 \
+>       id 11 \
+>     action mirred egress redirect dev vxlan0
+> 
+> [1] - d1ba24feb466 ("Merge branch 'act_tunnel_key'")
+> 
+> Thanks,
+> Amir
+> 
+> Changes from V3:
+> - Fix bad wording in the man page about the use of the 'unset' operation
+> 
+> Changes from V2:
+> - Use const where needed
+> - Don't lose return value
+> - Introduce rta_getattr_be16() and rta_getattr_be32()
+> 
+> Changes from V1:
+> - Updated Patch 2/2 ("tc/act_tunnel: Introduce ip tunnel action") commit log
+> 	and the man page tc-tunnel_key to reflect the fact that 'unset' operation is
+> 	no mandatory.
+> 	And describe when it might be needed.
+> - Rename the 'release' operation to 'unset'
+> 
+> Amir Vadai (3):
+>   libnetlink: Introduce rta_getattr_be*()
+>   tc/cls_flower: Classify packet in ip tunnels
+>   tc/act_tunnel: Introduce ip tunnel action
+> 
+>  bridge/fdb.c                         |   4 +-
+>  include/libnetlink.h                 |   9 ++
+>  include/linux/tc_act/tc_tunnel_key.h |  42 ++++++
+>  ip/iplink_geneve.c                   |   2 +-
+>  ip/iplink_vxlan.c                    |   2 +-
+>  man/man8/tc-flower.8                 |  17 ++-
+>  man/man8/tc-tunnel_key.8             | 112 +++++++++++++++
+>  tc/Makefile                          |   1 +
+>  tc/f_flower.c                        |  84 +++++++++++-
+>  tc/m_tunnel_key.c                    | 258 +++++++++++++++++++++++++++++++++++
+>  10 files changed, 522 insertions(+), 9 deletions(-)
+>  create mode 100644 include/linux/tc_act/tc_tunnel_key.h
+>  create mode 100644 man/man8/tc-tunnel_key.8
+>  create mode 100644 tc/m_tunnel_key.c
+
+I cleared up patch backlog and got net-next branch up to date with kernel
+headers, and this patch series does not apply cleanly anymore.
+
+Please rebase and resubmit.
