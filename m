@@ -1,99 +1,103 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Regression: [PATCH] mlx4: give precise rx/tx bytes/packets
- counters
-Date: Thu, 1 Dec 2016 13:37:06 +0100
-Message-ID: <20161201133706.316428e9@redhat.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20161130150839.5203ece0@redhat.com>
-        <1480521514.18162.191.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com>
-        <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CALzJLG_aT1O1ergGRu8Z0u4nszKYao5RbPfb=1USptwFY1d7PQ@mail.gmail.com>
-        <1480539652.18162.205.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 18/39] Annotate hardware config module parameters in
+ drivers/net/can/
+Date: Thu, 01 Dec 2016 12:32:01 +0000
+Message-ID: <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
+References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42872 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757155AbcLAMhK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Dec 2016 07:37:10 -0500
-In-Reply-To: <1480539652.18162.205.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
+        netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        dhowells@redhat.com, linux-security-module@vger.kernel.org,
+        keyrings@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
+        Wolfgang Grandegger <wg@grandegger.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+When the kernel is running in secure boot mode, we lock down the kernel to
+prevent userspace from modifying the running kernel image.  Whilst this
+includes prohibiting access to things like /dev/mem, it must also prevent
+access by means of configuring driver modules in such a way as to cause a
+device to access or modify the kernel image.
 
-On Wed, 30 Nov 2016 13:00:52 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+To this end, annotate module_param* statements that refer to hardware
+configuration and indicate for future reference what type of parameter they
+specify.  The parameter parser in the core sees this information and can
+skip such parameters with an error message if the kernel is locked down.
+The module initialisation then runs as normal, but just sees whatever the
+default values for those parameters is.
 
-> On Wed, 2016-11-30 at 22:42 +0200, Saeed Mahameed wrote:
-> > On Wed, Nov 30, 2016 at 7:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:  
-> > > On Wed, 2016-11-30 at 18:46 +0200, Saeed Mahameed wrote:
-[...]
-> > >
-> > > I am suggesting I will fix the bug I introduced.
-> > >
-> > > Do not panic.
-> > >
-> > >  
-> > 
-> > Not at all, I trust you are the only one who is capable of providing
-> > the best solution.
-> > I am just trying to read your mind :-).
-> > 
-> > As i said i like the solution and i want to adapt it to mlx5, so I am
-> > a little bit enthusiastic :)  
-> 
-> What about the following fix guys ?
+Note that we do still need to do the module initialisation because some
+drivers have viable defaults set in case parameters aren't specified and
+some drivers support automatic configuration (e.g. PNP or PCI) in addition
+to manually coded parameters.
 
-Confirming this fixed the crash on shutdown for me, thanks!
+This patch annotates drivers in drivers/net/can/.
 
+Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Wolfgang Grandegger <wg@grandegger.com>
+cc: Marc Kleine-Budde <mkl@pengutronix.de>
+cc: linux-can@vger.kernel.org
+cc: netdev@vger.kernel.org
+---
+
+ drivers/net/can/cc770/cc770_isa.c     |    8 ++++----
+ drivers/net/can/sja1000/sja1000_isa.c |    8 ++++----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
+index e0d15711e9ac..3a30fd3b4498 100644
+--- a/drivers/net/can/cc770/cc770_isa.c
++++ b/drivers/net/can/cc770/cc770_isa.c
+@@ -82,16 +82,16 @@ static u8 cor[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
+ static u8 bcr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
+ static int indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
  
-> As a bonus we update the stats right before they are sent to monitors
-> via rtnetlink ;)
-> 
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 12ea3405f442717478bf0e8882edaf0de77986cb..091b904262bc7932d3edf99cf850affb23b9ce6e 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -1809,8 +1809,12 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
->  
->  	netif_tx_disable(dev);
->  
-> +	spin_lock_bh(&priv->stats_lock);
-> +	mlx4_en_fold_software_stats(dev);
->  	/* Set port as not active */
->  	priv->port_up = false;
-> +	spin_unlock_bh(&priv->stats_lock);
-> +
->  	priv->counter_index = MLX4_SINK_COUNTER_INDEX(mdev->dev);
->  
->  	/* Promsicuous mode */
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> index c6c4f1238923e09eced547454b86c68720292859..9166d90e732858610b1407fe85cbf6cbe27f5e0b 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-> @@ -154,7 +154,7 @@ void mlx4_en_fold_software_stats(struct net_device *dev)
->  	unsigned long packets, bytes;
->  	int i;
->  
-> -	if (mlx4_is_master(mdev->dev))
-> +	if (!priv->port_up || mlx4_is_master(mdev->dev))
->  		return;
->  
->  	packets = 0;
-> 
-> 
+-module_param_array(port, ulong, NULL, S_IRUGO);
++module_param_hw_array(port, ulong, ioport, NULL, S_IRUGO);
+ MODULE_PARM_DESC(port, "I/O port number");
+ 
+-module_param_array(mem, ulong, NULL, S_IRUGO);
++module_param_hw_array(mem, ulong, iomem, NULL, S_IRUGO);
+ MODULE_PARM_DESC(mem, "I/O memory address");
+ 
+-module_param_array(indirect, int, NULL, S_IRUGO);
++module_param_hw_array(indirect, int, ioport, NULL, S_IRUGO);
+ MODULE_PARM_DESC(indirect, "Indirect access via address and data port");
+ 
+-module_param_array(irq, int, NULL, S_IRUGO);
++module_param_hw_array(irq, int, irq, NULL, S_IRUGO);
+ MODULE_PARM_DESC(irq, "IRQ number");
+ 
+ module_param_array(clk, int, NULL, S_IRUGO);
+diff --git a/drivers/net/can/sja1000/sja1000_isa.c b/drivers/net/can/sja1000/sja1000_isa.c
+index e97e6d35b300..a89c1e92554d 100644
+--- a/drivers/net/can/sja1000/sja1000_isa.c
++++ b/drivers/net/can/sja1000/sja1000_isa.c
+@@ -48,16 +48,16 @@ static unsigned char ocr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
+ static int indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
+ static spinlock_t indirect_lock[MAXDEV];  /* lock for indirect access mode */
+ 
+-module_param_array(port, ulong, NULL, S_IRUGO);
++module_param_hw_array(port, ulong, ioport, NULL, S_IRUGO);
+ MODULE_PARM_DESC(port, "I/O port number");
+ 
+-module_param_array(mem, ulong, NULL, S_IRUGO);
++module_param_hw_array(mem, ulong, iomem, NULL, S_IRUGO);
+ MODULE_PARM_DESC(mem, "I/O memory address");
+ 
+-module_param_array(indirect, int, NULL, S_IRUGO);
++module_param_hw_array(indirect, int, ioport, NULL, S_IRUGO);
+ MODULE_PARM_DESC(indirect, "Indirect access via address and data port");
+ 
+-module_param_array(irq, int, NULL, S_IRUGO);
++module_param_hw_array(irq, int, irq, NULL, S_IRUGO);
+ MODULE_PARM_DESC(irq, "IRQ number");
+ 
+ module_param_array(clk, int, NULL, S_IRUGO);
 
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
