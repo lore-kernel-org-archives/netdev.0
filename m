@@ -1,146 +1,168 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [WIP] net+mlx4: auto doorbell
-Date: Wed, 30 Nov 2016 18:32:46 -0800
-Message-ID: <1480559566.18162.253.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20140903165943.372b897b@redhat.com>
-         <20161116131609.4e5726b4@redhat.com>
-         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
-         <20161116234022.2bad179b@redhat.com>
-         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117091638.5fab8494@redhat.com>
-         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117144248.23500001@redhat.com>
-         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117155753.17b76f5a@redhat.com>
-         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117193021.580589ae@redhat.com>
-         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161121170351.50a09ee1@redhat.com>
-         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161130123810.581ba21f@redhat.com>
-         <1480521386.18162.189.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161130201711.2f353a76@redhat.com>
-         <1480534200.18162.203.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480552059.18162.239.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALx6S35UZcD+kXTTGeML4DdDYaUoArSfEPeUoTuFEeRWKsM7sQ@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Initial thoughts on TXDP
+Date: Thu, 1 Dec 2016 03:44:07 +0100
+Message-ID: <20161201024407.GE26507@breakpoint.cc>
+References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Achiad Shochat <achiad@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34576 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751080AbcLACct (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 21:32:49 -0500
-Received: by mail-pf0-f193.google.com with SMTP id y68so10992659pfb.1
-        for <netdev@vger.kernel.org>; Wed, 30 Nov 2016 18:32:49 -0800 (PST)
-In-Reply-To: <CALx6S35UZcD+kXTTGeML4DdDYaUoArSfEPeUoTuFEeRWKsM7sQ@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:50354 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752576AbcLACrL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 21:47:11 -0500
+Content-Disposition: inline
+In-Reply-To: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-30 at 17:16 -0800, Tom Herbert wrote:
-> On Wed, Nov 30, 2016 at 4:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > Another issue I found during my tests last days, is a problem with BQL,
-> > and more generally when driver stops/starts the queue.
-> >
-> > When under stress and BQL stops the queue, driver TX completion does a
-> > lot of work, and servicing CPU also takes over further qdisc_run().
-> >
-> Hmm, hard to say if this is problem or a feature I think ;-). One way
-> to "solve" this would be to use IRQ round robin, that would spread the
-> load of networking across CPUs, but that gives us no additional
-> parallelism and reduces locality-- it's generally considered a bad
-> idea. The question might be: is it better to continuously ding one CPU
-> with all the networking work or try to artificially spread it out?
-> Note this is orthogonal to MQ also, so we should already have multiple
-> CPUs doing netif_schedule_queue for queues they manage.
+Tom Herbert <tom@herbertland.com> wrote:
+> Posting for discussion....
+
+Warning: You are not going to like this reply...
+
+> Now that XDP seems to be nicely gaining traction
+
+Yes, I regret to see that.  XDP seems useful to create impressive
+benchmark numbers (and little else).
+
+I will send a separate email to keep that flamebait part away from
+this thread though.
+
+[..]
+
+> addresses the performance gap for stateless packet processing). The
+> problem statement is analogous to that which we had for XDP, namely
+> can we create a mode in the kernel that offer the same performance
+> that is seen with L4 protocols over kernel bypass
+
+Why?  If you want to bypass the kernel, then DO IT.
+
+There is nothing wrong with DPDK.  The ONLY problem is that the kernel
+does not offer a userspace fastpath like Windows RIO or FreeBSDs netmap.
+
+But even without that its not difficult to get DPDK running.
+
+(T)XDP seems born from spite, not technical rationale.
+IMO everyone would be better off if we'd just have something netmap-esqe
+in the network core (also see below).
+
+> I imagine there are a few reasons why userspace TCP stacks can get
+> good performance:
 > 
-> Do you have a test or application that shows this is causing pain?
+> - Spin polling (we already can do this in kernel)
+> - Lockless, I would assume that threads typically have exclusive
+> access to a queue pair for a connection
+> - Minimal TCP/IP stack code
+> - Zero copy TX/RX
+> - Light weight structures for queuing
+> - No context switches
+> - Fast data path for in order, uncongested flows
+> - Silo'ing between application and device queues
 
-Yes, just launch enough TCP senders (more than 10,000) to fully utilize
-the NIC, with small messages.
+I only see two cases:
 
-super_netperf is not good for that, because you would need 10,000
-processes and would spend too much cycles just dealing with an enormous
-working set, you would not activate BQL.
+1. Many applications running (standard Os model) that need to
+send/receive data
+-> Linux Network Stack
 
+2. Single dedicated application that does all rx/tx
 
-> 
-> > The work-flow is :
-> >
-> > 1) collect up to 64 (or 256 packets for mlx4) packets from TX ring, and
-> > unmap things, queue skbs for freeing.
-> >
-> > 2) Calls netdev_tx_completed_queue(ring->tx_queue, packets, bytes);
-> >
-> > if (test_and_clear_bit(__QUEUE_STATE_STACK_XOFF, &dev_queue->state))
-> >      netif_schedule_queue(dev_queue);
-> >
-> > This leaves a very tiny window where other cpus could grab __QDISC_STATE_SCHED
-> > (They absolutely have no chance to grab it)
-> >
-> > So we end up with one cpu doing the ndo_start_xmit() and TX completions,
-> > and RX work.
-> >
-> > This problem is magnified when XPS is used, if one mono-threaded application deals with
-> > thousands of TCP sockets.
-> >
-> Do you know of an application doing this? The typical way XPS and most
-> of the other steering mechanisms are configured assume that workloads
-> tend towards a normal distribution. Such mechanisms can become
-> problematic under asymmetric loads, but then I would expect these are
-> likely dedicated servers so that the mechanisms can be tuned
-> accordingly. For instance, XPS can be configured to map more than one
-> queue to a CPU. Alternatively, IIRC Windows has some functionality to
-> tune networking for the load (spin up queues, reconfigure things
-> similar to XPS/RPS, etc.)-- that's promising up the point that we need
-> a lot of heuristics and measurement; but then we lose determinism and
-> risk edge case where we get completely unsatisfied results (one of my
-> concerns with the recent attempt to put configuration in the kernel).
+-> no queueing needed (can block network rx completely if receiver
+is slow)
+-> no allocations needed at runtime at all
+-> no locking needed (single produce, single consumer)
 
-We have thousands of applications, and some of them 'kind of multicast'
-events to a broad number of TCP sockets.
+If you have #2 and you need to be fast etc then full userspace
+bypass is fine.  We will -- no matter what we do in kernel -- never
+be able to keep up with the speed you can get with that
+because we have to deal with #1.  (Plus the ease of use/freedom of doing
+userspace programming).  And yes, I think that #2 is something we
+should address solely by providing netmap or something similar.
 
-Very often, applications writers use a single thread for doing this,
-when all they need is to send small packets to 10,000 sockets, and they
-do not really care of doing this very fast. They also do not want to
-hurt other applications sharing the NIC.
+But even considering #1 there are ways to speed stack up:
 
-Very often, process scheduler will also run this single thread in a
-single cpu, ie avoiding expensive migrations if they are not needed.
+I'd kill RPF/RPS so we don't have IPI anymore and skb stays
+on same cpu up to where it gets queued (ofo or rx queue).
 
-Problem is this behavior locks one TX queue for the duration of the
-multicast, since XPS will force all the TX packets to go to one TX
-queue.
+Then we could tell driver what happened with the skb it gave us, e.g.
+we can tell driver it can do immediate page/dma reuse, for example
+in pure ack case as opposed to skb sitting in ofo or receive queue.
 
-Other flows that would share the locked CPU experience high P99
-latencies.
+(RPS/RFS functionality could still be provided via one of the gazillion
+ hooks we now have in the stack for those that need/want it), so I do
+not think we would lose functionality.
 
+>   - Call into TCP/IP stack with page data directly from driver-- no
+> skbuff allocation or interface. This is essentially provided by the
+> XDP API although we would need to generalize the interface to call
+> stack functions (I previously posted patches for that). We will also
+> need a new action, XDP_HELD?, that indicates the XDP function held the
+> packet (put on a socket for instance).
 
-> 
-> > We should use an additional bit (__QDISC_STATE_PLEASE_GRAB_ME) or some way
-> > to allow another cpu to service the qdisc and spare us.
-> >
-> Wouldn't this need to be an active operation? That is to queue the
-> qdisc on another CPU's output_queue?
+Seems this will not work at all with the planned page pool thing when
+pages start to be held indefinitely.
 
-I simply suggest we try to queue the qdisc for further servicing as we
-do today, from net_tx_action(), but we might use a different bit, so
-that we leave the opportunity for another cpu to get __QDISC_STATE_SCHED
-before we grab it from net_tx_action(), maybe 100 usec later (time to
-flush all skbs queued in napi_consume_skb() and maybe RX processing,
-since most NIC handle TX completion before doing RX processing from thei
-napi poll handler.
+You can also never get even close to userspace offload stacks once you
+need/do this; allocations in hotpath are too expensive.
 
-Should be doable with few changes in __netif_schedule() and
-net_tx_action(), plus some control paths that will need to take care of
-the new bit at dismantle time, right ?
+[..]
+
+>   - When we transmit, it would be nice to go straight from TCP
+> connection to an XDP device queue and in particular skip the qdisc
+> layer. This follows the principle of low latency being first criteria.
+
+It will never be lower than userspace offloads so anyone with serious
+"low latency" requirement (trading) will use that instead.
+
+Whats your target audience?
+
+> longer latencies in effect which likely means TXDP isn't appropriate
+> in such a cases. BQL is also out, however we would want the TX
+> batching of XDP.
+
+Right, congestion control and buffer bloat are totally overrated .. 8-(
+
+So far I haven't seen anything that would need XDP at all.
+
+What makes it technically impossible to apply these miracles to the
+stack...?
+
+E.g. "mini-skb": Even if we assume that this provides a speedup
+(where does that come from? should make no difference if a 32 or
+ 320 byte buffer gets allocated).
+
+If we assume that its the zeroing of sk_buff (but iirc it made little
+to no difference), could add
+
+unsigned long skb_extensions[1];
+
+to sk_buff, then move everything not needed for tcp fastpath
+(e.g. secpath, conntrack, nf_bridge, tunnel encap, tc, ...)
+below that
+
+Then convert accesses to accessors and init it on demand.
+
+One could probably also split cb[] into a smaller fastpath area
+and another one at the end that won't be touched at allocation time.
+
+> Miscellaneous
+
+> contemplating that connections/sockets can be bound to particularly
+> CPUs and that any operations (socket operations, timers, receive
+> processing) must occur on that CPU. The CPU would be the one where RX
+> happens. Note this implies perfect silo'ing, everything for driver RX
+> to application processing happens inline on the CPU. The stack would
+> not cross CPUs for a connection while in this mode.
+
+Again don't see how this relates to xdp.  Could also be done with
+current stack if we make rps/rfs pluggable since nothing else
+currently pushes skb to another cpu (except when scheduler is involved
+via tc mirred, netfilter userspace queueing etc) but that is always
+explicit (i.e. skb leaves softirq protection).
+
+Can we please fix and improve what we already have rather than creating
+yet another NIH thing that will have to be maintained forever?
+
+Thanks.
