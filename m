@@ -1,72 +1,43 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v7 net-next 0/6] net: Add bpf support for sockets
-Date: Thu, 1 Dec 2016 08:59:39 -0800
-Message-ID: <20161201165938.GG46200@ast-mbp.thefacebook.com>
-References: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 1/3] sfc: fix debug message format string in
+ efx_farch_handle_rx_not_ok
+Date: Thu, 1 Dec 2016 17:00:54 +0000
+Message-ID: <2d2b245a-4849-ce9f-d1ba-f25db9e5a3b1@solarflare.com>
+References: <c52a0276-e379-7841-8d10-d5a834b81c4e@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
-        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <bkenward@solarflare.com>, <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33037 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933600AbcLAQ7n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 11:59:43 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 3so5137703pgd.0
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 08:59:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:40018 "EHLO
+        nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1758319AbcLARBK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 12:01:10 -0500
+In-Reply-To: <c52a0276-e379-7841-8d10-d5a834b81c4e@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2016 at 08:48:02AM -0800, David Ahern wrote:
-> The recently added VRF support in Linux leverages the bind-to-device
-> API for programs to specify an L3 domain for a socket. While
-> SO_BINDTODEVICE has been around for ages, not every ipv4/ipv6 capable
-> program has support for it. Even for those programs that do support it,
-> the API requires processes to be started as root (CAP_NET_RAW) which
-> is not desirable from a general security perspective.
-> 
-> This patch set leverages Daniel Mack's work to attach bpf programs to
-> a cgroup to provide a capability to set sk_bound_dev_if for all
-> AF_INET{6} sockets opened by a process in a cgroup when the sockets
-> are allocated.
-> 
-> For example:
->  1. configure vrf (e.g., using ifupdown2)
->         auto eth0
->         iface eth0 inet dhcp
->             vrf mgmt
-> 
->         auto mgmt
->         iface mgmt
->             vrf-table auto
-> 
->  2. configure cgroup
->         mount -t cgroup2 none /tmp/cgroupv2
->         mkdir /tmp/cgroupv2/mgmt
->         test_cgrp2_sock /tmp/cgroupv2/mgmt 15
-> 
->  3. set shell into cgroup (e.g., can be done at login using pam)
->         echo $$ >> /tmp/cgroupv2/mgmt/cgroup.procs
-> 
-> At this point all commands run in the shell (e.g, apt) have sockets
-> automatically bound to the VRF (see output of ss -ap 'dev == <vrf>'),
-> including processes not running as root.
-> 
-> This capability enables running any program in a VRF context and is key
-> to deploying Management VRF, a fundamental configuration for networking
-> gear, with any Linux OS installation.
-> 
-> This patchset also exports the socket family, type and protocol as
-> read-only allowing bpf filters to deny a process in a cgroup the ability
-> to open specific types of AF_INET or AF_INET6 sockets.
-> 
-> v7
-> - comments from Alexei
+Defalconisation removed one of the string arguments, but missed the
+ corresponding %s.
 
-Looks great.
-In case you need to change something. Please keep my Acks
-on patches that were kept as-is.
-Thanks
+Fixes: 5a6681e22c14 ("sfc: separate out SFC4000 ("Falcon") support into new sfc-falcon driver")
+
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ drivers/net/ethernet/sfc/farch.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
+index c282d66..91aa3ec 100644
+--- a/drivers/net/ethernet/sfc/farch.c
++++ b/drivers/net/ethernet/sfc/farch.c
+@@ -913,7 +913,7 @@ static u16 efx_farch_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
+ 	if (rx_ev_other_err && net_ratelimit()) {
+ 		netif_dbg(efx, rx_err, efx->net_dev,
+ 			  " RX queue %d unexpected RX event "
+-			  EFX_QWORD_FMT "%s%s%s%s%s%s%s%s\n",
++			  EFX_QWORD_FMT "%s%s%s%s%s%s%s\n",
+ 			  efx_rx_queue_index(rx_queue), EFX_QWORD_VAL(*event),
+ 			  rx_ev_buf_owner_id_err ? " [OWNER_ID_ERR]" : "",
+ 			  rx_ev_ip_hdr_chksum_err ?
