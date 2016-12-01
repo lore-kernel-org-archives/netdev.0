@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V2 6/8] net/mlx5e: Bring back representor's ndos that were accidentally removed
-Date: Thu,  1 Dec 2016 14:06:38 +0200
-Message-ID: <1480594000-8428-7-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V2 7/8] net/mlx5e: Save the represntor netdevice as part of the representor
+Date: Thu,  1 Dec 2016 14:06:39 +0200
+Message-ID: <1480594000-8428-8-git-send-email-hadarh@mellanox.com>
 References: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Jiri Pirko <jiri@mellanox.com>,
@@ -11,35 +11,143 @@ Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45347 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45354 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1758773AbcLANCb (ORCPT
+        with ESMTP id S1758793AbcLANCb (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 08:02:31 -0500
 In-Reply-To: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VF Representor udp tunnel ndo entries were removed by mistake,
-return them.
+Replace the representor private data to a net_device pointer holding the
+representor netdevice, instead of void pointer holding mlx5e_priv.
 
-Fixes: 370bad0f9a52 ('net/mlx5e: Support HW (offloaded) and SW counters for SRIOV switchdev mode')
+It will be used by a new eswitch service function, returning the uplink representor
+netdevice.
+
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c         |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c          | 15 ++++++++-------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h         |  3 ++-
+ .../net/ethernet/mellanox/mlx5/core/eswitch_offloads.c    | 12 +++++++++++-
+ 4 files changed, 22 insertions(+), 10 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 6b492ca..37c0d84 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3796,7 +3796,7 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
+ 		rep.load = mlx5e_nic_rep_load;
+ 		rep.unload = mlx5e_nic_rep_unload;
+ 		rep.vport = FDB_UPLINK_VPORT;
+-		rep.priv_data = priv;
++		rep.netdev = netdev;
+ 		mlx5_eswitch_register_vport_rep(esw, 0, &rep);
+ 	}
+ }
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 5e33f6b..9b1e351 100644
+index 9b1e351..0868677 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -384,6 +384,8 @@ int mlx5e_get_offload_stats(int attr_id, const struct net_device *dev,
- 	.ndo_get_phys_port_name  = mlx5e_rep_get_phys_port_name,
- 	.ndo_setup_tc            = mlx5e_rep_ndo_setup_tc,
- 	.ndo_get_stats64         = mlx5e_rep_get_stats,
-+	.ndo_udp_tunnel_add      = mlx5e_add_vxlan_port,
-+	.ndo_udp_tunnel_del      = mlx5e_del_vxlan_port,
- 	.ndo_has_offload_stats	 = mlx5e_has_offload_stats,
- 	.ndo_get_offload_stats	 = mlx5e_get_offload_stats,
- };
+@@ -208,7 +208,8 @@ int mlx5e_add_sqs_fwd_rules(struct mlx5e_priv *priv)
+ 
+ int mlx5e_nic_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
+ {
+-	struct mlx5e_priv *priv = rep->priv_data;
++	struct net_device *netdev = rep->netdev;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
+ 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return mlx5e_add_sqs_fwd_rules(priv);
+@@ -226,7 +227,8 @@ void mlx5e_remove_sqs_fwd_rules(struct mlx5e_priv *priv)
+ void mlx5e_nic_rep_unload(struct mlx5_eswitch *esw,
+ 			  struct mlx5_eswitch_rep *rep)
+ {
+-	struct mlx5e_priv *priv = rep->priv_data;
++	struct net_device *netdev = rep->netdev;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
+ 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		mlx5e_remove_sqs_fwd_rules(priv);
+@@ -555,7 +557,7 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+ 		return -EINVAL;
+ 	}
+ 
+-	rep->priv_data = netdev_priv(netdev);
++	rep->netdev = netdev;
+ 
+ 	err = mlx5e_attach_netdev(esw->dev, netdev);
+ 	if (err) {
+@@ -577,7 +579,7 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+ 	mlx5e_detach_netdev(esw->dev, netdev);
+ 
+ err_destroy_netdev:
+-	mlx5e_destroy_netdev(esw->dev, rep->priv_data);
++	mlx5e_destroy_netdev(esw->dev, netdev_priv(netdev));
+ 
+ 	return err;
+ 
+@@ -586,10 +588,9 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+ void mlx5e_vport_rep_unload(struct mlx5_eswitch *esw,
+ 			    struct mlx5_eswitch_rep *rep)
+ {
+-	struct mlx5e_priv *priv = rep->priv_data;
+-	struct net_device *netdev = priv->netdev;
++	struct net_device *netdev = rep->netdev;
+ 
+ 	unregister_netdev(netdev);
+ 	mlx5e_detach_netdev(esw->dev, netdev);
+-	mlx5e_destroy_netdev(esw->dev, priv);
++	mlx5e_destroy_netdev(esw->dev, netdev_priv(netdev));
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index cf1aa56..8661dd3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -186,7 +186,7 @@ struct mlx5_eswitch_rep {
+ 					 struct mlx5_eswitch_rep *rep);
+ 	u16		       vport;
+ 	u8		       hw_id[ETH_ALEN];
+-	void		      *priv_data;
++	struct net_device      *netdev;
+ 
+ 	struct mlx5_flow_handle *vport_rx_rule;
+ 	struct list_head       vport_sqs_list;
+@@ -318,6 +318,7 @@ void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
+ 				     struct mlx5_eswitch_rep *rep);
+ void mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw,
+ 				       int vport_index);
++struct net_device *mlx5_eswitch_get_uplink_netdev(struct mlx5_eswitch *esw);
+ 
+ int mlx5_eswitch_add_vlan_action(struct mlx5_eswitch *esw,
+ 				 struct mlx5_esw_flow_attr *attr);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 5c01550..466e161 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -970,7 +970,7 @@ void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
+ 	rep->load   = __rep->load;
+ 	rep->unload = __rep->unload;
+ 	rep->vport  = __rep->vport;
+-	rep->priv_data = __rep->priv_data;
++	rep->netdev = __rep->netdev;
+ 	ether_addr_copy(rep->hw_id, __rep->hw_id);
+ 
+ 	INIT_LIST_HEAD(&rep->vport_sqs_list);
+@@ -990,3 +990,13 @@ void mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw,
+ 
+ 	rep->valid = false;
+ }
++
++struct net_device *mlx5_eswitch_get_uplink_netdev(struct mlx5_eswitch *esw)
++{
++#define UPLINK_REP_INDEX 0
++	struct mlx5_esw_offload *offloads = &esw->offloads;
++	struct mlx5_eswitch_rep *rep;
++
++	rep = &offloads->vport_reps[UPLINK_REP_INDEX];
++	return rep->netdev;
++}
 -- 
 1.8.3.1
