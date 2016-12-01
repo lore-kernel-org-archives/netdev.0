@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v6 net-next 7/7] ARM64: dts: marvell: Add network support for Armada 3700
-Date: Thu,  1 Dec 2016 18:03:10 +0100
-Message-ID: <e800408b572914db653a6d9cdf218b8df85828d4.1480611779.git-series.gregory.clement@free-electrons.com>
+Subject: [PATCH v6 net-next 5/7] net: mvneta: Only disable mvneta_bm for 64-bits
+Date: Thu,  1 Dec 2016 18:03:08 +0100
+Message-ID: <3bb7046c1f69d7b5930b367533f1ccbc521cb10a.1480611779.git-series.gregory.clement@free-electrons.com>
 References: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
 Cc: Jisheng Zhang <jszhang@marvell.com>, Arnd Bergmann <arnd@arndb.de>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -16,90 +16,49 @@ Cc: Jisheng Zhang <jszhang@marvell.com>, Arnd Bergmann <arnd@arndb.de>,
         Yelena Krivosheev <yelena@marvell.com>
 To: "David S. Miller" <davem@davemloft.net>,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36426 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758294AbcLARDX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 12:03:23 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
 In-Reply-To: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
 References: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add neta nodes for network support both in device tree for the SoC and
-the board.
+Actually only the mvneta_bm support is not 64-bits compatible.
+The mvneta code itself can run on 64-bits architecture.
 
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Tested-by: Marcin Wojtas <mw@semihalf.com>
 ---
- arch/arm64/boot/dts/marvell/armada-3720-db.dts | 23 +++++++++++++++++++-
- arch/arm64/boot/dts/marvell/armada-37xx.dtsi   | 23 +++++++++++++++++++-
- 2 files changed, 46 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/marvell/Kconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-3720-db.dts b/arch/arm64/boot/dts/marvell/armada-3720-db.dts
-index 1372e9a6aaa4..a59d36cd6caf 100644
---- a/arch/arm64/boot/dts/marvell/armada-3720-db.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-3720-db.dts
-@@ -81,3 +81,26 @@
- &pcie0 {
- 	status = "okay";
- };
-+
-+&mdio {
-+	status = "okay";
-+	phy0: ethernet-phy@0 {
-+		reg = <0>;
-+	};
-+
-+	phy1: ethernet-phy@1 {
-+		reg = <1>;
-+	};
-+};
-+
-+&eth0 {
-+	phy-mode = "rgmii-id";
-+	phy = <&phy0>;
-+	status = "okay";
-+};
-+
-+&eth1 {
-+	phy-mode = "sgmii";
-+	phy = <&phy1>;
-+	status = "okay";
-+};
-diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index e9bd58793464..3b8eb45bdc76 100644
---- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-@@ -140,6 +140,29 @@
- 				};
- 			};
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index 66fd9dbb2ca7..2ccea9dd9248 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -44,6 +44,7 @@ config MVMDIO
+ config MVNETA_BM_ENABLE
+ 	tristate "Marvell Armada 38x/XP network interface BM support"
+ 	depends on MVNETA
++	depends on !64BIT
+ 	---help---
+ 	  This driver supports auxiliary block of the network
+ 	  interface units in the Marvell ARMADA XP and ARMADA 38x SoC
+@@ -58,7 +59,6 @@ config MVNETA
+ 	tristate "Marvell Armada 370/38x/XP network interface support"
+ 	depends on PLAT_ORION || COMPILE_TEST
+ 	depends on HAS_DMA
+-	depends on !64BIT
+ 	select MVMDIO
+ 	select FIXED_PHY
+ 	---help---
+@@ -71,6 +71,7 @@ config MVNETA
  
-+			eth0: ethernet@30000 {
-+				   compatible = "marvell,armada-3700-neta";
-+				   reg = <0x30000 0x4000>;
-+				   interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
-+				   clocks = <&sb_periph_clk 8>;
-+				   status = "disabled";
-+			};
-+
-+			mdio: mdio@32004 {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				compatible = "marvell,orion-mdio";
-+				reg = <0x32004 0x4>;
-+			};
-+
-+			eth1: ethernet@40000 {
-+				compatible = "marvell,armada-3700-neta";
-+				reg = <0x40000 0x4000>;
-+				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
-+				clocks = <&sb_periph_clk 7>;
-+				status = "disabled";
-+			};
-+
- 			usb3: usb@58000 {
- 				compatible = "marvell,armada3700-xhci",
- 				"generic-xhci";
+ config MVNETA_BM
+ 	tristate
++	depends on !64BIT
+ 	default y if MVNETA=y && MVNETA_BM_ENABLE!=n
+ 	default MVNETA_BM_ENABLE
+ 	select HWBM
 -- 
 git-series 0.8.10
