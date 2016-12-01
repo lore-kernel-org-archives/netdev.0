@@ -1,34 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [flamebait] xdp, well meaning but pointless
-Date: Thu, 1 Dec 2016 18:20:36 +0100
-Message-ID: <f1eef5a5-023e-4edb-ce9e-53a94821044c@stressinduktion.org>
-References: <20161201091108.GF26507@breakpoint.cc>
- <20161201145834.GA569@pox.localdomain>
- <20161201.111947.888676978252329124.davem@davemloft.net>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: [PATCH] net: stmmac: enable tx queue 0 for gmac4 IPs synthesized
+ with multiple TX queues
+Date: Thu, 1 Dec 2016 18:21:05 +0100
+Message-ID: <c5684f31-f1e4-75fd-852b-fd62f0940eef@st.com>
+References: <1479998194-7113-1-git-send-email-niklass@axis.com>
+ <20161128.112921.631621178188973017.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:48290 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751997AbcLARUj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 12:20:39 -0500
-In-Reply-To: <20161201.111947.888676978252329124.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <peppe.cavallaro@st.com>, <niklass@axis.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <niklas.cassel@axis.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161128.112921.631621178188973017.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01.12.2016 17:19, David Miller wrote:
-> Saying that ntuple filters can handle the early drop use case doesn't
-> take into consideration the nature of the tables (hundreds of
-> thousands of "evil" IP addresses), whether hardware can actually
-> handle that (it can't), and whether simple IP address matching is the
-> full extent of it (it isn't).
+Hi David and Niklas,
 
-Yes, that is why you certainly use ntuple filters in combination with
-some kind of high level business logic in user space.
+On 11/28/2016 05:29 PM, David Miller wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
+> Date: Thu, 24 Nov 2016 15:36:33 +0100
+>
+>> From: Niklas Cassel <niklas.cassel@axis.com>
+>>
+>> The dwmac4 IP can synthesized with 1-8 number of tx queues.
+>> On an IP synthesized with DWC_EQOS_NUM_TXQ > 1, all txqueues are disabled
+>> by default. For these IPs, the bitfield TXQEN is R/W.
+>>
+>> Always enable tx queue 0. The write will have no effect on IPs synthesized
+>> with DWC_EQOS_NUM_TXQ == 1.
+>>
+>> The driver does still not utilize more than one tx queue in the IP.
+>>
+>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+>
+> Alexandre, we are still waiting for your implicit/explicit ACK on this
+> change.
 
-I have to check but am pretty sure you can't even do the simplest thing
-in XDP, parsing the apexes of DNS packets and checking them against a
-hash table, because the program won't pass the verifier.
+Yes you could add my Acked-by but it is already merged. My fault.
+Sorry for my late answer :(
+
+>
+> Thank you.
+>
