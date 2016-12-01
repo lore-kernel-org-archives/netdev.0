@@ -1,103 +1,55 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH iproute2 V3 3/3] tc/act_tunnel: Introduce ip tunnel action
-Date: Thu, 1 Dec 2016 11:57:15 +0200
-Message-ID: <20161201095715.GA28945@office.localdomain>
-References: <20161130073840.5269-1-amir@vadai.me>
- <20161130073840.5269-4-amir@vadai.me>
- <20161130154453.3394b3f2@griffin>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net] tipc: check minimum bearer MTU
+Date: Thu, 1 Dec 2016 18:07:47 +0800
+Message-ID: <2993fe74-a4d3-55ea-c600-ade0f0ee3a02@windriver.com>
+References: <20161130095702.DD033A0F14@unicorn.suse.cz>
+	<4a2da388-d798-11cf-bf2c-84207cae6159@windriver.com>
+	<20161130132333.GD19119@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33387 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750831AbcLAJ5T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 04:57:19 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u144so33230096wmu.0
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 01:57:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20161130154453.3394b3f2@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, Qian Zhang <zhangqian-c@360.cn>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, Ben Hutchings <ben@decadent.org.uk>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20161130132333.GD19119@unicorn.suse.cz>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 30, 2016 at 03:44:53PM +0100, Jiri Benc wrote:
-> On Wed, 30 Nov 2016 09:38:40 +0200, Amir Vadai wrote:
-> > +The
-> > +.I UNSET
-> > +mode is optional - even without using it, the metadata information will be
-> > +released automatically when packet processing will be finished.
-> > +.IR UNSET
-> > +function could be used in cases when traffic is forwarded between two tunnels,
-> > +where the metadata from the first tunnel will be used for encapsulation done by
-> > +the second tunnel.
-> 
-> This looks good.
-:)
+>>
+>> For UDP bearer, it seems insufficient for us to check MTU size only
+>> when UDP bearer is enabled. Meanwhile, we should update MTU size for
+>> UDP bearer with Path MTU discovery protocol once MTU size is changed
+>> after bearer is enabled.
+>
+> I should admit I'm not that familiar with tipc. Do you mean updating
+> b->mtu in response to PMTU updates of the route used for ub->ubsock?
 
-> 
-> > +It must be used for offloaded filters, such that hardware drivers can
-> > +realize they need to program the HW to do decapsulation.
-> 
-> However, this is wrong. The hardware offloading must be transparent.
-> The same configuration that works when processed in software must work
-> in hardware if the hardware has the necessary capabilities. Requiring
-> the user to alter the configuration to accommodate hardware
-> peculiarities is not acceptable.
-> 
-> Or maybe I'm misunderstanding what you mean here. In which case it's
-> not documented properly :-)
-You understood it correctly. We should not force the user to use the
-'unset' operation for offloading only. I will remove it from the text
-here.
+Yes.
 
-> 
-> > +.IR SET
-> > +mode requires the source and destination ip
-> > +.I ADDRESS
-> > +and the tunnel key id
-> > +.I KEY_ID
-> > +which will be used by the ip tunnel shared device to create the tunnel header. The
-> > +.B tunnel_key
-> > +action is useful only in combination with a
-> > +.B mirred redirect
-> > +action to a shared IP tunnel device which will use the metadata (for
-> > +.I SET
-> > +) and unset the metadata created by it (for
-> > +.I UNSET
-> > +).
-> > +
-> > +.SH OPTIONS
-> > +.TP
-> > +.B unset
-> > +Decapsulation mode, no further arguments allowed. This function is not
-> > +mandatory and might be used only in some specific use cases.
-> 
-> This is NOT decapsulation. The packet is decapsulated at this point in
-> any case, whether or not set/unset or whatever is used. These actions
-> are only and solely about metadata associated with the packet. The
-> actual encapsulation and decapsulation happens at the target netdevice.
-> 
-> Calling this "decapsulation" is wrong. And if it's implemented as such
-> in your hardware offloading, then it's doubly wrong as it doesn't match
-> software processing and hence you must not do that and you must change
-> that.
-Got it. Bad wording by me - will fix it and make sure offloading will
-realy be transparent to user.
+> The way I understand it, it would be certainly useful but it's not
+> directly related to the security issue this patch addresses as if there
+> are no updates, b->mtu cannot get too low and there is no risk of
+> a buffer overflow. In other words, reflecting PMTU updates is something
+> that can be IMHO left for later.
+>
 
-> 
-> > +.TP
-> > +.B set
-> > +Encapsulation mode. Requires
-> 
-> Likewise, this is not encapsulation. It just sets metadata.
-ack
+Agreed.
 
-Thanks,
-Amir
-> 
->  Jiri
+Regards,
+Ying
+
+>                                                       Michal Kubecek
+>
+
+
+------------------------------------------------------------------------------
