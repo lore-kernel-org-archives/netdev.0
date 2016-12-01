@@ -1,82 +1,73 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH -next] net: ethernet: ti: davinci_cpdma: add missing EXPORTs
-Date: Thu, 1 Dec 2016 15:25:28 -0500
-Message-ID: <20161201202528.12531-1-paul.gortmaker@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: warn on bogus MSS and try to amend it
+Date: Thu, 01 Dec 2016 15:29:49 -0500 (EST)
+Message-ID: <20161201.152949.1953888486413180001.davem@davemloft.net>
+References: <0d41deb00d57206f518e6bffae1b0be355bbc726.1480511277.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jmaxwell37@gmail.com,
+        alexandre.sidorenko@hpe.com, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        tlfalcon@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
+        eric.dumazet@gmail.com
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:41788 "EHLO mail5.wrs.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934428AbcLAU0l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Dec 2016 15:26:41 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:43814 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757453AbcLAU3v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:29:51 -0500
+In-Reply-To: <0d41deb00d57206f518e6bffae1b0be355bbc726.1480511277.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As of commit 8f32b90981dcdb355516fb95953133f8d4e6b11d
-("net: ethernet: ti: davinci_cpdma: add set rate for a channel") the
-ARM allmodconfig builds would fail modpost with:
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Wed, 30 Nov 2016 11:14:32 -0200
 
-ERROR: "cpdma_chan_set_weight" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-ERROR: "cpdma_chan_get_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-ERROR: "cpdma_chan_get_min_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-ERROR: "cpdma_chan_set_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
+> There have been some reports lately about TCP connection stalls caused
+> by NIC drivers that aren't setting gso_size on aggregated packets on rx
+> path. This causes TCP to assume that the MSS is actually the size of the
+> aggregated packet, which is invalid.
+> 
+> Although the proper fix is to be done at each driver, it's often hard
+> and cumbersome for one to debug, come to such root cause and report/fix
+> it.
+> 
+> This patch amends this situation in two ways. First, it adds a warning
+> on when this situation occurs, so it gives a hint to those trying to
+> debug this. It also limit the maximum probed MSS to the adverised MSS,
+> as it should never be any higher than that.
+> 
+> The result is that the connection may not have the best performance ever
+> but it shouldn't stall, and the admin will have a hint on what to look
+> for.
+> 
+> Tested with virtio by forcing gso_size to 0.
+> 
+> Cc: Jonathan Maxwell <jmaxwell37@gmail.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Since these weren't declared as static, it is assumed they were
-meant to be shared outside the file, and that modular build testing
-was simply overlooked.
+I totally agree with this change, however I think the warning message can
+be improved in two ways:
 
-Fixes: 8f32b90981dc ("net: ethernet: ti: davinci_cpdma: add set rate for a channel")
-Cc: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Cc: Mugunthan V N <mugunthanvnm@ti.com>
-Cc: Grygorii Strashko <grygorii.strashko@ti.com>
-Cc: linux-omap@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- drivers/net/ethernet/ti/davinci_cpdma.c | 4 ++++
- 1 file changed, 4 insertions(+)
+>  	len = skb_shinfo(skb)->gso_size ? : skb->len;
+>  	if (len >= icsk->icsk_ack.rcv_mss) {
+> -		icsk->icsk_ack.rcv_mss = len;
+> +		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
+> +					       tcp_sk(sk)->advmss);
+> +		if (icsk->icsk_ack.rcv_mss != len)
+> +			pr_warn_once("Seems your NIC driver is doing bad RX acceleration. TCP performance may be compromised.\n");
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index c776e4575d2d..36518fc5c7cc 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -796,6 +796,7 @@ int cpdma_chan_set_weight(struct cpdma_chan *ch, int weight)
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(cpdma_chan_set_weight);
- 
- /* cpdma_chan_get_min_rate - get minimum allowed rate for channel
-  * Should be called before cpdma_chan_set_rate.
-@@ -810,6 +811,7 @@ u32 cpdma_chan_get_min_rate(struct cpdma_ctlr *ctlr)
- 
- 	return DIV_ROUND_UP(divident, divisor);
- }
-+EXPORT_SYMBOL_GPL(cpdma_chan_get_min_rate);
- 
- /* cpdma_chan_set_rate - limits bandwidth for transmit channel.
-  * The bandwidth * limited channels have to be in order beginning from lowest.
-@@ -853,6 +855,7 @@ int cpdma_chan_set_rate(struct cpdma_chan *ch, u32 rate)
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(cpdma_chan_set_rate);
- 
- u32 cpdma_chan_get_rate(struct cpdma_chan *ch)
- {
-@@ -865,6 +868,7 @@ u32 cpdma_chan_get_rate(struct cpdma_chan *ch)
- 
- 	return rate;
- }
-+EXPORT_SYMBOL_GPL(cpdma_chan_get_rate);
- 
- struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- 				     cpdma_handler_fn handler, int rx_type)
--- 
-2.11.0
+We know it's a bad GRO implementation that causes this so let's be specific in the
+message, perhaps something like:
+
+	Driver has suspect GRO implementation, TCP performance may be compromised.
+
+Also, we have skb->dev available here most likely, so prefixing the message with
+skb->dev->name would make analyzing this situation even easier for someone hitting
+this.
+
+I'm not certain if an skb->dev==NULL check is necessary here or not, but it is
+definitely something you need to consider.
+
+Thanks!
