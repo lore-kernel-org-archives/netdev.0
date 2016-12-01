@@ -1,15 +1,16 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 12/39] Annotate hardware config module parameters in
- drivers/isdn/
-Date: Thu, 01 Dec 2016 12:31:10 +0000
-Message-ID: <148059547052.31612.3500904168778452607.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 16/39] Annotate hardware config module parameters in
+ drivers/net/appletalk/
+Date: Thu, 01 Dec 2016 12:31:41 +0000
+Message-ID: <148059550142.31612.583417215274401437.stgit@warthog.procyon.org.uk>
 References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, Karsten Keil <isdn@linux-pingi.de>,
-        minyard@acm.org, netdev@vger.kernel.org, dhowells@redhat.com,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
+Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
+        netdev@vger.kernel.org, dhowells@redhat.com,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
+        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
@@ -34,69 +35,49 @@ drivers have viable defaults set in case parameters aren't specified and
 some drivers support automatic configuration (e.g. PNP or PCI) in addition
 to manually coded parameters.
 
-This patch annotates drivers in drivers/isdn/.
+This patch annotates drivers in drivers/net/appletalk/.
 
 Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Karsten Keil <isdn@linux-pingi.de>
+cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 cc: netdev@vger.kernel.org
 ---
 
- drivers/isdn/hardware/avm/b1isa.c |    4 ++--
- drivers/isdn/hardware/avm/t1isa.c |    4 ++--
- drivers/isdn/hisax/config.c       |   10 +++++-----
- 3 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/appletalk/cops.c |    6 +++---
+ drivers/net/appletalk/ltpc.c |    6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/isdn/hardware/avm/b1isa.c b/drivers/isdn/hardware/avm/b1isa.c
-index 31ef8130a87f..54e871a47387 100644
---- a/drivers/isdn/hardware/avm/b1isa.c
-+++ b/drivers/isdn/hardware/avm/b1isa.c
-@@ -169,8 +169,8 @@ static struct pci_dev isa_dev[MAX_CARDS];
- static int io[MAX_CARDS];
- static int irq[MAX_CARDS];
+diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
+index 1b2e9217ec78..486e1e6997fc 100644
+--- a/drivers/net/appletalk/cops.c
++++ b/drivers/net/appletalk/cops.c
+@@ -986,9 +986,9 @@ static int cops_close(struct net_device *dev)
+ static struct net_device *cops_dev;
  
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- MODULE_PARM_DESC(io, "I/O base address(es)");
- MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
- 
-diff --git a/drivers/isdn/hardware/avm/t1isa.c b/drivers/isdn/hardware/avm/t1isa.c
-index 72ef18853951..9516203c735f 100644
---- a/drivers/isdn/hardware/avm/t1isa.c
-+++ b/drivers/isdn/hardware/avm/t1isa.c
-@@ -516,8 +516,8 @@ static int io[MAX_CARDS];
- static int irq[MAX_CARDS];
- static int cardnr[MAX_CARDS];
- 
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- module_param_array(cardnr, int, NULL, 0);
- MODULE_PARM_DESC(io, "I/O base address(es)");
- MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
-diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
-index bf04d2a3cf4a..30da1bc106f0 100644
---- a/drivers/isdn/hisax/config.c
-+++ b/drivers/isdn/hisax/config.c
-@@ -350,13 +350,13 @@ MODULE_AUTHOR("Karsten Keil");
  MODULE_LICENSE("GPL");
- module_param_array(type, int, NULL, 0);
- module_param_array(protocol, int, NULL, 0);
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
--module_param_array(mem, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
-+module_param_hw_array(mem, int, iomem, NULL, 0);
- module_param(id, charp, 0);
- #ifdef IO0_IO1
--module_param_array(io0, int, NULL, 0);
--module_param_array(io1, int, NULL, 0);
-+module_param_hw_array(io0, int, ioport, NULL, 0);
-+module_param_hw_array(io1, int, ioport, NULL, 0);
- #endif
- #endif /* MODULE */
+-module_param(io, int, 0);
+-module_param(irq, int, 0);
+-module_param(board_type, int, 0);
++module_param_hw(io, int, ioport, 0);
++module_param_hw(irq, int, irq, 0);
++module_param_hw(board_type, int, other, 0);
  
+ static int __init cops_module_init(void)
+ {
+diff --git a/drivers/net/appletalk/ltpc.c b/drivers/net/appletalk/ltpc.c
+index 01e2ac55c137..ac755d2950a6 100644
+--- a/drivers/net/appletalk/ltpc.c
++++ b/drivers/net/appletalk/ltpc.c
+@@ -1231,9 +1231,9 @@ static struct net_device *dev_ltpc;
+ 
+ MODULE_LICENSE("GPL");
+ module_param(debug, int, 0);
+-module_param(io, int, 0);
+-module_param(irq, int, 0);
+-module_param(dma, int, 0);
++module_param_hw(io, int, ioport, 0);
++module_param_hw(irq, int, irq, 0);
++module_param_hw(dma, int, dma, 0);
+ 
+ 
+ static int __init ltpc_module_init(void)
