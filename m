@@ -1,67 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [WIP] net+mlx4: auto doorbell
-Date: Thu, 01 Dec 2016 12:11:26 -0800
-Message-ID: <1480623086.18162.329.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20140903165943.372b897b@redhat.com>
-         <20161117144248.23500001@redhat.com>
-         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117155753.17b76f5a@redhat.com>
-         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117193021.580589ae@redhat.com>
-         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161121170351.50a09ee1@redhat.com>
-         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG_G3G-_jFFD0xiAOfR-k69rhb_2ia4LHZroE-oEFxApnQ@mail.gmail.com>
-         <1480520661.18162.177.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
-         <20161201130505.0b4a5cd5@redhat.com>
-         <1480602274.18162.285.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161201170443.28a8c032@redhat.com>
-         <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161201201707.5f51a02e@redhat.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: Initial thoughts on TXDP
+Date: Thu, 1 Dec 2016 15:13:24 -0500
+Message-ID: <20161201201324.GJ24547@oracle.com>
+References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
+ <20161201135508.GB24547@oracle.com>
+ <CALx6S35DCyi_2z1pqCLaB1bVyNykP_J3YaYEXUT8xxmuzyBDwA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36691 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750975AbcLAUM3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:12:29 -0500
-Received: by mail-pg0-f68.google.com with SMTP id x23so5552120pgx.3
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 12:12:29 -0800 (PST)
-In-Reply-To: <20161201201707.5f51a02e@redhat.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:23998 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751686AbcLAUNg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:13:36 -0500
+Content-Disposition: inline
+In-Reply-To: <CALx6S35DCyi_2z1pqCLaB1bVyNykP_J3YaYEXUT8xxmuzyBDwA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-12-01 at 20:17 +0100, Jesper Dangaard Brouer wrote:
-> On Thu, 01 Dec 2016 09:04:17 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On (12/01/16 11:05), Tom Herbert wrote:
 > 
-> > BTW, if you are doing tests on mlx4 40Gbit,
-> 
-> I'm mostly testing with mlx5 50Gbit, but I do have 40G NIC in the
-> machines too.
-> 
-> >  would you check the
-> > following quick/dirty hack, using lots of low-rate flows ?
-> 
-> What tool should I use to send "low-rate flows"?
-> 
+> Polling does not necessarily imply that networking monopolizes the CPU
+> except when the CPU is otherwise idle. Presumably the application
+> drives the polling when it is ready to receive work.
 
-You could use https://github.com/google/neper
+I'm not grokking that- "if the cpu is idle, we want to busy-poll
+and make it 0% idle"?  Keeping CPU 0% idle has all sorts
+of issues, see slide 20 of
+ http://www.slideshare.net/shemminger/dpdk-performance
 
-It supports SO_MAX_PACING_RATE, and you could launch 1600 flows, rate
-limited to 3028000 bytes per second  (so sending one 2-MSS TSO packet
-every ms per flow)
+> > and one other critical difference from the hot-potato-forwarding
+> > model (the sort of OVS model that DPDK etc might aruguably be a fit for)
+> > does not apply: in order to figure out the ethernet and IP headers
+> > in the response correctly at all times (in the face of things like VRRP,
+> > gw changes, gw's mac addr changes etc) the application should really
+> > be listening on NETLINK sockets for modifications to the networking
+> > state - again points to needing a select() socket set where you can
+> > have both the I/O fds and the netlink socket,
+> >
+> I would think that that is management would not be implemented in a
+> fast path processing thread for an application.
+
+sure, but my point was that *XDP and other stack-bypass methods needs 
+to provide a select()able socket: when your use-case is not about just
+networking, you have to snoop on changes to the control plane, and update
+your data path. In the OVS case (pure networking) the OVS control plane
+updates are intrinsic to OVS. For the rest of the request/response world,
+we need a select()able socket set to do this elegantly (not really
+possible in DPDK, for example)
 
 
+> The *SOs are always an interesting question. They make for great
+> benchmarks, but in real life the amount of benefit is somewhat
+> unclear. Under the wrong conditions, like all cwnds have collapsed or
 
-> And what am I looking for?
+I think Rick's already bringing up this one.
 
-Max throughput, in packets per second :/
+--Sowmini
