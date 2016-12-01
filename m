@@ -1,118 +1,85 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH v5 net-next 4/7] net: mvneta: Convert to be 64 bits
- compatible
-Date: Thu, 01 Dec 2016 13:01:20 +0100
-Message-ID: <874m2nluy7.fsf@free-electrons.com>
-References: <cover.0270f6d2413a709521fe2c8c17fbebea6f2e78d1.1480542157.git-series.gregory.clement@free-electrons.com>
- <6b4d20a85b05e93d254e265eb07569dd1285d303.1480542157.git-series.gregory.clement@free-electrons.com>
- <20161201192604.07ed9516@xhacker>
- <CAPv3WKeJBL7_V_7QPVNDAd9H4bgeLcSF8enuD96sgEmecuRkRA@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [WIP] net+mlx4: auto doorbell
+Date: Thu, 1 Dec 2016 13:05:05 +0100
+Message-ID: <20161201130505.0b4a5cd5@redhat.com>
+References: <20140903165943.372b897b@redhat.com>
+        <20161116234022.2bad179b@redhat.com>
+        <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20161117091638.5fab8494@redhat.com>
+        <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20161117144248.23500001@redhat.com>
+        <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20161117155753.17b76f5a@redhat.com>
+        <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20161117193021.580589ae@redhat.com>
+        <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20161121170351.50a09ee1@redhat.com>
+        <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CALzJLG_G3G-_jFFD0xiAOfR-k69rhb_2ia4LHZroE-oEFxApnQ@mail.gmail.com>
+        <1480520661.18162.177.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Dmitri Epshtein <dima@marvell.com>,
- Nadav Haklai <nadavh@marvell.com>, Yelena Krivosheev <yelena@marvell.com>,
- Marcin Wojtas <mw@semihalf.com>, "David S. Miller" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jisheng Zhang <jszhang@marvell.com>,
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAPv3WKeJBL7_V_7QPVNDAd9H4bgeLcSF8enuD96sgEmecuRkRA@mail.gmail.com>
- (Marcin Wojtas's message of "Thu, 1 Dec 2016 12:48:39 +0100")
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Rick Jones <rick.jones2@hpe.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>, brouer@redhat.com
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32930 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751423AbcLAMFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Dec 2016 07:05:32 -0500
+In-Reply-To: <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgSmlzaGVuZywKIAogT24gamV1LiwgZMOpYy4gMDEgMjAxNiwgTWFyY2luIFdvanRhcyA8bXdA
-c2VtaWhhbGYuY29tPiB3cm90ZToKCj4gSGkgSmlzaGVuZywKPgo+IFdoaWNoIGJhc2VsaW5lIGRv
-IHlvdSB1c2U/Cj4KPiBJdCB0b29rIG1lIHJlYWxseSBsb3Qgb2YgdGltZSB0byBjYXRjaCB3aHkg
-UlggYnJva2UgYWZ0ZXIgcmViYXNlIGZyb20KPiBMS3Y0LjEgdG8gTEt2NC40LiBCZXR3ZWVuIHRo
-b3NlIHR3bywgaW4gY29tbWl0Ogo+IDk3MzAzNDgwNzUzZSAoImFybTY0OiBJbmNyZWFzZSB0aGUg
-bWF4IGdyYW51bGFyIHNpemUiKQo+IEwxX0NBQ0hFX0JZVEVTIGZvciBhbGwgQVJNdjggcGxhdGZv
-cm1zIHdhcyBpbmNyZWFzZWQgdG8gMTI4QiBhbmQgc28KPiBkaWQgTkVUX1NLQl9QQUQuCj4KPiBB
-bmQgMTI4IGlzIG1vcmUgdGhhbiB0aGUgbWF4aW11bSB0aGF0IGNhbiBmaXQgaW50byBwYWNrZXQg
-b2Zmc2V0Cj4gWzExOjhdQDB4MTQwMC4gSW4gc3VjaCBjYXNlIHRoaXMgY29ycmVjdGlvbiBpcyBu
-ZWVkZWQuIERpZCBpdCBhbnN3ZXIKPiB5b3VyIGRvdWJ0cz8KCkkgY2FuIGNvbmZpcm0gYWxzbyB0
-aGF0IHdpdGhvdXQgdGhpcyBwYXRjaCBpdCBqdXN0IGRvZXNuJ3Qgd29yay4KCkdyZWdvcnkKCj4K
-PiBCZXN0IHJlZ2FyZHMsCj4gTWFyY2luCj4KPgo+Cj4gMjAxNi0xMi0wMSAxMjoyNiBHTVQrMDE6
-MDAgSmlzaGVuZyBaaGFuZyA8anN6aGFuZ0BtYXJ2ZWxsLmNvbT46Cj4+IEhpIEdyZWdvcnksIE1h
-cmNpbiwKPj4KPj4gT24gV2VkLCAzMCBOb3YgMjAxNiAyMjo0Mjo0OSArMDEwMCBHcmVnb3J5IENM
-RU1FTlQgd3JvdGU6Cj4+Cj4+PiBGcm9tOiBNYXJjaW4gV29qdGFzIDxtd0BzZW1paGFsZi5jb20+
-Cj4+Pgo+Pj4gUHJlcGFyZSB0aGUgbXZuZXRhIGRyaXZlciBpbiBvcmRlciB0byBiZSB1c2FibGUg
-b24gdGhlIDY0IGJpdHMgcGxhdGZvcm0KPj4+IHN1Y2ggYXMgdGhlIEFybWFkYSAzNzAwLgo+Pj4K
-Pj4+IFtncmVnb3J5LmNsZW1lbnRAZnJlZS1lbGVjdHJvbnMuY29tXTogdGhpcyBwYXRjaCB3YXMg
-ZXh0cmFjdCBmcm9tIGEgbGFyZ2VyCj4+PiBvbmUgdG8gZWFzZSByZXZpZXcgYW5kIG1haW50ZW5h
-bmNlLgo+Pj4KPj4+IFNpZ25lZC1vZmYtYnk6IE1hcmNpbiBXb2p0YXMgPG13QHNlbWloYWxmLmNv
-bT4KPj4+IFNpZ25lZC1vZmYtYnk6IEdyZWdvcnkgQ0xFTUVOVCA8Z3JlZ29yeS5jbGVtZW50QGZy
-ZWUtZWxlY3Ryb25zLmNvbT4KPj4+IC0tLQo+Pj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZl
-bGwvbXZuZXRhLmMgfCAxNyArKysrKysrKysrKysrKysrLQo+Pj4gIDEgZmlsZSBjaGFuZ2VkLCAx
-NiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCj4+Pgo+Pj4gZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9t
-YXJ2ZWxsL212bmV0YS5jCj4+PiBpbmRleCA5MmI5YWYxNGMzNTIuLjhlZjAzZmI2OWJjZCAxMDA2
-NDQKPj4+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmMKPj4+ICsr
-KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmMKPj4+IEBAIC0yOTYsNiAr
-Mjk2LDEyIEBACj4+PiAgLyogZGVzY3JpcHRvciBhbGlnbmVkIHNpemUgKi8KPj4+ICAjZGVmaW5l
-IE1WTkVUQV9ERVNDX0FMSUdORURfU0laRSAgICAgMzIKPj4+Cj4+PiArLyogTnVtYmVyIG9mIGJ5
-dGVzIHRvIGJlIHRha2VuIGludG8gYWNjb3VudCBieSBIVyB3aGVuIHB1dHRpbmcgaW5jb21pbmcg
-ZGF0YQo+Pj4gKyAqIHRvIHRoZSBidWZmZXJzLiBJdCBpcyBuZWVkZWQgaW4gY2FzZSBORVRfU0tC
-X1BBRCBleGNlZWRzIG1heGltdW0gcGFja2V0Cj4+PiArICogb2Zmc2V0IHN1cHBvcnRlZCBpbiBN
-Vk5FVEFfUlhRX0NPTkZJR19SRUcocSkgcmVnaXN0ZXJzLgo+Pgo+PiBXZSBhbHNvIGJyb3VnaHQg
-dXAgdGhpcyBkcml2ZXIgb24gNjRiaXQgcGxhdGZvcm1zLCB3ZSBkb2Vzbid0IGhhdmUgdGhpcwo+
-PiBwYXRjaC4gTWF5YmUgSSdtIHdyb25nLCBJJ20gdHJ5aW5nIHRvIHVuZGVyc3RhbmQgd2h5IHdl
-IG5lZWQgdGhpcwo+PiBtb2RpZmljYXRpb24uIExldCdzIGFzc3VtZSB0aGUgTkVUX1NLQl9QQUQg
-aXMgNjRCLCB3ZSBjYWxsCj4+IG12bmV0YV9yeHFfb2Zmc2V0X3NldChwcCwgcnhxLCA2NCksCj4+
-Cj4+IHsKPj4gICAgICAgICB1MzIgdmFsOwo+Pgo+PiAgICAgICAgIHZhbCA9IG12cmVnX3JlYWQo
-cHAsIE1WTkVUQV9SWFFfQ09ORklHX1JFRyhyeHEtPmlkKSk7Cj4+ICAgICAgICAgdmFsICY9IH5N
-Vk5FVEFfUlhRX1BLVF9PRkZTRVRfQUxMX01BU0s7Cj4+Cj4+ICAgICAgICAgLyogT2Zmc2V0IGlz
-IGluICovCj4+ICAgICAgICAgdmFsIHw9IE1WTkVUQV9SWFFfUEtUX09GRlNFVF9NQVNLKG9mZnNl
-dCA+PiAzKTsKPj4gLy8gdGhlbiB0aGlzIHdpbGwgYmUgInZhbCB8PSA4OyIgaXQgZG9lc24ndCBl
-eGNlZWRzIHRoZSBtYXggb2Zmc2V0IG9mCj4+IE1WTkVUQV9SWFFfQ09ORklHX1JFRyhxKSByZWdp
-c3Rlci4KPj4KPj4gQ291bGQgeW91IHBsZWFzZSBraW5kbHkgcG9pbnQgb3V0IHdoZXJlIEkgYW0g
-d3Jvbmc/Cj4+Cj4+PiArICovCj4+PiArI2RlZmluZSBNVk5FVEFfUlhfUEtUX09GRlNFVF9DT1JS
-RUNUSU9OICAgICAgICAgICAgICA2NAo+Pj4gKwo+Pj4gICNkZWZpbmUgTVZORVRBX1JYX1BLVF9T
-SVpFKG10dSkgXAo+Pj4gICAgICAgQUxJR04oKG10dSkgKyBNVk5FVEFfTUhfU0laRSArIE1WTkVU
-QV9WTEFOX1RBR19MRU4gKyBcCj4+PiAgICAgICAgICAgICBFVEhfSExFTiArIEVUSF9GQ1NfTEVO
-LCAgICAgICAgICAgICAgICAgICAgICAgIFwKPj4+IEBAIC00MTYsNiArNDIyLDcgQEAgc3RydWN0
-IG12bmV0YV9wb3J0IHsKPj4+ICAgICAgIHU2NCBldGh0b29sX3N0YXRzW0FSUkFZX1NJWkUobXZu
-ZXRhX3N0YXRpc3RpY3MpXTsKPj4+Cj4+PiAgICAgICB1MzIgaW5kaXJbTVZORVRBX1JTU19MVV9U
-QUJMRV9TSVpFXTsKPj4+ICsgICAgIHUxNiByeF9vZmZzZXRfY29ycmVjdGlvbjsKPj4+ICB9Owo+
-Pj4KPj4+ICAvKiBUaGUgbXZuZXRhX3R4X2Rlc2MgYW5kIG12bmV0YV9yeF9kZXNjIHN0cnVjdHVy
-ZXMgZGVzY3JpYmUgdGhlCj4+PiBAQCAtMTgwNyw2ICsxODE0LDcgQEAgc3RhdGljIGludCBtdm5l
-dGFfcnhfcmVmaWxsKHN0cnVjdCBtdm5ldGFfcG9ydCAqcHAsCj4+PiAgICAgICAgICAgICAgIHJl
-dHVybiAtRU5PTUVNOwo+Pj4gICAgICAgfQo+Pj4KPj4+ICsgICAgIHBoeXNfYWRkciArPSBwcC0+
-cnhfb2Zmc2V0X2NvcnJlY3Rpb247Cj4+PiAgICAgICBtdm5ldGFfcnhfZGVzY19maWxsKHJ4X2Rl
-c2MsIHBoeXNfYWRkciwgZGF0YSwgcnhxKTsKPj4+ICAgICAgIHJldHVybiAwOwo+Pj4gIH0KPj4+
-IEBAIC0yNzgyLDcgKzI3OTAsNyBAQCBzdGF0aWMgaW50IG12bmV0YV9yeHFfaW5pdChzdHJ1Y3Qg
-bXZuZXRhX3BvcnQgKnBwLAo+Pj4gICAgICAgbXZyZWdfd3JpdGUocHAsIE1WTkVUQV9SWFFfU0la
-RV9SRUcocnhxLT5pZCksIHJ4cS0+c2l6ZSk7Cj4+Pgo+Pj4gICAgICAgLyogU2V0IE9mZnNldCAq
-Lwo+Pj4gLSAgICAgbXZuZXRhX3J4cV9vZmZzZXRfc2V0KHBwLCByeHEsIE5FVF9TS0JfUEFEKTsK
-Pj4+ICsgICAgIG12bmV0YV9yeHFfb2Zmc2V0X3NldChwcCwgcnhxLCBORVRfU0tCX1BBRCAtIHBw
-LT5yeF9vZmZzZXRfY29ycmVjdGlvbik7Cj4+Pgo+Pj4gICAgICAgLyogU2V0IGNvYWxlc2Npbmcg
-cGt0cyBhbmQgdGltZSAqLwo+Pj4gICAgICAgbXZuZXRhX3J4X3BrdHNfY29hbF9zZXQocHAsIHJ4
-cSwgcnhxLT5wa3RzX2NvYWwpOwo+Pj4gQEAgLTQwMzMsNiArNDA0MSwxMyBAQCBzdGF0aWMgaW50
-IG12bmV0YV9wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQo+Pj4KPj4+ICAgICAg
-IHBwLT5yeHFfZGVmID0gcnhxX2RlZjsKPj4+Cj4+PiArICAgICAvKiBTZXQgUlggcGFja2V0IG9m
-ZnNldCBjb3JyZWN0aW9uIGZvciBwbGF0Zm9ybXMsIHdob3NlCj4+PiArICAgICAgKiBORVRfU0tC
-X1BBRCwgZXhjZWVkcyA2NEIuIEl0IHNob3VsZCBiZSA2NEIgZm9yIDY0LWJpdAo+Pj4gKyAgICAg
-ICogcGxhdGZvcm1zIGFuZCAwQiBmb3IgMzItYml0IG9uZXMuCj4+Cj4+IEV2ZW4gd2UgbmVlZCB0
-aGlzIHBhdGNoLCBJJ20gbm90IHN1cmUgdGhpcyBsYXN0IGNvbW1lbnQgaXMgY29ycmVjdCBvciBu
-b3QuCj4+IE5FVF9TS0JfUEFEIGlzIGRlZmluZWQgYXM6Cj4+Cj4+ICNkZWZpbmUgTkVUX1NLQl9Q
-QUQgICAgIG1heCgzMiwgTDFfQ0FDSEVfQllURVMpCj4+Cj4+IHdlIGhhdmUgNjRCIGNhY2hlbGlu
-ZSAzMmJpdCBwbGF0Zm9ybXMsIG9uIHRoaXMgcGxhdGZvcm1zLCB0aGUgTkVUX1NLQl9QQUQKPj4g
-c2hvdWxkIGJlIDY0QiBhcyB3ZWxsLgo+Pgo+PiBUaGFua3MsCj4+IEppc2hlbmcKCi0tIApHcmVn
-b3J5IENsZW1lbnQsIEZyZWUgRWxlY3Ryb25zCktlcm5lbCwgZHJpdmVycywgcmVhbC10aW1lIGFu
-ZCBlbWJlZGRlZCBMaW51eApkZXZlbG9wbWVudCwgY29uc3VsdGluZywgdHJhaW5pbmcgYW5kIHN1
-cHBvcnQuCmh0dHA6Ly9mcmVlLWVsZWN0cm9ucy5jb20KCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0Cmxp
-bnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFk
-Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
+
+On Wed, 30 Nov 2016 18:27:45 +0200
+Saeed Mahameed <saeedm@dev.mellanox.co.il> wrote:
+
+> >> All in all, this is risky business :),  the right way to go is to
+> >> force the upper layer to use xmit-more and delay doorbells/use bulking
+> >> but from the same context (xmit routine).  For example see
+> >> Achiad's suggestion (attached in Jesper's response), he used stop
+> >> queue to force the stack to queue up packets (TX bulking)
+> >> which would set xmit-more and will use the next completion to
+> >> release the "stopped" ring TXQ rather than hit the doorbell on
+> >> behalf of it.  
+> >
+> > Well, you depend on having a higher level queue like a qdisc.
+> >
+> > Some users do not use a qdisc.
+> > If you stop the queue, they no longer can send anything -> drops.
+> >
+
+You do have a point that stopping the device might not be the best way
+to create a push-back (to allow stack queue packets).
+
+ netif_tx_stop_queue() / __QUEUE_STATE_DRV_XOFF
+
+
+> In this case, i think they should implement their own bulking (pktgen
+> is not a good example) but XDP can predict if it has more packets to
+> xmit  as long as all of them fall in the same NAPI cycle.
+> Others should try and do the same.
+
+I actually agree with Saeed here.
+
+Maybe we can come up with another __QUEUE_STATE_xxx that informs the
+upper layer what the driver is doing.  Then users not using a qdisc can
+use this indication (like the qdisc could).  (qdisc-bypass users already
+check the QUEUE_STATE flags e.g. via netif_xmit_frozen_or_drv_stopped).
+
+My main objection is that this is a driver local optimization.  By not
+involving the upper layers, the netstack looses the ability to amortize
+it's cost, as it still does per packet handling.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
