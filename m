@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V2 1/8] net/sched: Add separate check for skip_hw flag
-Date: Thu,  1 Dec 2016 14:06:33 +0200
-Message-ID: <1480594000-8428-2-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V2 4/8] net/sched: act_mirred: Add new tc_action_ops get_dev()
+Date: Thu,  1 Dec 2016 14:06:36 +0200
+Message-ID: <1480594000-8428-5-git-send-email-hadarh@mellanox.com>
 References: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Jiri Pirko <jiri@mellanox.com>,
@@ -11,68 +11,70 @@ Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45279 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45344 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1758501AbcLANC0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 08:02:26 -0500
+        with ESMTP id S1758535AbcLANCb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 08:02:31 -0500
 In-Reply-To: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Creating a difference between two possible cases:
-1. Not offloading tc rule since the user sets 'skip_hw' flag.
-2. Not offloading tc rule since the device doesn't support offloading.
+Adding support to a new tc_action_ops.
+get_dev is a general option which allows to get the underline
+device when trying to offload a tc rule.
 
-This patch doesn't add any new functionality.
+In case of mirred action the returned device is the mirred (egress)
+device.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/pkt_cls.h | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
+ include/net/act_api.h  |  2 ++
+ net/sched/act_mirred.c | 12 ++++++++++++
+ 2 files changed, 14 insertions(+)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 767b03a..45ad9aa 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -425,16 +425,14 @@ struct tc_cls_u32_offload {
- 	};
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index d8eae87..9dddf77 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -119,6 +119,8 @@ struct tc_action_ops {
+ 	int     (*walk)(struct net *, struct sk_buff *,
+ 			struct netlink_callback *, int, const struct tc_action_ops *);
+ 	void	(*stats_update)(struct tc_action *, u64, u32, u64);
++	int	(*get_dev)(const struct tc_action *a, struct net *net,
++			   struct net_device **mirred_dev);
  };
  
--static inline bool tc_should_offload(const struct net_device *dev,
--				     const struct tcf_proto *tp, u32 flags)
-+static inline bool tc_can_offload(const struct net_device *dev,
-+				  const struct tcf_proto *tp)
- {
- 	const struct Qdisc *sch = tp->q;
- 	const struct Qdisc_class_ops *cops = sch->ops->cl_ops;
+ struct tc_action_net {
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 1af7baa..bb09ba3 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -315,6 +315,17 @@ static int mirred_device_event(struct notifier_block *unused,
+ 	.notifier_call = mirred_device_event,
+ };
  
- 	if (!(dev->features & NETIF_F_HW_TC))
- 		return false;
--	if (flags & TCA_CLS_FLAGS_SKIP_HW)
--		return false;
- 	if (!dev->netdev_ops->ndo_setup_tc)
- 		return false;
- 	if (cops && cops->tcf_cl_offload)
-@@ -443,6 +441,19 @@ static inline bool tc_should_offload(const struct net_device *dev,
- 	return true;
- }
- 
-+static inline bool tc_skip_hw(u32 flags)
++static int tcf_mirred_device(const struct tc_action *a, struct net *net,
++			     struct net_device **mirred_dev)
 +{
-+	return (flags & TCA_CLS_FLAGS_SKIP_HW) ? true : false;
++	int ifindex = tcf_mirred_ifindex(a);
++
++	*mirred_dev = __dev_get_by_index(net, ifindex);
++	if (!mirred_dev)
++		return -EINVAL;
++	return 0;
 +}
 +
-+static inline bool tc_should_offload(const struct net_device *dev,
-+				     const struct tcf_proto *tp, u32 flags)
-+{
-+	if (tc_skip_hw(flags))
-+		return false;
-+	return tc_can_offload(dev, tp);
-+}
-+
- static inline bool tc_skip_sw(u32 flags)
- {
- 	return (flags & TCA_CLS_FLAGS_SKIP_SW) ? true : false;
+ static struct tc_action_ops act_mirred_ops = {
+ 	.kind		=	"mirred",
+ 	.type		=	TCA_ACT_MIRRED,
+@@ -327,6 +338,7 @@ static int mirred_device_event(struct notifier_block *unused,
+ 	.walk		=	tcf_mirred_walker,
+ 	.lookup		=	tcf_mirred_search,
+ 	.size		=	sizeof(struct tcf_mirred),
++	.get_dev	=	tcf_mirred_device,
+ };
+ 
+ static __net_init int mirred_init_net(struct net *net)
 -- 
 1.8.3.1
