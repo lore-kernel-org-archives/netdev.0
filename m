@@ -1,142 +1,118 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: Initial thoughts on TXDP
-Date: Thu, 1 Dec 2016 13:47:29 -0800
-Message-ID: <1e88fd64-0045-beb5-101a-a55b8f54bd08@hpe.com>
-References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
- <20161201135508.GB24547@oracle.com>
- <CALx6S35DCyi_2z1pqCLaB1bVyNykP_J3YaYEXUT8xxmuzyBDwA@mail.gmail.com>
- <aac93b13-6298-b9eb-7f3c-b074f22c388c@hpe.com>
- <CALx6S37aknqfrj66AP8hEfVT9X2OmBFK9GVa9A+0FpydPbm9kg@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [flamebait] xdp, well meaning but pointless
+Date: Thu, 1 Dec 2016 13:51:32 -0800
+Message-ID: <CALx6S34+Brx-JERLhexxv9CGE9moH_Pi-H_OK=hQ-iJ2g2yYgg@mail.gmail.com>
+References: <20161201091108.GF26507@breakpoint.cc> <20161201145834.GA569@pox.localdomain>
+ <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
+ <20161201162814.GA31300@pox.localdomain> <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
+ <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com> <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>, Florian Westphal <fw@strlen.de>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2354.austin.hpe.com ([15.233.44.27]:36739 "EHLO
-        g2t2354.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752102AbcLAVra (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 16:47:30 -0500
-In-Reply-To: <CALx6S37aknqfrj66AP8hEfVT9X2OmBFK9GVa9A+0FpydPbm9kg@mail.gmail.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:36445 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758393AbcLAVve (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 16:51:34 -0500
+Received: by mail-qt0-f196.google.com with SMTP id n34so25327036qtb.3
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 13:51:34 -0800 (PST)
+In-Reply-To: <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/01/2016 12:18 PM, Tom Herbert wrote:
-> On Thu, Dec 1, 2016 at 11:48 AM, Rick Jones <rick.jones2@hpe.com> wrote:
->> Just how much per-packet path-length are you thinking will go away under the
->> likes of TXDP?  It is admittedly "just" netperf but losing TSO/GSO does some
->> non-trivial things to effective overhead (service demand) and so throughput:
->>
-> For plain in order TCP packets I believe we should be able process
-> each packet at nearly same speed as GRO. Most of the protocol
-> processing we do between GRO and the stack are the same, the
-> differences are that we need to do a connection lookup in the stack
-> path (note we now do this is UDP GRO and that hasn't show up as a
-> major hit). We also need to consider enqueue/dequeue on the socket
-> which is a major reason to try for lockless sockets in this instance.
+On Thu, Dec 1, 2016 at 1:27 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 01.12.2016 22:12, Tom Herbert wrote:
+>> On Thu, Dec 1, 2016 at 12:44 PM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>>> Hello,
+>>>
+>>> this is a good conversation and I simply want to bring my worries
+>>> across. I don't have good solutions for the problems XDP tries to solve
+>>> but I fear we could get caught up in maintenance problems in the long
+>>> term given the ideas floating around on how to evolve XDP currently.
+>>>
+>>> On 01.12.2016 17:28, Thomas Graf wrote:
+>>>> On 12/01/16 at 04:52pm, Hannes Frederic Sowa wrote:
+>>>>> First of all, this is a rant targeted at XDP and not at eBPF as a whole.
+>>>>> XDP manipulates packets at free will and thus all security guarantees
+>>>>> are off as well as in any user space solution.
+>>>>>
+>>>>> Secondly user space provides policy, acl, more controlled memory
+>>>>> protection, restartability and better debugability. If I had multi
+>>>>> tenant workloads I would definitely put more complex "business/acl"
+>>>>> logic into user space, so I can make use of LSM and other features to
+>>>>> especially prevent a network facing service to attack the tenants. If
+>>>>> stuff gets put into the kernel you run user controlled code in the
+>>>>> kernel exposing a much bigger attack vector.
+>>>>>
+>>>>> What use case do you see in XDP specifically e.g. for container networking?
+>>>>
+>>>> DDOS mitigation to protect distributed applications in large clusters.
+>>>> Relying on CDN works to protect API gateways and frontends (as long as
+>>>> they don't throw you out of their network) but offers no protection
+>>>> beyond that, e.g. a noisy/hostile neighbour. Doing this at the server
+>>>> level and allowing the mitigation capability to scale up with the number
+>>>> of servers is natural and cheap.
+>>>
+>>> So far we e.g. always considered L2 attacks a problem of the network
+>>> admin to correctly protect the environment. Are you talking about
+>>> protecting the L3 data plane? Are there custom proprietary protocols in
+>>> place which need custom protocol parsers that need involvement of the
+>>> kernel before it could verify the packet?
+>>>
+>>> In the past we tried to protect the L3 data plane as good as we can in
+>>> Linux to allow the plain old server admin to set an IP address on an
+>>> interface and install whatever software in user space. We try not only
+>>> to protect it but also try to achieve fairness by adding a lot of
+>>> counters everywhere. Are protections missing right now or are we talking
+>>> about better performance?
+>>>
+>> The technical plenary at last IETF on Seoul a couple of weeks ago was
+>> exclusively focussed on DDOS in light of the recent attack against
+>> Dyn. There were speakers form Cloudflare and Dyn. The Cloudflare
+>> presentation by Nick Sullivan
+>> (https://www.ietf.org/proceedings/97/slides/slides-97-ietf-sessb-how-to-stay-online-harsh-realities-of-operating-in-a-hostile-network-nick-sullivan-01.pdf)
+>> alluded to some implementation of DDOS mitigation. In particular, on
+>> slide 6 Nick gave some numbers for drop rates in DDOS. The "kernel"
+>> numbers he gave we're based in iptables+BPF and that was a whole
+>> 1.2Mpps-- somehow that seems ridiculously to me (I said so at the mic
+>> and that's also when I introduced XDP to whole IETF :-) ). If that's
+>> the best we can do the Internet is in a world hurt. DDOS mitigation
+>> alone is probably a sufficient motivation to look at XDP. We need
+>> something that drops bad packets as quickly as possible when under
+>> attack, we need this to be integrated into the stack, we need it to be
+>> programmable to deal with the increasing savvy of attackers, and we
+>> don't want to be forced to be dependent on HW solutions. This is why
+>> we created XDP!
+>
+> I totally understand that. But in my reply to David in this thread I
+> mentioned DNS apex processing as being problematic which is actually
+> being referred in your linked slide deck on page 9 ("What do floods look
+> like") and the problematic of parsing DNS packets in XDP due to string
+> processing and looping inside eBPF.
+>
+I agree that eBPF is not going to be sufficient from everything we'll
+want to do. Undoubtably, we'll continue see new addition of more
+helpers to assist in processing, but at some point we will want a to
+load a kernel module that handles more complex processing and insert
+it at the XDP callout. Nothing in the design of XDP precludes doing
+that and I have already posted the patches to generalize the XDP
+callout for that. Taking either of these routes has tradeoffs, but
+regardless of whether this is BPF or module code, the principles of
+XDP and its value to help solve some class of problems remains.
 
-So waving hands a bit, and taking the service demand for the GRO-on 
-receive test in my previous message (860 ns/KB), that would be ~ 
-(1448/1024)*860 or ~1.216 usec of CPU time per TCP segment, including 
-ACK generation which unless an explicit ACK-avoidance heuristic a la 
-HP-UX 11/Solaris 2 is put in place would be for every-other segment. Etc 
-etc.
+ Tom
 
-> Sure, but trying running something emulates a more realistic workload
-> than a TCP stream, like RR test with relative small payload and many
-> connections.
-
-That is a good point, which of course is why the RR tests are there in 
-netperf :) Don't get me wrong, I *like* seeing path-length reductions. 
-What would you posit is a relatively small payload?  The promotion of 
-IR10 suggests that perhaps 14KB or so is a sufficiently common so I'll 
-grasp at that as the length of a piece of string:
-
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t 
-TCP_RR -- -P 12867 -r 128,14K
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 12867 
-AF_INET to np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo : first burst 0
-Local /Remote
-Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
-
-16384  87380  128     14336  10.00   8118.31  1.57   -1.00  46.410  -1.000
-16384  87380
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ sudo ethtool -K hed0 gro off
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t 
-TCP_RR -- -P 12867 -r 128,14K
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 12867 
-AF_INET to np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo : first burst 0
-Local /Remote
-Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
-
-16384  87380  128     14336  10.00   5837.35  2.20   -1.00  90.628  -1.000
-16384  87380
-
-So, losing GRO doubled the service demand.  I suppose I could see 
-cutting path-length in half based on the things you listed which would 
-be bypassed?
-
-I'm sure mileage will vary with different NICs and CPUs.  The ones used 
-here happened to be to hand.
-
-happy benchmarking,
-
-rick
-
-Just to get a crude feel for sensitivity, doubling to 28K unsurprisingly 
-goes to more than doubling, and halving to 7K narrows the delta:
-
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t 
-TCP_RR -- -P 12867 -r 128,28K
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 12867 
-AF_INET to np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo : first burst 0
-Local /Remote
-Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
-
-16384  87380  128     28672  10.00   6732.32  1.79   -1.00  63.819  -1.000
-16384  87380
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ sudo ethtool -K hed0 gro off
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t 
-TCP_RR -- -P 12867 -r 128,28K
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 12867 
-AF_INET to np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo : first burst 0
-Local /Remote
-Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
-
-16384  87380  128     28672  10.00   3780.47  2.32   -1.00  147.280  -1.000
-16384  87380
-
-
-
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t 
-TCP_RR -- -P 12867 -r 128,7K
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 12867 
-AF_INET to np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo : first burst 0
-Local /Remote
-Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
-
-16384  87380  128     7168   10.00   10535.01  1.52   -1.00  34.664  -1.000
-16384  87380
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ sudo ethtool -K hed0 gro off
-stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t 
-TCP_RR -- -P 12867 -r 128,7K
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 12867 
-AF_INET to np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo : first burst 0
-Local /Remote
-Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
-Send   Recv   Size    Size   Time    Rate     local  remote local   remote
-bytes  bytes  bytes   bytes  secs.   per sec  % S    % U    us/Tr   us/Tr
-
-16384  87380  128     7168   10.00   8225.17  1.80   -1.00  52.661  -1.000
-16384  87380
+> Not to mention the fact that you might have to deal with fragments in
+> the Internet. Some DOS mitigations were already abused to generate
+> blackholes for other users. Filtering such stuff is quite complicated.
+>
+> I argued also under the aspect of what Thomas said, that the outside
+> world of the cluster is already protected by a CDN.
+>
+> Bye,
+> Hannes
+>
