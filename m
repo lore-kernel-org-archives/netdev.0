@@ -1,52 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: simplify flag assignment
-Date: Thu, 01 Dec 2016 15:23:03 -0500 (EST)
-Message-ID: <20161201.152303.425589678238707778.davem@davemloft.net>
-References: <20161124085506.GA25007@amd>
-        <20161124.110416.198867271899443489.davem@davemloft.net>
-        <20161130114431.GB14296@amd>
+Subject: Re: [RFC PATCH net-next] ipv6: implement consistent hashing for
+ equal-cost multipath routing
+Date: Thu, 01 Dec 2016 15:26:38 -0500 (EST)
+Message-ID: <20161201.152638.37238894730380417.davem@davemloft.net>
+References: <583C9093.7060404@uclouvain.be>
+        <20161128.153209.2135257061368558724.davem@davemloft.net>
+        <1480511568.3649771.803688521.5B47BE8F@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: pavel@ucw.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161130114431.GB14296@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: david.lebrun@uclouvain.be, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43746 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934261AbcLAU0l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:26:41 -0500
+In-Reply-To: <1480511568.3649771.803688521.5B47BE8F@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Machek <pavel@ucw.cz>
-Date: Wed, 30 Nov 2016 12:44:31 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 30 Nov 2016 14:12:48 +0100
 
-> 
-> Simplify flag assignment.
->     
-> Signed-off-by: Pavel Machek <pavel@denx.de>
-> 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index ed20668..0b706a7 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2771,12 +2771,8 @@ static netdev_features_t stmmac_fix_features(struct net_device *dev,
->  		features &= ~NETIF_F_CSUM_MASK;
->  
->  	/* Disable tso if asked by ethtool */
-> -	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen)) {
-> -		if (features & NETIF_F_TSO)
-> -			priv->tso = true;
-> -		else
-> -			priv->tso = false;
-> -	}
-> +	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen))
-> +		priv->tso = !!(features & NETIF_F_TSO);
->  
+> David, one question: do you remember if you measured with linked lists
+> at that time or also with arrays. I actually would expect small arrays
+> that entirely fit into cachelines to be actually faster than our current
+> approach, which also walks a linked list, probably the best algorithm to
+> trash cache lines. I ask because I currently prefer this approach more
+> than having large allocations in the O(1) case because of easier code
+> and easier management.
 
-Pavel, this really seems arbitrary.
-
-Whilst I really appreciate you're looking into this driver a bit because
-of some issues you are trying to resolve, I'd like to ask that you not
-start bombarding me with nit-pick cleanups here and there and instead
-concentrate on the real bug or issue.
-
-Thanks in advance.
+I did not try this and I do agree with you that for extremely small table
+sizes a list or array would perform better because of the cache behavior.
