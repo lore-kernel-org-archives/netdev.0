@@ -1,61 +1,54 @@
-From: Artem Savkov <asavkov@redhat.com>
-Subject: Re: [PATCH] ip6_offload: check segs for NULL in ipv6_gso_segment.
-Date: Thu, 1 Dec 2016 16:07:03 +0100
-Message-ID: <20161201150703.dv463hxgqajqo6pm@shodan.usersys.redhat.com>
-References: <1480597564-32355-1-git-send-email-asavkov@redhat.com>
- <1480602847.18162.288.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v6 6/6] samples/bpf: add userspace example for
+ prohibiting sockets
+Date: Thu, 1 Dec 2016 08:13:52 -0700
+Message-ID: <4afe76e2-d1be-4810-0db7-859bcd5c89f3@cumulusnetworks.com>
+References: <1480529810-25850-1-git-send-email-dsa@cumulusnetworks.com>
+ <1480529810-25850-7-git-send-email-dsa@cumulusnetworks.com>
+ <20161201055953.GB42375@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jstancek@redhat.com,
-        steffen.klassert@secunet.com, alexander.h.duyck@intel.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1480602847.18162.288.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
+        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:36423 "EHLO
+        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757534AbcLAPNz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 10:13:55 -0500
+Received: by mail-io0-f182.google.com with SMTP id m5so290429507ioe.3
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 07:13:54 -0800 (PST)
+In-Reply-To: <20161201055953.GB42375@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2016 at 06:34:07AM -0800, Eric Dumazet wrote:
-> On Thu, 2016-12-01 at 14:06 +0100, Artem Savkov wrote:
-> > segs needs to be checked for being NULL in ipv6_gso_segment() before calling
-> > skb_shinfo(segs), otherwise kernel can run into a NULL-pointer dereference:
+On 11/30/16 10:59 PM, Alexei Starovoitov wrote:
+> On Wed, Nov 30, 2016 at 10:16:50AM -0800, David Ahern wrote:
+>> Add examples preventing a process in a cgroup from opening a socket
+>> based family, protocol and type.
+>>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ...
+>> +++ b/samples/bpf/sock_flags_kern.c
+>> @@ -0,0 +1,37 @@
+>> +#include <uapi/linux/bpf.h>
+>> +#include <linux/socket.h>
+>> +#include "bpf_helpers.h"
+>> +
+>> +SEC("cgroup/sock1")
+>> +int bpf_prog1(struct bpf_sock *sk)
+>> +{
+>> +	char fmt[] = "socket: family %d type %d protocol %d\n";
+>> +
+>> +	bpf_trace_printk(fmt, sizeof(fmt), sk->family, sk->type, sk->protocol);
+>> +
+>> +	/* block PF_INET6, SOCK_RAW, IPPROTO_ICMPV6 sockets
+>> +	 * ie., make ping6 fail
+>> +	 */
+>> +	if (sk->family == PF_INET6 && sk->type == 3 && sk->protocol == 58)
+>> +		return 0;
 > 
-> 
-> > Signed-off-by: Artem Savkov <asavkov@redhat.com>
-> > ---
-> >  
-> 
-> > diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-> > index 1fcf61f..89c59e6 100644
-> > --- a/net/ipv6/ip6_offload.c
-> > +++ b/net/ipv6/ip6_offload.c
-> > @@ -99,7 +99,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
-> >  		segs = ops->callbacks.gso_segment(skb, features);
-> >  	}
-> >  
-> > -	if (IS_ERR(segs))
-> > +	if (IS_ERR_OR_NULL(segs))
-> >  		goto out;
-> >  
-> >  	gso_partial = !!(skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL);
-> 
-> Do you know when was this bug added ?
+> why not to use SOCK_RAW and IPPROTO_ICMPV6 instead of constants?
 
-It started to show up with 4.9-rc4, from what I see the culprit is
-07b26c9 gso: Support partial splitting at the frag_list pointer
-
-> Are you sure this is the right fix ?
-
-I am not, but this would have the same behavior as pre-07b26c9 code and
-IS_ERR_OR_NULL is used in ipv4's inet_gso_segment().
-
-> Which gso_segment() is returning NULL exactly ?
-
-Unfortunatelly I don't know that and I don't have a good reproducer, the
-only way to reproduce this that I currently have is calling
-virt-install.
-
--- 
-Regards,
-  Artem
+header file hell.
