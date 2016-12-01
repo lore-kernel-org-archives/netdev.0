@@ -1,16 +1,16 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 17/39] Annotate hardware config module parameters in
- drivers/net/arcnet/
-Date: Thu, 01 Dec 2016 12:31:53 +0000
-Message-ID: <148059551381.31612.3024451259648856834.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 22/39] Annotate hardware config module parameters in
+ drivers/net/wan/
+Date: Thu, 01 Dec 2016 12:32:35 +0000
+Message-ID: <148059555558.31612.2051692248144922204.stgit@warthog.procyon.org.uk>
 References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk,
-        Michael Grzeschik <m.grzeschik@pengutronix.de>,
-        minyard@acm.org, netdev@vger.kernel.org, dhowells@redhat.com,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
+Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
+        netdev@vger.kernel.org, dhowells@redhat.com,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
+        "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
@@ -35,61 +35,92 @@ drivers have viable defaults set in case parameters aren't specified and
 some drivers support automatic configuration (e.g. PNP or PCI) in addition
 to manually coded parameters.
 
-This patch annotates drivers in drivers/net/arcnet/.
+This patch annotates drivers in drivers/net/wan/.
 
 Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Michael Grzeschik <m.grzeschik@pengutronix.de>
+cc: "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
 cc: netdev@vger.kernel.org
 ---
 
- drivers/net/arcnet/com20020-isa.c |    4 ++--
- drivers/net/arcnet/com90io.c      |    4 ++--
- drivers/net/arcnet/com90xx.c      |    4 ++--
- 3 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/wan/cosa.c         |    6 +++---
+ drivers/net/wan/hostess_sv11.c |    6 +++---
+ drivers/net/wan/sbni.c         |    4 ++--
+ drivers/net/wan/sealevel.c     |    8 ++++----
+ 4 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/arcnet/com20020-isa.c b/drivers/net/arcnet/com20020-isa.c
-index b9e9931353b2..38fa60ddaf2e 100644
---- a/drivers/net/arcnet/com20020-isa.c
-+++ b/drivers/net/arcnet/com20020-isa.c
-@@ -129,8 +129,8 @@ static int clockp = 0;
- static int clockm = 0;
+diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+index b87fe0a01c69..2f7104e92dd8 100644
+--- a/drivers/net/wan/cosa.c
++++ b/drivers/net/wan/cosa.c
+@@ -232,11 +232,11 @@ static int irq[MAX_CARDS+1] = { -1, -1, -1, -1, -1, -1, 0, };
+ static struct class *cosa_class;
  
- module_param(node, int, 0);
--module_param(io, int, 0);
--module_param(irq, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
- module_param_string(device, device, sizeof(device), 0);
- module_param(timeout, int, 0);
- module_param(backplane, int, 0);
-diff --git a/drivers/net/arcnet/com90io.c b/drivers/net/arcnet/com90io.c
-index b57863df5bf5..4e56aaf2b984 100644
---- a/drivers/net/arcnet/com90io.c
-+++ b/drivers/net/arcnet/com90io.c
-@@ -347,8 +347,8 @@ static int io;			/* use the insmod io= irq= shmem= options */
- static int irq;
- static char device[9];		/* use eg. device=arc1 to change name */
+ #ifdef MODULE
+-module_param_array(io, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
+ MODULE_PARM_DESC(io, "The I/O bases of the COSA or SRP cards");
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(irq, "The IRQ lines of the COSA or SRP cards");
+-module_param_array(dma, int, NULL, 0);
++module_param_hw_array(dma, int, dma, NULL, 0);
+ MODULE_PARM_DESC(dma, "The DMA channels of the COSA or SRP cards");
  
--module_param(io, int, 0);
--module_param(irq, int, 0);
-+module_param_hw(io, int, ioport, 0);
-+module_param_hw(irq, int, irq, 0);
- module_param_string(device, device, sizeof(device), 0);
- MODULE_LICENSE("GPL");
- 
-diff --git a/drivers/net/arcnet/com90xx.c b/drivers/net/arcnet/com90xx.c
-index 81f90c4703ae..ca4a57c30bf8 100644
---- a/drivers/net/arcnet/com90xx.c
-+++ b/drivers/net/arcnet/com90xx.c
-@@ -88,8 +88,8 @@ static int irq;
- static int shmem;
- static char device[9];		/* use eg. device=arc1 to change name */
+ MODULE_AUTHOR("Jan \"Yenya\" Kasprzak, <kas@fi.muni.cz>");
+diff --git a/drivers/net/wan/hostess_sv11.c b/drivers/net/wan/hostess_sv11.c
+index 3d741663fd67..4845560fd848 100644
+--- a/drivers/net/wan/hostess_sv11.c
++++ b/drivers/net/wan/hostess_sv11.c
+@@ -325,11 +325,11 @@ static void sv11_shutdown(struct z8530_dev *dev)
+ static int io = 0x200;
+ static int irq = 9;
  
 -module_param(io, int, 0);
--module_param(irq, int, 0);
 +module_param_hw(io, int, ioport, 0);
+ MODULE_PARM_DESC(io, "The I/O base of the Comtrol Hostess SV11 card");
+-module_param(dma, int, 0);
++module_param_hw(dma, int, dma, 0);
+ MODULE_PARM_DESC(dma, "Set this to 1 to use DMA1/DMA3 for TX/RX");
+-module_param(irq, int, 0);
 +module_param_hw(irq, int, irq, 0);
- module_param(shmem, int, 0);
- module_param_string(device, device, sizeof(device), 0);
+ MODULE_PARM_DESC(irq, "The interrupt line setting for the Comtrol Hostess SV11 card");
  
+ MODULE_AUTHOR("Alan Cox");
+diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
+index 3a421ca8a4d0..42220fa78093 100644
+--- a/drivers/net/wan/sbni.c
++++ b/drivers/net/wan/sbni.c
+@@ -1464,8 +1464,8 @@ set_multicast_list( struct net_device  *dev )
+ 
+ 
+ #ifdef MODULE
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ module_param_array(baud, int, NULL, 0);
+ module_param_array(rxl, int, NULL, 0);
+ module_param_array(mac, int, NULL, 0);
+diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
+index 27860b4f5908..1d762a2d3ddc 100644
+--- a/drivers/net/wan/sealevel.c
++++ b/drivers/net/wan/sealevel.c
+@@ -364,13 +364,13 @@ static int rxdma=3;
+ static int irq=5;
+ static bool slow=false;
+ 
+-module_param(io, int, 0);
++module_param_hw(io, int, ioport, 0);
+ MODULE_PARM_DESC(io, "The I/O base of the Sealevel card");
+-module_param(txdma, int, 0);
++module_param_hw(txdma, int, dma, 0);
+ MODULE_PARM_DESC(txdma, "Transmit DMA channel");
+-module_param(rxdma, int, 0);
++module_param_hw(rxdma, int, dma, 0);
+ MODULE_PARM_DESC(rxdma, "Receive DMA channel");
+-module_param(irq, int, 0);
++module_param_hw(irq, int, irq, 0);
+ MODULE_PARM_DESC(irq, "The interrupt line setting for the SeaLevel card");
+ module_param(slow, bool, 0);
+ MODULE_PARM_DESC(slow, "Set this for an older Sealevel card such as the 4012");
