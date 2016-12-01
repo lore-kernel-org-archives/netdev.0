@@ -1,170 +1,150 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: ethernet: ti: davinci_cpdma: sanitize inter-module API
-Date: Thu,  1 Dec 2016 22:51:27 +0100
-Message-ID: <20161201215150.320245-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-        <u.kleine-koenig@pengutronix.de>, linux-omap@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next v3 11/12] mlxsw: spectrum_router: Request a dump
+ of FIB tables during init
+Date: Thu, 1 Dec 2016 22:57:52 +0100
+Message-ID: <ea2a8856-59d8-1b5f-9428-b16efa8f6979@stressinduktion.org>
+References: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
+ <1480500546-2544-12-git-send-email-jiri@resnulli.us>
+ <eb7ddecd-d6b4-dfce-5990-9e933227c862@stressinduktion.org>
+ <20161130163229.rkxvuwukgg35ktrx@splinter.mtl.com>
+ <043a2ba9-1e19-c3cd-a930-59e8cb0d5f7a@stressinduktion.org>
+ <20161130182243.cpoyoqvxuv2bnn4y@splinter.mtl.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kaber@trash.net
+To: Ido Schimmel <idosch@idosch.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:41520 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1758033AbcLAV55 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 16:57:57 -0500
+In-Reply-To: <20161130182243.cpoyoqvxuv2bnn4y@splinter.mtl.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The davinci_cpdma module is a helper library that is used by the
-actual device drivers and does nothing by itself, so all its API
-functions need to be exported.
+On 30.11.2016 19:22, Ido Schimmel wrote:
+> On Wed, Nov 30, 2016 at 05:49:56PM +0100, Hannes Frederic Sowa wrote:
+>> On 30.11.2016 17:32, Ido Schimmel wrote:
+>>> On Wed, Nov 30, 2016 at 04:37:48PM +0100, Hannes Frederic Sowa wrote:
+>>>> On 30.11.2016 11:09, Jiri Pirko wrote:
+>>>>> From: Ido Schimmel <idosch@mellanox.com>
+>>>>>
+>>>>> Make sure the device has a complete view of the FIB tables by invoking
+>>>>> their dump during module init.
+>>>>>
+>>>>> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>>> ---
+>>>>>  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 23 ++++++++++++++++++++++
+>>>>>  1 file changed, 23 insertions(+)
+>>>>>
+>>>>> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+>>>>> index 14bed1d..d176047 100644
+>>>>> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+>>>>> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+>>>>> @@ -2027,8 +2027,23 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
+>>>>>  	return NOTIFY_DONE;
+>>>>>  }
+>>>>>  
+>>>>> +static void mlxsw_sp_router_fib_dump_flush(struct notifier_block *nb)
+>>>>> +{
+>>>>> +	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
+>>>>> +
+>>>>> +	/* Flush pending FIB notifications and then flush the device's
+>>>>> +	 * table before requesting another dump. Do that with RTNL held,
+>>>>> +	 * as FIB notification block is already registered.
+>>>>> +	 */
+>>>>> +	mlxsw_core_flush_owq();
+>>>>> +	rtnl_lock();
+>>>>> +	mlxsw_sp_router_fib_flush(mlxsw_sp);
+>>>>> +	rtnl_unlock();
+>>>>> +}
+>>>>> +
+>>>>>  int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+>>>>>  {
+>>>>> +	fib_dump_cb_t *cb = mlxsw_sp_router_fib_dump_flush;
+>>>>>  	int err;
+>>>>>  
+>>>>>  	INIT_LIST_HEAD(&mlxsw_sp->router.nexthop_neighs_list);
+>>>>> @@ -2048,8 +2063,16 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+>>>>>  
+>>>>>  	mlxsw_sp->fib_nb.notifier_call = mlxsw_sp_router_fib_event;
+>>>>>  	register_fib_notifier(&mlxsw_sp->fib_nb);
+>>>>
+>>>> Sorry to pick in here again:
+>>>>
+>>>> There is a race here. You need to protect the registration of the fib
+>>>> notifier as well by the sequence counter. Updates here are not ordered
+>>>> in relation to this code below.
+>>>
+>>> You mean updates that can be received after you registered the notifier
+>>> and until the dump started? I'm aware of that and that's OK. This
+>>> listener should be able to handle duplicates.
+>>
+>> I am not concerned about duplicates, but about ordering deletes and
+>> getting an add from the RCU code you will add the node to hw while it is
+>> deleted in the software path. You probably will ignore the delete
+>> because nothing is installed in hw and later add the node which was
+>> actually deleted but just reordered which happend on another CPU, no?
+> 
+> Are you referring to reordering in the workqueue? We already covered
+> this using an ordered workqueue, which has one context of execution
+> system-wide.
 
-Four new functions were added recently without an export, so now
-we get a build error:
+Ups, sorry, I missed that mail. Probably read it on the mobile phone and
+it became invisible for me later on. Busy day... ;)
 
-ERROR: "cpdma_chan_set_weight" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-ERROR: "cpdma_chan_get_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-ERROR: "cpdma_chan_get_min_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-ERROR: "cpdma_chan_set_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
+The reordering in the workqueue seems fine to me and also still necessary.
 
-This exports those symbols. After taking a closer look, I found two
-more global functions in this file that are not exported and not used
-anywhere, so they can obviously be removed. There is also one function
-that is only used internally in this module, and should be 'static'.
+Basically, if you delete a node right now the kernel might simply do a
+RCU_INIT_POINTER(ptr_location, NULL), which has absolutely no barriers
+or synchronization with the reader side. Thus you might get a callback
+from the notifier for a delete event on the one CPU and you end up
+queueing this fib entry after the delete queue, because the RCU walk
+isn't protected by any means.
 
-Fixes: 8f32b90981dc ("net: ethernet: ti: davinci_cpdma: add set rate for a channel")
-Fixes: 0fc6432cc78d ("net: ethernet: ti: davinci_cpdma: add weight function for channels")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/ti/davinci_cpdma.c | 63 +++++++++++----------------------
- drivers/net/ethernet/ti/davinci_cpdma.h |  4 ---
- 2 files changed, 21 insertions(+), 46 deletions(-)
+Looking closer at this series again, I overlooked the fact that you
+fetch fib_seq using a rtnl_lock and rtnl_unlock pair, which first of all
+orders fetching of fib_seq and thus the RCU dumping after any concurrent
+executing fib table update, also the mutex_lock and unlock provide
+proper acquire and release fences, so the CPU indeed sees the effect of
+a RCU_INIT_POINTER update done on another CPU, because they pair with
+the rtnl_unlock which might happen on the other CPU.
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index c776e4575d2d..b9d40f0cdf6c 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -628,6 +628,23 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
- }
- EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
- 
-+static int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&chan->lock, flags);
-+	if (chan->state != CPDMA_STATE_ACTIVE) {
-+		spin_unlock_irqrestore(&chan->lock, flags);
-+		return -EINVAL;
-+	}
-+
-+	dma_reg_write(chan->ctlr, enable ? chan->int_set : chan->int_clear,
-+		      chan->mask);
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+
-+	return 0;
-+}
-+
- int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable)
- {
- 	unsigned long flags;
-@@ -796,6 +813,7 @@ int cpdma_chan_set_weight(struct cpdma_chan *ch, int weight)
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(cpdma_chan_set_weight);
- 
- /* cpdma_chan_get_min_rate - get minimum allowed rate for channel
-  * Should be called before cpdma_chan_set_rate.
-@@ -810,6 +828,7 @@ u32 cpdma_chan_get_min_rate(struct cpdma_ctlr *ctlr)
- 
- 	return DIV_ROUND_UP(divident, divisor);
- }
-+EXPORT_SYMBOL_GPL(cpdma_chan_get_min_rate);
- 
- /* cpdma_chan_set_rate - limits bandwidth for transmit channel.
-  * The bandwidth * limited channels have to be in order beginning from lowest.
-@@ -853,6 +872,7 @@ int cpdma_chan_set_rate(struct cpdma_chan *ch, u32 rate)
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(cpdma_chan_set_rate);
- 
- u32 cpdma_chan_get_rate(struct cpdma_chan *ch)
- {
-@@ -865,6 +885,7 @@ u32 cpdma_chan_get_rate(struct cpdma_chan *ch)
- 
- 	return rate;
- }
-+EXPORT_SYMBOL_GPL(cpdma_chan_get_rate);
- 
- struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- 				     cpdma_handler_fn handler, int rx_type)
-@@ -1270,46 +1291,4 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
- }
- EXPORT_SYMBOL_GPL(cpdma_chan_stop);
- 
--int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable)
--{
--	unsigned long flags;
--
--	spin_lock_irqsave(&chan->lock, flags);
--	if (chan->state != CPDMA_STATE_ACTIVE) {
--		spin_unlock_irqrestore(&chan->lock, flags);
--		return -EINVAL;
--	}
--
--	dma_reg_write(chan->ctlr, enable ? chan->int_set : chan->int_clear,
--		      chan->mask);
--	spin_unlock_irqrestore(&chan->lock, flags);
--
--	return 0;
--}
--
--int cpdma_control_get(struct cpdma_ctlr *ctlr, int control)
--{
--	unsigned long flags;
--	int ret;
--
--	spin_lock_irqsave(&ctlr->lock, flags);
--	ret = _cpdma_control_get(ctlr, control);
--	spin_unlock_irqrestore(&ctlr->lock, flags);
--
--	return ret;
--}
--
--int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value)
--{
--	unsigned long flags;
--	int ret;
--
--	spin_lock_irqsave(&ctlr->lock, flags);
--	ret = _cpdma_control_set(ctlr, control, value);
--	spin_unlock_irqrestore(&ctlr->lock, flags);
--
--	return ret;
--}
--EXPORT_SYMBOL_GPL(cpdma_control_set);
--
- MODULE_LICENSE("GPL");
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
-index 4a167db2abab..36d0a09a3d44 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.h
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.h
-@@ -87,7 +87,6 @@ int cpdma_chan_process(struct cpdma_chan *chan, int quota);
- 
- int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
- void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value);
--int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
- u32 cpdma_ctrl_rxchs_state(struct cpdma_ctlr *ctlr);
- u32 cpdma_ctrl_txchs_state(struct cpdma_ctlr *ctlr);
- bool cpdma_check_free_tx_desc(struct cpdma_chan *chan);
-@@ -111,7 +110,4 @@ enum cpdma_control {
- 	CPDMA_RX_BUFFER_OFFSET,		/* read-write */
- };
- 
--int cpdma_control_get(struct cpdma_ctlr *ctlr, int control);
--int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value);
--
- #endif
--- 
-2.9.0
+My question is if this is a bit of luck and if we should make this
+explicit by putting the registration itself under the protection of the
+sequence counter. I favor the additional protection, e.g. if we some day
+actually we optimize the fib_seq code? Otherwise we might probably
+document this fact. :)
+
+>>> I've a follow up patchset that introduces a new event in switchdev
+>>> notification chain called SWITCHDEV_SYNC, which is sent when port
+>>> netdevs are enslaved / released  from a master device (points in time
+>>> where kernel<->device can get out of sync). It will invoke
+>>> re-propagation of configuration from different parts of the stack
+>>> (e.g. bridge driver, 8021q driver, fib/neigh code), which can result
+>>> in duplicates.
+>>
+>> Okay, understood. I wonder how we can protect against accidentally abort
+>> calls actually. E.g. if I start to inject routes into my routing domain
+>> how can I make sure the box doesn't die after I try to insert enough
+>> routes. Do we need to touch quagga etc?
+> 
+> The whole point of moving abort mechanism to the driver is that the
+> system won't die, but instead routing will be done in the kernel. If you
+> respect hardware limitations, then there's no reason for abort mechanism
+> to kick in.
+
+Quick follow-up question: How can I quickly find out the hw limitations
+via the kernel api?
+
+Thanks,
+Hannes
