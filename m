@@ -1,53 +1,44 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next] mlx4: fix use-after-free in mlx4_en_fold_software_stats()
-Date: Thu, 1 Dec 2016 17:23:10 +0200
-Message-ID: <CALzJLG-4kbK=bnHrizOpJfaTJjvZQXOyNn=YHkwyb2xCf=Ti=g@mail.gmail.com>
-References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161130150839.5203ece0@redhat.com> <1480521514.18162.191.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com>
- <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG_aT1O1ergGRu8Z0u4nszKYao5RbPfb=1USptwFY1d7PQ@mail.gmail.com>
- <1480539652.18162.205.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161201133706.316428e9@redhat.com> <1480597326.18162.276.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ip6_offload: check segs for NULL in ipv6_gso_segment.
+Date: Thu, 01 Dec 2016 07:27:58 -0800
+Message-ID: <1480606078.18162.297.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480597564-32355-1-git-send-email-asavkov@redhat.com>
+         <1480602847.18162.288.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161201150703.dv463hxgqajqo6pm@shodan.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35137 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754141AbcLAPXc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 10:23:32 -0500
-Received: by mail-lf0-f67.google.com with SMTP id p100so19347700lfg.2
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 07:23:31 -0800 (PST)
-In-Reply-To: <1480597326.18162.276.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, jstancek@redhat.com,
+        steffen.klassert@secunet.com, alexander.h.duyck@intel.com,
+        YOSHIFUJI Hideaki /
+         =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+        <yoshfuji@linux-ipv6.org>
+To: Artem Savkov <asavkov@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161201150703.dv463hxgqajqo6pm@shodan.usersys.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 1, 2016 at 3:02 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> My recent commit to get more precise rx/tx counters in ndo_get_stats64()
-> can lead to crashes at device dismantle, as Jesper found out.
->
-> We must prevent mlx4_en_fold_software_stats() trying to access
-> tx/rx rings if they are deleted.
->
-> Fix this by adding a test against priv->port_up in
-> mlx4_en_fold_software_stats()
->
-> Calling mlx4_en_fold_software_stats() from mlx4_en_stop_port()
-> allows us to eventually broadcast the latest/current counters to
-> rtnetlink monitors.
->
-> Fixes: 40931b85113d ("mlx4: give precise rx/tx bytes/packets counters")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-and-bisected-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Tested-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Cc: Tariq Toukan <tariqt@mellanox.com>
-> Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+On Thu, 2016-12-01 at 16:07 +0100, Artem Savkov wrote:
 
-Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+> I am not, but this would have the same behavior as pre-07b26c9 code and
+> IS_ERR_OR_NULL is used in ipv4's inet_gso_segment().
+
+My concern might have been that IS_ERR_OR_NULL() considers the !ptr to
+be unlikely.
+
+But in this code path, we really can not tell.
+
+segs == NULL can be quite likely in TUN case, because of DODGY bit
+
+Commit 50c3a487d50756 replaced the perfectly fine :
+
+if (!segs || IS_ERR(segs))
+
+into dubious
+
+if (IS_ERR_OR_NULL(segs))
+
+segs = NULL is not an error, but use of IS_ERR_OR_NULL() might mislead
+programmers trying to understand this code.
