@@ -1,88 +1,88 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Subject: Re: [WIP] net+mlx4: auto doorbell
-Date: Thu, 1 Dec 2016 20:17:07 +0100
-Message-ID: <20161201201707.5f51a02e@redhat.com>
-References: <20140903165943.372b897b@redhat.com>
-        <20161117144248.23500001@redhat.com>
-        <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20161117155753.17b76f5a@redhat.com>
-        <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20161117193021.580589ae@redhat.com>
-        <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20161121170351.50a09ee1@redhat.com>
-        <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CALzJLG_G3G-_jFFD0xiAOfR-k69rhb_2ia4LHZroE-oEFxApnQ@mail.gmail.com>
-        <1480520661.18162.177.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
-        <20161201130505.0b4a5cd5@redhat.com>
-        <1480602274.18162.285.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20161201170443.28a8c032@redhat.com>
-        <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Thu, 1 Dec 2016 14:24:25 -0500
+Message-ID: <CAF=yD-+1ukXZoBq4L__8yA9f-OAJGU4=1WrJd9nH+uvkOy5ZLw@mail.gmail.com>
+References: <20140903165943.372b897b@redhat.com> <20161116131609.4e5726b4@redhat.com>
+ <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com> <20161116234022.2bad179b@redhat.com>
+ <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117091638.5fab8494@redhat.com> <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117144248.23500001@redhat.com> <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117155753.17b76f5a@redhat.com> <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161117193021.580589ae@redhat.com> <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161121170351.50a09ee1@redhat.com> <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161130123810.581ba21f@redhat.com> <1480521386.18162.189.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161130201711.2f353a76@redhat.com> <1480534200.18162.203.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480552059.18162.239.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S35UZcD+kXTTGeML4DdDYaUoArSfEPeUoTuFEeRWKsM7sQ@mail.gmail.com>
+ <1480559566.18162.253.camel@edumazet-glaptop3.roam.corp.google.com> <CALx6S34ENTbUmCGx_4izNHoXbdy5UHuvUesbFGw+8kQSidesEg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Willem de Bruijn <willemb@google.com>,
         Rick Jones <rick.jones2@hpe.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
         Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+        Tariq Toukan <tariqt@mellanox.com>,
+        Achiad Shochat <achiad@mellanox.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47500 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758489AbcLATRM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Dec 2016 14:17:12 -0500
-In-Reply-To: <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:34437 "EHLO
+        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751164AbcLATZG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 14:25:06 -0500
+Received: by mail-ua0-f194.google.com with SMTP id b35so22247454uaa.1
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 11:25:06 -0800 (PST)
+In-Reply-To: <CALx6S34ENTbUmCGx_4izNHoXbdy5UHuvUesbFGw+8kQSidesEg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>>> > So we end up with one cpu doing the ndo_start_xmit() and TX completions,
+>>> > and RX work.
 
-On Thu, 01 Dec 2016 09:04:17 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+This problem is somewhat tangential to the doorbell avoidance discussion.
 
-> BTW, if you are doing tests on mlx4 40Gbit,
+>>> >
+>>> > This problem is magnified when XPS is used, if one mono-threaded application deals with
+>>> > thousands of TCP sockets.
+>>> >
+>> We have thousands of applications, and some of them 'kind of multicast'
+>> events to a broad number of TCP sockets.
+>>
+>> Very often, applications writers use a single thread for doing this,
+>> when all they need is to send small packets to 10,000 sockets, and they
+>> do not really care of doing this very fast. They also do not want to
+>> hurt other applications sharing the NIC.
+>>
+>> Very often, process scheduler will also run this single thread in a
+>> single cpu, ie avoiding expensive migrations if they are not needed.
+>>
+>> Problem is this behavior locks one TX queue for the duration of the
+>> multicast, since XPS will force all the TX packets to go to one TX
+>> queue.
+>>
+> The fact that XPS is forcing TX packets to go over one CPU is a result
+> of how you've configured XPS. There are other potentially
+> configurations that present different tradeoffs.
 
-I'm mostly testing with mlx5 50Gbit, but I do have 40G NIC in the
-machines too.
+Right, XPS supports multiple txqueues mappings, using skb_tx_hash
+to decide among them. Unfortunately cross-cpu is more expensive
+than tx + completion on the same core, so this is suboptimal for
+the common case where there is no excessive load imbalance.
 
->  would you check the
-> following quick/dirty hack, using lots of low-rate flows ?
+> For instance, TX
+> queues are plentiful now days to the point that we could map a number
+> of queues to each CPU while respecting NUMA locality between the
+> sending CPU and where TX completions occur. If the set is sufficiently
+> large this would also helps to address device lock contention. The
+> other thing I'm wondering is if Willem's concepts distributing DOS
+> attacks in RPS might be applicable in XPS. If we could detect that a
+> TX queue is "under attack" maybe we can automatically backoff to
+> distributing the load to more queues in XPS somehow.
 
-What tool should I use to send "low-rate flows"?
-
-And what am I looking for?
-
-> mlx4 has really hard time to transmit small TSO packets (2 or 3 MSS)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 12ea3405f442..96940666abd3 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2631,6 +2631,11 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
->         queue_work(priv->mdev->workqueue, &priv->vxlan_del_task);
->  }
->  
-> +static int mlx4_gso_segs_min = 4; /* TSO packets with less than 4 segments are segmented */
-> +module_param_named(mlx4_gso_segs_min, mlx4_gso_segs_min, uint, 0644);
-> +MODULE_PARM_DESC(mlx4_gso_segs_min, "threshold for software segmentation of small TSO packets");
-> +
-> +
->  static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
->                                                 struct net_device *dev,
->                                                 netdev_features_t features)
-> @@ -2651,6 +2656,8 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
->                     (udp_hdr(skb)->dest != priv->vxlan_port))
->                         features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
->         }
-> +       if (skb_is_gso(skb) && skb_shinfo(skb)->gso_segs < mlx4_gso_segs_min)
-> +               features &= NETIF_F_GSO_MASK;
->  
->         return features;
->  }
- 
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+If only targeting states of imbalance, that indeed could work. For the
+10,000 socket case, instead of load balancing qdisc servicing, we
+could perhaps modify tx queue selection in __netdev_pick_tx to
+choose another queue if the the initial choice is paused or otherwise
+backlogged.
