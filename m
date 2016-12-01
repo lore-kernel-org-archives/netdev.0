@@ -1,43 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [flamebait] xdp, well meaning but pointless
-Date: Thu, 01 Dec 2016 11:19:47 -0500 (EST)
-Message-ID: <20161201.111947.888676978252329124.davem@davemloft.net>
-References: <20161201091108.GF26507@breakpoint.cc>
-        <20161201145834.GA569@pox.localdomain>
+Subject: Re: [PATCH v2 net-next 0/4] Adding PHY MDI(X) support
+Date: Thu, 01 Dec 2016 11:27:13 -0500 (EST)
+Message-ID: <20161201.112713.754452402110840290.davem@davemloft.net>
+References: <1480412809-6122-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+        Allan.Nielsen@microsemi.com, andrew@lunn.ch
+To: Raju.Lakkaraju@microsemi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38234 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38386 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751510AbcLAQTt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 11:19:49 -0500
-In-Reply-To: <20161201145834.GA569@pox.localdomain>
+        with ESMTP id S932607AbcLAQ1Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 11:27:16 -0500
+In-Reply-To: <1480412809-6122-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 1 Dec 2016 15:58:34 +0100
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Date: Tue, 29 Nov 2016 15:16:45 +0530
 
-> The benefits of XDP for this use case are extremely obvious in combination
-> with local applications which need to be protected. ntuple filters won't
-> cut it. They are limited and subject to a certain rate at which they
-> can be configured. Any serious mitigation will require stateful filtering
-> with at least minimal L7 matching abilities and this is exactly where XDP
-> will excel.
+> I updated all review comments which were given by Andrew and Florian.
+> 
+> This series add support for PHY MDI(X), and implement it for MSCC phys.
+> 
+> Tested on Beaglebone Black with VSC 8531 PHY.
 
-+1
-
-Saying that ntuple filters can handle the early drop use case doesn't
-take into consideration the nature of the tables (hundreds of
-thousands of "evil" IP addresses), whether hardware can actually
-handle that (it can't), and whether simple IP address matching is the
-full extent of it (it isn't).
-
-Most of the time when I hear anti-XDP rhetoric, it's usually comes
-from a crowd who for some reason feels threatened by the technology
-and what it might replace and make useless.
-
-That to me says that we are _exactly_ going down the right path.
+Series applied, thanks.
