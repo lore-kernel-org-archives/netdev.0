@@ -1,133 +1,62 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Initial thoughts on TXDP
-Date: Thu, 1 Dec 2016 12:18:50 -0800
-Message-ID: <CALx6S37aknqfrj66AP8hEfVT9X2OmBFK9GVa9A+0FpydPbm9kg@mail.gmail.com>
-References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
- <20161201135508.GB24547@oracle.com> <CALx6S35DCyi_2z1pqCLaB1bVyNykP_J3YaYEXUT8xxmuzyBDwA@mail.gmail.com>
- <aac93b13-6298-b9eb-7f3c-b074f22c388c@hpe.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [WIP] net+mlx4: auto doorbell
+Date: Thu, 01 Dec 2016 15:20:29 -0500 (EST)
+Message-ID: <20161201.152029.2045474106824619667.davem@davemloft.net>
+References: <1480602274.18162.285.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20161201170443.28a8c032@redhat.com>
+        <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hpe.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, saeedm@dev.mellanox.co.il, rick.jones2@hpe.com,
+        netdev@vger.kernel.org, saeedm@mellanox.com, tariqt@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f174.google.com ([209.85.216.174]:35562 "EHLO
-        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934190AbcLAUS4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:18:56 -0500
-Received: by mail-qt0-f174.google.com with SMTP id c47so232353233qtc.2
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 12:18:52 -0800 (PST)
-In-Reply-To: <aac93b13-6298-b9eb-7f3c-b074f22c388c@hpe.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43546 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752609AbcLAUUe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:20:34 -0500
+In-Reply-To: <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 1, 2016 at 11:48 AM, Rick Jones <rick.jones2@hpe.com> wrote:
-> On 12/01/2016 11:05 AM, Tom Herbert wrote:
->>
->> For the GSO and GRO the rationale is that performing the extra SW
->> processing to do the offloads is significantly less expensive than
->> running each packet through the full stack. This is true in a
->> multi-layered generalized stack. In TXDP, however, we should be able
->> to optimize the stack data path such that that would no longer be
->> true. For instance, if we can process the packets received on a
->> connection quickly enough so that it's about the same or just a little
->> more costly than GRO processing then we might bypass GRO entirely.
->> TSO is probably still relevant in TXDP since it reduces overheads
->> processing TX in the device itself.
->
->
-> Just how much per-packet path-length are you thinking will go away under the
-> likes of TXDP?  It is admittedly "just" netperf but losing TSO/GSO does some
-> non-trivial things to effective overhead (service demand) and so throughput:
->
-For plain in order TCP packets I believe we should be able process
-each packet at nearly same speed as GRO. Most of the protocol
-processing we do between GRO and the stack are the same, the
-differences are that we need to do a connection lookup in the stack
-path (note we now do this is UDP GRO and that hasn't show up as a
-major hit). We also need to consider enqueue/dequeue on the socket
-which is a major reason to try for lockless sockets in this instance.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 01 Dec 2016 09:04:17 -0800
 
-> stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -- -P
-> 12867
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 12867 AF_INET to
-> np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo
-> Recv   Send    Send                          Utilization       Service
-> Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
->
->  87380  16384  16384    10.00      9260.24   2.02     -1.00    0.428 -1.000
-> stack@np-cp1-c0-m1-mgmt:~/rjones2$ sudo ethtool -K hed0 tso off gso off
-> stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -- -P
-> 12867
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 12867 AF_INET to
-> np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo
-> Recv   Send    Send                          Utilization       Service
-> Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
->
->  87380  16384  16384    10.00      5621.82   4.25     -1.00    1.486 -1.000
->
-> And that is still with the stretch-ACKs induced by GRO at the receiver.
->
-Sure, but trying running something emulates a more realistic workload
-than a TCP stream, like RR test with relative small payload and many
-connections.
+> On Thu, 2016-12-01 at 17:04 +0100, Jesper Dangaard Brouer wrote:
+> 
+>> When qdisc layer or trafgen/af_packet see this indication it knows it
+>> should/must flush the queue when it don't have more work left.  Perhaps
+>> through net_tx_action(), by registering itself and e.g. if qdisc_run()
+>> is called and queue is empty then check if queue needs a flush. I would
+>> also allow driver to flush and clear this bit.
+> 
+> net_tx_action() is not normally called, unless BQL limit is hit and/or
+> some qdiscs with throttling (HTB, TBF, FQ, ...)
 
-> Losing GRO has quite similar results:
-> stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t
-> TCP_MAERTS -- -P 12867
-> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 12867 AF_INET to
-> np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo
-> Recv   Send    Send                          Utilization       Service
-> Demand
-> Socket Socket  Message  Elapsed              Recv     Send     Recv    Send
-> Size   Size    Size     Time     Throughput  local    remote   local remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
->
->  87380  16384  16384    10.00      9154.02   4.00     -1.00    0.860 -1.000
-> stack@np-cp1-c0-m1-mgmt:~/rjones2$ sudo ethtool -K hed0 gro off
->
-> stack@np-cp1-c0-m1-mgmt:~/rjones2$ ./netperf -c -H np-cp1-c1-m3-mgmt -t
-> TCP_MAERTS -- -P 12867
-> MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 12867 AF_INET to
-> np-cp1-c1-m3-mgmt () port 12867 AF_INET : demo
-> Recv   Send    Send                          Utilization       Service
-> Demand
-> Socket Socket  Message  Elapsed              Recv     Send     Recv    Send
-> Size   Size    Size     Time     Throughput  local    remote   local remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % U      us/KB   us/KB
->
->  87380  16384  16384    10.00      4212.06   5.36     -1.00    2.502 -1.000
->
-> I'm sure there is a very non-trivial "it depends" component here - netperf
-> will get the peak benefit from *SO and so one will see the peak difference
-> in service demands - but even if one gets only 6 segments per *SO that is a
-> lot of path-length to make-up.
->
-True, but I think there's a lot of path we'll be able to cut out. In
-this mode we don't need IPtables, Netfilter, input route, IPvlan
-check, or other similar lookups. Once we've successfully matched a
-establish TCP state anything related to policy on both TX and RX for
-that connection is inferred from the state. We want the processing
-path in this case to just be concerned with just protocol processing
-and interface to user.
+The one thing I wonder about is whether we should "ramp up" into a mode
+where the NAPI poll does the doorbells instead of going directly there.
 
-> 4.4 kernel, BE3 NICs ... E5-2640 0 @ 2.50GHz
->
-> And even if one does have the CPU cycles to burn so to speak, the effect on
-> power consumption needs to be included in the calculus.
->
-Definitely, power consumption is the down side of spin polling CPUs.
-As I said we would never should be spinning any more CPUs than
-necessary to handle the load.
+Maybe I misunderstand your algorithm, but it looks to me like if there
+are any active packets in the TX queue at enqueue time you will defer
+the doorbell to the interrupt handler.
 
-Tom
+Let's say we put 1 packet in, and hit the doorbell.
 
-> happy benchmarking,
->
-> rick jones
+Then another packet comes in and we defer the doorbell to the IRQ.
+
+At this point there are a couple things I'm unclear about.
+
+For example, if we didn't hit the doorbell, will the chip still take a
+peek at the second descriptor?  Depending upon how the doorbell works
+it might, or it might not.
+
+Either way, wouldn't there be a possible condition where the chip
+wouldn't see the second enqueued packet and we'd thus have the wire
+idle until the interrupt + NAPI runs and hits the doorbell?
+
+This is why I think we should "ramp up" the doorbell deferral, in
+order to avoid this potential wire idle time situation.
+
+Maybe the situation I'm worried about is not possible, so please
+explain it to me :-)
