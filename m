@@ -1,50 +1,50 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [patch net-next v3 11/12] mlxsw: spectrum_router: Request a dump
- of FIB tables during init
-Date: Thu, 1 Dec 2016 22:54:57 +0200
-Message-ID: <20161201205457.xf5evjphjj6mytkf@splinter>
-References: <1480500546-2544-12-git-send-email-jiri@resnulli.us>
- <eb7ddecd-d6b4-dfce-5990-9e933227c862@stressinduktion.org>
- <20161130163229.rkxvuwukgg35ktrx@splinter.mtl.com>
- <20161201.150445.558407356269727869.davem@davemloft.net>
- <d70996c1-be4e-136b-6325-1a8c152e44ce@stressinduktion.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] net: renesas: ravb: unintialized return value
+Date: Thu, 1 Dec 2016 23:57:44 +0300
+Message-ID: <20161201205744.GB10701@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
-        netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kaber@trash.net
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        Wolfram Sang <wsa+renesas@sang-engineering.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Niklas =?iso-8859-1?Q?S=F6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Johan Hovold <johan@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:43144 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750775AbcLAUzY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:55:24 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:20564 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753335AbcLAU6c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:58:32 -0500
 Content-Disposition: inline
-In-Reply-To: <d70996c1-be4e-136b-6325-1a8c152e44ce@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2016 at 09:40:48PM +0100, Hannes Frederic Sowa wrote:
-> On 01.12.2016 21:04, David Miller wrote:
-> > 
-> > Hannes and Ido,
-> > 
-> > It looks like we are very close to having this in mergable shape, can
-> > you guys work out this final issue and figure out if it really is
-> > a merge stopped or not?
-> 
-> Sure, if the fib notification register could be done under protection of
-> the sequence counter I don't see any more problems.
+We want to set the other "err" variable here so that we can return it
+later.  My version of GCC misses this issue but I caught it with a
+static checker.
 
-Did you maybe miss my reply yesterday? Because I was trying to
-understand what "ordering" you're referring to, but didn't receive a
-reply from you.
+Fixes: 9f70eb339f52 ("net: ethernet: renesas: ravb: fix fixed-link phydev leaks")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Applies to the net tree for 4.10.
 
-> The sync handler is nice to have and can be done in a later patch series.
-
-Sync handler?
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 2c0357c..92d7692 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1016,8 +1016,6 @@ static int ravb_phy_init(struct net_device *ndev)
+ 	 * at this time.
+ 	 */
+ 	if (priv->chip_id == RCAR_GEN3) {
+-		int err;
+-
+ 		err = phy_set_max_speed(phydev, SPEED_100);
+ 		if (err) {
+ 			netdev_err(ndev, "failed to limit PHY to 100Mbit/s\n");
