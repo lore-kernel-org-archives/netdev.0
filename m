@@ -1,112 +1,86 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 18/39] Annotate hardware config module parameters in
- drivers/net/can/
-Date: Thu, 1 Dec 2016 14:05:14 +0100
-Message-ID: <b8f03afb-05b4-c710-c948-948cefc12c80@pengutronix.de>
-References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
- <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2] tun: Use netif_receive_skb instead of netif_rx
+Date: Thu, 1 Dec 2016 15:05:24 +0200
+Message-ID: <20161201150437-mutt-send-email-mst@kernel.org>
+References: <1480584880-48651-1-git-send-email-andreyknvl@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="xwX8KKmvaVXvGewfsnJXe6XWTdWRdGWhJ"
-Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
-        netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
-        Wolfgang Grandegger <wg@grandegger.com>
-To: David Howells <dhowells@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S . Miller" <davem@davemloft.net>,
+        Jason Wang <jasowang@redhat.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Peter Klausler <pmk@google.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Markus Elfring <elfring@users.sourceforge.net>,
+        Mike Rapoport <rppt@linux.vnet.ibm.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>, syzkaller@googlegroups.com
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1480584880-48651-1-git-send-email-andreyknvl@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---xwX8KKmvaVXvGewfsnJXe6XWTdWRdGWhJ
-Content-Type: multipart/mixed; boundary="pibw3MjHPXDFfDuEcqVPLluMWuU8NI0l0";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: David Howells <dhowells@redhat.com>, linux-kernel@vger.kernel.org
-Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org, netdev@vger.kernel.org,
- linux-can@vger.kernel.org, linux-security-module@vger.kernel.org,
- keyrings@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>
-Message-ID: <b8f03afb-05b4-c710-c948-948cefc12c80@pengutronix.de>
-Subject: Re: [PATCH 18/39] Annotate hardware config module parameters in
- drivers/net/can/
-References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
- <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
-In-Reply-To: <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
+On Thu, Dec 01, 2016 at 10:34:40AM +0100, Andrey Konovalov wrote:
+> This patch changes tun.c to call netif_receive_skb instead of netif_rx
+> when a packet is received (if CONFIG_4KSTACKS is not enabled to avoid
+> stack exhaustion). The difference between the two is that netif_rx queues
+> the packet into the backlog, and netif_receive_skb proccesses the packet
+> in the current context.
+> 
+> This patch is required for syzkaller [1] to collect coverage from packet
+> receive paths, when a packet being received through tun (syzkaller collects
+> coverage per process in the process context).
+> 
+> As mentioned by Eric this change also speeds up tun/tap. As measured by
+> Peter it speeds up his closed-loop single-stream tap/OVS benchmark by
+> about 23%, from 700k packets/second to 867k packets/second.
+> 
+> A similar patch was introduced back in 2010 [2, 3], but the author found
+> out that the patch doesn't help with the task he had in mind (for cgroups
+> to shape network traffic based on the original process) and decided not to
+> go further with it. The main concern back then was about possible stack
+> exhaustion with 4K stacks.
+> 
+> [1] https://github.com/google/syzkaller
+> 
+> [2] https://www.spinics.net/lists/netdev/thrd440.html#130570
+> 
+> [3] https://www.spinics.net/lists/netdev/msg130570.html
+> 
+> Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
 
---pibw3MjHPXDFfDuEcqVPLluMWuU8NI0l0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-On 12/01/2016 01:32 PM, David Howells wrote:
-> When the kernel is running in secure boot mode, we lock down the kernel=
- to
-> prevent userspace from modifying the running kernel image.  Whilst this=
-
-> includes prohibiting access to things like /dev/mem, it must also preve=
-nt
-> access by means of configuring driver modules in such a way as to cause=
- a
-> device to access or modify the kernel image.
->=20
-> To this end, annotate module_param* statements that refer to hardware
-> configuration and indicate for future reference what type of parameter =
-they
-> specify.  The parameter parser in the core sees this information and ca=
-n
-> skip such parameters with an error message if the kernel is locked down=
-=2E
-> The module initialisation then runs as normal, but just sees whatever t=
-he
-> default values for those parameters is.
->=20
-> Note that we do still need to do the module initialisation because some=
-
-> drivers have viable defaults set in case parameters aren't specified an=
-d
-> some drivers support automatic configuration (e.g. PNP or PCI) in addit=
-ion
-> to manually coded parameters.
->=20
-> This patch annotates drivers in drivers/net/can/.
->=20
-> Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-> Signed-off-by: David Howells <dhowells@redhat.com>
-> cc: Wolfgang Grandegger <wg@grandegger.com>
-> cc: Marc Kleine-Budde <mkl@pengutronix.de>
-> cc: linux-can@vger.kernel.org
-> cc: netdev@vger.kernel.org
-
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
-
-regards,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---pibw3MjHPXDFfDuEcqVPLluMWuU8NI0l0--
-
---xwX8KKmvaVXvGewfsnJXe6XWTdWRdGWhJ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlhAIAoACgkQPTuqJayp
-JWp1IAgAkADs01rvguaxMOp7okZBrkV5PWieww+Pc0u8sYWav9tPsPOnxnBbiQtE
-mznY8OW4pRfa8BHpjyltUtgTShn05ThtwU/E09g8EU4TaIghX146DwjKxbrbUlTR
-g6etsM6kV+UzF07AD22PzcMKGGj3gP6Ppgec7AJEdW4eY18CH8TJL5/5xf1hUjRN
-b0OKbhOdVLKw62JOaJ9dJ8eTRqv78EIpPYQQ6Il1ztGv1rY023zoz4LFam7be3vI
-46U46sW7FHhIuy4RhTwa7WsAON073+etnIYBtAsaHCXM+GKFiGlcyaGsLGuQoV7r
-1eFTh9mb0GQ7xObbESgIoBdqqsXDBQ==
-=3XdM
------END PGP SIGNATURE-----
-
---xwX8KKmvaVXvGewfsnJXe6XWTdWRdGWhJ--
+> ---
+> 
+> Changes since v1:
+> - incorporate Eric's note about speed improvements in commit description
+> - use netif_receive_skb CONFIG_4KSTACKS is not enabled
+> 
+>  drivers/net/tun.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 8093e39..d310b13 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1304,7 +1304,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  	skb_probe_transport_header(skb, 0);
+>  
+>  	rxhash = skb_get_hash(skb);
+> +#ifndef CONFIG_4KSTACKS
+> +	local_bh_disable();
+> +	netif_receive_skb(skb);
+> +	local_bh_enable();
+> +#else
+>  	netif_rx_ni(skb);
+> +#endif
+>  
+>  	stats = get_cpu_ptr(tun->pcpu_stats);
+>  	u64_stats_update_begin(&stats->syncp);
+> -- 
+> 2.8.0.rc3.226.g39d4020
