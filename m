@@ -1,83 +1,99 @@
-From: Marcin Wojtas <mw@semihalf.com>
-Subject: Re: [PATCH v5 net-next 4/7] net: mvneta: Convert to be 64 bits compatible
-Date: Thu, 1 Dec 2016 13:33:52 +0100
-Message-ID: <CAPv3WKftV+=CmpG6oN_86UytV+VVa3ZdkEmOcxGqmGZOqUwxHg@mail.gmail.com>
-References: <cover.0270f6d2413a709521fe2c8c17fbebea6f2e78d1.1480542157.git-series.gregory.clement@free-electrons.com>
- <6b4d20a85b05e93d254e265eb07569dd1285d303.1480542157.git-series.gregory.clement@free-electrons.com>
- <20161201192604.07ed9516@xhacker> <CAPv3WKeJBL7_V_7QPVNDAd9H4bgeLcSF8enuD96sgEmecuRkRA@mail.gmail.com>
- <20161201200205.46dec339@xhacker> <20161201201648.6a50b442@xhacker>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Regression: [PATCH] mlx4: give precise rx/tx bytes/packets
+ counters
+Date: Thu, 1 Dec 2016 13:37:06 +0100
+Message-ID: <20161201133706.316428e9@redhat.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20161130150839.5203ece0@redhat.com>
+        <1480521514.18162.191.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com>
+        <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CALzJLG_aT1O1ergGRu8Z0u4nszKYao5RbPfb=1USptwFY1d7PQ@mail.gmail.com>
+        <1480539652.18162.205.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Dmitri Epshtein <dima@marvell.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Yelena Krivosheev <yelena@marvell.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jisheng Zhang <jszhang@marvell.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:36768 "EHLO
-        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933668AbcLAMdx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 07:33:53 -0500
-Received: by mail-io0-f178.google.com with SMTP id m5so281860299ioe.3
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 04:33:53 -0800 (PST)
-In-Reply-To: <20161201201648.6a50b442@xhacker>
+Received: from mx1.redhat.com ([209.132.183.28]:42872 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757155AbcLAMhK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 1 Dec 2016 07:37:10 -0500
+In-Reply-To: <1480539652.18162.205.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jisheng,
 
-2016-12-01 13:16 GMT+01:00 Jisheng Zhang <jszhang@marvell.com>:
-> On Thu, 1 Dec 2016 20:02:05 +0800 Jisheng Zhang wrote:
->
->> Hi Marcin,
->>
->> On Thu, 1 Dec 2016 12:48:39 +0100 Marcin Wojtas wrote:
->>
->> > Hi Jisheng,
->> >
->> > Which baseline do you use?
->> >
->> > It took me really lot of time to catch why RX broke after rebase from
->> > LKv4.1 to LKv4.4. Between those two, in commit:
->> > 97303480753e ("arm64: Increase the max granular size")
->> > L1_CACHE_BYTES for all ARMv8 platforms was increased to 128B and so
->> > did NET_SKB_PAD.
->> >
->> > And 128 is more than the maximum that can fit into packet offset
->> > [11:8]@0x1400. In such case this correction is needed. Did it answer
->> > your doubts?
->>
->> That's key! Thanks a lot. In my repo, we don't have commit 97303480753e
->> ("arm64: Increase the max granular size")
->>
->> I think it would be great if this information can be added into the commit
->> msg.
->>
->> IIRC, arm64 maintainers considered to let L1_CACHE_BYTES the _minimum_ of
->> cache line sizes of arm64. If that's implemented and merged, then we can
->
-> I just searched and found the email.
->
-> "We may have to revisit this logic and consider L1_CACHE_BYTES the
-> _minimum_ of cache line sizes in arm64 systems supported by the kernel.
-> Do you have any benchmarks on Cavium boards that would show significant
-> degradation with 64-byte L1_CACHE_BYTES vs 128?"
->
-> https://patchwork.kernel.org/patch/8634481/
->
->
+On Wed, 30 Nov 2016 13:00:52 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Thank you for the information. I debugged it before the discussion. In
-future we would be able to revert it, however afair packet offset may
-be needed by A3700 Buffer Management.
+> On Wed, 2016-11-30 at 22:42 +0200, Saeed Mahameed wrote:
+> > On Wed, Nov 30, 2016 at 7:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:  
+> > > On Wed, 2016-11-30 at 18:46 +0200, Saeed Mahameed wrote:
+[...]
+> > >
+> > > I am suggesting I will fix the bug I introduced.
+> > >
+> > > Do not panic.
+> > >
+> > >  
+> > 
+> > Not at all, I trust you are the only one who is capable of providing
+> > the best solution.
+> > I am just trying to read your mind :-).
+> > 
+> > As i said i like the solution and i want to adapt it to mlx5, so I am
+> > a little bit enthusiastic :)  
+> 
+> What about the following fix guys ?
 
+Confirming this fixed the crash on shutdown for me, thanks!
+
+ 
+> As a bonus we update the stats right before they are sent to monitors
+> via rtnetlink ;)
+> 
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 12ea3405f442717478bf0e8882edaf0de77986cb..091b904262bc7932d3edf99cf850affb23b9ce6e 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -1809,8 +1809,12 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
+>  
+>  	netif_tx_disable(dev);
+>  
+> +	spin_lock_bh(&priv->stats_lock);
+> +	mlx4_en_fold_software_stats(dev);
+>  	/* Set port as not active */
+>  	priv->port_up = false;
+> +	spin_unlock_bh(&priv->stats_lock);
+> +
+>  	priv->counter_index = MLX4_SINK_COUNTER_INDEX(mdev->dev);
+>  
+>  	/* Promsicuous mode */
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+> index c6c4f1238923e09eced547454b86c68720292859..9166d90e732858610b1407fe85cbf6cbe27f5e0b 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+> @@ -154,7 +154,7 @@ void mlx4_en_fold_software_stats(struct net_device *dev)
+>  	unsigned long packets, bytes;
+>  	int i;
+>  
+> -	if (mlx4_is_master(mdev->dev))
+> +	if (!priv->port_up || mlx4_is_master(mdev->dev))
+>  		return;
+>  
+>  	packets = 0;
+> 
+> 
+
+
+
+-- 
 Best regards,
-Marcin
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
