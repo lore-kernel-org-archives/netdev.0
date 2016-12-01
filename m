@@ -1,121 +1,112 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V2 2/8] net/sched: cls_flower: Try to offload only if skip_hw flag isn't set
-Date: Thu,  1 Dec 2016 14:06:34 +0200
-Message-ID: <1480594000-8428-3-git-send-email-hadarh@mellanox.com>
-References: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45346 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1758771AbcLANCb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 08:02:31 -0500
-In-Reply-To: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 18/39] Annotate hardware config module parameters in
+ drivers/net/can/
+Date: Thu, 1 Dec 2016 14:05:14 +0100
+Message-ID: <b8f03afb-05b4-c710-c948-948cefc12c80@pengutronix.de>
+References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
+ <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="xwX8KKmvaVXvGewfsnJXe6XWTdWRdGWhJ"
+Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
+        netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
+        Wolfgang Grandegger <wg@grandegger.com>
+To: David Howells <dhowells@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Check skip_hw flag isn't set before calling
-fl_hw_{replace/destroy}_filter and fl_hw_update_stats functions.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--xwX8KKmvaVXvGewfsnJXe6XWTdWRdGWhJ
+Content-Type: multipart/mixed; boundary="pibw3MjHPXDFfDuEcqVPLluMWuU8NI0l0";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: David Howells <dhowells@redhat.com>, linux-kernel@vger.kernel.org
+Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org, netdev@vger.kernel.org,
+ linux-can@vger.kernel.org, linux-security-module@vger.kernel.org,
+ keyrings@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>
+Message-ID: <b8f03afb-05b4-c710-c948-948cefc12c80@pengutronix.de>
+Subject: Re: [PATCH 18/39] Annotate hardware config module parameters in
+ drivers/net/can/
+References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
+ <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
+In-Reply-To: <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
 
-Replace the call to tc_should_offload with tc_can_offload.
-tc_can_offload only checks if the device supports offloading, the check for
-skip_hw flag is done earlier in the flow.
+--pibw3MjHPXDFfDuEcqVPLluMWuU8NI0l0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_flower.c | 35 ++++++++++++++++++++---------------
- 1 file changed, 20 insertions(+), 15 deletions(-)
+On 12/01/2016 01:32 PM, David Howells wrote:
+> When the kernel is running in secure boot mode, we lock down the kernel=
+ to
+> prevent userspace from modifying the running kernel image.  Whilst this=
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index e8dd09a..5e70f65 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -207,7 +207,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, unsigned long cookie)
- 	struct tc_cls_flower_offload offload = {0};
- 	struct tc_to_netdev tc;
- 
--	if (!tc_should_offload(dev, tp, 0))
-+	if (!tc_can_offload(dev, tp))
- 		return;
- 
- 	offload.command = TC_CLSFLOWER_DESTROY;
-@@ -231,7 +231,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 	struct tc_to_netdev tc;
- 	int err;
- 
--	if (!tc_should_offload(dev, tp, flags))
-+	if (!tc_can_offload(dev, tp))
- 		return tc_skip_sw(flags) ? -EINVAL : 0;
- 
- 	offload.command = TC_CLSFLOWER_REPLACE;
-@@ -259,7 +259,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	struct tc_cls_flower_offload offload = {0};
- 	struct tc_to_netdev tc;
- 
--	if (!tc_should_offload(dev, tp, 0))
-+	if (!tc_can_offload(dev, tp))
- 		return;
- 
- 	offload.command = TC_CLSFLOWER_STATS;
-@@ -275,7 +275,8 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
- 	list_del_rcu(&f->list);
--	fl_hw_destroy_filter(tp, (unsigned long)f);
-+	if (!tc_skip_hw(f->flags))
-+		fl_hw_destroy_filter(tp, (unsigned long)f);
- 	tcf_unbind_filter(tp, &f->res);
- 	call_rcu(&f->rcu, fl_destroy_filter);
- }
-@@ -743,20 +744,23 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 			goto errout;
- 	}
- 
--	err = fl_hw_replace_filter(tp,
--				   &head->dissector,
--				   &mask.key,
--				   &fnew->key,
--				   &fnew->exts,
--				   (unsigned long)fnew,
--				   fnew->flags);
--	if (err)
--		goto errout;
-+	if (!tc_skip_hw(fnew->flags)) {
-+		err = fl_hw_replace_filter(tp,
-+					   &head->dissector,
-+					   &mask.key,
-+					   &fnew->key,
-+					   &fnew->exts,
-+					   (unsigned long)fnew,
-+					   fnew->flags);
-+		if (err)
-+			goto errout;
-+	}
- 
- 	if (fold) {
- 		rhashtable_remove_fast(&head->ht, &fold->ht_node,
- 				       head->ht_params);
--		fl_hw_destroy_filter(tp, (unsigned long)fold);
-+		if (!tc_skip_hw(fold->flags))
-+			fl_hw_destroy_filter(tp, (unsigned long)fold);
- 	}
- 
- 	*arg = (unsigned long) fnew;
-@@ -879,7 +883,8 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 			goto nla_put_failure;
- 	}
- 
--	fl_hw_update_stats(tp, f);
-+	if (!tc_skip_hw(f->flags))
-+		fl_hw_update_stats(tp, f);
- 
- 	if (fl_dump_key_val(skb, key->eth.dst, TCA_FLOWER_KEY_ETH_DST,
- 			    mask->eth.dst, TCA_FLOWER_KEY_ETH_DST_MASK,
--- 
-1.8.3.1
+> includes prohibiting access to things like /dev/mem, it must also preve=
+nt
+> access by means of configuring driver modules in such a way as to cause=
+ a
+> device to access or modify the kernel image.
+>=20
+> To this end, annotate module_param* statements that refer to hardware
+> configuration and indicate for future reference what type of parameter =
+they
+> specify.  The parameter parser in the core sees this information and ca=
+n
+> skip such parameters with an error message if the kernel is locked down=
+=2E
+> The module initialisation then runs as normal, but just sees whatever t=
+he
+> default values for those parameters is.
+>=20
+> Note that we do still need to do the module initialisation because some=
+
+> drivers have viable defaults set in case parameters aren't specified an=
+d
+> some drivers support automatic configuration (e.g. PNP or PCI) in addit=
+ion
+> to manually coded parameters.
+>=20
+> This patch annotates drivers in drivers/net/can/.
+>=20
+> Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+> Signed-off-by: David Howells <dhowells@redhat.com>
+> cc: Wolfgang Grandegger <wg@grandegger.com>
+> cc: Marc Kleine-Budde <mkl@pengutronix.de>
+> cc: linux-can@vger.kernel.org
+> cc: netdev@vger.kernel.org
+
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+
+regards,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--pibw3MjHPXDFfDuEcqVPLluMWuU8NI0l0--
+
+--xwX8KKmvaVXvGewfsnJXe6XWTdWRdGWhJ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlhAIAoACgkQPTuqJayp
+JWp1IAgAkADs01rvguaxMOp7okZBrkV5PWieww+Pc0u8sYWav9tPsPOnxnBbiQtE
+mznY8OW4pRfa8BHpjyltUtgTShn05ThtwU/E09g8EU4TaIghX146DwjKxbrbUlTR
+g6etsM6kV+UzF07AD22PzcMKGGj3gP6Ppgec7AJEdW4eY18CH8TJL5/5xf1hUjRN
+b0OKbhOdVLKw62JOaJ9dJ8eTRqv78EIpPYQQ6Il1ztGv1rY023zoz4LFam7be3vI
+46U46sW7FHhIuy4RhTwa7WsAON073+etnIYBtAsaHCXM+GKFiGlcyaGsLGuQoV7r
+1eFTh9mb0GQ7xObbESgIoBdqqsXDBQ==
+=3XdM
+-----END PGP SIGNATURE-----
+
+--xwX8KKmvaVXvGewfsnJXe6XWTdWRdGWhJ--
