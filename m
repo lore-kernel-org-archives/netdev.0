@@ -1,190 +1,287 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v7 net-next 1/6] bpf: Refactor cgroups code in prep for new type
-Date: Thu,  1 Dec 2016 08:48:03 -0800
-Message-ID: <1480610888-31082-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH v7 net-next 6/6] samples/bpf: add userspace example for prohibiting sockets
+Date: Thu,  1 Dec 2016 08:48:08 -0800
+Message-ID: <1480610888-31082-7-git-send-email-dsa@cumulusnetworks.com>
 References: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
         maheshb@google.com, tgraf@suug.ch,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:36562 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758458AbcLAQsQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 11:48:16 -0500
-Received: by mail-pg0-f42.google.com with SMTP id f188so96412861pgc.3
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 08:48:15 -0800 (PST)
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:32794 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760313AbcLAQsV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 11:48:21 -0500
+Received: by mail-pg0-f41.google.com with SMTP id 3so96814429pgd.0
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 08:48:21 -0800 (PST)
 In-Reply-To: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Code move and rename only; no functional change intended.
+Add examples preventing a process in a cgroup from opening a socket
+based family, protocol and type.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
-v7, v6, v5
-- no change
+v7
+- fix header file includes to use symbolic names in sock_flags_kern.c
 
-v4
-- dropped refactor of __cgroup_bpf_run_filter and renamed it
-  to __cgroup_bpf_run_filter_skb
+v6
+- new patch for version 6
 
-v3
-- dropped the rename
+ samples/bpf/Makefile            |  4 ++
+ samples/bpf/sock_flags_kern.c   | 44 ++++++++++++++++++++++
+ samples/bpf/test_cgrp2_sock2.c  | 66 +++++++++++++++++++++++++++++++++
+ samples/bpf/test_cgrp2_sock2.sh | 81 +++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 195 insertions(+)
+ create mode 100644 samples/bpf/sock_flags_kern.c
+ create mode 100644 samples/bpf/test_cgrp2_sock2.c
+ create mode 100755 samples/bpf/test_cgrp2_sock2.sh
 
-v2
-- fix bpf_prog_run_clear_cb to bpf_prog_run_save_cb as caught by Daniel
-
-- rename BPF_PROG_TYPE_CGROUP_SKB and its cg_skb functions to
-  BPF_PROG_TYPE_CGROUP and cgroup
-
- include/linux/bpf-cgroup.h | 46 +++++++++++++++++++++++-----------------------
- kernel/bpf/cgroup.c        | 10 +++++-----
- kernel/bpf/syscall.c       | 28 +++++++++++++++-------------
- 3 files changed, 43 insertions(+), 41 deletions(-)
-
-diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
-index 0cf1adfadd2d..af2ca8b432c0 100644
---- a/include/linux/bpf-cgroup.h
-+++ b/include/linux/bpf-cgroup.h
-@@ -36,31 +36,31 @@ void cgroup_bpf_update(struct cgroup *cgrp,
- 		       struct bpf_prog *prog,
- 		       enum bpf_attach_type type);
- 
--int __cgroup_bpf_run_filter(struct sock *sk,
--			    struct sk_buff *skb,
--			    enum bpf_attach_type type);
--
--/* Wrappers for __cgroup_bpf_run_filter() guarded by cgroup_bpf_enabled. */
--#define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk,skb)			\
--({									\
--	int __ret = 0;							\
--	if (cgroup_bpf_enabled)						\
--		__ret = __cgroup_bpf_run_filter(sk, skb,		\
--						BPF_CGROUP_INET_INGRESS); \
--									\
--	__ret;								\
-+int __cgroup_bpf_run_filter_skb(struct sock *sk,
-+				struct sk_buff *skb,
-+				enum bpf_attach_type type);
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index a335b218198e..8df12f9429dc 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -24,6 +24,7 @@ hostprogs-y += test_overhead
+ hostprogs-y += test_cgrp2_array_pin
+ hostprogs-y += test_cgrp2_attach
+ hostprogs-y += test_cgrp2_sock
++hostprogs-y += test_cgrp2_sock2
+ hostprogs-y += xdp1
+ hostprogs-y += xdp2
+ hostprogs-y += test_current_task_under_cgroup
+@@ -53,6 +54,7 @@ test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
+ test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
+ test_cgrp2_attach-objs := libbpf.o test_cgrp2_attach.o
+ test_cgrp2_sock-objs := libbpf.o test_cgrp2_sock.o
++test_cgrp2_sock2-objs := bpf_load.o libbpf.o test_cgrp2_sock2.o
+ xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
+ # reuse xdp1 source intentionally
+ xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
+@@ -73,6 +75,7 @@ always += tracex3_kern.o
+ always += tracex4_kern.o
+ always += tracex5_kern.o
+ always += tracex6_kern.o
++always += sock_flags_kern.o
+ always += test_probe_write_user_kern.o
+ always += trace_output_kern.o
+ always += tcbpf1_kern.o
+@@ -106,6 +109,7 @@ HOSTLOADLIBES_tracex3 += -lelf
+ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ HOSTLOADLIBES_tracex5 += -lelf
+ HOSTLOADLIBES_tracex6 += -lelf
++HOSTLOADLIBES_test_cgrp2_sock2 += -lelf
+ HOSTLOADLIBES_test_probe_write_user += -lelf
+ HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
+diff --git a/samples/bpf/sock_flags_kern.c b/samples/bpf/sock_flags_kern.c
+new file mode 100644
+index 000000000000..533dd11a6baa
+--- /dev/null
++++ b/samples/bpf/sock_flags_kern.c
+@@ -0,0 +1,44 @@
++#include <uapi/linux/bpf.h>
++#include <linux/socket.h>
++#include <linux/net.h>
++#include <uapi/linux/in.h>
++#include <uapi/linux/in6.h>
++#include "bpf_helpers.h"
 +
-+/* Wrappers for __cgroup_bpf_run_filter_skb() guarded by cgroup_bpf_enabled. */
-+#define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk, skb)			      \
-+({									      \
-+	int __ret = 0;							      \
-+	if (cgroup_bpf_enabled)						      \
-+		__ret = __cgroup_bpf_run_filter_skb(sk, skb,		      \
-+						    BPF_CGROUP_INET_INGRESS); \
-+									      \
-+	__ret;								      \
- })
- 
--#define BPF_CGROUP_RUN_PROG_INET_EGRESS(sk,skb)				\
--({									\
--	int __ret = 0;							\
--	if (cgroup_bpf_enabled && sk && sk == skb->sk) {		\
--		typeof(sk) __sk = sk_to_full_sk(sk);			\
--		if (sk_fullsock(__sk))					\
--			__ret = __cgroup_bpf_run_filter(__sk, skb,	\
--						BPF_CGROUP_INET_EGRESS); \
--	}								\
--	__ret;								\
-+#define BPF_CGROUP_RUN_PROG_INET_EGRESS(sk, skb)			       \
-+({									       \
-+	int __ret = 0;							       \
-+	if (cgroup_bpf_enabled && sk && sk == skb->sk) {		       \
-+		typeof(sk) __sk = sk_to_full_sk(sk);			       \
-+		if (sk_fullsock(__sk))					       \
-+			__ret = __cgroup_bpf_run_filter_skb(__sk, skb,	       \
-+						      BPF_CGROUP_INET_EGRESS); \
-+	}								       \
-+	__ret;								       \
- })
- 
- #else
-diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-index 8c784f8c67cd..8fe55ffd109d 100644
---- a/kernel/bpf/cgroup.c
-+++ b/kernel/bpf/cgroup.c
-@@ -118,7 +118,7 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
- }
- 
- /**
-- * __cgroup_bpf_run_filter() - Run a program for packet filtering
-+ * __cgroup_bpf_run_filter_skb() - Run a program for packet filtering
-  * @sk: The socken sending or receiving traffic
-  * @skb: The skb that is being sent or received
-  * @type: The type of program to be exectuted
-@@ -132,9 +132,9 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
-  * This function will return %-EPERM if any if an attached program was found
-  * and if it returned != 1 during execution. In all other cases, 0 is returned.
-  */
--int __cgroup_bpf_run_filter(struct sock *sk,
--			    struct sk_buff *skb,
--			    enum bpf_attach_type type)
-+int __cgroup_bpf_run_filter_skb(struct sock *sk,
-+				struct sk_buff *skb,
-+				enum bpf_attach_type type)
- {
- 	struct bpf_prog *prog;
- 	struct cgroup *cgrp;
-@@ -164,4 +164,4 @@ int __cgroup_bpf_run_filter(struct sock *sk,
- 
- 	return ret;
- }
--EXPORT_SYMBOL(__cgroup_bpf_run_filter);
-+EXPORT_SYMBOL(__cgroup_bpf_run_filter_skb);
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 4caa18e6860a..5518a6839ab1 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -856,6 +856,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
- {
- 	struct bpf_prog *prog;
- 	struct cgroup *cgrp;
-+	enum bpf_prog_type ptype;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
-@@ -866,25 +867,26 @@ static int bpf_prog_attach(const union bpf_attr *attr)
- 	switch (attr->attach_type) {
- 	case BPF_CGROUP_INET_INGRESS:
- 	case BPF_CGROUP_INET_EGRESS:
--		prog = bpf_prog_get_type(attr->attach_bpf_fd,
--					 BPF_PROG_TYPE_CGROUP_SKB);
--		if (IS_ERR(prog))
--			return PTR_ERR(prog);
--
--		cgrp = cgroup_get_from_fd(attr->target_fd);
--		if (IS_ERR(cgrp)) {
--			bpf_prog_put(prog);
--			return PTR_ERR(cgrp);
--		}
--
--		cgroup_bpf_update(cgrp, prog, attr->attach_type);
--		cgroup_put(cgrp);
-+		ptype = BPF_PROG_TYPE_CGROUP_SKB;
- 		break;
- 
- 	default:
- 		return -EINVAL;
- 	}
- 
-+	prog = bpf_prog_get_type(attr->attach_bpf_fd, ptype);
-+	if (IS_ERR(prog))
-+		return PTR_ERR(prog);
++SEC("cgroup/sock1")
++int bpf_prog1(struct bpf_sock *sk)
++{
++	char fmt[] = "socket: family %d type %d protocol %d\n";
 +
-+	cgrp = cgroup_get_from_fd(attr->target_fd);
-+	if (IS_ERR(cgrp)) {
-+		bpf_prog_put(prog);
-+		return PTR_ERR(cgrp);
++	bpf_trace_printk(fmt, sizeof(fmt), sk->family, sk->type, sk->protocol);
++
++	/* block PF_INET6, SOCK_RAW, IPPROTO_ICMPV6 sockets
++	 * ie., make ping6 fail
++	 */
++	if (sk->family == PF_INET6 &&
++	    sk->type == SOCK_RAW   &&
++	    sk->protocol == IPPROTO_ICMPV6)
++		return 0;
++
++	return 1;
++}
++
++SEC("cgroup/sock2")
++int bpf_prog2(struct bpf_sock *sk)
++{
++	char fmt[] = "socket: family %d type %d protocol %d\n";
++
++	bpf_trace_printk(fmt, sizeof(fmt), sk->family, sk->type, sk->protocol);
++
++	/* block PF_INET, SOCK_RAW, IPPROTO_ICMP sockets
++	 * ie., make ping fail
++	 */
++	if (sk->family == PF_INET &&
++	    sk->type == SOCK_RAW  &&
++	    sk->protocol == IPPROTO_ICMP)
++		return 0;
++
++	return 1;
++}
++
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/test_cgrp2_sock2.c b/samples/bpf/test_cgrp2_sock2.c
+new file mode 100644
+index 000000000000..455ef0d06e93
+--- /dev/null
++++ b/samples/bpf/test_cgrp2_sock2.c
+@@ -0,0 +1,66 @@
++/* eBPF example program:
++ *
++ * - Loads eBPF program
++ *
++ *   The eBPF program loads a filter from file and attaches the
++ *   program to a cgroup using BPF_PROG_ATTACH
++ */
++
++#define _GNU_SOURCE
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <stddef.h>
++#include <string.h>
++#include <unistd.h>
++#include <assert.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <net/if.h>
++#include <linux/bpf.h>
++
++#include "libbpf.h"
++#include "bpf_load.h"
++
++static int usage(const char *argv0)
++{
++	printf("Usage: %s cg-path filter-path [filter-id]\n", argv0);
++	return EXIT_FAILURE;
++}
++
++int main(int argc, char **argv)
++{
++	int cg_fd, ret, filter_id = 0;
++
++	if (argc < 3)
++		return usage(argv[0]);
++
++	cg_fd = open(argv[1], O_DIRECTORY | O_RDONLY);
++	if (cg_fd < 0) {
++		printf("Failed to open cgroup path: '%s'\n", strerror(errno));
++		return EXIT_FAILURE;
 +	}
 +
-+	cgroup_bpf_update(cgrp, prog, attr->attach_type);
-+	cgroup_put(cgrp);
++	if (load_bpf_file(argv[2]))
++		return EXIT_FAILURE;
 +
- 	return 0;
- }
- 
++	printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
++
++	if (argc > 3)
++		filter_id = atoi(argv[3]);
++
++	if (filter_id > prog_cnt) {
++		printf("Invalid program id; program not found in file\n");
++		return EXIT_FAILURE;
++	}
++
++	ret = bpf_prog_attach(prog_fd[filter_id], cg_fd,
++			      BPF_CGROUP_INET_SOCK_CREATE);
++	if (ret < 0) {
++		printf("Failed to attach prog to cgroup: '%s'\n",
++		       strerror(errno));
++		return EXIT_FAILURE;
++	}
++
++	return EXIT_SUCCESS;
++}
+diff --git a/samples/bpf/test_cgrp2_sock2.sh b/samples/bpf/test_cgrp2_sock2.sh
+new file mode 100755
+index 000000000000..891f12a0e26f
+--- /dev/null
++++ b/samples/bpf/test_cgrp2_sock2.sh
+@@ -0,0 +1,81 @@
++#!/bin/bash
++
++function config_device {
++	ip netns add at_ns0
++	ip link add veth0 type veth peer name veth0b
++	ip link set veth0b up
++	ip link set veth0 netns at_ns0
++	ip netns exec at_ns0 ip addr add 172.16.1.100/24 dev veth0
++	ip netns exec at_ns0 ip addr add 2401:db00::1/64 dev veth0 nodad
++	ip netns exec at_ns0 ip link set dev veth0 up
++	ip addr add 172.16.1.101/24 dev veth0b
++	ip addr add 2401:db00::2/64 dev veth0b nodad
++}
++
++function config_cgroup {
++	rm -rf /tmp/cgroupv2
++	mkdir -p /tmp/cgroupv2
++	mount -t cgroup2 none /tmp/cgroupv2
++	mkdir -p /tmp/cgroupv2/foo
++	echo $$ >> /tmp/cgroupv2/foo/cgroup.procs
++}
++
++
++function attach_bpf {
++	test_cgrp2_sock2 /tmp/cgroupv2/foo sock_flags_kern.o $1
++	[ $? -ne 0 ] && exit 1
++}
++
++function cleanup {
++	ip link del veth0b
++	ip netns delete at_ns0
++	umount /tmp/cgroupv2
++	rm -rf /tmp/cgroupv2
++}
++
++cleanup 2>/dev/null
++
++set -e
++config_device
++config_cgroup
++set +e
++
++#
++# Test 1 - fail ping6
++#
++attach_bpf 0
++ping -c1 -w1 172.16.1.100
++if [ $? -ne 0 ]; then
++	echo "ping failed when it should succeed"
++	cleanup
++	exit 1
++fi
++
++ping6 -c1 -w1 2401:db00::1
++if [ $? -eq 0 ]; then
++	echo "ping6 succeeded when it should not"
++	cleanup
++	exit 1
++fi
++
++#
++# Test 2 - fail ping
++#
++attach_bpf 1
++ping6 -c1 -w1 2401:db00::1
++if [ $? -ne 0 ]; then
++	echo "ping6 failed when it should succeed"
++	cleanup
++	exit 1
++fi
++
++ping -c1 -w1 172.16.1.100
++if [ $? -eq 0 ]; then
++	echo "ping succeeded when it should not"
++	cleanup
++	exit 1
++fi
++
++cleanup
++echo
++echo "*** PASS ***"
 -- 
 2.1.4
