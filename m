@@ -1,115 +1,85 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: [PATH net v2] cdc_ether: Fix handling connection notification
-Date: Thu,  1 Dec 2016 14:23:17 +0100
-Message-ID: <20161201132317.32324-1-kristian.evensen@gmail.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] can: rcar_canfd: Correct order of interrupt specifiers
+Date: Thu, 1 Dec 2016 14:24:33 +0100
+Message-ID: <81027038-8cf6-716b-c0a8-dc2343b93d70@pengutronix.de>
+References: <1479908686-14028-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-To: oliver@neukum.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="ILdBRDmh1GxT8KQ9N1ABKJ2M7ANNK1dVn"
+Cc: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>,
+        Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+        Ramesh Shanmugasundaram <ramesh.shanmugasundaram-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>,
+        Chris Paterson <chris.paterson2-zM6kxYcvzFBBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1479908686-14028-1-git-send-email-geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Commit bfe9b9d2df66 ("cdc_ether: Improve ZTE MF823/831/910 handling")
-introduced a work-around in usbnet_cdc_status() for devices that exported
-cdc carrier on twice on connect. Before the commit, this behavior caused
-the link state to be incorrect. It was assumed that all CDC Ethernet
-devices would either export this behavior, or send one off and then one on
-notification (which seems to be the default behavior).
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--ILdBRDmh1GxT8KQ9N1ABKJ2M7ANNK1dVn
+Content-Type: multipart/mixed; boundary="jIfpoabaDQFDq77gFrl9p8TCsUqDHRbVP";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>,
+ Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+ Ramesh Shanmugasundaram <ramesh.shanmugasundaram-kTT6dE0pTRh9uiUsa/gSgQ@public.gmane.org>,
+ Chris Paterson <chris.paterson2-zM6kxYcvzFBBDgjK7y7TUQ@public.gmane.org>
+Cc: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Message-ID: <81027038-8cf6-716b-c0a8-dc2343b93d70-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] can: rcar_canfd: Correct order of interrupt specifiers
+References: <1479908686-14028-1-git-send-email-geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
+In-Reply-To: <1479908686-14028-1-git-send-email-geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
 
-Unfortunately, it turns out multiple devices sends a connection
-notification multiple times per second (via an interrupt), even when
-connection state does not change. This has been observed with several
-different USB LAN dongles (at least), for example 13b1:0041 (Linksys).
-After bfe9b9d2df66, the link state has been set as down and then up for
-each notification. This has caused a flood of Netlink NEWLINK messages and
-syslog to be flooded with messages similar to:
+--jIfpoabaDQFDq77gFrl9p8TCsUqDHRbVP
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-cdc_ether 2-1:2.0 eth1: kevent 12 may have been dropped
+On 11/23/2016 02:44 PM, Geert Uytterhoeven wrote:
+> According to both DTS (example and actual files), and Linux driver code=
+,
+> the first interrupt specifier should be the Channel interrupt, while th=
+e
+> second interrupt specifier should be the Global interrupt.
+>=20
+> Signed-off-by: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
 
-This commit fixes the behavior by reverting usbnet_cdc_status() to how it
-was before bfe9b9d2df66. The work-around has been moved to a separate
-status-function which is only called when a known, affect device is
-detected.
+Added to can-next.
 
-v1->v2:
+Thanks,
+Marc
 
-* Do not open-code netif_carrier_ok() (thanks Henning Schild).
-* Call netif_carrier_off() instead of usb_link_change(). This prevents
-calling schedule_work() twice without giving the work queue a chance to be
-processed (thanks Bjørn Mork).
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-Fixes: bfe9b9d2df66 ("cdc_ether: Improve ZTE MF823/831/910 handling")
-Reported-by: Henning Schild <henning.schild@siemens.com>
-Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
----
- drivers/net/usb/cdc_ether.c | 38 +++++++++++++++++++++++++++++++-------
- 1 file changed, 31 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 45e5e43..fe7b288 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -388,12 +388,6 @@ void usbnet_cdc_status(struct usbnet *dev, struct urb *urb)
- 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
- 		netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
- 			  event->wValue ? "on" : "off");
--
--		/* Work-around for devices with broken off-notifications */
--		if (event->wValue &&
--		    !test_bit(__LINK_STATE_NOCARRIER, &dev->net->state))
--			usbnet_link_change(dev, 0, 0);
--
- 		usbnet_link_change(dev, !!event->wValue, 0);
- 		break;
- 	case USB_CDC_NOTIFY_SPEED_CHANGE:	/* tx/rx rates */
-@@ -466,6 +460,36 @@ static int usbnet_cdc_zte_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 	return 1;
- }
- 
-+/* Ensure correct link state
-+ *
-+ * Some devices (ZTE MF823/831/910) export two carrier on notifications when
-+ * connected. This causes the link state to be incorrect. Work around this by
-+ * always setting the state to off, then on.
-+ */
-+void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
-+{
-+	struct usb_cdc_notification *event;
-+
-+	if (urb->actual_length < sizeof(*event))
-+		return;
-+
-+	event = urb->transfer_buffer;
-+
-+	if (event->bNotificationType != USB_CDC_NOTIFY_NETWORK_CONNECTION) {
-+		usbnet_cdc_status(dev, urb);
-+		return;
-+	}
-+
-+	netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
-+		  event->wValue ? "on" : "off");
-+
-+	if (event->wValue &&
-+	    netif_carrier_ok(dev->net))
-+		netif_carrier_off(dev->net);
-+
-+	usbnet_link_change(dev, !!event->wValue, 0);
-+}
-+
- static const struct driver_info	cdc_info = {
- 	.description =	"CDC Ethernet Device",
- 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
-@@ -481,7 +505,7 @@ static const struct driver_info	zte_cdc_info = {
- 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
- 	.bind =		usbnet_cdc_zte_bind,
- 	.unbind =	usbnet_cdc_unbind,
--	.status =	usbnet_cdc_status,
-+	.status =	usbnet_cdc_zte_status,
- 	.set_rx_mode =	usbnet_cdc_update_filter,
- 	.manage_power =	usbnet_manage_power,
- 	.rx_fixup = usbnet_cdc_zte_rx_fixup,
--- 
-2.9.3
+--jIfpoabaDQFDq77gFrl9p8TCsUqDHRbVP--
+
+--ILdBRDmh1GxT8KQ9N1ABKJ2M7ANNK1dVn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlhAJJEACgkQPTuqJayp
+JWrYhAf8DV4nJQ7xTYC23sjccBNoEXGkESvlq6ZQw4/CT2bvPKFGniwL2ezkY1TK
+cwnK6IKavZtN0IgZS61e5ktX+ORniSP9Hq1h1swlnqlNb5BgmQc059v/rNPkzCdh
+YClEScIHtVoC399/cAa1xX51GGAlt7sm5Z4UoRBj7/iruBzYFKIjGZ2OfMXmhoTE
+kFS+uGfsPseqIwaQ1+fPyflAcYm+ahJlhh4c5Gpni5HLcSM5ZmLtXEQskmvuEi2D
+rRQs5vMUOrZLHv74gcqOAYhsBrGvv+6P56rmW1ui9wbDeO4GqQ04Vi78VjilD6ov
+svniJeMlNCQWoLYPl67fbgBexpOftQ==
+=iPGA
+-----END PGP SIGNATURE-----
+
+--ILdBRDmh1GxT8KQ9N1ABKJ2M7ANNK1dVn--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
