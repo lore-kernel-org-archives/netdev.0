@@ -1,74 +1,124 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) Bus driver
-Date: Wed, 30 Nov 2016 23:41:36 -0800
-Message-ID: <20161201074136.GB110434@knc-06.sc.intel.com>
-References: <20161121232629.GA67988@knc-06.sc.intel.com>
- <20161121233118.GA31132@obsidianresearch.com>
- <20161122015304.GB67988@knc-06.sc.intel.com>
- <20161122170407.GE3956@obsidianresearch.com>
- <20161123000502.GA27968@phlsvsds.ph.intel.com>
- <20161123004932.GA13598@obsidianresearch.com>
- <20161124000825.GA73280@knc-06.sc.intel.com>
- <20161124161545.GA20818@obsidianresearch.com>
- <20161129062938.GA84990@knc-06.sc.intel.com>
- <20161129162113.GC742@obsidianresearch.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 1 Dec 2016 08:56:20 +0100
+Message-ID: <20161201075620.GA1858@nanopsycho.orion>
+References: <20161201124159.79f2e4f9@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161129162113.GC742-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20161201124159.79f2e4f9@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2016 at 09:21:13AM -0700, Jason Gunthorpe wrote:
->On Mon, Nov 28, 2016 at 10:29:38PM -0800, Vishwanathapura, Niranjana wrote:
->> On Thu, Nov 24, 2016 at 09:15:45AM -0700, Jason Gunthorpe wrote:
->> >>And will move the hfi_vnic module under
->> >>???drivers/infiniband/ulp/hfi_vnic???.
->> >
->> >I would prefer drivers/net/ethernet
->> >
->> >This is clearly not a ULP since it doesn't use verbs.
->> >
->>
->> I understand it is not using verbs, but the control path (ib_device client)
->> is using verbs (IB MAD).
->> Our prefernce is to keep it somewhere under drivers/infiniband. Summarizing
->> reasons again here,
->>
->> - VNIC control driver (ib_device client) is an IB MAD agent.
->> - It is purly a software construct, encapsualtes ethernet packets in
->> Omni-path packet and depends on hfi1 driver here for HW access.
+Thu, Dec 01, 2016 at 02:41:59AM CET, sfr@canb.auug.org.au wrote:
+>Hi all,
 >
->Is the majority of the code MAD focused or net stack focused?
+>Today's linux-next merge of the net-next tree got a conflict in:
 >
->I'm not sure it matters, it isn't like we can review Intel's
->proprietary mad stuff anyhow. :\
+>  net/sched/cls_flower.c
 >
->Jason
+>between commit:
+>
+>  725cbb62e7ad ("sched: cls_flower: remove from hashtable only in case skip sw flag is not set")
+>
+>from the net tree and commit:
+>
+>  13fa876ebd03 ("net/sched: cls_flower: merge filter delete/destroy common code")
+>
+>from the net-next tree.
+>
+>I fixed it up (see below) and can carry the fix as necessary. This
+>is now fixed as far as linux-next is concerned, but any non trivial
+>conflicts should be mentioned to your upstream maintainer when your tree
+>is submitted for merging.  You may also want to consider cooperating
+>with the maintainer of the conflicting tree to minimise any particularly
+>complex conflicts.
 
-That is an intersting measure. In hfi_vnic driver, I would say, >60% of the 
-code is MAD focused, mainly interfacing with the IB MAD agent.
-It also includes populating/parsing those MAD packets. At the least it is not 
-supporting the driver to be put under net folder.
+Looks fine to me. Thanks.
 
-Even in the remaining <40%, half of it is involved with encapsulating ethernet 
-frames with Omni-path header (does this makes it belong under 
-drivers/infiniband/hw?).
-The net stack interface part is pretty standard, hence is not much of code.
-
-I do see the reason to put it under net folder, but I am seeing more reason for 
-it to be somewhere under drivers/infiniband.
-
-Niranjana
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>-- 
+>Cheers,
+>Stephen Rothwell
+>
+>diff --cc net/sched/cls_flower.c
+>index 904442421db3,e8dd09af0d0c..000000000000
+>--- a/net/sched/cls_flower.c
+>+++ b/net/sched/cls_flower.c
+>@@@ -273,24 -272,14 +276,32 @@@ static void fl_hw_update_stats(struct t
+>  	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
+>  }
+>  
+> +static void fl_destroy_sleepable(struct work_struct *work)
+> +{
+> +	struct cls_fl_head *head = container_of(work, struct cls_fl_head,
+> +						work);
+> +	if (head->mask_assigned)
+> +		rhashtable_destroy(&head->ht);
+> +	kfree(head);
+> +	module_put(THIS_MODULE);
+> +}
+> +
+> +static void fl_destroy_rcu(struct rcu_head *rcu)
+> +{
+> +	struct cls_fl_head *head = container_of(rcu, struct cls_fl_head, rcu);
+> +
+> +	INIT_WORK(&head->work, fl_destroy_sleepable);
+> +	schedule_work(&head->work);
+> +}
+> +
+>+ static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
+>+ {
+>+ 	list_del_rcu(&f->list);
+>+ 	fl_hw_destroy_filter(tp, (unsigned long)f);
+>+ 	tcf_unbind_filter(tp, &f->res);
+>+ 	call_rcu(&f->rcu, fl_destroy_filter);
+>+ }
+>+ 
+>  static bool fl_destroy(struct tcf_proto *tp, bool force)
+>  {
+>  	struct cls_fl_head *head = rtnl_dereference(tp->root);
+>@@@ -299,14 -288,12 +310,11 @@@
+>  	if (!force && !list_empty(&head->filters))
+>  		return false;
+>  
+>- 	list_for_each_entry_safe(f, next, &head->filters, list) {
+>- 		fl_hw_destroy_filter(tp, (unsigned long)f);
+>- 		list_del_rcu(&f->list);
+>- 		call_rcu(&f->rcu, fl_destroy_filter);
+>- 	}
+>+ 	list_for_each_entry_safe(f, next, &head->filters, list)
+>+ 		__fl_delete(tp, f);
+> -	RCU_INIT_POINTER(tp->root, NULL);
+> -	if (head->mask_assigned)
+> -		rhashtable_destroy(&head->ht);
+> -	kfree_rcu(head, rcu);
+> +
+> +	__module_get(THIS_MODULE);
+> +	call_rcu(&head->rcu, fl_destroy_rcu);
+>  	return true;
+>  }
+>  
+>@@@ -761,13 -782,9 +804,10 @@@ static int fl_delete(struct tcf_proto *
+>  	struct cls_fl_head *head = rtnl_dereference(tp->root);
+>  	struct cls_fl_filter *f = (struct cls_fl_filter *) arg;
+>  
+> -	rhashtable_remove_fast(&head->ht, &f->ht_node,
+> -			       head->ht_params);
+> +	if (!tc_skip_sw(f->flags))
+> +		rhashtable_remove_fast(&head->ht, &f->ht_node,
+> +				       head->ht_params);
+>- 	list_del_rcu(&f->list);
+>- 	fl_hw_destroy_filter(tp, (unsigned long)f);
+>- 	tcf_unbind_filter(tp, &f->res);
+>- 	call_rcu(&f->rcu, fl_destroy_filter);
+>+ 	__fl_delete(tp, f);
+>  	return 0;
+>  }
+>  
