@@ -1,8 +1,8 @@
-From: wangyunjian <wangyunjian@huawei.com>
-Subject: RE: [PATCH net] vhost_net: don't continue to call the recvmsg when
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] vhost_net: don't continue to call the recvmsg when
  meet errors
-Date: Thu, 1 Dec 2016 04:41:40 +0000
-Message-ID: <34EFBCA9F01B0748BEB6B629CE643AE60B0A7C38@szxeml561-mbx.china.huawei.com>
+Date: Thu, 1 Dec 2016 06:56:57 +0200
+Message-ID: <20161201065357-mutt-send-email-mst@kernel.org>
 References: <1480507857-22976-1-git-send-email-wangyunjian@huawei.com>
  <20161130152004-mutt-send-email-mst@kernel.org>
  <34EFBCA9F01B0748BEB6B629CE643AE60B0A7B68@szxeml561-mbx.china.huawei.com>
@@ -10,72 +10,112 @@ References: <1480507857-22976-1-git-send-email-wangyunjian@huawei.com>
  <ee70cb92-3fd9-4148-77ba-739af30b04b6@redhat.com>
  <20161201052657-mutt-send-email-mst@kernel.org>
  <936954dd-c8a5-c0f6-c3b0-84a9d67329f5@redhat.com>
+ <34EFBCA9F01B0748BEB6B629CE643AE60B0A7C38@szxeml561-mbx.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jason Wang <jasowang@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         caihe <caihe@huawei.com>
-To: Jason Wang <jasowang@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
+To: wangyunjian <wangyunjian@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <936954dd-c8a5-c0f6-c3b0-84a9d67329f5@redhat.com>
-Content-Language: zh-CN
+Content-Disposition: inline
+In-Reply-To: <34EFBCA9F01B0748BEB6B629CE643AE60B0A7C38@szxeml561-mbx.china.huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogSmFzb24gV2FuZyBbbWFpbHRvOmph
-c293YW5nQHJlZGhhdC5jb21dIA0KPlNlbnQ6IFRodXJzZGF5LCBEZWNlbWJlciAwMSwgMjAxNiAx
-MTozNyBBTQ0KPlRvOiBNaWNoYWVsIFMuIFRzaXJraW4NCj5DYzogd2FuZ3l1bmppYW47IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGNhaWhlDQo+
-U3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIHZob3N0X25ldDogZG9uJ3QgY29udGludWUgdG8gY2Fs
-bCB0aGUgcmVjdm1zZyB3aGVuIG1lZXQgZXJyb3JzDQo+DQo+DQo+DQo+T24gMjAxNuW5tDEy5pyI
-MDHml6UgMTE6MjcsIE1pY2hhZWwgUy4gVHNpcmtpbiB3cm90ZToNCj4+IE9uIFRodSwgRGVjIDAx
-LCAyMDE2IGF0IDExOjI2OjIxQU0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6DQo+Pj4gPg0KPj4+
-ID4NCj4+PiA+T24gMjAxNuW5tDEy5pyIMDHml6UgMTE6MjEsIE1pY2hhZWwgUy4gVHNpcmtpbiB3
-cm90ZToNCj4+Pj4gPiA+T24gVGh1LCBEZWMgMDEsIDIwMTYgYXQgMDI6NDg6NTlBTSArMDAwMCwg
-d2FuZ3l1bmppYW4gd3JvdGU6DQo+Pj4+Pj4gPiA+ID4gPi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
-LS0tDQo+Pj4+Pj4gPiA+ID4gPkZyb206IE1pY2hhZWwgUy4gVHNpcmtpbiBbbWFpbHRvOm1zdEBy
-ZWRoYXQuY29tXQ0KPj4+Pj4+ID4gPiA+ID5TZW50OiBXZWRuZXNkYXksIE5vdmVtYmVyIDMwLCAy
-MDE2IDk6NDEgUE0NCj4+Pj4+PiA+ID4gPiA+VG86IHdhbmd5dW5qaWFuDQo+Pj4+Pj4gPiA+ID4g
-PkNjOmphc293YW5nQHJlZGhhdC5jb207bmV0ZGV2QHZnZXIua2VybmVsLm9yZztsaW51eC1rZXJu
-ZWxADQo+Pj4+Pj4gPiA+ID4gPnZnZXIua2VybmVsLm9yZzsgY2FpaGUNCj4+Pj4+PiA+ID4gPiA+
-U3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIHZob3N0X25ldDogZG9uJ3QgY29udGludWUgdG8gY2Fs
-bCANCj4+Pj4+PiA+ID4gPiA+dGhlIHJlY3Ztc2cgd2hlbiBtZWV0IGVycm9ycw0KPj4+Pj4+ID4g
-PiA+ID4NCj4+Pj4+PiA+ID4gPiA+T24gV2VkLCBOb3YgMzAsIDIwMTYgYXQgMDg6MTA6NTdQTSAr
-MDgwMCwgWXVuamlhbiBXYW5nIHdyb3RlOg0KPj4+Pj4+PiA+ID4gPiA+ID5XaGVuIHdlIG1lZXQg
-YW4gZXJyb3IoZXJyPS1FQkFERkQpIHJlY3Ztc2csDQo+Pj4+Pj4gPiA+ID4gPkhvdyBkbyB5b3Ug
-Z2V0IEVCQURGRD8gV29uJ3Qgdmhvc3RfbmV0X3J4X3BlZWtfaGVhZF9sZW4gDQo+Pj4+Pj4gPiA+
-ID4gPnJldHVybiAwIGluIHRoaXMgY2FzZSwgYnJlYWtpbmcgdGhlIGxvb3A/DQo+Pj4+PiA+ID4g
-PldlIHN0YXJ0ZWQgbWFueSBndWVzdCBWTXMgd2hpbGUgYXR0YWNoaW5nL2RldGFjaGluZyBzb21l
-IHZpcnRpby1uZXQgbmljcyBmb3IgbG9vcC4NCj4+Pj4+ID4gPiA+VGhlIHNvZnQgbG9ja3VwIG1p
-Z2h0IGhhcHBlbmVkLiBUaGUgZXJyIGlzIC1FQkFERkQuDQo+Pj4+PiA+ID4gPg0KPj4+PiA+ID5P
-SywgSSdkIGxpa2UgdG8gZmlndXJlIG91dCB3aGF0IGhhcHBlbmVkIGhlcmUuIHdoeSBkb24ndCB3
-ZSBnZXQgMCANCj4+Pj4gPiA+d2hlbiB3ZSBwZWVrIGF0IHRoZSBoZWFkPw0KPj4+PiA+ID4NCj4+
-Pj4gPiA+RUJBREZEIGlzIGZyb20gaGVyZToNCj4+Pj4gPiA+ICAgICAgICAgIHN0cnVjdCB0dW5f
-c3RydWN0ICp0dW4gPSBfX3R1bl9nZXQodGZpbGUpOyAuLi4NCj4+Pj4gPiA+ICAgICAgICAgIGlm
-ICghdHVuKQ0KPj4+PiA+ID4gICAgICAgICAgICAgICAgICByZXR1cm4gLUVCQURGRDsNCj4+Pj4g
-PiA+DQo+Pj4+ID4gPmJ1dCB0aGVuOg0KPj4+PiA+ID5zdGF0aWMgaW50IHR1bl9wZWVrX2xlbihz
-dHJ1Y3Qgc29ja2V0ICpzb2NrKSB7DQo+Pj4+ID4gPg0KPj4+PiA+ID4uLi4NCj4+Pj4gPiA+DQo+
-Pj4+ID4gPiAgICAgICAgICBzdHJ1Y3QgdHVuX3N0cnVjdCAqdHVuOyAuLi4NCj4+Pj4gPiA+ICAg
-ICAgICAgIHR1biA9IF9fdHVuX2dldCh0ZmlsZSk7DQo+Pj4+ID4gPiAgICAgICAgICBpZiAoIXR1
-bikNCj4+Pj4gPiA+ICAgICAgICAgICAgICAgICAgcmV0dXJuIDA7DQo+Pj4+ID4gPg0KPj4+PiA+
-ID4NCj4+Pj4gPiA+c28gcGVlayBsZW4gc2hvdWxkIHJldHVybiAwLg0KPj4+PiA+ID4NCj4+Pj4g
-PiA+dGhlbiB3aGlsZSB3aWxsIGV4aXQ6DQo+Pj4+ID4gPiAgICAgICAgICB3aGlsZSAoKHNvY2tf
-bGVuID0gdmhvc3RfbmV0X3J4X3BlZWtfaGVhZF9sZW4obmV0LCANCj4+Pj4gPiA+c29jay0+c2sp
-KSkgLi4uDQo+Pj4+ID4gPg0KPj4+ID4NCj4+PiA+Q29uc2lkZXIgdGhpcyBjYXNlOiB1c2VyIGRv
-IGlwIGxpbmsgZGVsIGxpbmsgdGFwMCBiZWZvcmUgcmVjdm1zZygpIA0KPj4+ID5idXQgYWZ0ZXIN
-Cj4+PiA+dHVuX3BlZWtfbGVuKCkgPw0KPj4gU3VyZSwgdGhpcyBjYW4gaGFwcGVuLCBidXQgSSB0
-aGluayB3ZSdsbCBqdXN0IGV4aXQgb24gdGhlIG5leHQgbG9vcCwgDQo+PiB3b24ndCB3ZT8NCj4+
-DQo+DQo+UmlnaHQsIHRoaXMgaXMgdGhlIG9ubHkgY2FzZSBJIGNhbiBpbWFnZSBmb3IgLUVCQURG
-RCwgbGV0J3Mgd2FpdCBmb3IgdGhlIGF1dGhvciB0byB0aGUgc3RlcHMuDQo+DQoNClRoYW5rcywg
-SSB1bmRlcnN0YW5kIGl0IGRvbid0IGhhcHBlbiBpbiB0aGUgbGF0ZXN0IGtlcm5lbCB2ZXJzaW9u
-Lg0KTXkgcHJvYmxlbSBoYXBwZW5lZCB1c2luZyBrZXJuZWwgdmVyc2lvbiAzLjEwLjAteHgNCg0K
-VGhlIHBlZWsgbGVuIHdpbGxuJ3QgcmV0dXJuIDAuDQoNCnN0YXRpYyBpbnQgcGVla19oZWFkX2xl
-bihzdHJ1Y3Qgc29jayAqc2spDQp7DQoJc3RydWN0IHNrX2J1ZmYgKmhlYWQ7DQoJaW50IGxlbiA9
-IDA7DQoJdW5zaWduZWQgbG9uZyBmbGFnczsNCg0KCXNwaW5fbG9ja19pcnFzYXZlKCZzay0+c2tf
-cmVjZWl2ZV9xdWV1ZS5sb2NrLCBmbGFncyk7DQoJaGVhZCA9IHNrYl9wZWVrKCZzay0+c2tfcmVj
-ZWl2ZV9xdWV1ZSk7DQoJaWYgKGxpa2VseShoZWFkKSkgew0KCQlsZW4gPSBoZWFkLT5sZW47DQoJ
-CWlmIChza2Jfdmxhbl90YWdfcHJlc2VudChoZWFkKSkNCgkJCWxlbiArPSBWTEFOX0hMRU47DQoJ
-fQ0KDQoJc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSgmc2stPnNrX3JlY2VpdmVfcXVldWUubG9jaywg
-ZmxhZ3MpOw0KCXJldHVybiBsZW47DQp9DQo=
+On Thu, Dec 01, 2016 at 04:41:40AM +0000, wangyunjian wrote:
+> >-----Original Message-----
+> >From: Jason Wang [mailto:jasowang@redhat.com] 
+> >Sent: Thursday, December 01, 2016 11:37 AM
+> >To: Michael S. Tsirkin
+> >Cc: wangyunjian; netdev@vger.kernel.org; linux-kernel@vger.kernel.org; caihe
+> >Subject: Re: [PATCH net] vhost_net: don't continue to call the recvmsg when meet errors
+> >
+> >
+> >
+> >On 2016年12月01日 11:27, Michael S. Tsirkin wrote:
+> >> On Thu, Dec 01, 2016 at 11:26:21AM +0800, Jason Wang wrote:
+> >>> >
+> >>> >
+> >>> >On 2016年12月01日 11:21, Michael S. Tsirkin wrote:
+> >>>> > >On Thu, Dec 01, 2016 at 02:48:59AM +0000, wangyunjian wrote:
+> >>>>>> > > > >-----Original Message-----
+> >>>>>> > > > >From: Michael S. Tsirkin [mailto:mst@redhat.com]
+> >>>>>> > > > >Sent: Wednesday, November 30, 2016 9:41 PM
+> >>>>>> > > > >To: wangyunjian
+> >>>>>> > > > >Cc:jasowang@redhat.com;netdev@vger.kernel.org;linux-kernel@
+> >>>>>> > > > >vger.kernel.org; caihe
+> >>>>>> > > > >Subject: Re: [PATCH net] vhost_net: don't continue to call 
+> >>>>>> > > > >the recvmsg when meet errors
+> >>>>>> > > > >
+> >>>>>> > > > >On Wed, Nov 30, 2016 at 08:10:57PM +0800, Yunjian Wang wrote:
+> >>>>>>> > > > > >When we meet an error(err=-EBADFD) recvmsg,
+> >>>>>> > > > >How do you get EBADFD? Won't vhost_net_rx_peek_head_len 
+> >>>>>> > > > >return 0 in this case, breaking the loop?
+> >>>>> > > >We started many guest VMs while attaching/detaching some virtio-net nics for loop.
+> >>>>> > > >The soft lockup might happened. The err is -EBADFD.
+> >>>>> > > >
+> >>>> > >OK, I'd like to figure out what happened here. why don't we get 0 
+> >>>> > >when we peek at the head?
+> >>>> > >
+> >>>> > >EBADFD is from here:
+> >>>> > >          struct tun_struct *tun = __tun_get(tfile); ...
+> >>>> > >          if (!tun)
+> >>>> > >                  return -EBADFD;
+> >>>> > >
+> >>>> > >but then:
+> >>>> > >static int tun_peek_len(struct socket *sock) {
+> >>>> > >
+> >>>> > >...
+> >>>> > >
+> >>>> > >          struct tun_struct *tun; ...
+> >>>> > >          tun = __tun_get(tfile);
+> >>>> > >          if (!tun)
+> >>>> > >                  return 0;
+> >>>> > >
+> >>>> > >
+> >>>> > >so peek len should return 0.
+> >>>> > >
+> >>>> > >then while will exit:
+> >>>> > >          while ((sock_len = vhost_net_rx_peek_head_len(net, 
+> >>>> > >sock->sk))) ...
+> >>>> > >
+> >>> >
+> >>> >Consider this case: user do ip link del link tap0 before recvmsg() 
+> >>> >but after
+> >>> >tun_peek_len() ?
+> >> Sure, this can happen, but I think we'll just exit on the next loop, 
+> >> won't we?
+> >>
+> >
+> >Right, this is the only case I can image for -EBADFD, let's wait for the author to the steps.
+> >
+> 
+> Thanks, I understand it don't happen in the latest kernel version.
+> My problem happened using kernel version 3.10.0-xx
+> The peek len willn't return 0.
+> 
+> static int peek_head_len(struct sock *sk)
+> {
+> 	struct sk_buff *head;
+> 	int len = 0;
+> 	unsigned long flags;
+> 
+> 	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
+> 	head = skb_peek(&sk->sk_receive_queue);
+
+Should return NULL, should it not?
+Maybe sk_receive_queue was not purged on detach back then.
+
+
+> 	if (likely(head)) {
+> 		len = head->len;
+> 		if (skb_vlan_tag_present(head))
+> 			len += VLAN_HLEN;
+> 	}
+> 
+> 	spin_unlock_irqrestore(&sk->sk_receive_queue.lock, flags);
+> 	return len;
+> }
