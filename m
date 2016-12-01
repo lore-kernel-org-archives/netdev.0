@@ -1,71 +1,56 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH 04/18] ss: Use sockstat->type in all socket
- types
-Date: Thu, 1 Dec 2016 10:41:01 -0800
-Message-ID: <20161201104101.05566d92@xeon-e3>
-References: <20161111131014.21865-1-phil@nwl.cc>
-        <20161111131014.21865-5-phil@nwl.cc>
+Subject: Re: [PATCH iproute2 2/3] ifstat: Add extended statistics to ifstat
+Date: Thu, 1 Dec 2016 10:46:11 -0800
+Message-ID: <20161201104611.1e3a5b05@xeon-e3>
+References: <1479996760-61271-1-git-send-email-nogahf@mellanox.com>
+        <1479996760-61271-3-git-send-email-nogahf@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Cc: netdev@vger.kernel.org, eladr@mellanox.com, yotamg@mellanox.com,
+        jiri@mellanox.com, idosch@mellanox.com, ogerlitz@mellanox.com
+To: Nogah Frankel <nogahf@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35273 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756233AbcLASlQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 13:41:16 -0500
-Received: by mail-pf0-f182.google.com with SMTP id i88so47274515pfk.2
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 10:41:16 -0800 (PST)
-In-Reply-To: <20161111131014.21865-5-phil@nwl.cc>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34213 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932248AbcLASqO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 13:46:14 -0500
+Received: by mail-pf0-f179.google.com with SMTP id c4so47483133pfb.1
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 10:46:14 -0800 (PST)
+In-Reply-To: <1479996760-61271-3-git-send-email-nogahf@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Nov 2016 14:10:00 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+On Thu, 24 Nov 2016 16:12:39 +0200
+Nogah Frankel <nogahf@mellanox.com> wrote:
 
-> Unix sockets used that field already to hold info about the socket type.
-> By replicating this approach in all other socket types, we can get rid
-> of protocol parameter in inet_stats_print() and have sock_state_print()
-> figure things out by itself.
+> Add extended stats option for ifstat. It supports stats that are in the
+> nesting level as the "normal" stats or one lower, as long as they are in
+> the same struct type as the "normal" stats.
+> Every extension is unaware of data from other extension and is being
+> presented by itself.
+> The extension can be called by its name or any shorten of it. If there is
+> more then one matched, the first one will be picked.
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> To get the extended stats the flag -x <stats type> is used.
+> 
+> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 
-Cleaning out the patch backlog...
-This patch does not apply to current master branch, rejects are:
+Finally clearing up iproute2 patch backlog. This feature looks good,
+but does not apply cleanly to current git master branch.
 
---- misc/ss.c
-+++ misc/ss.c
-@@ -1719,27 +1768,11 @@ void *parse_markmask(const char *markmask)
- 	return res;
+--- misc/ifstat.c
++++ misc/ifstat.c
+@@ -733,7 +790,8 @@ static void usage(void)
+ "   -s, --noupdate	don\'t update history\n"
+ "   -t, --interval=SECS	report average over the last SECS\n"
+ "   -V, --version	output version information\n"
+-"   -z, --zeros		show entries with zero activity\n");
++"   -z, --zeros		show entries with zero activity\n"
++"   -x, --extended=TYPE	show extended stats of TYPE\n");
+ 
+ 	exit(-1);
  }
- 
--static char *proto_name(int protocol)
--{
--	switch (protocol) {
--	case 0:
--		return "raw";
--	case IPPROTO_UDP:
--		return "udp";
--	case IPPROTO_TCP:
--		return "tcp";
--	case IPPROTO_DCCP:
--		return "dccp";
--	}
--
--	return "???";
--}
--
--static void inet_stats_print(struct sockstat *s, int protocol)
-+static void inet_stats_print(struct sockstat *s)
- {
- 	char *buf = NULL;
- 
--	sock_state_print(s, proto_name(protocol));
-+	sock_state_print(s);
- 
- 	inet_addr_print(&s->local, s->lport, s->iface);
- 	inet_addr_print(&s->remote, s->rport, 0);
 
-
-Please fix and resubmit whole series.
+Please rebase your patches and resubmit.
