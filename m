@@ -1,41 +1,32 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the arm-soc tree
-Date: Thu, 1 Dec 2016 12:31:36 +1100
-Message-ID: <20161201123136.38d9876f@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 1 Dec 2016 12:36:12 +1100
+Message-ID: <20161201123612.43c88444@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Rob Rice <rrice@broadcom.com>, Florian Fainelli <f.fainelli@gmail.com>,
- linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
- Jon Mason <jon.mason@broadcom.com>
-To: David Miller <davem@davemloft.net>, Networking <netdev@vger.kernel.org>,
- Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>, ARM
- <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Cyrille Pitchen <cyrille.pitchen@atmel.com>,
+        Zach Brown <zach.brown@ni.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in:
 
-  arch/arm64/boot/dts/broadcom/ns2.dtsi
+  drivers/net/ethernet/cadence/macb.c
 
 between commit:
 
-  e79249143f46 ("arm64: dts: Add Broadcom Northstar2 device tree entries for PDC driver.")
+  a0b44eea372b ("net: macb: fix the RX queue reset in macb_rx()")
 
-from the arm-soc tree and commit:
+from the net tree and commit:
 
-  dddc3c9d7d02 ("arm64: dts: NS2: add AMAC ethernet support")
+  b410d13e10db ("net: macb: Use variables with defaults for tx/rx ring sizes instead of hardcoded values")
 
 from the net-next tree.
 
@@ -50,62 +41,28 @@ complex conflicts.
 Cheers,
 Stephen Rothwell
 
-diff --cc arch/arm64/boot/dts/broadcom/ns2.dtsi
-index 863503d78f57,773ed593da4d..000000000000
---- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
-+++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-@@@ -197,42 -191,18 +197,54 @@@
+diff --cc drivers/net/ethernet/cadence/macb.c
+index ec09fcece711,0e489bb82456..000000000000
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@@ -974,8 -990,7 +990,8 @@@ static inline void macb_init_rx_ring(st
+  		bp->rx_ring[i].ctrl = 0;
+  		addr += bp->rx_buffer_size;
+  	}
+- 	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
++ 	bp->rx_ring[bp->rx_ring_size - 1].addr |= MACB_BIT(RX_WRAP);
+ +	bp->rx_tail = 0;
+  }
   
-  		#include "ns2-clock.dtsi"
+  static int macb_rx(struct macb *bp, int budget)
+@@@ -1617,7 -1735,9 +1737,7 @@@ static void macb_init_rings(struct mac
+  	}
+  	bp->queues[0].tx_head = 0;
+  	bp->queues[0].tx_tail = 0;
+- 	bp->queues[0].tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
++ 	bp->queues[0].tx_ring[bp->tx_ring_size - 1].ctrl |= MACB_BIT(TX_WRAP);
+ -
+ -	bp->rx_tail = 0;
+  }
   
- +		pdc0: iproc-pdc0@612c0000 {
- +			compatible = "brcm,iproc-pdc-mbox";
- +			reg = <0x612c0000 0x445>;  /* PDC FS0 regs */
- +			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
- +			#mbox-cells = <1>;
- +			brcm,rx-status-len = <32>;
- +			brcm,use-bcm-hdr;
- +		};
- +
- +		pdc1: iproc-pdc1@612e0000 {
- +			compatible = "brcm,iproc-pdc-mbox";
- +			reg = <0x612e0000 0x445>;  /* PDC FS1 regs */
- +			interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
- +			#mbox-cells = <1>;
- +			brcm,rx-status-len = <32>;
- +			brcm,use-bcm-hdr;
- +		};
- +
- +		pdc2: iproc-pdc2@61300000 {
- +			compatible = "brcm,iproc-pdc-mbox";
- +			reg = <0x61300000 0x445>;  /* PDC FS2 regs */
- +			interrupts = <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>;
- +			#mbox-cells = <1>;
- +			brcm,rx-status-len = <32>;
- +			brcm,use-bcm-hdr;
- +		};
- +
- +		pdc3: iproc-pdc3@61320000 {
- +			compatible = "brcm,iproc-pdc-mbox";
- +			reg = <0x61320000 0x445>;  /* PDC FS3 regs */
- +			interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
- +			#mbox-cells = <1>;
- +			brcm,rx-status-len = <32>;
- +			brcm,use-bcm-hdr;
- +		};
- +
-+ 		enet: ethernet@61000000 {
-+ 			compatible = "brcm,ns2-amac";
-+ 			reg = <0x61000000 0x1000>,
-+ 			      <0x61090000 0x1000>,
-+ 			      <0x61030000 0x100>;
-+ 			reg-names = "amac_base", "idm_base", "nicpm_base";
-+ 			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
-+ 			phy-handle = <&gphy0>;
-+ 			phy-mode = "rgmii";
-+ 			status = "disabled";
-+ 		};
-+ 
-  		dma0: dma@61360000 {
-  			compatible = "arm,pl330", "arm,primecell";
-  			reg = <0x61360000 0x1000>;
+  static void macb_reset_hw(struct macb *bp)
