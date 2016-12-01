@@ -1,56 +1,53 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 3/6] net: dsa: mv88e6xxx: add a software reset op
-Date: Thu, 01 Dec 2016 15:41:20 -0500
-Message-ID: <87vav3gz67.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20161130225930.25510-1-vivien.didelot@savoirfairelinux.com> <20161130225930.25510-4-vivien.didelot@savoirfairelinux.com> <20161130232633.GS21645@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH 0/2] Don't use lco_csum to compute IPv4 checksum
+Date: Thu, 01 Dec 2016 15:41:31 -0500 (EST)
+Message-ID: <20161201.154131.440872706184192948.davem@davemloft.net>
+References: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
+        <20161130.094746.724735454244491985.davem@davemloft.net>
+        <1480540522.2377.18.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161130232633.GS21645@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org, sfr@canb.auug.org.au
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43958 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933745AbcLAUlh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:41:37 -0500
+In-Reply-To: <1480540522.2377.18.camel@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 30 Nov 2016 13:15:22 -0800
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> On Wed, 2016-11-30 at 09:47 -0500, David Miller wrote:
+>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Date: Mon, 28 Nov 2016 10:42:18 -0500
+>> 
+>> > When I implemented the GSO partial support in the Intel drivers I was
+>> using
+>> > lco_csum to compute the checksum that we needed to plug into the IPv4
+>> > checksum field in order to cancel out the data that was not a part of
+>> the
+>> > IPv4 header.  However this didn't take into account that the transport
+>> > offset might be pointing to the inner transport header.
+>> > 
+>> > Instead of using lco_csum I have just coded around it so that we can
+>> use
+>> > the outer IP header plus the IP header length to determine where we
+>> need to
+>> > start our checksum and then just call csum_partial ourselves.
+>> > 
+>> > This should fix the SIT issue reported on igb interfaces as well as
+>> simliar
+>> > issues that would pop up on other Intel NICs.
+>> 
+>> Jeff, are you going to send me a pull request with this stuff or would
+>> you be OK with my applying these directly to 'net'?
+> 
+> Go ahead and apply those to your net tree, I do not want to hold this up.
 
->> diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
->> index ab52c37..9e51405 100644
->> --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
->> +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
->> @@ -765,6 +765,9 @@ struct mv88e6xxx_ops {
->>  	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
->>  			 u16 val);
->>  
->> +	/* Switch Software Reset */
->> +	int (*reset)(struct mv88e6xxx_chip *chip);
->> +
->
-> Hi Vivien
->
-> In my huge patch series of 6390, i've been using a g1_ prefix for
-> functionality which is in global 1, g2_ for global 2, etc.  This has
-> worked for everything so far with the exception of setting which
-> reserved MAC addresses should be sent to the CPU. Most devices have it
-> in g2, but 6390 has it in g1.
->
-> Please could you add the prefix.
-
-I don't understand. It looks like you are talking about the second part
-of the comment I made on your RFC patchset, about the Rsvd2CPU feature:
-
-https://www.mail-archive.com/netdev@vger.kernel.org/msg139837.html
-
-Switch reset routines are implemented in this patch in global1.c as
-mv88e6185_g1_reset and mv88e6352_g1_reset.
-
-6185 and 6352 are implementation references for other switches.
-
-Thanks,
-
-        Vivien
+Ok, done, thanks Jeff.
