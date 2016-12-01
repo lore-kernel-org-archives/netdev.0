@@ -1,21 +1,19 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 18/39] Annotate hardware config module parameters in
- drivers/net/can/
-Date: Thu, 01 Dec 2016 12:32:01 +0000
-Message-ID: <148059552122.31612.3286291221641529296.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 21/39] Annotate hardware config module parameters in
+ drivers/net/irda/
+Date: Thu, 01 Dec 2016 12:32:27 +0000
+Message-ID: <148059554741.31612.14931870778364344076.stgit@warthog.procyon.org.uk>
 References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
-        netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        dhowells@redhat.com, linux-security-module@vger.kernel.org,
-        keyrings@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>,
-        Wolfgang Grandegger <wg@grandegger.com>
+Cc: gnomes@lxorguk.ukuu.org.uk, Samuel Ortiz <samuel@sortiz.org>,
+        minyard@acm.org, netdev@vger.kernel.org, dhowells@redhat.com,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
-Sender: linux-can-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 When the kernel is running in secure boot mode, we lock down the kernel to
@@ -36,68 +34,105 @@ drivers have viable defaults set in case parameters aren't specified and
 some drivers support automatic configuration (e.g. PNP or PCI) in addition
 to manually coded parameters.
 
-This patch annotates drivers in drivers/net/can/.
+This patch annotates drivers in drivers/net/irda/.
 
 Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Wolfgang Grandegger <wg@grandegger.com>
-cc: Marc Kleine-Budde <mkl@pengutronix.de>
-cc: linux-can@vger.kernel.org
+cc: Samuel Ortiz <samuel@sortiz.org>
 cc: netdev@vger.kernel.org
 ---
 
- drivers/net/can/cc770/cc770_isa.c     |    8 ++++----
- drivers/net/can/sja1000/sja1000_isa.c |    8 ++++----
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/irda/ali-ircc.c    |    6 +++---
+ drivers/net/irda/nsc-ircc.c    |    6 +++---
+ drivers/net/irda/smsc-ircc2.c  |   10 +++++-----
+ drivers/net/irda/w83977af_ir.c |    4 ++--
+ 4 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
-index e0d15711e9ac..3a30fd3b4498 100644
---- a/drivers/net/can/cc770/cc770_isa.c
-+++ b/drivers/net/can/cc770/cc770_isa.c
-@@ -82,16 +82,16 @@ static u8 cor[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
- static u8 bcr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
- static int indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
+diff --git a/drivers/net/irda/ali-ircc.c b/drivers/net/irda/ali-ircc.c
+index c285eafd3f1c..35f198d83701 100644
+--- a/drivers/net/irda/ali-ircc.c
++++ b/drivers/net/irda/ali-ircc.c
+@@ -2207,11 +2207,11 @@ MODULE_LICENSE("GPL");
+ MODULE_ALIAS("platform:" ALI_IRCC_DRIVER_NAME);
  
--module_param_array(port, ulong, NULL, S_IRUGO);
-+module_param_hw_array(port, ulong, ioport, NULL, S_IRUGO);
- MODULE_PARM_DESC(port, "I/O port number");
  
--module_param_array(mem, ulong, NULL, S_IRUGO);
-+module_param_hw_array(mem, ulong, iomem, NULL, S_IRUGO);
- MODULE_PARM_DESC(mem, "I/O memory address");
+-module_param_array(io, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
+ MODULE_PARM_DESC(io, "Base I/O addresses");
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(irq, "IRQ lines");
+-module_param_array(dma, int, NULL, 0);
++module_param_hw_array(dma, int, dma, NULL, 0);
+ MODULE_PARM_DESC(dma, "DMA channels");
  
--module_param_array(indirect, int, NULL, S_IRUGO);
-+module_param_hw_array(indirect, int, ioport, NULL, S_IRUGO);
- MODULE_PARM_DESC(indirect, "Indirect access via address and data port");
+ module_init(ali_ircc_init);
+diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
+index aaecc3baaf30..7beae147be11 100644
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -2396,11 +2396,11 @@ MODULE_LICENSE("GPL");
  
--module_param_array(irq, int, NULL, S_IRUGO);
-+module_param_hw_array(irq, int, irq, NULL, S_IRUGO);
- MODULE_PARM_DESC(irq, "IRQ number");
+ module_param(qos_mtt_bits, int, 0);
+ MODULE_PARM_DESC(qos_mtt_bits, "Minimum Turn Time");
+-module_param_array(io, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
+ MODULE_PARM_DESC(io, "Base I/O addresses");
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(irq, "IRQ lines");
+-module_param_array(dma, int, NULL, 0);
++module_param_hw_array(dma, int, dma, NULL, 0);
+ MODULE_PARM_DESC(dma, "DMA channels");
+ module_param(dongle_id, int, 0);
+ MODULE_PARM_DESC(dongle_id, "Type-id of used dongle");
+diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
+index dcf92ba80872..23ed89ae5ddc 100644
+--- a/drivers/net/irda/smsc-ircc2.c
++++ b/drivers/net/irda/smsc-ircc2.c
+@@ -82,24 +82,24 @@ MODULE_PARM_DESC(nopnp, "Do not use PNP to detect controller settings, defaults
  
- module_param_array(clk, int, NULL, S_IRUGO);
-diff --git a/drivers/net/can/sja1000/sja1000_isa.c b/drivers/net/can/sja1000/sja1000_isa.c
-index e97e6d35b300..a89c1e92554d 100644
---- a/drivers/net/can/sja1000/sja1000_isa.c
-+++ b/drivers/net/can/sja1000/sja1000_isa.c
-@@ -48,16 +48,16 @@ static unsigned char ocr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
- static int indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
- static spinlock_t indirect_lock[MAXDEV];  /* lock for indirect access mode */
+ #define DMA_INVAL 255
+ static int ircc_dma = DMA_INVAL;
+-module_param(ircc_dma, int, 0);
++module_param_hw(ircc_dma, int, dma, 0);
+ MODULE_PARM_DESC(ircc_dma, "DMA channel");
  
--module_param_array(port, ulong, NULL, S_IRUGO);
-+module_param_hw_array(port, ulong, ioport, NULL, S_IRUGO);
- MODULE_PARM_DESC(port, "I/O port number");
+ #define IRQ_INVAL 255
+ static int ircc_irq = IRQ_INVAL;
+-module_param(ircc_irq, int, 0);
++module_param_hw(ircc_irq, int, irq, 0);
+ MODULE_PARM_DESC(ircc_irq, "IRQ line");
  
--module_param_array(mem, ulong, NULL, S_IRUGO);
-+module_param_hw_array(mem, ulong, iomem, NULL, S_IRUGO);
- MODULE_PARM_DESC(mem, "I/O memory address");
+ static int ircc_fir;
+-module_param(ircc_fir, int, 0);
++module_param_hw(ircc_fir, int, ioport, 0);
+ MODULE_PARM_DESC(ircc_fir, "FIR Base Address");
  
--module_param_array(indirect, int, NULL, S_IRUGO);
-+module_param_hw_array(indirect, int, ioport, NULL, S_IRUGO);
- MODULE_PARM_DESC(indirect, "Indirect access via address and data port");
+ static int ircc_sir;
+-module_param(ircc_sir, int, 0);
++module_param_hw(ircc_sir, int, ioport, 0);
+ MODULE_PARM_DESC(ircc_sir, "SIR Base Address");
  
--module_param_array(irq, int, NULL, S_IRUGO);
-+module_param_hw_array(irq, int, irq, NULL, S_IRUGO);
- MODULE_PARM_DESC(irq, "IRQ number");
+ static int ircc_cfg;
+-module_param(ircc_cfg, int, 0);
++module_param_hw(ircc_cfg, int, ioport, 0);
+ MODULE_PARM_DESC(ircc_cfg, "Configuration register base address");
  
- module_param_array(clk, int, NULL, S_IRUGO);
-
+ static int ircc_transceiver;
+diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
+index 4e3d2e7c697c..f15d8752864b 100644
+--- a/drivers/net/irda/w83977af_ir.c
++++ b/drivers/net/irda/w83977af_ir.c
+@@ -1264,9 +1264,9 @@ MODULE_LICENSE("GPL");
+ 
+ module_param(qos_mtt_bits, int, 0);
+ MODULE_PARM_DESC(qos_mtt_bits, "Mimimum Turn Time");
+-module_param_array(io, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
+ MODULE_PARM_DESC(io, "Base I/O addresses");
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(irq, "IRQ lines");
+ 
+ /*
