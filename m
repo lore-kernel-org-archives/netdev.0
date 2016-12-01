@@ -1,74 +1,67 @@
-From: =?utf-8?B?TWljaGHFgiBLxJlwaWXFhA==?= <kernel@kempniu.pl>
-Subject: Re: [PATCH 2/2] net: rfkill: Add rfkill-any LED trigger
-Date: Thu, 1 Dec 2016 21:08:04 +0100
-Message-ID: <20161201200804.GA3872@kmp-mobile.hq.kempniu.pl>
-References: <20161130120317.11851-2-kernel@kempniu.pl>
- <201612020131.aDbI7Mq9%fengguang.wu@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [WIP] net+mlx4: auto doorbell
+Date: Thu, 01 Dec 2016 12:11:26 -0800
+Message-ID: <1480623086.18162.329.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20140903165943.372b897b@redhat.com>
+         <20161117144248.23500001@redhat.com>
+         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117155753.17b76f5a@redhat.com>
+         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117193021.580589ae@redhat.com>
+         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161121170351.50a09ee1@redhat.com>
+         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG_G3G-_jFFD0xiAOfR-k69rhb_2ia4LHZroE-oEFxApnQ@mail.gmail.com>
+         <1480520661.18162.177.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
+         <20161201130505.0b4a5cd5@redhat.com>
+         <1480602274.18162.285.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161201170443.28a8c032@redhat.com>
+         <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161201201707.5f51a02e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: kbuild-all@01.org, Johannes Berg <johannes@sipsolutions.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: kbuild test robot <lkp@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201612020131.aDbI7Mq9%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Rick Jones <rick.jones2@hpe.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36691 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750975AbcLAUM3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:12:29 -0500
+Received: by mail-pg0-f68.google.com with SMTP id x23so5552120pgx.3
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 12:12:29 -0800 (PST)
+In-Reply-To: <20161201201707.5f51a02e@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Hi Michał,
+On Thu, 2016-12-01 at 20:17 +0100, Jesper Dangaard Brouer wrote:
+> On Thu, 01 Dec 2016 09:04:17 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > 
-> [auto build test ERROR on mac80211-next/master]
-> [also build test ERROR on v4.9-rc7 next-20161201]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+> > BTW, if you are doing tests on mlx4 40Gbit,
 > 
-> url:    https://github.com/0day-ci/linux/commits/Micha-K-pie/net-rfkill-Cleanup-error-handling-in-rfkill_init/20161202-002119
-> base:   https://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git master
-> config: i386-randconfig-x004-201648 (attached as .config)
-> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=i386 
+> I'm mostly testing with mlx5 50Gbit, but I do have 40G NIC in the
+> machines too.
 > 
-> All errors (new ones prefixed by >>):
+> >  would you check the
+> > following quick/dirty hack, using lots of low-rate flows ?
 > 
->    net/rfkill/core.c: In function 'rfkill_set_block':
-> >> net/rfkill/core.c:354:2: error: implicit declaration of function '__rfkill_any_led_trigger_event' [-Werror=implicit-function-declaration]
->      __rfkill_any_led_trigger_event();
->      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->    net/rfkill/core.c: In function 'rfkill_init':
->    net/rfkill/core.c:1349:1: warning: label 'error_led_trigger' defined but not used [-Wunused-label]
->     error_led_trigger:
->     ^~~~~~~~~~~~~~~~~
->    At top level:
->    net/rfkill/core.c:243:13: warning: 'rfkill_any_led_trigger_unregister' defined but not used [-Wunused-function]
->     static void rfkill_any_led_trigger_unregister(void)
->                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->    net/rfkill/core.c:238:12: warning: 'rfkill_any_led_trigger_register' defined but not used [-Wunused-function]
->     static int rfkill_any_led_trigger_register(void)
->                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->    cc1: some warnings being treated as errors
+> What tool should I use to send "low-rate flows"?
 > 
-> vim +/__rfkill_any_led_trigger_event +354 net/rfkill/core.c
-> 
->    348		rfkill->state &= ~RFKILL_BLOCK_SW_SETCALL;
->    349		rfkill->state &= ~RFKILL_BLOCK_SW_PREV;
->    350		curr = rfkill->state & RFKILL_BLOCK_SW;
->    351		spin_unlock_irqrestore(&rfkill->lock, flags);
->    352	
->    353		rfkill_led_trigger_event(rfkill);
->  > 354		__rfkill_any_led_trigger_event();
->    355	
->    356		if (prev != curr)
->    357			rfkill_event(rfkill);
 
-Thanks, these are obviously all valid concerns.  Sorry for being sloppy
-with the ifdefs.  If I get positive feedback on the proposed feature
-itself, all these issues (and the warning pointed out in the other
-message) will be resolved in v2.
+You could use https://github.com/google/neper
 
--- 
-Best regards,
-Michał Kępień
+It supports SO_MAX_PACING_RATE, and you could launch 1600 flows, rate
+limited to 3028000 bytes per second  (so sending one 2-MSS TSO packet
+every ms per flow)
+
+
+
+> And what am I looking for?
+
+Max throughput, in packets per second :/
