@@ -1,54 +1,89 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/3] xfrm_user: fix return value from xfrm_user_rcv_msg
-Date: Thu, 1 Dec 2016 12:44:50 +0100
-Message-ID: <1480592692-3653-2-git-send-email-steffen.klassert@secunet.com>
-References: <1480592692-3653-1-git-send-email-steffen.klassert@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Amir Vadai <amir@vadai.me>
+Subject: [PATCH iproute2 V4 0/3] tc: Support for ip tunnel metadata set/unset/classify
+Date: Thu,  1 Dec 2016 13:44:43 +0200
+Message-ID: <20161201114446.30333-1-amir@vadai.me>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Jiri Benc <jbenc@redhat.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:50002 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751388AbcLALpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 1 Dec 2016 06:45:02 -0500
-In-Reply-To: <1480592692-3653-1-git-send-email-steffen.klassert@secunet.com>
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:36310 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750738AbcLALps (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 06:45:48 -0500
+Received: by mail-wj0-f193.google.com with SMTP id jb2so26002923wjb.3
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 03:45:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yi Zhao <yi.zhao@windriver.com>
+Hi,
 
-It doesn't support to run 32bit 'ip' to set xfrm objdect on 64bit host.
-But the return value is unknown for user program:
+This short series adds support for matching and setting metadata for ip tunnel
+shared device using the TC system, introduced in kernel 4.9 [1].
 
-ip xfrm policy list
-RTNETLINK answers: Unknown error 524
+Applied and tested on top of commit f3f339e9590a ("cleanup debris from revert")
 
-Replace ENOTSUPP with EOPNOTSUPP:
+Example usage:
 
-ip xfrm policy list
-RTNETLINK answers: Operation not supported
+$ tc filter add dev vxlan0 protocol ip parent ffff: \
+    flower \
+      enc_src_ip 11.11.0.2 \
+      enc_dst_ip 11.11.0.1 \
+      enc_key_id 11 \
+      dst_ip 11.11.11.1 \
+    action mirred egress redirect dev vnet0
 
-Signed-off-by: Yi Zhao <yi.zhao@windriver.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_user.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+$ tc filter add dev net0 protocol ip parent ffff: \
+    flower \
+      ip_proto 1 \
+      dst_ip 11.11.11.2 \
+    action tunnel_key set \
+      src_ip 11.11.0.1 \
+      dst_ip 11.11.0.2 \
+      id 11 \
+    action mirred egress redirect dev vxlan0
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 0889209..671a1d0 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2450,7 +2450,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 
- #ifdef CONFIG_COMPAT
- 	if (in_compat_syscall())
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- #endif
- 
- 	type = nlh->nlmsg_type;
+[1] - d1ba24feb466 ("Merge branch 'act_tunnel_key'")
+
+Thanks,
+Amir
+
+Changes from V3:
+- Fix bad wording in the man page about the use of the 'unset' operation
+
+Changes from V2:
+- Use const where needed
+- Don't lose return value
+- Introduce rta_getattr_be16() and rta_getattr_be32()
+
+Changes from V1:
+- Updated Patch 2/2 ("tc/act_tunnel: Introduce ip tunnel action") commit log
+	and the man page tc-tunnel_key to reflect the fact that 'unset' operation is
+	no mandatory.
+	And describe when it might be needed.
+- Rename the 'release' operation to 'unset'
+
+Amir Vadai (3):
+  libnetlink: Introduce rta_getattr_be*()
+  tc/cls_flower: Classify packet in ip tunnels
+  tc/act_tunnel: Introduce ip tunnel action
+
+ bridge/fdb.c                         |   4 +-
+ include/libnetlink.h                 |   9 ++
+ include/linux/tc_act/tc_tunnel_key.h |  42 ++++++
+ ip/iplink_geneve.c                   |   2 +-
+ ip/iplink_vxlan.c                    |   2 +-
+ man/man8/tc-flower.8                 |  17 ++-
+ man/man8/tc-tunnel_key.8             | 112 +++++++++++++++
+ tc/Makefile                          |   1 +
+ tc/f_flower.c                        |  84 +++++++++++-
+ tc/m_tunnel_key.c                    | 258 +++++++++++++++++++++++++++++++++++
+ 10 files changed, 522 insertions(+), 9 deletions(-)
+ create mode 100644 include/linux/tc_act/tc_tunnel_key.h
+ create mode 100644 man/man8/tc-tunnel_key.8
+ create mode 100644 tc/m_tunnel_key.c
+
 -- 
-1.9.1
+2.10.2
