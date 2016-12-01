@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 1/7] net: ethernet: ti: cpdma: am437x: allow descs to be plased in ddr
-Date: Thu, 1 Dec 2016 17:34:26 -0600
-Message-ID: <20161201233432.6182-2-grygorii.strashko@ti.com>
+Subject: [PATCH 7/7] Documentation: DT: net: cpsw: remove no_bd_ram property
+Date: Thu, 1 Dec 2016 17:34:32 -0600
+Message-ID: <20161201233432.6182-8-grygorii.strashko@ti.com>
 References: <20161201233432.6182-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,59 +16,94 @@ In-Reply-To: <20161201233432.6182-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It's observed that cpsw/cpdma is not working properly when CPPI
-descriptors are placed in DDR instead of internal CPPI RAM on am437x
-SoC:
-- rx/tx silently stops processing packets;
-- or - after boot it's working for sometime, but stuck once Network
-load is increased (ping is working, but iperf is not).
-(The same issue has not been reproduced on am335x and am57xx).
-
-It seems that write to HDP register processed faster by interconnect
-than writing of descriptor memory buffer in DDR, which is probably
-caused by store buffer / write buffer differences as these function
-are implemented differently across devices. So, to fix this i come up
-with two changes:
-
-1) all accesses to the channel register HDP/CP/RXFREE registers should
-be done using sync IO accessors readl()/writel(), because all previous
-memory writes writes have to be completed before starting channel
-(write to HDP) or completing desc processing.
-
-2) the change 1 only doesn't work on am437x and additional reading of
-desc's field is required right after the new descriptor was filled
-with data and before pointer on it will be stored in
-prev_desc->hw_next field or HDP register.
+Even if no_bd_ram property is described in TI CPSW bindings the
+support for it has never been introduced in CPSW driver, so there are
+no real users of it. Hence, remove no_bd_ram property.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/davinci_cpdma.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ Documentation/devicetree/bindings/net/cpsw.txt | 3 ---
+ arch/arm/boot/dts/am33xx.dtsi                  | 1 -
+ arch/arm/boot/dts/am4372.dtsi                  | 1 -
+ arch/arm/boot/dts/dm814x.dtsi                  | 1 -
+ arch/arm/boot/dts/dra7.dtsi                    | 1 -
+ 5 files changed, 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index c776e45..0924014 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -167,10 +167,10 @@ static struct cpdma_control_info controls[] = {
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index b99d196..4e8b673 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -25,7 +25,6 @@ Required properties:
  
- /* various accessors */
- #define dma_reg_read(ctlr, ofs)		__raw_readl((ctlr)->dmaregs + (ofs))
--#define chan_read(chan, fld)		__raw_readl((chan)->fld)
-+#define chan_read(chan, fld)		readl((chan)->fld)
- #define desc_read(desc, fld)		__raw_readl(&(desc)->fld)
- #define dma_reg_write(ctlr, ofs, v)	__raw_writel(v, (ctlr)->dmaregs + (ofs))
--#define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
-+#define chan_write(chan, fld, v)	writel(v, (chan)->fld)
- #define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
- 
- #define cpdma_desc_to_port(chan, mode, directed)			\
-@@ -1064,6 +1064,7 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
- 	desc_write(desc, sw_token,  token);
- 	desc_write(desc, sw_buffer, buffer);
- 	desc_write(desc, sw_len,    len);
-+	desc_read(desc, sw_len);
- 
- 	__cpdma_chan_submit(chan, desc);
- 
+ Optional properties:
+ - ti,hwmods		: Must be "cpgmac0"
+-- no_bd_ram		: Must be 0 or 1
+ - dual_emac		: Specifies Switch to act as Dual EMAC
+ - syscon		: Phandle to the system control device node, which is
+ 			  the control module device of the am33x
+@@ -73,7 +72,6 @@ Examples:
+ 		cpdma_channels = <8>;
+ 		ale_entries = <1024>;
+ 		bd_ram_size = <0x2000>;
+-		no_bd_ram = <0>;
+ 		rx_descs = <64>;
+ 		mac_control = <0x20>;
+ 		slaves = <2>;
+@@ -102,7 +100,6 @@ Examples:
+ 		cpdma_channels = <8>;
+ 		ale_entries = <1024>;
+ 		bd_ram_size = <0x2000>;
+-		no_bd_ram = <0>;
+ 		rx_descs = <64>;
+ 		mac_control = <0x20>;
+ 		slaves = <2>;
+diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+index 194d884..7af5520 100644
+--- a/arch/arm/boot/dts/am33xx.dtsi
++++ b/arch/arm/boot/dts/am33xx.dtsi
+@@ -777,7 +777,6 @@
+ 			cpdma_channels = <8>;
+ 			ale_entries = <1024>;
+ 			bd_ram_size = <0x2000>;
+-			no_bd_ram = <0>;
+ 			mac_control = <0x20>;
+ 			slaves = <2>;
+ 			active_slave = <0>;
+diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
+index a275fa9..4f651be 100644
+--- a/arch/arm/boot/dts/am4372.dtsi
++++ b/arch/arm/boot/dts/am4372.dtsi
+@@ -668,7 +668,6 @@
+ 			cpdma_channels = <8>;
+ 			ale_entries = <1024>;
+ 			bd_ram_size = <0x2000>;
+-			no_bd_ram = <0>;
+ 			mac_control = <0x20>;
+ 			slaves = <2>;
+ 			active_slave = <0>;
+diff --git a/arch/arm/boot/dts/dm814x.dtsi b/arch/arm/boot/dts/dm814x.dtsi
+index ff90a6c..614a4ba 100644
+--- a/arch/arm/boot/dts/dm814x.dtsi
++++ b/arch/arm/boot/dts/dm814x.dtsi
+@@ -508,7 +508,6 @@
+ 			cpdma_channels = <8>;
+ 			ale_entries = <1024>;
+ 			bd_ram_size = <0x2000>;
+-			no_bd_ram = <0>;
+ 			mac_control = <0x20>;
+ 			slaves = <2>;
+ 			active_slave = <0>;
+diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dtsi
+index d4fcd68..cf7325d 100644
+--- a/arch/arm/boot/dts/dra7.dtsi
++++ b/arch/arm/boot/dts/dra7.dtsi
+@@ -1706,7 +1706,6 @@
+ 			cpdma_channels = <8>;
+ 			ale_entries = <1024>;
+ 			bd_ram_size = <0x2000>;
+-			no_bd_ram = <0>;
+ 			mac_control = <0x20>;
+ 			slaves = <2>;
+ 			active_slave = <0>;
 -- 
 2.10.1
