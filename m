@@ -1,82 +1,206 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: DSA vs envelope frames
-Date: Thu, 1 Dec 2016 21:46:58 +0900
-Message-ID: <344d53f8-1365-b478-ad81-44722932de91@lab.ntt.co.jp>
-References: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
- <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <dab27a3d-821c-8d07-ad98-2bdd8c442bc5@cogentembedded.com>
- <f632a0e8-746b-2db5-09af-3a5f6fc78e13@lab.ntt.co.jp>
- <d8a6df03-d9bd-eca5-0b9f-73406efe6509@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Chris Healy <cphealy@gmail.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        lorian Fainelli <f.fainelli@gmail.com>
-To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Andy Duan <fugang.duan@nxp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d8a6df03-d9bd-eca5-0b9f-73406efe6509@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH net-next v2] net: thunderx: Fix transmit queue timeout issue
+Date: Thu,  1 Dec 2016 18:24:28 +0530
+Message-ID: <1480596868-17693-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Sunil Goutham <sgoutham@cavium.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36820 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758496AbcLAMyh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 07:54:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/11/30 23:58, Nikita Yushchenko wrote:
->>> (1) When DSA is in use, frames processed by FEC chip contain DSA tag and
->>> thus can be larger than hardcoded limit of 1522. This issue is not
->>> FEC-specific, any driver that hardcodes maximum frame size to 1522 (many
->>> do) will have this issue if used with DSA.
->>
->> BTW I'm trying to introduce envelope frames to solve this kind of problems.
->> http://marc.info/?t=147496691500005&r=1&w=2
->> http://marc.info/?t=147496691500003&r=1&w=2
->> http://marc.info/?t=147496691500002&r=1&w=2
->> http://marc.info/?t=147496691500004&r=1&w=2
->> http://marc.info/?t=147496691500001&r=1&w=2
->>
->> It needs jumbo frame support of NICs though.
-> 
-> Thanks for pointing to this.
-> 
-> Indeed frame with DSA tag conceptually is an envelope frame.
-> 
-> ndev->env_hdr_len introduced by your patches, actually is explicitly
-> handled difference between (MTU + 18) and frame that HW should allow.
-> If this is known, hardware can be configured to work with DSA. At least
-> FEC hardware that can send and receive "slightly larger" frames after
-> simple register configuration.
-> 
-> Furthermore, since DSA configuration is known statically (it comes from
-> device tree), ndo_set_env_hdr_len method could be automatically called
-> at init, making setup working by default if driver supports that. And if
-> not, perhaps can automatically lower MTU.
-> 
-> Looks like a solution :)
-> 
-> What's current status of this work?
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Thank you for taking a look.
-I'm planning to post v2 soon.
+Transmit queue timeout issue is seen in two cases
+- Due to a race condition btw setting stop_queue at xmit()
+  and checking for stopped_queue in NAPI poll routine, at times
+  transmission from a SQ comes to a halt. This is fixed
+  by using barriers and also added a check for SQ free descriptors,
+  incase SQ is stopped and there are only CQE_RX i.e no CQE_TX.
+- Contrary to an assumption, a HW errata where HW doesn't stop transmission
+  even though there are not enough CQEs available for a CQE_TX is
+  not fixed in T88 pass 2.x. This results in a Qset error with
+  'CQ_WR_FULL' stalling transmission. This is fixed by adjusting
+  RXQ's  RED levels for CQ level such that there is always enough
+  space left for CQE_TXs.
 
-> What is not really clear - what if several tagging protocols are used
-> together. AFAIU, things may be more complex that simple appending of
-> tags, e.g. EDSA tag can carry VLAN id inside.
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+---
+v2: As suggested by David, replaced netif_tx_start_queue with 
+    netif_tx_wake_queue.
 
-If kernel is aware of VLAN configuration, add 4 bytes + DSA tag size.
-(I'm not familiar with how dsa knows vlan configuration, but probably
-through switchdev_port_obj_add()? If so, dsa should be able to take into
-account additional vlan tag size.)
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 52 ++++++++++++++++++----
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 24 ++--------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 15 ++++---
+ 3 files changed, 54 insertions(+), 37 deletions(-)
 
-If vlan tag is opaque from kernel, e.g. forwarding vlan tagged frames
-without configuring vlan_filtering in bridge, admin needs to set
-env_hdr_len manually. This is why I'm proposing manual operation.
-
-Regards,
-Toshiaki Makita
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 1eacec8..2006f58 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -644,6 +644,7 @@ static int nicvf_cq_intr_handler(struct net_device *netdev, u8 cq_idx,
+ 	struct cmp_queue *cq = &qs->cq[cq_idx];
+ 	struct cqe_rx_t *cq_desc;
+ 	struct netdev_queue *txq;
++	struct snd_queue *sq;
+ 	unsigned int tx_pkts = 0, tx_bytes = 0;
+ 
+ 	spin_lock_bh(&cq->lock);
+@@ -709,16 +710,20 @@ static int nicvf_cq_intr_handler(struct net_device *netdev, u8 cq_idx,
+ 
+ done:
+ 	/* Wakeup TXQ if its stopped earlier due to SQ full */
+-	if (tx_done) {
++	sq = &nic->qs->sq[cq_idx];
++	if (tx_done ||
++	    (atomic_read(&sq->free_cnt) >= MIN_SQ_DESC_PER_PKT_XMIT)) {
+ 		netdev = nic->pnicvf->netdev;
+ 		txq = netdev_get_tx_queue(netdev,
+ 					  nicvf_netdev_qidx(nic, cq_idx));
+ 		if (tx_pkts)
+ 			netdev_tx_completed_queue(txq, tx_pkts, tx_bytes);
+ 
+-		nic = nic->pnicvf;
++		/* To read updated queue and carrier status */
++		smp_mb();
+ 		if (netif_tx_queue_stopped(txq) && netif_carrier_ok(netdev)) {
+-			netif_tx_start_queue(txq);
++			netif_tx_wake_queue(txq);
++			nic = nic->pnicvf;
+ 			this_cpu_inc(nic->drv_stats->txq_wake);
+ 			if (netif_msg_tx_err(nic))
+ 				netdev_warn(netdev,
+@@ -1054,6 +1059,9 @@ static netdev_tx_t nicvf_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	struct nicvf *nic = netdev_priv(netdev);
+ 	int qid = skb_get_queue_mapping(skb);
+ 	struct netdev_queue *txq = netdev_get_tx_queue(netdev, qid);
++	struct nicvf *snic;
++	struct snd_queue *sq;
++	int tmp;
+ 
+ 	/* Check for minimum packet length */
+ 	if (skb->len <= ETH_HLEN) {
+@@ -1061,13 +1069,39 @@ static netdev_tx_t nicvf_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+-	if (!netif_tx_queue_stopped(txq) && !nicvf_sq_append_skb(nic, skb)) {
++	snic = nic;
++	/* Get secondary Qset's SQ structure */
++	if (qid >= MAX_SND_QUEUES_PER_QS) {
++		tmp = qid / MAX_SND_QUEUES_PER_QS;
++		snic = (struct nicvf *)nic->snicvf[tmp - 1];
++		if (!snic) {
++			netdev_warn(nic->netdev,
++				    "Secondary Qset#%d's ptr not initialized\n",
++				    tmp - 1);
++			dev_kfree_skb(skb);
++			return NETDEV_TX_OK;
++		}
++		qid = qid % MAX_SND_QUEUES_PER_QS;
++	}
++
++	sq = &snic->qs->sq[qid];
++	if (!netif_tx_queue_stopped(txq) &&
++	    !nicvf_sq_append_skb(snic, sq, skb, qid)) {
+ 		netif_tx_stop_queue(txq);
+-		this_cpu_inc(nic->drv_stats->txq_stop);
+-		if (netif_msg_tx_err(nic))
+-			netdev_warn(netdev,
+-				    "%s: Transmit ring full, stopping SQ%d\n",
+-				    netdev->name, qid);
++
++		/* Barrier, so that stop_queue visible to other cpus */
++		smp_mb();
++
++		/* Check again, incase another cpu freed descriptors */
++		if (atomic_read(&sq->free_cnt) > MIN_SQ_DESC_PER_PKT_XMIT) {
++			netif_tx_wake_queue(txq);
++		} else {
++			this_cpu_inc(nic->drv_stats->txq_stop);
++			if (netif_msg_tx_err(nic))
++				netdev_warn(netdev,
++					    "%s: Transmit ring full, stopping SQ%d\n",
++					    netdev->name, qid);
++		}
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index 7b336cd..d2ac133 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1190,30 +1190,12 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
+ }
+ 
+ /* Append an skb to a SQ for packet transfer. */
+-int nicvf_sq_append_skb(struct nicvf *nic, struct sk_buff *skb)
++int nicvf_sq_append_skb(struct nicvf *nic, struct snd_queue *sq,
++			struct sk_buff *skb, u8 sq_num)
+ {
+ 	int i, size;
+ 	int subdesc_cnt, tso_sqe = 0;
+-	int sq_num, qentry;
+-	struct queue_set *qs;
+-	struct snd_queue *sq;
+-
+-	sq_num = skb_get_queue_mapping(skb);
+-	if (sq_num >= MAX_SND_QUEUES_PER_QS) {
+-		/* Get secondary Qset's SQ structure */
+-		i = sq_num / MAX_SND_QUEUES_PER_QS;
+-		if (!nic->snicvf[i - 1]) {
+-			netdev_warn(nic->netdev,
+-				    "Secondary Qset#%d's ptr not initialized\n",
+-				    i - 1);
+-			return 1;
+-		}
+-		nic = (struct nicvf *)nic->snicvf[i - 1];
+-		sq_num = sq_num % MAX_SND_QUEUES_PER_QS;
+-	}
+-
+-	qs = nic->qs;
+-	sq = &qs->sq[sq_num];
++	int qentry;
+ 
+ 	subdesc_cnt = nicvf_sq_subdesc_required(nic, skb);
+ 	if (subdesc_cnt > atomic_read(&sq->free_cnt))
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index 20511f2..9e21046 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -88,13 +88,13 @@
+ 
+ /* RED and Backpressure levels of CQ for pkt reception
+  * For CQ, level is a measure of emptiness i.e 0x0 means full
+- * eg: For CQ of size 4K, and for pass/drop levels of 128/96
+- * HW accepts pkt if unused CQE >= 2048
+- * RED accepts pkt if unused CQE < 2048 & >= 1536
+- * DROPs pkts if unused CQE < 1536
++ * eg: For CQ of size 4K, and for pass/drop levels of 160/144
++ * HW accepts pkt if unused CQE >= 2560
++ * RED accepts pkt if unused CQE < 2304 & >= 2560
++ * DROPs pkts if unused CQE < 2304
+  */
+-#define RQ_PASS_CQ_LVL		128ULL
+-#define RQ_DROP_CQ_LVL		96ULL
++#define RQ_PASS_CQ_LVL		160ULL
++#define RQ_DROP_CQ_LVL		144ULL
+ 
+ /* RED and Backpressure levels of RBDR for pkt reception
+  * For RBDR, level is a measure of fullness i.e 0x0 means empty
+@@ -306,7 +306,8 @@ void nicvf_sq_disable(struct nicvf *nic, int qidx);
+ void nicvf_put_sq_desc(struct snd_queue *sq, int desc_cnt);
+ void nicvf_sq_free_used_descs(struct net_device *netdev,
+ 			      struct snd_queue *sq, int qidx);
+-int nicvf_sq_append_skb(struct nicvf *nic, struct sk_buff *skb);
++int nicvf_sq_append_skb(struct nicvf *nic, struct snd_queue *sq,
++			struct sk_buff *skb, u8 sq_num);
+ 
+ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx);
+ void nicvf_rbdr_task(unsigned long data);
+-- 
+2.7.4
