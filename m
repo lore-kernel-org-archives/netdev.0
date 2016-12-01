@@ -1,53 +1,40 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net v2] tipc: check minimum bearer MTU
-Date: Thu, 1 Dec 2016 18:52:51 +0100
-Message-ID: <20161201175251.GA18850@unicorn.suse.cz>
-References: <20161201110205.10749A0F33@unicorn.suse.cz>
- <1480608678.16599.94.camel@decadent.org.uk>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next v2] ipv6: implement consistent hashing for
+ equal-cost multipath routing
+Date: Thu, 1 Dec 2016 09:55:25 -0800
+Message-ID: <CAJieiUjPXNxXFJxPkbZUF03bfw_=0Dc9qG0CkYoE0qeXAn0kYg@mail.gmail.com>
+References: <1480439718-18019-1-git-send-email-david.lebrun@uclouvain.be>
+ <1480477952.3702850.803295033.367FD66D@webmail.messagingengine.com> <583E8646.2010402@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Qian Zhang <zhangqian-c@360.cn>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1480608678.16599.94.camel@decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Lebrun <david.lebrun@uclouvain.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f182.google.com ([209.85.217.182]:34583 "EHLO
+        mail-ua0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750789AbcLARz1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 12:55:27 -0500
+Received: by mail-ua0-f182.google.com with SMTP id 51so255832080uai.1
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 09:55:26 -0800 (PST)
+In-Reply-To: <583E8646.2010402@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2016 at 04:11:18PM +0000, Ben Hutchings wrote:
-> On Thu, 2016-12-01 at 12:02 +0100, Michal Kubecek wrote:
-> [...] 
-> > +/* check if device MTU is sufficient for tipc headers */
-> > +static inline bool tipc_check_mtu(struct net_device *dev, unsigned int reserve)
-> > +{
-> > +	if (dev->mtu >= TIPC_MIN_BEARER_MTU + reserve)
-> > +		return false;
-> > +	netdev_warn(dev, "MTU too low for tipc bearer\n");
-> > +	return true;
-> > +}
-> [...]
-> 
-> The comment says "check if ... sufficient" but the return value
-> indicates the opposite.  Could you make these consistent?
+On Tue, Nov 29, 2016 at 11:56 PM, David Lebrun
+<david.lebrun@uclouvain.be> wrote:
+> On 11/30/2016 04:52 AM, Hannes Frederic Sowa wrote:
 
-Good point. I suppose renaming the function to e.g. tipc_mtu_bad() (and
-rewording the commment accordingly) would also make the code more 
-readable without looking at the definition.
+>
+>> Also please convert the sysctl to a netlink attribute if you pursue this
+>> because if I change the sysctl while my quagga is hammering the routing
+>> table I would like to know which nodes allocate what amount of memory.
+>
+> Yes, that was the idea.
+>
 
-I'll wait for other comments and send v3 tomorrow.
-
-> Other than that, this looks OK to me.  I haven't tested any version as
-> I don't know how to use TIPC.
-
-I checked that the patch doesn't allow enabling a bearer on top of
-device with insufficient MTU and it does for sufficient (100/128), both
-in eth and udp case. I also checked that lowering MTU under 100 in eth
-case disables attached bearer. I didn't run any deeper test like sending
-an actual traffic but the patch shouldn't affect that.
-
-Michal Kubecek
+I think Its best for it to be a global setting, and thats why sysctl
+seems like the best way (unless there are other ways to set this
+globally via rtnetlink). If it helps, most hw switch vendors
+supporting this feature also provide a globally tunable knob and it is
+not on by default.
