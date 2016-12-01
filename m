@@ -1,40 +1,39 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next v2] ipv6: implement consistent hashing for
- equal-cost multipath routing
-Date: Thu, 1 Dec 2016 09:55:25 -0800
-Message-ID: <CAJieiUjPXNxXFJxPkbZUF03bfw_=0Dc9qG0CkYoE0qeXAn0kYg@mail.gmail.com>
-References: <1480439718-18019-1-git-send-email-david.lebrun@uclouvain.be>
- <1480477952.3702850.803295033.367FD66D@webmail.messagingengine.com> <583E8646.2010402@uclouvain.be>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v7 net-next 2/6] bpf: Add new cgroup attach type to
+ enable sock modifications
+Date: Thu, 1 Dec 2016 08:56:37 -0800
+Message-ID: <20161201165636.GB46200@ast-mbp.thefacebook.com>
+References: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
+ <1480610888-31082-3-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Lebrun <david.lebrun@uclouvain.be>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
+        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f182.google.com ([209.85.217.182]:34583 "EHLO
-        mail-ua0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750789AbcLARz1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 12:55:27 -0500
-Received: by mail-ua0-f182.google.com with SMTP id 51so255832080uai.1
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 09:55:26 -0800 (PST)
-In-Reply-To: <583E8646.2010402@uclouvain.be>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35824 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753150AbcLASAr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 13:00:47 -0500
+Received: by mail-pg0-f66.google.com with SMTP id p66so5271816pga.2
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 10:00:47 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1480610888-31082-3-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 11:56 PM, David Lebrun
-<david.lebrun@uclouvain.be> wrote:
-> On 11/30/2016 04:52 AM, Hannes Frederic Sowa wrote:
+On Thu, Dec 01, 2016 at 08:48:04AM -0800, David Ahern wrote:
+> Add new cgroup based program type, BPF_PROG_TYPE_CGROUP_SOCK. Similar to
+> BPF_PROG_TYPE_CGROUP_SKB programs can be attached to a cgroup and run
+> any time a process in the cgroup opens an AF_INET or AF_INET6 socket.
+> Currently only sk_bound_dev_if is exported to userspace for modification
+> by a bpf program.
+> 
+> This allows a cgroup to be configured such that AF_INET{6} sockets opened
+> by processes are automatically bound to a specific device. In turn, this
+> enables the running of programs that do not support SO_BINDTODEVICE in a
+> specific VRF context / L3 domain.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
->
->> Also please convert the sysctl to a netlink attribute if you pursue this
->> because if I change the sysctl while my quagga is hammering the routing
->> table I would like to know which nodes allocate what amount of memory.
->
-> Yes, that was the idea.
->
-
-I think Its best for it to be a global setting, and thats why sysctl
-seems like the best way (unless there are other ways to set this
-globally via rtnetlink). If it helps, most hw switch vendors
-supporting this feature also provide a globally tunable knob and it is
-not on by default.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
