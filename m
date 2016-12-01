@@ -1,54 +1,139 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v4 3/4] bpf: BPF for lightweight tunnel infrastructure
-Date: Thu, 01 Dec 2016 13:08:44 +0100
-Message-ID: <584012CC.4030004@iogearbox.net>
-References: <cover.1480522144.git.tgraf@suug.ch> <950bbc4f82150683dd87e26dbd41412c26a38eba.1480522144.git.tgraf@suug.ch>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH V2 net-next] net: hns: Fix to conditionally convey RX
+ checksum flag to stack
+Date: Thu, 1 Dec 2016 12:09:22 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A7D4439@lhreml503-mbx>
+References: <20161129130945.919372-1-salil.mehta@huawei.com>
+ <20161130.142539.1927956259851457047.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        tom@herbertland.com, roopa@cumulusnetworks.com,
-        hannes@stressinduktion.org
-To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34763 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751997AbcLAMIw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 07:08:52 -0500
-In-Reply-To: <950bbc4f82150683dd87e26dbd41412c26a38eba.1480522144.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161130.142539.1927956259851457047.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/30/2016 05:10 PM, Thomas Graf wrote:
-> Registers new BPF program types which correspond to the LWT hooks:
->    - BPF_PROG_TYPE_LWT_IN   => dst_input()
->    - BPF_PROG_TYPE_LWT_OUT  => dst_output()
->    - BPF_PROG_TYPE_LWT_XMIT => lwtunnel_xmit()
->
-> The separate program types are required to differentiate between the
-> capabilities each LWT hook allows:
->
->   * Programs attached to dst_input() or dst_output() are restricted and
->     may only read the data of an skb. This prevent modification and
->     possible invalidation of already validated packet headers on receive
->     and the construction of illegal headers while the IP headers are
->     still being assembled.
->
->   * Programs attached to lwtunnel_xmit() are allowed to modify packet
->     content as well as prepending an L2 header via a newly introduced
->     helper bpf_skb_change_head(). This is safe as lwtunnel_xmit() is
->     invoked after the IP header has been assembled completely.
-[...]
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, November 30, 2016 7:26 PM
+> To: Salil Mehta
+> Cc: Zhuangyuzeng (Yisen); mehta.salil.lnk@gmail.com;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm
+> Subject: Re: [PATCH V2 net-next] net: hns: Fix to conditionally convey
+> RX checksum flag to stack
+> 
+> From: Salil Mehta <salil.mehta@huawei.com>
+> Date: Tue, 29 Nov 2016 13:09:45 +0000
+> 
+> > +	/* We only support checksum for IPv4,UDP(over IPv4 or IPv6),
+> TCP(over
+> > +	 * IPv4 or IPv6) and SCTP but we support many L3(IPv4, IPv6,
+> MPLS,
+> > +	 * PPPoE etc) and L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.)
+> protocols.
+> > +	 * We want to filter out L3 and L4 protocols early on for which
+> checksum
+> > +	 * is not supported.
+>  ...
+> > +	 */
+> > +	l3id = hnae_get_field(flag, HNS_RXD_L3ID_M, HNS_RXD_L3ID_S);
+> > +	l4id = hnae_get_field(flag, HNS_RXD_L4ID_M, HNS_RXD_L4ID_S);
+> > +	if ((l3id != HNS_RX_FLAG_L3ID_IPV4) &&
+> > +	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
+> > +	     (l4id != HNS_RX_FLAG_L4ID_UDP)) &&
+> > +	    ((l3id != HNS_RX_FLAG_L3ID_IPV6) ||
+> > +	     (l4id != HNS_RX_FLAG_L4ID_TCP)) &&
+> > +	    (l4id != HNS_RX_FLAG_L4ID_SCTP))
+> > +		return;
+> 
+> I have a hard time understanding this seemingly overcomplicated
+> check.
+> 
+> It looks like if L3 is IPV4 it will accept any underlying L4 protocol,
+> but is that what is really intended?  That doesn't match what this new
+> comment states.
+I agree that it is bit difficult to read. Earlier, I was banking on the
+register(mistakenly, its hardware implementation err ) to de-multiplex
+the checksum error type. The register supported indication of just IPv4
+Header Checksum Error as well (which meant it could carry any L4 protocol).
+IPv6 does not have similar Header checksum error. Therefore, to check
+if it is just IPv4 Header checksum error or any supported L4 transport
+(UDP or TCP) error over IPv4 or IPv6 I had to bank upon above complex
+check
 
-LGTMAFAICT, so:
+Below suggested solution check would have been insufficient for
+example, if packet had IPv4/IGMP and there was a checksum error in IPv4
+header.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Comment states:
+" We only support checksum for IPv4, UDP(over IPv4 or IPv6), 
+  TCP(over IPv4 or IPv6) and SCTP"
+   1) Checksum of IPv4 (IPv4 header)
+   2) UDP(over IPv4 or IPv6)
+   3) TCP(over IPv4 or IPv6)
+   4) SCTP (over IPv4 or IPv6)*
 
-For the verifier change in may_access_direct_pkt_data(), would be
-great if you could later on follow up with a selftest-suite case,
-one where BPF_PROG_TYPE_LWT_IN/OUT prog tries to write and fails,
-and one where BPF_PROG_TYPE_LWT_IN/OUT prog uses pkt data to pass
-to helpers, for example, so that we can keep testing it when future
-changes in that area are made. Thanks.
+(*) I should have put IPv4/IPv6 check for SCTP in the code
+    and made it clear in the comment as well?
+
+> 
+> My understanding is that the chip supports checksums for:
+> 
+> 	UDP/IPV4
+> 	UDP/IPV6
+> 	TCP/IPV4
+> 	TCP/IPV6
+> 	SCTP/IPV4
+> 	SCTP/IPV6
+
+Hardware also supports checksum of IPv4 Header.
+
+> 
+> So the simplest thing is to validate each level one at a time:
+> 
+> 	if (l3 != IPV4 && l3 != IPV6)
+> 		return;
+> 	if (l4 != UDP && l4 != TCP && l4 != SCTP)
+> 		return;
+I guess above check will fail to catch cases like IPv4/IGMP, when there
+is a bad checksum in The IPv4 header. 
+
+But maybe now since we don't have any method to de-multiplex the kind of
+checksum error (cannot depend upon register) we can have below code
+re-arrangement:
+
+hns_nic_rx_checksum() {
+      /* check supported L3 protocol */
+	if (l3 != IPV4 && l3 != IPV6)
+		return;
+      /* check if L3 protocols error */
+      if (l3e)
+	 	return;
+
+      /* check if the packets are fragmented */
+	If (l3frags)
+		Return;
+
+      /* check supported L4 protocol */
+ 	if (l4 != UDP && l4 != TCP && l4 != SCTP)
+ 		return;
+      /* check if any L4 protocol error */
+      if (l3e)
+	 	return;
+
+      /* packet with valid checksum - covey to stack */
+      skb->ip_summed = CHECKSUM_UNNECESSARY
+}
+
+Hope I am not missing something here. Please correct my understanding
+if there is any gap here. Thanks!
+
+Best regards
+Salil
