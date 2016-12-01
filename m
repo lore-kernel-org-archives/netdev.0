@@ -1,62 +1,70 @@
 From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Subject: Re: [RFC 02/10] IB/hfi-vnic: Virtual Network Interface Controller
  (VNIC) Bus driver
-Date: Wed, 30 Nov 2016 23:39:25 -0800
-Message-ID: <20161201073925.GA110434@knc-06.sc.intel.com>
-References: <20161123000502.GA27968@phlsvsds.ph.intel.com>
+Date: Wed, 30 Nov 2016 23:41:36 -0800
+Message-ID: <20161201074136.GB110434@knc-06.sc.intel.com>
+References: <20161121232629.GA67988@knc-06.sc.intel.com>
+ <20161121233118.GA31132@obsidianresearch.com>
+ <20161122015304.GB67988@knc-06.sc.intel.com>
+ <20161122170407.GE3956@obsidianresearch.com>
+ <20161123000502.GA27968@phlsvsds.ph.intel.com>
  <20161123004932.GA13598@obsidianresearch.com>
  <20161124000825.GA73280@knc-06.sc.intel.com>
  <20161124161545.GA20818@obsidianresearch.com>
- <20161125021350.GA74946@knc-06.sc.intel.com>
- <20161125190509.GB16504@obsidianresearch.com>
- <20161129063106.GB84990@knc-06.sc.intel.com>
- <20161129161950.GB742@obsidianresearch.com>
- <1828884A29C6694DAF28B7E6B8A82373AB0B9B46@ORSMSX109.amr.corp.intel.com>
- <20161129165009.GA3167@obsidianresearch.com>
+ <20161129062938.GA84990@knc-06.sc.intel.com>
+ <20161129162113.GC742@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Dalessandro, Dennis" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20161129165009.GA3167-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+In-Reply-To: <20161129162113.GC742-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2016 at 09:50:09AM -0700, Jason Gunthorpe wrote:
->On Tue, Nov 29, 2016 at 04:44:37PM +0000, Hefty, Sean wrote:
->> > You are not making a subsystem. Don't overcomplicate things. A
->> > multi-part device device can just directly link.
+On Tue, Nov 29, 2016 at 09:21:13AM -0700, Jason Gunthorpe wrote:
+>On Mon, Nov 28, 2016 at 10:29:38PM -0800, Vishwanathapura, Niranjana wrote:
+>> On Thu, Nov 24, 2016 at 09:15:45AM -0700, Jason Gunthorpe wrote:
+>> >>And will move the hfi_vnic module under
+>> >>???drivers/infiniband/ulp/hfi_vnic???.
+>> >
+>> >I would prefer drivers/net/ethernet
+>> >
+>> >This is clearly not a ULP since it doesn't use verbs.
+>> >
 >>
->> The VNIC may be usable over multiple generations of HFIs, but I
->> don't know if that is the intent.
+>> I understand it is not using verbs, but the control path (ib_device client)
+>> is using verbs (IB MAD).
+>> Our prefernce is to keep it somewhere under drivers/infiniband. Summarizing
+>> reasons again here,
+>>
+>> - VNIC control driver (ib_device client) is an IB MAD agent.
+>> - It is purly a software construct, encapsualtes ethernet packets in
+>> Omni-path packet and depends on hfi1 driver here for HW access.
 >
->If Intel wants to build a HFI subystem within RDMA with multiple
->drivers then sure, but they are not there yet, and we don't even know
->what that could look like. So it is better to leave it simple for now.
+>Is the majority of the code MAD focused or net stack focused?
+>
+>I'm not sure it matters, it isn't like we can review Intel's
+>proprietary mad stuff anyhow. :\
 >
 >Jason
 
-Sorry for the delay, I was weighing in couple options.
-We envisioned vnic as a pure software construct and hence should be independent 
-(like ipoib). ie., both hfi_vnic and hfi1 should be independently loadable 
-(like ipoib) despite hfi_vnic being dependent on hfi1 here for HW access.
+That is an intersting measure. In hfi_vnic driver, I would say, >60% of the 
+code is MAD focused, mainly interfacing with the IB MAD agent.
+It also includes populating/parsing those MAD packets. At the least it is not 
+supporting the driver to be put under net folder.
 
-There doesn't seem to be much value of hfi_vnic being a 'ib client', if it 
-still has compilation and module dependency on hfi1 module.
+Even in the remaining <40%, half of it is involved with encapsulating ethernet 
+frames with Omni-path header (does this makes it belong under 
+drivers/infiniband/hw?).
+The net stack interface part is pretty standard, hence is not much of code.
 
-The more I think of it, having vnic ops added to ib device structure (option 
-(b)) makes it cleaner (no dependency). We can probably consider extending 'ib 
-device' in hfi1 in order for hfi_vnic to get to the vnic ops. But (b) makes it 
-simpler.
-
-Though Jason's suggestion could be a temporary measure for this patch series, 
-the above approach is what I would like to target here.
+I do see the reason to put it under net folder, but I am seeing more reason for 
+it to be somewhere under drivers/infiniband.
 
 Niranjana
 
