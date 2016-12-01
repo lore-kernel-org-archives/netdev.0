@@ -1,63 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Initial thoughts on TXDP
-Date: Thu, 1 Dec 2016 23:55:48 +0100
-Message-ID: <32d8cfdb-b49c-6681-4a51-5d7f08dda391@stressinduktion.org>
-References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
- <20161201135508.GB24547@oracle.com>
- <CALx6S35DCyi_2z1pqCLaB1bVyNykP_J3YaYEXUT8xxmuzyBDwA@mail.gmail.com>
- <20161201201324.GJ24547@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Tom Herbert <tom@herbertland.com>
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next] arp: avoid sending ucast probes to 00:00:00:00:00:00
+Date: Thu,  1 Dec 2016 14:56:34 -0800
+Message-ID: <1480632994-12128-1-git-send-email-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <maheshb@google.com>
+To: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:60590 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752480AbcLAWzv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 17:55:51 -0500
-In-Reply-To: <20161201201324.GJ24547@oracle.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33038 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751510AbcLAW4o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 17:56:44 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 144so12497145pfv.0
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 14:56:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.12.2016 21:13, Sowmini Varadhan wrote:
-> On (12/01/16 11:05), Tom Herbert wrote:
->>
->> Polling does not necessarily imply that networking monopolizes the CPU
->> except when the CPU is otherwise idle. Presumably the application
->> drives the polling when it is ready to receive work.
-> 
-> I'm not grokking that- "if the cpu is idle, we want to busy-poll
-> and make it 0% idle"?  Keeping CPU 0% idle has all sorts
-> of issues, see slide 20 of
->  http://www.slideshare.net/shemminger/dpdk-performance
->
->>> and one other critical difference from the hot-potato-forwarding
->>> model (the sort of OVS model that DPDK etc might aruguably be a fit for)
->>> does not apply: in order to figure out the ethernet and IP headers
->>> in the response correctly at all times (in the face of things like VRRP,
->>> gw changes, gw's mac addr changes etc) the application should really
->>> be listening on NETLINK sockets for modifications to the networking
->>> state - again points to needing a select() socket set where you can
->>> have both the I/O fds and the netlink socket,
->>>
->> I would think that that is management would not be implemented in a
->> fast path processing thread for an application.
-> 
-> sure, but my point was that *XDP and other stack-bypass methods needs 
-> to provide a select()able socket: when your use-case is not about just
-> networking, you have to snoop on changes to the control plane, and update
-> your data path. In the OVS case (pure networking) the OVS control plane
-> updates are intrinsic to OVS. For the rest of the request/response world,
-> we need a select()able socket set to do this elegantly (not really
-> possible in DPDK, for example)
+From: Mahesh Bandewar <maheshb@google.com>
 
-Busypoll on steroids is what windows does by mapping the user space
-"doorbell" into a vDSO and let user space loop on that maybe with
-MWAIT/MONITOR. The interesting thing is that you can map other events to
-this notification event, too. It sounds like a usable idea to me and
-reassembles what we already do with futexes.
+If initial broadcast probe(s) is/are lost, the neigh entry wont have
+valid address of the neighbour. In a situation like this, the fall
+back should be to send a broadcast probe, however the code logic
+continues sending ucast probes to 00:00:00:00:00:00. The default value
+of ucast probes is 3 so system usually recovers after three such probes
+but if the value configured is larger it takes those many probes
+(a probe is sent every second in default config) / seconds to recover
+making machine not-available on the network.
 
-Bye,
-Hannes
+This patch just ensures that the unicast address is not NULL otherwise
+falls back to sending broadcast probe.
+
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ net/ipv4/arp.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 89a8cac4726a..56fb33d5ed31 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -330,6 +330,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	__be32 saddr = 0;
+ 	u8 dst_ha[MAX_ADDR_LEN], *dst_hw = NULL;
++	u8 null_dev_hw_addr[MAX_ADDR_LEN];
+ 	struct net_device *dev = neigh->dev;
+ 	__be32 target = *(__be32 *)neigh->primary_key;
+ 	int probes = atomic_read(&neigh->probes);
+@@ -371,10 +372,12 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 
+ 	probes -= NEIGH_VAR(neigh->parms, UCAST_PROBES);
+ 	if (probes < 0) {
++		memset(&null_dev_hw_addr, 0, dev->addr_len);
+ 		if (!(neigh->nud_state & NUD_VALID))
+ 			pr_debug("trying to ucast probe in NUD_INVALID\n");
+ 		neigh_ha_snapshot(dst_ha, neigh, dev);
+-		dst_hw = dst_ha;
++		if (memcmp(&dst_ha, &null_dev_hw_addr, dev->addr_len) != 0)
++			dst_hw = dst_ha;
+ 	} else {
+ 		probes -= NEIGH_VAR(neigh->parms, APP_PROBES);
+ 		if (probes < 0) {
+-- 
+2.8.0.rc3.226.g39d4020
