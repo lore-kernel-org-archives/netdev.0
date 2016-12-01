@@ -1,501 +1,136 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH iproute2 V4 3/3] tc/act_tunnel: Introduce ip tunnel action
-Date: Thu,  1 Dec 2016 13:44:46 +0200
-Message-ID: <20161201114446.30333-4-amir@vadai.me>
-References: <20161201114446.30333-1-amir@vadai.me>
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Jiri Benc <jbenc@redhat.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36448 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750738AbcLALp4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 06:45:56 -0500
-Received: by mail-wm0-f67.google.com with SMTP id m203so33717546wma.3
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 03:45:55 -0800 (PST)
-In-Reply-To: <20161201114446.30333-1-amir@vadai.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: [PATCH v5 net-next 4/7] net: mvneta: Convert to be 64 bits
+ compatible
+Date: Thu, 1 Dec 2016 19:41:47 +0800
+Message-ID: <20161201194147.5c41533e@xhacker>
+References: <cover.0270f6d2413a709521fe2c8c17fbebea6f2e78d1.1480542157.git-series.gregory.clement@free-electrons.com>
+        <6b4d20a85b05e93d254e265eb07569dd1285d303.1480542157.git-series.gregory.clement@free-electrons.com>
+        <20161201192604.07ed9516@xhacker>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Dmitri Epshtein <dima@marvell.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Yelena Krivosheev <yelena@marvell.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        <linux-arm-kernel@lists.infradead.org>,
+        "Sebastian Hesselbarth" <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Marcin Wojtas <mw@semihalf.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161201192604.07ed9516@xhacker>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This action could be used before redirecting packets to a shared tunnel
-device, or when redirecting packets arriving from a such a device.
+On Thu, 1 Dec 2016 19:26:04 +0800
+Jisheng Zhang <jszhang@marvell.com> wrote:
 
-The 'unset' action is optional. It is used to explicitly unset the
-metadata created by the tunnel device during decap. If not used, the
-metadata will be released automatically by the kernel.
-The 'set' operation, will set the metadata with the specified values for
-the encap.
+> Hi Gregory, Marcin,
+> 
+> On Wed, 30 Nov 2016 22:42:49 +0100 Gregory CLEMENT wrote:
+> 
+> > From: Marcin Wojtas <mw@semihalf.com>
+> > 
+> > Prepare the mvneta driver in order to be usable on the 64 bits platform
+> > such as the Armada 3700.
+> > 
+> > [gregory.clement@free-electrons.com]: this patch was extract from a larger
+> > one to ease review and maintenance.
+> > 
+> > Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+> > Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> > ---
+> >  drivers/net/ethernet/marvell/mvneta.c | 17 ++++++++++++++++-
+> >  1 file changed, 16 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> > index 92b9af14c352..8ef03fb69bcd 100644
+> > --- a/drivers/net/ethernet/marvell/mvneta.c
+> > +++ b/drivers/net/ethernet/marvell/mvneta.c
+> > @@ -296,6 +296,12 @@
+> >  /* descriptor aligned size */
+> >  #define MVNETA_DESC_ALIGNED_SIZE	32
+> >  
+> > +/* Number of bytes to be taken into account by HW when putting incoming data
+> > + * to the buffers. It is needed in case NET_SKB_PAD exceeds maximum packet
+> > + * offset supported in MVNETA_RXQ_CONFIG_REG(q) registers.  
+> 
+> We also brought up this driver on 64bit platforms, we doesn't have this
+> patch. Maybe I'm wrong, I'm trying to understand why we need this
+> modification. Let's assume the NET_SKB_PAD is 64B, we call
+> mvneta_rxq_offset_set(pp, rxq, 64),
+> 
+> {
+>         u32 val;
+> 
+>         val = mvreg_read(pp, MVNETA_RXQ_CONFIG_REG(rxq->id));
+>         val &= ~MVNETA_RXQ_PKT_OFFSET_ALL_MASK;
+> 
+>         /* Offset is in */
+>         val |= MVNETA_RXQ_PKT_OFFSET_MASK(offset >> 3);
+> // then this will be "val |= 8;" it doesn't exceeds the max offset of
 
-For example, the following flower filter will forward all ICMP packets
-destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
-redirecting, a metadata for the vxlan tunnel is created using the
-tunnel_key action and it's arguments:
+sorry, this will be "val |= MVNETA_RXQ_PKT_OFFSET_MASK(8);"
 
-$ tc filter add dev net0 protocol ip parent ffff: \
-    flower \
-      ip_proto 1 \
-      dst_ip 11.11.11.2 \
-    action tunnel_key set \
-      src_ip 11.11.0.1 \
-      dst_ip 11.11.0.2 \
-      id 11 \
-    action mirred egress redirect dev vxlan0
-
-Signed-off-by: Amir Vadai <amir@vadai.me>
----
- include/linux/tc_act/tc_tunnel_key.h |  42 ++++++
- man/man8/tc-tunnel_key.8             | 112 +++++++++++++++
- tc/Makefile                          |   1 +
- tc/m_tunnel_key.c                    | 258 +++++++++++++++++++++++++++++++++++
- 4 files changed, 413 insertions(+)
- create mode 100644 include/linux/tc_act/tc_tunnel_key.h
- create mode 100644 man/man8/tc-tunnel_key.8
- create mode 100644 tc/m_tunnel_key.c
-
-diff --git a/include/linux/tc_act/tc_tunnel_key.h b/include/linux/tc_act/tc_tunnel_key.h
-new file mode 100644
-index 000000000000..f9ddf5369a45
---- /dev/null
-+++ b/include/linux/tc_act/tc_tunnel_key.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Copyright (c) 2016, Amir Vadai <amir@vadai.me>
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __LINUX_TC_TUNNEL_KEY_H
-+#define __LINUX_TC_TUNNEL_KEY_H
-+
-+#include <linux/pkt_cls.h>
-+
-+#define TCA_ACT_TUNNEL_KEY 17
-+
-+#define TCA_TUNNEL_KEY_ACT_SET	    1
-+#define TCA_TUNNEL_KEY_ACT_RELEASE  2
-+
-+struct tc_tunnel_key {
-+	tc_gen;
-+	int t_action;
-+};
-+
-+enum {
-+	TCA_TUNNEL_KEY_UNSPEC,
-+	TCA_TUNNEL_KEY_TM,
-+	TCA_TUNNEL_KEY_PARMS,
-+	TCA_TUNNEL_KEY_ENC_IPV4_SRC,	/* be32 */
-+	TCA_TUNNEL_KEY_ENC_IPV4_DST,	/* be32 */
-+	TCA_TUNNEL_KEY_ENC_IPV6_SRC,	/* struct in6_addr */
-+	TCA_TUNNEL_KEY_ENC_IPV6_DST,	/* struct in6_addr */
-+	TCA_TUNNEL_KEY_ENC_KEY_ID,	/* be64 */
-+	TCA_TUNNEL_KEY_PAD,
-+	__TCA_TUNNEL_KEY_MAX,
-+};
-+
-+#define TCA_TUNNEL_KEY_MAX (__TCA_TUNNEL_KEY_MAX - 1)
-+
-+#endif
-+
-diff --git a/man/man8/tc-tunnel_key.8 b/man/man8/tc-tunnel_key.8
-new file mode 100644
-index 000000000000..17b15b9b34b9
---- /dev/null
-+++ b/man/man8/tc-tunnel_key.8
-@@ -0,0 +1,112 @@
-+.TH "Tunnel metadata manipulation action in tc" 8 "10 Nov 2016" "iproute2" "Linux"
-+
-+.SH NAME
-+tunnel_key - Tunnel metadata manipulation
-+.SH SYNOPSIS
-+.in +8
-+.ti -8
-+.BR tc " ... " "action tunnel_key" " { " unset " | "
-+.IR SET " }"
-+
-+.ti -8
-+.IR SET " := "
-+.BR set " " src_ip
-+.IR ADDRESS
-+.BR dst_ip
-+.IR ADDRESS
-+.BI id " KEY_ID"
-+
-+.SH DESCRIPTION
-+The
-+.B tunnel_key
-+action combined with a shared IP tunnel device, allows to perform IP tunnel en-
-+or decapsulation on a packet, reflected by
-+the operation modes
-+.IR UNSET " and " SET .
-+The
-+.I UNSET
-+mode is optional - even without using it, the metadata information will be
-+released automatically when packet processing will be finished.
-+.IR UNSET
-+function could be used in cases when traffic is forwarded between two tunnels,
-+where the metadata from the first tunnel will be used for encapsulation done by
-+the second tunnel.
-+.IR SET
-+mode requires the source and destination ip
-+.I ADDRESS
-+and the tunnel key id
-+.I KEY_ID
-+which will be used by the ip tunnel shared device to create the tunnel header. The
-+.B tunnel_key
-+action is useful only in combination with a
-+.B mirred redirect
-+action to a shared IP tunnel device which will use the metadata (for
-+.I SET
-+) and unset the metadata created by it (for
-+.I UNSET
-+).
-+
-+.SH OPTIONS
-+.TP
-+.B unset
-+Unset the tunnel metadata created by the IP tunnel device.  This function is
-+not mandatory and might be used only in some specific use cases (as explained
-+above).
-+.TP
-+.B set
-+Set tunnel metadata to be used by the IP tunnel device. Requires
-+.B id
-+,
-+.B src_ip
-+and
-+.B dst_ip
-+options.
-+.RS
-+.TP
-+.B id
-+Tunnel ID (for example VNI in VXLAN tunnel)
-+.TP
-+.B src_ip
-+Outer header source IP address (IPv4 or IPv6)
-+.TP
-+.B dst_ip
-+Outer header destination IP address (IPv4 or IPv6)
-+.RE
-+.SH EXAMPLES
-+The following example encapsulates incoming ICMP packets on eth0 into a vxlan
-+tunnel, by setting metadata to VNI 11, source IP 11.11.0.1 and destination IP
-+11.11.0.2, and by redirecting the packet with the metadata to device vxlan0,
-+which will do the actual encapsulation using the metadata:
-+
-+.RS
-+.EX
-+#tc qdisc add dev eth0 handle ffff: ingress
-+#tc filter add dev eth0 protocol ip parent ffff: \\
-+  flower \\
-+    ip_proto icmp \\
-+  action tunnel_key set \\
-+    src_ip 11.11.0.1 \\
-+    dst_ip 11.11.0.2 \\
-+    id 11 \\
-+  action mirred egress redirect dev vxlan0
-+.EE
-+.RE
-+
-+Here is an example of the
-+.B unset
-+function: Incoming VXLAN traffic with outer IP's and VNI 11 is decapsulated by
-+vxlan0 and metadata is unset before redirecting to tunl1 device:
-+
-+.RS
-+.EX
-+#tc qdisc add dev eth0 handle ffff: ingress
-+#tc filter add dev vxlan0 protocol ip parent ffff: \
-+  flower \\
-+	  enc_src_ip 11.11.0.2 enc_dst_ip 11.11.0.1 enc_key_id 11 \
-+	action tunnel_key unset \
-+	action mirred egress redirect dev tunl1
-+.EE
-+.RE
-+
-+.SH SEE ALSO
-+.BR tc (8)
-diff --git a/tc/Makefile b/tc/Makefile
-index dfa875b5edaf..f6f41ca2bb3d 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -50,6 +50,7 @@ TCMODULES += m_simple.o
- TCMODULES += m_vlan.o
- TCMODULES += m_connmark.o
- TCMODULES += m_bpf.o
-+TCMODULES += m_tunnel_key.o
- TCMODULES += p_ip.o
- TCMODULES += p_icmp.o
- TCMODULES += p_tcp.o
-diff --git a/tc/m_tunnel_key.c b/tc/m_tunnel_key.c
-new file mode 100644
-index 000000000000..f4a20e24e0bf
---- /dev/null
-+++ b/tc/m_tunnel_key.c
-@@ -0,0 +1,258 @@
-+/*
-+ * m_tunnel_key.c	ip tunnel manipulation module
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Amir Vadai <amir@vadai.me>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <linux/if_ether.h>
-+#include "utils.h"
-+#include "rt_names.h"
-+#include "tc_util.h"
-+#include <linux/tc_act/tc_tunnel_key.h>
-+
-+static void explain(void)
-+{
-+	fprintf(stderr, "Usage: tunnel_key unset\n");
-+	fprintf(stderr, "       tunnel_key set id TUNNELID src_ip IP dst_ip IP\n");
-+}
-+
-+static void usage(void)
-+{
-+	explain();
-+	exit(-1);
-+}
-+
-+static int tunnel_key_parse_ip_addr(const char *str, int addr4_type,
-+				    int addr6_type, struct nlmsghdr *n)
-+{
-+	inet_prefix addr;
-+	int ret;
-+
-+	ret = get_addr(&addr, str, AF_UNSPEC);
-+	if (ret)
-+		return ret;
-+
-+	addattr_l(n, MAX_MSG, addr.family == AF_INET ? addr4_type : addr6_type,
-+		  addr.data, addr.bytelen);
-+
-+	return 0;
-+}
-+
-+static int tunnel_key_parse_key_id(const char *str, int type,
-+				   struct nlmsghdr *n)
-+{
-+	__be32 key_id;
-+	int ret;
-+
-+	ret = get_be32(&key_id, str, 10);
-+	if (!ret)
-+		addattr32(n, MAX_MSG, type, key_id);
-+
-+	return ret;
-+}
-+
-+static int parse_tunnel_key(struct action_util *a, int *argc_p, char ***argv_p,
-+			    int tca_id, struct nlmsghdr *n)
-+{
-+	struct tc_tunnel_key parm = { .action = TC_ACT_PIPE };
-+	char **argv = *argv_p;
-+	int argc = *argc_p;
-+	struct rtattr *tail;
-+	int action = 0;
-+	int ret;
-+	int has_src_ip = 0;
-+	int has_dst_ip = 0;
-+	int has_key_id = 0;
-+
-+	if (matches(*argv, "tunnel_key") != 0)
-+		return -1;
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
-+
-+	NEXT_ARG();
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "unset") == 0) {
-+			if (action) {
-+				fprintf(stderr, "unexpected \"%s\" - action already specified\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			action = TCA_TUNNEL_KEY_ACT_RELEASE;
-+		} else if (matches(*argv, "set") == 0) {
-+			if (action) {
-+				fprintf(stderr, "unexpected \"%s\" - action already specified\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			action = TCA_TUNNEL_KEY_ACT_SET;
-+		} else if (matches(*argv, "src_ip") == 0) {
-+			NEXT_ARG();
-+			ret = tunnel_key_parse_ip_addr(*argv,
-+						       TCA_TUNNEL_KEY_ENC_IPV4_SRC,
-+						       TCA_TUNNEL_KEY_ENC_IPV6_SRC,
-+						       n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"src_ip\"\n");
-+				return -1;
-+			}
-+			has_src_ip = 1;
-+		} else if (matches(*argv, "dst_ip") == 0) {
-+			NEXT_ARG();
-+			ret = tunnel_key_parse_ip_addr(*argv,
-+						       TCA_TUNNEL_KEY_ENC_IPV4_DST,
-+						       TCA_TUNNEL_KEY_ENC_IPV6_DST,
-+						       n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"dst_ip\"\n");
-+				return -1;
-+			}
-+			has_dst_ip = 1;
-+		} else if (matches(*argv, "id") == 0) {
-+			NEXT_ARG();
-+			ret = tunnel_key_parse_key_id(*argv, TCA_TUNNEL_KEY_ENC_KEY_ID, n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"id\"\n");
-+				return -1;
-+			}
-+			has_key_id = 1;
-+		} else if (matches(*argv, "help") == 0) {
-+			usage();
-+		} else {
-+			break;
-+		}
-+		NEXT_ARG_FWD();
-+	}
-+
-+	if (argc && !action_a2n(*argv, &parm.action, false))
-+		NEXT_ARG_FWD();
-+
-+	if (argc) {
-+		if (matches(*argv, "index") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&parm.index, *argv, 10)) {
-+				fprintf(stderr, "tunnel_key: Illegal \"index\"\n");
-+				return -1;
-+			}
-+
-+			NEXT_ARG_FWD();
-+		}
-+	}
-+
-+	if (action == TCA_TUNNEL_KEY_ACT_SET &&
-+	    (!has_src_ip || !has_dst_ip || !has_key_id)) {
-+		fprintf(stderr, "set needs tunnel_key parameters\n");
-+		explain();
-+		return -1;
-+	}
-+
-+	parm.t_action = action;
-+	addattr_l(n, MAX_MSG, TCA_TUNNEL_KEY_PARMS, &parm, sizeof(parm));
-+	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+
-+	return 0;
-+}
-+
-+static void tunnel_key_print_ip_addr(FILE *f, const char *name,
-+				     struct rtattr *attr)
-+{
-+	int family;
-+	size_t len;
-+
-+	if (!attr)
-+		return;
-+
-+	len = RTA_PAYLOAD(attr);
-+
-+	if (len == 4)
-+		family = AF_INET;
-+	else if (len == 16)
-+		family = AF_INET6;
-+	else
-+		return;
-+
-+	fprintf(f, "\n\t%s %s", name, rt_addr_n2a_rta(family, attr));
-+}
-+
-+static void tunnel_key_print_key_id(FILE *f, const char *name,
-+				    struct rtattr *attr)
-+{
-+	if (!attr)
-+		return;
-+	fprintf(f, "\n\t%s %d", name, rta_getattr_be32(attr));
-+}
-+
-+static int print_tunnel_key(struct action_util *au, FILE *f, struct rtattr *arg)
-+{
-+	struct rtattr *tb[TCA_TUNNEL_KEY_MAX + 1];
-+	struct tc_tunnel_key *parm;
-+
-+	if (!arg)
-+		return -1;
-+
-+	parse_rtattr_nested(tb, TCA_TUNNEL_KEY_MAX, arg);
-+
-+	if (!tb[TCA_TUNNEL_KEY_PARMS]) {
-+		fprintf(f, "[NULL tunnel_key parameters]");
-+		return -1;
-+	}
-+	parm = RTA_DATA(tb[TCA_TUNNEL_KEY_PARMS]);
-+
-+	fprintf(f, "tunnel_key");
-+
-+	switch (parm->t_action) {
-+	case TCA_TUNNEL_KEY_ACT_RELEASE:
-+		fprintf(f, " unset");
-+		break;
-+	case TCA_TUNNEL_KEY_ACT_SET:
-+		fprintf(f, " set");
-+		tunnel_key_print_ip_addr(f, "src_ip",
-+					 tb[TCA_TUNNEL_KEY_ENC_IPV4_SRC]);
-+		tunnel_key_print_ip_addr(f, "dst_ip",
-+					 tb[TCA_TUNNEL_KEY_ENC_IPV4_DST]);
-+		tunnel_key_print_ip_addr(f, "src_ip",
-+					 tb[TCA_TUNNEL_KEY_ENC_IPV6_SRC]);
-+		tunnel_key_print_ip_addr(f, "dst_ip",
-+					 tb[TCA_TUNNEL_KEY_ENC_IPV6_DST]);
-+		tunnel_key_print_key_id(f, "key_id",
-+					tb[TCA_TUNNEL_KEY_ENC_KEY_ID]);
-+		break;
-+	}
-+	fprintf(f, " %s", action_n2a(parm->action));
-+
-+	fprintf(f, "\n\tindex %d ref %d bind %d", parm->index, parm->refcnt,
-+		parm->bindcnt);
-+
-+	if (show_stats) {
-+		if (tb[TCA_TUNNEL_KEY_TM]) {
-+			struct tcf_t *tm = RTA_DATA(tb[TCA_TUNNEL_KEY_TM]);
-+
-+			print_tm(f, tm);
-+		}
-+	}
-+
-+	fprintf(f, "\n ");
-+
-+	return 0;
-+}
-+
-+struct action_util tunnel_key_action_util = {
-+	.id = "tunnel_key",
-+	.parse_aopt = parse_tunnel_key,
-+	.print_aopt = print_tunnel_key,
-+};
--- 
-2.10.2
+> MVNETA_RXQ_CONFIG_REG(q) register.
+> 
+> Could you please kindly point out where I am wrong?
+> 
+> > + */
+> > +#define MVNETA_RX_PKT_OFFSET_CORRECTION		64
+> > +
+> >  #define MVNETA_RX_PKT_SIZE(mtu) \
+> >  	ALIGN((mtu) + MVNETA_MH_SIZE + MVNETA_VLAN_TAG_LEN + \
+> >  	      ETH_HLEN + ETH_FCS_LEN,			     \
+> > @@ -416,6 +422,7 @@ struct mvneta_port {
+> >  	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
+> >  
+> >  	u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
+> > +	u16 rx_offset_correction;
+> >  };
+> >  
+> >  /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
+> > @@ -1807,6 +1814,7 @@ static int mvneta_rx_refill(struct mvneta_port *pp,
+> >  		return -ENOMEM;
+> >  	}
+> >  
+> > +	phys_addr += pp->rx_offset_correction;
+> >  	mvneta_rx_desc_fill(rx_desc, phys_addr, data, rxq);
+> >  	return 0;
+> >  }
+> > @@ -2782,7 +2790,7 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
+> >  	mvreg_write(pp, MVNETA_RXQ_SIZE_REG(rxq->id), rxq->size);
+> >  
+> >  	/* Set Offset */
+> > -	mvneta_rxq_offset_set(pp, rxq, NET_SKB_PAD);
+> > +	mvneta_rxq_offset_set(pp, rxq, NET_SKB_PAD - pp->rx_offset_correction);
+> >  
+> >  	/* Set coalescing pkts and time */
+> >  	mvneta_rx_pkts_coal_set(pp, rxq, rxq->pkts_coal);
+> > @@ -4033,6 +4041,13 @@ static int mvneta_probe(struct platform_device *pdev)
+> >  
+> >  	pp->rxq_def = rxq_def;
+> >  
+> > +	/* Set RX packet offset correction for platforms, whose
+> > +	 * NET_SKB_PAD, exceeds 64B. It should be 64B for 64-bit
+> > +	 * platforms and 0B for 32-bit ones.  
+> 
+> Even we need this patch, I'm not sure this last comment is correct or not.
+> NET_SKB_PAD is defined as:
+> 
+> #define NET_SKB_PAD     max(32, L1_CACHE_BYTES)
+> 
+> we have 64B cacheline 32bit platforms, on this platforms, the NET_SKB_PAD
+> should be 64B as well.
+> 
+> Thanks,
+> Jisheng
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
