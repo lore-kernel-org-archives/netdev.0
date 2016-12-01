@@ -1,133 +1,77 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v2] tipc: check minimum bearer MTU
-Date: Thu,  1 Dec 2016 12:02:05 +0100 (CET)
-Message-ID: <20161201110205.10749A0F33@unicorn.suse.cz>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: wireless: ath: ath9k: constify ath_bus_ops structure
+Date: Thu, 1 Dec 2016 12:18:07 +0100
+Message-ID: <3afc412c6871406cb9f952c6a6f5c038@euamsexm01a.eu.qualcomm.com>
+References: <1480266206-26732-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
-        Qian Zhang <zhangqian-c@360.cn>
-To: Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <julia.lawall@lip6.fr>, <ath9k-devel@qca.qualcomm.com>,
+        <kvalo@codeaurora.org>, <linux-wireless@vger.kernel.org>,
+        <ath9k-devel@lists.ath9k.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Bhumika Goyal <bhumirks@gmail.com>
+To: Bhumika Goyal <bhumirks@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480266206-26732-1-git-send-email-bhumirks@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Qian Zhang (张谦) reported a potential socket buffer overflow in
-tipc_msg_build() which is also known as CVE-2016-8632: due to
-insufficient checks, a buffer overflow can occur if MTU is too short for
-even tipc headers. As anyone can set device MTU in a user/net namespace,
-this issue can be abused by a regular user.
+Bhumika Goyal <bhumirks@gmail.com> wrote:
+> Declare the structure ath_bus_ops as const as it is only passed as an
+> argument to the function ath9k_init_device. This argument is of type
+> const struct ath_bus_ops *, so ath_bus_ops structures with this property
+> can be declared as const.
+> Done using Coccinelle:
+> @r1 disable optional_qualifier @
+> identifier i;
+> position p;
+> @@
+> static struct ath_bus_ops i@p = {...};
+> 
+> @ok1@
+> identifier r1.i;
+> position p;
+> expression e1,e2;
+> @@
+> ath9k_init_device(e1,e2,&i@p)
+> 
+> @bad@
+> position p!={r1.p,ok1.p};
+> identifier r1.i;
+> @@
+> i@p
+> 
+> @depends on !bad disable optional_qualifier@
+> identifier r1.i;
+> @@
+> static
+> +const
+> struct ath_bus_ops i={...};
+> 
+> @depends on !bad disable optional_qualifier@
+> identifier r1.i;
+> @@
+> +const
+> struct ath_bus_ops i;
+> 
+> File size before:
+>    text	   data	    bss	    dec	    hex	filename
+>    1295	    232	      0	   1527	    5f7	ath/ath9k/ahb.o
+> 
+> File size after:
+>    text	   data	    bss	    dec	    hex	filename
+>    1359	    176	      0	   1535	    5ff	ath/ath9k/ahb.o
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-As agreed in the discussion on Ben Hutchings' original patch, we should
-check the MTU at the moment a bearer is attached rather than for each
-processed packet. We also need to repeat the check when bearer MTU is
-adjusted to new device MTU. UDP case also needs a check to avoid
-overflow when calculating bearer MTU.
+Patch applied to ath-next branch of ath.git, thanks.
 
-Fixes: b97bf3fd8f6a ("[TIPC] Initial merge")
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Reported-by: Qian Zhang (张谦) <zhangqian-c@360.cn>
----
-changes v1 to v2:
-- add missing "static" to tipc_check_mtu() helper declaration
-- rather than blocking device MTU change to too low value, disable tipc
-  bearer if that happens (suggested by Ben Hutchings)
----
- net/tipc/bearer.c    | 11 +++++++++--
- net/tipc/bearer.h    | 13 +++++++++++++
- net/tipc/udp_media.c |  5 +++++
- 3 files changed, 27 insertions(+), 2 deletions(-)
+8ca5a6078d6d ath9k: constify ath_bus_ops structure
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 975dbeb60ab0..1c004a46486f 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -421,6 +421,10 @@ int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b,
- 	dev = dev_get_by_name(net, driver_name);
- 	if (!dev)
- 		return -ENODEV;
-+	if (tipc_check_mtu(dev, 0)) {
-+		dev_put(dev);
-+		return -EINVAL;
-+	}
- 
- 	/* Associate TIPC bearer with L2 bearer */
- 	rcu_assign_pointer(b->media_ptr, dev);
-@@ -610,8 +614,6 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 	if (!b)
- 		return NOTIFY_DONE;
- 
--	b->mtu = dev->mtu;
--
- 	switch (evt) {
- 	case NETDEV_CHANGE:
- 		if (netif_carrier_ok(dev))
-@@ -624,6 +626,11 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 		tipc_reset_bearer(net, b);
- 		break;
- 	case NETDEV_CHANGEMTU:
-+		if (tipc_check_mtu(dev, 0)) {
-+			bearer_disable(net, b);
-+			break;
-+		}
-+		b->mtu = dev->mtu;
- 		tipc_reset_bearer(net, b);
- 		break;
- 	case NETDEV_CHANGEADDR:
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 78892e2f53e3..6b8a1d9d313a 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -39,6 +39,7 @@
- 
- #include "netlink.h"
- #include "core.h"
-+#include "msg.h"
- #include <net/genetlink.h>
- 
- #define MAX_MEDIA	3
-@@ -59,6 +60,9 @@
- #define TIPC_MEDIA_TYPE_IB	2
- #define TIPC_MEDIA_TYPE_UDP	3
- 
-+/* minimum bearer MTU */
-+#define TIPC_MIN_BEARER_MTU	(MAX_H_SIZE + INT_H_SIZE)
-+
- /**
-  * struct tipc_media_addr - destination address used by TIPC bearers
-  * @value: address info (format defined by media)
-@@ -215,4 +219,13 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
- void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
- 			 struct sk_buff_head *xmitq);
- 
-+/* check if device MTU is sufficient for tipc headers */
-+static inline bool tipc_check_mtu(struct net_device *dev, unsigned int reserve)
-+{
-+	if (dev->mtu >= TIPC_MIN_BEARER_MTU + reserve)
-+		return false;
-+	netdev_warn(dev, "MTU too low for tipc bearer\n");
-+	return true;
-+}
-+
- #endif	/* _TIPC_BEARER_H */
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 78cab9c5a445..376ed3e3ed46 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -697,6 +697,11 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 		udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
- 		udp_conf.use_udp_checksums = false;
- 		ub->ifindex = dev->ifindex;
-+		if (tipc_check_mtu(dev, sizeof(struct iphdr) +
-+					sizeof(struct udphdr))) {
-+			err = -EINVAL;
-+			goto err;
-+		}
- 		b->mtu = dev->mtu - sizeof(struct iphdr)
- 			- sizeof(struct udphdr);
- #if IS_ENABLED(CONFIG_IPV6)
 -- 
-2.10.2
+https://patchwork.kernel.org/patch/9448851/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
