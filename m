@@ -1,117 +1,42 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Thu, 1 Dec 2016 12:41:59 +1100
-Message-ID: <20161201124159.79f2e4f9@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eli Cooper <elicooper@gmx.com>
+Subject: [PATCH net v2 3/3] Revert: "ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"
+Date: Thu,  1 Dec 2016 10:05:12 +0800
+Message-ID: <20161201020512.21661-3-elicooper@gmx.com>
+References: <20161201020512.21661-1-elicooper@gmx.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.20]:53373 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757346AbcLACHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 21:07:03 -0500
+In-Reply-To: <20161201020512.21661-1-elicooper@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+This reverts commit ae148b085876fa771d9ef2c05f85d4b4bf09ce0d
+("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()").
 
-Today's linux-next merge of the net-next tree got a conflict in:
+skb->protocol is now set in __ip_local_out() and __ip6_local_out() before
+dst_output() is called. It is no longer necessary to do it for each tunnel.
 
-  net/sched/cls_flower.c
+Cc: stable@vger.kernel.org
+Signed-off-by: Eli Cooper <elicooper@gmx.com>
+---
+ net/ipv6/ip6_tunnel.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-between commit:
-
-  725cbb62e7ad ("sched: cls_flower: remove from hashtable only in case skip sw flag is not set")
-
-from the net tree and commit:
-
-  13fa876ebd03 ("net/sched: cls_flower: merge filter delete/destroy common code")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 0a4759b..d76674e 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1181,7 +1181,6 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 	if (err)
+ 		return err;
+ 
+-	skb->protocol = htons(ETH_P_IPV6);
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+ 	ipv6h = ipv6_hdr(skb);
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/sched/cls_flower.c
-index 904442421db3,e8dd09af0d0c..000000000000
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@@ -273,24 -272,14 +276,32 @@@ static void fl_hw_update_stats(struct t
-  	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
-  }
-  
- +static void fl_destroy_sleepable(struct work_struct *work)
- +{
- +	struct cls_fl_head *head = container_of(work, struct cls_fl_head,
- +						work);
- +	if (head->mask_assigned)
- +		rhashtable_destroy(&head->ht);
- +	kfree(head);
- +	module_put(THIS_MODULE);
- +}
- +
- +static void fl_destroy_rcu(struct rcu_head *rcu)
- +{
- +	struct cls_fl_head *head = container_of(rcu, struct cls_fl_head, rcu);
- +
- +	INIT_WORK(&head->work, fl_destroy_sleepable);
- +	schedule_work(&head->work);
- +}
- +
-+ static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
-+ {
-+ 	list_del_rcu(&f->list);
-+ 	fl_hw_destroy_filter(tp, (unsigned long)f);
-+ 	tcf_unbind_filter(tp, &f->res);
-+ 	call_rcu(&f->rcu, fl_destroy_filter);
-+ }
-+ 
-  static bool fl_destroy(struct tcf_proto *tp, bool force)
-  {
-  	struct cls_fl_head *head = rtnl_dereference(tp->root);
-@@@ -299,14 -288,12 +310,11 @@@
-  	if (!force && !list_empty(&head->filters))
-  		return false;
-  
-- 	list_for_each_entry_safe(f, next, &head->filters, list) {
-- 		fl_hw_destroy_filter(tp, (unsigned long)f);
-- 		list_del_rcu(&f->list);
-- 		call_rcu(&f->rcu, fl_destroy_filter);
-- 	}
-+ 	list_for_each_entry_safe(f, next, &head->filters, list)
-+ 		__fl_delete(tp, f);
- -	RCU_INIT_POINTER(tp->root, NULL);
- -	if (head->mask_assigned)
- -		rhashtable_destroy(&head->ht);
- -	kfree_rcu(head, rcu);
- +
- +	__module_get(THIS_MODULE);
- +	call_rcu(&head->rcu, fl_destroy_rcu);
-  	return true;
-  }
-  
-@@@ -761,13 -782,9 +804,10 @@@ static int fl_delete(struct tcf_proto *
-  	struct cls_fl_head *head = rtnl_dereference(tp->root);
-  	struct cls_fl_filter *f = (struct cls_fl_filter *) arg;
-  
- -	rhashtable_remove_fast(&head->ht, &f->ht_node,
- -			       head->ht_params);
- +	if (!tc_skip_sw(f->flags))
- +		rhashtable_remove_fast(&head->ht, &f->ht_node,
- +				       head->ht_params);
-- 	list_del_rcu(&f->list);
-- 	fl_hw_destroy_filter(tp, (unsigned long)f);
-- 	tcf_unbind_filter(tp, &f->res);
-- 	call_rcu(&f->rcu, fl_destroy_filter);
-+ 	__fl_delete(tp, f);
-  	return 0;
-  }
-  
+2.10.2
