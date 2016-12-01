@@ -1,116 +1,82 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2016-12-01
-Date: Thu, 1 Dec 2016 21:21:44 +0100
-Message-ID: <de63a1d8-2822-2d98-973c-c1b2f8c493cf@pengutronix.de>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Initial thoughts on TXDP
+Date: Thu, 1 Dec 2016 12:39:04 -0800
+Message-ID: <CALx6S35TA3==A=gCt0SR9af1pEHFAVTwS1rHoAeHcm8kEUYg6g@mail.gmail.com>
+References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
+ <20161201135508.GB24547@oracle.com> <CALx6S35DCyi_2z1pqCLaB1bVyNykP_J3YaYEXUT8xxmuzyBDwA@mail.gmail.com>
+ <20161201201324.GJ24547@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="B4KBEbLD6O0eQjcoKqrecwcbLnhx8xdXV"
-Cc: David Miller <davem@davemloft.net>,
-        "kernel@pengutronix.de" <kernel@pengutronix.de>,
-        "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:39501 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754141AbcLAUhE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:37:04 -0500
+Received: from mail-qt0-f173.google.com ([209.85.216.173]:33630 "EHLO
+        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758439AbcLAUjG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:39:06 -0500
+Received: by mail-qt0-f173.google.com with SMTP id p16so232238045qta.0
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 12:39:06 -0800 (PST)
+In-Reply-To: <20161201201324.GJ24547@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---B4KBEbLD6O0eQjcoKqrecwcbLnhx8xdXV
-Content-Type: multipart/mixed; boundary="PsKBTs1ChGK6iG974jPSm4mvAJSVeAEfJ";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Cc: David Miller <davem@davemloft.net>,
- "kernel@pengutronix.de" <kernel@pengutronix.de>,
- "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-Message-ID: <de63a1d8-2822-2d98-973c-c1b2f8c493cf@pengutronix.de>
-Subject: pull-request: can-next 2016-12-01
+On Thu, Dec 1, 2016 at 12:13 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (12/01/16 11:05), Tom Herbert wrote:
+>>
+>> Polling does not necessarily imply that networking monopolizes the CPU
+>> except when the CPU is otherwise idle. Presumably the application
+>> drives the polling when it is ready to receive work.
+>
+> I'm not grokking that- "if the cpu is idle, we want to busy-poll
+> and make it 0% idle"?  Keeping CPU 0% idle has all sorts
+> of issues, see slide 20 of
+>  http://www.slideshare.net/shemminger/dpdk-performance
+>
+>> > and one other critical difference from the hot-potato-forwarding
+>> > model (the sort of OVS model that DPDK etc might aruguably be a fit for)
+>> > does not apply: in order to figure out the ethernet and IP headers
+>> > in the response correctly at all times (in the face of things like VRRP,
+>> > gw changes, gw's mac addr changes etc) the application should really
+>> > be listening on NETLINK sockets for modifications to the networking
+>> > state - again points to needing a select() socket set where you can
+>> > have both the I/O fds and the netlink socket,
+>> >
+>> I would think that that is management would not be implemented in a
+>> fast path processing thread for an application.
+>
+> sure, but my point was that *XDP and other stack-bypass methods needs
+> to provide a select()able socket: when your use-case is not about just
+> networking, you have to snoop on changes to the control plane, and update
+> your data path. In the OVS case (pure networking) the OVS control plane
+> updates are intrinsic to OVS. For the rest of the request/response world,
+> we need a select()able socket set to do this elegantly (not really
+> possible in DPDK, for example)
+>
+I'm not sure that TXDP can be reconciled to help OVS. The point of
+TXDP is to drive applications closer to bare metal performance, as I
+mentioned this is only going to be worth it if the fast path can be
+kept simple and not complicated by a requirement for generalization.
+It seems like the second we put OVS in we're doubling the data path
+and accepting the performance consequences of a complex path anyway.
 
---PsKBTs1ChGK6iG974jPSm4mvAJSVeAEfJ
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+TXDP can't over the whole system (any more than DPDK can) and needs to
+work in concert with other mechanisms-- the key is how to steer the
+work amongst the CPUs. For instance, if a latency critical thread is
+running on some CPU we either a dedicated queue for the connections of
+the thread (e.g. ntuple filtering or aRFS support) or we need a fast
+way to get move unrelated packets received on a queue processed by
+that CPU to other CPUs (less efficient, but no special HW support is
+needed either).
 
-Hello David,
+Tom
 
-this is a pull request of 4 patches for net-next/master.
-
-There are two patches by Chris Paterson for the rcar_can and rcar_canfd
-device tree binding documentation. And a patch by Geert Uytterhoeven
-that corrects the order of interrupt specifiers.
-
-The fourth patch by Colin Ian King fixes a spelling error in the
-kvaser_usb driver.
-
-
-regards,
-Marc
-
----
-The following changes since commit 8f679ed88f8860206edddff725e2749b4cdbb0=
-e8:
-
-  driver: ipvlan: Remove useless member mtu_adj of struct ipvl_dev (2016-=
-11-30 15:01:32 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
-gs/linux-can-next-for-4.10-20161201
-
-for you to fetch changes up to 0d8f8efd32bace9f222fcc92d4a3132d877e5df6:
-
-  net: can: usb: kvaser_usb: fix spelling mistake of "outstanding" (2016-=
-12-01 14:27:02 +0100)
-
-----------------------------------------------------------------
-linux-can-next-for-4.10-20161201
-
-----------------------------------------------------------------
-Chris Paterson (2):
-      can: rcar_can: Add r8a7796 support
-      can: rcar_canfd: Add r8a7796 support
-
-Colin Ian King (1):
-      net: can: usb: kvaser_usb: fix spelling mistake of "outstanding"
-
-Geert Uytterhoeven (1):
-      can: rcar_canfd: Correct order of interrupt specifiers
-
- Documentation/devicetree/bindings/net/can/rcar_can.txt   | 12 +++++++---=
---
- Documentation/devicetree/bindings/net/can/rcar_canfd.txt | 14 ++++++++--=
-----
- drivers/net/can/usb/kvaser_usb.c                         |  4 ++--
- 3 files changed, 17 insertions(+), 13 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---PsKBTs1ChGK6iG974jPSm4mvAJSVeAEfJ--
-
---B4KBEbLD6O0eQjcoKqrecwcbLnhx8xdXV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlhAhloACgkQPTuqJayp
-JWrOgggAvEaKSAx2xSJUrFMmWg3XU5XkNLADF3orH0tDy9J0EQTDWhwhSZfvp5mC
-iMWWDxqvhZZUhumpSwdNyCm2RyK7yuM0oR0I05xvCcNv5zT4d0m3xTvLQNNncRfX
-QRqduVJ7tyI0r+K3aemUVQ8+9WUOU8bEuj0FbHiHKP23MPMs1+BMfckziAshlB3F
-9tZn2o00L9wt5Eu5hfA2/JDZNNNFHkuSh+UDPrFzhJQBG8vsfVQq/UDFq3GIoUQH
-uWOj64f9oQ5a740lUaOHTHAfgnImKWiwSSYVzPAt5BSA/1fSB2g77+yxObQnERXX
-tguN4otzQOoHpqh1X3liw1WY222BoQ==
-=WVSN
------END PGP SIGNATURE-----
-
---B4KBEbLD6O0eQjcoKqrecwcbLnhx8xdXV--
+>
+>> The *SOs are always an interesting question. They make for great
+>> benchmarks, but in real life the amount of benefit is somewhat
+>> unclear. Under the wrong conditions, like all cwnds have collapsed or
+>
+> I think Rick's already bringing up this one.
+>
+> --Sowmini
+>
