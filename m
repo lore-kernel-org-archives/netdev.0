@@ -1,114 +1,36 @@
-From: Artem Savkov <asavkov@redhat.com>
-Subject: [PATCH] ip6_offload: check segs for NULL in ipv6_gso_segment.
-Date: Thu,  1 Dec 2016 14:06:04 +0100
-Message-ID: <1480597564-32355-1-git-send-email-asavkov@redhat.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        jstancek@redhat.com, steffen.klassert@secunet.com,
-        alexander.h.duyck@intel.com, Artem Savkov <asavkov@redhat.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Chris Brandt <Chris.Brandt@renesas.com>
+Subject: RE: [PATCH] sh_eth: add missing checks for status bits
+Date: Thu, 1 Dec 2016 13:13:05 +0000
+Message-ID: <SG2PR06MB1165EF1344470A957BB9C34A8A8F0@SG2PR06MB1165.apcprd06.prod.outlook.com>
+References: <20161130200148.9011-1-chris.brandt@renesas.com>
+ <aad0720f-2515-f1a0-d3ee-310562267594@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-renesas-soc@vger.kernel.org"
+        <linux-renesas-soc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <aad0720f-2515-f1a0-d3ee-310562267594@cogentembedded.com>
+Content-Language: en-US
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-segs needs to be checked for being NULL in ipv6_gso_segment() before calling
-skb_shinfo(segs), otherwise kernel can run into a NULL-pointer dereference:
-
-[   97.811262] BUG: unable to handle kernel NULL pointer dereference at 00000000000000cc
-[   97.819112] IP: [<ffffffff816e52f9>] ipv6_gso_segment+0x119/0x2f0
-[   97.825214] PGD 0 [   97.827047]
-[   97.828540] Oops: 0000 [#1] SMP
-[   97.831678] Modules linked in: vhost_net vhost macvtap macvlan nfsv3 rpcsec_gss_krb5
-nfsv4 dns_resolver nfs fscache xt_CHECKSUM iptable_mangle ipt_MASQUERADE nf_nat_masquerade_ipv4
-iptable_nat nf_nat_ipv4 nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack
-ipt_REJECT nf_reject_ipv4 tun ebtable_filter ebtables ip6table_filter ip6_tables iptable_filter
-bridge stp llc snd_hda_codec_realtek snd_hda_codec_hdmi snd_hda_codec_generic snd_hda_intel
-snd_hda_codec edac_mce_amd snd_hda_core edac_core snd_hwdep kvm_amd snd_seq kvm snd_seq_device
-snd_pcm irqbypass snd_timer ppdev parport_serial snd parport_pc k10temp pcspkr soundcore parport
-sp5100_tco shpchp sg wmi i2c_piix4 acpi_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc
-ip_tables xfs libcrc32c sr_mod cdrom sd_mod ata_generic pata_acpi amdkfd amd_iommu_v2 radeon
-broadcom bcm_phy_lib i2c_algo_bit drm_kms_helper syscopyarea sysfillrect sysimgblt fb_sys_fops
-ttm ahci serio_raw tg3 firewire_ohci libahci pata_atiixp drm ptp libata firewire_core pps_core
-i2c_core crc_itu_t fjes dm_mirror dm_region_hash dm_log dm_mod
-[   97.927721] CPU: 1 PID: 3504 Comm: vhost-3495 Not tainted 4.9.0-7.el7.test.x86_64 #1
-[   97.935457] Hardware name: AMD Snook/Snook, BIOS ESK0726A 07/26/2010
-[   97.941806] task: ffff880129a1c080 task.stack: ffffc90001bcc000
-[   97.947720] RIP: 0010:[<ffffffff816e52f9>]  [<ffffffff816e52f9>] ipv6_gso_segment+0x119/0x2f0
-[   97.956251] RSP: 0018:ffff88012fc43a10  EFLAGS: 00010207
-[   97.961557] RAX: 0000000000000000 RBX: ffff8801292c8700 RCX: 0000000000000594
-[   97.968687] RDX: 0000000000000593 RSI: ffff880129a846c0 RDI: 0000000000240000
-[   97.975814] RBP: ffff88012fc43a68 R08: ffff880129a8404e R09: 0000000000000000
-[   97.982942] R10: 0000000000000000 R11: ffff880129a84076 R12: 00000020002949b3
-[   97.990070] R13: ffff88012a580000 R14: 0000000000000000 R15: ffff88012a580000
-[   97.997198] FS:  0000000000000000(0000) GS:ffff88012fc40000(0000) knlGS:0000000000000000
-[   98.005280] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   98.011021] CR2: 00000000000000cc CR3: 0000000126c5d000 CR4: 00000000000006e0
-[   98.018149] Stack:
-[   98.020157]  00000000ffffffff ffff88012fc43ac8 ffffffffa017ad0a 000000000000000e
-[   98.027584]  0000001300000000 0000000077d59998 ffff8801292c8700 00000020002949b3
-[   98.035010]  ffff88012a580000 0000000000000000 ffff88012a580000 ffff88012fc43a98
-[   98.042437] Call Trace:
-[   98.044879]  <IRQ> [   98.046803]  [<ffffffffa017ad0a>] ? tg3_start_xmit+0x84a/0xd60 [tg3]
-[   98.053156]  [<ffffffff815eeee0>] skb_mac_gso_segment+0xb0/0x130
-[   98.059158]  [<ffffffff815eefd3>] __skb_gso_segment+0x73/0x110
-[   98.064985]  [<ffffffff815ef40d>] validate_xmit_skb+0x12d/0x2b0
-[   98.070899]  [<ffffffff815ef5d2>] validate_xmit_skb_list+0x42/0x70
-[   98.077073]  [<ffffffff81618560>] sch_direct_xmit+0xd0/0x1b0
-[   98.082726]  [<ffffffff815efd86>] __dev_queue_xmit+0x486/0x690
-[   98.088554]  [<ffffffff8135c135>] ? cpumask_next_and+0x35/0x50
-[   98.094380]  [<ffffffff815effa0>] dev_queue_xmit+0x10/0x20
-[   98.099863]  [<ffffffffa09ce057>] br_dev_queue_push_xmit+0xa7/0x170 [bridge]
-[   98.106907]  [<ffffffffa09ce161>] br_forward_finish+0x41/0xc0 [bridge]
-[   98.113430]  [<ffffffff81627cf2>] ? nf_iterate+0x52/0x60
-[   98.118735]  [<ffffffff81627d6b>] ? nf_hook_slow+0x6b/0xc0
-[   98.124216]  [<ffffffffa09ce32c>] __br_forward+0x14c/0x1e0 [bridge]
-[   98.130480]  [<ffffffffa09ce120>] ? br_dev_queue_push_xmit+0x170/0x170 [bridge]
-[   98.137785]  [<ffffffffa09ce4bd>] br_forward+0x9d/0xb0 [bridge]
-[   98.143701]  [<ffffffffa09cfbb7>] br_handle_frame_finish+0x267/0x560 [bridge]
-[   98.150834]  [<ffffffffa09d0064>] br_handle_frame+0x174/0x2f0 [bridge]
-[   98.157355]  [<ffffffff8102fb89>] ? sched_clock+0x9/0x10
-[   98.162662]  [<ffffffff810b63b2>] ? sched_clock_cpu+0x72/0xa0
-[   98.168403]  [<ffffffff815eccf5>] __netif_receive_skb_core+0x1e5/0xa20
-[   98.174926]  [<ffffffff813659f9>] ? timerqueue_add+0x59/0xb0
-[   98.180580]  [<ffffffff815ed548>] __netif_receive_skb+0x18/0x60
-[   98.186494]  [<ffffffff815ee625>] process_backlog+0x95/0x140
-[   98.192145]  [<ffffffff815edccd>] net_rx_action+0x16d/0x380
-[   98.197713]  [<ffffffff8170cff1>] __do_softirq+0xd1/0x283
-[   98.203106]  [<ffffffff8170b2bc>] do_softirq_own_stack+0x1c/0x30
-[   98.209107]  <EOI> [   98.211029]  [<ffffffff8108a5c0>] do_softirq+0x50/0x60
-[   98.216166]  [<ffffffff815ec853>] netif_rx_ni+0x33/0x80
-[   98.221386]  [<ffffffffa09eeff7>] tun_get_user+0x487/0x7f0 [tun]
-[   98.227388]  [<ffffffffa09ef3ab>] tun_sendmsg+0x4b/0x60 [tun]
-[   98.233129]  [<ffffffffa0b68932>] handle_tx+0x282/0x540 [vhost_net]
-[   98.239392]  [<ffffffffa0b68c25>] handle_tx_kick+0x15/0x20 [vhost_net]
-[   98.245916]  [<ffffffffa0abacfe>] vhost_worker+0x9e/0xf0 [vhost]
-[   98.251919]  [<ffffffffa0abac60>] ? vhost_umem_alloc+0x40/0x40 [vhost]
-[   98.258440]  [<ffffffff81003a47>] ? do_syscall_64+0x67/0x180
-[   98.264094]  [<ffffffff810a44d9>] kthread+0xd9/0xf0
-[   98.268965]  [<ffffffff810a4400>] ? kthread_park+0x60/0x60
-[   98.274444]  [<ffffffff8170a4d5>] ret_from_fork+0x25/0x30
-[   98.279836] Code: 8b 93 d8 00 00 00 48 2b 93 d0 00 00 00 4c 89 e6 48 89 df 66 89 93 c2 00 00 00 ff 10 48 3d 00 f0 ff ff 49 89 c2 0f 87 52 01 00 00 <41> 8b 92 cc 00 00 00 48 8b 80 d0 00 00 00 44 0f b7 74 10 06 66
-[   98.299425] RIP  [<ffffffff816e52f9>] ipv6_gso_segment+0x119/0x2f0
-[   98.305612]  RSP <ffff88012fc43a10>
-[   98.309094] CR2: 00000000000000cc
-[   98.312406] ---[ end trace 726a2c7a2d2d78d0 ]---
-
-Signed-off-by: Artem Savkov <asavkov@redhat.com>
----
- net/ipv6/ip6_offload.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 1fcf61f..89c59e6 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -99,7 +99,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 		segs = ops->callbacks.gso_segment(skb, features);
- 	}
- 
--	if (IS_ERR(segs))
-+	if (IS_ERR_OR_NULL(segs))
- 		goto out;
- 
- 	gso_partial = !!(skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL);
--- 
-2.7.4
+T24gMTIvMS8yMDE2LCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6DQoNCj4gSGVsbG8hDQo+IA0KPiAg
+ICAgUGxlYXNlIGFsd2F5cyBDQyBtZSBvbiB0aGUgc2hfZXRoL3JhdmIgZHJpdmVyIHBhdGNoZXMg
+YXMgZGlyZWN0ZWQgYnkNCj4gc2NyaXB0cy9nZXRfbWFpbnRhaW5lci5wbC4NCg0KT0suIEknbSBz
+b3JyeS4NCg0KDQo+IE9uIDExLzMwLzIwMTYgMTE6MDEgUE0sIENocmlzIEJyYW5kdCB3cm90ZToN
+Cj4gDQo+ID4gV2hlbiBzdHJlYW1pbmcgYSBsb3Qgb2YgZGF0YSBhbmQgdGhlIFJaIGNhbid0IGtl
+ZXAgdXAsIHNvbWUgc3RhdHVzDQo+ID4gYml0cyB3aWxsIGdldCBzZXQgdGhhdCBhcmUgbm90IGJl
+aW5nIGNoZWNrZWQgb3IgY2xlYXJlZCB3aGljaCBjYXVzZQ0KPiA+IHRoZSBmb2xsb3dpbmcgbWVz
+c2FnZXMgYW5kIHRoZSBFdGhlcm5ldCBkcml2ZXIgdG8gc3RvcCB3b3JraW5nLiBUaGlzDQo+ID4g
+cGF0Y2ggZml4ZXMgdGhhdCBpc3N1ZS4NCj4gDQo+ICAgICBQZXJoYXBzIHdlIHNob3VsZCBqdXN0
+IGNsZWFyIHRoZSBjb3JyZXNwb2RpbmcgYml0cyBpbiBFRVNJUFIgaW5zdGVhZD8NCj4gVGhleSBh
+cmUgbm90IHNldCBmb3IgYW55IG90aGVyIFNvQy4uLg0KDQoNClRoYXQncyBhIGdvb2QgcG9pbnQu
+IElmIHdlIGRvbid0IHBsYW4gb24gZG9pbmcgYW55dGhpbmcgd2l0aCB0aG9zZSBiaXRzLCB0aGV5
+IHNob3VsZCBub3QgYmUgY2F1c2luZyBpbnRlcnJ1cHRzLg0KDQpJIHdpbGwgdHJ5IGNoYW5nZSBh
+bmQgdGhlbiByZS10ZXN0Lg0KDQoNCkNocmlzDQoNCg==
