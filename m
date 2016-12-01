@@ -1,16 +1,16 @@
 From: Peter Rosin <peda-koto5C5qi+TLoDKTGw+V6w@public.gmane.org>
-Subject: [PATCH 2/2] ASoC: atmel: tse850: rely on the ssc to register as a cpu dai by itself
-Date: Thu, 1 Dec 2016 12:59:09 +0100
-Message-ID: <1480593549-6464-3-git-send-email-peda@axentia.se>
+Subject: [PATCH 1/2] misc: atmel-ssc: register as sound DAI if #sound-dai-cells is present
+Date: Thu, 1 Dec 2016 12:59:08 +0100
+Message-ID: <1480593549-6464-2-git-send-email-peda@axentia.se>
 References: <1480593549-6464-1-git-send-email-peda@axentia.se>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Peter Rosin <peda-koto5C5qi+TLoDKTGw+V6w@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "Mark Rutland" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
         Liam Girdwood <lgirdwood-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "Mark Brown" <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
         Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
-        "Arnd Bergmann" <arnd-r2nGTMty4D4@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
         Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
         Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>,
         Takashi Iwai <tiwai-IBi9RG/b67k@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
@@ -22,110 +22,129 @@ In-Reply-To: <1480593549-6464-1-git-send-email-peda-koto5C5qi+TLoDKTGw+V6w@publi
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+The SSC is currently not usable with the ASoC simple-audio-card, as
+every SSC audio user has to build a platform driver that may do as
+little as calling atmel_ssc_set_audio/atmel_ssc_put_audio (which
+allocates the SSC and registers a DAI with the ASoC subsystem).
+
+So, have that happen automatically, if the #sound-dai-cells property
+is present in devicetree, which it has to be anyway for simple audio
+card to work.
+
 Signed-off-by: Peter Rosin <peda-koto5C5qi+TLoDKTGw+V6w@public.gmane.org>
 ---
- .../bindings/sound/axentia,tse850-pcm5142.txt      |  5 ++---
- sound/soc/atmel/tse850-pcm5142.c                   | 23 +++-------------------
- 2 files changed, 5 insertions(+), 23 deletions(-)
+ .../devicetree/bindings/misc/atmel-ssc.txt         |  2 +
+ drivers/misc/atmel-ssc.c                           | 50 ++++++++++++++++++++++
+ include/linux/atmel-ssc.h                          |  1 +
+ 3 files changed, 53 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/sound/axentia,tse850-pcm5142.txt b/Documentation/devicetree/bindings/sound/axentia,tse850-pcm5142.txt
-index 5b9b38f578bb..fd12ecb35b5c 100644
---- a/Documentation/devicetree/bindings/sound/axentia,tse850-pcm5142.txt
-+++ b/Documentation/devicetree/bindings/sound/axentia,tse850-pcm5142.txt
-@@ -2,8 +2,7 @@ Devicetree bindings for the Axentia TSE-850 audio complex
+diff --git a/Documentation/devicetree/bindings/misc/atmel-ssc.txt b/Documentation/devicetree/bindings/misc/atmel-ssc.txt
+index efc98ea1f23d..f8629bb73945 100644
+--- a/Documentation/devicetree/bindings/misc/atmel-ssc.txt
++++ b/Documentation/devicetree/bindings/misc/atmel-ssc.txt
+@@ -24,6 +24,8 @@ Optional properties:
+        this parameter to choose where the clock from.
+      - By default the clock is from TK pin, if the clock from RK pin, this
+        property is needed.
++  - #sound-dai-cells: Should contain <0>.
++     - This property makes the SSC into an automatically registered DAI.
  
- Required properties:
-   - compatible: "axentia,tse850-pcm5142"
--  - axentia,ssc-controller: The phandle of the atmel SSC controller used as
--    cpu dai.
-+  - axentia,cpu-dai: The phandle of the cpu dai.
-   - axentia,audio-codec: The phandle of the PCM5142 codec.
-   - axentia,add-gpios: gpio specifier that controls the mixer.
-   - axentia,loop1-gpios: gpio specifier that controls loop relays on channel 1.
-@@ -77,7 +76,7 @@ Example:
- 	sound {
- 		compatible = "axentia,tse850-pcm5142";
+ Examples:
+ - PDC transfer:
+diff --git a/drivers/misc/atmel-ssc.c b/drivers/misc/atmel-ssc.c
+index 0516ecda54d3..b2a0340f277e 100644
+--- a/drivers/misc/atmel-ssc.c
++++ b/drivers/misc/atmel-ssc.c
+@@ -20,6 +20,8 @@
  
--		axentia,ssc-controller = <&ssc0>;
-+		axentia,cpu-dai = <&ssc0>;
- 		axentia,audio-codec = <&codec>;
+ #include <linux/of.h>
  
- 		axentia,add-gpios = <&pioA 8 GPIO_ACTIVE_LOW>;
-diff --git a/sound/soc/atmel/tse850-pcm5142.c b/sound/soc/atmel/tse850-pcm5142.c
-index ac6a814c8ecf..a72c7d642026 100644
---- a/sound/soc/atmel/tse850-pcm5142.c
-+++ b/sound/soc/atmel/tse850-pcm5142.c
-@@ -51,11 +51,7 @@
- #include <sound/soc.h>
- #include <sound/pcm_params.h>
++#include "../../sound/soc/atmel/atmel_ssc_dai.h"
++
+ /* Serialize access to ssc_list and user count */
+ static DEFINE_SPINLOCK(user_lock);
+ static LIST_HEAD(ssc_list);
+@@ -145,6 +147,49 @@ static inline const struct atmel_ssc_platform_data * __init
+ 		platform_get_device_id(pdev)->driver_data;
+ }
  
--#include "atmel_ssc_dai.h"
--
- struct tse850_priv {
--	int ssc_id;
--
- 	struct gpio_desc *add;
- 	struct gpio_desc *loop1;
- 	struct gpio_desc *loop2;
-@@ -329,23 +325,20 @@ static int tse850_dt_init(struct platform_device *pdev)
++#ifdef CONFIG_SND_ATMEL_SOC_SSC
++static int ssc_sound_dai_probe(struct ssc_device *ssc)
++{
++	struct device_node *np = ssc->pdev->dev.of_node;
++	int ret;
++	int id;
++
++	ssc->sound_dai = false;
++
++	if (!of_property_read_bool(np, "#sound-dai-cells"))
++		return 0;
++
++	id = of_alias_get_id(np, "ssc");
++	if (id < 0)
++		return id;
++
++	ret = atmel_ssc_set_audio(id);
++	ssc->sound_dai = !ret;
++
++	return ret;
++}
++
++static void ssc_sound_dai_remove(struct ssc_device *ssc)
++{
++	if (!ssc->sound_dai)
++		return;
++
++	atmel_ssc_put_audio(of_alias_get_id(ssc->pdev->dev.of_node, "ssc"));
++}
++#else
++static inline int ssc_sound_dai_probe(struct ssc_device *ssc)
++{
++	if (of_property_read_bool(ssc->pdev->dev.of_node, "#sound-dai-cells"))
++		return -ENOTSUPP;
++
++	return 0;
++}
++
++static inline void ssc_sound_dai_remove(struct ssc_device *ssc)
++{
++}
++#endif
++
+ static int ssc_probe(struct platform_device *pdev)
  {
- 	struct device_node *np = pdev->dev.of_node;
- 	struct device_node *codec_np, *cpu_np;
--	struct snd_soc_card *card = &tse850_card;
- 	struct snd_soc_dai_link *dailink = &tse850_dailink;
--	struct tse850_priv *tse850 = snd_soc_card_get_drvdata(card);
+ 	struct resource *regs;
+@@ -204,6 +249,9 @@ static int ssc_probe(struct platform_device *pdev)
+ 	dev_info(&pdev->dev, "Atmel SSC device at 0x%p (irq %d)\n",
+ 			ssc->regs, ssc->irq);
  
- 	if (!np) {
- 		dev_err(&pdev->dev, "only device tree supported\n");
- 		return -EINVAL;
- 	}
- 
--	cpu_np = of_parse_phandle(np, "axentia,ssc-controller", 0);
-+	cpu_np = of_parse_phandle(np, "axentia,cpu-dai", 0);
- 	if (!cpu_np) {
--		dev_err(&pdev->dev, "failed to get dai and pcm info\n");
-+		dev_err(&pdev->dev, "failed to get cpu dai\n");
- 		return -EINVAL;
- 	}
- 	dailink->cpu_of_node = cpu_np;
- 	dailink->platform_of_node = cpu_np;
--	tse850->ssc_id = of_alias_get_id(cpu_np, "ssc");
- 	of_node_put(cpu_np);
- 
- 	codec_np = of_parse_phandle(np, "axentia,audio-codec", 0);
-@@ -415,23 +408,14 @@ static int tse850_probe(struct platform_device *pdev)
- 		return ret;
- 	}
- 
--	ret = atmel_ssc_set_audio(tse850->ssc_id);
--	if (ret != 0) {
--		dev_err(dev,
--			"failed to set SSC %d for audio\n", tse850->ssc_id);
--		goto err_disable_ana;
--	}
--
- 	ret = snd_soc_register_card(card);
- 	if (ret) {
- 		dev_err(dev, "snd_soc_register_card failed\n");
--		goto err_put_audio;
-+		goto err_disable_ana;
- 	}
- 
++	if (ssc_sound_dai_probe(ssc))
++		dev_err(&pdev->dev, "failed to auto-setup ssc for audio\n");
++
  	return 0;
+ }
  
--err_put_audio:
--	atmel_ssc_put_audio(tse850->ssc_id);
- err_disable_ana:
- 	regulator_disable(tse850->ana);
- 	return ret;
-@@ -443,7 +427,6 @@ static int tse850_remove(struct platform_device *pdev)
- 	struct tse850_priv *tse850 = snd_soc_card_get_drvdata(card);
+@@ -211,6 +259,8 @@ static int ssc_remove(struct platform_device *pdev)
+ {
+ 	struct ssc_device *ssc = platform_get_drvdata(pdev);
  
- 	snd_soc_unregister_card(card);
--	atmel_ssc_put_audio(tse850->ssc_id);
- 	regulator_disable(tse850->ana);
++	ssc_sound_dai_remove(ssc);
++
+ 	spin_lock(&user_lock);
+ 	list_del(&ssc->list);
+ 	spin_unlock(&user_lock);
+diff --git a/include/linux/atmel-ssc.h b/include/linux/atmel-ssc.h
+index 7c0f6549898b..fdb545101ede 100644
+--- a/include/linux/atmel-ssc.h
++++ b/include/linux/atmel-ssc.h
+@@ -20,6 +20,7 @@ struct ssc_device {
+ 	int			user;
+ 	int			irq;
+ 	bool			clk_from_rk_pin;
++	bool			sound_dai;
+ };
  
- 	return 0;
+ struct ssc_device * __must_check ssc_request(unsigned int ssc_num);
 -- 
 2.1.4
 
