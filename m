@@ -1,174 +1,133 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: [PATCH] stmmac: cleanup documenation, make it match reality
-Date: Thu, 1 Dec 2016 11:32:18 +0100
-Message-ID: <20161201103218.GB19056@amd>
-References: <20161123105125.GA26394@amd>
- <20161124085506.GA25007@amd>
- <20161124.110416.198867271899443489.davem@davemloft.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net v2] tipc: check minimum bearer MTU
+Date: Thu,  1 Dec 2016 12:02:05 +0100 (CET)
+Message-ID: <20161201110205.10749A0F33@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="IiVenqGWf+H9Y6IX"
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
+        Qian Zhang <zhangqian-c@360.cn>
+To: Jon Maloy <jon.maloy@ericsson.com>,
+        Ying Xue <ying.xue@windriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161124.110416.198867271899443489.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Qian Zhang (张谦) reported a potential socket buffer overflow in
+tipc_msg_build() which is also known as CVE-2016-8632: due to
+insufficient checks, a buffer overflow can occur if MTU is too short for
+even tipc headers. As anyone can set device MTU in a user/net namespace,
+this issue can be abused by a regular user.
 
---IiVenqGWf+H9Y6IX
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+As agreed in the discussion on Ben Hutchings' original patch, we should
+check the MTU at the moment a bearer is attached rather than for each
+processed packet. We also need to repeat the check when bearer MTU is
+adjusted to new device MTU. UDP case also needs a check to avoid
+overflow when calculating bearer MTU.
 
+Fixes: b97bf3fd8f6a ("[TIPC] Initial merge")
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Reported-by: Qian Zhang (张谦) <zhangqian-c@360.cn>
+---
+changes v1 to v2:
+- add missing "static" to tipc_check_mtu() helper declaration
+- rather than blocking device MTU change to too low value, disable tipc
+  bearer if that happens (suggested by Ben Hutchings)
+---
+ net/tipc/bearer.c    | 11 +++++++++--
+ net/tipc/bearer.h    | 13 +++++++++++++
+ net/tipc/udp_media.c |  5 +++++
+ 3 files changed, 27 insertions(+), 2 deletions(-)
 
-Fix english in documentation, make documentation match reality, remove
-options that were removed from code.
-   =20
-Signed-off-by: Pavel Machek <pavel@denx.de>
-
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking=
-/stmmac.txt
-index e226f89..014f4f7 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -28,8 +28,6 @@ CONFIG_STMMAC_PCI: is to enable the pci driver.
- 2) Driver parameters list:
- 	debug: message level (0: no output, 16: all);
- 	phyaddr: to manually provide the physical address to the PHY device;
--	dma_rxsize: DMA rx ring size;
--	dma_txsize: DMA tx ring size;
- 	buf_sz: DMA buffer size;
- 	tc: control the HW FIFO threshold;
- 	watchdog: transmit timeout (in milliseconds);
-@@ -40,31 +38,31 @@ CONFIG_STMMAC_PCI: is to enable the pci driver.
-=20
- 3) Command line options
- Driver parameters can be also passed in command line by using:
--	stmmaceth=3Ddma_rxsize:128,dma_txsize:512
-+	stmmaceth=3Dwatchdog:100,chain_mode=3D1
-=20
- 4) Driver information and notes
-=20
- 4.1) Transmit process
- The xmit method is invoked when the kernel needs to transmit a packet; it =
-sets
--the descriptors in the ring and informs the DMA engine that there is a pac=
-ket
-+the descriptors in the ring and informs the DMA engine, that there is a pa=
-cket
- ready to be transmitted.
- By default, the driver sets the NETIF_F_SG bit in the features field of the
--net_device structure enabling the scatter-gather feature. This is true on
-+net_device structure, enabling the scatter-gather feature. This is true on
- chips and configurations where the checksum can be done in hardware.
--Once the controller has finished transmitting the packet, napi will be
-+Once the controller has finished transmitting the packet, timer will be
- scheduled to release the transmit resources.
-=20
- 4.2) Receive process
- When one or more packets are received, an interrupt happens. The interrupts
--are not queued so the driver has to scan all the descriptors in the ring d=
-uring
-+are not queued, so the driver has to scan all the descriptors in the ring =
-during
- the receive process.
--This is based on NAPI so the interrupt handler signals only if there is wo=
-rk
-+This is based on NAPI, so the interrupt handler signals only if there is w=
-ork
- to be done, and it exits.
- Then the poll method will be scheduled at some future point.
- The incoming packets are stored, by the DMA, in a list of pre-allocated so=
-cket
- buffers in order to avoid the memcpy (zero-copy).
-=20
--4.3) Interrupt Mitigation
-+4.3) Interrupt mitigation
- The driver is able to mitigate the number of its DMA interrupts
- using NAPI for the reception on chips older than the 3.50.
- New chips have an HW RX-Watchdog used for this mitigation.
-@@ -88,19 +86,20 @@ the list, hence creating the explicit chaining in the d=
-escriptor itself,
- whereas such explicit chaining is not possible in RING mode.
-=20
- 4.5.1) Extended descriptors
--	The extended descriptors give us information about the Ethernet payload
--	when it is carrying PTP packets or TCP/UDP/ICMP over IP.
--	These are not available on GMAC Synopsys chips older than the 3.50.
--	At probe time the driver will decide if these can be actually used.
--	This support also is mandatory for PTPv2 because the extra descriptors
--	are used for saving the hardware timestamps and Extended Status.
-+The extended descriptors give us information about the Ethernet payload
-+when it is carrying PTP packets or TCP/UDP/ICMP over IP.
-+These are not available on GMAC Synopsys chips older than the 3.50.
-+At probe time the driver will decide if these can be actually used.
-+This support also is mandatory for PTPv2 because the extra descriptors
-+are used for saving the hardware timestamps and Extended Status.
-=20
- 4.6) Ethtool support
- Ethtool is supported.
-=20
- For example, driver statistics (including RMON), internal errors can be ta=
-ken
- using:
--  # ethtool -S ethX command
-+  # ethtool -S ethX
-+command
-=20
- 4.7) Jumbo and Segmentation Offloading
- Jumbo frames are supported and tested for the GMAC.
-@@ -275,11 +274,11 @@ Please see the following document:
- 	Documentation/devicetree/bindings/net/stmmac.txt
-=20
- 4.11) This is a summary of the content of some relevant files:
-- o stmmac_main.c: to implement the main network device driver;
-- o stmmac_mdio.c: to provide mdio functions;
-- o stmmac_pci: this the PCI driver;
-- o stmmac_platform.c: this the platform driver (OF supported)
-- o stmmac_ethtool.c: to implement the ethtool support;
-+ o stmmac_main.c: implements the main network device driver;
-+ o stmmac_mdio.c: provides MDIO functions;
-+ o stmmac_pci: this is the PCI driver;
-+ o stmmac_platform.c: this the platform driver (OF supported);
-+ o stmmac_ethtool.c: implements the ethtool support;
-  o stmmac.h: private driver structure;
-  o common.h: common definitions and VFTs;
-  o mmc_core.c/mmc.h: Management MAC Counters;
-@@ -381,12 +380,12 @@ In addition to the basic timestamp features mentioned=
- in IEEE 1588-2002
- Timestamps, new GMAC cores support the advanced timestamp features.
- IEEE 1588-2008 that can be enabled when configure the Kernel.
-=20
--8) SGMII/RGMII supports
-+8) SGMII/RGMII support
- New GMAC devices provide own way to manage RGMII/SGMII.
- This information is available at run-time by looking at the
- HW capability register. This means that the stmmac can manage
--auto-negotiation and link status w/o using the PHYLIB stuff
-+auto-negotiation and link status w/o using the PHYLIB stuff.
- In fact, the HW provides a subset of extended registers to
- restart the ANE, verify Full/Half duplex mode and Speed.
--Also thanks to these registers it is possible to look at the
-+Thanks to these registers, it is possible to look at the
- Auto-negotiated Link Parter Ability.
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---IiVenqGWf+H9Y6IX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlg//DIACgkQMOfwapXb+vIr5wCgrksRvv1ieF00R8AOHdFoly2c
-dKoAnjXoqZuc53Fyr+o1orN+zvzI9mBf
-=nXSM
------END PGP SIGNATURE-----
-
---IiVenqGWf+H9Y6IX--
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 975dbeb60ab0..1c004a46486f 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -421,6 +421,10 @@ int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b,
+ 	dev = dev_get_by_name(net, driver_name);
+ 	if (!dev)
+ 		return -ENODEV;
++	if (tipc_check_mtu(dev, 0)) {
++		dev_put(dev);
++		return -EINVAL;
++	}
+ 
+ 	/* Associate TIPC bearer with L2 bearer */
+ 	rcu_assign_pointer(b->media_ptr, dev);
+@@ -610,8 +614,6 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 	if (!b)
+ 		return NOTIFY_DONE;
+ 
+-	b->mtu = dev->mtu;
+-
+ 	switch (evt) {
+ 	case NETDEV_CHANGE:
+ 		if (netif_carrier_ok(dev))
+@@ -624,6 +626,11 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 		tipc_reset_bearer(net, b);
+ 		break;
+ 	case NETDEV_CHANGEMTU:
++		if (tipc_check_mtu(dev, 0)) {
++			bearer_disable(net, b);
++			break;
++		}
++		b->mtu = dev->mtu;
+ 		tipc_reset_bearer(net, b);
+ 		break;
+ 	case NETDEV_CHANGEADDR:
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 78892e2f53e3..6b8a1d9d313a 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -39,6 +39,7 @@
+ 
+ #include "netlink.h"
+ #include "core.h"
++#include "msg.h"
+ #include <net/genetlink.h>
+ 
+ #define MAX_MEDIA	3
+@@ -59,6 +60,9 @@
+ #define TIPC_MEDIA_TYPE_IB	2
+ #define TIPC_MEDIA_TYPE_UDP	3
+ 
++/* minimum bearer MTU */
++#define TIPC_MIN_BEARER_MTU	(MAX_H_SIZE + INT_H_SIZE)
++
+ /**
+  * struct tipc_media_addr - destination address used by TIPC bearers
+  * @value: address info (format defined by media)
+@@ -215,4 +219,13 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
+ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
+ 			 struct sk_buff_head *xmitq);
+ 
++/* check if device MTU is sufficient for tipc headers */
++static inline bool tipc_check_mtu(struct net_device *dev, unsigned int reserve)
++{
++	if (dev->mtu >= TIPC_MIN_BEARER_MTU + reserve)
++		return false;
++	netdev_warn(dev, "MTU too low for tipc bearer\n");
++	return true;
++}
++
+ #endif	/* _TIPC_BEARER_H */
+diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+index 78cab9c5a445..376ed3e3ed46 100644
+--- a/net/tipc/udp_media.c
++++ b/net/tipc/udp_media.c
+@@ -697,6 +697,11 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
+ 		udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
+ 		udp_conf.use_udp_checksums = false;
+ 		ub->ifindex = dev->ifindex;
++		if (tipc_check_mtu(dev, sizeof(struct iphdr) +
++					sizeof(struct udphdr))) {
++			err = -EINVAL;
++			goto err;
++		}
+ 		b->mtu = dev->mtu - sizeof(struct iphdr)
+ 			- sizeof(struct udphdr);
+ #if IS_ENABLED(CONFIG_IPV6)
+-- 
+2.10.2
