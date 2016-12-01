@@ -1,189 +1,102 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH v5 net-next 4/7] net: mvneta: Convert to be 64 bits
- compatible
-Date: Thu, 1 Dec 2016 20:16:48 +0800
-Message-ID: <20161201201648.6a50b442@xhacker>
-References: <cover.0270f6d2413a709521fe2c8c17fbebea6f2e78d1.1480542157.git-series.gregory.clement@free-electrons.com>
-        <6b4d20a85b05e93d254e265eb07569dd1285d303.1480542157.git-series.gregory.clement@free-electrons.com>
-        <20161201192604.07ed9516@xhacker>
-        <CAPv3WKeJBL7_V_7QPVNDAd9H4bgeLcSF8enuD96sgEmecuRkRA@mail.gmail.com>
-        <20161201200205.46dec339@xhacker>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 12/39] Annotate hardware config module parameters in
+ drivers/isdn/
+Date: Thu, 01 Dec 2016 12:31:10 +0000
+Message-ID: <148059547052.31612.3500904168778452607.stgit@warthog.procyon.org.uk>
+References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Dmitri Epshtein <dima@marvell.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        "Yelena Krivosheev" <yelena@marvell.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:37395 "EHLO
-        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932506AbcLAMWC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 07:22:02 -0500
-In-Reply-To: <20161201200205.46dec339@xhacker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gnomes@lxorguk.ukuu.org.uk, Karsten Keil <isdn@linux-pingi.de>,
+        minyard@acm.org, netdev@vger.kernel.org, dhowells@redhat.com,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Dec 2016 20:02:05 +0800 Jisheng Zhang wrote:
+When the kernel is running in secure boot mode, we lock down the kernel to
+prevent userspace from modifying the running kernel image.  Whilst this
+includes prohibiting access to things like /dev/mem, it must also prevent
+access by means of configuring driver modules in such a way as to cause a
+device to access or modify the kernel image.
 
-> Hi Marcin,
-> 
-> On Thu, 1 Dec 2016 12:48:39 +0100 Marcin Wojtas wrote:
-> 
-> > Hi Jisheng,
-> > 
-> > Which baseline do you use?
-> > 
-> > It took me really lot of time to catch why RX broke after rebase from
-> > LKv4.1 to LKv4.4. Between those two, in commit:
-> > 97303480753e ("arm64: Increase the max granular size")
-> > L1_CACHE_BYTES for all ARMv8 platforms was increased to 128B and so
-> > did NET_SKB_PAD.
-> > 
-> > And 128 is more than the maximum that can fit into packet offset
-> > [11:8]@0x1400. In such case this correction is needed. Did it answer
-> > your doubts?  
-> 
-> That's key! Thanks a lot. In my repo, we don't have commit 97303480753e
-> ("arm64: Increase the max granular size")
-> 
-> I think it would be great if this information can be added into the commit
-> msg.
-> 
-> IIRC, arm64 maintainers considered to let L1_CACHE_BYTES the _minimum_ of
-> cache line sizes of arm64. If that's implemented and merged, then we can
+To this end, annotate module_param* statements that refer to hardware
+configuration and indicate for future reference what type of parameter they
+specify.  The parameter parser in the core sees this information and can
+skip such parameters with an error message if the kernel is locked down.
+The module initialisation then runs as normal, but just sees whatever the
+default values for those parameters is.
 
-I just searched and found the email.
+Note that we do still need to do the module initialisation because some
+drivers have viable defaults set in case parameters aren't specified and
+some drivers support automatic configuration (e.g. PNP or PCI) in addition
+to manually coded parameters.
 
-"We may have to revisit this logic and consider L1_CACHE_BYTES the
-_minimum_ of cache line sizes in arm64 systems supported by the kernel.
-Do you have any benchmarks on Cavium boards that would show significant
-degradation with 64-byte L1_CACHE_BYTES vs 128?"
+This patch annotates drivers in drivers/isdn/.
 
-https://patchwork.kernel.org/patch/8634481/
+Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Karsten Keil <isdn@linux-pingi.de>
+cc: netdev@vger.kernel.org
+---
 
+ drivers/isdn/hardware/avm/b1isa.c |    4 ++--
+ drivers/isdn/hardware/avm/t1isa.c |    4 ++--
+ drivers/isdn/hisax/config.c       |   10 +++++-----
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-> revert this patch later.
-> 
-> Thanks,
-> Jisheng
-> 
-> > 
-> > Best regards,
-> > Marcin
-> > 
-> > 
-> > 
-> > 2016-12-01 12:26 GMT+01:00 Jisheng Zhang <jszhang@marvell.com>:  
-> > > Hi Gregory, Marcin,
-> > >
-> > > On Wed, 30 Nov 2016 22:42:49 +0100 Gregory CLEMENT wrote:
-> > >    
-> > >> From: Marcin Wojtas <mw@semihalf.com>
-> > >>
-> > >> Prepare the mvneta driver in order to be usable on the 64 bits platform
-> > >> such as the Armada 3700.
-> > >>
-> > >> [gregory.clement@free-electrons.com]: this patch was extract from a larger
-> > >> one to ease review and maintenance.
-> > >>
-> > >> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> > >> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> > >> ---
-> > >>  drivers/net/ethernet/marvell/mvneta.c | 17 ++++++++++++++++-
-> > >>  1 file changed, 16 insertions(+), 1 deletion(-)
-> > >>
-> > >> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> > >> index 92b9af14c352..8ef03fb69bcd 100644
-> > >> --- a/drivers/net/ethernet/marvell/mvneta.c
-> > >> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> > >> @@ -296,6 +296,12 @@
-> > >>  /* descriptor aligned size */
-> > >>  #define MVNETA_DESC_ALIGNED_SIZE     32
-> > >>
-> > >> +/* Number of bytes to be taken into account by HW when putting incoming data
-> > >> + * to the buffers. It is needed in case NET_SKB_PAD exceeds maximum packet
-> > >> + * offset supported in MVNETA_RXQ_CONFIG_REG(q) registers.    
-> > >
-> > > We also brought up this driver on 64bit platforms, we doesn't have this
-> > > patch. Maybe I'm wrong, I'm trying to understand why we need this
-> > > modification. Let's assume the NET_SKB_PAD is 64B, we call
-> > > mvneta_rxq_offset_set(pp, rxq, 64),
-> > >
-> > > {
-> > >         u32 val;
-> > >
-> > >         val = mvreg_read(pp, MVNETA_RXQ_CONFIG_REG(rxq->id));
-> > >         val &= ~MVNETA_RXQ_PKT_OFFSET_ALL_MASK;
-> > >
-> > >         /* Offset is in */
-> > >         val |= MVNETA_RXQ_PKT_OFFSET_MASK(offset >> 3);
-> > > // then this will be "val |= 8;" it doesn't exceeds the max offset of
-> > > MVNETA_RXQ_CONFIG_REG(q) register.
-> > >
-> > > Could you please kindly point out where I am wrong?
-> > >    
-> > >> + */
-> > >> +#define MVNETA_RX_PKT_OFFSET_CORRECTION              64
-> > >> +
-> > >>  #define MVNETA_RX_PKT_SIZE(mtu) \
-> > >>       ALIGN((mtu) + MVNETA_MH_SIZE + MVNETA_VLAN_TAG_LEN + \
-> > >>             ETH_HLEN + ETH_FCS_LEN,                        \
-> > >> @@ -416,6 +422,7 @@ struct mvneta_port {
-> > >>       u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
-> > >>
-> > >>       u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
-> > >> +     u16 rx_offset_correction;
-> > >>  };
-> > >>
-> > >>  /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-> > >> @@ -1807,6 +1814,7 @@ static int mvneta_rx_refill(struct mvneta_port *pp,
-> > >>               return -ENOMEM;
-> > >>       }
-> > >>
-> > >> +     phys_addr += pp->rx_offset_correction;
-> > >>       mvneta_rx_desc_fill(rx_desc, phys_addr, data, rxq);
-> > >>       return 0;
-> > >>  }
-> > >> @@ -2782,7 +2790,7 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
-> > >>       mvreg_write(pp, MVNETA_RXQ_SIZE_REG(rxq->id), rxq->size);
-> > >>
-> > >>       /* Set Offset */
-> > >> -     mvneta_rxq_offset_set(pp, rxq, NET_SKB_PAD);
-> > >> +     mvneta_rxq_offset_set(pp, rxq, NET_SKB_PAD - pp->rx_offset_correction);
-> > >>
-> > >>       /* Set coalescing pkts and time */
-> > >>       mvneta_rx_pkts_coal_set(pp, rxq, rxq->pkts_coal);
-> > >> @@ -4033,6 +4041,13 @@ static int mvneta_probe(struct platform_device *pdev)
-> > >>
-> > >>       pp->rxq_def = rxq_def;
-> > >>
-> > >> +     /* Set RX packet offset correction for platforms, whose
-> > >> +      * NET_SKB_PAD, exceeds 64B. It should be 64B for 64-bit
-> > >> +      * platforms and 0B for 32-bit ones.    
-> > >
-> > > Even we need this patch, I'm not sure this last comment is correct or not.
-> > > NET_SKB_PAD is defined as:
-> > >
-> > > #define NET_SKB_PAD     max(32, L1_CACHE_BYTES)
-> > >
-> > > we have 64B cacheline 32bit platforms, on this platforms, the NET_SKB_PAD
-> > > should be 64B as well.
-> > >
-> > > Thanks,
-> > > Jisheng    
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+diff --git a/drivers/isdn/hardware/avm/b1isa.c b/drivers/isdn/hardware/avm/b1isa.c
+index 31ef8130a87f..54e871a47387 100644
+--- a/drivers/isdn/hardware/avm/b1isa.c
++++ b/drivers/isdn/hardware/avm/b1isa.c
+@@ -169,8 +169,8 @@ static struct pci_dev isa_dev[MAX_CARDS];
+ static int io[MAX_CARDS];
+ static int irq[MAX_CARDS];
+ 
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ MODULE_PARM_DESC(io, "I/O base address(es)");
+ MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
+ 
+diff --git a/drivers/isdn/hardware/avm/t1isa.c b/drivers/isdn/hardware/avm/t1isa.c
+index 72ef18853951..9516203c735f 100644
+--- a/drivers/isdn/hardware/avm/t1isa.c
++++ b/drivers/isdn/hardware/avm/t1isa.c
+@@ -516,8 +516,8 @@ static int io[MAX_CARDS];
+ static int irq[MAX_CARDS];
+ static int cardnr[MAX_CARDS];
+ 
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
+ module_param_array(cardnr, int, NULL, 0);
+ MODULE_PARM_DESC(io, "I/O base address(es)");
+ MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
+diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
+index bf04d2a3cf4a..30da1bc106f0 100644
+--- a/drivers/isdn/hisax/config.c
++++ b/drivers/isdn/hisax/config.c
+@@ -350,13 +350,13 @@ MODULE_AUTHOR("Karsten Keil");
+ MODULE_LICENSE("GPL");
+ module_param_array(type, int, NULL, 0);
+ module_param_array(protocol, int, NULL, 0);
+-module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
+-module_param_array(mem, int, NULL, 0);
++module_param_hw_array(io, int, ioport, NULL, 0);
++module_param_hw_array(irq, int, irq, NULL, 0);
++module_param_hw_array(mem, int, iomem, NULL, 0);
+ module_param(id, charp, 0);
+ #ifdef IO0_IO1
+-module_param_array(io0, int, NULL, 0);
+-module_param_array(io1, int, NULL, 0);
++module_param_hw_array(io0, int, ioport, NULL, 0);
++module_param_hw_array(io1, int, ioport, NULL, 0);
+ #endif
+ #endif /* MODULE */
+ 
