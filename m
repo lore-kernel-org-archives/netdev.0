@@ -1,55 +1,43 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net] tipc: check minimum bearer MTU
-Date: Thu, 1 Dec 2016 18:07:47 +0800
-Message-ID: <2993fe74-a4d3-55ea-c600-ade0f0ee3a02@windriver.com>
-References: <20161130095702.DD033A0F14@unicorn.suse.cz>
-	<4a2da388-d798-11cf-bf2c-84207cae6159@windriver.com>
-	<20161130132333.GD19119@unicorn.suse.cz>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: add missing checks for status bits
+Date: Thu, 1 Dec 2016 13:12:39 +0300
+Message-ID: <185d6cf0-6f46-9e04-a55d-5f13535c513b@cogentembedded.com>
+References: <20161130200148.9011-1-chris.brandt@renesas.com>
+ <20161201085223.GD18042@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, Qian Zhang <zhangqian-c@360.cn>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, Ben Hutchings <ben@decadent.org.uk>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <20161130132333.GD19119@unicorn.suse.cz>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: David Miller <davem@davemloft.net>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>,
+        Chris Brandt <chris.brandt@renesas.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20161201085223.GD18042@verge.net.au>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello!
+
+On 12/1/2016 11:52 AM, Simon Horman wrote:
+
+>> When streaming a lot of data and the RZ can't keep up, some status bits
+>> will get set that are not being checked or cleared which cause the
+>> following messages and the Ethernet driver to stop working. This
+>> patch fixes that issue.
 >>
->> For UDP bearer, it seems insufficient for us to check MTU size only
->> when UDP bearer is enabled. Meanwhile, we should update MTU size for
->> UDP bearer with Path MTU discovery protocol once MTU size is changed
->> after bearer is enabled.
+>> irq 21: nobody cared (try booting with the "irqpoll" option)
+>> handlers:
+>> [<c036b71c>] sh_eth_interrupt
+>> Disabling IRQ #21
+>>
+>> Fixes: db893473d313a4ad ("sh_eth: Add support for r7s72100")
+>> Signed-off-by: Chris Brandt <chris.brandt@renesas.com>
 >
-> I should admit I'm not that familiar with tipc. Do you mean updating
-> b->mtu in response to PMTU updates of the route used for ub->ubsock?
-
-Yes.
-
-> The way I understand it, it would be certainly useful but it's not
-> directly related to the security issue this patch addresses as if there
-> are no updates, b->mtu cannot get too low and there is no risk of
-> a buffer overflow. In other words, reflecting PMTU updates is something
-> that can be IMHO left for later.
+> Hi Chris,
 >
+> I am wondering if the EESR_FRC but should also be checked.
 
-Agreed.
+    EESR.FRC is not an error bit and it's part of EESR_RX_CHECK already.
 
-Regards,
-Ying
-
->                                                       Michal Kubecek
->
-
-
-------------------------------------------------------------------------------
+MBR, Sergei
