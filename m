@@ -1,87 +1,74 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v2] tun: Use netif_receive_skb instead of netif_rx
-Date: Thu, 1 Dec 2016 17:39:45 +0800
-Message-ID: <220b8126-7445-8803-182e-0b04467ebf74@redhat.com>
-References: <1480584880-48651-1-git-send-email-andreyknvl@google.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [PATCH] netfilter: avoid warn and OOM on vmalloc call
+Date: Thu, 1 Dec 2016 10:42:22 +0100
+Message-ID: <CAAeHK+wjP=h_4YxB6VUc+FjKcZi9igmyTs3nPAuUJeNomYSA0w@mail.gmail.com>
+References: <20161130192145.GB13169@localhost.localdomain> <6fd343e83c26c5108d4b6c189e434a5a6e7ebd01.1480534469.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>, syzkaller@googlegroups.com
-To: Andrey Konovalov <andreyknvl@google.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S . Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Peter Klausler <pmk@google.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        "Michael S . Tsirkin" <mst@redhat.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Markus Elfring <elfring@users.sourceforge.net>,
-        Mike Rapoport <rppt@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480584880-48651-1-git-send-email-andreyknvl@google.com>
+In-Reply-To: <6fd343e83c26c5108d4b6c189e434a5a6e7ebd01.1480534469.git.marcelo.leitner@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Nov 30, 2016 at 8:42 PM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> Hi Andrey,
+>
+> Please let me know how this works for you. It seems good here, though
+> your poc may still trigger OOM through other means.
 
+Hi Marcelo,
 
-On 2016年12月01日 17:34, Andrey Konovalov wrote:
-> This patch changes tun.c to call netif_receive_skb instead of netif_rx
-> when a packet is received (if CONFIG_4KSTACKS is not enabled to avoid
-> stack exhaustion). The difference between the two is that netif_rx queues
-> the packet into the backlog, and netif_receive_skb proccesses the packet
-> in the current context.
+Don't see any reports with this patch.
+
+Thanks!
+
 >
-> This patch is required for syzkaller [1] to collect coverage from packet
-> receive paths, when a packet being received through tun (syzkaller collects
-> coverage per process in the process context).
+> Thanks,
+> Marcelo
 >
-> As mentioned by Eric this change also speeds up tun/tap. As measured by
-> Peter it speeds up his closed-loop single-stream tap/OVS benchmark by
-> about 23%, from 700k packets/second to 867k packets/second.
+> ---8<---
 >
-> A similar patch was introduced back in 2010 [2, 3], but the author found
-> out that the patch doesn't help with the task he had in mind (for cgroups
-> to shape network traffic based on the original process) and decided not to
-> go further with it. The main concern back then was about possible stack
-> exhaustion with 4K stacks.
+> Andrey Konovalov reported that this vmalloc call is based on an
+> userspace request and that it's spewing traces, which may flood the logs
+> and cause DoS if abused.
 >
-> [1] https://github.com/google/syzkaller
+> Florian Westphal also mentioned that this call should not trigger OOM,
+> as kmalloc one is already not triggering it.
 >
-> [2] https://www.spinics.net/lists/netdev/thrd440.html#130570
+> This patch brings the vmalloc call in sync to kmalloc and disables the
+> warn trace on allocation failure and also disable OOM invocation.
 >
-> [3] https://www.spinics.net/lists/netdev/msg130570.html
+> Note, however, that under such stress situation, other places may
+> trigger OOM invocation.
 >
-> Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Cc: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 > ---
+>  net/netfilter/x_tables.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
 >
-> Changes since v1:
-> - incorporate Eric's note about speed improvements in commit description
-> - use netif_receive_skb CONFIG_4KSTACKS is not enabled
+> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+> index fc4977456c30e098197b4f987b758072c9cf60d9..dece525bf83a0098dad607fce665cd0bde228362 100644
+> --- a/net/netfilter/x_tables.c
+> +++ b/net/netfilter/x_tables.c
+> @@ -958,7 +958,9 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
+>         if (sz <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
+>                 info = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
+>         if (!info) {
+> -               info = vmalloc(sz);
+> +               info = __vmalloc(sz, GFP_KERNEL | __GFP_NOWARN |
+> +                                    __GFP_NORETRY | __GFP_HIGHMEM,
+> +                                PAGE_KERNEL);
+>                 if (!info)
+>                         return NULL;
+>         }
+> --
+> 2.9.3
 >
->   drivers/net/tun.c | 6 ++++++
->   1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 8093e39..d310b13 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1304,7 +1304,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->   	skb_probe_transport_header(skb, 0);
->   
->   	rxhash = skb_get_hash(skb);
-> +#ifndef CONFIG_4KSTACKS
-> +	local_bh_disable();
-> +	netif_receive_skb(skb);
-> +	local_bh_enable();
-> +#else
->   	netif_rx_ni(skb);
-> +#endif
->   
->   	stats = get_cpu_ptr(tun->pcpu_stats);
->   	u64_stats_update_begin(&stats->syncp);
-
-I get +20% tx pps from guest with this patch.
-
-Acked-by: Jason Wang <jasowang@redhat.com>
