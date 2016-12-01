@@ -1,84 +1,33 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH] netfilter: avoid warn and OOM on vmalloc call
-Date: Thu, 1 Dec 2016 17:08:18 -0200
-Message-ID: <20161201190818.GA6650@localhost.localdomain>
-References: <20161130192145.GB13169@localhost.localdomain>
- <6fd343e83c26c5108d4b6c189e434a5a6e7ebd01.1480534469.git.marcelo.leitner@gmail.com>
- <CAAeHK+wjP=h_4YxB6VUc+FjKcZi9igmyTs3nPAuUJeNomYSA0w@mail.gmail.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH net-next iproute2 PATCH 2/2 v2] ss: Add inet raw sockets
+ information gathering via netlink diag interface
+Date: Thu, 1 Dec 2016 22:13:06 +0300
+Message-ID: <20161201191306.GC26799@uranus>
+References: <1478092496-7540-1-git-send-email-gorcunov@gmail.com>
+ <1478092496-7540-3-git-send-email-gorcunov@gmail.com>
+ <20161201105701.1c54b258@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, avagin@openvz.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33220 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751451AbcLATN3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 14:13:29 -0500
+Received: by mail-lf0-f68.google.com with SMTP id 98so19895970lfs.0
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 11:13:09 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CAAeHK+wjP=h_4YxB6VUc+FjKcZi9igmyTs3nPAuUJeNomYSA0w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20161201105701.1c54b258@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2016 at 10:42:22AM +0100, Andrey Konovalov wrote:
-> On Wed, Nov 30, 2016 at 8:42 PM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
-> > Hi Andrey,
-> >
-> > Please let me know how this works for you. It seems good here, though
-> > your poc may still trigger OOM through other means.
+On Thu, Dec 01, 2016 at 10:57:01AM -0800, Stephen Hemminger wrote:
 > 
-> Hi Marcelo,
-> 
-> Don't see any reports with this patch.
-> 
-> Thanks!
+> Applied both patches, but needed to remove inet_diag.h since
+> already updated kernel headers.
 
-Thanks Andrey.
-I'll post a v2 after a few more tests here and to s/OOM/OOM killer/ in
-most of the changelog.
-
-> 
-> >
-> > Thanks,
-> > Marcelo
-> >
-> > ---8<---
-> >
-> > Andrey Konovalov reported that this vmalloc call is based on an
-> > userspace request and that it's spewing traces, which may flood the logs
-> > and cause DoS if abused.
-> >
-> > Florian Westphal also mentioned that this call should not trigger OOM,
-> > as kmalloc one is already not triggering it.
-> >
-> > This patch brings the vmalloc call in sync to kmalloc and disables the
-> > warn trace on allocation failure and also disable OOM invocation.
-> >
-> > Note, however, that under such stress situation, other places may
-> > trigger OOM invocation.
-> >
-> > Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> > Cc: Florian Westphal <fw@strlen.de>
-> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > ---
-> >  net/netfilter/x_tables.c | 4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-> > index fc4977456c30e098197b4f987b758072c9cf60d9..dece525bf83a0098dad607fce665cd0bde228362 100644
-> > --- a/net/netfilter/x_tables.c
-> > +++ b/net/netfilter/x_tables.c
-> > @@ -958,7 +958,9 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
-> >         if (sz <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
-> >                 info = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
-> >         if (!info) {
-> > -               info = vmalloc(sz);
-> > +               info = __vmalloc(sz, GFP_KERNEL | __GFP_NOWARN |
-> > +                                    __GFP_NORETRY | __GFP_HIGHMEM,
-> > +                                PAGE_KERNEL);
-> >                 if (!info)
-> >                         return NULL;
-> >         }
-> > --
-> > 2.9.3
-> >
-> 
+Thank you! I think we might need to extend the matching interface
+for killing raw sockets in near future, because for now it is
+too wildcard. I put this into my todo list, once I finish with
+more urgent tasks will back to this one.
