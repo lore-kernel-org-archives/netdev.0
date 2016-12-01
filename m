@@ -1,73 +1,126 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: DSA vs envelope frames
-Date: Wed, 30 Nov 2016 19:26:59 -0800
-Message-ID: <b75a3232-bdda-6758-874f-829b3e4097e9@gmail.com>
-References: <1480444528-30054-1-git-send-email-nikita.yoush@cogentembedded.com>
- <AM4PR0401MB2260D022EC9B9E4C4333E621FF8C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <dab27a3d-821c-8d07-ad98-2bdd8c442bc5@cogentembedded.com>
- <f632a0e8-746b-2db5-09af-3a5f6fc78e13@lab.ntt.co.jp>
- <d8a6df03-d9bd-eca5-0b9f-73406efe6509@cogentembedded.com>
- <20161130151028.GD21645@lunn.ch>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] vhost_net: don't continue to call the recvmsg when
+ meet errors
+Date: Thu, 1 Dec 2016 05:27:26 +0200
+Message-ID: <20161201052657-mutt-send-email-mst@kernel.org>
+References: <1480507857-22976-1-git-send-email-wangyunjian@huawei.com>
+ <20161130152004-mutt-send-email-mst@kernel.org>
+ <34EFBCA9F01B0748BEB6B629CE643AE60B0A7B68@szxeml561-mbx.china.huawei.com>
+ <20161201051207-mutt-send-email-mst@kernel.org>
+ <ee70cb92-3fd9-4148-77ba-739af30b04b6@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-        Andy Duan <fugang.duan@nxp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
+Cc: wangyunjian <wangyunjian@huawei.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Chris Healy <cphealy@gmail.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+        caihe <caihe@huawei.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:36341 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756803AbcLAD2h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Nov 2016 22:28:37 -0500
-In-Reply-To: <20161130151028.GD21645@lunn.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:58980 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751126AbcLADfF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Nov 2016 22:35:05 -0500
+Content-Disposition: inline
+In-Reply-To: <ee70cb92-3fd9-4148-77ba-739af30b04b6@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 11/30/2016 07:10 AM, Andrew Lunn wrote:
->> What is not really clear - what if several tagging protocols are used
->> together. AFAIU, things may be more complex that simple appending of
->> tags, e.g. EDSA tag can carry VLAN id inside.
+On Thu, Dec 01, 2016 at 11:26:21AM +0800, Jason Wang wrote:
 > 
-> Hi Nikita
 > 
-> At least for all current tagging protocols, the size of the tag is
-> constant. And you cannot run different tagging protocols on the same
-> master interface at the same time.
-
-I am not sure if using envelope frames is entirely appropriate here,
-because there are existing switch tagging protocols that:
-
-- don't have a specific Ethernet type allocated (Broadcom tags, DSA)
-- could be appended at the end of the frame instead of pre-pended
-
-Alexander Duyck suggested a while ago that we may be able to use the
-headers_ops to implement the DSA tag pop/push, as well as get an
-appropriate MTU adjustment, can you see if that would work?
-
+> On 2016年12月01日 11:21, Michael S. Tsirkin wrote:
+> > On Thu, Dec 01, 2016 at 02:48:59AM +0000, wangyunjian wrote:
+> > > > -----Original Message-----
+> > > > From: Michael S. Tsirkin [mailto:mst@redhat.com]
+> > > > Sent: Wednesday, November 30, 2016 9:41 PM
+> > > > To: wangyunjian
+> > > > Cc: jasowang@redhat.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org; caihe
+> > > > Subject: Re: [PATCH net] vhost_net: don't continue to call the recvmsg when meet errors
+> > > > 
+> > > > On Wed, Nov 30, 2016 at 08:10:57PM +0800, Yunjian Wang wrote:
+> > > > > When we meet an error(err=-EBADFD) recvmsg,
+> > > > How do you get EBADFD? Won't vhost_net_rx_peek_head_len
+> > > > return 0 in this case, breaking the loop?
+> > > We started many guest VMs while attaching/detaching some virtio-net nics for loop.
+> > > The soft lockup might happened. The err is -EBADFD.
+> > > 
+> > OK, I'd like to figure out what happened here. why don't
+> > we get 0 when we peek at the head?
+> > 
+> > EBADFD is from here:
+> >          struct tun_struct *tun = __tun_get(tfile);
+> > ...
+> >          if (!tun)
+> >                  return -EBADFD;
+> > 
+> > but then:
+> > static int tun_peek_len(struct socket *sock)
+> > {
+> > 
+> > ...
+> > 
+> >          struct tun_struct *tun;
+> > ...
+> >          tun = __tun_get(tfile);
+> >          if (!tun)
+> >                  return 0;
+> > 
+> > 
+> > so peek len should return 0.
+> > 
+> > then while will exit:
+> >          while ((sock_len = vhost_net_rx_peek_head_len(net, sock->sk)))
+> > ...
+> > 
 > 
-> However, i think Florian tried something funky with the SF2 and B53
-> driver. He has a b53 hanging off a sf2. So i think he used nested
-> tagging protocols!
+> Consider this case: user do ip link del link tap0 before recvmsg() but after
+> tun_peek_len() ?
 
-Well, this actually did not work, because the SF2 and B53 switches
-essentially terminate switch tags when they ingress their switch ports,
-so the tag inserted by B53 ingressing into the SF2 port does not get
-sent all the way to the CPU hanging off the SF2... With the B53 hanging
-off the SF2, we essentially have to disable Broadcom tags in the B53
-device, because the tag and switches were never designed to be cascaded
-in the first place (at least not these specific cores).
--- 
-Florian
+Sure, this can happen, but I think we'll just exit on the next loop,
+won't we?
+
+> > > meesage log:
+> > > kernel:[609608.510180]BUG: soft lockup - CPU#18 stuck for 23s! [vhost-60898:126093]
+> > > call trace:
+> > > [<fffffffa0132967>]vhost_get_vq_desc+0x1e7/0x984 [vhost]
+> > > [<fffffffa02037e6>]handle_rx+0x226/0x810 [vhost_net]
+> > > [<fffffffa0203de5>]handle_rx_net+0x15/0x20 [vhost_net]
+> > > [<fffffffa013160b>]vhost_worker+0xfb/0x1e0 [vhost]
+> > > [<fffffffa0131510>]? vhost_dev_reset_owner+0x50/0x50 [vhost]
+> > > [<fffffff810a5c7f>]kthread+0xcf/0xe0
+> > > [<fffffff810a5bb0>]? kthread_create_on_node+0x140/0x140
+> > > [<fffffff81648898>]ret_from_fork+0x58/0x90
+> > > [<fffffff810a5bb0>]? kthread_create_on_node+0x140/0x140
+> > So somehow you keep seeing something in tun when we peek.
+> > IMO this is the problem we should try to fix.
+> > Could you try debugging the root cause here?
+> > 
+> > > > > the error handling in vhost
+> > > > > handle_rx() will continue. This will cause a soft CPU lockup in vhost thread.
+> > > > > 
+> > > > > Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
+> > > > > ---
+> > > > >   drivers/vhost/net.c | 3 +++
+> > > > >   1 file changed, 3 insertions(+)
+> > > > > 
+> > > > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > > > > index 5dc128a..edc470b 100644
+> > > > > --- a/drivers/vhost/net.c
+> > > > > +++ b/drivers/vhost/net.c
+> > > > > @@ -717,6 +717,9 @@ static void handle_rx(struct vhost_net *net)
+> > > > >   			pr_debug("Discarded rx packet: "
+> > > > >   				 " len %d, expected %zd\n", err, sock_len);
+> > > > >   			vhost_discard_vq_desc(vq, headcount);
+> > > > > +			/* Don't continue to do, when meet errors. */
+> > > > > +			if (err < 0)
+> > > > > +				goto out;
+> > > > You might get e.g. EAGAIN and I think you need to retry
+> > > > in this case.
+> > > > 
+> > > > >   			continue;
+> > > > >   		}
+> > > > >   		/* Supply virtio_net_hdr if VHOST_NET_F_VIRTIO_NET_HDR */
+> > > > > -- 
+> > > > > 1.9.5.msysgit.1
+> > > > > 
