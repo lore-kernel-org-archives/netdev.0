@@ -1,49 +1,102 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v2] sh_eth: remove unchecked interrupts
-Date: Thu, 1 Dec 2016 15:42:46 +0100
-Message-ID: <CAMuHMdU80M2qcK74YgPC8SZ20tNcKrZhj7MXo_Ok=6m4Aa0=-w@mail.gmail.com>
-References: <20161201140642.28583-1-chris.brandt@renesas.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [flamebait] xdp, well meaning but pointless
+Date: Thu, 1 Dec 2016 15:58:34 +0100
+Message-ID: <20161201145834.GA569@pox.localdomain>
+References: <20161201091108.GF26507@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Chris Brandt <chris.brandt@renesas.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20161201140642.28583-1-chris.brandt@renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38866 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758922AbcLAO6h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 09:58:37 -0500
+Received: by mail-wm0-f52.google.com with SMTP id f82so250991066wmf.1
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 06:58:36 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161201091108.GF26507@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Chris,
+On 12/01/16 at 10:11am, Florian Westphal wrote:
+> Aside from this, XDP, like DPDK, is a kernel bypass.
+> You might say 'Its just stack bypass, not a kernel bypass!'.
+> But what does that mean exactly?  That packets can still be passed
+> onward to normal stack?
+> Bypass solutions like netmap can also inject packets back to
+> kernel stack again.
 
-On Thu, Dec 1, 2016 at 3:06 PM, Chris Brandt <chris.brandt@renesas.com> wrote:
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -518,7 +518,7 @@ static struct sh_eth_cpu_data r7s72100_data = {
->
->         .ecsr_value     = ECSR_ICD,
->         .ecsipr_value   = ECSIPR_ICDIP,
-> -       .eesipr_value   = 0xff7f009f,
-> +       .eesipr_value   = 0xe77f009f,
+I have a fundamental issue with the approach of exporting packets into
+user space and reinjecting them: Once the packet leaves the kernel,
+any security guarantees are off. I have no control over what is
+running in user space and whether whatever listener up there has been
+compromised or not. To me, that's a no go, in particular for servers
+hosting multi tenant workloads. This is one of the main reasons why
+XDP, in particular in combination with BPF, is very interesting to me.
 
-Comment not directly related to the merits of this patch: the EESIPR bit
-definitions seem to be identical to those for EESR, so we can get rid of the
-hardcoded values here?
+> b). with regards to a programmable data path: IFF one wants to do this
+> in kernel (and thats a big if), it seems much more preferrable to provide
+> a config/data-based approach rather than a programmable one.  If you want
+> full freedom DPDK is architecturally just too powerful to compete with.
 
->
->         .tx_check       = EESR_TC1 | EESR_FTC,
->         .eesr_err_check = EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
+I must have missed the legal disclaimer that is usually put in front
+of the DPDK marketing show :-)
 
-Gr{oetje,eeting}s,
+I don't want full freedom. I want programmability with stack integration
+at sufficient speed and the ability to benefit from the hardware
+abstractions that the kernel provides.
 
-                        Geert
+> Proponents of XDP sometimes provide usage examples.
+> Lets look at some of these.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+[ I won't comment on any of the other use cases because they are of no
+  interest to me ]
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+> * Load balancer
+> State holding algorithm need sorting and searching, so also no fit for
+> eBPF (could be exposed by function exports, but then can we do DoS by
+> finding worst case scenarios?).
+> 
+> Also again needs way to forward frame out via another interface.
+> 
+> For cases where packet gets sent out via same interface it would appear
+> to be easier to use port mirroring in a switch and use stochastic filtering
+> on end nodes to determine which host should take responsibility.
+> 
+> XDP plus: central authority over how distribution will work in case
+> nodes are added/removed from pool.
+> But then again, it will be easier to hande this with netmap/dpdk where
+> more complicated scheduling algorithms can be used.
+
+I agree with you if the LB is a software based appliance in either a
+dedicated VM or on dedicated baremetal.
+
+The reality is turning out to be different in many cases though, LB
+needs to be performed not only for north south but east west as well.
+So even if I would handle LB for traffic entering my datacenter in user
+space, I will need the same LB for packets from my applications and
+I definitely don't want to move all of that into user space.
+
+> * early drop/filtering.
+> While its possible to do "u32" like filters with ebpf, all modern nics
+> support ntuple filtering in hardware, which is going to be faster because
+> such packet will never even be signalled to the operating system.
+> For more complicated cases (e.g. doing socket lookup to check if particular
+> packet does match bound socket (and expected sequence numbers etc) I don't
+> see easy ways to do that with XDP (and without sk_buff context).
+> Providing it via function exports is possible of course, but that will only
+> result in an "arms race" where we will see special-sauce functions
+> all over the place -- DoS will always attempt to go for something
+> that is difficult to filter against, cf. all the recent volume-based
+> floodings.
+
+You probably put this last because this was the most difficult to
+shoot down ;-)
+
+The benefits of XDP for this use case are extremely obvious in combination
+with local applications which need to be protected. ntuple filters won't
+cut it. They are limited and subject to a certain rate at which they
+can be configured. Any serious mitigation will require stateful filtering
+with at least minimal L7 matching abilities and this is exactly where XDP
+will excel.
