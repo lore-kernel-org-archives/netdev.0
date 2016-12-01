@@ -1,150 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next v3 11/12] mlxsw: spectrum_router: Request a dump
- of FIB tables during init
-Date: Thu, 1 Dec 2016 22:57:52 +0100
-Message-ID: <ea2a8856-59d8-1b5f-9428-b16efa8f6979@stressinduktion.org>
-References: <1480500546-2544-1-git-send-email-jiri@resnulli.us>
- <1480500546-2544-12-git-send-email-jiri@resnulli.us>
- <eb7ddecd-d6b4-dfce-5990-9e933227c862@stressinduktion.org>
- <20161130163229.rkxvuwukgg35ktrx@splinter.mtl.com>
- <043a2ba9-1e19-c3cd-a930-59e8cb0d5f7a@stressinduktion.org>
- <20161130182243.cpoyoqvxuv2bnn4y@splinter.mtl.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [WIP] net+mlx4: auto doorbell
+Date: Thu, 01 Dec 2016 14:04:51 -0800
+Message-ID: <1480629891.18162.340.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20140903165943.372b897b@redhat.com>
+         <1409757426.26422.41.camel@edumazet-glaptop2.roam.corp.google.com>
+         <20161116131609.4e5726b4@redhat.com>
+         <7c4b43a4-74bf-1ee2-6f0d-17783b5d8fcb@hpe.com>
+         <20161116234022.2bad179b@redhat.com>
+         <1479342849.8455.233.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117091638.5fab8494@redhat.com>
+         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117144248.23500001@redhat.com>
+         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117155753.17b76f5a@redhat.com>
+         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117193021.580589ae@redhat.com>
+         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161121170351.50a09ee1@redhat.com>
+         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAKgT0Uf_EeWYqGinyV6U1r-Jqd07R9gN-7GeA82emk4EoN=1mQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kaber@trash.net
-To: Ido Schimmel <idosch@idosch.org>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Rick Jones <rick.jones2@hpe.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:41520 "EHLO
-        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1758033AbcLAV55 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 16:57:57 -0500
-In-Reply-To: <20161130182243.cpoyoqvxuv2bnn4y@splinter.mtl.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36631 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755703AbcLAWFy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 17:05:54 -0500
+Received: by mail-pg0-f68.google.com with SMTP id x23so5781996pgx.3
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 14:05:53 -0800 (PST)
+In-Reply-To: <CAKgT0Uf_EeWYqGinyV6U1r-Jqd07R9gN-7GeA82emk4EoN=1mQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30.11.2016 19:22, Ido Schimmel wrote:
-> On Wed, Nov 30, 2016 at 05:49:56PM +0100, Hannes Frederic Sowa wrote:
->> On 30.11.2016 17:32, Ido Schimmel wrote:
->>> On Wed, Nov 30, 2016 at 04:37:48PM +0100, Hannes Frederic Sowa wrote:
->>>> On 30.11.2016 11:09, Jiri Pirko wrote:
->>>>> From: Ido Schimmel <idosch@mellanox.com>
->>>>>
->>>>> Make sure the device has a complete view of the FIB tables by invoking
->>>>> their dump during module init.
->>>>>
->>>>> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
->>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>>> ---
->>>>>  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 23 ++++++++++++++++++++++
->>>>>  1 file changed, 23 insertions(+)
->>>>>
->>>>> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
->>>>> index 14bed1d..d176047 100644
->>>>> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
->>>>> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
->>>>> @@ -2027,8 +2027,23 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
->>>>>  	return NOTIFY_DONE;
->>>>>  }
->>>>>  
->>>>> +static void mlxsw_sp_router_fib_dump_flush(struct notifier_block *nb)
->>>>> +{
->>>>> +	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
->>>>> +
->>>>> +	/* Flush pending FIB notifications and then flush the device's
->>>>> +	 * table before requesting another dump. Do that with RTNL held,
->>>>> +	 * as FIB notification block is already registered.
->>>>> +	 */
->>>>> +	mlxsw_core_flush_owq();
->>>>> +	rtnl_lock();
->>>>> +	mlxsw_sp_router_fib_flush(mlxsw_sp);
->>>>> +	rtnl_unlock();
->>>>> +}
->>>>> +
->>>>>  int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
->>>>>  {
->>>>> +	fib_dump_cb_t *cb = mlxsw_sp_router_fib_dump_flush;
->>>>>  	int err;
->>>>>  
->>>>>  	INIT_LIST_HEAD(&mlxsw_sp->router.nexthop_neighs_list);
->>>>> @@ -2048,8 +2063,16 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
->>>>>  
->>>>>  	mlxsw_sp->fib_nb.notifier_call = mlxsw_sp_router_fib_event;
->>>>>  	register_fib_notifier(&mlxsw_sp->fib_nb);
->>>>
->>>> Sorry to pick in here again:
->>>>
->>>> There is a race here. You need to protect the registration of the fib
->>>> notifier as well by the sequence counter. Updates here are not ordered
->>>> in relation to this code below.
->>>
->>> You mean updates that can be received after you registered the notifier
->>> and until the dump started? I'm aware of that and that's OK. This
->>> listener should be able to handle duplicates.
->>
->> I am not concerned about duplicates, but about ordering deletes and
->> getting an add from the RCU code you will add the node to hw while it is
->> deleted in the software path. You probably will ignore the delete
->> because nothing is installed in hw and later add the node which was
->> actually deleted but just reordered which happend on another CPU, no?
-> 
-> Are you referring to reordering in the workqueue? We already covered
-> this using an ordered workqueue, which has one context of execution
-> system-wide.
+On Thu, 2016-12-01 at 13:32 -0800, Alexander Duyck wrote:
 
-Ups, sorry, I missed that mail. Probably read it on the mobile phone and
-it became invisible for me later on. Busy day... ;)
+> A few years back when I did something like this on ixgbe I was told by
+> you that the issue was that doing something like this would add too
+> much latency.  I was just wondering what the latency impact is on a
+> change like this and if this now isn't that much of an issue?
 
-The reordering in the workqueue seems fine to me and also still necessary.
+I believe it is clear that we can not use this trick without admin
+choice.
 
-Basically, if you delete a node right now the kernel might simply do a
-RCU_INIT_POINTER(ptr_location, NULL), which has absolutely no barriers
-or synchronization with the reader side. Thus you might get a callback
-from the notifier for a delete event on the one CPU and you end up
-queueing this fib entry after the delete queue, because the RCU walk
-isn't protected by any means.
+In my experience, mlx4 can deliver way more interrupts than ixgbe.
+(No idea why)
 
-Looking closer at this series again, I overlooked the fact that you
-fetch fib_seq using a rtnl_lock and rtnl_unlock pair, which first of all
-orders fetching of fib_seq and thus the RCU dumping after any concurrent
-executing fib table update, also the mutex_lock and unlock provide
-proper acquire and release fences, so the CPU indeed sees the effect of
-a RCU_INIT_POINTER update done on another CPU, because they pair with
-the rtnl_unlock which might happen on the other CPU.
+This "auto doorbell" is tied to proper "ethtool -c tx-usecs|tx-frames|
+tx-frames-irq", or simply a choice for hosts dedicated to content
+delivery (like video servers) with 40GBit+ cards.
 
-My question is if this is a bit of luck and if we should make this
-explicit by putting the registration itself under the protection of the
-sequence counter. I favor the additional protection, e.g. if we some day
-actually we optimize the fib_seq code? Otherwise we might probably
-document this fact. :)
+Under stress, softirq can be handled by ksoftirqd, and might be delayed
+by ~10 ms or even more.
 
->>> I've a follow up patchset that introduces a new event in switchdev
->>> notification chain called SWITCHDEV_SYNC, which is sent when port
->>> netdevs are enslaved / released  from a master device (points in time
->>> where kernel<->device can get out of sync). It will invoke
->>> re-propagation of configuration from different parts of the stack
->>> (e.g. bridge driver, 8021q driver, fib/neigh code), which can result
->>> in duplicates.
->>
->> Okay, understood. I wonder how we can protect against accidentally abort
->> calls actually. E.g. if I start to inject routes into my routing domain
->> how can I make sure the box doesn't die after I try to insert enough
->> routes. Do we need to touch quagga etc?
-> 
-> The whole point of moving abort mechanism to the driver is that the
-> system won't die, but instead routing will be done in the kernel. If you
-> respect hardware limitations, then there's no reason for abort mechanism
-> to kick in.
+This WIP was minimal, but we certainly need to add belts and suspenders.
 
-Quick follow-up question: How can I quickly find out the hw limitations
-via the kernel api?
+1) <maybe> timestamps
+  use a ktime_get_ns() to remember a timestamp for the last doorbell,
+  and force a doorbell if it gets too old, checked in ndo_start_xmit()
+  every time we would like to not send the doorbell.
 
-Thanks,
-Hannes
+2) <maybe> max numbers of packets not yet doorbelled.
+
+But we can not rely on another high resolution timer, since they also
+require softirq being processed timely.
