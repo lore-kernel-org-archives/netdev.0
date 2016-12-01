@@ -1,154 +1,118 @@
-From: Peter Rosin <peda-koto5C5qi+TLoDKTGw+V6w@public.gmane.org>
-Subject: [PATCH 1/2] misc: atmel-ssc: register as sound DAI if #sound-dai-cells is present
-Date: Thu, 1 Dec 2016 12:59:08 +0100
-Message-ID: <1480593549-6464-2-git-send-email-peda@axentia.se>
-References: <1480593549-6464-1-git-send-email-peda@axentia.se>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH v5 net-next 4/7] net: mvneta: Convert to be 64 bits
+ compatible
+Date: Thu, 01 Dec 2016 13:01:20 +0100
+Message-ID: <874m2nluy7.fsf@free-electrons.com>
+References: <cover.0270f6d2413a709521fe2c8c17fbebea6f2e78d1.1480542157.git-series.gregory.clement@free-electrons.com>
+ <6b4d20a85b05e93d254e265eb07569dd1285d303.1480542157.git-series.gregory.clement@free-electrons.com>
+ <20161201192604.07ed9516@xhacker>
+ <CAPv3WKeJBL7_V_7QPVNDAd9H4bgeLcSF8enuD96sgEmecuRkRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Peter Rosin <peda-koto5C5qi+TLoDKTGw+V6w@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Liam Girdwood <lgirdwood-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>,
-        Takashi Iwai <tiwai-IBi9RG/b67k@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org>,
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1480593549-6464-1-git-send-email-peda-koto5C5qi+TLoDKTGw+V6w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Dmitri Epshtein <dima@marvell.com>,
+ Nadav Haklai <nadavh@marvell.com>, Yelena Krivosheev <yelena@marvell.com>,
+ Marcin Wojtas <mw@semihalf.com>, "David S. Miller" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jisheng Zhang <jszhang@marvell.com>,
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAPv3WKeJBL7_V_7QPVNDAd9H4bgeLcSF8enuD96sgEmecuRkRA@mail.gmail.com>
+ (Marcin Wojtas's message of "Thu, 1 Dec 2016 12:48:39 +0100")
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The SSC is currently not usable with the ASoC simple-audio-card, as
-every SSC audio user has to build a platform driver that may do as
-little as calling atmel_ssc_set_audio/atmel_ssc_put_audio (which
-allocates the SSC and registers a DAI with the ASoC subsystem).
-
-So, have that happen automatically, if the #sound-dai-cells property
-is present in devicetree, which it has to be anyway for simple audio
-card to work.
-
-Signed-off-by: Peter Rosin <peda-koto5C5qi+TLoDKTGw+V6w@public.gmane.org>
----
- .../devicetree/bindings/misc/atmel-ssc.txt         |  2 +
- drivers/misc/atmel-ssc.c                           | 50 ++++++++++++++++++++++
- include/linux/atmel-ssc.h                          |  1 +
- 3 files changed, 53 insertions(+)
-
-diff --git a/Documentation/devicetree/bindings/misc/atmel-ssc.txt b/Documentation/devicetree/bindings/misc/atmel-ssc.txt
-index efc98ea1f23d..f8629bb73945 100644
---- a/Documentation/devicetree/bindings/misc/atmel-ssc.txt
-+++ b/Documentation/devicetree/bindings/misc/atmel-ssc.txt
-@@ -24,6 +24,8 @@ Optional properties:
-        this parameter to choose where the clock from.
-      - By default the clock is from TK pin, if the clock from RK pin, this
-        property is needed.
-+  - #sound-dai-cells: Should contain <0>.
-+     - This property makes the SSC into an automatically registered DAI.
- 
- Examples:
- - PDC transfer:
-diff --git a/drivers/misc/atmel-ssc.c b/drivers/misc/atmel-ssc.c
-index 0516ecda54d3..b2a0340f277e 100644
---- a/drivers/misc/atmel-ssc.c
-+++ b/drivers/misc/atmel-ssc.c
-@@ -20,6 +20,8 @@
- 
- #include <linux/of.h>
- 
-+#include "../../sound/soc/atmel/atmel_ssc_dai.h"
-+
- /* Serialize access to ssc_list and user count */
- static DEFINE_SPINLOCK(user_lock);
- static LIST_HEAD(ssc_list);
-@@ -145,6 +147,49 @@ static inline const struct atmel_ssc_platform_data * __init
- 		platform_get_device_id(pdev)->driver_data;
- }
- 
-+#ifdef CONFIG_SND_ATMEL_SOC_SSC
-+static int ssc_sound_dai_probe(struct ssc_device *ssc)
-+{
-+	struct device_node *np = ssc->pdev->dev.of_node;
-+	int ret;
-+	int id;
-+
-+	ssc->sound_dai = false;
-+
-+	if (!of_property_read_bool(np, "#sound-dai-cells"))
-+		return 0;
-+
-+	id = of_alias_get_id(np, "ssc");
-+	if (id < 0)
-+		return id;
-+
-+	ret = atmel_ssc_set_audio(id);
-+	ssc->sound_dai = !ret;
-+
-+	return ret;
-+}
-+
-+static void ssc_sound_dai_remove(struct ssc_device *ssc)
-+{
-+	if (!ssc->sound_dai)
-+		return;
-+
-+	atmel_ssc_put_audio(of_alias_get_id(ssc->pdev->dev.of_node, "ssc"));
-+}
-+#else
-+static inline int ssc_sound_dai_probe(struct ssc_device *ssc)
-+{
-+	if (of_property_read_bool(ssc->pdev->dev.of_node, "#sound-dai-cells"))
-+		return -ENOTSUPP;
-+
-+	return 0;
-+}
-+
-+static inline void ssc_sound_dai_remove(struct ssc_device *ssc)
-+{
-+}
-+#endif
-+
- static int ssc_probe(struct platform_device *pdev)
- {
- 	struct resource *regs;
-@@ -204,6 +249,9 @@ static int ssc_probe(struct platform_device *pdev)
- 	dev_info(&pdev->dev, "Atmel SSC device at 0x%p (irq %d)\n",
- 			ssc->regs, ssc->irq);
- 
-+	if (ssc_sound_dai_probe(ssc))
-+		dev_err(&pdev->dev, "failed to auto-setup ssc for audio\n");
-+
- 	return 0;
- }
- 
-@@ -211,6 +259,8 @@ static int ssc_remove(struct platform_device *pdev)
- {
- 	struct ssc_device *ssc = platform_get_drvdata(pdev);
- 
-+	ssc_sound_dai_remove(ssc);
-+
- 	spin_lock(&user_lock);
- 	list_del(&ssc->list);
- 	spin_unlock(&user_lock);
-diff --git a/include/linux/atmel-ssc.h b/include/linux/atmel-ssc.h
-index 7c0f6549898b..fdb545101ede 100644
---- a/include/linux/atmel-ssc.h
-+++ b/include/linux/atmel-ssc.h
-@@ -20,6 +20,7 @@ struct ssc_device {
- 	int			user;
- 	int			irq;
- 	bool			clk_from_rk_pin;
-+	bool			sound_dai;
- };
- 
- struct ssc_device * __must_check ssc_request(unsigned int ssc_num);
--- 
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+SGkgSmlzaGVuZywKIAogT24gamV1LiwgZMOpYy4gMDEgMjAxNiwgTWFyY2luIFdvanRhcyA8bXdA
+c2VtaWhhbGYuY29tPiB3cm90ZToKCj4gSGkgSmlzaGVuZywKPgo+IFdoaWNoIGJhc2VsaW5lIGRv
+IHlvdSB1c2U/Cj4KPiBJdCB0b29rIG1lIHJlYWxseSBsb3Qgb2YgdGltZSB0byBjYXRjaCB3aHkg
+UlggYnJva2UgYWZ0ZXIgcmViYXNlIGZyb20KPiBMS3Y0LjEgdG8gTEt2NC40LiBCZXR3ZWVuIHRo
+b3NlIHR3bywgaW4gY29tbWl0Ogo+IDk3MzAzNDgwNzUzZSAoImFybTY0OiBJbmNyZWFzZSB0aGUg
+bWF4IGdyYW51bGFyIHNpemUiKQo+IEwxX0NBQ0hFX0JZVEVTIGZvciBhbGwgQVJNdjggcGxhdGZv
+cm1zIHdhcyBpbmNyZWFzZWQgdG8gMTI4QiBhbmQgc28KPiBkaWQgTkVUX1NLQl9QQUQuCj4KPiBB
+bmQgMTI4IGlzIG1vcmUgdGhhbiB0aGUgbWF4aW11bSB0aGF0IGNhbiBmaXQgaW50byBwYWNrZXQg
+b2Zmc2V0Cj4gWzExOjhdQDB4MTQwMC4gSW4gc3VjaCBjYXNlIHRoaXMgY29ycmVjdGlvbiBpcyBu
+ZWVkZWQuIERpZCBpdCBhbnN3ZXIKPiB5b3VyIGRvdWJ0cz8KCkkgY2FuIGNvbmZpcm0gYWxzbyB0
+aGF0IHdpdGhvdXQgdGhpcyBwYXRjaCBpdCBqdXN0IGRvZXNuJ3Qgd29yay4KCkdyZWdvcnkKCj4K
+PiBCZXN0IHJlZ2FyZHMsCj4gTWFyY2luCj4KPgo+Cj4gMjAxNi0xMi0wMSAxMjoyNiBHTVQrMDE6
+MDAgSmlzaGVuZyBaaGFuZyA8anN6aGFuZ0BtYXJ2ZWxsLmNvbT46Cj4+IEhpIEdyZWdvcnksIE1h
+cmNpbiwKPj4KPj4gT24gV2VkLCAzMCBOb3YgMjAxNiAyMjo0Mjo0OSArMDEwMCBHcmVnb3J5IENM
+RU1FTlQgd3JvdGU6Cj4+Cj4+PiBGcm9tOiBNYXJjaW4gV29qdGFzIDxtd0BzZW1paGFsZi5jb20+
+Cj4+Pgo+Pj4gUHJlcGFyZSB0aGUgbXZuZXRhIGRyaXZlciBpbiBvcmRlciB0byBiZSB1c2FibGUg
+b24gdGhlIDY0IGJpdHMgcGxhdGZvcm0KPj4+IHN1Y2ggYXMgdGhlIEFybWFkYSAzNzAwLgo+Pj4K
+Pj4+IFtncmVnb3J5LmNsZW1lbnRAZnJlZS1lbGVjdHJvbnMuY29tXTogdGhpcyBwYXRjaCB3YXMg
+ZXh0cmFjdCBmcm9tIGEgbGFyZ2VyCj4+PiBvbmUgdG8gZWFzZSByZXZpZXcgYW5kIG1haW50ZW5h
+bmNlLgo+Pj4KPj4+IFNpZ25lZC1vZmYtYnk6IE1hcmNpbiBXb2p0YXMgPG13QHNlbWloYWxmLmNv
+bT4KPj4+IFNpZ25lZC1vZmYtYnk6IEdyZWdvcnkgQ0xFTUVOVCA8Z3JlZ29yeS5jbGVtZW50QGZy
+ZWUtZWxlY3Ryb25zLmNvbT4KPj4+IC0tLQo+Pj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZl
+bGwvbXZuZXRhLmMgfCAxNyArKysrKysrKysrKysrKysrLQo+Pj4gIDEgZmlsZSBjaGFuZ2VkLCAx
+NiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCj4+Pgo+Pj4gZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9t
+YXJ2ZWxsL212bmV0YS5jCj4+PiBpbmRleCA5MmI5YWYxNGMzNTIuLjhlZjAzZmI2OWJjZCAxMDA2
+NDQKPj4+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmMKPj4+ICsr
+KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZuZXRhLmMKPj4+IEBAIC0yOTYsNiAr
+Mjk2LDEyIEBACj4+PiAgLyogZGVzY3JpcHRvciBhbGlnbmVkIHNpemUgKi8KPj4+ICAjZGVmaW5l
+IE1WTkVUQV9ERVNDX0FMSUdORURfU0laRSAgICAgMzIKPj4+Cj4+PiArLyogTnVtYmVyIG9mIGJ5
+dGVzIHRvIGJlIHRha2VuIGludG8gYWNjb3VudCBieSBIVyB3aGVuIHB1dHRpbmcgaW5jb21pbmcg
+ZGF0YQo+Pj4gKyAqIHRvIHRoZSBidWZmZXJzLiBJdCBpcyBuZWVkZWQgaW4gY2FzZSBORVRfU0tC
+X1BBRCBleGNlZWRzIG1heGltdW0gcGFja2V0Cj4+PiArICogb2Zmc2V0IHN1cHBvcnRlZCBpbiBN
+Vk5FVEFfUlhRX0NPTkZJR19SRUcocSkgcmVnaXN0ZXJzLgo+Pgo+PiBXZSBhbHNvIGJyb3VnaHQg
+dXAgdGhpcyBkcml2ZXIgb24gNjRiaXQgcGxhdGZvcm1zLCB3ZSBkb2Vzbid0IGhhdmUgdGhpcwo+
+PiBwYXRjaC4gTWF5YmUgSSdtIHdyb25nLCBJJ20gdHJ5aW5nIHRvIHVuZGVyc3RhbmQgd2h5IHdl
+IG5lZWQgdGhpcwo+PiBtb2RpZmljYXRpb24uIExldCdzIGFzc3VtZSB0aGUgTkVUX1NLQl9QQUQg
+aXMgNjRCLCB3ZSBjYWxsCj4+IG12bmV0YV9yeHFfb2Zmc2V0X3NldChwcCwgcnhxLCA2NCksCj4+
+Cj4+IHsKPj4gICAgICAgICB1MzIgdmFsOwo+Pgo+PiAgICAgICAgIHZhbCA9IG12cmVnX3JlYWQo
+cHAsIE1WTkVUQV9SWFFfQ09ORklHX1JFRyhyeHEtPmlkKSk7Cj4+ICAgICAgICAgdmFsICY9IH5N
+Vk5FVEFfUlhRX1BLVF9PRkZTRVRfQUxMX01BU0s7Cj4+Cj4+ICAgICAgICAgLyogT2Zmc2V0IGlz
+IGluICovCj4+ICAgICAgICAgdmFsIHw9IE1WTkVUQV9SWFFfUEtUX09GRlNFVF9NQVNLKG9mZnNl
+dCA+PiAzKTsKPj4gLy8gdGhlbiB0aGlzIHdpbGwgYmUgInZhbCB8PSA4OyIgaXQgZG9lc24ndCBl
+eGNlZWRzIHRoZSBtYXggb2Zmc2V0IG9mCj4+IE1WTkVUQV9SWFFfQ09ORklHX1JFRyhxKSByZWdp
+c3Rlci4KPj4KPj4gQ291bGQgeW91IHBsZWFzZSBraW5kbHkgcG9pbnQgb3V0IHdoZXJlIEkgYW0g
+d3Jvbmc/Cj4+Cj4+PiArICovCj4+PiArI2RlZmluZSBNVk5FVEFfUlhfUEtUX09GRlNFVF9DT1JS
+RUNUSU9OICAgICAgICAgICAgICA2NAo+Pj4gKwo+Pj4gICNkZWZpbmUgTVZORVRBX1JYX1BLVF9T
+SVpFKG10dSkgXAo+Pj4gICAgICAgQUxJR04oKG10dSkgKyBNVk5FVEFfTUhfU0laRSArIE1WTkVU
+QV9WTEFOX1RBR19MRU4gKyBcCj4+PiAgICAgICAgICAgICBFVEhfSExFTiArIEVUSF9GQ1NfTEVO
+LCAgICAgICAgICAgICAgICAgICAgICAgIFwKPj4+IEBAIC00MTYsNiArNDIyLDcgQEAgc3RydWN0
+IG12bmV0YV9wb3J0IHsKPj4+ICAgICAgIHU2NCBldGh0b29sX3N0YXRzW0FSUkFZX1NJWkUobXZu
+ZXRhX3N0YXRpc3RpY3MpXTsKPj4+Cj4+PiAgICAgICB1MzIgaW5kaXJbTVZORVRBX1JTU19MVV9U
+QUJMRV9TSVpFXTsKPj4+ICsgICAgIHUxNiByeF9vZmZzZXRfY29ycmVjdGlvbjsKPj4+ICB9Owo+
+Pj4KPj4+ICAvKiBUaGUgbXZuZXRhX3R4X2Rlc2MgYW5kIG12bmV0YV9yeF9kZXNjIHN0cnVjdHVy
+ZXMgZGVzY3JpYmUgdGhlCj4+PiBAQCAtMTgwNyw2ICsxODE0LDcgQEAgc3RhdGljIGludCBtdm5l
+dGFfcnhfcmVmaWxsKHN0cnVjdCBtdm5ldGFfcG9ydCAqcHAsCj4+PiAgICAgICAgICAgICAgIHJl
+dHVybiAtRU5PTUVNOwo+Pj4gICAgICAgfQo+Pj4KPj4+ICsgICAgIHBoeXNfYWRkciArPSBwcC0+
+cnhfb2Zmc2V0X2NvcnJlY3Rpb247Cj4+PiAgICAgICBtdm5ldGFfcnhfZGVzY19maWxsKHJ4X2Rl
+c2MsIHBoeXNfYWRkciwgZGF0YSwgcnhxKTsKPj4+ICAgICAgIHJldHVybiAwOwo+Pj4gIH0KPj4+
+IEBAIC0yNzgyLDcgKzI3OTAsNyBAQCBzdGF0aWMgaW50IG12bmV0YV9yeHFfaW5pdChzdHJ1Y3Qg
+bXZuZXRhX3BvcnQgKnBwLAo+Pj4gICAgICAgbXZyZWdfd3JpdGUocHAsIE1WTkVUQV9SWFFfU0la
+RV9SRUcocnhxLT5pZCksIHJ4cS0+c2l6ZSk7Cj4+Pgo+Pj4gICAgICAgLyogU2V0IE9mZnNldCAq
+Lwo+Pj4gLSAgICAgbXZuZXRhX3J4cV9vZmZzZXRfc2V0KHBwLCByeHEsIE5FVF9TS0JfUEFEKTsK
+Pj4+ICsgICAgIG12bmV0YV9yeHFfb2Zmc2V0X3NldChwcCwgcnhxLCBORVRfU0tCX1BBRCAtIHBw
+LT5yeF9vZmZzZXRfY29ycmVjdGlvbik7Cj4+Pgo+Pj4gICAgICAgLyogU2V0IGNvYWxlc2Npbmcg
+cGt0cyBhbmQgdGltZSAqLwo+Pj4gICAgICAgbXZuZXRhX3J4X3BrdHNfY29hbF9zZXQocHAsIHJ4
+cSwgcnhxLT5wa3RzX2NvYWwpOwo+Pj4gQEAgLTQwMzMsNiArNDA0MSwxMyBAQCBzdGF0aWMgaW50
+IG12bmV0YV9wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQo+Pj4KPj4+ICAgICAg
+IHBwLT5yeHFfZGVmID0gcnhxX2RlZjsKPj4+Cj4+PiArICAgICAvKiBTZXQgUlggcGFja2V0IG9m
+ZnNldCBjb3JyZWN0aW9uIGZvciBwbGF0Zm9ybXMsIHdob3NlCj4+PiArICAgICAgKiBORVRfU0tC
+X1BBRCwgZXhjZWVkcyA2NEIuIEl0IHNob3VsZCBiZSA2NEIgZm9yIDY0LWJpdAo+Pj4gKyAgICAg
+ICogcGxhdGZvcm1zIGFuZCAwQiBmb3IgMzItYml0IG9uZXMuCj4+Cj4+IEV2ZW4gd2UgbmVlZCB0
+aGlzIHBhdGNoLCBJJ20gbm90IHN1cmUgdGhpcyBsYXN0IGNvbW1lbnQgaXMgY29ycmVjdCBvciBu
+b3QuCj4+IE5FVF9TS0JfUEFEIGlzIGRlZmluZWQgYXM6Cj4+Cj4+ICNkZWZpbmUgTkVUX1NLQl9Q
+QUQgICAgIG1heCgzMiwgTDFfQ0FDSEVfQllURVMpCj4+Cj4+IHdlIGhhdmUgNjRCIGNhY2hlbGlu
+ZSAzMmJpdCBwbGF0Zm9ybXMsIG9uIHRoaXMgcGxhdGZvcm1zLCB0aGUgTkVUX1NLQl9QQUQKPj4g
+c2hvdWxkIGJlIDY0QiBhcyB3ZWxsLgo+Pgo+PiBUaGFua3MsCj4+IEppc2hlbmcKCi0tIApHcmVn
+b3J5IENsZW1lbnQsIEZyZWUgRWxlY3Ryb25zCktlcm5lbCwgZHJpdmVycywgcmVhbC10aW1lIGFu
+ZCBlbWJlZGRlZCBMaW51eApkZXZlbG9wbWVudCwgY29uc3VsdGluZywgdHJhaW5pbmcgYW5kIHN1
+cHBvcnQuCmh0dHA6Ly9mcmVlLWVsZWN0cm9ucy5jb20KCl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0Cmxp
+bnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFk
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
