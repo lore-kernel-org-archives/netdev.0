@@ -1,42 +1,47 @@
 From: Eli Cooper <elicooper@gmx.com>
-Subject: [PATCH net v2 3/3] Revert: "ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()"
-Date: Thu,  1 Dec 2016 10:05:12 +0800
-Message-ID: <20161201020512.21661-3-elicooper@gmx.com>
-References: <20161201020512.21661-1-elicooper@gmx.com>
+Subject: [PATCH net v2 1/3] ipv4: Set skb->protocol properly for local output
+Date: Thu,  1 Dec 2016 10:05:10 +0800
+Message-ID: <20161201020512.21661-1-elicooper@gmx.com>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:53373 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.17.20]:51735 "EHLO mout.gmx.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757346AbcLACHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751673AbcLACHD (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 30 Nov 2016 21:07:03 -0500
-In-Reply-To: <20161201020512.21661-1-elicooper@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit ae148b085876fa771d9ef2c05f85d4b4bf09ce0d
-("ip6_tunnel: Update skb->protocol to ETH_P_IPV6 in ip6_tnl_xmit()").
+When xfrm is applied to TSO/GSO packets, it follows this path:
 
-skb->protocol is now set in __ip_local_out() and __ip6_local_out() before
-dst_output() is called. It is no longer necessary to do it for each tunnel.
+    xfrm_output() -> xfrm_output_gso() -> skb_gso_segment()
+
+where skb_gso_segment() relies on skb->protocol to function properly.
+
+This patch sets skb->protocol to ETH_P_IP before dst_output() is called,
+fixing a bug where GSO packets sent through a sit tunnel are dropped
+when xfrm is involved.
 
 Cc: stable@vger.kernel.org
 Signed-off-by: Eli Cooper <elicooper@gmx.com>
 ---
- net/ipv6/ip6_tunnel.c | 1 -
- 1 file changed, 1 deletion(-)
+v2: place the assignment before the netfilter hook
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 0a4759b..d76674e 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1181,7 +1181,6 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 	if (err)
- 		return err;
+ net/ipv4/ip_output.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 105908d..877bdb0 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -107,6 +107,8 @@ int __ip_local_out(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	if (unlikely(!skb))
+ 		return 0;
  
--	skb->protocol = htons(ETH_P_IPV6);
- 	skb_push(skb, sizeof(struct ipv6hdr));
- 	skb_reset_network_header(skb);
- 	ipv6h = ipv6_hdr(skb);
++	skb->protocol = htons(ETH_P_IP);
++
+ 	return nf_hook(NFPROTO_IPV4, NF_INET_LOCAL_OUT,
+ 		       net, sk, skb, NULL, skb_dst(skb)->dev,
+ 		       dst_output);
 -- 
 2.10.2
