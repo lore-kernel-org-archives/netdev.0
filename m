@@ -1,126 +1,83 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 22/39] Annotate hardware config module parameters in
- drivers/net/wan/
-Date: Thu, 01 Dec 2016 12:32:35 +0000
-Message-ID: <148059555558.31612.2051692248144922204.stgit@warthog.procyon.org.uk>
-References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH v5 net-next 4/7] net: mvneta: Convert to be 64 bits compatible
+Date: Thu, 1 Dec 2016 13:33:52 +0100
+Message-ID: <CAPv3WKftV+=CmpG6oN_86UytV+VVa3ZdkEmOcxGqmGZOqUwxHg@mail.gmail.com>
+References: <cover.0270f6d2413a709521fe2c8c17fbebea6f2e78d1.1480542157.git-series.gregory.clement@free-electrons.com>
+ <6b4d20a85b05e93d254e265eb07569dd1285d303.1480542157.git-series.gregory.clement@free-electrons.com>
+ <20161201192604.07ed9516@xhacker> <CAPv3WKeJBL7_V_7QPVNDAd9H4bgeLcSF8enuD96sgEmecuRkRA@mail.gmail.com>
+ <20161201200205.46dec339@xhacker> <20161201201648.6a50b442@xhacker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
-        netdev@vger.kernel.org, dhowells@redhat.com,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
-        "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Dmitri Epshtein <dima@marvell.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Yelena Krivosheev <yelena@marvell.com>,
+        Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jisheng Zhang <jszhang@marvell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f178.google.com ([209.85.223.178]:36768 "EHLO
+        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933668AbcLAMdx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 07:33:53 -0500
+Received: by mail-io0-f178.google.com with SMTP id m5so281860299ioe.3
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 04:33:53 -0800 (PST)
+In-Reply-To: <20161201201648.6a50b442@xhacker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the kernel is running in secure boot mode, we lock down the kernel to
-prevent userspace from modifying the running kernel image.  Whilst this
-includes prohibiting access to things like /dev/mem, it must also prevent
-access by means of configuring driver modules in such a way as to cause a
-device to access or modify the kernel image.
+Hi Jisheng,
 
-To this end, annotate module_param* statements that refer to hardware
-configuration and indicate for future reference what type of parameter they
-specify.  The parameter parser in the core sees this information and can
-skip such parameters with an error message if the kernel is locked down.
-The module initialisation then runs as normal, but just sees whatever the
-default values for those parameters is.
+2016-12-01 13:16 GMT+01:00 Jisheng Zhang <jszhang@marvell.com>:
+> On Thu, 1 Dec 2016 20:02:05 +0800 Jisheng Zhang wrote:
+>
+>> Hi Marcin,
+>>
+>> On Thu, 1 Dec 2016 12:48:39 +0100 Marcin Wojtas wrote:
+>>
+>> > Hi Jisheng,
+>> >
+>> > Which baseline do you use?
+>> >
+>> > It took me really lot of time to catch why RX broke after rebase from
+>> > LKv4.1 to LKv4.4. Between those two, in commit:
+>> > 97303480753e ("arm64: Increase the max granular size")
+>> > L1_CACHE_BYTES for all ARMv8 platforms was increased to 128B and so
+>> > did NET_SKB_PAD.
+>> >
+>> > And 128 is more than the maximum that can fit into packet offset
+>> > [11:8]@0x1400. In such case this correction is needed. Did it answer
+>> > your doubts?
+>>
+>> That's key! Thanks a lot. In my repo, we don't have commit 97303480753e
+>> ("arm64: Increase the max granular size")
+>>
+>> I think it would be great if this information can be added into the commit
+>> msg.
+>>
+>> IIRC, arm64 maintainers considered to let L1_CACHE_BYTES the _minimum_ of
+>> cache line sizes of arm64. If that's implemented and merged, then we can
+>
+> I just searched and found the email.
+>
+> "We may have to revisit this logic and consider L1_CACHE_BYTES the
+> _minimum_ of cache line sizes in arm64 systems supported by the kernel.
+> Do you have any benchmarks on Cavium boards that would show significant
+> degradation with 64-byte L1_CACHE_BYTES vs 128?"
+>
+> https://patchwork.kernel.org/patch/8634481/
+>
+>
 
-Note that we do still need to do the module initialisation because some
-drivers have viable defaults set in case parameters aren't specified and
-some drivers support automatic configuration (e.g. PNP or PCI) in addition
-to manually coded parameters.
+Thank you for the information. I debugged it before the discussion. In
+future we would be able to revert it, however afair packet offset may
+be needed by A3700 Buffer Management.
 
-This patch annotates drivers in drivers/net/wan/.
-
-Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Signed-off-by: David Howells <dhowells@redhat.com>
-cc: "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
-cc: netdev@vger.kernel.org
----
-
- drivers/net/wan/cosa.c         |    6 +++---
- drivers/net/wan/hostess_sv11.c |    6 +++---
- drivers/net/wan/sbni.c         |    4 ++--
- drivers/net/wan/sealevel.c     |    8 ++++----
- 4 files changed, 12 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
-index b87fe0a01c69..2f7104e92dd8 100644
---- a/drivers/net/wan/cosa.c
-+++ b/drivers/net/wan/cosa.c
-@@ -232,11 +232,11 @@ static int irq[MAX_CARDS+1] = { -1, -1, -1, -1, -1, -1, 0, };
- static struct class *cosa_class;
- 
- #ifdef MODULE
--module_param_array(io, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
- MODULE_PARM_DESC(io, "The I/O bases of the COSA or SRP cards");
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- MODULE_PARM_DESC(irq, "The IRQ lines of the COSA or SRP cards");
--module_param_array(dma, int, NULL, 0);
-+module_param_hw_array(dma, int, dma, NULL, 0);
- MODULE_PARM_DESC(dma, "The DMA channels of the COSA or SRP cards");
- 
- MODULE_AUTHOR("Jan \"Yenya\" Kasprzak, <kas@fi.muni.cz>");
-diff --git a/drivers/net/wan/hostess_sv11.c b/drivers/net/wan/hostess_sv11.c
-index 3d741663fd67..4845560fd848 100644
---- a/drivers/net/wan/hostess_sv11.c
-+++ b/drivers/net/wan/hostess_sv11.c
-@@ -325,11 +325,11 @@ static void sv11_shutdown(struct z8530_dev *dev)
- static int io = 0x200;
- static int irq = 9;
- 
--module_param(io, int, 0);
-+module_param_hw(io, int, ioport, 0);
- MODULE_PARM_DESC(io, "The I/O base of the Comtrol Hostess SV11 card");
--module_param(dma, int, 0);
-+module_param_hw(dma, int, dma, 0);
- MODULE_PARM_DESC(dma, "Set this to 1 to use DMA1/DMA3 for TX/RX");
--module_param(irq, int, 0);
-+module_param_hw(irq, int, irq, 0);
- MODULE_PARM_DESC(irq, "The interrupt line setting for the Comtrol Hostess SV11 card");
- 
- MODULE_AUTHOR("Alan Cox");
-diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
-index 3a421ca8a4d0..42220fa78093 100644
---- a/drivers/net/wan/sbni.c
-+++ b/drivers/net/wan/sbni.c
-@@ -1464,8 +1464,8 @@ set_multicast_list( struct net_device  *dev )
- 
- 
- #ifdef MODULE
--module_param_array(io, int, NULL, 0);
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- module_param_array(baud, int, NULL, 0);
- module_param_array(rxl, int, NULL, 0);
- module_param_array(mac, int, NULL, 0);
-diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
-index 27860b4f5908..1d762a2d3ddc 100644
---- a/drivers/net/wan/sealevel.c
-+++ b/drivers/net/wan/sealevel.c
-@@ -364,13 +364,13 @@ static int rxdma=3;
- static int irq=5;
- static bool slow=false;
- 
--module_param(io, int, 0);
-+module_param_hw(io, int, ioport, 0);
- MODULE_PARM_DESC(io, "The I/O base of the Sealevel card");
--module_param(txdma, int, 0);
-+module_param_hw(txdma, int, dma, 0);
- MODULE_PARM_DESC(txdma, "Transmit DMA channel");
--module_param(rxdma, int, 0);
-+module_param_hw(rxdma, int, dma, 0);
- MODULE_PARM_DESC(rxdma, "Receive DMA channel");
--module_param(irq, int, 0);
-+module_param_hw(irq, int, irq, 0);
- MODULE_PARM_DESC(irq, "The interrupt line setting for the SeaLevel card");
- module_param(slow, bool, 0);
- MODULE_PARM_DESC(slow, "Set this for an older Sealevel card such as the 4012");
+Best regards,
+Marcin
