@@ -1,16 +1,16 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 16/39] Annotate hardware config module parameters in
- drivers/net/appletalk/
-Date: Thu, 01 Dec 2016 12:31:41 +0000
-Message-ID: <148059550142.31612.583417215274401437.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 17/39] Annotate hardware config module parameters in
+ drivers/net/arcnet/
+Date: Thu, 01 Dec 2016 12:31:53 +0000
+Message-ID: <148059551381.31612.3024451259648856834.stgit@warthog.procyon.org.uk>
 References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
-        netdev@vger.kernel.org, dhowells@redhat.com,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Cc: gnomes@lxorguk.ukuu.org.uk,
+        Michael Grzeschik <m.grzeschik@pengutronix.de>,
+        minyard@acm.org, netdev@vger.kernel.org, dhowells@redhat.com,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
@@ -35,49 +35,61 @@ drivers have viable defaults set in case parameters aren't specified and
 some drivers support automatic configuration (e.g. PNP or PCI) in addition
 to manually coded parameters.
 
-This patch annotates drivers in drivers/net/appletalk/.
+This patch annotates drivers in drivers/net/arcnet/.
 
 Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+cc: Michael Grzeschik <m.grzeschik@pengutronix.de>
 cc: netdev@vger.kernel.org
 ---
 
- drivers/net/appletalk/cops.c |    6 +++---
- drivers/net/appletalk/ltpc.c |    6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/arcnet/com20020-isa.c |    4 ++--
+ drivers/net/arcnet/com90io.c      |    4 ++--
+ drivers/net/arcnet/com90xx.c      |    4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
-index 1b2e9217ec78..486e1e6997fc 100644
---- a/drivers/net/appletalk/cops.c
-+++ b/drivers/net/appletalk/cops.c
-@@ -986,9 +986,9 @@ static int cops_close(struct net_device *dev)
- static struct net_device *cops_dev;
+diff --git a/drivers/net/arcnet/com20020-isa.c b/drivers/net/arcnet/com20020-isa.c
+index b9e9931353b2..38fa60ddaf2e 100644
+--- a/drivers/net/arcnet/com20020-isa.c
++++ b/drivers/net/arcnet/com20020-isa.c
+@@ -129,8 +129,8 @@ static int clockp = 0;
+ static int clockm = 0;
  
- MODULE_LICENSE("GPL");
+ module_param(node, int, 0);
 -module_param(io, int, 0);
 -module_param(irq, int, 0);
--module_param(board_type, int, 0);
 +module_param_hw(io, int, ioport, 0);
 +module_param_hw(irq, int, irq, 0);
-+module_param_hw(board_type, int, other, 0);
+ module_param_string(device, device, sizeof(device), 0);
+ module_param(timeout, int, 0);
+ module_param(backplane, int, 0);
+diff --git a/drivers/net/arcnet/com90io.c b/drivers/net/arcnet/com90io.c
+index b57863df5bf5..4e56aaf2b984 100644
+--- a/drivers/net/arcnet/com90io.c
++++ b/drivers/net/arcnet/com90io.c
+@@ -347,8 +347,8 @@ static int io;			/* use the insmod io= irq= shmem= options */
+ static int irq;
+ static char device[9];		/* use eg. device=arc1 to change name */
  
- static int __init cops_module_init(void)
- {
-diff --git a/drivers/net/appletalk/ltpc.c b/drivers/net/appletalk/ltpc.c
-index 01e2ac55c137..ac755d2950a6 100644
---- a/drivers/net/appletalk/ltpc.c
-+++ b/drivers/net/appletalk/ltpc.c
-@@ -1231,9 +1231,9 @@ static struct net_device *dev_ltpc;
- 
- MODULE_LICENSE("GPL");
- module_param(debug, int, 0);
 -module_param(io, int, 0);
 -module_param(irq, int, 0);
--module_param(dma, int, 0);
 +module_param_hw(io, int, ioport, 0);
 +module_param_hw(irq, int, irq, 0);
-+module_param_hw(dma, int, dma, 0);
+ module_param_string(device, device, sizeof(device), 0);
+ MODULE_LICENSE("GPL");
  
+diff --git a/drivers/net/arcnet/com90xx.c b/drivers/net/arcnet/com90xx.c
+index 81f90c4703ae..ca4a57c30bf8 100644
+--- a/drivers/net/arcnet/com90xx.c
++++ b/drivers/net/arcnet/com90xx.c
+@@ -88,8 +88,8 @@ static int irq;
+ static int shmem;
+ static char device[9];		/* use eg. device=arc1 to change name */
  
- static int __init ltpc_module_init(void)
+-module_param(io, int, 0);
+-module_param(irq, int, 0);
++module_param_hw(io, int, ioport, 0);
++module_param_hw(irq, int, irq, 0);
+ module_param(shmem, int, 0);
+ module_param_string(device, device, sizeof(device), 0);
+ 
