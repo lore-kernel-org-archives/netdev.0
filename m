@@ -1,107 +1,106 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v6 net-next 4/7] net: mvneta: Convert to be 64 bits compatible
-Date: Thu,  1 Dec 2016 18:03:07 +0100
-Message-ID: <602540618cb1b9a586c8397233d4e97acaccdda1.1480611779.git-series.gregory.clement@free-electrons.com>
-References: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [WIP] net+mlx4: auto doorbell
+Date: Thu, 01 Dec 2016 09:04:17 -0800
+Message-ID: <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20140903165943.372b897b@redhat.com>
+         <20161117091638.5fab8494@redhat.com>
+         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117144248.23500001@redhat.com>
+         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117155753.17b76f5a@redhat.com>
+         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161117193021.580589ae@redhat.com>
+         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161121170351.50a09ee1@redhat.com>
+         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG_G3G-_jFFD0xiAOfR-k69rhb_2ia4LHZroE-oEFxApnQ@mail.gmail.com>
+         <1480520661.18162.177.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
+         <20161201130505.0b4a5cd5@redhat.com>
+         <1480602274.18162.285.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161201170443.28a8c032@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jisheng Zhang <jszhang@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
- Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
- Dmitri Epshtein <dima@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Yelena Krivosheev <yelena@marvell.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Marcin Wojtas <mw@semihalf.com>,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
-In-Reply-To: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
-References: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Rick Jones <rick.jones2@hpe.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33263 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758817AbcLARFa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 12:05:30 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 3so5151035pgd.0
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 09:05:25 -0800 (PST)
+In-Reply-To: <20161201170443.28a8c032@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcin Wojtas <mw@semihalf.com>
+On Thu, 2016-12-01 at 17:04 +0100, Jesper Dangaard Brouer wrote:
 
-Prepare the mvneta driver in order to be usable on the 64 bits platform
-such as the Armada 3700.
+> I think you misunderstood my concept[1].  I don't want to stop the
+> queue. The new __QUEUE_STATE_FLUSH_NEEDED does not stop the queue, is
+> it just indicating that someone need to flush/ring-doorbell.  Maybe it
+> need another name, because it also indicate that the driver can see
+> that its TX queue is so busy that we don't need to call it immediately.
+> The qdisc layer can then choose to enqueue instead if doing direct xmit.
 
-[gregory.clement@free-electrons.com]: this patch was extract from a larger
-one to ease review and maintenance.
+But driver ndo_start_xmit() does not have a pointer to qdisc.
 
-Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Tested-by: Marcin Wojtas <mw@semihalf.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+Also the concept of 'queue busy' just because we queued one packet is a
+bit flaky.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 92b9af14c352..8ef03fb69bcd 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -296,6 +296,12 @@
- /* descriptor aligned size */
- #define MVNETA_DESC_ALIGNED_SIZE	32
- 
-+/* Number of bytes to be taken into account by HW when putting incoming data
-+ * to the buffers. It is needed in case NET_SKB_PAD exceeds maximum packet
-+ * offset supported in MVNETA_RXQ_CONFIG_REG(q) registers.
-+ */
-+#define MVNETA_RX_PKT_OFFSET_CORRECTION		64
-+
- #define MVNETA_RX_PKT_SIZE(mtu) \
- 	ALIGN((mtu) + MVNETA_MH_SIZE + MVNETA_VLAN_TAG_LEN + \
- 	      ETH_HLEN + ETH_FCS_LEN,			     \
-@@ -416,6 +422,7 @@ struct mvneta_port {
- 	u64 ethtool_stats[ARRAY_SIZE(mvneta_statistics)];
- 
- 	u32 indir[MVNETA_RSS_LU_TABLE_SIZE];
-+	u16 rx_offset_correction;
- };
- 
- /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-@@ -1807,6 +1814,7 @@ static int mvneta_rx_refill(struct mvneta_port *pp,
- 		return -ENOMEM;
- 	}
- 
-+	phys_addr += pp->rx_offset_correction;
- 	mvneta_rx_desc_fill(rx_desc, phys_addr, data, rxq);
- 	return 0;
+> 
+> When qdisc layer or trafgen/af_packet see this indication it knows it
+> should/must flush the queue when it don't have more work left.  Perhaps
+> through net_tx_action(), by registering itself and e.g. if qdisc_run()
+> is called and queue is empty then check if queue needs a flush. I would
+> also allow driver to flush and clear this bit.
+
+net_tx_action() is not normally called, unless BQL limit is hit and/or
+some qdiscs with throttling (HTB, TBF, FQ, ...)
+
+> 
+> I just see it as an extension of your solution, as we still need the
+> driver to figure out then the doorbell/flush can be delayed.
+> p.s. don't be discouraged by this feedback, I'm just very excited and
+> happy that your are working on a solution in this area. As this is a
+> problem area that I've not been able to solve myself for the last
+> approx 2 years. Keep up the good work!
+
+Do not worry, I appreciate the feedbacks ;)
+
+BTW, if you are doing tests on mlx4 40Gbit, would you check the
+following quick/dirty hack, using lots of low-rate flows ?
+
+mlx4 has really hard time to transmit small TSO packets (2 or 3 MSS)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 12ea3405f442..96940666abd3 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2631,6 +2631,11 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
+        queue_work(priv->mdev->workqueue, &priv->vxlan_del_task);
  }
-@@ -2782,7 +2790,7 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
- 	mvreg_write(pp, MVNETA_RXQ_SIZE_REG(rxq->id), rxq->size);
  
- 	/* Set Offset */
--	mvneta_rxq_offset_set(pp, rxq, NET_SKB_PAD);
-+	mvneta_rxq_offset_set(pp, rxq, NET_SKB_PAD - pp->rx_offset_correction);
- 
- 	/* Set coalescing pkts and time */
- 	mvneta_rx_pkts_coal_set(pp, rxq, rxq->pkts_coal);
-@@ -4033,6 +4041,13 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	pp->rxq_def = rxq_def;
- 
-+	/* Set RX packet offset correction for platforms, whose
-+	 * NET_SKB_PAD, exceeds 64B. It should be 64B for 64-bit
-+	 * platforms and 0B for 32-bit ones.
-+	 */
-+	pp->rx_offset_correction =
-+		max(0, NET_SKB_PAD - MVNETA_RX_PKT_OFFSET_CORRECTION);
++static int mlx4_gso_segs_min = 4; /* TSO packets with less than 4 segments are segmented */
++module_param_named(mlx4_gso_segs_min, mlx4_gso_segs_min, uint, 0644);
++MODULE_PARM_DESC(mlx4_gso_segs_min, "threshold for software segmentation of small TSO packets");
 +
- 	pp->indir[0] = rxq_def;
++
+ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
+                                                struct net_device *dev,
+                                                netdev_features_t features)
+@@ -2651,6 +2656,8 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
+                    (udp_hdr(skb)->dest != priv->vxlan_port))
+                        features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
+        }
++       if (skb_is_gso(skb) && skb_shinfo(skb)->gso_segs < mlx4_gso_segs_min)
++               features &= NETIF_F_GSO_MASK;
  
- 	pp->clk = devm_clk_get(&pdev->dev, "core");
--- 
-git-series 0.8.10
+        return features;
+ }
