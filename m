@@ -1,15 +1,16 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 21/39] Annotate hardware config module parameters in
- drivers/net/irda/
-Date: Thu, 01 Dec 2016 12:32:27 +0000
-Message-ID: <148059554741.31612.14931870778364344076.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 23/39] Annotate hardware config module parameters in
+ drivers/net/wireless/
+Date: Thu, 01 Dec 2016 12:32:43 +0000
+Message-ID: <148059556349.31612.1087071308520573382.stgit@warthog.procyon.org.uk>
 References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gnomes@lxorguk.ukuu.org.uk, Samuel Ortiz <samuel@sortiz.org>,
-        minyard@acm.org, netdev@vger.kernel.org, dhowells@redhat.com,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
+Cc: gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        dhowells@redhat.com, linux-security-module@vger.kernel.org,
+        keyrings@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
@@ -34,105 +35,30 @@ drivers have viable defaults set in case parameters aren't specified and
 some drivers support automatic configuration (e.g. PNP or PCI) in addition
 to manually coded parameters.
 
-This patch annotates drivers in drivers/net/irda/.
+This patch annotates drivers in drivers/net/wireless/.
 
 Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Samuel Ortiz <samuel@sortiz.org>
+cc: Kalle Valo <kvalo@codeaurora.org>
+cc: linux-wireless@vger.kernel.org
 cc: netdev@vger.kernel.org
 ---
 
- drivers/net/irda/ali-ircc.c    |    6 +++---
- drivers/net/irda/nsc-ircc.c    |    6 +++---
- drivers/net/irda/smsc-ircc2.c  |   10 +++++-----
- drivers/net/irda/w83977af_ir.c |    4 ++--
- 4 files changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/wireless/cisco/airo.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/irda/ali-ircc.c b/drivers/net/irda/ali-ircc.c
-index c285eafd3f1c..35f198d83701 100644
---- a/drivers/net/irda/ali-ircc.c
-+++ b/drivers/net/irda/ali-ircc.c
-@@ -2207,11 +2207,11 @@ MODULE_LICENSE("GPL");
- MODULE_ALIAS("platform:" ALI_IRCC_DRIVER_NAME);
- 
- 
+diff --git a/drivers/net/wireless/cisco/airo.c b/drivers/net/wireless/cisco/airo.c
+index 69b826d229c5..53d43c93a284 100644
+--- a/drivers/net/wireless/cisco/airo.c
++++ b/drivers/net/wireless/cisco/airo.c
+@@ -246,8 +246,8 @@ MODULE_DESCRIPTION("Support for Cisco/Aironet 802.11 wireless ethernet cards.  "
+ 		   "Direct support for ISA/PCI/MPI cards and support for PCMCIA when used with airo_cs.");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_SUPPORTED_DEVICE("Aironet 4500, 4800 and Cisco 340/350");
 -module_param_array(io, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
- MODULE_PARM_DESC(io, "Base I/O addresses");
 -module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- MODULE_PARM_DESC(irq, "IRQ lines");
--module_param_array(dma, int, NULL, 0);
-+module_param_hw_array(dma, int, dma, NULL, 0);
- MODULE_PARM_DESC(dma, "DMA channels");
- 
- module_init(ali_ircc_init);
-diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
-index aaecc3baaf30..7beae147be11 100644
---- a/drivers/net/irda/nsc-ircc.c
-+++ b/drivers/net/irda/nsc-ircc.c
-@@ -2396,11 +2396,11 @@ MODULE_LICENSE("GPL");
- 
- module_param(qos_mtt_bits, int, 0);
- MODULE_PARM_DESC(qos_mtt_bits, "Minimum Turn Time");
--module_param_array(io, int, NULL, 0);
 +module_param_hw_array(io, int, ioport, NULL, 0);
- MODULE_PARM_DESC(io, "Base I/O addresses");
--module_param_array(irq, int, NULL, 0);
 +module_param_hw_array(irq, int, irq, NULL, 0);
- MODULE_PARM_DESC(irq, "IRQ lines");
--module_param_array(dma, int, NULL, 0);
-+module_param_hw_array(dma, int, dma, NULL, 0);
- MODULE_PARM_DESC(dma, "DMA channels");
- module_param(dongle_id, int, 0);
- MODULE_PARM_DESC(dongle_id, "Type-id of used dongle");
-diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
-index dcf92ba80872..23ed89ae5ddc 100644
---- a/drivers/net/irda/smsc-ircc2.c
-+++ b/drivers/net/irda/smsc-ircc2.c
-@@ -82,24 +82,24 @@ MODULE_PARM_DESC(nopnp, "Do not use PNP to detect controller settings, defaults
- 
- #define DMA_INVAL 255
- static int ircc_dma = DMA_INVAL;
--module_param(ircc_dma, int, 0);
-+module_param_hw(ircc_dma, int, dma, 0);
- MODULE_PARM_DESC(ircc_dma, "DMA channel");
- 
- #define IRQ_INVAL 255
- static int ircc_irq = IRQ_INVAL;
--module_param(ircc_irq, int, 0);
-+module_param_hw(ircc_irq, int, irq, 0);
- MODULE_PARM_DESC(ircc_irq, "IRQ line");
- 
- static int ircc_fir;
--module_param(ircc_fir, int, 0);
-+module_param_hw(ircc_fir, int, ioport, 0);
- MODULE_PARM_DESC(ircc_fir, "FIR Base Address");
- 
- static int ircc_sir;
--module_param(ircc_sir, int, 0);
-+module_param_hw(ircc_sir, int, ioport, 0);
- MODULE_PARM_DESC(ircc_sir, "SIR Base Address");
- 
- static int ircc_cfg;
--module_param(ircc_cfg, int, 0);
-+module_param_hw(ircc_cfg, int, ioport, 0);
- MODULE_PARM_DESC(ircc_cfg, "Configuration register base address");
- 
- static int ircc_transceiver;
-diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
-index 4e3d2e7c697c..f15d8752864b 100644
---- a/drivers/net/irda/w83977af_ir.c
-+++ b/drivers/net/irda/w83977af_ir.c
-@@ -1264,9 +1264,9 @@ MODULE_LICENSE("GPL");
- 
- module_param(qos_mtt_bits, int, 0);
- MODULE_PARM_DESC(qos_mtt_bits, "Mimimum Turn Time");
--module_param_array(io, int, NULL, 0);
-+module_param_hw_array(io, int, ioport, NULL, 0);
- MODULE_PARM_DESC(io, "Base I/O addresses");
--module_param_array(irq, int, NULL, 0);
-+module_param_hw_array(irq, int, irq, NULL, 0);
- MODULE_PARM_DESC(irq, "IRQ lines");
- 
- /*
+ module_param_array(rates, int, NULL, 0);
+ module_param_array(ssids, charp, NULL, 0);
+ module_param(auto_wep, int, 0);
