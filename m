@@ -1,42 +1,31 @@
-From: Rami Rosen <roszenrami@gmail.com>
-Subject: Re: iproute2 public git outdated?
-Date: Thu, 1 Dec 2016 22:39:10 +0200
-Message-ID: <CAKoUArnPVZchErJN9k6E5f80QvYWfj-JRBO_RNx34M4ZekpAZg@mail.gmail.com>
-References: <20161201121806.GA21576@orbyte.nwl.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] sfc: defalconisation fixups
+Date: Thu, 01 Dec 2016 15:39:59 -0500 (EST)
+Message-ID: <20161201.153959.1963421484251790288.davem@davemloft.net>
+References: <c52a0276-e379-7841-8d10-d5a834b81c4e@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Phil Sutter <phil@nwl.cc>, Netdev <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, bkenward@solarflare.com,
+        netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:35981 "EHLO
-        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759751AbcLAUjM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:39:12 -0500
-Received: by mail-io0-f171.google.com with SMTP id m5so308141358ioe.3
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 12:39:11 -0800 (PST)
-In-Reply-To: <20161201121806.GA21576@orbyte.nwl.cc>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43940 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752480AbcLAUkC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 15:40:02 -0500
+In-Reply-To: <c52a0276-e379-7841-8d10-d5a834b81c4e@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Phil,
-I suggest that you will try again now, it seems that the iproute2 git
-repo was updated in the last 2-4 hours, and "git log" in master shows
-now a patch from 30 of November (actually it is your "Add notes about
-dropped IPv4 route cache" patch)
+From: Edward Cree <ecree@solarflare.com>
+Date: Thu, 1 Dec 2016 16:59:13 +0000
 
-Regards,
-Rami Rosen
+> A bug fix, the Kconfig change, and cleaning up a bit more unused code.
+> 
+> Edward Cree (3):
+>   sfc: fix debug message format string in efx_farch_handle_rx_not_ok
+>   sfc: don't select SFC_FALCON
+>   sfc: remove RESET_TYPE_RX_RECOVERY
 
-
-On 1 December 2016 at 14:18, Phil Sutter <phil@nwl.cc> wrote:
-> Hi,
->
-> I am using iproute2's public git repo at this URL:
->
-> git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
->
-> To my surprise, neither master nor net-next branches have received new
-> commits since end of October. Did the repo location change or was it
-> just not updated for a while?
->
-> Thanks, Phil
+Series applied, thank you.
