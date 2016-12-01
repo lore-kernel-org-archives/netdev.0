@@ -1,36 +1,115 @@
-From: Chris Brandt <Chris.Brandt@renesas.com>
-Subject: RE: [PATCH] sh_eth: add missing checks for status bits
-Date: Thu, 1 Dec 2016 13:13:05 +0000
-Message-ID: <SG2PR06MB1165EF1344470A957BB9C34A8A8F0@SG2PR06MB1165.apcprd06.prod.outlook.com>
-References: <20161130200148.9011-1-chris.brandt@renesas.com>
- <aad0720f-2515-f1a0-d3ee-310562267594@cogentembedded.com>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: [PATH net v2] cdc_ether: Fix handling connection notification
+Date: Thu,  1 Dec 2016 14:23:17 +0100
+Message-ID: <20161201132317.32324-1-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-renesas-soc@vger.kernel.org"
-        <linux-renesas-soc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <aad0720f-2515-f1a0-d3ee-310562267594@cogentembedded.com>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Kristian Evensen <kristian.evensen@gmail.com>
+To: oliver@neukum.org, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMTIvMS8yMDE2LCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6DQoNCj4gSGVsbG8hDQo+IA0KPiAg
-ICAgUGxlYXNlIGFsd2F5cyBDQyBtZSBvbiB0aGUgc2hfZXRoL3JhdmIgZHJpdmVyIHBhdGNoZXMg
-YXMgZGlyZWN0ZWQgYnkNCj4gc2NyaXB0cy9nZXRfbWFpbnRhaW5lci5wbC4NCg0KT0suIEknbSBz
-b3JyeS4NCg0KDQo+IE9uIDExLzMwLzIwMTYgMTE6MDEgUE0sIENocmlzIEJyYW5kdCB3cm90ZToN
-Cj4gDQo+ID4gV2hlbiBzdHJlYW1pbmcgYSBsb3Qgb2YgZGF0YSBhbmQgdGhlIFJaIGNhbid0IGtl
-ZXAgdXAsIHNvbWUgc3RhdHVzDQo+ID4gYml0cyB3aWxsIGdldCBzZXQgdGhhdCBhcmUgbm90IGJl
-aW5nIGNoZWNrZWQgb3IgY2xlYXJlZCB3aGljaCBjYXVzZQ0KPiA+IHRoZSBmb2xsb3dpbmcgbWVz
-c2FnZXMgYW5kIHRoZSBFdGhlcm5ldCBkcml2ZXIgdG8gc3RvcCB3b3JraW5nLiBUaGlzDQo+ID4g
-cGF0Y2ggZml4ZXMgdGhhdCBpc3N1ZS4NCj4gDQo+ICAgICBQZXJoYXBzIHdlIHNob3VsZCBqdXN0
-IGNsZWFyIHRoZSBjb3JyZXNwb2RpbmcgYml0cyBpbiBFRVNJUFIgaW5zdGVhZD8NCj4gVGhleSBh
-cmUgbm90IHNldCBmb3IgYW55IG90aGVyIFNvQy4uLg0KDQoNClRoYXQncyBhIGdvb2QgcG9pbnQu
-IElmIHdlIGRvbid0IHBsYW4gb24gZG9pbmcgYW55dGhpbmcgd2l0aCB0aG9zZSBiaXRzLCB0aGV5
-IHNob3VsZCBub3QgYmUgY2F1c2luZyBpbnRlcnJ1cHRzLg0KDQpJIHdpbGwgdHJ5IGNoYW5nZSBh
-bmQgdGhlbiByZS10ZXN0Lg0KDQoNCkNocmlzDQoNCg==
+Commit bfe9b9d2df66 ("cdc_ether: Improve ZTE MF823/831/910 handling")
+introduced a work-around in usbnet_cdc_status() for devices that exported
+cdc carrier on twice on connect. Before the commit, this behavior caused
+the link state to be incorrect. It was assumed that all CDC Ethernet
+devices would either export this behavior, or send one off and then one on
+notification (which seems to be the default behavior).
+
+Unfortunately, it turns out multiple devices sends a connection
+notification multiple times per second (via an interrupt), even when
+connection state does not change. This has been observed with several
+different USB LAN dongles (at least), for example 13b1:0041 (Linksys).
+After bfe9b9d2df66, the link state has been set as down and then up for
+each notification. This has caused a flood of Netlink NEWLINK messages and
+syslog to be flooded with messages similar to:
+
+cdc_ether 2-1:2.0 eth1: kevent 12 may have been dropped
+
+This commit fixes the behavior by reverting usbnet_cdc_status() to how it
+was before bfe9b9d2df66. The work-around has been moved to a separate
+status-function which is only called when a known, affect device is
+detected.
+
+v1->v2:
+
+* Do not open-code netif_carrier_ok() (thanks Henning Schild).
+* Call netif_carrier_off() instead of usb_link_change(). This prevents
+calling schedule_work() twice without giving the work queue a chance to be
+processed (thanks Bjørn Mork).
+
+Fixes: bfe9b9d2df66 ("cdc_ether: Improve ZTE MF823/831/910 handling")
+Reported-by: Henning Schild <henning.schild@siemens.com>
+Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+---
+ drivers/net/usb/cdc_ether.c | 38 +++++++++++++++++++++++++++++++-------
+ 1 file changed, 31 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 45e5e43..fe7b288 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -388,12 +388,6 @@ void usbnet_cdc_status(struct usbnet *dev, struct urb *urb)
+ 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
+ 		netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
+ 			  event->wValue ? "on" : "off");
+-
+-		/* Work-around for devices with broken off-notifications */
+-		if (event->wValue &&
+-		    !test_bit(__LINK_STATE_NOCARRIER, &dev->net->state))
+-			usbnet_link_change(dev, 0, 0);
+-
+ 		usbnet_link_change(dev, !!event->wValue, 0);
+ 		break;
+ 	case USB_CDC_NOTIFY_SPEED_CHANGE:	/* tx/rx rates */
+@@ -466,6 +460,36 @@ static int usbnet_cdc_zte_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 	return 1;
+ }
+ 
++/* Ensure correct link state
++ *
++ * Some devices (ZTE MF823/831/910) export two carrier on notifications when
++ * connected. This causes the link state to be incorrect. Work around this by
++ * always setting the state to off, then on.
++ */
++void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
++{
++	struct usb_cdc_notification *event;
++
++	if (urb->actual_length < sizeof(*event))
++		return;
++
++	event = urb->transfer_buffer;
++
++	if (event->bNotificationType != USB_CDC_NOTIFY_NETWORK_CONNECTION) {
++		usbnet_cdc_status(dev, urb);
++		return;
++	}
++
++	netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
++		  event->wValue ? "on" : "off");
++
++	if (event->wValue &&
++	    netif_carrier_ok(dev->net))
++		netif_carrier_off(dev->net);
++
++	usbnet_link_change(dev, !!event->wValue, 0);
++}
++
+ static const struct driver_info	cdc_info = {
+ 	.description =	"CDC Ethernet Device",
+ 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
+@@ -481,7 +505,7 @@ static const struct driver_info	zte_cdc_info = {
+ 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
+ 	.bind =		usbnet_cdc_zte_bind,
+ 	.unbind =	usbnet_cdc_unbind,
+-	.status =	usbnet_cdc_status,
++	.status =	usbnet_cdc_zte_status,
+ 	.set_rx_mode =	usbnet_cdc_update_filter,
+ 	.manage_power =	usbnet_manage_power,
+ 	.rx_fixup = usbnet_cdc_zte_rx_fixup,
+-- 
+2.9.3
