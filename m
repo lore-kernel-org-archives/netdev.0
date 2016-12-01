@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V2 8/8] net/mlx5e: Support adding ingress tc rule when egress device flag is set
-Date: Thu,  1 Dec 2016 14:06:40 +0200
-Message-ID: <1480594000-8428-9-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V2 6/8] net/mlx5e: Bring back representor's ndos that were accidentally removed
+Date: Thu,  1 Dec 2016 14:06:38 +0200
+Message-ID: <1480594000-8428-7-git-send-email-hadarh@mellanox.com>
 References: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Jiri Pirko <jiri@mellanox.com>,
@@ -11,48 +11,35 @@ Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45356 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45347 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1758787AbcLANCb (ORCPT
+        with ESMTP id S1758773AbcLANCb (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 08:02:31 -0500
 In-Reply-To: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When ndo_setup_tc is called with an egress_dev flag set, it means that
-the ndo call was executed on the mirred action (egress) device and not
-on the ingress device.
+The VF Representor udp tunnel ndo entries were removed by mistake,
+return them.
 
-In order to support this kind of ndo_setup_tc call, and insert the
-correct decap rule to the hardware, the uplink device on the same eswitch
-should be found.
-
-Currently, we use this resolution between the mirred device and the
-uplink on the same eswitch to offload vxlan shared device decap rules.
-
+Fixes: 370bad0f9a52 ('net/mlx5e: Support HW (offloaded) and SW counters for SRIOV switchdev mode')
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 0868677..8503788 100644
+index 5e33f6b..9b1e351 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -289,6 +289,14 @@ static int mlx5e_rep_ndo_setup_tc(struct net_device *dev, u32 handle,
- 	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
- 		return -EOPNOTSUPP;
- 
-+	if (tc->egress_dev) {
-+		struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
-+		struct net_device *uplink_dev = mlx5_eswitch_get_uplink_netdev(esw);
-+
-+		return uplink_dev->netdev_ops->ndo_setup_tc(uplink_dev, handle,
-+							    proto, tc);
-+	}
-+
- 	switch (tc->type) {
- 	case TC_SETUP_CLSFLOWER:
- 		switch (tc->cls_flower->command) {
+@@ -384,6 +384,8 @@ int mlx5e_get_offload_stats(int attr_id, const struct net_device *dev,
+ 	.ndo_get_phys_port_name  = mlx5e_rep_get_phys_port_name,
+ 	.ndo_setup_tc            = mlx5e_rep_ndo_setup_tc,
+ 	.ndo_get_stats64         = mlx5e_rep_get_stats,
++	.ndo_udp_tunnel_add      = mlx5e_add_vxlan_port,
++	.ndo_udp_tunnel_del      = mlx5e_del_vxlan_port,
+ 	.ndo_has_offload_stats	 = mlx5e_has_offload_stats,
+ 	.ndo_get_offload_stats	 = mlx5e_get_offload_stats,
+ };
 -- 
 1.8.3.1
