@@ -1,47 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ip6_offload: check segs for NULL in ipv6_gso_segment.
-Date: Thu, 01 Dec 2016 06:34:07 -0800
-Message-ID: <1480602847.18162.288.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480597564-32355-1-git-send-email-asavkov@redhat.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2] sh_eth: remove unchecked interrupts
+Date: Thu, 1 Dec 2016 15:42:46 +0100
+Message-ID: <CAMuHMdU80M2qcK74YgPC8SZ20tNcKrZhj7MXo_Ok=6m4Aa0=-w@mail.gmail.com>
+References: <20161201140642.28583-1-chris.brandt@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jstancek@redhat.com,
-        steffen.klassert@secunet.com, alexander.h.duyck@intel.com
-To: Artem Savkov <asavkov@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480597564-32355-1-git-send-email-asavkov@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: Chris Brandt <chris.brandt@renesas.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20161201140642.28583-1-chris.brandt@renesas.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-12-01 at 14:06 +0100, Artem Savkov wrote:
-> segs needs to be checked for being NULL in ipv6_gso_segment() before calling
-> skb_shinfo(segs), otherwise kernel can run into a NULL-pointer dereference:
+Hi Chris,
 
+On Thu, Dec 1, 2016 at 3:06 PM, Chris Brandt <chris.brandt@renesas.com> wrote:
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -518,7 +518,7 @@ static struct sh_eth_cpu_data r7s72100_data = {
+>
+>         .ecsr_value     = ECSR_ICD,
+>         .ecsipr_value   = ECSIPR_ICDIP,
+> -       .eesipr_value   = 0xff7f009f,
+> +       .eesipr_value   = 0xe77f009f,
 
-> Signed-off-by: Artem Savkov <asavkov@redhat.com>
-> ---
->  
+Comment not directly related to the merits of this patch: the EESIPR bit
+definitions seem to be identical to those for EESR, so we can get rid of the
+hardcoded values here?
 
-> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-> index 1fcf61f..89c59e6 100644
-> --- a/net/ipv6/ip6_offload.c
-> +++ b/net/ipv6/ip6_offload.c
-> @@ -99,7 +99,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
->  		segs = ops->callbacks.gso_segment(skb, features);
->  	}
->  
-> -	if (IS_ERR(segs))
-> +	if (IS_ERR_OR_NULL(segs))
->  		goto out;
->  
->  	gso_partial = !!(skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL);
+>
+>         .tx_check       = EESR_TC1 | EESR_FTC,
+>         .eesr_err_check = EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
 
-Do you know when was this bug added ?
+Gr{oetje,eeting}s,
 
-Are you sure this is the right fix ?
+                        Geert
 
-Which gso_segment() is returning NULL exactly ?
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-Thanks.
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
