@@ -1,114 +1,70 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v7 net-next 4/6] bpf: Add support for reading socket family, type, protocol
-Date: Thu,  1 Dec 2016 08:48:06 -0800
-Message-ID: <1480610888-31082-5-git-send-email-dsa@cumulusnetworks.com>
-References: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
-        maheshb@google.com, tgraf@suug.ch,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: DSA vs. SWTICHDEV ?
+Date: Thu, 1 Dec 2016 11:50:12 -0500
+Message-ID: <584054C4.1010809@ti.com>
+References: <1480495831.3563.135.camel@infinera.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+To: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Roger Quadros <rogerq@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:35397 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758687AbcLAQsS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 11:48:18 -0500
-Received: by mail-pg0-f54.google.com with SMTP id p66so96800819pga.2
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 08:48:18 -0800 (PST)
-In-Reply-To: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:50405 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751147AbcLAQuJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 11:50:09 -0500
+In-Reply-To: <1480495831.3563.135.camel@infinera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add socket family, type and protocol to bpf_sock allowing bpf programs
-read-only access.
+On 11/30/2016 03:50 AM, Joakim Tjernlund wrote:
+> I am trying to wrap my head around these two "devices" and have a hard time telling them apart.
+> We are looking att adding a faily large switch(over PCIe) to our board and from what I can tell
+> switchdev is the new way to do it but DSA is still there. Is it possible to just list
+> how they differ?
+> 
+> What can switchdev do that DSA cannot?
+> 
+> What can DSA do that switchdev cannot?
+> 
+> 
+> Can one enable switchdev and dsa for the same switch device?
+> 
+>  Jocke 
+> 
 
-Add __sk_flags_offset[0] to struct sock before the bitfield to
-programmtically determine the offset of the unsigned int containing
-protocol and type.
+DSA/Switchdev experts,
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-v7
-- remove convert_sock_access helper and put code inline
+Nice to see this discussion as I am trying to evaluat what model
+works best for our hardware. From my evaluation so far, DSA can be
+used even though there is no tag protocol used between the Host and
+Switch. In our hardware, the Host and Switch are part of the SoC.
+The Host interface is a shared memory with queues implemented at
+hardware. The Phy is attached to the mii ports externally on the board.
+Also this hardware is programmable through firmware. More details 
+can be seen at http://processors.wiki.ti.com/index.php/PRU-ICSS
+PRU can run a firmware to configure the hardware in one of the following:-
 
-v6
-- new patch for version 6 of set
+1. EMAC mode where it appears as two Ethernet ports
+2. Switch mode where it implements a simple Ethernet switch. Currently
+   it doesn't have address learning capability, but in future it
+   can.
+3. Switch with HSR/PRP offload where it provides HSR/PRP protocol
+   support and cut through switch.
 
- include/net/sock.h       | 15 +++++++++++++++
- include/uapi/linux/bpf.h |  3 +++
- net/core/filter.c        | 21 +++++++++++++++++++++
- 3 files changed, 39 insertions(+)
+So a device need to function in one of the modes. A a regular Ethernet
+driver that provides two network devices, one per port, and switchdev
+for each physical port (in switch mode) will look ideal in this case.
+This will allow attaching the associated interfaces to a bridge (where
+a L2 offload is possible in the future). This also helps to attach the
+interfaces to an HSR device at the top layer like bridge to support
+HSR/PRP protocol with offload possible to the PRU Switch.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 442cbb118a07..69afda6bea15 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -389,6 +389,21 @@ struct sock {
- 	 * Because of non atomicity rules, all
- 	 * changes are protected by socket lock.
- 	 */
-+	unsigned int		__sk_flags_offset[0];
-+#ifdef __BIG_ENDIAN_BITFIELD
-+#define SK_FL_PROTO_SHIFT  16
-+#define SK_FL_PROTO_MASK   0x00ff0000
-+
-+#define SK_FL_TYPE_SHIFT   0
-+#define SK_FL_TYPE_MASK    0x0000ffff
-+#else
-+#define SK_FL_PROTO_SHIFT  8
-+#define SK_FL_PROTO_MASK   0x0000ff00
-+
-+#define SK_FL_TYPE_SHIFT   16
-+#define SK_FL_TYPE_MASK    0xffff0000
-+#endif
-+
- 	kmemcheck_bitfield_begin(flags);
- 	unsigned int		sk_padding : 2,
- 				sk_no_check_tx : 1,
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 75964e00d947..b47ffd117fd6 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -541,6 +541,9 @@ struct bpf_tunnel_key {
- 
- struct bpf_sock {
- 	__u32 bound_dev_if;
-+	__u32 family;
-+	__u32 type;
-+	__u32 protocol;
- };
- 
- /* User return codes for XDP prog type.
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 5ee722dc097d..efcc22b44ec1 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2979,6 +2979,27 @@ static u32 sock_filter_convert_ctx_access(enum bpf_access_type type,
- 			*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
- 				      offsetof(struct sock, sk_bound_dev_if));
- 		break;
-+
-+	case offsetof(struct bpf_sock, family):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock, sk_family) != 2);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_H, dst_reg, src_reg,
-+				      offsetof(struct sock, sk_family));
-+		break;
-+
-+	case offsetof(struct bpf_sock, type):
-+		*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
-+				      offsetof(struct sock, __sk_flags_offset));
-+		*insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg, SK_FL_TYPE_MASK);
-+		*insn++ = BPF_ALU32_IMM(BPF_RSH, dst_reg, SK_FL_TYPE_SHIFT);
-+		break;
-+
-+	case offsetof(struct bpf_sock, protocol):
-+		*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
-+				      offsetof(struct sock, __sk_flags_offset));
-+		*insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg, SK_FL_PROTO_MASK);
-+		*insn++ = BPF_ALU32_IMM(BPF_RSH, dst_reg, SK_FL_PROTO_SHIFT);
-+		break;
- 	}
- 
- 	return insn - insn_buf;
+Using a DSA for this appears to be adding more complexity to the driver
+model and may not be ideal. What do you think? 
+
 -- 
-2.1.4
+Murali Karicheri
+Linux Kernel, Keystone
