@@ -1,78 +1,52 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: Initial thoughts on TXDP
-Date: Thu, 1 Dec 2016 08:55:08 -0500
-Message-ID: <20161201135508.GB24547@oracle.com>
-References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+From: Chris Brandt <chris.brandt@renesas.com>
+Subject: [PATCH v2] sh_eth: remove unchecked interrupts
+Date: Thu,  1 Dec 2016 09:06:42 -0500
+Message-ID: <20161201140642.28583-1-chris.brandt@renesas.com>
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        Chris Brandt <chris.brandt@renesas.com>
+To: David Miller <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:48417 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755903AbcLANyu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 08:54:50 -0500
-Content-Disposition: inline
-In-Reply-To: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
+Received: from relmlor4.renesas.com ([210.160.252.174]:56673 "EHLO
+        relmlie3.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1759157AbcLAOHe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 09:07:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (11/30/16 14:54), Tom Herbert wrote:
-> 
-> Posting for discussion....
-   :
-> One simplifying assumption we might make is that TXDP is primarily for
-> optimizing latency, specifically request/response type operations
-> (think HPC, HFT, flash server, or other tightly coupled communications
-> within the datacenter). Notably, I don't think that saving CPU is as
-> relevant to TXDP, in fact we have already seen that CPU utilization
-> can be traded off for lower latency via spin polling. Similar to XDP
-> though, we might assume that single CPU performance is relevant (i.e.
-> on a cache server we'd like to spin as few CPUs as needed and no more
-> to handle the load an maintain throughput and latency requirements).
-> High throughput (ops/sec) and low variance should be side effects of
-> any design.
+When streaming a lot of data and the RZ can't keep up, some status bits
+will get set that are not being checked or cleared which cause the
+following messages and the Ethernet driver to stop working. This
+patch fixes that issue.
 
-I'm sending this with some hesitation (esp as the flamebait threads
-are starting up - I have no interest in getting into food-fights!!), 
-because it sounds like the HPC/request-response use-case you have in mind
-(HTTP based?) is very likely different than the one the DB use-cases in
-my environment (RDBMS, Cluster req/responses). But to provide some
-perspective from the latter use-case..
+irq 21: nobody cared (try booting with the "irqpoll" option)
+handlers:
+[<c036b71c>] sh_eth_interrupt
+Disabling IRQ #21
 
-We also have request-response transactions, but CPU utilization
-is extremely critical- many DB operations are highly CPU bound,
-so it's not acceptable for the network to hog CPU util by polling.
-In that sense, the DB req/resp model has a lot of overlap with the
-Suricata use-case.
+Fixes: db893473d313a4ad ("sh_eth: Add support for r7s72100")
+Signed-off-by: Chris Brandt <chris.brandt@renesas.com>
+---
+v2:
+* switched from modifying eesr_err_check to modifying eesipr_value
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Also we need a select()able socket, because we have to deal with
-input from several sources- network I/O, but also disk, and 
-file-system I/O. So need to make sure there is no starvation,
-and that we multiplex between  I/O sources efficiently
-
-and one other critical difference from the hot-potato-forwarding
-model (the sort of OVS model that DPDK etc might aruguably be a fit for)
-does not apply: in order to figure out the ethernet and IP headers
-in the response correctly at all times (in the face of things like VRRP,
-gw changes, gw's mac addr changes etc) the application should really
-be listening on NETLINK sockets for modifications to the networking
-state - again points to needing a select() socket set where you can
-have both the I/O fds and the netlink socket, 
-
-For all of these reasons, we are investigating approaches similar ot
-Suricata- PF_PACKET with TPACKETV2 (since we need both Tx and Rx,
-and so far, tpacketv2 seems "good enough"). FWIW, we also took
-a look at netmap and so far have not seen any significant benefits
-to netmap over pf_packet.. investigation still ongoing.
-
->   - Call into TCP/IP stack with page data directly from driver-- no
-> skbuff allocation or interface. This is essentially provided by the
-
-I'm curious- one thing that came out of the IPsec evaluation
-is that TSO is very valuable for performance, and this is most easily
-accessed via the sk_buff interfaces.  I have not had a chance
-to review your patches yet, but isnt that an issue if you bypass
-sk_buff usage? But I should probably go and review your patchset..
-
---Sowmini
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 05b0dc5..1a92de7 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -518,7 +518,7 @@ static struct sh_eth_cpu_data r7s72100_data = {
+ 
+ 	.ecsr_value	= ECSR_ICD,
+ 	.ecsipr_value	= ECSIPR_ICDIP,
+-	.eesipr_value	= 0xff7f009f,
++	.eesipr_value	= 0xe77f009f,
+ 
+ 	.tx_check	= EESR_TC1 | EESR_FTC,
+ 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
+-- 
+2.10.1
