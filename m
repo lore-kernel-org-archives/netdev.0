@@ -1,63 +1,69 @@
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Subject: [PATCH net-next] tools: hv: Enable network manager for bonding
- scripts on RHEL
-Date: Fri,  2 Dec 2016 15:55:38 -0800
-Message-ID: <1480722938-23378-1-git-send-email-haiyangz@exchange.microsoft.com>
-Reply-To: haiyangz@microsoft.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCHv2 net-next 4/4] net: dsa: mv88e6xxx: Refactor CPU and DSA port setup
+Date: Fri, 02 Dec 2016 17:03:30 -0500
+Message-ID: <877f7i56q5.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1480701779-30633-1-git-send-email-andrew@lunn.ch> <1480701779-30633-5-git-send-email-andrew@lunn.ch> <87h96mcadj.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me> <20161202211806.GF30716@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, haiyangz@microsoft.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:36948 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750949AbcLBWE1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 17:04:27 -0500
+In-Reply-To: <20161202211806.GF30716@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
+Hi Andrew,
 
-We found network manager is necessary on RHEL to make the synthetic
-NIC, VF NIC bonding operations handled automatically. So, enabling
-network manager here.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- tools/hv/bondvf.sh |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+>> The port's EgressMode, FrameMode and EtherType are really tied together
+>> to compose the mode of the port.
+>
+> Setting the EtherType is somewhat separate. It is only needed on ports
+> using EDSA. And that can only happen on a CPU port. Humm, actually, i
+> set it when i should not. But putting this in a wrapper actually hides
+> this.
 
-diff --git a/tools/hv/bondvf.sh b/tools/hv/bondvf.sh
-index 8e96023..4aa5369 100755
---- a/tools/hv/bondvf.sh
-+++ b/tools/hv/bondvf.sh
-@@ -74,8 +74,8 @@ function create_eth_cfg_redhat {
- 	echo DEVICE=$1 >>$fn
- 	echo TYPE=Ethernet >>$fn
- 	echo BOOTPROTO=none >>$fn
-+	echo UUID=`uuidgen` >>$fn
- 	echo ONBOOT=yes >>$fn
--	echo NM_CONTROLLED=no >>$fn
- 	echo PEERDNS=yes >>$fn
- 	echo IPV6INIT=yes >>$fn
- 	echo MASTER=$2 >>$fn
-@@ -93,8 +93,8 @@ function create_bond_cfg_redhat {
- 	echo DEVICE=$1 >>$fn
- 	echo TYPE=Bond >>$fn
- 	echo BOOTPROTO=dhcp >>$fn
-+	echo UUID=`uuidgen` >>$fn
- 	echo ONBOOT=yes >>$fn
--	echo NM_CONTROLLED=no >>$fn
- 	echo PEERDNS=yes >>$fn
- 	echo IPV6INIT=yes >>$fn
- 	echo BONDING_MASTER=yes >>$fn
--- 
-1.7.4.1
+Wrong. The datasheet says:
+
+    > This Ether Type is used for many features depending upon the mode
+    > of the port (as defined by the port’s EgressMode and FrameMode
+    > bits – in Port Control, port offset 0x04).
+
+It says that in Normal Network mode, this register can be used to trap,
+mirror, etc. Also used in Provider and EDSA modes.
+
+That is why it would be better to wrap them together to ensure correct
+values when configuring a port's mode.
+
+>
+>> Could you add an helper in chip.c like:
+>> 
+>>     static int mv88e6xxx_set_port_mode(struct mv88e6xxx_chip *chip, int port,
+>>                                        enum mv88e6xxx_frame_mode frame_mode,
+>>                                        u16 egress_mode, bool egress_unknown,
+>>                                        u16 ethertype)
+>>     {
+>>         int err;
+>> 
+>>         if (chip->info->ops->port_set_frame_mode) {
+>>             err = chip->info->ops->port_set_frame_mode(chip, port, frame_mode);
+>>             if (err)
+>>                 return err;
+>>         }
+>
+> Ignoring that it is not implemented here is wrong. It must be
+> implemented, or the device is not going to work. It is a question of,
+> do we want an oops, or return an error code.
+
+Since that is done at setup time, returning an error is enough IMO to
+inform the DSA layer that something went wrong.
+
+Thanks,
+
+        Vivien
