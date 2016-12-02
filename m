@@ -1,33 +1,39 @@
 From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next 0/5] use reset to set headers
-Date: Fri,  2 Dec 2016 09:51:02 +0800
-Message-ID: <1480643467-4420-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Subject: [net-next 2/5] bnx2x: use reset to set network header
+Date: Fri,  2 Dec 2016 09:51:04 +0800
+Message-ID: <1480643467-4420-3-git-send-email-zhangshengju@cmss.chinamobile.com>
+References: <1480643467-4420-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:19749 "EHLO
-        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754577AbcLBBvS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 20:51:18 -0500
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:19229 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752680AbcLBBvT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 20:51:19 -0500
+In-Reply-To: <1480643467-4420-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch serial replace 'set' function to 'reset', since the offset is zero.
-It's not necessary to use set, reset function is straightforward, and will 
-remove the unnecessary add operation in set function.  
+Since offset is zero, it's not necessary to use set function. Reset
+function is straightforward, and will remove the unnecessary add
+operation in set function.
 
-Zhang Shengju (5):
-  qede: use reset to set network header
-  bnx2x: use reset to set network header
-  mlx4: use reset to set mac header
-  iwlwifi: use reset to set transport header
-  staging: wilc1000: use reset to set mac header
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 2 +-
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c | 2 +-
- drivers/net/ethernet/qlogic/qede/qede_main.c     | 2 +-
- drivers/net/wireless/intel/iwlwifi/pcie/tx.c     | 2 +-
- drivers/staging/wilc1000/linux_mon.c             | 4 ++--
- 5 files changed, 6 insertions(+), 6 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 3fd36b4..3e199d3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -724,7 +724,7 @@ static void bnx2x_gro_ipv6_csum(struct bnx2x *bp, struct sk_buff *skb)
+ static void bnx2x_gro_csum(struct bnx2x *bp, struct sk_buff *skb,
+ 			    void (*gro_func)(struct bnx2x*, struct sk_buff*))
+ {
+-	skb_set_network_header(skb, 0);
++	skb_reset_network_header(skb);
+ 	gro_func(bp, skb);
+ 	tcp_gro_complete(skb);
+ }
 -- 
 1.8.3.1
