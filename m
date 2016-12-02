@@ -1,39 +1,49 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [patch] net: renesas: ravb: unintialized return value
-Date: Fri, 2 Dec 2016 10:46:59 +0100
-Message-ID: <20161202094659.GK29872@localhost>
-References: <20161201205744.GB10701@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Johan Hovold <johan@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Wolfram Sang <wsa+renesas@sang-engineering.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Niklas =?iso-8859-1?Q?S=F6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161201205744.GB10701@mwanda>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH v2] netfilter: avoid warn and OOM killer on vmalloc call
+Date: Fri,  2 Dec 2016 07:46:38 -0200
+Message-ID: <e10fd8b5206bfde5526e3bbf2b5ff9af584b0a6f.1480671893.git.marcelo.leitner@gmail.com>
+Cc: fw@strlen.de, nhorman@tuxdriver.com,
+        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: andreyknvl@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 01, 2016 at 11:57:44PM +0300, Dan Carpenter wrote:
-> We want to set the other "err" variable here so that we can return it
-> later.  My version of GCC misses this issue but I caught it with a
-> static checker.
-> Fixes: 9f70eb339f52 ("net: ethernet: renesas: ravb: fix fixed-link phydev leaks")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Andrey Konovalov reported that this vmalloc call is based on an
+userspace request and that it's spewing traces, which may flood the logs
+and cause DoS if abused.
 
-Thanks for catching this.
+Florian Westphal also mentioned that this call should not trigger OOM
+killer.
 
-Reviewed-by: Johan Hovold <johan@kernel.org>
+This patch brings the vmalloc call in sync to kmalloc and disables the
+warn trace on allocation failure and also disable OOM killer invocation.
 
-Johan
+Note, however, that under such stress situation, other places may
+trigger OOM killer invocation.
+
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Cc: Florian Westphal <fw@strlen.de>
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/netfilter/x_tables.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index fc4977456c30e098197b4f987b758072c9cf60d9..dece525bf83a0098dad607fce665cd0bde228362 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -958,7 +958,9 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
+ 	if (sz <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
+ 		info = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
+ 	if (!info) {
+-		info = vmalloc(sz);
++		info = __vmalloc(sz, GFP_KERNEL | __GFP_NOWARN |
++				     __GFP_NORETRY | __GFP_HIGHMEM,
++				 PAGE_KERNEL);
+ 		if (!info)
+ 			return NULL;
+ 	}
+-- 
+2.9.3
