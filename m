@@ -1,137 +1,36 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v3] tipc: check minimum bearer MTU
-Date: Fri,  2 Dec 2016 09:33:41 +0100 (CET)
-Message-ID: <20161202083341.BB955A0F33@unicorn.suse.cz>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH iproute2 net-next 2/4] tc: flower: document SCTP ip_proto
+Date: Fri, 2 Dec 2016 09:36:56 +0100
+Message-ID: <20161202083653.GA16371@penelope.horms.nl>
+References: <1480434693-29397-1-git-send-email-simon.horman@netronome.com>
+ <1480434693-29397-3-git-send-email-simon.horman@netronome.com>
+ <20161201105010.1f9ea04f@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
-        Qian Zhang <zhangqian-c@360.cn>
-To: Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:35339 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753396AbcLBIh0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 03:37:26 -0500
+Received: by mail-wm0-f47.google.com with SMTP id a197so9708795wmd.0
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 00:36:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161201105010.1f9ea04f@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Qian Zhang (张谦) reported a potential socket buffer overflow in
-tipc_msg_build() which is also known as CVE-2016-8632: due to
-insufficient checks, a buffer overflow can occur if MTU is too short for
-even tipc headers. As anyone can set device MTU in a user/net namespace,
-this issue can be abused by a regular user.
+On Thu, Dec 01, 2016 at 10:50:10AM -0800, Stephen Hemminger wrote:
+> On Tue, 29 Nov 2016 16:51:31 +0100
+> Simon Horman <simon.horman@netronome.com> wrote:
+> 
+> > Add SCTP ip_proto to help text and man page.
+> > 
+> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> 
+> Sorry doesn't apply to current net-next branch in iproute2 git.
+> Probably some of the other changes modified formatting.
 
-As agreed in the discussion on Ben Hutchings' original patch, we should
-check the MTU at the moment a bearer is attached rather than for each
-processed packet. We also need to repeat the check when bearer MTU is
-adjusted to new device MTU. UDP case also needs a check to avoid
-overflow when calculating bearer MTU.
-
-Fixes: b97bf3fd8f6a ("[TIPC] Initial merge")
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Reported-by: Qian Zhang (张谦) <zhangqian-c@360.cn>
----
-changes v2 to v3:
-- rename tipc_check_mtu() helper to tipc_mtu_bad() and make the comment
-  about the function less confusing
-
-changes v1 to v2:
-- add missing "static" to tipc_check_mtu() helper declaration
-- rather than blocking device MTU change to too low value, disable tipc
-  bearer if that happens (suggested by Ben Hutchings)
----
- net/tipc/bearer.c    | 11 +++++++++--
- net/tipc/bearer.h    | 13 +++++++++++++
- net/tipc/udp_media.c |  5 +++++
- 3 files changed, 27 insertions(+), 2 deletions(-)
-
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 975dbeb60ab0..52d74760fb68 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -421,6 +421,10 @@ int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b,
- 	dev = dev_get_by_name(net, driver_name);
- 	if (!dev)
- 		return -ENODEV;
-+	if (tipc_mtu_bad(dev, 0)) {
-+		dev_put(dev);
-+		return -EINVAL;
-+	}
- 
- 	/* Associate TIPC bearer with L2 bearer */
- 	rcu_assign_pointer(b->media_ptr, dev);
-@@ -610,8 +614,6 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 	if (!b)
- 		return NOTIFY_DONE;
- 
--	b->mtu = dev->mtu;
--
- 	switch (evt) {
- 	case NETDEV_CHANGE:
- 		if (netif_carrier_ok(dev))
-@@ -624,6 +626,11 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 		tipc_reset_bearer(net, b);
- 		break;
- 	case NETDEV_CHANGEMTU:
-+		if (tipc_mtu_bad(dev, 0)) {
-+			bearer_disable(net, b);
-+			break;
-+		}
-+		b->mtu = dev->mtu;
- 		tipc_reset_bearer(net, b);
- 		break;
- 	case NETDEV_CHANGEADDR:
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 78892e2f53e3..278ff7f616f9 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -39,6 +39,7 @@
- 
- #include "netlink.h"
- #include "core.h"
-+#include "msg.h"
- #include <net/genetlink.h>
- 
- #define MAX_MEDIA	3
-@@ -59,6 +60,9 @@
- #define TIPC_MEDIA_TYPE_IB	2
- #define TIPC_MEDIA_TYPE_UDP	3
- 
-+/* minimum bearer MTU */
-+#define TIPC_MIN_BEARER_MTU	(MAX_H_SIZE + INT_H_SIZE)
-+
- /**
-  * struct tipc_media_addr - destination address used by TIPC bearers
-  * @value: address info (format defined by media)
-@@ -215,4 +219,13 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
- void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
- 			 struct sk_buff_head *xmitq);
- 
-+/* check if device MTU is too low for tipc headers */
-+static inline bool tipc_mtu_bad(struct net_device *dev, unsigned int reserve)
-+{
-+	if (dev->mtu >= TIPC_MIN_BEARER_MTU + reserve)
-+		return false;
-+	netdev_warn(dev, "MTU too low for tipc bearer\n");
-+	return true;
-+}
-+
- #endif	/* _TIPC_BEARER_H */
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 78cab9c5a445..b58dc95f3d35 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -697,6 +697,11 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 		udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
- 		udp_conf.use_udp_checksums = false;
- 		ub->ifindex = dev->ifindex;
-+		if (tipc_mtu_bad(dev, sizeof(struct iphdr) +
-+				      sizeof(struct udphdr))) {
-+			err = -EINVAL;
-+			goto err;
-+		}
- 		b->mtu = dev->mtu - sizeof(struct iphdr)
- 			- sizeof(struct udphdr);
- #if IS_ENABLED(CONFIG_IPV6)
--- 
-2.10.2
+Sorry about that, this file seems a bit busy these days.
+I will rebase and repost.
