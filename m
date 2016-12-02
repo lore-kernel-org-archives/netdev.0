@@ -1,56 +1,122 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH 2/7] net: ethernet: ti: cpdma: fix desc re-queuing
-Date: Fri, 2 Dec 2016 13:03:22 +0200
-Message-ID: <20161202110321.GA1213@khorivan>
-References: <20161201233432.6182-1-grygorii.strashko@ti.com>
- <20161201233432.6182-3-grygorii.strashko@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161201233432.6182-3-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amir@vadai.me>
+Subject: [PATCH iproute2 V5 1/3] libnetlink: Introduce rta_getattr_be*()
+Date: Fri,  2 Dec 2016 13:25:13 +0200
+Message-ID: <20161202112515.11705-2-amir@vadai.me>
+References: <20161202112515.11705-1-amir@vadai.me>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Amir Vadai <amir@vadai.me>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36298 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759232AbcLBLZ3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 06:25:29 -0500
+Received: by mail-wm0-f65.google.com with SMTP id m203so2218887wma.3
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 03:25:28 -0800 (PST)
+In-Reply-To: <20161202112515.11705-1-amir@vadai.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2016 at 05:34:27PM -0600, Grygorii Strashko wrote:
-> The currently processing cpdma descriptor with EOQ flag set may
-> contain two values in Next Descriptor Pointer field:
-> - valid pointer: means CPDMA missed addition of new desc in queue;
-It shouldn't happen in normal circumstances, right?
-So, why it happens only for egress channels? And Does that mean
-there is some resynchronization between submit and process function,
-or this is h/w issue?
+Add the utility functions rta_getattr_be16() and rta_getattr_be32(), and
+change existing code to use it.
 
-> - null: no more descriptors in queue.
-> In the later case, it's not required to write to HDP register, but now
-> CPDMA does it.
-> 
-> Hence, add additional check for Next Descriptor Pointer != null in
-> cpdma_chan_process() function before writing in HDP register.
-> 
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
->  drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index 0924014..379314f 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -1152,7 +1152,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
->  	chan->count--;
->  	chan->stats.good_dequeue++;
->  
-> -	if (status & CPDMA_DESC_EOQ) {
-> +	if ((status & CPDMA_DESC_EOQ) && chan->head) {
->  		chan->stats.requeue++;
->  		chan_write(chan, hdp, desc_phys(pool, chan->head));
->  	}
-> -- 
-> 2.10.1
-> 
+Signed-off-by: Amir Vadai <amir@vadai.me>
+---
+ bridge/fdb.c         | 4 ++--
+ include/libnetlink.h | 9 +++++++++
+ ip/iplink_geneve.c   | 2 +-
+ ip/iplink_vxlan.c    | 2 +-
+ tc/f_flower.c        | 2 +-
+ 5 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index 90f4b154c5dc..a91521776e99 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -168,10 +168,10 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	if (tb[NDA_PORT]) {
+ 		if (jw_global)
+ 			jsonw_uint_field(jw_global, "port",
+-					 ntohs(rta_getattr_u16(tb[NDA_PORT])));
++					 rta_getattr_be16(tb[NDA_PORT]));
+ 		else
+ 			fprintf(fp, "port %d ",
+-				ntohs(rta_getattr_u16(tb[NDA_PORT])));
++				rta_getattr_be16(tb[NDA_PORT]));
+ 	}
+ 
+ 	if (tb[NDA_VNI]) {
+diff --git a/include/libnetlink.h b/include/libnetlink.h
+index 483509ca9635..751ebf186dd4 100644
+--- a/include/libnetlink.h
++++ b/include/libnetlink.h
+@@ -10,6 +10,7 @@
+ #include <linux/if_addr.h>
+ #include <linux/neighbour.h>
+ #include <linux/netconf.h>
++#include <arpa/inet.h>
+ 
+ struct rtnl_handle {
+ 	int			fd;
+@@ -140,10 +141,18 @@ static inline __u16 rta_getattr_u16(const struct rtattr *rta)
+ {
+ 	return *(__u16 *)RTA_DATA(rta);
+ }
++static inline __be16 rta_getattr_be16(const struct rtattr *rta)
++{
++	return ntohs(rta_getattr_u16(rta));
++}
+ static inline __u32 rta_getattr_u32(const struct rtattr *rta)
+ {
+ 	return *(__u32 *)RTA_DATA(rta);
+ }
++static inline __be32 rta_getattr_be32(const struct rtattr *rta)
++{
++	return ntohl(rta_getattr_u32(rta));
++}
+ static inline __u64 rta_getattr_u64(const struct rtattr *rta)
+ {
+ 	__u64 tmp;
+diff --git a/ip/iplink_geneve.c b/ip/iplink_geneve.c
+index 3bfba91c644c..1e6669d07d60 100644
+--- a/ip/iplink_geneve.c
++++ b/ip/iplink_geneve.c
+@@ -234,7 +234,7 @@ static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 
+ 	if (tb[IFLA_GENEVE_PORT])
+ 		fprintf(f, "dstport %u ",
+-			ntohs(rta_getattr_u16(tb[IFLA_GENEVE_PORT])));
++			rta_getattr_be16(tb[IFLA_GENEVE_PORT]));
+ 
+ 	if (tb[IFLA_GENEVE_COLLECT_METADATA])
+ 		fputs("external ", f);
+diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+index 93af979a1e97..6d02bb47b2f0 100644
+--- a/ip/iplink_vxlan.c
++++ b/ip/iplink_vxlan.c
+@@ -413,7 +413,7 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 
+ 	if (tb[IFLA_VXLAN_PORT])
+ 		fprintf(f, "dstport %u ",
+-			ntohs(rta_getattr_u16(tb[IFLA_VXLAN_PORT])));
++			rta_getattr_be16(tb[IFLA_VXLAN_PORT]));
+ 
+ 	if (tb[IFLA_VXLAN_LEARNING] &&
+ 	    !rta_getattr_u8(tb[IFLA_VXLAN_LEARNING]))
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index 1555764b9996..e132974e0d1d 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -511,7 +511,7 @@ static void flower_print_ip_addr(FILE *f, char *name, __be16 eth_type,
+ 
+ static void flower_print_port(FILE *f, char *name, struct rtattr *attr)
+ {
+-	fprintf(f, "\n  %s %d", name, ntohs(rta_getattr_u16(attr)));
++	fprintf(f, "\n  %s %d", name, rta_getattr_be16(attr));
+ }
+ 
+ static int flower_print_opt(struct filter_util *qu, FILE *f,
+-- 
+2.10.2
