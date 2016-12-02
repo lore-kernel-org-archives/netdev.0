@@ -1,56 +1,44 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 4/4] tcp: tsq: avoid one atomic in tcp_wfree()
-Date: Fri,  2 Dec 2016 10:25:59 -0800
-Message-ID: <1480703159-2327-5-git-send-email-edumazet@google.com>
-References: <1480703159-2327-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V2 0/8] Offloading tc rules using underline
+ Hardware device
+Date: Fri, 02 Dec 2016 13:29:45 -0500 (EST)
+Message-ID: <20161202.132945.1367454131310851397.davem@davemloft.net>
+References: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, saeedm@mellanox.com, jiri@mellanox.com,
+        amirva@mellanox.com, ogerlitz@mellanox.com, roid@mellanox.com
+To: hadarh@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:35894 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751418AbcLBS21 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:28:27 -0500
-Received: by mail-pg0-f50.google.com with SMTP id f188so109585672pgc.3
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 10:26:31 -0800 (PST)
-In-Reply-To: <1480703159-2327-1-git-send-email-edumazet@google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38226 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753936AbcLBSaE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:30:04 -0500
+In-Reply-To: <1480594000-8428-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Under high load, tcp_wfree() has an atomic operation trying
-to schedule a tasklet over and over.
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Date: Thu,  1 Dec 2016 14:06:32 +0200
 
-We can schedule it only if our per cpu list was empty.
+> This series adds flower classifier support in offloading tc rules when the
+> Software ingress device is different from the Hardware ingress device, 
+> such as when dealing with IP tunnels  
+> 
+> The first two patches are a small fixes to flower, checking the skip_hw flag
+> wasn't set before calling the Hardware offloading functions which will try to
+> offload the rule.
+> 
+> The next two patches are infrastructure patches, a preparation for the fourth
+> patch which is adding support in flower to offload rules when the ingress
+> device is not a Hardware device and therefore can't offload.
+> In this case ndo_setup_tc is called with the mirred (egress) device.
+> 
+> The last three patchs are adding mlx5e support to offload rules using the new
+> "egress_device" flag.
+ ...
+> Changes from v0:
+> - check if CONFIG_NET_CLS_ACT is defined befor calling tc_action_ops get_dev()
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_output.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 9143c52b3105..999f7d583092 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -880,6 +880,7 @@ void tcp_wfree(struct sk_buff *skb)
- 
- 	for (oval = READ_ONCE(tp->tsq_flags);; oval = nval) {
- 		struct tsq_tasklet *tsq;
-+		bool empty;
- 
- 		if (!(oval & TSQF_THROTTLED) || (oval & TSQF_QUEUED))
- 			goto out;
-@@ -892,8 +893,10 @@ void tcp_wfree(struct sk_buff *skb)
- 		/* queue this socket to tasklet queue */
- 		local_irq_save(flags);
- 		tsq = this_cpu_ptr(&tsq_tasklet);
-+		empty = list_empty(&tsq->head);
- 		list_add(&tp->tsq_node, &tsq->head);
--		tasklet_schedule(&tsq->tasklet);
-+		if (empty)
-+			tasklet_schedule(&tsq->tasklet);
- 		local_irq_restore(flags);
- 		return;
- 	}
--- 
-2.8.0.rc3.226.g39d4020
+Series applied, thanks.
