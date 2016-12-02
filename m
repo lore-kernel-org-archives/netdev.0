@@ -1,40 +1,52 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 0/4] tcp: tsq: performance series
-Date: Fri, 2 Dec 2016 12:57:06 -0800
-Message-ID: <CANn89iK1FJ9mMYE+fQYrtDTJ4ohsuMSv+P9sJPnSWq9RqdQ3gA@mail.gmail.com>
-References: <1480703159-2327-1-git-send-email-edumazet@google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCHv2 net-next 4/4] net: dsa: mv88e6xxx: Refactor CPU and DSA
+ port setup
+Date: Fri, 2 Dec 2016 22:18:06 +0100
+Message-ID: <20161202211806.GF30716@lunn.ch>
+References: <1480701779-30633-1-git-send-email-andrew@lunn.ch>
+ <1480701779-30633-5-git-send-email-andrew@lunn.ch>
+ <87h96mcadj.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:36192 "EHLO
-        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751729AbcLBVD2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 16:03:28 -0500
-Received: by mail-io0-f180.google.com with SMTP id m5so365712179ioe.3
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 13:03:27 -0800 (PST)
-In-Reply-To: <1480703159-2327-1-git-send-email-edumazet@google.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:38245 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750842AbcLBVSK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 16:18:10 -0500
+Content-Disposition: inline
+In-Reply-To: <87h96mcadj.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 2, 2016 at 10:25 AM, Eric Dumazet <edumazet@google.com> wrote:
-> Under very high TX stress, CPU handling NIC TX completions can spend
-> considerable amount of cycles handling TSQ (TCP Small Queues) logic.
->
-> This patch series avoids some atomic operations, but more important
-> patch is the 3rd one, allowing other cpus processing ACK packets and
-> calling tcp_write_xmit() to grab TCP_TSQ_DEFERRED so that
-> tcp_tasklet_func() can skip already processed sockets.
->
-> This avoid lots of lock acquisitions and cache lines accesses,
-> particularly under load.
->
+> The port's EgressMode, FrameMode and EtherType are really tied together
+> to compose the mode of the port.
 
-Please do not merge this version.
+Setting the EtherType is somewhat separate. It is only needed on ports
+using EDSA. And that can only happen on a CPU port. Humm, actually, i
+set it when i should not. But putting this in a wrapper actually hides
+this.
 
-I probably messed something, I need to make more tests.
+> Could you add an helper in chip.c like:
+> 
+>     static int mv88e6xxx_set_port_mode(struct mv88e6xxx_chip *chip, int port,
+>                                        enum mv88e6xxx_frame_mode frame_mode,
+>                                        u16 egress_mode, bool egress_unknown,
+>                                        u16 ethertype)
+>     {
+>         int err;
+> 
+>         if (chip->info->ops->port_set_frame_mode) {
+>             err = chip->info->ops->port_set_frame_mode(chip, port, frame_mode);
+>             if (err)
+>                 return err;
+>         }
 
-Thanks.
+Ignoring that it is not implemented here is wrong. It must be
+implemented, or the device is not going to work. It is a question of,
+do we want an oops, or return an error code.
+
+New version coming.
+
+    Andrew
