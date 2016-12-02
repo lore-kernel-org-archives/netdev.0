@@ -1,146 +1,146 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
-Date: Fri, 2 Dec 2016 13:32:41 +0100
-Message-ID: <20161202123241.GA5869@amd>
-References: <20161123105125.GA26394@amd>
- <20161124085506.GA25007@amd>
- <20161124.110416.198867271899443489.davem@davemloft.net>
- <20161124212540.GA24796@amd>
- <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
- <20161202084511.GA32294@amd>
- <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/can: warning in raw_setsockopt/__alloc_pages_slowpath
+Date: Fri, 2 Dec 2016 13:43:55 +0100
+Message-ID: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="FCuugMFkClbJLl1L"
-Cc: alexandre.torgue@st.com, David Miller <davem@davemloft.net>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: multipart/mixed; boundary=94eb2c1a0b9c8d65760542ac4a67
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---FCuugMFkClbJLl1L
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+--94eb2c1a0b9c8d65760542ac4a67
+Content-Type: text/plain; charset=UTF-8
 
 Hi!
 
-> >Well, if you have a workload that sends and receive packets, it tends
-> >to work ok, as you do tx_clean() in stmmac_poll(). My workload is not
-> >like that -- it is "sending packets at 3MB/sec, receiving none". So
-> >the stmmac_tx_timer() is rescheduled and rescheduled and rescheduled,
-> >and then we run out of transmit descriptors, and then 40msec passes,
-> >and then we clean them. Bad.
-> >
-> >And that's why low-res timers do not cut it.
->=20
-> in that case, I expect that the tuning of the driver could help you.
-> I mean, by using ethtool, it could be enough to set the IC bit on all
-> the descriptors. You should touch the tx_coal_frames.
->=20
-> Then you can use ethtool -S to monitor the status.
+I've got the following error report while running the syzkaller fuzzer.
 
-Yes, I did something similar. Unfortnunately that meant crash within
-minutes, at least with 4.4 kernel. (If you know what was fixed between
-4.4 and 4.9, that would be helpful).
+A reproducer is attached.
 
-> We had experimented this tuning on STB IP where just datagrams
-> had to send externally. To be honest, although we had seen
-> better results w/o any timer, we kept this approach enabled
-> because the timer was fast enough to cover our tests on SH4 boxes.
+On commit d8e435f3ab6fea2ea324dce72b51dd7761747523 (Nov 26).
 
-Please reply to David, and explain how it is supposed to
-work... because right now it does not. 40 msec delays are not
-acceptable in default configuration.
+------------[ cut here ]------------
+WARNING: CPU: 0 PID: 4009 at mm/page_alloc.c:3511
+__alloc_pages_slowpath+0x3d4/0x1bf0
+Modules linked in:
+CPU: 0 PID: 4009 Comm: a.out Not tainted 4.9.0-rc6+ #54
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ ffff88006832f8a8 ffffffff81c73b14 0000000000000000 0000000000000000
+ ffffffff842c6320 0000000000000000 ffff88006832f8f0 ffffffff8123dc57
+ ffff880067d86000 ffffffff00000db7 ffffffff842c6320 0000000000000db7
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff81c73b14>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
+ [<ffffffff8123dc57>] __warn+0x1a7/0x1f0 kernel/panic.c:550
+ [<ffffffff8123de6c>] warn_slowpath_null+0x2c/0x40 kernel/panic.c:585
+ [<ffffffff81559b04>] __alloc_pages_slowpath+0x3d4/0x1bf0 mm/page_alloc.c:3511
+ [<ffffffff8155b8e2>] __alloc_pages_nodemask+0x5c2/0x710 mm/page_alloc.c:3781
+ [<ffffffff816236a4>] alloc_pages_current+0xf4/0x400 mm/mempolicy.c:2072
+ [<     inline     >] alloc_pages ./include/linux/gfp.h:469
+ [<ffffffff815a834f>] kmalloc_order+0x1f/0x70 mm/slab_common.c:1015
+ [<ffffffff815a83bf>] kmalloc_order_trace+0x1f/0x160 mm/slab_common.c:1026
+ [<     inline     >] kmalloc_large ./include/linux/slab.h:422
+ [<ffffffff81635e67>] __kmalloc_track_caller+0x227/0x2a0 mm/slub.c:4233
+ [<ffffffff8159932c>] memdup_user+0x2c/0xa0 mm/util.c:137
+ [<ffffffff8369e0de>] raw_setsockopt+0x1be/0x9f0 net/can/raw.c:506
+ [<     inline     >] SYSC_setsockopt net/socket.c:1757
+ [<ffffffff82ca10c4>] SyS_setsockopt+0x154/0x240 net/socket.c:1736
+ [<ffffffff840f2901>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+arch/x86/entry/entry_64.S:209
+---[ end trace bc80556cca970089 ]---
 
-> >>In the ring, some descriptors can raise the irq (according to a
-> >>threshold) and set the IC bit. In this path, the NAPI  poll will be
-> >>scheduled.
-> >
-> >Not NAPI poll but stmmac_tx_timer(), right?
->=20
-> in the xmit according the the threshold the timer is started or the
-> interrupt is set inside the descriptor.
-> Then stmmac_tx_clean will be always called and, if you see the flow,
-> no irqlock protection is needed!
+--94eb2c1a0b9c8d65760542ac4a67
+Content-Type: text/x-csrc; charset=US-ASCII; name="setsockopt-kmalloc-warning-poc.c"
+Content-Disposition: attachment; filename="setsockopt-kmalloc-warning-poc.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iw7s6juv0
 
-Agreed that no irqlock protection is needed if we rely on napi and timers.
-
-> >>Concerning the lock protection, we had reviewed long time ago and
-> >>IIRC, no raise condition should be present. Open to review it,
-> >>again!
-=2E..
-> >There's nothing that protect stmmac_poll() from running concurently
-> >with stmmac_dma_interrupt(), right?
->=20
-> This is not necessary.
-
-dma_interrupt accesses shared priv->xstats; variables are of type
-unsigned long (not atomic_t), yet they are accesssed from interrupt
-context and from stmmac_ethtool without any locking. That can result
-in broken statistics AFAICT.
-
-Please take another look. As far as I can tell, you can have two cpus
-at #1 and #2 in the code, at the same time. It looks like napi_... has
-some atomic opertions inside so that looks safe at the first look. But
-I'm not sure if they also include enough memory barriers to make it
-safe...?
-
-
-static void stmmac_dma_interrupt(struct stmmac_priv *priv)
-{
-=2E..
-        status =3D priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats=
-);
-        if (likely((status & handle_rx)) || (status & handle_tx)) {
-                if (likely(napi_schedule_prep(&priv->napi))) {
-#1
-                        stmmac_disable_dma_irq(priv);
-                        __napi_schedule(&priv->napi);
-                }
-        }
-
-
-static int stmmac_poll(struct napi_struct *napi, int budget)
-{
-        struct stmmac_priv *priv =3D container_of(napi, struct stmmac_priv,=
- napi);
-        int work_done =3D 0;
-
-        priv->xstats.napi_poll++;
-        stmmac_tx_clean(priv);
-
-        work_done =3D stmmac_rx(priv, budget);
-	if (work_done < budget) {
-                napi_complete(napi);
-#2
-	        stmmac_enable_dma_irq(priv);
-        }
-        return work_done;
-}
-
-
-Best regards,
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---FCuugMFkClbJLl1L
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhBaekACgkQMOfwapXb+vJGxQCZAZWKSaPl4T68lMQWTxU9Ya1F
-PgEAoKf5Zoplj+0GoNV7bUgQyVape/VH
-=KRU4
------END PGP SIGNATURE-----
-
---FCuugMFkClbJLl1L--
+Ly8gYXV0b2dlbmVyYXRlZCBieSBzeXprYWxsZXIgKGh0dHA6Ly9naXRodWIuY29tL2dvb2dsZS9z
+eXprYWxsZXIpCgojaWZuZGVmIF9fTlJfc2V0c29ja29wdAojZGVmaW5lIF9fTlJfc2V0c29ja29w
+dCA1NAojZW5kaWYKI2lmbmRlZiBfX05SX3NvY2tldAojZGVmaW5lIF9fTlJfc29ja2V0IDQxCiNl
+bmRpZgoKI2RlZmluZSBfR05VX1NPVVJDRQoKI2luY2x1ZGUgPHN5cy9pb2N0bC5oPgojaW5jbHVk
+ZSA8c3lzL21vdW50Lmg+CiNpbmNsdWRlIDxzeXMvcHJjdGwuaD4KI2luY2x1ZGUgPHN5cy9yZXNv
+dXJjZS5oPgojaW5jbHVkZSA8c3lzL3NvY2tldC5oPgojaW5jbHVkZSA8c3lzL3N0YXQuaD4KI2lu
+Y2x1ZGUgPHN5cy9zeXNjYWxsLmg+CiNpbmNsdWRlIDxzeXMvdGltZS5oPgojaW5jbHVkZSA8c3lz
+L3R5cGVzLmg+CiNpbmNsdWRlIDxzeXMvd2FpdC5oPgoKI2luY2x1ZGUgPGxpbnV4L2NhcGFiaWxp
+dHkuaD4KI2luY2x1ZGUgPGxpbnV4L2lmLmg+CiNpbmNsdWRlIDxsaW51eC9pZl90dW4uaD4KI2lu
+Y2x1ZGUgPGxpbnV4L3NjaGVkLmg+CiNpbmNsdWRlIDxuZXQvaWZfYXJwLmg+CgojaW5jbHVkZSA8
+YXNzZXJ0Lmg+CiNpbmNsdWRlIDxkaXJlbnQuaD4KI2luY2x1ZGUgPGVycm5vLmg+CiNpbmNsdWRl
+IDxmY250bC5oPgojaW5jbHVkZSA8Z3JwLmg+CiNpbmNsdWRlIDxwdGhyZWFkLmg+CiNpbmNsdWRl
+IDxzZXRqbXAuaD4KI2luY2x1ZGUgPHNpZ25hbC5oPgojaW5jbHVkZSA8c3RkYXJnLmg+CiNpbmNs
+dWRlIDxzdGRkZWYuaD4KI2luY2x1ZGUgPHN0ZGludC5oPgojaW5jbHVkZSA8c3RkaW8uaD4KI2lu
+Y2x1ZGUgPHN0ZGxpYi5oPgojaW5jbHVkZSA8c3RyaW5nLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4K
+CmNvbnN0IGludCBrRmFpbFN0YXR1cyA9IDY3Owpjb25zdCBpbnQga0Vycm9yU3RhdHVzID0gNjg7
+CmNvbnN0IGludCBrUmV0cnlTdGF0dXMgPSA2OTsKCl9fYXR0cmlidXRlX18oKG5vcmV0dXJuKSkg
+dm9pZCBmYWlsKGNvbnN0IGNoYXIqIG1zZywgLi4uKQp7CiAgaW50IGUgPSBlcnJubzsKICBmZmx1
+c2goc3Rkb3V0KTsKICB2YV9saXN0IGFyZ3M7CiAgdmFfc3RhcnQoYXJncywgbXNnKTsKICB2ZnBy
+aW50ZihzdGRlcnIsIG1zZywgYXJncyk7CiAgdmFfZW5kKGFyZ3MpOwogIGZwcmludGYoc3RkZXJy
+LCAiIChlcnJubyAlZClcbiIsIGUpOwogIGV4aXQoa0ZhaWxTdGF0dXMpOwp9CgpfX2F0dHJpYnV0
+ZV9fKChub3JldHVybikpIHZvaWQgZXhpdGYoY29uc3QgY2hhciogbXNnLCAuLi4pCnsKICBpbnQg
+ZSA9IGVycm5vOwogIGZmbHVzaChzdGRvdXQpOwogIHZhX2xpc3QgYXJnczsKICB2YV9zdGFydChh
+cmdzLCBtc2cpOwogIHZmcHJpbnRmKHN0ZGVyciwgbXNnLCBhcmdzKTsKICB2YV9lbmQoYXJncyk7
+CiAgZnByaW50ZihzdGRlcnIsICIgKGVycm5vICVkKVxuIiwgZSk7CiAgZXhpdChrUmV0cnlTdGF0
+dXMpOwp9CgpzdGF0aWMgaW50IGZsYWdfZGVidWc7Cgp2b2lkIGRlYnVnKGNvbnN0IGNoYXIqIG1z
+ZywgLi4uKQp7CiAgaWYgKCFmbGFnX2RlYnVnKQogICAgcmV0dXJuOwogIHZhX2xpc3QgYXJnczsK
+ICB2YV9zdGFydChhcmdzLCBtc2cpOwogIHZmcHJpbnRmKHN0ZG91dCwgbXNnLCBhcmdzKTsKICB2
+YV9lbmQoYXJncyk7CiAgZmZsdXNoKHN0ZG91dCk7Cn0KCl9fdGhyZWFkIGludCBza2lwX3NlZ3Y7
+Cl9fdGhyZWFkIGptcF9idWYgc2Vndl9lbnY7CgpzdGF0aWMgdm9pZCBzZWd2X2hhbmRsZXIoaW50
+IHNpZywgc2lnaW5mb190KiBpbmZvLCB2b2lkKiB1Y3R4KQp7CiAgaWYgKF9fYXRvbWljX2xvYWRf
+bigmc2tpcF9zZWd2LCBfX0FUT01JQ19SRUxBWEVEKSkKICAgIF9sb25nam1wKHNlZ3ZfZW52LCAx
+KTsKICBleGl0KHNpZyk7Cn0KCnN0YXRpYyB2b2lkIGluc3RhbGxfc2Vndl9oYW5kbGVyKCkKewog
+IHN0cnVjdCBzaWdhY3Rpb24gc2E7CiAgbWVtc2V0KCZzYSwgMCwgc2l6ZW9mKHNhKSk7CiAgc2Eu
+c2Ffc2lnYWN0aW9uID0gc2Vndl9oYW5kbGVyOwogIHNhLnNhX2ZsYWdzID0gU0FfTk9ERUZFUiB8
+IFNBX1NJR0lORk87CiAgc2lnYWN0aW9uKFNJR1NFR1YsICZzYSwgTlVMTCk7CiAgc2lnYWN0aW9u
+KFNJR0JVUywgJnNhLCBOVUxMKTsKfQoKI2RlZmluZSBOT05GQUlMSU5HKC4uLikgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcCiAgeyAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXAog
+ICAgX19hdG9taWNfZmV0Y2hfYWRkKCZza2lwX3NlZ3YsIDEsIF9fQVRPTUlDX1NFUV9DU1QpOyAg
+ICAgICAgICAgICAgIFwKICAgIGlmIChfc2V0am1wKHNlZ3ZfZW52KSA9PSAwKSB7ICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcCiAgICAgIF9fVkFfQVJHU19fOyAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXAogICAgfSAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgIFwKICAgIF9fYXRvbWljX2ZldGNoX3N1Yigmc2tpcF9zZWd2LCAxLCBfX0FUT01JQ19TRVFf
+Q1NUKTsgICAgICAgICAgICAgICBcCiAgfQoKc3RhdGljIHVpbnRwdHJfdCBleGVjdXRlX3N5c2Nh
+bGwoaW50IG5yLCB1aW50cHRyX3QgYTAsIHVpbnRwdHJfdCBhMSwKICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgdWludHB0cl90IGEyLCB1aW50cHRyX3QgYTMsCiAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgIHVpbnRwdHJfdCBhNCwgdWludHB0cl90IGE1LAogICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICB1aW50cHRyX3QgYTYsIHVpbnRwdHJfdCBhNywKICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90IGE4KQp7CiAgc3dpdGNoIChucikg
+ewogIGRlZmF1bHQ6CiAgICByZXR1cm4gc3lzY2FsbChuciwgYTAsIGExLCBhMiwgYTMsIGE0LCBh
+NSk7CiAgfQp9CgpzdGF0aWMgdm9pZCBzZXR1cF9tYWluX3Byb2Nlc3ModWludDY0X3QgcGlkKQp7
+CiAgc3RydWN0IHNpZ2FjdGlvbiBzYTsKICBtZW1zZXQoJnNhLCAwLCBzaXplb2Yoc2EpKTsKICBz
+YS5zYV9oYW5kbGVyID0gU0lHX0lHTjsKICBzeXNjYWxsKFNZU19ydF9zaWdhY3Rpb24sIDB4MjAs
+ICZzYSwgTlVMTCwgOCk7CiAgc3lzY2FsbChTWVNfcnRfc2lnYWN0aW9uLCAweDIxLCAmc2EsIE5V
+TEwsIDgpOwogIGluc3RhbGxfc2Vndl9oYW5kbGVyKCk7CgogIGNoYXIgdG1wZGlyX3RlbXBsYXRl
+W10gPSAiLi9zeXprYWxsZXIuWFhYWFhYIjsKICBjaGFyKiB0bXBkaXIgPSBta2R0ZW1wKHRtcGRp
+cl90ZW1wbGF0ZSk7CiAgaWYgKCF0bXBkaXIpCiAgICBmYWlsKCJmYWlsZWQgdG8gbWtkdGVtcCIp
+OwogIGlmIChjaG1vZCh0bXBkaXIsIDA3NzcpKQogICAgZmFpbCgiZmFpbGVkIHRvIGNobW9kIik7
+CiAgaWYgKGNoZGlyKHRtcGRpcikpCiAgICBmYWlsKCJmYWlsZWQgdG8gY2hkaXIiKTsKfQoKc3Rh
+dGljIHZvaWQgbG9vcCgpOwoKc3RhdGljIHZvaWQgc2FuZGJveF9jb21tb24oKQp7CiAgcHJjdGwo
+UFJfU0VUX1BERUFUSFNJRywgU0lHS0lMTCwgMCwgMCwgMCk7CiAgc2V0cGdycCgpOwogIHNldHNp
+ZCgpOwoKICBzdHJ1Y3QgcmxpbWl0IHJsaW07CiAgcmxpbS5ybGltX2N1ciA9IHJsaW0ucmxpbV9t
+YXggPSAxMjggPDwgMjA7CiAgc2V0cmxpbWl0KFJMSU1JVF9BUywgJnJsaW0pOwogIHJsaW0ucmxp
+bV9jdXIgPSBybGltLnJsaW1fbWF4ID0gMSA8PCAyMDsKICBzZXRybGltaXQoUkxJTUlUX0ZTSVpF
+LCAmcmxpbSk7CiAgcmxpbS5ybGltX2N1ciA9IHJsaW0ucmxpbV9tYXggPSAxIDw8IDIwOwogIHNl
+dHJsaW1pdChSTElNSVRfU1RBQ0ssICZybGltKTsKICBybGltLnJsaW1fY3VyID0gcmxpbS5ybGlt
+X21heCA9IDA7CiAgc2V0cmxpbWl0KFJMSU1JVF9DT1JFLCAmcmxpbSk7CgogIHVuc2hhcmUoQ0xP
+TkVfTkVXTlMpOwogIHVuc2hhcmUoQ0xPTkVfTkVXSVBDKTsKICB1bnNoYXJlKENMT05FX0lPKTsK
+fQoKc3RhdGljIGludCBkb19zYW5kYm94X25vbmUoKQp7CiAgaW50IHBpZCA9IGZvcmsoKTsKICBp
+ZiAocGlkKQogICAgcmV0dXJuIHBpZDsKICBzYW5kYm94X2NvbW1vbigpOwogIGxvb3AoKTsKICBl
+eGl0KDEpOwp9Cgpsb25nIHJbMl07CnZvaWQgbG9vcCgpCnsKICBtZW1zZXQociwgLTEsIHNpemVv
+ZihyKSk7CiAgclswXSA9IGV4ZWN1dGVfc3lzY2FsbChfX05SX3NvY2tldCwgMHgxZHVsLCAweDN1
+bCwgMHgxdWwsIDAsIDAsIDAsIDAsCiAgICAgICAgICAgICAgICAgICAgICAgICAwLCAwKTsKICBy
+WzFdID0gZXhlY3V0ZV9zeXNjYWxsKF9fTlJfc2V0c29ja29wdCwgclswXSwgMHg2NXVsLCAweDF1
+bCwKICAgICAgICAgICAgICAgICAgICAgICAgIDB4MjAwMDAwMDB1bCwgMHgxODAwMDAwMHVsLCAw
+LCAwLCAwLCAwKTsKfQppbnQgbWFpbigpCnsKICBzZXR1cF9tYWluX3Byb2Nlc3MoMCk7CiAgaW50
+IHBpZCA9IGRvX3NhbmRib3hfbm9uZSgpOwogIGludCBzdGF0dXMgPSAwOwogIHdoaWxlICh3YWl0
+cGlkKHBpZCwgJnN0YXR1cywgX19XQUxMKSAhPSBwaWQpIHsKICB9CiAgcmV0dXJuIDA7Cn0KCgo=
+--94eb2c1a0b9c8d65760542ac4a67--
