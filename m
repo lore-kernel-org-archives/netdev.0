@@ -1,275 +1,110 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH iproute2/net-next 3/3] tc: flower: support matching on ICMP type and code
-Date: Fri,  2 Dec 2016 19:24:39 +0100
-Message-ID: <1480703079-25422-4-git-send-email-simon.horman@netronome.com>
-References: <1480703079-25422-1-git-send-email-simon.horman@netronome.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 1/4] tcp: tsq: add tsq_flags / tsq_enum
+Date: Fri,  2 Dec 2016 10:25:56 -0800
+Message-ID: <1480703159-2327-2-git-send-email-edumazet@google.com>
+References: <1480703159-2327-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f175.google.com ([209.85.210.175]:36044 "EHLO
-        mail-wj0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753870AbcLBSZv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:25:51 -0500
-Received: by mail-wj0-f175.google.com with SMTP id qp4so239202494wjc.3
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 10:24:58 -0800 (PST)
-In-Reply-To: <1480703079-25422-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:34673 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752237AbcLBS1b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:27:31 -0500
+Received: by mail-pf0-f171.google.com with SMTP id c4so53882557pfb.1
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 10:26:13 -0800 (PST)
+In-Reply-To: <1480703159-2327-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support matching on ICMP type and code.
+This is a cleanup, to ease code review of following patches.
 
-Example usage:
+Old 'enum tsq_flags' is renamed, and a new enumeration is added
+with the flags used in cmpxchg() operations as opposed to
+single bit operations.
 
-tc qdisc add dev eth0 ingress
-
-tc filter add dev eth0 protocol ip parent ffff: flower \
-	indev eth0 ip_proto icmp type 8 code 0 action drop
-
-tc filter add dev eth0 protocol ipv6 parent ffff: flower \
-	indev eth0 ip_proto icmpv6 type 128 code 0 action drop
-
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
-v2
-* Rename enums FLOWER_ICMP_FIELD_TYPE/CODE
-* Use above enums (oversight in v1)
----
- man/man8/tc-flower.8 | 20 ++++++++---
- tc/f_flower.c        | 98 ++++++++++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 107 insertions(+), 11 deletions(-)
+ include/linux/tcp.h   | 11 ++++++++++-
+ net/ipv4/tcp_output.c | 16 ++++++++--------
+ 2 files changed, 18 insertions(+), 9 deletions(-)
 
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index a401293fed50..c01ace6249dd 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@@ -29,7 +29,7 @@ flower \- flow based traffic control filter
- .IR PRIORITY " | "
- .BR vlan_eth_type " { " ipv4 " | " ipv6 " | "
- .IR ETH_TYPE " } | "
--.BR ip_proto " { " tcp " | " udp " | " sctp " | "
-+.BR ip_proto " { " tcp " | " udp " | " sctp " | " icmp " | " icmpv6 " | "
- .IR IP_PROTO " } | { "
- .BR dst_ip " | " src_ip " } { "
- .IR ipv4_address " | " ipv6_address " } | { "
-@@ -94,7 +94,7 @@ or an unsigned 16bit value in hexadecimal format.
- Match on layer four protocol.
- .I IP_PROTO
- may be
--.BR tcp ", " udp ", " sctp
-+.BR tcp ", " udp ", " sctp ", " icmp ", " icmpv6
- or an unsigned 8bit value in hexadecimal format.
- .TP
- .BI dst_ip " ADDRESS"
-@@ -112,6 +112,13 @@ option of tc filter.
- Match on layer 4 protocol source or destination port number. Only available for
- .BR ip_proto " values " udp ", " tcp  " and " sctp
- which have to be specified in beforehand.
-+.TP
-+.BI type " NUMBER"
-+.TQ
-+.BI code " NUMBER"
-+Match on ICMP type or code. Only available for
-+.BR ip_proto " values " icmp  " and " icmpv6
-+which have to be specified in beforehand.
- .SH NOTES
- As stated above where applicable, matches of a certain layer implicitly depend
- on the matches of the next lower layer. Precisely, layer one and two matches
-@@ -120,13 +127,16 @@ have no dependency, layer three matches
- (\fBip_proto\fR, \fBdst_ip\fR and \fBsrc_ip\fR)
- depend on the
- .B protocol
--option of tc filter
--and finally layer four matches
-+option of tc filter, layer four port matches
- (\fBdst_port\fR and \fBsrc_port\fR)
- depend on
- .B ip_proto
- being set to
--.BR tcp ", " udp " or " sctp.
-+.BR tcp ", " udp " or " sctp,
-+and finally ICMP matches (\fBcode\fR and \fBtype\fR) depend on
-+.B ip_proto
-+being set to
-+.BR icmp " or " icmpv6.
- .P
- There can be only used one mask per one prio. If user needs to specify different
- mask, he has to use different prio.
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 22d95305acb4..6cac344683e6 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -28,6 +28,11 @@ enum flower_endpoint {
- 	FLOWER_ENDPOINT_DST
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 00e0ee8f001f..c79ee070c56f 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -363,7 +363,7 @@ struct tcp_sock {
+ 	u32	*saved_syn;
  };
  
-+enum flower_icmp_field {
-+	FLOWER_ICMP_FIELD_TYPE,
-+	FLOWER_ICMP_FIELD_CODE
+-enum tsq_flags {
++enum tsq_enum {
+ 	TSQ_THROTTLED,
+ 	TSQ_QUEUED,
+ 	TCP_TSQ_DEFERRED,	   /* tcp_tasklet_func() found socket was owned */
+@@ -374,6 +374,15 @@ enum tsq_flags {
+ 				    */
+ };
+ 
++enum tsq_flags {
++	TSQF_THROTTLED			= (1UL << TSQ_THROTTLED),
++	TSQF_QUEUED			= (1UL << TSQ_QUEUED),
++	TCPF_TSQ_DEFERRED		= (1UL << TCP_TSQ_DEFERRED),
++	TCPF_WRITE_TIMER_DEFERRED	= (1UL << TCP_WRITE_TIMER_DEFERRED),
++	TCPF_DELACK_TIMER_DEFERRED	= (1UL << TCP_DELACK_TIMER_DEFERRED),
++	TCPF_MTU_REDUCED_DEFERRED	= (1UL << TCP_MTU_REDUCED_DEFERRED),
 +};
 +
- static void explain(void)
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
  {
- 	fprintf(stderr,
-@@ -42,11 +47,13 @@ static void explain(void)
- 		"                       vlan_ethtype [ ipv4 | ipv6 | ETH-TYPE ] |\n"
- 		"                       dst_mac MAC-ADDR |\n"
- 		"                       src_mac MAC-ADDR |\n"
--		"                       ip_proto [tcp | udp | sctp | IP-PROTO ] |\n"
-+		"                       ip_proto [tcp | udp | sctp | icmp | icmpv6 | IP-PROTO ] |\n"
- 		"                       dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       dst_port PORT-NUMBER |\n"
--		"                       src_port PORT-NUMBER }\n"
-+		"                       src_port PORT-NUMBER |\n"
-+		"                       type ICMP-TYPE |\n"
-+		"                       code ICMP-CODE }\n"
- 		"       FILTERID := X:Y:Z\n"
- 		"       ACTION-SPEC := ... look at individual actions\n"
- 		"\n"
-@@ -95,16 +102,23 @@ static int flower_parse_ip_proto(char *str, __be16 eth_type, int type,
- 	int ret;
- 	__u8 ip_proto;
- 
--	if (eth_type != htons(ETH_P_IP) && eth_type != htons(ETH_P_IPV6)) {
--		fprintf(stderr, "Illegal \"eth_type\" for ip proto\n");
--		return -1;
--	}
-+	if (eth_type != htons(ETH_P_IP) && eth_type != htons(ETH_P_IPV6))
-+		goto err;
-+
- 	if (matches(str, "tcp") == 0) {
- 		ip_proto = IPPROTO_TCP;
- 	} else if (matches(str, "udp") == 0) {
- 		ip_proto = IPPROTO_UDP;
- 	} else if (matches(str, "sctp") == 0) {
- 		ip_proto = IPPROTO_SCTP;
-+	} else if (matches(str, "icmp") == 0) {
-+		if (eth_type != htons(ETH_P_IP))
-+			goto err;
-+		ip_proto = IPPROTO_ICMP;
-+	} else if (matches(str, "icmpv6") == 0) {
-+		if (eth_type != htons(ETH_P_IPV6))
-+			goto err;
-+		ip_proto = IPPROTO_ICMPV6;
- 	} else {
- 		ret = get_u8(&ip_proto, str, 16);
- 		if (ret)
-@@ -113,6 +127,10 @@ static int flower_parse_ip_proto(char *str, __be16 eth_type, int type,
- 	addattr8(n, MAX_MSG, type, ip_proto);
- 	*p_ip_proto = ip_proto;
- 	return 0;
-+
-+err:
-+	fprintf(stderr, "Illegal \"eth_type\" for ip proto\n");
-+	return -1;
+ 	return (struct tcp_sock *)sk;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index d3545d0cff75..ac55aefc881d 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -784,10 +784,10 @@ static void tcp_tasklet_func(unsigned long data)
+ 	}
  }
  
- static int flower_parse_ip_addr(char *str, __be16 eth_type,
-@@ -165,6 +183,41 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
- 	return 0;
- }
+-#define TCP_DEFERRED_ALL ((1UL << TCP_TSQ_DEFERRED) |		\
+-			  (1UL << TCP_WRITE_TIMER_DEFERRED) |	\
+-			  (1UL << TCP_DELACK_TIMER_DEFERRED) |	\
+-			  (1UL << TCP_MTU_REDUCED_DEFERRED))
++#define TCP_DEFERRED_ALL (TCPF_TSQ_DEFERRED |		\
++			  TCPF_WRITE_TIMER_DEFERRED |	\
++			  TCPF_DELACK_TIMER_DEFERRED |	\
++			  TCPF_MTU_REDUCED_DEFERRED)
+ /**
+  * tcp_release_cb - tcp release_sock() callback
+  * @sk: socket
+@@ -808,7 +808,7 @@ void tcp_release_cb(struct sock *sk)
+ 		nflags = flags & ~TCP_DEFERRED_ALL;
+ 	} while (cmpxchg(&tp->tsq_flags, flags, nflags) != flags);
  
-+static int flower_icmp_attr_type(__be16 eth_type, __u8 ip_proto,
-+				 enum flower_icmp_field field)
-+{
-+	if (eth_type == htons(ETH_P_IP) && ip_proto == IPPROTO_ICMP)
-+		return field == FLOWER_ICMP_FIELD_CODE ?
-+			TCA_FLOWER_KEY_ICMPV4_CODE :
-+			TCA_FLOWER_KEY_ICMPV4_TYPE;
-+	else if (eth_type == htons(ETH_P_IPV6) &&ip_proto == IPPROTO_ICMPV6)
-+		return field == FLOWER_ICMP_FIELD_CODE ?
-+			TCA_FLOWER_KEY_ICMPV6_CODE :
-+			TCA_FLOWER_KEY_ICMPV6_TYPE;
-+
-+	return -1;
-+}
-+
-+static int flower_parse_icmp(char *str, __u16 eth_type, __u8 ip_proto,
-+			     enum flower_icmp_field field, struct nlmsghdr *n)
-+{
-+	int ret;
-+	int type;
-+	uint8_t value;
-+
-+	type = flower_icmp_attr_type(eth_type, ip_proto, field);
-+	if (type < 0)
-+		return -1;
-+
-+	ret = get_u8(&value, str, 10);
-+	if (ret)
-+		return -1;
-+
-+	addattr8(n, MAX_MSG, type, value);
-+
-+	return 0;
-+}
-+
- static int flower_port_attr_type(__u8 ip_proto, enum flower_endpoint endpoint)
- {
- 	if (ip_proto == IPPROTO_TCP)
-@@ -363,6 +416,22 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 				fprintf(stderr, "Illegal \"src_port\"\n");
- 				return -1;
- 			}
-+		} else if (matches(*argv, "type") == 0) {
-+			NEXT_ARG();
-+			ret = flower_parse_icmp(*argv, eth_type, ip_proto,
-+						FLOWER_ICMP_FIELD_TYPE, n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"icmp type\"\n");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "code") == 0) {
-+			NEXT_ARG();
-+			ret = flower_parse_icmp(*argv, eth_type, ip_proto,
-+						FLOWER_ICMP_FIELD_CODE, n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"icmp code\"\n");
-+				return -1;
-+			}
- 		} else if (matches(*argv, "action") == 0) {
- 			NEXT_ARG();
- 			ret = parse_action(&argc, &argv, TCA_FLOWER_ACT, n);
-@@ -476,6 +545,10 @@ static void flower_print_ip_proto(FILE *f, __u8 *p_ip_proto,
- 		fprintf(f, "udp");
- 	else if (ip_proto == IPPROTO_SCTP)
- 		fprintf(f, "sctp");
-+	else if (ip_proto == IPPROTO_ICMP)
-+		fprintf(f, "icmp");
-+	else if (ip_proto == IPPROTO_ICMPV6)
-+		fprintf(f, "icmpv6");
- 	else
- 		fprintf(f, "%02x", ip_proto);
- 	*p_ip_proto = ip_proto;
-@@ -524,6 +597,12 @@ static void flower_print_port(FILE *f, char *name, struct rtattr *attr)
- 		fprintf(f, "\n  %s %d", name, ntohs(rta_getattr_u16(attr)));
- }
+-	if (flags & (1UL << TCP_TSQ_DEFERRED))
++	if (flags & TCPF_TSQ_DEFERRED)
+ 		tcp_tsq_handler(sk);
  
-+static void flower_print_icmp(FILE *f, char *name, struct rtattr *attr)
-+{
-+	if (attr)
-+		fprintf(f, "\n  %s %d", name, ntohs(rta_getattr_u8(attr)));
-+}
-+
- static int flower_print_opt(struct filter_util *qu, FILE *f,
- 			    struct rtattr *opt, __u32 handle)
- {
-@@ -592,6 +671,13 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
- 	if (nl_type >= 0)
- 		flower_print_port(f, "src_port", tb[nl_type]);
+ 	/* Here begins the tricky part :
+@@ -822,15 +822,15 @@ void tcp_release_cb(struct sock *sk)
+ 	 */
+ 	sock_release_ownership(sk);
  
-+	nl_type = flower_icmp_attr_type(eth_type, ip_proto, false);
-+	if (nl_type >= 0)
-+		flower_print_icmp(f, "icmp_type", tb[nl_type]);
-+	nl_type = flower_icmp_attr_type(eth_type, ip_proto, true);
-+	if (nl_type >= 0)
-+		flower_print_icmp(f, "icmp_code", tb[nl_type]);
-+
- 	if (tb[TCA_FLOWER_FLAGS]) {
- 		__u32 flags = rta_getattr_u32(tb[TCA_FLOWER_FLAGS]);
- 
+-	if (flags & (1UL << TCP_WRITE_TIMER_DEFERRED)) {
++	if (flags & TCPF_WRITE_TIMER_DEFERRED) {
+ 		tcp_write_timer_handler(sk);
+ 		__sock_put(sk);
+ 	}
+-	if (flags & (1UL << TCP_DELACK_TIMER_DEFERRED)) {
++	if (flags & TCPF_DELACK_TIMER_DEFERRED) {
+ 		tcp_delack_timer_handler(sk);
+ 		__sock_put(sk);
+ 	}
+-	if (flags & (1UL << TCP_MTU_REDUCED_DEFERRED)) {
++	if (flags & TCPF_MTU_REDUCED_DEFERRED) {
+ 		inet_csk(sk)->icsk_af_ops->mtu_reduced(sk);
+ 		__sock_put(sk);
+ 	}
 -- 
-2.7.0.rc3.207.g0ac5344
+2.8.0.rc3.226.g39d4020
