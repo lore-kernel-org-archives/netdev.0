@@ -1,40 +1,123 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] iproute2: ss: escape all null bytes in abstract unix
- domain socket
-Date: Fri, 02 Dec 2016 15:24:35 -0800
-Message-ID: <1480721075.18162.389.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
-         <20161112101729.4d400929@samsung9>
-            <1480705196.18162.381.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161202151810.4fab9504@xeon-e3>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH 2/7] net: ethernet: ti: cpdma: fix desc re-queuing
+Date: Sat, 3 Dec 2016 01:28:22 +0200
+Message-ID: <20161202232820.GA15799@khorivan>
+References: <20161201233432.6182-1-grygorii.strashko@ti.com>
+ <20161201233432.6182-3-grygorii.strashko@ti.com>
+ <20161202110321.GA1213@khorivan>
+ <9171f321-32bf-81d9-3491-43d12e8fe8b2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Isaac Boukris <iboukris@gmail.com>, davem@davemloft.net,
-        netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36744 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750903AbcLBX0d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 18:26:33 -0500
-Received: by mail-pg0-f65.google.com with SMTP id x23so9170138pgx.3
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 15:25:36 -0800 (PST)
-In-Reply-To: <20161202151810.4fab9504@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <9171f321-32bf-81d9-3491-43d12e8fe8b2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-12-02 at 15:18 -0800, Stephen Hemminger wrote:
->                                     name[i] = '@';
-> > 
-> > ss.c: In function 'unix_show_sock':
-> > ss.c:3128:4: error: 'for' loop initial declarations are only allowed in C99 mode
-> > ss.c:3128:4: note: use option -std=c99 or -std=gnu99 to compile your code
-> > make[1]: *** [ss.o] Error 1
-> > 
-> > 
-> > 
+On Fri, Dec 02, 2016 at 10:45:07AM -0600, Grygorii Strashko wrote:
 > 
-> Thanks, fixed by patch from Simon
+> 
+> On 12/02/2016 05:03 AM, Ivan Khoronzhuk wrote:
+> > On Thu, Dec 01, 2016 at 05:34:27PM -0600, Grygorii Strashko wrote:
+> >> The currently processing cpdma descriptor with EOQ flag set may
+> >> contain two values in Next Descriptor Pointer field:
+> >> - valid pointer: means CPDMA missed addition of new desc in queue;
+> > It shouldn't happen in normal circumstances, right?
+> 
+> it might happen, because desc push compete with desc pop.
+> You can check stats values:
+> chan->stats.misqueued
+> chan->stats.requeue
+>  under different types of net-loads.
+I've done this, of-course.
+By whole logic the misqueued counter has to cover all cases.
+But that's not true.
 
-Right, thanks !
+> 
+> TRM:
+> "
+> If the pNext pointer is initially NULL, and more packets need to be queued for transmit, the software
+> application may alter this pointer to point to a newly appended descriptor. The EMAC will use the new
+> pointer value and proceed to the next descriptor unless the pNext value has already been read. In this
+> latter case, the transmitter will halt on the transmit channel in question, and the software application may
+> restart it at that time. The software can detect this case by checking for an end of queue (EOQ) condition
+> flag on the updated packet descriptor when it is returned by the EMAC.
+> "
+That's true. No issues in desc.
+In the code no any place to update next_desc except submit function.
+
+And this case is supposed to be caught here:
+For submit:
+cpdma_chan_submit()
+spin_lock_irqsave(&chan->lock);
+...
+--->__cpdma_chan_submit()
+...
+------> desc_write(prev, hw_next, desc_dma); // here next pointer is updated, it can be not in time
+...
+------> mode = desc_read(prev, hw_mode); // pay attention, it's read after updating next pointer
+------> if ((mode & CPDMA_DESC_EOQ) &&
+------> (chan->state == CPDMA_STATE_ACTIVE)) { // here checked if it was late update
+---------> chan_write(chan, hdp, desc_dma); // here transmit is restarted, if needed
+
+For process it only caught the fact of late update, but it has to be caught in
+submit() already:
+__cpdma_chan_process()
+spin_lock_irqsave(&chan->lock);
+------> if (mode & CPDMA_DESC_EOQ) // here transmit is restarted, if needed
+---------> chan_write(chan, hdp, desc_dma); // but w/o updating next pointer
+
+Seems there is no place where hw_next is updated w/o updating hdp :-| in case
+of late hw_next set. And that is strange. I know it happens, I've checked it
+before of-course. Then I thought, maybe there is some problem with write order,
+thus out of sync, nothing more.
+
+> 
+> 
+> > So, why it happens only for egress channels? And Does that mean
+> > there is some resynchronization between submit and process function,
+> > or this is h/w issue?
+> 
+> no hw issues. this patch just removes one unnecessary I/O access 
+No objections against patch. Anyway it's better then before.
+Just want to know the real reason why it happens, maybe there is smth else.
+
+> 
+> > 
+> >> - null: no more descriptors in queue.
+> >> In the later case, it's not required to write to HDP register, but now
+> >> CPDMA does it.
+> >>
+> >> Hence, add additional check for Next Descriptor Pointer != null in
+> >> cpdma_chan_process() function before writing in HDP register.
+> >>
+> >> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> >> ---
+> >>  drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>
+> >> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+> >> index 0924014..379314f 100644
+> >> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+> >> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+> >> @@ -1152,7 +1152,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
+> >>  	chan->count--;
+> >>  	chan->stats.good_dequeue++;
+> >>  
+> >> -	if (status & CPDMA_DESC_EOQ) {
+> >> +	if ((status & CPDMA_DESC_EOQ) && chan->head) {
+> >>  		chan->stats.requeue++;
+> >>  		chan_write(chan, hdp, desc_phys(pool, chan->head));
+> >>  	}
+> >> -- 
+> >> 2.10.1
+> >>
+> 
+> -- 
+> regards,
+> -grygorii
