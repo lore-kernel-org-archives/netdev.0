@@ -1,59 +1,55 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
-Date: Fri, 2 Dec 2016 11:58:34 -0600
-Message-ID: <bfbebf2d-d057-6a21-845c-48f0a9ab0404@ti.com>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-5-grygorii.strashko@ti.com>
- <20161130184511.GB8209@netboy> <875d4cc2-8a47-b06d-fb46-0cacc28dbaee@ti.com>
- <20161130221738.GA13099@localhost.localdomain>
- <20161202095848.GA14586@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>,
-        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
-        <devicetree@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161202095848.GA14586@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCHv2 net-next 0/4] MV88E6390 batch two
+Date: Fri,  2 Dec 2016 19:02:55 +0100
+Message-ID: <1480701779-30633-1-git-send-email-andrew@lunn.ch>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:37965 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750745AbcLBSEK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 13:04:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+This is the second batch of patches adding support for the
+MV88e6390. They are not sufficient to make it work properly.
 
-On 12/02/2016 03:58 AM, Richard Cochran wrote:
-> On Wed, Nov 30, 2016 at 11:17:38PM +0100, Richard Cochran wrote:
->> On Wed, Nov 30, 2016 at 02:43:57PM -0600, Grygorii Strashko wrote:
->>> Sry, but this is questionable - code for pps comes from TI internal
->>> branches (SDK releases) where it survived for a pretty long time.
-> 
-> Actually, there is a way to get an accurate PPS from the am335x.  See
-> this recent thread:
-> 
->    https://www.mail-archive.com/linuxptp-devel@lists.sourceforge.net/msg01726.html
-> 
-> That is the way to go, and so, please drop this present patch.
-> 
+The mv88e6390 has a much expanded set of priority maps. Refactor the
+existing code, and implement basic support for the new device.
 
-thanks for the links - it sounds very interesting.
+Similarly, the monitor control register has been reworked.
 
-As I understood, people trying to enable PPS on am335 device with the
-goal to have PPS signal generated on some SoC pin and therefore they use DMtimer.
-Also, as i understood, the Timer Load Register (TLDR) is corrected once
-a second at each HW_TS_PUSH - as result, if freq was corrected during current sec
-there will be some HW_TS_PUSH generation jitter any way.
+The mv88e6390 has something odd in its EDSA tagging implementation,
+which means it is not possible to use it. So we need to use DSA
+tagging. This is the first device with EDSA support where we need to
+use DSA, and the code does not support this. So two patches refactor
+the existing code. The two different register definitions are
+separated out, and using DSA on an EDSA capable device is added.
 
-Above solution is a bit complex for keystone 2 SoCs, as CPTS itself on these SoCs has
-output pin (ts_comp) which can be used for PPS signal generation. So, I think,
-similar results can be achieved by removing PPS correction code from cpts_ptp_adjfreq()
-and updating CPTS_TS_LOAD_VAL once a sec in cpts_overflow_check().
+v2:
+Add port prefix
+Add helper function for 6390
+Add _IEEE_ into #defines
+Split monitor_ctrl into a number of separate ops.
+Remove 6390 code which is management, used in a later patch
+s/EGREES/EGRESS/.
+Broke up setup_port_dsa() and set_port_dsa() into a number of ops
 
-or I missed smth?
+Andrew Lunn (4):
+  net: dsa: mv88e6xxx: Implement mv88e6390 tag remap
+  net: dsa: mv88e6xxx: Monitor and Management tables
+  net: dsa: mv88e6xxx: Move the tagging protocol into info
+  net: dsa: mv88e6xxx: Refactor CPU and DSA port setup
+
+ drivers/net/dsa/mv88e6xxx/chip.c      | 339 ++++++++++++++++++++++++++--------
+ drivers/net/dsa/mv88e6xxx/global1.c   |  69 +++++++
+ drivers/net/dsa/mv88e6xxx/global1.h   |   4 +
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  62 +++++--
+ drivers/net/dsa/mv88e6xxx/port.c      | 181 ++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h      |  15 ++
+ 6 files changed, 583 insertions(+), 87 deletions(-)
 
 -- 
-regards,
--grygorii
+2.10.2
