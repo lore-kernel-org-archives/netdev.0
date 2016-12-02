@@ -1,39 +1,40 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next 0/2] net/sched: cls_flower: Support matching
+Subject: Re: [PATCH/RFC iproute2/net-next 0/3] tc: flower: Support matching
  on ICMP
-Date: Fri, 2 Dec 2016 18:52:21 +0100
-Message-ID: <20161202175220.GA31495@penelope.horms.nl>
-References: <1480672352-13291-1-git-send-email-simon.horman@netronome.com>
- <20161202171048.GE1883@nanopsycho.orion>
+Date: Fri, 2 Dec 2016 18:52:42 +0100
+Message-ID: <20161202175241.GB31495@penelope.horms.nl>
+References: <1480672785-14570-1-git-send-email-simon.horman@netronome.com>
+ <20161202171020.GD1883@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S.  Miller" <davem@davemloft.net>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
         Jiri Pirko <jiri@mellanox.com>
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:36621 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755323AbcLBRwc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 12:52:32 -0500
-Received: by mail-wm0-f47.google.com with SMTP id g23so24080704wme.1
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 09:52:25 -0800 (PST)
+Received: from mail-wj0-f178.google.com ([209.85.210.178]:34338 "EHLO
+        mail-wj0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755590AbcLBRwp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 12:52:45 -0500
+Received: by mail-wj0-f178.google.com with SMTP id mp19so238928625wjc.1
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 09:52:44 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20161202171048.GE1883@nanopsycho.orion>
+In-Reply-To: <20161202171020.GD1883@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2016 at 06:10:48PM +0100, Jiri Pirko wrote:
-> Fri, Dec 02, 2016 at 10:52:30AM CET, simon.horman@netronome.com wrote:
-> >Hi,
+On Fri, Dec 02, 2016 at 06:10:20PM +0100, Jiri Pirko wrote:
+> Fri, Dec 02, 2016 at 10:59:42AM CET, simon.horman@netronome.com wrote:
+> >Add support for matching on ICMP type and code to flower. This is modeled
+> >on existing support for matching on L4 ports.
 > >
-> >this series add supports for matching on ICMP type and code to cls_flower.
-> >This is modeled on existing support for matching on L4 ports. The updates
-> >to the dissector are intended to allow for code and storage re-use.
+> >The second patch provided a minor cleanup which is in keeping with
+> >they style used in the last patch.
+> >
+> >This is marked as an RFC to match the same designation given to the
+> >corresponding kernel patches.
 > 
-> Looks fine to me. Thanks!
+> Looks nice, I only have those 2 enum nitpicks.
 
-Thanks, I'll drop the RFC designation and repost.
+Thanks, I'll fix those and repost.
