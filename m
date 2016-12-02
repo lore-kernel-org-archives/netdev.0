@@ -1,49 +1,86 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [flamebait] xdp, well meaning but pointless
-Date: Fri, 2 Dec 2016 18:22:33 +0100
-Message-ID: <20161202182233.7d78459f@redhat.com>
-References: <20161201091108.GF26507@breakpoint.cc>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 5/7] Documentation: DT: net: cpsw: allow to specify
+ descriptors pool size
+Date: Fri, 2 Dec 2016 11:22:28 -0600
+Message-ID: <31a048c2-74e4-772e-ab63-9eacc2f49953@ti.com>
+References: <20161201233432.6182-1-grygorii.strashko@ti.com>
+ <20161201233432.6182-6-grygorii.strashko@ti.com>
+ <20161202112832.GB1213@khorivan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57768 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751635AbcLBRXK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 12:23:10 -0500
-In-Reply-To: <20161201091108.GF26507@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161202112832.GB1213@khorivan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On Thu, 1 Dec 2016 10:11:08 +0100 Florian Westphal <fw@strlen.de> wrote:
 
-> In light of DPDKs existence it make a lot more sense to me to provide
-> a). a faster mmap based interface (possibly AF_PACKET based) that allows
-> to map nic directly into userspace, detaching tx/rx queue from kernel.
+On 12/02/2016 05:28 AM, Ivan Khoronzhuk wrote:
+> On Thu, Dec 01, 2016 at 05:34:30PM -0600, Grygorii Strashko wrote:
+>> Add optional property "descs_pool_size" to specify buffer descriptor's
+>> pool size. The "descs_pool_size" should define total number of CPDMA
+>> CPPI descriptors to be used for both ingress/egress packets
+>> processing. If not specified - the default value 256 will be used
+>> which will allow to place descriptor's pool into the internal CPPI
+>> RAM on most of TI SoC.
+>>
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>> ---
+>>  Documentation/devicetree/bindings/net/cpsw.txt | 5 +++++
+>>  1 file changed, 5 insertions(+)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+>> index 5ad439f..b99d196 100644
+>> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+>> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+>> @@ -35,6 +35,11 @@ Optional properties:
+>>  			  For example in dra72x-evm, pcf gpio has to be
+>>  			  driven low so that cpsw slave 0 and phy data
+>>  			  lines are connected via mux.
+>> +- descs_pool_size	: total number of CPDMA CPPI descriptors to be used for
+>> +			  both ingress/egress packets processing. if not
+>> +			  specified the default value 256 will be used which
+>> +			  will allow to place descriptors pool into the
+>> +			  internal CPPI RAM.
+> Does it describe h/w? Why now module parameter? or even smth like ethtool num
+> ring entries?
 > 
-> John Fastabend sent something like this last year as a proof of
-> concept, iirc it was rejected because register space got exposed directly
-> to userspace.  I think we should re-consider merging netmap
-> (or something conceptually close to its design).
 
-I'm actually working in this direction, of zero-copy RX mapping packets
-into userspace.  This work is mostly related to page_pool, and I only
-plan to use XDP as a filter for selecting packets going to userspace,
-as this choice need to be taken very early.
+It can be module parameter too. in general this is expected to be 
+ one-time boot setting only.  
 
-My design is here:
- https://prototype-kernel.readthedocs.io/en/latest/vm/page_pool/design/memory_model_nic.html
+----- OR
+So, do you propose to use 
+       ethtool -g ethX
 
-This is mostly about changing the memory model in the drivers, to allow
-for safely mapping pages to userspace.  (An efficient queue mechanism is
-not covered).  People often overlook that netmap's efficiency *also* comes
-from introducing pre-mapping memory/pages to userspace.
+       ethtool -G ethX [rx N] [tx N]
+?
+
+Now cpdma has one pool for all RX/TX channels, so changing this settings
+by ethtool will require: pause interfaces, reallocate cpdma pool, 
+re-arrange buffers between channels, resume interface. Correct?
+
+How do you think - we can move forward with one pool or better to have two (Rx and Tx)?
+
+Wouldn't it be reasonable to still have DT (or module) parameter to avoid 
+cpdma reconfiguration on system startup (pause/resume interfaces) (faster boot)?
+
+How about cpdma re-allocation policy (with expectation that is shouldn't happen too often)?
+- increasing of Rx, Tx will grow total number of physically allocated buffers (total_desc_num)
+- decreasing of Rx, Tx will just change number of available buffers (no memory re-allocation)
+
+----- OR ----
+Can we move forward with current patch (total number of CPDMA CPPI descriptors defined in DT) 
+and add ethtool -G ethX [rx N] [tx N] which will allow to re-split descs between RX and TX?
+
+
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+regards,
+-grygorii
