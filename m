@@ -1,33 +1,37 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH net] geneve: avoid use-after-free of skb->data
-Date: Fri, 2 Dec 2016 13:33:01 -0500
-Message-ID: <20161202183300.GA31657@tuxdriver.com>
-References: <027c88dd060f5ca4535cb346db125829b2181a88.1480675406.git.sd@queasysnail.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v7 net-next 0/6] net: Add bpf support for sockets
+Date: Fri, 02 Dec 2016 13:46:52 -0500 (EST)
+Message-ID: <20161202.134652.1237321538540148886.davem@davemloft.net>
+References: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
+        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57062 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750750AbcLBSpN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:45:13 -0500
-Content-Disposition: inline
-In-Reply-To: <027c88dd060f5ca4535cb346db125829b2181a88.1480675406.git.sd@queasysnail.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38730 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750917AbcLBSq7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:46:59 -0500
+In-Reply-To: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2016 at 04:49:29PM +0100, Sabrina Dubroca wrote:
-> geneve{,6}_build_skb can end up doing a pskb_expand_head(), which
-> makes the ip_hdr(skb) reference we stashed earlier stale. Since it's
-> only needed as an argument to ip_tunnel_ecn_encap(), move this
-> directly in the function call.
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu,  1 Dec 2016 08:48:02 -0800
+
+> The recently added VRF support in Linux leverages the bind-to-device
+> API for programs to specify an L3 domain for a socket. While
+> SO_BINDTODEVICE has been around for ages, not every ipv4/ipv6 capable
+> program has support for it. Even for those programs that do support it,
+> the API requires processes to be started as root (CAP_NET_RAW) which
+> is not desirable from a general security perspective.
 > 
-> Fixes: 08399efc6319 ("geneve: ensure ECN info is handled properly in all tx/rx paths")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> This patch set leverages Daniel Mack's work to attach bpf programs to
+> a cgroup to provide a capability to set sk_bound_dev_if for all
+> AF_INET{6} sockets opened by a process in a cgroup when the sockets
+> are allocated.
+ ...
 
-Reviewed-by: John W. Linville <linville@tuxdriver.com>
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Series applied, thanks David.
