@@ -1,56 +1,52 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH v2 00/18] ss: Minor code review
-Date: Fri, 2 Dec 2016 14:09:47 -0800
-Message-ID: <20161202140947.11531de5@xeon-e3>
-References: <20161202104002.17310-1-phil@nwl.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/4] tcp: tsq: add shortcut in
+ tcp_tasklet_func()
+Date: Fri, 02 Dec 2016 14:12:30 -0800
+Message-ID: <1480716750.18162.387.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480703159-2327-1-git-send-email-edumazet@google.com>
+         <1480703159-2327-4-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34876 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753582AbcLBWJv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 17:09:51 -0500
-Received: by mail-pf0-f172.google.com with SMTP id i88so54432609pfk.2
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 14:09:51 -0800 (PST)
-In-Reply-To: <20161202104002.17310-1-phil@nwl.cc>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34311 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750949AbcLBWOG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 17:14:06 -0500
+Received: by mail-pg0-f66.google.com with SMTP id e9so8997402pgc.1
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 14:13:32 -0800 (PST)
+In-Reply-To: <1480703159-2327-4-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  2 Dec 2016 11:39:44 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+On Fri, 2016-12-02 at 10:25 -0800, Eric Dumazet wrote:
+> Under high stress, I've seen tcp_tasklet_func() consuming
+> ~700 usec, handling ~150 tcp sockets.
+> 
+> By setting TCP_TSQ_DEFERRED in tcp_wfree(), we give a chance
+> for other cpus/threads entering tcp_write_xmit() to grab it,
+> allowing tcp_tasklet_func() to skip sockets that already did
+> an xmit cycle.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-> This is a series of misc changes to ss code which happened as fall-out
-> when working on a unified output formatter (still unfinished).
-> 
-> Changes since v1:
-> - Rebased onto current upstream, resolved conflicts in patch 4 generated
->   by previously added SCTP socket support.
-> 
-> Phil Sutter (18):
->   ss: Mark fall through in arg parsing switch()
->   ss: Drop empty lines in UDP output
->   ss: Add missing tab when printing UNIX details
->   ss: Use sockstat->type in all socket types
->   ss: introduce proc_ctx_print()
->   ss: Drop list traversal from unix_stats_print()
->   ss: Eliminate unix_use_proc()
->   ss: Turn generic_proc_open() wrappers into macros
->   ss: Make tmr_name local to tcp_timer_print()
->   ss: Make user_ent_hash_build_init local to user_ent_hash_build()
->   ss: Make some variables function-local
->   ss: Make slabstat_ids local to get_slabstat()
->   ss: Get rid of useless goto in handle_follow_request()
->   ss: Get rid of single-fielded struct snmpstat
->   ss: Make unix_state_map local to unix_show()
->   ss: Make sstate_name local to sock_state_print()
->   ss: Make sstate_namel local to scan_state()
->   ss: unix_show: No need to initialize members of calloc'ed structs
-> 
->  misc/ss.c | 532 ++++++++++++++++++++++++++------------------------------------
->  1 file changed, 224 insertions(+), 308 deletions(-)
-> 
+...
 
-Applied, thanks
+> @@ -884,7 +884,7 @@ void tcp_wfree(struct sk_buff *skb)
+>  		if (!(oval & TSQF_THROTTLED) || (oval & TSQF_QUEUED))
+>  			goto out;
+>  
+> -		nval = (oval & ~TSQF_THROTTLED) | TSQF_QUEUED;
+> +		nval = (oval & ~TSQF_THROTTLED) | TSQF_QUEUED | TCP_TSQ_DEFERRED;
+
+Typo here...
+
+Should be :
+		nval = (oval & ~TSQF_THROTTLED) | TSQF_QUEUED | TCPF_TSQ_DEFERRED;
+
+>  		nval = cmpxchg(&tp->tsq_flags, oval, nval);
+>  		if (nval != oval)
+>  			continue;
