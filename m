@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v3 08/13] net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs
-Date: Fri, 2 Dec 2016 14:30:18 -0600
-Message-ID: <20161202203023.25526-9-grygorii.strashko@ti.com>
+Subject: [PATCH v3 06/13] net: ethernet: ti: cpts: disable cpts when unregistered
+Date: Fri, 2 Dec 2016 14:30:16 -0600
+Message-ID: <20161202203023.25526-7-grygorii.strashko@ti.com>
 References: <20161202203023.25526-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,35 +15,38 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lelnx193.ext.ti.com ([198.47.27.77]:24998 "EHLO
+        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753836AbcLBUar (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 15:30:47 -0500
 In-Reply-To: <20161202203023.25526-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CPTS module and IRQs are always enabled when CPTS is registered,
-before starting overflow check work, and disabled during
-deregistration, when overflow check work has been canceled already.
-So, It doesn't require to (re)enable CPTS module and IRQs in
-cpts_overflow_check().
+The cpts now is left enabled after unregistration.
+Hence, disable it in cpts_unregister().
 
 Acked-by: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 8266459..a662c33 100644
+index 3dda6d5..d3c1ac5 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -243,8 +243,6 @@ static void cpts_overflow_check(struct work_struct *work)
- 	struct timespec64 ts;
- 	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
- 
--	cpts_write32(cpts, CPTS_EN, control);
--	cpts_write32(cpts, TS_PEND_EN, int_enable);
- 	cpts_ptp_gettime(&cpts->info, &ts);
- 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
- 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+@@ -404,6 +404,10 @@ void cpts_unregister(struct cpts *cpts)
+ 		ptp_clock_unregister(cpts->clock);
+ 		cancel_delayed_work_sync(&cpts->overflow_work);
+ 	}
++
++	cpts_write32(cpts, 0, int_enable);
++	cpts_write32(cpts, 0, control);
++
+ 	if (cpts->refclk)
+ 		cpts_clk_release(cpts);
+ }
 -- 
 2.10.1
