@@ -1,52 +1,42 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Initial thoughts on TXDP
-Date: Fri, 2 Dec 2016 09:12:39 -0800
-Message-ID: <CALx6S367+xaF_aA4wUk6E5n-Tao0hebkef9LFJOEp4PdwLv1vw@mail.gmail.com>
-References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
- <20161201024407.GE26507@breakpoint.cc> <CALx6S36ywu3ruY7AFKYk=N4Ekr5zjY33ivx92EgNNT36XoXhFA@mail.gmail.com>
- <859a0c99-f427-1db8-d260-1297777792fb@stressinduktion.org>
- <CALx6S350eCYS63dGiR+X+nVvqF_uGJop9Z_m7SmZf9QXr-rrfg@mail.gmail.com> <cb2e6263-d981-eccf-cea7-39392ceb67b5@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] packet: fix race condition in packet_set_ring
+Date: Fri, 02 Dec 2016 12:17:16 -0500 (EST)
+Message-ID: <20161202.121716.1777311750320989876.davem@davemloft.net>
+References: <1480546536.18162.216.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Florian Westphal <fw@strlen.de>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jesper Dangaard Brouer <jbrouer@redhat.com>
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, philip.pettersson@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f170.google.com ([209.85.216.170]:34401 "EHLO
-        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753799AbcLBRMx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 12:12:53 -0500
-Received: by mail-qt0-f170.google.com with SMTP id n6so258138364qtd.1
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 09:12:41 -0800 (PST)
-In-Reply-To: <cb2e6263-d981-eccf-cea7-39392ceb67b5@solarflare.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36888 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752366AbcLBRRR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 12:17:17 -0500
+In-Reply-To: <1480546536.18162.216.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 2, 2016 at 6:36 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 01/12/16 23:46, Tom Herbert wrote:
->> The only time we
->> _really_ to allocate an skbuf is when we need to put the packet onto a
->> queue. All the other use cases are really just to pass a structure
->> containing a packet from function to function. For that purpose we
->> should be able to just pass a much smaller structure in a stack
->> argument and only allocate an skbuff when we need to enqueue. In cases
->> where we don't ever queue a packet we might never need to allocate any
->> skbuff
-> Now this intrigues me, because one of the objections to bundling (vs GRO)
-> was the memory usage of all those SKBs.  IIRC we already do a 'GRO-like'
-> coalescing when packets reach a TCP socket anyway (or at least in some
-> cases, not sure if all the different ways we can enqueue a TCP packet for
-> RX do it), but if we could carry the packets from NIC to socket without
-> SKBs, doing so in lists rather than one-at-a-time wouldn't cost any extra
-> memory (the packet-pages are all already allocated on the NIC RX ring).
-> Possibly combine the two, so that rather than having potentially four
-> versions of each function (skb, skbundle, void*, void* bundle) you just
-> have the two 'ends'.
->
-Yep, seems like a good idea to incorporate bundling into TXDP from the get-go.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 30 Nov 2016 14:55:36 -0800
 
-Tom
+> From: Philip Pettersson <philip.pettersson@gmail.com>
+> 
+> When packet_set_ring creates a ring buffer it will initialize a
+> struct timer_list if the packet version is TPACKET_V3. This value
+> can then be raced by a different thread calling setsockopt to
+> set the version to TPACKET_V1 before packet_set_ring has finished.
+> 
+> This leads to a use-after-free on a function pointer in the
+> struct timer_list when the socket is closed as the previously
+> initialized timer will not be deleted.
+> 
+> The bug is fixed by taking lock_sock(sk) in packet_setsockopt when
+> changing the packet version while also taking the lock at the start
+> of packet_set_ring.
+> 
+> Fixes: f6fb8f100b80 ("af-packet: TPACKET_V3 flexible buffer implementation.")
+> Signed-off-by: Philip Pettersson <philip.pettersson@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-> -Ed
+Applied and queued up for -stable, thanks.
