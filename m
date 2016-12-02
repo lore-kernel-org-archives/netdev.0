@@ -1,81 +1,94 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH next] dctcp: update cwnd on congestion event
-Date: Fri, 2 Dec 2016 22:49:35 +0100
-Message-ID: <20161202214935.GB31010@breakpoint.cc>
-References: <1479138121-32294-1-git-send-email-fw@strlen.de>
- <CADVnQymNZ+FQ5xJ92HuSkheAJfOTUyh-PsA11bxRWERZkD5zdQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, Netdev <netdev@vger.kernel.org>,
-        Lawrence Brakmo <brakmo@fb.com>,
-        Andrew Shewmaker <agshew@gmail.com>,
-        Glenn Judd <glenn.judd@morganstanley.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:59302 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750750AbcLBVwp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 16:52:45 -0500
-Content-Disposition: inline
-In-Reply-To: <CADVnQymNZ+FQ5xJ92HuSkheAJfOTUyh-PsA11bxRWERZkD5zdQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] adm80211: add checks for dma mapping errors
+Date: Sat,  3 Dec 2016 00:52:46 +0300
+Message-ID: <1480715566-17027-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Neal Cardwell <ncardwell@google.com> wrote:
-> On Mon, Nov 14, 2016 at 10:42 AM, Florian Westphal <fw@strlen.de> wrote:
-> >
-> > draft-ietf-tcpm-dctcp-02 says:
-> >
-> > ... when the sender receives an indication of congestion
-> > (ECE), the sender SHOULD update cwnd as follows:
-> >
-> >          cwnd = cwnd * (1 - DCTCP.Alpha / 2)
-> >
-> > So, lets do this and reduce cwnd more smoothly (and faster), as per
-> > current congestion estimate.
-> 
-> AFAICT this is doing a multiplicative decrease of cwnd on every ACK
-> that has an ECE bit.
-> 
-> If I am reading the code correctly, then I would have two concerns:
-> 
-> 1) Has that been tested? That seems like an extremely dramatic
-> decrease in cwnd. For example, if the cwnd is 80, and there are 40
-> ACKs, and half the ACKs are ECE marked, then my back-of-the-envelope
-> calculations seem to suggest that after just 11 ACKs the cwnd would be
-> down to a minimal value of 2:
-> 
-> ack 1 cwnd=60
-> ack 2 cwnd=45
-> ack 3 cwnd=33
-[..]
+The driver does not check if mapping dma memory succeed.
+The patch adds the checks and failure handling.
 
-You are assuming alpha = 0.5?
-Then, yes, looks correct.  Since some of these acks will most likely
-also end an observation window acks might also cause change to alpha.
+Found by Linux Driver Verification project (linuxtesting.org).
 
-> 2) That seems to contradict another passage in the draft (v 02 or 03). Consider
->      https://tools.ietf.org/html/draft-ietf-tcpm-dctcp-03
-> where it says
-> 
->    Just as specified in [RFC3168], DCTCP does not react to congestion
->    indications more than once for every window of data.
-> 
-> So the draft seems to advocate not reacting to congestion indications
-> more than once per window. Yet this patch reacts on every ECE-marked
-> ACK within a window.
-> 
-> Am I reading something incorrectly?
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/wireless/admtek/adm8211.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
 
-No, I will raise this on tcpm next monday (if you want you
-can of course do this yourself).
-
-Would be easy to make it so this cwnd update only happens once in each
-observation cycle, but it would be even better if this would get input
-from draft authors.
-
-Thanks Neal!
+diff --git a/drivers/net/wireless/admtek/adm8211.c b/drivers/net/wireless/admtek/adm8211.c
+index 70ecd82d674d..2b4a3eb38dfa 100644
+--- a/drivers/net/wireless/admtek/adm8211.c
++++ b/drivers/net/wireless/admtek/adm8211.c
+@@ -413,6 +413,13 @@ static void adm8211_interrupt_rci(struct ieee80211_hw *dev)
+ 						       skb_tail_pointer(newskb),
+ 						       RX_PKT_SIZE,
+ 						       PCI_DMA_FROMDEVICE);
++				if (pci_dma_mapping_error(priv->pdev,
++					   priv->rx_buffers[entry].mapping)) {
++					priv->rx_buffers[entry].skb = NULL;
++					dev_kfree_skb(newskb);
++					skb = NULL;
++					/* TODO: update rx dropped stats */
++				}
+ 			} else {
+ 				skb = NULL;
+ 				/* TODO: update rx dropped stats */
+@@ -1450,6 +1457,12 @@ static int adm8211_init_rings(struct ieee80211_hw *dev)
+ 						  skb_tail_pointer(rx_info->skb),
+ 						  RX_PKT_SIZE,
+ 						  PCI_DMA_FROMDEVICE);
++		if (pci_dma_mapping_error(priv->pdev, rx_info->mapping)) {
++			dev_kfree_skb(rx_info->skb);
++			rx_info->skb = NULL;
++			break;
++		}
++
+ 		desc->buffer1 = cpu_to_le32(rx_info->mapping);
+ 		desc->status = cpu_to_le32(RDES0_STATUS_OWN | RDES0_STATUS_SQL);
+ 	}
+@@ -1613,7 +1626,7 @@ static void adm8211_calc_durations(int *dur, int *plcp, size_t payload_len, int
+ }
+ 
+ /* Transmit skb w/adm8211_tx_hdr (802.11 header created by hardware) */
+-static void adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
++static int adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
+ 			   u16 plcp_signal,
+ 			   size_t hdrlen)
+ {
+@@ -1625,6 +1638,8 @@ static void adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
+ 
+ 	mapping = pci_map_single(priv->pdev, skb->data, skb->len,
+ 				 PCI_DMA_TODEVICE);
++	if (pci_dma_mapping_error(priv->pdev, mapping))
++		return -ENOMEM;
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 
+@@ -1657,6 +1672,8 @@ static void adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
+ 
+ 	/* Trigger transmit poll */
+ 	ADM8211_CSR_WRITE(TDR, 0);
++
++	return 0;
+ }
+ 
+ /* Put adm8211_tx_hdr on skb and transmit */
+@@ -1710,7 +1727,10 @@ static void adm8211_tx(struct ieee80211_hw *dev,
+ 
+ 	txhdr->retry_limit = info->control.rates[0].count;
+ 
+-	adm8211_tx_raw(dev, skb, plcp_signal, hdrlen);
++	if (adm8211_tx_raw(dev, skb, plcp_signal, hdrlen)) {
++		/* Drop packet */
++		ieee80211_free_txskb(dev, skb);
++	}
+ }
+ 
+ static int adm8211_alloc_rings(struct ieee80211_hw *dev)
+-- 
+2.7.4
