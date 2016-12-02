@@ -1,268 +1,172 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 2/8] drivers: net: xgene: Configure classifier with pagepool
-Date: Thu,  1 Dec 2016 16:41:38 -0800
-Message-ID: <1480639304-18757-3-git-send-email-isubramanian@apm.com>
-References: <1480639304-18757-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-        Iyappan Subramanian <isubramanian@apm.com>,
-        Quan Nguyen <qnguyen@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:34930 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755581AbcLBAkm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 19:40:42 -0500
-Received: by mail-pg0-f50.google.com with SMTP id p66so100702629pga.2
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 16:40:42 -0800 (PST)
-In-Reply-To: <1480639304-18757-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Lutomirski <luto@kernel.org>
+Subject: Re: [PATCH v8 3/8] thunderbolt: Communication with the ICM (firmware)
+Date: Thu, 1 Dec 2016 17:21:01 -0800
+Message-ID: <fe0f0a6f-488b-bbc0-8987-a9c47d9ed9b9@kernel.org>
+References: <1475073870-2126-1-git-send-email-amir.jer.levy@intel.com>
+ <1475073870-2126-4-git-send-email-amir.jer.levy@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
+        linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+        netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+        mario_limonciello@dell.com, thunderbolt-linux@intel.com,
+        mika.westerberg@intel.com, tomas.winkler@intel.com,
+        xiong.y.zhang@intel.com
+To: Amir Levy <amir.jer.levy@intel.com>, gregkh@linuxfoundation.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1475073870-2126-4-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch configures classifier with the pagepool information.
+On 09/28/2016 07:44 AM, Amir Levy wrote:
+> This patch provides the communication protocol between the
+> Intel Connection Manager(ICM) firmware that is operational in the
+> Thunderbolt controller in non-Apple hardware.
+> The ICM firmware-based controller is used for establishing and maintaining
+> the Thunderbolt Networking connection - we need to be able to communicate
+> with it.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Quan Nguyen <qnguyen@apm.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.c   | 16 ++++++++++++++--
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.h   |  2 ++
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    |  7 +++++--
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  6 ++++--
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 11 +++++++++--
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  3 ++-
- drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c |  9 ++++++---
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  7 +++++--
- 8 files changed, 47 insertions(+), 14 deletions(-)
+I'm a bit late to the party, but here goes.  I have two big questions:
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-index 7aac0fb..caa55bd 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-@@ -52,6 +52,7 @@ static void xgene_cle_dbptr_to_hw(struct xgene_enet_pdata *pdata,
- {
- 	buf[0] = SET_VAL(CLE_DROP, dbptr->drop);
- 	buf[4] = SET_VAL(CLE_FPSEL, dbptr->fpsel) |
-+		 SET_VAL(CLE_NFPSEL, dbptr->nxtfpsel) |
- 		 SET_VAL(CLE_DSTQIDL, dbptr->dstqid);
- 
- 	buf[5] = SET_VAL(CLE_DSTQIDH, (u32)dbptr->dstqid >> CLE_DSTQIDL_LEN) |
-@@ -349,8 +350,12 @@ static int xgene_cle_set_rss_idt(struct xgene_enet_pdata *pdata)
- 		fpsel = xgene_enet_get_fpsel(pool_id);
- 		dstqid = xgene_enet_dst_ring_num(pdata->rx_ring[idx]);
- 		nfpsel = 0;
--		idt_reg = 0;
-+		if (pdata->rx_ring[idx]->page_pool) {
-+			pool_id = pdata->rx_ring[idx]->page_pool->id;
-+			nfpsel = xgene_enet_get_fpsel(pool_id);
-+		}
- 
-+		idt_reg = 0;
- 		xgene_cle_idt_to_hw(pdata, dstqid, fpsel, nfpsel, &idt_reg);
- 		ret = xgene_cle_dram_wr(&pdata->cle, &idt_reg, 1, i,
- 					RSS_IDT, CLE_CMD_WR);
-@@ -400,9 +405,9 @@ static int xgene_cle_setup_rss(struct xgene_enet_pdata *pdata)
- static int xgene_enet_cle_init(struct xgene_enet_pdata *pdata)
- {
- 	struct xgene_enet_cle *enet_cle = &pdata->cle;
-+	u32 def_qid, def_fpsel, def_nxtfpsel, pool_id;
- 	struct xgene_cle_dbptr dbptr[DB_MAX_PTRS];
- 	struct xgene_cle_ptree_branch *br;
--	u32 def_qid, def_fpsel, pool_id;
- 	struct xgene_cle_ptree *ptree;
- 	struct xgene_cle_ptree_kn kn;
- 	int ret;
-@@ -707,13 +712,20 @@ static int xgene_enet_cle_init(struct xgene_enet_pdata *pdata)
- 	def_qid = xgene_enet_dst_ring_num(pdata->rx_ring[0]);
- 	pool_id = pdata->rx_ring[0]->buf_pool->id;
- 	def_fpsel = xgene_enet_get_fpsel(pool_id);
-+	def_nxtfpsel = 0;
-+	if (pdata->rx_ring[0]->page_pool) {
-+		pool_id = pdata->rx_ring[0]->page_pool->id;
-+		def_nxtfpsel = xgene_enet_get_fpsel(pool_id);
-+	}
- 
- 	memset(dbptr, 0, sizeof(struct xgene_cle_dbptr) * DB_MAX_PTRS);
- 	dbptr[DB_RES_ACCEPT].fpsel =  def_fpsel;
-+	dbptr[DB_RES_ACCEPT].nxtfpsel = def_nxtfpsel;
- 	dbptr[DB_RES_ACCEPT].dstqid = def_qid;
- 	dbptr[DB_RES_ACCEPT].cle_priority = 1;
- 
- 	dbptr[DB_RES_DEF].fpsel = def_fpsel;
-+	dbptr[DB_RES_DEF].nxtfpsel = def_nxtfpsel;
- 	dbptr[DB_RES_DEF].dstqid = def_qid;
- 	dbptr[DB_RES_DEF].cle_priority = 7;
- 	xgene_cle_setup_def_dbptr(pdata, enet_cle, &dbptr[DB_RES_DEF],
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-index 9ac9f8e..903be0c 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-@@ -91,6 +91,8 @@
- #define CLE_DSTQIDH_LEN		5
- #define CLE_FPSEL_POS		21
- #define CLE_FPSEL_LEN		4
-+#define CLE_NFPSEL_POS		17
-+#define CLE_NFPSEL_LEN		4
- #define CLE_PRIORITY_POS	5
- #define CLE_PRIORITY_LEN	3
- 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 1007074..c395df3 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -550,12 +550,14 @@ static void xgene_enet_config_ring_if_assoc(struct xgene_enet_pdata *pdata)
- }
- 
- static void xgene_enet_cle_bypass(struct xgene_enet_pdata *pdata,
--				  u32 dst_ring_num, u16 bufpool_id)
-+				  u32 dst_ring_num, u16 bufpool_id,
-+				  u16 nxtbufpool_id)
- {
- 	u32 cb;
--	u32 fpsel;
-+	u32 fpsel, nxtfpsel;
- 
- 	fpsel = xgene_enet_get_fpsel(bufpool_id);
-+	nxtfpsel = xgene_enet_get_fpsel(nxtbufpool_id);
- 
- 	xgene_enet_rd_csr(pdata, CLE_BYPASS_REG0_0_ADDR, &cb);
- 	cb |= CFG_CLE_BYPASS_EN0;
-@@ -565,6 +567,7 @@ static void xgene_enet_cle_bypass(struct xgene_enet_pdata *pdata,
- 	xgene_enet_rd_csr(pdata, CLE_BYPASS_REG1_0_ADDR, &cb);
- 	CFG_CLE_DSTQID0_SET(&cb, dst_ring_num);
- 	CFG_CLE_FPSEL0_SET(&cb, fpsel);
-+	CFG_CLE_NXTFPSEL0_SET(&cb, nxtfpsel);
- 	xgene_enet_wr_csr(pdata, CLE_BYPASS_REG1_0_ADDR, cb);
- }
- 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index e73cbb1..bd6cb6c 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -165,10 +165,12 @@ enum xgene_enet_rm {
- #define CFG_CLE_IP_PROTOCOL0_SET(dst, val)	xgene_set_bits(dst, val, 16, 2)
- #define CFG_CLE_DSTQID0_SET(dst, val)		xgene_set_bits(dst, val, 0, 12)
- #define CFG_CLE_FPSEL0_SET(dst, val)		xgene_set_bits(dst, val, 16, 4)
-+#define CFG_CLE_NXTFPSEL0_SET(dst, val)		xgene_set_bits(dst, val, 20, 4)
- #define CFG_MACMODE_SET(dst, val)		xgene_set_bits(dst, val, 18, 2)
- #define CFG_WAITASYNCRD_SET(dst, val)		xgene_set_bits(dst, val, 0, 16)
--#define CFG_CLE_DSTQID0(val)		(val & GENMASK(11, 0))
--#define CFG_CLE_FPSEL0(val)		((val << 16) & GENMASK(19, 16))
-+#define CFG_CLE_DSTQID0(val)		((val) & GENMASK(11, 0))
-+#define CFG_CLE_FPSEL0(val)		(((val) << 16) & GENMASK(19, 16))
-+#define CFG_CLE_NXTFPSEL0(val)		(((val) << 20) & GENMASK(23, 20))
- #define ICM_CONFIG0_REG_0_ADDR		0x0400
- #define ICM_CONFIG2_REG_0_ADDR		0x0410
- #define RX_DV_GATE_REG_0_ADDR		0x05fc
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 1352b52..c89acf5 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1518,9 +1518,10 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
- {
- 	struct xgene_enet_cle *enet_cle = &pdata->cle;
-+	struct xgene_enet_desc_ring *page_pool;
- 	struct net_device *ndev = pdata->ndev;
- 	struct xgene_enet_desc_ring *buf_pool;
--	u16 dst_ring_num;
-+	u16 dst_ring_num, ring_id;
- 	int i, ret;
- 
- 	ret = pdata->port_ops->reset(pdata);
-@@ -1558,8 +1559,14 @@ static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
- 			netdev_err(ndev, "Preclass Tree init error\n");
- 			goto err;
- 		}
-+
- 	} else {
--		pdata->port_ops->cle_bypass(pdata, dst_ring_num, buf_pool->id);
-+		dst_ring_num = xgene_enet_dst_ring_num(pdata->rx_ring[0]);
-+		buf_pool = pdata->rx_ring[0]->buf_pool;
-+		page_pool = pdata->rx_ring[0]->page_pool;
-+		ring_id = (page_pool) ? page_pool->id : 0;
-+		pdata->port_ops->cle_bypass(pdata, dst_ring_num,
-+					    buf_pool->id, ring_id);
- 	}
- 
- 	pdata->phy_speed = SPEED_UNKNOWN;
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index 011965b..1fe3942 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -115,6 +115,7 @@ struct xgene_enet_desc_ring {
- 	enum xgene_enet_ring_cfgsize cfgsize;
- 	struct xgene_enet_desc_ring *cp_ring;
- 	struct xgene_enet_desc_ring *buf_pool;
-+	struct xgene_enet_desc_ring *page_pool;
- 	struct napi_struct napi;
- 	union {
- 		void *desc_addr;
-@@ -152,7 +153,7 @@ struct xgene_port_ops {
- 	void (*clear)(struct xgene_enet_pdata *pdata,
- 		      struct xgene_enet_desc_ring *ring);
- 	void (*cle_bypass)(struct xgene_enet_pdata *pdata,
--			   u32 dst_ring_num, u16 bufpool_id);
-+			   u32 dst_ring_num, u16 bufpool_id, u16 nxtbufpool_id);
- 	void (*shutdown)(struct xgene_enet_pdata *pdata);
- };
- 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-index 8e4209c..82b7a5e 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
-@@ -484,11 +484,12 @@ static int xgene_enet_reset(struct xgene_enet_pdata *p)
- }
- 
- static void xgene_enet_cle_bypass(struct xgene_enet_pdata *p,
--				  u32 dst_ring_num, u16 bufpool_id)
-+				  u32 dst_ring_num, u16 bufpool_id,
-+				  u16 nxtbufpool_id)
- {
--	u32 data, fpsel;
- 	u32 cle_bypass_reg0, cle_bypass_reg1;
- 	u32 offset = p->port_id * MAC_OFFSET;
-+	u32 data, fpsel, nxtfpsel;
- 
- 	if (p->enet_id == XGENE_ENET1) {
- 		cle_bypass_reg0 = CLE_BYPASS_REG0_0_ADDR;
-@@ -502,7 +503,9 @@ static void xgene_enet_cle_bypass(struct xgene_enet_pdata *p,
- 	xgene_enet_wr_csr(p, cle_bypass_reg0 + offset, data);
- 
- 	fpsel = xgene_enet_get_fpsel(bufpool_id);
--	data = CFG_CLE_DSTQID0(dst_ring_num) | CFG_CLE_FPSEL0(fpsel);
-+	nxtfpsel = xgene_enet_get_fpsel(nxtbufpool_id);
-+	data = CFG_CLE_DSTQID0(dst_ring_num) | CFG_CLE_FPSEL0(fpsel) |
-+	       CFG_CLE_NXTFPSEL0(nxtfpsel);
- 	xgene_enet_wr_csr(p, cle_bypass_reg1 + offset, data);
- }
- 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-index f97e599..e4adba6 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-@@ -350,9 +350,10 @@ static int xgene_enet_reset(struct xgene_enet_pdata *pdata)
- }
- 
- static void xgene_enet_xgcle_bypass(struct xgene_enet_pdata *pdata,
--				    u32 dst_ring_num, u16 bufpool_id)
-+				    u32 dst_ring_num, u16 bufpool_id,
-+				    u16 nxtbufpool_id)
- {
--	u32 cb, fpsel;
-+	u32 cb, fpsel, nxtfpsel;
- 
- 	xgene_enet_rd_csr(pdata, XCLE_BYPASS_REG0_ADDR, &cb);
- 	cb |= CFG_CLE_BYPASS_EN0;
-@@ -360,9 +361,11 @@ static void xgene_enet_xgcle_bypass(struct xgene_enet_pdata *pdata,
- 	xgene_enet_wr_csr(pdata, XCLE_BYPASS_REG0_ADDR, cb);
- 
- 	fpsel = xgene_enet_get_fpsel(bufpool_id);
-+	nxtfpsel = xgene_enet_get_fpsel(nxtbufpool_id);
- 	xgene_enet_rd_csr(pdata, XCLE_BYPASS_REG1_ADDR, &cb);
- 	CFG_CLE_DSTQID0_SET(&cb, dst_ring_num);
- 	CFG_CLE_FPSEL0_SET(&cb, fpsel);
-+	CFG_CLE_NXTFPSEL0_SET(&cb, nxtfpsel);
- 	xgene_enet_wr_csr(pdata, XCLE_BYPASS_REG1_ADDR, cb);
- }
- 
--- 
-1.9.1
+1. Why is this using netlink at all?  A system has zero or more 
+Thunderbolt controllers, they're probed just like any other PCI devices 
+(by nhi_probe() if I'm understanding correctly), they'll have nodes in 
+sysfs, etc.  Shouldn't there be a simple char device per Thunderbolt 
+controller that a daemon can connect to?  This will clean up lots of things:
+
+a) You can actually enforce one-daemon-at-a-time in a very natural way. 
+Your current code seems to try, but it's rather buggy.  Your 
+subscription count is a guess, your unsubscribe is entirely unchecked, 
+and you are entirely unable to detect if a daemon crashes AFAICT.
+
+b) You won't need all of the complexity that's currently there to figure 
+out *which* Thunderbolt device a daemon is talking to.
+
+c) You can use regular ioctl passing *structs* instead of netlink attrs. 
+  There's nothing wrong with netlink attrs, except that your driver 
+seems to have a whole lot of boilerplate that just converts back and 
+forth to regular structures.
+
+d) The userspace code that does stuff like "send message, wait 150ms, 
+receive reply, complain if no reply" goes away because ioctl is 
+synchronous.  (Or you can use read and write, but it's still simpler.)
+
+e) You could have one daemon per Thunderbolt device if you were so inclined.
+
+f) You get privilege separation in userspace.  Creating a netlink socket 
+and dropping privilege is busted^Winteresting.  Opening a device node 
+and dropping privilege works quite nicely.
+
+2. Why do you need a daemon anyway.  Functionally, what exactly does it 
+do?  (Okay, I get that it seems to talk to a giant pile of code running 
+in SMM, and I get that Intel, for some bizarre reason, wants everyone 
+except Apple to use this code in SMM, and that Apple (for entirely 
+understandable reasons) turned it off, but that's beside the point. 
+What does the user code do that's useful and that the kernel can't do 
+all by itself?  The only really interesting bit I can see is the part 
+that approves PCI devices.
+
+
+
+I'm not going to review this in detail, but here's a tiny bit:
+
+> +static int nhi_genl_unsubscribe(__always_unused struct sk_buff *u_skb,
+> +				__always_unused struct genl_info *info)
+> +{
+> +	atomic_dec_if_positive(&subscribers);
+> +
+> +	return 0;
+> +}
+> +
+
+This, for example, is really quite buggy.
+
+
+
+This entire function here:
+
+> +static int nhi_genl_query_information(__always_unused struct sk_buff *u_skb,
+> +				      struct genl_info *info)
+> +{
+> +	struct tbt_nhi_ctxt *nhi_ctxt;
+> +	struct sk_buff *skb;
+> +	bool msg_too_long;
+> +	int res = -ENODEV;
+> +	u32 *msg_head;
+> +
+> +	if (!info || !info->userhdr)
+> +		return -EINVAL;
+> +
+> +	skb = genlmsg_new(NLMSG_ALIGN(nhi_genl_family.hdrsize) +
+> +			  nla_total_size(sizeof(DRV_VERSION)) +
+> +			  nla_total_size(sizeof(nhi_ctxt->nvm_ver_offset)) +
+> +			  nla_total_size(sizeof(nhi_ctxt->num_ports)) +
+> +			  nla_total_size(sizeof(nhi_ctxt->dma_port)) +
+> +			  nla_total_size(0),	/* nhi_ctxt->support_full_e2e */
+> +			  GFP_KERNEL);
+> +	if (!skb)
+> +		return -ENOMEM;
+> +
+> +	msg_head = genlmsg_put_reply(skb, info, &nhi_genl_family, 0,
+> +				     NHI_CMD_QUERY_INFORMATION);
+> +	if (!msg_head) {
+> +		res = -ENOMEM;
+> +		goto genl_put_reply_failure;
+> +	}
+> +
+> +	if (mutex_lock_interruptible(&controllers_list_mutex)) {
+> +		res = -ERESTART;
+> +		goto genl_put_reply_failure;
+> +	}
+> +
+> +	nhi_ctxt = nhi_search_ctxt(*(u32 *)info->userhdr);
+> +	if (nhi_ctxt && !nhi_ctxt->d0_exit) {
+> +		*msg_head = nhi_ctxt->id;
+> +
+> +		msg_too_long = !!nla_put_string(skb, NHI_ATTR_DRV_VERSION,
+> +						DRV_VERSION);
+> +
+> +		msg_too_long = msg_too_long ||
+> +			       nla_put_u16(skb, NHI_ATTR_NVM_VER_OFFSET,
+> +					   nhi_ctxt->nvm_ver_offset);
+> +
+> +		msg_too_long = msg_too_long ||
+> +			       nla_put_u8(skb, NHI_ATTR_NUM_PORTS,
+> +					  nhi_ctxt->num_ports);
+> +
+> +		msg_too_long = msg_too_long ||
+> +			       nla_put_u8(skb, NHI_ATTR_DMA_PORT,
+> +					  nhi_ctxt->dma_port);
+> +
+> +		if (msg_too_long) {
+> +			res = -EMSGSIZE;
+> +			goto release_ctl_list_lock;
+> +		}
+> +
+> +		if (nhi_ctxt->support_full_e2e &&
+> +		    nla_put_flag(skb, NHI_ATTR_SUPPORT_FULL_E2E)) {
+> +			res = -EMSGSIZE;
+> +			goto release_ctl_list_lock;
+> +		}
+> +		mutex_unlock(&controllers_list_mutex);
+> +
+> +		genlmsg_end(skb, msg_head);
+> +
+> +		return genlmsg_reply(skb, info);
+> +	}
+> +
+> +release_ctl_list_lock:
+> +	mutex_unlock(&controllers_list_mutex);
+> +	genlmsg_cancel(skb, msg_head);
+> +
+> +genl_put_reply_failure:
+> +	nlmsg_free(skb);
+> +
+> +	return res;
+> +}
+
+would be about three lines of code if you used copy_to_user and a struct.
+
+
+--Andy
