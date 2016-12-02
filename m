@@ -1,92 +1,101 @@
-From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Subject: Re: [PATCH net v2] igb: re-assign hw address pointer on reset after
- PCI error
-Date: Fri, 2 Dec 2016 10:55:56 -0200
-Message-ID: <58416F5C.20602@linux.vnet.ibm.com>
-References: <1478803603-30306-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Initial thoughts on TXDP
+Date: Fri, 2 Dec 2016 14:01:02 +0100
+Message-ID: <20161202140102.1d515e0b@redhat.com>
+References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
+	<20161201024407.GE26507@breakpoint.cc>
+	<CALx6S36ywu3ruY7AFKYk=N4Ekr5zjY33ivx92EgNNT36XoXhFA@mail.gmail.com>
+	<859a0c99-f427-1db8-d260-1297777792fb@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, todd.fujinaka@intel.com
-To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-        alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:42585 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753256AbcLBM4F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 07:56:05 -0500
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uB2CpomF145890
-        for <netdev@vger.kernel.org>; Fri, 2 Dec 2016 07:56:04 -0500
-Received: from e24smtp03.br.ibm.com (e24smtp03.br.ibm.com [32.104.18.24])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 27393413aw-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 07:56:03 -0500
-Received: from localhost
-        by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
-        Fri, 2 Dec 2016 10:56:02 -0200
-Received: from d24relay04.br.ibm.com (d24relay04.br.ibm.com [9.18.232.146])
-        by d24dlp02.br.ibm.com (Postfix) with ESMTP id 5F8731DC006E
-        for <netdev@vger.kernel.org>; Fri,  2 Dec 2016 07:56:00 -0500 (EST)
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-        by d24relay04.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id uB2Cu0nh58654932
-        for <netdev@vger.kernel.org>; Fri, 2 Dec 2016 10:56:00 -0200
-Received: from d24av04.br.ibm.com (localhost [127.0.0.1])
-        by d24av04.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id uB2CtxlW019672
-        for <netdev@vger.kernel.org>; Fri, 2 Dec 2016 10:56:00 -0200
-In-Reply-To: <1478803603-30306-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: brouer@redhat.com, Tom Herbert <tom@herbertland.com>,
+        Florian Westphal
+ <fw@strlen.de>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        John Fastabend
+ <john.fastabend@gmail.com>,
+        linux-mm <linux-mm@kvack.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <859a0c99-f427-1db8-d260-1297777792fb@stressinduktion.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 11/10/2016 04:46 PM, Guilherme G. Piccoli wrote:
-> Whenever the igb driver detects the result of a read operation returns
-> a value composed only by F's (like 0xFFFFFFFF), it will detach the
-> net_device, clear the hw_addr pointer and warn to the user that adapter's
-> link is lost - those steps happen on igb_rd32().
-> 
-> In case a PCI error happens on Power architecture, there's a recovery
-> mechanism called EEH, that will reset the PCI slot and call driver's
-> handlers to reset the adapter and network functionality as well.
-> 
-> We observed that once hw_addr is NULL after the error is detected on
-> igb_rd32(), it's never assigned back, so in the process of resetting
-> the network functionality we got a NULL pointer dereference in both
-> igb_configure_tx_ring() and igb_configure_rx_ring(). In order to avoid
-> such bug, this patch re-assigns the hw_addr value in the slot_reset
-> handler.
-> 
-> Reported-by: Anthony H. Thai <ahthai@us.ibm.com>
-> Reported-by: Harsha Thyagaraja <hathyaga@in.ibm.com>
-> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index edc9a6a..136ee9e 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -7878,6 +7878,11 @@ static pci_ers_result_t igb_io_slot_reset(struct pci_dev *pdev)
->  		pci_enable_wake(pdev, PCI_D3hot, 0);
->  		pci_enable_wake(pdev, PCI_D3cold, 0);
-> 
-> +		/* In case of PCI error, adapter lose its HW address
-> +		 * so we should re-assign it here.
-> +		 */
-> +		hw->hw_addr = adapter->io_addr;
-> +
->  		igb_reset(adapter);
->  		wr32(E1000_WUS, ~0);
->  		result = PCI_ERS_RESULT_RECOVERED;
-> 
+On Thu, 1 Dec 2016 23:47:44 +0100
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-Ping?
+> Side note:
+> 
+> On 01.12.2016 20:51, Tom Herbert wrote:
+> >> > E.g. "mini-skb": Even if we assume that this provides a speedup
+> >> > (where does that come from? should make no difference if a 32 or
+> >> >  320 byte buffer gets allocated).
 
-Sorry to annoy, any news on this?
-Thanks in advance!
+Yes, the size of the allocation from the SLUB allocator does not change
+base performance/cost much (at least for small objects, if < 1024).
 
-Cheers,
+Do notice the base SLUB alloc+free cost is fairly high (compared to a
+201 cycles budget). Especially for networking as the free-side is very
+likely to hit a slow path.  SLUB fast-path 53 cycles, and slow-path
+around 100 cycles (data from [1]).  I've tried to address this with the
+kmem_cache bulk APIs.  Which reduce the cost to approx 30 cycles.
+(Something we have not fully reaped the benefit from yet!)
 
+[1] https://git.kernel.org/torvalds/c/ca257195511
 
-Guilherme
+> >> >  
+> > It's the zero'ing of three cache lines. I believe we talked about that
+> > as netdev.
+
+Actually 4 cache-lines, but with some cleanup I believe we can get down
+to clearing 192 bytes 3 cache-lines.
+
+> 
+> Jesper and me played with that again very recently:
+> 
+> https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/time_bench_memset.c#L590
+> 
+> In micro-benchmarks we saw a pretty good speed up not using the rep
+> stosb generated by gcc builtin but plain movq's. Probably the cost model
+> for __builtin_memset in gcc is wrong?
+
+Yes, I believe so.
+ 
+> When Jesper is free we wanted to benchmark this and maybe come up with a
+> arch specific way of cleaning if it turns out to really improve throughput.
+> 
+> SIMD instructions seem even faster but the kernel_fpu_begin/end() kill
+> all the benefits.
+
+One strange thing was, that on my skylake CPU (i7-6700K @4.00GHz),
+Hannes's hand-optimized MOVQ ASM-code didn't go past 8 bytes per cycle,
+or 32 cycles for 256 bytes.
+
+Talking to Alex and John during netdev, and reading on the Intel arch,
+I though that this CPU should be-able-to perform 16 bytes per cycle.
+The CPU can do it as the rep-stos show this once the size gets large
+enough.
+
+On this CPU the memset rep stos starts to win around 512 bytes:
+
+ 192/35 =  5.5 bytes/cycle
+ 256/36 =  7.1 bytes/cycle
+ 512/40 = 12.8 bytes/cycle
+ 768/46 = 16.7 bytes/cycle
+1024/52 = 19.7 bytes/cycle
+2048/84 = 24.4 bytes/cycle
+4096/148= 27.7 bytes/cycle
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
