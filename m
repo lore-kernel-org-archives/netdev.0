@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] sh_eth: remove unchecked interrupts for RZ/A1
-Date: Fri, 02 Dec 2016 13:55:39 -0500 (EST)
-Message-ID: <20161202.135539.2038699670508120973.davem@davemloft.net>
-References: <20161201183214.30196-1-chris.brandt@renesas.com>
+Subject: Re: pull-request: wireless-drivers-next 2016-12-01
+Date: Fri, 02 Dec 2016 13:58:55 -0500 (EST)
+Message-ID: <20161202.135855.9272188465887066.davem@davemloft.net>
+References: <877f7jsdmm.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, horms+renesas@verge.net.au,
-        geert+renesas@glider.be, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: chris.brandt@renesas.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38932 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752400AbcLBSzl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:55:41 -0500
-In-Reply-To: <20161201183214.30196-1-chris.brandt@renesas.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <877f7jsdmm.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chris Brandt <chris.brandt@renesas.com>
-Date: Thu,  1 Dec 2016 13:32:14 -0500
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Thu, 01 Dec 2016 20:33:37 +0200
 
-> When streaming a lot of data and the RZ/A1 can't keep up, some status bits
-> will get set that are not being checked or cleared which cause the
-> following messages and the Ethernet driver to stop working. This
-> patch fixes that issue.
+> here's another pull request for net-next. Nothing special to mention
+> about, the details are in the signed tag below.
 > 
-> irq 21: nobody cared (try booting with the "irqpoll" option)
-> handlers:
-> [<c036b71c>] sh_eth_interrupt
-> Disabling IRQ #21
+> This time there's a trivial conflict in
+> drivers/net/wireless/ath/ath10k/mac.c:
 > 
-> Fixes: db893473d313a4ad ("sh_eth: Add support for r7s72100")
-> Signed-off-by: Chris Brandt <chris.brandt@renesas.com>
-> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> <<<<<<< HEAD
+> 	ieee80211_hw_set(ar->hw, SUPPORTS_TX_FRAG);
+> =======
+> 	ieee80211_hw_set(ar->hw, REPORTS_LOW_ACK);
+>>>>>>>> d5fb3a138048798ce4cc4b4ced47d07d1794c577
+> 
+> We want to have both flags enabled in ath10k.
+> 
+> I'm planning to submit at least one more pull request, if Linus gives us
+> one more week I might send even two. For example there are patches to
+> convert wcn36xx to use the real SMD bus subsystem but they depend on few
+> arm-soc patches. I'll send a separate email about that, they are not
+> part of this pull request.
+> 
+> Please let me know if there are any problems.
 
-Applied and queued up for -stable, thanks.
+Pulled, thanks so much for the heads up about the ath10k merge conflict.
