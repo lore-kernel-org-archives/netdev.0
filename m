@@ -1,474 +1,268 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next] sfc: remove EFX_BUG_ON_PARANOID, use
- EFX_WARN_ON_[ONCE_]PARANOID instead
-Date: Fri, 2 Dec 2016 15:51:33 +0000
-Message-ID: <9435baa4-b9b5-955e-eac2-3106feb87136@solarflare.com>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: [PATCH net] fib_trie: Avoid expensive update of suffix length
+ when not required
+Date: Fri, 2 Dec 2016 15:52:08 +0000
+Message-ID: <B1C1DF2ACD01FD4881736AA51731BAB2A4DC36@ORSMSX107.amr.corp.intel.com>
+References: <1480441605-27855-1-git-send-email-rshearma@brocade.com>
+ <CAKgT0UcK-+t3DK=TtxY14y6XB8nqtgdv57E53QkOAjmdB36-vw@mail.gmail.com>
+ <50c4f236-c486-1224-e3b0-c3e322d68d58@brocade.com>
+ <CAKgT0Uep40bYFQtToVBdmez5sPoyzapXNTUU10m9x6pyTj=Etg@mail.gmail.com>
+ <f470ac98-9b23-1374-9c93-b33ea0ae149c@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <bkenward@solarflare.com>, <netdev@vger.kernel.org>
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:51818 "EHLO
-        nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752087AbcLBPvz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 10:51:55 -0500
+Received: from mga06.intel.com ([134.134.136.31]:16197 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755479AbcLBPwL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 10:52:11 -0500
+In-Reply-To: <f470ac98-9b23-1374-9c93-b33ea0ae149c@brocade.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Logically, EFX_BUG_ON_PARANOID can never be correct.  For, BUG_ON should
- only be used if it is not possible to continue without potential harm;
- and since the non-DEBUG driver will continue regardless (as the BUG_ON is
- compiled out), clearly the BUG_ON cannot be needed in the DEBUG driver.
-So, replace every EFX_BUG_ON_PARANOID with either an EFX_WARN_ON_PARANOID
- or the newly defined EFX_WARN_ON_ONCE_PARANOID.
-
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c       |  2 +-
- drivers/net/ethernet/sfc/efx.c        |  2 +-
- drivers/net/ethernet/sfc/ethtool.c    |  4 ++--
- drivers/net/ethernet/sfc/farch.c      |  6 ++---
- drivers/net/ethernet/sfc/mcdi.h       |  4 ++--
- drivers/net/ethernet/sfc/mcdi_mon.c   |  4 ++--
- drivers/net/ethernet/sfc/mcdi_port.c  |  2 +-
- drivers/net/ethernet/sfc/net_driver.h | 22 +++++++++----------
- drivers/net/ethernet/sfc/ptp.c        |  2 +-
- drivers/net/ethernet/sfc/rx.c         |  8 +++----
- drivers/net/ethernet/sfc/siena.c      |  2 +-
- drivers/net/ethernet/sfc/tx.c         | 12 +++++-----
- drivers/net/ethernet/sfc/tx_tso.c     | 41 +++++++++++++++++------------------
- 13 files changed, 55 insertions(+), 56 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 0f58ea8..de2947c 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -2100,7 +2100,7 @@ static int efx_ef10_tx_tso_desc(struct efx_tx_queue *tx_queue,
- 	u32 seqnum;
- 	u32 mss;
- 
--	EFX_BUG_ON_PARANOID(tx_queue->tso_version != 2);
-+	EFX_WARN_ON_ONCE_PARANOID(tx_queue->tso_version != 2);
- 
- 	mss = skb_shinfo(skb)->gso_size;
- 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index da7028d..5a5dcad 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -355,7 +355,7 @@ static int efx_probe_eventq(struct efx_channel *channel)
- 	/* Build an event queue with room for one event per tx and rx buffer,
- 	 * plus some extra for link state events and MCDI completions. */
- 	entries = roundup_pow_of_two(efx->rxq_entries + efx->txq_entries + 128);
--	EFX_BUG_ON_PARANOID(entries > EFX_MAX_EVQ_SIZE);
-+	EFX_WARN_ON_PARANOID(entries > EFX_MAX_EVQ_SIZE);
- 	channel->eventq_mask = max(entries, EFX_MIN_EVQ_SIZE) - 1;
- 
- 	return efx_nic_probe_eventq(channel);
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index ca29d3d..f644216 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -333,12 +333,12 @@ static int efx_ethtool_fill_self_tests(struct efx_nic *efx,
- 		      "core", 0, "registers", NULL);
- 
- 	if (efx->phy_op->run_tests != NULL) {
--		EFX_BUG_ON_PARANOID(efx->phy_op->test_name == NULL);
-+		EFX_WARN_ON_PARANOID(efx->phy_op->test_name == NULL);
- 
- 		for (i = 0; true; ++i) {
- 			const char *name;
- 
--			EFX_BUG_ON_PARANOID(i >= EFX_MAX_PHY_TESTS);
-+			EFX_WARN_ON_PARANOID(i >= EFX_MAX_PHY_TESTS);
- 			name = efx->phy_op->test_name(efx, i);
- 			if (name == NULL)
- 				break;
-diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index 91aa3ec..e4ca216 100644
---- a/drivers/net/ethernet/sfc/farch.c
-+++ b/drivers/net/ethernet/sfc/farch.c
-@@ -177,7 +177,7 @@ efx_init_special_buffer(struct efx_nic *efx, struct efx_special_buffer *buffer)
- 	dma_addr_t dma_addr;
- 	int i;
- 
--	EFX_BUG_ON_PARANOID(!buffer->buf.addr);
-+	EFX_WARN_ON_PARANOID(!buffer->buf.addr);
- 
- 	/* Write buffer descriptors to NIC */
- 	for (i = 0; i < buffer->entries; i++) {
-@@ -332,7 +332,7 @@ void efx_farch_tx_write(struct efx_tx_queue *tx_queue)
- 		txd = efx_tx_desc(tx_queue, write_ptr);
- 		++tx_queue->write_count;
- 
--		EFX_BUG_ON_PARANOID(buffer->flags & EFX_TX_BUF_OPTION);
-+		EFX_WARN_ON_ONCE_PARANOID(buffer->flags & EFX_TX_BUF_OPTION);
- 
- 		/* Create TX descriptor ring entry */
- 		BUILD_BUG_ON(EFX_TX_BUF_CONT != 1);
-@@ -2041,7 +2041,7 @@ efx_farch_filter_from_gen_spec(struct efx_farch_filter_spec *spec,
- 		__be32 rhost, host1, host2;
- 		__be16 rport, port1, port2;
- 
--		EFX_BUG_ON_PARANOID(!(gen_spec->flags & EFX_FILTER_FLAG_RX));
-+		EFX_WARN_ON_PARANOID(!(gen_spec->flags & EFX_FILTER_FLAG_RX));
- 
- 		if (gen_spec->ether_type != htons(ETH_P_IP))
- 			return -EPROTONOSUPPORT;
-diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index c9aeb07..4472107 100644
---- a/drivers/net/ethernet/sfc/mcdi.h
-+++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -129,14 +129,14 @@ struct efx_mcdi_data {
- 
- static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
- {
--	EFX_BUG_ON_PARANOID(!efx->mcdi);
-+	EFX_WARN_ON_PARANOID(!efx->mcdi);
- 	return &efx->mcdi->iface;
- }
- 
- #ifdef CONFIG_SFC_MCDI_MON
- static inline struct efx_mcdi_mon *efx_mcdi_mon(struct efx_nic *efx)
- {
--	EFX_BUG_ON_PARANOID(!efx->mcdi);
-+	EFX_WARN_ON_PARANOID(!efx->mcdi);
- 	return &efx->mcdi->hwmon;
- }
- #endif
-diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
-index bc27d5b..f97da05 100644
---- a/drivers/net/ethernet/sfc/mcdi_mon.c
-+++ b/drivers/net/ethernet/sfc/mcdi_mon.c
-@@ -121,9 +121,9 @@ void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev)
- 	}
- 	if (!name)
- 		name = "No sensor name available";
--	EFX_BUG_ON_PARANOID(state >= ARRAY_SIZE(sensor_status_names));
-+	EFX_WARN_ON_PARANOID(state >= ARRAY_SIZE(sensor_status_names));
- 	state_txt = sensor_status_names[state];
--	EFX_BUG_ON_PARANOID(hwmon_type >= EFX_HWMON_TYPES_COUNT);
-+	EFX_WARN_ON_PARANOID(hwmon_type >= EFX_HWMON_TYPES_COUNT);
- 	unit = efx_hwmon_unit[hwmon_type];
- 	if (!unit)
- 		unit = "";
-diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
-index 0f0eb27..9dcd396 100644
---- a/drivers/net/ethernet/sfc/mcdi_port.c
-+++ b/drivers/net/ethernet/sfc/mcdi_port.c
-@@ -840,7 +840,7 @@ void efx_mcdi_process_link_change(struct efx_nic *efx, efx_qword_t *ev)
- 	u32 flags, fcntl, speed, lpa;
- 
- 	speed = EFX_QWORD_FIELD(*ev, MCDI_EVENT_LINKCHANGE_SPEED);
--	EFX_BUG_ON_PARANOID(speed >= ARRAY_SIZE(efx_mcdi_event_link_speed));
-+	EFX_WARN_ON_PARANOID(speed >= ARRAY_SIZE(efx_mcdi_event_link_speed));
- 	speed = efx_mcdi_event_link_speed[speed];
- 
- 	flags = EFX_QWORD_FIELD(*ev, MCDI_EVENT_LINKCHANGE_LINK_FLAGS);
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 0bbd7e2..8692e82 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -44,10 +44,10 @@
- #define EFX_DRIVER_VERSION	"4.1"
- 
- #ifdef DEBUG
--#define EFX_BUG_ON_PARANOID(x) BUG_ON(x)
-+#define EFX_WARN_ON_ONCE_PARANOID(x) WARN_ON_ONCE(x)
- #define EFX_WARN_ON_PARANOID(x) WARN_ON(x)
- #else
--#define EFX_BUG_ON_PARANOID(x) do {} while (0)
-+#define EFX_WARN_ON_ONCE_PARANOID(x) do {} while (0)
- #define EFX_WARN_ON_PARANOID(x) do {} while (0)
- #endif
- 
-@@ -1409,7 +1409,7 @@ struct efx_nic_type {
- static inline struct efx_channel *
- efx_get_channel(struct efx_nic *efx, unsigned index)
- {
--	EFX_BUG_ON_PARANOID(index >= efx->n_channels);
-+	EFX_WARN_ON_ONCE_PARANOID(index >= efx->n_channels);
- 	return efx->channel[index];
- }
- 
-@@ -1430,8 +1430,8 @@ efx_get_channel(struct efx_nic *efx, unsigned index)
- static inline struct efx_tx_queue *
- efx_get_tx_queue(struct efx_nic *efx, unsigned index, unsigned type)
- {
--	EFX_BUG_ON_PARANOID(index >= efx->n_tx_channels ||
--			    type >= EFX_TXQ_TYPES);
-+	EFX_WARN_ON_ONCE_PARANOID(index >= efx->n_tx_channels ||
-+				  type >= EFX_TXQ_TYPES);
- 	return &efx->channel[efx->tx_channel_offset + index]->tx_queue[type];
- }
- 
-@@ -1444,8 +1444,8 @@ static inline bool efx_channel_has_tx_queues(struct efx_channel *channel)
- static inline struct efx_tx_queue *
- efx_channel_get_tx_queue(struct efx_channel *channel, unsigned type)
- {
--	EFX_BUG_ON_PARANOID(!efx_channel_has_tx_queues(channel) ||
--			    type >= EFX_TXQ_TYPES);
-+	EFX_WARN_ON_ONCE_PARANOID(!efx_channel_has_tx_queues(channel) ||
-+				  type >= EFX_TXQ_TYPES);
- 	return &channel->tx_queue[type];
- }
- 
-@@ -1482,7 +1482,7 @@ static inline bool efx_channel_has_rx_queue(struct efx_channel *channel)
- static inline struct efx_rx_queue *
- efx_channel_get_rx_queue(struct efx_channel *channel)
- {
--	EFX_BUG_ON_PARANOID(!efx_channel_has_rx_queue(channel));
-+	EFX_WARN_ON_ONCE_PARANOID(!efx_channel_has_rx_queue(channel));
- 	return &channel->rx_queue;
- }
- 
-@@ -1578,9 +1578,9 @@ efx_tx_queue_get_insert_buffer(const struct efx_tx_queue *tx_queue)
- 	struct efx_tx_buffer *buffer =
- 		__efx_tx_queue_get_insert_buffer(tx_queue);
- 
--	EFX_BUG_ON_PARANOID(buffer->len);
--	EFX_BUG_ON_PARANOID(buffer->flags);
--	EFX_BUG_ON_PARANOID(buffer->unmap_len);
-+	EFX_WARN_ON_ONCE_PARANOID(buffer->len);
-+	EFX_WARN_ON_ONCE_PARANOID(buffer->flags);
-+	EFX_WARN_ON_ONCE_PARANOID(buffer->unmap_len);
- 
- 	return buffer;
- }
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index 77a5364..60cdb97 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -835,7 +835,7 @@ static int efx_ptp_synchronize(struct efx_nic *efx, unsigned int num_readings)
- 	ACCESS_ONCE(*start) = 0;
- 	rc = efx_mcdi_rpc_start(efx, MC_CMD_PTP, synch_buf,
- 				MC_CMD_PTP_IN_SYNCHRONIZE_LEN);
--	EFX_BUG_ON_PARANOID(rc);
-+	EFX_WARN_ON_ONCE_PARANOID(rc);
- 
- 	/* Wait for start from MCDI (or timeout) */
- 	timeout = jiffies + msecs_to_jiffies(MAX_SYNCHRONISE_WAIT_MS);
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 7893a73..5f4ad4f 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -335,7 +335,7 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue, bool atomic)
- 
- 	/* Calculate current fill level, and exit if we don't need to fill */
- 	fill_level = (rx_queue->added_count - rx_queue->removed_count);
--	EFX_BUG_ON_PARANOID(fill_level > rx_queue->efx->rxq_entries);
-+	EFX_WARN_ON_ONCE_PARANOID(fill_level > rx_queue->efx->rxq_entries);
- 	if (fill_level >= rx_queue->fast_fill_trigger)
- 		goto out;
- 
-@@ -347,7 +347,7 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue, bool atomic)
- 
- 	batch_size = efx->rx_pages_per_batch * efx->rx_bufs_per_page;
- 	space = rx_queue->max_fill - fill_level;
--	EFX_BUG_ON_PARANOID(space < batch_size);
-+	EFX_WARN_ON_ONCE_PARANOID(space < batch_size);
- 
- 	netif_vdbg(rx_queue->efx, rx_status, rx_queue->efx->net_dev,
- 		   "RX queue %d fast-filling descriptor ring from"
-@@ -475,7 +475,7 @@ static struct sk_buff *efx_rx_mk_skb(struct efx_channel *channel,
- 		return NULL;
- 	}
- 
--	EFX_BUG_ON_PARANOID(rx_buf->len < hdr_len);
-+	EFX_WARN_ON_ONCE_PARANOID(rx_buf->len < hdr_len);
- 
- 	memcpy(skb->data + efx->rx_ip_align, eh - efx->rx_prefix_size,
- 	       efx->rx_prefix_size + hdr_len);
-@@ -682,7 +682,7 @@ int efx_probe_rx_queue(struct efx_rx_queue *rx_queue)
- 
- 	/* Create the smallest power-of-two aligned ring */
- 	entries = max(roundup_pow_of_two(efx->rxq_entries), EFX_MIN_DMAQ_SIZE);
--	EFX_BUG_ON_PARANOID(entries > EFX_MAX_DMAQ_SIZE);
-+	EFX_WARN_ON_PARANOID(entries > EFX_MAX_DMAQ_SIZE);
- 	rx_queue->ptr_mask = entries - 1;
- 
- 	netif_dbg(efx, probe, efx->net_dev,
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 0c4a8dd..a3901bc 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -717,7 +717,7 @@ static void siena_mcdi_request(struct efx_nic *efx,
- 	unsigned int i;
- 	unsigned int inlen_dw = DIV_ROUND_UP(sdu_len, 4);
- 
--	EFX_BUG_ON_PARANOID(hdr_len != 4);
-+	EFX_WARN_ON_PARANOID(hdr_len != 4);
- 
- 	efx_writed(efx, hdr, pdu);
- 
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index f11a36a..3c01514 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -142,7 +142,7 @@ static void efx_tx_maybe_stop_queue(struct efx_tx_queue *txq1)
- 
- 	fill_level = max(txq1->insert_count - txq1->old_read_count,
- 			 txq2->insert_count - txq2->old_read_count);
--	EFX_BUG_ON_PARANOID(fill_level >= efx->txq_entries);
-+	EFX_WARN_ON_ONCE_PARANOID(fill_level >= efx->txq_entries);
- 	if (likely(fill_level < efx->txq_stop_thresh)) {
- 		smp_mb();
- 		if (likely(!efx->loopback_selftest))
-@@ -158,7 +158,7 @@ static int efx_enqueue_skb_copy(struct efx_tx_queue *tx_queue,
- 	u8 *copy_buffer;
- 	int rc;
- 
--	EFX_BUG_ON_PARANOID(copy_len > EFX_TX_CB_SIZE);
-+	EFX_WARN_ON_ONCE_PARANOID(copy_len > EFX_TX_CB_SIZE);
- 
- 	buffer = efx_tx_queue_get_insert_buffer(tx_queue);
- 
-@@ -268,7 +268,7 @@ static void efx_skb_copy_bits_to_pio(struct efx_nic *efx, struct sk_buff *skb,
- 		kunmap_atomic(vaddr);
- 	}
- 
--	EFX_BUG_ON_PARANOID(skb_shinfo(skb)->frag_list);
-+	EFX_WARN_ON_ONCE_PARANOID(skb_shinfo(skb)->frag_list);
- }
- 
- static int efx_enqueue_skb_pio(struct efx_tx_queue *tx_queue,
-@@ -503,7 +503,7 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
- 	 * size limit.
- 	 */
- 	if (segments) {
--		EFX_BUG_ON_PARANOID(!tx_queue->handle_tso);
-+		EFX_WARN_ON_ONCE_PARANOID(!tx_queue->handle_tso);
- 		rc = tx_queue->handle_tso(tx_queue, skb, &data_mapped);
- 		if (rc == -EINVAL) {
- 			rc = efx_tx_tso_fallback(tx_queue, skb);
-@@ -724,7 +724,7 @@ void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index)
- 	struct efx_tx_queue *txq2;
- 	unsigned int pkts_compl = 0, bytes_compl = 0;
- 
--	EFX_BUG_ON_PARANOID(index > tx_queue->ptr_mask);
-+	EFX_WARN_ON_ONCE_PARANOID(index > tx_queue->ptr_mask);
- 
- 	efx_dequeue_buffers(tx_queue, index, &pkts_compl, &bytes_compl);
- 	tx_queue->pkts_compl += pkts_compl;
-@@ -772,7 +772,7 @@ int efx_probe_tx_queue(struct efx_tx_queue *tx_queue)
- 
- 	/* Create the smallest power-of-two aligned ring */
- 	entries = max(roundup_pow_of_two(efx->txq_entries), EFX_MIN_DMAQ_SIZE);
--	EFX_BUG_ON_PARANOID(entries > EFX_MAX_DMAQ_SIZE);
-+	EFX_WARN_ON_PARANOID(entries > EFX_MAX_DMAQ_SIZE);
- 	tx_queue->ptr_mask = entries - 1;
- 
- 	netif_dbg(efx, probe, efx->net_dev,
-diff --git a/drivers/net/ethernet/sfc/tx_tso.c b/drivers/net/ethernet/sfc/tx_tso.c
-index 6032887..e0cbda9 100644
---- a/drivers/net/ethernet/sfc/tx_tso.c
-+++ b/drivers/net/ethernet/sfc/tx_tso.c
-@@ -109,15 +109,15 @@ static void efx_tx_queue_insert(struct efx_tx_queue *tx_queue,
- 	struct efx_tx_buffer *buffer;
- 	unsigned int dma_len;
- 
--	EFX_BUG_ON_PARANOID(len <= 0);
-+	EFX_WARN_ON_ONCE_PARANOID(len <= 0);
- 
- 	while (1) {
- 		buffer = efx_tx_queue_get_insert_buffer(tx_queue);
- 		++tx_queue->insert_count;
- 
--		EFX_BUG_ON_PARANOID(tx_queue->insert_count -
--				    tx_queue->read_count >=
--				    tx_queue->efx->txq_entries);
-+		EFX_WARN_ON_ONCE_PARANOID(tx_queue->insert_count -
-+					  tx_queue->read_count >=
-+					  tx_queue->efx->txq_entries);
- 
- 		buffer->dma_addr = dma_addr;
- 
-@@ -134,7 +134,7 @@ static void efx_tx_queue_insert(struct efx_tx_queue *tx_queue,
- 		len -= dma_len;
- 	}
- 
--	EFX_BUG_ON_PARANOID(!len);
-+	EFX_WARN_ON_ONCE_PARANOID(!len);
- 	buffer->len = len;
- 	*final_buffer = buffer;
- }
-@@ -147,8 +147,8 @@ static __be16 efx_tso_check_protocol(struct sk_buff *skb)
- {
- 	__be16 protocol = skb->protocol;
- 
--	EFX_BUG_ON_PARANOID(((struct ethhdr *)skb->data)->h_proto !=
--			    protocol);
-+	EFX_WARN_ON_ONCE_PARANOID(((struct ethhdr *)skb->data)->h_proto !=
-+				  protocol);
- 	if (protocol == htons(ETH_P_8021Q)) {
- 		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
- 
-@@ -156,19 +156,18 @@ static __be16 efx_tso_check_protocol(struct sk_buff *skb)
- 	}
- 
- 	if (protocol == htons(ETH_P_IP)) {
--		EFX_BUG_ON_PARANOID(ip_hdr(skb)->protocol != IPPROTO_TCP);
-+		EFX_WARN_ON_ONCE_PARANOID(ip_hdr(skb)->protocol != IPPROTO_TCP);
- 	} else {
--		EFX_BUG_ON_PARANOID(protocol != htons(ETH_P_IPV6));
--		EFX_BUG_ON_PARANOID(ipv6_hdr(skb)->nexthdr != NEXTHDR_TCP);
-+		EFX_WARN_ON_ONCE_PARANOID(protocol != htons(ETH_P_IPV6));
-+		EFX_WARN_ON_ONCE_PARANOID(ipv6_hdr(skb)->nexthdr != NEXTHDR_TCP);
- 	}
--	EFX_BUG_ON_PARANOID((PTR_DIFF(tcp_hdr(skb), skb->data)
--			     + (tcp_hdr(skb)->doff << 2u)) >
--			    skb_headlen(skb));
-+	EFX_WARN_ON_ONCE_PARANOID((PTR_DIFF(tcp_hdr(skb), skb->data) +
-+				   (tcp_hdr(skb)->doff << 2u)) >
-+				  skb_headlen(skb));
- 
- 	return protocol;
- }
- 
--
- /* Parse the SKB header and initialise state. */
- static int tso_start(struct tso_state *st, struct efx_nic *efx,
- 		     struct efx_tx_queue *tx_queue,
-@@ -193,9 +192,9 @@ static int tso_start(struct tso_state *st, struct efx_nic *efx,
- 	}
- 	st->seqnum = ntohl(tcp_hdr(skb)->seq);
- 
--	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->urg);
--	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->syn);
--	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->rst);
-+	EFX_WARN_ON_ONCE_PARANOID(tcp_hdr(skb)->urg);
-+	EFX_WARN_ON_ONCE_PARANOID(tcp_hdr(skb)->syn);
-+	EFX_WARN_ON_ONCE_PARANOID(tcp_hdr(skb)->rst);
- 
- 	st->out_len = skb->len - header_len;
- 
-@@ -245,8 +244,8 @@ static void tso_fill_packet_with_fragment(struct efx_tx_queue *tx_queue,
- 	if (st->packet_space == 0)
- 		return;
- 
--	EFX_BUG_ON_PARANOID(st->in_len <= 0);
--	EFX_BUG_ON_PARANOID(st->packet_space <= 0);
-+	EFX_WARN_ON_ONCE_PARANOID(st->in_len <= 0);
-+	EFX_WARN_ON_ONCE_PARANOID(st->packet_space <= 0);
- 
- 	n = min(st->in_len, st->packet_space);
- 
-@@ -379,7 +378,7 @@ int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 	/* Find the packet protocol and sanity-check it */
- 	state.protocol = efx_tso_check_protocol(skb);
- 
--	EFX_BUG_ON_PARANOID(tx_queue->write_count != tx_queue->insert_count);
-+	EFX_WARN_ON_ONCE_PARANOID(tx_queue->write_count != tx_queue->insert_count);
- 
- 	rc = tso_start(&state, efx, tx_queue, skb);
- 	if (rc)
-@@ -387,7 +386,7 @@ int efx_enqueue_skb_tso(struct efx_tx_queue *tx_queue,
- 
- 	if (likely(state.in_len == 0)) {
- 		/* Grab the first payload fragment. */
--		EFX_BUG_ON_PARANOID(skb_shinfo(skb)->nr_frags < 1);
-+		EFX_WARN_ON_ONCE_PARANOID(skb_shinfo(skb)->nr_frags < 1);
- 		frag_i = 0;
- 		rc = tso_get_fragment(&state, efx,
- 				      skb_shinfo(skb)->frags + frag_i);
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBSb2JlcnQgU2hlYXJtYW4gW21h
+aWx0bzpyc2hlYXJtYUBicm9jYWRlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBEZWNlbWJlciAyLCAy
+MDE2IDU6NTQgQU0NCj4gVG86IEFsZXhhbmRlciBEdXljayA8YWxleGFuZGVyLmR1eWNrQGdtYWls
+LmNvbT4NCj4gQ2M6IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD47IE5ldGRldiA8
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZz47DQo+IER1eWNrLCBBbGV4YW5kZXIgSCA8YWxleGFuZGVy
+LmguZHV5Y2tAaW50ZWwuY29tPg0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldF0gZmliX3RyaWU6
+IEF2b2lkIGV4cGVuc2l2ZSB1cGRhdGUgb2Ygc3VmZml4IGxlbmd0aCB3aGVuDQo+IG5vdCByZXF1
+aXJlZA0KPiANCj4gT24gMDEvMTIvMTYgMTg6MjksIEFsZXhhbmRlciBEdXljayB3cm90ZToNCj4g
+PiBPbiBXZWQsIE5vdiAzMCwgMjAxNiBhdCA0OjI3IFBNLCBSb2JlcnQgU2hlYXJtYW4NCj4gPHJz
+aGVhcm1hQGJyb2NhZGUuY29tPiB3cm90ZToNCj4gPj4gT24gMjkvMTEvMTYgMjM6MTQsIEFsZXhh
+bmRlciBEdXljayB3cm90ZToNCj4gPj4+IE9uIFR1ZSwgTm92IDI5LCAyMDE2IGF0IDk6NDYgQU0s
+IFJvYmVydCBTaGVhcm1hbg0KPiA+Pj4gPHJzaGVhcm1hQGJyb2NhZGUuY29tPg0KPiA+Pj4+DQo+
+ID4+Pj4gRml4ZXM6IDU0MDVhZmQxYTMwNiAoImZpYl90cmllOiBBZGQgdHJhY2tpbmcgdmFsdWUg
+Zm9yIHN1ZmZpeA0KPiA+Pj4+IGxlbmd0aCIpDQo+ID4+Pj4gU2lnbmVkLW9mZi1ieTogUm9iZXJ0
+IFNoZWFybWFuIDxyc2hlYXJtYUBicm9jYWRlLmNvbT4NCj4gPj4+DQo+ID4+Pg0KPiA+Pj4gU28g
+SSBhbSBub3QgZW50aXJlbHkgY29udmluY2VkIHRoaXMgaXMgYSByZWdyZXNzaW9uLCBJIHdhcyB3
+b25kZXJpbmcNCj4gPj4+IHdoYXQgeW91ciBudW1iZXJzIGxvb2tlZCBsaWtlIGJlZm9yZSB0aGUg
+cGF0Y2ggeW91IGFyZSBzYXlpbmcgdGhpcw0KPiA+Pj4gZml4ZXM/ICBJIHJlY2FsbCBJIGZpeGVk
+IGEgbnVtYmVyIG9mIGlzc3VlcyBsZWFkaW5nIHVwIHRvIHRoaXMgc28gSQ0KPiA+Pj4gYW0ganVz
+dCBjdXJpb3VzLg0KPiA+Pg0KPiA+Pg0KPiA+PiBBdCBjb21taXQgMjFkMWYxMWRiMGUyZjIwYTU0
+OWFkODMyMjg3OTUwNzg1MDU0NDY3MCAoImZpYl90cmllOg0KPiBSZW1vdmUNCj4gPj4gY2hlY2tz
+IGZvciBpbmRleCA+PSB0bm9kZV9jaGlsZF9sZW5ndGggZnJvbSB0bm9kZV9nZXRfY2hpbGQiKSB3
+aGljaA0KPiA+PiBpcyB0aGUgcGFyZW50IG9mIDU0MDVhZmQxYTMwNjoNCj4gPj4NCj4gPj4gJCB0
+aW1lIHN1ZG8gaXAgcm91dGUgcmVzdG9yZSA8IH4vYWxscm91dGVzIFJUTkVUTElOSyBhbnN3ZXJz
+OiBGaWxlDQo+ID4+IGV4aXN0cyBSVE5FVExJTksgYW5zd2VyczogRmlsZSBleGlzdHMgUlRORVRM
+SU5LIGFuc3dlcnM6IEZpbGUgZXhpc3RzDQo+ID4+IFJUTkVUTElOSyBhbnN3ZXJzOiBGaWxlIGV4
+aXN0cw0KPiA+Pg0KPiA+PiByZWFsICAgIDBtMy40NTFzDQo+ID4+IHVzZXIgICAgMG0wLjE4NHMN
+Cj4gPj4gc3lzICAgICAwbTIuMDA0cw0KPiA+Pg0KPiA+Pg0KPiA+PiBBdCBjb21taXQgNTQwNWFm
+ZDFhMzA2MjBkZTg2MDE0MzZiYWU3MzljNjdjMGJjNzMyNCAoImZpYl90cmllOiBBZGQNCj4gPj4g
+dHJhY2tpbmcgdmFsdWUgZm9yIHN1ZmZpeCBsZW5ndGgiKToNCj4gPj4NCj4gPj4gJCB0aW1lIHN1
+ZG8gaXAgcm91dGUgcmVzdG9yZSA8IH4vYWxscm91dGVzIFJUTkVUTElOSyBhbnN3ZXJzOiBGaWxl
+DQo+ID4+IGV4aXN0cyBSVE5FVExJTksgYW5zd2VyczogRmlsZSBleGlzdHMgUlRORVRMSU5LIGFu
+c3dlcnM6IEZpbGUgZXhpc3RzDQo+ID4+IFJUTkVUTElOSyBhbnN3ZXJzOiBGaWxlIGV4aXN0cw0K
+PiA+Pg0KPiA+PiByZWFsICAgIDBtNDguNjI0cw0KPiA+PiB1c2VyICAgIDBtMC4zNjBzDQo+ID4+
+IHN5cyAgICAgMG00Ni45NjBzDQo+ID4+DQo+ID4+IFNvIGRvZXMgdGhhdCB3YXJyYW50IGEgZml4
+ZXMgdGFnIGZvciB0aGlzIHBhdGNoPw0KPiA+DQo+ID4gWWVzLCBwbGVhc2UgaW5jbHVkZSBpdCBp
+biB0aGUgcGF0Y2ggZGVzY3JpcHRpb24gbmV4dCB0aW1lLg0KPiA+DQo+ID4gSSd2ZSBiZWVuIGdp
+dmluZyBpdCB0aG91Z2h0IGFuZCB0aGUgZmFjdCBpcyB0aGUgcGF0Y2ggc2VyaWVzIGhhcw0KPiA+
+IG1lcml0LiAgSSBqdXN0IHRoaW5rIGl0IHdhcyBiZWluZyBhIGJpdCB0b28gYWdncmVzc2l2ZSBp
+biB0ZXJtcyBvZg0KPiA+IHNvbWUgb2YgdGhlIGNoYW5nZXMuICBTbyBwbGFjaW5nIGFueSBjaGFu
+Z2VzIGluIHB1dF9jaGlsZCBzZWVtIHRvIGJlDQo+ID4gdGhlIG9uZSBwaWVjZSBpbiB0aGlzIHRo
+YXQgbWFrZSB0aGlzIGEgYml0IHVnbHkuDQo+IA0KPiBEb2VzIHRoYXQgaW1wbHkgdGhlIGN1cnJl
+bnQgdXBkYXRpbmcgb2YgdGhlIHBhcmVudCdzIHNsZW4gdmFsdWUgc2hvdWxkIGJlDQo+IHJlbW92
+ZWQgZnJvbSBwdXRfY2hpbGQgdGhlbj8NCg0KTm8sIHRoYXQgaXMgd2hlcmUgaXQgc2hvdWxkIGJl
+LiAgV2Ugd2FudCB0byBsZWF2ZSB0aGUgcHV0X2NoaWxkIGNvZGUgYXMgaXMuICBUaGF0IHdheSBh
+bGwgdGhlIGNvZGUgZm9yIGhhbHZpbmcgYW5kIGluZmxhdGluZyBub2RlcyB3b3JrcyBjb3JyZWN0
+bHkuDQoNClRoZSBvbmx5IHJlYXNvbiBmb3IgaGF2aW5nIHRoZSB1cGRhdGVfc3VmZml4IGNvZGUg
+dXBkYXRlIHRoZSBwYXJlbnQgd2FzIGJlY2F1c2UgYmVmb3JlIGl0IHdhcyBwcm9wYWdhdGluZyB0
+aGUgc3VmZml4IGxlbmd0aCBmb3IgaW5jcmVhc2VzIGFzIHdlbGwuICBTaW5jZSB3ZSBhcmVuJ3Qg
+dXNpbmcgaXQgZm9yIHRoYXQgYW55bW9yZSB0aGVyZSBpc24ndCBtdWNoIHBvaW50IGluIGhhdmlu
+ZyB1cGRhdGVfc3VmZml4IHRvdWNoaW5nIHRoZSBwYXJlbnQgaW4gdGhlIGNvZGUgYmVsb3cuDQog
+DQo+IEkgc3RhcnRlZCBvdXQgd2l0aG91dCBkb2luZyB0aGUgY2hhbmdlcyBpbiBwdXRfY2hpbGQs
+IGJ1dCB0aGF0IG1lYW50IHRoZSBjaGFuZ2VzDQo+IHRvIHB1c2ggdGhlIHNsZW4gdXAgdGhyb3Vn
+aCB0aGUgdHJpZSB3ZXJlIHNwcmVhZCBhbGwgb3ZlciB0aGUgcGxhY2UuIFRoaXMgc2VlbWVkDQo+
+IGxpa2UgdGhlIGNsZWFuZXIgc29sdXRpb24uDQoNCkl0IGFjdHVhbGx5IG1ha2VzIGl0IG11Y2gg
+bWVzc2llci4gIFRoZSBwdXRfY2hpbGQgY2FsbCBpcyB1c2VkIGFsbCBvdmVyIHRoZSBwbGFjZSBp
+biBtYW55IHNpdHVhdGlvbnMgd2hlcmUgaXQgZG9lc24ndCBtYWtlIHNlbnNlIHRvIGdvIHRocm91
+Z2ggdXBkYXRpbmcgdGhlIGVudGlyZSB0cmllLiAgVGhlIGJpZyBpc3N1ZSBpcyB5b3UgY2FuJ3Qg
+d2FsayB1cCB0aGUgdHJpZSBpZiB5b3UgYXJlIHdvcmtpbmcgb24gYXNzZW1ibGluZyBhIG5vZGUg
+b2ZmIG9uIHRoZSBzaWRlIHRoYXQgeW91IHBsYW4gdG8gaW5zZXJ0IGludG8gdGhlIHRyaWUgbGF0
+ZXIuICBUaGUgb25seSBwbGFjZXMgd2UgbmVlZCB0byB3b3JyeSBhYm91dCB1cGRhdGluZyB0aGUg
+c3VmZml4IGFyZSB3aGVuIHdlIGhhdmUgYWRkZWQgYSBuZXcgbGVhZi9zdWZmaXgsIG9yIHdoZW4g
+d2UgaGF2ZSBkZWxldGVkIGEgbGVhZi9zdWZmaXguICBUaGF0IGlzIHdoeSBpbiB0aGUgcGF0Y2hl
+cyBJIHN1Ym1pdHRlZCBJIG9ubHkgdXBkYXRlIGluIHRob3NlIHR3byBwbGFjZXMuDQoNCj4gPj4+
+PiArICAgICAgIH0NCj4gPj4+PiArfQ0KPiA+Pj4+ICsNCj4gPj4+PiAgLyogQWRkIGEgY2hpbGQg
+YXQgcG9zaXRpb24gaSBvdmVyd3JpdGluZyB0aGUgb2xkIHZhbHVlLg0KPiA+Pj4+ICAgKiBVcGRh
+dGUgdGhlIHZhbHVlIG9mIGZ1bGxfY2hpbGRyZW4gYW5kIGVtcHR5X2NoaWxkcmVuLg0KPiA+Pj4+
+ICsgKg0KPiA+Pj4+ICsgKiBUaGUgc3VmZml4IGxlbmd0aCBvZiB0aGUgcGFyZW50IG5vZGUgYW5k
+IHRoZSByZXN0IG9mIHRoZSB0cmVlDQo+ID4+Pj4gKyBpcw0KPiA+Pj4+ICsgKiB1cGRhdGVkIChp
+ZiByZXF1aXJlZCkgd2hlbiBhZGRpbmcvcmVwbGFjaW5nIGEgbm9kZSwgYnV0IGlzDQo+ID4+Pj4g
+KyBjYWxsZXIncw0KPiA+Pj4+ICsgKiByZXNwb25zaWJpbGl0eSBvbiByZW1vdmFsLg0KPiA+Pj4+
+ICAgKi8NCj4gPj4+PiAgc3RhdGljIHZvaWQgcHV0X2NoaWxkKHN0cnVjdCBrZXlfdmVjdG9yICp0
+biwgdW5zaWduZWQgbG9uZyBpLA0KPiA+Pj4+ICAgICAgICAgICAgICAgICAgICAgICBzdHJ1Y3Qg
+a2V5X3ZlY3RvciAqbikgQEAgLTQ0Nyw4ICs0NjEsOCBAQA0KPiA+Pj4+IHN0YXRpYyB2b2lkIHB1
+dF9jaGlsZChzdHJ1Y3Qga2V5X3ZlY3RvciAqdG4sIHVuc2lnbmVkIGxvbmcgaSwNCj4gPj4+PiAg
+ICAgICAgIGVsc2UgaWYgKCF3YXNmdWxsICYmIGlzZnVsbCkNCj4gPj4+PiAgICAgICAgICAgICAg
+ICAgdG5faW5mbyh0biktPmZ1bGxfY2hpbGRyZW4rKzsNCj4gPj4+Pg0KPiA+Pj4+IC0gICAgICAg
+aWYgKG4gJiYgKHRuLT5zbGVuIDwgbi0+c2xlbikpDQo+ID4+Pj4gLSAgICAgICAgICAgICAgIHRu
+LT5zbGVuID0gbi0+c2xlbjsNCj4gPj4+PiArICAgICAgIGlmIChuKQ0KPiA+Pj4+ICsgICAgICAg
+ICAgICAgICBub2RlX3B1c2hfc3VmZml4KHRuLCBuKTsNCj4gPj4+DQo+ID4+Pg0KPiA+Pj4gVGhp
+cyBpcyBqdXN0IGNyZWF0aW5nIHJlZHVuZGFudCB3b3JrIGlmIHdlIGhhdmUgdG8gcGVyZm9ybSBh
+IHJlc2l6ZS4NCj4gPj4NCj4gPj4NCj4gPj4gVGhlIG9ubHkgcmVhbCByZWR1bmRhbnQgd29yayBp
+cyB0aGUgYXNzaWdubWVudCBvZiBzbGVuIGluIHRuLCBzaW5jZQ0KPiA+PiB0aGUgcHJvcGFnYXRp
+b24gdXAgdGhlIHRyaWUgaGFzIHRvIGhhcHBlbiByZWdhcmRsZXNzIGFuZCBpZiBhDQo+ID4+IHN1
+YnNlcXVlbnQgcmVzaXplIHJlc3VsdHMgaW4gY2hhbmdlcyB0byB0aGUgdHJpZSB0aGVuIHRoZSBw
+cm9wYWdhdGlvbg0KPiA+PiB3aWxsIHN0b3AgYXQgdG4ncyBwYXJlbnQgc2luY2UgdGhlIHN1ZmZp
+eCBsZW5ndGggb2YgdGhlIHRuJ3MgcGFyZW50DQo+ID4+IHdpbGwgbm90IGJlIGxlc3MgdGhhbiB0
+bidzIHN1ZmZpeCBsZW5ndGguDQo+ID4NCj4gPg0KPiA+IFRoaXMgaXNuJ3QgZ29pbmcgdG8gd29y
+ay4gIFdlIHdhbnQgdG8gYXZvaWQgdHJ5aW5nIHRvIHB1c2ggdGhlIHN1ZmZpeA0KPiA+IHdoZW4g
+d2UgcGxhY2UgYSBjaGlsZC4gIFRoZXJlIGFyZSBzY2VuYXJpb3Mgd2hlcmUgd2UgYXJlIHBsYWNp
+bmcNCj4gPiBjaGlsZHJlbiBpbiBub2RlcyB0aGF0IGRvbid0IGhhdmUgcGFyZW50cyB5ZXQgYmVj
+YXVzZSB3ZSBhcmUgZG9pbmcNCj4gPiByZWJhbGFuY2VzIGFuZCBzdWNoLiAgSSBzdXNwZWN0IHRo
+aXMgY291bGQgYmUgcHJldHR5IGV4cGVuc2l2ZSBvbiBhDQo+ID4gcmVzaXplIGNhbGwuDQo+IA0K
+PiBJdCdzIG5vdCBleHBlbnNpdmUgYmVjYXVzZSB0aGUgbmV3IHBhcmVudHMgdGhhdCBhcmUgYmVp
+bmcgYnVpbHQgdXAgYXJlIG9ycGhhbmVkDQo+IGZyb20gdGhlIHJlc3Qgb2YgdGhlIHRyaWUsIHNv
+IHRoZSBwdXNoIHVwIHdvbid0IHByb2NlZWQgaW50byB0aGUgcmVzdCBvZiB0aGUgdHJpZQ0KPiB1
+bnRpbCB0aGUgbmV3IG5vZGUgaXMgaW5zZXJ0ZWQgaW50byB0aGUgdHJpZS4NCg0KVGhhdCBpc24n
+dCBlbnRpcmVseSB0cnVlLiAgRm9yIGV4YW1wbGUgZXZlcnkgdGltZSB5b3UgaGF2ZSB0byBhZGQg
+YSBuZXcgbGVhZiB3aGVyZSBvbmUgYWxyZWFkeSBleGlzdHMgd2UgY3JlYXRlIGEgbmV3IHRub2Rl
+LCBhZGQgdGhlIG9yaWdpbmFsIGxlYWYsIGFuZCB0aGVuIGFkZCB0aGUgbmV3IG9uZS4gIEkgd291
+bGQgcmF0aGVyIG5vdCBoYXZlIHRoaXMgY29kZSB0cnlpbmcgdG8gd2FsayB0aGUgdHJpZSB0d2lj
+ZS4gIEl0IHdvdWxkIG1ha2UgbW9yZSBzZW5zZSBqdXN0IHRvIHVwZGF0ZSB0aGluZ3Mgb25seSB3
+aGVuIHdlIGFkZCB0aGUgbmV3IG9uZS4NCg0KPiA+IFdlIHdhbnQgdG8gcHVsbCB0aGUgc3VmZml4
+IHB1c2hpbmcgb3V0IG9mIHRoZSByZXNpemUgY29tcGxldGVseS4gIFRoZQ0KPiA+IHByb2JsZW0g
+aXMgdGhpcyBpcyBnb2luZyB0byBjYXVzZSB1cyB0byBzdGFydCBwdXNoaW5nIHN1ZmZpeGVzIGZv
+cg0KPiA+IGV2ZXJ5IG5vZGUgbW92ZWQgYXMgYSBwYXJ0IG9mIHJlc2l6ZS4NCj4gDQo+IFRoaXMg
+d2lsbCBtZWFuIHRoYXQgbm9kZXMgd2lsbCBoYXZlIHRvIGJlIHZpc2l0ZWQgbXVsdGlwbGUgdGlt
+ZXMsIHdoaWNoIGNvdWxkIHdlbGwNCj4gYmUgbW9yZSBleHBlbnNpdmUgdGhhbiBkb2luZyBpdCBk
+dXJpbmcgdGhlIHJlc2l6ZS4NCg0KSSdtIG5vdCBzdXJlIHdoYXQgeW91IGFyZSB0YWxraW5nIGFi
+b3V0IGhlcmUuICBCYXNpY2FsbHkgd2hlbiB3ZSBhZGQgYSBub2RlIHdlIHdpbGwgc3RhcnQgd2Fs
+a2luZyB1cCB0aGUgbGlzdCBqdXN0IGxpa2UgeW91IGRvIHdpdGggdGhlIGNoYW5nZXMgeW91IG1h
+ZGUgdG8gcHV0X2NoaWxkLiAgVGhlIG9ubHkgZGlmZmVyZW5jZSBpcyB0aGF0IEkgb25seSBoYXZl
+IHVzIGRvaW5nIGl0IHdoZW4gd2UgaW5zZXJ0IGEgbmV3IGxlYWYgb3Igd2hlbiB3ZSBpbnNlcnQg
+YSBuZXcgZmliIGFsaWFzIHRvIHRoZSB0YWlsIG9mIHRoZSBsaXN0LiAgSXQgc2hvdWxkIGJlIGxl
+c3MgZXhwZW5zaXZlIHRoYW4gdGhlIGFwcHJvYWNoIHlvdSB0b29rIGFzIEkgZG9uJ3QgdHJ5IHdh
+bGtpbmcgdXAgYW55IGxpc3RzIHVubGVzcyB0aGVyZSBpcyBhY3R1YWxseSBzb21ldGhpbmcgdG8g
+cHVsbCBvbiBhbiBhZGQuDQoNCkJhc2ljYWxseSB0aGUgb25seSByZWFsIGRpZmZlcmVuY2UgYmV0
+d2VlbiB3aGF0IEkgYW0gc3VnZ2VzdGluZyBhbmQgd2hhdCB5b3UgaGF2ZSBzdWJtaXR0ZWQgd2Fz
+IHRoZSBmYWN0IHRoYXQgSSB3b3VsZCBwcmVmZXIgdG8gc2VlIHB1dF9jaGlsZCBsZWZ0IGFzIGlz
+IGFuZCBpbnN0ZWFkIGZvciB1cyB0byBqdXN0IGFkZCBhIGNhbGwgdG8gbm9kZV9wdXNoX3N1ZmZp
+eCBpbiBmaWJfaW5zZXJ0X25vZGUuICBEb2luZyBpdCB0aGF0IHdheSBpcyBtdWNoIGNsZWFuZXIg
+aW4gbXkgb3Bpbmlvbi4gDQoNCj4gPg0KPiA+Pj4NCj4gPj4+PiAgICAgICAgIHJjdV9hc3NpZ25f
+cG9pbnRlcih0bi0+dG5vZGVbaV0sIG4pOyAgfQ0KPiA+Pg0KPiA+PiAuLi4NCj4gPj4NCj4gPj4+
+PiAtc3RhdGljIHZvaWQgbGVhZl9wdWxsX3N1ZmZpeChzdHJ1Y3Qga2V5X3ZlY3RvciAqdHAsIHN0
+cnVjdA0KPiA+Pj4+IGtleV92ZWN0b3INCj4gPj4+PiAqbCkNCj4gPj4+PiArc3RhdGljIHZvaWQg
+bm9kZV9zZXRfc3VmZml4KHN0cnVjdCBrZXlfdmVjdG9yICp0cCwgdW5zaWduZWQgY2hhcg0KPiA+
+Pj4+ICtzbGVuKQ0KPiA+Pj4+ICB7DQo+ID4+Pj4gLSAgICAgICB3aGlsZSAoKHRwLT5zbGVuID4g
+dHAtPnBvcykgJiYgKHRwLT5zbGVuID4gbC0+c2xlbikpIHsNCj4gPj4+PiAtICAgICAgICAgICAg
+ICAgaWYgKHVwZGF0ZV9zdWZmaXgodHApID4gbC0+c2xlbikNCj4gPj4+PiArICAgICAgIGlmIChz
+bGVuID4gdHAtPnNsZW4pDQo+ID4+Pj4gKyAgICAgICAgICAgICAgIHRwLT5zbGVuID0gc2xlbjsN
+Cj4gPj4+PiArfQ0KPiA+Pj4+ICsNCj4gPj4+PiArc3RhdGljIHZvaWQgbm9kZV9wdWxsX3N1ZmZp
+eChzdHJ1Y3Qga2V5X3ZlY3RvciAqdG4pIHsNCj4gPj4+PiArICAgICAgIHN0cnVjdCBrZXlfdmVj
+dG9yICp0cDsNCj4gPj4+PiArICAgICAgIHVuc2lnbmVkIGNoYXIgc2xlbjsNCj4gPj4+PiArDQo+
+ID4+Pj4gKyAgICAgICBzbGVuID0gdXBkYXRlX3N1ZmZpeCh0bik7DQo+ID4+Pj4gKyAgICAgICB0
+cCA9IG5vZGVfcGFyZW50KHRuKTsNCj4gPj4+PiArICAgICAgIHdoaWxlICgodHAtPnNsZW4gPiB0
+cC0+cG9zKSAmJiAodHAtPnNsZW4gPiBzbGVuKSkgew0KPiA+Pj4+ICsgICAgICAgICAgICAgICBp
+ZiAodXBkYXRlX3N1ZmZpeCh0cCkgPiBzbGVuKQ0KPiA+Pj4+ICAgICAgICAgICAgICAgICAgICAg
+ICAgIGJyZWFrOw0KPiA+Pj4+ICAgICAgICAgICAgICAgICB0cCA9IG5vZGVfcGFyZW50KHRwKTsN
+Cj4gPj4+PiAgICAgICAgIH0NCj4gPj4+PiAgfQ0KPiA+Pj4+DQo+ID4+Pg0KPiA+DQo+ID4gQWN0
+dWFsbHkgSSByZWFsaXplZCB0aGF0IHRoZXJlIGlzIGEgYnVnIGhlcmUuICBUaGUgY2hlY2sgZm9y
+DQo+ID4gdXBkYXRlX3N1ZmZpeCh0cCkgPiBzbGVuIGNhbiBjYXVzZSB1cyB0byBzdG9wIHByZW1h
+dHVyZWx5IGlmIEkgYW0gbm90DQo+ID4gbWlzdGFrZW4uICBXaGF0IHdlIHNob3VsZCBwcm9iYWJs
+eSBiZSBkb2luZyBpcyBwdWxsaW5nIG91dCB0cC0+c2xlbg0KPiA+IGFuZCBpZiB0aGUgcmVzdWx0
+IG9mIHVwZGF0ZV9zdWZmaXggaXMgdGhlIHNhbWUgdmFsdWUgdGhlbiB3ZSBjYW4gYnJlYWsNCj4g
+PiB0aGUgbG9vcC4gIE90aGVyd2lzZSB3ZSBjYW4gc3RvcCBlYXJseSBpZiBhICJzZWNvbmQgcnVu
+bmVyIHVwIiBzaG93cw0KPiA+IHVwIHRoYXQgaXMgc3VwcG9zZWQgdG8gYmUgcHVzaGVkIHVwIHRo
+ZSB0cmllLg0KPiANCj4gRXhjZWxsZW50IHBvaW50LiBUaGlzIGFsc28gYSBwcm9ibGVtIGluIHRo
+ZSBleGlzdGluZyBjb2RlIHdoZW4gcmVtb3ZpbmcgYSBmaWINCj4gYWxpYXMgd2l0aCBvdGhlciBh
+bGlhc2VzIHN0aWxsIG9uIHRoZSBsZWFmLiBJJ2xsIHNlbmQgYSBzZXBhcmF0ZSBwYXRjaCBmb3Ig
+dGhpcyBhbmQNCj4gYmFzZSBteSBjaGFuZ2VzIG9uIHRvcCBvZiBpdC4NCj4gDQo+ID4gSSBhY3R1
+YWxseSBzdGFydGVkIGFyb3VuZCB3aXRoIHBhdGNoZXMgdG8gZG8gbXVjaCB0aGUgc2FtZSBhcyB3
+aGF0IHlvdQ0KPiA+IGFyZSBkb2luZyBhbmQgSSB3aWxsIHByb2JhYmx5IHN1Ym1pdCB0aGVtIGFz
+IGFuIFJGQyBzbyBpZiB5b3UgbmVlZCB5b3UNCj4gPiBjYW4gcGljayBwaWVjZXMgb3V0IGFzIG5l
+ZWRlZCwgb3IgSSBjb3VsZCBzdWJtaXQgdGhlbSBpZiB0aGV5IHdvcmsgZm9yDQo+ID4geW91Lg0K
+PiANCj4gSSdkIGJlIGhhcHB5IHRvIHRlc3Qgb3V0IGFueSBwYXRjaGVzIHlvdSBzZW5kIG1lLg0K
+DQpJIHNlbnQgdGhlbSBvdXQgeWVzdGVyZGF5LiAgSWYgeW91IGNvdWxkIGdldCBtZSB0aGUgdGlt
+aW5nIG9uIHRob3NlIHBhdGNoZXMgSSB3b3VsZCBhcHByZWNpYXRlIGl0LiAgSSdtIHN1c3BlY3Rp
+bmcgd2Ugc2hvdWxkIGJlIGdldHRpbmcgY2xvc2UgdG8geW91ciBvcmlnaW5hbCB0aW1lIHJlcXVp
+cmVkIHRvIHBsdWcgaW4gMjAwSyByb3V0ZXMuDQoNCj4gPj4+IEkgcmVhbGx5IGhhdGUgYWxsIHRo
+ZSByZW5hbWluZy4gIENhbid0IHlvdSBqdXN0IGxlYXZlIHRoZXNlIGFzDQo+ID4+PiBsZWFmX3B1
+bGxfc3VmZml4IGFuZCBsZWFmX3B1c2ggX3N1ZmZpeC4gIEknbSBmaW5lIHdpdGggdXMgZHJvcHBp
+bmcNCj4gPj4+IHRoZSBsZWFmIG9mIHRoZSBzdWZmaXggYnV0IHRoZSByZW5hbWluZyBqdXN0IG1h
+a2VzIGFkZHMgYSBidW5jaCBvZiBub2lzZS4NCj4gPj4+IFJlYWxseSBpdCBtaWdodCB3b3JrIGJl
+dHRlciBpZiB5b3UgYnJva2UgdGhlIHJlcGxhY2VtZW50IG9mIHRoZQ0KPiA+Pj4ga2V5X3ZlY3Rv
+ciBhcyBhIGxlYWYgd2l0aCB0aGUgc3VmZml4IGxlbmd0aCBpbnRvIGEgc2VwYXJhdGUgcGF0Y2gs
+DQo+ID4+PiB0aGVuIHlvdSBjb3VsZCBkbyB0aGUgcmVuYW1lIGFzIGEgcGFydCBvZiB0aGF0Lg0K
+PiA+Pg0KPiA+Pg0KPiA+PiBPaywgSSdsbCBsZWF2ZSB0aGUgbmFtaW5nIG9mIGxlYWZfcHVzaF9z
+dWZmaXggYWxvbmUuIE5vdGUgdGhhdA0KPiA+PiBsZWFmX3B1bGxfc3VmZml4IGhhc24ndCBiZWVu
+IHJlbmFtZWQsIHRoZSBiZWxvdyBpbiB0aGUgZGlmZiBpcyBqdXN0DQo+ID4+IGFuIGFydGlmYWN0
+IG9mIGhvdyBkaWZmIGRlY2lkZWQgdG8gcHJlc2VudCB0aGUgY2hhbmdlcyBhbG9uZyB3aXRoIHRo
+ZQ0KPiA+PiBtb3Zpbmcgb2YgbGVhZl9wdXNoX3N1ZmZpeC4NCj4gPg0KPiA+IFNvIEkgaGF2ZSBi
+ZWVuIGxvb2tpbmcgdGhpcyBvdmVyIGZvciB0aGUgbGFzdCBjb3VwbGUgZGF5cyBhbmQgYWN0dWFs
+bHkNCj4gPiBJIGhhdmUgc3RhcnRlZCB0byBiZSBva2F5IHdpdGggdGhlIHJlbmFtaW5nLg0KPiA+
+DQo+ID4gSG93ZXZlciBJIHdvdWxkIGFzayB0byBiZSBjb25zaXN0ZW50LiAgSWYgeW91IGFyZSBn
+b2luZyB0byBoYXZlDQo+ID4gbm9kZV9wdWxsX3N1ZmZpeCBhbmQgbm9kZV9wdXNoX3N1ZmZpeCB0
+aGVuIGp1c3QgcGFzcyBhIG5vZGUgYW5kIGENCj4gPiBzdWZmaXggbGVuZ3RoLiAgWW91IGNhbiBk
+cm9wIHRoZSBsZWFmIGtleSB2ZWN0b3IgZnJvbSBib3RoIGZ1bmN0aW9ucw0KPiA+IGluc3RlYWQg
+b2YganVzdCBvbmUuDQo+IA0KPiBPaywgSSBjYW4gZG8gdGhhdC4NCj4gDQo+ID4NCj4gPj4+DQo+
+ID4+Pj4gLXN0YXRpYyB2b2lkIGxlYWZfcHVzaF9zdWZmaXgoc3RydWN0IGtleV92ZWN0b3IgKnRu
+LCBzdHJ1Y3QNCj4gPj4+PiBrZXlfdmVjdG9yDQo+ID4+Pj4gKmwpDQo+ID4+Pj4gK3N0YXRpYyB2
+b2lkIGxlYWZfcHVsbF9zdWZmaXgoc3RydWN0IGtleV92ZWN0b3IgKnRwLCBzdHJ1Y3QNCj4gPj4+
+PiAra2V5X3ZlY3Rvcg0KPiA+Pj4+ICpsKQ0KPiA+Pj4+ICB7DQo+ID4+Pj4gLSAgICAgICAvKiBp
+ZiB0aGlzIGlzIGEgbmV3IGxlYWYgdGhlbiB0biB3aWxsIGJlIE5VTEwgYW5kIHdlIGNhbiBzb3J0
+DQo+ID4+Pj4gLSAgICAgICAgKiBvdXQgcGFyZW50IHN1ZmZpeCBsZW5ndGhzIGFzIGEgcGFydCBv
+ZiB0cmllX3JlYmFsYW5jZQ0KPiA+Pj4+IC0gICAgICAgICovDQo+ID4+Pj4gLSAgICAgICB3aGls
+ZSAodG4tPnNsZW4gPCBsLT5zbGVuKSB7DQo+ID4+Pj4gLSAgICAgICAgICAgICAgIHRuLT5zbGVu
+ID0gbC0+c2xlbjsNCj4gPj4+PiAtICAgICAgICAgICAgICAgdG4gPSBub2RlX3BhcmVudCh0bik7
+DQo+ID4+Pj4gKyAgICAgICB3aGlsZSAoKHRwLT5zbGVuID4gdHAtPnBvcykgJiYgKHRwLT5zbGVu
+ID4gbC0+c2xlbikpIHsNCj4gPj4+PiArICAgICAgICAgICAgICAgaWYgKHVwZGF0ZV9zdWZmaXgo
+dHApID4gbC0+c2xlbikNCj4gPj4+PiArICAgICAgICAgICAgICAgICAgICAgICBicmVhazsNCj4g
+Pj4+PiArICAgICAgICAgICAgICAgdHAgPSBub2RlX3BhcmVudCh0cCk7DQo+ID4+Pj4gICAgICAg
+ICB9DQo+ID4+Pj4gIH0NCj4gPj4+DQo+ID4+Pg0KPiA+Pj4gSWYgcG9zc2libGUgaXQgd291bGQg
+d29yayBiZXR0ZXIgaWYgeW91IGNvdWxkIGF2b2lkIG1vdmluZyBmdW5jdGlvbnMNCj4gPj4+IGFy
+b3VuZCBhcyBhIHJlc3VsdCBvZiB5b3VyIGNoYW5nZXMuDQo+ID4+DQo+ID4+DQo+ID4+IE9rLCBJ
+IGNhbiBhZGQgYSBmb3J3YXJkIGRlY2xhcmF0aW9uIGluc3RlYWQuDQo+ID4NCj4gPiBJdCBzaG91
+bGRuJ3QgYmUgbmVjZXNzYXJ5LiAgSSB0aGluayB5b3UgYXJlIGRvaW5nIHdheSB0b28gbXVjaCB3
+aXRoDQo+ID4gdGhpcyBwYXRjaC4gIFdlIGp1c3QgbmVlZCB0aGlzIHRvIGJlIGEgZml4LCB5b3Ug
+YXJlIGRvaW5nIGEgYml0IHRvbw0KPiA+IG11Y2ggbGlrZSBhZGRpbmcgdGhpcyBuZXcgbm9kZV9z
+ZXRfc3VmZml4IGZ1bmN0aW9uIHdoaWNoIGlzbid0IHJlYWxseQ0KPiA+IG5lZWRlZC4NCj4gDQo+
+IEFzIHBlciB5b3VyIGNvbW1lbnQgYmVsb3cgdGhlIG5vZGVfc2V0X3N1ZmZpeCBmdW5jdGlvbiBp
+c24ndCBuZWNlc3NhcnkuDQo+IEhvd2V2ZXIsIEknbSBub3Qgc3VyZSBleGFjdGx5IHdoYXQgeW91
+J3JlIHN1Z2dlc3Rpbmcgd2l0aCB0aGlzIHBhdGNoIGRvaW5nIHRvbw0KPiBtdWNoLiBBcmUgeW91
+IHNheWluZyB0aGF0IHlvdSdkIGxpa2UgdG8gc2VlIGEgc2VyaWVzIG9mIHBhdGNoZXMgc3RhcnRp
+bmcgd2l0aA0KPiBzb21lIG9mIHRoZSByZXN0cnVjdHVyaW5nL3JlbmFtaW5nIG9mIHRoZSBwdXNo
+L3B1bGwgZnVuY3Rpb25zLCBvciBhcmUgeW91IHNheWluZw0KPiB0aGF0IHRoZSBzdW0gdG90YWwg
+aXMgdG9vIG11Y2g/DQoNCkJhc2ljYWxseSB3aGF0IGl0IGFsbCBjYW1lIGRvd24gdG8gaXMgdGhl
+IHBhdGNoIGl0c2VsZiBpcyBhIGJpdCBub2lzeSBhbmQgaGFyZCB0byBmb2xsb3cuICBUaGF0IGlz
+IHdoeSBJIGJyb2tlIHRoaXMgZG93biBpbnRvIHR3byBwYXRjaGVzIHdoZW4gSSBzdWJtaXR0ZWQg
+aXQgYmFjayBvdXQgd2l0aCB3aGF0IEkgY29uc2lkZXIgdG8gYmUgZml4ZXMuDQoNCj4gPj4+Pg0K
+PiA+Pj4+IEBAIC0xNzgzLDYgKzE4MDEsMTYgQEAgdm9pZCBmaWJfdGFibGVfZmx1c2hfZXh0ZXJu
+YWwoc3RydWN0DQo+ID4+Pj4gZmliX3RhYmxlDQo+ID4+Pj4gKnRiKQ0KPiA+Pj4+ICAgICAgICAg
+ICAgICAgICAgICAgICAgIGlmIChJU19UUklFKHBuKSkNCj4gPj4+PiAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIGJyZWFrOw0KPiA+Pj4+DQo+ID4+Pj4gKyAgICAgICAgICAgICAgICAg
+ICAgICAgLyogcHVzaCB0aGUgc3VmZml4IGxlbmd0aCB0byB0aGUgcGFyZW50IG5vZGUsDQo+ID4+
+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgICogc2luY2UgYSBwcmV2aW91cyBsZWFmIHJlbW92
+YWwgbWF5IGhhdmUNCj4gPj4+PiArICAgICAgICAgICAgICAgICAgICAgICAgKiBjYXVzZWQgaXQg
+dG8gY2hhbmdlDQo+ID4+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgICovDQo+ID4+Pj4gKyAg
+ICAgICAgICAgICAgICAgICAgICAgaWYgKHBuLT5zbGVuID4gcG4tPnBvcykgew0KPiA+Pj4+ICsg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdW5zaWduZWQgY2hhciBzbGVuID0NCj4gPj4+
+PiArIHVwZGF0ZV9zdWZmaXgocG4pOw0KPiA+Pj4+ICsNCj4gPj4+PiArICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIG5vZGVfc2V0X3N1ZmZpeChub2RlX3BhcmVudChwbiksIHNsZW4pOw0K
+PiA+Pj4+ICsgICAgICAgICAgICAgICAgICAgICAgIH0NCj4gPj4+PiArDQo+ID4+Pg0KPiA+Pj4N
+Cj4gPj4+IFdoeSBib3RoZXIgd2l0aCB0aGUgbG9jYWwgdmFyaWFibGU/ICBZb3UgY291bGQganVz
+dCBwYXNzDQo+ID4+PiB1cGRhdGVfc3VmZml4KHBuKSBhcyB0aGUgcGFyYW1ldGVyIHRvIHlvdXIg
+bm9kZV9zZXRfc3VmZml4IGZ1bmN0aW9uLg0KPiA+Pg0KPiA+Pg0KPiA+PiBUbyBhdm9pZCBhIGxv
+bmcgbGluZSBvbiB0aGUgbm9kZV9zZXRfc3VmZml4IGNhbGwgb3Igc3BsaXR0aW5nIGl0DQo+ID4+
+IGFjcm9zcyBsaW5lcywgYnV0IEknbGwgcmVtb3ZlIHRoZSBsb2NhbCB2YXJpYWJsZSBhcyB5b3Ug
+c3VnZ2VzdCBhbmQgdGhlIHNhbWUNCj4gYmVsb3cuDQo+ID4NCj4gPiBBY3R1YWxseSBJIHRoaW5r
+IHRoZXJlIGlzIGEgYnVnIGhlcmUuICBZb3Ugc2hvdWxkbid0IGJlIHNldHRpbmcgdGhlDQo+ID4g
+c3VmZml4IGZvciB0aGUgcGFyZW50IGJhc2VkIG9uIHRoZSBjaGlsZC4gIFlvdSBjYW4ganVzdCBj
+YWxsDQo+ID4gdXBkYXRlX3N1ZmZpeChwbikgYW5kIHRoYXQgc2hvdWxkIGJlIGVub3VnaC4NCj4g
+DQo+IFllcywgeW91J3JlIHJpZ2h0LiBCVFcsIHRoaXMgbG9naWMgaXMgdHJhbnNmZXJyZWQgZnJv
+bSB0aGUgZXhpc3RpbmcgcmVzaXplIGZ1bmN0aW9uDQo+IGFuZCBJIHRoaW5rIHdoYXQgc2F2ZXMg
+dXMgYm90aCBiZWZvcmUgYW5kIGFmdGVyIG15IGNoYW5nZXMgaXMgdGhhdCB0aGUgbG9naWMgaXMN
+Cj4gcmVwZWF0ZWQgZm9yIHRoZSBwYXJlbnQgbm9kZSB3aGljaCBmaXhlcyB0aGUgdmFsdWUgYW5k
+IHNvIG9uIGFsbCB0aGUgd2F5IHVwIHRoZQ0KPiB0cmllLg0KDQpSaWdodCwgYnV0IHRoZSBsb2dp
+YyB3YXMgY2hhbmdlZCBzbyB0aGUgYnVnIHdhc24ndCByZWFsbHkgaW50cm9kdWNlZCB1bnRpbCB3
+ZSBzdG9wcGVkIHVzaW5nIHVwZGF0ZV9zdWZmaXggdG8gcHVzaCB0aGUgc3VmZml4IGxlbmd0aCB1
+cCB0aGUgdHJpZS4NCg0KT2RkcyBhcmUgdGhlIGNhbGwgdG8gbm9kZV9zZXRfc3VmZml4IGFsd2F5
+cyBkaWQgbm90aGluZyBhbnl3YXkgc2luY2UgdGhlIHBhcmVudCBzaG91bGQgaGF2ZSBhbHdheXMg
+aGFkIGFuIGVxdWFsIG9yIGdyZWF0ZXIgc3VmZml4IHRoYW4gdGhlIGNoaWxkLg0KDQotIEFsZXgN
+Cg==
