@@ -1,166 +1,106 @@
 From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [PATCH 6/6] net: smmac: allow configuring lower pbl values
-Date: Fri, 2 Dec 2016 15:13:56 +0100
-Message-ID: <1480688040-9809-1-git-send-email-niklass@axis.com>
+Subject: [PATCH 3/6] net: stmmac: stmmac_platform: fix parsing of DT binding
+Date: Fri, 2 Dec 2016 15:11:47 +0100
+Message-ID: <1480687910-9690-3-git-send-email-niklass@axis.com>
+References: <1480687910-9690-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
-        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-doc@vger.kernel.org>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Phil Reid <preid@electromag.com.au>,
-        Eric Engestrom <eric@engestrom.ch>,
-        Vincent Palatin <vpalatin@chromium.org>,
-        =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>,
-        Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-        Joachim Eastwood <manabian@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        <linux-kernel@vger.kernel.org>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bastet.se.axis.com ([195.60.68.11]:55713 "EHLO
+        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934287AbcLBOMH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 09:12:07 -0500
+In-Reply-To: <1480687910-9690-1-git-send-email-niklass@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Niklas Cassel <niklas.cassel@axis.com>
 
-The driver currently always sets the PBLx8/PBLx4 bit, which means that
-the pbl values configured via the pbl/txpbl/rxpbl DT properties are
-always multiplied by 8/4 in the hardware.
+commit 64c3b252e9fc ("net: stmmac: fixed the pbl setting with DT")
+changed the parsing of the DT binding.
 
-In order to allow the DT to configure lower pbl values, while at the
-same time not changing behavior of any existing device trees using the
-pbl/txpbl/rxpbl settings, add a property to disable the multiplication
-of the pbl by 8/4 in the hardware.
+Before 64c3b252e9fc, snps,fixed-burst and snps,mixed-burst were parsed
+regardless if the property snps,pbl existed or not.
+After the commit, fixed burst and mixed burst are only parsed if
+snps,pbl exists. Now when snps,aal has been added, it too is only
+parsed if snps,pbl exists.
 
-Suggested-by: Rabin Vincent <rabinv@axis.com>
+Since the DT binding does not specify that fixed burst, mixed burst
+or aal depend on snps,pbl being specified, undo changes introduced
+by 64c3b252e9fc.
+
+The issue commit 64c3b252e9fc ("net: stmmac: fixed the pbl setting with
+DT") tries to address is solved in another way:
+The databook specifies that all values other than
+1, 2, 4, 8, 16, or 32 results in undefined behavior,
+so snps,pbl = <0> is invalid.
+
+If pbl is 0 after parsing, set pbl to DEFAULT_DMA_PBL.
+This handles the case where the property is omitted, and also handles
+the case where the property is specified without any data.
+
 Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 ---
- Documentation/devicetree/bindings/net/stmmac.txt      | 2 ++
- Documentation/networking/stmmac.txt                   | 5 ++++-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c   | 3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c      | 3 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c      | 2 ++
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 +
- include/linux/stmmac.h                                | 1 +
- 7 files changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  3 +++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 27 +++++++++++-----------
+ 2 files changed, 16 insertions(+), 14 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 8080038ff1b2..128da752fec9 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -39,6 +39,8 @@ Optional properties:
- 			If set, DMA tx will use this value rather than snps,pbl.
- - snps,rxpbl		Rx Programmable Burst Length. Only for GMAC and newer.
- 			If set, DMA rx will use this value rather than snps,pbl.
-+- snps,no-pbl-x8	Don't multiply the pbl/txpbl/rxpbl values by 8.
-+			For core rev < 3.50, don't multiply the values by 4.
- - snps,aal		Address-Aligned Beats
- - snps,fixed-burst	Program the DMA to use the fixed burst mode
- - snps,mixed-burst	Program the DMA to use the mixed burst mode
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index 82c8e496b4bb..d3376c5fbcf0 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -153,8 +153,9 @@ Where:
-  o dma_cfg: internal DMA parameters
-    o pbl: the Programmable Burst Length is maximum number of beats to
-        be transferred in one DMA transaction.
--       GMAC also enables the 4xPBL by default.
-+       GMAC also enables the 4xPBL by default. (8xPBL for GMAC 3.50 and newer)
-    o txpbl/rxpbl: GMAC and newer supports independent DMA pbl for tx/rx.
-+   o pblx8: Enable 8xPBL (4xPBL for core rev < 3.50). Enabled by default.
-    o fixed_burst/mixed_burst/aal
-  o clk_csr: fixed CSR Clock range selection.
-  o has_gmac: uses the GMAC core.
-@@ -209,6 +210,7 @@ struct stmmac_dma_cfg {
- 	int pbl;
- 	int txpbl;
- 	int rxpbl;
-+	bool pblx8;
- 	int fixed_burst;
- 	int mixed_burst;
- 	bool aal;
-@@ -220,6 +222,7 @@ Where:
- 	 If set, DMA tx will use this value rather than pbl.
-  o rxpbl: Receive Programmable Burst Length. Only for GMAC and newer.
- 	 If set, DMA rx will use this value rather than pbl.
-+ o pblx8: Enable 8xPBL (4xPBL for core rev < 3.50). Enabled by default.
-  o fixed_burst: program the DMA to use the fixed burst mode
-  o mixed_burst: program the DMA to use the mixed burst mode
-  o aal: Address-Aligned Beats
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 1dd34fb4c1a9..1d313af647b4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -96,7 +96,8 @@ static void dwmac1000_dma_init(void __iomem *ioaddr,
- 	 * Note: before stmmac core 3.50 this mode bit was 4xPBL, and
- 	 * post 3.5 mode bit acts as 8*PBL.
- 	 */
--	value |= DMA_BUS_MODE_MAXPBL;
-+	if (dma_cfg->pblx8)
-+		value |= DMA_BUS_MODE_MAXPBL;
- 	value |= DMA_BUS_MODE_USP;
- 	value &= ~(DMA_BUS_MODE_PBL_MASK | DMA_BUS_MODE_RPBL_MASK);
- 	value |= (txpbl << DMA_BUS_MODE_PBL_SHIFT);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-index 0bf47825bfeb..0f7110d19a4a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-@@ -82,7 +82,8 @@ static void dwmac4_dma_init_channel(void __iomem *ioaddr,
- 	 * on each channel
- 	 */
- 	value = readl(ioaddr + DMA_CHAN_CONTROL(channel));
--	value = value | DMA_BUS_MODE_PBL;
-+	if (dma_cfg->pblx8)
-+		value = value | DMA_BUS_MODE_PBL;
- 	writel(value, ioaddr + DMA_CHAN_CONTROL(channel));
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 27a03f7ee095..9ba2eb4c22fe 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1585,6 +1585,9 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+ 		return -EINVAL;
+ 	}
  
- 	value = readl(ioaddr + DMA_CHAN_TX_CONTROL(channel));
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index 56c8a2342c14..a2831773431a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -81,6 +81,7 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
- 	plat->mdio_bus_data->phy_mask = 0;
- 
- 	plat->dma_cfg->pbl = 32;
-+	plat->dma_cfg->pblx8 = true;
- 	/* TODO: AXI */
- 
- 	/* Set default value for multicast hash bins */
-@@ -115,6 +116,7 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
- 	plat->mdio_bus_data->phy_mask = 0;
- 
- 	plat->dma_cfg->pbl = 16;
-+	plat->dma_cfg->pblx8 = true;
- 	plat->dma_cfg->fixed_burst = 1;
- 	/* AXI (TODO) */
++	if (!priv->plat->dma_cfg->pbl)
++		priv->plat->dma_cfg->pbl = DEFAULT_DMA_PBL;
++
+ 	if (priv->extend_desc && (priv->mode == STMMAC_RING_MODE))
+ 		atds = 1;
  
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 29faff42a5ea..3a713862f0a3 100644
+index b46c892c7079..05b8c33effd5 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -314,6 +314,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 	of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
- 	of_property_read_u32(np, "snps,txpbl", &dma_cfg->txpbl);
- 	of_property_read_u32(np, "snps,rxpbl", &dma_cfg->rxpbl);
-+	dma_cfg->pblx8 = !of_property_read_bool(np, "snps,no-pbl-x8");
+@@ -303,21 +303,20 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+ 		plat->force_sf_dma_mode = 1;
+ 	}
  
- 	dma_cfg->aal = of_property_read_bool(np, "snps,aal");
- 	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index c8a7c6b278da..05a8243017b0 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -90,6 +90,7 @@ struct stmmac_dma_cfg {
- 	int pbl;
- 	int txpbl;
- 	int rxpbl;
-+	bool pblx8;
- 	int fixed_burst;
- 	int mixed_burst;
- 	bool aal;
+-	if (of_find_property(np, "snps,pbl", NULL)) {
+-		dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
+-				       GFP_KERNEL);
+-		if (!dma_cfg) {
+-			of_node_put(plat->phy_node);
+-			return ERR_PTR(-ENOMEM);
+-		}
+-		plat->dma_cfg = dma_cfg;
+-		of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
+-		dma_cfg->aal = of_property_read_bool(np, "snps,aal");
+-		dma_cfg->fixed_burst =
+-			of_property_read_bool(np, "snps,fixed-burst");
+-		dma_cfg->mixed_burst =
+-			of_property_read_bool(np, "snps,mixed-burst");
++	dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
++			       GFP_KERNEL);
++	if (!dma_cfg) {
++		of_node_put(plat->phy_node);
++		return ERR_PTR(-ENOMEM);
+ 	}
++	plat->dma_cfg = dma_cfg;
++
++	of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
++
++	dma_cfg->aal = of_property_read_bool(np, "snps,aal");
++	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
++	dma_cfg->mixed_burst = of_property_read_bool(np, "snps,mixed-burst");
++
+ 	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
+ 	if (plat->force_thresh_dma_mode) {
+ 		plat->force_sf_dma_mode = 0;
 -- 
 2.1.4
