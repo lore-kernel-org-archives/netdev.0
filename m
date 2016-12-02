@@ -1,94 +1,135 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] adm80211: add checks for dma mapping errors
-Date: Sat,  3 Dec 2016 00:52:46 +0300
-Message-ID: <1480715566-17027-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCHv2 net-next 2/4] net: dsa: mv88e6xxx: Monitor and Management tables
+Date: Fri, 02 Dec 2016 16:53:43 -0500
+Message-ID: <87oa0u0zh4.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1480701779-30633-1-git-send-email-andrew@lunn.ch> <1480701779-30633-3-git-send-email-andrew@lunn.ch> <87mvgecejs.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me> <20161202205656.GD30716@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:35806 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754032AbcLBVzA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 16:55:00 -0500
+In-Reply-To: <20161202205656.GD30716@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver does not check if mapping dma memory succeed.
-The patch adds the checks and failure handling.
+Hi Andrew,
 
-Found by Linux Driver Verification project (linuxtesting.org).
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wireless/admtek/adm8211.c | 24 ++++++++++++++++++++++--
- 1 file changed, 22 insertions(+), 2 deletions(-)
+> On Fri, Dec 02, 2016 at 02:32:39PM -0500, Vivien Didelot wrote:
+>> Hi Andrew,
+>> 
+>> Andrew Lunn <andrew@lunn.ch> writes:
+>> 
+>> > @@ -3184,6 +3186,8 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+>> >  	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+>> >  	.stats_get_strings = mv88e6095_stats_get_strings,
+>> >  	.stats_get_stats = mv88e6095_stats_get_stats,
+>> > +	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
+>> > +	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
+>> >  };
+>> 
+>> I like the implementation in this version better. But please explain me
+>> why you are prefixing these operations with g1_?
+>
+> The prefix gives some basic grouping. port_ indicates it operates on a
+> port, and is likely to be found in port.c. stats_ indicates it
+> operates on statistics, ppu that is operates on the phy polling unit.
 
-diff --git a/drivers/net/wireless/admtek/adm8211.c b/drivers/net/wireless/admtek/adm8211.c
-index 70ecd82d674d..2b4a3eb38dfa 100644
---- a/drivers/net/wireless/admtek/adm8211.c
-+++ b/drivers/net/wireless/admtek/adm8211.c
-@@ -413,6 +413,13 @@ static void adm8211_interrupt_rci(struct ieee80211_hw *dev)
- 						       skb_tail_pointer(newskb),
- 						       RX_PKT_SIZE,
- 						       PCI_DMA_FROMDEVICE);
-+				if (pci_dma_mapping_error(priv->pdev,
-+					   priv->rx_buffers[entry].mapping)) {
-+					priv->rx_buffers[entry].skb = NULL;
-+					dev_kfree_skb(newskb);
-+					skb = NULL;
-+					/* TODO: update rx dropped stats */
-+				}
- 			} else {
- 				skb = NULL;
- 				/* TODO: update rx dropped stats */
-@@ -1450,6 +1457,12 @@ static int adm8211_init_rings(struct ieee80211_hw *dev)
- 						  skb_tail_pointer(rx_info->skb),
- 						  RX_PKT_SIZE,
- 						  PCI_DMA_FROMDEVICE);
-+		if (pci_dma_mapping_error(priv->pdev, rx_info->mapping)) {
-+			dev_kfree_skb(rx_info->skb);
-+			rx_info->skb = NULL;
-+			break;
-+		}
-+
- 		desc->buffer1 = cpu_to_le32(rx_info->mapping);
- 		desc->status = cpu_to_le32(RDES0_STATUS_OWN | RDES0_STATUS_SQL);
- 	}
-@@ -1613,7 +1626,7 @@ static void adm8211_calc_durations(int *dur, int *plcp, size_t payload_len, int
- }
- 
- /* Transmit skb w/adm8211_tx_hdr (802.11 header created by hardware) */
--static void adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
-+static int adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
- 			   u16 plcp_signal,
- 			   size_t hdrlen)
- {
-@@ -1625,6 +1638,8 @@ static void adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
- 
- 	mapping = pci_map_single(priv->pdev, skb->data, skb->len,
- 				 PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(priv->pdev, mapping))
-+		return -ENOMEM;
- 
- 	spin_lock_irqsave(&priv->lock, flags);
- 
-@@ -1657,6 +1672,8 @@ static void adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
- 
- 	/* Trigger transmit poll */
- 	ADM8211_CSR_WRITE(TDR, 0);
-+
-+	return 0;
- }
- 
- /* Put adm8211_tx_hdr on skb and transmit */
-@@ -1710,7 +1727,10 @@ static void adm8211_tx(struct ieee80211_hw *dev,
- 
- 	txhdr->retry_limit = info->control.rates[0].count;
- 
--	adm8211_tx_raw(dev, skb, plcp_signal, hdrlen);
-+	if (adm8211_tx_raw(dev, skb, plcp_signal, hdrlen)) {
-+		/* Drop packet */
-+		ieee80211_free_txskb(dev, skb);
-+	}
- }
- 
- static int adm8211_alloc_rings(struct ieee80211_hw *dev)
--- 
-2.7.4
+Yes, port_* operations operate on ports. But the port.c file is there to
+implement the function of "Port Registers". "Port" can be confusing, but
+it refers to the SMI internal device at address 0xsomething.
+
+"port_", "ppu_", "stats_", in the mv88e6xxx_ops structure just give
+implicit namespaces for the **features**, not their location!
+
+> We are going to have some things which don't fall into a simple
+> category, like these two. But it would however be nice to group them,
+> so i picked which register bank they are in. These operations are
+> always in g1. It is a useful hint as to where to find the different
+> variants.
+
+Absolutely not!
+
+    .set_egress_port = mv88e6095_g1_set_egress_port,
+
+                                 ^
+                                 That is the useful hint!
+
+At the higher level of chip.c, we don't care about where is implemented
+the switch MAC setter. We just have to call the correctly defined
+.set_switch_mac routine.
+
+However if you do care to know, its _ops.set_switch_mac pointer will
+tell you (_g1 vs _g2 prefix).
+
+>> But let's imagine we can set the CPU port in some Global 2 registers.
+>> You are going to wrap this in chip.c with something like:
+>> 
+>>     int mv88e6xxx_set_cpu_port(struct mv88e6xxx_chip *chip, int port)
+>>     {
+>>         if (chip->info->ops->g2_set_cpu_port)
+>>             return chip->info->ops->g2_set_cpu_port(chip, port);
+>>         else if (chip->info->ops->g1_set_cpu_port)
+>>             return chip->info->ops->g1_set_cpu_port(chip, port);
+>>         else
+>>             return -EOPNOTSUPP;
+>>     }
+>
+> I answered in one of my other emails. Frames with reserved MAC
+> addresses can be forwarded to the CPU. For most devices, this is a g2
+> operation. However, for 6390, it is a g1. In that case, my code does
+> not use a prefix. Not having a prefix, when all the others do, also
+> gives you information. It means the ops are spread around and you need
+> to make a bigger effort to go find them.
+
+Again, absolutely not. This is your interpretation of having a prefix or
+not. A chip has only one way to access a feature, not two. Since you
+seem to be focused on the Rsvd2CPU feature, here's an example with it:
+
+What's the point of writing this:
+
+    /* Consider the given MAC as MGMT */
+    int mv88e6xxx_reserve_mac(struct mv88e6xxx_chip *chip, u8 *addr)
+    {
+            if (mac_is_0x(addr)) {
+                    if (chip->info->ops->g1_set_rsvd2cpu0)
+                            return chip->info->ops->g1_set_rsvd2cpu0(...);
+                    else if (chip->info->ops->g2_set_rsvd2cpu0)
+                            return chip->info->ops->g2_set_rsvd2cpu0(...);
+            } else if (mac_is_2x(addr)) {
+                    if (chip->info->ops->g1_set_rsvd2cpu2)
+                            return chip->info->ops->g1_set_rsvd2cpu2(...);
+                    else if (chip->info->ops->g2_set_rsvd2cpu2)
+                            return chip->info->ops->g2_set_rsvd2cpu2(...);
+            }
+
+            return mv88e6xxx_atu_load(chip, addr, MGMT);
+    }
+
+Compared to this:
+
+    /* Consider the given MAC as MGMT */
+    int mv88e6xxx_reserve_mac(struct mv88e6xxx_chip *chip, u8 *addr)
+    {
+            if (mac_is_0x(addr)) {
+                    if (chip->info->ops->set_rsvd2cpu0)
+                            return chip->info->ops->set_rsvd2cpu0(...);
+            } else if (mac_is_2x(addr)) {
+                    if (chip->info->ops->set_rsvd2cpu2)
+                            return chip->info->ops->set_rsvd2cpu2(...);
+            }
+
+            return mv88e6xxx_atu_load(chip, addr, MGMT);
+    }
+
+Your higher level API (chip.c) doesn't need to know where is implemented
+a given feature. It just needs to know if it supports it or not.
+
+Thanks,
+
+        Vivien
