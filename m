@@ -1,49 +1,41 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v2] netfilter: avoid warn and OOM killer on vmalloc call
-Date: Fri,  2 Dec 2016 07:46:38 -0200
-Message-ID: <e10fd8b5206bfde5526e3bbf2b5ff9af584b0a6f.1480671893.git.marcelo.leitner@gmail.com>
-Cc: fw@strlen.de, nhorman@tuxdriver.com,
-        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: andreyknvl@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH v3 net-next 3/3] openvswitch: Fix skb->protocol for vlan
+ frames.
+Date: Fri, 2 Dec 2016 10:49:36 +0100
+Message-ID: <20161202104936.09ad1af3@griffin>
+References: <1480462253-114713-1-git-send-email-jarno@ovn.org>
+        <1480462253-114713-3-git-send-email-jarno@ovn.org>
+        <20161130153041.7a9590ef@griffin>
+        <CAOrHB_CAR8G=BF6X_+HgkRRnb=Erc6CYpCL4EnJfDRe7qBR2vg@mail.gmail.com>
+        <20161202104202.426b2c80@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarno Rajahalme <jarno@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Garver <e@erig.me>
+To: Pravin Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54972 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751786AbcLBJtk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 04:49:40 -0500
+In-Reply-To: <20161202104202.426b2c80@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrey Konovalov reported that this vmalloc call is based on an
-userspace request and that it's spewing traces, which may flood the logs
-and cause DoS if abused.
+On Fri, 2 Dec 2016 10:42:02 +0100, Jiri Benc wrote:
+> On Thu, 1 Dec 2016 12:31:09 -0800, Pravin Shelar wrote:
+> It's not set exactly by the caller, because that's what this patch is
+> removing. It is set by whoever handed over the packet to openvswitch.
+> The point is we don't know *what* it is set to. It may as well be
+> ETH_P_8021Q, breaking the conditions here. It should not happen in
+> practice but still, it seems weird to depend on the fact that the
+> packet coming to ovs has never skb->protocol equal to ETH_P_8021Q nor
+> ETH_P_8021AD.
 
-Florian Westphal also mentioned that this call should not trigger OOM
-killer.
+I'm wondering whether we should not revive the patchset that makes the
+first vlan tag always accelerated. It makes handling of various packet
+formats and the checks for forwardability so much simpler...
 
-This patch brings the vmalloc call in sync to kmalloc and disables the
-warn trace on allocation failure and also disable OOM killer invocation.
-
-Note, however, that under such stress situation, other places may
-trigger OOM killer invocation.
-
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Florian Westphal <fw@strlen.de>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/netfilter/x_tables.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index fc4977456c30e098197b4f987b758072c9cf60d9..dece525bf83a0098dad607fce665cd0bde228362 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -958,7 +958,9 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
- 	if (sz <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
- 		info = kmalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_NORETRY);
- 	if (!info) {
--		info = vmalloc(sz);
-+		info = __vmalloc(sz, GFP_KERNEL | __GFP_NOWARN |
-+				     __GFP_NORETRY | __GFP_HIGHMEM,
-+				 PAGE_KERNEL);
- 		if (!info)
- 			return NULL;
- 	}
--- 
-2.9.3
+ Jiri
