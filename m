@@ -1,30 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] RDS: TCP: unregister_netdevice_notifier() in error
- path of rds_tcp_init_net
-Date: Fri, 02 Dec 2016 13:30:42 -0500 (EST)
-Message-ID: <20161202.133042.668824120029340797.davem@davemloft.net>
-References: <1480596283-204869-1-git-send-email-sowmini.varadhan@oracle.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, santosh.shilimkar@oracle.com
-To: sowmini.varadhan@oracle.com
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH iproute2/net-next 0/3] tc: flower: Support matching on ICMP
+Date: Fri,  2 Dec 2016 19:24:36 +0100
+Message-ID: <1480703079-25422-1-git-send-email-simon.horman@netronome.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38248 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754829AbcLBSao (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:30:44 -0500
-In-Reply-To: <1480596283-204869-1-git-send-email-sowmini.varadhan@oracle.com>
+Received: from mail-wj0-f182.google.com ([209.85.210.182]:35683 "EHLO
+        mail-wj0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750833AbcLBSco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:32:44 -0500
+Received: by mail-wj0-f182.google.com with SMTP id v7so239034277wjy.2
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 10:32:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu,  1 Dec 2016 04:44:43 -0800
+Add support for matching on ICMP type and code to flower. This is modeled
+on existing support for matching on L4 ports.
 
-> If some error is encountered in rds_tcp_init_net, make sure to
-> unregister_netdevice_notifier(), else we could trigger a panic
-> later on, when the modprobe from a netns fails.
-> 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+The second patch provided a minor cleanup which is in keeping with
+they style used in the last patch.
 
-Applied, thank you.
+This is marked as an RFC to match the same designation given to the
+corresponding kernel patches.
+
+Based on iproute2/net-next with the following applied:
+* [[PATCH iproute2/net-next v2] 0/4] tc: flower: SCTP and other port fixes
+
+Changes since RFC:
+* Update names of enums (Jiri)
+* Use enums
+* Drop RFC designation
+
+
+Simon Horman (3):
+  tc: flower: update headers for TCA_FLOWER_KEY_ICMP*
+  tc: flower: introduce enum flower_endpoint
+  tc: flower: support matching on ICMP type and code
+
+ include/linux/pkt_cls.h |  10 ++++
+ man/man8/tc-flower.8    |  20 ++++++--
+ tc/f_flower.c           | 125 ++++++++++++++++++++++++++++++++++++++++++------
+ 3 files changed, 136 insertions(+), 19 deletions(-)
+
+-- 
+2.7.0.rc3.207.g0ac5344
