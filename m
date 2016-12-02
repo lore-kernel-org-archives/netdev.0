@@ -1,39 +1,43 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
-Date: Fri, 2 Dec 2016 10:58:48 +0100
-Message-ID: <20161202095848.GA14586@localhost.localdomain>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-5-grygorii.strashko@ti.com>
- <20161130184511.GB8209@netboy>
- <875d4cc2-8a47-b06d-fb46-0cacc28dbaee@ti.com>
- <20161130221738.GA13099@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        devicetree@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161130221738.GA13099@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH/RFC iproute2/net-next 0/3] tc: flower: Support matching on ICMP
+Date: Fri,  2 Dec 2016 10:59:42 +0100
+Message-ID: <1480672785-14570-1-git-send-email-simon.horman@netronome.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f182.google.com ([209.85.210.182]:36223 "EHLO
+        mail-wj0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751866AbcLBJ74 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 04:59:56 -0500
+Received: by mail-wj0-f182.google.com with SMTP id qp4so227582514wjc.3
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 01:59:55 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 30, 2016 at 11:17:38PM +0100, Richard Cochran wrote:
-> On Wed, Nov 30, 2016 at 02:43:57PM -0600, Grygorii Strashko wrote:
-> > Sry, but this is questionable - code for pps comes from TI internal
-> > branches (SDK releases) where it survived for a pretty long time.
+Add support for matching on ICMP type and code to flower. This is modeled
+on existing support for matching on L4 ports.
 
-Actually, there is a way to get an accurate PPS from the am335x.  See
-this recent thread:
+The second patch provided a minor cleanup which is in keeping with
+they style used in the last patch.
 
-   https://www.mail-archive.com/linuxptp-devel@lists.sourceforge.net/msg01726.html
+This is marked as an RFC to match the same designation given to the
+corresponding kernel patches.
 
-That is the way to go, and so, please drop this present patch.
+Based on iproute2/net-next with the following applied:
+* [[PATCH iproute2/net-next v2] 0/4] tc: flower: SCTP and other port fixes
 
-Thanks,
-Richard
+Simon Horman (3):
+  tc: flower: update headers for TCA_FLOWER_KEY_ICMP*
+  tc: flower: introduce enum flower_endpoint
+  tc: flower: support matching on ICMP type and code
+
+ include/linux/pkt_cls.h |  10 ++++
+ man/man8/tc-flower.8    |  20 ++++++--
+ tc/f_flower.c           | 118 ++++++++++++++++++++++++++++++++++++++++++------
+ 3 files changed, 129 insertions(+), 19 deletions(-)
+
+-- 
+2.7.0.rc3.207.g0ac5344
