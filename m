@@ -1,107 +1,41 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH v2] cpsw: ethtool: add support for getting/setting EEE
- registers
-Date: Fri, 2 Dec 2016 10:11:10 +0100
-Message-ID: <2b4912e6-c380-b2bd-762a-d1da2b0a7d82@st.com>
-References: <1479911913-1761-1-git-send-email-yegorslists@googlemail.com>
- <93e0bd06-3171-e12b-b763-1e2895a463f8@gmail.com>
- <CAGm1_ksC_6afhzK39uVTSk2PoC9CrR4Fow89YCZfihS2f6wzOw@mail.gmail.com>
- <c91dcd74-3983-3ab6-91f6-3657b1e601af@gmail.com>
- <CAGm1_ktuAbt0pr_NJu2GLDOavFV_bvMBmH5RvDxr5AyXvfwB3A@mail.gmail.com>
- <20161124153809.GA20455@lunn.ch>
- <11549d93-4b51-25c8-e693-509048475bef@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH v3 net-next 2/3] openvswitch: Use is_skb_forwardable()
+ for length check.
+Date: Fri, 2 Dec 2016 10:25:09 +0100
+Message-ID: <20161202102509.065df1e8@griffin>
+References: <1480462253-114713-1-git-send-email-jarno@ovn.org>
+        <1480462253-114713-2-git-send-email-jarno@ovn.org>
+        <20161130145159.3cee7ba4@griffin>
+        <CAOrHB_BEQBbvDa2W0dJmmANsjZEiwx7GbTxo-7yirDB=5d9cqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>,
-        "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "N, Mugunthan V" <mugunthanvnm@ti.com>,
-        Rami Rosen <roszenrami@gmail.com>,
-        Fabrice GASNIER <fabrice.gasnier@st.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Yegor Yefremov <yegorslists@googlemail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarno Rajahalme <jarno@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Garver <e@erig.me>
+To: Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:16539 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1758211AbcLBJLU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 04:11:20 -0500
-In-Reply-To: <11549d93-4b51-25c8-e693-509048475bef@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:48702 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758611AbcLBJZN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 04:25:13 -0500
+In-Reply-To: <CAOrHB_BEQBbvDa2W0dJmmANsjZEiwx7GbTxo-7yirDB=5d9cqQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian
-sorry for my delay.
+On Thu, 1 Dec 2016 11:50:00 -0800, Pravin Shelar wrote:
+> This is not changing any behavior compared to current OVS vlan checks.
+> Single vlan header is not considered for MTU check.
 
-On 11/24/2016 7:23 PM, Florian Fainelli wrote:
-> +Peppe,
->
-> Le 24/11/2016 à 07:38, Andrew Lunn a écrit :
->>> As for enabling advertising and correct working of cpsw do you mean it
->>> would be better to disable EEE in any PHY on cpsw initialization as
->>> long as cpsw doesn't provide support for EEE?
->>>
->>> We observe some strange behavior with our gigabit PHYs and a link
->>> partner in a EEE-capable unmanaged NetGear switch. Disabling
->>> advertising seems to help. Though we're still investigating the issue.
->>
->> Hi Florian
->>
->> Am i right in saying, a PHY should not advertise EEE until the MAC
->> driver calls phy_init_eee(), indicating the MAC supports EEE?
->
-> You would think so, but I don't see how this could possibly work if that
-> was not the case already, see below.
->
->>
->> If so, it looks like we need to change a few of the PHY drivers, in
->> particular, the bcm-*.c.
->
-> The first part that bcm-phy-lib.c does is make sure that EEE is enabled
-> such that this gets reflected in MDIO_PCS_EEE_ABLE, without this, we
-> won't be able to pass the first test in phy_init_eee(). The second part
-> is to advertise EEE such that this gets reflected in MDIO_AN_EEE_ADV,
-> also to make sure that we can pass the second check in phy_init_eee().
->
-> Now, looking at phy_init_eee(), and what stmmac does (and bcmgenet,
-> copied after stmmac), we need to somehow, have EEE advertised for
-> phy_init_eee() to succeed, prepare the MAC to support EEE, and finally
-> conclude with a call to phy_ethtool_set_eee(), which writes to the
-> MDIO_AN_EEE_ADV register, and concludes the EEE auto-negotiated process.
-> Since we already have EEE advertised, we are essentially just checking
-> that the EEE advertised settings and the LP advertised settings actually
-> do match, so it sounds like the final call to phy_ethtool_set_eee() is
-> potentially useless if the resolved advertised and link partner
-> advertised settings already match...
->
-> So it sounds like at least, the first time you try to initialize EEE, we
-> should start with EEE not advertised, and then, if we have EEE enabled
-> at some point, and we re-negotiate the link parameters, somehow
-> phy_init_eee() does a right job for that.
->
-> Peppe, any thoughts on this?
+It is changing it.
 
-I share what you say.
+Consider the case when there's an interface with MTU 1500 forwarding to
+an interface with MTU 1496. Obviously, full-sized vlan frames
+ingressing on the first interface are not forwardable to the second
+one. Yet, if the vlan tag is accelerated (and thus not counted in
+skb->len), is_skb_forwardable happily returns true because of the check
 
-In sum, the EEE management inside the stmmac is:
+        len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
+        if (skb->len <= len)
 
-- the driver looks at own HW cap register if EEE is supported
-
-     (indeed the user could keep disable EEE if bugged on some HW
-      + Alex, Fabrice: we had some patches for this to propose where we
-              called the phy_ethtool_set_eee to disable feature at phy
-              level
-
-- then the stmmac asks PHY layer to understand if transceiver and
-   partners are EEE capable.
-
-- If all matches the EEE is actually initialized.
-
-the logic above should be respected when use ethtool, hmm, I will
-check the stmmac_ethtool_op_set_eee asap.
-
-Hoping this is useful
-
-Regards
-Peppe
+ Jiri
