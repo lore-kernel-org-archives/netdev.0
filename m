@@ -1,201 +1,58 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH] mm: page_alloc: High-order per-cpu page allocator v3
-Date: Fri, 2 Dec 2016 16:37:58 +0100
-Message-ID: <20161202163758.0d8cc9bf@redhat.com>
-References: <20161127131954.10026-1-mgorman@techsingularity.net>
-	<20161130134034.3b60c7f0@redhat.com>
-	<20161130140615.3bbn7576iwbyc3op@techsingularity.net>
-	<20161130160612.474ca93c@redhat.com>
-	<20161130163520.hg7icdflagmvarbr@techsingularity.net>
-	<20161201183402.2fbb8c5b@redhat.com>
-	<1480630668.5345.7.camel@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: DSA vs. SWTICHDEV ?
+Date: Fri, 2 Dec 2016 16:38:15 +0100
+Message-ID: <20161202153815.GK21887@lunn.ch>
+References: <1480495831.3563.135.camel@infinera.com>
+ <584054C4.1010809@ti.com>
+ <20161201173100.GG21887@lunn.ch>
+ <58409867.50001@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mgorman@techsingularity.net>,
-        Andrew Morton
- <akpm@linux-foundtion.org>,
-        Christoph Lameter <cl@linux.com>, Michal Hocko
- <mhocko@suse.com>,
-        Vlastimil Babka <vbabka@suse.cz>,
-        Johannes Weiner
- <hannes@cmpxchg.org>, Linux-MM <linux-mm@kvack.org>,
-        Linux-Kernel
- <linux-kernel@vger.kernel.org>,
-        Rick Jones <rick.jones2@hpe.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Hannes Frederic Sowa
- <hannes@stressinduktion.org>, brouer@redhat.com
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1480630668.5345.7.camel@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+        Roger Quadros <rogerq@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: Murali Karicheri <m-karicheri2@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:37687 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751367AbcLBPjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 10:39:25 -0500
+Content-Disposition: inline
+In-Reply-To: <58409867.50001@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 01 Dec 2016 23:17:48 +0100
-Paolo Abeni <pabeni@redhat.com> wrote:
-
-> On Thu, 2016-12-01 at 18:34 +0100, Jesper Dangaard Brouer wrote:
-> > (Cc. netdev, we might have an issue with Paolo's UDP accounting and
-> > small socket queues)
+On Thu, Dec 01, 2016 at 04:38:47PM -0500, Murali Karicheri wrote:
+> Hi Andrew,
+> On 12/01/2016 12:31 PM, Andrew Lunn wrote:
+> > Hi Murali 
 > > 
-> > On Wed, 30 Nov 2016 16:35:20 +0000
-> > Mel Gorman <mgorman@techsingularity.net> wrote:
-> >   
-> > > > I don't quite get why you are setting the socket recv size
-> > > > (with -- -s and -S) to such a small number, size + 256.
-> > > >     
-> > > 
-> > > Maybe I missed something at the time I wrote that but why would it
-> > > need to be larger?  
+> >> 2. Switch mode where it implements a simple Ethernet switch. Currently
+> >>    it doesn't have address learning capability, but in future it
+> >>    can.
 > > 
-> > Well, to me it is quite obvious that we need some queue to avoid packet
-> > drops.  We have two processes netperf and netserver, that are sending
-> > packets between each-other (UDP_STREAM mostly netperf -> netserver).
-> > These PIDs are getting scheduled and migrated between CPUs, and thus
-> > does not get executed equally fast, thus a queue is need absorb the
-> > fluctuations.
-> > 
-> > The network stack is even partly catching your config "mistake" and
-> > increase the socket queue size, so we minimum can handle one max frame
-> > (due skb "truesize" concept approx PAGE_SIZE + overhead).
-> > 
-> > Hopefully for localhost testing a small queue should hopefully not
-> > result in packet drops.  Testing... ups, this does result in packet
-> > drops.
-> > 
-> > Test command extracted from mmtests, UDP_STREAM size 1024:
-> > 
-> >  netperf-2.4.5-installed/bin/netperf -t UDP_STREAM  -l 60  -H 127.0.0.1 \
-> >    -- -s 1280 -S 1280 -m 1024 -M 1024 -P 15895
-> > 
-> >  UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0)
-> >   port 15895 AF_INET to 127.0.0.1 (127.0.0.1) port 15895 AF_INET
-> >  Socket  Message  Elapsed      Messages                
-> >  Size    Size     Time         Okay Errors   Throughput
-> >  bytes   bytes    secs            #      #   10^6bits/sec
-> > 
-> >    4608    1024   60.00     50024301      0    6829.98
-> >    2560           60.00     46133211           6298.72
-> > 
-> >  Dropped packets: 50024301-46133211=3891090
-> > 
-> > To get a better drop indication, during this I run a command, to get
-> > system-wide network counters from the last second, so below numbers are
-> > per second.
-> > 
-> >  $ nstat > /dev/null && sleep 1  && nstat
-> >  #kernel
-> >  IpInReceives                    885162             0.0
-> >  IpInDelivers                    885161             0.0
-> >  IpOutRequests                   885162             0.0
-> >  UdpInDatagrams                  776105             0.0
-> >  UdpInErrors                     109056             0.0
-> >  UdpOutDatagrams                 885160             0.0
-> >  UdpRcvbufErrors                 109056             0.0
-> >  IpExtInOctets                   931190476          0.0
-> >  IpExtOutOctets                  931189564          0.0
-> >  IpExtInNoECTPkts                885162             0.0
-> > 
-> > So, 885Kpps but only 776Kpps delivered and 109Kpps drops. See
-> > UdpInErrors and UdpRcvbufErrors is equal (109056/sec). This drop
-> > happens kernel side in __udp_queue_rcv_skb[1], because receiving
-> > process didn't empty it's queue fast enough see [2].
-> > 
-> > Although upstream changes are coming in this area, [2] is replaced with
-> > __udp_enqueue_schedule_skb, which I actually tested with... hmm
-> > 
-> > Retesting with kernel 4.7.0-baseline+ ... show something else. 
-> > To Paolo, you might want to look into this.  And it could also explain why
-> > I've not see the mentioned speedup by mm-change, as I've been testing
-> > this patch on top of net-next (at 93ba2222550) with Paolo's UDP changes.  
+> > If it does not have address learning capabilities, does it act like a
+> > plain old hub? What comes in one port goes out all others?
 > 
-> Thank you for reporting this.
+> Thanks for the response!
 > 
-> It seems that the commit 123b4a633580 ("udp: use it's own memory
-> accounting schema") is too strict while checking the rcvbuf. 
-> 
-> For very small value of rcvbuf, it allows a single skb to be enqueued,
-> while previously we allowed 2 of them to enter the queue, even if the
-> first one truesize exceeded rcvbuf, as in your test-case.
-> 
-> Can you please try the following patch ?
+> Yes. It is a plain hub. it replicates frame to both ports. So need to
+> run a bridge layer for address learning in software.
 
-Sure, it looks much better with this patch.
+Hi Murali
 
+It would be good if you start thinking about all the different
+directions. It is not just host to port A and host to port B. What
+about port A to Port B? Can it do that in hardware? 
 
-$ /home/jbrouer/git/mmtests/work/testdisk/sources/netperf-2.4.5-installed/bin/netperf -t UDP_STREAM  -l 60  -H 127.0.0.1    -- -s 1280 -S 1280 -m 1024 -M 1024 -P 15895
-UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 15895 AF_INET to 127.0.0.1 (127.0.0.1) port 15895 AF_INET
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
+> I think not. I see we have a non Linux implementation that does address
+> learning in software using a hash table and look up MAC for each packet
+> to see which port it needs to be sent to.
 
-  4608    1024   60.00     50191555      0    6852.82
-  2560           60.00     50189872           6852.59
+I think i need to read more about the switch. I'm starting to wonder
+if it has enough intelligence to be usable. Switchdev is about pushing
+configuration down into the switch. It does not however sound like
+there is that much which is configurable in this switch.
 
-Only 50191555-50189872=1683 drops, approx 1683/60 = 28/sec
-
-$ nstat > /dev/null && sleep 1  && nstat
-#kernel
-IpInReceives                    885417             0.0
-IpInDelivers                    885416             0.0
-IpOutRequests                   885417             0.0
-UdpInDatagrams                  885382             0.0
-UdpInErrors                     29                 0.0
-UdpOutDatagrams                 885410             0.0
-UdpRcvbufErrors                 29                 0.0
-IpExtInOctets                   931534428          0.0
-IpExtOutOctets                  931533376          0.0
-IpExtInNoECTPkts                885488             0.0
-
- 
-> Thank you,
-> 
-> Paolo
-> ---
->  net/ipv4/udp.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index e1d0bf8..2f5dc92 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1200,19 +1200,21 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
->  	struct sk_buff_head *list = &sk->sk_receive_queue;
->  	int rmem, delta, amt, err = -ENOMEM;
->  	int size = skb->truesize;
-> +	int limit;
->  
->  	/* try to avoid the costly atomic add/sub pair when the receive
->  	 * queue is full; always allow at least a packet
->  	 */
->  	rmem = atomic_read(&sk->sk_rmem_alloc);
-> -	if (rmem && (rmem + size > sk->sk_rcvbuf))
-> +	limit = size + sk->sk_rcvbuf;
-> +	if (rmem > limit)
->  		goto drop;
->  
->  	/* we drop only if the receive buf is full and the receive
->  	 * queue contains some other skb
->  	 */
->  	rmem = atomic_add_return(size, &sk->sk_rmem_alloc);
-> -	if ((rmem > sk->sk_rcvbuf) && (rmem > size))
-> +	if (rmem > limit)
->  		goto uncharge_drop;
->  
->  	spin_lock(&list->lock);
-> 
-
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+      Andrew
