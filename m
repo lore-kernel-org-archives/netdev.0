@@ -1,123 +1,116 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH 2/7] net: ethernet: ti: cpdma: fix desc re-queuing
-Date: Sat, 3 Dec 2016 01:28:22 +0200
-Message-ID: <20161202232820.GA15799@khorivan>
-References: <20161201233432.6182-1-grygorii.strashko@ti.com>
- <20161201233432.6182-3-grygorii.strashko@ti.com>
- <20161202110321.GA1213@khorivan>
- <9171f321-32bf-81d9-3491-43d12e8fe8b2@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9171f321-32bf-81d9-3491-43d12e8fe8b2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH net-next v3 0/2] stmmac: dwmac-meson8b: configurable RGMII TX delay
+Date: Sat,  3 Dec 2016 00:32:36 +0100
+Message-ID: <20161202233238.17561-1-martin.blumenstingl@googlemail.com>
+References: <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org,
+        khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161125130156.17879-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 02, 2016 at 10:45:07AM -0600, Grygorii Strashko wrote:
-> 
-> 
-> On 12/02/2016 05:03 AM, Ivan Khoronzhuk wrote:
-> > On Thu, Dec 01, 2016 at 05:34:27PM -0600, Grygorii Strashko wrote:
-> >> The currently processing cpdma descriptor with EOQ flag set may
-> >> contain two values in Next Descriptor Pointer field:
-> >> - valid pointer: means CPDMA missed addition of new desc in queue;
-> > It shouldn't happen in normal circumstances, right?
-> 
-> it might happen, because desc push compete with desc pop.
-> You can check stats values:
-> chan->stats.misqueued
-> chan->stats.requeue
->  under different types of net-loads.
-I've done this, of-course.
-By whole logic the misqueued counter has to cover all cases.
-But that's not true.
+Currently the dwmac-meson8b stmmac glue driver uses a hardcoded 1/4
+cycle (= 2ns) TX clock delay. This seems to work fine for many boards
+(for example Odroid-C2 or Amlogic's reference boards) but there are
+some others where TX traffic is simply broken.
+There are probably multiple reasons why it's working on some boards
+while it's broken on others:
+- some of Amlogic's reference boards are using a Micrel PHY
+- hardware circuit design
+- maybe more...
 
-> 
-> TRM:
-> "
-> If the pNext pointer is initially NULL, and more packets need to be queued for transmit, the software
-> application may alter this pointer to point to a newly appended descriptor. The EMAC will use the new
-> pointer value and proceed to the next descriptor unless the pNext value has already been read. In this
-> latter case, the transmitter will halt on the transmit channel in question, and the software application may
-> restart it at that time. The software can detect this case by checking for an end of queue (EOQ) condition
-> flag on the updated packet descriptor when it is returned by the EMAC.
-> "
-That's true. No issues in desc.
-In the code no any place to update next_desc except submit function.
+iperf3 results on my Mecool BB2 board (Meson GXM, RTL8211F PHY) with
+TX clock delay disabled on the MAC (as it's enabled in the PHY driver).
+TX throughput was virtually zero before:
+$ iperf3 -c 192.168.1.100 -R
+Connecting to host 192.168.1.100, port 5201
+Reverse mode, remote host 192.168.1.100 is sending
+[  4] local 192.168.1.206 port 52828 connected to 192.168.1.100 port 5201
+[ ID] Interval           Transfer     Bandwidth
+[  4]   0.00-1.00   sec   108 MBytes   901 Mbits/sec
+[  4]   1.00-2.00   sec  94.2 MBytes   791 Mbits/sec
+[  4]   2.00-3.00   sec  96.5 MBytes   810 Mbits/sec
+[  4]   3.00-4.00   sec  96.2 MBytes   808 Mbits/sec
+[  4]   4.00-5.00   sec  96.6 MBytes   810 Mbits/sec
+[  4]   5.00-6.00   sec  96.5 MBytes   810 Mbits/sec
+[  4]   6.00-7.00   sec  96.6 MBytes   810 Mbits/sec
+[  4]   7.00-8.00   sec  96.5 MBytes   809 Mbits/sec
+[  4]   8.00-9.00   sec   105 MBytes   884 Mbits/sec
+[  4]   9.00-10.00  sec   111 MBytes   934 Mbits/sec
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec  1000 MBytes   839 Mbits/sec    0             sender
+[  4]   0.00-10.00  sec   998 MBytes   837 Mbits/sec                  receiver
 
-And this case is supposed to be caught here:
-For submit:
-cpdma_chan_submit()
-spin_lock_irqsave(&chan->lock);
-...
---->__cpdma_chan_submit()
-...
-------> desc_write(prev, hw_next, desc_dma); // here next pointer is updated, it can be not in time
-...
-------> mode = desc_read(prev, hw_mode); // pay attention, it's read after updating next pointer
-------> if ((mode & CPDMA_DESC_EOQ) &&
-------> (chan->state == CPDMA_STATE_ACTIVE)) { // here checked if it was late update
----------> chan_write(chan, hdp, desc_dma); // here transmit is restarted, if needed
+iperf Done.
+$ iperf3 -c 192.168.1.100
+Connecting to host 192.168.1.100, port 5201
+[  4] local 192.168.1.206 port 52832 connected to 192.168.1.100 port 5201
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.01   sec  99.5 MBytes   829 Mbits/sec  117    139 KBytes
+[  4]   1.01-2.00   sec   105 MBytes   884 Mbits/sec  129   70.7 KBytes
+[  4]   2.00-3.01   sec   107 MBytes   889 Mbits/sec  106    187 KBytes
+[  4]   3.01-4.01   sec   105 MBytes   878 Mbits/sec   92    143 KBytes
+[  4]   4.01-5.00   sec   105 MBytes   882 Mbits/sec  140    129 KBytes
+[  4]   5.00-6.01   sec   106 MBytes   883 Mbits/sec  115    195 KBytes
+[  4]   6.01-7.00   sec   102 MBytes   863 Mbits/sec  133   70.7 KBytes
+[  4]   7.00-8.01   sec   106 MBytes   884 Mbits/sec  143   97.6 KBytes
+[  4]   8.01-9.01   sec   104 MBytes   875 Mbits/sec  124    107 KBytes
+[  4]   9.01-10.01  sec   105 MBytes   876 Mbits/sec   90    139 KBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.01  sec  1.02 GBytes   874 Mbits/sec  1189             sender
+[  4]   0.00-10.01  sec  1.02 GBytes   873 Mbits/sec                  receiver
 
-For process it only caught the fact of late update, but it has to be caught in
-submit() already:
-__cpdma_chan_process()
-spin_lock_irqsave(&chan->lock);
-------> if (mode & CPDMA_DESC_EOQ) // here transmit is restarted, if needed
----------> chan_write(chan, hdp, desc_dma); // but w/o updating next pointer
+iperf Done.
 
-Seems there is no place where hw_next is updated w/o updating hdp :-| in case
-of late hw_next set. And that is strange. I know it happens, I've checked it
-before of-course. Then I thought, maybe there is some problem with write order,
-thus out of sync, nothing more.
+I get similar TX throughput on my Meson GXBB "MXQ Pro+" board when I
+disable the PHY's TX-delay and configure a 4ms TX-delay on the MAC.
+So changes to at least the RTL8211F PHY driver are needed to get it
+working properly in all situations.
 
-> 
-> 
-> > So, why it happens only for egress channels? And Does that mean
-> > there is some resynchronization between submit and process function,
-> > or this is h/w issue?
-> 
-> no hw issues. this patch just removes one unnecessary I/O access 
-No objections against patch. Anyway it's better then before.
-Just want to know the real reason why it happens, maybe there is smth else.
+Changes since v2:
+- moved all .dts patches (3-7) to a separate series
+- removed the default 2ns TX delay when phy-mode RGMII is specified
+- (rebased against current net-next)
 
-> 
-> > 
-> >> - null: no more descriptors in queue.
-> >> In the later case, it's not required to write to HDP register, but now
-> >> CPDMA does it.
-> >>
-> >> Hence, add additional check for Next Descriptor Pointer != null in
-> >> cpdma_chan_process() function before writing in HDP register.
-> >>
-> >> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> >> ---
-> >>  drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
-> >>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> >> index 0924014..379314f 100644
-> >> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> >> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> >> @@ -1152,7 +1152,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
-> >>  	chan->count--;
-> >>  	chan->stats.good_dequeue++;
-> >>  
-> >> -	if (status & CPDMA_DESC_EOQ) {
-> >> +	if ((status & CPDMA_DESC_EOQ) && chan->head) {
-> >>  		chan->stats.requeue++;
-> >>  		chan_write(chan, hdp, desc_phys(pool, chan->head));
-> >>  	}
-> >> -- 
-> >> 2.10.1
-> >>
-> 
-> -- 
-> regards,
-> -grygorii
+Changes since v1:
+- renamed the devicetree property "amlogic,tx-delay" to
+  "amlogic,tx-delay-ns", which makes the .dts easier to read as we can
+  simply specify human-readable values instead of having "preprocessor
+  defines and calculation in human brain". Thanks to Andrew Lunn for
+  the suggestion!
+- improved documentation to indicate when the MAC TX-delay should be
+  configured and how to use the PHY's TX-delay
+- changed the default TX-delay in the dwmac-meson8b driver from 2ns
+  to 0ms when any of the rgmii-*id modes are used (the 2ns default
+  value still applies for phy-mode "rgmii")
+- added patches to properly reset the PHY on Meson GXBB devices and to
+  use a similar configuration than the one we use on Meson GXL devices
+  (by passing a phy-handle to stmmac and defining the PHY in the mdio0
+  bus - patch 3-6)
+- add the "amlogic,tx-delay-ns" property to all boards which are using
+  the RGMII PHY (patch 7)
+
+
+Martin Blumenstingl (2):
+  net: dt-bindings: add RGMII TX delay configuration to meson8b-dwmac
+  net: stmmac: dwmac-meson8b: make the RGMII TX delay configurable
+
+ .../devicetree/bindings/net/meson-dwmac.txt         | 14 ++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c | 21 +++++++++++++++------
+ 2 files changed, 29 insertions(+), 6 deletions(-)
+
+-- 
+2.10.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
