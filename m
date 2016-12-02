@@ -1,50 +1,87 @@
-From: Jesper Nilsson <jesper.nilsson@axis.com>
-Subject: [PATCH v2] net: phy: dp83848: Support ethernet pause frames
-Date: Fri, 2 Dec 2016 15:57:49 +0100
-Message-ID: <20161202145748.GA19016@axis.com>
-References: <20161202142203.GY19016@axis.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: net/can: warning in raw_setsockopt/__alloc_pages_slowpath
+Date: Fri, 2 Dec 2016 16:11:41 +0100
+Message-ID: <73b78023-bc11-25c0-33e3-3a748dbc81cd@hartkopp.net>
+References: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
+ <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roger Quadros <rogerq@ti.com>, "Andrew F. Davis" <afd@ti.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Dan Murphy <dmurphy@ti.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161202142203.GY19016@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-According to the documentation, the PHYs supported by this driver
-can also support pause frames. Announce this to be so.
-Tested with a TI83822I.
-
-Acked-by: Andrew F. Davis <afd@ti.com>
-Signed-off-by: Jesper Nilsson <jesper.nilsson@axis.com>
----
- drivers/net/phy/dp83848.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
-index 800b39f..320d0dc 100644
---- a/drivers/net/phy/dp83848.c
-+++ b/drivers/net/phy/dp83848.c
-@@ -88,7 +88,9 @@ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
- 		.phy_id		= _id,				\
- 		.phy_id_mask	= 0xfffffff0,			\
- 		.name		= _name,			\
--		.features	= PHY_BASIC_FEATURES,		\
-+		.features	= (PHY_BASIC_FEATURES |		\
-+				   SUPPORTED_Pause |		\
-+				   SUPPORTED_Asym_Pause),	\
- 		.flags		= PHY_HAS_INTERRUPT,		\
- 								\
- 		.soft_reset	= genphy_soft_reset,		\
--- 
-2.1.4
 
 
-/^JN - Jesper Nilsson
--- 
-               Jesper Nilsson -- jesper.nilsson@axis.com
+On 12/02/2016 02:24 PM, Marc Kleine-Budde wrote:
+> On 12/02/2016 01:43 PM, Andrey Konovalov wrote:
+
+
+>>  [<ffffffff8369e0de>] raw_setsockopt+0x1be/0x9f0 net/can/raw.c:506
+>
+> We should add a check for a sensible optlen....
+>
+>> static int raw_setsockopt(struct socket *sock, int level, int optname,
+>> 			  char __user *optval, unsigned int optlen)
+>> {
+>> 	struct sock *sk = sock->sk;
+>> 	struct raw_sock *ro = raw_sk(sk);
+>> 	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
+>> 	struct can_filter sfilter;         /* single filter */
+>> 	struct net_device *dev = NULL;
+>> 	can_err_mask_t err_mask = 0;
+>> 	int count = 0;
+>> 	int err = 0;
+>>
+>> 	if (level != SOL_CAN_RAW)
+>> 		return -EINVAL;
+>>
+>> 	switch (optname) {
+>>
+>> 	case CAN_RAW_FILTER:
+>> 		if (optlen % sizeof(struct can_filter) != 0)
+>> 			return -EINVAL;
+>
+> here...
+>
+> 		if (optlen > 64 * sizeof(struct can_filter))
+> 			return -EINVAL;
+>
+
+Agreed.
+
+But what is sensible here?
+64 filters is way to small IMO.
+
+When thinking about picking a bunch of single CAN IDs I would tend to 
+something like 512 filters.
+
+Regards,
+Oliver
+
+>>
+>> 		count = optlen / sizeof(struct can_filter);
+>>
+>> 		if (count > 1) {
+>> 			/* filter does not fit into dfilter => alloc space */
+>> 			filter = memdup_user(optval, optlen);
+>> 			if (IS_ERR(filter))
+>> 				return PTR_ERR(filter);
+>> 		} else if (count == 1) {
+>> 			if (copy_from_user(&sfilter, optval, sizeof(sfilter)))
+>> 				return -EFAULT;
+>> 		}
+>>
+>> 		lock_sock(sk);
+>
+> Marc
+>
