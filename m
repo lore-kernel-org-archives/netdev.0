@@ -1,57 +1,55 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 23/39] Annotate hardware config module parameters in drivers/net/wireless/
-Date: Fri, 02 Dec 2016 07:04:25 +0200
-Message-ID: <8737i6syzq.fsf@kamboji.qca.qualcomm.com>
-References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
-        <148059556349.31612.1087071308520573382.stgit@warthog.procyon.org.uk>
+Subject: Re: linux-next: manual merge of the wireless-drivers-next tree with the net-next tree
+Date: Fri, 02 Dec 2016 07:08:48 +0200
+Message-ID: <87polark7z.fsf@kamboji.qca.qualcomm.com>
+References: <20161202110313.2104919e@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, gnomes@lxorguk.ukuu.org.uk,
-        minyard@acm.org, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <148059556349.31612.1087071308520573382.stgit@warthog.procyon.org.uk>
-        (David Howells's message of "Thu, 01 Dec 2016 12:32:43 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wireless <linux-wireless@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Sara Sharon <sara.sharon@intel.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Rajkumar Manoharan <rmanohar@qti.qualcomm.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:53708 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750750AbcLBFIy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 00:08:54 -0500
+In-Reply-To: <20161202110313.2104919e@canb.auug.org.au> (Stephen Rothwell's
+        message of "Fri, 2 Dec 2016 11:03:13 +1100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Howells <dhowells@redhat.com> writes:
+Stephen Rothwell <sfr@canb.auug.org.au> writes:
 
-> When the kernel is running in secure boot mode, we lock down the kernel to
-> prevent userspace from modifying the running kernel image.  Whilst this
-> includes prohibiting access to things like /dev/mem, it must also prevent
-> access by means of configuring driver modules in such a way as to cause a
-> device to access or modify the kernel image.
+> Hi all,
 >
-> To this end, annotate module_param* statements that refer to hardware
-> configuration and indicate for future reference what type of parameter they
-> specify.  The parameter parser in the core sees this information and can
-> skip such parameters with an error message if the kernel is locked down.
-> The module initialisation then runs as normal, but just sees whatever the
-> default values for those parameters is.
+> Today's linux-next merge of the wireless-drivers-next tree got a
+> conflict in:
 >
-> Note that we do still need to do the module initialisation because some
-> drivers have viable defaults set in case parameters aren't specified and
-> some drivers support automatic configuration (e.g. PNP or PCI) in addition
-> to manually coded parameters.
+>   drivers/net/wireless/ath/ath10k/mac.c
 >
-> This patch annotates drivers in drivers/net/wireless/.
+> between commit:
 >
-> Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-> Signed-off-by: David Howells <dhowells@redhat.com>
-> cc: Kalle Valo <kvalo@codeaurora.org>
-> cc: linux-wireless@vger.kernel.org
-> cc: netdev@vger.kernel.org
-> ---
+>   f3fe4e93dd63 ("mac80211: add a HW flag for supporting HW TX fragmentation")
 >
->  drivers/net/wireless/cisco/airo.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+> from the net-next tree and commit:
+>
+>   ff32eeb86aa1 ("ath10k: advertize hardware packet loss mechanism")
+>
+> from the wireless-drivers-next tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
 
-Via which tree are you planning to submit this, should I take it to
-wireless-drivers or will someone else handle it? I didn't get the cover
-letter so I have no idea.
+The fix looks good, thanks. I sent a pull request to Dave yesteday which
+should fix this.
 
 -- 
 Kalle Valo
