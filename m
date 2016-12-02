@@ -1,69 +1,62 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCHv2 net-next 4/4] net: dsa: mv88e6xxx: Refactor CPU and DSA port setup
-Date: Fri, 02 Dec 2016 17:03:30 -0500
-Message-ID: <877f7i56q5.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1480701779-30633-1-git-send-email-andrew@lunn.ch> <1480701779-30633-5-git-send-email-andrew@lunn.ch> <87h96mcadj.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me> <20161202211806.GF30716@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 1/1] tc: updated man page to reflect handle-id
+ use in filter GET command.
+Date: Fri, 2 Dec 2016 14:06:22 -0800
+Message-ID: <20161202140622.5ecad2d6@xeon-e3>
+References: <1480623644-27533-1-git-send-email-mrv@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sathya.perla@broadcom.com
+To: Roman Mashak <mrv@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:36948 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750949AbcLBWE1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 17:04:27 -0500
-In-Reply-To: <20161202211806.GF30716@lunn.ch>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:33966 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751512AbcLBWGZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 17:06:25 -0500
+Received: by mail-pg0-f48.google.com with SMTP id x23so111766457pgx.1
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 14:06:25 -0800 (PST)
+In-Reply-To: <1480623644-27533-1-git-send-email-mrv@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Thu,  1 Dec 2016 15:20:44 -0500
+Roman Mashak <mrv@mojatatu.com> wrote:
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+> ---
+>  man/man8/tc.8 | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/man/man8/tc.8 b/man/man8/tc.8
+> index 8a47a2b..d957ffa 100644
+> --- a/man/man8/tc.8
+> +++ b/man/man8/tc.8
+> @@ -32,7 +32,9 @@ class-id ] qdisc
+>  DEV
+>  .B [ parent
+>  qdisc-id
+> -.B | root ] protocol
+> +.B | root ] [ handle
+> +handle-id ]
+> +.B protocol
+>  protocol
+>  .B prio
+>  priority filtertype
+> @@ -577,7 +579,7 @@ it is created.
+>  
+>  .TP
+>  get
+> -Displays a single filter given the interface, parent ID, priority, protocol and handle ID.
+> +Displays a single filter given the interface, qdisc-id, priority, protocol and handle-id.
+>  
+>  .TP
+>  show
 
->> The port's EgressMode, FrameMode and EtherType are really tied together
->> to compose the mode of the port.
->
-> Setting the EtherType is somewhat separate. It is only needed on ports
-> using EDSA. And that can only happen on a CPU port. Humm, actually, i
-> set it when i should not. But putting this in a wrapper actually hides
-> this.
+The proper syntax for man page usage section is to put keywords in bold and any value
+that is variable in italic.
 
-Wrong. The datasheet says:
+I know this whole man page doesn't do this correctly. But that doesn't mean that new
+additions should continue with the mistake.
 
-    > This Ether Type is used for many features depending upon the mode
-    > of the port (as defined by the port’s EgressMode and FrameMode
-    > bits – in Port Control, port offset 0x04).
-
-It says that in Normal Network mode, this register can be used to trap,
-mirror, etc. Also used in Provider and EDSA modes.
-
-That is why it would be better to wrap them together to ensure correct
-values when configuring a port's mode.
-
->
->> Could you add an helper in chip.c like:
->> 
->>     static int mv88e6xxx_set_port_mode(struct mv88e6xxx_chip *chip, int port,
->>                                        enum mv88e6xxx_frame_mode frame_mode,
->>                                        u16 egress_mode, bool egress_unknown,
->>                                        u16 ethertype)
->>     {
->>         int err;
->> 
->>         if (chip->info->ops->port_set_frame_mode) {
->>             err = chip->info->ops->port_set_frame_mode(chip, port, frame_mode);
->>             if (err)
->>                 return err;
->>         }
->
-> Ignoring that it is not implemented here is wrong. It must be
-> implemented, or the device is not going to work. It is a question of,
-> do we want an oops, or return an error code.
-
-Since that is done at setup time, returning an error is enough IMO to
-inform the DSA layer that something went wrong.
-
-Thanks,
-
-        Vivien
+Please revise and resubmit. Extra bonus points for fixing the other bits.
