@@ -1,51 +1,47 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] samples/bpf: silence compiler warnings
-Date: Thu, 1 Dec 2016 18:31:12 -0800
-Message-ID: <1480645872-999847-1-git-send-email-ast@fb.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH main-v4.9-rc7] net/ipv6: allow sysctl to change link-local
+ address generation mode
+Date: Thu, 1 Dec 2016 20:36:08 -0800
+Message-ID: <CAM_iQpV_7X_ON0XLkd+b3cMRDpg0kN8opPWzx=CfxGGCcNqQQA@mail.gmail.com>
+References: <20161202021457.13163-1-felix.jia@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Carl Smith <carl.smith@alliedtelesis.co.nz>
+To: Felix Jia <felix.jia@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35141 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752257AbcLBCbP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 21:31:15 -0500
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id uB22Qx1c020762
-        for <netdev@vger.kernel.org>; Thu, 1 Dec 2016 18:31:14 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0001303.ppops.net with ESMTP id 27302r03yy-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 18:31:14 -0800
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- 644b8f7ab83711e6afea0002c992ebde-62dfba50 for <netdev@vger.kernel.org>;        Thu,
- 01 Dec 2016 18:31:12 -0800
+Received: from mail-io0-f195.google.com ([209.85.223.195]:35270 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753128AbcLBEga (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 23:36:30 -0500
+Received: by mail-io0-f195.google.com with SMTP id h133so6209717ioe.2
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 20:36:29 -0800 (PST)
+In-Reply-To: <20161202021457.13163-1-felix.jia@alliedtelesis.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-silence some of the clang compiler warnings like:
-include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false
-arch/x86/include/asm/processor.h:491:30: warning: taking address of packed member 'sp0' of class or structure 'x86_hw_tss' may result in an unaligned pointer value
-include/linux/cgroup-defs.h:326:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension
-since they add too much noise to samples/bpf/ build.
+On Thu, Dec 1, 2016 at 6:14 PM, Felix Jia <felix.jia@alliedtelesis.co.nz> wrote:
+> +static void addrconf_addrgenmode_change(struct net *net)
+> +{
+> +       struct net_device *dev;
+> +       struct inet6_dev *idev;
+> +
+> +       read_lock(&dev_base_lock);
+> +       for_each_netdev(net, dev) {
+> +               rcu_read_lock();
+> +               idev = __in6_dev_get(dev);
+> +               if (idev) {
+> +                       idev->cnf.addrgenmode = ipv6_devconf_dflt.addrgenmode;
+> +                       idev->addr_gen_mode = ipv6_devconf_dflt.addrgenmode;
+> +                       rtnl_lock();
+> +                       addrconf_dev_config(idev->dev);
+> +                       rtnl_unlock();
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
- samples/bpf/Makefile | 2 ++
- 1 file changed, 2 insertions(+)
+You can't call rtnl lock in atomic context.
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 3ceb5a9d86df..270e2fd7337a 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -158,4 +158,6 @@ $(obj)/%.o: $(src)/%.c
- 	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
- 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
- 		-Wno-compare-distinct-pointer-types \
-+		-Wno-gnu-variable-sized-type-not-at-end \
-+		-Wno-address-of-packed-member -Wno-tautological-compare \
- 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
--- 
-2.8.0
+> +               }
+> +               rcu_read_unlock();
+> +       }
+> +       read_unlock(&dev_base_lock);
+
+Did you test your patch seriously?
