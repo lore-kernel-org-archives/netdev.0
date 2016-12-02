@@ -1,76 +1,80 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH net 0/7] net: stmmac: fix probe error handling and phydev
- leaks
-Date: Fri, 2 Dec 2016 09:46:44 +0100
-Message-ID: <6036ada6-71f7-61f5-be52-629940a097cd@st.com>
-References: <1480516195-27696-1-git-send-email-johan@kernel.org>
+Subject: Re: [PATCH 1/4] bindings: net: stmmac: correct note about TSO
+Date: Fri, 2 Dec 2016 09:48:06 +0100
+Message-ID: <1bae716e-2f18-ab4d-c88d-387d526c12bc@st.com>
+References: <1479911066-19752-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexandre Torgue <alexandre.torgue@st.com>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Carlo Caione <carlo@caione.org>,
-        Kevin Hilman <khilman@baylibre.com>,
-        Maxime Coquelin <mcoquelin.stm32@gmail.com>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>,
-        Chen-Yu Tsai <wens@csie.org>, <netdev@vger.kernel.org>,
+Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>
-To: Johan Hovold <johan@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480516195-27696-1-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexandre TORGUE <alexandre.torgue@st.com>,
+        Phil Reid <preid@electromag.com.au>,
+        Niklas Cassel <niklass@axis.com>,
+        Eric Engestrom <eric@engestrom.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:21040 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932795AbcLBIsZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 03:48:25 -0500
+In-Reply-To: <1479911066-19752-1-git-send-email-niklass@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2016 3:29 PM, Johan Hovold wrote:
-> This series fixes a number of issues with the stmmac-driver probe error
-> handling, which for example left clocks enabled after probe failures.
+On 11/23/2016 3:24 PM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
 >
-> The final patch fixes a failure to deregister and free any fixed-link
-> PHYs that were registered during probe on probe errors and on driver
-> unbind. It also fixes a related of-node leak on late probe errors.
+> snps,tso was previously placed under AXI BUS Mode parameters,
+> suggesting that the property should be in the stmmac-axi-config node.
 >
-> This series depends on the of_phy_deregister_fixed_link() helper that
-> was just merged to net.
+> TSO (TCP Segmentation Offloading) has nothing to do with AXI BUS Mode
+> parameters, and the parser actually expects it to be in the root node,
+> not in the stmmac-axi-config.
 >
-> As mentioned earlier, one staging driver also suffers from a similar
-> leak and can be fixed up once the above mentioned helper hits mainline.
+> Also added a note about snps,tso only being available on GMAC4 and newer.
 >
-> Note that these patches have only been compile tested.
-
-For common and STi part:
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
 Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-thx
-peppe
 
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
 >
-> Johan
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index 41b49e6075f5..b95ff998ba73 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -1,7 +1,7 @@
+>  * STMicroelectronics 10/100/1000 Ethernet driver (GMAC)
 >
+>  Required properties:
+> -- compatible: Should be "snps,dwmac-<ip_version>" "snps,dwmac"
+> +- compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
+>  	For backwards compatibility: "st,spear600-gmac" is also supported.
+>  - reg: Address and length of the register set for the device
+>  - interrupt-parent: Should be the phandle for the interrupt controller
+> @@ -50,6 +50,8 @@ Optional properties:
+>  - snps,ps-speed: port selection speed that can be passed to the core when
+>  		 PCS is supported. For example, this is used in case of SGMII
+>  		 and MAC2MAC connection.
+> +- snps,tso: this enables the TSO feature otherwise it will be managed by
+> +		 MAC HW capability register. Only for GMAC4 and newer.
+>  - AXI BUS Mode parameters: below the list of all the parameters to program the
+>  			   AXI register inside the DMA module:
+>  	- snps,lpi_en: enable Low Power Interface
+> @@ -62,8 +64,6 @@ Optional properties:
+>  	- snps,fb: fixed-burst
+>  	- snps,mb: mixed-burst
+>  	- snps,rb: rebuild INCRx Burst
+> -	- snps,tso: this enables the TSO feature otherwise it will be managed by
+> -	    MAC HW capability register.
+>  - mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
 >
-> Johan Hovold (7):
->   net: ethernet: stmmac: dwmac-socfpga: fix use-after-free on probe
->     errors
->   net: ethernet: stmmac: dwmac-sti: fix probe error path
->   net: ethernet: stmmac: dwmac-rk: fix probe error path
->   net: ethernet: stmmac: dwmac-generic: fix probe error path
->   net: ethernet: stmmac: dwmac-meson8b: fix probe error path
->   net: ethernet: stmmac: platform: fix outdated function header
->   net: ethernet: stmmac: fix of-node and fixed-link-phydev leaks
->
->  .../net/ethernet/stmicro/stmmac/dwmac-generic.c    | 17 ++++++++--
->  .../net/ethernet/stmicro/stmmac/dwmac-ipq806x.c    | 25 ++++++++++----
->  .../net/ethernet/stmicro/stmmac/dwmac-lpc18xx.c    | 17 ++++++++--
->  drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c  | 23 ++++++++++---
->  .../net/ethernet/stmicro/stmmac/dwmac-meson8b.c    | 32 +++++++++++++-----
->  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 21 +++++++++---
->  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 39 ++++++++++++++--------
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    | 23 ++++++++++---
->  drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 19 ++++++++---
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  | 26 +++++++++++----
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  1 -
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 33 +++++++++++++++---
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |  2 ++
->  13 files changed, 215 insertions(+), 63 deletions(-)
+>  Examples:
 >
