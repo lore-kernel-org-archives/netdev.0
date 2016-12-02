@@ -1,42 +1,52 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 1/2] net: stmmac: avoid Camelcase naming
-Date: Fri, 2 Dec 2016 10:25:30 +0100
-Message-ID: <adf5823f-97b4-a9d5-19b5-8b4ef63f52a4@st.com>
-References: <1480605581-13350-1-git-send-email-clabbe.montjoie@gmail.com>
- <83a25cf8-907b-074e-754c-faa9e641c896@st.com> <20161202085846.GB20128@Red>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [RFC PATCH net-next v2] ipv6: implement consistent hashing for
+ equal-cost multipath routing
+Date: Fri, 2 Dec 2016 10:29:08 +0100
+Message-ID: <58413EE4.7090002@uclouvain.be>
+References: <1480439718-18019-1-git-send-email-david.lebrun@uclouvain.be> <CALx6S37NF6rqbAeu=9o8nFFT3Z88=OqcMPsm0rc9-vEPGTCYbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <alexandre.torgue@st.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161202085846.GB20128@Red>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="wXM59NdoAExgBaRpCIamklG86QHpPqXhb"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:44610 "EHLO
+        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753228AbcLBJ3I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 04:29:08 -0500
+In-Reply-To: <CALx6S37NF6rqbAeu=9o8nFFT3Z88=OqcMPsm0rc9-vEPGTCYbw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/2/2016 9:58 AM, Corentin Labbe wrote:
-> On Fri, Dec 02, 2016 at 09:44:48AM +0100, Giuseppe CAVALLARO wrote:
->> Hello Corentin
->>
->> patches look ok, I just wonder if you tested it in case of
->> the stmmac is connected to a transceiver. Let me consider it
->> a critical part of the driver to properly work.
->>
->> Regards
->> Peppe
->>
->
-> I tested it on a Cubieboard 2 (dwmac-sunxi).
-> What do you mean by "connected to a transceiver" ? an external PHY ?
+--wXM59NdoAExgBaRpCIamklG86QHpPqXhb
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-yes an external PHY. AFAIK, users have, sometime, a switch
-with fixed link enabled.
+On 11/30/2016 05:04 AM, Tom Herbert wrote:
+> This is a lot of code to make ECMP work better. Can you be more
+> specific as to what the "issues" are? Assuming this is just the
+> transient packet reorder that happens in one link flap I am wondering
+> if this complexity is justified.
 
-Thx for your support and patches
+Unconsistent hashing is an issue when the load balancer is in front of
+stateful backends, keeping per-flow state. Also, if neighbors are
+constantly being added and removed, flows are constantly changing nexthop=
+s.
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+David
 
->
-> Regards
->
+
+--wXM59NdoAExgBaRpCIamklG86QHpPqXhb
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iEYEARECAAYFAlhBPuQACgkQjbzn67sZ6AOh+ACgio0a7Brpkq3W3pp6hSlXIUD+
+WO8An1vBRUIlYPvYpHudc7gEl9LsFCNv
+=UvuE
+-----END PGP SIGNATURE-----
+
+--wXM59NdoAExgBaRpCIamklG86QHpPqXhb--
