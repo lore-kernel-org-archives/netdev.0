@@ -1,7 +1,7 @@
-From: John Fastabend <john.fastabend@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: bpf bounded loops. Was: [flamebait] xdp
-Date: Fri, 2 Dec 2016 11:42:15 -0800
-Message-ID: <5841CE97.3050302@gmail.com>
+Date: Fri, 02 Dec 2016 20:42:41 +0100
+Message-ID: <1480707761.3858425.806609417.2E2C5E07@webmail.messagingengine.com>
 References: <20161201091108.GF26507@breakpoint.cc>
  <20161201145834.GA569@pox.localdomain>
  <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
@@ -12,7 +12,7 @@ References: <20161201091108.GF26507@breakpoint.cc>
  <20161202183903.GC54949@ast-mbp.thefacebook.com>
  <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
@@ -21,32 +21,28 @@ Cc: Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
         Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:34840 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751729AbcLBTmw (ORCPT
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:37718 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752264AbcLBTmw (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 14:42:52 -0500
-Received: by mail-pg0-f54.google.com with SMTP id p66so110624864pga.2
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 11:42:33 -0800 (PST)
 In-Reply-To: <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-12-02 11:25 AM, Hannes Frederic Sowa wrote:
-> Hi,
-> 
+On Fri, Dec 2, 2016, at 20:25, Hannes Frederic Sowa wrote:
 > On 02.12.2016 19:39, Alexei Starovoitov wrote:
->> On Thu, Dec 01, 2016 at 10:27:12PM +0100, Hannes Frederic Sowa wrote:
->>> like") and the problematic of parsing DNS packets in XDP due to string
->>> processing and looping inside eBPF.
->>
->> Hannes,
->> Not too long ago you proposed a very interesting idea to add
->> support for bounded loops without adding any new bpf instructions and
->> changing llvm (which was way better than my 'rep' like instructions
->> I was experimenting with). I thought systemtap guys also wanted bounded
->> loops and you were cooperating on the design, so I gave up on my work and
->> was expecting an imminent patch from you. I guess it sounds like you know
->> believe that bounded loops are impossible or I misunderstand your statement ?
+> > On Thu, Dec 01, 2016 at 10:27:12PM +0100, Hannes Frederic Sowa wrote:
+> >> like") and the problematic of parsing DNS packets in XDP due to string
+> >> processing and looping inside eBPF.
+> > 
+> > Hannes,
+> > Not too long ago you proposed a very interesting idea to add
+> > support for bounded loops without adding any new bpf instructions and
+> > changing llvm (which was way better than my 'rep' like instructions
+> > I was experimenting with). I thought systemtap guys also wanted bounded
+> > loops and you were cooperating on the design, so I gave up on my work and
+> > was expecting an imminent patch from you. I guess it sounds like you know
+> > believe that bounded loops are impossible or I misunderstand your statement ?
 > 
 > Your argument was that it would need a new verifier as the current first
 > pass checks that we indeed can lay out the basic blocks as a DAG which
@@ -56,9 +52,6 @@ On 16-12-02 11:25 AM, Hannes Frederic Sowa wrote:
 > of effort to rewrite and verify (or indeed keep two verifiers in the
 > kernel for priv and non-priv). The verifier itself is exposed to
 > unprivileged users.
-
-I missed this. Why the need for two verifiers?
-
 > 
 > Also, by design, if we keep the current limits, this would not give you
 > more instructions to operate on compared to the flattened version of the
@@ -69,33 +62,13 @@ I missed this. Why the need for two verifiers?
 > problematic as programs wouldn't be portable between nonprivileged and
 > privileged users.
 
-Still a bit lost what does the relaxed verifier provide here?
+Quick addendum:
 
-> 
->> As far as pattern search for DNS packets...
->> it was requested by Cloudflare guys back in March:
->> https://github.com/iovisor/bcc/issues/471
->> and it is useful for several tracing use cases as well.
->> Unfortunately no one had time to implement it yet.
-> 
-> The string operations you proposed on the other hand, which would count
-> as one eBPF instructions, would give a lot more flexibility and allow
-> more cycles to burn, but don't help parsing binary protocols like IPv6
-> extension headers.
+The only solution to protect the verifier, which I saw, would be to
+limit it by time and space, thus making loading of eBPF programs
+depending on how fast and hot (thermal throttling) one CPU thread is.
 
-My rough thinking on this was the verifier had to start looking for loop
-invariants and to guarantee termination. Sounds scary in general but
-LLVM could put these in some normal form for us and the verifier could
-only accept decreasing loops, the invariants could be required to be
-integers, etc. By simplifying the loop enough the problem becomes
-tractable.
+Those are the complexity problems I am talking and concerned about.
 
-I think this would be better than new instructions and/or multiple
-verifiers.
-
-.John
-
-> 
-> Bye,
-> Hannes
-> 
+Bye,
+Hannes
