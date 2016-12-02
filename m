@@ -1,36 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net: bcmgenet: Utilize correct struct device
- for all DMA operations
-Date: Fri, 02 Dec 2016 13:54:01 -0500 (EST)
-Message-ID: <20161202.135401.1662791877536448974.davem@davemloft.net>
-References: <1480614345-5827-1-git-send-email-florian.fainelli@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: avoid signed overflows for SO_{SND|RCV}BUFFORCE
+Date: Fri, 02 Dec 2016 09:44:53 -0800
+Message-ID: <1480700693.18162.378.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pgynther@google.com, jaedon.shin@gmail.com,
-        opendmb@gmail.com
-To: f.fainelli@gmail.com
+Cc: netdev <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38902 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750842AbcLBSyC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:54:02 -0500
-In-Reply-To: <1480614345-5827-1-git-send-email-florian.fainelli@broadcom.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33410 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752287AbcLBSza (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:55:30 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so8647852pgd.0
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 10:55:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu,  1 Dec 2016 09:45:45 -0800
+From: Eric Dumazet <edumazet@google.com>
 
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> __bcmgenet_tx_reclaim() and bcmgenet_free_rx_buffers() are not using the
-> same struct device during unmap that was used for the map operation,
-> which makes DMA-API debugging warn about it. Fix this by always using
-> &priv->pdev->dev throughout the driver, using an identical device
-> reference for all map/unmap calls.
-> 
-> Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+CAP_NET_ADMIN users should not be allowed to set negative
+sk_sndbuf or sk_rcvbuf values, as it can lead to various memory
+corruptions, crashes, OOM...
 
-Applied and queued up for -stable, thanks.
+Note that before commit 82981930125a ("net: cleanups in
+sock_setsockopt()"), the bug was even more serious, since SO_SNDBUF
+and SO_RCVBUF were vulnerable.
+
+This needs to be backported to all known linux kernels.
+
+Again, many thanks to syzkaller team for discovering this gem.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+---
+ net/core/sock.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 5e3ca414357e2404db28eeacc5e9306051161493..00a074dbfe9bf169c2b81498e6ae265199745b22 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -715,7 +715,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 		val = min_t(u32, val, sysctl_wmem_max);
+ set_sndbuf:
+ 		sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
+-		sk->sk_sndbuf = max_t(u32, val * 2, SOCK_MIN_SNDBUF);
++		sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
+ 		/* Wake up sending tasks if we upped the value. */
+ 		sk->sk_write_space(sk);
+ 		break;
+@@ -751,7 +751,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 		 * returning the value we actually used in getsockopt
+ 		 * is the most desirable behavior.
+ 		 */
+-		sk->sk_rcvbuf = max_t(u32, val * 2, SOCK_MIN_RCVBUF);
++		sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
+ 		break;
+ 
+ 	case SO_RCVBUFFORCE:
