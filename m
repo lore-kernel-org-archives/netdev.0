@@ -1,57 +1,108 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH v3 net-next 3/3] openvswitch: Fix skb->protocol for vlan
- frames.
-Date: Fri, 2 Dec 2016 10:42:02 +0100
-Message-ID: <20161202104202.426b2c80@griffin>
-References: <1480462253-114713-1-git-send-email-jarno@ovn.org>
-        <1480462253-114713-3-git-send-email-jarno@ovn.org>
-        <20161130153041.7a9590ef@griffin>
-        <CAOrHB_CAR8G=BF6X_+HgkRRnb=Erc6CYpCL4EnJfDRe7qBR2vg@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
+Date: Fri, 2 Dec 2016 10:43:48 +0100
+Message-ID: <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
+References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
+ <20161124.110416.198867271899443489.davem@davemloft.net>
+ <20161124212540.GA24796@amd> <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
+ <20161202084511.GA32294@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jarno Rajahalme <jarno@ovn.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Garver <e@erig.me>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39194 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751786AbcLBJmF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 04:42:05 -0500
-In-Reply-To: <CAOrHB_CAR8G=BF6X_+HgkRRnb=Erc6CYpCL4EnJfDRe7qBR2vg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Pavel Machek <pavel@ucw.cz>, <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161202084511.GA32294@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Dec 2016 12:31:09 -0800, Pravin Shelar wrote:
-> On Wed, Nov 30, 2016 at 6:30 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> > I'm not opposed to changing this but I'm afraid it needs much deeper
-> > review. Because with this in place, no core kernel functions that
-> > depend on skb->protocol may be called from within openvswitch.
-> >
-> Can you give specific example where it does not work?
+Hi Pavel
 
-I can't, I haven't reviewed the usage. I'm just saying that the stack
-does not expect skb->protocol being ETH_P_8021Q for e.g. IPv4 packets.
-It may not be relevant for the calls used by openvswitch but we should
-be sure about that. Especially defragmentation and conntrack is worth
-looking at.
+On 12/2/2016 9:45 AM, Pavel Machek wrote:
+> Hi!
+>
+>>>> 1 HZ, which is the lowest granularity of non-highres timers in the
+>>>> kernel, is variable as well as already too large of a delay for
+>>>> effective TX coalescing.
+>>>>
+>>>> I seriously think that the TX coalescing support should be ripped out
+>>>> or disabled entirely until it is implemented properly in this
+>>>> driver.
+>>>
+>>> Ok, I'd disable coalescing, but could not figure it out till. What is
+>>> generic way to do that?
+>>>
+>>> It seems only thing stmmac_tx_timer() does is calling
+>>> stmmac_tx_clean(), which reclaims tx_skbuff[] entries. It should be
+>>> possible to do that explicitely, without delay, but it stops working
+>>> completely if I attempt to do that.
+>>>
+>>> On a side note, stmmac_poll() does stmmac_enable_dma_irq() while
+>>> stmmac_dma_interrupt() disables interrupts. But I don't see any
+>>> protection between the two, so IMO it could race and we'd end up
+>>> without polling or interrupts...
+>>
+>>
+>> the idea behind the TX mitigation is to mix the interrupt and
+>> timer and this approach gave us real benefit in terms
+>> of performances and CPU usage (especially on SH4-200/SH4-300 platforms
+>> based).
+>
+> Well, if you have a workload that sends and receive packets, it tends
+> to work ok, as you do tx_clean() in stmmac_poll(). My workload is not
+> like that -- it is "sending packets at 3MB/sec, receiving none". So
+> the stmmac_tx_timer() is rescheduled and rescheduled and rescheduled,
+> and then we run out of transmit descriptors, and then 40msec passes,
+> and then we clean them. Bad.
+>
+> And that's why low-res timers do not cut it.
 
-Again, I'm not saying this is wrong nor that there is an actual
-problem. I'm just pointing out that openvswitch has different
-expectations about skb wrt. vlans than the rest of the kernel and we
-should be reasonably sure the behavior is correct when passing between
-the two.
+in that case, I expect that the tuning of the driver could help you.
+I mean, by using ethtool, it could be enough to set the IC bit on all
+the descriptors. You should touch the tx_coal_frames.
 
-> skb-protocol value is set by the caller, so it should not be
-> arbitrary. is it missing in any case?
+Then you can use ethtool -S to monitor the status.
 
-It's not set exactly by the caller, because that's what this patch is
-removing. It is set by whoever handed over the packet to openvswitch.
-The point is we don't know *what* it is set to. It may as well be
-ETH_P_8021Q, breaking the conditions here. It should not happen in
-practice but still, it seems weird to depend on the fact that the
-packet coming to ovs has never skb->protocol equal to ETH_P_8021Q nor
-ETH_P_8021AD.
+We had experimented this tuning on STB IP where just datagrams
+had to send externally. To be honest, although we had seen
+better results w/o any timer, we kept this approach enabled
+because the timer was fast enough to cover our tests on SH4 boxes.
 
- Jiri
+FYI, stmmac doesn't implement adaptive algo.
+
+>
+>> In the ring, some descriptors can raise the irq (according to a
+>> threshold) and set the IC bit. In this path, the NAPI  poll will be
+>> scheduled.
+>
+> Not NAPI poll but stmmac_tx_timer(), right?
+
+in the xmit according the the threshold the timer is started or the
+interrupt is set inside the descriptor.
+Then stmmac_tx_clean will be always called and, if you see the flow,
+no irqlock protection is needed!
+
+>
+>> But there is a timer that can run (and we experimented that no high
+>> resolution is needed) to clear the tx resources.
+>> Concerning the lock protection, we had reviewed long time ago and
+>> IIRC, no raise condition should be present. Open to review it,
+>> again!
+>
+> Well, I certainly like the fact that we are talking :-).
+>
+> And yes, I have some questions.
+>
+> There's nothing that protect stmmac_poll() from running concurently
+> with stmmac_dma_interrupt(), right?
+
+This is not necessary.
+
+Best Regards
+peppe
+
+>
+> Best regards,
+> 									Pavel
+>
