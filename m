@@ -1,87 +1,30 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: net/can: warning in raw_setsockopt/__alloc_pages_slowpath
-Date: Fri, 2 Dec 2016 16:11:41 +0100
-Message-ID: <73b78023-bc11-25c0-33e3-3a748dbc81cd@hartkopp.net>
-References: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
- <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/rtnetlink: fix attribute name in nlmsg_size()
+ comments
+Date: Fri, 02 Dec 2016 10:35:19 -0500 (EST)
+Message-ID: <20161202.103519.1696406825169462073.davem@davemloft.net>
+References: <20161130133037.14315-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: tklauser@distanz.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35356 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932309AbcLBPf2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 10:35:28 -0500
+In-Reply-To: <20161130133037.14315-1-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Wed, 30 Nov 2016 14:30:37 +0100
 
+> Use the correct attribute constant names IFLA_GSO_MAX_{SEGS,SIZE}
+> instead of IFLA_MAX_GSO_{SEGS,SIZE} for the comments int nlmsg_size().
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-On 12/02/2016 02:24 PM, Marc Kleine-Budde wrote:
-> On 12/02/2016 01:43 PM, Andrey Konovalov wrote:
-
-
->>  [<ffffffff8369e0de>] raw_setsockopt+0x1be/0x9f0 net/can/raw.c:506
->
-> We should add a check for a sensible optlen....
->
->> static int raw_setsockopt(struct socket *sock, int level, int optname,
->> 			  char __user *optval, unsigned int optlen)
->> {
->> 	struct sock *sk = sock->sk;
->> 	struct raw_sock *ro = raw_sk(sk);
->> 	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
->> 	struct can_filter sfilter;         /* single filter */
->> 	struct net_device *dev = NULL;
->> 	can_err_mask_t err_mask = 0;
->> 	int count = 0;
->> 	int err = 0;
->>
->> 	if (level != SOL_CAN_RAW)
->> 		return -EINVAL;
->>
->> 	switch (optname) {
->>
->> 	case CAN_RAW_FILTER:
->> 		if (optlen % sizeof(struct can_filter) != 0)
->> 			return -EINVAL;
->
-> here...
->
-> 		if (optlen > 64 * sizeof(struct can_filter))
-> 			return -EINVAL;
->
-
-Agreed.
-
-But what is sensible here?
-64 filters is way to small IMO.
-
-When thinking about picking a bunch of single CAN IDs I would tend to 
-something like 512 filters.
-
-Regards,
-Oliver
-
->>
->> 		count = optlen / sizeof(struct can_filter);
->>
->> 		if (count > 1) {
->> 			/* filter does not fit into dfilter => alloc space */
->> 			filter = memdup_user(optval, optlen);
->> 			if (IS_ERR(filter))
->> 				return PTR_ERR(filter);
->> 		} else if (count == 1) {
->> 			if (copy_from_user(&sfilter, optval, sizeof(sfilter)))
->> 				return -EFAULT;
->> 		}
->>
->> 		lock_sock(sk);
->
-> Marc
->
+Applied, thanks.
