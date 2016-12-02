@@ -1,14 +1,14 @@
 From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next 1/5] qede: use reset to set network header
-Date: Fri,  2 Dec 2016 09:51:03 +0800
-Message-ID: <1480643467-4420-2-git-send-email-zhangshengju@cmss.chinamobile.com>
+Subject: [net-next 5/5] staging: wilc1000: use reset to set mac header
+Date: Fri,  2 Dec 2016 09:51:07 +0800
+Message-ID: <1480643467-4420-6-git-send-email-zhangshengju@cmss.chinamobile.com>
 References: <1480643467-4420-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:19745 "EHLO
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:34076 "EHLO
         cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754848AbcLBBvS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 20:51:18 -0500
+        with ESMTP id S1755946AbcLBBvT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 20:51:19 -0500
 In-Reply-To: <1480643467-4420-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,21 +19,30 @@ operation in set function.
 
 Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/staging/wilc1000/linux_mon.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index b84a2c4..31c8449 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -1220,7 +1220,7 @@ static void qede_gro_receive(struct qede_dev *edev,
+diff --git a/drivers/staging/wilc1000/linux_mon.c b/drivers/staging/wilc1000/linux_mon.c
+index 242f82f..f328d75 100644
+--- a/drivers/staging/wilc1000/linux_mon.c
++++ b/drivers/staging/wilc1000/linux_mon.c
+@@ -111,7 +111,7 @@ void WILC_WFI_monitor_rx(u8 *buff, u32 size)
+ 	}
  
- #ifdef CONFIG_INET
- 	if (skb_shinfo(skb)->gso_size) {
--		skb_set_network_header(skb, 0);
-+		skb_reset_network_header(skb);
+ 	skb->dev = wilc_wfi_mon;
+-	skb_set_mac_header(skb, 0);
++	skb_reset_mac_header(skb);
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	skb->pkt_type = PACKET_OTHERHOST;
+ 	skb->protocol = htons(ETH_P_802_2);
+@@ -215,7 +215,7 @@ static netdev_tx_t WILC_WFI_mon_xmit(struct sk_buff *skb,
+ 		cb_hdr->tx_flags = 0x0004;
  
- 		switch (skb->protocol) {
- 		case htons(ETH_P_IP):
+ 		skb2->dev = wilc_wfi_mon;
+-		skb_set_mac_header(skb2, 0);
++		skb_reset_mac_header(skb2);
+ 		skb2->ip_summed = CHECKSUM_UNNECESSARY;
+ 		skb2->pkt_type = PACKET_OTHERHOST;
+ 		skb2->protocol = htons(ETH_P_802_2);
 -- 
 1.8.3.1
