@@ -1,108 +1,97 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
-Date: Fri, 2 Dec 2016 10:43:48 +0100
-Message-ID: <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
-References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
- <20161124.110416.198867271899443489.davem@davemloft.net>
- <20161124212540.GA24796@amd> <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
- <20161202084511.GA32294@amd>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net:phy fix driver reference count error when attach
+ and detach phy device
+Date: Fri, 2 Dec 2016 09:45:48 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0232613@AcuExch.aculab.com>
+References: <1480501378-10172-1-git-send-email-maowenan@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>, <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161202084511.GA32294@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Mao Wenan' <maowenan@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "dingtianhong@huawei.com" <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.184]:63790 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750917AbcLBJqO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 04:46:14 -0500
+In-Reply-To: <1480501378-10172-1-git-send-email-maowenan@huawei.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pavel
+From: Mao Wenan
+> Sent: 30 November 2016 10:23
+> The nic in my board use the phy dev from marvell, and the system will
+> load the marvell phy driver automatically, but when I remove the phy
+> drivers, the system immediately panic:
+> Call trace:
+> [ 2582.834493] [<ffff800000715384>] phy_state_machine+0x3c/0x438 [
+> 2582.851754] [<ffff8000000db3b8>] process_one_work+0x150/0x428 [
+> 2582.868188] [<ffff8000000db7d4>] worker_thread+0x144/0x4b0 [
+> 2582.883882] [<ffff8000000e1d0c>] kthread+0xfc/0x110
+> 
+> there should be proper reference counting in place to avoid that.
+> I found that phy_attach_direct() forgets to add phy device driver
+> reference count, and phy_detach() forgets to subtract reference count.
+> This patch is to fix this bug, after that panic is disappeared when remove
+> marvell.ko
+> 
+> Signed-off-by: Mao Wenan <maowenan@huawei.com>
+> ---
+>  drivers/net/phy/phy_device.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 1a4bf8a..a7ec7c2 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -866,6 +866,11 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>  		return -EIO;
+>  	}
+> 
+> +	if (!try_module_get(d->driver->owner)) {
+> +		dev_err(&dev->dev, "failed to get the device driver module\n");
+> +		return -EIO;
+> +	}
 
-On 12/2/2016 9:45 AM, Pavel Machek wrote:
-> Hi!
->
->>>> 1 HZ, which is the lowest granularity of non-highres timers in the
->>>> kernel, is variable as well as already too large of a delay for
->>>> effective TX coalescing.
->>>>
->>>> I seriously think that the TX coalescing support should be ripped out
->>>> or disabled entirely until it is implemented properly in this
->>>> driver.
->>>
->>> Ok, I'd disable coalescing, but could not figure it out till. What is
->>> generic way to do that?
->>>
->>> It seems only thing stmmac_tx_timer() does is calling
->>> stmmac_tx_clean(), which reclaims tx_skbuff[] entries. It should be
->>> possible to do that explicitely, without delay, but it stops working
->>> completely if I attempt to do that.
->>>
->>> On a side note, stmmac_poll() does stmmac_enable_dma_irq() while
->>> stmmac_dma_interrupt() disables interrupts. But I don't see any
->>> protection between the two, so IMO it could race and we'd end up
->>> without polling or interrupts...
->>
->>
->> the idea behind the TX mitigation is to mix the interrupt and
->> timer and this approach gave us real benefit in terms
->> of performances and CPU usage (especially on SH4-200/SH4-300 platforms
->> based).
->
-> Well, if you have a workload that sends and receive packets, it tends
-> to work ok, as you do tx_clean() in stmmac_poll(). My workload is not
-> like that -- it is "sending packets at 3MB/sec, receiving none". So
-> the stmmac_tx_timer() is rescheduled and rescheduled and rescheduled,
-> and then we run out of transmit descriptors, and then 40msec passes,
-> and then we clean them. Bad.
->
-> And that's why low-res timers do not cut it.
+If this is the phy code, what stops the phy driver being unloaded
+before the try_module_get() obtains a reference.
+If it isn't the phy driver then there ought to be a reference count obtained
+when the phy driver is located (by whatever decides which phy driver to use).
+Even if that code later releases its reference (it probably shouldn't on success)
+then you can't fail to get an extra reference here.
 
-in that case, I expect that the tuning of the driver could help you.
-I mean, by using ethtool, it could be enough to set the IC bit on all
-the descriptors. You should touch the tx_coal_frames.
+> +
+>  	get_device(d);
+> 
+>  	/* Assume that if there is no driver, that it doesn't
+> @@ -921,6 +926,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+> 
+>  error:
+>  	put_device(d);
+> +	module_put(d->driver->owner);
 
-Then you can use ethtool -S to monitor the status.
+Are those two in the wrong order ?
 
-We had experimented this tuning on STB IP where just datagrams
-had to send externally. To be honest, although we had seen
-better results w/o any timer, we kept this approach enabled
-because the timer was fast enough to cover our tests on SH4 boxes.
+>  	module_put(bus->owner);
+>  	return err;
+>  }
+> @@ -998,6 +1004,7 @@ void phy_detach(struct phy_device *phydev)
+>  	bus = phydev->mdio.bus;
+> 
+>  	put_device(&phydev->mdio.dev);
+> +	module_put(phydev->mdio.dev.driver->owner);
+>  	module_put(bus->owner);
 
-FYI, stmmac doesn't implement adaptive algo.
+Where is this code called from?
+You can't call it from the phy driver because the driver can be unloaded
+as soon as the last reference is removed.
+At that point the code memory is freed.
 
->
->> In the ring, some descriptors can raise the irq (according to a
->> threshold) and set the IC bit. In this path, the NAPI  poll will be
->> scheduled.
->
-> Not NAPI poll but stmmac_tx_timer(), right?
-
-in the xmit according the the threshold the timer is started or the
-interrupt is set inside the descriptor.
-Then stmmac_tx_clean will be always called and, if you see the flow,
-no irqlock protection is needed!
-
->
->> But there is a timer that can run (and we experimented that no high
->> resolution is needed) to clear the tx resources.
->> Concerning the lock protection, we had reviewed long time ago and
->> IIRC, no raise condition should be present. Open to review it,
->> again!
->
-> Well, I certainly like the fact that we are talking :-).
->
-> And yes, I have some questions.
->
-> There's nothing that protect stmmac_poll() from running concurently
-> with stmmac_dma_interrupt(), right?
-
-This is not necessary.
-
-Best Regards
-peppe
-
->
-> Best regards,
-> 									Pavel
->
+>  }
+>  EXPORT_SYMBOL(phy_detach);
+> --
+> 2.7.0
+> 
