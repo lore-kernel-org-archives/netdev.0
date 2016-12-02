@@ -1,52 +1,47 @@
-From: "Andrew F. Davis" <afd@ti.com>
-Subject: Re: [PATCH] net: phy: dp83848: Support ethernet pause frames
-Date: Fri, 2 Dec 2016 08:35:23 -0600
-Message-ID: <80ee8058-7d6b-ea88-7ec6-20daf50a1fce@ti.com>
-References: <20161202142203.GY19016@axis.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: Initial thoughts on TXDP
+Date: Fri, 2 Dec 2016 14:36:33 +0000
+Message-ID: <cb2e6263-d981-eccf-cea7-39392ceb67b5@solarflare.com>
+References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
+ <20161201024407.GE26507@breakpoint.cc>
+ <CALx6S36ywu3ruY7AFKYk=N4Ekr5zjY33ivx92EgNNT36XoXhFA@mail.gmail.com>
+ <859a0c99-f427-1db8-d260-1297777792fb@stressinduktion.org>
+ <CALx6S350eCYS63dGiR+X+nVvqF_uGJop9Z_m7SmZf9QXr-rrfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Roger Quadros <rogerq@ti.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Dan Murphy <dmurphy@ti.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Jesper Nilsson <jesper.nilsson@axis.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161202142203.GY19016@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Florian Westphal <fw@strlen.de>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jesper Dangaard Brouer <jbrouer@redhat.com>
+To: Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:64334 "EHLO
+        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1758184AbcLBOg4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 09:36:56 -0500
+In-Reply-To: <CALx6S350eCYS63dGiR+X+nVvqF_uGJop9Z_m7SmZf9QXr-rrfg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/02/2016 08:22 AM, Jesper Nilsson wrote:
-> According to the documentation, the PHYs supported by this driver
-> can also support pause frames. Announce this to be so.
-> Tested with a TI83822I.
-> 
+On 01/12/16 23:46, Tom Herbert wrote:
+> The only time we
+> _really_ to allocate an skbuf is when we need to put the packet onto a
+> queue. All the other use cases are really just to pass a structure
+> containing a packet from function to function. For that purpose we
+> should be able to just pass a much smaller structure in a stack
+> argument and only allocate an skbuff when we need to enqueue. In cases
+> where we don't ever queue a packet we might never need to allocate any
+> skbuff
+Now this intrigues me, because one of the objections to bundling (vs GRO)
+was the memory usage of all those SKBs.  IIRC we already do a 'GRO-like'
+coalescing when packets reach a TCP socket anyway (or at least in some
+cases, not sure if all the different ways we can enqueue a TCP packet for
+RX do it), but if we could carry the packets from NIC to socket without
+SKBs, doing so in lists rather than one-at-a-time wouldn't cost any extra
+memory (the packet-pages are all already allocated on the NIC RX ring).
+Possibly combine the two, so that rather than having potentially four
+versions of each function (skb, skbundle, void*, void* bundle) you just
+have the two 'ends'.
 
-Looks like all PHYs supported by this driver do, so:
-
-Acked-by: Andrew F. Davis <afd@ti.com>
-
-> Signed-off-by: Jesper Nilsson <jesper.nilsson@axis.com>
-> ---
->  drivers/net/phy/dp83848.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
-> index 800b39f..6e4117f 100644
-> --- a/drivers/net/phy/dp83848.c
-> +++ b/drivers/net/phy/dp83848.c
-> @@ -88,7 +88,8 @@ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
->  		.phy_id		= _id,				\
->  		.phy_id_mask	= 0xfffffff0,			\
->  		.name		= _name,			\
-> -		.features	= PHY_BASIC_FEATURES,		\
-> +		.features	= (PHY_BASIC_FEATURES |		\
-> +			SUPPORTED_Pause | SUPPORTED_Asym_Pause),\
-
-Aligning these may look nicer though.
-
->  		.flags		= PHY_HAS_INTERRUPT,		\
->  								\
->  		.soft_reset	= genphy_soft_reset,		\
-> 
+-Ed
