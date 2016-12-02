@@ -1,117 +1,179 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [WIP] net+mlx4: auto doorbell
-Date: Fri, 02 Dec 2016 06:23:17 -0800
-Message-ID: <1480688597.18162.354.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20140903165943.372b897b@redhat.com>
-         <20161117091638.5fab8494@redhat.com>
-         <1479388850.8455.240.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117144248.23500001@redhat.com>
-         <1479392258.8455.249.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117155753.17b76f5a@redhat.com>
-         <1479399679.8455.255.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161117193021.580589ae@redhat.com>
-         <1479408683.8455.273.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161121170351.50a09ee1@redhat.com>
-         <1479751857.8455.419.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480402716.18162.124.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG_G3G-_jFFD0xiAOfR-k69rhb_2ia4LHZroE-oEFxApnQ@mail.gmail.com>
-         <1480520661.18162.177.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CALzJLG9iCWkk2WTGrkFhZ61Sx5R-JDCxANhLQZPO8E47QGwOmQ@mail.gmail.com>
-         <20161201130505.0b4a5cd5@redhat.com>
-         <1480602274.18162.285.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161201170443.28a8c032@redhat.com>
-         <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
+Date: Fri, 2 Dec 2016 15:26:12 +0100
+Message-ID: <5db2ce3e-d4eb-d5d0-594c-8cd0f2e70476@st.com>
+References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
+ <20161124.110416.198867271899443489.davem@davemloft.net>
+ <20161124212540.GA24796@amd> <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
+ <20161202084511.GA32294@amd> <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
+ <20161202123241.GA5869@amd> <c4748c8f-ae4b-9bbc-7d20-9c7b7ce433c8@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Rick Jones <rick.jones2@hpe.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35175 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933132AbcLBOXU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 09:23:20 -0500
-Received: by mail-pg0-f67.google.com with SMTP id p66so8070734pga.2
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 06:23:20 -0800 (PST)
-In-Reply-To: <1480611857.18162.319.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c4748c8f-ae4b-9bbc-7d20-9c7b7ce433c8@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-12-01 at 09:04 -0800, Eric Dumazet wrote:
-> On Thu, 2016-12-01 at 17:04 +0100, Jesper Dangaard Brouer wrote:
-> 
-> > I think you misunderstood my concept[1].  I don't want to stop the
-> > queue. The new __QUEUE_STATE_FLUSH_NEEDED does not stop the queue, is
-> > it just indicating that someone need to flush/ring-doorbell.  Maybe it
-> > need another name, because it also indicate that the driver can see
-> > that its TX queue is so busy that we don't need to call it immediately.
-> > The qdisc layer can then choose to enqueue instead if doing direct xmit.
-> 
-> But driver ndo_start_xmit() does not have a pointer to qdisc.
-> 
-> Also the concept of 'queue busy' just because we queued one packet is a
-> bit flaky.
-> 
-> > 
-> > When qdisc layer or trafgen/af_packet see this indication it knows it
-> > should/must flush the queue when it don't have more work left.  Perhaps
-> > through net_tx_action(), by registering itself and e.g. if qdisc_run()
-> > is called and queue is empty then check if queue needs a flush. I would
-> > also allow driver to flush and clear this bit.
-> 
-> net_tx_action() is not normally called, unless BQL limit is hit and/or
-> some qdiscs with throttling (HTB, TBF, FQ, ...)
-> 
-> > 
-> > I just see it as an extension of your solution, as we still need the
-> > driver to figure out then the doorbell/flush can be delayed.
-> > p.s. don't be discouraged by this feedback, I'm just very excited and
-> > happy that your are working on a solution in this area. As this is a
-> > problem area that I've not been able to solve myself for the last
-> > approx 2 years. Keep up the good work!
-> 
-> Do not worry, I appreciate the feedbacks ;)
-> 
-> BTW, if you are doing tests on mlx4 40Gbit, would you check the
-> following quick/dirty hack, using lots of low-rate flows ?
-> 
-> mlx4 has really hard time to transmit small TSO packets (2 or 3 MSS)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 12ea3405f442..96940666abd3 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2631,6 +2631,11 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
->         queue_work(priv->mdev->workqueue, &priv->vxlan_del_task);
->  }
->  
-> +static int mlx4_gso_segs_min = 4; /* TSO packets with less than 4 segments are segmented */
-> +module_param_named(mlx4_gso_segs_min, mlx4_gso_segs_min, uint, 0644);
-> +MODULE_PARM_DESC(mlx4_gso_segs_min, "threshold for software segmentation of small TSO packets");
-> +
-> +
->  static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
->                                                 struct net_device *dev,
->                                                 netdev_features_t features)
-> @@ -2651,6 +2656,8 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
->                     (udp_hdr(skb)->dest != priv->vxlan_port))
->                         features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
->         }
-> +       if (skb_is_gso(skb) && skb_shinfo(skb)->gso_segs < mlx4_gso_segs_min)
-> +               features &= NETIF_F_GSO_MASK;
+Hi Pavel and Peppe,
 
+On 12/02/2016 02:51 PM, Giuseppe CAVALLARO wrote:
+> On 12/2/2016 1:32 PM, Pavel Machek wrote:
+>> Hi!
+>>
+>>>> Well, if you have a workload that sends and receive packets, it tends
+>>>> to work ok, as you do tx_clean() in stmmac_poll(). My workload is not
+>>>> like that -- it is "sending packets at 3MB/sec, receiving none". So
+>>>> the stmmac_tx_timer() is rescheduled and rescheduled and rescheduled,
+>>>> and then we run out of transmit descriptors, and then 40msec passes,
+>>>> and then we clean them. Bad.
+>>>>
+>>>> And that's why low-res timers do not cut it.
+>>>
+>>> in that case, I expect that the tuning of the driver could help you.
+>>> I mean, by using ethtool, it could be enough to set the IC bit on all
+>>> the descriptors. You should touch the tx_coal_frames.
+>>>
+>>> Then you can use ethtool -S to monitor the status.
+>>
+>> Yes, I did something similar. Unfortnunately that meant crash within
+>> minutes, at least with 4.4 kernel. (If you know what was fixed between
+>> 4.4 and 4.9, that would be helpful).
+>
+> 4.4 has no GMAC4 support.
+> Alex, do you remember any patches to fix that?
 
-Sorry, stupid typo.
-This should be "features &= ~NETIF_F_GSO_MASK;" of course
+No sorry Peppe.
 
->  
->         return features;
->  }
-> 
-> 
-> 
-> 
+Pavel,
+
+Sorry but I'm a little bit confused. I'm dropped in some mails without 
+historic. I see cleanup, coalescence issue and TSO question.
+What is your main issue? Are you working on gmac4 or 3.x ?
+Can you refresh a little bit the story please ?
+
+Regards
+Alex
+>
+>>> We had experimented this tuning on STB IP where just datagrams
+>>> had to send externally. To be honest, although we had seen
+>>> better results w/o any timer, we kept this approach enabled
+>>> because the timer was fast enough to cover our tests on SH4 boxes.
+>>
+>> Please reply to David, and explain how it is supposed to
+>> work... because right now it does not. 40 msec delays are not
+>> acceptable in default configuration.
+>
+> I mean, that on UP and SMP system this schema helped
+> to improve the performance saving CPU on my side and this has been
+> tested since a long time (~4 years).
+> I tested something similar to yours where unidirectional traffic
+> with limited throughput was needed and I can confirm you that
+> tuning/removing coalesce parameters this helped. The tuning I decided
+> to keep in the driver was suitable in several user cases and if now
+> you have problems or you want to review it I can just confirm that
+> there are no problems on my side. If you want to simply the logic
+> around the tx process and remove timer on official driver I can accept
+> that. I will just ask you uto double check if the throughput and
+> CPU usage when request max throughput (better if on GiGa setup) has
+> no regressions.
+> Otherwise we could start thinking about adaptive schema if feasible.
+>
+>>>>> In the ring, some descriptors can raise the irq (according to a
+>>>>> threshold) and set the IC bit. In this path, the NAPI  poll will be
+>>>>> scheduled.
+>>>>
+>>>> Not NAPI poll but stmmac_tx_timer(), right?
+>>>
+>>> in the xmit according the the threshold the timer is started or the
+>>> interrupt is set inside the descriptor.
+>>> Then stmmac_tx_clean will be always called and, if you see the flow,
+>>> no irqlock protection is needed!
+>>
+>> Agreed that no irqlock protection is needed if we rely on napi and
+>> timers.
+>
+> ok
+>
+>>
+>>>>> Concerning the lock protection, we had reviewed long time ago and
+>>>>> IIRC, no raise condition should be present. Open to review it,
+>>>>> again!
+>> ...
+>>>> There's nothing that protect stmmac_poll() from running concurently
+>>>> with stmmac_dma_interrupt(), right?
+>>>
+>>> This is not necessary.
+>>
+>> dma_interrupt accesses shared priv->xstats; variables are of type
+>> unsigned long (not atomic_t), yet they are accesssed from interrupt
+>> context and from stmmac_ethtool without any locking. That can result
+>> in broken statistics AFAICT.
+>
+> ok we can check this and welcome patches and I'd prefer to
+> remove xstats from critical part of the code like ISR (that
+> comes from old story of the driver).
+>
+>>
+>> Please take another look. As far as I can tell, you can have two cpus
+>> at #1 and #2 in the code, at the same time. It looks like napi_... has
+>> some atomic opertions inside so that looks safe at the first look. But
+>> I'm not sure if they also include enough memory barriers to make it
+>> safe...?
+>
+> Although I have never reproduced related issues on SMP platforms
+> due to reordering of memory operations but, as said above, welcome
+> review on this especially if you are seeing problems when manage NAPI.
+>
+> FYI, the only memory barrier you will see in the driver are about the
+> OWN_BIT setting till now.
+>
+>> static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+>> {
+>> ...
+>>         status = priv->hw->dma->dma_interrupt(priv->ioaddr,
+>> &priv->xstats);
+>>         if (likely((status & handle_rx)) || (status & handle_tx)) {
+>>                 if (likely(napi_schedule_prep(&priv->napi))) {
+>> #1
+>>                         stmmac_disable_dma_irq(priv);
+>>                         __napi_schedule(&priv->napi);
+>>                 }
+>>         }
+>>
+>>
+>> static int stmmac_poll(struct napi_struct *napi, int budget)
+>> {
+>>         struct stmmac_priv *priv = container_of(napi, struct
+>> stmmac_priv, napi);
+>>         int work_done = 0;
+>>
+>>         priv->xstats.napi_poll++;
+>>         stmmac_tx_clean(priv);
+>>
+>>         work_done = stmmac_rx(priv, budget);
+>>     if (work_done < budget) {
+>>                 napi_complete(napi);
+>> #2
+>>             stmmac_enable_dma_irq(priv);
+>>         }
+>
+> hmm, I have to check (and refresh my memory) but the driver
+> uses the napi_schedule_prep.
+>
+> Regards
+>
+> Peppe
+>
+>>         return work_done;
+>> }
+>>
+>>
+>> Best regards,
+>>                                     Pavel
+>>
+>
