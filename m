@@ -1,47 +1,57 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH main-v4.9-rc7] net/ipv6: allow sysctl to change link-local
- address generation mode
-Date: Thu, 1 Dec 2016 20:36:08 -0800
-Message-ID: <CAM_iQpV_7X_ON0XLkd+b3cMRDpg0kN8opPWzx=CfxGGCcNqQQA@mail.gmail.com>
-References: <20161202021457.13163-1-felix.jia@alliedtelesis.co.nz>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 23/39] Annotate hardware config module parameters in drivers/net/wireless/
+Date: Fri, 02 Dec 2016 07:04:25 +0200
+Message-ID: <8737i6syzq.fsf@kamboji.qca.qualcomm.com>
+References: <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk>
+        <148059556349.31612.1087071308520573382.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Carl Smith <carl.smith@alliedtelesis.co.nz>
-To: Felix Jia <felix.jia@alliedtelesis.co.nz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35270 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753128AbcLBEga (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 23:36:30 -0500
-Received: by mail-io0-f195.google.com with SMTP id h133so6209717ioe.2
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 20:36:29 -0800 (PST)
-In-Reply-To: <20161202021457.13163-1-felix.jia@alliedtelesis.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, gnomes@lxorguk.ukuu.org.uk,
+        minyard@acm.org, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <148059556349.31612.1087071308520573382.stgit@warthog.procyon.org.uk>
+        (David Howells's message of "Thu, 01 Dec 2016 12:32:43 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 1, 2016 at 6:14 PM, Felix Jia <felix.jia@alliedtelesis.co.nz> wrote:
-> +static void addrconf_addrgenmode_change(struct net *net)
-> +{
-> +       struct net_device *dev;
-> +       struct inet6_dev *idev;
-> +
-> +       read_lock(&dev_base_lock);
-> +       for_each_netdev(net, dev) {
-> +               rcu_read_lock();
-> +               idev = __in6_dev_get(dev);
-> +               if (idev) {
-> +                       idev->cnf.addrgenmode = ipv6_devconf_dflt.addrgenmode;
-> +                       idev->addr_gen_mode = ipv6_devconf_dflt.addrgenmode;
-> +                       rtnl_lock();
-> +                       addrconf_dev_config(idev->dev);
-> +                       rtnl_unlock();
+David Howells <dhowells@redhat.com> writes:
 
-You can't call rtnl lock in atomic context.
+> When the kernel is running in secure boot mode, we lock down the kernel to
+> prevent userspace from modifying the running kernel image.  Whilst this
+> includes prohibiting access to things like /dev/mem, it must also prevent
+> access by means of configuring driver modules in such a way as to cause a
+> device to access or modify the kernel image.
+>
+> To this end, annotate module_param* statements that refer to hardware
+> configuration and indicate for future reference what type of parameter they
+> specify.  The parameter parser in the core sees this information and can
+> skip such parameters with an error message if the kernel is locked down.
+> The module initialisation then runs as normal, but just sees whatever the
+> default values for those parameters is.
+>
+> Note that we do still need to do the module initialisation because some
+> drivers have viable defaults set in case parameters aren't specified and
+> some drivers support automatic configuration (e.g. PNP or PCI) in addition
+> to manually coded parameters.
+>
+> This patch annotates drivers in drivers/net/wireless/.
+>
+> Suggested-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+> Signed-off-by: David Howells <dhowells@redhat.com>
+> cc: Kalle Valo <kvalo@codeaurora.org>
+> cc: linux-wireless@vger.kernel.org
+> cc: netdev@vger.kernel.org
+> ---
+>
+>  drivers/net/wireless/cisco/airo.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
-> +               }
-> +               rcu_read_unlock();
-> +       }
-> +       read_unlock(&dev_base_lock);
+Via which tree are you planning to submit this, should I take it to
+wireless-drivers or will someone else handle it? I didn't get the cover
+letter so I have no idea.
 
-Did you test your patch seriously?
+-- 
+Kalle Valo
