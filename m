@@ -1,47 +1,101 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCHv2 net-next 3/4] net: dsa: mv88e6xxx: Move the tagging protocol into info
-Date: Fri, 02 Dec 2016 14:41:08 -0500
-Message-ID: <87k2bice5n.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1480701779-30633-1-git-send-email-andrew@lunn.ch> <1480701779-30633-4-git-send-email-andrew@lunn.ch>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: bpf bounded loops. Was: [flamebait] xdp
+Date: Fri, 2 Dec 2016 11:42:15 -0800
+Message-ID: <5841CE97.3050302@gmail.com>
+References: <20161201091108.GF26507@breakpoint.cc>
+ <20161201145834.GA569@pox.localdomain>
+ <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
+ <20161201162814.GA31300@pox.localdomain>
+ <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
+ <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com>
+ <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
+ <20161202183903.GC54949@ast-mbp.thefacebook.com>
+ <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:52908 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750919AbcLBTlL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 14:41:11 -0500
-In-Reply-To: <1480701779-30633-4-git-send-email-andrew@lunn.ch>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:34840 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751729AbcLBTmw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 14:42:52 -0500
+Received: by mail-pg0-f54.google.com with SMTP id p66so110624864pga.2
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 11:42:33 -0800 (PST)
+In-Reply-To: <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On 16-12-02 11:25 AM, Hannes Frederic Sowa wrote:
+> Hi,
+> 
+> On 02.12.2016 19:39, Alexei Starovoitov wrote:
+>> On Thu, Dec 01, 2016 at 10:27:12PM +0100, Hannes Frederic Sowa wrote:
+>>> like") and the problematic of parsing DNS packets in XDP due to string
+>>> processing and looping inside eBPF.
+>>
+>> Hannes,
+>> Not too long ago you proposed a very interesting idea to add
+>> support for bounded loops without adding any new bpf instructions and
+>> changing llvm (which was way better than my 'rep' like instructions
+>> I was experimenting with). I thought systemtap guys also wanted bounded
+>> loops and you were cooperating on the design, so I gave up on my work and
+>> was expecting an imminent patch from you. I guess it sounds like you know
+>> believe that bounded loops are impossible or I misunderstand your statement ?
+> 
+> Your argument was that it would need a new verifier as the current first
+> pass checks that we indeed can lay out the basic blocks as a DAG which
+> the second pass depends on. This would be violated.
+> 
+> Because eBPF is available by non privileged users this would need a lot
+> of effort to rewrite and verify (or indeed keep two verifiers in the
+> kernel for priv and non-priv). The verifier itself is exposed to
+> unprivileged users.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+I missed this. Why the need for two verifiers?
 
-> @@ -3749,6 +3756,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
->  		.global1_addr = 0x1b,
->  		.age_time_coeff = 15000,
->  		.g1_irqs = 9,
-> +		.tag_protocol = DSA_TAG_PROTO_EDSA,
->  		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
->  		.ops = &mv88e6172_ops,
->  	},
+> 
+> Also, by design, if we keep the current limits, this would not give you
+> more instructions to operate on compared to the flattened version of the
+> program, it would merely reduce the numbers of optimizations in LLVM
+> that let the verifier reject the program.
+> 
+> Only enabling the relaxed verifier for root users seemed thus being
+> problematic as programs wouldn't be portable between nonprivileged and
+> privileged users.
 
-Since some chips support several protocols, we will have to turn
-tag_protocol into a bitmask and introduce something like:
+Still a bit lost what does the relaxed verifier provide here?
 
-    enum mv88e6xxx_tag {
-        MV88E6XXX_TAG_TRAILER = BIT(DSA_TAG_PROTO_TRAILER),
-        MV88E6XXX_TAG_DSA = BIT(DSA_TAG_PROTO_DSA),
-        MV88E6XXX_TAG_EDSA = BIT(DSA_TAG_PROTO_EDSA),
-    };
+> 
+>> As far as pattern search for DNS packets...
+>> it was requested by Cloudflare guys back in March:
+>> https://github.com/iovisor/bcc/issues/471
+>> and it is useful for several tracing use cases as well.
+>> Unfortunately no one had time to implement it yet.
+> 
+> The string operations you proposed on the other hand, which would count
+> as one eBPF instructions, would give a lot more flexibility and allow
+> more cycles to burn, but don't help parsing binary protocols like IPv6
+> extension headers.
 
-But I guess it is OK to force a single one at the moment.
+My rough thinking on this was the verifier had to start looking for loop
+invariants and to guarantee termination. Sounds scary in general but
+LLVM could put these in some normal form for us and the verifier could
+only accept decreasing loops, the invariants could be required to be
+integers, etc. By simplifying the loop enough the problem becomes
+tractable.
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+I think this would be better than new instructions and/or multiple
+verifiers.
 
-Thanks,
+.John
 
-        Vivien
+> 
+> Bye,
+> Hannes
+> 
