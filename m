@@ -1,155 +1,160 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: net/can: warning in raw_setsockopt/__alloc_pages_slowpath
-Date: Fri, 2 Dec 2016 14:24:37 +0100
-Message-ID: <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
-References: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
+Date: Fri, 2 Dec 2016 14:51:34 +0100
+Message-ID: <c4748c8f-ae4b-9bbc-7d20-9c7b7ce433c8@st.com>
+References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
+ <20161124.110416.198867271899443489.davem@davemloft.net>
+ <20161124212540.GA24796@amd> <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
+ <20161202084511.GA32294@amd> <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
+ <20161202123241.GA5869@amd>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="2G7f8nmLqlwadLXxvXgqKDN7KniMiDRb3"
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>,
-        Oliver Hartkopp <socketcan@hartkopp.net>,
-        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <alexandre.torgue@st.com>, David Miller <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Alexandre TORGUE <alexandre.torgue@st.com>
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161202123241.GA5869@amd>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---2G7f8nmLqlwadLXxvXgqKDN7KniMiDRb3
-Content-Type: multipart/mixed; boundary="Np5CwEkFIpp783ujbVp3chDKP7O3Q8Tmc";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Andrey Konovalov <andreyknvl@google.com>,
- Oliver Hartkopp <socketcan@hartkopp.net>,
- "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
- netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
-Cc: Dmitry Vyukov <dvyukov@google.com>, Kostya Serebryany <kcc@google.com>,
- syzkaller <syzkaller@googlegroups.com>
-Message-ID: <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
-Subject: Re: net/can: warning in raw_setsockopt/__alloc_pages_slowpath
-References: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
-In-Reply-To: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
-
---Np5CwEkFIpp783ujbVp3chDKP7O3Q8Tmc
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-On 12/02/2016 01:43 PM, Andrey Konovalov wrote:
+On 12/2/2016 1:32 PM, Pavel Machek wrote:
 > Hi!
->=20
-> I've got the following error report while running the syzkaller fuzzer.=
+>
+>>> Well, if you have a workload that sends and receive packets, it tends
+>>> to work ok, as you do tx_clean() in stmmac_poll(). My workload is not
+>>> like that -- it is "sending packets at 3MB/sec, receiving none". So
+>>> the stmmac_tx_timer() is rescheduled and rescheduled and rescheduled,
+>>> and then we run out of transmit descriptors, and then 40msec passes,
+>>> and then we clean them. Bad.
+>>>
+>>> And that's why low-res timers do not cut it.
+>>
+>> in that case, I expect that the tuning of the driver could help you.
+>> I mean, by using ethtool, it could be enough to set the IC bit on all
+>> the descriptors. You should touch the tx_coal_frames.
+>>
+>> Then you can use ethtool -S to monitor the status.
+>
+> Yes, I did something similar. Unfortnunately that meant crash within
+> minutes, at least with 4.4 kernel. (If you know what was fixed between
+> 4.4 and 4.9, that would be helpful).
 
->=20
-> A reproducer is attached.
->=20
-> On commit d8e435f3ab6fea2ea324dce72b51dd7761747523 (Nov 26).
->=20
-> ------------[ cut here ]------------
-> WARNING: CPU: 0 PID: 4009 at mm/page_alloc.c:3511
-> __alloc_pages_slowpath+0x3d4/0x1bf0
-> Modules linked in:
-> CPU: 0 PID: 4009 Comm: a.out Not tainted 4.9.0-rc6+ #54
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01=
-/2011
->  ffff88006832f8a8 ffffffff81c73b14 0000000000000000 0000000000000000
->  ffffffff842c6320 0000000000000000 ffff88006832f8f0 ffffffff8123dc57
->  ffff880067d86000 ffffffff00000db7 ffffffff842c6320 0000000000000db7
-> Call Trace:
->  [<     inline     >] __dump_stack lib/dump_stack.c:15
->  [<ffffffff81c73b14>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
->  [<ffffffff8123dc57>] __warn+0x1a7/0x1f0 kernel/panic.c:550
->  [<ffffffff8123de6c>] warn_slowpath_null+0x2c/0x40 kernel/panic.c:585
->  [<ffffffff81559b04>] __alloc_pages_slowpath+0x3d4/0x1bf0 mm/page_alloc=
-=2Ec:3511
->  [<ffffffff8155b8e2>] __alloc_pages_nodemask+0x5c2/0x710 mm/page_alloc.=
-c:3781
->  [<ffffffff816236a4>] alloc_pages_current+0xf4/0x400 mm/mempolicy.c:207=
-2
->  [<     inline     >] alloc_pages ./include/linux/gfp.h:469
->  [<ffffffff815a834f>] kmalloc_order+0x1f/0x70 mm/slab_common.c:1015
->  [<ffffffff815a83bf>] kmalloc_order_trace+0x1f/0x160 mm/slab_common.c:1=
-026
->  [<     inline     >] kmalloc_large ./include/linux/slab.h:422
->  [<ffffffff81635e67>] __kmalloc_track_caller+0x227/0x2a0 mm/slub.c:4233=
+4.4 has no GMAC4 support.
+Alex, do you remember any patches to fix that?
 
->  [<ffffffff8159932c>] memdup_user+0x2c/0xa0 mm/util.c:137
->  [<ffffffff8369e0de>] raw_setsockopt+0x1be/0x9f0 net/can/raw.c:506
+>> We had experimented this tuning on STB IP where just datagrams
+>> had to send externally. To be honest, although we had seen
+>> better results w/o any timer, we kept this approach enabled
+>> because the timer was fast enough to cover our tests on SH4 boxes.
+>
+> Please reply to David, and explain how it is supposed to
+> work... because right now it does not. 40 msec delays are not
+> acceptable in default configuration.
 
-We should add a check for a sensible optlen....
+I mean, that on UP and SMP system this schema helped
+to improve the performance saving CPU on my side and this has been
+tested since a long time (~4 years).
+I tested something similar to yours where unidirectional traffic
+with limited throughput was needed and I can confirm you that
+tuning/removing coalesce parameters this helped. The tuning I decided
+to keep in the driver was suitable in several user cases and if now
+you have problems or you want to review it I can just confirm that
+there are no problems on my side. If you want to simply the logic
+around the tx process and remove timer on official driver I can accept
+that. I will just ask you uto double check if the throughput and
+CPU usage when request max throughput (better if on GiGa setup) has
+no regressions.
+Otherwise we could start thinking about adaptive schema if feasible.
 
-> static int raw_setsockopt(struct socket *sock, int level, int optname,
-> 			  char __user *optval, unsigned int optlen)
+>>>> In the ring, some descriptors can raise the irq (according to a
+>>>> threshold) and set the IC bit. In this path, the NAPI  poll will be
+>>>> scheduled.
+>>>
+>>> Not NAPI poll but stmmac_tx_timer(), right?
+>>
+>> in the xmit according the the threshold the timer is started or the
+>> interrupt is set inside the descriptor.
+>> Then stmmac_tx_clean will be always called and, if you see the flow,
+>> no irqlock protection is needed!
+>
+> Agreed that no irqlock protection is needed if we rely on napi and timers.
+
+ok
+
+>
+>>>> Concerning the lock protection, we had reviewed long time ago and
+>>>> IIRC, no raise condition should be present. Open to review it,
+>>>> again!
+> ...
+>>> There's nothing that protect stmmac_poll() from running concurently
+>>> with stmmac_dma_interrupt(), right?
+>>
+>> This is not necessary.
+>
+> dma_interrupt accesses shared priv->xstats; variables are of type
+> unsigned long (not atomic_t), yet they are accesssed from interrupt
+> context and from stmmac_ethtool without any locking. That can result
+> in broken statistics AFAICT.
+
+ok we can check this and welcome patches and I'd prefer to
+remove xstats from critical part of the code like ISR (that
+comes from old story of the driver).
+
+>
+> Please take another look. As far as I can tell, you can have two cpus
+> at #1 and #2 in the code, at the same time. It looks like napi_... has
+> some atomic opertions inside so that looks safe at the first look. But
+> I'm not sure if they also include enough memory barriers to make it
+> safe...?
+
+Although I have never reproduced related issues on SMP platforms
+due to reordering of memory operations but, as said above, welcome
+review on this especially if you are seeing problems when manage NAPI.
+
+FYI, the only memory barrier you will see in the driver are about the
+OWN_BIT setting till now.
+
+> static void stmmac_dma_interrupt(struct stmmac_priv *priv)
 > {
-> 	struct sock *sk =3D sock->sk;
-> 	struct raw_sock *ro =3D raw_sk(sk);
-> 	struct can_filter *filter =3D NULL;  /* dyn. alloc'ed filters */
-> 	struct can_filter sfilter;         /* single filter */
-> 	struct net_device *dev =3D NULL;
-> 	can_err_mask_t err_mask =3D 0;
-> 	int count =3D 0;
-> 	int err =3D 0;
->=20
-> 	if (level !=3D SOL_CAN_RAW)
-> 		return -EINVAL;
->=20
-> 	switch (optname) {
->=20
-> 	case CAN_RAW_FILTER:
-> 		if (optlen % sizeof(struct can_filter) !=3D 0)
-> 			return -EINVAL;
+> ...
+>         status = priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats);
+>         if (likely((status & handle_rx)) || (status & handle_tx)) {
+>                 if (likely(napi_schedule_prep(&priv->napi))) {
+> #1
+>                         stmmac_disable_dma_irq(priv);
+>                         __napi_schedule(&priv->napi);
+>                 }
+>         }
+>
+>
+> static int stmmac_poll(struct napi_struct *napi, int budget)
+> {
+>         struct stmmac_priv *priv = container_of(napi, struct stmmac_priv, napi);
+>         int work_done = 0;
+>
+>         priv->xstats.napi_poll++;
+>         stmmac_tx_clean(priv);
+>
+>         work_done = stmmac_rx(priv, budget);
+> 	if (work_done < budget) {
+>                 napi_complete(napi);
+> #2
+> 	        stmmac_enable_dma_irq(priv);
+>         }
 
-here...
+hmm, I have to check (and refresh my memory) but the driver
+uses the napi_schedule_prep.
 
-		if (optlen > 64 * sizeof(struct can_filter))
-			return -EINVAL;
+Regards
 
->=20
-> 		count =3D optlen / sizeof(struct can_filter);
->=20
-> 		if (count > 1) {
-> 			/* filter does not fit into dfilter =3D> alloc space */
-> 			filter =3D memdup_user(optval, optlen);
-> 			if (IS_ERR(filter))
-> 				return PTR_ERR(filter);
-> 		} else if (count =3D=3D 1) {
-> 			if (copy_from_user(&sfilter, optval, sizeof(sfilter)))
-> 				return -EFAULT;
-> 		}
->=20
-> 		lock_sock(sk);
+Peppe
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---Np5CwEkFIpp783ujbVp3chDKP7O3Q8Tmc--
-
---2G7f8nmLqlwadLXxvXgqKDN7KniMiDRb3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlhBdhUACgkQPTuqJayp
-JWrk8Qf/ZwINBxTDbgKlofOMDU5zddIUyjXjQybTcZw3HKz9wh3e8+HIcA3KPsAd
-YvnbstoIhXWVM4zGpPqlP4qQz9gjbJNdoHrd3fdIrkJobgVa16V/uWxlM7U1+pfS
-15wCqOVfYACkXLZxJIwsURdhOwoz9HVgFT7btfomotnoI57DCmgkoODiWYMAIs3B
-4RNXiz3X9fIgcLt8dBKr9HGfh55l6aU8+4zaeEJut1u/djRXm2eS7oECblTbEuCD
-7r9aj5zx2Z1lS27VBKeb+0C7BAYdHX2M7EQmcQQ0YQWB2KiKR9BxDystIb2i0X6+
-TWrNokG39HoaKEOufqKENDa9tyy7Hw==
-=ODLo
------END PGP SIGNATURE-----
-
---2G7f8nmLqlwadLXxvXgqKDN7KniMiDRb3--
+>         return work_done;
+> }
+>
+>
+> Best regards,
+> 									Pavel
+>
