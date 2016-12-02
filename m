@@ -1,29 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2016-12-02
-Date: Fri, 02 Dec 2016 14:02:53 -0500 (EST)
-Message-ID: <20161202.140253.1826176942283993286.davem@davemloft.net>
-References: <20161202082931.22270-1-mkl@pengutronix.de>
+Subject: Re: [PATCH net v3] tipc: check minimum bearer MTU
+Date: Fri, 02 Dec 2016 14:03:34 -0500 (EST)
+Message-ID: <20161202.140334.1963952105058981434.davem@davemloft.net>
+References: <20161202083341.BB955A0F33@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39040 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751075AbcLBTDa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 14:03:30 -0500
-In-Reply-To: <20161202082931.22270-1-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jon.maloy@ericsson.com, zhangqian-c@360.cn, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, ben@decadent.org.uk
+To: mkubecek@suse.cz
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20161202083341.BB955A0F33@unicorn.suse.cz>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri,  2 Dec 2016 09:29:29 +0100
-
-> this is a pull request for net/master.
-> 
-> THere are two patches by Stephane Grosjean, who adds support for the new
-> PCAN-USB X6 USB interface to the pcan_usb driver.
-
-Pulled, thanks.
+RnJvbTogTWljaGFsIEt1YmVjZWsgPG1rdWJlY2VrQHN1c2UuY3o+DQpEYXRlOiBGcmksICAyIERl
+YyAyMDE2IDA5OjMzOjQxICswMTAwIChDRVQpDQoNCj4gUWlhbiBaaGFuZyAo5byg6LCmKSByZXBv
+cnRlZCBhIHBvdGVudGlhbCBzb2NrZXQgYnVmZmVyIG92ZXJmbG93IGluDQo+IHRpcGNfbXNnX2J1
+aWxkKCkgd2hpY2ggaXMgYWxzbyBrbm93biBhcyBDVkUtMjAxNi04NjMyOiBkdWUgdG8NCj4gaW5z
+dWZmaWNpZW50IGNoZWNrcywgYSBidWZmZXIgb3ZlcmZsb3cgY2FuIG9jY3VyIGlmIE1UVSBpcyB0
+b28gc2hvcnQgZm9yDQo+IGV2ZW4gdGlwYyBoZWFkZXJzLiBBcyBhbnlvbmUgY2FuIHNldCBkZXZp
+Y2UgTVRVIGluIGEgdXNlci9uZXQgbmFtZXNwYWNlLA0KPiB0aGlzIGlzc3VlIGNhbiBiZSBhYnVz
+ZWQgYnkgYSByZWd1bGFyIHVzZXIuDQo+IA0KPiBBcyBhZ3JlZWQgaW4gdGhlIGRpc2N1c3Npb24g
+b24gQmVuIEh1dGNoaW5ncycgb3JpZ2luYWwgcGF0Y2gsIHdlIHNob3VsZA0KPiBjaGVjayB0aGUg
+TVRVIGF0IHRoZSBtb21lbnQgYSBiZWFyZXIgaXMgYXR0YWNoZWQgcmF0aGVyIHRoYW4gZm9yIGVh
+Y2gNCj4gcHJvY2Vzc2VkIHBhY2tldC4gV2UgYWxzbyBuZWVkIHRvIHJlcGVhdCB0aGUgY2hlY2sg
+d2hlbiBiZWFyZXIgTVRVIGlzDQo+IGFkanVzdGVkIHRvIG5ldyBkZXZpY2UgTVRVLiBVRFAgY2Fz
+ZSBhbHNvIG5lZWRzIGEgY2hlY2sgdG8gYXZvaWQNCj4gb3ZlcmZsb3cgd2hlbiBjYWxjdWxhdGlu
+ZyBiZWFyZXIgTVRVLg0KPiANCj4gRml4ZXM6IGI5N2JmM2ZkOGY2YSAoIltUSVBDXSBJbml0aWFs
+IG1lcmdlIikNCj4gU2lnbmVkLW9mZi1ieTogTWljaGFsIEt1YmVjZWsgPG1rdWJlY2VrQHN1c2Uu
+Y3o+DQo+IFJlcG9ydGVkLWJ5OiBRaWFuIFpoYW5nICjlvKDosKYpIDx6aGFuZ3FpYW4tY0AzNjAu
+Y24+DQoNCkFwcGxpZWQgYW5kIHF1ZXVlZCB1cCBmb3IgLXN0YWJsZSwgdGhhbmtzLg0KLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tCkNoZWNrIG91dCB0aGUgdmlicmFudCB0ZWNoIGNvbW11bml0eSBvbiBv
+bmUgb2YgdGhlIHdvcmxkJ3MgbW9zdCAKZW5nYWdpbmcgdGVjaCBzaXRlcywgU2xhc2hEb3Qub3Jn
+ISBodHRwOi8vc2RtLmxpbmsvc2xhc2hkb3QKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18KdGlwYy1kaXNjdXNzaW9uIG1haWxpbmcgbGlzdAp0aXBjLWRpc2N1
+c3Npb25AbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0
+L2xpc3RzL2xpc3RpbmZvL3RpcGMtZGlzY3Vzc2lvbgo=
