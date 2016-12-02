@@ -1,64 +1,56 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/6] net: ethernet: ti: cpts: add ptp pps support
-Date: Fri, 2 Dec 2016 20:28:10 +0100
-Message-ID: <20161202192810.GA3259@netboy>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-5-grygorii.strashko@ti.com>
- <20161130184511.GB8209@netboy>
- <875d4cc2-8a47-b06d-fb46-0cacc28dbaee@ti.com>
- <20161130221738.GA13099@localhost.localdomain>
- <20161202095848.GA14586@localhost.localdomain>
- <bfbebf2d-d057-6a21-845c-48f0a9ab0404@ti.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCHv2 net-next 2/4] net: dsa: mv88e6xxx: Monitor and Management tables
+Date: Fri, 02 Dec 2016 14:32:39 -0500
+Message-ID: <87mvgecejs.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1480701779-30633-1-git-send-email-andrew@lunn.ch> <1480701779-30633-3-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <bfbebf2d-d057-6a21-845c-48f0a9ab0404-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:52158 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752895AbcLBTeC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 14:34:02 -0500
+In-Reply-To: <1480701779-30633-3-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2016 at 11:58:34AM -0600, Grygorii Strashko wrote:
-> or I missed smth?
+Hi Andrew,
 
-You are missing three important points.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-1. Unlike the code you posted, no edges will be lost.
+> @@ -3184,6 +3186,8 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+>  	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+>  	.stats_get_strings = mv88e6095_stats_get_strings,
+>  	.stats_get_stats = mv88e6095_stats_get_stats,
+> +	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
+> +	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
+>  };
 
-2. The solution using the PWM is implemented in USER SPACE.  If people
-   use this way, then they will be forced to understand the inherit
-   limitations.  In addition, the behavior of servo will be under
-   their control.
+I like the implementation in this version better. But please explain me
+why you are prefixing these operations with g1_?
 
-3. The update rate of the PHC is not once per second.  It can be any
-   rate at all, like 16 Hz for the telecom profile.  You can't just
-   blindly pick out an adjustment value once per second.  Using the
-   feedback from the time stamped PWM and adjusting THAT at the PWM
-   rate (also not necessarily 1 PPS) is the right way.  The second
-   reply in that thread is an even better solution, leaving the PHC
-   free running and adjusting the timer input clock (probably they
-   used a VCO).
+The mv88e6xxx_ops structure is agnostic from the implementation. There
+is only one way to implement a feature (e.g. setting the switch MAC) in
+Marvell switches. So describing the internal location of the said
+feature is wrong and brings no value.
 
-Just hacking in some kind of kernel PPS with unknown accuracy is just
-asking for trouble later, since people will expect HW accuracy.
+But let's imagine we can set the CPU port in some Global 2 registers.
+You are going to wrap this in chip.c with something like:
 
-So just get the input time stamps working, and make PWM control
-available to userspace in mainline (not sure about this, I guess it
-isn't), and leave the PPS part to a userspace utility.
+    int mv88e6xxx_set_cpu_port(struct mv88e6xxx_chip *chip, int port)
+    {
+        if (chip->info->ops->g2_set_cpu_port)
+            return chip->info->ops->g2_set_cpu_port(chip, port);
+        else if (chip->info->ops->g1_set_cpu_port)
+            return chip->info->ops->g1_set_cpu_port(chip, port);
+        else
+            return -EOPNOTSUPP;
+    }
+
+What's the point of this?
 
 Thanks,
-Richard
 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+        Vivien
