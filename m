@@ -1,51 +1,54 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next] bpf, xdp: drop rcu_read_lock from
- bpf_prog_run_xdp and move to caller
-Date: Fri, 02 Dec 2016 11:09:31 -0500 (EST)
-Message-ID: <20161202.110931.1187796431289743394.davem@redhat.com>
-References: <b70c47e0284823e6a5db600ae75c01eac4cf7922.1480538565.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, saeedm@mellanox.com, kubakici@wp.pl,
-        Yuval.Mintz@cavium.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55998 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750888AbcLBQJe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 11:09:34 -0500
-In-Reply-To: <b70c47e0284823e6a5db600ae75c01eac4cf7922.1480538565.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH] pull request for net: batman-adv 2016-12-02
+Date: Fri,  2 Dec 2016 17:13:22 +0100
+Message-ID: <20161202161323.5990-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 30 Nov 2016 22:16:06 +0100
+Hi David,
 
-> After 326fe02d1ed6 ("net/mlx4_en: protect ring->xdp_prog with rcu_read_lock"),
-> the rcu_read_lock() in bpf_prog_run_xdp() is superfluous, since callers
-> need to hold rcu_read_lock() already to make sure BPF program doesn't
-> get released in the background.
-> 
-> Thus, drop it from bpf_prog_run_xdp(), as it can otherwise be misleading.
-> Still keeping the bpf_prog_run_xdp() is useful as it allows for grepping
-> in XDP supported drivers and to keep the typecheck on the context intact.
-> For mlx4, this means we don't have a double rcu_read_lock() anymore. nfp can
-> just make use of bpf_prog_run_xdp(), too. For qede, just move rcu_read_lock()
-> out of the helper. When the driver gets atomic replace support, this will
-> move to call-sites eventually.
-> 
-> mlx5 needs actual fixing as it has the same issue as described already in
-> 326fe02d1ed6 ("net/mlx4_en: protect ring->xdp_prog with rcu_read_lock"),
-> that is, we're under RCU bh at this time, BPF programs are released via
-> call_rcu(), and call_rcu() != call_rcu_bh(), so we need to properly mark
-> read side as programs can get xchg()'ed in mlx5e_xdp_set() without queue
-> reset.
-> 
-> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> ---
->  ( Also here net-next is just fine, imho. )
+here is another bugfix which we would like to see integrated into net,
+if this is possible now.
 
-Applied, thanks.
+Please pull or let me know of any problem!
+
+Thank you,
+      Simon
+
+The following changes since commit e13258f38e927b61cdb5f4ad25309450d3b127d1:
+
+  batman-adv: Detect missing primaryif during tp_send as error (2016-11-04 12:27:39 +0100)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batadv-net-for-davem-20161202
+
+for you to fetch changes up to c2d0f48a13e53b4747704c9e692f5e765e52041a:
+
+  batman-adv: Check for alloc errors when preparing TT local data (2016-12-02 10:46:59 +0100)
+
+----------------------------------------------------------------
+Here is another batman-adv bugfix:
+
+ - fix checking for failed allocation of TVLV blocks in TT local data,
+   by Sven Eckelmann
+
+----------------------------------------------------------------
+Sven Eckelmann (1):
+      batman-adv: Check for alloc errors when preparing TT local data
+
+ net/batman-adv/translation-table.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
