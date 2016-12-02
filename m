@@ -1,49 +1,65 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute2: ss: escape all null bytes in abstract unix
- domain socket
-Date: Fri, 2 Dec 2016 15:18:10 -0800
-Message-ID: <20161202151810.4fab9504@xeon-e3>
-References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
-        <20161112101729.4d400929@samsung9>
-        <1480705196.18162.381.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH net-next] liquidio: 'imply' ptp instead of 'select'
+Date: Fri, 2 Dec 2016 18:20:13 -0500 (EST)
+Message-ID: <alpine.LFD.2.20.1612021819350.13571@knanqh.ubzr>
+References: <20161202230451.1639318-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Isaac Boukris <iboukris@gmail.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        David Daney <david.daney@cavium.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Sunil Goutham <sgoutham@cavium.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480705196.18162.381.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <20161202230451.1639318-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 02 Dec 2016 10:59:56 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Sat, 3 Dec 2016, Arnd Bergmann wrote:
 
-> On Sat, 2016-11-12 at 10:17 +0300, Stephen Hemminger wrote:
-> > On Sat, 29 Oct 2016 22:20:19 +0300
-> > Isaac Boukris <iboukris@gmail.com> wrote:
-> >   
-> > > Abstract unix domain socket may embed null characters,
-> > > these should be translated to '@' when printed by ss the
-> > > same way the null prefix is currently being translated.
-> > > 
-> > > Signed-off-by: Isaac Boukris <iboukris@gmail.com>  
-> > 
-> > Applied  
+> ptp now depends on the optional POSIX_TIMERS setting and fails to build
+> if we select it without that:
 > 
-> Probably not a good idea to have :
+> warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
+> warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
+> ERROR: "posix_clock_unregister" [drivers/ptp/ptp.ko] undefined!
+> ERROR: "posix_clock_register" [drivers/ptp/ptp.ko] undefined!
+> ERROR: "pps_unregister_source" [drivers/ptp/ptp.ko] undefined!
+> ERROR: "pps_event" [drivers/ptp/ptp.ko] undefined!
+> ERROR: "pps_register_source" [drivers/ptp/ptp.ko] undefined!
 > 
->                        for (int i = 0; i < len; i++)
->                                if (name[i] == '\0')
->                                        name[i] = '@';
+> It seems that two patches have collided here, the build failure
+> is a result of the combination. Changing the new option to 'imply'
+> as well fixes it.
 > 
-> ss.c: In function 'unix_show_sock':
-> ss.c:3128:4: error: 'for' loop initial declarations are only allowed in C99 mode
-> ss.c:3128:4: note: use option -std=c99 or -std=gnu99 to compile your code
-> make[1]: *** [ss.o] Error 1
-> 
-> 
-> 
+> Fixes: 111fc64a237f ("liquidio CN23XX: VF registration")
+> Fixes: d1cbfd771ce8 ("ptp_clock: Allow for it to be optional")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Thanks, fixed by patch from Simon
+Acked-by: Nicolas Pitre <nico@linaro.org>
+
+> ---
+>  drivers/net/ethernet/cavium/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+> index bbc8bd16cb97..dcbce6cac63e 100644
+> --- a/drivers/net/ethernet/cavium/Kconfig
+> +++ b/drivers/net/ethernet/cavium/Kconfig
+> @@ -77,7 +77,7 @@ config OCTEON_MGMT_ETHERNET
+>  config LIQUIDIO_VF
+>  	tristate "Cavium LiquidIO VF support"
+>  	depends on 64BIT && PCI_MSI
+> -	select PTP_1588_CLOCK
+> +	imply PTP_1588_CLOCK
+>  	---help---
+>  	  This driver supports Cavium LiquidIO Intelligent Server Adapter
+>  	  based on CN23XX chips.
+> -- 
+> 2.9.0
+> 
+> 
