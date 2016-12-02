@@ -1,79 +1,74 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 2/3] netns: add dummy struct inside "struct net_generic"
-Date: Fri, 2 Dec 2016 04:12:58 +0300
-Message-ID: <20161202011258.GC31170@avx2>
+Subject: [PATCH] netlink: 2-clause nla_ok()
+Date: Fri, 2 Dec 2016 03:59:06 +0300
+Message-ID: <20161202005906.GA31170@avx2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xemul@openvz.org
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:35802 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757476AbcLAXNJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 18:13:09 -0500
-Received: by mail-lf0-f66.google.com with SMTP id p100so20469341lfg.2
-        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 15:13:08 -0800 (PST)
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:36343 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753026AbcLAXPM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 1 Dec 2016 18:15:12 -0500
+Received: by mail-lf0-f65.google.com with SMTP id o20so20503321lfg.3
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 15:15:11 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is precursor to fixing "[id - 1]" bloat inside net_generic().
+nla_ok() consists of 3 clauses:
 
-Name "s" is chosen to complement name "u" often used for dummy unions.
+	1) int rem >= (int)sizeof(struct nlattr)
+
+	2) u16 nla_len >= sizeof(struct nlattr)
+
+	3) u16 nla_len <= int rem
+
+The statement is that clause (1) is redundant.
+
+What it does is ensuring that "rem" is a positive number,
+so that in clause (3) positive number will be compared to positive number
+with no problems.
+
+However, "u16" fully fits into "int" and integers do not change value
+when upcasting even to signed type. Negative integers will be rejected
+by clause (3) just fine. Small positive integers will be rejected
+by transitivity of comparison operator.
+
+NOTE: all of the above DOES NOT apply to nlmsg_ok() where ->nlmsg_len is
+u32(!), so 3 clauses AND A CAST TO INT are necessary.
+
+Obligatory space savings report: -1.6 KB
+
+	$ ./scripts/bloat-o-meter ../vmlinux-000* ../vmlinux-001*
+	add/remove: 0/0 grow/shrink: 3/63 up/down: 35/-1692 (-1657)
+	function                                     old     new   delta
+	validate_scan_freqs                          142     155     +13
+	tcf_em_tree_validate                         867     879     +12
+	dcbnl_ieee_del                               328     338     +10
+	netlbl_cipsov4_add_common.isra               218     215      -3
+		...
+	ovs_nla_put_actions                          888     806     -82
+	netlbl_cipsov4_add_std                      1648    1566     -82
+	nl80211_parse_sched_scan                    2889    2780    -109
+	ip_tun_from_nlattr                          3086    2945    -141
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- include/net/netns/generic.h |    6 ++++--
- net/core/net_namespace.c    |    8 ++++----
- 2 files changed, 8 insertions(+), 6 deletions(-)
+ include/net/netlink.h |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
---- a/include/net/netns/generic.h
-+++ b/include/net/netns/generic.h
-@@ -25,8 +25,10 @@
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -698,8 +698,7 @@ static inline int nla_len(const struct nlattr *nla)
   */
- 
- struct net_generic {
--	unsigned int len;
--	struct rcu_head rcu;
-+	struct {
-+		unsigned int len;
-+		struct rcu_head rcu;
-+	} s;
- 
- 	void *ptr[0];
- };
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -50,7 +50,7 @@ static struct net_generic *net_alloc_generic(void)
- 
- 	ng = kzalloc(generic_size, GFP_KERNEL);
- 	if (ng)
--		ng->len = max_gen_ptrs;
-+		ng->s.len = max_gen_ptrs;
- 
- 	return ng;
- }
-@@ -64,7 +64,7 @@ static int net_assign_generic(struct net *net, unsigned int id, void *data)
- 
- 	old_ng = rcu_dereference_protected(net->gen,
- 					   lockdep_is_held(&net_mutex));
--	if (old_ng->len >= id) {
-+	if (old_ng->s.len >= id) {
- 		old_ng->ptr[id - 1] = data;
- 		return 0;
- 	}
-@@ -84,11 +84,11 @@ static int net_assign_generic(struct net *net, unsigned int id, void *data)
- 	 * the old copy for kfree after a grace period.
- 	 */
- 
--	memcpy(&ng->ptr, &old_ng->ptr, old_ng->len * sizeof(void*));
-+	memcpy(&ng->ptr, &old_ng->ptr, old_ng->s.len * sizeof(void*));
- 	ng->ptr[id - 1] = data;
- 
- 	rcu_assign_pointer(net->gen, ng);
--	kfree_rcu(old_ng, rcu);
-+	kfree_rcu(old_ng, s.rcu);
- 	return 0;
+ static inline int nla_ok(const struct nlattr *nla, int remaining)
+ {
+-	return remaining >= (int) sizeof(*nla) &&
+-	       nla->nla_len >= sizeof(*nla) &&
++	return nla->nla_len >= sizeof(*nla) &&
+ 	       nla->nla_len <= remaining;
  }
  
