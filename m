@@ -1,50 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next 0/7] Support Armada 37xx SoC (ARMv8
- 64-bits) in mvneta driver
-Date: Fri, 02 Dec 2016 13:52:27 -0500 (EST)
-Message-ID: <20161202.135227.1138440285760115646.davem@davemloft.net>
-References: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net v2] net: bcmgenet: Utilize correct struct device
+ for all DMA operations
+Date: Fri, 02 Dec 2016 13:54:01 -0500 (EST)
+Message-ID: <20161202.135401.1662791877536448974.davem@davemloft.net>
+References: <1480614345-5827-1-git-send-email-florian.fainelli@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        jszhang@marvell.com, arnd@arndb.de, jason@lakedaemon.net,
-        andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com,
-        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
-        mw@semihalf.com, dima@marvell.com, yelena@marvell.com
-To: gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, pgynther@google.com, jaedon.shin@gmail.com,
+        opendmb@gmail.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38902 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750842AbcLBSyC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:54:02 -0500
+In-Reply-To: <1480614345-5827-1-git-send-email-florian.fainelli@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Date: Thu,  1 Dec 2016 18:03:03 +0100
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu,  1 Dec 2016 09:45:45 -0800
 
-> The Armada 37xx is a new ARMv8 SoC from Marvell using same network
-> controller as the older Armada 370/38x/XP SoCs. This series adapts the
-> driver in order to be able to use it on this new SoC. The main changes
-> are:
+> From: Florian Fainelli <f.fainelli@gmail.com>
 > 
-> - 64-bits support: the first patches allow using the driver on a 64-bit
->   architecture.
+> __bcmgenet_tx_reclaim() and bcmgenet_free_rx_buffers() are not using the
+> same struct device during unmap that was used for the map operation,
+> which makes DMA-API debugging warn about it. Fix this by always using
+> &priv->pdev->dev throughout the driver, using an identical device
+> reference for all map/unmap calls.
 > 
-> - MBUS support: the mbus configuration is different on Armada 37xx
->   from the older SoCs.
-> 
-> - per cpu interrupt: Armada 37xx do not support per cpu interrupt for
->   the NETA IP, the non-per-CPU behavior was added back.
-> 
-> The first patch is an optimization in the rx path in swbm mode.
-> The second patch remove unnecessary allocation for HWBM.
-> The first item is solved by patches 4 and 5.
-> The 2 last items are solved by patch 6.
-> In patch 7 the dt support is added.
-> 
-> Beside Armada 37xx, this series have been again tested on Armada XP
-> and Armada 38x (with Hardware Buffer Management and with Software
-> Buffer Management).
- ...
+> Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
