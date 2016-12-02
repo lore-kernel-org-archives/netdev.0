@@ -1,47 +1,49 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: simplify flag assignment
-Date: Fri, 2 Dec 2016 09:27:05 +0100
-Message-ID: <7848a23a-7faa-be47-3c2c-da6880b2b909@st.com>
-References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
- <20161124.110416.198867271899443489.davem@davemloft.net>
- <20161130114431.GB14296@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Alexandre TORGUE <alexandre.torgue@st.com>
-To: Pavel Machek <pavel@ucw.cz>, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161130114431.GB14296@amd>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2016-12-02
+Date: Fri,  2 Dec 2016 09:29:29 +0100
+Message-ID: <20161202082931.22270-1-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-+ Alex
+Hello David,
 
-On 11/30/2016 12:44 PM, Pavel Machek wrote:
->
-> Simplify flag assignment.
->
-> Signed-off-by: Pavel Machek <pavel@denx.de>
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index ed20668..0b706a7 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2771,12 +2771,8 @@ static netdev_features_t stmmac_fix_features(struct net_device *dev,
->  		features &= ~NETIF_F_CSUM_MASK;
->
->  	/* Disable tso if asked by ethtool */
-> -	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen)) {
-> -		if (features & NETIF_F_TSO)
-> -			priv->tso = true;
-> -		else
-> -			priv->tso = false;
-> -	}
-> +	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen))
-> +		priv->tso = !!(features & NETIF_F_TSO);
->
->  	return features;
->  }
->
->
+this is a pull request for net/master.
+
+THere are two patches by Stephane Grosjean, who adds support for the new
+PCAN-USB X6 USB interface to the pcan_usb driver.
+
+regards,
+Marc
+
+---
+
+The following changes since commit aa196eed3d80d4b003b04a270712b978a012a939:
+
+  macvtap: handle ubuf refcount correctly when meet errors (2016-11-30 15:06:02 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.9-20161201
+
+for you to fetch changes up to f00b534ded60bd0a23c2fa8dec4ece52aa7d235f:
+
+  can: peak: Add support for PCAN-USB X6 USB interface (2016-12-01 14:12:20 +0100)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.9-20161201
+
+----------------------------------------------------------------
+Stephane Grosjean (2):
+      can: peak: Fix bittiming fields size in bits
+      can: peak: Add support for PCAN-USB X6 USB interface
+
+ drivers/net/can/usb/peak_usb/pcan_ucan.h     |  37 +++++++---
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c |   2 +
+ drivers/net/can/usb/peak_usb/pcan_usb_core.h |   2 +
+ drivers/net/can/usb/peak_usb/pcan_usb_fd.c   | 104 ++++++++++++++++++++++-----
+ 4 files changed, 121 insertions(+), 24 deletions(-)
+
