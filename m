@@ -1,103 +1,69 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH net-next v3 2/2] net: stmmac: dwmac-meson8b: make the RGMII TX delay configurable
-Date: Sat,  3 Dec 2016 00:32:38 +0100
-Message-ID: <20161202233238.17561-3-martin.blumenstingl@googlemail.com>
-References: <20161125130156.17879-1-martin.blumenstingl@googlemail.com>
- <20161202233238.17561-1-martin.blumenstingl@googlemail.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        linux-arm-kernel@lists.infradead.org,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-amlogic@lists.infradead.org,
-        robh+dt@kernel.org, mark.rutland@arm.com, carlo@caione.org,
-        khilman@baylibre.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:36601 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751772AbcLBXdF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 18:33:05 -0500
-In-Reply-To: <20161202233238.17561-1-martin.blumenstingl@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH net-next] liquidio: 'imply' ptp instead of 'select'
+Date: Fri, 2 Dec 2016 15:20:30 -0800
+Message-ID: <7a02d341-3e1f-edcf-c062-d8a93f44efbb@caviumnetworks.com>
+References: <20161202230451.1639318-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        David Daney <david.daney@cavium.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Nicolas Pitre <nicolas.pitre@linaro.org>,
+        Sunil Goutham <sgoutham@cavium.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161202230451.1639318-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Prior to this patch we were using a hardcoded RGMII TX clock delay of
-2ns (= 1/4 cycle of the 125MHz RGMII TX clock). This value works for
-many boards, but unfortunately not for all (due to the way the actual
-circuit is designed, sometimes because the TX delay is enabled in the
-PHY, etc.). Making the TX delay on the MAC side configurable allows us
-to support all possible hardware combinations.
+On 12/02/2016 03:04 PM, Arnd Bergmann wrote:
+> ptp now depends on the optional POSIX_TIMERS setting and fails to build
+> if we select it without that:
+>
+> warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
+> warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
+> ERROR: "posix_clock_unregister" [drivers/ptp/ptp.ko] undefined!
+> ERROR: "posix_clock_register" [drivers/ptp/ptp.ko] undefined!
+> ERROR: "pps_unregister_source" [drivers/ptp/ptp.ko] undefined!
+> ERROR: "pps_event" [drivers/ptp/ptp.ko] undefined!
+> ERROR: "pps_register_source" [drivers/ptp/ptp.ko] undefined!
+>
+> It seems that two patches have collided here, the build failure
+> is a result of the combination. Changing the new option to 'imply'
+> as well fixes it.
+>
+> Fixes: 111fc64a237f ("liquidio CN23XX: VF registration")
+> Fixes: d1cbfd771ce8 ("ptp_clock: Allow for it to be optional")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-This allows fixing a compatibility issue on some boards, where the
-RTL8211F PHY is configured to generate the TX delay. We can now turn
-off the TX delay in the MAC, because otherwise we would be applying the
-delay twice (which results in non-working TX traffic).
+I didn't know about this new "imply" thing.  This seems like a plausible 
+fix, so...
 
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Tested-by: Neil Armstrong <narmstrong@baylibre.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c | 21 +++++++++++++++------
- 1 file changed, 15 insertions(+), 6 deletions(-)
+Acked-by: David Daney <david.daney@cavium.com>
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-index 250e4ce..dad31b0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-@@ -35,10 +35,6 @@
- 
- #define PRG_ETH0_TXDLY_SHIFT		5
- #define PRG_ETH0_TXDLY_MASK		GENMASK(6, 5)
--#define PRG_ETH0_TXDLY_OFF		(0x0 << PRG_ETH0_TXDLY_SHIFT)
--#define PRG_ETH0_TXDLY_QUARTER		(0x1 << PRG_ETH0_TXDLY_SHIFT)
--#define PRG_ETH0_TXDLY_HALF		(0x2 << PRG_ETH0_TXDLY_SHIFT)
--#define PRG_ETH0_TXDLY_THREE_QUARTERS	(0x3 << PRG_ETH0_TXDLY_SHIFT)
- 
- /* divider for the result of m250_sel */
- #define PRG_ETH0_CLK_M250_DIV_SHIFT	7
-@@ -69,6 +65,8 @@ struct meson8b_dwmac {
- 
- 	struct clk_divider	m25_div;
- 	struct clk		*m25_div_clk;
-+
-+	u32			tx_delay_ns;
- };
- 
- static void meson8b_dwmac_mask_bits(struct meson8b_dwmac *dwmac, u32 reg,
-@@ -179,6 +177,7 @@ static int meson8b_init_prg_eth(struct meson8b_dwmac *dwmac)
- {
- 	int ret;
- 	unsigned long clk_rate;
-+	u8 tx_dly_val;
- 
- 	switch (dwmac->phy_mode) {
- 	case PHY_INTERFACE_MODE_RGMII:
-@@ -196,9 +195,13 @@ static int meson8b_init_prg_eth(struct meson8b_dwmac *dwmac)
- 		meson8b_dwmac_mask_bits(dwmac, PRG_ETH0,
- 					PRG_ETH0_INVERTED_RMII_CLK, 0);
- 
--		/* TX clock delay - all known boards use a 1/4 cycle delay */
-+		/* TX clock delay in ns = "8ns / 4 * tx_dly_val" (where
-+		 * 8ns are exactly one cycle of the 125MHz RGMII TX clock):
-+		 * 0ns = 0x0, 2ns = 0x1, 4ns = 0x2, 6ns = 0x3
-+		 */
-+		tx_dly_val = dwmac->tx_delay_ns >> 1;
- 		meson8b_dwmac_mask_bits(dwmac, PRG_ETH0, PRG_ETH0_TXDLY_MASK,
--					PRG_ETH0_TXDLY_QUARTER);
-+					tx_dly_val << PRG_ETH0_TXDLY_SHIFT);
- 		break;
- 
- 	case PHY_INTERFACE_MODE_RMII:
-@@ -277,6 +280,12 @@ static int meson8b_dwmac_probe(struct platform_device *pdev)
- 	if (dwmac->phy_mode < 0) {
- 		dev_err(&pdev->dev, "missing phy-mode property\n");
- 		return -EINVAL;
-+	} else if (dwmac->phy_mode != PHY_INTERFACE_MODE_RMII) {
-+		/* ignore errors as this is an optional property - by default
-+		 * we assume a TX delay of 0ns.
-+		 */
-+		of_property_read_u32(pdev->dev.of_node, "amlogic,tx-delay-ns",
-+				     &dwmac->tx_delay_ns);
- 	}
- 
- 	ret = meson8b_init_clk(dwmac);
--- 
-2.10.2
+Thanks for fixing this up.
+
+
+> ---
+>  drivers/net/ethernet/cavium/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+> index bbc8bd16cb97..dcbce6cac63e 100644
+> --- a/drivers/net/ethernet/cavium/Kconfig
+> +++ b/drivers/net/ethernet/cavium/Kconfig
+> @@ -77,7 +77,7 @@ config OCTEON_MGMT_ETHERNET
+>  config LIQUIDIO_VF
+>  	tristate "Cavium LiquidIO VF support"
+>  	depends on 64BIT && PCI_MSI
+> -	select PTP_1588_CLOCK
+> +	imply PTP_1588_CLOCK
+>  	---help---
+>  	  This driver supports Cavium LiquidIO Intelligent Server Adapter
+>  	  based on CN23XX chips.
+>
