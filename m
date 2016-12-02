@@ -1,55 +1,58 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: linux-next: manual merge of the wireless-drivers-next tree with the net-next tree
-Date: Fri, 02 Dec 2016 07:08:48 +0200
-Message-ID: <87polark7z.fsf@kamboji.qca.qualcomm.com>
-References: <20161202110313.2104919e@canb.auug.org.au>
+From: Erik Nordmark <nordmark@arista.com>
+Subject: Re: [PATCH net-next v3] ipv6 addrconf: Implemented enhanced DAD
+ (RFC7527)
+Date: Thu, 1 Dec 2016 21:41:30 -0800
+Message-ID: <ff997367-17cd-d484-17b4-6a09b1f9e74f@arista.com>
+References: <1480549159-8142-1-git-send-email-nordmark@arista.com>
+ <1764849a-e853-21f8-a6e5-f2280b3b8a88@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wireless <linux-wireless@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Sara Sharon <sara.sharon@intel.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Rajkumar Manoharan <rmanohar@qti.qualcomm.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Bob Gilligan <gilligan@arista.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:53708 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750750AbcLBFIy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 00:08:54 -0500
-In-Reply-To: <20161202110313.2104919e@canb.auug.org.au> (Stephen Rothwell's
-        message of "Fri, 2 Dec 2016 11:03:13 +1100")
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33463 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752385AbcLBFmo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 00:42:44 -0500
+Received: by mail-pf0-f175.google.com with SMTP id d2so50715120pfd.0
+        for <netdev@vger.kernel.org>; Thu, 01 Dec 2016 21:42:43 -0800 (PST)
+In-Reply-To: <1764849a-e853-21f8-a6e5-f2280b3b8a88@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Rothwell <sfr@canb.auug.org.au> writes:
+On 12/1/16 2:28 PM, Hannes Frederic Sowa wrote:
+> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-> Hi all,
->
-> Today's linux-next merge of the wireless-drivers-next tree got a
-> conflict in:
->
->   drivers/net/wireless/ath/ath10k/mac.c
->
-> between commit:
->
->   f3fe4e93dd63 ("mac80211: add a HW flag for supporting HW TX fragmentation")
->
-> from the net-next tree and commit:
->
->   ff32eeb86aa1 ("ath10k: advertize hardware packet loss mechanism")
->
-> from the wireless-drivers-next tree.
->
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
+Thanks - I'll add that.
+Also got a warning from the kbuild test robot for route.c which I'll fix.
 
-The fix looks good, thanks. I sent a pull request to Dave yesteday which
-should fix this.
+>
+> Thanks!
+>> @@ -794,6 +808,17 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+>>   have_ifp:
+>>   		if (ifp->flags & (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
+>>   			if (dad) {
+>> +				if (nonce != 0 && ifp->dad_nonce == nonce) {
+>> +					u8 *np = (u8 *)&nonce;
+>> +					/* Matching nonce if looped back */
+>> +					ND_PRINTK(2, notice,
+>> +						  "%s: IPv6 DAD loopback for address %pI6c nonce %02x:%02x:%02x:%02x:%02x:%02x ignored\n",
+>> +						  ifp->idev->dev->name,
+>> +						  &ifp->addr,
+>> +						  np[0], np[1], np[2], np[3],
+>> +						  np[4], np[5]);
+>> +					goto out;
+>> +				}
+>>   				/*
+>>   				 * We are colliding with another node
+>>   				 * who is doing DAD
+>>
+> I think it could be a "%pM" because it looks like a MAC address, but
+> better leave it like that. :)
 
--- 
-Kalle Valo
+It is 6 bytes, but it isn't a mac address so I'll leave it.
+
+Thanks,
+   Erik
