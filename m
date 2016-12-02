@@ -1,102 +1,63 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac: turn coalescing / NAPI off in stmmac
-Date: Fri, 2 Dec 2016 16:31:25 +0100
-Message-ID: <9b338d9b-a69a-7393-0b48-bc6b92b46cb7@st.com>
-References: <20161124085506.GA25007@amd>
+Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
+Date: Fri, 2 Dec 2016 16:19:53 +0100
+Message-ID: <5627300c-a9b5-8709-bb08-5f0bceddfb05@st.com>
+References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
  <20161124.110416.198867271899443489.davem@davemloft.net>
- <20161130114431.GB14296@amd>
- <20161201.152303.425589678238707778.davem@davemloft.net>
- <20161201224827.GA26301@amd> <2ceae6dc-3a48-3212-c634-cc6f1f0b363f@st.com>
- <20161202104238.GA31172@amd>
+ <20161124212540.GA24796@amd> <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
+ <20161202084511.GA32294@amd> <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
+ <20161202123241.GA5869@amd> <c4748c8f-ae4b-9bbc-7d20-9c7b7ce433c8@st.com>
+ <5db2ce3e-d4eb-d5d0-594c-8cd0f2e70476@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Alexandre Torgue <alexandre.torgue@st.com>,
+        Pavel Machek <pavel@ucw.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161202104238.GA31172@amd>
+In-Reply-To: <5db2ce3e-d4eb-d5d0-594c-8cd0f2e70476@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Pavel
+Hi Alex
 
-On 12/2/2016 11:42 AM, Pavel Machek wrote:
-> Hi!
+On 12/2/2016 3:26 PM, Alexandre Torgue wrote:
+>> 4.4 has no GMAC4 support.
+>> Alex, do you remember any patches to fix that?
 >
->>> Anyway... since you asked. I belive I have way to disable NAPI / tx
->>> coalescing in the driver. Unfortunately, locking is missing on the rx
->>> path, and needs to be extended to _irqsave variant on tx path.
->>
->> I have just replied to a previous thread about that...
+> No sorry Peppe.
 >
-> Yeah, please reply to David's mail where he describes why it can't
-> work.
+> Pavel,
+>
+> Sorry but I'm a little bit confused. I'm dropped in some mails without
+> historic. I see cleanup, coalescence issue and TSO question.
+> What is your main issue? Are you working on gmac4 or 3.x ?
+> Can you refresh a little bit the story please ?
 
-let me to re-check the mails :-) I can try to provide you
-more details about what I experimented
+let me try to do a sum, please Pavel feel free to correct me.
 
->
->>> So patch currently looks like this (hand edited, can't be
->>> applied, got it working few hours ago). Does it look acceptable?
->>>
->>> I'd prefer this to go after the patch that pulls common code to single
->>> place, so that single place needs to be patched. Plus I guess I should
->>> add ifdefs, so that more advanced NAPI / tx coalescing code can be
->>> reactivated when it is fixed. Trivial fixes can go on top. Does that
->>> sound like a plan?
->>
->> Hmm, what I find strange is that, just this code is running since a
->> long time on several platforms and Chip versions. No raise condition
->> have been found or lock protection problems (also proving look
->> mechanisms).
->
-> Well, it works better for me when I disable CONFIG_SMP. It is normal
-> that locking problems are hard to reproduce :-(.
+There are some open points about the tx mitigation schema
+that we are trying to detail and eventually tune or change
+(but keeping the same performance on other user-case).
 
-can you share me the test, maybe I can try to reproduce on ARM box.
-Are you using 3.x or 4.x GMAC?
+In particular, the test case that is raising problem is
+an unicast tx bench.
+I suggested Pavel to tune coalesce (IC bit settings) via
+ethtool and monitor stats but he is getting problems (maybe
+due to lock).
 
->> Pavel, I ask you sorry if I missed some problems so, if you can
->> (as D. Miller asked) to send us a cover letter + all patches
->> I will try to reply soon. I can do also some tests if you ask
->> me that! I could run on 3.x and 4.x but I cannot promise you
->> benchmarks.
->
-> Actually... I have questions here. David normally pulls from you (can
-> I have a address of your git tree?).
+IIUC problems are mainly on new kernel and not on 4.4 where
+the gmac4 is missing. Please Pavel, could you confirm?
 
-No I send the patches to the mailing list.
+Then, there are some open points about lock protections
+for xstat and Pavel is getting some problem on SMP.
+I do think that we need to review that. This also could
+improve the code in critical parts.
 
->
-> Could you apply these to your git?
->
-> [PATCH] stmmac ethernet: unify locking
-> [PATCH] stmmac: simplify flag assignment
-> [PATCH] stmmac: cleanup documenation, make it match reality
->
-> They are rather trivial and independend, I'm not sure what cover
-> letter would say, besides "simple fixes".
->
-> Then I can re-do the reset on top of that...
->
->>> Which tree do you want patches against?
->>>
->>> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/ ?
->>
->> I think that bug fixing should be on top of net.git but I let Miller
->> to decide.
->
-> Hmm. It is "only" a performance problem (40msec delays).. I guess
-> -next is better target.
+Also there are some other discussion about the lock
+protection on NAPI still under discussion. I have not
+clear if in this case Pavel is getting strange behavior.
 
-ok, maybe if you resend these with a cover-letter I can try to
-contribute on reviewing (in case of I have missed some detail).
-
-Best Regards
+Regards
 Peppe
-
->
-> Best regards,
-> 								Pavel
->
