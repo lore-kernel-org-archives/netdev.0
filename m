@@ -1,74 +1,146 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v2] sh_eth: remove unchecked interrupts
-Date: Fri, 2 Dec 2016 13:18:17 +0100
-Message-ID: <CAMuHMdXGufhc9ZnW8s_ntopBn2Cv4rTu5+PcTtzELxff8ggihA@mail.gmail.com>
-References: <20161201140642.28583-1-chris.brandt@renesas.com>
- <CAMuHMdU80M2qcK74YgPC8SZ20tNcKrZhj7MXo_Ok=6m4Aa0=-w@mail.gmail.com>
- <25b92de0-806b-342b-7556-06b96b948b2c@cogentembedded.com> <SG2PR06MB1165C7D7B7DFBAC4B5BAB09A8A8F0@SG2PR06MB1165.apcprd06.prod.outlook.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
+Date: Fri, 2 Dec 2016 13:32:41 +0100
+Message-ID: <20161202123241.GA5869@amd>
+References: <20161123105125.GA26394@amd>
+ <20161124085506.GA25007@amd>
+ <20161124.110416.198867271899443489.davem@davemloft.net>
+ <20161124212540.GA24796@amd>
+ <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
+ <20161202084511.GA32294@amd>
+ <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        David Miller <davem@davemloft.net>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Chris Brandt <Chris.Brandt@renesas.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <SG2PR06MB1165C7D7B7DFBAC4B5BAB09A8A8F0@SG2PR06MB1165.apcprd06.prod.outlook.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="FCuugMFkClbJLl1L"
+Cc: alexandre.torgue@st.com, David Miller <davem@davemloft.net>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Chris,
 
-On Thu, Dec 1, 2016 at 7:53 PM, Chris Brandt <Chris.Brandt@renesas.com> wrote:
-> On 12/1/2016, Sergei Shtylyov wrote:
->>
->> On 12/01/2016 05:42 PM, Geert Uytterhoeven wrote:
->>
->> >> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> >> +++ b/drivers/net/ethernet/renesas/sh_eth.c
->> >> @@ -518,7 +518,7 @@ static struct sh_eth_cpu_data r7s72100_data = {
->> >>
->> >>         .ecsr_value     = ECSR_ICD,
->> >>         .ecsipr_value   = ECSIPR_ICDIP,
->> >> -       .eesipr_value   = 0xff7f009f,
->> >> +       .eesipr_value   = 0xe77f009f,
->> >
->> > Comment not directly related to the merits of this patch: the EESIPR
->> > bit definitions seem to be identical to those for EESR, so we can get
->> > rid of the hardcoded values here?
->>
->>     Do you mean using the @define's? We have EESIPR bits also declared,
->> see enum DMAC_IM_BIT,
+--FCuugMFkClbJLl1L
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Yes, that's what I meant.
-Unfortunately the DMAC_IM_BIT enum doesn't cover all bits.
+Hi!
 
-> Is your idea to get rid of .eesipr_value for devices that have values
-> that are the same as .eesr_err_check?
->
->
-> For example in sh_eth_dev_init():
->
->         sh_eth_modify(ndev, EESR, 0, 0);
->         mdp->irq_enabled = true;
-> -       sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
-> +       if (mdp->cd->eesipr_value)
-> +               sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
-> +       else
-> +               sh_eth_write(ndev, mdp->cd->eesr_err_check, EESIPR);
+> >Well, if you have a workload that sends and receive packets, it tends
+> >to work ok, as you do tx_clean() in stmmac_poll(). My workload is not
+> >like that -- it is "sending packets at 3MB/sec, receiving none". So
+> >the stmmac_tx_timer() is rescheduled and rescheduled and rescheduled,
+> >and then we run out of transmit descriptors, and then 40msec passes,
+> >and then we clean them. Bad.
+> >
+> >And that's why low-res timers do not cut it.
+>=20
+> in that case, I expect that the tuning of the driver could help you.
+> I mean, by using ethtool, it could be enough to set the IC bit on all
+> the descriptors. You should touch the tx_coal_frames.
+>=20
+> Then you can use ethtool -S to monitor the status.
 
-No, my intention was to just get rid of the hardcoded values when
-initializing .eesipr_value.
+Yes, I did something similar. Unfortnunately that meant crash within
+minutes, at least with 4.4 kernel. (If you know what was fixed between
+4.4 and 4.9, that would be helpful).
 
-Gr{oetje,eeting}s,
+> We had experimented this tuning on STB IP where just datagrams
+> had to send externally. To be honest, although we had seen
+> better results w/o any timer, we kept this approach enabled
+> because the timer was fast enough to cover our tests on SH4 boxes.
 
-                        Geert
+Please reply to David, and explain how it is supposed to
+work... because right now it does not. 40 msec delays are not
+acceptable in default configuration.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+> >>In the ring, some descriptors can raise the irq (according to a
+> >>threshold) and set the IC bit. In this path, the NAPI  poll will be
+> >>scheduled.
+> >
+> >Not NAPI poll but stmmac_tx_timer(), right?
+>=20
+> in the xmit according the the threshold the timer is started or the
+> interrupt is set inside the descriptor.
+> Then stmmac_tx_clean will be always called and, if you see the flow,
+> no irqlock protection is needed!
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Agreed that no irqlock protection is needed if we rely on napi and timers.
+
+> >>Concerning the lock protection, we had reviewed long time ago and
+> >>IIRC, no raise condition should be present. Open to review it,
+> >>again!
+=2E..
+> >There's nothing that protect stmmac_poll() from running concurently
+> >with stmmac_dma_interrupt(), right?
+>=20
+> This is not necessary.
+
+dma_interrupt accesses shared priv->xstats; variables are of type
+unsigned long (not atomic_t), yet they are accesssed from interrupt
+context and from stmmac_ethtool without any locking. That can result
+in broken statistics AFAICT.
+
+Please take another look. As far as I can tell, you can have two cpus
+at #1 and #2 in the code, at the same time. It looks like napi_... has
+some atomic opertions inside so that looks safe at the first look. But
+I'm not sure if they also include enough memory barriers to make it
+safe...?
+
+
+static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+{
+=2E..
+        status =3D priv->hw->dma->dma_interrupt(priv->ioaddr, &priv->xstats=
+);
+        if (likely((status & handle_rx)) || (status & handle_tx)) {
+                if (likely(napi_schedule_prep(&priv->napi))) {
+#1
+                        stmmac_disable_dma_irq(priv);
+                        __napi_schedule(&priv->napi);
+                }
+        }
+
+
+static int stmmac_poll(struct napi_struct *napi, int budget)
+{
+        struct stmmac_priv *priv =3D container_of(napi, struct stmmac_priv,=
+ napi);
+        int work_done =3D 0;
+
+        priv->xstats.napi_poll++;
+        stmmac_tx_clean(priv);
+
+        work_done =3D stmmac_rx(priv, budget);
+	if (work_done < budget) {
+                napi_complete(napi);
+#2
+	        stmmac_enable_dma_irq(priv);
+        }
+        return work_done;
+}
+
+
+Best regards,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--FCuugMFkClbJLl1L
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlhBaekACgkQMOfwapXb+vJGxQCZAZWKSaPl4T68lMQWTxU9Ya1F
+PgEAoKf5Zoplj+0GoNV7bUgQyVape/VH
+=KRU4
+-----END PGP SIGNATURE-----
+
+--FCuugMFkClbJLl1L--
