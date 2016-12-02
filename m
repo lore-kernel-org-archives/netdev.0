@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: ethernet: altera: TSE: Remove unneeded dma
- sync for tx buffers
-Date: Fri, 02 Dec 2016 12:11:41 -0500 (EST)
-Message-ID: <20161202.121141.1787238234799478833.davem@davemloft.net>
-References: <1480546112-3099-1-git-send-email-LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH net-next 3/6] net: dsa: mv88e6xxx: add a software reset
+ op
+Date: Fri, 02 Dec 2016 12:23:11 -0500 (EST)
+Message-ID: <20161202.122311.1045081741040479698.davem@davemloft.net>
+References: <20161130225930.25510-1-vivien.didelot@savoirfairelinux.com>
+        <20161130225930.25510-4-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vbridger@opensource.altera.com, nios2-dev@lists.rocketboards.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: LinoSanfilippo@gmx.de
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480546112-3099-1-git-send-email-LinoSanfilippo@gmx.de>
+In-Reply-To: <20161130225930.25510-4-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Wed, 30 Nov 2016 23:48:31 +0100
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed, 30 Nov 2016 17:59:27 -0500
 
-> An explicit dma sync for device directly after mapping as well as an
-> explicit dma sync for cpu directly before unmapping is unnecessary and
-> costly on the hotpath. So remove these calls.
-> 
-> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+> @@ -765,6 +765,9 @@ struct mv88e6xxx_ops {
+>  	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
+>  			 u16 val);
+>  
+> +	/* Switch Software Reset */
+> +	int (*reset)(struct mv88e6xxx_chip *chip);
+> +
 
-Applied.
+I think Andrew's request to name this method "g1_reset" is reasonable, please
+respin with that change.
+
+Thanks.
