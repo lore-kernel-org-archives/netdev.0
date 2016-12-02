@@ -1,65 +1,74 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Initial thoughts on TXDP
-Date: Fri, 2 Dec 2016 13:13:44 +0100
-Message-ID: <20161202131344.12ce594c@redhat.com>
-References: <CALx6S34qPqXa7s1eHmk9V-k6xb=36dfiQvx3JruaNnqg4v8r9g@mail.gmail.com>
-        <20161201024407.GE26507@breakpoint.cc>
-        <CALx6S36ywu3ruY7AFKYk=N4Ekr5zjY33ivx92EgNNT36XoXhFA@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2] sh_eth: remove unchecked interrupts
+Date: Fri, 2 Dec 2016 13:18:17 +0100
+Message-ID: <CAMuHMdXGufhc9ZnW8s_ntopBn2Cv4rTu5+PcTtzELxff8ggihA@mail.gmail.com>
+References: <20161201140642.28583-1-chris.brandt@renesas.com>
+ <CAMuHMdU80M2qcK74YgPC8SZ20tNcKrZhj7MXo_Ok=6m4Aa0=-w@mail.gmail.com>
+ <25b92de0-806b-342b-7556-06b96b948b2c@cogentembedded.com> <SG2PR06MB1165C7D7B7DFBAC4B5BAB09A8A8F0@SG2PR06MB1165.apcprd06.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Florian Westphal <fw@strlen.de>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        linux-mm <linux-mm@kvack.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53954 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752585AbcLBMNt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 07:13:49 -0500
-In-Reply-To: <CALx6S36ywu3ruY7AFKYk=N4Ekr5zjY33ivx92EgNNT36XoXhFA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        David Miller <davem@davemloft.net>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: Chris Brandt <Chris.Brandt@renesas.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <SG2PR06MB1165C7D7B7DFBAC4B5BAB09A8A8F0@SG2PR06MB1165.apcprd06.prod.outlook.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Chris,
 
-On Thu, 1 Dec 2016 11:51:42 -0800 Tom Herbert <tom@herbertland.com> wrote:
-> On Wed, Nov 30, 2016 at 6:44 PM, Florian Westphal <fw@strlen.de> wrote:
-> > Tom Herbert <tom@herbertland.com> wrote:  
-[...]
-> >>   - Call into TCP/IP stack with page data directly from driver-- no
-> >> skbuff allocation or interface. This is essentially provided by the
-> >> XDP API although we would need to generalize the interface to call
-> >> stack functions (I previously posted patches for that). We will also
-> >> need a new action, XDP_HELD?, that indicates the XDP function held the
-> >> packet (put on a socket for instance).  
-> >
-> > Seems this will not work at all with the planned page pool thing when
-> > pages start to be held indefinitely.
+On Thu, Dec 1, 2016 at 7:53 PM, Chris Brandt <Chris.Brandt@renesas.com> wrote:
+> On 12/1/2016, Sergei Shtylyov wrote:
+>>
+>> On 12/01/2016 05:42 PM, Geert Uytterhoeven wrote:
+>>
+>> >> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>> >> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+>> >> @@ -518,7 +518,7 @@ static struct sh_eth_cpu_data r7s72100_data = {
+>> >>
+>> >>         .ecsr_value     = ECSR_ICD,
+>> >>         .ecsipr_value   = ECSIPR_ICDIP,
+>> >> -       .eesipr_value   = 0xff7f009f,
+>> >> +       .eesipr_value   = 0xe77f009f,
+>> >
+>> > Comment not directly related to the merits of this patch: the EESIPR
+>> > bit definitions seem to be identical to those for EESR, so we can get
+>> > rid of the hardcoded values here?
+>>
+>>     Do you mean using the @define's? We have EESIPR bits also declared,
+>> see enum DMAC_IM_BIT,
 
-It is quite the opposite, the page pool support pages are being held
-for longer times, than drivers today.  The current driver page recycle
-tricks cannot, as they depend on page refcnt being decremented quickly
-(while pages are still mapped in their recycle queue).
+Yes, that's what I meant.
+Unfortunately the DMAC_IM_BIT enum doesn't cover all bits.
 
-> > You can also never get even close to userspace offload stacks once you
-> > need/do this; allocations in hotpath are too expensive.
+> Is your idea to get rid of .eesipr_value for devices that have values
+> that are the same as .eesr_err_check?
+>
+>
+> For example in sh_eth_dev_init():
+>
+>         sh_eth_modify(ndev, EESR, 0, 0);
+>         mdp->irq_enabled = true;
+> -       sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
+> +       if (mdp->cd->eesipr_value)
+> +               sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
+> +       else
+> +               sh_eth_write(ndev, mdp->cd->eesr_err_check, EESIPR);
 
-Yes. It is important to understand that once the number of outstanding
-pages get large, the driver recycle stops working.  Meaning the pages
-allocations start to go through the page allocator.  I've documented[1]
-that the bare alloc+free cost[2] (231 cycles order-0/4K) is higher than
-the 10G wirespeed budget (201 cycles).
+No, my intention was to just get rid of the hardcoded values when
+initializing .eesipr_value.
 
-Thus, the driver recycle tricks are nice for benchmarking, as it hides
-the page allocator overhead. But this optimization might disappear for
-Tom's and Eric's more real-world use-cases e.g. like 10.000 sockets.
-The page pool don't these issues.
+Gr{oetje,eeting}s,
 
-[1] http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
-[2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/bench/page_bench01.c
+                        Geert
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
