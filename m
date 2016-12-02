@@ -1,44 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] iproute2: ss: escape all null bytes in abstract unix
- domain socket
-Date: Fri, 02 Dec 2016 10:59:56 -0800
-Message-ID: <1480705196.18162.381.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
-         <20161112101729.4d400929@samsung9>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] net: renesas: ravb: unintialized return value
+Date: Fri, 02 Dec 2016 14:00:30 -0500 (EST)
+Message-ID: <20161202.140030.597013502556382328.davem@davemloft.net>
+References: <20161201205744.GB10701@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Isaac Boukris <iboukris@gmail.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33637 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752481AbcLBTA6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 14:00:58 -0500
-In-Reply-To: <20161112101729.4d400929@samsung9>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, johan@kernel.org,
+        ykaneko0929@gmail.com, kazuya.mizuguchi.ks@renesas.com,
+        horms+renesas@verge.net.au, wsa+renesas@sang-engineering.com,
+        andrew@lunn.ch, tremyfr@gmail.com,
+        niklas.soderlund+renesas@ragnatech.se, arnd@arndb.de,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20161201205744.GB10701@mwanda>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-11-12 at 10:17 +0300, Stephen Hemminger wrote:
-> On Sat, 29 Oct 2016 22:20:19 +0300
-> Isaac Boukris <iboukris@gmail.com> wrote:
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 1 Dec 2016 23:57:44 +0300
+
+> We want to set the other "err" variable here so that we can return it
+> later.  My version of GCC misses this issue but I caught it with a
+> static checker.
 > 
-> > Abstract unix domain socket may embed null characters,
-> > these should be translated to '@' when printed by ss the
-> > same way the null prefix is currently being translated.
-> > 
-> > Signed-off-by: Isaac Boukris <iboukris@gmail.com>
-> 
-> Applied
+> Fixes: 9f70eb339f52 ("net: ethernet: renesas: ravb: fix fixed-link phydev leaks")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Probably not a good idea to have :
-
-                       for (int i = 0; i < len; i++)
-                               if (name[i] == '\0')
-                                       name[i] = '@';
-
-ss.c: In function 'unix_show_sock':
-ss.c:3128:4: error: 'for' loop initial declarations are only allowed in C99 mode
-ss.c:3128:4: note: use option -std=c99 or -std=gnu99 to compile your code
-make[1]: *** [ss.o] Error 1
+Applied.
