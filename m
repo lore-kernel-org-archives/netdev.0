@@ -1,63 +1,51 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
-Date: Fri, 2 Dec 2016 16:19:53 +0100
-Message-ID: <5627300c-a9b5-8709-bb08-5f0bceddfb05@st.com>
-References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
- <20161124.110416.198867271899443489.davem@davemloft.net>
- <20161124212540.GA24796@amd> <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
- <20161202084511.GA32294@amd> <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
- <20161202123241.GA5869@amd> <c4748c8f-ae4b-9bbc-7d20-9c7b7ce433c8@st.com>
- <5db2ce3e-d4eb-d5d0-594c-8cd0f2e70476@st.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH net-next] bpf, xdp: drop rcu_read_lock from
+ bpf_prog_run_xdp and move to caller
+Date: Fri, 02 Dec 2016 11:09:31 -0500 (EST)
+Message-ID: <20161202.110931.1187796431289743394.davem@redhat.com>
+References: <b70c47e0284823e6a5db600ae75c01eac4cf7922.1480538565.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Alexandre Torgue <alexandre.torgue@st.com>,
-        Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5db2ce3e-d4eb-d5d0-594c-8cd0f2e70476@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, saeedm@mellanox.com, kubakici@wp.pl,
+        Yuval.Mintz@cavium.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55998 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750888AbcLBQJe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 11:09:34 -0500
+In-Reply-To: <b70c47e0284823e6a5db600ae75c01eac4cf7922.1480538565.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alex
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 30 Nov 2016 22:16:06 +0100
 
-On 12/2/2016 3:26 PM, Alexandre Torgue wrote:
->> 4.4 has no GMAC4 support.
->> Alex, do you remember any patches to fix that?
->
-> No sorry Peppe.
->
-> Pavel,
->
-> Sorry but I'm a little bit confused. I'm dropped in some mails without
-> historic. I see cleanup, coalescence issue and TSO question.
-> What is your main issue? Are you working on gmac4 or 3.x ?
-> Can you refresh a little bit the story please ?
+> After 326fe02d1ed6 ("net/mlx4_en: protect ring->xdp_prog with rcu_read_lock"),
+> the rcu_read_lock() in bpf_prog_run_xdp() is superfluous, since callers
+> need to hold rcu_read_lock() already to make sure BPF program doesn't
+> get released in the background.
+> 
+> Thus, drop it from bpf_prog_run_xdp(), as it can otherwise be misleading.
+> Still keeping the bpf_prog_run_xdp() is useful as it allows for grepping
+> in XDP supported drivers and to keep the typecheck on the context intact.
+> For mlx4, this means we don't have a double rcu_read_lock() anymore. nfp can
+> just make use of bpf_prog_run_xdp(), too. For qede, just move rcu_read_lock()
+> out of the helper. When the driver gets atomic replace support, this will
+> move to call-sites eventually.
+> 
+> mlx5 needs actual fixing as it has the same issue as described already in
+> 326fe02d1ed6 ("net/mlx4_en: protect ring->xdp_prog with rcu_read_lock"),
+> that is, we're under RCU bh at this time, BPF programs are released via
+> call_rcu(), and call_rcu() != call_rcu_bh(), so we need to properly mark
+> read side as programs can get xchg()'ed in mlx5e_xdp_set() without queue
+> reset.
+> 
+> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+>  ( Also here net-next is just fine, imho. )
 
-let me try to do a sum, please Pavel feel free to correct me.
-
-There are some open points about the tx mitigation schema
-that we are trying to detail and eventually tune or change
-(but keeping the same performance on other user-case).
-
-In particular, the test case that is raising problem is
-an unicast tx bench.
-I suggested Pavel to tune coalesce (IC bit settings) via
-ethtool and monitor stats but he is getting problems (maybe
-due to lock).
-
-IIUC problems are mainly on new kernel and not on 4.4 where
-the gmac4 is missing. Please Pavel, could you confirm?
-
-Then, there are some open points about lock protections
-for xstat and Pavel is getting some problem on SMP.
-I do think that we need to review that. This also could
-improve the code in critical parts.
-
-Also there are some other discussion about the lock
-protection on NAPI still under discussion. I have not
-clear if in this case Pavel is getting strange behavior.
-
-Regards
-Peppe
+Applied, thanks.
