@@ -1,69 +1,81 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCHv2 net-next 2/4] net: dsa: mv88e6xxx: Monitor and
- Management tables
-Date: Fri, 2 Dec 2016 21:56:56 +0100
-Message-ID: <20161202205656.GD30716@lunn.ch>
-References: <1480701779-30633-1-git-send-email-andrew@lunn.ch>
- <1480701779-30633-3-git-send-email-andrew@lunn.ch>
- <87mvgecejs.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH next] dctcp: update cwnd on congestion event
+Date: Fri, 2 Dec 2016 22:49:35 +0100
+Message-ID: <20161202214935.GB31010@breakpoint.cc>
+References: <1479138121-32294-1-git-send-email-fw@strlen.de>
+ <CADVnQymNZ+FQ5xJ92HuSkheAJfOTUyh-PsA11bxRWERZkD5zdQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: Florian Westphal <fw@strlen.de>, Netdev <netdev@vger.kernel.org>,
+        Lawrence Brakmo <brakmo@fb.com>,
+        Andrew Shewmaker <agshew@gmail.com>,
+        Glenn Judd <glenn.judd@morganstanley.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38256 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750738AbcLBVkP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 16:40:15 -0500
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:59302 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750750AbcLBVwp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 16:52:45 -0500
 Content-Disposition: inline
-In-Reply-To: <87mvgecejs.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+In-Reply-To: <CADVnQymNZ+FQ5xJ92HuSkheAJfOTUyh-PsA11bxRWERZkD5zdQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2016 at 02:32:39PM -0500, Vivien Didelot wrote:
-> Hi Andrew,
+Neal Cardwell <ncardwell@google.com> wrote:
+> On Mon, Nov 14, 2016 at 10:42 AM, Florian Westphal <fw@strlen.de> wrote:
+> >
+> > draft-ietf-tcpm-dctcp-02 says:
+> >
+> > ... when the sender receives an indication of congestion
+> > (ECE), the sender SHOULD update cwnd as follows:
+> >
+> >          cwnd = cwnd * (1 - DCTCP.Alpha / 2)
+> >
+> > So, lets do this and reduce cwnd more smoothly (and faster), as per
+> > current congestion estimate.
 > 
-> Andrew Lunn <andrew@lunn.ch> writes:
+> AFAICT this is doing a multiplicative decrease of cwnd on every ACK
+> that has an ECE bit.
 > 
-> > @@ -3184,6 +3186,8 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
-> >  	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
-> >  	.stats_get_strings = mv88e6095_stats_get_strings,
-> >  	.stats_get_stats = mv88e6095_stats_get_stats,
-> > +	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
-> > +	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-> >  };
+> If I am reading the code correctly, then I would have two concerns:
 > 
-> I like the implementation in this version better. But please explain me
-> why you are prefixing these operations with g1_?
-
-The prefix gives some basic grouping. port_ indicates it operates on a
-port, and is likely to be found in port.c. stats_ indicates it
-operates on statistics, ppu that is operates on the phy polling unit.
-
-We are going to have some things which don't fall into a simple
-category, like these two. But it would however be nice to group them,
-so i picked which register bank they are in. These operations are
-always in g1. It is a useful hint as to where to find the different
-variants.
-
-> But let's imagine we can set the CPU port in some Global 2 registers.
-> You are going to wrap this in chip.c with something like:
+> 1) Has that been tested? That seems like an extremely dramatic
+> decrease in cwnd. For example, if the cwnd is 80, and there are 40
+> ACKs, and half the ACKs are ECE marked, then my back-of-the-envelope
+> calculations seem to suggest that after just 11 ACKs the cwnd would be
+> down to a minimal value of 2:
 > 
->     int mv88e6xxx_set_cpu_port(struct mv88e6xxx_chip *chip, int port)
->     {
->         if (chip->info->ops->g2_set_cpu_port)
->             return chip->info->ops->g2_set_cpu_port(chip, port);
->         else if (chip->info->ops->g1_set_cpu_port)
->             return chip->info->ops->g1_set_cpu_port(chip, port);
->         else
->             return -EOPNOTSUPP;
->     }
+> ack 1 cwnd=60
+> ack 2 cwnd=45
+> ack 3 cwnd=33
+[..]
 
-I answered in one of my other emails. Frames with reserved MAC
-addresses can be forwarded to the CPU. For most devices, this is a g2
-operation. However, for 6390, it is a g1. In that case, my code does
-not use a prefix. Not having a prefix, when all the others do, also
-gives you information. It means the ops are spread around and you need
-to make a bigger effort to go find them.
+You are assuming alpha = 0.5?
+Then, yes, looks correct.  Since some of these acks will most likely
+also end an observation window acks might also cause change to alpha.
 
-   Andrew
+> 2) That seems to contradict another passage in the draft (v 02 or 03). Consider
+>      https://tools.ietf.org/html/draft-ietf-tcpm-dctcp-03
+> where it says
+> 
+>    Just as specified in [RFC3168], DCTCP does not react to congestion
+>    indications more than once for every window of data.
+> 
+> So the draft seems to advocate not reacting to congestion indications
+> more than once per window. Yet this patch reacts on every ECE-marked
+> ACK within a window.
+> 
+> Am I reading something incorrectly?
+
+No, I will raise this on tcpm next monday (if you want you
+can of course do this yourself).
+
+Would be easy to make it so this cwnd update only happens once in each
+observation cycle, but it would be even better if this would get input
+from draft authors.
+
+Thanks Neal!
