@@ -1,55 +1,85 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] udp: be less conservative with sock rmem accounting
-Date: Fri,  2 Dec 2016 17:35:49 +0100
-Message-ID: <d13b9808dad5f6e3fe3808bae3b4f64dfcee07fe.1480696423.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59906 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751320AbcLBQk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 11:40:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 2/7] net: ethernet: ti: cpdma: fix desc re-queuing
+Date: Fri, 2 Dec 2016 10:45:07 -0600
+Message-ID: <9171f321-32bf-81d9-3491-43d12e8fe8b2@ti.com>
+References: <20161201233432.6182-1-grygorii.strashko@ti.com>
+ <20161201233432.6182-3-grygorii.strashko@ti.com>
+ <20161202110321.GA1213@khorivan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161202110321.GA1213@khorivan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Before commit 850cbaddb52d ("udp: use it's own memory accounting
-schema"), the udp protocol allowed sk_rmem_alloc to grow beyond
-the rcvbuf by the whole current packet's truesize. After said commit
-we allow sk_rmem_alloc to exceed the rcvbuf only if the receive queue
-is empty. As reported by Jesper this cause a performance regression
-for some (small) values of rcvbuf.
 
-This commit is intended to fix the regression restoring the old
-handling of the rcvbuf limit.
 
-Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Fixes: 850cbaddb52d ("udp: use it's own memory accounting schema")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/udp.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On 12/02/2016 05:03 AM, Ivan Khoronzhuk wrote:
+> On Thu, Dec 01, 2016 at 05:34:27PM -0600, Grygorii Strashko wrote:
+>> The currently processing cpdma descriptor with EOQ flag set may
+>> contain two values in Next Descriptor Pointer field:
+>> - valid pointer: means CPDMA missed addition of new desc in queue;
+> It shouldn't happen in normal circumstances, right?
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index e1d0bf8..16d88ba 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1205,14 +1205,14 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
- 	 * queue is full; always allow at least a packet
- 	 */
- 	rmem = atomic_read(&sk->sk_rmem_alloc);
--	if (rmem && (rmem + size > sk->sk_rcvbuf))
-+	if (rmem > sk->sk_rcvbuf)
- 		goto drop;
- 
- 	/* we drop only if the receive buf is full and the receive
- 	 * queue contains some other skb
- 	 */
- 	rmem = atomic_add_return(size, &sk->sk_rmem_alloc);
--	if ((rmem > sk->sk_rcvbuf) && (rmem > size))
-+	if (rmem > (size + sk->sk_rcvbuf))
- 		goto uncharge_drop;
- 
- 	spin_lock(&list->lock);
+it might happen, because desc push compete with desc pop.
+You can check stats values:
+chan->stats.misqueued
+chan->stats.requeue
+ under different types of net-loads.
+
+TRM:
+"
+If the pNext pointer is initially NULL, and more packets need to be queued for transmit, the software
+application may alter this pointer to point to a newly appended descriptor. The EMAC will use the new
+pointer value and proceed to the next descriptor unless the pNext value has already been read. In this
+latter case, the transmitter will halt on the transmit channel in question, and the software application may
+restart it at that time. The software can detect this case by checking for an end of queue (EOQ) condition
+flag on the updated packet descriptor when it is returned by the EMAC.
+"
+
+
+> So, why it happens only for egress channels? And Does that mean
+> there is some resynchronization between submit and process function,
+> or this is h/w issue?
+
+no hw issues. this patch just removes one unnecessary I/O access 
+
+> 
+>> - null: no more descriptors in queue.
+>> In the later case, it's not required to write to HDP register, but now
+>> CPDMA does it.
+>>
+>> Hence, add additional check for Next Descriptor Pointer != null in
+>> cpdma_chan_process() function before writing in HDP register.
+>>
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>> ---
+>>  drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+>> index 0924014..379314f 100644
+>> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+>> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+>> @@ -1152,7 +1152,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
+>>  	chan->count--;
+>>  	chan->stats.good_dequeue++;
+>>  
+>> -	if (status & CPDMA_DESC_EOQ) {
+>> +	if ((status & CPDMA_DESC_EOQ) && chan->head) {
+>>  		chan->stats.requeue++;
+>>  		chan_write(chan, hdp, desc_phys(pool, chan->head));
+>>  	}
+>> -- 
+>> 2.10.1
+>>
+
 -- 
-1.8.3.1
+regards,
+-grygorii
