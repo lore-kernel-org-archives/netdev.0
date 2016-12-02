@@ -1,58 +1,66 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: DSA vs. SWTICHDEV ?
-Date: Fri, 2 Dec 2016 16:38:15 +0100
-Message-ID: <20161202153815.GK21887@lunn.ch>
-References: <1480495831.3563.135.camel@infinera.com>
- <584054C4.1010809@ti.com>
- <20161201173100.GG21887@lunn.ch>
- <58409867.50001@ti.com>
+Subject: Re: [PATCH net-next 3/6] net: dsa: mv88e6xxx: add a software reset op
+Date: Fri, 2 Dec 2016 16:43:42 +0100
+Message-ID: <20161202154342.GL21887@lunn.ch>
+References: <20161130225930.25510-1-vivien.didelot@savoirfairelinux.com>
+ <20161130225930.25510-4-vivien.didelot@savoirfairelinux.com>
+ <20161130232633.GS21645@lunn.ch>
+ <87vav3gz67.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Roger Quadros <rogerq@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37687 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751367AbcLBPjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 10:39:25 -0500
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <58409867.50001@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <87vav3gz67.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 01, 2016 at 04:38:47PM -0500, Murali Karicheri wrote:
+On Thu, Dec 01, 2016 at 03:41:20PM -0500, Vivien Didelot wrote:
 > Hi Andrew,
-> On 12/01/2016 12:31 PM, Andrew Lunn wrote:
-> > Hi Murali 
-> > 
-> >> 2. Switch mode where it implements a simple Ethernet switch. Currently
-> >>    it doesn't have address learning capability, but in future it
-> >>    can.
-> > 
-> > If it does not have address learning capabilities, does it act like a
-> > plain old hub? What comes in one port goes out all others?
 > 
-> Thanks for the response!
+> Andrew Lunn <andrew@lunn.ch> writes:
 > 
-> Yes. It is a plain hub. it replicates frame to both ports. So need to
-> run a bridge layer for address learning in software.
+> >> diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+> >> index ab52c37..9e51405 100644
+> >> --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+> >> +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+> >> @@ -765,6 +765,9 @@ struct mv88e6xxx_ops {
+> >>  	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
+> >>  			 u16 val);
+> >>  
+> >> +	/* Switch Software Reset */
+> >> +	int (*reset)(struct mv88e6xxx_chip *chip);
+> >> +
+> >
+> > Hi Vivien
+> >
+> > In my huge patch series of 6390, i've been using a g1_ prefix for
+> > functionality which is in global 1, g2_ for global 2, etc.  This has
+> > worked for everything so far with the exception of setting which
+> > reserved MAC addresses should be sent to the CPU. Most devices have it
+> > in g2, but 6390 has it in g1.
+> >
+> > Please could you add the prefix.
+> 
+> I don't understand. It looks like you are talking about the second part
+> of the comment I made on your RFC patchset, about the Rsvd2CPU feature:
 
-Hi Murali
+Hi Vivien
 
-It would be good if you start thinking about all the different
-directions. It is not just host to port A and host to port B. What
-about port A to Port B? Can it do that in hardware? 
+I mean
 
-> I think not. I see we have a non Linux implementation that does address
-> learning in software using a hash table and look up MAC for each packet
-> to see which port it needs to be sent to.
++	/* Switch Software Reset */
++	int (*g1_reset)(struct mv88e6xxx_chip *chip);
++
 
-I think i need to read more about the switch. I'm starting to wonder
-if it has enough intelligence to be usable. Switchdev is about pushing
-configuration down into the switch. It does not however sound like
-there is that much which is configurable in this switch.
+We have a collection of function pointers with port_ prefix, another
+collection with stats_, and a third with ppu_, etc. And then we have
+some which do not fit a specific category. Those i have prefixed with
+g1_ or g2_. I think we should have some prefix, and that is my
+suggestion.
 
-      Andrew
+	Andrew
