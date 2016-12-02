@@ -1,55 +1,35 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next] liquidio: 'imply' ptp instead of 'select'
-Date: Sat,  3 Dec 2016 00:04:32 +0100
-Message-ID: <20161202230451.1639318-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        David Daney <david.daney@cavium.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        Nicolas Pitre <nicolas.pitre@linaro.org>,
-        Sunil Goutham <sgoutham@cavium.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [[PATCH iproute2/net-next v2] 1/4] tc: flower: remove
+ references to eth_type in manpage
+Date: Fri, 2 Dec 2016 15:05:28 -0800
+Message-ID: <20161202150528.5fcba382@xeon-e3>
+References: <1480668321-20875-1-git-send-email-simon.horman@netronome.com>
+        <1480668321-20875-2-git-send-email-simon.horman@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Paul Blakey <paulb@mellanox.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:34530 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755255AbcLBXFb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 18:05:31 -0500
+Received: by mail-pg0-f54.google.com with SMTP id x23so112233848pgx.1
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 15:05:31 -0800 (PST)
+In-Reply-To: <1480668321-20875-2-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ptp now depends on the optional POSIX_TIMERS setting and fails to build
-if we select it without that:
+On Fri,  2 Dec 2016 09:45:18 +0100
+Simon Horman <simon.horman@netronome.com> wrote:
 
-warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
-warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
-ERROR: "posix_clock_unregister" [drivers/ptp/ptp.ko] undefined!
-ERROR: "posix_clock_register" [drivers/ptp/ptp.ko] undefined!
-ERROR: "pps_unregister_source" [drivers/ptp/ptp.ko] undefined!
-ERROR: "pps_event" [drivers/ptp/ptp.ko] undefined!
-ERROR: "pps_register_source" [drivers/ptp/ptp.ko] undefined!
+> Remove references to eth_type and ether_type (spelling error) in
+> the tc flower manpage.
+> 
+> Also correct formatting of boldface text with whitespace.
+> 
+> Cc: Paul Blakey <paulb@mellanox.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-It seems that two patches have collided here, the build failure
-is a result of the combination. Changing the new option to 'imply'
-as well fixes it.
-
-Fixes: 111fc64a237f ("liquidio CN23XX: VF registration")
-Fixes: d1cbfd771ce8 ("ptp_clock: Allow for it to be optional")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/cavium/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index bbc8bd16cb97..dcbce6cac63e 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -77,7 +77,7 @@ config OCTEON_MGMT_ETHERNET
- config LIQUIDIO_VF
- 	tristate "Cavium LiquidIO VF support"
- 	depends on 64BIT && PCI_MSI
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports Cavium LiquidIO Intelligent Server Adapter
- 	  based on CN23XX chips.
--- 
-2.9.0
+Applied this one. Later ones still need rebase.
