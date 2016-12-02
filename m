@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] net: renesas: ravb: unintialized return value
-Date: Fri, 02 Dec 2016 14:00:30 -0500 (EST)
-Message-ID: <20161202.140030.597013502556382328.davem@davemloft.net>
-References: <20161201205744.GB10701@mwanda>
+Subject: Re: pull-request: can 2016-12-02
+Date: Fri, 02 Dec 2016 14:02:53 -0500 (EST)
+Message-ID: <20161202.140253.1826176942283993286.davem@davemloft.net>
+References: <20161202082931.22270-1-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, johan@kernel.org,
-        ykaneko0929@gmail.com, kazuya.mizuguchi.ks@renesas.com,
-        horms+renesas@verge.net.au, wsa+renesas@sang-engineering.com,
-        andrew@lunn.ch, tremyfr@gmail.com,
-        niklas.soderlund+renesas@ragnatech.se, arnd@arndb.de,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20161201205744.GB10701@mwanda>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39040 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751075AbcLBTDa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 14:03:30 -0500
+In-Reply-To: <20161202082931.22270-1-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 1 Dec 2016 23:57:44 +0300
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Fri,  2 Dec 2016 09:29:29 +0100
 
-> We want to set the other "err" variable here so that we can return it
-> later.  My version of GCC misses this issue but I caught it with a
-> static checker.
+> this is a pull request for net/master.
 > 
-> Fixes: 9f70eb339f52 ("net: ethernet: renesas: ravb: fix fixed-link phydev leaks")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> THere are two patches by Stephane Grosjean, who adds support for the new
+> PCAN-USB X6 USB interface to the pcan_usb driver.
 
-Applied.
+Pulled, thanks.
