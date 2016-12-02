@@ -1,89 +1,88 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCH net] tcp: warn on bogus MSS and try to amend it
-Date: Fri, 2 Dec 2016 08:07:36 -0200
-Message-ID: <20161202100736.GC6650@localhost.localdomain>
-References: <0d41deb00d57206f518e6bffae1b0be355bbc726.1480511277.git.marcelo.leitner@gmail.com>
- <20161201.152949.1953888486413180001.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [flamebait] xdp, well meaning but pointless
+Date: Fri, 2 Dec 2016 11:24:50 +0100
+Message-ID: <20161202112450.1720d33d@redhat.com>
+References: <20161201091108.GF26507@breakpoint.cc>
+        <20161201145834.GA569@pox.localdomain>
+        <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
+        <20161201162814.GA31300@pox.localdomain>
+        <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
+        <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com>
+        <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
+        <CALx6S34+Brx-JERLhexxv9CGE9moH_Pi-H_OK=hQ-iJ2g2yYgg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jmaxwell37@gmail.com,
-        alexandre.sidorenko@hpe.com, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        tlfalcon@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
-        eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Thomas Graf <tgraf@suug.ch>, Florian Westphal <fw@strlen.de>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34722 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35158 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932914AbcLBKHn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 05:07:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20161201.152949.1953888486413180001.davem@davemloft.net>
+        id S1757442AbcLBKYz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 05:24:55 -0500
+In-Reply-To: <CALx6S34+Brx-JERLhexxv9CGE9moH_Pi-H_OK=hQ-iJ2g2yYgg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2016 at 03:29:49PM -0500, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Wed, 30 Nov 2016 11:14:32 -0200
-> 
-> > There have been some reports lately about TCP connection stalls caused
-> > by NIC drivers that aren't setting gso_size on aggregated packets on rx
-> > path. This causes TCP to assume that the MSS is actually the size of the
-> > aggregated packet, which is invalid.
-> > 
-> > Although the proper fix is to be done at each driver, it's often hard
-> > and cumbersome for one to debug, come to such root cause and report/fix
-> > it.
-> > 
-> > This patch amends this situation in two ways. First, it adds a warning
-> > on when this situation occurs, so it gives a hint to those trying to
-> > debug this. It also limit the maximum probed MSS to the adverised MSS,
-> > as it should never be any higher than that.
-> > 
-> > The result is that the connection may not have the best performance ever
-> > but it shouldn't stall, and the admin will have a hint on what to look
-> > for.
-> > 
-> > Tested with virtio by forcing gso_size to 0.
-> > 
-> > Cc: Jonathan Maxwell <jmaxwell37@gmail.com>
-> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> 
-> I totally agree with this change, however I think the warning message can
-> be improved in two ways:
-> 
-> >  	len = skb_shinfo(skb)->gso_size ? : skb->len;
-> >  	if (len >= icsk->icsk_ack.rcv_mss) {
-> > -		icsk->icsk_ack.rcv_mss = len;
-> > +		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
-> > +					       tcp_sk(sk)->advmss);
-> > +		if (icsk->icsk_ack.rcv_mss != len)
-> > +			pr_warn_once("Seems your NIC driver is doing bad RX acceleration. TCP performance may be compromised.\n");
-> 
-> We know it's a bad GRO implementation that causes this so let's be specific in the
-> message, perhaps something like:
-> 
-> 	Driver has suspect GRO implementation, TCP performance may be compromised.
-> 
-> Also, we have skb->dev available here most likely, so prefixing the message with
-> skb->dev->name would make analyzing this situation even easier for someone hitting
-> this.
+On Thu, 1 Dec 2016 13:51:32 -0800
+Tom Herbert <tom@herbertland.com> wrote:
 
-It's not avaliable anymore.. It's NULLified before we get there:
+> >> The technical plenary at last IETF on Seoul a couple of weeks ago was
+> >> exclusively focussed on DDOS in light of the recent attack against
+> >> Dyn. There were speakers form Cloudflare and Dyn. The Cloudflare
+> >> presentation by Nick Sullivan
+> >> (https://www.ietf.org/proceedings/97/slides/slides-97-ietf-sessb-how-to-stay-online-harsh-realities-of-operating-in-a-hostile-network-nick-sullivan-01.pdf)
+> >> alluded to some implementation of DDOS mitigation. In particular, on
+> >> slide 6 Nick gave some numbers for drop rates in DDOS. The "kernel"
 
-tcp_v4_rcv()   (same for v6)
-{
-	...
-	skb->dev = NULL;
-	...
-        if (!sock_owned_by_user(sk)) {
-                if (!tcp_prequeue(sk, skb))
-                        ret = tcp_v4_do_rcv(sk, skb);
-        } else if (tcp_add_backlog(sk, skb)) {
-	...
-}
+slide 14
 
-I'll update the msg as above and post v2.
+> >> numbers he gave we're based in iptables+BPF and that was a whole
+> >> 1.2Mpps-- somehow that seems ridiculously to me (I said so at the mic
+> >> and that's also when I introduced XDP to whole IETF :-) ). If that's
+> >> the best we can do the Internet is in a world hurt. DDOS mitigation
+> >> alone is probably a sufficient motivation to look at XDP. We need
+> >> something that drops bad packets as quickly as possible when under
+> >> attack, we need this to be integrated into the stack, we need it to be
+> >> programmable to deal with the increasing savvy of attackers, and we
+> >> don't want to be forced to be dependent on HW solutions. This is why
+> >> we created XDP!  
 
-Thanks,
-Marcelo
+The 1.2Mpps number is a bit low, but we are unfortunately in that
+ballpark.
+
+> > I totally understand that. But in my reply to David in this thread I
+> > mentioned DNS apex processing as being problematic which is actually
+> > being referred in your linked slide deck on page 9 ("What do floods look
+> > like") and the problematic of parsing DNS packets in XDP due to string
+> > processing and looping inside eBPF.
+
+That is a weak argument. You do realize CloudFlare actually use eBPF to
+do this exact filtering, and (so-far) eBPF for parsing DNS have been
+sufficient for them.
+
+> I agree that eBPF is not going to be sufficient from everything we'll
+> want to do. Undoubtably, we'll continue see new addition of more
+> helpers to assist in processing, but at some point we will want a to
+> load a kernel module that handles more complex processing and insert
+> it at the XDP callout. Nothing in the design of XDP precludes doing
+> that and I have already posted the patches to generalize the XDP
+> callout for that. Taking either of these routes has tradeoffs, but
+> regardless of whether this is BPF or module code, the principles of
+> XDP and its value to help solve some class of problems remains.
+
+As I've said before, I do support Tom's patches for a more generic XDP
+hook that the kernel itself can use.  The first thing I would implement
+with this is a fast-path for Linux L2 bridging (do depend on multiport
+TX support). It would be so easy to speedup bridging, XDP would only
+need to forward packets already in the bridge-FIB table, rest is
+XDP_PASS to normal stack and bridge code (timers etc).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
