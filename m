@@ -1,380 +1,82 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next v2 6/6] tcp: SOF_TIMESTAMPING_OPT_STATS option
- for SO_TIMESTAMPING
-Date: Fri, 2 Dec 2016 17:30:58 -0500
-Message-ID: <CAP=VYLov97ujr_mmjb2HbsgBhsex2cBaAsp92DDU+HdmyC_gtQ@mail.gmail.com>
-References: <1480316838-154141-1-git-send-email-ycheng@google.com> <1480316838-154141-7-git-send-email-ycheng@google.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net v2] tcp: warn on bogus MSS and try to amend it
+Date: Fri, 2 Dec 2016 20:43:16 -0200
+Message-ID: <20161202224316.GD6650@localhost.localdomain>
+References: <ef61092947105261f8321a67f726a7fdf9b3c14e.1480675556.git.marcelo.leitner@gmail.com>
+ <1480689924.18162.356.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, soheil@google.com,
-        francisyyan@gmail.com, netdev <netdev@vger.kernel.org>,
-        ncardwell@google.com, edumazet@google.com,
-        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1480316838-154141-7-git-send-email-ycheng@google.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jon Maxwell <jmaxwell37@gmail.com>,
+        Alex Sidorenko <alexandre.sidorenko@hpe.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, tlfalcon@linux.vnet.ibm.com,
+        Brian King <brking@linux.vnet.ibm.com>, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39916 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752162AbcLBWnY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 17:43:24 -0500
+Content-Disposition: inline
+In-Reply-To: <1480689924.18162.356.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 28, 2016 at 2:07 AM, Yuchung Cheng <ycheng@google.com> wrote:
-> From: Francis Yan <francisyyan@gmail.com>
->
-> This patch exports the sender chronograph stats via the socket
-> SO_TIMESTAMPING channel. Currently we can instrument how long a
-> particular application unit of data was queued in TCP by tracking
-> SOF_TIMESTAMPING_TX_SOFTWARE and SOF_TIMESTAMPING_TX_SCHED. Having
+On Fri, Dec 02, 2016 at 06:45:24AM -0800, Eric Dumazet wrote:
+> On Fri, 2016-12-02 at 08:55 -0200, Marcelo Ricardo Leitner wrote:
+> > There have been some reports lately about TCP connection stalls caused
+> > by NIC drivers that aren't setting gso_size on aggregated packets on rx
+> > path. This causes TCP to assume that the MSS is actually the size of the
+> > aggregated packet, which is invalid.
+> > 
+> > Although the proper fix is to be done at each driver, it's often hard
+> > and cumbersome for one to debug, come to such root cause and report/fix
+> > it.
+> > 
+> > This patch amends this situation in two ways. First, it adds a warning
+> > on when this situation occurs, so it gives a hint to those trying to
+> > debug this. It also limit the maximum probed MSS to the adverised MSS,
+> > as it should never be any higher than that.
+> > 
+> > The result is that the connection may not have the best performance ever
+> > but it shouldn't stall, and the admin will have a hint on what to look
+> > for.
+> > 
+> > Tested with virtio by forcing gso_size to 0.
+> > 
+> > Cc: Jonathan Maxwell <jmaxwell37@gmail.com>
+> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > ---
+> > v2: Updated msg as suggested by David.
+> > 
+> >  net/ipv4/tcp_input.c | 5 ++++-
+> >  1 file changed, 4 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> > index a27b9c0e27c08b4e4aeaff3d0bfdf3ae561ba4d8..fd619eb93749b6de56a41669248b337c051d9fe2 100644
+> > --- a/net/ipv4/tcp_input.c
+> > +++ b/net/ipv4/tcp_input.c
+> > @@ -144,7 +144,10 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
+> >  	 */
+> >  	len = skb_shinfo(skb)->gso_size ? : skb->len;
+> >  	if (len >= icsk->icsk_ack.rcv_mss) {
+> > -		icsk->icsk_ack.rcv_mss = len;
+> > +		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
+> > +					       tcp_sk(sk)->advmss);
+> > +		if (icsk->icsk_ack.rcv_mss != len)
+> > +			pr_warn_once("Driver has suspect GRO implementation, TCP performance may be compromised.\n");
+> >  	} else {
+> >  		/* Otherwise, we make more careful check taking into account,
+> >  		 * that SACKs block is variable.
+> 
+> 
+> skb->dev is indeed NULL, but it might be worth getting back the device
+> using skb->skb_iif maybe ?
+> 
 
-Seems a new linux-next failure leads back to here ; I did not run a
-full bisect, since the variable seems confined to this commit:
-
-net/socket.c:701: error: 'SCM_TIMESTAMPING_OPT_STATS' undeclared
-(first use in this function)
-
-http://kisskb.ellerman.id.au/kisskb/buildresult/12875981/
-
-Paul.
---
-
-> these sender chronograph stats exported simultaneously along with
-> these timestamps allow further breaking down the various sender
-> limitation.  For example, a video server can tell if a particular
-> chunk of video on a connection takes a long time to deliver because
-> TCP was experiencing small receive window. It is not possible to
-> tell before this patch without packet traces.
->
-> To prepare these stats, the user needs to set
-> SOF_TIMESTAMPING_OPT_STATS and SOF_TIMESTAMPING_OPT_TSONLY flags
-> while requesting other SOF_TIMESTAMPING TX timestamps. When the
-> timestamps are available in the error queue, the stats are returned
-> in a separate control message of type SCM_TIMESTAMPING_OPT_STATS,
-> in a list of TLVs (struct nlattr) of types: TCP_NLA_BUSY_TIME,
-> TCP_NLA_RWND_LIMITED, TCP_NLA_SNDBUF_LIMITED. Unit is microsecond.
->
-> Signed-off-by: Francis Yan <francisyyan@gmail.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> ---
-> ChangeLog since v1:
->  - fix build break if CONFIG_INET is not defined
->
->  Documentation/networking/timestamping.txt | 10 ++++++++++
->  arch/alpha/include/uapi/asm/socket.h      |  2 ++
->  arch/frv/include/uapi/asm/socket.h        |  2 ++
->  arch/ia64/include/uapi/asm/socket.h       |  2 ++
->  arch/m32r/include/uapi/asm/socket.h       |  2 ++
->  arch/mips/include/uapi/asm/socket.h       |  2 ++
->  arch/mn10300/include/uapi/asm/socket.h    |  2 ++
->  arch/parisc/include/uapi/asm/socket.h     |  2 ++
->  arch/powerpc/include/uapi/asm/socket.h    |  2 ++
->  arch/s390/include/uapi/asm/socket.h       |  2 ++
->  arch/sparc/include/uapi/asm/socket.h      |  2 ++
->  arch/xtensa/include/uapi/asm/socket.h     |  2 ++
->  include/linux/tcp.h                       |  2 ++
->  include/uapi/asm-generic/socket.h         |  2 ++
->  include/uapi/linux/net_tstamp.h           |  3 ++-
->  include/uapi/linux/tcp.h                  |  8 ++++++++
->  net/core/skbuff.c                         | 14 +++++++++++---
->  net/core/sock.c                           |  7 +++++++
->  net/ipv4/tcp.c                            | 20 ++++++++++++++++++++
->  net/socket.c                              |  7 ++++++-
->  20 files changed, 90 insertions(+), 5 deletions(-)
->
-> diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
-> index 671cccf..96f5069 100644
-> --- a/Documentation/networking/timestamping.txt
-> +++ b/Documentation/networking/timestamping.txt
-> @@ -182,6 +182,16 @@ SOF_TIMESTAMPING_OPT_TSONLY:
->    the timestamp even if sysctl net.core.tstamp_allow_data is 0.
->    This option disables SOF_TIMESTAMPING_OPT_CMSG.
->
-> +SOF_TIMESTAMPING_OPT_STATS:
-> +
-> +  Optional stats that are obtained along with the transmit timestamps.
-> +  It must be used together with SOF_TIMESTAMPING_OPT_TSONLY. When the
-> +  transmit timestamp is available, the stats are available in a
-> +  separate control message of type SCM_TIMESTAMPING_OPT_STATS, as a
-> +  list of TLVs (struct nlattr) of types. These stats allow the
-> +  application to associate various transport layer stats with
-> +  the transmit timestamps, such as how long a certain block of
-> +  data was limited by peer's receiver window.
->
->  New applications are encouraged to pass SOF_TIMESTAMPING_OPT_ID to
->  disambiguate timestamps and SOF_TIMESTAMPING_OPT_TSONLY to operate
-> diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-> index 9e46d6e..afc901b 100644
-> --- a/arch/alpha/include/uapi/asm/socket.h
-> +++ b/arch/alpha/include/uapi/asm/socket.h
-> @@ -97,4 +97,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _UAPI_ASM_SOCKET_H */
-> diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-> index afbc98f0..81e0353 100644
-> --- a/arch/frv/include/uapi/asm/socket.h
-> +++ b/arch/frv/include/uapi/asm/socket.h
-> @@ -90,5 +90,7 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _ASM_SOCKET_H */
->
-> diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-> index 0018fad..57feb0c 100644
-> --- a/arch/ia64/include/uapi/asm/socket.h
-> +++ b/arch/ia64/include/uapi/asm/socket.h
-> @@ -99,4 +99,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _ASM_IA64_SOCKET_H */
-> diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-> index 5fe42fc..5853f8e9 100644
-> --- a/arch/m32r/include/uapi/asm/socket.h
-> +++ b/arch/m32r/include/uapi/asm/socket.h
-> @@ -90,4 +90,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _ASM_M32R_SOCKET_H */
-> diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-> index 2027240a..566ecdc 100644
-> --- a/arch/mips/include/uapi/asm/socket.h
-> +++ b/arch/mips/include/uapi/asm/socket.h
-> @@ -108,4 +108,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _UAPI_ASM_SOCKET_H */
-> diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-> index 5129f23..0e12527 100644
-> --- a/arch/mn10300/include/uapi/asm/socket.h
-> +++ b/arch/mn10300/include/uapi/asm/socket.h
-> @@ -90,4 +90,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _ASM_SOCKET_H */
-> diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-> index 9c935d7..7a109b7 100644
-> --- a/arch/parisc/include/uapi/asm/socket.h
-> +++ b/arch/parisc/include/uapi/asm/socket.h
-> @@ -89,4 +89,6 @@
->
->  #define SO_CNX_ADVICE          0x402E
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     0x402F
-> +
->  #endif /* _UAPI_ASM_SOCKET_H */
-> diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-> index 1672e33..44583a5 100644
-> --- a/arch/powerpc/include/uapi/asm/socket.h
-> +++ b/arch/powerpc/include/uapi/asm/socket.h
-> @@ -97,4 +97,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _ASM_POWERPC_SOCKET_H */
-> diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-> index 41b51c2..b24a64c 100644
-> --- a/arch/s390/include/uapi/asm/socket.h
-> +++ b/arch/s390/include/uapi/asm/socket.h
-> @@ -96,4 +96,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _ASM_SOCKET_H */
-> diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-> index 31aede3..a25dc32 100644
-> --- a/arch/sparc/include/uapi/asm/socket.h
-> +++ b/arch/sparc/include/uapi/asm/socket.h
-> @@ -86,6 +86,8 @@
->
->  #define SO_CNX_ADVICE          0x0037
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     0x0038
-> +
->  /* Security levels - as per NRL IPv6 - don't actually do anything */
->  #define SO_SECURITY_AUTHENTICATION             0x5001
->  #define SO_SECURITY_ENCRYPTION_TRANSPORT       0x5002
-> diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-> index 81435d9..9fdbe1f 100644
-> --- a/arch/xtensa/include/uapi/asm/socket.h
-> +++ b/arch/xtensa/include/uapi/asm/socket.h
-> @@ -101,4 +101,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* _XTENSA_SOCKET_H */
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index d5d3bd8..00e0ee8 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -428,4 +428,6 @@ static inline void tcp_saved_syn_free(struct tcp_sock *tp)
->         tp->saved_syn = NULL;
->  }
->
-> +struct sk_buff *tcp_get_timestamping_opt_stats(const struct sock *sk);
-> +
->  #endif /* _LINUX_TCP_H */
-> diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-> index 67d632f..2c748dd 100644
-> --- a/include/uapi/asm-generic/socket.h
-> +++ b/include/uapi/asm-generic/socket.h
-> @@ -92,4 +92,6 @@
->
->  #define SO_CNX_ADVICE          53
->
-> +#define SCM_TIMESTAMPING_OPT_STATS     54
-> +
->  #endif /* __ASM_GENERIC_SOCKET_H */
-> diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
-> index 264e515..464dcca 100644
-> --- a/include/uapi/linux/net_tstamp.h
-> +++ b/include/uapi/linux/net_tstamp.h
-> @@ -25,8 +25,9 @@ enum {
->         SOF_TIMESTAMPING_TX_ACK = (1<<9),
->         SOF_TIMESTAMPING_OPT_CMSG = (1<<10),
->         SOF_TIMESTAMPING_OPT_TSONLY = (1<<11),
-> +       SOF_TIMESTAMPING_OPT_STATS = (1<<12),
->
-> -       SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_TSONLY,
-> +       SOF_TIMESTAMPING_LAST = SOF_TIMESTAMPING_OPT_STATS,
->         SOF_TIMESTAMPING_MASK = (SOF_TIMESTAMPING_LAST - 1) |
->                                  SOF_TIMESTAMPING_LAST
->  };
-> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> index 2863b66..c53de26 100644
-> --- a/include/uapi/linux/tcp.h
-> +++ b/include/uapi/linux/tcp.h
-> @@ -220,6 +220,14 @@ struct tcp_info {
->         __u64   tcpi_sndbuf_limited; /* Time (usec) limited by send buffer */
->  };
->
-> +/* netlink attributes types for SCM_TIMESTAMPING_OPT_STATS */
-> +enum {
-> +       TCP_NLA_PAD,
-> +       TCP_NLA_BUSY,           /* Time (usec) busy sending data */
-> +       TCP_NLA_RWND_LIMITED,   /* Time (usec) limited by receive window */
-> +       TCP_NLA_SNDBUF_LIMITED, /* Time (usec) limited by send buffer */
-> +};
-> +
->  /* for TCP_MD5SIG socket option */
->  #define TCP_MD5SIG_MAXKEYLEN   80
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index d1d1a5a..ea6fa95 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3839,10 +3839,18 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
->         if (!skb_may_tx_timestamp(sk, tsonly))
->                 return;
->
-> -       if (tsonly)
-> -               skb = alloc_skb(0, GFP_ATOMIC);
-> -       else
-> +       if (tsonly) {
-> +#ifdef CONFIG_INET
-> +               if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS) &&
-> +                   sk->sk_protocol == IPPROTO_TCP &&
-> +                   sk->sk_type == SOCK_STREAM)
-> +                       skb = tcp_get_timestamping_opt_stats(sk);
-> +               else
-> +#endif
-> +                       skb = alloc_skb(0, GFP_ATOMIC);
-> +       } else {
->                 skb = skb_clone(orig_skb, GFP_ATOMIC);
-> +       }
->         if (!skb)
->                 return;
->
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 14e6145..d8c7f8c 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -854,6 +854,13 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
->                                 sk->sk_tskey = 0;
->                         }
->                 }
-> +
-> +               if (val & SOF_TIMESTAMPING_OPT_STATS &&
-> +                   !(val & SOF_TIMESTAMPING_OPT_TSONLY)) {
-> +                       ret = -EINVAL;
-> +                       break;
-> +               }
-> +
->                 sk->sk_tsflags = val;
->                 if (val & SOF_TIMESTAMPING_RX_SOFTWARE)
->                         sock_enable_timestamp(sk,
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index cdde20f..1149b48 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2841,6 +2841,26 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
->  }
->  EXPORT_SYMBOL_GPL(tcp_get_info);
->
-> +struct sk_buff *tcp_get_timestamping_opt_stats(const struct sock *sk)
-> +{
-> +       const struct tcp_sock *tp = tcp_sk(sk);
-> +       struct sk_buff *stats;
-> +       struct tcp_info info;
-> +
-> +       stats = alloc_skb(3 * nla_total_size_64bit(sizeof(u64)), GFP_ATOMIC);
-> +       if (!stats)
-> +               return NULL;
-> +
-> +       tcp_get_info_chrono_stats(tp, &info);
-> +       nla_put_u64_64bit(stats, TCP_NLA_BUSY,
-> +                         info.tcpi_busy_time, TCP_NLA_PAD);
-> +       nla_put_u64_64bit(stats, TCP_NLA_RWND_LIMITED,
-> +                         info.tcpi_rwnd_limited, TCP_NLA_PAD);
-> +       nla_put_u64_64bit(stats, TCP_NLA_SNDBUF_LIMITED,
-> +                         info.tcpi_sndbuf_limited, TCP_NLA_PAD);
-> +       return stats;
-> +}
-> +
->  static int do_tcp_getsockopt(struct sock *sk, int level,
->                 int optname, char __user *optval, int __user *optlen)
->  {
-> diff --git a/net/socket.c b/net/socket.c
-> index e2584c5..e631894 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -693,9 +693,14 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
->             (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
->             ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2))
->                 empty = 0;
-> -       if (!empty)
-> +       if (!empty) {
->                 put_cmsg(msg, SOL_SOCKET,
->                          SCM_TIMESTAMPING, sizeof(tss), &tss);
-> +
-> +               if (skb->len && (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS))
-> +                       put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING_OPT_STATS,
-> +                                skb->len, skb->data);
-> +       }
->  }
->  EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
->
-> --
-> 2.8.0.rc3.226.g39d4020
->
+Yes, then it's possible. But I have to add an extra check because it
+involves a search (iif -> net_device) and I can't wrap that inside
+pr_warn_once(). I hope it doesn't get too cluttered then. Posting v3 in
+a few.. Thanks
