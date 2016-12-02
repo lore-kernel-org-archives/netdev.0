@@ -1,88 +1,234 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [flamebait] xdp, well meaning but pointless
-Date: Fri, 2 Dec 2016 11:24:50 +0100
-Message-ID: <20161202112450.1720d33d@redhat.com>
-References: <20161201091108.GF26507@breakpoint.cc>
-        <20161201145834.GA569@pox.localdomain>
-        <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
-        <20161201162814.GA31300@pox.localdomain>
-        <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
-        <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com>
-        <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
-        <CALx6S34+Brx-JERLhexxv9CGE9moH_Pi-H_OK=hQ-iJ2g2yYgg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Thomas Graf <tgraf@suug.ch>, Florian Westphal <fw@strlen.de>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v2 06/18] ss: Drop list traversal from unix_stats_print()
+Date: Fri,  2 Dec 2016 11:39:50 +0100
+Message-ID: <20161202104002.17310-7-phil@nwl.cc>
+References: <20161202104002.17310-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35158 "EHLO mx1.redhat.com"
+Received: from orbyte.nwl.cc ([151.80.46.58]:42277 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757442AbcLBKYz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 05:24:55 -0500
-In-Reply-To: <CALx6S34+Brx-JERLhexxv9CGE9moH_Pi-H_OK=hQ-iJ2g2yYgg@mail.gmail.com>
+        id S1759591AbcLBKkO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 05:40:14 -0500
+In-Reply-To: <20161202104002.17310-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 Dec 2016 13:51:32 -0800
-Tom Herbert <tom@herbertland.com> wrote:
+Although this complicates the dedicated procfs-based code path in
+unix_show() a bit, it's the only sane way to get rid of unix_show_sock()
+output diverging from other socket types in that it prints all socket
+details in a new line.
 
-> >> The technical plenary at last IETF on Seoul a couple of weeks ago was
-> >> exclusively focussed on DDOS in light of the recent attack against
-> >> Dyn. There were speakers form Cloudflare and Dyn. The Cloudflare
-> >> presentation by Nick Sullivan
-> >> (https://www.ietf.org/proceedings/97/slides/slides-97-ietf-sessb-how-to-stay-online-harsh-realities-of-operating-in-a-hostile-network-nick-sullivan-01.pdf)
-> >> alluded to some implementation of DDOS mitigation. In particular, on
-> >> slide 6 Nick gave some numbers for drop rates in DDOS. The "kernel"
+As a side effect, it allows to eliminate all procfs specific code in
+the same function.
 
-slide 14
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ misc/ss.c | 137 +++++++++++++++++++++++++++++---------------------------------
+ 1 file changed, 64 insertions(+), 73 deletions(-)
 
-> >> numbers he gave we're based in iptables+BPF and that was a whole
-> >> 1.2Mpps-- somehow that seems ridiculously to me (I said so at the mic
-> >> and that's also when I introduced XDP to whole IETF :-) ). If that's
-> >> the best we can do the Internet is in a world hurt. DDOS mitigation
-> >> alone is probably a sufficient motivation to look at XDP. We need
-> >> something that drops bad packets as quickly as possible when under
-> >> attack, we need this to be integrated into the stack, we need it to be
-> >> programmable to deal with the increasing savvy of attackers, and we
-> >> don't want to be forced to be dependent on HW solutions. This is why
-> >> we created XDP!  
-
-The 1.2Mpps number is a bit low, but we are unfortunately in that
-ballpark.
-
-> > I totally understand that. But in my reply to David in this thread I
-> > mentioned DNS apex processing as being problematic which is actually
-> > being referred in your linked slide deck on page 9 ("What do floods look
-> > like") and the problematic of parsing DNS packets in XDP due to string
-> > processing and looping inside eBPF.
-
-That is a weak argument. You do realize CloudFlare actually use eBPF to
-do this exact filtering, and (so-far) eBPF for parsing DNS have been
-sufficient for them.
-
-> I agree that eBPF is not going to be sufficient from everything we'll
-> want to do. Undoubtably, we'll continue see new addition of more
-> helpers to assist in processing, but at some point we will want a to
-> load a kernel module that handles more complex processing and insert
-> it at the XDP callout. Nothing in the design of XDP precludes doing
-> that and I have already posted the patches to generalize the XDP
-> callout for that. Taking either of these routes has tradeoffs, but
-> regardless of whether this is BPF or module code, the principles of
-> XDP and its value to help solve some class of problems remains.
-
-As I've said before, I do support Tom's patches for a more generic XDP
-hook that the kernel itself can use.  The first thing I would implement
-with this is a fast-path for Linux L2 bridging (do depend on multiport
-TX support). It would be so easy to speedup bridging, XDP would only
-need to forward packets already in the bridge-FIB table, rest is
-XDP_PASS to normal stack and bridge code (timers etc).
-
+diff --git a/misc/ss.c b/misc/ss.c
+index fcbaecbe25a2f..0de336200142f 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2975,15 +2975,13 @@ int unix_state_map[] = { SS_CLOSE, SS_SYN_SENT,
+ 
+ #define MAX_UNIX_REMEMBER (1024*1024/sizeof(struct sockstat))
+ 
+-static void unix_list_free(struct sockstat *list)
++static void unix_list_drop_first(struct sockstat **list)
+ {
+-	while (list) {
+-		struct sockstat *s = list;
++	struct sockstat *s = *list;
+ 
+-		list = list->next;
+-		free(s->name);
+-		free(s);
+-	}
++	(*list) = (*list)->next;
++	free(s->name);
++	free(s);
+ }
+ 
+ static bool unix_type_skip(struct sockstat *s, struct filter *f)
+@@ -3002,61 +3000,18 @@ static bool unix_use_proc(void)
+ 	return getenv("PROC_NET_UNIX") || getenv("PROC_ROOT");
+ }
+ 
+-static void unix_stats_print(struct sockstat *list, struct filter *f)
++static void unix_stats_print(struct sockstat *s, struct filter *f)
+ {
+-	struct sockstat *s;
+-	char *peer;
+-	bool use_proc = unix_use_proc();
+ 	char port_name[30] = {};
+ 
+-	for (s = list; s; s = s->next) {
+-		if (!(f->states & (1 << s->state)))
+-			continue;
+-		if (unix_type_skip(s, f))
+-			continue;
+-
+-		peer = "*";
+-		if (s->peer_name)
+-			peer = s->peer_name;
+-
+-		if (s->rport && use_proc) {
+-			struct sockstat *p;
+-
+-			for (p = list; p; p = p->next) {
+-				if (s->rport == p->lport)
+-					break;
+-			}
+-
+-			if (!p) {
+-				peer = "?";
+-			} else {
+-				peer = p->name ? : "*";
+-			}
+-		}
+-
+-		if (use_proc && f->f) {
+-			struct sockstat st = {
+-				.local.family = AF_UNIX,
+-				.remote.family = AF_UNIX,
+-			};
+-
+-			memcpy(st.local.data, &s->name, sizeof(s->name));
+-			if (strcmp(peer, "*"))
+-				memcpy(st.remote.data, &peer, sizeof(peer));
+-			if (run_ssfilter(f->f, &st) == 0)
+-				continue;
+-		}
+-
+-		sock_state_print(s);
++	sock_state_print(s);
+ 
+-		sock_addr_print(s->name ?: "*", " ",
+-				int_to_str(s->lport, port_name), NULL);
+-		sock_addr_print(peer, " ", int_to_str(s->rport, port_name),
+-				NULL);
++	sock_addr_print(s->name ?: "*", " ",
++			int_to_str(s->lport, port_name), NULL);
++	sock_addr_print(s->peer_name ?: "*", " ",
++			int_to_str(s->rport, port_name), NULL);
+ 
+-		proc_ctx_print(s);
+-		printf("\n");
+-	}
++	proc_ctx_print(s);
+ }
+ 
+ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+@@ -3105,8 +3060,6 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 
+ 	unix_stats_print(&stat, f);
+ 
+-	if (show_mem || show_details)
+-		printf("\t");
+ 	if (show_mem)
+ 		print_skmeminfo(tb, UNIX_DIAG_MEMINFO);
+ 	if (show_details) {
+@@ -3117,8 +3070,7 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
+ 		}
+ 	}
+-	if (show_mem || show_details)
+-		printf("\n");
++	printf("\n");
+ 
+ 	return 0;
+ }
+@@ -3209,6 +3161,11 @@ static int unix_show(struct filter *f)
+ 			if (u->type == SOCK_DGRAM && u->state == SS_CLOSE && u->rport)
+ 				u->state = SS_ESTABLISHED;
+ 		}
++		if (unix_type_skip(u, f) ||
++		    !(f->states & (1 << u->state))) {
++			free(u);
++			continue;
++		}
+ 
+ 		if (!newformat) {
+ 			u->rport = 0;
+@@ -3216,6 +3173,42 @@ static int unix_show(struct filter *f)
+ 			u->wq = 0;
+ 		}
+ 
++		if (name[0]) {
++			u->name = strdup(name);
++			if (!u->name)
++				break;
++		}
++
++		if (u->rport) {
++			struct sockstat *p;
++
++			for (p = list; p; p = p->next) {
++				if (u->rport == p->lport)
++					break;
++			}
++			if (!p)
++				u->peer_name = "?";
++			else
++				u->peer_name = p->name ? : "*";
++		}
++
++		if (f->f) {
++			struct sockstat st = {
++				.local.family = AF_UNIX,
++				.remote.family = AF_UNIX,
++			};
++
++			memcpy(st.local.data, &u->name, sizeof(u->name));
++			if (strcmp(u->peer_name, "*"))
++				memcpy(st.remote.data, &u->peer_name,
++				       sizeof(u->peer_name));
++			if (run_ssfilter(f->f, &st) == 0) {
++				free(u->name);
++				free(u);
++				continue;
++			}
++		}
++
+ 		insp = &list;
+ 		while (*insp) {
+ 			if (u->type < (*insp)->type ||
+@@ -3227,24 +3220,22 @@ static int unix_show(struct filter *f)
+ 		u->next = *insp;
+ 		*insp = u;
+ 
+-		if (name[0]) {
+-			if ((u->name = malloc(strlen(name)+1)) == NULL)
+-				break;
+-			strcpy(u->name, name);
+-		}
+ 		if (++cnt > MAX_UNIX_REMEMBER) {
+-			unix_stats_print(list, f);
+-			unix_list_free(list);
+-			list = NULL;
++			while (list) {
++				unix_stats_print(list, f);
++				printf("\n");
++
++				unix_list_drop_first(&list);
++			}
+ 			cnt = 0;
+ 		}
+ 	}
+ 	fclose(fp);
+-	if (list) {
++	while (list) {
+ 		unix_stats_print(list, f);
+-		unix_list_free(list);
+-		list = NULL;
+-		cnt = 0;
++		printf("\n");
++
++		unix_list_drop_first(&list);
+ 	}
+ 
+ 	return 0;
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.10.0
