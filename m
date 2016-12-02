@@ -1,90 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net_sched: gen_estimator: account for timer drifts
-Date: Fri, 02 Dec 2016 08:11:00 -0800
-Message-ID: <1480695060.18162.363.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH 1/1] ax25: Fix segfault when receiving an iframe with
+ net2kiss loaded
+Date: Fri, 02 Dec 2016 11:05:10 -0500 (EST)
+Message-ID: <20161202.110510.316320127082862142.davem@redhat.com>
+References: <20161130111525.13f74728@brox.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: jreuter@yaina.de, ralf@linux-mips.org, linux-hams@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        stable@vger.kernel.org, ed@wizkers.io, mcdermj@xenotropic.com
+To: basil@pacabunga.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35068 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751098AbcLBQMD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 11:12:03 -0500
-Received: by mail-pg0-f65.google.com with SMTP id p66so8298332pga.2
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 08:12:02 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:57290 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751290AbcLBQN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 11:13:59 -0500
+In-Reply-To: <20161130111525.13f74728@brox.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Basil Gunn <basil@pacabunga.com>
+Date: Wed, 30 Nov 2016 11:15:25 -0800
 
-Under heavy stress, timer used in estimators tend to slowly be delayed
-by a few jiffies, leading to inaccuracies.
+> AX.25 uses sock_queue_rcv_skb() to queue an iframe received packet.
+> This routine writes NULL to the socket buffer device structure
+> pointer. The socket buffer is subsequently serviced by
+> __netif_receiv_skb_core() which dereferences the device structure
+> pointer & segfaults.
+> 
+> The fix puts the ax25 device structure pointer back in the socket
+> buffer struct after sock_queue_rcv_skb() is called.
 
-Lets remember what was the last scheduled jiffies so that we get more
-precise estimations, without having to add a multiply/divide in the loop
-to account for the drifts.
+You cannot do this.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/gen_estimator.c |   25 ++++++++++++++++---------
- 1 file changed, 16 insertions(+), 9 deletions(-)
+We have no reference count held on the device object, therefore once
+access to this SKB leaves the receive packet processing path and thus
+the RCU protected region, we must set skb->dev to NULL.
 
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index cad8e791f28e..0993844faeea 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -78,8 +78,7 @@
- 
- #define EST_MAX_INTERVAL	5
- 
--struct gen_estimator
--{
-+struct gen_estimator {
- 	struct list_head	list;
- 	struct gnet_stats_basic_packed	*bstats;
- 	struct gnet_stats_rate_est64	*rate_est;
-@@ -96,8 +95,8 @@ struct gen_estimator
- 	struct rcu_head		head;
- };
- 
--struct gen_estimator_head
--{
-+struct gen_estimator_head {
-+	unsigned long		next_jiffies;
- 	struct timer_list	timer;
- 	struct list_head	list;
- };
-@@ -146,8 +145,15 @@ static void est_timer(unsigned long arg)
- 			spin_unlock(e->stats_lock);
- 	}
- 
--	if (!list_empty(&elist[idx].list))
--		mod_timer(&elist[idx].timer, jiffies + ((HZ/4) << idx));
-+	if (!list_empty(&elist[idx].list)) {
-+		elist[idx].next_jiffies += ((HZ/4) << idx);
-+
-+		if (unlikely(time_after_eq(jiffies, elist[idx].next_jiffies))) {
-+			/* Ouch... timer was delayed. */
-+			elist[idx].next_jiffies = jiffies + 1;
-+		}
-+		mod_timer(&elist[idx].timer, elist[idx].next_jiffies);
-+	}
- 	rcu_read_unlock();
- }
- 
-@@ -251,9 +257,10 @@ int gen_new_estimator(struct gnet_stats_basic_packed *bstats,
- 		setup_timer(&elist[idx].timer, est_timer, idx);
- 	}
- 
--	if (list_empty(&elist[idx].list))
--		mod_timer(&elist[idx].timer, jiffies + ((HZ/4) << idx));
--
-+	if (list_empty(&elist[idx].list)) {
-+		elist[idx].next_jiffies = jiffies + ((HZ/4) << idx);
-+		mod_timer(&elist[idx].timer, elist[idx].next_jiffies);
-+	}
- 	list_add_rcu(&est->list, &elist[idx].list);
- 	gen_add_node(est);
- 	spin_unlock_bh(&est_tree_lock);
+Queueing the SKB to the socket causes the SKB to leave the receive
+processing path.
+
+You will have to find another way to propagate this device pointer
+to the code that needs it.
