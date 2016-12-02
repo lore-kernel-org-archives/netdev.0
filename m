@@ -1,84 +1,43 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] net: wireless: realtek: constify rate_control_ops structures
-Date: Fri,  2 Dec 2016 15:20:54 +0530
-Message-ID: <1480672254-4986-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, Larry.Finger@lwfinger.net,
-        chaoming_li@realsil.com.cn, kvalo@codeaurora.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next 0/2] net/sched: cls_flower: Support matching on ICMP
+Date: Fri,  2 Dec 2016 10:52:30 +0100
+Message-ID: <1480672352-13291-1-git-send-email-simon.horman@netronome.com>
+Cc: "David S.  Miller" <davem@davemloft.net>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36642 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750917AbcLBJwn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 04:52:43 -0500
+Received: by mail-wm0-f51.google.com with SMTP id g23so11493109wme.1
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 01:52:42 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The structures rate_control_ops are only passed as an argument to the
-functions ieee80211_rate_control_{register/unregister}. This argument is
-of type const, so rate_control_ops having this property can also be 
-declared as const.
-Done using Coccinelle:
+Hi,
 
-@r1 disable optional_qualifier @
-identifier i;
-position p;
-@@
-static struct rate_control_ops i@p = {...};
+this series add supports for matching on ICMP type and code to cls_flower.
+This is modeled on existing support for matching on L4 ports. The updates
+to the dissector are intended to allow for code and storage re-use.
 
-@ok1@
-identifier r1.i;
-position p;
-@@
-ieee80211_rate_control_register(&i@p)
+Simon Horman (2):
+  flow dissector: ICMP support
+  net/sched: cls_flower: Support matching on ICMP type and code
 
-@ok2@
-identifier r1.i;
-position p;
-@@
-ieee80211_rate_control_unregister(&i@p)
+ drivers/net/bonding/bond_main.c |  6 +++--
+ include/linux/skbuff.h          |  5 +++++
+ include/net/flow_dissector.h    | 50 ++++++++++++++++++++++++++++++++++++++---
+ include/uapi/linux/pkt_cls.h    | 10 +++++++++
+ net/core/flow_dissector.c       | 34 +++++++++++++++++++++++++---
+ net/sched/cls_flow.c            |  4 ++--
+ net/sched/cls_flower.c          | 42 ++++++++++++++++++++++++++++++++++
+ 7 files changed, 141 insertions(+), 10 deletions(-)
 
-@bad@
-position p!={r1.p,ok1.p,ok2.p};
-identifier r1.i;
-@@
-i@p
-
-@depends on !bad disable optional_qualifier@
-identifier r1.i;
-@@
-static
-+const
-struct rate_control_ops i={...};
-
-@depends on !bad disable optional_qualifier@
-identifier r1.i;
-@@
-+const
-struct rate_control_ops i;
-
-File size before:
-   text	   data	    bss	    dec	    hex	filename
-   1991	    104	      0	   2095	    82f wireless/realtek/rtlwifi/rc.o
-
-File size after:
-   text	   data	    bss	    dec	    hex	filename
-   2095	      0	      0	   2095	    wireless/realtek/rtlwifi/rc.o
-
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
----
- drivers/net/wireless/realtek/rtlwifi/rc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rc.c b/drivers/net/wireless/realtek/rtlwifi/rc.c
-index ce8621a..107c13c 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rc.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rc.c
-@@ -284,7 +284,7 @@ static void rtl_rate_free_sta(void *rtlpriv,
- 	kfree(rate_priv);
- }
- 
--static struct rate_control_ops rtl_rate_ops = {
-+static const struct rate_control_ops rtl_rate_ops = {
- 	.name = "rtl_rc",
- 	.alloc = rtl_rate_alloc,
- 	.free = rtl_rate_free,
 -- 
-1.9.1
+2.7.0.rc3.207.g0ac5344
