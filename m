@@ -1,169 +1,137 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 2/2] net/sched: cls_flower: Support matching on ICMP type and code
-Date: Fri,  2 Dec 2016 19:05:51 +0100
-Message-ID: <1480701951-3686-3-git-send-email-simon.horman@netronome.com>
-References: <1480701951-3686-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: David Miller <davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [flamebait] xdp, well meaning but pointless
+Date: Fri, 2 Dec 2016 19:12:00 +0100
+Message-ID: <6501991a-355d-bf76-0f23-576cabbfe21f@stressinduktion.org>
+References: <20161201091108.GF26507@breakpoint.cc>
+ <20161201145834.GA569@pox.localdomain>
+ <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
+ <20161201162814.GA31300@pox.localdomain>
+ <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
+ <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com>
+ <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
+ <CALx6S34+Brx-JERLhexxv9CGE9moH_Pi-H_OK=hQ-iJ2g2yYgg@mail.gmail.com>
+ <20161202112450.1720d33d@redhat.com>
+ <163220cc-a91b-5627-ea93-cd43dc0079c6@stressinduktion.org>
+ <CALx6S3787YVgOUT0nUOA9Q2yJE2tPE3GcnT=Xf=LUVMvMtjEyw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Thomas Graf <tgraf@suug.ch>, Florian Westphal <fw@strlen.de>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f177.google.com ([209.85.210.177]:33956 "EHLO
-        mail-wj0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758528AbcLBSGL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:06:11 -0500
-Received: by mail-wj0-f177.google.com with SMTP id mp19so239218233wjc.1
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 10:06:10 -0800 (PST)
-In-Reply-To: <1480701951-3686-1-git-send-email-simon.horman@netronome.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:51741 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750842AbcLBSME (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:12:04 -0500
+In-Reply-To: <CALx6S3787YVgOUT0nUOA9Q2yJE2tPE3GcnT=Xf=LUVMvMtjEyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support matching on ICMP type and code.
+On 02.12.2016 17:59, Tom Herbert wrote:
+> On Fri, Dec 2, 2016 at 3:54 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> On 02.12.2016 11:24, Jesper Dangaard Brouer wrote:
+>>> On Thu, 1 Dec 2016 13:51:32 -0800
+>>> Tom Herbert <tom@herbertland.com> wrote:
+>>>
+>>>>>> The technical plenary at last IETF on Seoul a couple of weeks ago was
+>>>>>> exclusively focussed on DDOS in light of the recent attack against
+>>>>>> Dyn. There were speakers form Cloudflare and Dyn. The Cloudflare
+>>>>>> presentation by Nick Sullivan
+>>>>>> (https://www.ietf.org/proceedings/97/slides/slides-97-ietf-sessb-how-to-stay-online-harsh-realities-of-operating-in-a-hostile-network-nick-sullivan-01.pdf)
+>>>>>> alluded to some implementation of DDOS mitigation. In particular, on
+>>>>>> slide 6 Nick gave some numbers for drop rates in DDOS. The "kernel"
+>>>
+>>> slide 14
+>>>
+>>>>>> numbers he gave we're based in iptables+BPF and that was a whole
+>>>>>> 1.2Mpps-- somehow that seems ridiculously to me (I said so at the mic
+>>>>>> and that's also when I introduced XDP to whole IETF :-) ). If that's
+>>>>>> the best we can do the Internet is in a world hurt. DDOS mitigation
+>>>>>> alone is probably a sufficient motivation to look at XDP. We need
+>>>>>> something that drops bad packets as quickly as possible when under
+>>>>>> attack, we need this to be integrated into the stack, we need it to be
+>>>>>> programmable to deal with the increasing savvy of attackers, and we
+>>>>>> don't want to be forced to be dependent on HW solutions. This is why
+>>>>>> we created XDP!
+>>>
+>>> The 1.2Mpps number is a bit low, but we are unfortunately in that
+>>> ballpark.
+>>>
+>>>>> I totally understand that. But in my reply to David in this thread I
+>>>>> mentioned DNS apex processing as being problematic which is actually
+>>>>> being referred in your linked slide deck on page 9 ("What do floods look
+>>>>> like") and the problematic of parsing DNS packets in XDP due to string
+>>>>> processing and looping inside eBPF.
+>>>
+>>> That is a weak argument. You do realize CloudFlare actually use eBPF to
+>>> do this exact filtering, and (so-far) eBPF for parsing DNS have been
+>>> sufficient for them.
+>>
+>> You are talking about this code on the following slides (I actually
+>> transcribed it for you here and disassembled):
+>>
+>> l0:     ld #0x14
+>> l1:     ldxb 4*([0]&0xf)
+>> l2:     add x
+>> l3:     tax
+>> l4:     ld [x+0]
+>> l5:     jeq #0x7657861, l6, l13
+>> l6:     ld [x+4]
+>> l7:     jeq #0x6d706c65, l8, l13
+>> l8:     ld [x+8]
+>> l9:     jeq #0x3636f6d, l10, l13
+>> l10:    ldb [x+12]
+>> l11:    jeq #0, l12, l13
+>> l12:    ret #0x1
+>> l13:    ret #0
+>>
+>> You can offload this to u32 in hardware if that is what you want.
+>>
+>> The reason this works is because of netfilter, which allows them to
+>> dynamically generate BPF programs and insert and delete them from
+>> chains, do intersection or unions of them.
+>>
+>> If you have a freestanding program like in XDP the complexity space is a
+>> different one and not comparable to this at all.
+>>
+> I don't understand this comment about complexity especially in regards
+> to the idea of offloading u32 to hardware. Relying on hardware to do
+> anything always leads to more complexity than an equivalent SW
+> implementation for the same functionality. The only reason we ever use
+> a hardware mechanisms is if it gives *significantly* better
+> performance. If the performance difference isn't there then doing
+> things in SW is going to be the better path (as we see in XDP).
 
-Example usage:
+I am just wondering why the u32 filter wasn't mentioned in their slide
+deck. If all what Cloudflare needs are those kind of matches, they are
+in fact actually easier to generate than an cBPF program. It is not a
+good example of how a real world DoS filter in XDP would look like.
 
-tc qdisc add dev eth0 ingress
+If you argue XDP as a C function hook that can call arbitrary code in
+the driver before submitting that to the networking stack, yep, that is
+not complex at all. Depending on how those modules will be maintained,
+they either end up in the kernel and will be updated on major changes or
+are 3rd party and people have to update them and also depend on the
+driver features.
 
-tc filter add dev eth0 protocol ip parent ffff: flower \
-	indev eth0 ip_proto icmp type 8 code 0 action drop
+But this opens up a whole new can of worms also. I haven't really
+thought this through completely, but last time the patches were nack'ed
+with lots of strong opinions and I tended to agree with them. I am
+revisiting this position.
 
-tc filter add dev eth0 protocol ipv6 parent ffff: flower \
-	indev eth0 ip_proto icmpv6 type 128 code 0 action drop
+Certainly you can build real-world DoS protection with this function
+pointer hook and C code in the driver. In this case a user space
+solution still has advantages because of maintainability, as e.g. with
+netmap or dpdk you are again decoupled from the in-kernel API/ABI and
+don't need to test, recompile etc. on each kernel upgrade. If the module
+ends up in the kernel, those problems might also disappear.
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- include/net/flow_dissector.h | 24 ++++++++++++++++++++++--
- include/uapi/linux/pkt_cls.h | 10 ++++++++++
- net/sched/cls_flower.c       | 42 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 74 insertions(+), 2 deletions(-)
+For XDP+eBPF to provide a full DoS mitigation (protocol parsing,
+sampling and dropping) solution seems to be too complex for me because
+of the arguments I stated in my previous mail.
 
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 8880025914e3..5540dfa18872 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -199,10 +199,30 @@ struct flow_keys_digest {
- void make_flow_keys_digest(struct flow_keys_digest *digest,
- 			   const struct flow_keys *flow);
- 
-+static inline bool flow_protos_are_icmpv4(__be16 n_proto, u8 ip_proto)
-+{
-+	return n_proto == htons(ETH_P_IP) && ip_proto == IPPROTO_ICMP;
-+}
-+
-+static inline bool flow_protos_are_icmpv6(__be16 n_proto, u8 ip_proto)
-+{
-+	return n_proto == htons(ETH_P_IPV6) && ip_proto == IPPROTO_ICMPV6;
-+}
-+
- static inline bool flow_protos_are_icmp_any(__be16 n_proto, u8 ip_proto)
- {
--	return (n_proto == htons(ETH_P_IP) && ip_proto == IPPROTO_ICMP) ||
--		(n_proto == htons(ETH_P_IPV6) && ip_proto == IPPROTO_ICMPV6);
-+	return flow_protos_are_icmpv4(n_proto, ip_proto) ||
-+		flow_protos_are_icmpv6(n_proto, ip_proto);
-+}
-+
-+static inline bool flow_basic_key_is_icmpv4(const struct flow_dissector_key_basic *basic)
-+{
-+	return flow_protos_are_icmpv4(basic->n_proto, basic->ip_proto);
-+}
-+
-+static inline bool flow_basic_key_is_icmpv6(const struct flow_dissector_key_basic *basic)
-+{
-+	return flow_protos_are_icmpv6(basic->n_proto, basic->ip_proto);
- }
- 
- static inline bool flow_keys_are_icmp_any(const struct flow_keys *keys)
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index 86786d45ee66..58160fe80b80 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -457,6 +457,16 @@ enum {
- 	TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK,	/* be16 */
- 	TCA_FLOWER_KEY_ENC_UDP_DST_PORT,	/* be16 */
- 	TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,	/* be16 */
-+
-+	TCA_FLOWER_KEY_ICMPV4_CODE,	/* u8 */
-+	TCA_FLOWER_KEY_ICMPV4_CODE_MASK,/* u8 */
-+	TCA_FLOWER_KEY_ICMPV4_TYPE,	/* u8 */
-+	TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,/* u8 */
-+	TCA_FLOWER_KEY_ICMPV6_CODE,	/* u8 */
-+	TCA_FLOWER_KEY_ICMPV6_CODE_MASK,/* u8 */
-+	TCA_FLOWER_KEY_ICMPV6_TYPE,	/* u8 */
-+	TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,/* u8 */
-+
- 	__TCA_FLOWER_MAX,
- };
- 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index e8dd09af0d0c..412efa7de226 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -355,6 +355,14 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
- 	[TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK]	= { .type = NLA_U16 },
- 	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT]	= { .type = NLA_U16 },
- 	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK]	= { .type = NLA_U16 },
-+	[TCA_FLOWER_KEY_ICMPV4_TYPE]	= { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV4_TYPE_MASK] = { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV4_CODE]	= { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV4_CODE_MASK] = { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV6_TYPE]	= { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV6_TYPE_MASK] = { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV6_CODE]	= { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV6_CODE_MASK] = { .type = NLA_U8 },
- };
- 
- static void fl_set_key_val(struct nlattr **tb,
-@@ -471,6 +479,20 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
- 		fl_set_key_val(tb, &key->tp.dst, TCA_FLOWER_KEY_SCTP_DST,
- 			       &mask->tp.dst, TCA_FLOWER_KEY_SCTP_DST_MASK,
- 			       sizeof(key->tp.dst));
-+	} else if (flow_basic_key_is_icmpv4(&key->basic)) {
-+		fl_set_key_val(tb, &key->tp.type, TCA_FLOWER_KEY_ICMPV4_TYPE,
-+			       &mask->tp.type, TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,
-+			       sizeof(key->tp.type));
-+		fl_set_key_val(tb, &key->tp.code, TCA_FLOWER_KEY_ICMPV4_CODE,
-+			       &mask->tp.code, TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
-+			       sizeof(key->tp.code));
-+	} else if (flow_basic_key_is_icmpv6(&key->basic)) {
-+		fl_set_key_val(tb, &key->tp.type, TCA_FLOWER_KEY_ICMPV6_TYPE,
-+			       &mask->tp.type, TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,
-+			       sizeof(key->tp.type));
-+		fl_set_key_val(tb, &key->tp.code, TCA_FLOWER_KEY_ICMPV4_CODE,
-+			       &mask->tp.code, TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
-+			       sizeof(key->tp.code));
- 	}
- 
- 	if (tb[TCA_FLOWER_KEY_ENC_IPV4_SRC] ||
-@@ -943,6 +965,26 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 				  &mask->tp.dst, TCA_FLOWER_KEY_SCTP_DST_MASK,
- 				  sizeof(key->tp.dst))))
- 		goto nla_put_failure;
-+	else if (flow_basic_key_is_icmpv4(&key->basic) &&
-+		 (fl_dump_key_val(skb, &key->tp.type,
-+				  TCA_FLOWER_KEY_ICMPV4_TYPE, &mask->tp.type,
-+				  TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,
-+				  sizeof(key->tp.type)) ||
-+		  fl_dump_key_val(skb, &key->tp.code,
-+				  TCA_FLOWER_KEY_ICMPV4_CODE, &mask->tp.code,
-+				  TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
-+				  sizeof(key->tp.code))))
-+		goto nla_put_failure;
-+	else if (flow_basic_key_is_icmpv6(&key->basic) &&
-+		 (fl_dump_key_val(skb, &key->tp.type,
-+				  TCA_FLOWER_KEY_ICMPV6_TYPE, &mask->tp.type,
-+				  TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,
-+				  sizeof(key->tp.type)) ||
-+		  fl_dump_key_val(skb, &key->tp.code,
-+				  TCA_FLOWER_KEY_ICMPV6_CODE, &mask->tp.code,
-+				  TCA_FLOWER_KEY_ICMPV6_CODE_MASK,
-+				  sizeof(key->tp.code))))
-+		goto nla_put_failure;
- 
- 	if (key->enc_control.addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS &&
- 	    (fl_dump_key_val(skb, &key->enc_ipv4.src,
--- 
-2.7.0.rc3.207.g0ac5344
+Bye,
+Hannes
