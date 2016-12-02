@@ -1,61 +1,76 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v3 11/13] clocksource: export the clocks_calc_mult_shift to use by timestamp code
-Date: Fri, 2 Dec 2016 14:30:21 -0600
-Message-ID: <20161202203023.25526-12-grygorii.strashko@ti.com>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v3 04/13] net: ethernet: ti: cpts: fix unbalanced clk api usage in cpts_register/unregister
+Date: Fri, 2 Dec 2016 14:30:14 -0600
+Message-ID: <20161202203023.25526-5-grygorii.strashko@ti.com>
 References: <20161202203023.25526-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, Rob Herring <robh+dt@kernel.org>,
-        <devicetree@vger.kernel.org>,
-        Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        John Stultz <john.stultz@linaro.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:24997 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753989AbcLBUar (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 15:30:47 -0500
-In-Reply-To: <20161202203023.25526-1-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>,
+        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161202203023.25526-1-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Murali Karicheri <m-karicheri2@ti.com>
+There are two issues with TI CPTS code which are reproducible when TI
+CPSW ethX device passes few up/down iterations:
+- cpts refclk prepare counter continuously incremented after each
+up/down iteration;
+- devm_clk_get(dev, "cpts") is called many times.
 
-The CPSW CPTS driver is capable of doing timestamping on tx/rx packets and
-requires to know mult and shift factors for timestamp conversion from raw
-value to nanoseconds (ptp clock). Now these mult and shift factors are
-calculated manually and provided through DT, which makes very hard to
-support of a lot number of platforms, especially if CPTS refclk is not the
-same for some kind of boards and depends on efuse settings (Keystone 2
-platforms). Hence, export clocks_calc_mult_shift() to allow drivers like
-CPSW CPTS (and other ptp drivesr) to benefit from automaitc calculation of
-mult and shift factors.
+Hence, fix these issues by using clk_disable_unprepare() in
+cpts_clk_release() and skipping devm_clk_get() if cpts refclk has been
+acquired already.
 
-Cc: John Stultz <john.stultz@linaro.org>
-Acked-by: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Acked-by: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
 ---
- kernel/time/clocksource.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/ti/cpts.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
-index 7e4fad7..150242c 100644
---- a/kernel/time/clocksource.c
-+++ b/kernel/time/clocksource.c
-@@ -89,6 +89,7 @@ clocks_calc_mult_shift(u32 *mult, u32 *shift, u32 from, u32 to, u32 maxsec)
- 	*mult = tmp;
- 	*shift = sft;
- }
-+EXPORT_SYMBOL_GPL(clocks_calc_mult_shift);
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 8cb0369..61198f1 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -230,18 +230,20 @@ static void cpts_overflow_check(struct work_struct *work)
  
- /*[Clocksource internal variables]---------
-  * curr_clocksource:
+ static void cpts_clk_init(struct device *dev, struct cpts *cpts)
+ {
+-	cpts->refclk = devm_clk_get(dev, "cpts");
+-	if (IS_ERR(cpts->refclk)) {
+-		dev_err(dev, "Failed to get cpts refclk\n");
+-		cpts->refclk = NULL;
+-		return;
++	if (!cpts->refclk) {
++		cpts->refclk = devm_clk_get(dev, "cpts");
++		if (IS_ERR(cpts->refclk)) {
++			dev_err(dev, "Failed to get cpts refclk\n");
++			cpts->refclk = NULL;
++			return;
++		}
+ 	}
+ 	clk_prepare_enable(cpts->refclk);
+ }
+ 
+ static void cpts_clk_release(struct cpts *cpts)
+ {
+-	clk_disable(cpts->refclk);
++	clk_disable_unprepare(cpts->refclk);
+ }
+ 
+ static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
 -- 
 2.10.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
