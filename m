@@ -1,58 +1,57 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [PATCH 2/2] net: ethernet: stmmac: do not use xmit_lock in tx completion handler
-Date: Sat,  3 Dec 2016 00:06:06 +0100
-Message-ID: <1480719966-12839-3-git-send-email-LinoSanfilippo@gmx.de>
-References: <1480719966-12839-1-git-send-email-LinoSanfilippo@gmx.de>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Lino Sanfilippo <LinoSanfilippo@gmx.de>
-To: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480719966-12839-1-git-send-email-LinoSanfilippo@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH/RFC iproute2/net-next 1/3] tc: flower: update headers
+ for TCA_FLOWER_KEY_ICMP*
+Date: Fri, 2 Dec 2016 15:06:53 -0800
+Message-ID: <20161202150653.656e583b@xeon-e3>
+References: <1480672785-14570-1-git-send-email-simon.horman@netronome.com>
+        <1480672785-14570-2-git-send-email-simon.horman@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33105 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932165AbcLBXHC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 18:07:02 -0500
+Received: by mail-pf0-f176.google.com with SMTP id d2so54843007pfd.0
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 15:07:01 -0800 (PST)
+In-Reply-To: <1480672785-14570-2-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver already uses its private lock for synchronization between the
-xmit function and the xmit completion handler, making the additional use of
-the xmit_lock unnecessary.
-Furthermore the driver does not set NETIF_F_LLTX resulting in xmit to be
-called with the xmit_lock held and then taking the private lock.
-On the other hand the xmit completion handler uses the reverse locking
-order, by first taking the private lock, and then the xmit_lock, which
-leads to the potential danger of a deadlock.
+On Fri,  2 Dec 2016 10:59:43 +0100
+Simon Horman <simon.horman@netronome.com> wrote:
 
-Fix this issue by not taking the xmit_lock in the completion handler.
-By doing this also remove an unnecessary double check for a stopped tx
-queue.
+> These are proposed changes for net-next.
+> 
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> ---
+>  include/linux/pkt_cls.h | 10 ++++++++++
+>  1 file changed, 10 insertions(+)
+> 
+> diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+> index a3d8a4f17d8e..fa435ea8ad21 100644
+> --- a/include/linux/pkt_cls.h
+> +++ b/include/linux/pkt_cls.h
+> @@ -403,6 +403,16 @@ enum {
+>  	TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK,	/* be16 */
+>  	TCA_FLOWER_KEY_ENC_UDP_DST_PORT,	/* be16 */
+>  	TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,	/* be16 */
+> +
+> +	TCA_FLOWER_KEY_ICMPV4_CODE,     /* u8 */
+> +	TCA_FLOWER_KEY_ICMPV4_CODE_MASK,/* u8 */
+> +	TCA_FLOWER_KEY_ICMPV4_TYPE,     /* u8 */
+> +	TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,/* u8 */
+> +	TCA_FLOWER_KEY_ICMPV6_CODE,     /* u8 */
+> +	TCA_FLOWER_KEY_ICMPV6_CODE_MASK,/* u8 */
+> +	TCA_FLOWER_KEY_ICMPV6_TYPE,     /* u8 */
+> +	TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,/* u8 */
+> +
+>  	__TCA_FLOWER_MAX,
+>  };
+>  
 
-Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
-
-Please note that this patch is only compile tested.
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 48a4e84..8def423 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1380,14 +1380,9 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 
- 	if (unlikely(netif_queue_stopped(priv->dev) &&
- 		     stmmac_tx_avail(priv) > STMMAC_TX_THRESH)) {
--		netif_tx_lock(priv->dev);
--		if (netif_queue_stopped(priv->dev) &&
--		    stmmac_tx_avail(priv) > STMMAC_TX_THRESH) {
--			netif_dbg(priv, tx_done, priv->dev,
--				  "%s: restart transmit\n", __func__);
--			netif_wake_queue(priv->dev);
--		}
--		netif_tx_unlock(priv->dev);
-+		netif_dbg(priv, tx_done, priv->dev,
-+			  "%s: restart transmit\n", __func__);
-+		netif_wake_queue(priv->dev);
- 	}
- 
- 	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
--- 
-1.9.1
+I picked this up by updating from kernel headers.
