@@ -1,82 +1,115 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: net/can: warning in raw_setsockopt/__alloc_pages_slowpath
-Date: Fri, 2 Dec 2016 18:05:48 +0100
-Message-ID: <6fe05efd-eb2c-a5e2-9d45-48f2c3098abb@hartkopp.net>
-References: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
- <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
- <73b78023-bc11-25c0-33e3-3a748dbc81cd@hartkopp.net>
- <74e2aed8-ba38-ee91-59a3-49131ea18d60@pengutronix.de>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH/RFC iproute2/net-next 2/3] tc: flower: introduce enum
+ flower_endpoint
+Date: Fri, 2 Dec 2016 18:08:42 +0100
+Message-ID: <20161202170842.GB1883@nanopsycho.orion>
+References: <1480672785-14570-1-git-send-email-simon.horman@netronome.com>
+ <1480672785-14570-3-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <74e2aed8-ba38-ee91-59a3-49131ea18d60@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:33302 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752053AbcLBRIr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 12:08:47 -0500
+Received: by mail-wj0-f195.google.com with SMTP id kp2so31022454wjc.0
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 09:08:46 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1480672785-14570-3-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 12/02/2016 04:42 PM, Marc Kleine-Budde wrote:
-> On 12/02/2016 04:11 PM, Oliver Hartkopp wrote:
->>
->>
->> On 12/02/2016 02:24 PM, Marc Kleine-Budde wrote:
->>> On 12/02/2016 01:43 PM, Andrey Konovalov wrote:
->>
->>
->>>>  [<ffffffff8369e0de>] raw_setsockopt+0x1be/0x9f0 net/can/raw.c:506
->>>
->>> We should add a check for a sensible optlen....
->>>
->>>> static int raw_setsockopt(struct socket *sock, int level, int optname,
->>>> 			  char __user *optval, unsigned int optlen)
->>>> {
->>>> 	struct sock *sk = sock->sk;
->>>> 	struct raw_sock *ro = raw_sk(sk);
->>>> 	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
->>>> 	struct can_filter sfilter;         /* single filter */
->>>> 	struct net_device *dev = NULL;
->>>> 	can_err_mask_t err_mask = 0;
->>>> 	int count = 0;
->>>> 	int err = 0;
->>>>
->>>> 	if (level != SOL_CAN_RAW)
->>>> 		return -EINVAL;
->>>>
->>>> 	switch (optname) {
->>>>
->>>> 	case CAN_RAW_FILTER:
->>>> 		if (optlen % sizeof(struct can_filter) != 0)
->>>> 			return -EINVAL;
->>>
->>> here...
->>>
->>> 		if (optlen > 64 * sizeof(struct can_filter))
->>> 			return -EINVAL;
->>>
->>
->> Agreed.
->>
->> But what is sensible here?
->> 64 filters is way to small IMO.
->>
->> When thinking about picking a bunch of single CAN IDs I would tend to
->> something like 512 filters.
+Fri, Dec 02, 2016 at 10:59:44AM CET, simon.horman@netronome.com wrote:
+>Introduce enum flower_endpoint and use it instead of a bool
+>as the type for paramatising source and destination.
 >
-> Ok - 64 was just an arbitrary chosen value for demonstration purposes :)
+>This is intended to improve read-ability and provide some type
+>checking of endpoint parameters.
 >
+>Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>---
+> tc/f_flower.c | 22 ++++++++++++++--------
+> 1 file changed, 14 insertions(+), 8 deletions(-)
+>
+>diff --git a/tc/f_flower.c b/tc/f_flower.c
+>index 615e8f27bed2..42253067b43d 100644
+>--- a/tc/f_flower.c
+>+++ b/tc/f_flower.c
+>@@ -23,6 +23,11 @@
+> #include "tc_util.h"
+> #include "rt_names.h"
+> 
+>+enum flower_endpoint {
+>+	flower_src,
+>+	flower_dst
 
-:-)
+	FLOWER_ENDPOINT_SRC,
+	FLOWER_ENDPOINT_DST,
 
-Would you like to send a patch?
-
-Regards,
-Oliver
+>+};
+>+
+> static void explain(void)
+> {
+> 	fprintf(stderr,
+>@@ -160,29 +165,30 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
+> 	return 0;
+> }
+> 
+>-static int flower_port_attr_type(__u8 ip_proto, bool is_src)
+>+static int flower_port_attr_type(__u8 ip_proto, enum flower_endpoint endpoint)
+> {
+> 	if (ip_proto == IPPROTO_TCP)
+>-		return is_src ? TCA_FLOWER_KEY_TCP_SRC :
+>+		return endpoint == flower_src ? TCA_FLOWER_KEY_TCP_SRC :
+> 			TCA_FLOWER_KEY_TCP_DST;
+> 	else if (ip_proto == IPPROTO_UDP)
+>-		return is_src ? TCA_FLOWER_KEY_UDP_SRC :
+>+		return endpoint == flower_src ? TCA_FLOWER_KEY_UDP_SRC :
+> 			TCA_FLOWER_KEY_UDP_DST;
+> 	else if (ip_proto == IPPROTO_SCTP)
+>-		return is_src ? TCA_FLOWER_KEY_SCTP_SRC :
+>+		return endpoint == flower_src ? TCA_FLOWER_KEY_SCTP_SRC :
+> 			TCA_FLOWER_KEY_SCTP_DST;
+> 	else
+> 		return -1;
+> }
+> 
+>-static int flower_parse_port(char *str, __u8 ip_proto, bool is_src,
+>+static int flower_parse_port(char *str, __u8 ip_proto,
+>+			     enum flower_endpoint endpoint,
+> 			     struct nlmsghdr *n)
+> {
+> 	int ret;
+> 	int type;
+> 	__be16 port;
+> 
+>-	type = flower_port_attr_type(ip_proto, is_src);
+>+	type = flower_port_attr_type(ip_proto, endpoint);
+> 	if (type < 0)
+> 		return -1;
+> 
+>@@ -340,14 +346,14 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+> 			}
+> 		} else if (matches(*argv, "dst_port") == 0) {
+> 			NEXT_ARG();
+>-			ret = flower_parse_port(*argv, ip_proto, false, n);
+>+			ret = flower_parse_port(*argv, ip_proto, flower_dst, n);
+> 			if (ret < 0) {
+> 				fprintf(stderr, "Illegal \"dst_port\"\n");
+> 				return -1;
+> 			}
+> 		} else if (matches(*argv, "src_port") == 0) {
+> 			NEXT_ARG();
+>-			ret = flower_parse_port(*argv, ip_proto, true, n);
+>+			ret = flower_parse_port(*argv, ip_proto, flower_src, n);
+> 			if (ret < 0) {
+> 				fprintf(stderr, "Illegal \"src_port\"\n");
+> 				return -1;
+>-- 
+>2.7.0.rc3.207.g0ac5344
+>
