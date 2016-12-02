@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v3 01/13] net: ethernet: ti: cpts: switch to readl/writel_relaxed()
-Date: Fri, 2 Dec 2016 14:30:11 -0600
-Message-ID: <20161202203023.25526-2-grygorii.strashko@ti.com>
+Subject: [PATCH v3 05/13] net: ethernet: ti: cpts: fix registration order
+Date: Fri, 2 Dec 2016 14:30:15 -0600
+Message-ID: <20161202203023.25526-6-grygorii.strashko@ti.com>
 References: <20161202203023.25526-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,30 +20,67 @@ In-Reply-To: <20161202203023.25526-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Switch to readl/writel_relaxed() APIs, because this is recommended
-API and the CPTS IP is reused on Keystone 2 SoCs
-where LE/BE modes are supported.
+The ptp clock registered before spinlock, which is protecting it, and
+before timecounter and cyclecounter initialization in cpts_register().
+
+So, ensure that ptp clock is registered the last, after everything
+else is done.
 
 Acked-by: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 85a55b4..a42c449 100644
+index 61198f1..3dda6d5 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -33,8 +33,8 @@
- 
- #ifdef CONFIG_TI_CPTS
- 
--#define cpts_read32(c, r)	__raw_readl(&c->reg->r)
--#define cpts_write32(c, v, r)	__raw_writel(v, &c->reg->r)
-+#define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
-+#define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
- 
- static int event_expired(struct cpts_event *event)
+@@ -356,15 +356,8 @@ int cpts_register(struct device *dev, struct cpts *cpts,
+ 		  u32 mult, u32 shift)
  {
+ 	int err, i;
+-	unsigned long flags;
+ 
+ 	cpts->info = cpts_info;
+-	cpts->clock = ptp_clock_register(&cpts->info, dev);
+-	if (IS_ERR(cpts->clock)) {
+-		err = PTR_ERR(cpts->clock);
+-		cpts->clock = NULL;
+-		return err;
+-	}
+ 	spin_lock_init(&cpts->lock);
+ 
+ 	cpts->cc.read = cpts_systim_read;
+@@ -382,15 +375,26 @@ int cpts_register(struct device *dev, struct cpts *cpts,
+ 	cpts_write32(cpts, CPTS_EN, control);
+ 	cpts_write32(cpts, TS_PEND_EN, int_enable);
+ 
+-	spin_lock_irqsave(&cpts->lock, flags);
+ 	timecounter_init(&cpts->tc, &cpts->cc, ktime_to_ns(ktime_get_real()));
+-	spin_unlock_irqrestore(&cpts->lock, flags);
+ 
+ 	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
+-	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+ 
++	cpts->clock = ptp_clock_register(&cpts->info, dev);
++	if (IS_ERR(cpts->clock)) {
++		err = PTR_ERR(cpts->clock);
++		cpts->clock = NULL;
++		goto err_ptp;
++	}
+ 	cpts->phc_index = ptp_clock_index(cpts->clock);
++
++	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
++
+ 	return 0;
++
++err_ptp:
++	if (cpts->refclk)
++		cpts_clk_release(cpts);
++	return err;
+ }
+ EXPORT_SYMBOL_GPL(cpts_register);
+ 
 -- 
 2.10.1
