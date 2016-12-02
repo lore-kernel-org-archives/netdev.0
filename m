@@ -1,37 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7 net-next 0/6] net: Add bpf support for sockets
-Date: Fri, 02 Dec 2016 13:46:52 -0500 (EST)
-Message-ID: <20161202.134652.1237321538540148886.davem@davemloft.net>
-References: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v6 net-next 0/7] Support Armada 37xx SoC (ARMv8
+ 64-bits) in mvneta driver
+Date: Fri, 02 Dec 2016 13:52:27 -0500 (EST)
+Message-ID: <20161202.135227.1138440285760115646.davem@davemloft.net>
+References: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
-        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38730 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750917AbcLBSq7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 13:46:59 -0500
-In-Reply-To: <1480610888-31082-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        jszhang@marvell.com, arnd@arndb.de, jason@lakedaemon.net,
+        andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com,
+        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
+        mw@semihalf.com, dima@marvell.com, yelena@marvell.com
+To: gregory.clement@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.dd374b7aaa358be0211d7ead81129a399fa692f4.1480611779.git-series.gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Thu,  1 Dec 2016 08:48:02 -0800
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Date: Thu,  1 Dec 2016 18:03:03 +0100
 
-> The recently added VRF support in Linux leverages the bind-to-device
-> API for programs to specify an L3 domain for a socket. While
-> SO_BINDTODEVICE has been around for ages, not every ipv4/ipv6 capable
-> program has support for it. Even for those programs that do support it,
-> the API requires processes to be started as root (CAP_NET_RAW) which
-> is not desirable from a general security perspective.
+> The Armada 37xx is a new ARMv8 SoC from Marvell using same network
+> controller as the older Armada 370/38x/XP SoCs. This series adapts the
+> driver in order to be able to use it on this new SoC. The main changes
+> are:
 > 
-> This patch set leverages Daniel Mack's work to attach bpf programs to
-> a cgroup to provide a capability to set sk_bound_dev_if for all
-> AF_INET{6} sockets opened by a process in a cgroup when the sockets
-> are allocated.
+> - 64-bits support: the first patches allow using the driver on a 64-bit
+>   architecture.
+> 
+> - MBUS support: the mbus configuration is different on Armada 37xx
+>   from the older SoCs.
+> 
+> - per cpu interrupt: Armada 37xx do not support per cpu interrupt for
+>   the NETA IP, the non-per-CPU behavior was added back.
+> 
+> The first patch is an optimization in the rx path in swbm mode.
+> The second patch remove unnecessary allocation for HWBM.
+> The first item is solved by patches 4 and 5.
+> The 2 last items are solved by patch 6.
+> In patch 7 the dt support is added.
+> 
+> Beside Armada 37xx, this series have been again tested on Armada XP
+> and Armada 38x (with Hardware Buffer Management and with Software
+> Buffer Management).
  ...
 
-Series applied, thanks David.
+Series applied, thanks.
