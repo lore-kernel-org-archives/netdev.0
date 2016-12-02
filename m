@@ -1,65 +1,40 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH net-next] liquidio: 'imply' ptp instead of 'select'
-Date: Fri, 2 Dec 2016 18:20:13 -0500 (EST)
-Message-ID: <alpine.LFD.2.20.1612021819350.13571@knanqh.ubzr>
-References: <20161202230451.1639318-1-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] iproute2: ss: escape all null bytes in abstract unix
+ domain socket
+Date: Fri, 02 Dec 2016 15:24:35 -0800
+Message-ID: <1480721075.18162.389.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
+         <20161112101729.4d400929@samsung9>
+            <1480705196.18162.381.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161202151810.4fab9504@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        David Daney <david.daney@cavium.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        Sunil Goutham <sgoutham@cavium.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161202230451.1639318-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Isaac Boukris <iboukris@gmail.com>, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36744 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750903AbcLBX0d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 18:26:33 -0500
+Received: by mail-pg0-f65.google.com with SMTP id x23so9170138pgx.3
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 15:25:36 -0800 (PST)
+In-Reply-To: <20161202151810.4fab9504@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 3 Dec 2016, Arnd Bergmann wrote:
+On Fri, 2016-12-02 at 15:18 -0800, Stephen Hemminger wrote:
+>                                     name[i] = '@';
+> > 
+> > ss.c: In function 'unix_show_sock':
+> > ss.c:3128:4: error: 'for' loop initial declarations are only allowed in C99 mode
+> > ss.c:3128:4: note: use option -std=c99 or -std=gnu99 to compile your code
+> > make[1]: *** [ss.o] Error 1
+> > 
+> > 
+> > 
+> 
+> Thanks, fixed by patch from Simon
 
-> ptp now depends on the optional POSIX_TIMERS setting and fails to build
-> if we select it without that:
-> 
-> warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
-> warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
-> ERROR: "posix_clock_unregister" [drivers/ptp/ptp.ko] undefined!
-> ERROR: "posix_clock_register" [drivers/ptp/ptp.ko] undefined!
-> ERROR: "pps_unregister_source" [drivers/ptp/ptp.ko] undefined!
-> ERROR: "pps_event" [drivers/ptp/ptp.ko] undefined!
-> ERROR: "pps_register_source" [drivers/ptp/ptp.ko] undefined!
-> 
-> It seems that two patches have collided here, the build failure
-> is a result of the combination. Changing the new option to 'imply'
-> as well fixes it.
-> 
-> Fixes: 111fc64a237f ("liquidio CN23XX: VF registration")
-> Fixes: d1cbfd771ce8 ("ptp_clock: Allow for it to be optional")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-Acked-by: Nicolas Pitre <nico@linaro.org>
-
-> ---
->  drivers/net/ethernet/cavium/Kconfig | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-> index bbc8bd16cb97..dcbce6cac63e 100644
-> --- a/drivers/net/ethernet/cavium/Kconfig
-> +++ b/drivers/net/ethernet/cavium/Kconfig
-> @@ -77,7 +77,7 @@ config OCTEON_MGMT_ETHERNET
->  config LIQUIDIO_VF
->  	tristate "Cavium LiquidIO VF support"
->  	depends on 64BIT && PCI_MSI
-> -	select PTP_1588_CLOCK
-> +	imply PTP_1588_CLOCK
->  	---help---
->  	  This driver supports Cavium LiquidIO Intelligent Server Adapter
->  	  based on CN23XX chips.
-> -- 
-> 2.9.0
-> 
-> 
+Right, thanks !
