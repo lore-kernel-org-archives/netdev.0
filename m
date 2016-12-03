@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sfc: remove EFX_BUG_ON_PARANOID, use
- EFX_WARN_ON_[ONCE_]PARANOID instead
-Date: Sat, 03 Dec 2016 16:11:24 -0500 (EST)
-Message-ID: <20161203.161124.670604606383689626.davem@davemloft.net>
-References: <9435baa4-b9b5-955e-eac2-3106feb87136@solarflare.com>
+Subject: Re: [PATCH net-next] net_sched: gen_estimator: account for timer
+ drifts
+Date: Sat, 03 Dec 2016 16:12:34 -0500 (EST)
+Message-ID: <20161203.161234.605773166761239343.davem@davemloft.net>
+References: <1480695060.18162.363.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, bkenward@solarflare.com,
-        netdev@vger.kernel.org
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37484 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37482 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750976AbcLCVTh (ORCPT
+        with ESMTP id S1750873AbcLCVTh (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 16:19:37 -0500
-In-Reply-To: <9435baa4-b9b5-955e-eac2-3106feb87136@solarflare.com>
+In-Reply-To: <1480695060.18162.363.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Fri, 2 Dec 2016 15:51:33 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 02 Dec 2016 08:11:00 -0800
 
-> Logically, EFX_BUG_ON_PARANOID can never be correct.  For, BUG_ON should
->  only be used if it is not possible to continue without potential harm;
->  and since the non-DEBUG driver will continue regardless (as the BUG_ON is
->  compiled out), clearly the BUG_ON cannot be needed in the DEBUG driver.
-> So, replace every EFX_BUG_ON_PARANOID with either an EFX_WARN_ON_PARANOID
->  or the newly defined EFX_WARN_ON_ONCE_PARANOID.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> Under heavy stress, timer used in estimators tend to slowly be delayed
+> by a few jiffies, leading to inaccuracies.
+> 
+> Lets remember what was the last scheduled jiffies so that we get more
+> precise estimations, without having to add a multiply/divide in the loop
+> to account for the drifts.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
