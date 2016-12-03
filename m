@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 8/8] tcp: tsq: move tsq_flags close to sk_wmem_alloc
-Date: Sat,  3 Dec 2016 11:14:57 -0800
-Message-ID: <1480792497-16607-9-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 7/8] net: reorganize struct sock for better data locality
+Date: Sat,  3 Dec 2016 11:14:56 -0800
+Message-ID: <1480792497-16607-8-git-send-email-edumazet@google.com>
 References: <1480792497-16607-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -9,197 +9,168 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33143 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751749AbcLCTQ2 (ORCPT
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:35724 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751695AbcLCTQ2 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 14:16:28 -0500
-Received: by mail-pf0-f173.google.com with SMTP id d2so57438204pfd.0
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:15:18 -0800 (PST)
+Received: by mail-pg0-f48.google.com with SMTP id p66so120173910pga.2
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:15:16 -0800 (PST)
 In-Reply-To: <1480792497-16607-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tsq_flags being in the same cache line than sk_wmem_alloc
-makes a lot of sense. Both fields are changed from tcp_wfree()
-and more generally by various TSQ related functions.
+Group fields used in TX path, and keep some cache lines mostly read
+to permit sharing among cpus.
 
-Prior patch made room in struct sock and added sk_tsq_flags,
-this patch deletes tsq_flags from struct tcp_sock.
+Gained two 4 bytes holes on 64bit arches.
+
+Added a place holder for tcp tsq_flags, next to sk_wmem_alloc
+to speed up tcp_wfree() in the following patch.
+
+I have not added ____cacheline_aligned_in_smp, this might be done later.
+I prefer doing this once inet and tcp/udp sockets reorg is also done.
+
+Tested with both TCP and UDP.
+
+UDP receiver performance under flood increased by ~20 % :
+Accessing sk_filter/sk_wq/sk_napi_id no longer stalls because sk_drops
+was moved away from a critical cache line, now mostly read and shared.
+
+	/* --- cacheline 4 boundary (256 bytes) --- */
+	unsigned int               sk_napi_id;           /* 0x100   0x4 */
+	int                        sk_rcvbuf;            /* 0x104   0x4 */
+	struct sk_filter *         sk_filter;            /* 0x108   0x8 */
+	union {
+		struct socket_wq * sk_wq;                /*         0x8 */
+		struct socket_wq * sk_wq_raw;            /*         0x8 */
+	};                                               /* 0x110   0x8 */
+	struct xfrm_policy *       sk_policy[2];         /* 0x118  0x10 */
+	struct dst_entry *         sk_rx_dst;            /* 0x128   0x8 */
+	struct dst_entry *         sk_dst_cache;         /* 0x130   0x8 */
+	atomic_t                   sk_omem_alloc;        /* 0x138   0x4 */
+	int                        sk_sndbuf;            /* 0x13c   0x4 */
+	/* --- cacheline 5 boundary (320 bytes) --- */
+	int                        sk_wmem_queued;       /* 0x140   0x4 */
+	atomic_t                   sk_wmem_alloc;        /* 0x144   0x4 */
+	long unsigned int          sk_tsq_flags;         /* 0x148   0x8 */
+	struct sk_buff *           sk_send_head;         /* 0x150   0x8 */
+	struct sk_buff_head        sk_write_queue;       /* 0x158  0x18 */
+	__s32                      sk_peek_off;          /* 0x170   0x4 */
+	int                        sk_write_pending;     /* 0x174   0x4 */
+	long int                   sk_sndtimeo;          /* 0x178   0x8 */
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/linux/tcp.h   |  1 -
- net/ipv4/tcp.c        |  4 ++--
- net/ipv4/tcp_ipv4.c   |  2 +-
- net/ipv4/tcp_output.c | 24 +++++++++++-------------
- net/ipv4/tcp_timer.c  |  4 ++--
- net/ipv6/tcp_ipv6.c   |  2 +-
- 6 files changed, 17 insertions(+), 20 deletions(-)
+ include/net/sock.h | 51 +++++++++++++++++++++++++++------------------------
+ 1 file changed, 27 insertions(+), 24 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index d8be083ab0b0..fc5848dad7a4 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -186,7 +186,6 @@ struct tcp_sock {
- 	u32	tsoffset;	/* timestamp offset */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 69afda6bea15..6dfe3aa22b97 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -343,6 +343,9 @@ struct sock {
+ #define sk_rxhash		__sk_common.skc_rxhash
  
- 	struct list_head tsq_node; /* anchor in tsq_tasklet.head list */
--	unsigned long	tsq_flags;
+ 	socket_lock_t		sk_lock;
++	atomic_t		sk_drops;
++	int			sk_rcvlowat;
++	struct sk_buff_head	sk_error_queue;
+ 	struct sk_buff_head	sk_receive_queue;
+ 	/*
+ 	 * The backlog queue is special, it is always used with
+@@ -359,14 +362,13 @@ struct sock {
+ 		struct sk_buff	*tail;
+ 	} sk_backlog;
+ #define sk_rmem_alloc sk_backlog.rmem_alloc
+-	int			sk_forward_alloc;
  
- 	/* Data for direct copy to user */
- 	struct {
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1149b48700a1..1ef3165114ba 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -663,9 +663,9 @@ static void tcp_push(struct sock *sk, int flags, int mss_now,
- 	if (tcp_should_autocork(sk, skb, size_goal)) {
+-	__u32			sk_txhash;
++	int			sk_forward_alloc;
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+-	unsigned int		sk_napi_id;
+ 	unsigned int		sk_ll_usec;
++	/* ===== mostly read cache line ===== */
++	unsigned int		sk_napi_id;
+ #endif
+-	atomic_t		sk_drops;
+ 	int			sk_rcvbuf;
  
- 		/* avoid atomic op if TSQ_THROTTLED bit is already set */
--		if (!test_bit(TSQ_THROTTLED, &tp->tsq_flags)) {
-+		if (!test_bit(TSQ_THROTTLED, &sk->sk_tsq_flags)) {
- 			NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPAUTOCORKING);
--			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
-+			set_bit(TSQ_THROTTLED, &sk->sk_tsq_flags);
- 		}
- 		/* It is possible TX completion already happened
- 		 * before we set TSQ_THROTTLED.
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index b50f05905ced..30d81f533ada 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -443,7 +443,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
- 			if (!sock_owned_by_user(sk)) {
- 				tcp_v4_mtu_reduced(sk);
- 			} else {
--				if (!test_and_set_bit(TCP_MTU_REDUCED_DEFERRED, &tp->tsq_flags))
-+				if (!test_and_set_bit(TCP_MTU_REDUCED_DEFERRED, &sk->sk_tsq_flags))
- 					sock_hold(sk);
- 			}
- 			goto out;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5f04bee4c86a..b45101f3d2bd 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -767,14 +767,15 @@ static void tcp_tasklet_func(unsigned long data)
- 	list_for_each_safe(q, n, &list) {
- 		tp = list_entry(q, struct tcp_sock, tsq_node);
- 		list_del(&tp->tsq_node);
--		clear_bit(TSQ_QUEUED, &tp->tsq_flags);
- 
- 		sk = (struct sock *)tp;
-+		clear_bit(TSQ_QUEUED, &sk->sk_tsq_flags);
+ 	struct sk_filter __rcu	*sk_filter;
+@@ -379,11 +381,30 @@ struct sock {
+ #endif
+ 	struct dst_entry	*sk_rx_dst;
+ 	struct dst_entry __rcu	*sk_dst_cache;
+-	/* Note: 32bit hole on 64bit arches */
+-	atomic_t		sk_wmem_alloc;
+ 	atomic_t		sk_omem_alloc;
+ 	int			sk_sndbuf;
 +
- 		if (!sk->sk_lock.owned &&
--		    test_bit(TCP_TSQ_DEFERRED, &tp->tsq_flags)) {
-+		    test_bit(TCP_TSQ_DEFERRED, &sk->sk_tsq_flags)) {
- 			bh_lock_sock(sk);
- 			if (!sock_owned_by_user(sk)) {
--				clear_bit(TCP_TSQ_DEFERRED, &tp->tsq_flags);
-+				clear_bit(TCP_TSQ_DEFERRED, &sk->sk_tsq_flags);
- 				tcp_tsq_handler(sk);
- 			}
- 			bh_unlock_sock(sk);
-@@ -797,16 +798,15 @@ static void tcp_tasklet_func(unsigned long data)
-  */
- void tcp_release_cb(struct sock *sk)
- {
--	struct tcp_sock *tp = tcp_sk(sk);
- 	unsigned long flags, nflags;
++	/* ===== cache line for TX ===== */
++	int			sk_wmem_queued;
++	atomic_t		sk_wmem_alloc;
++	unsigned long		sk_tsq_flags;
++	struct sk_buff		*sk_send_head;
+ 	struct sk_buff_head	sk_write_queue;
++	__s32			sk_peek_off;
++	int			sk_write_pending;
++	long			sk_sndtimeo;
++	struct timer_list	sk_timer;
++	__u32			sk_priority;
++	__u32			sk_mark;
++	u32			sk_pacing_rate; /* bytes per second */
++	u32			sk_max_pacing_rate;
++	struct page_frag	sk_frag;
++	netdev_features_t	sk_route_caps;
++	netdev_features_t	sk_route_nocaps;
++	int			sk_gso_type;
++	unsigned int		sk_gso_max_size;
++	gfp_t			sk_allocation;
++	__u32			sk_txhash;
  
- 	/* perform an atomic operation only if at least one flag is set */
- 	do {
--		flags = tp->tsq_flags;
-+		flags = sk->sk_tsq_flags;
- 		if (!(flags & TCP_DEFERRED_ALL))
- 			return;
- 		nflags = flags & ~TCP_DEFERRED_ALL;
--	} while (cmpxchg(&tp->tsq_flags, flags, nflags) != flags);
-+	} while (cmpxchg(&sk->sk_tsq_flags, flags, nflags) != flags);
+ 	/*
+ 	 * Because of non atomicity rules, all
+@@ -414,42 +435,24 @@ struct sock {
+ #define SK_PROTOCOL_MAX U8_MAX
+ 	kmemcheck_bitfield_end(flags);
  
- 	if (flags & TCPF_TSQ_DEFERRED)
- 		tcp_tsq_handler(sk);
-@@ -878,7 +878,7 @@ void tcp_wfree(struct sk_buff *skb)
- 	if (wmem >= SKB_TRUESIZE(1) && this_cpu_ksoftirqd() == current)
- 		goto out;
- 
--	for (oval = READ_ONCE(tp->tsq_flags);; oval = nval) {
-+	for (oval = READ_ONCE(sk->sk_tsq_flags);; oval = nval) {
- 		struct tsq_tasklet *tsq;
- 		bool empty;
- 
-@@ -886,7 +886,7 @@ void tcp_wfree(struct sk_buff *skb)
- 			goto out;
- 
- 		nval = (oval & ~TSQF_THROTTLED) | TSQF_QUEUED | TCPF_TSQ_DEFERRED;
--		nval = cmpxchg(&tp->tsq_flags, oval, nval);
-+		nval = cmpxchg(&sk->sk_tsq_flags, oval, nval);
- 		if (nval != oval)
- 			continue;
- 
-@@ -2100,7 +2100,7 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
- 		    skb->prev == sk->sk_write_queue.next)
- 			return false;
- 
--		set_bit(TSQ_THROTTLED, &tcp_sk(sk)->tsq_flags);
-+		set_bit(TSQ_THROTTLED, &sk->sk_tsq_flags);
- 		/* It is possible TX completion already happened
- 		 * before we set TSQ_THROTTLED, so we must
- 		 * test again the condition.
-@@ -2241,8 +2241,8 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 		    unlikely(tso_fragment(sk, skb, limit, mss_now, gfp)))
- 			break;
- 
--		if (test_bit(TCP_TSQ_DEFERRED, &tp->tsq_flags))
--			clear_bit(TCP_TSQ_DEFERRED, &tp->tsq_flags);
-+		if (test_bit(TCP_TSQ_DEFERRED, &sk->sk_tsq_flags))
-+			clear_bit(TCP_TSQ_DEFERRED, &sk->sk_tsq_flags);
- 		if (tcp_small_queue_check(sk, skb, 0))
- 			break;
- 
-@@ -3545,8 +3545,6 @@ void tcp_send_ack(struct sock *sk)
- 	/* We do not want pure acks influencing TCP Small Queues or fq/pacing
- 	 * too much.
- 	 * SKB_TRUESIZE(max(1 .. 66, MAX_TCP_HEADER)) is unfortunately ~784
--	 * We also avoid tcp_wfree() overhead (cache line miss accessing
--	 * tp->tsq_flags) by using regular sock_wfree()
- 	 */
- 	skb_set_tcp_pure_ack(buff);
- 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 3ea1cf804748..3705075f42c3 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -310,7 +310,7 @@ static void tcp_delack_timer(unsigned long data)
- 		inet_csk(sk)->icsk_ack.blocked = 1;
- 		__NET_INC_STATS(sock_net(sk), LINUX_MIB_DELAYEDACKLOCKED);
- 		/* deleguate our work to tcp_release_cb() */
--		if (!test_and_set_bit(TCP_DELACK_TIMER_DEFERRED, &tcp_sk(sk)->tsq_flags))
-+		if (!test_and_set_bit(TCP_DELACK_TIMER_DEFERRED, &sk->sk_tsq_flags))
- 			sock_hold(sk);
- 	}
- 	bh_unlock_sock(sk);
-@@ -592,7 +592,7 @@ static void tcp_write_timer(unsigned long data)
- 		tcp_write_timer_handler(sk);
- 	} else {
- 		/* delegate our work to tcp_release_cb() */
--		if (!test_and_set_bit(TCP_WRITE_TIMER_DEFERRED, &tcp_sk(sk)->tsq_flags))
-+		if (!test_and_set_bit(TCP_WRITE_TIMER_DEFERRED, &sk->sk_tsq_flags))
- 			sock_hold(sk);
- 	}
- 	bh_unlock_sock(sk);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index a2185a214abc..73bc8fc68acd 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -399,7 +399,7 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		if (!sock_owned_by_user(sk))
- 			tcp_v6_mtu_reduced(sk);
- 		else if (!test_and_set_bit(TCP_MTU_REDUCED_DEFERRED,
--					   &tp->tsq_flags))
-+					   &sk->sk_tsq_flags))
- 			sock_hold(sk);
- 		goto out;
- 	}
+-	int			sk_wmem_queued;
+-	gfp_t			sk_allocation;
+-	u32			sk_pacing_rate; /* bytes per second */
+-	u32			sk_max_pacing_rate;
+-	netdev_features_t	sk_route_caps;
+-	netdev_features_t	sk_route_nocaps;
+-	int			sk_gso_type;
+-	unsigned int		sk_gso_max_size;
+ 	u16			sk_gso_max_segs;
+-	int			sk_rcvlowat;
+ 	unsigned long	        sk_lingertime;
+-	struct sk_buff_head	sk_error_queue;
+ 	struct proto		*sk_prot_creator;
+ 	rwlock_t		sk_callback_lock;
+ 	int			sk_err,
+ 				sk_err_soft;
+ 	u32			sk_ack_backlog;
+ 	u32			sk_max_ack_backlog;
+-	__u32			sk_priority;
+-	__u32			sk_mark;
+ 	kuid_t			sk_uid;
+ 	struct pid		*sk_peer_pid;
+ 	const struct cred	*sk_peer_cred;
+ 	long			sk_rcvtimeo;
+-	long			sk_sndtimeo;
+-	struct timer_list	sk_timer;
+ 	ktime_t			sk_stamp;
+ 	u16			sk_tsflags;
+ 	u8			sk_shutdown;
+ 	u32			sk_tskey;
+ 	struct socket		*sk_socket;
+ 	void			*sk_user_data;
+-	struct page_frag	sk_frag;
+-	struct sk_buff		*sk_send_head;
+-	__s32			sk_peek_off;
+-	int			sk_write_pending;
+ #ifdef CONFIG_SECURITY
+ 	void			*sk_security;
+ #endif
 -- 
 2.8.0.rc3.226.g39d4020
