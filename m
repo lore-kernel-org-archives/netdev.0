@@ -1,85 +1,79 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net: ping: check minimum size on ICMP header length
-Date: Fri, 2 Dec 2016 16:58:53 -0800
-Message-ID: <20161203005853.GA117599@beast>
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH net-next] liquidio: 'imply' ptp instead of 'select'
+Date: Sat, 3 Dec 2016 09:23:40 +0800
+Message-ID: <201612030941.E0AwlX5M%fengguang.wu@intel.com>
+References: <20161202230451.1639318-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Min Chong <mchong@google.com>,
-        Qidan He <i@flanker017.me>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: kbuild-all@01.org, "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        David Daney <david.daney@cavium.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Nicolas Pitre <nicolas.pitre@linaro.org>,
+        Sunil Goutham <sgoutham@cavium.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <20161202230451.1639318-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Prior to commit c0371da6047a ("put iov_iter into msghdr") in v3.19, there
-was no check that the iovec contained enough bytes for a icmp header,
-and the read loop would walk across neighboring stack contents. Since
-the iov_iter conversion, bad arguments are noticed, but the returned
-error is EFAULT. Returning EMSGSIZE is a clearer fix and solves the
-problem prior to v3.19.
+Hi Arnd,
 
-This was found using trinity with KASAN on v3.18:
+[auto build test ERROR on net-next/master]
 
-BUG: KASAN: stack-out-of-bounds in memcpy_fromiovec+0x60/0x114 at addr ffffffc071077da0
-Read of size 8 by task trinity-c2/9623
-page:ffffffbe034b9a08 count:0 mapcount:0 mapping:          (null) index:0x0
-flags: 0x0()
-page dumped because: kasan: bad access detected
-CPU: 0 PID: 9623 Comm: trinity-c2 Tainted: G    BU         3.18.0-dirty #15
-Hardware name: Google Tegra210 Smaug Rev 1,3+ (DT)
-Call trace:
-[<ffffffc000209c98>] dump_backtrace+0x0/0x1ac arch/arm64/kernel/traps.c:90
-[<ffffffc000209e54>] show_stack+0x10/0x1c arch/arm64/kernel/traps.c:171
-[<     inline     >] __dump_stack lib/dump_stack.c:15
-[<ffffffc000f18dc4>] dump_stack+0x7c/0xd0 lib/dump_stack.c:50
-[<     inline     >] print_address_description mm/kasan/report.c:147
-[<     inline     >] kasan_report_error mm/kasan/report.c:236
-[<ffffffc000373dcc>] kasan_report+0x380/0x4b8 mm/kasan/report.c:259
-[<     inline     >] check_memory_region mm/kasan/kasan.c:264
-[<ffffffc00037352c>] __asan_load8+0x20/0x70 mm/kasan/kasan.c:507
-[<ffffffc0005b9624>] memcpy_fromiovec+0x5c/0x114 lib/iovec.c:15
-[<     inline     >] memcpy_from_msg include/linux/skbuff.h:2667
-[<ffffffc000ddeba0>] ping_common_sendmsg+0x50/0x108 net/ipv4/ping.c:674
-[<ffffffc000dded30>] ping_v4_sendmsg+0xd8/0x698 net/ipv4/ping.c:714
-[<ffffffc000dc91dc>] inet_sendmsg+0xe0/0x12c net/ipv4/af_inet.c:749
-[<     inline     >] __sock_sendmsg_nosec net/socket.c:624
-[<     inline     >] __sock_sendmsg net/socket.c:632
-[<ffffffc000cab61c>] sock_sendmsg+0x124/0x164 net/socket.c:643
-[<     inline     >] SYSC_sendto net/socket.c:1797
-[<ffffffc000cad270>] SyS_sendto+0x178/0x1d8 net/socket.c:1761
+url:    https://github.com/0day-ci/linux/commits/Arnd-Bergmann/liquidio-imply-ptp-instead-of-select/20161203-084019
+config: x86_64-allmodconfig
+compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+reproduce:
+        make ARCH=x86_64  allmodconfig
+        make ARCH=x86_64 
 
-CVE-2016-8399
+All errors (new ones prefixed by >>):
 
-Reported-by: Qidan He <i@flanker017.me>
-Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
-Cc: stable@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
+>> drivers/net/ethernet/cavium/Kconfig:81: syntax error
+>> drivers/net/ethernet/cavium/Kconfig:80: unknown option "imply"
+   make[2]: *** [allmodconfig] Error 1
+   make[1]: *** [allmodconfig] Error 2
+   make: *** [sub-make] Error 2
+--
+>> drivers/net/ethernet/cavium/Kconfig:81: syntax error
+>> drivers/net/ethernet/cavium/Kconfig:80: unknown option "imply"
+   make[2]: *** [oldconfig] Error 1
+   make[1]: *** [oldconfig] Error 2
+   make: *** [sub-make] Error 2
+--
+>> drivers/net/ethernet/cavium/Kconfig:81: syntax error
+>> drivers/net/ethernet/cavium/Kconfig:80: unknown option "imply"
+   make[2]: *** [olddefconfig] Error 1
+   make[2]: Target 'oldnoconfig' not remade because of errors.
+   make[1]: *** [oldnoconfig] Error 2
+   make: *** [sub-make] Error 2
+
+vim +81 drivers/net/ethernet/cavium/Kconfig
+
+d07a147f David Daney     2016-03-14  74  	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
+d07a147f David Daney     2016-03-14  75  	  CN54XX, CN52XX, and CN6XXX chips.
+d07a147f David Daney     2016-03-14  76  
+111fc64a Raghu Vatsavayi 2016-11-28  77  config LIQUIDIO_VF
+111fc64a Raghu Vatsavayi 2016-11-28  78  	tristate "Cavium LiquidIO VF support"
+111fc64a Raghu Vatsavayi 2016-11-28  79  	depends on 64BIT && PCI_MSI
+2d6e65ca Arnd Bergmann   2016-12-03 @80  	imply PTP_1588_CLOCK
+111fc64a Raghu Vatsavayi 2016-11-28 @81  	---help---
+111fc64a Raghu Vatsavayi 2016-11-28  82  	  This driver supports Cavium LiquidIO Intelligent Server Adapter
+111fc64a Raghu Vatsavayi 2016-11-28  83  	  based on CN23XX chips.
+111fc64a Raghu Vatsavayi 2016-11-28  84  
+
+:::::: The code at line 81 was first introduced by commit
+:::::: 111fc64a237f231bc2d3187bdf8358eb7966e6a9 liquidio CN23XX: VF registration
+
+:::::: TO: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+:::::: CC: David S. Miller <davem@davemloft.net>
+
 ---
- net/ipv4/ping.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 205e2000d395..8257be3f032c 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -654,7 +654,7 @@ int ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
- 			void *user_icmph, size_t icmph_len) {
- 	u8 type, code;
- 
--	if (len > 0xFFFF)
-+	if (len > 0xFFFF || len < icmph_len)
- 		return -EMSGSIZE;
- 
- 	/*
--- 
-2.7.4
-
-
--- 
-Kees Cook
-Nexus Security
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
