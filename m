@@ -1,7 +1,7 @@
 From: Pan Bian <bianpan2016@163.com>
 Subject: [PATCH 1/1] net: wireless: intersil: fix improper return value
-Date: Sat,  3 Dec 2016 18:18:40 +0800
-Message-ID: <1480760320-4380-1-git-send-email-bianpan2016@163.com>
+Date: Sat,  3 Dec 2016 18:22:52 +0800
+Message-ID: <1480760572-4444-1-git-send-email-bianpan2016@163.com>
 Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
 To: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
         netdev@vger.kernel.org
