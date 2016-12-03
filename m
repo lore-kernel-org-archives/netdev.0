@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 7/8] net: reorganize struct sock for better data locality
-Date: Sat,  3 Dec 2016 11:14:56 -0800
-Message-ID: <1480792497-16607-8-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 6/8] tcp: tcp_mtu_probe() is likely to exit early
+Date: Sat,  3 Dec 2016 11:14:55 -0800
+Message-ID: <1480792497-16607-7-git-send-email-edumazet@google.com>
 References: <1480792497-16607-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -9,168 +9,66 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:35724 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751695AbcLCTQ2 (ORCPT
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:32978 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751688AbcLCTQ2 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 14:16:28 -0500
-Received: by mail-pg0-f48.google.com with SMTP id p66so120173910pga.2
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:15:16 -0800 (PST)
+Received: by mail-pg0-f50.google.com with SMTP id 3so120162113pgd.0
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:15:14 -0800 (PST)
 In-Reply-To: <1480792497-16607-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Group fields used in TX path, and keep some cache lines mostly read
-to permit sharing among cpus.
+Adding a likely() in tcp_mtu_probe() moves its code which used to
+be inlined in front of tcp_write_xmit()
 
-Gained two 4 bytes holes on 64bit arches.
-
-Added a place holder for tcp tsq_flags, next to sk_wmem_alloc
-to speed up tcp_wfree() in the following patch.
-
-I have not added ____cacheline_aligned_in_smp, this might be done later.
-I prefer doing this once inet and tcp/udp sockets reorg is also done.
-
-Tested with both TCP and UDP.
-
-UDP receiver performance under flood increased by ~20 % :
-Accessing sk_filter/sk_wq/sk_napi_id no longer stalls because sk_drops
-was moved away from a critical cache line, now mostly read and shared.
-
-	/* --- cacheline 4 boundary (256 bytes) --- */
-	unsigned int               sk_napi_id;           /* 0x100   0x4 */
-	int                        sk_rcvbuf;            /* 0x104   0x4 */
-	struct sk_filter *         sk_filter;            /* 0x108   0x8 */
-	union {
-		struct socket_wq * sk_wq;                /*         0x8 */
-		struct socket_wq * sk_wq_raw;            /*         0x8 */
-	};                                               /* 0x110   0x8 */
-	struct xfrm_policy *       sk_policy[2];         /* 0x118  0x10 */
-	struct dst_entry *         sk_rx_dst;            /* 0x128   0x8 */
-	struct dst_entry *         sk_dst_cache;         /* 0x130   0x8 */
-	atomic_t                   sk_omem_alloc;        /* 0x138   0x4 */
-	int                        sk_sndbuf;            /* 0x13c   0x4 */
-	/* --- cacheline 5 boundary (320 bytes) --- */
-	int                        sk_wmem_queued;       /* 0x140   0x4 */
-	atomic_t                   sk_wmem_alloc;        /* 0x144   0x4 */
-	long unsigned int          sk_tsq_flags;         /* 0x148   0x8 */
-	struct sk_buff *           sk_send_head;         /* 0x150   0x8 */
-	struct sk_buff_head        sk_write_queue;       /* 0x158  0x18 */
-	__s32                      sk_peek_off;          /* 0x170   0x4 */
-	int                        sk_write_pending;     /* 0x174   0x4 */
-	long int                   sk_sndtimeo;          /* 0x178   0x8 */
+We still have a cache line miss to access icsk->icsk_mtup.enabled,
+we will probably have to reorganize fields to help data locality.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/sock.h | 51 +++++++++++++++++++++++++++------------------------
- 1 file changed, 27 insertions(+), 24 deletions(-)
+ net/ipv4/tcp_output.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 69afda6bea15..6dfe3aa22b97 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -343,6 +343,9 @@ struct sock {
- #define sk_rxhash		__sk_common.skc_rxhash
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index d5c46749adab..5f04bee4c86a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1932,26 +1932,26 @@ static inline void tcp_mtu_check_reprobe(struct sock *sk)
+  */
+ static int tcp_mtu_probe(struct sock *sk)
+ {
+-	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
++	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb, *nskb, *next;
+ 	struct net *net = sock_net(sk);
+-	int len;
+ 	int probe_size;
+ 	int size_needed;
+-	int copy;
++	int copy, len;
+ 	int mss_now;
+ 	int interval;
  
- 	socket_lock_t		sk_lock;
-+	atomic_t		sk_drops;
-+	int			sk_rcvlowat;
-+	struct sk_buff_head	sk_error_queue;
- 	struct sk_buff_head	sk_receive_queue;
- 	/*
- 	 * The backlog queue is special, it is always used with
-@@ -359,14 +362,13 @@ struct sock {
- 		struct sk_buff	*tail;
- 	} sk_backlog;
- #define sk_rmem_alloc sk_backlog.rmem_alloc
--	int			sk_forward_alloc;
+ 	/* Not currently probing/verifying,
+ 	 * not in recovery,
+ 	 * have enough cwnd, and
+-	 * not SACKing (the variable headers throw things off) */
+-	if (!icsk->icsk_mtup.enabled ||
+-	    icsk->icsk_mtup.probe_size ||
+-	    inet_csk(sk)->icsk_ca_state != TCP_CA_Open ||
+-	    tp->snd_cwnd < 11 ||
+-	    tp->rx_opt.num_sacks || tp->rx_opt.dsack)
++	 * not SACKing (the variable headers throw things off)
++	 */
++	if (likely(!icsk->icsk_mtup.enabled ||
++		   icsk->icsk_mtup.probe_size ||
++		   inet_csk(sk)->icsk_ca_state != TCP_CA_Open ||
++		   tp->snd_cwnd < 11 ||
++		   tp->rx_opt.num_sacks || tp->rx_opt.dsack))
+ 		return -1;
  
--	__u32			sk_txhash;
-+	int			sk_forward_alloc;
- #ifdef CONFIG_NET_RX_BUSY_POLL
--	unsigned int		sk_napi_id;
- 	unsigned int		sk_ll_usec;
-+	/* ===== mostly read cache line ===== */
-+	unsigned int		sk_napi_id;
- #endif
--	atomic_t		sk_drops;
- 	int			sk_rcvbuf;
- 
- 	struct sk_filter __rcu	*sk_filter;
-@@ -379,11 +381,30 @@ struct sock {
- #endif
- 	struct dst_entry	*sk_rx_dst;
- 	struct dst_entry __rcu	*sk_dst_cache;
--	/* Note: 32bit hole on 64bit arches */
--	atomic_t		sk_wmem_alloc;
- 	atomic_t		sk_omem_alloc;
- 	int			sk_sndbuf;
-+
-+	/* ===== cache line for TX ===== */
-+	int			sk_wmem_queued;
-+	atomic_t		sk_wmem_alloc;
-+	unsigned long		sk_tsq_flags;
-+	struct sk_buff		*sk_send_head;
- 	struct sk_buff_head	sk_write_queue;
-+	__s32			sk_peek_off;
-+	int			sk_write_pending;
-+	long			sk_sndtimeo;
-+	struct timer_list	sk_timer;
-+	__u32			sk_priority;
-+	__u32			sk_mark;
-+	u32			sk_pacing_rate; /* bytes per second */
-+	u32			sk_max_pacing_rate;
-+	struct page_frag	sk_frag;
-+	netdev_features_t	sk_route_caps;
-+	netdev_features_t	sk_route_nocaps;
-+	int			sk_gso_type;
-+	unsigned int		sk_gso_max_size;
-+	gfp_t			sk_allocation;
-+	__u32			sk_txhash;
- 
- 	/*
- 	 * Because of non atomicity rules, all
-@@ -414,42 +435,24 @@ struct sock {
- #define SK_PROTOCOL_MAX U8_MAX
- 	kmemcheck_bitfield_end(flags);
- 
--	int			sk_wmem_queued;
--	gfp_t			sk_allocation;
--	u32			sk_pacing_rate; /* bytes per second */
--	u32			sk_max_pacing_rate;
--	netdev_features_t	sk_route_caps;
--	netdev_features_t	sk_route_nocaps;
--	int			sk_gso_type;
--	unsigned int		sk_gso_max_size;
- 	u16			sk_gso_max_segs;
--	int			sk_rcvlowat;
- 	unsigned long	        sk_lingertime;
--	struct sk_buff_head	sk_error_queue;
- 	struct proto		*sk_prot_creator;
- 	rwlock_t		sk_callback_lock;
- 	int			sk_err,
- 				sk_err_soft;
- 	u32			sk_ack_backlog;
- 	u32			sk_max_ack_backlog;
--	__u32			sk_priority;
--	__u32			sk_mark;
- 	kuid_t			sk_uid;
- 	struct pid		*sk_peer_pid;
- 	const struct cred	*sk_peer_cred;
- 	long			sk_rcvtimeo;
--	long			sk_sndtimeo;
--	struct timer_list	sk_timer;
- 	ktime_t			sk_stamp;
- 	u16			sk_tsflags;
- 	u8			sk_shutdown;
- 	u32			sk_tskey;
- 	struct socket		*sk_socket;
- 	void			*sk_user_data;
--	struct page_frag	sk_frag;
--	struct sk_buff		*sk_send_head;
--	__s32			sk_peek_off;
--	int			sk_write_pending;
- #ifdef CONFIG_SECURITY
- 	void			*sk_security;
- #endif
+ 	/* Use binary search for probe_size between tcp_mss_base,
 -- 
 2.8.0.rc3.226.g39d4020
