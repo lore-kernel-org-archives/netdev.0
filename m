@@ -1,48 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/4] mlx4: xdp: Allow raising MTU up to one
- page minus eth and vlan hdrs
-Date: Fri, 02 Dec 2016 19:59:28 -0800
-Message-ID: <1480737568.18162.398.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
-         <1480721013-1047541-3-git-send-email-kafai@fb.com>
-         <1480725480.18162.394.camel@edumazet-glaptop3.roam.corp.google.com>
-         <58421775.6090905@fb.com>
-         <1480731326.18162.397.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161203034232.GA70461@kafai-mba.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCHv2 net-next 0/4] MV88E6390 batch two
+Date: Sat,  3 Dec 2016 04:35:15 +0100
+Message-ID: <1480736119-12195-1-git-send-email-andrew@lunn.ch>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36131 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751070AbcLCD7b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 22:59:31 -0500
-Received: by mail-pg0-f68.google.com with SMTP id x23so9706674pgx.3
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 19:59:31 -0800 (PST)
-In-Reply-To: <20161203034232.GA70461@kafai-mba.local>
+Received: from vps0.lunn.ch ([178.209.37.122]:38590 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753025AbcLCEKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 23:10:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-12-02 at 19:42 -0800, Martin KaFai Lau wrote:
-> On Fri, Dec 02, 2016 at 06:15:26PM -0800, Eric Dumazet wrote:
-> > My question was more like :
-> >
-> > Can we double check all these patches wont break mlx4 driver (non XDP
-> > path) on arches with PAGE_SIZE=64KB.
-> The page/pkt requirement is not added by this patch.  The earlier
-> XDP patch series has already ensured this page/pkt requirement
-> is effective only when XDP prog is attached.
-> 
-> In the earlier XDP patches, MTU is limited to 1514 when
-> XDP is ative.   This patch is to allow fully use of the
-> page for a packet (and also only matter when XDP is active).
+This is the second batch of patches adding support for the
+MV88e6390. They are not sufficient to make it work properly.
 
-OK, thanks for the clarification.
+The mv88e6390 has a much expanded set of priority maps. Refactor the
+existing code, and implement basic support for the new device.
+
+Similarly, the monitor control register has been reworked.
+
+The mv88e6390 has something odd in its EDSA tagging implementation,
+which means it is not possible to use it. So we need to use DSA
+tagging. This is the first device with EDSA support where we need to
+use DSA, and the code does not support this. So two patches refactor
+the existing code. The two different register definitions are
+separated out, and using DSA on an EDSA capable device is added.
+
+v2:
+Add port prefix
+Add helper function for 6390
+Add _IEEE_ into #defines
+Split monitor_ctrl into a number of separate ops.
+Remove 6390 code which is management, used in a later patch
+s/EGREES/EGRESS/.
+Broke up setup_port_dsa() and set_port_dsa() into a number of ops
+
+v3:
+Verify mandatory ops for port setup
+Don't set ether type for DSA port.
+
+Andrew Lunn (4):
+  net: dsa: mv88e6xxx: Implement mv88e6390 tag remap
+  net: dsa: mv88e6xxx: Monitor and Management tables
+  net: dsa: mv88e6xxx: Move the tagging protocol into info
+  net: dsa: mv88e6xxx: Refactor CPU and DSA port setup
+
+ drivers/net/dsa/mv88e6xxx/chip.c      | 339 ++++++++++++++++++++++++++--------
+ drivers/net/dsa/mv88e6xxx/global1.c   |  69 +++++++
+ drivers/net/dsa/mv88e6xxx/global1.h   |   4 +
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  62 +++++--
+ drivers/net/dsa/mv88e6xxx/port.c      | 181 ++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h      |  15 ++
+ 6 files changed, 583 insertions(+), 87 deletions(-)
+
+-- 
+2.10.2
