@@ -1,140 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/18] i40evf: Move some i40evf_reset_task code to separate function
-Date: Sat,  3 Dec 2016 01:19:22 -0800
-Message-ID: <20161203091930.14268-11-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/18] i40evf: check for msix_entries null dereference
+Date: Sat,  3 Dec 2016 01:19:23 -0800
+Message-ID: <20161203091930.14268-12-jeffrey.t.kirsher@intel.com>
 References: <20161203091930.14268-1-jeffrey.t.kirsher@intel.com>
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28618 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:18542 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751540AbcLCJUm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751668AbcLCJUm (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sat, 3 Dec 2016 04:20:42 -0500
 In-Reply-To: <20161203091930.14268-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
+From: Alan Brady <alan.brady@intel.com>
 
-The i40evf_reset_task function is a couple hundred lines and it has
-a separable block that disables VF.  Move that block to a new
-i40evf_disable_vf function to shorten i40evf_reset_task a bit.
+It is possible for msix_entries to be freed by a previous suspend/remove
+before a VF is closed.  This patch fixes the issue by checking for NULL
+before dereferencing msix_entries and returning early in the case where
+it is NULL within the i40evf_close code path.  Without this patch it is
+possible to trigger a kernel panic through NULL dereference.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Change-ID: I92a2746e82533a889e25f91578eac9abd0388ae2
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 86 +++++++++++++------------
- 1 file changed, 44 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 7bbb55f..f04ac36 100644
+index f04ac36..420e545 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1693,6 +1693,49 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 	schedule_work(&adapter->adminq_task);
- }
+@@ -631,6 +631,9 @@ static void i40evf_free_traffic_irqs(struct i40evf_adapter *adapter)
+ {
+ 	int vector, irq_num, q_vectors;
  
-+static void i40evf_disable_vf(struct i40evf_adapter *adapter)
-+{
-+	struct i40evf_mac_filter *f, *ftmp;
-+	struct i40evf_vlan_filter *fv, *fvtmp;
++	if (!adapter->msix_entries)
++		return;
 +
-+	adapter->flags |= I40EVF_FLAG_PF_COMMS_FAILED;
-+
-+	if (netif_running(adapter->netdev)) {
-+		set_bit(__I40E_DOWN, &adapter->vsi.state);
-+		netif_carrier_off(adapter->netdev);
-+		netif_tx_disable(adapter->netdev);
-+		adapter->link_up = false;
-+		i40evf_napi_disable_all(adapter);
-+		i40evf_irq_disable(adapter);
-+		i40evf_free_traffic_irqs(adapter);
-+		i40evf_free_all_tx_resources(adapter);
-+		i40evf_free_all_rx_resources(adapter);
-+	}
-+
-+	/* Delete all of the filters, both MAC and VLAN. */
-+	list_for_each_entry_safe(f, ftmp, &adapter->mac_filter_list, list) {
-+		list_del(&f->list);
-+		kfree(f);
-+	}
-+
-+	list_for_each_entry_safe(fv, fvtmp, &adapter->vlan_filter_list, list) {
-+		list_del(&fv->list);
-+		kfree(fv);
-+	}
-+
-+	i40evf_free_misc_irq(adapter);
-+	i40evf_reset_interrupt_capability(adapter);
-+	i40evf_free_queues(adapter);
-+	i40evf_free_q_vectors(adapter);
-+	kfree(adapter->vf_res);
-+	i40evf_shutdown_adminq(&adapter->hw);
-+	adapter->netdev->flags &= ~IFF_UP;
-+	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
-+	adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
-+	adapter->state = __I40EVF_DOWN;
-+	dev_info(&adapter->pdev->dev, "Reset task did not complete, VF disabled\n");
-+}
-+
- #define I40EVF_RESET_WAIT_MS 10
- #define I40EVF_RESET_WAIT_COUNT 500
- /**
-@@ -1758,50 +1801,9 @@ static void i40evf_reset_task(struct work_struct *work)
- 	pci_set_master(adapter->pdev);
+ 	q_vectors = adapter->num_msix_vectors - NONQ_VECS;
  
- 	if (i == I40EVF_RESET_WAIT_COUNT) {
--		struct i40evf_mac_filter *ftmp;
--		struct i40evf_vlan_filter *fv, *fvtmp;
--
--		/* reset never finished */
- 		dev_err(&adapter->pdev->dev, "Reset never finished (%x)\n",
- 			reg_val);
--		adapter->flags |= I40EVF_FLAG_PF_COMMS_FAILED;
--
--		if (netif_running(adapter->netdev)) {
--			set_bit(__I40E_DOWN, &adapter->vsi.state);
--			netif_carrier_off(netdev);
--			netif_tx_disable(netdev);
--			adapter->link_up = false;
--			i40evf_napi_disable_all(adapter);
--			i40evf_irq_disable(adapter);
--			i40evf_free_traffic_irqs(adapter);
--			i40evf_free_all_tx_resources(adapter);
--			i40evf_free_all_rx_resources(adapter);
--		}
--
--		/* Delete all of the filters, both MAC and VLAN. */
--		list_for_each_entry_safe(f, ftmp, &adapter->mac_filter_list,
--					 list) {
--			list_del(&f->list);
--			kfree(f);
--		}
--
--		list_for_each_entry_safe(fv, fvtmp, &adapter->vlan_filter_list,
--					 list) {
--			list_del(&fv->list);
--			kfree(fv);
--		}
--
--		i40evf_free_misc_irq(adapter);
--		i40evf_reset_interrupt_capability(adapter);
--		i40evf_free_queues(adapter);
--		i40evf_free_q_vectors(adapter);
--		kfree(adapter->vf_res);
--		i40evf_shutdown_adminq(hw);
--		adapter->netdev->flags &= ~IFF_UP;
--		clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
--		adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
--		adapter->state = __I40EVF_DOWN;
--		dev_info(&adapter->pdev->dev, "Reset task did not complete, VF disabled\n");
-+		i40evf_disable_vf(adapter);
- 		return; /* Do not attempt to reinit. It's dead, Jim. */
- 	}
- 
+ 	for (vector = 0; vector < q_vectors; vector++) {
+@@ -1443,6 +1446,9 @@ static void i40evf_free_q_vectors(struct i40evf_adapter *adapter)
+  **/
+ void i40evf_reset_interrupt_capability(struct i40evf_adapter *adapter)
+ {
++	if (!adapter->msix_entries)
++		return;
++
+ 	pci_disable_msix(adapter->pdev);
+ 	kfree(adapter->msix_entries);
+ 	adapter->msix_entries = NULL;
 -- 
 2.9.3
