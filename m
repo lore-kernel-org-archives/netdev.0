@@ -1,67 +1,58 @@
-From: Pan Bian <bianpan201602@163.com>
-Subject: Re: [PATCH 1/1] net: ethernet: 3com: set error code on failures
-Date: Sat,  3 Dec 2016 23:23:12 +0800
-Message-ID: <20161203141512.GA7143@bp>
-References: <1480771470-6404-1-git-send-email-bianpan201602@163.com> <06dd8fc8-0c39-e79d-7e34-22bfab17d8a3@gmx.de>
-Reply-To: PanBian <bianpan2016@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: PanBian <bianpan2016@163.com>, linux-kernel@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        David Dillow <dave@thedillows.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <06dd8fc8-0c39-e79d-7e34-22bfab17d8a3@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v4 01/10] ipv4: fib: Export free_fib_info()
+Date: Sat,  3 Dec 2016 16:44:58 +0100
+Message-ID: <1480779907-32535-2-git-send-email-jiri@resnulli.us>
+References: <1480779907-32535-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
+        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        hannes@stressinduktion.org, kaber@trash.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35018 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751852AbcLCPpM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 10:45:12 -0500
+Received: by mail-wm0-f68.google.com with SMTP id a20so7076666wme.2
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 07:45:11 -0800 (PST)
+In-Reply-To: <1480779907-32535-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: PanBian <bianpan2016@163.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Hi, Lino,
+The FIB notification chain is going to be converted to an atomic chain,
+which means switchdev drivers will have to offload FIB entries in
+deferred work, as hardware operations entail sleeping.
 
-There is no special reason to map different errors to -EIO. In the
-original source code, err is set to -EIO on most error paths. I copied 
-that. I guess it has no difference with the error value provided by the 
-called functions in the view of callers of typhoon_init_one().
+However, while the work is queued fib info might be freed, so a
+reference must be taken. To release the reference (and potentially free
+the fib info) fib_info_put() will be called, which in turn calls
+free_fib_info().
 
-Thanks!
+Export free_fib_info() so that modules will be able to invoke
+fib_info_put().
 
-Best regards,
-Pan
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/ipv4/fib_semantics.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-On Sat, Dec 03, 2016 at 02:53:07PM +0100, Lino Sanfilippo wrote:
-> Hi,
-> 
-> On 03.12.2016 14:24, Pan Bian wrote:
-> > From: Pan Bian <bianpan2016@163.com>
-> > 
-> > In function typhoon_init_one(), returns the value of variable err on
-> > errors. However, on some error paths, variable err is not set to a
-> > negative errno. This patch assigns "-EIO" to err on those paths.
-> > 
-> > Signed-off-by: Pan Bian <bianpan2016@163.com>
-> 
-> >  
-> > @@ -2409,6 +2410,7 @@ enum state_values {
-> >  	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_VERSIONS);
-> >  	if(typhoon_issue_command(tp, 1, &xp_cmd, 3, xp_resp) < 0) {
-> >  		err_msg = "Could not get Sleep Image version";
-> > +		err = -EIO;
-> >  		goto error_out_reset;
-> >  	}
-> >  
-> > @@ -2451,6 +2453,7 @@ enum state_values {
-> >  
-> >  	if(register_netdev(dev) < 0) {
-> >  		err_msg = "unable to register netdev";
-> > +		err = -EIO;
-> >  		goto error_out_reset;
-> >  	}
-> >  
-> > 
-> 
-> Why not return the error value provided by the called functions? Is there a reason
-> to map different errors to -EIO?
-> 
-> Regards,
-> Lino
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 388d3e2..c1bc1e9 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -234,6 +234,7 @@ void free_fib_info(struct fib_info *fi)
+ #endif
+ 	call_rcu(&fi->rcu, free_fib_info_rcu);
+ }
++EXPORT_SYMBOL_GPL(free_fib_info);
+ 
+ void fib_release_info(struct fib_info *fi)
+ {
+-- 
+2.7.4
