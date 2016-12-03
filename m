@@ -1,72 +1,85 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next 2/4] mlx4: xdp: Allow raising MTU up to one page
- minus eth and vlan hdrs
-Date: Fri, 2 Dec 2016 19:42:32 -0800
-Message-ID: <20161203034232.GA70461@kafai-mba.local>
+Subject: Re: [PATCH net-next 1/4] bpf: xdp: Allow head adjustment in XDP prog
+Date: Fri, 2 Dec 2016 19:43:07 -0800
+Message-ID: <20161203034307.GB70461@kafai-mba.local>
 References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
- <1480721013-1047541-3-git-send-email-kafai@fb.com>
- <1480725480.18162.394.camel@edumazet-glaptop3.roam.corp.google.com>
- <58421775.6090905@fb.com>
- <1480731326.18162.397.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480721013-1047541-2-git-send-email-kafai@fb.com>
+ <5842102D.4000903@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Alexei Starovoitov <ast@fb.com>, <netdev@vger.kernel.org>,
+Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
         Brenden Blanco <bblanco@plumgrid.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
         David Miller <davem@davemloft.net>,
         Saeed Mahameed <saeedm@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>,
         Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54152 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752187AbcLCDm5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 22:42:57 -0500
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41478 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751731AbcLCDnc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 22:43:32 -0500
 Content-Disposition: inline
-In-Reply-To: <1480731326.18162.397.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <5842102D.4000903@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2016 at 06:15:26PM -0800, Eric Dumazet wrote:
-> On Fri, 2016-12-02 at 16:53 -0800, Alexei Starovoitov wrote:
-> > On 12/2/16 4:38 PM, Eric Dumazet wrote:
-> > > On Fri, 2016-12-02 at 15:23 -0800, Martin KaFai Lau wrote:
-> > >> When XDP prog is attached, it is currently limiting
-> > >> MTU to be FRAG_SZ0 - ETH_HLEN - (2 * VLAN_HLEN) which is 1514
-> > >> in x86.
-> > >>
-> > >> AFAICT, since mlx4 is doing one page per packet for XDP,
-> > >> we can at least raise the MTU limitation up to
-> > >> PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN) which this patch is
-> > >> doing.  It will be useful in the next patch which allows
-> > >> XDP program to extend the packet by adding new header(s).
-> > >>
-> > >> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> > >> ---
-> > >
-> > > Have you tested your patch on a host with PAGE_SIZE = 64 KB ?
-> > >
-> > > Looks XDP really kills arches with bigger pages :(
+On Sat, Dec 03, 2016 at 01:22:05AM +0100, Daniel Borkmann wrote:
+> On 12/03/2016 12:23 AM, Martin KaFai Lau wrote:
+> >This patch allows XDP prog to extend/remove the packet
+> >data at the head (like adding or removing header).  It is
+> >done by adding a new XDP helper bpf_xdp_adjust_head().
 > >
-> > I'm afraid xdp mlx[45] support was not tested on arches
-> > with 64k pages at all. Not just this patch.
-> > I think people who care about such archs should test?
-> > Note page per packet is not a hard requirement for all drivers
-> > and all archs. For mlx[45] it was the easiest and the most
-> > convenient way to achieve desired performance.
-> > If there are ways to do the same performance differently,
-> > I'm all ears :)
+> >It also renames bpf_helper_changes_skb_data() to
+> >bpf_helper_changes_pkt_data() to better reflect
+> >that XDP prog does not work on skb.
 > >
+> >Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> [...]
+> >diff --git a/net/core/filter.c b/net/core/filter.c
+> >index 56b43587d200..6902e2f73e38 100644
+> >--- a/net/core/filter.c
+> >+++ b/net/core/filter.c
+> >@@ -2234,7 +2234,34 @@ static const struct bpf_func_proto bpf_skb_change_head_proto = {
+> >  	.arg3_type	= ARG_ANYTHING,
+> >  };
+> >
+> >-bool bpf_helper_changes_skb_data(void *func)
+> >+BPF_CALL_2(bpf_xdp_adjust_head, struct xdp_buff *, xdp, int, offset)
+> >+{
+> >+	/* Both mlx4 and mlx5 driver align each packet to PAGE_SIZE when
+> >+	 * XDP prog is set.
+> >+	 * If the above is not true for the other drivers to support
+> >+	 * bpf_xdp_adjust_head, struct xdp_buff can be extended.
+> >+	 */
+> >+	void *head = (void *)((unsigned long)xdp->data & PAGE_MASK);
+> >+	void *new_data = xdp->data + offset;
+> >+
+> >+	if (new_data < head || new_data >= xdp->data_end)
+> >+		/* The packet length must be >=1 */
 >
-> My question was more like :
->
-> Can we double check all these patches wont break mlx4 driver (non XDP
-> path) on arches with PAGE_SIZE=64KB.
-The page/pkt requirement is not added by this patch.  The earlier
-XDP patch series has already ensured this page/pkt requirement
-is effective only when XDP prog is attached.
+> Patch looks generally good to me. Should the min pkt len here be
+> limited to ETH_HLEN instead of 1?
+Make sense.  Will make the change.
 
-In the earlier XDP patches, MTU is limited to 1514 when
-XDP is ative.   This patch is to allow fully use of the
-page for a packet (and also only matter when XDP is active).
+>
+> >+		return -EINVAL;
+> >+
+> >+	xdp->data = new_data;
+> >+
+> >+	return 0;
+> >+}
+> >+
+> >+static const struct bpf_func_proto bpf_xdp_adjust_head_proto = {
+> >+	.func		= bpf_xdp_adjust_head,
+> >+	.gpl_only	= false,
+> >+	.ret_type	= RET_INTEGER,
+> >+	.arg1_type	= ARG_PTR_TO_CTX,
+> >+	.arg2_type	= ARG_ANYTHING,
+> >+};
+> >+
+> >+bool bpf_helper_changes_pkt_data(void *func)
+> >  {
+> >  	if (func == bpf_skb_vlan_push ||
+> >  	    func == bpf_skb_vlan_pop ||
+> [...]
