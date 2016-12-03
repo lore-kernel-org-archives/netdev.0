@@ -1,106 +1,110 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/18] i40e: Fix for ethtool Supported link modes
-Date: Sat,  3 Dec 2016 01:19:27 -0800
-Message-ID: <20161203091930.14268-16-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/18] i40e: Be much more verbose about what we can and cannot offload
+Date: Sat,  3 Dec 2016 01:19:13 -0800
+Message-ID: <20161203091930.14268-2-jeffrey.t.kirsher@intel.com>
 References: <20161203091930.14268-1-jeffrey.t.kirsher@intel.com>
-Cc: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+        jogreene@redhat.com, guru.anbalagane@oracle.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:52572 "EHLO mga14.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:6457 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750975AbcLCJU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Dec 2016 04:20:29 -0500
+        id S1750745AbcLCJU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 3 Dec 2016 04:20:28 -0500
 In-Reply-To: <20161203091930.14268-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch fixes the problem where the ethtool Supported link
-modes list backplane interfaces on X722 devices for 10GbE with
-SFP+ and Cortina retimer. This patch fixes the problem by setting
-and using a flag for this particular device since the backplane
-interface is only between the internal PHY and the retimer and it
-should not be seen by the user as they cannot use it.
-Without this patch, the user wrongly thinks that backplane interfaces
-are supported on their device when they actually are not.
+This change makes it so that we are much more robust about defining what we
+can and cannot offload.  Previously we were just checking for the L4 tunnel
+header length, however there are other fields we should be verifying as
+there are multiple scenarios in which we cannot perform hardware offloads.
 
-Change-ID: I3882bc2928431d48a2db03a51a713a1f681a79e9
-Signed-off-by: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
+In addition the device only supports GSO as long as the MSS is 64 or
+greater.  We were not checking this so an MSS less than that was resulting
+in Tx hangs.
+
+Change-ID: I5e2fd5f3075c73601b4b36327b771c64fcb6c31b
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 16 ++++++++++------
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  3 ++-
- 3 files changed, 13 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 52 ++++++++++++++++++++++++-----
+ 1 file changed, 44 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 29c2318..4cb8fb3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -359,6 +359,7 @@ struct i40e_pf {
- #define I40E_FLAG_HAVE_10GBASET_PHY		BIT_ULL(48)
- #define I40E_FLAG_PF_MAC			BIT_ULL(50)
- #define I40E_FLAG_TRUE_PROMISC_SUPPORT		BIT_ULL(51)
-+#define I40E_FLAG_HAVE_CRT_RETIMER		BIT_ULL(52)
- 
- 	/* tracks features that get auto disabled by errors */
- 	u64 auto_disable_flags;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 92a2f03..9500e7b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -345,11 +345,13 @@ static void i40e_phy_type_to_ethtool(struct i40e_pf *pf, u32 *supported,
- 			*advertising |= ADVERTISED_20000baseKR2_Full;
- 	}
- 	if (phy_types & I40E_CAP_PHY_TYPE_10GBASE_KR) {
--		*supported |= SUPPORTED_10000baseKR_Full |
--			      SUPPORTED_Autoneg;
-+		if (!(pf->flags & I40E_FLAG_HAVE_CRT_RETIMER))
-+			*supported |= SUPPORTED_10000baseKR_Full |
-+				      SUPPORTED_Autoneg;
- 		*advertising |= ADVERTISED_Autoneg;
- 		if (hw_link_info->requested_speeds & I40E_LINK_SPEED_10GB)
--			*advertising |= ADVERTISED_10000baseKR_Full;
-+			if (!(pf->flags & I40E_FLAG_HAVE_CRT_RETIMER))
-+				*advertising |= ADVERTISED_10000baseKR_Full;
- 	}
- 	if (phy_types & I40E_CAP_PHY_TYPE_10GBASE_KX4) {
- 		*supported |= SUPPORTED_10000baseKX4_Full |
-@@ -359,11 +361,13 @@ static void i40e_phy_type_to_ethtool(struct i40e_pf *pf, u32 *supported,
- 			*advertising |= ADVERTISED_10000baseKX4_Full;
- 	}
- 	if (phy_types & I40E_CAP_PHY_TYPE_1000BASE_KX) {
--		*supported |= SUPPORTED_1000baseKX_Full |
--			      SUPPORTED_Autoneg;
-+		if (!(pf->flags & I40E_FLAG_HAVE_CRT_RETIMER))
-+			*supported |= SUPPORTED_1000baseKX_Full |
-+				      SUPPORTED_Autoneg;
- 		*advertising |= ADVERTISED_Autoneg;
- 		if (hw_link_info->requested_speeds & I40E_LINK_SPEED_1GB)
--			*advertising |= ADVERTISED_1000baseKX_Full;
-+			if (!(pf->flags & I40E_FLAG_HAVE_CRT_RETIMER))
-+				*advertising |= ADVERTISED_1000baseKX_Full;
- 	}
- }
- 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 6832ab1..17dde85 100644
+index 5c6a5ce..2d91274 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11302,7 +11302,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if ((pf->hw.device_id == I40E_DEV_ID_10G_BASE_T) ||
- 	    (pf->hw.device_id == I40E_DEV_ID_10G_BASE_T4))
- 		pf->flags |= I40E_FLAG_HAVE_10GBASET_PHY;
--
-+	if (pf->hw.device_id == I40E_DEV_ID_SFP_I_X722)
-+		pf->flags |= I40E_FLAG_HAVE_CRT_RETIMER;
- 	/* print a string summarizing features */
- 	i40e_print_features(pf);
+@@ -9070,10 +9070,6 @@ static int i40e_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 				       0, 0, nlflags, filter_mask, NULL);
+ }
  
+-/* Hardware supports L4 tunnel length of 128B (=2^7) which includes
+- * inner mac plus all inner ethertypes.
+- */
+-#define I40E_MAX_TUNNEL_HDR_LEN 128
+ /**
+  * i40e_features_check - Validate encapsulated packet conforms to limits
+  * @skb: skb buff
+@@ -9084,12 +9080,52 @@ static netdev_features_t i40e_features_check(struct sk_buff *skb,
+ 					     struct net_device *dev,
+ 					     netdev_features_t features)
+ {
+-	if (skb->encapsulation &&
+-	    ((skb_inner_network_header(skb) - skb_transport_header(skb)) >
+-	     I40E_MAX_TUNNEL_HDR_LEN))
+-		return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
++	size_t len;
++
++	/* No point in doing any of this if neither checksum nor GSO are
++	 * being requested for this frame.  We can rule out both by just
++	 * checking for CHECKSUM_PARTIAL
++	 */
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return features;
++
++	/* We cannot support GSO if the MSS is going to be less than
++	 * 64 bytes.  If it is then we need to drop support for GSO.
++	 */
++	if (skb_is_gso(skb) && (skb_shinfo(skb)->gso_size < 64))
++		features &= ~NETIF_F_GSO_MASK;
++
++	/* MACLEN can support at most 63 words */
++	len = skb_network_header(skb) - skb->data;
++	if (len & ~(63 * 2))
++		goto out_err;
++
++	/* IPLEN and EIPLEN can support at most 127 dwords */
++	len = skb_transport_header(skb) - skb_network_header(skb);
++	if (len & ~(127 * 4))
++		goto out_err;
++
++	if (skb->encapsulation) {
++		/* L4TUNLEN can support 127 words */
++		len = skb_inner_network_header(skb) - skb_transport_header(skb);
++		if (len & ~(127 * 2))
++			goto out_err;
++
++		/* IPLEN can support at most 127 dwords */
++		len = skb_inner_transport_header(skb) -
++		      skb_inner_network_header(skb);
++		if (len & ~(127 * 4))
++			goto out_err;
++	}
++
++	/* No need to validate L4LEN as TCP is the only protocol with a
++	 * a flexible value and we support all possible values supported
++	 * by TCP, which is at most 15 dwords
++	 */
+ 
+ 	return features;
++out_err:
++	return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
+ }
+ 
+ static const struct net_device_ops i40e_netdev_ops = {
 -- 
 2.9.3
