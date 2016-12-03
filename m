@@ -1,51 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] net: hns: Fix to conditionally convey RX
- checksum flag to stack
-Date: Sat, 03 Dec 2016 15:09:05 -0500 (EST)
-Message-ID: <20161203.150905.739546865468666597.davem@davemloft.net>
-References: <20161129130945.919372-1-salil.mehta@huawei.com>
-        <20161130.142539.1927956259851457047.davem@davemloft.net>
-        <F4CC6FACFEB3C54C9141D49AD221F7F91A7D4439@lhreml503-mbx>
+Subject: Re: [PATCH] irda: w83977af_ir: fix damaged whitespace
+Date: Sat, 03 Dec 2016 15:09:57 -0500 (EST)
+Message-ID: <20161203.150957.820803648017676027.davem@davemloft.net>
+References: <20161128141951.2674778-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, mehta.salil.lnk@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: salil.mehta@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F91A7D4439@lhreml503-mbx>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36614 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750754AbcLCUKZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 15:10:25 -0500
+In-Reply-To: <20161128141951.2674778-1-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Salil Mehta <salil.mehta@huawei.com>
-Date: Thu, 1 Dec 2016 12:09:22 +0000
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 28 Nov 2016 15:19:43 +0100
 
-> But maybe now since we don't have any method to de-multiplex the kind of
-> checksum error (cannot depend upon register) we can have below code
-> re-arrangement:
+> As David Miller pointed out for for the previous patch, the whitespace
+> in some functions looks rather odd. This was caused by commit 6329da5f258a
+> ("obsolete config in kernel source: USE_INTERNAL_TIMER"), which removed
+> some conditions but did not reindent the code.
 > 
-> hns_nic_rx_checksum() {
->       /* check supported L3 protocol */
-> 	if (l3 != IPV4 && l3 != IPV6)
-> 		return;
->       /* check if L3 protocols error */
->       if (l3e)
-> 	 	return;
+> This fixes the indentation in the file and removes extraneous whitespace
+> at the end of the lines and before tabs.
 > 
->       /* check if the packets are fragmented */
-> 	If (l3frags)
-> 		Return;
+> There are many other minor coding style problems in the driver, but I'm
+> not touching those here.
 > 
->       /* check supported L4 protocol */
->  	if (l4 != UDP && l4 != TCP && l4 != SCTP)
->  		return;
->       /* check if any L4 protocol error */
->       if (l3e)
-> 	 	return;
-> 
->       /* packet with valid checksum - covey to stack */
->       skb->ip_summed = CHECKSUM_UNNECESSARY
-> }
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-This looks a lot cleaner and easier to understand.
+Applied, thanks Arnd.
