@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 1/8] tcp: tsq: add tsq_flags / tsq_enum
-Date: Sat,  3 Dec 2016 11:14:50 -0800
-Message-ID: <1480792497-16607-2-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 2/8] tcp: tsq: remove one locked operation in tcp_wfree()
+Date: Sat,  3 Dec 2016 11:14:51 -0800
+Message-ID: <1480792497-16607-3-git-send-email-edumazet@google.com>
 References: <1480792497-16607-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -9,103 +9,59 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:32964 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751549AbcLCTQ2 (ORCPT
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:35709 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751566AbcLCTQ2 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 14:16:28 -0500
-Received: by mail-pg0-f46.google.com with SMTP id 3so120161033pgd.0
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:15:04 -0800 (PST)
+Received: by mail-pg0-f51.google.com with SMTP id p66so120172899pga.2
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:15:07 -0800 (PST)
 In-Reply-To: <1480792497-16607-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a cleanup, to ease code review of following patches.
+Instead of atomically clear TSQ_THROTTLED and atomically set TSQ_QUEUED
+bits, use one cmpxchg() to perform a single locked operation.
 
-Old 'enum tsq_flags' is renamed, and a new enumeration is added
-with the flags used in cmpxchg() operations as opposed to
-single bit operations.
+Since the following patch will also set TCP_TSQ_DEFERRED here,
+this cmpxchg() will make this addition free.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/linux/tcp.h   | 11 ++++++++++-
- net/ipv4/tcp_output.c | 16 ++++++++--------
- 2 files changed, 18 insertions(+), 9 deletions(-)
+ net/ipv4/tcp_output.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 734bab4c3bef..d8be083ab0b0 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -364,7 +364,7 @@ struct tcp_sock {
- 	u32	*saved_syn;
- };
- 
--enum tsq_flags {
-+enum tsq_enum {
- 	TSQ_THROTTLED,
- 	TSQ_QUEUED,
- 	TCP_TSQ_DEFERRED,	   /* tcp_tasklet_func() found socket was owned */
-@@ -375,6 +375,15 @@ enum tsq_flags {
- 				    */
- };
- 
-+enum tsq_flags {
-+	TSQF_THROTTLED			= (1UL << TSQ_THROTTLED),
-+	TSQF_QUEUED			= (1UL << TSQ_QUEUED),
-+	TCPF_TSQ_DEFERRED		= (1UL << TCP_TSQ_DEFERRED),
-+	TCPF_WRITE_TIMER_DEFERRED	= (1UL << TCP_WRITE_TIMER_DEFERRED),
-+	TCPF_DELACK_TIMER_DEFERRED	= (1UL << TCP_DELACK_TIMER_DEFERRED),
-+	TCPF_MTU_REDUCED_DEFERRED	= (1UL << TCP_MTU_REDUCED_DEFERRED),
-+};
-+
- static inline struct tcp_sock *tcp_sk(const struct sock *sk)
- {
- 	return (struct tcp_sock *)sk;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index c7adcb57654e..8f0289b0fb24 100644
+index 8f0289b0fb24..4adaf8e1bb63 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -784,10 +784,10 @@ static void tcp_tasklet_func(unsigned long data)
- 	}
- }
+@@ -860,6 +860,7 @@ void tcp_wfree(struct sk_buff *skb)
+ {
+ 	struct sock *sk = skb->sk;
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	unsigned long flags, nval, oval;
+ 	int wmem;
  
--#define TCP_DEFERRED_ALL ((1UL << TCP_TSQ_DEFERRED) |		\
--			  (1UL << TCP_WRITE_TIMER_DEFERRED) |	\
--			  (1UL << TCP_DELACK_TIMER_DEFERRED) |	\
--			  (1UL << TCP_MTU_REDUCED_DEFERRED))
-+#define TCP_DEFERRED_ALL (TCPF_TSQ_DEFERRED |		\
-+			  TCPF_WRITE_TIMER_DEFERRED |	\
-+			  TCPF_DELACK_TIMER_DEFERRED |	\
-+			  TCPF_MTU_REDUCED_DEFERRED)
- /**
-  * tcp_release_cb - tcp release_sock() callback
-  * @sk: socket
-@@ -808,7 +808,7 @@ void tcp_release_cb(struct sock *sk)
- 		nflags = flags & ~TCP_DEFERRED_ALL;
- 	} while (cmpxchg(&tp->tsq_flags, flags, nflags) != flags);
+ 	/* Keep one reference on sk_wmem_alloc.
+@@ -877,11 +878,17 @@ void tcp_wfree(struct sk_buff *skb)
+ 	if (wmem >= SKB_TRUESIZE(1) && this_cpu_ksoftirqd() == current)
+ 		goto out;
  
--	if (flags & (1UL << TCP_TSQ_DEFERRED))
-+	if (flags & TCPF_TSQ_DEFERRED)
- 		tcp_tsq_handler(sk);
+-	if (test_and_clear_bit(TSQ_THROTTLED, &tp->tsq_flags) &&
+-	    !test_and_set_bit(TSQ_QUEUED, &tp->tsq_flags)) {
+-		unsigned long flags;
++	for (oval = READ_ONCE(tp->tsq_flags);; oval = nval) {
+ 		struct tsq_tasklet *tsq;
  
- 	/* Here begins the tricky part :
-@@ -822,15 +822,15 @@ void tcp_release_cb(struct sock *sk)
- 	 */
- 	sock_release_ownership(sk);
- 
--	if (flags & (1UL << TCP_WRITE_TIMER_DEFERRED)) {
-+	if (flags & TCPF_WRITE_TIMER_DEFERRED) {
- 		tcp_write_timer_handler(sk);
- 		__sock_put(sk);
- 	}
--	if (flags & (1UL << TCP_DELACK_TIMER_DEFERRED)) {
-+	if (flags & TCPF_DELACK_TIMER_DEFERRED) {
- 		tcp_delack_timer_handler(sk);
- 		__sock_put(sk);
- 	}
--	if (flags & (1UL << TCP_MTU_REDUCED_DEFERRED)) {
-+	if (flags & TCPF_MTU_REDUCED_DEFERRED) {
- 		inet_csk(sk)->icsk_af_ops->mtu_reduced(sk);
- 		__sock_put(sk);
- 	}
++		if (!(oval & TSQF_THROTTLED) || (oval & TSQF_QUEUED))
++			goto out;
++
++		nval = (oval & ~TSQF_THROTTLED) | TSQF_QUEUED;
++		nval = cmpxchg(&tp->tsq_flags, oval, nval);
++		if (nval != oval)
++			continue;
++
+ 		/* queue this socket to tasklet queue */
+ 		local_irq_save(flags);
+ 		tsq = this_cpu_ptr(&tsq_tasklet);
 -- 
 2.8.0.rc3.226.g39d4020
