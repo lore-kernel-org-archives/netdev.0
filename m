@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/18] i40e: Remove unreachable code
-Date: Sat,  3 Dec 2016 01:19:24 -0800
-Message-ID: <20161203091930.14268-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/18] i40e: Pass unknown PHY type for unknown PHYs
+Date: Sat,  3 Dec 2016 01:19:25 -0800
+Message-ID: <20161203091930.14268-14-jeffrey.t.kirsher@intel.com>
 References: <20161203091930.14268-1-jeffrey.t.kirsher@intel.com>
 Cc: Henry Tieman <henry.w.tieman@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,54 +9,48 @@ Cc: Henry Tieman <henry.w.tieman@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28618 "EHLO mga09.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:48344 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751708AbcLCJUn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Dec 2016 04:20:43 -0500
+        id S1750919AbcLCJU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 3 Dec 2016 04:20:28 -0500
 In-Reply-To: <20161203091930.14268-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Henry Tieman <henry.w.tieman@intel.com>
 
-The code at the end of i40e_read_phy_register_clause22() contained
-unreachable code and redundant control statements.
+The PHY type value for unrecognized PHYs and cables was changed
+based on firmware version number. Newer hardware use lower firmware
+version numbers and this was causing some PHYs to be identified
+as type 0x16 instead of 0xe (unknown).
 
-This change removes the unreachable code. And deletes the redundant
-goto statement and if statement.
+Without this patch, newer card will incorrectly identify unknown
+PHYs and cables.
 
-Change-ID: I713032b1585396f40f903cbcfdea987abd874400
+This change adds hardware type to the check for firmware version
+so the PHY type is reported correctly.
+
+Change-ID: I0723cbfd263c76fc73ff1a5275d1639051376c9a
 Signed-off-by: Henry Tieman <henry.w.tieman@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index e83e8e3..fc7ce02 100644
+index fc7ce02..f6fee79 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_common.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -4439,19 +4439,12 @@ i40e_status i40e_read_phy_register_clause22(struct i40e_hw *hw,
- 	if (status) {
- 		i40e_debug(hw, I40E_DEBUG_PHY,
- 			   "PHY: Can't write command to external PHY.\n");
--		goto phy_read_end;
--	}
--
--	if (!status) {
-+	} else {
- 		command = rd32(hw, I40E_GLGEN_MSRWD(port_num));
- 		*value = (command & I40E_GLGEN_MSRWD_MDIRDDATA_MASK) >>
- 			 I40E_GLGEN_MSRWD_MDIRDDATA_SHIFT;
--	} else {
--		i40e_debug(hw, I40E_DEBUG_PHY,
--			   "PHY: Can't read register value from external PHY.\n");
- 	}
+@@ -1854,7 +1854,8 @@ i40e_status i40e_aq_get_link_info(struct i40e_hw *hw,
+ 	else
+ 		hw_link_info->lse_enable = false;
  
--phy_read_end:
- 	return status;
- }
+-	if ((hw->aq.fw_maj_ver < 4 || (hw->aq.fw_maj_ver == 4 &&
++	if ((hw->mac.type == I40E_MAC_XL710) &&
++	    (hw->aq.fw_maj_ver < 4 || (hw->aq.fw_maj_ver == 4 &&
+ 	     hw->aq.fw_min_ver < 40)) && hw_link_info->phy_type == 0xE)
+ 		hw_link_info->phy_type = I40E_PHY_TYPE_10GBASE_SFPP_CU;
  
 -- 
 2.9.3
