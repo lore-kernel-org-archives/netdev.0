@@ -1,37 +1,36 @@
 From: Pan Bian <bianpan2016@163.com>
-Subject: [PATCH 1/1] net: bridge: set error code on failure
-Date: Sat,  3 Dec 2016 19:33:23 +0800
-Message-ID: <1480764803-5577-1-git-send-email-bianpan2016@163.com>
+Subject: [PATCH 1/1] net: caif: fix ineffective error check
+Date: Sat,  3 Dec 2016 19:18:21 +0800
+Message-ID: <1480763901-5323-1-git-send-email-bianpan2016@163.com>
 Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Function br_sysfs_addbr() does not set error code when the call
-kobject_create_and_add() returns a NULL pointer. It may be better to
-return "-ENOMEM" when kobject_create_and_add() fails.
+In function caif_sktinit_module(), the check of the return value of
+sock_register() seems ineffective. This patch fixes it.
 
-Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188781
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188751
 
 Signed-off-by: Pan Bian <bianpan2016@163.com>
 ---
- net/bridge/br_sysfs_br.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/caif/caif_socket.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index e120307..f88c4df 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -898,6 +898,7 @@ int br_sysfs_addbr(struct net_device *dev)
- 	if (!br->ifobj) {
- 		pr_info("%s: can't add kobject (directory) %s/%s\n",
- 			__func__, dev->name, SYSFS_BRIDGE_PORT_SUBDIR);
-+		err = -ENOMEM;
- 		goto out3;
- 	}
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index aa209b1..2a689a3 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -1108,7 +1108,7 @@ static int caif_create(struct net *net, struct socket *sock, int protocol,
+ static int __init caif_sktinit_module(void)
+ {
+ 	int err = sock_register(&caif_family_ops);
+-	if (!err)
++	if (err)
+ 		return err;
  	return 0;
+ }
 -- 
 1.9.1
