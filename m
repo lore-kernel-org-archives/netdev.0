@@ -1,403 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/18] i40e: Add Clause22 implementation
-Date: Sat,  3 Dec 2016 01:19:18 -0800
-Message-ID: <20161203091930.14268-7-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/18] i40e: fix trivial typo in naming of i40e_sync_filters_subtask
+Date: Sat,  3 Dec 2016 01:19:19 -0800
+Message-ID: <20161203091930.14268-8-jeffrey.t.kirsher@intel.com>
 References: <20161203091930.14268-1-jeffrey.t.kirsher@intel.com>
-Cc: Michal Kosiarz <michal.kosiarz@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com, Matt Jared <matthew.a.jared@intel.com>,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6457 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:28618 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751605AbcLCJUi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Dec 2016 04:20:38 -0500
+        id S1751608AbcLCJUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 3 Dec 2016 04:20:39 -0500
 In-Reply-To: <20161203091930.14268-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kosiarz <michal.kosiarz@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Some external PHYs require Clause22 method for accessing registers.
-This patch also adds some defines to support blink led on devices using
-10CBaseT PHY.
+A comment incorrectly referred to i40e_vsi_sync_filters_subtask which
+does not actually exist. Reference the correct function instead.
 
-Change-ID: I868a4326911900f6c89e7e522fda4968b0825f14
-Signed-off-by: Michal Kosiarz <michal.kosiarz@intel.com>
-Signed-off-by: Matt Jared <matthew.a.jared@intel.com>
+Change-ID: I6bd805c605741ffb6fe34377259bb0d597edfafd
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 180 +++++++++++++++++------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  12 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h      |  19 ++-
- 3 files changed, 159 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 98791ba..5cef393 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -4396,7 +4396,99 @@ i40e_status i40e_aq_configure_partition_bw(struct i40e_hw *hw,
- }
- 
- /**
-- * i40e_read_phy_register
-+ * i40e_read_phy_register_clause22
-+ * @hw: pointer to the HW structure
-+ * @reg: register address in the page
-+ * @phy_adr: PHY address on MDIO interface
-+ * @value: PHY register value
-+ *
-+ * Reads specified PHY register value
-+ **/
-+i40e_status i40e_read_phy_register_clause22(struct i40e_hw *hw,
-+					    u16 reg, u8 phy_addr, u16 *value)
-+{
-+	i40e_status status = I40E_ERR_TIMEOUT;
-+	u8 port_num = (u8)hw->func_caps.mdio_port_num;
-+	u32 command = 0;
-+	u16 retry = 1000;
-+
-+	command = (reg << I40E_GLGEN_MSCA_DEVADD_SHIFT) |
-+		  (phy_addr << I40E_GLGEN_MSCA_PHYADD_SHIFT) |
-+		  (I40E_MDIO_CLAUSE22_OPCODE_READ_MASK) |
-+		  (I40E_MDIO_CLAUSE22_STCODE_MASK) |
-+		  (I40E_GLGEN_MSCA_MDICMD_MASK);
-+	wr32(hw, I40E_GLGEN_MSCA(port_num), command);
-+	do {
-+		command = rd32(hw, I40E_GLGEN_MSCA(port_num));
-+		if (!(command & I40E_GLGEN_MSCA_MDICMD_MASK)) {
-+			status = 0;
-+			break;
-+		}
-+		udelay(10);
-+		retry--;
-+	} while (retry);
-+
-+	if (status) {
-+		i40e_debug(hw, I40E_DEBUG_PHY,
-+			   "PHY: Can't write command to external PHY.\n");
-+		goto phy_read_end;
-+	}
-+
-+	if (!status) {
-+		command = rd32(hw, I40E_GLGEN_MSRWD(port_num));
-+		*value = (command & I40E_GLGEN_MSRWD_MDIRDDATA_MASK) >>
-+			 I40E_GLGEN_MSRWD_MDIRDDATA_SHIFT;
-+	} else {
-+		i40e_debug(hw, I40E_DEBUG_PHY,
-+			   "PHY: Can't read register value from external PHY.\n");
-+	}
-+
-+phy_read_end:
-+	return status;
-+}
-+
-+/**
-+ * i40e_write_phy_register_clause22
-+ * @hw: pointer to the HW structure
-+ * @reg: register address in the page
-+ * @phy_adr: PHY address on MDIO interface
-+ * @value: PHY register value
-+ *
-+ * Writes specified PHY register value
-+ **/
-+i40e_status i40e_write_phy_register_clause22(struct i40e_hw *hw,
-+					     u16 reg, u8 phy_addr, u16 value)
-+{
-+	i40e_status status = I40E_ERR_TIMEOUT;
-+	u8 port_num = (u8)hw->func_caps.mdio_port_num;
-+	u32 command  = 0;
-+	u16 retry = 1000;
-+
-+	command = value << I40E_GLGEN_MSRWD_MDIWRDATA_SHIFT;
-+	wr32(hw, I40E_GLGEN_MSRWD(port_num), command);
-+
-+	command = (reg << I40E_GLGEN_MSCA_DEVADD_SHIFT) |
-+		  (phy_addr << I40E_GLGEN_MSCA_PHYADD_SHIFT) |
-+		  (I40E_MDIO_CLAUSE22_OPCODE_WRITE_MASK) |
-+		  (I40E_MDIO_CLAUSE22_STCODE_MASK) |
-+		  (I40E_GLGEN_MSCA_MDICMD_MASK);
-+
-+	wr32(hw, I40E_GLGEN_MSCA(port_num), command);
-+	do {
-+		command = rd32(hw, I40E_GLGEN_MSCA(port_num));
-+		if (!(command & I40E_GLGEN_MSCA_MDICMD_MASK)) {
-+			status = 0;
-+			break;
-+		}
-+		udelay(10);
-+		retry--;
-+	} while (retry);
-+
-+	return status;
-+}
-+
-+/**
-+ * i40e_read_phy_register_clause45
-  * @hw: pointer to the HW structure
-  * @page: registers page number
-  * @reg: register address in the page
-@@ -4405,9 +4497,8 @@ i40e_status i40e_aq_configure_partition_bw(struct i40e_hw *hw,
-  *
-  * Reads specified PHY register value
-  **/
--i40e_status i40e_read_phy_register(struct i40e_hw *hw,
--				   u8 page, u16 reg, u8 phy_addr,
--				   u16 *value)
-+i40e_status i40e_read_phy_register_clause45(struct i40e_hw *hw,
-+				u8 page, u16 reg, u8 phy_addr, u16 *value)
- {
- 	i40e_status status = I40E_ERR_TIMEOUT;
- 	u32 command = 0;
-@@ -4417,8 +4508,8 @@ i40e_status i40e_read_phy_register(struct i40e_hw *hw,
- 	command = (reg << I40E_GLGEN_MSCA_MDIADD_SHIFT) |
- 		  (page << I40E_GLGEN_MSCA_DEVADD_SHIFT) |
- 		  (phy_addr << I40E_GLGEN_MSCA_PHYADD_SHIFT) |
--		  (I40E_MDIO_OPCODE_ADDRESS) |
--		  (I40E_MDIO_STCODE) |
-+		  (I40E_MDIO_CLAUSE45_OPCODE_ADDRESS_MASK) |
-+		  (I40E_MDIO_CLAUSE45_STCODE_MASK) |
- 		  (I40E_GLGEN_MSCA_MDICMD_MASK) |
- 		  (I40E_GLGEN_MSCA_MDIINPROGEN_MASK);
- 	wr32(hw, I40E_GLGEN_MSCA(port_num), command);
-@@ -4440,8 +4531,8 @@ i40e_status i40e_read_phy_register(struct i40e_hw *hw,
- 
- 	command = (page << I40E_GLGEN_MSCA_DEVADD_SHIFT) |
- 		  (phy_addr << I40E_GLGEN_MSCA_PHYADD_SHIFT) |
--		  (I40E_MDIO_OPCODE_READ) |
--		  (I40E_MDIO_STCODE) |
-+		  (I40E_MDIO_CLAUSE45_OPCODE_READ_MASK) |
-+		  (I40E_MDIO_CLAUSE45_STCODE_MASK) |
- 		  (I40E_GLGEN_MSCA_MDICMD_MASK) |
- 		  (I40E_GLGEN_MSCA_MDIINPROGEN_MASK);
- 	status = I40E_ERR_TIMEOUT;
-@@ -4471,7 +4562,7 @@ i40e_status i40e_read_phy_register(struct i40e_hw *hw,
- }
- 
- /**
-- * i40e_write_phy_register
-+ * i40e_write_phy_register_clause45
-  * @hw: pointer to the HW structure
-  * @page: registers page number
-  * @reg: register address in the page
-@@ -4480,9 +4571,8 @@ i40e_status i40e_read_phy_register(struct i40e_hw *hw,
-  *
-  * Writes value to specified PHY register
-  **/
--i40e_status i40e_write_phy_register(struct i40e_hw *hw,
--				    u8 page, u16 reg, u8 phy_addr,
--				    u16 value)
-+i40e_status i40e_write_phy_register_clause45(struct i40e_hw *hw,
-+				u8 page, u16 reg, u8 phy_addr, u16 value)
- {
- 	i40e_status status = I40E_ERR_TIMEOUT;
- 	u32 command = 0;
-@@ -4492,8 +4582,8 @@ i40e_status i40e_write_phy_register(struct i40e_hw *hw,
- 	command = (reg << I40E_GLGEN_MSCA_MDIADD_SHIFT) |
- 		  (page << I40E_GLGEN_MSCA_DEVADD_SHIFT) |
- 		  (phy_addr << I40E_GLGEN_MSCA_PHYADD_SHIFT) |
--		  (I40E_MDIO_OPCODE_ADDRESS) |
--		  (I40E_MDIO_STCODE) |
-+		  (I40E_MDIO_CLAUSE45_OPCODE_ADDRESS_MASK) |
-+		  (I40E_MDIO_CLAUSE45_STCODE_MASK) |
- 		  (I40E_GLGEN_MSCA_MDICMD_MASK) |
- 		  (I40E_GLGEN_MSCA_MDIINPROGEN_MASK);
- 	wr32(hw, I40E_GLGEN_MSCA(port_num), command);
-@@ -4517,8 +4607,8 @@ i40e_status i40e_write_phy_register(struct i40e_hw *hw,
- 
- 	command = (page << I40E_GLGEN_MSCA_DEVADD_SHIFT) |
- 		  (phy_addr << I40E_GLGEN_MSCA_PHYADD_SHIFT) |
--		  (I40E_MDIO_OPCODE_WRITE) |
--		  (I40E_MDIO_STCODE) |
-+		  (I40E_MDIO_CLAUSE45_OPCODE_WRITE_MASK) |
-+		  (I40E_MDIO_CLAUSE45_STCODE_MASK) |
- 		  (I40E_GLGEN_MSCA_MDICMD_MASK) |
- 		  (I40E_GLGEN_MSCA_MDIINPROGEN_MASK);
- 	status = I40E_ERR_TIMEOUT;
-@@ -4580,14 +4670,16 @@ i40e_status i40e_blink_phy_link_led(struct i40e_hw *hw,
- 
- 	for (gpio_led_port = 0; gpio_led_port < 3; gpio_led_port++,
- 	     led_addr++) {
--		status = i40e_read_phy_register(hw, I40E_PHY_COM_REG_PAGE,
--						led_addr, phy_addr, &led_reg);
-+		status = i40e_read_phy_register_clause45(hw,
-+							 I40E_PHY_COM_REG_PAGE,
-+							 led_addr, phy_addr,
-+							 &led_reg);
- 		if (status)
- 			goto phy_blinking_end;
- 		led_ctl = led_reg;
- 		if (led_reg & I40E_PHY_LED_LINK_MODE_MASK) {
- 			led_reg = 0;
--			status = i40e_write_phy_register(hw,
-+			status = i40e_write_phy_register_clause45(hw,
- 							 I40E_PHY_COM_REG_PAGE,
- 							 led_addr, phy_addr,
- 							 led_reg);
-@@ -4599,20 +4691,18 @@ i40e_status i40e_blink_phy_link_led(struct i40e_hw *hw,
- 
- 	if (time > 0 && interval > 0) {
- 		for (i = 0; i < time * 1000; i += interval) {
--			status = i40e_read_phy_register(hw,
--							I40E_PHY_COM_REG_PAGE,
--							led_addr, phy_addr,
--							&led_reg);
-+			status = i40e_read_phy_register_clause45(hw,
-+						I40E_PHY_COM_REG_PAGE,
-+						led_addr, phy_addr, &led_reg);
- 			if (status)
- 				goto restore_config;
- 			if (led_reg & I40E_PHY_LED_MANUAL_ON)
- 				led_reg = 0;
- 			else
- 				led_reg = I40E_PHY_LED_MANUAL_ON;
--			status = i40e_write_phy_register(hw,
--							 I40E_PHY_COM_REG_PAGE,
--							 led_addr, phy_addr,
--							 led_reg);
-+			status = i40e_write_phy_register_clause45(hw,
-+						I40E_PHY_COM_REG_PAGE,
-+						led_addr, phy_addr, led_reg);
- 			if (status)
- 				goto restore_config;
- 			msleep(interval);
-@@ -4620,8 +4710,9 @@ i40e_status i40e_blink_phy_link_led(struct i40e_hw *hw,
- 	}
- 
- restore_config:
--	status = i40e_write_phy_register(hw, I40E_PHY_COM_REG_PAGE, led_addr,
--					 phy_addr, led_ctl);
-+	status = i40e_write_phy_register_clause45(hw,
-+						  I40E_PHY_COM_REG_PAGE,
-+						  led_addr, phy_addr, led_ctl);
- 
- phy_blinking_end:
- 	return status;
-@@ -4652,8 +4743,10 @@ i40e_status i40e_led_get_phy(struct i40e_hw *hw, u16 *led_addr,
- 
- 	for (gpio_led_port = 0; gpio_led_port < 3; gpio_led_port++,
- 	     temp_addr++) {
--		status = i40e_read_phy_register(hw, I40E_PHY_COM_REG_PAGE,
--						temp_addr, phy_addr, &reg_val);
-+		status = i40e_read_phy_register_clause45(hw,
-+							 I40E_PHY_COM_REG_PAGE,
-+							 temp_addr, phy_addr,
-+							 &reg_val);
- 		if (status)
- 			return status;
- 		*val = reg_val;
-@@ -4686,41 +4779,42 @@ i40e_status i40e_led_set_phy(struct i40e_hw *hw, bool on,
- 	i = rd32(hw, I40E_PFGEN_PORTNUM);
- 	port_num = (u8)(i & I40E_PFGEN_PORTNUM_PORT_NUM_MASK);
- 	phy_addr = i40e_get_phy_address(hw, port_num);
--
--	status = i40e_read_phy_register(hw, I40E_PHY_COM_REG_PAGE, led_addr,
--					phy_addr, &led_reg);
-+	status = i40e_read_phy_register_clause45(hw, I40E_PHY_COM_REG_PAGE,
-+						 led_addr, phy_addr, &led_reg);
- 	if (status)
- 		return status;
- 	led_ctl = led_reg;
- 	if (led_reg & I40E_PHY_LED_LINK_MODE_MASK) {
- 		led_reg = 0;
--		status = i40e_write_phy_register(hw, I40E_PHY_COM_REG_PAGE,
--						 led_addr, phy_addr, led_reg);
-+		status = i40e_write_phy_register_clause45(hw,
-+							  I40E_PHY_COM_REG_PAGE,
-+							  led_addr, phy_addr,
-+							  led_reg);
- 		if (status)
- 			return status;
- 	}
--	status = i40e_read_phy_register(hw, I40E_PHY_COM_REG_PAGE,
--					led_addr, phy_addr, &led_reg);
-+	status = i40e_read_phy_register_clause45(hw, I40E_PHY_COM_REG_PAGE,
-+						 led_addr, phy_addr, &led_reg);
- 	if (status)
- 		goto restore_config;
- 	if (on)
- 		led_reg = I40E_PHY_LED_MANUAL_ON;
- 	else
- 		led_reg = 0;
--	status = i40e_write_phy_register(hw, I40E_PHY_COM_REG_PAGE,
--					 led_addr, phy_addr, led_reg);
-+	status = i40e_write_phy_register_clause45(hw, I40E_PHY_COM_REG_PAGE,
-+						  led_addr, phy_addr, led_reg);
- 	if (status)
- 		goto restore_config;
- 	if (mode & I40E_PHY_LED_MODE_ORIG) {
- 		led_ctl = (mode & I40E_PHY_LED_MODE_MASK);
--		status = i40e_write_phy_register(hw,
-+		status = i40e_write_phy_register_clause45(hw,
- 						 I40E_PHY_COM_REG_PAGE,
- 						 led_addr, phy_addr, led_ctl);
- 	}
- 	return status;
- restore_config:
--	status = i40e_write_phy_register(hw, I40E_PHY_COM_REG_PAGE, led_addr,
--					 phy_addr, led_ctl);
-+	status = i40e_write_phy_register_clause45(hw, I40E_PHY_COM_REG_PAGE,
-+						  led_addr, phy_addr, led_ctl);
- 	return status;
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 4660c5a..82dedc9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -362,10 +362,14 @@ i40e_status i40e_aq_rx_ctl_write_register(struct i40e_hw *hw,
- 				u32 reg_addr, u32 reg_val,
- 				struct i40e_asq_cmd_details *cmd_details);
- void i40e_write_rx_ctl(struct i40e_hw *hw, u32 reg_addr, u32 reg_val);
--i40e_status i40e_read_phy_register(struct i40e_hw *hw, u8 page,
--				   u16 reg, u8 phy_addr, u16 *value);
--i40e_status i40e_write_phy_register(struct i40e_hw *hw, u8 page,
--				    u16 reg, u8 phy_addr, u16 value);
-+i40e_status i40e_read_phy_register_clause22(struct i40e_hw *hw,
-+					    u16 reg, u8 phy_addr, u16 *value);
-+i40e_status i40e_write_phy_register_clause22(struct i40e_hw *hw,
-+					     u16 reg, u8 phy_addr, u16 value);
-+i40e_status i40e_read_phy_register_clause45(struct i40e_hw *hw,
-+				u8 page, u16 reg, u8 phy_addr, u16 *value);
-+i40e_status i40e_write_phy_register_clause45(struct i40e_hw *hw,
-+				u8 page, u16 reg, u8 phy_addr, u16 value);
- u8 i40e_get_phy_address(struct i40e_hw *hw, u8 dev_num);
- i40e_status i40e_blink_phy_link_led(struct i40e_hw *hw,
- 				    u32 time, u32 interval);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index d9a2660..671969c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -90,14 +90,23 @@ enum i40e_debug_mask {
- 	I40E_DEBUG_ALL			= 0xFFFFFFFF
- };
- 
--#define I40E_MDIO_STCODE                0
--#define I40E_MDIO_OPCODE_ADDRESS        0
--#define I40E_MDIO_OPCODE_WRITE          I40E_MASK(1, \
-+#define I40E_MDIO_CLAUSE22_STCODE_MASK	I40E_MASK(1, \
-+						  I40E_GLGEN_MSCA_STCODE_SHIFT)
-+#define I40E_MDIO_CLAUSE22_OPCODE_WRITE_MASK	I40E_MASK(1, \
- 						  I40E_GLGEN_MSCA_OPCODE_SHIFT)
--#define I40E_MDIO_OPCODE_READ_INC_ADDR  I40E_MASK(2, \
-+#define I40E_MDIO_CLAUSE22_OPCODE_READ_MASK	I40E_MASK(2, \
- 						  I40E_GLGEN_MSCA_OPCODE_SHIFT)
--#define I40E_MDIO_OPCODE_READ           I40E_MASK(3, \
-+
-+#define I40E_MDIO_CLAUSE45_STCODE_MASK	I40E_MASK(0, \
-+						  I40E_GLGEN_MSCA_STCODE_SHIFT)
-+#define I40E_MDIO_CLAUSE45_OPCODE_ADDRESS_MASK	I40E_MASK(0, \
-+						  I40E_GLGEN_MSCA_OPCODE_SHIFT)
-+#define I40E_MDIO_CLAUSE45_OPCODE_WRITE_MASK	I40E_MASK(1, \
- 						  I40E_GLGEN_MSCA_OPCODE_SHIFT)
-+#define I40E_MDIO_CLAUSE45_OPCODE_READ_INC_ADDR_MASK	I40E_MASK(2, \
-+						I40E_GLGEN_MSCA_OPCODE_SHIFT)
-+#define I40E_MDIO_CLAUSE45_OPCODE_READ_MASK	I40E_MASK(3, \
-+						I40E_GLGEN_MSCA_OPCODE_SHIFT)
- 
- #define I40E_PHY_COM_REG_PAGE                   0x1E
- #define I40E_PHY_LED_LINK_MODE_MASK             0xF0
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index fe5939a..6832ab1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1211,12 +1211,12 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi)
+ 	 *    i40e_add_filter.
+ 	 *
+ 	 * 2) the only place where filters are actually removed is in
+-	 *    i40e_vsi_sync_filters_subtask.
++	 *    i40e_sync_filters_subtask.
+ 	 *
+ 	 * Thus, we can simply use a boolean value, has_vlan_filters which we
+ 	 * will set to true when we add a VLAN filter in i40e_add_filter. Then
+ 	 * we have to perform the full search after deleting filters in
+-	 * i40e_vsi_sync_filters_subtask, but we already have to search
++	 * i40e_sync_filters_subtask, but we already have to search
+ 	 * filters here and can perform the check at the same time. This
+ 	 * results in avoiding embedding a loop for VLAN mode inside another
+ 	 * loop over all the filters, and should maintain correctness as noted
 -- 
 2.9.3
