@@ -1,64 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC PATCH 2/2] Documentation: devictree: Add macb mdio bindings
-Date: Sat, 3 Dec 2016 14:40:38 -0800
-Message-ID: <bfbc84ce-4975-3213-3b46-8c394c717ea9@gmail.com>
-References: <1480326567-6132-1-git-send-email-harinik@xilinx.com>
- <20161203213553.f3agwvaseufglnq6@rob-hp-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: nicolas.ferre@atmel.com, davem@davemloft.net, pawel.moll@arm.com,
-        mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-        galak@codeaurora.org, boris.brezillon@free-electrons.com,
-        alexandre.belloni@free-electrons.com, harinikatakamlinux@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org, harinik@xilinx.com, michals@xilinx.com
-To: Rob Herring <robh@kernel.org>,
-        Harini Katakam <harini.katakam@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161203213553.f3agwvaseufglnq6@rob-hp-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next] tcp: fix the missing avr32 SOF_TIMESTAMPING_OPT_STATS
+Date: Sat,  3 Dec 2016 14:46:22 -0800
+Message-ID: <1480805182-7150-1-git-send-email-ycheng@google.com>
+Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
+        Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33856 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751317AbcLCWqo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 17:46:44 -0500
+Received: by mail-pf0-f174.google.com with SMTP id c4so57692658pfb.1
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 14:46:44 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 12/03/16 à 13:35, Rob Herring a écrit :
-> On Mon, Nov 28, 2016 at 03:19:27PM +0530, Harini Katakam wrote:
->> Add documentations for macb mdio driver.
-> 
-> Bindings document h/w, not drivers.
-> 
->>
->> Signed-off-by: Harini Katakam <harinik@xilinx.com>
->> ---
->>  .../devicetree/bindings/net/macb-mdio.txt          | 31 ++++++++++++++++++++++
->>  1 file changed, 31 insertions(+)
->>  create mode 100644 Documentation/devicetree/bindings/net/macb-mdio.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/macb-mdio.txt b/Documentation/devicetree/bindings/net/macb-mdio.txt
->> new file mode 100644
->> index 0000000..014cedf
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/macb-mdio.txt
->> @@ -0,0 +1,31 @@
->> +* Cadence MACB MDIO controller
->> +
->> +Required properties:
->> +- compatible: Should be "cdns,macb-mdio"
-> 
-> Only one version ever? This needs more specific compatible strings.
-> 
->> +- reg: Address and length of the register set of MAC to be used
->> +- clock-names: Tuple listing input clock names.
->> +	Required elements: 'pclk', 'hclk'
->> +	Optional elements: 'tx_clk'
->> +- clocks: Phandles to input clocks.
+The commit of SOF_TIMESTAMPING_OPT_STATS didn't include the
+new header for avr32, causing build to break. The patch fixes it.
 
-You are also missing mandatory properties:
+Fixes: 1c885808e456 ("tcp: SOF_TIMESTAMPING_OPT_STATS option for SO_TIMESTAMPING")
+Reported-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ arch/avr32/include/uapi/asm/socket.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-#address-cells = <1> and #size-cells = <0>
-
-Where is patch 1? Can you make sure you have the same recipient list for
-both patches in this series so we can review both the binding and driver?
-
-Thanks!
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index 1fd147f..5a65042 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -90,4 +90,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SCM_TIMESTAMPING_OPT_STATS	54
++
+ #endif /* _UAPI__ASM_AVR32_SOCKET_H */
 -- 
-Florian
+2.8.0.rc3.226.g39d4020
