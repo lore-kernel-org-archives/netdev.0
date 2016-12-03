@@ -1,67 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] ixgbevf: fix invalid uses of napi_hash_del()
-Date: Sat, 03 Dec 2016 07:00:16 -0800
-Message-ID: <1480777216.18162.404.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1479309315.8455.189.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1479310010.8455.197.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 0/4]: Allow head adjustment in XDP prog
+Date: Sat, 3 Dec 2016 16:17:34 +0100
+Message-ID: <20161203161734.2aeaf170@redhat.com>
+References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: brouer@redhat.com, <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34052 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751455AbcLCPAT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 10:00:19 -0500
-Received: by mail-pg0-f68.google.com with SMTP id e9so10989864pgc.1
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 07:00:19 -0800 (PST)
-In-Reply-To: <1479310010.8455.197.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47492 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751241AbcLCPRk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 3 Dec 2016 10:17:40 -0500
+In-Reply-To: <1480721013-1047541-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-16 at 07:26 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Calling napi_hash_del() before netif_napi_del() is dangerous
-> if a synchronize_rcu() is not enforced before NAPI struct freeing.
-> 
-> Lets leave this detail to core networking stack to get it right.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    6 ------
->  1 file changed, 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> index 7eaac3234049..bf4d7efc7dbd 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> @@ -2511,9 +2511,6 @@ static int ixgbevf_alloc_q_vectors(struct ixgbevf_adapter *adapter)
->  	while (q_idx) {
->  		q_idx--;
->  		q_vector = adapter->q_vector[q_idx];
-> -#ifdef CONFIG_NET_RX_BUSY_POLL
-> -		napi_hash_del(&q_vector->napi);
-> -#endif
->  		netif_napi_del(&q_vector->napi);
->  		kfree(q_vector);
->  		adapter->q_vector[q_idx] = NULL;
-> @@ -2537,9 +2534,6 @@ static void ixgbevf_free_q_vectors(struct ixgbevf_adapter *adapter)
->  		struct ixgbevf_q_vector *q_vector = adapter->q_vector[q_idx];
->  
->  		adapter->q_vector[q_idx] = NULL;
-> -#ifdef CONFIG_NET_RX_BUSY_POLL
-> -		napi_hash_del(&q_vector->napi);
-> -#endif
->  		netif_napi_del(&q_vector->napi);
->  		kfree(q_vector);
->  	}
-> 
-> 
+On Fri, 2 Dec 2016 15:23:29 -0800
+Martin KaFai Lau <kafai@fb.com> wrote:
 
-It looks this patch was not picked up ?
+> This series adds a helper to allow head adjustment in XDP prog.  mlx4
+> driver has been modified to support this feature.  An example is written
+> to encapsulate a packet with an IPv4/v6 header and then XDP_TX it
+> out.
 
-Thanks !
+Hi Martin,
+
+It is great to see work in this area.
+
+Push/pop of headers is listed as on of the missing features here:
+ https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/implementation/missing_features.html
+We can hopefully soon cross that of the list :-)
+
+Header push and pop desc:
+ https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/design/requirements.html#header-push-and-pop
+
+Thanks for working on this! :-)))
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
