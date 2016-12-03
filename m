@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 08/10] ipv4: fib: Convert FIB notification chain to be atomic
-Date: Sat,  3 Dec 2016 16:45:05 +0100
-Message-ID: <1480779907-32535-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 06/10] rocker: Implement FIB offload in deferred work
+Date: Sat,  3 Dec 2016 16:45:03 +0100
+Message-ID: <1480779907-32535-7-git-send-email-jiri@resnulli.us>
 References: <1480779907-32535-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
@@ -12,63 +12,122 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f194.google.com ([209.85.210.194]:36652 "EHLO
-        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753488AbcLCPpU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 10:45:20 -0500
-Received: by mail-wj0-f194.google.com with SMTP id j10so6341469wjb.3
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 07:45:19 -0800 (PST)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36244 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753488AbcLCPpR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 10:45:17 -0500
+Received: by mail-wm0-f67.google.com with SMTP id m203so7026747wma.3
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 07:45:17 -0800 (PST)
 In-Reply-To: <1480779907-32535-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-In order not to hold RTNL for long periods of time we're going to dump
-the FIB tables using RCU.
-
-Convert the FIB notification chain to be atomic, as we can't block in
-RCU critical sections.
+Convert rocker to offload FIBs in deferred work in a similar fashion to
+mlxsw, which was converted in the previous commits.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/ipv4/fib_trie.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/rocker/rocker_main.c  | 58 +++++++++++++++++++++++++-----
+ drivers/net/ethernet/rocker/rocker_ofdpa.c |  1 +
+ 2 files changed, 51 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 026f309..9bfce0d 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -84,17 +84,17 @@
- #include <trace/events/fib.h>
- #include "fib_lookup.h"
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 424be96..914e9e1 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -2166,28 +2166,70 @@ static const struct switchdev_ops rocker_port_switchdev_ops = {
+ 	.switchdev_port_obj_dump	= rocker_port_obj_dump,
+ };
  
--static BLOCKING_NOTIFIER_HEAD(fib_chain);
-+static ATOMIC_NOTIFIER_HEAD(fib_chain);
- 
- int register_fib_notifier(struct notifier_block *nb)
+-static int rocker_router_fib_event(struct notifier_block *nb,
+-				   unsigned long event, void *ptr)
++struct rocker_fib_event_work {
++	struct work_struct work;
++	struct fib_entry_notifier_info fen_info;
++	struct rocker *rocker;
++	unsigned long event;
++};
++
++static void rocker_router_fib_event_work(struct work_struct *work)
  {
--	return blocking_notifier_chain_register(&fib_chain, nb);
-+	return atomic_notifier_chain_register(&fib_chain, nb);
- }
- EXPORT_SYMBOL(register_fib_notifier);
+-	struct rocker *rocker = container_of(nb, struct rocker, fib_nb);
+-	struct fib_entry_notifier_info *fen_info = ptr;
++	struct rocker_fib_event_work *fib_work =
++		container_of(work, struct rocker_fib_event_work, work);
++	struct rocker *rocker = fib_work->rocker;
+ 	int err;
  
- int unregister_fib_notifier(struct notifier_block *nb)
- {
--	return blocking_notifier_chain_unregister(&fib_chain, nb);
-+	return atomic_notifier_chain_unregister(&fib_chain, nb);
+-	switch (event) {
++	/* Protect internal structures from changes */
++	rtnl_lock();
++	switch (fib_work->event) {
+ 	case FIB_EVENT_ENTRY_ADD:
+-		err = rocker_world_fib4_add(rocker, fen_info);
++		err = rocker_world_fib4_add(rocker, &fib_work->fen_info);
+ 		if (err)
+ 			rocker_world_fib4_abort(rocker);
+-		else
++		fib_info_put(fib_work->fen_info.fi);
+ 		break;
+ 	case FIB_EVENT_ENTRY_DEL:
+-		rocker_world_fib4_del(rocker, fen_info);
++		rocker_world_fib4_del(rocker, &fib_work->fen_info);
++		fib_info_put(fib_work->fen_info.fi);
+ 		break;
+ 	case FIB_EVENT_RULE_ADD: /* fall through */
+ 	case FIB_EVENT_RULE_DEL:
+ 		rocker_world_fib4_abort(rocker);
+ 		break;
+ 	}
++	rtnl_unlock();
++	kfree(fib_work);
++}
++
++/* Called with rcu_read_lock() */
++static int rocker_router_fib_event(struct notifier_block *nb,
++				   unsigned long event, void *ptr)
++{
++	struct rocker *rocker = container_of(nb, struct rocker, fib_nb);
++	struct rocker_fib_event_work *fib_work;
++
++	fib_work = kzalloc(sizeof(*fib_work), GFP_ATOMIC);
++	if (WARN_ON(!fib_work))
++		return NOTIFY_BAD;
++
++	INIT_WORK(&fib_work->work, rocker_router_fib_event_work);
++	fib_work->rocker = rocker;
++	fib_work->event = event;
++
++	switch (event) {
++	case FIB_EVENT_ENTRY_ADD: /* fall through */
++	case FIB_EVENT_ENTRY_DEL:
++		memcpy(&fib_work->fen_info, ptr, sizeof(fib_work->fen_info));
++		/* Take referece on fib_info to prevent it from being
++		 * freed while work is queued. Release it afterwards.
++		 */
++		fib_info_hold(fib_work->fen_info.fi);
++		break;
++	}
++
++	queue_work(rocker->rocker_owq, &fib_work->work);
++
+ 	return NOTIFY_DONE;
  }
- EXPORT_SYMBOL(unregister_fib_notifier);
  
-@@ -102,7 +102,7 @@ int call_fib_notifiers(struct net *net, enum fib_event_type event_type,
- 		       struct fib_notifier_info *info)
- {
- 	info->net = net;
--	return blocking_notifier_call_chain(&fib_chain, event_type, info);
-+	return atomic_notifier_call_chain(&fib_chain, event_type, info);
- }
+diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+index 4ca4613..7cd76b6 100644
+--- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
++++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+@@ -2516,6 +2516,7 @@ static void ofdpa_fini(struct rocker *rocker)
+ 	int bkt;
  
- static int call_fib_entry_notifiers(struct net *net,
+ 	del_timer_sync(&ofdpa->fdb_cleanup_timer);
++	flush_workqueue(rocker->rocker_owq);
+ 
+ 	spin_lock_irqsave(&ofdpa->flow_tbl_lock, flags);
+ 	hash_for_each_safe(ofdpa->flow_tbl, bkt, tmp, flow_entry, entry)
 -- 
 2.7.4
