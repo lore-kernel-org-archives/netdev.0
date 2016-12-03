@@ -1,82 +1,103 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [flamebait] xdp, well meaning but pointless
-Date: Sat, 3 Dec 2016 11:48:22 -0800
-Message-ID: <58432186.20006@gmail.com>
-References: <20161201091108.GF26507@breakpoint.cc>
- <20161202182233.7d78459f@redhat.com>
- <CAF=yD-+Wx9Pkt55-dUU6dYM7P==kQoKE4YXKoFSq1yi7rY5rDA@mail.gmail.com>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2016-12-03
+Date: Sat, 3 Dec 2016 19:53:41 +0000
+Message-ID: <20161203195341.GA17607@x1c.ukservers.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="sdtB3X0nJg68CQEu"
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34106 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750916AbcLCTse (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 14:48:34 -0500
-Received: by mail-pg0-f65.google.com with SMTP id e9so11492300pgc.1
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:48:33 -0800 (PST)
-In-Reply-To: <CAF=yD-+Wx9Pkt55-dUU6dYM7P==kQoKE4YXKoFSq1yi7rY5rDA@mail.gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36220 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750995AbcLCTxu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 14:53:50 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-12-03 08:19 AM, Willem de Bruijn wrote:
-> On Fri, Dec 2, 2016 at 12:22 PM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
->>
->> On Thu, 1 Dec 2016 10:11:08 +0100 Florian Westphal <fw@strlen.de> wrote:
->>
->>> In light of DPDKs existence it make a lot more sense to me to provide
->>> a). a faster mmap based interface (possibly AF_PACKET based) that allows
->>> to map nic directly into userspace, detaching tx/rx queue from kernel.
->>>
->>> John Fastabend sent something like this last year as a proof of
->>> concept, iirc it was rejected because register space got exposed directly
->>> to userspace.  I think we should re-consider merging netmap
->>> (or something conceptually close to its design).
->>
->> I'm actually working in this direction, of zero-copy RX mapping packets
->> into userspace.  This work is mostly related to page_pool, and I only
->> plan to use XDP as a filter for selecting packets going to userspace,
->> as this choice need to be taken very early.
->>
->> My design is here:
->>  https://prototype-kernel.readthedocs.io/en/latest/vm/page_pool/design/memory_model_nic.html
->>
->> This is mostly about changing the memory model in the drivers, to allow
->> for safely mapping pages to userspace.  (An efficient queue mechanism is
->> not covered).
-> 
-> Virtio virtqueues are used in various other locations in the stack.
-> With separate memory pools and send + completion descriptor rings,
-> signal moderation, careful avoidance of cacheline bouncing, etc. these
-> seem like a good opportunity for a TPACKET_V4 format.
-> 
 
-FWIW. After we rejected exposing the register space to user space due to
-valid security issues we fell back to using VFIO which works nicely for
-mapping virtual functions into userspace and VMs. The main  drawback is
-user space has to manage the VF but that is mostly a solved problem at
-this point. Deployment concerns aside.
+--sdtB3X0nJg68CQEu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-There was a TPACKET_V4 version we had a prototype of that passed
-buffers down to the hardware to use with the dma engine. This gives
-zero-copy but same as VFs requires the hardware to do all the steering
-of traffic and any expected policy in front of the application. Due to
-requiring user space to kick hardware and vice versa though it was
-somewhat slower so I didn't finish it up. The kick was implemented as a
-syscall iirc. I can maybe look at it a bit more next week and see if its
-worth reviving now in this context.
+Hi Dave,
 
-I don't think any of this requires page pools though. Or rather tpacket
-and vhost/virtio already know how to do page pools is perhaps the other
-way to look at it.
+Here's a set of Bluetooth & 802.15.4 patches for net-next (i.e. 4.10
+kernel):
 
-One idea I've been playing around with is a vhost backend using
-tpacketv{3|4} so we don't require socket manipulation.
+ - Fix for a potential NULL deref in the ieee802154 netlink code
+ - Fix for the ED values of the at86rf2xx driver
+ - Documentation updates to ieee802154
+ - Cleanups to u8 vs __u8 usage
+ - Timer API usage cleanups in HCI drivers
 
-Thanks,
-John
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit 0b42f25d2f123bb7fbd3565d003a8ea9e1e810fe:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2016-11-26 23:42:21 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
+
+for you to fetch changes up to 6bf0d84d13e968b4f8bf0710e0cae785e228dbba:
+
+  docs: ieee802154: update main documentation file (2016-11-30 12:33:07 +0100)
+
+----------------------------------------------------------------
+Alexander Aring (1):
+      at86rf230: fix cca ed values for rf233
+
+Pavel Machek (1):
+      Bluetooth: __ variants of u8 and friends are not neccessary inside kernel
+
+Prasanna Karthik (3):
+      Bluetooth: hci_bcsp: Use setup_timer Kernel API instead of init_timer
+      Bluetooth: hci_h5: Use setup_timer Kernel API instead of init_timer
+      Bluetooth: hci_qca: Use setup_timer Kernel API instead of init_timer
+
+Stefan Schmidt (3):
+      ieee802154: add myself as co-maintainer to MAINTAINERS file
+      ieee802154: fakelb: print number of created fake devices during probe
+      docs: ieee802154: update main documentation file
+
+vegard.nossum@oracle.com (1):
+      ieee802154: check device type
+
+ Documentation/networking/ieee802154.txt | 26 +++++++++++---------------
+ MAINTAINERS                             |  1 +
+ drivers/bluetooth/hci_bcsp.c            |  4 +---
+ drivers/bluetooth/hci_h5.c              |  4 +---
+ drivers/bluetooth/hci_qca.c             |  9 +++------
+ drivers/net/ieee802154/at86rf230.c      | 16 +++++++++++-----
+ drivers/net/ieee802154/fakelb.c         |  2 +-
+ include/net/bluetooth/bluetooth.h       | 25 +++++++++++++------------
+ net/ieee802154/nl-phy.c                 |  6 +++++-
+ 9 files changed, 47 insertions(+), 46 deletions(-)
+
+--sdtB3X0nJg68CQEu
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJYQyLFAAoJECQj9vv5qNQS6EMQAJ6TRUzrRkngNY0bZijtwCUx
++oRjk+VFJ17Aq81Oo0uHOxEbnS+BwFmCaIEsfZkLD0TbKlwqYUcqUQzdbPZGXVdw
+iIq5sexSfgz5YqQ65+evlFWXQKtHgqA1f+LnQwEWNuV/vNBTM+ALrSj8B/qMF6sW
+q7QpAvwKjfrKPhkngqL6FIlv6JGTEBeidZkQIS2kNdWHf9Y0OVdBm5+Jxz4EfIeU
++yNtvcwsOreqWwHKv3Gb/rar0SL5dVwA7xPgpAo690CzSZ6YaBJSkrg+GNKATDlm
+imauRutw1Kx4Iovj7IA4sQSPZQ9ALoS3m6Vrz1gm+X+zcavP52w4jinWo6CJ1IUr
+NOK3J4HI9QGQSU6UNw1gv1gh5nU0h/ClFE9D2qeQn7V4OriI2lbxay0WZ2RvDVkL
+ZDDQKBYvfaLA0WXzckyvO0euQtKhnrhCDbIq/EcREND6Y87AVZlJjInIEKGU5T8l
+N3DIfZKXm3ZtpMFYrkbxvbMP5mGMk3SJuKZaPbDKbTwa0PgUKJMGTpvrHzTG42Wd
+wu1XLxkiKGa+uNa438em5PyWFTeNdLxb2+uFFtQebAfLjzlG4Sg3ksPcVxyznkpn
+tvdTTFbvUVbkq5dKeJyLbBW82dcjOl2gIlVYG0D9DR9IJe/w0RKA9BxLLMIFaz6r
+oSE2ja6JOyUP4jcYFxpH
+=9bCs
+-----END PGP SIGNATURE-----
+
+--sdtB3X0nJg68CQEu--
