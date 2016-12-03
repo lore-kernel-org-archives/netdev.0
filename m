@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 04/10] mlxsw: spectrum_router: Implement FIB offload in deferred work
-Date: Sat,  3 Dec 2016 16:45:01 +0100
-Message-ID: <1480779907-32535-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 07/10] rocker: Register FIB notifier before creating ports
+Date: Sat,  3 Dec 2016 16:45:04 +0100
+Message-ID: <1480779907-32535-8-git-send-email-jiri@resnulli.us>
 References: <1480779907-32535-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
@@ -12,143 +12,72 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         hannes@stressinduktion.org, kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35039 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753541AbcLCPpU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 10:45:20 -0500
-Received: by mail-wm0-f66.google.com with SMTP id a20so7076806wme.2
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 07:45:19 -0800 (PST)
+Received: from mail-wj0-f196.google.com ([209.85.210.196]:34869 "EHLO
+        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753497AbcLCPpS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 10:45:18 -0500
+Received: by mail-wj0-f196.google.com with SMTP id he10so19506687wjc.2
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 07:45:18 -0800 (PST)
 In-Reply-To: <1480779907-32535-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-FIB offload is currently done in process context with RTNL held, but
-we're about to dump the FIB tables in RCU critical section, so we can no
-longer sleep.
+We can miss FIB notifications sent between the time the ports were
+created and the FIB notification block registered.
 
-Instead, defer the operation to process context using deferred work. Make
-sure fib info isn't freed while the work is queued by taking a reference
-on it and releasing it after the operation is done.
-
-Deferring the operation is valid because the upper layers always assume
-the operation was successful. If it's not, then the driver-specific
-abort mechanism is called and all routed traffic is directed to slow
-path.
-
-The work items are submitted to an ordered workqueue to prevent a
-mismatch between the kernel's FIB table and the device's.
+Instead of receiving these notifications only when they are replayed for
+the FIB notification block during registration, just register the
+notification block before the ports are created.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 72 +++++++++++++++++++---
- 1 file changed, 62 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/rocker/rocker_main.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 683f045..14bed1d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -593,6 +593,14 @@ static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp);
- 
- static void mlxsw_sp_vrs_fini(struct mlxsw_sp *mlxsw_sp)
- {
-+	/* At this stage we're guaranteed not to have new incoming
-+	 * FIB notifications and the work queue is free from FIBs
-+	 * sitting on top of mlxsw netdevs. However, we can still
-+	 * have other FIBs queued. Flush the queue before flushing
-+	 * the device's tables. No need for locks, as we're the only
-+	 * writer.
-+	 */
-+	mlxsw_core_flush_owq();
- 	mlxsw_sp_router_fib_flush(mlxsw_sp);
- 	kfree(mlxsw_sp->router.vrs);
- }
-@@ -1948,30 +1956,74 @@ static void __mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
- 	kfree(mlxsw_sp->rifs);
- }
- 
--static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
--				     unsigned long event, void *ptr)
-+struct mlxsw_sp_fib_event_work {
-+	struct delayed_work dw;
-+	struct fib_entry_notifier_info fen_info;
-+	struct mlxsw_sp *mlxsw_sp;
-+	unsigned long event;
-+};
-+
-+static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
- {
--	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
--	struct fib_entry_notifier_info *fen_info = ptr;
-+	struct mlxsw_sp_fib_event_work *fib_work =
-+		container_of(work, struct mlxsw_sp_fib_event_work, dw.work);
-+	struct mlxsw_sp *mlxsw_sp = fib_work->mlxsw_sp;
- 	int err;
- 
--	if (!net_eq(fen_info->info.net, &init_net))
--		return NOTIFY_DONE;
--
--	switch (event) {
-+	/* Protect internal structures from changes */
-+	rtnl_lock();
-+	switch (fib_work->event) {
- 	case FIB_EVENT_ENTRY_ADD:
--		err = mlxsw_sp_router_fib4_add(mlxsw_sp, fen_info);
-+		err = mlxsw_sp_router_fib4_add(mlxsw_sp, &fib_work->fen_info);
- 		if (err)
- 			mlxsw_sp_router_fib4_abort(mlxsw_sp);
-+		fib_info_put(fib_work->fen_info.fi);
- 		break;
- 	case FIB_EVENT_ENTRY_DEL:
--		mlxsw_sp_router_fib4_del(mlxsw_sp, fen_info);
-+		mlxsw_sp_router_fib4_del(mlxsw_sp, &fib_work->fen_info);
-+		fib_info_put(fib_work->fen_info.fi);
- 		break;
- 	case FIB_EVENT_RULE_ADD: /* fall through */
- 	case FIB_EVENT_RULE_DEL:
- 		mlxsw_sp_router_fib4_abort(mlxsw_sp);
- 		break;
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 914e9e1..8c9c90a 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -2804,6 +2804,9 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		goto err_alloc_ordered_workqueue;
  	}
-+	rtnl_unlock();
-+	kfree(fib_work);
-+}
-+
-+/* Called with rcu_read_lock() */
-+static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
-+				     unsigned long event, void *ptr)
-+{
-+	struct mlxsw_sp *mlxsw_sp = container_of(nb, struct mlxsw_sp, fib_nb);
-+	struct mlxsw_sp_fib_event_work *fib_work;
-+	struct fib_notifier_info *info = ptr;
-+
-+	if (!net_eq(info->net, &init_net))
-+		return NOTIFY_DONE;
-+
-+	fib_work = kzalloc(sizeof(*fib_work), GFP_ATOMIC);
-+	if (WARN_ON(!fib_work))
-+		return NOTIFY_BAD;
-+
-+	INIT_DELAYED_WORK(&fib_work->dw, mlxsw_sp_router_fib_event_work);
-+	fib_work->mlxsw_sp = mlxsw_sp;
-+	fib_work->event = event;
-+
-+	switch (event) {
-+	case FIB_EVENT_ENTRY_ADD: /* fall through */
-+	case FIB_EVENT_ENTRY_DEL:
-+		memcpy(&fib_work->fen_info, ptr, sizeof(fib_work->fen_info));
-+		/* Take referece on fib_info to prevent it from being
-+		 * freed while work is queued. Release it afterwards.
-+		 */
-+		fib_info_hold(fib_work->fen_info.fi);
-+		break;
-+	}
-+
-+	mlxsw_core_schedule_odw(&fib_work->dw, 0);
-+
- 	return NOTIFY_DONE;
- }
  
++	rocker->fib_nb.notifier_call = rocker_router_fib_event;
++	register_fib_notifier(&rocker->fib_nb);
++
+ 	rocker->hw.id = rocker_read64(rocker, SWITCH_ID);
+ 
+ 	err = rocker_probe_ports(rocker);
+@@ -2812,15 +2815,13 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		goto err_probe_ports;
+ 	}
+ 
+-	rocker->fib_nb.notifier_call = rocker_router_fib_event;
+-	register_fib_notifier(&rocker->fib_nb);
+-
+ 	dev_info(&pdev->dev, "Rocker switch with id %*phN\n",
+ 		 (int)sizeof(rocker->hw.id), &rocker->hw.id);
+ 
+ 	return 0;
+ 
+ err_probe_ports:
++	unregister_fib_notifier(&rocker->fib_nb);
+ 	destroy_workqueue(rocker->rocker_owq);
+ err_alloc_ordered_workqueue:
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
+@@ -2848,9 +2849,9 @@ static void rocker_remove(struct pci_dev *pdev)
+ {
+ 	struct rocker *rocker = pci_get_drvdata(pdev);
+ 
++	rocker_remove_ports(rocker);
+ 	unregister_fib_notifier(&rocker->fib_nb);
+ 	rocker_write32(rocker, CONTROL, ROCKER_CONTROL_RESET);
+-	rocker_remove_ports(rocker);
+ 	destroy_workqueue(rocker->rocker_owq);
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
+ 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_CMD), rocker);
 -- 
 2.7.4
