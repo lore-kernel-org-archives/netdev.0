@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: stmmac: unify mdio functions
-Date: Sat, 03 Dec 2016 15:24:18 -0500 (EST)
-Message-ID: <20161203.152418.772961535189895221.davem@davemloft.net>
-References: <1480605581-13350-1-git-send-email-clabbe.montjoie@gmail.com>
-        <1480605581-13350-2-git-send-email-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH net-next 0/8] drivers: net: xgene: Add Jumbo and Pause
+ frame support
+Date: Sat, 03 Dec 2016 15:47:05 -0500 (EST)
+Message-ID: <20161203.154705.643114424499538738.davem@davemloft.net>
+References: <1480639304-18757-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480605581-13350-2-git-send-email-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        patches@apm.com
+To: isubramanian@apm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37104 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750789AbcLCUrH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 15:47:07 -0500
+In-Reply-To: <1480639304-18757-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Date: Thu,  1 Dec 2016 16:19:41 +0100
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Thu,  1 Dec 2016 16:41:36 -0800
 
-> stmmac_mdio_{read|write} and stmmac_mdio_{read|write}_gmac4 are not
-> enought different for being split.
-> The only differences between thoses two functions are shift/mask for
-> addr/reg/clk_csr.
+> This patch set adds,
 > 
-> This patch introduce a per platform set of variable for setting thoses
-> shift/mask and unify mdio read and write functions.
+> 1. Jumbo frame support
+> 2. Pause frame based flow control
 > 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> and fixes RSS for non-TCP/UDP packets.
+> 
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 
-Applied.
+Series applied, thanks.
