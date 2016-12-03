@@ -1,8 +1,10 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 0/4]: Allow head adjustment in XDP prog
-Date: Sat, 3 Dec 2016 16:17:34 +0100
-Message-ID: <20161203161734.2aeaf170@redhat.com>
+Subject: Re: [PATCH net-next 1/4] bpf: xdp: Allow head adjustment in XDP
+ prog
+Date: Sat, 3 Dec 2016 16:24:13 +0100
+Message-ID: <20161203162413.5f305f9f@redhat.com>
 References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
+        <1480721013-1047541-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -16,34 +18,42 @@ Cc: brouer@redhat.com, <netdev@vger.kernel.org>,
         Kernel Team <kernel-team@fb.com>
 To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47492 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49172 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751241AbcLCPRk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Dec 2016 10:17:40 -0500
-In-Reply-To: <1480721013-1047541-1-git-send-email-kafai@fb.com>
+        id S1752111AbcLCPfD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 3 Dec 2016 10:35:03 -0500
+In-Reply-To: <1480721013-1047541-2-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2 Dec 2016 15:23:29 -0800
+On Fri, 2 Dec 2016 15:23:30 -0800
 Martin KaFai Lau <kafai@fb.com> wrote:
 
-> This series adds a helper to allow head adjustment in XDP prog.  mlx4
-> driver has been modified to support this feature.  An example is written
-> to encapsulate a packet with an IPv4/v6 header and then XDP_TX it
-> out.
+> -bool bpf_helper_changes_skb_data(void *func)
+> +BPF_CALL_2(bpf_xdp_adjust_head, struct xdp_buff *, xdp, int, offset)
+> +{
+> +	/* Both mlx4 and mlx5 driver align each packet to PAGE_SIZE when
+> +	 * XDP prog is set.
+> +	 * If the above is not true for the other drivers to support
+> +	 * bpf_xdp_adjust_head, struct xdp_buff can be extended.
+> +	 */
+> +	void *head = (void *)((unsigned long)xdp->data & PAGE_MASK);
+> +	void *new_data = xdp->data + offset;
+> +
+> +	if (new_data < head || new_data >= xdp->data_end)
+> +		/* The packet length must be >=1 */
+> +		return -EINVAL;
+> +
+> +	xdp->data = new_data;
+> +
+> +	return 0;
+> +}
 
-Hi Martin,
+First time I read this code, I was about to complain about you didn't
+use XDP_PACKET_HEADROOM in your boundary check.  But then I noticed the
+PAGE_MASK.  If you rename "head" to "page_boundary" or "page_start"
+then IMHO the code would be more readable.
 
-It is great to see work in this area.
-
-Push/pop of headers is listed as on of the missing features here:
- https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/implementation/missing_features.html
-We can hopefully soon cross that of the list :-)
-
-Header push and pop desc:
- https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/design/requirements.html#header-push-and-pop
-
-Thanks for working on this! :-)))
 -- 
 Best regards,
   Jesper Dangaard Brouer
