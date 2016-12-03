@@ -1,75 +1,67 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] team: team_port_add should check link_up before
- enable port
-Date: Sat, 3 Dec 2016 12:57:45 -0200
-Message-ID: <20161203145745.GB13159@localhost.localdomain>
-References: <14defaf74cf554158b8e289dd394815da1d8760c.1480772531.git.lucien.xin@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net] ixgbevf: fix invalid uses of napi_hash_del()
+Date: Sat, 03 Dec 2016 07:00:16 -0800
+Message-ID: <1480777216.18162.404.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1479309315.8455.189.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1479310010.8455.197.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
-        Jiri Pirko <jiri@resnulli.us>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33188 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751488AbcLCO5w (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Dec 2016 09:57:52 -0500
-Content-Disposition: inline
-In-Reply-To: <14defaf74cf554158b8e289dd394815da1d8760c.1480772531.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34052 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751455AbcLCPAT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 10:00:19 -0500
+Received: by mail-pg0-f68.google.com with SMTP id e9so10989864pgc.1
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 07:00:19 -0800 (PST)
+In-Reply-To: <1479310010.8455.197.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 03, 2016 at 09:42:11PM +0800, Xin Long wrote:
-> Now when users add a nic to team dev, the option 'enable' of the port
-> is true by default, as team_port_enable enables it after dev_open in
-> team_port_add.
+On Wed, 2016-11-16 at 07:26 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> But even if the port_dev has no carrier, like it's cable was unpluged,
-> the port is still enabled. It leads to that team dev couldn't work well
-> if this port was chosen to connect, and has no chance to change to use
-> other ports if link_watch is ethtool.
+> Calling napi_hash_del() before netif_napi_del() is dangerous
+> if a synchronize_rcu() is not enforced before NAPI struct freeing.
 > 
-> This patch is to enable the port only when the port_dev has carrier in
-> team_port_add.
+> Lets leave this detail to core networking stack to get it right.
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
->  drivers/net/team/team.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
+>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    6 ------
+>  1 file changed, 6 deletions(-)
 > 
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index a380649..42004ac 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -1140,6 +1140,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
->  	struct net_device *dev = team->dev;
->  	struct team_port *port;
->  	char *portname = port_dev->name;
-> +	bool linkup;
->  	int err;
+> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> index 7eaac3234049..bf4d7efc7dbd 100644
+> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> @@ -2511,9 +2511,6 @@ static int ixgbevf_alloc_q_vectors(struct ixgbevf_adapter *adapter)
+>  	while (q_idx) {
+>  		q_idx--;
+>  		q_vector = adapter->q_vector[q_idx];
+> -#ifdef CONFIG_NET_RX_BUSY_POLL
+> -		napi_hash_del(&q_vector->napi);
+> -#endif
+>  		netif_napi_del(&q_vector->napi);
+>  		kfree(q_vector);
+>  		adapter->q_vector[q_idx] = NULL;
+> @@ -2537,9 +2534,6 @@ static void ixgbevf_free_q_vectors(struct ixgbevf_adapter *adapter)
+>  		struct ixgbevf_q_vector *q_vector = adapter->q_vector[q_idx];
 >  
->  	if (port_dev->flags & IFF_LOOPBACK) {
-> @@ -1249,9 +1250,12 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
->  
->  	port->index = -1;
->  	list_add_tail_rcu(&port->list, &team->port_list);
-> -	team_port_enable(team, port);
-> +	linkup = !!netif_carrier_ok(port_dev);
-
-The !! here is not needed anymore, netif_carrier_ok already returns a
-bool.
-static inline bool netif_carrier_ok(const struct net_device *dev)
-
-
-> +	if (linkup)
-> +		team_port_enable(team, port);
-> +
->  	__team_compute_features(team);
-> -	__team_port_change_port_added(port, !!netif_carrier_ok(port_dev));
-> +	__team_port_change_port_added(port, linkup);
->  	__team_options_change_check(team);
->  
->  	netdev_info(dev, "Port device %s added\n", portname);
-> -- 
-> 2.1.0
+>  		adapter->q_vector[q_idx] = NULL;
+> -#ifdef CONFIG_NET_RX_BUSY_POLL
+> -		napi_hash_del(&q_vector->napi);
+> -#endif
+>  		netif_napi_del(&q_vector->napi);
+>  		kfree(q_vector);
+>  	}
 > 
+> 
+
+It looks this patch was not picked up ?
+
+Thanks !
