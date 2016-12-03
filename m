@@ -1,85 +1,138 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next 1/4] bpf: xdp: Allow head adjustment in XDP prog
-Date: Fri, 2 Dec 2016 19:43:07 -0800
-Message-ID: <20161203034307.GB70461@kafai-mba.local>
-References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
- <1480721013-1047541-2-git-send-email-kafai@fb.com>
- <5842102D.4000903@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        David Miller <davem@davemloft.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH v1 net-next 5/5] net: dsa: mv88e6xxx: Implement mv88e6390 pause control
+Date: Sat,  3 Dec 2016 04:45:20 +0100
+Message-ID: <1480736720-12608-6-git-send-email-andrew@lunn.ch>
+References: <1480736720-12608-1-git-send-email-andrew@lunn.ch>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41478 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751731AbcLCDnc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 22:43:32 -0500
-Content-Disposition: inline
-In-Reply-To: <5842102D.4000903@iogearbox.net>
+Received: from vps0.lunn.ch ([178.209.37.122]:38555 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751547AbcLCDpi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 2 Dec 2016 22:45:38 -0500
+In-Reply-To: <1480736720-12608-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 03, 2016 at 01:22:05AM +0100, Daniel Borkmann wrote:
-> On 12/03/2016 12:23 AM, Martin KaFai Lau wrote:
-> >This patch allows XDP prog to extend/remove the packet
-> >data at the head (like adding or removing header).  It is
-> >done by adding a new XDP helper bpf_xdp_adjust_head().
-> >
-> >It also renames bpf_helper_changes_skb_data() to
-> >bpf_helper_changes_pkt_data() to better reflect
-> >that XDP prog does not work on skb.
-> >
-> >Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> [...]
-> >diff --git a/net/core/filter.c b/net/core/filter.c
-> >index 56b43587d200..6902e2f73e38 100644
-> >--- a/net/core/filter.c
-> >+++ b/net/core/filter.c
-> >@@ -2234,7 +2234,34 @@ static const struct bpf_func_proto bpf_skb_change_head_proto = {
-> >  	.arg3_type	= ARG_ANYTHING,
-> >  };
-> >
-> >-bool bpf_helper_changes_skb_data(void *func)
-> >+BPF_CALL_2(bpf_xdp_adjust_head, struct xdp_buff *, xdp, int, offset)
-> >+{
-> >+	/* Both mlx4 and mlx5 driver align each packet to PAGE_SIZE when
-> >+	 * XDP prog is set.
-> >+	 * If the above is not true for the other drivers to support
-> >+	 * bpf_xdp_adjust_head, struct xdp_buff can be extended.
-> >+	 */
-> >+	void *head = (void *)((unsigned long)xdp->data & PAGE_MASK);
-> >+	void *new_data = xdp->data + offset;
-> >+
-> >+	if (new_data < head || new_data >= xdp->data_end)
-> >+		/* The packet length must be >=1 */
->
-> Patch looks generally good to me. Should the min pkt len here be
-> limited to ETH_HLEN instead of 1?
-Make sense.  Will make the change.
+The mv88e6390 has a number flow control registers accessed via the
+Flow Control register. Use these to set the pause control.
 
->
-> >+		return -EINVAL;
-> >+
-> >+	xdp->data = new_data;
-> >+
-> >+	return 0;
-> >+}
-> >+
-> >+static const struct bpf_func_proto bpf_xdp_adjust_head_proto = {
-> >+	.func		= bpf_xdp_adjust_head,
-> >+	.gpl_only	= false,
-> >+	.ret_type	= RET_INTEGER,
-> >+	.arg1_type	= ARG_PTR_TO_CTX,
-> >+	.arg2_type	= ARG_ANYTHING,
-> >+};
-> >+
-> >+bool bpf_helper_changes_pkt_data(void *func)
-> >  {
-> >  	if (func == bpf_skb_vlan_push ||
-> >  	    func == bpf_skb_vlan_pop ||
-> [...]
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c      |  7 +++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  2 ++
+ drivers/net/dsa/mv88e6xxx/port.c      | 13 +++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h      |  1 +
+ 4 files changed, 23 insertions(+)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 3ddb1f79e709..ca453f3243cd 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -3490,6 +3490,7 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
+ 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
+ 	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
++	.port_pause_config = mv88e6390_port_pause_config,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3513,6 +3514,7 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
+ 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
+ 	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
++	.port_pause_config = mv88e6390_port_pause_config,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3536,6 +3538,7 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
+ 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
+ 	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
++	.port_pause_config = mv88e6390_port_pause_config,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3586,6 +3589,7 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
+ 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
+ 	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
++	.port_pause_config = mv88e6390_port_pause_config,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3739,6 +3743,7 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
++	.port_pause_config = mv88e6390_port_pause_config,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3764,6 +3769,7 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
++	.port_pause_config = mv88e6390_port_pause_config,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+@@ -3787,6 +3793,7 @@ static const struct mv88e6xxx_ops mv88e6391_ops = {
+ 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
+ 	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
++	.port_pause_config = mv88e6390_port_pause_config,
+ 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
+ 	.stats_set_histogram = mv88e6390_g1_stats_set_histogram,
+ 	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 3b1f3ab490b9..13c7cc443454 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -78,6 +78,8 @@
+ #define PORT_PCS_CTRL_SPEED_10000	(0x03) /* 6390X */
+ #define PORT_PCS_CTRL_SPEED_UNFORCED	(0x03)
+ #define PORT_PAUSE_CTRL		0x02
++#define PORT_FLOW_CTRL_LIMIT_IN		((0x00 << 8) | BIT(15))
++#define PORT_FLOW_CTRL_LIMIT_OUT	((0x01 << 8) | BIT(15))
+ #define PORT_SWITCH_ID		0x03
+ #define PORT_SWITCH_ID_PROD_NUM_6085	0x04a
+ #define PORT_SWITCH_ID_PROD_NUM_6095	0x095
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index 8d14833b2e49..0db7fa0373ae 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -315,6 +315,19 @@ int mv88e6097_port_pause_config(struct mv88e6xxx_chip *chip, int port)
+ 	return mv88e6xxx_port_write(chip, port, PORT_PAUSE_CTRL, 0x0000);
+ }
+ 
++int mv88e6390_port_pause_config(struct mv88e6xxx_chip *chip, int port)
++{
++	int err;
++
++	err = mv88e6xxx_port_write(chip, port, PORT_PAUSE_CTRL,
++				   PORT_FLOW_CTRL_LIMIT_IN | 0);
++	if (err)
++		return err;
++
++	return mv88e6xxx_port_write(chip, port, PORT_PAUSE_CTRL,
++				    PORT_FLOW_CTRL_LIMIT_OUT | 0);
++}
++
+ /* Offset 0x04: Port Control Register */
+ 
+ static const char * const mv88e6xxx_port_state_names[] = {
+diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
+index 8c964cfd9032..7b3bacaacbfe 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.h
++++ b/drivers/net/dsa/mv88e6xxx/port.h
+@@ -66,5 +66,6 @@ int mv88e6165_port_jumbo_config(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6095_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6097_port_egress_rate_limiting(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6097_port_pause_config(struct mv88e6xxx_chip *chip, int port);
++int mv88e6390_port_pause_config(struct mv88e6xxx_chip *chip, int port);
+ 
+ #endif /* _MV88E6XXX_PORT_H */
+-- 
+2.10.2
