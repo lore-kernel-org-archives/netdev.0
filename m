@@ -1,44 +1,62 @@
-From: <cbordinaro@csudh.edu>
-Subject: (unknown)
-Date: Sat, 03 Dec 2016 13:59:23 -0000
-Message-ID: <148077356305.32573.15909195996441193258@nipbr.com>
-Mime-Version: 1.0
-Content-Type: application/zip; name="MESSAGE_07189225617444_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] team: team_port_add should check link_up before enable port
+Date: Sat,  3 Dec 2016 21:42:11 +0800
+Message-ID: <14defaf74cf554158b8e289dd394815da1d8760c.1480772531.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, Jiri Pirko <jiri@resnulli.us>
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 186.236.80.18.nipbr.com ([186.236.80.18]:58980 "HELO nipbr.com"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1752851AbcLCOAn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Dec 2016 09:00:43 -0500
-Content-Disposition: attachment
-Subject: 
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36856 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752016AbcLCOBV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 09:01:21 -0500
+Received: by mail-pg0-f65.google.com with SMTP id x23so10910269pgx.3
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 06:00:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBBQAAgAIAEGeg0mWWqrx5gQAAOgEAAANABwAMjA2NjBfWklQLnppcFVUCQADis1CWIrNQlh1
-eAsAAQQAAAAABAAAAAAL8GZmEWFgYuBgcJzX7Kn+sPGPEwsDwwt/BqCIDIORgZmZgV5WcWgIJwNz
-51mnCBAureBmYAQqYmAAE29jfPMvOwjYbt+ftFVcXavotsJHUVcOrkZnb4GVDCefbOg1/8hWfT3n
-WqFZx/++5lgPpibvex5bziq2a9xcfnem+eeytDmtG87M2pFg++1M1MPFCtuPST4vluw5dOfJXWfT
-xLUZfxtnbgh6eWPK4hcpR6psxUSspgkvTZXZ8np+u329LGvS1JNT+Vfl/3N4IaentWZ1p6bxSvlw
-ebeDgQX9b5+fVc2y48o+Era7cdLG8/7feb689j096Su3bdmpF9fuKe6Y2vf/lqD1rf96FYmmUk2s
-zgYuvcbbuljUy00sqqQeFVTELz1w9ekF5vD51pwxttIxjOHzTxrOKtB7keewJfrt3RU/LD/PLH9Z
-GxHz5PSpP6bTLpw6qS+gkfNlrfkmAZWY7Twviiobv+1Q9XWJOde4/EqiSvWLiwdqGJ7d0brMJB5u
-WVAoPmnOv5muxn5cFWITM1gK5rkKMaw7HX1i80RDTm6bSSeX527h3HViTs8V0QDTixofNDvZT7aw
-sElpv5nRlvNhSnHVYpZLvAJHA2zvdCSlcD4SnVS2rv/Kigu3TlbvqNiiIjL78h2uXrXGTNaMzXNs
-GauuLn/mWvy7pd2Od8qGO1NOPFK90F+x2zspnm37+yWtJgdFJPf9rz/rpRKzcJaofnjlendns4pH
-nA/KM9v0OwS3eGXeqivYX+pxS/TDji/9z6bNm+ny1PipkGFtx+uCztLmbFuxiyY7br15/dBx1ok9
-IaXpb6tOKXYxHK2tyNh2wqjmcZs0w9VIuRNLz3R9XXPsfHBPwtNKT6dUxrfB/OvSTFx3rM36nrF+
-bpgdy/dJMkWlveuaPm3gD7+10mUb11+ZedNTzRycY85mMB0Tu7yqpmyB1+pHO+trxEXzQ0P+OJga
-tqvxNXY5lH/5adDovmHKkTsv/Qo+5oXdmDr/6CO/0rurfgQpx/DYL5L9/WgPs4nrj49MO379fO0t
-5By/7+7Zn8kzO1fuf/xE98mTzeIq0pIMiT+Ka9za7ms+2PJA6fbCvTP1lkwT1rUS/fg6ymPL8zLr
-PzfaLEte+V3kSV5ey7y/5LhJ4fVH7zTmxppmTrfTPcrc8z3op+H+KZK3fvyUfvIhXm17zj4z34+q
-H2darNTZrPgz8JnhBYkFGzl3fNwwffal9/fqyiccWLzhtGfS6cnJQjMeT2JZ5nKupuVEh6vqw4n8
-90W+tZ3Zc/TDOZkr03mKUv5L/DvjxXP+Lte/HSUdJo5Ok6Xm+T3YbC67Qzbph+iFgyFuvAWblC9+
-tJpwXnWOwsf8X992JbVN2nLu8HqW6EWy5luLTpkfT+U71qorxvVK4L1KkPmTDw/fn1o8/3LPxuN1
-6Qppuz6tjsgwrGzRZf2seFbZK+X/+cayTrs/NxdOWabsEdFxw8t+R8NZ9pan7WYXl81ayKD0b8db
-pqDJyiu+nWr/EH2I6aXi9LYjHiLFidF5Gy7Os0i6vjWOafmD9BPpb3mC5vxZK1Bte2Pr/c2bWD1r
-S+Zc/NPooDHd47PBLKZnFekL/vf7KO34V/ubL8CbkUmOGVcpJAEqZBgYgXhJI4iFKJNYIWUSWnkU
-4M3KBtHByOAHpFvAogBQSwECHgMUAAIACABBnoNJllqq8eYEAADoBAAADQAYAAAAAAAAAAAApIEA
-AAAAMjA2NjBfWklQLnppcFVUBQADis1CWHV4CwABBAAAAAAEAAAAAFBLBQYAAAAAAQABAFMAAAAt
-BQAAAAA=
+Now when users add a nic to team dev, the option 'enable' of the port
+is true by default, as team_port_enable enables it after dev_open in
+team_port_add.
+
+But even if the port_dev has no carrier, like it's cable was unpluged,
+the port is still enabled. It leads to that team dev couldn't work well
+if this port was chosen to connect, and has no chance to change to use
+other ports if link_watch is ethtool.
+
+This patch is to enable the port only when the port_dev has carrier in
+team_port_add.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ drivers/net/team/team.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index a380649..42004ac 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1140,6 +1140,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 	struct net_device *dev = team->dev;
+ 	struct team_port *port;
+ 	char *portname = port_dev->name;
++	bool linkup;
+ 	int err;
+ 
+ 	if (port_dev->flags & IFF_LOOPBACK) {
+@@ -1249,9 +1250,12 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 
+ 	port->index = -1;
+ 	list_add_tail_rcu(&port->list, &team->port_list);
+-	team_port_enable(team, port);
++	linkup = !!netif_carrier_ok(port_dev);
++	if (linkup)
++		team_port_enable(team, port);
++
+ 	__team_compute_features(team);
+-	__team_port_change_port_added(port, !!netif_carrier_ok(port_dev));
++	__team_port_change_port_added(port, linkup);
+ 	__team_options_change_check(team);
+ 
+ 	netdev_info(dev, "Port device %s added\n", portname);
+-- 
+2.1.0
