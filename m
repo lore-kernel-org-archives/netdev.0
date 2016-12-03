@@ -1,46 +1,39 @@
-From: Ben Pfaff <blp@ovn.org>
-Subject: Re: [ovs-dev] [PATCH net-next] net: remove abuse of VLAN DEI/CFI bit
-Date: Sat, 3 Dec 2016 15:27:30 -0800
-Message-ID: <20161203232730.GT3129@ovn.org>
-References: <cfa1f2efae2217b50cbefccbf9ba7f0d24a23c63.1480755768.git.mirq-linux@rere.qmqm.pl>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] bpf: Preserve const register type on const OR
+ alu ops
+Date: Sun, 04 Dec 2016 00:41:59 +0100
+Message-ID: <58435847.2000406@iogearbox.net>
+References: <1480797093-1050393-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-        "open list:OPENVSWITCH" <dev@openvswitch.org>,
-        "moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gianluca Borello <g.borello@gmail.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:42639 "EHLO
-        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751396AbcLCX1i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 18:27:38 -0500
-Content-Disposition: inline
-In-Reply-To: <cfa1f2efae2217b50cbefccbf9ba7f0d24a23c63.1480755768.git.mirq-linux@rere.qmqm.pl>
+Received: from www62.your-server.de ([213.133.104.62]:46484 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751608AbcLCXmS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 18:42:18 -0500
+In-Reply-To: <1480797093-1050393-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 03, 2016 at 10:22:28AM +0100, Michał Mirosław wrote:
-> This All-in-one patch removes abuse of VLAN CFI bit, so it can be passed
-> intact through linux networking stack.
-> 
-> Signed-off-by: Michał Mirosław <michal.miroslaw@atendesoftware.pl>
-> ---
-> 
-> Dear NetDevs
-> 
-> I guess this needs to be split to the prep..convert[]..finish sequence,
-> but if you like it as is, then it's ready.
-> 
-> The biggest question is if the modified interface and vlan_present
-> is the way to go. This can be changed to use vlan_proto != 0 instead
-> of an extra flag bit.
-> 
-> As I can't test most of the driver changes, please look at them carefully.
-> OVS and bridge eyes are especially welcome.
+On 12/03/2016 09:31 PM, Alexei Starovoitov wrote:
+> From: Gianluca Borello <g.borello@gmail.com>
+>
+> Occasionally, clang (e.g. version 3.8.1) translates a sum between two
+> constant operands using a BPF_OR instead of a BPF_ADD. The verifier is
+> currently not handling this scenario, and the destination register type
+> becomes UNKNOWN_VALUE even if it's still storing a constant. As a result,
+> the destination register cannot be used as argument to a helper function
+> expecting a ARG_CONST_STACK_*, limiting some use cases.
+>
+> Modify the verifier to handle this case, and add a few tests to make sure
+> all combinations are supported, and stack boundaries are still verified
+> even with BPF_OR.
+>
+> Signed-off-by: Gianluca Borello <g.borello@gmail.com>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-This appears to change the established Open vSwitch userspace API.  You
-can see that simply from the way that it changes the documentation for
-the userspace API.  If I'm right about that, then this change will break
-all userspace programs that use the Open vSwitch kernel module,
-including Open vSwitch itself.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
