@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] samples, bpf: Refactor; Add automated
- tests for cgroups
-Date: Sat, 03 Dec 2016 16:08:21 -0500 (EST)
-Message-ID: <20161203.160821.896715378505245197.davem@davemloft.net>
-References: <20161202104201.GA9217@ircssh.c.rugged-nimbus-611.internal>
+Subject: Re: [PATCH 1/6] net: stmmac: return error if no DMA configuration
+ is found
+Date: Sat, 03 Dec 2016 16:10:11 -0500 (EST)
+Message-ID: <20161203.161011.1726275104816268002.davem@davemloft.net>
+References: <1480687910-9690-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com
-To: sargun@sargun.me
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37314 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750789AbcLCVI1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 16:08:27 -0500
-In-Reply-To: <20161202104201.GA9217@ircssh.c.rugged-nimbus-611.internal>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: niklas.cassel@axis.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480687910-9690-1-git-send-email-niklass@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sargun Dhillon <sargun@sargun.me>
-Date: Fri, 2 Dec 2016 02:42:03 -0800
 
-> These two patches are around refactoring out some old, reusable code from the 
-> existing test_current_task_under_cgroup_user test, and adding a new, automated 
-> test.
-> 
-> There is some generic cgroupsv2 setup & cleanup code, given that most 
-> environment still don't have it setup by default. With this code, we're able
-> to pretty easily add an automated test for future cgroupsv2 functionality.
+When you post a series of related changes as a patch set, you must
+provide a proper "[PATCH 0/N] ..." posting which explains what
+the series is doing at a high level, how it is doing it, and why
+it is doing it that way.
 
-Series applied, thanks.
+Please repost this entire series with a proper header posting
+included.
+
+Thank you.
