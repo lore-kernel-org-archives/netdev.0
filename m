@@ -1,110 +1,48 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH 5/7] Documentation: DT: net: cpsw: allow to specify
- descriptors pool size
-Date: Sat, 3 Dec 2016 02:37:04 +0200
-Message-ID: <20161203003703.GB15799@khorivan>
-References: <20161201233432.6182-1-grygorii.strashko@ti.com>
- <20161201233432.6182-6-grygorii.strashko@ti.com>
- <20161202112832.GB1213@khorivan>
- <31a048c2-74e4-772e-ab63-9eacc2f49953@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/4] mlx4: xdp: Allow raising MTU up to one
+ page minus eth and vlan hdrs
+Date: Fri, 02 Dec 2016 16:38:00 -0800
+Message-ID: <1480725480.18162.394.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
+         <1480721013-1047541-3-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>, spatton@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <31a048c2-74e4-772e-ab63-9eacc2f49953@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36051 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753080AbcLCAjD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 19:39:03 -0500
+Received: by mail-pg0-f68.google.com with SMTP id x23so9313891pgx.3
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 16:39:02 -0800 (PST)
+In-Reply-To: <1480721013-1047541-3-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 02, 2016 at 11:22:28AM -0600, Grygorii Strashko wrote:
+On Fri, 2016-12-02 at 15:23 -0800, Martin KaFai Lau wrote:
+> When XDP prog is attached, it is currently limiting
+> MTU to be FRAG_SZ0 - ETH_HLEN - (2 * VLAN_HLEN) which is 1514
+> in x86.
 > 
+> AFAICT, since mlx4 is doing one page per packet for XDP,
+> we can at least raise the MTU limitation up to
+> PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN) which this patch is
+> doing.  It will be useful in the next patch which allows
+> XDP program to extend the packet by adding new header(s).
 > 
-> On 12/02/2016 05:28 AM, Ivan Khoronzhuk wrote:
-> > On Thu, Dec 01, 2016 at 05:34:30PM -0600, Grygorii Strashko wrote:
-> >> Add optional property "descs_pool_size" to specify buffer descriptor's
-> >> pool size. The "descs_pool_size" should define total number of CPDMA
-> >> CPPI descriptors to be used for both ingress/egress packets
-> >> processing. If not specified - the default value 256 will be used
-> >> which will allow to place descriptor's pool into the internal CPPI
-> >> RAM on most of TI SoC.
-> >>
-> >> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> >> ---
-> >>  Documentation/devicetree/bindings/net/cpsw.txt | 5 +++++
-> >>  1 file changed, 5 insertions(+)
-> >>
-> >> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-> >> index 5ad439f..b99d196 100644
-> >> --- a/Documentation/devicetree/bindings/net/cpsw.txt
-> >> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
-> >> @@ -35,6 +35,11 @@ Optional properties:
-> >>  			  For example in dra72x-evm, pcf gpio has to be
-> >>  			  driven low so that cpsw slave 0 and phy data
-> >>  			  lines are connected via mux.
-> >> +- descs_pool_size	: total number of CPDMA CPPI descriptors to be used for
-> >> +			  both ingress/egress packets processing. if not
-> >> +			  specified the default value 256 will be used which
-> >> +			  will allow to place descriptors pool into the
-> >> +			  internal CPPI RAM.
-> > Does it describe h/w? Why now module parameter? or even smth like ethtool num
-> > ring entries?
-> > 
-> 
-> It can be module parameter too. in general this is expected to be 
->  one-time boot setting only.  
-> 
-> ----- OR
-> So, do you propose to use 
->        ethtool -g ethX
-> 
->        ethtool -G ethX [rx N] [tx N]
-> ?
-It has a little different names, but yes, why not?
-No need, maybe, but....It's just a proposition, at least I was thinking
-about it after proposition from +cc Schuyler Patton to leave rx desc num
-property. In this case it's possible to tune tx/rx desc num ratio, even
-with SRAM descs.
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> ---
 
-> 
-> Now cpdma has one pool for all RX/TX channels, so changing this settings
-> by ethtool will require: pause interfaces, reallocate cpdma pool, 
-Pause can lead to losts only for rx, and only for very short time, so
-it's not very bad, especially when user knows what he is doing.
+Have you tested your patch on a host with PAGE_SIZE = 64 KB ?
 
+Looks XDP really kills arches with bigger pages :(
 
-> re-arrange buffers between channels, resume interface. Correct?
-correct.
-
-But, some alternative variants can be used, like replacing descriptors.
-Shrink num of desc for every channels to 1, replace/add others, and expand.
-In this case no losts, but it's harder to debug issues after....
-
-> 
-> How do you think - we can move forward with one pool or better to have two (Rx and Tx)?
-I think one is enough, just split, if no harm on perf.
-
-> 
-> Wouldn't it be reasonable to still have DT (or module) parameter to avoid 
-> cpdma reconfiguration on system startup (pause/resume interfaces) (faster boot)?
-Would be, your choice, but it's not flexible.
-
-> 
-> How about cpdma re-allocation policy (with expectation that is shouldn't happen too often)?
-> - increasing of Rx, Tx will grow total number of physically allocated buffers (total_desc_num)
-> - decreasing of Rx, Tx will just change number of available buffers (no memory re-allocation)
-> 
-> ----- OR ----
-> Can we move forward with current patch (total number of CPDMA CPPI descriptors defined in DT) 
-> and add ethtool -G ethX [rx N] [tx N] which will allow to re-split descs between RX and TX?
-No objections, It anyway requires re-allocations. Re-split of Rx and Tx will
-not have a lot changes as most code exists already.
-
-> 
-> 
-> 
-> -- 
-> regards,
-> -grygorii
+Thanks.
