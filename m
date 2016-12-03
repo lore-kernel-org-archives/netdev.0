@@ -1,63 +1,110 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net] geneve: avoid use-after-free of skb->data
-Date: Sat, 3 Dec 2016 01:33:26 +0100
-Message-ID: <20161203003326.GA27610@bistromath.localdomain>
-References: <027c88dd060f5ca4535cb346db125829b2181a88.1480675406.git.sd@queasysnail.net>
- <20161202.140925.1784959728501874377.davem@davemloft.net>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH 5/7] Documentation: DT: net: cpsw: allow to specify
+ descriptors pool size
+Date: Sat, 3 Dec 2016 02:37:04 +0200
+Message-ID: <20161203003703.GB15799@khorivan>
+References: <20161201233432.6182-1-grygorii.strashko@ti.com>
+ <20161201233432.6182-6-grygorii.strashko@ti.com>
+ <20161202112832.GB1213@khorivan>
+ <31a048c2-74e4-772e-ab63-9eacc2f49953@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53696 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753440AbcLCAds (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 2 Dec 2016 19:33:48 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>, spatton@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161202.140925.1784959728501874377.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <31a048c2-74e4-772e-ab63-9eacc2f49953@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-12-02, 14:09:25 -0500, David Miller wrote:
-> From: Sabrina Dubroca <sd@queasysnail.net>
-> Date: Fri,  2 Dec 2016 16:49:29 +0100
+On Fri, Dec 02, 2016 at 11:22:28AM -0600, Grygorii Strashko wrote:
 > 
-> > geneve{,6}_build_skb can end up doing a pskb_expand_head(), which
-> > makes the ip_hdr(skb) reference we stashed earlier stale. Since it's
-> > only needed as an argument to ip_tunnel_ecn_encap(), move this
-> > directly in the function call.
+> 
+> On 12/02/2016 05:28 AM, Ivan Khoronzhuk wrote:
+> > On Thu, Dec 01, 2016 at 05:34:30PM -0600, Grygorii Strashko wrote:
+> >> Add optional property "descs_pool_size" to specify buffer descriptor's
+> >> pool size. The "descs_pool_size" should define total number of CPDMA
+> >> CPPI descriptors to be used for both ingress/egress packets
+> >> processing. If not specified - the default value 256 will be used
+> >> which will allow to place descriptor's pool into the internal CPPI
+> >> RAM on most of TI SoC.
+> >>
+> >> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> >> ---
+> >>  Documentation/devicetree/bindings/net/cpsw.txt | 5 +++++
+> >>  1 file changed, 5 insertions(+)
+> >>
+> >> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+> >> index 5ad439f..b99d196 100644
+> >> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+> >> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+> >> @@ -35,6 +35,11 @@ Optional properties:
+> >>  			  For example in dra72x-evm, pcf gpio has to be
+> >>  			  driven low so that cpsw slave 0 and phy data
+> >>  			  lines are connected via mux.
+> >> +- descs_pool_size	: total number of CPDMA CPPI descriptors to be used for
+> >> +			  both ingress/egress packets processing. if not
+> >> +			  specified the default value 256 will be used which
+> >> +			  will allow to place descriptors pool into the
+> >> +			  internal CPPI RAM.
+> > Does it describe h/w? Why now module parameter? or even smth like ethtool num
+> > ring entries?
 > > 
-> > Fixes: 08399efc6319 ("geneve: ensure ECN info is handled properly in all tx/rx paths")
-> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 > 
-> Applied and queued up for -stable, thanks.
+> It can be module parameter too. in general this is expected to be 
+>  one-time boot setting only.  
 > 
-> This bug happens so many times that I think it might be time for
-> a debugging mode for pskb_expand_head() that unconditionally
-> reallocates the skb->data buffer regardless of whether it's
-> necessary or not and somehow unmaps the previous buffer to
-> force a trap on stale pointers.
+> ----- OR
+> So, do you propose to use 
+>        ethtool -g ethX
+> 
+>        ethtool -G ethX [rx N] [tx N]
+> ?
+It has a little different names, but yes, why not?
+No need, maybe, but....It's just a proposition, at least I was thinking
+about it after proposition from +cc Schuyler Patton to leave rx desc num
+property. In this case it's possible to tune tx/rx desc num ratio, even
+with SRAM descs.
 
-The problem with that is you'd need to enable the "debugging mode" in
-all wrappers, so that they don't bypass the actual call to
-pskb_expand_head(). And that still leaves all the direct calls to
-pskb_expand_head() that are guarded by some kind of check (just two
-random hits without even looking very hard:
-net/core/pktgen.c:process_ipsec, net/ipv4/ip_gre.c:gre_fb_xmit).
-
-Then I think we could just rely on KASAN (that's how I noticed this
-bug).
+> 
+> Now cpdma has one pool for all RX/TX channels, so changing this settings
+> by ethtool will require: pause interfaces, reallocate cpdma pool, 
+Pause can lead to losts only for rx, and only for very short time, so
+it's not very bad, especially when user knows what he is doing.
 
 
-> Better ideas welcome, of course :)
+> re-arrange buffers between channels, resume interface. Correct?
+correct.
 
-May not be better ;)  but at least another idea:
+But, some alternative variants can be used, like replacing descriptors.
+Shrink num of desc for every channels to 1, replace/add others, and expand.
+In this case no losts, but it's harder to debug issues after....
 
-I'd like to try something based on static analysis. We'd need a way to
-tag cached pointers to skb->data (via ip_hdr() or whatever), and
-propagate the notion that pskb_expand_head() makes these cached
-pointers stale through layers of function calls.  I don't know how
-feasible this is with the tools we have.
+> 
+> How do you think - we can move forward with one pool or better to have two (Rx and Tx)?
+I think one is enough, just split, if no harm on perf.
 
--- 
-Sabrina
+> 
+> Wouldn't it be reasonable to still have DT (or module) parameter to avoid 
+> cpdma reconfiguration on system startup (pause/resume interfaces) (faster boot)?
+Would be, your choice, but it's not flexible.
+
+> 
+> How about cpdma re-allocation policy (with expectation that is shouldn't happen too often)?
+> - increasing of Rx, Tx will grow total number of physically allocated buffers (total_desc_num)
+> - decreasing of Rx, Tx will just change number of available buffers (no memory re-allocation)
+> 
+> ----- OR ----
+> Can we move forward with current patch (total number of CPDMA CPPI descriptors defined in DT) 
+> and add ethtool -G ethX [rx N] [tx N] which will allow to re-split descs between RX and TX?
+No objections, It anyway requires re-allocations. Re-split of Rx and Tx will
+not have a lot changes as most code exists already.
+
+> 
+> 
+> 
+> -- 
+> regards,
+> -grygorii
