@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: stmmac: avoid Camelcase naming
-Date: Sat, 03 Dec 2016 15:24:07 -0500 (EST)
-Message-ID: <20161203.152407.847486502473264265.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net: stmmac: unify mdio functions
+Date: Sat, 03 Dec 2016 15:24:18 -0500 (EST)
+Message-ID: <20161203.152418.772961535189895221.davem@davemloft.net>
 References: <1480605581-13350-1-git-send-email-clabbe.montjoie@gmail.com>
+        <1480605581-13350-2-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: clabbe.montjoie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36954 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751792AbcLCUeh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 15:34:37 -0500
-In-Reply-To: <1480605581-13350-1-git-send-email-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480605581-13350-2-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Date: Thu,  1 Dec 2016 16:19:40 +0100
+Date: Thu,  1 Dec 2016 16:19:41 +0100
 
-> This patch simply rename regValue to value, like it was named in other
-> mdio functions.
+> stmmac_mdio_{read|write} and stmmac_mdio_{read|write}_gmac4 are not
+> enought different for being split.
+> The only differences between thoses two functions are shift/mask for
+> addr/reg/clk_csr.
+> 
+> This patch introduce a per platform set of variable for setting thoses
+> shift/mask and unify mdio read and write functions.
 > 
 > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 
