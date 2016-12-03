@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 2/8] tcp: tsq: remove one locked operation in tcp_wfree()
-Date: Sat,  3 Dec 2016 11:14:51 -0800
-Message-ID: <1480792497-16607-3-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 5/8] tcp: tsq: add a shortcut in tcp_small_queue_check()
+Date: Sat,  3 Dec 2016 11:14:54 -0800
+Message-ID: <1480792497-16607-6-git-send-email-edumazet@google.com>
 References: <1480792497-16607-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -9,59 +9,48 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:35709 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751566AbcLCTQ2 (ORCPT
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34926 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751638AbcLCTQ2 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 14:16:28 -0500
-Received: by mail-pg0-f51.google.com with SMTP id p66so120172899pga.2
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:15:07 -0800 (PST)
+Received: by mail-pf0-f177.google.com with SMTP id i88so57214454pfk.2
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 11:15:12 -0800 (PST)
 In-Reply-To: <1480792497-16607-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of atomically clear TSQ_THROTTLED and atomically set TSQ_QUEUED
-bits, use one cmpxchg() to perform a single locked operation.
+Always allow the two first skbs in write queue to be sent,
+regardless of sk_wmem_alloc/sk_pacing_rate values.
 
-Since the following patch will also set TCP_TSQ_DEFERRED here,
-this cmpxchg() will make this addition free.
+This helps a lot in situations where TX completions are delayed either
+because of driver latencies or softirq latencies.
+
+Test is done with no cache line misses.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_output.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ net/ipv4/tcp_output.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 8f0289b0fb24..4adaf8e1bb63 100644
+index 0db63efe5b8b..d5c46749adab 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -860,6 +860,7 @@ void tcp_wfree(struct sk_buff *skb)
- {
- 	struct sock *sk = skb->sk;
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	unsigned long flags, nval, oval;
- 	int wmem;
+@@ -2091,6 +2091,15 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
+ 	limit <<= factor;
  
- 	/* Keep one reference on sk_wmem_alloc.
-@@ -877,11 +878,17 @@ void tcp_wfree(struct sk_buff *skb)
- 	if (wmem >= SKB_TRUESIZE(1) && this_cpu_ksoftirqd() == current)
- 		goto out;
- 
--	if (test_and_clear_bit(TSQ_THROTTLED, &tp->tsq_flags) &&
--	    !test_and_set_bit(TSQ_QUEUED, &tp->tsq_flags)) {
--		unsigned long flags;
-+	for (oval = READ_ONCE(tp->tsq_flags);; oval = nval) {
- 		struct tsq_tasklet *tsq;
- 
-+		if (!(oval & TSQF_THROTTLED) || (oval & TSQF_QUEUED))
-+			goto out;
+ 	if (atomic_read(&sk->sk_wmem_alloc) > limit) {
++		/* Always send the 1st or 2nd skb in write queue.
++		 * No need to wait for TX completion to call us back,
++		 * after softirq/tasklet schedule.
++		 * This helps when TX completions are delayed too much.
++		 */
++		if (skb == sk->sk_write_queue.next ||
++		    skb->prev == sk->sk_write_queue.next)
++			return false;
 +
-+		nval = (oval & ~TSQF_THROTTLED) | TSQF_QUEUED;
-+		nval = cmpxchg(&tp->tsq_flags, oval, nval);
-+		if (nval != oval)
-+			continue;
-+
- 		/* queue this socket to tasklet queue */
- 		local_irq_save(flags);
- 		tsq = this_cpu_ptr(&tsq_tasklet);
+ 		set_bit(TSQ_THROTTLED, &tcp_sk(sk)->tsq_flags);
+ 		/* It is possible TX completion already happened
+ 		 * before we set TSQ_THROTTLED, so we must
 -- 
 2.8.0.rc3.226.g39d4020
