@@ -1,79 +1,131 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 1/4] bnxt_en: Re-factor bnxt_setup_tc().
-Date: Fri,  2 Dec 2016 21:17:15 -0500
-Message-ID: <1480731438-22671-2-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 4/4] bnxt_en: Add PFC statistics.
+Date: Fri,  2 Dec 2016 21:17:18 -0500
+Message-ID: <1480731438-22671-5-git-send-email-michael.chan@broadcom.com>
 References: <1480731438-22671-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33683 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754136AbcLCCRb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 21:17:31 -0500
-Received: by mail-pf0-f181.google.com with SMTP id d2so55457037pfd.0
-        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 18:17:30 -0800 (PST)
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33686 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756631AbcLCCRd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 21:17:33 -0500
+Received: by mail-pf0-f173.google.com with SMTP id d2so55457185pfd.0
+        for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 18:17:33 -0800 (PST)
 In-Reply-To: <1480731438-22671-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new function bnxt_setup_mq_tc() to handle MQPRIO.  This new function
-will be called during ETS setup when we add DCBNL in the next patch.
+Report PFC statistics to ethtool -S and DCBNL.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 18 ++++++++++--------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
- 2 files changed, 11 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  7 +++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c     | 14 +++++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 23 ++++++++++++++++-------
+ 3 files changed, 36 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 0e4f168..7664281 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -6337,17 +6337,10 @@ static int bnxt_change_mtu(struct net_device *dev, int new_mtu)
- 	return 0;
- }
- 
--static int bnxt_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
--			 struct tc_to_netdev *ntc)
-+int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
- {
- 	struct bnxt *bp = netdev_priv(dev);
- 	bool sh = false;
--	u8 tc;
--
--	if (ntc->type != TC_SETUP_MQPRIO)
--		return -EINVAL;
--
--	tc = ntc->tc;
- 
- 	if (tc > bp->max_tc) {
- 		netdev_err(dev, "too many traffic classes requested: %d Max supported is %d\n",
-@@ -6390,6 +6383,15 @@ static int bnxt_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
- 	return 0;
- }
- 
-+static int bnxt_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
-+			 struct tc_to_netdev *ntc)
-+{
-+	if (ntc->type != TC_SETUP_MQPRIO)
-+		return -EINVAL;
-+
-+	return bnxt_setup_mq_tc(dev, ntc->tc);
-+}
-+
- #ifdef CONFIG_RFS_ACCEL
- static bool bnxt_fltr_match(struct bnxt_ntuple_filter *f1,
- 			    struct bnxt_ntuple_filter *f2)
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 47be789..fcd07ee 100644
+index 2a714cf..b4abc1b 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1225,5 +1225,6 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
- int bnxt_hwrm_fw_set_time(struct bnxt *);
- int bnxt_open_nic(struct bnxt *, bool, bool);
- int bnxt_close_nic(struct bnxt *, bool, bool);
-+int bnxt_setup_mq_tc(struct net_device *dev, u8 tc);
- int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
- #endif
+@@ -1124,6 +1124,13 @@ struct bnxt {
+ 	u32			lpi_tmr_hi;
+ };
+ 
++#define BNXT_RX_STATS_OFFSET(counter)			\
++	(offsetof(struct rx_port_stats, counter) / 8)
++
++#define BNXT_TX_STATS_OFFSET(counter)			\
++	((offsetof(struct tx_port_stats, counter) +	\
++	  sizeof(struct rx_port_stats) + 512) / 8)
++
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ static inline void bnxt_enable_poll(struct bnxt_napi *bnapi)
+ {
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
+index f391b47..fdf2d8c 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
+@@ -347,8 +347,10 @@ static int bnxt_dcbnl_ieee_setets(struct net_device *dev, struct ieee_ets *ets)
+ static int bnxt_dcbnl_ieee_getpfc(struct net_device *dev, struct ieee_pfc *pfc)
+ {
+ 	struct bnxt *bp = netdev_priv(dev);
++	__le64 *stats = (__le64 *)bp->hw_rx_port_stats;
+ 	struct ieee_pfc *my_pfc = bp->ieee_pfc;
+-	int rc;
++	long rx_off, tx_off;
++	int i, rc;
+ 
+ 	pfc->pfc_cap = bp->max_lltc;
+ 
+@@ -369,6 +371,16 @@ static int bnxt_dcbnl_ieee_getpfc(struct net_device *dev, struct ieee_pfc *pfc)
+ 	pfc->mbc = my_pfc->mbc;
+ 	pfc->delay = my_pfc->delay;
+ 
++	if (!stats)
++		return 0;
++
++	rx_off = BNXT_RX_STATS_OFFSET(rx_pfc_ena_frames_pri0);
++	tx_off = BNXT_TX_STATS_OFFSET(tx_pfc_ena_frames_pri0);
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++, rx_off++, tx_off++) {
++		pfc->requests[i] = le64_to_cpu(*(stats + tx_off));
++		pfc->indications[i] = le64_to_cpu(*(stats + rx_off));
++	}
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index fa6125e..784aa77 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -107,16 +107,9 @@ static int bnxt_set_coalesce(struct net_device *dev,
+ 
+ #define BNXT_NUM_STATS	21
+ 
+-#define BNXT_RX_STATS_OFFSET(counter)	\
+-	(offsetof(struct rx_port_stats, counter) / 8)
+-
+ #define BNXT_RX_STATS_ENTRY(counter)	\
+ 	{ BNXT_RX_STATS_OFFSET(counter), __stringify(counter) }
+ 
+-#define BNXT_TX_STATS_OFFSET(counter)			\
+-	((offsetof(struct tx_port_stats, counter) +	\
+-	  sizeof(struct rx_port_stats) + 512) / 8)
+-
+ #define BNXT_TX_STATS_ENTRY(counter)	\
+ 	{ BNXT_TX_STATS_OFFSET(counter), __stringify(counter) }
+ 
+@@ -150,6 +143,14 @@ static int bnxt_set_coalesce(struct net_device *dev,
+ 	BNXT_RX_STATS_ENTRY(rx_tagged_frames),
+ 	BNXT_RX_STATS_ENTRY(rx_double_tagged_frames),
+ 	BNXT_RX_STATS_ENTRY(rx_good_frames),
++	BNXT_RX_STATS_ENTRY(rx_pfc_ena_frames_pri0),
++	BNXT_RX_STATS_ENTRY(rx_pfc_ena_frames_pri1),
++	BNXT_RX_STATS_ENTRY(rx_pfc_ena_frames_pri2),
++	BNXT_RX_STATS_ENTRY(rx_pfc_ena_frames_pri3),
++	BNXT_RX_STATS_ENTRY(rx_pfc_ena_frames_pri4),
++	BNXT_RX_STATS_ENTRY(rx_pfc_ena_frames_pri5),
++	BNXT_RX_STATS_ENTRY(rx_pfc_ena_frames_pri6),
++	BNXT_RX_STATS_ENTRY(rx_pfc_ena_frames_pri7),
+ 	BNXT_RX_STATS_ENTRY(rx_undrsz_frames),
+ 	BNXT_RX_STATS_ENTRY(rx_eee_lpi_events),
+ 	BNXT_RX_STATS_ENTRY(rx_eee_lpi_duration),
+@@ -179,6 +180,14 @@ static int bnxt_set_coalesce(struct net_device *dev,
+ 	BNXT_TX_STATS_ENTRY(tx_fcs_err_frames),
+ 	BNXT_TX_STATS_ENTRY(tx_err),
+ 	BNXT_TX_STATS_ENTRY(tx_fifo_underruns),
++	BNXT_TX_STATS_ENTRY(tx_pfc_ena_frames_pri0),
++	BNXT_TX_STATS_ENTRY(tx_pfc_ena_frames_pri1),
++	BNXT_TX_STATS_ENTRY(tx_pfc_ena_frames_pri2),
++	BNXT_TX_STATS_ENTRY(tx_pfc_ena_frames_pri3),
++	BNXT_TX_STATS_ENTRY(tx_pfc_ena_frames_pri4),
++	BNXT_TX_STATS_ENTRY(tx_pfc_ena_frames_pri5),
++	BNXT_TX_STATS_ENTRY(tx_pfc_ena_frames_pri6),
++	BNXT_TX_STATS_ENTRY(tx_pfc_ena_frames_pri7),
+ 	BNXT_TX_STATS_ENTRY(tx_eee_lpi_events),
+ 	BNXT_TX_STATS_ENTRY(tx_eee_lpi_duration),
+ 	BNXT_TX_STATS_ENTRY(tx_total_collisions),
 -- 
 1.8.3.1
