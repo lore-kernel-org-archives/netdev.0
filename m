@@ -1,79 +1,37 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next] liquidio: 'imply' ptp instead of 'select'
-Date: Sat, 3 Dec 2016 09:23:40 +0800
-Message-ID: <201612030941.E0AwlX5M%fengguang.wu@intel.com>
-References: <20161202230451.1639318-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, "David S. Miller" <davem@davemloft.net>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        David Daney <david.daney@cavium.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        Nicolas Pitre <nicolas.pitre@linaro.org>,
-        Sunil Goutham <sgoutham@cavium.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH] net: ethernet: ti: cpdma: use desc_read in chan_process instead of raw read
+Date: Sat,  3 Dec 2016 04:05:15 +0200
+Message-ID: <1480730715-16000-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: mugunthanvnm@ti.com, grygorii.strashko@ti.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161202230451.1639318-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arnd,
+There is desc_read() macros to read desc fields, so no need to
+use __raw_readl();
 
-[auto build test ERROR on net-next/master]
-
-url:    https://github.com/0day-ci/linux/commits/Arnd-Bergmann/liquidio-imply-ptp-instead-of-select/20161203-084019
-config: x86_64-allmodconfig
-compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-reproduce:
-        make ARCH=x86_64  allmodconfig
-        make ARCH=x86_64 
-
-All errors (new ones prefixed by >>):
-
->> drivers/net/ethernet/cavium/Kconfig:81: syntax error
->> drivers/net/ethernet/cavium/Kconfig:80: unknown option "imply"
-   make[2]: *** [allmodconfig] Error 1
-   make[1]: *** [allmodconfig] Error 2
-   make: *** [sub-make] Error 2
---
->> drivers/net/ethernet/cavium/Kconfig:81: syntax error
->> drivers/net/ethernet/cavium/Kconfig:80: unknown option "imply"
-   make[2]: *** [oldconfig] Error 1
-   make[1]: *** [oldconfig] Error 2
-   make: *** [sub-make] Error 2
---
->> drivers/net/ethernet/cavium/Kconfig:81: syntax error
->> drivers/net/ethernet/cavium/Kconfig:80: unknown option "imply"
-   make[2]: *** [olddefconfig] Error 1
-   make[2]: Target 'oldnoconfig' not remade because of errors.
-   make[1]: *** [oldnoconfig] Error 2
-   make: *** [sub-make] Error 2
-
-vim +81 drivers/net/ethernet/cavium/Kconfig
-
-d07a147f David Daney     2016-03-14  74  	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
-d07a147f David Daney     2016-03-14  75  	  CN54XX, CN52XX, and CN6XXX chips.
-d07a147f David Daney     2016-03-14  76  
-111fc64a Raghu Vatsavayi 2016-11-28  77  config LIQUIDIO_VF
-111fc64a Raghu Vatsavayi 2016-11-28  78  	tristate "Cavium LiquidIO VF support"
-111fc64a Raghu Vatsavayi 2016-11-28  79  	depends on 64BIT && PCI_MSI
-2d6e65ca Arnd Bergmann   2016-12-03 @80  	imply PTP_1588_CLOCK
-111fc64a Raghu Vatsavayi 2016-11-28 @81  	---help---
-111fc64a Raghu Vatsavayi 2016-11-28  82  	  This driver supports Cavium LiquidIO Intelligent Server Adapter
-111fc64a Raghu Vatsavayi 2016-11-28  83  	  based on CN23XX chips.
-111fc64a Raghu Vatsavayi 2016-11-28  84  
-
-:::::: The code at line 81 was first introduced by commit
-:::::: 111fc64a237f231bc2d3187bdf8358eb7966e6a9 liquidio CN23XX: VF registration
-
-:::::: TO: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-:::::: CC: David S. Miller <davem@davemloft.net>
-
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 ---
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Based on net-next/master
+
+ drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index c776e45..d96dca5 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -1132,7 +1132,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
+ 	}
+ 	desc_dma = desc_phys(pool, desc);
+ 
+-	status	= __raw_readl(&desc->hw_mode);
++	status = desc_read(desc, hw_mode);
+ 	outlen	= status & 0x7ff;
+ 	if (status & CPDMA_DESC_OWNER) {
+ 		chan->stats.busy_dequeue++;
+-- 
+2.7.4
