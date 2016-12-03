@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] udp: be less conservative with sock rmem
- accounting
-Date: Sat, 03 Dec 2016 16:15:02 -0500 (EST)
-Message-ID: <20161203.161502.2062069811901046717.davem@davemloft.net>
-References: <d13b9808dad5f6e3fe3808bae3b4f64dfcee07fe.1480696423.git.pabeni@redhat.com>
+Subject: Re: [PATCH net-next] sfc: remove EFX_BUG_ON_PARANOID, use
+ EFX_WARN_ON_[ONCE_]PARANOID instead
+Date: Sat, 03 Dec 2016 16:11:24 -0500 (EST)
+Message-ID: <20161203.161124.670604606383689626.davem@davemloft.net>
+References: <9435baa4-b9b5-955e-eac2-3106feb87136@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com
-To: pabeni@redhat.com
+Cc: linux-net-drivers@solarflare.com, bkenward@solarflare.com,
+        netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37420 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37484 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750873AbcLCVPE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 16:15:04 -0500
-In-Reply-To: <d13b9808dad5f6e3fe3808bae3b4f64dfcee07fe.1480696423.git.pabeni@redhat.com>
+        with ESMTP id S1750976AbcLCVTh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 16:19:37 -0500
+In-Reply-To: <9435baa4-b9b5-955e-eac2-3106feb87136@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Fri,  2 Dec 2016 17:35:49 +0100
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 2 Dec 2016 15:51:33 +0000
 
-> Before commit 850cbaddb52d ("udp: use it's own memory accounting
-> schema"), the udp protocol allowed sk_rmem_alloc to grow beyond
-> the rcvbuf by the whole current packet's truesize. After said commit
-> we allow sk_rmem_alloc to exceed the rcvbuf only if the receive queue
-> is empty. As reported by Jesper this cause a performance regression
-> for some (small) values of rcvbuf.
+> Logically, EFX_BUG_ON_PARANOID can never be correct.  For, BUG_ON should
+>  only be used if it is not possible to continue without potential harm;
+>  and since the non-DEBUG driver will continue regardless (as the BUG_ON is
+>  compiled out), clearly the BUG_ON cannot be needed in the DEBUG driver.
+> So, replace every EFX_BUG_ON_PARANOID with either an EFX_WARN_ON_PARANOID
+>  or the newly defined EFX_WARN_ON_ONCE_PARANOID.
 > 
-> This commit is intended to fix the regression restoring the old
-> handling of the rcvbuf limit.
-> 
-> Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Fixes: 850cbaddb52d ("udp: use it's own memory accounting schema")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
 Applied.
