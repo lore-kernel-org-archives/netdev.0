@@ -1,71 +1,75 @@
-From: Saku Ytti <saku@ytti.fi>
-Subject: Re: arp_filter and IPv6 ND
-Date: Sat, 3 Dec 2016 16:21:17 +0200
-Message-ID: <CAAeewD9CDQZp0u6L6JtZ96cboKDCRB=yY92F+-ufsA8=OEgyUw@mail.gmail.com>
-References: <CAAeewD82Lfo7c=vLHR7p3oxJ8d0OgWrijKmNn8EPFKq7fN7AMg@mail.gmail.com>
- <3bf09622-afa5-506c-8407-e3e1a70341c0@stressinduktion.org>
- <CAAeewD_2tfNHhWmtwXb_28DicmipReimRvGqv1Q6PQ0AjkBPGw@mail.gmail.com>
- <cead0544-5a5b-ccd0-e02d-abb44a41c054@stressinduktion.org>
- <CAAeewD_erNdBw-zjPP9iFuju6FDgAgWrMKhMXPb58nqa0r22rA@mail.gmail.com> <96111ae8-9b68-943f-c9be-8fccdd614c8b@stressinduktion.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] team: team_port_add should check link_up before
+ enable port
+Date: Sat, 3 Dec 2016 12:57:45 -0200
+Message-ID: <20161203145745.GB13159@localhost.localdomain>
+References: <14defaf74cf554158b8e289dd394815da1d8760c.1480772531.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
+        Jiri Pirko <jiri@resnulli.us>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:36133 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751987AbcLCOVT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 09:21:19 -0500
-Received: by mail-io0-f179.google.com with SMTP id m5so391104237ioe.3
-        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 06:21:18 -0800 (PST)
-In-Reply-To: <96111ae8-9b68-943f-c9be-8fccdd614c8b@stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33188 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751488AbcLCO5w (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 3 Dec 2016 09:57:52 -0500
+Content-Disposition: inline
+In-Reply-To: <14defaf74cf554158b8e289dd394815da1d8760c.1480772531.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2 December 2016 at 20:39, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
+On Sat, Dec 03, 2016 at 09:42:11PM +0800, Xin Long wrote:
+> Now when users add a nic to team dev, the option 'enable' of the port
+> is true by default, as team_port_enable enables it after dev_open in
+> team_port_add.
+> 
+> But even if the port_dev has no carrier, like it's cable was unpluged,
+> the port is still enabled. It leads to that team dev couldn't work well
+> if this port was chosen to connect, and has no chance to change to use
+> other ports if link_watch is ethtool.
+> 
+> This patch is to enable the port only when the port_dev has carrier in
+> team_port_add.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  drivers/net/team/team.c | 8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> index a380649..42004ac 100644
+> --- a/drivers/net/team/team.c
+> +++ b/drivers/net/team/team.c
+> @@ -1140,6 +1140,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+>  	struct net_device *dev = team->dev;
+>  	struct team_port *port;
+>  	char *portname = port_dev->name;
+> +	bool linkup;
+>  	int err;
+>  
+>  	if (port_dev->flags & IFF_LOOPBACK) {
+> @@ -1249,9 +1250,12 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+>  
+>  	port->index = -1;
+>  	list_add_tail_rcu(&port->list, &team->port_list);
+> -	team_port_enable(team, port);
+> +	linkup = !!netif_carrier_ok(port_dev);
 
-Hey,
-
-> E.g. you can use IP addresses bound to other interfaces to send replys
-> on another interface. This can be useful if you have a limited amount of
-> IP addresses on the system but much more interfaces. Especially if they
-> are limited in scope, like in IPv6.
->
-> Basically Cisco's feature of "unnumbered interface" is always provided
-> in Linux. And there are certainly cases where you would want to use it,
-> e.g. emulate private-vlan feature for network separation.
-
-Got it, thanks, the explanation makes sense. And indeed it's valid
-case, but also it is the exception, not the rule. I think it would be
-entirely change the default and people who want 'unnumbered' style
-behaviour (like some BRAS scenarios), will know how to and why to
-configure it.
-
-> Also in the BGP setup, you might have it easier to establish loopback
-> neighbor contact by just using static on-link routes, without caring
-> about more complex numbering there (otherwise you pretty soon introduce
-> OSPF or some other routing protocol to do the recursive forward resolution).
-
-The BGP is running on-link, it's just that the BGP is advertising loop
-of Linux. Why the loop ends up in ND cache, I don't know.
-
->> Grand, not that I feel comfortable writing it. I'd rather see the
->> whole suppression functionality moved to neighbour.c from being AFI
->> specific.
->
-> Yes sure, please provide a patch. A separate sysctl is necessary anyway
-> because the current one is within the ipv4 procfs directory hierarchy.
-
-Sorry, not a comfortable C programmer, I'm pretty confident I could
-get it working, but I'm more confident that patch would be entirely
-rejected and rewritten by someone who knows what they are doing.
-I see no reason not to have AFI specific toggle, just logic and code
-should be AFI agnostic, like GC (ARP/ND cache time) stuff in
-neighbour.c is nicely done. Frankly whole ARP/ND code could do with
-refactoring to make arp.c and ndisc.c more wire-format stuff and
-behavioural code more in neighbour.c.
+The !! here is not needed anymore, netif_carrier_ok already returns a
+bool.
+static inline bool netif_carrier_ok(const struct net_device *dev)
 
 
--- 
-  ++ytti
+> +	if (linkup)
+> +		team_port_enable(team, port);
+> +
+>  	__team_compute_features(team);
+> -	__team_port_change_port_added(port, !!netif_carrier_ok(port_dev));
+> +	__team_port_change_port_added(port, linkup);
+>  	__team_options_change_check(team);
+>  
+>  	netdev_info(dev, "Port device %s added\n", portname);
+> -- 
+> 2.1.0
+> 
