@@ -1,681 +1,2245 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 3/4] bnxt_en: Implement DCBNL to support host-based DCBX.
-Date: Fri,  2 Dec 2016 21:17:17 -0500
-Message-ID: <1480731438-22671-4-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 2/4] bnxt_en: Update firmware header file to latest 1.6.0.
+Date: Fri,  2 Dec 2016 21:17:16 -0500
+Message-ID: <1480731438-22671-3-git-send-email-michael.chan@broadcom.com>
 References: <1480731438-22671-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:34567 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754136AbcLCCRc (ORCPT
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:34567 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756435AbcLCCRc (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 21:17:32 -0500
-Received: by mail-pg0-f54.google.com with SMTP id x23so113698380pgx.1
+Received: by mail-pg0-f52.google.com with SMTP id x23so113698369pgx.1
         for <netdev@vger.kernel.org>; Fri, 02 Dec 2016 18:17:32 -0800 (PST)
 In-Reply-To: <1480731438-22671-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support only IEEE DCBX initially.  Add IEEE DCBNL ops and functions to
-get and set the hardware DCBX parameters.  The DCB code is conditional on
-Kconfig CONFIG_BNXT_DCB.
+Latest interface has the latest DCB command structs.  Get and store the
+max number of lossless TCs the hardware can support.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/Kconfig         |  10 +
- drivers/net/ethernet/broadcom/bnxt/Makefile   |   2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     |   8 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h     |   9 +
- drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c | 490 ++++++++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h |  41 +++
- 6 files changed, 557 insertions(+), 3 deletions(-)
- create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
- create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       |   28 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h       |    5 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h   | 1725 ++++++++++++++---------
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c |    8 +-
+ 4 files changed, 1069 insertions(+), 697 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index bd8c80c..404c020 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -203,4 +203,14 @@ config BNXT_SRIOV
- 	  Virtualization support in the NetXtreme-C/E products. This
- 	  allows for virtual function acceleration in virtual environments.
- 
-+config BNXT_DCB
-+	bool "Data Center Bridging (DCB) Support"
-+	default n
-+	depends on BNXT && DCB
-+	---help---
-+	  Say Y here if you want to use Data Center Bridging (DCB) in the
-+	  driver.
-+
-+	  If unsure, say N.
-+
- endif # NET_VENDOR_BROADCOM
-diff --git a/drivers/net/ethernet/broadcom/bnxt/Makefile b/drivers/net/ethernet/broadcom/bnxt/Makefile
-index 97e78e2..b233a86 100644
---- a/drivers/net/ethernet/broadcom/bnxt/Makefile
-+++ b/drivers/net/ethernet/broadcom/bnxt/Makefile
-@@ -1,3 +1,3 @@
- obj-$(CONFIG_BNXT) += bnxt_en.o
- 
--bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o
-+bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 7ba5a99..e8ab5fd 100644
+index 7664281..7ba5a99 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -54,6 +54,7 @@
- #include "bnxt.h"
- #include "bnxt_sriov.h"
- #include "bnxt_ethtool.h"
-+#include "bnxt_dcb.h"
+@@ -186,11 +186,11 @@ enum board_idx {
+ };
  
- #define BNXT_TX_TIMEOUT		(5 * HZ)
+ static const u16 bnxt_async_events_arr[] = {
+-	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE,
+-	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD,
+-	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED,
+-	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_VF_CFG_CHANGE,
+-	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_CHANGE,
++	ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE,
++	ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD,
++	ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED,
++	ASYNC_EVENT_CMPL_EVENT_ID_VF_CFG_CHANGE,
++	ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_CHANGE,
+ };
  
-@@ -4997,7 +4998,7 @@ static void bnxt_enable_napi(struct bnxt *bp)
+ static bool bnxt_vf_pciid(enum board_idx idx)
+@@ -1476,8 +1476,8 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+ }
+ 
+ #define BNXT_GET_EVENT_PORT(data)	\
+-	((data) &				\
+-	 HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK)
++	((data) &			\
++	 ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK)
+ 
+ static int bnxt_async_event_process(struct bnxt *bp,
+ 				    struct hwrm_async_event_cmpl *cmpl)
+@@ -1486,7 +1486,7 @@ static int bnxt_async_event_process(struct bnxt *bp,
+ 
+ 	/* TODO CHIMP_FW: Define event id's for link change, error etc */
+ 	switch (event_id) {
+-	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_CHANGE: {
++	case ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_CHANGE: {
+ 		u32 data1 = le32_to_cpu(cmpl->event_data1);
+ 		struct bnxt_link_info *link_info = &bp->link_info;
+ 
+@@ -1502,13 +1502,13 @@ static int bnxt_async_event_process(struct bnxt *bp,
+ 		set_bit(BNXT_LINK_SPEED_CHNG_SP_EVENT, &bp->sp_event);
+ 		/* fall thru */
  	}
- }
+-	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE:
++	case ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE:
+ 		set_bit(BNXT_LINK_CHNG_SP_EVENT, &bp->sp_event);
+ 		break;
+-	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD:
++	case ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD:
+ 		set_bit(BNXT_HWRM_PF_UNLOAD_SP_EVENT, &bp->sp_event);
+ 		break;
+-	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED: {
++	case ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED: {
+ 		u32 data1 = le32_to_cpu(cmpl->event_data1);
+ 		u16 port_id = BNXT_GET_EVENT_PORT(data1);
  
--static void bnxt_tx_disable(struct bnxt *bp)
-+void bnxt_tx_disable(struct bnxt *bp)
- {
- 	int i;
- 	struct bnxt_tx_ring_info *txr;
-@@ -5015,7 +5016,7 @@ static void bnxt_tx_disable(struct bnxt *bp)
- 	netif_carrier_off(bp->dev);
- }
+@@ -1521,7 +1521,7 @@ static int bnxt_async_event_process(struct bnxt *bp,
+ 		set_bit(BNXT_HWRM_PORT_MODULE_SP_EVENT, &bp->sp_event);
+ 		break;
+ 	}
+-	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_VF_CFG_CHANGE:
++	case ASYNC_EVENT_CMPL_EVENT_ID_VF_CFG_CHANGE:
+ 		if (BNXT_PF(bp))
+ 			goto async_event_process_exit;
+ 		set_bit(BNXT_RESET_TASK_SILENT_SP_EVENT, &bp->sp_event);
+@@ -4261,12 +4261,16 @@ static int bnxt_hwrm_queue_qportcfg(struct bnxt *bp)
+ 		goto qportcfg_exit;
+ 	}
+ 	bp->max_tc = resp->max_configurable_queues;
++	bp->max_lltc = resp->max_configurable_lossless_queues;
+ 	if (bp->max_tc > BNXT_MAX_QUEUE)
+ 		bp->max_tc = BNXT_MAX_QUEUE;
  
--static void bnxt_tx_enable(struct bnxt *bp)
-+void bnxt_tx_enable(struct bnxt *bp)
- {
- 	int i;
- 	struct bnxt_tx_ring_info *txr;
-@@ -6686,6 +6687,7 @@ static void bnxt_remove_one(struct pci_dev *pdev)
+ 	if (resp->queue_cfg_info & QUEUE_QPORTCFG_RESP_QUEUE_CFG_INFO_ASYM_CFG)
+ 		bp->max_tc = 1;
  
- 	bnxt_hwrm_func_drv_unrgtr(bp);
- 	bnxt_free_hwrm_resources(bp);
-+	bnxt_dcb_free(bp);
- 	pci_iounmap(pdev, bp->bar2);
- 	pci_iounmap(pdev, bp->bar1);
- 	pci_iounmap(pdev, bp->bar0);
-@@ -6913,6 +6915,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->min_mtu = ETH_ZLEN;
- 	dev->max_mtu = 9500;
- 
-+	bnxt_dcb_init(bp);
++	if (bp->max_lltc > bp->max_tc)
++		bp->max_lltc = bp->max_tc;
 +
- #ifdef CONFIG_BNXT_SRIOV
- 	init_waitqueue_head(&bp->sriov_cfg_wait);
- #endif
+ 	qptr = &resp->queue_id0;
+ 	for (i = 0; i < bp->max_tc; i++) {
+ 		bp->q_info[i].queue_id = *qptr++;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 1f3d852..2a714cf 100644
+index fcd07ee..1f3d852 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1026,6 +1026,13 @@ struct bnxt {
- 	struct bnxt_irq	*irq_tbl;
- 	u8			mac_addr[ETH_ALEN];
+@@ -11,10 +11,10 @@
+ #define BNXT_H
  
-+#ifdef CONFIG_BNXT_DCB
-+	struct ieee_pfc		*ieee_pfc;
-+	struct ieee_ets		*ieee_ets;
-+	u8			dcbx_cap;
-+	u8			default_pri;
-+#endif /* CONFIG_BNXT_DCB */
-+
- 	u32			msg_enable;
+ #define DRV_MODULE_NAME		"bnxt_en"
+-#define DRV_MODULE_VERSION	"1.5.0"
++#define DRV_MODULE_VERSION	"1.6.0"
  
- 	u32			hwrm_spec_code;
-@@ -1221,6 +1228,8 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
- int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
- int bnxt_hwrm_set_coal(struct bnxt *);
- int bnxt_hwrm_func_qcaps(struct bnxt *);
-+void bnxt_tx_disable(struct bnxt *bp);
-+void bnxt_tx_enable(struct bnxt *bp);
- int bnxt_hwrm_set_pause(struct bnxt *);
- int bnxt_hwrm_set_link_setting(struct bnxt *, bool, bool);
- int bnxt_hwrm_fw_set_time(struct bnxt *);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-new file mode 100644
-index 0000000..f391b47
---- /dev/null
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-@@ -0,0 +1,490 @@
-+/* Broadcom NetXtreme-C/E network driver.
-+ *
-+ * Copyright (c) 2014-2016 Broadcom Corporation
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
+ #define DRV_VER_MAJ	1
+-#define DRV_VER_MIN	5
++#define DRV_VER_MIN	6
+ #define DRV_VER_UPD	0
+ 
+ struct tx_bd {
+@@ -1010,6 +1010,7 @@ struct bnxt {
+ 	u32			rss_hash_cfg;
+ 
+ 	u8			max_tc;
++	u8			max_lltc;	/* lossless TCs */
+ 	struct bnxt_queue_info	q_info[BNXT_MAX_QUEUE];
+ 
+ 	unsigned int		current_interval;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
+index 0456d5b..2ddfa51 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
+@@ -1,6 +1,7 @@
+ /* Broadcom NetXtreme-C/E network driver.
+  *
+  * Copyright (c) 2014-2016 Broadcom Corporation
++ * Copyright (c) 2016 Broadcom Limited
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -10,29 +11,22 @@
+ #ifndef BNXT_HSI_H
+ #define BNXT_HSI_H
+ 
+-/* per-context HW statistics -- chip view */
+-struct ctx_hw_stats  {
+-	__le64 rx_ucast_pkts;
+-	__le64 rx_mcast_pkts;
+-	__le64 rx_bcast_pkts;
+-	__le64 rx_discard_pkts;
+-	__le64 rx_drop_pkts;
+-	__le64 rx_ucast_bytes;
+-	__le64 rx_mcast_bytes;
+-	__le64 rx_bcast_bytes;
+-	__le64 tx_ucast_pkts;
+-	__le64 tx_mcast_pkts;
+-	__le64 tx_bcast_pkts;
+-	__le64 tx_discard_pkts;
+-	__le64 tx_drop_pkts;
+-	__le64 tx_ucast_bytes;
+-	__le64 tx_mcast_bytes;
+-	__le64 tx_bcast_bytes;
+-	__le64 tpa_pkts;
+-	__le64 tpa_bytes;
+-	__le64 tpa_events;
+-	__le64 tpa_aborts;
+-};
++/* HSI and HWRM Specification 1.6.0 */
++#define HWRM_VERSION_MAJOR	1
++#define HWRM_VERSION_MINOR	6
++#define HWRM_VERSION_UPDATE	0
++
++#define HWRM_VERSION_STR	"1.6.0"
++/*
++ * Following is the signature for HWRM message field that indicates not
++ * applicable (All F's). Need to cast it the size of the field if needed.
 + */
-+
-+#include <linux/netdevice.h>
-+#include <linux/types.h>
-+#include <linux/errno.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/interrupt.h>
-+#include <linux/pci.h>
-+#include <linux/etherdevice.h>
-+#include "bnxt_hsi.h"
-+#include "bnxt.h"
-+#include "bnxt_dcb.h"
-+
-+#ifdef CONFIG_BNXT_DCB
-+static int bnxt_hwrm_queue_pri2cos_cfg(struct bnxt *bp, struct ieee_ets *ets)
-+{
-+	struct hwrm_queue_pri2cos_cfg_input req = {0};
-+	int rc = 0, i;
-+	u8 *pri2cos;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_PRI2COS_CFG, -1, -1);
-+	req.flags = cpu_to_le32(QUEUE_PRI2COS_CFG_REQ_FLAGS_PATH_BIDIR |
-+				QUEUE_PRI2COS_CFG_REQ_FLAGS_IVLAN);
-+
-+	pri2cos = &req.pri0_cos_queue_id;
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-+		req.enables |= cpu_to_le32(
-+			QUEUE_PRI2COS_CFG_REQ_ENABLES_PRI0_COS_QUEUE_ID << i);
-+
-+		pri2cos[i] = bp->q_info[ets->prio_tc[i]].queue_id;
-+	}
-+	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	return rc;
-+}
-+
-+static int bnxt_hwrm_queue_pri2cos_qcfg(struct bnxt *bp, struct ieee_ets *ets)
-+{
-+	struct hwrm_queue_pri2cos_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
-+	struct hwrm_queue_pri2cos_qcfg_input req = {0};
-+	int rc = 0;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_PRI2COS_QCFG, -1, -1);
-+	req.flags = cpu_to_le32(QUEUE_PRI2COS_QCFG_REQ_FLAGS_IVLAN);
-+	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	if (!rc) {
-+		u8 *pri2cos = &resp->pri0_cos_queue_id;
-+		int i, j;
-+
-+		for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-+			u8 queue_id = pri2cos[i];
-+
-+			for (j = 0; j < bp->max_tc; j++) {
-+				if (bp->q_info[j].queue_id == queue_id) {
-+					ets->prio_tc[i] = j;
-+					break;
-+				}
-+			}
-+		}
-+	}
-+	return rc;
-+}
-+
-+static int bnxt_hwrm_queue_cos2bw_cfg(struct bnxt *bp, struct ieee_ets *ets,
-+				      u8 max_tc)
-+{
-+	struct hwrm_queue_cos2bw_cfg_input req = {0};
-+	struct bnxt_cos2bw_cfg cos2bw;
-+	int rc = 0, i;
-+	void *data;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_COS2BW_CFG, -1, -1);
-+	data = &req.unused_0;
-+	for (i = 0; i < max_tc; i++, data += sizeof(cos2bw) - 4) {
-+		req.enables |= cpu_to_le32(
-+			QUEUE_COS2BW_CFG_REQ_ENABLES_COS_QUEUE_ID0_VALID << i);
-+
-+		memset(&cos2bw, 0, sizeof(cos2bw));
-+		cos2bw.queue_id = bp->q_info[i].queue_id;
-+		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_STRICT) {
-+			cos2bw.tsa =
-+				QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_SP;
-+			cos2bw.pri_lvl = i;
-+		} else {
-+			cos2bw.tsa =
-+				QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_ETS;
-+			cos2bw.bw_weight = ets->tc_tx_bw[i];
-+		}
-+		memcpy(data, &cos2bw.queue_id, sizeof(cos2bw) - 4);
-+		if (i == 0) {
-+			req.queue_id0 = cos2bw.queue_id;
-+			req.unused_0 = 0;
-+		}
-+	}
-+	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	return rc;
-+}
-+
-+static int bnxt_hwrm_queue_cos2bw_qcfg(struct bnxt *bp, struct ieee_ets *ets)
-+{
-+	struct hwrm_queue_cos2bw_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
-+	struct hwrm_queue_cos2bw_qcfg_input req = {0};
-+	struct bnxt_cos2bw_cfg cos2bw;
-+	void *data;
-+	int rc, i;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_COS2BW_QCFG, -1, -1);
-+	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	if (rc)
-+		return rc;
-+
-+	data = &resp->queue_id0 + offsetof(struct bnxt_cos2bw_cfg, queue_id);
-+	for (i = 0; i < bp->max_tc; i++, data += sizeof(cos2bw) - 4) {
-+		int j;
-+
-+		memcpy(&cos2bw.queue_id, data, sizeof(cos2bw) - 4);
-+		if (i == 0)
-+			cos2bw.queue_id = resp->queue_id0;
-+
-+		for (j = 0; j < bp->max_tc; j++) {
-+			if (bp->q_info[j].queue_id != cos2bw.queue_id)
-+				continue;
-+			if (cos2bw.tsa ==
-+			    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_SP) {
-+				ets->tc_tsa[j] = IEEE_8021QAZ_TSA_STRICT;
-+			} else {
-+				ets->tc_tsa[j] = IEEE_8021QAZ_TSA_ETS;
-+				ets->tc_tx_bw[j] = cos2bw.bw_weight;
-+			}
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int bnxt_hwrm_queue_cfg(struct bnxt *bp, unsigned int lltc_mask)
-+{
-+	struct hwrm_queue_cfg_input req = {0};
-+	int i;
-+
-+	if (netif_running(bp->dev))
-+		bnxt_tx_disable(bp);
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_CFG, -1, -1);
-+	req.flags = cpu_to_le32(QUEUE_CFG_REQ_FLAGS_PATH_BIDIR);
-+	req.enables = cpu_to_le32(QUEUE_CFG_REQ_ENABLES_SERVICE_PROFILE);
-+
-+	/* Configure lossless queues to lossy first */
-+	req.service_profile = QUEUE_CFG_REQ_SERVICE_PROFILE_LOSSY;
-+	for (i = 0; i < bp->max_tc; i++) {
-+		if (BNXT_LLQ(bp->q_info[i].queue_profile)) {
-+			req.queue_id = cpu_to_le32(bp->q_info[i].queue_id);
-+			hwrm_send_message(bp, &req, sizeof(req),
-+					  HWRM_CMD_TIMEOUT);
-+			bp->q_info[i].queue_profile =
-+				QUEUE_CFG_REQ_SERVICE_PROFILE_LOSSY;
-+		}
-+	}
-+
-+	/* Now configure desired queues to lossless */
-+	req.service_profile = QUEUE_CFG_REQ_SERVICE_PROFILE_LOSSLESS;
-+	for (i = 0; i < bp->max_tc; i++) {
-+		if (lltc_mask & (1 << i)) {
-+			req.queue_id = cpu_to_le32(bp->q_info[i].queue_id);
-+			hwrm_send_message(bp, &req, sizeof(req),
-+					  HWRM_CMD_TIMEOUT);
-+			bp->q_info[i].queue_profile =
-+				QUEUE_CFG_REQ_SERVICE_PROFILE_LOSSLESS;
-+		}
-+	}
-+	if (netif_running(bp->dev))
-+		bnxt_tx_enable(bp);
-+
-+	return 0;
-+}
-+
-+static int bnxt_hwrm_queue_pfc_cfg(struct bnxt *bp, struct ieee_pfc *pfc)
-+{
-+	struct hwrm_queue_pfcenable_cfg_input req = {0};
-+	struct ieee_ets *my_ets = bp->ieee_ets;
-+	unsigned int tc_mask = 0, pri_mask = 0;
-+	u8 i, pri, lltc_count = 0;
-+	bool need_q_recfg = false;
-+	int rc;
-+
-+	if (!my_ets)
-+		return -EINVAL;
-+
-+	for (i = 0; i < bp->max_tc; i++) {
-+		for (pri = 0; pri < IEEE_8021QAZ_MAX_TCS; pri++) {
-+			if ((pfc->pfc_en & (1 << pri)) &&
-+			    (my_ets->prio_tc[pri] == i)) {
-+				pri_mask |= 1 << pri;
-+				tc_mask |= 1 << i;
-+			}
-+		}
-+		if (tc_mask & (1 << i))
-+			lltc_count++;
-+	}
-+	if (lltc_count > bp->max_lltc)
-+		return -EINVAL;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_PFCENABLE_CFG, -1, -1);
-+	req.flags = cpu_to_le32(pri_mask);
-+	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	if (rc)
-+		return rc;
-+
-+	for (i = 0; i < bp->max_tc; i++) {
-+		if (tc_mask & (1 << i)) {
-+			if (!BNXT_LLQ(bp->q_info[i].queue_profile))
-+				need_q_recfg = true;
-+		}
-+	}
-+
-+	if (need_q_recfg)
-+		rc = bnxt_hwrm_queue_cfg(bp, tc_mask);
-+
-+	return rc;
-+}
-+
-+static int bnxt_hwrm_queue_pfc_qcfg(struct bnxt *bp, struct ieee_pfc *pfc)
-+{
-+	struct hwrm_queue_pfcenable_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
-+	struct hwrm_queue_pfcenable_qcfg_input req = {0};
-+	u8 pri_mask;
-+	int rc;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_QUEUE_PFCENABLE_QCFG, -1, -1);
-+	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	if (rc)
-+		return rc;
-+
-+	pri_mask = le32_to_cpu(resp->flags);
-+	pfc->pfc_en = pri_mask;
-+	return 0;
-+}
-+
-+static int bnxt_ets_validate(struct bnxt *bp, struct ieee_ets *ets, u8 *tc)
-+{
-+	int total_ets_bw = 0;
-+	u8 max_tc = 0;
-+	int i;
-+
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-+		if (ets->prio_tc[i] > bp->max_tc) {
-+			netdev_err(bp->dev, "priority to TC mapping exceeds TC count %d\n",
-+				   ets->prio_tc[i]);
-+			return -EINVAL;
-+		}
-+		if (ets->prio_tc[i] > max_tc)
-+			max_tc = ets->prio_tc[i];
-+
-+		if ((ets->tc_tx_bw[i] || ets->tc_tsa[i]) && i > bp->max_tc)
-+			return -EINVAL;
-+
-+		switch (ets->tc_tsa[i]) {
-+		case IEEE_8021QAZ_TSA_STRICT:
-+			break;
-+		case IEEE_8021QAZ_TSA_ETS:
-+			total_ets_bw += ets->tc_tx_bw[i];
-+			break;
-+		default:
-+			return -ENOTSUPP;
-+		}
-+	}
-+	if (total_ets_bw > 100)
-+		return -EINVAL;
-+
-+	*tc = max_tc + 1;
-+	return 0;
-+}
-+
-+static int bnxt_dcbnl_ieee_getets(struct net_device *dev, struct ieee_ets *ets)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct ieee_ets *my_ets = bp->ieee_ets;
-+
-+	ets->ets_cap = bp->max_tc;
-+
-+	if (!my_ets) {
-+		int rc;
-+
-+		if (bp->dcbx_cap & DCB_CAP_DCBX_HOST)
-+			return 0;
-+
-+		my_ets = kzalloc(sizeof(*my_ets), GFP_KERNEL);
-+		if (!my_ets)
-+			return 0;
-+		rc = bnxt_hwrm_queue_cos2bw_qcfg(bp, my_ets);
-+		if (rc)
-+			return 0;
-+		rc = bnxt_hwrm_queue_pri2cos_qcfg(bp, my_ets);
-+		if (rc)
-+			return 0;
-+	}
-+
-+	ets->cbs = my_ets->cbs;
-+	memcpy(ets->tc_tx_bw, my_ets->tc_tx_bw, sizeof(ets->tc_tx_bw));
-+	memcpy(ets->tc_rx_bw, my_ets->tc_rx_bw, sizeof(ets->tc_rx_bw));
-+	memcpy(ets->tc_tsa, my_ets->tc_tsa, sizeof(ets->tc_tsa));
-+	memcpy(ets->prio_tc, my_ets->prio_tc, sizeof(ets->prio_tc));
-+	return 0;
-+}
-+
-+static int bnxt_dcbnl_ieee_setets(struct net_device *dev, struct ieee_ets *ets)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct ieee_ets *my_ets = bp->ieee_ets;
-+	u8 max_tc = 0;
-+	int rc, i;
-+
-+	if (!(bp->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) ||
-+	    !(bp->dcbx_cap & DCB_CAP_DCBX_HOST))
-+		return -EINVAL;
-+
-+	rc = bnxt_ets_validate(bp, ets, &max_tc);
-+	if (!rc) {
-+		if (!my_ets) {
-+			my_ets = kzalloc(sizeof(*my_ets), GFP_KERNEL);
-+			if (!my_ets)
-+				return -ENOMEM;
-+			/* initialize PRI2TC mappings to invalid value */
-+			for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
-+				my_ets->prio_tc[i] = IEEE_8021QAZ_MAX_TCS;
-+			bp->ieee_ets = my_ets;
-+		}
-+		rc = bnxt_setup_mq_tc(dev, max_tc);
-+		if (rc)
-+			return rc;
-+		rc = bnxt_hwrm_queue_cos2bw_cfg(bp, ets, max_tc);
-+		if (rc)
-+			return rc;
-+		rc = bnxt_hwrm_queue_pri2cos_cfg(bp, ets);
-+		if (rc)
-+			return rc;
-+		memcpy(my_ets, ets, sizeof(*my_ets));
-+	}
-+	return rc;
-+}
-+
-+static int bnxt_dcbnl_ieee_getpfc(struct net_device *dev, struct ieee_pfc *pfc)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct ieee_pfc *my_pfc = bp->ieee_pfc;
-+	int rc;
-+
-+	pfc->pfc_cap = bp->max_lltc;
-+
-+	if (!my_pfc) {
-+		if (bp->dcbx_cap & DCB_CAP_DCBX_HOST)
-+			return 0;
-+
-+		my_pfc = kzalloc(sizeof(*my_pfc), GFP_KERNEL);
-+		if (!my_pfc)
-+			return 0;
-+		bp->ieee_pfc = my_pfc;
-+		rc = bnxt_hwrm_queue_pfc_qcfg(bp, my_pfc);
-+		if (rc)
-+			return 0;
-+	}
-+
-+	pfc->pfc_en = my_pfc->pfc_en;
-+	pfc->mbc = my_pfc->mbc;
-+	pfc->delay = my_pfc->delay;
-+
-+	return 0;
-+}
-+
-+static int bnxt_dcbnl_ieee_setpfc(struct net_device *dev, struct ieee_pfc *pfc)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct ieee_pfc *my_pfc = bp->ieee_pfc;
-+	int rc;
-+
-+	if (!(bp->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) ||
-+	    !(bp->dcbx_cap & DCB_CAP_DCBX_HOST))
-+		return -EINVAL;
-+
-+	if (!my_pfc) {
-+		my_pfc = kzalloc(sizeof(*my_pfc), GFP_KERNEL);
-+		if (!my_pfc)
-+			return -ENOMEM;
-+		bp->ieee_pfc = my_pfc;
-+	}
-+	rc = bnxt_hwrm_queue_pfc_cfg(bp, pfc);
-+	if (!rc)
-+		memcpy(my_pfc, pfc, sizeof(*my_pfc));
-+
-+	return rc;
-+}
-+
-+static int bnxt_dcbnl_ieee_setapp(struct net_device *dev, struct dcb_app *app)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+	int rc = -EINVAL;
-+
-+	if (!(bp->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) ||
-+	    !(bp->dcbx_cap & DCB_CAP_DCBX_HOST))
-+		return -EINVAL;
-+
-+	rc = dcb_ieee_setapp(dev, app);
-+	return rc;
-+}
-+
-+static int bnxt_dcbnl_ieee_delapp(struct net_device *dev, struct dcb_app *app)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+	int rc;
-+
-+	if (!(bp->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
-+		return -EINVAL;
-+
-+	rc = dcb_ieee_delapp(dev, app);
-+	return rc;
-+}
-+
-+static u8 bnxt_dcbnl_getdcbx(struct net_device *dev)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+
-+	return bp->dcbx_cap;
-+}
-+
-+static u8 bnxt_dcbnl_setdcbx(struct net_device *dev, u8 mode)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+
-+	/* only support IEEE */
-+	if ((mode & DCB_CAP_DCBX_VER_CEE) || !(mode & DCB_CAP_DCBX_VER_IEEE))
-+		return 1;
-+
-+	if ((mode & DCB_CAP_DCBX_HOST) && BNXT_VF(bp))
-+		return 1;
-+
-+	if (mode == bp->dcbx_cap)
-+		return 0;
-+
-+	bp->dcbx_cap = mode;
-+	return 0;
-+}
-+
-+static const struct dcbnl_rtnl_ops dcbnl_ops = {
-+	.ieee_getets	= bnxt_dcbnl_ieee_getets,
-+	.ieee_setets	= bnxt_dcbnl_ieee_setets,
-+	.ieee_getpfc	= bnxt_dcbnl_ieee_getpfc,
-+	.ieee_setpfc	= bnxt_dcbnl_ieee_setpfc,
-+	.ieee_setapp	= bnxt_dcbnl_ieee_setapp,
-+	.ieee_delapp	= bnxt_dcbnl_ieee_delapp,
-+	.getdcbx	= bnxt_dcbnl_getdcbx,
-+	.setdcbx	= bnxt_dcbnl_setdcbx,
++#define HWRM_NA_SIGNATURE	((__le32)(-1))
++#define HWRM_MAX_REQ_LEN    (128)  /* hwrm_func_buf_rgtr */
++#define HWRM_MAX_RESP_LEN    (176)  /* hwrm_func_qstats */
++#define HW_HASH_INDEX_SIZE      0x80    /* 7 bit indirection table index. */
++#define HW_HASH_KEY_SIZE	40
++#define HWRM_RESP_VALID_KEY      1 /* valid key for HWRM response */
+ 
+ /* Statistics Ejection Buffer Completion Record (16 bytes) */
+ struct eject_cmpl {
+@@ -50,77 +44,77 @@ struct eject_cmpl {
+ /* HWRM Completion Record (16 bytes) */
+ struct hwrm_cmpl {
+ 	__le16 type;
+-	#define HWRM_CMPL_TYPE_MASK				    0x3fUL
+-	#define HWRM_CMPL_TYPE_SFT				    0
+-	#define HWRM_CMPL_TYPE_HWRM_DONE			   0x20UL
++	#define CMPL_TYPE_MASK					    0x3fUL
++	#define CMPL_TYPE_SFT					    0
++	#define CMPL_TYPE_HWRM_DONE				   0x20UL
+ 	__le16 sequence_id;
+ 	__le32 unused_1;
+ 	__le32 v;
+-	#define HWRM_CMPL_V					    0x1UL
++	#define CMPL_V						    0x1UL
+ 	__le32 unused_3;
+ };
+ 
+ /* HWRM Forwarded Request (16 bytes) */
+ struct hwrm_fwd_req_cmpl {
+ 	__le16 req_len_type;
+-	#define HWRM_FWD_REQ_CMPL_TYPE_MASK			    0x3fUL
+-	#define HWRM_FWD_REQ_CMPL_TYPE_SFT			    0
+-	#define HWRM_FWD_REQ_CMPL_TYPE_HWRM_FWD_REQ		   0x22UL
+-	#define HWRM_FWD_REQ_CMPL_REQ_LEN_MASK			    0xffc0UL
+-	#define HWRM_FWD_REQ_CMPL_REQ_LEN_SFT			    6
++	#define FWD_REQ_CMPL_TYPE_MASK				    0x3fUL
++	#define FWD_REQ_CMPL_TYPE_SFT				    0
++	#define FWD_REQ_CMPL_TYPE_HWRM_FWD_REQ			   0x22UL
++	#define FWD_REQ_CMPL_REQ_LEN_MASK			    0xffc0UL
++	#define FWD_REQ_CMPL_REQ_LEN_SFT			    6
+ 	__le16 source_id;
+ 	__le32 unused_0;
+ 	__le32 req_buf_addr_v[2];
+-	#define HWRM_FWD_REQ_CMPL_V				    0x1UL
+-	#define HWRM_FWD_REQ_CMPL_REQ_BUF_ADDR_MASK		    0xfffffffeUL
+-	#define HWRM_FWD_REQ_CMPL_REQ_BUF_ADDR_SFT		    1
++	#define FWD_REQ_CMPL_V					    0x1UL
++	#define FWD_REQ_CMPL_REQ_BUF_ADDR_MASK			    0xfffffffeUL
++	#define FWD_REQ_CMPL_REQ_BUF_ADDR_SFT			    1
+ };
+ 
+ /* HWRM Forwarded Response (16 bytes) */
+ struct hwrm_fwd_resp_cmpl {
+ 	__le16 type;
+-	#define HWRM_FWD_RESP_CMPL_TYPE_MASK			    0x3fUL
+-	#define HWRM_FWD_RESP_CMPL_TYPE_SFT			    0
+-	#define HWRM_FWD_RESP_CMPL_TYPE_HWRM_FWD_RESP		   0x24UL
++	#define FWD_RESP_CMPL_TYPE_MASK			    0x3fUL
++	#define FWD_RESP_CMPL_TYPE_SFT				    0
++	#define FWD_RESP_CMPL_TYPE_HWRM_FWD_RESP		   0x24UL
+ 	__le16 source_id;
+ 	__le16 resp_len;
+ 	__le16 unused_1;
+ 	__le32 resp_buf_addr_v[2];
+-	#define HWRM_FWD_RESP_CMPL_V				    0x1UL
+-	#define HWRM_FWD_RESP_CMPL_RESP_BUF_ADDR_MASK		    0xfffffffeUL
+-	#define HWRM_FWD_RESP_CMPL_RESP_BUF_ADDR_SFT		    1
++	#define FWD_RESP_CMPL_V				    0x1UL
++	#define FWD_RESP_CMPL_RESP_BUF_ADDR_MASK		    0xfffffffeUL
++	#define FWD_RESP_CMPL_RESP_BUF_ADDR_SFT		    1
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record (16 bytes) */
+ struct hwrm_async_event_cmpl {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_TYPE_MASK		    0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_TYPE_SFT			    0
+-	#define HWRM_ASYNC_EVENT_CMPL_TYPE_HWRM_ASYNC_EVENT       0x2eUL
++	#define ASYNC_EVENT_CMPL_TYPE_MASK			    0x3fUL
++	#define ASYNC_EVENT_CMPL_TYPE_SFT			    0
++	#define ASYNC_EVENT_CMPL_TYPE_HWRM_ASYNC_EVENT		   0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE 0x0UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_MTU_CHANGE    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CHANGE  0x2UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_DCB_CONFIG_CHANGE  0x3UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED 0x4UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_NOT_ALLOWED 0x5UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_CHANGE 0x6UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PORT_PHY_CFG_CHANGE 0x7UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_FUNC_DRVR_UNLOAD   0x10UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_FUNC_DRVR_LOAD     0x11UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_FUNC_FLR_PROC_CMPLT 0x12UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD     0x20UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_LOAD       0x21UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_VF_FLR		   0x30UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_VF_MAC_ADDR_CHANGE 0x31UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_VF_COMM_STATUS_CHANGE 0x32UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_VF_CFG_CHANGE      0x33UL
+-	#define HWRM_ASYNC_EVENT_CMPL_EVENT_ID_HWRM_ERROR	   0xffUL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE      0x0UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_LINK_MTU_CHANGE	   0x1UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CHANGE       0x2UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_DCB_CONFIG_CHANGE       0x3UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED   0x4UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_NOT_ALLOWED 0x5UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_CHANGE   0x6UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_PORT_PHY_CFG_CHANGE     0x7UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_FUNC_DRVR_UNLOAD	   0x10UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_FUNC_DRVR_LOAD	   0x11UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_FUNC_FLR_PROC_CMPLT     0x12UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD	   0x20UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_LOAD		   0x21UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_VF_FLR		   0x30UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_VF_MAC_ADDR_CHANGE      0x31UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_PF_VF_COMM_STATUS_CHANGE 0x32UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_VF_CFG_CHANGE	   0x33UL
++	#define ASYNC_EVENT_CMPL_EVENT_ID_HWRM_ERROR		   0xffUL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_V			    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_OPAQUE_MASK		    0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_OPAQUE_SFT		    1
++	#define ASYNC_EVENT_CMPL_V				    0x1UL
++	#define ASYNC_EVENT_CMPL_OPAQUE_MASK			    0xfeUL
++	#define ASYNC_EVENT_CMPL_OPAQUE_SFT			    1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+@@ -129,774 +123,479 @@ struct hwrm_async_event_cmpl {
+ /* HWRM Asynchronous Event Completion Record for link status change (16 bytes) */
+ struct hwrm_async_event_cmpl_link_status_change {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_TYPE_MASK 0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_TYPE_SFT  0
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_TYPE_MASK      0x3fUL
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_TYPE_SFT       0
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_ID_LINK_STATUS_CHANGE 0x0UL
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_ID_LINK_STATUS_CHANGE 0x0UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_V	    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_OPAQUE_SFT 1
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_OPAQUE_MASK    0xfeUL
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_OPAQUE_SFT     1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE 0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE_DOWN (0x0UL << 0)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE_UP (0x1UL << 0)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE_LAST    HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE_UP
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_PORT_MASK 0xeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_PORT_SFT 1
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_PORT_ID_MASK 0xffff0UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_PORT_ID_SFT 4
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE 0x1UL
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE_DOWN (0x0UL << 0)
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE_UP (0x1UL << 0)
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE_LAST    ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_LINK_CHANGE_UP
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_PORT_MASK 0xeUL
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_PORT_SFT 1
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_PORT_ID_MASK 0xffff0UL
++	#define ASYNC_EVENT_CMPL_LINK_STATUS_CHANGE_EVENT_DATA1_PORT_ID_SFT 4
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for link MTU change (16 bytes) */
+ struct hwrm_async_event_cmpl_link_mtu_change {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_TYPE_MASK    0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_TYPE_SFT     0
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_TYPE_MASK	    0x3fUL
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_TYPE_SFT	    0
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_EVENT_ID_LINK_MTU_CHANGE 0x1UL
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_EVENT_ID_LINK_MTU_CHANGE 0x1UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_V	    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_OPAQUE_MASK  0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_OPAQUE_SFT   1
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_OPAQUE_MASK       0xfeUL
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_OPAQUE_SFT	    1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_EVENT_DATA1_NEW_MTU_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_EVENT_DATA1_NEW_MTU_SFT 0
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_EVENT_DATA1_NEW_MTU_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_LINK_MTU_CHANGE_EVENT_DATA1_NEW_MTU_SFT 0
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for link speed change (16 bytes) */
+ struct hwrm_async_event_cmpl_link_speed_change {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_TYPE_MASK  0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_TYPE_SFT   0
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_TYPE_MASK       0x3fUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_TYPE_SFT	    0
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_ID_LINK_SPEED_CHANGE 0x2UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_ID_LINK_SPEED_CHANGE 0x2UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_V	    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_OPAQUE_SFT 1
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_OPAQUE_MASK     0xfeUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_OPAQUE_SFT      1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_FORCE 0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_MASK 0xfffeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_SFT 1
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_100MB (0x1UL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_1GB (0xaUL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_2GB (0x14UL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_2_5GB (0x19UL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_10GB (0x64UL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_20GB (0xc8UL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_25GB (0xfaUL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_40GB (0x190UL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_50GB (0x1f4UL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_100GB (0x3e8UL << 1)
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_LAST    HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_100GB
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_PORT_ID_MASK 0xffff0000UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_PORT_ID_SFT 16
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_FORCE 0x1UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_MASK 0xfffeUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_SFT 1
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_100MB (0x1UL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_1GB (0xaUL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_2GB (0x14UL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_2_5GB (0x19UL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_10GB (0x64UL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_20GB (0xc8UL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_25GB (0xfaUL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_40GB (0x190UL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_50GB (0x1f4UL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_100GB (0x3e8UL << 1)
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_LAST    ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_NEW_LINK_SPEED_100MBPS_100GB
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_PORT_ID_MASK 0xffff0000UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CHANGE_EVENT_DATA1_PORT_ID_SFT 16
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for DCB Config change (16 bytes) */
+ struct hwrm_async_event_cmpl_dcb_config_change {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_TYPE_MASK  0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_TYPE_SFT   0
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_TYPE_MASK       0x3fUL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_TYPE_SFT	    0
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_ID_DCB_CONFIG_CHANGE 0x3UL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_ID_DCB_CONFIG_CHANGE 0x3UL
+ 	__le32 event_data2;
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA2_ETS 0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA2_PFC 0x2UL
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA2_APP 0x4UL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA2_ETS 0x1UL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA2_PFC 0x2UL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA2_APP 0x4UL
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_V	    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_OPAQUE_SFT 1
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_OPAQUE_MASK     0xfeUL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_OPAQUE_SFT      1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_PORT_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_PORT_ID_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_MASK 0xff0000UL
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_SFT 16
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_NONE (0xffUL << 16)
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_LAST    HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_NONE
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_MASK 0xff000000UL
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_SFT 24
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_NONE (0xffUL << 24)
+-	#define HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_LAST    HWRM_ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_NONE
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_PORT_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_PORT_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_MASK 0xff0000UL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_SFT 16
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_NONE (0xffUL << 16)
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_LAST    ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_ROCE_PRIORITY_NONE
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_MASK 0xff000000UL
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_SFT 24
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_NONE (0xffUL << 24)
++	#define ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_LAST    ASYNC_EVENT_CMPL_DCB_CONFIG_CHANGE_EVENT_DATA1_RECOMMEND_L2_PRIORITY_NONE
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for port connection not allowed (16 bytes) */
+ struct hwrm_async_event_cmpl_port_conn_not_allowed {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_TYPE_MASK 0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_TYPE_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_TYPE_MASK   0x3fUL
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_TYPE_SFT    0
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_ID_PORT_CONN_NOT_ALLOWED 0x4UL
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_ID_PORT_CONN_NOT_ALLOWED 0x4UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_V      0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_OPAQUE_SFT 1
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_V	    0x1UL
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_OPAQUE_MASK 0xfeUL
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_OPAQUE_SFT  1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_MASK 0xff0000UL
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_SFT 16
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_NONE (0x0UL << 16)
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_DISABLETX (0x1UL << 16)
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_WARNINGMSG (0x2UL << 16)
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_PWRDOWN (0x3UL << 16)
+-	#define HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_LAST    HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_PWRDOWN
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_MASK 0xff0000UL
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_SFT 16
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_NONE (0x0UL << 16)
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_DISABLETX (0x1UL << 16)
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_WARNINGMSG (0x2UL << 16)
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_PWRDOWN (0x3UL << 16)
++	#define ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_LAST    ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_PWRDOWN
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for link speed config not allowed (16 bytes) */
+ struct hwrm_async_event_cmpl_link_speed_cfg_not_allowed {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_TYPE_MASK 0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_TYPE_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_TYPE_MASK 0x3fUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_TYPE_SFT 0
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_EVENT_ID_LINK_SPEED_CFG_NOT_ALLOWED 0x5UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_EVENT_ID_LINK_SPEED_CFG_NOT_ALLOWED 0x5UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_V 0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_OPAQUE_SFT 1
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_V      0x1UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_OPAQUE_MASK 0xfeUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_OPAQUE_SFT 1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_EVENT_DATA1_PORT_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_NOT_ALLOWED_EVENT_DATA1_PORT_ID_SFT 0
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for link speed configuration change (16 bytes) */
+ struct hwrm_async_event_cmpl_link_speed_cfg_change {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_TYPE_MASK 0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_TYPE_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_TYPE_MASK   0x3fUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_TYPE_SFT    0
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_ID_LINK_SPEED_CFG_CHANGE 0x6UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_ID_LINK_SPEED_CFG_CHANGE 0x6UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_V      0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_OPAQUE_SFT 1
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_V	    0x1UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_OPAQUE_MASK 0xfeUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_OPAQUE_SFT  1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_DATA1_PORT_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_DATA1_PORT_ID_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_DATA1_SUPPORTED_LINK_SPEEDS_CHANGE 0x10000UL
+-	#define HWRM_ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_DATA1_ILLEGAL_LINK_SPEED_CFG 0x20000UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_DATA1_PORT_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_DATA1_PORT_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_DATA1_SUPPORTED_LINK_SPEEDS_CHANGE 0x10000UL
++	#define ASYNC_EVENT_CMPL_LINK_SPEED_CFG_CHANGE_EVENT_DATA1_ILLEGAL_LINK_SPEED_CFG 0x20000UL
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for Function Driver Unload (16 bytes) */
+ struct hwrm_async_event_cmpl_func_drvr_unload {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_TYPE_MASK   0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_TYPE_SFT    0
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_TYPE_MASK	    0x3fUL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_TYPE_SFT	    0
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_EVENT_ID_FUNC_DRVR_UNLOAD 0x10UL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_EVENT_ID_FUNC_DRVR_UNLOAD 0x10UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_V	    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_OPAQUE_SFT  1
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_OPAQUE_MASK      0xfeUL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_OPAQUE_SFT       1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_EVENT_DATA1_FUNC_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_UNLOAD_EVENT_DATA1_FUNC_ID_SFT 0
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for Function Driver load (16 bytes) */
+ struct hwrm_async_event_cmpl_func_drvr_load {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_TYPE_MASK     0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_TYPE_SFT      0
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_TYPE_MASK	    0x3fUL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_TYPE_SFT	    0
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	__le16 event_id;
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_EVENT_ID_FUNC_DRVR_LOAD 0x11UL
++	__le32 event_data2;
++	u8 opaque_v;
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_OPAQUE_MASK	    0xfeUL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_OPAQUE_SFT	    1
++	u8 timestamp_lo;
++	__le16 timestamp_hi;
++	__le32 event_data1;
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_EVENT_DATA1_FUNC_ID_SFT 0
 +};
 +
-+void bnxt_dcb_init(struct bnxt *bp)
-+{
-+	if (bp->hwrm_spec_code < 0x10501)
-+		return;
-+
-+	bp->dcbx_cap = DCB_CAP_DCBX_VER_IEEE;
-+	if (BNXT_PF(bp))
-+		bp->dcbx_cap |= DCB_CAP_DCBX_HOST;
-+	else
-+		bp->dcbx_cap |= DCB_CAP_DCBX_LLD_MANAGED;
-+	bp->dev->dcbnl_ops = &dcbnl_ops;
-+}
-+
-+void bnxt_dcb_free(struct bnxt *bp)
-+{
-+	kfree(bp->ieee_pfc);
-+	kfree(bp->ieee_ets);
-+	bp->ieee_pfc = NULL;
-+	bp->ieee_ets = NULL;
-+}
-+
-+#else
-+
-+void bnxt_dcb_init(struct bnxt *bp)
-+{
-+}
-+
-+void bnxt_dcb_free(struct bnxt *bp)
-+{
-+}
-+
-+#endif
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
-new file mode 100644
-index 0000000..35a0d28
---- /dev/null
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
-@@ -0,0 +1,41 @@
-+/* Broadcom NetXtreme-C/E network driver.
-+ *
-+ * Copyright (c) 2014-2016 Broadcom Corporation
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ */
-+
-+#ifndef BNXT_DCB_H
-+#define BNXT_DCB_H
-+
-+#include <net/dcbnl.h>
-+
-+struct bnxt_dcb {
-+	u8			max_tc;
-+	struct ieee_pfc		*ieee_pfc;
-+	struct ieee_ets		*ieee_ets;
-+	u8			dcbx_cap;
-+	u8			default_pri;
++/* HWRM Asynchronous Event Completion Record to indicate completion of FLR related processing (16 bytes) */
++struct hwrm_async_event_cmpl_func_flr_proc_cmplt {
++	__le16 type;
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_TYPE_MASK     0x3fUL
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_TYPE_SFT      0
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_EVENT_ID_FUNC_DRVR_LOAD 0x11UL
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_EVENT_ID_FUNC_FLR_PROC_CMPLT 0x12UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_V		    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_OPAQUE_MASK   0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_OPAQUE_SFT    1
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_OPAQUE_MASK   0xfeUL
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_OPAQUE_SFT    1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_FUNC_DRVR_LOAD_EVENT_DATA1_FUNC_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_FUNC_FLR_PROC_CMPLT_EVENT_DATA1_FUNC_ID_SFT 0
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for PF Driver Unload (16 bytes) */
+ struct hwrm_async_event_cmpl_pf_drvr_unload {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_TYPE_MASK     0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_TYPE_SFT      0
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_TYPE_MASK	    0x3fUL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_TYPE_SFT	    0
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_ID_PF_DRVR_UNLOAD 0x20UL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_ID_PF_DRVR_UNLOAD 0x20UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_V		    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_OPAQUE_MASK   0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_OPAQUE_SFT    1
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_OPAQUE_MASK	    0xfeUL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_OPAQUE_SFT	    1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_DATA1_FUNC_ID_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_DATA1_PORT_MASK 0x70000UL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_DATA1_PORT_SFT 16
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_DATA1_FUNC_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_DATA1_PORT_MASK 0x70000UL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_UNLOAD_EVENT_DATA1_PORT_SFT 16
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for PF Driver load (16 bytes) */
+ struct hwrm_async_event_cmpl_pf_drvr_load {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_TYPE_MASK       0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_TYPE_SFT	    0
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_TYPE_MASK	    0x3fUL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_TYPE_SFT		    0
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_ID_PF_DRVR_LOAD 0x21UL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_ID_PF_DRVR_LOAD 0x21UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_V		    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_OPAQUE_MASK     0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_OPAQUE_SFT      1
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_OPAQUE_MASK	    0xfeUL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_OPAQUE_SFT	    1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_DATA1_FUNC_ID_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_DATA1_PORT_MASK 0x70000UL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_DATA1_PORT_SFT 16
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_DATA1_FUNC_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_DATA1_FUNC_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_DATA1_PORT_MASK 0x70000UL
++	#define ASYNC_EVENT_CMPL_PF_DRVR_LOAD_EVENT_DATA1_PORT_SFT 16
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for VF FLR (16 bytes) */
+ struct hwrm_async_event_cmpl_vf_flr {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_TYPE_MASK		    0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_TYPE_SFT		    0
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_VF_FLR_TYPE_MASK		    0x3fUL
++	#define ASYNC_EVENT_CMPL_VF_FLR_TYPE_SFT		    0
++	#define ASYNC_EVENT_CMPL_VF_FLR_TYPE_HWRM_ASYNC_EVENT     0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_EVENT_ID_VF_FLR      0x30UL
++	#define ASYNC_EVENT_CMPL_VF_FLR_EVENT_ID_VF_FLR	   0x30UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_V			    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_OPAQUE_MASK	    0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_OPAQUE_SFT	    1
++	#define ASYNC_EVENT_CMPL_VF_FLR_V			    0x1UL
++	#define ASYNC_EVENT_CMPL_VF_FLR_OPAQUE_MASK		    0xfeUL
++	#define ASYNC_EVENT_CMPL_VF_FLR_OPAQUE_SFT		    1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_EVENT_DATA1_VF_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_FLR_EVENT_DATA1_VF_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_VF_FLR_EVENT_DATA1_VF_ID_MASK     0xffffUL
++	#define ASYNC_EVENT_CMPL_VF_FLR_EVENT_DATA1_VF_ID_SFT      0
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for VF MAC Addr change (16 bytes) */
+ struct hwrm_async_event_cmpl_vf_mac_addr_change {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_TYPE_MASK 0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_TYPE_SFT  0
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_TYPE_MASK      0x3fUL
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_TYPE_SFT       0
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_EVENT_ID_VF_MAC_ADDR_CHANGE 0x31UL
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_EVENT_ID_VF_MAC_ADDR_CHANGE 0x31UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_V	    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_OPAQUE_SFT 1
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_OPAQUE_MASK    0xfeUL
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_OPAQUE_SFT     1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_EVENT_DATA1_VF_ID_MASK 0xffffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_EVENT_DATA1_VF_ID_SFT 0
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_EVENT_DATA1_VF_ID_MASK 0xffffUL
++	#define ASYNC_EVENT_CMPL_VF_MAC_ADDR_CHANGE_EVENT_DATA1_VF_ID_SFT 0
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for PF-VF communication status change (16 bytes) */
+ struct hwrm_async_event_cmpl_pf_vf_comm_status_change {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_TYPE_MASK 0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_TYPE_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_TYPE_MASK 0x3fUL
++	#define ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_TYPE_SFT 0
++	#define ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_EVENT_ID_PF_VF_COMM_STATUS_CHANGE 0x32UL
++	#define ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_EVENT_ID_PF_VF_COMM_STATUS_CHANGE 0x32UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_V   0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_OPAQUE_MASK 0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_OPAQUE_SFT 1
++	#define ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_V	    0x1UL
++	#define ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_OPAQUE_MASK 0xfeUL
++	#define ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_OPAQUE_SFT 1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_EVENT_DATA1_COMM_ESTABLISHED 0x1UL
++	#define ASYNC_EVENT_CMPL_PF_VF_COMM_STATUS_CHANGE_EVENT_DATA1_COMM_ESTABLISHED 0x1UL
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for VF configuration change (16 bytes) */
+ struct hwrm_async_event_cmpl_vf_cfg_change {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_TYPE_MASK      0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_TYPE_SFT       0
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_TYPE_MASK	    0x3fUL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_TYPE_SFT	    0
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_ID_VF_CFG_CHANGE 0x33UL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_ID_VF_CFG_CHANGE 0x33UL
+ 	__le32 event_data2;
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_V		    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_OPAQUE_MASK    0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_OPAQUE_SFT     1
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_V		    0x1UL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_OPAQUE_MASK	    0xfeUL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_OPAQUE_SFT	    1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_DATA1_MTU_CHANGE 0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_DATA1_MRU_CHANGE 0x2UL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_DATA1_DFLT_MAC_ADDR_CHANGE 0x4UL
+-	#define HWRM_ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_DATA1_DFLT_VLAN_CHANGE 0x8UL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_DATA1_MTU_CHANGE 0x1UL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_DATA1_MRU_CHANGE 0x2UL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_DATA1_DFLT_MAC_ADDR_CHANGE 0x4UL
++	#define ASYNC_EVENT_CMPL_VF_CFG_CHANGE_EVENT_DATA1_DFLT_VLAN_CHANGE 0x8UL
+ };
+ 
+ /* HWRM Asynchronous Event Completion Record for HWRM Error (16 bytes) */
+ struct hwrm_async_event_cmpl_hwrm_error {
+ 	__le16 type;
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_TYPE_MASK	    0x3fUL
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_TYPE_SFT	    0
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_TYPE_HWRM_ASYNC_EVENT 0x2eUL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_TYPE_MASK		    0x3fUL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_TYPE_SFT		    0
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_TYPE_HWRM_ASYNC_EVENT 0x2eUL
+ 	__le16 event_id;
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_ID_HWRM_ERROR 0xffUL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_ID_HWRM_ERROR   0xffUL
+ 	__le32 event_data2;
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_MASK 0xffUL
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_SFT 0
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_WARNING 0x0UL
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_NONFATAL 0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_FATAL 0x2UL
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_LAST    HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_FATAL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_MASK 0xffUL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_SFT 0
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_WARNING 0x0UL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_NONFATAL 0x1UL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_FATAL 0x2UL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_LAST    ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA2_SEVERITY_FATAL
+ 	u8 opaque_v;
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_V		    0x1UL
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_OPAQUE_MASK       0xfeUL
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_OPAQUE_SFT	    1
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_V			    0x1UL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_OPAQUE_MASK	    0xfeUL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_OPAQUE_SFT		    1
+ 	u8 timestamp_lo;
+ 	__le16 timestamp_hi;
+ 	__le32 event_data1;
+-	#define HWRM_ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA1_TIMESTAMP 0x1UL
++	#define ASYNC_EVENT_CMPL_HWRM_ERROR_EVENT_DATA1_TIMESTAMP  0x1UL
+ };
+ 
+-/* HW Resource Manager Specification 1.5.4 */
+-#define HWRM_VERSION_MAJOR	1
+-#define HWRM_VERSION_MINOR	5
+-#define HWRM_VERSION_UPDATE	4
+-
+-#define HWRM_VERSION_STR	"1.5.4"
+-/*
+- * Following is the signature for HWRM message field that indicates not
+- * applicable (All F's). Need to cast it the size of the field if needed.
+- */
+-#define HWRM_NA_SIGNATURE	((__le32)(-1))
+-#define HWRM_MAX_REQ_LEN    (128)  /* hwrm_func_buf_rgtr */
+-#define HWRM_MAX_RESP_LEN    (176)  /* hwrm_func_qstats */
+-#define HW_HASH_INDEX_SIZE      0x80    /* 7 bit indirection table index. */
+-#define HW_HASH_KEY_SIZE	40
+-#define HWRM_RESP_VALID_KEY      1 /* valid key for HWRM response */
+-/* Input (16 bytes) */
+-struct input {
++/* hwrm_ver_get */
++/* Input (24 bytes) */
++struct hwrm_ver_get_input {
+ 	__le16 req_type;
+ 	__le16 cmpl_ring;
+ 	__le16 seq_id;
+ 	__le16 target_id;
+ 	__le64 resp_addr;
++	u8 hwrm_intf_maj;
++	u8 hwrm_intf_min;
++	u8 hwrm_intf_upd;
++	u8 unused_0[5];
+ };
+ 
+-/* Output (8 bytes) */
+-struct output {
++/* Output (128 bytes) */
++struct hwrm_ver_get_output {
+ 	__le16 error_code;
+ 	__le16 req_type;
+ 	__le16 seq_id;
+ 	__le16 resp_len;
++	u8 hwrm_intf_maj;
++	u8 hwrm_intf_min;
++	u8 hwrm_intf_upd;
++	u8 hwrm_intf_rsvd;
++	u8 hwrm_fw_maj;
++	u8 hwrm_fw_min;
++	u8 hwrm_fw_bld;
++	u8 hwrm_fw_rsvd;
++	u8 mgmt_fw_maj;
++	u8 mgmt_fw_min;
++	u8 mgmt_fw_bld;
++	u8 mgmt_fw_rsvd;
++	u8 netctrl_fw_maj;
++	u8 netctrl_fw_min;
++	u8 netctrl_fw_bld;
++	u8 netctrl_fw_rsvd;
++	__le32 dev_caps_cfg;
++	#define VER_GET_RESP_DEV_CAPS_CFG_SECURE_FW_UPD_SUPPORTED  0x1UL
++	#define VER_GET_RESP_DEV_CAPS_CFG_FW_DCBX_AGENT_SUPPORTED  0x2UL
++	u8 roce_fw_maj;
++	u8 roce_fw_min;
++	u8 roce_fw_bld;
++	u8 roce_fw_rsvd;
++	char hwrm_fw_name[16];
++	char mgmt_fw_name[16];
++	char netctrl_fw_name[16];
++	__le32 reserved2[4];
++	char roce_fw_name[16];
++	__le16 chip_num;
++	u8 chip_rev;
++	u8 chip_metal;
++	u8 chip_bond_id;
++	u8 chip_platform_type;
++	#define VER_GET_RESP_CHIP_PLATFORM_TYPE_ASIC		   0x0UL
++	#define VER_GET_RESP_CHIP_PLATFORM_TYPE_FPGA		   0x1UL
++	#define VER_GET_RESP_CHIP_PLATFORM_TYPE_PALLADIUM	   0x2UL
++	__le16 max_req_win_len;
++	__le16 max_resp_len;
++	__le16 def_req_timeout;
++	u8 unused_0;
++	u8 unused_1;
++	u8 unused_2;
++	u8 valid;
+ };
+ 
+-/* Command numbering (8 bytes) */
+-struct cmd_nums {
++/* hwrm_func_reset */
++/* Input (24 bytes) */
++struct hwrm_func_reset_input {
+ 	__le16 req_type;
+-	#define HWRM_VER_GET					   (0x0UL)
+-	#define HWRM_FUNC_BUF_UNRGTR				   (0xeUL)
+-	#define HWRM_FUNC_VF_CFG				   (0xfUL)
+-	#define RESERVED1					   (0x10UL)
+-	#define HWRM_FUNC_RESET				   (0x11UL)
+-	#define HWRM_FUNC_GETFID				   (0x12UL)
+-	#define HWRM_FUNC_VF_ALLOC				   (0x13UL)
+-	#define HWRM_FUNC_VF_FREE				   (0x14UL)
+-	#define HWRM_FUNC_QCAPS				   (0x15UL)
+-	#define HWRM_FUNC_QCFG					   (0x16UL)
+-	#define HWRM_FUNC_CFG					   (0x17UL)
+-	#define HWRM_FUNC_QSTATS				   (0x18UL)
+-	#define HWRM_FUNC_CLR_STATS				   (0x19UL)
+-	#define HWRM_FUNC_DRV_UNRGTR				   (0x1aUL)
+-	#define HWRM_FUNC_VF_RESC_FREE				   (0x1bUL)
+-	#define HWRM_FUNC_VF_VNIC_IDS_QUERY			   (0x1cUL)
+-	#define HWRM_FUNC_DRV_RGTR				   (0x1dUL)
+-	#define HWRM_FUNC_DRV_QVER				   (0x1eUL)
+-	#define HWRM_FUNC_BUF_RGTR				   (0x1fUL)
+-	#define HWRM_PORT_PHY_CFG				   (0x20UL)
+-	#define HWRM_PORT_MAC_CFG				   (0x21UL)
+-	#define HWRM_PORT_TS_QUERY				   (0x22UL)
+-	#define HWRM_PORT_QSTATS				   (0x23UL)
+-	#define HWRM_PORT_LPBK_QSTATS				   (0x24UL)
+-	#define HWRM_PORT_CLR_STATS				   (0x25UL)
+-	#define HWRM_PORT_LPBK_CLR_STATS			   (0x26UL)
+-	#define HWRM_PORT_PHY_QCFG				   (0x27UL)
+-	#define HWRM_PORT_MAC_QCFG				   (0x28UL)
+-	#define HWRM_PORT_BLINK_LED				   (0x29UL)
+-	#define HWRM_PORT_PHY_QCAPS				   (0x2aUL)
+-	#define HWRM_PORT_PHY_I2C_WRITE			   (0x2bUL)
+-	#define HWRM_PORT_PHY_I2C_READ				   (0x2cUL)
+-	#define HWRM_QUEUE_QPORTCFG				   (0x30UL)
+-	#define HWRM_QUEUE_QCFG				   (0x31UL)
+-	#define HWRM_QUEUE_CFG					   (0x32UL)
+-	#define RESERVED2					   (0x33UL)
+-	#define RESERVED3					   (0x34UL)
+-	#define HWRM_QUEUE_PFCENABLE_QCFG			   (0x35UL)
+-	#define HWRM_QUEUE_PFCENABLE_CFG			   (0x36UL)
+-	#define HWRM_QUEUE_PRI2COS_QCFG			   (0x37UL)
+-	#define HWRM_QUEUE_PRI2COS_CFG				   (0x38UL)
+-	#define HWRM_QUEUE_COS2BW_QCFG				   (0x39UL)
+-	#define HWRM_QUEUE_COS2BW_CFG				   (0x3aUL)
+-	#define HWRM_VNIC_ALLOC				   (0x40UL)
+-	#define HWRM_VNIC_FREE					   (0x41UL)
+-	#define HWRM_VNIC_CFG					   (0x42UL)
+-	#define HWRM_VNIC_QCFG					   (0x43UL)
+-	#define HWRM_VNIC_TPA_CFG				   (0x44UL)
+-	#define HWRM_VNIC_TPA_QCFG				   (0x45UL)
+-	#define HWRM_VNIC_RSS_CFG				   (0x46UL)
+-	#define HWRM_VNIC_RSS_QCFG				   (0x47UL)
+-	#define HWRM_VNIC_PLCMODES_CFG				   (0x48UL)
+-	#define HWRM_VNIC_PLCMODES_QCFG			   (0x49UL)
+-	#define HWRM_VNIC_QCAPS				   (0x4aUL)
+-	#define HWRM_RING_ALLOC				   (0x50UL)
+-	#define HWRM_RING_FREE					   (0x51UL)
+-	#define HWRM_RING_CMPL_RING_QAGGINT_PARAMS		   (0x52UL)
+-	#define HWRM_RING_CMPL_RING_CFG_AGGINT_PARAMS		   (0x53UL)
+-	#define HWRM_RING_RESET				   (0x5eUL)
+-	#define HWRM_RING_GRP_ALLOC				   (0x60UL)
+-	#define HWRM_RING_GRP_FREE				   (0x61UL)
+-	#define RESERVED5					   (0x64UL)
+-	#define RESERVED6					   (0x65UL)
+-	#define HWRM_VNIC_RSS_COS_LB_CTX_ALLOC			   (0x70UL)
+-	#define HWRM_VNIC_RSS_COS_LB_CTX_FREE			   (0x71UL)
+-	#define HWRM_CFA_L2_FILTER_ALLOC			   (0x90UL)
+-	#define HWRM_CFA_L2_FILTER_FREE			   (0x91UL)
+-	#define HWRM_CFA_L2_FILTER_CFG				   (0x92UL)
+-	#define HWRM_CFA_L2_SET_RX_MASK			   (0x93UL)
+-	#define RESERVED4					   (0x94UL)
+-	#define HWRM_CFA_TUNNEL_FILTER_ALLOC			   (0x95UL)
+-	#define HWRM_CFA_TUNNEL_FILTER_FREE			   (0x96UL)
+-	#define HWRM_CFA_ENCAP_RECORD_ALLOC			   (0x97UL)
+-	#define HWRM_CFA_ENCAP_RECORD_FREE			   (0x98UL)
+-	#define HWRM_CFA_NTUPLE_FILTER_ALLOC			   (0x99UL)
+-	#define HWRM_CFA_NTUPLE_FILTER_FREE			   (0x9aUL)
+-	#define HWRM_CFA_NTUPLE_FILTER_CFG			   (0x9bUL)
+-	#define HWRM_CFA_EM_FLOW_ALLOC				   (0x9cUL)
+-	#define HWRM_CFA_EM_FLOW_FREE				   (0x9dUL)
+-	#define HWRM_CFA_EM_FLOW_CFG				   (0x9eUL)
+-	#define HWRM_TUNNEL_DST_PORT_QUERY			   (0xa0UL)
+-	#define HWRM_TUNNEL_DST_PORT_ALLOC			   (0xa1UL)
+-	#define HWRM_TUNNEL_DST_PORT_FREE			   (0xa2UL)
+-	#define HWRM_STAT_CTX_ALLOC				   (0xb0UL)
+-	#define HWRM_STAT_CTX_FREE				   (0xb1UL)
+-	#define HWRM_STAT_CTX_QUERY				   (0xb2UL)
+-	#define HWRM_STAT_CTX_CLR_STATS			   (0xb3UL)
+-	#define HWRM_FW_RESET					   (0xc0UL)
+-	#define HWRM_FW_QSTATUS				   (0xc1UL)
+-	#define HWRM_FW_SET_TIME				   (0xc8UL)
+-	#define HWRM_FW_GET_TIME				   (0xc9UL)
+-	#define HWRM_FW_SET_STRUCTURED_DATA			   (0xcaUL)
+-	#define HWRM_FW_GET_STRUCTURED_DATA			   (0xcbUL)
+-	#define HWRM_FW_IPC_MAILBOX				   (0xccUL)
+-	#define HWRM_EXEC_FWD_RESP				   (0xd0UL)
+-	#define HWRM_REJECT_FWD_RESP				   (0xd1UL)
+-	#define HWRM_FWD_RESP					   (0xd2UL)
+-	#define HWRM_FWD_ASYNC_EVENT_CMPL			   (0xd3UL)
+-	#define HWRM_TEMP_MONITOR_QUERY			   (0xe0UL)
+-	#define HWRM_WOL_FILTER_ALLOC				   (0xf0UL)
+-	#define HWRM_WOL_FILTER_FREE				   (0xf1UL)
+-	#define HWRM_WOL_FILTER_QCFG				   (0xf2UL)
+-	#define HWRM_WOL_REASON_QCFG				   (0xf3UL)
+-	#define HWRM_DBG_READ_DIRECT				   (0xff10UL)
+-	#define HWRM_DBG_READ_INDIRECT				   (0xff11UL)
+-	#define HWRM_DBG_WRITE_DIRECT				   (0xff12UL)
+-	#define HWRM_DBG_WRITE_INDIRECT			   (0xff13UL)
+-	#define HWRM_DBG_DUMP					   (0xff14UL)
+-	#define HWRM_NVM_GET_VARIABLE				   (0xfff1UL)
+-	#define HWRM_NVM_SET_VARIABLE				   (0xfff2UL)
+-	#define HWRM_NVM_INSTALL_UPDATE			   (0xfff3UL)
+-	#define HWRM_NVM_MODIFY				   (0xfff4UL)
+-	#define HWRM_NVM_VERIFY_UPDATE				   (0xfff5UL)
+-	#define HWRM_NVM_GET_DEV_INFO				   (0xfff6UL)
+-	#define HWRM_NVM_ERASE_DIR_ENTRY			   (0xfff7UL)
+-	#define HWRM_NVM_MOD_DIR_ENTRY				   (0xfff8UL)
+-	#define HWRM_NVM_FIND_DIR_ENTRY			   (0xfff9UL)
+-	#define HWRM_NVM_GET_DIR_ENTRIES			   (0xfffaUL)
+-	#define HWRM_NVM_GET_DIR_INFO				   (0xfffbUL)
+-	#define HWRM_NVM_RAW_DUMP				   (0xfffcUL)
+-	#define HWRM_NVM_READ					   (0xfffdUL)
+-	#define HWRM_NVM_WRITE					   (0xfffeUL)
+-	#define HWRM_NVM_RAW_WRITE_BLK				   (0xffffUL)
+-	__le16 unused_0[3];
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le32 enables;
++	#define FUNC_RESET_REQ_ENABLES_VF_ID_VALID		    0x1UL
++	__le16 vf_id;
++	u8 func_reset_level;
++	#define FUNC_RESET_REQ_FUNC_RESET_LEVEL_RESETALL	   0x0UL
++	#define FUNC_RESET_REQ_FUNC_RESET_LEVEL_RESETME	   0x1UL
++	#define FUNC_RESET_REQ_FUNC_RESET_LEVEL_RESETCHILDREN     0x2UL
++	#define FUNC_RESET_REQ_FUNC_RESET_LEVEL_RESETVF	   0x3UL
++	u8 unused_0;
+ };
+ 
+-/* Return Codes (8 bytes) */
+-struct ret_codes {
+-	__le16 error_code;
+-	#define HWRM_ERR_CODE_SUCCESS				   (0x0UL)
+-	#define HWRM_ERR_CODE_FAIL				   (0x1UL)
+-	#define HWRM_ERR_CODE_INVALID_PARAMS			   (0x2UL)
+-	#define HWRM_ERR_CODE_RESOURCE_ACCESS_DENIED		   (0x3UL)
+-	#define HWRM_ERR_CODE_RESOURCE_ALLOC_ERROR		   (0x4UL)
+-	#define HWRM_ERR_CODE_INVALID_FLAGS			   (0x5UL)
+-	#define HWRM_ERR_CODE_INVALID_ENABLES			   (0x6UL)
+-	#define HWRM_ERR_CODE_HWRM_ERROR			   (0xfUL)
+-	#define HWRM_ERR_CODE_UNKNOWN_ERR			   (0xfffeUL)
+-	#define HWRM_ERR_CODE_CMD_NOT_SUPPORTED		   (0xffffUL)
+-	__le16 unused_0[3];
+-};
+-
+-/* Output (16 bytes) */
+-struct hwrm_err_output {
+-	__le16 error_code;
+-	__le16 req_type;
+-	__le16 seq_id;
+-	__le16 resp_len;
+-	__le32 opaque_0;
+-	__le16 opaque_1;
+-	u8 cmd_err;
+-	u8 valid;
+-};
+-
+-/* Port Tx Statistics Formats (408 bytes) */
+-struct tx_port_stats {
+-	__le64 tx_64b_frames;
+-	__le64 tx_65b_127b_frames;
+-	__le64 tx_128b_255b_frames;
+-	__le64 tx_256b_511b_frames;
+-	__le64 tx_512b_1023b_frames;
+-	__le64 tx_1024b_1518_frames;
+-	__le64 tx_good_vlan_frames;
+-	__le64 tx_1519b_2047_frames;
+-	__le64 tx_2048b_4095b_frames;
+-	__le64 tx_4096b_9216b_frames;
+-	__le64 tx_9217b_16383b_frames;
+-	__le64 tx_good_frames;
+-	__le64 tx_total_frames;
+-	__le64 tx_ucast_frames;
+-	__le64 tx_mcast_frames;
+-	__le64 tx_bcast_frames;
+-	__le64 tx_pause_frames;
+-	__le64 tx_pfc_frames;
+-	__le64 tx_jabber_frames;
+-	__le64 tx_fcs_err_frames;
+-	__le64 tx_control_frames;
+-	__le64 tx_oversz_frames;
+-	__le64 tx_single_dfrl_frames;
+-	__le64 tx_multi_dfrl_frames;
+-	__le64 tx_single_coll_frames;
+-	__le64 tx_multi_coll_frames;
+-	__le64 tx_late_coll_frames;
+-	__le64 tx_excessive_coll_frames;
+-	__le64 tx_frag_frames;
+-	__le64 tx_err;
+-	__le64 tx_tagged_frames;
+-	__le64 tx_dbl_tagged_frames;
+-	__le64 tx_runt_frames;
+-	__le64 tx_fifo_underruns;
+-	__le64 tx_pfc_ena_frames_pri0;
+-	__le64 tx_pfc_ena_frames_pri1;
+-	__le64 tx_pfc_ena_frames_pri2;
+-	__le64 tx_pfc_ena_frames_pri3;
+-	__le64 tx_pfc_ena_frames_pri4;
+-	__le64 tx_pfc_ena_frames_pri5;
+-	__le64 tx_pfc_ena_frames_pri6;
+-	__le64 tx_pfc_ena_frames_pri7;
+-	__le64 tx_eee_lpi_events;
+-	__le64 tx_eee_lpi_duration;
+-	__le64 tx_llfc_logical_msgs;
+-	__le64 tx_hcfc_msgs;
+-	__le64 tx_total_collisions;
+-	__le64 tx_bytes;
+-	__le64 tx_xthol_frames;
+-	__le64 tx_stat_discard;
+-	__le64 tx_stat_error;
+-};
+-
+-/* Port Rx Statistics Formats (528 bytes) */
+-struct rx_port_stats {
+-	__le64 rx_64b_frames;
+-	__le64 rx_65b_127b_frames;
+-	__le64 rx_128b_255b_frames;
+-	__le64 rx_256b_511b_frames;
+-	__le64 rx_512b_1023b_frames;
+-	__le64 rx_1024b_1518_frames;
+-	__le64 rx_good_vlan_frames;
+-	__le64 rx_1519b_2047b_frames;
+-	__le64 rx_2048b_4095b_frames;
+-	__le64 rx_4096b_9216b_frames;
+-	__le64 rx_9217b_16383b_frames;
+-	__le64 rx_total_frames;
+-	__le64 rx_ucast_frames;
+-	__le64 rx_mcast_frames;
+-	__le64 rx_bcast_frames;
+-	__le64 rx_fcs_err_frames;
+-	__le64 rx_ctrl_frames;
+-	__le64 rx_pause_frames;
+-	__le64 rx_pfc_frames;
+-	__le64 rx_unsupported_opcode_frames;
+-	__le64 rx_unsupported_da_pausepfc_frames;
+-	__le64 rx_wrong_sa_frames;
+-	__le64 rx_align_err_frames;
+-	__le64 rx_oor_len_frames;
+-	__le64 rx_code_err_frames;
+-	__le64 rx_false_carrier_frames;
+-	__le64 rx_ovrsz_frames;
+-	__le64 rx_jbr_frames;
+-	__le64 rx_mtu_err_frames;
+-	__le64 rx_match_crc_frames;
+-	__le64 rx_promiscuous_frames;
+-	__le64 rx_tagged_frames;
+-	__le64 rx_double_tagged_frames;
+-	__le64 rx_trunc_frames;
+-	__le64 rx_good_frames;
+-	__le64 rx_pfc_xon2xoff_frames_pri0;
+-	__le64 rx_pfc_xon2xoff_frames_pri1;
+-	__le64 rx_pfc_xon2xoff_frames_pri2;
+-	__le64 rx_pfc_xon2xoff_frames_pri3;
+-	__le64 rx_pfc_xon2xoff_frames_pri4;
+-	__le64 rx_pfc_xon2xoff_frames_pri5;
+-	__le64 rx_pfc_xon2xoff_frames_pri6;
+-	__le64 rx_pfc_xon2xoff_frames_pri7;
+-	__le64 rx_pfc_ena_frames_pri0;
+-	__le64 rx_pfc_ena_frames_pri1;
+-	__le64 rx_pfc_ena_frames_pri2;
+-	__le64 rx_pfc_ena_frames_pri3;
+-	__le64 rx_pfc_ena_frames_pri4;
+-	__le64 rx_pfc_ena_frames_pri5;
+-	__le64 rx_pfc_ena_frames_pri6;
+-	__le64 rx_pfc_ena_frames_pri7;
+-	__le64 rx_sch_crc_err_frames;
+-	__le64 rx_undrsz_frames;
+-	__le64 rx_frag_frames;
+-	__le64 rx_eee_lpi_events;
+-	__le64 rx_eee_lpi_duration;
+-	__le64 rx_llfc_physical_msgs;
+-	__le64 rx_llfc_logical_msgs;
+-	__le64 rx_llfc_msgs_with_crc_err;
+-	__le64 rx_hcfc_msgs;
+-	__le64 rx_hcfc_msgs_with_crc_err;
+-	__le64 rx_bytes;
+-	__le64 rx_runt_bytes;
+-	__le64 rx_runt_frames;
+-	__le64 rx_stat_discard;
+-	__le64 rx_stat_err;
+-};
+-
+-/* hwrm_ver_get */
+-/* Input (24 bytes) */
+-struct hwrm_ver_get_input {
+-	__le16 req_type;
+-	__le16 cmpl_ring;
+-	__le16 seq_id;
+-	__le16 target_id;
+-	__le64 resp_addr;
+-	u8 hwrm_intf_maj;
+-	u8 hwrm_intf_min;
+-	u8 hwrm_intf_upd;
+-	u8 unused_0[5];
+-};
+-
+-/* Output (128 bytes) */
+-struct hwrm_ver_get_output {
+-	__le16 error_code;
+-	__le16 req_type;
+-	__le16 seq_id;
+-	__le16 resp_len;
+-	u8 hwrm_intf_maj;
+-	u8 hwrm_intf_min;
+-	u8 hwrm_intf_upd;
+-	u8 hwrm_intf_rsvd;
+-	u8 hwrm_fw_maj;
+-	u8 hwrm_fw_min;
+-	u8 hwrm_fw_bld;
+-	u8 hwrm_fw_rsvd;
+-	u8 mgmt_fw_maj;
+-	u8 mgmt_fw_min;
+-	u8 mgmt_fw_bld;
+-	u8 mgmt_fw_rsvd;
+-	u8 netctrl_fw_maj;
+-	u8 netctrl_fw_min;
+-	u8 netctrl_fw_bld;
+-	u8 netctrl_fw_rsvd;
+-	__le32 dev_caps_cfg;
+-	#define VER_GET_RESP_DEV_CAPS_CFG_SECURE_FW_UPD_SUPPORTED  0x1UL
+-	#define VER_GET_RESP_DEV_CAPS_CFG_FW_DCBX_AGENT_SUPPORTED  0x2UL
+-	u8 roce_fw_maj;
+-	u8 roce_fw_min;
+-	u8 roce_fw_bld;
+-	u8 roce_fw_rsvd;
+-	char hwrm_fw_name[16];
+-	char mgmt_fw_name[16];
+-	char netctrl_fw_name[16];
+-	__le32 reserved2[4];
+-	char roce_fw_name[16];
+-	__le16 chip_num;
+-	u8 chip_rev;
+-	u8 chip_metal;
+-	u8 chip_bond_id;
+-	u8 chip_platform_type;
+-	#define VER_GET_RESP_CHIP_PLATFORM_TYPE_ASIC		   0x0UL
+-	#define VER_GET_RESP_CHIP_PLATFORM_TYPE_FPGA		   0x1UL
+-	#define VER_GET_RESP_CHIP_PLATFORM_TYPE_PALLADIUM	   0x2UL
+-	__le16 max_req_win_len;
+-	__le16 max_resp_len;
+-	__le16 def_req_timeout;
+-	u8 unused_0;
+-	u8 unused_1;
+-	u8 unused_2;
+-	u8 valid;
+-};
+-
+-/* hwrm_func_reset */
+-/* Input (24 bytes) */
+-struct hwrm_func_reset_input {
+-	__le16 req_type;
+-	__le16 cmpl_ring;
+-	__le16 seq_id;
+-	__le16 target_id;
+-	__le64 resp_addr;
+-	__le32 enables;
+-	#define FUNC_RESET_REQ_ENABLES_VF_ID_VALID		    0x1UL
+-	__le16 vf_id;
+-	u8 func_reset_level;
+-	#define FUNC_RESET_REQ_FUNC_RESET_LEVEL_RESETALL	   0x0UL
+-	#define FUNC_RESET_REQ_FUNC_RESET_LEVEL_RESETME	   0x1UL
+-	#define FUNC_RESET_REQ_FUNC_RESET_LEVEL_RESETCHILDREN     0x2UL
+-	#define FUNC_RESET_REQ_FUNC_RESET_LEVEL_RESETVF	   0x3UL
+-	u8 unused_0;
+-};
+-
+-/* Output (16 bytes) */
+-struct hwrm_func_reset_output {
++/* Output (16 bytes) */
++struct hwrm_func_reset_output {
+ 	__le16 error_code;
+ 	__le16 req_type;
+ 	__le16 seq_id;
+@@ -1057,6 +756,7 @@ struct hwrm_func_qcaps_output {
+ 	#define FUNC_QCAPS_RESP_FLAGS_TX_BW_CFG_SUPPORTED	    0x100UL
+ 	#define FUNC_QCAPS_RESP_FLAGS_VF_TX_RING_RL_SUPPORTED      0x200UL
+ 	#define FUNC_QCAPS_RESP_FLAGS_VF_BW_CFG_SUPPORTED	    0x400UL
++	#define FUNC_QCAPS_RESP_FLAGS_STD_TX_RING_MODE_SUPPORTED   0x800UL
+ 	u8 mac_address[6];
+ 	__le16 max_rsscos_ctx;
+ 	__le16 max_cmpl_rings;
+@@ -1106,6 +806,7 @@ struct hwrm_func_qcfg_output {
+ 	#define FUNC_QCFG_RESP_FLAGS_OOB_WOL_MAGICPKT_ENABLED      0x1UL
+ 	#define FUNC_QCFG_RESP_FLAGS_OOB_WOL_BMP_ENABLED	    0x2UL
+ 	#define FUNC_QCFG_RESP_FLAGS_FW_DCBX_AGENT_ENABLED	    0x4UL
++	#define FUNC_QCFG_RESP_FLAGS_STD_TX_RING_MODE_ENABLED      0x8UL
+ 	u8 mac_address[6];
+ 	__le16 pci_id;
+ 	__le16 alloc_rsscos_ctx;
+@@ -1182,6 +883,7 @@ struct hwrm_func_cfg_input {
+ 	#define FUNC_CFG_REQ_FLAGS_DISABLE_STP			    0x40UL
+ 	#define FUNC_CFG_REQ_FLAGS_DISABLE_LLDP		    0x80UL
+ 	#define FUNC_CFG_REQ_FLAGS_DISABLE_PTPV2		    0x100UL
++	#define FUNC_CFG_REQ_FLAGS_STD_TX_RING_MODE		    0x200UL
+ 	__le32 enables;
+ 	#define FUNC_CFG_REQ_ENABLES_MTU			    0x1UL
+ 	#define FUNC_CFG_REQ_ENABLES_MRU			    0x2UL
+@@ -1548,6 +1250,7 @@ struct hwrm_func_drv_qver_output {
+ 	#define FUNC_DRV_QVER_RESP_OS_TYPE_ESXI		   0x68UL
+ 	#define FUNC_DRV_QVER_RESP_OS_TYPE_WIN864		   0x73UL
+ 	#define FUNC_DRV_QVER_RESP_OS_TYPE_WIN2012R2		   0x74UL
++	#define FUNC_DRV_QVER_RESP_OS_TYPE_UEFI		   0x8000UL
+ 	u8 ver_maj;
+ 	u8 ver_min;
+ 	u8 ver_upd;
+@@ -2109,45 +1812,20 @@ struct hwrm_port_lpbk_clr_stats_output {
+ 	u8 valid;
+ };
+ 
+-/* hwrm_port_blink_led */
++/* hwrm_port_phy_qcaps */
+ /* Input (24 bytes) */
+-struct hwrm_port_blink_led_input {
++struct hwrm_port_phy_qcaps_input {
+ 	__le16 req_type;
+ 	__le16 cmpl_ring;
+ 	__le16 seq_id;
+ 	__le16 target_id;
+ 	__le64 resp_addr;
+-	__le32 num_blinks;
+-	__le32 unused_0;
++	__le16 port_id;
++	__le16 unused_0[3];
+ };
+ 
+-/* Output (16 bytes) */
+-struct hwrm_port_blink_led_output {
+-	__le16 error_code;
+-	__le16 req_type;
+-	__le16 seq_id;
+-	__le16 resp_len;
+-	__le32 unused_0;
+-	u8 unused_1;
+-	u8 unused_2;
+-	u8 unused_3;
+-	u8 valid;
+-};
+-
+-/* hwrm_port_phy_qcaps */
+-/* Input (24 bytes) */
+-struct hwrm_port_phy_qcaps_input {
+-	__le16 req_type;
+-	__le16 cmpl_ring;
+-	__le16 seq_id;
+-	__le16 target_id;
+-	__le64 resp_addr;
+-	__le16 port_id;
+-	__le16 unused_0[3];
+-};
+-
+-/* Output (24 bytes) */
+-struct hwrm_port_phy_qcaps_output {
++/* Output (24 bytes) */
++struct hwrm_port_phy_qcaps_output {
+ 	__le16 error_code;
+ 	__le16 req_type;
+ 	__le16 seq_id;
+@@ -2355,6 +2033,39 @@ struct hwrm_queue_cfg_output {
+ 	u8 valid;
+ };
+ 
++/* hwrm_queue_pfcenable_qcfg */
++/* Input (24 bytes) */
++struct hwrm_queue_pfcenable_qcfg_input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le16 port_id;
++	__le16 unused_0[3];
 +};
 +
-+struct bnxt_cos2bw_cfg {
-+	u8			pad[3];
-+	u8			queue_id;
-+	__le32			min_bw;
-+	__le32			max_bw;
-+	u8			tsa;
-+	u8			pri_lvl;
-+	u8			bw_weight;
-+	u8			unused;
++/* Output (16 bytes) */
++struct hwrm_queue_pfcenable_qcfg_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	__le32 flags;
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI0_PFC_ENABLED   0x1UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI1_PFC_ENABLED   0x2UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI2_PFC_ENABLED   0x4UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI3_PFC_ENABLED   0x8UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI4_PFC_ENABLED   0x10UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI5_PFC_ENABLED   0x20UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI6_PFC_ENABLED   0x40UL
++	#define QUEUE_PFCENABLE_QCFG_RESP_FLAGS_PRI7_PFC_ENABLED   0x80UL
++	u8 unused_0;
++	u8 unused_1;
++	u8 unused_2;
++	u8 valid;
 +};
 +
-+#define BNXT_LLQ(q_profile)	\
-+	((q_profile) == QUEUE_QPORTCFG_RESP_QUEUE_ID0_SERVICE_PROFILE_LOSSLESS)
+ /* hwrm_queue_pfcenable_cfg */
+ /* Input (24 bytes) */
+ struct hwrm_queue_pfcenable_cfg_input {
+@@ -2389,6 +2100,48 @@ struct hwrm_queue_pfcenable_cfg_output {
+ 	u8 valid;
+ };
+ 
++/* hwrm_queue_pri2cos_qcfg */
++/* Input (24 bytes) */
++struct hwrm_queue_pri2cos_qcfg_input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le32 flags;
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH		    0x1UL
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_TX		   (0x0UL << 0)
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_RX		   (0x1UL << 0)
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_LAST    QUEUE_PRI2COS_QCFG_REQ_FLAGS_PATH_RX
++	#define QUEUE_PRI2COS_QCFG_REQ_FLAGS_IVLAN		    0x2UL
++	u8 port_id;
++	u8 unused_0[3];
++};
 +
-+#define HWRM_STRUCT_DATA_SUBTYPE_HOST_OPERATIONAL	0x0300
++/* Output (24 bytes) */
++struct hwrm_queue_pri2cos_qcfg_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	u8 pri0_cos_queue_id;
++	u8 pri1_cos_queue_id;
++	u8 pri2_cos_queue_id;
++	u8 pri3_cos_queue_id;
++	u8 pri4_cos_queue_id;
++	u8 pri5_cos_queue_id;
++	u8 pri6_cos_queue_id;
++	u8 pri7_cos_queue_id;
++	u8 queue_cfg_info;
++	#define QUEUE_PRI2COS_QCFG_RESP_QUEUE_CFG_INFO_ASYM_CFG    0x1UL
++	u8 unused_0;
++	__le16 unused_1;
++	u8 unused_2;
++	u8 unused_3;
++	u8 unused_4;
++	u8 valid;
++};
 +
-+void bnxt_dcb_init(struct bnxt *bp);
-+void bnxt_dcb_free(struct bnxt *bp);
-+#endif
+ /* hwrm_queue_pri2cos_cfg */
+ /* Input (40 bytes) */
+ struct hwrm_queue_pri2cos_cfg_input {
+@@ -2439,6 +2192,257 @@ struct hwrm_queue_pri2cos_cfg_output {
+ 	u8 valid;
+ };
+ 
++/* hwrm_queue_cos2bw_qcfg */
++/* Input (24 bytes) */
++struct hwrm_queue_cos2bw_qcfg_input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le16 port_id;
++	__le16 unused_0[3];
++};
++
++/* Output (112 bytes) */
++struct hwrm_queue_cos2bw_qcfg_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	u8 queue_id0;
++	u8 unused_0;
++	__le16 unused_1;
++	__le32 queue_id0_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id0_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id0_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id0_pri_lvl;
++	u8 queue_id0_bw_weight;
++	u8 queue_id1;
++	__le32 queue_id1_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id1_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id1_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID1_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id1_pri_lvl;
++	u8 queue_id1_bw_weight;
++	u8 queue_id2;
++	__le32 queue_id2_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id2_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id2_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID2_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id2_pri_lvl;
++	u8 queue_id2_bw_weight;
++	u8 queue_id3;
++	__le32 queue_id3_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id3_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id3_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID3_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id3_pri_lvl;
++	u8 queue_id3_bw_weight;
++	u8 queue_id4;
++	__le32 queue_id4_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id4_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id4_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID4_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id4_pri_lvl;
++	u8 queue_id4_bw_weight;
++	u8 queue_id5;
++	__le32 queue_id5_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id5_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id5_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID5_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id5_pri_lvl;
++	u8 queue_id5_bw_weight;
++	u8 queue_id6;
++	__le32 queue_id6_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id6_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id6_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID6_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id6_pri_lvl;
++	u8 queue_id6_bw_weight;
++	u8 queue_id7;
++	__le32 queue_id7_min_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MIN_BW_BW_VALUE_UNIT_INVALID
++	__le32 queue_id7_max_bw;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_MASK 0xfffffffUL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_SFT 0
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_RSVD       0x10000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_MASK 0xe0000000UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_SFT 29
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_MBPS (0x0UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_PERCENT1_100 (0x1UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_INVALID (0x7UL << 29)
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_LAST    QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_MAX_BW_BW_VALUE_UNIT_INVALID
++	u8 queue_id7_tsa_assign;
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_SP    0x0UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_ETS   0x1UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_RESERVED_FIRST 0x2UL
++	#define QUEUE_COS2BW_QCFG_RESP_QUEUE_ID7_TSA_ASSIGN_RESERVED_LAST 0xffUL
++	u8 queue_id7_pri_lvl;
++	u8 queue_id7_bw_weight;
++	u8 unused_2;
++	u8 unused_3;
++	u8 unused_4;
++	u8 unused_5;
++	u8 valid;
++};
++
+ /* hwrm_queue_cos2bw_cfg */
+ /* Input (128 bytes) */
+ struct hwrm_queue_cos2bw_cfg_input {
+@@ -3820,7 +3824,9 @@ struct hwrm_stat_ctx_alloc_input {
+ 	__le64 resp_addr;
+ 	__le64 stats_dma_addr;
+ 	__le32 update_period_ms;
+-	__le32 unused_0;
++	u8 stat_ctx_flags;
++	#define STAT_CTX_ALLOC_REQ_STAT_CTX_FLAGS_ROCE		    0x1UL
++	u8 unused_0[3];
+ };
+ 
+ /* Output (16 bytes) */
+@@ -4052,7 +4058,9 @@ struct hwrm_fw_set_structured_data_input {
+ 	__le64 src_data_addr;
+ 	__le16 data_len;
+ 	u8 hdr_cnt;
+-	u8 unused_0[5];
++	u8 unused_0;
++	__le16 port_id;
++	__le16 unused_1;
+ };
+ 
+ /* Output (16 bytes) */
+@@ -4069,7 +4077,7 @@ struct hwrm_fw_set_structured_data_output {
+ };
+ 
+ /* hwrm_fw_get_structured_data */
+-/* Input (32 bytes) */
++/* Input (40 bytes) */
+ struct hwrm_fw_get_structured_data_input {
+ 	__le16 req_type;
+ 	__le16 cmpl_ring;
+@@ -4089,6 +4097,8 @@ struct hwrm_fw_get_structured_data_input {
+ 	#define FW_GET_STRUCTURED_DATA_REQ_SUBTYPE_NON_TPMR_OPERATIONAL 0x202UL
+ 	u8 count;
+ 	u8 unused_0;
++	__le16 port_id;
++	__le16 unused_1[3];
+ };
+ 
+ /* Output (16 bytes) */
+@@ -4598,4 +4608,363 @@ struct hwrm_nvm_install_update_output {
+ 	u8 valid;
+ };
+ 
++/* Hardware Resource Manager Specification */
++/* Input (16 bytes) */
++struct input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++};
++
++/* Output (8 bytes) */
++struct output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++};
++
++/* Command numbering (8 bytes) */
++struct cmd_nums {
++	__le16 req_type;
++	#define HWRM_VER_GET					   (0x0UL)
++	#define HWRM_FUNC_BUF_UNRGTR				   (0xeUL)
++	#define HWRM_FUNC_VF_CFG				   (0xfUL)
++	#define RESERVED1					   (0x10UL)
++	#define HWRM_FUNC_RESET				   (0x11UL)
++	#define HWRM_FUNC_GETFID				   (0x12UL)
++	#define HWRM_FUNC_VF_ALLOC				   (0x13UL)
++	#define HWRM_FUNC_VF_FREE				   (0x14UL)
++	#define HWRM_FUNC_QCAPS				   (0x15UL)
++	#define HWRM_FUNC_QCFG					   (0x16UL)
++	#define HWRM_FUNC_CFG					   (0x17UL)
++	#define HWRM_FUNC_QSTATS				   (0x18UL)
++	#define HWRM_FUNC_CLR_STATS				   (0x19UL)
++	#define HWRM_FUNC_DRV_UNRGTR				   (0x1aUL)
++	#define HWRM_FUNC_VF_RESC_FREE				   (0x1bUL)
++	#define HWRM_FUNC_VF_VNIC_IDS_QUERY			   (0x1cUL)
++	#define HWRM_FUNC_DRV_RGTR				   (0x1dUL)
++	#define HWRM_FUNC_DRV_QVER				   (0x1eUL)
++	#define HWRM_FUNC_BUF_RGTR				   (0x1fUL)
++	#define HWRM_PORT_PHY_CFG				   (0x20UL)
++	#define HWRM_PORT_MAC_CFG				   (0x21UL)
++	#define HWRM_PORT_TS_QUERY				   (0x22UL)
++	#define HWRM_PORT_QSTATS				   (0x23UL)
++	#define HWRM_PORT_LPBK_QSTATS				   (0x24UL)
++	#define HWRM_PORT_CLR_STATS				   (0x25UL)
++	#define HWRM_PORT_LPBK_CLR_STATS			   (0x26UL)
++	#define HWRM_PORT_PHY_QCFG				   (0x27UL)
++	#define HWRM_PORT_MAC_QCFG				   (0x28UL)
++	#define RESERVED7					   (0x29UL)
++	#define HWRM_PORT_PHY_QCAPS				   (0x2aUL)
++	#define HWRM_PORT_PHY_I2C_WRITE			   (0x2bUL)
++	#define HWRM_PORT_PHY_I2C_READ				   (0x2cUL)
++	#define HWRM_PORT_LED_CFG				   (0x2dUL)
++	#define HWRM_PORT_LED_QCFG				   (0x2eUL)
++	#define HWRM_PORT_LED_QCAPS				   (0x2fUL)
++	#define HWRM_QUEUE_QPORTCFG				   (0x30UL)
++	#define HWRM_QUEUE_QCFG				   (0x31UL)
++	#define HWRM_QUEUE_CFG					   (0x32UL)
++	#define RESERVED2					   (0x33UL)
++	#define RESERVED3					   (0x34UL)
++	#define HWRM_QUEUE_PFCENABLE_QCFG			   (0x35UL)
++	#define HWRM_QUEUE_PFCENABLE_CFG			   (0x36UL)
++	#define HWRM_QUEUE_PRI2COS_QCFG			   (0x37UL)
++	#define HWRM_QUEUE_PRI2COS_CFG				   (0x38UL)
++	#define HWRM_QUEUE_COS2BW_QCFG				   (0x39UL)
++	#define HWRM_QUEUE_COS2BW_CFG				   (0x3aUL)
++	#define HWRM_VNIC_ALLOC				   (0x40UL)
++	#define HWRM_VNIC_FREE					   (0x41UL)
++	#define HWRM_VNIC_CFG					   (0x42UL)
++	#define HWRM_VNIC_QCFG					   (0x43UL)
++	#define HWRM_VNIC_TPA_CFG				   (0x44UL)
++	#define HWRM_VNIC_TPA_QCFG				   (0x45UL)
++	#define HWRM_VNIC_RSS_CFG				   (0x46UL)
++	#define HWRM_VNIC_RSS_QCFG				   (0x47UL)
++	#define HWRM_VNIC_PLCMODES_CFG				   (0x48UL)
++	#define HWRM_VNIC_PLCMODES_QCFG			   (0x49UL)
++	#define HWRM_VNIC_QCAPS				   (0x4aUL)
++	#define HWRM_RING_ALLOC				   (0x50UL)
++	#define HWRM_RING_FREE					   (0x51UL)
++	#define HWRM_RING_CMPL_RING_QAGGINT_PARAMS		   (0x52UL)
++	#define HWRM_RING_CMPL_RING_CFG_AGGINT_PARAMS		   (0x53UL)
++	#define HWRM_RING_RESET				   (0x5eUL)
++	#define HWRM_RING_GRP_ALLOC				   (0x60UL)
++	#define HWRM_RING_GRP_FREE				   (0x61UL)
++	#define RESERVED5					   (0x64UL)
++	#define RESERVED6					   (0x65UL)
++	#define HWRM_VNIC_RSS_COS_LB_CTX_ALLOC			   (0x70UL)
++	#define HWRM_VNIC_RSS_COS_LB_CTX_FREE			   (0x71UL)
++	#define HWRM_CFA_L2_FILTER_ALLOC			   (0x90UL)
++	#define HWRM_CFA_L2_FILTER_FREE			   (0x91UL)
++	#define HWRM_CFA_L2_FILTER_CFG				   (0x92UL)
++	#define HWRM_CFA_L2_SET_RX_MASK			   (0x93UL)
++	#define RESERVED4					   (0x94UL)
++	#define HWRM_CFA_TUNNEL_FILTER_ALLOC			   (0x95UL)
++	#define HWRM_CFA_TUNNEL_FILTER_FREE			   (0x96UL)
++	#define HWRM_CFA_ENCAP_RECORD_ALLOC			   (0x97UL)
++	#define HWRM_CFA_ENCAP_RECORD_FREE			   (0x98UL)
++	#define HWRM_CFA_NTUPLE_FILTER_ALLOC			   (0x99UL)
++	#define HWRM_CFA_NTUPLE_FILTER_FREE			   (0x9aUL)
++	#define HWRM_CFA_NTUPLE_FILTER_CFG			   (0x9bUL)
++	#define HWRM_CFA_EM_FLOW_ALLOC				   (0x9cUL)
++	#define HWRM_CFA_EM_FLOW_FREE				   (0x9dUL)
++	#define HWRM_CFA_EM_FLOW_CFG				   (0x9eUL)
++	#define HWRM_TUNNEL_DST_PORT_QUERY			   (0xa0UL)
++	#define HWRM_TUNNEL_DST_PORT_ALLOC			   (0xa1UL)
++	#define HWRM_TUNNEL_DST_PORT_FREE			   (0xa2UL)
++	#define HWRM_STAT_CTX_ALLOC				   (0xb0UL)
++	#define HWRM_STAT_CTX_FREE				   (0xb1UL)
++	#define HWRM_STAT_CTX_QUERY				   (0xb2UL)
++	#define HWRM_STAT_CTX_CLR_STATS			   (0xb3UL)
++	#define HWRM_FW_RESET					   (0xc0UL)
++	#define HWRM_FW_QSTATUS				   (0xc1UL)
++	#define HWRM_FW_SET_TIME				   (0xc8UL)
++	#define HWRM_FW_GET_TIME				   (0xc9UL)
++	#define HWRM_FW_SET_STRUCTURED_DATA			   (0xcaUL)
++	#define HWRM_FW_GET_STRUCTURED_DATA			   (0xcbUL)
++	#define HWRM_FW_IPC_MAILBOX				   (0xccUL)
++	#define HWRM_EXEC_FWD_RESP				   (0xd0UL)
++	#define HWRM_REJECT_FWD_RESP				   (0xd1UL)
++	#define HWRM_FWD_RESP					   (0xd2UL)
++	#define HWRM_FWD_ASYNC_EVENT_CMPL			   (0xd3UL)
++	#define HWRM_TEMP_MONITOR_QUERY			   (0xe0UL)
++	#define HWRM_WOL_FILTER_ALLOC				   (0xf0UL)
++	#define HWRM_WOL_FILTER_FREE				   (0xf1UL)
++	#define HWRM_WOL_FILTER_QCFG				   (0xf2UL)
++	#define HWRM_WOL_REASON_QCFG				   (0xf3UL)
++	#define HWRM_DBG_READ_DIRECT				   (0xff10UL)
++	#define HWRM_DBG_READ_INDIRECT				   (0xff11UL)
++	#define HWRM_DBG_WRITE_DIRECT				   (0xff12UL)
++	#define HWRM_DBG_WRITE_INDIRECT			   (0xff13UL)
++	#define HWRM_DBG_DUMP					   (0xff14UL)
++	#define HWRM_NVM_GET_VARIABLE				   (0xfff1UL)
++	#define HWRM_NVM_SET_VARIABLE				   (0xfff2UL)
++	#define HWRM_NVM_INSTALL_UPDATE			   (0xfff3UL)
++	#define HWRM_NVM_MODIFY				   (0xfff4UL)
++	#define HWRM_NVM_VERIFY_UPDATE				   (0xfff5UL)
++	#define HWRM_NVM_GET_DEV_INFO				   (0xfff6UL)
++	#define HWRM_NVM_ERASE_DIR_ENTRY			   (0xfff7UL)
++	#define HWRM_NVM_MOD_DIR_ENTRY				   (0xfff8UL)
++	#define HWRM_NVM_FIND_DIR_ENTRY			   (0xfff9UL)
++	#define HWRM_NVM_GET_DIR_ENTRIES			   (0xfffaUL)
++	#define HWRM_NVM_GET_DIR_INFO				   (0xfffbUL)
++	#define HWRM_NVM_RAW_DUMP				   (0xfffcUL)
++	#define HWRM_NVM_READ					   (0xfffdUL)
++	#define HWRM_NVM_WRITE					   (0xfffeUL)
++	#define HWRM_NVM_RAW_WRITE_BLK				   (0xffffUL)
++	__le16 unused_0[3];
++};
++
++/* Return Codes (8 bytes) */
++struct ret_codes {
++	__le16 error_code;
++	#define HWRM_ERR_CODE_SUCCESS				   (0x0UL)
++	#define HWRM_ERR_CODE_FAIL				   (0x1UL)
++	#define HWRM_ERR_CODE_INVALID_PARAMS			   (0x2UL)
++	#define HWRM_ERR_CODE_RESOURCE_ACCESS_DENIED		   (0x3UL)
++	#define HWRM_ERR_CODE_RESOURCE_ALLOC_ERROR		   (0x4UL)
++	#define HWRM_ERR_CODE_INVALID_FLAGS			   (0x5UL)
++	#define HWRM_ERR_CODE_INVALID_ENABLES			   (0x6UL)
++	#define HWRM_ERR_CODE_HWRM_ERROR			   (0xfUL)
++	#define HWRM_ERR_CODE_UNKNOWN_ERR			   (0xfffeUL)
++	#define HWRM_ERR_CODE_CMD_NOT_SUPPORTED		   (0xffffUL)
++	__le16 unused_0[3];
++};
++
++/* Output (16 bytes) */
++struct hwrm_err_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	__le32 opaque_0;
++	__le16 opaque_1;
++	u8 cmd_err;
++	u8 valid;
++};
++
++/* Port Tx Statistics Formats (408 bytes) */
++struct tx_port_stats {
++	__le64 tx_64b_frames;
++	__le64 tx_65b_127b_frames;
++	__le64 tx_128b_255b_frames;
++	__le64 tx_256b_511b_frames;
++	__le64 tx_512b_1023b_frames;
++	__le64 tx_1024b_1518_frames;
++	__le64 tx_good_vlan_frames;
++	__le64 tx_1519b_2047_frames;
++	__le64 tx_2048b_4095b_frames;
++	__le64 tx_4096b_9216b_frames;
++	__le64 tx_9217b_16383b_frames;
++	__le64 tx_good_frames;
++	__le64 tx_total_frames;
++	__le64 tx_ucast_frames;
++	__le64 tx_mcast_frames;
++	__le64 tx_bcast_frames;
++	__le64 tx_pause_frames;
++	__le64 tx_pfc_frames;
++	__le64 tx_jabber_frames;
++	__le64 tx_fcs_err_frames;
++	__le64 tx_control_frames;
++	__le64 tx_oversz_frames;
++	__le64 tx_single_dfrl_frames;
++	__le64 tx_multi_dfrl_frames;
++	__le64 tx_single_coll_frames;
++	__le64 tx_multi_coll_frames;
++	__le64 tx_late_coll_frames;
++	__le64 tx_excessive_coll_frames;
++	__le64 tx_frag_frames;
++	__le64 tx_err;
++	__le64 tx_tagged_frames;
++	__le64 tx_dbl_tagged_frames;
++	__le64 tx_runt_frames;
++	__le64 tx_fifo_underruns;
++	__le64 tx_pfc_ena_frames_pri0;
++	__le64 tx_pfc_ena_frames_pri1;
++	__le64 tx_pfc_ena_frames_pri2;
++	__le64 tx_pfc_ena_frames_pri3;
++	__le64 tx_pfc_ena_frames_pri4;
++	__le64 tx_pfc_ena_frames_pri5;
++	__le64 tx_pfc_ena_frames_pri6;
++	__le64 tx_pfc_ena_frames_pri7;
++	__le64 tx_eee_lpi_events;
++	__le64 tx_eee_lpi_duration;
++	__le64 tx_llfc_logical_msgs;
++	__le64 tx_hcfc_msgs;
++	__le64 tx_total_collisions;
++	__le64 tx_bytes;
++	__le64 tx_xthol_frames;
++	__le64 tx_stat_discard;
++	__le64 tx_stat_error;
++};
++
++/* Port Rx Statistics Formats (528 bytes) */
++struct rx_port_stats {
++	__le64 rx_64b_frames;
++	__le64 rx_65b_127b_frames;
++	__le64 rx_128b_255b_frames;
++	__le64 rx_256b_511b_frames;
++	__le64 rx_512b_1023b_frames;
++	__le64 rx_1024b_1518_frames;
++	__le64 rx_good_vlan_frames;
++	__le64 rx_1519b_2047b_frames;
++	__le64 rx_2048b_4095b_frames;
++	__le64 rx_4096b_9216b_frames;
++	__le64 rx_9217b_16383b_frames;
++	__le64 rx_total_frames;
++	__le64 rx_ucast_frames;
++	__le64 rx_mcast_frames;
++	__le64 rx_bcast_frames;
++	__le64 rx_fcs_err_frames;
++	__le64 rx_ctrl_frames;
++	__le64 rx_pause_frames;
++	__le64 rx_pfc_frames;
++	__le64 rx_unsupported_opcode_frames;
++	__le64 rx_unsupported_da_pausepfc_frames;
++	__le64 rx_wrong_sa_frames;
++	__le64 rx_align_err_frames;
++	__le64 rx_oor_len_frames;
++	__le64 rx_code_err_frames;
++	__le64 rx_false_carrier_frames;
++	__le64 rx_ovrsz_frames;
++	__le64 rx_jbr_frames;
++	__le64 rx_mtu_err_frames;
++	__le64 rx_match_crc_frames;
++	__le64 rx_promiscuous_frames;
++	__le64 rx_tagged_frames;
++	__le64 rx_double_tagged_frames;
++	__le64 rx_trunc_frames;
++	__le64 rx_good_frames;
++	__le64 rx_pfc_xon2xoff_frames_pri0;
++	__le64 rx_pfc_xon2xoff_frames_pri1;
++	__le64 rx_pfc_xon2xoff_frames_pri2;
++	__le64 rx_pfc_xon2xoff_frames_pri3;
++	__le64 rx_pfc_xon2xoff_frames_pri4;
++	__le64 rx_pfc_xon2xoff_frames_pri5;
++	__le64 rx_pfc_xon2xoff_frames_pri6;
++	__le64 rx_pfc_xon2xoff_frames_pri7;
++	__le64 rx_pfc_ena_frames_pri0;
++	__le64 rx_pfc_ena_frames_pri1;
++	__le64 rx_pfc_ena_frames_pri2;
++	__le64 rx_pfc_ena_frames_pri3;
++	__le64 rx_pfc_ena_frames_pri4;
++	__le64 rx_pfc_ena_frames_pri5;
++	__le64 rx_pfc_ena_frames_pri6;
++	__le64 rx_pfc_ena_frames_pri7;
++	__le64 rx_sch_crc_err_frames;
++	__le64 rx_undrsz_frames;
++	__le64 rx_frag_frames;
++	__le64 rx_eee_lpi_events;
++	__le64 rx_eee_lpi_duration;
++	__le64 rx_llfc_physical_msgs;
++	__le64 rx_llfc_logical_msgs;
++	__le64 rx_llfc_msgs_with_crc_err;
++	__le64 rx_hcfc_msgs;
++	__le64 rx_hcfc_msgs_with_crc_err;
++	__le64 rx_bytes;
++	__le64 rx_runt_bytes;
++	__le64 rx_runt_frames;
++	__le64 rx_stat_discard;
++	__le64 rx_stat_err;
++};
++
++/* Periodic Statistics Context DMA to host (160 bytes) */
++struct ctx_hw_stats {
++	__le64 rx_ucast_pkts;
++	__le64 rx_mcast_pkts;
++	__le64 rx_bcast_pkts;
++	__le64 rx_discard_pkts;
++	__le64 rx_drop_pkts;
++	__le64 rx_ucast_bytes;
++	__le64 rx_mcast_bytes;
++	__le64 rx_bcast_bytes;
++	__le64 tx_ucast_pkts;
++	__le64 tx_mcast_pkts;
++	__le64 tx_bcast_pkts;
++	__le64 tx_discard_pkts;
++	__le64 tx_drop_pkts;
++	__le64 tx_ucast_bytes;
++	__le64 tx_mcast_bytes;
++	__le64 tx_bcast_bytes;
++	__le64 tpa_pkts;
++	__le64 tpa_bytes;
++	__le64 tpa_events;
++	__le64 tpa_aborts;
++};
++
++/* Structure data header (16 bytes) */
++struct hwrm_struct_hdr {
++	__le16 struct_id;
++	#define STRUCT_HDR_STRUCT_ID_LLDP_CFG			   0x41bUL
++	#define STRUCT_HDR_STRUCT_ID_DCBX_ETS_CFG		   0x41dUL
++	#define STRUCT_HDR_STRUCT_ID_DCBX_PFC_CFG		   0x41fUL
++	#define STRUCT_HDR_STRUCT_ID_DCBX_APP_CFG		   0x421UL
++	#define STRUCT_HDR_STRUCT_ID_DCBX_STATE_CFG		   0x422UL
++	#define STRUCT_HDR_STRUCT_ID_LLDP_GENERIC_CFG		   0x424UL
++	#define STRUCT_HDR_STRUCT_ID_LLDP_DEVICE_CFG		   0x426UL
++	__le16 len;
++	u8 version;
++	u8 count;
++	__le16 subtype;
++	__le16 next_offset;
++	#define STRUCT_HDR_NEXT_OFFSET_LAST			   0x0UL
++	__le16 unused_0[3];
++};
++
++/* DCBX Application configuration structure (8 bytes) */
++struct hwrm_struct_data_dcbx_app_cfg {
++	__le16 protocol_id;
++	u8 protocol_selector;
++	#define STRUCT_DATA_DCBX_APP_CFG_PROTOCOL_SELECTOR_ETHER_TYPE 0x1UL
++	#define STRUCT_DATA_DCBX_APP_CFG_PROTOCOL_SELECTOR_TCP_PORT 0x2UL
++	#define STRUCT_DATA_DCBX_APP_CFG_PROTOCOL_SELECTOR_UDP_PORT 0x3UL
++	#define STRUCT_DATA_DCBX_APP_CFG_PROTOCOL_SELECTOR_TCP_UDP_PORT 0x4UL
++	u8 priority;
++	u8 valid;
++	u8 unused_0[3];
++};
++
+ #endif
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index 60e2af8..bff626a 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -34,8 +34,7 @@ static int bnxt_hwrm_fwd_async_event_cmpl(struct bnxt *bp,
+ 		/* broadcast this async event to all VFs */
+ 		req.encap_async_event_target_id = cpu_to_le16(0xffff);
+ 	async_cmpl = (struct hwrm_async_event_cmpl *)req.encap_async_event_cmpl;
+-	async_cmpl->type =
+-		cpu_to_le16(HWRM_ASYNC_EVENT_CMPL_TYPE_HWRM_ASYNC_EVENT);
++	async_cmpl->type = cpu_to_le16(ASYNC_EVENT_CMPL_TYPE_HWRM_ASYNC_EVENT);
+ 	async_cmpl->event_id = cpu_to_le16(event_id);
+ 
+ 	mutex_lock(&bp->hwrm_cmd_lock);
+@@ -288,7 +287,7 @@ int bnxt_set_vf_link_state(struct net_device *dev, int vf_id, int link)
+ 	}
+ 	if (vf->flags & (BNXT_VF_LINK_UP | BNXT_VF_LINK_FORCED))
+ 		rc = bnxt_hwrm_fwd_async_event_cmpl(bp, vf,
+-			HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE);
++			ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE);
+ 	return rc;
+ }
+ 
+@@ -578,8 +577,7 @@ void bnxt_sriov_disable(struct bnxt *bp)
+ 
+ 	if (pci_vfs_assigned(bp->pdev)) {
+ 		bnxt_hwrm_fwd_async_event_cmpl(
+-			bp, NULL,
+-			HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD);
++			bp, NULL, ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD);
+ 		netdev_warn(bp->dev, "Unable to free %d VFs because some are assigned to VMs.\n",
+ 			    num_vfs);
+ 	} else {
 -- 
 1.8.3.1
