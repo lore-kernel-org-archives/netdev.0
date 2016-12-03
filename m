@@ -1,114 +1,63 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2 net] ixgbevf: fix invalid uses of napi_hash_del()
-Date: Sat, 03 Dec 2016 08:46:12 -0800
-Message-ID: <1480783572.2410.11.camel@intel.com>
-References: <1479309315.8455.189.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1479310010.8455.197.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480777216.18162.404.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net: use-after-free in worker_thread
+Date: Sat, 3 Dec 2016 09:41:45 -0800
+Message-ID: <CAM_iQpUSSc6xvAd3u5C3d=xk_yL4LUBgui7pgK5AHxJ8LP363A@mail.gmail.com>
+References: <CAAeHK+x95-n__YSbzebp51ez78yjqjK4CJL=tgOgPuBuGh+q1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-imYfl+p0VqxX/vFko+SC"
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Eric Dumazet <edumazet@google.com>,
+        Bob Copeland <me@bobcopeland.com>,
+        Tom Herbert <tom@herbertland.com>,
+        David Decotigny <decot@googlers.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:30062 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751266AbcLCQqO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 3 Dec 2016 11:46:14 -0500
-In-Reply-To: <1480777216.18162.404.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:33712 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750919AbcLCRmf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 12:42:35 -0500
+In-Reply-To: <CAAeHK+x95-n__YSbzebp51ez78yjqjK4CJL=tgOgPuBuGh+q1A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Dec 3, 2016 at 4:56 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi!
+>
+> I'm seeing lots of the following error reports while running the
+> syzkaller fuzzer.
+>
+> Reports appeared when I updated to 3c49de52 (Dec 2) from 2caceb32 (Dec 1).
+>
+> ==================================================================
+> BUG: KASAN: use-after-free in worker_thread+0x17d8/0x18a0
+> Read of size 8 at addr ffff880067f3ecd8 by task kworker/3:1/774
+>
+> page:ffffea00019fce00 count:1 mapcount:0 mapping:          (null)
+> index:0xffff880067f39c10 compound_mapcount: 0
+> flags: 0x500000000004080(slab|head)
+> page dumped because: kasan: bad access detected
+>
+> CPU: 3 PID: 774 Comm: kworker/3:1 Not tainted 4.9.0-rc7+ #66
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>  ffff88006c267838 ffffffff81f882da ffffffff6c25e338 1ffff1000d84ce9a
+>  ffffed000d84ce92 ffff88006c25e340 0000000041b58ab3 ffffffff8541e198
+>  ffffffff81f88048 0000000100000000 0000000041b58ab3 ffffffff853d3ee8
+> Call Trace:
+>  [<     inline     >] __dump_stack lib/dump_stack.c:15
+>  [<ffffffff81f882da>] dump_stack+0x292/0x398 lib/dump_stack.c:51
+>  [<     inline     >] describe_address mm/kasan/report.c:262
+>  [<ffffffff817e50d1>] kasan_report_error+0x121/0x560 mm/kasan/report.c:368
+>  [<     inline     >] kasan_report mm/kasan/report.c:390
+>  [<ffffffff817e560e>] __asan_report_load8_noabort+0x3e/0x40
+> mm/kasan/report.c:411
+>  [<ffffffff81329b88>] worker_thread+0x17d8/0x18a0 kernel/workqueue.c:2228
+>  [<ffffffff8133ebf3>] kthread+0x323/0x3e0 kernel/kthread.c:209
+>  [<ffffffff84a2a22a>] ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:433
 
---=-imYfl+p0VqxX/vFko+SC
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sat, 2016-12-03 at 07:00 -0800, Eric Dumazet wrote:
-> On Wed, 2016-11-16 at 07:26 -0800, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >=20
-> > Calling napi_hash_del() before netif_napi_del() is dangerous
-> > if a synchronize_rcu() is not enforced before NAPI struct freeing.
-> >=20
-> > Lets leave this detail to core networking stack to get it right.
-> >=20
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> > =C2=A0 drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |=C2=A0=C2=A0=
-=C2=A0 6 ------
-> > =C2=A0 1 file changed, 6 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > index 7eaac3234049..bf4d7efc7dbd 100644
-> > --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > @@ -2511,9 +2511,6 @@ static int ixgbevf_alloc_q_vectors(struct
-> > ixgbevf_adapter *adapter)
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0while (q_idx) {
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0q_idx--;
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0q_vector =3D adapter->q_vector[q_idx];
-> > -#ifdef CONFIG_NET_RX_BUSY_POLL
-> > -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0napi_hash_del(&q_vector->napi);
-> > -#endif
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0netif_napi_del(&q_vector->napi);
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0kfree(q_vector);
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0adapter->q_vector[q_idx] =3D NULL;
-> > @@ -2537,9 +2534,6 @@ static void ixgbevf_free_q_vectors(struct
-> > ixgbevf_adapter *adapter)
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0struct ixgbevf_q_vector *q_vector =3D adapter-
-> > >q_vector[q_idx];
-> > =C2=A0=C2=A0
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0adapter->q_vector[q_idx] =3D NULL;
-> > -#ifdef CONFIG_NET_RX_BUSY_POLL
-> > -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0napi_hash_del(&q_vector->napi);
-> > -#endif
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0netif_napi_del(&q_vector->napi);
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0kfree(q_vector);
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0}
-> >=20
-> >=20
->=20
-> It looks this patch was not picked up ?
-
-Yeah, sorry I missed it since it was not sent to intel-wired-lan mailing
-list.  Dave I am fine if you want to pick this up for your net tree (if it
-is not too late).
---=-imYfl+p0VqxX/vFko+SC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJYQvbUAAoJEOVv75VaS+3OQk4P/2zKfq3e0Cc9W58kZD2Ew+45
-XlSGsGRqtTBpySUstRpFh9rrfdt6LBnlmKDISwGySn03hXu0jUlBevUCTDpYldDc
-dugg3jhB18HOLv7W5HudXyPh0ZO2zHMVvmERxYtwa6tUF6CtlWrhD1LJ1MAoT+AJ
-xhJFzmGcAWQYKl0/shV1XoZvOKJWxvu8LCa+9pzffFGvuv2sq1WZWXg//gkySeru
-3PZefDpwXxVFSB9vS5TlyQCqEC3luUODmjUihNToyT4KI4evxDNLtJGDTIDZIWub
-rlo2p8ee2HWryH7X97WMAx+3AbaZw5IU9xPtyI6/HhMh/Z+yH1EAAiglMvAXSH4G
-q1Ei9iw2Nm3vDa+xZ+xi9EZvmWkOE6sjbE3xc8r03shxVXLELmmBJvyjaQdu1Ai5
-wY987oSpJPZ1X1W7HqfeOvPXPhqLIcsvGIytixotQ61hMctBsB8GJFPFvPyYdRMq
-YhrYM9SiRsQwP7K4wU8Ju2J/mqkYwhzaLRbLdVY8fok0dBMUM31Duab2WdtQHvPD
-2QCHK2Q+UJTDEbKJfQtbY9kE8GdFtKLyBadzrtO4YtLpOqg1dRd+h97PPlFY4WxV
-Hj7C+kRKDjNiJPP+rfKP9dQjiWQMaMPPHAhSJLrOZORUgNKXCHiYmKKHM9Rw/m63
-pkfWjX+yXg7A5cykbB7A
-=107y
------END PGP SIGNATURE-----
-
---=-imYfl+p0VqxX/vFko+SC--
+Heck... this is the pending work vs. sk_destruct() race. :-/
+We can't wait for the work in RCU callback, let me think about it...
