@@ -1,55 +1,85 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 2/4] mlx4: xdp: Allow raising MTU up to one page
- minus eth and vlan hdrs
-Date: Fri, 2 Dec 2016 16:53:09 -0800
-Message-ID: <58421775.6090905@fb.com>
-References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
- <1480721013-1047541-3-git-send-email-kafai@fb.com>
- <1480725480.18162.394.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] net: ping: check minimum size on ICMP header length
+Date: Fri, 2 Dec 2016 16:58:53 -0800
+Message-ID: <20161203005853.GA117599@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Brenden Blanco <bblanco@plumgrid.com>,
-        "Daniel Borkmann" <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        "Saeed Mahameed" <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "Kernel Team" <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36228 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753063AbcLCAxm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 2 Dec 2016 19:53:42 -0500
-In-Reply-To: <1480725480.18162.394.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Min Chong <mchong@google.com>,
+        Qidan He <i@flanker017.me>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/2/16 4:38 PM, Eric Dumazet wrote:
-> On Fri, 2016-12-02 at 15:23 -0800, Martin KaFai Lau wrote:
->> When XDP prog is attached, it is currently limiting
->> MTU to be FRAG_SZ0 - ETH_HLEN - (2 * VLAN_HLEN) which is 1514
->> in x86.
->>
->> AFAICT, since mlx4 is doing one page per packet for XDP,
->> we can at least raise the MTU limitation up to
->> PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN) which this patch is
->> doing.  It will be useful in the next patch which allows
->> XDP program to extend the packet by adding new header(s).
->>
->> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
->> ---
->
-> Have you tested your patch on a host with PAGE_SIZE = 64 KB ?
->
-> Looks XDP really kills arches with bigger pages :(
+Prior to commit c0371da6047a ("put iov_iter into msghdr") in v3.19, there
+was no check that the iovec contained enough bytes for a icmp header,
+and the read loop would walk across neighboring stack contents. Since
+the iov_iter conversion, bad arguments are noticed, but the returned
+error is EFAULT. Returning EMSGSIZE is a clearer fix and solves the
+problem prior to v3.19.
 
-I'm afraid xdp mlx[45] support was not tested on arches
-with 64k pages at all. Not just this patch.
-I think people who care about such archs should test?
-Note page per packet is not a hard requirement for all drivers
-and all archs. For mlx[45] it was the easiest and the most
-convenient way to achieve desired performance.
-If there are ways to do the same performance differently,
-I'm all ears :)
+This was found using trinity with KASAN on v3.18:
+
+BUG: KASAN: stack-out-of-bounds in memcpy_fromiovec+0x60/0x114 at addr ffffffc071077da0
+Read of size 8 by task trinity-c2/9623
+page:ffffffbe034b9a08 count:0 mapcount:0 mapping:          (null) index:0x0
+flags: 0x0()
+page dumped because: kasan: bad access detected
+CPU: 0 PID: 9623 Comm: trinity-c2 Tainted: G    BU         3.18.0-dirty #15
+Hardware name: Google Tegra210 Smaug Rev 1,3+ (DT)
+Call trace:
+[<ffffffc000209c98>] dump_backtrace+0x0/0x1ac arch/arm64/kernel/traps.c:90
+[<ffffffc000209e54>] show_stack+0x10/0x1c arch/arm64/kernel/traps.c:171
+[<     inline     >] __dump_stack lib/dump_stack.c:15
+[<ffffffc000f18dc4>] dump_stack+0x7c/0xd0 lib/dump_stack.c:50
+[<     inline     >] print_address_description mm/kasan/report.c:147
+[<     inline     >] kasan_report_error mm/kasan/report.c:236
+[<ffffffc000373dcc>] kasan_report+0x380/0x4b8 mm/kasan/report.c:259
+[<     inline     >] check_memory_region mm/kasan/kasan.c:264
+[<ffffffc00037352c>] __asan_load8+0x20/0x70 mm/kasan/kasan.c:507
+[<ffffffc0005b9624>] memcpy_fromiovec+0x5c/0x114 lib/iovec.c:15
+[<     inline     >] memcpy_from_msg include/linux/skbuff.h:2667
+[<ffffffc000ddeba0>] ping_common_sendmsg+0x50/0x108 net/ipv4/ping.c:674
+[<ffffffc000dded30>] ping_v4_sendmsg+0xd8/0x698 net/ipv4/ping.c:714
+[<ffffffc000dc91dc>] inet_sendmsg+0xe0/0x12c net/ipv4/af_inet.c:749
+[<     inline     >] __sock_sendmsg_nosec net/socket.c:624
+[<     inline     >] __sock_sendmsg net/socket.c:632
+[<ffffffc000cab61c>] sock_sendmsg+0x124/0x164 net/socket.c:643
+[<     inline     >] SYSC_sendto net/socket.c:1797
+[<ffffffc000cad270>] SyS_sendto+0x178/0x1d8 net/socket.c:1761
+
+CVE-2016-8399
+
+Reported-by: Qidan He <i@flanker017.me>
+Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
+Cc: stable@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ net/ipv4/ping.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 205e2000d395..8257be3f032c 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -654,7 +654,7 @@ int ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
+ 			void *user_icmph, size_t icmph_len) {
+ 	u8 type, code;
+ 
+-	if (len > 0xFFFF)
++	if (len > 0xFFFF || len < icmph_len)
+ 		return -EMSGSIZE;
+ 
+ 	/*
+-- 
+2.7.4
+
+
+-- 
+Kees Cook
+Nexus Security
