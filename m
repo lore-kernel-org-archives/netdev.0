@@ -1,56 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/7] net: ethernet: ti: cpdma: am437x: allow descs to
- be plased in ddr
-Date: Sat, 03 Dec 2016 15:34:19 -0500 (EST)
-Message-ID: <20161203.153419.482900037601991931.davem@davemloft.net>
-References: <20161201233432.6182-1-grygorii.strashko@ti.com>
-        <20161201233432.6182-2-grygorii.strashko@ti.com>
+Subject: Re: [PATCH 1/2] net: stmmac: avoid Camelcase naming
+Date: Sat, 03 Dec 2016 15:24:07 -0500 (EST)
+Message-ID: <20161203.152407.847486502473264265.davem@davemloft.net>
+References: <1480605581-13350-1-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com, nsekhar@ti.com,
-        linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-        ivan.khoronzhuk@linaro.org
-To: grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161201233432.6182-2-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: clabbe.montjoie@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36954 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751792AbcLCUeh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 15:34:37 -0500
+In-Reply-To: <1480605581-13350-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Thu, 1 Dec 2016 17:34:26 -0600
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Date: Thu,  1 Dec 2016 16:19:40 +0100
 
-> @@ -167,10 +167,10 @@ static struct cpdma_control_info controls[] = {
->  
->  /* various accessors */
->  #define dma_reg_read(ctlr, ofs)		__raw_readl((ctlr)->dmaregs + (ofs))
-> -#define chan_read(chan, fld)		__raw_readl((chan)->fld)
-> +#define chan_read(chan, fld)		readl((chan)->fld)
->  #define desc_read(desc, fld)		__raw_readl(&(desc)->fld)
->  #define dma_reg_write(ctlr, ofs, v)	__raw_writel(v, (ctlr)->dmaregs + (ofs))
-> -#define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
-> +#define chan_write(chan, fld, v)	writel(v, (chan)->fld)
->  #define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
+> This patch simply rename regValue to value, like it was named in other
+> mdio functions.
+> 
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 
-Unless you want to keep running into subtle errors all over the
-place wrt. register vs. memory write ordering, I strong suggest
-you use strongly ordered readl/writel for all register accesses.
-
-I see no tangible, worthwhile, advantage to using these relaxed
-ordering primitives.  The only result is potential bugs.
-
-People who use the relaxed ordering primitives properly are only
-doing so in extremely carefully coded sequences where a series
-of writes has no dependency on main memory operations and is
-explicitly completed with a barrier operation such as a read
-back of a register in the same device.
-
-That's not at all what is going on here, instead the driver is wildly
-using relaxed ordered register accesses for basically everything.
-This is extremely unwise and it's why you ran into this bug in the
-first place.
-
-Therefore, I absolutely require that you fix this by eliminating
-any and all usese of relaxed ordering I/O accessors in this driver.
-
-Thank you.
+Applied.
