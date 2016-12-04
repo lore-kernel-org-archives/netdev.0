@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V2 net 13/20] net/ena: change driver's default timeouts
-Date: Sun,  4 Dec 2016 15:19:31 +0200
-Message-ID: <1480857578-5065-14-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V2 net 15/20] net/ena: change sizeof() argument to be the type pointer
+Date: Sun,  4 Dec 2016 15:19:33 +0200
+Message-ID: <1480857578-5065-16-git-send-email-netanel@annapurnalabs.com>
 References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -9,65 +9,95 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         nafea@annapurnalabs.com
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f179.google.com ([209.85.210.179]:36522 "EHLO
+        mail-wj0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752015AbcLDNUj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 08:20:39 -0500
+Received: by mail-wj0-f179.google.com with SMTP id qp4so268955235wjc.3
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 05:20:38 -0800 (PST)
 In-Reply-To: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Instead of using:
+memset(ptr, 0x0, sizeof(struct ...))
+use:
+memset(ptr, 0x0, sizeor(*ptr))
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c    | 4 ++--
- drivers/net/ethernet/amazon/ena/ena_netdev.h | 7 ++++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 4147d6e..a550c8a 100644
+index 9deb0dd..f2e167b 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_com.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -36,9 +36,9 @@
- /*****************************************************************************/
+@@ -329,7 +329,7 @@ static int ena_com_init_io_sq(struct ena_com_dev *ena_dev,
+ 	size_t size;
+ 	int dev_node = 0;
  
- /* Timeout in micro-sec */
--#define ADMIN_CMD_TIMEOUT_US (1000000)
-+#define ADMIN_CMD_TIMEOUT_US (3000000)
+-	memset(&io_sq->desc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
++	memset(&io_sq->desc_addr, 0x0, sizeof(io_sq->desc_addr));
  
--#define ENA_ASYNC_QUEUE_DEPTH 4
-+#define ENA_ASYNC_QUEUE_DEPTH 16
- #define ENA_ADMIN_QUEUE_DEPTH 32
+ 	io_sq->desc_entry_size =
+ 		(io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX) ?
+@@ -383,7 +383,7 @@ static int ena_com_init_io_cq(struct ena_com_dev *ena_dev,
+ 	size_t size;
+ 	int prev_node = 0;
  
- #define MIN_ENA_VER (((ENA_COMMON_SPEC_VERSION_MAJOR) << \
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index c081fd3..ed42e07 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -39,6 +39,7 @@
- #include <linux/interrupt.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
-+#include <linux/u64_stats_sync.h>
+-	memset(&io_cq->cdesc_addr, 0x0, sizeof(struct ena_com_io_desc_addr));
++	memset(&io_cq->cdesc_addr, 0x0, sizeof(io_cq->cdesc_addr));
  
- #include "ena_com.h"
- #include "ena_eth_com.h"
-@@ -100,7 +101,7 @@
- /* Number of queues to check for missing queues per timer service */
- #define ENA_MONITORED_TX_QUEUES	4
- /* Max timeout packets before device reset */
--#define MAX_NUM_OF_TIMEOUTED_PACKETS 32
-+#define MAX_NUM_OF_TIMEOUTED_PACKETS 128
+ 	/* Use the basic completion descriptor for Rx */
+ 	io_cq->cdesc_entry_size_in_bytes =
+@@ -681,7 +681,7 @@ static int ena_com_destroy_io_sq(struct ena_com_dev *ena_dev,
+ 	u8 direction;
+ 	int ret;
  
- #define ENA_TX_RING_IDX_NEXT(idx, ring_size) (((idx) + 1) & ((ring_size) - 1))
+-	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
++	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
  
-@@ -116,9 +117,9 @@
- #define ENA_IO_IRQ_IDX(q)		(ENA_IO_IRQ_FIRST_IDX + (q))
+ 	if (io_sq->direction == ENA_COM_IO_QUEUE_DIRECTION_TX)
+ 		direction = ENA_ADMIN_SQ_DIRECTION_TX;
+@@ -963,7 +963,7 @@ static int ena_com_create_io_sq(struct ena_com_dev *ena_dev,
+ 	u8 direction;
+ 	int ret;
  
- /* ENA device should send keep alive msg every 1 sec.
-- * We wait for 3 sec just to be on the safe side.
-+ * We wait for 6 sec just to be on the safe side.
-  */
--#define ENA_DEVICE_KALIVE_TIMEOUT	(3 * HZ)
-+#define ENA_DEVICE_KALIVE_TIMEOUT	(6 * HZ)
+-	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_sq_cmd));
++	memset(&create_cmd, 0x0, sizeof(create_cmd));
  
- #define ENA_MMIO_DISABLE_REG_READ	BIT(0)
+ 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_SQ;
  
+@@ -1155,7 +1155,7 @@ int ena_com_create_io_cq(struct ena_com_dev *ena_dev,
+ 	struct ena_admin_acq_create_cq_resp_desc cmd_completion;
+ 	int ret;
+ 
+-	memset(&create_cmd, 0x0, sizeof(struct ena_admin_aq_create_cq_cmd));
++	memset(&create_cmd, 0x0, sizeof(create_cmd));
+ 
+ 	create_cmd.aq_common_descriptor.opcode = ENA_ADMIN_CREATE_CQ;
+ 
+@@ -1263,7 +1263,7 @@ int ena_com_destroy_io_cq(struct ena_com_dev *ena_dev,
+ 	struct ena_admin_acq_destroy_cq_resp_desc destroy_resp;
+ 	int ret;
+ 
+-	memset(&destroy_cmd, 0x0, sizeof(struct ena_admin_aq_destroy_sq_cmd));
++	memset(&destroy_cmd, 0x0, sizeof(destroy_cmd));
+ 
+ 	destroy_cmd.cq_idx = io_cq->idx;
+ 	destroy_cmd.aq_common_descriptor.opcode = ENA_ADMIN_DESTROY_CQ;
+@@ -1613,8 +1613,8 @@ int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
+ 	io_sq = &ena_dev->io_sq_queues[ctx->qid];
+ 	io_cq = &ena_dev->io_cq_queues[ctx->qid];
+ 
+-	memset(io_sq, 0x0, sizeof(struct ena_com_io_sq));
+-	memset(io_cq, 0x0, sizeof(struct ena_com_io_cq));
++	memset(io_sq, 0x0, sizeof(*io_sq));
++	memset(io_cq, 0x0, sizeof(*io_cq));
+ 
+ 	/* Init CQ */
+ 	io_cq->q_depth = ctx->queue_size;
 -- 
 2.7.4
