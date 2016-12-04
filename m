@@ -1,57 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/3] net: ethoc: Utilize of_get_mac_address()
-Date: Sun,  4 Dec 2016 12:40:29 -0800
-Message-ID: <20161204204030.9853-3-f.fainelli@gmail.com>
-References: <20161204204030.9853-1-f.fainelli@gmail.com>
-Cc: tremyfr@gmail.com, tklauser@distanz.ch, davem@davemloft.net,
-        thierry.reding@gmail.com, andrew@lunn.ch,
-        Florian Fainelli <f.fainelli@gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: "af_unix: conditionally use freezable blocking calls in read" is
+ wrong
+Date: Sun, 4 Dec 2016 21:04:55 +0000
+Message-ID: <20161204210455.GI1555@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:35089 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750917AbcLDUki (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 15:40:38 -0500
-Received: by mail-oi0-f67.google.com with SMTP id v84so33924101oie.2
-        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 12:40:37 -0800 (PST)
-In-Reply-To: <20161204204030.9853-1-f.fainelli@gmail.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:50652 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751038AbcLDVE6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 16:04:58 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do not open code getting the MAC address exclusively from the
-"local-mac-address" property, but instead use of_get_mac_address() which
-looks up the MAC address using the 3 typical property names.
+	Could we please kill that kludge?  "af_unix: use freezable blocking
+calls in read" had been wrong to start with; having a method make assumptions
+of that sort ("nobody will call me while holding locks I hadn't thought of")
+is asking for serious trouble.  splice is just a place where lockdep has
+caught that - we *can't* assume that nobody will ever call kernel_recvmsg()
+while holding some locks.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/ethoc.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+	I've run into that converting AF_UNIX to generic_file_splice_read();
+I can kludge around that ("freezable unless ->msg_iter is ITER_PIPE"), but
+that only delays trouble.
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index 877c02a36c85..8d0cb5ce87ee 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -23,6 +23,7 @@
- #include <linux/sched.h>
- #include <linux/slab.h>
- #include <linux/of.h>
-+#include <linux/of_net.h>
- #include <linux/module.h>
- #include <net/ethoc.h>
- 
-@@ -1158,11 +1159,9 @@ static int ethoc_probe(struct platform_device *pdev)
- 		memcpy(netdev->dev_addr, pdata->hwaddr, IFHWADDRLEN);
- 		priv->phy_id = pdata->phy_id;
- 	} else {
--		const uint8_t *mac;
-+		const void *mac;
- 
--		mac = of_get_property(pdev->dev.of_node,
--				      "local-mac-address",
--				      NULL);
-+		mac = of_get_mac_address(pdev->dev.of_node);
- 		if (mac)
- 			memcpy(netdev->dev_addr, mac, IFHWADDRLEN);
- 		priv->phy_id = -1;
--- 
-2.9.3
+	Note that the only other user of freezable_schedule_timeout() is
+a very different story - it's a kernel thread, which *does* have a guaranteed
+locking environment.  Making such assumptions in unix_stream_recvmsg(),
+OTOH, is insane...
