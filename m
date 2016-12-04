@@ -1,77 +1,60 @@
-From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V2 net 11/20] net/ena: use READ_ONCE to access completion descriptors
-Date: Sun,  4 Dec 2016 15:19:29 +0200
-Message-ID: <1480857578-5065-12-git-send-email-netanel@annapurnalabs.com>
-References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
-Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
-        zorik@annapurnalabs.com, alex@annapurnalabs.com,
-        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
-        nafea@annapurnalabs.com
-To: linux-kernel@vger.kernel.org, davem@davemloft.net,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: Regression: [PATCH] mlx4: give precise rx/tx bytes/packets counters
+Date: Sun, 4 Dec 2016 15:23:32 +0200
+Message-ID: <CALzJLG-xERnkNEaC3+ikb6ZiWmzj9S1BAoJycYq1yp8AT+zuUQ@mail.gmail.com>
+References: <1480088780.8455.543.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161130150839.5203ece0@redhat.com> <1480521514.18162.191.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG8pcuNo4uD3+dVms1gHT9=WfZAM1DDp_J10NgBZ7YZnEA@mail.gmail.com>
+ <1480527321.18162.196.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG_aT1O1ergGRu8Z0u4nszKYao5RbPfb=1USptwFY1d7PQ@mail.gmail.com>
+ <1480539652.18162.205.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG8O28ZBS3sdqLpohPZtpLbLs228K4aO6hYd4URsA3yefA@mail.gmail.com>
+ <1480607729.18162.311.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480608517.18162.313.camel@edumazet-glaptop3.roam.corp.google.com> <1480613764.18162.324.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38753 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751111AbcLDNXy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 08:23:54 -0500
+Received: by mail-wm0-f46.google.com with SMTP id f82so55474766wmf.1
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 05:23:53 -0800 (PST)
+In-Reply-To: <1480613764.18162.324.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Completion descriptors are accessed from the driver and from the device.
-To avoid reading the old value, use READ_ONCE macro.
+On Thu, Dec 1, 2016 at 7:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2016-12-01 at 08:08 -0800, Eric Dumazet wrote:
+>> On Thu, 2016-12-01 at 07:55 -0800, Eric Dumazet wrote:
+>>
+>> > So removing the spinlock is doable, but needs to add a new parameter
+>> > to mlx4_en_fold_software_stats() and call netdev_stats_to_stats64()
+>> > before mlx4_en_fold_software_stats(dev)
+>>
+>> Untested patch would be :
+>>
+>>  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2 -
+>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   10 +----
+>>  drivers/net/ethernet/mellanox/mlx4/en_port.c    |   24 +++++++++-----
+>>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    3 +
+>>  4 files changed, 23 insertions(+), 16 deletions(-)
+>
+> The patch is wrong, since priv->port_up could change to false while we
+> are running and using the about to be deleted tx/rx rings.
+>
 
-Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
----
- drivers/net/ethernet/amazon/ena/ena_com.h     | 1 +
- drivers/net/ethernet/amazon/ena/ena_eth_com.c | 8 ++++----
- 2 files changed, 5 insertions(+), 4 deletions(-)
+Right, hence the regression Jesper saw ;).
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.h b/drivers/net/ethernet/amazon/ena/ena_com.h
-index 6883ee5..f8cdce0 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.h
-@@ -33,6 +33,7 @@
- #ifndef ENA_COM
- #define ENA_COM
- 
-+#include <linux/compiler.h>
- #include <linux/delay.h>
- #include <linux/dma-mapping.h>
- #include <linux/gfp.h>
-diff --git a/drivers/net/ethernet/amazon/ena/ena_eth_com.c b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-index 539c536..f999305 100644
---- a/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-@@ -45,7 +45,7 @@ static inline struct ena_eth_io_rx_cdesc_base *ena_com_get_next_rx_cdesc(
- 	cdesc = (struct ena_eth_io_rx_cdesc_base *)(io_cq->cdesc_addr.virt_addr
- 			+ (head_masked * io_cq->cdesc_entry_size_in_bytes));
- 
--	desc_phase = (cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_PHASE_MASK) >>
-+	desc_phase = (READ_ONCE(cdesc->status) & ENA_ETH_IO_RX_CDESC_BASE_PHASE_MASK) >>
- 			ENA_ETH_IO_RX_CDESC_BASE_PHASE_SHIFT;
- 
- 	if (desc_phase != expected_phase)
-@@ -141,7 +141,7 @@ static inline u16 ena_com_cdesc_rx_pkt_get(struct ena_com_io_cq *io_cq,
- 
- 		ena_com_cq_inc_head(io_cq);
- 		count++;
--		last = (cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_LAST_MASK) >>
-+		last = (READ_ONCE(cdesc->status) & ENA_ETH_IO_RX_CDESC_BASE_LAST_MASK) >>
- 			ENA_ETH_IO_RX_CDESC_BASE_LAST_SHIFT;
- 	} while (!last);
- 
-@@ -489,13 +489,13 @@ int ena_com_tx_comp_req_id_get(struct ena_com_io_cq *io_cq, u16 *req_id)
- 	 * expected, it mean that the device still didn't update
- 	 * this completion.
- 	 */
--	cdesc_phase = cdesc->flags & ENA_ETH_IO_TX_CDESC_PHASE_MASK;
-+	cdesc_phase = READ_ONCE(cdesc->flags) & ENA_ETH_IO_TX_CDESC_PHASE_MASK;
- 	if (cdesc_phase != expected_phase)
- 		return -EAGAIN;
- 
- 	ena_com_cq_inc_head(io_cq);
- 
--	*req_id = cdesc->req_id;
-+	*req_id = READ_ONCE(cdesc->req_id);
- 
- 	return 0;
- }
--- 
-2.7.4
+>
+> So the only safe thing to do is to remove the _bh suffix.
+>
+> Not worth trying to avoid taking a spinlock in this code.
+>
+
+Ack.
