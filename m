@@ -1,42 +1,43 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH 1/1] net: ethernet: qlogic: set error code on failure
-Date: Sun, 4 Dec 2016 07:29:58 +0000
-Message-ID: <BL2PR07MB2306060C02F0A19BD735EBE28D800@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1480830833-5084-1-git-send-email-bianpan201603@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Elior, Ariel" <Ariel.Elior@cavium.com>
-To: Pan Bian <bianpan201603@163.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0077.outbound.protection.outlook.com ([104.47.36.77]:8704
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750882AbcLDHpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 4 Dec 2016 02:45:34 -0500
-In-Reply-To: <1480830833-5084-1-git-send-email-bianpan201603@163.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pan Bian <bianpan201604@163.com>
+Subject: [PATCH 1/1] net: bnx2x: fix improper return value
+Date: Sun,  4 Dec 2016 16:39:06 +0800
+Message-ID: <1480840746-7498-1-git-send-email-bianpan201604@163.com>
+Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
+To: Michal Kalderon <michal.kalderon@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>,
+        Ariel Elior <ariel.elior@cavium.com>,
+        everest-linux-l2@cavium.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Pan Bian <bianpan2016@163.com>
->=20
-> When calling dma_mapping_error(), the value of return variable rc is 0.
-> And when the call returns an unexpected value, rc is not set to a negativ=
-e
-> errno. Thus, it will return 0 on the error path, and its callers cannot d=
-etect
-> the bug. This patch fixes the bug, assigning "-ENOMEM" to err.
->=20
-> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=3D189041
->=20
-> Signed-off-by: Pan Bian <bianpan2016@163.com>
+From: Pan Bian <bianpan2016@163.com>
 
-The title should have been "[PATCH net 1/1] qed: Set error code on failure"=
-.
+Marco BNX2X_ALLOC_AND_SET(arr, lbl, func) calls kmalloc() to allocate
+memory, and jumps to label "lbl" if the allocation fails. Label "lbl"
+first cleans memory and then returns variable rc. Before calling the
+macro, the value of variable rc is 0. Because 0 means no error, the
+callers of bnx2x_init_firmware() may be misled. This patch fixes the bug,
+assigning "-ENOMEM" to rc before calling macro NX2X_ALLOC_AND_SET().
 
-But the fix itself is sound. Thanks.
-BTW, is -ENOMEM the right return code in case of DMA mapping errors?
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=189141
 
-Acked-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Signed-off-by: Pan Bian <bianpan2016@163.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 0cee4c0..6f9fc20 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13505,6 +13505,7 @@ static int bnx2x_init_firmware(struct bnx2x *bp)
+ 
+ 	/* Initialize the pointers to the init arrays */
+ 	/* Blob */
++	rc = -ENOMEM;
+ 	BNX2X_ALLOC_AND_SET(init_data, request_firmware_exit, be32_to_cpu_n);
+ 
+ 	/* Opcodes */
+-- 
+1.9.1
