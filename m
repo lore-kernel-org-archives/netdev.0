@@ -1,39 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/4] MV88E6390 batch two
-Date: Sat, 03 Dec 2016 23:15:57 -0500 (EST)
-Message-ID: <20161203.231557.1579082148373199155.davem@davemloft.net>
-References: <1480736119-12195-1-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42022 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752128AbcLDEP6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 23:15:58 -0500
-In-Reply-To: <1480736119-12195-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pan Bian <bianpan2016@163.com>
+Subject: [PATCH 1/1] net: caif: remove ineffective check
+Date: Sun,  4 Dec 2016 12:15:44 +0800
+Message-ID: <1480824944-3439-1-git-send-email-bianpan2016@163.com>
+Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+        "David S. Miller" <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Sat,  3 Dec 2016 04:35:15 +0100
+The check of the return value of sock_register() is ineffective.
+"if(!err)" seems to be a typo. It is better to propagate the error code
+to the callers of caif_sktinit_module(). This patch removes the check
+statment and directly returns the result of sock_register().
 
-> This is the second batch of patches adding support for the
-> MV88e6390. They are not sufficient to make it work properly.
-> 
-> The mv88e6390 has a much expanded set of priority maps. Refactor the
-> existing code, and implement basic support for the new device.
-> 
-> Similarly, the monitor control register has been reworked.
-> 
-> The mv88e6390 has something odd in its EDSA tagging implementation,
-> which means it is not possible to use it. So we need to use DSA
-> tagging. This is the first device with EDSA support where we need to
-> use DSA, and the code does not support this. So two patches refactor
-> the existing code. The two different register definitions are
-> separated out, and using DSA on an EDSA capable device is added.
- ...
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188751
+Signed-off-by: Pan Bian <bianpan2016@163.com>
+---
+ net/caif/caif_socket.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Series applied.
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index aa209b1..92cbbd2 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -1107,10 +1107,7 @@ static int caif_create(struct net *net, struct socket *sock, int protocol,
+ 
+ static int __init caif_sktinit_module(void)
+ {
+-	int err = sock_register(&caif_family_ops);
+-	if (!err)
+-		return err;
+-	return 0;
++	return sock_register(&caif_family_ops);
+ }
+ 
+ static void __exit caif_sktexit_module(void)
+-- 
+1.9.1
