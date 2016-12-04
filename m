@@ -1,39 +1,47 @@
-From: "Kalderon, Michal" <Michal.Kalderon@cavium.com>
-Subject: RE: [PATCH 1/1] net: ethernet: broadcom: fix improper return value
-Date: Sun, 4 Dec 2016 07:59:10 +0000
-Message-ID: <SN1PR0701MB1933E2914735C68829CFB13B88800@SN1PR0701MB1933.namprd07.prod.outlook.com>
-References: <1480832969-5888-1-git-send-email-bianpan201604@163.com>
+From: Marco Zunino <eng.marco.zunino@gmail.com>
+Subject: Trigger EHOSTUNREACH
+Date: Sun, 4 Dec 2016 13:04:43 +0100
+Message-ID: <CAP__gDkhM82EP6pP0NBHAYME0iPkEf49aeOp9C3dYQcCpdetrA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Pan Bian <bianpan2016@163.com>
-To: Pan Bian <bianpan201604@163.com>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480832969-5888-1-git-send-email-bianpan201604@163.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36782 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750748AbcLDMEq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 07:04:46 -0500
+Received: by mail-wm0-f50.google.com with SMTP id g23so57747743wme.1
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 04:04:45 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Pan Bian <bianpan2016@163.com>
->=20
-> Marco BNX2X_ALLOC_AND_SET(arr, lbl, func) calls kmalloc() to allocate
-> memory, and jumps to label "lbl" if the allocation fails. Label "lbl"
-> first cleans memory and then returns variable rc. Before calling the macr=
-o, the
-> value of variable rc is 0. Because 0 means no error, the callers of
-> bnx2x_init_firmware() may be misled. This patch fixes the bug, assigning =
-"-
-> ENOMEM" to rc before calling macro NX2X_ALLOC_AND_SET().
->=20
-> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=3D189141
->=20
-> Signed-off-by: Pan Bian <bianpan2016@163.com>
+Hallo everyone, hope you are having a good day
+we are building a networking testing tool to simulate network error
+condition, and we are having difficulties triggering the EHOSTUNREACH
+socket error.
 
-The title is wrong from net-next; It should have been "bnx2x: Fix improper =
-return value".
+We are trying to trigger this error by sending an ICMP packet type=3
+code=3 on an open STREAM socket, but it has no effect.
 
-Acked-by: Michal Kalderon <michal.kalderon@cavium.com>
+Based on RFC1122 and the code here
+
+https://github.com/torvalds/linux/blob/e76d21c40bd6c67fd4e2c1540d77e113df962b4d/net/ipv4/tcp_ipv4.c#L353
+
+I would expect the this ICMP packet to abort the socket connection
+with a EHOSTUNREACH error on the client side, but this does not
+happen.
+
+In RFC5927 we also see basically all hard_error should not be
+considered so, and TCP connection never being aborted as a result of
+ICMP error, for security and robustness reason.
+
+If we send the same ICMP on a STREAM socket in SYN_SENT state (while
+still waiting for the SYN_ACK to be received) the socket fails but
+with an error ECONNREFUSED.
+
+Could you give us a direction to better understand how ICMP errors
+interact with TCP sockets? What about DGRAM sockets?
+
+Thank you!
+
+- Z
