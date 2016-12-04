@@ -1,64 +1,51 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: calxeda: xgmac: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  4 Dec 2016 23:37:53 +0100
-Message-ID: <1480891073-23166-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v1 net-next 1/5] net: dsa: mv88e6xxx: Reserved Management
+ frames to CPU
+Date: Sun, 4 Dec 2016 23:40:54 +0100
+Message-ID: <20161204224054.GA24118@lunn.ch>
+References: <1480736720-12608-1-git-send-email-andrew@lunn.ch>
+ <1480736720-12608-2-git-send-email-andrew@lunn.ch>
+ <87y3zvcvhm.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+ <20161204202234.GA20743@lunn.ch>
+ <87oa0r9wei.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:39882 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751126AbcLDWk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 4 Dec 2016 17:40:58 -0500
+Content-Disposition: inline
+In-Reply-To: <87oa0r9wei.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+> You can have several implementations in the same file (e.g. global1.c),
+> so again the only value is the function name, not the struct member.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/calxeda/xgmac.c |   17 ++++++++---------
- 1 files changed, 8 insertions(+), 9 deletions(-)
+The structure member have g1_ has a lot of value.
 
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 6e72366..ce7de6f 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -1530,15 +1530,14 @@ static int xgmac_set_features(struct net_device *dev, netdev_features_t features
- 	.ndo_set_features = xgmac_set_features,
- };
- 
--static int xgmac_ethtool_getsettings(struct net_device *dev,
--					  struct ethtool_cmd *cmd)
-+static int xgmac_ethtool_get_link_ksettings(struct net_device *dev,
-+					    struct ethtool_link_ksettings *cmd)
- {
--	cmd->autoneg = 0;
--	cmd->duplex = DUPLEX_FULL;
--	ethtool_cmd_speed_set(cmd, 10000);
--	cmd->supported = 0;
--	cmd->advertising = 0;
--	cmd->transceiver = XCVR_INTERNAL;
-+	cmd->base.autoneg = 0;
-+	cmd->base.duplex = DUPLEX_FULL;
-+	cmd->base.speed = 10000;
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported, 0);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising, 0);
- 	return 0;
- }
- 
-@@ -1681,7 +1680,6 @@ static int xgmac_set_wol(struct net_device *dev,
- }
- 
- static const struct ethtool_ops xgmac_ethtool_ops = {
--	.get_settings = xgmac_ethtool_getsettings,
- 	.get_link = ethtool_op_get_link,
- 	.get_pauseparam = xgmac_get_pauseparam,
- 	.set_pauseparam = xgmac_set_pauseparam,
-@@ -1690,6 +1688,7 @@ static int xgmac_set_wol(struct net_device *dev,
- 	.get_wol = xgmac_get_wol,
- 	.set_wol = xgmac_set_wol,
- 	.get_sset_count = xgmac_get_sset_count,
-+	.get_link_ksettings = xgmac_ethtool_get_link_ksettings,
- };
- 
- /**
--- 
-1.7.4.4
+        if (chip->info->ops->set_cpu_port) {
+                err = chip->info->ops->set_cpu_port(chip, upstream_port);
+                if (err)
+                        return err;
+        }
+
+Where to i need to go look for set_cpu_port? I have no idea.
+
+        if (chip->info->ops->g1_set_cpu_port) {
+                err = chip->info->ops->g1_set_cpu_port(chip, upstream_port);
+                if (err)
+                        return err;
+        }
+
+Humm, the hint tells me it is in global1.c. And i also know that all
+of them are in global1.c.
+
+These ops do make the code simpler. But the downside is it makes it
+harder to find the actual code, now that it is spread over multiple
+files. And these hits help negate the downside a little.
+
+   Andrew
