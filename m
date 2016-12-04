@@ -1,105 +1,41 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 1/6] net/mlx5: Verify module parameters
-Date: Sun,  4 Dec 2016 12:56:11 +0200
-Message-ID: <1480848976-6797-2-git-send-email-saeedm@mellanox.com>
-References: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39405 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750881AbcLDK5F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 05:57:05 -0500
-In-Reply-To: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pan Bian <bianpan201603@163.com>
+Subject: [PATCH 1/1] net: qed: set error code on failure
+Date: Sun,  4 Dec 2016 18:59:00 +0800
+Message-ID: <1480849140-16166-1-git-send-email-bianpan201603@163.com>
+Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
+To: Yuval Mintz <Yuval.Mintz@cavium.com>,
+        Ariel Elior <Ariel.Elior@cavium.com>,
+        everest-linux-l2@cavium.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kamal Heib <kamalh@mellanox.com>
+From: Pan Bian <bianpan2016@163.com>
 
-Verify the mlx5_core module parameters by making sure that they are in
-the expected range and if they aren't restore them to their default
-values.
+When calling dma_mapping_error(), the value of return variable rc is 0.
+And when the call returns an unexpected value, rc is not set to a
+negative errno. Thus, it will return 0 on the error path, and its
+callers cannot detect the bug. This patch fixes the bug, assigning
+"-ENOMEM" to err.
 
-Fixes: 9603b61de1ee ('mlx5: Move pci device handling from mlx5_ib to mlx5_core')
-Signed-off-by: Kamal Heib <kamalh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=189041
+
+Signed-off-by: Pan Bian <bianpan2016@163.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c     | 27 +++++++++++++---------
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  2 +-
- 2 files changed, 17 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 3b7c6a9f..ab8f2b4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -62,13 +62,13 @@ MODULE_DESCRIPTION("Mellanox Connect-IB, ConnectX-4 core driver");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_VERSION(DRIVER_VERSION);
- 
--int mlx5_core_debug_mask;
--module_param_named(debug_mask, mlx5_core_debug_mask, int, 0644);
-+uint mlx5_core_debug_mask;
-+module_param_named(debug_mask, mlx5_core_debug_mask, uint, 0644);
- MODULE_PARM_DESC(debug_mask, "debug mask: 1 = dump cmd data, 2 = dump cmd exec time, 3 = both. Default=0");
- 
- #define MLX5_DEFAULT_PROF	2
--static int prof_sel = MLX5_DEFAULT_PROF;
--module_param_named(prof_sel, prof_sel, int, 0444);
-+static uint prof_sel = MLX5_DEFAULT_PROF;
-+module_param_named(prof_sel, prof_sel, uint, 0444);
- MODULE_PARM_DESC(prof_sel, "profile selector. Valid range 0 - 2");
- 
- enum {
-@@ -1227,13 +1227,6 @@ static int init_one(struct pci_dev *pdev,
- 
- 	dev->pdev = pdev;
- 	dev->event = mlx5_core_event;
--
--	if (prof_sel < 0 || prof_sel >= ARRAY_SIZE(profile)) {
--		mlx5_core_warn(dev,
--			       "selected profile out of range, selecting default (%d)\n",
--			       MLX5_DEFAULT_PROF);
--		prof_sel = MLX5_DEFAULT_PROF;
--	}
- 	dev->profile = &profile[prof_sel];
- 
- 	INIT_LIST_HEAD(&priv->ctx_list);
-@@ -1450,10 +1443,22 @@ static struct pci_driver mlx5_core_driver = {
- 	.sriov_configure   = mlx5_core_sriov_configure,
- };
- 
-+static void mlx5_core_verify_params(void)
-+{
-+	if (prof_sel >= ARRAY_SIZE(profile)) {
-+		pr_warn("mlx5_core: WARNING: Invalid module parameter prof_sel %d, valid range 0-%zu, changing back to default(%d)\n",
-+			prof_sel,
-+			ARRAY_SIZE(profile) - 1,
-+			MLX5_DEFAULT_PROF);
-+		prof_sel = MLX5_DEFAULT_PROF;
-+	}
-+}
-+
- static int __init init(void)
- {
- 	int err;
- 
-+	mlx5_core_verify_params();
- 	mlx5_register_debugfs();
- 
- 	err = pci_register_driver(&mlx5_core_driver);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index 187662c..20d16b1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -44,7 +44,7 @@
- 
- #define MLX5_TOTAL_VPORTS(mdev) (1 + pci_sriov_get_totalvfs(mdev->pdev))
- 
--extern int mlx5_core_debug_mask;
-+extern uint mlx5_core_debug_mask;
- 
- #define mlx5_core_dbg(__dev, format, ...)				\
- 	dev_dbg(&(__dev)->pdev->dev, "%s:%s:%d:(pid %d): " format,	\
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+index f95385c..62ae55b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+@@ -1730,6 +1730,7 @@ static int qed_ll2_start_xmit(struct qed_dev *cdev, struct sk_buff *skb)
+ 						       mapping))) {
+ 				DP_NOTICE(cdev,
+ 					  "Unable to map frag - dropping packet\n");
++				rc = -ENOMEM;
+ 				goto err;
+ 			}
+ 		} else {
 -- 
-2.7.4
+1.9.1
