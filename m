@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v2 net-next 2/4] mlx4: xdp: Allow raising MTU up to one page minus eth and vlan hdrs
-Date: Sat, 3 Dec 2016 19:17:24 -0800
-Message-ID: <1480821446-4122277-3-git-send-email-kafai@fb.com>
+Subject: [PATCH v2 net-next 1/4] bpf: xdp: Allow head adjustment in XDP prog
+Date: Sat, 3 Dec 2016 19:17:23 -0800
+Message-ID: <1480821446-4122277-2-git-send-email-kafai@fb.com>
 References: <1480821446-4122277-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,169 +15,227 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Kernel Team <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60993 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41353 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752099AbcLDDRd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 22:17:33 -0500
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uB43F2AB014160
+        by vger.kernel.org with ESMTP id S1752008AbcLDDRc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 22:17:32 -0500
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uB43EGgE001249
         for <netdev@vger.kernel.org>; Sat, 3 Dec 2016 19:17:32 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 273t8b2wru-3
+        by mx0a-00082601.pphosted.com with ESMTP id 273t84karc-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 19:17:32 -0800
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)     by
- mx-out.facebook.com (10.102.107.97) with ESMTP id
- 3142ae2ab9d011e6b6510002c99331b0-20ffaa50 for <netdev@vger.kernel.org>;        Sat,
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 31330f92b9d011e683280002c9931860-ebbfca50 for <netdev@vger.kernel.org>;        Sat,
  03 Dec 2016 19:17:31 -0800
 In-Reply-To: <1480821446-4122277-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When XDP is active in mlx4, mlx4 is using one page/pkt.
-At the same time (i.e. when XDP is active), it is currently
-limiting MTU to be FRAG_SZ0 - ETH_HLEN - (2 * VLAN_HLEN)
-which is 1514 in x86.  AFAICT, we can at least raise the MTU
-limit up to PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN) which this
-patch is doing.  It will be useful in the next patch which
-allows XDP program to extend the packet by adding new header(s).
+This patch allows XDP prog to extend/remove the packet
+data at the head (like adding or removing header).  It is
+done by adding a new XDP helper bpf_xdp_adjust_head().
 
-Note: In the earlier XDP patches, there is already existing guard
-to ensure the page/pkt scheme only applies when XDP is active
-in mlx4.
+It also renames bpf_helper_changes_skb_data() to
+bpf_helper_changes_pkt_data() to better reflect
+that XDP prog does not work on skb.
 
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 28 +++++++++++-----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 46 ++++++++++++++------------
- 2 files changed, 44 insertions(+), 30 deletions(-)
+ arch/powerpc/net/bpf_jit_comp64.c |  4 ++--
+ arch/s390/net/bpf_jit_comp.c      |  2 +-
+ arch/x86/net/bpf_jit_comp.c       |  2 +-
+ include/linux/filter.h            |  2 +-
+ include/uapi/linux/bpf.h          | 11 ++++++++++-
+ kernel/bpf/core.c                 |  2 +-
+ kernel/bpf/verifier.c             |  2 +-
+ net/core/filter.c                 | 34 ++++++++++++++++++++++++++++++++--
+ 8 files changed, 49 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 49a81f1fc1d6..311c14153b8b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -51,6 +51,8 @@
- #include "mlx4_en.h"
- #include "en_port.h"
+diff --git a/arch/powerpc/net/bpf_jit_comp64.c b/arch/powerpc/net/bpf_jit_comp64.c
+index 0fe98a567125..73a5cf18fd84 100644
+--- a/arch/powerpc/net/bpf_jit_comp64.c
++++ b/arch/powerpc/net/bpf_jit_comp64.c
+@@ -766,7 +766,7 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			func = (u8 *) __bpf_call_base + imm;
  
-+#define MLX4_EN_MAX_XDP_MTU ((int)(PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN)))
+ 			/* Save skb pointer if we need to re-cache skb data */
+-			if (bpf_helper_changes_skb_data(func))
++			if (bpf_helper_changes_pkt_data(func))
+ 				PPC_BPF_STL(3, 1, bpf_jit_stack_local(ctx));
+ 
+ 			bpf_jit_emit_func_call(image, ctx, (u64)func);
+@@ -775,7 +775,7 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			PPC_MR(b2p[BPF_REG_0], 3);
+ 
+ 			/* refresh skb cache */
+-			if (bpf_helper_changes_skb_data(func)) {
++			if (bpf_helper_changes_pkt_data(func)) {
+ 				/* reload skb pointer to r3 */
+ 				PPC_BPF_LL(3, 1, bpf_jit_stack_local(ctx));
+ 				bpf_jit_emit_skb_loads(image, ctx);
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index bee281f3163d..167b31b186c1 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -981,7 +981,7 @@ static noinline int bpf_jit_insn(struct bpf_jit *jit, struct bpf_prog *fp, int i
+ 		EMIT2(0x0d00, REG_14, REG_W1);
+ 		/* lgr %b0,%r2: load return value into %b0 */
+ 		EMIT4(0xb9040000, BPF_REG_0, REG_2);
+-		if (bpf_helper_changes_skb_data((void *)func)) {
++		if (bpf_helper_changes_pkt_data((void *)func)) {
+ 			jit->seen |= SEEN_SKB_CHANGE;
+ 			/* lg %b1,ST_OFF_SKBP(%r15) */
+ 			EMIT6_DISP_LH(0xe3000000, 0x0004, BPF_REG_1, REG_0,
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index fe04a04dab8e..e76d1af60f7a 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -853,7 +853,7 @@ xadd:			if (is_imm8(insn->off))
+ 			func = (u8 *) __bpf_call_base + imm32;
+ 			jmp_offset = func - (image + addrs[i]);
+ 			if (seen_ld_abs) {
+-				reload_skb_data = bpf_helper_changes_skb_data(func);
++				reload_skb_data = bpf_helper_changes_pkt_data(func);
+ 				if (reload_skb_data) {
+ 					EMIT1(0x57); /* push %rdi */
+ 					jmp_offset += 22; /* pop, mov, sub, mov */
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 97338134398f..3c02de77ad6a 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -590,7 +590,7 @@ void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp);
+ u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
+ 
+ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog);
+-bool bpf_helper_changes_skb_data(void *func);
++bool bpf_helper_changes_pkt_data(void *func);
+ 
+ struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
+ 				       const struct bpf_insn *patch, u32 len);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 6123d9b8e828..0eb0e87dbe9f 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -424,6 +424,12 @@ union bpf_attr {
+  *     @len: length of header to be pushed in front
+  *     @flags: Flags (unused for now)
+  *     Return: 0 on success or negative error
++ *
++ * int bpf_xdp_adjust_head(xdp_md, delta)
++ *     Adjust the xdp_md.data by delta
++ *     @xdp_md: pointer to xdp_md
++ *     @delta: An positive/negative integer to be added to xdp_md.data
++ *     Return: 0 on success or negative on error
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -469,7 +475,8 @@ union bpf_attr {
+ 	FN(csum_update),		\
+ 	FN(set_hash_invalid),		\
+ 	FN(get_numa_node_id),		\
+-	FN(skb_change_head),
++	FN(skb_change_head),		\
++	FN(xdp_adjust_head),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+@@ -576,6 +583,8 @@ struct bpf_sock {
+ 	__u32 protocol;
+ };
+ 
++#define XDP_PACKET_HEADROOM 256
 +
- int mlx4_en_setup_tc(struct net_device *dev, u8 up)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -2249,6 +2251,19 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
- 	free_netdev(dev);
+ /* User return codes for XDP prog type.
+  * A valid XDP program must return one of these defined values. All other
+  * return codes are reserved for future use. Unknown return codes will result
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 82a04143368e..871e2f398cf5 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -1078,7 +1078,7 @@ struct bpf_prog * __weak bpf_int_jit_compile(struct bpf_prog *prog)
+ 	return prog;
  }
  
-+static bool mlx4_en_check_xdp_mtu(struct net_device *dev, int mtu)
+-bool __weak bpf_helper_changes_skb_data(void *func)
++bool __weak bpf_helper_changes_pkt_data(void *func)
+ {
+ 	return false;
+ }
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 0e742210750e..e6ce4d664521 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1216,7 +1216,7 @@ static int check_call(struct bpf_verifier_env *env, int func_id)
+ 		return -EINVAL;
+ 	}
+ 
+-	changes_data = bpf_helper_changes_skb_data(fn->func);
++	changes_data = bpf_helper_changes_pkt_data(fn->func);
+ 
+ 	memset(&meta, 0, sizeof(meta));
+ 	meta.pkt_access = fn->pkt_access;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 56b43587d200..ccef948cf58a 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2234,7 +2234,34 @@ static const struct bpf_func_proto bpf_skb_change_head_proto = {
+ 	.arg3_type	= ARG_ANYTHING,
+ };
+ 
+-bool bpf_helper_changes_skb_data(void *func)
++BPF_CALL_2(bpf_xdp_adjust_head, struct xdp_buff *, xdp, int, offset)
 +{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
++	/* Both mlx4 and mlx5 driver align each packet to PAGE_SIZE when
++	 * XDP prog is set.
++	 * If the above is not true for the other drivers to support
++	 * bpf_xdp_adjust_head, struct xdp_buff can be extended.
++	 */
++	unsigned long addr = (unsigned long)xdp->data & PAGE_MASK;
++	void *data_hard_start = (void *)addr;
++	void *data = xdp->data + offset;
 +
-+	if (mtu > MLX4_EN_MAX_XDP_MTU) {
-+		en_err(priv, "mtu:%d > max:%d when XDP prog is attached\n",
-+		       mtu, MLX4_EN_MAX_XDP_MTU);
-+		return false;
-+	}
++	if (unlikely(data < data_hard_start || data > xdp->data_end - ETH_HLEN))
++		return -EINVAL;
 +
-+	return true;
++	xdp->data = data;
++
++	return 0;
 +}
 +
- static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -2258,11 +2273,10 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
- 	en_dbg(DRV, priv, "Change MTU called - current:%d new:%d\n",
- 		 dev->mtu, new_mtu);
- 
--	if (priv->tx_ring_num[TX_XDP] && MLX4_EN_EFF_MTU(new_mtu) > FRAG_SZ0) {
--		en_err(priv, "MTU size:%d requires frags but XDP running\n",
--		       new_mtu);
--		return -EOPNOTSUPP;
--	}
-+	if (priv->tx_ring_num[TX_XDP] &&
-+	    !mlx4_en_check_xdp_mtu(dev, new_mtu))
-+		return -ENOTSUPP;
++static const struct bpf_func_proto bpf_xdp_adjust_head_proto = {
++	.func		= bpf_xdp_adjust_head,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_ANYTHING,
++};
 +
- 	dev->mtu = new_mtu;
- 
- 	if (netif_running(dev)) {
-@@ -2710,10 +2724,8 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 		return 0;
- 	}
- 
--	if (priv->num_frags > 1) {
--		en_err(priv, "Cannot set XDP if MTU requires multiple frags\n");
-+	if (!mlx4_en_check_xdp_mtu(dev, dev->mtu))
- 		return -EOPNOTSUPP;
--	}
- 
- 	tmp = kzalloc(sizeof(*tmp), GFP_KERNEL);
- 	if (!tmp)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 6562f78b07f4..23e9d04d1ef4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -1164,37 +1164,39 @@ static const int frag_sizes[] = {
- 
- void mlx4_en_calc_rx_buf(struct net_device *dev)
++bool bpf_helper_changes_pkt_data(void *func)
  {
--	enum dma_data_direction dma_dir = PCI_DMA_FROMDEVICE;
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	int eff_mtu = MLX4_EN_EFF_MTU(dev->mtu);
--	int order = MLX4_EN_ALLOC_PREFER_ORDER;
--	u32 align = SMP_CACHE_BYTES;
--	int buf_size = 0;
- 	int i = 0;
+ 	if (func == bpf_skb_vlan_push ||
+ 	    func == bpf_skb_vlan_pop ||
+@@ -2244,7 +2271,8 @@ bool bpf_helper_changes_skb_data(void *func)
+ 	    func == bpf_skb_change_tail ||
+ 	    func == bpf_skb_pull_data ||
+ 	    func == bpf_l3_csum_replace ||
+-	    func == bpf_l4_csum_replace)
++	    func == bpf_l4_csum_replace ||
++	    func == bpf_xdp_adjust_head)
+ 		return true;
  
- 	/* bpf requires buffers to be set up as 1 packet per page.
- 	 * This only works when num_frags == 1.
- 	 */
- 	if (priv->tx_ring_num[TX_XDP]) {
--		dma_dir = PCI_DMA_BIDIRECTIONAL;
--		/* This will gain efficient xdp frame recycling at the expense
--		 * of more costly truesize accounting
-+		priv->frag_info[0].order = 0;
-+		priv->frag_info[0].frag_size = eff_mtu;
-+		priv->frag_info[0].frag_prefix_size = 0;
-+		/* This will gain efficient xdp frame recycling at the
-+		 * expense of more costly truesize accounting
- 		 */
--		align = PAGE_SIZE;
--		order = 0;
--	}
--
--	while (buf_size < eff_mtu) {
--		priv->frag_info[i].order = order;
--		priv->frag_info[i].frag_size =
--			(eff_mtu > buf_size + frag_sizes[i]) ?
--				frag_sizes[i] : eff_mtu - buf_size;
--		priv->frag_info[i].frag_prefix_size = buf_size;
--		priv->frag_info[i].frag_stride =
--				ALIGN(priv->frag_info[i].frag_size, align);
--		priv->frag_info[i].dma_dir = dma_dir;
--		buf_size += priv->frag_info[i].frag_size;
--		i++;
-+		priv->frag_info[0].frag_stride = PAGE_SIZE;
-+		priv->frag_info[0].dma_dir = PCI_DMA_BIDIRECTIONAL;
-+		i = 1;
-+	} else {
-+		int buf_size = 0;
-+
-+		while (buf_size < eff_mtu) {
-+			priv->frag_info[i].order = MLX4_EN_ALLOC_PREFER_ORDER;
-+			priv->frag_info[i].frag_size =
-+				(eff_mtu > buf_size + frag_sizes[i]) ?
-+					frag_sizes[i] : eff_mtu - buf_size;
-+			priv->frag_info[i].frag_prefix_size = buf_size;
-+			priv->frag_info[i].frag_stride =
-+				ALIGN(priv->frag_info[i].frag_size,
-+				      SMP_CACHE_BYTES);
-+			priv->frag_info[i].dma_dir = PCI_DMA_FROMDEVICE;
-+			buf_size += priv->frag_info[i].frag_size;
-+			i++;
-+		}
+ 	return false;
+@@ -2670,6 +2698,8 @@ xdp_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_xdp_event_output_proto;
+ 	case BPF_FUNC_get_smp_processor_id:
+ 		return &bpf_get_smp_processor_id_proto;
++	case BPF_FUNC_xdp_adjust_head:
++		return &bpf_xdp_adjust_head_proto;
+ 	default:
+ 		return sk_filter_func_proto(func_id);
  	}
- 
- 	priv->num_frags = i;
 -- 
 2.5.1
