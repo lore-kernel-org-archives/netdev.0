@@ -1,38 +1,36 @@
-From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V2 net 01/20] net/ena: remove ntuple filter support from device feature list
-Date: Sun,  4 Dec 2016 15:19:19 +0200
-Message-ID: <1480857578-5065-2-git-send-email-netanel@annapurnalabs.com>
-References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
-Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
-        zorik@annapurnalabs.com, alex@annapurnalabs.com,
-        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
-        nafea@annapurnalabs.com
-To: linux-kernel@vger.kernel.org, davem@davemloft.net,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net 0/2] bnx2x: fixes series
+Date: Sun, 4 Dec 2016 15:30:16 +0200
+Message-ID: <1480858218-13187-1-git-send-email-Yuval.Mintz@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34100 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751372AbcLDNab (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 08:30:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove NETIF_F_NTUPLE from netdev->features.
-The ENA device driver does not support ntuple filtering.
+Hi Dave,
 
-Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
----
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 -
- 1 file changed, 1 deletion(-)
+Two unrelated fixes for bnx2x - the first one is nice-to-have,
+while the other fixes fatal behaviour in older adapters.
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index bfeaec5..33a760e 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2729,7 +2729,6 @@ static void ena_set_dev_offloads(struct ena_com_dev_get_features_ctx *feat,
- 	netdev->features =
- 		dev_features |
- 		NETIF_F_SG |
--		NETIF_F_NTUPLE |
- 		NETIF_F_RXHASH |
- 		NETIF_F_HIGHDMA;
- 
+Please consider applying them to `net'.
+
+Thanks,
+Yuval
+
+Yuval Mintz (2):
+  bnx2x: Correct ringparam estimate when interface is down
+  bnx2x: Prevent tunnel configuration for 577xx adapters.
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 8 ++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c    | 4 ++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
 -- 
-2.7.4
+1.9.3
