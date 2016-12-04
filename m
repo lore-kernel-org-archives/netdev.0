@@ -1,42 +1,37 @@
-From: Pan Bian <bianpan2016@163.com>
-Subject: [PATCH 1/1] net: caif: remove ineffective check
-Date: Sun,  4 Dec 2016 12:15:44 +0800
-Message-ID: <1480824944-3439-1-git-send-email-bianpan2016@163.com>
-Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
-To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5] ipv6 addrconf: Implemented enhanced DAD
+ (RFC7527)
+Date: Sat, 03 Dec 2016 23:26:09 -0500 (EST)
+Message-ID: <20161203.232609.1047902442344574211.davem@davemloft.net>
+References: <1480716008-11646-1-git-send-email-nordmark@arista.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+        gilligan@arista.com
+To: nordmark@arista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42088 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752128AbcLDE0L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 23:26:11 -0500
+In-Reply-To: <1480716008-11646-1-git-send-email-nordmark@arista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The check of the return value of sock_register() is ineffective.
-"if(!err)" seems to be a typo. It is better to propagate the error code
-to the callers of caif_sktinit_module(). This patch removes the check
-statment and directly returns the result of sock_register().
+From: Erik Nordmark <nordmark@arista.com>
+Date: Fri,  2 Dec 2016 14:00:08 -0800
 
-Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188751
-Signed-off-by: Pan Bian <bianpan2016@163.com>
----
- net/caif/caif_socket.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+> Implemented RFC7527 Enhanced DAD.
+> IPv6 duplicate address detection can fail if there is some temporary
+> loopback of Ethernet frames. RFC7527 solves this by including a random
+> nonce in the NS messages used for DAD, and if an NS is received with the
+> same nonce it is assumed to be a looped back DAD probe and is ignored.
+> RFC7527 is enabled by default. Can be disabled by setting both of
+> conf/{all,interface}/enhanced_dad to zero.
+> 
+> Signed-off-by: Erik Nordmark <nordmark@arista.com>
+> Signed-off-by: Bob Gilligan <gilligan@arista.com>
+> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index aa209b1..92cbbd2 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -1107,10 +1107,7 @@ static int caif_create(struct net *net, struct socket *sock, int protocol,
- 
- static int __init caif_sktinit_module(void)
- {
--	int err = sock_register(&caif_family_ops);
--	if (!err)
--		return err;
--	return 0;
-+	return sock_register(&caif_family_ops);
- }
- 
- static void __exit caif_sktexit_module(void)
--- 
-1.9.1
+Applied, thanks.
