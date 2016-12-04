@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v2 net-next 3/4] mlx4: xdp: Reserve headroom for receiving packet when XDP prog is active
-Date: Sat, 3 Dec 2016 19:17:25 -0800
-Message-ID: <1480821446-4122277-4-git-send-email-kafai@fb.com>
+Subject: [PATCH v2 net-next 2/4] mlx4: xdp: Allow raising MTU up to one page minus eth and vlan hdrs
+Date: Sat, 3 Dec 2016 19:17:24 -0800
+Message-ID: <1480821446-4122277-3-git-send-email-kafai@fb.com>
 References: <1480821446-4122277-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,215 +15,169 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Kernel Team <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41355 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60993 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752053AbcLDDRc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 22:17:32 -0500
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uB43EGgF001249
+        by vger.kernel.org with ESMTP id S1752099AbcLDDRd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 22:17:33 -0500
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uB43F2AB014160
         for <netdev@vger.kernel.org>; Sat, 3 Dec 2016 19:17:32 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 273t84karc-2
+        by mx0a-00082601.pphosted.com with ESMTP id 273t8b2wru-3
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 19:17:32 -0800
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 315caa6eb9d011e69efb0002c9931860-edffca50 for <netdev@vger.kernel.org>;        Sat,
+ mx-out.facebook.com (10.102.107.97) with ESMTP id
+ 3142ae2ab9d011e6b6510002c99331b0-20ffaa50 for <netdev@vger.kernel.org>;        Sat,
  03 Dec 2016 19:17:31 -0800
 In-Reply-To: <1480821446-4122277-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reserve XDP_PACKET_HEADROOM and honor bpf_xdp_adjust_head()
-when XDP prog is active.  This patch only affects the code
-path when XDP is active.
+When XDP is active in mlx4, mlx4 is using one page/pkt.
+At the same time (i.e. when XDP is active), it is currently
+limiting MTU to be FRAG_SZ0 - ETH_HLEN - (2 * VLAN_HLEN)
+which is 1514 in x86.  AFAICT, we can at least raise the MTU
+limit up to PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN) which this
+patch is doing.  It will be useful in the next patch which
+allows XDP program to extend the packet by adding new header(s).
+
+Note: In the earlier XDP patches, there is already existing guard
+to ensure the page/pkt scheme only applies when XDP is active
+in mlx4.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 17 +++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 23 +++++++++++++++++------
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |  9 +++++----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  3 ++-
- 4 files changed, 39 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 28 +++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 46 ++++++++++++++------------
+ 2 files changed, 44 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 311c14153b8b..094a13b52cf6 100644
+index 49a81f1fc1d6..311c14153b8b 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -51,7 +51,8 @@
+@@ -51,6 +51,8 @@
  #include "mlx4_en.h"
  #include "en_port.h"
  
--#define MLX4_EN_MAX_XDP_MTU ((int)(PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN)))
-+#define MLX4_EN_MAX_XDP_MTU ((int)(PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN) - \
-+				   XDP_PACKET_HEADROOM))
- 
++#define MLX4_EN_MAX_XDP_MTU ((int)(PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN)))
++
  int mlx4_en_setup_tc(struct net_device *dev, u8 up)
  {
-@@ -1551,6 +1552,7 @@ int mlx4_en_start_port(struct net_device *dev)
- 	struct mlx4_en_tx_ring *tx_ring;
- 	int rx_index = 0;
- 	int err = 0;
-+	int mtu;
- 	int i, t;
- 	int j;
- 	u8 mc_list[16] = {0};
-@@ -1684,8 +1686,12 @@ int mlx4_en_start_port(struct net_device *dev)
- 	}
- 
- 	/* Configure port */
-+	mtu = priv->rx_skb_size + ETH_FCS_LEN;
-+	if (priv->tx_ring_num[TX_XDP])
-+		mtu += XDP_PACKET_HEADROOM;
-+
- 	err = mlx4_SET_PORT_general(mdev->dev, priv->port,
--				    priv->rx_skb_size + ETH_FCS_LEN,
-+				    mtu,
- 				    priv->prof->tx_pause,
- 				    priv->prof->tx_ppp,
- 				    priv->prof->rx_pause,
-@@ -2255,6 +2261,13 @@ static bool mlx4_en_check_xdp_mtu(struct net_device *dev, int mtu)
- {
  	struct mlx4_en_priv *priv = netdev_priv(dev);
+@@ -2249,6 +2251,19 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
+ 	free_netdev(dev);
+ }
  
-+	if (mtu + XDP_PACKET_HEADROOM > priv->max_mtu) {
-+		en_err(priv,
-+		       "Device max mtu:%d does not allow %d bytes reserved headroom for XDP prog\n",
-+		       priv->max_mtu, XDP_PACKET_HEADROOM);
++static bool mlx4_en_check_xdp_mtu(struct net_device *dev, int mtu)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++
++	if (mtu > MLX4_EN_MAX_XDP_MTU) {
++		en_err(priv, "mtu:%d > max:%d when XDP prog is attached\n",
++		       mtu, MLX4_EN_MAX_XDP_MTU);
 +		return false;
 +	}
 +
- 	if (mtu > MLX4_EN_MAX_XDP_MTU) {
- 		en_err(priv, "mtu:%d > max:%d when XDP prog is attached\n",
- 		       mtu, MLX4_EN_MAX_XDP_MTU);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 23e9d04d1ef4..324771ac929e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -96,7 +96,6 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
- 	struct mlx4_en_rx_alloc page_alloc[MLX4_EN_MAX_RX_FRAGS];
- 	const struct mlx4_en_frag_info *frag_info;
- 	struct page *page;
--	dma_addr_t dma;
- 	int i;
++	return true;
++}
++
+ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+@@ -2258,11 +2273,10 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
+ 	en_dbg(DRV, priv, "Change MTU called - current:%d new:%d\n",
+ 		 dev->mtu, new_mtu);
  
- 	for (i = 0; i < priv->num_frags; i++) {
-@@ -115,9 +114,10 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
+-	if (priv->tx_ring_num[TX_XDP] && MLX4_EN_EFF_MTU(new_mtu) > FRAG_SZ0) {
+-		en_err(priv, "MTU size:%d requires frags but XDP running\n",
+-		       new_mtu);
+-		return -EOPNOTSUPP;
+-	}
++	if (priv->tx_ring_num[TX_XDP] &&
++	    !mlx4_en_check_xdp_mtu(dev, new_mtu))
++		return -ENOTSUPP;
++
+ 	dev->mtu = new_mtu;
  
- 	for (i = 0; i < priv->num_frags; i++) {
- 		frags[i] = ring_alloc[i];
--		dma = ring_alloc[i].dma + ring_alloc[i].page_offset;
-+		frags[i].page_offset += priv->frag_info[i].rx_headroom;
-+		rx_desc->data[i].addr = cpu_to_be64(frags[i].dma +
-+						    frags[i].page_offset);
- 		ring_alloc[i] = page_alloc[i];
--		rx_desc->data[i].addr = cpu_to_be64(dma);
- 	}
- 
- 	return 0;
-@@ -250,7 +250,8 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
- 
- 	if (ring->page_cache.index > 0) {
- 		frags[0] = ring->page_cache.buf[--ring->page_cache.index];
--		rx_desc->data[0].addr = cpu_to_be64(frags[0].dma);
-+		rx_desc->data[0].addr = cpu_to_be64(frags[0].dma +
-+						    frags[0].page_offset);
+ 	if (netif_running(dev)) {
+@@ -2710,10 +2724,8 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
  		return 0;
  	}
  
-@@ -889,6 +890,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		if (xdp_prog) {
- 			struct xdp_buff xdp;
- 			dma_addr_t dma;
-+			void *pg_addr, *orig_data;
- 			u32 act;
+-	if (priv->num_frags > 1) {
+-		en_err(priv, "Cannot set XDP if MTU requires multiple frags\n");
++	if (!mlx4_en_check_xdp_mtu(dev, dev->mtu))
+ 		return -EOPNOTSUPP;
+-	}
  
- 			dma = be64_to_cpu(rx_desc->data[0].addr);
-@@ -896,11 +898,18 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 						priv->frag_info[0].frag_size,
- 						DMA_FROM_DEVICE);
+ 	tmp = kzalloc(sizeof(*tmp), GFP_KERNEL);
+ 	if (!tmp)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 6562f78b07f4..23e9d04d1ef4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -1164,37 +1164,39 @@ static const int frag_sizes[] = {
  
--			xdp.data = page_address(frags[0].page) +
--							frags[0].page_offset;
-+			pg_addr = page_address(frags[0].page);
-+			orig_data = pg_addr + frags[0].page_offset;
-+			xdp.data = orig_data;
- 			xdp.data_end = xdp.data + length;
+ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ {
+-	enum dma_data_direction dma_dir = PCI_DMA_FROMDEVICE;
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	int eff_mtu = MLX4_EN_EFF_MTU(dev->mtu);
+-	int order = MLX4_EN_ALLOC_PREFER_ORDER;
+-	u32 align = SMP_CACHE_BYTES;
+-	int buf_size = 0;
+ 	int i = 0;
  
- 			act = bpf_prog_run_xdp(xdp_prog, &xdp);
-+
-+			if (xdp.data != orig_data) {
-+				length = xdp.data_end - xdp.data;
-+				frags[0].page_offset = xdp.data - pg_addr;
-+			}
-+
- 			switch (act) {
- 			case XDP_PASS:
- 				break;
-@@ -1180,6 +1189,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 	/* bpf requires buffers to be set up as 1 packet per page.
+ 	 * This only works when num_frags == 1.
+ 	 */
+ 	if (priv->tx_ring_num[TX_XDP]) {
+-		dma_dir = PCI_DMA_BIDIRECTIONAL;
+-		/* This will gain efficient xdp frame recycling at the expense
+-		 * of more costly truesize accounting
++		priv->frag_info[0].order = 0;
++		priv->frag_info[0].frag_size = eff_mtu;
++		priv->frag_info[0].frag_prefix_size = 0;
++		/* This will gain efficient xdp frame recycling at the
++		 * expense of more costly truesize accounting
  		 */
- 		priv->frag_info[0].frag_stride = PAGE_SIZE;
- 		priv->frag_info[0].dma_dir = PCI_DMA_BIDIRECTIONAL;
-+		priv->frag_info[0].rx_headroom = XDP_PACKET_HEADROOM;
- 		i = 1;
- 	} else {
- 		int buf_size = 0;
-@@ -1194,6 +1204,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 				ALIGN(priv->frag_info[i].frag_size,
- 				      SMP_CACHE_BYTES);
- 			priv->frag_info[i].dma_dir = PCI_DMA_FROMDEVICE;
-+			priv->frag_info[i].rx_headroom = 0;
- 			buf_size += priv->frag_info[i].frag_size;
- 			i++;
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 4b597dca5c52..9e5f38cefe5f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -354,7 +354,7 @@ u32 mlx4_en_recycle_tx_desc(struct mlx4_en_priv *priv,
- 	struct mlx4_en_rx_alloc frame = {
- 		.page = tx_info->page,
- 		.dma = tx_info->map0_dma,
--		.page_offset = 0,
-+		.page_offset = XDP_PACKET_HEADROOM,
- 		.page_size = PAGE_SIZE,
- 	};
+-		align = PAGE_SIZE;
+-		order = 0;
+-	}
+-
+-	while (buf_size < eff_mtu) {
+-		priv->frag_info[i].order = order;
+-		priv->frag_info[i].frag_size =
+-			(eff_mtu > buf_size + frag_sizes[i]) ?
+-				frag_sizes[i] : eff_mtu - buf_size;
+-		priv->frag_info[i].frag_prefix_size = buf_size;
+-		priv->frag_info[i].frag_stride =
+-				ALIGN(priv->frag_info[i].frag_size, align);
+-		priv->frag_info[i].dma_dir = dma_dir;
+-		buf_size += priv->frag_info[i].frag_size;
+-		i++;
++		priv->frag_info[0].frag_stride = PAGE_SIZE;
++		priv->frag_info[0].dma_dir = PCI_DMA_BIDIRECTIONAL;
++		i = 1;
++	} else {
++		int buf_size = 0;
++
++		while (buf_size < eff_mtu) {
++			priv->frag_info[i].order = MLX4_EN_ALLOC_PREFER_ORDER;
++			priv->frag_info[i].frag_size =
++				(eff_mtu > buf_size + frag_sizes[i]) ?
++					frag_sizes[i] : eff_mtu - buf_size;
++			priv->frag_info[i].frag_prefix_size = buf_size;
++			priv->frag_info[i].frag_stride =
++				ALIGN(priv->frag_info[i].frag_size,
++				      SMP_CACHE_BYTES);
++			priv->frag_info[i].dma_dir = PCI_DMA_FROMDEVICE;
++			buf_size += priv->frag_info[i].frag_size;
++			i++;
++		}
+ 	}
  
-@@ -1132,7 +1132,7 @@ netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_ring *rx_ring,
- 	tx_info->page = frame->page;
- 	frame->page = NULL;
- 	tx_info->map0_dma = dma;
--	tx_info->map0_byte_count = length;
-+	tx_info->map0_byte_count = length + frame->page_offset;
- 	tx_info->nr_txbb = nr_txbb;
- 	tx_info->nr_bytes = max_t(unsigned int, length, ETH_ZLEN);
- 	tx_info->data_offset = (void *)data - (void *)tx_desc;
-@@ -1141,9 +1141,10 @@ netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_ring *rx_ring,
- 	tx_info->linear = 1;
- 	tx_info->inl = 0;
- 
--	dma_sync_single_for_device(priv->ddev, dma, length, PCI_DMA_TODEVICE);
-+	dma_sync_single_range_for_device(priv->ddev, dma, frame->page_offset,
-+					 length, PCI_DMA_TODEVICE);
- 
--	data->addr = cpu_to_be64(dma);
-+	data->addr = cpu_to_be64(dma + frame->page_offset);
- 	data->lkey = ring->mr_key;
- 	dma_wmb();
- 	data->byte_count = cpu_to_be32(length);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 20a936428f4a..ba1c6cd0cc79 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -475,7 +475,8 @@ struct mlx4_en_frag_info {
- 	u16 frag_prefix_size;
- 	u32 frag_stride;
- 	enum dma_data_direction dma_dir;
--	int order;
-+	u16 order;
-+	u16 rx_headroom;
- };
- 
- #ifdef CONFIG_MLX4_EN_DCB
+ 	priv->num_frags = i;
 -- 
 2.5.1
