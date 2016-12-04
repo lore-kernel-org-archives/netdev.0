@@ -1,20 +1,18 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCN v2 net-next] net_sched: gen_estimator: complete rewrite of
- rate estimators
-Date: Sat, 03 Dec 2016 23:18:02 -0800
-Message-ID: <1480835882.18162.462.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480835273.18162.457.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: [PATCN net-next] net_sched: gen_estimator: complete rewrite of rate
+ estimators
+Date: Sat, 03 Dec 2016 23:07:53 -0800
+Message-ID: <1480835273.18162.457.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35057 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752500AbcLDHSF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 02:18:05 -0500
-In-Reply-To: <1480835273.18162.457.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34965 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750778AbcLDHVD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 02:21:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -49,15 +47,13 @@ gen_estimator_active(). qdisc dumps should be much faster.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
-v2: removed unwanted changes to tcp_output.c
-    Renamed some parameters to please htmldoc
-
  include/net/act_api.h              |    2 
  include/net/gen_stats.h            |   17 -
  include/net/netfilter/xt_rateest.h |   10 
  include/net/sch_generic.h          |    2 
- net/core/gen_estimator.c           |  299 +++++++++------------------
+ net/core/gen_estimator.c           |  298 +++++++++------------------
  net/core/gen_stats.c               |   17 -
+ net/ipv4/tcp_output.c              |    8 
  net/netfilter/xt_RATEEST.c         |    4 
  net/netfilter/xt_rateest.c         |   28 +-
  net/sched/act_api.c                |    9 
@@ -69,7 +65,7 @@ v2: removed unwanted changes to tcp_output.c
  net/sched/sch_hfsc.c               |    6 
  net/sched/sch_htb.c                |    6 
  net/sched/sch_qfq.c                |    8 
- 17 files changed, 181 insertions(+), 264 deletions(-)
+ 18 files changed, 188 insertions(+), 264 deletions(-)
 
 diff --git a/include/net/act_api.h b/include/net/act_api.h
 index 9dddf77a69ccbcb003cfa66bcc0de337f78f3dae..1d716449209e4753a297c61a287077a1eb96e6d8 100644
@@ -175,7 +171,7 @@ index e6aa0a249672a802dce583166f4f808154b77a96..498f81b229a4565e140f1a054ce931e8
  	struct gnet_stats_queue	__percpu *cpu_qstats;
  
 diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 0993844faeeaefb221ea619fd9d796600b82fbb9..101b5d0e2142e6a813f6b524a59945379f02bcb3 100644
+index 0993844faeeaefb221ea619fd9d796600b82fbb9..d9cc2e0c1b8f18b417c91dd2f57e646b7c602a63 100644
 --- a/net/core/gen_estimator.c
 +++ b/net/core/gen_estimator.c
 @@ -7,6 +7,7 @@
@@ -488,7 +484,7 @@ index 0993844faeeaefb221ea619fd9d796600b82fbb9..101b5d0e2142e6a813f6b524a5994537
   * gen_kill_estimator - remove a rate estimator
 - * @bstats: basic statistics
 - * @rate_est: rate estimator statistics
-+ * @rate_est: rate estimator
++ * @est: rate estimator
   *
 - * Removes the rate estimator specified by &bstats and &rate_est.
 + * Removes the rate estimator.
@@ -497,7 +493,7 @@ index 0993844faeeaefb221ea619fd9d796600b82fbb9..101b5d0e2142e6a813f6b524a5994537
   */
 -void gen_kill_estimator(struct gnet_stats_basic_packed *bstats,
 -			struct gnet_stats_rate_est64 *rate_est)
-+void gen_kill_estimator(struct net_rate_estimator __rcu **rate_est)
++void gen_kill_estimator(struct net_rate_estimator __rcu **ptr)
  {
 -	struct gen_estimator *e;
 -
@@ -512,7 +508,7 @@ index 0993844faeeaefb221ea619fd9d796600b82fbb9..101b5d0e2142e6a813f6b524a5994537
 -
 -		list_del_rcu(&e->list);
 -		kfree_rcu(e, e_rcu);
-+	est = xchg((__force struct net_rate_estimator **)rate_est, NULL);
++	est = xchg((__force struct net_rate_estimator **)ptr, NULL);
 +	if (est) {
 +		del_timer_sync(&est->timer);
 +		kfree_rcu(est, rcu);
@@ -521,19 +517,18 @@ index 0993844faeeaefb221ea619fd9d796600b82fbb9..101b5d0e2142e6a813f6b524a5994537
  }
  EXPORT_SYMBOL(gen_kill_estimator);
  
-@@ -314,33 +215,47 @@ EXPORT_SYMBOL(gen_kill_estimator);
+@@ -314,33 +215,46 @@ EXPORT_SYMBOL(gen_kill_estimator);
   */
  int gen_replace_estimator(struct gnet_stats_basic_packed *bstats,
  			  struct gnet_stats_basic_cpu __percpu *cpu_bstats,
 -			  struct gnet_stats_rate_est64 *rate_est,
-+			  struct net_rate_estimator __rcu **rate_est,
++			  struct net_rate_estimator __rcu **ptr,
  			  spinlock_t *stats_lock,
  			  seqcount_t *running, struct nlattr *opt)
  {
 -	gen_kill_estimator(bstats, rate_est);
 -	return gen_new_estimator(bstats, cpu_bstats, rate_est, stats_lock, running, opt);
-+	return gen_new_estimator(bstats, cpu_bstats, rate_est,
-+				 stats_lock, running, opt);
++	return gen_new_estimator(bstats, cpu_bstats, ptr, stats_lock, running, opt);
  }
  EXPORT_SYMBOL(gen_replace_estimator);
  
@@ -547,22 +542,22 @@ index 0993844faeeaefb221ea619fd9d796600b82fbb9..101b5d0e2142e6a813f6b524a5994537
   */
 -bool gen_estimator_active(const struct gnet_stats_basic_packed *bstats,
 -			  const struct gnet_stats_rate_est64 *rate_est)
-+bool gen_estimator_active(struct net_rate_estimator __rcu **rate_est)
++bool gen_estimator_active(struct net_rate_estimator __rcu **ptr)
  {
 -	bool res;
-+	return !!rcu_access_pointer(*rate_est);
++	return !!rcu_access_pointer(*ptr);
 +}
 +EXPORT_SYMBOL(gen_estimator_active);
  
 -	ASSERT_RTNL();
-+bool gen_estimator_read(struct net_rate_estimator __rcu **rate_est,
++bool gen_estimator_read(struct net_rate_estimator __rcu **ptr,
 +			struct gnet_stats_rate_est64 *sample)
 +{
 +	struct net_rate_estimator *est;
 +	unsigned seq;
 +
 +	rcu_read_lock();
-+	est = rcu_dereference(*rate_est);
++	est = rcu_dereference(*ptr);
 +	if (!est) {
 +		rcu_read_unlock();
 +		return false;
@@ -626,6 +621,25 @@ index 508e051304fb62627e61b5065b2325edd1b84f2e..55fd980568d855d9558afcdcf37d3d31
  	}
  
  	return 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index c7adcb57654ea57d1ba6702c91743cb7d2c74d28..859b60bfa86712031186fffc09c65bc43aa065dd 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2081,6 +2081,14 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
+ 	limit <<= factor;
+ 
+ 	if (atomic_read(&sk->sk_wmem_alloc) > limit) {
++		/* Special case where TX completion is delayed too much :
++		 * If the skb we try to send is the first skb in write queue,
++		 * then send it !
++		 * No need to wait for TX completion to call us back.
++		 */
++		if (skb == sk->sk_write_queue.next)
++			return false;
++
+ 		set_bit(TSQ_THROTTLED, &tcp_sk(sk)->tsq_flags);
+ 		/* It is possible TX completion already happened
+ 		 * before we set TSQ_THROTTLED, so we must
 diff --git a/net/netfilter/xt_RATEEST.c b/net/netfilter/xt_RATEEST.c
 index dbd6c4a12b97435d2937c92fd79a035fd5828965..91a373a3f534de8d8641341c33c08d8fc49cbd29 100644
 --- a/net/netfilter/xt_RATEEST.c
