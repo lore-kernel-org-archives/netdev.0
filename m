@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V2 net 12/20] net/ena: reduce the severity of ena printouts
-Date: Sun,  4 Dec 2016 15:19:30 +0200
-Message-ID: <1480857578-5065-13-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V2 net 09/20] net/ena: fix potential access to freed memory during device reset
+Date: Sun,  4 Dec 2016 15:19:27 +0200
+Message-ID: <1480857578-5065-10-git-send-email-netanel@annapurnalabs.com>
 References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -9,128 +9,163 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         nafea@annapurnalabs.com
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f178.google.com ([209.85.210.178]:36477 "EHLO
+        mail-wj0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751708AbcLDNU1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 08:20:27 -0500
+Received: by mail-wj0-f178.google.com with SMTP id qp4so268952808wjc.3
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 05:20:26 -0800 (PST)
 In-Reply-To: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+If the ena driver detects that the device is not behave as expected,
+it tries to reset the device.
+The reset flow calls ena_down, which will frees all the resources
+the driver allocates and then it will reset the device.
+
+This flow can cause memory corruption if the device is still writes
+to the driver's memory space.
+To overcome this potential race, move the reset before the device
+resources are freed.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c    | 27 +++++++++++++++++----------
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 14 +++++++++++---
- 2 files changed, 28 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 56 +++++++++++++++++++++-------
+ 1 file changed, 43 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index f1e4f04..4147d6e 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -785,7 +785,7 @@ static int ena_com_get_feature_ex(struct ena_com_dev *ena_dev,
- 	int ret;
- 
- 	if (!ena_com_check_supported_feature_id(ena_dev, feature_id)) {
--		pr_info("Feature %d isn't supported\n", feature_id);
-+		pr_debug("Feature %d isn't supported\n", feature_id);
- 		return -EPERM;
- 	}
- 
-@@ -1127,7 +1127,13 @@ int ena_com_execute_admin_command(struct ena_com_admin_queue *admin_queue,
- 	comp_ctx = ena_com_submit_admin_cmd(admin_queue, cmd, cmd_size,
- 					    comp, comp_size);
- 	if (unlikely(IS_ERR(comp_ctx))) {
--		pr_err("Failed to submit command [%ld]\n", PTR_ERR(comp_ctx));
-+		if (comp_ctx == ERR_PTR(-ENODEV))
-+			pr_debug("Failed to submit command [%ld]\n",
-+				 PTR_ERR(comp_ctx));
-+		else
-+			pr_err("Failed to submit command [%ld]\n",
-+			       PTR_ERR(comp_ctx));
-+
- 		return PTR_ERR(comp_ctx);
- 	}
- 
-@@ -1918,7 +1924,7 @@ int ena_com_set_dev_mtu(struct ena_com_dev *ena_dev, int mtu)
- 	int ret;
- 
- 	if (!ena_com_check_supported_feature_id(ena_dev, ENA_ADMIN_MTU)) {
--		pr_info("Feature %d isn't supported\n", ENA_ADMIN_MTU);
-+		pr_debug("Feature %d isn't supported\n", ENA_ADMIN_MTU);
- 		return -EPERM;
- 	}
- 
-@@ -1971,8 +1977,8 @@ int ena_com_set_hash_function(struct ena_com_dev *ena_dev)
- 
- 	if (!ena_com_check_supported_feature_id(ena_dev,
- 						ENA_ADMIN_RSS_HASH_FUNCTION)) {
--		pr_info("Feature %d isn't supported\n",
--			ENA_ADMIN_RSS_HASH_FUNCTION);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_HASH_FUNCTION);
- 		return -EPERM;
- 	}
- 
-@@ -2135,7 +2141,8 @@ int ena_com_set_hash_ctrl(struct ena_com_dev *ena_dev)
- 
- 	if (!ena_com_check_supported_feature_id(ena_dev,
- 						ENA_ADMIN_RSS_HASH_INPUT)) {
--		pr_info("Feature %d isn't supported\n", ENA_ADMIN_RSS_HASH_INPUT);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_HASH_INPUT);
- 		return -EPERM;
- 	}
- 
-@@ -2293,8 +2300,8 @@ int ena_com_indirect_table_set(struct ena_com_dev *ena_dev)
- 
- 	if (!ena_com_check_supported_feature_id(
- 		    ena_dev, ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG)) {
--		pr_info("Feature %d isn't supported\n",
--			ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
- 		return -EPERM;
- 	}
- 
-@@ -2565,8 +2572,8 @@ int ena_com_init_interrupt_moderation(struct ena_com_dev *ena_dev)
- 
- 	if (rc) {
- 		if (rc == -EPERM) {
--			pr_info("Feature %d isn't supported\n",
--				ENA_ADMIN_INTERRUPT_MODERATION);
-+			pr_debug("Feature %d isn't supported\n",
-+				 ENA_ADMIN_INTERRUPT_MODERATION);
- 			rc = 0;
- 		} else {
- 			pr_err("Failed to get interrupt moderation admin cmd. rc: %d\n",
 diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 5625007..7ae1fce 100644
+index 0b718ee..bb7eeea 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -570,6 +570,7 @@ static void ena_free_all_rx_bufs(struct ena_adapter *adapter)
-  */
- static void ena_free_tx_bufs(struct ena_ring *tx_ring)
+@@ -80,14 +80,18 @@ static void ena_tx_timeout(struct net_device *dev)
  {
-+	bool print_once = true;
- 	u32 i;
+ 	struct ena_adapter *adapter = netdev_priv(dev);
  
- 	for (i = 0; i < tx_ring->ring_size; i++) {
-@@ -581,9 +582,16 @@ static void ena_free_tx_bufs(struct ena_ring *tx_ring)
- 		if (!tx_info->skb)
- 			continue;
++	/* Change the state of the device to trigger reset
++	 * Check that we are not in the middle or a trigger already
++	 */
++
++	if (test_and_set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags))
++		return;
++
+ 	u64_stats_update_begin(&adapter->syncp);
+ 	adapter->dev_stats.tx_timeout++;
+ 	u64_stats_update_end(&adapter->syncp);
  
--		netdev_notice(tx_ring->netdev,
--			      "free uncompleted tx skb qid %d idx 0x%x\n",
--			      tx_ring->qid, i);
-+		if (print_once) {
-+			netdev_notice(tx_ring->netdev,
-+				      "free uncompleted tx skb qid %d idx 0x%x\n",
-+				      tx_ring->qid, i);
-+			print_once = false;
-+		} else {
-+			netdev_dbg(tx_ring->netdev,
-+				   "free uncompleted tx skb qid %d idx 0x%x\n",
-+				   tx_ring->qid, i);
-+		}
+ 	netif_err(adapter, tx_err, dev, "Transmit time out\n");
+-
+-	/* Change the state of the device to trigger reset */
+-	set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
+ }
  
- 		ena_buf = tx_info->bufs;
- 		dma_unmap_single(tx_ring->dev,
+ static void update_rx_ring_mtu(struct ena_adapter *adapter, int mtu)
+@@ -1116,7 +1120,8 @@ static int ena_io_poll(struct napi_struct *napi, int budget)
+ 
+ 	tx_budget = tx_ring->ring_size / ENA_TX_POLL_BUDGET_DIVIDER;
+ 
+-	if (!test_bit(ENA_FLAG_DEV_UP, &tx_ring->adapter->flags)) {
++	if (!test_bit(ENA_FLAG_DEV_UP, &tx_ring->adapter->flags) ||
++	    test_bit(ENA_FLAG_TRIGGER_RESET, &tx_ring->adapter->flags)) {
+ 		napi_complete_done(napi, 0);
+ 		return 0;
+ 	}
+@@ -1705,12 +1710,22 @@ static void ena_down(struct ena_adapter *adapter)
+ 	adapter->dev_stats.interface_down++;
+ 	u64_stats_update_end(&adapter->syncp);
+ 
+-	/* After this point the napi handler won't enable the tx queue */
+-	ena_napi_disable_all(adapter);
+ 	netif_carrier_off(adapter->netdev);
+ 	netif_tx_disable(adapter->netdev);
+ 
++	/* After this point the napi handler won't enable the tx queue */
++	ena_napi_disable_all(adapter);
++
+ 	/* After destroy the queue there won't be any new interrupts */
++
++	if (test_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags)) {
++		int rc;
++
++		rc = ena_com_dev_reset(adapter->ena_dev);
++		if (rc)
++			dev_err(&adapter->pdev->dev, "Device reset failed\n");
++	}
++
+ 	ena_destroy_all_io_queues(adapter);
+ 
+ 	ena_disable_io_intr_sync(adapter);
+@@ -2073,6 +2088,14 @@ static void ena_netpoll(struct net_device *netdev)
+ 	struct ena_adapter *adapter = netdev_priv(netdev);
+ 	int i;
+ 
++	/* Dont schedule NAPI if the driver is in the middle of reset
++	 * or netdev is down.
++	 */
++
++	if (!test_bit(ENA_FLAG_DEV_UP, &adapter->flags) ||
++	    test_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags))
++		return;
++
+ 	for (i = 0; i < adapter->num_queues; i++)
+ 		napi_schedule(&adapter->ena_napi[i].napi);
+ }
+@@ -2459,6 +2482,14 @@ static void ena_fw_reset_device(struct work_struct *work)
+ 	bool dev_up, wd_state;
+ 	int rc;
+ 
++	if (unlikely(!test_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags))) {
++		dev_err(&pdev->dev,
++			"device reset schedule while reset bit is off\n");
++		return;
++	}
++
++	netif_carrier_off(netdev);
++
+ 	del_timer_sync(&adapter->timer_service);
+ 
+ 	rtnl_lock();
+@@ -2472,12 +2503,6 @@ static void ena_fw_reset_device(struct work_struct *work)
+ 	 */
+ 	ena_close(netdev);
+ 
+-	rc = ena_com_dev_reset(ena_dev);
+-	if (rc) {
+-		dev_err(&pdev->dev, "Device reset failed\n");
+-		goto err;
+-	}
+-
+ 	ena_free_mgmnt_irq(adapter);
+ 
+ 	ena_disable_msix(adapter);
+@@ -2490,6 +2515,8 @@ static void ena_fw_reset_device(struct work_struct *work)
+ 
+ 	ena_com_mmio_reg_read_request_destroy(ena_dev);
+ 
++	clear_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
++
+ 	/* Finish with the destroy part. Start the init part */
+ 
+ 	rc = ena_device_init(ena_dev, adapter->pdev, &get_feat_ctx, &wd_state);
+@@ -2555,6 +2582,9 @@ static void check_for_missing_tx_completions(struct ena_adapter *adapter)
+ 	if (!test_bit(ENA_FLAG_DEV_UP, &adapter->flags))
+ 		return;
+ 
++	if (test_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags))
++		return;
++
+ 	if (adapter->missing_tx_completion_to == ENA_HW_HINTS_NO_TIMEOUT)
+ 		return;
+ 
+@@ -2696,7 +2726,7 @@ static void ena_timer_service(unsigned long data)
+ 	if (host_info)
+ 		ena_update_host_info(host_info, adapter->netdev);
+ 
+-	if (unlikely(test_and_clear_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags))) {
++	if (unlikely(test_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags))) {
+ 		netif_err(adapter, drv, adapter->netdev,
+ 			  "Trigger reset is on\n");
+ 		ena_dump_stats_to_dmesg(adapter);
 -- 
 2.7.4
