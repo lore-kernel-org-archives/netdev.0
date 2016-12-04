@@ -1,56 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v4 00/10] ipv4: fib: Replay events when
- registering FIB notifier
-Date: Sat, 03 Dec 2016 19:30:02 -0500 (EST)
-Message-ID: <20161203.193002.1316709458884546814.davem@davemloft.net>
-References: <1480779907-32535-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 8/8] tcp: tsq: move tsq_flags close to
+ sk_wmem_alloc
+Date: Sat, 03 Dec 2016 17:13:51 -0800
+Message-ID: <1480814031.18162.439.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480792497-16607-1-git-send-email-edumazet@google.com>
+         <1480792497-16607-9-git-send-email-edumazet@google.com>
+         <20161203.191626.976921736888291388.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        hannes@stressinduktion.org, kaber@trash.net
-To: jiri@resnulli.us
+Cc: edumazet@google.com, netdev@vger.kernel.org, ycheng@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39634 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751591AbcLDAaF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 19:30:05 -0500
-In-Reply-To: <1480779907-32535-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33754 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751902AbcLDBNy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 20:13:54 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so12056758pgd.0
+        for <netdev@vger.kernel.org>; Sat, 03 Dec 2016 17:13:54 -0800 (PST)
+In-Reply-To: <20161203.191626.976921736888291388.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Sat,  3 Dec 2016 16:44:57 +0100
+On Sat, 2016-12-03 at 19:16 -0500, David Miller wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> Date: Sat,  3 Dec 2016 11:14:57 -0800
+> 
+> > diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> > index d8be083ab0b0..fc5848dad7a4 100644
+> > --- a/include/linux/tcp.h
+> > +++ b/include/linux/tcp.h
+> > @@ -186,7 +186,6 @@ struct tcp_sock {
+> >  	u32	tsoffset;	/* timestamp offset */
+> >  
+> >  	struct list_head tsq_node; /* anchor in tsq_tasklet.head list */
+> > -	unsigned long	tsq_flags;
+> >  
+> >  	/* Data for direct copy to user */
+> >  	struct {
+> 
+> Hmmm, did you forget to "git add include/net/sock.h" before making
+> this commit?
 
-> Ido says:
-> 
-> In kernel 4.9 the switchdev-specific FIB offload mechanism was replaced
-> by a new FIB notification chain to which modules could register in order
-> to be notified about the addition and deletion of FIB entries. The
-> motivation for this change was that switchdev drivers need to be able to
-> reflect the entire FIB table and not only FIBs configured on top of the
-> port netdevs themselves. This is useful in case of in-band management.
-> 
-> The fundamental problem with this approach is that upon registration
-> listeners lose all the information previously sent in the chain and
-> thus have an incomplete view of the FIB tables, which can result in
-> packet loss. This patchset fixes that by dumping the FIB tables and
-> replaying notifications previously sent in the chain for the registered
-> notification block.
-> 
-> The entire dump process is done under RCU and thus the FIB notification
-> chain is converted to be atomic. The listeners are modified accordingly.
-> This is done in the first eight patches.
-> 
-> The ninth patch adds a change sequence counter to ensure the integrity
-> of the FIB dump. The last patch adds the dump itself to the FIB chain
-> registration function and modifies existing listeners to pass a callback
-> to be executed in case dump was inconsistent.
- ...
+sk_tsq_flags was added in prior patch in the series ( 7/8 net:
+reorganize struct sock for better data locality)
 
-Series applied, thanks.
+What is the problem with this part ?
+
+Thanks
