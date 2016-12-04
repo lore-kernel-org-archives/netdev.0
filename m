@@ -1,207 +1,109 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 6/6] net/mlx5e: Change the SQ/RQ operational state to positive logic
-Date: Sun,  4 Dec 2016 12:56:16 +0200
-Message-ID: <1480848976-6797-7-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 3/6] net/mlx5: Fix query ISSI flow
+Date: Sun,  4 Dec 2016 12:56:13 +0200
+Message-ID: <1480848976-6797-4-git-send-email-saeedm@mellanox.com>
 References: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Mohamad Haj Yahia <mohamad@mellanox.com>,
+Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39411 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39407 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751120AbcLDK5F (ORCPT
+        with ESMTP id S1750882AbcLDK5F (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 05:57:05 -0500
 In-Reply-To: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mohamad Haj Yahia <mohamad@mellanox.com>
+From: Kamal Heib <kamalh@mellanox.com>
 
-When using the negative logic (i.e. FLUSH state), after the RQ/SQ reopen
-we will have a time interval that the RQ/SQ is not really ready and the
-state indicates that its not in FLUSH state because the initial SQ/RQ struct
-memory starts as zeros.
-Now we changed the state to indicate if the SQ/RQ is opened and we will
-set the READY state after finishing preparing all the SQ/RQ resources.
+In old FWs query ISSI command is not supported and for some of those FWs
+it might fail with status other than "MLX5_CMD_STAT_BAD_OP_ERR".
 
-Fixes: 6e8dd6d6f4bd ("net/mlx5e: Don't wait for SQ completions on close")
-Fixes: f2fde18c52a7 ("net/mlx5e: Don't wait for RQ completions on close")
-Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+In such case instead of failing the driver load, we will treat any FW
+status other than 0 for Query ISSI FW command as ISSI not supported and
+assume ISSI=0 (most basic driver/FW interface).
+
+In case of driver syndrom (query ISSI failure by driver) we will fail
+driver load.
+
+Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4
+Ethernet functionality')
+Signed-off-by: Kamal Heib <kamalh@mellanox.com>
+
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 14 +++++++++-----
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |  6 +++---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |  4 ++--
- 5 files changed, 17 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c       |  5 -----
+ drivers/net/ethernet/mellanox/mlx5/core/main.c      | 15 +++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h |  5 +++++
+ 3 files changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 7a43502..71382df 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -241,7 +241,7 @@ struct mlx5e_tstamp {
- };
- 
- enum {
--	MLX5E_RQ_STATE_FLUSH,
-+	MLX5E_RQ_STATE_ENABLED,
- 	MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS,
- 	MLX5E_RQ_STATE_AM,
- };
-@@ -394,7 +394,7 @@ struct mlx5e_sq_dma {
- };
- 
- enum {
--	MLX5E_SQ_STATE_FLUSH,
-+	MLX5E_SQ_STATE_ENABLED,
- 	MLX5E_SQ_STATE_BF_ENABLE,
- };
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 5bf7f86..246d98e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -759,6 +759,7 @@ static int mlx5e_open_rq(struct mlx5e_channel *c,
- 	if (err)
- 		goto err_destroy_rq;
- 
-+	set_bit(MLX5E_RQ_STATE_ENABLED, &rq->state);
- 	err = mlx5e_modify_rq_state(rq, MLX5_RQC_STATE_RST, MLX5_RQC_STATE_RDY);
- 	if (err)
- 		goto err_disable_rq;
-@@ -773,6 +774,7 @@ static int mlx5e_open_rq(struct mlx5e_channel *c,
- 	return 0;
- 
- err_disable_rq:
-+	clear_bit(MLX5E_RQ_STATE_ENABLED, &rq->state);
- 	mlx5e_disable_rq(rq);
- err_destroy_rq:
- 	mlx5e_destroy_rq(rq);
-@@ -782,7 +784,7 @@ static int mlx5e_open_rq(struct mlx5e_channel *c,
- 
- static void mlx5e_close_rq(struct mlx5e_rq *rq)
- {
--	set_bit(MLX5E_RQ_STATE_FLUSH, &rq->state);
-+	clear_bit(MLX5E_RQ_STATE_ENABLED, &rq->state);
- 	napi_synchronize(&rq->channel->napi); /* prevent mlx5e_post_rx_wqes */
- 	cancel_work_sync(&rq->am.work);
- 
-@@ -1082,6 +1084,7 @@ static int mlx5e_open_sq(struct mlx5e_channel *c,
- 	if (err)
- 		goto err_destroy_sq;
- 
-+	set_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
- 	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY,
- 			      false, 0);
- 	if (err)
-@@ -1095,6 +1098,7 @@ static int mlx5e_open_sq(struct mlx5e_channel *c,
- 	return 0;
- 
- err_disable_sq:
-+	clear_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
- 	mlx5e_disable_sq(sq);
- err_destroy_sq:
- 	mlx5e_destroy_sq(sq);
-@@ -1111,7 +1115,7 @@ static inline void netif_tx_disable_queue(struct netdev_queue *txq)
- 
- static void mlx5e_close_sq(struct mlx5e_sq *sq)
- {
--	set_bit(MLX5E_SQ_STATE_FLUSH, &sq->state);
-+	clear_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
- 	/* prevent netif_tx_wake_queue */
- 	napi_synchronize(&sq->channel->napi);
- 
-@@ -3091,7 +3095,7 @@ static void mlx5e_tx_timeout(struct net_device *dev)
- 		if (!netif_xmit_stopped(netdev_get_tx_queue(dev, i)))
- 			continue;
- 		sched_work = true;
--		set_bit(MLX5E_SQ_STATE_FLUSH, &sq->state);
-+		clear_bit(MLX5E_SQ_STATE_ENABLED, &sq->state);
- 		netdev_err(dev, "TX timeout on queue: %d, SQ: 0x%x, CQ: 0x%x, SQ Cons: 0x%x SQ Prod: 0x%x\n",
- 			   i, sq->sqn, sq->cq.mcq.cqn, sq->cc, sq->pc);
- 	}
-@@ -3146,13 +3150,13 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
- 	for (i = 0; i < priv->params.num_channels; i++) {
- 		struct mlx5e_channel *c = priv->channel[i];
- 
--		set_bit(MLX5E_RQ_STATE_FLUSH, &c->rq.state);
-+		clear_bit(MLX5E_RQ_STATE_ENABLED, &c->rq.state);
- 		napi_synchronize(&c->napi);
- 		/* prevent mlx5e_poll_rx_cq from accessing rq->xdp_prog */
- 
- 		old_prog = xchg(&c->rq.xdp_prog, prog);
- 
--		clear_bit(MLX5E_RQ_STATE_FLUSH, &c->rq.state);
-+		set_bit(MLX5E_RQ_STATE_ENABLED, &c->rq.state);
- 		/* napi_schedule in case we have missed anything */
- 		set_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
- 		napi_schedule(&c->napi);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index e9abb6d..33495d8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -412,7 +412,7 @@ void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
- 
- 	clear_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state);
- 
--	if (unlikely(test_bit(MLX5E_RQ_STATE_FLUSH, &rq->state))) {
-+	if (unlikely(!test_bit(MLX5E_RQ_STATE_ENABLED, &rq->state))) {
- 		mlx5e_free_rx_mpwqe(rq, &rq->mpwqe.info[wq->head]);
- 		return;
- 	}
-@@ -445,7 +445,7 @@ void mlx5e_dealloc_rx_mpwqe(struct mlx5e_rq *rq, u16 ix)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 1e639f8..bfe410e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -268,11 +268,6 @@ static void dump_buf(void *buf, int size, int data_only, int offset)
+ 		pr_debug("\n");
  }
  
- #define RQ_CANNOT_POST(rq) \
--	(test_bit(MLX5E_RQ_STATE_FLUSH, &rq->state) || \
-+	(!test_bit(MLX5E_RQ_STATE_ENABLED, &rq->state) || \
- 	 test_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state))
+-enum {
+-	MLX5_DRIVER_STATUS_ABORTED = 0xfe,
+-	MLX5_DRIVER_SYND = 0xbadd00de,
+-};
+-
+ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 				       u32 *synd, u8 *status)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index ab8f2b4..296e45b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -732,13 +732,15 @@ static int mlx5_core_set_issi(struct mlx5_core_dev *dev)
+ 		u8 status;
  
- bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
-@@ -924,7 +924,7 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
- 	struct mlx5e_sq *xdp_sq = &rq->channel->xdp_sq;
- 	int work_done = 0;
+ 		mlx5_cmd_mbox_status(query_out, &status, &syndrome);
+-		if (status == MLX5_CMD_STAT_BAD_OP_ERR) {
+-			pr_debug("Only ISSI 0 is supported\n");
+-			return 0;
++		if (!status || syndrome == MLX5_DRIVER_SYND) {
++			mlx5_core_err(dev, "Failed to query ISSI err(%d) status(%d) synd(%d)\n",
++				      err, status, syndrome);
++			return err;
+ 		}
  
--	if (unlikely(test_bit(MLX5E_RQ_STATE_FLUSH, &rq->state)))
-+	if (unlikely(!test_bit(MLX5E_RQ_STATE_ENABLED, &rq->state)))
- 		return 0;
+-		pr_err("failed to query ISSI err(%d)\n", err);
+-		return err;
++		mlx5_core_warn(dev, "Query ISSI is not supported by FW, ISSI is 0\n");
++		dev->issi = 0;
++		return 0;
+ 	}
  
- 	if (cq->decmprs_left)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 70a7173..cfb6837 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -409,7 +409,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
+ 	sup_issi = MLX5_GET(query_issi_out, query_out, supported_issi_dw0);
+@@ -752,7 +754,8 @@ static int mlx5_core_set_issi(struct mlx5_core_dev *dev)
+ 		err = mlx5_cmd_exec(dev, set_in, sizeof(set_in),
+ 				    set_out, sizeof(set_out));
+ 		if (err) {
+-			pr_err("failed to set ISSI=1 err(%d)\n", err);
++			mlx5_core_err(dev, "Failed to set ISSI to 1 err(%d)\n",
++				      err);
+ 			return err;
+ 		}
  
- 	sq = container_of(cq, struct mlx5e_sq, cq);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 2ce0346..63b9a0d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -75,6 +75,11 @@ enum {
+ 	MLX5_CMD_TIME, /* print command execution time */
+ };
  
--	if (unlikely(test_bit(MLX5E_SQ_STATE_FLUSH, &sq->state)))
-+	if (unlikely(!test_bit(MLX5E_SQ_STATE_ENABLED, &sq->state)))
- 		return false;
- 
- 	npkts = 0;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index 5703f19..e5c12a7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -56,7 +56,7 @@ static void mlx5e_poll_ico_cq(struct mlx5e_cq *cq)
- 	struct mlx5_cqe64 *cqe;
- 	u16 sqcc;
- 
--	if (unlikely(test_bit(MLX5E_SQ_STATE_FLUSH, &sq->state)))
-+	if (unlikely(!test_bit(MLX5E_SQ_STATE_ENABLED, &sq->state)))
- 		return;
- 
- 	cqe = mlx5e_get_cqe(cq);
-@@ -113,7 +113,7 @@ static inline bool mlx5e_poll_xdp_tx_cq(struct mlx5e_cq *cq)
- 
- 	sq = container_of(cq, struct mlx5e_sq, cq);
- 
--	if (unlikely(test_bit(MLX5E_SQ_STATE_FLUSH, &sq->state)))
-+	if (unlikely(!test_bit(MLX5E_SQ_STATE_ENABLED, &sq->state)))
- 		return false;
- 
- 	/* sq->cc must be updated only after mlx5_cqwq_update_db_record(),
++enum {
++	MLX5_DRIVER_STATUS_ABORTED = 0xfe,
++	MLX5_DRIVER_SYND = 0xbadd00de,
++};
++
+ int mlx5_query_hca_caps(struct mlx5_core_dev *dev);
+ int mlx5_query_board_id(struct mlx5_core_dev *dev);
+ int mlx5_cmd_init_hca(struct mlx5_core_dev *dev);
 -- 
 2.7.4
