@@ -1,52 +1,38 @@
-From: Erik Nordmark <nordmark@arista.com>
-Subject: [PATCH net v2] ipv6: Allow IPv4-mapped address as next-hop
-Date: Sat,  3 Dec 2016 20:57:09 -0800
-Message-ID: <1480827429-22259-1-git-send-email-nordmark@arista.com>
-Cc: netdev@vger.kernel.org, Bob Gilligan <gilligan@arista.com>
-To: davem@davemloft.net, nordmark@arista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:43270 "EHLO
-        prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752236AbcLDE5T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 3 Dec 2016 23:57:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pan Bian <bianpan201603@163.com>
+Subject: [PATCH 1/1] isdn: hisax: set error code on failure
+Date: Sun,  4 Dec 2016 13:15:11 +0800
+Message-ID: <1480828511-4251-1-git-send-email-bianpan201603@163.com>
+Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
+To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Made kernel accept IPv6 routes with IPv4-mapped address as next-hop.
+From: Pan Bian <bianpan2016@163.com>
 
-It is possible to configure IP interfaces with IPv4-mapped addresses, and
-one can add IPv6 routes for IPv4-mapped destinations/prefixes, yet prior
-to this fix the kernel returned an EINVAL when attempting to add an IPv6
-route with an IPv4-mapped address as a nexthop/gateway.
+In function hfc4s8s_probe(), the value of return variable err should be
+negative on failures. However, when the call to request_region() returns
+NULL, the value of err is 0. This patch fixes the bug, assiging
+"-ENOMEM" to err on the path that request_region() fails.
 
-RFC 4798 (a proposed standard RFC) uses IPv4-mapped addresses as nexthops,
-thus in order to support that type of address configuration the kernel
-needs to allow IPv4-mapped addresses as nexthops.
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188931
 
-Signed-off-by: Erik Nordmark <nordmark@arista.com>
-Signed-off-by: Bob Gilligan <gilligan@arista.com>
+Signed-off-by: Pan Bian <bianpan2016@163.com>
 ---
-v2 honoring minimum 1000 ft vertical separation between Thunderbird and patches (fixed whitespace issues)
+ drivers/isdn/hisax/hfc4s8s_l1.c | 1 +
+ 1 file changed, 1 insertion(+)
 
- net/ipv6/route.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 1b57e11..86bdb02 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1995,8 +1995,11 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
- 			   It is very good, but in some (rare!) circumstances
- 			   (SIT, PtP, NBMA NOARP links) it is handy to allow
- 			   some exceptions. --ANK
-+			   We allow IPv4-mapped nexthops to support RFC4798-type
-+			   addressing
- 			 */
--			if (!(gwa_type & IPV6_ADDR_UNICAST))
-+			if (!(gwa_type & (IPV6_ADDR_UNICAST |
-+					  IPV6_ADDR_MAPPED)))
- 				goto out;
+diff --git a/drivers/isdn/hisax/hfc4s8s_l1.c b/drivers/isdn/hisax/hfc4s8s_l1.c
+index 9600cd7..3172cee 100644
+--- a/drivers/isdn/hisax/hfc4s8s_l1.c
++++ b/drivers/isdn/hisax/hfc4s8s_l1.c
+@@ -1499,6 +1499,7 @@ struct hfc4s8s_l1 {
+ 		printk(KERN_INFO
+ 		       "HFC-4S/8S: failed to request address space at 0x%04x\n",
+ 		       hw->iobase);
++		err = -ENOMEM;
+ 		goto out;
+ 	}
  
- 			if (cfg->fc_table) {
 -- 
-1.8.1.4
+1.9.1
