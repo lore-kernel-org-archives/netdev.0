@@ -1,48 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: 'imply' ptp instead of 'select'
-Date: Sat, 03 Dec 2016 23:39:45 -0500 (EST)
-Message-ID: <20161203.233945.1757084444220812603.davem@davemloft.net>
-References: <20161202230451.1639318-1-arnd@arndb.de>
+Subject: Re: [PATCH 1/1] net: dcb: set error code on failures
+Date: Sat, 03 Dec 2016 23:55:03 -0500 (EST)
+Message-ID: <20161203.235503.558375941675604872.davem@davemloft.net>
+References: <1480772948-7087-1-git-send-email-bianpan201602@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: felix.manlunas@caviumnetworks.com, tglx@linutronix.de,
-        david.daney@cavium.com, satananda.burla@caviumnetworks.com,
-        rvatsavayi@caviumnetworks.com, nicolas.pitre@linaro.org,
-        sgoutham@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        bianpan2016@163.com
+To: bianpan201602@163.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161202230451.1639318-1-arnd@arndb.de>
+In-Reply-To: <1480772948-7087-1-git-send-email-bianpan201602@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Sat,  3 Dec 2016 00:04:32 +0100
+From: Pan Bian <bianpan201602@163.com>
+Date: Sat,  3 Dec 2016 21:49:08 +0800
 
-> ptp now depends on the optional POSIX_TIMERS setting and fails to build
-> if we select it without that:
+> From: Pan Bian <bianpan2016@163.com>
 > 
-> warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
-> warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
-> ERROR: "posix_clock_unregister" [drivers/ptp/ptp.ko] undefined!
-> ERROR: "posix_clock_register" [drivers/ptp/ptp.ko] undefined!
-> ERROR: "pps_unregister_source" [drivers/ptp/ptp.ko] undefined!
-> ERROR: "pps_event" [drivers/ptp/ptp.ko] undefined!
-> ERROR: "pps_register_source" [drivers/ptp/ptp.ko] undefined!
+> In function dcbnl_cee_fill(), returns the value of variable err on
+> errors. However, on some error paths (e.g. nla put fails), its value may
+> be 0. It may be better to explicitly set a negative errno to variable
+> err before returning.
 > 
-> It seems that two patches have collided here, the build failure
-> is a result of the combination. Changing the new option to 'imply'
-> as well fixes it.
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188881
 > 
-> Fixes: 111fc64a237f ("liquidio CN23XX: VF registration")
-> Fixes: d1cbfd771ce8 ("ptp_clock: Allow for it to be optional")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-Like the kbuild robot, when I apply this it complains about 'imply' being
-an unknown option.
-
-I guess it worked for you because support for 'imply' exists in the -next
-tree and gets pulled in from somewhere else.
-
-In any event, as-is I cannot apply this.
+Applied, thanks.
