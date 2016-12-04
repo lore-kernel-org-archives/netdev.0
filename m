@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V2 net 06/20] net/ena: fix NULL dereference when removing the driver after device reset faild
-Date: Sun,  4 Dec 2016 15:19:24 +0200
-Message-ID: <1480857578-5065-7-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V2 net 14/20] net/ena: change condition for host attribute configuration
+Date: Sun,  4 Dec 2016 15:19:32 +0200
+Message-ID: <1480857578-5065-15-git-send-email-netanel@annapurnalabs.com>
 References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -14,43 +14,64 @@ In-Reply-To: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If for some reason the device stop responding and the device reset failed
-to recover the device, the mmio register read datastructure will not be
-reinitialized.
-On driver removal, the driver will also tries to reset the device
-but this time the mmio data structure will be NULL.
+Move the host info config to be the first admin command that is executed.
+This change require the driver to remove the 'feature check'
+from host info configuration flow.
+The check is removed since the supported features bitmask field
+is retrieved only after calling ENA_ADMIN_DEVICE_ATTRIBUTES admin command.
 
-To solve this issue perform the device reset in the remove function only if
-the device is runnig.
+If set host info is not supported an error will be returned by the device.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c    | 8 +++-----
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 5 +++--
+ 2 files changed, 6 insertions(+), 7 deletions(-)
 
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index a550c8a..9deb0dd 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -2474,11 +2474,9 @@ int ena_com_set_host_attributes(struct ena_com_dev *ena_dev)
+ 
+ 	int ret;
+ 
+-	if (!ena_com_check_supported_feature_id(ena_dev,
+-						ENA_ADMIN_HOST_ATTR_CONFIG)) {
+-		pr_warn("Set host attribute isn't supported\n");
+-		return -EPERM;
+-	}
++	/* Host attribute config is called before ena_com_get_dev_attr_feat
++	 * so ena_com can't check if the feature is supported.
++	 */
+ 
+ 	memset(&cmd, 0x0, sizeof(cmd));
+ 	admin_queue = &ena_dev->admin_queue;
 diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 224302c..ad5f78f 100644
+index 7ae1fce..8c1e14b 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2516,6 +2516,8 @@ static void ena_fw_reset_device(struct work_struct *work)
- err:
- 	rtnl_unlock();
+@@ -2426,6 +2426,8 @@ static int ena_device_init(struct ena_com_dev *ena_dev, struct pci_dev *pdev,
+ 	 */
+ 	ena_com_set_admin_polling_mode(ena_dev, true);
  
-+	clear_bit(ENA_FLAG_DEVICE_RUNNING, &adapter->flags);
++	ena_config_host_info(ena_dev);
 +
- 	dev_err(&pdev->dev,
- 		"Reset attempt failed. Can not reset the device\n");
- }
-@@ -3126,7 +3128,9 @@ static void ena_remove(struct pci_dev *pdev)
+ 	/* Get Device Attributes*/
+ 	rc = ena_com_get_dev_attr_feat(ena_dev, get_feat_ctx);
+ 	if (rc) {
+@@ -2450,11 +2452,10 @@ static int ena_device_init(struct ena_com_dev *ena_dev, struct pci_dev *pdev,
  
- 	cancel_work_sync(&adapter->resume_io_task);
+ 	*wd_state = !!(aenq_groups & BIT(ENA_ADMIN_KEEP_ALIVE));
  
--	ena_com_dev_reset(ena_dev);
-+	/* Reset the device only if the device is running. */
-+	if (test_bit(ENA_FLAG_DEVICE_RUNNING, &adapter->flags))
-+		ena_com_dev_reset(ena_dev);
+-	ena_config_host_info(ena_dev);
+-
+ 	return 0;
  
- 	ena_free_mgmnt_irq(adapter);
- 
+ err_admin_init:
++	ena_com_delete_host_info(ena_dev);
+ 	ena_com_admin_destroy(ena_dev);
+ err_mmio_read_less:
+ 	ena_com_mmio_reg_read_request_destroy(ena_dev);
 -- 
 2.7.4
