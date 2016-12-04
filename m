@@ -1,39 +1,38 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 4/6] net/mlx5e: Don't notify HW when filling the edge of ICO SQ
-Date: Sun,  4 Dec 2016 12:56:14 +0200
-Message-ID: <1480848976-6797-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 5/6] net/mlx5e: Don't flush SQ on error
+Date: Sun,  4 Dec 2016 12:56:15 +0200
+Message-ID: <1480848976-6797-6-git-send-email-saeedm@mellanox.com>
 References: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39406 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39408 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751075AbcLDK5F (ORCPT
+        with ESMTP id S1751083AbcLDK5F (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 05:57:05 -0500
 In-Reply-To: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are going to do this a couple of steps ahead anyway.
+We are doing SQ descriptors cleanup in driver.
 
-Fixes: d3c9bc2743dc ("net/mlx5e: Added ICO SQs")
+Fixes: 6e8dd6d6f4bd ("net/mlx5e: Don't wait for SQ completions on close")
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index c6de6fb..e9abb6d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -340,7 +340,7 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
- 	while ((pi = (sq->pc & wq->sz_m1)) > sq->edge) {
- 		sq->db.ico_wqe[pi].opcode = MLX5_OPCODE_NOP;
- 		sq->db.ico_wqe[pi].num_wqebbs = 1;
--		mlx5e_send_nop(sq, true);
-+		mlx5e_send_nop(sq, false);
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 84e8b25..5bf7f86 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1006,7 +1006,6 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
+ 	MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
+ 	MLX5_SET(sqc,  sqc, state,		MLX5_SQC_STATE_RST);
+ 	MLX5_SET(sqc,  sqc, tis_lst_sz, param->type == MLX5E_SQ_ICO ? 0 : 1);
+-	MLX5_SET(sqc,  sqc, flush_in_error_en,	1);
  
- 	wqe = mlx5_wq_cyc_get_wqe(wq, pi);
+ 	MLX5_SET(wq,   wq, wq_type,       MLX5_WQ_TYPE_CYCLIC);
+ 	MLX5_SET(wq,   wq, uar_page,      sq->uar.index);
 -- 
 2.7.4
