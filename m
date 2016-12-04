@@ -1,37 +1,40 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf-next 0/2] IPVS Updates for v4.10
-Date: Sun, 4 Dec 2016 20:46:16 +0100
-Message-ID: <20161204194616.GA4505@salvia>
-References: <1479200503-25842-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1479200503-25842-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/3] net: ethoc: Misc improvements
+Date: Sun,  4 Dec 2016 12:40:27 -0800
+Message-ID: <20161204204030.9853-1-f.fainelli@gmail.com>
+Cc: tremyfr@gmail.com, tklauser@distanz.ch, davem@davemloft.net,
+        thierry.reding@gmail.com, andrew@lunn.ch,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35085 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750917AbcLDUkg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 15:40:36 -0500
+Received: by mail-oi0-f67.google.com with SMTP id v84so33924063oie.2
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 12:40:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 15, 2016 at 10:01:41AM +0100, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider these enhancements to the IPVS for v4.10.
-> 
-> * Decrement the IP ttl in all the modes in order to prevent infinite
->   route loops. Thanks to Dwip Banerjee.
-> * Use IS_ERR_OR_NULL macro. Clean-up from Gao Feng.
-> 
-> 
-> The following changes since commit 7d384846b9987f7b611357adf3cdfecfdcf0c402:
-> 
->   Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next (2016-11-13 22:41:25 -0500)
-> 
-> are available in the git repository at:
-> 
->   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v4.10
+Hi all,
 
-Pulled, thanks Simon.
+This patch series fixes/improves a few things:
+
+- implement a proper PHYLIB adjust_link callback to set the duplex mode
+  accordingly
+- do not open code the fetching of a MAC address in OF/DT environments
+- demote an error message that occurs more frequently than expected in low
+  CPU/memory/bandwidth environments
+
+Tested on a Cirrus Logic EP93xx / TS7300 board.
+
+Florian Fainelli (3):
+  net: ethoc: Account for duplex changes
+  net: ethoc: Utilize of_get_mac_address()
+  net: ethoc: Demote packet dropped error message to debug
+
+ drivers/net/ethernet/ethoc.c | 44 +++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 39 insertions(+), 5 deletions(-)
+
+-- 
+2.9.3
