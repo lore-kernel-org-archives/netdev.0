@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V2 net 04/20] net/ena: fix ethtool RSS flow configuration
-Date: Sun,  4 Dec 2016 15:19:22 +0200
-Message-ID: <1480857578-5065-5-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V2 net 13/20] net/ena: change driver's default timeouts
+Date: Sun,  4 Dec 2016 15:19:31 +0200
+Message-ID: <1480857578-5065-14-git-send-email-netanel@annapurnalabs.com>
 References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -14,48 +14,60 @@ In-Reply-To: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ena_flow_data_to_flow_hash and ena_flow_hash_to_flow_type
-treat the ena_flow_hash_to_flow_type enum as power of two values.
-
-Change the values of ena_admin_flow_hash_fields to be power of two values.
-
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_admin_defs.h | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c    | 4 ++--
+ drivers/net/ethernet/amazon/ena/ena_netdev.h | 7 ++++---
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-index a46e749..f48c886 100644
---- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-@@ -631,22 +631,22 @@ enum ena_admin_flow_hash_proto {
- /* RSS flow hash fields */
- enum ena_admin_flow_hash_fields {
- 	/* Ethernet Dest Addr */
--	ENA_ADMIN_RSS_L2_DA	= 0,
-+	ENA_ADMIN_RSS_L2_DA	= 0x1,
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index 4147d6e..a550c8a 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -36,9 +36,9 @@
+ /*****************************************************************************/
  
- 	/* Ethernet Src Addr */
--	ENA_ADMIN_RSS_L2_SA	= 1,
-+	ENA_ADMIN_RSS_L2_SA	= 0x2,
+ /* Timeout in micro-sec */
+-#define ADMIN_CMD_TIMEOUT_US (1000000)
++#define ADMIN_CMD_TIMEOUT_US (3000000)
  
- 	/* ipv4/6 Dest Addr */
--	ENA_ADMIN_RSS_L3_DA	= 2,
-+	ENA_ADMIN_RSS_L3_DA	= 0x4,
+-#define ENA_ASYNC_QUEUE_DEPTH 4
++#define ENA_ASYNC_QUEUE_DEPTH 16
+ #define ENA_ADMIN_QUEUE_DEPTH 32
  
- 	/* ipv4/6 Src Addr */
--	ENA_ADMIN_RSS_L3_SA	= 5,
-+	ENA_ADMIN_RSS_L3_SA	= 0x8,
+ #define MIN_ENA_VER (((ENA_COMMON_SPEC_VERSION_MAJOR) << \
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index c081fd3..ed42e07 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -39,6 +39,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
++#include <linux/u64_stats_sync.h>
  
- 	/* tcp/udp Dest Port */
--	ENA_ADMIN_RSS_L4_DP	= 6,
-+	ENA_ADMIN_RSS_L4_DP	= 0x10,
+ #include "ena_com.h"
+ #include "ena_eth_com.h"
+@@ -100,7 +101,7 @@
+ /* Number of queues to check for missing queues per timer service */
+ #define ENA_MONITORED_TX_QUEUES	4
+ /* Max timeout packets before device reset */
+-#define MAX_NUM_OF_TIMEOUTED_PACKETS 32
++#define MAX_NUM_OF_TIMEOUTED_PACKETS 128
  
- 	/* tcp/udp Src Port */
--	ENA_ADMIN_RSS_L4_SP	= 7,
-+	ENA_ADMIN_RSS_L4_SP	= 0x20,
- };
+ #define ENA_TX_RING_IDX_NEXT(idx, ring_size) (((idx) + 1) & ((ring_size) - 1))
  
- struct ena_admin_proto_input {
+@@ -116,9 +117,9 @@
+ #define ENA_IO_IRQ_IDX(q)		(ENA_IO_IRQ_FIRST_IDX + (q))
+ 
+ /* ENA device should send keep alive msg every 1 sec.
+- * We wait for 3 sec just to be on the safe side.
++ * We wait for 6 sec just to be on the safe side.
+  */
+-#define ENA_DEVICE_KALIVE_TIMEOUT	(3 * HZ)
++#define ENA_DEVICE_KALIVE_TIMEOUT	(6 * HZ)
+ 
+ #define ENA_MMIO_DISABLE_REG_READ	BIT(0)
+ 
 -- 
 2.7.4
