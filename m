@@ -1,45 +1,56 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 0/6] Mellanox 100G mlx5 fixes 2016-12-04
-Date: Sun,  4 Dec 2016 12:56:10 +0200
-Message-ID: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 2/6] net/mlx5: Remove duplicate pci dev name print
+Date: Sun,  4 Dec 2016 12:56:12 +0200
+Message-ID: <1480848976-6797-3-git-send-email-saeedm@mellanox.com>
+References: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39409 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39410 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751126AbcLDK5F (ORCPT
+        with ESMTP id S1751111AbcLDK5F (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 05:57:05 -0500
+In-Reply-To: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Kamal Heib <kamalh@mellanox.com>
 
-Some bug fixes for mlx5 core and mlx5e driver.
+Remove duplicate pci dev name printing from mlx5_core_warn/dbg.
 
-Thanks,
-Saeed.
+Fixes: 5a7883989b1c ('net/mlx5_core: Improve mlx5 messages')
+Signed-off-by: Kamal Heib <kamalh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Kamal Heib (3):
-  net/mlx5: Verify module parameters
-  net/mlx5: Remove duplicate pci dev name print
-  net/mlx5: Fix query ISSI flow
-
-Mohamad Haj Yahia (1):
-  net/mlx5e: Change the SQ/RQ operational state to positive logic
-
-Saeed Mahameed (2):
-  net/mlx5e: Don't notify HW when filling the edge of ICO SQ
-  net/mlx5e: Don't flush SQ on error
-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |  5 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  4 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 15 ++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  8 ++---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  4 +--
- drivers/net/ethernet/mellanox/mlx5/core/main.c     | 42 +++++++++++++---------
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    | 15 +++++---
- 8 files changed, 53 insertions(+), 42 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 20d16b1..2ce0346 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -47,8 +47,8 @@
+ extern uint mlx5_core_debug_mask;
+ 
+ #define mlx5_core_dbg(__dev, format, ...)				\
+-	dev_dbg(&(__dev)->pdev->dev, "%s:%s:%d:(pid %d): " format,	\
+-		 (__dev)->priv.name, __func__, __LINE__, current->pid,	\
++	dev_dbg(&(__dev)->pdev->dev, "%s:%d:(pid %d): " format,		\
++		 __func__, __LINE__, current->pid,			\
+ 		 ##__VA_ARGS__)
+ 
+ #define mlx5_core_dbg_mask(__dev, mask, format, ...)			\
+@@ -63,8 +63,8 @@ do {									\
+ 	       ##__VA_ARGS__)
+ 
+ #define mlx5_core_warn(__dev, format, ...)				\
+-	dev_warn(&(__dev)->pdev->dev, "%s:%s:%d:(pid %d): " format,	\
+-		(__dev)->priv.name, __func__, __LINE__, current->pid,	\
++	dev_warn(&(__dev)->pdev->dev, "%s:%d:(pid %d): " format,	\
++		 __func__, __LINE__, current->pid,			\
+ 		##__VA_ARGS__)
+ 
+ #define mlx5_core_info(__dev, format, ...)				\
 -- 
 2.7.4
