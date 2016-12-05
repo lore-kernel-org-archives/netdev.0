@@ -1,84 +1,111 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v2 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
- prog
-Date: Mon, 5 Dec 2016 08:35:33 +0100
-Message-ID: <20161205083533.1467e329@redhat.com>
-References: <1480821446-4122277-1-git-send-email-kafai@fb.com>
-        <1480821446-4122277-2-git-send-email-kafai@fb.com>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: RE: [patch net] net: fec: fix compile with CONFIG_M5272
+Date: Mon, 5 Dec 2016 07:31:23 +0000
+Message-ID: <AM4PR0401MB22609781F54C6FC2F0AD22D4FF830@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+References: <1480864677-15310-1-git-send-email-nikita.yoush@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>, brouer@redhat.com
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        "Andrew Lunn" <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55014 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750785AbcLEHfj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Dec 2016 02:35:39 -0500
-In-Reply-To: <1480821446-4122277-2-git-send-email-kafai@fb.com>
+Received: from mail-db5eur01on0048.outbound.protection.outlook.com ([104.47.2.48]:39232
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750855AbcLEHql (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Dec 2016 02:46:41 -0500
+In-Reply-To: <1480864677-15310-1-git-send-email-nikita.yoush@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com> Sent: Sunday, Dec=
+ember 04, 2016 11:18 PM
+ >To: David S. Miller <davem@davemloft.net>; Andy Duan
+ ><fugang.duan@nxp.com>; Troy Kisky <troy.kisky@boundarydevices.com>;
+ >Andrew Lunn <andrew@lunn.ch>; Eric Nelson <eric@nelint.com>; Philippe
+ >Reynes <tremyfr@gmail.com>; Johannes Berg <johannes@sipsolutions.net>;
+ >netdev@vger.kernel.org
+ >Cc: Chris Healy <cphealy@gmail.com>; Fabio Estevam
+ ><fabio.estevam@nxp.com>; linux-kernel@vger.kernel.org; Nikita
+ >Yushchenko <nikita.yoush@cogentembedded.com>
+ >Subject: [patch net] net: fec: fix compile with CONFIG_M5272
+ >
+ >Commit 4dfb80d18d05 ("net: fec: cache statistics while device is down")
+ >introduced unconditional statistics-related actions.
+ >
+ >However, when driver is compiled with CONFIG_M5272, staticsics-related
+ >definitions do not exist, which results into build errors.
+ >
+ >Fix that by adding needed #if !defined(CONFIG_M5272).
+ >
+ >Fixes: 4dfb80d18d05 ("net: fec: cache statistics while device is down")
+ >Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+ >---
+ > drivers/net/ethernet/freescale/fec_main.c | 12 +++++++++---
+ > 1 file changed, 9 insertions(+), 3 deletions(-)
+ >
+ >diff --git a/drivers/net/ethernet/freescale/fec_main.c
+ >b/drivers/net/ethernet/freescale/fec_main.c
+ >index 6a20c24a2003..89e902767abb 100644
+ >--- a/drivers/net/ethernet/freescale/fec_main.c
+ >+++ b/drivers/net/ethernet/freescale/fec_main.c
+ >@@ -2884,7 +2884,9 @@ fec_enet_close(struct net_device *ndev)
+ > 	if (fep->quirks & FEC_QUIRK_ERR006687)
+ > 		imx6q_cpuidle_fec_irqs_unused();
+ >
+ >+#if !defined(CONFIG_M5272)
+ > 	fec_enet_update_ethtool_stats(ndev);
+ >+#endif
+It is better to define fec_enet_update_ethtool_stats()  for CONFIG_M5272 li=
+ke static void fec_enet_update_ethtool_stats(struct net_device *dev){}, or =
+directly return in .fec_enet_update_ethtool_stats():
+@@ -2315,6 +2315,10 @@ static void fec_enet_update_ethtool_stats(struct net=
+_device *dev)
+        struct fec_enet_private *fep =3D netdev_priv(dev);
+        int i;
 
-On Sat, 3 Dec 2016 19:17:23 -0800 Martin KaFai Lau <kafai@fb.com> wrote:
++#if defined(CONFIG_M5272)
++       return;
++#endif
++
+>
+ > 	fec_enet_clk_enable(ndev, false);
+ > 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ >@@ -3192,7 +3194,9 @@ static int fec_enet_init(struct net_device *ndev)
+ >
+ > 	fec_restart(ndev);
+ >
+ >+#if !defined(CONFIG_M5272)
+ > 	fec_enet_update_ethtool_stats(ndev);
+ >+#endif
+ >
+ditto
 
-> This patch allows XDP prog to extend/remove the packet
-> data at the head (like adding or removing header).  It is
-> done by adding a new XDP helper bpf_xdp_adjust_head().
-> 
-> It also renames bpf_helper_changes_skb_data() to
-> bpf_helper_changes_pkt_data() to better reflect
-> that XDP prog does not work on skb.
-> 
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> ---
-[...]
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 56b43587d200..ccef948cf58a 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -2234,7 +2234,34 @@ static const struct bpf_func_proto bpf_skb_change_head_proto = {
->  	.arg3_type	= ARG_ANYTHING,
->  };
->  
-> -bool bpf_helper_changes_skb_data(void *func)
-> +BPF_CALL_2(bpf_xdp_adjust_head, struct xdp_buff *, xdp, int, offset)
-> +{
-> +	/* Both mlx4 and mlx5 driver align each packet to PAGE_SIZE when
-> +	 * XDP prog is set.
-> +	 * If the above is not true for the other drivers to support
-> +	 * bpf_xdp_adjust_head, struct xdp_buff can be extended.
-> +	 */
-> +	unsigned long addr = (unsigned long)xdp->data & PAGE_MASK;
-> +	void *data_hard_start = (void *)addr;
-> +	void *data = xdp->data + offset;
-> +
-> +	if (unlikely(data < data_hard_start || data > xdp->data_end - ETH_HLEN))
-> +		return -EINVAL;
-> +
-> +	xdp->data = data;
-> +
-> +	return 0;
-> +}
-
-Thanks for adjusting this, I like Daniel's suggestion.
-
-For this patch:
-
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
-As it still looks like 3/4 need some adjustments based on Saeed's
-comments.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+ > 	return 0;
+ > }
+ >@@ -3292,9 +3296,11 @@ fec_probe(struct platform_device *pdev)
+ > 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
+ >
+ > 	/* Init network device */
+ >-	ndev =3D alloc_etherdev_mqs(sizeof(struct fec_enet_private) +
+ >-				  ARRAY_SIZE(fec_stats) * sizeof(u64),
+ >-				  num_tx_qs, num_rx_qs);
+ >+	ndev =3D alloc_etherdev_mqs(sizeof(struct fec_enet_private) #if
+ >+!defined(CONFIG_M5272)
+ >+				  + ARRAY_SIZE(fec_stats) * sizeof(u64)
+ >#endif
+ >+				  , num_tx_qs, num_rx_qs);
+ > 	if (!ndev)
+ > 		return -ENOMEM;
+ >
+ >--
+ >2.1.4
