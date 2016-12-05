@@ -1,64 +1,97 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 07/18] RDS: RDMA: return appropriate error on rdma map failures
-Date: Sun,  4 Dec 2016 22:57:42 -0800
-Message-ID: <1480921073-9140-8-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 14/18] RDS: IB: fix panic due to handlers running post teardown
+Date: Sun,  4 Dec 2016 22:57:49 -0800
+Message-ID: <1480921073-9140-15-git-send-email-santosh.shilimkar@oracle.com>
 References: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
         Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29281 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751520AbcLEG6J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:58:09 -0500
+Received: from aserp1040.oracle.com ([141.146.126.69]:25685 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751644AbcLEG6N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:58:13 -0500
 In-Reply-To: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first message to a remote node should prompt a new
-connection even if it is RDMA operation. For RDMA operation
-the MR mapping can fail because connections is not yet up.
+Shutdown code reaping loop takes care of emptying the
+CQ's before they being destroyed. And once tasklets are
+killed, the hanlders are not expected to run.
 
-Since the connection establishment is asynchronous,
-we make sure the map failure because of unavailable
-connection reach to the user by appropriate error code.
-Before returning to the user, lets trigger the connection
-so that its ready for the next retry.
+But because of core tasklet code issues, tasklet handler could
+still run even after tasklet_kill,
+RDS IB shutdown code already reaps the CQs before freeing
+cq/qp resources so as such the handlers have nothing left
+to do post shutdown.
 
+On other hand any handler running after teardown and trying
+to access already freed qp/cq resources causes issues
+Patch fixes this race by  makes sure that handlers returns
+without any action post teardown.
+
+Reviewed-by: Wengang <wen.gang.wang@oracle.com>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/send.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ net/rds/ib.h    |  1 +
+ net/rds/ib_cm.c | 12 ++++++++++++
+ 2 files changed, 13 insertions(+)
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index bb13c56..0a6f38b 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -945,6 +945,11 @@ static int rds_cmsg_send(struct rds_sock *rs, struct rds_message *rm,
- 			ret = rds_cmsg_rdma_map(rs, rm, cmsg);
- 			if (!ret)
- 				*allocated_mr = 1;
-+			else if (ret == -ENODEV)
-+				/* Accommodate the get_mr() case which can fail
-+				 * if connection isn't established yet.
-+				 */
-+				ret = -EAGAIN;
- 			break;
- 		case RDS_CMSG_ATOMIC_CSWP:
- 		case RDS_CMSG_ATOMIC_FADD:
-@@ -1082,8 +1087,12 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index 4b133b8..8efd1eb 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -185,6 +185,7 @@ struct rds_ib_connection {
  
- 	/* Parse any control messages the user may have included. */
- 	ret = rds_cmsg_send(rs, rm, msg, &allocated_mr);
--	if (ret)
-+	if (ret) {
-+		/* Trigger connection so that its ready for the next retry */
-+		if (ret ==  -EAGAIN)
-+			rds_conn_connect_if_down(conn);
- 		goto out;
-+	}
+ 	/* Endpoint role in connection */
+ 	int			i_active_side;
++	atomic_t		i_cq_quiesce;
  
- 	if (rm->rdma.op_active && !conn->c_trans->xmit_rdma) {
- 		printk_ratelimited(KERN_NOTICE "rdma_op %p conn xmit_rdma %p\n",
+ 	/* Send/Recv vectors */
+ 	int			i_scq_vector;
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 33c8584..ce3775a 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -128,6 +128,8 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
+ 			  ic->i_flowctl ? ", flow control" : "");
+ 	}
+ 
++	atomic_set(&ic->i_cq_quiesce, 0);
++
+ 	/* Init rings and fill recv. this needs to wait until protocol
+ 	 * negotiation is complete, since ring layout is different
+ 	 * from 3.1 to 4.1.
+@@ -267,6 +269,10 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
+ 
+ 	rds_ib_stats_inc(s_ib_tasklet_call);
+ 
++	/* if cq has been already reaped, ignore incoming cq event */
++	if (atomic_read(&ic->i_cq_quiesce))
++		return;
++
+ 	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
+ 	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
+ 	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
+@@ -308,6 +314,10 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
+ 
+ 	rds_ib_stats_inc(s_ib_tasklet_call);
+ 
++	/* if cq has been already reaped, ignore incoming cq event */
++	if (atomic_read(&ic->i_cq_quiesce))
++		return;
++
+ 	memset(&state, 0, sizeof(state));
+ 	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
+ 	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
+@@ -804,6 +814,8 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
+ 		tasklet_kill(&ic->i_send_tasklet);
+ 		tasklet_kill(&ic->i_recv_tasklet);
+ 
++		atomic_set(&ic->i_cq_quiesce, 1);
++
+ 		/* first destroy the ib state that generates callbacks */
+ 		if (ic->i_cm_id->qp)
+ 			rdma_destroy_qp(ic->i_cm_id);
 -- 
 1.9.1
