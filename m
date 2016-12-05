@@ -1,55 +1,49 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v1 net-next 1/5] net: dsa: mv88e6xxx: Reserved Management frames to CPU
-Date: Sun, 04 Dec 2016 19:23:45 -0500
-Message-ID: <87inqzcjfy.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1480736720-12608-1-git-send-email-andrew@lunn.ch> <1480736720-12608-2-git-send-email-andrew@lunn.ch> <87y3zvcvhm.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me> <20161204202234.GA20743@lunn.ch> <87oa0r9wei.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me> <20161204224054.GA24118@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/4] mlx4: xdp: Allow raising MTU up to one
+ page minus eth and vlan hdrs
+Date: Sun, 04 Dec 2016 16:52:54 -0800
+Message-ID: <1480899174.18162.493.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
+         <1480721013-1047541-3-git-send-email-kafai@fb.com>
+         <1480725480.18162.394.camel@edumazet-glaptop3.roam.corp.google.com>
+         <58421775.6090905@fb.com>
+         <CALzJLG_82MNOyuq+y63tR2SDmKo3ZQA5XAgT1_r15B8_V19xKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@fb.com>, Martin KaFai Lau <kafai@fb.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:44754 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751070AbcLEAYs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 19:24:48 -0500
-In-Reply-To: <20161204224054.GA24118@lunn.ch>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33436 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751070AbcLEAw6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 19:52:58 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so14640762pgd.0
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 16:52:58 -0800 (PST)
+In-Reply-To: <CALzJLG_82MNOyuq+y63tR2SDmKo3ZQA5XAgT1_r15B8_V19xKg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Mon, 2016-12-05 at 01:31 +0200, Saeed Mahameed wrote:
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> Alexei, we should start considering PPC archs for XDP use cases,
+> demanding page per packet on those archs is a little bit heavy
+> requirement
 
->> You can have several implementations in the same file (e.g. global1.c),
->> so again the only value is the function name, not the struct member.
->
-> The structure member have g1_ has a lot of value.
->
->         if (chip->info->ops->set_cpu_port) {
->                 err = chip->info->ops->set_cpu_port(chip, upstream_port);
->                 if (err)
->                         return err;
->         }
->
-> Where to i need to go look for set_cpu_port? I have no idea.
+Well, 'little' is an understatement ;)
 
-In your chip's ops definition, as for any ops structure. Same as for
-your example right below which is unfortunately not a solution per-se.
+Note that PPC had serious problems before  commit bd68a2a854ad5a85f0
+("net: set SK_MEM_QUANTUM to 4096")
 
->
->         if (chip->info->ops->g1_set_cpu_port) {
->                 err = chip->info->ops->g1_set_cpu_port(chip, upstream_port);
->                 if (err)
->                         return err;
->         }
->
-> Humm, the hint tells me it is in global1.c. And i also know that all
-> of them are in global1.c.
+So I suspect one page per frame will likely be a huge problem
+for hosts dealing with 10^5 or more TCP sockets.
 
-Until a new chip relocates a feature somewhere else.
-
-Then you'll have to rename the structure member(s) because you have a
-policy saying "no prefix means different set of registers".
-
-
-       Vivien
+Either skb->truesize is set to 64KB and TCP window must be really tiny,
+or skb->truesize is set to ~2KB and OOM is waiting to happen.
