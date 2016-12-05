@@ -1,134 +1,65 @@
-From: maowenan <maowenan@huawei.com>
-Subject: Re: [PATCH] net:phy fix driver reference count error when attach and
- detach phy device
-Date: Mon, 5 Dec 2016 16:47:54 +0800
-Message-ID: <0cef0798-7b0d-734d-17a3-bebffe6206c7@huawei.com>
-References: <1480501378-10172-1-git-send-email-maowenan@huawei.com>
- <063D6719AE5E284EB5DD2968C1650D6DB0232613@AcuExch.aculab.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [RFC PATCH 2/2] Documentation: devictree: Add macb mdio bindings
+Date: Mon, 5 Dec 2016 11:23:25 +0100
+Message-ID: <b29b10b5-e31f-6fa2-c27d-583402eee84d@atmel.com>
+References: <1480326567-6132-1-git-send-email-harinik@xilinx.com>
+ <20161203213553.f3agwvaseufglnq6@rob-hp-laptop>
+ <CAFcVECJRbgAxQMbu7jABHjkiicD1Ysp7WmDMoUzs2P5qn26uqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "dingtianhong@huawei.com" <dingtianhong@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:52201 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751204AbcLEIyC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 03:54:02 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0232613@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Harini Katakam <harini.katakam@xilinx.com>,
+        David Miller <davem@davemloft.net>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+        Kumar Gala <galak@codeaurora.org>,
+        "Boris Brezillon" <boris.brezillon@free-electrons.com>,
+        <alexandre.belloni@free-electrons.com>, <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        "michals@xilinx.com" <michals@xilinx.com>
+To: Harini Katakam <harinikatakamlinux@gmail.com>,
+        Rob Herring <robh@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFcVECJRbgAxQMbu7jABHjkiicD1Ysp7WmDMoUzs2P5qn26uqw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 2016/12/2 17:45, David Laight wrote:
-> From: Mao Wenan
->> Sent: 30 November 2016 10:23
->> The nic in my board use the phy dev from marvell, and the system will
->> load the marvell phy driver automatically, but when I remove the phy
->> drivers, the system immediately panic:
->> Call trace:
->> [ 2582.834493] [<ffff800000715384>] phy_state_machine+0x3c/0x438 [
->> 2582.851754] [<ffff8000000db3b8>] process_one_work+0x150/0x428 [
->> 2582.868188] [<ffff8000000db7d4>] worker_thread+0x144/0x4b0 [
->> 2582.883882] [<ffff8000000e1d0c>] kthread+0xfc/0x110
->>
->> there should be proper reference counting in place to avoid that.
->> I found that phy_attach_direct() forgets to add phy device driver
->> reference count, and phy_detach() forgets to subtract reference count.
->> This patch is to fix this bug, after that panic is disappeared when remove
->> marvell.ko
->>
->> Signed-off-by: Mao Wenan <maowenan@huawei.com>
->> ---
->>  drivers/net/phy/phy_device.c | 7 +++++++
->>  1 file changed, 7 insertions(+)
->>
->> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
->> index 1a4bf8a..a7ec7c2 100644
->> --- a/drivers/net/phy/phy_device.c
->> +++ b/drivers/net/phy/phy_device.c
->> @@ -866,6 +866,11 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->>  		return -EIO;
->>  	}
->>
->> +	if (!try_module_get(d->driver->owner)) {
->> +		dev_err(&dev->dev, "failed to get the device driver module\n");
->> +		return -EIO;
->> +	}
+Le 05/12/2016 à 03:55, Harini Katakam a écrit :
+> Hi Rob,
 > 
-> If this is the phy code, what stops the phy driver being unloaded
-> before the try_module_get() obtains a reference.
-> If it isn't the phy driver then there ought to be a reference count obtained
-> when the phy driver is located (by whatever decides which phy driver to use).
-> Even if that code later releases its reference (it probably shouldn't on success)
-> then you can't fail to get an extra reference here.
-
-[Mao Wenan]Yes, this is phy code, in function phy_attach_direct(), drivers/net/phy/phy_device.c.
-when one NIC driver to do probe behavior, it will attach one matched phy driver. phy_attach_direct()
-is to obtain phy driver reference and bind phy driver, if try_module_get() execute on success, the reference
-count is added; if failed, the driver can't be attached to this NIC, and it can't added the phy driver
-reference count. So before try_module_get obtains a reference, phy driver can't can't be bound to this NIC.
-when the phy driver is attached to NIC, the reference count is added, if someone remove phy driver directly,
-it will be failed because reference count is not equal to 0.
-
-An example of call trace when there is NIC driver to attch one phy driver:
-hns_nic_dev_probe->hns_nic_try_get_ae->hns_nic_init_phy->of_phy_connect->phy_connect_direct->phy_attach_direct
-
-Consider the steps of phy driver(marvell.ko) added and removed, and NIC driver(hns_enet_drv.ko) added and removed:
-1)insmod marvell       ref=0
-2)insmod hns_enet_drv  ref=1
-3)rmmod marvell        (should not on success, ref=1)
-4)rmmod hns_enet_drv   ref=0
-5)rmmod marvell        (should on success, because ref=0)
-
-if we don't add the reference count in phy_attach_direct(the second step ref=0), so the third step rmmod marvell will
-be panic, because there is one user remain use marvell driver and phy_stat_machine use the NULL drv pointer.
-
 > 
->> +
->>  	get_device(d);
+> Thanks for the review.
+> On Sun, Dec 4, 2016 at 3:05 AM, Rob Herring <robh@kernel.org> wrote:
+>> On Mon, Nov 28, 2016 at 03:19:27PM +0530, Harini Katakam wrote:
+> <snip>
+>>> +Required properties:
+>>> +- compatible: Should be "cdns,macb-mdio"
 >>
->>  	/* Assume that if there is no driver, that it doesn't
->> @@ -921,6 +926,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->>
->>  error:
->>  	put_device(d);
->> +	module_put(d->driver->owner);
-> 
-> Are those two in the wrong order ?
-> 
->>  	module_put(bus->owner);
->>  	return err;
->>  }
->> @@ -998,6 +1004,7 @@ void phy_detach(struct phy_device *phydev)
->>  	bus = phydev->mdio.bus;
->>
->>  	put_device(&phydev->mdio.dev);
->> +	module_put(phydev->mdio.dev.driver->owner);
->>  	module_put(bus->owner);
-> 
-> Where is this code called from?
-> You can't call it from the phy driver because the driver can be unloaded
-> as soon as the last reference is removed.
-> At that point the code memory is freed.
-
-[Mao Wenan] it is called by NIC when it is removed, which aims to disconnect one bound phy driver. If this phy driver
-is not used for this NIC, reference count should be subtracted, and phy driver can be removed if there is no user.
-hns_nic_dev_remove->phy_disconnect->phy_detach
-
-
-
-> 
->>  }
->>  EXPORT_SYMBOL(phy_detach);
->> --
->> 2.7.0
+>> Only one version ever? This needs more specific compatible strings.
 >>
 > 
+> This is part of the Cadence MAC in a way.
+> I can use revision number from the Cadence spec I was working with.
+> But it is not necessarily specific that version.
+
+Yes it is:
+you must specify the first precise SoC needing/implementing it:
+"cdns,zynqmp-gem-mdio" or "xlnx,zynq-gem-mdio" or anything looking like
+this.
+So, if an Atmel implementation is slightly different, we can still use
+our own "atmel,sama5d2-gem-mdio" or "cdns,sama5d2-gem-mdio"
+compatibility string.
+On the other hand, if it's strictly the same, we can use the
+"xlnx,zynq-gem-mdio" compatibility without any problem...
+
+> I'll take care of the other comments in the next version.
 > 
-> .
+> Regards,
+> Harini
 > 
+
+
+-- 
+Nicolas Ferre
