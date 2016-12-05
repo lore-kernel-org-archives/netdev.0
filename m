@@ -1,54 +1,54 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] net: ethernet: ti: cpdma: use desc_read in chan_process
- instead of raw read
-Date: Mon, 5 Dec 2016 12:47:16 -0600
-Message-ID: <ed16f5d1-8e5b-470f-1566-4129eef47ee1@ti.com>
-References: <1480730715-16000-1-git-send-email-ivan.khoronzhuk@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf: Preserve const register type on const OR
+ alu ops
+Date: Mon, 05 Dec 2016 13:41:08 -0500 (EST)
+Message-ID: <20161205.134108.1458706052974202517.davem@davemloft.net>
+References: <1480797093-1050393-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>, <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480730715-16000-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: daniel@iogearbox.net, g.borello@gmail.com, netdev@vger.kernel.org
+To: ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48000 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751064AbcLESuy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:50:54 -0500
+In-Reply-To: <1480797093-1050393-1-git-send-email-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Alexei Starovoitov <ast@fb.com>
+Date: Sat, 3 Dec 2016 12:31:33 -0800
 
+> From: Gianluca Borello <g.borello@gmail.com>
+> 
+> Occasionally, clang (e.g. version 3.8.1) translates a sum between two
+> constant operands using a BPF_OR instead of a BPF_ADD. The verifier is
+> currently not handling this scenario, and the destination register type
+> becomes UNKNOWN_VALUE even if it's still storing a constant. As a result,
+> the destination register cannot be used as argument to a helper function
+> expecting a ARG_CONST_STACK_*, limiting some use cases.
+> 
+> Modify the verifier to handle this case, and add a few tests to make sure
+> all combinations are supported, and stack boundaries are still verified
+> even with BPF_OR.
+> 
+> Signed-off-by: Gianluca Borello <g.borello@gmail.com>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-On 12/02/2016 08:05 PM, Ivan Khoronzhuk wrote:
-> There is desc_read() macros to read desc fields, so no need to
-> use __raw_readl();
->
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Applied, but...
 
+> diff --git a/tools/testing/selftests/bpf/.gitignore b/tools/testing/selftests/bpf/.gitignore
+> index 3c59f96e3ed8..071431bedde8 100644
+> --- a/tools/testing/selftests/bpf/.gitignore
+> +++ b/tools/testing/selftests/bpf/.gitignore
+> @@ -1,2 +1,3 @@
+>  test_verifier
+>  test_maps
+> +test_lru_map
 
-I'm going to update it all at once as part of [1].
+This had nothing to do with this change, nor was it mentioned in the
+commit message.
 
-[1] https://lkml.org/lkml/2016/12/1/781
-
-> ---
-> Based on net-next/master
->
->  drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index c776e45..d96dca5 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -1132,7 +1132,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
->  	}
->  	desc_dma = desc_phys(pool, desc);
->
-> -	status	= __raw_readl(&desc->hw_mode);
-> +	status = desc_read(desc, hw_mode);
->  	outlen	= status & 0x7ff;
->  	if (status & CPDMA_DESC_OWNER) {
->  		chan->stats.busy_dequeue++;
->
-
--- 
-regards,
--grygorii
+Please do not do this in the future.
