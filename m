@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 10/18] RDS: IB: track and log active side endpoint in connection
-Date: Sun,  4 Dec 2016 22:57:45 -0800
-Message-ID: <1480921073-9140-11-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 15/18] RDS: add stat for socket recv memory usage
+Date: Sun,  4 Dec 2016 22:57:50 -0800
+Message-ID: <1480921073-9140-16-git-send-email-santosh.shilimkar@oracle.com>
 References: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
         Santosh Shilimkar <santosh.shilimkar@oracle.com>
@@ -11,70 +11,45 @@ In-Reply-To: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Useful to know the active and passive end points in a
-RDS IB connection.
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 
+Tracks the receive side memory added to scokets and removed from sockets.
+
+Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h    |  3 +++
- net/rds/ib_cm.c | 11 +++++++----
- 2 files changed, 10 insertions(+), 4 deletions(-)
+ net/rds/rds.h  | 3 +++
+ net/rds/recv.c | 4 ++++
+ 2 files changed, 7 insertions(+)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index f14c26d..97e7696 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -181,6 +181,9 @@ struct rds_ib_connection {
- 
- 	/* Batched completions */
- 	unsigned int		i_unsignaled_wrs;
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 0bb8213..8ccd5a9 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -631,6 +631,9 @@ struct rds_statistics {
+ 	uint64_t	s_cong_update_received;
+ 	uint64_t	s_cong_send_error;
+ 	uint64_t	s_cong_send_blocked;
++	uint64_t	s_recv_bytes_added_to_socket;
++	uint64_t	s_recv_bytes_removed_from_socket;
 +
-+	/* Endpoint role in connection */
-+	int			i_active_side;
  };
  
- /* This assumes that atomic_t is at least 32 bits */
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 3002acf..4d1bf04 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -120,16 +120,17 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
- 		rds_conn_destroy(conn);
+ /* af_rds.c */
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index 9d0666e..ba19eee 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -94,6 +94,10 @@ static void rds_recv_rcvbuf_delta(struct rds_sock *rs, struct sock *sk,
  		return;
- 	} else {
--		pr_notice("RDS/IB: connected <%pI4,%pI4> version %u.%u%s\n",
-+		pr_notice("RDS/IB: %s conn connected <%pI4,%pI4> version %u.%u%s\n",
-+			  ic->i_active_side ? "Active" : "Passive",
- 			  &conn->c_laddr, &conn->c_faddr,
- 			  RDS_PROTOCOL_MAJOR(conn->c_version),
- 			  RDS_PROTOCOL_MINOR(conn->c_version),
- 			  ic->i_flowctl ? ", flow control" : "");
- 	}
  
--	/*
--	 * Init rings and fill recv. this needs to wait until protocol negotiation
--	 * is complete, since ring layout is different from 3.0 to 3.1.
-+	/* Init rings and fill recv. this needs to wait until protocol
-+	 * negotiation is complete, since ring layout is different
-+	 * from 3.1 to 4.1.
- 	 */
- 	rds_ib_send_init_ring(ic);
- 	rds_ib_recv_init_ring(ic);
-@@ -685,6 +686,7 @@ int rds_ib_cm_initiate_connect(struct rdma_cm_id *cm_id)
- 		if (ic->i_cm_id == cm_id)
- 			ret = 0;
- 	}
-+	ic->i_active_side = true;
- 	return ret;
- }
+ 	rs->rs_rcv_bytes += delta;
++	if (delta > 0)
++		rds_stats_add(s_recv_bytes_added_to_socket, delta);
++	else
++		rds_stats_add(s_recv_bytes_removed_from_socket, -delta);
+ 	now_congested = rs->rs_rcv_bytes > rds_sk_rcvbuf(rs);
  
-@@ -859,6 +861,7 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
- 	ic->i_sends = NULL;
- 	vfree(ic->i_recvs);
- 	ic->i_recvs = NULL;
-+	ic->i_active_side = false;
- }
- 
- int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
+ 	rdsdebug("rs %p (%pI4:%u) recv bytes %d buf %d "
 -- 
 1.9.1
