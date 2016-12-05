@@ -1,32 +1,38 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: stmmac DT property snps,axi_all
-Date: Mon, 5 Dec 2016 17:18:33 +0100
-Message-ID: <51f8249e-bdb9-e3a7-5d82-7ac869316f0e@axis.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH 1/1] net: usb: set error code when usb_alloc_urb fails
+Date: Mon, 5 Dec 2016 16:20:27 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40976FA4@CHN-SV-EXMX02.mchp-main.com>
+References: <1480764288-5448-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bes.se.axis.com ([195.60.68.10]:59005 "EHLO bes.se.axis.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751845AbcLEQSf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Dec 2016 11:18:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>
+To: <bianpan2016@163.com>, <UNGLinuxDriver@microchip.com>,
+        <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480764288-5448-1-git-send-email-bianpan2016@163.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Giuseppe
-
-
-I'm trying to figure out what snps,axi_all is supposed to represent.
-
-It appears that the value is saved, but never used in the code.
-
-Looking at the register specification, I'm guessing that it represents
-Address-Aligned Beats, but there is already the property snps,aal
-for that.
-
-
-Regards,
-Niklas
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
+> ---
+>  drivers/net/usb/lan78xx.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+> index db558b8..f33460c 100644
+> --- a/drivers/net/usb/lan78xx.c
+> +++ b/drivers/net/usb/lan78xx.c
+> @@ -3395,6 +3395,7 @@ static int lan78xx_probe(struct usb_interface *intf,
+>  	if (buf) {
+>  		dev->urb_intr = usb_alloc_urb(0, GFP_KERNEL);
+>  		if (!dev->urb_intr) {
+> +			ret = -ENOMEM;
+>  			kfree(buf);
+>  			goto out3;
+>  		} else {
+> --
+> 1.9.1
+> 
+Acked-by: Woojung Huh <woojung.huh@microchip.com>
