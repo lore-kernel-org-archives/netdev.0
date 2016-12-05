@@ -1,72 +1,103 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH nf-next] netfilter: xt_bpf: support ebpf
-Date: Mon, 5 Dec 2016 18:51:44 -0500
-Message-ID: <CAF=yD-J-vcQQ_-48xG8qhMuYvLvucCr7SG99rsfJA5-okvhHzA@mail.gmail.com>
-References: <1480969684-74414-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <1480972006.18162.559.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161205213001.GA16819@breakpoint.cc> <20161205223415.GA14689@salvia>
- <20161205230055.GA15379@salvia> <CAF=yD-Jk4W+zU=tdixWe3LPGcFp-sANxXLLoQTRvrkN_3=a9uw@mail.gmail.com>
- <20161205232214.GA15825@salvia> <CA+FuTSfHryyqBhRyfQCChG2VPwpj1KYBk2Z7DZ-dcYL-FbbSeA@mail.gmail.com>
+From: Laura Abbott <labbott@redhat.com>
+Subject: Oops with CONFIG_VMAP_STCK and bond device + virtio-net
+Date: Mon, 5 Dec 2016 15:53:25 -0800
+Message-ID: <bd4c37d9-9724-4c2a-8f0f-45b86fb5cb7f@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        netfilter-devel <netfilter-devel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CA+FuTSfHryyqBhRyfQCChG2VPwpj1KYBk2Z7DZ-dcYL-FbbSeA@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: zbyszek@in.waw.pl, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 5, 2016 at 6:29 PM, Willem de Bruijn <willemb@google.com> wrote:
-> On Mon, Dec 5, 2016 at 6:22 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->> On Mon, Dec 05, 2016 at 06:06:05PM -0500, Willem de Bruijn wrote:
->> [...]
->>> Eric also suggests a private variable to avoid being subject to
->>> changes to PATH_MAX. Then we can indeed also choose an arbitrary lower
->>> length than current PATH_MAX.
->>
->> Good.
->>
->>> FWIW, there is a workaround for users with deeply nested paths: the
->>> path passed does not have to be absolute. It is literally what is
->>> passed on the command line to iptables right now, including relative
->>> addresses.
->>
->> If iptables userspace always expects to have the bpf file repository
->> in some given location (suggesting to have a directory that we specify
->> at ./configure time, similar to what we do with connlabel.conf), then
->> I think we can rely on relative paths. Would this be flexible enough
->> for your usecase?
->
-> As long as it accepts relative paths, I think it will always work.
-> Worst case, a user has to cd. No need for hardcoding the bpf mount
-> point at compile time.
->
-> I have the matching iptables patch for pinned objects, btw. Not for
-> elf objects, which requires linking to libelf and parsing the object,
-> which is more work (and perhaps best punted on by expanding libbpf in
-> bcc to include this functionality. it already exists under samples/bpf
-> and iproute2).
+Hi,
 
-While we're discussing the patch, another question, about revisions: I
-tested both modified and original iptables binaries on both standard
-and modified kernels. It all works as expected, except for the case
-where both binaries are used on a single kernel. For instance:
+Fedora got a bug report https://bugzilla.redhat.com/show_bug.cgi?id=1401612
+In qemu with two virtio-net interfaces:
 
-  iptables -A OUTPUT -m bpf --bytecode "`./nfbpf_compile RAW 'udp port
-8000'`" -j LOG
-  ./iptables.new -L
+$ ip l
+...
+5: ens14: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:e9:64:41 brd ff:ff:ff:ff:ff:ff
+6: ens15: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:e9:64:42 brd ff:ff:ff:ff:ff:ff
 
-Here the new binary will interpret the object as xt_bpf_match_v1, but
-iptables has inserted xt_bpf_match. The same problem happens the other
-way around. A new binary can be made robust to detect old structs, but
-not the other way around. Specific to bpf, the existing xt_bpf code
-has an unfortunate bug that it always prints at least one line of
-code, even if ->bpf_program_num_elems == 0.
+$ sudo ip link add bond1 type bond
+$ sudo ip link set ens14 master bond1
+Segmentation fault
 
-I notice that other extensions also do not necessarily only extend
-struct vN in vN+1. Is the above a known issue?
+ ------------[ cut here ]------------
+ kernel BUG at ./include/linux/scatterlist.h:140!
+ invalid opcode: 0000 [#1] SMP
+ Modules linked in: bonding ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 xt_conntrack ip
+  ata_generic crc32c_intel qxl drm_kms_helper virtio_pci serio_raw ttm drm pata_acpi
+ CPU: 5 PID: 1983 Comm: ip Not tainted 4.9.0-0.rc6.git2.1.fc26.x86_64 #1
+ Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 0.0.0 02/06/2015
+ task: ffff9d50a3583240 task.stack: ffffb06e41040000
+ RIP: 0010:[<ffffffffbc4896fc>]  [<ffffffffbc4896fc>] sg_init_one+0x8c/0xa0
+ RSP: 0018:ffffb06e41043698  EFLAGS: 00010246
+ RAX: 0000000000000000 RBX: ffffb06e41043774 RCX: 0000000000000028
+ RDX: 0000131ec1043774 RSI: 0000000000000013 RDI: ffffb06ec1043774
+ RBP: ffffb06e410436b0 R08: 00000000001ddbe0 R09: ffffb06e410436c8
+ R10: 0000000000000001 R11: 0000000000000000 R12: 0000000000000006
+ R13: ffffb06e410436c8 R14: ffff9d50b2dc1800 R15: ffff9d50b3db9600
+ FS:  00007f15347e5700(0000) GS:ffff9d50bb000000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ CR2: 00007ffc09bc4000 CR3: 0000000135797000 CR4: 00000000000406e0
+ Stack:
+  ffff9d50b229d000 0000000000000000 ffffb06e41043772 ffffb06e41043720
+  ffffffffc0051123 ffff9d50a3583240 0000000087654321 0000000000000002
+  0000000000000000 0000000000000000 0000000000000000 000000007b8f5301
+ Call Trace:
+  [<ffffffffc0051123>] virtnet_set_mac_address+0xb3/0x140 [virtio_net]
+  [<ffffffffbc7ae305>] dev_set_mac_address+0x55/0xc0
+  [<ffffffffc03f319e>] bond_enslave+0x34e/0x1180 [bonding]
+  [<ffffffffbc7ca22f>] do_setlink+0x6cf/0xd10
+  [<ffffffffbc20dd6a>] ? get_page_from_freelist+0x6ba/0xca0
+  [<ffffffffbc037de9>] ? sched_clock+0x9/0x10
+  [<ffffffffbc068475>] ? kvm_sched_clock_read+0x25/0x40
+  [<ffffffffbc111ed6>] ? __lock_acquire+0x346/0x1290
+  [<ffffffffbc4aa436>] ? nla_parse+0xa6/0x120
+  [<ffffffffbc7ce9e8>] rtnl_newlink+0x5c8/0x870
+  [<ffffffffbc3ecb32>] ? avc_has_perm_noaudit+0x32/0x210
+  [<ffffffffbc0bbfca>] ? ns_capable_common+0x7a/0x90
+  [<ffffffffbc0bbff3>] ? ns_capable+0x13/0x20
+  [<ffffffffbc7ced76>] rtnetlink_rcv_msg+0xe6/0x210
+  [<ffffffffbc7c951b>] ? rtnetlink_rcv+0x1b/0x40
+  [<ffffffffbc7c951b>] ? rtnetlink_rcv+0x1b/0x40
+  [<ffffffffbc7cec90>] ? rtnl_newlink+0x870/0x870
+  [<ffffffffbc7f7394>] netlink_rcv_skb+0xa4/0xc0
+  [<ffffffffbc7c952a>] rtnetlink_rcv+0x2a/0x40
+  [<ffffffffbc7f6d07>] netlink_unicast+0x1f7/0x2f0
+  [<ffffffffbc7f6c7f>] ? netlink_unicast+0x16f/0x2f0
+  [<ffffffffbc7f7102>] netlink_sendmsg+0x302/0x3c0
+  [<ffffffffbc790c28>] sock_sendmsg+0x38/0x50
+  [<ffffffffbc791773>] ___sys_sendmsg+0x2e3/0x2f0
+  [<ffffffffbc18830d>] ? __audit_syscall_entry+0xad/0xf0
+  [<ffffffffbc068475>] ? kvm_sched_clock_read+0x25/0x40
+  [<ffffffffbc037de9>] ? sched_clock+0x9/0x10
+  [<ffffffffbc18830d>] ? __audit_syscall_entry+0xad/0xf0
+  [<ffffffffbc18830d>] ? __audit_syscall_entry+0xad/0xf0
+  [<ffffffffbc111775>] ? trace_hardirqs_on_caller+0xf5/0x1b0
+  [<ffffffffbc7924b4>] __sys_sendmsg+0x54/0x90
+  [<ffffffffbc792502>] SyS_sendmsg+0x12/0x20
+  [<ffffffffbc003eec>] do_syscall_64+0x6c/0x1f0
+  [<ffffffffbc917589>] entry_SYSCALL64_slow_path+0x25/0x25
+ Code: ca 75 2c 49 8b 55 08 f6 c2 01 75 25 83 e2 03 81 e3 ff 0f 00 00 45 89 65 14 48
+ RIP  [<ffffffffbc4896fc>] sg_init_one+0x8c/0xa0
+  RSP <ffffb06e41043698>
+ ---[ end trace 9076d2284efbf735 ]---
+
+This looks like an issue with CONFIG_VMAP_STACK since bond_enslave uses
+struct sockaddr from the stack and virtnet_set_mac_address calls
+sg_init_one which triggers BUG_ON(!virt_addr_valid(buf));
+
+I know there have been a lot of CONFIG_VMAP_STACK fixes around but I
+didn't find this one reported yet.
+
+Thanks,
+Laura
