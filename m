@@ -1,173 +1,64 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] bpf: add additional verifier tests for BPF_PROG_TYPE_LWT_*
-Date: Mon,  5 Dec 2016 10:30:52 +0100
-Message-ID: <ad522c194cdc9b37a50ce087453586128e954321.1480926086.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com
-To: davem@davemloft.net
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next][PATCH 02/18] RDS: mark few internal functions static
+ to make sparse build happy
+Date: Mon, 5 Dec 2016 12:45:29 +0300
+Message-ID: <604d4954-7302-018e-6f9b-71c0aea6509e@cogentembedded.com>
+References: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1480921073-9140-3-git-send-email-santosh.shilimkar@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
+        netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:33384 "EHLO
-        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751592AbcLEJa7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 04:30:59 -0500
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37265 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751817AbcLEJpc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 04:45:32 -0500
+Received: by mail-wm0-f51.google.com with SMTP id t79so83426401wmt.0
+        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 01:45:31 -0800 (PST)
+In-Reply-To: <1480921073-9140-3-git-send-email-santosh.shilimkar@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- - direct packet read is allowed for LWT_*
- - direct packet write for LWT_IN/LWT_OUT is prohibited
- - direct packet write for LWT_XMIT is allowed
- - access to skb->tc_classid is prohibited for LWT_*
+Hello!
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- tools/testing/selftests/bpf/test_verifier.c | 134 ++++++++++++++++++++++++++++
- 1 file changed, 134 insertions(+)
+On 12/5/2016 9:57 AM, Santosh Shilimkar wrote:
 
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 5da2e9d..47f70a6 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -2683,6 +2683,140 @@ static struct bpf_test tests[] = {
- 		.errstr_unpriv = "R0 pointer arithmetic prohibited",
- 		.result_unpriv = REJECT,
- 	},
-+	{
-+		"invalid direct packet write for LWT_IN",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_B, BPF_REG_2, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "cannot write into packet",
-+		.result = REJECT,
-+		.prog_type = BPF_PROG_TYPE_LWT_IN,
-+	},
-+	{
-+		"invalid direct packet write for LWT_OUT",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_B, BPF_REG_2, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "cannot write into packet",
-+		.result = REJECT,
-+		.prog_type = BPF_PROG_TYPE_LWT_OUT,
-+	},
-+	{
-+		"direct packet write for LWT_XMIT",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_STX_MEM(BPF_B, BPF_REG_2, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_LWT_XMIT,
-+	},
-+	{
-+		"direct packet read for LWT_IN",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_LWT_IN,
-+	},
-+	{
-+		"direct packet read for LWT_OUT",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_LWT_OUT,
-+	},
-+	{
-+		"direct packet read for LWT_XMIT",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_LWT_XMIT,
-+	},
-+	{
-+		"invalid access of tc_classid for LWT_IN",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
-+				    offsetof(struct __sk_buff, tc_classid)),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid bpf_context access",
-+	},
-+	{
-+		"invalid access of tc_classid for LWT_OUT",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
-+				    offsetof(struct __sk_buff, tc_classid)),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid bpf_context access",
-+	},
-+	{
-+		"invalid access of tc_classid for LWT_XMIT",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
-+				    offsetof(struct __sk_buff, tc_classid)),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid bpf_context access",
-+	},
- };
- 
- static int probe_filter_length(const struct bpf_insn *fp)
--- 
-2.7.4
+> Fixes below warnings:
+> warning: symbol 'rds_send_probe' was not declared. Should it be static?
+> warning: symbol 'rds_send_ping' was not declared. Should it be static?
+> warning: symbol 'rds_tcp_accept_one_path' was not declared. Should it be static?
+> warning: symbol 'rds_walk_conn_path_info' was not declared. Should it be static?
+>
+> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> ---
+>  net/rds/connection.c | 2 +-
+>  net/rds/send.c       | 4 ++--
+>  net/rds/tcp_listen.c | 1 +
+>  3 files changed, 4 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/rds/connection.c b/net/rds/connection.c
+> index fe9d31c..26533b2 100644
+> --- a/net/rds/connection.c
+> +++ b/net/rds/connection.c
+> @@ -545,7 +545,7 @@ void rds_for_each_conn_info(struct socket *sock, unsigned int len,
+>  }
+>  EXPORT_SYMBOL_GPL(rds_for_each_conn_info);
+>
+> -void rds_walk_conn_path_info(struct socket *sock, unsigned int len,
+> +static void rds_walk_conn_path_info(struct socket *sock, unsigned int len,
+>  			     struct rds_info_iterator *iter,
+>  			     struct rds_info_lengths *lens,
+>  			     int (*visitor)(struct rds_conn_path *, void *),
+
+    You now need to realign the continuation lines.
+
+> diff --git a/net/rds/send.c b/net/rds/send.c
+> index 77c8c6e..bb13c56 100644
+> --- a/net/rds/send.c
+> +++ b/net/rds/send.c
+[...]
+
+MBR, Sergei
