@@ -1,35 +1,64 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: BROKEN Re: [PATCH] netlink: 2-clause nla_ok()
-Date: Mon, 05 Dec 2016 16:09:13 +0100
-Message-ID: <1480950553.31788.40.camel@sipsolutions.net>
-References: <CACVxJT9Qc=vNexx4ooQVFo=SrGs4-oHeZrnL18vbiS+o0F_N1A@mail.gmail.com>
-         (sfid-20161205_155731_995936_F14B01DF)
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC] udp: some improvements on RX path.
+Date: Mon, 5 Dec 2016 16:37:11 +0100
+Message-ID: <20161205163711.44b01c3a@redhat.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1480944138.4694.37.camel@redhat.com>
+        <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, Paolo Abeni <pabeni@redhat.com>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:43554 "EHLO sipsolutions.net"
+Received: from mx1.redhat.com ([209.132.183.28]:33994 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750849AbcLEPJS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Dec 2016 10:09:18 -0500
-In-Reply-To: <CACVxJT9Qc=vNexx4ooQVFo=SrGs4-oHeZrnL18vbiS+o0F_N1A@mail.gmail.com> (sfid-20161205_155731_995936_F14B01DF)
+        id S1751127AbcLEPhP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Dec 2016 10:37:15 -0500
+In-Reply-To: <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-> Maybe someone could vouch that other checks prevent
-> this kind of situation from happening but not me.
+On Mon, 05 Dec 2016 06:28:53 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-No, now that you spell it out (and I see the patch) - this is
-absolutely needed because nla_for_each_attr() [1] can be called on
-arbitrary data coming from userspace in a message, e.g. by way
-of nla_for_each_nested(). Even if it's not malformed, nla_ok() is the
-only abort condition for that loop, so it would read at least one
-nla_len after the real buffer without that condition.
+> On Mon, 2016-12-05 at 14:22 +0100, Paolo Abeni wrote:
+> > 
+> > On Sun, 2016-12-04 at 18:43 -0800, Eric Dumazet wrote:  
+[...]
 
-johannes
+> > > But I also want to work on the idea I gave few days back, having a
+> > > separate queue and use splice to transfer the 'softirq queue' into
+> > > a calm queue in a different cache line.
+> > > 
+> > > I expect a 50 % performance increase under load, maybe 1.5 Mpps.  
 
-[1] which seems to be the only significant user thereof
+I also have high hopes for such a solution. I'm very excited that you
+are working on this! :-)
+
+ 
+> > It should work nicely under contention, but won't that increase the
+> > overhead for the uncontended/single flow scenario ? the user space
+> > reader needs to acquire 2 lock when splicing the 'softirq queue'.
+> > On my system ksoftirqd and the u/s process work at similar speeds,
+> > so splicing will happen quite often.   
+> 
+> Well, the splice would happen only if you have more than one message
+> in the softirq queue. So no real overhead for uncontended flow
+> scenario.
+> 
+> 
+> This reminds me of the busylock I added in __dev_xmit_skb(), which
+> basically is acquired only when we detect a possible contention on
+> qdisc lock.
+
+Do you think the splice technique would, have the same performance
+benefit as having a MPMC queue with separate enqueue and dequeue locking?
+(like we have with skb_array/ptr_ring that avoids cache bouncing)?
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
