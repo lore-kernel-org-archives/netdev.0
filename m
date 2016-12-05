@@ -1,132 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH] netlink: Do not schedule work from sk_destruct
-Date: Mon, 5 Dec 2016 15:26:00 +0800
-Message-ID: <20161205072600.GA10204@gondor.apana.org.au>
-References: <CAAeHK+x95-n__YSbzebp51ez78yjqjK4CJL=tgOgPuBuGh+q1A@mail.gmail.com>
- <CAM_iQpUSSc6xvAd3u5C3d=xk_yL4LUBgui7pgK5AHxJ8LP363A@mail.gmail.com>
- <CAM_iQpWo42AnAT-LMJNSOL=3NQswRwHxPNC_4FAk3teAPEQDJg@mail.gmail.com>
- <20161205071946.GB9496@gondor.apana.org.au>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
+ prog
+Date: Mon, 5 Dec 2016 08:35:33 +0100
+Message-ID: <20161205083533.1467e329@redhat.com>
+References: <1480821446-4122277-1-git-send-email-kafai@fb.com>
+        <1480821446-4122277-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Bob Copeland <me@bobcopeland.com>,
-        Tom Herbert <tom@herbertland.com>,
-        David Decotigny <decot@googlers.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161205071946.GB9496@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>, brouer@redhat.com
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55014 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750785AbcLEHfj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Dec 2016 02:35:39 -0500
+In-Reply-To: <1480821446-4122277-2-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 05, 2016 at 03:19:46PM +0800, Herbert Xu wrote:
->
-> Thanks for the patch.  It'll obviously work but I wanted avoid that
-> because it penalises the common path for the rare case.
+
+On Sat, 3 Dec 2016 19:17:23 -0800 Martin KaFai Lau <kafai@fb.com> wrote:
+
+> This patch allows XDP prog to extend/remove the packet
+> data at the head (like adding or removing header).  It is
+> done by adding a new XDP helper bpf_xdp_adjust_head().
 > 
-> Andrey, please try this patch and let me know if it's any better.
+> It also renames bpf_helper_changes_skb_data() to
+> bpf_helper_changes_pkt_data() to better reflect
+> that XDP prog does not work on skb.
 > 
-> ---8<---
-> Subject: netlink: Do not schedule work from sk_destruct
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> ---
+[...]
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 56b43587d200..ccef948cf58a 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -2234,7 +2234,34 @@ static const struct bpf_func_proto bpf_skb_change_head_proto = {
+>  	.arg3_type	= ARG_ANYTHING,
+>  };
+>  
+> -bool bpf_helper_changes_skb_data(void *func)
+> +BPF_CALL_2(bpf_xdp_adjust_head, struct xdp_buff *, xdp, int, offset)
+> +{
+> +	/* Both mlx4 and mlx5 driver align each packet to PAGE_SIZE when
+> +	 * XDP prog is set.
+> +	 * If the above is not true for the other drivers to support
+> +	 * bpf_xdp_adjust_head, struct xdp_buff can be extended.
+> +	 */
+> +	unsigned long addr = (unsigned long)xdp->data & PAGE_MASK;
+> +	void *data_hard_start = (void *)addr;
+> +	void *data = xdp->data + offset;
+> +
+> +	if (unlikely(data < data_hard_start || data > xdp->data_end - ETH_HLEN))
+> +		return -EINVAL;
+> +
+> +	xdp->data = data;
+> +
+> +	return 0;
+> +}
 
-Crap, I screwed it up again.  Here is a v2 which moves the atomic
-call into the RCU callback as otherwise the socket can be freed from
-another path while we await the RCU callback.
+Thanks for adjusting this, I like Daniel's suggestion.
 
----8<---
-It is wrong to schedule a work from sk_destruct using the socket
-as the memory reserve because the socket will be freed immediately
-after the return from sk_destruct.
+For this patch:
 
-Instead we should do the deferral prior to sk_free.
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-This patch does just that.
+As it still looks like 3/4 need some adjustments based on Saeed's
+comments.
 
-Fixes: 707693c8a498 ("netlink: Call cb->done from a worker thread")
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 602e5eb..463f5cf 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -322,11 +322,13 @@ static void netlink_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
- 	sk_mem_charge(sk, skb->truesize);
- }
- 
--static void __netlink_sock_destruct(struct sock *sk)
-+static void netlink_sock_destruct(struct sock *sk)
- {
- 	struct netlink_sock *nlk = nlk_sk(sk);
- 
- 	if (nlk->cb_running) {
-+		if (nlk->cb.done)
-+			nlk->cb.done(&nlk->cb);
- 		module_put(nlk->cb.module);
- 		kfree_skb(nlk->cb.skb);
- 	}
-@@ -348,21 +350,7 @@ static void netlink_sock_destruct_work(struct work_struct *work)
- 	struct netlink_sock *nlk = container_of(work, struct netlink_sock,
- 						work);
- 
--	nlk->cb.done(&nlk->cb);
--	__netlink_sock_destruct(&nlk->sk);
--}
--
--static void netlink_sock_destruct(struct sock *sk)
--{
--	struct netlink_sock *nlk = nlk_sk(sk);
--
--	if (nlk->cb_running && nlk->cb.done) {
--		INIT_WORK(&nlk->work, netlink_sock_destruct_work);
--		schedule_work(&nlk->work);
--		return;
--	}
--
--	__netlink_sock_destruct(sk);
-+	sk_free(&nlk->sk);
- }
- 
- /* This lock without WQ_FLAG_EXCLUSIVE is good on UP and it is _very_ bad on
-@@ -664,11 +652,21 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol,
- 	goto out;
- }
- 
--static void deferred_put_nlk_sk(struct rcu_head *head)
-+static void deferred_free_nlk_sk(struct rcu_head *head)
- {
- 	struct netlink_sock *nlk = container_of(head, struct netlink_sock, rcu);
-+	struct sock *sk = &nlk->sk;
-+
-+	if (!atomic_dec_and_test(&sk->sk_refcnt))
-+		return;
-+
-+	if (nlk->cb_running && nlk->cb.done) {
-+		INIT_WORK(&nlk->work, netlink_sock_destruct_work);
-+		schedule_work(&nlk->work);
-+		return;
-+	}
- 
--	sock_put(&nlk->sk);
-+	sk_free(sk);
- }
- 
- static int netlink_release(struct socket *sock)
-@@ -743,7 +741,7 @@ static int netlink_release(struct socket *sock)
- 	local_bh_disable();
- 	sock_prot_inuse_add(sock_net(sk), &netlink_proto, -1);
- 	local_bh_enable();
--	call_rcu(&nlk->rcu, deferred_put_nlk_sk);
-+	call_rcu(&nlk->rcu, deferred_free_nlk_sk);
- 	return 0;
- }
- 
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
