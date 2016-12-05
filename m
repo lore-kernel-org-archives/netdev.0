@@ -1,52 +1,50 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH nf-next] netfilter: xt_bpf: support ebpf
-Date: Mon, 5 Dec 2016 18:29:53 -0500
-Message-ID: <CA+FuTSfHryyqBhRyfQCChG2VPwpj1KYBk2Z7DZ-dcYL-FbbSeA@mail.gmail.com>
-References: <1480969684-74414-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <1480972006.18162.559.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161205213001.GA16819@breakpoint.cc> <20161205223415.GA14689@salvia>
- <20161205230055.GA15379@salvia> <CAF=yD-Jk4W+zU=tdixWe3LPGcFp-sANxXLLoQTRvrkN_3=a9uw@mail.gmail.com>
- <20161205232214.GA15825@salvia>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Mon, 5 Dec 2016 15:51:49 -0800
+Message-ID: <20161205235149.GL4705@atomide.com>
+References: <201611111820.52072@pali>
+ <20161124152045.GK13735@pali>
+ <20161124184601.wo4al6nyzb6rmiqs@raspberrypi-2.musicnaut.iki.fi>
+ <201611261820.47995@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        netfilter-devel <netfilter-devel@vger.kernel.org>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
         Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20161205232214.GA15825@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+        linux-kernel@vger.kernel.org
+To: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201611261820.47995@pali>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 5, 2016 at 6:22 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Mon, Dec 05, 2016 at 06:06:05PM -0500, Willem de Bruijn wrote:
-> [...]
->> Eric also suggests a private variable to avoid being subject to
->> changes to PATH_MAX. Then we can indeed also choose an arbitrary lower
->> length than current PATH_MAX.
->
-> Good.
->
->> FWIW, there is a workaround for users with deeply nested paths: the
->> path passed does not have to be absolute. It is literally what is
->> passed on the command line to iptables right now, including relative
->> addresses.
->
-> If iptables userspace always expects to have the bpf file repository
-> in some given location (suggesting to have a directory that we specify
-> at ./configure time, similar to what we do with connlabel.conf), then
-> I think we can rely on relative paths. Would this be flexible enough
-> for your usecase?
+* Pali Rohár <pali.rohar@gmail.com> [161126 09:21]:
+> On Thursday 24 November 2016 19:46:01 Aaro Koskinen wrote:
+> > Hi,
+> > 
+> > On Thu, Nov 24, 2016 at 04:20:45PM +0100, Pali Rohár wrote:
+> > > Proprietary, signed and closed bootloader NOLO does not support DT.
+> > > So for booting you need to append DTS file to kernel image.
+> > > 
+> > > U-Boot is optional and can be used as intermediate bootloader
+> > > between NOLO and kernel. But still it has problems with reading
+> > > from nand, so cannot read NVS data nor MAC address.
+> > 
+> > You could use kexec to pass the fixed DT.
+> > 
+> > A.
+> 
+> IIRC it was broken for N900/omap3, no idea if somebody fixed it.
 
-As long as it accepts relative paths, I think it will always work.
-Worst case, a user has to cd. No need for hardcoding the bpf mount
-point at compile time.
+FYI, at least in next-20161205 kexec works on omap3 for me.
 
-I have the matching iptables patch for pinned objects, btw. Not for
-elf objects, which requires linking to libelf and parsing the object,
-which is more work (and perhaps best punted on by expanding libbpf in
-bcc to include this functionality. it already exists under samples/bpf
-and iproute2).
+Regards,
+
+Tony
