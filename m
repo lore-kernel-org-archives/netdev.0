@@ -1,52 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2/net-next v3 0/3] tc: flower: SCTP and other
- port fixes
-Date: Mon, 5 Dec 2016 10:14:32 -0800
-Message-ID: <20161205101432.503e7830@xeon-e3>
-References: <1480755160-27768-1-git-send-email-simon.horman@netronome.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH 0/2] IPv4 FIB suffix length fixes
+Date: Mon, 05 Dec 2016 13:16:19 -0500 (EST)
+Message-ID: <20161205.131619.821937935676070514.davem@davemloft.net>
+References: <20161201121605.15499.13176.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Simon Horman <simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, rshearma@brocade.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:33199 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752009AbcLESOf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:14:35 -0500
-Received: by mail-pf0-f179.google.com with SMTP id d2so64854424pfd.0
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 10:14:35 -0800 (PST)
-In-Reply-To: <1480755160-27768-1-git-send-email-simon.horman@netronome.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47306 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751530AbcLESQ1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:16:27 -0500
+In-Reply-To: <20161201121605.15499.13176.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat,  3 Dec 2016 09:52:37 +0100
-Simon Horman <simon.horman@netronome.com> wrote:
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Thu, 01 Dec 2016 07:27:47 -0500
 
-> Hi Stephen,
+> In reviewing the patch from Robert Shearman and looking over the code I
+> realized there were a few different bugs we were still carrying in the IPv4
+> FIB lookup code.
 > 
-> this short series:
+> These two patches are based off of Robert's original patch, but take things
+> one step further by splitting them up to address two additional issues I
+> found.
 > 
-> * Makes some improvements to the documentation of flower;
->   A follow-up to recent work by Paul Blakey and myself.
-> * Corrects some errors introduced when SCTP port matching support was
->   recently added.
+> So first have Robert's original patch which was addressing the fact that
+> us calling update_suffix in resize is expensive when it is called per add.
+> To address that I incorporated the core bit of the patch which was us
+> dropping the update_suffix call from resize.
 > 
-> Changes v2->v3:
-> * Rebase
-> * Dropped merged patch
+> The first patch in the series does a rename and fix on the push_suffix and
+> pull_suffix code.  Specifically we drop the need to pass a leaf and
+> secondly we fix things so we pull the suffix as long as the value of the
+> suffix in the node is dropping.
 > 
-> Changes v1->v2:
-> * Rebase
+> The second patch addresses the original issue reported as well as
+> optimizing the code for the fact that update_suffix is only really meant to
+> go through and clean things up when we are decreasing a suffix.  I had
+> originally added code for it to somehow cause an increase, but if we push
+> the suffix when a new leaf is added we only ever have to handle pulling
+> down the suffix with update_suffix so I updated the code to reflect that.
 > 
-> Simon Horman (3):
->   tc: flower: document SCTP ip_proto
->   tc: flower: correct name of ip_proto parameter to flower_parse_port()
->   tc: flower: make use of flower_port_attr_type() safe and silent
-> 
->  man/man8/tc-flower.8 | 14 +++++++-------
->  tc/f_flower.c        | 32 +++++++++++++++++---------------
->  2 files changed, 24 insertions(+), 22 deletions(-)
-> 
+> As far as side effects the only ones I think that will be obvious should be
+> the fact that some routes may be able to be found earlier since before we
+> relied on resize to update the suffix lengths, and now we are updating them
+> before we add or remove the leaf.
 
-Applied to net-next
+Series applied and queued up for -stable, thanks Alex.
