@@ -1,120 +1,135 @@
-From: "Valo, Kalle" <kvalo@qca.qualcomm.com>
-Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
-Date: Mon, 5 Dec 2016 11:45:45 +0000
-Message-ID: <877f7eoazc.fsf@kamboji.qca.qualcomm.com>
-References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
-        <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
-        <20161118183541.GI28340@tuxbot> <877f7vimyg.fsf@kamboji.qca.qualcomm.com>
-        <878ts0u7z3.fsf@kamboji.qca.qualcomm.com>
-        <874m2otenv.fsf@kamboji.qca.qualcomm.com>
-        <87r35srm0c.fsf@kamboji.qca.qualcomm.com>
-        <CAPBZ5Qf8Z7-0Bvsuj88=jY8ZULU9ntCAAOqV_a0OGL4oYSTdWQ@mail.gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [v3 PATCH] netlink: Do not schedule work from sk_destruct
+Date: Mon, 5 Dec 2016 12:51:56 +0100
+Message-ID: <CAAeHK+wCUM6px8MojCQor28goaNi9k7iAAN-e-EB1e2YFaZo7g@mail.gmail.com>
+References: <CAAeHK+x95-n__YSbzebp51ez78yjqjK4CJL=tgOgPuBuGh+q1A@mail.gmail.com>
+ <CAM_iQpUSSc6xvAd3u5C3d=xk_yL4LUBgui7pgK5AHxJ8LP363A@mail.gmail.com>
+ <CAM_iQpWo42AnAT-LMJNSOL=3NQswRwHxPNC_4FAk3teAPEQDJg@mail.gmail.com>
+ <20161205071946.GB9496@gondor.apana.org.au> <20161205072600.GA10204@gondor.apana.org.au>
+ <20161205072820.GB10204@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "k.eugene.e@gmail.com" <k.eugene.e@gmail.com>,
-        "wcn36xx@lists.infradead.org" <wcn36xx@lists.infradead.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
-        Andy Gross <andy.gross@linaro.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Bob Copeland <me@bobcopeland.com>,
+        Tom Herbert <tom@herbertland.com>,
+        David Decotigny <decot@googlers.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPBZ5Qf8Z7-0Bvsuj88=jY8ZULU9ntCAAOqV_a0OGL4oYSTdWQ@mail.gmail.com>       (Andy
- Gross's message of "Thu, 1 Dec 2016 08:21:51 -0600")
-Content-Language: en-US
-Content-ID: <DF8A730E94983E4C851F2F25B5D93CB3@qualcomm.com>
+In-Reply-To: <20161205072820.GB10204@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-Andy Gross <andy.gross@linaro.org> writes:
-
-> On 1 December 2016 at 04:17, Valo, Kalle <kvalo@qca.qualcomm.com> wrote:
->> Kalle Valo <kvalo@qca.qualcomm.com> writes:
+On Mon, Dec 5, 2016 at 8:28 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Mon, Dec 05, 2016 at 03:26:00PM +0800, Herbert Xu wrote:
+>> On Mon, Dec 05, 2016 at 03:19:46PM +0800, Herbert Xu wrote:
+>> >
+>> > Thanks for the patch.  It'll obviously work but I wanted avoid that
+>> > because it penalises the common path for the rare case.
+>> >
+>> > Andrey, please try this patch and let me know if it's any better.
+>> >
+>> > ---8<---
+>> > Subject: netlink: Do not schedule work from sk_destruct
 >>
->>> It found the same problem. Interestingly I'm also building x86 with 32
->>> bit, maybe it's related?
->>>
->>> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/ath.git p=
-ending
->>> head:   1ea16a1c457939b4564643f7637d5cc639a8d3b7
->>> commit: 5eb09c672b01460804fd49b1c9cc7d1072a102f0 [96/99] wcn36xx: Trans=
-ition driver to SMD client
->>> config: i386-allmodconfig (attached as .config)
->>> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
->>> reproduce:
->>>         git checkout 5eb09c672b01460804fd49b1c9cc7d1072a102f0
->>>         # save the attached .config to linux build tree
->>>         make ARCH=3Di386
->>>
->>> All errors (new ones prefixed by >>):
->>>
->>>>> ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wc=
-n36xx.ko] undefined!
->>
->> Bjorn mentioned me on IRC that this is because of a missing commit in my
->> tree:
->>
->> daa6e41ce2b5 soc: qcom: wcnss_ctrl: Stub wcnss_ctrl API
->>
->> When I pull the tag below (which contains the above commit) wcn36xx
->> builds fine for me:
->>
->> git://git.kernel.org/pub/scm/linux/kernel/git/agross/linux.git tags/qcom=
--drivers-for-4.10
->>
->> Andy, is it ok if I pull your tag also to my ath.git tree to solve the
->> wcn36xx build problem? My trees go to Linus via net-next and I don't
->> know when exactly Dave would send a pull request to Linus, before or
->> after the arm trees, but as the tag seems to contain only few patches I
->> hope it doesn't matter.
+>> Crap, I screwed it up again.  Here is a v2 which moves the atomic
+>> call into the RCU callback as otherwise the socket can be freed from
+>> another path while we await the RCU callback.
 >
-> The qcom-drivers-for-4.10 tag was already merged into arm-soc.  But
-> having you pull it as well won't cause issues so long as you are using
-> the tag (which you are).  I don't see any issues with this approach.
+> With the move it no longer makes sense to rename deferred_put_nlk_sk
+> so here is v3 which restores the original name.
+>
+> ---8<---
+> It is wrong to schedule a work from sk_destruct using the socket
+> as the memory reserve because the socket will be freed immediately
+> after the return from sk_destruct.
+>
+> Instead we should do the deferral prior to sk_free.
+>
+> This patch does just that.
+>
+> Fixes: 707693c8a498 ("netlink: Call cb->done from a worker thread")
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 602e5eb..246f29d 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -322,11 +322,13 @@ static void netlink_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+>         sk_mem_charge(sk, skb->truesize);
+>  }
+>
+> -static void __netlink_sock_destruct(struct sock *sk)
+> +static void netlink_sock_destruct(struct sock *sk)
+>  {
+>         struct netlink_sock *nlk = nlk_sk(sk);
+>
+>         if (nlk->cb_running) {
+> +               if (nlk->cb.done)
+> +                       nlk->cb.done(&nlk->cb);
+>                 module_put(nlk->cb.module);
+>                 kfree_skb(nlk->cb.skb);
+>         }
+> @@ -348,21 +350,7 @@ static void netlink_sock_destruct_work(struct work_struct *work)
+>         struct netlink_sock *nlk = container_of(work, struct netlink_sock,
+>                                                 work);
+>
+> -       nlk->cb.done(&nlk->cb);
+> -       __netlink_sock_destruct(&nlk->sk);
+> -}
+> -
+> -static void netlink_sock_destruct(struct sock *sk)
+> -{
+> -       struct netlink_sock *nlk = nlk_sk(sk);
+> -
+> -       if (nlk->cb_running && nlk->cb.done) {
+> -               INIT_WORK(&nlk->work, netlink_sock_destruct_work);
+> -               schedule_work(&nlk->work);
+> -               return;
+> -       }
+> -
+> -       __netlink_sock_destruct(sk);
+> +       sk_free(&nlk->sk);
+>  }
+>
+>  /* This lock without WQ_FLAG_EXCLUSIVE is good on UP and it is _very_ bad on
+> @@ -667,8 +655,18 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol,
+>  static void deferred_put_nlk_sk(struct rcu_head *head)
+>  {
+>         struct netlink_sock *nlk = container_of(head, struct netlink_sock, rcu);
+> +       struct sock *sk = &nlk->sk;
+> +
+> +       if (!atomic_dec_and_test(&sk->sk_refcnt))
+> +               return;
+> +
+> +       if (nlk->cb_running && nlk->cb.done) {
+> +               INIT_WORK(&nlk->work, netlink_sock_destruct_work);
+> +               schedule_work(&nlk->work);
+> +               return;
+> +       }
+>
+> -       sock_put(&nlk->sk);
+> +       sk_free(sk);
+>  }
+>
+>  static int netlink_release(struct socket *sock)
+> --
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-Andy, thanks for the confirmation.
+Hi Herbert,
 
-Dave, how do you suggest to handle depency issues like this? I have
-pending important wcn36xx patches (converting the driver to use the
-recently introduced proper SMD subsystem) which have a build dependency
-on a commit which is in Andy's tag qcom-drivers-for-4.10. The commit in
-question is currently in arm-soc tree going to 4.10, but not in your
-net-next tree. I assume Linus will pull that during the next merge
-window.
+Tested the last version of your patch, the reports go away.
 
-What I'm planning to do is to pull tag qcom-drivers-for-4.10 to my tree
-and then send the patches to you. This will mean that from my pull
-request you would get four new qcom-drivers commits which are not in
-your tree, yet. Or do you prefer that I wait the qcom-drivers commits
-trickle down from Linux until I send you wcn36xx patches? Or something
-else?
+Thanks for the fix!
 
-$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/agross/linux.git t=
-ags/qcom-drivers-for-4.10
->From git://git.kernel.org/pub/scm/linux/kernel/git/agross/linux
- * tag                         qcom-drivers-for-4.10 -> FETCH_HEAD
-Auto-merging MAINTAINERS
-Merge made by the 'recursive' strategy.
- MAINTAINERS                                  |    1 +
- drivers/firmware/qcom_scm.c                  |    4 +++-
- include/dt-bindings/pinctrl/qcom,pmic-gpio.h |    4 ++++
- include/dt-bindings/pinctrl/qcom,pmic-mpp.h  |    6 ++++++
- include/linux/soc/qcom/wcnss_ctrl.h          |   13 +++++++++++++
- 5 files changed, 27 insertions(+), 1 deletion(-)
-
-$ git log --oneline ORIG_HEAD..
-6d0491261ecc Merge tag 'qcom-drivers-for-4.10' of git://git.kernel.org/pub/=
-scm/linux/kernel/git/agross/linux into test
-bd4760ca0315 firmware: qcom: scm: Use devm_reset_controller_register()
-4fb1a4207804 MAINTAINERS: add drivers/pinctrl/qcom to ARM/QUALCOMM SUPPORT
-636959fc1232 pinctrl: pm8994: add pad voltage regulator defines
-daa6e41ce2b5 soc: qcom: wcnss_ctrl: Stub wcnss_ctrl API
-$
-
---=20
-Kalle Valo=
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
