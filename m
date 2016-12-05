@@ -1,29 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/6] net/mlx5: Verify module parameters
-Date: Mon, 05 Dec 2016 15:05:39 -0500 (EST)
-Message-ID: <20161205.150539.1019585301109119643.davem@davemloft.net>
-References: <1480848976-6797-1-git-send-email-saeedm@mellanox.com>
-        <1480848976-6797-2-git-send-email-saeedm@mellanox.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH v4 01/13] net: ethernet: ti: cpts: switch to readl/writel_relaxed()
+Date: Mon, 5 Dec 2016 14:05:13 -0600
+Message-ID: <20161205200525.16664-2-grygorii.strashko@ti.com>
+References: <20161205200525.16664-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kamalh@mellanox.com
-To: saeedm@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49822 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752185AbcLEUFl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 15:05:41 -0500
-In-Reply-To: <1480848976-6797-2-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161205200525.16664-1-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Sun,  4 Dec 2016 12:56:11 +0200
+Switch to readl/writel_relaxed() APIs, because this is recommended
+API and the CPTS IP is reused on Keystone 2 SoCs
+where LE/BE modes are supported.
 
-> +static uint prof_sel = MLX5_DEFAULT_PROF;
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Acked-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/net/ethernet/ti/cpts.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Please do not use type shorthands such as "uint", always expand
-fully "unsigned int".
-
-Thanks.
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 85a55b4..a42c449 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -33,8 +33,8 @@
+ 
+ #ifdef CONFIG_TI_CPTS
+ 
+-#define cpts_read32(c, r)	__raw_readl(&c->reg->r)
+-#define cpts_write32(c, v, r)	__raw_writel(v, &c->reg->r)
++#define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
++#define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
+ 
+ static int event_expired(struct cpts_event *event)
+ {
+-- 
+2.10.1
