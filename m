@@ -1,89 +1,56 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 2/4] mlx4: xdp: Allow raising MTU up to one page
- minus eth and vlan hdrs
-Date: Mon, 5 Dec 2016 01:31:52 +0200
-Message-ID: <CALzJLG_82MNOyuq+y63tR2SDmKo3ZQA5XAgT1_r15B8_V19xKg@mail.gmail.com>
-References: <1480721013-1047541-1-git-send-email-kafai@fb.com>
- <1480721013-1047541-3-git-send-email-kafai@fb.com> <1480725480.18162.394.camel@edumazet-glaptop3.roam.corp.google.com>
- <58421775.6090905@fb.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH v3 net-next 2/3] openvswitch: Use is_skb_forwardable() for
+ length check.
+Date: Sun, 4 Dec 2016 16:22:40 -0800
+Message-ID: <CAOrHB_BTRP69VDeA2_cSf_qKh05Wj=OinaqU3Uu=52Wus6xS8w@mail.gmail.com>
+References: <1480462253-114713-1-git-send-email-jarno@ovn.org>
+ <1480462253-114713-2-git-send-email-jarno@ovn.org> <20161130145159.3cee7ba4@griffin>
+ <CAOrHB_BEQBbvDa2W0dJmmANsjZEiwx7GbTxo-7yirDB=5d9cqQ@mail.gmail.com> <20161202102509.065df1e8@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Alexei Starovoitov <ast@fb.com>
+Cc: Jarno Rajahalme <jarno@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Garver <e@erig.me>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34165 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751148AbcLDXcO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 18:32:14 -0500
-Received: by mail-wm0-f67.google.com with SMTP id g23so12383297wme.1
-        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 15:32:13 -0800 (PST)
-In-Reply-To: <58421775.6090905@fb.com>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:34418 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751070AbcLEAWp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 19:22:45 -0500
+Received: from mfilter11-d.gandi.net (mfilter11-d.gandi.net [217.70.178.131])
+        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 03337C5A49
+        for <netdev@vger.kernel.org>; Mon,  5 Dec 2016 01:22:44 +0100 (CET)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+        by mfilter11-d.gandi.net (mfilter11-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id 3sI-NaW662ZL for <netdev@vger.kernel.org>;
+        Mon,  5 Dec 2016 01:22:42 +0100 (CET)
+Received: from mail-io0-f171.google.com (mail-io0-f171.google.com [209.85.223.171])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 23BA9C5A44
+        for <netdev@vger.kernel.org>; Mon,  5 Dec 2016 01:22:42 +0100 (CET)
+Received: by mail-io0-f171.google.com with SMTP id m5so433254696ioe.3
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 16:22:41 -0800 (PST)
+In-Reply-To: <20161202102509.065df1e8@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 3, 2016 at 2:53 AM, Alexei Starovoitov <ast@fb.com> wrote:
-> On 12/2/16 4:38 PM, Eric Dumazet wrote:
->>
->> On Fri, 2016-12-02 at 15:23 -0800, Martin KaFai Lau wrote:
->>>
->>> When XDP prog is attached, it is currently limiting
->>> MTU to be FRAG_SZ0 - ETH_HLEN - (2 * VLAN_HLEN) which is 1514
->>> in x86.
->>>
->>> AFAICT, since mlx4 is doing one page per packet for XDP,
->>> we can at least raise the MTU limitation up to
->>> PAGE_SIZE - ETH_HLEN - (2 * VLAN_HLEN) which this patch is
->>> doing.  It will be useful in the next patch which allows
->>> XDP program to extend the packet by adding new header(s).
->>>
->>> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
->>> ---
->>
->>
->> Have you tested your patch on a host with PAGE_SIZE = 64 KB ?
->>
->> Looks XDP really kills arches with bigger pages :(
+On Fri, Dec 2, 2016 at 1:25 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Thu, 1 Dec 2016 11:50:00 -0800, Pravin Shelar wrote:
+>> This is not changing any behavior compared to current OVS vlan checks.
+>> Single vlan header is not considered for MTU check.
 >
+> It is changing it.
 >
-> I'm afraid xdp mlx[45] support was not tested on arches
-> with 64k pages at all. Not just this patch.
-
-Yep, in mlx5 page per packet became the default, with or without XDP,
-unlike mlx4.
-currently we allow 64KB pages per packet! which is wrong and need to be fixed.
-
-I will get to this task soon.
-
-> I think people who care about such archs should test?
-
-We do test mlx5 and mlx4 on PPC arch. other than we require more
-memory than we need, we don't see any issues. and we don't test XDP on
-those archs.
-
-> Note page per packet is not a hard requirement for all drivers
-> and all archs. For mlx[45] it was the easiest and the most
-> convenient way to achieve desired performance.
-> If there are ways to do the same performance differently,
-> I'm all ears :)
+> Consider the case when there's an interface with MTU 1500 forwarding to
+> an interface with MTU 1496. Obviously, full-sized vlan frames
+> ingressing on the first interface are not forwardable to the second
+> one. Yet, if the vlan tag is accelerated (and thus not counted in
+> skb->len), is_skb_forwardable happily returns true because of the check
 >
-
-when bigger pages, i.e  PAGE_SIZE > 8K, my current low hanging fruit
-options for mlx5 are
-1. start sharing pages for multi packets.
-2. Go back to the SKB allocator (allocate ring of SKBs on advance
-rather than page per packet/s).
-
-this means that default RX memory scheme will be different than XDP's
-on such ARCHs (XDP wil still use page per packet)
-
-Alexei, we should start considering PPC archs for XDP use cases,
-demanding page per packet on those archs is a little bit heavy
-requirement
+>         len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
+>         if (skb->len <= len)
+>
+ok, This case would be allowed due to this patch. But core linux stack
+and bridge is using this check then why not just use same forwarding
+check in OVS too, this make it consistent with core networking
+forwarding expectations.
