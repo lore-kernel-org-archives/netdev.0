@@ -1,67 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH resend 3/8] irda: w83977af_ir: Remove and add blank lines
-Date: Mon,  5 Dec 2016 11:00:43 -0800
-Message-ID: <27a5cbfc2f59a978ad84ff19ddd76d6a333adfba.1480963809.git.joe@perches.com>
-References: <cover.1480963809.git.joe@perches.com>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1480963809.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/8] tcp: tsq: performance series
+Date: Mon, 05 Dec 2016 14:06:30 -0500 (EST)
+Message-ID: <20161205.140630.1112051018980890950.davem@davemloft.net>
+References: <1480792497-16607-1-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ycheng@google.com, eric.dumazet@gmail.com
+To: edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48266 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751201AbcLETHP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 14:07:15 -0500
+In-Reply-To: <1480792497-16607-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use a more typical vertical spacing style.
+From: Eric Dumazet <edumazet@google.com>
+Date: Sat,  3 Dec 2016 11:14:49 -0800
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/irda/w83977af_ir.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+> Under very high TX stress, CPU handling NIC TX completions can spend
+> considerable amount of cycles handling TSQ (TCP Small Queues) logic.
+> 
+> This patch series avoids some atomic operations, but most notable
+> patch is the 3rd one, allowing other cpus processing ACK packets and
+> calling tcp_write_xmit() to grab TCP_TSQ_DEFERRED so that
+> tcp_tasklet_func() can skip already processed sockets.
+> 
+> This avoid lots of lock acquisitions and cache lines accesses,
+> particularly under load.
+> 
+> In v2, I added :
+> 
+> - tcp_small_queue_check() change to allow 1st and 2nd packets
+>   in write queue to be sent, even in the case TX completion of
+>   already acknowledged packets did not happen yet.
+>   This helps when TX completion coalescing parameters are set
+>   even to insane values, and/or busy polling is used.
+> 
+> - A reorganization of struct sock fields to
+>   lower false sharing and increase data locality.
+> 
+> - Then I moved tsq_flags from tcp_sock to struct sock also
+>   to reduce cache line misses during TX completions.
+> 
+> I measured an overall throughput gain of 22 % for heavy TCP use
+> over a single TX queue.
 
-diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
-index 4ad91f4f867f..5aa61413aea8 100644
---- a/drivers/net/irda/w83977af_ir.c
-+++ b/drivers/net/irda/w83977af_ir.c
-@@ -178,7 +178,6 @@ static int w83977af_open(int i, unsigned int iobase, unsigned int irq,
- 	self = netdev_priv(dev);
- 	spin_lock_init(&self->lock);
- 
--
- 	/* Initialize IO */
- 	self->io.fir_base   = iobase;
- 	self->io.irq       = irq;
-@@ -553,6 +552,7 @@ static netdev_tx_t w83977af_hard_xmit(struct sk_buff *skb,
- static void w83977af_dma_write(struct w83977af_ir *self, int iobase)
- {
- 	__u8 set;
-+
- 	pr_debug("%s(), len=%d\n", __func__, self->tx_buff.len);
- 
- 	/* Save current set */
-@@ -652,7 +652,6 @@ static void w83977af_dma_xmit_complete(struct w83977af_ir *self)
- 	} else
- 		self->netdev->stats.tx_packets++;
- 
--
- 	if (self->new_speed) {
- 		w83977af_change_speed(self, self->new_speed);
- 		self->new_speed = 0;
-@@ -1114,7 +1113,6 @@ static int w83977af_net_open(struct net_device *dev)
- 	char hwname[32];
- 	__u8 set;
- 
--
- 	IRDA_ASSERT(dev != NULL, return -1;);
- 	self = netdev_priv(dev);
- 
-@@ -1263,7 +1261,6 @@ MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no>");
- MODULE_DESCRIPTION("Winbond W83977AF IrDA Device Driver");
- MODULE_LICENSE("GPL");
- 
--
- module_param(qos_mtt_bits, int, 0);
- MODULE_PARM_DESC(qos_mtt_bits, "Mimimum Turn Time");
- module_param_array(io, int, NULL, 0);
--- 
-2.10.0.rc2.1.g053435c
+Looks fantastic, series applied, thanks Eric.
