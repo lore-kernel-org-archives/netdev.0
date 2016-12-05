@@ -1,78 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH V2 net 10/20] net/ena: remove redundant logic in napi
- callback for busy poll mode
-Date: Sun, 04 Dec 2016 21:45:39 -0800
-Message-ID: <1480916739.18162.516.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
-         <1480857578-5065-11-git-send-email-netanel@annapurnalabs.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-        netdev@vger.kernel.org, dwmw@amazon.com, zorik@annapurnalabs.com,
-        alex@annapurnalabs.com, saeed@annapurnalabs.com, msw@amazon.com,
-        aliguori@amazon.com, nafea@annapurnalabs.com
-To: Netanel Belgazal <netanel@annapurnalabs.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480857578-5065-11-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH 01/28] bnxt_en: Add bnxt_set_max_func_irqs().
+Date: Sun,  4 Dec 2016 22:38:05 -0800
+Message-ID: <1480919912-1079-2-git-send-email-selvin.xavier@broadcom.com>
+References: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1480919912-1079-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-12-04 at 15:19 +0200, Netanel Belgazal wrote:
-> sk_busy_loop can call the napi callback few million times a sec.
-> For each call there is unmask interrupt.
-> We want to reduce the number of unmasks.
-> 
-> Add an atomic variable that will tell the napi handler if
-> it was called from irq context or not.
-> Unmask the interrupt only from irq context.
-> 
-> A schenario where the driver left with missed unmask isn't feasible.
-> when ena_intr_msix_io is called the driver have 2 options:
-> 1)Before napi completes and call napi_complete_done
-> 2)After calling napi_complete_done
-> 
-> In the former case the napi will unmask the interrupt as needed.
-> In the latter case napi_complete_done will remove napi from the schedule
-> list so napi will be rescheduled (by ena_intr_msix_io) and interrupt
-> will be unmasked as desire in the 2nd napi call.
-> 
-> Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
-> ---
+From: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 
+By refactoring existing code into this new function.  The new function
+will be used in subsequent patches.
 
-This looks very complicated to me.
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Signed-off-by: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 17 +++++++++++------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
+ 2 files changed, 12 insertions(+), 6 deletions(-)
 
-I guess you missed the recent patches that happened on net-next ?
-
-2e713283751f494596655d9125c168aeb913f71d net/mlx4_en: use napi_complete_done() return value
-364b6055738b4c752c30ccaaf25c624e69d76195 net: busy-poll: return busypolling status to drivers
-21cb84c48ca0619181106f0f44f3802a989de024 net: busy-poll: remove need_resched() from sk_can_busy_loop()
-217f6974368188fd8bd7804bf5a036aa5762c5e4 net: busy-poll: allow preemption in sk_busy_loop()
-
-napi_complete_done() return code can be used by a driver,
-no need to add yet another atomic operation in fast path.
-
-Anyway, this looks wrong :
-
-@@ -1186,6 +1201,7 @@ static irqreturn_t ena_intr_msix_io(int irq, void *data)
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index e8ab5fd..6cdfe3e 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4743,6 +4743,16 @@ static int bnxt_trim_rings(struct bnxt *bp, int *rx, int *tx, int max,
+ 	return 0;
+ }
+ 
++void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max_irqs)
++{
++	if (BNXT_PF(bp))
++		bp->pf.max_irqs = max_irqs;
++#if defined(CONFIG_BNXT_SRIOV)
++	else
++		bp->vf.max_irqs = max_irqs;
++#endif
++}
++
+ static int bnxt_setup_msix(struct bnxt *bp)
  {
-        struct ena_napi *ena_napi = data;
+ 	struct msix_entry *msix_ent;
+@@ -6949,12 +6959,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
-+       atomic_set(&ena_napi->unmask_interrupt, 1);
-        napi_schedule(&ena_napi->napi);
+ 	bnxt_set_tpa_flags(bp);
+ 	bnxt_set_ring_params(bp);
+-	if (BNXT_PF(bp))
+-		bp->pf.max_irqs = max_irqs;
+-#if defined(CONFIG_BNXT_SRIOV)
+-	else
+-		bp->vf.max_irqs = max_irqs;
+-#endif
++	bnxt_set_max_func_irqs(bp, max_irqs);
+ 	bnxt_set_dflt_rings(bp);
  
-You probably wanted :
+ 	/* Default RSS hash cfg. */
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index b4abc1b..8327d0d 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -1235,6 +1235,7 @@ int hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
+ int bnxt_hwrm_set_coal(struct bnxt *);
+ int bnxt_hwrm_func_qcaps(struct bnxt *);
++void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max);
+ void bnxt_tx_disable(struct bnxt *bp);
+ void bnxt_tx_enable(struct bnxt *bp);
+ int bnxt_hwrm_set_pause(struct bnxt *);
+-- 
+2.5.5
 
-if (napi_schedule_prep(n)) {
-	atomic_set(&ena_napi->unmask_interrupt, 1);
-	__napi_schedule(n);
-}
-
-
-
-Please rework this napi poll using core infrastructure.
-
-busypoll logic should be centralized, not reimplemented in different ways in a driver.
-
-Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
