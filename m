@@ -1,56 +1,71 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next] netfilter: xt_bpf: support ebpf
-Date: Tue, 6 Dec 2016 00:22:14 +0100
-Message-ID: <20161205232214.GA15825@salvia>
-References: <1480969684-74414-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <1480972006.18162.559.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161205213001.GA16819@breakpoint.cc>
- <20161205223415.GA14689@salvia>
- <20161205230055.GA15379@salvia>
- <CAF=yD-Jk4W+zU=tdixWe3LPGcFp-sANxXLLoQTRvrkN_3=a9uw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org,
-        Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Willem de Bruijn <willemb@google.com>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH next] Revert "dctcp: update cwnd on congestion event"
+Date: Tue,  6 Dec 2016 00:23:00 +0100
+Message-ID: <1480980180-23349-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+        Neal Cardwell <ncardwell@google.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34932 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751373AbcLEXWf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Dec 2016 18:22:35 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id BBB5796ECD
-        for <netdev@vger.kernel.org>; Tue,  6 Dec 2016 00:22:32 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A1372A0FC1
-        for <netdev@vger.kernel.org>; Tue,  6 Dec 2016 00:22:32 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 8B9BCA0FC0
-        for <netdev@vger.kernel.org>; Tue,  6 Dec 2016 00:22:30 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-Jk4W+zU=tdixWe3LPGcFp-sANxXLLoQTRvrkN_3=a9uw@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:40014 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753380AbcLEXWo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 18:22:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 05, 2016 at 06:06:05PM -0500, Willem de Bruijn wrote:
-[...]
-> Eric also suggests a private variable to avoid being subject to
-> changes to PATH_MAX. Then we can indeed also choose an arbitrary lower
-> length than current PATH_MAX.
+Neal Cardwell says:
+ If I am reading the code correctly, then I would have two concerns:
+ 1) Has that been tested? That seems like an extremely dramatic
+    decrease in cwnd. For example, if the cwnd is 80, and there are 40
+    ACKs, and half the ACKs are ECE marked, then my back-of-the-envelope
+    calculations seem to suggest that after just 11 ACKs the cwnd would be
+    down to a minimal value of 2 [..]
+ 2) That seems to contradict another passage in the draft [..] where it
+    sazs:
+       Just as specified in [RFC3168], DCTCP does not react to congestion
+       indications more than once for every window of data.
 
-Good.
+Neal is right.  Fortunately we don't have to complicate this by testing
+vs. current rtt estimate, we can just revert the patch.
 
-> FWIW, there is a workaround for users with deeply nested paths: the
-> path passed does not have to be absolute. It is literally what is
-> passed on the command line to iptables right now, including relative
-> addresses.
+Normal stack already handles this for us: receiving ACKs with ECE
+set causes a call to tcp_enter_cwr(), from there on the ssthresh gets
+adjusted and prr will take care of cwnd adjustment.
 
-If iptables userspace always expects to have the bpf file repository
-in some given location (suggesting to have a directory that we specify
-at ./configure time, similar to what we do with connlabel.conf), then
-I think we can rely on relative paths. Would this be flexible enough
-for your usecase?
+Fixes: 4780566784b396 ("dctcp: update cwnd on congestion event")
+Cc: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv4/tcp_dctcp.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/net/ipv4/tcp_dctcp.c b/net/ipv4/tcp_dctcp.c
+index bde22ebb92a8..5f5e5936760e 100644
+--- a/net/ipv4/tcp_dctcp.c
++++ b/net/ipv4/tcp_dctcp.c
+@@ -188,8 +188,8 @@ static void dctcp_ce_state_1_to_0(struct sock *sk)
+ 
+ static void dctcp_update_alpha(struct sock *sk, u32 flags)
+ {
++	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct dctcp *ca = inet_csk_ca(sk);
+-	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 acked_bytes = tp->snd_una - ca->prior_snd_una;
+ 
+ 	/* If ack did not advance snd_una, count dupack as MSS size.
+@@ -229,13 +229,6 @@ static void dctcp_update_alpha(struct sock *sk, u32 flags)
+ 		WRITE_ONCE(ca->dctcp_alpha, alpha);
+ 		dctcp_reset(tp, ca);
+ 	}
+-
+-	if (flags & CA_ACK_ECE) {
+-		unsigned int cwnd = dctcp_ssthresh(sk);
+-
+-		if (cwnd != tp->snd_cwnd)
+-			tp->snd_cwnd = cwnd;
+-	}
+ }
+ 
+ static void dctcp_state(struct sock *sk, u8 new_state)
+-- 
+2.7.3
