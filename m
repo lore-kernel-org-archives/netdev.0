@@ -1,97 +1,167 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 14/18] RDS: IB: fix panic due to handlers running post teardown
-Date: Sun,  4 Dec 2016 22:57:49 -0800
-Message-ID: <1480921073-9140-15-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 12/18] RDS: IB: Add vector spreading for cqs
+Date: Sun,  4 Dec 2016 22:57:47 -0800
+Message-ID: <1480921073-9140-13-git-send-email-santosh.shilimkar@oracle.com>
 References: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
         Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25685 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:25680 "EHLO
         aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751644AbcLEG6N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:58:13 -0500
+        with ESMTP id S1751774AbcLEG6R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:58:17 -0500
 In-Reply-To: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shutdown code reaping loop takes care of emptying the
-CQ's before they being destroyed. And once tasklets are
-killed, the hanlders are not expected to run.
+Based on available device vectors, allocate cqs accordingly to
+get better spread of completion vectors which helps performace
+great deal..
 
-But because of core tasklet code issues, tasklet handler could
-still run even after tasklet_kill,
-RDS IB shutdown code already reaps the CQs before freeing
-cq/qp resources so as such the handlers have nothing left
-to do post shutdown.
-
-On other hand any handler running after teardown and trying
-to access already freed qp/cq resources causes issues
-Patch fixes this race by  makes sure that handlers returns
-without any action post teardown.
-
-Reviewed-by: Wengang <wen.gang.wang@oracle.com>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h    |  1 +
- net/rds/ib_cm.c | 12 ++++++++++++
- 2 files changed, 13 insertions(+)
+ net/rds/ib.c    | 11 +++++++++++
+ net/rds/ib.h    |  5 +++++
+ net/rds/ib_cm.c | 40 +++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 53 insertions(+), 3 deletions(-)
 
+diff --git a/net/rds/ib.c b/net/rds/ib.c
+index 5680d90..8d70884 100644
+--- a/net/rds/ib.c
++++ b/net/rds/ib.c
+@@ -111,6 +111,9 @@ static void rds_ib_dev_free(struct work_struct *work)
+ 		kfree(i_ipaddr);
+ 	}
+ 
++	if (rds_ibdev->vector_load)
++		kfree(rds_ibdev->vector_load);
++
+ 	kfree(rds_ibdev);
+ }
+ 
+@@ -159,6 +162,14 @@ static void rds_ib_add_one(struct ib_device *device)
+ 	rds_ibdev->max_initiator_depth = device->attrs.max_qp_init_rd_atom;
+ 	rds_ibdev->max_responder_resources = device->attrs.max_qp_rd_atom;
+ 
++	rds_ibdev->vector_load = kzalloc(sizeof(int) * device->num_comp_vectors,
++					 GFP_KERNEL);
++	if (!rds_ibdev->vector_load) {
++		pr_err("RDS/IB: %s failed to allocate vector memory\n",
++			__func__);
++		goto put_dev;
++	}
++
+ 	rds_ibdev->dev = device;
+ 	rds_ibdev->pd = ib_alloc_pd(device, 0);
+ 	if (IS_ERR(rds_ibdev->pd)) {
 diff --git a/net/rds/ib.h b/net/rds/ib.h
-index 4b133b8..8efd1eb 100644
+index 4987387..4b133b8 100644
 --- a/net/rds/ib.h
 +++ b/net/rds/ib.h
-@@ -185,6 +185,7 @@ struct rds_ib_connection {
+@@ -185,6 +185,10 @@ struct rds_ib_connection {
  
  	/* Endpoint role in connection */
  	int			i_active_side;
-+	atomic_t		i_cq_quiesce;
++
++	/* Send/Recv vectors */
++	int			i_scq_vector;
++	int			i_rcq_vector;
+ };
  
- 	/* Send/Recv vectors */
- 	int			i_scq_vector;
+ /* This assumes that atomic_t is at least 32 bits */
+@@ -227,6 +231,7 @@ struct rds_ib_device {
+ 	spinlock_t		spinlock;	/* protect the above */
+ 	atomic_t		refcount;
+ 	struct work_struct	free_work;
++	int			*vector_load;
+ };
+ 
+ #define ibdev_to_node(ibdev) dev_to_node(ibdev->dma_device)
 diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 33c8584..ce3775a 100644
+index 4d1bf04..33c8584 100644
 --- a/net/rds/ib_cm.c
 +++ b/net/rds/ib_cm.c
-@@ -128,6 +128,8 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
- 			  ic->i_flowctl ? ", flow control" : "");
+@@ -358,6 +358,28 @@ static void rds_ib_cq_comp_handler_send(struct ib_cq *cq, void *context)
+ 	tasklet_schedule(&ic->i_send_tasklet);
+ }
+ 
++static inline int ibdev_get_unused_vector(struct rds_ib_device *rds_ibdev)
++{
++	int min = rds_ibdev->vector_load[rds_ibdev->dev->num_comp_vectors - 1];
++	int index = rds_ibdev->dev->num_comp_vectors - 1;
++	int i;
++
++	for (i = rds_ibdev->dev->num_comp_vectors - 1; i >= 0; i--) {
++		if (rds_ibdev->vector_load[i] < min) {
++			index = i;
++			min = rds_ibdev->vector_load[i];
++		}
++	}
++
++	rds_ibdev->vector_load[index]++;
++	return index;
++}
++
++static inline void ibdev_put_vector(struct rds_ib_device *rds_ibdev, int index)
++{
++	rds_ibdev->vector_load[index]--;
++}
++
+ /*
+  * This needs to be very careful to not leave IS_ERR pointers around for
+  * cleanup to trip over.
+@@ -399,25 +421,30 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	/* Protection domain and memory range */
+ 	ic->i_pd = rds_ibdev->pd;
+ 
++	ic->i_scq_vector = ibdev_get_unused_vector(rds_ibdev);
+ 	cq_attr.cqe = ic->i_send_ring.w_nr + fr_queue_space + 1;
+-
++	cq_attr.comp_vector = ic->i_scq_vector;
+ 	ic->i_send_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_send,
+ 				     rds_ib_cq_event_handler, conn,
+ 				     &cq_attr);
+ 	if (IS_ERR(ic->i_send_cq)) {
+ 		ret = PTR_ERR(ic->i_send_cq);
+ 		ic->i_send_cq = NULL;
++		ibdev_put_vector(rds_ibdev, ic->i_scq_vector);
+ 		rdsdebug("ib_create_cq send failed: %d\n", ret);
+ 		goto out;
  	}
  
-+	atomic_set(&ic->i_cq_quiesce, 0);
-+
- 	/* Init rings and fill recv. this needs to wait until protocol
- 	 * negotiation is complete, since ring layout is different
- 	 * from 3.1 to 4.1.
-@@ -267,6 +269,10 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
- 
- 	rds_ib_stats_inc(s_ib_tasklet_call);
- 
-+	/* if cq has been already reaped, ignore incoming cq event */
-+	if (atomic_read(&ic->i_cq_quiesce))
-+		return;
-+
- 	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
- 	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
- 	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
-@@ -308,6 +314,10 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
- 
- 	rds_ib_stats_inc(s_ib_tasklet_call);
- 
-+	/* if cq has been already reaped, ignore incoming cq event */
-+	if (atomic_read(&ic->i_cq_quiesce))
-+		return;
-+
- 	memset(&state, 0, sizeof(state));
- 	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
- 	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
-@@ -804,6 +814,8 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
- 		tasklet_kill(&ic->i_send_tasklet);
- 		tasklet_kill(&ic->i_recv_tasklet);
- 
-+		atomic_set(&ic->i_cq_quiesce, 1);
-+
++	ic->i_rcq_vector = ibdev_get_unused_vector(rds_ibdev);
+ 	cq_attr.cqe = ic->i_recv_ring.w_nr;
++	cq_attr.comp_vector = ic->i_rcq_vector;
+ 	ic->i_recv_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_recv,
+ 				     rds_ib_cq_event_handler, conn,
+ 				     &cq_attr);
+ 	if (IS_ERR(ic->i_recv_cq)) {
+ 		ret = PTR_ERR(ic->i_recv_cq);
+ 		ic->i_recv_cq = NULL;
++		ibdev_put_vector(rds_ibdev, ic->i_rcq_vector);
+ 		rdsdebug("ib_create_cq recv failed: %d\n", ret);
+ 		goto out;
+ 	}
+@@ -780,10 +807,17 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
  		/* first destroy the ib state that generates callbacks */
  		if (ic->i_cm_id->qp)
  			rdma_destroy_qp(ic->i_cm_id);
+-		if (ic->i_send_cq)
++		if (ic->i_send_cq) {
++			if (ic->rds_ibdev)
++				ibdev_put_vector(ic->rds_ibdev, ic->i_scq_vector);
+ 			ib_destroy_cq(ic->i_send_cq);
+-		if (ic->i_recv_cq)
++		}
++
++		if (ic->i_recv_cq) {
++			if (ic->rds_ibdev)
++				ibdev_put_vector(ic->rds_ibdev, ic->i_rcq_vector);
+ 			ib_destroy_cq(ic->i_recv_cq);
++		}
+ 
+ 		/* then free the resources that ib callbacks use */
+ 		if (ic->i_send_hdrs)
 -- 
 1.9.1
