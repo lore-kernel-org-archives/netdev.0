@@ -1,169 +1,88 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [PATCH v2 2/6] net: stmmac: simplify the common DMA init API
-Date: Mon, 5 Dec 2016 10:10:34 +0100
-Message-ID: <1480929039-20257-3-git-send-email-niklass@axis.com>
-References: <1480929039-20257-1-git-send-email-niklass@axis.com>
+From: Brad Campbell <lists2009@fnarfbargle.com>
+Subject: commit : ppp: add rtnetlink device creation support - breaks netcf on
+ my machine.
+Date: Mon, 5 Dec 2016 17:06:31 +0800
+Message-ID: <32208f70-4165-e79b-89ee-543eefaf40ef@fnarfbargle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: g.nault@alphalink.fr
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bastet.se.axis.com ([195.60.68.11]:48427 "EHLO
-        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750998AbcLEJLP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 04:11:15 -0500
-In-Reply-To: <1480929039-20257-1-git-send-email-niklass@axis.com>
+Received: from ns3.fnarfbargle.com ([43.245.164.105]:47896 "EHLO
+        ns3.fnarfbargle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751233AbcLEKFX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 05:05:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
+G'day All,
 
-Use struct stmmac_dma_cfg *dma_cfg as an argument rather
-than using all the struct members as individual arguments.
+I've been chasing an issue on and off for a couple of months now, and 
+I've managed to finally find a way to reproduce and bisect it.
 
-Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h        |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c | 13 +++++++------
- drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c  |  7 ++++---
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c    | 14 ++++++++------
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c   |  6 +-----
- 5 files changed, 22 insertions(+), 22 deletions(-)
+Machine is an old Debian (7.11) box with a recent compile of netcf. Any 
+kernel later than 4.6.7 prevents ncftool from running if the ppp 
+interface is up.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 3ced2e1703c1..b13a144f72ad 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -412,8 +412,8 @@ extern const struct stmmac_desc_ops ndesc_ops;
- struct stmmac_dma_ops {
- 	/* DMA core initialization */
- 	int (*reset)(void __iomem *ioaddr);
--	void (*init)(void __iomem *ioaddr, int pbl, int fb, int mb,
--		     int aal, u32 dma_tx, u32 dma_rx, int atds);
-+	void (*init)(void __iomem *ioaddr, struct stmmac_dma_cfg *dma_cfg,
-+		     u32 dma_tx, u32 dma_rx, int atds);
- 	/* Configure the AXI Bus Mode Register */
- 	void (*axi)(void __iomem *ioaddr, struct stmmac_axi *axi);
- 	/* Dump DMA registers */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 990746955216..01d0d0f315e5 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -82,8 +82,9 @@ static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
- 	writel(value, ioaddr + DMA_AXI_BUS_MODE);
- }
- 
--static void dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
--			       int aal, u32 dma_tx, u32 dma_rx, int atds)
-+static void dwmac1000_dma_init(void __iomem *ioaddr,
-+			       struct stmmac_dma_cfg *dma_cfg,
-+			       u32 dma_tx, u32 dma_rx, int atds)
- {
- 	u32 value = readl(ioaddr + DMA_BUS_MODE);
- 
-@@ -99,20 +100,20 @@ static void dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
- 	 */
- 	value |= DMA_BUS_MODE_MAXPBL;
- 	value &= ~DMA_BUS_MODE_PBL_MASK;
--	value |= (pbl << DMA_BUS_MODE_PBL_SHIFT);
-+	value |= (dma_cfg->pbl << DMA_BUS_MODE_PBL_SHIFT);
- 
- 	/* Set the Fixed burst mode */
--	if (fb)
-+	if (dma_cfg->fixed_burst)
- 		value |= DMA_BUS_MODE_FB;
- 
- 	/* Mixed Burst has no effect when fb is set */
--	if (mb)
-+	if (dma_cfg->mixed_burst)
- 		value |= DMA_BUS_MODE_MB;
- 
- 	if (atds)
- 		value |= DMA_BUS_MODE_ATDS;
- 
--	if (aal)
-+	if (dma_cfg->aal)
- 		value |= DMA_BUS_MODE_AAL;
- 
- 	writel(value, ioaddr + DMA_BUS_MODE);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-index 61f54c99a7de..e5664da382f3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-@@ -32,11 +32,12 @@
- #include "dwmac100.h"
- #include "dwmac_dma.h"
- 
--static void dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
--			      int aal, u32 dma_tx, u32 dma_rx, int atds)
-+static void dwmac100_dma_init(void __iomem *ioaddr,
-+			      struct stmmac_dma_cfg *dma_cfg,
-+			      u32 dma_tx, u32 dma_rx, int atds)
- {
- 	/* Enable Application Access by writing to DMA CSR0 */
--	writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
-+	writel(DMA_BUS_MODE_DEFAULT | (dma_cfg->pbl << DMA_BUS_MODE_PBL_SHIFT),
- 	       ioaddr + DMA_BUS_MODE);
- 
- 	/* Mask interrupts by writing to CSR7 */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-index 577316de6ba8..0946546d6dcd 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-@@ -97,27 +97,29 @@ static void dwmac4_dma_init_channel(void __iomem *ioaddr, int pbl,
- 	writel(dma_rx_phy, ioaddr + DMA_CHAN_RX_BASE_ADDR(channel));
- }
- 
--static void dwmac4_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
--			    int aal, u32 dma_tx, u32 dma_rx, int atds)
-+static void dwmac4_dma_init(void __iomem *ioaddr,
-+			    struct stmmac_dma_cfg *dma_cfg,
-+			    u32 dma_tx, u32 dma_rx, int atds)
- {
- 	u32 value = readl(ioaddr + DMA_SYS_BUS_MODE);
- 	int i;
- 
- 	/* Set the Fixed burst mode */
--	if (fb)
-+	if (dma_cfg->fixed_burst)
- 		value |= DMA_SYS_BUS_FB;
- 
- 	/* Mixed Burst has no effect when fb is set */
--	if (mb)
-+	if (dma_cfg->mixed_burst)
- 		value |= DMA_SYS_BUS_MB;
- 
--	if (aal)
-+	if (dma_cfg->aal)
- 		value |= DMA_SYS_BUS_AAL;
- 
- 	writel(value, ioaddr + DMA_SYS_BUS_MODE);
- 
- 	for (i = 0; i < DMA_CHANNEL_NB_MAX; i++)
--		dwmac4_dma_init_channel(ioaddr, pbl, dma_tx, dma_rx, i);
-+		dwmac4_dma_init_channel(ioaddr, dma_cfg->pbl,
-+					dma_tx, dma_rx, i);
- }
- 
- static void _dwmac4_dump_dma_regs(void __iomem *ioaddr, u32 channel)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 14366800e5e6..b1e42ddf0370 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1595,11 +1595,7 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- 		return ret;
- 	}
- 
--	priv->hw->dma->init(priv->ioaddr,
--			    priv->plat->dma_cfg->pbl,
--			    priv->plat->dma_cfg->fixed_burst,
--			    priv->plat->dma_cfg->mixed_burst,
--			    priv->plat->dma_cfg->aal,
-+	priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg,
- 			    priv->dma_tx_phy, priv->dma_rx_phy, atds);
- 
- 	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
--- 
-2.1.4
+I'm using netcf-0.2.8, and this commit breaks it :
+
+96d934c70db6e1bc135600c57da1285eaf7efb26 is the first bad commit
+commit 96d934c70db6e1bc135600c57da1285eaf7efb26
+Author: Guillaume Nault <g.nault@alphalink.fr>
+Date:   Thu Apr 28 17:55:30 2016 +0200
+
+     ppp: add rtnetlink device creation support
+
+     Define PPP device handler for use with rtnetlink.
+     The only PPP specific attribute is IFLA_PPP_DEV_FD. It is mandatory and
+     contains the file descriptor of the associated /dev/ppp instance (the
+     file descriptor which would have been used for ioctl(PPPIOCNEWUNIT) in
+     the ioctl-based API). The PPP device is removed when this file
+     descriptor is released (same behaviour as with ioctl based PPP
+     devices).
+
+     PPP devices created with the rtnetlink API behave like the ones created
+     with ioctl(PPPIOCNEWUNIT). In particular existing ioctls work the same
+     way, no matter how the PPP device was created.
+     The rtnl callbacks are also assigned to ioctl based PPP devices. This
+     way, rtnl messages have the same effect on any PPP devices.
+     The immediate effect is that all PPP devices, even ioctl-based
+     ones, can now be removed with "ip link del".
+
+     A minor difference still exists between ioctl and rtnl based PPP
+     interfaces: in the device name, the number following the "ppp" prefix
+     corresponds to the PPP unit number for ioctl based devices, while it is
+     just an unrelated incrementing index for rtnl ones.
+
+     Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+     Signed-off-by: David S. Miller <davem@davemloft.net>
+
+:040000 040000 b26929a9fd7becd3652583d2f56579b8420fc522 
+dd9e74c76a02cff8387a98821c05509518ca2f48 M    drivers
+:040000 040000 82eacf2954c38d78ec4ccb7b8bdec2675e96e2e8 
+7d4b666b5a61b0a23738943b39a984b47bcde3ae M    include
+
+The issue is netcf dies if the ppp interface is up with the informative 
+message "Failed to initialize netcf". No debug output. Enabling 
+debugging in libnl shows it dies when the data for the ppp interface is 
+returned.
+
+Take ppp down and ncftool comes up ok.
+
+libnl appears to be version 3.2.24 (Debian libnl-3)
+
+This has been manifesting on a production machine with a pppoe link to 
+the world, but I managed to reproduce it on a test box using a pppoe 
+server and a client on the test box which enabled me to bisect it.
+
+I don't know anything about netlink, nor the networking subsystem so I'm 
+asking for a belt with a cluebat please. I'm using the latest *released* 
+netcf, and a quick check of the git tree does not seem to indicate 
+anything that might be related. Have I missed a kernel config option, or 
+made some catastrophic blunder in setting this up? It works fine on 
+4.6.4, but anything 4.7 or later just dies if the ppp interface is up.
+
+
+Regards,
+Brad
