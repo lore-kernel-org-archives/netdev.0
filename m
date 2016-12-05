@@ -1,114 +1,61 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: Re: [PATCH v2 3/6] net: stmmac: stmmac_platform: fix parsing of DT
- binding
-Date: Mon, 5 Dec 2016 17:12:07 +0100
-Message-ID: <cb287d85-cbd3-7a63-ddeb-d9dbcb09c18a@axis.com>
-References: <1480929039-20257-1-git-send-email-niklass@axis.com>
- <1480929039-20257-4-git-send-email-niklass@axis.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] udp: some improvements on RX path.
+Date: Mon, 05 Dec 2016 07:54:05 -0800
+Message-ID: <1480953245.18162.541.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161205163711.44b01c3a@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480929039-20257-4-git-send-email-niklass@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Paolo Abeni <pabeni@redhat.com>, netdev <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35770 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751623AbcLEQMp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 11:12:45 -0500
+Received: by mail-pf0-f193.google.com with SMTP id i88so7902743pfk.2
+        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 08:12:45 -0800 (PST)
+In-Reply-To: <20161205163711.44b01c3a@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2016 10:10 AM, Niklas Cassel wrote:
-> From: Niklas Cassel <niklas.cassel@axis.com>
->
-> commit 64c3b252e9fc ("net: stmmac: fixed the pbl setting with DT")
-> changed the parsing of the DT binding.
->
-> Before 64c3b252e9fc, snps,fixed-burst and snps,mixed-burst were parsed
-> regardless if the property snps,pbl existed or not.
-> After the commit, fixed burst and mixed burst are only parsed if
-> snps,pbl exists. Now when snps,aal has been added, it too is only
-> parsed if snps,pbl exists.
->
-> Since the DT binding does not specify that fixed burst, mixed burst
-> or aal depend on snps,pbl being specified, undo changes introduced
-> by 64c3b252e9fc.
->
-> The issue commit 64c3b252e9fc ("net: stmmac: fixed the pbl setting with
-> DT") tries to address is solved in another way:
-> The databook specifies that all values other than
-> 1, 2, 4, 8, 16, or 32 results in undefined behavior,
-> so snps,pbl = <0> is invalid.
->
-> If pbl is 0 after parsing, set pbl to DEFAULT_DMA_PBL.
-> This handles the case where the property is omitted, and also handles
-> the case where the property is specified without any data.
->
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  3 +++
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 27 +++++++++++-----------
->  2 files changed, 16 insertions(+), 14 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index b1e42ddf0370..2298c4d109fb 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1586,6 +1586,9 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
->  		return -EINVAL;
->  	}
->  
-> +	if (!priv->plat->dma_cfg->pbl)
-> +		priv->plat->dma_cfg->pbl = DEFAULT_DMA_PBL;
-> +
+On Mon, 2016-12-05 at 16:37 +0100, Jesper Dangaard Brouer wrote:
 
-Perhaps it is cleaner to have this "fallback to a default value" in
-stmmac_probe_config_dt, right after
-of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl),
-since the only other place where the pbl is set, is from PCI glue.
+> Do you think the splice technique would, have the same performance
+> benefit as having a MPMC queue with separate enqueue and dequeue locking?
+> (like we have with skb_array/ptr_ring that avoids cache bouncing)?
 
-The PCI glue should set a correct pbl value, and shouldn't need to
-rely on a default value.
-The code in stmmac_init_dma_engine could then, instead of
-"fallback to a default value", return an error if pbl == 0.
+I believe ring buffers make sense for critical points in the kernel,
+but for an arbitrary number of TCP/UDP sockets in a host, they are a big
+increase of memory, and a practical problem when SO_RCVBUF is changed,
+since dynamic resize of the ring buffer would be needed.
 
->  	if (priv->extend_desc && (priv->mode == STMMAC_RING_MODE))
->  		atds = 1;
->  
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 98bf86d64d96..59e1740479fc 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -301,21 +301,20 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
->  		plat->force_sf_dma_mode = 1;
->  	}
->  
-> -	if (of_find_property(np, "snps,pbl", NULL)) {
-> -		dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
-> -				       GFP_KERNEL);
-> -		if (!dma_cfg) {
-> -			stmmac_remove_config_dt(pdev, plat);
-> -			return ERR_PTR(-ENOMEM);
-> -		}
-> -		plat->dma_cfg = dma_cfg;
-> -		of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
-> -		dma_cfg->aal = of_property_read_bool(np, "snps,aal");
-> -		dma_cfg->fixed_burst =
-> -			of_property_read_bool(np, "snps,fixed-burst");
-> -		dma_cfg->mixed_burst =
-> -			of_property_read_bool(np, "snps,mixed-burst");
-> +	dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
-> +			       GFP_KERNEL);
-> +	if (!dma_cfg) {
-> +		stmmac_remove_config_dt(pdev, plat);
-> +		return ERR_PTR(-ENOMEM);
->  	}
-> +	plat->dma_cfg = dma_cfg;
-> +
-> +	of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
-> +
-> +	dma_cfg->aal = of_property_read_bool(np, "snps,aal");
-> +	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
-> +	dma_cfg->mixed_burst = of_property_read_bool(np, "snps,mixed-burst");
-> +
->  	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
->  	if (plat->force_thresh_dma_mode) {
->  		plat->force_sf_dma_mode = 0;
+If you think about it, most sockets have few outstanding packets, like
+0, 1 , 2. But they also might have ~100 packets, sometimes...
+
+For most of TCP/UDP sockets, a linked list is simply good enough.
+( We only very recently converted the out of order receive queue to an
+RB tree )
+
+Now, if _two_ linked list are also good in the very rare case of floods,
+I would use two linked lists, if they can offer us a 50 % increase at
+small memory cost.
+
+Then for very special cases, we have af_packet which should be optimized
+for all the fancy stuff.
+
+If an application really receives more than 1.5 Mpps per UDP socket,
+then the author should seriously consider SO_REUSEPORT, and have more
+than 1 vcpu on its VM. I think we have cheap cloud offers available from
+many providers.
+
+The ring buffer queue might make sense in net/core/dev.c, since
+we currently have 2 queues per cpu.
+
+So you might want to experiment with that, because it looks like we
+might go to a model where a single cpu is (busypoll) processing all low
+level RX processing from a single queue per NUMA node, then dispatch to
+other cpus the IP/{TCP|UDP} processing.
