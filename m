@@ -1,89 +1,37 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v2] net: ping: check minimum size on ICMP header length
-Date: Mon, 5 Dec 2016 10:34:38 -0800
-Message-ID: <20161205183438.GA133528@beast>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: ping: check minimum size on ICMP header length
+Date: Mon, 05 Dec 2016 13:36:11 -0500 (EST)
+Message-ID: <20161205.133611.650439526320620182.davem@davemloft.net>
+References: <20161205183438.GA133528@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Min Chong <mchong@google.com>,
-        Qidan He <i@flanker017.me>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mchong@google.com, i@flanker017.me,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, linux-kernel@vger.kernel.org
+To: keescook@chromium.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <20161205183438.GA133528@beast>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Prior to commit c0371da6047a ("put iov_iter into msghdr") in v3.19, there
-was no check that the iovec contained enough bytes for an ICMP header,
-and the read loop would walk across neighboring stack contents. Since the
-iov_iter conversion, bad arguments are noticed, but the returned error is
-EFAULT. Returning EINVAL is a clearer error and also solves the problem
-prior to v3.19.
+From: Kees Cook <keescook@chromium.org>
+Date: Mon, 5 Dec 2016 10:34:38 -0800
 
-This was found using trinity with KASAN on v3.18:
+> Prior to commit c0371da6047a ("put iov_iter into msghdr") in v3.19, there
+> was no check that the iovec contained enough bytes for an ICMP header,
+> and the read loop would walk across neighboring stack contents. Since the
+> iov_iter conversion, bad arguments are noticed, but the returned error is
+> EFAULT. Returning EINVAL is a clearer error and also solves the problem
+> prior to v3.19.
+> 
+> This was found using trinity with KASAN on v3.18:
+ ...
+> CVE-2016-8399
+> 
+> Reported-by: Qidan He <i@flanker017.me>
+> Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-BUG: KASAN: stack-out-of-bounds in memcpy_fromiovec+0x60/0x114 at addr ffffffc071077da0
-Read of size 8 by task trinity-c2/9623
-page:ffffffbe034b9a08 count:0 mapcount:0 mapping:          (null) index:0x0
-flags: 0x0()
-page dumped because: kasan: bad access detected
-CPU: 0 PID: 9623 Comm: trinity-c2 Tainted: G    BU         3.18.0-dirty #15
-Hardware name: Google Tegra210 Smaug Rev 1,3+ (DT)
-Call trace:
-[<ffffffc000209c98>] dump_backtrace+0x0/0x1ac arch/arm64/kernel/traps.c:90
-[<ffffffc000209e54>] show_stack+0x10/0x1c arch/arm64/kernel/traps.c:171
-[<     inline     >] __dump_stack lib/dump_stack.c:15
-[<ffffffc000f18dc4>] dump_stack+0x7c/0xd0 lib/dump_stack.c:50
-[<     inline     >] print_address_description mm/kasan/report.c:147
-[<     inline     >] kasan_report_error mm/kasan/report.c:236
-[<ffffffc000373dcc>] kasan_report+0x380/0x4b8 mm/kasan/report.c:259
-[<     inline     >] check_memory_region mm/kasan/kasan.c:264
-[<ffffffc00037352c>] __asan_load8+0x20/0x70 mm/kasan/kasan.c:507
-[<ffffffc0005b9624>] memcpy_fromiovec+0x5c/0x114 lib/iovec.c:15
-[<     inline     >] memcpy_from_msg include/linux/skbuff.h:2667
-[<ffffffc000ddeba0>] ping_common_sendmsg+0x50/0x108 net/ipv4/ping.c:674
-[<ffffffc000dded30>] ping_v4_sendmsg+0xd8/0x698 net/ipv4/ping.c:714
-[<ffffffc000dc91dc>] inet_sendmsg+0xe0/0x12c net/ipv4/af_inet.c:749
-[<     inline     >] __sock_sendmsg_nosec net/socket.c:624
-[<     inline     >] __sock_sendmsg net/socket.c:632
-[<ffffffc000cab61c>] sock_sendmsg+0x124/0x164 net/socket.c:643
-[<     inline     >] SYSC_sendto net/socket.c:1797
-[<ffffffc000cad270>] SyS_sendto+0x178/0x1d8 net/socket.c:1761
-
-CVE-2016-8399
-
-Reported-by: Qidan He <i@flanker017.me>
-Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
-Cc: stable@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
-v2: return -EINVAL, Lorenzo.
----
- net/ipv4/ping.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 205e2000d395..96b8e2b95731 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -657,6 +657,10 @@ int ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
- 	if (len > 0xFFFF)
- 		return -EMSGSIZE;
- 
-+	/* Must have at least a full ICMP header. */
-+	if (len < icmph_len)
-+		return -EINVAL;
-+
- 	/*
- 	 *	Check the flags.
- 	 */
--- 
-2.7.4
-
-
--- 
-Kees Cook
-Nexus Security
+Applied and queued up for -stable, thanks.
