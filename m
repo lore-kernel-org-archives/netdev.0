@@ -1,7 +1,7 @@
 From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 01/28] bnxt_en: Add bnxt_set_max_func_irqs().
-Date: Sun,  4 Dec 2016 22:38:05 -0800
-Message-ID: <1480919912-1079-2-git-send-email-selvin.xavier@broadcom.com>
+Subject: [PATCH 06/28] bnxt_en: Refactor the driver registration function with firmware.
+Date: Sun,  4 Dec 2016 22:38:10 -0800
+Message-ID: <1480919912-1079-7-git-send-email-selvin.xavier@broadcom.com>
 References: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
@@ -15,65 +15,109 @@ List-Id: netdev.vger.kernel.org
 
 From: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 
-By refactoring existing code into this new function.  The new function
-will be used in subsequent patches.
+The driver register function with firmware consists of passing version
+information and registering for async events.  To support the RDMA driver,
+the async events that we need to register may change.  Separate the
+driver register function into 2 parts so that we can just update the
+async events for the RDMA driver.
 
 Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Signed-off-by: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 17 +++++++++++------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
- 2 files changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 34 ++++++++++++++++++++++++++-----
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  2 ++
+ 2 files changed, 31 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index e8ab5fd..6cdfe3e 100644
+index 7218d65..c26735ea 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4743,6 +4743,16 @@ static int bnxt_trim_rings(struct bnxt *bp, int *rx, int *tx, int max,
- 	return 0;
+@@ -3117,27 +3117,46 @@ int hwrm_send_message_silent(struct bnxt *bp, void *msg, u32 msg_len,
+ 	return rc;
  }
  
-+void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max_irqs)
-+{
-+	if (BNXT_PF(bp))
-+		bp->pf.max_irqs = max_irqs;
-+#if defined(CONFIG_BNXT_SRIOV)
-+	else
-+		bp->vf.max_irqs = max_irqs;
-+#endif
+-static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
++int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
++				     int bmap_size)
+ {
+ 	struct hwrm_func_drv_rgtr_input req = {0};
+-	int i;
+ 	DECLARE_BITMAP(async_events_bmap, 256);
+ 	u32 *events = (u32 *)async_events_bmap;
++	int i;
+ 
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_DRV_RGTR, -1, -1);
+ 
+ 	req.enables =
+-		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_OS_TYPE |
+-			    FUNC_DRV_RGTR_REQ_ENABLES_VER |
+-			    FUNC_DRV_RGTR_REQ_ENABLES_ASYNC_EVENT_FWD);
++		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_ASYNC_EVENT_FWD);
+ 
+ 	memset(async_events_bmap, 0, sizeof(async_events_bmap));
+ 	for (i = 0; i < ARRAY_SIZE(bnxt_async_events_arr); i++)
+ 		__set_bit(bnxt_async_events_arr[i], async_events_bmap);
+ 
++	if (bmap && bmap_size) {
++		for (i = 0; i < bmap_size; i++) {
++			if (test_bit(i, bmap))
++				__set_bit(i, async_events_bmap);
++		}
++	}
++
+ 	for (i = 0; i < 8; i++)
+ 		req.async_event_fwd[i] |= cpu_to_le32(events[i]);
+ 
++	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
 +}
 +
- static int bnxt_setup_msix(struct bnxt *bp)
- {
- 	struct msix_entry *msix_ent;
-@@ -6949,12 +6959,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
++static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
++{
++	struct hwrm_func_drv_rgtr_input req = {0};
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_DRV_RGTR, -1, -1);
++
++	req.enables =
++		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_OS_TYPE |
++			    FUNC_DRV_RGTR_REQ_ENABLES_VER);
++
+ 	req.os_type = cpu_to_le16(FUNC_DRV_RGTR_REQ_OS_TYPE_LINUX);
+ 	req.ver_maj = DRV_VER_MAJ;
+ 	req.ver_min = DRV_VER_MIN;
+@@ -3146,6 +3165,7 @@ static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
+ 	if (BNXT_PF(bp)) {
+ 		DECLARE_BITMAP(vf_req_snif_bmap, 256);
+ 		u32 *data = (u32 *)vf_req_snif_bmap;
++		int i;
  
- 	bnxt_set_tpa_flags(bp);
- 	bnxt_set_ring_params(bp);
--	if (BNXT_PF(bp))
--		bp->pf.max_irqs = max_irqs;
--#if defined(CONFIG_BNXT_SRIOV)
--	else
--		bp->vf.max_irqs = max_irqs;
--#endif
-+	bnxt_set_max_func_irqs(bp, max_irqs);
- 	bnxt_set_dflt_rings(bp);
+ 		memset(vf_req_snif_bmap, 0, sizeof(vf_req_snif_bmap));
+ 		for (i = 0; i < ARRAY_SIZE(bnxt_vf_req_snif); i++)
+@@ -7023,6 +7043,10 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (rc)
+ 		goto init_err;
  
- 	/* Default RSS hash cfg. */
++	rc = bnxt_hwrm_func_rgtr_async_events(bp, NULL, 0);
++	if (rc)
++		goto init_err;
++
+ 	/* Get the MAX capabilities for this function */
+ 	rc = bnxt_hwrm_func_qcaps(bp);
+ 	if (rc) {
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index b4abc1b..8327d0d 100644
+index d796836..eec2415 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1235,6 +1235,7 @@ int hwrm_send_message(struct bnxt *, void *, u32, int);
+@@ -1240,6 +1240,8 @@ void bnxt_hwrm_cmd_hdr_init(struct bnxt *, void *, u16, u16, u16);
+ int _hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message(struct bnxt *, void *, u32, int);
  int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
++int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
++				     int bmap_size);
  int bnxt_hwrm_set_coal(struct bnxt *);
- int bnxt_hwrm_func_qcaps(struct bnxt *);
-+void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max);
- void bnxt_tx_disable(struct bnxt *bp);
- void bnxt_tx_enable(struct bnxt *bp);
- int bnxt_hwrm_set_pause(struct bnxt *);
+ unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
+ unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp);
 -- 
 2.5.5
 
