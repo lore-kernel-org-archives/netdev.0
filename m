@@ -1,9 +1,10 @@
 From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 1/6] net: ethernet: ti: netcp: add support of cpts
-Date: Mon, 5 Dec 2016 08:49:18 -0600
-Message-ID: <20161205144918.oj4jpj65aha3x5gf@rob-hp-laptop>
+Subject: Re: [PATCH 2/6] net: ethernet: ti: cpts: add support for ext rftclk
+ selection
+Date: Mon, 5 Dec 2016 08:51:09 -0600
+Message-ID: <20161205145109.ehzxzejpfhpwacle@rob-hp-laptop>
 References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-2-grygorii.strashko@ti.com>
+ <20161128230428.6872-3-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -16,50 +17,44 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161128230428.6872-2-grygorii.strashko@ti.com>
+In-Reply-To: <20161128230428.6872-3-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 28, 2016 at 05:04:23PM -0600, Grygorii Strashko wrote:
-> From: WingMan Kwok <w-kwok2@ti.com>
+On Mon, Nov 28, 2016 at 05:04:24PM -0600, Grygorii Strashko wrote:
+> Some CPTS instances, which can be found on KeyStone 2 1/10G Ethernet
+> Switch Subsystems, can control an external multiplexer that selects
+> one of up to 32 clocks for time sync reference (RFTCLK). This feature
+> can be configured through CPTS_RFTCLK_SEL register (offset: x08).
 > 
-> This patch adds support of the cpts device found in the
-> gbe and 10gbe ethernet switches on the keystone 2 SoCs
-> (66AK2E/L/Hx, 66AK2Gx).
+> Hence, introduce optional DT cpts_rftclk_sel poperty wich, if present,
+> will specify CPTS reference clock. The cpts_rftclk_sel should be
+> omitted in DT if HW doesn't support this feature. The external fixed
+> rate clocks can be defined in board files as "fixed-clock".
 > 
-> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 > Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 > ---
->  .../devicetree/bindings/net/keystone-netcp.txt     |   9 +
->  drivers/net/ethernet/ti/Kconfig                    |   7 +-
->  drivers/net/ethernet/ti/netcp.h                    |   2 +-
->  drivers/net/ethernet/ti/netcp_core.c               |  18 +-
->  drivers/net/ethernet/ti/netcp_ethss.c              | 437 ++++++++++++++++++++-
->  5 files changed, 459 insertions(+), 14 deletions(-)
+>  Documentation/devicetree/bindings/net/keystone-netcp.txt |  2 ++
+
+Please group binding changes into a single patch.
+
+>  drivers/net/ethernet/ti/cpts.c                           | 12 ++++++++++++
+>  drivers/net/ethernet/ti/cpts.h                           |  8 +++++++-
+>  3 files changed, 21 insertions(+), 1 deletion(-)
 > 
 > diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-> index 04ba1dc..c37b54e 100644
+> index c37b54e..ec4a241 100644
 > --- a/Documentation/devicetree/bindings/net/keystone-netcp.txt
 > +++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-> @@ -113,6 +113,15 @@ Optional properties:
->  				will only initialize these ports and attach PHY
+> @@ -114,6 +114,8 @@ Optional properties:
 >  				driver to them if needed.
 >  
-> + Properties related to cpts configurations.
-> +	- cpts_clock_mult/cpts_clock_shift:
+>   Properties related to cpts configurations.
+> +	- cpts-rftclk-sel: selects one of up to 32 clocks for time sync
+> +		reference.  Default = 0.
 
-Needs vendor prefix. Don't use '_'.
+Vendor prefix.
 
-> +		used for converting time counter cycles to ns as in
-> +
-> +		ns = (cycles * clock_mult) >> _shift
-> +
-> +		Defaults: clock_mult, clock_shift = calculated from
-> +		CPTS refclk
-
-What does this mean?
-
-> +
->  NetCP interface properties: Interface specification for NetCP sub-modules.
->  Required properties:
->  - rx-channel:	the navigator packet dma channel name for rx.
+>  	- cpts_clock_mult/cpts_clock_shift:
+>  		used for converting time counter cycles to ns as in
+>  
