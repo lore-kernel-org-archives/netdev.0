@@ -1,127 +1,338 @@
-From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 06/28] bnxt_en: Refactor the driver registration function with firmware.
-Date: Sun,  4 Dec 2016 22:38:10 -0800
-Message-ID: <1480919912-1079-7-git-send-email-selvin.xavier@broadcom.com>
+From: Selvin Xavier <selvin.xavier@broadcom.com>
+Subject: [PATCH 02/28] bnxt_en: Enable MSIX early in bnxt_init_one().
+Date: Sun,  4 Dec 2016 22:38:06 -0800
+Message-ID: <1480919912-1079-3-git-send-email-selvin.xavier@broadcom.com>
 References: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1480919912-1079-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org,
+        Michael Chan <michael.chan@broadcom.com>,
+        David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Selvin Xavier <selvin.xavier@broadcom.com>
+To: dledford@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:33862 "EHLO
+        relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751261AbcLEGpo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:45:44 -0500
+In-Reply-To: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+From: Michael Chan <michael.chan@broadcom.com>
 
-The driver register function with firmware consists of passing version
-information and registering for async events.  To support the RDMA driver,
-the async events that we need to register may change.  Separate the
-driver register function into 2 parts so that we can just update the
-async events for the RDMA driver.
+To better support the new RDMA driver, we need to move pci_enable_msix()
+from bnxt_open() to bnxt_init_one().  This way, MSIX vectors are available
+to the RDMA driver whether the network device is up or down.
 
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Signed-off-by: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Part of the existing bnxt_setup_int_mode() function is now refactored into
+a new bnxt_init_int_mode().  bnxt_init_int_mode() is called during
+bnxt_init_one() to enable MSIX.  The remaining logic in
+bnxt_setup_int_mode() to map the IRQs to the completion rings is called
+during bnxt_open().
+
+Cc: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 34 ++++++++++++++++++++++++++-----
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  2 ++
- 2 files changed, 31 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 183 +++++++++++++++++++-----------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |   1 +
+ 2 files changed, 115 insertions(+), 69 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 7218d65..c26735ea 100644
+index 6cdfe3e..9178bf8 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -3117,27 +3117,46 @@ int hwrm_send_message_silent(struct bnxt *bp, void *msg, u32 msg_len,
- 	return rc;
+@@ -4743,6 +4743,80 @@ static int bnxt_trim_rings(struct bnxt *bp, int *rx, int *tx, int max,
+ 	return 0;
  }
  
--static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
-+int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
-+				     int bmap_size)
- {
- 	struct hwrm_func_drv_rgtr_input req = {0};
--	int i;
- 	DECLARE_BITMAP(async_events_bmap, 256);
- 	u32 *events = (u32 *)async_events_bmap;
-+	int i;
- 
- 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_DRV_RGTR, -1, -1);
- 
- 	req.enables =
--		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_OS_TYPE |
--			    FUNC_DRV_RGTR_REQ_ENABLES_VER |
--			    FUNC_DRV_RGTR_REQ_ENABLES_ASYNC_EVENT_FWD);
-+		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_ASYNC_EVENT_FWD);
- 
- 	memset(async_events_bmap, 0, sizeof(async_events_bmap));
- 	for (i = 0; i < ARRAY_SIZE(bnxt_async_events_arr); i++)
- 		__set_bit(bnxt_async_events_arr[i], async_events_bmap);
- 
-+	if (bmap && bmap_size) {
-+		for (i = 0; i < bmap_size; i++) {
-+			if (test_bit(i, bmap))
-+				__set_bit(i, async_events_bmap);
++static void bnxt_setup_msix(struct bnxt *bp)
++{
++	const int len = sizeof(bp->irq_tbl[0].name);
++	struct net_device *dev = bp->dev;
++	int tcs, i;
++
++	tcs = netdev_get_num_tc(dev);
++	if (tcs > 1) {
++		bp->tx_nr_rings_per_tc = bp->tx_nr_rings / tcs;
++		if (bp->tx_nr_rings_per_tc == 0) {
++			netdev_reset_tc(dev);
++			bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
++		} else {
++			int i, off, count;
++
++			bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
++			for (i = 0; i < tcs; i++) {
++				count = bp->tx_nr_rings_per_tc;
++				off = i * count;
++				netdev_set_tc_queue(dev, i, count, off);
++			}
 +		}
 +	}
 +
- 	for (i = 0; i < 8; i++)
- 		req.async_event_fwd[i] |= cpu_to_le32(events[i]);
- 
-+	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	for (i = 0; i < bp->cp_nr_rings; i++) {
++		char *attr;
++
++		if (bp->flags & BNXT_FLAG_SHARED_RINGS)
++			attr = "TxRx";
++		else if (i < bp->rx_nr_rings)
++			attr = "rx";
++		else
++			attr = "tx";
++
++		snprintf(bp->irq_tbl[i].name, len, "%s-%s-%d", dev->name, attr,
++			 i);
++		bp->irq_tbl[i].handler = bnxt_msix;
++	}
 +}
 +
-+static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
++static void bnxt_setup_inta(struct bnxt *bp)
 +{
-+	struct hwrm_func_drv_rgtr_input req = {0};
++	const int len = sizeof(bp->irq_tbl[0].name);
 +
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_DRV_RGTR, -1, -1);
++	if (netdev_get_num_tc(bp->dev))
++		netdev_reset_tc(bp->dev);
 +
-+	req.enables =
-+		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_OS_TYPE |
-+			    FUNC_DRV_RGTR_REQ_ENABLES_VER);
++	snprintf(bp->irq_tbl[0].name, len, "%s-%s-%d", bp->dev->name, "TxRx",
++		 0);
++	bp->irq_tbl[0].handler = bnxt_inta;
++}
 +
- 	req.os_type = cpu_to_le16(FUNC_DRV_RGTR_REQ_OS_TYPE_LINUX);
- 	req.ver_maj = DRV_VER_MAJ;
- 	req.ver_min = DRV_VER_MIN;
-@@ -3146,6 +3165,7 @@ static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
- 	if (BNXT_PF(bp)) {
- 		DECLARE_BITMAP(vf_req_snif_bmap, 256);
- 		u32 *data = (u32 *)vf_req_snif_bmap;
-+		int i;
++static int bnxt_setup_int_mode(struct bnxt *bp)
++{
++	int rc;
++
++	if (bp->flags & BNXT_FLAG_USING_MSIX)
++		bnxt_setup_msix(bp);
++	else
++		bnxt_setup_inta(bp);
++
++	rc = bnxt_set_real_num_queues(bp);
++	return rc;
++}
++
++static unsigned int bnxt_get_max_func_irqs(struct bnxt *bp)
++{
++	if (BNXT_PF(bp))
++		return bp->pf.max_irqs;
++#if defined(CONFIG_BNXT_SRIOV)
++	return bp->vf.max_irqs;
++#endif
++}
++
+ void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max_irqs)
+ {
+ 	if (BNXT_PF(bp))
+@@ -4753,16 +4827,12 @@ void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max_irqs)
+ #endif
+ }
  
- 		memset(vf_req_snif_bmap, 0, sizeof(vf_req_snif_bmap));
- 		for (i = 0; i < ARRAY_SIZE(bnxt_vf_req_snif); i++)
-@@ -7023,6 +7043,10 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+-static int bnxt_setup_msix(struct bnxt *bp)
++static int bnxt_init_msix(struct bnxt *bp)
+ {
+-	struct msix_entry *msix_ent;
+-	struct net_device *dev = bp->dev;
+ 	int i, total_vecs, rc = 0, min = 1;
+-	const int len = sizeof(bp->irq_tbl[0].name);
+-
+-	bp->flags &= ~BNXT_FLAG_USING_MSIX;
+-	total_vecs = bp->cp_nr_rings;
++	struct msix_entry *msix_ent;
+ 
++	total_vecs = bnxt_get_max_func_irqs(bp);
+ 	msix_ent = kcalloc(total_vecs, sizeof(struct msix_entry), GFP_KERNEL);
+ 	if (!msix_ent)
+ 		return -ENOMEM;
+@@ -4783,8 +4853,10 @@ static int bnxt_setup_msix(struct bnxt *bp)
+ 
+ 	bp->irq_tbl = kcalloc(total_vecs, sizeof(struct bnxt_irq), GFP_KERNEL);
+ 	if (bp->irq_tbl) {
+-		int tcs;
++		for (i = 0; i < total_vecs; i++)
++			bp->irq_tbl[i].vector = msix_ent[i].vector;
+ 
++		bp->total_irqs = total_vecs;
+ 		/* Trim rings based upon num of vectors allocated */
+ 		rc = bnxt_trim_rings(bp, &bp->rx_nr_rings, &bp->tx_nr_rings,
+ 				     total_vecs, min == 1);
+@@ -4792,43 +4864,10 @@ static int bnxt_setup_msix(struct bnxt *bp)
+ 			goto msix_setup_exit;
+ 
+ 		bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
+-		tcs = netdev_get_num_tc(dev);
+-		if (tcs > 1) {
+-			bp->tx_nr_rings_per_tc = bp->tx_nr_rings / tcs;
+-			if (bp->tx_nr_rings_per_tc == 0) {
+-				netdev_reset_tc(dev);
+-				bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
+-			} else {
+-				int i, off, count;
++		bp->cp_nr_rings = (min == 1) ?
++				  max_t(int, bp->tx_nr_rings, bp->rx_nr_rings) :
++				  bp->tx_nr_rings + bp->rx_nr_rings;
+ 
+-				bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
+-				for (i = 0; i < tcs; i++) {
+-					count = bp->tx_nr_rings_per_tc;
+-					off = i * count;
+-					netdev_set_tc_queue(dev, i, count, off);
+-				}
+-			}
+-		}
+-		bp->cp_nr_rings = total_vecs;
+-
+-		for (i = 0; i < bp->cp_nr_rings; i++) {
+-			char *attr;
+-
+-			bp->irq_tbl[i].vector = msix_ent[i].vector;
+-			if (bp->flags & BNXT_FLAG_SHARED_RINGS)
+-				attr = "TxRx";
+-			else if (i < bp->rx_nr_rings)
+-				attr = "rx";
+-			else
+-				attr = "tx";
+-
+-			snprintf(bp->irq_tbl[i].name, len,
+-				 "%s-%s-%d", dev->name, attr, i);
+-			bp->irq_tbl[i].handler = bnxt_msix;
+-		}
+-		rc = bnxt_set_real_num_queues(bp);
+-		if (rc)
+-			goto msix_setup_exit;
+ 	} else {
+ 		rc = -ENOMEM;
+ 		goto msix_setup_exit;
+@@ -4838,52 +4877,54 @@ static int bnxt_setup_msix(struct bnxt *bp)
+ 	return 0;
+ 
+ msix_setup_exit:
+-	netdev_err(bp->dev, "bnxt_setup_msix err: %x\n", rc);
++	netdev_err(bp->dev, "bnxt_init_msix err: %x\n", rc);
++	kfree(bp->irq_tbl);
++	bp->irq_tbl = NULL;
+ 	pci_disable_msix(bp->pdev);
+ 	kfree(msix_ent);
+ 	return rc;
+ }
+ 
+-static int bnxt_setup_inta(struct bnxt *bp)
++static int bnxt_init_inta(struct bnxt *bp)
+ {
+-	int rc;
+-	const int len = sizeof(bp->irq_tbl[0].name);
+-
+-	if (netdev_get_num_tc(bp->dev))
+-		netdev_reset_tc(bp->dev);
+-
+ 	bp->irq_tbl = kcalloc(1, sizeof(struct bnxt_irq), GFP_KERNEL);
+-	if (!bp->irq_tbl) {
+-		rc = -ENOMEM;
+-		return rc;
+-	}
++	if (!bp->irq_tbl)
++		return -ENOMEM;
++
++	bp->total_irqs = 1;
+ 	bp->rx_nr_rings = 1;
+ 	bp->tx_nr_rings = 1;
+ 	bp->cp_nr_rings = 1;
+ 	bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
+ 	bp->flags |= BNXT_FLAG_SHARED_RINGS;
+ 	bp->irq_tbl[0].vector = bp->pdev->irq;
+-	snprintf(bp->irq_tbl[0].name, len,
+-		 "%s-%s-%d", bp->dev->name, "TxRx", 0);
+-	bp->irq_tbl[0].handler = bnxt_inta;
+-	rc = bnxt_set_real_num_queues(bp);
+-	return rc;
++	return 0;
+ }
+ 
+-static int bnxt_setup_int_mode(struct bnxt *bp)
++static int bnxt_init_int_mode(struct bnxt *bp)
+ {
+ 	int rc = 0;
+ 
+ 	if (bp->flags & BNXT_FLAG_MSIX_CAP)
+-		rc = bnxt_setup_msix(bp);
++		rc = bnxt_init_msix(bp);
+ 
+ 	if (!(bp->flags & BNXT_FLAG_USING_MSIX) && BNXT_PF(bp)) {
+ 		/* fallback to INTA */
+-		rc = bnxt_setup_inta(bp);
++		rc = bnxt_init_inta(bp);
+ 	}
+ 	return rc;
+ }
+ 
++static void bnxt_clear_int_mode(struct bnxt *bp)
++{
++	if (bp->flags & BNXT_FLAG_USING_MSIX)
++		pci_disable_msix(bp->pdev);
++
++	kfree(bp->irq_tbl);
++	bp->irq_tbl = NULL;
++	bp->flags &= ~BNXT_FLAG_USING_MSIX;
++}
++
+ static void bnxt_free_irq(struct bnxt *bp)
+ {
+ 	struct bnxt_irq *irq;
+@@ -4902,10 +4943,6 @@ static void bnxt_free_irq(struct bnxt *bp)
+ 			free_irq(irq->vector, bp->bnapi[i]);
+ 		irq->requested = 0;
+ 	}
+-	if (bp->flags & BNXT_FLAG_USING_MSIX)
+-		pci_disable_msix(bp->pdev);
+-	kfree(bp->irq_tbl);
+-	bp->irq_tbl = NULL;
+ }
+ 
+ static int bnxt_request_irq(struct bnxt *bp)
+@@ -6695,6 +6732,7 @@ static void bnxt_remove_one(struct pci_dev *pdev)
+ 	cancel_work_sync(&bp->sp_task);
+ 	bp->sp_event = 0;
+ 
++	bnxt_clear_int_mode(bp);
+ 	bnxt_hwrm_func_drv_unrgtr(bp);
+ 	bnxt_free_hwrm_resources(bp);
+ 	bnxt_dcb_free(bp);
+@@ -6990,10 +7028,14 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  	if (rc)
  		goto init_err;
  
-+	rc = bnxt_hwrm_func_rgtr_async_events(bp, NULL, 0);
+-	rc = register_netdev(dev);
++	rc = bnxt_init_int_mode(bp);
+ 	if (rc)
+ 		goto init_err;
+ 
++	rc = register_netdev(dev);
 +	if (rc)
-+		goto init_err;
++		goto init_err_clr_int;
 +
- 	/* Get the MAX capabilities for this function */
- 	rc = bnxt_hwrm_func_qcaps(bp);
- 	if (rc) {
+ 	netdev_info(dev, "%s found at mem %lx, node addr %pM\n",
+ 		    board_info[ent->driver_data].name,
+ 		    (long)pci_resource_start(pdev, 0), dev->dev_addr);
+@@ -7002,6 +7044,9 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	return 0;
+ 
++init_err_clr_int:
++	bnxt_clear_int_mode(bp);
++
+ init_err:
+ 	pci_iounmap(pdev, bp->bar0);
+ 	pci_release_regions(pdev);
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index d796836..eec2415 100644
+index 8327d0d..1461355 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1240,6 +1240,8 @@ void bnxt_hwrm_cmd_hdr_init(struct bnxt *, void *, u16, u16, u16);
- int _hwrm_send_message(struct bnxt *, void *, u32, int);
- int hwrm_send_message(struct bnxt *, void *, u32, int);
- int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
-+int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
-+				     int bmap_size);
- int bnxt_hwrm_set_coal(struct bnxt *);
- unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
- unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp);
+@@ -1024,6 +1024,7 @@ struct bnxt {
+ #define BNXT_STATE_FN_RST_DONE	2
+ 
+ 	struct bnxt_irq	*irq_tbl;
++	int			total_irqs;
+ 	u8			mac_addr[ETH_ALEN];
+ 
+ #ifdef CONFIG_BNXT_DCB
 -- 
 2.5.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
