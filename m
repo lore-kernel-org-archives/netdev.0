@@ -1,158 +1,89 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 1/1] NET: usb: cdc_ncm: adding MBIM RESET_FUNCTION request and modifying ncm bind common code
-Date: Mon, 05 Dec 2016 11:10:34 +0100
-Message-ID: <87a8ca1yat.fsf@miraculix.mork.no>
-References: <1479904606-30647-1-git-send-email-dnlplm@gmail.com>
-        <1479904606-30647-2-git-send-email-dnlplm@gmail.com>
-        <87k2bq7zn8.fsf@miraculix.mork.no> <87fume7xg5.fsf@miraculix.mork.no>
-        <CAGRyCJFfNj4C_pNXWhMT7tVvdV4ZFzJ5d+LFAatvQmTuWU7OUg@mail.gmail.com>
-        <CAGRyCJHsf6dFGaoui7fH1WspMhfHVdEdLAh-f4qV7YCZ2HxezA@mail.gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
+Date: Mon, 5 Dec 2016 12:56:53 +0100
+Message-ID: <20161205115653.GB16126@amd>
+References: <20161123105125.GA26394@amd>
+ <20161124085506.GA25007@amd>
+ <20161124.110416.198867271899443489.davem@davemloft.net>
+ <20161124212540.GA24796@amd>
+ <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="rJwd6BRFiFCcLxzm"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--rJwd6BRFiFCcLxzm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
-Cc: Oliver Neukum <oliver@neukum.org>,
-        linux-usb <linux-usb@vger.kernel.org>, netdev@vger.kernel.org
-To: Daniele Palmas <dnlplm@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:49561 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751455AbcLELyk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Dec 2016 06:54:40 -0500
-In-Reply-To: <CAGRyCJHsf6dFGaoui7fH1WspMhfHVdEdLAh-f4qV7YCZ2HxezA@mail.gmail.com>
-        (Daniele Palmas's message of "Mon, 5 Dec 2016 09:31:09 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Daniele Palmas <dnlplm@gmail.com> writes:
+Hi!
 
-> I went back to this and further checking revealed that MBIM function
-> reset is not needed and the only problem is related to commit
-> 48906f62c96cc2cd35753e59310cb70eb08cc6a5 cdc_ncm: toggle altsetting to
-> force reset before setup, that, however, is mandatory for some Huawei
-> modems.
+> the idea behind the TX mitigation is to mix the interrupt and
+> timer and this approach gave us real benefit in terms
+> of performances and CPU usage (especially on SH4-200/SH4-300 platforms
+> based).
+> In the ring, some descriptors can raise the irq (according to a
+> threshold) and set the IC bit. In this path, the NAPI  poll will be
+> scheduled.
+> But there is a timer that can run (and we experimented that no high
+> resolution is needed) to clear the tx resources.
 
-Interesting.  That does sound like an odd firmware bug to me. I have a
-bit of a hard time understanding how this can be.  Using data interface
-altsetting 0 to reset the function is documented in the NCM spec:
+I'm sorry, but it is just broken. It could have never worked. If it
+appered it did, you did not test it right.
 
-"
-  7.2 Using Alternate Settings to Reset an NCM Function
+First, low-res timers have resolution down to one per second (see
+David's email). It is not acceptable to delay transmits for 40msec,
+and certainly not acceptable to delay them for 1000msec.
 
-  To place the network aspects of a function in a known state, the host
-  shall:
-  =E2=80=A2 select alternate setting 0 of the NCM Data Interface (this is t=
-he
-    setting with no endpoints). This can be done explicitly using
-    SetInterface, or implicitly using SetConfiguration. See [USB30] for
-    details.
-  =E2=80=A2 select the NCM operational parameters by sending commands to th=
-e NCM
-    Communication Interface, then
-  =E2=80=A2 select the second alternate interface setting of the NCM Data
-    Interface (this is the setting with a bulk IN endpoint and a bulk
-    OUT endpoint).
+Second, the logic is wrong:
 
-  Whenever alternate setting 0 is selected by the host, the function
-  shall:
-  =E2=80=A2 flush function buffers
-  =E2=80=A2 reset the packet filter to its default state
-  =E2=80=A2 clear all multicast address filters
-  =E2=80=A2 clear all power filters set using
-    SetEthernetPowerManagementPatternFilter
-  =E2=80=A2 reset statistics counters to zero
-  =E2=80=A2 restore its Ethernet address to its default state
-  =E2=80=A2 reset its IN NTB size to the value given by field dwNtbInMaxSize
-    from the NTB Parameter Struc- ture
-  =E2=80=A2 reset the NTB format to NTB-16
-  =E2=80=A2 reset the current Maximum Datagram Size to a function-specific
-    default. If SetMaxDatagramSize is not supported, then the maximum
-    datagram size shall be the same as the value in wMaxSegmentSize of
-    the Ethernet Networking Functional Descriptor. If SetMaxDatagramSize
-    is supported by the function, then the host must either query the
-    function to determine the current effective maximum datagram size,
-    or must explicitly set the maximum datagram size. If the host wishes
-    to set the Maximum Datagram Size, it may do so prior to selecting
-    the second alternate interface set- ting of the data
-    interface. Doing so will ensure that the change takes effect prior
-    to send or receiving data.
-  =E2=80=A2 reset CRC mode so that the function will not append CRCs to
-    datagrams sent on the IN pipe
-  =E2=80=A2 reset NTB sequence numbers to zero
+        if (likely(priv->tx_coal_frames > priv->tx_count_frames))
+	                mod_timer(&priv->txtimer,
+ 				STMMAC_COAL_TIMER(priv->tx_coal_timer));
+	                else {
+ 				priv->tx_count_frames =3D 0;
+ 				priv->hw->desc->set_tx_ic(desc);
+ 				priv->xstats.tx_set_ic_bit++;
+			}
+								=09
 
-  When the host selects the second alternate interface setting of the
-  NCM Data Interface, the function shall perform the following actions
-  in the following order.
-  =E2=80=A2 If connected to the network, the function shall send a
-    ConnectionSpeedChange notification to the host indicating the
-    current connection speed.
-  =E2=80=A2 Whether connected or not, the function shall then send a
-    NetworkConnection notification to the host, with wValue indicating
-    the current state of network connectivity
-"
+doing tx_clean() after set number of packets, or set time after the
+first packet is transmitted would make sense. But that's not what the
+code does. As long as packets are being transmitted, you move the
+timer into the future.. so that finally you run out of the place, then
+wait for timer (!) and only then you do the cleaning.
 
-The addition of the "RESET" request in MBIM did not change these
-requirements AFAICS.  Supporting NCM style "altsetting 0 reset" is
-required by default inheritance.  The description of dual NCM/MBIM
-functions in the MBIM spec further emphasizes this:
+Third, times are wrong by order of magnitude. AFAICT cleaning should
+be at around 5msec at 100mbit speeds, and at around .5msec at
+gigabit. You have 40msec there. (Perhaps that is not too important if
+the logic is fixed, as described above).
 
-"
-  Regardless of the previous sequence of SET_INTERFACE commands targeting
-  the Communication Interface, the host is able to put the function into
-  a defined state by the following sequence:
-=20=20
-  1. SET_INTERFACE(Data Interface, 0)
-  2. SET_INTERFACE(Communication Interface, desired alternate setting)
-  3. Sending the required class commands for the targeted alternate
-    setting
-  4. SET_INTERFACE(Data Interface, 1 if Communication Interface,0 and
-    Data Interface,2 Communication Interface 1)
-"
+Best regards,
+								Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
 
+--rJwd6BRFiFCcLxzm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-This, along with the lack of *any* sort of discussion of the
-relation/interfaction between "MBIM RESET" and "data interface
-altsetting 0" makes the MBIM RESET control request either ambigious or
-redundant.  Or both...
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-FWIW, I've always considered RESET a symptom of the sloppy MBIM spec
-development.  It did not exactly work to their advantage that the first
-(and only?) published errata simply was an excuse to add new features
-(the "MBIM extended functional descriptor" and "MBIM loopback testmode")
-without updating the revision number.  Causing even more confusion,
-since we now have two different MBIMv1.0 specs.
+iEYEARECAAYFAlhFVgUACgkQMOfwapXb+vJKZgCdECNN7YJBvAXv1wznGamW4big
+S8MAn3zN6E3SmiqupnSbGwj4tcKVXbnH
+=68Ny
+-----END PGP SIGNATURE-----
 
-Well, whatever.  No need to get all frustrated about that. We have to
-deal with whatever the firmware developers serve us.  And,
-unfortunately, it is not surprising that unclear and ambigious specs
-leads to incompatible firmware implementations.
-
-I wonder, what happens if you unload the MBIM driver and let the USB
-core reset the data interface to altsetting 0?  Will the device then
-fail when the driver is loaded again?  If not, then where is the
-difference?  And can we possibly reorder the driver set_interface
-requests to make them similar to the USB core reset
-
-Until now, I was under the impression that this was the
-only documented way to reset both NCM and MBIM functions (since the
-RESET is MBIM specific),
-
-> My proposal is to add something like
-> CDC_MBIM_FLAG_AVOID_ALTSETTING_TOGGLE quirk to avoid the toggle.
->
-> To have a conservative approach, I would add only Telit LE922 to this
-> quirk and keep also the usleep_range delay, since I do not have a
-> clear view on all the VIDs/PIDs affected by this quirk. Then other
-> modems, once tested, can be added to the quirk if the delay is not
-> enough.
->
-> If this approach, though ugly, has chances to be accepted I can write
-> a new patch.
-
-Yes, that sounds like the best approach at the moment.  I have
-unfortunately not as much time to experiment with this as I seem to
-need.  And the EM7455 workaround (the delay) is a bit hard to verify,
-since it is easily affected by small additional delays caused by the
-debugging itself.  This can cause bogus test results.
-
-
-Bj=C3=B8rn
+--rJwd6BRFiFCcLxzm--
