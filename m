@@ -1,69 +1,142 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v6 6/6] samples/bpf: add userspace example for
- prohibiting sockets
-Date: Mon, 5 Dec 2016 10:51:39 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0234BBD@AcuExch.aculab.com>
-References: <1480529810-25850-1-git-send-email-dsa@cumulusnetworks.com>
- <1480529810-25850-7-git-send-email-dsa@cumulusnetworks.com>
- <20161201055953.GB42375@ast-mbp.thefacebook.com>
- <4afe76e2-d1be-4810-0db7-859bcd5c89f3@cumulusnetworks.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: net/can: warning in raw_setsockopt/__alloc_pages_slowpath
+Date: Mon, 5 Dec 2016 11:55:45 +0100
+Message-ID: <1d643f72-d90a-ab39-a23c-844766c10749@pengutronix.de>
+References: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
+ <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
+ <73b78023-bc11-25c0-33e3-3a748dbc81cd@hartkopp.net>
+ <74e2aed8-ba38-ee91-59a3-49131ea18d60@pengutronix.de>
+ <6fe05efd-eb2c-a5e2-9d45-48f2c3098abb@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "daniel@zonque.org" <daniel@zonque.org>, "ast@fb.com" <ast@fb.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "maheshb@google.com" <maheshb@google.com>,
-        "tgraf@suug.ch" <tgraf@suug.ch>
-To: 'David Ahern' <dsa@cumulusnetworks.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.189]:54937 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751134AbcLEKvq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 05:51:46 -0500
-In-Reply-To: <4afe76e2-d1be-4810-0db7-859bcd5c89f3@cumulusnetworks.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="lpn3P6fO2KhAuQvsCO2IPwVO5LjnXiJvV"
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <6fe05efd-eb2c-a5e2-9d45-48f2c3098abb@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern
-> Sent: 01 December 2016 15:14
-> On 11/30/16 10:59 PM, Alexei Starovoitov wrote:
-> > On Wed, Nov 30, 2016 at 10:16:50AM -0800, David Ahern wrote:
-> >> Add examples preventing a process in a cgroup from opening a socket
-> >> based family, protocol and type.
-> >>
-> >> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> > ...
-> >> +++ b/samples/bpf/sock_flags_kern.c
-> >> @@ -0,0 +1,37 @@
-> >> +#include <uapi/linux/bpf.h>
-> >> +#include <linux/socket.h>
-> >> +#include "bpf_helpers.h"
-> >> +
-> >> +SEC("cgroup/sock1")
-> >> +int bpf_prog1(struct bpf_sock *sk)
-> >> +{
-> >> +	char fmt[] = "socket: family %d type %d protocol %d\n";
-> >> +
-> >> +	bpf_trace_printk(fmt, sizeof(fmt), sk->family, sk->type, sk->protocol);
-> >> +
-> >> +	/* block PF_INET6, SOCK_RAW, IPPROTO_ICMPV6 sockets
-> >> +	 * ie., make ping6 fail
-> >> +	 */
-> >> +	if (sk->family == PF_INET6 && sk->type == 3 && sk->protocol == 58)
-> >> +		return 0;
-> >
-> > why not to use SOCK_RAW and IPPROTO_ICMPV6 instead of constants?
-> 
-> header file hell.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--lpn3P6fO2KhAuQvsCO2IPwVO5LjnXiJvV
+Content-Type: multipart/mixed; boundary="qBikJLJmAmUdFF4KjOcAvTKTSVRtE7FBk";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+ Andrey Konovalov <andreyknvl@google.com>,
+ "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+ netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
+Cc: Dmitry Vyukov <dvyukov@google.com>, Kostya Serebryany <kcc@google.com>,
+ syzkaller <syzkaller@googlegroups.com>
+Message-ID: <1d643f72-d90a-ab39-a23c-844766c10749@pengutronix.de>
+Subject: Re: net/can: warning in raw_setsockopt/__alloc_pages_slowpath
+References: <CAAeHK+x3vqjzzXPtp-xCshWnvTcVrZqGmJR7rbooRFxBJanv8g@mail.gmail.com>
+ <c47865a1-4aae-5eae-f9e0-7b4f7f7e9897@pengutronix.de>
+ <73b78023-bc11-25c0-33e3-3a748dbc81cd@hartkopp.net>
+ <74e2aed8-ba38-ee91-59a3-49131ea18d60@pengutronix.de>
+ <6fe05efd-eb2c-a5e2-9d45-48f2c3098abb@hartkopp.net>
+In-Reply-To: <6fe05efd-eb2c-a5e2-9d45-48f2c3098abb@hartkopp.net>
 
-You can at least improve the comment.
-Or add:
-#ifndef SOCK_RAW
-#define SPCK_RAW 3
-#endif
-(etc) at the top of the file.
+--qBikJLJmAmUdFF4KjOcAvTKTSVRtE7FBk
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-	David
+On 12/02/2016 06:05 PM, Oliver Hartkopp wrote:
+>=20
+>=20
+> On 12/02/2016 04:42 PM, Marc Kleine-Budde wrote:
+>> On 12/02/2016 04:11 PM, Oliver Hartkopp wrote:
+>>>
+>>>
+>>> On 12/02/2016 02:24 PM, Marc Kleine-Budde wrote:
+>>>> On 12/02/2016 01:43 PM, Andrey Konovalov wrote:
+>>>
+>>>
+>>>>>  [<ffffffff8369e0de>] raw_setsockopt+0x1be/0x9f0 net/can/raw.c:506
+>>>>
+>>>> We should add a check for a sensible optlen....
+>>>>
+>>>>> static int raw_setsockopt(struct socket *sock, int level, int optna=
+me,
+>>>>> 			  char __user *optval, unsigned int optlen)
+>>>>> {
+>>>>> 	struct sock *sk =3D sock->sk;
+>>>>> 	struct raw_sock *ro =3D raw_sk(sk);
+>>>>> 	struct can_filter *filter =3D NULL;  /* dyn. alloc'ed filters */
+>>>>> 	struct can_filter sfilter;         /* single filter */
+>>>>> 	struct net_device *dev =3D NULL;
+>>>>> 	can_err_mask_t err_mask =3D 0;
+>>>>> 	int count =3D 0;
+>>>>> 	int err =3D 0;
+>>>>>
+>>>>> 	if (level !=3D SOL_CAN_RAW)
+>>>>> 		return -EINVAL;
+>>>>>
+>>>>> 	switch (optname) {
+>>>>>
+>>>>> 	case CAN_RAW_FILTER:
+>>>>> 		if (optlen % sizeof(struct can_filter) !=3D 0)
+>>>>> 			return -EINVAL;
+>>>>
+>>>> here...
+>>>>
+>>>> 		if (optlen > 64 * sizeof(struct can_filter))
+>>>> 			return -EINVAL;
+>>>>
+>>>
+>>> Agreed.
+>>>
+>>> But what is sensible here?
+>>> 64 filters is way to small IMO.
+>>>
+>>> When thinking about picking a bunch of single CAN IDs I would tend to=
+
+>>> something like 512 filters.
+>>
+>> Ok - 64 was just an arbitrary chosen value for demonstration purposes =
+:)
+>>
+>=20
+> :-)
+>=20
+> Would you like to send a patch?
+
+Yes, how many Filters? 512? Can you test, as I don't have the setup ready=
+?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--qBikJLJmAmUdFF4KjOcAvTKTSVRtE7FBk--
+
+--lpn3P6fO2KhAuQvsCO2IPwVO5LjnXiJvV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlhFR7EACgkQPTuqJayp
+JWq8dQf+PDkoyNL5m6WBE76ojPnKNkhSS8gNvxysN0zCLe+xv52A1pAxVF0jIuFq
+NbF3vyXkNrX0UwSHWS/p76o4noan+49h+XFWmsGFckdrX+94lGahEIWqSpPklbAm
+hUnsU3uIvpgV9cn7CstMAx/68KSAo9Ffq82bfk84ALU+KqB0vBTgRjQQFU5fYfqs
+HCcI1AmHSWYg/jBPKsJA5jlgIn6e+KfH78yWKLFfpyDcBojkux2K91Pn76kTkdpN
+JHnPf4iqZU/pmqF95U7GcEt8RK0I7m3dLx6k1cQRscN7JCJX3XPZeeHFrZQ1aNhQ
+2X2/je0q4kg3UB0+vMfDnCtv9MBxGQ==
+=OECu
+-----END PGP SIGNATURE-----
+
+--lpn3P6fO2KhAuQvsCO2IPwVO5LjnXiJvV--
