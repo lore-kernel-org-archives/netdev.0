@@ -1,56 +1,66 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: bpf bounded loops. Was: [flamebait] xdp
-Date: Mon, 5 Dec 2016 16:54:06 +0000
-Message-ID: <aafa452d-26dd-d58b-2649-21ccce9370a4@solarflare.com>
-References: <20161201091108.GF26507@breakpoint.cc>
- <20161201145834.GA569@pox.localdomain>
- <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
- <20161201162814.GA31300@pox.localdomain>
- <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
- <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com>
- <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
- <20161202183903.GC54949@ast-mbp.thefacebook.com>
- <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
- <5726302e-3502-99c8-a4d9-a5278761cb5a@solarflare.com>
- <b7c99fea-dfaa-a7a0-0694-d6abe649708e@stressinduktion.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [mm PATCH 0/3] Page fragment updates
+Date: Mon, 5 Dec 2016 09:01:12 -0800
+Message-ID: <CAKgT0UchMkvsboO23R332j96=yumL7=oSSm97zqJ5-v30_SgCw@mail.gmail.com>
+References: <20161129182010.13445.31256.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:11356 "EHLO
-        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751569AbcLEQzC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 11:55:02 -0500
-In-Reply-To: <b7c99fea-dfaa-a7a0-0694-d6abe649708e@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161129182010.13445.31256.stgit@localhost.localdomain>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 05/12/16 16:50, Hannes Frederic Sowa wrote:
-> On 05.12.2016 17:40, Edward Cree wrote:
->> I may be completely mistaken here, but can't the verifier unroll the loop 'for
->> verification' without it actually being unrolled in the program?
->> I.e., any "proof that the loop terminates" should translate into "rewrite of
->> the directed graph to make it a DAG, possibly duplicating a lot of insns", and
->> you feed the rewritten graph to the verifier, while using the original loopy
->> version as the actual program to store and later execute.
->> Then the verifier happily checks things like array indices being valid, without
->> having to know about the bounded loops.
-> That is what is already happening. E.g. __builtin_memset is expanded up
-> to 128 rounds (which is a lot) but at some point llvm doesn't do enoug
-> unrolling of that.
+On Tue, Nov 29, 2016 at 10:23 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> This patch series takes care of a few cleanups for the page fragments API.
 >
-> The BPF target configures that in
-> http://llvm.org/docs/doxygen/html/BPFISelLowering_8cpp_source.html on
-> line 166-169.
-I think you're talking about the _compiler_ unrolling loops before it
-submits the program to the kernel.  I'm talking about having the _verifier_
-unroll them, so that we can execute the original (non-unrolled) version.
-Or am I misunderstanding?
+> First we do some renames so that things are much more consistent.  First we
+> move the page_frag_ portion of the name to the front of the functions
+> names.  Secondly we split out the cache specific functions from the other
+> page fragment functions by adding the word "cache" to the name.
+>
+> Second I did some minor clean-up on the function calls so that they are
+> more inline with the existing __free_pages calls in terms of how they
+> operate.
+>
+> Finally I added a bit of documentation that will hopefully help to explain
+> some of this.  I plan to revisit this later as we get things more ironed
+> out in the near future with the changes planned for the DMA setup to
+> support eXpress Data Path.
+>
+> ---
+>
+> Alexander Duyck (3):
+>       mm: Rename __alloc_page_frag to page_frag_alloc and __free_page_frag to page_frag_free
+>       mm: Rename __page_frag functions to __page_frag_cache, drop order from drain
+>       mm: Add documentation for page fragment APIs
+>
+>
+>  Documentation/vm/page_frags               |   42 +++++++++++++++++++++++++++++
+>  drivers/net/ethernet/intel/igb/igb_main.c |    6 ++--
+>  include/linux/gfp.h                       |    9 +++---
+>  include/linux/skbuff.h                    |    2 +
+>  mm/page_alloc.c                           |   33 +++++++++++++----------
+>  net/core/skbuff.c                         |    8 +++---
+>  6 files changed, 73 insertions(+), 27 deletions(-)
+>  create mode 100644 Documentation/vm/page_frags
+>
+> --
 
--Ed
+It's been about a week since I submitted this series.  Just wanted to
+check in and see if anyone had any feedback or if this is good to be
+accepted for 4.10-rc1 with the rest of the set?
+
+Thanks.
+
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
