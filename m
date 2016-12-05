@@ -1,46 +1,41 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next] netfilter: xt_bpf: support ebpf
-Date: Mon, 5 Dec 2016 23:34:15 +0100
-Message-ID: <20161205223415.GA14689@salvia>
-References: <1480969684-74414-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <1480972006.18162.559.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161205213001.GA16819@breakpoint.cc>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
+Date: Mon, 5 Dec 2016 23:37:09 +0100
+Message-ID: <9a85da24-85cf-f94e-908f-a10eecac2369@gmx.de>
+References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
+ <20161124.110416.198867271899443489.davem@davemloft.net>
+ <20161124212540.GA24796@amd> <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
+ <20161202084511.GA32294@amd> <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
+ <20161205101516.GA24936@amd>
+ <trinity-efd00e93-2b37-4543-a199-e2cbed9fe455-1480937999976@3capp-gmx-bs18>
+ <20161205220221.GA19135@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-        daniel@iogearbox.net, Willem de Bruijn <willemb@google.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161205213001.GA16819@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        alexandre.torgue@st.com, David Miller <davem@davemloft.net>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161205220221.GA19135@amd>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 05, 2016 at 10:30:01PM +0100, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Mon, 2016-12-05 at 15:28 -0500, Willem de Bruijn wrote:
-> > > From: Willem de Bruijn <willemb@google.com>
-> > > 
-> > > Add support for attaching an eBPF object by file descriptor.
-> > > 
-> > > The iptables binary can be called with a path to an elf object or a
-> > > pinned bpf object. Also pass the mode and path to the kernel to be
-> > > able to return it later for iptables dump and save.
-> > > 
-> > > Signed-off-by: Willem de Bruijn <willemb@google.com>
-> > > ---
-> > 
-> > Assuming there is no simple way to get variable matchsize in iptables,
-> > this looks good to me, thanks.
-> 
-> It should be possible by setting kernel .matchsize to ~0 which
-> suppresses strict size enforcement.
-> 
-> Its currently only used by ebt_among, but this should work for any xtables
-> module.
+Hi Pavel,
 
-This is likely going to trigger a large rewrite of the core userspace
-iptables codebase, and likely going to pull part of the mess we have
-in ebtables into iptables. So I'd prefer not to follow this path.
+On 05.12.2016 23:02, Pavel Machek wrote:
+> 
+> we need spin_lock_bh at minimum, as we are locking user context
+> against timer.
+> 
+> Best regards,
+> 									Pavel
+> 
+
+I was referring to stmmac_tx_clean() which AFAICS is only called from softirq context,
+(one time in the timer handler and one time in napi poll handler) so a spin_lock() should
+be sufficient. I cant see how this is called from userspace. If it were, a spin_lock_bh() had
+to be used, of course.
+
+Regards,
+Lino 
