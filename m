@@ -1,93 +1,120 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: stmmac: turn coalescing / NAPI off in stmmac
-Date: Mon, 5 Dec 2016 12:45:02 +0100
-Message-ID: <20161205114502.GA16126@amd>
-References: <20161124085506.GA25007@amd>
- <20161124.110416.198867271899443489.davem@davemloft.net>
- <20161130114431.GB14296@amd>
- <20161201.152303.425589678238707778.davem@davemloft.net>
- <20161201224827.GA26301@amd>
- <2ceae6dc-3a48-3212-c634-cc6f1f0b363f@st.com>
- <20161202104238.GA31172@amd>
- <9b338d9b-a69a-7393-0b48-bc6b92b46cb7@st.com>
+From: "Valo, Kalle" <kvalo@qca.qualcomm.com>
+Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+Date: Mon, 5 Dec 2016 11:45:45 +0000
+Message-ID: <877f7eoazc.fsf@kamboji.qca.qualcomm.com>
+References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
+        <a4095c49fe5a42c4a405b1faf6c0f3b7@euamsexm01a.eu.qualcomm.com>
+        <20161118183541.GI28340@tuxbot> <877f7vimyg.fsf@kamboji.qca.qualcomm.com>
+        <878ts0u7z3.fsf@kamboji.qca.qualcomm.com>
+        <874m2otenv.fsf@kamboji.qca.qualcomm.com>
+        <87r35srm0c.fsf@kamboji.qca.qualcomm.com>
+        <CAPBZ5Qf8Z7-0Bvsuj88=jY8ZULU9ntCAAOqV_a0OGL4oYSTdWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="WIyZ46R2i8wDzkSu"
-Cc: David Miller <davem@davemloft.net>, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
+        "k.eugene.e@gmail.com" <k.eugene.e@gmail.com>,
+        "wcn36xx@lists.infradead.org" <wcn36xx@lists.infradead.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
+        Andy Gross <andy.gross@linaro.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9b338d9b-a69a-7393-0b48-bc6b92b46cb7@st.com>
+In-Reply-To: <CAPBZ5Qf8Z7-0Bvsuj88=jY8ZULU9ntCAAOqV_a0OGL4oYSTdWQ@mail.gmail.com>       (Andy
+ Gross's message of "Thu, 1 Dec 2016 08:21:51 -0600")
+Content-Language: en-US
+Content-ID: <DF8A730E94983E4C851F2F25B5D93CB3@qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Dave,
 
---WIyZ46R2i8wDzkSu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Andy Gross <andy.gross@linaro.org> writes:
 
-Hi!
+> On 1 December 2016 at 04:17, Valo, Kalle <kvalo@qca.qualcomm.com> wrote:
+>> Kalle Valo <kvalo@qca.qualcomm.com> writes:
+>>
+>>> It found the same problem. Interestingly I'm also building x86 with 32
+>>> bit, maybe it's related?
+>>>
+>>> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/ath.git p=
+ending
+>>> head:   1ea16a1c457939b4564643f7637d5cc639a8d3b7
+>>> commit: 5eb09c672b01460804fd49b1c9cc7d1072a102f0 [96/99] wcn36xx: Trans=
+ition driver to SMD client
+>>> config: i386-allmodconfig (attached as .config)
+>>> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+>>> reproduce:
+>>>         git checkout 5eb09c672b01460804fd49b1c9cc7d1072a102f0
+>>>         # save the attached .config to linux build tree
+>>>         make ARCH=3Di386
+>>>
+>>> All errors (new ones prefixed by >>):
+>>>
+>>>>> ERROR: "qcom_wcnss_open_channel" [drivers/net/wireless/ath/wcn36xx/wc=
+n36xx.ko] undefined!
+>>
+>> Bjorn mentioned me on IRC that this is because of a missing commit in my
+>> tree:
+>>
+>> daa6e41ce2b5 soc: qcom: wcnss_ctrl: Stub wcnss_ctrl API
+>>
+>> When I pull the tag below (which contains the above commit) wcn36xx
+>> builds fine for me:
+>>
+>> git://git.kernel.org/pub/scm/linux/kernel/git/agross/linux.git tags/qcom=
+-drivers-for-4.10
+>>
+>> Andy, is it ok if I pull your tag also to my ath.git tree to solve the
+>> wcn36xx build problem? My trees go to Linus via net-next and I don't
+>> know when exactly Dave would send a pull request to Linus, before or
+>> after the arm trees, but as the tag seems to contain only few patches I
+>> hope it doesn't matter.
+>
+> The qcom-drivers-for-4.10 tag was already merged into arm-soc.  But
+> having you pull it as well won't cause issues so long as you are using
+> the tag (which you are).  I don't see any issues with this approach.
 
-> >>>So patch currently looks like this (hand edited, can't be
-> >>>applied, got it working few hours ago). Does it look acceptable?
-> >>>
-> >>>I'd prefer this to go after the patch that pulls common code to single
-> >>>place, so that single place needs to be patched. Plus I guess I should
-> >>>add ifdefs, so that more advanced NAPI / tx coalescing code can be
-> >>>reactivated when it is fixed. Trivial fixes can go on top. Does that
-> >>>sound like a plan?
-> >>
-> >>Hmm, what I find strange is that, just this code is running since a
-> >>long time on several platforms and Chip versions. No raise condition
-> >>have been found or lock protection problems (also proving look
-> >>mechanisms).
-> >
-> >Well, it works better for me when I disable CONFIG_SMP. It is normal
-> >that locking problems are hard to reproduce :-(.
->=20
-> can you share me the test, maybe I can try to reproduce on ARM box.
-> Are you using 3.x or 4.x GMAC?
+Andy, thanks for the confirmation.
 
-I'm using board similar to altera socfpga. 3.70a, as far as I can
-tell.
+Dave, how do you suggest to handle depency issues like this? I have
+pending important wcn36xx patches (converting the driver to use the
+recently introduced proper SMD subsystem) which have a build dependency
+on a commit which is in Andy's tag qcom-drivers-for-4.10. The commit in
+question is currently in arm-soc tree going to 4.10, but not in your
+net-next tree. I assume Linus will pull that during the next merge
+window.
 
-                gmac0: ethernet@ff700000 {
-                        compatible =3D "altr,socfpga-stmmac", "snps,dwmac-3=
-=2E70a", "snps,dwmac\
-";
+What I'm planning to do is to pull tag qcom-drivers-for-4.10 to my tree
+and then send the patches to you. This will mean that from my pull
+request you would get four new qcom-drivers commits which are not in
+your tree, yet. Or do you prefer that I wait the qcom-drivers commits
+trickle down from Linux until I send you wcn36xx patches? Or something
+else?
 
-> >>Pavel, I ask you sorry if I missed some problems so, if you can
-> >>(as D. Miller asked) to send us a cover letter + all patches
-> >>I will try to reply soon. I can do also some tests if you ask
-> >>me that! I could run on 3.x and 4.x but I cannot promise you
-> >>benchmarks.
-> >
-> >Actually... I have questions here. David normally pulls from you (can
-> >I have a address of your git tree?).
->=20
-> No I send the patches to the mailing list.
+$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/agross/linux.git t=
+ags/qcom-drivers-for-4.10
+>From git://git.kernel.org/pub/scm/linux/kernel/git/agross/linux
+ * tag                         qcom-drivers-for-4.10 -> FETCH_HEAD
+Auto-merging MAINTAINERS
+Merge made by the 'recursive' strategy.
+ MAINTAINERS                                  |    1 +
+ drivers/firmware/qcom_scm.c                  |    4 +++-
+ include/dt-bindings/pinctrl/qcom,pmic-gpio.h |    4 ++++
+ include/dt-bindings/pinctrl/qcom,pmic-mpp.h  |    6 ++++++
+ include/linux/soc/qcom/wcnss_ctrl.h          |   13 +++++++++++++
+ 5 files changed, 27 insertions(+), 1 deletion(-)
 
-Aha, ok.
+$ git log --oneline ORIG_HEAD..
+6d0491261ecc Merge tag 'qcom-drivers-for-4.10' of git://git.kernel.org/pub/=
+scm/linux/kernel/git/agross/linux into test
+bd4760ca0315 firmware: qcom: scm: Use devm_reset_controller_register()
+4fb1a4207804 MAINTAINERS: add drivers/pinctrl/qcom to ARM/QUALCOMM SUPPORT
+636959fc1232 pinctrl: pm8994: add pad voltage regulator defines
+daa6e41ce2b5 soc: qcom: wcnss_ctrl: Stub wcnss_ctrl API
+$
 
-Best regards,
-									Pavel
 --=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---WIyZ46R2i8wDzkSu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhFUz4ACgkQMOfwapXb+vJ+QACdFp78V8FMWyz9DHJCjp2UI6a4
-A3YAoL82Q/42ra80dXzutlNSgV6Vkd9p
-=mTTf
------END PGP SIGNATURE-----
-
---WIyZ46R2i8wDzkSu--
+Kalle Valo=
