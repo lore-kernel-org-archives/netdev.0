@@ -1,82 +1,88 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v4 00/13] net: ethernet: ti: cpts: update and fixes
-Date: Mon, 5 Dec 2016 14:05:12 -0600
-Message-ID: <20161205200525.16664-1-grygorii.strashko@ti.com>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v4 07/13] net: ethernet: ti: cpts: clean up event list if event pool is empty
+Date: Mon, 5 Dec 2016 14:05:19 -0600
+Message-ID: <20161205200525.16664-8-grygorii.strashko@ti.com>
+References: <20161205200525.16664-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        Murali Karicheri <m-karicheri2@ti.com>,
-        Wingman Kwok <w-kwok2@ti.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:56062 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752037AbcLEUFl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 15:05:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>,
+        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161205200525.16664-1-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-It is preparation series intended to clean up and optimize TI CPTS driver to
-facilitate further integration with other TI's SoCs like Keystone 2.
+From: WingMan Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
 
-Changes in v4:
-- fixed build error in patch
-  "net: ethernet: ti: cpts: clean up event list if event pool is empty"
-- rebased on top of net-next
+When a CPTS user does not exit gracefully by disabling cpts
+timestamping and leaving a joined multicast group, the system
+continues to receive and timestamps the ptp packets which eventually
+occupy all the event list entries.  When this happns, the added code
+tries to remove some list entries which are expired.
+
+Signed-off-by: WingMan Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
+Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+---
+ drivers/net/ethernet/ti/cpts.c | 26 ++++++++++++++++++++++++--
+ 1 file changed, 24 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index d3c1ac5..7ab1fa7 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -57,6 +57,26 @@ static int cpts_fifo_pop(struct cpts *cpts, u32 *high, u32 *low)
+ 	return -1;
+ }
  
-Changes in v3:
-- patches reordered: fixes and small updates moved first
-- added comments in code about cpts->cc_mult
-- conversation range (maxsec) limited to 10sec
-
-Changes in v2:
-- patch "net: ethernet: ti: cpts: rework initialization/deinitialization"
-  was split on 4 patches
-- applied comments from Richard Cochran
-- dropped patch
-  "net: ethernet: ti: cpts: add return value to tx and rx timestamp funcitons"
-- new patches added:
-  "net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs"
-  and "clocksource: export the clocks_calc_mult_shift to use by timestamp code"
-
-Links on prev versions:
-v3: https://www.spinics.net/lists/devicetree/msg153474.html
-v2: http://www.mail-archive.com/linux-kernel@vger.kernel.org/msg1282034.html
-v1: http://www.spinics.net/lists/linux-omap/msg131925.html
-
-Grygorii Strashko (11):
-  net: ethernet: ti: cpts: switch to readl/writel_relaxed()
-  net: ethernet: ti: allow cpts to be built separately
-  net: ethernet: ti: cpsw: minimize direct access to struct cpts
-  net: ethernet: ti: cpts: fix unbalanced clk api usage in cpts_register/unregister
-  net: ethernet: ti: cpts: fix registration order
-  net: ethernet: ti: cpts: disable cpts when unregistered
-  net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs
-  net: ethernet: ti: cpts: rework initialization/deinitialization
-  net: ethernet: ti: cpts: move dt props parsing to cpts driver
-  net: ethernet: ti: cpts: calc mult and shift from refclk freq
-  net: ethernet: ti: cpts: fix overflow check period
-
-Murali Karicheri (1):
-  clocksource: export the clocks_calc_mult_shift to use by timestamp code
-
-WingMan Kwok (1):
-  net: ethernet: ti: cpts: clean up event list if event pool is empty
-
- Documentation/devicetree/bindings/net/cpsw.txt |   8 +-
- drivers/net/ethernet/ti/Kconfig                |   2 +-
- drivers/net/ethernet/ti/Makefile               |   3 +-
- drivers/net/ethernet/ti/cpsw.c                 |  84 ++++-----
- drivers/net/ethernet/ti/cpsw.h                 |   2 -
- drivers/net/ethernet/ti/cpts.c                 | 239 +++++++++++++++++++------
- drivers/net/ethernet/ti/cpts.h                 |  80 ++++++++-
- kernel/time/clocksource.c                      |   1 +
- 8 files changed, 304 insertions(+), 115 deletions(-)
-
++static int cpts_purge_events(struct cpts *cpts)
++{
++	struct list_head *this, *next;
++	struct cpts_event *event;
++	int removed = 0;
++
++	list_for_each_safe(this, next, &cpts->events) {
++		event = list_entry(this, struct cpts_event, list);
++		if (event_expired(event)) {
++			list_del_init(&event->list);
++			list_add(&event->list, &cpts->pool);
++			++removed;
++		}
++	}
++
++	if (removed)
++		pr_debug("cpts: event pool cleaned up %d\n", removed);
++	return removed ? 0 : -1;
++}
++
+ /*
+  * Returns zero if matching event type was found.
+  */
+@@ -69,10 +89,12 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
+ 	for (i = 0; i < CPTS_FIFO_DEPTH; i++) {
+ 		if (cpts_fifo_pop(cpts, &hi, &lo))
+ 			break;
+-		if (list_empty(&cpts->pool)) {
+-			pr_err("cpts: event pool is empty\n");
++
++		if (list_empty(&cpts->pool) && cpts_purge_events(cpts)) {
++			pr_err("cpts: event pool empty\n");
+ 			return -1;
+ 		}
++
+ 		event = list_first_entry(&cpts->pool, struct cpts_event, list);
+ 		event->tmo = jiffies + 2;
+ 		event->high = hi;
 -- 
 2.10.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
