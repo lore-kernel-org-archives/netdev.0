@@ -1,66 +1,51 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [mm PATCH 0/3] Page fragment updates
-Date: Mon, 5 Dec 2016 09:01:12 -0800
-Message-ID: <CAKgT0UchMkvsboO23R332j96=yumL7=oSSm97zqJ5-v30_SgCw@mail.gmail.com>
-References: <20161129182010.13445.31256.stgit@localhost.localdomain>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [iproute PATCH v2 08/18] ss: Turn generic_proc_open() wrappers
+ into macros
+Date: Mon, 5 Dec 2016 17:02:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0235052@AcuExch.aculab.com>
+References: <20161202104002.17310-1-phil@nwl.cc>
+ <20161202104002.17310-9-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161129182010.13445.31256.stgit@localhost.localdomain>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Phil Sutter' <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.194]:56782 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751492AbcLERC3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 12:02:29 -0500
+In-Reply-To: <20161202104002.17310-9-phil@nwl.cc>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 29, 2016 at 10:23 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> This patch series takes care of a few cleanups for the page fragments API.
->
-> First we do some renames so that things are much more consistent.  First we
-> move the page_frag_ portion of the name to the front of the functions
-> names.  Secondly we split out the cache specific functions from the other
-> page fragment functions by adding the word "cache" to the name.
->
-> Second I did some minor clean-up on the function calls so that they are
-> more inline with the existing __free_pages calls in terms of how they
-> operate.
->
-> Finally I added a bit of documentation that will hopefully help to explain
-> some of this.  I plan to revisit this later as we get things more ironed
-> out in the near future with the changes planned for the DMA setup to
-> support eXpress Data Path.
->
+From: Phil Sutter
+> Sent: 02 December 2016 10:40
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 > ---
->
-> Alexander Duyck (3):
->       mm: Rename __alloc_page_frag to page_frag_alloc and __free_page_frag to page_frag_free
->       mm: Rename __page_frag functions to __page_frag_cache, drop order from drain
->       mm: Add documentation for page fragment APIs
->
->
->  Documentation/vm/page_frags               |   42 +++++++++++++++++++++++++++++
->  drivers/net/ethernet/intel/igb/igb_main.c |    6 ++--
->  include/linux/gfp.h                       |    9 +++---
->  include/linux/skbuff.h                    |    2 +
->  mm/page_alloc.c                           |   33 +++++++++++++----------
->  net/core/skbuff.c                         |    8 +++---
->  6 files changed, 73 insertions(+), 27 deletions(-)
->  create mode 100644 Documentation/vm/page_frags
->
-> --
+>  misc/ss.c | 89 ++++++++++++++-------------------------------------------------
+>  1 file changed, 19 insertions(+), 70 deletions(-)
+> 
+> diff --git a/misc/ss.c b/misc/ss.c
+> index ad38eb97b0055..71040a82ca6b1 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -327,76 +327,25 @@ static FILE *generic_proc_open(const char *env, const char *name)
+> 
+>  	return fopen(p, "r");
+>  }
+> -
+> -static FILE *net_tcp_open(void)
+> -{
+> -	return generic_proc_open("PROC_NET_TCP", "net/tcp");
+> -}
+...
+> +#define net_tcp_open()		generic_proc_open("PROC_NET_TCP", "net/tcp")
+...
 
-It's been about a week since I submitted this series.  Just wanted to
-check in and see if anyone had any feedback or if this is good to be
-accepted for 4.10-rc1 with the rest of the set?
+Does that make any difference at all?
+The compiler should inline the static functions.
 
-Thanks.
-
-- Alex
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	David
