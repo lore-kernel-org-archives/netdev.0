@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: usb: set error code when usb_alloc_urb fails
-Date: Mon, 05 Dec 2016 13:27:48 -0500 (EST)
-Message-ID: <20161205.132748.1851184102764779599.davem@davemloft.net>
-References: <1480764288-5448-1-git-send-email-bianpan2016@163.com>
+Subject: Re: [PATCH 1/1] atm: lanai: set error code when ioremap fails
+Date: Mon, 05 Dec 2016 13:28:02 -0500 (EST)
+Message-ID: <20161205.132802.1758015753602111376.davem@davemloft.net>
+References: <1480767945-5676-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: woojung.huh@microchip.com, UNGLinuxDriver@microchip.com,
-        netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: bianpan2016@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47522 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47540 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752186AbcLES1v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:27:51 -0500
-In-Reply-To: <1480764288-5448-1-git-send-email-bianpan2016@163.com>
+        with ESMTP id S1752879AbcLES2E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:28:04 -0500
+In-Reply-To: <1480767945-5676-1-git-send-email-bianpan2016@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pan Bian <bianpan2016@163.com>
-Date: Sat,  3 Dec 2016 19:24:48 +0800
+Date: Sat,  3 Dec 2016 20:25:45 +0800
 
-> In function lan78xx_probe(), variable ret takes the errno code on
-> failures. However, when the call to usb_alloc_urb() fails, its value
-> will keeps 0. 0 indicates success in the context, which is inconsistent
-> with the execution result. This patch fixes the bug, assigning
-> "-ENOMEM" to ret when usb_alloc_urb() returns a NULL pointer.
+> In function lanai_dev_open(), when the call to ioremap() fails, the
+> value of return variable result is 0. 0 means no error in this context.
+> This patch fixes the bug, assigning "-ENOMEM" to result when ioremap()
+> returns a NULL pointer.
 > 
-> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188771
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188791
 > 
 > Signed-off-by: Pan Bian <bianpan2016@163.com>
 
