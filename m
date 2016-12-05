@@ -1,82 +1,45 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: e1000e on Thinkpad x60: gigabit not available due to "SmartSpeed"
-Date: Mon, 5 Dec 2016 11:44:47 +0100
-Message-ID: <20161205104447.GA7536@amd>
-References: <20160901201408.GA5061@amd>
- <1472767093.3889.4.camel@gmail.com>
- <20160902165735.GJ14311@csclub.uwaterloo.ca>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: Build regressions/improvements in v4.9-rc8
+Date: Mon, 5 Dec 2016 11:24:43 +0100
+Message-ID: <CAMuHMdV3999Y8pv5n-kCm6psXApH=cKdGe_R6G8atzgjgXi22A@mail.gmail.com>
+References: <1480928996-7974-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="T4sUOijqQbZv57TR"
-Cc: Greg <gvrose8192@gmail.com>,
-        kernel list <linux-kernel@vger.kernel.org>,
-        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:40959 "EHLO
-        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751364AbcLEKot (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 05:44:49 -0500
-Content-Disposition: inline
-In-Reply-To: <20160902165735.GJ14311@csclub.uwaterloo.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480928996-7974-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Dec 5, 2016 at 10:09 AM, Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> JFYI, when comparing v4.9-rc8[1] to v4.9-rc7[3], the summaries are:
+>   - build errors: +5/-10
 
---T4sUOijqQbZv57TR
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+  + /home/kisskb/slave/src/drivers/net/ethernet/freescale/fec_main.c:
+error: 'fec_stats' undeclared (first use in this function):  => 3296:7
+  + /home/kisskb/slave/src/drivers/net/ethernet/freescale/fec_main.c:
+error: implicit declaration of function
+'fec_enet_update_ethtool_stats'
+[-Werror=implicit-function-declaration]:  => 2887:2
+  + /home/kisskb/slave/src/drivers/net/ethernet/freescale/fec_main.c:
+error: negative width in bit-field '<anonymous>':  => 3296:7
+  + /home/kisskb/slave/tmp/ccJlHrOq.s: Error: pcrel too far
+BFD_RELOC_BFIN_10:  => 912
 
-On Fri 2016-09-02 12:57:35, Lennart Sorensen wrote:
-> On Thu, Sep 01, 2016 at 02:58:13PM -0700, Greg wrote:
-> > On Thu, 2016-09-01 at 22:14 +0200, Pavel Machek wrote:
-> > > Hi!
-> > >=20
-> > > I have trouble getting 1000mbit out of my ethernet card.
-> > >=20
-> > > I tried direct connection between two PCs with different cables, and
-> > > no luck.
-> > >=20
-> > > Today I tried connection to 1000mbit switch, and no luck, either. (Two
-> > > cables, one was cat6, both short).
-> > >=20
-> > > My computer sees 1000mbit being advertised by the other side, but does
-> > > not advertise 1000mbit, "Link Speed was downgraded by SmartSpeed".
-> >=20
-> > Check your cables?
-> >=20
-> > https://vmxp.wordpress.com/2015/01/06/1gbe-intel-nic-throttled-to-100mb=
-it-by-smartspeed/
->=20
-> Of course if it isn't the cable, then it could even be a broken pin in
-> the port.  As far as I can tell, anything that causes one of the 3rd
-> or 4th pairs of wires to not work will degrade to 100Mbit on just the
-> first 2 pairs of wires and give that message.  Some badly implemented
-> switches can also cause it of course.
+m68k/m5272c3_defconfig (patch available)
 
-Ok, so it seems like broken pin in the port. I realized I had docking
-station available for the machine, and when connecting using that
-connector (not internal notebook one), I get gigabit speed.
+> [1] http://kisskb.ellerman.id.au/kisskb/head/3e5de27e940d00d8d504dfb96625fb654f641509/ (all 267 configs)
+> [3] http://kisskb.ellerman.id.au/kisskb/head/e5517c2a5a49ed5e99047008629f1cd60246ea0e/ (all 267 configs)
 
-Thanks and best regards,
-								Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
+Gr{oetje,eeting}s,
 
---T4sUOijqQbZv57TR
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+                        Geert
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-iEYEARECAAYFAlhFRR8ACgkQMOfwapXb+vIW9gCdEjEOshjhJp8NjZcyPpBQyMif
-1UoAn1IC5jEs9/2OuFYVSz2Nz6GA3NyA
-=7Rds
------END PGP SIGNATURE-----
-
---T4sUOijqQbZv57TR--
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
