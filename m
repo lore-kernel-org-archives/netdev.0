@@ -1,71 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: 'imply' ptp instead of 'select'
-Date: Mon, 05 Dec 2016 12:20:29 -0500 (EST)
-Message-ID: <20161205.122029.1310361702811893159.davem@davemloft.net>
-References: <20161202230451.1639318-1-arnd@arndb.de>
-        <20161203.233945.1757084444220812603.davem@davemloft.net>
-        <alpine.LFD.2.20.1612051039010.1657@knanqh.ubzr>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [ovs-dev] [PATCH net-next] net: remove abuse of VLAN DEI/CFI bit
+Date: Mon, 5 Dec 2016 18:24:36 +0100
+Message-ID: <20161205172436.cpxohof6rggxid74@rere.qmqm.pl>
+References: <cfa1f2efae2217b50cbefccbf9ba7f0d24a23c63.1480755768.git.mirq-linux@rere.qmqm.pl>
+ <20161203232730.GT3129@ovn.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, felix.manlunas@caviumnetworks.com,
-        tglx@linutronix.de, david.daney@cavium.com,
-        satananda.burla@caviumnetworks.com, rvatsavayi@caviumnetworks.com,
-        sgoutham@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: nicolas.pitre@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.20.1612051039010.1657@knanqh.ubzr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+        bridge@lists.linux-foundation.org
+To: Ben Pfaff <blp@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([84.10.57.10]:38796 "EHLO rere.qmqm.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751677AbcLERYk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Dec 2016 12:24:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20161203232730.GT3129@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Date: Mon, 5 Dec 2016 10:44:32 -0500 (EST)
-
-> On Sat, 3 Dec 2016, David Miller wrote:
+On Sat, Dec 03, 2016 at 03:27:30PM -0800, Ben Pfaff wrote:
+> On Sat, Dec 03, 2016 at 10:22:28AM +0100, Micha³ Miros³aw wrote:
+> > This All-in-one patch removes abuse of VLAN CFI bit, so it can be passed
+> > intact through linux networking stack.
+> > 
+> > Signed-off-by: Micha³ Miros³aw <michal.miroslaw@atendesoftware.pl>
+> > ---
+> > 
+> > Dear NetDevs
+> > 
+> > I guess this needs to be split to the prep..convert[]..finish sequence,
+> > but if you like it as is, then it's ready.
+> > 
+> > The biggest question is if the modified interface and vlan_present
+> > is the way to go. This can be changed to use vlan_proto != 0 instead
+> > of an extra flag bit.
+> > 
+> > As I can't test most of the driver changes, please look at them carefully.
+> > OVS and bridge eyes are especially welcome.
 > 
->> From: Arnd Bergmann <arnd@arndb.de>
->> Date: Sat,  3 Dec 2016 00:04:32 +0100
->> 
->> > ptp now depends on the optional POSIX_TIMERS setting and fails to build
->> > if we select it without that:
->> > 
->> > warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
->> > warning: (LIQUIDIO_VF && TI_CPTS) selects PTP_1588_CLOCK which has unmet direct dependencies (NET && POSIX_TIMERS)
->> > ERROR: "posix_clock_unregister" [drivers/ptp/ptp.ko] undefined!
->> > ERROR: "posix_clock_register" [drivers/ptp/ptp.ko] undefined!
->> > ERROR: "pps_unregister_source" [drivers/ptp/ptp.ko] undefined!
->> > ERROR: "pps_event" [drivers/ptp/ptp.ko] undefined!
->> > ERROR: "pps_register_source" [drivers/ptp/ptp.ko] undefined!
->> > 
->> > It seems that two patches have collided here, the build failure
->> > is a result of the combination. Changing the new option to 'imply'
->> > as well fixes it.
->> > 
->> > Fixes: 111fc64a237f ("liquidio CN23XX: VF registration")
->> > Fixes: d1cbfd771ce8 ("ptp_clock: Allow for it to be optional")
->> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> 
->> Like the kbuild robot, when I apply this it complains about 'imply' being
->> an unknown option.
->> 
->> I guess it worked for you because support for 'imply' exists in the -next
->> tree and gets pulled in from somewhere else.
-> 
-> Exact.
-> 
->> In any event, as-is I cannot apply this.
-> 
-> It should be carried in linux-next for the time being, and suggested as 
-> a probable "merge resolution" to Linus when submitting your tree for 
-> merging.  I think that's the best that can be done.
+> This appears to change the established Open vSwitch userspace API.  You
+> can see that simply from the way that it changes the documentation for
+> the userspace API.  If I'm right about that, then this change will break
+> all userspace programs that use the Open vSwitch kernel module,
+> including Open vSwitch itself.
 
-This means the build of pure net-next is broken, which is unacceptble, as
-this is the tree that many developers do their work and build tests against.
+If I understood the code correctly, it does change expected meaning for
+the (unlikely?) case of header truncated just before the VLAN TCI - it will
+be impossible to differentiate this case from the VLAN TCI == 0.
 
-You cannot have the proper functioning of net-next depend upon something
-not in that tree.
+I guess this is a problem with OVS API, because it doesn't directly show
+the "missing" state of elements, but relies on an "invalid" value.
 
-Therefore, you must resolve this without the 'imply' keyword somehow.
+I can probably change the code to mask this change in the OVS code (by keeping
+the CFI/DEI bit unusable). This somehow feels wrong, though.
 
-Thanks.
+Best Regards,
+Micha³ Miros³aw
