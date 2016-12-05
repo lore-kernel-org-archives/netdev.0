@@ -1,9 +1,8 @@
 From: Pavel Machek <pavel@ucw.cz>
 Subject: Re: stmmac ethernet in kernel 4.9-rc6: coalescing related pauses.
-Date: Mon, 5 Dec 2016 13:01:36 +0100
-Message-ID: <20161205120136.GC16126@amd>
-References: <20161123105125.GA26394@amd>
- <20161124085506.GA25007@amd>
+Date: Mon, 5 Dec 2016 13:14:42 +0100
+Message-ID: <20161205121442.GD16126@amd>
+References: <20161124085506.GA25007@amd>
  <20161124.110416.198867271899443489.davem@davemloft.net>
  <20161124212540.GA24796@amd>
  <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
@@ -11,62 +10,64 @@ References: <20161123105125.GA26394@amd>
  <3192a4b6-1e97-048f-a0dd-bfc0f3d96ed8@st.com>
  <20161202123241.GA5869@amd>
  <c4748c8f-ae4b-9bbc-7d20-9c7b7ce433c8@st.com>
+ <5db2ce3e-d4eb-d5d0-594c-8cd0f2e70476@st.com>
+ <5627300c-a9b5-8709-bb08-5f0bceddfb05@st.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="jousvV0MzM2p6OtC"
-Cc: alexandre.torgue@st.com, David Miller <davem@davemloft.net>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+        protocol="application/pgp-signature"; boundary="DrWhICOqskFTAXiy"
+Cc: Alexandre Torgue <alexandre.torgue@st.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:43413 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751540AbcLEMQf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 07:16:35 -0500
 Content-Disposition: inline
-In-Reply-To: <c4748c8f-ae4b-9bbc-7d20-9c7b7ce433c8@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5627300c-a9b5-8709-bb08-5f0bceddfb05@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---jousvV0MzM2p6OtC
+--DrWhICOqskFTAXiy
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
 Hi!
 
-> >>We had experimented this tuning on STB IP where just datagrams
-> >>had to send externally. To be honest, although we had seen
-> >>better results w/o any timer, we kept this approach enabled
-> >>because the timer was fast enough to cover our tests on SH4 boxes.
-> >
-> >Please reply to David, and explain how it is supposed to
-> >work... because right now it does not. 40 msec delays are not
-> >acceptable in default configuration.
+> >Sorry but I'm a little bit confused. I'm dropped in some mails without
+> >historic. I see cleanup, coalescence issue and TSO question.
+> >What is your main issue? Are you working on gmac4 or 3.x ?
+> >Can you refresh a little bit the story please ?
 >=20
-> I mean, that on UP and SMP system this schema helped
-> to improve the performance saving CPU on my side and this has been
-> tested since a long time (~4 years).
-> I tested something similar to yours where unidirectional traffic
-> with limited throughput was needed and I can confirm you that
-> tuning/removing coalesce parameters this helped. The tuning I decided
-> to keep in the driver was suitable in several user cases and if now
-> you have problems or you want to review it I can just confirm that
-> there are no problems on my side. If you want to simply the logic
-> around the tx process and remove timer on official driver I can accept
-> that. I will just ask you uto double check if the throughput and
-> CPU usage when request max throughput (better if on GiGa setup) has
-> no regressions.
-> Otherwise we could start thinking about adaptive schema if feasible.
-
-Ok, so you see the issue. Good.
-
-See the other email to description how it could be fixed... the logic
-is broken. How it was not discovered for 4 years is mystery to me.
-=20
-> >Agreed that no irqlock protection is needed if we rely on napi and timer=
-s.
+> let me try to do a sum, please Pavel feel free to correct me.
 >=20
-> ok
+> There are some open points about the tx mitigation schema
+> that we are trying to detail and eventually tune or change
+> (but keeping the same performance on other user-case).
+>=20
+> In particular, the test case that is raising problem is
+> an unicast tx bench.
+> I suggested Pavel to tune coalesce (IC bit settings) via
+> ethtool and monitor stats but he is getting problems (maybe
+> due to lock).
+>=20
+> IIUC problems are mainly on new kernel and not on 4.4 where
+> the gmac4 is missing. Please Pavel, could you confirm?
 
-Actually I was wrong there. Another reason to disable tx coalescing
-until it is fixed.
+Actually no, it is the other way around. I can get 4.9 to work with
+some tuning. 4.4 likes to crash when tx coalesce is enabled with
+shorter than 40 msec timeout. (It crashes with default settings, too,
+but that takes too long to reproduce.)
+
+> Also there are some other discussion about the lock
+> protection on NAPI still under discussion. I have not
+> clear if in this case Pavel is getting strange behavior.
+
+Yep, locking is broken in more than one place. I believe I understand
+what some problems are. Let me prepare the patches.
 
 Best regards,
 									Pavel
@@ -75,16 +76,16 @@ Best regards,
 (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
 g.html
 
---jousvV0MzM2p6OtC
+--DrWhICOqskFTAXiy
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAlhFVyAACgkQMOfwapXb+vKdtgCgjbMbKNmn7ZT6zWu9jSxbw5j4
-tcMAoJt02D3IJ9yklQ1cvoRWUpS//EaO
-=Hn/Z
+iEYEARECAAYFAlhFWjIACgkQMOfwapXb+vIhAgCglzpCS2gzMqOS6GXg3Jshbv5x
+jDAAn0WoTm4qLrIBsVp6/chFzbCNKOrJ
+=TLF9
 -----END PGP SIGNATURE-----
 
---jousvV0MzM2p6OtC--
+--DrWhICOqskFTAXiy--
