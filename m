@@ -1,31 +1,73 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: rfkill: Add rfkill-any LED trigger
-Date: Mon, 05 Dec 2016 14:54:12 +0100
-Message-ID: <1480946052.31788.5.camel@sipsolutions.net>
-References: <20161130120317.11851-2-kernel@kempniu.pl>
-         <201612020131.aDbI7Mq9%fengguang.wu@intel.com>
-         <20161201200804.GA3872@kmp-mobile.hq.kempniu.pl>
-         (sfid-20161201_210813_179873_52F3B24D)
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Subject: Re: [patch net v2] net: fec: fix compile with CONFIG_M5272
+Date: Mon, 5 Dec 2016 16:55:51 +0300
+Message-ID: <60acf0f4-2f1f-2b2c-06ed-b1d8cb03525d@cogentembedded.com>
+References: <201612052104.HSl9jlj9%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: kbuild-all-JC7UmRfGjtg@public.gmane.org, "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?UTF-8?Q?Micha=C5=82_K=C4=99pie=C5=84?= <kernel-ePNcKBjznIDVItvQsEIGlw@public.gmane.org>,
-        kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161201200804.GA3872-d0zqvqtRkg7MisJl3QRgO5JNpPtI3pG4@public.gmane.org> (sfid-20161201_210813_179873_52F3B24D)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: kbuild-all@01.org, "David S. Miller" <davem@davemloft.net>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        netdev@vger.kernel.org, Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        linux-kernel@vger.kernel.org
+To: kbuild test robot <lkp@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:34296 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750841AbcLEOCH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 09:02:07 -0500
+Received: by mail-wm0-f43.google.com with SMTP id u144so20762026wmu.1
+        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 06:02:07 -0800 (PST)
+In-Reply-To: <201612052104.HSl9jlj9%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Aieee   I was typing too fast today, sorry...
 
-> Thanks, these are obviously all valid concerns.  Sorry for being
-> sloppy
-> with the ifdefs.  If I get positive feedback on the proposed feature
-> itself, all these issues (and the warning pointed out in the other
-> message) will be resolved in v2.
+send separate "fix for the fix", or re-send patch without that silly typo?
 
-Looks fine, please do that.
+Nikita
 
-johannes
+> Hi Nikita,
+> 
+> [auto build test ERROR on net/master]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Nikita-Yushchenko/net-fec-fix-compile-with-CONFIG_M5272/20161205-181735
+> config: arm-multi_v5_defconfig (attached as .config)
+> compiler: arm-linux-gnueabi-gcc (Debian 6.1.1-9) 6.1.1 20160705
+> reproduce:
+>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=arm 
+> 
+> All errors (new ones prefixed by >>):
+> 
+>    drivers/net/ethernet/freescale/fec_main.c: In function 'fec_probe':
+>>> drivers/net/ethernet/freescale/fec_main.c:3304:7: error: 'FEC_STAT_SIZE' undeclared (first use in this function)
+>           FEC_STAT_SIZE, num_tx_qs, num_rx_qs);
+>           ^~~~~~~~~~~~~
+>    drivers/net/ethernet/freescale/fec_main.c:3304:7: note: each undeclared identifier is reported only once for each function it appears in
+> 
+> vim +/FEC_STAT_SIZE +3304 drivers/net/ethernet/freescale/fec_main.c
+> 
+>   3298		int num_rx_qs;
+>   3299	
+>   3300		fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
+>   3301	
+>   3302		/* Init network device */
+>   3303		ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private) +
+>> 3304					  FEC_STAT_SIZE, num_tx_qs, num_rx_qs);
+>   3305		if (!ndev)
+>   3306			return -ENOMEM;
+>   3307	
+> 
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+> 
