@@ -1,54 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: Preserve const register type on const OR
- alu ops
-Date: Mon, 05 Dec 2016 13:41:08 -0500 (EST)
-Message-ID: <20161205.134108.1458706052974202517.davem@davemloft.net>
-References: <1480797093-1050393-1-git-send-email-ast@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V2 net 10/20] net/ena: remove redundant logic in napi
+ callback for busy poll mode
+Date: Mon, 05 Dec 2016 10:51:09 -0800
+Message-ID: <1480963869.18162.557.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
+         <1480857578-5065-11-git-send-email-netanel@annapurnalabs.com>
+         <1480916739.18162.516.camel@edumazet-glaptop3.roam.corp.google.com>
+         <8c6eb7b9-c9fc-60f6-c890-5d69c0cc1cd9@annapurnalabs.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, g.borello@gmail.com, netdev@vger.kernel.org
-To: ast@fb.com
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+        netdev@vger.kernel.org, dwmw@amazon.com, zorik@annapurnalabs.com,
+        alex@annapurnalabs.com, saeed@annapurnalabs.com, msw@amazon.com,
+        aliguori@amazon.com, nafea@annapurnalabs.com
+To: Netanel Belgazal <netanel@annapurnalabs.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48000 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751064AbcLESuy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:50:54 -0500
-In-Reply-To: <1480797093-1050393-1-git-send-email-ast@fb.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35966 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751995AbcLESwM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:52:12 -0500
+In-Reply-To: <8c6eb7b9-c9fc-60f6-c890-5d69c0cc1cd9@annapurnalabs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Sat, 3 Dec 2016 12:31:33 -0800
+On Mon, 2016-12-05 at 20:29 +0200, Netanel Belgazal wrote:
 
-> From: Gianluca Borello <g.borello@gmail.com>
-> 
-> Occasionally, clang (e.g. version 3.8.1) translates a sum between two
-> constant operands using a BPF_OR instead of a BPF_ADD. The verifier is
-> currently not handling this scenario, and the destination register type
-> becomes UNKNOWN_VALUE even if it's still storing a constant. As a result,
-> the destination register cannot be used as argument to a helper function
-> expecting a ARG_CONST_STACK_*, limiting some use cases.
-> 
-> Modify the verifier to handle this case, and add a few tests to make sure
-> all combinations are supported, and stack boundaries are still verified
-> even with BPF_OR.
-> 
-> Signed-off-by: Gianluca Borello <g.borello@gmail.com>
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> You are correct.
+> I didn't see the patches.
+> It is much better to use the napi_complete_done() return value.
+> I'll rework my patch.
 
-Applied, but...
+Excellent, please CC me on this particular work on the future.
 
-> diff --git a/tools/testing/selftests/bpf/.gitignore b/tools/testing/selftests/bpf/.gitignore
-> index 3c59f96e3ed8..071431bedde8 100644
-> --- a/tools/testing/selftests/bpf/.gitignore
-> +++ b/tools/testing/selftests/bpf/.gitignore
-> @@ -1,2 +1,3 @@
->  test_verifier
->  test_maps
-> +test_lru_map
-
-This had nothing to do with this change, nor was it mentioned in the
-commit message.
-
-Please do not do this in the future.
+Thanks.
