@@ -1,7 +1,7 @@
 From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH 05/28] bnxt_en: Reserve RDMA resources by default.
-Date: Sun,  4 Dec 2016 22:38:09 -0800
-Message-ID: <1480919912-1079-6-git-send-email-selvin.xavier@broadcom.com>
+Subject: [PATCH 03/28] bnxt_en: Move function reset to bnxt_init_one().
+Date: Sun,  4 Dec 2016 22:38:07 -0800
+Message-ID: <1480919912-1079-4-git-send-email-selvin.xavier@broadcom.com>
 References: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
 Cc: linux-rdma@vger.kernel.org,
         Michael Chan <michael.chan@broadcom.com>,
@@ -9,153 +9,108 @@ Cc: linux-rdma@vger.kernel.org,
         Selvin Xavier <selvin.xavier@broadcom.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:33840 "EHLO
+Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:33868 "EHLO
         relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751244AbcLEGps (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:45:48 -0500
+        with ESMTP id S1751176AbcLEGpp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:45:45 -0500
 In-Reply-To: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Michael Chan <michael.chan@broadcom.com>
 
-If the device supports RDMA, we'll setup network default rings so that
-there are enough minimum resources for RDMA, if possible.  However, the
-user can still increase network rings to the max if he wants.  The actual
-RDMA resources won't be reserved until the RDMA driver registers.
+Now that MSIX is enabled in bnxt_init_one(), resources may be allocated by
+the RDMA driver before the network device is opened.  So we cannot do
+function reset in bnxt_open() which will clear all the resources.
+
+The proper place to do function reset now is in bnxt_init_one().
+If we get AER, we'll do function reset as well.
 
 Cc: David Miller <davem@davemloft.net>
 Cc: <netdev@vger.kernel.org>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 58 ++++++++++++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  9 +++++
- 2 files changed, 66 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 25 ++++++-------------------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 -
+ 2 files changed, 6 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 1f6be83..7218d65 100644
+index 9178bf8..8b00ef4 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4166,6 +4166,11 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
- 	if (rc)
- 		goto hwrm_func_qcaps_exit;
- 
-+	if (resp->flags & cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_ROCE_V1_SUPPORTED))
-+		bp->flags |= BNXT_FLAG_ROCEV1_CAP;
-+	if (resp->flags & cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_ROCE_V2_SUPPORTED))
-+		bp->flags |= BNXT_FLAG_ROCEV2_CAP;
-+
- 	bp->tx_push_thresh = 0;
- 	if (resp->flags &
- 	    cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_PUSH_MODE_SUPPORTED))
-@@ -4808,6 +4813,24 @@ static int bnxt_setup_int_mode(struct bnxt *bp)
- 	return rc;
- }
- 
-+unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp)
-+{
-+	if (BNXT_PF(bp))
-+		return bp->pf.max_stat_ctxs;
-+#if defined(CONFIG_BNXT_SRIOV)
-+	return bp->vf.max_stat_ctxs;
-+#endif
-+}
-+
-+unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp)
-+{
-+	if (BNXT_PF(bp))
-+		return bp->pf.max_cp_rings;
-+#if defined(CONFIG_BNXT_SRIOV)
-+	return bp->vf.max_cp_rings;
-+#endif
-+}
-+
- static unsigned int bnxt_get_max_func_irqs(struct bnxt *bp)
+@@ -5613,22 +5613,7 @@ int bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
+ static int bnxt_open(struct net_device *dev)
  {
- 	if (BNXT_PF(bp))
-@@ -6832,6 +6855,39 @@ int bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx, bool shared)
- 	return bnxt_trim_rings(bp, max_rx, max_tx, cp, shared);
+ 	struct bnxt *bp = netdev_priv(dev);
+-	int rc = 0;
+ 
+-	if (!test_bit(BNXT_STATE_FN_RST_DONE, &bp->state)) {
+-		rc = bnxt_hwrm_func_reset(bp);
+-		if (rc) {
+-			netdev_err(bp->dev, "hwrm chip reset failure rc: %x\n",
+-				   rc);
+-			rc = -EBUSY;
+-			return rc;
+-		}
+-		/* Do func_reset during the 1st PF open only to prevent killing
+-		 * the VFs when the PF is brought down and up.
+-		 */
+-		if (BNXT_PF(bp))
+-			set_bit(BNXT_STATE_FN_RST_DONE, &bp->state);
+-	}
+ 	return __bnxt_open_nic(bp, true, true);
  }
  
-+static int bnxt_get_dflt_rings(struct bnxt *bp, int *max_rx, int *max_tx,
-+			       bool shared)
-+{
-+	int rc;
-+
-+	rc = bnxt_get_max_rings(bp, max_rx, max_tx, shared);
+@@ -7028,6 +7013,10 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (rc)
+ 		goto init_err;
+ 
++	rc = bnxt_hwrm_func_reset(bp);
 +	if (rc)
-+		return rc;
++		goto init_err;
 +
-+	if (bp->flags & BNXT_FLAG_ROCE_CAP) {
-+		int max_cp, max_stat, max_irq;
-+
-+		/* Reserve minimum resources for RoCE */
-+		max_cp = bnxt_get_max_func_cp_rings(bp);
-+		max_stat = bnxt_get_max_func_stat_ctxs(bp);
-+		max_irq = bnxt_get_max_func_irqs(bp);
-+		if (max_cp <= BNXT_MIN_ROCE_CP_RINGS ||
-+		    max_irq <= BNXT_MIN_ROCE_CP_RINGS ||
-+		    max_stat <= BNXT_MIN_ROCE_STAT_CTXS)
-+			return 0;
-+
-+		max_cp -= BNXT_MIN_ROCE_CP_RINGS;
-+		max_irq -= BNXT_MIN_ROCE_CP_RINGS;
-+		max_stat -= BNXT_MIN_ROCE_STAT_CTXS;
-+		max_cp = min_t(int, max_cp, max_irq);
-+		max_cp = min_t(int, max_cp, max_stat);
-+		rc = bnxt_trim_rings(bp, max_rx, max_tx, max_cp, shared);
-+		if (rc)
-+			rc = 0;
-+	}
-+	return rc;
-+}
-+
- static int bnxt_set_dflt_rings(struct bnxt *bp)
- {
- 	int dflt_rings, max_rx_rings, max_tx_rings, rc;
-@@ -6840,7 +6896,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
- 	if (sh)
- 		bp->flags |= BNXT_FLAG_SHARED_RINGS;
- 	dflt_rings = netif_get_num_default_rss_queues();
--	rc = bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings, sh);
-+	rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, sh);
+ 	rc = bnxt_init_int_mode(bp);
  	if (rc)
- 		return rc;
- 	bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
+ 		goto init_err;
+@@ -7069,7 +7058,6 @@ static pci_ers_result_t bnxt_io_error_detected(struct pci_dev *pdev,
+ 					       pci_channel_state_t state)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct bnxt *bp = netdev_priv(netdev);
+ 
+ 	netdev_info(netdev, "PCI I/O error detected\n");
+ 
+@@ -7084,8 +7072,6 @@ static pci_ers_result_t bnxt_io_error_detected(struct pci_dev *pdev,
+ 	if (netif_running(netdev))
+ 		bnxt_close(netdev);
+ 
+-	/* So that func_reset will be done during slot_reset */
+-	clear_bit(BNXT_STATE_FN_RST_DONE, &bp->state);
+ 	pci_disable_device(pdev);
+ 	rtnl_unlock();
+ 
+@@ -7119,7 +7105,8 @@ static pci_ers_result_t bnxt_io_slot_reset(struct pci_dev *pdev)
+ 	} else {
+ 		pci_set_master(pdev);
+ 
+-		if (netif_running(netdev))
++		err = bnxt_hwrm_func_reset(bp);
++		if (!err && netif_running(netdev))
+ 			err = bnxt_open(netdev);
+ 
+ 		if (!err)
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 43a4b17..d796836 100644
+index 1461355..0ee2cc4 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -387,6 +387,9 @@ struct rx_tpa_end_cmp_ext {
- #define DB_KEY_TX_PUSH						(0x4 << 28)
- #define DB_LONG_TX_PUSH						(0x2 << 24)
+@@ -1021,7 +1021,6 @@ struct bnxt {
+ 	unsigned long		state;
+ #define BNXT_STATE_OPEN		0
+ #define BNXT_STATE_IN_SP_TASK	1
+-#define BNXT_STATE_FN_RST_DONE	2
  
-+#define BNXT_MIN_ROCE_CP_RINGS	2
-+#define BNXT_MIN_ROCE_STAT_CTXS	1
-+
- #define INVALID_HW_RING_ID	((u16)-1)
- 
- /* The hardware supports certain page sizes.  Use the supported page sizes
-@@ -953,6 +956,10 @@ struct bnxt {
- 	#define BNXT_FLAG_PORT_STATS	0x400
- 	#define BNXT_FLAG_UDP_RSS_CAP	0x800
- 	#define BNXT_FLAG_EEE_CAP	0x1000
-+	#define BNXT_FLAG_ROCEV1_CAP	0x8000
-+	#define BNXT_FLAG_ROCEV2_CAP	0x10000
-+	#define BNXT_FLAG_ROCE_CAP	(BNXT_FLAG_ROCEV1_CAP |	\
-+					 BNXT_FLAG_ROCEV2_CAP)
- 	#define BNXT_FLAG_CHIP_NITRO_A0	0x1000000
- 
- 	#define BNXT_FLAG_ALL_CONFIG_FEATS (BNXT_FLAG_TPA |		\
-@@ -1234,6 +1241,8 @@ int _hwrm_send_message(struct bnxt *, void *, u32, int);
- int hwrm_send_message(struct bnxt *, void *, u32, int);
- int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
- int bnxt_hwrm_set_coal(struct bnxt *);
-+unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
-+unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp);
- void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max);
- void bnxt_tx_disable(struct bnxt *bp);
- void bnxt_tx_enable(struct bnxt *bp);
+ 	struct bnxt_irq	*irq_tbl;
+ 	int			total_irqs;
 -- 
 2.5.5
