@@ -1,93 +1,96 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: Re: [PATCH V2 net 13/20] net/ena: change driver's default timeouts
-Date: Mon, 5 Dec 2016 20:28:17 +0200
-Message-ID: <fd1b5a55-341e-b215-0f56-a288bb81ceaf@annapurnalabs.com>
+Subject: Re: [PATCH V2 net 10/20] net/ena: remove redundant logic in napi
+ callback for busy poll mode
+Date: Mon, 5 Dec 2016 20:29:18 +0200
+Message-ID: <8c6eb7b9-c9fc-60f6-c890-5d69c0cc1cd9@annapurnalabs.com>
 References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
- <1480857578-5065-14-git-send-email-netanel@annapurnalabs.com>
- <20161205043524.GJ4310@u54ee753d2d1854bda401.ant.amazon.com>
+ <1480857578-5065-11-git-send-email-netanel@annapurnalabs.com>
+ <1480916739.18162.516.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org, dwmw@amazon.com, zorik@annapurnalabs.com,
         alex@annapurnalabs.com, saeed@annapurnalabs.com, msw@amazon.com,
         aliguori@amazon.com, nafea@annapurnalabs.com
-To: Matt Wilson <msw@amzn.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161205043524.GJ4310@u54ee753d2d1854bda401.ant.amazon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f174.google.com ([209.85.210.174]:34477 "EHLO
+        mail-wj0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752094AbcLES3X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:29:23 -0500
+Received: by mail-wj0-f174.google.com with SMTP id tg4so42944257wjb.1
+        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 10:29:22 -0800 (PST)
+In-Reply-To: <1480916739.18162.516.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2016 06:35 AM, Matt Wilson wrote:
-> On Sun, Dec 04, 2016 at 03:19:31PM +0200, Netanel Belgazal wrote:
->
-> ... because? (they turned out to be too aggressive, I believe.)
 
-Yes, The timeout were too aggressive on some specific machines.
 
+On 12/05/2016 07:45 AM, Eric Dumazet wrote:
+> On Sun, 2016-12-04 at 15:19 +0200, Netanel Belgazal wrote:
+>> sk_busy_loop can call the napi callback few million times a sec.
+>> For each call there is unmask interrupt.
+>> We want to reduce the number of unmasks.
+>>
+>> Add an atomic variable that will tell the napi handler if
+>> it was called from irq context or not.
+>> Unmask the interrupt only from irq context.
+>>
+>> A schenario where the driver left with missed unmask isn't feasible.
+>> when ena_intr_msix_io is called the driver have 2 options:
+>> 1)Before napi completes and call napi_complete_done
+>> 2)After calling napi_complete_done
+>>
+>> In the former case the napi will unmask the interrupt as needed.
+>> In the latter case napi_complete_done will remove napi from the schedule
+>> list so napi will be rescheduled (by ena_intr_msix_io) and interrupt
+>> will be unmasked as desire in the 2nd napi call.
+>>
 >> Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 >> ---
->>   drivers/net/ethernet/amazon/ena/ena_com.c    | 4 ++--
->>   drivers/net/ethernet/amazon/ena/ena_netdev.h | 7 ++++---
->>   2 files changed, 6 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
->> index 4147d6e..a550c8a 100644
->> --- a/drivers/net/ethernet/amazon/ena/ena_com.c
->> +++ b/drivers/net/ethernet/amazon/ena/ena_com.c
->> @@ -36,9 +36,9 @@
->>   /*****************************************************************************/
->>   
->>   /* Timeout in micro-sec */
->> -#define ADMIN_CMD_TIMEOUT_US (1000000)
->> +#define ADMIN_CMD_TIMEOUT_US (3000000)
->>   
->> -#define ENA_ASYNC_QUEUE_DEPTH 4
->> +#define ENA_ASYNC_QUEUE_DEPTH 16
-> Why is this changed at the same time?
+>
+> This looks very complicated to me.
+>
+> I guess you missed the recent patches that happened on net-next ?
 
-It related to the too aggressive thresholds.
-On some heavy loaded system we reached to a state where the AENQ
-was full so the driver missed some events.
-
+You are correct.
+I didn't see the patches.
+It is much better to use the napi_complete_done() return value.
+I'll rework my patch.
 
 >
->>   #define ENA_ADMIN_QUEUE_DEPTH 32
->>   
->>   #define MIN_ENA_VER (((ENA_COMMON_SPEC_VERSION_MAJOR) << \
->> diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
->> index c081fd3..ed42e07 100644
->> --- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
->> +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
->> @@ -39,6 +39,7 @@
->>   #include <linux/interrupt.h>
->>   #include <linux/netdevice.h>
->>   #include <linux/skbuff.h>
->> +#include <linux/u64_stats_sync.h>
-> This change seems unrelated.
-
-Removed to a different patch (will be submitted in a new patchset)
+> 2e713283751f494596655d9125c168aeb913f71d net/mlx4_en: use napi_complete_done() return value
+> 364b6055738b4c752c30ccaaf25c624e69d76195 net: busy-poll: return busypolling status to drivers
+> 21cb84c48ca0619181106f0f44f3802a989de024 net: busy-poll: remove need_resched() from sk_can_busy_loop()
+> 217f6974368188fd8bd7804bf5a036aa5762c5e4 net: busy-poll: allow preemption in sk_busy_loop()
 >
->>   #include "ena_com.h"
->>   #include "ena_eth_com.h"
->> @@ -100,7 +101,7 @@
->>   /* Number of queues to check for missing queues per timer service */
->>   #define ENA_MONITORED_TX_QUEUES	4
->>   /* Max timeout packets before device reset */
->> -#define MAX_NUM_OF_TIMEOUTED_PACKETS 32
->> +#define MAX_NUM_OF_TIMEOUTED_PACKETS 128
->>   
->>   #define ENA_TX_RING_IDX_NEXT(idx, ring_size) (((idx) + 1) & ((ring_size) - 1))
->>   
->> @@ -116,9 +117,9 @@
->>   #define ENA_IO_IRQ_IDX(q)		(ENA_IO_IRQ_FIRST_IDX + (q))
->>   
->>   /* ENA device should send keep alive msg every 1 sec.
->> - * We wait for 3 sec just to be on the safe side.
->> + * We wait for 6 sec just to be on the safe side.
->>    */
->> -#define ENA_DEVICE_KALIVE_TIMEOUT	(3 * HZ)
->> +#define ENA_DEVICE_KALIVE_TIMEOUT	(6 * HZ)
->>   
->>   #define ENA_MMIO_DISABLE_REG_READ	BIT(0)
->>   
+> napi_complete_done() return code can be used by a driver,
+> no need to add yet another atomic operation in fast path.
+>
+> Anyway, this looks wrong :
+>
+> @@ -1186,6 +1201,7 @@ static irqreturn_t ena_intr_msix_io(int irq, void *data)
+>   {
+>          struct ena_napi *ena_napi = data;
+>   
+> +       atomic_set(&ena_napi->unmask_interrupt, 1);
+>          napi_schedule(&ena_napi->napi);
+>   
+> You probably wanted :
+>
+> if (napi_schedule_prep(n)) {
+> 	atomic_set(&ena_napi->unmask_interrupt, 1);
+> 	__napi_schedule(n);
+> }
+>
+>
+>
+> Please rework this napi poll using core infrastructure.
+>
+> busypoll logic should be centralized, not reimplemented in different ways in a driver.
+>
+> Thanks.
+>
+>
+>
