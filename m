@@ -1,76 +1,140 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH v3 net-next 3/3] openvswitch: Fix skb->protocol for vlan frames.
-Date: Sun, 4 Dec 2016 16:58:29 -0800
-Message-ID: <CAOrHB_CBcFHh0S3s3JQy0fdXSmpucTe9QC3Rk1yJM2yhdZqDtQ@mail.gmail.com>
-References: <1480462253-114713-1-git-send-email-jarno@ovn.org>
- <1480462253-114713-3-git-send-email-jarno@ovn.org> <20161130153041.7a9590ef@griffin>
- <CAOrHB_CAR8G=BF6X_+HgkRRnb=Erc6CYpCL4EnJfDRe7qBR2vg@mail.gmail.com> <20161202104202.426b2c80@griffin>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH v2 main-v4.9-rc7] net/ipv6: allow sysctl to change link-local
+ address generation mode
+Date: Sun, 04 Dec 2016 18:08:17 -0800
+Message-ID: <5844CC11.7090300@cumulusnetworks.com>
+References: <20161204223136.12119-1-felix.jia@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jarno Rajahalme <jarno@ovn.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Garver <e@erig.me>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Carl Smith <carl.smith@alliedtelesis.co.nz>
+To: Felix Jia <felix.jia@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:51608 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751070AbcLEA6h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 19:58:37 -0500
-Received: from mfilter6-d.gandi.net (mfilter6-d.gandi.net [217.70.178.135])
-        by relay3-d.mail.gandi.net (Postfix) with ESMTP id C8754A80C6
-        for <netdev@vger.kernel.org>; Mon,  5 Dec 2016 01:58:33 +0100 (CET)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-        by mfilter6-d.gandi.net (mfilter6-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 4GZhwxdCn6DX for <netdev@vger.kernel.org>;
-        Mon,  5 Dec 2016 01:58:32 +0100 (CET)
-Received: from mail-io0-f177.google.com (mail-io0-f177.google.com [209.85.223.177])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 58A98A80CD
-        for <netdev@vger.kernel.org>; Mon,  5 Dec 2016 01:58:31 +0100 (CET)
-Received: by mail-io0-f177.google.com with SMTP id j65so571845489iof.0
-        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 16:58:31 -0800 (PST)
-In-Reply-To: <20161202104202.426b2c80@griffin>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:32970 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751168AbcLECIT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 4 Dec 2016 21:08:19 -0500
+Received: by mail-pg0-f41.google.com with SMTP id 3so130763867pgd.0
+        for <netdev@vger.kernel.org>; Sun, 04 Dec 2016 18:08:19 -0800 (PST)
+In-Reply-To: <20161204223136.12119-1-felix.jia@alliedtelesis.co.nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 2, 2016 at 1:42 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Thu, 1 Dec 2016 12:31:09 -0800, Pravin Shelar wrote:
->> On Wed, Nov 30, 2016 at 6:30 AM, Jiri Benc <jbenc@redhat.com> wrote:
->> > I'm not opposed to changing this but I'm afraid it needs much deeper
->> > review. Because with this in place, no core kernel functions that
->> > depend on skb->protocol may be called from within openvswitch.
->> >
->> Can you give specific example where it does not work?
+On 12/4/16, 2:31 PM, Felix Jia wrote:
+> Removed the rtnl lock and switch to use RCU lock to iterate through
+> the netdev list.
 >
-> I can't, I haven't reviewed the usage. I'm just saying that the stack
-> does not expect skb->protocol being ETH_P_8021Q for e.g. IPv4 packets.
-> It may not be relevant for the calls used by openvswitch but we should
-> be sure about that. Especially defragmentation and conntrack is worth
-> looking at.
+> The address generation mode for IPv6 link-local can only be configured
+> by netlink messages. This patch adds the ability to change the address
+> generation mode via sysctl.
 >
-> Again, I'm not saying this is wrong nor that there is an actual
-> problem. I'm just pointing out that openvswitch has different
-> expectations about skb wrt. vlans than the rest of the kernel and we
-> should be reasonably sure the behavior is correct when passing between
-> the two.
+> An possible improvement is to remove the addrgenmode variable from the
+> idev structure and use the systcl storage for the flag.
 >
-I agree that conntrack does not expect skb-protocol to be vlan
-protocol. We could accelerate vlan if there is vlan header in packet
-itself. That would make the packet consistent across upcalls.
-
->> skb-protocol value is set by the caller, so it should not be
->> arbitrary. is it missing in any case?
+> The patch is based from v4.9-rc7 in mainline.
 >
-> It's not set exactly by the caller, because that's what this patch is
-> removing. It is set by whoever handed over the packet to openvswitch.
-> The point is we don't know *what* it is set to. It may as well be
-> ETH_P_8021Q, breaking the conditions here. It should not happen in
-> practice but still, it seems weird to depend on the fact that the
-> packet coming to ovs has never skb->protocol equal to ETH_P_8021Q nor
-> ETH_P_8021AD.
+> Signed-off-by: Felix Jia <felix.jia@alliedtelesis.co.nz>
+> Cc: Carl Smith <carl.smith@alliedtelesis.co.nz>
+> ---
+>  include/linux/ipv6.h      |  1 +
+>  include/uapi/linux/ipv6.h |  1 +
+>  net/ipv6/addrconf.c       | 73 ++++++++++++++++++++++++++++++++++++++++++++++-
+>  3 files changed, 74 insertions(+), 1 deletion(-)
 >
-
-We are kind of dependent on this atleast for L3 packets injected back
-by vswitchd. For rest of entry points I think we have to trust the
-networking stack would set skb-protocol to correct value. If that is
-not true in some case, it is bug and we will need to fix it.
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index a064997..0d9e5d4 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -64,6 +64,7 @@ struct ipv6_devconf {
+>  	} stable_secret;
+>  	__s32		use_oif_addrs_only;
+>  	__s32		keep_addr_on_down;
+> +	__s32		addrgenmode;
+>  
+>  	struct ctl_table_header *sysctl_header;
+>  };
+> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+> index 8c27723..0524e2c 100644
+> --- a/include/uapi/linux/ipv6.h
+> +++ b/include/uapi/linux/ipv6.h
+> @@ -178,6 +178,7 @@ enum {
+>  	DEVCONF_DROP_UNSOLICITED_NA,
+>  	DEVCONF_KEEP_ADDR_ON_DOWN,
+>  	DEVCONF_RTR_SOLICIT_MAX_INTERVAL,
+> +	DEVCONF_ADDRGENMODE,
+>  	DEVCONF_MAX
+>  };
+>  
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 4bc5ba3..2b83cc7 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -238,6 +238,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+>  	.use_oif_addrs_only	= 0,
+>  	.ignore_routes_with_linkdown = 0,
+>  	.keep_addr_on_down	= 0,
+> +	.addrgenmode = IN6_ADDR_GEN_MODE_EUI64,
+>  };
+>  
+>  static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+> @@ -284,6 +285,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+>  	.use_oif_addrs_only	= 0,
+>  	.ignore_routes_with_linkdown = 0,
+>  	.keep_addr_on_down	= 0,
+> +	.addrgenmode = IN6_ADDR_GEN_MODE_EUI64,
+>  };
+>  
+>  /* Check if a valid qdisc is available */
+> @@ -378,7 +380,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+>  	if (ndev->cnf.stable_secret.initialized)
+>  		ndev->addr_gen_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+>  	else
+> -		ndev->addr_gen_mode = IN6_ADDR_GEN_MODE_EUI64;
+> +		ndev->addr_gen_mode = ipv6_devconf_dflt.addrgenmode;
+>  
+>  	ndev->cnf.mtu6 = dev->mtu;
+>  	ndev->nd_parms = neigh_parms_alloc(dev, &nd_tbl);
+> @@ -4950,6 +4952,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+>  	array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = cnf->drop_unicast_in_l2_multicast;
+>  	array[DEVCONF_DROP_UNSOLICITED_NA] = cnf->drop_unsolicited_na;
+>  	array[DEVCONF_KEEP_ADDR_ON_DOWN] = cnf->keep_addr_on_down;
+> +	array[DEVCONF_ADDRGENMODE] = cnf->addrgenmode;
+>  }
+>  
+>  static inline size_t inet6_ifla6_size(void)
+> @@ -5496,6 +5499,67 @@ int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
+>  	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
+>  }
+>  
+> +static void addrconf_addrgenmode_change(struct net *net)
+> +{
+> +	struct net_device *dev;
+> +	struct inet6_dev *idev;
+> +
+> +	rcu_read_lock();
+> +	for_each_netdev_rcu(net, dev) {
+> +		idev = __in6_dev_get(dev);
+> +		if (idev) {
+> +			idev->cnf.addrgenmode = ipv6_devconf_dflt.addrgenmode;
+> +			idev->addr_gen_mode = ipv6_devconf_dflt.addrgenmode;
+> +			addrconf_dev_config(idev->dev);
+> +		}
+> +	}
+> +	rcu_read_unlock();
+> +}
+> +
+> +static int addrconf_sysctl_addrgenmode(struct ctl_table *ctl, int write,
+> +								void __user *buffer, size_t *lenp, loff_t *ppos)
+> +{
+> +	int ret;
+> +	int new_val;
+> +	struct inet6_dev *idev = (struct inet6_dev *)ctl->extra1;
+> +	struct net *net = (struct net *)ctl->extra2;
+> +
+> +	if (write) { /* sysctl write request */
+> +		ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+> +		new_val = *((int *)ctl->data);
+> +
+>
+unless I missed it, I don't see a check for valid values for new_val.
+The netlink attribute  is checked  for valid values in the existing equivalent netlink code.
