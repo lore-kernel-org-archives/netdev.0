@@ -1,64 +1,67 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: commit : ppp: add rtnetlink device creation support - breaks
- netcf on my machine.
-Date: Mon, 5 Dec 2016 18:53:20 +0100
-Message-ID: <20161205175320.mbtswpmdjumfgh7y@alphalink.fr>
-References: <32208f70-4165-e79b-89ee-543eefaf40ef@fnarfbargle.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 1/7] net: ethernet: ti: cpdma: am437x: allow descs to be
+ plased in ddr
+Date: Mon, 5 Dec 2016 11:57:42 -0600
+Message-ID: <1fbfc83f-c48b-45da-6bc3-d37b2bb129b6@ti.com>
+References: <20161201233432.6182-1-grygorii.strashko@ti.com>
+ <20161201233432.6182-2-grygorii.strashko@ti.com>
+ <20161203.153419.482900037601991931.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Brad Campbell <lists2009@fnarfbargle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:48091 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751100AbcLERxZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 12:53:25 -0500
-Content-Disposition: inline
-In-Reply-To: <32208f70-4165-e79b-89ee-543eefaf40ef@fnarfbargle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <mugunthanvnm@ti.com>, <nsekhar@ti.com>,
+        <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+        <ivan.khoronzhuk@linaro.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161203.153419.482900037601991931.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 05, 2016 at 05:06:31PM +0800, Brad Campbell wrote:
-> Machine is an old Debian (7.11) box with a recent compile of netcf. Any
-> kernel later than 4.6.7 prevents ncftool from running if the ppp interface
-> is up.
-> 
-> I'm using netcf-0.2.8, and this commit breaks it :
-> 
-> 96d934c70db6e1bc135600c57da1285eaf7efb26 is the first bad commit
-> commit 96d934c70db6e1bc135600c57da1285eaf7efb26
-> Author: Guillaume Nault <g.nault@alphalink.fr>
-> Date:   Thu Apr 28 17:55:30 2016 +0200
-> 
->     ppp: add rtnetlink device creation support
-> 
-> The issue is netcf dies if the ppp interface is up with the informative
-> message "Failed to initialize netcf". No debug output. Enabling debugging in
-> libnl shows it dies when the data for the ppp interface is returned.
-> 
-> Take ppp down and ncftool comes up ok.
-> 
-> libnl appears to be version 3.2.24 (Debian libnl-3)
-> 
-> This has been manifesting on a production machine with a pppoe link to the
-> world, but I managed to reproduce it on a test box using a pppoe server and
-> a client on the test box which enabled me to bisect it.
-> 
-Can you send a minimal configuration file that triggers the bug?
-I've set up a virtual machine (Linux 4.7.0, netcf 0.2.8 backported from
-Debian Sid), but couldn't reproduce the issue so far.
 
-> I don't know anything about netlink, nor the networking subsystem so I'm
-> asking for a belt with a cluebat please. I'm using the latest *released*
-> netcf, and a quick check of the git tree does not seem to indicate anything
-> that might be related. Have I missed a kernel config option, or made some
-> catastrophic blunder in setting this up? It works fine on 4.6.4, but
-> anything 4.7 or later just dies if the ppp interface is up.
+
+On 12/03/2016 02:34 PM, David Miller wrote:
+> From: Grygorii Strashko <grygorii.strashko@ti.com>
+> Date: Thu, 1 Dec 2016 17:34:26 -0600
 > 
-Probably not a mistake on your side. I've started looking at netcf'
-source code, but haven't found anything that could explain your issue.
-It'd really help if you could provide steps to reproduce the bug.
+>> @@ -167,10 +167,10 @@ static struct cpdma_control_info controls[] = {
+>>  
+>>  /* various accessors */
+>>  #define dma_reg_read(ctlr, ofs)		__raw_readl((ctlr)->dmaregs + (ofs))
+>> -#define chan_read(chan, fld)		__raw_readl((chan)->fld)
+>> +#define chan_read(chan, fld)		readl((chan)->fld)
+>>  #define desc_read(desc, fld)		__raw_readl(&(desc)->fld)
+>>  #define dma_reg_write(ctlr, ofs, v)	__raw_writel(v, (ctlr)->dmaregs + (ofs))
+>> -#define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
+>> +#define chan_write(chan, fld, v)	writel(v, (chan)->fld)
+>>  #define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
+> 
+> Unless you want to keep running into subtle errors all over the
+> place wrt. register vs. memory write ordering, I strong suggest
+> you use strongly ordered readl/writel for all register accesses.
+> 
+> I see no tangible, worthwhile, advantage to using these relaxed
+> ordering primitives.  The only result is potential bugs.
+> 
+> People who use the relaxed ordering primitives properly are only
+> doing so in extremely carefully coded sequences where a series
+> of writes has no dependency on main memory operations and is
+> explicitly completed with a barrier operation such as a read
+> back of a register in the same device.
+> 
+> That's not at all what is going on here, instead the driver is wildly
+> using relaxed ordered register accesses for basically everything.
+> This is extremely unwise and it's why you ran into this bug in the
+> first place.
+> 
+> Therefore, I absolutely require that you fix this by eliminating
+> any and all usese of relaxed ordering I/O accessors in this driver.
 
-Regards,
+Thanks for your comments - that's what I've tried first, but that decided
+to find out minimal change which still works.
 
-Guillaume
+I'll update it. 
+
+-- 
+regards,
+-grygorii
