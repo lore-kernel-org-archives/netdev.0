@@ -1,51 +1,80 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 18/18] RDS: IB: add missing connection cache usage info
-Date: Sun,  4 Dec 2016 22:57:53 -0800
-Message-ID: <1480921073-9140-19-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 10/18] RDS: IB: track and log active side endpoint in connection
+Date: Sun,  4 Dec 2016 22:57:45 -0800
+Message-ID: <1480921073-9140-11-git-send-email-santosh.shilimkar@oracle.com>
 References: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
         Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29323 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751704AbcLEG6P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:58:15 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-rds-tools already support it.
+Useful to know the active and passive end points in a
+RDS IB connection.
 
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- include/uapi/linux/rds.h | 1 +
- net/rds/ib.c             | 1 +
- 2 files changed, 2 insertions(+)
+ net/rds/ib.h    |  3 +++
+ net/rds/ib_cm.c | 11 +++++++----
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/include/uapi/linux/rds.h b/include/uapi/linux/rds.h
-index 3833113..410ae3c 100644
---- a/include/uapi/linux/rds.h
-+++ b/include/uapi/linux/rds.h
-@@ -183,6 +183,7 @@ struct rds_info_rdma_connection {
- 	uint32_t	max_send_sge;
- 	uint32_t	rdma_mr_max;
- 	uint32_t	rdma_mr_size;
-+	uint32_t	cache_allocs;
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index f14c26d..97e7696 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -181,6 +181,9 @@ struct rds_ib_connection {
+ 
+ 	/* Batched completions */
+ 	unsigned int		i_unsignaled_wrs;
++
++	/* Endpoint role in connection */
++	int			i_active_side;
  };
  
- /* RDS message Receive Path Latency points */
-diff --git a/net/rds/ib.c b/net/rds/ib.c
-index 8d70884..b5e2699 100644
---- a/net/rds/ib.c
-+++ b/net/rds/ib.c
-@@ -313,6 +313,7 @@ static int rds_ib_conn_info_visitor(struct rds_connection *conn,
- 		iinfo->max_send_wr = ic->i_send_ring.w_nr;
- 		iinfo->max_recv_wr = ic->i_recv_ring.w_nr;
- 		iinfo->max_send_sge = rds_ibdev->max_sge;
-+		iinfo->cache_allocs = atomic_read(&ic->i_cache_allocs);
- 		rds_ib_get_mr_info(rds_ibdev, iinfo);
+ /* This assumes that atomic_t is at least 32 bits */
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 3002acf..4d1bf04 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -120,16 +120,17 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
+ 		rds_conn_destroy(conn);
+ 		return;
+ 	} else {
+-		pr_notice("RDS/IB: connected <%pI4,%pI4> version %u.%u%s\n",
++		pr_notice("RDS/IB: %s conn connected <%pI4,%pI4> version %u.%u%s\n",
++			  ic->i_active_side ? "Active" : "Passive",
+ 			  &conn->c_laddr, &conn->c_faddr,
+ 			  RDS_PROTOCOL_MAJOR(conn->c_version),
+ 			  RDS_PROTOCOL_MINOR(conn->c_version),
+ 			  ic->i_flowctl ? ", flow control" : "");
  	}
- 	return 1;
+ 
+-	/*
+-	 * Init rings and fill recv. this needs to wait until protocol negotiation
+-	 * is complete, since ring layout is different from 3.0 to 3.1.
++	/* Init rings and fill recv. this needs to wait until protocol
++	 * negotiation is complete, since ring layout is different
++	 * from 3.1 to 4.1.
+ 	 */
+ 	rds_ib_send_init_ring(ic);
+ 	rds_ib_recv_init_ring(ic);
+@@ -685,6 +686,7 @@ int rds_ib_cm_initiate_connect(struct rdma_cm_id *cm_id)
+ 		if (ic->i_cm_id == cm_id)
+ 			ret = 0;
+ 	}
++	ic->i_active_side = true;
+ 	return ret;
+ }
+ 
+@@ -859,6 +861,7 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
+ 	ic->i_sends = NULL;
+ 	vfree(ic->i_recvs);
+ 	ic->i_recvs = NULL;
++	ic->i_active_side = false;
+ }
+ 
+ int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
 -- 
 1.9.1
