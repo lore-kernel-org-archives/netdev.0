@@ -1,7 +1,7 @@
 From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH 02/28] bnxt_en: Enable MSIX early in bnxt_init_one().
-Date: Sun,  4 Dec 2016 22:38:06 -0800
-Message-ID: <1480919912-1079-3-git-send-email-selvin.xavier@broadcom.com>
+Subject: [PATCH 05/28] bnxt_en: Reserve RDMA resources by default.
+Date: Sun,  4 Dec 2016 22:38:09 -0800
+Message-ID: <1480919912-1079-6-git-send-email-selvin.xavier@broadcom.com>
 References: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
 Cc: linux-rdma@vger.kernel.org,
         Michael Chan <michael.chan@broadcom.com>,
@@ -9,330 +9,153 @@ Cc: linux-rdma@vger.kernel.org,
         Selvin Xavier <selvin.xavier@broadcom.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:33862 "EHLO
+Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:33840 "EHLO
         relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751261AbcLEGpo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:45:44 -0500
+        with ESMTP id S1751244AbcLEGps (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:45:48 -0500
 In-Reply-To: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Michael Chan <michael.chan@broadcom.com>
 
-To better support the new RDMA driver, we need to move pci_enable_msix()
-from bnxt_open() to bnxt_init_one().  This way, MSIX vectors are available
-to the RDMA driver whether the network device is up or down.
-
-Part of the existing bnxt_setup_int_mode() function is now refactored into
-a new bnxt_init_int_mode().  bnxt_init_int_mode() is called during
-bnxt_init_one() to enable MSIX.  The remaining logic in
-bnxt_setup_int_mode() to map the IRQs to the completion rings is called
-during bnxt_open().
+If the device supports RDMA, we'll setup network default rings so that
+there are enough minimum resources for RDMA, if possible.  However, the
+user can still increase network rings to the max if he wants.  The actual
+RDMA resources won't be reserved until the RDMA driver registers.
 
 Cc: David Miller <davem@davemloft.net>
 Cc: <netdev@vger.kernel.org>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 183 +++++++++++++++++++-----------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |   1 +
- 2 files changed, 115 insertions(+), 69 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 58 ++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  9 +++++
+ 2 files changed, 66 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 6cdfe3e..9178bf8 100644
+index 1f6be83..7218d65 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4743,6 +4743,80 @@ static int bnxt_trim_rings(struct bnxt *bp, int *rx, int *tx, int max,
- 	return 0;
+@@ -4166,6 +4166,11 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
+ 	if (rc)
+ 		goto hwrm_func_qcaps_exit;
+ 
++	if (resp->flags & cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_ROCE_V1_SUPPORTED))
++		bp->flags |= BNXT_FLAG_ROCEV1_CAP;
++	if (resp->flags & cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_ROCE_V2_SUPPORTED))
++		bp->flags |= BNXT_FLAG_ROCEV2_CAP;
++
+ 	bp->tx_push_thresh = 0;
+ 	if (resp->flags &
+ 	    cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_PUSH_MODE_SUPPORTED))
+@@ -4808,6 +4813,24 @@ static int bnxt_setup_int_mode(struct bnxt *bp)
+ 	return rc;
  }
  
-+static void bnxt_setup_msix(struct bnxt *bp)
-+{
-+	const int len = sizeof(bp->irq_tbl[0].name);
-+	struct net_device *dev = bp->dev;
-+	int tcs, i;
-+
-+	tcs = netdev_get_num_tc(dev);
-+	if (tcs > 1) {
-+		bp->tx_nr_rings_per_tc = bp->tx_nr_rings / tcs;
-+		if (bp->tx_nr_rings_per_tc == 0) {
-+			netdev_reset_tc(dev);
-+			bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
-+		} else {
-+			int i, off, count;
-+
-+			bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
-+			for (i = 0; i < tcs; i++) {
-+				count = bp->tx_nr_rings_per_tc;
-+				off = i * count;
-+				netdev_set_tc_queue(dev, i, count, off);
-+			}
-+		}
-+	}
-+
-+	for (i = 0; i < bp->cp_nr_rings; i++) {
-+		char *attr;
-+
-+		if (bp->flags & BNXT_FLAG_SHARED_RINGS)
-+			attr = "TxRx";
-+		else if (i < bp->rx_nr_rings)
-+			attr = "rx";
-+		else
-+			attr = "tx";
-+
-+		snprintf(bp->irq_tbl[i].name, len, "%s-%s-%d", dev->name, attr,
-+			 i);
-+		bp->irq_tbl[i].handler = bnxt_msix;
-+	}
-+}
-+
-+static void bnxt_setup_inta(struct bnxt *bp)
-+{
-+	const int len = sizeof(bp->irq_tbl[0].name);
-+
-+	if (netdev_get_num_tc(bp->dev))
-+		netdev_reset_tc(bp->dev);
-+
-+	snprintf(bp->irq_tbl[0].name, len, "%s-%s-%d", bp->dev->name, "TxRx",
-+		 0);
-+	bp->irq_tbl[0].handler = bnxt_inta;
-+}
-+
-+static int bnxt_setup_int_mode(struct bnxt *bp)
-+{
-+	int rc;
-+
-+	if (bp->flags & BNXT_FLAG_USING_MSIX)
-+		bnxt_setup_msix(bp);
-+	else
-+		bnxt_setup_inta(bp);
-+
-+	rc = bnxt_set_real_num_queues(bp);
-+	return rc;
-+}
-+
-+static unsigned int bnxt_get_max_func_irqs(struct bnxt *bp)
++unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp)
 +{
 +	if (BNXT_PF(bp))
-+		return bp->pf.max_irqs;
++		return bp->pf.max_stat_ctxs;
 +#if defined(CONFIG_BNXT_SRIOV)
-+	return bp->vf.max_irqs;
++	return bp->vf.max_stat_ctxs;
 +#endif
 +}
 +
- void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max_irqs)
- {
- 	if (BNXT_PF(bp))
-@@ -4753,16 +4827,12 @@ void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max_irqs)
- #endif
- }
- 
--static int bnxt_setup_msix(struct bnxt *bp)
-+static int bnxt_init_msix(struct bnxt *bp)
- {
--	struct msix_entry *msix_ent;
--	struct net_device *dev = bp->dev;
- 	int i, total_vecs, rc = 0, min = 1;
--	const int len = sizeof(bp->irq_tbl[0].name);
--
--	bp->flags &= ~BNXT_FLAG_USING_MSIX;
--	total_vecs = bp->cp_nr_rings;
-+	struct msix_entry *msix_ent;
- 
-+	total_vecs = bnxt_get_max_func_irqs(bp);
- 	msix_ent = kcalloc(total_vecs, sizeof(struct msix_entry), GFP_KERNEL);
- 	if (!msix_ent)
- 		return -ENOMEM;
-@@ -4783,8 +4853,10 @@ static int bnxt_setup_msix(struct bnxt *bp)
- 
- 	bp->irq_tbl = kcalloc(total_vecs, sizeof(struct bnxt_irq), GFP_KERNEL);
- 	if (bp->irq_tbl) {
--		int tcs;
-+		for (i = 0; i < total_vecs; i++)
-+			bp->irq_tbl[i].vector = msix_ent[i].vector;
- 
-+		bp->total_irqs = total_vecs;
- 		/* Trim rings based upon num of vectors allocated */
- 		rc = bnxt_trim_rings(bp, &bp->rx_nr_rings, &bp->tx_nr_rings,
- 				     total_vecs, min == 1);
-@@ -4792,43 +4864,10 @@ static int bnxt_setup_msix(struct bnxt *bp)
- 			goto msix_setup_exit;
- 
- 		bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
--		tcs = netdev_get_num_tc(dev);
--		if (tcs > 1) {
--			bp->tx_nr_rings_per_tc = bp->tx_nr_rings / tcs;
--			if (bp->tx_nr_rings_per_tc == 0) {
--				netdev_reset_tc(dev);
--				bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
--			} else {
--				int i, off, count;
-+		bp->cp_nr_rings = (min == 1) ?
-+				  max_t(int, bp->tx_nr_rings, bp->rx_nr_rings) :
-+				  bp->tx_nr_rings + bp->rx_nr_rings;
- 
--				bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
--				for (i = 0; i < tcs; i++) {
--					count = bp->tx_nr_rings_per_tc;
--					off = i * count;
--					netdev_set_tc_queue(dev, i, count, off);
--				}
--			}
--		}
--		bp->cp_nr_rings = total_vecs;
--
--		for (i = 0; i < bp->cp_nr_rings; i++) {
--			char *attr;
--
--			bp->irq_tbl[i].vector = msix_ent[i].vector;
--			if (bp->flags & BNXT_FLAG_SHARED_RINGS)
--				attr = "TxRx";
--			else if (i < bp->rx_nr_rings)
--				attr = "rx";
--			else
--				attr = "tx";
--
--			snprintf(bp->irq_tbl[i].name, len,
--				 "%s-%s-%d", dev->name, attr, i);
--			bp->irq_tbl[i].handler = bnxt_msix;
--		}
--		rc = bnxt_set_real_num_queues(bp);
--		if (rc)
--			goto msix_setup_exit;
- 	} else {
- 		rc = -ENOMEM;
- 		goto msix_setup_exit;
-@@ -4838,52 +4877,54 @@ static int bnxt_setup_msix(struct bnxt *bp)
- 	return 0;
- 
- msix_setup_exit:
--	netdev_err(bp->dev, "bnxt_setup_msix err: %x\n", rc);
-+	netdev_err(bp->dev, "bnxt_init_msix err: %x\n", rc);
-+	kfree(bp->irq_tbl);
-+	bp->irq_tbl = NULL;
- 	pci_disable_msix(bp->pdev);
- 	kfree(msix_ent);
- 	return rc;
- }
- 
--static int bnxt_setup_inta(struct bnxt *bp)
-+static int bnxt_init_inta(struct bnxt *bp)
- {
--	int rc;
--	const int len = sizeof(bp->irq_tbl[0].name);
--
--	if (netdev_get_num_tc(bp->dev))
--		netdev_reset_tc(bp->dev);
--
- 	bp->irq_tbl = kcalloc(1, sizeof(struct bnxt_irq), GFP_KERNEL);
--	if (!bp->irq_tbl) {
--		rc = -ENOMEM;
--		return rc;
--	}
-+	if (!bp->irq_tbl)
-+		return -ENOMEM;
-+
-+	bp->total_irqs = 1;
- 	bp->rx_nr_rings = 1;
- 	bp->tx_nr_rings = 1;
- 	bp->cp_nr_rings = 1;
- 	bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
- 	bp->flags |= BNXT_FLAG_SHARED_RINGS;
- 	bp->irq_tbl[0].vector = bp->pdev->irq;
--	snprintf(bp->irq_tbl[0].name, len,
--		 "%s-%s-%d", bp->dev->name, "TxRx", 0);
--	bp->irq_tbl[0].handler = bnxt_inta;
--	rc = bnxt_set_real_num_queues(bp);
--	return rc;
-+	return 0;
- }
- 
--static int bnxt_setup_int_mode(struct bnxt *bp)
-+static int bnxt_init_int_mode(struct bnxt *bp)
- {
- 	int rc = 0;
- 
- 	if (bp->flags & BNXT_FLAG_MSIX_CAP)
--		rc = bnxt_setup_msix(bp);
-+		rc = bnxt_init_msix(bp);
- 
- 	if (!(bp->flags & BNXT_FLAG_USING_MSIX) && BNXT_PF(bp)) {
- 		/* fallback to INTA */
--		rc = bnxt_setup_inta(bp);
-+		rc = bnxt_init_inta(bp);
- 	}
- 	return rc;
- }
- 
-+static void bnxt_clear_int_mode(struct bnxt *bp)
++unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp)
 +{
-+	if (bp->flags & BNXT_FLAG_USING_MSIX)
-+		pci_disable_msix(bp->pdev);
-+
-+	kfree(bp->irq_tbl);
-+	bp->irq_tbl = NULL;
-+	bp->flags &= ~BNXT_FLAG_USING_MSIX;
++	if (BNXT_PF(bp))
++		return bp->pf.max_cp_rings;
++#if defined(CONFIG_BNXT_SRIOV)
++	return bp->vf.max_cp_rings;
++#endif
 +}
 +
- static void bnxt_free_irq(struct bnxt *bp)
+ static unsigned int bnxt_get_max_func_irqs(struct bnxt *bp)
  {
- 	struct bnxt_irq *irq;
-@@ -4902,10 +4943,6 @@ static void bnxt_free_irq(struct bnxt *bp)
- 			free_irq(irq->vector, bp->bnapi[i]);
- 		irq->requested = 0;
- 	}
--	if (bp->flags & BNXT_FLAG_USING_MSIX)
--		pci_disable_msix(bp->pdev);
--	kfree(bp->irq_tbl);
--	bp->irq_tbl = NULL;
+ 	if (BNXT_PF(bp))
+@@ -6832,6 +6855,39 @@ int bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx, bool shared)
+ 	return bnxt_trim_rings(bp, max_rx, max_tx, cp, shared);
  }
  
- static int bnxt_request_irq(struct bnxt *bp)
-@@ -6695,6 +6732,7 @@ static void bnxt_remove_one(struct pci_dev *pdev)
- 	cancel_work_sync(&bp->sp_task);
- 	bp->sp_event = 0;
- 
-+	bnxt_clear_int_mode(bp);
- 	bnxt_hwrm_func_drv_unrgtr(bp);
- 	bnxt_free_hwrm_resources(bp);
- 	bnxt_dcb_free(bp);
-@@ -6990,10 +7028,14 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (rc)
- 		goto init_err;
- 
--	rc = register_netdev(dev);
-+	rc = bnxt_init_int_mode(bp);
- 	if (rc)
- 		goto init_err;
- 
-+	rc = register_netdev(dev);
++static int bnxt_get_dflt_rings(struct bnxt *bp, int *max_rx, int *max_tx,
++			       bool shared)
++{
++	int rc;
++
++	rc = bnxt_get_max_rings(bp, max_rx, max_tx, shared);
 +	if (rc)
-+		goto init_err_clr_int;
++		return rc;
 +
- 	netdev_info(dev, "%s found at mem %lx, node addr %pM\n",
- 		    board_info[ent->driver_data].name,
- 		    (long)pci_resource_start(pdev, 0), dev->dev_addr);
-@@ -7002,6 +7044,9 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	return 0;
- 
-+init_err_clr_int:
-+	bnxt_clear_int_mode(bp);
++	if (bp->flags & BNXT_FLAG_ROCE_CAP) {
++		int max_cp, max_stat, max_irq;
 +
- init_err:
- 	pci_iounmap(pdev, bp->bar0);
- 	pci_release_regions(pdev);
++		/* Reserve minimum resources for RoCE */
++		max_cp = bnxt_get_max_func_cp_rings(bp);
++		max_stat = bnxt_get_max_func_stat_ctxs(bp);
++		max_irq = bnxt_get_max_func_irqs(bp);
++		if (max_cp <= BNXT_MIN_ROCE_CP_RINGS ||
++		    max_irq <= BNXT_MIN_ROCE_CP_RINGS ||
++		    max_stat <= BNXT_MIN_ROCE_STAT_CTXS)
++			return 0;
++
++		max_cp -= BNXT_MIN_ROCE_CP_RINGS;
++		max_irq -= BNXT_MIN_ROCE_CP_RINGS;
++		max_stat -= BNXT_MIN_ROCE_STAT_CTXS;
++		max_cp = min_t(int, max_cp, max_irq);
++		max_cp = min_t(int, max_cp, max_stat);
++		rc = bnxt_trim_rings(bp, max_rx, max_tx, max_cp, shared);
++		if (rc)
++			rc = 0;
++	}
++	return rc;
++}
++
+ static int bnxt_set_dflt_rings(struct bnxt *bp)
+ {
+ 	int dflt_rings, max_rx_rings, max_tx_rings, rc;
+@@ -6840,7 +6896,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
+ 	if (sh)
+ 		bp->flags |= BNXT_FLAG_SHARED_RINGS;
+ 	dflt_rings = netif_get_num_default_rss_queues();
+-	rc = bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings, sh);
++	rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, sh);
+ 	if (rc)
+ 		return rc;
+ 	bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 8327d0d..1461355 100644
+index 43a4b17..d796836 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1024,6 +1024,7 @@ struct bnxt {
- #define BNXT_STATE_FN_RST_DONE	2
+@@ -387,6 +387,9 @@ struct rx_tpa_end_cmp_ext {
+ #define DB_KEY_TX_PUSH						(0x4 << 28)
+ #define DB_LONG_TX_PUSH						(0x2 << 24)
  
- 	struct bnxt_irq	*irq_tbl;
-+	int			total_irqs;
- 	u8			mac_addr[ETH_ALEN];
++#define BNXT_MIN_ROCE_CP_RINGS	2
++#define BNXT_MIN_ROCE_STAT_CTXS	1
++
+ #define INVALID_HW_RING_ID	((u16)-1)
  
- #ifdef CONFIG_BNXT_DCB
+ /* The hardware supports certain page sizes.  Use the supported page sizes
+@@ -953,6 +956,10 @@ struct bnxt {
+ 	#define BNXT_FLAG_PORT_STATS	0x400
+ 	#define BNXT_FLAG_UDP_RSS_CAP	0x800
+ 	#define BNXT_FLAG_EEE_CAP	0x1000
++	#define BNXT_FLAG_ROCEV1_CAP	0x8000
++	#define BNXT_FLAG_ROCEV2_CAP	0x10000
++	#define BNXT_FLAG_ROCE_CAP	(BNXT_FLAG_ROCEV1_CAP |	\
++					 BNXT_FLAG_ROCEV2_CAP)
+ 	#define BNXT_FLAG_CHIP_NITRO_A0	0x1000000
+ 
+ 	#define BNXT_FLAG_ALL_CONFIG_FEATS (BNXT_FLAG_TPA |		\
+@@ -1234,6 +1241,8 @@ int _hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
+ int bnxt_hwrm_set_coal(struct bnxt *);
++unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
++unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp);
+ void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max);
+ void bnxt_tx_disable(struct bnxt *bp);
+ void bnxt_tx_enable(struct bnxt *bp);
 -- 
 2.5.5
