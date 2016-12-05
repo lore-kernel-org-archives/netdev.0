@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ipv6: Allow IPv4-mapped address as next-hop
-Date: Mon, 05 Dec 2016 14:52:23 -0500 (EST)
-Message-ID: <20161205.145223.1574324293082144579.davem@davemloft.net>
-References: <1480827429-22259-1-git-send-email-nordmark@arista.com>
+Subject: Re: [PATCH 1/1] net: irda: set error code on failures
+Date: Mon, 05 Dec 2016 14:53:28 -0500 (EST)
+Message-ID: <20161205.145328.1580734576600372225.davem@davemloft.net>
+References: <1480829260-4590-1-git-send-email-bianpan201603@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gilligan@arista.com
-To: nordmark@arista.com
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, bianpan2016@163.com
+To: bianpan201603@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49216 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49252 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751373AbcLETwZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 14:52:25 -0500
-In-Reply-To: <1480827429-22259-1-git-send-email-nordmark@arista.com>
+        with ESMTP id S1751563AbcLETx3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 14:53:29 -0500
+In-Reply-To: <1480829260-4590-1-git-send-email-bianpan201603@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Nordmark <nordmark@arista.com>
-Date: Sat,  3 Dec 2016 20:57:09 -0800
+From: Pan Bian <bianpan201603@163.com>
+Date: Sun,  4 Dec 2016 13:27:40 +0800
 
-> Made kernel accept IPv6 routes with IPv4-mapped address as next-hop.
+> From: Pan Bian <bianpan2016@163.com>
 > 
-> It is possible to configure IP interfaces with IPv4-mapped addresses, and
-> one can add IPv6 routes for IPv4-mapped destinations/prefixes, yet prior
-> to this fix the kernel returned an EINVAL when attempting to add an IPv6
-> route with an IPv4-mapped address as a nexthop/gateway.
+> When the calls to kzalloc() fail, the value of return variable ret may
+> be 0. 0 means success in this context. This patch fixes the bug,
+> assigning "-ENOMEM" to ret before calling kzalloc().
 > 
-> RFC 4798 (a proposed standard RFC) uses IPv4-mapped addresses as nexthops,
-> thus in order to support that type of address configuration the kernel
-> needs to allow IPv4-mapped addresses as nexthops.
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188971
 > 
-> Signed-off-by: Erik Nordmark <nordmark@arista.com>
-> Signed-off-by: Bob Gilligan <gilligan@arista.com>
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-Applied to net-next, thanks.
+Applied.
