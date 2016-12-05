@@ -1,64 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next][PATCH 02/18] RDS: mark few internal functions static
- to make sparse build happy
-Date: Mon, 5 Dec 2016 12:45:29 +0300
-Message-ID: <604d4954-7302-018e-6f9b-71c0aea6509e@cogentembedded.com>
-References: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
- <1480921073-9140-3-git-send-email-santosh.shilimkar@oracle.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH v2 net-next] bnx2x: ethtool -x full support
+Date: Mon, 5 Dec 2016 09:12:39 +0000
+Message-ID: <BL2PR07MB2306F104F51FD4494FDC172E8D830@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1476810487.5650.68.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480875338.18162.475.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
-        netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:37265 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751817AbcLEJpc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 04:45:32 -0500
-Received: by mail-wm0-f51.google.com with SMTP id t79so83426401wmt.0
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 01:45:31 -0800 (PST)
-In-Reply-To: <1480921073-9140-3-git-send-email-santosh.shilimkar@oracle.com>
+Received: from mail-co1nam03on0044.outbound.protection.outlook.com ([104.47.40.44]:42668
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751227AbcLEJp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Dec 2016 04:45:58 -0500
+In-Reply-To: <1480875338.18162.475.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
-
-On 12/5/2016 9:57 AM, Santosh Shilimkar wrote:
-
-> Fixes below warnings:
-> warning: symbol 'rds_send_probe' was not declared. Should it be static?
-> warning: symbol 'rds_send_ping' was not declared. Should it be static?
-> warning: symbol 'rds_tcp_accept_one_path' was not declared. Should it be static?
-> warning: symbol 'rds_walk_conn_path_info' was not declared. Should it be static?
->
-> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> ---
->  net/rds/connection.c | 2 +-
->  net/rds/send.c       | 4 ++--
->  net/rds/tcp_listen.c | 1 +
->  3 files changed, 4 insertions(+), 3 deletions(-)
->
-> diff --git a/net/rds/connection.c b/net/rds/connection.c
-> index fe9d31c..26533b2 100644
-> --- a/net/rds/connection.c
-> +++ b/net/rds/connection.c
-> @@ -545,7 +545,7 @@ void rds_for_each_conn_info(struct socket *sock, unsigned int len,
->  }
->  EXPORT_SYMBOL_GPL(rds_for_each_conn_info);
->
-> -void rds_walk_conn_path_info(struct socket *sock, unsigned int len,
-> +static void rds_walk_conn_path_info(struct socket *sock, unsigned int len,
->  			     struct rds_info_iterator *iter,
->  			     struct rds_info_lengths *lens,
->  			     int (*visitor)(struct rds_conn_path *, void *),
-
-    You now need to realign the continuation lines.
-
-> diff --git a/net/rds/send.c b/net/rds/send.c
-> index 77c8c6e..bb13c56 100644
-> --- a/net/rds/send.c
-> +++ b/net/rds/send.c
-[...]
-
-MBR, Sergei
+PiAgCWlmIChjb25maWdfaGFzaCkgew0KPiAgCQkvKiBSU1Mga2V5cyAqLw0KPiAtCQluZXRkZXZf
+cnNzX2tleV9maWxsKHBhcmFtcy5yc3Nfa2V5LCBUX0VUSF9SU1NfS0VZICogNCk7DQo+ICsJCW5l
+dGRldl9yc3Nfa2V5X2ZpbGwoJnJzc19vYmotPnJzc19rZXksIFRfRVRIX1JTU19LRVkgKiA0KTsN
+Cj4gIAkJX19zZXRfYml0KEJOWDJYX1JTU19TRVRfU1JDSCwgJnBhcmFtcy5yc3NfZmxhZ3MpOw0K
+PiAgCX0NCg0KVGhvc2UgYXJlIHN0aWxsIHBhcmFtZXRlcnMuIEl0J3MgcHJlZmVyYWJsZSB0byBj
+b3B5IHRoZW0gZnJvbSBwYXJhbXMgdG8NClRoZSByc3Nfb2JqIGluc2lkZSBibngyeF9zZXR1cF9y
+c3MoKSB3aGVyZSB0aGV5J3JlIGFscmVhZHkgdXNlZCB0bw0KY29uZmlndXJlIHRoZSByYW1yb2Qu
+IA0KDQo+ICsJaWYgKGtleSkgew0KPiArCQlpZiAoYnAtPnBvcnQucG1mIHx8ICFDSElQX0lTX0Ux
+eChicCkpDQo+ICsJCQltZW1jcHkoa2V5LCAmYnAtPnJzc19jb25mX29iai5yc3Nfa2V5LA0KDQpJ
+ZiBwb3NzaWJsZSwgaW1wbGVtZW50IGluIGJueDJ4X3NwLmMgYSBmdW5jdGlvbiBzaW1pbGFyIHRv
+DQpibngyeF9nZXRfZ2V0X3Jzc19pbmRfdGFibGUgdGhhdCB3b3VsZCBleHRyYWN0IHRoaXMgZnJv
+bSB0aGUgcnNzX2NvbmZfb2JqDQppbnN0ZWFkIG9mIGRpcmVjdGx5IGFjY2Vzc2luZyBpdCBoZXJl
+Lg0KDQo+IC0JbWVtY3B5KHJlcS0+cnNzX2tleSwgcGFyYW1zLT5yc3Nfa2V5LCBzaXplb2YocGFy
+YW1zLT5yc3Nfa2V5KSk7DQo+ICsJbWVtY3B5KHJlcS0+cnNzX2tleSwgcGFyYW1zLT5yc3Nfb2Jq
+LT5yc3Nfa2V5LA0KPiArCSAgICAgICBzaXplb2YocGFyYW1zLT5yc3Nfb2JqLT5yc3Nfa2V5KSk7
+DQoNCkRyb3AgdGhpczsgU2hvdWxkIHN0aWxsIGJlIGluIHRoZSBwYXJhbWV0ZXJzLg0KQnV0IHdl
+J2xsIG5lZWQgdG8gc2V0IHRoZW0gaW4gdGhlIHJzc19vYmogZm9yIHRoZSByeGZoIGZvciBWRnMu
+DQoNCj4gLQltZW1jcHkocnNzLnJzc19rZXksIHJzc190bHYtPnJzc19rZXksIHNpemVvZihyc3Nf
+dGx2LT5yc3Nfa2V5KSk7DQo+ICsJbWVtY3B5KCZ2Zi0+cnNzX2NvbmZfb2JqLnJzc19rZXksIHJz
+c190bHYtPnJzc19rZXksDQo+ICtzaXplb2YocnNzX3Rsdi0+cnNzX2tleSkpOw0KDQpVbm5lZWRl
+ZCwgc3RpbGwgYSBwYXJhbWV0ZXIuDQoNCkp1c3QgdG8gZXhwbGFpbiBteSBwZXR0eSBmbGF2b3Ig
+cHJlZmVyZW5jZXMgLQ0KQXMgYm54Mnhfc3AuW2NoXSBvcmlnaW5hdGVzIGFzIGdlbmVyYXRlZCBj
+b2RlLCB3ZSB0cnkgbGltaXRpbmcgdGhlIHBsYWNlcw0KdGhlIGludGVybmFsIGZpZWxkcyBvZiBz
+dHJ1Y3RzIGRlZmluZWQgaW4gdGhlIC5oIGFyZSBhY2Nlc3NlZCBvdXRzaWRlIHRoZQ0KLmMgZmls
+ZTsgT3RoZXJ3aXNlIGl0J3MgYSBoZWFkYWNoZSB0byBtYWludGFpbi4NCg0KRnVuY3Rpb25hbGx5
+IC0gdGhpcyBsb29rcyBmaW5lLiBJZiBwcmVmZXJhYmxlLCBJIGhhdmUgbm8gb2JqZWN0aW9ucyB0
+YWtpbmcNCnRoaXMgcGF0Y2ggYXMtaXMsIGFuZCBJJ2xsIGxhdGVyIHJlLWZhY3RvciB0byBzb21l
+dGhpbmcgdGhhdCBiZXR0ZXIgc3VpdHMNCm15IG5lZWRzLg0KDQpUaGFua3MsDQpZdXZhbA0K
