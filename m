@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v4 08/13] net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs
-Date: Mon, 5 Dec 2016 14:05:20 -0600
-Message-ID: <20161205200525.16664-9-grygorii.strashko@ti.com>
+Subject: [PATCH v4 03/13] net: ethernet: ti: cpsw: minimize direct access to struct cpts
+Date: Mon, 5 Dec 2016 14:05:15 -0600
+Message-ID: <20161205200525.16664-4-grygorii.strashko@ti.com>
 References: <20161205200525.16664-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,30 +19,170 @@ In-Reply-To: <20161205200525.16664-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CPTS module and IRQs are always enabled when CPTS is registered,
-before starting overflow check work, and disabled during
-deregistration, when overflow check work has been canceled already.
-So, It doesn't require to (re)enable CPTS module and IRQs in
-cpts_overflow_check().
+This will provide more flexibility in changing CPTS internals and also
+required for further changes.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 28 +++++++++++++++-------------
+ drivers/net/ethernet/ti/cpts.h | 39 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 54 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 7ab1fa7..fe1bb7f 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -243,8 +243,6 @@ static void cpts_overflow_check(struct work_struct *work)
- 	struct timespec64 ts;
- 	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 323174d..ec05e20 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1562,7 +1562,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+ 	}
  
--	cpts_write32(cpts, CPTS_EN, control);
--	cpts_write32(cpts, TS_PEND_EN, int_enable);
- 	cpts_ptp_gettime(&cpts->info, &ts);
- 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
- 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+ 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
+-				cpsw->cpts->tx_enable)
++	    cpts_is_tx_enabled(cpsw->cpts))
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 
+ 	skb_tx_timestamp(skb);
+@@ -1601,7 +1601,8 @@ static void cpsw_hwtstamp_v1(struct cpsw_common *cpsw)
+ 	struct cpsw_slave *slave = &cpsw->slaves[cpsw->data.active_slave];
+ 	u32 ts_en, seq_id;
+ 
+-	if (!cpsw->cpts->tx_enable && !cpsw->cpts->rx_enable) {
++	if (!cpts_is_tx_enabled(cpsw->cpts) &&
++	    !cpts_is_rx_enabled(cpsw->cpts)) {
+ 		slave_write(slave, 0, CPSW1_TS_CTL);
+ 		return;
+ 	}
+@@ -1609,10 +1610,10 @@ static void cpsw_hwtstamp_v1(struct cpsw_common *cpsw)
+ 	seq_id = (30 << CPSW_V1_SEQ_ID_OFS_SHIFT) | ETH_P_1588;
+ 	ts_en = EVENT_MSG_BITS << CPSW_V1_MSG_TYPE_OFS;
+ 
+-	if (cpsw->cpts->tx_enable)
++	if (cpts_is_tx_enabled(cpsw->cpts))
+ 		ts_en |= CPSW_V1_TS_TX_EN;
+ 
+-	if (cpsw->cpts->rx_enable)
++	if (cpts_is_rx_enabled(cpsw->cpts))
+ 		ts_en |= CPSW_V1_TS_RX_EN;
+ 
+ 	slave_write(slave, ts_en, CPSW1_TS_CTL);
+@@ -1635,20 +1636,20 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
+ 	case CPSW_VERSION_2:
+ 		ctrl &= ~CTRL_V2_ALL_TS_MASK;
+ 
+-		if (cpsw->cpts->tx_enable)
++		if (cpts_is_tx_enabled(cpsw->cpts))
+ 			ctrl |= CTRL_V2_TX_TS_BITS;
+ 
+-		if (cpsw->cpts->rx_enable)
++		if (cpts_is_rx_enabled(cpsw->cpts))
+ 			ctrl |= CTRL_V2_RX_TS_BITS;
+ 		break;
+ 	case CPSW_VERSION_3:
+ 	default:
+ 		ctrl &= ~CTRL_V3_ALL_TS_MASK;
+ 
+-		if (cpsw->cpts->tx_enable)
++		if (cpts_is_tx_enabled(cpsw->cpts))
+ 			ctrl |= CTRL_V3_TX_TS_BITS;
+ 
+-		if (cpsw->cpts->rx_enable)
++		if (cpts_is_rx_enabled(cpsw->cpts))
+ 			ctrl |= CTRL_V3_RX_TS_BITS;
+ 		break;
+ 	}
+@@ -1684,7 +1685,7 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
+ 
+ 	switch (cfg.rx_filter) {
+ 	case HWTSTAMP_FILTER_NONE:
+-		cpts->rx_enable = 0;
++		cpts_rx_enable(cpts, 0);
+ 		break;
+ 	case HWTSTAMP_FILTER_ALL:
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+@@ -1700,14 +1701,14 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
+ 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+-		cpts->rx_enable = 1;
++		cpts_rx_enable(cpts, 1);
+ 		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+ 		break;
+ 	default:
+ 		return -ERANGE;
+ 	}
+ 
+-	cpts->tx_enable = cfg.tx_type == HWTSTAMP_TX_ON;
++	cpts_tx_enable(cpts, cfg.tx_type == HWTSTAMP_TX_ON);
+ 
+ 	switch (cpsw->version) {
+ 	case CPSW_VERSION_1:
+@@ -1736,8 +1737,9 @@ static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
+ 		return -EOPNOTSUPP;
+ 
+ 	cfg.flags = 0;
+-	cfg.tx_type = cpts->tx_enable ? HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
+-	cfg.rx_filter = (cpts->rx_enable ?
++	cfg.tx_type = cpts_is_tx_enabled(cpts) ?
++		      HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
++	cfg.rx_filter = (cpts_is_rx_enabled(cpts) ?
+ 			 HWTSTAMP_FILTER_PTP_V2_EVENT : HWTSTAMP_FILTER_NONE);
+ 
+ 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
+diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
+index 416ba2c..29a1e80c 100644
+--- a/drivers/net/ethernet/ti/cpts.h
++++ b/drivers/net/ethernet/ti/cpts.h
+@@ -132,6 +132,27 @@ void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+ void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+ int cpts_register(struct device *dev, struct cpts *cpts, u32 mult, u32 shift);
+ void cpts_unregister(struct cpts *cpts);
++
++static inline void cpts_rx_enable(struct cpts *cpts, int enable)
++{
++	cpts->rx_enable = enable;
++}
++
++static inline bool cpts_is_rx_enabled(struct cpts *cpts)
++{
++	return !!cpts->rx_enable;
++}
++
++static inline void cpts_tx_enable(struct cpts *cpts, int enable)
++{
++	cpts->tx_enable = enable;
++}
++
++static inline bool cpts_is_tx_enabled(struct cpts *cpts)
++{
++	return !!cpts->tx_enable;
++}
++
+ #else
+ static inline void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+ {
+@@ -149,6 +170,24 @@ cpts_register(struct device *dev, struct cpts *cpts, u32 mult, u32 shift)
+ static inline void cpts_unregister(struct cpts *cpts)
+ {
+ }
++
++static inline void cpts_rx_enable(struct cpts *cpts, int enable)
++{
++}
++
++static inline bool cpts_is_rx_enabled(struct cpts *cpts)
++{
++	return false;
++}
++
++static inline void cpts_tx_enable(struct cpts *cpts, int enable)
++{
++}
++
++static inline bool cpts_is_tx_enabled(struct cpts *cpts)
++{
++	return false;
++}
+ #endif
+ 
+ 
 -- 
 2.10.1
