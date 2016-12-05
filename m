@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: ti: cpdma: use desc_read in
- chan_process instead of raw read
-Date: Mon, 05 Dec 2016 14:47:58 -0500 (EST)
-Message-ID: <20161205.144758.174392232935805435.davem@davemloft.net>
-References: <1480730715-16000-1-git-send-email-ivan.khoronzhuk@linaro.org>
-        <ed16f5d1-8e5b-470f-1566-4129eef47ee1@ti.com>
+Subject: Re: [PATCH 1/1] net: caif: remove ineffective check
+Date: Mon, 05 Dec 2016 14:49:12 -0500 (EST)
+Message-ID: <20161205.144912.1032798616829972627.davem@davemloft.net>
+References: <1480824944-3439-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ivan.khoronzhuk@linaro.org, mugunthanvnm@ti.com,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: grygorii.strashko@ti.com
+Cc: dmitry.tarnyagin@lockless.no, sergei.shtylyov@cogentembedded.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bianpan2016@163.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ed16f5d1-8e5b-470f-1566-4129eef47ee1@ti.com>
+In-Reply-To: <1480824944-3439-1-git-send-email-bianpan2016@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Mon, 5 Dec 2016 12:47:16 -0600
+From: Pan Bian <bianpan2016@163.com>
+Date: Sun,  4 Dec 2016 12:15:44 +0800
 
+> The check of the return value of sock_register() is ineffective.
+> "if(!err)" seems to be a typo. It is better to propagate the error code
+> to the callers of caif_sktinit_module(). This patch removes the check
+> statment and directly returns the result of sock_register().
 > 
-> 
-> On 12/02/2016 08:05 PM, Ivan Khoronzhuk wrote:
->> There is desc_read() macros to read desc fields, so no need to
->> use __raw_readl();
->>
->> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> 
-> 
-> I'm going to update it all at once as part of [1].
-> 
-> [1] https://lkml.org/lkml/2016/12/1/781
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188751
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-Ok.
+Applied.
