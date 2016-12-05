@@ -1,75 +1,48 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH v4 04/13] net: ethernet: ti: cpts: fix unbalanced clk api usage in cpts_register/unregister
-Date: Mon, 5 Dec 2016 14:05:16 -0600
-Message-ID: <20161205200525.16664-5-grygorii.strashko@ti.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH v4 08/13] net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs
+Date: Mon, 5 Dec 2016 14:05:20 -0600
+Message-ID: <20161205200525.16664-9-grygorii.strashko@ti.com>
 References: <20161205200525.16664-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>,
-        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161205200525.16664-1-grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161205200525.16664-1-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are two issues with TI CPTS code which are reproducible when TI
-CPSW ethX device passes few up/down iterations:
-- cpts refclk prepare counter continuously incremented after each
-up/down iteration;
-- devm_clk_get(dev, "cpts") is called many times.
+CPTS module and IRQs are always enabled when CPTS is registered,
+before starting overflow check work, and disabled during
+deregistration, when overflow check work has been canceled already.
+So, It doesn't require to (re)enable CPTS module and IRQs in
+cpts_overflow_check().
 
-Hence, fix these issues by using clk_disable_unprepare() in
-cpts_clk_release() and skipping devm_clk_get() if cpts refclk has been
-acquired already.
-
-Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Acked-by: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 2 --
+ 1 file changed, 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 8cb0369..61198f1 100644
+index 7ab1fa7..fe1bb7f 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -230,18 +230,20 @@ static void cpts_overflow_check(struct work_struct *work)
+@@ -243,8 +243,6 @@ static void cpts_overflow_check(struct work_struct *work)
+ 	struct timespec64 ts;
+ 	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
  
- static void cpts_clk_init(struct device *dev, struct cpts *cpts)
- {
--	cpts->refclk = devm_clk_get(dev, "cpts");
--	if (IS_ERR(cpts->refclk)) {
--		dev_err(dev, "Failed to get cpts refclk\n");
--		cpts->refclk = NULL;
--		return;
-+	if (!cpts->refclk) {
-+		cpts->refclk = devm_clk_get(dev, "cpts");
-+		if (IS_ERR(cpts->refclk)) {
-+			dev_err(dev, "Failed to get cpts refclk\n");
-+			cpts->refclk = NULL;
-+			return;
-+		}
- 	}
- 	clk_prepare_enable(cpts->refclk);
- }
- 
- static void cpts_clk_release(struct cpts *cpts)
- {
--	clk_disable(cpts->refclk);
-+	clk_disable_unprepare(cpts->refclk);
- }
- 
- static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
+-	cpts_write32(cpts, CPTS_EN, control);
+-	cpts_write32(cpts, TS_PEND_EN, int_enable);
+ 	cpts_ptp_gettime(&cpts->info, &ts);
+ 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
+ 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
 -- 
 2.10.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
