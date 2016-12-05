@@ -1,96 +1,166 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: Re: [PATCH V2 net 10/20] net/ena: remove redundant logic in napi
- callback for busy poll mode
-Date: Mon, 5 Dec 2016 20:29:18 +0200
-Message-ID: <8c6eb7b9-c9fc-60f6-c890-5d69c0cc1cd9@annapurnalabs.com>
+Subject: Re: [PATCH V2 net 07/20] net/ena: refactor ena_get_stats64 to be
+ atomic context safe
+Date: Mon, 5 Dec 2016 20:29:41 +0200
+Message-ID: <bcd8dadd-8c5d-d747-88a2-7331b2a5b829@annapurnalabs.com>
 References: <1480857578-5065-1-git-send-email-netanel@annapurnalabs.com>
- <1480857578-5065-11-git-send-email-netanel@annapurnalabs.com>
- <1480916739.18162.516.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480857578-5065-8-git-send-email-netanel@annapurnalabs.com>
+ <20161205042435.GG4310@u54ee753d2d1854bda401.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org, dwmw@amazon.com, zorik@annapurnalabs.com,
         alex@annapurnalabs.com, saeed@annapurnalabs.com, msw@amazon.com,
         aliguori@amazon.com, nafea@annapurnalabs.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f174.google.com ([209.85.210.174]:34477 "EHLO
-        mail-wj0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752094AbcLES3X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:29:23 -0500
-Received: by mail-wj0-f174.google.com with SMTP id tg4so42944257wjb.1
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 10:29:22 -0800 (PST)
-In-Reply-To: <1480916739.18162.516.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Matt Wilson <msw@amzn.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161205042435.GG4310@u54ee753d2d1854bda401.ant.amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 12/05/2016 07:45 AM, Eric Dumazet wrote:
-> On Sun, 2016-12-04 at 15:19 +0200, Netanel Belgazal wrote:
->> sk_busy_loop can call the napi callback few million times a sec.
->> For each call there is unmask interrupt.
->> We want to reduce the number of unmasks.
->>
->> Add an atomic variable that will tell the napi handler if
->> it was called from irq context or not.
->> Unmask the interrupt only from irq context.
->>
->> A schenario where the driver left with missed unmask isn't feasible.
->> when ena_intr_msix_io is called the driver have 2 options:
->> 1)Before napi completes and call napi_complete_done
->> 2)After calling napi_complete_done
->>
->> In the former case the napi will unmask the interrupt as needed.
->> In the latter case napi_complete_done will remove napi from the schedule
->> list so napi will be rescheduled (by ena_intr_msix_io) and interrupt
->> will be unmasked as desire in the 2nd napi call.
->>
+On 12/05/2016 06:24 AM, Matt Wilson wrote:
+> On Sun, Dec 04, 2016 at 03:19:25PM +0200, Netanel Belgazal wrote:
+>> ndo_get_stat64 can be called from atomic context.
+>> However the current implementation sends an admin command to retrieve
+>> the statistics from the device.
+>> This admin commands uses sleep.
+> Suggest some comment edits:
+>
+> ndo_get_stat64() can be called from atomic context, but the current
+> implementation sends an admin command to retrieve the statistics from
+> the device. This admin command can sleep.
+>
+>> Refactor the implementation of ena_get_stats64 to take the
+>> {rx,tx}bytes/cnt from the driver's inner counters
+>> and to take the rx drops counter
+>> from the asynchronous keep alive (heart bit) event.
+> This patch re-factors the implementation of ena_get_stats64() to use
+> the {rx,tx}bytes/count from the driver's inner counters, and to obtain
+> the rx drop counter from the asynchronous keep alive (heart bit)
+> event.
+Applied
+> --msw
+>
 >> Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 >> ---
->
-> This looks very complicated to me.
->
-> I guess you missed the recent patches that happened on net-next ?
-
-You are correct.
-I didn't see the patches.
-It is much better to use the napi_complete_done() return value.
-I'll rework my patch.
-
->
-> 2e713283751f494596655d9125c168aeb913f71d net/mlx4_en: use napi_complete_done() return value
-> 364b6055738b4c752c30ccaaf25c624e69d76195 net: busy-poll: return busypolling status to drivers
-> 21cb84c48ca0619181106f0f44f3802a989de024 net: busy-poll: remove need_resched() from sk_can_busy_loop()
-> 217f6974368188fd8bd7804bf5a036aa5762c5e4 net: busy-poll: allow preemption in sk_busy_loop()
->
-> napi_complete_done() return code can be used by a driver,
-> no need to add yet another atomic operation in fast path.
->
-> Anyway, this looks wrong :
->
-> @@ -1186,6 +1201,7 @@ static irqreturn_t ena_intr_msix_io(int irq, void *data)
->   {
->          struct ena_napi *ena_napi = data;
->   
-> +       atomic_set(&ena_napi->unmask_interrupt, 1);
->          napi_schedule(&ena_napi->napi);
->   
-> You probably wanted :
->
-> if (napi_schedule_prep(n)) {
-> 	atomic_set(&ena_napi->unmask_interrupt, 1);
-> 	__napi_schedule(n);
-> }
->
->
->
-> Please rework this napi poll using core infrastructure.
->
-> busypoll logic should be centralized, not reimplemented in different ways in a driver.
->
-> Thanks.
->
->
->
+>>   drivers/net/ethernet/amazon/ena/ena_admin_defs.h |  8 ++++
+>>   drivers/net/ethernet/amazon/ena/ena_netdev.c     | 57 +++++++++++++++++-------
+>>   drivers/net/ethernet/amazon/ena/ena_netdev.h     |  1 +
+>>   3 files changed, 51 insertions(+), 15 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
+>> index f48c886..6d70bf5 100644
+>> --- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
+>> +++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
+>> @@ -873,6 +873,14 @@ struct ena_admin_aenq_link_change_desc {
+>>   	u32 flags;
+>>   };
+>>   
+>> +struct ena_admin_aenq_keep_alive_desc {
+>> +	struct ena_admin_aenq_common_desc aenq_common_desc;
+>> +
+>> +	u32 rx_drops_low;
+>> +
+>> +	u32 rx_drops_high;
+>> +};
+>> +
+>>   struct ena_admin_ena_mmio_req_read_less_resp {
+>>   	u16 req_id;
+>>   
+>> diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+>> index ad5f78f..962ffb5 100644
+>> --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
+>> +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+>> @@ -2176,28 +2176,46 @@ static struct rtnl_link_stats64 *ena_get_stats64(struct net_device *netdev,
+>>   						 struct rtnl_link_stats64 *stats)
+>>   {
+>>   	struct ena_adapter *adapter = netdev_priv(netdev);
+>> -	struct ena_admin_basic_stats ena_stats;
+>> -	int rc;
+>> +	struct ena_ring *rx_ring, *tx_ring;
+>> +	unsigned int start;
+>> +	u64 rx_drops;
+>> +	int i;
+>>   
+>>   	if (!test_bit(ENA_FLAG_DEV_UP, &adapter->flags))
+>>   		return NULL;
+>>   
+>> -	rc = ena_com_get_dev_basic_stats(adapter->ena_dev, &ena_stats);
+>> -	if (rc)
+>> -		return NULL;
+>> +	for (i = 0; i < adapter->num_queues; i++) {
+>> +		u64 bytes, packets;
+>> +
+>> +		tx_ring = &adapter->tx_ring[i];
+>> +
+>> +		do {
+>> +			start = u64_stats_fetch_begin_irq(&tx_ring->syncp);
+>> +			packets = tx_ring->tx_stats.cnt;
+>> +			bytes = tx_ring->tx_stats.bytes;
+>> +		} while (u64_stats_fetch_retry_irq(&tx_ring->syncp, start));
+>> +
+>> +		stats->tx_packets += packets;
+>> +		stats->tx_bytes += bytes;
+>>   
+>> -	stats->tx_bytes = ((u64)ena_stats.tx_bytes_high << 32) |
+>> -		ena_stats.tx_bytes_low;
+>> -	stats->rx_bytes = ((u64)ena_stats.rx_bytes_high << 32) |
+>> -		ena_stats.rx_bytes_low;
+>> +		rx_ring = &adapter->rx_ring[i];
+>> +
+>> +		do {
+>> +			start = u64_stats_fetch_begin_irq(&rx_ring->syncp);
+>> +			packets = rx_ring->rx_stats.cnt;
+>> +			bytes = rx_ring->rx_stats.bytes;
+>> +		} while (u64_stats_fetch_retry_irq(&rx_ring->syncp, start));
+>>   
+>> -	stats->rx_packets = ((u64)ena_stats.rx_pkts_high << 32) |
+>> -		ena_stats.rx_pkts_low;
+>> -	stats->tx_packets = ((u64)ena_stats.tx_pkts_high << 32) |
+>> -		ena_stats.tx_pkts_low;
+>> +		stats->rx_packets += packets;
+>> +		stats->rx_bytes += bytes;
+>> +	}
+>> +
+>> +	do {
+>> +		start = u64_stats_fetch_begin_irq(&adapter->syncp);
+>> +		rx_drops = adapter->dev_stats.rx_drops;
+>> +	} while (u64_stats_fetch_retry_irq(&adapter->syncp, start));
+>>   
+>> -	stats->rx_dropped = ((u64)ena_stats.rx_drops_high << 32) |
+>> -		ena_stats.rx_drops_low;
+>> +	stats->rx_dropped = rx_drops;
+>>   
+>>   	stats->multicast = 0;
+>>   	stats->collisions = 0;
+>> @@ -3221,8 +3239,17 @@ static void ena_keep_alive_wd(void *adapter_data,
+>>   			      struct ena_admin_aenq_entry *aenq_e)
+>>   {
+>>   	struct ena_adapter *adapter = (struct ena_adapter *)adapter_data;
+>> +	struct ena_admin_aenq_keep_alive_desc *desc;
+>> +	u64 rx_drops;
+>>   
+>> +	desc = (struct ena_admin_aenq_keep_alive_desc *)aenq_e;
+>>   	adapter->last_keep_alive_jiffies = jiffies;
+>> +
+>> +	rx_drops = ((u64)desc->rx_drops_high << 32) | desc->rx_drops_low;
+>> +
+>> +	u64_stats_update_begin(&adapter->syncp);
+>> +	adapter->dev_stats.rx_drops = rx_drops;
+>> +	u64_stats_update_end(&adapter->syncp);
+>>   }
+>>   
+>>   static void ena_notification(void *adapter_data,
+>> diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+>> index 69d7e9e..f0ddc11 100644
+>> --- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
+>> +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+>> @@ -241,6 +241,7 @@ struct ena_stats_dev {
+>>   	u64 interface_up;
+>>   	u64 interface_down;
+>>   	u64 admin_q_pause;
+>> +	u64 rx_drops;
+>>   };
+>>   
+>>   enum ena_flags_t {
