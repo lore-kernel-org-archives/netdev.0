@@ -1,54 +1,30 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: bpf bounded loops. Was: [flamebait] xdp
-Date: Mon, 5 Dec 2016 16:40:15 +0000
-Message-ID: <5726302e-3502-99c8-a4d9-a5278761cb5a@solarflare.com>
-References: <20161201091108.GF26507@breakpoint.cc>
- <20161201145834.GA569@pox.localdomain>
- <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
- <20161201162814.GA31300@pox.localdomain>
- <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
- <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com>
- <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
- <20161202183903.GC54949@ast-mbp.thefacebook.com>
- <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/28] bnxt_en: Add bnxt_set_max_func_irqs().
+Date: Mon, 05 Dec 2016 11:47:04 -0500 (EST)
+Message-ID: <20161205.114704.1700305660817315475.davem@davemloft.net>
+References: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
+        <1480919912-1079-2-git-send-email-selvin.xavier@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        michael.chan@broadcom.com, netdev@vger.kernel.org
+To: selvin.xavier@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:36146 "EHLO
-        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751161AbcLEQkZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 11:40:25 -0500
-In-Reply-To: <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45740 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751039AbcLEQrJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 11:47:09 -0500
+In-Reply-To: <1480919912-1079-2-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/12/16 19:25, Hannes Frederic Sowa wrote:
-> On 02.12.2016 19:39, Alexei Starovoitov wrote:
->> Hannes,
->> Not too long ago you proposed a very interesting idea to add
->> support for bounded loops without adding any new bpf instructions and
->> changing llvm (which was way better than my 'rep' like instructions
->> I was experimenting with). I thought systemtap guys also wanted bounded
->> loops and you were cooperating on the design, so I gave up on my work and
->> was expecting an imminent patch from you. I guess it sounds like you know
->> believe that bounded loops are impossible or I misunderstand your statement ?
-> Your argument was that it would need a new verifier as the current first
-> pass checks that we indeed can lay out the basic blocks as a DAG which
-> the second pass depends on. This would be violated.
-I may be completely mistaken here, but can't the verifier unroll the loop 'for
-verification' without it actually being unrolled in the program?
-I.e., any "proof that the loop terminates" should translate into "rewrite of
-the directed graph to make it a DAG, possibly duplicating a lot of insns", and
-you feed the rewritten graph to the verifier, while using the original loopy
-version as the actual program to store and later execute.
-Then the verifier happily checks things like array indices being valid, without
-having to know about the bounded loops.
 
--Ed
+It really doesn't make any sense to only send 7 out of 28 of these
+patches to the networking list.
+
+In fact I would say that you need to split this series into two
+components.
+
+One that goes into the networking tree, and once that's accepted you
+can submit the IB parts to that subsystem's maintainer.
