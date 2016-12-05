@@ -1,39 +1,64 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH 09/18] RDS: RDMA: silence the use_once mr log flood
-Date: Sun,  4 Dec 2016 22:57:44 -0800
-Message-ID: <1480921073-9140-10-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 07/18] RDS: RDMA: return appropriate error on rdma map failures
+Date: Sun,  4 Dec 2016 22:57:42 -0800
+Message-ID: <1480921073-9140-8-git-send-email-santosh.shilimkar@oracle.com>
 References: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
         Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:29281 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751520AbcLEG6J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 01:58:09 -0500
 In-Reply-To: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In absence of extension headers, message log will keep
-flooding the console. As such even without use_once we can
-clean up the MRs so its not really an error case message
-so make it debug message
+The first message to a remote node should prompt a new
+connection even if it is RDMA operation. For RDMA operation
+the MR mapping can fail because connections is not yet up.
+
+Since the connection establishment is asynchronous,
+we make sure the map failure because of unavailable
+connection reach to the user by appropriate error code.
+Before returning to the user, lets trigger the connection
+so that its ready for the next retry.
 
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/rdma.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/rds/send.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/net/rds/rdma.c b/net/rds/rdma.c
-index 4c93bad..8151c49 100644
---- a/net/rds/rdma.c
-+++ b/net/rds/rdma.c
-@@ -415,7 +415,8 @@ void rds_rdma_unuse(struct rds_sock *rs, u32 r_key, int force)
- 	spin_lock_irqsave(&rs->rs_rdma_lock, flags);
- 	mr = rds_mr_tree_walk(&rs->rs_rdma_keys, r_key, NULL);
- 	if (!mr) {
--		printk(KERN_ERR "rds: trying to unuse MR with unknown r_key %u!\n", r_key);
-+		pr_debug("rds: trying to unuse MR with unknown r_key %u!\n",
-+			 r_key);
- 		spin_unlock_irqrestore(&rs->rs_rdma_lock, flags);
- 		return;
- 	}
+diff --git a/net/rds/send.c b/net/rds/send.c
+index bb13c56..0a6f38b 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -945,6 +945,11 @@ static int rds_cmsg_send(struct rds_sock *rs, struct rds_message *rm,
+ 			ret = rds_cmsg_rdma_map(rs, rm, cmsg);
+ 			if (!ret)
+ 				*allocated_mr = 1;
++			else if (ret == -ENODEV)
++				/* Accommodate the get_mr() case which can fail
++				 * if connection isn't established yet.
++				 */
++				ret = -EAGAIN;
+ 			break;
+ 		case RDS_CMSG_ATOMIC_CSWP:
+ 		case RDS_CMSG_ATOMIC_FADD:
+@@ -1082,8 +1087,12 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+ 
+ 	/* Parse any control messages the user may have included. */
+ 	ret = rds_cmsg_send(rs, rm, msg, &allocated_mr);
+-	if (ret)
++	if (ret) {
++		/* Trigger connection so that its ready for the next retry */
++		if (ret ==  -EAGAIN)
++			rds_conn_connect_if_down(conn);
+ 		goto out;
++	}
+ 
+ 	if (rm->rdma.op_active && !conn->c_trans->xmit_rdma) {
+ 		printk_ratelimited(KERN_NOTICE "rdma_op %p conn xmit_rdma %p\n",
 -- 
 1.9.1
