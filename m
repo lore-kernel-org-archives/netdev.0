@@ -1,102 +1,134 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] udp: some improvements on RX path.
-Date: Mon, 05 Dec 2016 06:28:53 -0800
-Message-ID: <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH 3/3] netns: fix net_generic() "id - 1" bloat
+Date: Mon, 5 Dec 2016 17:48:07 +0300
+Message-ID: <CACVxJT8axg6i0Lvem=fvKqrjTuOzwg63BDbAuR6bzTPrtLuP+g@mail.gmail.com>
+References: <20161202012132.GD31170@avx2> <063D6719AE5E284EB5DD2968C1650D6DB0234CCB@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xemul@openvz.org" <xemul@openvz.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35012 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751654AbcLEOq4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 09:46:56 -0500
-Received: by mail-pg0-f65.google.com with SMTP id p66so16655755pga.2
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 06:46:56 -0800 (PST)
-In-Reply-To: <1480944138.4694.37.camel@redhat.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34910 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751427AbcLEOsJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 09:48:09 -0500
+Received: by mail-wm0-f65.google.com with SMTP id a20so16453302wme.2
+        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 06:48:08 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0234CCB@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-12-05 at 14:22 +0100, Paolo Abeni wrote:
-> Hi Eric,
-> 
-> On Sun, 2016-12-04 at 18:43 -0800, Eric Dumazet wrote:
-> > We currently access 3 cache lines from an skb in receive queue while
-> > holding receive queue lock :
-> > 
-> > First cache line (contains ->next / prev pointers )
-> > 2nd cache line (skb->peeked)
-> > 3rd cache line (skb->truesize)
-> > 
-> > I believe we could get rid of skb->peeked completely.
-> > 
-> > I will cook a patch, but basically the idea is that the last owner of a
-> > skb (right before skb->users becomes 0) can have the 'ownership' and
-> > thus increase stats.
-> 
-> Agreed.
-> 
-> > The 3rd cache line miss is easily avoided by the following patch.
-> 
-> I run some performance tests on top of your patch "net: reorganize
-> struct sock for better data locality", and I see an additional ~7%
-> improvement on top of that, in the udp flood scenario. 
-> 
-> In my tests, the topmost perf offenders for the u/s process are now:
-> 
->    9.98%  udp_sink  [kernel.kallsyms]  [k] udp_rmem_release
->    8.76%  udp_sink  [kernel.kallsyms]  [k] inet_recvmsg
->    6.71%  udp_sink  [kernel.kallsyms]  [k] _raw_spin_lock_irqsave
->    5.40%  udp_sink  [kernel.kallsyms]  [k] __skb_try_recv_datagram
->    5.19%  udp_sink  [kernel.kallsyms]  [k] copy_user_enhanced_fast_string
-> 
-> udp_rmem_release() spends most of its time doing:
-> 
->     atomic_sub(size, &sk->sk_rmem_alloc);
-> 
-> I see a cacheline miss while accessing sk_rmem_alloc; most probably due
-> to sk_rmem_alloc being updated by the writer outside the rx queue lock.
-> 
-> Moving such update inside the lock show remove this cache miss but will
-> increase the pressure on the rx lock. What do you think ?
+On Mon, Dec 5, 2016 at 3:49 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Alexey Dobriyan
+>> Sent: 02 December 2016 01:22
+>> net_generic() function is both a) inline and b) used ~600 times.
+>>
+>> It has the following code inside
+>>
+>>               ...
+>>       ptr = ng->ptr[id - 1];
+>>               ...
+>>
+>> "id" is never compile time constant so compiler is forced to subtract 1.
+>> And those decrements or LEA [r32 - 1] instructions add up.
+>>
+>> We also start id'ing from 1 to catch bugs where pernet sybsystem id
+>> is not initialized and 0. This is quite pointless idea (nothing will
+>> work or immediate interference with first registered subsystem) in
+>> general but it hints what needs to be done for code size reduction.
+>>
+>> Namely, overlaying allocation of pointer array and fixed part of
+>> structure in the beginning and using usual base-0 addressing.
+>>
+>> Ids are just cookies, their exact values do not matter, so lets start
+>> with 3 on x86_64.
+> ...
+>>  struct net_generic {
+>> -     struct {
+>> -             unsigned int len;
+>> -             struct rcu_head rcu;
+>> -     } s;
+>> -
+>> -     void *ptr[0];
+>> +     union {
+>> +             struct {
+>> +                     unsigned int len;
+>> +                     struct rcu_head rcu;
+>> +             } s;
+>> +
+>> +             void *ptr[0];
+>> +     };
+>>  };
+>
+> That union is an accident waiting to happen.
 
-I want to accumulate the sk_rmem_alloc  deficit in another variable in
-the same cache line than the secondary list, updated from process
-context at udp recvmsg() time.
+I kind of disagree. Module authors should not be given matches,
+but it is hard to screw up if net_generic() is all you're given.
 
-And only transfer the accumulated deficit in one go when the second
-queue is emptied, or if the accumulated deficite is > (rcvbuf/2)
+> What might work is to offset the Ids by
+> (offsetof(struct net_generic, ptr)/sizeof (void *)) instead of by 1.
+> The subtract from the offset will then counter the structure offset
+> - which is what you are trying to achieve.
 
-If done right, we should interfere between the softirq flooder(s) and
-the process thread only once per batch.
+If you suggest this layout
 
-> 
-> inet_recvmsg() is there because with "net: reorganize struct sock for
-> better data locality" we get a cache miss while accessing skc_rxhash in
-> sock_rps_record_flow(); touching sk_drops is dirtying that cacheline -
-> sorry for not noticing this before. Do you have CONFIG_RPS disabled ?
-> 
-> > But I also want to work on the idea I gave few days back, having a
-> > separate queue and use splice to transfer the 'softirq queue' into
-> > a calm queue in a different cache line.
-> > 
-> > I expect a 50 % performance increase under load, maybe 1.5 Mpps.
-> 
-> It should work nicely under contention, but won't that increase the
-> overhead for the uncontended/single flow scenario ? the user space
-> reader needs to acquire 2 lock when splicing the 'softirq queue'. On my
-> system ksoftirqd and the u/s process work at similar speeds, so splicing
-> will happen quite often. 
+struct net_generic {
+        struct {
+        } s;
+        void *ptr[0];
+};
 
-Well, the splice would happen only if you have more than one message in
-the softirq queue. So no real overhead for uncontended flow scenario.
+then is it not optimal because offset of "ptr" needs to be somewhere in code
+either in some LEA or imm8 of the final MOV which is 1 byte more bloaty.
+
+Here is test program
+
+struct ng1 {
+        union {
+                struct {
+                        unsigned int len;
+                } s;
+                void *ptr[0];
+        };
+};
+struct ng2 {
+        struct {
+                unsigned int len;
+        } s;
+        void *ptr[0];
+};
+struct net {
+        int x;
+        struct ng1 *gen1;
+        struct ng2 *gen2;
+};
+void *ng1(const struct net *net, unsigned int id)
+{
+        return net->gen1->ptr[id];
+}
+void *ng2(const struct net *net, unsigned int id)
+{
+        return net->gen2->ptr[id];
+}
 
 
-This reminds me of the busylock I added in __dev_xmit_skb(), which
-basically is acquired only when we detect a possible contention on qdisc
-lock.
+0000000000000000 <ng1>:
+   0:   48 8b 47 08             mov    rax,QWORD PTR [rdi+0x8]
+   4:   89 f6                   mov    esi,esi
+   6:   48 8b 04 f0             mov    rax,QWORD PTR [rax+rsi*8]
+   a:   c3                      ret
 
-Thanks.
+
+0000000000000010 <ng2>:
+  10:   48 8b 47 10             mov    rax,QWORD PTR [rdi+0x10]
+  14:   89 f6                   mov    esi,esi
+  16:   48 8b 44 f0 [[[08]]]          mov    rax,QWORD PTR [rax+rsi*8+0x8]
+  1b:   c3                      ret
+
+I can send more type checking if you can tolerate "_" identifier
+
+    struct {
+        unsigned int _;
+    } pernet_ops_id_t;
