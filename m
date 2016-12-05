@@ -1,212 +1,343 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [PATCH v2 5/6] net: stmmac: add support for independent DMA pbl for tx/rx
-Date: Mon, 5 Dec 2016 10:12:30 +0100
-Message-ID: <1480929155-20462-1-git-send-email-niklass@axis.com>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next 2/7] liquidio CN23XX: VF link status
+Date: Mon, 5 Dec 2016 01:15:13 -0800
+Message-ID: <1480929318-8511-3-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1480929318-8511-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linux-doc@vger.kernel.org>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Niklas Cassel <niklass@axis.com>,
-        Phil Reid <preid@electromag.com.au>,
-        Eric Engestrom <eric@engestrom.ch>,
-        Pavel Machek <pavel@ucw.cz>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-        Vincent Palatin <vpalatin@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0059.outbound.protection.outlook.com ([104.47.40.59]:13128
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751955AbcLEJPo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Dec 2016 04:15:44 -0500
+In-Reply-To: <1480929318-8511-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
+Adds support for VF link status related changes.
 
-GMAC and newer supports independent programmable burst lengths for
-DMA tx/rx. Add new optional devicetree properties representing this.
-
-To be backwards compatible, snps,pbl will still be valid, but
-snps,txpbl/snps,rxpbl will override the value in snps,pbl if set.
-
-If the IP is synthesized to use the AXI interface, there is a register
-and a matching DT property inside the optional stmmac-axi-config DT node
-for controlling burst lengths, named snps,blen.
-However, using this register, it is not possible to control tx and rx
-independently. Also, this register is not available if the IP was
-synthesized with, e.g., the AHB interface.
-
-Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- Documentation/devicetree/bindings/net/stmmac.txt      |  6 +++++-
- Documentation/networking/stmmac.txt                   | 19 +++++++++++++------
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c   | 12 ++++++------
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c      | 12 +++++++-----
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  2 ++
- include/linux/stmmac.h                                |  2 ++
- 6 files changed, 35 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 249 +++++++++++++++++++++
+ 1 file changed, 249 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 41b49e6075f5..a3dc1453dffb 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -34,7 +34,11 @@ Optional properties:
-   platforms.
- - tx-fifo-depth: See ethernet.txt file in the same directory
- - rx-fifo-depth: See ethernet.txt file in the same directory
--- snps,pbl		Programmable Burst Length
-+- snps,pbl		Programmable Burst Length (tx and rx)
-+- snps,txpbl		Tx Programmable Burst Length. Only for GMAC and newer.
-+			If set, DMA tx will use this value rather than snps,pbl.
-+- snps,rxpbl		Rx Programmable Burst Length. Only for GMAC and newer.
-+			If set, DMA rx will use this value rather than snps,pbl.
- - snps,aal		Address-Aligned Beats
- - snps,fixed-burst	Program the DMA to use the fixed burst mode
- - snps,mixed-burst	Program the DMA to use the mixed burst mode
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index 014f4f756cb7..6add57374f70 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -153,7 +153,8 @@ Where:
-    o pbl: the Programmable Burst Length is maximum number of beats to
-        be transferred in one DMA transaction.
-        GMAC also enables the 4xPBL by default.
--   o fixed_burst/mixed_burst/burst_len
-+   o txpbl/rxpbl: GMAC and newer supports independent DMA pbl for tx/rx.
-+   o fixed_burst/mixed_burst/aal
-  o clk_csr: fixed CSR Clock range selection.
-  o has_gmac: uses the GMAC core.
-  o enh_desc: if sets the MAC will use the enhanced descriptor structure.
-@@ -205,16 +206,22 @@ tuned according to the HW capabilities.
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 81a578f..eddd77f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -163,6 +163,186 @@ static inline void ifstate_reset(struct lio *lio, int state_flag)
+ 	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
+ }
  
- struct stmmac_dma_cfg {
- 	int pbl;
-+	int txpbl;
-+	int rxpbl;
- 	int fixed_burst;
--	int burst_len_supported;
-+	int mixed_burst;
-+	bool aal;
++/**
++ * \brief Stop Tx queues
++ * @param netdev network device
++ */
++static inline void txqs_stop(struct net_device *netdev)
++{
++	if (netif_is_multiqueue(netdev)) {
++		int i;
++
++		for (i = 0; i < netdev->num_tx_queues; i++)
++			netif_stop_subqueue(netdev, i);
++	} else {
++		netif_stop_queue(netdev);
++	}
++}
++
++/**
++ * \brief Start Tx queues
++ * @param netdev network device
++ */
++static inline void txqs_start(struct net_device *netdev)
++{
++	if (netif_is_multiqueue(netdev)) {
++		int i;
++
++		for (i = 0; i < netdev->num_tx_queues; i++)
++			netif_start_subqueue(netdev, i);
++	} else {
++		netif_start_queue(netdev);
++	}
++}
++
++/**
++ * \brief Wake Tx queues
++ * @param netdev network device
++ */
++static inline void txqs_wake(struct net_device *netdev)
++{
++	struct lio *lio = GET_LIO(netdev);
++
++	if (netif_is_multiqueue(netdev)) {
++		int i;
++
++		for (i = 0; i < netdev->num_tx_queues; i++) {
++			int qno = lio->linfo.txpciq[i % (lio->linfo.num_txpciq)]
++				      .s.q_no;
++			if (__netif_subqueue_stopped(netdev, i)) {
++				INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, qno,
++							  tx_restart, 1);
++				netif_wake_subqueue(netdev, i);
++			}
++		}
++	} else {
++		INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, lio->txq,
++					  tx_restart, 1);
++		netif_wake_queue(netdev);
++	}
++}
++
++/**
++ * \brief Start Tx queue
++ * @param netdev network device
++ */
++static void start_txq(struct net_device *netdev)
++{
++	struct lio *lio = GET_LIO(netdev);
++
++	if (lio->linfo.link.s.link_up) {
++		txqs_start(netdev);
++		return;
++	}
++}
++
++/**
++ * \brief Print link information
++ * @param netdev network device
++ */
++static void print_link_info(struct net_device *netdev)
++{
++	struct lio *lio = GET_LIO(netdev);
++
++	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_REGISTERED) {
++		struct oct_link_info *linfo = &lio->linfo;
++
++		if (linfo->link.s.link_up) {
++			netif_info(lio, link, lio->netdev, "%d Mbps %s Duplex UP\n",
++				   linfo->link.s.speed,
++				   (linfo->link.s.duplex) ? "Full" : "Half");
++		} else {
++			netif_info(lio, link, lio->netdev, "Link Down\n");
++		}
++	}
++}
++
++/**
++ * \brief Routine to notify MTU change
++ * @param work work_struct data structure
++ */
++static void octnet_link_status_change(struct work_struct *work)
++{
++	struct cavium_wk *wk = (struct cavium_wk *)work;
++	struct lio *lio = (struct lio *)wk->ctxptr;
++
++	rtnl_lock();
++	call_netdevice_notifiers(NETDEV_CHANGEMTU, lio->netdev);
++	rtnl_unlock();
++}
++
++/**
++ * \brief Sets up the mtu status change work
++ * @param netdev network device
++ */
++static inline int setup_link_status_change_wq(struct net_device *netdev)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++
++	lio->link_status_wq.wq = alloc_workqueue("link-status",
++						 WQ_MEM_RECLAIM, 0);
++	if (!lio->link_status_wq.wq) {
++		dev_err(&oct->pci_dev->dev, "unable to create cavium link status wq\n");
++		return -1;
++	}
++	INIT_DELAYED_WORK(&lio->link_status_wq.wk.work,
++			  octnet_link_status_change);
++	lio->link_status_wq.wk.ctxptr = lio;
++
++	return 0;
++}
++
++static inline void cleanup_link_status_change_wq(struct net_device *netdev)
++{
++	struct lio *lio = GET_LIO(netdev);
++
++	if (lio->link_status_wq.wq) {
++		cancel_delayed_work_sync(&lio->link_status_wq.wk.work);
++		destroy_workqueue(lio->link_status_wq.wq);
++	}
++}
++
++/**
++ * \brief Update link status
++ * @param netdev network device
++ * @param ls link status structure
++ *
++ * Called on receipt of a link status response from the core application to
++ * update each interface's link status.
++ */
++static inline void update_link_status(struct net_device *netdev,
++				      union oct_link_status *ls)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++
++	if ((lio->intf_open) && (lio->linfo.link.u64 != ls->u64)) {
++		lio->linfo.link.u64 = ls->u64;
++
++		print_link_info(netdev);
++		lio->link_changes++;
++
++		if (lio->linfo.link.s.link_up) {
++			netif_carrier_on(netdev);
++			txqs_wake(netdev);
++		} else {
++			netif_carrier_off(netdev);
++			txqs_stop(netdev);
++		}
++
++		if (lio->linfo.link.s.mtu < netdev->mtu) {
++			dev_warn(&oct->pci_dev->dev,
++				 "PF has changed the MTU for gmx port. Reducing the mtu from %d to %d\n",
++				 netdev->mtu, lio->linfo.link.s.mtu);
++			lio->mtu = lio->linfo.link.s.mtu;
++			netdev->mtu = lio->linfo.link.s.mtu;
++			queue_delayed_work(lio->link_status_wq.wq,
++					   &lio->link_status_wq.wk.work, 0);
++		}
++	}
++}
++
+ static
+ int liquidio_schedule_msix_droq_pkt_handler(struct octeon_droq *droq, u64 ret)
+ {
+@@ -499,6 +679,8 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
+ 	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_REGISTERED)
+ 		unregister_netdev(netdev);
+ 
++	cleanup_link_status_change_wq(netdev);
++
+ 	free_netdev(netdev);
+ 
+ 	oct->props[ifidx].gmxport = -1;
+@@ -635,6 +817,28 @@ static u16 select_q(struct net_device *dev, struct sk_buff *skb,
+ }
+ 
+ /**
++ * \brief Net device open for LiquidIO
++ * @param netdev network device
++ */
++static int liquidio_open(struct net_device *netdev)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++
++	ifstate_set(lio, LIO_IFSTATE_RUNNING);
++
++	/* Ready for link status updates */
++	lio->intf_open = 1;
++
++	netif_info(lio, ifup, lio->netdev, "Interface Open, ready for traffic\n");
++	start_txq(netdev);
++
++	dev_info(&oct->pci_dev->dev, "%s interface is opened\n", netdev->name);
++
++	return 0;
++}
++
++/**
+  * \brief Net device stop for LiquidIO
+  * @param netdev network device
+  */
+@@ -653,6 +857,8 @@ static int liquidio_stop(struct net_device *netdev)
+ 
+ 	ifstate_reset(lio, LIO_IFSTATE_RUNNING);
+ 
++	txqs_stop(netdev);
++
+ 	dev_info(&oct->pci_dev->dev, "%s interface is stopped\n", netdev->name);
+ 
+ 	return 0;
+@@ -758,11 +964,47 @@ static int liquidio_set_features(struct net_device *netdev,
+ }
+ 
+ static const struct net_device_ops lionetdevops = {
++	.ndo_open		= liquidio_open,
++	.ndo_stop		= liquidio_stop,
+ 	.ndo_fix_features	= liquidio_fix_features,
+ 	.ndo_set_features	= liquidio_set_features,
+ 	.ndo_select_queue	= select_q,
  };
  
- Where:
-- o pbl: Programmable Burst Length
-+ o pbl: Programmable Burst Length (tx and rx)
-+ o txpbl: Transmit Programmable Burst Length. Only for GMAC and newer.
-+	 If set, DMA tx will use this value rather than pbl.
-+ o rxpbl: Receive Programmable Burst Length. Only for GMAC and newer.
-+	 If set, DMA rx will use this value rather than pbl.
-  o fixed_burst: program the DMA to use the fixed burst mode
-- o burst_len: this is the value we put in the register
--	      supported values are provided as macros in
--	      linux/stmmac.h header file.
-+ o mixed_burst: program the DMA to use the mixed burst mode
-+ o aal: Address-Aligned Beats
++static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
++{
++	struct octeon_device *oct = (struct octeon_device *)buf;
++	struct octeon_recv_pkt *recv_pkt = recv_info->recv_pkt;
++	union oct_link_status *ls;
++	int gmxport = 0;
++	int i;
++
++	if (recv_pkt->buffer_size[0] != sizeof(*ls)) {
++		dev_err(&oct->pci_dev->dev, "Malformed NIC_INFO, len=%d, ifidx=%d\n",
++			recv_pkt->buffer_size[0],
++			recv_pkt->rh.r_nic_info.gmxport);
++		goto nic_info_err;
++	}
++
++	gmxport = recv_pkt->rh.r_nic_info.gmxport;
++	ls = (union oct_link_status *)get_rbd(recv_pkt->buffer_ptr[0]);
++
++	octeon_swap_8B_data((u64 *)ls, (sizeof(union oct_link_status)) >> 3);
++
++	for (i = 0; i < oct->ifcount; i++) {
++		if (oct->props[i].gmxport == gmxport) {
++			update_link_status(oct->props[i].netdev, ls);
++			break;
++		}
++	}
++
++nic_info_err:
++	for (i = 0; i < recv_pkt->buffer_count; i++)
++		recv_buffer_free(recv_pkt->buffer_ptr[i]);
++	octeon_free_recv_info(recv_info);
++	return 0;
++}
++
+ /**
+  * \brief Setup network interfaces
+  * @param octeon_dev  octeon device
+@@ -788,6 +1030,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
  
- ---
+ 	ifidx_or_pfnum = octeon_dev->pf_num;
  
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 01d0d0f315e5..1dd34fb4c1a9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -87,20 +87,20 @@ static void dwmac1000_dma_init(void __iomem *ioaddr,
- 			       u32 dma_tx, u32 dma_rx, int atds)
- {
- 	u32 value = readl(ioaddr + DMA_BUS_MODE);
-+	int txpbl = dma_cfg->txpbl ?: dma_cfg->pbl;
-+	int rxpbl = dma_cfg->rxpbl ?: dma_cfg->pbl;
++	/* This is to handle link status changes */
++	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC, OPCODE_NIC_INFO,
++				    lio_nic_info, octeon_dev);
++
+ 	for (i = 0; i < octeon_dev->ifcount; i++) {
+ 		resp_size = sizeof(struct liquidio_if_cfg_resp);
+ 		ctx_size = sizeof(struct liquidio_if_cfg_context);
+@@ -946,6 +1192,9 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 			liquidio_set_feature(netdev, OCTNET_CMD_VERBOSE_ENABLE,
+ 					     0);
  
- 	/*
- 	 * Set the DMA PBL (Programmable Burst Length) mode.
- 	 *
- 	 * Note: before stmmac core 3.50 this mode bit was 4xPBL, and
- 	 * post 3.5 mode bit acts as 8*PBL.
--	 *
--	 * This configuration doesn't take care about the Separate PBL
--	 * so only the bits: 13-8 are programmed with the PBL passed from the
--	 * platform.
- 	 */
- 	value |= DMA_BUS_MODE_MAXPBL;
--	value &= ~DMA_BUS_MODE_PBL_MASK;
--	value |= (dma_cfg->pbl << DMA_BUS_MODE_PBL_SHIFT);
-+	value |= DMA_BUS_MODE_USP;
-+	value &= ~(DMA_BUS_MODE_PBL_MASK | DMA_BUS_MODE_RPBL_MASK);
-+	value |= (txpbl << DMA_BUS_MODE_PBL_SHIFT);
-+	value |= (rxpbl << DMA_BUS_MODE_RPBL_SHIFT);
- 
- 	/* Set the Fixed burst mode */
- 	if (dma_cfg->fixed_burst)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-index 0946546d6dcd..0bf47825bfeb 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-@@ -69,11 +69,14 @@ static void dwmac4_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
- 	writel(value, ioaddr + DMA_SYS_BUS_MODE);
- }
- 
--static void dwmac4_dma_init_channel(void __iomem *ioaddr, int pbl,
-+static void dwmac4_dma_init_channel(void __iomem *ioaddr,
-+				    struct stmmac_dma_cfg *dma_cfg,
- 				    u32 dma_tx_phy, u32 dma_rx_phy,
- 				    u32 channel)
- {
- 	u32 value;
-+	int txpbl = dma_cfg->txpbl ?: dma_cfg->pbl;
-+	int rxpbl = dma_cfg->rxpbl ?: dma_cfg->pbl;
- 
- 	/* set PBL for each channels. Currently we affect same configuration
- 	 * on each channel
-@@ -83,11 +86,11 @@ static void dwmac4_dma_init_channel(void __iomem *ioaddr, int pbl,
- 	writel(value, ioaddr + DMA_CHAN_CONTROL(channel));
- 
- 	value = readl(ioaddr + DMA_CHAN_TX_CONTROL(channel));
--	value = value | (pbl << DMA_BUS_MODE_PBL_SHIFT);
-+	value = value | (txpbl << DMA_BUS_MODE_PBL_SHIFT);
- 	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(channel));
- 
- 	value = readl(ioaddr + DMA_CHAN_RX_CONTROL(channel));
--	value = value | (pbl << DMA_BUS_MODE_RPBL_SHIFT);
-+	value = value | (rxpbl << DMA_BUS_MODE_RPBL_SHIFT);
- 	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(channel));
- 
- 	/* Mask interrupts by writing to CSR7 */
-@@ -118,8 +121,7 @@ static void dwmac4_dma_init(void __iomem *ioaddr,
- 	writel(value, ioaddr + DMA_SYS_BUS_MODE);
- 
- 	for (i = 0; i < DMA_CHANNEL_NB_MAX; i++)
--		dwmac4_dma_init_channel(ioaddr, dma_cfg->pbl,
--					dma_tx, dma_rx, i);
-+		dwmac4_dma_init_channel(ioaddr, dma_cfg, dma_tx, dma_rx, i);
- }
- 
- static void _dwmac4_dump_dma_regs(void __iomem *ioaddr, u32 channel)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 59e1740479fc..55cac48897f6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -310,6 +310,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- 	plat->dma_cfg = dma_cfg;
- 
- 	of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
-+	of_property_read_u32(np, "snps,txpbl", &dma_cfg->txpbl);
-+	of_property_read_u32(np, "snps,rxpbl", &dma_cfg->rxpbl);
- 
- 	dma_cfg->aal = of_property_read_bool(np, "snps,aal");
- 	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 3537fb33cc90..e6d7a5940819 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -88,6 +88,8 @@ struct stmmac_mdio_bus_data {
- 
- struct stmmac_dma_cfg {
- 	int pbl;
-+	int txpbl;
-+	int rxpbl;
- 	int fixed_burst;
- 	int mixed_burst;
- 	bool aal;
++		if (setup_link_status_change_wq(netdev))
++			goto setup_nic_dev_fail;
++
+ 		/* Register the network device with the OS */
+ 		if (register_netdev(netdev)) {
+ 			dev_err(&octeon_dev->pci_dev->dev, "Device registration failed\n");
 -- 
-2.1.4
+1.8.3.1
