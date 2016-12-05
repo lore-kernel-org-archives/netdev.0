@@ -1,64 +1,165 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC] udp: some improvements on RX path.
-Date: Mon, 5 Dec 2016 16:37:11 +0100
-Message-ID: <20161205163711.44b01c3a@redhat.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1480944138.4694.37.camel@redhat.com>
-        <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V3 net-next] net: hns: Fix to conditionally convey RX checksum flag to stack
+Date: Mon, 5 Dec 2016 15:37:57 +0000
+Message-ID: <20161205153757.386156-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Paolo Abeni <pabeni@redhat.com>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33994 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751127AbcLEPhP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 5 Dec 2016 10:37:15 -0500
-In-Reply-To: <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This patch introduces the RX checksum function to check the
+status of the hardware calculated checksum and its error and
+appropriately convey status to the upper stack in skb->ip_summed
+field.
 
-On Mon, 05 Dec 2016 06:28:53 -0800 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+In hardware, we only support checksum for the following
+protocols:
+1) IPv4,
+2) TCP(over IPv4 or IPv6),
+3) UDP(over IPv4 or IPv6),
+4) SCTP(over IPv4 or IPv6)
+but we support many L3(IPv4, IPv6, MPLS, PPPoE etc) and
+L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.) protocols.
 
-> On Mon, 2016-12-05 at 14:22 +0100, Paolo Abeni wrote:
-> > 
-> > On Sun, 2016-12-04 at 18:43 -0800, Eric Dumazet wrote:  
-[...]
+Hardware limitation:
+Our present hardware RX Descriptor lacks L3/L4 checksum
+"Status & Error" bit (which usually can be used to indicate whether
+checksum was calculated by the hardware and if there was any error
+encountered during checksum calculation).
 
-> > > But I also want to work on the idea I gave few days back, having a
-> > > separate queue and use splice to transfer the 'softirq queue' into
-> > > a calm queue in a different cache line.
-> > > 
-> > > I expect a 50 % performance increase under load, maybe 1.5 Mpps.  
+Software workaround:
+We do get info within the RX descriptor about the kind of
+L3/L4 protocol coming in the packet and the error status. These
+errors might not just be checksum errors but could be related to
+version, length of IPv4, UDP, TCP etc.
+Because there is no-way of knowing if it is a L3/L4 error due
+to bad checksum or any other L3/L4 error, we will not (cannot)
+convey hardware checksum status(CHECKSUM_UNNECESSARY) for such
+cases to upper stack and will not maintain the RX L3/L4 checksum
+counters as well.
 
-I also have high hopes for such a solution. I'm very excited that you
-are working on this! :-)
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+Change Log:
+Patch V3: Re-structured the code.
+Patch V2: Addressed the comment by David Miller
+          Link: https://www.spinics.net/lists/netdev/msg406697.html
+Patch V1: This patch is a result of the comments given by
+          David Miller <davem@davemloft.net>
+          Link: https://lkml.org/lkml/2016/6/15/27
+---
+ drivers/net/ethernet/hisilicon/hns/hnae.h     |    2 +
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c |   73 ++++++++++++++++++++++---
+ 2 files changed, 68 insertions(+), 7 deletions(-)
 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index 09602f1..8016854 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -99,6 +99,8 @@ enum hnae_led_state {
+ #define HNS_RX_FLAG_L3ID_IPV6 0x1
+ #define HNS_RX_FLAG_L4ID_UDP 0x0
+ #define HNS_RX_FLAG_L4ID_TCP 0x1
++#define HNS_RX_FLAG_L4ID_SCTP 0x3
++
  
-> > It should work nicely under contention, but won't that increase the
-> > overhead for the uncontended/single flow scenario ? the user space
-> > reader needs to acquire 2 lock when splicing the 'softirq queue'.
-> > On my system ksoftirqd and the u/s process work at similar speeds,
-> > so splicing will happen quite often.   
-> 
-> Well, the splice would happen only if you have more than one message
-> in the softirq queue. So no real overhead for uncontended flow
-> scenario.
-> 
-> 
-> This reminds me of the busylock I added in __dev_xmit_skb(), which
-> basically is acquired only when we detect a possible contention on
-> qdisc lock.
-
-Do you think the splice technique would, have the same performance
-benefit as having a MPMC queue with separate enqueue and dequeue locking?
-(like we have with skb_array/ptr_ring that avoids cache bouncing)?
-
+ #define HNS_TXD_ASID_S 0
+ #define HNS_TXD_ASID_M (0xff << HNS_TXD_ASID_S)
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 255fede..2296345 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -565,6 +565,68 @@ static void get_rx_desc_bnum(u32 bnum_flag, int *out_bnum)
+ 				   HNS_RXD_BUFNUM_M, HNS_RXD_BUFNUM_S);
+ }
+ 
++static void hns_nic_rx_checksum(struct hns_nic_ring_data *ring_data,
++				struct sk_buff *skb, u32 flag)
++{
++	struct net_device *netdev = ring_data->napi.dev;
++	u32 l3id;
++	u32 l4id;
++
++	/* check if RX checksum offload is enabled */
++	if (unlikely(!(netdev->features & NETIF_F_RXCSUM)))
++		return;
++
++	/* In hardware, we only support checksum for the following protocols:
++	 * 1) IPv4,
++	 * 2) TCP(over IPv4 or IPv6),
++	 * 3) UDP(over IPv4 or IPv6),
++	 * 4) SCTP(over IPv4 or IPv6)
++	 * but we support many L3(IPv4, IPv6, MPLS, PPPoE etc) and L4(TCP,
++	 * UDP, GRE, SCTP, IGMP, ICMP etc.) protocols.
++	 *
++	 * Hardware limitation:
++	 * Our present hardware RX Descriptor lacks L3/L4 checksum "Status &
++	 * Error" bit (which usually can be used to indicate whether checksum
++	 * was calculated by the hardware and if there was any error encountered
++	 * during checksum calculation).
++	 *
++	 * Software workaround:
++	 * We do get info within the RX descriptor about the kind of L3/L4
++	 * protocol coming in the packet and the error status. These errors
++	 * might not just be checksum errors but could be related to version,
++	 * length of IPv4, UDP, TCP etc.
++	 * Because there is no-way of knowing if it is a L3/L4 error due to bad
++	 * checksum or any other L3/L4 error, we will not (cannot) convey
++	 * checksum status for such cases to upper stack and will not maintain
++	 * the RX L3/L4 checksum counters as well.
++	 */
++
++	/*  check L3 protocol for which checksum is supported */
++	if ((l3id != HNS_RX_FLAG_L3ID_IPV4) && (l3id != HNS_RX_FLAG_L3ID_IPV6))
++		return;
++
++	/* check for any(not just checksum)flagged L3 protocol errors */
++	if (unlikely(hnae_get_bit(flag, HNS_RXD_L3E_B)))
++		return;
++
++	/* we do not support checksum of fragmented packets */
++	if (unlikely(hnae_get_bit(flag, HNS_RXD_FRAG_B)))
++		return;
++
++	/*  check L4 protocol for which checksum is supported */
++	if ((l4id != HNS_RX_FLAG_L4ID_TCP) &&
++	    (l4id != HNS_RX_FLAG_L4ID_UDP) &&
++	    (l4id != HNS_RX_FLAG_L4ID_SCTP))
++		return;
++
++	/* check for any(not just checksum)flagged L4 protocol errors */
++	if (unlikely(hnae_get_bit(flag, HNS_RXD_L4E_B)))
++		return;
++
++	/* now, this has to be a packet with valid RX checksum */
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++}
++
+ static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
+ 			       struct sk_buff **out_skb, int *out_bnum)
+ {
+@@ -683,13 +745,10 @@ static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
+ 	ring->stats.rx_pkts++;
+ 	ring->stats.rx_bytes += skb->len;
+ 
+-	if (unlikely(hnae_get_bit(bnum_flag, HNS_RXD_L3E_B) ||
+-		     hnae_get_bit(bnum_flag, HNS_RXD_L4E_B))) {
+-		ring->stats.l3l4_csum_err++;
+-		return 0;
+-	}
+-
+-	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	/* indicate to upper stack if our hardware has already calculated
++	 * the RX checksum
++	 */
++	hns_nic_rx_checksum(ring_data, skb, bnum_flag);
+ 
+ 	return 0;
+ }
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.7.9.5
