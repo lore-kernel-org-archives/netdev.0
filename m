@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ping: check minimum size on ICMP header length
-Date: Mon, 05 Dec 2016 13:36:11 -0500 (EST)
-Message-ID: <20161205.133611.650439526320620182.davem@davemloft.net>
-References: <20161205183438.GA133528@beast>
+Subject: Re: pull request: bluetooth-next 2016-12-03
+Date: Mon, 05 Dec 2016 13:38:15 -0500 (EST)
+Message-ID: <20161205.133815.1023757623950335762.davem@davemloft.net>
+References: <20161203195341.GA17607@x1c.ukservers.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchong@google.com, i@flanker017.me,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, linux-kernel@vger.kernel.org
-To: keescook@chromium.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161205183438.GA133528@beast>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: johan.hedberg@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47856 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751320AbcLESip (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 13:38:45 -0500
+In-Reply-To: <20161203195341.GA17607@x1c.ukservers.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kees Cook <keescook@chromium.org>
-Date: Mon, 5 Dec 2016 10:34:38 -0800
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Sat, 3 Dec 2016 19:53:41 +0000
 
-> Prior to commit c0371da6047a ("put iov_iter into msghdr") in v3.19, there
-> was no check that the iovec contained enough bytes for an ICMP header,
-> and the read loop would walk across neighboring stack contents. Since the
-> iov_iter conversion, bad arguments are noticed, but the returned error is
-> EFAULT. Returning EINVAL is a clearer error and also solves the problem
-> prior to v3.19.
+> Here's a set of Bluetooth & 802.15.4 patches for net-next (i.e. 4.10
+> kernel):
 > 
-> This was found using trinity with KASAN on v3.18:
- ...
-> CVE-2016-8399
+>  - Fix for a potential NULL deref in the ieee802154 netlink code
+>  - Fix for the ED values of the at86rf2xx driver
+>  - Documentation updates to ieee802154
+>  - Cleanups to u8 vs __u8 usage
+>  - Timer API usage cleanups in HCI drivers
 > 
-> Reported-by: Qidan He <i@flanker017.me>
-> Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied and queued up for -stable, thanks.
+Pulled, thanks Johan.
