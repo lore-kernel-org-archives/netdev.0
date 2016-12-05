@@ -1,8 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v4 06/13] net: ethernet: ti: cpts: disable cpts when unregistered
-Date: Mon, 5 Dec 2016 14:05:18 -0600
-Message-ID: <20161205200525.16664-7-grygorii.strashko@ti.com>
-References: <20161205200525.16664-1-grygorii.strashko@ti.com>
+Subject: [PATCH v4 00/13] net: ethernet: ti: cpts: update and fixes
+Date: Mon, 5 Dec 2016 14:05:12 -0600
+Message-ID: <20161205200525.16664-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
@@ -14,34 +13,70 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161205200525.16664-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:56062 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752037AbcLEUFl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 15:05:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The cpts now is left enabled after unregistration.
-Hence, disable it in cpts_unregister().
+It is preparation series intended to clean up and optimize TI CPTS driver to
+facilitate further integration with other TI's SoCs like Keystone 2.
 
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/ti/cpts.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Changes in v4:
+- fixed build error in patch
+  "net: ethernet: ti: cpts: clean up event list if event pool is empty"
+- rebased on top of net-next
+ 
+Changes in v3:
+- patches reordered: fixes and small updates moved first
+- added comments in code about cpts->cc_mult
+- conversation range (maxsec) limited to 10sec
 
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 3dda6d5..d3c1ac5 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -404,6 +404,10 @@ void cpts_unregister(struct cpts *cpts)
- 		ptp_clock_unregister(cpts->clock);
- 		cancel_delayed_work_sync(&cpts->overflow_work);
- 	}
-+
-+	cpts_write32(cpts, 0, int_enable);
-+	cpts_write32(cpts, 0, control);
-+
- 	if (cpts->refclk)
- 		cpts_clk_release(cpts);
- }
+Changes in v2:
+- patch "net: ethernet: ti: cpts: rework initialization/deinitialization"
+  was split on 4 patches
+- applied comments from Richard Cochran
+- dropped patch
+  "net: ethernet: ti: cpts: add return value to tx and rx timestamp funcitons"
+- new patches added:
+  "net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs"
+  and "clocksource: export the clocks_calc_mult_shift to use by timestamp code"
+
+Links on prev versions:
+v3: https://www.spinics.net/lists/devicetree/msg153474.html
+v2: http://www.mail-archive.com/linux-kernel@vger.kernel.org/msg1282034.html
+v1: http://www.spinics.net/lists/linux-omap/msg131925.html
+
+Grygorii Strashko (11):
+  net: ethernet: ti: cpts: switch to readl/writel_relaxed()
+  net: ethernet: ti: allow cpts to be built separately
+  net: ethernet: ti: cpsw: minimize direct access to struct cpts
+  net: ethernet: ti: cpts: fix unbalanced clk api usage in cpts_register/unregister
+  net: ethernet: ti: cpts: fix registration order
+  net: ethernet: ti: cpts: disable cpts when unregistered
+  net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs
+  net: ethernet: ti: cpts: rework initialization/deinitialization
+  net: ethernet: ti: cpts: move dt props parsing to cpts driver
+  net: ethernet: ti: cpts: calc mult and shift from refclk freq
+  net: ethernet: ti: cpts: fix overflow check period
+
+Murali Karicheri (1):
+  clocksource: export the clocks_calc_mult_shift to use by timestamp code
+
+WingMan Kwok (1):
+  net: ethernet: ti: cpts: clean up event list if event pool is empty
+
+ Documentation/devicetree/bindings/net/cpsw.txt |   8 +-
+ drivers/net/ethernet/ti/Kconfig                |   2 +-
+ drivers/net/ethernet/ti/Makefile               |   3 +-
+ drivers/net/ethernet/ti/cpsw.c                 |  84 ++++-----
+ drivers/net/ethernet/ti/cpsw.h                 |   2 -
+ drivers/net/ethernet/ti/cpts.c                 | 239 +++++++++++++++++++------
+ drivers/net/ethernet/ti/cpts.h                 |  80 ++++++++-
+ kernel/time/clocksource.c                      |   1 +
+ 8 files changed, 304 insertions(+), 115 deletions(-)
+
 -- 
 2.10.1
