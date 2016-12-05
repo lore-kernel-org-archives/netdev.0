@@ -1,35 +1,29 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH 01/28] bnxt_en: Add bnxt_set_max_func_irqs().
-Date: Mon, 5 Dec 2016 09:10:40 -0800
-Message-ID: <CACKFLi=i31Mgbry6zgqWYGNBgEsDRZthRGyoSLyHKJkhNN2KAg@mail.gmail.com>
-References: <1480919912-1079-1-git-send-email-selvin.xavier@broadcom.com>
- <1480919912-1079-2-git-send-email-selvin.xavier@broadcom.com> <20161205.114704.1700305660817315475.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net v2] net: fec: fix compile with CONFIG_M5272
+Date: Mon, 05 Dec 2016 12:14:06 -0500 (EST)
+Message-ID: <20161205.121406.1568673407424770643.davem@davemloft.net>
+References: <201612052104.HSl9jlj9%fengguang.wu@intel.com>
+        <51f44adf-486c-2e60-97c1-037d448fad49@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Selvin Xavier <selvin.xavier@broadcom.com>, dledford@redhat.com,
-        linux-rdma@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:33915 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751913AbcLERKm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 12:10:42 -0500
-Received: by mail-oi0-f51.google.com with SMTP id y198so347941191oia.1
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 09:10:41 -0800 (PST)
-In-Reply-To: <20161205.114704.1700305660817315475.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lkp@intel.com, kbuild-all@01.org, fugang.duan@nxp.com,
+        troy.kisky@boundarydevices.com, andrew@lunn.ch, eric@nelint.com,
+        tremyfr@gmail.com, johannes@sipsolutions.net,
+        netdev@vger.kernel.org, cphealy@gmail.com, fabio.estevam@nxp.com,
+        linux-kernel@vger.kernel.org
+To: nikita.yoush@cogentembedded.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51f44adf-486c-2e60-97c1-037d448fad49@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 5, 2016 at 8:47 AM, David Miller <davem@davemloft.net> wrote:
->
-> It really doesn't make any sense to only send 7 out of 28 of these
-> patches to the networking list.
->
-> In fact I would say that you need to split this series into two
-> components.
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Date: Mon, 5 Dec 2016 16:55:04 +0300
 
-OK.  I will resend those bnxt_en patches later today as a separate series.
+> Aieee   I was typing too fast today, sorry...
+> 
+> send separate "fix for the fix", or re-send patch without that silly typo?
 
->
-> One that goes into the networking tree, and once that's accepted you
-> can submit the IB parts to that subsystem's maintainer.
+If the patch hasn't been applied yet, you resend a fixed version of the
+patch, always.
