@@ -1,50 +1,47 @@
-From: Alex <alex.g@adaptrum.com>
-Subject: Re: [PATCH] drivers: net: cpsw-phy-sel: Clear RGMII_IDMODE on "rgmii"
- links
-Date: Tue, 6 Dec 2016 10:56:08 -0800
-Message-ID: <4e431f17-272e-54f9-e7b8-0365d712634e@adaptrum.com>
-References: <1480988033-16535-1-git-send-email-alex.g@adaptrum.com>
- <20161206.113630.1454582039498444818.davem@davemloft.net>
+From: Alexandru Gagniuc <alex.g@adaptrum.com>
+Subject: [PATCH v2] drivers: net: cpsw-phy-sel: Clear RGMII_IDMODE on "rgmii" links
+Date: Tue,  6 Dec 2016 10:56:51 -0800
+Message-ID: <1481050611-29698-1-git-send-email-alex.g@adaptrum.com>
+References: <20161206.113630.1454582039498444818.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+Content-Type: text/plain
+Cc: davem@davemloft.net, grygorii.strashko@ti.com,
         linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, gokhan@adaptrum.com
-To: David Miller <davem@davemloft.net>
+        linux-kernel@vger.kernel.org, gokhan@adaptrum.com,
+        Alexandru Gagniuc <alex.g@adaptrum.com>
+To: mugunthanvnm@ti.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161206.113630.1454582039498444818.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Support for setting the RGMII_IDMODE bit was added in the commit
+referenced below. However, that commit did not add the symmetrical
+clearing of the bit by way of setting it in "mask". Add it here.
 
+Note that the documentation marks clearing this bit as "reserved",
+however, according to TI, support for delaying the clock does exist in
+the MAC, although it is not officially supported.
+We tested this on a board with an RGMII to RGMII link that will not
+work unless this bit is cleared.
 
-On 12/06/2016 08:36 AM, David Miller wrote:
-> From: Alexandru Gagniuc <alex.g@adaptrum.com>
-> Date: Mon,  5 Dec 2016 17:33:53 -0800
->
->> Support for setting the RGMII_IDMODE bit was added in commit:
->> "drivers: net: cpsw-phy-sel: add support to configure rgmii internal delay"
->> However, that commit did not add the symmetrical clearing of the bit
->> by way of setting it in "mask". Add it here.
->>
->> Note that the documentation marks clearing this bit as "reserved",
->> however, according to TI, support for delaying the clock does exist in
->> the MAC, although it is not officially supported.
->> We tested this on a board with an RGMII to RGMII link that will not
->> work unless this bit is cleared.
->>
->> Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
->
-> Commits must be referenced by both short-form SHA1-ID as well as
-> the commit header text.
->
-> And since this change is fixing that commit, you should also provide
-> a proper "Fixes: " tag on the line right before your signoff.
+Fixes: 0fb26c3063ea ("drivers: net: cpsw-phy-sel: add support to configure rgmii internal delay")
+Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
+---
+ drivers/net/ethernet/ti/cpsw-phy-sel.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Thank you very much for the feedback. I will update accordingly.
-
-Alex
-
-> Thanks.
->
+diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+index ba1e45f..1801364 100644
+--- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
++++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+@@ -81,6 +81,7 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
+ 	};
+ 
+ 	mask = GMII_SEL_MODE_MASK << (slave * 2) | BIT(slave + 6);
++	mask |= BIT(slave + 4);
+ 	mode <<= slave * 2;
+ 
+ 	if (priv->rmii_clock_external) {
+-- 
+2.7.4
