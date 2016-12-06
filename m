@@ -1,103 +1,117 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
-Date: Tue, 06 Dec 2016 11:34:11 +0100
-Message-ID: <1481020451.6225.38.camel@redhat.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv2 net] team: team_port_add should check link_up before
+ enable port
+Date: Tue, 6 Dec 2016 18:38:53 +0800
+Message-ID: <CADvbK_e01bz-PGmDrdxztyzLqmR5od3rahO960Oe2OhYQ6fp9w@mail.gmail.com>
+References: <62f7aa9c00b68beed68a907c51dde22e7847d6c9.1481009348.git.lucien.xin@gmail.com>
+ <20161206082233.GD1984@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed; boundary=94eb2c0bc864c912140542fb0267
+Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57348 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751581AbcLFKek (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Dec 2016 05:34:40 -0500
-In-Reply-To: <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:33160 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753171AbcLFKiz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 05:38:55 -0500
+Received: by mail-qt0-f195.google.com with SMTP id n6so39543224qtd.0
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 02:38:55 -0800 (PST)
+In-Reply-To: <20161206082233.GD1984@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+--94eb2c0bc864c912140542fb0267
+Content-Type: text/plain; charset=UTF-8
 
-On Mon, 2016-12-05 at 09:57 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In UDP recvmsg() path we currently access 3 cache lines from an skb
-> while holding receive queue lock, plus another one if packet is
-> dequeued, since we need to change skb->next->prev
-> 
-> 1st cache line (contains ->next/prev pointers, offsets 0x00 and 0x08)
-> 2nd cache line (skb->len & skb->peeked, offsets 0x80 and 0x8e)
-> 3rd cache line (skb->truesize/users, offsets 0xe0 and 0xe4)
-> 
-> skb->peeked is only needed to make sure 0-length packets are properly
-> handled while MSG_PEEK is operated.
-> 
-> I had first the intent to remove skb->peeked but the "MSG_PEEK at
-> non-zero offset" support added by Sam Kumar makes this not possible.
-> 
-> This patch avoids one cache line miss during the locked section, when
-> skb->len and skb->peeked do not have to be read.
-> 
-> It also avoids the skb_set_peeked() cost for non empty UDP datagrams.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Tue, Dec 6, 2016 at 4:22 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Dec 06, 2016 at 08:29:08AM CET, lucien.xin@gmail.com wrote:
+>>Now when users add a nic to team dev, the option 'enable' of the port
+>>is true by default, as team_port_enable enables it after dev_open in
+>>team_port_add.
+>>
+>>But even if the port_dev has no carrier, like it's cable was unpluged,
+>>the port is still enabled. It leads to that team dev couldn't work well
+>>if this port was chosen to connect, and has no chance to change to use
+>>other ports if link_watch is ethtool.
+>>
+>>This patch is to enable the port only when the port_dev has carrier in
+>>team_port_add.
+>>
+>>v1 -> v2:
+>>  use netif_carrier_ok() instead of !!netif_carrier_ok(), as it returns
+>>  bool now.
+>>
+>>Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>>---
+>> drivers/net/team/team.c | 8 ++++++--
+>> 1 file changed, 6 insertions(+), 2 deletions(-)
+>>
+>>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>>index a380649..4bc0103 100644
+>>--- a/drivers/net/team/team.c
+>>+++ b/drivers/net/team/team.c
+>>@@ -1140,6 +1140,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+>>       struct net_device *dev = team->dev;
+>>       struct team_port *port;
+>>       char *portname = port_dev->name;
+>>+      bool linkup;
+>>       int err;
+>>
+>>       if (port_dev->flags & IFF_LOOPBACK) {
+>>@@ -1249,9 +1250,12 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+>>
+>>       port->index = -1;
+>>       list_add_tail_rcu(&port->list, &team->port_list);
+>>-      team_port_enable(team, port);
+>>+      linkup = netif_carrier_ok(port_dev);
+>>+      if (linkup)
+>>+              team_port_enable(team, port);
+>
+> This is obviously wrong change. It you use a simple setup without
+> userspace part (e.g. round robin), The port gets never enabled.
+> team_port_enabl is called from here and team_port_en_option_set.
+yes, without userspace part, that would be a problem.
 
-Thank you for all the good work.
+>
+> By default, all ports should be enabled. Only in case the userspace
+> daemon decides to disable, it does so.
+>
+> Could you send me the exact configuration where you see the issue?
+attachment is the scripts,
 
-After all your improvement, I see the cacheline miss in inet_recvmsg()
-as a major perf offender for the user space process in the udp flood
-scenario due to skc_rxhash sharing the same sk_drops cacheline.
+# ./setup.sh
+# ip netns exec ns1 ./team1.sh
+# ./team0.sh
+# ping 192.168.11.3
 
-Using an udp-specific drop counter (and an sk_drops accessor to wrap
-sk_drops access where needed), we could avoid such cache miss. With that
-- patch for udp.h only below - I get 3% improvement on top of all the
-pending udp patches, and the gain should be more relevant after the 2
-queues rework. What do you think ?
+the issue is team0 cannot switch to veth2, even if the veth0 has no carrier.
 
-Cheers,
+> This should be definitelly fixed in user part.
+now it can disable/enable it in lw_ethtool_event_watch_port_changed()
+when receive event from kernel, but at the beginning, the first event from
+adding port will not going to team_port_en_option_set, as new_link_up
+== common_ppriv->link_up in lw_ethtool_event_watch_port_changed().
 
-Paolo.
----
-diff --git a/include/linux/udp.h b/include/linux/udp.h
-index d1fd8cd..2bbf5db 100644
---- a/include/linux/udp.h
-+++ b/include/linux/udp.h
-@@ -49,7 +49,11 @@ struct udp_sock {
-        unsigned int     corkflag;      /* Cork is required */
-        __u8             encap_type;    /* Is this an Encapsulation socket? */
-        unsigned char    no_check6_tx:1,/* Send zero UDP6 checksums on TX? */
--                        no_check6_rx:1;/* Allow zero UDP6 checksums on RX? */
-+                        no_check6_rx:1,/* Allow zero UDP6 checksums on RX? */
-+                        pcflag:6;      /* UDP-Lite specific, moved here to */
-+                                       /* fill an hole, marks socket as */
-+                                       /* UDP-Lite if > 0    */
-+
-        /*
-         * Following member retains the information to create a UDP header
-         * when the socket is uncorked.
-@@ -64,8 +68,7 @@ struct udp_sock {
- #define UDPLITE_BIT      0x1           /* set by udplite proto init function */
- #define UDPLITE_SEND_CC  0x2           /* set via udplite setsockopt         */
- #define UDPLITE_RECV_CC  0x4           /* set via udplite setsocktopt        */
--       __u8             pcflag;        /* marks socket as UDP-Lite if > 0    */
--       __u8             unused[3];
-+
-        /*
-         * For encapsulation sockets.
-         */
-@@ -79,6 +82,9 @@ struct udp_sock {
-        int                     (*gro_complete)(struct sock *sk,
-                                                struct sk_buff *skb,
-                                                int nhoff);
-+
-+       /* since we are prone to drops, avoid dirtying any sk cacheline */
-+       atomic_t                drops ____cacheline_aligned_in_smp;
- };
- 
- static inline struct udp_sock *udp_sk(const struct sock *sk)
+maybe it should be fixed there ?
+
+>
+> Thanks.
+
+--94eb2c0bc864c912140542fb0267
+Content-Type: application/x-gzip; name="team-scripts.tar.gz"
+Content-Disposition: attachment; filename="team-scripts.tar.gz"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iwddi2vo0
+
+H4sIAB0FP1gAA+2WzXKbMBDHOfsptuSQS22zEuDWx/bcZ+jIIMeMiWCE7Eynk3evBCTlw6SXGLfT
+/Vlj0O7qA6+Wv40Uj8sq0VlpqrV3HQLLZhO5K24i7F5f8JBbWxywEG0c8piFHkRX2k+PU2WEBvB2
+DyI/C5VNxf3J/49iuvl3nWBVHd55jTr/0XT+Y9y85p/Hoc1/ZO89CN55Hxf5z/N/92G9y9S6OiwW
+LvspLA3UxwCWx5HF3idw/xN8fVJKah+2YDtKPEp/C35eiHQncqES6cPzR7CWTB2/PwmTHAah0hxM
+UeQ2DJ7vF1kJOVTSwNnaA0iLJ9W3scY2DBRpqiEItrZh/V234dB+FGNNax83MXn7cGWhjYtt5n7T
+y0Y7OZXDVbuWZgprcSZhP6k8t0b8zFYYf1ohrnDNwsXs+e/Vv93sqZy//sPo9/ufY+zqn7OA6n8O
+OvV/B1+1FEbWJxhKkemqOcOvVQHmR/nillKDK+e6i/1ANhnI3TLfinM7DIRqRnAwhSuMbL+XWioD
+ql5bSaOqelpVYb/EsHWOHLzjsIt90Zl6sMUHmTJS70Ui65mXygX05mtKduTgdeXeOk/XYqT/eAP9
+j+PB/7+IBVT/szCl/zjSf5xH//GC/vNL+o8DZUds2nBoP4rzpg30H/sKj296+WgnQ/3nI/3HS/qP
+Xf3nTv/tC+soZTn5S7S2W58agiAIgiAIgiAIgiAIgiAIgiAI4m/lF97ircEAKAAA
+--94eb2c0bc864c912140542fb0267--
