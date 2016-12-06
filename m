@@ -1,45 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net:mv88e6xxx: dispose irq mapping
-Date: Tue, 6 Dec 2016 16:08:56 +0100
-Message-ID: <20161206150856.GG26615@lunn.ch>
-References: <1481018743-27208-1-git-send-email-volodymyr.bendiuga@westermo.se>
- <20161206141923.GB26615@lunn.ch>
- <7717215e-dddd-14af-196f-e638b5c60649@westermo.se>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: bpf debug info
+Date: Tue, 6 Dec 2016 12:12:01 -0300
+Message-ID: <20161206151201.GD2399@kernel.org>
+References: <20161129064217.GA20124@ast-mbp.thefacebook.com>
+ <583D9AA4.8050601@iogearbox.net>
+ <20161129170115.GB22217@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Thomas Graf <tgraf@suug.ch>, Wangnan <wangnan0@huawei.com>,
+        He Kuang <hekuang@huawei.com>, kernel-team@fb.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44175 "EHLO vps0.lunn.ch"
+Received: from mail.kernel.org ([198.145.29.136]:56962 "EHLO mail.kernel.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751443AbcLFPI7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Dec 2016 10:08:59 -0500
+        id S1752111AbcLFPM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 10:12:28 -0500
 Content-Disposition: inline
-In-Reply-To: <7717215e-dddd-14af-196f-e638b5c60649@westermo.se>
+In-Reply-To: <20161129170115.GB22217@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 06, 2016 at 04:00:27PM +0100, Volodymyr Bendiuga wrote:
-> Hi Andrew,
+Em Tue, Nov 29, 2016 at 09:01:17AM -0800, Alexei Starovoitov escreveu:
+> On Tue, Nov 29, 2016 at 04:11:32PM +0100, Daniel Borkmann wrote:
+> > On 11/29/2016 07:42 AM, Alexei Starovoitov wrote:
+> > >Notice that 'clang -S -o a.s' output and llvm-objdump disassembler
+> > >were changed to use kernel verifier style, so now it should be easier
+> > >to see what's going on.
+
+> > Sounds really useful, is that scheduled for llvm 3.10 release?
+
+> llvm 4.0 :)
+
+> > That debugging info is stored in dwarf format into the obj, right?
+
+> right.
+
+> > Would be nice if also pahole could work on bpf object files.
 > 
-> thanks for you comments and time taken to review. I will make a new
-> 
-> version which will indicate net-next tree.
-> 
-> About mv88e6xxx_remove(), this function will not be called
+> yeah. pahole need to be taught to recognize bpf e_machine type and relocations.
 
-Correct, which is why i said:
+Coincidentally I'm testing some perf patches wrt builtin BPF and for
+that I'm updating to llvm to 4.0, will take a look at what is involved
+in that...
 
-> and the error path of mv88e6xxx_probe().
-
-which will be called on EPRODE_DEFFER. 
-
-> irq_dispose_mapping() is also called in mv88e6xxx_g2_irq_free(), so
-> I put it in a similar
-
-The mapping for chip->device_irq is made in mv88e6xxx_g2_irq_setup(),
-so the disposal of the mapping logically goes in
-mv88e6xxx_g2_irq_free().
-
-	Andrew
+- Arnaldo
