@@ -1,54 +1,41 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: ep93xx_eth: Do not crash unloading module
-Date: Tue, 6 Dec 2016 12:44:21 -0800
-Message-ID: <5ba93557-02c0-c337-44c8-8d96fc94cf08@gmail.com>
-References: <20161205032205.14127-1-f.fainelli@gmail.com>
- <20161205.153602.1770726597007697695.davem@davemloft.net>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net/flow_dissector: Enable matching on flags
+ for TC filter consumers
+Date: Tue, 6 Dec 2016 22:51:09 +0200
+Message-ID: <CAJ3xEMgkfZ2Fzt7TgtP0BFp7HQ12nf6Yx-Xek332vqBNeN=-OQ@mail.gmail.com>
+References: <1481027579-23195-1-git-send-email-ogerlitz@mellanox.com>
+ <1481027579-23195-2-git-send-email-ogerlitz@mellanox.com> <20161206124358.GM1984@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hsweeten@visionengravers.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Tom Herbert <tom@herbertland.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34272 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751277AbcLFUpT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 15:45:19 -0500
-Received: by mail-pg0-f65.google.com with SMTP id e9so20862418pgc.1
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 12:44:23 -0800 (PST)
-In-Reply-To: <20161205.153602.1770726597007697695.davem@davemloft.net>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:36809 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752288AbcLFUvK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 15:51:10 -0500
+Received: by mail-oi0-f66.google.com with SMTP id u15so42933340oie.3
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 12:51:10 -0800 (PST)
+In-Reply-To: <20161206124358.GM1984@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2016 12:36 PM, David Miller wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Sun,  4 Dec 2016 19:22:05 -0800
-> 
->> When we unload the ep93xx_eth, whether we have opened the network
->> interface or not, we will either hit a kernel paging request error, or a
->> simple NULL pointer de-reference because:
->>
->> - if ep93xx_open has been called, we have created a valid DMA mapping
->>   for ep->descs, when we call ep93xx_stop, we also call
->>   ep93xx_free_buffers, ep->descs now has a stale value
->>
->> - if ep93xx_open has not been called, we have a NULL pointer for
->>   ep->descs, so performing any operation against that address just won't
->>   work
->>
->> Fix this by adding a NULL pointer check for ep->descs which means that
->> ep93xx_free_buffers() was able to successfully tear down the descriptors
->> and free the DMA cookie as well.
->>
->> Fixes: 1d22e05df818 ("[PATCH] Cirrus Logic ep93xx ethernet driver")
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> Applied, thanks Florian.
+On Tue, Dec 6, 2016 at 2:43 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Dec 06, 2016 at 01:32:57PM CET, ogerlitz@mellanox.com wrote:
 
-Thanks! Can you also queue this one for -stable? The original commit
-dates back from 2006, but it should apply with minor hunks to all
--stable kernels.
+>> struct flow_keys {
+>>+#define FLOW_KEYS_HASH_START_FIELD control
+>>       struct flow_dissector_key_control control;
+>>-#define FLOW_KEYS_HASH_START_FIELD basic
 
-Cheers
--- 
-Florian
+> How is this hashing related to cls_flower dissections? What am I
+> missing?
+
+Oops, this is my bad. I convinced myself that flower dissections will
+not work for any field which is not accounted for hash start field, I
+was wrong, dropping this patch.
