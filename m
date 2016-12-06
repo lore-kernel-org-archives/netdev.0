@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v3 PATCH] netlink: Do not schedule work from sk_destruct
-Date: Mon, 05 Dec 2016 19:44:14 -0500 (EST)
-Message-ID: <20161205.194414.1922270027505338684.davem@davemloft.net>
-References: <20161205071946.GB9496@gondor.apana.org.au>
-        <20161205072600.GA10204@gondor.apana.org.au>
-        <20161205072820.GB10204@gondor.apana.org.au>
+Subject: Re: [PATCH net-next 4/7] liquidio CN23XX: VF scatter gather lists
+Date: Mon, 05 Dec 2016 19:48:32 -0500 (EST)
+Message-ID: <20161205.194832.1102997695171872315.davem@davemloft.net>
+References: <1480929318-8511-1-git-send-email-rvatsavayi@caviumnetworks.com>
+        <1480929318-8511-5-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, andreyknvl@google.com,
-        johannes.berg@intel.com, fw@strlen.de, edumazet@google.com,
-        me@bobcopeland.com, tom@herbertland.com, decot@googlers.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161205072820.GB10204@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@caviumnetworks.com,
+        derek.chickles@caviumnetworks.com,
+        satananda.burla@caviumnetworks.com,
+        felix.manlunas@caviumnetworks.com
+To: rvatsavayi@caviumnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58558 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751981AbcLFAse (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 19:48:34 -0500
+In-Reply-To: <1480929318-8511-5-git-send-email-rvatsavayi@caviumnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 5 Dec 2016 15:28:21 +0800
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Date: Mon, 5 Dec 2016 01:15:15 -0800
 
-> It is wrong to schedule a work from sk_destruct using the socket
-> as the memory reserve because the socket will be freed immediately
-> after the return from sk_destruct.
-> 
-> Instead we should do the deferral prior to sk_free.
-> 
-> This patch does just that.
-> 
-> Fixes: 707693c8a498 ("netlink: Call cb->done from a worker thread")
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> +	kfree((void *)lio->glist);
+> +	kfree((void *)lio->glist_lock);
+> +}
+ ...
+> +	if (!lio->glist) {
+> +		kfree((void *)lio->glist_lock);
+> +		return 1;
+> +	}
 
-Applied, thanks Herbert.
+These void casts are unnecessary, please remove them.
