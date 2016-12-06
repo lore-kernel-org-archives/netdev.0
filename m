@@ -1,51 +1,67 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH next] Revert "dctcp: update cwnd on congestion event"
-Date: Mon, 5 Dec 2016 21:11:50 -0500
-Message-ID: <CADVnQynFS6g_Tr287p9U1u5p70HjOprkD0N9Ep_1p3v-Kb04zQ@mail.gmail.com>
-References: <1480980180-23349-1-git-send-email-fw@strlen.de>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] virtio-net: Fix DMA-from-the-stack in
+	virtnet_set_mac_address()
+Date: Tue, 6 Dec 2016 10:30:37 +0800
+Message-ID: <05232199-2e0c-3fe5-ef85-c0013f017a69@redhat.com>
+References: <fe889e578d5dffa9ae0834b449a35fcfd1e10694.1480990173.git.luto@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:36056 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752630AbcLFCMW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 5 Dec 2016 21:12:22 -0500
-Received: by mail-oi0-f51.google.com with SMTP id v84so362503538oie.3
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 18:12:21 -0800 (PST)
-In-Reply-To: <1480980180-23349-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Laura Abbott <labbott@redhat.com>, "Michael S . Tsirkin" <mst@redhat.com>,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Andy Lutomirski <luto@kernel.org>, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <fe889e578d5dffa9ae0834b449a35fcfd1e10694.1480990173.git.luto@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 5, 2016 at 6:23 PM, Florian Westphal <fw@strlen.de> wrote:
-> Neal Cardwell says:
->  If I am reading the code correctly, then I would have two concerns:
->  1) Has that been tested? That seems like an extremely dramatic
->     decrease in cwnd. For example, if the cwnd is 80, and there are 40
->     ACKs, and half the ACKs are ECE marked, then my back-of-the-envelope
->     calculations seem to suggest that after just 11 ACKs the cwnd would be
->     down to a minimal value of 2 [..]
->  2) That seems to contradict another passage in the draft [..] where it
->     sazs:
->        Just as specified in [RFC3168], DCTCP does not react to congestion
->        indications more than once for every window of data.
->
-> Neal is right.  Fortunately we don't have to complicate this by testing
-> vs. current rtt estimate, we can just revert the patch.
->
-> Normal stack already handles this for us: receiving ACKs with ECE
-> set causes a call to tcp_enter_cwr(), from there on the ssthresh gets
-> adjusted and prr will take care of cwnd adjustment.
->
-> Fixes: 4780566784b396 ("dctcp: update cwnd on congestion event")
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
-
-Acked-by: Neal Cardwell <ncardwell@google.com>
-
-Looks good to me. :-)
-
-Thanks,
-neal
+CgpPbiAyMDE25bm0MTLmnIgwNuaXpSAxMDoxMCwgQW5keSBMdXRvbWlyc2tpIHdyb3RlOgo+IFdp
+dGggQ09ORklHX1ZNQVBfU1RBQ0s9eSwgdmlydG5ldF9zZXRfbWFjX2FkZHJlc3MoKSBjYW4gYmUg
+cGFzc2VkIGEKPiBwb2ludGVyIHRvIHRoZSBzdGFjayBhbmQgaXQgd2lsbCBPT1BTLiAgQ29weSB0
+aGUgYWRkcmVzcyB0byB0aGUgaGVhcAo+IHRvIHByZXZlbnQgdGhlIGNyYXNoLgo+Cj4gQ2M6IE1p
+Y2hhZWwgUy4gVHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+Cj4gQ2M6IEphc29uIFdhbmcgPGphc293
+YW5nQHJlZGhhdC5jb20+Cj4gQ2M6IExhdXJhIEFiYm90dCA8bGFiYm90dEByZWRoYXQuY29tPgo+
+IFJlcG9ydGVkLWJ5OiB6YnlzemVrQGluLndhdy5wbAo+IFNpZ25lZC1vZmYtYnk6IEFuZHkgTHV0
+b21pcnNraSA8bHV0b0BrZXJuZWwub3JnPgo+IC0tLQo+Cj4gVmVyeSBsaWdodGx5IHRlc3RlZC4K
+Pgo+ICAgZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIHwgMTkgKysrKysrKysrKysrKystLS0tLQo+
+ICAgMSBmaWxlIGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCj4KPiBk
+aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIGIvZHJpdmVycy9uZXQvdmlydGlv
+X25ldC5jCj4gaW5kZXggNzI3NmQ1YTk1YmQwLi5jYmYxYzYxM2M2N2EgMTAwNjQ0Cj4gLS0tIGEv
+ZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5j
+Cj4gQEAgLTk2OSwxMiArOTY5LDE3IEBAIHN0YXRpYyBpbnQgdmlydG5ldF9zZXRfbWFjX2FkZHJl
+c3Moc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgdm9pZCAqcCkKPiAgIAlzdHJ1Y3QgdmlydG5ldF9p
+bmZvICp2aSA9IG5ldGRldl9wcml2KGRldik7Cj4gICAJc3RydWN0IHZpcnRpb19kZXZpY2UgKnZk
+ZXYgPSB2aS0+dmRldjsKPiAgIAlpbnQgcmV0Owo+IC0Jc3RydWN0IHNvY2thZGRyICphZGRyID0g
+cDsKPiArCXN0cnVjdCBzb2NrYWRkciAqYWRkcjsKPiAgIAlzdHJ1Y3Qgc2NhdHRlcmxpc3Qgc2c7
+Cj4gICAKPiAtCXJldCA9IGV0aF9wcmVwYXJlX21hY19hZGRyX2NoYW5nZShkZXYsIHApOwo+ICsJ
+YWRkciA9IGttYWxsb2Moc2l6ZW9mKCphZGRyKSwgR0ZQX0tFUk5FTCk7Cj4gKwlpZiAoIWFkZHIp
+Cj4gKwkJcmV0dXJuIC1FTk9NRU07Cj4gKwltZW1jcHkoYWRkciwgcCwgc2l6ZW9mKCphZGRyKSk7
+Cj4gKwo+ICsJcmV0ID0gZXRoX3ByZXBhcmVfbWFjX2FkZHJfY2hhbmdlKGRldiwgYWRkcik7Cj4g
+ICAJaWYgKHJldCkKPiAtCQlyZXR1cm4gcmV0Owo+ICsJCWdvdG8gb3V0Owo+ICAgCj4gICAJaWYg
+KHZpcnRpb19oYXNfZmVhdHVyZSh2ZGV2LCBWSVJUSU9fTkVUX0ZfQ1RSTF9NQUNfQUREUikpIHsK
+PiAgIAkJc2dfaW5pdF9vbmUoJnNnLCBhZGRyLT5zYV9kYXRhLCBkZXYtPmFkZHJfbGVuKTsKPiBA
+QCAtOTgyLDcgKzk4Nyw4IEBAIHN0YXRpYyBpbnQgdmlydG5ldF9zZXRfbWFjX2FkZHJlc3Moc3Ry
+dWN0IG5ldF9kZXZpY2UgKmRldiwgdm9pZCAqcCkKPiAgIAkJCQkJICBWSVJUSU9fTkVUX0NUUkxf
+TUFDX0FERFJfU0VULCAmc2cpKSB7Cj4gICAJCQlkZXZfd2FybigmdmRldi0+ZGV2LAo+ICAgCQkJ
+CSAiRmFpbGVkIHRvIHNldCBtYWMgYWRkcmVzcyBieSB2cSBjb21tYW5kLlxuIik7Cj4gLQkJCXJl
+dHVybiAtRUlOVkFMOwo+ICsJCQlyZXQgPSAtRUlOVkFMOwo+ICsJCQlnb3RvIG91dDsKPiAgIAkJ
+fQo+ICAgCX0gZWxzZSBpZiAodmlydGlvX2hhc19mZWF0dXJlKHZkZXYsIFZJUlRJT19ORVRfRl9N
+QUMpICYmCj4gICAJCSAgICF2aXJ0aW9faGFzX2ZlYXR1cmUodmRldiwgVklSVElPX0ZfVkVSU0lP
+Tl8xKSkgewo+IEBAIC05OTYsOCArMTAwMiwxMSBAQCBzdGF0aWMgaW50IHZpcnRuZXRfc2V0X21h
+Y19hZGRyZXNzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHZvaWQgKnApCj4gICAJfQo+ICAgCj4g
+ICAJZXRoX2NvbW1pdF9tYWNfYWRkcl9jaGFuZ2UoZGV2LCBwKTsKPiArCXJldCA9IDA7Cj4gICAK
+PiAtCXJldHVybiAwOwo+ICtvdXQ6Cj4gKwlrZnJlZShhZGRyKTsKPiArCXJldHVybiByZXQ7Cj4g
+ICB9Cj4gICAKPiAgIHN0YXRpYyBzdHJ1Y3QgcnRubF9saW5rX3N0YXRzNjQgKnZpcnRuZXRfc3Rh
+dHMoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKCkFja2VkLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2Fu
+Z0ByZWRoYXQuY29tPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGlu
+dXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxt
+YW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
