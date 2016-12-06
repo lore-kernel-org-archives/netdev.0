@@ -1,269 +1,157 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [RFC PATCH] i40e: enable PCIe relax ordering
- for SPARC
-Date: Tue, 6 Dec 2016 09:10:17 -0800
-Message-ID: <CAKgT0UfTP+BrvDBzUJAVr9-DRCKgM7T3aS=LgRic8UZz8x82eg@mail.gmail.com>
-References: <1480957627-16825-1-git-send-email-tushar.n.dave@oracle.com>
- <CAKgT0UcyRSub0NCi7oHX2Vf+N4vQxzwdWmcc+V+jOX_J=RYgfg@mail.gmail.com> <ec140d5d-3eec-5fc6-6417-11bacc55b807@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>
-To: tndave <tushar.n.dave@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33946 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751670AbcLFRKT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 12:10:19 -0500
-Received: by mail-io0-f194.google.com with SMTP id r94so7761729ioe.1
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 09:10:19 -0800 (PST)
-In-Reply-To: <ec140d5d-3eec-5fc6-6417-11bacc55b807@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 5/7] bnxt_en: Reserve RDMA resources by default.
+Date: Tue,  6 Dec 2016 12:09:36 -0500
+Message-ID: <1481044178-25193-6-git-send-email-michael.chan@broadcom.com>
+References: <1481044178-25193-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1481044178-25193-1-git-send-email-michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 5, 2016 at 2:23 PM, tndave <tushar.n.dave@oracle.com> wrote:
->
->
-> On 12/05/2016 01:54 PM, Alexander Duyck wrote:
->>
->> On Mon, Dec 5, 2016 at 9:07 AM, Tushar Dave <tushar.n.dave@oracle.com>
->> wrote:
->>>
->>> Unlike previous generation NIC (e.g. ixgbe) i40e doesn't seem to have
->>> standard CSR where PCIe relaxed ordering can be set. Without PCIe relax
->>> ordering enabled, i40e performance is significantly low on SPARC.
->>>
->>> This patch sets PCIe relax ordering for SPARC arch by setting dma attr
->>> DMA_ATTR_WEAK_ORDERING for every tx and rx DMA map/unmap.
->>> This has shown 10x increase in performance numbers.
->>>
->>> e.g.
->>> iperf TCP test with 10 threads on SPARC S7
->>>
->>> Test 1: Without this patch
->>>
->>> # iperf -s
->>> ------------------------------------------------------------
->>> Server listening on TCP port 5001
->>> TCP window size: 85.3 KByte (default)
->>> ------------------------------------------------------------
->>> [  4] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40926
->>> [  5] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40934
->>> [  6] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40930
->>> [  7] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40928
->>> [  8] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40922
->>> [  9] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40932
->>> [ 10] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40920
->>> [ 11] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40924
->>> [ 14] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40982
->>> [ 12] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40980
->>> [ ID] Interval       Transfer     Bandwidth
->>> [  4]  0.0-20.0 sec   566 MBytes   237 Mbits/sec
->>> [  5]  0.0-20.0 sec   532 MBytes   223 Mbits/sec
->>> [  6]  0.0-20.0 sec   537 MBytes   225 Mbits/sec
->>> [  8]  0.0-20.0 sec   546 MBytes   229 Mbits/sec
->>> [ 11]  0.0-20.0 sec   592 MBytes   248 Mbits/sec
->>> [  7]  0.0-20.0 sec   539 MBytes   226 Mbits/sec
->>> [  9]  0.0-20.0 sec   572 MBytes   240 Mbits/sec
->>> [ 10]  0.0-20.0 sec   604 MBytes   253 Mbits/sec
->>> [ 14]  0.0-20.0 sec   567 MBytes   238 Mbits/sec
->>> [ 12]  0.0-20.0 sec   511 MBytes   214 Mbits/sec
->>> [SUM]  0.0-20.0 sec  5.44 GBytes  2.33 Gbits/sec
->>>
->>> Test 2: with this patch:
->>>
->>> # iperf -s
->>> ------------------------------------------------------------
->>> Server listening on TCP port 5001
->>> TCP window size: 85.3 KByte (default)
->>> ------------------------------------------------------------
->>> TCP: request_sock_TCP: Possible SYN flooding on port 5001. Sending
->>> cookies.  Check SNMP counters.
->>> [  4] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46876
->>> [  5] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46874
->>> [  6] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46872
->>> [  7] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46880
->>> [  8] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46878
->>> [  9] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46884
->>> [ 10] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46886
->>> [ 11] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46890
->>> [ 12] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46888
->>> [ 13] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46882
->>> [ ID] Interval       Transfer     Bandwidth
->>> [  4]  0.0-20.0 sec  7.45 GBytes  3.19 Gbits/sec
->>> [  5]  0.0-20.0 sec  7.48 GBytes  3.21 Gbits/sec
->>> [  7]  0.0-20.0 sec  7.34 GBytes  3.15 Gbits/sec
->>> [  8]  0.0-20.0 sec  7.42 GBytes  3.18 Gbits/sec
->>> [  9]  0.0-20.0 sec  7.24 GBytes  3.11 Gbits/sec
->>> [ 10]  0.0-20.0 sec  7.40 GBytes  3.17 Gbits/sec
->>> [ 12]  0.0-20.0 sec  7.49 GBytes  3.21 Gbits/sec
->>> [  6]  0.0-20.0 sec  7.30 GBytes  3.13 Gbits/sec
->>> [ 11]  0.0-20.0 sec  7.44 GBytes  3.19 Gbits/sec
->>> [ 13]  0.0-20.0 sec  7.22 GBytes  3.10 Gbits/sec
->>> [SUM]  0.0-20.0 sec  73.8 GBytes  31.6 Gbits/sec
->>>
->>> NOTE: In my testing, this patch does _not_ show any harm to i40e
->>> performance numbers on x86.
->>>
->>> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
->>
->>
->> You went through and replaced all of the dma_unmap/map_page calls with
->> dma_map/unmap_single_attrs  I would prefer you didn't do that.  I have
->
-> Yes, because currently there is no DMA API for dma_map/unmap_page with dma
-> attr*
->>
->> patches to add the ability to map and unmap pages with attributes that
->> should be available for 4.10-rc1 so if you could wait on this patch
->> until then it would be preferred.
->
-> :-) thanks. I will wait until your patches are out.
->
->>
->>> ---
->>>  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 69
->>> ++++++++++++++++++++---------
->>>  drivers/net/ethernet/intel/i40e/i40e_txrx.h |  1 +
->>>  2 files changed, 49 insertions(+), 21 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->>> b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->>> index 6287bf6..800dca7 100644
->>> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->>> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->>> @@ -551,15 +551,17 @@ static void i40e_unmap_and_free_tx_resource(struct
->>> i40e_ring *ring,
->>>                 else
->>>                         dev_kfree_skb_any(tx_buffer->skb);
->>>                 if (dma_unmap_len(tx_buffer, len))
->>> -                       dma_unmap_single(ring->dev,
->>> -                                        dma_unmap_addr(tx_buffer, dma),
->>> -                                        dma_unmap_len(tx_buffer, len),
->>> -                                        DMA_TO_DEVICE);
->>> +                       dma_unmap_single_attrs(ring->dev,
->>> +                                              dma_unmap_addr(tx_buffer,
->>> dma),
->>> +                                              dma_unmap_len(tx_buffer,
->>> len),
->>> +                                              DMA_TO_DEVICE,
->>> +                                              ring->dma_attrs);
->>>         } else if (dma_unmap_len(tx_buffer, len)) {
->>> -               dma_unmap_page(ring->dev,
->>> -                              dma_unmap_addr(tx_buffer, dma),
->>> -                              dma_unmap_len(tx_buffer, len),
->>> -                              DMA_TO_DEVICE);
->>> +               dma_unmap_single_attrs(ring->dev,
->>> +                                      dma_unmap_addr(tx_buffer, dma),
->>> +                                      dma_unmap_len(tx_buffer, len),
->>> +                                      DMA_TO_DEVICE,
->>> +                                      ring->dma_attrs);
->>>         }
->>>
->>>         tx_buffer->next_to_watch = NULL;
->>> @@ -662,6 +664,8 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
->>>         struct i40e_tx_buffer *tx_buf;
->>>         struct i40e_tx_desc *tx_head;
->>>         struct i40e_tx_desc *tx_desc;
->>> +       dma_addr_t addr;
->>> +       size_t size;
->>>         unsigned int total_bytes = 0, total_packets = 0;
->>>         unsigned int budget = vsi->work_limit;
->>>
->>> @@ -696,10 +700,11 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
->>>                 napi_consume_skb(tx_buf->skb, napi_budget);
->>>
->>>                 /* unmap skb header data */
->>> -               dma_unmap_single(tx_ring->dev,
->>> -                                dma_unmap_addr(tx_buf, dma),
->>> -                                dma_unmap_len(tx_buf, len),
->>> -                                DMA_TO_DEVICE);
->>> +               dma_unmap_single_attrs(tx_ring->dev,
->>> +                                      dma_unmap_addr(tx_buf, dma),
->>> +                                      dma_unmap_len(tx_buf, len),
->>> +                                      DMA_TO_DEVICE,
->>> +                                      tx_ring->dma_attrs);
->>>
->>>                 /* clear tx_buffer data */
->>>                 tx_buf->skb = NULL;
->>> @@ -717,12 +722,15 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
->>>                                 tx_desc = I40E_TX_DESC(tx_ring, 0);
->>>                         }
->>>
->>> +                       addr = dma_unmap_addr(tx_buf, dma);
->>> +                       size = dma_unmap_len(tx_buf, len);
->>
->>
->> On some architectures this change could lead to issues since
->> dma_unmap_len could be 0 meaning that addr would never be used.
->
-> I see. Thanks.
->
->>
->>>                         /* unmap any remaining paged data */
->>>                         if (dma_unmap_len(tx_buf, len)) {
->>> -                               dma_unmap_page(tx_ring->dev,
->>> -                                              dma_unmap_addr(tx_buf,
->>> dma),
->>> -                                              dma_unmap_len(tx_buf,
->>> len),
->>> -                                              DMA_TO_DEVICE);
->>> +                               dma_unmap_single_attrs(tx_ring->dev,
->>> +                                                      addr,
->>> +                                                      size,
->>> +                                                      DMA_TO_DEVICE,
->>> +
->>> tx_ring->dma_attrs);
->>>                                 dma_unmap_len_set(tx_buf, len, 0);
->>>                         }
->>>                 }
->>> @@ -1010,6 +1018,11 @@ int i40e_setup_tx_descriptors(struct i40e_ring
->>> *tx_ring)
->>>          */
->>>         tx_ring->size += sizeof(u32);
->>>         tx_ring->size = ALIGN(tx_ring->size, 4096);
->>> +#ifdef CONFIG_SPARC
->>> +       tx_ring->dma_attrs = DMA_ATTR_WEAK_ORDERING;
->>> +#else
->>> +       tx_ring->dma_attrs = 0;
->>> +#endif
->>>         tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
->>>                                            &tx_ring->dma, GFP_KERNEL);
->>>         if (!tx_ring->desc) {
->>
->>
->> Also not a fan of adding yet ring attribute.  Is there any reason why
->> you couldn't simply add a set of inline functions at the start of
->> i40e_txrx.c that could replace the DMA map/unmap operations in this
->> code but pass either 0 or DMA_ATTR_WEAK_ORDERING as needed for the
->> drivers?  Then the x86 code doesn't have to change while the SPARC
->> code will be able to be passed the attribute.
->
-> Sure I can do that.
->
-> I will follow up with patch after your patches for map/unmap page with dma
-> attr will be out.
->
-> Thanks.
->
-> -Tushar
->
+If the device supports RDMA, we'll setup network default rings so that
+there are enough minimum resources for RDMA, if possible.  However, the
+user can still increase network rings to the max if he wants.  The actual
+RDMA resources won't be reserved until the RDMA driver registers.
 
-I was thinking about it and I realized we can probably simplify this
-even further.  In the case of most other architectures the
-DMA_ATTR_WEAK_ORDERING has no effect anyway.  So from what I can tell
-there is probably no reason not to just always pass that attribute
-with the DMA mappings.  From what I can tell the only other
-architecture that uses this is the PowerPC Cell architecture.
+Signed-off-by: Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 58 ++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  9 +++++
+ 2 files changed, 66 insertions(+), 1 deletion(-)
 
-Also I was wondering if you actually needed to enable this attribute
-for both Rx and Tx buffers or just Rx buffers?  The patch that enabled
-DMA_ATTR_WEAK_ORDERING for Sparc64 seems to call out writes, but I
-didn't see anything about reads.  I'm just wondering if changing the
-code for Tx has any effect?  If not you could probably drop those
-changes and just focus on Rx.
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 1f6be83..7218d65 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4166,6 +4166,11 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
+ 	if (rc)
+ 		goto hwrm_func_qcaps_exit;
+ 
++	if (resp->flags & cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_ROCE_V1_SUPPORTED))
++		bp->flags |= BNXT_FLAG_ROCEV1_CAP;
++	if (resp->flags & cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_ROCE_V2_SUPPORTED))
++		bp->flags |= BNXT_FLAG_ROCEV2_CAP;
++
+ 	bp->tx_push_thresh = 0;
+ 	if (resp->flags &
+ 	    cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_PUSH_MODE_SUPPORTED))
+@@ -4808,6 +4813,24 @@ static int bnxt_setup_int_mode(struct bnxt *bp)
+ 	return rc;
+ }
+ 
++unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp)
++{
++	if (BNXT_PF(bp))
++		return bp->pf.max_stat_ctxs;
++#if defined(CONFIG_BNXT_SRIOV)
++	return bp->vf.max_stat_ctxs;
++#endif
++}
++
++unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp)
++{
++	if (BNXT_PF(bp))
++		return bp->pf.max_cp_rings;
++#if defined(CONFIG_BNXT_SRIOV)
++	return bp->vf.max_cp_rings;
++#endif
++}
++
+ static unsigned int bnxt_get_max_func_irqs(struct bnxt *bp)
+ {
+ 	if (BNXT_PF(bp))
+@@ -6832,6 +6855,39 @@ int bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx, bool shared)
+ 	return bnxt_trim_rings(bp, max_rx, max_tx, cp, shared);
+ }
+ 
++static int bnxt_get_dflt_rings(struct bnxt *bp, int *max_rx, int *max_tx,
++			       bool shared)
++{
++	int rc;
++
++	rc = bnxt_get_max_rings(bp, max_rx, max_tx, shared);
++	if (rc)
++		return rc;
++
++	if (bp->flags & BNXT_FLAG_ROCE_CAP) {
++		int max_cp, max_stat, max_irq;
++
++		/* Reserve minimum resources for RoCE */
++		max_cp = bnxt_get_max_func_cp_rings(bp);
++		max_stat = bnxt_get_max_func_stat_ctxs(bp);
++		max_irq = bnxt_get_max_func_irqs(bp);
++		if (max_cp <= BNXT_MIN_ROCE_CP_RINGS ||
++		    max_irq <= BNXT_MIN_ROCE_CP_RINGS ||
++		    max_stat <= BNXT_MIN_ROCE_STAT_CTXS)
++			return 0;
++
++		max_cp -= BNXT_MIN_ROCE_CP_RINGS;
++		max_irq -= BNXT_MIN_ROCE_CP_RINGS;
++		max_stat -= BNXT_MIN_ROCE_STAT_CTXS;
++		max_cp = min_t(int, max_cp, max_irq);
++		max_cp = min_t(int, max_cp, max_stat);
++		rc = bnxt_trim_rings(bp, max_rx, max_tx, max_cp, shared);
++		if (rc)
++			rc = 0;
++	}
++	return rc;
++}
++
+ static int bnxt_set_dflt_rings(struct bnxt *bp)
+ {
+ 	int dflt_rings, max_rx_rings, max_tx_rings, rc;
+@@ -6840,7 +6896,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
+ 	if (sh)
+ 		bp->flags |= BNXT_FLAG_SHARED_RINGS;
+ 	dflt_rings = netif_get_num_default_rss_queues();
+-	rc = bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings, sh);
++	rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, sh);
+ 	if (rc)
+ 		return rc;
+ 	bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 43a4b17..d796836 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -387,6 +387,9 @@ struct rx_tpa_end_cmp_ext {
+ #define DB_KEY_TX_PUSH						(0x4 << 28)
+ #define DB_LONG_TX_PUSH						(0x2 << 24)
+ 
++#define BNXT_MIN_ROCE_CP_RINGS	2
++#define BNXT_MIN_ROCE_STAT_CTXS	1
++
+ #define INVALID_HW_RING_ID	((u16)-1)
+ 
+ /* The hardware supports certain page sizes.  Use the supported page sizes
+@@ -953,6 +956,10 @@ struct bnxt {
+ 	#define BNXT_FLAG_PORT_STATS	0x400
+ 	#define BNXT_FLAG_UDP_RSS_CAP	0x800
+ 	#define BNXT_FLAG_EEE_CAP	0x1000
++	#define BNXT_FLAG_ROCEV1_CAP	0x8000
++	#define BNXT_FLAG_ROCEV2_CAP	0x10000
++	#define BNXT_FLAG_ROCE_CAP	(BNXT_FLAG_ROCEV1_CAP |	\
++					 BNXT_FLAG_ROCEV2_CAP)
+ 	#define BNXT_FLAG_CHIP_NITRO_A0	0x1000000
+ 
+ 	#define BNXT_FLAG_ALL_CONFIG_FEATS (BNXT_FLAG_TPA |		\
+@@ -1234,6 +1241,8 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
+ int hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
+ int bnxt_hwrm_set_coal(struct bnxt *);
++unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
++unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp);
+ void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max);
+ void bnxt_tx_disable(struct bnxt *bp);
+ void bnxt_tx_enable(struct bnxt *bp);
+-- 
+1.8.3.1
 
-Thanks.
-
-- Alex
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
