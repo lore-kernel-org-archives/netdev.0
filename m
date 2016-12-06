@@ -1,48 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] phy: add phy fixup unregister functions
-Date: Tue, 06 Dec 2016 10:01:04 -0500 (EST)
-Message-ID: <20161206.100104.1134856835372946560.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D40975526@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: Avoid deadlock situation due to use of xmit_lock
+Date: Tue, 06 Dec 2016 10:06:07 -0500 (EST)
+Message-ID: <20161206.100607.919832811727709338.davem@davemloft.net>
+References: <1480719966-12839-1-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41212 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751576AbcLFPBG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 10:01:06 -0500
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40975526@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: LinoSanfilippo@gmx.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480719966-12839-1-git-send-email-LinoSanfilippo@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <Woojung.Huh@microchip.com>
-Date: Fri, 2 Dec 2016 23:04:13 +0000
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Date: Sat,  3 Dec 2016 00:06:04 +0100
 
-> From: Woojung Huh <woojung.huh@microchip.com>
-> 
-> Add functions to unregister phy fixup for modules.
-> 
-> phy_unregister_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask)
->  Unregister phy fixup matches bus_id, phy_uid and phy_uid_mask
->  from phy_fixup_list.
->  Return 0 when find matched one and remove from the list.
->  Return -ENODEV when fail to find it on the list.
-> 
-> phy_unregister_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask)
->  Unregister phy fixup from phy_fixup_list.
->  Use it for fixup registered by phy_register_fixup_for_uid()
->  Return 0 when find matched one and remove from the list.
->  Return -ENODEV when fail to find it on the list.
-> 
-> phy_unregister_fixup_for_id(const char *bus_id)
->  Unregister phy fixup from phy_fixup_list.
->  Use it for fixup registered by phy_register_fixup_for_id()
->  Return 0 when find matched one and remove from the list.
->  Return -ENODEV when fail to find it on the list.
-> 
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+> after stumbling over a potential deadlock situation in the altera driver 
+> (see http://marc.info/?l=linux-netdev&m=148054615230447&w=2), I checked
+> all other ethernet drivers for the same issue and actually found it in 2
+> more, namely stmmac, and sxgbe. Please see the commit messages for a 
+> description of the problem.
+> These 2 patches fix the concerning drivers.
 
-Please submit this along with whatever will be the first user(s) of these
-new interfaces.
+First of all, I don't want to apply these patches without proper testing
+and ACKs from the individual driver maintainers.
+
+For both of these drivers, this situation only exists because the TX
+path uses the unnecessary ->tx_lock.  This private lock should be
+removed completely and the driver should use the lock the mid-layer
+already holds in the transmit path and take it in the TX reclaim path
+instead of the private ->tx_lock.
