@@ -1,679 +1,269 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 7/7] bnxt_en: Add interface to support RDMA driver.
-Date: Tue,  6 Dec 2016 12:09:38 -0500
-Message-ID: <1481044178-25193-8-git-send-email-michael.chan@broadcom.com>
-References: <1481044178-25193-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, selvin.xavier@broadcom.com,
-        somnath.kotur@broadcom.com, dledford@redhat.com,
-        linux-rdma@vger.kernel.org
-To: davem@davemloft.net
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [RFC PATCH] i40e: enable PCIe relax ordering
+ for SPARC
+Date: Tue, 6 Dec 2016 09:10:17 -0800
+Message-ID: <CAKgT0UfTP+BrvDBzUJAVr9-DRCKgM7T3aS=LgRic8UZz8x82eg@mail.gmail.com>
+References: <1480957627-16825-1-git-send-email-tushar.n.dave@oracle.com>
+ <CAKgT0UcyRSub0NCi7oHX2Vf+N4vQxzwdWmcc+V+jOX_J=RYgfg@mail.gmail.com> <ec140d5d-3eec-5fc6-6417-11bacc55b807@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>
+To: tndave <tushar.n.dave@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33917 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753728AbcLFRKM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 12:10:12 -0500
-Received: by mail-pg0-f46.google.com with SMTP id x23so151275979pgx.1
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 09:10:11 -0800 (PST)
-In-Reply-To: <1481044178-25193-1-git-send-email-michael.chan@broadcom.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33946 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751670AbcLFRKT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 12:10:19 -0500
+Received: by mail-io0-f194.google.com with SMTP id r94so7761729ioe.1
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 09:10:19 -0800 (PST)
+In-Reply-To: <ec140d5d-3eec-5fc6-6417-11bacc55b807@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the network driver and RDMA driver operate on the same PCI function,
-we need to create an interface to allow the RDMA driver to share resources
-with the network driver.
+On Mon, Dec 5, 2016 at 2:23 PM, tndave <tushar.n.dave@oracle.com> wrote:
+>
+>
+> On 12/05/2016 01:54 PM, Alexander Duyck wrote:
+>>
+>> On Mon, Dec 5, 2016 at 9:07 AM, Tushar Dave <tushar.n.dave@oracle.com>
+>> wrote:
+>>>
+>>> Unlike previous generation NIC (e.g. ixgbe) i40e doesn't seem to have
+>>> standard CSR where PCIe relaxed ordering can be set. Without PCIe relax
+>>> ordering enabled, i40e performance is significantly low on SPARC.
+>>>
+>>> This patch sets PCIe relax ordering for SPARC arch by setting dma attr
+>>> DMA_ATTR_WEAK_ORDERING for every tx and rx DMA map/unmap.
+>>> This has shown 10x increase in performance numbers.
+>>>
+>>> e.g.
+>>> iperf TCP test with 10 threads on SPARC S7
+>>>
+>>> Test 1: Without this patch
+>>>
+>>> # iperf -s
+>>> ------------------------------------------------------------
+>>> Server listening on TCP port 5001
+>>> TCP window size: 85.3 KByte (default)
+>>> ------------------------------------------------------------
+>>> [  4] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40926
+>>> [  5] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40934
+>>> [  6] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40930
+>>> [  7] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40928
+>>> [  8] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40922
+>>> [  9] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40932
+>>> [ 10] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40920
+>>> [ 11] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40924
+>>> [ 14] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40982
+>>> [ 12] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40980
+>>> [ ID] Interval       Transfer     Bandwidth
+>>> [  4]  0.0-20.0 sec   566 MBytes   237 Mbits/sec
+>>> [  5]  0.0-20.0 sec   532 MBytes   223 Mbits/sec
+>>> [  6]  0.0-20.0 sec   537 MBytes   225 Mbits/sec
+>>> [  8]  0.0-20.0 sec   546 MBytes   229 Mbits/sec
+>>> [ 11]  0.0-20.0 sec   592 MBytes   248 Mbits/sec
+>>> [  7]  0.0-20.0 sec   539 MBytes   226 Mbits/sec
+>>> [  9]  0.0-20.0 sec   572 MBytes   240 Mbits/sec
+>>> [ 10]  0.0-20.0 sec   604 MBytes   253 Mbits/sec
+>>> [ 14]  0.0-20.0 sec   567 MBytes   238 Mbits/sec
+>>> [ 12]  0.0-20.0 sec   511 MBytes   214 Mbits/sec
+>>> [SUM]  0.0-20.0 sec  5.44 GBytes  2.33 Gbits/sec
+>>>
+>>> Test 2: with this patch:
+>>>
+>>> # iperf -s
+>>> ------------------------------------------------------------
+>>> Server listening on TCP port 5001
+>>> TCP window size: 85.3 KByte (default)
+>>> ------------------------------------------------------------
+>>> TCP: request_sock_TCP: Possible SYN flooding on port 5001. Sending
+>>> cookies.  Check SNMP counters.
+>>> [  4] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46876
+>>> [  5] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46874
+>>> [  6] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46872
+>>> [  7] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46880
+>>> [  8] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46878
+>>> [  9] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46884
+>>> [ 10] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46886
+>>> [ 11] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46890
+>>> [ 12] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46888
+>>> [ 13] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46882
+>>> [ ID] Interval       Transfer     Bandwidth
+>>> [  4]  0.0-20.0 sec  7.45 GBytes  3.19 Gbits/sec
+>>> [  5]  0.0-20.0 sec  7.48 GBytes  3.21 Gbits/sec
+>>> [  7]  0.0-20.0 sec  7.34 GBytes  3.15 Gbits/sec
+>>> [  8]  0.0-20.0 sec  7.42 GBytes  3.18 Gbits/sec
+>>> [  9]  0.0-20.0 sec  7.24 GBytes  3.11 Gbits/sec
+>>> [ 10]  0.0-20.0 sec  7.40 GBytes  3.17 Gbits/sec
+>>> [ 12]  0.0-20.0 sec  7.49 GBytes  3.21 Gbits/sec
+>>> [  6]  0.0-20.0 sec  7.30 GBytes  3.13 Gbits/sec
+>>> [ 11]  0.0-20.0 sec  7.44 GBytes  3.19 Gbits/sec
+>>> [ 13]  0.0-20.0 sec  7.22 GBytes  3.10 Gbits/sec
+>>> [SUM]  0.0-20.0 sec  73.8 GBytes  31.6 Gbits/sec
+>>>
+>>> NOTE: In my testing, this patch does _not_ show any harm to i40e
+>>> performance numbers on x86.
+>>>
+>>> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+>>
+>>
+>> You went through and replaced all of the dma_unmap/map_page calls with
+>> dma_map/unmap_single_attrs  I would prefer you didn't do that.  I have
+>
+> Yes, because currently there is no DMA API for dma_map/unmap_page with dma
+> attr*
+>>
+>> patches to add the ability to map and unmap pages with attributes that
+>> should be available for 4.10-rc1 so if you could wait on this patch
+>> until then it would be preferred.
+>
+> :-) thanks. I will wait until your patches are out.
+>
+>>
+>>> ---
+>>>  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 69
+>>> ++++++++++++++++++++---------
+>>>  drivers/net/ethernet/intel/i40e/i40e_txrx.h |  1 +
+>>>  2 files changed, 49 insertions(+), 21 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+>>> b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+>>> index 6287bf6..800dca7 100644
+>>> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+>>> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+>>> @@ -551,15 +551,17 @@ static void i40e_unmap_and_free_tx_resource(struct
+>>> i40e_ring *ring,
+>>>                 else
+>>>                         dev_kfree_skb_any(tx_buffer->skb);
+>>>                 if (dma_unmap_len(tx_buffer, len))
+>>> -                       dma_unmap_single(ring->dev,
+>>> -                                        dma_unmap_addr(tx_buffer, dma),
+>>> -                                        dma_unmap_len(tx_buffer, len),
+>>> -                                        DMA_TO_DEVICE);
+>>> +                       dma_unmap_single_attrs(ring->dev,
+>>> +                                              dma_unmap_addr(tx_buffer,
+>>> dma),
+>>> +                                              dma_unmap_len(tx_buffer,
+>>> len),
+>>> +                                              DMA_TO_DEVICE,
+>>> +                                              ring->dma_attrs);
+>>>         } else if (dma_unmap_len(tx_buffer, len)) {
+>>> -               dma_unmap_page(ring->dev,
+>>> -                              dma_unmap_addr(tx_buffer, dma),
+>>> -                              dma_unmap_len(tx_buffer, len),
+>>> -                              DMA_TO_DEVICE);
+>>> +               dma_unmap_single_attrs(ring->dev,
+>>> +                                      dma_unmap_addr(tx_buffer, dma),
+>>> +                                      dma_unmap_len(tx_buffer, len),
+>>> +                                      DMA_TO_DEVICE,
+>>> +                                      ring->dma_attrs);
+>>>         }
+>>>
+>>>         tx_buffer->next_to_watch = NULL;
+>>> @@ -662,6 +664,8 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+>>>         struct i40e_tx_buffer *tx_buf;
+>>>         struct i40e_tx_desc *tx_head;
+>>>         struct i40e_tx_desc *tx_desc;
+>>> +       dma_addr_t addr;
+>>> +       size_t size;
+>>>         unsigned int total_bytes = 0, total_packets = 0;
+>>>         unsigned int budget = vsi->work_limit;
+>>>
+>>> @@ -696,10 +700,11 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+>>>                 napi_consume_skb(tx_buf->skb, napi_budget);
+>>>
+>>>                 /* unmap skb header data */
+>>> -               dma_unmap_single(tx_ring->dev,
+>>> -                                dma_unmap_addr(tx_buf, dma),
+>>> -                                dma_unmap_len(tx_buf, len),
+>>> -                                DMA_TO_DEVICE);
+>>> +               dma_unmap_single_attrs(tx_ring->dev,
+>>> +                                      dma_unmap_addr(tx_buf, dma),
+>>> +                                      dma_unmap_len(tx_buf, len),
+>>> +                                      DMA_TO_DEVICE,
+>>> +                                      tx_ring->dma_attrs);
+>>>
+>>>                 /* clear tx_buffer data */
+>>>                 tx_buf->skb = NULL;
+>>> @@ -717,12 +722,15 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+>>>                                 tx_desc = I40E_TX_DESC(tx_ring, 0);
+>>>                         }
+>>>
+>>> +                       addr = dma_unmap_addr(tx_buf, dma);
+>>> +                       size = dma_unmap_len(tx_buf, len);
+>>
+>>
+>> On some architectures this change could lead to issues since
+>> dma_unmap_len could be 0 meaning that addr would never be used.
+>
+> I see. Thanks.
+>
+>>
+>>>                         /* unmap any remaining paged data */
+>>>                         if (dma_unmap_len(tx_buf, len)) {
+>>> -                               dma_unmap_page(tx_ring->dev,
+>>> -                                              dma_unmap_addr(tx_buf,
+>>> dma),
+>>> -                                              dma_unmap_len(tx_buf,
+>>> len),
+>>> -                                              DMA_TO_DEVICE);
+>>> +                               dma_unmap_single_attrs(tx_ring->dev,
+>>> +                                                      addr,
+>>> +                                                      size,
+>>> +                                                      DMA_TO_DEVICE,
+>>> +
+>>> tx_ring->dma_attrs);
+>>>                                 dma_unmap_len_set(tx_buf, len, 0);
+>>>                         }
+>>>                 }
+>>> @@ -1010,6 +1018,11 @@ int i40e_setup_tx_descriptors(struct i40e_ring
+>>> *tx_ring)
+>>>          */
+>>>         tx_ring->size += sizeof(u32);
+>>>         tx_ring->size = ALIGN(tx_ring->size, 4096);
+>>> +#ifdef CONFIG_SPARC
+>>> +       tx_ring->dma_attrs = DMA_ATTR_WEAK_ORDERING;
+>>> +#else
+>>> +       tx_ring->dma_attrs = 0;
+>>> +#endif
+>>>         tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
+>>>                                            &tx_ring->dma, GFP_KERNEL);
+>>>         if (!tx_ring->desc) {
+>>
+>>
+>> Also not a fan of adding yet ring attribute.  Is there any reason why
+>> you couldn't simply add a set of inline functions at the start of
+>> i40e_txrx.c that could replace the DMA map/unmap operations in this
+>> code but pass either 0 or DMA_ATTR_WEAK_ORDERING as needed for the
+>> drivers?  Then the x86 code doesn't have to change while the SPARC
+>> code will be able to be passed the attribute.
+>
+> Sure I can do that.
+>
+> I will follow up with patch after your patches for map/unmap page with dma
+> attr will be out.
+>
+> Thanks.
+>
+> -Tushar
+>
 
-1. Create a new bnxt_en_dev struct which will be returned by
-bnxt_ulp_probe() upon success.  After that, all calls from the RDMA driver
-to bnxt_en will pass a pointer to this struct.
+I was thinking about it and I realized we can probably simplify this
+even further.  In the case of most other architectures the
+DMA_ATTR_WEAK_ORDERING has no effect anyway.  So from what I can tell
+there is probably no reason not to just always pass that attribute
+with the DMA mappings.  From what I can tell the only other
+architecture that uses this is the PowerPC Cell architecture.
 
-2. This struct contains additional function pointers to register, request
-msix, send fw messages, register for async events.
+Also I was wondering if you actually needed to enable this attribute
+for both Rx and Tx buffers or just Rx buffers?  The patch that enabled
+DMA_ATTR_WEAK_ORDERING for Sparc64 seems to call out writes, but I
+didn't see anything about reads.  I'm just wondering if changing the
+code for Tx has any effect?  If not you could probably drop those
+changes and just focus on Rx.
 
-3. If the RDMA driver wants to enable RDMA on the function, it needs to
-call the function pointer bnxt_register_device().  A ulp_ops structure
-is passed for RCU protected upcalls from bnxt_en to the RDMA driver.
+Thanks.
 
-4. The RDMA driver can call firmware APIs using the bnxt_send_fw_msg()
-function pointer.
-
-5. 1 stats context is reserved when the RDMA driver registers.  MSIX
-and completion rings are reserved when the RDMA driver calls
-bnxt_request_msix() function pointer.
-
-6. When the RDMA driver calls bnxt_unregister_device(), all RDMA resources
-will be cleaned up.
-
-Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/Makefile   |   2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     |  41 ++-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h     |   6 +
- drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.c | 346 ++++++++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.h |  93 +++++++
- 5 files changed, 483 insertions(+), 5 deletions(-)
- create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.c
- create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.h
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/Makefile b/drivers/net/ethernet/broadcom/bnxt/Makefile
-index b233a86..6082ed1 100644
---- a/drivers/net/ethernet/broadcom/bnxt/Makefile
-+++ b/drivers/net/ethernet/broadcom/bnxt/Makefile
-@@ -1,3 +1,3 @@
- obj-$(CONFIG_BNXT) += bnxt_en.o
- 
--bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o
-+bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index c26735ea..d334da3 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -52,6 +52,7 @@
- 
- #include "bnxt_hsi.h"
- #include "bnxt.h"
-+#include "bnxt_ulp.h"
- #include "bnxt_sriov.h"
- #include "bnxt_ethtool.h"
- #include "bnxt_dcb.h"
-@@ -1528,12 +1529,11 @@ static int bnxt_async_event_process(struct bnxt *bp,
- 		set_bit(BNXT_RESET_TASK_SILENT_SP_EVENT, &bp->sp_event);
- 		break;
- 	default:
--		netdev_err(bp->dev, "unhandled ASYNC event (id 0x%x)\n",
--			   event_id);
- 		goto async_event_process_exit;
- 	}
- 	schedule_work(&bp->sp_task);
- async_event_process_exit:
-+	bnxt_ulp_async_events(bp, cmpl);
- 	return 0;
- }
- 
-@@ -3547,7 +3547,7 @@ static int bnxt_hwrm_vnic_ctx_alloc(struct bnxt *bp, u16 vnic_id, u16 ctx_idx)
- 	return rc;
- }
- 
--static int bnxt_hwrm_vnic_cfg(struct bnxt *bp, u16 vnic_id)
-+int bnxt_hwrm_vnic_cfg(struct bnxt *bp, u16 vnic_id)
- {
- 	unsigned int ring = 0, grp_idx;
- 	struct bnxt_vnic_info *vnic = &bp->vnic_info[vnic_id];
-@@ -3595,6 +3595,9 @@ static int bnxt_hwrm_vnic_cfg(struct bnxt *bp, u16 vnic_id)
- #endif
- 	if ((bp->flags & BNXT_FLAG_STRIP_VLAN) || def_vlan)
- 		req.flags |= cpu_to_le32(VNIC_CFG_REQ_FLAGS_VLAN_STRIP_MODE);
-+	if (!vnic_id && bnxt_ulp_registered(bp->edev, BNXT_ROCE_ULP))
-+		req.flags |=
-+			cpu_to_le32(VNIC_CFG_REQ_FLAGS_ROCE_DUAL_VNIC_MODE);
- 
- 	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
- }
-@@ -4842,6 +4845,16 @@ unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp)
- #endif
- }
- 
-+void bnxt_set_max_func_stat_ctxs(struct bnxt *bp, unsigned int max)
-+{
-+	if (BNXT_PF(bp))
-+		bp->pf.max_stat_ctxs = max;
-+#if defined(CONFIG_BNXT_SRIOV)
-+	else
-+		bp->vf.max_stat_ctxs = max;
-+#endif
-+}
-+
- unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp)
- {
- 	if (BNXT_PF(bp))
-@@ -4851,6 +4864,16 @@ unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp)
- #endif
- }
- 
-+void bnxt_set_max_func_cp_rings(struct bnxt *bp, unsigned int max)
-+{
-+	if (BNXT_PF(bp))
-+		bp->pf.max_cp_rings = max;
-+#if defined(CONFIG_BNXT_SRIOV)
-+	else
-+		bp->vf.max_cp_rings = max;
-+#endif
-+}
-+
- static unsigned int bnxt_get_max_func_irqs(struct bnxt *bp)
- {
- 	if (BNXT_PF(bp))
-@@ -6767,6 +6790,8 @@ static void bnxt_remove_one(struct pci_dev *pdev)
- 	pci_iounmap(pdev, bp->bar2);
- 	pci_iounmap(pdev, bp->bar1);
- 	pci_iounmap(pdev, bp->bar0);
-+	kfree(bp->edev);
-+	bp->edev = NULL;
- 	free_netdev(dev);
- 
- 	pci_release_regions(pdev);
-@@ -6936,6 +6961,7 @@ void bnxt_restore_pf_fw_resources(struct bnxt *bp)
- {
- 	ASSERT_RTNL();
- 	bnxt_hwrm_func_qcaps(bp);
-+	bnxt_subtract_ulp_resources(bp, BNXT_ROCE_ULP);
- }
- 
- static void bnxt_parse_log_pcie_link(struct bnxt *bp)
-@@ -7047,6 +7073,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (rc)
- 		goto init_err;
- 
-+	bp->ulp_probe = bnxt_ulp_probe;
-+
- 	/* Get the MAX capabilities for this function */
- 	rc = bnxt_hwrm_func_qcaps(bp);
- 	if (rc) {
-@@ -7144,12 +7172,15 @@ static pci_ers_result_t bnxt_io_error_detected(struct pci_dev *pdev,
- 					       pci_channel_state_t state)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct bnxt *bp = netdev_priv(netdev);
- 
- 	netdev_info(netdev, "PCI I/O error detected\n");
- 
- 	rtnl_lock();
- 	netif_device_detach(netdev);
- 
-+	bnxt_ulp_stop(bp);
-+
- 	if (state == pci_channel_io_perm_failure) {
- 		rtnl_unlock();
- 		return PCI_ERS_RESULT_DISCONNECT;
-@@ -7195,8 +7226,10 @@ static pci_ers_result_t bnxt_io_slot_reset(struct pci_dev *pdev)
- 		if (!err && netif_running(netdev))
- 			err = bnxt_open(netdev);
- 
--		if (!err)
-+		if (!err) {
- 			result = PCI_ERS_RESULT_RECOVERED;
-+			bnxt_ulp_start(bp);
-+		}
- 	}
- 
- 	if (result != PCI_ERS_RESULT_RECOVERED && netif_running(netdev))
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index eec2415..16defe9 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -972,6 +972,9 @@ struct bnxt {
- #define BNXT_SINGLE_PF(bp)	(BNXT_PF(bp) && !BNXT_NPAR(bp))
- #define BNXT_CHIP_TYPE_NITRO_A0(bp) ((bp)->flags & BNXT_FLAG_CHIP_NITRO_A0)
- 
-+	struct bnxt_en_dev	*edev;
-+	struct bnxt_en_dev *	(*ulp_probe)(struct net_device *);
-+
- 	struct bnxt_napi	**bnapi;
- 
- 	struct bnxt_rx_ring_info	*rx_ring;
-@@ -1242,9 +1245,12 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
- int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
- int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
- 				     int bmap_size);
-+int bnxt_hwrm_vnic_cfg(struct bnxt *bp, u16 vnic_id);
- int bnxt_hwrm_set_coal(struct bnxt *);
- unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
-+void bnxt_set_max_func_stat_ctxs(struct bnxt *bp, unsigned int max);
- unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp);
-+void bnxt_set_max_func_cp_rings(struct bnxt *bp, unsigned int max);
- void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max);
- void bnxt_tx_disable(struct bnxt *bp);
- void bnxt_tx_enable(struct bnxt *bp);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.c
-new file mode 100644
-index 0000000..781948f
---- /dev/null
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.c
-@@ -0,0 +1,346 @@
-+/* Broadcom NetXtreme-C/E network driver.
-+ *
-+ * Copyright (c) 2016 Broadcom Limited
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+
-+#include <linux/kernel.h>
-+#include <linux/errno.h>
-+#include <linux/interrupt.h>
-+#include <linux/pci.h>
-+#include <linux/netdevice.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/bitops.h>
-+#include <linux/irq.h>
-+#include <asm/byteorder.h>
-+#include <linux/bitmap.h>
-+
-+#include "bnxt_hsi.h"
-+#include "bnxt.h"
-+#include "bnxt_ulp.h"
-+
-+static int bnxt_register_dev(struct bnxt_en_dev *edev, int ulp_id,
-+			     struct bnxt_ulp_ops *ulp_ops, void *handle)
-+{
-+	struct net_device *dev = edev->net;
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt_ulp *ulp;
-+
-+	ASSERT_RTNL();
-+	if (ulp_id >= BNXT_MAX_ULP)
-+		return -EINVAL;
-+
-+	ulp = &edev->ulp_tbl[ulp_id];
-+	if (rcu_access_pointer(ulp->ulp_ops)) {
-+		netdev_err(bp->dev, "ulp id %d already registered\n", ulp_id);
-+		return -EBUSY;
-+	}
-+	if (ulp_id == BNXT_ROCE_ULP) {
-+		unsigned int max_stat_ctxs;
-+
-+		max_stat_ctxs = bnxt_get_max_func_stat_ctxs(bp);
-+		if (max_stat_ctxs <= BNXT_MIN_ROCE_STAT_CTXS ||
-+		    bp->num_stat_ctxs == max_stat_ctxs)
-+			return -ENOMEM;
-+		bnxt_set_max_func_stat_ctxs(bp, max_stat_ctxs -
-+					    BNXT_MIN_ROCE_STAT_CTXS);
-+	}
-+
-+	atomic_set(&ulp->ref_count, 0);
-+	ulp->handle = handle;
-+	rcu_assign_pointer(ulp->ulp_ops, ulp_ops);
-+
-+	if (ulp_id == BNXT_ROCE_ULP) {
-+		if (test_bit(BNXT_STATE_OPEN, &bp->state))
-+			bnxt_hwrm_vnic_cfg(bp, 0);
-+	}
-+
-+	return 0;
-+}
-+
-+static int bnxt_unregister_dev(struct bnxt_en_dev *edev, int ulp_id)
-+{
-+	struct net_device *dev = edev->net;
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt_ulp *ulp;
-+	int i;
-+
-+	ASSERT_RTNL();
-+	if (ulp_id >= BNXT_MAX_ULP)
-+		return -EINVAL;
-+
-+	ulp = &edev->ulp_tbl[ulp_id];
-+	if (!rcu_access_pointer(ulp->ulp_ops)) {
-+		netdev_err(bp->dev, "ulp id %d not registered\n", ulp_id);
-+		return -EINVAL;
-+	}
-+	if (ulp_id == BNXT_ROCE_ULP) {
-+		unsigned int max_stat_ctxs;
-+
-+		max_stat_ctxs = bnxt_get_max_func_stat_ctxs(bp);
-+		bnxt_set_max_func_stat_ctxs(bp, max_stat_ctxs + 1);
-+	}
-+	if (ulp->max_async_event_id)
-+		bnxt_hwrm_func_rgtr_async_events(bp, NULL, 0);
-+
-+	RCU_INIT_POINTER(ulp->ulp_ops, NULL);
-+	synchronize_rcu();
-+	ulp->max_async_event_id = 0;
-+	ulp->async_events_bmap = NULL;
-+	while (atomic_read(&ulp->ref_count) != 0 && i < 10) {
-+		msleep(100);
-+		i++;
-+	}
-+	return 0;
-+}
-+
-+static int bnxt_req_msix_vecs(struct bnxt_en_dev *edev, int ulp_id,
-+			      struct bnxt_msix_entry *ent, int num_msix)
-+{
-+	struct net_device *dev = edev->net;
-+	struct bnxt *bp = netdev_priv(dev);
-+	int max_idx, max_cp_rings;
-+	int avail_msix, i, idx;
-+
-+	ASSERT_RTNL();
-+	if (ulp_id != BNXT_ROCE_ULP)
-+		return -EINVAL;
-+
-+	if (!(bp->flags & BNXT_FLAG_USING_MSIX))
-+		return -ENODEV;
-+
-+	max_cp_rings = bnxt_get_max_func_cp_rings(bp);
-+	max_idx = min_t(int, bp->total_irqs, max_cp_rings);
-+	avail_msix = max_idx - bp->cp_nr_rings;
-+	if (!avail_msix)
-+		return -ENOMEM;
-+	if (avail_msix > num_msix)
-+		avail_msix = num_msix;
-+
-+	idx = max_idx - avail_msix;
-+	for (i = 0; i < avail_msix; i++) {
-+		ent[i].vector = bp->irq_tbl[idx + i].vector;
-+		ent[i].ring_idx = idx + i;
-+		ent[i].db_offset = (idx + i) * 0x80;
-+	}
-+	bnxt_set_max_func_irqs(bp, max_idx - avail_msix);
-+	bnxt_set_max_func_cp_rings(bp, max_cp_rings - avail_msix);
-+	edev->ulp_tbl[ulp_id].msix_requested = avail_msix;
-+	return avail_msix;
-+}
-+
-+static int bnxt_free_msix_vecs(struct bnxt_en_dev *edev, int ulp_id)
-+{
-+	struct net_device *dev = edev->net;
-+	struct bnxt *bp = netdev_priv(dev);
-+	int max_cp_rings, msix_requested;
-+
-+	ASSERT_RTNL();
-+	if (ulp_id != BNXT_ROCE_ULP)
-+		return -EINVAL;
-+
-+	max_cp_rings = bnxt_get_max_func_cp_rings(bp);
-+	msix_requested = edev->ulp_tbl[ulp_id].msix_requested;
-+	bnxt_set_max_func_cp_rings(bp, max_cp_rings + msix_requested);
-+	edev->ulp_tbl[ulp_id].msix_requested = 0;
-+	bnxt_set_max_func_irqs(bp, bp->total_irqs);
-+	return 0;
-+}
-+
-+void bnxt_subtract_ulp_resources(struct bnxt *bp, int ulp_id)
-+{
-+	ASSERT_RTNL();
-+	if (bnxt_ulp_registered(bp->edev, ulp_id)) {
-+		struct bnxt_en_dev *edev = bp->edev;
-+		unsigned int msix_req, max;
-+
-+		msix_req = edev->ulp_tbl[ulp_id].msix_requested;
-+		max = bnxt_get_max_func_cp_rings(bp);
-+		bnxt_set_max_func_cp_rings(bp, max - msix_req);
-+		max = bnxt_get_max_func_stat_ctxs(bp);
-+		bnxt_set_max_func_stat_ctxs(bp, max - 1);
-+	}
-+}
-+
-+static int bnxt_send_msg(struct bnxt_en_dev *edev, int ulp_id,
-+			 struct bnxt_fw_msg *fw_msg)
-+{
-+	struct net_device *dev = edev->net;
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct input *req;
-+	int rc;
-+
-+	mutex_lock(&bp->hwrm_cmd_lock);
-+	req = fw_msg->msg;
-+	req->resp_addr = cpu_to_le64(bp->hwrm_cmd_resp_dma_addr);
-+	rc = _hwrm_send_message(bp, fw_msg->msg, fw_msg->msg_len,
-+				fw_msg->timeout);
-+	if (!rc) {
-+		struct output *resp = bp->hwrm_cmd_resp_addr;
-+		u32 len = le16_to_cpu(resp->resp_len);
-+
-+		if (fw_msg->resp_max_len < len)
-+			len = fw_msg->resp_max_len;
-+
-+		memcpy(fw_msg->resp, resp, len);
-+	}
-+	mutex_unlock(&bp->hwrm_cmd_lock);
-+	return rc;
-+}
-+
-+static void bnxt_ulp_get(struct bnxt_ulp *ulp)
-+{
-+	atomic_inc(&ulp->ref_count);
-+}
-+
-+static void bnxt_ulp_put(struct bnxt_ulp *ulp)
-+{
-+	atomic_dec(&ulp->ref_count);
-+}
-+
-+void bnxt_ulp_stop(struct bnxt *bp)
-+{
-+	struct bnxt_en_dev *edev = bp->edev;
-+	struct bnxt_ulp_ops *ops;
-+	int i;
-+
-+	if (!edev)
-+		return;
-+
-+	for (i = 0; i < BNXT_MAX_ULP; i++) {
-+		struct bnxt_ulp *ulp = &edev->ulp_tbl[i];
-+
-+		rtnl_dereference(ulp->ulp_ops);
-+		if (!ops || !ops->ulp_stop)
-+			continue;
-+		ops->ulp_stop(ulp->handle);
-+	}
-+}
-+
-+void bnxt_ulp_start(struct bnxt *bp)
-+{
-+	struct bnxt_en_dev *edev = bp->edev;
-+	struct bnxt_ulp_ops *ops;
-+	int i;
-+
-+	if (!edev)
-+		return;
-+
-+	for (i = 0; i < BNXT_MAX_ULP; i++) {
-+		struct bnxt_ulp *ulp = &edev->ulp_tbl[i];
-+
-+		ops = rtnl_dereference(ulp->ulp_ops);
-+		if (!ops || !ops->ulp_start)
-+			continue;
-+		ops->ulp_start(ulp->handle);
-+	}
-+}
-+
-+void bnxt_ulp_sriov_cfg(struct bnxt *bp, int num_vfs)
-+{
-+	struct bnxt_en_dev *edev = bp->edev;
-+	struct bnxt_ulp_ops *ops;
-+	int i;
-+
-+	if (!edev)
-+		return;
-+
-+	for (i = 0; i < BNXT_MAX_ULP; i++) {
-+		struct bnxt_ulp *ulp = &edev->ulp_tbl[i];
-+
-+		rcu_read_lock();
-+		ops = rcu_dereference(ulp->ulp_ops);
-+		if (!ops || !ops->ulp_sriov_config) {
-+			rcu_read_unlock();
-+			continue;
-+		}
-+		bnxt_ulp_get(ulp);
-+		rcu_read_unlock();
-+		ops->ulp_sriov_config(ulp->handle, num_vfs);
-+		bnxt_ulp_put(ulp);
-+	}
-+}
-+
-+void bnxt_ulp_async_events(struct bnxt *bp, struct hwrm_async_event_cmpl *cmpl)
-+{
-+	u16 event_id = le16_to_cpu(cmpl->event_id);
-+	struct bnxt_en_dev *edev = bp->edev;
-+	struct bnxt_ulp_ops *ops;
-+	int i;
-+
-+	if (!edev)
-+		return;
-+
-+	rcu_read_lock();
-+	for (i = 0; i < BNXT_MAX_ULP; i++) {
-+		struct bnxt_ulp *ulp = &edev->ulp_tbl[i];
-+
-+		ops = rcu_dereference(ulp->ulp_ops);
-+		if (!ops || !ops->ulp_async_notifier)
-+			continue;
-+		if (!ulp->async_events_bmap ||
-+		    event_id > ulp->max_async_event_id)
-+			continue;
-+
-+		/* Read max_async_event_id first before testing the bitmap. */
-+		smp_rmb();
-+		if (test_bit(event_id, ulp->async_events_bmap))
-+			ops->ulp_async_notifier(ulp->handle, cmpl);
-+	}
-+	rcu_read_unlock();
-+}
-+
-+static int bnxt_register_async_events(struct bnxt_en_dev *edev, int ulp_id,
-+				      unsigned long *events_bmap, u16 max_id)
-+{
-+	struct net_device *dev = edev->net;
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt_ulp *ulp;
-+
-+	if (ulp_id >= BNXT_MAX_ULP)
-+		return -EINVAL;
-+
-+	ulp = &edev->ulp_tbl[ulp_id];
-+	ulp->async_events_bmap = events_bmap;
-+	/* Make sure bnxt_ulp_async_events() sees this order */
-+	smp_wmb();
-+	ulp->max_async_event_id = max_id;
-+	bnxt_hwrm_func_rgtr_async_events(bp, events_bmap, max_id + 1);
-+	return 0;
-+}
-+
-+static const struct bnxt_en_ops bnxt_en_ops_tbl = {
-+	.bnxt_register_device	= bnxt_register_dev,
-+	.bnxt_unregister_device	= bnxt_unregister_dev,
-+	.bnxt_request_msix	= bnxt_req_msix_vecs,
-+	.bnxt_free_msix		= bnxt_free_msix_vecs,
-+	.bnxt_send_fw_msg	= bnxt_send_msg,
-+	.bnxt_register_fw_async_events	= bnxt_register_async_events,
-+};
-+
-+struct bnxt_en_dev *bnxt_ulp_probe(struct net_device *dev)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt_en_dev *edev;
-+
-+	edev = bp->edev;
-+	if (!edev) {
-+		edev = kzalloc(sizeof(*edev), GFP_KERNEL);
-+		if (!edev)
-+			return ERR_PTR(-ENOMEM);
-+		edev->en_ops = &bnxt_en_ops_tbl;
-+		if (bp->flags & BNXT_FLAG_ROCEV1_CAP)
-+			edev->flags |= BNXT_EN_FLAG_ROCEV1_CAP;
-+		if (bp->flags & BNXT_FLAG_ROCEV2_CAP)
-+			edev->flags |= BNXT_EN_FLAG_ROCEV2_CAP;
-+		edev->net = dev;
-+		edev->pdev = bp->pdev;
-+		bp->edev = edev;
-+	}
-+	return bp->edev;
-+}
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.h
-new file mode 100644
-index 0000000..74f816e
---- /dev/null
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.h
-@@ -0,0 +1,93 @@
-+/* Broadcom NetXtreme-C/E network driver.
-+ *
-+ * Copyright (c) 2016 Broadcom Limited
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ */
-+
-+#ifndef BNXT_ULP_H
-+#define BNXT_ULP_H
-+
-+#define BNXT_ROCE_ULP	0
-+#define BNXT_OTHER_ULP	1
-+#define BNXT_MAX_ULP	2
-+
-+#define BNXT_MIN_ROCE_CP_RINGS	2
-+#define BNXT_MIN_ROCE_STAT_CTXS	1
-+
-+struct hwrm_async_event_cmpl;
-+struct bnxt;
-+
-+struct bnxt_ulp_ops {
-+	/* async_notifier() cannot sleep (in BH context) */
-+	void (*ulp_async_notifier)(void *, struct hwrm_async_event_cmpl *);
-+	void (*ulp_stop)(void *);
-+	void (*ulp_start)(void *);
-+	void (*ulp_sriov_config)(void *, int);
-+};
-+
-+struct bnxt_msix_entry {
-+	u32	vector;
-+	u32	ring_idx;
-+	u32	db_offset;
-+};
-+
-+struct bnxt_fw_msg {
-+	void	*msg;
-+	int	msg_len;
-+	void	*resp;
-+	int	resp_max_len;
-+	int	timeout;
-+};
-+
-+struct bnxt_ulp {
-+	void		*handle;
-+	struct bnxt_ulp_ops __rcu *ulp_ops;
-+	unsigned long	*async_events_bmap;
-+	u16		max_async_event_id;
-+	u16		msix_requested;
-+	atomic_t	ref_count;
-+};
-+
-+struct bnxt_en_dev {
-+	struct net_device *net;
-+	struct pci_dev *pdev;
-+	u32 flags;
-+	#define BNXT_EN_FLAG_ROCEV1_CAP		0x1
-+	#define BNXT_EN_FLAG_ROCEV2_CAP		0x2
-+	#define BNXT_EN_FLAG_ROCE_CAP		(BNXT_EN_FLAG_ROCEV1_CAP | \
-+						 BNXT_EN_FLAG_ROCEV2_CAP)
-+	const struct bnxt_en_ops	*en_ops;
-+	struct bnxt_ulp			ulp_tbl[BNXT_MAX_ULP];
-+};
-+
-+struct bnxt_en_ops {
-+	int (*bnxt_register_device)(struct bnxt_en_dev *, int,
-+				    struct bnxt_ulp_ops *, void *);
-+	int (*bnxt_unregister_device)(struct bnxt_en_dev *, int);
-+	int (*bnxt_request_msix)(struct bnxt_en_dev *, int,
-+				 struct bnxt_msix_entry *, int);
-+	int (*bnxt_free_msix)(struct bnxt_en_dev *, int);
-+	int (*bnxt_send_fw_msg)(struct bnxt_en_dev *, int,
-+				struct bnxt_fw_msg *);
-+	int (*bnxt_register_fw_async_events)(struct bnxt_en_dev *, int,
-+					     unsigned long *, u16);
-+};
-+
-+static inline bool bnxt_ulp_registered(struct bnxt_en_dev *edev, int ulp_id)
-+{
-+	if (edev && rcu_access_pointer(edev->ulp_tbl[ulp_id].ulp_ops))
-+		return true;
-+	return false;
-+}
-+
-+void bnxt_subtract_ulp_resources(struct bnxt *bp, int ulp_id);
-+void bnxt_ulp_stop(struct bnxt *bp);
-+void bnxt_ulp_start(struct bnxt *bp);
-+void bnxt_ulp_sriov_cfg(struct bnxt *bp, int num_vfs);
-+void bnxt_ulp_async_events(struct bnxt *bp, struct hwrm_async_event_cmpl *cmpl);
-+struct bnxt_en_dev *bnxt_ulp_probe(struct net_device *dev);
-+
-+#endif
--- 
-1.8.3.1
+- Alex
