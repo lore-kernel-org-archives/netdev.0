@@ -1,46 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next] Revert "dctcp: update cwnd on congestion event"
-Date: Tue, 06 Dec 2016 11:34:42 -0500 (EST)
-Message-ID: <20161206.113442.100496871002228037.davem@davemloft.net>
-References: <1480980180-23349-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH] drivers: net: cpsw-phy-sel: Clear RGMII_IDMODE on
+ "rgmii" links
+Date: Tue, 06 Dec 2016 11:36:30 -0500 (EST)
+Message-ID: <20161206.113630.1454582039498444818.davem@davemloft.net>
+References: <1480988033-16535-1-git-send-email-alex.g@adaptrum.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com
-To: fw@strlen.de
+Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, gokhan@adaptrum.com
+To: alex.g@adaptrum.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42966 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42994 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751764AbcLFQfQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 11:35:16 -0500
-In-Reply-To: <1480980180-23349-1-git-send-email-fw@strlen.de>
+        with ESMTP id S1751762AbcLFQgc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 11:36:32 -0500
+In-Reply-To: <1480988033-16535-1-git-send-email-alex.g@adaptrum.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue,  6 Dec 2016 00:23:00 +0100
+From: Alexandru Gagniuc <alex.g@adaptrum.com>
+Date: Mon,  5 Dec 2016 17:33:53 -0800
 
-> Neal Cardwell says:
->  If I am reading the code correctly, then I would have two concerns:
->  1) Has that been tested? That seems like an extremely dramatic
->     decrease in cwnd. For example, if the cwnd is 80, and there are 40
->     ACKs, and half the ACKs are ECE marked, then my back-of-the-envelope
->     calculations seem to suggest that after just 11 ACKs the cwnd would be
->     down to a minimal value of 2 [..]
->  2) That seems to contradict another passage in the draft [..] where it
->     sazs:
->        Just as specified in [RFC3168], DCTCP does not react to congestion
->        indications more than once for every window of data.
+> Support for setting the RGMII_IDMODE bit was added in commit:
+> "drivers: net: cpsw-phy-sel: add support to configure rgmii internal delay"
+> However, that commit did not add the symmetrical clearing of the bit
+> by way of setting it in "mask". Add it here.
 > 
-> Neal is right.  Fortunately we don't have to complicate this by testing
-> vs. current rtt estimate, we can just revert the patch.
+> Note that the documentation marks clearing this bit as "reserved",
+> however, according to TI, support for delaying the clock does exist in
+> the MAC, although it is not officially supported.
+> We tested this on a board with an RGMII to RGMII link that will not
+> work unless this bit is cleared.
 > 
-> Normal stack already handles this for us: receiving ACKs with ECE
-> set causes a call to tcp_enter_cwr(), from there on the ssthresh gets
-> adjusted and prr will take care of cwnd adjustment.
-> 
-> Fixes: 4780566784b396 ("dctcp: update cwnd on congestion event")
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
 
-Applied.
+Commits must be referenced by both short-form SHA1-ID as well as
+the commit header text.
+
+And since this change is fixing that commit, you should also provide
+a proper "Fixes: " tag on the line right before your signoff.
+
+Thanks.
