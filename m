@@ -1,48 +1,37 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net V2 0/6] Mellanox 100G mlx5 fixes 2016-12-04
-Date: Tue,  6 Dec 2016 17:32:42 +0200
-Message-ID: <1481038368-29677-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55467 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752900AbcLFPdk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 10:33:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: stmmac: clear reset value of
+ snps,wr_osr_lmt/snps,rd_osr_lmt before writing
+Date: Tue, 06 Dec 2016 10:34:31 -0500 (EST)
+Message-ID: <20161206.103431.1801934560152684508.davem@davemloft.net>
+References: <1480957974-22326-1-git-send-email-niklass@axis.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: niklas.cassel@axis.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480957974-22326-1-git-send-email-niklass@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+From: Niklas Cassel <niklas.cassel@axis.com>
+Date: Mon, 5 Dec 2016 18:12:54 +0100
 
-Some bug fixes for mlx5 core and mlx5e driver.
+> From: Niklas Cassel <niklas.cassel@axis.com>
+> 
+> WR_OSR_LMT and RD_OSR_LMT have a reset value of 1.
+> Since the reset value wasn't cleared before writing, the value in the
+> register would be incorrect if specifying an uneven value for
+> snps,wr_osr_lmt/snps,rd_osr_lmt.
+> 
+> Zero is a valid value for the properties, since the databook specifies:
+> maximum outstanding requests = WR_OSR_LMT + 1.
+> 
+> We do not want to change the behavior for existing users when the
+> property is missing. Therefore, default to 1 if the property is missing,
+> since that is the same as the reset value.
+> 
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
-v1->v2:
- - replace "uint" with "unsigned int"
-
-Thanks,
-Saeed.
-
-Kamal Heib (3):
-  net/mlx5: Verify module parameters
-  net/mlx5: Remove duplicate pci dev name print
-  net/mlx5: Fix query ISSI flow
-
-Mohamad Haj Yahia (1):
-  net/mlx5e: Change the SQ/RQ operational state to positive logic
-
-Saeed Mahameed (2):
-  net/mlx5e: Don't notify HW when filling the edge of ICO SQ
-  net/mlx5e: Don't flush SQ on error
-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |  5 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  4 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 15 ++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  8 ++---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  4 +--
- drivers/net/ethernet/mellanox/mlx5/core/main.c     | 42 +++++++++++++---------
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    | 15 +++++---
- 8 files changed, 53 insertions(+), 42 deletions(-)
-
--- 
-2.7.4
+Applied, thank you.
