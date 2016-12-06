@@ -1,78 +1,51 @@
-From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-Subject: Re: [PATCH] net:mv88e6xxx: dispose irq mapping
-Date: Tue, 6 Dec 2016 16:00:27 +0100
-Message-ID: <7717215e-dddd-14af-196f-e638b5c60649@westermo.se>
-References: <1481018743-27208-1-git-send-email-volodymyr.bendiuga@westermo.se>
- <20161206141923.GB26615@lunn.ch>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/2] misc: atmel-ssc: register as sound DAI if
+ #sound-dai-cells is present
+Date: Tue, 6 Dec 2016 09:16:35 -0600
+Message-ID: <20161206151635.psckjlu2pyzjm7k6@rob-hp-laptop>
+References: <1480593549-6464-1-git-send-email-peda@axentia.se>
+ <1480593549-6464-2-git-send-email-peda@axentia.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.beijerelectronics.com ([195.67.87.156]:55947 "EHLO
-        mailgw1.beijerelectronics.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751443AbcLFPRL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 10:17:11 -0500
-In-Reply-To: <20161206141923.GB26615@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ alsa-devel@alsa-project.org, Arnd Bergmann <arnd@arndb.de>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Takashi Iwai <tiwai@suse.com>,
+ Nicolas Ferre <nicolas.ferre@atmel.com>, linux-kernel@vger.kernel.org,
+ Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>,
+ netdev@vger.kernel.org, Jaroslav Kysela <perex@perex.cz>,
+ linux-arm-kernel@lists.infradead.org
+To: Peter Rosin <peda@axentia.se>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1480593549-6464-2-git-send-email-peda@axentia.se>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Thu, Dec 01, 2016 at 12:59:08PM +0100, Peter Rosin wrote:
+> The SSC is currently not usable with the ASoC simple-audio-card, as
+> every SSC audio user has to build a platform driver that may do as
+> little as calling atmel_ssc_set_audio/atmel_ssc_put_audio (which
+> allocates the SSC and registers a DAI with the ASoC subsystem).
+> 
+> So, have that happen automatically, if the #sound-dai-cells property
+> is present in devicetree, which it has to be anyway for simple audio
+> card to work.
+> 
+> Signed-off-by: Peter Rosin <peda@axentia.se>
+> ---
+>  .../devicetree/bindings/misc/atmel-ssc.txt         |  2 +
 
-thanks for you comments and time taken to review. I will make a new
+Acked-by: Rob Herring <robh@kernel.org>
 
-version which will indicate net-next tree.
-
-About mv88e6xxx_remove(), this function will not be called
-
-if switch has not been registered completely, therefore dispose will not 
-be called.
-
-irq_dispose_mapping() is also called in mv88e6xxx_g2_irq_free(), so I 
-put it in a similar
-
-way in mv88e6xxx_g1_irq_free(). What do you think? If you have any other 
-idea
-
-of how this could be implemented then let me know and I will fix it.
-
-/Volodymyr
-
-On 2016-12-06 15:19, Andrew Lunn wrote:
-> On Tue, Dec 06, 2016 at 11:05:43AM +0100, Volodymyr Bendiuga wrote:
->> If this is not done, then it is not possible to map
->> irq next time, after EPROBE_DEFER.
->>
->> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-> Hi Volodymyr
->
-> Thanks for your patches.
->
-> Please could you include in the subject line which tree it is for. See
->
-> Documentation/networking/netdev-FAQ.txt
->
->
->> ---
->>   drivers/net/dsa/mv88e6xxx/chip.c | 1 +
->>   1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
->> index 05942e3..12e7d38 100644
->> --- a/drivers/net/dsa/mv88e6xxx/chip.c
->> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
->> @@ -420,6 +420,7 @@ static void mv88e6xxx_g1_irq_free(struct mv88e6xxx_chip *chip)
->>   	mv88e6xxx_g1_write(chip, GLOBAL_CONTROL, mask);
->>   
->>   	free_irq(chip->irq, chip);
->> +	irq_dispose_mapping(chip->irq);
-> This seems like the wrong place to do this.
->
-> The mapping is created by chip->irq = of_irq_get(np, 0); in
-> mv88e6xxx_probe(). So the correct place to dispose of this mapping would be in
-> mv88e6xxx_remove() and the error path of mv88e6xxx_probe().
->
-> Thanks
-> 	Andrew
+>  drivers/misc/atmel-ssc.c                           | 50 ++++++++++++++++++++++
+>  include/linux/atmel-ssc.h                          |  1 +
+>  3 files changed, 53 insertions(+)
