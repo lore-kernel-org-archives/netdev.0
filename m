@@ -1,92 +1,39 @@
-From: Ben Pfaff <blp-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next] net: remove abuse of VLAN DEI/CFI bit
-Date: Mon, 5 Dec 2016 16:59:49 -0800
-Message-ID: <20161206005949.GM3129@ovn.org>
-References: <cfa1f2efae2217b50cbefccbf9ba7f0d24a23c63.1480755768.git.mirq-linux@rere.qmqm.pl>
-	<20161203232730.GT3129@ovn.org>
-	<20161205172436.cpxohof6rggxid74@rere.qmqm.pl>
-	<20161205185545.GB3129@ovn.org>
-	<20161205225247.e3dd6dcw3ryjjlp2@rere.qmqm.pl>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [net-next][PATCH 02/18] RDS: mark few internal functions static
+ to make sparse build happy
+Date: Mon, 5 Dec 2016 17:17:50 -0800
+Message-ID: <52e13934-1e59-4166-9ccf-7bfe769d7219@oracle.com>
+References: <1480921073-9140-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1480921073-9140-3-git-send-email-santosh.shilimkar@oracle.com>
+ <604d4954-7302-018e-6f9b-71c0aea6509e@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161205225247.e3dd6dcw3ryjjlp2-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <604d4954-7302-018e-6f9b-71c0aea6509e@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBEZWMgMDUsIDIwMTYgYXQgMTE6NTI6NDdQTSArMDEwMCwgTWljaGHFgiBNaXJvc8WC
-YXcgd3JvdGU6Cj4gT24gTW9uLCBEZWMgMDUsIDIwMTYgYXQgMTA6NTU6NDVBTSAtMDgwMCwgQmVu
-IFBmYWZmIHdyb3RlOgo+ID4gT24gTW9uLCBEZWMgMDUsIDIwMTYgYXQgMDY6MjQ6MzZQTSArMDEw
-MCwgTWljaGHFgiBNaXJvc8WCYXcgd3JvdGU6Cj4gPiA+IE9uIFNhdCwgRGVjIDAzLCAyMDE2IGF0
-IDAzOjI3OjMwUE0gLTA4MDAsIEJlbiBQZmFmZiB3cm90ZToKPiA+ID4gPiBPbiBTYXQsIERlYyAw
-MywgMjAxNiBhdCAxMDoyMjoyOEFNICswMTAwLCBNaWNoYcWCIE1pcm9zxYJhdyB3cm90ZToKPiA+
-ID4gPiA+IFRoaXMgQWxsLWluLW9uZSBwYXRjaCByZW1vdmVzIGFidXNlIG9mIFZMQU4gQ0ZJIGJp
-dCwgc28gaXQgY2FuIGJlIHBhc3NlZAo+ID4gPiA+ID4gaW50YWN0IHRocm91Z2ggbGludXggbmV0
-d29ya2luZyBzdGFjay4KPiA+ID4gPiBUaGlzIGFwcGVhcnMgdG8gY2hhbmdlIHRoZSBlc3RhYmxp
-c2hlZCBPcGVuIHZTd2l0Y2ggdXNlcnNwYWNlIEFQSS4gIFlvdQo+ID4gPiA+IGNhbiBzZWUgdGhh
-dCBzaW1wbHkgZnJvbSB0aGUgd2F5IHRoYXQgaXQgY2hhbmdlcyB0aGUgZG9jdW1lbnRhdGlvbiBm
-b3IKPiA+ID4gPiB0aGUgdXNlcnNwYWNlIEFQSS4gIElmIEknbSByaWdodCBhYm91dCB0aGF0LCB0
-aGVuIHRoaXMgY2hhbmdlIHdpbGwgYnJlYWsKPiA+ID4gPiBhbGwgdXNlcnNwYWNlIHByb2dyYW1z
-IHRoYXQgdXNlIHRoZSBPcGVuIHZTd2l0Y2gga2VybmVsIG1vZHVsZSwKPiA+ID4gPiBpbmNsdWRp
-bmcgT3BlbiB2U3dpdGNoIGl0c2VsZi4KPiA+ID4gCj4gPiA+IElmIEkgdW5kZXJzdG9vZCB0aGUg
-Y29kZSBjb3JyZWN0bHksIGl0IGRvZXMgY2hhbmdlIGV4cGVjdGVkIG1lYW5pbmcgZm9yCj4gPiA+
-IHRoZSAodW5saWtlbHk/KSBjYXNlIG9mIGhlYWRlciB0cnVuY2F0ZWQganVzdCBiZWZvcmUgdGhl
-IFZMQU4gVENJIC0gaXQgd2lsbAo+ID4gPiBiZSBpbXBvc3NpYmxlIHRvIGRpZmZlcmVudGlhdGUg
-dGhpcyBjYXNlIGZyb20gdGhlIFZMQU4gVENJID09IDAuCj4gPiA+IAo+ID4gPiBJIGd1ZXNzIHRo
-aXMgaXMgYSBwcm9ibGVtIHdpdGggT1ZTIEFQSSwgYmVjYXVzZSBpdCBkb2Vzbid0IGRpcmVjdGx5
-IHNob3cKPiA+ID4gdGhlICJtaXNzaW5nIiBzdGF0ZSBvZiBlbGVtZW50cywgYnV0IHJlbGllcyBv
-biBhbiAiaW52YWxpZCIgdmFsdWUuCj4gPiAKPiA+IFRoYXQgcGFydGljdWxhciBjb3JuZXIgY2Fz
-ZSBzaG91bGQgbm90IGJlIGEgaHVnZSBwcm9ibGVtIGluIGFueSBjYXNlLgo+ID4gCj4gPiBUaGUg
-cmVhbCBwcm9ibGVtIGlzIHRoYXQgdGhpcyBhcHBlYXJzIHRvIGJyZWFrIHRoZSBjb21tb24gY2Fz
-ZSB1c2Ugb2YKPiA+IFZMQU5zIGluIE9wZW4gdlN3aXRjaC4gIEFmdGVyIHRoaXMgcGF0Y2gsIHBh
-cnNlX3ZsYW4oKSBpbgo+ID4gbmV0L29wZW52c3dpdGNoL2Zsb3cuYyBjb3BpZXMgdGhlIHRwaWQg
-YW5kIHRjaSBmcm9tIHNrX2J1ZmYgKGVpdGhlciB0aGUKPiA+IGFjY2VsZXJhdGVkIHZlcnNpb24g
-b2YgdGhlbSBvciB0aGUgdmVyc2lvbiBpbiB0aGUgc2tiIGRhdGEpIGludG8KPiA+IHN3X2Zsb3df
-a2V5IG1lbWJlcnMuICBPSywgdGhhdCdzIGZpbmUgb24gaXQncyBvd24uICBIb3dldmVyLCBJIGRv
-bid0IHNlZQo+ID4gYW55IGNvcnJlc3BvbmRpbmcgY2hhbmdlIHRvIHRoZSBjb2RlIGluIGZsb3df
-bmV0bGluay5jIHRvIGNvbXBlbnNhdGUgZm9yCj4gPiB0aGUgZmFjdCB0aGF0LCB1bnRpbCBub3cs
-IHRoZSBWTEFOIENGSSBiaXQgKGZvcm1lcmx5IFZMQU5fVEFHX1BSRVNFTlQpCj4gPiB3YXMgYWx3
-YXlzIHJlcXVpcmVkIHRvIGJlIHNldCB0byAxIGluIGZsb3cgbWF0Y2hlcyBpbnNpZGUgTmV0bGlu
-awo+ID4gbWVzc2FnZXMgc2VudCBmcm9tIHVzZXJzcGFjZSwgYW5kIHRoZSBrZXJuZWwgYWx3YXlz
-IHNldCBpdCB0byAxIGluCj4gPiBjb3JyZXNwb25kaW5nIG1lc3NhZ2VzIHNlbnQgdG8gdXNlcnNw
-YWNlLgo+ID4gCj4gPiBJbiBvdGhlciB3b3JkcywgaWYgSSdtIHJlYWRpbmcgdGhpcyBjaGFuZ2Ug
-Y29ycmVjdGx5Ogo+ID4gCj4gPiAgICAgKiBXaXRoIGEga2VybmVsIGJlZm9yZSB0aGlzIGNoYW5n
-ZSwgdXNlcnNwYWNlIGFsd2F5cyBoYWQgdG8gc2V0Cj4gPiAgICAgICBWTEFOX1RBR19QUkVTRU5U
-IHRvIDEgdG8gbWF0Y2ggb24gYSBWTEFOLCBvciB0aGUga2VybmVsIHdvdWxkCj4gPiAgICAgICBy
-ZWplY3QgdGhlIGZsb3cgbWF0Y2guCj4gPiAKPiA+ICAgICAqIFdpdGggYSBrZXJuZWwgYWZ0ZXIg
-dGhpcyBjaGFuZ2UsIHVzZXJzcGFjZSBtdXN0IG5vdCBzZXQKPiA+ICAgICAgIFZMQU5fVEFHX1BS
-RVNFTlQgdG8gMSwgb3RoZXJ3aXNlIHRoZSBrZXJuZWwgd2lsbCBhY2NlcHQgdGhlIGZsb3cKPiA+
-ICAgICAgIG1hdGNoIGJ1dCBub3RoaW5nIHdpbGwgZXZlciBtYXRjaCBiZWNhdXNlIHBhY2tldHMg
-ZG8gbm90IGFjdHVhbGx5Cj4gPiAgICAgICBoYXZlIHRoZSBDRkkgYml0IHNldC4KPiA+IAo+ID4g
-VGFrZSBhIGxvb2sgYXQgdGhpcyBjb2RlIHRoYXQgdGhlIHBhdGNoIGRlbGV0ZXMgZnJvbQo+ID4g
-dmFsaWRhdGVfdmxhbl9mcm9tX25sYXR0cnMoKSwgZm9yIGV4YW1wbGUsIGFuZCBzZWUgaG93IGl0
-IGluc2lzdGVkIHRoYXQKPiA+IFZMQU5fVEFHX1BSRVNFTlQgd2FzIHNldDoKPiA+IAo+ID4gCWlm
-ICghKHRjaSAmIGh0b25zKFZMQU5fVEFHX1BSRVNFTlQpKSkgewo+ID4gCQlpZiAodGNpKSB7Cj4g
-PiAJCQlPVlNfTkxFUlIobG9nLCAiJXMgVENJIGRvZXMgbm90IGhhdmUgVkxBTl9UQUdfUFJFU0VO
-VCBiaXQgc2V0LiIsCj4gPiAJCQkJICAoaW5uZXIpID8gIkMtVkxBTiIgOiAiVkxBTiIpOwo+ID4g
-CQkJcmV0dXJuIC1FSU5WQUw7Cj4gPiAJCX0gZWxzZSBpZiAobmxhX2xlbihhW09WU19LRVlfQVRU
-Ul9FTkNBUF0pKSB7Cj4gPiAJCQkvKiBDb3JuZXIgY2FzZSBmb3IgdHJ1bmNhdGVkIFZMQU4gaGVh
-ZGVyLiAqLwo+ID4gCQkJT1ZTX05MRVJSKGxvZywgIlRydW5jYXRlZCAlcyBoZWFkZXIgaGFzIG5v
-bi16ZXJvIGVuY2FwIGF0dHJpYnV0ZS4iLAo+ID4gCQkJCSAgKGlubmVyKSA/ICJDLVZMQU4iIDog
-IlZMQU4iKTsKPiA+IAkJCXJldHVybiAtRUlOVkFMOwo+ID4gCQl9Cj4gPiAJfQo+ID4gCj4gPiBQ
-bGVhc2UgbGV0IG1lIGtub3cgaWYgSSdtIG92ZXJsb29raW5nIHNvbWV0aGluZy4KPiAKPiBIbW0u
-IFNvIHRoZSBlYXNpZXN0IGNoYW5nZSB3aXRob3V0IGRpc3J1cHRpbmcgY3VycmVudCB1c2Vyc3Bh
-Y2UsIHdvdWxkIGJlCj4gdG8gZmxpcCB0aGUgQ0ZJIGJpdCBvbiB0aGUgd2F5IHRvL2Zyb20gT1ZT
-IHVzZXJzcGFjZS4gRG9lcyB0aGlzIHNlZW0KPiBjb3JyZWN0PwoKVGhhdCBzb3VuZHMgY29ycmVj
-dC4gIChUaGUgYml0IHNob3VsZCBub3QgYmUgZmxpcHBlZCBpbiB0aGUgbWFzay4pCgpUaGFua3Ms
-CgpCZW4uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRl
-diBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwczovL21haWwub3BlbnZzd2l0
-Y2gub3JnL21haWxtYW4vbGlzdGluZm8vb3ZzLWRldgo=
+On 12/5/2016 1:45 AM, Sergei Shtylyov wrote:
+> Hello!
+>
+> On 12/5/2016 9:57 AM, Santosh Shilimkar wrote:
+>
+[...]
+
+>> -void rds_walk_conn_path_info(struct socket *sock, unsigned int len,
+>> +static void rds_walk_conn_path_info(struct socket *sock, unsigned int
+>> len,
+>>                   struct rds_info_iterator *iter,
+>>                   struct rds_info_lengths *lens,
+>>                   int (*visitor)(struct rds_conn_path *, void *),
+>
+>    You now need to realign the continuation lines.
+>
+Right. Will fix that. Thanks !!
+
+Regards,
+Santosh
