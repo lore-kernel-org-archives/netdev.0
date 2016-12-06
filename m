@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V2 2/7] liquidio CN23XX: VF link status
-Date: Tue, 6 Dec 2016 13:06:02 -0800
-Message-ID: <1481058367-3937-3-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 4/7] liquidio CN23XX: VF scatter gather lists
+Date: Tue, 6 Dec 2016 13:06:04 -0800
+Message-ID: <1481058367-3937-5-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1481058367-3937-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,331 +13,194 @@ Cc: <netdev@vger.kernel.org>,
         Felix Manlunas <felix.manlunas@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0058.outbound.protection.outlook.com ([104.47.34.58]:9968
+Received: from mail-by2nam01on0080.outbound.protection.outlook.com ([104.47.34.80]:50766
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752265AbcLFVV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Dec 2016 16:21:28 -0500
+        id S1752266AbcLFVVd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 16:21:33 -0500
 In-Reply-To: <1481058367-3937-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for VF link status related changes.
+Adds support for VF scatter gather lists.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 249 +++++++++++++++++++++
- 1 file changed, 249 insertions(+)
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 134 +++++++++++++++++++++
+ 1 file changed, 134 insertions(+)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 81a578f..eddd77f 100644
+index 0e23e2f..e4ee6ec 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -163,6 +163,186 @@ static inline void ifstate_reset(struct lio *lio, int state_flag)
- 	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
+@@ -55,10 +55,28 @@ struct liquidio_if_cfg_resp {
+ 	u64 status;
+ };
+ 
++#define OCTNIC_MAX_SG  (MAX_SKB_FRAGS)
++
+ #define OCTNIC_GSO_MAX_HEADER_SIZE 128
+ #define OCTNIC_GSO_MAX_SIZE \
+ 		(CN23XX_DEFAULT_INPUT_JABBER - OCTNIC_GSO_MAX_HEADER_SIZE)
+ 
++struct octnic_gather {
++	/* List manipulation. Next and prev pointers. */
++	struct list_head list;
++
++	/* Size of the gather component at sg in bytes. */
++	int sg_size;
++
++	/* Number of bytes that sg was adjusted to make it 8B-aligned. */
++	int adjust;
++
++	/* Gather component that can accommodate max sized fragment list
++	 * received from the IP layer.
++	 */
++	struct octeon_sg_entry *sg;
++};
++
+ struct octeon_device_priv {
+ 	/* Tasklet structures for this device. */
+ 	struct tasklet_struct droq_tasklet;
+@@ -237,6 +255,114 @@ static void start_txq(struct net_device *netdev)
  }
  
-+/**
-+ * \brief Stop Tx queues
-+ * @param netdev network device
+ /**
++ * Remove the node at the head of the list. The list would be empty at
++ * the end of this call if there are no more nodes in the list.
 + */
-+static inline void txqs_stop(struct net_device *netdev)
++static inline struct list_head *list_delete_head(struct list_head *root)
 +{
-+	if (netif_is_multiqueue(netdev)) {
-+		int i;
++	struct list_head *node;
 +
-+		for (i = 0; i < netdev->num_tx_queues; i++)
-+			netif_stop_subqueue(netdev, i);
-+	} else {
-+		netif_stop_queue(netdev);
-+	}
++	if ((root->prev == root) && (root->next == root))
++		node = NULL;
++	else
++		node = root->next;
++
++	if (node)
++		list_del(node);
++
++	return node;
 +}
 +
 +/**
-+ * \brief Start Tx queues
-+ * @param netdev network device
++ * \brief Delete gather lists
++ * @param lio per-network private data
 + */
-+static inline void txqs_start(struct net_device *netdev)
++static void delete_glists(struct lio *lio)
 +{
-+	if (netif_is_multiqueue(netdev)) {
-+		int i;
++	struct octnic_gather *g;
++	int i;
 +
-+		for (i = 0; i < netdev->num_tx_queues; i++)
-+			netif_start_subqueue(netdev, i);
-+	} else {
-+		netif_start_queue(netdev);
-+	}
-+}
-+
-+/**
-+ * \brief Wake Tx queues
-+ * @param netdev network device
-+ */
-+static inline void txqs_wake(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	if (netif_is_multiqueue(netdev)) {
-+		int i;
-+
-+		for (i = 0; i < netdev->num_tx_queues; i++) {
-+			int qno = lio->linfo.txpciq[i % (lio->linfo.num_txpciq)]
-+				      .s.q_no;
-+			if (__netif_subqueue_stopped(netdev, i)) {
-+				INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, qno,
-+							  tx_restart, 1);
-+				netif_wake_subqueue(netdev, i);
-+			}
-+		}
-+	} else {
-+		INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, lio->txq,
-+					  tx_restart, 1);
-+		netif_wake_queue(netdev);
-+	}
-+}
-+
-+/**
-+ * \brief Start Tx queue
-+ * @param netdev network device
-+ */
-+static void start_txq(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	if (lio->linfo.link.s.link_up) {
-+		txqs_start(netdev);
++	if (!lio->glist)
 +		return;
++
++	for (i = 0; i < lio->linfo.num_txpciq; i++) {
++		do {
++			g = (struct octnic_gather *)
++			    list_delete_head(&lio->glist[i]);
++			if (g) {
++				if (g->sg)
++					kfree((void *)((unsigned long)g->sg -
++							g->adjust));
++				kfree(g);
++			}
++		} while (g);
 +	}
++
++	kfree(lio->glist);
++	kfree(lio->glist_lock);
 +}
 +
 +/**
-+ * \brief Print link information
-+ * @param netdev network device
++ * \brief Setup gather lists
++ * @param lio per-network private data
 + */
-+static void print_link_info(struct net_device *netdev)
++static int setup_glists(struct lio *lio, int num_iqs)
 +{
-+	struct lio *lio = GET_LIO(netdev);
++	struct octnic_gather *g;
++	int i, j;
 +
-+	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_REGISTERED) {
-+		struct oct_link_info *linfo = &lio->linfo;
++	lio->glist_lock =
++	    kzalloc(sizeof(*lio->glist_lock) * num_iqs, GFP_KERNEL);
++	if (!lio->glist_lock)
++		return 1;
 +
-+		if (linfo->link.s.link_up) {
-+			netif_info(lio, link, lio->netdev, "%d Mbps %s Duplex UP\n",
-+				   linfo->link.s.speed,
-+				   (linfo->link.s.duplex) ? "Full" : "Half");
-+		} else {
-+			netif_info(lio, link, lio->netdev, "Link Down\n");
++	lio->glist =
++	    kzalloc(sizeof(*lio->glist) * num_iqs, GFP_KERNEL);
++	if (!lio->glist) {
++		kfree(lio->glist_lock);
++		return 1;
++	}
++
++	for (i = 0; i < num_iqs; i++) {
++		spin_lock_init(&lio->glist_lock[i]);
++
++		INIT_LIST_HEAD(&lio->glist[i]);
++
++		for (j = 0; j < lio->tx_qsize; j++) {
++			g = kzalloc(sizeof(*g), GFP_KERNEL);
++			if (!g)
++				break;
++
++			g->sg_size = ((ROUNDUP4(OCTNIC_MAX_SG) >> 2) *
++				      OCT_SG_ENTRY_SIZE);
++
++			g->sg = kmalloc(g->sg_size + 8, GFP_KERNEL);
++			if (!g->sg) {
++				kfree(g);
++				break;
++			}
++
++			/* The gather component should be aligned on 64-bit
++			 * boundary
++			 */
++			if (((unsigned long)g->sg) & 7) {
++				g->adjust = 8 - (((unsigned long)g->sg) & 7);
++				g->sg = (struct octeon_sg_entry *)
++					((unsigned long)g->sg + g->adjust);
++			}
++			list_add_tail(&g->list, &lio->glist[i]);
++		}
++
++		if (j != lio->tx_qsize) {
++			delete_glists(lio);
++			return 1;
 +		}
 +	}
-+}
-+
-+/**
-+ * \brief Routine to notify MTU change
-+ * @param work work_struct data structure
-+ */
-+static void octnet_link_status_change(struct work_struct *work)
-+{
-+	struct cavium_wk *wk = (struct cavium_wk *)work;
-+	struct lio *lio = (struct lio *)wk->ctxptr;
-+
-+	rtnl_lock();
-+	call_netdevice_notifiers(NETDEV_CHANGEMTU, lio->netdev);
-+	rtnl_unlock();
-+}
-+
-+/**
-+ * \brief Sets up the mtu status change work
-+ * @param netdev network device
-+ */
-+static inline int setup_link_status_change_wq(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+
-+	lio->link_status_wq.wq = alloc_workqueue("link-status",
-+						 WQ_MEM_RECLAIM, 0);
-+	if (!lio->link_status_wq.wq) {
-+		dev_err(&oct->pci_dev->dev, "unable to create cavium link status wq\n");
-+		return -1;
-+	}
-+	INIT_DELAYED_WORK(&lio->link_status_wq.wk.work,
-+			  octnet_link_status_change);
-+	lio->link_status_wq.wk.ctxptr = lio;
 +
 +	return 0;
 +}
 +
-+static inline void cleanup_link_status_change_wq(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	if (lio->link_status_wq.wq) {
-+		cancel_delayed_work_sync(&lio->link_status_wq.wk.work);
-+		destroy_workqueue(lio->link_status_wq.wq);
-+	}
-+}
-+
 +/**
-+ * \brief Update link status
-+ * @param netdev network device
-+ * @param ls link status structure
-+ *
-+ * Called on receipt of a link status response from the core application to
-+ * update each interface's link status.
-+ */
-+static inline void update_link_status(struct net_device *netdev,
-+				      union oct_link_status *ls)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+
-+	if ((lio->intf_open) && (lio->linfo.link.u64 != ls->u64)) {
-+		lio->linfo.link.u64 = ls->u64;
-+
-+		print_link_info(netdev);
-+		lio->link_changes++;
-+
-+		if (lio->linfo.link.s.link_up) {
-+			netif_carrier_on(netdev);
-+			txqs_wake(netdev);
-+		} else {
-+			netif_carrier_off(netdev);
-+			txqs_stop(netdev);
-+		}
-+
-+		if (lio->linfo.link.s.mtu < netdev->mtu) {
-+			dev_warn(&oct->pci_dev->dev,
-+				 "PF has changed the MTU for gmx port. Reducing the mtu from %d to %d\n",
-+				 netdev->mtu, lio->linfo.link.s.mtu);
-+			lio->mtu = lio->linfo.link.s.mtu;
-+			netdev->mtu = lio->linfo.link.s.mtu;
-+			queue_delayed_work(lio->link_status_wq.wq,
-+					   &lio->link_status_wq.wk.work, 0);
-+		}
-+	}
-+}
-+
- static
- int liquidio_schedule_msix_droq_pkt_handler(struct octeon_droq *droq, u64 ret)
- {
-@@ -499,6 +679,8 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
- 	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_REGISTERED)
- 		unregister_netdev(netdev);
+  * \brief Print link information
+  * @param netdev network device
+  */
+@@ -681,6 +807,8 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
  
-+	cleanup_link_status_change_wq(netdev);
+ 	cleanup_link_status_change_wq(netdev);
+ 
++	delete_glists(lio);
 +
  	free_netdev(netdev);
  
  	oct->props[ifidx].gmxport = -1;
-@@ -635,6 +817,28 @@ static u16 select_q(struct net_device *dev, struct sk_buff *skb,
- }
+@@ -1379,6 +1507,12 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 		/* Copy MAC Address to OS network device structure */
+ 		ether_addr_copy(netdev->dev_addr, mac);
  
- /**
-+ * \brief Net device open for LiquidIO
-+ * @param netdev network device
-+ */
-+static int liquidio_open(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+
-+	ifstate_set(lio, LIO_IFSTATE_RUNNING);
-+
-+	/* Ready for link status updates */
-+	lio->intf_open = 1;
-+
-+	netif_info(lio, ifup, lio->netdev, "Interface Open, ready for traffic\n");
-+	start_txq(netdev);
-+
-+	dev_info(&oct->pci_dev->dev, "%s interface is opened\n", netdev->name);
-+
-+	return 0;
-+}
-+
-+/**
-  * \brief Net device stop for LiquidIO
-  * @param netdev network device
-  */
-@@ -653,6 +857,8 @@ static int liquidio_stop(struct net_device *netdev)
- 
- 	ifstate_reset(lio, LIO_IFSTATE_RUNNING);
- 
-+	txqs_stop(netdev);
-+
- 	dev_info(&oct->pci_dev->dev, "%s interface is stopped\n", netdev->name);
- 
- 	return 0;
-@@ -758,11 +964,47 @@ static int liquidio_set_features(struct net_device *netdev,
- }
- 
- static const struct net_device_ops lionetdevops = {
-+	.ndo_open		= liquidio_open,
-+	.ndo_stop		= liquidio_stop,
- 	.ndo_fix_features	= liquidio_fix_features,
- 	.ndo_set_features	= liquidio_set_features,
- 	.ndo_select_queue	= select_q,
- };
- 
-+static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
-+{
-+	struct octeon_device *oct = (struct octeon_device *)buf;
-+	struct octeon_recv_pkt *recv_pkt = recv_info->recv_pkt;
-+	union oct_link_status *ls;
-+	int gmxport = 0;
-+	int i;
-+
-+	if (recv_pkt->buffer_size[0] != sizeof(*ls)) {
-+		dev_err(&oct->pci_dev->dev, "Malformed NIC_INFO, len=%d, ifidx=%d\n",
-+			recv_pkt->buffer_size[0],
-+			recv_pkt->rh.r_nic_info.gmxport);
-+		goto nic_info_err;
-+	}
-+
-+	gmxport = recv_pkt->rh.r_nic_info.gmxport;
-+	ls = (union oct_link_status *)get_rbd(recv_pkt->buffer_ptr[0]);
-+
-+	octeon_swap_8B_data((u64 *)ls, (sizeof(union oct_link_status)) >> 3);
-+
-+	for (i = 0; i < oct->ifcount; i++) {
-+		if (oct->props[i].gmxport == gmxport) {
-+			update_link_status(oct->props[i].netdev, ls);
-+			break;
-+		}
-+	}
-+
-+nic_info_err:
-+	for (i = 0; i < recv_pkt->buffer_count; i++)
-+		recv_buffer_free(recv_pkt->buffer_ptr[i]);
-+	octeon_free_recv_info(recv_info);
-+	return 0;
-+}
-+
- /**
-  * \brief Setup network interfaces
-  * @param octeon_dev  octeon device
-@@ -788,6 +1030,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 
- 	ifidx_or_pfnum = octeon_dev->pf_num;
- 
-+	/* This is to handle link status changes */
-+	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC, OPCODE_NIC_INFO,
-+				    lio_nic_info, octeon_dev);
-+
- 	for (i = 0; i < octeon_dev->ifcount; i++) {
- 		resp_size = sizeof(struct liquidio_if_cfg_resp);
- 		ctx_size = sizeof(struct liquidio_if_cfg_context);
-@@ -946,6 +1192,9 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 			liquidio_set_feature(netdev, OCTNET_CMD_VERBOSE_ENABLE,
- 					     0);
- 
-+		if (setup_link_status_change_wq(netdev))
++		if (setup_glists(lio, num_iqueues)) {
++			dev_err(&octeon_dev->pci_dev->dev,
++				"Gather list allocation failed\n");
 +			goto setup_nic_dev_fail;
++		}
 +
- 		/* Register the network device with the OS */
- 		if (register_netdev(netdev)) {
- 			dev_err(&octeon_dev->pci_dev->dev, "Device registration failed\n");
+ 		if (netdev->features & NETIF_F_LRO)
+ 			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
+ 					     OCTNIC_LROIPV4 | OCTNIC_LROIPV6);
 -- 
 1.8.3.1
