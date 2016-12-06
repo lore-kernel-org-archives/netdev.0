@@ -1,50 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
-Date: Tue, 06 Dec 2016 10:58:35 -0800
-Message-ID: <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
-         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481049061.7129.18.camel@redhat.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH v2 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
+ prog
+Date: Tue, 6 Dec 2016 10:52:30 -0800
+Message-ID: <20161206185230.GB16682@kafai-mba.local>
+References: <1480821446-4122277-1-git-send-email-kafai@fb.com>
+ <1480821446-4122277-2-git-send-email-kafai@fb.com>
+ <5846F6E3.2040808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        "Saeed Mahameed" <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "Kernel Team" <kernel-team@fb.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36274 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751895AbcLFS7h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 13:59:37 -0500
-Received: by mail-pg0-f65.google.com with SMTP id x23so20652919pgx.3
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 10:59:36 -0800 (PST)
-In-Reply-To: <1481049061.7129.18.camel@redhat.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49482 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751495AbcLFTKd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 14:10:33 -0500
+Content-Disposition: inline
+In-Reply-To: <5846F6E3.2040808@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-12-06 at 19:31 +0100, Paolo Abeni wrote:
+On Tue, Dec 06, 2016 at 09:35:31AM -0800, John Fastabend wrote:
+> On 16-12-03 07:17 PM, Martin KaFai Lau wrote:
+> > This patch allows XDP prog to extend/remove the packet
+> > data at the head (like adding or removing header).  It is
+> > done by adding a new XDP helper bpf_xdp_adjust_head().
+> >
+> > It also renames bpf_helper_changes_skb_data() to
+> > bpf_helper_changes_pkt_data() to better reflect
+> > that XDP prog does not work on skb.
+> >
+> > Acked-by: Alexei Starovoitov <ast@kernel.org>
+> > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> > ---
+>
+>
+> [...]
+>
+> >
+> > -bool bpf_helper_changes_skb_data(void *func)
+> > +BPF_CALL_2(bpf_xdp_adjust_head, struct xdp_buff *, xdp, int, offset)
+> > +{
+> > +	/* Both mlx4 and mlx5 driver align each packet to PAGE_SIZE when
+> > +	 * XDP prog is set.
+> > +	 * If the above is not true for the other drivers to support
+> > +	 * bpf_xdp_adjust_head, struct xdp_buff can be extended.
+> > +	 */
+> > +	unsigned long addr = (unsigned long)xdp->data & PAGE_MASK;
+> > +	void *data_hard_start = (void *)addr;
+> > +	void *data = xdp->data + offset;
+> > +
+> > +	if (unlikely(data < data_hard_start || data > xdp->data_end - ETH_HLEN))
+> > +		return -EINVAL;
+> > +
+> > +	xdp->data = data;
+> > +
+> > +	return 0;
+> > +}
+> > +
+>
+> Sorry for the delay but I don't like the assumptions being made here
+> with regards to page alignment and free space.
+>
+> Instead of taking the offset from PAGE_MASK how about adding a pointer
+> to xdp_buff so that we get,
+>
+>  struct xdp_buff {
+>  	void *data;
+> 	void *data_end;
+> 	void *data_start;
+>  };
+>
+> This gives the headroom explicitly in the data structure. This way we
+> can handle non-paged aligned usages and also some of the drivers are
+> putting metadata (descriptors) at the front of the page. With this
+> patch we could stomp on that metadata with the above we avoid that
+> problem altogether.
+Extending the xdp_buff like this was my first local attempt.  And
+then I realized the assumption that mlx4/5 is making.  Since
+there is no immediate need for this patch series and the xdp_buff
+can always be extended later if needed without breaking
+the xdp prog, I dropped the xdp_buff addition for now in this patch.
 
-> cacheline 2 boundary (128 bytes) is 8 bytes before sk_lock: cacheline 2
-> includes also skc_refcnt and skc_rxhash from __sk_common (I use 'pahole
-> -E ...' to get the full blown output). skc_rxhash is read for each
-> packet in inet_recvmsg()/sock_rps_record_flow() if CONFIG_RPS is set. I
-> get a cache miss per packet there and inet_recvmsg() in my test takes
-> about 8% of the whole u/s processing time.
-
-
-
-Wait a minute, this sk->sk_rxhash should only be read on connected
-socket. Relying on it being 0 was okay only if we did not care
-of false sharing. And UDP sockets used to grab socket refcount, so we
-had false sharing a _lot_ in the past.
-
-We must fix this if not already done properly.
-
-Can you take care of this problem ?
-
-Thanks !
+Sure, it will be done at the next spin.
