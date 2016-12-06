@@ -1,199 +1,263 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 06 Dec 2016 12:04:04 -0500 (EST)
-Message-ID: <20161206.120404.141364032650056590.davem@davemloft.net>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
+Date: Tue, 06 Dec 2016 18:08:18 +0100
+Message-ID: <1481044098.7129.7.camel@redhat.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481020451.6225.38.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43606 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751797AbcLFREG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 12:04:06 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:38860 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752633AbcLFRI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 12:08:27 -0500
+In-Reply-To: <1481020451.6225.38.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2016-12-06 at 11:34 +0100, Paolo Abeni wrote:
+> On Mon, 2016-12-05 at 09:57 -0800, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > In UDP recvmsg() path we currently access 3 cache lines from an skb
+> > while holding receive queue lock, plus another one if packet is
+> > dequeued, since we need to change skb->next->prev
+> > 
+> > 1st cache line (contains ->next/prev pointers, offsets 0x00 and 0x08)
+> > 2nd cache line (skb->len & skb->peeked, offsets 0x80 and 0x8e)
+> > 3rd cache line (skb->truesize/users, offsets 0xe0 and 0xe4)
+> > 
+> > skb->peeked is only needed to make sure 0-length packets are properly
+> > handled while MSG_PEEK is operated.
+> > 
+> > I had first the intent to remove skb->peeked but the "MSG_PEEK at
+> > non-zero offset" support added by Sam Kumar makes this not possible.
+> > 
+> > This patch avoids one cache line miss during the locked section, when
+> > skb->len and skb->peeked do not have to be read.
+> > 
+> > It also avoids the skb_set_peeked() cost for non empty UDP datagrams.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> Thank you for all the good work.
+> 
+> After all your improvement, I see the cacheline miss in inet_recvmsg()
+> as a major perf offender for the user space process in the udp flood
+> scenario due to skc_rxhash sharing the same sk_drops cacheline.
+> 
+> Using an udp-specific drop counter (and an sk_drops accessor to wrap
+> sk_drops access where needed), we could avoid such cache miss. With that
+> - patch for udp.h only below - I get 3% improvement on top of all the
+> pending udp patches, and the gain should be more relevant after the 2
+> queues rework. What do you think ?
 
-1) When dcbnl_cee_fill() fails to be able to push a new netlink attribute, it
-   return 0 instead of an error code.  From Pan Bian.
+Here follow what I'm experimenting. 
 
-2) Two suffix handling fixes to FIB trie code, from Alexander Duyck.
-
-3) bnxt_hwrm_stat_ctx_alloc() goes through all the trouble of setting
-   and maintaining a return code 'rc' but fails to actually return it.
-   Also from Pan Bian.
-
-4) ping socket ICMP handler needs to validate ICMP header length, from
-   Kees Cook.
-
-5) caif_sktinit_module() has this interesting logic:
-
-	int err = sock_register(...);
-	if (!err)
-		return err;
-	return 0;
-
-   Just return sock_register()'s return value directly which is the only
-   possible correct thing to do.
-
-6) Two bnx2x driver fixes from Yuval Mintz, return a reasonable estimate
-   from get_ringparam() ethtool op when interface is down and avoid trying
-   to use UDP port based tunneling on 577xx chips.
-
-7) Fix ep93xx_eth crash on module unload from Florian Fainelli.
-
-8) Missing uapi exports, from Stephen Hemminger.
-
-9) Don't schedule work from sk_destruct(), because the socket will be
-   freed upon return from that function.  From Herbert Xu.
-
-10) Buggy drivers, of which we know there is at least one, can send a huge
-    packet into the TCP stack but forget to set the gso_size in the SKB,
-    which causes all kinds of problems.
-
-    Correct this when it happens, and emit a one-time warning with
-    the device name included so that it can be diagnosed more easily.
-
-    From Marcelo Ricardo Leitner.
-
-11) virtio-net does DMA off the stack causes hiccups with VMAP_STACK,
-    fix from Andy Lutomirski.
-
-12) Fix fec driver compilation with CONFIG_M5272, from Nikita
-    Yushchenko.
-
-13) mlx5 fixes from Kamal Heib, Saeed Mahameed, and Mohamad Haj Yahia.
-    (erroneously flushing queues on error, module parameter validation,
-    etc.)
-
-Please pull, thanks a lot!
-
-The following changes since commit 8dc0f265d39a3933f4c1f846c7c694f12a2ab88a:
-
-  Merge tag 'fixes-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/arm/arm-soc (2016-12-02 13:34:37 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to 32f16e142d7acabad68ef27c123d0caf1548aac3:
-
-  Merge branch 'mlx5-fixes' (2016-12-06 11:44:45 -0500)
-
-----------------------------------------------------------------
-Alexander Duyck (2):
-      ipv4: Drop leaf from suffix pull/push functions
-      ipv4: Drop suffix update from resize code
-
-Andy Lutomirski (1):
-      virtio-net: Fix DMA-from-the-stack in virtnet_set_mac_address()
-
-David S. Miller (4):
-      Merge tag 'batadv-net-for-davem-20161202' of git://git.open-mesh.org/linux-merge
-      Merge branch 'fib-suffix-length-fixes'
-      Merge branch 'bnx2x-fixes'
-      Merge branch 'mlx5-fixes'
-
-Florian Fainelli (1):
-      net: ep93xx_eth: Do not crash unloading module
-
-Herbert Xu (1):
-      netlink: Do not schedule work from sk_destruct
-
-Jonas Gorski (1):
-      uapi glibc compat: fix outer guard of net device flags enum
-
-Kamal Heib (3):
-      net/mlx5: Verify module parameters
-      net/mlx5: Remove duplicate pci dev name print
-      net/mlx5: Fix query ISSI flow
-
-Kees Cook (1):
-      net: ping: check minimum size on ICMP header length
-
-Marcelo Ricardo Leitner (1):
-      tcp: warn on bogus MSS and try to amend it
-
-Mintz, Yuval (2):
-      bnx2x: Correct ringparam estimate when DOWN
-      bnx2x: Prevent tunnel config for 577xx
-
-Mohamad Haj Yahia (1):
-      net/mlx5e: Change the SQ/RQ operational state to positive logic
-
-Nikita Yushchenko (1):
-      net: fec: fix compile with CONFIG_M5272
-
-Niklas Cassel (1):
-      net: stmmac: clear reset value of snps, wr_osr_lmt/snps, rd_osr_lmt before writing
-
-Pan Bian (11):
-      net: dcb: set error code on failures
-      netdev: broadcom: propagate error code
-      net: bridge: set error code on failure
-      net: usb: set error code when usb_alloc_urb fails
-      atm: lanai: set error code when ioremap fails
-      net: caif: remove ineffective check
-      net: irda: set error code on failures
-      atm: fix improper return value
-      net: ethernet: qlogic: set error code on failure
-      net: bnx2x: fix improper return value
-      isdn: hisax: set error code on failure
-
-Saeed Mahameed (2):
-      net/mlx5e: Don't notify HW when filling the edge of ICO SQ
-      net/mlx5e: Don't flush SQ on error
-
-Suraj Deshmukh (1):
-      net: af_mpls.c add space before open parenthesis
-
-Sven Eckelmann (1):
-      batman-adv: Check for alloc errors when preparing TT local data
-
-Venkat Duvvuru (1):
-      be2net: Add DEVSEC privilege to SET_HSW_CONFIG command.
-
-stephen hemminger (2):
-      uapi: export tc_skbmod.h
-      uapi: export nf_log.h
-
- drivers/atm/eni.c                                     |  2 +-
- drivers/atm/lanai.c                                   |  1 +
- drivers/isdn/hisax/hfc4s8s_l1.c                       |  1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c   |  8 ++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c      |  5 +++--
- drivers/net/ethernet/broadcom/bnxt/bnxt.c             |  2 +-
- drivers/net/ethernet/cirrus/ep93xx_eth.c              |  4 ++++
- drivers/net/ethernet/emulex/benet/be_cmds.c           |  3 ++-
- drivers/net/ethernet/freescale/fec_main.c             | 13 ++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c         |  5 -----
- drivers/net/ethernet/mellanox/mlx5/core/en.h          |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c     | 15 +++++++++------
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c       |  8 ++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c       |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c     |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/main.c        | 42 +++++++++++++++++++++++++-----------------
- drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h   | 15 ++++++++++-----
- drivers/net/ethernet/qlogic/qed/qed_ll2.c             |  1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c   |  2 ++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c      |  2 ++
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  6 ++++--
- drivers/net/irda/irda-usb.c                           |  1 +
- drivers/net/usb/lan78xx.c                             |  1 +
- drivers/net/virtio_net.c                              | 19 ++++++++++++++-----
- include/uapi/linux/if.h                               |  4 ++--
- include/uapi/linux/netfilter/Kbuild                   |  1 +
- include/uapi/linux/tc_act/Kbuild                      |  1 +
- net/batman-adv/translation-table.c                    |  4 ++--
- net/bridge/br_sysfs_br.c                              |  1 +
- net/caif/caif_socket.c                                |  5 +----
- net/dcb/dcbnl.c                                       |  1 +
- net/ipv4/fib_trie.c                                   | 68 +++++++++++++++++++++++++++++++++++---------------------------------
- net/ipv4/ping.c                                       |  4 ++++
- net/ipv4/tcp_input.c                                  | 22 +++++++++++++++++++++-
- net/mpls/af_mpls.c                                    |  2 +-
- net/netlink/af_netlink.c                              | 32 +++++++++++++++-----------------
- 36 files changed, 194 insertions(+), 117 deletions(-)
+The 'pcflag' changes is not strictly needed, but it shrinks the udp_sock
+struct a bit, so that the newly added cacheline does not create
+additional holes - with my kconfig, at least. I can use a separate patch
+for that chunk.
+---
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index d1fd8cd..a21baaf 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -49,7 +49,11 @@ struct udp_sock {
+ 	unsigned int	 corkflag;	/* Cork is required */
+ 	__u8		 encap_type;	/* Is this an Encapsulation socket? */
+ 	unsigned char	 no_check6_tx:1,/* Send zero UDP6 checksums on TX? */
+-			 no_check6_rx:1;/* Allow zero UDP6 checksums on RX? */
++			 no_check6_rx:1,/* Allow zero UDP6 checksums on RX? */
++			 pcflag:6;	/* UDP-Lite specific, moved here to */
++					/* fill an hole, marks socket as */
++					/* UDP-Lite if > 0    */
++
+ 	/*
+ 	 * Following member retains the information to create a UDP header
+ 	 * when the socket is uncorked.
+@@ -64,8 +68,7 @@ struct udp_sock {
+ #define UDPLITE_BIT      0x1  		/* set by udplite proto init function */
+ #define UDPLITE_SEND_CC  0x2  		/* set via udplite setsockopt         */
+ #define UDPLITE_RECV_CC  0x4		/* set via udplite setsocktopt        */
+-	__u8		 pcflag;        /* marks socket as UDP-Lite if > 0    */
+-	__u8		 unused[3];
++
+ 	/*
+ 	 * For encapsulation sockets.
+ 	 */
+@@ -79,6 +82,9 @@ struct udp_sock {
+ 	int			(*gro_complete)(struct sock *sk,
+ 						struct sk_buff *skb,
+ 						int nhoff);
++
++	/* since we are prone to drops, avoid dirtying any sk cacheline */
++	atomic_t		drops ____cacheline_aligned_in_smp;
+ };
+ 
+ static inline struct udp_sock *udp_sk(const struct sock *sk)
+@@ -106,6 +112,17 @@ static inline bool udp_get_no_check6_rx(struct sock *sk)
+ 	return udp_sk(sk)->no_check6_rx;
+ }
+ 
++static inline int udp_drops_read(const struct sock *sk)
++{
+      * +	return atomic_read(&udp_sk(sk)->drops);
++}
++
++static inline void
++udp_skb_set_dropcount(const struct sock *sk, struct sk_buff *skb)
++{
++	SOCK_SKB_CB(skb)->dropcount = udp_drops_read(sk);
++}
++
+ #define udp_portaddr_for_each_entry(__sk, list) \
+ 	hlist_for_each_entry(__sk, list, __sk_common.skc_portaddr_node)
+ 
+diff --git a/include/net/sock.h b/include/net/sock.h
+index ed75dec..113e495 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2138,6 +2138,8 @@ struct sock_skb_cb {
+ 	SOCK_SKB_CB(skb)->dropcount = atomic_read(&sk->sk_drops);
+ }
+ 
++int sk_drops_read(const struct sock *sk);
++
+ static inline void sk_drops_add(struct sock *sk, const struct sk_buff *skb)
+ {
+ 	int segs = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index 6b10573..dc41727 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -9,6 +9,7 @@
+ #include <net/sock.h>
+ #include <linux/kernel.h>
+ #include <linux/tcp.h>
++#include <linux/udp.h>
+ #include <linux/workqueue.h>
+ 
+ #include <linux/inet_diag.h>
+@@ -19,6 +20,14 @@
+ static DEFINE_MUTEX(sock_diag_table_mutex);
+ static struct workqueue_struct *broadcast_wq;
+ 
++int sk_drops_read(const struct sock *sk)
++{
++	if (sk->sk_protocol == IPPROTO_UDP)
++		return udp_drops_read(sk);
++	else
++		return atomic_read(&sk->sk_drops);
++}
++
+ static u64 sock_gen_cookie(struct sock *sk)
+ {
+ 	while (1) {
+@@ -67,7 +76,7 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
+ 	mem[SK_MEMINFO_WMEM_QUEUED] = sk->sk_wmem_queued;
+ 	mem[SK_MEMINFO_OPTMEM] = atomic_read(&sk->sk_omem_alloc);
+ 	mem[SK_MEMINFO_BACKLOG] = sk->sk_backlog.len;
+-	mem[SK_MEMINFO_DROPS] = atomic_read(&sk->sk_drops);
++	mem[SK_MEMINFO_DROPS] = sk_drops_read(sk);
+ 
+ 	return nla_put(skb, attrtype, sizeof(mem), &mem);
+ }
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index fbd6b69..d7c4980 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1174,6 +1174,11 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+ 	return ret;
+ }
+ 
++static void udp_drops_inc(struct sock *sk)
++{
++	atomic_inc(&udp_sk(sk)->drops);
++}
++
+ /* fully reclaim rmem/fwd memory allocated for skb */
+ static void udp_rmem_release(struct sock *sk, int size, int partial)
+ {
+@@ -1244,7 +1249,7 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
+ 	/* no need to setup a destructor, we will explicitly release the
+ 	 * forward allocated memory on dequeue
+ 	 */
+-	sock_skb_set_dropcount(sk, skb);
++	udp_skb_set_dropcount(sk, skb);
+ 
+ 	__skb_queue_tail(list, skb);
+ 	spin_unlock(&list->lock);
+@@ -1258,7 +1263,7 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
+ 	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
+ 
+ drop:
+-	atomic_inc(&sk->sk_drops);
++	udp_drops_inc(sk);
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(__udp_enqueue_schedule_skb);
+@@ -1319,7 +1324,7 @@ static int first_packet_length(struct sock *sk)
+ 				IS_UDPLITE(sk));
+ 		__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS,
+ 				IS_UDPLITE(sk));
+-		atomic_inc(&sk->sk_drops);
++		udp_drops_inc(sk);
+ 		__skb_unlink(skb, rcvq);
+ 		total += skb->truesize;
+ 		kfree_skb(skb);
+@@ -1417,7 +1422,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 
+ 	if (unlikely(err)) {
+ 		if (!peeked) {
+-			atomic_inc(&sk->sk_drops);
++			udp_drops_inc(sk);
+ 			UDP_INC_STATS(sock_net(sk),
+ 				      UDP_MIB_INERRORS, is_udplite);
+ 		}
+@@ -1714,7 +1719,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	__UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
+ drop:
+ 	__UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+-	atomic_inc(&sk->sk_drops);
++	udp_drops_inc(sk);
+ 	kfree_skb(skb);
+ 	return -1;
+ }
+@@ -1772,7 +1777,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		nskb = skb_clone(skb, GFP_ATOMIC);
+ 
+ 		if (unlikely(!nskb)) {
+-			atomic_inc(&sk->sk_drops);
++			udp_drops_inc(sk);
+ 			__UDP_INC_STATS(net, UDP_MIB_RCVBUFERRORS,
+ 					IS_UDPLITE(sk));
+ 			__UDP_INC_STATS(net, UDP_MIB_INERRORS,
+@@ -2491,7 +2496,7 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
+ 		from_kuid_munged(seq_user_ns(f), sock_i_uid(sp)),
+ 		0, sock_i_ino(sp),
+ 		atomic_read(&sp->sk_refcnt), sp,
+-		atomic_read(&sp->sk_drops));
++		udp_drops_read(sp));
+ }
+ 
+ int udp4_seq_show(struct seq_file *seq, void *v)
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index c5d76d2..9f46dff 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -1038,5 +1038,5 @@ void ip6_dgram_sock_seq_show(struct seq_file *seq, struct sock *sp,
+ 		   0,
+ 		   sock_i_ino(sp),
+ 		   atomic_read(&sp->sk_refcnt), sp,
+-		   atomic_read(&sp->sk_drops));
++		   sk_drops_read(sp));
+ }
