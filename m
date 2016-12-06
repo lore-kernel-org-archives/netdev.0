@@ -1,170 +1,72 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 10/10] virtio: enable endian checks for sparse builds
-Date: Tue, 6 Dec 2016 17:41:05 +0200
-Message-ID: <1481038106-24899-11-git-send-email-mst@redhat.com>
+Subject: [PATCH 06/10] vhost: add missing __user annotations
+Date: Tue, 6 Dec 2016 17:40:54 +0200
+Message-ID: <1481038106-24899-7-git-send-email-mst@redhat.com>
 References: <1481038106-24899-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, Neil Armstrong <narmstrong@baylibre.com>,
- Jason Wang <jasowang@redhat.com>, linux-remoteproc@vger.kernel.org,
- dri-devel@lists.freedesktop.org, virtualization@lists.linux-foundation.org,
- Gerd Hoffmann <kraxel@redhat.com>, linux-s390@vger.kernel.org,
- "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
- Herbert Xu <herbert@gondor.apana.org.au>, linux-scsi@vger.kernel.org,
- Christian Borntraeger <borntraeger@de.ibm.com>,
- v9fs-developer@lists.sourceforge.net, Asias He <asias@redhat.com>,
- Ohad Ben-Cohen <ohad@wizery.com>, Arnd Bergmann <arnd@arndb.de>,
- linux-kbuild@vger.kernel.org, Jens Axboe <axboe@fb.com>,
- Michal Marek <mmarek@suse.com>, Stefan Hajnoczi <stefanha@redhat.com>,
- Matt Mackall <mpm@selenic.com>, Cornelia Huck <cornelia.huck@de.ibm.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-crypto@vger.kernel.org,
- netdev@vger.kernel.org, "David S
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:33338 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753425AbcLFPk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 10:40:58 -0500
 Content-Disposition: inline
 In-Reply-To: <1481038106-24899-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-X19DSEVDS19FTkRJQU5fXyBpc24ndCBvbiBieSBkZWZhdWx0IHByZXN1bWFibHkgYmVjYXVzZQpp
-dCB0cmlnZ2VycyB0b28gbWFueSBzcGFyc2Ugd2FybmluZ3MgZm9yIGNvcnJlY3QgY29kZS4KQnV0
-IHZpcnRpbyBpcyBub3cgY2xlYW4gb2YgdGhlc2Ugd2FybmluZ3MsIGFuZAp3ZSB3YW50IHRvIGtl
-ZXAgaXQgdGhpcyB3YXkgLSBlbmFibGUgdGhpcyBmb3IKc3BhcnNlIGJ1aWxkcy4KClNpZ25lZC1v
-ZmYtYnk6IE1pY2hhZWwgUy4gVHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+Ci0tLQoKSXQgc2VlbXMg
-dGhhdCB0aGVyZSBzaG91bGQgYmUgYSBiZXR0ZXIgd2F5IHRvIGRvIGl0LApidXQgdGhpcyB3b3Jr
-cyB0b28uCgogZHJpdmVycy9ibG9jay9NYWtlZmlsZSAgICAgICAgICB8IDEgKwogZHJpdmVycy9j
-aGFyL01ha2VmaWxlICAgICAgICAgICB8IDEgKwogZHJpdmVycy9jaGFyL2h3X3JhbmRvbS9NYWtl
-ZmlsZSB8IDIgKysKIGRyaXZlcnMvZ3B1L2RybS92aXJ0aW8vTWFrZWZpbGUgfCAxICsKIGRyaXZl
-cnMvbmV0L01ha2VmaWxlICAgICAgICAgICAgfCAzICsrKwogZHJpdmVycy9uZXQvY2FpZi9NYWtl
-ZmlsZSAgICAgICB8IDEgKwogZHJpdmVycy9ycG1zZy9NYWtlZmlsZSAgICAgICAgICB8IDEgKwog
-ZHJpdmVycy9zMzkwL3ZpcnRpby9NYWtlZmlsZSAgICB8IDIgKysKIGRyaXZlcnMvc2NzaS9NYWtl
-ZmlsZSAgICAgICAgICAgfCAxICsKIGRyaXZlcnMvdmhvc3QvTWFrZWZpbGUgICAgICAgICAgfCAx
-ICsKIGRyaXZlcnMvdmlydGlvL01ha2VmaWxlICAgICAgICAgfCAzICsrKwogbmV0LzlwL01ha2Vm
-aWxlICAgICAgICAgICAgICAgICB8IDEgKwogbmV0L3BhY2tldC9NYWtlZmlsZSAgICAgICAgICAg
-ICB8IDEgKwogbmV0L3Ztd192c29jay9NYWtlZmlsZSAgICAgICAgICB8IDIgKysKIDE0IGZpbGVz
-IGNoYW5nZWQsIDIxIGluc2VydGlvbnMoKykKCmRpZmYgLS1naXQgYS9kcml2ZXJzL2Jsb2NrL01h
-a2VmaWxlIGIvZHJpdmVycy9ibG9jay9NYWtlZmlsZQppbmRleCAxZTk2NjFlLi41OTc0ODFjIDEw
-MDY0NAotLS0gYS9kcml2ZXJzL2Jsb2NrL01ha2VmaWxlCisrKyBiL2RyaXZlcnMvYmxvY2svTWFr
-ZWZpbGUKQEAgLTI3LDYgKzI3LDcgQEAgb2JqLSQoQ09ORklHX0JMS19ERVZfT1NEKQkrPSBvc2Ri
-bGsubwogb2JqLSQoQ09ORklHX0JMS19ERVZfVU1FTSkJKz0gdW1lbS5vCiBvYmotJChDT05GSUdf
-QkxLX0RFVl9OQkQpCSs9IG5iZC5vCiBvYmotJChDT05GSUdfQkxLX0RFVl9DUllQVE9MT09QKSAr
-PSBjcnlwdG9sb29wLm8KK0NGTEFHU192aXJ0aW9fYmxrLm8gKz0gLURfX0NIRUNLX0VORElBTl9f
-CiBvYmotJChDT05GSUdfVklSVElPX0JMSykJKz0gdmlydGlvX2Jsay5vCiAKIG9iai0kKENPTkZJ
-R19CTEtfREVWX1NYOCkJKz0gc3g4Lm8KZGlmZiAtLWdpdCBhL2RyaXZlcnMvY2hhci9NYWtlZmls
-ZSBiL2RyaXZlcnMvY2hhci9NYWtlZmlsZQppbmRleCA2ZTZjMjQ0Li5hOTk0NjdkIDEwMDY0NAot
-LS0gYS9kcml2ZXJzL2NoYXIvTWFrZWZpbGUKKysrIGIvZHJpdmVycy9jaGFyL01ha2VmaWxlCkBA
-IC02LDYgKzYsNyBAQCBvYmoteQkJCQkrPSBtZW0ubyByYW5kb20ubwogb2JqLSQoQ09ORklHX1RU
-WV9QUklOVEspCSs9IHR0eXByaW50ay5vCiBvYmoteQkJCQkrPSBtaXNjLm8KIG9iai0kKENPTkZJ
-R19BVEFSSV9EU1A1NkspCSs9IGRzcDU2ay5vCitDRkxBR1NfdmlydGlvX2NvbnNvbGUubyArPSAt
-RF9fQ0hFQ0tfRU5ESUFOX18KIG9iai0kKENPTkZJR19WSVJUSU9fQ09OU09MRSkJKz0gdmlydGlv
-X2NvbnNvbGUubwogb2JqLSQoQ09ORklHX1JBV19EUklWRVIpCSs9IHJhdy5vCiBvYmotJChDT05G
-SUdfU0dJX1NOU0MpCQkrPSBzbnNjLm8gc25zY19ldmVudC5vCmRpZmYgLS1naXQgYS9kcml2ZXJz
-L2NoYXIvaHdfcmFuZG9tL01ha2VmaWxlIGIvZHJpdmVycy9jaGFyL2h3X3JhbmRvbS9NYWtlZmls
-ZQppbmRleCA1ZjUyYjFlLi5hMmIwOTMxIDEwMDY0NAotLS0gYS9kcml2ZXJzL2NoYXIvaHdfcmFu
-ZG9tL01ha2VmaWxlCisrKyBiL2RyaXZlcnMvY2hhci9od19yYW5kb20vTWFrZWZpbGUKQEAgLTE3
-LDYgKzE3LDggQEAgb2JqLSQoQ09ORklHX0hXX1JBTkRPTV9JWFA0WFgpICs9IGl4cDR4eC1ybmcu
-bwogb2JqLSQoQ09ORklHX0hXX1JBTkRPTV9PTUFQKSArPSBvbWFwLXJuZy5vCiBvYmotJChDT05G
-SUdfSFdfUkFORE9NX09NQVAzX1JPTSkgKz0gb21hcDMtcm9tLXJuZy5vCiBvYmotJChDT05GSUdf
-SFdfUkFORE9NX1BBU0VNSSkgKz0gcGFzZW1pLXJuZy5vCitDRkxBR1NfdmlydGlvX3RyYW5zcG9y
-dC5vICs9IC1EX19DSEVDS19FTkRJQU5fXworQ0ZMQUdTX3ZpcnRpby1ybmcubyArPSAtRF9fQ0hF
-Q0tfRU5ESUFOX18KIG9iai0kKENPTkZJR19IV19SQU5ET01fVklSVElPKSArPSB2aXJ0aW8tcm5n
-Lm8KIG9iai0kKENPTkZJR19IV19SQU5ET01fVFg0OTM5KSArPSB0eDQ5Mzktcm5nLm8KIG9iai0k
-KENPTkZJR19IV19SQU5ET01fTVhDX1JOR0EpICs9IG14Yy1ybmdhLm8KZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvZ3B1L2RybS92aXJ0aW8vTWFrZWZpbGUgYi9kcml2ZXJzL2dwdS9kcm0vdmlydGlvL01h
-a2VmaWxlCmluZGV4IDNmYjhlYWMuLjExNjIzNjYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvZ3B1L2Ry
-bS92aXJ0aW8vTWFrZWZpbGUKKysrIGIvZHJpdmVycy9ncHUvZHJtL3ZpcnRpby9NYWtlZmlsZQpA
-QCAtMyw2ICszLDcgQEAKICMgRGlyZWN0IFJlbmRlcmluZyBJbmZyYXN0cnVjdHVyZSAoRFJJKSBp
-biBYRnJlZTg2IDQuMS4wIGFuZCBoaWdoZXIuCiAKIGNjZmxhZ3MteSA6PSAtSWluY2x1ZGUvZHJt
-CitjY2ZsYWdzLXkgKz0gLURfX0NIRUNLX0VORElBTl9fCiAKIHZpcnRpby1ncHUteSA6PSB2aXJ0
-Z3B1X2Rydi5vIHZpcnRncHVfa21zLm8gdmlydGdwdV9kcm1fYnVzLm8gdmlydGdwdV9nZW0ubyBc
-CiAJdmlydGdwdV9mYi5vIHZpcnRncHVfZGlzcGxheS5vIHZpcnRncHVfdnEubyB2aXJ0Z3B1X3R0
-bS5vIFwKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L01ha2VmaWxlIGIvZHJpdmVycy9uZXQvTWFr
-ZWZpbGUKaW5kZXggNzMzNmNiZC4uM2Y1ODdkZSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvTWFr
-ZWZpbGUKKysrIGIvZHJpdmVycy9uZXQvTWFrZWZpbGUKQEAgLTEyLDYgKzEyLDcgQEAgb2JqLSQo
-Q09ORklHX0VRVUFMSVpFUikgKz0gZXFsLm8KIG9iai0kKENPTkZJR19JRkIpICs9IGlmYi5vCiBv
-YmotJChDT05GSUdfTUFDU0VDKSArPSBtYWNzZWMubwogb2JqLSQoQ09ORklHX01BQ1ZMQU4pICs9
-IG1hY3ZsYW4ubworQ0ZMQUdTX21hY3Z0YXAubyArPSAtRF9fQ0hFQ0tfRU5ESUFOX18KIG9iai0k
-KENPTkZJR19NQUNWVEFQKSArPSBtYWN2dGFwLm8KIG9iai0kKENPTkZJR19NSUkpICs9IG1paS5v
-CiBvYmotJChDT05GSUdfTURJTykgKz0gbWRpby5vCkBAIC0yMCw4ICsyMSwxMCBAQCBvYmotJChD
-T05GSUdfTkVUQ09OU09MRSkgKz0gbmV0Y29uc29sZS5vCiBvYmotJChDT05GSUdfUEhZTElCKSAr
-PSBwaHkvCiBvYmotJChDT05GSUdfUklPTkVUKSArPSByaW9uZXQubwogb2JqLSQoQ09ORklHX05F
-VF9URUFNKSArPSB0ZWFtLworQ0ZMQUdTX3R1bi5vICs9IC1EX19DSEVDS19FTkRJQU5fXwogb2Jq
-LSQoQ09ORklHX1RVTikgKz0gdHVuLm8KIG9iai0kKENPTkZJR19WRVRIKSArPSB2ZXRoLm8KK0NG
-TEFHU192aXJ0aW9fbmV0Lm8gKz0gLURfX0NIRUNLX0VORElBTl9fCiBvYmotJChDT05GSUdfVklS
-VElPX05FVCkgKz0gdmlydGlvX25ldC5vCiBvYmotJChDT05GSUdfVlhMQU4pICs9IHZ4bGFuLm8K
-IG9iai0kKENPTkZJR19HRU5FVkUpICs9IGdlbmV2ZS5vCmRpZmYgLS1naXQgYS9kcml2ZXJzL25l
-dC9jYWlmL01ha2VmaWxlIGIvZHJpdmVycy9uZXQvY2FpZi9NYWtlZmlsZQppbmRleCA5YmJkNDUz
-Li5kMWE5MjJjIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9jYWlmL01ha2VmaWxlCisrKyBiL2Ry
-aXZlcnMvbmV0L2NhaWYvTWFrZWZpbGUKQEAgLTEyLDMgKzEyLDQgQEAgb2JqLSQoQ09ORklHX0NB
-SUZfSFNJKSArPSBjYWlmX2hzaS5vCiAKICMgVmlydGlvIGludGVyZmFjZQogb2JqLSQoQ09ORklH
-X0NBSUZfVklSVElPKSArPSBjYWlmX3ZpcnRpby5vCitDRkxBR1NfY2FpZl92aXJ0aW8ubyArPSAt
-RF9fQ0hFQ0tfRU5ESUFOX18KZGlmZiAtLWdpdCBhL2RyaXZlcnMvcnBtc2cvTWFrZWZpbGUgYi9k
-cml2ZXJzL3JwbXNnL01ha2VmaWxlCmluZGV4IGFlOWM5MTMuLjIzYzhiNjYgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvcnBtc2cvTWFrZWZpbGUKKysrIGIvZHJpdmVycy9ycG1zZy9NYWtlZmlsZQpAQCAt
-MSwzICsxLDQgQEAKIG9iai0kKENPTkZJR19SUE1TRykJCSs9IHJwbXNnX2NvcmUubwogb2JqLSQo
-Q09ORklHX1JQTVNHX1FDT01fU01EKQkrPSBxY29tX3NtZC5vCiBvYmotJChDT05GSUdfUlBNU0df
-VklSVElPKQkrPSB2aXJ0aW9fcnBtc2dfYnVzLm8KK0NGTEFHU192aXJ0aW9fcnBtc2dfYnVzLm8J
-Kz0gLURfX0NIRUNLX0VORElBTl9fCmRpZmYgLS1naXQgYS9kcml2ZXJzL3MzOTAvdmlydGlvL01h
-a2VmaWxlIGIvZHJpdmVycy9zMzkwL3ZpcnRpby9NYWtlZmlsZQppbmRleCBkZjQwNjkyLi4yNzBh
-ZGE1IDEwMDY0NAotLS0gYS9kcml2ZXJzL3MzOTAvdmlydGlvL01ha2VmaWxlCisrKyBiL2RyaXZl
-cnMvczM5MC92aXJ0aW8vTWFrZWZpbGUKQEAgLTYsNiArNiw4IEBACiAjIGl0IHVuZGVyIHRoZSB0
-ZXJtcyBvZiB0aGUgR05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UgKHZlcnNpb24gMiBvbmx5KQog
-IyBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlvbi4KIAorQ0ZMQUdT
-X3ZpcnRpb19jY3cubyArPSAtRF9fQ0hFQ0tfRU5ESUFOX18KK0NGTEFHU19rdm1fdmlydGlvLm8g
-Kz0gLURfX0NIRUNLX0VORElBTl9fCiBzMzkwLXZpcnRpby1vYmpzIDo9IHZpcnRpb19jY3cubwog
-aWZkZWYgQ09ORklHX1MzOTBfR1VFU1RfT0xEX1RSQU5TUE9SVAogczM5MC12aXJ0aW8tb2JqcyAr
-PSBrdm1fdmlydGlvLm8KZGlmZiAtLWdpdCBhL2RyaXZlcnMvc2NzaS9NYWtlZmlsZSBiL2RyaXZl
-cnMvc2NzaS9NYWtlZmlsZQppbmRleCAzOGQ5MzhkLi45ZjcwZDQ2IDEwMDY0NAotLS0gYS9kcml2
-ZXJzL3Njc2kvTWFrZWZpbGUKKysrIGIvZHJpdmVycy9zY3NpL01ha2VmaWxlCkBAIC0xMzUsNiAr
-MTM1LDcgQEAgb2JqLSQoQ09ORklHX1NDU0lfQk5YMl9JU0NTSSkJKz0gbGliaXNjc2kubyBibngy
-aS8KIG9iai0kKENPTkZJR19CRTJJU0NTSSkJCSs9IGxpYmlzY3NpLm8gYmUyaXNjc2kvCiBvYmot
-JChDT05GSUdfU0NTSV9FU0FTMlIpCSs9IGVzYXMyci8KIG9iai0kKENPTkZJR19TQ1NJX1BNQ1JB
-SUQpCSs9IHBtY3JhaWQubworQ0ZMQUdTX3ZpcnRpb19zY3NpLm8gKz0gLURfX0NIRUNLX0VORElB
-Tl9fCiBvYmotJChDT05GSUdfU0NTSV9WSVJUSU8pCSs9IHZpcnRpb19zY3NpLm8KIG9iai0kKENP
-TkZJR19WTVdBUkVfUFZTQ1NJKQkrPSB2bXdfcHZzY3NpLm8KIG9iai0kKENPTkZJR19YRU5fU0NT
-SV9GUk9OVEVORCkJKz0geGVuLXNjc2lmcm9udC5vCmRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0
-L01ha2VmaWxlIGIvZHJpdmVycy92aG9zdC9NYWtlZmlsZQppbmRleCA2YjAxMmI5Li42MTllMmNk
-IDEwMDY0NAotLS0gYS9kcml2ZXJzL3Zob3N0L01ha2VmaWxlCisrKyBiL2RyaXZlcnMvdmhvc3Qv
-TWFrZWZpbGUKQEAgLTEsMyArMSw0IEBACitjY2ZsYWdzLXkgOj0gLURfX0NIRUNLX0VORElBTl9f
-CiBvYmotJChDT05GSUdfVkhPU1RfTkVUKSArPSB2aG9zdF9uZXQubwogdmhvc3RfbmV0LXkgOj0g
-bmV0Lm8KIApkaWZmIC0tZ2l0IGEvZHJpdmVycy92aXJ0aW8vTWFrZWZpbGUgYi9kcml2ZXJzL3Zp
-cnRpby9NYWtlZmlsZQppbmRleCA0MWUzMGUzLi5kMzMxZjE5IDEwMDY0NAotLS0gYS9kcml2ZXJz
-L3ZpcnRpby9NYWtlZmlsZQorKysgYi9kcml2ZXJzL3ZpcnRpby9NYWtlZmlsZQpAQCAtMSwzICsx
-LDYgQEAKKyN2aXJ0aW8gbXVzdCBiZSBrZXB0IGNsZWFuIHdydCBlbmRpYW4gdGFncywKKyNvdGhl
-cndpc2Ugd2UnbGwgZ2V0IHRvIG1haW50YWluIGJyb2tlbiBob3N0L2d1ZXN0IEFCSXMKK2NjZmxh
-Z3MteSA6PSAtRF9fQ0hFQ0tfRU5ESUFOX18KIG9iai0kKENPTkZJR19WSVJUSU8pICs9IHZpcnRp
-by5vIHZpcnRpb19yaW5nLm8KIG9iai0kKENPTkZJR19WSVJUSU9fTU1JTykgKz0gdmlydGlvX21t
-aW8ubwogb2JqLSQoQ09ORklHX1ZJUlRJT19QQ0kpICs9IHZpcnRpb19wY2kubwpkaWZmIC0tZ2l0
-IGEvbmV0LzlwL01ha2VmaWxlIGIvbmV0LzlwL01ha2VmaWxlCmluZGV4IGEwODc0Y2MuLmFjZjEy
-MjUgMTAwNjQ0Ci0tLSBhL25ldC85cC9NYWtlZmlsZQorKysgYi9uZXQvOXAvTWFrZWZpbGUKQEAg
-LTExLDYgKzExLDcgQEAgb2JqLSQoQ09ORklHX05FVF85UF9SRE1BKSArPSA5cG5ldF9yZG1hLm8K
-IAl0cmFuc19mZC5vIFwKIAl0cmFuc19jb21tb24ubyBcCiAKK0NGTEFHU190cmFuc192aXJ0aW8u
-byArPSAtRF9fQ0hFQ0tfRU5ESUFOX18KIDlwbmV0X3ZpcnRpby1vYmpzIDo9IFwKIAl0cmFuc192
-aXJ0aW8ubyBcCiAKZGlmZiAtLWdpdCBhL25ldC9wYWNrZXQvTWFrZWZpbGUgYi9uZXQvcGFja2V0
-L01ha2VmaWxlCmluZGV4IDlkZjYxMzQuLmExM2JjYjMgMTAwNjQ0Ci0tLSBhL25ldC9wYWNrZXQv
-TWFrZWZpbGUKKysrIGIvbmV0L3BhY2tldC9NYWtlZmlsZQpAQCAtMiw2ICsyLDcgQEAKICMgTWFr
-ZWZpbGUgZm9yIHRoZSBwYWNrZXQgQUYuCiAjCiAKK2NjZmxhZ3MteSA6PSAtRF9fQ0hFQ0tfRU5E
-SUFOX18KIG9iai0kKENPTkZJR19QQUNLRVQpICs9IGFmX3BhY2tldC5vCiBvYmotJChDT05GSUdf
-UEFDS0VUX0RJQUcpICs9IGFmX3BhY2tldF9kaWFnLm8KIGFmX3BhY2tldF9kaWFnLXkgKz0gZGlh
-Zy5vCmRpZmYgLS1naXQgYS9uZXQvdm13X3Zzb2NrL01ha2VmaWxlIGIvbmV0L3Ztd192c29jay9N
-YWtlZmlsZQppbmRleCBiYzI3YzcwLi5hNjFlY2NiIDEwMDY0NAotLS0gYS9uZXQvdm13X3Zzb2Nr
-L01ha2VmaWxlCisrKyBiL25ldC92bXdfdnNvY2svTWFrZWZpbGUKQEAgLTgsNiArOCw4IEBAIHZz
-b2NrLXkgKz0gYWZfdnNvY2subyB2c29ja19hZGRyLm8KIHZtd192c29ja192bWNpX3RyYW5zcG9y
-dC15ICs9IHZtY2lfdHJhbnNwb3J0Lm8gdm1jaV90cmFuc3BvcnRfbm90aWZ5Lm8gXAogCXZtY2lf
-dHJhbnNwb3J0X25vdGlmeV9xc3RhdGUubwogCitDRkxBR1NfdmlydGlvX3RyYW5zcG9ydC5vICs9
-IC1EX19DSEVDS19FTkRJQU5fXworQ0ZMQUdTX3ZpcnRpb190cmFuc3BvcnRfY29tbW9uLm8gKz0g
-LURfX0NIRUNLX0VORElBTl9fCiB2bXdfdnNvY2tfdmlydGlvX3RyYW5zcG9ydC15ICs9IHZpcnRp
-b190cmFuc3BvcnQubwogCiB2bXdfdnNvY2tfdmlydGlvX3RyYW5zcG9ydF9jb21tb24teSArPSB2
-aXJ0aW9fdHJhbnNwb3J0X2NvbW1vbi5vCi0tIApNU1QKCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKZHJpLWRldmVs
-QGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWls
-bWFuL2xpc3RpbmZvL2RyaS1kZXZlbAo=
+Several vhost functions were missing __user annotations
+on pointers, causing sparse warnings. Fix this up.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/vhost/vhost.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 7331ef3..ba7db68 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -719,7 +719,7 @@ static int memory_access_ok(struct vhost_dev *d, struct vhost_umem *umem,
+ static int translate_desc(struct vhost_virtqueue *vq, u64 addr, u32 len,
+ 			  struct iovec iov[], int iov_size, int access);
+ 
+-static int vhost_copy_to_user(struct vhost_virtqueue *vq, void *to,
++static int vhost_copy_to_user(struct vhost_virtqueue *vq, void __user *to,
+ 			      const void *from, unsigned size)
+ {
+ 	int ret;
+@@ -749,7 +749,7 @@ static int vhost_copy_to_user(struct vhost_virtqueue *vq, void *to,
+ }
+ 
+ static int vhost_copy_from_user(struct vhost_virtqueue *vq, void *to,
+-				void *from, unsigned size)
++				void __user *from, unsigned size)
+ {
+ 	int ret;
+ 
+@@ -783,7 +783,7 @@ static int vhost_copy_from_user(struct vhost_virtqueue *vq, void *to,
+ }
+ 
+ static void __user *__vhost_get_user(struct vhost_virtqueue *vq,
+-				     void *addr, unsigned size)
++				     void __user *addr, unsigned size)
+ {
+ 	int ret;
+ 
+@@ -934,8 +934,8 @@ static int umem_access_ok(u64 uaddr, u64 size, int access)
+ 	return 0;
+ }
+ 
+-int vhost_process_iotlb_msg(struct vhost_dev *dev,
+-			    struct vhost_iotlb_msg *msg)
++static int vhost_process_iotlb_msg(struct vhost_dev *dev,
++				   struct vhost_iotlb_msg *msg)
+ {
+ 	int ret = 0;
+ 
+-- 
+MST
