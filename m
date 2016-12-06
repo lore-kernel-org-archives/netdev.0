@@ -1,47 +1,57 @@
-From: Alexandru Gagniuc <alex.g@adaptrum.com>
-Subject: [PATCH v2] drivers: net: cpsw-phy-sel: Clear RGMII_IDMODE on "rgmii" links
-Date: Tue,  6 Dec 2016 10:56:51 -0800
-Message-ID: <1481050611-29698-1-git-send-email-alex.g@adaptrum.com>
-References: <20161206.113630.1454582039498444818.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
+Date: Tue, 06 Dec 2016 11:35:22 -0800
+Message-ID: <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
+         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481049061.7129.18.camel@redhat.com>
+         <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481051786.7129.22.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, grygorii.strashko@ti.com,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, gokhan@adaptrum.com,
-        Alexandru Gagniuc <alex.g@adaptrum.com>
-To: mugunthanvnm@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161206.113630.1454582039498444818.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35218 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753109AbcLFTgf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 14:36:35 -0500
+Received: by mail-pg0-f67.google.com with SMTP id p66so20747314pga.2
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 11:36:24 -0800 (PST)
+In-Reply-To: <1481051786.7129.22.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Support for setting the RGMII_IDMODE bit was added in the commit
-referenced below. However, that commit did not add the symmetrical
-clearing of the bit by way of setting it in "mask". Add it here.
+On Tue, 2016-12-06 at 20:16 +0100, Paolo Abeni wrote:
+> On Tue, 2016-12-06 at 10:58 -0800, Eric Dumazet wrote:
+> > On Tue, 2016-12-06 at 19:31 +0100, Paolo Abeni wrote:
+> > 
+> > > cacheline 2 boundary (128 bytes) is 8 bytes before sk_lock: cacheline 2
+> > > includes also skc_refcnt and skc_rxhash from __sk_common (I use 'pahole
+> > > -E ...' to get the full blown output). skc_rxhash is read for each
+> > > packet in inet_recvmsg()/sock_rps_record_flow() if CONFIG_RPS is set. I
+> > > get a cache miss per packet there and inet_recvmsg() in my test takes
+> > > about 8% of the whole u/s processing time.
+> > 
+> > Wait a minute, this sk->sk_rxhash should only be read on connected
+> > socket. Relying on it being 0 was okay only if we did not care
+> > of false sharing. And UDP sockets used to grab socket refcount, so we
+> > had false sharing a _lot_ in the past.
+> 
+> Thank you for the pointer.
+> 
+> > We must fix this if not already done properly.
+> > 
+> > Can you take care of this problem ?
+> 
+> I'll try, but it can be very soon: I'll have limited time and bad
+> internet connection up to next week.
 
-Note that the documentation marks clearing this bit as "reserved",
-however, according to TI, support for delaying the clock does exist in
-the MAC, although it is not officially supported.
-We tested this on a board with an RGMII to RGMII link that will not
-work unless this bit is cleared.
-
-Fixes: 0fb26c3063ea ("drivers: net: cpsw-phy-sel: add support to configure rgmii internal delay")
-Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
----
- drivers/net/ethernet/ti/cpsw-phy-sel.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-index ba1e45f..1801364 100644
---- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
-+++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-@@ -81,6 +81,7 @@ static void cpsw_gmii_sel_am3352(struct cpsw_phy_sel_priv *priv,
- 	};
- 
- 	mask = GMII_SEL_MODE_MASK << (slave * 2) | BIT(slave + 6);
-+	mask |= BIT(slave + 4);
- 	mode <<= slave * 2;
- 
- 	if (priv->rmii_clock_external) {
--- 
-2.7.4
+Do not worry, I had a better idea anyway. I am testing it ;)
