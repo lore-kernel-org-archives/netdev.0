@@ -1,67 +1,93 @@
-From: Jason Wang <jasowang@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH] virtio-net: Fix DMA-from-the-stack in
-	virtnet_set_mac_address()
-Date: Tue, 6 Dec 2016 10:30:37 +0800
-Message-ID: <05232199-2e0c-3fe5-ef85-c0013f017a69@redhat.com>
+ virtnet_set_mac_address()
+Date: Tue, 6 Dec 2016 05:00:08 +0200
+Message-ID: <20161206050003-mutt-send-email-mst@kernel.org>
 References: <fe889e578d5dffa9ae0834b449a35fcfd1e10694.1480990173.git.luto@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Laura Abbott <labbott@redhat.com>, "Michael S . Tsirkin" <mst@redhat.com>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Andy Lutomirski <luto@kernel.org>, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        virtualization@lists.linux-foundation.org,
+        Jason Wang <jasowang@redhat.com>,
+        Laura Abbott <labbott@redhat.com>
+To: Andy Lutomirski <luto@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56800 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751064AbcLFDAO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 5 Dec 2016 22:00:14 -0500
+Content-Disposition: inline
 In-Reply-To: <fe889e578d5dffa9ae0834b449a35fcfd1e10694.1480990173.git.luto@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE25bm0MTLmnIgwNuaXpSAxMDoxMCwgQW5keSBMdXRvbWlyc2tpIHdyb3RlOgo+IFdp
-dGggQ09ORklHX1ZNQVBfU1RBQ0s9eSwgdmlydG5ldF9zZXRfbWFjX2FkZHJlc3MoKSBjYW4gYmUg
-cGFzc2VkIGEKPiBwb2ludGVyIHRvIHRoZSBzdGFjayBhbmQgaXQgd2lsbCBPT1BTLiAgQ29weSB0
-aGUgYWRkcmVzcyB0byB0aGUgaGVhcAo+IHRvIHByZXZlbnQgdGhlIGNyYXNoLgo+Cj4gQ2M6IE1p
-Y2hhZWwgUy4gVHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+Cj4gQ2M6IEphc29uIFdhbmcgPGphc293
-YW5nQHJlZGhhdC5jb20+Cj4gQ2M6IExhdXJhIEFiYm90dCA8bGFiYm90dEByZWRoYXQuY29tPgo+
-IFJlcG9ydGVkLWJ5OiB6YnlzemVrQGluLndhdy5wbAo+IFNpZ25lZC1vZmYtYnk6IEFuZHkgTHV0
-b21pcnNraSA8bHV0b0BrZXJuZWwub3JnPgo+IC0tLQo+Cj4gVmVyeSBsaWdodGx5IHRlc3RlZC4K
-Pgo+ICAgZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIHwgMTkgKysrKysrKysrKysrKystLS0tLQo+
-ICAgMSBmaWxlIGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCj4KPiBk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIGIvZHJpdmVycy9uZXQvdmlydGlv
-X25ldC5jCj4gaW5kZXggNzI3NmQ1YTk1YmQwLi5jYmYxYzYxM2M2N2EgMTAwNjQ0Cj4gLS0tIGEv
-ZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5j
-Cj4gQEAgLTk2OSwxMiArOTY5LDE3IEBAIHN0YXRpYyBpbnQgdmlydG5ldF9zZXRfbWFjX2FkZHJl
-c3Moc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgdm9pZCAqcCkKPiAgIAlzdHJ1Y3QgdmlydG5ldF9p
-bmZvICp2aSA9IG5ldGRldl9wcml2KGRldik7Cj4gICAJc3RydWN0IHZpcnRpb19kZXZpY2UgKnZk
-ZXYgPSB2aS0+dmRldjsKPiAgIAlpbnQgcmV0Owo+IC0Jc3RydWN0IHNvY2thZGRyICphZGRyID0g
-cDsKPiArCXN0cnVjdCBzb2NrYWRkciAqYWRkcjsKPiAgIAlzdHJ1Y3Qgc2NhdHRlcmxpc3Qgc2c7
-Cj4gICAKPiAtCXJldCA9IGV0aF9wcmVwYXJlX21hY19hZGRyX2NoYW5nZShkZXYsIHApOwo+ICsJ
-YWRkciA9IGttYWxsb2Moc2l6ZW9mKCphZGRyKSwgR0ZQX0tFUk5FTCk7Cj4gKwlpZiAoIWFkZHIp
-Cj4gKwkJcmV0dXJuIC1FTk9NRU07Cj4gKwltZW1jcHkoYWRkciwgcCwgc2l6ZW9mKCphZGRyKSk7
-Cj4gKwo+ICsJcmV0ID0gZXRoX3ByZXBhcmVfbWFjX2FkZHJfY2hhbmdlKGRldiwgYWRkcik7Cj4g
-ICAJaWYgKHJldCkKPiAtCQlyZXR1cm4gcmV0Owo+ICsJCWdvdG8gb3V0Owo+ICAgCj4gICAJaWYg
-KHZpcnRpb19oYXNfZmVhdHVyZSh2ZGV2LCBWSVJUSU9fTkVUX0ZfQ1RSTF9NQUNfQUREUikpIHsK
-PiAgIAkJc2dfaW5pdF9vbmUoJnNnLCBhZGRyLT5zYV9kYXRhLCBkZXYtPmFkZHJfbGVuKTsKPiBA
-QCAtOTgyLDcgKzk4Nyw4IEBAIHN0YXRpYyBpbnQgdmlydG5ldF9zZXRfbWFjX2FkZHJlc3Moc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldiwgdm9pZCAqcCkKPiAgIAkJCQkJICBWSVJUSU9fTkVUX0NUUkxf
-TUFDX0FERFJfU0VULCAmc2cpKSB7Cj4gICAJCQlkZXZfd2FybigmdmRldi0+ZGV2LAo+ICAgCQkJ
-CSAiRmFpbGVkIHRvIHNldCBtYWMgYWRkcmVzcyBieSB2cSBjb21tYW5kLlxuIik7Cj4gLQkJCXJl
-dHVybiAtRUlOVkFMOwo+ICsJCQlyZXQgPSAtRUlOVkFMOwo+ICsJCQlnb3RvIG91dDsKPiAgIAkJ
-fQo+ICAgCX0gZWxzZSBpZiAodmlydGlvX2hhc19mZWF0dXJlKHZkZXYsIFZJUlRJT19ORVRfRl9N
-QUMpICYmCj4gICAJCSAgICF2aXJ0aW9faGFzX2ZlYXR1cmUodmRldiwgVklSVElPX0ZfVkVSU0lP
-Tl8xKSkgewo+IEBAIC05OTYsOCArMTAwMiwxMSBAQCBzdGF0aWMgaW50IHZpcnRuZXRfc2V0X21h
-Y19hZGRyZXNzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHZvaWQgKnApCj4gICAJfQo+ICAgCj4g
-ICAJZXRoX2NvbW1pdF9tYWNfYWRkcl9jaGFuZ2UoZGV2LCBwKTsKPiArCXJldCA9IDA7Cj4gICAK
-PiAtCXJldHVybiAwOwo+ICtvdXQ6Cj4gKwlrZnJlZShhZGRyKTsKPiArCXJldHVybiByZXQ7Cj4g
-ICB9Cj4gICAKPiAgIHN0YXRpYyBzdHJ1Y3QgcnRubF9saW5rX3N0YXRzNjQgKnZpcnRuZXRfc3Rh
-dHMoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKCkFja2VkLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2Fu
-Z0ByZWRoYXQuY29tPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGlu
-dXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxt
-YW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+On Mon, Dec 05, 2016 at 06:10:58PM -0800, Andy Lutomirski wrote:
+> With CONFIG_VMAP_STACK=y, virtnet_set_mac_address() can be passed a
+> pointer to the stack and it will OOPS.  Copy the address to the heap
+> to prevent the crash.
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Cc: Laura Abbott <labbott@redhat.com>
+> Reported-by: zbyszek@in.waw.pl
+> Signed-off-by: Andy Lutomirski <luto@kernel.org>
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> ---
+> 
+> Very lightly tested.
+> 
+>  drivers/net/virtio_net.c | 19 ++++++++++++++-----
+>  1 file changed, 14 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 7276d5a95bd0..cbf1c613c67a 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -969,12 +969,17 @@ static int virtnet_set_mac_address(struct net_device *dev, void *p)
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	struct virtio_device *vdev = vi->vdev;
+>  	int ret;
+> -	struct sockaddr *addr = p;
+> +	struct sockaddr *addr;
+>  	struct scatterlist sg;
+>  
+> -	ret = eth_prepare_mac_addr_change(dev, p);
+> +	addr = kmalloc(sizeof(*addr), GFP_KERNEL);
+> +	if (!addr)
+> +		return -ENOMEM;
+> +	memcpy(addr, p, sizeof(*addr));
+> +
+> +	ret = eth_prepare_mac_addr_change(dev, addr);
+>  	if (ret)
+> -		return ret;
+> +		goto out;
+>  
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
+>  		sg_init_one(&sg, addr->sa_data, dev->addr_len);
+> @@ -982,7 +987,8 @@ static int virtnet_set_mac_address(struct net_device *dev, void *p)
+>  					  VIRTIO_NET_CTRL_MAC_ADDR_SET, &sg)) {
+>  			dev_warn(&vdev->dev,
+>  				 "Failed to set mac address by vq command.\n");
+> -			return -EINVAL;
+> +			ret = -EINVAL;
+> +			goto out;
+>  		}
+>  	} else if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC) &&
+>  		   !virtio_has_feature(vdev, VIRTIO_F_VERSION_1)) {
+> @@ -996,8 +1002,11 @@ static int virtnet_set_mac_address(struct net_device *dev, void *p)
+>  	}
+>  
+>  	eth_commit_mac_addr_change(dev, p);
+> +	ret = 0;
+>  
+> -	return 0;
+> +out:
+> +	kfree(addr);
+> +	return ret;
+>  }
+>  
+>  static struct rtnl_link_stats64 *virtnet_stats(struct net_device *dev,
+> -- 
+> 2.9.3
