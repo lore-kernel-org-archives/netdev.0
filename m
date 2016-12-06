@@ -1,29 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: Use EDSA on mv88e6097
-Date: Tue, 06 Dec 2016 10:17:31 -0500 (EST)
-Message-ID: <20161206.101731.187894163709917787.davem@davemloft.net>
-References: <20161205131242.19370-1-stefan.eichenberger@netmodule.com>
+Subject: Re: [PATCH v2 0/4] net: hix5hd2_gmac: add tx sg feature and
+ reset/clock control signals
+Date: Tue, 06 Dec 2016 10:21:54 -0500 (EST)
+Message-ID: <20161206.102154.1118935347030938372.davem@davemloft.net>
+References: <1480944481-118803-1-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        netdev@vger.kernel.org, stefan.eichenberger@netmodule.com
-To: eichest@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41510 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752087AbcLFPSJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 10:18:09 -0500
-In-Reply-To: <20161205131242.19370-1-stefan.eichenberger@netmodule.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, mturquette@baylibre.com,
+        sboyd@codeaurora.org, linux@armlinux.org.uk,
+        zhangfei.gao@linaro.org, yisen.zhuang@huawei.com,
+        salil.mehta@huawei.com, arnd@arndb.de, andrew@lunn.ch,
+        xuejiancheng@hisilicon.com, benjamin.chenhao@hisilicon.com,
+        caizhiyong@hisilicon.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: lidongpo@hisilicon.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480944481-118803-1-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Eichenberger <eichest@gmail.com>
-Date: Mon,  5 Dec 2016 14:12:42 +0100
+From: Dongpo Li <lidongpo@hisilicon.com>
+Date: Mon, 5 Dec 2016 21:27:57 +0800
 
-> Use DSA_TAG_PROTO_EDSA as tag_protocol for the mv88e6097. The 
-> initialisation was missing before.
+> The "hix5hd2" is SoC name, add the generic ethernet driver compatible string.
+> The "hisi-gemac-v1" is the basic version and "hisi-gemac-v2" adds
+> the SG/TXCSUM/TSO/UFO features.
+> This patch set only adds the SG(scatter-gather) driver for transmitting,
+> the drivers of other features will be submitted later.
 > 
-> Signed-off-by: Stefan Eichenberger <stefan.eichenberger@netmodule.com>
+> Add the MAC reset control signals and clock signals.
+> We make these signals optional to be backward compatible with
+> the hix5hd2 SoC.
+> 
+> Changes in v2:
+> - Make the compatible string changes be a separate patch and
+> the most specific string come first than the generic string
+> as advised by Rob.
+> - Make the MAC reset control signals and clock signals optional
+> to be backward compatible with the hix5hd2 SoC.
+> - Change the compatible string and give the clock a specific name
+> in hix5hd2 dts file.
 
-Applied, thanks.
+Series applied to net-next, thanks.
