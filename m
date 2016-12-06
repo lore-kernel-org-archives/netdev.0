@@ -1,77 +1,115 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCHv2 net] team: team_port_add should check link_up before
- enable port
-Date: Tue, 6 Dec 2016 09:22:33 +0100
-Message-ID: <20161206082233.GD1984@nanopsycho>
-References: <62f7aa9c00b68beed68a907c51dde22e7847d6c9.1481009348.git.lucien.xin@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
+Date: Tue, 06 Dec 2016 10:53:09 +0100
+Message-ID: <1481017989.6225.21.camel@redhat.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:33443 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751605AbcLFIWg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 03:22:36 -0500
-Received: by mail-wj0-f196.google.com with SMTP id kp2so42510240wjc.0
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 00:22:36 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <62f7aa9c00b68beed68a907c51dde22e7847d6c9.1481009348.git.lucien.xin@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40820 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751139AbcLFJzH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 04:55:07 -0500
+In-Reply-To: <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Dec 06, 2016 at 08:29:08AM CET, lucien.xin@gmail.com wrote:
->Now when users add a nic to team dev, the option 'enable' of the port
->is true by default, as team_port_enable enables it after dev_open in
->team_port_add.
->
->But even if the port_dev has no carrier, like it's cable was unpluged,
->the port is still enabled. It leads to that team dev couldn't work well
->if this port was chosen to connect, and has no chance to change to use
->other ports if link_watch is ethtool.
->
->This patch is to enable the port only when the port_dev has carrier in
->team_port_add.
->
->v1 -> v2:
->  use netif_carrier_ok() instead of !!netif_carrier_ok(), as it returns
->  bool now.
->
->Signed-off-by: Xin Long <lucien.xin@gmail.com>
->---
-> drivers/net/team/team.c | 8 ++++++--
-> 1 file changed, 6 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->index a380649..4bc0103 100644
->--- a/drivers/net/team/team.c
->+++ b/drivers/net/team/team.c
->@@ -1140,6 +1140,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
-> 	struct net_device *dev = team->dev;
-> 	struct team_port *port;
-> 	char *portname = port_dev->name;
->+	bool linkup;
-> 	int err;
+Hi Eric,
+
+On Mon, 2016-12-05 at 09:57 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> 	if (port_dev->flags & IFF_LOOPBACK) {
->@@ -1249,9 +1250,12 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+> In UDP recvmsg() path we currently access 3 cache lines from an skb
+> while holding receive queue lock, plus another one if packet is
+> dequeued, since we need to change skb->next->prev
 > 
-> 	port->index = -1;
-> 	list_add_tail_rcu(&port->list, &team->port_list);
->-	team_port_enable(team, port);
->+	linkup = netif_carrier_ok(port_dev);
->+	if (linkup)
->+		team_port_enable(team, port);
+> 1st cache line (contains ->next/prev pointers, offsets 0x00 and 0x08)
+> 2nd cache line (skb->len & skb->peeked, offsets 0x80 and 0x8e)
+> 3rd cache line (skb->truesize/users, offsets 0xe0 and 0xe4)
+> 
+> skb->peeked is only needed to make sure 0-length packets are properly
+> handled while MSG_PEEK is operated.
+> 
+> I had first the intent to remove skb->peeked but the "MSG_PEEK at
+> non-zero offset" support added by Sam Kumar makes this not possible.
 
-This is obviously wrong change. It you use a simple setup without
-userspace part (e.g. round robin), The port gets never enabled.
-team_port_enabl is called from here and team_port_en_option_set.
+I'm wondering if peeking with offset is going to complicate the 2 queues
+patch, too.
 
-By default, all ports should be enabled. Only in case the userspace
-daemon decides to disable, it does so.
+> This patch avoids one cache line miss during the locked section, when
+> skb->len and skb->peeked do not have to be read.
+> 
+> It also avoids the skb_set_peeked() cost for non empty UDP datagrams.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/core/datagram.c |   19 ++++++++++---------
+>  1 file changed, 10 insertions(+), 9 deletions(-)
+> 
+> diff --git a/net/core/datagram.c b/net/core/datagram.c
+> index 49816af8586bb832e806972b486588041a99524c..9482037a5c8c64aec79e42c65bd2691bdd9450a3 100644
+> --- a/net/core/datagram.c
+> +++ b/net/core/datagram.c
+> @@ -214,6 +214,7 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
+>  	if (error)
+>  		goto no_packet;
+>  
+> +	*peeked = 0;
+>  	do {
+>  		/* Again only user level code calls this function, so nothing
+>  		 * interrupt level will suddenly eat the receive_queue.
+> @@ -227,22 +228,22 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,
+>  		spin_lock_irqsave(&queue->lock, cpu_flags);
+>  		skb_queue_walk(queue, skb) {
+>  			*last = skb;
+> -			*peeked = skb->peeked;
+>  			if (flags & MSG_PEEK) {
+>  				if (_off >= skb->len && (skb->len || _off ||
+>  							 skb->peeked)) {
+>  					_off -= skb->len;
+>  					continue;
+>  				}
+> -
+> -				skb = skb_set_peeked(skb);
+> -				error = PTR_ERR(skb);
+> -				if (IS_ERR(skb)) {
+> -					spin_unlock_irqrestore(&queue->lock,
+> -							       cpu_flags);
+> -					goto no_packet;
+> +				if (!skb->len) {
+> +					skb = skb_set_peeked(skb);
+> +					if (IS_ERR(skb)) {
+> +						error = PTR_ERR(skb);
+> +						spin_unlock_irqrestore(&queue->lock,
+> +								       cpu_flags);
+> +						goto no_packet;
+> +					}
+>  				}
 
-Could you send me the exact configuration where you see the issue?
-This should be definitelly fixed in user part.
+I don't understand why we can avoid setting skb->peek if len > 0. I
+think that will change the kernel behavior if:
+- peek with offset is set
+- 3 skbs with len > 0 are enqueued
+- the u/s peek (with offset) the second one
+- the u/s disable peeking with offset and peeks 2 more skbs.
 
-Thanks.
+With the current code in the last step the u/s is going to peek the 1#
+and the 3# skbs, after this patch will peek the 1# and the 2#. Am I
+missing something ? Probably the new behavior is more correct, but still
+is a change. 
+
+I gave this a run in my test bed on top of your udp-related patches I
+see additional ~3 improvement in the udp flood scenario, and a bit more
+in the un-contended scenario.
+
+Thank you,
+
+Paolo
