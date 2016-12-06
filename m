@@ -1,113 +1,121 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 3/7] bnxt_en: Move function reset to bnxt_init_one().
-Date: Tue,  6 Dec 2016 12:09:34 -0500
-Message-ID: <1481044178-25193-4-git-send-email-michael.chan@broadcom.com>
+From: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 6/7] bnxt_en: Refactor the driver registration function with firmware.
+Date: Tue,  6 Dec 2016 12:09:37 -0500
+Message-ID: <1481044178-25193-7-git-send-email-michael.chan@broadcom.com>
 References: <1481044178-25193-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, selvin.xavier@broadcom.com,
-        somnath.kotur@broadcom.com, dledford@redhat.com,
-        linux-rdma@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:36055 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751670AbcLFRKH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 12:10:07 -0500
-Received: by mail-pg0-f41.google.com with SMTP id f188so150767548pgc.3
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 09:10:07 -0800 (PST)
-In-Reply-To: <1481044178-25193-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1481044178-25193-1-git-send-email-michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Now that MSIX is enabled in bnxt_init_one(), resources may be allocated by
-the RDMA driver before the network device is opened.  So we cannot do
-function reset in bnxt_open() which will clear all the resources.
+The driver register function with firmware consists of passing version
+information and registering for async events.  To support the RDMA driver,
+the async events that we need to register may change.  Separate the
+driver register function into 2 parts so that we can just update the
+async events for the RDMA driver.
 
-The proper place to do function reset now is in bnxt_init_one().
-If we get AER, we'll do function reset as well.
-
-Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 25 ++++++-------------------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 -
- 2 files changed, 6 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 34 ++++++++++++++++++++++++++-----
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  2 ++
+ 2 files changed, 31 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 9178bf8..8b00ef4 100644
+index 7218d65..c26735ea 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5613,22 +5613,7 @@ int bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
- static int bnxt_open(struct net_device *dev)
- {
- 	struct bnxt *bp = netdev_priv(dev);
--	int rc = 0;
- 
--	if (!test_bit(BNXT_STATE_FN_RST_DONE, &bp->state)) {
--		rc = bnxt_hwrm_func_reset(bp);
--		if (rc) {
--			netdev_err(bp->dev, "hwrm chip reset failure rc: %x\n",
--				   rc);
--			rc = -EBUSY;
--			return rc;
--		}
--		/* Do func_reset during the 1st PF open only to prevent killing
--		 * the VFs when the PF is brought down and up.
--		 */
--		if (BNXT_PF(bp))
--			set_bit(BNXT_STATE_FN_RST_DONE, &bp->state);
--	}
- 	return __bnxt_open_nic(bp, true, true);
+@@ -3117,27 +3117,46 @@ int hwrm_send_message_silent(struct bnxt *bp, void *msg, u32 msg_len,
+ 	return rc;
  }
  
-@@ -7028,6 +7013,10 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+-static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
++int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
++				     int bmap_size)
+ {
+ 	struct hwrm_func_drv_rgtr_input req = {0};
+-	int i;
+ 	DECLARE_BITMAP(async_events_bmap, 256);
+ 	u32 *events = (u32 *)async_events_bmap;
++	int i;
+ 
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_DRV_RGTR, -1, -1);
+ 
+ 	req.enables =
+-		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_OS_TYPE |
+-			    FUNC_DRV_RGTR_REQ_ENABLES_VER |
+-			    FUNC_DRV_RGTR_REQ_ENABLES_ASYNC_EVENT_FWD);
++		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_ASYNC_EVENT_FWD);
+ 
+ 	memset(async_events_bmap, 0, sizeof(async_events_bmap));
+ 	for (i = 0; i < ARRAY_SIZE(bnxt_async_events_arr); i++)
+ 		__set_bit(bnxt_async_events_arr[i], async_events_bmap);
+ 
++	if (bmap && bmap_size) {
++		for (i = 0; i < bmap_size; i++) {
++			if (test_bit(i, bmap))
++				__set_bit(i, async_events_bmap);
++		}
++	}
++
+ 	for (i = 0; i < 8; i++)
+ 		req.async_event_fwd[i] |= cpu_to_le32(events[i]);
+ 
++	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++}
++
++static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
++{
++	struct hwrm_func_drv_rgtr_input req = {0};
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_DRV_RGTR, -1, -1);
++
++	req.enables =
++		cpu_to_le32(FUNC_DRV_RGTR_REQ_ENABLES_OS_TYPE |
++			    FUNC_DRV_RGTR_REQ_ENABLES_VER);
++
+ 	req.os_type = cpu_to_le16(FUNC_DRV_RGTR_REQ_OS_TYPE_LINUX);
+ 	req.ver_maj = DRV_VER_MAJ;
+ 	req.ver_min = DRV_VER_MIN;
+@@ -3146,6 +3165,7 @@ static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
+ 	if (BNXT_PF(bp)) {
+ 		DECLARE_BITMAP(vf_req_snif_bmap, 256);
+ 		u32 *data = (u32 *)vf_req_snif_bmap;
++		int i;
+ 
+ 		memset(vf_req_snif_bmap, 0, sizeof(vf_req_snif_bmap));
+ 		for (i = 0; i < ARRAY_SIZE(bnxt_vf_req_snif); i++)
+@@ -7023,6 +7043,10 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  	if (rc)
  		goto init_err;
  
-+	rc = bnxt_hwrm_func_reset(bp);
++	rc = bnxt_hwrm_func_rgtr_async_events(bp, NULL, 0);
 +	if (rc)
 +		goto init_err;
 +
- 	rc = bnxt_init_int_mode(bp);
- 	if (rc)
- 		goto init_err;
-@@ -7069,7 +7058,6 @@ static pci_ers_result_t bnxt_io_error_detected(struct pci_dev *pdev,
- 					       pci_channel_state_t state)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct bnxt *bp = netdev_priv(netdev);
- 
- 	netdev_info(netdev, "PCI I/O error detected\n");
- 
-@@ -7084,8 +7072,6 @@ static pci_ers_result_t bnxt_io_error_detected(struct pci_dev *pdev,
- 	if (netif_running(netdev))
- 		bnxt_close(netdev);
- 
--	/* So that func_reset will be done during slot_reset */
--	clear_bit(BNXT_STATE_FN_RST_DONE, &bp->state);
- 	pci_disable_device(pdev);
- 	rtnl_unlock();
- 
-@@ -7119,7 +7105,8 @@ static pci_ers_result_t bnxt_io_slot_reset(struct pci_dev *pdev)
- 	} else {
- 		pci_set_master(pdev);
- 
--		if (netif_running(netdev))
-+		err = bnxt_hwrm_func_reset(bp);
-+		if (!err && netif_running(netdev))
- 			err = bnxt_open(netdev);
- 
- 		if (!err)
+ 	/* Get the MAX capabilities for this function */
+ 	rc = bnxt_hwrm_func_qcaps(bp);
+ 	if (rc) {
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 1461355..0ee2cc4 100644
+index d796836..eec2415 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1021,7 +1021,6 @@ struct bnxt {
- 	unsigned long		state;
- #define BNXT_STATE_OPEN		0
- #define BNXT_STATE_IN_SP_TASK	1
--#define BNXT_STATE_FN_RST_DONE	2
- 
- 	struct bnxt_irq	*irq_tbl;
- 	int			total_irqs;
+@@ -1240,6 +1240,8 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
+ int _hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
++int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
++				     int bmap_size);
+ int bnxt_hwrm_set_coal(struct bnxt *);
+ unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
+ unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp);
 -- 
 1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
