@@ -1,39 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
-Date: Tue, 06 Dec 2016 06:35:56 -0800
-Message-ID: <1481034956.18162.578.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481017989.6225.21.camel@redhat.com> <1481026212.6225.43.camel@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net:dsa:mv88e6xxx: delete timer and cancel ppu_work
+Date: Tue, 6 Dec 2016 15:22:26 +0100
+Message-ID: <20161206142226.GD26615@lunn.ch>
+References: <1481029062-16668-1-git-send-email-volodymyr.bendiuga@westermo.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, volodymyr.bendiuga@gmail.com,
+        Jonas Johansson <jonas.johansson@westermo.se>
+To: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:32901 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752071AbcLFOf7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 09:35:59 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 144so18847349pfv.0
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 06:35:58 -0800 (PST)
-In-Reply-To: <1481026212.6225.43.camel@redhat.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:44143 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751951AbcLFOkh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 09:40:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1481029062-16668-1-git-send-email-volodymyr.bendiuga@westermo.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-12-06 at 13:10 +0100, Paolo Abeni wrote:
-
-> Please ignore the above dumb comment. I misread the 'skip condition'.
+On Tue, Dec 06, 2016 at 01:57:42PM +0100, Volodymyr Bendiuga wrote:
+> Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
+> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+> ---
+>  drivers/net/dsa/mv88e6xxx/chip.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
 > 
-> I'm fine with the patch in its current form.
-> 
-> Acked-by: Paolo Abeni <pabeni@redhat.com>
+> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+> index ca453f3..4212fb6 100644
+> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+> @@ -4528,8 +4528,11 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+>  out_mdio:
+>  	mv88e6xxx_mdio_unregister(chip);
+>  out_g2_irq:
+> -	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT) && chip->irq > 0)
+> +	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT) && chip->irq > 0) {
+>  		mv88e6xxx_g2_irq_free(chip);
+> +		del_timer(&chip->ppu_timer);
+> +		cancel_work_sync(&chip->ppu_work);
+> +	}
 
-No worries, I prefer having multiple eyes on this stuff before doing the
-next step ;)
+Why do this here, inside this if statement?
 
-Thanks !
+Vivien has also just reworked the PPU code. Please take a look at his
+patches and see if they fix the issue.
+
+	Thanks
+		Andrew
