@@ -1,157 +1,115 @@
-From: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 5/7] bnxt_en: Reserve RDMA resources by default.
-Date: Tue,  6 Dec 2016 12:09:36 -0500
-Message-ID: <1481044178-25193-6-git-send-email-michael.chan@broadcom.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 4/7] bnxt_en: Improve completion ring allocation for VFs.
+Date: Tue,  6 Dec 2016 12:09:35 -0500
+Message-ID: <1481044178-25193-5-git-send-email-michael.chan@broadcom.com>
 References: <1481044178-25193-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-        somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1481044178-25193-1-git-send-email-michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, selvin.xavier@broadcom.com,
+        somnath.kotur@broadcom.com, dledford@redhat.com,
+        linux-rdma@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:33906 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753052AbcLFRKJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 12:10:09 -0500
+Received: by mail-pg0-f53.google.com with SMTP id x23so151275537pgx.1
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 09:10:08 -0800 (PST)
+In-Reply-To: <1481044178-25193-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If the device supports RDMA, we'll setup network default rings so that
-there are enough minimum resources for RDMA, if possible.  However, the
-user can still increase network rings to the max if he wants.  The actual
-RDMA resources won't be reserved until the RDMA driver registers.
+All available remaining completion rings not used by the PF should be
+made available for the VFs so that there are enough rings in the VF to
+support RDMA.  The earlier workaround code of capping the rings by the
+statistics context is removed.
 
-Signed-off-by: Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+When SRIOV is disabled, call a new function bnxt_restore_pf_fw_resources()
+to restore FW resources.  Later on we need to add some logic to account
+for RDMA resources.
+
+Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 58 ++++++++++++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  9 +++++
- 2 files changed, 66 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       |  8 +++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h       |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c | 14 ++++----------
+ 3 files changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 1f6be83..7218d65 100644
+index 8b00ef4..1f6be83 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4166,6 +4166,11 @@ static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
- 	if (rc)
- 		goto hwrm_func_qcaps_exit;
- 
-+	if (resp->flags & cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_ROCE_V1_SUPPORTED))
-+		bp->flags |= BNXT_FLAG_ROCEV1_CAP;
-+	if (resp->flags & cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_ROCE_V2_SUPPORTED))
-+		bp->flags |= BNXT_FLAG_ROCEV2_CAP;
-+
- 	bp->tx_push_thresh = 0;
- 	if (resp->flags &
- 	    cpu_to_le32(FUNC_QCAPS_RESP_FLAGS_PUSH_MODE_SUPPORTED))
-@@ -4808,6 +4813,24 @@ static int bnxt_setup_int_mode(struct bnxt *bp)
+@@ -4152,7 +4152,7 @@ static int bnxt_hwrm_func_qcfg(struct bnxt *bp)
  	return rc;
  }
  
-+unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp)
-+{
-+	if (BNXT_PF(bp))
-+		return bp->pf.max_stat_ctxs;
-+#if defined(CONFIG_BNXT_SRIOV)
-+	return bp->vf.max_stat_ctxs;
-+#endif
-+}
-+
-+unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp)
-+{
-+	if (BNXT_PF(bp))
-+		return bp->pf.max_cp_rings;
-+#if defined(CONFIG_BNXT_SRIOV)
-+	return bp->vf.max_cp_rings;
-+#endif
-+}
-+
- static unsigned int bnxt_get_max_func_irqs(struct bnxt *bp)
+-int bnxt_hwrm_func_qcaps(struct bnxt *bp)
++static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
  {
- 	if (BNXT_PF(bp))
-@@ -6832,6 +6855,39 @@ int bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx, bool shared)
- 	return bnxt_trim_rings(bp, max_rx, max_tx, cp, shared);
+ 	int rc = 0;
+ 	struct hwrm_func_qcaps_input req = {0};
+@@ -6856,6 +6856,12 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
+ 	return rc;
  }
  
-+static int bnxt_get_dflt_rings(struct bnxt *bp, int *max_rx, int *max_tx,
-+			       bool shared)
++void bnxt_restore_pf_fw_resources(struct bnxt *bp)
 +{
-+	int rc;
-+
-+	rc = bnxt_get_max_rings(bp, max_rx, max_tx, shared);
-+	if (rc)
-+		return rc;
-+
-+	if (bp->flags & BNXT_FLAG_ROCE_CAP) {
-+		int max_cp, max_stat, max_irq;
-+
-+		/* Reserve minimum resources for RoCE */
-+		max_cp = bnxt_get_max_func_cp_rings(bp);
-+		max_stat = bnxt_get_max_func_stat_ctxs(bp);
-+		max_irq = bnxt_get_max_func_irqs(bp);
-+		if (max_cp <= BNXT_MIN_ROCE_CP_RINGS ||
-+		    max_irq <= BNXT_MIN_ROCE_CP_RINGS ||
-+		    max_stat <= BNXT_MIN_ROCE_STAT_CTXS)
-+			return 0;
-+
-+		max_cp -= BNXT_MIN_ROCE_CP_RINGS;
-+		max_irq -= BNXT_MIN_ROCE_CP_RINGS;
-+		max_stat -= BNXT_MIN_ROCE_STAT_CTXS;
-+		max_cp = min_t(int, max_cp, max_irq);
-+		max_cp = min_t(int, max_cp, max_stat);
-+		rc = bnxt_trim_rings(bp, max_rx, max_tx, max_cp, shared);
-+		if (rc)
-+			rc = 0;
-+	}
-+	return rc;
++	ASSERT_RTNL();
++	bnxt_hwrm_func_qcaps(bp);
 +}
 +
- static int bnxt_set_dflt_rings(struct bnxt *bp)
+ static void bnxt_parse_log_pcie_link(struct bnxt *bp)
  {
- 	int dflt_rings, max_rx_rings, max_tx_rings, rc;
-@@ -6840,7 +6896,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
- 	if (sh)
- 		bp->flags |= BNXT_FLAG_SHARED_RINGS;
- 	dflt_rings = netif_get_num_default_rss_queues();
--	rc = bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings, sh);
-+	rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, sh);
- 	if (rc)
- 		return rc;
- 	bp->rx_nr_rings = min_t(int, dflt_rings, max_rx_rings);
+ 	enum pcie_link_width width = PCIE_LNK_WIDTH_UNKNOWN;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 43a4b17..d796836 100644
+index 0ee2cc4..43a4b17 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -387,6 +387,9 @@ struct rx_tpa_end_cmp_ext {
- #define DB_KEY_TX_PUSH						(0x4 << 28)
- #define DB_LONG_TX_PUSH						(0x2 << 24)
- 
-+#define BNXT_MIN_ROCE_CP_RINGS	2
-+#define BNXT_MIN_ROCE_STAT_CTXS	1
-+
- #define INVALID_HW_RING_ID	((u16)-1)
- 
- /* The hardware supports certain page sizes.  Use the supported page sizes
-@@ -953,6 +956,10 @@ struct bnxt {
- 	#define BNXT_FLAG_PORT_STATS	0x400
- 	#define BNXT_FLAG_UDP_RSS_CAP	0x800
- 	#define BNXT_FLAG_EEE_CAP	0x1000
-+	#define BNXT_FLAG_ROCEV1_CAP	0x8000
-+	#define BNXT_FLAG_ROCEV2_CAP	0x10000
-+	#define BNXT_FLAG_ROCE_CAP	(BNXT_FLAG_ROCEV1_CAP |	\
-+					 BNXT_FLAG_ROCEV2_CAP)
- 	#define BNXT_FLAG_CHIP_NITRO_A0	0x1000000
- 
- 	#define BNXT_FLAG_ALL_CONFIG_FEATS (BNXT_FLAG_TPA |		\
-@@ -1234,6 +1241,8 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
+@@ -1234,7 +1234,6 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
  int hwrm_send_message(struct bnxt *, void *, u32, int);
  int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
  int bnxt_hwrm_set_coal(struct bnxt *);
-+unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
-+unsigned int bnxt_get_max_func_cp_rings(struct bnxt *bp);
+-int bnxt_hwrm_func_qcaps(struct bnxt *);
  void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max);
  void bnxt_tx_disable(struct bnxt *bp);
  void bnxt_tx_enable(struct bnxt *bp);
+@@ -1245,4 +1244,5 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
+ int bnxt_close_nic(struct bnxt *, bool, bool);
+ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc);
+ int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
++void bnxt_restore_pf_fw_resources(struct bnxt *bp);
+ #endif
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index bff626a..c696025 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -420,15 +420,7 @@ static int bnxt_hwrm_func_cfg(struct bnxt *bp, int num_vfs)
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_CFG, -1, -1);
+ 
+ 	/* Remaining rings are distributed equally amongs VF's for now */
+-	/* TODO: the following workaroud is needed to restrict total number
+-	 * of vf_cp_rings not exceed number of HW ring groups. This WA should
+-	 * be removed once new HWRM provides HW ring groups capability in
+-	 * hwrm_func_qcap.
+-	 */
+-	vf_cp_rings = min_t(u16, pf->max_cp_rings, pf->max_stat_ctxs);
+-	vf_cp_rings = (vf_cp_rings - bp->cp_nr_rings) / num_vfs;
+-	/* TODO: restore this logic below once the WA above is removed */
+-	/* vf_cp_rings = (pf->max_cp_rings - bp->cp_nr_rings) / num_vfs; */
++	vf_cp_rings = (pf->max_cp_rings - bp->cp_nr_rings) / num_vfs;
+ 	vf_stat_ctx = (pf->max_stat_ctxs - bp->num_stat_ctxs) / num_vfs;
+ 	if (bp->flags & BNXT_FLAG_AGG_RINGS)
+ 		vf_rx_rings = (pf->max_rx_rings - bp->rx_nr_rings * 2) /
+@@ -590,7 +582,9 @@ void bnxt_sriov_disable(struct bnxt *bp)
+ 
+ 	bp->pf.active_vfs = 0;
+ 	/* Reclaim all resources for the PF. */
+-	bnxt_hwrm_func_qcaps(bp);
++	rtnl_lock();
++	bnxt_restore_pf_fw_resources(bp);
++	rtnl_unlock();
+ }
+ 
+ int bnxt_sriov_configure(struct pci_dev *pdev, int num_vfs)
 -- 
 1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
