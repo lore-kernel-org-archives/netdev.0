@@ -1,45 +1,30 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net:switchdev: fix to release the lock before function
- return to avoid deadlock
-Date: Tue, 6 Dec 2016 13:29:31 +0100
-Message-ID: <20161206122931.GJ1984@nanopsycho>
-References: <1481018964-47554-1-git-send-email-feng.deng@cortina-access.com>
+Subject: Re: [PATCH]net:switchdev:add judgement and proper return vlaue to
+ make switchdev_port_vlan_fill() more robust
+Date: Tue, 6 Dec 2016 13:32:25 +0100
+Message-ID: <20161206123225.GK1984@nanopsycho>
+References: <CAEX1niU24TLaRff+TMPu4ek4vT=R2mv9yaE6j1W1ZsFYh99QGg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, cxdx2006@gmail.com
-To: Feng Deng <feng.deng@cortina-access.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33995 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752780AbcLFM3e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 07:29:34 -0500
-Received: by mail-wm0-f68.google.com with SMTP id g23so21239484wme.1
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 04:29:34 -0800 (PST)
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, feng.deng@cortina-access.com
+To: Feng Deng <cxdx2006@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1481018964-47554-1-git-send-email-feng.deng@cortina-access.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAEX1niU24TLaRff+TMPu4ek4vT=R2mv9yaE6j1W1ZsFYh99QGg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Dec 06, 2016 at 11:09:24AM CET, feng.deng@cortina-access.com wrote:
->before switchdev_deferred_dequeue() normal return,show release the lock,
->if not,maybe there will be deadlock sometimes
+Tue, Dec 06, 2016 at 05:46:36AM CET, cxdx2006@gmail.com wrote:
+>From: Feng Deng<cxdx2006@gmail.com>
+>
+>1.add judgement to make sure switchdev_port_vlan_fill() could
+>  return right,  even when switchdev_port_vlan_dump_put() failed  ,
+>  which will make switchdev_port_vlan_fill()  more robust
+>2.add proper return vlaue at the end of the switchdev_port_vlan_fill()
 >
 >Signed-off-by: Feng Deng <feng.deng@cortina-access.com>
->---
-> net/switchdev/switchdev.c | 1 +
-> 1 file changed, 1 insertion(+)
->
->diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->index 3b95fe9..c0a1ad4 100644
->--- a/net/switchdev/switchdev.c
->+++ b/net/switchdev/switchdev.c
->@@ -120,6 +120,7 @@ static struct switchdev_deferred_item *switchdev_deferred_dequeue(void)
-> 	dfitem = list_first_entry(&deferred,
-> 				  struct switchdev_deferred_item, list);
-> 	list_del(&dfitem->list);
->+	spin_unlock_bh(&deferred_lock);
-> unlock:
-> 	spin_unlock_bh(&deferred_lock);
 
-You are joking right?
+Please don't send patches like this. You are wasting everyone's time.
+
+Thanks!
