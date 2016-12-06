@@ -1,37 +1,50 @@
-From: Sistemas administrador <administrator@ancol.com>
-Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
-Date: Tue, 06 Dec 2016 20:31:19 +0530
-Message-ID: <20161206150339.ED6A51CE2AE4@mail.surabaya.go.id.local>
-Reply-To: mailsss@mail2world.com
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 07/10] vsock/virtio: add a missing __le annotation
+Date: Tue, 6 Dec 2016 17:40:57 +0200
+Message-ID: <1481038106-24899-8-git-send-email-mst@redhat.com>
+References: <1481038106-24899-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <administrator@ancol.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.surabaya.go.id ([222.124.212.34]:37327 "EHLO
-        mail.surabaya.go.id.local" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752475AbcLFPld (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 10:41:33 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1481038106-24899-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-ATENCIÓN;
+guest cid is read from config space, therefore it's in little endian
+format and is treated as such, annotate it accordingly.
 
-Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ net/vmw_vsock/virtio_transport.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-nombre:
-Nombre de usuario:
-contraseña:
-Confirmar contraseña:
-E-mail:
-teléfono:
-
-Si usted no puede revalidar su buzón, el buzón se deshabilitará!
-
-Disculpa las molestias.
-Código de verificación: es: 006524
-Correo Soporte Técnico © 2016
-
-¡gracias
-Sistemas administrador
+diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
+index 936d7ee..90096b9 100644
+--- a/net/vmw_vsock/virtio_transport.c
++++ b/net/vmw_vsock/virtio_transport.c
+@@ -336,7 +336,7 @@ static void virtio_vsock_reset_sock(struct sock *sk)
+ static void virtio_vsock_update_guest_cid(struct virtio_vsock *vsock)
+ {
+ 	struct virtio_device *vdev = vsock->vdev;
+-	u64 guest_cid;
++	__le64 guest_cid;
+ 
+ 	vdev->config->get(vdev, offsetof(struct virtio_vsock_config, guest_cid),
+ 			  &guest_cid, sizeof(guest_cid));
+-- 
+MST
