@@ -1,43 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Gigabit ethernet driver for Alacritechs SLIC devices (v4)
-Date: Tue, 06 Dec 2016 11:30:04 -0500 (EST)
-Message-ID: <20161206.113004.1297109434722530511.davem@davemloft.net>
-References: <1480975637-18245-1-git-send-email-LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH next] Revert "dctcp: update cwnd on congestion event"
+Date: Tue, 06 Dec 2016 11:34:42 -0500 (EST)
+Message-ID: <20161206.113442.100496871002228037.davem@davemloft.net>
+References: <1480980180-23349-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, andrew@lunn.ch, f.fainelli@gmail.com,
- roszenrami@gmail.com, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
- liodot@gmail.com, netdev@vger.kernel.org
-To: LinoSanfilippo@gmx.de
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1480975637-18245-1-git-send-email-LinoSanfilippo@gmx.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42966 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751764AbcLFQfQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 11:35:16 -0500
+In-Reply-To: <1480980180-23349-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Mon,  5 Dec 2016 23:07:15 +0100
+From: Florian Westphal <fw@strlen.de>
+Date: Tue,  6 Dec 2016 00:23:00 +0100
 
-> this is the forth version of the slicoss gigabit ethernet driver (which is a
-> rework of the driver from Alacritech which can currently be found under
-> drivers/staging/slicoss). The driver is supposed to support Mojave, Oasis and
-> Kalahari cards, for both copper and fiber.
+> Neal Cardwell says:
+>  If I am reading the code correctly, then I would have two concerns:
+>  1) Has that been tested? That seems like an extremely dramatic
+>     decrease in cwnd. For example, if the cwnd is 80, and there are 40
+>     ACKs, and half the ACKs are ECE marked, then my back-of-the-envelope
+>     calculations seem to suggest that after just 11 ACKs the cwnd would be
+>     down to a minimal value of 2 [..]
+>  2) That seems to contradict another passage in the draft [..] where it
+>     sazs:
+>        Just as specified in [RFC3168], DCTCP does not react to congestion
+>        indications more than once for every window of data.
 > 
-> If this code is accepted the staging version can be removed.
+> Neal is right.  Fortunately we don't have to complicate this by testing
+> vs. current rtt estimate, we can just revert the patch.
 > 
-> The driver has been tested on a SEN2104ET adapter (4 Port PCIe copper).
+> Normal stack already handles this for us: receiving ACKs with ECE
+> set causes a call to tcp_enter_cwr(), from there on the ssthresh gets
+> adjusted and prr will take care of cwnd adjustment.
+> 
+> Fixes: 4780566784b396 ("dctcp: update cwnd on congestion event")
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-I've applied this series, nice work.
-
-But realize that if you use SLICOSS as the Kconfig symbol to select
-this driver, then while the staging driver is still in the tree it
-will enable both drivers which both want to attach to the same exact
-device IDs.
+Applied.
