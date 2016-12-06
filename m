@@ -1,68 +1,99 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] team: team_port_add should check link_up before enable port
-Date: Tue,  6 Dec 2016 15:29:08 +0800
-Message-ID: <62f7aa9c00b68beed68a907c51dde22e7847d6c9.1481009348.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: network dev <netdev@vger.kernel.org>
+From: Brad Campbell <lists2009@fnarfbargle.com>
+Subject: Re: commit : ppp: add rtnetlink device creation support - breaks
+ netcf on my machine.
+Date: Tue, 6 Dec 2016 15:47:20 +0800
+Message-ID: <5d537b7e-97e9-709c-7b3e-61280cc264f8@fnarfbargle.com>
+References: <32208f70-4165-e79b-89ee-543eefaf40ef@fnarfbargle.com>
+ <20161205175320.mbtswpmdjumfgh7y@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33540 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751689AbcLFHnD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 02:43:03 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 144so18289667pfv.0
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 23:42:50 -0800 (PST)
+Received: from ns3.fnarfbargle.com ([43.245.164.105]:49075 "EHLO
+        ns3.fnarfbargle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751180AbcLFHsV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 02:48:21 -0500
+In-Reply-To: <20161205175320.mbtswpmdjumfgh7y@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now when users add a nic to team dev, the option 'enable' of the port
-is true by default, as team_port_enable enables it after dev_open in
-team_port_add.
+On 06/12/16 01:53, Guillaume Nault wrote:
+>>
+> Probably not a mistake on your side. I've started looking at netcf'
+> source code, but haven't found anything that could explain your issue.
+> It'd really help if you could provide steps to reproduce the bug.
 
-But even if the port_dev has no carrier, like it's cable was unpluged,
-the port is still enabled. It leads to that team dev couldn't work well
-if this port was chosen to connect, and has no chance to change to use
-other ports if link_watch is ethtool.
+Further to my message this morning, I started with a clean linux.git 
+4.9.0-rc7-00198-g0cb65c8 and did two runs. One untouched and one with 
+the identified patch reverted. I logged both of these with NLCB=debug, 
+then split out the ppp section and diffed them.
 
-This patch is to enable the port only when the port_dev has carrier in
-team_port_add.
+It appears the only difference of note is the new ATTR 18. I did a diff 
+of the entire dump for both and nothing else popped out.
 
-v1 -> v2:
-  use netif_carrier_ok() instead of !!netif_carrier_ok(), as it returns
-  bool now.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- drivers/net/team/team.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+brad@test:~$ diff -u ppp-ok ppp-fail
+--- ppp-ok	2016-12-06 13:32:04.358393578 +0800
++++ ppp-fail	2016-12-06 13:32:18.577864406 +0800
+@@ -1,10 +1,10 @@
+  --------------------------   BEGIN NETLINK MESSAGE 
+---------------------------
+    [HEADER] 16 octets
+-    .nlmsg_len = 628
++    .nlmsg_len = 644
+      .nlmsg_type = 16 <route/link::new>
+      .nlmsg_flags = 2 <MULTI>
+-    .nlmsg_seq = 1481001940
+-    .nlmsg_pid = 7462
++    .nlmsg_seq = 1481002252
++    .nlmsg_pid = 7376
+    [PAYLOAD] 16 octets
+      00 00 00 02 0a 00 00 00 d1 10 01 00 00 00 00 00       ................
+    [ATTR 03] 5 octets
+@@ -71,6 +71,8 @@
+      00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+..................
+      00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+..................
+      00 00 00 00 00 00                                     ......
++  [ATTR 18] 12 octets
++    08 00 01 00 70 70 70 00 04 00 02 00                   ....ppp.....
+    [ATTR 26] 132 octets
+      84 00 02 00 80 00 01 00 01 00 00 00 00 00 00 00 00 00 
+..................
+      00 00 01 00 00 00 01 00 00 00 01 00 00 00 01 00 00 00 
+..................
+@@ -81,3 +83,4 @@
+      00 00 00 00 10 27 00 00 e8 03 00 00 00 00 00 00 00 00 
+.....'............
+      00 00 00 00 00 00                                     ......
+  ---------------------------  END NETLINK MESSAGE 
+---------------------------
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index a380649..4bc0103 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1140,6 +1140,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 	struct net_device *dev = team->dev;
- 	struct team_port *port;
- 	char *portname = port_dev->name;
-+	bool linkup;
- 	int err;
- 
- 	if (port_dev->flags & IFF_LOOPBACK) {
-@@ -1249,9 +1250,12 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 
- 	port->index = -1;
- 	list_add_tail_rcu(&port->list, &team->port_list);
--	team_port_enable(team, port);
-+	linkup = netif_carrier_ok(port_dev);
-+	if (linkup)
-+		team_port_enable(team, port);
-+
- 	__team_compute_features(team);
--	__team_port_change_port_added(port, !!netif_carrier_ok(port_dev));
-+	__team_port_change_port_added(port, linkup);
- 	__team_options_change_check(team);
- 
- 	netdev_info(dev, "Port device %s added\n", portname);
--- 
-2.1.0
+Running with NLDBG=4 seems to generate this :
+DBG<2>: While picking up for 0x26d2e00 <route/link>, recvmsgs() returned 
+-34:  (errno = Numerical result out of range)DBG<1>: Clearing cache 
+0x26d2e00 <route/link>...
+
+(skip forward 4 hours)
+
+Ok, so I've spent the afternoon compiling and installing software.
+
+I'm afraid I gave you a bum steer. The issue only manifests itself on 
+libnl1. I had both installed and netcf was compiling against 1 and not 3.
+
+I spent the afternoon compiling and installing various combinations of 
+libnl and netcf and can only reproduce the issue if netcf is compiled 
+against libnl <= 1.1.4. It won't compile against 2, 3, or 3.1 and it 
+works against 3.2. That explains why it manifests itself on my clean 
+Debian 7 machines.
+
+I can work around it locally by recompiling all my stuff against libnl3 
+if you don't feel inclined to chase it down, but it is certainly 
+reproducible on nl1. I compiled up 1.1.4 and compiled netcf-0.2.8 
+against that and the problem shows.
+
+Regards,
+Brad
