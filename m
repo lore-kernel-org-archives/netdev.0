@@ -1,92 +1,49 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH v2 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
- prog
-Date: Tue, 6 Dec 2016 10:52:30 -0800
-Message-ID: <20161206185230.GB16682@kafai-mba.local>
-References: <1480821446-4122277-1-git-send-email-kafai@fb.com>
- <1480821446-4122277-2-git-send-email-kafai@fb.com>
- <5846F6E3.2040808@gmail.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: Avoid deadlock situation due to use of xmit_lock
+Date: Tue, 6 Dec 2016 20:10:36 +0100
+Message-ID: <fa4812b6-fa7c-9fa2-d1c2-c91adab93426@gmx.de>
+References: <1480719966-12839-1-git-send-email-LinoSanfilippo@gmx.de>
+ <20161206.100607.919832811727709338.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        "Saeed Mahameed" <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "Kernel Team" <kernel-team@fb.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49482 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751495AbcLFTKd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 14:10:33 -0500
-Content-Disposition: inline
-In-Reply-To: <5846F6E3.2040808@gmail.com>
+Received: from mout.gmx.net ([212.227.17.21]:56434 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752364AbcLFTK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 14:10:57 -0500
+In-Reply-To: <20161206.100607.919832811727709338.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 06, 2016 at 09:35:31AM -0800, John Fastabend wrote:
-> On 16-12-03 07:17 PM, Martin KaFai Lau wrote:
-> > This patch allows XDP prog to extend/remove the packet
-> > data at the head (like adding or removing header).  It is
-> > done by adding a new XDP helper bpf_xdp_adjust_head().
-> >
-> > It also renames bpf_helper_changes_skb_data() to
-> > bpf_helper_changes_pkt_data() to better reflect
-> > that XDP prog does not work on skb.
-> >
-> > Acked-by: Alexei Starovoitov <ast@kernel.org>
-> > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> > ---
->
->
-> [...]
->
-> >
-> > -bool bpf_helper_changes_skb_data(void *func)
-> > +BPF_CALL_2(bpf_xdp_adjust_head, struct xdp_buff *, xdp, int, offset)
-> > +{
-> > +	/* Both mlx4 and mlx5 driver align each packet to PAGE_SIZE when
-> > +	 * XDP prog is set.
-> > +	 * If the above is not true for the other drivers to support
-> > +	 * bpf_xdp_adjust_head, struct xdp_buff can be extended.
-> > +	 */
-> > +	unsigned long addr = (unsigned long)xdp->data & PAGE_MASK;
-> > +	void *data_hard_start = (void *)addr;
-> > +	void *data = xdp->data + offset;
-> > +
-> > +	if (unlikely(data < data_hard_start || data > xdp->data_end - ETH_HLEN))
-> > +		return -EINVAL;
-> > +
-> > +	xdp->data = data;
-> > +
-> > +	return 0;
-> > +}
-> > +
->
-> Sorry for the delay but I don't like the assumptions being made here
-> with regards to page alignment and free space.
->
-> Instead of taking the offset from PAGE_MASK how about adding a pointer
-> to xdp_buff so that we get,
->
->  struct xdp_buff {
->  	void *data;
-> 	void *data_end;
-> 	void *data_start;
->  };
->
-> This gives the headroom explicitly in the data structure. This way we
-> can handle non-paged aligned usages and also some of the drivers are
-> putting metadata (descriptors) at the front of the page. With this
-> patch we could stomp on that metadata with the above we avoid that
-> problem altogether.
-Extending the xdp_buff like this was my first local attempt.  And
-then I realized the assumption that mlx4/5 is making.  Since
-there is no immediate need for this patch series and the xdp_buff
-can always be extended later if needed without breaking
-the xdp prog, I dropped the xdp_buff addition for now in this patch.
+Hi,
 
-Sure, it will be done at the next spin.
+On 06.12.2016 16:06, David Miller wrote:
+> From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+> Date: Sat,  3 Dec 2016 00:06:04 +0100
+> 
+>> after stumbling over a potential deadlock situation in the altera driver 
+>> (see http://marc.info/?l=linux-netdev&m=148054615230447&w=2), I checked
+>> all other ethernet drivers for the same issue and actually found it in 2
+>> more, namely stmmac, and sxgbe. Please see the commit messages for a 
+>> description of the problem.
+>> These 2 patches fix the concerning drivers.
+> 
+> First of all, I don't want to apply these patches without proper testing
+> and ACKs from the individual driver maintainers.
+> 
+> For both of these drivers, this situation only exists because the TX
+> path uses the unnecessary ->tx_lock.  This private lock should be
+> removed completely and the driver should use the lock the mid-layer
+> already holds in the transmit path and take it in the TX reclaim path
+> instead of the private ->tx_lock.
+> 
+
+Ok, I will prepare a new set of patches to remove those private locks entirely.
+
+Regards,
+Lino
