@@ -1,146 +1,96 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RESEND][PATCH v4] cgroup: Use CAP_SYS_RESOURCE to allow a
- process to migrate other tasks between cgroups
-Date: Tue, 6 Dec 2016 13:23:15 -0500
-Message-ID: <20161206182315.GB2625@mtj.duckdns.org>
-References: <CALCETrU5fCWoe0RXfKWuN7Zt9vLvoyHFcZnVqeqiKBpSKrMrxA@mail.gmail.com>
- <20161109000342.GA42532@ast-mbp.thefacebook.com>
- <CALCETrW_mPHneTvcAM6HyBLCJqcwKmcYEoC+kseyuyQZzj2a=A@mail.gmail.com>
- <CALAqxLXk+A9=A0oXGEduphXOQdbMg-wuGxmLkEk9cPHyn44X5Q@mail.gmail.com>
- <CALAqxLW-mq4Lnudtn5KMBPdzBTg5bhTXV9QmUC2vfabVru+fUA@mail.gmail.com>
- <CALCETrWuKpmXQqoQmcy4Va8abdpfCnMBYHWSD0nK5pocj2nfXA@mail.gmail.com>
- <20161206165519.GA17648@mtj.duckdns.org>
- <CALCETrV3Yrq1hRcoGCTU_z-T-6hmq-gY-HytR2HGkvnRK-W1SQ@mail.gmail.com>
- <20161206181221.GA2625@mtj.duckdns.org>
- <CALCETrUmwPaWbN_U2XAsg6Z0UGBJ=Ou7BoD09-GZFdRVT5Y-EQ@mail.gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
+Date: Tue, 06 Dec 2016 19:31:01 +0100
+Message-ID: <1481049061.7129.18.camel@redhat.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
+         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Stultz <john.stultz@linaro.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
-        Daniel Mack <daniel@zonque.org>,
-        "David S. Miller" <davem@davemloft.net>, kafai@fb.com,
-        Florian Westphal <fw@strlen.de>,
-        Harald Hoyer <harald@redhat.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Sargun Dhillon <sargun@sargun.me>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        lkml <linux-kernel@vger.kernel.org>,
-        Li Zefan <lizefan@huawei.com>,
-        Jonathan Corbet <corbet@lwn.net>,
-        "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>,
-        Android Kernel Team <kernel-team@android.com>,
-        Rom Lemarchand <romlem@android.com>,
-        Colin Cross <ccross@android.com>,
-        Dmitry Shmidt
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrUmwPaWbN_U2XAsg6Z0UGBJ=Ou7BoD09-GZFdRVT5Y-EQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57464 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752009AbcLFSbY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 13:31:24 -0500
+In-Reply-To: <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On Tue, Dec 06, 2016 at 10:13:53AM -0800, Andy Lutomirski wrote:
-> > Delegation is an explicit operation and reflected in the ownership of
-> > the subdirectories and cgroup interface files in them.  The
-> > subhierarchy containment is achieved by requiring the user who's
-> > trying to migrate a process to have write perm on cgroup.procs on the
-> > common ancestor of the source and target in addition to the target.
+On Tue, 2016-12-06 at 09:47 -0800, Eric Dumazet wrote:
+> On Tue, 2016-12-06 at 18:08 +0100, Paolo Abeni wrote:
+> > On Tue, 2016-12-06 at 11:34 +0100, Paolo Abeni wrote:
+> > > On Mon, 2016-12-05 at 09:57 -0800, Eric Dumazet wrote:
+> > > > From: Eric Dumazet <edumazet@google.com>
+> > > > 
+> > > > In UDP recvmsg() path we currently access 3 cache lines from an skb
+> > > > while holding receive queue lock, plus another one if packet is
+> > > > dequeued, since we need to change skb->next->prev
+> > > > 
+> > > > 1st cache line (contains ->next/prev pointers, offsets 0x00 and 0x08)
+> > > > 2nd cache line (skb->len & skb->peeked, offsets 0x80 and 0x8e)
+> > > > 3rd cache line (skb->truesize/users, offsets 0xe0 and 0xe4)
+> > > > 
+> > > > skb->peeked is only needed to make sure 0-length packets are properly
+> > > > handled while MSG_PEEK is operated.
+> > > > 
+> > > > I had first the intent to remove skb->peeked but the "MSG_PEEK at
+> > > > non-zero offset" support added by Sam Kumar makes this not possible.
+> > > > 
+> > > > This patch avoids one cache line miss during the locked section, when
+> > > > skb->len and skb->peeked do not have to be read.
+> > > > 
+> > > > It also avoids the skb_set_peeked() cost for non empty UDP datagrams.
+> > > > 
+> > > > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > > 
+> > > Thank you for all the good work.
+> > > 
+> > > After all your improvement, I see the cacheline miss in inet_recvmsg()
+> > > as a major perf offender for the user space process in the udp flood
+> > > scenario due to skc_rxhash sharing the same sk_drops cacheline.
+> > > 
+> > > Using an udp-specific drop counter (and an sk_drops accessor to wrap
+> > > sk_drops access where needed), we could avoid such cache miss. With that
+> > > - patch for udp.h only below - I get 3% improvement on top of all the
+> > > pending udp patches, and the gain should be more relevant after the 2
+> > > queues rework. What do you think ?
+> > 
+> > Here follow what I'm experimenting. 
 > 
-> OK, I see what you're doing.  That's interesting.
+> Well, new socket layout makes this kind of patches not really needed ?
+> 
+> 	/* --- cacheline 2 boundary (128 bytes) was 8 bytes ago --- */
+> 	socket_lock_t              sk_lock;              /*  0x88  0x20 */
+> 	atomic_t                   sk_drops;             /*  0xa8   0x4 */
+> 	int                        sk_rcvlowat;          /*  0xac   0x4 */
+> 	struct sk_buff_head        sk_error_queue;       /*  0xb0  0x18 */
+> 	/* --- cacheline 3 boundary (192 bytes) was 8 bytes ago --- */
 
-It's something born out of usages of cgroup v1.  People used it that
-way (chowning files and directories) and combined with the uid checksn
-it yielded something which is useful sometimes, but it always had
-issues with hierarchical behaviors, which files to chmod and the weird
-combination of uid checks.  cgroup v2 has a clear delegation model but
-the uid checks are still left in as not changing was the default.
+cacheline 2 boundary (128 bytes) is 8 bytes before sk_lock: cacheline 2
+includes also skc_refcnt and skc_rxhash from __sk_common (I use 'pahole
+-E ...' to get the full blown output). skc_rxhash is read for each
+packet in inet_recvmsg()/sock_rps_record_flow() if CONFIG_RPS is set. I
+get a cache miss per packet there and inet_recvmsg() in my test takes
+about 8% of the whole u/s processing time.
 
-It's not necessary and I'm thinking about queueing something like the
-following in the next cycle.
+> I mentioned at some point that we can very easily instruct 
+> sock_skb_set_dropcount() to not read sk_drops if application
+> does not care about getting sk_drops ;)
+> 
+> https://patchwork.kernel.org/patch/9405677/
+> 
+> Now sk_drops was moved, the plan is to submit this patch in an official way.
 
-As for the android CAP discussion, I think it'd be nice to share an
-existing CAP but if we can't find a good one to share, let's create a
-new one.
+Looking forward to that!
 
-Thanks.
+Thank you,
 
-diff --git a/Documentation/cgroup-v2.txt b/Documentation/cgroup-v2.txt
-index 4cc07ce..34b4b44 100644
---- a/Documentation/cgroup-v2.txt
-+++ b/Documentation/cgroup-v2.txt
-@@ -328,14 +328,12 @@ a process with a non-root euid to migrate a target process into a
- cgroup by writing its PID to the "cgroup.procs" file, the following
- conditions must be met.
- 
--- The writer's euid must match either uid or suid of the target process.
--
- - The writer must have write access to the "cgroup.procs" file.
- 
- - The writer must have write access to the "cgroup.procs" file of the
-   common ancestor of the source and destination cgroups.
- 
--The above three constraints ensure that while a delegatee may migrate
-+The above two constraints ensure that while a delegatee may migrate
- processes around freely in the delegated sub-hierarchy it can't pull
- in from or push out to outside the sub-hierarchy.
- 
-@@ -350,10 +348,10 @@ all processes under C0 and C1 belong to U0.
- 
- Let's also say U0 wants to write the PID of a process which is
- currently in C10 into "C00/cgroup.procs".  U0 has write access to the
--file and uid match on the process; however, the common ancestor of the
--source cgroup C10 and the destination cgroup C00 is above the points
--of delegation and U0 would not have write access to its "cgroup.procs"
--files and thus the write will be denied with -EACCES.
-+file; however, the common ancestor of the source cgroup C10 and the
-+destination cgroup C00 is above the points of delegation and U0 would
-+not have write access to its "cgroup.procs" files and thus the write
-+will be denied with -EACCES.
- 
- 
- 2-6. Guidelines
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 85bc9be..49384ff 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -2854,12 +2854,18 @@ static int cgroup_procs_write_permission(struct task_struct *task,
- 	 * even if we're attaching all tasks in the thread group, we only
- 	 * need to check permissions on one of them.
- 	 */
--	if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
--	    !uid_eq(cred->euid, tcred->uid) &&
--	    !uid_eq(cred->euid, tcred->suid))
--		ret = -EACCES;
- 
--	if (!ret && cgroup_on_dfl(dst_cgrp)) {
-+	/* root is allowed to do anything */
-+	if (uid_eq(cred->euid, GLOBAL_ROOT_UID))
-+		goto out;
-+
-+	/*
-+	 * On v2, follow the delegation model.  Inside a delegated subtree,
-+	 * the delegatee can move around the processes however it sees fit.
-+	 *
-+	 * On v1, a process should match one of the target's uids.
-+	 */
-+	if (cgroup_on_dfl(dst_cgrp)) {
- 		struct super_block *sb = of->file->f_path.dentry->d_sb;
- 		struct cgroup *cgrp;
- 		struct inode *inode;
-@@ -2877,8 +2883,11 @@ static int cgroup_procs_write_permission(struct task_struct *task,
- 			ret = inode_permission(inode, MAY_WRITE);
- 			iput(inode);
- 		}
-+	} else if (!uid_eq(cred->euid, tcred->uid) &&
-+		   !uid_eq(cred->euid, tcred->suid)) {
-+		ret = -EACCES;
- 	}
--
-+out:
- 	put_cred(tcred);
- 	return ret;
- }
+Paolo
