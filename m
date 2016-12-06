@@ -1,49 +1,45 @@
-From: Stefan Eichenberger <eichest@gmail.com>
-Subject: Re: [PATCH v2 net-next v2 4/4] net: dsa: mv88e6xxx: add PPU operations
-Date: Tue, 6 Dec 2016 13:27:16 +0100
-Message-ID: <CAD4aGmR0B9PPs=4sBMQKCn=yKB1sJC62+bJdPtPe7HeL6TZ4_w@mail.gmail.com>
-References: <20161205162703.22567-1-vivien.didelot@savoirfairelinux.com>
- <20161205162703.22567-5-vivien.didelot@savoirfairelinux.com>
- <20161205210439.GA6038@eichest-notebook> <874m2ic95g.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] net:switchdev: fix to release the lock before function
+ return to avoid deadlock
+Date: Tue, 6 Dec 2016 13:29:31 +0100
+Message-ID: <20161206122931.GJ1984@nanopsycho>
+References: <1481018964-47554-1-git-send-email-feng.deng@cortina-access.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Richard Cochran <richardcochran@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <874m2ic95g.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, cxdx2006@gmail.com
+To: Feng Deng <feng.deng@cortina-access.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33995 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752780AbcLFM3e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 07:29:34 -0500
+Received: by mail-wm0-f68.google.com with SMTP id g23so21239484wme.1
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 04:29:34 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1481018964-47554-1-git-send-email-feng.deng@cortina-access.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5 December 2016 at 23:18, Vivien Didelot
-<vivien.didelot@savoirfairelinux.com> wrote:
-> Stefan Eichenberger <eichest@gmail.com> writes:
+Tue, Dec 06, 2016 at 11:09:24AM CET, feng.deng@cortina-access.com wrote:
+>before switchdev_deferred_dequeue() normal return,show release the lock,
+>if not,maybe there will be deadlock sometimes
 >
->> Hi Vivien,
->>
->> On Mon, Dec 05, 2016 at 11:27:03AM -0500, Vivien Didelot wrote:
->>> @@ -3266,6 +3220,8 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
->>>      .g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
->>>      .g1_set_egress_port = mv88e6095_g1_set_egress_port,
->>>      .mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
->>> +    .ppu_enable = mv88e6185_g1_ppu_enable,
->>> +    .ppu_disable = mv88e6185_g1_ppu_disable,
->>>      .reset = mv88e6185_g1_reset,
->>>  };
->>
->> The mv88e6097 should use the indirect access to the phys, bit 14 in g1
->> control is marked as reserved. They write in the datasheet that
->> disabling the PPU is still supported but indirect access via g2 should
->> be used because disabling the PPU  is no longer recommended.
+>Signed-off-by: Feng Deng <feng.deng@cortina-access.com>
+>---
+> net/switchdev/switchdev.c | 1 +
+> 1 file changed, 1 insertion(+)
 >
-> Ho ok thanks, I respin a v3 right away with this removed and with
-> mv88e6352_g1_reset instead.
+>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>index 3b95fe9..c0a1ad4 100644
+>--- a/net/switchdev/switchdev.c
+>+++ b/net/switchdev/switchdev.c
+>@@ -120,6 +120,7 @@ static struct switchdev_deferred_item *switchdev_deferred_dequeue(void)
+> 	dfitem = list_first_entry(&deferred,
+> 				  struct switchdev_deferred_item, list);
+> 	list_del(&dfitem->list);
+>+	spin_unlock_bh(&deferred_lock);
+> unlock:
+> 	spin_unlock_bh(&deferred_lock);
 
-Perfect thank you, now it's fine.
-
-Regards,
-Stefan
+You are joking right?
