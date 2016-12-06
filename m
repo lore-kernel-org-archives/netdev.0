@@ -1,48 +1,38 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: bpf debug info
-Date: Tue, 6 Dec 2016 12:12:01 -0300
-Message-ID: <20161206151201.GD2399@kernel.org>
-References: <20161129064217.GA20124@ast-mbp.thefacebook.com>
- <583D9AA4.8050601@iogearbox.net>
- <20161129170115.GB22217@ast-mbp.thefacebook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tools: hv: Enable network manager for bonding
+ scripts on RHEL
+Date: Tue, 06 Dec 2016 10:14:11 -0500 (EST)
+Message-ID: <20161206.101411.471111072680990336.davem@davemloft.net>
+References: <1480722938-23378-1-git-send-email-haiyangz@exchange.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Thomas Graf <tgraf@suug.ch>, Wangnan <wangnan0@huawei.com>,
-        He Kuang <hekuang@huawei.com>, kernel-team@fb.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:56962 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752111AbcLFPM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Dec 2016 10:12:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20161129170115.GB22217@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1480722938-23378-1-git-send-email-haiyangz@exchange.microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Em Tue, Nov 29, 2016 at 09:01:17AM -0800, Alexei Starovoitov escreveu:
-> On Tue, Nov 29, 2016 at 04:11:32PM +0100, Daniel Borkmann wrote:
-> > On 11/29/2016 07:42 AM, Alexei Starovoitov wrote:
-> > >Notice that 'clang -S -o a.s' output and llvm-objdump disassembler
-> > >were changed to use kernel verifier style, so now it should be easier
-> > >to see what's going on.
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Date: Fri,  2 Dec 2016 15:55:38 -0800
 
-> > Sounds really useful, is that scheduled for llvm 3.10 release?
-
-> llvm 4.0 :)
-
-> > That debugging info is stored in dwarf format into the obj, right?
-
-> right.
-
-> > Would be nice if also pahole could work on bpf object files.
+> From: Haiyang Zhang <haiyangz@microsoft.com>
 > 
-> yeah. pahole need to be taught to recognize bpf e_machine type and relocations.
+> We found network manager is necessary on RHEL to make the synthetic
+> NIC, VF NIC bonding operations handled automatically. So, enabling
+> network manager here.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Coincidentally I'm testing some perf patches wrt builtin BPF and for
-that I'm updating to llvm to 4.0, will take a look at what is involved
-in that...
-
-- Arnaldo
+Applied, thanks.
