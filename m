@@ -1,170 +1,62 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V4 net-next] net: hns: Fix to conditionally convey RX checksum flag to stack
-Date: Tue, 6 Dec 2016 11:09:46 +0000
-Message-ID: <20161206110946.734344-1-salil.mehta@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: bpf bounded loops. Was: [flamebait] xdp
+Date: Tue, 6 Dec 2016 12:35:53 +0100
+Message-ID: <7c961590-2f25-b5e0-eccd-016ecf5ea88a@stressinduktion.org>
+References: <20161201091108.GF26507@breakpoint.cc>
+ <20161201145834.GA569@pox.localdomain>
+ <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
+ <20161201162814.GA31300@pox.localdomain>
+ <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
+ <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com>
+ <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
+ <20161202183903.GC54949@ast-mbp.thefacebook.com>
+ <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
+ <5726302e-3502-99c8-a4d9-a5278761cb5a@solarflare.com>
+ <b7c99fea-dfaa-a7a0-0694-d6abe649708e@stressinduktion.org>
+ <aafa452d-26dd-d58b-2649-21ccce9370a4@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
-        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>
+To: Edward Cree <ecree@solarflare.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:58279 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752328AbcLFLgI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 06:36:08 -0500
+In-Reply-To: <aafa452d-26dd-d58b-2649-21ccce9370a4@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch introduces the RX checksum function to check the
-status of the hardware calculated checksum and its error and
-appropriately convey status to the upper stack in skb->ip_summed
-field.
+On 05.12.2016 17:54, Edward Cree wrote:
+> On 05/12/16 16:50, Hannes Frederic Sowa wrote:
+>> On 05.12.2016 17:40, Edward Cree wrote:
+>>> I may be completely mistaken here, but can't the verifier unroll the loop 'for
+>>> verification' without it actually being unrolled in the program?
+>>> I.e., any "proof that the loop terminates" should translate into "rewrite of
+>>> the directed graph to make it a DAG, possibly duplicating a lot of insns", and
+>>> you feed the rewritten graph to the verifier, while using the original loopy
+>>> version as the actual program to store and later execute.
+>>> Then the verifier happily checks things like array indices being valid, without
+>>> having to know about the bounded loops.
+>> That is what is already happening. E.g. __builtin_memset is expanded up
+>> to 128 rounds (which is a lot) but at some point llvm doesn't do enoug
+>> unrolling of that.
+>>
+>> The BPF target configures that in
+>> http://llvm.org/docs/doxygen/html/BPFISelLowering_8cpp_source.html on
+>> line 166-169.
+> I think you're talking about the _compiler_ unrolling loops before it
+> submits the program to the kernel.  I'm talking about having the _verifier_
+> unroll them, so that we can execute the original (non-unrolled) version.
+> Or am I misunderstanding?
 
-In hardware, we only support checksum for the following
-protocols:
-1) IPv4,
-2) TCP(over IPv4 or IPv6),
-3) UDP(over IPv4 or IPv6),
-4) SCTP(over IPv4 or IPv6)
-but we support many L3(IPv4, IPv6, MPLS, PPPoE etc) and
-L4(TCP, UDP, GRE, SCTP, IGMP, ICMP etc.) protocols.
+Ah, in the verifier this would be part of flow control analysis what we
+are talking about in the other part of this thread.
 
-Hardware limitation:
-Our present hardware RX Descriptor lacks L3/L4 checksum
-"Status & Error" bit (which usually can be used to indicate whether
-checksum was calculated by the hardware and if there was any error
-encountered during checksum calculation).
-
-Software workaround:
-We do get info within the RX descriptor about the kind of
-L3/L4 protocol coming in the packet and the error status. These
-errors might not just be checksum errors but could be related to
-version, length of IPv4, UDP, TCP etc.
-Because there is no-way of knowing if it is a L3/L4 error due
-to bad checksum or any other L3/L4 error, we will not (cannot)
-convey hardware checksum status(CHECKSUM_UNNECESSARY) for such
-cases to upper stack and will not maintain the RX L3/L4 checksum
-counters as well.
-
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
----
-Change Log:
-Patch V4: Accidentally floated a wrong V3 patch. corrected this:
-          Link: https://lkml.org/lkml/2016/12/5/604
-Patch V3: Re-structured the code.
-Patch V2: Addressed the comment by David Miller
-          Link: https://www.spinics.net/lists/netdev/msg406697.html
-Patch V1: This patch is a result of the comments given by
-          David Miller <davem@davemloft.net>
-          Link: https://lkml.org/lkml/2016/6/15/27
----
- drivers/net/ethernet/hisilicon/hns/hnae.h     |    2 +
- drivers/net/ethernet/hisilicon/hns/hns_enet.c |   76 ++++++++++++++++++++++---
- 2 files changed, 71 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index 09602f1..8016854 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -99,6 +99,8 @@ enum hnae_led_state {
- #define HNS_RX_FLAG_L3ID_IPV6 0x1
- #define HNS_RX_FLAG_L4ID_UDP 0x0
- #define HNS_RX_FLAG_L4ID_TCP 0x1
-+#define HNS_RX_FLAG_L4ID_SCTP 0x3
-+
- 
- #define HNS_TXD_ASID_S 0
- #define HNS_TXD_ASID_M (0xff << HNS_TXD_ASID_S)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 255fede..c02449b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -565,6 +565,71 @@ static void get_rx_desc_bnum(u32 bnum_flag, int *out_bnum)
- 				   HNS_RXD_BUFNUM_M, HNS_RXD_BUFNUM_S);
- }
- 
-+static void hns_nic_rx_checksum(struct hns_nic_ring_data *ring_data,
-+				struct sk_buff *skb, u32 flag)
-+{
-+	struct net_device *netdev = ring_data->napi.dev;
-+	u32 l3id;
-+	u32 l4id;
-+
-+	/* check if RX checksum offload is enabled */
-+	if (unlikely(!(netdev->features & NETIF_F_RXCSUM)))
-+		return;
-+
-+	/* In hardware, we only support checksum for the following protocols:
-+	 * 1) IPv4,
-+	 * 2) TCP(over IPv4 or IPv6),
-+	 * 3) UDP(over IPv4 or IPv6),
-+	 * 4) SCTP(over IPv4 or IPv6)
-+	 * but we support many L3(IPv4, IPv6, MPLS, PPPoE etc) and L4(TCP,
-+	 * UDP, GRE, SCTP, IGMP, ICMP etc.) protocols.
-+	 *
-+	 * Hardware limitation:
-+	 * Our present hardware RX Descriptor lacks L3/L4 checksum "Status &
-+	 * Error" bit (which usually can be used to indicate whether checksum
-+	 * was calculated by the hardware and if there was any error encountered
-+	 * during checksum calculation).
-+	 *
-+	 * Software workaround:
-+	 * We do get info within the RX descriptor about the kind of L3/L4
-+	 * protocol coming in the packet and the error status. These errors
-+	 * might not just be checksum errors but could be related to version,
-+	 * length of IPv4, UDP, TCP etc.
-+	 * Because there is no-way of knowing if it is a L3/L4 error due to bad
-+	 * checksum or any other L3/L4 error, we will not (cannot) convey
-+	 * checksum status for such cases to upper stack and will not maintain
-+	 * the RX L3/L4 checksum counters as well.
-+	 */
-+
-+	l3id = hnae_get_field(flag, HNS_RXD_L3ID_M, HNS_RXD_L3ID_S);
-+	l4id = hnae_get_field(flag, HNS_RXD_L4ID_M, HNS_RXD_L4ID_S);
-+
-+	/*  check L3 protocol for which checksum is supported */
-+	if ((l3id != HNS_RX_FLAG_L3ID_IPV4) && (l3id != HNS_RX_FLAG_L3ID_IPV6))
-+		return;
-+
-+	/* check for any(not just checksum)flagged L3 protocol errors */
-+	if (unlikely(hnae_get_bit(flag, HNS_RXD_L3E_B)))
-+		return;
-+
-+	/* we do not support checksum of fragmented packets */
-+	if (unlikely(hnae_get_bit(flag, HNS_RXD_FRAG_B)))
-+		return;
-+
-+	/*  check L4 protocol for which checksum is supported */
-+	if ((l4id != HNS_RX_FLAG_L4ID_TCP) &&
-+	    (l4id != HNS_RX_FLAG_L4ID_UDP) &&
-+	    (l4id != HNS_RX_FLAG_L4ID_SCTP))
-+		return;
-+
-+	/* check for any(not just checksum)flagged L4 protocol errors */
-+	if (unlikely(hnae_get_bit(flag, HNS_RXD_L4E_B)))
-+		return;
-+
-+	/* now, this has to be a packet with valid RX checksum */
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+}
-+
- static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
- 			       struct sk_buff **out_skb, int *out_bnum)
- {
-@@ -683,13 +748,10 @@ static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
- 	ring->stats.rx_pkts++;
- 	ring->stats.rx_bytes += skb->len;
- 
--	if (unlikely(hnae_get_bit(bnum_flag, HNS_RXD_L3E_B) ||
--		     hnae_get_bit(bnum_flag, HNS_RXD_L4E_B))) {
--		ring->stats.l3l4_csum_err++;
--		return 0;
--	}
--
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	/* indicate to upper stack if our hardware has already calculated
-+	 * the RX checksum
-+	 */
-+	hns_nic_rx_checksum(ring_data, skb, bnum_flag);
- 
- 	return 0;
- }
--- 
-1.7.9.5
+Bye,
+Hannes
