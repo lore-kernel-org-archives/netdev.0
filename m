@@ -1,105 +1,140 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH v3 5/7] irda: w83977af_ir: Use the common brace style
-Date: Tue,  6 Dec 2016 10:16:04 -0800
-Message-ID: <fffcc558da965c75c2e293348de1aa2bc0725c05.1481047792.git.joe@perches.com>
+Subject: [PATCH v3 4/7] irda: w83977af_ir: Neaten pointer comparisons
+Date: Tue,  6 Dec 2016 10:16:03 -0800
+Message-ID: <6bf80d64e6d95d652d679bd682e3149220a9ad11.1481047792.git.joe@perches.com>
 References: <cover.1481047792.git.joe@perches.com>
 Cc: Arnd Bergmann <arnd@arndb.de>,
         Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0060.hostedemail.com ([216.40.44.60]:40584 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932133AbcLFSQT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 13:16:19 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1481047792.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add braces where appropriate and remove an unnecessary else.
+Convert pointer comparisons to NULL.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/irda/w83977af_ir.c | 20 +++++++++++---------
- 1 file changed, 11 insertions(+), 9 deletions(-)
+ drivers/net/irda/w83977af_ir.c | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
-index 92f1525b0570..5d5ec8938e2b 100644
+index e30cbf005320..92f1525b0570 100644
 --- a/drivers/net/irda/w83977af_ir.c
 +++ b/drivers/net/irda/w83977af_ir.c
-@@ -462,8 +462,9 @@ static void w83977af_change_speed(struct w83977af_ir *self, __u32 speed)
- 	if (speed > PIO_MAX_SPEED) {
- 		outb(ICR_EFSFI, iobase + ICR);
- 		w83977af_dma_receive(self);
--	} else
-+	} else {
- 		outb(ICR_ERBRI, iobase + ICR);
-+	}
- 
- 	/* Restore SSR */
- 	outb(set, iobase + SSR);
-@@ -502,8 +503,8 @@ static netdev_tx_t w83977af_hard_xmit(struct sk_buff *skb,
- 			w83977af_change_speed(self, speed);
- 			dev_kfree_skb(skb);
- 			return NETDEV_TX_OK;
--		} else
--			self->new_speed = speed;
-+		}
-+		self->new_speed = speed;
+@@ -168,7 +168,7 @@ static int w83977af_open(int i, unsigned int iobase, unsigned int irq,
+ 	 *  Allocate new instance of the driver
+ 	 */
+ 	dev = alloc_irdadev(sizeof(struct w83977af_ir));
+-	if (dev == NULL) {
++	if (!dev) {
+ 		printk(KERN_ERR "IrDA: Can't allocate memory for "
+ 			"IrDA control block!\n");
+ 		err = -ENOMEM;
+@@ -206,7 +206,7 @@ static int w83977af_open(int i, unsigned int iobase, unsigned int irq,
+ 	self->rx_buff.head =
+ 		dma_zalloc_coherent(NULL, self->rx_buff.truesize,
+ 				    &self->rx_buff_dma, GFP_KERNEL);
+-	if (self->rx_buff.head == NULL) {
++	if (!self->rx_buff.head) {
+ 		err = -ENOMEM;
+ 		goto err_out1;
  	}
+@@ -214,7 +214,7 @@ static int w83977af_open(int i, unsigned int iobase, unsigned int irq,
+ 	self->tx_buff.head =
+ 		dma_zalloc_coherent(NULL, self->tx_buff.truesize,
+ 				    &self->tx_buff_dma, GFP_KERNEL);
+-	if (self->tx_buff.head == NULL) {
++	if (!self->tx_buff.head) {
+ 		err = -ENOMEM;
+ 		goto err_out2;
+ 	}
+@@ -629,7 +629,7 @@ static void w83977af_dma_xmit_complete(struct w83977af_ir *self)
  
- 	/* Save current set */
-@@ -649,8 +650,9 @@ static void w83977af_dma_xmit_complete(struct w83977af_ir *self)
+ 	pr_debug("%s(%ld)\n", __func__, jiffies);
  
- 		/* Clear bit, by writing 1 to it */
- 		outb(AUDR_UNDR, iobase + AUDR);
--	} else
-+	} else {
- 		self->netdev->stats.tx_packets++;
-+	}
+-	IRDA_ASSERT(self != NULL, return;);
++	IRDA_ASSERT(self, return;);
  
- 	if (self->new_speed) {
- 		w83977af_change_speed(self, self->new_speed);
-@@ -813,9 +815,8 @@ static int w83977af_dma_receive_complete(struct w83977af_ir *self)
- 		} else {
- 			/* Check if we have transferred all data to memory */
- 			switch_bank(iobase, SET0);
--			if (inb(iobase + USR) & USR_RDR) {
-+			if (inb(iobase + USR) & USR_RDR)
- 				udelay(80); /* Should be enough!? */
--			}
+ 	iobase = self->io.fir_base;
+ 
+@@ -680,7 +680,7 @@ static int w83977af_dma_receive(struct w83977af_ir *self)
+ 	unsigned long flags;
+ 	__u8 hcr;
+ #endif
+-	IRDA_ASSERT(self != NULL, return -1;);
++	IRDA_ASSERT(self, return -1;);
+ 
+ 	pr_debug("%s\n", __func__);
+ 
+@@ -818,7 +818,7 @@ static int w83977af_dma_receive_complete(struct w83977af_ir *self)
+ 			}
  
  			skb = dev_alloc_skb(len + 1);
- 			if (!skb)  {
-@@ -969,7 +970,6 @@ static __u8 w83977af_fir_interrupt(struct w83977af_ir *self, int isr)
- 	/* End of frame detected in FIFO */
- 	if (isr & (ISR_FEND_I | ISR_FSF_I)) {
- 		if (w83977af_dma_receive_complete(self)) {
--
- 			/* Wait for next status FIFO interrupt */
- 			new_icr |= ICR_EFSFI;
- 		} else {
-@@ -1094,8 +1094,9 @@ static int w83977af_is_receiving(struct w83977af_ir *self)
- 			status =  TRUE;
- 		}
- 		outb(set, iobase + SSR);
--	} else
-+	} else {
- 		status = (self->rx_buff.state != OUTSIDE_FRAME);
-+	}
+-			if (skb == NULL)  {
++			if (!skb)  {
+ 				printk(KERN_INFO
+ 				       "%s(), memory squeeze, dropping frame.\n", __func__);
+ 				/* Restore set register */
+@@ -870,7 +870,7 @@ static void w83977af_pio_receive(struct w83977af_ir *self)
+ 	__u8 byte = 0x00;
+ 	int iobase;
  
- 	return status;
- }
-@@ -1141,8 +1142,9 @@ static int w83977af_net_open(struct net_device *dev)
+-	IRDA_ASSERT(self != NULL, return;);
++	IRDA_ASSERT(self, return;);
+ 
+ 	iobase = self->io.fir_base;
+ 
+@@ -1081,7 +1081,7 @@ static int w83977af_is_receiving(struct w83977af_ir *self)
+ 	int iobase;
+ 	__u8 set;
+ 
+-	IRDA_ASSERT(self != NULL, return FALSE;);
++	IRDA_ASSERT(self, return FALSE;);
+ 
  	if (self->io.speed > 115200) {
- 		outb(ICR_EFSFI, iobase + ICR);
- 		w83977af_dma_receive(self);
--	} else
-+	} else {
- 		outb(ICR_ERBRI, iobase + ICR);
-+	}
+ 		iobase = self->io.fir_base;
+@@ -1113,10 +1113,10 @@ static int w83977af_net_open(struct net_device *dev)
+ 	char hwname[32];
+ 	__u8 set;
  
- 	/* Restore bank register */
- 	outb(set, iobase + SSR);
+-	IRDA_ASSERT(dev != NULL, return -1;);
++	IRDA_ASSERT(dev, return -1;);
+ 	self = netdev_priv(dev);
+ 
+-	IRDA_ASSERT(self != NULL, return 0;);
++	IRDA_ASSERT(self, return 0;);
+ 
+ 	iobase = self->io.fir_base;
+ 
+@@ -1174,11 +1174,11 @@ static int w83977af_net_close(struct net_device *dev)
+ 	int iobase;
+ 	__u8 set;
+ 
+-	IRDA_ASSERT(dev != NULL, return -1;);
++	IRDA_ASSERT(dev, return -1;);
+ 
+ 	self = netdev_priv(dev);
+ 
+-	IRDA_ASSERT(self != NULL, return 0;);
++	IRDA_ASSERT(self, return 0;);
+ 
+ 	iobase = self->io.fir_base;
+ 
+@@ -1221,11 +1221,11 @@ static int w83977af_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	unsigned long flags;
+ 	int ret = 0;
+ 
+-	IRDA_ASSERT(dev != NULL, return -1;);
++	IRDA_ASSERT(dev, return -1;);
+ 
+ 	self = netdev_priv(dev);
+ 
+-	IRDA_ASSERT(self != NULL, return -1;);
++	IRDA_ASSERT(self, return -1;);
+ 
+ 	pr_debug("%s(), %s, (cmd=0x%X)\n", __func__, dev->name, cmd);
+ 
 -- 
 2.10.0.rc2.1.g053435c
