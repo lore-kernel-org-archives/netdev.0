@@ -1,57 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v4] tcp: warn on bogus MSS and try to amend it
-Date: Tue, 06 Dec 2016 11:01:40 -0500 (EST)
-Message-ID: <20161206.110140.1700034264770453023.davem@davemloft.net>
-References: <2056cf96b896aa473ff017b9f223904a14bfed86.1480969929.git.marcelo.leitner@gmail.com>
+Subject: Re: Gigabit ethernet driver for Alacritechs SLIC devices (v4)
+Date: Tue, 06 Dec 2016 11:30:04 -0500 (EST)
+Message-ID: <20161206.113004.1297109434722530511.davem@davemloft.net>
+References: <1480975637-18245-1-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmaxwell37@gmail.com,
-        alexandre.sidorenko@hpe.com, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        tlfalcon@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
-        eric.dumazet@gmail.com
-To: marcelo.leitner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42520 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752638AbcLFQB6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 11:01:58 -0500
-In-Reply-To: <2056cf96b896aa473ff017b9f223904a14bfed86.1480969929.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, andrew@lunn.ch, f.fainelli@gmail.com,
+ roszenrami@gmail.com, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+ liodot@gmail.com, netdev@vger.kernel.org
+To: LinoSanfilippo@gmx.de
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1480975637-18245-1-git-send-email-LinoSanfilippo@gmx.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Mon,  5 Dec 2016 18:37:13 -0200
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Date: Mon,  5 Dec 2016 23:07:15 +0100
 
-> There have been some reports lately about TCP connection stalls caused
-> by NIC drivers that aren't setting gso_size on aggregated packets on rx
-> path. This causes TCP to assume that the MSS is actually the size of the
-> aggregated packet, which is invalid.
+> this is the forth version of the slicoss gigabit ethernet driver (which is a
+> rework of the driver from Alacritech which can currently be found under
+> drivers/staging/slicoss). The driver is supposed to support Mojave, Oasis and
+> Kalahari cards, for both copper and fiber.
 > 
-> Although the proper fix is to be done at each driver, it's often hard
-> and cumbersome for one to debug, come to such root cause and report/fix
-> it.
+> If this code is accepted the staging version can be removed.
 > 
-> This patch amends this situation in two ways. First, it adds a warning
-> on when this situation occurs, so it gives a hint to those trying to
-> debug this. It also limit the maximum probed MSS to the adverised MSS,
-> as it should never be any higher than that.
-> 
-> The result is that the connection may not have the best performance ever
-> but it shouldn't stall, and the admin will have a hint on what to look
-> for.
-> 
-> Tested with virtio by forcing gso_size to 0.
-> 
-> v2: updated msg per David's suggestion
-> v3: use skb_iif to find the interface and also log its name, per Eric
->     Dumazet's suggestion. As the skb may be backlogged and the interface
->     gone by then, we need to check if the number still has a meaning.
-> v4: use helper tcp_gro_dev_warn() and avoid pr_warn_once inside __once, per
->     David's suggestion
-> 
-> Cc: Jonathan Maxwell <jmaxwell37@gmail.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> The driver has been tested on a SEN2104ET adapter (4 Port PCIe copper).
 
-Applied, thanks Marcelo.
+I've applied this series, nice work.
+
+But realize that if you use SLICOSS as the Kconfig symbol to select
+this driver, then while the staging driver is still in the tree it
+will enable both drivers which both want to attach to the same exact
+device IDs.
