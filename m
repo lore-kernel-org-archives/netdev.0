@@ -1,210 +1,96 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/3] net/sched: cls_flower: Add support for
- matching on flags
-Date: Tue, 6 Dec 2016 13:40:06 +0100
-Message-ID: <20161206124006.GL1984@nanopsycho>
-References: <1481027579-23195-1-git-send-email-ogerlitz@mellanox.com>
- <1481027579-23195-3-git-send-email-ogerlitz@mellanox.com>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH 0/5] cpsw: add per channel shaper configuration
+Date: Tue, 6 Dec 2016 15:35:11 +0200
+Message-ID: <20161206133509.GA1586@khorivan>
+References: <1480431651-6081-1-git-send-email-ivan.khoronzhuk@linaro.org>
+ <4640ce88-75b0-8508-05f0-849e8fd4927f@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:36542 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752674AbcLFMkL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 07:40:11 -0500
-Received: by mail-wj0-f195.google.com with SMTP id j10so16300858wjb.3
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 04:40:08 -0800 (PST)
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        mugunthanvnm@ti.com, linux-omap@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1481027579-23195-3-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4640ce88-75b0-8508-05f0-849e8fd4927f@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Dec 06, 2016 at 01:32:58PM CET, ogerlitz@mellanox.com wrote:
->Add UAPI to provide set of flags for matching, where the flags
->provided from user-space are mapped to flow-dissector flags.
->
->The 1st flag allows to match on whether the packet is an
->IP fragment and corresponds to the FLOW_DIS_IS_FRAGMENT flag.
->
->Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->Reviewed-by: Paul Blakey <paulb@mellanox.com>
->---
-> include/uapi/linux/pkt_cls.h |  7 ++++
-> net/sched/cls_flower.c       | 83 ++++++++++++++++++++++++++++++++++++++++++++
-> 2 files changed, 90 insertions(+)
->
->diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
->index 86786d4..f114277 100644
->--- a/include/uapi/linux/pkt_cls.h
->+++ b/include/uapi/linux/pkt_cls.h
->@@ -457,11 +457,18 @@ enum {
-> 	TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK,	/* be16 */
-> 	TCA_FLOWER_KEY_ENC_UDP_DST_PORT,	/* be16 */
-> 	TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,	/* be16 */
->+
->+	TCA_FLOWER_KEY_FLAGS,		/* be32 */
->+	TCA_FLOWER_KEY_FLAGS_MASK,	/* be32 */
-> 	__TCA_FLOWER_MAX,
-> };
+On Mon, Dec 05, 2016 at 02:33:40PM -0600, Grygorii Strashko wrote:
+> Hi Ivan,
+
+Hi, Grygorii
+
+I've sent patch that fixes issue in question.
+https://lkml.org/lkml/2016/12/5/811
+Could you please review it. Also I'm preparing several patches
+to sophisticate cases with unexpected speed value.
+
 > 
-> #define TCA_FLOWER_MAX (__TCA_FLOWER_MAX - 1)
+> On 11/29/2016 09:00 AM, Ivan Khoronzhuk wrote:
+> > This series is intended to allow user to set rate for per channel
+> > shapers at cpdma level. This patchset doesn't have impact on performance.
+> > The rate can be set with:
+> > 
+> > echo 100 > /sys/class/net/ethX/queues/tx-0/tx_maxrate
+> > 
+> > Tested on am572xx
+> > Based on net-next/master
+> > 
+> > Ivan Khoronzhuk (5):
+> >   net: ethernet: ti: davinci_cpdma: add weight function for channels
+> >   net: ethernet: ti: davinci_cpdma: add set rate for a channel
+> >   net: ethernet: ti: cpsw: add .ndo to set per-queue rate
+> >   net: ethernet: ti: cpsw: optimize end of poll cycle
+> >   net: ethernet: ti: cpsw: split tx budget according between channels
+> > 
+> >  drivers/net/ethernet/ti/cpsw.c          | 264 +++++++++++++++----
+> >  drivers/net/ethernet/ti/davinci_cpdma.c | 453 ++++++++++++++++++++++++++++----
+> >  drivers/net/ethernet/ti/davinci_cpdma.h |   6 +
+> >  3 files changed, 624 insertions(+), 99 deletions(-)
+> > 
 > 
->+enum {
->+	TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT = BIT(0),
->+};
->+
-> /* Match-all classifier */
 > 
-> enum {
->diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
->index c5cea78..d9f4124 100644
->--- a/net/sched/cls_flower.c
->+++ b/net/sched/cls_flower.c
->@@ -383,6 +383,8 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
-> 	[TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK]	= { .type = NLA_U16 },
-> 	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT]	= { .type = NLA_U16 },
-> 	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK]	= { .type = NLA_U16 },
->+	[TCA_FLOWER_KEY_FLAGS]		= { .type = NLA_U32 },
->+	[TCA_FLOWER_KEY_FLAGS_MASK]	= { .type = NLA_U32 },
-> };
+> I've just tried net-next on BBB and got below back-trace:
+> INIT: Entering runlevel: 5
+> Configuring network interfaces... [   15.018356] net eth0: initializing cpsw version 1.12 (0)
+> [   15.120153] SMSC LAN8710/LAN8720 4a101000.mdio:00: attached PHY driver [SMSC LAN8710/LAN8720] (mii_bus:phy_addr=4a101000.mdio:00, irq=-1)
+> [   15.138578] Division by zero in kernel.
+> [   15.142667] CPU: 0 PID: 755 Comm: ifconfig Not tainted 4.9.0-rc7-01617-g6ea3f00 #5
+> [   15.150277] Hardware name: Generic AM33XX (Flattened Device Tree)
+> [   15.156399] Backtrace: 
+> [   15.158898] [<c010bbf8>] (dump_backtrace) from [<c010beb4>] (show_stack+0x18/0x1c)
+> [   15.166508]  r7:00000000 r6:600f0013 r5:00000000 r4:c0d395d0
+> [   15.172200] [<c010be9c>] (show_stack) from [<c03ce6cc>] (dump_stack+0x8c/0xa0)
+> [   15.179460] [<c03ce640>] (dump_stack) from [<c010bd60>] (__div0+0x1c/0x20)
+> [   15.186368]  r7:00000000 r6:ddf1c010 r5:00000001 r4:00000001
+> [   15.192068] [<c010bd44>] (__div0) from [<c03cd17c>] (Ldiv0+0x8/0x14)
+> [   15.198503] [<bf07ba38>] (cpsw_split_budget [ti_cpsw]) from [<bf07ee8c>] (cpsw_ndo_open+0x4b8/0x5e4 [ti_cpsw])
+> [   15.208554]  r10:ddf1c010 r9:00000000 r8:00000000 r7:ddf1c010 r6:dcc88000 r5:dcc88500
+> [   15.216418]  r4:ddf1c0b0
+> [   15.218985] [<bf07e9d4>] (cpsw_ndo_open [ti_cpsw]) from [<c0731c68>] (__dev_open+0xb0/0x114)
+> [   15.227466]  r10:00000000 r9:00000000 r8:00000000 r7:dcc88030 r6:bf080364 r5:00000000
+> [   15.235330]  r4:dcc88000
+> [   15.237880] [<c0731bb8>] (__dev_open) from [<c0731f24>] (__dev_change_flags+0x9c/0x14c)
+> [   15.245923]  r7:00001002 r6:00000001 r5:00001043 r4:dcc88000
+> [   15.251613] [<c0731e88>] (__dev_change_flags) from [<c0731ff4>] (dev_change_flags+0x20/0x50)
+> [   15.260093]  r9:00000000 r8:00000000 r7:dcbabf0c r6:00001002 r5:dcc8813c r4:dcc88000
+> [   15.267886] [<c0731fd4>] (dev_change_flags) from [<c07a3168>] (devinet_ioctl+0x6d4/0x794)
+> [   15.276105]  r9:00000000 r8:bee8cc64 r7:dcbabf0c r6:00000000 r5:dc921e80 r4:00000000
+> [   15.283891] [<c07a2a94>] (devinet_ioctl) from [<c07a54bc>] (inet_ioctl+0x19c/0x1c8)
+> [   15.291587]  r10:00000000 r9:dc920000 r8:bee8cc64 r7:c0d64bc0 r6:bee8cc64 r5:dd2728e0
+> [   15.299450]  r4:00008914
+> [   15.302002] [<c07a5320>] (inet_ioctl) from [<c07112dc>] (sock_ioctl+0x14c/0x300)
+> [   15.309443] [<c0711190>] (sock_ioctl) from [<c0241868>] (do_vfs_ioctl+0xa8/0x98c)
+> [   15.316962]  r7:00000003 r6:ddf0a780 r5:dd2728e0 r4:bee8cc64
+> [   15.322653] [<c02417c0>] (do_vfs_ioctl) from [<c0242188>] (SyS_ioctl+0x3c/0x64)
+> [   15.330000]  r10:00000000 r9:dc920000 r8:bee8cc64 r7:00008914 r6:ddf0a780 r5:00000003
+> [   15.337864]  r4:ddf0a780
+> [   15.340416] [<c024214c>] (SyS_ioctl) from [<c0107d60>] (ret_fast_syscall+0x0/0x3c)
+> [   15.348024]  r9:dc920000 r8:c0107f24 r7:00000036 r6:bee8cf4d r5:bee8ce4c r4:000949f0
+> [   15.361174] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+> udhcpc (v1.23.1) started
 > 
-> static void fl_set_key_val(struct nlattr **tb,
->@@ -417,6 +419,40 @@ static void fl_set_key_vlan(struct nlattr **tb,
-> 	}
-> }
 > 
->+static void set_flags(u32 flower_key, u32 flower_mask,
-
-Use some prefix for helpers like this, or at least __
-
-
-
->+		      u32 *dissector_key, u32 *dissector_mask,
->+		      u32 flower_flag_bit, u32 dissector_flag_bit)
->+{
->+	if (flower_mask & flower_flag_bit) {
->+		*dissector_mask |= dissector_flag_bit;
->+		if (flower_key & flower_flag_bit)
->+			*dissector_key |= dissector_flag_bit;
->+	}
->+}
->+
->+static void fl_set_key_flags(struct nlattr **tb,
->+			     u32 *flags_key,
->+			     u32 *flags_mask)
->+{
->+	u32 key, mask;
->+
->+	if (!tb[TCA_FLOWER_KEY_FLAGS])
->+		return;
->+
->+	key = be32_to_cpu(nla_get_u32(tb[TCA_FLOWER_KEY_FLAGS]));
->+
->+	if (!tb[TCA_FLOWER_KEY_FLAGS_MASK])
->+		mask = ~0;
->+	else
->+		mask = be32_to_cpu(nla_get_u32(tb[TCA_FLOWER_KEY_FLAGS_MASK]));
->+
->+	*flags_key  = 0;
->+	*flags_mask = 0;
->+
->+	set_flags(key, mask, flags_key, flags_mask,
->+		  TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT, FLOW_DIS_IS_FRAGMENT);
->+}
->+
-> static int fl_set_key(struct net *net, struct nlattr **tb,
-> 		      struct fl_flow_key *key, struct fl_flow_key *mask)
-> {
->@@ -543,6 +579,8 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
-> 		       &mask->enc_tp.dst, TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,
-> 		       sizeof(key->enc_tp.dst));
-> 
->+	fl_set_key_flags(tb, &key->control.flags, &mask->control.flags);
->+
-> 	return 0;
-> }
-> 
->@@ -877,6 +915,48 @@ static int fl_dump_key_vlan(struct sk_buff *skb,
-> 	return 0;
-> }
-> 
->+static void get_flags(u32 dissector_key, u32 dissector_mask,
-
-Same here.
-
-
->+		      u32 *flower_key, u32 *flower_mask,
->+		      u32 flower_flag_bit, u32 dissector_flag_bit)
->+{
->+	if (dissector_mask & dissector_flag_bit) {
->+		*flower_mask |= flower_flag_bit;
->+		if (dissector_key & dissector_flag_bit)
->+			*flower_key |= flower_flag_bit;
->+	}
->+}
->+
->+static int fl_dump_key_flags(struct sk_buff *skb,
->+			     u32 flags_key,
->+			     u32 flags_mask)
-
-over-wrapped :)
-
-
->+{
->+	u32 key, mask;
->+	__be32 _key, _mask;
->+	int err;
->+
->+	if (!memchr_inv(&flags_mask, 0, sizeof(flags_mask)))
->+		return 0;
->+
->+	key  = 0;
-            ^ remove the extra space
-
-
->+	mask = 0;
->+
->+	get_flags(flags_key, flags_mask, &key, &mask,
->+		  TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT, FLOW_DIS_IS_FRAGMENT);
->+
->+	_key  = cpu_to_be32(key);
-             ^ remove the extra space
-
-
->+	_mask = cpu_to_be32(mask);
->+
->+	err = nla_put(skb, TCA_FLOWER_KEY_FLAGS, 4, &_key);
->+	if (err)
->+		return err;
->+
->+	err = nla_put(skb, TCA_FLOWER_KEY_FLAGS_MASK, 4, &_mask);
-
-Just return nla_put...
-
-
->+	if (err)
->+		return err;
->+
->+	return 0;
->+}
->+
-> static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
-> 		   struct sk_buff *skb, struct tcmsg *t)
-> {
->@@ -1012,6 +1092,9 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
-> 			    sizeof(key->enc_tp.dst)))
-> 		goto nla_put_failure;
-> 
->+	if (fl_dump_key_flags(skb, key->control.flags, mask->control.flags))
->+		goto nla_put_failure;
->+
-> 	nla_put_u32(skb, TCA_FLOWER_FLAGS, f->flags);
-> 
-> 	if (tcf_exts_dump(skb, &f->exts))
->-- 
->2.3.7
->
+> -- 
+> regards,
+> -grygorii
