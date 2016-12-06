@@ -1,52 +1,105 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH v3 6/7] irda: w83977af_ir: Parenthesis alignment
-Date: Tue,  6 Dec 2016 10:16:05 -0800
-Message-ID: <c021dfdea94bdce7868713204073c52396d53026.1481047792.git.joe@perches.com>
+Subject: [PATCH v3 5/7] irda: w83977af_ir: Use the common brace style
+Date: Tue,  6 Dec 2016 10:16:04 -0800
+Message-ID: <fffcc558da965c75c2e293348de1aa2bc0725c05.1481047792.git.joe@perches.com>
 References: <cover.1481047792.git.joe@perches.com>
 Cc: Arnd Bergmann <arnd@arndb.de>,
         Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0060.hostedemail.com ([216.40.44.60]:40584 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932133AbcLFSQT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 13:16:19 -0500
 In-Reply-To: <cover.1481047792.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Neaten function declaration and definition arguments.
+Add braces where appropriate and remove an unnecessary else.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/irda/w83977af_ir.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/irda/w83977af_ir.c | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
-index 5d5ec8938e2b..2f95ee26ed49 100644
+index 92f1525b0570..5d5ec8938e2b 100644
 --- a/drivers/net/irda/w83977af_ir.c
 +++ b/drivers/net/irda/w83977af_ir.c
-@@ -84,13 +84,13 @@ static struct w83977af_ir *dev_self[] = { NULL, NULL, NULL, NULL};
+@@ -462,8 +462,9 @@ static void w83977af_change_speed(struct w83977af_ir *self, __u32 speed)
+ 	if (speed > PIO_MAX_SPEED) {
+ 		outb(ICR_EFSFI, iobase + ICR);
+ 		w83977af_dma_receive(self);
+-	} else
++	} else {
+ 		outb(ICR_ERBRI, iobase + ICR);
++	}
  
- /* Some prototypes */
- static int  w83977af_open(int i, unsigned int iobase, unsigned int irq,
--                          unsigned int dma);
-+			  unsigned int dma);
- static int  w83977af_close(struct w83977af_ir *self);
- static int  w83977af_probe(int iobase, int irq, int dma);
- static int  w83977af_dma_receive(struct w83977af_ir *self);
- static int  w83977af_dma_receive_complete(struct w83977af_ir *self);
- static netdev_tx_t  w83977af_hard_xmit(struct sk_buff *skb,
--					     struct net_device *dev);
-+				       struct net_device *dev);
- static int  w83977af_pio_write(int iobase, __u8 *buf, int len, int fifo_size);
- static void w83977af_dma_write(struct w83977af_ir *self, int iobase);
- static void w83977af_change_speed(struct w83977af_ir *self, __u32 speed);
-@@ -477,7 +477,7 @@ static void w83977af_change_speed(struct w83977af_ir *self, __u32 speed)
-  *
-  */
- static netdev_tx_t w83977af_hard_xmit(struct sk_buff *skb,
--					    struct net_device *dev)
-+				      struct net_device *dev)
- {
- 	struct w83977af_ir *self;
- 	__s32 speed;
+ 	/* Restore SSR */
+ 	outb(set, iobase + SSR);
+@@ -502,8 +503,8 @@ static netdev_tx_t w83977af_hard_xmit(struct sk_buff *skb,
+ 			w83977af_change_speed(self, speed);
+ 			dev_kfree_skb(skb);
+ 			return NETDEV_TX_OK;
+-		} else
+-			self->new_speed = speed;
++		}
++		self->new_speed = speed;
+ 	}
+ 
+ 	/* Save current set */
+@@ -649,8 +650,9 @@ static void w83977af_dma_xmit_complete(struct w83977af_ir *self)
+ 
+ 		/* Clear bit, by writing 1 to it */
+ 		outb(AUDR_UNDR, iobase + AUDR);
+-	} else
++	} else {
+ 		self->netdev->stats.tx_packets++;
++	}
+ 
+ 	if (self->new_speed) {
+ 		w83977af_change_speed(self, self->new_speed);
+@@ -813,9 +815,8 @@ static int w83977af_dma_receive_complete(struct w83977af_ir *self)
+ 		} else {
+ 			/* Check if we have transferred all data to memory */
+ 			switch_bank(iobase, SET0);
+-			if (inb(iobase + USR) & USR_RDR) {
++			if (inb(iobase + USR) & USR_RDR)
+ 				udelay(80); /* Should be enough!? */
+-			}
+ 
+ 			skb = dev_alloc_skb(len + 1);
+ 			if (!skb)  {
+@@ -969,7 +970,6 @@ static __u8 w83977af_fir_interrupt(struct w83977af_ir *self, int isr)
+ 	/* End of frame detected in FIFO */
+ 	if (isr & (ISR_FEND_I | ISR_FSF_I)) {
+ 		if (w83977af_dma_receive_complete(self)) {
+-
+ 			/* Wait for next status FIFO interrupt */
+ 			new_icr |= ICR_EFSFI;
+ 		} else {
+@@ -1094,8 +1094,9 @@ static int w83977af_is_receiving(struct w83977af_ir *self)
+ 			status =  TRUE;
+ 		}
+ 		outb(set, iobase + SSR);
+-	} else
++	} else {
+ 		status = (self->rx_buff.state != OUTSIDE_FRAME);
++	}
+ 
+ 	return status;
+ }
+@@ -1141,8 +1142,9 @@ static int w83977af_net_open(struct net_device *dev)
+ 	if (self->io.speed > 115200) {
+ 		outb(ICR_EFSFI, iobase + ICR);
+ 		w83977af_dma_receive(self);
+-	} else
++	} else {
+ 		outb(ICR_ERBRI, iobase + ICR);
++	}
+ 
+ 	/* Restore bank register */
+ 	outb(set, iobase + SSR);
 -- 
 2.10.0.rc2.1.g053435c
