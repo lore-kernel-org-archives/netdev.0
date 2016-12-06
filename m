@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tools: hv: Enable network manager for bonding
- scripts on RHEL
-Date: Tue, 06 Dec 2016 10:14:11 -0500 (EST)
-Message-ID: <20161206.101411.471111072680990336.davem@davemloft.net>
-References: <1480722938-23378-1-git-send-email-haiyangz@exchange.microsoft.com>
+Subject: Re: [PATCH net-next] bpf: add additional verifier tests for
+ BPF_PROG_TYPE_LWT_*
+Date: Tue, 06 Dec 2016 10:15:24 -0500 (EST)
+Message-ID: <20161206.101524.1235882035561176567.davem@davemloft.net>
+References: <ad522c194cdc9b37a50ce087453586128e954321.1480926086.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1480722938-23378-1-git-send-email-haiyangz@exchange.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        alexei.starovoitov@gmail.com
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41452 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753518AbcLFPPb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 10:15:31 -0500
+In-Reply-To: <ad522c194cdc9b37a50ce087453586128e954321.1480926086.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Date: Fri,  2 Dec 2016 15:55:38 -0800
+From: Thomas Graf <tgraf@suug.ch>
+Date: Mon,  5 Dec 2016 10:30:52 +0100
 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
+>  - direct packet read is allowed for LWT_*
+>  - direct packet write for LWT_IN/LWT_OUT is prohibited
+>  - direct packet write for LWT_XMIT is allowed
+>  - access to skb->tc_classid is prohibited for LWT_*
 > 
-> We found network manager is necessary on RHEL to make the synthetic
-> NIC, VF NIC bonding operations handled automatically. So, enabling
-> network manager here.
-> 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied, thanks.
+Applied, thank you.
