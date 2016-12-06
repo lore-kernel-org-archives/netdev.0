@@ -1,138 +1,59 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+From: Richard Cochran <richardcochran@gmail.com>
 Subject: Re: [PATCH v4 09/13] net: ethernet: ti: cpts: rework
  initialization/deinitialization
-Date: Tue, 6 Dec 2016 11:49:14 -0600
-Message-ID: <c0d6d670-cf44-c113-3443-3b5209e68ee2@ti.com>
+Date: Tue, 6 Dec 2016 19:04:21 +0100
+Message-ID: <20161206180421.GA20480@localhost.localdomain>
 References: <20161205200525.16664-1-grygorii.strashko@ti.com>
  <20161205200525.16664-10-grygorii.strashko@ti.com>
  <20161206134037.GA15946@localhost.localdomain>
  <4e7888b6-9f1c-ca31-e83e-15109bf1df3f@ti.com>
  <20161206171802.GA19646@localhost.localdomain>
+ <c0d6d670-cf44-c113-3443-3b5209e68ee2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>,
-        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161206171802.GA19646-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, devicetree@vger.kernel.org,
+        Murali Karicheri <m-karicheri2@ti.com>,
+        Wingman Kwok <w-kwok2@ti.com>,
+        Thomas Gleixner <tglx@linutronix.de>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36565 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751581AbcLFSE1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 13:04:27 -0500
+Content-Disposition: inline
+In-Reply-To: <c0d6d670-cf44-c113-3443-3b5209e68ee2@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+On Tue, Dec 06, 2016 at 11:49:14AM -0600, Grygorii Strashko wrote:
+> But we do reset whole cpsw :( and that's required to support PM use cases as
+> suspend/resume.
 
-On 12/06/2016 11:18 AM, Richard Cochran wrote:
-> On Tue, Dec 06, 2016 at 10:45:55AM -0600, Grygorii Strashko wrote:
->> On 12/06/2016 07:40 AM, Richard Cochran wrote:
->>> [ BTW, resetting the timecounter here makes no sense either.  Why
->>>   reset the clock just because the interface goes down?  ]
->>>
->>
->> Huh. This is how it works now (even before my changes) - this is just refactoring!
->> (really new thing is the only cpts_calc_mult_shift()).
+The code is resetting the clock unconditionally on ifup/down.  That
+sucks.  If you reset the clock *only* after resume, that would be ok.
+ 
+> There are also PM requirement to shutdown cpsw in case all interfaces are down.
+
+Well, those requirements are not too smart.  As an end user, I expect
+that ifdown/up does not change the time.  There isn't any reason to
+reset the clock in this case.
+
+> More over, there are requirement to minimize cpsw power consumption in case all links are
+> disconnected (and cpts is special case here).
 > 
-> The cpts_register() used to be called from probe(), but this changed
-> without any review in f280e89ad.  That wasn't your fault, but still...
->  
->> Also there are additional questions such as:
->> - is there guarantee that cpsw port will be connected to the same network after ifup?
-> 
-> The network is not relevant.  PTP time is a global standard, just like
-> with NTP.  We don't reset the NTP clock with ifup/down, do we?
+> So, at least resetting of the timecounter still required.
 
-But we do reset whole cpsw :( and that's required to support PM use cases as
-suspend/resume.
+Only if you follow that poorly conceived PM plan.  Anyhow, I agree
+that it isn't the task of your present series to fix that.
 
-There are also PM requirement to shutdown cpsw in case all interfaces are down.
+> Ok. I'll try to optimize it following your directions.
 
-More over, there are requirement to minimize cpsw power consumption in case all links are
-disconnected (and cpts is special case here).
+What I would like to see is: initialize the cyclecounter fields
+exactly once.
 
-So, at least resetting of the timecounter still required.
-
-
-
-> 
->> - should there be possibility to reset cc.mult if it's value will be kept from the previous run?
-> 
-> cc.mult will change naturally according to the operation of the user
-> space PTP stack.  There is no need to reset it that I can see.
->  
->>> Secondly, you have made the initialization order of these fields hard
->>> to follow.  With the whole series applied:
->>>
->>> probe()
->>> 	cpts_create()
->>> 		cpts_of_parse()
->>> 		{
->>> 			/* Set cc_mult but not cc.mult! */
->>> 			set cc_mult
->>> 			set cc.shift
->>> 		}
->>> 		cpts_calc_mult_shift()
->>> 		{
->>> 			/* Set them both. */
->>> 			cpts->cc_mult = mult;
->>> 			cpts->cc.mult = mult; 
->>
->> ^^ this assignment of cpts->cc.mult not required.
-> 
-> You wrote the code, not me.
-
-Sry, I meant, thank for catching this.
-
->  
->>> 			cpts->cc.shift = shift;
->> 			
->>
->> only in case there were not set in DT before
->> (I have a requirement to support both - DT and cpts_calc_mult_shift and
->>  that introduces a bit of complexity)
->>
->> Also, I've tried not to add more fields in struct cpts.
->>
->>> 		}
->>> /* later on */
->>> cpts_register()
->>> 	cpts->cc.mult = cpts->cc_mult;
->>>
->>> There is no need for such complexity.  Simply set cc.mult in
->>> cpts_create() _once_, immediately after the call to
->>> cpts_calc_mult_shift().
->>>
->>> You can remove the assignment from cpts_calc_mult_shift() and
->>> cpts_register().
->>
->> Just to clarify: do you propose to get rid of cpts->cc_mult at all?
-> 
-> No.  Read what I said before:
-> 
->    There is no need for such complexity.  Simply set cc.mult in
->    cpts_create() _once_, immediately after the call to
->    cpts_calc_mult_shift().
-> 
->> Honestly, i'd not prefer to change functional behavior of ptp clock as part of
->> this series.
-> 
-> Fair enough.  The bogus clock reset existed before your series.
-> 
-> But please don't obfuscate simple initialization routines.  The way
-> you set cc.mult and cc_mult is illogical and convoluted.
-> 
-
-Ok. I'll try to optimize it following your directions.
-
-Thanks.
-
--- 
-regards,
--grygorii
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Richard
