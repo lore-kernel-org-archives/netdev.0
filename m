@@ -1,90 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/1] driver: ipvlan: Free the port memory
- directly with kfree instead of kfree_rcu
-Date: Mon, 05 Dec 2016 22:25:11 -0800
-Message-ID: <1481005511.18162.564.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480998547-9013-1-git-send-email-fgao@ikuai8.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, maheshb@google.com, edumazet@google.com,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36542 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751139AbcLFGZN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 01:25:13 -0500
-Received: by mail-pg0-f68.google.com with SMTP id x23so18843319pgx.3
-        for <netdev@vger.kernel.org>; Mon, 05 Dec 2016 22:25:13 -0800 (PST)
-In-Reply-To: <1480998547-9013-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Subject: [patch net v4] net: fec: fix compile with CONFIG_M5272
+Date: Tue,  6 Dec 2016 09:26:53 +0300
+Message-ID: <1481005613-5147-1-git-send-email-nikita.yoush@cogentembedded.com>
+Cc: Chris Healy <cphealy@gmail.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        linux-kernel@vger.kernel.org,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Troy Kisky <troy.kisky@boundarydevices.com>,
+        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-12-06 at 12:29 +0800, fgao@ikuai8.com wrote:
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> There is no one which may reference the "port" in ipvlan_port_create
-> when netdev_rx_handler_register failed. So it could free it directly
-> with kfree instead of kfree_rcu.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
->  drivers/net/ipvlan/ipvlan_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> index c6aa667..1a601151 100644
-> --- a/drivers/net/ipvlan/ipvlan_main.c
-> +++ b/drivers/net/ipvlan/ipvlan_main.c
-> @@ -128,7 +128,7 @@ static int ipvlan_port_create(struct net_device *dev)
->  	return 0;
->  
->  err:
-> -	kfree_rcu(port, rcu);
-> +	kfree(port);
->  	return err;
->  }
->  
+Commit 80cca775cdc4 ("net: fec: cache statistics while device is down")
+introduced unconditional statistics-related actions.
 
-This looks a partial patch.
+However, when driver is compiled with CONFIG_M5272, staticsics-related
+definitions do not exist, which results into build errors.
 
-If you really care, why don't you also replace the kfree_rcu() in
-ipvlan_port_destroy() ?
+Fix that by adding explicit handling of !defined(CONFIG_M5272) case.
 
+Fixes: 80cca775cdc4 ("net: fec: cache statistics while device is down")
+Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+---
+Changes from v3:
+- fix reference commit id to match upstream tree
 
+ drivers/net/ethernet/freescale/fec_main.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index 05a62d2216c54651f6158c35d446d2e395b38dc3..031093e1c25f55244e6bdfde4ebeb65c0f2f10c1 100644
---- a/drivers/net/ipvlan/ipvlan.h
-+++ b/drivers/net/ipvlan/ipvlan.h
-@@ -97,7 +97,6 @@ struct ipvl_port {
- 	struct work_struct	wq;
- 	struct sk_buff_head	backlog;
- 	int			count;
--	struct rcu_head		rcu;
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 5f77caa59534..12aef1b15356 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2313,6 +2313,8 @@ static const struct fec_stat {
+ 	{ "IEEE_rx_octets_ok", IEEE_R_OCTETS_OK },
  };
  
- static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 5430460167b5e8945d29a3febdd324461bf5af5c..ffe8994e64fc1791ef07d80ad2340bc82d541bba 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -128,7 +128,7 @@ static int ipvlan_port_create(struct net_device *dev)
- 	return 0;
++#define FEC_STATS_SIZE		(ARRAY_SIZE(fec_stats) * sizeof(u64))
++
+ static void fec_enet_update_ethtool_stats(struct net_device *dev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(dev);
+@@ -2330,7 +2332,7 @@ static void fec_enet_get_ethtool_stats(struct net_device *dev,
+ 	if (netif_running(dev))
+ 		fec_enet_update_ethtool_stats(dev);
  
- err:
--	kfree_rcu(port, rcu);
-+	kfree(port);
- 	return err;
+-	memcpy(data, fep->ethtool_stats, ARRAY_SIZE(fec_stats) * sizeof(u64));
++	memcpy(data, fep->ethtool_stats, FEC_STATS_SIZE);
  }
  
-@@ -145,7 +145,7 @@ static void ipvlan_port_destroy(struct net_device *dev)
- 	netdev_rx_handler_unregister(dev);
- 	cancel_work_sync(&port->wq);
- 	__skb_queue_purge(&port->backlog);
--	kfree_rcu(port, rcu);
-+	kfree(port);
+ static void fec_enet_get_strings(struct net_device *netdev,
+@@ -2355,6 +2357,12 @@ static int fec_enet_get_sset_count(struct net_device *dev, int sset)
+ 		return -EOPNOTSUPP;
+ 	}
  }
++
++#else	/* !defined(CONFIG_M5272) */
++#define FEC_STATS_SIZE	0
++static inline void fec_enet_update_ethtool_stats(struct net_device *dev)
++{
++}
+ #endif /* !defined(CONFIG_M5272) */
  
- #define IPVLAN_FEATURES \
+ static int fec_enet_nway_reset(struct net_device *dev)
+@@ -3293,8 +3301,7 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	/* Init network device */
+ 	ndev = alloc_etherdev_mqs(sizeof(struct fec_enet_private) +
+-				  ARRAY_SIZE(fec_stats) * sizeof(u64),
+-				  num_tx_qs, num_rx_qs);
++				  FEC_STATS_SIZE, num_tx_qs, num_rx_qs);
+ 	if (!ndev)
+ 		return -ENOMEM;
+ 
+-- 
+2.1.4
