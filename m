@@ -1,62 +1,86 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: bpf bounded loops. Was: [flamebait] xdp
-Date: Tue, 6 Dec 2016 12:35:53 +0100
-Message-ID: <7c961590-2f25-b5e0-eccd-016ecf5ea88a@stressinduktion.org>
-References: <20161201091108.GF26507@breakpoint.cc>
- <20161201145834.GA569@pox.localdomain>
- <7e2be2fc-7c04-b333-59c7-43d4fcfcb451@stressinduktion.org>
- <20161201162814.GA31300@pox.localdomain>
- <583b8947-3395-8529-933b-08e1a86a0778@stressinduktion.org>
- <CALx6S36=Y0dSux+-omWXZKtxb73_g4+DXhPBawb79+UF6rp9rw@mail.gmail.com>
- <9b4264f8-26b9-a611-56f0-0840cecf9c44@stressinduktion.org>
- <20161202183903.GC54949@ast-mbp.thefacebook.com>
- <2f3ce25c-3f59-9120-7d09-619be9b58e7a@stressinduktion.org>
- <5726302e-3502-99c8-a4d9-a5278761cb5a@solarflare.com>
- <b7c99fea-dfaa-a7a0-0694-d6abe649708e@stressinduktion.org>
- <aafa452d-26dd-d58b-2649-21ccce9370a4@solarflare.com>
+Subject: Re: arp_filter and IPv6 ND
+Date: Tue, 6 Dec 2016 13:07:38 +0100
+Message-ID: <84c9b65c-f7b1-f59b-50ce-f86f97754707@stressinduktion.org>
+References: <CAAeewD82Lfo7c=vLHR7p3oxJ8d0OgWrijKmNn8EPFKq7fN7AMg@mail.gmail.com>
+ <3bf09622-afa5-506c-8407-e3e1a70341c0@stressinduktion.org>
+ <CAAeewD_2tfNHhWmtwXb_28DicmipReimRvGqv1Q6PQ0AjkBPGw@mail.gmail.com>
+ <cead0544-5a5b-ccd0-e02d-abb44a41c054@stressinduktion.org>
+ <CAAeewD_erNdBw-zjPP9iFuju6FDgAgWrMKhMXPb58nqa0r22rA@mail.gmail.com>
+ <96111ae8-9b68-943f-c9be-8fccdd614c8b@stressinduktion.org>
+ <CAAeewD9CDQZp0u6L6JtZ96cboKDCRB=yY92F+-ufsA8=OEgyUw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>
-To: Edward Cree <ecree@solarflare.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Saku Ytti <saku@ytti.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:58279 "EHLO
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:36332 "EHLO
         out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752328AbcLFLgI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 06:36:08 -0500
-In-Reply-To: <aafa452d-26dd-d58b-2649-21ccce9370a4@solarflare.com>
+        by vger.kernel.org with ESMTP id S1751492AbcLFMHl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 07:07:41 -0500
+In-Reply-To: <CAAeewD9CDQZp0u6L6JtZ96cboKDCRB=yY92F+-ufsA8=OEgyUw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05.12.2016 17:54, Edward Cree wrote:
-> On 05/12/16 16:50, Hannes Frederic Sowa wrote:
->> On 05.12.2016 17:40, Edward Cree wrote:
->>> I may be completely mistaken here, but can't the verifier unroll the loop 'for
->>> verification' without it actually being unrolled in the program?
->>> I.e., any "proof that the loop terminates" should translate into "rewrite of
->>> the directed graph to make it a DAG, possibly duplicating a lot of insns", and
->>> you feed the rewritten graph to the verifier, while using the original loopy
->>> version as the actual program to store and later execute.
->>> Then the verifier happily checks things like array indices being valid, without
->>> having to know about the bounded loops.
->> That is what is already happening. E.g. __builtin_memset is expanded up
->> to 128 rounds (which is a lot) but at some point llvm doesn't do enoug
->> unrolling of that.
+On 03.12.2016 15:21, Saku Ytti wrote:
+> On 2 December 2016 at 20:39, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> 
+> Hey,
+> 
+>> E.g. you can use IP addresses bound to other interfaces to send replys
+>> on another interface. This can be useful if you have a limited amount of
+>> IP addresses on the system but much more interfaces. Especially if they
+>> are limited in scope, like in IPv6.
 >>
->> The BPF target configures that in
->> http://llvm.org/docs/doxygen/html/BPFISelLowering_8cpp_source.html on
->> line 166-169.
-> I think you're talking about the _compiler_ unrolling loops before it
-> submits the program to the kernel.  I'm talking about having the _verifier_
-> unroll them, so that we can execute the original (non-unrolled) version.
-> Or am I misunderstanding?
+>> Basically Cisco's feature of "unnumbered interface" is always provided
+>> in Linux. And there are certainly cases where you would want to use it,
+>> e.g. emulate private-vlan feature for network separation.
+> 
+> Got it, thanks, the explanation makes sense. And indeed it's valid
+> case, but also it is the exception, not the rule. I think it would be
+> entirely change the default and people who want 'unnumbered' style
+> behaviour (like some BRAS scenarios), will know how to and why to
+> configure it.
 
-Ah, in the verifier this would be part of flow control analysis what we
-are talking about in the other part of this thread.
+The limited ip address scenario is actually more common for normal
+routers. ;)
 
-Bye,
-Hannes
+In retrospect I don't know what what would win if the decision would be
+made again. Mostly all operating systems switched to strong end host
+model over time, Linux remaining in the weak host end camp alone. It
+probably is also easier to go from strong end to weak end system by
+policy than vice versa, so I would probably also picked strong end
+system semantics by default today.
+
+>> Also in the BGP setup, you might have it easier to establish loopback
+>> neighbor contact by just using static on-link routes, without caring
+>> about more complex numbering there (otherwise you pretty soon introduce
+>> OSPF or some other routing protocol to do the recursive forward resolution).
+> 
+> The BGP is running on-link, it's just that the BGP is advertising loop
+> of Linux. Why the loop ends up in ND cache, I don't know.
+
+Did you check neighbor advertisements and solicitations with tcpdump?
+
+Did you have force_tllao, ndisc_notify enabled? Which source address
+does the BGP/TCP connection use?
+
+>>> Grand, not that I feel comfortable writing it. I'd rather see the
+>>> whole suppression functionality moved to neighbour.c from being AFI
+>>> specific.
+>>
+>> Yes sure, please provide a patch. A separate sysctl is necessary anyway
+>> because the current one is within the ipv4 procfs directory hierarchy.
+> 
+> Sorry, not a comfortable C programmer, I'm pretty confident I could
+> get it working, but I'm more confident that patch would be entirely
+> rejected and rewritten by someone who knows what they are doing.
+> I see no reason not to have AFI specific toggle, just logic and code
+> should be AFI agnostic, like GC (ARP/ND cache time) stuff in
+> neighbour.c is nicely done. Frankly whole ARP/ND code could do with
+> refactoring to make arp.c and ndisc.c more wire-format stuff and
+> behavioural code more in neighbour.c.
+
+Let's first see what the real problem is.
