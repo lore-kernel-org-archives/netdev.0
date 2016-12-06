@@ -1,60 +1,43 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 2/2] net/mlx5e: Offload TC matching on packets being IP fragments
-Date: Tue,  6 Dec 2016 17:18:06 +0200
-Message-ID: <1481037486-27195-3-git-send-email-ogerlitz@mellanox.com>
-References: <1481037486-27195-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 1/1] driver: ipvlan: Free ipvl_port directly
+ with kfree instead of kfree_rcu
+Date: Tue, 06 Dec 2016 07:18:30 -0800
+Message-ID: <1481037510.18162.583.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1481032489-7864-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, maheshb@google.com, edumazet@google.com,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52768 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751729AbcLFPSS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 10:18:18 -0500
-In-Reply-To: <1481037486-27195-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36699 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752294AbcLFPSd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 10:18:33 -0500
+Received: by mail-pg0-f65.google.com with SMTP id x23so20146350pgx.3
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 07:18:33 -0800 (PST)
+In-Reply-To: <1481032489-7864-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable offloading of matching on packets being fragments.
+On Tue, 2016-12-06 at 21:54 +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <gfree.wind@gmail.com>
+> 
+> There is no one which may reference the ipvlan port when free it in
+> ipvlan_port_create and ipvlan_port_destroy. So it is unnecessary to
+> use kfree_rcu.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Paul Blakey <paulb@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+You did not really explain _why_ it was safe/unnecessary.
+Why should anyone trust you ?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index f07ef8c..f8829b5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -31,6 +31,7 @@
-  */
- 
- #include <net/flow_dissector.h>
-+#include <net/sch_generic.h>
- #include <net/pkt_cls.h>
- #include <net/tc_act/tc_gact.h>
- #include <net/tc_act/tc_skbedit.h>
-@@ -363,7 +364,18 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
- 			skb_flow_dissector_target(f->dissector,
- 						  FLOW_DISSECTOR_KEY_CONTROL,
- 						  f->key);
-+
-+		struct flow_dissector_key_control *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_CONTROL,
-+						  f->mask);
- 		addr_type = key->addr_type;
-+
-+		if (mask->flags & FLOW_DIS_IS_FRAGMENT) {
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_c, frag, 1);
-+			MLX5_SET(fte_match_set_lyr_2_4, headers_v, frag,
-+				 key->flags & FLOW_DIS_IS_FRAGMENT);
-+		}
- 	}
- 
- 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
--- 
-2.3.7
+The reason an RCU grace period is not needed is that
+netdev_rx_handler_unregister() already enforces a grace period.
+
+My guess is ipvlan copied code in macvlan.
+
+At the time macvlan was written, commit
+00cfec37484761a44 ("net: add a synchronize_net() in
+netdev_rx_handler_unregister()") was not there yet.
+
+macvlan could be changed the same way.
