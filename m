@@ -1,56 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] dsa:mv88e6xxx: allow address 0x1 in smi_init
-Date: Tue, 6 Dec 2016 15:27:11 +0100
-Message-ID: <20161206142711.GE26615@lunn.ch>
-References: <1481029592-19496-1-git-send-email-volodymyr.bendiuga@westermo.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]net:switchdev:add judgement and proper return vlaue to
+ make switchdev_port_vlan_fill() more robust
+Date: Tue, 06 Dec 2016 09:32:46 -0500 (EST)
+Message-ID: <20161206.093246.1063828677061160197.davem@davemloft.net>
+References: <CAEX1niU24TLaRff+TMPu4ek4vT=R2mv9yaE6j1W1ZsFYh99QGg@mail.gmail.com>
+        <20161206123225.GK1984@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, volodymyr.bendiuga@gmail.com
-To: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44115 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751936AbcLFO1j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Dec 2016 09:27:39 -0500
-Content-Disposition: inline
-In-Reply-To: <1481029592-19496-1-git-send-email-volodymyr.bendiuga@westermo.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cxdx2006@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, feng.deng@cortina-access.com
+To: jiri@resnulli.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161206123225.GK1984@nanopsycho>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 06, 2016 at 02:06:32PM +0100, Volodymyr Bendiuga wrote:
-> Westermo devices use this address.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 6 Dec 2016 13:32:25 +0100
 
-I think we can have a better change log entry than that. How about:
-
-Some devices, such as the mv88e6097 do have ADDR[0] external and so it
-is possible to configure the device to use SMI address 0x1. Remove the
-restriction, as there are boards using this address.
-
-Thanks
-	Andrew
-
+> Tue, Dec 06, 2016 at 05:46:36AM CET, cxdx2006@gmail.com wrote:
+>>From: Feng Deng<cxdx2006@gmail.com>
+>>
+>>1.add judgement to make sure switchdev_port_vlan_fill() could
+>>  return right,  even when switchdev_port_vlan_dump_put() failed  ,
+>>  which will make switchdev_port_vlan_fill()  more robust
+>>2.add proper return vlaue at the end of the switchdev_port_vlan_fill()
+>>
+>>Signed-off-by: Feng Deng <feng.deng@cortina-access.com>
 > 
-> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-> ---
->  drivers/net/dsa/mv88e6xxx/chip.c | 4 ----
->  1 file changed, 4 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index 4212fb6..05942e3 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> @@ -4253,10 +4253,6 @@ static void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip)
->  static int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
->  			      struct mii_bus *bus, int sw_addr)
->  {
-> -	/* ADDR[0] pin is unavailable externally and considered zero */
-> -	if (sw_addr & 0x1)
-> -		return -EINVAL;
-> -
->  	if (sw_addr == 0)
->  		chip->smi_ops = &mv88e6xxx_smi_single_chip_ops;
->  	else if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_MULTI_CHIP))
-> -- 
-> 2.7.4
-> 
+> Please don't send patches like this. You are wasting everyone's time.
+
++1
