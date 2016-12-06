@@ -1,37 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: clear reset value of
- snps,wr_osr_lmt/snps,rd_osr_lmt before writing
-Date: Tue, 06 Dec 2016 10:34:31 -0500 (EST)
-Message-ID: <20161206.103431.1801934560152684508.davem@davemloft.net>
-References: <1480957974-22326-1-git-send-email-niklass@axis.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 00/10] virtio: sparse fixes
+Date: Tue, 6 Dec 2016 17:40:28 +0200
+Message-ID: <1481038106-24899-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: niklas.cassel@axis.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480957974-22326-1-git-send-email-niklass@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-s390@vger.kernel.org, linux-scsi@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kbuild@vger.kernel.org, netdev@vger.kernel.org,
+	linux-remoteproc@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	virtualization@lists.linux-foundation.org,
+	Michal Marek <mmarek@suse.com>, linux-crypto@vger.kernel.org,
+	v9fs-developer@lists.sourceforge.net
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Mon, 5 Dec 2016 18:12:54 +0100
+I run latest sparse from git on virtio drivers
+(turns out the version I had was rather outdated).
+This patchset fixes a couple of bugs this uncovered,
+and adds some annotations to make it sparse-clean.
+In particular, endian-ness is often tricky,
+so this patchset enabled endian-ness checks for sparse
+builds.
 
-> From: Niklas Cassel <niklas.cassel@axis.com>
-> 
-> WR_OSR_LMT and RD_OSR_LMT have a reset value of 1.
-> Since the reset value wasn't cleared before writing, the value in the
-> register would be incorrect if specifying an uneven value for
-> snps,wr_osr_lmt/snps,rd_osr_lmt.
-> 
-> Zero is a valid value for the properties, since the databook specifies:
-> maximum outstanding requests = WR_OSR_LMT + 1.
-> 
-> We do not want to change the behavior for existing users when the
-> property is missing. Therefore, default to 1 if the property is missing,
-> since that is the same as the reset value.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+Michael S. Tsirkin (10):
+  virtio_console: drop unused config fields
+  drm/virtio: fix endianness in primary_plane_update
+  drm/virtio: fix lock context imbalance
+  drm/virtio: annotate virtio_gpu_queue_ctrl_buffer_locked
+  vhost: make interval tree static inline
+  vhost: add missing __user annotations
+  vsock/virtio: add a missing __le annotation
+  vsock/virtio: mark an internal function static
+  vsock/virtio: fix src/dst cid format
+  virtio: enable endian checks for sparse builds
 
-Applied, thank you.
+ drivers/char/virtio_console.c           | 14 +++++++-------
+ drivers/gpu/drm/virtio/virtgpu_plane.c  |  4 ++--
+ drivers/gpu/drm/virtio/virtgpu_vq.c     |  6 +++++-
+ drivers/vhost/vhost.c                   | 12 ++++++------
+ net/vmw_vsock/virtio_transport.c        |  2 +-
+ net/vmw_vsock/virtio_transport_common.c | 16 ++++++++--------
+ drivers/block/Makefile                  |  1 +
+ drivers/char/Makefile                   |  1 +
+ drivers/char/hw_random/Makefile         |  2 ++
+ drivers/gpu/drm/virtio/Makefile         |  1 +
+ drivers/net/Makefile                    |  3 +++
+ drivers/net/caif/Makefile               |  1 +
+ drivers/rpmsg/Makefile                  |  1 +
+ drivers/s390/virtio/Makefile            |  2 ++
+ drivers/scsi/Makefile                   |  1 +
+ drivers/vhost/Makefile                  |  1 +
+ drivers/virtio/Makefile                 |  3 +++
+ net/9p/Makefile                         |  1 +
+ net/packet/Makefile                     |  1 +
+ net/vmw_vsock/Makefile                  |  2 ++
+ 20 files changed, 50 insertions(+), 25 deletions(-)
+
+-- 
+MST
