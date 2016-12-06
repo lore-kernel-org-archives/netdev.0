@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Avoid deadlock situation due to use of xmit_lock
-Date: Tue, 06 Dec 2016 10:06:07 -0500 (EST)
-Message-ID: <20161206.100607.919832811727709338.davem@davemloft.net>
-References: <1480719966-12839-1-git-send-email-LinoSanfilippo@gmx.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net:mv88e6xxx: dispose irq mapping
+Date: Tue, 6 Dec 2016 16:08:56 +0100
+Message-ID: <20161206150856.GG26615@lunn.ch>
+References: <1481018743-27208-1-git-send-email-volodymyr.bendiuga@westermo.se>
+ <20161206141923.GB26615@lunn.ch>
+ <7717215e-dddd-14af-196f-e638b5c60649@westermo.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: LinoSanfilippo@gmx.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480719966-12839-1-git-send-email-LinoSanfilippo@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org
+To: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:44175 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751443AbcLFPI7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 10:08:59 -0500
+Content-Disposition: inline
+In-Reply-To: <7717215e-dddd-14af-196f-e638b5c60649@westermo.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Sat,  3 Dec 2016 00:06:04 +0100
+On Tue, Dec 06, 2016 at 04:00:27PM +0100, Volodymyr Bendiuga wrote:
+> Hi Andrew,
+> 
+> thanks for you comments and time taken to review. I will make a new
+> 
+> version which will indicate net-next tree.
+> 
+> About mv88e6xxx_remove(), this function will not be called
 
-> after stumbling over a potential deadlock situation in the altera driver 
-> (see http://marc.info/?l=linux-netdev&m=148054615230447&w=2), I checked
-> all other ethernet drivers for the same issue and actually found it in 2
-> more, namely stmmac, and sxgbe. Please see the commit messages for a 
-> description of the problem.
-> These 2 patches fix the concerning drivers.
+Correct, which is why i said:
 
-First of all, I don't want to apply these patches without proper testing
-and ACKs from the individual driver maintainers.
+> and the error path of mv88e6xxx_probe().
 
-For both of these drivers, this situation only exists because the TX
-path uses the unnecessary ->tx_lock.  This private lock should be
-removed completely and the driver should use the lock the mid-layer
-already holds in the transmit path and take it in the TX reclaim path
-instead of the private ->tx_lock.
+which will be called on EPRODE_DEFFER. 
+
+> irq_dispose_mapping() is also called in mv88e6xxx_g2_irq_free(), so
+> I put it in a similar
+
+The mapping for chip->device_irq is made in mv88e6xxx_g2_irq_setup(),
+so the disposal of the mapping logically goes in
+mv88e6xxx_g2_irq_free().
+
+	Andrew
