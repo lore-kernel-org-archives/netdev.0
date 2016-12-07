@@ -1,216 +1,57 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 49/50] netfilter: xt_bpf: support ebpf
-Date: Wed,  7 Dec 2016 22:52:55 +0100
-Message-ID: <1481147576-5690-50-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 44/50] netfilter: nat: skip checksum on offload SCTP packets
+Date: Wed,  7 Dec 2016 22:52:50 +0100
+Message-ID: <1481147576-5690-45-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60252 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933451AbcLGVx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 16:53:57 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 275A8573E5
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:56 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 18A9FDA86C
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:56 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 04B39DA849
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:54 +0100 (CET)
 In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+From: Davide Caratti <dcaratti@redhat.com>
 
-Add support for attaching an eBPF object by file descriptor.
+SCTP GSO and hardware can do CRC32c computation after netfilter processing,
+so we can avoid calling sctp_compute_checksum() on skb if skb->ip_summed
+is equal to CHECKSUM_PARTIAL. Moreover, set skb->ip_summed to CHECKSUM_NONE
+when the NAT code computes the CRC, to prevent offloaders from computing
+it again (on ixgbe this resulted in a transmission with wrong L4 checksum).
 
-The iptables binary can be called with a path to an elf object or a
-pinned bpf object. Also pass the mode and path to the kernel to be
-able to return it later for iptables dump and save.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/xt_bpf.h | 21 ++++++++
- net/netfilter/xt_bpf.c                | 96 +++++++++++++++++++++++++++++------
- 2 files changed, 101 insertions(+), 16 deletions(-)
+ net/netfilter/nf_nat_proto_sctp.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/netfilter/xt_bpf.h b/include/uapi/linux/netfilter/xt_bpf.h
-index 1fad2c27ac32..b97725af2ac0 100644
---- a/include/uapi/linux/netfilter/xt_bpf.h
-+++ b/include/uapi/linux/netfilter/xt_bpf.h
-@@ -2,9 +2,11 @@
- #define _XT_BPF_H
- 
- #include <linux/filter.h>
-+#include <linux/limits.h>
- #include <linux/types.h>
- 
- #define XT_BPF_MAX_NUM_INSTR	64
-+#define XT_BPF_PATH_MAX		(XT_BPF_MAX_NUM_INSTR * sizeof(struct sock_filter))
- 
- struct bpf_prog;
- 
-@@ -16,4 +18,23 @@ struct xt_bpf_info {
- 	struct bpf_prog *filter __attribute__((aligned(8)));
- };
- 
-+enum xt_bpf_modes {
-+	XT_BPF_MODE_BYTECODE,
-+	XT_BPF_MODE_FD_PINNED,
-+	XT_BPF_MODE_FD_ELF,
-+};
-+
-+struct xt_bpf_info_v1 {
-+	__u16 mode;
-+	__u16 bpf_program_num_elem;
-+	__s32 fd;
-+	union {
-+		struct sock_filter bpf_program[XT_BPF_MAX_NUM_INSTR];
-+		char path[XT_BPF_PATH_MAX];
-+	};
-+
-+	/* only used in the kernel */
-+	struct bpf_prog *filter __attribute__((aligned(8)));
-+};
-+
- #endif /*_XT_BPF_H */
-diff --git a/net/netfilter/xt_bpf.c b/net/netfilter/xt_bpf.c
-index dffee9d47ec4..2dedaa23ab0a 100644
---- a/net/netfilter/xt_bpf.c
-+++ b/net/netfilter/xt_bpf.c
-@@ -10,6 +10,7 @@
- #include <linux/module.h>
- #include <linux/skbuff.h>
- #include <linux/filter.h>
-+#include <linux/bpf.h>
- 
- #include <linux/netfilter/xt_bpf.h>
- #include <linux/netfilter/x_tables.h>
-@@ -20,15 +21,15 @@ MODULE_LICENSE("GPL");
- MODULE_ALIAS("ipt_bpf");
- MODULE_ALIAS("ip6t_bpf");
- 
--static int bpf_mt_check(const struct xt_mtchk_param *par)
-+static int __bpf_mt_check_bytecode(struct sock_filter *insns, __u16 len,
-+				   struct bpf_prog **ret)
- {
--	struct xt_bpf_info *info = par->matchinfo;
- 	struct sock_fprog_kern program;
- 
--	program.len = info->bpf_program_num_elem;
--	program.filter = info->bpf_program;
-+	program.len = len;
-+	program.filter = insns;
- 
--	if (bpf_prog_create(&info->filter, &program)) {
-+	if (bpf_prog_create(ret, &program)) {
- 		pr_info("bpf: check failed: parse error\n");
- 		return -EINVAL;
+diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
+index 2e14108ff697..31d358691af0 100644
+--- a/net/netfilter/nf_nat_proto_sctp.c
++++ b/net/netfilter/nf_nat_proto_sctp.c
+@@ -47,7 +47,10 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 		hdr->dest = tuple->dst.u.sctp.port;
  	}
-@@ -36,6 +37,42 @@ static int bpf_mt_check(const struct xt_mtchk_param *par)
- 	return 0;
+ 
+-	hdr->checksum = sctp_compute_cksum(skb, hdroff);
++	if (skb->ip_summed != CHECKSUM_PARTIAL) {
++		hdr->checksum = sctp_compute_cksum(skb, hdroff);
++		skb->ip_summed = CHECKSUM_NONE;
++	}
+ 
+ 	return true;
  }
- 
-+static int __bpf_mt_check_fd(int fd, struct bpf_prog **ret)
-+{
-+	struct bpf_prog *prog;
-+
-+	prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_SOCKET_FILTER);
-+	if (IS_ERR(prog))
-+		return PTR_ERR(prog);
-+
-+	*ret = prog;
-+	return 0;
-+}
-+
-+static int bpf_mt_check(const struct xt_mtchk_param *par)
-+{
-+	struct xt_bpf_info *info = par->matchinfo;
-+
-+	return __bpf_mt_check_bytecode(info->bpf_program,
-+				       info->bpf_program_num_elem,
-+				       &info->filter);
-+}
-+
-+static int bpf_mt_check_v1(const struct xt_mtchk_param *par)
-+{
-+	struct xt_bpf_info_v1 *info = par->matchinfo;
-+
-+	if (info->mode == XT_BPF_MODE_BYTECODE)
-+		return __bpf_mt_check_bytecode(info->bpf_program,
-+					       info->bpf_program_num_elem,
-+					       &info->filter);
-+	else if (info->mode == XT_BPF_MODE_FD_PINNED ||
-+		 info->mode == XT_BPF_MODE_FD_ELF)
-+		return __bpf_mt_check_fd(info->fd, &info->filter);
-+	else
-+		return -EINVAL;
-+}
-+
- static bool bpf_mt(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	const struct xt_bpf_info *info = par->matchinfo;
-@@ -43,31 +80,58 @@ static bool bpf_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	return BPF_PROG_RUN(info->filter, skb);
- }
- 
-+static bool bpf_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	const struct xt_bpf_info_v1 *info = par->matchinfo;
-+
-+	return !!bpf_prog_run_save_cb(info->filter, (struct sk_buff *) skb);
-+}
-+
- static void bpf_mt_destroy(const struct xt_mtdtor_param *par)
- {
- 	const struct xt_bpf_info *info = par->matchinfo;
-+
-+	bpf_prog_destroy(info->filter);
-+}
-+
-+static void bpf_mt_destroy_v1(const struct xt_mtdtor_param *par)
-+{
-+	const struct xt_bpf_info_v1 *info = par->matchinfo;
-+
- 	bpf_prog_destroy(info->filter);
- }
- 
--static struct xt_match bpf_mt_reg __read_mostly = {
--	.name		= "bpf",
--	.revision	= 0,
--	.family		= NFPROTO_UNSPEC,
--	.checkentry	= bpf_mt_check,
--	.match		= bpf_mt,
--	.destroy	= bpf_mt_destroy,
--	.matchsize	= sizeof(struct xt_bpf_info),
--	.me		= THIS_MODULE,
-+static struct xt_match bpf_mt_reg[] __read_mostly = {
-+	{
-+		.name		= "bpf",
-+		.revision	= 0,
-+		.family		= NFPROTO_UNSPEC,
-+		.checkentry	= bpf_mt_check,
-+		.match		= bpf_mt,
-+		.destroy	= bpf_mt_destroy,
-+		.matchsize	= sizeof(struct xt_bpf_info),
-+		.me		= THIS_MODULE,
-+	},
-+	{
-+		.name		= "bpf",
-+		.revision	= 1,
-+		.family		= NFPROTO_UNSPEC,
-+		.checkentry	= bpf_mt_check_v1,
-+		.match		= bpf_mt_v1,
-+		.destroy	= bpf_mt_destroy_v1,
-+		.matchsize	= sizeof(struct xt_bpf_info_v1),
-+		.me		= THIS_MODULE,
-+	},
- };
- 
- static int __init bpf_mt_init(void)
- {
--	return xt_register_match(&bpf_mt_reg);
-+	return xt_register_matches(bpf_mt_reg, ARRAY_SIZE(bpf_mt_reg));
- }
- 
- static void __exit bpf_mt_exit(void)
- {
--	xt_unregister_match(&bpf_mt_reg);
-+	xt_unregister_matches(bpf_mt_reg, ARRAY_SIZE(bpf_mt_reg));
- }
- 
- module_init(bpf_mt_init);
 -- 
 2.1.4
-
