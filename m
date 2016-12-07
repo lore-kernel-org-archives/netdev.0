@@ -1,72 +1,56 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next v3 1/1] driver: ipvlan: Free ipvl_port directly with kfree instead of kfree_rcu
-Date: Wed,  7 Dec 2016 08:44:47 +0800
-Message-ID: <1481071487-11227-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, maheshb@google.com, edumazet@google.com,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] [v3] net: phy: phy drivers should not set
+ SUPPORTED_[Asym_]Pause
+Date: Tue, 6 Dec 2016 17:57:59 -0800
+Message-ID: <f62595d4-2dd7-9cc3-7537-2ff186dadc8c@gmail.com>
+References: <1481070443-15118-1-git-send-email-timur@codeaurora.org>
+ <2c2aaf1d-05a5-d2bc-d04a-79224a4c6b43@gmail.com>
+ <58476ACB.3030206@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Timur Tabi <timur@codeaurora.org>,
+        David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg340.qq.com ([14.17.44.35]:37633 "EHLO smtpbg340.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753170AbcLGApL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Dec 2016 19:45:11 -0500
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34193 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751677AbcLGB6C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 20:58:02 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y68so19538220pfb.1
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 17:58:01 -0800 (PST)
+In-Reply-To: <58476ACB.3030206@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On 12/06/2016 05:50 PM, Timur Tabi wrote:
+> Florian Fainelli wrote:
+>>> +    if (phydrv->features & (SUPPORTED_Pause | SUPPORTED_Asym_Pause)) {
+>>> >+        phydev->supported &= ~(SUPPORTED_Pause |
+>>> SUPPORTED_Asym_Pause);
+>>> >+        phydev->supported |= phydrv->features &
+>>> >+                     (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
+>> Is not the & (SUPPORTED_Pause | SUPPORTED_Asym_Pause) redundant here
+>> anyway?
+> 
+> I'm just trying to be safe.  Can I be certain that those bits are
+> already zero?
 
-There are two functions which would free the ipvl_port now. The first
-is ipvlan_port_create. It frees the ipvl_port in the error handler,
-so it could kfree it directly. The second is ipvlan_port_destroy. It
-invokes netdev_rx_handler_unregister which enforces one grace period
-by synchronize_net firstly, so it also could kfree the ipvl_port
-directly and safely.
+The bits are most likely not zero, since we have all the
+PHY_GBIT_FEATURES bits defined in there as well, but I don't think that
+is a real problem though, because we did this before:
 
-So it is unnecessary to use kfree_rcu to free ipvl_port.
+        /* Start out supporting everything. Eventually,
+         * a controller will attach, and may modify one
+         * or both of these values
+         */
+        phydev->supported = phydrv->features;
+        of_set_phy_supported(phydev);
+        phydev->advertising = phydev->supported;
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v3: Add more detail comments
- v2: Remove the rcu of ipvl_port directly
- v1: Initial patch
+which is why this made me think the & (SUPPORTED_Pause |
+SUPPPORTED_Asym_Pause) here is most likely redundant?
 
- drivers/net/ipvlan/ipvlan.h      | 1 -
- drivers/net/ipvlan/ipvlan_main.c | 4 ++--
- 2 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index 05a62d2..031093e 100644
---- a/drivers/net/ipvlan/ipvlan.h
-+++ b/drivers/net/ipvlan/ipvlan.h
-@@ -97,7 +97,6 @@ struct ipvl_port {
- 	struct work_struct	wq;
- 	struct sk_buff_head	backlog;
- 	int			count;
--	struct rcu_head		rcu;
- };
- 
- static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index c6aa667..44ceebc 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -128,7 +128,7 @@ static int ipvlan_port_create(struct net_device *dev)
- 	return 0;
- 
- err:
--	kfree_rcu(port, rcu);
-+	kfree(port);
- 	return err;
- }
- 
-@@ -145,7 +145,7 @@ static void ipvlan_port_destroy(struct net_device *dev)
- 	netdev_rx_handler_unregister(dev);
- 	cancel_work_sync(&port->wq);
- 	__skb_queue_purge(&port->backlog);
--	kfree_rcu(port, rcu);
-+	kfree(port);
- }
- 
- #define IPVLAN_FEATURES \
+Thanks!
 -- 
-1.9.1
+Florian
