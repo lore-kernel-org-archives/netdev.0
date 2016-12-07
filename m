@@ -1,108 +1,44 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH v2 iproute2/net-next 2/3] tc: flower: introduce enum flower_endpoint
-Date: Wed,  7 Dec 2016 14:54:02 +0100
-Message-ID: <1481118843-10428-3-git-send-email-simon.horman@netronome.com>
-References: <1481118843-10428-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH v2 iproute2/net-next 0/3] tc: flower: Support matching on ICMP
+Date: Wed,  7 Dec 2016 14:54:00 +0100
+Message-ID: <1481118843-10428-1-git-send-email-simon.horman@netronome.com>
 Cc: Jiri Pirko <jiri@mellanox.com>,
         Simon Horman <simon.horman@netronome.com>
 To: Stephen Hemminger <stephen@networkplumber.org>,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:38520 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752564AbcLGNzr (ORCPT
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38448 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752335AbcLGNzr (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 08:55:47 -0500
-Received: by mail-wm0-f51.google.com with SMTP id f82so168257603wmf.1
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 05:54:53 -0800 (PST)
-In-Reply-To: <1481118843-10428-1-git-send-email-simon.horman@netronome.com>
+Received: by mail-wm0-f42.google.com with SMTP id f82so168254284wmf.1
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 05:54:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce enum flower_endpoint and use it instead of a bool
-as the type for paramatising source and destination.
+Add support for matching on ICMP type and code to flower. This is modeled
+on existing support for matching on L4 ports.
 
-This is intended to improve read-ability and provide some type
-checking of endpoint parameters.
+The second patch provided a minor cleanup which is in keeping with
+they style used in the last patch.
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- tc/f_flower.c | 27 +++++++++++++++++++--------
- 1 file changed, 19 insertions(+), 8 deletions(-)
+This is marked as an RFC to match the same designation given to the
+corresponding kernel patches.
 
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index ff61c8e7f19a..9899b0175a6a 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -23,6 +23,11 @@
- #include "tc_util.h"
- #include "rt_names.h"
- 
-+enum flower_endpoint {
-+	FLOWER_ENDPOINT_SRC,
-+	FLOWER_ENDPOINT_DST
-+};
-+
- static void explain(void)
- {
- 	fprintf(stderr,
-@@ -166,29 +171,33 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
- 	return 0;
- }
- 
--static int flower_port_attr_type(__u8 ip_proto, bool is_src)
-+static int flower_port_attr_type(__u8 ip_proto, enum flower_endpoint endpoint)
- {
- 	if (ip_proto == IPPROTO_TCP)
--		return is_src ? TCA_FLOWER_KEY_TCP_SRC :
-+		return endpoint == FLOWER_ENDPOINT_SRC ?
-+			TCA_FLOWER_KEY_TCP_SRC :
- 			TCA_FLOWER_KEY_TCP_DST;
- 	else if (ip_proto == IPPROTO_UDP)
--		return is_src ? TCA_FLOWER_KEY_UDP_SRC :
-+		return endpoint == FLOWER_ENDPOINT_SRC ?
-+			TCA_FLOWER_KEY_UDP_SRC :
- 			TCA_FLOWER_KEY_UDP_DST;
- 	else if (ip_proto == IPPROTO_SCTP)
--		return is_src ? TCA_FLOWER_KEY_SCTP_SRC :
-+		return endpoint == FLOWER_ENDPOINT_SRC ?
-+			TCA_FLOWER_KEY_SCTP_SRC :
- 			TCA_FLOWER_KEY_SCTP_DST;
- 	else
- 		return -1;
- }
- 
--static int flower_parse_port(char *str, __u8 ip_proto, bool is_src,
-+static int flower_parse_port(char *str, __u8 ip_proto,
-+			     enum flower_endpoint endpoint,
- 			     struct nlmsghdr *n)
- {
- 	int ret;
- 	int type;
- 	__be16 port;
- 
--	type = flower_port_attr_type(ip_proto, is_src);
-+	type = flower_port_attr_type(ip_proto, endpoint);
- 	if (type < 0)
- 		return -1;
- 
-@@ -358,14 +367,16 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 			}
- 		} else if (matches(*argv, "dst_port") == 0) {
- 			NEXT_ARG();
--			ret = flower_parse_port(*argv, ip_proto, false, n);
-+			ret = flower_parse_port(*argv, ip_proto,
-+						FLOWER_ENDPOINT_DST, n);
- 			if (ret < 0) {
- 				fprintf(stderr, "Illegal \"dst_port\"\n");
- 				return -1;
- 			}
- 		} else if (matches(*argv, "src_port") == 0) {
- 			NEXT_ARG();
--			ret = flower_parse_port(*argv, ip_proto, true, n);
-+			ret = flower_parse_port(*argv, ip_proto,
-+						FLOWER_ENDPOINT_SRC, n);
- 			if (ret < 0) {
- 				fprintf(stderr, "Illegal \"src_port\"\n");
- 				return -1;
+
+Changes since v1:
+* Rebase
+* Do not run noths() on u8 entity
+
+Simon Horman (3):
+  tc: flower: update headers for TCA_FLOWER_KEY_ICMP*
+  tc: flower: introduce enum flower_endpoint
+  tc: flower: support matching on ICMP type and code
+
+ include/linux/pkt_cls.h |  10 ++++
+ man/man8/tc-flower.8    |  20 ++++++--
+ tc/f_flower.c           | 123 +++++++++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 135 insertions(+), 18 deletions(-)
+
 -- 
 2.7.0.rc3.207.g0ac5344
