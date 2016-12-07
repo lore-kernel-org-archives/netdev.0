@@ -1,108 +1,158 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/20] i40e: Blink LED on 1G BaseT boards
-Date: Tue,  6 Dec 2016 23:33:40 -0800
-Message-ID: <20161207073354.88568-7-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/20] i40e: simplify txd use count calculation
+Date: Tue,  6 Dec 2016 23:33:36 -0800
+Message-ID: <20161207073354.88568-3-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Henry Tieman <henry.w.tieman@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34826 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:26483 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753004AbcLGHes (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:48 -0500
+        id S1752784AbcLGHer (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:47 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Henry Tieman <henry.w.tieman@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Before this patch "ethtool -p" was not blinking the LEDs on boards
-with 1G BaseT PHYs.
+The i40e_txd_use_count function was fast but confusing. In the comments,
+it even admits that it's ugly. So replace it with a new function that is
+(very) slightly faster and has extensive commenting to help the thicker
+among us (including the author, who will forget in a week) understand
+how it works.
 
-This commit identifies 1G BaseT boards as having the LEDs connected
-to the MAC. Also, renamed the flag to be more descriptive of usage.
-The flag is now I40E_FLAG_PHY_CONTROLS_LEDS.
-
-Change-ID: I4eb741da9780da7849ddf2dc4c0cb27ffa42a801
-Signed-off-by: Henry Tieman <henry.w.tieman@intel.com>
-Signed-off-by: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
+Change-ID: Ifb533f13786a0bf39cb29f77969a5be2c83d9a87
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 10 +++++-----
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  4 ++--
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   | 45 +++++++++++++++++----------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h | 45 +++++++++++++++++----------
+ 2 files changed, 56 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 06e3c23..b8f2978 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -356,7 +356,7 @@ struct i40e_pf {
- #define I40E_FLAG_NO_DCB_SUPPORT		BIT_ULL(45)
- #define I40E_FLAG_USE_SET_LLDP_MIB		BIT_ULL(46)
- #define I40E_FLAG_STOP_FW_LLDP			BIT_ULL(47)
--#define I40E_FLAG_HAVE_10GBASET_PHY		BIT_ULL(48)
-+#define I40E_FLAG_PHY_CONTROLS_LEDS		BIT_ULL(48)
- #define I40E_FLAG_PF_MAC			BIT_ULL(50)
- #define I40E_FLAG_TRUE_PROMISC_SUPPORT		BIT_ULL(51)
- #define I40E_FLAG_HAVE_CRT_RETIMER		BIT_ULL(52)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 76753e1..6ba0035 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1890,7 +1890,7 @@ static int i40e_set_phys_id(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index de8550f..e065321 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -173,26 +173,37 @@ static inline bool i40e_test_staterr(union i40e_rx_desc *rx_desc,
+ #define I40E_MAX_DATA_PER_TXD_ALIGNED \
+ 	(I40E_MAX_DATA_PER_TXD & ~(I40E_MAX_READ_REQ_SIZE - 1))
  
- 	switch (state) {
- 	case ETHTOOL_ID_ACTIVE:
--		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY)) {
-+		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS)) {
- 			pf->led_status = i40e_led_get(hw);
- 		} else {
- 			i40e_aq_set_phy_debug(hw, I40E_PHY_DEBUG_ALL, NULL);
-@@ -1900,20 +1900,20 @@ static int i40e_set_phys_id(struct net_device *netdev,
- 		}
- 		return blink_freq;
- 	case ETHTOOL_ID_ON:
--		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY))
-+		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS))
- 			i40e_led_set(hw, 0xf, false);
- 		else
- 			ret = i40e_led_set_phy(hw, true, pf->led_status, 0);
- 		break;
- 	case ETHTOOL_ID_OFF:
--		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY))
-+		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS))
- 			i40e_led_set(hw, 0x0, false);
- 		else
- 			ret = i40e_led_set_phy(hw, false, pf->led_status, 0);
- 		break;
- 	case ETHTOOL_ID_INACTIVE:
--		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY)) {
--			i40e_led_set(hw, false, pf->led_status);
-+		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS)) {
-+			i40e_led_set(hw, pf->led_status, false);
- 		} else {
- 			ret = i40e_led_set_phy(hw, false, pf->led_status,
- 					       (pf->phy_led_val |
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ae4a2b2..dbb854b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11380,8 +11380,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 						       pf->main_vsi_seid);
+-/* This ugly bit of math is equivalent to DIV_ROUNDUP(size, X) where X is
+- * the value I40E_MAX_DATA_PER_TXD_ALIGNED.  It is needed due to the fact
+- * that 12K is not a power of 2 and division is expensive.  It is used to
+- * approximate the number of descriptors used per linear buffer.  Note
+- * that this will overestimate in some cases as it doesn't account for the
+- * fact that we will add up to 4K - 1 in aligning the 12K buffer, however
+- * the error should not impact things much as large buffers usually mean
+- * we will use fewer descriptors then there are frags in an skb.
++/**
++ * i40e_txd_use_count  - estimate the number of descriptors needed for Tx
++ * @size: transmit request size in bytes
++ *
++ * Due to hardware alignment restrictions (4K alignment), we need to
++ * assume that we can have no more than 12K of data per descriptor, even
++ * though each descriptor can take up to 16K - 1 bytes of aligned memory.
++ * Thus, we need to divide by 12K. But division is slow! Instead,
++ * we decompose the operation into shifts and one relatively cheap
++ * multiply operation.
++ *
++ * To divide by 12K, we first divide by 4K, then divide by 3:
++ *     To divide by 4K, shift right by 12 bits
++ *     To divide by 3, multiply by 85, then divide by 256
++ *     (Divide by 256 is done by shifting right by 8 bits)
++ * Finally, we add one to round up. Because 256 isn't an exact multiple of
++ * 3, we'll underestimate near each multiple of 12K. This is actually more
++ * accurate as we have 4K - 1 of wiggle room that we can fit into the last
++ * segment.  For our purposes this is accurate out to 1M which is orders of
++ * magnitude greater than our largest possible GSO size.
++ *
++ * This would then be implemented as:
++ *     return (((size >> 12) * 85) >> 8) + 1;
++ *
++ * Since multiplication and division are commutative, we can reorder
++ * operations into:
++ *     return ((size * 85) >> 20) + 1;
+  */
+ static inline unsigned int i40e_txd_use_count(unsigned int size)
+ {
+-	const unsigned int max = I40E_MAX_DATA_PER_TXD_ALIGNED;
+-	const unsigned int reciprocal = ((1ull << 32) - 1 + (max / 2)) / max;
+-	unsigned int adjust = ~(u32)0;
+-
+-	/* if we rounded up on the reciprocal pull down the adjustment */
+-	if ((max * reciprocal) > adjust)
+-		adjust = ~(u32)(reciprocal - 1);
+-
+-	return (u32)((((u64)size * reciprocal) + adjust) >> 32);
++	return ((size * 85) >> 20) + 1;
+ }
  
- 	if ((pf->hw.device_id == I40E_DEV_ID_10G_BASE_T) ||
--	    (pf->hw.device_id == I40E_DEV_ID_10G_BASE_T4))
--		pf->flags |= I40E_FLAG_HAVE_10GBASET_PHY;
-+		(pf->hw.device_id == I40E_DEV_ID_10G_BASE_T4))
-+		pf->flags |= I40E_FLAG_PHY_CONTROLS_LEDS;
- 	if (pf->hw.device_id == I40E_DEV_ID_SFP_I_X722)
- 		pf->flags |= I40E_FLAG_HAVE_CRT_RETIMER;
- 	/* print a string summarizing features */
+ /* Tx Descriptors needed, worst case */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index a586e19..a5fc789 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -173,26 +173,37 @@ static inline bool i40e_test_staterr(union i40e_rx_desc *rx_desc,
+ #define I40E_MAX_DATA_PER_TXD_ALIGNED \
+ 	(I40E_MAX_DATA_PER_TXD & ~(I40E_MAX_READ_REQ_SIZE - 1))
+ 
+-/* This ugly bit of math is equivalent to DIV_ROUNDUP(size, X) where X is
+- * the value I40E_MAX_DATA_PER_TXD_ALIGNED.  It is needed due to the fact
+- * that 12K is not a power of 2 and division is expensive.  It is used to
+- * approximate the number of descriptors used per linear buffer.  Note
+- * that this will overestimate in some cases as it doesn't account for the
+- * fact that we will add up to 4K - 1 in aligning the 12K buffer, however
+- * the error should not impact things much as large buffers usually mean
+- * we will use fewer descriptors then there are frags in an skb.
++/**
++ * i40e_txd_use_count  - estimate the number of descriptors needed for Tx
++ * @size: transmit request size in bytes
++ *
++ * Due to hardware alignment restrictions (4K alignment), we need to
++ * assume that we can have no more than 12K of data per descriptor, even
++ * though each descriptor can take up to 16K - 1 bytes of aligned memory.
++ * Thus, we need to divide by 12K. But division is slow! Instead,
++ * we decompose the operation into shifts and one relatively cheap
++ * multiply operation.
++ *
++ * To divide by 12K, we first divide by 4K, then divide by 3:
++ *     To divide by 4K, shift right by 12 bits
++ *     To divide by 3, multiply by 85, then divide by 256
++ *     (Divide by 256 is done by shifting right by 8 bits)
++ * Finally, we add one to round up. Because 256 isn't an exact multiple of
++ * 3, we'll underestimate near each multiple of 12K. This is actually more
++ * accurate as we have 4K - 1 of wiggle room that we can fit into the last
++ * segment.  For our purposes this is accurate out to 1M which is orders of
++ * magnitude greater than our largest possible GSO size.
++ *
++ * This would then be implemented as:
++ *     return (((size >> 12) * 85) >> 8) + 1;
++ *
++ * Since multiplication and division are commutative, we can reorder
++ * operations into:
++ *     return ((size * 85) >> 20) + 1;
+  */
+ static inline unsigned int i40e_txd_use_count(unsigned int size)
+ {
+-	const unsigned int max = I40E_MAX_DATA_PER_TXD_ALIGNED;
+-	const unsigned int reciprocal = ((1ull << 32) - 1 + (max / 2)) / max;
+-	unsigned int adjust = ~(u32)0;
+-
+-	/* if we rounded up on the reciprocal pull down the adjustment */
+-	if ((max * reciprocal) > adjust)
+-		adjust = ~(u32)(reciprocal - 1);
+-
+-	return (u32)((((u64)size * reciprocal) + adjust) >> 32);
++	return ((size * 85) >> 20) + 1;
+ }
+ 
+ /* Tx Descriptors needed, worst case */
 -- 
 2.9.3
