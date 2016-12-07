@@ -1,53 +1,54 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH 4/4] vsock: cancel packets when failing to connect
-Date: Wed, 7 Dec 2016 13:25:40 +0000
-Message-ID: <20161207132540.GB31953@stefanha-x1.localdomain>
-References: <1481104821-77294-1-git-send-email-bergwolf@gmail.com>
- <1481104821-77294-5-git-send-email-bergwolf@gmail.com>
+From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+Subject: Re: [PATCH] net:dsa:mv88e6xxx: delete timer and cancel ppu_work
+Date: Wed, 7 Dec 2016 14:14:23 +0100
+Message-ID: <f8e2245f-aa65-c2ff-7633-658f6ed5b99f@westermo.se>
+References: <1481029062-16668-1-git-send-email-volodymyr.bendiuga@westermo.se>
+ <20161206142226.GD26615@lunn.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="H1spWtNR+x+ondvy"
-Cc: Stefan Hajnoczi <stefanha@redhat.com>, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Peng Tao <bergwolf@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1481104821-77294-5-git-send-email-bergwolf@gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, volodymyr.bendiuga@gmail.com,
+        Jonas Johansson <jonas.johansson@westermo.se>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw1.beijerelectronics.com ([195.67.87.156]:53396 "EHLO
+        mailgw1.beijerelectronics.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752479AbcLGNaL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 08:30:11 -0500
+In-Reply-To: <20161206142226.GD26615@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This issue seems to be resolved now with new PPU patch set.
 
 
---H1spWtNR+x+ondvy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, Dec 07, 2016 at 06:00:21PM +0800, Peng Tao wrote:
-> Otherwise we'll leave the packets queued until releasing vsock device.
-> E.g., if guest is slow to start up, resulting ETIMEDOUT on connect, guest
-> will get the connect requests from failed host sockets.
->=20
-> Signed-off-by: Peng Tao <bergwolf@gmail.com>
-> ---
->  include/linux/virtio_vsock.h            | 7 +++++++
->  net/vmw_vsock/af_vsock.c                | 7 +++++++
->  net/vmw_vsock/virtio_transport_common.c | 7 -------
->  3 files changed, 14 insertions(+), 7 deletions(-)
-
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
-
---H1spWtNR+x+ondvy
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJYSA3UAAoJEJykq7OBq3PIfLYIAK/NHdsh3l5nj0Ws2rJGXO/D
-/+rUwcg21PoUrxoBPFVYXp369Z3v+sEB7livRL71Zrjt0h3kWLkU3EXG3wWF+Gbq
-KZpuDbhJ/xgATSJTl9n6mje2V294YtJXss5IZJTBValQdPgZFemN9cgNr+7oeVLS
-AkIZk8Zu+xV5J7XrOzj95gIoXq+qldrlTVe/6KI/jRSrLWvc/DmC8YQtovAFNZ4r
-A690F4t57PyRM9qHD6TUyWyEbRbm2CQHj21c7pzN63wwzwjPLsh34UBKogOW/dMf
-SeoNYqm9ffX13nQoDi3qB7xK09MNJyUkEaCL4S3JQRTToTc3NYTLBBIaWxFpK3M=
-=I/iu
------END PGP SIGNATURE-----
-
---H1spWtNR+x+ondvy--
+On 2016-12-06 15:22, Andrew Lunn wrote:
+> On Tue, Dec 06, 2016 at 01:57:42PM +0100, Volodymyr Bendiuga wrote:
+>> Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
+>> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+>> ---
+>>   drivers/net/dsa/mv88e6xxx/chip.c | 5 ++++-
+>>   1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+>> index ca453f3..4212fb6 100644
+>> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+>> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+>> @@ -4528,8 +4528,11 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+>>   out_mdio:
+>>   	mv88e6xxx_mdio_unregister(chip);
+>>   out_g2_irq:
+>> -	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT) && chip->irq > 0)
+>> +	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT) && chip->irq > 0) {
+>>   		mv88e6xxx_g2_irq_free(chip);
+>> +		del_timer(&chip->ppu_timer);
+>> +		cancel_work_sync(&chip->ppu_work);
+>> +	}
+> Why do this here, inside this if statement?
+>
+> Vivien has also just reworked the PPU code. Please take a look at his
+> patches and see if they fix the issue.
+>
+> 	Thanks
+> 		Andrew
