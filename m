@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v5 04/13] net: ethernet: ti: cpts: fix unbalanced clk api usage in cpts_register/unregister
-Date: Tue, 6 Dec 2016 18:00:36 -0600
-Message-ID: <20161207000045.28333-5-grygorii.strashko@ti.com>
+Subject: [PATCH v5 05/13] net: ethernet: ti: cpts: fix registration order
+Date: Tue, 6 Dec 2016 18:00:37 -0600
+Message-ID: <20161207000045.28333-6-grygorii.strashko@ti.com>
 References: <20161207000045.28333-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,52 +19,67 @@ In-Reply-To: <20161207000045.28333-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are two issues with TI CPTS code which are reproducible when TI
-CPSW ethX device passes few up/down iterations:
-- cpts refclk prepare counter continuously incremented after each
-up/down iteration;
-- devm_clk_get(dev, "cpts") is called many times.
+The ptp clock registered before spinlock, which is protecting it, and
+before timecounter and cyclecounter initialization in cpts_register().
 
-Hence, fix these issues by using clk_disable_unprepare() in
-cpts_clk_release() and skipping devm_clk_get() if cpts refclk has been
-acquired already.
+So, ensure that ptp clock is registered the last, after everything
+else is done.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 8cb0369..61198f1 100644
+index 61198f1..3dda6d5 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -230,18 +230,20 @@ static void cpts_overflow_check(struct work_struct *work)
- 
- static void cpts_clk_init(struct device *dev, struct cpts *cpts)
+@@ -356,15 +356,8 @@ int cpts_register(struct device *dev, struct cpts *cpts,
+ 		  u32 mult, u32 shift)
  {
--	cpts->refclk = devm_clk_get(dev, "cpts");
--	if (IS_ERR(cpts->refclk)) {
--		dev_err(dev, "Failed to get cpts refclk\n");
--		cpts->refclk = NULL;
--		return;
-+	if (!cpts->refclk) {
-+		cpts->refclk = devm_clk_get(dev, "cpts");
-+		if (IS_ERR(cpts->refclk)) {
-+			dev_err(dev, "Failed to get cpts refclk\n");
-+			cpts->refclk = NULL;
-+			return;
-+		}
- 	}
- 	clk_prepare_enable(cpts->refclk);
- }
+ 	int err, i;
+-	unsigned long flags;
  
- static void cpts_clk_release(struct cpts *cpts)
- {
--	clk_disable(cpts->refclk);
-+	clk_disable_unprepare(cpts->refclk);
- }
+ 	cpts->info = cpts_info;
+-	cpts->clock = ptp_clock_register(&cpts->info, dev);
+-	if (IS_ERR(cpts->clock)) {
+-		err = PTR_ERR(cpts->clock);
+-		cpts->clock = NULL;
+-		return err;
+-	}
+ 	spin_lock_init(&cpts->lock);
  
- static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
+ 	cpts->cc.read = cpts_systim_read;
+@@ -382,15 +375,26 @@ int cpts_register(struct device *dev, struct cpts *cpts,
+ 	cpts_write32(cpts, CPTS_EN, control);
+ 	cpts_write32(cpts, TS_PEND_EN, int_enable);
+ 
+-	spin_lock_irqsave(&cpts->lock, flags);
+ 	timecounter_init(&cpts->tc, &cpts->cc, ktime_to_ns(ktime_get_real()));
+-	spin_unlock_irqrestore(&cpts->lock, flags);
+ 
+ 	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
+-	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+ 
++	cpts->clock = ptp_clock_register(&cpts->info, dev);
++	if (IS_ERR(cpts->clock)) {
++		err = PTR_ERR(cpts->clock);
++		cpts->clock = NULL;
++		goto err_ptp;
++	}
+ 	cpts->phc_index = ptp_clock_index(cpts->clock);
++
++	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
++
+ 	return 0;
++
++err_ptp:
++	if (cpts->refclk)
++		cpts_clk_release(cpts);
++	return err;
+ }
+ EXPORT_SYMBOL_GPL(cpts_register);
+ 
 -- 
 2.10.1
