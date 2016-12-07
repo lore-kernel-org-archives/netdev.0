@@ -1,14 +1,14 @@
 From: Tobias Klauser <tklauser@distanz.ch>
 Subject: [PATCH] net: axienet: Utilize of_get_mac_address()
-Date: Wed,  7 Dec 2016 13:25:28 +0100
-Message-ID: <20161207122529.29508-1-tklauser@distanz.ch>
-Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-        Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed,  7 Dec 2016 13:24:44 +0100
+Message-ID: <20161207122444.29306-1-tklauser@distanz.ch>
+Cc: anirudh@xilinx.com, John.Linn@xilinx.com, michal.simek@xilinx.com,
+        soren.brinkmann@xilinx.com, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:33112 "EHLO mail.zhinst.com"
+Received: from mail.zhinst.com ([212.126.164.98]:33092 "EHLO mail.zhinst.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752186AbcLGMZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751884AbcLGMZd (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 7 Dec 2016 07:25:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
