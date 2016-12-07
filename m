@@ -1,41 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the staging tree with the net-next tree
-Date: Wed, 7 Dec 2016 15:04:47 +1100
-Message-ID: <20161207150447.160b7735@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jarod Wilson <jarod@redhat.com>
-To: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v2 15/18] RDS: add stat for socket recv memory usage
+Date: Tue,  6 Dec 2016 20:01:53 -0800
+Message-ID: <1481083316-11648-16-git-send-email-santosh.shilimkar@oracle.com>
+References: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 
-Today's linux-next merge of the staging tree got a conflict in:
+Tracks the receive side memory added to scokets and removed from sockets.
 
-  drivers/staging/slicoss/slicoss.c
+Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+ net/rds/rds.h  | 3 +++
+ net/rds/recv.c | 4 ++++
+ 2 files changed, 7 insertions(+)
 
-between commit:
-
-  a52ad514fdf3 ("net: deprecate eth_change_mtu, remove usage")
-
-from the net-next tree and commit:
-
-  0af72df267f2 ("staging: slicoss: remove the staging driver")
-
-from the staging tree.
-
-I fixed it up (I just removed the file) and can carry the fix as
-necessary. This is now fixed as far as linux-next is concerned, but any
-non trivial conflicts should be mentioned to your upstream maintainer
-when your tree is submitted for merging.  You may also want to consider
-cooperating with the maintainer of the conflicting tree to minimise any
-particularly complex conflicts.
-
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 0bb8213..8ccd5a9 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -631,6 +631,9 @@ struct rds_statistics {
+ 	uint64_t	s_cong_update_received;
+ 	uint64_t	s_cong_send_error;
+ 	uint64_t	s_cong_send_blocked;
++	uint64_t	s_recv_bytes_added_to_socket;
++	uint64_t	s_recv_bytes_removed_from_socket;
++
+ };
+ 
+ /* af_rds.c */
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index 9d0666e..ba19eee 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -94,6 +94,10 @@ static void rds_recv_rcvbuf_delta(struct rds_sock *rs, struct sock *sk,
+ 		return;
+ 
+ 	rs->rs_rcv_bytes += delta;
++	if (delta > 0)
++		rds_stats_add(s_recv_bytes_added_to_socket, delta);
++	else
++		rds_stats_add(s_recv_bytes_removed_from_socket, -delta);
+ 	now_congested = rs->rs_rcv_bytes > rds_sk_rcvbuf(rs);
+ 
+ 	rdsdebug("rs %p (%pI4:%u) recv bytes %d buf %d "
 -- 
-Cheers,
-Stephen Rothwell
+1.9.1
