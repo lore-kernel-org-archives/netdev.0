@@ -1,40 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 0/2] Add ethtool set regs support
-Date: Wed, 7 Dec 2016 03:41:43 +0100
-Message-ID: <20161207024143.GA655@lunn.ch>
-References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/7] irda: w83977af_ir: Neatening
+Date: Tue, 06 Dec 2016 21:47:18 -0500 (EST)
+Message-ID: <20161206.214718.736090211464780525.davem@davemloft.net>
+References: <cover.1481047792.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        "John W . Linville" <linville@tuxdriver.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47162 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751581AbcLGClt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Dec 2016 21:41:49 -0500
-Content-Disposition: inline
-In-Reply-To: <1481063590-7727-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arnd@arndb.de,
+        sergei.shtylyov@cogentembedded.com, samuel@sortiz.org,
+        linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1481047792.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 07, 2016 at 12:33:08AM +0200, Saeed Mahameed wrote:
-> Hi Dave,
+From: Joe Perches <joe@perches.com>
+Date: Tue,  6 Dec 2016 10:15:59 -0800
+
+> Originally on top of Arnd's overly long udelay patches because I
+> noticed a misindented block.  That's now already fixed along with some
+> other whitespace problems.  These patches are the remainder style
+> issues from my original series.
 > 
-> This series adds the support for setting device registers from user
-> space ethtool.
+> Even though I haven't turned on the netwinder in a box in the
+> garage in who knows how long, if this device is still used somewhere,
+> might as well neaten the code too.
 
-Is this not the start of allowing binary only drivers in user space?
-
-Do we want this?
-
-> mlx5 driver have registers allowed access list and will check the user 
-> Request validity before forwarding it to HW registers. Mlx5 will allow only mlx5 specific
-> configurations to be set (e.g. Device Diag Counters for HW performance debugging and analysis)
-> which has no standard API to access it.
-
-Would it not be better to define an flexible API to do this? We have
-lots of HW performance counters for CPUs. Why is it not possible to do
-this for a network device?
-
-      Andrew
+Series applied.
