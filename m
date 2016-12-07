@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v5 13/13] net: ethernet: ti: cpts: fix overflow check period
-Date: Tue, 6 Dec 2016 18:00:45 -0600
-Message-ID: <20161207000045.28333-14-grygorii.strashko@ti.com>
+Subject: [PATCH v5 04/13] net: ethernet: ti: cpts: fix unbalanced clk api usage in cpts_register/unregister
+Date: Tue, 6 Dec 2016 18:00:36 -0600
+Message-ID: <20161207000045.28333-5-grygorii.strashko@ti.com>
 References: <20161207000045.28333-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,8 +10,7 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
         Murali Karicheri <m-karicheri2@ti.com>,
         Wingman Kwok <w-kwok2@ti.com>,
         Thomas Gleixner <tglx@linutronix.de>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        John Stultz <john.stultz@linaro.org>
+        Grygorii Strashko <grygorii.strashko@ti.com>
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Richard Cochran <richardcochran@gmail.com>
@@ -20,80 +19,52 @@ In-Reply-To: <20161207000045.28333-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The CPTS drivers uses 8sec period for overflow checking with
-assumption that CPTS retclk will not exceed 500MHz. But that's not
-true on some TI platforms (Kesytone 2). As result, it is possible that
-CPTS counter will overflow more than once between two readings.
+There are two issues with TI CPTS code which are reproducible when TI
+CPSW ethX device passes few up/down iterations:
+- cpts refclk prepare counter continuously incremented after each
+up/down iteration;
+- devm_clk_get(dev, "cpts") is called many times.
 
-Hence, fix it by selecting overflow check period dynamically as
-max_sec_before_overflow/2, where
- max_sec_before_overflow = max_counter_val / rftclk_freq.
+Hence, fix these issues by using clk_disable_unprepare() in
+cpts_clk_release() and skipping devm_clk_get() if cpts refclk has been
+acquired already.
 
-Cc: John Stultz <john.stultz@linaro.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 10 +++++++---
- drivers/net/ethernet/ti/cpts.h |  4 +---
- 2 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index ebd413a..0c0d48e 100644
+index 8cb0369..61198f1 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -245,7 +245,7 @@ static void cpts_overflow_check(struct work_struct *work)
+@@ -230,18 +230,20 @@ static void cpts_overflow_check(struct work_struct *work)
  
- 	cpts_ptp_gettime(&cpts->info, &ts);
- 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
--	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
-+	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
+ static void cpts_clk_init(struct device *dev, struct cpts *cpts)
+ {
+-	cpts->refclk = devm_clk_get(dev, "cpts");
+-	if (IS_ERR(cpts->refclk)) {
+-		dev_err(dev, "Failed to get cpts refclk\n");
+-		cpts->refclk = NULL;
+-		return;
++	if (!cpts->refclk) {
++		cpts->refclk = devm_clk_get(dev, "cpts");
++		if (IS_ERR(cpts->refclk)) {
++			dev_err(dev, "Failed to get cpts refclk\n");
++			cpts->refclk = NULL;
++			return;
++		}
+ 	}
+ 	clk_prepare_enable(cpts->refclk);
+ }
+ 
+ static void cpts_clk_release(struct cpts *cpts)
+ {
+-	clk_disable(cpts->refclk);
++	clk_disable_unprepare(cpts->refclk);
  }
  
  static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
-@@ -378,8 +378,7 @@ int cpts_register(struct cpts *cpts)
- 	}
- 	cpts->phc_index = ptp_clock_index(cpts->clock);
- 
--	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
--
-+	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
- 	return 0;
- 
- err_ptp:
-@@ -423,6 +422,11 @@ static void cpts_calc_mult_shift(struct cpts *cpts)
- 	if (maxsec > 10)
- 		maxsec = 10;
- 
-+	/* Calc overflow check period (maxsec / 2) */
-+	cpts->ov_check_period = (HZ * maxsec) / 2;
-+	dev_info(cpts->dev, "cpts: overflow check period %lu (jiffies)\n",
-+		 cpts->ov_check_period);
-+
- 	if (cpts->cc.mult || cpts->cc.shift)
- 		return;
- 
-diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
-index 5da23af..c96eca2 100644
---- a/drivers/net/ethernet/ti/cpts.h
-+++ b/drivers/net/ethernet/ti/cpts.h
-@@ -97,9 +97,6 @@ enum {
- 	CPTS_EV_TX,   /* Ethernet Transmit Event */
- };
- 
--/* This covers any input clock up to about 500 MHz. */
--#define CPTS_OVERFLOW_PERIOD (HZ * 8)
--
- #define CPTS_FIFO_DEPTH 16
- #define CPTS_MAX_EVENTS 32
- 
-@@ -127,6 +124,7 @@ struct cpts {
- 	struct list_head events;
- 	struct list_head pool;
- 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
-+	unsigned long ov_check_period;
- };
- 
- void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
 -- 
 2.10.1
