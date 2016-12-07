@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: do not call phy_ethtool_ksettings_set
- from atomic context
-Date: Wed, 07 Dec 2016 13:09:14 -0500 (EST)
-Message-ID: <20161207.130914.1091695245299713548.davem@davemloft.net>
-References: <1481032035-19018-1-git-send-email-niklass@axis.com>
+Subject: Re: [PATCH v2] drivers: net: cpsw-phy-sel: Clear RGMII_IDMODE on
+ "rgmii" links
+Date: Wed, 07 Dec 2016 13:12:29 -0500 (EST)
+Message-ID: <20161207.131229.1181078063219041475.davem@davemloft.net>
+References: <20161206.113630.1454582039498444818.davem@davemloft.net>
+        <1481050611-29698-1-git-send-email-alex.g@adaptrum.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: niklas.cassel@axis.com
+Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, gokhan@adaptrum.com
+To: alex.g@adaptrum.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481032035-19018-1-git-send-email-niklass@axis.com>
+In-Reply-To: <1481050611-29698-1-git-send-email-alex.g@adaptrum.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Tue, 6 Dec 2016 14:47:15 +0100
+From: Alexandru Gagniuc <alex.g@adaptrum.com>
+Date: Tue,  6 Dec 2016 10:56:51 -0800
 
-> From: Niklas Cassel <niklas.cassel@axis.com>
+> Support for setting the RGMII_IDMODE bit was added in the commit
+> referenced below. However, that commit did not add the symmetrical
+> clearing of the bit by way of setting it in "mask". Add it here.
 > 
-> From what I can tell, spin_lock(&priv->lock) is not needed, since the
-> phy_ethtool_ksettings_set call is not given the priv struct.
+> Note that the documentation marks clearing this bit as "reserved",
+> however, according to TI, support for delaying the clock does exist in
+> the MAC, although it is not officially supported.
+> We tested this on a board with an RGMII to RGMII link that will not
+> work unless this bit is cleared.
 > 
-> phy_start_aneg takes the phydev->lock. Calls to phy_adjust_link
-> from phy_state_machine also takes the phydev->lock.
-...
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> Fixes: 0fb26c3063ea ("drivers: net: cpsw-phy-sel: add support to configure rgmii internal delay")
+> Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
 
-Applied, but please always be explicit about what tree you are targetting
-this patch by properly annotating for it in your Subject line.
-
-In this case that would be "Subject: [PATCH net-next] ..."
+Applied.
