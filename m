@@ -1,139 +1,171 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 23/50] netfilter: x_tables: pass xt_counters struct instead of packet counter
-Date: Wed,  7 Dec 2016 22:52:29 +0100
-Message-ID: <1481147576-5690-24-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 18/50] netfilter: conntrack: add nf_conntrack_default_on sysctl
+Date: Wed,  7 Dec 2016 22:52:24 +0100
+Message-ID: <1481147576-5690-19-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60220 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933001AbcLGVxk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 16:53:40 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 7BBF4C0B50
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:34 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 664C3DA861
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:34 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 2E1EFDA729
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:32 +0100 (CET)
 In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-On SMP we overload the packet counter (unsigned long) to contain
-percpu offset.  Hide this from callers and pass xt_counters address
-instead.
+This switch (default on) can be used to disable automatic registration
+of connection tracking functionality in newly created network
+namespaces.
 
-Preparation patch to allocate the percpu counters in page-sized batch
-chunks.
+This means that when net namespace goes down (or the tracker protocol
+module is unloaded) we *might* have to unregister the hooks.
+
+We can either add another per-netns variable that tells if
+the hooks got registered by default, or, alternatively, just call
+the protocol _put() function and have the callee deal with a possible
+'extra' put() operation that doesn't pair with a get() one.
+
+This uses the latter approach, i.e. a put() without a get has no effect.
+
+Conntrack is still enabled automatically regardless of the new sysctl
+setting if the new net namespace requires connection tracking, e.g. when
+NAT rules are created.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/x_tables.h | 6 +-----
- net/ipv4/netfilter/arp_tables.c    | 4 ++--
- net/ipv4/netfilter/ip_tables.c     | 4 ++--
- net/ipv6/netfilter/ip6_tables.c    | 5 ++---
- net/netfilter/x_tables.c           | 9 +++++++++
- 5 files changed, 16 insertions(+), 12 deletions(-)
+ Documentation/networking/nf_conntrack-sysctl.txt | 11 +++++++++++
+ include/net/netfilter/nf_conntrack_l3proto.h     |  9 +++++++++
+ net/netfilter/nf_conntrack_proto.c               | 19 ++++++++++++++++++-
+ net/netfilter/nf_conntrack_standalone.c          | 10 ++++++++++
+ 4 files changed, 48 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index cd4eaf8df445..6e61edeb68e3 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -430,11 +430,7 @@ static inline unsigned long xt_percpu_counter_alloc(void)
+diff --git a/Documentation/networking/nf_conntrack-sysctl.txt b/Documentation/networking/nf_conntrack-sysctl.txt
+index 433b6724797a..497d668288f9 100644
+--- a/Documentation/networking/nf_conntrack-sysctl.txt
++++ b/Documentation/networking/nf_conntrack-sysctl.txt
+@@ -96,6 +96,17 @@ nf_conntrack_max - INTEGER
+ 	Size of connection tracking table.  Default value is
+ 	nf_conntrack_buckets value * 4.
  
- 	return 0;
- }
--static inline void xt_percpu_counter_free(u64 pcnt)
--{
--	if (nr_cpu_ids > 1)
--		free_percpu((void __percpu *) (unsigned long) pcnt);
--}
-+void xt_percpu_counter_free(struct xt_counters *cnt);
++nf_conntrack_default_on - BOOLEAN
++	0 - don't register conntrack in new net namespaces
++	1 - register conntrack in new net namespaces (default)
++
++	This controls wheter newly created network namespaces have connection
++	tracking enabled by default.  It will be enabled automatically
++	regardless of this setting if the new net namespace requires
++	connection tracking, e.g. when NAT rules are created.
++	This setting is only visible in initial user namespace, it has no
++	effect on existing namespaces.
++
+ nf_conntrack_tcp_be_liberal - BOOLEAN
+ 	0 - disabled (default)
+ 	not 0 - enabled
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index e7dcd72be21c..e01559b4d781 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -73,9 +73,18 @@ struct nf_conntrack_l3proto {
  
- static inline struct xt_counters *
- xt_get_this_cpu_counter(struct xt_counters *cnt)
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 848a0704b28f..019f8e8dda6d 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -439,7 +439,7 @@ find_check_entry(struct arpt_entry *e, const char *name, unsigned int size)
- err:
- 	module_put(t->u.kernel.target->me);
- out:
--	xt_percpu_counter_free(e->counters.pcnt);
-+	xt_percpu_counter_free(&e->counters);
+ extern struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[AF_MAX];
  
- 	return ret;
- }
-@@ -519,7 +519,7 @@ static inline void cleanup_entry(struct arpt_entry *e)
- 	if (par.target->destroy != NULL)
- 		par.target->destroy(&par);
- 	module_put(par.target->me);
--	xt_percpu_counter_free(e->counters.pcnt);
-+	xt_percpu_counter_free(&e->counters);
- }
- 
- /* Checks and translates the user-supplied table segment (held in
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 46815c8a60d7..acc9a0c45bdf 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -582,7 +582,7 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
- 		cleanup_match(ematch, net);
- 	}
- 
--	xt_percpu_counter_free(e->counters.pcnt);
-+	xt_percpu_counter_free(&e->counters);
- 
- 	return ret;
- }
-@@ -670,7 +670,7 @@ cleanup_entry(struct ipt_entry *e, struct net *net)
- 	if (par.target->destroy != NULL)
- 		par.target->destroy(&par);
- 	module_put(par.target->me);
--	xt_percpu_counter_free(e->counters.pcnt);
-+	xt_percpu_counter_free(&e->counters);
- }
- 
- /* Checks and translates the user-supplied table segment (held in
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 6ff42b8301cc..88b56a98905b 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -612,7 +612,7 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
- 		cleanup_match(ematch, net);
- 	}
- 
--	xt_percpu_counter_free(e->counters.pcnt);
-+	xt_percpu_counter_free(&e->counters);
- 
- 	return ret;
- }
-@@ -699,8 +699,7 @@ static void cleanup_entry(struct ip6t_entry *e, struct net *net)
- 	if (par.target->destroy != NULL)
- 		par.target->destroy(&par);
- 	module_put(par.target->me);
--
--	xt_percpu_counter_free(e->counters.pcnt);
-+	xt_percpu_counter_free(&e->counters);
- }
- 
- /* Checks and translates the user-supplied table segment (held in
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index ad818e52859b..0580029eb0ee 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -1615,6 +1615,15 @@ void xt_proto_fini(struct net *net, u_int8_t af)
- }
- EXPORT_SYMBOL_GPL(xt_proto_fini);
- 
-+void xt_percpu_counter_free(struct xt_counters *counters)
++#ifdef CONFIG_SYSCTL
+ /* Protocol pernet registration. */
+ int nf_ct_l3proto_pernet_register(struct net *net,
+ 				  struct nf_conntrack_l3proto *proto);
++#else
++static inline int nf_ct_l3proto_pernet_register(struct net *n,
++						struct nf_conntrack_l3proto *p)
 +{
-+	unsigned long pcnt = counters->pcnt;
-+
-+	if (nr_cpu_ids > 1)
-+		free_percpu((void __percpu *)pcnt);
++	return 0;
 +}
-+EXPORT_SYMBOL_GPL(xt_percpu_counter_free);
++#endif
 +
- static int __net_init xt_net_init(struct net *net)
+ void nf_ct_l3proto_pernet_unregister(struct net *net,
+ 				     struct nf_conntrack_l3proto *proto);
+ 
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 758688b25fd8..2d6ee1803415 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -238,12 +238,19 @@ int nf_ct_l3proto_register(struct nf_conntrack_l3proto *proto)
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_l3proto_register);
+ 
++#ifdef CONFIG_SYSCTL
++extern unsigned int nf_conntrack_default_on;
++
+ int nf_ct_l3proto_pernet_register(struct net *net,
+ 				  struct nf_conntrack_l3proto *proto)
  {
- 	int i;
+-	return 0;
++	if (nf_conntrack_default_on == 0)
++		return 0;
++
++	return proto->net_ns_get ? proto->net_ns_get(net) : 0;
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_l3proto_pernet_register);
++#endif
+ 
+ void nf_ct_l3proto_unregister(struct nf_conntrack_l3proto *proto)
+ {
+@@ -264,6 +271,16 @@ EXPORT_SYMBOL_GPL(nf_ct_l3proto_unregister);
+ void nf_ct_l3proto_pernet_unregister(struct net *net,
+ 				     struct nf_conntrack_l3proto *proto)
+ {
++	/*
++	 * nf_conntrack_default_on *might* have registered hooks.
++	 * ->net_ns_put must cope with more puts() than get(), i.e.
++	 * if nf_conntrack_default_on was 0 at time of
++	 * nf_ct_l3proto_pernet_register invocation this net_ns_put()
++	 * should be a noop.
++	 */
++	if (proto->net_ns_put)
++		proto->net_ns_put(net);
++
+ 	/* Remove all contrack entries for this protocol */
+ 	nf_ct_iterate_cleanup(net, kill_l3proto, proto, 0, 0);
+ }
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index 5f446cd9f3fd..d009ae663453 100644
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -452,6 +452,9 @@ static int log_invalid_proto_max __read_mostly = 255;
+ /* size the user *wants to set */
+ static unsigned int nf_conntrack_htable_size_user __read_mostly;
+ 
++extern unsigned int nf_conntrack_default_on;
++unsigned int nf_conntrack_default_on __read_mostly = 1;
++
+ static int
+ nf_conntrack_hash_sysctl(struct ctl_table *table, int write,
+ 			 void __user *buffer, size_t *lenp, loff_t *ppos)
+@@ -517,6 +520,13 @@ static struct ctl_table nf_ct_sysctl_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++	{
++		.procname	= "nf_conntrack_default_on",
++		.data		= &nf_conntrack_default_on,
++		.maxlen		= sizeof(unsigned int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
+ 	{ }
+ };
+ 
 -- 
 2.1.4
-
