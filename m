@@ -1,142 +1,167 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v5 1/2] flow dissector: ICMP support
-Date: Wed,  7 Dec 2016 13:14:39 +0100
-Message-ID: <1481112880-9801-2-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v5 2/2] net/sched: cls_flower: Support matching on ICMP type and code
+Date: Wed,  7 Dec 2016 13:14:40 +0100
+Message-ID: <1481112880-9801-3-git-send-email-simon.horman@netronome.com>
 References: <1481112880-9801-1-git-send-email-simon.horman@netronome.com>
 Cc: Tom Herbert <tom@herbertland.com>,
         David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
         Simon Horman <simon.horman@netronome.com>
 To: Jiri Pirko <jiri@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:38084 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751540AbcLGMOu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 07:14:50 -0500
-Received: by mail-wm0-f42.google.com with SMTP id f82so163873768wmf.1
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 04:14:49 -0800 (PST)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:38103 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752148AbcLGMOv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 07:14:51 -0500
+Received: by mail-wm0-f47.google.com with SMTP id f82so163874575wmf.1
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 04:14:50 -0800 (PST)
 In-Reply-To: <1481112880-9801-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow dissection of ICMP(V6) type and code. This should only occur
-if a packet is ICMP(V6) and the dissector has FLOW_DISSECTOR_KEY_ICMP set.
+Support matching on ICMP type and code.
 
-There are currently no users of FLOW_DISSECTOR_KEY_ICMP.
-A follow-up patch will allow FLOW_DISSECTOR_KEY_ICMP to be used by
-the flower classifier.
+Example usage:
+
+tc qdisc add dev eth0 ingress
+
+tc filter add dev eth0 protocol ip parent ffff: flower \
+	indev eth0 ip_proto icmp type 8 code 0 action drop
+
+tc filter add dev eth0 protocol ipv6 parent ffff: flower \
+	indev eth0 ip_proto icmpv6 type 128 code 0 action drop
+
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
 v5
-* Drop remaining helpers
+* Open-code checking for icmp protocols rather than using helpers
 
 v4
-* Do not add icmp to struct flow_keys, it is not needed
-* Do not test for ICMP protocols in packet in __skb_flow_dissect,
-  this is also not needed
-* Drop now unnecessary helpers
+* No change
 
 v3
-* Add FLOW_DISSECTOR_KEY_ICMP and use separate structure for ICMP, struct
-  flow_dissector_key_icmp, which is a union with struct
-  flow_dissector_key_ports in struct flow_keys.
-* Drop checks for !ICMP before accessing port field
+* Use separate dissector key FLOW_DISSECTOR_KEY_ICMP
+* Use separate structure to hold icmp fields, this does not share
+  storage with ports
 
 v2
-* Include all helpers in this patch
+* Move helpers to another patch
 ---
- include/net/flow_dissector.h | 17 +++++++++++++++++
- net/core/flow_dissector.c    | 31 +++++++++++++++++++++++++++++++
- 2 files changed, 48 insertions(+)
+ include/uapi/linux/pkt_cls.h | 10 +++++++++
+ net/sched/cls_flower.c       | 53 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 63 insertions(+)
 
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index c4f31666afd2..d896a33e00d4 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -104,6 +104,22 @@ struct flow_dissector_key_ports {
- 	};
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 1adc0b654996..884c5aa515c4 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -458,6 +458,16 @@ enum {
+ 	TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK,	/* be16 */
+ 	TCA_FLOWER_KEY_ENC_UDP_DST_PORT,	/* be16 */
+ 	TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,	/* be16 */
++
++	TCA_FLOWER_KEY_ICMPV4_CODE,	/* u8 */
++	TCA_FLOWER_KEY_ICMPV4_CODE_MASK,/* u8 */
++	TCA_FLOWER_KEY_ICMPV4_TYPE,	/* u8 */
++	TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,/* u8 */
++	TCA_FLOWER_KEY_ICMPV6_CODE,	/* u8 */
++	TCA_FLOWER_KEY_ICMPV6_CODE_MASK,/* u8 */
++	TCA_FLOWER_KEY_ICMPV6_TYPE,	/* u8 */
++	TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,/* u8 */
++
+ 	__TCA_FLOWER_MAX,
  };
  
-+/**
-+ * flow_dissector_key_icmp:
-+ *	@ports: type and code of ICMP header
-+ *		icmp: ICMP type (high) and code (low)
-+ *		type: ICMP type
-+ *		code: ICMP code
-+ */
-+struct flow_dissector_key_icmp {
-+	union {
-+		__be16 icmp;
-+		struct {
-+			u8 type;
-+			u8 code;
-+		};
-+	};
-+};
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 29a9e6d9f274..f61f11b3194e 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -39,6 +39,7 @@ struct fl_flow_key {
+ 		struct flow_dissector_key_ipv6_addrs ipv6;
+ 	};
+ 	struct flow_dissector_key_ports tp;
++	struct flow_dissector_key_icmp icmp;
+ 	struct flow_dissector_key_keyid enc_key_id;
+ 	union {
+ 		struct flow_dissector_key_ipv4_addrs enc_ipv4;
+@@ -386,6 +387,14 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_ICMPV4_TYPE]	= { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ICMPV4_TYPE_MASK] = { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ICMPV4_CODE]	= { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ICMPV4_CODE_MASK] = { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ICMPV6_TYPE]	= { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ICMPV6_TYPE_MASK] = { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ICMPV6_CODE]	= { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ICMPV6_CODE_MASK] = { .type = NLA_U8 },
+ };
  
- /**
-  * struct flow_dissector_key_eth_addrs:
-@@ -122,6 +138,7 @@ enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_IPV4_ADDRS, /* struct flow_dissector_key_ipv4_addrs */
- 	FLOW_DISSECTOR_KEY_IPV6_ADDRS, /* struct flow_dissector_key_ipv6_addrs */
- 	FLOW_DISSECTOR_KEY_PORTS, /* struct flow_dissector_key_ports */
-+	FLOW_DISSECTOR_KEY_ICMP, /* struct flow_dissector_key_icmp */
- 	FLOW_DISSECTOR_KEY_ETH_ADDRS, /* struct flow_dissector_key_eth_addrs */
- 	FLOW_DISSECTOR_KEY_TIPC_ADDRS, /* struct flow_dissector_key_tipc_addrs */
- 	FLOW_DISSECTOR_KEY_VLAN, /* struct flow_dissector_key_flow_vlan */
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1eb6f949e5b2..d6447dc10371 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -58,6 +58,28 @@ void skb_flow_dissector_init(struct flow_dissector *flow_dissector,
- EXPORT_SYMBOL(skb_flow_dissector_init);
- 
- /**
-+ * skb_flow_get_be16 - extract be16 entity
-+ * @skb: sk_buff to extract from
-+ * @poff: offset to extract at
-+ * @data: raw buffer pointer to the packet
-+ * @hlen: packet header length
-+ *
-+ * The function will try to retrieve a be32 entity at
-+ * offset poff
-+ */
-+__be16 skb_flow_get_be16(const struct sk_buff *skb, int poff, void *data,
-+			 int hlen)
-+{
-+	__be16 *u, _u;
-+
-+	u = __skb_header_pointer(skb, poff, sizeof(_u), data, hlen, &_u);
-+	if (u)
-+		return *u;
-+
-+	return 0;
-+}
-+
-+/**
-  * __skb_flow_get_ports - extract the upper layer ports and return them
-  * @skb: sk_buff to extract the ports from
-  * @thoff: transport header offset
-@@ -117,6 +139,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	struct flow_dissector_key_basic *key_basic;
- 	struct flow_dissector_key_addrs *key_addrs;
- 	struct flow_dissector_key_ports *key_ports;
-+	struct flow_dissector_key_icmp *key_icmp;
- 	struct flow_dissector_key_tags *key_tags;
- 	struct flow_dissector_key_vlan *key_vlan;
- 	struct flow_dissector_key_keyid *key_keyid;
-@@ -546,6 +569,14 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 							data, hlen);
+ static void fl_set_key_val(struct nlattr **tb,
+@@ -502,6 +511,26 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 		fl_set_key_val(tb, &key->tp.dst, TCA_FLOWER_KEY_SCTP_DST,
+ 			       &mask->tp.dst, TCA_FLOWER_KEY_SCTP_DST_MASK,
+ 			       sizeof(key->tp.dst));
++	} else if (key->basic.n_proto == htons(ETH_P_IP) &&
++		   key->basic.ip_proto == IPPROTO_ICMP) {
++		fl_set_key_val(tb, &key->icmp.type, TCA_FLOWER_KEY_ICMPV4_TYPE,
++			       &mask->icmp.type,
++			       TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,
++			       sizeof(key->icmp.type));
++		fl_set_key_val(tb, &key->icmp.code, TCA_FLOWER_KEY_ICMPV4_CODE,
++			       &mask->icmp.code,
++			       TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
++			       sizeof(key->icmp.code));
++	} else if (key->basic.n_proto == htons(ETH_P_IPV6) &&
++		   key->basic.ip_proto == IPPROTO_ICMPV6) {
++		fl_set_key_val(tb, &key->icmp.type, TCA_FLOWER_KEY_ICMPV6_TYPE,
++			       &mask->icmp.type,
++			       TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,
++			       sizeof(key->icmp.type));
++		fl_set_key_val(tb, &key->icmp.code, TCA_FLOWER_KEY_ICMPV4_CODE,
++			       &mask->icmp.code,
++			       TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
++			       sizeof(key->icmp.code));
  	}
  
-+	if (dissector_uses_key(flow_dissector,
-+			       FLOW_DISSECTOR_KEY_ICMP)) {
-+		key_icmp = skb_flow_dissector_target(flow_dissector,
-+						     FLOW_DISSECTOR_KEY_ICMP,
-+						     target_container);
-+		key_icmp->icmp = skb_flow_get_be16(skb, nhoff, data, hlen);
-+	}
-+
- out_good:
- 	ret = true;
+ 	if (tb[TCA_FLOWER_KEY_ENC_IPV4_SRC] ||
+@@ -612,6 +641,8 @@ static void fl_init_dissector(struct cls_fl_head *head,
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_PORTS, tp);
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
++			     FLOW_DISSECTOR_KEY_ICMP, icmp);
++	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_VLAN, vlan);
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_ENC_KEYID, enc_key_id);
+@@ -977,6 +1008,28 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 				  &mask->tp.dst, TCA_FLOWER_KEY_SCTP_DST_MASK,
+ 				  sizeof(key->tp.dst))))
+ 		goto nla_put_failure;
++	else if (key->basic.n_proto == htons(ETH_P_IP) &&
++		 key->basic.ip_proto == IPPROTO_ICMP &&
++		 (fl_dump_key_val(skb, &key->icmp.type,
++				  TCA_FLOWER_KEY_ICMPV4_TYPE, &mask->icmp.type,
++				  TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,
++				  sizeof(key->icmp.type)) ||
++		  fl_dump_key_val(skb, &key->icmp.code,
++				  TCA_FLOWER_KEY_ICMPV4_CODE, &mask->icmp.code,
++				  TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
++				  sizeof(key->icmp.code))))
++		goto nla_put_failure;
++	else if (key->basic.n_proto == htons(ETH_P_IPV6) &&
++		 key->basic.ip_proto == IPPROTO_ICMPV6 &&
++		 (fl_dump_key_val(skb, &key->icmp.type,
++				  TCA_FLOWER_KEY_ICMPV6_TYPE, &mask->icmp.type,
++				  TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,
++				  sizeof(key->icmp.type)) ||
++		  fl_dump_key_val(skb, &key->icmp.code,
++				  TCA_FLOWER_KEY_ICMPV6_CODE, &mask->icmp.code,
++				  TCA_FLOWER_KEY_ICMPV6_CODE_MASK,
++				  sizeof(key->icmp.code))))
++		goto nla_put_failure;
  
+ 	if (key->enc_control.addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS &&
+ 	    (fl_dump_key_val(skb, &key->enc_ipv4.src,
 -- 
 2.7.0.rc3.207.g0ac5344
