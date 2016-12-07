@@ -1,75 +1,59 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net-next v2] dsa:mv88e6xxx: dispose irq mapping for
- chip->irq
-Date: Wed, 7 Dec 2016 15:11:44 +0100
-Message-ID: <20161207141144.GJ18817@lunn.ch>
-References: <1481106907-30908-1-git-send-email-volodymyr.bendiuga@westermo.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next] icmp: correct return value of icmp_rcv()
+Date: Wed, 07 Dec 2016 06:18:18 -0800
+Message-ID: <1481120298.4930.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1481093573-5123-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, volodymyr.bendiuga-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Volodymyr Bendiuga <volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1481106907-30908-1-git-send-email-volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34547 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752117AbcLGOSZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 09:18:25 -0500
+Received: by mail-pg0-f65.google.com with SMTP id e9so23601368pgc.1
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 06:18:20 -0800 (PST)
+In-Reply-To: <1481093573-5123-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 07, 2016 at 11:35:07AM +0100, Volodymyr Bendiuga wrote:
-> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
-
-You need some text in the Change log. Say why this change is needed,
-etc.
-
-Looking through other users of of_irq_get(), i don't see any disposing
-of the mapping. It is not obvious you need to do this. The name does
-not give any hint.
-
-Maybe we should add an of_irq_put() which would clean up the mapping?
-
-      Andrew
-
-
+On Wed, 2016-12-07 at 14:52 +0800, Zhang Shengju wrote:
+> Currently, icmp_rcv() always return zero on a packet delivery upcall.
+> 
+> To make its behavior more compliant with the way this API should be
+> used, this patch changes this to let it return NET_RX_SUCCESS when the
+> packet is proper handled, and NET_RX_DROP otherwise.
+> 
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 > ---
->  drivers/net/dsa/mv88e6xxx/chip.c | 6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
+>  net/ipv4/icmp.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index 173ea97..0c3271d 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> @@ -4483,7 +4483,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
->  		mutex_unlock(&chip->reg_lock);
+> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> index 691146a..f79d7a8 100644
+> --- a/net/ipv4/icmp.c
+> +++ b/net/ipv4/icmp.c
+> @@ -1047,12 +1047,12 @@ int icmp_rcv(struct sk_buff *skb)
 >  
->  		if (err)
-> -			goto out;
-> +			goto out_dispose;
->  
->  		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT)) {
->  			err = mv88e6xxx_g2_irq_setup(chip);
-> @@ -4513,6 +4513,9 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
->  		mv88e6xxx_g1_irq_free(chip);
->  		mutex_unlock(&chip->reg_lock);
+>  	if (success)  {
+>  		consume_skb(skb);
+> -		return 0;
+> +		return NET_RX_SUCCESS;
 >  	}
-> +
-> +out_dispose:
-> +	irq_dispose_mapping(chip->irq);
->  out:
->  	return err;
->  }
-> @@ -4530,6 +4533,7 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
->  		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT))
->  			mv88e6xxx_g2_irq_free(chip);
->  		mv88e6xxx_g1_irq_free(chip);
-> +		irq_dispose_mapping(chip->irq);
->  	}
->  }
 >  
-> -- 
-> 2.7.4
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  drop:
+>  	kfree_skb(skb);
+> -	return 0;
+> +	return NET_RX_DROP;
+>  csum_error:
+>  	__ICMP_INC_STATS(net, ICMP_MIB_CSUMERRORS);
+>  error:
+
+
+I am curious, what external/visible effects do you expect from such a
+change ?
+
+We now have a very precise monitoring of where packets are dropped
+(consume_skb()/kfree_skb()) 
