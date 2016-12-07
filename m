@@ -1,74 +1,69 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH 2/2] vhost: remove unnecessary smp_mb from vhost_work_queue
-Date: Wed, 7 Dec 2016 13:10:21 +0000
-Message-ID: <20161207131021.GB31552@stefanha-x1.localdomain>
-References: <1481104340-77035-1-git-send-email-bergwolf@gmail.com>
-	<1481104340-77035-2-git-send-email-bergwolf@gmail.com>
+From: Lino Sanfilippo <lsanfil@marvell.com>
+Subject: Re: [RFC] Re: Re: stmmac ethernet in kernel 4.9-rc6: coalescing
+ related pauses.
+Date: Wed, 7 Dec 2016 14:18:19 +0100
+Message-ID: <c9169edc-3144-fab1-d176-7a8b9b3e4366@marvell.com>
+References: <20161123105125.GA26394@amd> <20161124085506.GA25007@amd>
+ <20161124.110416.198867271899443489.davem@davemloft.net>
+ <20161124212540.GA24796@amd> <b6ac7a3c-6774-9568-1cc0-97074eaa928f@st.com>
+ <20161202084511.GA32294@amd>
+ <trinity-11729d3e-ae5e-4850-a1bf-b83a1d0a864c-1480687521037@3capp-gmx-bs55>
+ <20161207123140.GA8785@amd>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5446060131681487014=="
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	virtualization@lists.linux-foundation.org
-To: Peng Tao <bergwolf@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1481104340-77035-2-git-send-email-bergwolf@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        <alexandre.torgue@st.com>, David Miller <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Pavel Machek <pavel@ucw.cz>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161207123140.GA8785@amd>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
---===============5446060131681487014==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="DKU6Jbt7q3WqK7+M"
-Content-Disposition: inline
+On 07.12.2016 13:31, Pavel Machek wrote:
+> On Fri 2016-12-02 15:05:21, Lino Sanfilippo wrote:
+>> Hi,
+>>
+>>
+>>>
+>>> There's nothing that protect stmmac_poll() from running concurently
+>>> with stmmac_dma_interrupt(), right?
+>>>
+>>
+>> could it be that there is also another issue concerned locking?:
+>> The tx completion handler takes the xmit_lock in case that the
+>> netif_queue is stopped. This is AFAICS unnecessary, since both
+>> xmit and completion handler are already synchronized by the private
+>> tx lock. But it is IMHO also dangerous:
+>>
+>> In the xmit handler we have the locking order
+>> 1. xmit_lock
+>> 2. private tx lock
+>>
+>> while in the completion handler its the reverse:
+>>
+>> 1. private tx lock
+>> 2. xmit lock.
+>>
+>> Do I miss something?
+>
+> No, it seems you are right. Something like this?
+>
+> Hmm. And can priv->tx_lock be removed, as we already rely on
+> netif_tx_lock?
+>
 
+David wanted indeed the private lock to be removed completely. See
+this thread.
 
---DKU6Jbt7q3WqK7+M
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+https://marc.info/?l=linux-netdev&m=148072001900620&w=2
 
-On Wed, Dec 07, 2016 at 05:52:19PM +0800, Peng Tao wrote:
-> test_and_set_bit() already implies a memory barrier.
->=20
-> Signed-off-by: Peng Tao <bergwolf@gmail.com>
-> ---
->  drivers/vhost/vhost.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+If you can wait a bit, I already have patches prepared to fix this issue in both
+drivers. I want to send them as soon as I am at home (a few hours).
 
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
-
---DKU6Jbt7q3WqK7+M
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJYSAo9AAoJEJykq7OBq3PIX4UH/AoLPgpXAXrkq7UHZLnNvM1J
-DLxy2ie1ZciyyH7AcyNQcTCzqVAwPD8+/hA5ptAJ0K9M20NiPGz7bNDiELf9q0Zt
-H6klHolnv9Nv6WJPXQHJ7pUr/FlstGcBtxl5lolNCoCZUDUV7YvuXRgxy5oPPygo
-0o7iE4Zzj5kQX88pNTiJgHlpM/K97g2AbGhmk1oYuu0JiMngz9FS8nDuWPgcovN4
-O29Br6M0CQwB2ewng1aekxh828Mobke6KEqMX72C06TPRZg4c9P2/ZNtByG0p0l3
-eVIq/bEhjFgt3AFW+hE13v1MDWxYsgeBe49W929dEhw5kYSmw39OeCK9BThroAo=
-=Mlu/
------END PGP SIGNATURE-----
-
---DKU6Jbt7q3WqK7+M--
-
---===============5446060131681487014==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---===============5446060131681487014==--
+Regards,
+Lino
