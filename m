@@ -1,46 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 6/7] liquidio CN23XX: VF TX buffers
-Date: Tue, 06 Dec 2016 21:50:15 -0500 (EST)
-Message-ID: <20161206.215015.600446190668658794.davem@davemloft.net>
-References: <1481058367-3937-1-git-send-email-rvatsavayi@caviumnetworks.com>
-        <1481058367-3937-7-git-send-email-rvatsavayi@caviumnetworks.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH 1/1] ixgbe: write flush vfta registers
+Date: Wed, 7 Dec 2016 11:05:20 +0800
+Message-ID: <CAD=hENcE58xM4hBm-8N-eNREhBbP4gC-Vm89krQ6aj_8bDZmJg@mail.gmail.com>
+References: <1479300041-3436-1-git-send-email-zyjzyj2000@gmail.com>
+	<trinity-ec3a2e6f-7310-41aa-8743-61bc62ccf663-1479305144399@3capp-gmx-bs59>
+	<CAD=hENfbWUobVvUOKhjRi+7fNCj=87R3GFeGjXg+zd_zez_SpQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@caviumnetworks.com,
-        derek.chickles@caviumnetworks.com,
-        satananda.burla@caviumnetworks.com,
-        felix.manlunas@caviumnetworks.com
-To: rvatsavayi@caviumnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52816 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751266AbcLGC7j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 21:59:39 -0500
-In-Reply-To: <1481058367-3937-7-git-send-email-rvatsavayi@caviumnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <CAD=hENfbWUobVvUOKhjRi+7fNCj=87R3GFeGjXg+zd_zez_SpQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date: Tue, 6 Dec 2016 13:06:06 -0800
-
-> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> index cf80722..ce5cdcd 100644
-> --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> @@ -270,6 +270,19 @@ static void start_txq(struct net_device *netdev)
->  }
->  
->  /**
-> + * \brief Wake a queue
-> + * @param netdev network device
-> + * @param q which queue to wake
-> + */
-> +static inline void wake_q(struct net_device *netdev, int q)
- ...
-> +static inline int skb_iq(struct lio *lio, struct sk_buff *skb)
- ...
-> +static inline int check_txq_state(struct lio *lio, struct sk_buff *skb)
-
-Please do not mark functions inline in foo.c files, let the compiler
-decide.
+QWZ0ZXIgc2V2ZXJhbCB3ZWVrIHRlc3RzLCB5b3VyIGFkdmljZSBzdGlsbCBtYWtlIHRoaXMgYnVn
+IGFwcGVhci4gQnV0Cm15IHBhdGNoIG1ha2UgdGhpcyBidWcgZGlzYXBwZWFyLgoKWmh1IFlhbmp1
+bgoKT24gVGh1LCBOb3YgMTcsIDIwMTYgYXQgNTozMyBQTSwgemh1eWogPHp5anp5ajIwMDBAZ21h
+aWwuY29tPiB3cm90ZToKPiBTdXJlLiBGcm9tIHRoZSBmb2xsb3dpbmcuCj4gIgo+IFZMQU4gRmls
+dGVyLiBFYWNoIGJpdCDigJhp4oCZIGluIHJlZ2lzdGVyIOKAmG7igJkgYWZmZWN0cyBwYWNrZXRz
+IHdpdGggVkxBTgo+IHRhZ3MgZXF1YWwgdG8gMzIqbitpLgo+IDEyOCBWTEFOIEZpbHRlciByZWdp
+c3RlcnMgY29tcG9zZSBhIHRhYmxlIG9mIDQwOTYgYml0cyB0aGF0IGNvdmVyIGFsbAo+IHBvc3Np
+YmxlIFZMQU4KPiB0YWdzLgo+IEVhY2ggYml0IHdoZW4gc2V0LCBlbmFibGVzIHBhY2tldHMgd2l0
+aCB0aGUgYXNzb2NpYXRlZCBWTEFOIHRhZ3MgdG8KPiBwYXNzLiBFYWNoIGJpdAo+IHdoZW4gY2xl
+YXJlZCwgYmxvY2tzIHBhY2tldHMgd2l0aCB0aGlzIFZMQU4gdGFnLgo+ICIKPiBZb3VyIHN1Z2dl
+c3Rpb25zIHNlZW1zIHJlYXNvbmFibGUuIFBsZWFzZSB3YWl0LiBJIHdpbGwgbWFrZSB0ZXN0cyB0
+bwo+IHZlZmlyeSB5b3VyIHN1Z2dlc3Rpb25zLgo+Cj4gSSB3aWxsIGtlZXAgeW91IHVwZGF0ZS4K
+Pgo+IE9uIFdlZCwgTm92IDE2LCAyMDE2IGF0IDEwOjA1IFBNLCBMaW5vIFNhbmZpbGlwcG8gPExp
+bm9TYW5maWxpcHBvQGdteC5kZT4gd3JvdGU6Cj4+Cj4+Cj4+IEhpLAo+Pgo+Pj4KPj4+IFNvbWV0
+aW1lcyB2ZnRhIHJlZ2lzdGVycyBjYW4gbm90IGJlIHdyaXR0ZW4gc3VjY2Vzc2Z1bGx5IGluIGRj
+YiBtb2RlLgo+Pj4gVGhpcyBpcyB2ZXJ5IG9jY2Fzc2lvbmFsLiBXaGVuIHRoZSBpeGdiZSBuaWMg
+cnVucyBmb3IgYSB2ZXJ5IGxvbmcgdGltZSwKPj4+IHNvbWV0aW1lcyB0aGlzIGJ1ZyBvY2N1cnMu
+IEJ1dCBhZnRlciBJWEdCRV9XUklURV9GTFVTSCBpcyBleGVjdXRlZCwKPj4+IHRoaXMgYnVnIG5l
+dmVyIG9jY3Vycy4KPj4+Cj4+PiBTaWduZWQtb2ZmLWJ5OiBaaHUgWWFuanVuIDx6eWp6eWoyMDAw
+QGdtYWlsLmNvbT4KPj4+IC0tLQo+Pj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2Jl
+L2l4Z2JlX21haW4uYyB8IDUgKysrKy0KPj4+ICAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRpb25z
+KCspLCAxIGRlbGV0aW9uKC0pCj4+Pgo+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2l4Z2JlL2l4Z2JlX21haW4uYwo+Pj4gaW5kZXggYmQ5M2Q4Mi4uMTIyMWNmYiAxMDA2NDQKPj4+
+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYwo+Pj4g
+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jCj4+PiBA
+QCAtNDEzOCw4ICs0MTM4LDEwIEBAIHN0YXRpYyB2b2lkIGl4Z2JlX3ZsYW5fcHJvbWlzY19lbmFi
+bGUoc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0ZXIpCj4+PiAgICAgICB9Cj4+Pgo+Pj4gICAg
+ICAgLyogU2V0IGFsbCBiaXRzIGluIHRoZSBWTEFOIGZpbHRlciB0YWJsZSBhcnJheSAqLwo+Pj4g
+LSAgICAgZm9yIChpID0gaHctPm1hYy52ZnRfc2l6ZTsgaS0tOykKPj4+ICsgICAgIGZvciAoaSA9
+IGh3LT5tYWMudmZ0X3NpemU7IGktLTspIHsKPj4+ICAgICAgICAgICAgICAgSVhHQkVfV1JJVEVf
+UkVHKGh3LCBJWEdCRV9WRlRBKGkpLCB+MFUpOwo+Pj4gKyAgICAgICAgICAgICBJWEdCRV9XUklU
+RV9GTFVTSChodyk7Cj4+PiArICAgICB9Cj4+Cj4+IFNob3VsZCBpdCBub3QgYmUgc3VmZmljaWVu
+dCB0byBkbyB0aGUgZmx1c2ggb25seSBvbmNlLCBhdCB0aGUgZW5kIG9mIHRoZSBmdW5jdGlvbj8K
+Pj4KPj4gUmVnYXJkcywKPj4gTGlubwoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkRldmVsb3BlciBB
+Y2Nlc3MgUHJvZ3JhbSBmb3IgSW50ZWwgWGVvbiBQaGkgUHJvY2Vzc29ycwpBY2Nlc3MgdG8gSW50
+ZWwgWGVvbiBQaGkgcHJvY2Vzc29yLWJhc2VkIGRldmVsb3BlciBwbGF0Zm9ybXMuCldpdGggb25l
+IHllYXIgb2YgSW50ZWwgUGFyYWxsZWwgU3R1ZGlvIFhFLgpUcmFpbmluZyBhbmQgc3VwcG9ydCBm
+cm9tIENvbGZheC4KT3JkZXIgeW91ciBwbGF0Zm9ybSB0b2RheS5odHRwOi8vc2RtLmxpbmsveGVv
+bnBoaQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAw
+MC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0
+dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRv
+IGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21t
+dW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
