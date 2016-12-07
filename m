@@ -1,108 +1,107 @@
 From: Peng Tao <bergwolf@gmail.com>
-Subject: [PATCH v2 4/4] vsock: cancel packets when failing to connect
-Date: Wed,  7 Dec 2016 23:14:12 +0800
-Message-ID: <1481123652-80603-5-git-send-email-bergwolf@gmail.com>
+Subject: [PATCH v2 1/4] vsock: track pkt owner vsock
+Date: Wed,  7 Dec 2016 23:14:09 +0800
+Message-ID: <1481123652-80603-2-git-send-email-bergwolf@gmail.com>
 References: <1481123652-80603-1-git-send-email-bergwolf@gmail.com>
 Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
         netdev@vger.kernel.org, Peng Tao <bergwolf@gmail.com>
 To: Stefan Hajnoczi <stefanha@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36644 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932272AbcLGPOi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 10:14:38 -0500
 In-Reply-To: <1481123652-80603-1-git-send-email-bergwolf@gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Otherwise we'll leave the packets queued until releasing vsock device.
-E.g., if guest is slow to start up, resulting ETIMEDOUT on connect, guest
-will get the connect requests from failed host sockets.
+So that we can cancel a queued pkt later if necessary.
 
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
 Signed-off-by: Peng Tao <bergwolf@gmail.com>
 ---
- include/linux/virtio_vsock.h            | 7 +++++++
- net/vmw_vsock/af_vsock.c                | 7 +++++++
- net/vmw_vsock/virtio_transport_common.c | 7 -------
- 3 files changed, 14 insertions(+), 7 deletions(-)
+ include/linux/virtio_vsock.h            | 2 ++
+ net/vmw_vsock/virtio_transport_common.c | 7 +++++++
+ 2 files changed, 9 insertions(+)
 
 diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-index b92e88d..ff6850a 100644
+index 9638bfe..6dd3242 100644
 --- a/include/linux/virtio_vsock.h
 +++ b/include/linux/virtio_vsock.h
-@@ -156,4 +156,11 @@ void virtio_transport_inc_tx_pkt(struct virtio_vsock_sock *vvs, struct virtio_vs
- u32 virtio_transport_get_credit(struct virtio_vsock_sock *vvs, u32 wanted);
- void virtio_transport_put_credit(struct virtio_vsock_sock *vvs, u32 credit);
+@@ -48,6 +48,7 @@ struct virtio_vsock_pkt {
+ 	struct virtio_vsock_hdr	hdr;
+ 	struct work_struct work;
+ 	struct list_head list;
++	struct vsock_sock *vsk;
+ 	void *buf;
+ 	u32 len;
+ 	u32 off;
+@@ -56,6 +57,7 @@ struct virtio_vsock_pkt {
  
-+static inline const struct virtio_transport *virtio_transport_get_ops(void)
-+{
-+	const struct vsock_transport *t = vsock_core_get_transport();
-+
-+	return container_of(t, struct virtio_transport, transport);
-+}
-+
- #endif /* _LINUX_VIRTIO_VSOCK_H */
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 8a398b3..ebb50d6 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -104,6 +104,7 @@
- #include <linux/unistd.h>
- #include <linux/wait.h>
- #include <linux/workqueue.h>
-+#include <linux/virtio_vsock.h>
- #include <net/sock.h>
- #include <net/af_vsock.h>
- 
-@@ -1105,6 +1106,7 @@ static void vsock_connect_timeout(struct work_struct *work)
- {
- 	struct sock *sk;
- 	struct vsock_sock *vsk;
-+	int cancel = 0;
- 
- 	vsk = container_of(work, struct vsock_sock, dwork.work);
- 	sk = sk_vsock(vsk);
-@@ -1115,8 +1117,11 @@ static void vsock_connect_timeout(struct work_struct *work)
- 		sk->sk_state = SS_UNCONNECTED;
- 		sk->sk_err = ETIMEDOUT;
- 		sk->sk_error_report(sk);
-+		cancel = 1;
- 	}
- 	release_sock(sk);
-+	if (cancel)
-+		virtio_transport_get_ops()->cancel_pkt(vsk);
- 
- 	sock_put(sk);
- }
-@@ -1223,11 +1228,13 @@ static int vsock_stream_connect(struct socket *sock, struct sockaddr *addr,
- 			err = sock_intr_errno(timeout);
- 			sk->sk_state = SS_UNCONNECTED;
- 			sock->state = SS_UNCONNECTED;
-+			virtio_transport_get_ops()->cancel_pkt(vsk);
- 			goto out_wait;
- 		} else if (timeout == 0) {
- 			err = -ETIMEDOUT;
- 			sk->sk_state = SS_UNCONNECTED;
- 			sock->state = SS_UNCONNECTED;
-+			virtio_transport_get_ops()->cancel_pkt(vsk);
- 			goto out_wait;
- 		}
- 
+ struct virtio_vsock_pkt_info {
+ 	u32 remote_cid, remote_port;
++	struct vsock_sock *vsk;
+ 	struct msghdr *msg;
+ 	u32 pkt_len;
+ 	u16 type;
 diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
-index cc1eeb5..72c5dff 100644
+index a53b3a1..cc1eeb5 100644
 --- a/net/vmw_vsock/virtio_transport_common.c
 +++ b/net/vmw_vsock/virtio_transport_common.c
-@@ -25,13 +25,6 @@
- /* How long to wait for graceful shutdown of a connection */
- #define VSOCK_CLOSE_TIMEOUT (8 * HZ)
+@@ -57,6 +57,7 @@ virtio_transport_alloc_pkt(struct virtio_vsock_pkt_info *info,
+ 	pkt->len		= len;
+ 	pkt->hdr.len		= cpu_to_le32(len);
+ 	pkt->reply		= info->reply;
++	pkt->vsk		= info->vsk;
  
--static const struct virtio_transport *virtio_transport_get_ops(void)
--{
--	const struct vsock_transport *t = vsock_core_get_transport();
--
--	return container_of(t, struct virtio_transport, transport);
--}
--
- struct virtio_vsock_pkt *
- virtio_transport_alloc_pkt(struct virtio_vsock_pkt_info *info,
- 			   size_t len,
+ 	if (info->msg && len > 0) {
+ 		pkt->buf = kmalloc(len, GFP_KERNEL);
+@@ -180,6 +181,7 @@ static int virtio_transport_send_credit_update(struct vsock_sock *vsk,
+ 	struct virtio_vsock_pkt_info info = {
+ 		.op = VIRTIO_VSOCK_OP_CREDIT_UPDATE,
+ 		.type = type,
++		.vsk = vsk,
+ 	};
+ 
+ 	return virtio_transport_send_pkt_info(vsk, &info);
+@@ -519,6 +521,7 @@ int virtio_transport_connect(struct vsock_sock *vsk)
+ 	struct virtio_vsock_pkt_info info = {
+ 		.op = VIRTIO_VSOCK_OP_REQUEST,
+ 		.type = VIRTIO_VSOCK_TYPE_STREAM,
++		.vsk = vsk,
+ 	};
+ 
+ 	return virtio_transport_send_pkt_info(vsk, &info);
+@@ -534,6 +537,7 @@ int virtio_transport_shutdown(struct vsock_sock *vsk, int mode)
+ 			  VIRTIO_VSOCK_SHUTDOWN_RCV : 0) |
+ 			 (mode & SEND_SHUTDOWN ?
+ 			  VIRTIO_VSOCK_SHUTDOWN_SEND : 0),
++		.vsk = vsk,
+ 	};
+ 
+ 	return virtio_transport_send_pkt_info(vsk, &info);
+@@ -560,6 +564,7 @@ virtio_transport_stream_enqueue(struct vsock_sock *vsk,
+ 		.type = VIRTIO_VSOCK_TYPE_STREAM,
+ 		.msg = msg,
+ 		.pkt_len = len,
++		.vsk = vsk,
+ 	};
+ 
+ 	return virtio_transport_send_pkt_info(vsk, &info);
+@@ -581,6 +586,7 @@ static int virtio_transport_reset(struct vsock_sock *vsk,
+ 		.op = VIRTIO_VSOCK_OP_RST,
+ 		.type = VIRTIO_VSOCK_TYPE_STREAM,
+ 		.reply = !!pkt,
++		.vsk = vsk,
+ 	};
+ 
+ 	/* Send RST only if the original pkt is not a RST pkt */
+@@ -826,6 +832,7 @@ virtio_transport_send_response(struct vsock_sock *vsk,
+ 		.remote_cid = le32_to_cpu(pkt->hdr.src_cid),
+ 		.remote_port = le32_to_cpu(pkt->hdr.src_port),
+ 		.reply = true,
++		.vsk = vsk,
+ 	};
+ 
+ 	return virtio_transport_send_pkt_info(vsk, &info);
 -- 
 2.7.4
-
