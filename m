@@ -1,421 +1,316 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 19/50] netfilter: defrag: only register defrag functionality if needed
-Date: Wed,  7 Dec 2016 22:52:25 +0100
-Message-ID: <1481147576-5690-20-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 37/50] netfilter: nf_tables: atomic dump and reset for stateful objects
+Date: Wed,  7 Dec 2016 22:52:43 +0100
+Message-ID: <1481147576-5690-38-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60222 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933355AbcLGVxk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 16:53:40 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 804BCC0B54
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:35 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 68B7EDA853
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:35 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 071F9DA863
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:33 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+This patch adds a new NFT_MSG_GETOBJ_RESET command perform an atomic
+dump-and-reset of the stateful object. This also comes with add support
+for atomic dump and reset for counter and quota objects.
 
-nf_defrag modules for ipv4 and ipv6 export an empty stub function.
-Any module that needs the defragmentation hooks registered simply 'calls'
-this empty function to create a phony module dependency -- modprobe will
-then load the defrag module too.
-
-This extends netfilter ipv4/ipv6 defragmentation modules to delay the hook
-registration until the functionality is requested within a network namespace
-instead of module load time for all namespaces.
-
-Hooks are only un-registered on module unload or when a namespace that used
-such defrag functionality exits.
-
-We have to use struct net for this as the register hooks can be called
-before netns initialization here from the ipv4/ipv6 conntrack module
-init path.
-
-There is no unregister functionality support, defrag will always be
-active once it was requested inside a net namespace.
-
-The reason is that defrag has impact on nft and iptables rulesets
-(without defrag we might see framents).
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/ipv4/nf_defrag_ipv4.h    |  3 +-
- include/net/netfilter/ipv6/nf_defrag_ipv6.h    |  3 +-
- include/net/netns/netfilter.h                  |  6 ++++
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  7 ++++-
- net/ipv4/netfilter/nf_defrag_ipv4.c            | 41 +++++++++++++++++++++++--
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |  7 ++++-
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      | 42 +++++++++++++++++++++++---
- net/netfilter/xt_TPROXY.c                      | 15 ++++++---
- net/netfilter/xt_socket.c                      | 33 +++++++++++++++++---
- 9 files changed, 136 insertions(+), 21 deletions(-)
+ include/net/netfilter/nf_tables.h        |  3 +-
+ include/uapi/linux/netfilter/nf_tables.h |  2 ++
+ net/netfilter/nf_tables_api.c            | 29 ++++++++++++-----
+ net/netfilter/nft_counter.c              | 56 +++++++++++++++++++++++++++-----
+ net/netfilter/nft_quota.c                | 18 ++++++----
+ 5 files changed, 85 insertions(+), 23 deletions(-)
 
-diff --git a/include/net/netfilter/ipv4/nf_defrag_ipv4.h b/include/net/netfilter/ipv4/nf_defrag_ipv4.h
-index f01ef208dff6..db405f70e538 100644
---- a/include/net/netfilter/ipv4/nf_defrag_ipv4.h
-+++ b/include/net/netfilter/ipv4/nf_defrag_ipv4.h
-@@ -1,6 +1,7 @@
- #ifndef _NF_DEFRAG_IPV4_H
- #define _NF_DEFRAG_IPV4_H
- 
--void nf_defrag_ipv4_enable(void);
-+struct net;
-+int nf_defrag_ipv4_enable(struct net *);
- 
- #endif /* _NF_DEFRAG_IPV4_H */
-diff --git a/include/net/netfilter/ipv6/nf_defrag_ipv6.h b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-index ddf162f7966f..7664efe37974 100644
---- a/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-+++ b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-@@ -1,7 +1,8 @@
- #ifndef _NF_DEFRAG_IPV6_H
- #define _NF_DEFRAG_IPV6_H
- 
--void nf_defrag_ipv6_enable(void);
-+struct net;
-+int nf_defrag_ipv6_enable(struct net *);
- 
- int nf_ct_frag6_init(void);
- void nf_ct_frag6_cleanup(void);
-diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilter.h
-index 58487b1cc99a..cea396b53a60 100644
---- a/include/net/netns/netfilter.h
-+++ b/include/net/netns/netfilter.h
-@@ -17,5 +17,11 @@ struct netns_nf {
- 	struct ctl_table_header *nf_log_dir_header;
- #endif
- 	struct nf_hook_entry __rcu *hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
-+#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
-+	bool			defrag_ipv4;
-+#endif
-+#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
-+	bool			defrag_ipv6;
-+#endif
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 903cd618f50e..6f7d6a1dc09c 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -997,7 +997,8 @@ struct nft_object_type {
+ 						struct nft_object *obj);
+ 	void				(*destroy)(struct nft_object *obj);
+ 	int				(*dump)(struct sk_buff *skb,
+-						const struct nft_object *obj);
++						struct nft_object *obj,
++						bool reset);
  };
- #endif
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 6f375443a74b..fcfd071f4705 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -325,6 +325,12 @@ static int ipv4_hooks_register(struct net *net)
- 	if (cnet->users > 1)
- 		goto out_unlock;
  
-+	err = nf_defrag_ipv4_enable(net);
-+	if (err) {
-+		cnet->users = 0;
-+		goto out_unlock;
-+	}
-+
- 	err = nf_register_net_hooks(net, ipv4_conntrack_ops,
- 				    ARRAY_SIZE(ipv4_conntrack_ops));
+ int nft_register_obj(struct nft_object_type *obj_type);
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 3d47582caa80..399eac1eee91 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -89,6 +89,7 @@ enum nft_verdicts {
+  * @NFT_MSG_NEWOBJ: create a stateful object (enum nft_obj_attributes)
+  * @NFT_MSG_GETOBJ: get a stateful object (enum nft_obj_attributes)
+  * @NFT_MSG_DELOBJ: delete a stateful object (enum nft_obj_attributes)
++ * @NFT_MSG_GETOBJ_RESET: get and reset a stateful object (enum nft_obj_attributes)
+  */
+ enum nf_tables_msg_types {
+ 	NFT_MSG_NEWTABLE,
+@@ -112,6 +113,7 @@ enum nf_tables_msg_types {
+ 	NFT_MSG_NEWOBJ,
+ 	NFT_MSG_GETOBJ,
+ 	NFT_MSG_DELOBJ,
++	NFT_MSG_GETOBJ_RESET,
+ 	NFT_MSG_MAX,
+ };
  
-@@ -422,7 +428,6 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
- 	int ret = 0;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 2ae717c5dcb8..bfc015af366a 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3972,14 +3972,14 @@ static struct nft_object *nft_obj_init(const struct nft_object_type *type,
+ }
  
- 	need_conntrack();
--	nf_defrag_ipv4_enable();
- 
- 	ret = nf_register_sockopt(&so_getorigdst);
- 	if (ret < 0) {
-diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
-index d88da36b383c..49bd6a54404f 100644
---- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-+++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-@@ -11,6 +11,7 @@
- #include <linux/netfilter.h>
- #include <linux/module.h>
- #include <linux/skbuff.h>
-+#include <net/netns/generic.h>
- #include <net/route.h>
- #include <net/ip.h>
- 
-@@ -22,6 +23,8 @@
- #endif
- #include <net/netfilter/nf_conntrack_zones.h>
- 
-+static DEFINE_MUTEX(defrag4_mutex);
-+
- static int nf_ct_ipv4_gather_frags(struct net *net, struct sk_buff *skb,
- 				   u_int32_t user)
+ static int nft_object_dump(struct sk_buff *skb, unsigned int attr,
+-			   const struct nft_object *obj)
++			   struct nft_object *obj, bool reset)
  {
-@@ -102,18 +105,50 @@ static struct nf_hook_ops ipv4_defrag_ops[] = {
+ 	struct nlattr *nest;
+ 
+ 	nest = nla_nest_start(skb, attr);
+ 	if (!nest)
+ 		goto nla_put_failure;
+-	if (obj->type->dump(skb, obj) < 0)
++	if (obj->type->dump(skb, obj, reset) < 0)
+ 		goto nla_put_failure;
+ 	nla_nest_end(skb, nest);
+ 	return 0;
+@@ -4096,7 +4096,7 @@ static int nf_tables_newobj(struct net *net, struct sock *nlsk,
+ static int nf_tables_fill_obj_info(struct sk_buff *skb, struct net *net,
+ 				   u32 portid, u32 seq, int event, u32 flags,
+ 				   int family, const struct nft_table *table,
+-				   const struct nft_object *obj)
++				   struct nft_object *obj, bool reset)
+ {
+ 	struct nfgenmsg *nfmsg;
+ 	struct nlmsghdr *nlh;
+@@ -4115,7 +4115,7 @@ static int nf_tables_fill_obj_info(struct sk_buff *skb, struct net *net,
+ 	    nla_put_string(skb, NFTA_OBJ_NAME, obj->name) ||
+ 	    nla_put_be32(skb, NFTA_OBJ_TYPE, htonl(obj->type->type)) ||
+ 	    nla_put_be32(skb, NFTA_OBJ_USE, htonl(obj->use)) ||
+-	    nft_object_dump(skb, NFTA_OBJ_DATA, obj))
++	    nft_object_dump(skb, NFTA_OBJ_DATA, obj, reset))
+ 		goto nla_put_failure;
+ 
+ 	nlmsg_end(skb, nlh);
+@@ -4131,10 +4131,14 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
+ 	const struct nfgenmsg *nfmsg = nlmsg_data(cb->nlh);
+ 	const struct nft_af_info *afi;
+ 	const struct nft_table *table;
+-	const struct nft_object *obj;
+ 	unsigned int idx = 0, s_idx = cb->args[0];
+ 	struct net *net = sock_net(skb->sk);
+ 	int family = nfmsg->nfgen_family;
++	struct nft_object *obj;
++	bool reset = false;
++
++	if (NFNL_MSG_TYPE(cb->nlh->nlmsg_type) == NFT_MSG_GETOBJ_RESET)
++		reset = true;
+ 
+ 	rcu_read_lock();
+ 	cb->seq = net->nft.base_seq;
+@@ -4156,7 +4160,7 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
+ 							    cb->nlh->nlmsg_seq,
+ 							    NFT_MSG_NEWOBJ,
+ 							    NLM_F_MULTI | NLM_F_APPEND,
+-							    afi->family, table, obj) < 0)
++							    afi->family, table, obj, reset) < 0)
+ 					goto done;
+ 
+ 				nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+@@ -4183,6 +4187,7 @@ static int nf_tables_getobj(struct net *net, struct sock *nlsk,
+ 	const struct nft_table *table;
+ 	struct nft_object *obj;
+ 	struct sk_buff *skb2;
++	bool reset = false;
+ 	u32 objtype;
+ 	int err;
+ 
+@@ -4214,9 +4219,12 @@ static int nf_tables_getobj(struct net *net, struct sock *nlsk,
+ 	if (!skb2)
+ 		return -ENOMEM;
+ 
++	if (NFNL_MSG_TYPE(nlh->nlmsg_type) == NFT_MSG_GETOBJ_RESET)
++		reset = true;
++
+ 	err = nf_tables_fill_obj_info(skb2, net, NETLINK_CB(skb).portid,
+ 				      nlh->nlmsg_seq, NFT_MSG_NEWOBJ, 0,
+-				      family, table, obj);
++				      family, table, obj, reset);
+ 	if (err < 0)
+ 		goto err;
+ 
+@@ -4291,7 +4299,7 @@ static int nf_tables_obj_notify(const struct nft_ctx *ctx,
+ 
+ 	err = nf_tables_fill_obj_info(skb, ctx->net, ctx->portid, ctx->seq,
+ 				      event, 0, ctx->afi->family, ctx->table,
+-				      obj);
++				      obj, false);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+ 		goto err;
+@@ -4482,6 +4490,11 @@ static const struct nfnl_callback nf_tables_cb[NFT_MSG_MAX] = {
+ 		.attr_count	= NFTA_OBJ_MAX,
+ 		.policy		= nft_obj_policy,
  	},
++	[NFT_MSG_GETOBJ_RESET] = {
++		.call		= nf_tables_getobj,
++		.attr_count	= NFTA_OBJ_MAX,
++		.policy		= nft_obj_policy,
++	},
  };
  
-+static void __net_exit defrag4_net_exit(struct net *net)
-+{
-+	if (net->nf.defrag_ipv4) {
-+		nf_unregister_net_hooks(net, ipv4_defrag_ops,
-+					ARRAY_SIZE(ipv4_defrag_ops));
-+		net->nf.defrag_ipv4 = false;
-+	}
-+}
-+
-+static struct pernet_operations defrag4_net_ops = {
-+	.exit = defrag4_net_exit,
-+};
-+
- static int __init nf_defrag_init(void)
- {
--	return nf_register_hooks(ipv4_defrag_ops, ARRAY_SIZE(ipv4_defrag_ops));
-+	return register_pernet_subsys(&defrag4_net_ops);
+ static void nft_chain_commit_update(struct nft_trans *trans)
+diff --git a/net/netfilter/nft_counter.c b/net/netfilter/nft_counter.c
+index 6f3dd429f865..f6a02c5071c2 100644
+--- a/net/netfilter/nft_counter.c
++++ b/net/netfilter/nft_counter.c
+@@ -100,10 +100,10 @@ static void nft_counter_obj_destroy(struct nft_object *obj)
+ 	nft_counter_do_destroy(priv);
  }
  
- static void __exit nf_defrag_fini(void)
+-static void nft_counter_fetch(const struct nft_counter_percpu __percpu *counter,
++static void nft_counter_fetch(struct nft_counter_percpu __percpu *counter,
+ 			      struct nft_counter *total)
  {
--	nf_unregister_hooks(ipv4_defrag_ops, ARRAY_SIZE(ipv4_defrag_ops));
-+	unregister_pernet_subsys(&defrag4_net_ops);
- }
- 
--void nf_defrag_ipv4_enable(void)
-+int nf_defrag_ipv4_enable(struct net *net)
- {
-+	int err = 0;
-+
-+	might_sleep();
-+
-+	if (net->nf.defrag_ipv4)
-+		return 0;
-+
-+	mutex_lock(&defrag4_mutex);
-+	if (net->nf.defrag_ipv4)
-+		goto out_unlock;
-+
-+	err = nf_register_net_hooks(net, ipv4_defrag_ops,
-+				    ARRAY_SIZE(ipv4_defrag_ops));
-+	if (err == 0)
-+		net->nf.defrag_ipv4 = true;
-+
-+ out_unlock:
-+	mutex_unlock(&defrag4_mutex);
-+	return err;
- }
- EXPORT_SYMBOL_GPL(nf_defrag_ipv4_enable);
- 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 72fe48075b7f..4e3402486833 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -325,6 +325,12 @@ static int ipv6_hooks_register(struct net *net)
- 	if (cnet->users > 1)
- 		goto out_unlock;
- 
-+	err = nf_defrag_ipv6_enable(net);
-+	if (err < 0) {
-+		cnet->users = 0;
-+		goto out_unlock;
-+	}
-+
- 	err = nf_register_net_hooks(net, ipv6_conntrack_ops,
- 				    ARRAY_SIZE(ipv6_conntrack_ops));
- 	if (err)
-@@ -427,7 +433,6 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- 	int ret = 0;
- 
- 	need_conntrack();
--	nf_defrag_ipv6_enable();
- 
- 	ret = nf_register_sockopt(&so_getorigdst6);
- 	if (ret < 0) {
-diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-index f06b0471f39f..8e0bdd058787 100644
---- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-+++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-@@ -30,6 +30,8 @@
- #include <net/netfilter/nf_conntrack_zones.h>
- #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
- 
-+static DEFINE_MUTEX(defrag6_mutex);
-+
- static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
- 						struct sk_buff *skb)
- {
-@@ -87,6 +89,19 @@ static struct nf_hook_ops ipv6_defrag_ops[] = {
- 	},
- };
- 
-+static void __net_exit defrag6_net_exit(struct net *net)
-+{
-+	if (net->nf.defrag_ipv6) {
-+		nf_unregister_net_hooks(net, ipv6_defrag_ops,
-+					ARRAY_SIZE(ipv6_defrag_ops));
-+		net->nf.defrag_ipv6 = false;
-+	}
-+}
-+
-+static struct pernet_operations defrag6_net_ops = {
-+	.exit = defrag6_net_exit,
-+};
-+
- static int __init nf_defrag_init(void)
- {
- 	int ret = 0;
-@@ -96,9 +111,9 @@ static int __init nf_defrag_init(void)
- 		pr_err("nf_defrag_ipv6: can't initialize frag6.\n");
- 		return ret;
+-	const struct nft_counter_percpu *cpu_stats;
++	struct nft_counter_percpu *cpu_stats;
+ 	u64 bytes, packets;
+ 	unsigned int seq;
+ 	int cpu;
+@@ -122,12 +122,52 @@ static void nft_counter_fetch(const struct nft_counter_percpu __percpu *counter,
  	}
--	ret = nf_register_hooks(ipv6_defrag_ops, ARRAY_SIZE(ipv6_defrag_ops));
-+	ret = register_pernet_subsys(&defrag6_net_ops);
- 	if (ret < 0) {
--		pr_err("nf_defrag_ipv6: can't register hooks\n");
-+		pr_err("nf_defrag_ipv6: can't register pernet ops\n");
- 		goto cleanup_frag6;
- 	}
- 	return ret;
-@@ -111,12 +126,31 @@ static int __init nf_defrag_init(void)
- 
- static void __exit nf_defrag_fini(void)
- {
--	nf_unregister_hooks(ipv6_defrag_ops, ARRAY_SIZE(ipv6_defrag_ops));
-+	unregister_pernet_subsys(&defrag6_net_ops);
- 	nf_ct_frag6_cleanup();
  }
  
--void nf_defrag_ipv6_enable(void)
-+int nf_defrag_ipv6_enable(struct net *net)
- {
-+	int err = 0;
-+
-+	might_sleep();
-+
-+	if (net->nf.defrag_ipv6)
-+		return 0;
-+
-+	mutex_lock(&defrag6_mutex);
-+	if (net->nf.defrag_ipv6)
-+		goto out_unlock;
-+
-+	err = nf_register_net_hooks(net, ipv6_defrag_ops,
-+				    ARRAY_SIZE(ipv6_defrag_ops));
-+	if (err == 0)
-+		net->nf.defrag_ipv6 = true;
-+
-+ out_unlock:
-+	mutex_unlock(&defrag6_mutex);
-+	return err;
- }
- EXPORT_SYMBOL_GPL(nf_defrag_ipv6_enable);
- 
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index dbd72cc40e42..80cb7babeb64 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -531,6 +531,11 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
- static int tproxy_tg6_check(const struct xt_tgchk_param *par)
- {
- 	const struct ip6t_ip6 *i = par->entryinfo;
-+	int err;
-+
-+	err = nf_defrag_ipv6_enable(par->net);
-+	if (err)
-+		return err;
- 
- 	if ((i->proto == IPPROTO_TCP || i->proto == IPPROTO_UDP) &&
- 	    !(i->invflags & IP6T_INV_PROTO))
-@@ -545,6 +550,11 @@ static int tproxy_tg6_check(const struct xt_tgchk_param *par)
- static int tproxy_tg4_check(const struct xt_tgchk_param *par)
- {
- 	const struct ipt_ip *i = par->entryinfo;
-+	int err;
-+
-+	err = nf_defrag_ipv4_enable(par->net);
-+	if (err)
-+		return err;
- 
- 	if ((i->proto == IPPROTO_TCP || i->proto == IPPROTO_UDP)
- 	    && !(i->invflags & IPT_INV_PROTO))
-@@ -596,11 +606,6 @@ static struct xt_target tproxy_tg_reg[] __read_mostly = {
- 
- static int __init tproxy_tg_init(void)
- {
--	nf_defrag_ipv4_enable();
--#ifdef XT_TPROXY_HAVE_IPV6
--	nf_defrag_ipv6_enable();
--#endif
--
- 	return xt_register_targets(tproxy_tg_reg, ARRAY_SIZE(tproxy_tg_reg));
- }
- 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 2198914707f5..770bbec878f1 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -147,9 +147,28 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
- }
- #endif
- 
-+static int socket_mt_enable_defrag(struct net *net, int family)
++static u64 __nft_counter_reset(u64 *counter)
 +{
-+	switch (family) {
-+	case NFPROTO_IPV4:
-+		return nf_defrag_ipv4_enable(net);
-+#ifdef XT_SOCKET_HAVE_IPV6
-+	case NFPROTO_IPV6:
-+		return nf_defrag_ipv6_enable(net);
-+#endif
-+	}
-+	WARN_ONCE(1, "Unknown family %d\n", family);
-+	return 0;
++	u64 ret, old;
++
++	do {
++		old = *counter;
++		ret = cmpxchg64(counter, old, 0);
++	} while (ret != old);
++
++	return ret;
 +}
 +
- static int socket_mt_v1_check(const struct xt_mtchk_param *par)
- {
- 	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
-+	int err;
++static void nft_counter_reset(struct nft_counter_percpu __percpu *counter,
++			      struct nft_counter *total)
++{
++	struct nft_counter_percpu *cpu_stats;
++	u64 bytes, packets;
++	unsigned int seq;
++	int cpu;
 +
-+	err = socket_mt_enable_defrag(par->net, par->family);
-+	if (err)
-+		return err;
- 
- 	if (info->flags & ~XT_SOCKET_FLAGS_V1) {
- 		pr_info("unknown flags 0x%x\n", info->flags & ~XT_SOCKET_FLAGS_V1);
-@@ -161,6 +180,11 @@ static int socket_mt_v1_check(const struct xt_mtchk_param *par)
- static int socket_mt_v2_check(const struct xt_mtchk_param *par)
- {
- 	const struct xt_socket_mtinfo2 *info = (struct xt_socket_mtinfo2 *) par->matchinfo;
-+	int err;
++	memset(total, 0, sizeof(*total));
++	for_each_possible_cpu(cpu) {
++		bytes = packets = 0;
 +
-+	err = socket_mt_enable_defrag(par->net, par->family);
-+	if (err)
-+		return err;
- 
- 	if (info->flags & ~XT_SOCKET_FLAGS_V2) {
- 		pr_info("unknown flags 0x%x\n", info->flags & ~XT_SOCKET_FLAGS_V2);
-@@ -173,7 +197,11 @@ static int socket_mt_v3_check(const struct xt_mtchk_param *par)
++		cpu_stats = per_cpu_ptr(counter, cpu);
++		do {
++			seq	= u64_stats_fetch_begin_irq(&cpu_stats->syncp);
++			packets	+= __nft_counter_reset(&cpu_stats->counter.packets);
++			bytes	+= __nft_counter_reset(&cpu_stats->counter.bytes);
++		} while (u64_stats_fetch_retry_irq(&cpu_stats->syncp, seq));
++
++		total->packets += packets;
++		total->bytes += bytes;
++	}
++}
++
+ static int nft_counter_do_dump(struct sk_buff *skb,
+-			       const struct nft_counter_percpu_priv *priv)
++			       const struct nft_counter_percpu_priv *priv,
++			       bool reset)
  {
- 	const struct xt_socket_mtinfo3 *info =
- 				    (struct xt_socket_mtinfo3 *)par->matchinfo;
-+	int err;
+ 	struct nft_counter total;
  
-+	err = socket_mt_enable_defrag(par->net, par->family);
-+	if (err)
-+		return err;
- 	if (info->flags & ~XT_SOCKET_FLAGS_V3) {
- 		pr_info("unknown flags 0x%x\n",
- 			info->flags & ~XT_SOCKET_FLAGS_V3);
-@@ -268,11 +296,6 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
+-	nft_counter_fetch(priv->counter, &total);
++	if (reset)
++		nft_counter_reset(priv->counter, &total);
++	else
++		nft_counter_fetch(priv->counter, &total);
  
- static int __init socket_mt_init(void)
- {
--	nf_defrag_ipv4_enable();
--#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
--	nf_defrag_ipv6_enable();
--#endif
--
- 	return xt_register_matches(socket_mt_reg, ARRAY_SIZE(socket_mt_reg));
+ 	if (nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(total.bytes),
+ 			 NFTA_COUNTER_PAD) ||
+@@ -141,11 +181,11 @@ static int nft_counter_do_dump(struct sk_buff *skb,
  }
  
+ static int nft_counter_obj_dump(struct sk_buff *skb,
+-				const struct nft_object *obj)
++				struct nft_object *obj, bool reset)
+ {
+-	const struct nft_counter_percpu_priv *priv = nft_obj_data(obj);
++	struct nft_counter_percpu_priv *priv = nft_obj_data(obj);
+ 
+-	return nft_counter_do_dump(skb, priv);
++	return nft_counter_do_dump(skb, priv, reset);
+ }
+ 
+ static const struct nla_policy nft_counter_policy[NFTA_COUNTER_MAX + 1] = {
+@@ -178,7 +218,7 @@ static int nft_counter_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ {
+ 	const struct nft_counter_percpu_priv *priv = nft_expr_priv(expr);
+ 
+-	return nft_counter_do_dump(skb, priv);
++	return nft_counter_do_dump(skb, priv, false);
+ }
+ 
+ static int nft_counter_init(const struct nft_ctx *ctx,
+diff --git a/net/netfilter/nft_quota.c b/net/netfilter/nft_quota.c
+index 0d344209803a..5d25f57497cb 100644
+--- a/net/netfilter/nft_quota.c
++++ b/net/netfilter/nft_quota.c
+@@ -83,12 +83,17 @@ static int nft_quota_obj_init(const struct nlattr * const tb[],
+ 	return nft_quota_do_init(tb, priv);
+ }
+ 
+-static int nft_quota_do_dump(struct sk_buff *skb, const struct nft_quota *priv)
++static int nft_quota_do_dump(struct sk_buff *skb, struct nft_quota *priv,
++			     bool reset)
+ {
+ 	u32 flags = priv->invert ? NFT_QUOTA_F_INV : 0;
+ 	u64 consumed;
+ 
+-	consumed = atomic64_read(&priv->consumed);
++	if (reset)
++		consumed = atomic64_xchg(&priv->consumed, 0);
++	else
++		consumed = atomic64_read(&priv->consumed);
++
+ 	/* Since we inconditionally increment consumed quota for each packet
+ 	 * that we see, don't go over the quota boundary in what we send to
+ 	 * userspace.
+@@ -108,11 +113,12 @@ static int nft_quota_do_dump(struct sk_buff *skb, const struct nft_quota *priv)
+ 	return -1;
+ }
+ 
+-static int nft_quota_obj_dump(struct sk_buff *skb, const struct nft_object *obj)
++static int nft_quota_obj_dump(struct sk_buff *skb, struct nft_object *obj,
++			      bool reset)
+ {
+ 	struct nft_quota *priv = nft_obj_data(obj);
+ 
+-	return nft_quota_do_dump(skb, priv);
++	return nft_quota_do_dump(skb, priv, reset);
+ }
+ 
+ static struct nft_object_type nft_quota_obj __read_mostly = {
+@@ -146,9 +152,9 @@ static int nft_quota_init(const struct nft_ctx *ctx,
+ 
+ static int nft_quota_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ {
+-	const struct nft_quota *priv = nft_expr_priv(expr);
++	struct nft_quota *priv = nft_expr_priv(expr);
+ 
+-	return nft_quota_do_dump(skb, priv);
++	return nft_quota_do_dump(skb, priv, false);
+ }
+ 
+ static struct nft_expr_type nft_quota_type;
 -- 
 2.1.4
+
