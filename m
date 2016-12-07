@@ -1,251 +1,246 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 25/50] netfilter: x_tables: pack percpu counter allocations
-Date: Wed,  7 Dec 2016 22:52:31 +0100
-Message-ID: <1481147576-5690-26-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 28/50] netfilter: nft_payload: layer 4 checksum adjustment for pseudoheader fields
+Date: Wed,  7 Dec 2016 22:52:34 +0100
+Message-ID: <1481147576-5690-29-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60266 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933389AbcLGVxq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 16:53:46 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id ABE71A4175
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:42 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 8E52EDA860
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:42 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 5C7D7DA86C
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:40 +0100 (CET)
 In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+This patch adds a new flag that signals the kernel to update layer 4
+checksum if the packet field belongs to the layer 4 pseudoheader. This
+implicitly provides stateless NAT 1:1 that is useful under very specific
+usecases.
 
-instead of allocating each xt_counter individually, allocate 4k chunks
-and then use these for counter allocation requests.
+Since rules mangling layer 3 fields that are part of the pseudoheader
+may potentially convey any layer 4 packet, we have to deal with the
+layer 4 checksum adjustment using protocol specific code.
 
-This should speed up rule evaluation by increasing data locality,
-also speeds up ruleset loading because we reduce calls to the percpu
-allocator.
+This patch adds support for TCP, UDP and ICMPv6, since they include the
+pseudoheader in the layer 4 checksum calculation. ICMP doesn't, so we
+can skip it.
 
-As Eric points out we can't use PAGE_SIZE, page_allocator would fail on
-arches with 64k page size.
-
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/x_tables.h |  7 ++++++-
- net/ipv4/netfilter/arp_tables.c    |  9 ++++++---
- net/ipv4/netfilter/ip_tables.c     |  9 ++++++---
- net/ipv6/netfilter/ip6_tables.c    |  9 ++++++---
- net/netfilter/x_tables.c           | 33 ++++++++++++++++++++++++---------
- 5 files changed, 48 insertions(+), 19 deletions(-)
+ include/net/netfilter/nf_tables_core.h   |   1 +
+ include/uapi/linux/netfilter/nf_tables.h |   6 ++
+ net/netfilter/nft_payload.c              | 107 +++++++++++++++++++++++++++++--
+ 3 files changed, 109 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 05a94bd32c55..5117e4d2ddfa 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -403,8 +403,13 @@ static inline unsigned long ifname_compare_aligned(const char *_a,
- 	return ret;
- }
+diff --git a/include/net/netfilter/nf_tables_core.h b/include/net/netfilter/nf_tables_core.h
+index 862373d4ea9d..8f690effec37 100644
+--- a/include/net/netfilter/nf_tables_core.h
++++ b/include/net/netfilter/nf_tables_core.h
+@@ -45,6 +45,7 @@ struct nft_payload_set {
+ 	enum nft_registers	sreg:8;
+ 	u8			csum_type;
+ 	u8			csum_offset;
++	u8			csum_flags;
+ };
  
-+struct xt_percpu_counter_alloc_state {
-+	unsigned int off;
-+	const char __percpu *mem;
+ extern const struct nft_expr_ops nft_payload_fast_ops;
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 14e5f619167e..f030e59aa2ec 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -659,6 +659,10 @@ enum nft_payload_csum_types {
+ 	NFT_PAYLOAD_CSUM_INET,
+ };
+ 
++enum nft_payload_csum_flags {
++	NFT_PAYLOAD_L4CSUM_PSEUDOHDR = (1 << 0),
 +};
- 
--bool xt_percpu_counter_alloc(struct xt_counters *counters);
-+bool xt_percpu_counter_alloc(struct xt_percpu_counter_alloc_state *state,
-+			     struct xt_counters *counter);
- void xt_percpu_counter_free(struct xt_counters *cnt);
- 
- static inline struct xt_counters *
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 808deb275ceb..1258a9ab62ef 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -411,13 +411,14 @@ static inline int check_target(struct arpt_entry *e, const char *name)
- }
- 
- static inline int
--find_check_entry(struct arpt_entry *e, const char *name, unsigned int size)
-+find_check_entry(struct arpt_entry *e, const char *name, unsigned int size,
-+		 struct xt_percpu_counter_alloc_state *alloc_state)
- {
- 	struct xt_entry_target *t;
- 	struct xt_target *target;
- 	int ret;
- 
--	if (!xt_percpu_counter_alloc(&e->counters))
-+	if (!xt_percpu_counter_alloc(alloc_state, &e->counters))
- 		return -ENOMEM;
- 
- 	t = arpt_get_target(e);
-@@ -525,6 +526,7 @@ static inline void cleanup_entry(struct arpt_entry *e)
- static int translate_table(struct xt_table_info *newinfo, void *entry0,
- 			   const struct arpt_replace *repl)
- {
-+	struct xt_percpu_counter_alloc_state alloc_state = { 0 };
- 	struct arpt_entry *iter;
- 	unsigned int *offsets;
- 	unsigned int i;
-@@ -587,7 +589,8 @@ static int translate_table(struct xt_table_info *newinfo, void *entry0,
- 	/* Finally, each sanity check must pass */
- 	i = 0;
- 	xt_entry_foreach(iter, entry0, newinfo->size) {
--		ret = find_check_entry(iter, repl->name, repl->size);
-+		ret = find_check_entry(iter, repl->name, repl->size,
-+				       &alloc_state);
- 		if (ret != 0)
- 			break;
- 		++i;
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index a48430d3420f..308b456723f0 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -531,7 +531,8 @@ static int check_target(struct ipt_entry *e, struct net *net, const char *name)
- 
- static int
- find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
--		 unsigned int size)
-+		 unsigned int size,
-+		 struct xt_percpu_counter_alloc_state *alloc_state)
- {
- 	struct xt_entry_target *t;
- 	struct xt_target *target;
-@@ -540,7 +541,7 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
- 	struct xt_mtchk_param mtpar;
- 	struct xt_entry_match *ematch;
- 
--	if (!xt_percpu_counter_alloc(&e->counters))
-+	if (!xt_percpu_counter_alloc(alloc_state, &e->counters))
- 		return -ENOMEM;
- 
- 	j = 0;
-@@ -676,6 +677,7 @@ static int
- translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
- 		const struct ipt_replace *repl)
- {
-+	struct xt_percpu_counter_alloc_state alloc_state = { 0 };
- 	struct ipt_entry *iter;
- 	unsigned int *offsets;
- 	unsigned int i;
-@@ -735,7 +737,8 @@ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
- 	/* Finally, each sanity check must pass */
- 	i = 0;
- 	xt_entry_foreach(iter, entry0, newinfo->size) {
--		ret = find_check_entry(iter, net, repl->name, repl->size);
-+		ret = find_check_entry(iter, net, repl->name, repl->size,
-+				       &alloc_state);
- 		if (ret != 0)
- 			break;
- 		++i;
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index a5a92083fd62..d56d8ac09a94 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -562,7 +562,8 @@ static int check_target(struct ip6t_entry *e, struct net *net, const char *name)
- 
- static int
- find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
--		 unsigned int size)
-+		 unsigned int size,
-+		 struct xt_percpu_counter_alloc_state *alloc_state)
- {
- 	struct xt_entry_target *t;
- 	struct xt_target *target;
-@@ -571,7 +572,7 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
- 	struct xt_mtchk_param mtpar;
- 	struct xt_entry_match *ematch;
- 
--	if (!xt_percpu_counter_alloc(&e->counters))
-+	if (!xt_percpu_counter_alloc(alloc_state, &e->counters))
- 		return -ENOMEM;
- 
- 	j = 0;
-@@ -705,6 +706,7 @@ static int
- translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
- 		const struct ip6t_replace *repl)
- {
-+	struct xt_percpu_counter_alloc_state alloc_state = { 0 };
- 	struct ip6t_entry *iter;
- 	unsigned int *offsets;
- 	unsigned int i;
-@@ -764,7 +766,8 @@ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
- 	/* Finally, each sanity check must pass */
- 	i = 0;
- 	xt_entry_foreach(iter, entry0, newinfo->size) {
--		ret = find_check_entry(iter, net, repl->name, repl->size);
-+		ret = find_check_entry(iter, net, repl->name, repl->size,
-+				       &alloc_state);
- 		if (ret != 0)
- 			break;
- 		++i;
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index be5e83047594..f6ce4a7036e6 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -40,6 +40,7 @@ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
- MODULE_DESCRIPTION("{ip,ip6,arp,eb}_tables backend module");
- 
- #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
-+#define XT_PCPU_BLOCK_SIZE 4096
- 
- struct compat_delta {
- 	unsigned int offset; /* offset in kernel */
-@@ -1618,6 +1619,7 @@ EXPORT_SYMBOL_GPL(xt_proto_fini);
++
  /**
-  * xt_percpu_counter_alloc - allocate x_tables rule counter
+  * enum nft_payload_attributes - nf_tables payload expression netlink attributes
   *
-+ * @state: pointer to xt_percpu allocation state
-  * @counter: pointer to counter struct inside the ip(6)/arpt_entry struct
-  *
-  * On SMP, the packet counter [ ip(6)t_entry->counters.pcnt ] will then
-@@ -1626,21 +1628,34 @@ EXPORT_SYMBOL_GPL(xt_proto_fini);
-  * Rule evaluation needs to use xt_get_this_cpu_counter() helper
-  * to fetch the real percpu counter.
-  *
-+ * To speed up allocation and improve data locality, a 4kb block is
-+ * allocated.
-+ *
-+ * xt_percpu_counter_alloc_state contains the base address of the
-+ * allocated page and the current sub-offset.
-+ *
-  * returns false on error.
+@@ -669,6 +673,7 @@ enum nft_payload_csum_types {
+  * @NFTA_PAYLOAD_SREG: source register to load data from (NLA_U32: nft_registers)
+  * @NFTA_PAYLOAD_CSUM_TYPE: checksum type (NLA_U32)
+  * @NFTA_PAYLOAD_CSUM_OFFSET: checksum offset relative to base (NLA_U32)
++ * @NFTA_PAYLOAD_CSUM_FLAGS: checksum flags (NLA_U32)
   */
--bool xt_percpu_counter_alloc(struct xt_counters *counter)
-+bool xt_percpu_counter_alloc(struct xt_percpu_counter_alloc_state *state,
-+			     struct xt_counters *counter)
- {
--	void __percpu *res;
-+	BUILD_BUG_ON(XT_PCPU_BLOCK_SIZE < (sizeof(*counter) * 2));
+ enum nft_payload_attributes {
+ 	NFTA_PAYLOAD_UNSPEC,
+@@ -679,6 +684,7 @@ enum nft_payload_attributes {
+ 	NFTA_PAYLOAD_SREG,
+ 	NFTA_PAYLOAD_CSUM_TYPE,
+ 	NFTA_PAYLOAD_CSUM_OFFSET,
++	NFTA_PAYLOAD_CSUM_FLAGS,
+ 	__NFTA_PAYLOAD_MAX
+ };
+ #define NFTA_PAYLOAD_MAX	(__NFTA_PAYLOAD_MAX - 1)
+diff --git a/net/netfilter/nft_payload.c b/net/netfilter/nft_payload.c
+index 98fb5d7b8087..36d2b1096546 100644
+--- a/net/netfilter/nft_payload.c
++++ b/net/netfilter/nft_payload.c
+@@ -1,5 +1,6 @@
+ /*
+  * Copyright (c) 2008-2009 Patrick McHardy <kaber@trash.net>
++ * Copyright (c) 2016 Pablo Neira Ayuso <pablo@netfilter.org>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -17,6 +18,10 @@
+ #include <linux/netfilter/nf_tables.h>
+ #include <net/netfilter/nf_tables_core.h>
+ #include <net/netfilter/nf_tables.h>
++/* For layer 4 checksum field offset. */
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <linux/icmpv6.h>
  
- 	if (nr_cpu_ids <= 1)
- 		return true;
+ /* add vlan header into the user buffer for if tag was removed by offloads */
+ static bool
+@@ -164,6 +169,87 @@ const struct nft_expr_ops nft_payload_fast_ops = {
+ 	.dump		= nft_payload_dump,
+ };
  
--	res = __alloc_percpu(sizeof(struct xt_counters),
--			     sizeof(struct xt_counters));
--	if (!res)
--		return false;
--
--	counter->pcnt = (__force unsigned long)res;
-+	if (!state->mem) {
-+		state->mem = __alloc_percpu(XT_PCPU_BLOCK_SIZE,
-+					    XT_PCPU_BLOCK_SIZE);
-+		if (!state->mem)
-+			return false;
++static inline void nft_csum_replace(__sum16 *sum, __wsum fsum, __wsum tsum)
++{
++	*sum = csum_fold(csum_add(csum_sub(~csum_unfold(*sum), fsum), tsum));
++	if (*sum == 0)
++		*sum = CSUM_MANGLED_0;
++}
++
++static bool nft_payload_udp_checksum(struct sk_buff *skb, unsigned int thoff)
++{
++	struct udphdr *uh, _uh;
++
++	uh = skb_header_pointer(skb, thoff, sizeof(_uh), &_uh);
++	if (!uh)
++		return false;
++
++	return uh->check;
++}
++
++static int nft_payload_l4csum_offset(const struct nft_pktinfo *pkt,
++				     struct sk_buff *skb,
++				     unsigned int *l4csum_offset)
++{
++	switch (pkt->tprot) {
++	case IPPROTO_TCP:
++		*l4csum_offset = offsetof(struct tcphdr, check);
++		break;
++	case IPPROTO_UDP:
++		if (!nft_payload_udp_checksum(skb, pkt->xt.thoff))
++			return -1;
++		/* Fall through. */
++	case IPPROTO_UDPLITE:
++		*l4csum_offset = offsetof(struct udphdr, check);
++		break;
++	case IPPROTO_ICMPV6:
++		*l4csum_offset = offsetof(struct icmp6hdr, icmp6_cksum);
++		break;
++	default:
++		return -1;
 +	}
-+	counter->pcnt = (__force unsigned long)(state->mem + state->off);
-+	state->off += sizeof(*counter);
-+	if (state->off > (XT_PCPU_BLOCK_SIZE - sizeof(*counter))) {
-+		state->mem = NULL;
-+		state->off = 0;
++
++	*l4csum_offset += pkt->xt.thoff;
++	return 0;
++}
++
++static int nft_payload_l4csum_update(const struct nft_pktinfo *pkt,
++				     struct sk_buff *skb,
++				     __wsum fsum, __wsum tsum)
++{
++	int l4csum_offset;
++	__sum16 sum;
++
++	/* If we cannot determine layer 4 checksum offset or this packet doesn't
++	 * require layer 4 checksum recalculation, skip this packet.
++	 */
++	if (nft_payload_l4csum_offset(pkt, skb, &l4csum_offset) < 0)
++		return 0;
++
++	if (skb_copy_bits(skb, l4csum_offset, &sum, sizeof(sum)) < 0)
++		return -1;
++
++	/* Checksum mangling for an arbitrary amount of bytes, based on
++	 * inet_proto_csum_replace*() functions.
++	 */
++	if (skb->ip_summed != CHECKSUM_PARTIAL) {
++		nft_csum_replace(&sum, fsum, tsum);
++		if (skb->ip_summed == CHECKSUM_COMPLETE) {
++			skb->csum = ~csum_add(csum_sub(~(skb->csum), fsum),
++					      tsum);
++		}
++	} else {
++		sum = ~csum_fold(csum_add(csum_sub(csum_unfold(sum), fsum),
++					  tsum));
 +	}
- 	return true;
- }
- EXPORT_SYMBOL_GPL(xt_percpu_counter_alloc);
-@@ -1649,7 +1664,7 @@ void xt_percpu_counter_free(struct xt_counters *counters)
- {
- 	unsigned long pcnt = counters->pcnt;
++
++	if (!skb_make_writable(skb, l4csum_offset + sizeof(sum)) ||
++	    skb_store_bits(skb, l4csum_offset, &sum, sizeof(sum)) < 0)
++		return -1;
++
++	return 0;
++}
++
+ static void nft_payload_set_eval(const struct nft_expr *expr,
+ 				 struct nft_regs *regs,
+ 				 const struct nft_pktinfo *pkt)
+@@ -204,14 +290,15 @@ static void nft_payload_set_eval(const struct nft_expr *expr,
  
--	if (nr_cpu_ids > 1)
-+	if (nr_cpu_ids > 1 && (pcnt & (XT_PCPU_BLOCK_SIZE - 1)) == 0)
- 		free_percpu((void __percpu *)pcnt);
- }
- EXPORT_SYMBOL_GPL(xt_percpu_counter_free);
+ 		fsum = skb_checksum(skb, offset, priv->len, 0);
+ 		tsum = csum_partial(src, priv->len, 0);
+-		sum = csum_fold(csum_add(csum_sub(~csum_unfold(sum), fsum),
+-					 tsum));
+-		if (sum == 0)
+-			sum = CSUM_MANGLED_0;
++		nft_csum_replace(&sum, fsum, tsum);
+ 
+ 		if (!skb_make_writable(skb, csum_offset + sizeof(sum)) ||
+ 		    skb_store_bits(skb, csum_offset, &sum, sizeof(sum)) < 0)
+ 			goto err;
++
++		if (priv->csum_flags &&
++		    nft_payload_l4csum_update(pkt, skb, fsum, tsum) < 0)
++			goto err;
+ 	}
+ 
+ 	if (!skb_make_writable(skb, max(offset + priv->len, 0)) ||
+@@ -240,6 +327,15 @@ static int nft_payload_set_init(const struct nft_ctx *ctx,
+ 	if (tb[NFTA_PAYLOAD_CSUM_OFFSET])
+ 		priv->csum_offset =
+ 			ntohl(nla_get_be32(tb[NFTA_PAYLOAD_CSUM_OFFSET]));
++	if (tb[NFTA_PAYLOAD_CSUM_FLAGS]) {
++		u32 flags;
++
++		flags = ntohl(nla_get_be32(tb[NFTA_PAYLOAD_CSUM_FLAGS]));
++		if (flags & ~NFT_PAYLOAD_L4CSUM_PSEUDOHDR)
++			return -EINVAL;
++
++		priv->csum_flags = flags;
++	}
+ 
+ 	switch (priv->csum_type) {
+ 	case NFT_PAYLOAD_CSUM_NONE:
+@@ -262,7 +358,8 @@ static int nft_payload_set_dump(struct sk_buff *skb, const struct nft_expr *expr
+ 	    nla_put_be32(skb, NFTA_PAYLOAD_LEN, htonl(priv->len)) ||
+ 	    nla_put_be32(skb, NFTA_PAYLOAD_CSUM_TYPE, htonl(priv->csum_type)) ||
+ 	    nla_put_be32(skb, NFTA_PAYLOAD_CSUM_OFFSET,
+-			 htonl(priv->csum_offset)))
++			 htonl(priv->csum_offset)) ||
++	    nla_put_be32(skb, NFTA_PAYLOAD_CSUM_FLAGS, htonl(priv->csum_flags)))
+ 		goto nla_put_failure;
+ 	return 0;
+ 
 -- 
 2.1.4
-
