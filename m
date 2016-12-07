@@ -1,7 +1,7 @@
 From: Peng Tao <bergwolf@gmail.com>
-Subject: [PATCH v2 2/4] vhost-vsock: add pkt cancel capability
-Date: Wed,  7 Dec 2016 23:14:10 +0800
-Message-ID: <1481123652-80603-3-git-send-email-bergwolf@gmail.com>
+Subject: [PATCH v2 3/4] vsock: add pkt cancel capability
+Date: Wed,  7 Dec 2016 23:14:11 +0800
+Message-ID: <1481123652-80603-4-git-send-email-bergwolf@gmail.com>
 References: <1481123652-80603-1-git-send-email-bergwolf@gmail.com>
 Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
         netdev@vger.kernel.org, Peng Tao <bergwolf@gmail.com>
@@ -11,34 +11,31 @@ In-Reply-To: <1481123652-80603-1-git-send-email-bergwolf@gmail.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To allow canceling all packets of a connection.
-
 Signed-off-by: Peng Tao <bergwolf@gmail.com>
 ---
- drivers/vhost/vsock.c        | 41 +++++++++++++++++++++++++++++++++++++++++
- include/linux/virtio_vsock.h |  3 +++
- 2 files changed, 44 insertions(+)
+ net/vmw_vsock/virtio_transport.c | 42 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
 
-diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-index a504e2e0..d01e4a4 100644
---- a/drivers/vhost/vsock.c
-+++ b/drivers/vhost/vsock.c
-@@ -218,6 +218,46 @@ vhost_transport_send_pkt(struct virtio_vsock_pkt *pkt)
+diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
+index 936d7ee..a5f3833 100644
+--- a/net/vmw_vsock/virtio_transport.c
++++ b/net/vmw_vsock/virtio_transport.c
+@@ -170,6 +170,47 @@ virtio_transport_send_pkt(struct virtio_vsock_pkt *pkt)
  	return len;
  }
  
 +static int
-+vhost_transport_cancel_pkt(struct vsock_sock *vsk)
++virtio_transport_cancel_pkt(struct vsock_sock *vsk)
 +{
-+	struct vhost_vsock *vsock;
++	struct virtio_vsock *vsock;
 +	struct virtio_vsock_pkt *pkt, *n;
 +	int cnt = 0;
 +	LIST_HEAD(freeme);
 +
-+	/* Find the vhost_vsock according to guest context id  */
-+	vsock = vhost_vsock_get(vsk->remote_addr.svm_cid);
-+	if (!vsock)
++	vsock = virtio_vsock_get();
++	if (!vsock) {
 +		return -ENODEV;
++	}
 +
 +	spin_lock_bh(&vsock->send_pkt_list_lock);
 +	list_for_each_entry_safe(pkt, n, &vsock->send_pkt_list, list) {
@@ -56,42 +53,29 @@ index a504e2e0..d01e4a4 100644
 +	}
 +
 +	if (cnt) {
-+		struct vhost_virtqueue *tx_vq = &vsock->vqs[VSOCK_VQ_TX];
++		struct virtqueue *rx_vq = vsock->vqs[VSOCK_VQ_RX];
 +		int new_cnt;
 +
 +		new_cnt = atomic_sub_return(cnt, &vsock->queued_replies);
-+		if (new_cnt + cnt >= tx_vq->num && new_cnt < tx_vq->num)
-+			vhost_poll_queue(&tx_vq->poll);
++		if (new_cnt + cnt >= virtqueue_get_vring_size(rx_vq) &&
++		    new_cnt < virtqueue_get_vring_size(rx_vq))
++			queue_work(virtio_vsock_workqueue, &vsock->rx_work);
 +	}
 +
 +	return 0;
 +}
 +
- static struct virtio_vsock_pkt *
- vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
- 		      unsigned int out, unsigned int in)
-@@ -698,6 +738,7 @@ static struct virtio_transport vhost_transport = {
+ static void virtio_vsock_rx_fill(struct virtio_vsock *vsock)
+ {
+ 	int buf_len = VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE;
+@@ -453,6 +494,7 @@ static struct virtio_transport virtio_transport = {
  	},
  
- 	.send_pkt = vhost_transport_send_pkt,
-+	.cancel_pkt = vhost_transport_cancel_pkt,
+ 	.send_pkt = virtio_transport_send_pkt,
++	.cancel_pkt = virtio_transport_cancel_pkt,
  };
  
- static int __init vhost_vsock_init(void)
-diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-index 6dd3242..b92e88d 100644
---- a/include/linux/virtio_vsock.h
-+++ b/include/linux/virtio_vsock.h
-@@ -72,6 +72,9 @@ struct virtio_transport {
- 
- 	/* Takes ownership of the packet */
- 	int (*send_pkt)(struct virtio_vsock_pkt *pkt);
-+
-+	/* Cancel packets belonging the same vsock */
-+	int (*cancel_pkt)(struct vsock_sock *vsk);
- };
- 
- ssize_t
+ static int virtio_vsock_probe(struct virtio_device *vdev)
 -- 
 2.7.4
 
