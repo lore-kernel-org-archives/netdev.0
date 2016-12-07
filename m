@@ -1,273 +1,167 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH v2 iproute2/net-next 3/3] tc: flower: support matching on ICMP type and code
-Date: Wed,  7 Dec 2016 14:54:03 +0100
-Message-ID: <1481118843-10428-4-git-send-email-simon.horman@netronome.com>
-References: <1481118843-10428-1-git-send-email-simon.horman@netronome.com>
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: sock_rps_record_flow() is for connected
+ sockets
+Date: Wed, 07 Dec 2016 05:58:19 -0800
+Message-ID: <1481119099.18162.641.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
+         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481049061.7129.18.camel@redhat.com>
+         <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481051786.7129.22.camel@redhat.com>
+         <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481097551.5535.14.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:36342 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752575AbcLGNzr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 08:55:47 -0500
-Received: by mail-wm0-f52.google.com with SMTP id g23so169296142wme.1
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 05:54:56 -0800 (PST)
-In-Reply-To: <1481118843-10428-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34069 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751225AbcLGN6V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 08:58:21 -0500
+Received: by mail-pf0-f193.google.com with SMTP id y68so20663621pfb.1
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 05:58:21 -0800 (PST)
+In-Reply-To: <1481097551.5535.14.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support matching on ICMP type and code.
+On Wed, 2016-12-07 at 08:59 +0100, Paolo Abeni wrote:
+> On Tue, 2016-12-06 at 19:32 -0800, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Paolo noticed a cache line miss in UDP recvmsg() to access
+> > sk_rxhash, sharing a cache line with sk_drops.
+> > 
+> > sk_drops might be heavily incremented by cpus handling a flood targeting
+> > this socket.
+> > 
+> > We might place sk_drops on a separate cache line, but lets try
+> > to avoid wasting 64 bytes per socket just for this, since we have
+> > other bottlenecks to take care of.
+> > 
+> > sock_rps_record_flow() should only access sk_rxhash for connected
+> > flows.
+> > 
+> > Testing sk_state for TCP_ESTABLISHED covers most of the cases for
+> > connected sockets, for a zero cost, since system calls using
+> > sock_rps_record_flow() also access sk->sk_prot which is on the
+> > same cache line.
+> > 
+> > A follow up patch will provide a static_key (Jump Label) since most
+> > hosts do not even use RFS.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Reported-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> >  include/net/sock.h |   12 +++++++++++-
+> >  1 file changed, 11 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/include/net/sock.h b/include/net/sock.h
+> > index 6dfe3aa22b970eecfab4d4a0753804b1cc82a200..a7ddab993b496f1f4060f0b41831a161c284df9e 100644
+> > --- a/include/net/sock.h
+> > +++ b/include/net/sock.h
+> > @@ -913,7 +913,17 @@ static inline void sock_rps_record_flow_hash(__u32 hash)
+> >  static inline void sock_rps_record_flow(const struct sock *sk)
+> >  {
+> >  #ifdef CONFIG_RPS
+> > -	sock_rps_record_flow_hash(sk->sk_rxhash);
+> > +	/* Reading sk->sk_rxhash might incur an expensive cache line miss.
+> > +	 *
+> > +	 * TCP_ESTABLISHED does cover almost all states where RFS
+> > +	 * might be useful, and is cheaper [1] than testing :
+> > +	 *	IPv4: inet_sk(sk)->inet_daddr
+> > +	 * 	IPv6: ipv6_addr_any(&sk->sk_v6_daddr)
+> > +	 * OR	an additional socket flag
+> > +	 * [1] : sk_state and sk_prot are in the same cache line.
+> > +	 */
+> > +	if (sk->sk_state == TCP_ESTABLISHED)
+> > +		sock_rps_record_flow_hash(sk->sk_rxhash);
+> >  #endif
+> >  }
+> 
+> Thank you for the very prompt patch!
+> 
+> You made me curious about your other idea on this topic, this what you
+> initially talked about, right ?
 
-Example usage:
+That was what I first thought, but then having an rfs_key would also
+help here. I will submit the patch on top of this one, so that final
+code looks like :
 
-tc qdisc add dev eth0 ingress
-
-tc filter add dev eth0 protocol ip parent ffff: flower \
-	indev eth0 ip_proto icmp type 8 code 0 action drop
-
-tc filter add dev eth0 protocol ipv6 parent ffff: flower \
-	indev eth0 ip_proto icmpv6 type 128 code 0 action drop
-
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
-v2
-* Rebase
-* Do not run noths() on u8 entity
----
- man/man8/tc-flower.8 | 20 ++++++++---
- tc/f_flower.c        | 96 +++++++++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 106 insertions(+), 10 deletions(-)
-
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index 744c450b4531..90fdfbafc75b 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@@ -29,7 +29,7 @@ flower \- flow based traffic control filter
- .IR PRIORITY " | "
- .BR vlan_eth_type " { " ipv4 " | " ipv6 " | "
- .IR ETH_TYPE " } | "
--.BR ip_proto " { " tcp " | " udp " | " sctp " | "
-+.BR ip_proto " { " tcp " | " udp " | " sctp " | " icmp " | " icmpv6 " | "
- .IR IP_PROTO " } | { "
- .BR dst_ip " | " src_ip " } { "
- .IR ipv4_address " | " ipv6_address " } | { "
-@@ -98,7 +98,7 @@ or an unsigned 16bit value in hexadecimal format.
- Match on layer four protocol.
- .I IP_PROTO
- may be
--.BR tcp ", " udp ", " sctp
-+.BR tcp ", " udp ", " sctp ", " icmp ", " icmpv6
- or an unsigned 8bit value in hexadecimal format.
- .TP
- .BI dst_ip " ADDRESS"
-@@ -117,6 +117,13 @@ Match on layer 4 protocol source or destination port number. Only available for
- .BR ip_proto " values " udp ", " tcp  " and " sctp
- which have to be specified in beforehand.
- .TP
-+.BI type " NUMBER"
-+.TQ
-+.BI code " NUMBER"
-+Match on ICMP type or code. Only available for
-+.BR ip_proto " values " icmp  " and " icmpv6
-+which have to be specified in beforehand.
-+.TP
- .BI enc_key_id " NUMBER"
- .TQ
- .BI enc_dst_ip " ADDRESS"
-@@ -135,13 +142,16 @@ have no dependency, layer three matches
- (\fBip_proto\fR, \fBdst_ip\fR and \fBsrc_ip\fR)
- depend on the
- .B protocol
--option of tc filter
--and finally layer four matches
-+option of tc filter, layer four port matches
- (\fBdst_port\fR and \fBsrc_port\fR)
- depend on
- .B ip_proto
- being set to
--.BR tcp ", " udp " or " sctp.
-+.BR tcp ", " udp " or " sctp,
-+and finally ICMP matches (\fBcode\fR and \fBtype\fR) depend on
-+.B ip_proto
-+being set to
-+.BR icmp " or " icmpv6.
- .P
- There can be only used one mask per one prio. If user needs to specify different
- mask, he has to use different prio.
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 9899b0175a6a..5dac427e5454 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -28,6 +28,11 @@ enum flower_endpoint {
- 	FLOWER_ENDPOINT_DST
- };
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1ff5ea6e12214db818c2cfa8a9b8ed5cbddc307c..994f7423a74bd622884c3b646f4123d28697b8ad 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -192,6 +192,7 @@ struct net_device_stats {
+ #ifdef CONFIG_RPS
+ #include <linux/static_key.h>
+ extern struct static_key rps_needed;
++extern struct static_key rfs_needed;
+ #endif
  
-+enum flower_icmp_field {
-+	FLOWER_ICMP_FIELD_TYPE,
-+	FLOWER_ICMP_FIELD_CODE
-+};
-+
- static void explain(void)
+ struct neighbour;
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 6dfe3aa22b970eecfab4d4a0753804b1cc82a200..f1f6a07da06facb308a5c76e4de21b804d25ec53 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -913,7 +913,19 @@ static inline void sock_rps_record_flow_hash(__u32 hash)
+ static inline void sock_rps_record_flow(const struct sock *sk)
  {
- 	fprintf(stderr,
-@@ -42,11 +47,13 @@ static void explain(void)
- 		"                       vlan_ethtype [ ipv4 | ipv6 | ETH-TYPE ] |\n"
- 		"                       dst_mac MAC-ADDR |\n"
- 		"                       src_mac MAC-ADDR |\n"
--		"                       ip_proto [tcp | udp | sctp | IP-PROTO ] |\n"
-+		"                       ip_proto [tcp | udp | sctp | icmp | icmpv6 | IP-PROTO ] |\n"
- 		"                       dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       dst_port PORT-NUMBER |\n"
- 		"                       src_port PORT-NUMBER |\n"
-+		"                       type ICMP-TYPE |\n"
-+		"                       code ICMP-CODE }\n"
- 		"                       enc_dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       enc_src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       enc_key_id [ KEY-ID ] }\n"
-@@ -98,16 +105,23 @@ static int flower_parse_ip_proto(char *str, __be16 eth_type, int type,
- 	int ret;
- 	__u8 ip_proto;
- 
--	if (eth_type != htons(ETH_P_IP) && eth_type != htons(ETH_P_IPV6)) {
--		fprintf(stderr, "Illegal \"eth_type\" for ip proto\n");
--		return -1;
--	}
-+	if (eth_type != htons(ETH_P_IP) && eth_type != htons(ETH_P_IPV6))
-+		goto err;
-+
- 	if (matches(str, "tcp") == 0) {
- 		ip_proto = IPPROTO_TCP;
- 	} else if (matches(str, "udp") == 0) {
- 		ip_proto = IPPROTO_UDP;
- 	} else if (matches(str, "sctp") == 0) {
- 		ip_proto = IPPROTO_SCTP;
-+	} else if (matches(str, "icmp") == 0) {
-+		if (eth_type != htons(ETH_P_IP))
-+			goto err;
-+		ip_proto = IPPROTO_ICMP;
-+	} else if (matches(str, "icmpv6") == 0) {
-+		if (eth_type != htons(ETH_P_IPV6))
-+			goto err;
-+		ip_proto = IPPROTO_ICMPV6;
- 	} else {
- 		ret = get_u8(&ip_proto, str, 16);
- 		if (ret)
-@@ -116,6 +130,10 @@ static int flower_parse_ip_proto(char *str, __be16 eth_type, int type,
- 	addattr8(n, MAX_MSG, type, ip_proto);
- 	*p_ip_proto = ip_proto;
- 	return 0;
-+
-+err:
-+	fprintf(stderr, "Illegal \"eth_type\" for ip proto\n");
-+	return -1;
+ #ifdef CONFIG_RPS
+-	sock_rps_record_flow_hash(sk->sk_rxhash);
++	if (static_key_false(&rfs_needed)) {
++		/* Reading sk->sk_rxhash might incur an expensive cache line miss.
++		 *
++		 * TCP_ESTABLISHED does not cover all states where RFS
++		 * might be useful, but looks cheaper [1] than testing :
++		 *	IPv4: inet_sk(sk)->inet_daddr
++		 * 	IPv6: ipv6_addr_any(&sk->sk_v6_daddr)
++		 * OR	an additional socket flag
++		 * [1] : sk_state and sk_prot are in the same cache line.
++		 */
++		if (sk->sk_state == TCP_ESTABLISHED)
++			sock_rps_record_flow_hash(sk->sk_rxhash);
++	}
+ #endif
  }
  
- static int flower_parse_ip_addr(char *str, __be16 eth_type,
-@@ -171,6 +189,41 @@ static int flower_parse_ip_addr(char *str, __be16 eth_type,
- 	return 0;
- }
+diff --git a/net/core/dev.c b/net/core/dev.c
+index bffb5253e77867b1d6a0ada7cc99f4605e03ad28..1d33ce03365f1e10996ad5274e86bf351a526284 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3447,6 +3447,8 @@ EXPORT_SYMBOL(rps_cpu_mask);
  
-+static int flower_icmp_attr_type(__be16 eth_type, __u8 ip_proto,
-+				 enum flower_icmp_field field)
-+{
-+	if (eth_type == htons(ETH_P_IP) && ip_proto == IPPROTO_ICMP)
-+		return field == FLOWER_ICMP_FIELD_CODE ?
-+			TCA_FLOWER_KEY_ICMPV4_CODE :
-+			TCA_FLOWER_KEY_ICMPV4_TYPE;
-+	else if (eth_type == htons(ETH_P_IPV6) && ip_proto == IPPROTO_ICMPV6)
-+		return field == FLOWER_ICMP_FIELD_CODE ?
-+			TCA_FLOWER_KEY_ICMPV6_CODE :
-+			TCA_FLOWER_KEY_ICMPV6_TYPE;
-+
-+	return -1;
-+}
-+
-+static int flower_parse_icmp(char *str, __u16 eth_type, __u8 ip_proto,
-+			     enum flower_icmp_field field, struct nlmsghdr *n)
-+{
-+	int ret;
-+	int type;
-+	uint8_t value;
-+
-+	type = flower_icmp_attr_type(eth_type, ip_proto, field);
-+	if (type < 0)
-+		return -1;
-+
-+	ret = get_u8(&value, str, 10);
-+	if (ret)
-+		return -1;
-+
-+	addattr8(n, MAX_MSG, type, value);
-+
-+	return 0;
-+}
-+
- static int flower_port_attr_type(__u8 ip_proto, enum flower_endpoint endpoint)
- {
- 	if (ip_proto == IPPROTO_TCP)
-@@ -381,6 +434,22 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 				fprintf(stderr, "Illegal \"src_port\"\n");
- 				return -1;
+ struct static_key rps_needed __read_mostly;
+ EXPORT_SYMBOL(rps_needed);
++struct static_key rfs_needed __read_mostly;
++EXPORT_SYMBOL(rfs_needed);
+ 
+ static struct rps_dev_flow *
+ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 0df2aa6525308a365d89f57f6da76d57a24238f0..2a46e4009f62d8c2ac8949789ae9626b0c016a11 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -79,10 +79,13 @@ static int rps_sock_flow_sysctl(struct ctl_table *table, int write,
+ 
+ 		if (sock_table != orig_sock_table) {
+ 			rcu_assign_pointer(rps_sock_flow_table, sock_table);
+-			if (sock_table)
++			if (sock_table) {
+ 				static_key_slow_inc(&rps_needed);
++				static_key_slow_inc(&rfs_needed);
++			}
+ 			if (orig_sock_table) {
+ 				static_key_slow_dec(&rps_needed);
++				static_key_slow_dec(&rfs_needed);
+ 				synchronize_rcu();
+ 				vfree(orig_sock_table);
  			}
-+		} else if (matches(*argv, "type") == 0) {
-+			NEXT_ARG();
-+			ret = flower_parse_icmp(*argv, eth_type, ip_proto,
-+						FLOWER_ICMP_FIELD_TYPE, n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"icmp type\"\n");
-+				return -1;
-+			}
-+		} else if (matches(*argv, "code") == 0) {
-+			NEXT_ARG();
-+			ret = flower_parse_icmp(*argv, eth_type, ip_proto,
-+						FLOWER_ICMP_FIELD_CODE, n);
-+			if (ret < 0) {
-+				fprintf(stderr, "Illegal \"icmp code\"\n");
-+				return -1;
-+			}
- 		} else if (matches(*argv, "enc_dst_ip") == 0) {
- 			NEXT_ARG();
- 			ret = flower_parse_ip_addr(*argv, 0,
-@@ -526,6 +595,10 @@ static void flower_print_ip_proto(FILE *f, __u8 *p_ip_proto,
- 		fprintf(f, "udp");
- 	else if (ip_proto == IPPROTO_SCTP)
- 		fprintf(f, "sctp");
-+	else if (ip_proto == IPPROTO_ICMP)
-+		fprintf(f, "icmp");
-+	else if (ip_proto == IPPROTO_ICMPV6)
-+		fprintf(f, "icmpv6");
- 	else
- 		fprintf(f, "%02x", ip_proto);
- 	*p_ip_proto = ip_proto;
-@@ -581,6 +654,12 @@ static void flower_print_key_id(FILE *f, const char *name,
- 		fprintf(f, "\n  %s %d", name, rta_getattr_be32(attr));
- }
- 
-+static void flower_print_icmp(FILE *f, char *name, struct rtattr *attr)
-+{
-+	if (attr)
-+		fprintf(f, "\n  %s %d", name, rta_getattr_u8(attr));
-+}
-+
- static int flower_print_opt(struct filter_util *qu, FILE *f,
- 			    struct rtattr *opt, __u32 handle)
- {
-@@ -649,6 +728,13 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
- 	if (nl_type >= 0)
- 		flower_print_port(f, "src_port", tb[nl_type]);
- 
-+	nl_type = flower_icmp_attr_type(eth_type, ip_proto, false);
-+	if (nl_type >= 0)
-+		flower_print_icmp(f, "icmp_type", tb[nl_type]);
-+	nl_type = flower_icmp_attr_type(eth_type, ip_proto, true);
-+	if (nl_type >= 0)
-+		flower_print_icmp(f, "icmp_code", tb[nl_type]);
-+
- 	flower_print_ip_addr(f, "enc_dst_ip",
- 			     tb[TCA_FLOWER_KEY_ENC_IPV4_DST_MASK] ?
- 			     htons(ETH_P_IP) : htons(ETH_P_IPV6),
--- 
-2.7.0.rc3.207.g0ac5344
