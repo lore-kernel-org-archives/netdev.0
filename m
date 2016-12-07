@@ -1,123 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/19] i40e: restore workaround for removing default MAC filter
-Date: Wed,  7 Dec 2016 14:19:02 -0800
-Message-ID: <20161207221918.57932-4-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/19] Changed version from 1.6.21 to 1.6.25
+Date: Wed,  7 Dec 2016 14:19:06 -0800
+Message-ID: <20161207221918.57932-8-jeffrey.t.kirsher@intel.com>
 References: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Bimmy Pujari <bimmy.pujari@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:42627 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:28873 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933392AbcLGWUN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 17:20:13 -0500
+        id S932141AbcLGWUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 17:20:14 -0500
 In-Reply-To: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Bimmy Pujari <bimmy.pujari@intel.com>
 
-A previous commit 53cb6e9e8949 ("i40e: Removal of workaround for simple
-MAC address filter deletion") removed a workaround for some
-firmware versions which was reported to not be necessary in production
-NICs. Unfortunately this workaround is necessary in some configurations,
-specifically the Ethernet Controller XL710 for 40GbE QSFP+ (8086:1583).
-
-Without this patch, the mentioned NICs with current firmware exhibit
-issues when adding VLANs, as outlined by the following reproduction:
-
-  $modprobe i40e
-  $ip link set <device> up
-  $ip link add link <device> vlan100 type vlan id 100
-  $dmesg | tail
-  <snip>
-  kernel: i40e 0000:82:00.0: Error I40E_AQ_RC_EINVAL adding RX
-filters on PF, promiscuous mode forced on
-
-This results in filters being marked as FAILED and setting the device in
-promiscuous mode.
-
-The root cause of receiving the -EINVAL error response appears to be due
-to a conflict with the default MAC filter which still exists on the
-default firmware for this device. Attempting to add a new VLAN filter on
-the default MAC address conflicts with the IGNORE_VLAN setting on the
-default rule.
-
-Change-ID: I4d8f6d48ac5f60cfe981b3baad30eb4d7c170d61
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Bimmy Pujari <bimmy.pujari@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 41 +++++++++++++++++++++++++++++
- 1 file changed, 41 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 4534d41..c467cc4 100644
+index dbb854b..aecf63b 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1226,6 +1226,39 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi)
- }
+@@ -41,7 +41,7 @@ static const char i40e_driver_string[] =
  
- /**
-+ * i40e_rm_default_mac_filter - Remove the default MAC filter set by NVM
-+ * @vsi: the PF Main VSI - inappropriate for any other VSI
-+ * @macaddr: the MAC address
-+ *
-+ * Remove whatever filter the firmware set up so the driver can manage
-+ * its own filtering intelligently.
-+ **/
-+static void i40e_rm_default_mac_filter(struct i40e_vsi *vsi, u8 *macaddr)
-+{
-+	struct i40e_aqc_remove_macvlan_element_data element;
-+	struct i40e_pf *pf = vsi->back;
-+
-+	/* Only appropriate for the PF main VSI */
-+	if (vsi->type != I40E_VSI_MAIN)
-+		return;
-+
-+	memset(&element, 0, sizeof(element));
-+	ether_addr_copy(element.mac_addr, macaddr);
-+	element.vlan_tag = 0;
-+	/* Ignore error returns, some firmware does it this way... */
-+	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
-+	i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
-+
-+	memset(&element, 0, sizeof(element));
-+	ether_addr_copy(element.mac_addr, macaddr);
-+	element.vlan_tag = 0;
-+	/* ...and some firmware does it this way. */
-+	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH |
-+			I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
-+	i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
-+}
-+
-+/**
-  * i40e_add_filter - Add a mac/vlan filter to the VSI
-  * @vsi: the VSI to be searched
-  * @macaddr: the MAC address
-@@ -9295,6 +9328,12 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 	if (vsi->type == I40E_VSI_MAIN) {
- 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
- 		ether_addr_copy(mac_addr, hw->mac.perm_addr);
-+		/* The following steps are necessary to prevent reception
-+		 * of tagged packets - some older NVM configurations load a
-+		 * default a MAC-VLAN filter that accepts any tagged packet
-+		 * which must be replaced by a normal filter.
-+		 */
-+		i40e_rm_default_mac_filter(vsi, mac_addr);
- 		spin_lock_bh(&vsi->mac_filter_hash_lock);
- 		i40e_add_filter(vsi, mac_addr, I40E_VLAN_ANY);
- 		spin_unlock_bh(&vsi->mac_filter_hash_lock);
-@@ -9828,6 +9867,8 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
- 	pf->vsi[pf->lan_vsi]->tc_config.enabled_tc = 0;
- 	pf->vsi[pf->lan_vsi]->seid = pf->main_vsi_seid;
- 	i40e_vsi_config_tc(pf->vsi[pf->lan_vsi], enabled_tc);
-+	if (vsi->type == I40E_VSI_MAIN)
-+		i40e_rm_default_mac_filter(vsi, pf->hw.mac.perm_addr);
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 6
+-#define DRV_VERSION_BUILD 21
++#define DRV_VERSION_BUILD 25
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index ca85021..c0fc533 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -38,7 +38,7 @@ static const char i40evf_driver_string[] =
  
- 	/* assign it some queues */
- 	ret = i40e_alloc_rings(vsi);
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 6
+-#define DRV_VERSION_BUILD 21
++#define DRV_VERSION_BUILD 25
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD) \
 -- 
 2.9.3
