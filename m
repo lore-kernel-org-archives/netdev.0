@@ -1,39 +1,44 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] of: add optional naming of interfaces
-Date: Wed, 7 Dec 2016 09:49:46 -0800
-Message-ID: <626a2f04-6fc0-f04e-671c-4fd1e90db344@gmail.com>
-References: <1481116349-20678-1-git-send-email-volodymyr.bendiuga@westermo.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
+Date: Wed, 07 Dec 2016 09:52:54 -0800
+Message-ID: <1481133174.4930.42.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB0237532@AcuExch.aculab.com>
+         <1481131924.4930.40.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481132267.1541189.811630457.167E9C56@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jonas Johansson <jonas.johansson-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>,
-        =?UTF-8?Q?Mattias_Walstr=c3=b6m?= <lazzer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Volodymyr Bendiuga <volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        volodymyr.bendiuga-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1481116349-20678-1-git-send-email-volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+        Paolo Abeni <pabeni@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34743 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753112AbcLGRx4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:53:56 -0500
+Received: by mail-pg0-f68.google.com with SMTP id e9so24088007pgc.1
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 09:53:56 -0800 (PST)
+In-Reply-To: <1481132267.1541189.811630457.167E9C56@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/07/2016 05:12 AM, Volodymyr Bendiuga wrote:
-> From: Jonas Johansson <jonas.johansson-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
+On Wed, 2016-12-07 at 18:37 +0100, Hannes Frederic Sowa wrote:
+
+> I had the same idea while discussing that with Paolo, merely using an
+> *atomic_t = kmalloc(sizeof(atomic_t)) out of band of the socket.
 > 
-> Signed-off-by: Mattias Walström <lazzer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Jonas Johansson <jonas.johansson-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
+> My fear was that those could be aggregated by the slab cache into one
+> cache line, causing even more heating on cachelines.
 
-This does not belong to the Device Tree, there should be plenty of
-information in user-space to make an educated device rename. I
-definitively understand that some drivers (e.g: dsa) do actually get
-their interface name from Device Tree directly (label property), but
-this is probably the one and only case where this may be tolerated.
-
-Besides, if you submit such a change, you would want to also provide a
-consumer of that API to illustrate how this is used.
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For hot stuff, better use kmalloc(max_t(size_t, 
+                                        L1_CACHE_BYTES,
+                                        sizeof(...)) 
+to avoid false sharing, unless this is per cpu data of course.
