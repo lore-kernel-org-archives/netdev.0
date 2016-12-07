@@ -1,11 +1,11 @@
 From: Paolo Abeni <pabeni@redhat.com>
 Subject: Re: [PATCH net-next] net: sock_rps_record_flow() is for connected
  sockets
-Date: Wed, 07 Dec 2016 08:57:08 +0100
-Message-ID: <1481097428.5535.12.camel@redhat.com>
+Date: Wed, 07 Dec 2016 08:59:11 +0100
+Message-ID: <1481097551.5535.14.camel@redhat.com>
 References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
          <1480944138.4694.37.camel@redhat.com>
-             <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
          <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
          <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
          <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
@@ -14,56 +14,80 @@ References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
          <1481051786.7129.22.camel@redhat.com>
          <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
          <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Tom Herbert <tom@herbertland.com>
+        Willem de Bruijn <willemb@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53280 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56662 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752784AbcLGH5N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:57:13 -0500
-In-Reply-To: <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
+        id S1751011AbcLGH7O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:59:14 -0500
+In-Reply-To: <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-12-06 at 22:47 -0800, Eric Dumazet wrote:
-> On Tue, 2016-12-06 at 19:32 -0800, Eric Dumazet wrote:
-> > A follow up patch will provide a static_key (Jump Label) since most
-> > hosts do not even use RFS.
+On Tue, 2016-12-06 at 19:32 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Speaking of static_key, it appears we now have GRO on UDP, and this
-> consumes a considerable amount of cpu cycles.
+> Paolo noticed a cache line miss in UDP recvmsg() to access
+> sk_rxhash, sharing a cache line with sk_drops.
 > 
-> Turning off GRO allows me to get +20 % more packets on my single UDP
-> socket. (1.2 Mpps instead of 1.0 Mpps)
-
-I see also an improvement for single flow tests disabling GRO, but on a
-smaller scale (~5% if I recall correctly).
-
-> Surely udp_gro_receive() should be bypassed if no UDP socket has
-> registered a udp_sk(sk)->gro_receive handler 
+> sk_drops might be heavily incremented by cpus handling a flood targeting
+> this socket.
 > 
-> And/or delay the inet_add_offload(&udpv{4|6}_offload, IPPROTO_UDP); to
-> the first UDP sockets setting udp_sk(sk)->gro_receive handler,
-> ie udp_encap_enable() and udpv6_encap_enable()
+> We might place sk_drops on a separate cache line, but lets try
+> to avoid wasting 64 bytes per socket just for this, since we have
+> other bottlenecks to take care of.
+> 
+> sock_rps_record_flow() should only access sk_rxhash for connected
+> flows.
+> 
+> Testing sk_state for TCP_ESTABLISHED covers most of the cases for
+> connected sockets, for a zero cost, since system calls using
+> sock_rps_record_flow() also access sk->sk_prot which is on the
+> same cache line.
+> 
+> A follow up patch will provide a static_key (Jump Label) since most
+> hosts do not even use RFS.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  include/net/sock.h |   12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 6dfe3aa22b970eecfab4d4a0753804b1cc82a200..a7ddab993b496f1f4060f0b41831a161c284df9e 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -913,7 +913,17 @@ static inline void sock_rps_record_flow_hash(__u32 hash)
+>  static inline void sock_rps_record_flow(const struct sock *sk)
+>  {
+>  #ifdef CONFIG_RPS
+> -	sock_rps_record_flow_hash(sk->sk_rxhash);
+> +	/* Reading sk->sk_rxhash might incur an expensive cache line miss.
+> +	 *
+> +	 * TCP_ESTABLISHED does cover almost all states where RFS
+> +	 * might be useful, and is cheaper [1] than testing :
+> +	 *	IPv4: inet_sk(sk)->inet_daddr
+> +	 * 	IPv6: ipv6_addr_any(&sk->sk_v6_daddr)
+> +	 * OR	an additional socket flag
+> +	 * [1] : sk_state and sk_prot are in the same cache line.
+> +	 */
+> +	if (sk->sk_state == TCP_ESTABLISHED)
+> +		sock_rps_record_flow_hash(sk->sk_rxhash);
+>  #endif
+>  }
 
-I had some patches adding explicit static keys for udp_gro_receive, but
-they were ugly and I did not get that much gain (I measured ~1-2%
-skipping udp_gro_receive only). I can try to refresh them anyway.
+Thank you for the very prompt patch!
 
-We have some experimental patches to implement GRO for plain UDP
-connected sockets, using frag_list to preserve the individual skb len,
-and deliver the packet to user space individually. With that I got
-~3mpps with a single queue/user space sink - before the recent udp
-improvements. I would like to present these patches on netdev soon (no
-sooner than next week, anyway).
+You made me curious about your other idea on this topic, this what you
+initially talked about, right ?
 
-Cheers,
+LGTM.
 
-Paolo
+Acked-by: Paolo Abeni <pabeni@redhat.com>
