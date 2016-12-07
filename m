@@ -1,45 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
-Date: Wed, 07 Dec 2016 09:55:12 -0800
-Message-ID: <1481133312.4930.44.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
-         <063D6719AE5E284EB5DD2968C1650D6DB0237532@AcuExch.aculab.com>
-         <1481131924.4930.40.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481132267.1541189.811630457.167E9C56@webmail.messagingengine.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: return value of skb_linearize should be handled in
+ Linux kernel
+Date: Wed, 7 Dec 2016 09:57:45 -0800
+Message-ID: <CAM_iQpWPkUnMhNykQtg3fSh6-SnB893p0j6-m0E0fZUgTUBw0g@mail.gmail.com>
+References: <1481008233-16777-1-git-send-email-zhouzhouyi@gmail.com>
+ <CAM_iQpX0nA10tCzfZr_q5i6V2hWqfMUkvXdfo+Ro1TWHOEVi_A@mail.gmail.com> <CAABZP2w_YsXgzZ0tH=r3mnLUbVfpY8Xn3vk9XoS_Hq1r8aeNUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-        Paolo Abeni <pabeni@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36603 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932215AbcLGR4O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:56:14 -0500
-Received: by mail-pg0-f65.google.com with SMTP id x23so24131444pgx.3
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 09:56:14 -0800 (PST)
-In-Reply-To: <1481132267.1541189.811630457.167E9C56@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: faisal.latif@intel.com, dledford@redhat.com, sean.hefty@intel.com,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        QLogic-Storage-Upstream@qlogic.com, jejb@linux.vnet.ibm.com,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Johannes Thumshirn <jth@kernel.org>, jon.maloy@ericsson.com,
+        ying.xue@windriver.com, David Miller <davem@davemloft.net>,
+        linux-rdma@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-scsi@vger.kernel.org, fcoe-devel@open-fcoe.org,
+        tipc-discussion@lists.sourceforge.net
+To: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAABZP2w_YsXgzZ0tH=r3mnLUbVfpY8Xn3vk9XoS_Hq1r8aeNUQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-12-07 at 18:37 +0100, Hannes Frederic Sowa wrote:
+On Tue, Dec 6, 2016 at 10:27 PM, Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
+> On Wed, Dec 7, 2016 at 1:02 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Mon, Dec 5, 2016 at 11:10 PM, Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
+>>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+>>> index 2a653ec..ab787cb 100644
+>>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+>>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+>>> @@ -490,7 +490,11 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+>>>          */
+>>>         if ((fh->fh_r_ctl == FC_RCTL_DD_SOL_DATA) &&
+>>>             (fctl & FC_FC_END_SEQ)) {
+>>> -               skb_linearize(skb);
+>>> +               int err = 0;
+>>> +
+>>> +               err = skb_linearize(skb);
+>>> +               if (err)
+>>> +                       return err;
+>>
+>>
+>> You can reuse 'rc' instead of adding 'err'.
+> rc here is meaningful for the length of data being ddped. If using rc
+> here, a successful
+> skb_linearize will assign rc to 0.
 
-> I had the same idea while discussing that with Paolo, merely using an
-> *atomic_t = kmalloc(sizeof(atomic_t)) out of band of the socket.
-> 
-> My fear was that those could be aggregated by the slab cache into one
-> cache line, causing even more heating on cachelines.
+Right, I thought it returns 0 on success.
 
-My exact idea was to let up to 4095 (or PAGE_SIZE - 1) increments being
-done on the counter before switching to dynamically allocated memory.
 
-( Some packets might be dropped by TCP sockets, not necessarily a sign
-of an attack. just some spurious retransmits )
+>>
+>>
+>>
+>>>                 crc = (struct fcoe_crc_eof *)skb_put(skb, sizeof(*crc));
+>>>                 crc->fcoe_eof = FC_EOF_T;
+>>>         }
+>>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> index fee1f29..4926d48 100644
+>>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>>> @@ -2173,8 +2173,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+>>>                                 total_rx_bytes += ddp_bytes;
+>>>                                 total_rx_packets += DIV_ROUND_UP(ddp_bytes,
+>>>                                                                  mss);
+>>> -                       }
+>>> -                       if (!ddp_bytes) {
+>>> +                       } else {
+>>>                                 dev_kfree_skb_any(skb);
+>>>                                 continue;
+>>>                         }
+>>
+>>
+>> This piece doesn't seem to be related.
+> if ddp_bytes is negative there will be some error, I think the skb
+> should not pass to upper layer.
+
+You misunderstand my point, this return value is for ixgbe_fcoe_ddp()
+not skb_linearize(), you need to make it a separate patch because this
+patch, as in $subject, only fixes skb_linearize().
