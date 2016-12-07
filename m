@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: stmmac driver...
-Date: Wed, 07 Dec 2016 13:06:54 -0500 (EST)
-Message-ID: <20161207.130654.1484281922991494182.davem@davemloft.net>
+Subject: Re: [PATCH] net: stmmac: do not call phy_ethtool_ksettings_set
+ from atomic context
+Date: Wed, 07 Dec 2016 13:09:14 -0500 (EST)
+Message-ID: <20161207.130914.1091695245299713548.davem@davemloft.net>
+References: <1481032035-19018-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexandre.torgue@st.com, netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36754 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932226AbcLGSHB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 13:07:01 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: niklas.cassel@axis.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481032035-19018-1-git-send-email-niklass@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Niklas Cassel <niklas.cassel@axis.com>
+Date: Tue, 6 Dec 2016 14:47:15 +0100
 
-Giuseppe and Alexandre,
+> From: Niklas Cassel <niklas.cassel@axis.com>
+> 
+> From what I can tell, spin_lock(&priv->lock) is not needed, since the
+> phy_ethtool_ksettings_set call is not given the priv struct.
+> 
+> phy_start_aneg takes the phydev->lock. Calls to phy_adjust_link
+> from phy_state_machine also takes the phydev->lock.
+...
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 
-There are a lot of patches and discussions happening around the stammc
-driver lately and both of you are listed as the maintainers.
+Applied, but please always be explicit about what tree you are targetting
+this patch by properly annotating for it in your Subject line.
 
-I really need prompt and conclusive reviews of these patch submissions
-from you, and participation in all discussions about the driver.
-
-Otherwise I have only three things I can do: 1) let the patches rot in
-patchwork for days 2) trust that the patches are sane and fit your
-desires and goals and just apply them or 3) reject them since they
-aren't being reviewed properly.
-
-Thanks in advance.
+In this case that would be "Subject: [PATCH net-next] ..."
