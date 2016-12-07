@@ -1,37 +1,54 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net/udp: do not touch skb->peeked unless really needed
-Date: Wed, 7 Dec 2016 17:09:41 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0237532@AcuExch.aculab.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481020451.6225.38.camel@redhat.com>
- <1481044098.7129.7.camel@redhat.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v3 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
+ prog
+Date: Wed, 07 Dec 2016 18:14:13 +0100
+Message-ID: <58484365.4010201@iogearbox.net>
+References: <5847D723.3020908@iogearbox.net>        <20161207114112.6ad86da3@jkicinski-Precision-T1700>        <20161207163756.GA33446@ast-mbp.thefacebook.com> <20161207.120413.939362482173997833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: 'Paolo Abeni' <pabeni@redhat.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kubakici@wp.pl, kafai@fb.com, netdev@vger.kernel.org, ast@fb.com,
+        bblanco@plumgrid.com, brouer@redhat.com, john.fastabend@gmail.com,
+        saeedm@mellanox.com, tariqt@mellanox.com, kernel-team@fb.com
+To: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:60606 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932424AbcLGRJt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:09:49 -0500
-In-Reply-To: <1481044098.7129.7.camel@redhat.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:43311 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752142AbcLGROU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:14:20 -0500
+In-Reply-To: <20161207.120413.939362482173997833.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUGFvbG8gQWJlbmkNCj4gU2VudDogMDYgRGVjZW1iZXIgMjAxNiAxNzowOA0KLi4uDQo+
-IEBAIC03OSw2ICs4Miw5IEBAIHN0cnVjdCB1ZHBfc29jayB7DQo+ICAJaW50CQkJKCpncm9fY29t
-cGxldGUpKHN0cnVjdCBzb2NrICpzaywNCj4gIAkJCQkJCXN0cnVjdCBza19idWZmICpza2IsDQo+
-ICAJCQkJCQlpbnQgbmhvZmYpOw0KPiArDQo+ICsJLyogc2luY2Ugd2UgYXJlIHByb25lIHRvIGRy
-b3BzLCBhdm9pZCBkaXJ0eWluZyBhbnkgc2sgY2FjaGVsaW5lICovDQo+ICsJYXRvbWljX3QJCWRy
-b3BzIF9fX19jYWNoZWxpbmVfYWxpZ25lZF9pbl9zbXA7DQo+ICB9Ow0KDQpJc24ndCB0aGF0IGxp
-a2VseSB0byBjcmVhdGUgYSBsYXJnZSBob2xlIG9uIHN5c3RlbXMgd2l0aCBsYXJnZSBjYWNoZSBs
-aW5lcy4NCihTYW1lIGFzIGFueSBvdGhlciB1c2Ugb2YgX19fX2NhY2hlbGluZV9hbGlnbmVkX2lu
-X3NtcC4pDQoNCglEYXZpZA0KDQo=
+On 12/07/2016 06:04 PM, David Miller wrote:
+> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Date: Wed, 7 Dec 2016 08:37:58 -0800
+>
+>> On Wed, Dec 07, 2016 at 11:41:12AM +0000, Jakub Kicinski wrote:
+>>>> I see nothing wrong if this is exposed/made visible in the usual way through
+>>>> ethtool -k as well. I guess at least that would be the expected way to query
+>>>> for such driver capabilities.
+>>>
+>>> +1 on exposing this to user space.  Whether via ethtool -k or a
+>>> separate XDP-specific netlink message is mostly a question of whether
+>>> we expect the need to expose more complex capabilities than bits.
+>>
+>> I'm very much against using NETIF_F_ flags and exposing this to user space.
+>> I see this xdp feature flag as temporary workaround until all drivers
+>> support adjust_head() helper. It is very much a fundamental feature for xdp.
+>> Without being able to add/remove headers the usability of xdp becomes very limited.
+>>
+>> If you guys dont like extra ndo_xdp command, I'd suggest to do
+>> "if (prog->xdp_adjust_head)" check in the driver and if driver doesn't
+>> support it yet, just fail XDP_SETUP_PROG command.
+>> imo that will be more flexible interface, since in the future drivers
+>> can fail on different combination of features and simple boolean flag
+>> unlikely to serve us for long time.
+>
+> Indeed, if the eventual plan is to have all drivers be required to
+> support a fundamental set of XDP features then exporting this in any
+> way to userspace is not a good idea.
+
+Agreed, if that is required anyway, then much better and simpler to just
+return the -ENOTSUPP from the XDP_SETUP_PROG handling of each driver that
+way.
