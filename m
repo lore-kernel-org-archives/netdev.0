@@ -1,8 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v5 08/13] net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs
-Date: Tue, 6 Dec 2016 18:00:40 -0600
-Message-ID: <20161207000045.28333-9-grygorii.strashko@ti.com>
-References: <20161207000045.28333-1-grygorii.strashko@ti.com>
+Subject: [PATCH v5 00/13] net: ethernet: ti: cpts: update and fixes
+Date: Tue, 6 Dec 2016 18:00:32 -0600
+Message-ID: <20161207000045.28333-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
@@ -14,39 +13,71 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:32285 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751816AbcLGABC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 19:01:02 -0500
-In-Reply-To: <20161207000045.28333-1-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-CPTS module and IRQs are always enabled when CPTS is registered,
-before starting overflow check work, and disabled during
-deregistration, when overflow check work has been canceled already.
-So, It doesn't require to (re)enable CPTS module and IRQs in
-cpts_overflow_check().
+It is preparation series intended to clean up and optimize TI CPTS driver to
+facilitate further integration with other TI's SoCs like Keystone 2.
 
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/ti/cpts.c | 2 --
- 1 file changed, 2 deletions(-)
+Changes in v5:
+- fixed copy paste error in cpts_release
+- reworked cc.mult/shift and cc_mult initialization 
 
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 7ab1fa7..fe1bb7f 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -243,8 +243,6 @@ static void cpts_overflow_check(struct work_struct *work)
- 	struct timespec64 ts;
- 	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
+Changes in v4:
+- fixed build error in patch
+  "net: ethernet: ti: cpts: clean up event list if event pool is empty"
+- rebased on top of net-next
  
--	cpts_write32(cpts, CPTS_EN, control);
--	cpts_write32(cpts, TS_PEND_EN, int_enable);
- 	cpts_ptp_gettime(&cpts->info, &ts);
- 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
- 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+Changes in v3:
+- patches reordered: fixes and small updates moved first
+- added comments in code about cpts->cc_mult
+- conversation range (maxsec) limited to 10sec
+
+Changes in v2:
+- patch "net: ethernet: ti: cpts: rework initialization/deinitialization"
+  was split on 4 patches
+- applied comments from Richard Cochran
+- dropped patch
+  "net: ethernet: ti: cpts: add return value to tx and rx timestamp funcitons"
+- new patches added:
+  "net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs"
+  and "clocksource: export the clocks_calc_mult_shift to use by timestamp code"
+
+Links on prev versions:
+v4: https://lkml.org/lkml/2016/12/6/496
+v3: https://www.spinics.net/lists/devicetree/msg153474.html
+v2: http://www.mail-archive.com/linux-kernel@vger.kernel.org/msg1282034.html
+v1: http://www.spinics.net/lists/linux-omap/msg131925.html
+
+Grygorii Strashko (11):
+  net: ethernet: ti: cpts: switch to readl/writel_relaxed()
+  net: ethernet: ti: allow cpts to be built separately
+  net: ethernet: ti: cpsw: minimize direct access to struct cpts
+  net: ethernet: ti: cpts: fix unbalanced clk api usage in cpts_register/unregister
+  net: ethernet: ti: cpts: fix registration order
+  net: ethernet: ti: cpts: disable cpts when unregistered
+  net: ethernet: ti: cpts: drop excessive writes to CTRL and INT_EN regs
+  net: ethernet: ti: cpts: rework initialization/deinitialization
+  net: ethernet: ti: cpts: move dt props parsing to cpts driver
+  net: ethernet: ti: cpts: calc mult and shift from refclk freq
+  net: ethernet: ti: cpts: fix overflow check period
+
+Murali Karicheri (1):
+  clocksource: export the clocks_calc_mult_shift to use by timestamp code
+
+WingMan Kwok (1):
+  net: ethernet: ti: cpts: clean up event list if event pool is empty
+
+ Documentation/devicetree/bindings/net/cpsw.txt |   8 +-
+ drivers/net/ethernet/ti/Kconfig                |   2 +-
+ drivers/net/ethernet/ti/Makefile               |   3 +-
+ drivers/net/ethernet/ti/cpsw.c                 |  84 ++++-----
+ drivers/net/ethernet/ti/cpsw.h                 |   2 -
+ drivers/net/ethernet/ti/cpts.c                 | 233 ++++++++++++++++++-------
+ drivers/net/ethernet/ti/cpts.h                 |  80 ++++++++-
+ kernel/time/clocksource.c                      |   1 +
+ 8 files changed, 297 insertions(+), 116 deletions(-)
+
 -- 
 2.10.1
