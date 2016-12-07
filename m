@@ -1,61 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/1] ixgbe: fcoe: return value of skb_linearize should
- be handled
-Date: Wed, 07 Dec 2016 09:30:04 -0800
-Message-ID: <1481131804.2404.10.camel@intel.com>
-References: <1481096614-25295-1-git-send-email-zhouzhouyi@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
+Date: Wed, 07 Dec 2016 09:32:04 -0800
+Message-ID: <1481131924.4930.40.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB0237532@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-fstTrj3LKi4XZEAT7ZWY"
-Cc: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: Zhouyi Zhou <zhouzhouyi@gmail.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481096614-25295-1-git-send-email-zhouzhouyi@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-fstTrj3LKi4XZEAT7ZWY
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2016-12-07 at 15:43 +0800, Zhouyi Zhou wrote:
-> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-> Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>=C2=A0
-> Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c | 6 +++++-
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 +--
-> =C2=A02 files changed, 6 insertions(+), 3 deletions(-)
-
-Did Cong, Yuval and Eric give their Reviewed-by offline?  I see they made
-comments and suggests, but never saw them actually give you their Reviewed-
-by.  You cannot automatically add their Reviewed-by, Signed-off-by, etc
-just because someone provides feedback on your patch.
---=-fstTrj3LKi4XZEAT7ZWY
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
+Cc: 'Paolo Abeni' <pabeni@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34641 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752184AbcLGRdG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:33:06 -0500
+Received: by mail-pg0-f67.google.com with SMTP id e9so24042390pgc.1
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 09:33:05 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0237532@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+On Wed, 2016-12-07 at 17:09 +0000, David Laight wrote:
+> From: Paolo Abeni
+> > Sent: 06 December 2016 17:08
+> ...
+> > @@ -79,6 +82,9 @@ struct udp_sock {
+> >  	int			(*gro_complete)(struct sock *sk,
+> >  						struct sk_buff *skb,
+> >  						int nhoff);
+> > +
+> > +	/* since we are prone to drops, avoid dirtying any sk cacheline */
+> > +	atomic_t		drops ____cacheline_aligned_in_smp;
+> >  };
+> 
+> Isn't that likely to create a large hole on systems with large cache lines.
+> (Same as any other use of ____cacheline_aligned_in_smp.)
 
-iQIcBAABCgAGBQJYSEccAAoJEOVv75VaS+3OR8wP/jer9Z/yWPhLKGcefyTCPOyq
-e3NIBBYTTumg2iba/J4xToAU05GPCJmpTqxFGK2/axDAdS9Zo4L1E6KMoT6k/PRH
-J18WQEDOG3uuoNyCQ3O4QAmaJhiDX9/iM6pYwdISO15kS7PSVERVL43UcDWQfCP8
-ZagCz/JMzgvV5dYp/3aELoAGMPby0fklny5eSx0B2orWoSFnXah5vQiSfQGQT73m
-cjukkZ32JRZmzgZUSm9NWcwy1f6bM0FUGEe+a9p9Bz9Pej+48VtGsy0Mdc9zd8mL
-mGZ136MszDgpzqwZyR8XQPFpZpr7DW9lR2XWljejE3QfkFYr1ovgp60ikbezm+zA
-4Pj/g8kXlKEntDhLlg2jifGxLFZTZsEb3LPIis3XHJ4VBTvfZXnt/ksX+vJw9sTk
-njX9qSD4nwVSoDnyeXEcW33cWgT8fl83GZKodgEY0GqhTTHKhAVB1KXfRQtWzauK
-V4KqH0CaVlRhlXorKiZeu7KpszTCLF6ZDzQk4NP/6knQ342eyfw0czN5+DeahWGa
-xPXo4HylGV8rP9Xl9iNvxJnlPTFIF5zoxNOc5+waaZ270+oU75ctchcGxvZxYXXM
-GfJVfmcPXpwFggcsqE8iWvNpVndTcmkaqFB1tpzVBE857gcneVIu9z2IRELgnVck
-PQXSQHqzwA4RB80k99Aq
-=x9Io
------END PGP SIGNATURE-----
+Yes, I would like to avoid that, unless we come to the conclusion it is
+absolutely needed.
 
---=-fstTrj3LKi4XZEAT7ZWY--
+I feel that we could simply use a pointer, and allocate memory on
+demand, since many sockets do not ever experience a drop.
+
+The pointer could stay in a read mostly section.
+
+We even could use per cpu or node counter for some heavy drop cases. 
