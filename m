@@ -1,116 +1,139 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 31/50] netfilter: add and use nf_fwd_netdev_egress
-Date: Wed,  7 Dec 2016 22:52:37 +0100
-Message-ID: <1481147576-5690-32-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 23/50] netfilter: x_tables: pass xt_counters struct instead of packet counter
+Date: Wed,  7 Dec 2016 22:52:29 +0100
+Message-ID: <1481147576-5690-24-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60208 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933392AbcLGVxq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 16:53:46 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 25FF896EE0
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:45 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 16B4BDA85F
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:45 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D8457DA85F
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:42 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-... so we can use current skb instead of working with a clone.
+On SMP we overload the packet counter (unsigned long) to contain
+percpu offset.  Hide this from callers and pass xt_counters address
+instead.
+
+Preparation patch to allocate the percpu counters in page-sized batch
+chunks.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
+Acked-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_dup_netdev.h |  1 +
- net/netfilter/nf_dup_netdev.c         | 33 +++++++++++++++++++++++++--------
- net/netfilter/nft_fwd_netdev.c        |  4 ++--
- 3 files changed, 28 insertions(+), 10 deletions(-)
+ include/linux/netfilter/x_tables.h | 6 +-----
+ net/ipv4/netfilter/arp_tables.c    | 4 ++--
+ net/ipv4/netfilter/ip_tables.c     | 4 ++--
+ net/ipv6/netfilter/ip6_tables.c    | 5 ++---
+ net/netfilter/x_tables.c           | 9 +++++++++
+ 5 files changed, 16 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/netfilter/nf_dup_netdev.h b/include/net/netfilter/nf_dup_netdev.h
-index 397dcae349f9..3e919356bedf 100644
---- a/include/net/netfilter/nf_dup_netdev.h
-+++ b/include/net/netfilter/nf_dup_netdev.h
-@@ -2,5 +2,6 @@
- #define _NF_DUP_NETDEV_H_
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index cd4eaf8df445..6e61edeb68e3 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -430,11 +430,7 @@ static inline unsigned long xt_percpu_counter_alloc(void)
  
- void nf_dup_netdev_egress(const struct nft_pktinfo *pkt, int oif);
-+void nf_fwd_netdev_egress(const struct nft_pktinfo *pkt, int oif);
+ 	return 0;
+ }
+-static inline void xt_percpu_counter_free(u64 pcnt)
+-{
+-	if (nr_cpu_ids > 1)
+-		free_percpu((void __percpu *) (unsigned long) pcnt);
+-}
++void xt_percpu_counter_free(struct xt_counters *cnt);
  
- #endif
-diff --git a/net/netfilter/nf_dup_netdev.c b/net/netfilter/nf_dup_netdev.c
-index 44ae986c383f..c9d7f95768ab 100644
---- a/net/netfilter/nf_dup_netdev.c
-+++ b/net/netfilter/nf_dup_netdev.c
-@@ -14,6 +14,29 @@
- #include <linux/netfilter/nf_tables.h>
- #include <net/netfilter/nf_tables.h>
+ static inline struct xt_counters *
+ xt_get_this_cpu_counter(struct xt_counters *cnt)
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 848a0704b28f..019f8e8dda6d 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -439,7 +439,7 @@ find_check_entry(struct arpt_entry *e, const char *name, unsigned int size)
+ err:
+ 	module_put(t->u.kernel.target->me);
+ out:
+-	xt_percpu_counter_free(e->counters.pcnt);
++	xt_percpu_counter_free(&e->counters);
  
-+static void nf_do_netdev_egress(struct sk_buff *skb, struct net_device *dev)
+ 	return ret;
+ }
+@@ -519,7 +519,7 @@ static inline void cleanup_entry(struct arpt_entry *e)
+ 	if (par.target->destroy != NULL)
+ 		par.target->destroy(&par);
+ 	module_put(par.target->me);
+-	xt_percpu_counter_free(e->counters.pcnt);
++	xt_percpu_counter_free(&e->counters);
+ }
+ 
+ /* Checks and translates the user-supplied table segment (held in
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 46815c8a60d7..acc9a0c45bdf 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -582,7 +582,7 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
+ 		cleanup_match(ematch, net);
+ 	}
+ 
+-	xt_percpu_counter_free(e->counters.pcnt);
++	xt_percpu_counter_free(&e->counters);
+ 
+ 	return ret;
+ }
+@@ -670,7 +670,7 @@ cleanup_entry(struct ipt_entry *e, struct net *net)
+ 	if (par.target->destroy != NULL)
+ 		par.target->destroy(&par);
+ 	module_put(par.target->me);
+-	xt_percpu_counter_free(e->counters.pcnt);
++	xt_percpu_counter_free(&e->counters);
+ }
+ 
+ /* Checks and translates the user-supplied table segment (held in
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 6ff42b8301cc..88b56a98905b 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -612,7 +612,7 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
+ 		cleanup_match(ematch, net);
+ 	}
+ 
+-	xt_percpu_counter_free(e->counters.pcnt);
++	xt_percpu_counter_free(&e->counters);
+ 
+ 	return ret;
+ }
+@@ -699,8 +699,7 @@ static void cleanup_entry(struct ip6t_entry *e, struct net *net)
+ 	if (par.target->destroy != NULL)
+ 		par.target->destroy(&par);
+ 	module_put(par.target->me);
+-
+-	xt_percpu_counter_free(e->counters.pcnt);
++	xt_percpu_counter_free(&e->counters);
+ }
+ 
+ /* Checks and translates the user-supplied table segment (held in
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index ad818e52859b..0580029eb0ee 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -1615,6 +1615,15 @@ void xt_proto_fini(struct net *net, u_int8_t af)
+ }
+ EXPORT_SYMBOL_GPL(xt_proto_fini);
+ 
++void xt_percpu_counter_free(struct xt_counters *counters)
 +{
-+	if (skb_mac_header_was_set(skb))
-+		skb_push(skb, skb->mac_len);
++	unsigned long pcnt = counters->pcnt;
 +
-+	skb->dev = dev;
-+	dev_queue_xmit(skb);
++	if (nr_cpu_ids > 1)
++		free_percpu((void __percpu *)pcnt);
 +}
++EXPORT_SYMBOL_GPL(xt_percpu_counter_free);
 +
-+void nf_fwd_netdev_egress(const struct nft_pktinfo *pkt, int oif)
-+{
-+	struct net_device *dev;
-+
-+	dev = dev_get_by_index_rcu(nft_net(pkt), oif);
-+	if (!dev) {
-+		kfree_skb(pkt->skb);
-+		return;
-+	}
-+
-+	nf_do_netdev_egress(pkt->skb, dev);
-+}
-+EXPORT_SYMBOL_GPL(nf_fwd_netdev_egress);
-+
- void nf_dup_netdev_egress(const struct nft_pktinfo *pkt, int oif)
+ static int __net_init xt_net_init(struct net *net)
  {
- 	struct net_device *dev;
-@@ -24,14 +47,8 @@ void nf_dup_netdev_egress(const struct nft_pktinfo *pkt, int oif)
- 		return;
- 
- 	skb = skb_clone(pkt->skb, GFP_ATOMIC);
--	if (skb == NULL)
--		return;
--
--	if (skb_mac_header_was_set(skb))
--		skb_push(skb, skb->mac_len);
--
--	skb->dev = dev;
--	dev_queue_xmit(skb);
-+	if (skb)
-+		nf_do_netdev_egress(skb, dev);
- }
- EXPORT_SYMBOL_GPL(nf_dup_netdev_egress);
- 
-diff --git a/net/netfilter/nft_fwd_netdev.c b/net/netfilter/nft_fwd_netdev.c
-index 763ebc3e0b2b..ce13a50b9189 100644
---- a/net/netfilter/nft_fwd_netdev.c
-+++ b/net/netfilter/nft_fwd_netdev.c
-@@ -26,8 +26,8 @@ static void nft_fwd_netdev_eval(const struct nft_expr *expr,
- 	struct nft_fwd_netdev *priv = nft_expr_priv(expr);
- 	int oif = regs->data[priv->sreg_dev];
- 
--	nf_dup_netdev_egress(pkt, oif);
--	regs->verdict.code = NF_DROP;
-+	nf_fwd_netdev_egress(pkt, oif);
-+	regs->verdict.code = NF_STOLEN;
- }
- 
- static const struct nla_policy nft_fwd_netdev_policy[NFTA_FWD_MAX + 1] = {
+ 	int i;
 -- 
 2.1.4
+
