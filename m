@@ -1,127 +1,93 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence
- GEM.
-Date: Wed, 7 Dec 2016 20:39:09 +0100
-Message-ID: <20161207193908.GA13062@netboy>
-References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 5/7] Documentation: DT: net: cpsw: allow to specify
+ descriptors pool size
+Date: Wed, 7 Dec 2016 13:41:49 -0600
+Message-ID: <30905e3e-d44f-e1f1-a22a-226b9ea53868@ti.com>
+References: <20161201233432.6182-1-grygorii.strashko@ti.com>
+ <20161201233432.6182-6-grygorii.strashko@ti.com>
+ <20161202112832.GB1213@khorivan>
+ <23737800-cca5-fbd4-e21c-5430ecf7ab34@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, davem@davemloft.net,
-        nicolas.ferre@atmel.com, harinikatakamlinux@gmail.com,
-        harini.katakam@xilinx.com, punnaia@xilinx.com, michals@xilinx.com,
-        anirudh@xilinx.com, boris.brezillon@free-electrons.com,
-        alexandre.belloni@free-electrons.com, tbultel@pixelsurmer.com,
-        rafalo@cadence.com
-To: Andrei Pistirica <andrei.pistirica@microchip.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
+In-Reply-To: <23737800-cca5-fbd4-e21c-5430ecf7ab34@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 07, 2016 at 08:21:51PM +0200, Andrei Pistirica wrote:
-> +#ifdef CONFIG_MACB_USE_HWSTAMP
-> +void gem_ptp_init(struct net_device *ndev);
-> +void gem_ptp_remove(struct net_device *ndev);
-> +
-> +void gem_ptp_do_txstamp(struct macb *bp, struct sk_buff *skb);
-> +void gem_ptp_do_rxstamp(struct macb *bp, struct sk_buff *skb);
 
-These are in the hot path, and so you should do the test before
-calling the global function, something like this:
 
-void gem_ptp_txstamp(struct macb *bp, struct sk_buff *skb);
+On 12/02/2016 11:21 AM, Grygorii Strashko wrote:
+> 
+> 
+> On 12/02/2016 05:28 AM, Ivan Khoronzhuk wrote:
+>> On Thu, Dec 01, 2016 at 05:34:30PM -0600, Grygorii Strashko wrote:
+>>> Add optional property "descs_pool_size" to specify buffer descriptor's
+>>> pool size. The "descs_pool_size" should define total number of CPDMA
+>>> CPPI descriptors to be used for both ingress/egress packets
+>>> processing. If not specified - the default value 256 will be used
+>>> which will allow to place descriptor's pool into the internal CPPI
+>>> RAM on most of TI SoC.
+>>>
+>>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>>> ---
+>>>  Documentation/devicetree/bindings/net/cpsw.txt | 5 +++++
+>>>  1 file changed, 5 insertions(+)
+>>>
+>>> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+>>> index 5ad439f..b99d196 100644
+>>> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+>>> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+>>> @@ -35,6 +35,11 @@ Optional properties:
+>>>  			  For example in dra72x-evm, pcf gpio has to be
+>>>  			  driven low so that cpsw slave 0 and phy data
+>>>  			  lines are connected via mux.
+>>> +- descs_pool_size	: total number of CPDMA CPPI descriptors to be used for
+>>> +			  both ingress/egress packets processing. if not
+>>> +			  specified the default value 256 will be used which
+>>> +			  will allow to place descriptors pool into the
+>>> +			  internal CPPI RAM.
+>> Does it describe h/w? Why now module parameter? or even smth like ethtool num
+>> ring entries?
+>>
+> 
+> It can be module parameter too. for the use cases i'm aware of -
+> this is one-time boot setting only.  
+> 
+> ----- OR
+> So, do you propose to use 
+>        ethtool -g ethX
+> 
+>        ethtool -G ethX [rx N] [tx N]
+> ?
+> 
+> Now cpdma has one pool for all RX/TX channels, so changing this settings
+> by ethtool will require: pause interfaces, reallocate cpdma pool, 
+> re-arrange buffers between channels, resume interface. Correct?
+> 
+> How do you think - we can move forward with one pool or better to have two (Rx and Tx)?
+> 
+> Wouldn't it be reasonable to still have DT (or module) parameter to avoid 
+> cpdma reconfiguration on system startup (pause/resume interfaces) (faster boot)?
+> 
+> How about cpdma re-allocation policy (with expectation that is shouldn't happen too often)?
+> - increasing of Rx, Tx will grow total number of physically allocated buffers (total_desc_num)
+> - decreasing of Rx, Tx will just change number of available buffers (no memory re-allocation)
+> 
+> ----- OR ----
+> Can we move forward with current patch (total number of CPDMA CPPI descriptors defined in DT) 
+> and add ethtool -G ethX [rx N] [tx N] which will allow to re-split descs between RX and TX?
+> 
+> 
 
-static void gem_ptp_do_txstamp(struct macb *bp, struct sk_buff *skb)
-{
-	if (!bp->hwts_tx_en)
-		return;
-	gem_ptp_txstamp(bp, skb);
-}
+if no comments here, I'll rework patches to use module parameter for descs_pool_size and
+will add possibility to re-split RX/TX buffers using  ethtool -G ethX [rx N] [tx N]
 
-Ditto for Rx.
-
-> +#else
-> +static inline void gem_ptp_init(struct net_device *ndev) { }
-> +static inline void gem_ptp_remove(struct net_device *ndev) { }
-> +
-> +static inline void gem_ptp_do_txstamp(struct macb *bp, struct sk_buff *skb) { }
-> +static inline void gem_ptp_do_rxstamp(struct macb *bp, struct sk_buff *skb) { }
-> +#endif
-> +
-
-> +static int gem_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
-> +{
-> +	struct macb *bp = container_of(ptp, struct macb, ptp_caps);
-> +	u32 word, diff;
-> +	u64 adj, rate;
-> +	int neg_adj = 0;
-> +
-> +	if (scaled_ppm < 0) {
-> +		neg_adj = 1;
-> +		scaled_ppm = -scaled_ppm;
-> +	}
-> +	rate = scaled_ppm;
-> +
-> +	/* word: unused(8bit) | ns(8bit) | fractions(16bit) */
-> +	word = (bp->ns_incr << 16) + bp->subns_incr;
-> +
-> +	adj = word;
-> +	adj *= rate;
-> +	adj >>= 16; /* remove fractions */
-> +	adj += 500000UL;
-> +	diff = div_u64(adj, 1000000UL);
-
-In order to round correctly, shouldn't this be?
-
-	adj *= rate;
-	adj += 500000UL << 16;
-	adj >>= 16;
-	diff = div_u64(adj, 1000000UL);
-
-> +	word = neg_adj ? word - diff : word + diff;
-> +
-> +	spin_lock(&bp->tsu_clk_lock);
-> +
-> +	gem_writel(bp, TISUBN, GEM_BF(SUBNSINCR, (word & 0xffff)));
-> +	gem_writel(bp, TI, GEM_BF(NSINCR, (word >> 16)));
-> +
-> +	spin_unlock(&bp->tsu_clk_lock);
-> +	return 0;
-> +}
-
-> +static s32 gem_ptp_max_adj(unsigned int f_nom)
-> +{
-> +	u64 adj;
-> +
-> +	/* The 48 bits of seconds for the GEM overflows every:
-> +	 * 2^48/(365.25 * 24 * 60 *60) =~ 8 925 512 years (~= 9 mil years),
-> +	 * thus the maximum adjust frequency must not overflow CNS register:
-> +	 *
-> +	 * addend  = 10^9/nominal_freq
-> +	 * adj_max = +/- addend*ppb_max/10^9
-> +	 * max_ppb = (2^8-1)*nominal_freq-10^9
-> +	 */
-> +	adj = f_nom;
-> +	adj *= 0xffff;
-> +	adj -= 1000000000ULL;
-
-What is this computation, and how does it relate to the comment?
-
-> +	return adj;
-> +}
-
-> +/* While GEM can timestamp PTP packets, it does not mark the RX descriptor
-
-Does it timestamp PTP event packets only, or all packets?
-
-(See my comment in patch 2/2)
-
-> + * to identify them. UDP packets must be parsed to identify PTP packets.
-> + *
-> + * Note: Inspired from drivers/net/ethernet/ti/cpts.c
-> + */
-
-Thanks,
-Richard
+-- 
+regards,
+-grygorii
