@@ -1,117 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/20][pull request] 40GbE Intel Wired LAN Driver Updates 2016-12-06
-Date: Tue,  6 Dec 2016 23:33:34 -0800
-Message-ID: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34826 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752400AbcLGHeo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Subject: [PATCH 1/1] ixgbe: fcoe: return value of skb_linearize should be handled
+Date: Wed,  7 Dec 2016 15:43:34 +0800
+Message-ID: <1481096614-25295-1-git-send-email-zhouzhouyi@gmail.com>
+Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>,
+        Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: <jeffrey.t.kirsher@intel.com>, <intel-wired-lan@lists.osuosl.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series contains updates to i40e and i40evf only.
+Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
+Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com> 
+Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c | 6 +++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 +--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-Filip modifies the i40e to log link speed change and when the link is
-brought up and down.
-
-Mitch replaces i40e_txd_use_count() with a new function which is slightly
-faster and better documented so the dim witted can better follow the
-code.  Fixes the locking of the service task so that it is actually
-done in the service task and not in the scheduling function which calls
-the service task.
-
-Jacob, being the busy little beaver he is, provides most of the changes
-starting restores a workaround that is still needed in some configurations,
-specifically the Ethernet Controller XL710 for 40GbE QSFP+.  Removes
-duplicate code and simplifies the i40e_vsi_add_vlan() and
-i40e_vsi_kill_vlan() functions.  Removes detection of PTP frames over L4
-(UDP) on the XL710 MAC, since there was a product decision to defeature
-it.  Fixed a previous refactor of active filters which caused issues in
-the accounting of active_filters.  Remaining work was done in the VLAN
-filters to improve readability and simplify code as much as possible
-to reduce inconsistencies.
-
-Alex fixes foul budget accounting in core code by returning actual
-work done, capped to budget-1.
-
-Henry fixes the "ethtool -p" function for 1G BaseT PHYs.
-
-Carolyn adds support for 25G devices for i40e and i40evf.
-
-Michal adds functions to apply the correct access method for external PHYs
-which could use Clause22 or Clause45 depending on the PHY.
-
-The following are changes since commit d4aea20d889e05575bb331a3dadf176176f7d631:
-  tun: Use netif_receive_skb instead of netif_rx
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alexander Duyck (1):
-  i40e/i40evf: napi_poll must return the work done
-
-Bimmy Pujari (1):
-  Changed version from 1.6.21 to 1.6.25
-
-Carolyn Wyborny (2):
-  i40e: Add support for 25G devices
-  i40e: Add FEC for 25g
-
-Filip Sadowski (1):
-  i40e: Driver prints log message on link speed change
-
-Henry Tieman (1):
-  i40e: Blink LED on 1G BaseT boards
-
-Jacob Keller (11):
-  i40e: restore workaround for removing default MAC filter
-  i40e: remove code to handle dev_addr specially
-  i40e: use unsigned printf format specifier for active_filters count
-  i40e: defeature support for PTP L4 frame detection on XL710
-  i40e: recalculate vsi->active_filters from hash contents
-  i40e: refactor i40e_update_filter_state to avoid passing aq_err
-  i40e: delete filter after adding its replacement when converting
-  i40e: factor out addition/deletion of VLAN per each MAC address
-  i40e: use (add|rm)_vlan_all_mac helper functions when changing PVID
-  i40e: move all updates for VLAN mode into i40e_sync_vsi_filters
-  i40e: don't allow i40e_vsi_(add|kill)_vlan to operate when VID<1
-
-Michal Kosiarz (1):
-  i40e: Add functions which apply correct PHY access method for read and
-    write operation
-
-Mitch Williams (2):
-  i40e: simplify txd use count calculation
-  i40e: lock service task correctly
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  10 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  51 ++-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  85 +++-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_devids.h      |   2 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  51 ++-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 491 ++++++++++++---------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   4 +
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  21 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  45 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  82 ++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  46 +-
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  51 ++-
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |   2 +
- drivers/net/ethernet/intel/i40evf/i40e_devids.h    |   2 +
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h |   4 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   2 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  45 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |  82 ++--
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |   8 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   3 +
- 23 files changed, 731 insertions(+), 362 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index 2a653ec..7b6bdb7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -490,7 +490,11 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ 	 */
+ 	if ((fh->fh_r_ctl == FC_RCTL_DD_SOL_DATA) &&
+ 	    (fctl & FC_FC_END_SEQ)) {
+-		skb_linearize(skb);
++		int err;
++
++		err = skb_linearize(skb);
++		if (err)
++			return err;
+ 		crc = (struct fcoe_crc_eof *)skb_put(skb, sizeof(*crc));
+ 		crc->fcoe_eof = FC_EOF_T;
+ 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index fee1f29..4926d48 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2173,8 +2173,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 				total_rx_bytes += ddp_bytes;
+ 				total_rx_packets += DIV_ROUND_UP(ddp_bytes,
+ 								 mss);
+-			}
+-			if (!ddp_bytes) {
++			} else {
+ 				dev_kfree_skb_any(skb);
+ 				continue;
+ 			}
 -- 
-2.9.3
+1.9.1
