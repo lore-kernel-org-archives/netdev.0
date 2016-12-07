@@ -1,85 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: sock_rps_record_flow() is for connected
- sockets
-Date: Tue, 06 Dec 2016 19:32:50 -0800
-Message-ID: <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
-         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481049061.7129.18.camel@redhat.com>
-         <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481051786.7129.22.camel@redhat.com>
-         <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2] tun: Use netif_receive_skb instead of netif_rx
+Date: Wed, 7 Dec 2016 11:39:55 +0800
+Message-ID: <7c1062f8-d040-bdfd-7578-660506e48baa@redhat.com>
+References: <1480584880-48651-1-git-send-email-andreyknvl@google.com>
+ <20161201.144357.33718747165573960.davem@davemloft.net>
+ <f7d8e34b-0ceb-8fef-52f3-df4cc7d2c6c5@redhat.com>
+ <20161206.222523.2232014563426365529.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36481 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751418AbcLGDcx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 22:32:53 -0500
-Received: by mail-pf0-f196.google.com with SMTP id c4so19685949pfb.3
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 19:32:52 -0800 (PST)
-In-Reply-To: <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: andreyknvl@google.com, herbert@gondor.apana.org.au,
+        edumazet@google.com, pmk@google.com, pabeni@redhat.com,
+        mst@redhat.com, soheil@google.com, elfring@users.sourceforge.net,
+        rppt@linux.vnet.ibm.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, dvyukov@google.com, kcc@google.com,
+        syzkaller@googlegroups.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161206.222523.2232014563426365529.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
 
-Paolo noticed a cache line miss in UDP recvmsg() to access
-sk_rxhash, sharing a cache line with sk_drops.
 
-sk_drops might be heavily incremented by cpus handling a flood targeting
-this socket.
+On 2016年12月07日 11:25, David Miller wrote:
+> From: Jason Wang <jasowang@redhat.com>
+> Date: Wed, 7 Dec 2016 11:21:11 +0800
+>
+>> David, looks like this commit is not in net-next.git.
+>>
+>> Please help to check.
+> Take a look, it should be there now.
 
-We might place sk_drops on a separate cache line, but lets try
-to avoid wasting 64 bytes per socket just for this, since we have
-other bottlenecks to take care of.
-
-sock_rps_record_flow() should only access sk_rxhash for connected
-flows.
-
-Testing sk_state for TCP_ESTABLISHED covers most of the cases for
-connected sockets, for a zero cost, since system calls using
-sock_rps_record_flow() also access sk->sk_prot which is on the
-same cache line.
-
-A follow up patch will provide a static_key (Jump Label) since most
-hosts do not even use RFS.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Paolo Abeni <pabeni@redhat.com>
----
- include/net/sock.h |   12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 6dfe3aa22b970eecfab4d4a0753804b1cc82a200..a7ddab993b496f1f4060f0b41831a161c284df9e 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -913,7 +913,17 @@ static inline void sock_rps_record_flow_hash(__u32 hash)
- static inline void sock_rps_record_flow(const struct sock *sk)
- {
- #ifdef CONFIG_RPS
--	sock_rps_record_flow_hash(sk->sk_rxhash);
-+	/* Reading sk->sk_rxhash might incur an expensive cache line miss.
-+	 *
-+	 * TCP_ESTABLISHED does cover almost all states where RFS
-+	 * might be useful, and is cheaper [1] than testing :
-+	 *	IPv4: inet_sk(sk)->inet_daddr
-+	 * 	IPv6: ipv6_addr_any(&sk->sk_v6_daddr)
-+	 * OR	an additional socket flag
-+	 * [1] : sk_state and sk_prot are in the same cache line.
-+	 */
-+	if (sk->sk_state == TCP_ESTABLISHED)
-+		sock_rps_record_flow_hash(sk->sk_rxhash);
- #endif
- }
- 
+Yes, thanks.
