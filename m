@@ -1,54 +1,38 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v3 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
- prog
-Date: Wed, 07 Dec 2016 18:14:13 +0100
-Message-ID: <58484365.4010201@iogearbox.net>
-References: <5847D723.3020908@iogearbox.net>        <20161207114112.6ad86da3@jkicinski-Precision-T1700>        <20161207163756.GA33446@ast-mbp.thefacebook.com> <20161207.120413.939362482173997833.davem@davemloft.net>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v3] net: phy: phy drivers should not set
+ SUPPORTED_[Asym_]Pause
+Date: Wed, 7 Dec 2016 11:19:13 -0600
+Message-ID: <58484491.6020908@codeaurora.org>
+References: <1481070443-15118-1-git-send-email-timur@codeaurora.org>
+ <2c2aaf1d-05a5-d2bc-d04a-79224a4c6b43@gmail.com>
+ <58476ACB.3030206@codeaurora.org>
+ <f62595d4-2dd7-9cc3-7537-2ff186dadc8c@gmail.com>
+ <58477A03.6000107@codeaurora.org>
+ <CAD5ja61A3diBgYwscUSoxJqE1ydmzr+cQ9rR+8uZa0mw-0m_3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kubakici@wp.pl, kafai@fb.com, netdev@vger.kernel.org, ast@fb.com,
-        bblanco@plumgrid.com, brouer@redhat.com, john.fastabend@gmail.com,
-        saeedm@mellanox.com, tariqt@mellanox.com, kernel-team@fb.com
-To: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
+        netdev@vger.kernel.org
+To: Niklas Cassel <nks.gnu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43311 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752142AbcLGROU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:14:20 -0500
-In-Reply-To: <20161207.120413.939362482173997833.davem@davemloft.net>
+Received: from smtp.codeaurora.org ([198.145.29.96]:58802 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752548AbcLGRTQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:19:16 -0500
+In-Reply-To: <CAD5ja61A3diBgYwscUSoxJqE1ydmzr+cQ9rR+8uZa0mw-0m_3Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/07/2016 06:04 PM, David Miller wrote:
-> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> Date: Wed, 7 Dec 2016 08:37:58 -0800
->
->> On Wed, Dec 07, 2016 at 11:41:12AM +0000, Jakub Kicinski wrote:
->>>> I see nothing wrong if this is exposed/made visible in the usual way through
->>>> ethtool -k as well. I guess at least that would be the expected way to query
->>>> for such driver capabilities.
->>>
->>> +1 on exposing this to user space.  Whether via ethtool -k or a
->>> separate XDP-specific netlink message is mostly a question of whether
->>> we expect the need to expose more complex capabilities than bits.
->>
->> I'm very much against using NETIF_F_ flags and exposing this to user space.
->> I see this xdp feature flag as temporary workaround until all drivers
->> support adjust_head() helper. It is very much a fundamental feature for xdp.
->> Without being able to add/remove headers the usability of xdp becomes very limited.
->>
->> If you guys dont like extra ndo_xdp command, I'd suggest to do
->> "if (prog->xdp_adjust_head)" check in the driver and if driver doesn't
->> support it yet, just fail XDP_SETUP_PROG command.
->> imo that will be more flexible interface, since in the future drivers
->> can fail on different combination of features and simple boolean flag
->> unlikely to serve us for long time.
->
-> Indeed, if the eventual plan is to have all drivers be required to
-> support a fundamental set of XDP features then exporting this in any
-> way to userspace is not a good idea.
+On 12/07/2016 03:13 AM, Niklas Cassel wrote:
+> You might want to include drivers/net/phy/dp83848.c in your patch.
+> Support for pause frames in that phy was recently added to netdev-next.
 
-Agreed, if that is required anyway, then much better and simpler to just
-return the -ENOTSUPP from the XDP_SETUP_PROG handling of each driver that
-way.
+Thanks.  I feel bad that I'm reverting your patch just a few days after 
+it was applied.
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
