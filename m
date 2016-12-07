@@ -1,200 +1,222 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/50] netfilter: nf_tables: add conntrack dependencies for nat/masq/redir expressions
-Date: Wed,  7 Dec 2016 22:52:22 +0100
-Message-ID: <1481147576-5690-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 15/50] netfilter: nat: add dependencies on conntrack module
+Date: Wed,  7 Dec 2016 22:52:21 +0100
+Message-ID: <1481147576-5690-16-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60210 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932423AbcLGVxj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 16:53:39 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id BF936C1062
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:32 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id AD8FADA865
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:32 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 75192DA853
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:30 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-so that conntrack core will add the needed hooks in this namespace.
+MASQUERADE, S/DNAT and REDIRECT already call functions that depend on the
+conntrack module.
+
+However, since the conntrack hooks are now registered in a lazy fashion
+(i.e., only when needed) a symbol reference is not enough.
+
+Thus, when something is added to a nat table, make sure that it will see
+packets by calling nf_ct_netns_get() which will register the conntrack
+hooks in the current netns.
+
+An alternative would be to add these dependencies to the NAT table.
+
+However, that has problems when using non-modular builds -- we might
+register e.g. ipv6 conntrack before its initcall has run, leading to NULL
+deref crashes since its per-netns storage has not yet been allocated.
+
+Adding the dependency in the modules instead has the advantage that nat
+table also does not register its hooks until rules are added.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/nft_masq_ipv4.c  |  7 +++++++
- net/ipv4/netfilter/nft_redir_ipv4.c |  7 +++++++
- net/ipv6/netfilter/nft_masq_ipv6.c  |  7 +++++++
- net/ipv6/netfilter/nft_redir_ipv6.c |  7 +++++++
- net/netfilter/nft_masq.c            |  2 +-
- net/netfilter/nft_nat.c             | 11 ++++++++++-
- net/netfilter/nft_redir.c           |  2 +-
- 7 files changed, 40 insertions(+), 3 deletions(-)
+ net/ipv4/netfilter/ipt_MASQUERADE.c |  8 +++++++-
+ net/netfilter/xt_NETMAP.c           | 11 +++++++++--
+ net/netfilter/xt_REDIRECT.c         | 12 ++++++++++--
+ net/netfilter/xt_nat.c              | 18 +++++++++++++++++-
+ 4 files changed, 43 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nft_masq_ipv4.c b/net/ipv4/netfilter/nft_masq_ipv4.c
-index 4d69f99b8707..a0ea8aad1bf1 100644
---- a/net/ipv4/netfilter/nft_masq_ipv4.c
-+++ b/net/ipv4/netfilter/nft_masq_ipv4.c
-@@ -35,12 +35,19 @@ static void nft_masq_ipv4_eval(const struct nft_expr *expr,
- 						    &range, nft_out(pkt));
- }
- 
-+static void
-+nft_masq_ipv4_destroy(const struct nft_ctx *ctx, const struct nft_expr *expr)
-+{
-+	nf_ct_netns_put(ctx->net, NFPROTO_IPV4);
-+}
-+
- static struct nft_expr_type nft_masq_ipv4_type;
- static const struct nft_expr_ops nft_masq_ipv4_ops = {
- 	.type		= &nft_masq_ipv4_type,
- 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_masq)),
- 	.eval		= nft_masq_ipv4_eval,
- 	.init		= nft_masq_init,
-+	.destroy	= nft_masq_ipv4_destroy,
- 	.dump		= nft_masq_dump,
- 	.validate	= nft_masq_validate,
- };
-diff --git a/net/ipv4/netfilter/nft_redir_ipv4.c b/net/ipv4/netfilter/nft_redir_ipv4.c
-index 62c18e68ac58..1650ed23c15d 100644
---- a/net/ipv4/netfilter/nft_redir_ipv4.c
-+++ b/net/ipv4/netfilter/nft_redir_ipv4.c
-@@ -38,12 +38,19 @@ static void nft_redir_ipv4_eval(const struct nft_expr *expr,
- 	regs->verdict.code = nf_nat_redirect_ipv4(pkt->skb, &mr, nft_hook(pkt));
- }
- 
-+static void
-+nft_redir_ipv4_destroy(const struct nft_ctx *ctx, const struct nft_expr *expr)
-+{
-+	nf_ct_netns_put(ctx->net, NFPROTO_IPV4);
-+}
-+
- static struct nft_expr_type nft_redir_ipv4_type;
- static const struct nft_expr_ops nft_redir_ipv4_ops = {
- 	.type		= &nft_redir_ipv4_type,
- 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_redir)),
- 	.eval		= nft_redir_ipv4_eval,
- 	.init		= nft_redir_init,
-+	.destroy	= nft_redir_ipv4_destroy,
- 	.dump		= nft_redir_dump,
- 	.validate	= nft_redir_validate,
- };
-diff --git a/net/ipv6/netfilter/nft_masq_ipv6.c b/net/ipv6/netfilter/nft_masq_ipv6.c
-index 93d758f70334..6c5b5b1830a7 100644
---- a/net/ipv6/netfilter/nft_masq_ipv6.c
-+++ b/net/ipv6/netfilter/nft_masq_ipv6.c
-@@ -36,12 +36,19 @@ static void nft_masq_ipv6_eval(const struct nft_expr *expr,
- 						    nft_out(pkt));
- }
- 
-+static void
-+nft_masq_ipv6_destroy(const struct nft_ctx *ctx, const struct nft_expr *expr)
-+{
-+	nf_ct_netns_put(ctx->net, NFPROTO_IPV6);
-+}
-+
- static struct nft_expr_type nft_masq_ipv6_type;
- static const struct nft_expr_ops nft_masq_ipv6_ops = {
- 	.type		= &nft_masq_ipv6_type,
- 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_masq)),
- 	.eval		= nft_masq_ipv6_eval,
- 	.init		= nft_masq_init,
-+	.destroy	= nft_masq_ipv6_destroy,
- 	.dump		= nft_masq_dump,
- 	.validate	= nft_masq_validate,
- };
-diff --git a/net/ipv6/netfilter/nft_redir_ipv6.c b/net/ipv6/netfilter/nft_redir_ipv6.c
-index 2850fcd8583f..f5ac080fc084 100644
---- a/net/ipv6/netfilter/nft_redir_ipv6.c
-+++ b/net/ipv6/netfilter/nft_redir_ipv6.c
-@@ -39,12 +39,19 @@ static void nft_redir_ipv6_eval(const struct nft_expr *expr,
- 		nf_nat_redirect_ipv6(pkt->skb, &range, nft_hook(pkt));
- }
- 
-+static void
-+nft_redir_ipv6_destroy(const struct nft_ctx *ctx, const struct nft_expr *expr)
-+{
-+	nf_ct_netns_put(ctx->net, NFPROTO_IPV6);
-+}
-+
- static struct nft_expr_type nft_redir_ipv6_type;
- static const struct nft_expr_ops nft_redir_ipv6_ops = {
- 	.type		= &nft_redir_ipv6_type,
- 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_redir)),
- 	.eval		= nft_redir_ipv6_eval,
- 	.init		= nft_redir_init,
-+	.destroy	= nft_redir_ipv6_destroy,
- 	.dump		= nft_redir_dump,
- 	.validate	= nft_redir_validate,
- };
-diff --git a/net/netfilter/nft_masq.c b/net/netfilter/nft_masq.c
-index bf92de01410f..11ce016cd479 100644
---- a/net/netfilter/nft_masq.c
-+++ b/net/netfilter/nft_masq.c
-@@ -77,7 +77,7 @@ int nft_masq_init(const struct nft_ctx *ctx,
- 		}
+diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
+index 34cfb9b0bc0a..a03e4e7ef5f9 100644
+--- a/net/ipv4/netfilter/ipt_MASQUERADE.c
++++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
+@@ -41,7 +41,7 @@ static int masquerade_tg_check(const struct xt_tgchk_param *par)
+ 		pr_debug("bad rangesize %u\n", mr->rangesize);
+ 		return -EINVAL;
  	}
- 
 -	return 0;
-+	return nf_ct_netns_get(ctx->net, ctx->afi->family);
- }
- EXPORT_SYMBOL_GPL(nft_masq_init);
- 
-diff --git a/net/netfilter/nft_nat.c b/net/netfilter/nft_nat.c
-index ee2d71753746..19a7bf3236f9 100644
---- a/net/netfilter/nft_nat.c
-+++ b/net/netfilter/nft_nat.c
-@@ -209,7 +209,7 @@ static int nft_nat_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
- 			return -EINVAL;
- 	}
- 
--	return 0;
-+	return nf_ct_netns_get(ctx->net, family);
++	return nf_ct_netns_get(par->net, par->family);
  }
  
- static int nft_nat_dump(struct sk_buff *skb, const struct nft_expr *expr)
-@@ -257,12 +257,21 @@ static int nft_nat_dump(struct sk_buff *skb, const struct nft_expr *expr)
- 	return -1;
+ static unsigned int
+@@ -59,6 +59,11 @@ masquerade_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 				      xt_out(par));
  }
  
-+static void
-+nft_nat_destroy(const struct nft_ctx *ctx, const struct nft_expr *expr)
++static void masquerade_tg_destroy(const struct xt_tgdtor_param *par)
 +{
-+	const struct nft_nat *priv = nft_expr_priv(expr);
-+
-+	nf_ct_netns_put(ctx->net, priv->family);
++	nf_ct_netns_put(par->net, par->family);
 +}
 +
- static struct nft_expr_type nft_nat_type;
- static const struct nft_expr_ops nft_nat_ops = {
- 	.type           = &nft_nat_type,
- 	.size           = NFT_EXPR_SIZE(sizeof(struct nft_nat)),
- 	.eval           = nft_nat_eval,
- 	.init           = nft_nat_init,
-+	.destroy        = nft_nat_destroy,
- 	.dump           = nft_nat_dump,
- 	.validate	= nft_nat_validate,
+ static struct xt_target masquerade_tg_reg __read_mostly = {
+ 	.name		= "MASQUERADE",
+ 	.family		= NFPROTO_IPV4,
+@@ -67,6 +72,7 @@ static struct xt_target masquerade_tg_reg __read_mostly = {
+ 	.table		= "nat",
+ 	.hooks		= 1 << NF_INET_POST_ROUTING,
+ 	.checkentry	= masquerade_tg_check,
++	.destroy	= masquerade_tg_destroy,
+ 	.me		= THIS_MODULE,
  };
-diff --git a/net/netfilter/nft_redir.c b/net/netfilter/nft_redir.c
-index 967e09b099b2..40dcd05146d5 100644
---- a/net/netfilter/nft_redir.c
-+++ b/net/netfilter/nft_redir.c
-@@ -79,7 +79,7 @@ int nft_redir_init(const struct nft_ctx *ctx,
- 			return -EINVAL;
- 	}
  
+diff --git a/net/netfilter/xt_NETMAP.c b/net/netfilter/xt_NETMAP.c
+index 94d0b5411192..e45a01255e70 100644
+--- a/net/netfilter/xt_NETMAP.c
++++ b/net/netfilter/xt_NETMAP.c
+@@ -60,7 +60,12 @@ static int netmap_tg6_checkentry(const struct xt_tgchk_param *par)
+ 
+ 	if (!(range->flags & NF_NAT_RANGE_MAP_IPS))
+ 		return -EINVAL;
 -	return 0;
-+	return nf_ct_netns_get(ctx->net, ctx->afi->family);
++	return nf_ct_netns_get(par->net, par->family);
++}
++
++static void netmap_tg_destroy(const struct xt_tgdtor_param *par)
++{
++	nf_ct_netns_put(par->net, par->family);
  }
- EXPORT_SYMBOL_GPL(nft_redir_init);
  
+ static unsigned int
+@@ -111,7 +116,7 @@ static int netmap_tg4_check(const struct xt_tgchk_param *par)
+ 		pr_debug("bad rangesize %u.\n", mr->rangesize);
+ 		return -EINVAL;
+ 	}
+-	return 0;
++	return nf_ct_netns_get(par->net, par->family);
+ }
+ 
+ static struct xt_target netmap_tg_reg[] __read_mostly = {
+@@ -127,6 +132,7 @@ static struct xt_target netmap_tg_reg[] __read_mostly = {
+ 		              (1 << NF_INET_LOCAL_OUT) |
+ 		              (1 << NF_INET_LOCAL_IN),
+ 		.checkentry = netmap_tg6_checkentry,
++		.destroy    = netmap_tg_destroy,
+ 		.me         = THIS_MODULE,
+ 	},
+ 	{
+@@ -141,6 +147,7 @@ static struct xt_target netmap_tg_reg[] __read_mostly = {
+ 		              (1 << NF_INET_LOCAL_OUT) |
+ 		              (1 << NF_INET_LOCAL_IN),
+ 		.checkentry = netmap_tg4_check,
++		.destroy    = netmap_tg_destroy,
+ 		.me         = THIS_MODULE,
+ 	},
+ };
+diff --git a/net/netfilter/xt_REDIRECT.c b/net/netfilter/xt_REDIRECT.c
+index 651dce65a30b..98a4c6d4f1cb 100644
+--- a/net/netfilter/xt_REDIRECT.c
++++ b/net/netfilter/xt_REDIRECT.c
+@@ -40,7 +40,13 @@ static int redirect_tg6_checkentry(const struct xt_tgchk_param *par)
+ 
+ 	if (range->flags & NF_NAT_RANGE_MAP_IPS)
+ 		return -EINVAL;
+-	return 0;
++
++	return nf_ct_netns_get(par->net, par->family);
++}
++
++static void redirect_tg_destroy(const struct xt_tgdtor_param *par)
++{
++	nf_ct_netns_put(par->net, par->family);
+ }
+ 
+ /* FIXME: Take multiple ranges --RR */
+@@ -56,7 +62,7 @@ static int redirect_tg4_check(const struct xt_tgchk_param *par)
+ 		pr_debug("bad rangesize %u.\n", mr->rangesize);
+ 		return -EINVAL;
+ 	}
+-	return 0;
++	return nf_ct_netns_get(par->net, par->family);
+ }
+ 
+ static unsigned int
+@@ -72,6 +78,7 @@ static struct xt_target redirect_tg_reg[] __read_mostly = {
+ 		.revision   = 0,
+ 		.table      = "nat",
+ 		.checkentry = redirect_tg6_checkentry,
++		.destroy    = redirect_tg_destroy,
+ 		.target     = redirect_tg6,
+ 		.targetsize = sizeof(struct nf_nat_range),
+ 		.hooks      = (1 << NF_INET_PRE_ROUTING) |
+@@ -85,6 +92,7 @@ static struct xt_target redirect_tg_reg[] __read_mostly = {
+ 		.table      = "nat",
+ 		.target     = redirect_tg4,
+ 		.checkentry = redirect_tg4_check,
++		.destroy    = redirect_tg_destroy,
+ 		.targetsize = sizeof(struct nf_nat_ipv4_multi_range_compat),
+ 		.hooks      = (1 << NF_INET_PRE_ROUTING) |
+ 		              (1 << NF_INET_LOCAL_OUT),
+diff --git a/net/netfilter/xt_nat.c b/net/netfilter/xt_nat.c
+index bea7464cc43f..8107b3eb865f 100644
+--- a/net/netfilter/xt_nat.c
++++ b/net/netfilter/xt_nat.c
+@@ -23,7 +23,17 @@ static int xt_nat_checkentry_v0(const struct xt_tgchk_param *par)
+ 			par->target->name);
+ 		return -EINVAL;
+ 	}
+-	return 0;
++	return nf_ct_netns_get(par->net, par->family);
++}
++
++static int xt_nat_checkentry(const struct xt_tgchk_param *par)
++{
++	return nf_ct_netns_get(par->net, par->family);
++}
++
++static void xt_nat_destroy(const struct xt_tgdtor_param *par)
++{
++	nf_ct_netns_put(par->net, par->family);
+ }
+ 
+ static void xt_nat_convert_range(struct nf_nat_range *dst,
+@@ -106,6 +116,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
+ 		.name		= "SNAT",
+ 		.revision	= 0,
+ 		.checkentry	= xt_nat_checkentry_v0,
++		.destroy	= xt_nat_destroy,
+ 		.target		= xt_snat_target_v0,
+ 		.targetsize	= sizeof(struct nf_nat_ipv4_multi_range_compat),
+ 		.family		= NFPROTO_IPV4,
+@@ -118,6 +129,7 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
+ 		.name		= "DNAT",
+ 		.revision	= 0,
+ 		.checkentry	= xt_nat_checkentry_v0,
++		.destroy	= xt_nat_destroy,
+ 		.target		= xt_dnat_target_v0,
+ 		.targetsize	= sizeof(struct nf_nat_ipv4_multi_range_compat),
+ 		.family		= NFPROTO_IPV4,
+@@ -129,6 +141,8 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
+ 	{
+ 		.name		= "SNAT",
+ 		.revision	= 1,
++		.checkentry	= xt_nat_checkentry,
++		.destroy	= xt_nat_destroy,
+ 		.target		= xt_snat_target_v1,
+ 		.targetsize	= sizeof(struct nf_nat_range),
+ 		.table		= "nat",
+@@ -139,6 +153,8 @@ static struct xt_target xt_nat_target_reg[] __read_mostly = {
+ 	{
+ 		.name		= "DNAT",
+ 		.revision	= 1,
++		.checkentry	= xt_nat_checkentry,
++		.destroy	= xt_nat_destroy,
+ 		.target		= xt_dnat_target_v1,
+ 		.targetsize	= sizeof(struct nf_nat_range),
+ 		.table		= "nat",
 -- 
 2.1.4
+
