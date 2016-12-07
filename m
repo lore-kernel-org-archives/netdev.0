@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] drivers: net: cpsw-phy-sel: Clear RGMII_IDMODE on
- "rgmii" links
-Date: Wed, 07 Dec 2016 13:12:29 -0500 (EST)
-Message-ID: <20161207.131229.1181078063219041475.davem@davemloft.net>
-References: <20161206.113630.1454582039498444818.davem@davemloft.net>
-        <1481050611-29698-1-git-send-email-alex.g@adaptrum.com>
+Subject: Re: [PATCH net] netvsc: reduce maximum GSO size
+Date: Wed, 07 Dec 2016 13:14:03 -0500 (EST)
+Message-ID: <20161207.131403.2019170607133977153.davem@davemloft.net>
+References: <20161206214354.15473-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, gokhan@adaptrum.com
-To: alex.g@adaptrum.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481050611-29698-1-git-send-email-alex.g@adaptrum.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36894 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932166AbcLGSOF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 13:14:05 -0500
+In-Reply-To: <20161206214354.15473-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexandru Gagniuc <alex.g@adaptrum.com>
-Date: Tue,  6 Dec 2016 10:56:51 -0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue,  6 Dec 2016 13:43:54 -0800
 
-> Support for setting the RGMII_IDMODE bit was added in the commit
-> referenced below. However, that commit did not add the symmetrical
-> clearing of the bit by way of setting it in "mask". Add it here.
+> Hyper-V (and Azure) support using NVGRE which requires some extra space
+> for encapsulation headers. Because of this the largest allowed TSO
+> packet is reduced.
 > 
-> Note that the documentation marks clearing this bit as "reserved",
-> however, according to TI, support for delaying the clock does exist in
-> the MAC, although it is not officially supported.
-> We tested this on a board with an RGMII to RGMII link that will not
-> work unless this bit is cleared.
+> For older releases, hard code a fixed reduced value.  For next release,
+> there is a better solution which uses result of host offload
+> negotiation.
 > 
-> Fixes: 0fb26c3063ea ("drivers: net: cpsw-phy-sel: add support to configure rgmii internal delay")
-> Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> ---
+> Please queue this for stable as well.
 
-Applied.
+Applied and queued up for -stable, thanks.
