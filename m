@@ -1,74 +1,147 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH iproute2 net-next] bpf: Fix number of retries when growing log buffer
-Date: Wed,  7 Dec 2016 10:47:59 +0100
-Message-ID: <fc3866340db64ff7400c14342578b9a104f02fe9.1481103964.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:47107 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751631AbcLGJsF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:48:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH net-next 2/2] net: ethernet: Initial driver for Synopsys
+ DWC XLGMAC
+Date: Wed, 7 Dec 2016 10:48:15 +0100
+Message-ID: <20161207094815.GB5399@amd>
+References: <cover.1481075763.git.jiedeng@synopsys.com>
+ <3fe82457c51f8437797eae27d03cdb0dcbef039b.1481075763.git.jiedeng@synopsys.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="QKdGvSO+nmPlgiQ/"
+Cc: davem@davemloft.net, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, CARLOS.PALMINHA@synopsys.com,
+        lars.persson@axis.com, thomas.lendacky@amd.com
+To: Jie Deng <Jie.Deng1@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3fe82457c51f8437797eae27d03cdb0dcbef039b.1481075763.git.jiedeng@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The log buffer is automatically grown when the verifier output does not
-fit into the default buffer size. The number of growing attempts was
-not sufficient to reach the maximum buffer size so far.
 
-Perform 9 iterations to reach max and let the 10th one fail.
+--QKdGvSO+nmPlgiQ/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-j:0     i:65536         max:16777215
-j:1     i:131072        max:16777215
-j:2     i:262144        max:16777215
-j:3     i:524288        max:16777215
-j:4     i:1048576       max:16777215
-j:5     i:2097152       max:16777215
-j:6     i:4194304       max:16777215
-j:7     i:8388608       max:16777215
-j:8     i:16777216      max:16777215
+Hi!
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- lib/bpf.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+> This patch provides the initial driver for 25/40/50/100 GbE
+> devices using Synopsys DWC Enterprise Ethernet (XLGMAC)
+>=20
+> Signed-off-by: Jie Deng <jiedeng@synopsys.com>
 
-diff --git a/lib/bpf.c b/lib/bpf.c
-index 8a5b84b..f3dace2 100644
---- a/lib/bpf.c
-+++ b/lib/bpf.c
-@@ -912,15 +912,18 @@ bpf_dump_error(struct bpf_elf_ctx *ctx, const char *format, ...)
- 
- static int bpf_log_realloc(struct bpf_elf_ctx *ctx)
- {
-+	const size_t log_max = UINT_MAX >> 8;
- 	size_t log_size = ctx->log_size;
- 	void *ptr;
- 
- 	if (!ctx->log) {
- 		log_size = 65536;
--	} else {
-+	} else if (log_size < log_max) {
- 		log_size <<= 1;
--		if (log_size > (UINT_MAX >> 8))
--			return -EINVAL;
-+		if (log_size > log_max)
-+			log_size = log_max;
-+	} else {
-+		return -EINVAL;
- 	}
- 
- 	ptr = realloc(ctx->log, log_size);
-@@ -1259,7 +1262,7 @@ retry:
- 		 * log for the user, so enlarge it and re-fail.
- 		 */
- 		if (fd < 0 && (errno == ENOSPC || !ctx->log_size)) {
--			if (tries++ < 6 && !bpf_log_realloc(ctx))
-+			if (tries++ < 10 && !bpf_log_realloc(ctx))
- 				goto retry;
- 
- 			fprintf(stderr, "Log buffer too small to dump verifier log %zu bytes (%d tries)!\n",
--- 
-2.7.4
+I trust this is different hardware from stmmac?
+
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 331f6af..738f818 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -10639,6 +10639,12 @@ S: Supported
+>  F: Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+>  F: drivers/net/ethernet/synopsys/dwc_eth_qos.c
+> =20
+> +SYNOPSYS DESIGNWARE ENTERPRISE ETHERNET (XLGMAC) DRIVER
+> +M:	jiedeng <jiedeng@synopsys.com>
+
+Jie Deng here?
+
+
+> @@ -0,0 +1,228 @@
+> +/*
+> + * Synopsys DesignWare Ethernet Driver
+
+Your patch title names hardware differently...?
+
+
+> + *
+> + * Copyright (c) 2014-2016 Synopsys, Inc. (www.synopsys.com)
+> + *
+> + * This file is free software; you may copy, redistribute and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation, either version 2 of the License, or (at
+> + * your option) any later version.
+> + *
+> + * This file is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+> + * General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+> + *
+> + * This file incorporates work covered by the following copyright and
+> + * permission notice:
+> + *     The Synopsys DWC ETHER XGMAC Software Driver and documentation
+> + *     (hereinafter "Software") is an unsupported proprietary work of Sy=
+nopsys,
+> + *     Inc. unless otherwise expressly agreed to in writing between Syno=
+psys
+> + *     and you.
+> + *
+> + *     The Software IS NOT an item of Licensed Software or Licensed Prod=
+uct
+> + *     under any End User Software License Agreement or Agreement for Li=
+censed
+> + *     Product with Synopsys or any supplement thereto.  Permission is h=
+ereby
+> + *     granted, free of charge, to any person obtaining a copy of this s=
+oftware
+> + *     annotated with this license and the Software, to deal in the Soft=
+ware
+> + *     without restriction, including without limitation the rights to u=
+se,
+> + *     copy, modify, merge, publish, distribute, sublicense, and/or sell=
+ copies
+> + *     of the Software, and to permit persons to whom the Software is fu=
+rnished
+> + *     to do so, subject to the following conditions:
+> + *
+> + *     The above copyright notice and this permission notice shall be in=
+cluded
+> + *     in all copies or substantial portions of the Software.
+
+> + *     THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS I=
+S"
+> + *     BASIS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT L=
+IMITED
+> + *     TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+> + *     PARTICULAR PURPOSE ARE HEREBY DISCLAIMED. IN NO EVENT SHALL SYNOP=
+SYS
+> + *     BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLAR=
+Y, OR
+> + *     CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT=
+ OF
+> + *     SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR B=
+USINESS
+> + *     INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHET=
+HER IN
+> + *     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHE=
+RWISE)
+> + *     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVIS=
+ED OF
+> + *     THE POSSIBILITY OF SUCH DAMAGE.
+
+Are you sure this is GPL compatible? Can we get a version without this
+lenghty legaleese?
+
+Thanks,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--QKdGvSO+nmPlgiQ/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEUEARECAAYFAlhH2t8ACgkQMOfwapXb+vLvSgCgrTI4D5/R0QESgH1luk7VjiDJ
+MdMAl3dixtzirbiavAQKR2idaqh50KI=
+=5XM5
+-----END PGP SIGNATURE-----
+
+--QKdGvSO+nmPlgiQ/--
