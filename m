@@ -1,167 +1,318 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/20] i40e: Add FEC for 25g
-Date: Tue,  6 Dec 2016 23:33:44 -0800
-Message-ID: <20161207073354.88568-11-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 19/20] i40e: move all updates for VLAN mode into i40e_sync_vsi_filters
+Date: Tue,  6 Dec 2016 23:33:53 -0800
+Message-ID: <20161207073354.88568-20-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
-        Mitch Williams <mitch.a.williams@intel.com>,
-        Jacek Naczyk <jacek.naczyk@intel.com>,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26483 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:47083 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752005AbcLGHet (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:49 -0500
+        id S1753119AbcLGHew (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:52 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch adds adminq support for Forward Error
-Correction ("FEC")for 25g products.
+In a similar fashion to how we handled exiting VLAN mode, move the logic
+in i40e_vsi_add_vlan into i40e_sync_vsi_filters. Extract this logic into
+its own function for ease of understanding as it will become quite
+complex.
 
-Change-ID: Iaff4910737c239d2c730e5c22a313ce9c37d3964
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jacek Naczyk <jacek.naczyk@intel.com>
+The new function, i40e_correct_mac_vlan_filters() correctly updates all
+filters for when we need to enter VLAN mode, exit VLAN mode, and also
+enforces the PVID when assigned.
+
+Call i40e_correct_mac_vlan_filters from i40e_sync_vsi_filters passing it
+the number of active VLAN filters, and the two temporary lists.
+
+Remove the function for updating VLAN=0 filters from i40e_vsi_add_vlan.
+
+The end result is that the logic for entering and exiting VLAN mode is
+in one location which has the most knowledge about all filters. This
+ensures that we always correctly have the non-VLAN filters assigned to
+VID=0 or VID=-1 regardless of how we ended up getting to this result.
+
+Additionally this enforces the PVID at sync time so that we know for
+certain that an assigned PVID results in only filters with that PVID
+will be added to the firmware.
+
+Change-ID: I895cee81e9c92d0a16baee38bd0ca51bbb14e372
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 25 ++++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  2 ++
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 25 ++++++++++++++++++++--
- 3 files changed, 48 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 214 +++++++++++++++-------------
+ 1 file changed, 113 insertions(+), 101 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index c9d1f91..b2101a5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -1686,6 +1686,8 @@ struct i40e_aq_get_phy_abilities_resp {
- #define I40E_AQ_PHY_LINK_ENABLED	0x08
- #define I40E_AQ_PHY_AN_ENABLED		0x10
- #define I40E_AQ_PHY_FLAG_MODULE_QUAL	0x20
-+#define I40E_AQ_PHY_FEC_ABILITY_KR	0x40
-+#define I40E_AQ_PHY_FEC_ABILITY_RS	0x80
- 	__le16	eee_capability;
- #define I40E_AQ_EEE_100BASE_TX		0x0002
- #define I40E_AQ_EEE_1000BASE_T		0x0004
-@@ -1701,7 +1703,16 @@ struct i40e_aq_get_phy_abilities_resp {
- #define I40E_AQ_PHY_TYPE_EXT_25G_CR	0X02
- #define I40E_AQ_PHY_TYPE_EXT_25G_SR	0x04
- #define I40E_AQ_PHY_TYPE_EXT_25G_LR	0x08
--	u8	mod_type_ext;
-+	u8	fec_cfg_curr_mod_ext_info;
-+#define I40E_AQ_ENABLE_FEC_KR		0x01
-+#define I40E_AQ_ENABLE_FEC_RS		0x02
-+#define I40E_AQ_REQUEST_FEC_KR		0x04
-+#define I40E_AQ_REQUEST_FEC_RS		0x08
-+#define I40E_AQ_ENABLE_FEC_AUTO		0x10
-+#define I40E_AQ_FEC
-+#define I40E_AQ_MODULE_TYPE_EXT_MASK	0xE0
-+#define I40E_AQ_MODULE_TYPE_EXT_SHIFT	5
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 49261cc..da4cbe3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1227,6 +1227,107 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi)
+ }
+ 
+ /**
++ * i40e_correct_mac_vlan_filters - Correct non-VLAN filters if necessary
++ * @vsi: the VSI to configure
++ * @tmp_add_list: list of filters ready to be added
++ * @tmp_del_list: list of filters ready to be deleted
++ * @vlan_filters: the number of active VLAN filters
++ *
++ * Update VLAN=0 and VLAN=-1 (I40E_VLAN_ANY) filters properly so that they
++ * behave as expected. If we have any active VLAN filters remaining or about
++ * to be added then we need to update non-VLAN filters to be marked as VLAN=0
++ * so that they only match against untagged traffic. If we no longer have any
++ * active VLAN filters, we need to make all non-VLAN filters marked as VLAN=-1
++ * so that they match against both tagged and untagged traffic. In this way,
++ * we ensure that we correctly receive the desired traffic. This ensures that
++ * when we have an active VLAN we will receive only untagged traffic and
++ * traffic matching active VLANs. If we have no active VLANs then we will
++ * operate in non-VLAN mode and receive all traffic, tagged or untagged.
++ *
++ * Finally, in a similar fashion, this function also corrects filters when
++ * there is an active PVID assigned to this VSI.
++ *
++ * In case of memory allocation failure return -ENOMEM. Otherwise, return 0.
++ *
++ * This function is only expected to be called from within
++ * i40e_sync_vsi_filters.
++ *
++ * NOTE: This function expects to be called while under the
++ * mac_filter_hash_lock
++ */
++static int i40e_correct_mac_vlan_filters(struct i40e_vsi *vsi,
++					 struct hlist_head *tmp_add_list,
++					 struct hlist_head *tmp_del_list,
++					 int vlan_filters)
++{
++	struct i40e_mac_filter *f, *add_head;
++	struct hlist_node *h;
++	int bkt, new_vlan;
 +
- 	u8	ext_comp_code;
- 	u8	phy_id[4];
- 	u8	module_type[3];
-@@ -1729,7 +1740,15 @@ struct i40e_aq_set_phy_config { /* same bits as above in all */
- #define I40E_AQ_PHY_TYPE_EXT_25G_CR	0X02
- #define I40E_AQ_PHY_TYPE_EXT_25G_SR	0x04
- #define I40E_AQ_PHY_TYPE_EXT_25G_LR	0x08
--	u8	reserved[2];
-+	u8	fec_config;
-+#define I40E_AQ_SET_FEC_ABILITY_KR	BIT(0)
-+#define I40E_AQ_SET_FEC_ABILITY_RS	BIT(1)
-+#define I40E_AQ_SET_FEC_REQUEST_KR	BIT(2)
-+#define I40E_AQ_SET_FEC_REQUEST_RS	BIT(3)
-+#define I40E_AQ_SET_FEC_AUTO		BIT(4)
-+#define I40E_AQ_PHY_FEC_CONFIG_SHIFT	0x0
-+#define I40E_AQ_PHY_FEC_CONFIG_MASK	(0x1F << I40E_AQ_PHY_FEC_CONFIG_SHIFT)
-+	u8	reserved;
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aq_set_phy_config);
-@@ -1819,6 +1838,8 @@ struct i40e_aqc_get_link_status {
- 	u8	loopback; /* use defines from i40e_aqc_set_lb_mode */
- 	__le16	max_frame_size;
- 	u8	config;
-+#define I40E_AQ_CONFIG_FEC_KR_ENA	0x01
-+#define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
- #define I40E_AQ_CONFIG_CRC_ENA		0x04
- #define I40E_AQ_CONFIG_PACING_MASK	0x78
- 	u8	external_power_ability;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 1318c7d..f8c4c14 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1714,6 +1714,8 @@ enum i40e_status_code i40e_set_fc(struct i40e_hw *hw, u8 *aq_failures,
- 		config.eee_capability = abilities.eee_capability;
- 		config.eeer = abilities.eeer_val;
- 		config.low_power_ctrl = abilities.d3_lpan;
-+		config.fec_config = abilities.fec_cfg_curr_mod_ext_info &
-+				    I40E_AQ_PHY_FEC_CONFIG_MASK;
- 		status = i40e_aq_set_phy_config(hw, &config, NULL);
- 
- 		if (status)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index f8d7d95..eeb9864 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -1683,6 +1683,8 @@ struct i40e_aq_get_phy_abilities_resp {
- #define I40E_AQ_PHY_LINK_ENABLED	0x08
- #define I40E_AQ_PHY_AN_ENABLED		0x10
- #define I40E_AQ_PHY_FLAG_MODULE_QUAL	0x20
-+#define I40E_AQ_PHY_FEC_ABILITY_KR	0x40
-+#define I40E_AQ_PHY_FEC_ABILITY_RS	0x80
- 	__le16	eee_capability;
- #define I40E_AQ_EEE_100BASE_TX		0x0002
- #define I40E_AQ_EEE_1000BASE_T		0x0004
-@@ -1698,7 +1700,16 @@ struct i40e_aq_get_phy_abilities_resp {
- #define I40E_AQ_PHY_TYPE_EXT_25G_CR	0X02
- #define I40E_AQ_PHY_TYPE_EXT_25G_SR	0x04
- #define I40E_AQ_PHY_TYPE_EXT_25G_LR	0x08
--	u8	mod_type_ext;
-+	u8	fec_cfg_curr_mod_ext_info;
-+#define I40E_AQ_ENABLE_FEC_KR		0x01
-+#define I40E_AQ_ENABLE_FEC_RS		0x02
-+#define I40E_AQ_REQUEST_FEC_KR		0x04
-+#define I40E_AQ_REQUEST_FEC_RS		0x08
-+#define I40E_AQ_ENABLE_FEC_AUTO		0x10
-+#define I40E_AQ_FEC
-+#define I40E_AQ_MODULE_TYPE_EXT_MASK	0xE0
-+#define I40E_AQ_MODULE_TYPE_EXT_SHIFT	5
++	/* To determine if a particular filter needs to be replaced we
++	 * have the three following conditions:
++	 *
++	 * a) if we have a PVID assigned, then all filters which are
++	 *    not marked as VLAN=PVID must be replaced with filters that
++	 *    are.
++	 * b) otherwise, if we have any active VLANS, all filters
++	 *    which are marked as VLAN=-1 must be replaced with
++	 *    filters marked as VLAN=0
++	 * c) finally, if we do not have any active VLANS, all filters
++	 *    which are marked as VLAN=0 must be replaced with filters
++	 *    marked as VLAN=-1
++	 */
 +
- 	u8	ext_comp_code;
- 	u8	phy_id[4];
- 	u8	module_type[3];
-@@ -1726,7 +1737,15 @@ struct i40e_aq_set_phy_config { /* same bits as above in all */
- #define I40E_AQ_PHY_TYPE_EXT_25G_CR	0X02
- #define I40E_AQ_PHY_TYPE_EXT_25G_SR	0x04
- #define I40E_AQ_PHY_TYPE_EXT_25G_LR	0x08
--	u8	reserved[2];
-+	u8	fec_config;
-+#define I40E_AQ_SET_FEC_ABILITY_KR	BIT(0)
-+#define I40E_AQ_SET_FEC_ABILITY_RS	BIT(1)
-+#define I40E_AQ_SET_FEC_REQUEST_KR	BIT(2)
-+#define I40E_AQ_SET_FEC_REQUEST_RS	BIT(3)
-+#define I40E_AQ_SET_FEC_AUTO		BIT(4)
-+#define I40E_AQ_PHY_FEC_CONFIG_SHIFT	0x0
-+#define I40E_AQ_PHY_FEC_CONFIG_MASK	(0x1F << I40E_AQ_PHY_FEC_CONFIG_SHIFT)
-+	u8	reserved;
- };
++	/* Update the filters about to be added in place */
++	hlist_for_each_entry(f, tmp_add_list, hlist) {
++		if (vsi->info.pvid && f->vlan != vsi->info.pvid)
++			f->vlan = vsi->info.pvid;
++		else if (vlan_filters && f->vlan == I40E_VLAN_ANY)
++			f->vlan = 0;
++		else if (!vlan_filters && f->vlan == 0)
++			f->vlan = I40E_VLAN_ANY;
++	}
++
++	/* Update the remaining active filters */
++	hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
++		/* Combine the checks for whether a filter needs to be changed
++		 * and then determine the new VLAN inside the if block, in
++		 * order to avoid duplicating code for adding the new filter
++		 * then deleting the old filter.
++		 */
++		if ((vsi->info.pvid && f->vlan != vsi->info.pvid) ||
++		    (vlan_filters && f->vlan == I40E_VLAN_ANY) ||
++		    (!vlan_filters && f->vlan == 0)) {
++			/* Determine the new vlan we will be adding */
++			if (vsi->info.pvid)
++				new_vlan = vsi->info.pvid;
++			else if (vlan_filters)
++				new_vlan = 0;
++			else
++				new_vlan = I40E_VLAN_ANY;
++
++			/* Create the new filter */
++			add_head = i40e_add_filter(vsi, f->macaddr, new_vlan);
++			if (!add_head)
++				return -ENOMEM;
++
++			/* Put the replacement filter into the add list */
++			hash_del(&add_head->hlist);
++			hlist_add_head(&add_head->hlist, tmp_add_list);
++
++			/* Put the original filter into the delete list */
++			f->state = I40E_FILTER_REMOVE;
++			hash_del(&f->hlist);
++			hlist_add_head(&f->hlist, tmp_del_list);
++		}
++	}
++
++	vsi->has_vlan_filter = !!vlan_filters;
++
++	return 0;
++}
++
++/**
+  * i40e_rm_default_mac_filter - Remove the default MAC filter set by NVM
+  * @vsi: the PF Main VSI - inappropriate for any other VSI
+  * @macaddr: the MAC address
+@@ -1916,8 +2017,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 	struct hlist_head tmp_add_list, tmp_del_list;
+ 	struct i40e_mac_filter *f, *add_head = NULL;
+ 	struct i40e_hw *hw = &vsi->back->hw;
+-	unsigned int vlan_any_filters = 0;
+-	unsigned int non_vlan_filters = 0;
+ 	unsigned int failed_filters = 0;
+ 	unsigned int vlan_filters = 0;
+ 	bool promisc_changed = false;
+@@ -1974,66 +2073,21 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 				hlist_add_head(&f->hlist, &tmp_add_list);
+ 			}
  
- I40E_CHECK_CMD_LENGTH(i40e_aq_set_phy_config);
-@@ -1816,6 +1835,8 @@ struct i40e_aqc_get_link_status {
- 	u8	loopback; /* use defines from i40e_aqc_set_lb_mode */
- 	__le16	max_frame_size;
- 	u8	config;
-+#define I40E_AQ_CONFIG_FEC_KR_ENA	0x01
-+#define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
- #define I40E_AQ_CONFIG_CRC_ENA		0x04
- #define I40E_AQ_CONFIG_PACING_MASK	0x78
- 	u8	external_power_ability;
+-			/* Count the number of each type of filter we have
+-			 * remaining, ignoring any filters we're about to
+-			 * delete.
++			/* Count the number of active (current and new) VLAN
++			 * filters we have now. Does not count filters which
++			 * are marked for deletion.
+ 			 */
+ 			if (f->vlan > 0)
+ 				vlan_filters++;
+-			else if (!f->vlan)
+-				non_vlan_filters++;
+-			else
+-				vlan_any_filters++;
+ 		}
+ 
+-		/* We should never have VLAN=-1 filters at the same time as we
+-		 * have either VLAN=0 or VLAN>0 filters, so warn about this
+-		 * case here to help catch any issues.
+-		 */
+-		WARN_ON(vlan_any_filters && (vlan_filters + non_vlan_filters));
+-
+-		/* If we only have VLAN=0 filters remaining, and don't have
+-		 * any other VLAN filters, we need to convert these VLAN=0
+-		 * filters into VLAN=-1 (I40E_VLAN_ANY) so that we operate
+-		 * correctly in non-VLAN mode and receive all traffic tagged
+-		 * or untagged.
+-		 */
+-		if (non_vlan_filters && !vlan_filters) {
+-			hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f,
+-					   hlist) {
+-				/* Only replace VLAN=0 filters */
+-				if (f->vlan)
+-					continue;
+-
+-				/* Allocate a replacement element */
+-				add_head = kzalloc(sizeof(*add_head),
+-						   GFP_KERNEL);
+-				if (!add_head)
+-					goto err_no_memory_locked;
++		retval = i40e_correct_mac_vlan_filters(vsi,
++						       &tmp_add_list,
++						       &tmp_del_list,
++						       vlan_filters);
++		if (retval)
++			goto err_no_memory_locked;
+ 
+-				/* Copy the filter, with new state and VLAN */
+-				*add_head = *f;
+-				add_head->state = I40E_FILTER_NEW;
+-				add_head->vlan = I40E_VLAN_ANY;
+-
+-				/* Move the replacement to the add list */
+-				INIT_HLIST_NODE(&add_head->hlist);
+-				hlist_add_head(&add_head->hlist,
+-					       &tmp_add_list);
+-
+-				/* Move the original to the delete list */
+-				f->state = I40E_FILTER_REMOVE;
+-				hash_del(&f->hlist);
+-				hlist_add_head(&f->hlist, &tmp_del_list);
+-			}
+-
+-			/* Also update any filters on the tmp_add list */
+-			hlist_for_each_entry(f, &tmp_add_list, hlist) {
+-				if (!f->vlan)
+-					f->vlan = I40E_VLAN_ANY;
+-			}
+-			add_head = NULL;
+-		}
+ 		spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 	}
+ 
+@@ -2098,14 +2152,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 		del_list = NULL;
+ 	}
+ 
+-	/* After finishing notifying firmware of the deleted filters, update
+-	 * the cached value of vsi->has_vlan_filter. Note that we are safe to
+-	 * use just !!vlan_filters here because if we only have VLAN=0 (that
+-	 * is, non_vlan_filters) these will all be converted to VLAN=-1 in the
+-	 * logic above already so this value would still be correct.
+-	 */
+-	vsi->has_vlan_filter = !!vlan_filters;
+-
+ 	if (!hlist_empty(&tmp_add_list)) {
+ 		/* Do all the adds now. */
+ 		filter_list_len = hw->aq.asq_buf_size /
+@@ -2533,48 +2579,14 @@ int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
+  **/
+ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ {
+-	struct i40e_mac_filter *f, *add_f, *del_f;
+-	struct hlist_node *h;
+-	int bkt, err;
++	int err;
+ 
+ 	/* Locked once because all functions invoked below iterates list*/
+ 	spin_lock_bh(&vsi->mac_filter_hash_lock);
+-
+ 	err = i40e_add_vlan_all_mac(vsi, vid);
+-	if (err) {
+-		spin_unlock_bh(&vsi->mac_filter_hash_lock);
+-		return err;
+-	}
+-
+-	/* When we add a new VLAN filter, we need to make sure that all existing
+-	 * filters which are marked as vid=-1 (I40E_VLAN_ANY) are converted to
+-	 * vid=0. The simplest way is just search for all filters marked as
+-	 * vid=-1 and replace them with vid=0. This converts all filters that
+-	 * were marked to receive all traffic (tagged or untagged) into
+-	 * filters to receive only untagged traffic, so that we don't receive
+-	 * tagged traffic for VLANs which we have not configured.
+-	 */
+-	if (vid > 0 && !vsi->info.pvid) {
+-		hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
+-			if (f->state == I40E_FILTER_REMOVE)
+-				continue;
+-			del_f = i40e_find_filter(vsi, f->macaddr,
+-						 I40E_VLAN_ANY);
+-			if (!del_f)
+-				continue;
+-			add_f = i40e_add_filter(vsi, f->macaddr, 0);
+-			if (!add_f) {
+-				dev_info(&vsi->back->pdev->dev,
+-					 "Could not add filter 0 for %pM\n",
+-					f->macaddr);
+-				spin_unlock_bh(&vsi->mac_filter_hash_lock);
+-				return -ENOMEM;
+-			}
+-			__i40e_del_filter(vsi, del_f);
+-		}
+-	}
+-
+ 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
++	if (err)
++		return err;
+ 
+ 	/* schedule our worker thread which will take care of
+ 	 * applying the new filter changes
 -- 
 2.9.3
