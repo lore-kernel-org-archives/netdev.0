@@ -1,54 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
-Date: Wed, 07 Dec 2016 09:32:04 -0800
-Message-ID: <1481131924.4930.40.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
-         <063D6719AE5E284EB5DD2968C1650D6DB0237532@AcuExch.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next][PATCH v2 18/18] RDS: IB: add missing connection
+ cache usage info
+Date: Wed, 07 Dec 2016 12:36:42 -0500 (EST)
+Message-ID: <20161207.123642.1553217272033137094.davem@davemloft.net>
+References: <eac62d66-7a41-965d-8ecb-c2e4b651c39d@oracle.com>
+        <20161207.120536.1153607792891600896.davem@davemloft.net>
+        <6159757e-c799-ee7f-0ee0-c9b3534a4237@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 'Paolo Abeni' <pabeni@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34641 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752184AbcLGRdG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:33:06 -0500
-Received: by mail-pg0-f67.google.com with SMTP id e9so24042390pgc.1
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 09:33:05 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0237532@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: santosh.shilimkar@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6159757e-c799-ee7f-0ee0-c9b3534a4237@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-12-07 at 17:09 +0000, David Laight wrote:
-> From: Paolo Abeni
-> > Sent: 06 December 2016 17:08
-> ...
-> > @@ -79,6 +82,9 @@ struct udp_sock {
-> >  	int			(*gro_complete)(struct sock *sk,
-> >  						struct sk_buff *skb,
-> >  						int nhoff);
-> > +
-> > +	/* since we are prone to drops, avoid dirtying any sk cacheline */
-> > +	atomic_t		drops ____cacheline_aligned_in_smp;
-> >  };
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Date: Wed, 7 Dec 2016 09:20:17 -0800
+
+> Newer/Updated tools which can parse this extra info in needs newer
+> or an updated kernel which supports and populates these fields.
 > 
-> Isn't that likely to create a large hole on systems with large cache lines.
-> (Same as any other use of ____cacheline_aligned_in_smp.)
+> As mentioned, this particular option used only in verbose mode so
+> am ok to drop this change if its still a concern.
 
-Yes, I would like to avoid that, unless we come to the conclusion it is
-absolutely needed.
+What does the newer tool do on an older kernel if it doesn't see
+the fields?  Does it check the size of the structure given back
+to it, and conditionally handle the older vs. the newer layout?
 
-I feel that we could simply use a pointer, and allocate memory on
-demand, since many sockets do not ever experience a drop.
-
-The pointer could stay in a read mostly section.
-
-We even could use per cpu or node counter for some heavy drop cases. 
+It must do this.
