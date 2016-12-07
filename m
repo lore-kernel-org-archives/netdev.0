@@ -1,44 +1,136 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 10/10] virtio: enable endian checks for sparse builds
-Date: Tue, 6 Dec 2016 23:30:21 -0800
-Message-ID: <20161207073021.GA26970@infradead.org>
-References: <1481038106-24899-1-git-send-email-mst@redhat.com>
- <1481038106-24899-11-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-        linux-kbuild@vger.kernel.org, Michal Marek <mmarek@suse.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Matt Mackall <mpm@selenic.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        David Airlie <airlied@linux.ie>,
-        Gerd Hoffmann <kraxel@redhat.com>,
-        Ohad Ben-Cohen <ohad@wizery.com>,
-        Christian Borntraeger <borntraeger@de.ibm.com>,
-        Cornelia Huck <cornelia.huck@de.ibm.com>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>, Jens Axboe <axboe@fb.com>,
-        Neil Armstrong <narmstrong@baylibre.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        Asias He <asias@redhat.com>, linux-crypto@vger.kernel.org,
-        dri-devel@lists.freedesktop.org,
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1481038106-24899-11-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/20] i40e: defeature support for PTP L4 frame detection on XL710
+Date: Tue,  6 Dec 2016 23:33:47 -0800
+Message-ID: <20161207073354.88568-14-jeffrey.t.kirsher@intel.com>
+References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:47083 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753103AbcLGHeu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:50 -0500
+In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 06, 2016 at 05:41:05PM +0200, Michael S. Tsirkin wrote:
-> __CHECK_ENDIAN__ isn't on by default presumably because
-> it triggers too many sparse warnings for correct code.
-> But virtio is now clean of these warnings, and
-> we want to keep it this way - enable this for
-> sparse builds.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Nah.  Please just enable it globally when using sparse.  I actually
-had a chat with Linus about that a while ago and he seemed generally
-fine with it, I just didn't manage to actually do it..
+A product decision has been made to defeature detection of PTP frames
+over L4 (UDP) on the XL710 MAC. Do not advertise support for L4
+timestamping.
+
+Change-ID: I41fbb0f84ebb27c43e23098c08156f2625c6ee06
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 15 +++++++++++++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  3 ++-
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c     | 21 +++++++++++++++------
+ 4 files changed, 31 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index b8f2978..f1d838f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -360,6 +360,7 @@ struct i40e_pf {
+ #define I40E_FLAG_PF_MAC			BIT_ULL(50)
+ #define I40E_FLAG_TRUE_PROMISC_SUPPORT		BIT_ULL(51)
+ #define I40E_FLAG_HAVE_CRT_RETIMER		BIT_ULL(52)
++#define I40E_FLAG_PTP_L4_CAPABLE		BIT_ULL(53)
+ 
+ 	/* tracks features that get auto disabled by errors */
+ 	u64 auto_disable_flags;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 935160a..cc1465a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1681,8 +1681,19 @@ static int i40e_get_ts_info(struct net_device *dev,
+ 	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
+ 
+ 	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) |
+-			   BIT(HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
+-			   BIT(HWTSTAMP_FILTER_PTP_V2_EVENT);
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ);
++
++	if (pf->flags & I40E_FLAG_PTP_L4_CAPABLE)
++		info->rx_filters |= BIT(HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
++				    BIT(HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
++				    BIT(HWTSTAMP_FILTER_PTP_V2_EVENT) |
++				    BIT(HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
++				    BIT(HWTSTAMP_FILTER_PTP_V2_SYNC) |
++				    BIT(HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
++				    BIT(HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
++				    BIT(HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index c47e9c5..806fd56 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8699,7 +8699,8 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 			     I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE |
+ 			     I40E_FLAG_NO_PCI_LINK_CHECK |
+ 			     I40E_FLAG_USE_SET_LLDP_MIB |
+-			     I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
++			     I40E_FLAG_GENEVE_OFFLOAD_CAPABLE |
++			     I40E_FLAG_PTP_L4_CAPABLE;
+ 	} else if ((pf->hw.aq.api_maj_ver > 1) ||
+ 		   ((pf->hw.aq.api_maj_ver == 1) &&
+ 		    (pf->hw.aq.api_min_ver > 4))) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index 5e2272c..9e49ffa 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -521,6 +521,8 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
++		if (!(pf->flags & I40E_FLAG_PTP_L4_CAPABLE))
++			return -ERANGE;
+ 		pf->ptp_rx = true;
+ 		tsyntype = I40E_PRTTSYN_CTL1_V1MESSTYPE0_MASK |
+ 			   I40E_PRTTSYN_CTL1_TSYNTYPE_V1 |
+@@ -528,19 +530,26 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
+ 		config->rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+-	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
+-	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+-	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
+ 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++		if (!(pf->flags & I40E_FLAG_PTP_L4_CAPABLE))
++			return -ERANGE;
++		/* fall through */
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
+ 		pf->ptp_rx = true;
+ 		tsyntype = I40E_PRTTSYN_CTL1_V2MESSTYPE0_MASK |
+-			   I40E_PRTTSYN_CTL1_TSYNTYPE_V2 |
+-			   I40E_PRTTSYN_CTL1_UDP_ENA_MASK;
+-		config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
++			   I40E_PRTTSYN_CTL1_TSYNTYPE_V2;
++		if (pf->flags & I40E_FLAG_PTP_L4_CAPABLE) {
++			tsyntype |= I40E_PRTTSYN_CTL1_UDP_ENA_MASK;
++			config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
++		} else {
++			config->rx_filter = HWTSTAMP_FILTER_PTP_V2_L2_EVENT;
++		}
+ 		break;
+ 	case HWTSTAMP_FILTER_ALL:
+ 	default:
+-- 
+2.9.3
