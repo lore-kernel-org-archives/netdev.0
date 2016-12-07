@@ -1,35 +1,56 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v3] net: phy: phy drivers should not set
- SUPPORTED_[Asym_]Pause
-Date: Tue, 6 Dec 2016 20:54:59 -0600
-Message-ID: <58477A03.6000107@codeaurora.org>
-References: <1481070443-15118-1-git-send-email-timur@codeaurora.org>
- <2c2aaf1d-05a5-d2bc-d04a-79224a4c6b43@gmail.com>
- <58476ACB.3030206@codeaurora.org>
- <f62595d4-2dd7-9cc3-7537-2ff186dadc8c@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] Add ethtool set regs support
+Date: Tue, 06 Dec 2016 21:57:32 -0500 (EST)
+Message-ID: <20161206.215732.1535653926791462641.davem@davemloft.net>
+References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com>
+        <20161207024143.GA655@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
-        netdev@vger.kernel.org
+Cc: saeedm@mellanox.com, netdev@vger.kernel.org, linville@tuxdriver.com
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:42302 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751581AbcLGCz5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 21:55:57 -0500
-In-Reply-To: <f62595d4-2dd7-9cc3-7537-2ff186dadc8c@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52778 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751792AbcLGC5e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 21:57:34 -0500
+In-Reply-To: <20161207024143.GA655@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli wrote:
-> which is why this made me think the & (SUPPORTED_Pause |
-> SUPPPORTED_Asym_Pause) here is most likely redundant?
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 7 Dec 2016 03:41:43 +0100
 
-Well, like I said, better safe than sorry.  I'd rather keep the &= 
-unless you have a strong objection.
+> On Wed, Dec 07, 2016 at 12:33:08AM +0200, Saeed Mahameed wrote:
+>> Hi Dave,
+>> 
+>> This series adds the support for setting device registers from user
+>> space ethtool.
+> 
+> Is this not the start of allowing binary only drivers in user space?
+> 
+> Do we want this?
 
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+I don't think we do.
+
+> 
+>> mlx5 driver have registers allowed access list and will check the user 
+>> Request validity before forwarding it to HW registers. Mlx5 will allow only mlx5 specific
+>> configurations to be set (e.g. Device Diag Counters for HW performance debugging and analysis)
+>> which has no standard API to access it.
+> 
+> Would it not be better to define an flexible API to do this? We have
+> lots of HW performance counters for CPUs. Why is it not possible to do
+> this for a network device?
+
+So if this isn't for raw PIO register access, then we should define
+an appropriate interface for it.
+
+The ethtool regs stuff is untyped, and arbitrary.
+
+Please create something properly structured, and typed, which would
+allow accessing the information you want the user to be able to
+access.
+
+That way the kernel can tell what the user is reading or writing,
+and thus properly control access.
