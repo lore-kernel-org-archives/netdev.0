@@ -1,149 +1,93 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v3 net-next 4/4] bpf: xdp: Add XDP example for head
- adjustment
-Date: Wed, 7 Dec 2016 11:34:24 +0100
-Message-ID: <20161207113424.4e6fe238@redhat.com>
-References: <1481088714-54512-1-git-send-email-kafai@fb.com>
-        <1481088714-54512-5-git-send-email-kafai@fb.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3] netns: fix net_generic() "id - 1" bloat
+Date: Wed, 7 Dec 2016 10:49:43 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0236F41@AcuExch.aculab.com>
+References: <20161202012132.GD31170@avx2>
+ <063D6719AE5E284EB5DD2968C1650D6DB0234CCB@AcuExch.aculab.com>
+ <CACVxJT8axg6i0Lvem=fvKqrjTuOzwg63BDbAuR6bzTPrtLuP+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <kubakici@wp.pl>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>, brouer@redhat.com
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xemul@openvz.org" <xemul@openvz.org>
+To: 'Alexey Dobriyan' <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48196 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751704AbcLGKeq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 05:34:46 -0500
-In-Reply-To: <1481088714-54512-5-git-send-email-kafai@fb.com>
+Received: from smtp-out6.electric.net ([192.162.217.191]:65361 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752942AbcLGKt4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 05:49:56 -0500
+In-Reply-To: <CACVxJT8axg6i0Lvem=fvKqrjTuOzwg63BDbAuR6bzTPrtLuP+g@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 6 Dec 2016 21:31:54 -0800
-Martin KaFai Lau <kafai@fb.com> wrote:
-
-> The XDP prog checks if the incoming packet matches any VIP:PORT
-> combination in the BPF hashmap.  If it is, it will encapsulate
-> the packet with a IPv4/v6 header as instructed by the value of
-> the BPF hashmap and then XDP_TX it out.
-> 
-> The VIP:PORT -> IP-Encap-Info can be specified by the cmd args
-> of the user prog.
-> 
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> ---
->  samples/bpf/Makefile              |   4 +
->  samples/bpf/bpf_helpers.h         |   2 +
->  samples/bpf/bpf_load.c            |  94 ++++++++++++++
->  samples/bpf/bpf_load.h            |   1 +
->  samples/bpf/xdp1_user.c           |  93 --------------
->  samples/bpf/xdp_tx_iptnl_common.h |  37 ++++++
->  samples/bpf/xdp_tx_iptnl_kern.c   | 232 ++++++++++++++++++++++++++++++++++
->  samples/bpf/xdp_tx_iptnl_user.c   | 253 ++++++++++++++++++++++++++++++++++++++
-
-I got confused by the file name "iptnl", I didn't realize this was
-short for iptunnel, before after reading the actually XDP program code.
-
-These are "samples" XDP programs that normal people are expected to
-find/discover, could we name it "xdp_tx_tunnel" or "xdp_tx_iptunnel"?
-(To guide peoples search for this)
-
-I will likely add a "xdp_tx_vlan" example as I have a customer use-case
-that needs this for DDoS scrubbing[1]
-
-[1] http://prototype-kernel.readthedocs.io/en/latest/networking/XDP/use-cases/xdp_use_case_ddos_scrubber.html#forward-clean-traffic
-
-[...]
-> diff --git a/samples/bpf/xdp_tx_iptnl_kern.c b/samples/bpf/xdp_tx_iptnl_kern.c
-> new file mode 100644
-> index 000000000000..d88c064175aa
-> --- /dev/null
-> +++ b/samples/bpf/xdp_tx_iptnl_kern.c
-> @@ -0,0 +1,232 @@
-> +/* Copyright (c) 2016 Facebook
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of version 2 of the GNU General Public
-> + * License as published by the Free Software Foundation.
-
-Can we add short description of the program, to let readers know if
-this is the sample they are looking for. Max 3 lines, like:
-
- This program demonstrate how XDP does packet header adjustment, here
- by adding an encapsulation tunnel header based on a BPF hashmap.
-
-> + */
-> +#include <uapi/linux/bpf.h>
-> +#include <linux/in.h>
-> +#include <linux/if_ether.h>
-> +#include <linux/if_packet.h>
-> +#include <linux/if_vlan.h>
-> +#include <linux/ip.h>
-> +#include <linux/ipv6.h>
-> +#include "bpf_helpers.h"
-> +#include "xdp_tx_iptnl_common.h"
-> +
-> +struct bpf_map_def SEC("maps") rxcnt = {
-> +	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
-> +	.key_size = sizeof(__u32),
-> +	.value_size = sizeof(__u64),
-> +	.max_entries = 256,
-> +};
-> +
-> +struct bpf_map_def SEC("maps") vip2tnl = {
-> +	.type = BPF_MAP_TYPE_HASH,
-> +	.key_size = sizeof(struct vip),
-> +	.value_size = sizeof(struct iptnl_info),
-> +	.max_entries = MAX_IPTNL_ENTRIES,
-> +};
-
-[...]
-
-> diff --git a/samples/bpf/xdp_tx_iptnl_user.c b/samples/bpf/xdp_tx_iptnl_user.c
-> new file mode 100644
-> index 000000000000..9aeef7579af4
-> --- /dev/null
-> +++ b/samples/bpf/xdp_tx_iptnl_user.c
-> @@ -0,0 +1,253 @@
-> +/* Copyright (c) 2016 Facebook
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of version 2 of the GNU General Public
-> + * License as published by the Free Software Foundation.
-> + */
-[...]
-> +
-> +static void usage(const char *cmd)
-> +{
-
-Wondering if there should be a descriptive header, that says e.g. 
-"XDP tunnel sample" or if command filename "xdp_tx_iptunnel" or
-"xdp_tx_tunnel" would be descriptive enough.
-
-
-> +	printf("Usage: %s [...]\n", cmd);
-> +	printf("    -i <ifindex> Interface Index\n");
-> +	printf("    -a <vip-service-address> IPv4 or IPv6\n");
-> +	printf("    -p <vip-service-port> A port range (e.g. 433-444) is also allowed\n");
-> +	printf("    -s <source-ip> Used in the IPTunnel Header\n");
-> +	printf("    -d <dest-ip> Used in the IPTunnel header>\n");
-> +	printf("    -m <dest-MAC> Used in sending the IP Tunneled pkt>\n");
-> +	printf("    -T <stop-after-X-seconds> Default: 0 (forever)\n");
-> +	printf("    -P <IP-Protocol> Default is TCP\n");
-> +	printf("    -h Display this help\n");
-> +}
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+RnJvbTogQWxleGV5IERvYnJpeWFuDQo+IFNlbnQ6IDA1IERlY2VtYmVyIDIwMTYgMTQ6NDgNCj4g
+T24gTW9uLCBEZWMgNSwgMjAxNiBhdCAzOjQ5IFBNLCBEYXZpZCBMYWlnaHQgPERhdmlkLkxhaWdo
+dEBhY3VsYWIuY29tPiB3cm90ZToNCj4gPiBGcm9tOiBBbGV4ZXkgRG9icml5YW4NCj4gPj4gU2Vu
+dDogMDIgRGVjZW1iZXIgMjAxNiAwMToyMg0KPiA+PiBuZXRfZ2VuZXJpYygpIGZ1bmN0aW9uIGlz
+IGJvdGggYSkgaW5saW5lIGFuZCBiKSB1c2VkIH42MDAgdGltZXMuDQo+ID4+DQo+ID4+IEl0IGhh
+cyB0aGUgZm9sbG93aW5nIGNvZGUgaW5zaWRlDQo+ID4+DQo+ID4+ICAgICAgICAgICAgICAgLi4u
+DQo+ID4+ICAgICAgIHB0ciA9IG5nLT5wdHJbaWQgLSAxXTsNCj4gPj4gICAgICAgICAgICAgICAu
+Li4NCj4gPj4NCj4gPj4gImlkIiBpcyBuZXZlciBjb21waWxlIHRpbWUgY29uc3RhbnQgc28gY29t
+cGlsZXIgaXMgZm9yY2VkIHRvIHN1YnRyYWN0IDEuDQo+ID4+IEFuZCB0aG9zZSBkZWNyZW1lbnRz
+IG9yIExFQSBbcjMyIC0gMV0gaW5zdHJ1Y3Rpb25zIGFkZCB1cC4NCj4gPj4NCj4gPj4gV2UgYWxz
+byBzdGFydCBpZCdpbmcgZnJvbSAxIHRvIGNhdGNoIGJ1Z3Mgd2hlcmUgcGVybmV0IHN5YnN5c3Rl
+bSBpZA0KPiA+PiBpcyBub3QgaW5pdGlhbGl6ZWQgYW5kIDAuIFRoaXMgaXMgcXVpdGUgcG9pbnRs
+ZXNzIGlkZWEgKG5vdGhpbmcgd2lsbA0KPiA+PiB3b3JrIG9yIGltbWVkaWF0ZSBpbnRlcmZlcmVu
+Y2Ugd2l0aCBmaXJzdCByZWdpc3RlcmVkIHN1YnN5c3RlbSkgaW4NCj4gPj4gZ2VuZXJhbCBidXQg
+aXQgaGludHMgd2hhdCBuZWVkcyB0byBiZSBkb25lIGZvciBjb2RlIHNpemUgcmVkdWN0aW9uLg0K
+PiA+Pg0KPiA+PiBOYW1lbHksIG92ZXJsYXlpbmcgYWxsb2NhdGlvbiBvZiBwb2ludGVyIGFycmF5
+IGFuZCBmaXhlZCBwYXJ0IG9mDQo+ID4+IHN0cnVjdHVyZSBpbiB0aGUgYmVnaW5uaW5nIGFuZCB1
+c2luZyB1c3VhbCBiYXNlLTAgYWRkcmVzc2luZy4NCj4gPj4NCj4gPj4gSWRzIGFyZSBqdXN0IGNv
+b2tpZXMsIHRoZWlyIGV4YWN0IHZhbHVlcyBkbyBub3QgbWF0dGVyLCBzbyBsZXRzIHN0YXJ0DQo+
+ID4+IHdpdGggMyBvbiB4ODZfNjQuDQo+ID4gLi4uDQo+ID4+ICBzdHJ1Y3QgbmV0X2dlbmVyaWMg
+ew0KPiA+PiAtICAgICBzdHJ1Y3Qgew0KPiA+PiAtICAgICAgICAgICAgIHVuc2lnbmVkIGludCBs
+ZW47DQo+ID4+IC0gICAgICAgICAgICAgc3RydWN0IHJjdV9oZWFkIHJjdTsNCj4gPj4gLSAgICAg
+fSBzOw0KPiA+PiAtDQo+ID4+IC0gICAgIHZvaWQgKnB0clswXTsNCj4gPj4gKyAgICAgdW5pb24g
+ew0KPiA+PiArICAgICAgICAgICAgIHN0cnVjdCB7DQo+ID4+ICsgICAgICAgICAgICAgICAgICAg
+ICB1bnNpZ25lZCBpbnQgbGVuOw0KPiA+PiArICAgICAgICAgICAgICAgICAgICAgc3RydWN0IHJj
+dV9oZWFkIHJjdTsNCj4gPj4gKyAgICAgICAgICAgICB9IHM7DQo+ID4+ICsNCj4gPj4gKyAgICAg
+ICAgICAgICB2b2lkICpwdHJbMF07DQo+ID4+ICsgICAgIH07DQo+ID4+ICB9Ow0KPiA+DQo+ID4g
+VGhhdCB1bmlvbiBpcyBhbiBhY2NpZGVudCB3YWl0aW5nIHRvIGhhcHBlbi4NCj4gDQo+IEkga2lu
+ZCBvZiBkaXNhZ3JlZS4gTW9kdWxlIGF1dGhvcnMgc2hvdWxkIG5vdCBiZSBnaXZlbiBtYXRjaGVz
+LA0KPiBidXQgaXQgaXMgaGFyZCB0byBzY3JldyB1cCBpZiBuZXRfZ2VuZXJpYygpIGlzIGFsbCB5
+b3UncmUgZ2l2ZW4uDQo+IA0KPiA+IFdoYXQgbWlnaHQgd29yayBpcyB0byBvZmZzZXQgdGhlIElk
+cyBieQ0KPiA+IChvZmZzZXRvZihzdHJ1Y3QgbmV0X2dlbmVyaWMsIHB0cikvc2l6ZW9mICh2b2lk
+ICopKSBpbnN0ZWFkIG9mIGJ5IDEuDQo+ID4gVGhlIHN1YnRyYWN0IGZyb20gdGhlIG9mZnNldCB3
+aWxsIHRoZW4gY291bnRlciB0aGUgc3RydWN0dXJlIG9mZnNldA0KPiA+IC0gd2hpY2ggaXMgd2hh
+dCB5b3UgYXJlIHRyeWluZyB0byBhY2hpZXZlLg0KPiANCj4gSWYgeW91IHN1Z2dlc3QgdGhpcyBs
+YXlvdXQNCj4gDQo+IHN0cnVjdCBuZXRfZ2VuZXJpYyB7DQo+ICAgICAgICAgc3RydWN0IHsNCj4g
+ICAgICAgICB9IHM7DQo+ICAgICAgICAgdm9pZCAqcHRyWzBdOw0KPiB9Ow0KPiANCj4gdGhlbiBp
+cyBpdCBub3Qgb3B0aW1hbCBiZWNhdXNlIG9mZnNldCBvZiAicHRyIiBuZWVkcyB0byBiZSBzb21l
+d2hlcmUgaW4gY29kZQ0KPiBlaXRoZXIgaW4gc29tZSBMRUEgb3IgaW1tOCBvZiB0aGUgZmluYWwg
+TU9WIHdoaWNoIGlzIDEgYnl0ZSBtb3JlIGJsb2F0eS4NCj4gDQo+IEhlcmUgaXMgdGVzdCBwcm9n
+cmFtDQo+IA0KPiBzdHJ1Y3QgbmcxIHsNCj4gICAgICAgICB1bmlvbiB7DQo+ICAgICAgICAgICAg
+ICAgICBzdHJ1Y3Qgew0KPiAgICAgICAgICAgICAgICAgICAgICAgICB1bnNpZ25lZCBpbnQgbGVu
+Ow0KPiAgICAgICAgICAgICAgICAgfSBzOw0KPiAgICAgICAgICAgICAgICAgdm9pZCAqcHRyWzBd
+Ow0KPiAgICAgICAgIH07DQo+IH07DQo+IHN0cnVjdCBuZzIgew0KPiAgICAgICAgIHN0cnVjdCB7
+DQo+ICAgICAgICAgICAgICAgICB1bnNpZ25lZCBpbnQgbGVuOw0KPiAgICAgICAgIH0gczsNCj4g
+ICAgICAgICB2b2lkICpwdHJbMF07DQo+IH07DQo+IHN0cnVjdCBuZXQgew0KPiAgICAgICAgIGlu
+dCB4Ow0KPiAgICAgICAgIHN0cnVjdCBuZzEgKmdlbjE7DQo+ICAgICAgICAgc3RydWN0IG5nMiAq
+Z2VuMjsNCj4gfTsNCj4gdm9pZCAqbmcxKGNvbnN0IHN0cnVjdCBuZXQgKm5ldCwgdW5zaWduZWQg
+aW50IGlkKQ0KPiB7DQo+ICAgICAgICAgcmV0dXJuIG5ldC0+Z2VuMS0+cHRyW2lkXTsNCj4gfQ0K
+PiB2b2lkICpuZzIoY29uc3Qgc3RydWN0IG5ldCAqbmV0LCB1bnNpZ25lZCBpbnQgaWQpDQo+IHsN
+Cj4gICAgICAgICByZXR1cm4gbmV0LT5nZW4yLT5wdHJbaWRdOw0KPiB9DQo+IA0KPiANCj4gMDAw
+MDAwMDAwMDAwMDAwMCA8bmcxPjoNCj4gICAgMDogICA0OCA4YiA0NyAwOCAgICAgICAgICAgICBt
+b3YgICAgcmF4LFFXT1JEIFBUUiBbcmRpKzB4OF0NCj4gICAgNDogICA4OSBmNiAgICAgICAgICAg
+ICAgICAgICBtb3YgICAgZXNpLGVzaQ0KPiAgICA2OiAgIDQ4IDhiIDA0IGYwICAgICAgICAgICAg
+IG1vdiAgICByYXgsUVdPUkQgUFRSIFtyYXgrcnNpKjhdDQo+ICAgIGE6ICAgYzMgICAgICAgICAg
+ICAgICAgICAgICAgcmV0DQo+IA0KPiANCj4gMDAwMDAwMDAwMDAwMDAxMCA8bmcyPjoNCj4gICAx
+MDogICA0OCA4YiA0NyAxMCAgICAgICAgICAgICBtb3YgICAgcmF4LFFXT1JEIFBUUiBbcmRpKzB4
+MTBdDQo+ICAgMTQ6ICAgODkgZjYgICAgICAgICAgICAgICAgICAgbW92ICAgIGVzaSxlc2kNCj4g
+ICAxNjogICA0OCA4YiA0NCBmMCBbW1swOF1dXSAgICAgICAgICBtb3YgICAgcmF4LFFXT1JEIFBU
+UiBbcmF4K3JzaSo4KzB4OF0NCj4gICAxYjogICBjMyAgICAgICAgICAgICAgICAgICAgICByZXQN
+Cg0KT24geDg2IHRoYXQgd2lsbCBtYWtlIH4wIGRpZmZlcmVuY2Ugc2luY2UgdGhlIG9mZnNldCAo
+aW4gdGhhdCBzZXF1ZW5jZSkNCmRvZXNuJ3QgcmVxdWlyZSBhbiBleHRyYSBpbnN0cnVjdGlvbi4N
+Cg0KSG93ZXZlciBpZiB5b3Ugb2Zmc2V0IHRoZSAnaWQnIHZhbHVlcyBzbyB0aGF0IG9ubHkNCnZh
+bHVlcyAyIHVwIGFyZSB2YWxpZCB0aGUgY29kZSBiZWNvbWVzOg0KCXJldHVybiBuZXQtPmdlbjIt
+PnB0cltpZCAtIDJdOw0Kd2hpY2ggd2lsbCBiZSBleGFjdGx5IHRoZSBzYW1lIGNvZGUgYXM6DQoJ
+cmV0dXJuIG5ldC0+Z2VuMS0+cHRyW2lkXTsNCmJ1dCBpdCBpcyBtdWNoIG1vcmUgb2J2aW91cyB0
+aGF0ICdpZCcgdmFsdWVzIG11c3QgYmUgPj0gMi4NCg0KVGhlICcyJyBzaG91bGQgYmUgZ2VuZXJh
+dGVkIGZyb20gdGhlIHN0cnVjdHVyZSBvZmZzZXQsIGJ1dCB3aXRoIG15IG1ldGhvZA0KaXMgZG9l
+c24ndCBhY3R1YWxseSBtYXR0ZXIgaWYgaXQgaXMgd3JvbmcuDQoNCglEYXZpZA0KDQo=
