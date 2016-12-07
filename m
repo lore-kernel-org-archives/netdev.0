@@ -1,87 +1,84 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 2/2] net: ethernet: stmmac: remove private tx queue lock
-Date: Wed, 7 Dec 2016 21:59:42 +0100
-Message-ID: <20161207205942.GB2250@amd>
-References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
- <1481141138-19466-3-git-send-email-LinoSanfilippo@gmx.de>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence GEM.
+Date: Wed, 7 Dec 2016 22:04:16 +0100
+Message-ID: <20161207210416.GA27622@netboy>
+References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
+ <20161207193908.GA13062@netboy>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="uZ3hkaAS1mZxFaxD"
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tbultel@pixelsurmer.com, boris.brezillon@free-electrons.com,
+ rafalo@cadence.com, netdev@vger.kernel.org,
+ alexandre.belloni@free-electrons.com, nicolas.ferre@atmel.com,
+ linux-kernel@vger.kernel.org, harinikatakamlinux@gmail.com, michals@xilinx.com,
+ anirudh@xilinx.com, punnaia@xilinx.com, harini.katakam@xilinx.com,
+ davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: Andrei Pistirica <andrei.pistirica@microchip.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1481141138-19466-3-git-send-email-LinoSanfilippo@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20161207193908.GA13062@netboy>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 07, 2016 at 08:39:09PM +0100, Richard Cochran wrote:
+> > +static s32 gem_ptp_max_adj(unsigned int f_nom)
+> > +{
+> > +	u64 adj;
+> > +
+> > +	/* The 48 bits of seconds for the GEM overflows every:
+> > +	 * 2^48/(365.25 * 24 * 60 *60) =~ 8 925 512 years (~= 9 mil years),
+> > +	 * thus the maximum adjust frequency must not overflow CNS register:
+> > +	 *
+> > +	 * addend  = 10^9/nominal_freq
+> > +	 * adj_max = +/- addend*ppb_max/10^9
+> > +	 * max_ppb = (2^8-1)*nominal_freq-10^9
+> > +	 */
+> > +	adj = f_nom;
+> > +	adj *= 0xffff;
+> > +	adj -= 1000000000ULL;
+> 
+> What is this computation, and how does it relate to the comment?
 
---uZ3hkaAS1mZxFaxD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I am not sure what you meant, but it sounds like you are on the wrong
+track.  Let me explain...
 
-Hi!
+The max_adj has nothing at all to do with the width of the time
+register.  Rather, it should reflect the maximum possible change in
+the tuning word.
 
-> The driver uses a private lock for synchronization between the xmit
-> function and the xmit completion handler, but since the NETIF_F_LLTX flag
-> is not set, the xmit function is also called with the xmit_lock held.
->=20
-> On the other hand the xmit completion handler first takes the private lock
-> and (in case that the tx queue has been stopped) the xmit_lock, leading to
-> a reverse locking order and the potential danger of a deadlock.
->=20
-> Fix this by removing the private lock completely and synchronizing the xm=
-it
-> function and completion handler solely by means of the xmit_lock. By doing
-> this remove also the now unnecessary double check for a stopped tx queue.
->=20
-> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+For example, with a nominal 8 ns period, the tuning word is 0x80000.
+Looking at running the clock more slowly, the slowest possible word is
+0x00001, meaning a difference of 0x7FFFF.  This implies an adjustment
+of 0x7FFFF/0x80000 or 999998092 ppb.  Running more quickly, we can
+already have 0x100000, twice as fast, or just under 2 billion ppb.
 
-Oops, sorry no, that broke the driver after a while:
+You should consider the extreme cases to determine the most limited
+(smallest) max_adj value:
 
-(So please ignore my tested-by:)
+Case 1 - high frequency
+~~~~~~~~~~~~~~~~~~~~~~~
 
-root@wagabuibui:/data/tmp/udpt# ./udp-test raw 10.0.0.6 1234 1000 100
-30
-Sending 100 packets (1000b each) at an interval of 30ms, expected data
-rate:3333333b/s (3373333b/s incl udp overhead)
-[   30.948626] socfpga-dwmac ff702000.ethernet eth0: Link is Up -
-100Mbps/Full - flow control rx/tx
-[   31.076064] Link is Up - 100/Full
-[   32.979526] random: crng init done
-[  262.244030] ------------[ cut here ]------------
-[  262.248669] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:316
-dev_watchdog+0x254/0x26c
-[  262.256916] NETDEV WATCHDOG: eth0 (socfpga-dwmac): transmit queue 0
-timed out
-[  262.264028] Modules linked in:
-[  262.267102] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
-4.9.0-rc7-118095-g2d70d9b-dirty #339
-[  262.275328] Hardware name: Altera SOCFPGA
-[  262.279352] [<8010f758>] (unwind_backtrace) from [<8010affc>]
-(show_stack+0x10/0x14)
+With a nominal 1 ns period, we have the nominal tuning word 0x10000.
+The smallest is 0x1 for a difference of 0xFFFF.  This corresponds to
+an adjustment of 0xFFFF/0x10000 = .9999847412109375 or 999984741 ppb.
 
-									Pavel
+Case 2 - low frequency
+~~~~~~~~~~~~~~~~~~~~~~
 
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
+With a nominal 255 ns period, the nominal word is 0xFF0000, the
+largest 0xFFFFFF, and the difference is 0xFFFF.  This corresponds to
+and adjustment of 0xFFFF/0xFF0000 = .0039215087890625 or 3921508 ppb.
 
---uZ3hkaAS1mZxFaxD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Since 3921508 ppb is a huge adjustment, you can simply use that as a
+safe maximum, ignoring the actual input clock.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhIeD4ACgkQMOfwapXb+vJQFQCfdgbHFxkINXUIGNQcyxwsEdso
-AM4An369JBa0HdeAO+VCgzAGff3oE2zg
-=I/rt
------END PGP SIGNATURE-----
-
---uZ3hkaAS1mZxFaxD--
+Thanks,
+Richard
