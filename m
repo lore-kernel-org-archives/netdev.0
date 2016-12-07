@@ -1,63 +1,98 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [net-next 20/20] i40e: don't allow i40e_vsi_(add|kill)_vlan to
- operate when VID<1
-Date: Wed, 7 Dec 2016 22:00:28 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5857CD9D41@ORSMSX115.amr.corp.intel.com>
-References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-         <20161207073354.88568-21-jeffrey.t.kirsher@intel.com>
-         <8f82cd1d-0118-7b37-1a05-fa7b77d4e75c@cogentembedded.com>
-         <02874ECE860811409154E81DA85FBB5857CD9C6D@ORSMSX115.amr.corp.intel.com>
- <1481147594.2404.22.camel@intel.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [patch] ser_gigaset: return -ENOMEM on error instead of success
+Date: Wed, 7 Dec 2016 23:04:30 +0100
+Message-ID: <59908d9c-1716-14cb-41aa-8a9538f53412@imap.cc>
+References: <20161207112203.GC5507@elgon.mountain>
+ <1481137583.12596.19.camel@tiscali.nl>
+ <d8eb1f69-e68e-7792-00de-b14e6bac1606@imap.cc>
+ <1481144894.11167.7.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>,
-        "guru.anbalagane@oracle.com" <guru.anbalagane@oracle.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:26826 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932777AbcLGWAc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 17:00:32 -0500
-In-Reply-To: <1481147594.2404.22.camel@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="XGDJSa2LJXSNspGKSW2uLR5jr8kTmUgRn"
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>,
+        Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1481144894.11167.7.camel@tiscali.nl>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogS2lyc2hlciwgSmVmZnJl
-eSBUDQo+IFNlbnQ6IFdlZG5lc2RheSwgRGVjZW1iZXIgMDcsIDIwMTYgMTo1MyBQTQ0KPiBUbzog
-S2VsbGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+OyBTZXJnZWkgU2h0eWx5
-b3YNCj4gPHNlcmdlaS5zaHR5bHlvdkBjb2dlbnRlbWJlZGRlZC5jb20+OyBkYXZlbUBkYXZlbWxv
-ZnQubmV0DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBuaG9ybWFuQHJlZGhhdC5jb207
-IHNhc3NtYW5uQHJlZGhhdC5jb207DQo+IGpvZ3JlZW5lQHJlZGhhdC5jb207IGd1cnUuYW5iYWxh
-Z2FuZUBvcmFjbGUuY29tDQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMjAvMjBdIGk0MGU6IGRv
-bid0IGFsbG93IGk0MGVfdnNpXyhhZGR8a2lsbClfdmxhbiB0byBvcGVyYXRlDQo+IHdoZW4gVklE
-PDENCj4gDQo+IE9uIFdlZCwgMjAxNi0xMi0wNyBhdCAxMzo1MCAtMDgwMCwgS2VsbGVyLCBKYWNv
-YiBFIHdyb3RlOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206
-IFNlcmdlaSBTaHR5bHlvdiBbbWFpbHRvOnNlcmdlaS5zaHR5bHlvdkBjb2dlbnRlbWJlZGRlZC5j
-b21dDQo+ID4gPiBTZW50OiBXZWRuZXNkYXksIERlY2VtYmVyIDA3LCAyMDE2IDI6MTEgQU0NCj4g
-PiA+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT47
-IGRhdmVtQGRhdmVtbG9mdC5uDQo+ID4gPiBldA0KPiA+ID4gQ2M6IEtlbGxlciwgSmFjb2IgRSA8
-amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gPiA+
-IG5ob3JtYW5AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0
-LmNvbTsNCj4gPiA+IGd1cnUuYW5iYWxhZ2FuZUBvcmFjbGUuY29tDQo+ID4gPiBTdWJqZWN0OiBS
-ZTogW25ldC1uZXh0IDIwLzIwXSBpNDBlOiBkb24ndCBhbGxvdw0KPiA+ID4gaTQwZV92c2lfKGFk
-ZHxraWxsKV92bGFuIHRvIG9wZXJhdGUNCj4gPiA+IHdoZW4gVklEPDENCj4gPiA+DQo+ID4gPiBI
-ZWxsbyENCj4gPiA+ID4gK8KgwqDCoGlmICghKHZpZCA+IDApIHx8IHZzaS0+aW5mby5wdmlkKQ0K
-PiA+ID4NCj4gPiA+IMKgwqDCoMKgIFdoeSBub3QganVzdCAnIXZpZCc/DQo+ID4NCj4gPiBMZWZ0
-IG92ZXIgYXJ0aWZhY3Qgb2YgdGhpcyBwcmV2aW91c2x5IGJlaW5nIGEgc2lnbmVkIHZhbHVlLiBX
-ZSBjYW4gZml4DQo+ID4gdGhpcy4NCj4gPg0KPiA+IFRoYW5rcywNCj4gPiBKYWtlDQo+ID4NCj4g
-PiA+ID4gLXZvaWQgaTQwZV92c2lfa2lsbF92bGFuKHN0cnVjdCBpNDBlX3ZzaSAqdnNpLCBzMTYg
-dmlkKQ0KPiA+ID4gPiArdm9pZCBpNDBlX3ZzaV9raWxsX3ZsYW4oc3RydWN0IGk0MGVfdnNpICp2
-c2ksIHUxNiB2aWQpDQo+ID4gPiA+IMKgIHsNCj4gPiA+ID4gK8KgwqDCoGlmICghKHZpZCA+IDAp
-IHx8IHZzaS0+aW5mby5wdmlkKQ0KPiA+ID4NCj4gPiA+IMKgwqDCoMKgIExpa2V3aXNlLg0KPiA+
-DQo+ID4gU2FtZSBoZXJlLiBDYW4gZ2V0IHRoaXMgZml4ZWQuDQo+IA0KPiBXaGlsZSB5b3UgYXJl
-IGZpeGluZyB0aGlzIHVwIGFuZCBzZW5kaW5nIG1lIGEgbmV3IHZlcnNpb24gb2YgdGhpcyBwYXRj
-aCwgSQ0KPiB3aWxsIGp1c3QgZHJvcCB0aGlzIGZyb20gdGhlIHNlcmllcyBhbmQgcmUtc2VuZC4N
-Cg0KWWVzLCBzaW5jZSBpdCdzIHRoZSBsYXN0IHBhdGNoIHRoYXQncyBmaW5lLg0KDQpUaGFua3Ms
-DQpKYWtlDQo=
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--XGDJSa2LJXSNspGKSW2uLR5jr8kTmUgRn
+Content-Type: multipart/mixed; boundary="PX55QOEmaqoiDBX9EIwKeW5TxFRqXtTl1";
+ protected-headers="v1"
+From: Tilman Schmidt <tilman@imap.cc>
+To: Paul Bolle <pebolle@tiscali.nl>, Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Karsten Keil <isdn@linux-pingi.de>, "David S. Miller"
+ <davem@davemloft.net>, gigaset307x-common@lists.sourceforge.net,
+ netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+Message-ID: <59908d9c-1716-14cb-41aa-8a9538f53412@imap.cc>
+Subject: Re: [patch] ser_gigaset: return -ENOMEM on error instead of success
+References: <20161207112203.GC5507@elgon.mountain>
+ <1481137583.12596.19.camel@tiscali.nl>
+ <d8eb1f69-e68e-7792-00de-b14e6bac1606@imap.cc>
+ <1481144894.11167.7.camel@tiscali.nl>
+In-Reply-To: <1481144894.11167.7.camel@tiscali.nl>
+
+--PX55QOEmaqoiDBX9EIwKeW5TxFRqXtTl1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hi Paul,
+
+Am 07.12.2016 um 22:08 schrieb Paul Bolle:
+> On Wed, 2016-12-07 at 21:57 +0100, Tilman Schmidt wrote:
+>> Not much of a mess, I reckon. Everything that has been allocated and
+>> registered up to that point is properly deallocated and unregistered.
+>> The code just fails to tell the kernel that module initialization has
+>> failed, so the module remains loaded even though it can never be
+>> called because it isn't hooked anywhere. That's a nuisance and a
+>> waste of RAM, but not much more.
+>=20
+> Yes.
+>=20
+> But then the removal of the module, which is the only reasonable thing =
+to do
+> after all this has happened, seems to trigger a WARN in driver_unregist=
+er().
+> And it's that WARN that I think requires the entire stable song and dan=
+ce.
+
+Ah, yes, of course, because driver_unregister() has already been run
+in the failure path of module_init and is now called a second time.
+Not sure how much evil that does beyond the WARN, but I agree it's
+worth investigating.
+
+Best regards,
+Tilman
+
+--=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Nous, on a des fleurs et des bougies pour nous prot=C3=A9ger.
+
+
+--PX55QOEmaqoiDBX9EIwKeW5TxFRqXtTl1--
+
+--XGDJSa2LJXSNspGKSW2uLR5jr8kTmUgRn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJYSId5AAoJEFPuqx0v+F+q0CwH/2tvh8jO2TuvAZqrZXaJad6+
+UEJskOnl03NaiOIAytsNxqUQciUpbQYrnBzSqlweXb91Ef33Pe4jYud47DpeMF78
+UO6hmHFQAF80gZSKQ/jpI653fcSIgk3sNbCh3oCrGmYyutGtz1BgyxFFtjEwJdfa
+6IQE3eBuGTVBsmoqnWD3wR3iz1mybZ+rPf5vFRO3sa5s+5l5RpIgjHfPd2gx2B0R
+IFbu0Xx1TcgI3xUNGBbtHaRzRrgrmgBFkn8QOArzfUod33aADyRaRFDLxR7wHWLI
+9pN2xDHNtiMcw3vUvR1YbpmpmaeDQHCBOHAhh/lIxAz7lYtU1u4k/U5J1PUVduc=
+=kFcR
+-----END PGP SIGNATURE-----
+
+--XGDJSa2LJXSNspGKSW2uLR5jr8kTmUgRn--
