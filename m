@@ -1,25 +1,48 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Wed, 7 Dec 2016 10:47:16 -0800
-Message-ID: <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
-References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+From: Peng Tao <bergwolf@gmail.com>
+Subject: [PATCH] vhost-vsock: fix orphan connection reset
+Date: Wed,  7 Dec 2016 17:45:47 +0800
+Message-ID: <1481103947-76771-1-git-send-email-bergwolf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, linux-mips@linux-mips.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org#4.8+,
+	Peng Tao <bergwolf@gmail.com>, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Stefan Hajnoczi <stefanha@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The openwrt tree has long contained a set of patches that correct for
-unaligned issues throughout the linux network stack.
+local_addr.svm_cid is host cid. We should check guest cid instead,
+which is remote_addr.svm_cid.
 
-https://git.lede-project.org/?p=openwrt/source.git;a=blob;f=target/linux/ar71xx/patches-4.4/910-unaligned_access_hacks.patch;h=b4b749e4b9c02a74a9f712a2740d63e554de5c64;hb=ee53a240ac902dc83209008a2671e7fdcf55957a
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Cc: stable@vger.kernel.org #4.8+
+Signed-off-by: Peng Tao <bergwolf@gmail.com>
+---
+ drivers/vhost/vsock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-unaligned access traps in the packet processing path on certain versions of
-the mips architecture is horrifically bad. I had kind of hoped these
-patches in some form would have made it upstream by now. (or the
-arches that have the issue retired, I think it's mostly just mips24k)
+diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+index e3b30ea..a504e2e0 100644
+--- a/drivers/vhost/vsock.c
++++ b/drivers/vhost/vsock.c
+@@ -506,7 +506,7 @@ static void vhost_vsock_reset_orphans(struct sock *sk)
+ 	 * executing.
+ 	 */
+ 
+-	if (!vhost_vsock_get(vsk->local_addr.svm_cid)) {
++	if (!vhost_vsock_get(vsk->remote_addr.svm_cid)) {
+ 		sock_set_flag(sk, SOCK_DONE);
+ 		vsk->peer_shutdown = SHUTDOWN_MASK;
+ 		sk->sk_state = SS_UNCONNECTED;
+-- 
+2.7.4
