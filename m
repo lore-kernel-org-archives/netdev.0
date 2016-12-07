@@ -1,38 +1,64 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v3] net: phy: phy drivers should not set
- SUPPORTED_[Asym_]Pause
-Date: Wed, 7 Dec 2016 11:19:13 -0600
-Message-ID: <58484491.6020908@codeaurora.org>
-References: <1481070443-15118-1-git-send-email-timur@codeaurora.org>
- <2c2aaf1d-05a5-d2bc-d04a-79224a4c6b43@gmail.com>
- <58476ACB.3030206@codeaurora.org>
- <f62595d4-2dd7-9cc3-7537-2ff186dadc8c@gmail.com>
- <58477A03.6000107@codeaurora.org>
- <CAD5ja61A3diBgYwscUSoxJqE1ydmzr+cQ9rR+8uZa0mw-0m_3Q@mail.gmail.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [net-next][PATCH v2 18/18] RDS: IB: add missing connection cache
+ usage info
+Date: Wed, 7 Dec 2016 09:20:17 -0800
+Message-ID: <6159757e-c799-ee7f-0ee0-c9b3534a4237@oracle.com>
+References: <1481083316-11648-19-git-send-email-santosh.shilimkar@oracle.com>
+ <20161207.105531.1347292514118544125.davem@davemloft.net>
+ <eac62d66-7a41-965d-8ecb-c2e4b651c39d@oracle.com>
+ <20161207.120536.1153607792891600896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
-        netdev@vger.kernel.org
-To: Niklas Cassel <nks.gnu@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:58802 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752548AbcLGRTQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:19:16 -0500
-In-Reply-To: <CAD5ja61A3diBgYwscUSoxJqE1ydmzr+cQ9rR+8uZa0mw-0m_3Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161207.120536.1153607792891600896.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/07/2016 03:13 AM, Niklas Cassel wrote:
-> You might want to include drivers/net/phy/dp83848.c in your patch.
-> Support for pause frames in that phy was recently added to netdev-next.
+On 12/7/2016 9:05 AM, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> Date: Wed, 7 Dec 2016 08:44:04 -0800
+>
+>> On 12/7/2016 7:55 AM, David Miller wrote:
+>>> From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+>>> Date: Tue,  6 Dec 2016 20:01:56 -0800
+>>>
+>>> What level of compatability exists here?  If we run an old tool on a
+>>> new
+>>> kernel, or a new tool on an old kernel, does it work properly?
+>>>
+>> Tools repo carries a copy of the header and thats how the old tool and
+>> new tools have been running with older/newer kernels. There are few
+>> more
+>> bits left before I can start using directly kernel header for newer
+>> tools.
+>>
+>> Moreover this particular parameter is only used for verbose mode which
+>> isn't used in default options.
+>
+> That doesn't really answer my question, I think.
+>
+Sorry for not being clear.
 
-Thanks.  I feel bad that I'm reverting your patch just a few days after 
-it was applied.
+> Are you saying that one is required to run old tools on old kernels,
+> and new tools on new kernels, and that's how you have this setup in
+> your repo?
+>
+No.
 
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+> If so, that really isn't acceptable.  Both old and new tools must work
+> with all kernel versions.
+>
+Older version of tools works on either kernel versions. Older tools
+don't parse this additional info since its copy of header not
+carrying some of these extra verbose fields. Newer/Updated tools which
+can parse this extra info in needs newer or an updated kernel which
+supports and populates these fields.
+
+As mentioned, this particular option used only in verbose mode so
+am ok to drop this change if its still a concern.
+
+Regards,
+Santosh
