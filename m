@@ -1,104 +1,57 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v5 4/6] virtio_net: add dedicated XDP transmit
- queues
-Date: Wed, 07 Dec 2016 12:12:23 -0800
-Message-ID: <20161207201223.28121.87060.stgit@john-Precision-Tower-5810>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: Synopsys Ethernet QoS Driver
+Date: Wed, 7 Dec 2016 22:15:55 +0200
+Message-ID: <CAHp75Vf2ZncJcGguueh2fCsHaZVin8qGSk+hDUt+uRg8ffgZbQ@mail.gmail.com>
+References: <CADvZ6ErjyVR5ShWTk0QesWLYR1m3p8yAMkK8v9gm2kN5xTv8zw@mail.gmail.com>
+ <1dbb6047-2bbb-4d56-2a62-ab65a0254844@synopsys.com>
+ <20161119135654.GA14079@lnxartpec.se.axis.com>
+ <CAJ3bTp7PpUJcz=1JohX=A54UP6vVAafWnB0PGUBSxb5JJiO8Lg@mail.gmail.com>
+ <1248f4ce-4859-10e6-fef9-342ea543f8d4@synopsys.com>
+ <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        john.fastabend@gmail.com, brouer@redhat.com
-To: daniel@iogearbox.net, mst@redhat.com, shm@cumulusnetworks.com,
-        davem@davemloft.net, tgraf@suug.ch, alexei.starovoitov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35289 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932666AbcLGUNs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 15:13:48 -0500
-Received: by mail-pg0-f65.google.com with SMTP id p66so24438768pga.2
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 12:12:41 -0800 (PST)
-In-Reply-To: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: idosch@mellanox.com, Joao Pinto <Joao.Pinto@synopsys.com>,
+ andreas.irestal@axis.com, Alexandre TORGUE <alexandre.torgue@st.com>,
+ saeedm@mellanox.com, netdev <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ CARLOS.PALMINHA@synopsys.com, Rabin Vincent <rabin@rab.in>,
+ mued dib <kreptor@gmail.com>, jiri@mellanox.com,
+ Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>, David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ lars.persson@axis.com
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <87c8a24b-0812-7850-cb3f-7be691bab432@st.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-XDP requires using isolated transmit queues to avoid interference
-with normal networking stack (BQL, NETDEV_TX_BUSY, etc). This patch
-adds a XDP queue per cpu when a XDP program is loaded and does not
-expose the queues to the OS via the normal API call to
-netif_set_real_num_tx_queues(). This way the stack will never push
-an skb to these queues.
+On Mon, Nov 21, 2016 at 2:52 PM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
 
-However virtio/vhost/qemu implementation only allows for creating
-TX/RX queue pairs at this time so creating only TX queues was not
-possible. And because the associated RX queues are being created I
-went ahead and exposed these to the stack and let the backend use
-them. This creates more RX queues visible to the network stack than
-TX queues which is worth mentioning but does not cause any issues as
-far as I can tell.
+First of all, +1 to (re-)use stmmac.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- drivers/net/virtio_net.c |   30 ++++++++++++++++++++++++++++--
- 1 file changed, 28 insertions(+), 2 deletions(-)
+> The stmmac drivers run since many years on several platforms
+> (sh4, stm32, arm, x86, mips ...) and it supports an huge of amount of
+> configurations starting from 3.1x to 3.7x databooks.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index a009299..28b1196 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -114,6 +114,9 @@ struct virtnet_info {
- 	/* # of queue pairs currently used by the driver */
- 	u16 curr_queue_pairs;
- 
-+	/* # of XDP queue pairs currently used by the driver */
-+	u16 xdp_queue_pairs;
-+
- 	/* I like... big packets and I cannot lie! */
- 	bool big_packets;
- 
-@@ -1547,7 +1550,8 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	struct bpf_prog *old_prog;
--	int i;
-+	u16 xdp_qp = 0, curr_qp;
-+	int i, err;
- 
- 	if ((dev->features & NETIF_F_LRO) && prog) {
- 		netdev_warn(dev, "can't set XDP while LRO is on, disable LRO first\n");
-@@ -1564,12 +1568,34 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 		return -EINVAL;
- 	}
- 
-+	curr_qp = vi->curr_queue_pairs - vi->xdp_queue_pairs;
-+	if (prog)
-+		xdp_qp = nr_cpu_ids;
-+
-+	/* XDP requires extra queues for XDP_TX */
-+	if (curr_qp + xdp_qp > vi->max_queue_pairs) {
-+		netdev_warn(dev, "request %i queues but max is %i\n",
-+			    curr_qp + xdp_qp, vi->max_queue_pairs);
-+		return -ENOMEM;
-+	}
-+
-+	err = virtnet_set_queues(vi, curr_qp + xdp_qp);
-+	if (err) {
-+		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
-+		return err;
-+	}
-+
- 	if (prog) {
- 		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
--		if (IS_ERR(prog))
-+		if (IS_ERR(prog)) {
-+			virtnet_set_queues(vi, curr_qp);
- 			return PTR_ERR(prog);
-+		}
- 	}
- 
-+	vi->xdp_queue_pairs = xdp_qp;
-+	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
-+
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
- 		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
+As Intel employee who did some clean ups to that, acknowledge above.
+
+> Concerning the stmicro/stmmac naming, these come from a really old
+> story and have no issue to adopt new folder/file names.
+
+I don't think it would be best idea for platform driver (though we can
+keep driver's name in the structure in async with file name).
+
+-- 
+With Best Regards,
+Andy Shevchenko
