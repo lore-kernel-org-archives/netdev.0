@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 2/7] liquidio CN23XX: VF link status
-Date: Wed, 7 Dec 2016 08:54:32 -0800
-Message-ID: <1481129677-10586-3-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 5/7] liquidio CN23XX: VF xmit
+Date: Wed, 7 Dec 2016 08:54:35 -0800
+Message-ID: <1481129677-10586-6-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1481129677-10586-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,328 +16,481 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-cys01nam02on0084.outbound.protection.outlook.com ([104.47.37.84]:43712
         "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932685AbcLGQy7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 11:54:59 -0500
+        id S932876AbcLGQzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 11:55:09 -0500
 In-Reply-To: <1481129677-10586-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for VF link status related changes.
+Adds support for transmit functionality in VF.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 249 +++++++++++++++++++++
- 1 file changed, 249 insertions(+)
+ .../ethernet/cavium/liquidio/cn23xx_vf_device.c    |  21 ++
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 340 +++++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/request_manager.c |   6 +-
+ 3 files changed, 364 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
+index 108e487..b6117b6 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_vf_device.c
+@@ -529,6 +529,26 @@ static u64 cn23xx_vf_msix_interrupt_handler(void *dev)
+ 	return ret;
+ }
+ 
++static u32 cn23xx_update_read_index(struct octeon_instr_queue *iq)
++{
++	u32 pkt_in_done = readl(iq->inst_cnt_reg);
++	u32 last_done;
++	u32 new_idx;
++
++	last_done = pkt_in_done - iq->pkt_in_done;
++	iq->pkt_in_done = pkt_in_done;
++
++	/* Modulo of the new index with the IQ size will give us
++	 * the new index.  The iq->reset_instr_cnt is always zero for
++	 * cn23xx, so no extra adjustments are needed.
++	 */
++	new_idx = (iq->octeon_read_index +
++		   (u32)(last_done & CN23XX_PKT_IN_DONE_CNT_MASK)) %
++		  iq->max_count;
++
++	return new_idx;
++}
++
+ static void cn23xx_enable_vf_interrupt(struct octeon_device *oct, u8 intr_flag)
+ {
+ 	struct octeon_cn23xx_vf *cn23xx = (struct octeon_cn23xx_vf *)oct->chip;
+@@ -660,6 +680,7 @@ int cn23xx_setup_octeon_vf_device(struct octeon_device *oct)
+ 	oct->fn_list.msix_interrupt_handler = cn23xx_vf_msix_interrupt_handler;
+ 
+ 	oct->fn_list.setup_device_regs = cn23xx_setup_vf_device_regs;
++	oct->fn_list.update_iq_read_idx = cn23xx_update_read_index;
+ 
+ 	oct->fn_list.enable_interrupt = cn23xx_enable_vf_interrupt;
+ 	oct->fn_list.disable_interrupt = cn23xx_disable_vf_interrupt;
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index f05a7c3..07e4864 100644
+index f861a9b..bcc8888 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -163,6 +163,186 @@ static void ifstate_reset(struct lio *lio, int state_flag)
- 	atomic_set(&lio->ifstate, (atomic_read(&lio->ifstate) & ~(state_flag)));
- }
- 
-+/**
-+ * \brief Stop Tx queues
-+ * @param netdev network device
-+ */
-+static void txqs_stop(struct net_device *netdev)
-+{
-+	if (netif_is_multiqueue(netdev)) {
-+		int i;
-+
-+		for (i = 0; i < netdev->num_tx_queues; i++)
-+			netif_stop_subqueue(netdev, i);
-+	} else {
-+		netif_stop_queue(netdev);
-+	}
-+}
-+
-+/**
-+ * \brief Start Tx queues
-+ * @param netdev network device
-+ */
-+static void txqs_start(struct net_device *netdev)
-+{
-+	if (netif_is_multiqueue(netdev)) {
-+		int i;
-+
-+		for (i = 0; i < netdev->num_tx_queues; i++)
-+			netif_start_subqueue(netdev, i);
-+	} else {
-+		netif_start_queue(netdev);
-+	}
-+}
-+
-+/**
-+ * \brief Wake Tx queues
-+ * @param netdev network device
-+ */
-+static void txqs_wake(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	if (netif_is_multiqueue(netdev)) {
-+		int i;
-+
-+		for (i = 0; i < netdev->num_tx_queues; i++) {
-+			int qno = lio->linfo.txpciq[i % (lio->linfo.num_txpciq)]
-+				      .s.q_no;
-+			if (__netif_subqueue_stopped(netdev, i)) {
-+				INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, qno,
-+							  tx_restart, 1);
-+				netif_wake_subqueue(netdev, i);
-+			}
-+		}
-+	} else {
-+		INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, lio->txq,
-+					  tx_restart, 1);
-+		netif_wake_queue(netdev);
-+	}
-+}
-+
-+/**
-+ * \brief Start Tx queue
-+ * @param netdev network device
-+ */
-+static void start_txq(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	if (lio->linfo.link.s.link_up) {
-+		txqs_start(netdev);
-+		return;
-+	}
-+}
-+
-+/**
-+ * \brief Print link information
-+ * @param netdev network device
-+ */
-+static void print_link_info(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_REGISTERED) {
-+		struct oct_link_info *linfo = &lio->linfo;
-+
-+		if (linfo->link.s.link_up) {
-+			netif_info(lio, link, lio->netdev, "%d Mbps %s Duplex UP\n",
-+				   linfo->link.s.speed,
-+				   (linfo->link.s.duplex) ? "Full" : "Half");
-+		} else {
-+			netif_info(lio, link, lio->netdev, "Link Down\n");
-+		}
-+	}
-+}
-+
-+/**
-+ * \brief Routine to notify MTU change
-+ * @param work work_struct data structure
-+ */
-+static void octnet_link_status_change(struct work_struct *work)
-+{
-+	struct cavium_wk *wk = (struct cavium_wk *)work;
-+	struct lio *lio = (struct lio *)wk->ctxptr;
-+
-+	rtnl_lock();
-+	call_netdevice_notifiers(NETDEV_CHANGEMTU, lio->netdev);
-+	rtnl_unlock();
-+}
-+
-+/**
-+ * \brief Sets up the mtu status change work
-+ * @param netdev network device
-+ */
-+static int setup_link_status_change_wq(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+
-+	lio->link_status_wq.wq = alloc_workqueue("link-status",
-+						 WQ_MEM_RECLAIM, 0);
-+	if (!lio->link_status_wq.wq) {
-+		dev_err(&oct->pci_dev->dev, "unable to create cavium link status wq\n");
-+		return -1;
-+	}
-+	INIT_DELAYED_WORK(&lio->link_status_wq.wk.work,
-+			  octnet_link_status_change);
-+	lio->link_status_wq.wk.ctxptr = lio;
-+
-+	return 0;
-+}
-+
-+static void cleanup_link_status_change_wq(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	if (lio->link_status_wq.wq) {
-+		cancel_delayed_work_sync(&lio->link_status_wq.wk.work);
-+		destroy_workqueue(lio->link_status_wq.wq);
-+	}
-+}
-+
-+/**
-+ * \brief Update link status
-+ * @param netdev network device
-+ * @param ls link status structure
-+ *
-+ * Called on receipt of a link status response from the core application to
-+ * update each interface's link status.
-+ */
-+static void update_link_status(struct net_device *netdev,
-+			       union oct_link_status *ls)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+
-+	if ((lio->intf_open) && (lio->linfo.link.u64 != ls->u64)) {
-+		lio->linfo.link.u64 = ls->u64;
-+
-+		print_link_info(netdev);
-+		lio->link_changes++;
-+
-+		if (lio->linfo.link.s.link_up) {
-+			netif_carrier_on(netdev);
-+			txqs_wake(netdev);
-+		} else {
-+			netif_carrier_off(netdev);
-+			txqs_stop(netdev);
-+		}
-+
-+		if (lio->linfo.link.s.mtu < netdev->mtu) {
-+			dev_warn(&oct->pci_dev->dev,
-+				 "PF has changed the MTU for gmx port. Reducing the mtu from %d to %d\n",
-+				 netdev->mtu, lio->linfo.link.s.mtu);
-+			lio->mtu = lio->linfo.link.s.mtu;
-+			netdev->mtu = lio->linfo.link.s.mtu;
-+			queue_delayed_work(lio->link_status_wq.wq,
-+					   &lio->link_status_wq.wk.work, 0);
-+		}
-+	}
-+}
-+
- static
- int liquidio_schedule_msix_droq_pkt_handler(struct octeon_droq *droq, u64 ret)
- {
-@@ -499,6 +679,8 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
- 	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_REGISTERED)
- 		unregister_netdev(netdev);
- 
-+	cleanup_link_status_change_wq(netdev);
-+
- 	free_netdev(netdev);
- 
- 	oct->props[ifidx].gmxport = -1;
-@@ -635,6 +817,28 @@ static u16 select_q(struct net_device *dev, struct sk_buff *skb,
- }
- 
- /**
-+ * \brief Net device open for LiquidIO
-+ * @param netdev network device
-+ */
-+static int liquidio_open(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+
-+	ifstate_set(lio, LIO_IFSTATE_RUNNING);
-+
-+	/* Ready for link status updates */
-+	lio->intf_open = 1;
-+
-+	netif_info(lio, ifup, lio->netdev, "Interface Open, ready for traffic\n");
-+	start_txq(netdev);
-+
-+	dev_info(&oct->pci_dev->dev, "%s interface is opened\n", netdev->name);
-+
-+	return 0;
-+}
-+
-+/**
-  * \brief Net device stop for LiquidIO
-  * @param netdev network device
-  */
-@@ -653,6 +857,8 @@ static int liquidio_stop(struct net_device *netdev)
- 
- 	ifstate_reset(lio, LIO_IFSTATE_RUNNING);
- 
-+	txqs_stop(netdev);
-+
- 	dev_info(&oct->pci_dev->dev, "%s interface is stopped\n", netdev->name);
- 
- 	return 0;
-@@ -758,11 +964,47 @@ static int liquidio_set_features(struct net_device *netdev,
- }
- 
- static const struct net_device_ops lionetdevops = {
-+	.ndo_open		= liquidio_open,
-+	.ndo_stop		= liquidio_stop,
- 	.ndo_fix_features	= liquidio_fix_features,
- 	.ndo_set_features	= liquidio_set_features,
- 	.ndo_select_queue	= select_q,
+@@ -55,6 +55,21 @@ struct liquidio_if_cfg_resp {
+ 	u64 status;
  };
  
-+static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
++union tx_info {
++	u64 u64;
++	struct {
++#ifdef __BIG_ENDIAN_BITFIELD
++		u16 gso_size;
++		u16 gso_segs;
++		u32 reserved;
++#else
++		u32 reserved;
++		u16 gso_segs;
++		u16 gso_size;
++#endif
++	} s;
++};
++
+ #define OCTNIC_MAX_SG  (MAX_SKB_FRAGS)
+ 
+ #define OCTNIC_GSO_MAX_HEADER_SIZE 128
+@@ -255,6 +270,19 @@ static void start_txq(struct net_device *netdev)
+ }
+ 
+ /**
++ * \brief Stop a queue
++ * @param netdev network device
++ * @param q which queue to stop
++ */
++static void stop_q(struct net_device *netdev, int q)
 +{
-+	struct octeon_device *oct = (struct octeon_device *)buf;
-+	struct octeon_recv_pkt *recv_pkt = recv_info->recv_pkt;
-+	union oct_link_status *ls;
-+	int gmxport = 0;
-+	int i;
++	if (netif_is_multiqueue(netdev))
++		netif_stop_subqueue(netdev, q);
++	else
++		netif_stop_queue(netdev);
++}
 +
-+	if (recv_pkt->buffer_size[0] != sizeof(*ls)) {
-+		dev_err(&oct->pci_dev->dev, "Malformed NIC_INFO, len=%d, ifidx=%d\n",
-+			recv_pkt->buffer_size[0],
-+			recv_pkt->rh.r_nic_info.gmxport);
-+		goto nic_info_err;
-+	}
++/**
+  * Remove the node at the head of the list. The list would be empty at
+  * the end of this call if there are no more nodes in the list.
+  */
+@@ -945,6 +973,45 @@ static u16 select_q(struct net_device *dev, struct sk_buff *skb,
+ }
+ 
+ /**
++ * \brief Setup input and output queues
++ * @param octeon_dev octeon device
++ * @param ifidx Interface index
++ *
++ * Note: Queues are with respect to the octeon device. Thus
++ * an input queue is for egress packets, and output queues
++ * are for ingress packets.
++ */
++static int setup_io_queues(struct octeon_device *octeon_dev, int ifidx)
++{
++	struct net_device *netdev;
++	int num_tx_descs;
++	struct lio *lio;
++	int retval = 0;
++	int q;
 +
-+	gmxport = recv_pkt->rh.r_nic_info.gmxport;
-+	ls = (union oct_link_status *)get_rbd(recv_pkt->buffer_ptr[0]);
++	netdev = octeon_dev->props[ifidx].netdev;
 +
-+	octeon_swap_8B_data((u64 *)ls, (sizeof(union oct_link_status)) >> 3);
++	lio = GET_LIO(netdev);
 +
-+	for (i = 0; i < oct->ifcount; i++) {
-+		if (oct->props[i].gmxport == gmxport) {
-+			update_link_status(oct->props[i].netdev, ls);
-+			break;
++	/* set up IQs. */
++	for (q = 0; q < lio->linfo.num_txpciq; q++) {
++		num_tx_descs = CFG_GET_NUM_TX_DESCS_NIC_IF(
++		    octeon_get_conf(octeon_dev), lio->ifidx);
++		retval = octeon_setup_iq(octeon_dev, ifidx, q,
++					 lio->linfo.txpciq[q], num_tx_descs,
++					 netdev_get_tx_queue(netdev, q));
++		if (retval) {
++			dev_err(&octeon_dev->pci_dev->dev,
++				" %s : Runtime IQ(TxQ) creation failed.\n",
++				__func__);
++			return 1;
 +		}
 +	}
 +
-+nic_info_err:
-+	for (i = 0; i < recv_pkt->buffer_count; i++)
-+		recv_buffer_free(recv_pkt->buffer_ptr[i]);
-+	octeon_free_recv_info(recv_info);
 +	return 0;
 +}
 +
- /**
-  * \brief Setup network interfaces
-  * @param octeon_dev  octeon device
-@@ -788,6 +1030,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
++/**
+  * \brief Net device open for LiquidIO
+  * @param netdev network device
+  */
+@@ -1180,6 +1247,259 @@ static int liquidio_change_mtu(struct net_device *netdev, int new_mtu)
+ 	return 0;
+ }
  
- 	ifidx_or_pfnum = octeon_dev->pf_num;
- 
-+	/* This is to handle link status changes */
-+	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC, OPCODE_NIC_INFO,
-+				    lio_nic_info, octeon_dev);
++/** \brief Transmit networks packets to the Octeon interface
++ * @param skbuff   skbuff struct to be passed to network layer.
++ * @param netdev   pointer to network device
++ * @returns whether the packet was transmitted to the device okay or not
++ *             (NETDEV_TX_OK or NETDEV_TX_BUSY)
++ */
++static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
++{
++	struct octnet_buf_free_info *finfo;
++	union octnic_cmd_setup cmdsetup;
++	struct octnic_data_pkt ndata;
++	struct octeon_instr_irh *irh;
++	struct oct_iq_stats *stats;
++	struct octeon_device *oct;
++	int q_idx = 0, iq_no = 0;
++	union tx_info *tx_info;
++	struct lio *lio;
++	int status = 0;
++	u64 dptr = 0;
++	u32 tag = 0;
++	int j;
 +
- 	for (i = 0; i < octeon_dev->ifcount; i++) {
- 		resp_size = sizeof(struct liquidio_if_cfg_resp);
- 		ctx_size = sizeof(struct liquidio_if_cfg_context);
-@@ -946,6 +1192,9 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 			liquidio_set_feature(netdev, OCTNET_CMD_VERBOSE_ENABLE,
- 					     0);
++	lio = GET_LIO(netdev);
++	oct = lio->oct_dev;
++
++	if (netif_is_multiqueue(netdev)) {
++		q_idx = skb->queue_mapping;
++		q_idx = (q_idx % (lio->linfo.num_txpciq));
++		tag = q_idx;
++		iq_no = lio->linfo.txpciq[q_idx].s.q_no;
++	} else {
++		iq_no = lio->txq;
++	}
++
++	stats = &oct->instr_queue[iq_no]->stats;
++
++	/* Check for all conditions in which the current packet cannot be
++	 * transmitted.
++	 */
++	if (!(atomic_read(&lio->ifstate) & LIO_IFSTATE_RUNNING) ||
++	    (!lio->linfo.link.s.link_up) || (skb->len <= 0)) {
++		netif_info(lio, tx_err, lio->netdev, "Transmit failed link_status : %d\n",
++			   lio->linfo.link.s.link_up);
++		goto lio_xmit_failed;
++	}
++
++	/* Use space in skb->cb to store info used to unmap and
++	 * free the buffers.
++	 */
++	finfo = (struct octnet_buf_free_info *)skb->cb;
++	finfo->lio = lio;
++	finfo->skb = skb;
++	finfo->sc = NULL;
++
++	/* Prepare the attributes for the data to be passed to OSI. */
++	memset(&ndata, 0, sizeof(struct octnic_data_pkt));
++
++	ndata.buf = finfo;
++
++	ndata.q_no = iq_no;
++
++	if (netif_is_multiqueue(netdev)) {
++		if (octnet_iq_is_full(oct, ndata.q_no)) {
++			/* defer sending if queue is full */
++			netif_info(lio, tx_err, lio->netdev, "Transmit failed iq:%d full\n",
++				   ndata.q_no);
++			stats->tx_iq_busy++;
++			return NETDEV_TX_BUSY;
++		}
++	} else {
++		if (octnet_iq_is_full(oct, lio->txq)) {
++			/* defer sending if queue is full */
++			stats->tx_iq_busy++;
++			netif_info(lio, tx_err, lio->netdev, "Transmit failed iq:%d full\n",
++				   ndata.q_no);
++			return NETDEV_TX_BUSY;
++		}
++	}
++
++	ndata.datasize = skb->len;
++
++	cmdsetup.u64 = 0;
++	cmdsetup.s.iq_no = iq_no;
++
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		cmdsetup.s.transport_csum = 1;
++
++	if (!skb_shinfo(skb)->nr_frags) {
++		cmdsetup.s.u.datasize = skb->len;
++		octnet_prepare_pci_cmd(oct, &ndata.cmd, &cmdsetup, tag);
++		/* Offload checksum calculation for TCP/UDP packets */
++		dptr = dma_map_single(&oct->pci_dev->dev,
++				      skb->data,
++				      skb->len,
++				      DMA_TO_DEVICE);
++		if (dma_mapping_error(&oct->pci_dev->dev, dptr)) {
++			dev_err(&oct->pci_dev->dev, "%s DMA mapping error 1\n",
++				__func__);
++			return NETDEV_TX_BUSY;
++		}
++
++		ndata.cmd.cmd3.dptr = dptr;
++		finfo->dptr = dptr;
++		ndata.reqtype = REQTYPE_NORESP_NET;
++
++	} else {
++		struct skb_frag_struct *frag;
++		struct octnic_gather *g;
++		int i, frags;
++
++		spin_lock(&lio->glist_lock[q_idx]);
++		g = (struct octnic_gather *)list_delete_head(
++		    &lio->glist[q_idx]);
++		spin_unlock(&lio->glist_lock[q_idx]);
++
++		if (!g) {
++			netif_info(lio, tx_err, lio->netdev,
++				   "Transmit scatter gather: glist null!\n");
++			goto lio_xmit_failed;
++		}
++
++		cmdsetup.s.gather = 1;
++		cmdsetup.s.u.gatherptrs = (skb_shinfo(skb)->nr_frags + 1);
++		octnet_prepare_pci_cmd(oct, &ndata.cmd, &cmdsetup, tag);
++
++		memset(g->sg, 0, g->sg_size);
++
++		g->sg[0].ptr[0] = dma_map_single(&oct->pci_dev->dev,
++						 skb->data,
++						 (skb->len - skb->data_len),
++						 DMA_TO_DEVICE);
++		if (dma_mapping_error(&oct->pci_dev->dev, g->sg[0].ptr[0])) {
++			dev_err(&oct->pci_dev->dev, "%s DMA mapping error 2\n",
++				__func__);
++			return NETDEV_TX_BUSY;
++		}
++		add_sg_size(&g->sg[0], (skb->len - skb->data_len), 0);
++
++		frags = skb_shinfo(skb)->nr_frags;
++		i = 1;
++		while (frags--) {
++			frag = &skb_shinfo(skb)->frags[i - 1];
++
++			g->sg[(i >> 2)].ptr[(i & 3)] =
++				dma_map_page(&oct->pci_dev->dev,
++					     frag->page.p,
++					     frag->page_offset,
++					     frag->size,
++					     DMA_TO_DEVICE);
++			if (dma_mapping_error(&oct->pci_dev->dev,
++					      g->sg[i >> 2].ptr[i & 3])) {
++				dma_unmap_single(&oct->pci_dev->dev,
++						 g->sg[0].ptr[0],
++						 skb->len - skb->data_len,
++						 DMA_TO_DEVICE);
++				for (j = 1; j < i; j++) {
++					frag = &skb_shinfo(skb)->frags[j - 1];
++					dma_unmap_page(&oct->pci_dev->dev,
++						       g->sg[j >> 2].ptr[j & 3],
++						       frag->size,
++						       DMA_TO_DEVICE);
++				}
++				dev_err(&oct->pci_dev->dev, "%s DMA mapping error 3\n",
++					__func__);
++				return NETDEV_TX_BUSY;
++			}
++
++			add_sg_size(&g->sg[(i >> 2)], frag->size, (i & 3));
++			i++;
++		}
++
++		dptr = dma_map_single(&oct->pci_dev->dev,
++				      g->sg, g->sg_size,
++				      DMA_TO_DEVICE);
++		if (dma_mapping_error(&oct->pci_dev->dev, dptr)) {
++			dev_err(&oct->pci_dev->dev, "%s DMA mapping error 4\n",
++				__func__);
++			dma_unmap_single(&oct->pci_dev->dev, g->sg[0].ptr[0],
++					 skb->len - skb->data_len,
++					 DMA_TO_DEVICE);
++			for (j = 1; j <= frags; j++) {
++				frag = &skb_shinfo(skb)->frags[j - 1];
++				dma_unmap_page(&oct->pci_dev->dev,
++					       g->sg[j >> 2].ptr[j & 3],
++					       frag->size, DMA_TO_DEVICE);
++			}
++			return NETDEV_TX_BUSY;
++		}
++
++		ndata.cmd.cmd3.dptr = dptr;
++		finfo->dptr = dptr;
++		finfo->g = g;
++
++		ndata.reqtype = REQTYPE_NORESP_NET_SG;
++	}
++
++	irh = (struct octeon_instr_irh *)&ndata.cmd.cmd3.irh;
++	tx_info = (union tx_info *)&ndata.cmd.cmd3.ossp[0];
++
++	if (skb_shinfo(skb)->gso_size) {
++		tx_info->s.gso_size = skb_shinfo(skb)->gso_size;
++		tx_info->s.gso_segs = skb_shinfo(skb)->gso_segs;
++	}
++
++	status = octnet_send_nic_data_pkt(oct, &ndata);
++	if (status == IQ_SEND_FAILED)
++		goto lio_xmit_failed;
++
++	netif_info(lio, tx_queued, lio->netdev, "Transmit queued successfully\n");
++
++	if (status == IQ_SEND_STOP) {
++		dev_err(&oct->pci_dev->dev, "Rcvd IQ_SEND_STOP signal; stopping IQ-%d\n",
++			iq_no);
++		stop_q(lio->netdev, q_idx);
++	}
++
++	netif_trans_update(netdev);
++
++	if (skb_shinfo(skb)->gso_size)
++		stats->tx_done += skb_shinfo(skb)->gso_segs;
++	else
++		stats->tx_done++;
++	stats->tx_tot_bytes += skb->len;
++
++	return NETDEV_TX_OK;
++
++lio_xmit_failed:
++	stats->tx_dropped++;
++	netif_info(lio, tx_err, lio->netdev, "IQ%d Transmit dropped:%llu\n",
++		   iq_no, stats->tx_dropped);
++	if (dptr)
++		dma_unmap_single(&oct->pci_dev->dev, dptr,
++				 ndata.datasize, DMA_TO_DEVICE);
++	tx_buffer_free(skb);
++	return NETDEV_TX_OK;
++}
++
++/** \brief Network device Tx timeout
++ * @param netdev    pointer to network device
++ */
++static void liquidio_tx_timeout(struct net_device *netdev)
++{
++	struct lio *lio;
++
++	lio = GET_LIO(netdev);
++
++	netif_info(lio, tx_err, lio->netdev,
++		   "Transmit timeout tx_dropped:%ld, waking up queues now!!\n",
++		   netdev->stats.tx_dropped);
++	netif_trans_update(netdev);
++	txqs_wake(netdev);
++}
++
+ /** Sending command to enable/disable RX checksum offload
+  * @param netdev                pointer to network device
+  * @param command               OCTNET_CMD_TNL_RX_CSUM_CTL
+@@ -1282,8 +1602,10 @@ static int liquidio_set_features(struct net_device *netdev,
+ static const struct net_device_ops lionetdevops = {
+ 	.ndo_open		= liquidio_open,
+ 	.ndo_stop		= liquidio_stop,
++	.ndo_start_xmit		= liquidio_xmit,
+ 	.ndo_set_mac_address	= liquidio_set_mac,
+ 	.ndo_set_rx_mode	= liquidio_set_mcast_list,
++	.ndo_tx_timeout		= liquidio_tx_timeout,
+ 	.ndo_change_mtu		= liquidio_change_mtu,
+ 	.ndo_fix_features	= liquidio_fix_features,
+ 	.ndo_set_features	= liquidio_set_features,
+@@ -1507,6 +1829,24 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 		/* Copy MAC Address to OS network device structure */
+ 		ether_addr_copy(netdev->dev_addr, mac);
  
-+		if (setup_link_status_change_wq(netdev))
++		if (setup_io_queues(octeon_dev, i)) {
++			dev_err(&octeon_dev->pci_dev->dev, "I/O queues creation failed\n");
 +			goto setup_nic_dev_fail;
++		}
 +
- 		/* Register the network device with the OS */
- 		if (register_netdev(netdev)) {
- 			dev_err(&octeon_dev->pci_dev->dev, "Device registration failed\n");
++		/* For VFs, enable Octeon device interrupts here,
++		 * as this is contingent upon IO queue setup
++		 */
++		octeon_dev->fn_list.enable_interrupt(octeon_dev,
++						     OCTEON_ALL_INTR);
++
++		/* By default all interfaces on a single Octeon uses the same
++		 * tx and rx queues
++		 */
++		lio->txq = lio->linfo.txpciq[0].s.q_no;
++
++		lio->tx_qsize = octeon_get_tx_qsize(octeon_dev, lio->txq);
++
+ 		if (setup_glists(lio, num_iqueues)) {
+ 			dev_err(&octeon_dev->pci_dev->dev,
+ 				"Gather list allocation failed\n");
+diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+index ea2b7e4..3ce6675 100644
+--- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
++++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+@@ -394,7 +394,7 @@ static inline void __copy_cmd_into_iq(struct octeon_instr_queue *iq,
+ 		case REQTYPE_SOFT_COMMAND:
+ 			sc = buf;
+ 
+-			if (OCTEON_CN23XX_PF(oct))
++			if (OCTEON_CN23XX_PF(oct) || OCTEON_CN23XX_VF(oct))
+ 				irh = (struct octeon_instr_irh *)
+ 					&sc->cmd.cmd3.irh;
+ 			else
+@@ -607,7 +607,7 @@ static void check_db_timeout(struct work_struct *work)
+ 
+ 	oct_cfg = octeon_get_conf(oct);
+ 
+-	if (OCTEON_CN23XX_PF(oct)) {
++	if (OCTEON_CN23XX_PF(oct) || OCTEON_CN23XX_VF(oct)) {
+ 		ih3 = (struct octeon_instr_ih3 *)&sc->cmd.cmd3.ih3;
+ 
+ 		ih3->pkind = oct->instr_queue[sc->iq_no]->txpciq.s.pkind;
+@@ -700,7 +700,7 @@ int octeon_send_soft_command(struct octeon_device *oct,
+ 	struct octeon_instr_irh *irh;
+ 	u32 len;
+ 
+-	if (OCTEON_CN23XX_PF(oct)) {
++	if (OCTEON_CN23XX_PF(oct) || OCTEON_CN23XX_VF(oct)) {
+ 		ih3 =  (struct octeon_instr_ih3 *)&sc->cmd.cmd3.ih3;
+ 		if (ih3->dlengsz) {
+ 			WARN_ON(!sc->dmadptr);
 -- 
 1.8.3.1
