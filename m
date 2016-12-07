@@ -1,48 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: fix loading of BPF_MAXINSNS sized
- programs
-Date: Wed, 07 Dec 2016 13:18:04 -0500 (EST)
-Message-ID: <20161207.131804.1728136405665915871.davem@davemloft.net>
-References: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v3 1/1] driver: ipvlan: Free ipvl_port
+ directly with kfree instead of kfree_rcu
+Date: Wed, 07 Dec 2016 13:22:27 -0500 (EST)
+Message-ID: <20161207.132227.1409237486028723978.davem@davemloft.net>
+References: <1481071487-11227-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37008 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37132 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932621AbcLGSSG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 13:18:06 -0500
-In-Reply-To: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net>
+        with ESMTP id S1753147AbcLGSWb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 13:22:31 -0500
+In-Reply-To: <1481071487-11227-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed,  7 Dec 2016 01:15:44 +0100
+From: fgao@ikuai8.com
+Date: Wed,  7 Dec 2016 08:44:47 +0800
 
-> General assumption is that single program can hold up to BPF_MAXINSNS,
-> that is, 4096 number of instructions. It is the case with cBPF and
-> that limit was carried over to eBPF. When recently testing digest, I
-> noticed that it's actually not possible to feed 4096 instructions
-> via bpf(2).
+> From: Gao Feng <fgao@ikuai8.com>
 > 
-> The check for > BPF_MAXINSNS was added back then to bpf_check() in
-> cbd357008604 ("bpf: verifier (add ability to receive verification log)").
-> However, 09756af46893 ("bpf: expand BPF syscall with program load/unload")
-> added yet another check that comes before that into bpf_prog_load(),
-> but this time bails out already in case of >= BPF_MAXINSNS.
+> There are two functions which would free the ipvl_port now. The first
+> is ipvlan_port_create. It frees the ipvl_port in the error handler,
+> so it could kfree it directly. The second is ipvlan_port_destroy. It
+> invokes netdev_rx_handler_unregister which enforces one grace period
+> by synchronize_net firstly, so it also could kfree the ipvl_port
+> directly and safely.
 > 
-> Fix it up and perform the check early in bpf_prog_load(), so we can drop
-> the second one in bpf_check(). It makes sense, because also a 0 insn
-> program is useless and we don't want to waste any resources doing work
-> up to bpf_check() point. The existing bpf(2) man page documents E2BIG
-> as the official error for such cases, so just stick with it as well.
+> So it is unnecessary to use kfree_rcu to free ipvl_port.
 > 
-> Fixes: 09756af46893 ("bpf: expand BPF syscall with program load/unload")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> ---
->  ( net-next is just fine imho. )
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
 Applied.
