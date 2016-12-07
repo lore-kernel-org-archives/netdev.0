@@ -1,36 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Wed, 07 Dec 2016 13:51:27 -0500 (EST)
-Message-ID: <20161207.135127.789629809982860453.davem@davemloft.net>
-References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
- <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
+From: Billy Shuman <wshuman3@gmail.com>
+Subject: Re: 4.9.0-rc8: tg3 dead after resume
+Date: Wed, 7 Dec 2016 13:44:51 -0500
+Message-ID: <CAHQNsocKsMrfuiiknYve5UViBwm-i29J0274CTMSsWJOunWSxA@mail.gmail.com>
+References: <CAHQNsodiku6Ln3y-=GzmmNLM0Emc2rEheFmc80OCuN91roojqA@mail.gmail.com>
+ <CACKFLinTBokAXnOri9_sxuFby0y4VxxrhEOh1aayPsyPWwDahw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- wireguard@lists.zx2c4.com, linux-mips@linux-mips.org
-To: dave.taht@gmail.com
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
-List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        Siva Reddy Kallam <siva.kallam@broadcom.com>
+To: Michael Chan <michael.chan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:35158 "EHLO
+        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752435AbcLGSvj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 13:51:39 -0500
+Received: by mail-io0-f170.google.com with SMTP id a124so727611254ioe.2
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 10:51:38 -0800 (PST)
+In-Reply-To: <CACKFLinTBokAXnOri9_sxuFby0y4VxxrhEOh1aayPsyPWwDahw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dave Taht <dave.taht@gmail.com>
-Date: Wed, 7 Dec 2016 10:47:16 -0800
+On Wed, Dec 7, 2016 at 12:37 PM, Michael Chan <michael.chan@broadcom.com> wrote:
+> On Wed, Dec 7, 2016 at 7:20 AM, Billy Shuman <wshuman3@gmail.com> wrote:
+>> After resume on 4.9.0-rc8 tg3 is dead.
+>>
+>> In logs I see:
+>> kernel: tg3 0000:44:00.0: phy probe failed, err -19
+>> kernel: tg3 0000:44:00.0: Problem fetching invariants of chip, aborting
+>
+> -19 is -ENODEV which means tg3 cannot read the PHY ID.
+>
+> If it's a true suspend/resume operation, the driver does not have to
+> go through probe during resume.  Please explain how you do
+> suspend/resume.
+>
 
-> https://git.lede-project.org/?p=openwrt/source.git;a=blob;f=target/linux/ar71xx/patches-4.4/910-unaligned_access_hacks.patch;h=b4b749e4b9c02a74a9f712a2740d63e554de5c64;hb=ee53a240ac902dc83209008a2671e7fdcf55957a
+Sorry my previous message was accidentally sent to early.
 
-It's so much better to analyze properly where the misalignment comes from
-and address it at the source, as we have for various cases that trip up
-Sparc too.
+I used systemd (systemctl suspend) to suspend.
 
-Marking structures "packed" is going to kill performance and is not
-the answer.
+> Did this work before?  There has been very few changes to tg3 recently.
+>
+
+This is a new laptop for me, but the same behavior is seen on 4.4.36 and 4.8.12.
+
+>>
+>> rmmod and modprobe does not fix the problem only a reboot resolves the issue.
+>>
+>> Billy
