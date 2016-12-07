@@ -1,50 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/20] i40e: use unsigned printf format specifier for active_filters count
-Date: Tue,  6 Dec 2016 23:33:42 -0800
-Message-ID: <20161207073354.88568-9-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/20] Changed version from 1.6.21 to 1.6.25
+Date: Tue,  6 Dec 2016 23:33:41 -0800
+Message-ID: <20161207073354.88568-8-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Bimmy Pujari <bimmy.pujari@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34826 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:26483 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753039AbcLGHet (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:49 -0500
+        id S1753022AbcLGHes (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:48 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Bimmy Pujari <bimmy.pujari@intel.com>
 
-Replace the %d specifier used for printing vsi->active_filters and
-vsi->promisc_threshold with an unsigned %u format specifier. While it is
-unlikely in practice that these values will ever reach such a large
-number they are unsigned values and thus should not be interpreted as
-negative numbers.
-
-Change-ID: Iff050fad5a1c8537c4c57fcd527441cd95cfc0d4
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Bimmy Pujari <bimmy.pujari@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index b8a03a0..f1f41f1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -172,7 +172,7 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
- 			 f->macaddr, f->vlan,
- 			 i40e_filter_state_string[f->state]);
- 	}
--	dev_info(&pf->pdev->dev, "    active_filters %d, promisc_threshold %d, overflow promisc %s\n",
-+	dev_info(&pf->pdev->dev, "    active_filters %u, promisc_threshold %u, overflow promisc %s\n",
- 		 vsi->active_filters, vsi->promisc_threshold,
- 		 (test_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state) ?
- 		  "ON" : "OFF"));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index dbb854b..aecf63b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -41,7 +41,7 @@ static const char i40e_driver_string[] =
+ 
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 6
+-#define DRV_VERSION_BUILD 21
++#define DRV_VERSION_BUILD 25
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index ca85021..c0fc533 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -38,7 +38,7 @@ static const char i40evf_driver_string[] =
+ 
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 6
+-#define DRV_VERSION_BUILD 21
++#define DRV_VERSION_BUILD 25
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD) \
 -- 
 2.9.3
