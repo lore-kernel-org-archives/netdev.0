@@ -1,70 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/19] i40e: Driver prints log message on link speed change
-Date: Wed,  7 Dec 2016 14:19:00 -0800
-Message-ID: <20161207221918.57932-2-jeffrey.t.kirsher@intel.com>
-References: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
-Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:42627 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933230AbcLGWUL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 17:20:11 -0500
-In-Reply-To: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH 2/2] net: ethernet: stmmac: remove private tx queue lock
+Date: Wed, 7 Dec 2016 23:34:19 +0100
+Message-ID: <afcae723-5804-305f-2756-c4dbf9045943@gmx.de>
+References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481141138-19466-3-git-send-email-LinoSanfilippo@gmx.de>
+ <20161207213757.GC2250@amd> <cc10a750-b8ef-a600-4cd5-5b51904c5253@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cc10a750-b8ef-a600-4cd5-5b51904c5253@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Filip Sadowski <filip.sadowski@intel.com>
+On 07.12.2016 22:43, Lino Sanfilippo wrote:
+> Hi Pavel,
+> 
+> On 07.12.2016 22:37, Pavel Machek wrote:
+>> On Wed 2016-12-07 21:05:38, Lino Sanfilippo wrote:
+>>> The driver uses a private lock for synchronization between the xmit
+>>> function and the xmit completion handler, but since the NETIF_F_LLTX flag
+>>> is not set, the xmit function is also called with the xmit_lock held.
+>>> 
+>>> On the other hand the xmit completion handler first takes the private lock
+>>> and (in case that the tx queue has been stopped) the xmit_lock, leading to
+>>> a reverse locking order and the potential danger of a deadlock.
+>>> 
+>>> Fix this by removing the private lock completely and synchronizing the xmit
+>>> function and completion handler solely by means of the xmit_lock. By doing
+>>> this remove also the now unnecessary double check for a stopped tx queue.
+>>> 
+>> 
+>> FYI, here's modified version. I believe _bh versions are needed, and
+>> I'm testing that version now. (Oh and I also ported it to net-next).
+>> 
+>> It survived 30 minutes of testing so far...
+>> 
+> 
+> First off, thanks for testing.
+> Hmm. I dont understand why _bh would be needed. We call that function from
+> BH context only (napi poll and timer).
+> Any idea?
+> 
 
-This patch makes the driver log link speed change. Before applying the
-patch link messages were printed only on state change. Now message is
-printed when link is brought up or down and when speed changes.
-
-Change-ID: Ifbee14b4b16c24967450b3cecac6e8351dcc8f74
-Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h      | 1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++++-
- 2 files changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 4cb8fb3..06e3c23 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -596,6 +596,7 @@ struct i40e_vsi {
- 	u16 veb_idx;		/* index of VEB parent */
- 	struct kobject *kobj;	/* sysfs object */
- 	bool current_isup;	/* Sync 'link up' logging */
-+	enum i40e_aq_link_speed current_speed;	/* Sync link speed logging */
- 
- 	void *priv;	/* client driver data reference. */
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 5777e49..4534d41 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5225,12 +5225,16 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
-  */
- void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
- {
-+	enum i40e_aq_link_speed new_speed;
- 	char *speed = "Unknown";
- 	char *fc = "Unknown";
- 
--	if (vsi->current_isup == isup)
-+	new_speed = vsi->back->hw.phy.link_info.link_speed;
-+
-+	if ((vsi->current_isup == isup) && (vsi->current_speed == new_speed))
- 		return;
- 	vsi->current_isup = isup;
-+	vsi->current_speed = new_speed;
- 	if (!isup) {
- 		netdev_info(vsi->netdev, "NIC Link is Down\n");
- 		return;
--- 
-2.9.3
+Could this once again be caused by irq coalescing? When the tx queue has been stopped
+the cleanup handler has to wakeup the queue within a certain time span, otherwise the
+watchdog will complain (as it happened in your test). Could you retest this with
+irq coalescing disabled?
