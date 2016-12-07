@@ -1,147 +1,104 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [PATCH 2/2] net: ethernet: stmmac: remove private tx queue lock
-Date: Wed,  7 Dec 2016 21:05:38 +0100
-Message-ID: <1481141138-19466-3-git-send-email-LinoSanfilippo@gmx.de>
-References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
-Cc: pavel@ucw.cz, davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, Lino Sanfilippo <LinoSanfilippo@gmx.de>
-To: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH v5 0/6] XDP for virtio_net
+Date: Wed, 07 Dec 2016 12:10:47 -0800
+Message-ID: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, brouer@redhat.com
+To: daniel@iogearbox.net, mst@redhat.com, shm@cumulusnetworks.com,
+        davem@davemloft.net, tgraf@suug.ch, alexei.starovoitov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35534 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932297AbcLGULH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 15:11:07 -0500
+Received: by mail-pg0-f65.google.com with SMTP id p66so24435599pga.2
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 12:11:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver uses a private lock for synchronization between the xmit
-function and the xmit completion handler, but since the NETIF_F_LLTX flag
-is not set, the xmit function is also called with the xmit_lock held.
+This implements virtio_net for the mergeable buffers and big_packet
+modes. I tested this with vhost_net running on qemu and did not see
+any issues. For testing num_buf > 1 I added a hack to vhost driver
+to only but 100 bytes per buffer.
 
-On the other hand the xmit completion handler first takes the private lock
-and (in case that the tx queue has been stopped) the xmit_lock, leading to
-a reverse locking order and the potential danger of a deadlock.
+There are some restrictions for XDP to be enabled and work well
+(see patch 3) for more details.
 
-Fix this by removing the private lock completely and synchronizing the xmit
-function and completion handler solely by means of the xmit_lock. By doing
-this remove also the now unnecessary double check for a stopped tx queue.
+  1. LRO must be off
+  2. MTU must be less than PAGE_SIZE
+  3. queues must be available to dedicate to XDP
+  4. num_bufs received in mergeable buffers must be 1
+  5. big_packet mode must have all data on single page
 
-Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+To test this I used pktgen in the hypervisor and ran the XDP sample
+programs xdp1 and xdp2 from ./samples/bpf in the host. The default
+mode that is used with these patches with Linux guest and QEMU/Linux
+hypervisor is the mergeable buffers mode. I tested this mode for 2+
+days running xdp2 without issues. Additionally I did a series of
+driver unload/load tests to check the allocate/release paths.
+
+To test the big_packets path I applied the following simple patch against
+the virtio driver forcing big_packets mode,
+
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -2242,7 +2242,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+                vi->big_packets = true;
+ 
+        if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+-               vi->mergeable_rx_bufs = true;
++               vi->mergeable_rx_bufs = false;
+ 
+        if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||
+            virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
+
+I then repeated the tests with xdp1 and xdp2. After letting them run
+for a few hours I called it good enough.
+
+Testing the unexpected case where virtio receives a packet across
+multiple buffers required patching the hypervisor vhost driver to
+convince it to send these unexpected packets. Then I used ping with
+the -s option to trigger the case with multiple buffers. This mode
+is not expected to be used but as MST pointed out per spec it is
+not strictly speaking illegal to generate multi-buffer packets so we
+need someway to handle these. The following patch can be used to
+generate multiple buffers,
+
+
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1777,7 +1777,8 @@ static int translate_desc(struct vhost_virtqueue
+*vq, u64
+
+                _iov = iov + ret;
+                size = node->size - addr + node->start;
+-               _iov->iov_len = min((u64)len - s, size);
++               printk("%s: build 100 length headers!\n", __func__);
++               _iov->iov_len = min((u64)len - s, (u64)100);//size);
+                _iov->iov_base = (void __user *)(unsigned long)
+                        (node->userspace_addr + addr - node->start);
+                s += size;
+
+Please review any comments/feedback welcome as always.
+
+Thanks,
+John
+
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  1 -
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 28 +++++------------------
- 2 files changed, 6 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 4d2a759..7e69b11 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -64,7 +64,6 @@ struct stmmac_priv {
- 	dma_addr_t dma_tx_phy;
- 	int tx_coalesce;
- 	int hwts_tx_en;
--	spinlock_t tx_lock;
- 	bool tx_path_in_lpi_mode;
- 	struct timer_list txtimer;
- 	bool tso;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index caf069a..db46ec4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1307,7 +1307,7 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 	unsigned int bytes_compl = 0, pkts_compl = 0;
- 	unsigned int entry = priv->dirty_tx;
- 
--	spin_lock(&priv->tx_lock);
-+	netif_tx_lock(priv->dev);
- 
- 	priv->xstats.tx_clean++;
- 
-@@ -1378,22 +1378,17 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
- 
- 	if (unlikely(netif_queue_stopped(priv->dev) &&
--		     stmmac_tx_avail(priv) > STMMAC_TX_THRESH)) {
--		netif_tx_lock(priv->dev);
--		if (netif_queue_stopped(priv->dev) &&
--		    stmmac_tx_avail(priv) > STMMAC_TX_THRESH) {
--			if (netif_msg_tx_done(priv))
--				pr_debug("%s: restart transmit\n", __func__);
--			netif_wake_queue(priv->dev);
--		}
--		netif_tx_unlock(priv->dev);
-+	    stmmac_tx_avail(priv) > STMMAC_TX_THRESH)) {
-+		if (netif_msg_tx_done(priv))
-+			pr_debug("%s: restart transmit\n", __func__);
-+		netif_wake_queue(priv->dev);
- 	}
- 
- 	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
- 		stmmac_enable_eee_mode(priv);
- 		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_T(eee_timer));
- 	}
--	spin_unlock(&priv->tx_lock);
-+	netif_tx_unlock(priv->dev);
- }
- 
- static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv)
-@@ -1998,8 +1993,6 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	u8 proto_hdr_len;
- 	int i;
- 
--	spin_lock(&priv->tx_lock);
--
- 	/* Compute header lengths */
- 	proto_hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 
-@@ -2011,7 +2004,6 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 			/* This is a hard error, log it. */
- 			pr_err("%s: Tx Ring full when queue awake\n", __func__);
- 		}
--		spin_unlock(&priv->tx_lock);
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -2146,11 +2138,9 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, priv->tx_tail_addr,
- 				       STMMAC_CHAN0);
- 
--	spin_unlock(&priv->tx_lock);
- 	return NETDEV_TX_OK;
- 
- dma_map_err:
--	spin_unlock(&priv->tx_lock);
- 	dev_err(priv->device, "Tx dma map failed\n");
- 	dev_kfree_skb(skb);
- 	priv->dev->stats.tx_dropped++;
-@@ -2182,10 +2172,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 			return stmmac_tso_xmit(skb, dev);
- 	}
- 
--	spin_lock(&priv->tx_lock);
--
- 	if (unlikely(stmmac_tx_avail(priv) < nfrags + 1)) {
--		spin_unlock(&priv->tx_lock);
- 		if (!netif_queue_stopped(dev)) {
- 			netif_stop_queue(dev);
- 			/* This is a hard error, log it. */
-@@ -2357,11 +2344,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, priv->tx_tail_addr,
- 					       STMMAC_CHAN0);
- 
--	spin_unlock(&priv->tx_lock);
- 	return NETDEV_TX_OK;
- 
- dma_map_err:
--	spin_unlock(&priv->tx_lock);
- 	dev_err(priv->device, "Tx dma map failed\n");
- 	dev_kfree_skb(skb);
- 	priv->dev->stats.tx_dropped++;
-@@ -3347,7 +3332,6 @@ int stmmac_dvr_probe(struct device *device,
- 	netif_napi_add(ndev, &priv->napi, stmmac_poll, 64);
- 
- 	spin_lock_init(&priv->lock);
--	spin_lock_init(&priv->tx_lock);
- 
- 	ret = register_netdev(ndev);
- 	if (ret) {
--- 
-1.9.1
+John Fastabend (6):
+      net: virtio dynamically disable/enable LRO
+      net: xdp: add invalid buffer warning
+      virtio_net: Add XDP support
+      virtio_net: add dedicated XDP transmit queues
+      virtio_net: add XDP_TX support
+      virtio_net: xdp, add slowpath case for non contiguous buffers
+
+
+ drivers/net/virtio_net.c |  403 +++++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/filter.h   |    1 
+ net/core/filter.c        |    6 +
+ 3 files changed, 402 insertions(+), 8 deletions(-)
