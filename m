@@ -1,52 +1,74 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] bpf: fix loading of BPF_MAXINSNS sized programs
-Date: Wed, 7 Dec 2016 12:42:22 +0300
-Message-ID: <7039f9c2-c1d8-7549-7448-e369875ad9c1@cogentembedded.com>
-References: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH iproute2 net-next] bpf: Fix number of retries when growing log buffer
+Date: Wed,  7 Dec 2016 10:47:59 +0100
+Message-ID: <fc3866340db64ff7400c14342578b9a104f02fe9.1481103964.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        alexei.starovoitov@gmail.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:37026 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753032AbcLGJmW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:42:22 -0500
-Received: by mail-wm0-f51.google.com with SMTP id t79so157106678wmt.0
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 01:42:22 -0800 (PST)
-In-Reply-To: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net>
+Received: from bombadil.infradead.org ([198.137.202.9]:47107 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751631AbcLGJsF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:48:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+The log buffer is automatically grown when the verifier output does not
+fit into the default buffer size. The number of growing attempts was
+not sufficient to reach the maximum buffer size so far.
 
-On 12/7/2016 3:15 AM, Daniel Borkmann wrote:
+Perform 9 iterations to reach max and let the 10th one fail.
 
-> General assumption is that single program can hold up to BPF_MAXINSNS,
-> that is, 4096 number of instructions. It is the case with cBPF and
+j:0     i:65536         max:16777215
+j:1     i:131072        max:16777215
+j:2     i:262144        max:16777215
+j:3     i:524288        max:16777215
+j:4     i:1048576       max:16777215
+j:5     i:2097152       max:16777215
+j:6     i:4194304       max:16777215
+j:7     i:8388608       max:16777215
+j:8     i:16777216      max:16777215
 
-    Up to BPF_MAXINSNS (that is 4096) instructions.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ lib/bpf.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-> that limit was carried over to eBPF. When recently testing digest, I
-> noticed that it's actually not possible to feed 4096 instructions
-> via bpf(2).
->
-> The check for > BPF_MAXINSNS was added back then to bpf_check() in
-> cbd357008604 ("bpf: verifier (add ability to receive verification log)").
-> However, 09756af46893 ("bpf: expand BPF syscall with program load/unload")
-> added yet another check that comes before that into bpf_prog_load(),
-> but this time bails out already in case of >= BPF_MAXINSNS.
->
-> Fix it up and perform the check early in bpf_prog_load(), so we can drop
-> the second one in bpf_check(). It makes sense, because also a 0 insn
-> program is useless and we don't want to waste any resources doing work
-> up to bpf_check() point. The existing bpf(2) man page documents E2BIG
-> as the official error for such cases, so just stick with it as well.
->
-> Fixes: 09756af46893 ("bpf: expand BPF syscall with program load/unload")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-[...]
-
-MBR, Sergei
+diff --git a/lib/bpf.c b/lib/bpf.c
+index 8a5b84b..f3dace2 100644
+--- a/lib/bpf.c
++++ b/lib/bpf.c
+@@ -912,15 +912,18 @@ bpf_dump_error(struct bpf_elf_ctx *ctx, const char *format, ...)
+ 
+ static int bpf_log_realloc(struct bpf_elf_ctx *ctx)
+ {
++	const size_t log_max = UINT_MAX >> 8;
+ 	size_t log_size = ctx->log_size;
+ 	void *ptr;
+ 
+ 	if (!ctx->log) {
+ 		log_size = 65536;
+-	} else {
++	} else if (log_size < log_max) {
+ 		log_size <<= 1;
+-		if (log_size > (UINT_MAX >> 8))
+-			return -EINVAL;
++		if (log_size > log_max)
++			log_size = log_max;
++	} else {
++		return -EINVAL;
+ 	}
+ 
+ 	ptr = realloc(ctx->log, log_size);
+@@ -1259,7 +1262,7 @@ retry:
+ 		 * log for the user, so enlarge it and re-fail.
+ 		 */
+ 		if (fd < 0 && (errno == ENOSPC || !ctx->log_size)) {
+-			if (tries++ < 6 && !bpf_log_realloc(ctx))
++			if (tries++ < 10 && !bpf_log_realloc(ctx))
+ 				goto retry;
+ 
+ 			fprintf(stderr, "Log buffer too small to dump verifier log %zu bytes (%d tries)!\n",
+-- 
+2.7.4
