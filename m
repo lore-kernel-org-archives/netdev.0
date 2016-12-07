@@ -1,50 +1,84 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next 1/1] driver: macvlan: Remove the rcu member of macvlan_port
-Date: Wed,  7 Dec 2016 12:23:18 +0800
-Message-ID: <1481084598-17351-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
-        gfree.wind@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg342.qq.com ([14.17.44.37]:50509 "EHLO smtpbg342.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752104AbcLGEYM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 6 Dec 2016 23:24:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 09/10] vsock/virtio: fix src/dst cid format
+Date: Wed, 7 Dec 2016 12:31:56 +0800
+Message-ID: <a0dcb733-ab1c-ac66-2300-fcb90fbacea2@redhat.com>
+References: <1481038106-24899-1-git-send-email-mst@redhat.com>
+ <1481038106-24899-10-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: stable@vger.kernel.org, Stefan Hajnoczi <stefanha@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1481038106-24899-10-git-send-email-mst@redhat.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
 
-When free macvlan_port in macvlan_port_destroy, it is safe to free
-directly because netdev_rx_handler_unregister could enforce one
-grace period.
-So it is unnecessary to use kfree_rcu for macvlan_port.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- drivers/net/macvlan.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+On 2016年12月06日 23:41, Michael S. Tsirkin wrote:
+> These fields are 64 bit, using le32_to_cpu and friends
+> on these will not do the right thing.
+> Fix this up.
+>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>   net/vmw_vsock/virtio_transport_common.c | 14 +++++++-------
+>   1 file changed, 7 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
+> index 6120384..22e99c4 100644
+> --- a/net/vmw_vsock/virtio_transport_common.c
+> +++ b/net/vmw_vsock/virtio_transport_common.c
+> @@ -606,9 +606,9 @@ static int virtio_transport_reset_no_sock(struct virtio_vsock_pkt *pkt)
+>   		return 0;
+>   
+>   	pkt = virtio_transport_alloc_pkt(&info, 0,
+> -					 le32_to_cpu(pkt->hdr.dst_cid),
+> +					 le64_to_cpu(pkt->hdr.dst_cid),
+>   					 le32_to_cpu(pkt->hdr.dst_port),
+> -					 le32_to_cpu(pkt->hdr.src_cid),
+> +					 le64_to_cpu(pkt->hdr.src_cid),
+>   					 le32_to_cpu(pkt->hdr.src_port));
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 3c0a171..20b3fdf2 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -43,7 +43,6 @@ struct macvlan_port {
- 	struct net_device	*dev;
- 	struct hlist_head	vlan_hash[MACVLAN_HASH_SIZE];
- 	struct list_head	vlans;
--	struct rcu_head		rcu;
- 	struct sk_buff_head	bc_queue;
- 	struct work_struct	bc_work;
- 	bool 			passthru;
-@@ -1151,7 +1150,7 @@ static void macvlan_port_destroy(struct net_device *dev)
- 	cancel_work_sync(&port->bc_work);
- 	__skb_queue_purge(&port->bc_queue);
- 
--	kfree_rcu(port, rcu);
-+	kfree(port);
- }
- 
- static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
--- 
-1.9.1
+Looking at sockaddr_vm, svm_cid is "unsigned int", do we really want 64 
+bit here?
+
+>   	if (!pkt)
+>   		return -ENOMEM;
+> @@ -823,7 +823,7 @@ virtio_transport_send_response(struct vsock_sock *vsk,
+>   	struct virtio_vsock_pkt_info info = {
+>   		.op = VIRTIO_VSOCK_OP_RESPONSE,
+>   		.type = VIRTIO_VSOCK_TYPE_STREAM,
+> -		.remote_cid = le32_to_cpu(pkt->hdr.src_cid),
+> +		.remote_cid = le64_to_cpu(pkt->hdr.src_cid),
+>   		.remote_port = le32_to_cpu(pkt->hdr.src_port),
+>   		.reply = true,
+>   	};
+> @@ -863,9 +863,9 @@ virtio_transport_recv_listen(struct sock *sk, struct virtio_vsock_pkt *pkt)
+>   	child->sk_state = SS_CONNECTED;
+>   
+>   	vchild = vsock_sk(child);
+> -	vsock_addr_init(&vchild->local_addr, le32_to_cpu(pkt->hdr.dst_cid),
+> +	vsock_addr_init(&vchild->local_addr, le64_to_cpu(pkt->hdr.dst_cid),
+>   			le32_to_cpu(pkt->hdr.dst_port));
+> -	vsock_addr_init(&vchild->remote_addr, le32_to_cpu(pkt->hdr.src_cid),
+> +	vsock_addr_init(&vchild->remote_addr, le64_to_cpu(pkt->hdr.src_cid),
+>   			le32_to_cpu(pkt->hdr.src_port));
+>   
+>   	vsock_insert_connected(vchild);
+> @@ -904,9 +904,9 @@ void virtio_transport_recv_pkt(struct virtio_vsock_pkt *pkt)
+>   	struct sock *sk;
+>   	bool space_available;
+>   
+> -	vsock_addr_init(&src, le32_to_cpu(pkt->hdr.src_cid),
+> +	vsock_addr_init(&src, le64_to_cpu(pkt->hdr.src_cid),
+>   			le32_to_cpu(pkt->hdr.src_port));
+> -	vsock_addr_init(&dst, le32_to_cpu(pkt->hdr.dst_cid),
+> +	vsock_addr_init(&dst, le64_to_cpu(pkt->hdr.dst_cid),
+>   			le32_to_cpu(pkt->hdr.dst_port));
+>   
+>   	trace_virtio_transport_recv_pkt(src.svm_cid, src.svm_port,
