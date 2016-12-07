@@ -1,59 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next] icmp: correct return value of icmp_rcv()
-Date: Wed, 07 Dec 2016 06:18:18 -0800
-Message-ID: <1481120298.4930.3.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1481093573-5123-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+Subject: [PATCH v3 0/6] net: stmmac: make DMA programmable burst length more configurable
+Date: Wed, 7 Dec 2016 15:20:02 +0100
+Message-ID: <1481120409-18103-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34547 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752117AbcLGOSZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 09:18:25 -0500
-Received: by mail-pg0-f65.google.com with SMTP id e9so23601368pgc.1
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 06:18:20 -0800 (PST)
-In-Reply-To: <1481093573-5123-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Niklas Cassel <niklass-VrBV9hrLPhE@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-12-07 at 14:52 +0800, Zhang Shengju wrote:
-> Currently, icmp_rcv() always return zero on a packet delivery upcall.
-> 
-> To make its behavior more compliant with the way this API should be
-> used, this patch changes this to let it return NET_RX_SUCCESS when the
-> packet is proper handled, and NET_RX_DROP otherwise.
-> 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> ---
->  net/ipv4/icmp.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> index 691146a..f79d7a8 100644
-> --- a/net/ipv4/icmp.c
-> +++ b/net/ipv4/icmp.c
-> @@ -1047,12 +1047,12 @@ int icmp_rcv(struct sk_buff *skb)
->  
->  	if (success)  {
->  		consume_skb(skb);
-> -		return 0;
-> +		return NET_RX_SUCCESS;
->  	}
->  
->  drop:
->  	kfree_skb(skb);
-> -	return 0;
-> +	return NET_RX_DROP;
->  csum_error:
->  	__ICMP_INC_STATS(net, ICMP_MIB_CSUMERRORS);
->  error:
+Make DMA programmable burst length more configurable in the stmmac driver.
+
+This is done by adding support for independent pbl for tx/rx through DT.
+More fine grained tuning of pbl is possible thanks to a DT property saying
+that we should NOT multiply pbl values by x8/x4 in hardware.
+
+All new DT properties are optional, and created in a way that it will not
+affect any existing DT configurations.
+
+Changes since V1:
+Created cover-letter.
+Rebased patch set against next-20161205, since conflicting patches to
+stmmac_platform.c has been merged since V1.
+
+Changes since V2:
+Moved default value initialization of pbl to stmmac_platform.c
+and added a check for pbl != 0 in stmmac_main.c,
+to catch a possble pbl == 0 from pci glue.
 
 
-I am curious, what external/visible effects do you expect from such a
-change ?
+Niklas Cassel (6):
+  net: stmmac: return error if no DMA configuration is found
+  net: stmmac: simplify the common DMA init API
+  net: stmmac: stmmac_platform: fix parsing of DT binding
+  net: stmmac: dwmac1000: fix define DMA_BUS_MODE_RPBL_MASK
+  net: stmmac: add support for independent DMA pbl for tx/rx
+  net: smmac: allow configuring lower pbl values
 
-We now have a very precise monitoring of where packets are dropped
-(consume_skb()/kfree_skb()) 
+ Documentation/devicetree/bindings/net/stmmac.txt   |  8 +++++-
+ Documentation/networking/stmmac.txt                | 24 +++++++++++-----
+ drivers/net/ethernet/stmicro/stmmac/common.h       |  4 +--
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |  2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    | 26 ++++++++++--------
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |  7 +++--
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c   | 25 ++++++++++-------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 14 ++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |  2 ++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 32 ++++++++++++----------
+ include/linux/stmmac.h                             |  3 ++
+ 11 files changed, 88 insertions(+), 59 deletions(-)
+
+-- 
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
