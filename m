@@ -1,93 +1,65 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 5/7] Documentation: DT: net: cpsw: allow to specify
- descriptors pool size
-Date: Wed, 7 Dec 2016 13:41:49 -0600
-Message-ID: <30905e3e-d44f-e1f1-a22a-226b9ea53868@ti.com>
-References: <20161201233432.6182-1-grygorii.strashko@ti.com>
- <20161201233432.6182-6-grygorii.strashko@ti.com>
- <20161202112832.GB1213@khorivan>
- <23737800-cca5-fbd4-e21c-5430ecf7ab34@ti.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC PATCH net-next v3 2/2] macb: Enable 1588 support in SAMA5Dx
+ platforms.
+Date: Wed, 7 Dec 2016 20:43:32 +0100
+Message-ID: <20161207194332.GB13062@netboy>
+References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
+ <1481134912-2243-2-git-send-email-andrei.pistirica@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <23737800-cca5-fbd4-e21c-5430ecf7ab34@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: tbultel@pixelsurmer.com, boris.brezillon@free-electrons.com,
+ rafalo@cadence.com, netdev@vger.kernel.org,
+ alexandre.belloni@free-electrons.com, nicolas.ferre@atmel.com,
+ linux-kernel@vger.kernel.org, harinikatakamlinux@gmail.com, michals@xilinx.com,
+ anirudh@xilinx.com, punnaia@xilinx.com, harini.katakam@xilinx.com,
+ davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: Andrei Pistirica <andrei.pistirica@microchip.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1481134912-2243-2-git-send-email-andrei.pistirica@microchip.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 07, 2016 at 08:21:52PM +0200, Andrei Pistirica wrote:
+> +static int gem_hwtst_set(struct net_device *netdev,
+> +			 struct ifreq *ifr, int cmd)
+> +{
 
+...
 
-On 12/02/2016 11:21 AM, Grygorii Strashko wrote:
-> 
-> 
-> On 12/02/2016 05:28 AM, Ivan Khoronzhuk wrote:
->> On Thu, Dec 01, 2016 at 05:34:30PM -0600, Grygorii Strashko wrote:
->>> Add optional property "descs_pool_size" to specify buffer descriptor's
->>> pool size. The "descs_pool_size" should define total number of CPDMA
->>> CPPI descriptors to be used for both ingress/egress packets
->>> processing. If not specified - the default value 256 will be used
->>> which will allow to place descriptor's pool into the internal CPPI
->>> RAM on most of TI SoC.
->>>
->>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
->>> ---
->>>  Documentation/devicetree/bindings/net/cpsw.txt | 5 +++++
->>>  1 file changed, 5 insertions(+)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
->>> index 5ad439f..b99d196 100644
->>> --- a/Documentation/devicetree/bindings/net/cpsw.txt
->>> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
->>> @@ -35,6 +35,11 @@ Optional properties:
->>>  			  For example in dra72x-evm, pcf gpio has to be
->>>  			  driven low so that cpsw slave 0 and phy data
->>>  			  lines are connected via mux.
->>> +- descs_pool_size	: total number of CPDMA CPPI descriptors to be used for
->>> +			  both ingress/egress packets processing. if not
->>> +			  specified the default value 256 will be used which
->>> +			  will allow to place descriptors pool into the
->>> +			  internal CPPI RAM.
->> Does it describe h/w? Why now module parameter? or even smth like ethtool num
->> ring entries?
->>
-> 
-> It can be module parameter too. for the use cases i'm aware of -
-> this is one-time boot setting only.  
-> 
-> ----- OR
-> So, do you propose to use 
->        ethtool -g ethX
-> 
->        ethtool -G ethX [rx N] [tx N]
-> ?
-> 
-> Now cpdma has one pool for all RX/TX channels, so changing this settings
-> by ethtool will require: pause interfaces, reallocate cpdma pool, 
-> re-arrange buffers between channels, resume interface. Correct?
-> 
-> How do you think - we can move forward with one pool or better to have two (Rx and Tx)?
-> 
-> Wouldn't it be reasonable to still have DT (or module) parameter to avoid 
-> cpdma reconfiguration on system startup (pause/resume interfaces) (faster boot)?
-> 
-> How about cpdma re-allocation policy (with expectation that is shouldn't happen too often)?
-> - increasing of Rx, Tx will grow total number of physically allocated buffers (total_desc_num)
-> - decreasing of Rx, Tx will just change number of available buffers (no memory re-allocation)
-> 
-> ----- OR ----
-> Can we move forward with current patch (total number of CPDMA CPPI descriptors defined in DT) 
-> and add ethtool -G ethX [rx N] [tx N] which will allow to re-split descs between RX and TX?
-> 
-> 
+> +	switch (config.rx_filter) {
+> +	case HWTSTAMP_FILTER_NONE:
+> +		if (priv->hwts_rx_en)
+> +			priv->hwts_rx_en = 0;
+> +		break;
+> +	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+> +	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
+> +	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+> +	case HWTSTAMP_FILTER_ALL:
+> +	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+> +	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+> +	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
+> +	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
+> +	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
+> +	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
+> +	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+> +	case HWTSTAMP_FILTER_PTP_V2_SYNC:
+> +	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+> +		config.rx_filter = HWTSTAMP_FILTER_ALL;
 
-if no comments here, I'll rework patches to use module parameter for descs_pool_size and
-will add possibility to re-split RX/TX buffers using  ethtool -G ethX [rx N] [tx N]
+Does the device really time stamp all packets?
 
--- 
-regards,
--grygorii
+Or did you mean "all PTP packets?  For that, use
+HWTSTAMP_FILTER_PTP_V2_EVENT.
+
+Thanks,
+Richard
