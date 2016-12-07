@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 20/20] i40e: don't allow i40e_vsi_(add|kill)_vlan to operate when VID<1
-Date: Tue,  6 Dec 2016 23:33:54 -0800
-Message-ID: <20161207073354.88568-21-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/20] i40e: recalculate vsi->active_filters from hash contents
+Date: Tue,  6 Dec 2016 23:33:48 -0800
+Message-ID: <20161207073354.88568-15-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -11,85 +11,134 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:34826 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753185AbcLGHew (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:52 -0500
+        id S1753119AbcLGHeu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:50 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Now that we have the separate i40e_(add|rm)_vlan_all_mac functions, we
-should not be using the i40e_vsi_kill_vlan or i40e_vsi_add_vlan
-functions when PVID is set or when VID is less than 1. This allows us to
-remove some checks in i40e_vsi_add_vlan and ensures that callers which
-need to handle VID=0 or VID=-1 don't accidentally invoke the VLAN mode
-handling used to convert filters when entering VLAN mode. We also update
-the functions to take u16 instead of s16 as well since they no longer
-expect to be called with VID=I40E_VLAN_ANY.
+Previous code refactors have accidentally caused issues with the
+counting of active_filters. Avoid similar issues in the future by simply
+re-counting the active filters every time after we handle add and delete
+of all the filters. Additionally this allows us to simplify the check
+for when we exit promiscuous mode since we can combine the check for
+failed filters at the same time.
 
-Change-ID: Ibddf44a8bb840dde8ceef2a4fdb92fd953b05a57
+Additionally since we recount filters at the end we need to set
+vsi->promisc_threshold as well.
+
+The resulting code takes a bit longer since we do have to loop over
+filters again. However, the result is more readable and less likely to
+become incorrect due to failed accounting of filters in the future.
+Finally, this ensures that it is not possible for vsi->active_filters to
+ever underflow since we never decrement it.
+
+Change-ID: Ib4f3a377e60eb1fa6c91ea86cc02238c08edd102
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++----
- 2 files changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 52 ++++++++++++++++-------------
+ 1 file changed, 29 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index ba8d309..7f208f4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -853,9 +853,9 @@ int i40e_close(struct net_device *netdev);
- int i40e_vsi_open(struct i40e_vsi *vsi);
- void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
- int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
--int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
-+int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid);
- void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
--void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
-+void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid);
- struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
- 					     const u8 *macaddr);
- int i40e_del_mac_all_vlan(struct i40e_vsi *vsi, const u8 *macaddr);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index da4cbe3..148a678 100644
+index 806fd56..2ccf376 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2575,12 +2575,15 @@ int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
- /**
-  * i40e_vsi_add_vlan - Add VSI membership for given VLAN
-  * @vsi: the VSI being configured
-- * @vid: VLAN id to be added (0 = untagged only , -1 = any)
-+ * @vid: VLAN id to be added
-  **/
--int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
-+int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid)
- {
- 	int err;
+@@ -1870,12 +1870,10 @@ void i40e_aqc_add_filters(struct i40e_vsi *vsi, const char *vsi_name,
+ 	aq_ret = i40e_aq_add_macvlan(hw, vsi->seid, list, num_add, NULL);
+ 	aq_err = hw->aq.asq_last_status;
+ 	fcnt = i40e_update_filter_state(num_add, list, add_head, aq_ret);
+-	vsi->active_filters += fcnt;
  
-+	if (!(vid > 0) || vsi->info.pvid)
-+		return -EINVAL;
+ 	if (fcnt != num_add) {
+ 		*promisc_changed = true;
+ 		set_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state);
+-		vsi->promisc_threshold = (vsi->active_filters * 3) / 4;
+ 		dev_warn(&vsi->back->pdev->dev,
+ 			 "Error %s adding RX filters on %s, promiscuous mode forced on\n",
+ 			 i40e_aq_str(hw, aq_err),
+@@ -1939,6 +1937,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 	struct i40e_hw *hw = &vsi->back->hw;
+ 	unsigned int vlan_any_filters = 0;
+ 	unsigned int non_vlan_filters = 0;
++	unsigned int failed_filters = 0;
+ 	unsigned int vlan_filters = 0;
+ 	bool promisc_changed = false;
+ 	char vsi_name[16] = "PF";
+@@ -1985,7 +1984,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 				/* Move the element into temporary del_list */
+ 				hash_del(&f->hlist);
+ 				hlist_add_head(&f->hlist, &tmp_del_list);
+-				vsi->active_filters--;
+ 
+ 				/* Avoid counting removed filters */
+ 				continue;
+@@ -2046,7 +2044,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 				f->state = I40E_FILTER_REMOVE;
+ 				hash_del(&f->hlist);
+ 				hlist_add_head(&f->hlist, &tmp_del_list);
+-				vsi->active_filters--;
+ 			}
+ 
+ 			/* Also update any filters on the tmp_add list */
+@@ -2203,27 +2200,36 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 		add_list = NULL;
+ 	}
+ 
+-	/* Check to see if we can drop out of overflow promiscuous mode. */
++	/* Determine the number of active and failed filters. */
++	spin_lock_bh(&vsi->mac_filter_hash_lock);
++	vsi->active_filters = 0;
++	hash_for_each(vsi->mac_filter_hash, bkt, f, hlist) {
++		if (f->state == I40E_FILTER_ACTIVE)
++			vsi->active_filters++;
++		else if (f->state == I40E_FILTER_FAILED)
++			failed_filters++;
++	}
++	spin_unlock_bh(&vsi->mac_filter_hash_lock);
 +
- 	/* Locked once because all functions invoked below iterates list*/
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
- 	err = i40e_add_vlan_all_mac(vsi, vid);
-@@ -2623,10 +2626,13 @@ void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
- /**
-  * i40e_vsi_kill_vlan - Remove VSI membership for given VLAN
-  * @vsi: the VSI being configured
-- * @vid: VLAN id to be removed (0 = untagged only , -1 = any)
-+ * @vid: VLAN id to be removed
-  **/
--void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
-+void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid)
- {
-+	if (!(vid > 0) || vsi->info.pvid)
-+		return;
++	/* If promiscuous mode has changed, we need to calculate a new
++	 * threshold for when we are safe to exit
++	 */
++	if (promisc_changed)
++		vsi->promisc_threshold = (vsi->active_filters * 3) / 4;
 +
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
- 	i40e_rm_vlan_all_mac(vsi, vid);
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
++	/* Check if we are able to exit overflow promiscuous mode. We can
++	 * safely exit if we didn't just enter, we no longer have any failed
++	 * filters, and we have reduced filters below the threshold value.
++	 */
+ 	if (test_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state) &&
++	    !promisc_changed && !failed_filters &&
+ 	    (vsi->active_filters < vsi->promisc_threshold)) {
+-		int failed_count = 0;
+-		/* See if we have any failed filters. We can't drop out of
+-		 * promiscuous until these have all been deleted.
+-		 */
+-		spin_lock_bh(&vsi->mac_filter_hash_lock);
+-		hash_for_each(vsi->mac_filter_hash, bkt, f, hlist) {
+-			if (f->state == I40E_FILTER_FAILED)
+-				failed_count++;
+-		}
+-		spin_unlock_bh(&vsi->mac_filter_hash_lock);
+-		if (!failed_count) {
+-			dev_info(&pf->pdev->dev,
+-				 "filter logjam cleared on %s, leaving overflow promiscuous mode\n",
+-				 vsi_name);
+-			clear_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state);
+-			promisc_changed = true;
+-			vsi->promisc_threshold = 0;
+-		}
++		dev_info(&pf->pdev->dev,
++			 "filter logjam cleared on %s, leaving overflow promiscuous mode\n",
++			 vsi_name);
++		clear_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state);
++		promisc_changed = true;
++		vsi->promisc_threshold = 0;
+ 	}
+ 
+ 	/* if the VF is not trusted do not do promisc */
 -- 
 2.9.3
