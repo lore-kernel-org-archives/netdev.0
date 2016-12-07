@@ -1,48 +1,36 @@
-From: Peng Tao <bergwolf@gmail.com>
-Subject: [PATCH] vhost-vsock: fix orphan connection reset
-Date: Wed,  7 Dec 2016 17:45:47 +0800
-Message-ID: <1481103947-76771-1-git-send-email-bergwolf@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
+Date: Wed, 07 Dec 2016 13:51:27 -0500 (EST)
+Message-ID: <20161207.135127.789629809982860453.davem@davemloft.net>
+References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+ <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org#4.8+,
-	Peng Tao <bergwolf@gmail.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Stefan Hajnoczi <stefanha@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ wireguard@lists.zx2c4.com, linux-mips@linux-mips.org
+To: dave.taht@gmail.com
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
+List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
 List-Id: netdev.vger.kernel.org
 
-local_addr.svm_cid is host cid. We should check guest cid instead,
-which is remote_addr.svm_cid.
+From: Dave Taht <dave.taht@gmail.com>
+Date: Wed, 7 Dec 2016 10:47:16 -0800
 
-Cc: Stefan Hajnoczi <stefanha@redhat.com>
-Cc: stable@vger.kernel.org #4.8+
-Signed-off-by: Peng Tao <bergwolf@gmail.com>
----
- drivers/vhost/vsock.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> https://git.lede-project.org/?p=openwrt/source.git;a=blob;f=target/linux/ar71xx/patches-4.4/910-unaligned_access_hacks.patch;h=b4b749e4b9c02a74a9f712a2740d63e554de5c64;hb=ee53a240ac902dc83209008a2671e7fdcf55957a
 
-diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-index e3b30ea..a504e2e0 100644
---- a/drivers/vhost/vsock.c
-+++ b/drivers/vhost/vsock.c
-@@ -506,7 +506,7 @@ static void vhost_vsock_reset_orphans(struct sock *sk)
- 	 * executing.
- 	 */
- 
--	if (!vhost_vsock_get(vsk->local_addr.svm_cid)) {
-+	if (!vhost_vsock_get(vsk->remote_addr.svm_cid)) {
- 		sock_set_flag(sk, SOCK_DONE);
- 		vsk->peer_shutdown = SHUTDOWN_MASK;
- 		sk->sk_state = SS_UNCONNECTED;
--- 
-2.7.4
+It's so much better to analyze properly where the misalignment comes from
+and address it at the source, as we have for various cases that trip up
+Sparc too.
+
+Marking structures "packed" is going to kill performance and is not
+the answer.
