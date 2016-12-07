@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 16/19] i40e: delete filter after adding its replacement when converting
-Date: Wed,  7 Dec 2016 14:19:15 -0800
-Message-ID: <20161207221918.57932-17-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/19] i40e: use unsigned printf format specifier for active_filters count
+Date: Wed,  7 Dec 2016 14:19:07 -0800
+Message-ID: <20161207221918.57932-9-jeffrey.t.kirsher@intel.com>
 References: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,52 +9,42 @@ Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:28873 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:42627 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933468AbcLGWUT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 17:20:19 -0500
+        id S933402AbcLGWUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 17:20:17 -0500
 In-Reply-To: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Fix a subtle issue with the code for converting VID=-1 filters into VID=0
-filters when adding a new VLAN. Previously the code deleted the VID=-1
-filter, and then added a new VID=0 filter. In the rare case that the
-addition fails due to -ENOMEM, we end up completely deleting the filter
-which prevents recovery if memory pressure subsides. While it is not
-strictly an issue because it is likely that memory issues would result
-in many other problems, we shouldn't delete the filter until after the
-addition succeeds.
+Replace the %d specifier used for printing vsi->active_filters and
+vsi->promisc_threshold with an unsigned %u format specifier. While it is
+unlikely in practice that these values will ever reach such a large
+number they are unsigned values and thus should not be interpreted as
+negative numbers.
 
-Change-ID: Icba07ddd04ecc6a3b27c2e29f2c1c8673d266826
+Change-ID: Iff050fad5a1c8537c4c57fcd527441cd95cfc0d4
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 8e65972..f9e9c90 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2535,7 +2535,6 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- 						 I40E_VLAN_ANY);
- 			if (!del_f)
- 				continue;
--			__i40e_del_filter(vsi, del_f);
- 			add_f = i40e_add_filter(vsi, f->macaddr, 0);
- 			if (!add_f) {
- 				dev_info(&vsi->back->pdev->dev,
-@@ -2544,6 +2543,7 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- 				spin_unlock_bh(&vsi->mac_filter_hash_lock);
- 				return -ENOMEM;
- 			}
-+			__i40e_del_filter(vsi, del_f);
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index b8a03a0..f1f41f1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -172,7 +172,7 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
+ 			 f->macaddr, f->vlan,
+ 			 i40e_filter_state_string[f->state]);
  	}
- 
+-	dev_info(&pf->pdev->dev, "    active_filters %d, promisc_threshold %d, overflow promisc %s\n",
++	dev_info(&pf->pdev->dev, "    active_filters %u, promisc_threshold %u, overflow promisc %s\n",
+ 		 vsi->active_filters, vsi->promisc_threshold,
+ 		 (test_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state) ?
+ 		  "ON" : "OFF"));
 -- 
 2.9.3
