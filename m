@@ -1,62 +1,72 @@
 From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [RESEND PATCH 2/3] net: stmmac: dwmac-generic: add missing compatible strings
-Date: Wed, 7 Dec 2016 13:41:07 +0100
-Message-ID: <1481114469-4788-2-git-send-email-niklass@axis.com>
-References: <1481114469-4788-1-git-send-email-niklass@axis.com>
+Subject: [RESEND PATCH 1/3] bindings: net: stmmac: correct note about TSO
+Date: Wed, 7 Dec 2016 13:41:06 +0100
+Message-ID: <1481114469-4788-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bes.se.axis.com ([195.60.68.10]:47165 "EHLO bes.se.axis.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752226AbcLGMmF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 07:42:05 -0500
-In-Reply-To: <1481114469-4788-1-git-send-email-niklass@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Alexandre TORGUE <alexandre.torgue@st.com>,
+        Phil Reid <preid@electromag.com.au>,
+        Eric Engestrom <eric@engestrom.ch>,
+        Niklas Cassel <niklass@axis.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Niklas Cassel <niklas.cassel@axis.com>
 
-devicetree binding for stmmac states:
-- compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
-	For backwards compatibility: "st,spear600-gmac" is also supported.
+snps,tso was previously placed under AXI BUS Mode parameters,
+suggesting that the property should be in the stmmac-axi-config node.
 
-Since dwmac-generic.c calls stmmac_probe_config_dt explicitly,
-another alternative would have been to remove all compatible strings
-other than "snps,dwmac" and "st,spear600-gmac" from dwmac-generic.c.
+TSO (TCP Segmentation Offloading) has nothing to do with AXI BUS Mode
+parameters, and the parser actually expects it to be in the root node,
+not in the stmmac-axi-config.
 
-However, that would probably do more good than harm, since when trying
-to figure out what hardware a certain driver supports, you usually look
-at the compatible strings in the struct of_device_id, and not in some
-function defined in a completely different file.
-
-No functional change intended.
+Also added a note about snps,tso only being available on GMAC4 and newer.
 
 Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+Acked-by: Alexandre TORGUE <alexandre.torgue@st.com>
+Acked-by: Rob Herring <robh@kernel.org>
 Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c | 3 +++
- 1 file changed, 3 insertions(+)
+ Documentation/devicetree/bindings/net/stmmac.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
-index e6e6c2fcc4b7..3304095c934c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
-@@ -71,9 +71,12 @@ static int dwmac_generic_probe(struct platform_device *pdev)
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+index 41b49e6075f5..b95ff998ba73 100644
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -1,7 +1,7 @@
+ * STMicroelectronics 10/100/1000 Ethernet driver (GMAC)
  
- static const struct of_device_id dwmac_generic_match[] = {
- 	{ .compatible = "st,spear600-gmac"},
-+	{ .compatible = "snps,dwmac-3.50a"},
- 	{ .compatible = "snps,dwmac-3.610"},
- 	{ .compatible = "snps,dwmac-3.70a"},
- 	{ .compatible = "snps,dwmac-3.710"},
-+	{ .compatible = "snps,dwmac-4.00"},
-+	{ .compatible = "snps,dwmac-4.10a"},
- 	{ .compatible = "snps,dwmac"},
- 	{ }
- };
+ Required properties:
+-- compatible: Should be "snps,dwmac-<ip_version>" "snps,dwmac"
++- compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
+ 	For backwards compatibility: "st,spear600-gmac" is also supported.
+ - reg: Address and length of the register set for the device
+ - interrupt-parent: Should be the phandle for the interrupt controller
+@@ -50,6 +50,8 @@ Optional properties:
+ - snps,ps-speed: port selection speed that can be passed to the core when
+ 		 PCS is supported. For example, this is used in case of SGMII
+ 		 and MAC2MAC connection.
++- snps,tso: this enables the TSO feature otherwise it will be managed by
++		 MAC HW capability register. Only for GMAC4 and newer.
+ - AXI BUS Mode parameters: below the list of all the parameters to program the
+ 			   AXI register inside the DMA module:
+ 	- snps,lpi_en: enable Low Power Interface
+@@ -62,8 +64,6 @@ Optional properties:
+ 	- snps,fb: fixed-burst
+ 	- snps,mb: mixed-burst
+ 	- snps,rb: rebuild INCRx Burst
+-	- snps,tso: this enables the TSO feature otherwise it will be managed by
+-	    MAC HW capability register.
+ - mdio: with compatible = "snps,dwmac-mdio", create and register mdio bus.
+ 
+ Examples:
 -- 
 2.1.4
