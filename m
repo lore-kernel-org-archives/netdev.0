@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 6/7] liquidio CN23XX: VF TX buffers
-Date: Wed, 7 Dec 2016 08:54:36 -0800
-Message-ID: <1481129677-10586-7-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 4/7] liquidio CN23XX: VF scatter gather lists
+Date: Wed, 7 Dec 2016 08:54:34 -0800
+Message-ID: <1481129677-10586-5-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1481129677-10586-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,228 +16,191 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-cys01nam02on0084.outbound.protection.outlook.com ([104.47.37.84]:43712
         "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932876AbcLGQzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 11:55:16 -0500
+        id S932532AbcLGQzH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 11:55:07 -0500
 In-Reply-To: <1481129677-10586-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for freeing VF xmit buffers.
+Adds support for VF scatter gather lists.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 182 +++++++++++++++++++++
- 1 file changed, 182 insertions(+)
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 134 +++++++++++++++++++++
+ 1 file changed, 134 insertions(+)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index bcc8888..e4297f8 100644
+index 6f23944..f861a9b 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -270,6 +270,19 @@ static void start_txq(struct net_device *netdev)
- }
+@@ -55,10 +55,28 @@ struct liquidio_if_cfg_resp {
+ 	u64 status;
+ };
  
- /**
-+ * \brief Wake a queue
-+ * @param netdev network device
-+ * @param q which queue to wake
-+ */
-+static void wake_q(struct net_device *netdev, int q)
-+{
-+	if (netif_is_multiqueue(netdev))
-+		netif_wake_subqueue(netdev, q);
-+	else
-+		netif_wake_queue(netdev);
-+}
++#define OCTNIC_MAX_SG  (MAX_SKB_FRAGS)
 +
-+/**
-  * \brief Stop a queue
-  * @param netdev network device
-  * @param q which queue to stop
-@@ -920,6 +933,163 @@ static int octeon_pci_os_setup(struct octeon_device *oct)
- 	return 0;
- }
+ #define OCTNIC_GSO_MAX_HEADER_SIZE 128
+ #define OCTNIC_GSO_MAX_SIZE \
+ 		(CN23XX_DEFAULT_INPUT_JABBER - OCTNIC_GSO_MAX_HEADER_SIZE)
  
-+static int skb_iq(struct lio *lio, struct sk_buff *skb)
-+{
-+	int q = 0;
++struct octnic_gather {
++	/* List manipulation. Next and prev pointers. */
++	struct list_head list;
 +
-+	if (netif_is_multiqueue(lio->netdev))
-+		q = skb->queue_mapping % lio->linfo.num_txpciq;
++	/* Size of the gather component at sg in bytes. */
++	int sg_size;
 +
-+	return q;
-+}
++	/* Number of bytes that sg was adjusted to make it 8B-aligned. */
++	int adjust;
 +
-+/**
-+ * \brief Check Tx queue state for a given network buffer
-+ * @param lio per-network private data
-+ * @param skb network buffer
-+ */
-+static int check_txq_state(struct lio *lio, struct sk_buff *skb)
-+{
-+	int q = 0, iq = 0;
-+
-+	if (netif_is_multiqueue(lio->netdev)) {
-+		q = skb->queue_mapping;
-+		iq = lio->linfo.txpciq[(q % (lio->linfo.num_txpciq))].s.q_no;
-+	} else {
-+		iq = lio->txq;
-+		q = iq;
-+	}
-+
-+	if (octnet_iq_is_full(lio->oct_dev, iq))
-+		return 0;
-+
-+	if (__netif_subqueue_stopped(lio->netdev, q)) {
-+		INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, iq, tx_restart, 1);
-+		wake_q(lio->netdev, q);
-+	}
-+
-+	return 1;
-+}
-+
-+/**
-+ * \brief Unmap and free network buffer
-+ * @param buf buffer
-+ */
-+static void free_netbuf(void *buf)
-+{
-+	struct octnet_buf_free_info *finfo;
-+	struct sk_buff *skb;
-+	struct lio *lio;
-+
-+	finfo = (struct octnet_buf_free_info *)buf;
-+	skb = finfo->skb;
-+	lio = finfo->lio;
-+
-+	dma_unmap_single(&lio->oct_dev->pci_dev->dev, finfo->dptr, skb->len,
-+			 DMA_TO_DEVICE);
-+
-+	check_txq_state(lio, skb);
-+
-+	tx_buffer_free(skb);
-+}
-+
-+/**
-+ * \brief Unmap and free gather buffer
-+ * @param buf buffer
-+ */
-+static void free_netsgbuf(void *buf)
-+{
-+	struct octnet_buf_free_info *finfo;
-+	struct octnic_gather *g;
-+	struct sk_buff *skb;
-+	int i, frags, iq;
-+	struct lio *lio;
-+
-+	finfo = (struct octnet_buf_free_info *)buf;
-+	skb = finfo->skb;
-+	lio = finfo->lio;
-+	g = finfo->g;
-+	frags = skb_shinfo(skb)->nr_frags;
-+
-+	dma_unmap_single(&lio->oct_dev->pci_dev->dev,
-+			 g->sg[0].ptr[0], (skb->len - skb->data_len),
-+			 DMA_TO_DEVICE);
-+
-+	i = 1;
-+	while (frags--) {
-+		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i - 1];
-+
-+		pci_unmap_page((lio->oct_dev)->pci_dev,
-+			       g->sg[(i >> 2)].ptr[(i & 3)],
-+			       frag->size, DMA_TO_DEVICE);
-+		i++;
-+	}
-+
-+	dma_unmap_single(&lio->oct_dev->pci_dev->dev,
-+			 finfo->dptr, g->sg_size,
-+			 DMA_TO_DEVICE);
-+
-+	iq = skb_iq(lio, skb);
-+
-+	spin_lock(&lio->glist_lock[iq]);
-+	list_add_tail(&g->list, &lio->glist[iq]);
-+	spin_unlock(&lio->glist_lock[iq]);
-+
-+	check_txq_state(lio, skb); /* mq support: sub-queue state check */
-+
-+	tx_buffer_free(skb);
-+}
-+
-+/**
-+ * \brief Unmap and free gather buffer with response
-+ * @param buf buffer
-+ */
-+static void free_netsgbuf_with_resp(void *buf)
-+{
-+	struct octnet_buf_free_info *finfo;
-+	struct octeon_soft_command *sc;
-+	struct octnic_gather *g;
-+	struct sk_buff *skb;
-+	int i, frags, iq;
-+	struct lio *lio;
-+
-+	sc = (struct octeon_soft_command *)buf;
-+	skb = (struct sk_buff *)sc->callback_arg;
-+	finfo = (struct octnet_buf_free_info *)&skb->cb;
-+
-+	lio = finfo->lio;
-+	g = finfo->g;
-+	frags = skb_shinfo(skb)->nr_frags;
-+
-+	dma_unmap_single(&lio->oct_dev->pci_dev->dev,
-+			 g->sg[0].ptr[0], (skb->len - skb->data_len),
-+			 DMA_TO_DEVICE);
-+
-+	i = 1;
-+	while (frags--) {
-+		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i - 1];
-+
-+		pci_unmap_page((lio->oct_dev)->pci_dev,
-+			       g->sg[(i >> 2)].ptr[(i & 3)],
-+			       frag->size, DMA_TO_DEVICE);
-+		i++;
-+	}
-+
-+	dma_unmap_single(&lio->oct_dev->pci_dev->dev,
-+			 finfo->dptr, g->sg_size,
-+			 DMA_TO_DEVICE);
-+
-+	iq = skb_iq(lio, skb);
-+
-+	spin_lock(&lio->glist_lock[iq]);
-+	list_add_tail(&g->list, &lio->glist[iq]);
-+	spin_unlock(&lio->glist_lock[iq]);
-+
-+	/* Don't free the skb yet */
-+
-+	check_txq_state(lio, skb);
-+}
-+
- /**
-  * \brief Callback for getting interface configuration
-  * @param status status of request
-@@ -1675,6 +1845,18 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC, OPCODE_NIC_INFO,
- 				    lio_nic_info, octeon_dev);
- 
-+	/* REQTYPE_RESP_NET and REQTYPE_SOFT_COMMAND do not have free functions.
-+	 * They are handled directly.
++	/* Gather component that can accommodate max sized fragment list
++	 * received from the IP layer.
 +	 */
-+	octeon_register_reqtype_free_fn(octeon_dev, REQTYPE_NORESP_NET,
-+					free_netbuf);
++	struct octeon_sg_entry *sg;
++};
 +
-+	octeon_register_reqtype_free_fn(octeon_dev, REQTYPE_NORESP_NET_SG,
-+					free_netsgbuf);
+ struct octeon_device_priv {
+ 	/* Tasklet structures for this device. */
+ 	struct tasklet_struct droq_tasklet;
+@@ -237,6 +255,114 @@ static void start_txq(struct net_device *netdev)
+ }
+ 
+ /**
++ * Remove the node at the head of the list. The list would be empty at
++ * the end of this call if there are no more nodes in the list.
++ */
++static struct list_head *list_delete_head(struct list_head *root)
++{
++	struct list_head *node;
 +
-+	octeon_register_reqtype_free_fn(octeon_dev, REQTYPE_RESP_NET_SG,
-+					free_netsgbuf_with_resp);
++	if ((root->prev == root) && (root->next == root))
++		node = NULL;
++	else
++		node = root->next;
 +
- 	for (i = 0; i < octeon_dev->ifcount; i++) {
- 		resp_size = sizeof(struct liquidio_if_cfg_resp);
- 		ctx_size = sizeof(struct liquidio_if_cfg_context);
++	if (node)
++		list_del(node);
++
++	return node;
++}
++
++/**
++ * \brief Delete gather lists
++ * @param lio per-network private data
++ */
++static void delete_glists(struct lio *lio)
++{
++	struct octnic_gather *g;
++	int i;
++
++	if (!lio->glist)
++		return;
++
++	for (i = 0; i < lio->linfo.num_txpciq; i++) {
++		do {
++			g = (struct octnic_gather *)
++			    list_delete_head(&lio->glist[i]);
++			if (g) {
++				if (g->sg)
++					kfree((void *)((unsigned long)g->sg -
++							g->adjust));
++				kfree(g);
++			}
++		} while (g);
++	}
++
++	kfree(lio->glist);
++	kfree(lio->glist_lock);
++}
++
++/**
++ * \brief Setup gather lists
++ * @param lio per-network private data
++ */
++static int setup_glists(struct lio *lio, int num_iqs)
++{
++	struct octnic_gather *g;
++	int i, j;
++
++	lio->glist_lock =
++	    kzalloc(sizeof(*lio->glist_lock) * num_iqs, GFP_KERNEL);
++	if (!lio->glist_lock)
++		return 1;
++
++	lio->glist =
++	    kzalloc(sizeof(*lio->glist) * num_iqs, GFP_KERNEL);
++	if (!lio->glist) {
++		kfree(lio->glist_lock);
++		return 1;
++	}
++
++	for (i = 0; i < num_iqs; i++) {
++		spin_lock_init(&lio->glist_lock[i]);
++
++		INIT_LIST_HEAD(&lio->glist[i]);
++
++		for (j = 0; j < lio->tx_qsize; j++) {
++			g = kzalloc(sizeof(*g), GFP_KERNEL);
++			if (!g)
++				break;
++
++			g->sg_size = ((ROUNDUP4(OCTNIC_MAX_SG) >> 2) *
++				      OCT_SG_ENTRY_SIZE);
++
++			g->sg = kmalloc(g->sg_size + 8, GFP_KERNEL);
++			if (!g->sg) {
++				kfree(g);
++				break;
++			}
++
++			/* The gather component should be aligned on 64-bit
++			 * boundary
++			 */
++			if (((unsigned long)g->sg) & 7) {
++				g->adjust = 8 - (((unsigned long)g->sg) & 7);
++				g->sg = (struct octeon_sg_entry *)
++					((unsigned long)g->sg + g->adjust);
++			}
++			list_add_tail(&g->list, &lio->glist[i]);
++		}
++
++		if (j != lio->tx_qsize) {
++			delete_glists(lio);
++			return 1;
++		}
++	}
++
++	return 0;
++}
++
++/**
+  * \brief Print link information
+  * @param netdev network device
+  */
+@@ -681,6 +807,8 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
+ 
+ 	cleanup_link_status_change_wq(netdev);
+ 
++	delete_glists(lio);
++
+ 	free_netdev(netdev);
+ 
+ 	oct->props[ifidx].gmxport = -1;
+@@ -1379,6 +1507,12 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 		/* Copy MAC Address to OS network device structure */
+ 		ether_addr_copy(netdev->dev_addr, mac);
+ 
++		if (setup_glists(lio, num_iqueues)) {
++			dev_err(&octeon_dev->pci_dev->dev,
++				"Gather list allocation failed\n");
++			goto setup_nic_dev_fail;
++		}
++
+ 		if (netdev->features & NETIF_F_LRO)
+ 			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
+ 					     OCTNIC_LROIPV4 | OCTNIC_LROIPV6);
 -- 
 1.8.3.1
