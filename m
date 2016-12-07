@@ -1,54 +1,44 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH 2/2] net: ethernet: stmmac: remove private tx queue lock
-Date: Wed, 7 Dec 2016 23:34:19 +0100
-Message-ID: <afcae723-5804-305f-2756-c4dbf9045943@gmx.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Thu, 8 Dec 2016 00:15:34 +0100
+Message-ID: <20161207231534.GB5889@electric-eye.fr.zoreil.com>
 References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
- <1481141138-19466-3-git-send-email-LinoSanfilippo@gmx.de>
- <20161207213757.GC2250@amd> <cc10a750-b8ef-a600-4cd5-5b51904c5253@gmx.de>
+ <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com, pavel@ucw.cz,
         davem@davemloft.net, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cc10a750-b8ef-a600-4cd5-5b51904c5253@gmx.de>
+Content-Disposition: inline
+In-Reply-To: <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07.12.2016 22:43, Lino Sanfilippo wrote:
-> Hi Pavel,
+Lino Sanfilippo <LinoSanfilippo@gmx.de> :
+> The driver uses a private lock for synchronization between the xmit
+> function and the xmit completion handler, but since the NETIF_F_LLTX flag
+> is not set, the xmit function is also called with the xmit_lock held.
 > 
-> On 07.12.2016 22:37, Pavel Machek wrote:
->> On Wed 2016-12-07 21:05:38, Lino Sanfilippo wrote:
->>> The driver uses a private lock for synchronization between the xmit
->>> function and the xmit completion handler, but since the NETIF_F_LLTX flag
->>> is not set, the xmit function is also called with the xmit_lock held.
->>> 
->>> On the other hand the xmit completion handler first takes the private lock
->>> and (in case that the tx queue has been stopped) the xmit_lock, leading to
->>> a reverse locking order and the potential danger of a deadlock.
->>> 
->>> Fix this by removing the private lock completely and synchronizing the xmit
->>> function and completion handler solely by means of the xmit_lock. By doing
->>> this remove also the now unnecessary double check for a stopped tx queue.
->>> 
->> 
->> FYI, here's modified version. I believe _bh versions are needed, and
->> I'm testing that version now. (Oh and I also ported it to net-next).
->> 
->> It survived 30 minutes of testing so far...
->> 
-> 
-> First off, thanks for testing.
-> Hmm. I dont understand why _bh would be needed. We call that function from
-> BH context only (napi poll and timer).
-> Any idea?
-> 
+> On the other hand the xmit completion handler first takes the private lock
+> and (in case that the tx queue has been stopped) the xmit_lock, leading
+> to a reverse locking order and the potential danger of a deadlock.
 
-Could this once again be caused by irq coalescing? When the tx queue has been stopped
-the cleanup handler has to wakeup the queue within a certain time span, otherwise the
-watchdog will complain (as it happened in your test). Could you retest this with
-irq coalescing disabled?
+netif_tx_stop_queue is used by:
+1. xmit function before releasing lock and returning.
+2. sxgbe_restart_tx_queue()
+   <- sxgbe_tx_interrupt
+   <- sxgbe_reset_all_tx_queues()
+      <- sxgbe_tx_timeout()
+
+Given xmit won't be called again until tx queue is enabled, it's not clear
+how a deadlock could happen due to #1.
+
+Regardless of deadlocks anywhere else, #2 has some serious problem due to
+the lack of exclusion between the tx queue restart handler and the xmit
+handler.
+
+-- 
+Ueimor
