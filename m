@@ -1,41 +1,146 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch net-next] net: mvneta: Indent some statements
-Date: Wed, 7 Dec 2016 14:32:17 +0300
-Message-ID: <20161207113217.GE5507@elgon.mountain>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH v3 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
+ prog
+Date: Wed, 7 Dec 2016 11:41:12 +0000
+Message-ID: <20161207114112.6ad86da3@jkicinski-Precision-T1700>
+References: <1481088714-54512-1-git-send-email-kafai@fb.com>
+        <1481088714-54512-2-git-send-email-kafai@fb.com>
+        <5847D723.3020908@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Marcin Wojtas <mw@semihalf.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org,
+        Alexei Starovoitov <ast@fb.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        David Miller <davem@davemloft.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:44155 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751758AbcLGLkp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 06:40:45 -0500
-Content-Disposition: inline
+Received: from mx4.wp.pl ([212.77.101.11]:47915 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752444AbcLGLlS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 06:41:18 -0500
+In-Reply-To: <5847D723.3020908@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These two statements were not indented correctly so it's sort of
-confusing.
+On Wed, 07 Dec 2016 10:32:19 +0100, Daniel Borkmann wrote:
+> Hi Martin,
+> 
+> On 12/07/2016 06:31 AM, Martin KaFai Lau wrote:
+> [...]
+> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > index 49a81f1fc1d6..6261157f444e 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > @@ -2794,6 +2794,9 @@ static int mlx4_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+> >   	case XDP_QUERY_PROG:
+> >   		xdp->prog_attached = mlx4_xdp_attached(dev);
+> >   		return 0;
+> > +	case XDP_QUERY_FEATURES:
+> > +		xdp->features = 0;
+> > +		return 0;
+> >   	default:
+> >   		return -EINVAL;
+> >   	}  
+> [...]
+> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> > index 1ff5ea6e1221..786ad7c67215 100644
+> > --- a/include/linux/netdevice.h
+> > +++ b/include/linux/netdevice.h
+> > @@ -30,6 +30,7 @@
+> >   #include <linux/delay.h>
+> >   #include <linux/atomic.h>
+> >   #include <linux/prefetch.h>
+> > +#include <linux/bitops.h>
+> >   #include <asm/cache.h>
+> >   #include <asm/byteorder.h>
+> >
+> > @@ -805,6 +806,13 @@ struct tc_to_netdev {
+> >   	bool egress_dev;
+> >   };
+> >
+> > +/* Driver must allow a XDP prog to extend header by
+> > + * up to XDP_PACKET_HEADROOM.  It must also fill out
+> > + * the data_hard_start value in struct xdp_buff
+> > + * before calling out the xdp_prog.
+> > + */
+> > +#define XDP_F_ADJUST_HEAD	BIT(0)
+> > +
+> >   /* These structures hold the attributes of xdp state that are being passed
+> >    * to the netdevice through the xdp op.
+> >    */
+> > @@ -821,6 +829,8 @@ enum xdp_netdev_command {
+> >   	 * return true if a program is currently attached and running.
+> >   	 */
+> >   	XDP_QUERY_PROG,
+> > +	/* Check what XDP features are supported by a device */
+> > +	XDP_QUERY_FEATURES,
+> >   };
+> >
+> >   struct netdev_xdp {
+> > @@ -830,6 +840,8 @@ struct netdev_xdp {
+> >   		struct bpf_prog *prog;
+> >   		/* XDP_QUERY_PROG */
+> >   		bool prog_attached;
+> > +		/* XDP_QUERY_FEATURES */
+> > +		u32 features;
+> >   	};
+> >   };
+> >  
+> [...]
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index bffb5253e778..90696f7e6b59 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -6722,6 +6722,15 @@ int dev_change_xdp_fd(struct net_device *dev, int fd, u32 flags)
+> >   		prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
+> >   		if (IS_ERR(prog))
+> >   			return PTR_ERR(prog);
+> > +
+> > +		xdp.command = XDP_QUERY_FEATURES;
+> > +		err = ops->ndo_xdp(dev, &xdp);
+> > +		if (err)
+> > +			return err;
+> > +
+> > +		if (prog->xdp_adjust_head &&
+> > +		    !(xdp.features & XDP_F_ADJUST_HEAD))
+> > +			return -ENOTSUPP;
+> >   	}
+> >
+> >   	memset(&xdp, 0, sizeof(xdp));  
+> 
+> I think this interface wrt feature flags is rather odd. Why can't this be
+> done the usual/expected way we already have today for drivers with NETIF_F_*
+> flags?
+>
+> We have include/linux/netdev_features.h, there, we add all NETIF_F_XDP_*
+> feature flags that the device would then select during init, perhaps some of
+> them in future might depend on a certain setups, etc, calculating them in a
+> separate ndo_xdp() seems odd also in the sense that in-kernel users always
+> need to call ops->ndo_xdp() with XDP_QUERY_FEATURES instead of just simply
+> doing the test on dev->features & NETIF_F_XDP_* directly. This is global to
+> the device anyway and doesn't need to be stored somewhere in private data
+> area.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+If I may offer one potential disadvantage of just using netdev
+features :)
+- if we ever want to report something more than flags (say the length
+of headroom) we will need another interface.  People who care about
+memory savings may also get upset if we extend struct netdevice given
+there is no way to compile XDP out, that would be an argument for
+keeping the ndo invocation.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 5e5b259dd2cc..e05e22705cf7 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3578,9 +3578,10 @@ static int mvneta_stop(struct net_device *dev)
- 		mvneta_stop_dev(pp);
- 		mvneta_mdio_remove(pp);
- 
--	cpuhp_state_remove_instance_nocalls(online_hpstate, &pp->node_online);
--	cpuhp_state_remove_instance_nocalls(CPUHP_NET_MVNETA_DEAD,
--					    &pp->node_dead);
-+		cpuhp_state_remove_instance_nocalls(online_hpstate,
-+						    &pp->node_online);
-+		cpuhp_state_remove_instance_nocalls(CPUHP_NET_MVNETA_DEAD,
-+						    &pp->node_dead);
- 		on_each_cpu(mvneta_percpu_disable, pp, true);
- 		free_percpu_irq(dev->irq, pp->ports);
- 	} else {
+> I see nothing wrong if this is exposed/made visible in the usual way through
+> ethtool -k as well. I guess at least that would be the expected way to query
+> for such driver capabilities.
+
++1 on exposing this to user space.  Whether via ethtool -k or a
+separate XDP-specific netlink message is mostly a question of whether
+we expect the need to expose more complex capabilities than bits.
+
+Thanks!
