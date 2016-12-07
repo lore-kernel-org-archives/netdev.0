@@ -1,48 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next][PATCH v2 10/18] RDS: IB: track and log active side
- endpoint in connection
-Date: Wed, 07 Dec 2016 10:53:18 -0500 (EST)
-Message-ID: <20161207.105318.2143064665652853543.davem@davemloft.net>
+Subject: Re: [net-next][PATCH v2 18/18] RDS: IB: add missing connection
+ cache usage info
+Date: Wed, 07 Dec 2016 10:55:31 -0500 (EST)
+Message-ID: <20161207.105531.1347292514118544125.davem@davemloft.net>
 References: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
-        <1481083316-11648-11-git-send-email-santosh.shilimkar@oracle.com>
+        <1481083316-11648-19-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: santosh.shilimkar@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481083316-11648-11-git-send-email-santosh.shilimkar@oracle.com>
+In-Reply-To: <1481083316-11648-19-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Tue,  6 Dec 2016 20:01:48 -0800
+Date: Tue,  6 Dec 2016 20:01:56 -0800
 
-> @@ -181,6 +181,9 @@ struct rds_ib_connection {
->  
->  	/* Batched completions */
->  	unsigned int		i_unsignaled_wrs;
-> +
-> +	/* Endpoint role in connection */
-> +	int			i_active_side;
+> rds-tools already support it.
+> 
+> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> ---
+>  include/uapi/linux/rds.h | 1 +
+>  net/rds/ib.c             | 1 +
+>  2 files changed, 2 insertions(+)
+> 
+> diff --git a/include/uapi/linux/rds.h b/include/uapi/linux/rds.h
+> index 3833113..410ae3c 100644
+> --- a/include/uapi/linux/rds.h
+> +++ b/include/uapi/linux/rds.h
+> @@ -183,6 +183,7 @@ struct rds_info_rdma_connection {
+>  	uint32_t	max_send_sge;
+>  	uint32_t	rdma_mr_max;
+>  	uint32_t	rdma_mr_size;
+> +	uint32_t	cache_allocs;
 >  };
 >  
- ...
-> @@ -685,6 +686,7 @@ int rds_ib_cm_initiate_connect(struct rdma_cm_id *cm_id)
->  		if (ic->i_cm_id == cm_id)
->  			ret = 0;
->  	}
-> +	ic->i_active_side = true;
->  	return ret;
->  }
->  
-> @@ -859,6 +861,7 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
->  	ic->i_sends = NULL;
->  	vfree(ic->i_recvs);
->  	ic->i_recvs = NULL;
-> +	ic->i_active_side = false;
->  }
->  
->  int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
+>  /* RDS message Receive Path Latency points */
 
-Use type "bool", not "int", for true/false values.
+What level of compatability exists here?  If we run an old tool on a new
+kernel, or a new tool on an old kernel, does it work properly?
