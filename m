@@ -1,133 +1,122 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v2 13/18] RDS: RDMA: Fix the composite message user notification
-Date: Tue,  6 Dec 2016 20:01:51 -0800
-Message-ID: <1481083316-11648-14-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v2 08/18] RDS: IB: split the mr registration and invalidation path
+Date: Tue,  6 Dec 2016 20:01:46 -0800
+Message-ID: <1481083316-11648-9-git-send-email-santosh.shilimkar@oracle.com>
 References: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:19025 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753675AbcLGECv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 23:02:51 -0500
 In-Reply-To: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When application sends an RDS RDMA composite message consist of
-RDMA transfer to be followed up by non RDMA payload, it expect to
-be notified *only* when the full message gets delivered. RDS RDMA
-notification doesn't behave this way though.
+MR invalidation in RDS is done in background thread and not in
+data path like registration. So break the dependency between them
+which helps to remove the performance bottleneck.
 
-Thanks to Venkat for debug and root casuing the issue
-where only first part of the message(RDMA) was
-successfully delivered but remainder payload delivery failed.
-In that case, application should not be notified with
-a false positive of message delivery success.
-
-Fix this case by making sure the user gets notified only after
-the full message delivery.
-
-Reviewed-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_send.c | 25 +++++++++++++++----------
- net/rds/rdma.c    | 10 ++++++++++
- net/rds/rds.h     |  1 +
- net/rds/send.c    |  4 +++-
- 4 files changed, 29 insertions(+), 11 deletions(-)
+ net/rds/ib.h      |  4 +++-
+ net/rds/ib_cm.c   |  9 +++++++--
+ net/rds/ib_frmr.c | 11 ++++++-----
+ 3 files changed, 16 insertions(+), 8 deletions(-)
 
-diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-index 19eca5c..5e72de1 100644
---- a/net/rds/ib_send.c
-+++ b/net/rds/ib_send.c
-@@ -69,16 +69,6 @@ static void rds_ib_send_complete(struct rds_message *rm,
- 	complete(rm, notify_status);
- }
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index f4e8121..f14c26d 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -14,7 +14,8 @@
  
--static void rds_ib_send_unmap_data(struct rds_ib_connection *ic,
--				   struct rm_data_op *op,
--				   int wc_status)
--{
--	if (op->op_nents)
--		ib_dma_unmap_sg(ic->i_cm_id->device,
--				op->op_sg, op->op_nents,
--				DMA_TO_DEVICE);
--}
--
- static void rds_ib_send_unmap_rdma(struct rds_ib_connection *ic,
- 				   struct rm_rdma_op *op,
- 				   int wc_status)
-@@ -139,6 +129,21 @@ static void rds_ib_send_unmap_atomic(struct rds_ib_connection *ic,
- 		rds_ib_stats_inc(s_ib_atomic_fadd);
- }
+ #define RDS_IB_DEFAULT_RECV_WR		1024
+ #define RDS_IB_DEFAULT_SEND_WR		256
+-#define RDS_IB_DEFAULT_FR_WR		512
++#define RDS_IB_DEFAULT_FR_WR		256
++#define RDS_IB_DEFAULT_FR_INV_WR	256
  
-+static void rds_ib_send_unmap_data(struct rds_ib_connection *ic,
-+				   struct rm_data_op *op,
-+				   int wc_status)
-+{
-+	struct rds_message *rm = container_of(op, struct rds_message, data);
-+
-+	if (op->op_nents)
-+		ib_dma_unmap_sg(ic->i_cm_id->device,
-+				op->op_sg, op->op_nents,
-+				DMA_TO_DEVICE);
-+
-+	if (rm->rdma.op_active && rm->data.op_notify)
-+		rds_ib_send_unmap_rdma(ic, &rm->rdma, wc_status);
-+}
-+
- /*
-  * Unmap the resources associated with a struct send_work.
-  *
-diff --git a/net/rds/rdma.c b/net/rds/rdma.c
-index 8151c49..dd508e0 100644
---- a/net/rds/rdma.c
-+++ b/net/rds/rdma.c
-@@ -627,6 +627,16 @@ int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
- 		}
- 		op->op_notifier->n_user_token = args->user_token;
- 		op->op_notifier->n_status = RDS_RDMA_SUCCESS;
-+
-+		/* Enable rmda notification on data operation for composite
-+		 * rds messages and make sure notification is enabled only
-+		 * for the data operation which follows it so that application
-+		 * gets notified only after full message gets delivered.
-+		 */
-+		if (rm->data.op_sg) {
-+			rm->rdma.op_notify = 0;
-+			rm->data.op_notify = !!(args->flags & RDS_RDMA_NOTIFY_ME);
-+		}
+ #define RDS_IB_DEFAULT_RETRY_COUNT	1
+ 
+@@ -125,6 +126,7 @@ struct rds_ib_connection {
+ 
+ 	/* To control the number of wrs from fastreg */
+ 	atomic_t		i_fastreg_wrs;
++	atomic_t		i_fastunreg_wrs;
+ 
+ 	/* interrupt handling */
+ 	struct tasklet_struct	i_send_tasklet;
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index b9da1e5..3002acf 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -382,7 +382,10 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	 * completion queue and send queue. This extra space is used for FRMR
+ 	 * registration and invalidation work requests
+ 	 */
+-	fr_queue_space = (rds_ibdev->use_fastreg ? RDS_IB_DEFAULT_FR_WR : 0);
++	fr_queue_space = rds_ibdev->use_fastreg ?
++			 (RDS_IB_DEFAULT_FR_WR + 1) +
++			 (RDS_IB_DEFAULT_FR_INV_WR + 1)
++			 : 0;
+ 
+ 	/* add the conn now so that connection establishment has the dev */
+ 	rds_ib_add_conn(rds_ibdev, conn);
+@@ -444,6 +447,7 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	attr.send_cq = ic->i_send_cq;
+ 	attr.recv_cq = ic->i_recv_cq;
+ 	atomic_set(&ic->i_fastreg_wrs, RDS_IB_DEFAULT_FR_WR);
++	atomic_set(&ic->i_fastunreg_wrs, RDS_IB_DEFAULT_FR_INV_WR);
+ 
+ 	/*
+ 	 * XXX this can fail if max_*_wr is too large?  Are we supposed
+@@ -766,7 +770,8 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
+ 		wait_event(rds_ib_ring_empty_wait,
+ 			   rds_ib_ring_empty(&ic->i_recv_ring) &&
+ 			   (atomic_read(&ic->i_signaled_sends) == 0) &&
+-			   (atomic_read(&ic->i_fastreg_wrs) == RDS_IB_DEFAULT_FR_WR));
++			   (atomic_read(&ic->i_fastreg_wrs) == RDS_IB_DEFAULT_FR_WR) &&
++			   (atomic_read(&ic->i_fastunreg_wrs) == RDS_IB_DEFAULT_FR_INV_WR));
+ 		tasklet_kill(&ic->i_send_tasklet);
+ 		tasklet_kill(&ic->i_recv_tasklet);
+ 
+diff --git a/net/rds/ib_frmr.c b/net/rds/ib_frmr.c
+index 66b3d62..48332a6 100644
+--- a/net/rds/ib_frmr.c
++++ b/net/rds/ib_frmr.c
+@@ -241,8 +241,8 @@ static int rds_ib_post_inv(struct rds_ib_mr *ibmr)
+ 	if (frmr->fr_state != FRMR_IS_INUSE)
+ 		goto out;
+ 
+-	while (atomic_dec_return(&ibmr->ic->i_fastreg_wrs) <= 0) {
+-		atomic_inc(&ibmr->ic->i_fastreg_wrs);
++	while (atomic_dec_return(&ibmr->ic->i_fastunreg_wrs) <= 0) {
++		atomic_inc(&ibmr->ic->i_fastunreg_wrs);
+ 		cpu_relax();
  	}
  
- 	/* The cookie contains the R_Key of the remote memory region, and
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index ebbf909..0bb8213 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -419,6 +419,7 @@ struct rds_message {
- 		} rdma;
- 		struct rm_data_op {
- 			unsigned int		op_active:1;
-+			unsigned int		op_notify:1;
- 			unsigned int		op_nents;
- 			unsigned int		op_count;
- 			unsigned int		op_dmasg;
-diff --git a/net/rds/send.c b/net/rds/send.c
-index 0a6f38b..45e025b 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -476,12 +476,14 @@ void rds_rdma_send_complete(struct rds_message *rm, int status)
- 	struct rm_rdma_op *ro;
- 	struct rds_notifier *notifier;
- 	unsigned long flags;
-+	unsigned int notify = 0;
+@@ -261,7 +261,7 @@ static int rds_ib_post_inv(struct rds_ib_mr *ibmr)
+ 	if (unlikely(ret)) {
+ 		frmr->fr_state = FRMR_IS_STALE;
+ 		frmr->fr_inv = false;
+-		atomic_inc(&ibmr->ic->i_fastreg_wrs);
++		atomic_inc(&ibmr->ic->i_fastunreg_wrs);
+ 		pr_err("RDS/IB: %s returned error(%d)\n", __func__, ret);
+ 		goto out;
+ 	}
+@@ -289,9 +289,10 @@ void rds_ib_mr_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc)
+ 	if (frmr->fr_inv) {
+ 		frmr->fr_state = FRMR_IS_FREE;
+ 		frmr->fr_inv = false;
++		atomic_inc(&ic->i_fastreg_wrs);
++	} else {
++		atomic_inc(&ic->i_fastunreg_wrs);
+ 	}
+-
+-	atomic_inc(&ic->i_fastreg_wrs);
+ }
  
- 	spin_lock_irqsave(&rm->m_rs_lock, flags);
- 
-+	notify =  rm->rdma.op_notify | rm->data.op_notify;
- 	ro = &rm->rdma;
- 	if (test_bit(RDS_MSG_ON_SOCK, &rm->m_flags) &&
--	    ro->op_active && ro->op_notify && ro->op_notifier) {
-+	    ro->op_active && notify && ro->op_notifier) {
- 		notifier = ro->op_notifier;
- 		rs = rm->m_rs;
- 		sock_hold(rds_rs_to_sk(rs));
+ void rds_ib_unreg_frmr(struct list_head *list, unsigned int *nfreed,
 -- 
 1.9.1
