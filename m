@@ -1,337 +1,181 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 2/7] bnxt_en: Enable MSIX early in bnxt_init_one().
-Date: Wed,  7 Dec 2016 00:26:16 -0500
-Message-ID: <1481088381-30411-3-git-send-email-michael.chan@broadcom.com>
-References: <1481088381-30411-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, selvin.xavier@broadcom.com,
-        somnath.kotur@broadcom.com, dledford@redhat.com,
-        linux-rdma@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:36293 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752342AbcLGF0z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 00:26:55 -0500
-Received: by mail-pg0-f54.google.com with SMTP id f188so157222829pgc.3
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 21:26:55 -0800 (PST)
-In-Reply-To: <1481088381-30411-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 10/10] virtio: enable endian checks for sparse builds
+Date: Wed, 7 Dec 2016 13:27:35 +0800
+Message-ID: <9694c60d-c0cb-945c-f10e-9c1a8036ae6f@redhat.com>
+References: <1481038106-24899-1-git-send-email-mst@redhat.com>
+	<1481038106-24899-11-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, Neil Armstrong <narmstrong@baylibre.com>,
+	David Airlie <airlied@linux.ie>, linux-remoteproc@vger.kernel.org,
+	dri-devel@lists.freedesktop.org, virtualization@lists.linux-foundation.org,
+	linux-s390@vger.kernel.org,
+	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-scsi@vger.kernel.org, v9fs-developer@lists.sourceforge.net,
+	Asias He <asias@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	linux-kbuild@vger.kernel.org, Jens Axboe <axboe@fb.com>,
+	Michal Marek <mmarek@suse.com>, Stefan Hajnoczi <stefanha@redhat.com>,
+	Matt Mackall <mpm@selenic.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1481038106-24899-11-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-To better support the new RDMA driver, we need to move pci_enable_msix()
-from bnxt_open() to bnxt_init_one().  This way, MSIX vectors are available
-to the RDMA driver whether the network device is up or down.
-
-Part of the existing bnxt_setup_int_mode() function is now refactored into
-a new bnxt_init_int_mode().  bnxt_init_int_mode() is called during
-bnxt_init_one() to enable MSIX.  The remaining logic in
-bnxt_setup_int_mode() to map the IRQs to the completion rings is called
-during bnxt_open().
-
-v2: Fixed compile warning when CONFIG_BNXT_SRIOV is not set.
-
-Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 183 +++++++++++++++++++-----------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |   1 +
- 2 files changed, 115 insertions(+), 69 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 269e757..da302eb 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4743,6 +4743,80 @@ static int bnxt_trim_rings(struct bnxt *bp, int *rx, int *tx, int max,
- 	return 0;
- }
- 
-+static void bnxt_setup_msix(struct bnxt *bp)
-+{
-+	const int len = sizeof(bp->irq_tbl[0].name);
-+	struct net_device *dev = bp->dev;
-+	int tcs, i;
-+
-+	tcs = netdev_get_num_tc(dev);
-+	if (tcs > 1) {
-+		bp->tx_nr_rings_per_tc = bp->tx_nr_rings / tcs;
-+		if (bp->tx_nr_rings_per_tc == 0) {
-+			netdev_reset_tc(dev);
-+			bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
-+		} else {
-+			int i, off, count;
-+
-+			bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
-+			for (i = 0; i < tcs; i++) {
-+				count = bp->tx_nr_rings_per_tc;
-+				off = i * count;
-+				netdev_set_tc_queue(dev, i, count, off);
-+			}
-+		}
-+	}
-+
-+	for (i = 0; i < bp->cp_nr_rings; i++) {
-+		char *attr;
-+
-+		if (bp->flags & BNXT_FLAG_SHARED_RINGS)
-+			attr = "TxRx";
-+		else if (i < bp->rx_nr_rings)
-+			attr = "rx";
-+		else
-+			attr = "tx";
-+
-+		snprintf(bp->irq_tbl[i].name, len, "%s-%s-%d", dev->name, attr,
-+			 i);
-+		bp->irq_tbl[i].handler = bnxt_msix;
-+	}
-+}
-+
-+static void bnxt_setup_inta(struct bnxt *bp)
-+{
-+	const int len = sizeof(bp->irq_tbl[0].name);
-+
-+	if (netdev_get_num_tc(bp->dev))
-+		netdev_reset_tc(bp->dev);
-+
-+	snprintf(bp->irq_tbl[0].name, len, "%s-%s-%d", bp->dev->name, "TxRx",
-+		 0);
-+	bp->irq_tbl[0].handler = bnxt_inta;
-+}
-+
-+static int bnxt_setup_int_mode(struct bnxt *bp)
-+{
-+	int rc;
-+
-+	if (bp->flags & BNXT_FLAG_USING_MSIX)
-+		bnxt_setup_msix(bp);
-+	else
-+		bnxt_setup_inta(bp);
-+
-+	rc = bnxt_set_real_num_queues(bp);
-+	return rc;
-+}
-+
-+static unsigned int bnxt_get_max_func_irqs(struct bnxt *bp)
-+{
-+#if defined(CONFIG_BNXT_SRIOV)
-+	if (BNXT_VF(bp))
-+		return bp->vf.max_irqs;
-+#endif
-+	return bp->pf.max_irqs;
-+}
-+
- void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max_irqs)
- {
- #if defined(CONFIG_BNXT_SRIOV)
-@@ -4753,16 +4827,12 @@ void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max_irqs)
- 		bp->pf.max_irqs = max_irqs;
- }
- 
--static int bnxt_setup_msix(struct bnxt *bp)
-+static int bnxt_init_msix(struct bnxt *bp)
- {
--	struct msix_entry *msix_ent;
--	struct net_device *dev = bp->dev;
- 	int i, total_vecs, rc = 0, min = 1;
--	const int len = sizeof(bp->irq_tbl[0].name);
--
--	bp->flags &= ~BNXT_FLAG_USING_MSIX;
--	total_vecs = bp->cp_nr_rings;
-+	struct msix_entry *msix_ent;
- 
-+	total_vecs = bnxt_get_max_func_irqs(bp);
- 	msix_ent = kcalloc(total_vecs, sizeof(struct msix_entry), GFP_KERNEL);
- 	if (!msix_ent)
- 		return -ENOMEM;
-@@ -4783,8 +4853,10 @@ static int bnxt_setup_msix(struct bnxt *bp)
- 
- 	bp->irq_tbl = kcalloc(total_vecs, sizeof(struct bnxt_irq), GFP_KERNEL);
- 	if (bp->irq_tbl) {
--		int tcs;
-+		for (i = 0; i < total_vecs; i++)
-+			bp->irq_tbl[i].vector = msix_ent[i].vector;
- 
-+		bp->total_irqs = total_vecs;
- 		/* Trim rings based upon num of vectors allocated */
- 		rc = bnxt_trim_rings(bp, &bp->rx_nr_rings, &bp->tx_nr_rings,
- 				     total_vecs, min == 1);
-@@ -4792,43 +4864,10 @@ static int bnxt_setup_msix(struct bnxt *bp)
- 			goto msix_setup_exit;
- 
- 		bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
--		tcs = netdev_get_num_tc(dev);
--		if (tcs > 1) {
--			bp->tx_nr_rings_per_tc = bp->tx_nr_rings / tcs;
--			if (bp->tx_nr_rings_per_tc == 0) {
--				netdev_reset_tc(dev);
--				bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
--			} else {
--				int i, off, count;
-+		bp->cp_nr_rings = (min == 1) ?
-+				  max_t(int, bp->tx_nr_rings, bp->rx_nr_rings) :
-+				  bp->tx_nr_rings + bp->rx_nr_rings;
- 
--				bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
--				for (i = 0; i < tcs; i++) {
--					count = bp->tx_nr_rings_per_tc;
--					off = i * count;
--					netdev_set_tc_queue(dev, i, count, off);
--				}
--			}
--		}
--		bp->cp_nr_rings = total_vecs;
--
--		for (i = 0; i < bp->cp_nr_rings; i++) {
--			char *attr;
--
--			bp->irq_tbl[i].vector = msix_ent[i].vector;
--			if (bp->flags & BNXT_FLAG_SHARED_RINGS)
--				attr = "TxRx";
--			else if (i < bp->rx_nr_rings)
--				attr = "rx";
--			else
--				attr = "tx";
--
--			snprintf(bp->irq_tbl[i].name, len,
--				 "%s-%s-%d", dev->name, attr, i);
--			bp->irq_tbl[i].handler = bnxt_msix;
--		}
--		rc = bnxt_set_real_num_queues(bp);
--		if (rc)
--			goto msix_setup_exit;
- 	} else {
- 		rc = -ENOMEM;
- 		goto msix_setup_exit;
-@@ -4838,52 +4877,54 @@ static int bnxt_setup_msix(struct bnxt *bp)
- 	return 0;
- 
- msix_setup_exit:
--	netdev_err(bp->dev, "bnxt_setup_msix err: %x\n", rc);
-+	netdev_err(bp->dev, "bnxt_init_msix err: %x\n", rc);
-+	kfree(bp->irq_tbl);
-+	bp->irq_tbl = NULL;
- 	pci_disable_msix(bp->pdev);
- 	kfree(msix_ent);
- 	return rc;
- }
- 
--static int bnxt_setup_inta(struct bnxt *bp)
-+static int bnxt_init_inta(struct bnxt *bp)
- {
--	int rc;
--	const int len = sizeof(bp->irq_tbl[0].name);
--
--	if (netdev_get_num_tc(bp->dev))
--		netdev_reset_tc(bp->dev);
--
- 	bp->irq_tbl = kcalloc(1, sizeof(struct bnxt_irq), GFP_KERNEL);
--	if (!bp->irq_tbl) {
--		rc = -ENOMEM;
--		return rc;
--	}
-+	if (!bp->irq_tbl)
-+		return -ENOMEM;
-+
-+	bp->total_irqs = 1;
- 	bp->rx_nr_rings = 1;
- 	bp->tx_nr_rings = 1;
- 	bp->cp_nr_rings = 1;
- 	bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
- 	bp->flags |= BNXT_FLAG_SHARED_RINGS;
- 	bp->irq_tbl[0].vector = bp->pdev->irq;
--	snprintf(bp->irq_tbl[0].name, len,
--		 "%s-%s-%d", bp->dev->name, "TxRx", 0);
--	bp->irq_tbl[0].handler = bnxt_inta;
--	rc = bnxt_set_real_num_queues(bp);
--	return rc;
-+	return 0;
- }
- 
--static int bnxt_setup_int_mode(struct bnxt *bp)
-+static int bnxt_init_int_mode(struct bnxt *bp)
- {
- 	int rc = 0;
- 
- 	if (bp->flags & BNXT_FLAG_MSIX_CAP)
--		rc = bnxt_setup_msix(bp);
-+		rc = bnxt_init_msix(bp);
- 
- 	if (!(bp->flags & BNXT_FLAG_USING_MSIX) && BNXT_PF(bp)) {
- 		/* fallback to INTA */
--		rc = bnxt_setup_inta(bp);
-+		rc = bnxt_init_inta(bp);
- 	}
- 	return rc;
- }
- 
-+static void bnxt_clear_int_mode(struct bnxt *bp)
-+{
-+	if (bp->flags & BNXT_FLAG_USING_MSIX)
-+		pci_disable_msix(bp->pdev);
-+
-+	kfree(bp->irq_tbl);
-+	bp->irq_tbl = NULL;
-+	bp->flags &= ~BNXT_FLAG_USING_MSIX;
-+}
-+
- static void bnxt_free_irq(struct bnxt *bp)
- {
- 	struct bnxt_irq *irq;
-@@ -4902,10 +4943,6 @@ static void bnxt_free_irq(struct bnxt *bp)
- 			free_irq(irq->vector, bp->bnapi[i]);
- 		irq->requested = 0;
- 	}
--	if (bp->flags & BNXT_FLAG_USING_MSIX)
--		pci_disable_msix(bp->pdev);
--	kfree(bp->irq_tbl);
--	bp->irq_tbl = NULL;
- }
- 
- static int bnxt_request_irq(struct bnxt *bp)
-@@ -6695,6 +6732,7 @@ static void bnxt_remove_one(struct pci_dev *pdev)
- 	cancel_work_sync(&bp->sp_task);
- 	bp->sp_event = 0;
- 
-+	bnxt_clear_int_mode(bp);
- 	bnxt_hwrm_func_drv_unrgtr(bp);
- 	bnxt_free_hwrm_resources(bp);
- 	bnxt_dcb_free(bp);
-@@ -6990,10 +7028,14 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (rc)
- 		goto init_err;
- 
--	rc = register_netdev(dev);
-+	rc = bnxt_init_int_mode(bp);
- 	if (rc)
- 		goto init_err;
- 
-+	rc = register_netdev(dev);
-+	if (rc)
-+		goto init_err_clr_int;
-+
- 	netdev_info(dev, "%s found at mem %lx, node addr %pM\n",
- 		    board_info[ent->driver_data].name,
- 		    (long)pci_resource_start(pdev, 0), dev->dev_addr);
-@@ -7002,6 +7044,9 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	return 0;
- 
-+init_err_clr_int:
-+	bnxt_clear_int_mode(bp);
-+
- init_err:
- 	pci_iounmap(pdev, bp->bar0);
- 	pci_release_regions(pdev);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 8327d0d..1461355 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1024,6 +1024,7 @@ struct bnxt {
- #define BNXT_STATE_FN_RST_DONE	2
- 
- 	struct bnxt_irq	*irq_tbl;
-+	int			total_irqs;
- 	u8			mac_addr[ETH_ALEN];
- 
- #ifdef CONFIG_BNXT_DCB
--- 
-1.8.3.1
+CgpPbiAyMDE25bm0MTLmnIgwNuaXpSAyMzo0MSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IF9fQ0hFQ0tfRU5ESUFOX18gaXNuJ3Qgb24gYnkgZGVmYXVsdCBwcmVzdW1hYmx5IGJlY2F1c2UK
+PiBpdCB0cmlnZ2VycyB0b28gbWFueSBzcGFyc2Ugd2FybmluZ3MgZm9yIGNvcnJlY3QgY29kZS4K
+PiBCdXQgdmlydGlvIGlzIG5vdyBjbGVhbiBvZiB0aGVzZSB3YXJuaW5ncywgYW5kCj4gd2Ugd2Fu
+dCB0byBrZWVwIGl0IHRoaXMgd2F5IC0gZW5hYmxlIHRoaXMgZm9yCj4gc3BhcnNlIGJ1aWxkcy4K
+Pgo+IFNpZ25lZC1vZmYtYnk6IE1pY2hhZWwgUy4gVHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+Cj4g
+LS0tCj4KPiBJdCBzZWVtcyB0aGF0IHRoZXJlIHNob3VsZCBiZSBhIGJldHRlciB3YXkgdG8gZG8g
+aXQsCj4gYnV0IHRoaXMgd29ya3MgdG9vLgoKUmV2aWV3ZWQtYnk6IEphc29uIFdhbmcgPGphc293
+YW5nQHJlZGhhdC5jb20+Cgo+Cj4gICBkcml2ZXJzL2Jsb2NrL01ha2VmaWxlICAgICAgICAgIHwg
+MSArCj4gICBkcml2ZXJzL2NoYXIvTWFrZWZpbGUgICAgICAgICAgIHwgMSArCj4gICBkcml2ZXJz
+L2NoYXIvaHdfcmFuZG9tL01ha2VmaWxlIHwgMiArKwo+ICAgZHJpdmVycy9ncHUvZHJtL3ZpcnRp
+by9NYWtlZmlsZSB8IDEgKwo+ICAgZHJpdmVycy9uZXQvTWFrZWZpbGUgICAgICAgICAgICB8IDMg
+KysrCj4gICBkcml2ZXJzL25ldC9jYWlmL01ha2VmaWxlICAgICAgIHwgMSArCj4gICBkcml2ZXJz
+L3JwbXNnL01ha2VmaWxlICAgICAgICAgIHwgMSArCj4gICBkcml2ZXJzL3MzOTAvdmlydGlvL01h
+a2VmaWxlICAgIHwgMiArKwo+ICAgZHJpdmVycy9zY3NpL01ha2VmaWxlICAgICAgICAgICB8IDEg
+Kwo+ICAgZHJpdmVycy92aG9zdC9NYWtlZmlsZSAgICAgICAgICB8IDEgKwo+ICAgZHJpdmVycy92
+aXJ0aW8vTWFrZWZpbGUgICAgICAgICB8IDMgKysrCj4gICBuZXQvOXAvTWFrZWZpbGUgICAgICAg
+ICAgICAgICAgIHwgMSArCj4gICBuZXQvcGFja2V0L01ha2VmaWxlICAgICAgICAgICAgIHwgMSAr
+Cj4gICBuZXQvdm13X3Zzb2NrL01ha2VmaWxlICAgICAgICAgIHwgMiArKwo+ICAgMTQgZmlsZXMg
+Y2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvYmxvY2sv
+TWFrZWZpbGUgYi9kcml2ZXJzL2Jsb2NrL01ha2VmaWxlCj4gaW5kZXggMWU5NjYxZS4uNTk3NDgx
+YyAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL2Jsb2NrL01ha2VmaWxlCj4gKysrIGIvZHJpdmVycy9i
+bG9jay9NYWtlZmlsZQo+IEBAIC0yNyw2ICsyNyw3IEBAIG9iai0kKENPTkZJR19CTEtfREVWX09T
+RCkJKz0gb3NkYmxrLm8KPiAgIG9iai0kKENPTkZJR19CTEtfREVWX1VNRU0pCSs9IHVtZW0ubwo+
+ICAgb2JqLSQoQ09ORklHX0JMS19ERVZfTkJEKQkrPSBuYmQubwo+ICAgb2JqLSQoQ09ORklHX0JM
+S19ERVZfQ1JZUFRPTE9PUCkgKz0gY3J5cHRvbG9vcC5vCj4gK0NGTEFHU192aXJ0aW9fYmxrLm8g
+Kz0gLURfX0NIRUNLX0VORElBTl9fCj4gICBvYmotJChDT05GSUdfVklSVElPX0JMSykJKz0gdmly
+dGlvX2Jsay5vCj4gICAKPiAgIG9iai0kKENPTkZJR19CTEtfREVWX1NYOCkJKz0gc3g4Lm8KPiBk
+aWZmIC0tZ2l0IGEvZHJpdmVycy9jaGFyL01ha2VmaWxlIGIvZHJpdmVycy9jaGFyL01ha2VmaWxl
+Cj4gaW5kZXggNmU2YzI0NC4uYTk5NDY3ZCAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL2NoYXIvTWFr
+ZWZpbGUKPiArKysgYi9kcml2ZXJzL2NoYXIvTWFrZWZpbGUKPiBAQCAtNiw2ICs2LDcgQEAgb2Jq
+LXkJCQkJKz0gbWVtLm8gcmFuZG9tLm8KPiAgIG9iai0kKENPTkZJR19UVFlfUFJJTlRLKQkrPSB0
+dHlwcmludGsubwo+ICAgb2JqLXkJCQkJKz0gbWlzYy5vCj4gICBvYmotJChDT05GSUdfQVRBUklf
+RFNQNTZLKQkrPSBkc3A1Nmsubwo+ICtDRkxBR1NfdmlydGlvX2NvbnNvbGUubyArPSAtRF9fQ0hF
+Q0tfRU5ESUFOX18KPiAgIG9iai0kKENPTkZJR19WSVJUSU9fQ09OU09MRSkJKz0gdmlydGlvX2Nv
+bnNvbGUubwo+ICAgb2JqLSQoQ09ORklHX1JBV19EUklWRVIpCSs9IHJhdy5vCj4gICBvYmotJChD
+T05GSUdfU0dJX1NOU0MpCQkrPSBzbnNjLm8gc25zY19ldmVudC5vCj4gZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMvY2hhci9od19yYW5kb20vTWFrZWZpbGUgYi9kcml2ZXJzL2NoYXIvaHdfcmFuZG9tL01h
+a2VmaWxlCj4gaW5kZXggNWY1MmIxZS4uYTJiMDkzMSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL2No
+YXIvaHdfcmFuZG9tL01ha2VmaWxlCj4gKysrIGIvZHJpdmVycy9jaGFyL2h3X3JhbmRvbS9NYWtl
+ZmlsZQo+IEBAIC0xNyw2ICsxNyw4IEBAIG9iai0kKENPTkZJR19IV19SQU5ET01fSVhQNFhYKSAr
+PSBpeHA0eHgtcm5nLm8KPiAgIG9iai0kKENPTkZJR19IV19SQU5ET01fT01BUCkgKz0gb21hcC1y
+bmcubwo+ICAgb2JqLSQoQ09ORklHX0hXX1JBTkRPTV9PTUFQM19ST00pICs9IG9tYXAzLXJvbS1y
+bmcubwo+ICAgb2JqLSQoQ09ORklHX0hXX1JBTkRPTV9QQVNFTUkpICs9IHBhc2VtaS1ybmcubwo+
+ICtDRkxBR1NfdmlydGlvX3RyYW5zcG9ydC5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICtDRkxB
+R1NfdmlydGlvLXJuZy5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICAgb2JqLSQoQ09ORklHX0hX
+X1JBTkRPTV9WSVJUSU8pICs9IHZpcnRpby1ybmcubwo+ICAgb2JqLSQoQ09ORklHX0hXX1JBTkRP
+TV9UWDQ5MzkpICs9IHR4NDkzOS1ybmcubwo+ICAgb2JqLSQoQ09ORklHX0hXX1JBTkRPTV9NWENf
+Uk5HQSkgKz0gbXhjLXJuZ2Eubwo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL2dwdS9kcm0vdmlydGlv
+L01ha2VmaWxlIGIvZHJpdmVycy9ncHUvZHJtL3ZpcnRpby9NYWtlZmlsZQo+IGluZGV4IDNmYjhl
+YWMuLjExNjIzNjYgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9ncHUvZHJtL3ZpcnRpby9NYWtlZmls
+ZQo+ICsrKyBiL2RyaXZlcnMvZ3B1L2RybS92aXJ0aW8vTWFrZWZpbGUKPiBAQCAtMyw2ICszLDcg
+QEAKPiAgICMgRGlyZWN0IFJlbmRlcmluZyBJbmZyYXN0cnVjdHVyZSAoRFJJKSBpbiBYRnJlZTg2
+IDQuMS4wIGFuZCBoaWdoZXIuCj4gICAKPiAgIGNjZmxhZ3MteSA6PSAtSWluY2x1ZGUvZHJtCj4g
+K2NjZmxhZ3MteSArPSAtRF9fQ0hFQ0tfRU5ESUFOX18KPiAgIAo+ICAgdmlydGlvLWdwdS15IDo9
+IHZpcnRncHVfZHJ2Lm8gdmlydGdwdV9rbXMubyB2aXJ0Z3B1X2RybV9idXMubyB2aXJ0Z3B1X2dl
+bS5vIFwKPiAgIAl2aXJ0Z3B1X2ZiLm8gdmlydGdwdV9kaXNwbGF5Lm8gdmlydGdwdV92cS5vIHZp
+cnRncHVfdHRtLm8gXAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9NYWtlZmlsZSBiL2RyaXZl
+cnMvbmV0L01ha2VmaWxlCj4gaW5kZXggNzMzNmNiZC4uM2Y1ODdkZSAxMDA2NDQKPiAtLS0gYS9k
+cml2ZXJzL25ldC9NYWtlZmlsZQo+ICsrKyBiL2RyaXZlcnMvbmV0L01ha2VmaWxlCj4gQEAgLTEy
+LDYgKzEyLDcgQEAgb2JqLSQoQ09ORklHX0VRVUFMSVpFUikgKz0gZXFsLm8KPiAgIG9iai0kKENP
+TkZJR19JRkIpICs9IGlmYi5vCj4gICBvYmotJChDT05GSUdfTUFDU0VDKSArPSBtYWNzZWMubwo+
+ICAgb2JqLSQoQ09ORklHX01BQ1ZMQU4pICs9IG1hY3ZsYW4ubwo+ICtDRkxBR1NfbWFjdnRhcC5v
+ICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICAgb2JqLSQoQ09ORklHX01BQ1ZUQVApICs9IG1hY3Z0
+YXAubwo+ICAgb2JqLSQoQ09ORklHX01JSSkgKz0gbWlpLm8KPiAgIG9iai0kKENPTkZJR19NRElP
+KSArPSBtZGlvLm8KPiBAQCAtMjAsOCArMjEsMTAgQEAgb2JqLSQoQ09ORklHX05FVENPTlNPTEUp
+ICs9IG5ldGNvbnNvbGUubwo+ICAgb2JqLSQoQ09ORklHX1BIWUxJQikgKz0gcGh5Lwo+ICAgb2Jq
+LSQoQ09ORklHX1JJT05FVCkgKz0gcmlvbmV0Lm8KPiAgIG9iai0kKENPTkZJR19ORVRfVEVBTSkg
+Kz0gdGVhbS8KPiArQ0ZMQUdTX3R1bi5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICAgb2JqLSQo
+Q09ORklHX1RVTikgKz0gdHVuLm8KPiAgIG9iai0kKENPTkZJR19WRVRIKSArPSB2ZXRoLm8KPiAr
+Q0ZMQUdTX3ZpcnRpb19uZXQubyArPSAtRF9fQ0hFQ0tfRU5ESUFOX18KPiAgIG9iai0kKENPTkZJ
+R19WSVJUSU9fTkVUKSArPSB2aXJ0aW9fbmV0Lm8KPiAgIG9iai0kKENPTkZJR19WWExBTikgKz0g
+dnhsYW4ubwo+ICAgb2JqLSQoQ09ORklHX0dFTkVWRSkgKz0gZ2VuZXZlLm8KPiBkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvY2FpZi9NYWtlZmlsZSBiL2RyaXZlcnMvbmV0L2NhaWYvTWFrZWZpbGUK
+PiBpbmRleCA5YmJkNDUzLi5kMWE5MjJjIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L2NhaWYv
+TWFrZWZpbGUKPiArKysgYi9kcml2ZXJzL25ldC9jYWlmL01ha2VmaWxlCj4gQEAgLTEyLDMgKzEy
+LDQgQEAgb2JqLSQoQ09ORklHX0NBSUZfSFNJKSArPSBjYWlmX2hzaS5vCj4gICAKPiAgICMgVmly
+dGlvIGludGVyZmFjZQo+ICAgb2JqLSQoQ09ORklHX0NBSUZfVklSVElPKSArPSBjYWlmX3ZpcnRp
+by5vCj4gK0NGTEFHU19jYWlmX3ZpcnRpby5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+IGRpZmYg
+LS1naXQgYS9kcml2ZXJzL3JwbXNnL01ha2VmaWxlIGIvZHJpdmVycy9ycG1zZy9NYWtlZmlsZQo+
+IGluZGV4IGFlOWM5MTMuLjIzYzhiNjYgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9ycG1zZy9NYWtl
+ZmlsZQo+ICsrKyBiL2RyaXZlcnMvcnBtc2cvTWFrZWZpbGUKPiBAQCAtMSwzICsxLDQgQEAKPiAg
+IG9iai0kKENPTkZJR19SUE1TRykJCSs9IHJwbXNnX2NvcmUubwo+ICAgb2JqLSQoQ09ORklHX1JQ
+TVNHX1FDT01fU01EKQkrPSBxY29tX3NtZC5vCj4gICBvYmotJChDT05GSUdfUlBNU0dfVklSVElP
+KQkrPSB2aXJ0aW9fcnBtc2dfYnVzLm8KPiArQ0ZMQUdTX3ZpcnRpb19ycG1zZ19idXMubwkrPSAt
+RF9fQ0hFQ0tfRU5ESUFOX18KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9zMzkwL3ZpcnRpby9NYWtl
+ZmlsZSBiL2RyaXZlcnMvczM5MC92aXJ0aW8vTWFrZWZpbGUKPiBpbmRleCBkZjQwNjkyLi4yNzBh
+ZGE1IDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvczM5MC92aXJ0aW8vTWFrZWZpbGUKPiArKysgYi9k
+cml2ZXJzL3MzOTAvdmlydGlvL01ha2VmaWxlCj4gQEAgLTYsNiArNiw4IEBACj4gICAjIGl0IHVu
+ZGVyIHRoZSB0ZXJtcyBvZiB0aGUgR05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UgKHZlcnNpb24g
+MiBvbmx5KQo+ICAgIyBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlv
+bi4KPiAgIAo+ICtDRkxBR1NfdmlydGlvX2Njdy5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICtD
+RkxBR1Nfa3ZtX3ZpcnRpby5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICAgczM5MC12aXJ0aW8t
+b2JqcyA6PSB2aXJ0aW9fY2N3Lm8KPiAgIGlmZGVmIENPTkZJR19TMzkwX0dVRVNUX09MRF9UUkFO
+U1BPUlQKPiAgIHMzOTAtdmlydGlvLW9ianMgKz0ga3ZtX3ZpcnRpby5vCj4gZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvc2NzaS9NYWtlZmlsZSBiL2RyaXZlcnMvc2NzaS9NYWtlZmlsZQo+IGluZGV4IDM4
+ZDkzOGQuLjlmNzBkNDYgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9zY3NpL01ha2VmaWxlCj4gKysr
+IGIvZHJpdmVycy9zY3NpL01ha2VmaWxlCj4gQEAgLTEzNSw2ICsxMzUsNyBAQCBvYmotJChDT05G
+SUdfU0NTSV9CTlgyX0lTQ1NJKQkrPSBsaWJpc2NzaS5vIGJueDJpLwo+ICAgb2JqLSQoQ09ORklH
+X0JFMklTQ1NJKQkJKz0gbGliaXNjc2kubyBiZTJpc2NzaS8KPiAgIG9iai0kKENPTkZJR19TQ1NJ
+X0VTQVMyUikJKz0gZXNhczJyLwo+ICAgb2JqLSQoQ09ORklHX1NDU0lfUE1DUkFJRCkJKz0gcG1j
+cmFpZC5vCj4gK0NGTEFHU192aXJ0aW9fc2NzaS5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICAg
+b2JqLSQoQ09ORklHX1NDU0lfVklSVElPKQkrPSB2aXJ0aW9fc2NzaS5vCj4gICBvYmotJChDT05G
+SUdfVk1XQVJFX1BWU0NTSSkJKz0gdm13X3B2c2NzaS5vCj4gICBvYmotJChDT05GSUdfWEVOX1ND
+U0lfRlJPTlRFTkQpCSs9IHhlbi1zY3NpZnJvbnQubwo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Zo
+b3N0L01ha2VmaWxlIGIvZHJpdmVycy92aG9zdC9NYWtlZmlsZQo+IGluZGV4IDZiMDEyYjkuLjYx
+OWUyY2QgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy92aG9zdC9NYWtlZmlsZQo+ICsrKyBiL2RyaXZl
+cnMvdmhvc3QvTWFrZWZpbGUKPiBAQCAtMSwzICsxLDQgQEAKPiArY2NmbGFncy15IDo9IC1EX19D
+SEVDS19FTkRJQU5fXwo+ICAgb2JqLSQoQ09ORklHX1ZIT1NUX05FVCkgKz0gdmhvc3RfbmV0Lm8K
+PiAgIHZob3N0X25ldC15IDo9IG5ldC5vCj4gICAKPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy92aXJ0
+aW8vTWFrZWZpbGUgYi9kcml2ZXJzL3ZpcnRpby9NYWtlZmlsZQo+IGluZGV4IDQxZTMwZTMuLmQz
+MzFmMTkgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy92aXJ0aW8vTWFrZWZpbGUKPiArKysgYi9kcml2
+ZXJzL3ZpcnRpby9NYWtlZmlsZQo+IEBAIC0xLDMgKzEsNiBAQAo+ICsjdmlydGlvIG11c3QgYmUg
+a2VwdCBjbGVhbiB3cnQgZW5kaWFuIHRhZ3MsCj4gKyNvdGhlcndpc2Ugd2UnbGwgZ2V0IHRvIG1h
+aW50YWluIGJyb2tlbiBob3N0L2d1ZXN0IEFCSXMKPiArY2NmbGFncy15IDo9IC1EX19DSEVDS19F
+TkRJQU5fXwo+ICAgb2JqLSQoQ09ORklHX1ZJUlRJTykgKz0gdmlydGlvLm8gdmlydGlvX3Jpbmcu
+bwo+ICAgb2JqLSQoQ09ORklHX1ZJUlRJT19NTUlPKSArPSB2aXJ0aW9fbW1pby5vCj4gICBvYmot
+JChDT05GSUdfVklSVElPX1BDSSkgKz0gdmlydGlvX3BjaS5vCj4gZGlmZiAtLWdpdCBhL25ldC85
+cC9NYWtlZmlsZSBiL25ldC85cC9NYWtlZmlsZQo+IGluZGV4IGEwODc0Y2MuLmFjZjEyMjUgMTAw
+NjQ0Cj4gLS0tIGEvbmV0LzlwL01ha2VmaWxlCj4gKysrIGIvbmV0LzlwL01ha2VmaWxlCj4gQEAg
+LTExLDYgKzExLDcgQEAgb2JqLSQoQ09ORklHX05FVF85UF9SRE1BKSArPSA5cG5ldF9yZG1hLm8K
+PiAgIAl0cmFuc19mZC5vIFwKPiAgIAl0cmFuc19jb21tb24ubyBcCj4gICAKPiArQ0ZMQUdTX3Ry
+YW5zX3ZpcnRpby5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICAgOXBuZXRfdmlydGlvLW9ianMg
+Oj0gXAo+ICAgCXRyYW5zX3ZpcnRpby5vIFwKPiAgIAo+IGRpZmYgLS1naXQgYS9uZXQvcGFja2V0
+L01ha2VmaWxlIGIvbmV0L3BhY2tldC9NYWtlZmlsZQo+IGluZGV4IDlkZjYxMzQuLmExM2JjYjMg
+MTAwNjQ0Cj4gLS0tIGEvbmV0L3BhY2tldC9NYWtlZmlsZQo+ICsrKyBiL25ldC9wYWNrZXQvTWFr
+ZWZpbGUKPiBAQCAtMiw2ICsyLDcgQEAKPiAgICMgTWFrZWZpbGUgZm9yIHRoZSBwYWNrZXQgQUYu
+Cj4gICAjCj4gICAKPiArY2NmbGFncy15IDo9IC1EX19DSEVDS19FTkRJQU5fXwo+ICAgb2JqLSQo
+Q09ORklHX1BBQ0tFVCkgKz0gYWZfcGFja2V0Lm8KPiAgIG9iai0kKENPTkZJR19QQUNLRVRfRElB
+RykgKz0gYWZfcGFja2V0X2RpYWcubwo+ICAgYWZfcGFja2V0X2RpYWcteSArPSBkaWFnLm8KPiBk
+aWZmIC0tZ2l0IGEvbmV0L3Ztd192c29jay9NYWtlZmlsZSBiL25ldC92bXdfdnNvY2svTWFrZWZp
+bGUKPiBpbmRleCBiYzI3YzcwLi5hNjFlY2NiIDEwMDY0NAo+IC0tLSBhL25ldC92bXdfdnNvY2sv
+TWFrZWZpbGUKPiArKysgYi9uZXQvdm13X3Zzb2NrL01ha2VmaWxlCj4gQEAgLTgsNiArOCw4IEBA
+IHZzb2NrLXkgKz0gYWZfdnNvY2subyB2c29ja19hZGRyLm8KPiAgIHZtd192c29ja192bWNpX3Ry
+YW5zcG9ydC15ICs9IHZtY2lfdHJhbnNwb3J0Lm8gdm1jaV90cmFuc3BvcnRfbm90aWZ5Lm8gXAo+
+ICAgCXZtY2lfdHJhbnNwb3J0X25vdGlmeV9xc3RhdGUubwo+ICAgCj4gK0NGTEFHU192aXJ0aW9f
+dHJhbnNwb3J0Lm8gKz0gLURfX0NIRUNLX0VORElBTl9fCj4gK0NGTEFHU192aXJ0aW9fdHJhbnNw
+b3J0X2NvbW1vbi5vICs9IC1EX19DSEVDS19FTkRJQU5fXwo+ICAgdm13X3Zzb2NrX3ZpcnRpb190
+cmFuc3BvcnQteSArPSB2aXJ0aW9fdHJhbnNwb3J0Lm8KPiAgIAo+ICAgdm13X3Zzb2NrX3ZpcnRp
+b190cmFuc3BvcnRfY29tbW9uLXkgKz0gdmlydGlvX3RyYW5zcG9ydF9jb21tb24ubwoKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24g
+bWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0
+dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxp
+emF0aW9u
