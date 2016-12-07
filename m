@@ -1,30 +1,44 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 0/7] bnxt_en: Add interface to support RDMA
- driver.
-Date: Tue, 6 Dec 2016 23:29:07 -0800
-Message-ID: <20161207072907.GA20253@infradead.org>
-References: <1481088381-30411-1-git-send-email-michael.chan@broadcom.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 10/10] virtio: enable endian checks for sparse builds
+Date: Tue, 6 Dec 2016 23:30:21 -0800
+Message-ID: <20161207073021.GA26970@infradead.org>
+References: <1481038106-24899-1-git-send-email-mst@redhat.com>
+ <1481038106-24899-11-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+        linux-kbuild@vger.kernel.org, Michal Marek <mmarek@suse.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Matt Mackall <mpm@selenic.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        David Airlie <airlied@linux.ie>,
+        Gerd Hoffmann <kraxel@redhat.com>,
+        Ohad Ben-Cohen <ohad@wizery.com>,
+        Christian Borntraeger <borntraeger@de.ibm.com>,
+        Cornelia Huck <cornelia.huck@de.ibm.com>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>, Jens Axboe <axboe@fb.com>,
+        Neil Armstrong <narmstrong@baylibre.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>,
+        Asias He <asias@redhat.com>, linux-crypto@vger.kernel.org,
+        dri-devel@lists.freedesktop.org,
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1481088381-30411-1-git-send-email-michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1481038106-24899-11-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 07, 2016 at 12:26:14AM -0500, Michael Chan wrote:
-> This series adds an interface to support a brand new RDMA driver bnxt_re.
-> The first step is to re-arrange some code so that pci_enable_msix() can
-> be called during pci probe.  The purpose is to allow the RDMA driver to
-> initialize and stay initialized whether the netdev is up or down.
+On Tue, Dec 06, 2016 at 05:41:05PM +0200, Michael S. Tsirkin wrote:
+> __CHECK_ENDIAN__ isn't on by default presumably because
+> it triggers too many sparse warnings for correct code.
+> But virtio is now clean of these warnings, and
+> we want to keep it this way - enable this for
+> sparse builds.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Please switch form pci_enable_msix to pci_alloc_irq_vectors for any
-changes to MSI-X code, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nah.  Please just enable it globally when using sparse.  I actually
+had a chat with Linus about that a while ago and he seemed generally
+fine with it, I just didn't manage to actually do it..
