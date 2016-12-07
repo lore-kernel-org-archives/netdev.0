@@ -1,119 +1,108 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/20] i40e: remove code to handle dev_addr specially
-Date: Tue,  6 Dec 2016 23:33:39 -0800
-Message-ID: <20161207073354.88568-6-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/20] i40e: Blink LED on 1G BaseT boards
+Date: Tue,  6 Dec 2016 23:33:40 -0800
+Message-ID: <20161207073354.88568-7-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Henry Tieman <henry.w.tieman@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
+        Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47083 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:34826 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753020AbcLGHes (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753004AbcLGHes (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 7 Dec 2016 02:34:48 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Henry Tieman <henry.w.tieman@intel.com>
 
-The netdev->dev_addr MAC filter already exists in the
-MAC/VLAN hash table, as it is added when we configure
-the netdev in i40e_configure_netdev. Because we already
-know that this address will be updated in the
-hash_for_each loops, we do not need to handle it
-specially. This removes duplicate code and simplifies
-the i40e_vsi_add_vlan and i40e_vsi_kill_vlan functions.
-Because we know these filters must be part of the
-MAC/VLAN hash table, this should not have any functional
-impact on what filters are included and is merely a code
-simplification.
+Before this patch "ethtool -p" was not blinking the LEDs on boards
+with 1G BaseT PHYs.
 
-Change-ID: I5e648302dbdd7cc29efc6d203b7019c11f0b5705
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+This commit identifies 1G BaseT boards as having the LEDs connected
+to the MAC. Also, renamed the flag to be more descriptive of usage.
+The flag is now I40E_FLAG_PHY_CONTROLS_LEDS.
+
+Change-ID: I4eb741da9780da7849ddf2dc4c0cb27ffa42a801
+Signed-off-by: Henry Tieman <henry.w.tieman@intel.com>
+Signed-off-by: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 43 +++++------------------------
- 1 file changed, 7 insertions(+), 36 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 10 +++++-----
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  4 ++--
+ 3 files changed, 8 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 06e3c23..b8f2978 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -356,7 +356,7 @@ struct i40e_pf {
+ #define I40E_FLAG_NO_DCB_SUPPORT		BIT_ULL(45)
+ #define I40E_FLAG_USE_SET_LLDP_MIB		BIT_ULL(46)
+ #define I40E_FLAG_STOP_FW_LLDP			BIT_ULL(47)
+-#define I40E_FLAG_HAVE_10GBASET_PHY		BIT_ULL(48)
++#define I40E_FLAG_PHY_CONTROLS_LEDS		BIT_ULL(48)
+ #define I40E_FLAG_PF_MAC			BIT_ULL(50)
+ #define I40E_FLAG_TRUE_PROMISC_SUPPORT		BIT_ULL(51)
+ #define I40E_FLAG_HAVE_CRT_RETIMER		BIT_ULL(52)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 76753e1..6ba0035 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1890,7 +1890,7 @@ static int i40e_set_phys_id(struct net_device *netdev,
+ 
+ 	switch (state) {
+ 	case ETHTOOL_ID_ACTIVE:
+-		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY)) {
++		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS)) {
+ 			pf->led_status = i40e_led_get(hw);
+ 		} else {
+ 			i40e_aq_set_phy_debug(hw, I40E_PHY_DEBUG_ALL, NULL);
+@@ -1900,20 +1900,20 @@ static int i40e_set_phys_id(struct net_device *netdev,
+ 		}
+ 		return blink_freq;
+ 	case ETHTOOL_ID_ON:
+-		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY))
++		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS))
+ 			i40e_led_set(hw, 0xf, false);
+ 		else
+ 			ret = i40e_led_set_phy(hw, true, pf->led_status, 0);
+ 		break;
+ 	case ETHTOOL_ID_OFF:
+-		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY))
++		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS))
+ 			i40e_led_set(hw, 0x0, false);
+ 		else
+ 			ret = i40e_led_set_phy(hw, false, pf->led_status, 0);
+ 		break;
+ 	case ETHTOOL_ID_INACTIVE:
+-		if (!(pf->flags & I40E_FLAG_HAVE_10GBASET_PHY)) {
+-			i40e_led_set(hw, false, pf->led_status);
++		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS)) {
++			i40e_led_set(hw, pf->led_status, false);
+ 		} else {
+ 			ret = i40e_led_set_phy(hw, false, pf->led_status,
+ 					       (pf->phy_led_val |
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c467cc4..ae4a2b2 100644
+index ae4a2b2..dbb854b 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2515,17 +2515,6 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- 	/* Locked once because all functions invoked below iterates list*/
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
+@@ -11380,8 +11380,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 						       pf->main_vsi_seid);
  
--	if (vsi->netdev) {
--		add_f = i40e_add_filter(vsi, vsi->netdev->dev_addr, vid);
--		if (!add_f) {
--			dev_info(&vsi->back->pdev->dev,
--				 "Could not add vlan filter %d for %pM\n",
--				 vid, vsi->netdev->dev_addr);
--			spin_unlock_bh(&vsi->mac_filter_hash_lock);
--			return -ENOMEM;
--		}
--	}
--
- 	hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
- 		if (f->state == I40E_FILTER_REMOVE)
- 			continue;
-@@ -2539,28 +2528,14 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- 		}
- 	}
- 
--	/* Now if we add a vlan tag, make sure to check if it is the first
--	 * tag (i.e. a "tag" -1 does exist) and if so replace the -1 "tag"
--	 * with 0, so we now accept untagged and specified tagged traffic
--	 * (and not all tags along with untagged)
-+	/* When we add a new VLAN filter, we need to make sure that all existing
-+	 * filters which are marked as vid=-1 (I40E_VLAN_ANY) are converted to
-+	 * vid=0. The simplest way is just search for all filters marked as
-+	 * vid=-1 and replace them with vid=0. This converts all filters that
-+	 * were marked to receive all traffic (tagged or untagged) into
-+	 * filters to receive only untagged traffic, so that we don't receive
-+	 * tagged traffic for VLANs which we have not configured.
- 	 */
--	if (vid > 0 && vsi->netdev) {
--		del_f = i40e_find_filter(vsi, vsi->netdev->dev_addr,
--					 I40E_VLAN_ANY);
--		if (del_f) {
--			__i40e_del_filter(vsi, del_f);
--			add_f = i40e_add_filter(vsi, vsi->netdev->dev_addr, 0);
--			if (!add_f) {
--				dev_info(&vsi->back->pdev->dev,
--					 "Could not add filter 0 for %pM\n",
--					 vsi->netdev->dev_addr);
--				spin_unlock_bh(&vsi->mac_filter_hash_lock);
--				return -ENOMEM;
--			}
--		}
--	}
--
--	/* Do not assume that I40E_VLAN_ANY should be reset to VLAN 0 */
- 	if (vid > 0 && !vsi->info.pvid) {
- 		hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
- 			if (f->state == I40E_FILTER_REMOVE)
-@@ -2597,7 +2572,6 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
-  **/
- void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- {
--	struct net_device *netdev = vsi->netdev;
- 	struct i40e_mac_filter *f;
- 	struct hlist_node *h;
- 	int bkt;
-@@ -2605,9 +2579,6 @@ void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- 	/* Locked once because all functions invoked below iterates list */
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
- 
--	if (vsi->netdev)
--		i40e_del_filter(vsi, netdev->dev_addr, vid);
--
- 	hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
- 		if (f->vlan == vid)
- 			__i40e_del_filter(vsi, f);
+ 	if ((pf->hw.device_id == I40E_DEV_ID_10G_BASE_T) ||
+-	    (pf->hw.device_id == I40E_DEV_ID_10G_BASE_T4))
+-		pf->flags |= I40E_FLAG_HAVE_10GBASET_PHY;
++		(pf->hw.device_id == I40E_DEV_ID_10G_BASE_T4))
++		pf->flags |= I40E_FLAG_PHY_CONTROLS_LEDS;
+ 	if (pf->hw.device_id == I40E_DEV_ID_SFP_I_X722)
+ 		pf->flags |= I40E_FLAG_HAVE_CRT_RETIMER;
+ 	/* print a string summarizing features */
 -- 
 2.9.3
