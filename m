@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v5 12/13] net: ethernet: ti: cpts: calc mult and shift from refclk freq
-Date: Tue, 6 Dec 2016 18:00:44 -0600
-Message-ID: <20161207000045.28333-13-grygorii.strashko@ti.com>
+Subject: [PATCH v5 13/13] net: ethernet: ti: cpts: fix overflow check period
+Date: Tue, 6 Dec 2016 18:00:45 -0600
+Message-ID: <20161207000045.28333-14-grygorii.strashko@ti.com>
 References: <20161207000045.28333-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,128 +20,80 @@ In-Reply-To: <20161207000045.28333-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The cyclecounter mult and shift values can be calculated based on the
-CPTS rfclk frequency and timekeepnig framework provides required algos
-and API's.
+The CPTS drivers uses 8sec period for overflow checking with
+assumption that CPTS retclk will not exceed 500MHz. But that's not
+true on some TI platforms (Kesytone 2). As result, it is possible that
+CPTS counter will overflow more than once between two readings.
 
-Hence, calc mult and shift basing on CPTS rfclk frequency if both
-cpts_clock_shift and cpts_clock_mult properties are not provided in DT (the
-basis of calculation algorithm is borrowed from
-__clocksource_update_freq_scale() commit 7d2f944a2b83 ("clocksource:
-Provide a generic mult/shift factor calculation")). After this change
-cpts_clock_shift and cpts_clock_mult DT properties will become optional.
+Hence, fix it by selecting overflow check period dynamically as
+max_sec_before_overflow/2, where
+ max_sec_before_overflow = max_counter_val / rftclk_freq.
 
 Cc: John Stultz <john.stultz@linaro.org>
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- Documentation/devicetree/bindings/net/cpsw.txt |  8 +++--
- drivers/net/ethernet/ti/cpts.c                 | 50 ++++++++++++++++++++++----
- 2 files changed, 48 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 10 +++++++---
+ drivers/net/ethernet/ti/cpts.h |  4 +---
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 5ad439f..ebda7c9 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -20,8 +20,6 @@ Required properties:
- - slaves		: Specifies number for slaves
- - active_slave		: Specifies the slave to use for time stamping,
- 			  ethtool and SIOCGMIIPHY
--- cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
--- cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
- 
- Optional properties:
- - ti,hwmods		: Must be "cpgmac0"
-@@ -35,7 +33,11 @@ Optional properties:
- 			  For example in dra72x-evm, pcf gpio has to be
- 			  driven low so that cpsw slave 0 and phy data
- 			  lines are connected via mux.
--
-+- cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
-+- cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
-+			  Mult and shift will be calculated basing on CPTS
-+			  rftclk frequency if both cpts_clock_shift and
-+			  cpts_clock_mult properties are not provided.
- 
- Slave Properties:
- Required properties:
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index cb844ed..ebd413a 100644
+index ebd413a..0c0d48e 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -405,18 +405,52 @@ void cpts_unregister(struct cpts *cpts)
+@@ -245,7 +245,7 @@ static void cpts_overflow_check(struct work_struct *work)
+ 
+ 	cpts_ptp_gettime(&cpts->info, &ts);
+ 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
+-	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
++	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
  }
- EXPORT_SYMBOL_GPL(cpts_unregister);
  
-+static void cpts_calc_mult_shift(struct cpts *cpts)
-+{
-+	u64 frac, maxsec, ns;
-+	u32 freq;
-+
-+	freq = clk_get_rate(cpts->refclk);
-+
-+	/* Calc the maximum number of seconds which we can run before
-+	 * wrapping around.
-+	 */
-+	maxsec = cpts->cc.mask;
-+	do_div(maxsec, freq);
-+	/* limit conversation rate to 10 sec as higher values will produce
-+	 * too small mult factors and so reduce the conversion accuracy
-+	 */
-+	if (maxsec > 10)
-+		maxsec = 10;
-+
-+	if (cpts->cc.mult || cpts->cc.shift)
-+		return;
-+
-+	clocks_calc_mult_shift(&cpts->cc.mult, &cpts->cc.shift,
-+			       freq, NSEC_PER_SEC, maxsec);
-+
-+	frac = 0;
-+	ns = cyclecounter_cyc2ns(&cpts->cc, freq, cpts->cc.mask, &frac);
-+
-+	dev_info(cpts->dev,
-+		 "CPTS: ref_clk_freq:%u calc_mult:%u calc_shift:%u error:%lld nsec/sec\n",
-+		 freq, cpts->cc.mult, cpts->cc.shift, (ns - NSEC_PER_SEC));
-+}
-+
- static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
- {
- 	int ret = -EINVAL;
- 	u32 prop;
+ static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
+@@ -378,8 +378,7 @@ int cpts_register(struct cpts *cpts)
+ 	}
+ 	cpts->phc_index = ptp_clock_index(cpts->clock);
  
--	if (of_property_read_u32(node, "cpts_clock_mult", &prop))
--		goto  of_error;
--	cpts->cc.mult = prop;
-+	if (!of_property_read_u32(node, "cpts_clock_mult", &prop))
-+		cpts->cc.mult = prop;
- 
--	if (of_property_read_u32(node, "cpts_clock_shift", &prop))
--		goto  of_error;
--	cpts->cc.shift = prop;
-+	if (!of_property_read_u32(node, "cpts_clock_shift", &prop))
-+		cpts->cc.shift = prop;
-+
-+	if ((cpts->cc.mult && !cpts->cc.shift) ||
-+	    (!cpts->cc.mult && cpts->cc.shift))
-+		goto of_error;
- 
+-	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+-
++	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
  	return 0;
  
-@@ -454,11 +488,13 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+ err_ptp:
+@@ -423,6 +422,11 @@ static void cpts_calc_mult_shift(struct cpts *cpts)
+ 	if (maxsec > 10)
+ 		maxsec = 10;
  
- 	cpts->cc.read = cpts_systim_read;
- 	cpts->cc.mask = CLOCKSOURCE_MASK(32);
-+	cpts->info = cpts_info;
++	/* Calc overflow check period (maxsec / 2) */
++	cpts->ov_check_period = (HZ * maxsec) / 2;
++	dev_info(cpts->dev, "cpts: overflow check period %lu (jiffies)\n",
++		 cpts->ov_check_period);
 +
-+	cpts_calc_mult_shift(cpts);
- 	/* save cc.mult original value as it can be modified
- 	 * by cpts_ptp_adjfreq().
- 	 */
- 	cpts->cc_mult = cpts->cc.mult;
--	cpts->info = cpts_info;
+ 	if (cpts->cc.mult || cpts->cc.shift)
+ 		return;
  
- 	return cpts;
- }
+diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
+index 5da23af..c96eca2 100644
+--- a/drivers/net/ethernet/ti/cpts.h
++++ b/drivers/net/ethernet/ti/cpts.h
+@@ -97,9 +97,6 @@ enum {
+ 	CPTS_EV_TX,   /* Ethernet Transmit Event */
+ };
+ 
+-/* This covers any input clock up to about 500 MHz. */
+-#define CPTS_OVERFLOW_PERIOD (HZ * 8)
+-
+ #define CPTS_FIFO_DEPTH 16
+ #define CPTS_MAX_EVENTS 32
+ 
+@@ -127,6 +124,7 @@ struct cpts {
+ 	struct list_head events;
+ 	struct list_head pool;
+ 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
++	unsigned long ov_check_period;
+ };
+ 
+ void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
 -- 
 2.10.1
