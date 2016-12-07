@@ -1,43 +1,71 @@
-From: Niklas Cassel <nks.gnu@gmail.com>
-Subject: Re: [PATCH] [v3] net: phy: phy drivers should not set SUPPORTED_[Asym_]Pause
-Date: Wed, 7 Dec 2016 10:13:54 +0100
-Message-ID: <CAD5ja61A3diBgYwscUSoxJqE1ydmzr+cQ9rR+8uZa0mw-0m_3Q@mail.gmail.com>
-References: <1481070443-15118-1-git-send-email-timur@codeaurora.org>
- <2c2aaf1d-05a5-d2bc-d04a-79224a4c6b43@gmail.com> <58476ACB.3030206@codeaurora.org>
- <f62595d4-2dd7-9cc3-7537-2ff186dadc8c@gmail.com> <58477A03.6000107@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
-        netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] nlmon: use core MTU range checking in nlmon driver
+Date: Wed,  7 Dec 2016 17:26:05 +0800
+Message-ID: <1481102765-12021-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: jarod@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:37812 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752328AbcLGJOL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:14:11 -0500
-Received: by mail-wm0-f53.google.com with SMTP id t79so156151729wmt.0
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 01:13:56 -0800 (PST)
-In-Reply-To: <58477A03.6000107@codeaurora.org>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:44092 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752366AbcLGJ00 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:26:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You might want to include drivers/net/phy/dp83848.c in your patch.
-Support for pause frames in that phy was recently added to netdev-next.
+Since commit 61e84623ace3 ("net: centralize net_device min/max MTU checking"),
+mtu range is checked at dev_set_mtu().
 
+This patch adds min_mtu for nlmon device and remove unnecessary
+ndo_change_mtu() function.
 
-On Wed, Dec 7, 2016 at 3:54 AM, Timur Tabi <timur@codeaurora.org> wrote:
-> Florian Fainelli wrote:
->>
->> which is why this made me think the & (SUPPORTED_Pause |
->> SUPPPORTED_Asym_Pause) here is most likely redundant?
->
->
-> Well, like I said, better safe than sorry.  I'd rather keep the &= unless
-> you have a strong objection.
->
->
-> --
-> Sent by an employee of the Qualcomm Innovation Center, Inc.
-> The Qualcomm Innovation Center, Inc. is a member of the
-> Code Aurora Forum, hosted by The Linux Foundation.
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ drivers/net/nlmon.c | 20 +-------------------
+ 1 file changed, 1 insertion(+), 19 deletions(-)
+
+diff --git a/drivers/net/nlmon.c b/drivers/net/nlmon.c
+index 7b7c70e..2de7fae 100644
+--- a/drivers/net/nlmon.c
++++ b/drivers/net/nlmon.c
+@@ -27,24 +27,6 @@ static netdev_tx_t nlmon_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static int nlmon_is_valid_mtu(int new_mtu)
+-{
+-	/* Note that in netlink we do not really have an upper limit. On
+-	 * default, we use NLMSG_GOODSIZE. Here at least we should make
+-	 * sure that it's at least the header size.
+-	 */
+-	return new_mtu >= (int) sizeof(struct nlmsghdr);
+-}
+-
+-static int nlmon_change_mtu(struct net_device *dev, int new_mtu)
+-{
+-	if (!nlmon_is_valid_mtu(new_mtu))
+-		return -EINVAL;
+-
+-	dev->mtu = new_mtu;
+-	return 0;
+-}
+-
+ static int nlmon_dev_init(struct net_device *dev)
+ {
+ 	dev->lstats = netdev_alloc_pcpu_stats(struct pcpu_lstats);
+@@ -124,7 +106,6 @@ static u32 always_on(struct net_device *dev)
+ 	.ndo_stop = nlmon_close,
+ 	.ndo_start_xmit = nlmon_xmit,
+ 	.ndo_get_stats64 = nlmon_get_stats64,
+-	.ndo_change_mtu = nlmon_change_mtu,
+ };
+ 
+ static void nlmon_setup(struct net_device *dev)
+@@ -145,6 +126,7 @@ static void nlmon_setup(struct net_device *dev)
+ 	 * expected in most cases.
+ 	 */
+ 	dev->mtu = NLMSG_GOODSIZE;
++	dev->min_mtu = sizeof(struct nlmsghdr);
+ }
+ 
+ static int nlmon_validate(struct nlattr *tb[], struct nlattr *data[])
+-- 
+1.8.3.1
