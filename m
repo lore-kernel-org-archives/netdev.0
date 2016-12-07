@@ -1,50 +1,52 @@
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 0/7] liquidio VF data path
-Date: Wed, 7 Dec 2016 08:54:30 -0800
-Message-ID: <1481129677-10586-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
+ prog
+Date: Wed, 07 Dec 2016 12:04:13 -0500 (EST)
+Message-ID: <20161207.120413.939362482173997833.davem@davemloft.net>
+References: <5847D723.3020908@iogearbox.net>
+        <20161207114112.6ad86da3@jkicinski-Precision-T1700>
+        <20161207163756.GA33446@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kubakici@wp.pl, daniel@iogearbox.net, kafai@fb.com,
+        netdev@vger.kernel.org, ast@fb.com, bblanco@plumgrid.com,
+        brouer@redhat.com, john.fastabend@gmail.com, saeedm@mellanox.com,
+        tariqt@mellanox.com, kernel-team@fb.com
+To: alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0084.outbound.protection.outlook.com ([104.47.37.84]:43712
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932681AbcLGQyz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 11:54:55 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:35584 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752017AbcLGRES (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:04:18 -0500
+In-Reply-To: <20161207163756.GA33446@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Wed, 7 Dec 2016 08:37:58 -0800
 
-Following is V3 patch series that adds support for VF
-data path related features. It also has following changes
-related to previous comments:
-1) Remove unnecessary "void *" casting.
-2) Remove inline for functions and let gcc decide.
+> On Wed, Dec 07, 2016 at 11:41:12AM +0000, Jakub Kicinski wrote:
+>> > I see nothing wrong if this is exposed/made visible in the usual way through
+>> > ethtool -k as well. I guess at least that would be the expected way to query
+>> > for such driver capabilities.
+>> 
+>> +1 on exposing this to user space.  Whether via ethtool -k or a
+>> separate XDP-specific netlink message is mostly a question of whether
+>> we expect the need to expose more complex capabilities than bits.
+> 
+> I'm very much against using NETIF_F_ flags and exposing this to user space.
+> I see this xdp feature flag as temporary workaround until all drivers
+> support adjust_head() helper. It is very much a fundamental feature for xdp.
+> Without being able to add/remove headers the usability of xdp becomes very limited.
+> 
+> If you guys dont like extra ndo_xdp command, I'd suggest to do
+> "if (prog->xdp_adjust_head)" check in the driver and if driver doesn't
+> support it yet, just fail XDP_SETUP_PROG command.
+> imo that will be more flexible interface, since in the future drivers
+> can fail on different combination of features and simple boolean flag
+> unlikely to serve us for long time.
 
-Please apply patches in following order as some of them
-depend on earlier patches.
-
-Raghu Vatsavayi (7):
-  liquidio CN23XX: VF offload features
-  liquidio CN23XX: VF link status
-  liquidio CN23XX: VF mac address
-  liquidio CN23XX: VF scatter gather lists
-  liquidio CN23XX: VF xmit
-  liquidio CN23XX: VF TX buffers
-  liquidio VF rx data and ctl path
-
- .../ethernet/cavium/liquidio/cn23xx_vf_device.c    |   21 +
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 2094 +++++++++++++++++++-
- .../net/ethernet/cavium/liquidio/liquidio_common.h |    1 +
- .../net/ethernet/cavium/liquidio/octeon_device.c   |    5 +-
- drivers/net/ethernet/cavium/liquidio/octeon_droq.c |   10 +
- .../net/ethernet/cavium/liquidio/octeon_network.h  |    1 +
- .../net/ethernet/cavium/liquidio/request_manager.c |    6 +-
- .../ethernet/cavium/liquidio/response_manager.c    |    3 +-
- 8 files changed, 2124 insertions(+), 17 deletions(-)
-
--- 
-1.8.3.1
+Indeed, if the eventual plan is to have all drivers be required to
+support a fundamental set of XDP features then exporting this in any
+way to userspace is not a good idea.
