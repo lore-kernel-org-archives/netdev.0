@@ -1,232 +1,346 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 41/50] netfilter: nft_objref: support for stateful object maps
-Date: Wed,  7 Dec 2016 22:52:47 +0100
-Message-ID: <1481147576-5690-42-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/50] netfilter: conntrack: register hooks in netns when needed by ruleset
+Date: Wed,  7 Dec 2016 22:52:23 +0100
+Message-ID: <1481147576-5690-18-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60212 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:60218 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933438AbcLGVxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 16:53:54 -0500
+        id S933354AbcLGVxk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 16:53:40 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id A7C15344
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:53 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id D0E60C0B45
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:33 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 966DEDA86C
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:53 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B9F36DA86F
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:33 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 63EFFDA85F
-        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:51 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 517EADA862
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:31 +0100 (CET)
 In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows us to refer to stateful object dictionaries, the
-source register indicates the key data to be used to look up for the
-corresponding state object. We can refer to these maps through names or,
-alternatively, the map transaction id. This allows us to refer to both
-anonymous and named maps.
+From: Florian Westphal <fw@strlen.de>
 
+This makes use of nf_ct_netns_get/put added in previous patch.
+We add get/put functions to nf_conntrack_l3proto structure, ipv4 and ipv6
+then implement use-count to track how many users (nft or xtables modules)
+have a dependency on ipv4 and/or ipv6 connection tracking functionality.
+
+When count reaches zero, the hooks are unregistered.
+
+This delays activation of connection tracking inside a namespace until
+stateful firewall rule or nat rule gets added.
+
+This patch breaks backwards compatibility in the sense that connection
+tracking won't be active anymore when the protocol tracker module is
+loaded.  This breaks e.g. setups that ctnetlink for flow accounting and
+the like, without any '-m conntrack' packet filter rules.
+
+Followup patch restores old behavour and makes new delayed scheme
+optional via sysctl.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |   6 ++
- net/netfilter/nf_tables_api.c            |   4 ++
- net/netfilter/nft_objref.c               | 116 ++++++++++++++++++++++++++++++-
- 3 files changed, 125 insertions(+), 1 deletion(-)
+ include/net/netfilter/nf_conntrack_l3proto.h   |  4 ++
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c | 55 ++++++++++++++++++++------
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c | 54 +++++++++++++++++++------
+ net/netfilter/nf_conntrack_proto.c             | 38 +++++++++++++++++-
+ 4 files changed, 127 insertions(+), 24 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index a6b52dbff08c..881d49e94569 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -1153,11 +1153,17 @@ enum nft_fwd_attributes {
-  *
-  * @NFTA_OBJREF_IMM_TYPE: object type for immediate reference (NLA_U32: nft_register)
-  * @NFTA_OBJREF_IMM_NAME: object name for immediate reference (NLA_STRING)
-+ * @NFTA_OBJREF_SET_SREG: source register of the data to look for (NLA_U32: nft_registers)
-+ * @NFTA_OBJREF_SET_NAME: name of the set where to look for (NLA_STRING)
-+ * @NFTA_OBJREF_SET_ID: id of the set where to look for in this transaction (NLA_U32)
-  */
- enum nft_objref_attributes {
- 	NFTA_OBJREF_UNSPEC,
- 	NFTA_OBJREF_IMM_TYPE,
- 	NFTA_OBJREF_IMM_NAME,
-+	NFTA_OBJREF_SET_SREG,
-+	NFTA_OBJREF_SET_NAME,
-+	NFTA_OBJREF_SET_ID,
- 	__NFTA_OBJREF_MAX
- };
- #define NFTA_OBJREF_MAX	(__NFTA_OBJREF_MAX - 1)
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 8228714c42d5..b4db5bf4c135 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -2504,6 +2504,7 @@ struct nft_set *nf_tables_set_lookup(const struct nft_table *table,
- 	}
- 	return ERR_PTR(-ENOENT);
- }
-+EXPORT_SYMBOL_GPL(nf_tables_set_lookup);
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index cf8f3dfd810d..e7dcd72be21c 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -52,6 +52,10 @@ struct nf_conntrack_l3proto {
+ 	int (*tuple_to_nlattr)(struct sk_buff *skb,
+ 			       const struct nf_conntrack_tuple *t);
  
- struct nft_set *nf_tables_set_lookup_byid(const struct net *net,
- 					  const struct nlattr *nla,
-@@ -2522,6 +2523,7 @@ struct nft_set *nf_tables_set_lookup_byid(const struct net *net,
- 	}
- 	return ERR_PTR(-ENOENT);
- }
-+EXPORT_SYMBOL_GPL(nf_tables_set_lookup_byid);
++	/* Called when netns wants to use connection tracking */
++	int (*net_ns_get)(struct net *);
++	void (*net_ns_put)(struct net *);
++
+ 	/*
+ 	 * Calculate size of tuple nlattr
+ 	 */
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index a006b6534323..6f375443a74b 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -31,6 +31,13 @@
+ #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
+ #include <net/netfilter/nf_log.h>
  
- static int nf_tables_set_alloc_name(struct nft_ctx *ctx, struct nft_set *set,
- 				    const char *name)
-@@ -3124,6 +3126,7 @@ int nf_tables_bind_set(const struct nft_ctx *ctx, struct nft_set *set,
- 	list_add_tail_rcu(&binding->list, &set->bindings);
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(nf_tables_bind_set);
- 
- void nf_tables_unbind_set(const struct nft_ctx *ctx, struct nft_set *set,
- 			  struct nft_set_binding *binding)
-@@ -3134,6 +3137,7 @@ void nf_tables_unbind_set(const struct nft_ctx *ctx, struct nft_set *set,
- 	    nft_is_active(ctx->net, set))
- 		nf_tables_set_destroy(ctx, set);
- }
-+EXPORT_SYMBOL_GPL(nf_tables_unbind_set);
- 
- const struct nft_set_ext_type nft_set_ext_types[] = {
- 	[NFT_SET_EXT_KEY]		= {
-diff --git a/net/netfilter/nft_objref.c b/net/netfilter/nft_objref.c
-index 23820f796aad..415a65ba2b85 100644
---- a/net/netfilter/nft_objref.c
-+++ b/net/netfilter/nft_objref.c
-@@ -81,14 +81,128 @@ static const struct nft_expr_ops nft_objref_ops = {
- 	.dump		= nft_objref_dump,
- };
- 
-+struct nft_objref_map {
-+	struct nft_set		*set;
-+	enum nft_registers	sreg:8;
-+	struct nft_set_binding	binding;
++static int conntrack4_net_id __read_mostly;
++static DEFINE_MUTEX(register_ipv4_hooks);
++
++struct conntrack4_net {
++	unsigned int users;
 +};
 +
-+static void nft_objref_map_eval(const struct nft_expr *expr,
-+				struct nft_regs *regs,
-+				const struct nft_pktinfo *pkt)
-+{
-+	struct nft_objref_map *priv = nft_expr_priv(expr);
-+	const struct nft_set *set = priv->set;
-+	const struct nft_set_ext *ext;
-+	struct nft_object *obj;
-+	bool found;
-+
-+	found = set->ops->lookup(nft_net(pkt), set, &regs->data[priv->sreg],
-+				 &ext);
-+	if (!found) {
-+		regs->verdict.code = NFT_BREAK;
-+		return;
-+	}
-+	obj = *nft_set_ext_obj(ext);
-+	obj->type->eval(obj, regs, pkt);
-+}
-+
-+static int nft_objref_map_init(const struct nft_ctx *ctx,
-+			       const struct nft_expr *expr,
-+			       const struct nlattr * const tb[])
-+{
-+	struct nft_objref_map *priv = nft_expr_priv(expr);
-+	u8 genmask = nft_genmask_next(ctx->net);
-+	struct nft_set *set;
-+	int err;
-+
-+	set = nf_tables_set_lookup(ctx->table, tb[NFTA_OBJREF_SET_NAME], genmask);
-+	if (IS_ERR(set)) {
-+		if (tb[NFTA_OBJREF_SET_ID]) {
-+			set = nf_tables_set_lookup_byid(ctx->net,
-+							tb[NFTA_OBJREF_SET_ID],
-+							genmask);
-+		}
-+		if (IS_ERR(set))
-+			return PTR_ERR(set);
-+	}
-+
-+	if (!(set->flags & NFT_SET_OBJECT))
-+		return -EINVAL;
-+
-+	priv->sreg = nft_parse_register(tb[NFTA_OBJREF_SET_SREG]);
-+	err = nft_validate_register_load(priv->sreg, set->klen);
-+	if (err < 0)
-+		return err;
-+
-+	priv->binding.flags = set->flags & NFT_SET_OBJECT;
-+
-+	err = nf_tables_bind_set(ctx, set, &priv->binding);
-+	if (err < 0)
-+		return err;
-+
-+	priv->set = set;
-+	return 0;
-+}
-+
-+static int nft_objref_map_dump(struct sk_buff *skb, const struct nft_expr *expr)
-+{
-+	const struct nft_objref_map *priv = nft_expr_priv(expr);
-+
-+	if (nft_dump_register(skb, NFTA_OBJREF_SET_SREG, priv->sreg) ||
-+	    nla_put_string(skb, NFTA_OBJREF_SET_NAME, priv->set->name))
-+		goto nla_put_failure;
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -1;
-+}
-+
-+static void nft_objref_map_destroy(const struct nft_ctx *ctx,
-+				   const struct nft_expr *expr)
-+{
-+	struct nft_objref_map *priv = nft_expr_priv(expr);
-+
-+	nf_tables_unbind_set(ctx, priv->set, &priv->binding);
-+}
-+
-+static struct nft_expr_type nft_objref_type;
-+static const struct nft_expr_ops nft_objref_map_ops = {
-+	.type		= &nft_objref_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_objref_map)),
-+	.eval		= nft_objref_map_eval,
-+	.init		= nft_objref_map_init,
-+	.destroy	= nft_objref_map_destroy,
-+	.dump		= nft_objref_map_dump,
-+};
-+
-+static const struct nft_expr_ops *
-+nft_objref_select_ops(const struct nft_ctx *ctx,
-+                      const struct nlattr * const tb[])
-+{
-+	if (tb[NFTA_OBJREF_SET_SREG] &&
-+	    (tb[NFTA_OBJREF_SET_NAME] ||
-+	     tb[NFTA_OBJREF_SET_ID]))
-+		return &nft_objref_map_ops;
-+	else if (tb[NFTA_OBJREF_IMM_NAME] &&
-+		 tb[NFTA_OBJREF_IMM_TYPE])
-+		return &nft_objref_ops;
-+
-+	return ERR_PTR(-EOPNOTSUPP);
-+}
-+
- static const struct nla_policy nft_objref_policy[NFTA_OBJREF_MAX + 1] = {
- 	[NFTA_OBJREF_IMM_NAME]	= { .type = NLA_STRING },
- 	[NFTA_OBJREF_IMM_TYPE]	= { .type = NLA_U32 },
-+	[NFTA_OBJREF_SET_SREG]	= { .type = NLA_U32 },
-+	[NFTA_OBJREF_SET_NAME]	= { .type = NLA_STRING },
-+	[NFTA_OBJREF_SET_ID]	= { .type = NLA_U32 },
- };
- 
- static struct nft_expr_type nft_objref_type __read_mostly = {
- 	.name		= "objref",
--	.ops		= &nft_objref_ops,
-+	.select_ops	= nft_objref_select_ops,
- 	.policy		= nft_objref_policy,
- 	.maxattr	= NFTA_OBJREF_MAX,
+ static bool ipv4_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
+ 			      struct nf_conntrack_tuple *tuple)
+ {
+@@ -307,6 +314,38 @@ static struct nf_sockopt_ops so_getorigdst = {
  	.owner		= THIS_MODULE,
+ };
+ 
++static int ipv4_hooks_register(struct net *net)
++{
++	struct conntrack4_net *cnet = net_generic(net, conntrack4_net_id);
++	int err = 0;
++
++	mutex_lock(&register_ipv4_hooks);
++
++	cnet->users++;
++	if (cnet->users > 1)
++		goto out_unlock;
++
++	err = nf_register_net_hooks(net, ipv4_conntrack_ops,
++				    ARRAY_SIZE(ipv4_conntrack_ops));
++
++	if (err)
++		cnet->users = 0;
++ out_unlock:
++	mutex_unlock(&register_ipv4_hooks);
++	return err;
++}
++
++static void ipv4_hooks_unregister(struct net *net)
++{
++	struct conntrack4_net *cnet = net_generic(net, conntrack4_net_id);
++
++	mutex_lock(&register_ipv4_hooks);
++	if (cnet->users && (--cnet->users == 0))
++		nf_unregister_net_hooks(net, ipv4_conntrack_ops,
++					ARRAY_SIZE(ipv4_conntrack_ops));
++	mutex_unlock(&register_ipv4_hooks);
++}
++
+ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
+ 	.l3proto	 = PF_INET,
+ 	.name		 = "ipv4",
+@@ -320,6 +359,8 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
+ 	.nlattr_to_tuple = ipv4_nlattr_to_tuple,
+ 	.nla_policy	 = ipv4_nla_policy,
+ #endif
++	.net_ns_get	 = ipv4_hooks_register,
++	.net_ns_put	 = ipv4_hooks_unregister,
+ 	.me		 = THIS_MODULE,
+ };
+ 
+@@ -372,6 +413,8 @@ static void ipv4_net_exit(struct net *net)
+ static struct pernet_operations ipv4_net_ops = {
+ 	.init = ipv4_net_init,
+ 	.exit = ipv4_net_exit,
++	.id = &conntrack4_net_id,
++	.size = sizeof(struct conntrack4_net),
+ };
+ 
+ static int __init nf_conntrack_l3proto_ipv4_init(void)
+@@ -393,17 +436,10 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ 		goto cleanup_sockopt;
+ 	}
+ 
+-	ret = nf_register_hooks(ipv4_conntrack_ops,
+-				ARRAY_SIZE(ipv4_conntrack_ops));
+-	if (ret < 0) {
+-		pr_err("nf_conntrack_ipv4: can't register hooks.\n");
+-		goto cleanup_pernet;
+-	}
+-
+ 	ret = nf_ct_l4proto_register(builtin_l4proto4,
+ 				     ARRAY_SIZE(builtin_l4proto4));
+ 	if (ret < 0)
+-		goto cleanup_hooks;
++		goto cleanup_pernet;
+ 
+ 	ret = nf_ct_l3proto_register(&nf_conntrack_l3proto_ipv4);
+ 	if (ret < 0) {
+@@ -415,8 +451,6 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ cleanup_l4proto:
+ 	nf_ct_l4proto_unregister(builtin_l4proto4,
+ 				 ARRAY_SIZE(builtin_l4proto4));
+- cleanup_hooks:
+-	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
+  cleanup_pernet:
+ 	unregister_pernet_subsys(&ipv4_net_ops);
+  cleanup_sockopt:
+@@ -430,7 +464,6 @@ static void __exit nf_conntrack_l3proto_ipv4_fini(void)
+ 	nf_ct_l3proto_unregister(&nf_conntrack_l3proto_ipv4);
+ 	nf_ct_l4proto_unregister(builtin_l4proto4,
+ 				 ARRAY_SIZE(builtin_l4proto4));
+-	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
+ 	unregister_pernet_subsys(&ipv4_net_ops);
+ 	nf_unregister_sockopt(&so_getorigdst);
+ }
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 389f712854f2..72fe48075b7f 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -34,6 +34,13 @@
+ #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+ #include <net/netfilter/nf_log.h>
+ 
++static int conntrack6_net_id;
++static DEFINE_MUTEX(register_ipv6_hooks);
++
++struct conntrack6_net {
++	unsigned int users;
++};
++
+ static bool ipv6_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
+ 			      struct nf_conntrack_tuple *tuple)
+ {
+@@ -308,6 +315,36 @@ static int ipv6_nlattr_tuple_size(void)
+ }
+ #endif
+ 
++static int ipv6_hooks_register(struct net *net)
++{
++	struct conntrack6_net *cnet = net_generic(net, conntrack6_net_id);
++	int err = 0;
++
++	mutex_lock(&register_ipv6_hooks);
++	cnet->users++;
++	if (cnet->users > 1)
++		goto out_unlock;
++
++	err = nf_register_net_hooks(net, ipv6_conntrack_ops,
++				    ARRAY_SIZE(ipv6_conntrack_ops));
++	if (err)
++		cnet->users = 0;
++ out_unlock:
++	mutex_unlock(&register_ipv6_hooks);
++	return err;
++}
++
++static void ipv6_hooks_unregister(struct net *net)
++{
++	struct conntrack6_net *cnet = net_generic(net, conntrack6_net_id);
++
++	mutex_lock(&register_ipv6_hooks);
++	if (cnet->users && (--cnet->users == 0))
++		nf_unregister_net_hooks(net, ipv6_conntrack_ops,
++					ARRAY_SIZE(ipv6_conntrack_ops));
++	mutex_unlock(&register_ipv6_hooks);
++}
++
+ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 __read_mostly = {
+ 	.l3proto		= PF_INET6,
+ 	.name			= "ipv6",
+@@ -321,6 +358,8 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 __read_mostly = {
+ 	.nlattr_to_tuple	= ipv6_nlattr_to_tuple,
+ 	.nla_policy		= ipv6_nla_policy,
+ #endif
++	.net_ns_get		= ipv6_hooks_register,
++	.net_ns_put		= ipv6_hooks_unregister,
+ 	.me			= THIS_MODULE,
+ };
+ 
+@@ -379,6 +418,8 @@ static void ipv6_net_exit(struct net *net)
+ static struct pernet_operations ipv6_net_ops = {
+ 	.init = ipv6_net_init,
+ 	.exit = ipv6_net_exit,
++	.id = &conntrack6_net_id,
++	.size = sizeof(struct conntrack6_net),
+ };
+ 
+ static int __init nf_conntrack_l3proto_ipv6_init(void)
+@@ -398,18 +439,10 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
+ 	if (ret < 0)
+ 		goto cleanup_sockopt;
+ 
+-	ret = nf_register_hooks(ipv6_conntrack_ops,
+-				ARRAY_SIZE(ipv6_conntrack_ops));
+-	if (ret < 0) {
+-		pr_err("nf_conntrack_ipv6: can't register pre-routing defrag "
+-		       "hook.\n");
+-		goto cleanup_pernet;
+-	}
+-
+ 	ret = nf_ct_l4proto_register(builtin_l4proto6,
+ 				     ARRAY_SIZE(builtin_l4proto6));
+ 	if (ret < 0)
+-		goto cleanup_hooks;
++		goto cleanup_pernet;
+ 
+ 	ret = nf_ct_l3proto_register(&nf_conntrack_l3proto_ipv6);
+ 	if (ret < 0) {
+@@ -420,8 +453,6 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
+ cleanup_l4proto:
+ 	nf_ct_l4proto_unregister(builtin_l4proto6,
+ 				 ARRAY_SIZE(builtin_l4proto6));
+- cleanup_hooks:
+-	nf_unregister_hooks(ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
+  cleanup_pernet:
+ 	unregister_pernet_subsys(&ipv6_net_ops);
+  cleanup_sockopt:
+@@ -435,7 +466,6 @@ static void __exit nf_conntrack_l3proto_ipv6_fini(void)
+ 	nf_ct_l3proto_unregister(&nf_conntrack_l3proto_ipv6);
+ 	nf_ct_l4proto_unregister(builtin_l4proto6,
+ 				 ARRAY_SIZE(builtin_l4proto6));
+-	nf_unregister_hooks(ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
+ 	unregister_pernet_subsys(&ipv6_net_ops);
+ 	nf_unregister_sockopt(&so_getorigdst6);
+ }
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 948f1e2fc80b..758688b25fd8 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -127,12 +127,48 @@ EXPORT_SYMBOL_GPL(nf_ct_l3proto_module_put);
+ 
+ int nf_ct_netns_get(struct net *net, u8 nfproto)
+ {
+-	return nf_ct_l3proto_try_module_get(nfproto);
++	const struct nf_conntrack_l3proto *l3proto;
++	int ret;
++
++	might_sleep();
++
++	ret = nf_ct_l3proto_try_module_get(nfproto);
++	if (ret < 0)
++		return ret;
++
++	/* we already have a reference, can't fail */
++	rcu_read_lock();
++	l3proto = __nf_ct_l3proto_find(nfproto);
++	rcu_read_unlock();
++
++	if (!l3proto->net_ns_get)
++		return 0;
++
++	ret = l3proto->net_ns_get(net);
++	if (ret < 0)
++		nf_ct_l3proto_module_put(nfproto);
++
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_netns_get);
+ 
+ void nf_ct_netns_put(struct net *net, u8 nfproto)
+ {
++	const struct nf_conntrack_l3proto *l3proto;
++
++	might_sleep();
++
++	/* same as nf_conntrack_netns_get(), reference assumed */
++	rcu_read_lock();
++	l3proto = __nf_ct_l3proto_find(nfproto);
++	rcu_read_unlock();
++
++	if (WARN_ON(!l3proto))
++		return;
++
++	if (l3proto->net_ns_put)
++		l3proto->net_ns_put(net);
++
+ 	nf_ct_l3proto_module_put(nfproto);
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_netns_put);
 -- 
 2.1.4
