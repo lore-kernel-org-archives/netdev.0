@@ -1,89 +1,48 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] sh_eth: add wake-on-lan support via magic packet
-Date: Wed, 7 Dec 2016 19:14:40 +0100
-Message-ID: <CAMuHMdVK1DtJMajqD-eZ82QSP2ZRozwaR4zNc0ae1YT21Exq0w@mail.gmail.com>
-References: <20161207162843.4731-1-niklas.soderlund+renesas@ragnatech.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf: fix loading of BPF_MAXINSNS sized
+ programs
+Date: Wed, 07 Dec 2016 13:18:04 -0500 (EST)
+Message-ID: <20161207.131804.1728136405665915871.davem@davemloft.net>
+References: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: =?UTF-8?Q?Niklas_S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20161207162843.4731-1-niklas.soderlund+renesas@ragnatech.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37008 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932621AbcLGSSG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 13:18:06 -0500
+In-Reply-To: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas,
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed,  7 Dec 2016 01:15:44 +0100
 
-On Wed, Dec 7, 2016 at 5:28 PM, Niklas S=C3=B6derlund
-<niklas.soderlund+renesas@ragnatech.se> wrote:
-> Signed-off-by: Niklas S=C3=B6derlund <niklas.soderlund+renesas@ragnatech.=
-se>
+> General assumption is that single program can hold up to BPF_MAXINSNS,
+> that is, 4096 number of instructions. It is the case with cBPF and
+> that limit was carried over to eBPF. When recently testing digest, I
+> noticed that it's actually not possible to feed 4096 instructions
+> via bpf(2).
+> 
+> The check for > BPF_MAXINSNS was added back then to bpf_check() in
+> cbd357008604 ("bpf: verifier (add ability to receive verification log)").
+> However, 09756af46893 ("bpf: expand BPF syscall with program load/unload")
+> added yet another check that comes before that into bpf_prog_load(),
+> but this time bails out already in case of >= BPF_MAXINSNS.
+> 
+> Fix it up and perform the check early in bpf_prog_load(), so we can drop
+> the second one in bpf_check(). It makes sense, because also a 0 insn
+> program is useless and we don't want to waste any resources doing work
+> up to bpf_check() point. The existing bpf(2) man page documents E2BIG
+> as the official error for such cases, so just stick with it as well.
+> 
+> Fixes: 09756af46893 ("bpf: expand BPF syscall with program load/unload")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+>  ( net-next is just fine imho. )
 
-Thanks, works fine on r8a7791/koelsch!
-
-Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
-
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -624,7 +624,7 @@ static struct sh_eth_cpu_data r8a779x_data =3D {
->
->         .register_type  =3D SH_ETH_REG_FAST_RCAR,
->
-> -       .ecsr_value     =3D ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
-> +       .ecsr_value     =3D ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD | ECSR_MPD=
-,
-
-Interestingly, the ECSR_MPD bit is already set for several SoCs.
-
-Hence adding ".magic =3D 1" to the entry for r8a7740 instantly gave me work=
-ing
-WoL support on r8a7740/armadillo. Cool!
-
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -493,6 +493,7 @@ struct sh_eth_cpu_data {
->         unsigned shift_rd0:1;   /* shift Rx descriptor word 0 right by 16=
- */
->         unsigned rmiimode:1;    /* EtherC has RMIIMODE register */
->         unsigned rtrate:1;      /* EtherC has RTRATE register */
-> +       unsigned magic:1;       /* EtherC have PMDE in ECMR and MPDIP in =
-ECSIPR */
-
-Instead of adding a new flag, perhaps you can just check for the ECSR_MPD f=
-lag
-in ecsr_value?
-
-> @@ -529,6 +530,9 @@ struct sh_eth_private {
->         unsigned no_ether_link:1;
->         unsigned ether_link_active_low:1;
->         unsigned is_opened:1;
-> +
-> +       bool wol_enabled;
-
-"unsigned wol_enabled:1", to merge with the bitfield above?
-
-> +       struct clk *clk;
-
-It's a good practice to keep all pointers at the top of the struct, to avoi=
-d
-gaps due to alignment restrictions, especially on 64-bit (I know that's not
-the case here).
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
-.org
-
-In personal conversations with technical people, I call myself a hacker. Bu=
-t
-when I'm talking to journalists I just say "programmer" or something like t=
-hat.
-                                -- Linus Torvalds
+Applied.
