@@ -1,43 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next][PATCH v2 18/18] RDS: IB: add missing connection
- cache usage info
-Date: Wed, 07 Dec 2016 10:55:31 -0500 (EST)
-Message-ID: <20161207.105531.1347292514118544125.davem@davemloft.net>
-References: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
-        <1481083316-11648-19-git-send-email-santosh.shilimkar@oracle.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v2 0/7] bnxt_en: Add interface to support RDMA
+ driver.
+Date: Wed, 07 Dec 2016 10:59:42 -0500 (EST)
+Message-ID: <20161207.105942.1110054643013714151.davem@davemloft.net>
+References: <1481088381-30411-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: santosh.shilimkar@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481083316-11648-19-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1481088381-30411-1-git-send-email-michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Tue,  6 Dec 2016 20:01:56 -0800
+From: Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Date: Wed,  7 Dec 2016 00:26:14 -0500
 
-> rds-tools already support it.
+> This series adds an interface to support a brand new RDMA driver bnxt_re.
+> The first step is to re-arrange some code so that pci_enable_msix() can
+> be called during pci probe.  The purpose is to allow the RDMA driver to
+> initialize and stay initialized whether the netdev is up or down.
 > 
-> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> ---
->  include/uapi/linux/rds.h | 1 +
->  net/rds/ib.c             | 1 +
->  2 files changed, 2 insertions(+)
+> Then we make some changes to VF resource allocation so that there is
+> enough resources to support RDMA.
 > 
-> diff --git a/include/uapi/linux/rds.h b/include/uapi/linux/rds.h
-> index 3833113..410ae3c 100644
-> --- a/include/uapi/linux/rds.h
-> +++ b/include/uapi/linux/rds.h
-> @@ -183,6 +183,7 @@ struct rds_info_rdma_connection {
->  	uint32_t	max_send_sge;
->  	uint32_t	rdma_mr_max;
->  	uint32_t	rdma_mr_size;
-> +	uint32_t	cache_allocs;
->  };
->  
->  /* RDS message Receive Path Latency points */
+> Finally the last patch adds a simple interface to allow the RDMA driver to
+> probe and register itself with any bnxt_en devices that support RDMA.
+> Once registered, the RDMA driver can request MSIX, send fw messages, and
+> receive some notifications.
+> 
+> v2: Fixed kbuild test robot warnings.
+> 
+> David, please consider this series for net-next.  Thanks.
 
-What level of compatability exists here?  If we run an old tool on a new
-kernel, or a new tool on an old kernel, does it work properly?
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
