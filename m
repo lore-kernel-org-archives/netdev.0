@@ -1,52 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 iproute2/net-next 0/3] tc: flower: Support matching
- on ICMP
-Date: Wed, 7 Dec 2016 09:21:55 -0800
-Message-ID: <20161207092155.4d51ca84@xeon-e3>
-References: <1481118843-10428-1-git-send-email-simon.horman@netronome.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH v3 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
+ prog
+Date: Wed, 7 Dec 2016 09:26:14 -0800
+Message-ID: <20161207172614.GA5200@kafai-mba.local>
+References: <1481088714-54512-1-git-send-email-kafai@fb.com>
+ <1481088714-54512-2-git-send-email-kafai@fb.com>
+ <5847D723.3020908@iogearbox.net>
+ <20161207114112.6ad86da3@jkicinski-Precision-T1700>
+ <20161207163756.GA33446@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Jakub Kicinski <kubakici@wp.pl>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        <netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        David Miller <davem@davemloft.net>,
+        "Jesper Dangaard Brouer" <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        "Saeed Mahameed" <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "Kernel Team" <kernel-team@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33583 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752479AbcLGRW5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:22:57 -0500
-Received: by mail-pg0-f46.google.com with SMTP id 3so164089794pgd.0
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 09:22:03 -0800 (PST)
-In-Reply-To: <1481118843-10428-1-git-send-email-simon.horman@netronome.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58634 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752479AbcLGR0n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:26:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20161207163756.GA33446@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  7 Dec 2016 14:54:00 +0100
-Simon Horman <simon.horman@netronome.com> wrote:
-
-> Add support for matching on ICMP type and code to flower. This is modeled
-> on existing support for matching on L4 ports.
-> 
-> The second patch provided a minor cleanup which is in keeping with
-> they style used in the last patch.
-> 
-> This is marked as an RFC to match the same designation given to the
-> corresponding kernel patches.
-> 
-> 
-> Changes since v1:
-> * Rebase
-> * Do not run noths() on u8 entity
-> 
-> Simon Horman (3):
->   tc: flower: update headers for TCA_FLOWER_KEY_ICMP*
->   tc: flower: introduce enum flower_endpoint
->   tc: flower: support matching on ICMP type and code
-> 
->  include/linux/pkt_cls.h |  10 ++++
->  man/man8/tc-flower.8    |  20 ++++++--
->  tc/f_flower.c           | 123 +++++++++++++++++++++++++++++++++++++++++++-----
->  3 files changed, 135 insertions(+), 18 deletions(-)
-> 
-
-I am holding of applying these to net-next until David applies kernel
-portion.
+On Wed, Dec 07, 2016 at 08:37:58AM -0800, Alexei Starovoitov wrote:
+> On Wed, Dec 07, 2016 at 11:41:12AM +0000, Jakub Kicinski wrote:
+> > > I see nothing wrong if this is exposed/made visible in the usual way through
+> > > ethtool -k as well. I guess at least that would be the expected way to query
+> > > for such driver capabilities.
+> >
+> > +1 on exposing this to user space.  Whether via ethtool -k or a
+> > separate XDP-specific netlink message is mostly a question of whether
+> > we expect the need to expose more complex capabilities than bits.
+>
+> I'm very much against using NETIF_F_ flags and exposing this to user space.
+> I see this xdp feature flag as temporary workaround until all drivers
+> support adjust_head() helper. It is very much a fundamental feature for xdp.
+> Without being able to add/remove headers the usability of xdp becomes very limited.
+>
+> If you guys dont like extra ndo_xdp command, I'd suggest to do
+> "if (prog->xdp_adjust_head)" check in the driver and if driver doesn't
+> support it yet, just fail XDP_SETUP_PROG command.
+> imo that will be more flexible interface, since in the future drivers
+> can fail on different combination of features and simple boolean flag
+> unlikely to serve us for long time.
+It makes sense that adjust_head() will eventually be supported by
+all xdp-capable driver.  If that is the case, lets check
+prog->xdp_adjust_head inside the driver instead of adding
+another ndo_xdp command which will become unuseful very soon.
