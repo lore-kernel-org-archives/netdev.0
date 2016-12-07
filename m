@@ -1,45 +1,45 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] icmp: correct return value of icmp_rcv()
-Date: Wed,  7 Dec 2016 14:52:53 +0800
-Message-ID: <1481093573-5123-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:19230 "EHLO
-        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751092AbcLGGxL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 01:53:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: manual merge of the staging tree with the net-next
+ tree
+Date: Wed, 7 Dec 2016 08:02:55 +0100
+Message-ID: <20161207070255.GB9824@kroah.com>
+References: <20161207150447.160b7735@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Jarod Wilson <jarod@redhat.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161207150447.160b7735@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, icmp_rcv() always return zero on a packet delivery upcall.
+On Wed, Dec 07, 2016 at 03:04:47PM +1100, Stephen Rothwell wrote:
+> Hi Greg,
+> 
+> Today's linux-next merge of the staging tree got a conflict in:
+> 
+>   drivers/staging/slicoss/slicoss.c
+> 
+> between commit:
+> 
+>   a52ad514fdf3 ("net: deprecate eth_change_mtu, remove usage")
+> 
+> from the net-next tree and commit:
+> 
+>   0af72df267f2 ("staging: slicoss: remove the staging driver")
+> 
+> from the staging tree.
+> 
+> I fixed it up (I just removed the file) and can carry the fix as
+> necessary. This is now fixed as far as linux-next is concerned, but any
+> non trivial conflicts should be mentioned to your upstream maintainer
+> when your tree is submitted for merging.  You may also want to consider
+> cooperating with the maintainer of the conflicting tree to minimise any
+> particularly complex conflicts.
 
-To make its behavior more compliant with the way this API should be
-used, this patch changes this to let it return NET_RX_SUCCESS when the
-packet is proper handled, and NET_RX_DROP otherwise.
+Thanks, we did coordinate this :)
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- net/ipv4/icmp.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 691146a..f79d7a8 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -1047,12 +1047,12 @@ int icmp_rcv(struct sk_buff *skb)
- 
- 	if (success)  {
- 		consume_skb(skb);
--		return 0;
-+		return NET_RX_SUCCESS;
- 	}
- 
- drop:
- 	kfree_skb(skb);
--	return 0;
-+	return NET_RX_DROP;
- csum_error:
- 	__ICMP_INC_STATS(net, ICMP_MIB_CSUMERRORS);
- error:
--- 
-1.8.3.1
+greg k-h
