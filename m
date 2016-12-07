@@ -1,7 +1,7 @@
 From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v2 net-next 1/2] phy: add phy fixup unregister functions
-Date: Wed, 7 Dec 2016 20:26:07 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D4097999C@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH v2 net-next 2/2] lan78xx: add LAN7801 MAC only support
+Date: Wed, 7 Dec 2016 20:26:25 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D409799B1@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -9,129 +9,285 @@ Cc: <andrew@lunn.ch>, <netdev@vger.kernel.org>,
         <UNGLinuxDriver@microchip.com>
 To: <davem@davemloft.net>, <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:45078 "EHLO
+Received: from smtpout.microchip.com ([198.175.253.82]:38931 "EHLO
         email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753113AbcLGU0J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 15:26:09 -0500
+        with ESMTP id S1753493AbcLGU01 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 15:26:27 -0500
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From : Woojung Huh <woojung.huh@microchip.com>
+From: Woojung Huh <woojung.huh@microchip.com>
 
-Add functions to unregister phy fixup for modules.
-
-int phy_unregister_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask)
-	Unregister phy fixup from phy_fixup_list per bus_id, phy_uid &
-	phy_uid_mask
-
-int phy_unregister_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask)
-	Unregister phy fixup from phy_fixup_list.
-	Use it for fixup registered by phy_register_fixup_for_uid()
-
-int phy_unregister_fixup_for_id(const char *bus_id)
-	Unregister phy fixup from phy_fixup_list.
-	Use it for fixup registered by phy_register_fixup_for_id()
+Add LAN7801 MAC only support with phy fixup functions.
 
 Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
 ---
- Documentation/networking/phy.txt |  9 ++++++++
- drivers/net/phy/phy_device.c     | 47 ++++++++++++++++++++++++++++++++++++++++
- include/linux/phy.h              |  4 ++++
- 3 files changed, 60 insertions(+)
+ drivers/net/usb/Kconfig   |   5 +++
+ drivers/net/usb/lan78xx.c | 109 +++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/net/usb/lan78xx.h |  14 ++++++
+ 3 files changed, 126 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
-index e017d93..16f90d8 100644
---- a/Documentation/networking/phy.txt
-+++ b/Documentation/networking/phy.txt
-@@ -407,6 +407,15 @@ Board Fixups
-  The stubs set one of the two matching criteria, and set the other one to
-  match anything.
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index cdde590..3dd490f5 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -114,6 +114,11 @@ config USB_LAN78XX
+ 	help
+ 	  This option adds support for Microchip LAN78XX based USB 2
+ 	  & USB 3 10/100/1000 Ethernet adapters.
++	  LAN7800 : USB 3 to 10/100/1000 Ethernet adapter
++	  LAN7850 : USB 2 to 10/100/1000 Ethernet adapter
++	  LAN7801 : USB 3 to 10/100/1000 Ethernet adapter (MAC only)
++
++	  Proper PHY driver is required for LAN7801.
  
-+ When phy_register_fixup() or *_for_uid()/*_for_id() is called at module,
-+ unregister fixup and free allocate memory are required.
-+
-+ Call one of following function before unloading module.
-+
-+ int phy_unregister_fixup(const char *phy_id, u32 phy_uid, u32 phy_uid_mask);
-+ int phy_unregister_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask);
-+ int phy_register_fixup_for_id(const char *phy_id);
-+
- Standards
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called lan78xx.
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 019f758..08f8703 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -40,7 +40,7 @@
+ #define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
+ #define DRIVER_DESC	"LAN78XX USB 3.0 Gigabit Ethernet Devices"
+ #define DRIVER_NAME	"lan78xx"
+-#define DRIVER_VERSION	"1.0.5"
++#define DRIVER_VERSION	"1.0.6"
  
-  IEEE Standard 802.3: CSMA/CD Access Method and Physical Layer Specifications, Section Two:
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index aeaf1bc..32fa7c7 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -235,6 +235,53 @@ int phy_register_fixup_for_id(const char *bus_id,
+ #define TX_TIMEOUT_JIFFIES		(5 * HZ)
+ #define THROTTLE_JIFFIES		(HZ / 8)
+@@ -67,6 +67,7 @@
+ #define LAN78XX_USB_VENDOR_ID		(0x0424)
+ #define LAN7800_USB_PRODUCT_ID		(0x7800)
+ #define LAN7850_USB_PRODUCT_ID		(0x7850)
++#define LAN7801_USB_PRODUCT_ID		(0x7801)
+ #define LAN78XX_EEPROM_MAGIC		(0x78A5)
+ #define LAN78XX_OTP_MAGIC		(0x78F3)
+ 
+@@ -390,6 +391,7 @@ struct lan78xx_net {
+ 	u32			chipid;
+ 	u32			chiprev;
+ 	struct mii_bus		*mdiobus;
++	phy_interface_t		interface;
+ 
+ 	int			fc_autoneg;
+ 	u8			fc_request_control;
+@@ -400,6 +402,10 @@ struct lan78xx_net {
+ 	struct irq_domain_data	domain_data;
+ };
+ 
++/* define external phy id */
++#define	PHY_LAN8835			(0x0007C130)
++#define	PHY_KSZ9031RNX			(0x00221620)
++
+ /* use ethtool to change the level for any given device */
+ static int msg_level = -1;
+ module_param(msg_level, int, 0);
+@@ -1697,6 +1703,7 @@ static int lan78xx_mdiobus_read(struct mii_bus *bus, int phy_id, int idx)
+ done:
+ 	mutex_unlock(&dev->phy_mutex);
+ 	usb_autopm_put_interface(dev->intf);
++
+ 	return ret;
  }
- EXPORT_SYMBOL(phy_register_fixup_for_id);
  
-+/**
-+ * phy_unregister_fixup - remove a phy_fixup from the list
-+ * @bus_id: A string matches fixup->bus_id (or PHY_ANY_ID) in phy_fixup_list
-+ * @phy_uid: A phy id matches fixup->phy_id (or PHY_ANY_UID) in phy_fixup_list
-+ * @phy_uid_mask: Applied to phy_uid and fixup->phy_uid before comparison
-+ */
-+int phy_unregister_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask)
+@@ -1759,6 +1766,10 @@ static int lan78xx_mdio_init(struct lan78xx_net *dev)
+ 		/* set to internal PHY id */
+ 		dev->mdiobus->phy_mask = ~(1 << 1);
+ 		break;
++	case ID_REV_CHIP_ID_7801_:
++		/* scan thru PHYAD[2..0] */
++		dev->mdiobus->phy_mask = ~(0xFF);
++		break;
+ 	}
+ 
+ 	ret = mdiobus_register(dev->mdiobus);
+@@ -1933,6 +1944,47 @@ static void lan78xx_remove_irq_domain(struct lan78xx_net *dev)
+ 	dev->domain_data.irqdomain = NULL;
+ }
+ 
++static int lan8835_fixup(struct phy_device *phydev)
 +{
-+	struct list_head *pos, *n;
-+	struct phy_fixup *fixup;
++	int buf;
 +	int ret;
++	struct lan78xx_net *dev = netdev_priv(phydev->attached_dev);
 +
-+	ret = -ENODEV;
++	/* LED2/PME_N/IRQ_N/RGMII_ID pin to IRQ_N mode */
++	buf = phy_read_mmd_indirect(phydev, 0x8010, 3);
++	buf &= ~0x1800;
++	buf |= 0x0800;
++	phy_write_mmd_indirect(phydev, 0x8010, 3, buf);
 +
-+	mutex_lock(&phy_fixup_lock);
-+	list_for_each_safe(pos, n, &phy_fixup_list) {
-+		fixup = list_entry(pos, struct phy_fixup, list);
++	/* RGMII MAC TXC Delay Enable */
++	ret = lan78xx_write_reg(dev, MAC_RGMII_ID,
++				MAC_RGMII_ID_TXC_DELAY_EN_);
 +
-+		if ((!strcmp(fixup->bus_id, bus_id)) &&
-+		    ((fixup->phy_uid & phy_uid_mask) ==
-+		     (phy_uid & phy_uid_mask))) {
-+			list_del(&fixup->list);
-+			kfree(fixup);
-+			ret = 0;
-+			break;
++	/* RGMII TX DLL Tune Adjust */
++	ret = lan78xx_write_reg(dev, RGMII_TX_BYP_DLL, 0x3D00);
++
++	dev->interface = PHY_INTERFACE_MODE_RGMII_TXID;
++
++	return 1;
++}
++
++static int ksz9031rnx_fixup(struct phy_device *phydev)
++{
++	struct lan78xx_net *dev = netdev_priv(phydev->attached_dev);
++
++	/* Micrel9301RNX PHY configuration */
++	/* RGMII Control Signal Pad Skew */
++	phy_write_mmd_indirect(phydev, 4, 2, 0x0077);
++	/* RGMII RX Data Pad Skew */
++	phy_write_mmd_indirect(phydev, 5, 2, 0x7777);
++	/* RGMII RX Clock Pad Skew */
++	phy_write_mmd_indirect(phydev, 8, 2, 0x1FF);
++
++	dev->interface = PHY_INTERFACE_MODE_RGMII_RXID;
++
++	return 1;
++}
++
+ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ {
+ 	int ret;
+@@ -1945,6 +1997,42 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ 		return -EIO;
+ 	}
+ 
++	if ((dev->chipid == ID_REV_CHIP_ID_7800_) ||
++	    (dev->chipid == ID_REV_CHIP_ID_7850_)) {
++		phydev->is_internal = true;
++		dev->interface = PHY_INTERFACE_MODE_GMII;
++
++	} else if (dev->chipid == ID_REV_CHIP_ID_7801_) {
++		if (!phydev->drv) {
++			netdev_err(dev->net, "no PHY driver found\n");
++			return -EIO;
 +		}
++
++		dev->interface = PHY_INTERFACE_MODE_RGMII;
++
++		/* external PHY fixup for KSZ9031RNX */
++		ret = phy_register_fixup_for_uid(PHY_KSZ9031RNX, 0xfffffff0,
++						 ksz9031rnx_fixup);
++		if (ret < 0) {
++			netdev_err(dev->net, "fail to register fixup\n");
++			return ret;
++		}
++		/* external PHY fixup for LAN8835 */
++		ret = phy_register_fixup_for_uid(PHY_LAN8835, 0xfffffff0,
++						 lan8835_fixup);
++		if (ret < 0) {
++			netdev_err(dev->net, "fail to register fixup\n");
++			return ret;
++		}
++		/* add more external PHY fixup here if needed */
++
++		phydev->is_internal = false;
++	} else {
++		netdev_err(dev->net, "unknown ID found\n");
++		ret = -EIO;
++		goto error;
 +	}
-+	mutex_unlock(&phy_fixup_lock);
++
+ 	/* if phyirq is not set, use polling mode in phylib */
+ 	if (dev->domain_data.phyirq > 0)
+ 		phydev->irq = dev->domain_data.phyirq;
+@@ -1957,7 +2045,7 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ 
+ 	ret = phy_connect_direct(dev->net, phydev,
+ 				 lan78xx_link_status_change,
+-				 PHY_INTERFACE_MODE_GMII);
++				 dev->interface);
+ 	if (ret) {
+ 		netdev_err(dev->net, "can't attach PHY to %s\n",
+ 			   dev->mdiobus->id);
+@@ -1982,6 +2070,12 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ 	netif_dbg(dev, ifup, dev->net, "phy initialised successfully");
+ 
+ 	return 0;
++
++error:
++	phy_unregister_fixup_for_uid(PHY_KSZ9031RNX, 0xfffffff0);
++	phy_unregister_fixup_for_uid(PHY_LAN8835, 0xfffffff0);
 +
 +	return ret;
-+}
-+EXPORT_SYMBOL(phy_unregister_fixup);
-+
-+/* Unregisters a fixup of any PHY with the UID in phy_uid */
-+int phy_unregister_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask)
-+{
-+	return phy_unregister_fixup(PHY_ANY_ID, phy_uid, phy_uid_mask);
-+}
-+EXPORT_SYMBOL(phy_unregister_fixup_for_uid);
-+
-+/* Unregisters a fixup of the PHY with id string bus_id */
-+int phy_unregister_fixup_for_id(const char *bus_id)
-+{
-+	return phy_unregister_fixup(bus_id, PHY_ANY_UID, 0xffffffff);
-+}
-+EXPORT_SYMBOL(phy_unregister_fixup_for_id);
-+
- /* Returns 1 if fixup matches phydev in bus_id and phy_uid.
-  * Fixups can be set to match any in one or more fields.
-  */
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index feb8a98..f7d95f6 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -860,6 +860,10 @@ int phy_register_fixup_for_id(const char *bus_id,
- int phy_register_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask,
- 			       int (*run)(struct phy_device *));
+ }
  
-+int phy_unregister_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask);
-+int phy_unregister_fixup_for_id(const char *bus_id);
-+int phy_unregister_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask);
+ static int lan78xx_set_rx_max_frame_length(struct lan78xx_net *dev, int size)
+@@ -2338,6 +2432,9 @@ static int lan78xx_reset(struct lan78xx_net *dev)
+ 	} while ((buf & PMT_CTL_PHY_RST_) || !(buf & PMT_CTL_READY_));
+ 
+ 	ret = lan78xx_read_reg(dev, MAC_CR, &buf);
++	/* LAN7801 only has RGMII mode */
++	if (dev->chipid == ID_REV_CHIP_ID_7801_)
++		buf &= ~MAC_CR_GMII_EN_;
+ 	buf |= MAC_CR_AUTO_DUPLEX_ | MAC_CR_AUTO_SPEED_;
+ 	ret = lan78xx_write_reg(dev, MAC_CR, buf);
+ 
+@@ -2464,8 +2561,12 @@ static int lan78xx_stop(struct net_device *net)
+ 	if (timer_pending(&dev->stat_monitor))
+ 		del_timer_sync(&dev->stat_monitor);
+ 
++	phy_unregister_fixup_for_uid(PHY_KSZ9031RNX, 0xfffffff0);
++	phy_unregister_fixup_for_uid(PHY_LAN8835, 0xfffffff0);
 +
- int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable);
- int phy_get_eee_err(struct phy_device *phydev);
- int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data);
+ 	phy_stop(net->phydev);
+ 	phy_disconnect(net->phydev);
++
+ 	net->phydev = NULL;
+ 
+ 	clear_bit(EVENT_DEV_OPEN, &dev->flags);
+@@ -3888,6 +3989,10 @@ static const struct usb_device_id products[] = {
+ 	/* LAN7850 USB Gigabit Ethernet Device */
+ 	USB_DEVICE(LAN78XX_USB_VENDOR_ID, LAN7850_USB_PRODUCT_ID),
+ 	},
++	{
++	/* LAN7801 USB Gigabit Ethernet Device */
++	USB_DEVICE(LAN78XX_USB_VENDOR_ID, LAN7801_USB_PRODUCT_ID),
++	},
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(usb, products);
+diff --git a/drivers/net/usb/lan78xx.h b/drivers/net/usb/lan78xx.h
+index 4092790..25aa546 100644
+--- a/drivers/net/usb/lan78xx.h
++++ b/drivers/net/usb/lan78xx.h
+@@ -108,6 +108,7 @@
+ #define ID_REV_CHIP_REV_MASK_		(0x0000FFFF)
+ #define ID_REV_CHIP_ID_7800_		(0x7800)
+ #define ID_REV_CHIP_ID_7850_		(0x7850)
++#define ID_REV_CHIP_ID_7801_		(0x7801)
+ 
+ #define FPGA_REV			(0x04)
+ #define FPGA_REV_MINOR_MASK_		(0x0000FF00)
+@@ -550,6 +551,7 @@
+ #define LTM_INACTIVE1_TIMER10_		(0x0000FFFF)
+ 
+ #define MAC_CR				(0x100)
++#define MAC_CR_GMII_EN_			(0x00080000)
+ #define MAC_CR_EEE_TX_CLK_STOP_EN_	(0x00040000)
+ #define MAC_CR_EEE_EN_			(0x00020000)
+ #define MAC_CR_EEE_TLAR_EN_		(0x00010000)
+@@ -787,6 +789,18 @@
+ #define PHY_DEV_ID_MODEL_MASK_		(0x0FC00000)
+ #define PHY_DEV_ID_OUI_MASK_		(0x003FFFFF)
+ 
++#define RGMII_TX_BYP_DLL		(0x708)
++#define RGMII_TX_BYP_DLL_TX_TUNE_ADJ_MASK_	(0x000FC00)
++#define RGMII_TX_BYP_DLL_TX_TUNE_SEL_MASK_	(0x00003F0)
++#define RGMII_TX_BYP_DLL_TX_DLL_RESET_		(0x0000002)
++#define RGMII_TX_BYP_DLL_TX_DLL_BYPASS_		(0x0000001)
++
++#define RGMII_RX_BYP_DLL		(0x70C)
++#define RGMII_RX_BYP_DLL_RX_TUNE_ADJ_MASK_	(0x000FC00)
++#define RGMII_RX_BYP_DLL_RX_TUNE_SEL_MASK_	(0x00003F0)
++#define RGMII_RX_BYP_DLL_RX_DLL_RESET_		(0x0000002)
++#define RGMII_RX_BYP_DLL_RX_DLL_BYPASS_		(0x0000001)
++
+ #define OTP_BASE_ADDR			(0x00001000)
+ #define OTP_ADDR_RANGE_			(0x1FF)
+ 
 -- 
 2.7.4
