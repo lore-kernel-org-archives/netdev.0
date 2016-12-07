@@ -1,105 +1,75 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH 10/10] virtio: enable endian checks for sparse builds
-Date: Wed, 7 Dec 2016 14:09:33 +0000
-Message-ID: <20161207140933.GF32099@stefanha-x1.localdomain>
-References: <1481038106-24899-1-git-send-email-mst@redhat.com>
-	<1481038106-24899-11-git-send-email-mst@redhat.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH net-next v2] dsa:mv88e6xxx: dispose irq mapping for
+ chip->irq
+Date: Wed, 7 Dec 2016 15:11:44 +0100
+Message-ID: <20161207141144.GJ18817@lunn.ch>
+References: <1481106907-30908-1-git-send-email-volodymyr.bendiuga@westermo.se>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7466233140133078509=="
-Cc: kvm@vger.kernel.org, Neil Armstrong <narmstrong@baylibre.com>,
-	David Airlie <airlied@linux.ie>, linux-remoteproc@vger.kernel.org,
-	dri-devel@lists.freedesktop.org, virtualization@lists.linux-foundation.org,
-	linux-s390@vger.kernel.org,
-	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-scsi@vger.kernel.org, v9fs-developer@lists.sourceforge.net,
-	Asias He <asias@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	linux-kbuild@vger.kernel.org, Jens Axboe <axboe@fb.com>,
-	Michal Marek <mmarek@suse.com>, Matt Mackall <mpm@selenic.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1481038106-24899-11-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, volodymyr.bendiuga-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Volodymyr Bendiuga <volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1481106907-30908-1-git-send-email-volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 07, 2016 at 11:35:07AM +0100, Volodymyr Bendiuga wrote:
+> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
 
---===============7466233140133078509==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="GLp9dJVi+aaipsRk"
-Content-Disposition: inline
+You need some text in the Change log. Say why this change is needed,
+etc.
+
+Looking through other users of of_irq_get(), i don't see any disposing
+of the mapping. It is not obvious you need to do this. The name does
+not give any hint.
+
+Maybe we should add an of_irq_put() which would clean up the mapping?
+
+      Andrew
 
 
---GLp9dJVi+aaipsRk
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Dec 06, 2016 at 05:41:05PM +0200, Michael S. Tsirkin wrote:
-> __CHECK_ENDIAN__ isn't on by default presumably because
-> it triggers too many sparse warnings for correct code.
-> But virtio is now clean of these warnings, and
-> we want to keep it this way - enable this for
-> sparse builds.
->=20
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > ---
->=20
-> It seems that there should be a better way to do it,
-> but this works too.
->=20
->  drivers/block/Makefile          | 1 +
->  drivers/char/Makefile           | 1 +
->  drivers/char/hw_random/Makefile | 2 ++
->  drivers/gpu/drm/virtio/Makefile | 1 +
->  drivers/net/Makefile            | 3 +++
->  drivers/net/caif/Makefile       | 1 +
->  drivers/rpmsg/Makefile          | 1 +
->  drivers/s390/virtio/Makefile    | 2 ++
->  drivers/scsi/Makefile           | 1 +
->  drivers/vhost/Makefile          | 1 +
->  drivers/virtio/Makefile         | 3 +++
->  net/9p/Makefile                 | 1 +
->  net/packet/Makefile             | 1 +
->  net/vmw_vsock/Makefile          | 2 ++
->  14 files changed, 21 insertions(+)
-
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
-
---GLp9dJVi+aaipsRk
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJYSBgdAAoJEJykq7OBq3PIErIIALcfuXKP5HgamgpQoZkN0Uc0
-2n2uVTdzArmnFB44EWnkmW+iYjCl3HfmHgtoWPwsUKoY/RDBuL8x9wNSrOfDzSMf
-ymjii6GPxe3fJ4xlvzAmueh0F4wfFeKl+jrO7jm3B1vIhJh6NzEgQZJgGxmpNYvE
-X0o9IKPe5pr+x3ZAec1LMzsv9CvtJObwO3bVgAtQQlA7hlvewrbZkxgmKAojibGG
-Mdv+oNGtpp8ePXN9c0EdhLFbPF3MY9YHf0DbirN5CXp7KP1GH9FgWaOKx0n0v8IB
-3KqF7wUADa/eIWrIW1FaSy9DeGfihiwwrWaEcg/c0LoweS6OLwGhCJTXfp45GJk=
-=SL7g
------END PGP SIGNATURE-----
-
---GLp9dJVi+aaipsRk--
-
---===============7466233140133078509==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---===============7466233140133078509==--
+>  drivers/net/dsa/mv88e6xxx/chip.c | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+> index 173ea97..0c3271d 100644
+> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+> @@ -4483,7 +4483,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+>  		mutex_unlock(&chip->reg_lock);
+>  
+>  		if (err)
+> -			goto out;
+> +			goto out_dispose;
+>  
+>  		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT)) {
+>  			err = mv88e6xxx_g2_irq_setup(chip);
+> @@ -4513,6 +4513,9 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+>  		mv88e6xxx_g1_irq_free(chip);
+>  		mutex_unlock(&chip->reg_lock);
+>  	}
+> +
+> +out_dispose:
+> +	irq_dispose_mapping(chip->irq);
+>  out:
+>  	return err;
+>  }
+> @@ -4530,6 +4533,7 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+>  		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT))
+>  			mv88e6xxx_g2_irq_free(chip);
+>  		mv88e6xxx_g1_irq_free(chip);
+> +		irq_dispose_mapping(chip->irq);
+>  	}
+>  }
+>  
+> -- 
+> 2.7.4
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
