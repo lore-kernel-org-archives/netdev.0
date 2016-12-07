@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/20] i40e: Driver prints log message on link speed change
-Date: Tue,  6 Dec 2016 23:33:35 -0800
-Message-ID: <20161207073354.88568-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/20] i40e: restore workaround for removing default MAC filter
+Date: Tue,  6 Dec 2016 23:33:37 -0800
+Message-ID: <20161207073354.88568-4-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,60 +11,113 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:34826 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752496AbcLGHeq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:46 -0500
+        id S1752994AbcLGHer (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:47 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Filip Sadowski <filip.sadowski@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch makes the driver log link speed change. Before applying the
-patch link messages were printed only on state change. Now message is
-printed when link is brought up or down and when speed changes.
+A previous commit 53cb6e9e8949 ("i40e: Removal of workaround for simple
+MAC address filter deletion") removed a workaround for some
+firmware versions which was reported to not be necessary in production
+NICs. Unfortunately this workaround is necessary in some configurations,
+specifically the Ethernet Controller XL710 for 40GbE QSFP+ (8086:1583).
 
-Change-ID: Ifbee14b4b16c24967450b3cecac6e8351dcc8f74
-Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
+Without this patch, the mentioned NICs with current firmware exhibit
+issues when adding VLANs, as outlined by the following reproduction:
+
+  $modprobe i40e
+  $ip link set <device> up
+  $ip link add link <device> vlan100 type vlan id 100
+  $dmesg | tail
+  <snip>
+  kernel: i40e 0000:82:00.0: Error I40E_AQ_RC_EINVAL adding RX
+filters on PF, promiscuous mode forced on
+
+This results in filters being marked as FAILED and setting the device in
+promiscuous mode.
+
+The root cause of receiving the -EINVAL error response appears to be due
+to a conflict with the default MAC filter which still exists on the
+default firmware for this device. Attempting to add a new VLAN filter on
+the default MAC address conflicts with the IGNORE_VLAN setting on the
+default rule.
+
+Change-ID: I4d8f6d48ac5f60cfe981b3baad30eb4d7c170d61
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      | 1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++++-
- 2 files changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 41 +++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 4cb8fb3..06e3c23 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -596,6 +596,7 @@ struct i40e_vsi {
- 	u16 veb_idx;		/* index of VEB parent */
- 	struct kobject *kobj;	/* sysfs object */
- 	bool current_isup;	/* Sync 'link up' logging */
-+	enum i40e_aq_link_speed current_speed;	/* Sync link speed logging */
- 
- 	void *priv;	/* client driver data reference. */
- 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 5777e49..4534d41 100644
+index 4534d41..c467cc4 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5225,12 +5225,16 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
-  */
- void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
- {
-+	enum i40e_aq_link_speed new_speed;
- 	char *speed = "Unknown";
- 	char *fc = "Unknown";
+@@ -1226,6 +1226,39 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi)
+ }
  
--	if (vsi->current_isup == isup)
-+	new_speed = vsi->back->hw.phy.link_info.link_speed;
+ /**
++ * i40e_rm_default_mac_filter - Remove the default MAC filter set by NVM
++ * @vsi: the PF Main VSI - inappropriate for any other VSI
++ * @macaddr: the MAC address
++ *
++ * Remove whatever filter the firmware set up so the driver can manage
++ * its own filtering intelligently.
++ **/
++static void i40e_rm_default_mac_filter(struct i40e_vsi *vsi, u8 *macaddr)
++{
++	struct i40e_aqc_remove_macvlan_element_data element;
++	struct i40e_pf *pf = vsi->back;
 +
-+	if ((vsi->current_isup == isup) && (vsi->current_speed == new_speed))
- 		return;
- 	vsi->current_isup = isup;
-+	vsi->current_speed = new_speed;
- 	if (!isup) {
- 		netdev_info(vsi->netdev, "NIC Link is Down\n");
- 		return;
++	/* Only appropriate for the PF main VSI */
++	if (vsi->type != I40E_VSI_MAIN)
++		return;
++
++	memset(&element, 0, sizeof(element));
++	ether_addr_copy(element.mac_addr, macaddr);
++	element.vlan_tag = 0;
++	/* Ignore error returns, some firmware does it this way... */
++	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
++	i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
++
++	memset(&element, 0, sizeof(element));
++	ether_addr_copy(element.mac_addr, macaddr);
++	element.vlan_tag = 0;
++	/* ...and some firmware does it this way. */
++	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH |
++			I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
++	i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
++}
++
++/**
+  * i40e_add_filter - Add a mac/vlan filter to the VSI
+  * @vsi: the VSI to be searched
+  * @macaddr: the MAC address
+@@ -9295,6 +9328,12 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 	if (vsi->type == I40E_VSI_MAIN) {
+ 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
+ 		ether_addr_copy(mac_addr, hw->mac.perm_addr);
++		/* The following steps are necessary to prevent reception
++		 * of tagged packets - some older NVM configurations load a
++		 * default a MAC-VLAN filter that accepts any tagged packet
++		 * which must be replaced by a normal filter.
++		 */
++		i40e_rm_default_mac_filter(vsi, mac_addr);
+ 		spin_lock_bh(&vsi->mac_filter_hash_lock);
+ 		i40e_add_filter(vsi, mac_addr, I40E_VLAN_ANY);
+ 		spin_unlock_bh(&vsi->mac_filter_hash_lock);
+@@ -9828,6 +9867,8 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
+ 	pf->vsi[pf->lan_vsi]->tc_config.enabled_tc = 0;
+ 	pf->vsi[pf->lan_vsi]->seid = pf->main_vsi_seid;
+ 	i40e_vsi_config_tc(pf->vsi[pf->lan_vsi], enabled_tc);
++	if (vsi->type == I40E_VSI_MAIN)
++		i40e_rm_default_mac_filter(vsi, pf->hw.mac.perm_addr);
+ 
+ 	/* assign it some queues */
+ 	ret = i40e_alloc_rings(vsi);
 -- 
 2.9.3
