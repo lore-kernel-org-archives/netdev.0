@@ -1,99 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] [v3] net: phy: phy drivers should not set
- SUPPORTED_[Asym_]Pause
-Date: Tue, 6 Dec 2016 16:36:38 -0800
-Message-ID: <2c2aaf1d-05a5-d2bc-d04a-79224a4c6b43@gmail.com>
-References: <1481070443-15118-1-git-send-email-timur@codeaurora.org>
+From: Gao Feng <fgao@ikuai8.com>
+Subject: Re: [PATCH net-next v2 1/1] driver: ipvlan: Free ipvl_port directly
+ with kfree instead of kfree_rcu
+Date: Wed, 7 Dec 2016 08:35:35 +0800
+Message-ID: <CA+6hz4pTrPQezJXQsR_-QNLF8FQqtrBDieX-3=znTBDQ4AO-JA@mail.gmail.com>
+References: <1481032489-7864-1-git-send-email-fgao@ikuai8.com> <1481037510.18162.583.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: Timur Tabi <timur@codeaurora.org>,
-        David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34247 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752018AbcLGAh1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 19:37:27 -0500
-Received: by mail-pf0-f195.google.com with SMTP id y68so19432834pfb.1
-        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 16:36:40 -0800 (PST)
-In-Reply-To: <1481070443-15118-1-git-send-email-timur@codeaurora.org>
+Received: from smtpbgsg2.qq.com ([54.254.200.128]:60871 "EHLO smtpbgsg2.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751998AbcLGAhe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 6 Dec 2016 19:37:34 -0500
+Received: from mail-ua0-f177.google.com (unknown [209.85.217.177])
+        by esmtp4.qq.com (ESMTP) with SMTP id 0
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 08:35:36 +0800 (CST)
+Received: by mail-ua0-f177.google.com with SMTP id 20so399800087uak.0
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 16:35:37 -0800 (PST)
+In-Reply-To: <1481037510.18162.583.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2016 04:27 PM, Timur Tabi wrote:
-> Instead of having individual PHY drivers set the SUPPORTED_Pause and
-> SUPPORTED_Asym_Pause flags, phylib itself should set those flags,
-> unless there is a hardware erratum or other special case.  During
-> autonegotiation, the PHYs will determine whether to enable pause
-> frame support.
-> 
-> Pause frames are a feature that is supported by the MAC.  It is the MAC
-> that generates the frames and that processes them.  The PHY can only be
-> configured to allow them to pass through.
-> 
-> So the new process is:
-> 
-> 1) Unless the PHY driver overrides it, phylib sets the SUPPORTED_Pause
-> and SUPPORTED_AsymPause bits in phydev->supported.  This indicates that
-> the PHY supports pause frames.
-> 
-> 2) The MAC driver checks phydev->supported before it calls phy_start().
-> If (SUPPORTED_Pause | SUPPORTED_AsymPause) is set, then the MAC driver
-> sets those bits in phydev->advertising, if it wants to enable pause
-> frame support.
-> 
-> 3) When the link state changes, the MAC driver checks phydev->pause and
-> phydev->asym_pause,  If the bits are set, then it enables the corresponding
-> features in the MAC.  The algorithm is:
-> 
-> 	if (phydev->pause)
-> 		The MAC should be programmed to receive and honor
->                 pause frames it receives, i.e. enable receive flow control.
-> 
-> 	if (phydev->pause != phydev->asym_pause)
-> 		The MAC should be programmed to transmit pause
-> 		frames when needed, i.e. enable transmit flow control.
-> 
-> Signed-off-by: Timur Tabi <timur@codeaurora.org>
-> ---
+Hi Eric,
 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 49a1c98..fe36eeb 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -1598,6 +1598,27 @@ static int phy_probe(struct device *dev)
->  	of_set_phy_supported(phydev);
->  	phydev->advertising = phydev->supported;
->  
-> +	/* The Pause Frame bits indicate that the PHY can support passing
-> +	 * pause frames. During autonegotiation, the PHYs will determine if
-> +	 * they should allow pause frames to pass.  The MAC driver should then
-> +	 * use that result to determine whether to enable flow control via
-> +	 * pause frames.
-> +	 *
-> +	 * Normally, PHY drivers should not set the Pause bits, and instead
-> +	 * allow phylib to do that.  However, there may be some situations
-> +	 * (e.g. hardware erratum) where the driver wants to set only one
-> +	 * of these bits.
-> +	 */
-> +	if (phydrv->features & (SUPPORTED_Pause | SUPPORTED_Asym_Pause)) {
-> +		phydev->supported &= ~(SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-> +		phydev->supported |= phydrv->features &
-> +				     (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
+On Tue, Dec 6, 2016 at 11:18 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2016-12-06 at 21:54 +0800, fgao@ikuai8.com wrote:
+>> From: Gao Feng <gfree.wind@gmail.com>
+>>
+>> There is no one which may reference the ipvlan port when free it in
+>> ipvlan_port_create and ipvlan_port_destroy. So it is unnecessary to
+>> use kfree_rcu.
+>
+> You did not really explain _why_ it was safe/unnecessary.
+> Why should anyone trust you ?
 
-Is not the & (SUPPORTED_Pause | SUPPORTED_Asym_Pause) redundant here anyway?
+Thanks your point.
+I found the reason yesterday after receive your suggestion and reply
+the last v1 email.
+Then I send the v2 patch.
+I assume the reviewer would know more than me, so I didn't add more details.
 
-> +	} else {
-> +		phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+I will add more details in v3 patch.
 
-that part looks good.
+>
+> The reason an RCU grace period is not needed is that
+> netdev_rx_handler_unregister() already enforces a grace period.
+>
+> My guess is ipvlan copied code in macvlan.
+>
+> At the time macvlan was written, commit
+> 00cfec37484761a44 ("net: add a synchronize_net() in
+> netdev_rx_handler_unregister()") was not there yet.
+>
+> macvlan could be changed the same way.
 
-> +	}
-> +
-> +	phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+Yes. After I find the netdev_rx_handler_unregister which enforces one
+grace period.
+I prepare to check other codes.
 
-but this one basically "undoes" what the if () clause did where we
-checked if either, or one of the two bits was already set?
--- 
-Florian
+Best Regards
+Feng
+
+>
+>
+>
