@@ -1,46 +1,41 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [net-next][PATCH v2 18/18] RDS: IB: add missing connection cache
- usage info
-Date: Wed, 7 Dec 2016 12:42:10 -0800
-Message-ID: <79b08015-4f9c-50cd-edc5-b89a15627fef@oracle.com>
-References: <eac62d66-7a41-965d-8ecb-c2e4b651c39d@oracle.com>
- <20161207.120536.1153607792891600896.davem@davemloft.net>
- <6159757e-c799-ee7f-0ee0-c9b3534a4237@oracle.com>
- <20161207.123642.1553217272033137094.davem@davemloft.net>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [patch] drivers: net: xgene: uninitialized variable in xgene_enet_free_pagepool()
+Date: Wed, 7 Dec 2016 12:46:51 -0800
+Message-ID: <CAKh23F=PWFz9v8XgEXyjSZpUjUxn=W3UUMBokqiL-74eZTeuow@mail.gmail.com>
+References: <20161207111424.GA5507@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Keyur Chudgar <kchudgar@apm.com>, netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161207.123642.1553217272033137094.davem@davemloft.net>
+In-Reply-To: <20161207111424.GA5507@elgon.mountain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/7/2016 9:36 AM, David Miller wrote:
-
-[...]
-
-> What does the newer tool do on an older kernel if it doesn't see
-> the fields?  Does it check the size of the structure given back
-> to it, and conditionally handle the older vs. the newer layout?
+On Wed, Dec 7, 2016 at 3:14 AM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
+> We never set "slots" in this function.
 >
-> It must do this.
+> Fixes: a9380b0f7be8 ("drivers: net: xgene: Add support for Jumbo frame")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> I copied how slots gets set in xgene_enet_rx_frame().  Static analysis.
+> Not tested.
 >
-Right but the rds-tool doesn't handle it well and needs
-to be fixed before this or any additional change in rds-info
-structures. To handle the kernel struct size issues with its
-user copy, there is a provision to probe kernel struct len
-and then decide on layout buts its not used/implemented
-in tools. The parsing comment I made is also not completely
-accurate.
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> index 6c7eea8b36af..884a334e82d0 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> @@ -635,6 +635,7 @@ static void xgene_enet_free_pagepool(struct xgene_enet_desc_ring *buf_pool,
+>                 return;
+>
+>         dev = ndev_to_dev(buf_pool->ndev);
+> +       slots = buf_pool->slots - 1;
+>         head = buf_pool->head;
+>
+>         for (i = 0; i < 4; i++) {
 
-For now, I will drop this patch and submit it once the tools
-code is fixed along with other used fields to handle both
-layouts.
+Thanks.
 
-I should have checked the full compatibility matrix as you
-commented. Sorry for oversight. Thanks for your comments Dave.
-
-Regard,
-Santosh
+Acked-by: Iyappan Subramanian <isubramanian@apm.com>
