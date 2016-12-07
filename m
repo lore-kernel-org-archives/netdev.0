@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] net/udp: do not touch skb->peeked unless really needed
-Date: Wed, 07 Dec 2016 09:52:54 -0800
-Message-ID: <1481133174.4930.42.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 07 Dec 2016 09:55:12 -0800
+Message-ID: <1481133312.4930.44.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
          <1480944138.4694.37.camel@redhat.com>
          <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
@@ -20,12 +20,12 @@ Cc: David Laight <David.Laight@ACULAB.COM>,
         Willem de Bruijn <willemb@google.com>
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34743 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753112AbcLGRx4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:53:56 -0500
-Received: by mail-pg0-f68.google.com with SMTP id e9so24088007pgc.1
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 09:53:56 -0800 (PST)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36603 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932215AbcLGR4O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:56:14 -0500
+Received: by mail-pg0-f65.google.com with SMTP id x23so24131444pgx.3
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 09:56:14 -0800 (PST)
 In-Reply-To: <1481132267.1541189.811630457.167E9C56@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -38,7 +38,8 @@ On Wed, 2016-12-07 at 18:37 +0100, Hannes Frederic Sowa wrote:
 > My fear was that those could be aggregated by the slab cache into one
 > cache line, causing even more heating on cachelines.
 
-For hot stuff, better use kmalloc(max_t(size_t, 
-                                        L1_CACHE_BYTES,
-                                        sizeof(...)) 
-to avoid false sharing, unless this is per cpu data of course.
+My exact idea was to let up to 4095 (or PAGE_SIZE - 1) increments being
+done on the counter before switching to dynamically allocated memory.
+
+( Some packets might be dropped by TCP sockets, not necessarily a sign
+of an attack. just some spurious retransmits )
