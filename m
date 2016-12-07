@@ -1,157 +1,52 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v3 2/2] net/sched: cls_flower: Support matching on ICMP type and code
-Date: Wed,  7 Dec 2016 10:41:37 +0100
-Message-ID: <1481103697-19835-3-git-send-email-simon.horman@netronome.com>
-References: <1481103697-19835-1-git-send-email-simon.horman@netronome.com>
-Cc: Tom Herbert <tom@herbertland.com>,
-        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Simon Horman <simon.horman@netronome.com>
-To: Jiri Pirko <jiri@mellanox.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] bpf: fix loading of BPF_MAXINSNS sized programs
+Date: Wed, 7 Dec 2016 12:42:22 +0300
+Message-ID: <7039f9c2-c1d8-7549-7448-e369875ad9c1@cogentembedded.com>
+References: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37877 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752984AbcLGJmM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:42:12 -0500
-Received: by mail-wm0-f41.google.com with SMTP id t79so157099082wmt.0
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 01:42:11 -0800 (PST)
-In-Reply-To: <1481103697-19835-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37026 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753032AbcLGJmW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:42:22 -0500
+Received: by mail-wm0-f51.google.com with SMTP id t79so157106678wmt.0
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 01:42:22 -0800 (PST)
+In-Reply-To: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support matching on ICMP type and code.
+Hello!
 
-Example usage:
+On 12/7/2016 3:15 AM, Daniel Borkmann wrote:
 
-tc qdisc add dev eth0 ingress
+> General assumption is that single program can hold up to BPF_MAXINSNS,
+> that is, 4096 number of instructions. It is the case with cBPF and
 
-tc filter add dev eth0 protocol ip parent ffff: flower \
-	indev eth0 ip_proto icmp type 8 code 0 action drop
+    Up to BPF_MAXINSNS (that is 4096) instructions.
 
-tc filter add dev eth0 protocol ipv6 parent ffff: flower \
-	indev eth0 ip_proto icmpv6 type 128 code 0 action drop
+> that limit was carried over to eBPF. When recently testing digest, I
+> noticed that it's actually not possible to feed 4096 instructions
+> via bpf(2).
+>
+> The check for > BPF_MAXINSNS was added back then to bpf_check() in
+> cbd357008604 ("bpf: verifier (add ability to receive verification log)").
+> However, 09756af46893 ("bpf: expand BPF syscall with program load/unload")
+> added yet another check that comes before that into bpf_prog_load(),
+> but this time bails out already in case of >= BPF_MAXINSNS.
+>
+> Fix it up and perform the check early in bpf_prog_load(), so we can drop
+> the second one in bpf_check(). It makes sense, because also a 0 insn
+> program is useless and we don't want to waste any resources doing work
+> up to bpf_check() point. The existing bpf(2) man page documents E2BIG
+> as the official error for such cases, so just stick with it as well.
+>
+> Fixes: 09756af46893 ("bpf: expand BPF syscall with program load/unload")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+[...]
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
-v3
-* Use separate dissector key FLOW_DISSECTOR_KEY_ICMP
-* Use separate structure to hold icmp fields, this does not share
-  storage with ports
-
-v2
-* Move helpers to another patch
----
- include/uapi/linux/pkt_cls.h | 10 +++++++++
- net/sched/cls_flower.c       | 49 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 59 insertions(+)
-
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index 1adc0b654996..884c5aa515c4 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -458,6 +458,16 @@ enum {
- 	TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK,	/* be16 */
- 	TCA_FLOWER_KEY_ENC_UDP_DST_PORT,	/* be16 */
- 	TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,	/* be16 */
-+
-+	TCA_FLOWER_KEY_ICMPV4_CODE,	/* u8 */
-+	TCA_FLOWER_KEY_ICMPV4_CODE_MASK,/* u8 */
-+	TCA_FLOWER_KEY_ICMPV4_TYPE,	/* u8 */
-+	TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,/* u8 */
-+	TCA_FLOWER_KEY_ICMPV6_CODE,	/* u8 */
-+	TCA_FLOWER_KEY_ICMPV6_CODE_MASK,/* u8 */
-+	TCA_FLOWER_KEY_ICMPV6_TYPE,	/* u8 */
-+	TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,/* u8 */
-+
- 	__TCA_FLOWER_MAX,
- };
- 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 29a9e6d9f274..56df0368125a 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -39,6 +39,7 @@ struct fl_flow_key {
- 		struct flow_dissector_key_ipv6_addrs ipv6;
- 	};
- 	struct flow_dissector_key_ports tp;
-+	struct flow_dissector_key_icmp icmp;
- 	struct flow_dissector_key_keyid enc_key_id;
- 	union {
- 		struct flow_dissector_key_ipv4_addrs enc_ipv4;
-@@ -386,6 +387,14 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
- 	[TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK]	= { .type = NLA_U16 },
- 	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT]	= { .type = NLA_U16 },
- 	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK]	= { .type = NLA_U16 },
-+	[TCA_FLOWER_KEY_ICMPV4_TYPE]	= { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV4_TYPE_MASK] = { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV4_CODE]	= { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV4_CODE_MASK] = { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV6_TYPE]	= { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV6_TYPE_MASK] = { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV6_CODE]	= { .type = NLA_U8 },
-+	[TCA_FLOWER_KEY_ICMPV6_CODE_MASK] = { .type = NLA_U8 },
- };
- 
- static void fl_set_key_val(struct nlattr **tb,
-@@ -502,6 +511,24 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
- 		fl_set_key_val(tb, &key->tp.dst, TCA_FLOWER_KEY_SCTP_DST,
- 			       &mask->tp.dst, TCA_FLOWER_KEY_SCTP_DST_MASK,
- 			       sizeof(key->tp.dst));
-+	} else if (flow_basic_key_is_icmpv4(&key->basic)) {
-+		fl_set_key_val(tb, &key->icmp.type, TCA_FLOWER_KEY_ICMPV4_TYPE,
-+			       &mask->icmp.type,
-+			       TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,
-+			       sizeof(key->icmp.type));
-+		fl_set_key_val(tb, &key->icmp.code, TCA_FLOWER_KEY_ICMPV4_CODE,
-+			       &mask->icmp.code,
-+			       TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
-+			       sizeof(key->icmp.code));
-+	} else if (flow_basic_key_is_icmpv6(&key->basic)) {
-+		fl_set_key_val(tb, &key->icmp.type, TCA_FLOWER_KEY_ICMPV6_TYPE,
-+			       &mask->icmp.type,
-+			       TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,
-+			       sizeof(key->icmp.type));
-+		fl_set_key_val(tb, &key->icmp.code, TCA_FLOWER_KEY_ICMPV4_CODE,
-+			       &mask->icmp.code,
-+			       TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
-+			       sizeof(key->icmp.code));
- 	}
- 
- 	if (tb[TCA_FLOWER_KEY_ENC_IPV4_SRC] ||
-@@ -612,6 +639,8 @@ static void fl_init_dissector(struct cls_fl_head *head,
- 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
- 			     FLOW_DISSECTOR_KEY_PORTS, tp);
- 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-+			     FLOW_DISSECTOR_KEY_ICMP, icmp);
-+	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
- 			     FLOW_DISSECTOR_KEY_VLAN, vlan);
- 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
- 			     FLOW_DISSECTOR_KEY_ENC_KEYID, enc_key_id);
-@@ -977,6 +1006,26 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 				  &mask->tp.dst, TCA_FLOWER_KEY_SCTP_DST_MASK,
- 				  sizeof(key->tp.dst))))
- 		goto nla_put_failure;
-+	else if (flow_basic_key_is_icmpv4(&key->basic) &&
-+		 (fl_dump_key_val(skb, &key->icmp.type,
-+				  TCA_FLOWER_KEY_ICMPV4_TYPE, &mask->icmp.type,
-+				  TCA_FLOWER_KEY_ICMPV4_TYPE_MASK,
-+				  sizeof(key->icmp.type)) ||
-+		  fl_dump_key_val(skb, &key->icmp.code,
-+				  TCA_FLOWER_KEY_ICMPV4_CODE, &mask->icmp.code,
-+				  TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
-+				  sizeof(key->icmp.code))))
-+		goto nla_put_failure;
-+	else if (flow_basic_key_is_icmpv6(&key->basic) &&
-+		 (fl_dump_key_val(skb, &key->icmp.type,
-+				  TCA_FLOWER_KEY_ICMPV6_TYPE, &mask->icmp.type,
-+				  TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,
-+				  sizeof(key->icmp.type)) ||
-+		  fl_dump_key_val(skb, &key->icmp.code,
-+				  TCA_FLOWER_KEY_ICMPV6_CODE, &mask->icmp.code,
-+				  TCA_FLOWER_KEY_ICMPV6_CODE_MASK,
-+				  sizeof(key->icmp.code))))
-+		goto nla_put_failure;
- 
- 	if (key->enc_control.addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS &&
- 	    (fl_dump_key_val(skb, &key->enc_ipv4.src,
--- 
-2.7.0.rc3.207.g0ac5344
+MBR, Sergei
