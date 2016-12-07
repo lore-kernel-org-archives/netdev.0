@@ -1,316 +1,161 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 37/50] netfilter: nf_tables: atomic dump and reset for stateful objects
-Date: Wed,  7 Dec 2016 22:52:43 +0100
-Message-ID: <1481147576-5690-38-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 20/50] netfilter: introduce accessor functions for hook entries
+Date: Wed,  7 Dec 2016 22:52:26 +0100
+Message-ID: <1481147576-5690-21-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60234 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933365AbcLGVxm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 16:53:42 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 1E2C9B6C79
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:36 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 0F1D7DA85F
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:36 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D2E58DA85F
+        for <netdev@vger.kernel.org>; Wed,  7 Dec 2016 22:53:33 +0100 (CET)
 In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new NFT_MSG_GETOBJ_RESET command perform an atomic
-dump-and-reset of the stateful object. This also comes with add support
-for atomic dump and reset for counter and quota objects.
+From: Aaron Conole <aconole@bytheb.org>
 
+This allows easier future refactoring.
+
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h        |  3 +-
- include/uapi/linux/netfilter/nf_tables.h |  2 ++
- net/netfilter/nf_tables_api.c            | 29 ++++++++++++-----
- net/netfilter/nft_counter.c              | 56 +++++++++++++++++++++++++++-----
- net/netfilter/nft_quota.c                | 18 ++++++----
- 5 files changed, 85 insertions(+), 23 deletions(-)
+ include/linux/netfilter.h       | 27 +++++++++++++++++++++++++++
+ net/bridge/br_netfilter_hooks.c |  2 +-
+ net/netfilter/core.c            | 10 ++++------
+ net/netfilter/nf_queue.c        |  5 ++---
+ 4 files changed, 34 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 903cd618f50e..6f7d6a1dc09c 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -997,7 +997,8 @@ struct nft_object_type {
- 						struct nft_object *obj);
- 	void				(*destroy)(struct nft_object *obj);
- 	int				(*dump)(struct sk_buff *skb,
--						const struct nft_object *obj);
-+						struct nft_object *obj,
-+						bool reset);
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 69230140215b..575aa198097e 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -79,6 +79,33 @@ struct nf_hook_entry {
+ 	const struct nf_hook_ops	*orig_ops;
  };
  
- int nft_register_obj(struct nft_object_type *obj_type);
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 3d47582caa80..399eac1eee91 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -89,6 +89,7 @@ enum nft_verdicts {
-  * @NFT_MSG_NEWOBJ: create a stateful object (enum nft_obj_attributes)
-  * @NFT_MSG_GETOBJ: get a stateful object (enum nft_obj_attributes)
-  * @NFT_MSG_DELOBJ: delete a stateful object (enum nft_obj_attributes)
-+ * @NFT_MSG_GETOBJ_RESET: get and reset a stateful object (enum nft_obj_attributes)
-  */
- enum nf_tables_msg_types {
- 	NFT_MSG_NEWTABLE,
-@@ -112,6 +113,7 @@ enum nf_tables_msg_types {
- 	NFT_MSG_NEWOBJ,
- 	NFT_MSG_GETOBJ,
- 	NFT_MSG_DELOBJ,
-+	NFT_MSG_GETOBJ_RESET,
- 	NFT_MSG_MAX,
- };
- 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 2ae717c5dcb8..bfc015af366a 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -3972,14 +3972,14 @@ static struct nft_object *nft_obj_init(const struct nft_object_type *type,
- }
- 
- static int nft_object_dump(struct sk_buff *skb, unsigned int attr,
--			   const struct nft_object *obj)
-+			   struct nft_object *obj, bool reset)
- {
- 	struct nlattr *nest;
- 
- 	nest = nla_nest_start(skb, attr);
- 	if (!nest)
- 		goto nla_put_failure;
--	if (obj->type->dump(skb, obj) < 0)
-+	if (obj->type->dump(skb, obj, reset) < 0)
- 		goto nla_put_failure;
- 	nla_nest_end(skb, nest);
- 	return 0;
-@@ -4096,7 +4096,7 @@ static int nf_tables_newobj(struct net *net, struct sock *nlsk,
- static int nf_tables_fill_obj_info(struct sk_buff *skb, struct net *net,
- 				   u32 portid, u32 seq, int event, u32 flags,
- 				   int family, const struct nft_table *table,
--				   const struct nft_object *obj)
-+				   struct nft_object *obj, bool reset)
- {
- 	struct nfgenmsg *nfmsg;
- 	struct nlmsghdr *nlh;
-@@ -4115,7 +4115,7 @@ static int nf_tables_fill_obj_info(struct sk_buff *skb, struct net *net,
- 	    nla_put_string(skb, NFTA_OBJ_NAME, obj->name) ||
- 	    nla_put_be32(skb, NFTA_OBJ_TYPE, htonl(obj->type->type)) ||
- 	    nla_put_be32(skb, NFTA_OBJ_USE, htonl(obj->use)) ||
--	    nft_object_dump(skb, NFTA_OBJ_DATA, obj))
-+	    nft_object_dump(skb, NFTA_OBJ_DATA, obj, reset))
- 		goto nla_put_failure;
- 
- 	nlmsg_end(skb, nlh);
-@@ -4131,10 +4131,14 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
- 	const struct nfgenmsg *nfmsg = nlmsg_data(cb->nlh);
- 	const struct nft_af_info *afi;
- 	const struct nft_table *table;
--	const struct nft_object *obj;
- 	unsigned int idx = 0, s_idx = cb->args[0];
- 	struct net *net = sock_net(skb->sk);
- 	int family = nfmsg->nfgen_family;
-+	struct nft_object *obj;
-+	bool reset = false;
++static inline void
++nf_hook_entry_init(struct nf_hook_entry *entry,	const struct nf_hook_ops *ops)
++{
++	entry->next = NULL;
++	entry->ops = *ops;
++	entry->orig_ops = ops;
++}
 +
-+	if (NFNL_MSG_TYPE(cb->nlh->nlmsg_type) == NFT_MSG_GETOBJ_RESET)
-+		reset = true;
++static inline int
++nf_hook_entry_priority(const struct nf_hook_entry *entry)
++{
++	return entry->ops.priority;
++}
++
++static inline int
++nf_hook_entry_hookfn(const struct nf_hook_entry *entry, struct sk_buff *skb,
++		     struct nf_hook_state *state)
++{
++	return entry->ops.hook(entry->ops.priv, skb, state);
++}
++
++static inline const struct nf_hook_ops *
++nf_hook_entry_ops(const struct nf_hook_entry *entry)
++{
++	return entry->orig_ops;
++}
++
+ static inline void nf_hook_state_init(struct nf_hook_state *p,
+ 				      unsigned int hook,
+ 				      u_int8_t pf,
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 83d937f4415e..adad2eed29e6 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -1010,7 +1010,7 @@ int br_nf_hook_thresh(unsigned int hook, struct net *net,
  
- 	rcu_read_lock();
- 	cb->seq = net->nft.base_seq;
-@@ -4156,7 +4160,7 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
- 							    cb->nlh->nlmsg_seq,
- 							    NFT_MSG_NEWOBJ,
- 							    NLM_F_MULTI | NLM_F_APPEND,
--							    afi->family, table, obj) < 0)
-+							    afi->family, table, obj, reset) < 0)
- 					goto done;
+ 	elem = rcu_dereference(net->nf.hooks[NFPROTO_BRIDGE][hook]);
  
- 				nl_dump_check_consistent(cb, nlmsg_hdr(skb));
-@@ -4183,6 +4187,7 @@ static int nf_tables_getobj(struct net *net, struct sock *nlsk,
- 	const struct nft_table *table;
- 	struct nft_object *obj;
- 	struct sk_buff *skb2;
-+	bool reset = false;
- 	u32 objtype;
- 	int err;
+-	while (elem && (elem->ops.priority <= NF_BR_PRI_BRNF))
++	while (elem && (nf_hook_entry_priority(elem) <= NF_BR_PRI_BRNF))
+ 		elem = rcu_dereference(elem->next);
  
-@@ -4214,9 +4219,12 @@ static int nf_tables_getobj(struct net *net, struct sock *nlsk,
- 	if (!skb2)
+ 	if (!elem)
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index de30e08d58f2..2bb46e2d8d30 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -102,15 +102,13 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
+ 	if (!entry)
  		return -ENOMEM;
  
-+	if (NFNL_MSG_TYPE(nlh->nlmsg_type) == NFT_MSG_GETOBJ_RESET)
-+		reset = true;
-+
- 	err = nf_tables_fill_obj_info(skb2, net, NETLINK_CB(skb).portid,
- 				      nlh->nlmsg_seq, NFT_MSG_NEWOBJ, 0,
--				      family, table, obj);
-+				      family, table, obj, reset);
- 	if (err < 0)
- 		goto err;
+-	entry->orig_ops	= reg;
+-	entry->ops	= *reg;
+-	entry->next	= NULL;
++	nf_hook_entry_init(entry, reg);
  
-@@ -4291,7 +4299,7 @@ static int nf_tables_obj_notify(const struct nft_ctx *ctx,
+ 	mutex_lock(&nf_hook_mutex);
  
- 	err = nf_tables_fill_obj_info(skb, ctx->net, ctx->portid, ctx->seq,
- 				      event, 0, ctx->afi->family, ctx->table,
--				      obj);
-+				      obj, false);
- 	if (err < 0) {
- 		kfree_skb(skb);
- 		goto err;
-@@ -4482,6 +4490,11 @@ static const struct nfnl_callback nf_tables_cb[NFT_MSG_MAX] = {
- 		.attr_count	= NFTA_OBJ_MAX,
- 		.policy		= nft_obj_policy,
- 	},
-+	[NFT_MSG_GETOBJ_RESET] = {
-+		.call		= nf_tables_getobj,
-+		.attr_count	= NFTA_OBJ_MAX,
-+		.policy		= nft_obj_policy,
-+	},
- };
- 
- static void nft_chain_commit_update(struct nft_trans *trans)
-diff --git a/net/netfilter/nft_counter.c b/net/netfilter/nft_counter.c
-index 6f3dd429f865..f6a02c5071c2 100644
---- a/net/netfilter/nft_counter.c
-+++ b/net/netfilter/nft_counter.c
-@@ -100,10 +100,10 @@ static void nft_counter_obj_destroy(struct nft_object *obj)
- 	nft_counter_do_destroy(priv);
- }
- 
--static void nft_counter_fetch(const struct nft_counter_percpu __percpu *counter,
-+static void nft_counter_fetch(struct nft_counter_percpu __percpu *counter,
- 			      struct nft_counter *total)
- {
--	const struct nft_counter_percpu *cpu_stats;
-+	struct nft_counter_percpu *cpu_stats;
- 	u64 bytes, packets;
- 	unsigned int seq;
- 	int cpu;
-@@ -122,12 +122,52 @@ static void nft_counter_fetch(const struct nft_counter_percpu __percpu *counter,
+ 	/* Find the spot in the list */
+ 	while ((p = nf_entry_dereference(*pp)) != NULL) {
+-		if (reg->priority < p->orig_ops->priority)
++		if (reg->priority < nf_hook_entry_priority(p))
+ 			break;
+ 		pp = &p->next;
  	}
- }
+@@ -140,7 +138,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
  
-+static u64 __nft_counter_reset(u64 *counter)
-+{
-+	u64 ret, old;
-+
-+	do {
-+		old = *counter;
-+		ret = cmpxchg64(counter, old, 0);
-+	} while (ret != old);
-+
-+	return ret;
-+}
-+
-+static void nft_counter_reset(struct nft_counter_percpu __percpu *counter,
-+			      struct nft_counter *total)
-+{
-+	struct nft_counter_percpu *cpu_stats;
-+	u64 bytes, packets;
-+	unsigned int seq;
-+	int cpu;
-+
-+	memset(total, 0, sizeof(*total));
-+	for_each_possible_cpu(cpu) {
-+		bytes = packets = 0;
-+
-+		cpu_stats = per_cpu_ptr(counter, cpu);
-+		do {
-+			seq	= u64_stats_fetch_begin_irq(&cpu_stats->syncp);
-+			packets	+= __nft_counter_reset(&cpu_stats->counter.packets);
-+			bytes	+= __nft_counter_reset(&cpu_stats->counter.bytes);
-+		} while (u64_stats_fetch_retry_irq(&cpu_stats->syncp, seq));
-+
-+		total->packets += packets;
-+		total->bytes += bytes;
-+	}
-+}
-+
- static int nft_counter_do_dump(struct sk_buff *skb,
--			       const struct nft_counter_percpu_priv *priv)
-+			       const struct nft_counter_percpu_priv *priv,
-+			       bool reset)
+ 	mutex_lock(&nf_hook_mutex);
+ 	while ((p = nf_entry_dereference(*pp)) != NULL) {
+-		if (p->orig_ops == reg) {
++		if (nf_hook_entry_ops(p) == reg) {
+ 			rcu_assign_pointer(*pp, p->next);
+ 			break;
+ 		}
+@@ -311,7 +309,7 @@ int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state,
+ 	int ret;
+ 
+ 	do {
+-		verdict = entry->ops.hook(entry->ops.priv, skb, state);
++		verdict = nf_hook_entry_hookfn(entry, skb, state);
+ 		switch (verdict & NF_VERDICT_MASK) {
+ 		case NF_ACCEPT:
+ 			entry = rcu_dereference(entry->next);
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 77cba9f6ccb6..4a7662486f44 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -185,7 +185,7 @@ static unsigned int nf_iterate(struct sk_buff *skb,
+ 
+ 	do {
+ repeat:
+-		verdict = (*entryp)->ops.hook((*entryp)->ops.priv, skb, state);
++		verdict = nf_hook_entry_hookfn((*entryp), skb, state);
+ 		if (verdict != NF_ACCEPT) {
+ 			if (verdict != NF_REPEAT)
+ 				return verdict;
+@@ -200,7 +200,6 @@ static unsigned int nf_iterate(struct sk_buff *skb,
+ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  {
- 	struct nft_counter total;
+ 	struct nf_hook_entry *hook_entry = entry->hook;
+-	struct nf_hook_ops *elem = &hook_entry->ops;
+ 	struct sk_buff *skb = entry->skb;
+ 	const struct nf_afinfo *afinfo;
+ 	int err;
+@@ -209,7 +208,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  
--	nft_counter_fetch(priv->counter, &total);
-+	if (reset)
-+		nft_counter_reset(priv->counter, &total);
-+	else
-+		nft_counter_fetch(priv->counter, &total);
+ 	/* Continue traversal iff userspace said ok... */
+ 	if (verdict == NF_REPEAT)
+-		verdict = elem->hook(elem->priv, skb, &entry->state);
++		verdict = nf_hook_entry_hookfn(hook_entry, skb, &entry->state);
  
- 	if (nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(total.bytes),
- 			 NFTA_COUNTER_PAD) ||
-@@ -141,11 +181,11 @@ static int nft_counter_do_dump(struct sk_buff *skb,
- }
- 
- static int nft_counter_obj_dump(struct sk_buff *skb,
--				const struct nft_object *obj)
-+				struct nft_object *obj, bool reset)
- {
--	const struct nft_counter_percpu_priv *priv = nft_obj_data(obj);
-+	struct nft_counter_percpu_priv *priv = nft_obj_data(obj);
- 
--	return nft_counter_do_dump(skb, priv);
-+	return nft_counter_do_dump(skb, priv, reset);
- }
- 
- static const struct nla_policy nft_counter_policy[NFTA_COUNTER_MAX + 1] = {
-@@ -178,7 +218,7 @@ static int nft_counter_dump(struct sk_buff *skb, const struct nft_expr *expr)
- {
- 	const struct nft_counter_percpu_priv *priv = nft_expr_priv(expr);
- 
--	return nft_counter_do_dump(skb, priv);
-+	return nft_counter_do_dump(skb, priv, false);
- }
- 
- static int nft_counter_init(const struct nft_ctx *ctx,
-diff --git a/net/netfilter/nft_quota.c b/net/netfilter/nft_quota.c
-index 0d344209803a..5d25f57497cb 100644
---- a/net/netfilter/nft_quota.c
-+++ b/net/netfilter/nft_quota.c
-@@ -83,12 +83,17 @@ static int nft_quota_obj_init(const struct nlattr * const tb[],
- 	return nft_quota_do_init(tb, priv);
- }
- 
--static int nft_quota_do_dump(struct sk_buff *skb, const struct nft_quota *priv)
-+static int nft_quota_do_dump(struct sk_buff *skb, struct nft_quota *priv,
-+			     bool reset)
- {
- 	u32 flags = priv->invert ? NFT_QUOTA_F_INV : 0;
- 	u64 consumed;
- 
--	consumed = atomic64_read(&priv->consumed);
-+	if (reset)
-+		consumed = atomic64_xchg(&priv->consumed, 0);
-+	else
-+		consumed = atomic64_read(&priv->consumed);
-+
- 	/* Since we inconditionally increment consumed quota for each packet
- 	 * that we see, don't go over the quota boundary in what we send to
- 	 * userspace.
-@@ -108,11 +113,12 @@ static int nft_quota_do_dump(struct sk_buff *skb, const struct nft_quota *priv)
- 	return -1;
- }
- 
--static int nft_quota_obj_dump(struct sk_buff *skb, const struct nft_object *obj)
-+static int nft_quota_obj_dump(struct sk_buff *skb, struct nft_object *obj,
-+			      bool reset)
- {
- 	struct nft_quota *priv = nft_obj_data(obj);
- 
--	return nft_quota_do_dump(skb, priv);
-+	return nft_quota_do_dump(skb, priv, reset);
- }
- 
- static struct nft_object_type nft_quota_obj __read_mostly = {
-@@ -146,9 +152,9 @@ static int nft_quota_init(const struct nft_ctx *ctx,
- 
- static int nft_quota_dump(struct sk_buff *skb, const struct nft_expr *expr)
- {
--	const struct nft_quota *priv = nft_expr_priv(expr);
-+	struct nft_quota *priv = nft_expr_priv(expr);
- 
--	return nft_quota_do_dump(skb, priv);
-+	return nft_quota_do_dump(skb, priv, false);
- }
- 
- static struct nft_expr_type nft_quota_type;
+ 	if (verdict == NF_ACCEPT) {
+ 		afinfo = nf_get_afinfo(entry->state.pf);
 -- 
 2.1.4
-
