@@ -1,7 +1,7 @@
 From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [PATCH v3 1/6] net: stmmac: return error if no DMA configuration is found
-Date: Wed, 7 Dec 2016 15:20:03 +0100
-Message-ID: <1481120409-18103-2-git-send-email-niklass@axis.com>
+Subject: [PATCH v3 2/6] net: stmmac: simplify the common DMA init API
+Date: Wed, 7 Dec 2016 15:20:04 +0100
+Message-ID: <1481120409-18103-3-git-send-email-niklass@axis.com>
 References: <1481120409-18103-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,58 +16,150 @@ List-Id: netdev.vger.kernel.org
 
 From: Niklas Cassel <niklas.cassel@axis.com>
 
-All drivers except pci glue layer calls stmmac_probe_config_dt.
-stmmac_probe_config_dt does a kzalloc dma_cfg.
-
-pci glue layer does kzalloc dma_cfg explicitly, so all current
-drivers does a kzalloc dma_cfg.
-
-Return an error if no DMA configuration is found, that way
-we can assume that the DMA configuration always exists.
+Use struct stmmac_dma_cfg *dma_cfg as an argument rather
+than using all the struct members as individual arguments.
 
 Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h        |  4 ++--
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c | 13 +++++++------
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c  |  7 ++++---
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c    | 14 ++++++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c   |  6 +-----
+ 5 files changed, 22 insertions(+), 22 deletions(-)
 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 3ced2e1703c1..b13a144f72ad 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -412,8 +412,8 @@ extern const struct stmmac_desc_ops ndesc_ops;
+ struct stmmac_dma_ops {
+ 	/* DMA core initialization */
+ 	int (*reset)(void __iomem *ioaddr);
+-	void (*init)(void __iomem *ioaddr, int pbl, int fb, int mb,
+-		     int aal, u32 dma_tx, u32 dma_rx, int atds);
++	void (*init)(void __iomem *ioaddr, struct stmmac_dma_cfg *dma_cfg,
++		     u32 dma_tx, u32 dma_rx, int atds);
+ 	/* Configure the AXI Bus Mode Register */
+ 	void (*axi)(void __iomem *ioaddr, struct stmmac_axi *axi);
+ 	/* Dump DMA registers */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index f35385266fbf..318ae9f10104 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -84,8 +84,9 @@ static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
+ 	writel(value, ioaddr + DMA_AXI_BUS_MODE);
+ }
+ 
+-static void dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+-			       int aal, u32 dma_tx, u32 dma_rx, int atds)
++static void dwmac1000_dma_init(void __iomem *ioaddr,
++			       struct stmmac_dma_cfg *dma_cfg,
++			       u32 dma_tx, u32 dma_rx, int atds)
+ {
+ 	u32 value = readl(ioaddr + DMA_BUS_MODE);
+ 
+@@ -101,20 +102,20 @@ static void dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+ 	 */
+ 	value |= DMA_BUS_MODE_MAXPBL;
+ 	value &= ~DMA_BUS_MODE_PBL_MASK;
+-	value |= (pbl << DMA_BUS_MODE_PBL_SHIFT);
++	value |= (dma_cfg->pbl << DMA_BUS_MODE_PBL_SHIFT);
+ 
+ 	/* Set the Fixed burst mode */
+-	if (fb)
++	if (dma_cfg->fixed_burst)
+ 		value |= DMA_BUS_MODE_FB;
+ 
+ 	/* Mixed Burst has no effect when fb is set */
+-	if (mb)
++	if (dma_cfg->mixed_burst)
+ 		value |= DMA_BUS_MODE_MB;
+ 
+ 	if (atds)
+ 		value |= DMA_BUS_MODE_ATDS;
+ 
+-	if (aal)
++	if (dma_cfg->aal)
+ 		value |= DMA_BUS_MODE_AAL;
+ 
+ 	writel(value, ioaddr + DMA_BUS_MODE);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+index 61f54c99a7de..e5664da382f3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+@@ -32,11 +32,12 @@
+ #include "dwmac100.h"
+ #include "dwmac_dma.h"
+ 
+-static void dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+-			      int aal, u32 dma_tx, u32 dma_rx, int atds)
++static void dwmac100_dma_init(void __iomem *ioaddr,
++			      struct stmmac_dma_cfg *dma_cfg,
++			      u32 dma_tx, u32 dma_rx, int atds)
+ {
+ 	/* Enable Application Access by writing to DMA CSR0 */
+-	writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
++	writel(DMA_BUS_MODE_DEFAULT | (dma_cfg->pbl << DMA_BUS_MODE_PBL_SHIFT),
+ 	       ioaddr + DMA_BUS_MODE);
+ 
+ 	/* Mask interrupts by writing to CSR7 */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+index e81b6e565c29..7d82a3464097 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+@@ -99,27 +99,29 @@ static void dwmac4_dma_init_channel(void __iomem *ioaddr, int pbl,
+ 	writel(dma_rx_phy, ioaddr + DMA_CHAN_RX_BASE_ADDR(channel));
+ }
+ 
+-static void dwmac4_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+-			    int aal, u32 dma_tx, u32 dma_rx, int atds)
++static void dwmac4_dma_init(void __iomem *ioaddr,
++			    struct stmmac_dma_cfg *dma_cfg,
++			    u32 dma_tx, u32 dma_rx, int atds)
+ {
+ 	u32 value = readl(ioaddr + DMA_SYS_BUS_MODE);
+ 	int i;
+ 
+ 	/* Set the Fixed burst mode */
+-	if (fb)
++	if (dma_cfg->fixed_burst)
+ 		value |= DMA_SYS_BUS_FB;
+ 
+ 	/* Mixed Burst has no effect when fb is set */
+-	if (mb)
++	if (dma_cfg->mixed_burst)
+ 		value |= DMA_SYS_BUS_MB;
+ 
+-	if (aal)
++	if (dma_cfg->aal)
+ 		value |= DMA_SYS_BUS_AAL;
+ 
+ 	writel(value, ioaddr + DMA_SYS_BUS_MODE);
+ 
+ 	for (i = 0; i < DMA_CHANNEL_NB_MAX; i++)
+-		dwmac4_dma_init_channel(ioaddr, pbl, dma_tx, dma_rx, i);
++		dwmac4_dma_init_channel(ioaddr, dma_cfg->pbl,
++					dma_tx, dma_rx, i);
+ }
+ 
+ static void _dwmac4_dump_dma_regs(void __iomem *ioaddr, u32 channel)
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 982c95213da4..14366800e5e6 100644
+index 14366800e5e6..b1e42ddf0370 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1578,16 +1578,12 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
-  */
- static int stmmac_init_dma_engine(struct stmmac_priv *priv)
- {
--	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, aal = 0;
--	int mixed_burst = 0;
- 	int atds = 0;
- 	int ret = 0;
- 
--	if (priv->plat->dma_cfg) {
--		pbl = priv->plat->dma_cfg->pbl;
--		fixed_burst = priv->plat->dma_cfg->fixed_burst;
--		mixed_burst = priv->plat->dma_cfg->mixed_burst;
--		aal = priv->plat->dma_cfg->aal;
-+	if (!priv->plat->dma_cfg) {
-+		dev_err(priv->device, "DMA configuration not found\n");
-+		return -EINVAL;
- 	}
- 
- 	if (priv->extend_desc && (priv->mode == STMMAC_RING_MODE))
-@@ -1599,8 +1595,12 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+@@ -1595,11 +1595,7 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
  		return ret;
  	}
  
--	priv->hw->dma->init(priv->ioaddr, pbl, fixed_burst, mixed_burst,
--			    aal, priv->dma_tx_phy, priv->dma_rx_phy, atds);
-+	priv->hw->dma->init(priv->ioaddr,
-+			    priv->plat->dma_cfg->pbl,
-+			    priv->plat->dma_cfg->fixed_burst,
-+			    priv->plat->dma_cfg->mixed_burst,
-+			    priv->plat->dma_cfg->aal,
-+			    priv->dma_tx_phy, priv->dma_rx_phy, atds);
+-	priv->hw->dma->init(priv->ioaddr,
+-			    priv->plat->dma_cfg->pbl,
+-			    priv->plat->dma_cfg->fixed_burst,
+-			    priv->plat->dma_cfg->mixed_burst,
+-			    priv->plat->dma_cfg->aal,
++	priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg,
+ 			    priv->dma_tx_phy, priv->dma_rx_phy, atds);
  
  	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
- 		priv->rx_tail_addr = priv->dma_rx_phy +
 -- 
 2.1.4
