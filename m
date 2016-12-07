@@ -1,61 +1,41 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH] net: ethernet: slicoss: use module_pci_driver()
-Date: Wed, 7 Dec 2016 21:51:53 +0100
-Message-ID: <32498e3c-dcb4-a136-1676-965df4533277@gmx.de>
-References: <20161207134330.8829-1-tklauser@distanz.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tobias Klauser <tklauser@distanz.ch>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2] Makefile: really suppress printing of directories
+Date: Wed,  7 Dec 2016 12:55:09 -0800
+Message-ID: <1481144109-11116-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.15]:59008 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932536AbcLGUv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 15:51:58 -0500
-In-Reply-To: <20161207134330.8829-1-tklauser@distanz.ch>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:35222 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933015AbcLGUzO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 15:55:14 -0500
+Received: by mail-pg0-f53.google.com with SMTP id p66so165745197pga.2
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 12:55:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tobias,
+Makefile adds --no-print-directory to MAKEFLAGS if VERBOSE is not
+defined however Config always defines VERBOSE. Update the check to
+whether VERBOSE is 0.
 
-On 07.12.2016 14:43, Tobias Klauser wrote:
-> Use module_pci_driver() to get rid of some boilerplate code.
-> 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> ---
->  drivers/net/ethernet/alacritech/slicoss.c | 13 +------------
->  1 file changed, 1 insertion(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/alacritech/slicoss.c b/drivers/net/ethernet/alacritech/slicoss.c
-> index e77ecd5b307c..b9fbd0107008 100644
-> --- a/drivers/net/ethernet/alacritech/slicoss.c
-> +++ b/drivers/net/ethernet/alacritech/slicoss.c
-> @@ -1863,18 +1863,7 @@ static struct pci_driver slic_driver = {
->  	.remove = slic_remove,
->  };
->  
-> -static int __init slic_init_module(void)
-> -{
-> -	return pci_register_driver(&slic_driver);
-> -}
-> -
-> -static void __exit slic_cleanup_module(void)
-> -{
-> -	pci_unregister_driver(&slic_driver);
-> -}
-> -
-> -module_init(slic_init_module);
-> -module_exit(slic_cleanup_module);
-> +module_pci_driver(slic_driver);
->  
->  MODULE_DESCRIPTION("Alacritech non-accelerated SLIC driver");
->  MODULE_AUTHOR("Lino Sanfilippo <LinoSanfilippo@gmx.de>");
-> 
+Fixes: 57bdf8b76451 ("Make builds default to quiet mode")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Yes, makes sense.
-
-Acked-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-
-Thanks,
-Lino
+diff --git a/Makefile b/Makefile
+index 37b68ad87f06..18de7dcb315b 100644
+--- a/Makefile
++++ b/Makefile
+@@ -3,7 +3,7 @@ ifneq ($(wildcard Config),)
+ include Config
+ endif
+ 
+-ifndef VERBOSE
++ifeq ($(VERBOSE),0)
+ MAKEFLAGS += --no-print-directory
+ endif
+ 
+-- 
+2.1.4
