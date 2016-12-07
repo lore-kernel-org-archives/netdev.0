@@ -1,44 +1,25 @@
-From: Billy Shuman <wshuman3@gmail.com>
-Subject: Re: 4.9.0-rc8: tg3 dead after resume
-Date: Wed, 7 Dec 2016 13:39:47 -0500
-Message-ID: <CAHQNsocSRWjXaM-b8+QV5wzKPVuHV32V3MN4VHwjKethEfDpFg@mail.gmail.com>
-References: <CAHQNsodiku6Ln3y-=GzmmNLM0Emc2rEheFmc80OCuN91roojqA@mail.gmail.com>
- <CACKFLinTBokAXnOri9_sxuFby0y4VxxrhEOh1aayPsyPWwDahw@mail.gmail.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
+Date: Wed, 7 Dec 2016 10:47:16 -0800
+Message-ID: <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
+References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        Siva Reddy Kallam <siva.kallam@broadcom.com>
-To: Michael Chan <michael.chan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:36161 "EHLO
-        mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753235AbcLGSjt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 13:39:49 -0500
-Received: by mail-io0-f173.google.com with SMTP id l140so111290479iol.3
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 10:39:49 -0800 (PST)
-In-Reply-To: <CACKFLinTBokAXnOri9_sxuFby0y4VxxrhEOh1aayPsyPWwDahw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>, linux-mips@linux-mips.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 7, 2016 at 12:37 PM, Michael Chan <michael.chan@broadcom.com> wrote:
-> On Wed, Dec 7, 2016 at 7:20 AM, Billy Shuman <wshuman3@gmail.com> wrote:
->> After resume on 4.9.0-rc8 tg3 is dead.
->>
->> In logs I see:
->> kernel: tg3 0000:44:00.0: phy probe failed, err -19
->> kernel: tg3 0000:44:00.0: Problem fetching invariants of chip, aborting
->
-> -19 is -ENODEV which means tg3 cannot read the PHY ID.
->
-> If it's a true suspend/resume operation, the driver does not have to
-> go through probe during resume.  Please explain how you do
-> suspend/resume.
+The openwrt tree has long contained a set of patches that correct for
+unaligned issues throughout the linux network stack.
 
-I used systemd
->
-> Did this work before?  There has been very few changes to tg3 recently.
->
->>
->> rmmod and modprobe does not fix the problem only a reboot resolves the issue.
->>
->> Billy
+https://git.lede-project.org/?p=openwrt/source.git;a=blob;f=target/linux/ar71xx/patches-4.4/910-unaligned_access_hacks.patch;h=b4b749e4b9c02a74a9f712a2740d63e554de5c64;hb=ee53a240ac902dc83209008a2671e7fdcf55957a
+
+unaligned access traps in the packet processing path on certain versions of
+the mips architecture is horrifically bad. I had kind of hoped these
+patches in some form would have made it upstream by now. (or the
+arches that have the issue retired, I think it's mostly just mips24k)
