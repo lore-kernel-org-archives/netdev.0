@@ -1,39 +1,40 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] dummy: expend mtu range for dummy device
-Date: Wed,  7 Dec 2016 17:41:33 +0800
-Message-ID: <1481103693-16394-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: jarod@redhat.com, netdev@vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next v3 0/2] net/sched: cls_flower: Support matching on ICMP
+Date: Wed,  7 Dec 2016 10:41:35 +0100
+Message-ID: <1481103697-19835-1-git-send-email-simon.horman@netronome.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Simon Horman <simon.horman@netronome.com>
+To: Jiri Pirko <jiri@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:24719 "EHLO
-        cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752682AbcLGJll (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:41:41 -0500
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:38676 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752911AbcLGJmJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:42:09 -0500
+Received: by mail-wm0-f43.google.com with SMTP id f82so157444319wmf.1
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 01:42:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit 61e84623ace3 ("net: centralize net_device min/max MTU checking"),
-the mtu range for dummy device becomes [68, 1500].
+Hi,
 
-This patch expends it to [0, 65535].
+this series adds support for matching on ICMP type and code to cls_flower.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- drivers/net/dummy.c | 3 +++
- 1 file changed, 3 insertions(+)
+Changes v2->v3:
+* Add FLOW_DISSECTOR_KEY_ICMP and use separate structure for ICMP
 
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index 69fc840..6421835 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -154,6 +154,9 @@ static void dummy_setup(struct net_device *dev)
- 	dev->hw_features |= dev->features;
- 	dev->hw_enc_features |= dev->features;
- 	eth_hw_addr_random(dev);
-+
-+	dev->min_mtu = 0;
-+	dev->max_mtu = ETH_MAX_MTU;
- }
- 
- static int dummy_validate(struct nlattr *tb[], struct nlattr *data[])
+Changes v1->v2:
+* Include all dissector helpers in first patch
+
+Simon Horman (2):
+  flow dissector: ICMP support
+  net/sched: cls_flower: Support matching on ICMP type and code
+
+ include/net/flow_dissector.h | 55 +++++++++++++++++++++++++++++++++++++++++++-
+ include/uapi/linux/pkt_cls.h | 10 ++++++++
+ net/core/flow_dissector.c    | 49 +++++++++++++++++++++++++++++++++------
+ net/sched/cls_flower.c       | 49 +++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 155 insertions(+), 8 deletions(-)
+
 -- 
-1.8.3.1
+2.7.0.rc3.207.g0ac5344
