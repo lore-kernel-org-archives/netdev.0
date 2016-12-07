@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/50] netfilter: update Arturo Borrero Gonzalez email address
-Date: Wed,  7 Dec 2016 22:52:09 +0100
-Message-ID: <1481147576-5690-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/50] ipvs: Decrement ttl
+Date: Wed,  7 Dec 2016 22:52:08 +0100
+Message-ID: <1481147576-5690-3-git-send-email-pablo@netfilter.org>
 References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,127 +10,103 @@ In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arturo Borrero Gonzalez <arturo@debian.org>
+From: Dwip Banerjee <dwip@linux.vnet.ibm.com>
 
-The email address has changed, let's update the copyright statements.
+We decrement the IP ttl in all the modes in order to prevent infinite
+route loops. The changes were done based on Julian Anastasov's
+suggestions in a prior thread.
 
-Signed-off-by: Arturo Borrero Gonzalez <arturo@debian.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+The ttl based check/discard and the actual decrement are done in
+__ip_vs_get_out_rt() and in __ip_vs_get_out_rt_v6(), for the IPv6
+case. decrement_ttl() implements the actual functionality for the
+two cases.
+
+Signed-off-by: Dwip Banerjee <dwip@linux.vnet.ibm.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/ipv4/netfilter/nft_masq_ipv4.c  | 4 ++--
- net/ipv4/netfilter/nft_redir_ipv4.c | 4 ++--
- net/ipv6/netfilter/nft_masq_ipv6.c  | 4 ++--
- net/ipv6/netfilter/nft_redir_ipv6.c | 4 ++--
- net/netfilter/nft_masq.c            | 4 ++--
- net/netfilter/nft_redir.c           | 4 ++--
- 6 files changed, 12 insertions(+), 12 deletions(-)
+ net/netfilter/ipvs/ip_vs_xmit.c | 54 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
 
-diff --git a/net/ipv4/netfilter/nft_masq_ipv4.c b/net/ipv4/netfilter/nft_masq_ipv4.c
-index 4f697e431811..4d69f99b8707 100644
---- a/net/ipv4/netfilter/nft_masq_ipv4.c
-+++ b/net/ipv4/netfilter/nft_masq_ipv4.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-+ * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo@debian.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -77,5 +77,5 @@ module_init(nft_masq_ipv4_module_init);
- module_exit(nft_masq_ipv4_module_exit);
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 01d3d894de46..4e1a98fcc8c3 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -254,6 +254,54 @@ static inline bool ensure_mtu_is_adequate(struct netns_ipvs *ipvs, int skb_af,
+ 	return true;
+ }
  
- MODULE_LICENSE("GPL");
--MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>");
-+MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo@debian.org");
- MODULE_ALIAS_NFT_AF_EXPR(AF_INET, "masq");
-diff --git a/net/ipv4/netfilter/nft_redir_ipv4.c b/net/ipv4/netfilter/nft_redir_ipv4.c
-index 16df0493c5ce..62c18e68ac58 100644
---- a/net/ipv4/netfilter/nft_redir_ipv4.c
-+++ b/net/ipv4/netfilter/nft_redir_ipv4.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-+ * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo@debian.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -71,5 +71,5 @@ module_init(nft_redir_ipv4_module_init);
- module_exit(nft_redir_ipv4_module_exit);
++static inline bool decrement_ttl(struct netns_ipvs *ipvs,
++				 int skb_af,
++				 struct sk_buff *skb)
++{
++	struct net *net = ipvs->net;
++
++#ifdef CONFIG_IP_VS_IPV6
++	if (skb_af == AF_INET6) {
++		struct dst_entry *dst = skb_dst(skb);
++
++		/* check and decrement ttl */
++		if (ipv6_hdr(skb)->hop_limit <= 1) {
++			/* Force OUTPUT device used as source address */
++			skb->dev = dst->dev;
++			icmpv6_send(skb, ICMPV6_TIME_EXCEED,
++				    ICMPV6_EXC_HOPLIMIT, 0);
++			__IP6_INC_STATS(net, ip6_dst_idev(dst),
++					IPSTATS_MIB_INHDRERRORS);
++
++			return false;
++		}
++
++		/* don't propagate ttl change to cloned packets */
++		if (!skb_make_writable(skb, sizeof(struct ipv6hdr)))
++			return false;
++
++		ipv6_hdr(skb)->hop_limit--;
++	} else
++#endif
++	{
++		if (ip_hdr(skb)->ttl <= 1) {
++			/* Tell the sender its packet died... */
++			__IP_INC_STATS(net, IPSTATS_MIB_INHDRERRORS);
++			icmp_send(skb, ICMP_TIME_EXCEEDED, ICMP_EXC_TTL, 0);
++			return false;
++		}
++
++		/* don't propagate ttl change to cloned packets */
++		if (!skb_make_writable(skb, sizeof(struct iphdr)))
++			return false;
++
++		/* Decrease ttl */
++		ip_decrease_ttl(ip_hdr(skb));
++	}
++
++	return true;
++}
++
+ /* Get route to destination or remote server */
+ static int
+ __ip_vs_get_out_rt(struct netns_ipvs *ipvs, int skb_af, struct sk_buff *skb,
+@@ -326,6 +374,9 @@ __ip_vs_get_out_rt(struct netns_ipvs *ipvs, int skb_af, struct sk_buff *skb,
+ 		return local;
+ 	}
  
- MODULE_LICENSE("GPL");
--MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>");
-+MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo@debian.org>");
- MODULE_ALIAS_NFT_AF_EXPR(AF_INET, "redir");
-diff --git a/net/ipv6/netfilter/nft_masq_ipv6.c b/net/ipv6/netfilter/nft_masq_ipv6.c
-index a2aff1277b40..93d758f70334 100644
---- a/net/ipv6/netfilter/nft_masq_ipv6.c
-+++ b/net/ipv6/netfilter/nft_masq_ipv6.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-+ * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo@debian.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -78,5 +78,5 @@ module_init(nft_masq_ipv6_module_init);
- module_exit(nft_masq_ipv6_module_exit);
++	if (!decrement_ttl(ipvs, skb_af, skb))
++		goto err_put;
++
+ 	if (likely(!(rt_mode & IP_VS_RT_MODE_TUNNEL))) {
+ 		mtu = dst_mtu(&rt->dst);
+ 	} else {
+@@ -473,6 +524,9 @@ __ip_vs_get_out_rt_v6(struct netns_ipvs *ipvs, int skb_af, struct sk_buff *skb,
+ 		return local;
+ 	}
  
- MODULE_LICENSE("GPL");
--MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>");
-+MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo@debian.org>");
- MODULE_ALIAS_NFT_AF_EXPR(AF_INET6, "masq");
-diff --git a/net/ipv6/netfilter/nft_redir_ipv6.c b/net/ipv6/netfilter/nft_redir_ipv6.c
-index bfcd5af6bc15..2850fcd8583f 100644
---- a/net/ipv6/netfilter/nft_redir_ipv6.c
-+++ b/net/ipv6/netfilter/nft_redir_ipv6.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-+ * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo@debian.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -72,5 +72,5 @@ module_init(nft_redir_ipv6_module_init);
- module_exit(nft_redir_ipv6_module_exit);
- 
- MODULE_LICENSE("GPL");
--MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>");
-+MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo@debian.org>");
- MODULE_ALIAS_NFT_AF_EXPR(AF_INET6, "redir");
-diff --git a/net/netfilter/nft_masq.c b/net/netfilter/nft_masq.c
-index 81b5ad6165ac..bf92de01410f 100644
---- a/net/netfilter/nft_masq.c
-+++ b/net/netfilter/nft_masq.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-+ * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo@debian.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -105,4 +105,4 @@ int nft_masq_dump(struct sk_buff *skb, const struct nft_expr *expr)
- EXPORT_SYMBOL_GPL(nft_masq_dump);
- 
- MODULE_LICENSE("GPL");
--MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>");
-+MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo@debian.org>");
-diff --git a/net/netfilter/nft_redir.c b/net/netfilter/nft_redir.c
-index 03f7bf40ae75..967e09b099b2 100644
---- a/net/netfilter/nft_redir.c
-+++ b/net/netfilter/nft_redir.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-+ * Copyright (c) 2014 Arturo Borrero Gonzalez <arturo@debian.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -108,4 +108,4 @@ int nft_redir_dump(struct sk_buff *skb, const struct nft_expr *expr)
- EXPORT_SYMBOL_GPL(nft_redir_dump);
- 
- MODULE_LICENSE("GPL");
--MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>");
-+MODULE_AUTHOR("Arturo Borrero Gonzalez <arturo@debian.org>");
++	if (!decrement_ttl(ipvs, skb_af, skb))
++		goto err_put;
++
+ 	/* MTU checking */
+ 	if (likely(!(rt_mode & IP_VS_RT_MODE_TUNNEL)))
+ 		mtu = dst_mtu(&rt->dst);
 -- 
 2.1.4
 
