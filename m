@@ -1,123 +1,117 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/20] i40e: restore workaround for removing default MAC filter
-Date: Tue,  6 Dec 2016 23:33:37 -0800
-Message-ID: <20161207073354.88568-4-jeffrey.t.kirsher@intel.com>
-References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/20][pull request] 40GbE Intel Wired LAN Driver Updates 2016-12-06
+Date: Tue,  6 Dec 2016 23:33:34 -0800
+Message-ID: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+        guru.anbalagane@oracle.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:34826 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752994AbcLGHer (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:47 -0500
-In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
+        id S1752400AbcLGHeo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+This series contains updates to i40e and i40evf only.
 
-A previous commit 53cb6e9e8949 ("i40e: Removal of workaround for simple
-MAC address filter deletion") removed a workaround for some
-firmware versions which was reported to not be necessary in production
-NICs. Unfortunately this workaround is necessary in some configurations,
-specifically the Ethernet Controller XL710 for 40GbE QSFP+ (8086:1583).
+Filip modifies the i40e to log link speed change and when the link is
+brought up and down.
 
-Without this patch, the mentioned NICs with current firmware exhibit
-issues when adding VLANs, as outlined by the following reproduction:
+Mitch replaces i40e_txd_use_count() with a new function which is slightly
+faster and better documented so the dim witted can better follow the
+code.  Fixes the locking of the service task so that it is actually
+done in the service task and not in the scheduling function which calls
+the service task.
 
-  $modprobe i40e
-  $ip link set <device> up
-  $ip link add link <device> vlan100 type vlan id 100
-  $dmesg | tail
-  <snip>
-  kernel: i40e 0000:82:00.0: Error I40E_AQ_RC_EINVAL adding RX
-filters on PF, promiscuous mode forced on
+Jacob, being the busy little beaver he is, provides most of the changes
+starting restores a workaround that is still needed in some configurations,
+specifically the Ethernet Controller XL710 for 40GbE QSFP+.  Removes
+duplicate code and simplifies the i40e_vsi_add_vlan() and
+i40e_vsi_kill_vlan() functions.  Removes detection of PTP frames over L4
+(UDP) on the XL710 MAC, since there was a product decision to defeature
+it.  Fixed a previous refactor of active filters which caused issues in
+the accounting of active_filters.  Remaining work was done in the VLAN
+filters to improve readability and simplify code as much as possible
+to reduce inconsistencies.
 
-This results in filters being marked as FAILED and setting the device in
-promiscuous mode.
+Alex fixes foul budget accounting in core code by returning actual
+work done, capped to budget-1.
 
-The root cause of receiving the -EINVAL error response appears to be due
-to a conflict with the default MAC filter which still exists on the
-default firmware for this device. Attempting to add a new VLAN filter on
-the default MAC address conflicts with the IGNORE_VLAN setting on the
-default rule.
+Henry fixes the "ethtool -p" function for 1G BaseT PHYs.
 
-Change-ID: I4d8f6d48ac5f60cfe981b3baad30eb4d7c170d61
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 41 +++++++++++++++++++++++++++++
- 1 file changed, 41 insertions(+)
+Carolyn adds support for 25G devices for i40e and i40evf.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 4534d41..c467cc4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1226,6 +1226,39 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi)
- }
- 
- /**
-+ * i40e_rm_default_mac_filter - Remove the default MAC filter set by NVM
-+ * @vsi: the PF Main VSI - inappropriate for any other VSI
-+ * @macaddr: the MAC address
-+ *
-+ * Remove whatever filter the firmware set up so the driver can manage
-+ * its own filtering intelligently.
-+ **/
-+static void i40e_rm_default_mac_filter(struct i40e_vsi *vsi, u8 *macaddr)
-+{
-+	struct i40e_aqc_remove_macvlan_element_data element;
-+	struct i40e_pf *pf = vsi->back;
-+
-+	/* Only appropriate for the PF main VSI */
-+	if (vsi->type != I40E_VSI_MAIN)
-+		return;
-+
-+	memset(&element, 0, sizeof(element));
-+	ether_addr_copy(element.mac_addr, macaddr);
-+	element.vlan_tag = 0;
-+	/* Ignore error returns, some firmware does it this way... */
-+	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
-+	i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
-+
-+	memset(&element, 0, sizeof(element));
-+	ether_addr_copy(element.mac_addr, macaddr);
-+	element.vlan_tag = 0;
-+	/* ...and some firmware does it this way. */
-+	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH |
-+			I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
-+	i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
-+}
-+
-+/**
-  * i40e_add_filter - Add a mac/vlan filter to the VSI
-  * @vsi: the VSI to be searched
-  * @macaddr: the MAC address
-@@ -9295,6 +9328,12 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 	if (vsi->type == I40E_VSI_MAIN) {
- 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
- 		ether_addr_copy(mac_addr, hw->mac.perm_addr);
-+		/* The following steps are necessary to prevent reception
-+		 * of tagged packets - some older NVM configurations load a
-+		 * default a MAC-VLAN filter that accepts any tagged packet
-+		 * which must be replaced by a normal filter.
-+		 */
-+		i40e_rm_default_mac_filter(vsi, mac_addr);
- 		spin_lock_bh(&vsi->mac_filter_hash_lock);
- 		i40e_add_filter(vsi, mac_addr, I40E_VLAN_ANY);
- 		spin_unlock_bh(&vsi->mac_filter_hash_lock);
-@@ -9828,6 +9867,8 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
- 	pf->vsi[pf->lan_vsi]->tc_config.enabled_tc = 0;
- 	pf->vsi[pf->lan_vsi]->seid = pf->main_vsi_seid;
- 	i40e_vsi_config_tc(pf->vsi[pf->lan_vsi], enabled_tc);
-+	if (vsi->type == I40E_VSI_MAIN)
-+		i40e_rm_default_mac_filter(vsi, pf->hw.mac.perm_addr);
- 
- 	/* assign it some queues */
- 	ret = i40e_alloc_rings(vsi);
+Michal adds functions to apply the correct access method for external PHYs
+which could use Clause22 or Clause45 depending on the PHY.
+
+The following are changes since commit d4aea20d889e05575bb331a3dadf176176f7d631:
+  tun: Use netif_receive_skb instead of netif_rx
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Alexander Duyck (1):
+  i40e/i40evf: napi_poll must return the work done
+
+Bimmy Pujari (1):
+  Changed version from 1.6.21 to 1.6.25
+
+Carolyn Wyborny (2):
+  i40e: Add support for 25G devices
+  i40e: Add FEC for 25g
+
+Filip Sadowski (1):
+  i40e: Driver prints log message on link speed change
+
+Henry Tieman (1):
+  i40e: Blink LED on 1G BaseT boards
+
+Jacob Keller (11):
+  i40e: restore workaround for removing default MAC filter
+  i40e: remove code to handle dev_addr specially
+  i40e: use unsigned printf format specifier for active_filters count
+  i40e: defeature support for PTP L4 frame detection on XL710
+  i40e: recalculate vsi->active_filters from hash contents
+  i40e: refactor i40e_update_filter_state to avoid passing aq_err
+  i40e: delete filter after adding its replacement when converting
+  i40e: factor out addition/deletion of VLAN per each MAC address
+  i40e: use (add|rm)_vlan_all_mac helper functions when changing PVID
+  i40e: move all updates for VLAN mode into i40e_sync_vsi_filters
+  i40e: don't allow i40e_vsi_(add|kill)_vlan to operate when VID<1
+
+Michal Kosiarz (1):
+  i40e: Add functions which apply correct PHY access method for read and
+    write operation
+
+Mitch Williams (2):
+  i40e: simplify txd use count calculation
+  i40e: lock service task correctly
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  10 +-
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  51 ++-
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  85 +++-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_devids.h      |   2 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  51 ++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 491 ++++++++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   4 +
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  21 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  45 +-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  82 ++--
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  46 +-
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  51 ++-
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |   2 +
+ drivers/net/ethernet/intel/i40evf/i40e_devids.h    |   2 +
+ drivers/net/ethernet/intel/i40evf/i40e_prototype.h |   4 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  45 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |  82 ++--
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |   8 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   3 +
+ 23 files changed, 731 insertions(+), 362 deletions(-)
+
 -- 
 2.9.3
