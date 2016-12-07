@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v2 07/18] RDS: RDMA: return appropriate error on rdma map failures
-Date: Tue,  6 Dec 2016 20:01:45 -0800
-Message-ID: <1481083316-11648-8-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v2 06/18] RDS: RDMA: start rdma listening after init
+Date: Tue,  6 Dec 2016 20:01:44 -0800
+Message-ID: <1481083316-11648-7-git-send-email-santosh.shilimkar@oracle.com>
 References: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
 To: netdev@vger.kernel.org, davem@davemloft.net
@@ -10,50 +10,42 @@ In-Reply-To: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The first message to a remote node should prompt a new
-connection even if it is RDMA operation. For RDMA operation
-the MR mapping can fail because connections is not yet up.
+From: Qing Huang <qing.huang@oracle.com>
 
-Since the connection establishment is asynchronous,
-we make sure the map failure because of unavailable
-connection reach to the user by appropriate error code.
-Before returning to the user, lets trigger the connection
-so that its ready for the next retry.
+This prevents RDS from handling incoming rdma packets before RDS
+completes initializing its recv/send components.
 
+Signed-off-by: Qing Huang <qing.huang@oracle.com>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/send.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ net/rds/rdma_transport.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index bb13c56..0a6f38b 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -945,6 +945,11 @@ static int rds_cmsg_send(struct rds_sock *rs, struct rds_message *rm,
- 			ret = rds_cmsg_rdma_map(rs, rm, cmsg);
- 			if (!ret)
- 				*allocated_mr = 1;
-+			else if (ret == -ENODEV)
-+				/* Accommodate the get_mr() case which can fail
-+				 * if connection isn't established yet.
-+				 */
-+				ret = -EAGAIN;
- 			break;
- 		case RDS_CMSG_ATOMIC_CSWP:
- 		case RDS_CMSG_ATOMIC_FADD:
-@@ -1082,8 +1087,12 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
+index 345f090..250c6b8 100644
+--- a/net/rds/rdma_transport.c
++++ b/net/rds/rdma_transport.c
+@@ -203,18 +203,13 @@ static int rds_rdma_init(void)
+ {
+ 	int ret;
  
- 	/* Parse any control messages the user may have included. */
- 	ret = rds_cmsg_send(rs, rm, msg, &allocated_mr);
--	if (ret)
-+	if (ret) {
-+		/* Trigger connection so that its ready for the next retry */
-+		if (ret ==  -EAGAIN)
-+			rds_conn_connect_if_down(conn);
+-	ret = rds_rdma_listen_init();
++	ret = rds_ib_init();
+ 	if (ret)
  		goto out;
-+	}
  
- 	if (rm->rdma.op_active && !conn->c_trans->xmit_rdma) {
- 		printk_ratelimited(KERN_NOTICE "rdma_op %p conn xmit_rdma %p\n",
+-	ret = rds_ib_init();
++	ret = rds_rdma_listen_init();
+ 	if (ret)
+-		goto err_ib_init;
+-
+-	goto out;
+-
+-err_ib_init:
+-	rds_rdma_listen_stop();
++		rds_ib_exit();
+ out:
+ 	return ret;
+ }
 -- 
 1.9.1
