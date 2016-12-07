@@ -1,54 +1,60 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
- prog
-Date: Wed, 7 Dec 2016 08:37:58 -0800
-Message-ID: <20161207163756.GA33446@ast-mbp.thefacebook.com>
-References: <1481088714-54512-1-git-send-email-kafai@fb.com>
- <1481088714-54512-2-git-send-email-kafai@fb.com>
- <5847D723.3020908@iogearbox.net>
- <20161207114112.6ad86da3@jkicinski-Precision-T1700>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [net-next][PATCH v2 18/18] RDS: IB: add missing connection cache
+ usage info
+Date: Wed, 7 Dec 2016 08:44:04 -0800
+Message-ID: <eac62d66-7a41-965d-8ecb-c2e4b651c39d@oracle.com>
+References: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
+ <1481083316-11648-19-git-send-email-santosh.shilimkar@oracle.com>
+ <20161207.105531.1347292514118544125.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org,
-        Alexei Starovoitov <ast@fb.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        David Miller <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:32920 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752871AbcLGQiD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 11:38:03 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 144so20869583pfv.0
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 08:38:03 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20161207114112.6ad86da3@jkicinski-Precision-T1700>
+Received: from userp1040.oracle.com ([156.151.31.81]:34938 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753366AbcLGQnt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 11:43:49 -0500
+In-Reply-To: <20161207.105531.1347292514118544125.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 07, 2016 at 11:41:12AM +0000, Jakub Kicinski wrote:
-> > I see nothing wrong if this is exposed/made visible in the usual way through
-> > ethtool -k as well. I guess at least that would be the expected way to query
-> > for such driver capabilities.
-> 
-> +1 on exposing this to user space.  Whether via ethtool -k or a
-> separate XDP-specific netlink message is mostly a question of whether
-> we expect the need to expose more complex capabilities than bits.
+On 12/7/2016 7:55 AM, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> Date: Tue,  6 Dec 2016 20:01:56 -0800
+>
+>> rds-tools already support it.
+>>
+>> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+>> ---
+>>  include/uapi/linux/rds.h | 1 +
+>>  net/rds/ib.c             | 1 +
+>>  2 files changed, 2 insertions(+)
+>>
+>> diff --git a/include/uapi/linux/rds.h b/include/uapi/linux/rds.h
+>> index 3833113..410ae3c 100644
+>> --- a/include/uapi/linux/rds.h
+>> +++ b/include/uapi/linux/rds.h
+>> @@ -183,6 +183,7 @@ struct rds_info_rdma_connection {
+>>  	uint32_t	max_send_sge;
+>>  	uint32_t	rdma_mr_max;
+>>  	uint32_t	rdma_mr_size;
+>> +	uint32_t	cache_allocs;
+>>  };
+>>
+>>  /* RDS message Receive Path Latency points */
+>
+> What level of compatability exists here?  If we run an old tool on a new
+> kernel, or a new tool on an old kernel, does it work properly?
+>
+Tools repo carries a copy of the header and thats how the old tool and
+new tools have been running with older/newer kernels. There are few more
+bits left before I can start using directly kernel header for newer
+tools.
 
-I'm very much against using NETIF_F_ flags and exposing this to user space.
-I see this xdp feature flag as temporary workaround until all drivers
-support adjust_head() helper. It is very much a fundamental feature for xdp.
-Without being able to add/remove headers the usability of xdp becomes very limited.
+Moreover this particular parameter is only used for verbose mode which
+isn't used in default options.
 
-If you guys dont like extra ndo_xdp command, I'd suggest to do
-"if (prog->xdp_adjust_head)" check in the driver and if driver doesn't
-support it yet, just fail XDP_SETUP_PROG command.
-imo that will be more flexible interface, since in the future drivers
-can fail on different combination of features and simple boolean flag
-unlikely to serve us for long time.
+Regards,
+Santosh
