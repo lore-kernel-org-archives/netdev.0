@@ -1,84 +1,97 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence GEM.
-Date: Wed, 7 Dec 2016 22:04:16 +0100
-Message-ID: <20161207210416.GA27622@netboy>
-References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
- <20161207193908.GA13062@netboy>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [patch] ser_gigaset: return -ENOMEM on error instead of success
+Date: Wed, 7 Dec 2016 21:57:54 +0100
+Message-ID: <d8eb1f69-e68e-7792-00de-b14e6bac1606@imap.cc>
+References: <20161207112203.GC5507@elgon.mountain>
+ <1481137583.12596.19.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tbultel@pixelsurmer.com, boris.brezillon@free-electrons.com,
- rafalo@cadence.com, netdev@vger.kernel.org,
- alexandre.belloni@free-electrons.com, nicolas.ferre@atmel.com,
- linux-kernel@vger.kernel.org, harinikatakamlinux@gmail.com, michals@xilinx.com,
- anirudh@xilinx.com, punnaia@xilinx.com, harini.katakam@xilinx.com,
- davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Andrei Pistirica <andrei.pistirica@microchip.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20161207193908.GA13062@netboy>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="cCaNQVSM1qMreCm58ApjrbMVmqjhbqHqW"
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>,
+        Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:42168 "EHLO
+        out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752253AbcLGVIc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 16:08:32 -0500
+In-Reply-To: <1481137583.12596.19.camel@tiscali.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 07, 2016 at 08:39:09PM +0100, Richard Cochran wrote:
-> > +static s32 gem_ptp_max_adj(unsigned int f_nom)
-> > +{
-> > +	u64 adj;
-> > +
-> > +	/* The 48 bits of seconds for the GEM overflows every:
-> > +	 * 2^48/(365.25 * 24 * 60 *60) =~ 8 925 512 years (~= 9 mil years),
-> > +	 * thus the maximum adjust frequency must not overflow CNS register:
-> > +	 *
-> > +	 * addend  = 10^9/nominal_freq
-> > +	 * adj_max = +/- addend*ppb_max/10^9
-> > +	 * max_ppb = (2^8-1)*nominal_freq-10^9
-> > +	 */
-> > +	adj = f_nom;
-> > +	adj *= 0xffff;
-> > +	adj -= 1000000000ULL;
-> 
-> What is this computation, and how does it relate to the comment?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--cCaNQVSM1qMreCm58ApjrbMVmqjhbqHqW
+Content-Type: multipart/mixed; boundary="xMP98nvWSUeejPJfmk2DUea1l5wqW1O6i";
+ protected-headers="v1"
+From: Tilman Schmidt <tilman@imap.cc>
+To: Paul Bolle <pebolle@tiscali.nl>, Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Karsten Keil <isdn@linux-pingi.de>, "David S. Miller"
+ <davem@davemloft.net>, gigaset307x-common@lists.sourceforge.net,
+ netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+Message-ID: <d8eb1f69-e68e-7792-00de-b14e6bac1606@imap.cc>
+Subject: Re: [patch] ser_gigaset: return -ENOMEM on error instead of success
+References: <20161207112203.GC5507@elgon.mountain>
+ <1481137583.12596.19.camel@tiscali.nl>
+In-Reply-To: <1481137583.12596.19.camel@tiscali.nl>
 
-I am not sure what you meant, but it sounds like you are on the wrong
-track.  Let me explain...
+--xMP98nvWSUeejPJfmk2DUea1l5wqW1O6i
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-The max_adj has nothing at all to do with the width of the time
-register.  Rather, it should reflect the maximum possible change in
-the tuning word.
+Am 07.12.2016 um 20:06 schrieb Paul Bolle:
+> On Wed, 2016-12-07 at 14:22 +0300, Dan Carpenter wrote:
+>> If we can't allocate the resources in gigaset_initdriver() then we
+>> should return -ENOMEM instead of zero.
+>=20
+> That's entirely correct.
 
-For example, with a nominal 8 ns period, the tuning word is 0x80000.
-Looking at running the clock more slowly, the slowest possible word is
-0x00001, meaning a difference of 0x7FFFF.  This implies an adjustment
-of 0x7FFFF/0x80000 or 999998092 ppb.  Running more quickly, we can
-already have 0x100000, twice as fast, or just under 2 billion ppb.
+Agree.
 
-You should consider the extreme cases to determine the most limited
-(smallest) max_adj value:
+> I'll be back (probably tomorrow) after a short test to see whether this=
+ really
+> needs to go into stable. It almost certainly should, but I'd like to fi=
+rst see
+> the mess the current code leaves behind once gigaset_initdriver() fails=
+ before
+> saying so.
 
-Case 1 - high frequency
-~~~~~~~~~~~~~~~~~~~~~~~
+Not much of a mess, I reckon. Everything that has been allocated and
+registered up to that point is properly deallocated and unregistered.
+The code just fails to tell the kernel that module initialization has
+failed, so the module remains loaded even though it can never be
+called because it isn't hooked anywhere. That's a nuisance and a
+waste of RAM, but not much more.
 
-With a nominal 1 ns period, we have the nominal tuning word 0x10000.
-The smallest is 0x1 for a difference of 0xFFFF.  This corresponds to
-an adjustment of 0xFFFF/0x10000 = .9999847412109375 or 999984741 ppb.
+HTH
+Tilman
 
-Case 2 - low frequency
-~~~~~~~~~~~~~~~~~~~~~~
+--=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Nous, on a des fleurs et des bougies pour nous prot=C3=A9ger.
 
-With a nominal 255 ns period, the nominal word is 0xFF0000, the
-largest 0xFFFFFF, and the difference is 0xFFFF.  This corresponds to
-and adjustment of 0xFFFF/0xFF0000 = .0039215087890625 or 3921508 ppb.
 
-Since 3921508 ppb is a huge adjustment, you can simply use that as a
-safe maximum, ignoring the actual input clock.
+--xMP98nvWSUeejPJfmk2DUea1l5wqW1O6i--
 
-Thanks,
-Richard
+--cCaNQVSM1qMreCm58ApjrbMVmqjhbqHqW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJYSHfcAAoJEFPuqx0v+F+qczEIAKdfdnnYDtWQ2JWeZ7bksxi/
+TlqeY4fACemoYn4IawC+F/1aQ3Txjxk+AhyknnKGYRPeZj3rU8LDx3nfEJRj6cGW
++YJNDuwcXnVFyNLLH4XTvQWamjb7XkZu0HT3xUhsFI8jwuIMQL9YXwiq/9O6KOmz
+J8ndulwhthe/26Jn5HlSJkwNBQlkjRTKg7ITm0FrVfbovliar5ZzwfneKnCcp+rX
+e9d48ylqltN+ChCSXzJjUt9z2FzXtANQL4WdWAHNt9vF+iIx9XD8QdBxpmRzKWBh
+/l3ac94gkDn6Why2VtRpFF7dskF1HNa5Qgs1tCv7K7sCeyftrwRjJBxoCrz83W0=
+=63u4
+-----END PGP SIGNATURE-----
+
+--cCaNQVSM1qMreCm58ApjrbMVmqjhbqHqW--
