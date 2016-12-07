@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/20] i40e: refactor i40e_update_filter_state to avoid passing aq_err
-Date: Tue,  6 Dec 2016 23:33:49 -0800
-Message-ID: <20161207073354.88568-16-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 16/20] i40e: delete filter after adding its replacement when converting
+Date: Tue,  6 Dec 2016 23:33:50 -0800
+Message-ID: <20161207073354.88568-17-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,143 +9,52 @@ Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26483 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:47083 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753138AbcLGHeu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:50 -0500
+        id S1752005AbcLGHev (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:51 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-The current caller of i40e_update_filter_state incorrectly passes
-aq_ret, an i40e_status variable, instead of the expected aq_err. This
-happens to work because i40e_status is actually just a typedef integer,
-and 0 is still the successful return. However i40e_update_filter_state
-has special handling for ENOSPC which is currently being ignored.
+Fix a subtle issue with the code for converting VID=-1 filters into VID=0
+filters when adding a new VLAN. Previously the code deleted the VID=-1
+filter, and then added a new VID=0 filter. In the rare case that the
+addition fails due to -ENOMEM, we end up completely deleting the filter
+which prevents recovery if memory pressure subsides. While it is not
+strictly an issue because it is likely that memory issues would result
+in many other problems, we shouldn't delete the filter until after the
+addition succeeds.
 
-Also notice that firmware does not update the per-filter response for
-many types of errors, such as EINVAL. Thus, modify the filter setup so
-that the firmware response memory is pre-set with I40E_AQC_MM_ERR_NO_RES.
-
-This enables us to refactor i40e_update_filter_state, removing the need
-to pass aq_err and avoiding a need for having 3 different flows for
-checking the filter state.
-
-The resulting code for i40e_update_filter_state is much simpler, only
-a single loop and we always check each filter response value every time.
-Since we pre-set the response value to match our expected error this
-correctly works for all success and error flows.
-
-Change-ID: Ie292c9511f34ee18c6ef40f955ad13e28b7aea7d
+Change-ID: Icba07ddd04ecc6a3b27c2e29f2c1c8673d266826
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 58 +++++++++++------------------
- 1 file changed, 21 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2ccf376..8e65972 100644
+index 8e65972..f9e9c90 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1757,7 +1757,6 @@ static void i40e_undo_filter_entries(struct i40e_vsi *vsi,
-  * @count: Number of filters added
-  * @add_list: return data from fw
-  * @head: pointer to first filter in current batch
-- * @aq_err: status from fw
-  *
-  * MAC filter entries from list were slated to be added to device. Returns
-  * number of successful filters. Note that 0 does NOT mean success!
-@@ -1765,47 +1764,30 @@ static void i40e_undo_filter_entries(struct i40e_vsi *vsi,
- static int
- i40e_update_filter_state(int count,
- 			 struct i40e_aqc_add_macvlan_element_data *add_list,
--			 struct i40e_mac_filter *add_head, int aq_err)
-+			 struct i40e_mac_filter *add_head)
- {
- 	int retval = 0;
- 	int i;
- 
--
--	if (!aq_err) {
--		retval = count;
--		/* Everything's good, mark all filters active. */
--		for (i = 0; i < count ; i++) {
--			add_head->state = I40E_FILTER_ACTIVE;
--			add_head = hlist_entry(add_head->hlist.next,
--					       typeof(struct i40e_mac_filter),
--					       hlist);
--		}
--	} else if (aq_err == I40E_AQ_RC_ENOSPC) {
--		/* Device ran out of filter space. Check the return value
--		 * for each filter to see which ones are active.
-+	for (i = 0; i < count; i++) {
-+		/* Always check status of each filter. We don't need to check
-+		 * the firmware return status because we pre-set the filter
-+		 * status to I40E_AQC_MM_ERR_NO_RES when sending the filter
-+		 * request to the adminq. Thus, if it no longer matches then
-+		 * we know the filter is active.
- 		 */
--		for (i = 0; i < count ; i++) {
--			if (add_list[i].match_method ==
--			    I40E_AQC_MM_ERR_NO_RES) {
--				add_head->state = I40E_FILTER_FAILED;
--			} else {
--				add_head->state = I40E_FILTER_ACTIVE;
--				retval++;
--			}
--			add_head = hlist_entry(add_head->hlist.next,
--					       typeof(struct i40e_mac_filter),
--					       hlist);
--		}
--	} else {
--		/* Some other horrible thing happened, fail all filters */
--		retval = 0;
--		for (i = 0; i < count ; i++) {
-+		if (add_list[i].match_method == I40E_AQC_MM_ERR_NO_RES) {
- 			add_head->state = I40E_FILTER_FAILED;
--			add_head = hlist_entry(add_head->hlist.next,
--					       typeof(struct i40e_mac_filter),
--					       hlist);
-+		} else {
-+			add_head->state = I40E_FILTER_ACTIVE;
-+			retval++;
- 		}
-+
-+		add_head = hlist_entry(add_head->hlist.next,
-+				       typeof(struct i40e_mac_filter),
-+				       hlist);
- 	}
-+
- 	return retval;
- }
- 
-@@ -1864,12 +1846,11 @@ void i40e_aqc_add_filters(struct i40e_vsi *vsi, const char *vsi_name,
- 			  int num_add, bool *promisc_changed)
- {
- 	struct i40e_hw *hw = &vsi->back->hw;
--	i40e_status aq_ret;
- 	int aq_err, fcnt;
- 
--	aq_ret = i40e_aq_add_macvlan(hw, vsi->seid, list, num_add, NULL);
-+	i40e_aq_add_macvlan(hw, vsi->seid, list, num_add, NULL);
- 	aq_err = hw->aq.asq_last_status;
--	fcnt = i40e_update_filter_state(num_add, list, add_head, aq_ret);
-+	fcnt = i40e_update_filter_state(num_add, list, add_head);
- 
- 	if (fcnt != num_add) {
- 		*promisc_changed = true;
-@@ -2168,6 +2149,9 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 					cpu_to_le16((u16)(f->vlan));
+@@ -2535,7 +2535,6 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ 						 I40E_VLAN_ANY);
+ 			if (!del_f)
+ 				continue;
+-			__i40e_del_filter(vsi, del_f);
+ 			add_f = i40e_add_filter(vsi, f->macaddr, 0);
+ 			if (!add_f) {
+ 				dev_info(&vsi->back->pdev->dev,
+@@ -2544,6 +2543,7 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ 				spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 				return -ENOMEM;
  			}
- 			add_list[num_add].queue_number = 0;
-+			/* set invalid match method for later detection */
-+			add_list[num_add].match_method =
-+				cpu_to_le16((u16)I40E_AQC_MM_ERR_NO_RES);
- 			cmd_flags |= I40E_AQC_MACVLAN_ADD_PERFECT_MATCH;
- 			add_list[num_add].flags = cpu_to_le16(cmd_flags);
- 			num_add++;
++			__i40e_del_filter(vsi, del_f);
+ 		}
+ 	}
+ 
 -- 
 2.9.3
