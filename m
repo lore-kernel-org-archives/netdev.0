@@ -1,83 +1,115 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH] net: wireless: realtek: constify rate_control_ops structures
-Date: Wed, 07 Dec 2016 00:07:58 -0500
-Message-ID: <wrfja8c8498x.fsf@redhat.com>
-References: <1480672254-4986-1-git-send-email-bhumirks@gmail.com>
-        <0f223291-734f-7658-57b7-18e962d15823@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
-        chaoming_li@realsil.com.cn, kvalo@codeaurora.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0f223291-734f-7658-57b7-18e962d15823@lwfinger.net> (Larry
-        Finger's message of "Fri, 2 Dec 2016 14:39:25 -0600")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 4/7] bnxt_en: Improve completion ring allocation for VFs.
+Date: Wed,  7 Dec 2016 00:26:18 -0500
+Message-ID: <1481088381-30411-5-git-send-email-michael.chan@broadcom.com>
+References: <1481088381-30411-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org, selvin.xavier@broadcom.com,
+        somnath.kotur@broadcom.com, dledford@redhat.com,
+        linux-rdma@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:36013 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752483AbcLGF05 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 00:26:57 -0500
+Received: by mail-pf0-f169.google.com with SMTP id 189so75028002pfz.3
+        for <netdev@vger.kernel.org>; Tue, 06 Dec 2016 21:26:57 -0800 (PST)
+In-Reply-To: <1481088381-30411-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Larry Finger <Larry.Finger@lwfinger.net> writes:
-> On 12/02/2016 03:50 AM, Bhumika Goyal wrote:
->> The structures rate_control_ops are only passed as an argument to the
->> functions ieee80211_rate_control_{register/unregister}. This argument is
->> of type const, so rate_control_ops having this property can also be
->> declared as const.
->> Done using Coccinelle:
->>
->> @r1 disable optional_qualifier @
->> identifier i;
->> position p;
->> @@
->> static struct rate_control_ops i@p = {...};
->>
->> @ok1@
->> identifier r1.i;
->> position p;
->> @@
->> ieee80211_rate_control_register(&i@p)
->>
->> @ok2@
->> identifier r1.i;
->> position p;
->> @@
->> ieee80211_rate_control_unregister(&i@p)
->>
->> @bad@
->> position p!={r1.p,ok1.p,ok2.p};
->> identifier r1.i;
->> @@
->> i@p
->>
->> @depends on !bad disable optional_qualifier@
->> identifier r1.i;
->> @@
->> static
->> +const
->> struct rate_control_ops i={...};
->>
->> @depends on !bad disable optional_qualifier@
->> identifier r1.i;
->> @@
->> +const
->> struct rate_control_ops i;
->>
->> File size before:
->>    text	   data	    bss	    dec	    hex	filename
->>    1991	    104	      0	   2095	    82f wireless/realtek/rtlwifi/rc.o
->>
->> File size after:
->>    text	   data	    bss	    dec	    hex	filename
->>    2095	      0	      0	   2095	    wireless/realtek/rtlwifi/rc.o
->>
-[snip]
-> The content of your patch is OK; however, your subject is not. By
-> convention, "net: wireless: realtek:" is assumed. We do, however,
-> include "rtlwifi:" to indicate which part of
-> drivers/net/wireless/realtek/ is referenced.
+All available remaining completion rings not used by the PF should be
+made available for the VFs so that there are enough rings in the VF to
+support RDMA.  The earlier workaround code of capping the rings by the
+statistics context is removed.
 
-In addition, the first part of the description is useful and the file
-size information is reasonable too, but ~20 lines of coccinelle scripts
-in the commit message is rather pointless.
+When SRIOV is disabled, call a new function bnxt_restore_pf_fw_resources()
+to restore FW resources.  Later on we need to add some logic to account
+for RDMA resources.
 
-Jes
+Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       |  8 +++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h       |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c | 14 ++++----------
+ 3 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 30b482b..52b8ad4 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4152,7 +4152,7 @@ static int bnxt_hwrm_func_qcfg(struct bnxt *bp)
+ 	return rc;
+ }
+ 
+-int bnxt_hwrm_func_qcaps(struct bnxt *bp)
++static int bnxt_hwrm_func_qcaps(struct bnxt *bp)
+ {
+ 	int rc = 0;
+ 	struct hwrm_func_qcaps_input req = {0};
+@@ -6856,6 +6856,12 @@ static int bnxt_set_dflt_rings(struct bnxt *bp)
+ 	return rc;
+ }
+ 
++void bnxt_restore_pf_fw_resources(struct bnxt *bp)
++{
++	ASSERT_RTNL();
++	bnxt_hwrm_func_qcaps(bp);
++}
++
+ static void bnxt_parse_log_pcie_link(struct bnxt *bp)
+ {
+ 	enum pcie_link_width width = PCIE_LNK_WIDTH_UNKNOWN;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 0ee2cc4..43a4b17 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -1234,7 +1234,6 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
+ int hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
+ int bnxt_hwrm_set_coal(struct bnxt *);
+-int bnxt_hwrm_func_qcaps(struct bnxt *);
+ void bnxt_set_max_func_irqs(struct bnxt *bp, unsigned int max);
+ void bnxt_tx_disable(struct bnxt *bp);
+ void bnxt_tx_enable(struct bnxt *bp);
+@@ -1245,4 +1244,5 @@ static inline void bnxt_disable_poll(struct bnxt_napi *bnapi)
+ int bnxt_close_nic(struct bnxt *, bool, bool);
+ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc);
+ int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
++void bnxt_restore_pf_fw_resources(struct bnxt *bp);
+ #endif
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index bff626a..c696025 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -420,15 +420,7 @@ static int bnxt_hwrm_func_cfg(struct bnxt *bp, int num_vfs)
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_CFG, -1, -1);
+ 
+ 	/* Remaining rings are distributed equally amongs VF's for now */
+-	/* TODO: the following workaroud is needed to restrict total number
+-	 * of vf_cp_rings not exceed number of HW ring groups. This WA should
+-	 * be removed once new HWRM provides HW ring groups capability in
+-	 * hwrm_func_qcap.
+-	 */
+-	vf_cp_rings = min_t(u16, pf->max_cp_rings, pf->max_stat_ctxs);
+-	vf_cp_rings = (vf_cp_rings - bp->cp_nr_rings) / num_vfs;
+-	/* TODO: restore this logic below once the WA above is removed */
+-	/* vf_cp_rings = (pf->max_cp_rings - bp->cp_nr_rings) / num_vfs; */
++	vf_cp_rings = (pf->max_cp_rings - bp->cp_nr_rings) / num_vfs;
+ 	vf_stat_ctx = (pf->max_stat_ctxs - bp->num_stat_ctxs) / num_vfs;
+ 	if (bp->flags & BNXT_FLAG_AGG_RINGS)
+ 		vf_rx_rings = (pf->max_rx_rings - bp->rx_nr_rings * 2) /
+@@ -590,7 +582,9 @@ void bnxt_sriov_disable(struct bnxt *bp)
+ 
+ 	bp->pf.active_vfs = 0;
+ 	/* Reclaim all resources for the PF. */
+-	bnxt_hwrm_func_qcaps(bp);
++	rtnl_lock();
++	bnxt_restore_pf_fw_resources(bp);
++	rtnl_unlock();
+ }
+ 
+ int bnxt_sriov_configure(struct pci_dev *pdev, int num_vfs)
+-- 
+1.8.3.1
