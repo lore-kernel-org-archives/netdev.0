@@ -1,47 +1,28 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] net: ethernet: slicoss: use module_pci_driver()
-Date: Wed,  7 Dec 2016 14:43:30 +0100
-Message-ID: <20161207134330.8829-1-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:34386 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752918AbcLGNnd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 08:43:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 23/39] Annotate hardware config module parameters in drivers/net/wireless/
+Date: Wed, 07 Dec 2016 13:45:52 +0000
+Message-ID: <25121.1481118352@warthog.procyon.org.uk>
+References: <8737i6syzq.fsf@kamboji.qca.qualcomm.com> <148059537897.31612.9461043954611464597.stgit@warthog.procyon.org.uk> <148059556349.31612.1087071308520573382.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, linux-kernel@vger.kernel.org,
+        gnomes@lxorguk.ukuu.org.uk, minyard@acm.org,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        linux-security-module@vger.kernel.org, keyrings@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <8737i6syzq.fsf@kamboji.qca.qualcomm.com>
+Content-ID: <25120.1481118352.1@warthog.procyon.org.uk>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use module_pci_driver() to get rid of some boilerplate code.
+Kalle Valo <kvalo@codeaurora.org> wrote:
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/ethernet/alacritech/slicoss.c | 13 +------------
- 1 file changed, 1 insertion(+), 12 deletions(-)
+> Via which tree are you planning to submit this, should I take it to
+> wireless-drivers or will someone else handle it? I didn't get the cover
+> letter so I have no idea.
 
-diff --git a/drivers/net/ethernet/alacritech/slicoss.c b/drivers/net/ethernet/alacritech/slicoss.c
-index e77ecd5b307c..b9fbd0107008 100644
---- a/drivers/net/ethernet/alacritech/slicoss.c
-+++ b/drivers/net/ethernet/alacritech/slicoss.c
-@@ -1863,18 +1863,7 @@ static struct pci_driver slic_driver = {
- 	.remove = slic_remove,
- };
- 
--static int __init slic_init_module(void)
--{
--	return pci_register_driver(&slic_driver);
--}
--
--static void __exit slic_cleanup_module(void)
--{
--	pci_unregister_driver(&slic_driver);
--}
--
--module_init(slic_init_module);
--module_exit(slic_cleanup_module);
-+module_pci_driver(slic_driver);
- 
- MODULE_DESCRIPTION("Alacritech non-accelerated SLIC driver");
- MODULE_AUTHOR("Lino Sanfilippo <LinoSanfilippo@gmx.de>");
--- 
-2.11.0
+I'll see if I can get patch 1 (which defines the macros) in a window prior to
+the others - or maybe I can get Linus to apply all of these together.
+
+David
