@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/20] i40e: lock service task correctly
-Date: Tue,  6 Dec 2016 23:33:46 -0800
-Message-ID: <20161207073354.88568-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/20] i40e/i40evf: napi_poll must return the work done
+Date: Tue,  6 Dec 2016 23:33:38 -0800
+Message-ID: <20161207073354.88568-5-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,91 +11,58 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:26483 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752210AbcLGHet (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:49 -0500
+        id S1752005AbcLGHes (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:48 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The service task lock was being set in the scheduling function, not the
-actual service task. This would potentially leave the bit set for a long
-time before the task actually ran. Furthermore, if the service task
-takes too long, it calls the schedule function to reschedule itself -
-which would fail to take the lock and do nothing.
+Currently the function i40e_napi-poll() returns 0 when it clean completely
+the Rx rings, but this foul budget accounting in core code.
 
-Instead, set and clear the lock bit in the service task itself. In the
-process, get rid of the i40e_service_event_complete() function, which is
-really just two lines of code that can be put right in the service task
-itself.
+Fix this by returning the actual work done, capped to budget - 1, since
+the core doesn't allow to return the full budget when the driver modifies
+the NAPI status
 
-Change-ID: I83155e682b686121e2897f4429eb7d3f7c669168
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+This is based on a similar change that was made for the ixgbe driver by
+Paolo Abeni.
+
+Change-ID: Ic3d93ad2fa2fc8ce3164bc461e69367da0f9173b
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 24 +++++++-----------------
- 1 file changed, 7 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b0486c9..c47e9c5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -288,8 +288,7 @@ struct i40e_vsi *i40e_find_vsi_from_id(struct i40e_pf *pf, u16 id)
- void i40e_service_event_schedule(struct i40e_pf *pf)
- {
- 	if (!test_bit(__I40E_DOWN, &pf->state) &&
--	    !test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state) &&
--	    !test_and_set_bit(__I40E_SERVICE_SCHED, &pf->state))
-+	    !test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state))
- 		queue_work(i40e_wq, &pf->service_task);
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 5544b50..352cf7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2027,7 +2027,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+ 	else
+ 		i40e_update_enable_itr(vsi, q_vector);
  
-@@ -5955,19 +5954,6 @@ static void i40e_handle_lan_overflow_event(struct i40e_pf *pf,
+-	return 0;
++	return min(work_done, budget - 1);
  }
  
  /**
-- * i40e_service_event_complete - Finish up the service event
-- * @pf: board private structure
-- **/
--static void i40e_service_event_complete(struct i40e_pf *pf)
--{
--	WARN_ON(!test_bit(__I40E_SERVICE_SCHED, &pf->state));
--
--	/* flush memory to make sure state is correct before next watchog */
--	smp_mb__before_atomic();
--	clear_bit(__I40E_SERVICE_SCHED, &pf->state);
--}
--
--/**
-  * i40e_get_cur_guaranteed_fd_count - Get the consumed guaranteed FD filters
-  * @pf: board private structure
-  **/
-@@ -7276,10 +7262,12 @@ static void i40e_service_task(struct work_struct *work)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index c4b174a..df67ef3 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1490,7 +1490,7 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
+ 	else
+ 		i40e_update_enable_itr(vsi, q_vector);
  
- 	/* don't bother with service tasks if a reset is in progress */
- 	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state)) {
--		i40e_service_event_complete(pf);
- 		return;
- 	}
+-	return 0;
++	return min(work_done, budget - 1);
+ }
  
-+	if (test_and_set_bit(__I40E_SERVICE_SCHED, &pf->state))
-+		return;
-+
- 	i40e_detect_recover_hung(pf);
- 	i40e_sync_filters_subtask(pf);
- 	i40e_reset_subtask(pf);
-@@ -7292,7 +7280,9 @@ static void i40e_service_task(struct work_struct *work)
- 	i40e_sync_udp_filters_subtask(pf);
- 	i40e_clean_adminq_subtask(pf);
- 
--	i40e_service_event_complete(pf);
-+	/* flush memory to make sure state is correct before next watchdog */
-+	smp_mb__before_atomic();
-+	clear_bit(__I40E_SERVICE_SCHED, &pf->state);
- 
- 	/* If the tasks have taken longer than one timer cycle or there
- 	 * is more work to be done, reschedule the service task now
+ /**
 -- 
 2.9.3
