@@ -1,83 +1,45 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v2 10/18] RDS: IB: track and log active side endpoint in connection
-Date: Tue,  6 Dec 2016 20:01:48 -0800
-Message-ID: <1481083316-11648-11-git-send-email-santosh.shilimkar@oracle.com>
-References: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:23832 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753674AbcLGECv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 6 Dec 2016 23:02:51 -0500
-In-Reply-To: <1481083316-11648-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 05/10] vhost: make interval tree static inline
+Date: Wed, 7 Dec 2016 12:16:06 +0800
+Message-ID: <3a862cdc-cd02-98f2-fc9a-7bc0f99a0ba3@redhat.com>
+References: <1481038106-24899-1-git-send-email-mst@redhat.com>
+	<1481038106-24899-6-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1481038106-24899-6-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Useful to know the active and passive end points in a
-RDS IB connection.
-
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
----
- net/rds/ib.h    |  3 +++
- net/rds/ib_cm.c | 11 +++++++----
- 2 files changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index f14c26d..97e7696 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -181,6 +181,9 @@ struct rds_ib_connection {
- 
- 	/* Batched completions */
- 	unsigned int		i_unsignaled_wrs;
-+
-+	/* Endpoint role in connection */
-+	int			i_active_side;
- };
- 
- /* This assumes that atomic_t is at least 32 bits */
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 3002acf..4d1bf04 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -120,16 +120,17 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
- 		rds_conn_destroy(conn);
- 		return;
- 	} else {
--		pr_notice("RDS/IB: connected <%pI4,%pI4> version %u.%u%s\n",
-+		pr_notice("RDS/IB: %s conn connected <%pI4,%pI4> version %u.%u%s\n",
-+			  ic->i_active_side ? "Active" : "Passive",
- 			  &conn->c_laddr, &conn->c_faddr,
- 			  RDS_PROTOCOL_MAJOR(conn->c_version),
- 			  RDS_PROTOCOL_MINOR(conn->c_version),
- 			  ic->i_flowctl ? ", flow control" : "");
- 	}
- 
--	/*
--	 * Init rings and fill recv. this needs to wait until protocol negotiation
--	 * is complete, since ring layout is different from 3.0 to 3.1.
-+	/* Init rings and fill recv. this needs to wait until protocol
-+	 * negotiation is complete, since ring layout is different
-+	 * from 3.1 to 4.1.
- 	 */
- 	rds_ib_send_init_ring(ic);
- 	rds_ib_recv_init_ring(ic);
-@@ -685,6 +686,7 @@ int rds_ib_cm_initiate_connect(struct rdma_cm_id *cm_id)
- 		if (ic->i_cm_id == cm_id)
- 			ret = 0;
- 	}
-+	ic->i_active_side = true;
- 	return ret;
- }
- 
-@@ -859,6 +861,7 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
- 	ic->i_sends = NULL;
- 	vfree(ic->i_recvs);
- 	ic->i_recvs = NULL;
-+	ic->i_active_side = false;
- }
- 
- int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
--- 
-1.9.1
+CgpPbiAyMDE25bm0MTLmnIgwNuaXpSAyMzo0MCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IHZob3N0X3VtZW1faW50ZXJ2YWxfdHJlZSBpcyBvbmx5IHVzZWQgbG9jYWxseSB3aXRoaW4gdmhv
+c3QuYywgbWFyayBpdAo+IHN0YXRpYy4gQXMgc29tZSBmdW5jdGlvbnMgZ2VuZXJhdGVkIGdvIHVu
+dXNlZCwgdGhpcyB0cmlnZ2VycyB3YXJuaW5ncwo+IHVubGVzcyB3ZSBhbHNvIG1hcmsgaXQgaW5s
+aW5lLgo+Cj4gU2lnbmVkLW9mZi1ieTogTWljaGFlbCBTLiBUc2lya2luIDxtc3RAcmVkaGF0LmNv
+bT4KPiAtLS0KPiAgIGRyaXZlcnMvdmhvc3Qvdmhvc3QuYyB8IDIgKy0KPiAgIDEgZmlsZSBjaGFu
+Z2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvdmhvc3Qvdmhvc3QuYyBiL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYwo+IGluZGV4IGM2ZjJkODku
+LjczMzFlZjMgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy92aG9zdC92aG9zdC5jCj4gKysrIGIvZHJp
+dmVycy92aG9zdC92aG9zdC5jCj4gQEAgLTQ5LDcgKzQ5LDcgQEAgZW51bSB7Cj4gICAKPiAgIElO
+VEVSVkFMX1RSRUVfREVGSU5FKHN0cnVjdCB2aG9zdF91bWVtX25vZGUsCj4gICAJCSAgICAgcmIs
+IF9fdTY0LCBfX3N1YnRyZWVfbGFzdCwKPiAtCQkgICAgIFNUQVJULCBMQVNULCAsIHZob3N0X3Vt
+ZW1faW50ZXJ2YWxfdHJlZSk7Cj4gKwkJICAgICBTVEFSVCwgTEFTVCwgc3RhdGljIGlubGluZSwg
+dmhvc3RfdW1lbV9pbnRlcnZhbF90cmVlKTsKPiAgIAo+ICAgI2lmZGVmIENPTkZJR19WSE9TVF9D
+Uk9TU19FTkRJQU5fTEVHQUNZCj4gICBzdGF0aWMgdm9pZCB2aG9zdF9kaXNhYmxlX2Nyb3NzX2Vu
+ZGlhbihzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSkKClJldmlld2VkLWJ5OiBKYXNvbiBXYW5n
+IDxqYXNvd2FuZ0ByZWRoYXQuY29tPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25A
+bGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24u
+b3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
