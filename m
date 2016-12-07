@@ -1,136 +1,167 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/20] i40e: defeature support for PTP L4 frame detection on XL710
-Date: Tue,  6 Dec 2016 23:33:47 -0800
-Message-ID: <20161207073354.88568-14-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/20] i40e: Add FEC for 25g
+Date: Tue,  6 Dec 2016 23:33:44 -0800
+Message-ID: <20161207073354.88568-11-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Mitch Williams <mitch.a.williams@intel.com>,
+        Jacek Naczyk <jacek.naczyk@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47083 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:26483 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753103AbcLGHeu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:50 -0500
+        id S1752005AbcLGHet (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:49 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-A product decision has been made to defeature detection of PTP frames
-over L4 (UDP) on the XL710 MAC. Do not advertise support for L4
-timestamping.
+This patch adds adminq support for Forward Error
+Correction ("FEC")for 25g products.
 
-Change-ID: I41fbb0f84ebb27c43e23098c08156f2625c6ee06
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Change-ID: Iaff4910737c239d2c730e5c22a313ce9c37d3964
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jacek Naczyk <jacek.naczyk@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 15 +++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  3 ++-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c     | 21 +++++++++++++++------
- 4 files changed, 31 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 25 ++++++++++++++++++++--
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  2 ++
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 25 ++++++++++++++++++++--
+ 3 files changed, 48 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index b8f2978..f1d838f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -360,6 +360,7 @@ struct i40e_pf {
- #define I40E_FLAG_PF_MAC			BIT_ULL(50)
- #define I40E_FLAG_TRUE_PROMISC_SUPPORT		BIT_ULL(51)
- #define I40E_FLAG_HAVE_CRT_RETIMER		BIT_ULL(52)
-+#define I40E_FLAG_PTP_L4_CAPABLE		BIT_ULL(53)
- 
- 	/* tracks features that get auto disabled by errors */
- 	u64 auto_disable_flags;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 935160a..cc1465a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1681,8 +1681,19 @@ static int i40e_get_ts_info(struct net_device *dev,
- 	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
- 
- 	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) |
--			   BIT(HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
--			   BIT(HWTSTAMP_FILTER_PTP_V2_EVENT);
-+			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
-+			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
-+			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index c9d1f91..b2101a5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -1686,6 +1686,8 @@ struct i40e_aq_get_phy_abilities_resp {
+ #define I40E_AQ_PHY_LINK_ENABLED	0x08
+ #define I40E_AQ_PHY_AN_ENABLED		0x10
+ #define I40E_AQ_PHY_FLAG_MODULE_QUAL	0x20
++#define I40E_AQ_PHY_FEC_ABILITY_KR	0x40
++#define I40E_AQ_PHY_FEC_ABILITY_RS	0x80
+ 	__le16	eee_capability;
+ #define I40E_AQ_EEE_100BASE_TX		0x0002
+ #define I40E_AQ_EEE_1000BASE_T		0x0004
+@@ -1701,7 +1703,16 @@ struct i40e_aq_get_phy_abilities_resp {
+ #define I40E_AQ_PHY_TYPE_EXT_25G_CR	0X02
+ #define I40E_AQ_PHY_TYPE_EXT_25G_SR	0x04
+ #define I40E_AQ_PHY_TYPE_EXT_25G_LR	0x08
+-	u8	mod_type_ext;
++	u8	fec_cfg_curr_mod_ext_info;
++#define I40E_AQ_ENABLE_FEC_KR		0x01
++#define I40E_AQ_ENABLE_FEC_RS		0x02
++#define I40E_AQ_REQUEST_FEC_KR		0x04
++#define I40E_AQ_REQUEST_FEC_RS		0x08
++#define I40E_AQ_ENABLE_FEC_AUTO		0x10
++#define I40E_AQ_FEC
++#define I40E_AQ_MODULE_TYPE_EXT_MASK	0xE0
++#define I40E_AQ_MODULE_TYPE_EXT_SHIFT	5
 +
-+	if (pf->flags & I40E_FLAG_PTP_L4_CAPABLE)
-+		info->rx_filters |= BIT(HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
-+				    BIT(HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
-+				    BIT(HWTSTAMP_FILTER_PTP_V2_EVENT) |
-+				    BIT(HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
-+				    BIT(HWTSTAMP_FILTER_PTP_V2_SYNC) |
-+				    BIT(HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
-+				    BIT(HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
-+				    BIT(HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ);
+ 	u8	ext_comp_code;
+ 	u8	phy_id[4];
+ 	u8	module_type[3];
+@@ -1729,7 +1740,15 @@ struct i40e_aq_set_phy_config { /* same bits as above in all */
+ #define I40E_AQ_PHY_TYPE_EXT_25G_CR	0X02
+ #define I40E_AQ_PHY_TYPE_EXT_25G_SR	0x04
+ #define I40E_AQ_PHY_TYPE_EXT_25G_LR	0x08
+-	u8	reserved[2];
++	u8	fec_config;
++#define I40E_AQ_SET_FEC_ABILITY_KR	BIT(0)
++#define I40E_AQ_SET_FEC_ABILITY_RS	BIT(1)
++#define I40E_AQ_SET_FEC_REQUEST_KR	BIT(2)
++#define I40E_AQ_SET_FEC_REQUEST_RS	BIT(3)
++#define I40E_AQ_SET_FEC_AUTO		BIT(4)
++#define I40E_AQ_PHY_FEC_CONFIG_SHIFT	0x0
++#define I40E_AQ_PHY_FEC_CONFIG_MASK	(0x1F << I40E_AQ_PHY_FEC_CONFIG_SHIFT)
++	u8	reserved;
+ };
  
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c47e9c5..806fd56 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8699,7 +8699,8 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 			     I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE |
- 			     I40E_FLAG_NO_PCI_LINK_CHECK |
- 			     I40E_FLAG_USE_SET_LLDP_MIB |
--			     I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
-+			     I40E_FLAG_GENEVE_OFFLOAD_CAPABLE |
-+			     I40E_FLAG_PTP_L4_CAPABLE;
- 	} else if ((pf->hw.aq.api_maj_ver > 1) ||
- 		   ((pf->hw.aq.api_maj_ver == 1) &&
- 		    (pf->hw.aq.api_min_ver > 4))) {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index 5e2272c..9e49ffa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -521,6 +521,8 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
- 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-+		if (!(pf->flags & I40E_FLAG_PTP_L4_CAPABLE))
-+			return -ERANGE;
- 		pf->ptp_rx = true;
- 		tsyntype = I40E_PRTTSYN_CTL1_V1MESSTYPE0_MASK |
- 			   I40E_PRTTSYN_CTL1_TSYNTYPE_V1 |
-@@ -528,19 +530,26 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
- 		config->rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
--	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
--	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
--	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-+		if (!(pf->flags & I40E_FLAG_PTP_L4_CAPABLE))
-+			return -ERANGE;
-+		/* fall through */
-+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
- 		pf->ptp_rx = true;
- 		tsyntype = I40E_PRTTSYN_CTL1_V2MESSTYPE0_MASK |
--			   I40E_PRTTSYN_CTL1_TSYNTYPE_V2 |
--			   I40E_PRTTSYN_CTL1_UDP_ENA_MASK;
--		config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
-+			   I40E_PRTTSYN_CTL1_TSYNTYPE_V2;
-+		if (pf->flags & I40E_FLAG_PTP_L4_CAPABLE) {
-+			tsyntype |= I40E_PRTTSYN_CTL1_UDP_ENA_MASK;
-+			config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
-+		} else {
-+			config->rx_filter = HWTSTAMP_FILTER_PTP_V2_L2_EVENT;
-+		}
- 		break;
- 	case HWTSTAMP_FILTER_ALL:
- 	default:
+ I40E_CHECK_CMD_LENGTH(i40e_aq_set_phy_config);
+@@ -1819,6 +1838,8 @@ struct i40e_aqc_get_link_status {
+ 	u8	loopback; /* use defines from i40e_aqc_set_lb_mode */
+ 	__le16	max_frame_size;
+ 	u8	config;
++#define I40E_AQ_CONFIG_FEC_KR_ENA	0x01
++#define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
+ #define I40E_AQ_CONFIG_CRC_ENA		0x04
+ #define I40E_AQ_CONFIG_PACING_MASK	0x78
+ 	u8	external_power_ability;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 1318c7d..f8c4c14 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1714,6 +1714,8 @@ enum i40e_status_code i40e_set_fc(struct i40e_hw *hw, u8 *aq_failures,
+ 		config.eee_capability = abilities.eee_capability;
+ 		config.eeer = abilities.eeer_val;
+ 		config.low_power_ctrl = abilities.d3_lpan;
++		config.fec_config = abilities.fec_cfg_curr_mod_ext_info &
++				    I40E_AQ_PHY_FEC_CONFIG_MASK;
+ 		status = i40e_aq_set_phy_config(hw, &config, NULL);
+ 
+ 		if (status)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index f8d7d95..eeb9864 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -1683,6 +1683,8 @@ struct i40e_aq_get_phy_abilities_resp {
+ #define I40E_AQ_PHY_LINK_ENABLED	0x08
+ #define I40E_AQ_PHY_AN_ENABLED		0x10
+ #define I40E_AQ_PHY_FLAG_MODULE_QUAL	0x20
++#define I40E_AQ_PHY_FEC_ABILITY_KR	0x40
++#define I40E_AQ_PHY_FEC_ABILITY_RS	0x80
+ 	__le16	eee_capability;
+ #define I40E_AQ_EEE_100BASE_TX		0x0002
+ #define I40E_AQ_EEE_1000BASE_T		0x0004
+@@ -1698,7 +1700,16 @@ struct i40e_aq_get_phy_abilities_resp {
+ #define I40E_AQ_PHY_TYPE_EXT_25G_CR	0X02
+ #define I40E_AQ_PHY_TYPE_EXT_25G_SR	0x04
+ #define I40E_AQ_PHY_TYPE_EXT_25G_LR	0x08
+-	u8	mod_type_ext;
++	u8	fec_cfg_curr_mod_ext_info;
++#define I40E_AQ_ENABLE_FEC_KR		0x01
++#define I40E_AQ_ENABLE_FEC_RS		0x02
++#define I40E_AQ_REQUEST_FEC_KR		0x04
++#define I40E_AQ_REQUEST_FEC_RS		0x08
++#define I40E_AQ_ENABLE_FEC_AUTO		0x10
++#define I40E_AQ_FEC
++#define I40E_AQ_MODULE_TYPE_EXT_MASK	0xE0
++#define I40E_AQ_MODULE_TYPE_EXT_SHIFT	5
++
+ 	u8	ext_comp_code;
+ 	u8	phy_id[4];
+ 	u8	module_type[3];
+@@ -1726,7 +1737,15 @@ struct i40e_aq_set_phy_config { /* same bits as above in all */
+ #define I40E_AQ_PHY_TYPE_EXT_25G_CR	0X02
+ #define I40E_AQ_PHY_TYPE_EXT_25G_SR	0x04
+ #define I40E_AQ_PHY_TYPE_EXT_25G_LR	0x08
+-	u8	reserved[2];
++	u8	fec_config;
++#define I40E_AQ_SET_FEC_ABILITY_KR	BIT(0)
++#define I40E_AQ_SET_FEC_ABILITY_RS	BIT(1)
++#define I40E_AQ_SET_FEC_REQUEST_KR	BIT(2)
++#define I40E_AQ_SET_FEC_REQUEST_RS	BIT(3)
++#define I40E_AQ_SET_FEC_AUTO		BIT(4)
++#define I40E_AQ_PHY_FEC_CONFIG_SHIFT	0x0
++#define I40E_AQ_PHY_FEC_CONFIG_MASK	(0x1F << I40E_AQ_PHY_FEC_CONFIG_SHIFT)
++	u8	reserved;
+ };
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aq_set_phy_config);
+@@ -1816,6 +1835,8 @@ struct i40e_aqc_get_link_status {
+ 	u8	loopback; /* use defines from i40e_aqc_set_lb_mode */
+ 	__le16	max_frame_size;
+ 	u8	config;
++#define I40E_AQ_CONFIG_FEC_KR_ENA	0x01
++#define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
+ #define I40E_AQ_CONFIG_CRC_ENA		0x04
+ #define I40E_AQ_CONFIG_PACING_MASK	0x78
+ 	u8	external_power_ability;
 -- 
 2.9.3
