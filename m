@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/20] i40e: recalculate vsi->active_filters from hash contents
-Date: Tue,  6 Dec 2016 23:33:48 -0800
-Message-ID: <20161207073354.88568-15-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 17/20] i40e: factor out addition/deletion of VLAN per each MAC address
+Date: Tue,  6 Dec 2016 23:33:51 -0800
+Message-ID: <20161207073354.88568-18-jeffrey.t.kirsher@intel.com>
 References: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -11,134 +11,149 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:34826 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753119AbcLGHeu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 7 Dec 2016 02:34:50 -0500
+        id S1753150AbcLGHev (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:34:51 -0500
 In-Reply-To: <20161207073354.88568-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Previous code refactors have accidentally caused issues with the
-counting of active_filters. Avoid similar issues in the future by simply
-re-counting the active filters every time after we handle add and delete
-of all the filters. Additionally this allows us to simplify the check
-for when we exit promiscuous mode since we can combine the check for
-failed filters at the same time.
+A future refactor of how the PF assigns a PVID to a VF will want to be
+able to add and remove a block of filters by VLAN without worrying about
+accidentally triggering the accounting for I40E_VLAN_ANY. Additionally
+the PVID assignment would like to be able to batch several changes under
+one use of the mac_filter_hash_lock.
 
-Additionally since we recount filters at the end we need to set
-vsi->promisc_threshold as well.
+Factor out the addition and deletion of a VLAN on all MACs into their
+own function which i40e_vsi_(add|kill)_vlan can use. These new functions
+expect the caller to take the hash lock, as well as perform any
+necessary accounting for updating I40E_VLAN_ANY filters if we are now
+operating under VLAN mode.
 
-The resulting code takes a bit longer since we do have to loop over
-filters again. However, the result is more readable and less likely to
-become incorrect due to failed accounting of filters in the future.
-Finally, this ensures that it is not possible for vsi->active_filters to
-ever underflow since we never decrement it.
-
-Change-ID: Ib4f3a377e60eb1fa6c91ea86cc02238c08edd102
+Change-ID: If79e5b60b770433275350a74b3f1880333a185d5
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 52 ++++++++++++++++-------------
- 1 file changed, 29 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 68 +++++++++++++++++++++++------
+ 1 file changed, 55 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 806fd56..2ccf376 100644
+index f9e9c90..8aedfb7 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1870,12 +1870,10 @@ void i40e_aqc_add_filters(struct i40e_vsi *vsi, const char *vsi_name,
- 	aq_ret = i40e_aq_add_macvlan(hw, vsi->seid, list, num_add, NULL);
- 	aq_err = hw->aq.asq_last_status;
- 	fcnt = i40e_update_filter_state(num_add, list, add_head, aq_ret);
--	vsi->active_filters += fcnt;
+@@ -2493,19 +2493,24 @@ static void i40e_vlan_rx_register(struct net_device *netdev, u32 features)
+ }
  
- 	if (fcnt != num_add) {
- 		*promisc_changed = true;
- 		set_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state);
--		vsi->promisc_threshold = (vsi->active_filters * 3) / 4;
- 		dev_warn(&vsi->back->pdev->dev,
- 			 "Error %s adding RX filters on %s, promiscuous mode forced on\n",
- 			 i40e_aq_str(hw, aq_err),
-@@ -1939,6 +1937,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 	struct i40e_hw *hw = &vsi->back->hw;
- 	unsigned int vlan_any_filters = 0;
- 	unsigned int non_vlan_filters = 0;
-+	unsigned int failed_filters = 0;
- 	unsigned int vlan_filters = 0;
- 	bool promisc_changed = false;
- 	char vsi_name[16] = "PF";
-@@ -1985,7 +1984,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 				/* Move the element into temporary del_list */
- 				hash_del(&f->hlist);
- 				hlist_add_head(&f->hlist, &tmp_del_list);
--				vsi->active_filters--;
+ /**
+- * i40e_vsi_add_vlan - Add vsi membership for given vlan
++ * i40e_add_vlan_all_mac - Add a MAC/VLAN filter for each existing MAC address
+  * @vsi: the vsi being configured
+  * @vid: vlan id to be added (0 = untagged only , -1 = any)
++ *
++ * This is a helper function for adding a new MAC/VLAN filter with the
++ * specified VLAN for each existing MAC address already in the hash table.
++ * This function does *not* perform any accounting to update filters based on
++ * VLAN mode.
++ *
++ * NOTE: this function expects to be called while under the
++ * mac_filter_hash_lock
+  **/
+-int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
++static int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
+ {
+-	struct i40e_mac_filter *f, *add_f, *del_f;
++	struct i40e_mac_filter *f, *add_f;
+ 	struct hlist_node *h;
+ 	int bkt;
  
- 				/* Avoid counting removed filters */
- 				continue;
-@@ -2046,7 +2044,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 				f->state = I40E_FILTER_REMOVE;
- 				hash_del(&f->hlist);
- 				hlist_add_head(&f->hlist, &tmp_del_list);
--				vsi->active_filters--;
- 			}
- 
- 			/* Also update any filters on the tmp_add list */
-@@ -2203,27 +2200,36 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 		add_list = NULL;
+-	/* Locked once because all functions invoked below iterates list*/
+-	spin_lock_bh(&vsi->mac_filter_hash_lock);
+-
+ 	hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
+ 		if (f->state == I40E_FILTER_REMOVE)
+ 			continue;
+@@ -2514,11 +2519,33 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ 			dev_info(&vsi->back->pdev->dev,
+ 				 "Could not add vlan filter %d for %pM\n",
+ 				 vid, f->macaddr);
+-			spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 			return -ENOMEM;
+ 		}
  	}
  
--	/* Check to see if we can drop out of overflow promiscuous mode. */
-+	/* Determine the number of active and failed filters. */
++	return 0;
++}
++
++/**
++ * i40e_vsi_add_vlan - Add VSI membership for given VLAN
++ * @vsi: the VSI being configured
++ * @vid: VLAN id to be added (0 = untagged only , -1 = any)
++ **/
++int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
++{
++	struct i40e_mac_filter *f, *add_f, *del_f;
++	struct hlist_node *h;
++	int bkt, err;
++
++	/* Locked once because all functions invoked below iterates list*/
 +	spin_lock_bh(&vsi->mac_filter_hash_lock);
-+	vsi->active_filters = 0;
-+	hash_for_each(vsi->mac_filter_hash, bkt, f, hlist) {
-+		if (f->state == I40E_FILTER_ACTIVE)
-+			vsi->active_filters++;
-+		else if (f->state == I40E_FILTER_FAILED)
-+			failed_filters++;
++
++	err = i40e_add_vlan_all_mac(vsi, vid);
++	if (err) {
++		spin_unlock_bh(&vsi->mac_filter_hash_lock);
++		return err;
 +	}
-+	spin_unlock_bh(&vsi->mac_filter_hash_lock);
 +
-+	/* If promiscuous mode has changed, we need to calculate a new
-+	 * threshold for when we are safe to exit
-+	 */
-+	if (promisc_changed)
-+		vsi->promisc_threshold = (vsi->active_filters * 3) / 4;
-+
-+	/* Check if we are able to exit overflow promiscuous mode. We can
-+	 * safely exit if we didn't just enter, we no longer have any failed
-+	 * filters, and we have reduced filters below the threshold value.
-+	 */
- 	if (test_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state) &&
-+	    !promisc_changed && !failed_filters &&
- 	    (vsi->active_filters < vsi->promisc_threshold)) {
--		int failed_count = 0;
--		/* See if we have any failed filters. We can't drop out of
--		 * promiscuous until these have all been deleted.
--		 */
--		spin_lock_bh(&vsi->mac_filter_hash_lock);
--		hash_for_each(vsi->mac_filter_hash, bkt, f, hlist) {
--			if (f->state == I40E_FILTER_FAILED)
--				failed_count++;
--		}
--		spin_unlock_bh(&vsi->mac_filter_hash_lock);
--		if (!failed_count) {
--			dev_info(&pf->pdev->dev,
--				 "filter logjam cleared on %s, leaving overflow promiscuous mode\n",
--				 vsi_name);
--			clear_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state);
--			promisc_changed = true;
--			vsi->promisc_threshold = 0;
--		}
-+		dev_info(&pf->pdev->dev,
-+			 "filter logjam cleared on %s, leaving overflow promiscuous mode\n",
-+			 vsi_name);
-+		clear_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state);
-+		promisc_changed = true;
-+		vsi->promisc_threshold = 0;
- 	}
+ 	/* When we add a new VLAN filter, we need to make sure that all existing
+ 	 * filters which are marked as vid=-1 (I40E_VLAN_ANY) are converted to
+ 	 * vid=0. The simplest way is just search for all filters marked as
+@@ -2557,24 +2584,39 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ }
  
- 	/* if the VF is not trusted do not do promisc */
+ /**
+- * i40e_vsi_kill_vlan - Remove vsi membership for given vlan
++ * i40e_rm_vlan_all_mac - Remove MAC/VLAN pair for all MAC with the given VLAN
+  * @vsi: the vsi being configured
+  * @vid: vlan id to be removed (0 = untagged only , -1 = any)
+- **/
+-void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
++ *
++ * This function should be used to remove all VLAN filters which match the
++ * given VID. It does not schedule the service event and does not take the
++ * mac_filter_hash_lock so it may be combined with other operations under
++ * a single invocation of the mac_filter_hash_lock.
++ *
++ * NOTE: this function expects to be called while under the
++ * mac_filter_hash_lock
++ */
++static void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
+ {
+ 	struct i40e_mac_filter *f;
+ 	struct hlist_node *h;
+ 	int bkt;
+ 
+-	/* Locked once because all functions invoked below iterates list */
+-	spin_lock_bh(&vsi->mac_filter_hash_lock);
+-
+ 	hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
+ 		if (f->vlan == vid)
+ 			__i40e_del_filter(vsi, f);
+ 	}
++}
+ 
++/**
++ * i40e_vsi_kill_vlan - Remove VSI membership for given VLAN
++ * @vsi: the VSI being configured
++ * @vid: VLAN id to be removed (0 = untagged only , -1 = any)
++ **/
++void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
++{
++	spin_lock_bh(&vsi->mac_filter_hash_lock);
++	i40e_rm_vlan_all_mac(vsi, vid);
+ 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 
+ 	/* schedule our worker thread which will take care of
 -- 
 2.9.3
