@@ -1,54 +1,69 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: [PATCH 1/1] ixgbe: fcoe: return value of skb_linearize should be handled
-Date: Wed,  7 Dec 2016 15:43:34 +0800
-Message-ID: <1481096614-25295-1-git-send-email-zhouzhouyi@gmail.com>
-Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>,
-        Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: <jeffrey.t.kirsher@intel.com>, <intel-wired-lan@lists.osuosl.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] net: sock_rps_record_flow() is for connected
+ sockets
+Date: Wed, 07 Dec 2016 08:57:08 +0100
+Message-ID: <1481097428.5535.12.camel@redhat.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+             <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
+         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481049061.7129.18.camel@redhat.com>
+         <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481051786.7129.22.camel@redhat.com>
+         <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        Tom Herbert <tom@herbertland.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53280 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752784AbcLGH5N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 02:57:13 -0500
+In-Reply-To: <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
-Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com> 
-Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c | 6 +++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 +--
- 2 files changed, 6 insertions(+), 3 deletions(-)
+On Tue, 2016-12-06 at 22:47 -0800, Eric Dumazet wrote:
+> On Tue, 2016-12-06 at 19:32 -0800, Eric Dumazet wrote:
+> > A follow up patch will provide a static_key (Jump Label) since most
+> > hosts do not even use RFS.
+> 
+> Speaking of static_key, it appears we now have GRO on UDP, and this
+> consumes a considerable amount of cpu cycles.
+> 
+> Turning off GRO allows me to get +20 % more packets on my single UDP
+> socket. (1.2 Mpps instead of 1.0 Mpps)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index 2a653ec..7b6bdb7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -490,7 +490,11 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
- 	 */
- 	if ((fh->fh_r_ctl == FC_RCTL_DD_SOL_DATA) &&
- 	    (fctl & FC_FC_END_SEQ)) {
--		skb_linearize(skb);
-+		int err;
-+
-+		err = skb_linearize(skb);
-+		if (err)
-+			return err;
- 		crc = (struct fcoe_crc_eof *)skb_put(skb, sizeof(*crc));
- 		crc->fcoe_eof = FC_EOF_T;
- 	}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index fee1f29..4926d48 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2173,8 +2173,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 				total_rx_bytes += ddp_bytes;
- 				total_rx_packets += DIV_ROUND_UP(ddp_bytes,
- 								 mss);
--			}
--			if (!ddp_bytes) {
-+			} else {
- 				dev_kfree_skb_any(skb);
- 				continue;
- 			}
--- 
-1.9.1
+I see also an improvement for single flow tests disabling GRO, but on a
+smaller scale (~5% if I recall correctly).
+
+> Surely udp_gro_receive() should be bypassed if no UDP socket has
+> registered a udp_sk(sk)->gro_receive handler 
+> 
+> And/or delay the inet_add_offload(&udpv{4|6}_offload, IPPROTO_UDP); to
+> the first UDP sockets setting udp_sk(sk)->gro_receive handler,
+> ie udp_encap_enable() and udpv6_encap_enable()
+
+I had some patches adding explicit static keys for udp_gro_receive, but
+they were ugly and I did not get that much gain (I measured ~1-2%
+skipping udp_gro_receive only). I can try to refresh them anyway.
+
+We have some experimental patches to implement GRO for plain UDP
+connected sockets, using frag_list to preserve the individual skb len,
+and deliver the packet to user space individually. With that I got
+~3mpps with a single queue/user space sink - before the recent udp
+improvements. I would like to present these patches on netdev soon (no
+sooner than next week, anyway).
+
+Cheers,
+
+Paolo
