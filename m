@@ -1,52 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
- prog
-Date: Wed, 07 Dec 2016 12:04:13 -0500 (EST)
-Message-ID: <20161207.120413.939362482173997833.davem@davemloft.net>
-References: <5847D723.3020908@iogearbox.net>
-        <20161207114112.6ad86da3@jkicinski-Precision-T1700>
-        <20161207163756.GA33446@ast-mbp.thefacebook.com>
+Subject: Re: [net-next][PATCH v2 18/18] RDS: IB: add missing connection
+ cache usage info
+Date: Wed, 07 Dec 2016 12:05:36 -0500 (EST)
+Message-ID: <20161207.120536.1153607792891600896.davem@davemloft.net>
+References: <1481083316-11648-19-git-send-email-santosh.shilimkar@oracle.com>
+        <20161207.105531.1347292514118544125.davem@davemloft.net>
+        <eac62d66-7a41-965d-8ecb-c2e4b651c39d@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kubakici@wp.pl, daniel@iogearbox.net, kafai@fb.com,
-        netdev@vger.kernel.org, ast@fb.com, bblanco@plumgrid.com,
-        brouer@redhat.com, john.fastabend@gmail.com, saeedm@mellanox.com,
-        tariqt@mellanox.com, kernel-team@fb.com
-To: alexei.starovoitov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35584 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752017AbcLGRES (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 12:04:18 -0500
-In-Reply-To: <20161207163756.GA33446@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: santosh.shilimkar@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <eac62d66-7a41-965d-8ecb-c2e4b651c39d@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Wed, 7 Dec 2016 08:37:58 -0800
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Date: Wed, 7 Dec 2016 08:44:04 -0800
 
-> On Wed, Dec 07, 2016 at 11:41:12AM +0000, Jakub Kicinski wrote:
->> > I see nothing wrong if this is exposed/made visible in the usual way through
->> > ethtool -k as well. I guess at least that would be the expected way to query
->> > for such driver capabilities.
->> 
->> +1 on exposing this to user space.  Whether via ethtool -k or a
->> separate XDP-specific netlink message is mostly a question of whether
->> we expect the need to expose more complex capabilities than bits.
+> On 12/7/2016 7:55 AM, David Miller wrote:
+>> From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+>> Date: Tue,  6 Dec 2016 20:01:56 -0800
+>>
+>> What level of compatability exists here?  If we run an old tool on a
+>> new
+>> kernel, or a new tool on an old kernel, does it work properly?
+>>
+> Tools repo carries a copy of the header and thats how the old tool and
+> new tools have been running with older/newer kernels. There are few
+> more
+> bits left before I can start using directly kernel header for newer
+> tools.
 > 
-> I'm very much against using NETIF_F_ flags and exposing this to user space.
-> I see this xdp feature flag as temporary workaround until all drivers
-> support adjust_head() helper. It is very much a fundamental feature for xdp.
-> Without being able to add/remove headers the usability of xdp becomes very limited.
-> 
-> If you guys dont like extra ndo_xdp command, I'd suggest to do
-> "if (prog->xdp_adjust_head)" check in the driver and if driver doesn't
-> support it yet, just fail XDP_SETUP_PROG command.
-> imo that will be more flexible interface, since in the future drivers
-> can fail on different combination of features and simple boolean flag
-> unlikely to serve us for long time.
+> Moreover this particular parameter is only used for verbose mode which
+> isn't used in default options.
 
-Indeed, if the eventual plan is to have all drivers be required to
-support a fundamental set of XDP features then exporting this in any
-way to userspace is not a good idea.
+That doesn't really answer my question, I think.
+
+Are you saying that one is required to run old tools on old kernels,
+and new tools on new kernels, and that's how you have this setup in
+your repo?
+
+If so, that really isn't acceptable.  Both old and new tools must work
+with all kernel versions.
