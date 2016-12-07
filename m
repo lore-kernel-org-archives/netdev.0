@@ -1,12 +1,12 @@
 From: Pavel Machek <pavel@ucw.cz>
 Subject: Re: [PATCH 2/2] net: ethernet: stmmac: remove private tx queue lock
-Date: Wed, 7 Dec 2016 21:55:42 +0100
-Message-ID: <20161207205542.GA2250@amd>
+Date: Wed, 7 Dec 2016 21:59:42 +0100
+Message-ID: <20161207205942.GB2250@amd>
 References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
  <1481141138-19466-3-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="45Z9DzgjV8m4Oswq"
+        protocol="application/pgp-signature"; boundary="uZ3hkaAS1mZxFaxD"
 Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
         peppe.cavallaro@st.com, alexandre.torgue@st.com,
         davem@davemloft.net, linux-kernel@vger.kernel.org,
@@ -19,7 +19,7 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---45Z9DzgjV8m4Oswq
+--uZ3hkaAS1mZxFaxD
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -41,48 +41,47 @@ it
 >=20
 > Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 
-Does not seem to apply to net-next based on
-adc176c5472214971d77c1a61c83db9b01e9cdc7. Aha, that's the printk()
-changes, probably would apply to mainline.
+Oops, sorry no, that broke the driver after a while:
 
-> index caf069a..db46ec4 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1307,7 +1307,7 @@ static void stmmac_tx_clean(struct stmmac_priv *pri=
-v)
->  	unsigned int bytes_compl =3D 0, pkts_compl =3D 0;
->  	unsigned int entry =3D priv->dirty_tx;
-> =20
-> -	spin_lock(&priv->tx_lock);
-> +	netif_tx_lock(priv->dev);
-> =20
->  	priv->xstats.tx_clean++;
->
+(So please ignore my tested-by:)
 
-Should it use "netif_tx_lock_bh"?
+root@wagabuibui:/data/tmp/udpt# ./udp-test raw 10.0.0.6 1234 1000 100
+30
+Sending 100 packets (1000b each) at an interval of 30ms, expected data
+rate:3333333b/s (3373333b/s incl udp overhead)
+[   30.948626] socfpga-dwmac ff702000.ethernet eth0: Link is Up -
+100Mbps/Full - flow control rx/tx
+[   31.076064] Link is Up - 100/Full
+[   32.979526] random: crng init done
+[  262.244030] ------------[ cut here ]------------
+[  262.248669] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:316
+dev_watchdog+0x254/0x26c
+[  262.256916] NETDEV WATCHDOG: eth0 (socfpga-dwmac): transmit queue 0
+timed out
+[  262.264028] Modules linked in:
+[  262.267102] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
+4.9.0-rc7-118095-g2d70d9b-dirty #339
+[  262.275328] Hardware name: Altera SOCFPGA
+[  262.279352] [<8010f758>] (unwind_backtrace) from [<8010affc>]
+(show_stack+0x10/0x14)
 
-I could not reproduce the deadlock without this patch, nor can I
-detect anything wrong with this patch, so I guess that is:
-
-Tested-by: Pavel Machek <pavel@denx.de>
-
-Thanks,
 									Pavel
+
 --=20
 (english) http://www.livejournal.com/~pavelmachek
 (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
 g.html
 
---45Z9DzgjV8m4Oswq
+--uZ3hkaAS1mZxFaxD
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAlhId04ACgkQMOfwapXb+vItjACgj6IbYrvZOGMYRYEdrQS0ypnN
-sgMAoMPsAFvrY3g6CIcOOZzXkikVH/Un
-=h25n
+iEYEARECAAYFAlhIeD4ACgkQMOfwapXb+vJQFQCfdgbHFxkINXUIGNQcyxwsEdso
+AM4An369JBa0HdeAO+VCgzAGff3oE2zg
+=I/rt
 -----END PGP SIGNATURE-----
 
---45Z9DzgjV8m4Oswq--
+--uZ3hkaAS1mZxFaxD--
