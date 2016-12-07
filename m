@@ -1,54 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: fix loading of BPF_MAXINSNS sized programs
-Date: Wed, 07 Dec 2016 10:53:21 +0100
-Message-ID: <5847DC11.1040805@iogearbox.net>
-References: <7aad2a49d7a717fd018b338bb9d7167bafd1fdb8.1481069166.git.daniel@iogearbox.net> <7039f9c2-c1d8-7549-7448-e369875ad9c1@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        davem@davemloft.net
+From: Peng Tao <bergwolf@gmail.com>
+Subject: [PATCH 1/2] vhost-vsock: remove unused vq variable
+Date: Wed,  7 Dec 2016 17:52:18 +0800
+Message-ID: <1481104340-77035-1-git-send-email-bergwolf@gmail.com>
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org, Peng Tao <bergwolf@gmail.com>
+To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33529 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752618AbcLGJxZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:53:25 -0500
-In-Reply-To: <7039f9c2-c1d8-7549-7448-e369875ad9c1@cogentembedded.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34255 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751693AbcLGJzy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 04:55:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/07/2016 10:42 AM, Sergei Shtylyov wrote:
-> Hello!
->
-> On 12/7/2016 3:15 AM, Daniel Borkmann wrote:
->
->> General assumption is that single program can hold up to BPF_MAXINSNS,
->> that is, 4096 number of instructions. It is the case with cBPF and
->
->     Up to BPF_MAXINSNS (that is 4096) instructions.
+Signed-off-by: Peng Tao <bergwolf@gmail.com>
+---
+ drivers/vhost/vsock.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-Thanks for nitpicking, I think it's just fine as-is.
-
->> that limit was carried over to eBPF. When recently testing digest, I
->> noticed that it's actually not possible to feed 4096 instructions
->> via bpf(2).
->>
->> The check for > BPF_MAXINSNS was added back then to bpf_check() in
->> cbd357008604 ("bpf: verifier (add ability to receive verification log)").
->> However, 09756af46893 ("bpf: expand BPF syscall with program load/unload")
->> added yet another check that comes before that into bpf_prog_load(),
->> but this time bails out already in case of >= BPF_MAXINSNS.
->>
->> Fix it up and perform the check early in bpf_prog_load(), so we can drop
->> the second one in bpf_check(). It makes sense, because also a 0 insn
->> program is useless and we don't want to waste any resources doing work
->> up to bpf_check() point. The existing bpf(2) man page documents E2BIG
->> as the official error for such cases, so just stick with it as well.
->>
->> Fixes: 09756af46893 ("bpf: expand BPF syscall with program load/unload")
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> [...]
->
-> MBR, Sergei
+diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+index 0c23b55..3e01d58 100644
+--- a/drivers/vhost/vsock.c
++++ b/drivers/vhost/vsock.c
+@@ -195,7 +195,6 @@ static int
+ vhost_transport_send_pkt(struct virtio_vsock_pkt *pkt)
+ {
+ 	struct vhost_vsock *vsock;
+-	struct vhost_virtqueue *vq;
+ 	int len = pkt->len;
+ 
+ 	/* Find the vhost_vsock according to guest context id  */
+@@ -205,8 +204,6 @@ vhost_transport_send_pkt(struct virtio_vsock_pkt *pkt)
+ 		return -ENODEV;
+ 	}
+ 
+-	vq = &vsock->vqs[VSOCK_VQ_RX];
+-
+ 	if (pkt->reply)
+ 		atomic_inc(&vsock->queued_replies);
+ 
+-- 
+2.7.4
