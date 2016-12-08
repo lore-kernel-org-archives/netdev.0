@@ -1,66 +1,70 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] net: sock_rps_record_flow() is for connected
- sockets
-Date: Thu, 08 Dec 2016 19:50:08 +0100
-Message-ID: <1481223008.8408.6.camel@redhat.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
-         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481049061.7129.18.camel@redhat.com>
-         <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481051786.7129.22.camel@redhat.com>
-         <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481097428.5535.12.camel@redhat.com>
-         <1481120956.4930.7.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v2 net-next 4/4] udp: add batching to udp_rmem_release()
+Date: Thu, 8 Dec 2016 10:52:58 -0800
+Message-ID: <CANn89iJv202k-3bq=+MP74uTiMib_T9dz-OscHk=B1A=YDWyMQ@mail.gmail.com>
+References: <1481218739-27089-1-git-send-email-edumazet@google.com>
+ <1481218739-27089-5-git-send-email-edumazet@google.com> <1481221491.6120.11.camel@redhat.com>
+ <CANn89iL8r9UD=sGn3WxVFZ+Z_QJYYM6aXxCFvafwvJ-bEtNhKQ@mail.gmail.com> <CANn89i+10fwMQ+oqs2AgVfE9CHnpZqecN_NxVqobyzD1riyMfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Tom Herbert <tom@herbertland.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48361 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752126AbcLHSuM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 13:50:12 -0500
-In-Reply-To: <1481120956.4930.7.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:33410 "EHLO
+        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751302AbcLHSxA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:53:00 -0500
+Received: by mail-io0-f170.google.com with SMTP id d9so16284832ioe.0
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 10:52:59 -0800 (PST)
+In-Reply-To: <CANn89i+10fwMQ+oqs2AgVfE9CHnpZqecN_NxVqobyzD1riyMfg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-12-07 at 06:29 -0800, Eric Dumazet wrote:
-> On Wed, 2016-12-07 at 08:57 +0100, Paolo Abeni wrote:
-> 
-> > We have some experimental patches to implement GRO for plain UDP
-> > connected sockets, using frag_list to preserve the individual skb len,
-> > and deliver the packet to user space individually. With that I got
-> > ~3mpps with a single queue/user space sink - before the recent udp
-> > improvements. I would like to present these patches on netdev soon (no
-> > sooner than next week, anyway).
-> > 
-> 
-> Make sure you handle properly all netfilter helpers :(
+On Thu, Dec 8, 2016 at 10:38 AM, Eric Dumazet <edumazet@google.com> wrote:
+> On Thu, Dec 8, 2016 at 10:36 AM, Eric Dumazet <edumazet@google.com> wrote:
+>> On Thu, Dec 8, 2016 at 10:24 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+>>
+>>> Nice one! This sounds like a relevant improvement!
+>>>
+>>> I'm wondering if it may cause regressions with small value of
+>>> sk_rcvbuf ?!? e.g. with:
+>>>
+>>> netperf -t UDP_STREAM  -H 127.0.0.1 -- -s 1280 -S 1280 -m 1024 -M 1024
+>>>
+>>
+>> Possibly, then simply we can refine the test to :
+>>
+>> size = up->forward_deficit;
+>> if (size < (sk->sk_rcvbuf >> 2)  && !skb_queue_empty(sk->sk_receive_buf))
+>>      return;
+>
 
-Thank you for the head-up! 
-UDP-GRO will be enabled by a specific netdev feature bit, disabled by
-default, should not impact by default any setup.
+I will also add this patch :
 
-> Keeping frag_list means you keep one sk_buff per segment, so this really
-> looks like a legacy UDP server (like a DNS server) wont benefit from
-> this anyway.
+This really makes sure our changes to sk_forward_alloc wont be slowed
+because producers see
+the change to sk_rmem_alloc too soon.
 
-I'm sorry, I do not follow.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 8400d6954558..6bdcbe103390 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1191,13 +1191,14 @@ static void udp_rmem_release(struct sock *sk,
+int size, int partial)
+        }
+        up->forward_deficit = 0;
 
-UDP GRO will require connected socket - very likely no DNS server. The
-use-case is an application using long lived UDP sockets doing a lot of
-traffic, like fix protocol feeds over UDP. 
+-       atomic_sub(size, &sk->sk_rmem_alloc);
+        sk->sk_forward_alloc += size;
+        amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
+        sk->sk_forward_alloc -= amt;
 
-Thank you,
+        if (amt)
+                __sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
++
++       atomic_sub(size, &sk->sk_rmem_alloc);
+ }
 
-Paolo
+ /* Note: called with sk_receive_queue.lock held.
