@@ -1,329 +1,143 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: deadlock on genl_mutex
-Date: Thu, 8 Dec 2016 18:16:32 +0100
-Message-ID: <CACT4Y+Zy82UAJ55VbPbVadUM92ZSx1VJCFPdhhcmj53uxZ5PXQ@mail.gmail.com>
-References: <CACT4Y+ZdSNVhF2MH0=t=kBUrgNSSnCSO5uwnnc5c0KNLG+VNFQ@mail.gmail.com>
- <CANn89iJ1G4e655RnfcGK9RwmSSb2L=ZBSq9e2gpHVNmkUOYUxg@mail.gmail.com>
- <0227d7e83cc5ac0a192d1ba0fee61413@codeaurora.org> <CACT4Y+auHN0Rdu2Hepk6DNFmz1K2XSA6s18PC=KZiHdoMG845Q@mail.gmail.com>
+From: <marketing@chinesport.it>
+Subject: (unknown)
+Date: Thu, 08 Dec 2016 17:22:31 -0000
+Message-ID: <148121775115.23270.13913426431183971703@wideopenwest.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Matti Vaittinen <matti.vaittinen@nokia.com>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Florian Westphal <fw@strlen.de>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Tom Herbert <tom@herbertland.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Richard Guy Briggs <rgb@redhat.com>,
-        netdev-owner@vger.kernel.org
-To: syzkaller <syzkaller@googlegroups.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+auHN0Rdu2Hepk6DNFmz1K2XSA6s18PC=KZiHdoMG845Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="MESAGE_3403929235556_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vaasbnpo0exfo3100.wideopenwest.com ([76.73.237.38]:50175 "HELO
+        wideopenwest.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1752312AbcLHRWf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 12:22:35 -0500
+Subject: 
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 8, 2016 at 5:16 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Tue, Nov 29, 2016 at 6:59 AM,  <subashab@codeaurora.org> wrote:
->>>
->>> Issue was reported yesterday and is under investigation.
->>>
->>>
->>> http://marc.info/?l=linux-netdev&m=148014004331663&w=2
->>>
->>>
->>> Thanks !
->>
->>
->> Hi Dmitry
->>
->> Can you try the patch below with your reproducer? I haven't seen similar
->> crashes reported after this (or even with Eric's patch).
->
-> I've synced to 318c8932ddec5c1c26a4af0f3c053784841c598e (Dec 7) and do
-> _not_ see this report happening anymore.
-> Thanks.
-
-
-But now I am seeing "possible deadlock" warnings involving genl_lock:
-
-[ INFO: possible circular locking dependency detected ]
-4.9.0-rc8+ #77 Not tainted
--------------------------------------------------------
-syz-executor7/18794 is trying to acquire lock:
- (rtnl_mutex){+.+.+.}, at: [<ffffffff86b4682c>] rtnl_lock+0x1c/0x20
-net/core/rtnetlink.c:70
-but task is already holding lock:
- (genl_mutex){+.+.+.}, at: [<     inline     >] genl_lock
-net/netlink/genetlink.c:31
- (genl_mutex){+.+.+.}, at: [<ffffffff86cc27c9>]
-genl_rcv_msg+0x209/0x260 net/netlink/genetlink.c:658
-which lock already depends on the new lock.
-
-
-the existing dependency chain (in reverse order) is:
-
-       [  315.403815] [<     inline     >] validate_chain
-kernel/locking/lockdep.c:2265
-       [  315.403815] [<ffffffff81569576>]
-__lock_acquire+0x2156/0x3380 kernel/locking/lockdep.c:3338
-       [  315.403815] [<ffffffff8156b672>] lock_acquire+0x2a2/0x790
-kernel/locking/lockdep.c:3749
-       [  315.403815] [<     inline     >] __mutex_lock_common
-kernel/locking/mutex.c:521
-       [  315.403815] [<ffffffff88195bcf>]
-mutex_lock_nested+0x23f/0xf20 kernel/locking/mutex.c:621
-       [  315.403815] [<     inline     >] genl_lock net/netlink/genetlink.c:31
-       [  315.403815] [<ffffffff86cc0c26>] genl_lock_dumpit+0x46/0xa0
-net/netlink/genetlink.c:518
-       [  315.403815] [<ffffffff86cb33ac>] netlink_dump+0x57c/0xd70
-net/netlink/af_netlink.c:2127
-       [  315.403815] [<ffffffff86cb7b6a>]
-__netlink_dump_start+0x4ea/0x760 net/netlink/af_netlink.c:2217
-       [  315.403815] [<ffffffff86cc2319>]
-genl_family_rcv_msg+0xdc9/0x1070 net/netlink/genetlink.c:586
-       [  315.403815] [<ffffffff86cc2770>] genl_rcv_msg+0x1b0/0x260
-net/netlink/genetlink.c:660
-       [  315.403815] [<ffffffff86cc034c>] netlink_rcv_skb+0x2bc/0x3a0
-net/netlink/af_netlink.c:2298
-       [  315.403815] [<ffffffff86cc153d>] genl_rcv+0x2d/0x40
-net/netlink/genetlink.c:671
-       [  315.403815] [<     inline     >] netlink_unicast_kernel
-net/netlink/af_netlink.c:1231
-       [  315.403815] [<ffffffff86cbeb6a>] netlink_unicast+0x51a/0x740
-net/netlink/af_netlink.c:1257
-       [  315.403815] [<ffffffff86cbf834>] netlink_sendmsg+0xaa4/0xe50
-net/netlink/af_netlink.c:1803
-       [  315.403815] [<     inline     >] sock_sendmsg_nosec net/socket.c:621
-       [  315.403815] [<ffffffff86a7618f>] sock_sendmsg+0xcf/0x110
-net/socket.c:631
-       [  315.403815] [<ffffffff86a764fb>] sock_write_iter+0x32b/0x620
-net/socket.c:829
-       [  315.403815] [<     inline     >] new_sync_write fs/read_write.c:499
-       [  315.403815] [<ffffffff81a701ae>] __vfs_write+0x4fe/0x830
-fs/read_write.c:512
-       [  315.403815] [<ffffffff81a71c55>] vfs_write+0x175/0x4e0
-fs/read_write.c:560
-       [  315.403815] [<     inline     >] SYSC_write fs/read_write.c:607
-       [  315.403815] [<ffffffff81a760e0>] SyS_write+0x100/0x240
-fs/read_write.c:599
-       [  315.403815] [<ffffffff881a5f85>] entry_SYSCALL_64_fastpath+0x23/0xc6
-
-       [  315.403815] [<     inline     >] validate_chain
-kernel/locking/lockdep.c:2265
-       [  315.403815] [<ffffffff81569576>]
-__lock_acquire+0x2156/0x3380 kernel/locking/lockdep.c:3338
-       [  315.403815] [<ffffffff8156b672>] lock_acquire+0x2a2/0x790
-kernel/locking/lockdep.c:3749
-       [  315.403815] [<     inline     >] __mutex_lock_common
-kernel/locking/mutex.c:521
-       [  315.403815] [<ffffffff88195bcf>]
-mutex_lock_nested+0x23f/0xf20 kernel/locking/mutex.c:621
-       [  315.403815] [<ffffffff86cb7779>]
-__netlink_dump_start+0xf9/0x760 net/netlink/af_netlink.c:2187
-       [  315.403815] [<     inline     >] netlink_dump_start
-include/linux/netlink.h:165
-       [  315.403815] [<ffffffff86d14d48>]
-ctnetlink_stat_ct_cpu+0x198/0x1e0
-net/netfilter/nf_conntrack_netlink.c:2045
-       [  315.403815] [<ffffffff86cd313e>]
-nfnetlink_rcv_msg+0x9be/0xd60 net/netfilter/nfnetlink.c:212
-       [  315.403815] [<ffffffff86cc034c>] netlink_rcv_skb+0x2bc/0x3a0
-net/netlink/af_netlink.c:2298
-       [  315.403815] [<ffffffff86cd1b71>] nfnetlink_rcv+0x7e1/0x10d0
-net/netfilter/nfnetlink.c:474
-       [  315.403815] [<     inline     >] netlink_unicast_kernel
-net/netlink/af_netlink.c:1231
-       [  315.403815] [<ffffffff86cbeb6a>] netlink_unicast+0x51a/0x740
-net/netlink/af_netlink.c:1257
-       [  315.403815] [<ffffffff86cbf834>] netlink_sendmsg+0xaa4/0xe50
-net/netlink/af_netlink.c:1803
-       [  315.403815] [<     inline     >] sock_sendmsg_nosec net/socket.c:621
-       [  315.403815] [<ffffffff86a7618f>] sock_sendmsg+0xcf/0x110
-net/socket.c:631
-       [  315.403815] [<ffffffff86a764fb>] sock_write_iter+0x32b/0x620
-net/socket.c:829
-       [  315.403815] [<     inline     >] new_sync_write fs/read_write.c:499
-       [  315.403815] [<ffffffff81a701ae>] __vfs_write+0x4fe/0x830
-fs/read_write.c:512
-       [  315.403815] [<ffffffff81a71c55>] vfs_write+0x175/0x4e0
-fs/read_write.c:560
-       [  315.403815] [<     inline     >] SYSC_write fs/read_write.c:607
-       [  315.403815] [<ffffffff81a760e0>] SyS_write+0x100/0x240
-fs/read_write.c:599
-       [  315.403815] [<ffffffff881a5f85>] entry_SYSCALL_64_fastpath+0x23/0xc6
-
-       [  315.403815] [<     inline     >] validate_chain
-kernel/locking/lockdep.c:2265
-       [  315.403815] [<ffffffff81569576>]
-__lock_acquire+0x2156/0x3380 kernel/locking/lockdep.c:3338
-       [  315.403815] [<ffffffff8156b672>] lock_acquire+0x2a2/0x790
-kernel/locking/lockdep.c:3749
-       [  315.403815] [<     inline     >] __mutex_lock_common
-kernel/locking/mutex.c:521
-       [  315.403815] [<ffffffff88195bcf>]
-mutex_lock_nested+0x23f/0xf20 kernel/locking/mutex.c:621
-       [  315.403815] [<ffffffff86cd083d>] nfnl_lock+0x2d/0x30
-net/netfilter/nfnetlink.c:61
-       [  315.403815] [<ffffffff86d7c5b1>]
-nf_tables_netdev_event+0x1f1/0x720
-net/netfilter/nf_tables_netdev.c:122
-       [  315.403815] [<ffffffff8149095a>]
-notifier_call_chain+0x14a/0x2f0 kernel/notifier.c:93
-       [  315.403815] [<     inline     >] __raw_notifier_call_chain
-kernel/notifier.c:394
-       [  315.403815] [<ffffffff81490b82>]
-raw_notifier_call_chain+0x32/0x40 kernel/notifier.c:401
-       [  315.403815] [<ffffffff86ae4af6>]
-call_netdevice_notifiers_info+0x56/0x90 net/core/dev.c:1645
-       [  315.403815] [<     inline     >] call_netdevice_notifiers
-net/core/dev.c:1661
-       [  315.403815] [<ffffffff86af898d>]
-rollback_registered_many+0x73d/0xba0 net/core/dev.c:6759
-       [  315.403815] [<ffffffff86af8e9e>]
-rollback_registered+0xae/0x100 net/core/dev.c:6800
-       [  315.403815] [<ffffffff86af8f76>]
-unregister_netdevice_queue+0x86/0x140 net/core/dev.c:7787
-       [  315.403815] [<     inline     >] unregister_netdevice
-include/linux/netdevice.h:2455
-       [  315.403815] [<ffffffff84912be6>] __tun_detach+0xc66/0xea0
-drivers/net/tun.c:567
-       [  315.808015] [<     inline     >] tun_detach drivers/net/tun.c:578
-       [  315.808015] [<ffffffff84912e69>] tun_chr_close+0x49/0x60
-drivers/net/tun.c:2350
-       [  315.808015] [<ffffffff81a77f7e>] __fput+0x34e/0x910
-fs/file_table.c:208
-       [  315.808015] [<ffffffff81a785ca>] ____fput+0x1a/0x20
-fs/file_table.c:244
-       [  315.808015] [<ffffffff81483c20>] task_work_run+0x1a0/0x280
-kernel/task_work.c:116
-       [  315.808015] [<     inline     >] exit_task_work
-include/linux/task_work.h:21
-       [  315.808015] [<ffffffff814129e2>] do_exit+0x1842/0x2650
-kernel/exit.c:828
-       [  315.808015] [<ffffffff814139ae>] do_group_exit+0x14e/0x420
-kernel/exit.c:932
-       [  315.808015] [<ffffffff81442b43>] get_signal+0x663/0x1880
-kernel/signal.c:2307
-       [  315.808015] [<ffffffff81239b45>] do_signal+0xc5/0x2190
-arch/x86/kernel/signal.c:807
-       [  315.808015] [<ffffffff8100666a>]
-exit_to_usermode_loop+0x1ea/0x2d0 arch/x86/entry/common.c:156
-       [  315.808015] [<     inline     >] prepare_exit_to_usermode
-arch/x86/entry/common.c:190
-       [  315.808015] [<ffffffff81009693>]
-syscall_return_slowpath+0x4d3/0x570 arch/x86/entry/common.c:259
-       [  315.808015] [<ffffffff881a6026>] entry_SYSCALL_64_fastpath+0xc4/0xc6
-
-       [  315.808015] [<     inline     >] check_prev_add
-kernel/locking/lockdep.c:1828
-       [  315.808015] [<ffffffff8156309b>]
-check_prevs_add+0xaab/0x1c20 kernel/locking/lockdep.c:1938
-       [  315.808015] [<     inline     >] validate_chain
-kernel/locking/lockdep.c:2265
-       [  315.808015] [<ffffffff81569576>]
-__lock_acquire+0x2156/0x3380 kernel/locking/lockdep.c:3338
-       [  315.808015] [<ffffffff8156b672>] lock_acquire+0x2a2/0x790
-kernel/locking/lockdep.c:3749
-       [  315.808015] [<     inline     >] __mutex_lock_common
-kernel/locking/mutex.c:521
-       [  315.808015] [<ffffffff88195bcf>]
-mutex_lock_nested+0x23f/0xf20 kernel/locking/mutex.c:621
-       [  315.808015] [<ffffffff86b4682c>] rtnl_lock+0x1c/0x20
-net/core/rtnetlink.c:70
-       [  315.808015] [<ffffffff87b5cdf9>]
-nl80211_pre_doit+0x309/0x5b0 net/wireless/nl80211.c:11750
-       [  315.808015] [<ffffffff86cc1cd0>]
-genl_family_rcv_msg+0x780/0x1070 net/netlink/genetlink.c:631
-       [  315.808015] [<ffffffff86cc2770>] genl_rcv_msg+0x1b0/0x260
-net/netlink/genetlink.c:660
-       [  315.808015] [<ffffffff86cc034c>] netlink_rcv_skb+0x2bc/0x3a0
-net/netlink/af_netlink.c:2298
-       [  315.808015] [<ffffffff86cc153d>] genl_rcv+0x2d/0x40
-net/netlink/genetlink.c:671
-       [  315.808015] [<     inline     >] netlink_unicast_kernel
-net/netlink/af_netlink.c:1231
-       [  315.808015] [<ffffffff86cbeb6a>] netlink_unicast+0x51a/0x740
-net/netlink/af_netlink.c:1257
-       [  315.808015] [<ffffffff86cbf834>] netlink_sendmsg+0xaa4/0xe50
-net/netlink/af_netlink.c:1803
-       [  315.808015] [<     inline     >] sock_sendmsg_nosec net/socket.c:621
-       [  315.808015] [<ffffffff86a7618f>] sock_sendmsg+0xcf/0x110
-net/socket.c:631
-       [  315.808015] [<ffffffff86a764fb>] sock_write_iter+0x32b/0x620
-net/socket.c:829
-       [  315.808015] [<ffffffff81a6f9a3>]
-do_iter_readv_writev+0x363/0x670 fs/read_write.c:695
-       [  315.808015] [<ffffffff81a723f1>] do_readv_writev+0x431/0x9b0
-fs/read_write.c:872
-       [  315.808015] [<ffffffff81a72f2c>] vfs_writev+0x8c/0xc0
-fs/read_write.c:911
-       [  315.808015] [<ffffffff81a73075>] do_writev+0x115/0x2d0
-fs/read_write.c:944
-       [  315.808015] [<     inline     >] SYSC_writev fs/read_write.c:1017
-       [  315.808015] [<ffffffff81a7682c>] SyS_writev+0x2c/0x40
-fs/read_write.c:1014
-       [  315.808015] [<ffffffff881a5f85>] entry_SYSCALL_64_fastpath+0x23/0xc6
-
-other info that might help us debug this:
-
-Chain exists of:
- Possible unsafe locking scenario:
-
-       CPU0                    CPU1
-       ----                    ----
-  lock(genl_mutex);
-                               lock(nlk->cb_mutex);
-                               lock(genl_mutex);
-  lock(rtnl_mutex);
-
- *** DEADLOCK ***
-
-2 locks held by syz-executor7/18794:
- #0:  (cb_lock){++++++}, at: [<ffffffff86cc152e>] genl_rcv+0x1e/0x40
-net/netlink/genetlink.c:670
- #1:  (genl_mutex){+.+.+.}, at: [<     inline     >] genl_lock
-net/netlink/genetlink.c:31
- #1:  (genl_mutex){+.+.+.}, at: [<ffffffff86cc27c9>]
-genl_rcv_msg+0x209/0x260 net/netlink/genetlink.c:658
-
-stack backtrace:
-CPU: 0 PID: 18794 Comm: syz-executor7 Not tainted 4.9.0-rc8+ #77
-Hardware name: Google Google/Google, BIOS Google 01/01/2011
- ffff88004add6468 ffffffff834c44f9 ffffffff00000000 1ffff100095bac20
- ffffed00095bac18 0000000041b58ab3 ffffffff895816f0 ffffffff834c420b
- 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff834c44f9>] dump_stack+0x2ee/0x3f5 lib/dump_stack.c:51
- [<ffffffff81560cb0>] print_circular_bug+0x310/0x3c0
-kernel/locking/lockdep.c:1202
- [<     inline     >] check_prev_add kernel/locking/lockdep.c:1828
- [<ffffffff8156309b>] check_prevs_add+0xaab/0x1c20 kernel/locking/lockdep.c:1938
- [<     inline     >] validate_chain kernel/locking/lockdep.c:2265
- [<ffffffff81569576>] __lock_acquire+0x2156/0x3380 kernel/locking/lockdep.c:3338
- [<ffffffff8156b672>] lock_acquire+0x2a2/0x790 kernel/locking/lockdep.c:3749
- [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:521
- [<ffffffff88195bcf>] mutex_lock_nested+0x23f/0xf20 kernel/locking/mutex.c:621
- [<ffffffff86b4682c>] rtnl_lock+0x1c/0x20 net/core/rtnetlink.c:70
- [<ffffffff87b5cdf9>] nl80211_pre_doit+0x309/0x5b0 net/wireless/nl80211.c:11750
- [<ffffffff86cc1cd0>] genl_family_rcv_msg+0x780/0x1070
-net/netlink/genetlink.c:631
- [<ffffffff86cc2770>] genl_rcv_msg+0x1b0/0x260 net/netlink/genetlink.c:660
- [<ffffffff86cc034c>] netlink_rcv_skb+0x2bc/0x3a0 net/netlink/af_netlink.c:2298
- [<ffffffff86cc153d>] genl_rcv+0x2d/0x40 net/netlink/genetlink.c:671
- [<     inline     >] netlink_unicast_kernel net/netlink/af_netlink.c:1231
- [<ffffffff86cbeb6a>] netlink_unicast+0x51a/0x740 net/netlink/af_netlink.c:1257
- [<ffffffff86cbf834>] netlink_sendmsg+0xaa4/0xe50 net/netlink/af_netlink.c:1803
- [<     inline     >] sock_sendmsg_nosec net/socket.c:621
- [<ffffffff86a7618f>] sock_sendmsg+0xcf/0x110 net/socket.c:631
- [<ffffffff86a764fb>] sock_write_iter+0x32b/0x620 net/socket.c:829
- [<ffffffff81a6f9a3>] do_iter_readv_writev+0x363/0x670 fs/read_write.c:695
- [<ffffffff81a723f1>] do_readv_writev+0x431/0x9b0 fs/read_write.c:872
- [<ffffffff81a72f2c>] vfs_writev+0x8c/0xc0 fs/read_write.c:911
- [<ffffffff81a73075>] do_writev+0x115/0x2d0 fs/read_write.c:944
- [<     inline     >] SYSC_writev fs/read_write.c:1017
- [<ffffffff81a7682c>] SyS_writev+0x2c/0x40 fs/read_write.c:1014
- [<ffffffff881a5f85>] entry_SYSCALL_64_fastpath+0x23/0xc6
+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
