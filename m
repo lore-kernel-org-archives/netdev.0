@@ -1,90 +1,146 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] net: sock_rps_record_flow() is for connected sockets
-Date: Thu, 8 Dec 2016 12:44:51 -0800
-Message-ID: <CALx6S36BJ5t03onqn1b7R6ZfxiTG8rr2xTCOfoMjSWZh7T-=5w@mail.gmail.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
- <1480944138.4694.37.camel@redhat.com> <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
- <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
- <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481049061.7129.18.camel@redhat.com> <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481051786.7129.22.camel@redhat.com> <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S34e_5KW3cdxS_yNXwhYuK2FQe=6+9=yTCVDsg6f2vx87g@mail.gmail.com>
- <1481220136.4930.110.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S35B3ja3pLHnKK4JQZrpKxtSc8nuZ_LBJT7E8qQJj2ronQ@mail.gmail.com> <1481227516.1898563.813013233.52CC6646@webmail.messagingengine.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v5 0/6] XDP for virtio_net
+Date: Thu, 8 Dec 2016 12:46:07 -0800
+Message-ID: <5849C68F.7080707@gmail.com>
+References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+ <20161208.141702.1346950420275854265.davem@davemloft.net>
+ <20161208193814.GA1954@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, mst@redhat.com, shm@cumulusnetworks.com,
+        tgraf@suug.ch, john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        brouer@redhat.com, "Michael S. Tsirkin" <mst@redhat.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:34652 "EHLO
-        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752035AbcLHUow (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 15:44:52 -0500
-Received: by mail-qk0-f177.google.com with SMTP id q130so274139585qke.1
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 12:44:52 -0800 (PST)
-In-Reply-To: <1481227516.1898563.813013233.52CC6646@webmail.messagingengine.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35064 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752257AbcLHUq1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 15:46:27 -0500
+Received: by mail-pg0-f67.google.com with SMTP id p66so27839143pga.2
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 12:46:26 -0800 (PST)
+In-Reply-To: <20161208193814.GA1954@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 8, 2016 at 12:05 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hello,
->
-> On Thu, Dec 8, 2016, at 20:15, Tom Herbert wrote:
->> On Thu, Dec 8, 2016 at 10:02 AM, Eric Dumazet <eric.dumazet@gmail.com>
->> wrote:
->> > On Thu, 2016-12-08 at 09:49 -0800, Tom Herbert wrote:
->> >
->> >> Of course that would only help on systems where no one enable encaps,
->> >> ie. looks good in the the simple benchmarks but in real life if just
->> >> one socket enables encap everyone else takes the hit. Alternatively,
->> >> maybe we could do early demux when we do the lookup in GRO to
->> >> eliminate the extra lookup?
->> >
->> > Well, if you do the lookup in GRO, wont it be done for every incoming
->> > MSS, instead of once per GRO packet ?
+On 16-12-08 11:38 AM, Alexei Starovoitov wrote:
+> On Thu, Dec 08, 2016 at 02:17:02PM -0500, David Miller wrote:
+>> From: John Fastabend <john.fastabend@gmail.com>
+>> Date: Wed, 07 Dec 2016 12:10:47 -0800
 >>
->> We should be able to avoid that. We already do the lookup for every
->> UDP packet going into GRO, would only need to take the refcnt once for
->> the whole GRO packet.
+>>> This implements virtio_net for the mergeable buffers and big_packet
+>>> modes. I tested this with vhost_net running on qemu and did not see
+>>> any issues. For testing num_buf > 1 I added a hack to vhost driver
+>>> to only but 100 bytes per buffer.
+>>  ...
 >>
->> >
->> > Anyway, the flooded UDP sockets out there are not normally connected
->>
->> We still should be able to use early demux in that case, just can't
->> avoid the route lookup. I wonder if we might be able to cache a soft
->> route maybe for the last local destination received to help the
->> unconnected sockets case...
->>
->> In any case, I can take a look at of doing early demux from with UDP GRO.
->
-> Early demux already breaks ip rules: we might set up a rule so an
-> incoming packet might depending on the rule not find an input route at
-> all and would be forwarded. Same problem might occur with VRF, when you
-> have multiple ip addresses in different "realms".
->
-> That said, I don't see why we can't be more aggressive for GRO in the
-> unconnected case: we simply must make sure that the current namespace
-> holds the ip address, which is simply a hash lookup. After that we can
-> even accept packets for a wildcard bounded socket.
->
-Or just depend on encapsulation sockets to bind to an address. That
-would eliminate most the ambiguity especially if it can be pushed into
-a device that is trying to parse encapsulation. We would need new
-interfaces to support that in HW, or use n-tuple filtering (which I
-still maintain is the only right way to do it).
+>> So where are we with this?
 
-Tom
+There is one possible issue with a hang that Michael pointed out. I can
+either spin a v6 or if you pull this v5 series in I can post a bugfix
+for it. I am not seeing the issue in practice XDP virtio has been up
+and running on my box here for days without issue.
 
-> Probably we should disable this logic as soon as soon as vrf and/or
-> rules are active to have correct semantics.
->
-> Bye,
-> Hannes
+All the concerns below are really future XDP ideas and unrelated to
+this series or at least not required for this series to applied IMO.
+
+>>
+>> I'm not too thrilled with the idea of making XDP_TX optional or
+>> something like that.  If someone enables XDP, there is a tradeoff.
+>>
+>> I also have reservations about the idea to make jumbo frames work
+>> without giving XDP access to the whole packet.  If it wants to push or
+>> pop a header, it might need to know the whole packet length.  How will
+>> you pass that to the XDP program?
+>>
+>> Some kinds of encapsulation require trailers, thus preclusing access
+>> to the entire packet precludes those kinds of transformations.
+> 
+> +1
+
+This was sort of speculative on my side it is certainly not dependent on
+the series here. I agree that we don't want to get into a state where
+program X runs here and not there and only runs after doing magic
+incantations, etc. I would only propose it if there is a clean way to
+implement this.
+
+> 
+>> This is why we want simple, linear, buffer access for XDP.
+>>
+>> Even the most seemingly minor exception turns into a huge complicated
+>> mess.
+> 
+> +1
+
+Yep.
+
+> 
+> and from the other thread:
+>>> Can't we disable XDP_TX somehow? Many people might only want RX drop,
+>>> and extra queues are not always there.
+>>>
+>>
+>> Alexei, Daniel, any thoughts on this?
+> 
+> I don't like it.
+> 
+
+OK alternatively we can make more queues available in virtio which might
+be the better solution.
+
+>> I know we were trying to claim some base level of feature support for
+>> all XDP drivers. I am sympathetic to this argument though for DDOS we
+>> do not need XDP_TX support. And virtio can become queue constrained
+>> in some cases.
+> 
+> especially for ddos case doing lro/gro is not helpful.
+
+Fair enough but disabling LRO to handle the case where you "might" get
+a DDOS will hurt normal good traffic.
+
+> I frankly don't see a use case where you'd want to steer a packet
+> all the way into VM just to drop them there?
+
+VM to VM traffic is my use case. And in that model we need XDP at the
+virtio or vhost layer in case of malicious/broke/untrusted VM. I have
+some vhost patches under development for when net-next opens up again.
+
+> Without XDP_TX it's too crippled. adjust_head() won't be possible,
+
+Just a nit but any reason not to support adjust_head and then XDP_PASS.
+I don't have a use case in mind but also see no reason to preclude it.
+
+> packet mangling would have to be disabled and so on.
+> If xdp program doesn't see raw packet it can only parse the headers of
+> this jumbo meta-packet and drop it, but for virtio it's really too late.
+> ddos protection needs to be done at the earliest hw nic receive.
+
+VM to VM traffic never touches hw nic.
+
+> I think if driver claims xdp support it needs to support
+> drop/pass/tx and adjust_head. For metadata passing up into stack from xdp
+> we need adjust_head, for encap/decap we need it too. And lro is in the way
+> of such transformations.
+> We struggled a lot with cls_bpf due to all metadata inside skb that needs
+> to be kept correct. Feeding non-raw packets into xdp is a rat hole.
+> 
+
+In summary:
+
+I think its worth investigating getting LRO working but agree we can't
+sacrifice any of the existing features or complicate the code to do it.
+If the result of investigating is it can't be done then that is how it
+is.
+
+Jumbo frames I care very little about in reality so should not have
+mentioned it.
+
+Requiring XDP drivers to support all features is fine for me I can make
+the virtio queue scheme a bit more flexible. Michael might have some
+opinion on this though.
+
+This series shouldn't be blocked by any of the above.
+
+Thanks,
+.John
