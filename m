@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] drivers: net: xgene: uninitialized variable in
- xgene_enet_free_pagepool()
-Date: Thu, 08 Dec 2016 11:30:53 -0500 (EST)
-Message-ID: <20161208.113053.539814359496613991.davem@davemloft.net>
-References: <20161207111424.GA5507@elgon.mountain>
+Subject: Re: [PATCH 2/2] vhost: remove unnecessary smp_mb from
+ vhost_work_queue
+Date: Thu, 08 Dec 2016 11:30:46 -0500 (EST)
+Message-ID: <20161208.113046.64351554585995048.davem@davemloft.net>
+References: <1481104340-77035-1-git-send-email-bergwolf@gmail.com>
+        <1481104340-77035-2-git-send-email-bergwolf@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isubramanian@apm.com, kchudgar@apm.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161207111424.GA5507@elgon.mountain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: stefanha@redhat.com, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: bergwolf@gmail.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1481104340-77035-2-git-send-email-bergwolf@gmail.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 7 Dec 2016 14:14:24 +0300
+From: Peng Tao <bergwolf@gmail.com>
+Date: Wed,  7 Dec 2016 17:52:19 +0800
 
-> We never set "slots" in this function.
+> test_and_set_bit() already implies a memory barrier.
 > 
-> Fixes: a9380b0f7be8 ("drivers: net: xgene: Add support for Jumbo frame")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Peng Tao <bergwolf@gmail.com>
 
 Applied.
