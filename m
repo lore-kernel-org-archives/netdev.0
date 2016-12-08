@@ -1,99 +1,61 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 3/4] udp: copy skb->truesize in the first cache line
-Date: Thu,  8 Dec 2016 09:38:58 -0800
-Message-ID: <1481218739-27089-4-git-send-email-edumazet@google.com>
-References: <1481218739-27089-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] net: sock_rps_record_flow() is for connected sockets
+Date: Thu, 8 Dec 2016 09:49:23 -0800
+Message-ID: <CALx6S34e_5KW3cdxS_yNXwhYuK2FQe=6+9=yTCVDsg6f2vx87g@mail.gmail.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480944138.4694.37.camel@redhat.com> <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
+ <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1481049061.7129.18.camel@redhat.com> <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1481051786.7129.22.camel@redhat.com> <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com> <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Paolo Abeni <pabeni@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:35115 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751139AbcLHRjL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 12:39:11 -0500
-Received: by mail-pg0-f41.google.com with SMTP id p66so176135023pga.2
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 09:39:10 -0800 (PST)
-In-Reply-To: <1481218739-27089-1-git-send-email-edumazet@google.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35035 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751593AbcLHRtY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 12:49:24 -0500
+Received: by mail-qk0-f194.google.com with SMTP id n204so53756957qke.2
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 09:49:24 -0800 (PST)
+In-Reply-To: <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In UDP RX handler, we currently clear skb->dev before skb
-is added to receive queue, because device pointer is no longer
-available once we exit from RCU section.
+On Tue, Dec 6, 2016 at 10:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2016-12-06 at 19:32 -0800, Eric Dumazet wrote:
+>> A follow up patch will provide a static_key (Jump Label) since most
+>> hosts do not even use RFS.
+>
+> Speaking of static_key, it appears we now have GRO on UDP, and this
+> consumes a considerable amount of cpu cycles.
+>
+> Turning off GRO allows me to get +20 % more packets on my single UDP
+> socket. (1.2 Mpps instead of 1.0 Mpps)
+>
+> Surely udp_gro_receive() should be bypassed if no UDP socket has
+> registered a udp_sk(sk)->gro_receive handler
+>
+> And/or delay the inet_add_offload(&udpv{4|6}_offload, IPPROTO_UDP); to
+> the first UDP sockets setting udp_sk(sk)->gro_receive handler,
+> ie udp_encap_enable() and udpv6_encap_enable()
+>
+Of course that would only help on systems where no one enable encaps,
+ie. looks good in the the simple benchmarks but in real life if just
+one socket enables encap everyone else takes the hit. Alternatively,
+maybe we could do early demux when we do the lookup in GRO to
+eliminate the extra lookup?
 
-Since this first cache line is always hot, lets reuse this space
-to store skb->truesize and thus avoid a cache line miss at
-udp_recvmsg()/udp_skb_destructor time while receive queue
-spinlock is held.
+Tom
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/skbuff.h |  9 ++++++++-
- net/ipv4/udp.c         | 13 ++++++++++---
- 2 files changed, 18 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0cd92b0f2af5..332e76756f54 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -645,8 +645,15 @@ struct sk_buff {
- 		struct rb_node	rbnode; /* used in netem & tcp stack */
- 	};
- 	struct sock		*sk;
--	struct net_device	*dev;
- 
-+	union {
-+		struct net_device	*dev;
-+		/* Some protocols might use this space to store information,
-+		 * while device pointer would be NULL.
-+		 * UDP receive path is one user.
-+		 */
-+		unsigned long		dev_scratch;
-+	};
- 	/*
- 	 * This is the control buffer. It is free to use for every
- 	 * layer. Please put your private variables there. If you
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 77875712405f..880cd3d84abf 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1188,10 +1188,14 @@ static void udp_rmem_release(struct sock *sk, int size, int partial)
- 		__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
- }
- 
--/* Note: called with sk_receive_queue.lock held */
-+/* Note: called with sk_receive_queue.lock held.
-+ * Instead of using skb->truesize here, find a copy of it in skb->dev_scratch
-+ * This avoids a cache line miss while receive_queue lock is held.
-+ * Look at __udp_enqueue_schedule_skb() to find where this copy is done.
-+ */
- void udp_skb_destructor(struct sock *sk, struct sk_buff *skb)
- {
--	udp_rmem_release(sk, skb->truesize, 1);
-+	udp_rmem_release(sk, skb->dev_scratch, 1);
- }
- EXPORT_SYMBOL(udp_skb_destructor);
- 
-@@ -1246,6 +1250,10 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
- 		busy = busylock_acquire(sk);
- 	}
- 	size = skb->truesize;
-+	/* Copy skb->truesize into skb->dev_scratch to avoid a cache line miss
-+	 * in udp_skb_destructor()
-+	 */
-+	skb->dev_scratch = size;
- 
- 	/* we drop only if the receive buf is full and the receive
- 	 * queue contains some other skb
-@@ -1272,7 +1280,6 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
- 	/* no need to setup a destructor, we will explicitly release the
- 	 * forward allocated memory on dequeue
- 	 */
--	skb->dev = NULL;
- 	sock_skb_set_dropcount(sk, skb);
- 
- 	__skb_queue_tail(list, skb);
--- 
-2.8.0.rc3.226.g39d4020
+>
+> :(
+>
+>
+>
