@@ -1,44 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Thu, 08 Dec 2016 18:14:53 -0500 (EST)
-Message-ID: <20161208.181453.1681964885150767592.davem@davemloft.net>
-References: <CAHmME9qxz6wcOZuurqahXeY6QSF=zz0gH7gY4RZujLAJPNSWBA@mail.gmail.com>
- <20161207.193716.50344961208535056.davem@davemloft.net>
- <CAHmME9qGoPGEFyqe0jBaZD5R51wHTEgAYb9edj+nu9nNPWSYCA@mail.gmail.com>
+From: "Chickles, Derek" <Derek.Chickles@cavium.com>
+Subject: RE: [PATCH net-next 4/5] liquidio VF timestamp
+Date: Thu, 8 Dec 2016 22:41:23 +0000
+Message-ID: <BN6PR07MB2932EC69BFB4F1D8B252F080F3840@BN6PR07MB2932.namprd07.prod.outlook.com>
+References: <1481230848-2393-1-git-send-email-rvatsavayi@caviumnetworks.com>
+ <1481230848-2393-5-git-send-email-rvatsavayi@caviumnetworks.com>
+ <CAJ3xEMg3RC74PEF-6_mF96Wj-dHWW6simspOpxkiObgXBr67KA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wireguard@lists.zx2c4.com,
- linux-kernel@vger.kernel.org, linux-mips@linux-mips.org
-To: Jason@zx2c4.com
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <CAHmME9qGoPGEFyqe0jBaZD5R51wHTEgAYb9edj+nu9nNPWSYCA@mail.gmail.com>
-List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>,
+        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0052.outbound.protection.outlook.com ([104.47.34.52]:55568
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753887AbcLHXQb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 18:16:31 -0500
+In-Reply-To: <CAJ3xEMg3RC74PEF-6_mF96Wj-dHWW6simspOpxkiObgXBr67KA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Date: Thu, 8 Dec 2016 23:20:04 +0100
-
-> Hi David,
-> 
-> On Thu, Dec 8, 2016 at 1:37 AM, David Miller <davem@davemloft.net> wrote:
->> You really have to land the IP header on a proper 4 byte boundary.
->>
->> I would suggest pushing 3 dummy garbage bytes of padding at the front
->> or the end of your header.
-> 
-> Are you sure 3 bytes to get 4 byte alignment is really the best? I was
-> thinking that adding 1 byte to get 2 byte alignment might be better,
-> since it would then ensure that the subsequent TCP header winds up
-> being 4 byte aligned. Or is this in fact not the desired trade off,
-> and so I should stick with the 3 bytes you suggested?
-
-If the IP header is 4 byte aligned, the TCP header will be as well.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT3IgR2VybGl0eiBbbWFp
+bHRvOmdlcmxpdHoub3JAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgRGVjZW1iZXIgMDgs
+IDIwMTYgMToxMCBQTQ0KPiBUbzogVmF0c2F2YXlpLCBSYWdodQ0KPiBDYzogRGF2aWQgTWlsbGVy
+OyBMaW51eCBOZXRkZXYgTGlzdDsgVmF0c2F2YXlpLCBSYWdodTsgQ2hpY2tsZXMsIERlcmVrOyBC
+dXJsYSwNCj4gU2F0YW5hbmRhOyBNYW5sdW5hcywgRmVsaXgNCj4gU3ViamVjdDogUmU6IFtQQVRD
+SCBuZXQtbmV4dCA0LzVdIGxpcXVpZGlvIFZGIHRpbWVzdGFtcA0KPiANCj4gT24gVGh1LCBEZWMg
+OCwgMjAxNiBhdCAxMTowMCBQTSwgUmFnaHUgVmF0c2F2YXlpDQo+IDxydmF0c2F2YXlpQGNhdml1
+bW5ldHdvcmtzLmNvbT4gd3JvdGU6DQo+ID4gQWRkcyBzdXBwb3J0IGZvciBWRiB0aW1lc3RhbXAu
+DQo+IA0KPiBzYW1lIGhlcmUsIHdoYXQncyB0aGUgdXNlIGNhc2U/IGRvIHlvdSBoYXZlIHBlciBW
+RiBIVyBjbG9ja3MgdG8gc2V0Pw0KPiBIb3cgaXQgd29ya3MgaWYgVkYgQSBkb2VzIHNldHVwIG9m
+IFggYW5kIFZGIEIgc2V0dXAgb2YgWQ0KDQpUaGVyZSdzIG5vIHN1cHBvcnQgZm9yIGFkanVzdGlu
+ZyBwZXItVkYgY2xvY2sgc2tldyBhbmQgc3VjaCBpbiBoYXJkd2FyZSwNCmJ1dCB0aGVyZSBpcyBz
+dXBwb3J0IGZvciByZXRyaWV2aW5nIHRoZSBoYXJkd2FyZSB0aW1lc3RhbXAgZm9yIFR4IGFuZCBS
+eCBwYWNrZXRzDQpvbiB0aGUgVkYuIEFwcGxpY2F0aW9ucyBjYW4gdXNlIHRoaXMgZm9yIHRoZWly
+IHB1cnBvc2VzLg0K
