@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: fix state equivalence
-Date: Thu, 08 Dec 2016 13:31:33 -0500 (EST)
-Message-ID: <20161208.133133.498441460961253034.davem@davemloft.net>
-References: <1481137079-2205635-1-git-send-email-ast@fb.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v2 net-next 4/4] udp: add batching to udp_rmem_release()
+Date: Thu, 8 Dec 2016 10:36:22 -0800
+Message-ID: <CANn89iL8r9UD=sGn3WxVFZ+Z_QJYYM6aXxCFvafwvJ-bEtNhKQ@mail.gmail.com>
+References: <1481218739-27089-1-git-send-email-edumazet@google.com>
+ <1481218739-27089-5-git-send-email-edumazet@google.com> <1481221491.6120.11.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, jbacik@fb.com, tgraf@suug.ch,
-        netdev@vger.kernel.org
-To: ast@fb.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36208 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752237AbcLHScR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:32:17 -0500
-In-Reply-To: <1481137079-2205635-1-git-send-email-ast@fb.com>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:33613 "EHLO
+        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932109AbcLHSgY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:36:24 -0500
+Received: by mail-io0-f169.google.com with SMTP id d9so15486271ioe.0
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 10:36:24 -0800 (PST)
+In-Reply-To: <1481221491.6120.11.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Wed, 7 Dec 2016 10:57:59 -0800
+On Thu, Dec 8, 2016 at 10:24 AM, Paolo Abeni <pabeni@redhat.com> wrote:
 
-> Commmits 57a09bf0a416 ("bpf: Detect identical PTR_TO_MAP_VALUE_OR_NULL registers")
-> and 484611357c19 ("bpf: allow access into map value arrays") by themselves
-> are correct, but in combination they make state equivalence ignore 'id' field
-> of the register state which can lead to accepting invalid program.
-> 
-> Fixes: 57a09bf0a416 ("bpf: Detect identical PTR_TO_MAP_VALUE_OR_NULL registers")
-> Fixes: 484611357c19 ("bpf: allow access into map value arrays")
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Nice one! This sounds like a relevant improvement!
+>
+> I'm wondering if it may cause regressions with small value of
+> sk_rcvbuf ?!? e.g. with:
+>
+> netperf -t UDP_STREAM  -H 127.0.0.1 -- -s 1280 -S 1280 -m 1024 -M 1024
+>
 
-Applied.
+Possibly, then simply we can refine the test to :
+
+size = up->forward_deficit;
+if (size < (sk->sk_rcvbuf >> 2)  && !skb_queue_empty(sk->sk_receive_buf))
+     return;
