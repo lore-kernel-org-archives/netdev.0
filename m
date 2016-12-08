@@ -1,48 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v5 0/6] XDP for virtio_net
-Date: Thu, 08 Dec 2016 14:17:02 -0500 (EST)
-Message-ID: <20161208.141702.1346950420275854265.davem@davemloft.net>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+Subject: Re: [patch] ser_gigaset: return -ENOMEM on error instead of success
+Date: Thu, 08 Dec 2016 14:19:50 -0500 (EST)
+Message-ID: <20161208.141950.834129897171154805.davem@davemloft.net>
+References: <20161207112203.GC5507@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, mst@redhat.com, shm@cumulusnetworks.com,
-        tgraf@suug.ch, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: john.fastabend@gmail.com
+Cc: pebolle@tiscali.nl, tilman@imap.cc, isdn@linux-pingi.de,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37150 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37194 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752246AbcLHTRJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 14:17:09 -0500
-In-Reply-To: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+        with ESMTP id S1753157AbcLHTTw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 14:19:52 -0500
+In-Reply-To: <20161207112203.GC5507@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Wed, 07 Dec 2016 12:10:47 -0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 7 Dec 2016 14:22:03 +0300
 
-> This implements virtio_net for the mergeable buffers and big_packet
-> modes. I tested this with vhost_net running on qemu and did not see
-> any issues. For testing num_buf > 1 I added a hack to vhost driver
-> to only but 100 bytes per buffer.
- ...
+> If we can't allocate the resources in gigaset_initdriver() then we
+> should return -ENOMEM instead of zero.
+> 
+> Fixes: 2869b23e4b95 ("[PATCH] drivers/isdn/gigaset: new M101 driver (v2)")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-So where are we with this?
-
-I'm not too thrilled with the idea of making XDP_TX optional or
-something like that.  If someone enables XDP, there is a tradeoff.
-
-I also have reservations about the idea to make jumbo frames work
-without giving XDP access to the whole packet.  If it wants to push or
-pop a header, it might need to know the whole packet length.  How will
-you pass that to the XDP program?
-
-Some kinds of encapsulation require trailers, thus preclusing access
-to the entire packet precludes those kinds of transformations.
-
-This is why we want simple, linear, buffer access for XDP.
-
-Even the most seemingly minor exception turns into a huge complicated
-mess.
+Applied and queued up for -stable, thanks.
