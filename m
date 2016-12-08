@@ -1,80 +1,61 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH 1/1] ixgbe: fcoe: return value of
-        skb_linearize should be handled
-Date: Thu, 8 Dec 2016 01:32:47 +0000
-Message-ID: <1C8B930C-8697-41FA-BFCF-22168963C252@intel.com>
-References: <1481096614-25295-1-git-send-email-zhouzhouyi@gmail.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH net 1/1] driver: ipvlan: Unlink the upper dev when
+ ipvlan_link_new failed
+Date: Wed, 7 Dec 2016 17:39:13 -0800
+Message-ID: <CAF2d9jgfO=__ympFr-RSeWnKcwzDYDee5kh+Dp_KPk1fsMCHYQ@mail.gmail.com>
+References: <1481160060-28730-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-        boundary="Apple-Mail=_38A992A5-981C-4A01-9998-EF904FC48C12";
-        protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481096614-25295-1-git-send-email-zhouzhouyi@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        linux-netdev <netdev@vger.kernel.org>, gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:35483 "EHLO
+        mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932759AbcLHBje (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 20:39:34 -0500
+Received: by mail-yw0-f179.google.com with SMTP id i145so311713319ywg.2
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 17:39:34 -0800 (PST)
+In-Reply-To: <1481160060-28730-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_38A992A5-981C-4A01-9998-EF904FC48C12
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
-	charset=us-ascii;
-	delsp=yes;
-	format=flowed
-
-Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
-
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  
-> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index fee1f29..4926d48 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -2173,8 +2173,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector  
-> *q_vector,
->  				total_rx_bytes += ddp_bytes;
->  				total_rx_packets += DIV_ROUND_UP(ddp_bytes,
->  								 mss);
-> -			}
-> -			if (!ddp_bytes) {
-> +			} else {
->  				dev_kfree_skb_any(skb);
->  				continue;
->  			}
-
-This is changing the logic by treating a negative ddp_bytes value (an error  
-return) the same as a 0 value. This is probably wrong and inappropriate for  
-this patch in any case.
-
---
-Mark Rustad, Networking Division, Intel Corporation
-
---Apple-Mail=_38A992A5-981C-4A01-9998-EF904FC48C12
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJYSLg/AAoJEDwO/+eO4+5u2rMQAKekwArC1cgsTFT9PiXtXSxT
-1Ab8r9cV8h6lBid0ok4qcSAOkHbcw0bbOqSMjlLBQ6/ddvxKZSlqcf6UksqJxvzI
-8xPoIPebXefkj+w4HY1ulRwEbwiC5RZQlQhK7ISwwrzEeylunMsZA1ul0hovabI0
-ddh46rlQ3SdfXiQAFlLNVXrFJ1jJdUFXbp11uml4yoJydMhB+6/bxyrLXY8W3ZI2
-NH8SKOrmncWop4a+ickEp+zCddtfsx7EHzqRdJTMY6zc7j/RBlsVaO+zSvp+NydL
-oA6h/AvdEV1/GdjtAgO/aqN6iar3/kU5w8nnQNv3QckXXEoFyPWfZ6+qglNhHmpC
-6MMQnPFgGPYF9Z1h/kQ1ZnE7kJqOOIi7jS3nnFxq0N+w1RG0nqa2aQzHZgWUB6t5
-ruV+k/zm6WOZ9rByrwKMxsrDsZR8OvEC2Y/44W9EJlvZIYemqnr5+6MMDHT68ihE
-EDiz724ztbffZklUX2WOtN3e+HYBTuvTtfcjY4w3BRxFS/wNGswzs2Rs6faGK0r/
-Cp6l81S+efzchLmudcY6AS0JuywGnWspzUQQ6TWYr9HZhEcBEwO9JQSlSTA5JFAM
-6lxMPZO9BhaFoq7NhiwdI9Ifk6XyrgtQzqOOujRzsFwF1B6b7LzKLe1Q7ah0LpCP
-eP26bZVhyShX2APsh/3H
-=IoRf
------END PGP SIGNATURE-----
-
---Apple-Mail=_38A992A5-981C-4A01-9998-EF904FC48C12--
+On Wed, Dec 7, 2016 at 5:21 PM,  <fgao@ikuai8.com> wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+>
+> When netdev_upper_dev_unlink failed in ipvlan_link_new, need to
+> unlink the ipvlan dev with upper dev.
+>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ---
+>  drivers/net/ipvlan/ipvlan_main.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> index 0fef178..189adbc 100644
+> --- a/drivers/net/ipvlan/ipvlan_main.c
+> +++ b/drivers/net/ipvlan/ipvlan_main.c
+> @@ -546,13 +546,15 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+>         }
+>         err = ipvlan_set_port_mode(port, mode);
+>         if (err) {
+> -               goto unregister_netdev;
+> +               goto dev_unlink;
+>         }
+>
+>         list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
+>         netif_stacked_transfer_operstate(phy_dev, dev);
+>         return 0;
+>
+> +dev_unlink:
+probably 'unlink_netdev' label inline with other labels used. thanks
+> +       netdev_upper_dev_unlink(phy_dev, dev);
+>  unregister_netdev:
+>         unregister_netdevice(dev);
+>  destroy_ipvlan_port:
+> --
+> 1.9.1
+>
+>
