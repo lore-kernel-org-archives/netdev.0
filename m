@@ -1,91 +1,140 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH v2 1/4] vsock: track pkt owner vsock
-Date: Thu, 8 Dec 2016 09:30:10 +0000
-Message-ID: <20161208093010.GC10780@stefanha-x1.localdomain>
-References: <1481123652-80603-1-git-send-email-bergwolf@gmail.com>
-	<1481123652-80603-2-git-send-email-bergwolf@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] udp: under rx pressure, try to condense skbs
+Date: Thu, 8 Dec 2016 10:46:20 +0100
+Message-ID: <20161208104620.5fc691b8@redhat.com>
+References: <1481131173.4930.36.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============9017287539538149145=="
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	virtualization@lists.linux-foundation.org
-To: Peng Tao <bergwolf@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1481123652-80603-2-git-send-email-bergwolf@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
-
-
---===============9017287539538149145==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="vOmOzSkFvhd7u8Ms"
-Content-Disposition: inline
-
-
---vOmOzSkFvhd7u8Ms
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, Dec 07, 2016 at 11:14:09PM +0800, Peng Tao wrote:
-> So that we can cancel a queued pkt later if necessary.
->=20
-> Signed-off-by: Peng Tao <bergwolf@gmail.com>
-> ---
->  include/linux/virtio_vsock.h            | 2 ++
->  net/vmw_vsock/virtio_transport_common.c | 7 +++++++
->  2 files changed, 9 insertions(+)
->=20
-> diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-> index 9638bfe..6dd3242 100644
-> --- a/include/linux/virtio_vsock.h
-> +++ b/include/linux/virtio_vsock.h
-> @@ -48,6 +48,7 @@ struct virtio_vsock_pkt {
->  	struct virtio_vsock_hdr	hdr;
->  	struct work_struct work;
->  	struct list_head list;
-> +	struct vsock_sock *vsk;
-
-To prevent future bugs, please add a comment here:
-/* socket refcnt not held, only use for cancellation */
-
-This field is just an opaque token used for cancellation rather than a
-struct vsock_sock pointer that we are allowed to dereference.  You could
-change this field to void *cancel_token to make the code harder to
-misuse.
-
---vOmOzSkFvhd7u8Ms
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJYSSgiAAoJEJykq7OBq3PIl08H/1ahhqxx76VBWoFPU4Ry0UMD
-aY2pex/imfzJIhC3J3YfyRwS9UHDpSj7SQdsGqlJbibJ2vevOvbTs69PoL5/v4Yv
-8l3AEB0XbE/cZQu5PwbIx7a7wKTICt6QJNh9TXL9oUNCL3Zi+eAaKJ9VA6/QDguU
-6zeGLPmXHhatfGYAp88JrQ9P2Yr5/COiWTCJdGFHEWF1Tm9yhjZubxpEMGv2Ce3X
-/MGNQkHg9nb9j38CllACeG3GLVJPOYBCM/1orqPM+QmP7gzb6UzpT7QefUvY5GxQ
-RIJZIXOF5cKBe2yLCnG+8kpaVlX7CMmfV1H2yX6xXUSY0RgnFITgMaAOllBm01U=
-=OUDL
------END PGP SIGNATURE-----
-
---vOmOzSkFvhd7u8Ms--
-
---===============9017287539538149145==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: brouer@redhat.com, David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54696 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751667AbcLHJqY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 04:46:24 -0500
+In-Reply-To: <1481131173.4930.36.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---===============9017287539538149145==--
+On Wed, 07 Dec 2016 09:19:33 -0800
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Under UDP flood, many softirq producers try to add packets to
+> UDP receive queue, and one user thread is burning one cpu trying
+> to dequeue packets as fast as possible.
+> 
+> Two parts of the per packet cost are :
+> - copying payload from kernel space to user space,
+> - freeing memory pieces associated with skb.
+> 
+> If socket is under pressure, softirq handler(s) can try to pull in
+> skb->head the payload of the packet if it fits.
+> 
+> Meaning the softirq handler(s) can free/reuse the page fragment
+> immediately, instead of letting udp_recvmsg() do this hundreds of usec
+> later, possibly from another node.
+> 
+> 
+> Additional gains :
+> - We reduce skb->truesize and thus can store more packets per SO_RCVBUF
+> - We avoid cache line misses at copyout() time and consume_skb() time,
+> and avoid one put_page() with potential alien freeing on NUMA hosts.
+> 
+> This comes at the cost of a copy, bounded to available tail room, which
+> is usually small. (We might have to fix GRO_MAX_HEAD which looks bigger
+> than necessary)
+> 
+> This patch gave me about 5 % increase in throughput in my tests.
+
+Hmmm... I'm not thrilled to have such heuristics, that change memory
+behavior when half of the queue size (sk->sk_rcvbuf) is reached.
+
+Most of the win comes from doing a local atomic page-refcnt decrement
+oppose to doing a remote CPU refcnf-dec.  And as you noticed the
+benefit is quite high saving 241 cycles (see [1]).  And you patch is
+"using" these cycles to copy the packet instead.
+
+This might no be a win in the future.  I'm working on a more generic
+solution (page_pool) that (as one objective) target this remote recfnt.
+
+
+[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/bench/page_bench03.c
+ Measured on: i7-4790K CPU @ 4.00GHz
+ Same CPU release cost  : 251 cycles
+ Remote CPU release cost: 492 cycles
+
+ 
+> skb_condense() helper could probably used in other contexts.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Paolo Abeni <pabeni@redhat.com>
+> ---
+[...]
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index b45cd1494243fc99686016949f4546dbba11f424..84151cf40aebb973bad5bee3ee4be0758084d83c 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -4931,3 +4931,31 @@ struct sk_buff *pskb_extract(struct sk_buff *skb, int off,
+>  EXPORT_SYMBOL(pskb_extract);
+> +
+> +/**
+> + * skb_condense - try to get rid of fragments/frag_list if possible
+> + * @skb: buffer
+> + *
+> + * Can be used to save memory before skb is added to a busy queue.
+> + * If packet has bytes in frags and enough tail room in skb->head,
+> + * pull all of them, so that we can free the frags right now and adjust
+> + * truesize.
+> + * Notes:
+> + *	We do not reallocate skb->head thus can not fail.
+> + *	Caller must re-evaluate skb->truesize if needed.
+> + */
+> +void skb_condense(struct sk_buff *skb)
+> +{
+> +	if (!skb->data_len ||
+> +	    skb->data_len > skb->end - skb->tail ||
+> +	    skb_cloned(skb))
+> +		return;
+
+So this only active, depending on how driver constructed the SKB, but
+all end-up doing a function call (not inlined).
+
+> +	/* Nice, we can free page frag(s) right now */
+> +	__pskb_pull_tail(skb, skb->data_len);
+> +
+> +	/* Now adjust skb->truesize, since __pskb_pull_tail() does
+> +	 * not do this.
+> +	 */
+> +	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
+> +}
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 16d88ba9ff1c402f77063cfb5eea2708d86da2fc..f5628ada47b53f0d92d08210e5d7e4132a107f73 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+[...]
+> @@ -1208,6 +1208,16 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
+>  	if (rmem > sk->sk_rcvbuf)
+>  		goto drop;
+>  
+> +	/* Under mem pressure, it might be helpful to help udp_recvmsg()
+> +	 * having linear skbs :
+> +	 * - Reduce memory overhead and thus increase receive queue capacity
+> +	 * - Less cache line misses at copyout() time
+> +	 * - Less work at consume_skb() (less alien page frag freeing)
+> +	 */
+> +	if (rmem > (sk->sk_rcvbuf >> 1))
+> +		skb_condense(skb);
+> +	size = skb->truesize;
+> +
+
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
