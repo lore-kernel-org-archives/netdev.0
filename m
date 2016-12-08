@@ -1,36 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: gianfar: add ethtool eee support
-Date: Thu, 08 Dec 2016 18:19:22 -0500 (EST)
-Message-ID: <20161208.181922.957507188752351548.davem@davemloft.net>
-References: <1481196426-45576-1-git-send-email-Shaohui.Xie@nxp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Fri, 9 Dec 2016 00:19:43 +0100
+Message-ID: <20161208231943.GA13102@electric-eye.fr.zoreil.com>
+References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161207231534.GB5889@electric-eye.fr.zoreil.com>
+ <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Shaohui.Xie@nxp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45294 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753170AbcLHXTq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 18:19:46 -0500
-In-Reply-To: <1481196426-45576-1-git-send-email-Shaohui.Xie@nxp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com, pavel@ucw.cz,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaohui Xie <Shaohui.Xie@nxp.com>
-Date: Thu, 8 Dec 2016 19:27:06 +0800
+Lino Sanfilippo <LinoSanfilippo@gmx.de> :
+[...]
+> OTOH Pavel said that he actually could produce a deadlock. Now I wonder if
+> this is caused by that locking scheme (in a way I have not figured out yet)
+> or if it is a different issue.
 
-> Gianfar does not support EEE, but it can connect to a PHY which supports
-> EEE and the PHY advertises EEE by default, and its link partner also
-> advertises EEE, so the PHY enters low power mode when traffic rate is low,
-> which causes packet loss if an application's traffic rate is low. This
-> patch provides .get_eee and .set_eee so that to disable the EEE
-> advertisement via ethtool if needed, other EEE features are not supported.
-> 
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@nxp.com>
+stmmac_tx_err races with stmmac_xmit.
 
-This is not the way to fix this.
-
-If the Gianfar MAC does not support EEE properly, then the gianfar
-driver should not create a situation where the PHY advertises EEE
-in the first place.
+-- 
+Ueimor
