@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: pch_gbe: Fix TX RX descriptor accesses for big
- endian systems
-Date: Thu, 08 Dec 2016 13:29:30 -0500 (EST)
-Message-ID: <20161208.132930.657087361052763772.davem@davemloft.net>
-References: <1481133534-26224-1-git-send-email-hassan.naveed@imgtec.com>
+Subject: Re: [PATCH net-next] net: do not read sk_drops if application does
+ not care
+Date: Thu, 08 Dec 2016 13:31:24 -0500 (EST)
+Message-ID: <20161208.133124.1404435790534805233.davem@davemloft.net>
+References: <1481133936.4930.51.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.burton@imgtec.com,
-        matt.redfearn@imgtec.com, fw@strlen.de, romieu@fr.zoreil.com
-To: hassan.naveed@imgtec.com
+Cc: netdev@vger.kernel.org, pabeni@redhat.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36140 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36202 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752419AbcLHS3c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:29:32 -0500
-In-Reply-To: <1481133534-26224-1-git-send-email-hassan.naveed@imgtec.com>
+        with ESMTP id S1751388AbcLHSbZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:31:25 -0500
+In-Reply-To: <1481133936.4930.51.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hassan Naveed <hassan.naveed@imgtec.com>
-Date: Wed, 7 Dec 2016 09:58:54 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 07 Dec 2016 10:05:36 -0800
 
-> Fix pch_gbe driver for ethernet operations for a big endian CPU.
-> Values written to and read from transmit and receive descriptors
-> in the pch_gbe driver are byte swapped from the perspective of a
-> big endian CPU, since the ethernet controller always operates in
-> little endian mode. Rectify this by appropriately byte swapping
-> these descriptor field values in the driver software.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Hassan Naveed <hassan.naveed@imgtec.com>
-> Reviewed-by: Paul Burton <paul.burton@imgtec.com>
-> Reviewed-by: Matt Redfearn <matt.redfearn@imgtec.com>
+> sk_drops can be an often written field, do not read it unless
+> application showed interest.
+> 
+> Note that sk_drops can be read via inet_diag, so applications
+> can avoid getting this info from every received packet.
+> 
+> In the future, 'reading' sk_drops might require folding per node or per
+> cpu fields, and thus become even more expensive than today.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-As explained by Francois, you need to use the proper endian types in
-the descriptor datastructure.
-
-Then please run sparse with endianness checking enabled on the build
-of the driver.
+Applied.
