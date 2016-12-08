@@ -1,134 +1,64 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [PATCH v3 3/6] net: stmmac: stmmac_platform: fix parsing of DT
- binding
-Date: Thu, 8 Dec 2016 10:54:20 +0100
-Message-ID: <90ea49d4-91de-0a5b-d379-11c60b6ccb73@st.com>
-References: <1481120409-18103-1-git-send-email-niklass@axis.com>
- <1481120409-18103-4-git-send-email-niklass@axis.com>
- <62474778-78da-d34e-bc36-022b2206a8db@st.com>
- <3f1ee075-0c21-f162-451d-e87882f8f55e@axis.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Thu, 8 Dec 2016 10:59:47 +0100
+Message-ID: <19ff9840-62cb-0de1-9d3d-f1312cfaf715@atmel.com>
+References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
+ <20161207193908.GA13062@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
+        <harinikatakamlinux@gmail.com>, <harini.katakam@xilinx.com>,
+        <punnaia@xilinx.com>, <michals@xilinx.com>, <anirudh@xilinx.com>,
+        <boris.brezillon@free-electrons.com>,
+        <alexandre.belloni@free-electrons.com>, <tbultel@pixelsurmer.com>,
+        <rafalo@cadence.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+        Andrei Pistirica <andrei.pistirica@microchip.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3f1ee075-0c21-f162-451d-e87882f8f55e@axis.com>
+In-Reply-To: <20161207193908.GA13062@netboy>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+Le 07/12/2016 à 20:39, Richard Cochran a écrit :
+> On Wed, Dec 07, 2016 at 08:21:51PM +0200, Andrei Pistirica wrote:
+>> +#ifdef CONFIG_MACB_USE_HWSTAMP
+>> +void gem_ptp_init(struct net_device *ndev);
+>> +void gem_ptp_remove(struct net_device *ndev);
+>> +
+>> +void gem_ptp_do_txstamp(struct macb *bp, struct sk_buff *skb);
+>> +void gem_ptp_do_rxstamp(struct macb *bp, struct sk_buff *skb);
+> 
+> These are in the hot path, and so you should do the test before
+> calling the global function, something like this:
+> 
+> void gem_ptp_txstamp(struct macb *bp, struct sk_buff *skb);
+> 
+> static void gem_ptp_do_txstamp(struct macb *bp, struct sk_buff *skb)
+> {
+> 	if (!bp->hwts_tx_en)
+> 		return;
+> 	gem_ptp_txstamp(bp, skb);
+> }
+> 
+> Ditto for Rx.
 
-On 12/08/2016 10:46 AM, Niklas Cassel wrote:
-> On 12/08/2016 10:02 AM, Alexandre Torgue wrote:
->> Hi Niklas
->>
->> On 12/07/2016 03:20 PM, Niklas Cassel wrote:
->>> From: Niklas Cassel <niklas.cassel@axis.com>
->>>
->>> commit 64c3b252e9fc ("net: stmmac: fixed the pbl setting with DT")
->>> changed the parsing of the DT binding.
->>>
->>> Before 64c3b252e9fc, snps,fixed-burst and snps,mixed-burst were parsed
->>> regardless if the property snps,pbl existed or not.
->>> After the commit, fixed burst and mixed burst are only parsed if
->>> snps,pbl exists. Now when snps,aal has been added, it too is only
->>> parsed if snps,pbl exists.
->>>
->>> Since the DT binding does not specify that fixed burst, mixed burst
->>> or aal depend on snps,pbl being specified, undo changes introduced
->>> by 64c3b252e9fc.
->>>
->>> The issue commit 64c3b252e9fc ("net: stmmac: fixed the pbl setting with
->>> DT") tries to address is solved in another way:
->>> The databook specifies that all values other than
->>> 1, 2, 4, 8, 16, or 32 results in undefined behavior,
->>> so snps,pbl = <0> is invalid.
->>>
->>> If pbl is 0 after parsing, set pbl to DEFAULT_DMA_PBL.
->>> This handles the case where the property is omitted, and also handles
->>> the case where the property is specified without any data.
->>>
->>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
->>> ---
->>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  4 +--
->>>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 29 +++++++++++-----------
->>>  2 files changed, 17 insertions(+), 16 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> index b1e42ddf0370..b5188122bc15 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> @@ -1581,8 +1581,8 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
->>>      int atds = 0;
->>>      int ret = 0;
->>>
->>> -    if (!priv->plat->dma_cfg) {
->>> -        dev_err(priv->device, "DMA configuration not found\n");
->>> +    if (!priv->plat->dma_cfg || !priv->plat->dma_cfg->pbl) {
->>
->> How "priv->plat->dma_cfg->pbl" could be equal to 0 if you force it to DEFAULT_DMA_PBL in "stmmac_probe_config_dt" in case of DT doesn't set pbl value?
->
-> The PCI glue code does not call stmmac_probe_config_dt.
->
-> Also any glue driver could override the value set by stmmac_probe_config_dt
-> before calling stmmac_dvr_probe. So I guess if we want any trustworthy
-> sanity-checking, it actually has to be done in stmmac_main.c.
+Hi Richard,
 
-Ok I see, it is more safe. You can add my Acked-by.
+So you mean that as the "global" function won't be "inlined" by the
+compiler as the function is not "static" neither in the same file and
+that the jump will be implemented anyway. And this even if the function
+is only called at a single location...
 
-Thanks
-Alex
+This way, if we add a kind or accessors function like the one that you
+propose, with the test in it, the branch prediction can play his role
+without breaking the processor pipeline as the accessors function will
+be inlined by the compiler: Am I right?
 
->
->
->>
->>
->>> +        dev_err(priv->device, "Invalid DMA configuration\n");
->>>          return -EINVAL;
->>>      }
->>>
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> index d3b6f92f350a..81800f23a9c4 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> @@ -304,21 +304,22 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
->>>          plat->force_sf_dma_mode = 1;
->>>      }
->>>
->>> -    if (of_find_property(np, "snps,pbl", NULL)) {
->>> -        dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
->>> -                       GFP_KERNEL);
->>> -        if (!dma_cfg) {
->>> -            stmmac_remove_config_dt(pdev, plat);
->>> -            return ERR_PTR(-ENOMEM);
->>> -        }
->>> -        plat->dma_cfg = dma_cfg;
->>> -        of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
->>> -        dma_cfg->aal = of_property_read_bool(np, "snps,aal");
->>> -        dma_cfg->fixed_burst =
->>> -            of_property_read_bool(np, "snps,fixed-burst");
->>> -        dma_cfg->mixed_burst =
->>> -            of_property_read_bool(np, "snps,mixed-burst");
->>> +    dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
->>> +                   GFP_KERNEL);
->>> +    if (!dma_cfg) {
->>> +        stmmac_remove_config_dt(pdev, plat);
->>> +        return ERR_PTR(-ENOMEM);
->>>      }
->>> +    plat->dma_cfg = dma_cfg;
->>> +
->>> +    of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
->>> +    if (!dma_cfg->pbl)
->>> +        dma_cfg->pbl = DEFAULT_DMA_PBL;
->>> +
->>> +    dma_cfg->aal = of_property_read_bool(np, "snps,aal");
->>> +    dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
->>> +    dma_cfg->mixed_burst = of_property_read_bool(np, "snps,mixed-burst");
->>> +
->>>      plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
->>>      if (plat->force_thresh_dma_mode) {
->>>          plat->force_sf_dma_mode = 0;
->>>
->
+So, yes, makes sense. Thanks for the hint.
+
+Regards,
+-- 
+Nicolas Ferre
