@@ -1,58 +1,40 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next 3/3] net: xgene: avoid bogus maybe-uninitialized warning
-Date: Thu,  8 Dec 2016 22:57:05 +0100
-Message-ID: <20161208215727.44841-3-arnd@arndb.de>
-References: <20161208215727.44841-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Quan Nguyen <qnguyen@apm.com>, Khuong Dinh <kdinh@apm.com>,
-        Toan Le <toanle@apm.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Iyappan Subramanian <isubramanian@apm.com>,
-        Keyur Chudgar <kchudgar@apm.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: net-next closing, README
+Date: Thu, 8 Dec 2016 16:02:32 -0600
+Message-ID: <CAOZdJXXpH-8j2zr0F8qYfC2uyH3eTNXQtatwKScNiKwY=7v1Mw@mail.gmail.com>
+References: <20161207.162845.1424733568267357691.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.74]:49826 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932898AbcLHV6S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 16:58:18 -0500
-In-Reply-To: <20161208215727.44841-1-arnd@arndb.de>
+Received: from smtp.codeaurora.org ([198.145.29.96]:35486 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752443AbcLHWCe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 17:02:34 -0500
+Received: from mail-oi0-f51.google.com (mail-oi0-f51.google.com [209.85.218.51])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+        (No client certificate requested)
+        (Authenticated sender: timur@smtp.codeaurora.org)
+        by smtp.codeaurora.org (Postfix) with ESMTPSA id 62B7A614A2
+        for <netdev@vger.kernel.org>; Thu,  8 Dec 2016 22:02:33 +0000 (UTC)
+Received: by mail-oi0-f51.google.com with SMTP id w63so467739168oiw.0
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 14:02:33 -0800 (PST)
+In-Reply-To: <20161207.162845.1424733568267357691.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In some configurations, gcc cannot trace the state of variables
-across a spin_unlock() barrier, leading to a warning about
-correct code:
+On Wed, Dec 7, 2016 at 3:28 PM, David Miller <davem@davemloft.net> wrote:
 
-xgene_enet_main.c: In function 'xgene_enet_start_xmit':
-../../../phy/mdio-xgene.h:112:14: error: 'mss_index' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> Therefore, please do not submit any new features or cleanups for
+> net-next.  Bug fixes for problems introduced in net-next are fine,
+> however.
 
-Here we can trivially move the assignment before that spin_unlock,
-which reliably avoids the warning.
+I posted a v3 of my "QDF2400 support" patchset today, although v1 was
+posted two weeks ago.  Am I breaking the rule? I'm really hoping to
+get those patches into 4.10, if that's okay.
 
-Fixes: e3978673f514 ("drivers: net: xgene: Fix MSS programming")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 6c7eea8b36af..dba4b883e9a3 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -319,11 +319,11 @@ static int xgene_enet_setup_mss(struct net_device *ndev, u32 mss)
- 		}
- 	}
- 
--	spin_unlock(&pdata->mss_lock);
--
- 	/* No slots with ref_count = 0 available, return busy */
- 	if (!mss_index_found)
--		return -EBUSY;
-+		mss_index = -EBUSY;
-+
-+	spin_unlock(&pdata->mss_lock);
- 
- 	return mss_index;
- }
 -- 
-2.9.0
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+a Linux Foundation Collaborative Project.
