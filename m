@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next 1/5] liquidio VF vlan support
-Date: Thu, 8 Dec 2016 13:00:44 -0800
-Message-ID: <1481230848-2393-2-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next 5/5] liquidio VF error handling
+Date: Thu, 8 Dec 2016 13:00:48 -0800
+Message-ID: <1481230848-2393-6-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1481230848-2393-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,147 +16,178 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-by2nam03on0072.outbound.protection.outlook.com ([104.47.42.72]:2178
         "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752254AbcLHVBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 16:01:15 -0500
+        id S1753427AbcLHVBY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 16:01:24 -0500
 In-Reply-To: <1481230848-2393-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for VF vlan features.
+Adds support for VF error handling.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 80 ++++++++++++++++++++++
- 1 file changed, 80 insertions(+)
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 139 +++++++++++++++++++++
+ 1 file changed, 139 insertions(+)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 9989ac3..bcfc927 100644
+index dc0e1f6..70d96c1 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1350,6 +1350,7 @@ static u16 select_q(struct net_device *dev, struct sk_buff *skb,
- 		container_of(param, struct octeon_droq, napi);
- 	struct net_device *netdev = (struct net_device *)arg;
- 	struct sk_buff *skb = (struct sk_buff *)skbuff;
-+	u16 vtag = 0;
- 
- 	if (netdev) {
- 		struct lio *lio = GET_LIO(netdev);
-@@ -1403,6 +1404,16 @@ static u16 select_q(struct net_device *dev, struct sk_buff *skb,
- 		else
- 			skb->ip_summed = CHECKSUM_NONE;
- 
-+		/* inbound VLAN tag */
-+		if ((netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
-+		    rh->r_dh.vlan) {
-+			u16 priority = rh->r_dh.priority;
-+			u16 vid = rh->r_dh.vlan;
-+
-+			vtag = (priority << VLAN_PRIO_SHIFT) | vid;
-+			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vtag);
-+		}
-+
- 		packet_was_received = (napi_gro_receive(napi, skb) != GRO_DROP);
- 
- 		if (packet_was_received) {
-@@ -2025,6 +2036,12 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		tx_info->s.gso_segs = skb_shinfo(skb)->gso_segs;
- 	}
- 
-+	/* HW insert VLAN tag */
-+	if (skb_vlan_tag_present(skb)) {
-+		irh->priority = skb_vlan_tag_get(skb) >> VLAN_PRIO_SHIFT;
-+		irh->vlan = skb_vlan_tag_get(skb) & VLAN_VID_MASK;
-+	}
-+
- 	status = octnet_send_nic_data_pkt(oct, &ndata);
- 	if (status == IQ_SEND_FAILED)
- 		goto lio_xmit_failed;
-@@ -2074,6 +2091,61 @@ static void liquidio_tx_timeout(struct net_device *netdev)
- 	txqs_wake(netdev);
+@@ -175,6 +175,144 @@ static int wait_for_pending_requests(struct octeon_device *oct)
+ 	return 0;
  }
  
-+static int
-+liquidio_vlan_rx_add_vid(struct net_device *netdev,
-+			 __be16 proto __attribute__((unused)), u16 vid)
++/**
++ * \brief Cause device to go quiet so it can be safely removed/reset/etc
++ * @param oct Pointer to Octeon device
++ */
++static void pcierror_quiesce_device(struct octeon_device *oct)
 +{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	int ret = 0;
++	int i;
 +
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++	/* Disable the input and output queues now. No more packets will
++	 * arrive from Octeon, but we should wait for all packet processing
++	 * to finish.
++	 */
 +
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_ADD_VLAN_FILTER;
-+	nctrl.ncmd.s.param1 = vid;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = 100;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
++	/* To allow for in-flight requests */
++	schedule_timeout_uninterruptible(100);
 +
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Add VLAN filter failed in core (ret: 0x%x)\n",
-+			ret);
++	if (wait_for_pending_requests(oct))
++		dev_err(&oct->pci_dev->dev, "There were pending requests\n");
++
++	/* Force all requests waiting to be fetched by OCTEON to complete. */
++	for (i = 0; i < MAX_OCTEON_INSTR_QUEUES(oct); i++) {
++		struct octeon_instr_queue *iq;
++
++		if (!(oct->io_qmask.iq & BIT_ULL(i)))
++			continue;
++		iq = oct->instr_queue[i];
++
++		if (atomic_read(&iq->instr_pending)) {
++			spin_lock_bh(&iq->lock);
++			iq->fill_cnt = 0;
++			iq->octeon_read_index = iq->host_write_index;
++			iq->stats.instr_processed +=
++			    atomic_read(&iq->instr_pending);
++			lio_process_iq_request_list(oct, iq, 0);
++			spin_unlock_bh(&iq->lock);
++		}
 +	}
 +
-+	return ret;
++	/* Force all pending ordered list requests to time out. */
++	lio_process_ordered_list(oct, 1);
++
++	/* We do not need to wait for output queue packets to be processed. */
 +}
 +
-+static int
-+liquidio_vlan_rx_kill_vid(struct net_device *netdev,
-+			  __be16 proto __attribute__((unused)), u16 vid)
++/**
++ * \brief Cleanup PCI AER uncorrectable error status
++ * @param dev Pointer to PCI device
++ */
++static void cleanup_aer_uncorrect_error_status(struct pci_dev *dev)
 +{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	int ret = 0;
++	u32 status, mask;
++	int pos = 0x100;
 +
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++	pr_info("%s :\n", __func__);
 +
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_DEL_VLAN_FILTER;
-+	nctrl.ncmd.s.param1 = vid;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = 100;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
-+
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Add VLAN filter failed in core (ret: 0x%x)\n",
-+			ret);
-+	}
-+	return ret;
++	pci_read_config_dword(dev, pos + PCI_ERR_UNCOR_STATUS, &status);
++	pci_read_config_dword(dev, pos + PCI_ERR_UNCOR_SEVER, &mask);
++	if (dev->error_state == pci_channel_io_normal)
++		status &= ~mask; /* Clear corresponding nonfatal bits */
++	else
++		status &= mask; /* Clear corresponding fatal bits */
++	pci_write_config_dword(dev, pos + PCI_ERR_UNCOR_STATUS, status);
 +}
 +
- /** Sending command to enable/disable RX checksum offload
-  * @param netdev                pointer to network device
-  * @param command               OCTNET_CMD_TNL_RX_CSUM_CTL
-@@ -2180,6 +2252,8 @@ static int liquidio_set_features(struct net_device *netdev,
- 	.ndo_set_mac_address	= liquidio_set_mac,
- 	.ndo_set_rx_mode	= liquidio_set_mcast_list,
- 	.ndo_tx_timeout		= liquidio_tx_timeout,
-+	.ndo_vlan_rx_add_vid    = liquidio_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid   = liquidio_vlan_rx_kill_vid,
- 	.ndo_change_mtu		= liquidio_change_mtu,
- 	.ndo_fix_features	= liquidio_fix_features,
- 	.ndo_set_features	= liquidio_set_features,
-@@ -2388,6 +2462,12 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 				      | NETIF_F_LRO;
- 		netif_set_gso_max_size(netdev, OCTNIC_GSO_MAX_SIZE);
- 
-+		netdev->vlan_features = lio->dev_capability;
-+		/* Add any unchangeable hw features */
-+		lio->dev_capability |= NETIF_F_HW_VLAN_CTAG_FILTER |
-+				       NETIF_F_HW_VLAN_CTAG_RX |
-+				       NETIF_F_HW_VLAN_CTAG_TX;
++/**
++ * \brief Stop all PCI IO to a given device
++ * @param dev Pointer to Octeon device
++ */
++static void stop_pci_io(struct octeon_device *oct)
++{
++	struct msix_entry *msix_entries;
++	int i;
 +
- 		netdev->features = (lio->dev_capability & ~NETIF_F_LRO);
++	/* No more instructions will be forwarded. */
++	atomic_set(&oct->status, OCT_DEV_IN_RESET);
++
++	for (i = 0; i < oct->ifcount; i++)
++		netif_device_detach(oct->props[i].netdev);
++
++	/* Disable interrupts  */
++	oct->fn_list.disable_interrupt(oct, OCTEON_ALL_INTR);
++
++	pcierror_quiesce_device(oct);
++	if (oct->msix_on) {
++		msix_entries = (struct msix_entry *)oct->msix_entries;
++		for (i = 0; i < oct->num_msix_irqs; i++) {
++			/* clear the affinity_cpumask */
++			irq_set_affinity_hint(msix_entries[i].vector,
++					      NULL);
++			free_irq(msix_entries[i].vector,
++				 &oct->ioq_vector[i]);
++		}
++		pci_disable_msix(oct->pci_dev);
++		kfree(oct->msix_entries);
++		oct->msix_entries = NULL;
++		octeon_free_ioq_vector(oct);
++	}
++	dev_dbg(&oct->pci_dev->dev, "Device state is now %s\n",
++		lio_get_state_string(&oct->status));
++
++	/* making it a common function for all OCTEON models */
++	cleanup_aer_uncorrect_error_status(oct->pci_dev);
++
++	pci_disable_device(oct->pci_dev);
++}
++
++/**
++ * \brief called when PCI error is detected
++ * @param pdev Pointer to PCI device
++ * @param state The current pci connection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t liquidio_pcie_error_detected(struct pci_dev *pdev,
++						     pci_channel_state_t state)
++{
++	struct octeon_device *oct = pci_get_drvdata(pdev);
++
++	/* Non-correctable Non-fatal errors */
++	if (state == pci_channel_io_normal) {
++		dev_err(&oct->pci_dev->dev, "Non-correctable non-fatal error reported:\n");
++		cleanup_aer_uncorrect_error_status(oct->pci_dev);
++		return PCI_ERS_RESULT_CAN_RECOVER;
++	}
++
++	/* Non-correctable Fatal errors */
++	dev_err(&oct->pci_dev->dev, "Non-correctable FATAL reported by PCI AER driver\n");
++	stop_pci_io(oct);
++
++	return PCI_ERS_RESULT_DISCONNECT;
++}
++
++/* For PCI-E Advanced Error Recovery (AER) Interface */
++static const struct pci_error_handlers liquidio_vf_err_handler = {
++	.error_detected = liquidio_pcie_error_detected,
++};
++
+ static const struct pci_device_id liquidio_vf_pci_tbl[] = {
+ 	{
+ 		PCI_VENDOR_ID_CAVIUM, OCTEON_CN23XX_VF_VID,
+@@ -191,6 +329,7 @@ static int wait_for_pending_requests(struct octeon_device *oct)
+ 	.id_table	= liquidio_vf_pci_tbl,
+ 	.probe		= liquidio_vf_probe,
+ 	.remove		= liquidio_vf_remove,
++	.err_handler	= &liquidio_vf_err_handler,    /* For AER */
+ };
  
- 		netdev->hw_features = lio->dev_capability;
+ /**
 -- 
 1.8.3.1
