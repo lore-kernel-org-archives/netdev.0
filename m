@@ -1,126 +1,64 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH] cxgb4/cxgb4vf: Remove deprecated module parameters
-Date: Thu,  8 Dec 2016 13:16:25 +0530
-Message-ID: <1481183185-14636-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, hariprasad@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2016-12-08
+Date: Thu, 8 Dec 2016 09:48:09 +0200
+Message-ID: <20161208074809.GA4680@x1c.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:12989 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750822AbcLHHqs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 02:46:48 -0500
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36097 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750827AbcLHHsT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 02:48:19 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove deprecated module parameters num_vf, dflt_msg_enable and
-force_init.
+Hi Dave,
 
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+I didn't miss your "net-next is closed" email, but it did come as a bit
+of a surprise, and due to time-zone differences I didn't have a chance
+to react to it until now. We would have had a couple of patches in
+bluetooth-next that we'd still have wanted to get to 4.10.
+
+Out of these the most critical one is the H7/CT2 patch for Bluetooth
+Security Manager Protocol, something that couldn't be published before
+the Bluetooth 5.0 specification went public (yesterday). If these really
+can't go to net-next we'll likely be sending at least this patch through
+bluetooth.git to net.git for rc1 inclusion.
+
+Johan
+
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 41 +---------------------
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |  9 +----
- 2 files changed, 2 insertions(+), 48 deletions(-)
+The following changes since commit 5fccd64aa44829f87997e3342698ef98862adffd:
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 449884f..48113c6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -134,24 +134,6 @@ MODULE_FIRMWARE(FW5_FNAME);
- MODULE_FIRMWARE(FW6_FNAME);
- 
- /*
-- * Normally we're willing to become the firmware's Master PF but will be happy
-- * if another PF has already become the Master and initialized the adapter.
-- * Setting "force_init" will cause this driver to forcibly establish itself as
-- * the Master PF and initialize the adapter.
-- */
--static uint force_init;
--
--module_param(force_init, uint, 0644);
--MODULE_PARM_DESC(force_init, "Forcibly become Master PF and initialize adapter,"
--		 "deprecated parameter");
--
--static int dflt_msg_enable = DFLT_MSG_ENABLE;
--
--module_param(dflt_msg_enable, int, 0644);
--MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap, "
--		 "deprecated parameter");
--
--/*
-  * The driver uses the best interrupt scheme available on a platform in the
-  * order MSI-X, MSI, legacy INTx interrupts.  This parameter determines which
-  * of these schemes the driver may consider as follows:
-@@ -179,16 +161,6 @@ MODULE_PARM_DESC(msi, "whether to use INTx (0), MSI (1) or MSI-X (2)");
-  */
- static int rx_dma_offset = 2;
- 
--#ifdef CONFIG_PCI_IOV
--/* Configure the number of PCI-E Virtual Function which are to be instantiated
-- * on SR-IOV Capable Physical Functions.
-- */
--static unsigned int num_vf[NUM_OF_PF_WITH_SRIOV];
--
--module_param_array(num_vf, uint, NULL, 0644);
--MODULE_PARM_DESC(num_vf, "number of VFs for each of PFs 0-3, deprecated parameter - please use the pci sysfs interface.");
--#endif
--
- /* TX Queue select used to determine what algorithm to use for selecting TX
-  * queue. Select between the kernel provided function (select_queue=0) or user
-  * cxgb_select_queue function (select_queue=1)
-@@ -4729,7 +4701,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->name = pci_name(pdev);
- 	adapter->mbox = func;
- 	adapter->pf = func;
--	adapter->msg_enable = dflt_msg_enable;
-+	adapter->msg_enable = DFLT_MSG_ENABLE;
- 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
- 
- 	spin_lock_init(&adapter->stats_lock);
-@@ -4988,17 +4960,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- sriov:
- #ifdef CONFIG_PCI_IOV
--	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0) {
--		dev_warn(&pdev->dev,
--			 "Enabling SR-IOV VFs using the num_vf module "
--			 "parameter is deprecated - please use the pci sysfs "
--			 "interface instead.\n");
--		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
--			dev_info(&pdev->dev,
--				 "instantiated %u virtual functions\n",
--				 num_vf[func]);
--	}
--
- 	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
- 	if (!adapter) {
- 		err = -ENOMEM;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 5d4da0e..fa43e06d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -70,13 +70,6 @@
- 			 NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |\
- 			 NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
- 
--static int dflt_msg_enable = DFLT_MSG_ENABLE;
--
--module_param(dflt_msg_enable, int, 0644);
--MODULE_PARM_DESC(dflt_msg_enable,
--		 "default adapter ethtool message level bitmap, "
--		 "deprecated parameter");
--
- /*
-  * The driver uses the best interrupt scheme available on a platform in the
-  * order MSI-X then MSI.  This parameter determines which of these schemes the
-@@ -2891,7 +2884,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
- 	 * Initialize adapter level features.
- 	 */
- 	adapter->name = pci_name(pdev);
--	adapter->msg_enable = dflt_msg_enable;
-+	adapter->msg_enable = DFLT_MSG_ENABLE;
- 	err = adap_init0(adapter);
- 	if (err)
- 		goto err_unmap_bar;
--- 
-2.1.0
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next (2016-12-07 19:16:46 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
+
+for you to fetch changes up to a62da6f14db79bd7ea435ab095e998b31b3dbb22:
+
+  Bluetooth: SMP: Add support for H7 crypto function and CT2 auth flag (2016-12-08 07:50:24 +0100)
+
+----------------------------------------------------------------
+Geliang Tang (1):
+      Bluetooth: btmrvl: drop duplicate header slab.h
+
+Johan Hedberg (1):
+      Bluetooth: SMP: Add support for H7 crypto function and CT2 auth flag
+
+Stefan Schmidt (4):
+      ieee802154: atusb: sync header file from firmware for new features
+      ieee802154: atusb: store firmware version after retrieval for later use
+      ieee802154: atusb: try to read permanent extended address from device
+      ieee802154: atusb: implement .set_frame_retries ops callback
+
+ drivers/bluetooth/btmrvl_drv.h |  1 -
+ drivers/net/ieee802154/atusb.c | 79 +++++++++++++++++++++++++++++++++----
+ drivers/net/ieee802154/atusb.h | 11 ++++--
+ net/bluetooth/smp.c            | 85 ++++++++++++++++++++++++++++++++--------
+ net/bluetooth/smp.h            |  1 +
+ 5 files changed, 149 insertions(+), 28 deletions(-)
