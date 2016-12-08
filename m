@@ -1,45 +1,116 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v4 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
- prog
-Date: Thu, 08 Dec 2016 10:02:37 +0100
-Message-ID: <584921AD.3060004@iogearbox.net>
-References: <1481154794-2311034-1-git-send-email-kafai@fb.com> <1481154794-2311034-2-git-send-email-kafai@fb.com>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: [PATCH v3 3/6] net: stmmac: stmmac_platform: fix parsing of DT
+ binding
+Date: Thu, 8 Dec 2016 10:02:45 +0100
+Message-ID: <62474778-78da-d34e-bc36-022b2206a8db@st.com>
+References: <1481120409-18103-1-git-send-email-niklass@axis.com>
+ <1481120409-18103-4-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <kubakici@wp.pl>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56942 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750813AbcLHJCm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 04:02:42 -0500
-In-Reply-To: <1481154794-2311034-2-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481120409-18103-4-git-send-email-niklass@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/08/2016 12:53 AM, Martin KaFai Lau wrote:
-> This patch allows XDP prog to extend/remove the packet
-> data at the head (like adding or removing header).  It is
-> done by adding a new XDP helper bpf_xdp_adjust_head().
->
-> It also renames bpf_helper_changes_skb_data() to
-> bpf_helper_changes_pkt_data() to better reflect
-> that XDP prog does not work on skb.
->
-> This patch adds one "xdp_adjust_head" bit to bpf_prog for the
-> XDP-capable driver to check if the XDP prog requires
-> bpf_xdp_adjust_head() support.  The driver can then decide
-> to error out during XDP_SETUP_PROG.
->
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Hi Niklas
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+On 12/07/2016 03:20 PM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
+>
+> commit 64c3b252e9fc ("net: stmmac: fixed the pbl setting with DT")
+> changed the parsing of the DT binding.
+>
+> Before 64c3b252e9fc, snps,fixed-burst and snps,mixed-burst were parsed
+> regardless if the property snps,pbl existed or not.
+> After the commit, fixed burst and mixed burst are only parsed if
+> snps,pbl exists. Now when snps,aal has been added, it too is only
+> parsed if snps,pbl exists.
+>
+> Since the DT binding does not specify that fixed burst, mixed burst
+> or aal depend on snps,pbl being specified, undo changes introduced
+> by 64c3b252e9fc.
+>
+> The issue commit 64c3b252e9fc ("net: stmmac: fixed the pbl setting with
+> DT") tries to address is solved in another way:
+> The databook specifies that all values other than
+> 1, 2, 4, 8, 16, or 32 results in undefined behavior,
+> so snps,pbl = <0> is invalid.
+>
+> If pbl is 0 after parsing, set pbl to DEFAULT_DMA_PBL.
+> This handles the case where the property is omitted, and also handles
+> the case where the property is specified without any data.
+>
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  4 +--
+>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 29 +++++++++++-----------
+>  2 files changed, 17 insertions(+), 16 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index b1e42ddf0370..b5188122bc15 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1581,8 +1581,8 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
+>  	int atds = 0;
+>  	int ret = 0;
+>
+> -	if (!priv->plat->dma_cfg) {
+> -		dev_err(priv->device, "DMA configuration not found\n");
+> +	if (!priv->plat->dma_cfg || !priv->plat->dma_cfg->pbl) {
+
+How "priv->plat->dma_cfg->pbl" could be equal to 0 if you force it to 
+DEFAULT_DMA_PBL in "stmmac_probe_config_dt" in case of DT doesn't set 
+pbl value?
+
+
+> +		dev_err(priv->device, "Invalid DMA configuration\n");
+>  		return -EINVAL;
+>  	}
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index d3b6f92f350a..81800f23a9c4 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -304,21 +304,22 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>  		plat->force_sf_dma_mode = 1;
+>  	}
+>
+> -	if (of_find_property(np, "snps,pbl", NULL)) {
+> -		dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
+> -				       GFP_KERNEL);
+> -		if (!dma_cfg) {
+> -			stmmac_remove_config_dt(pdev, plat);
+> -			return ERR_PTR(-ENOMEM);
+> -		}
+> -		plat->dma_cfg = dma_cfg;
+> -		of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
+> -		dma_cfg->aal = of_property_read_bool(np, "snps,aal");
+> -		dma_cfg->fixed_burst =
+> -			of_property_read_bool(np, "snps,fixed-burst");
+> -		dma_cfg->mixed_burst =
+> -			of_property_read_bool(np, "snps,mixed-burst");
+> +	dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
+> +			       GFP_KERNEL);
+> +	if (!dma_cfg) {
+> +		stmmac_remove_config_dt(pdev, plat);
+> +		return ERR_PTR(-ENOMEM);
+>  	}
+> +	plat->dma_cfg = dma_cfg;
+> +
+> +	of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
+> +	if (!dma_cfg->pbl)
+> +		dma_cfg->pbl = DEFAULT_DMA_PBL;
+> +
+> +	dma_cfg->aal = of_property_read_bool(np, "snps,aal");
+> +	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
+> +	dma_cfg->mixed_burst = of_property_read_bool(np, "snps,mixed-burst");
+> +
+>  	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
+>  	if (plat->force_thresh_dma_mode) {
+>  		plat->force_sf_dma_mode = 0;
+>
