@@ -1,45 +1,42 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: handle no dst on skb in icmp6_send
-Date: Thu, 08 Dec 2016 15:04:17 +0100
-Message-ID: <1481205857.4073547.812616921.223287BE@webmail.messagingengine.com>
-References: <1480301573-21183-1-git-send-email-dsa@cumulusnetworks.com>
- <20161128.161344.1778661062306703117.davem@davemloft.net>
+From: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber@suse.de>
+Subject: Re: [PATCH v3 6/6] net: smmac: allow configuring lower pbl values
+Date: Thu, 8 Dec 2016 14:44:04 +0100
+Message-ID: <209cb37b-341a-cf34-2f12-cce666f4442e@suse.de>
+References: <1481120409-18103-1-git-send-email-niklass@axis.com>
+ <1481120409-18103-7-git-send-email-niklass@axis.com>
+ <4d43479f-8373-308b-8c7d-cfed5346dc53@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com
-To: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:33361 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752078AbcLHOES (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 09:04:18 -0500
-In-Reply-To: <20161128.161344.1778661062306703117.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Niklas Cassel <niklass@axis.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-doc@vger.kernel.org
+To: Alexandre Torgue <alexandre.torgue@st.com>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Phil Reid <preid@electromag.com.au>,
+        Eric Engestrom <eric@engestrom.ch>,
+        Pavel Machek <pavel@ucw.cz>,
+        Joachim Eastwood <manabian@gmail.com>,
+        Vincent Palatin <vpalatin@chromium.org>,
+        Gabriel Fernandez <gabriel.fernandez@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4d43479f-8373-308b-8c7d-cfed5346dc53@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+Hi,
 
-On Mon, Nov 28, 2016, at 22:13, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Sun, 27 Nov 2016 18:52:53 -0800
-> 
-> > Andrey reported the following while fuzzing the kernel with syzkaller:
->  ...
-> > icmp6_send / icmpv6_send is invoked for both rx and tx paths. In both
-> > cases the dst->dev should be preferred for determining the L3 domain
-> > if the dst has been set on the skb. Fallback to the skb->dev if it has
-> > not. This covers the case reported here where icmp6_send is invoked on
-> > Rx before the route lookup.
-> > 
-> > Fixes: 5d41ce29e ("net: icmp6_send should use dst dev to determine L3 domain")
-> > Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> > Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> 
-> Applied, thanks David.
+In subject: s/smmac/stmmac/
 
-could you queue this patch up for stable. You can remotely kill machines
-with this bug.
+Regards,
+Andreas
 
-Thanks,
-Hannes
+-- 
+SUSE Linux GmbH, Maxfeldstr. 5, 90409 Nürnberg, Germany
+GF: Felix Imendörffer, Jane Smithard, Graham Norton
+HRB 21284 (AG Nürnberg)
