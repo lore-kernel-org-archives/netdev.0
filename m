@@ -1,75 +1,76 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] linux/types.h: enable endian checks for all sparse builds
-Date: Thu, 8 Dec 2016 07:53:59 +0200
-Message-ID: <20161208075152-mutt-send-email-mst@kernel.org>
-References: <1481164052-28036-1-git-send-email-mst@redhat.com>
-	<BLUPR02MB168374E98A6C86E43DF0BCFE81840@BLUPR02MB1683.namprd02.prod.outlook.com>
+Subject: Re: [net-next PATCH v5 3/6] virtio_net: Add XDP support
+Date: Thu, 8 Dec 2016 07:54:31 +0200
+Message-ID: <20161208075418-mutt-send-email-mst@kernel.org>
+References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+ <20161207201157.28121.39934.stgit@john-Precision-Tower-5810>
+ <20161208064037-mutt-send-email-mst@kernel.org>
+ <5848EC48.7080904@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Neil Armstrong <narmstrong@baylibre.com>, David Airlie <airlied@linux.ie>,
-	"linux-remoteproc@vger.kernel.org" <linux-remoteproc@vger.kernel.org>,
-	"dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
-	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	"v9fs-developer@lists.sourceforge.net"
-	<v9fs-developer@lists.sourceforge.net>,
-	Asias He <asias@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	"linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>,
-	Jens Axboe <axboe@fb.com>, Michal Marek <mmarek@suse.com>,
-	Stefan Hajnoczi <stef
-To: Bart Van Assche <Bart.VanAssche@sandisk.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
+        tgraf@suug.ch, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35312 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750838AbcLHFyi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 00:54:38 -0500
 Content-Disposition: inline
-In-Reply-To: <BLUPR02MB168374E98A6C86E43DF0BCFE81840@BLUPR02MB1683.namprd02.prod.outlook.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5848EC48.7080904@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 08, 2016 at 05:21:47AM +0000, Bart Van Assche wrote:
-> On 12/07/16 18:29, Michael S. Tsirkin wrote:
-> > By now, linux is mostly endian-clean. Enabling endian-ness
-> > checks for everyone produces about 200 new sparse warnings for me -
-> > less than 10% over the 2000 sparse warnings already there.
-> >
-> > Not a big deal, OTOH enabling this helps people notice
-> > they are introducing new bugs.
-> >
-> > So let's just drop __CHECK_ENDIAN__. Follow-up patches
-> > can drop distinction between __bitwise and __bitwise__.
+On Wed, Dec 07, 2016 at 09:14:48PM -0800, John Fastabend wrote:
+> On 16-12-07 08:48 PM, Michael S. Tsirkin wrote:
+> > On Wed, Dec 07, 2016 at 12:11:57PM -0800, John Fastabend wrote:
+> >> From: John Fastabend <john.fastabend@gmail.com>
+> >>
+> >> This adds XDP support to virtio_net. Some requirements must be
+> >> met for XDP to be enabled depending on the mode. First it will
+> >> only be supported with LRO disabled so that data is not pushed
+> >> across multiple buffers. Second the MTU must be less than a page
+> >> size to avoid having to handle XDP across multiple pages.
+> >>
+> >> If mergeable receive is enabled this patch only supports the case
+> >> where header and data are in the same buf which we can check when
+> >> a packet is received by looking at num_buf. If the num_buf is
+> >> greater than 1 and a XDP program is loaded the packet is dropped
+> >> and a warning is thrown. When any_header_sg is set this does not
+> >> happen and both header and data is put in a single buffer as expected
+> >> so we check this when XDP programs are loaded.  Subsequent patches
+> >> will process the packet in a degraded mode to ensure connectivity
+> >> and correctness is not lost even if backend pushes packets into
+> >> multiple buffers.
+> >>
+> >> If big packets mode is enabled and MTU/LRO conditions above are
+> >> met then XDP is allowed.
+> >>
+> >> This patch was tested with qemu with vhost=on and vhost=off where
+> >> mergeable and big_packet modes were forced via hard coding feature
+> >> negotiation. Multiple buffers per packet was forced via a small
+> >> test patch to vhost.c in the vhost=on qemu mode.
+> >>
+> >> Suggested-by: Shrijeet Mukherjee <shrijeet@gmail.com>
+> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> > 
+> > I'd like to note that I don't think disabling LRO is a good
+> > plan long-term. It's really important for virtio performance,
+> > so IMHO we need a fix for that.
+> > I'm guessing that a subset of XDP programs would be quite
+> > happy with just looking at headers, and that is there in the 1st buffer.
+> > So how about teaching XDP that there could be a truncated packet?
+> > 
+> > Then we won't have to disable LRO.
+> > 
 > 
-> Hello Michael,
+> Agreed long-term we can drop this requirement this type of improvement
+> would also allow working with jumbo frames on nics.
 > 
-> This patch makes a whole bunch of ccflags-y += -D__CHECK_ENDIAN__ 
-> statements obsolete. Have you considered to remove these statements?
-
-Absolutely. Just waiting for feedback on the idea.
-
-> Additionally, there are notable exceptions to the rule that most drivers 
-> are endian-clean, e.g. drivers/scsi/qla2xxx. I would appreciate it if it 
-> would remain possible to check such drivers with sparse without enabling 
-> endianness checks. Have you considered to change #ifdef __CHECK_ENDIAN__ 
-> into e.g. #ifndef __DONT_CHECK_ENDIAN__?
+> I don't think it should block this patch series though.
 > 
-> Thanks,
-> 
-> Bart.
+> .John
 
-The right thing is probably just to fix these, isn't it?
-Until then, why not just ignore the warnings?
-
--- 
-MST
+Right.
