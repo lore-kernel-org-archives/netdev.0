@@ -1,38 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/1] NET: usb: cdc_mbim: add quirk for supporting Telit
- LE922A
-Date: Thu, 08 Dec 2016 13:02:48 -0500 (EST)
-Message-ID: <20161208.130248.1105935880923968467.davem@davemloft.net>
-References: <1481116068-32691-1-git-send-email-dnlplm@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: sock_rps_record_flow() is for connected
+ sockets
+Date: Thu, 08 Dec 2016 10:02:16 -0800
+Message-ID: <1481220136.4930.110.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480944138.4694.37.camel@redhat.com>
+         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
+         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481049061.7129.18.camel@redhat.com>
+         <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481051786.7129.22.camel@redhat.com>
+         <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALx6S34e_5KW3cdxS_yNXwhYuK2FQe=6+9=yTCVDsg6f2vx87g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: bjorn@mork.no, oliver@neukum.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org
-To: dnlplm@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Paolo Abeni <pabeni@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35764 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752510AbcLHSCu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:02:50 -0500
-In-Reply-To: <1481116068-32691-1-git-send-email-dnlplm@gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:32813 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752340AbcLHSDX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:03:23 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 3so27513191pgd.0
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 10:03:23 -0800 (PST)
+In-Reply-To: <CALx6S34e_5KW3cdxS_yNXwhYuK2FQe=6+9=yTCVDsg6f2vx87g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniele Palmas <dnlplm@gmail.com>
-Date: Wed,  7 Dec 2016 14:07:47 +0100
+On Thu, 2016-12-08 at 09:49 -0800, Tom Herbert wrote:
 
-> Telit LE922A MBIM based composition does not work properly
-> with altsetting toggle done in cdc_ncm_bind_common.
-> 
-> This patch adds CDC_MBIM_FLAG_AVOID_ALTSETTING_TOGGLE quirk
-> to avoid this procedure that, instead, is mandatory for
-> other modems.
-> 
-> References:
-> https://www.spinics.net/lists/linux-usb/msg149249.html
-> https://www.spinics.net/lists/linux-usb/msg149819.html
-> 
-> Thanks to Bjørn for the productive discussion and feedback!
+> Of course that would only help on systems where no one enable encaps,
+> ie. looks good in the the simple benchmarks but in real life if just
+> one socket enables encap everyone else takes the hit. Alternatively,
+> maybe we could do early demux when we do the lookup in GRO to
+> eliminate the extra lookup?
 
-Patch applied, thanks.
+Well, if you do the lookup in GRO, wont it be done for every incoming
+MSS, instead of once per GRO packet ?
+
+Anyway, the flooded UDP sockets out there are not normally connected
+ones.
