@@ -1,62 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next v2 02/19] i40e: simplify txd use count calculation
-Date: Wed, 07 Dec 2016 17:03:32 -0800
-Message-ID: <1481159012.4930.85.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
-         <20161207221918.57932-3-jeffrey.t.kirsher@intel.com>
-         <1481156184.4930.77.camel@edumazet-glaptop3.roam.corp.google.com>
-         <B1C1DF2ACD01FD4881736AA51731BAB2A54ADC@ORSMSX107.amr.corp.intel.com>
+From: =?utf-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>
+Subject: RE: [net-next] icmp: correct return value of icmp_rcv()
+Date: Thu, 8 Dec 2016 09:09:07 +0800
+Message-ID: <000001d250ef$ad1b50a0$0751f1e0$@cmss.chinamobile.com>
+References: <1481093573-5123-1-git-send-email-zhangshengju@cmss.chinamobile.com> <1481120298.4930.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "Williams, Mitch A" <mitch.a.williams@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>,
-        "guru.anbalagane@oracle.com" <guru.anbalagane@oracle.com>
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Content-Type: text/plain;
+        charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "'Eric Dumazet'" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34202 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752807AbcLHBEU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 20:04:20 -0500
-Received: by mail-pg0-f68.google.com with SMTP id e9so24992816pgc.1
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 17:03:35 -0800 (PST)
-In-Reply-To: <B1C1DF2ACD01FD4881736AA51731BAB2A54ADC@ORSMSX107.amr.corp.intel.com>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:44097 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752941AbcLHBJM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 20:09:12 -0500
+In-Reply-To: <1481120298.4930.3.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-12-08 at 00:35 +0000, Duyck, Alexander H wrote:
-
-> Well there ends up being a few aspects to it.  First we don't need the
-> precision of a full 64b inverse multiplication, that is why we can get
-> away with multiple by 85 and shift.  The assumption is we should never
-> see a buffer larger than 64K for a TSO frame.  That being the case we
-> can do the same thing without having to use a 64b value which isn't an
-> option on 32b architectures.
+> -----Original Message-----
+> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> Sent: Wednesday, December 07, 2016 10:18 PM
+> To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [net-next] icmp: correct return value of icmp_rcv()
 > 
-> So basically what it comes down to is dealing with the "optimized for
-> size" kernel option, and 32b architectures not being able to do this.
-> Arguably both are corner cases but better to deal with them than take
-> a performance hit we don't have to.
+> On Wed, 2016-12-07 at 14:52 +0800, Zhang Shengju wrote:
+> > Currently, icmp_rcv() always return zero on a packet delivery upcall.
+> >
+> > To make its behavior more compliant with the way this API should be
+> > used, this patch changes this to let it return NET_RX_SUCCESS when the
+> > packet is proper handled, and NET_RX_DROP otherwise.
+> >
+> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> > ---
+> >  net/ipv4/icmp.c | 4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c index 691146a..f79d7a8
+> > 100644
+> > --- a/net/ipv4/icmp.c
+> > +++ b/net/ipv4/icmp.c
+> > @@ -1047,12 +1047,12 @@ int icmp_rcv(struct sk_buff *skb)
+> >
+> >  	if (success)  {
+> >  		consume_skb(skb);
+> > -		return 0;
+> > +		return NET_RX_SUCCESS;
+> >  	}
+> >
+> >  drop:
+> >  	kfree_skb(skb);
+> > -	return 0;
+> > +	return NET_RX_DROP;
+> >  csum_error:
+> >  	__ICMP_INC_STATS(net, ICMP_MIB_CSUMERRORS);
+> >  error:
+> 
+> 
+> I am curious, what external/visible effects do you expect from such a change ?
+> 
+> We now have a very precise monitoring of where packets are dropped
+> (consume_skb()/kfree_skb())
+> 
+> 
 
-ok ok ;)
+I know that the return value is always ignored, I just to want to make it 
+compliant with the way this API required like I said in the comment.
 
-Too bad the 65536 value is accepted, (is it ?) otherwise
-
-unsigned int foo(unsigned short size)
-{
-	return size / 0x3000;
-}
-
--> generates the same kind of instructions, with maybe a better
-precision.
-
-foo:
-	movzwl	%di, %eax
-	imull	$43691, %eax, %eax
-	shrl	$29, %eax
-	ret
+Thanks,
