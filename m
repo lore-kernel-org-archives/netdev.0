@@ -1,30 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/50] Netfilter/IPVS updates for net-next
-Date: Wed, 07 Dec 2016 19:29:45 -0500 (EST)
-Message-ID: <20161207.192945.111164801729805228.davem@davemloft.net>
-References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43544 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932441AbcLHAjk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 19:39:40 -0500
-In-Reply-To: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pan Bian <bianpan2016@163.com>
+Subject: [PATCH 1/1] orinoco: fix improper return value
+Date: Thu,  8 Dec 2016 08:40:02 +0800
+Message-ID: <1481157602-4011-1-git-send-email-bianpan2016@163.com>
+Cc: linux-kernel@vger.kernel.org, Pan Bian <bianpan2016@163.com>
+To: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed,  7 Dec 2016 22:52:06 +0100
+Function orinoco_ioctl_commit() returns 0 (indicates success) when the
+call to orinoco_lock() fails. Thus, the return value is inconsistent with
+the execution status. It may be better to return "-EBUSY" when the call 
+to orinoco_lock() fails.
 
-> The following patchset contains a large Netfilter update for net-next,
-> to summarise:
- ...
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188671
 
-Pulled, thanks a lot Pablo.
+Signed-off-by: Pan Bian <bianpan2016@163.com>
+---
+ drivers/net/wireless/intersil/orinoco/wext.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/intersil/orinoco/wext.c b/drivers/net/wireless/intersil/orinoco/wext.c
+index 1d4dae4..fee57ea 100644
+--- a/drivers/net/wireless/intersil/orinoco/wext.c
++++ b/drivers/net/wireless/intersil/orinoco/wext.c
+@@ -1314,7 +1314,7 @@ static int orinoco_ioctl_commit(struct net_device *dev,
+ 		return 0;
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+-		return err;
++		return -EBUSY;
+ 
+ 	err = orinoco_commit(priv);
+ 
+-- 
+1.9.1
