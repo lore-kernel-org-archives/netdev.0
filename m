@@ -1,37 +1,45 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: fix VxLAN-gpe port
- can't be created in ovs compat mode
-Date: Thu, 8 Dec 2016 09:54:00 +0100
-Message-ID: <20161208095401.3e4054c9@griffin>
-References: <1481185210-13056-1-git-send-email-yi.y.yang@intel.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v4 net-next 1/4] bpf: xdp: Allow head adjustment in XDP
+ prog
+Date: Thu, 08 Dec 2016 10:02:37 +0100
+Message-ID: <584921AD.3060004@iogearbox.net>
+References: <1481154794-2311034-1-git-send-email-kafai@fb.com> <1481154794-2311034-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1481185210-13056-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        David Miller <davem@davemloft.net>,
+        Jakub Kicinski <kubakici@wp.pl>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:56942 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750813AbcLHJCm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 04:02:42 -0500
+In-Reply-To: <1481154794-2311034-2-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu,  8 Dec 2016 16:20:10 +0800, Yi Yang wrote:
-> In ovs compat mode, ovs won't use LWT in current kernel, this is to
-> make sure ovs can work on the old kernels, Linux kernel v4.7 includes
-> VxLAN-gpe support but many Linux distributions' kernels are odler than
-> v4.7, this fix will ensure that ovs can create VxLAN-gpe port correctly
-> on old kernels, it has been verified on Ubuntu 16.04 x86_64 with Linux
-> kernel 4.4.0-53-generic.
+On 12/08/2016 12:53 AM, Martin KaFai Lau wrote:
+> This patch allows XDP prog to extend/remove the packet
+> data at the head (like adding or removing header).  It is
+> done by adding a new XDP helper bpf_xdp_adjust_head().
+>
+> It also renames bpf_helper_changes_skb_data() to
+> bpf_helper_changes_pkt_data() to better reflect
+> that XDP prog does not work on skb.
+>
+> This patch adds one "xdp_adjust_head" bit to bpf_prog for the
+> XDP-capable driver to check if the XDP prog requires
+> bpf_xdp_adjust_head() support.  The driver can then decide
+> to error out during XDP_SETUP_PROG.
+>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-NAK. We do have a way to configure this and that's rtnetlink. Open
-vSwitch should use that to configure tunnels. Out of tree modules are
-on their own. Upstream kernel does not accommodate out of tree modules.
-
- Jiri
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
