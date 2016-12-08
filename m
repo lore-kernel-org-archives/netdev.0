@@ -1,42 +1,34 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Thu, 08 Dec 2016 22:03:44 +0100
-Message-ID: <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
-References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 2/5] liquidio VF vxlan
+Date: Thu, 8 Dec 2016 23:08:13 +0200
+Message-ID: <CAJ3xEMgrV4kjMY_SVJtk9VR85K7oSsSZGNQCi4UShogCKOq=hQ@mail.gmail.com>
+References: <1481230848-2393-1-git-send-email-rvatsavayi@caviumnetworks.com> <1481230848-2393-3-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Josef Bacik <jbacik@fb.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>
+To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:42620 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752872AbcLHVEF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 16:04:05 -0500
-In-Reply-To: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:35872 "EHLO
+        mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751722AbcLHVIO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 16:08:14 -0500
+Received: by mail-oi0-f42.google.com with SMTP id v84so464733315oie.3
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 13:08:14 -0800 (PST)
+In-Reply-To: <1481230848-2393-3-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Tom,
+On Thu, Dec 8, 2016 at 11:00 PM, Raghu Vatsavayi
+<rvatsavayi@caviumnetworks.com> wrote:
 
-On Wed, Dec 7, 2016, at 00:06, Tom Herbert wrote:
-> We are seeing a fair number of machines getting into softlockup in 4.6
-> kernel. As near as I can tell this is happening on the spinlock in
-> bind hash bucket. When inet_csk_get_port exits and does spinunlock_bh
-> the TCP timer runs and we hit lockup in inet_put_port (presumably on
-> same lock). It seems like the locked isn't properly be unlocked
-> somewhere but I don't readily see it.
-> 
-> Any ideas?
+> Adds VF vxlan offload support.
 
-Likewise we received reports that pretty much look the same on our
-heavily patched kernel. Did you have a chance to investigate or
-reproduce the problem?
+What's the use case for that? a VM running a VTEP, isn't that part
+needs to run @ the host?
 
-I am wondering if you would be able to take a complete thread stack dump
-if you can reproduce this to check if one of the user space processes is
-looping inside finding a free port?
-
-Thanks,
-Hannes
+Or.
