@@ -1,74 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] udp: under rx pressure, try to condense skbs
-Date: Thu, 08 Dec 2016 07:30:15 -0800
-Message-ID: <1481211015.4930.100.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1481131173.4930.36.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161208104620.5fc691b8@redhat.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] sh_eth: add wake-on-lan support via magic packet
+Date: Thu, 8 Dec 2016 16:31:44 +0100
+Message-ID: <20161208153142.GA31836@verge.net.au>
+References: <20161207162843.4731-1-niklas.soderlund+renesas@ragnatech.se>
+ <CAMuHMdVK1DtJMajqD-eZ82QSP2ZRozwaR4zNc0ae1YT21Exq0w@mail.gmail.com>
+ <20161208071620.GG21834@bigcity.dyn.berto.se>
+ <20161208132241.GA7150@verge.net.au>
+ <20161208150105.GI21834@bigcity.dyn.berto.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: Niklas =?utf-8?Q?S=C3=B6derlund?= <niklas.soderlund@ragnatech.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36435 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752208AbcLHPbA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 10:31:00 -0500
-Received: by mail-pg0-f67.google.com with SMTP id x23so27159160pgx.3
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 07:30:18 -0800 (PST)
-In-Reply-To: <20161208104620.5fc691b8@redhat.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:34683 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752328AbcLHPcU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 10:32:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20161208150105.GI21834@bigcity.dyn.berto.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-12-08 at 10:46 +0100, Jesper Dangaard Brouer wrote:
-
-> Hmmm... I'm not thrilled to have such heuristics, that change memory
-> behavior when half of the queue size (sk->sk_rcvbuf) is reached.
-
-Well, copybreak drivers do that unconditionally, even under no stress at
-all, you really should complain then.
-
-copybreak is interesting, not only for performance point of view, but
-ability to handle DOS/DDOS : Attackers need to send bigger packets to
-eventually force us to consume one page per packet.
-
-My idea (which I already described in the past) is to perform the
-(small) copy only in contexts we know packet might sit for a long time
-in a socket queue, and only if we know we are in stress conditions.
-
-ACK packets for example do not need copybreak, since they wont be queued
-for a long time.
-
+On Thu, Dec 08, 2016 at 04:01:05PM +0100, Niklas Söderlund wrote:
+> Hi Simon,
 > 
-> Most of the win comes from doing a local atomic page-refcnt decrement
-> oppose to doing a remote CPU refcnf-dec.  And as you noticed the
-> benefit is quite high saving 241 cycles (see [1]).  And you patch is
-> "using" these cycles to copy the packet instead.
+> Thanks for your feedback.
+> 
+> On 2016-12-08 14:22:44 +0100, Simon Horman wrote:
+> 
+> <snip>
+> 
+> > > > 
+> > > > > --- a/drivers/net/ethernet/renesas/sh_eth.h
+> > > > > +++ b/drivers/net/ethernet/renesas/sh_eth.h
+> > > > > @@ -493,6 +493,7 @@ struct sh_eth_cpu_data {
+> > > > >         unsigned shift_rd0:1;   /* shift Rx descriptor word 0 right by 16 */
+> > > > >         unsigned rmiimode:1;    /* EtherC has RMIIMODE register */
+> > > > >         unsigned rtrate:1;      /* EtherC has RTRATE register */
+> > > > > +       unsigned magic:1;       /* EtherC have PMDE in ECMR and MPDIP in ECSIPR */
+> > > > 
+> > > > Instead of adding a new flag, perhaps you can just check for the ECSR_MPD flag
+> > > > in ecsr_value?
+> > > 
+> > > I briefly considered this but decided against it since I do not have 
+> > > documentation for all versions of the device and no way to test it. You 
+> > > tested and confirmed functionality on r8a7740, which leaves:
+> > > 
+> > > - sh7734-gether
+> > > - sh7763-gether
+> > > - sh7757-gether
+> > > 
+> > > To figure out if they support MagicPacket in the same fashion as r8a7740 
+> > > and r8a779x. If anyone have access to documentation or hardware to 
+> > > confirm this I be more then happy to get rid of the magic flag in favor 
+> > > och checking for ECSR_MPD in ecsr_value.
+> > 
+> > Perhaps documentation can be found but if not I wonder if we can use some
+> > other mechanism to blacklist SoC which we are unsure about.
+> > 
+> > From my POV it would be very nice if things just worked™ on SoCs where
+> > the feature has been verified.
+> 
+> I agree, I will follow Sergies advice and Geerts testing to enable Gen2 
+> family and r8a7740/armadillo in two separate patches. Then if we later 
+> can confirm it works on other models we can enable them in separate 
+> patches by setting the magic flag in struct sh_eth_cpu_data for those 
+> models. Do you agree this is the best way to handle this?
 
-So, just to let you know, I have a patch series which achieve ~100 %
-perf increase, without the 2nd queue I envisioned for linux-4.11
-
-A single thread doing mere recvmsg() system calls can now read ~2Mpps.
-
-This skb_condense() is done before producer cpus are competing using a
-busylock array (not a per socket new spinlock, but a shared hashed
-array, out of line).
-
-I plan using it tcp_add_backlog() to replace the :
-
-	if (!skb->data_len)
-		skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
-
-> This might no be a win in the future.  I'm working on a more generic
-> solution (page_pool) that (as one objective) target this remote recfnt.
-
-Very well, when all drivers can use this, we might revert this patch if
-proved not beneficial.
-
-But make sure we can hold 1,000,000 pages in skbs stored in ~100,000
-TCP/UDP sockets.
-
-Your ideas sound fine in controlled environments, I am sure you will be
-able to demonstrate their gains independently of the counter measures we
-put in place in the protocol handlers.
+Yes, I think that is reasonable.
