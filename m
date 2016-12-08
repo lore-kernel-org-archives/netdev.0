@@ -1,212 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_eth: add wake-on-lan support via magic packet
-Date: Thu, 8 Dec 2016 15:28:48 +0300
-Message-ID: <59a1f246-9062-20e1-3f85-a1c5f6fcfc29@cogentembedded.com>
-References: <20161207162843.4731-1-niklas.soderlund+renesas@ragnatech.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20161207162843.4731-1-niklas.soderlund+renesas@ragnatech.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH] cxgb4/cxgb4vf: Assign netdev->dev_port with port ID
+Date: Thu,  8 Dec 2016 18:09:23 +0530
+Message-ID: <1481200763-15799-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, Arjun V <arjun@chelsio.com>,
+        Casey Leedom <leedom@chelsio.com>,
+        Hariprasad Shenai <hariprasad@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:30459 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751064AbcLHMoa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 07:44:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+From: Arjun V <arjun@chelsio.com>
 
-    Good to see that somebody cares still about this driver, one more task off 
-my back. :-)
+Added missing dev_port assignment in cxgb4vf driver.
+Also made dev_port assignment of cxgb4 in sync with cxgb4vf driver.
 
-On 12/07/2016 07:28 PM, Niklas Söderlund wrote:
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Arjun V <arjun@chelsio.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c     | 1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c          | 1 -
+ drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 1 +
+ 3 files changed, 2 insertions(+), 1 deletion(-)
 
-   You only enable the WOL support fo the R-Car gen2 chips but never say that 
-explicitly, neither in the subject nor here.
-
-> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c | 120 +++++++++++++++++++++++++++++++---
->  drivers/net/ethernet/renesas/sh_eth.h |   4 ++
->  2 files changed, 116 insertions(+), 8 deletions(-)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 05b0dc5..3974046 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -624,7 +624,7 @@ static struct sh_eth_cpu_data r8a779x_data = {
->
->  	.register_type	= SH_ETH_REG_FAST_RCAR,
->
-> -	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
-> +	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD | ECSR_MPD,
->  	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
->  	.eesipr_value	= 0x01ff009f,
->
-> @@ -641,6 +641,7 @@ static struct sh_eth_cpu_data r8a779x_data = {
->  	.tpauser	= 1,
->  	.hw_swap	= 1,
->  	.rmiimode	= 1,
-> +	.magic		= 1,
->  };
->  #endif /* CONFIG_OF */
-
-    So I suggest that you add the general WOL support code in the 1st patch 
-and enable the new feature per SoC family in the follow up patches.
-
-> @@ -1657,6 +1658,10 @@ static irqreturn_t sh_eth_interrupt(int irq, void *netdev)
->  		goto out;
->
->  	if (!likely(mdp->irq_enabled)) {
-
-    Oops, I guess unlikely(!mdp->irq_enabled) was meant here...
-
-> +		/* Handle MagicPacket interrupt */
-> +		if (sh_eth_read(ndev, ECSR) & ECSR_MPD)
-
-    Why do it here?
-
-> +			sh_eth_modify(ndev, ECSR, 0, ECSR_MPD);
-> +
->  		sh_eth_write(ndev, 0, EESIPR);
->  		goto out;
->  	}
-[...]
-> @@ -3017,6 +3051,11 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
->  		goto out_release;
->  	}
->
-> +	/* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
-> +	mdp->clk = devm_clk_get(&pdev->dev, NULL);
-
-    Luckily, we have <linux/clk.h> #include'd...
-
-> +	if (IS_ERR(mdp->clk))
-> +		mdp->clk = NULL;
-> +
->  	ndev->base_addr = res->start;
->
->  	spin_lock_init(&mdp->lock);
-> @@ -3111,6 +3150,10 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
->  	if (ret)
->  		goto out_napi_del;
->
-> +	mdp->wol_enabled = false;
-
-    No need, the '*mdp' was kzalloc'ed.
-
-> +	if (mdp->cd->magic && mdp->clk)
-> +		device_set_wakeup_capable(&pdev->dev, 1);
-> +
->  	/* print device information */
->  	netdev_info(ndev, "Base address at 0x%x, %pM, IRQ %d.\n",
->  		    (u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
-> @@ -3150,15 +3193,71 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
->
->  #ifdef CONFIG_PM
->  #ifdef CONFIG_PM_SLEEP
-> +static int sh_eth_wol_setup(struct net_device *ndev)
-> +{
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +
-> +	/* Only allow ECI interrupts */
-> +	mdp->irq_enabled = false;
-
-    Why 'false' if you enable IRQs below?
-
-> +	synchronize_irq(ndev->irq);
-> +	napi_disable(&mdp->napi);
-> +	sh_eth_write(ndev, DMAC_M_ECI, EESIPR);
-> +
-> +	/* Enable ECI MagicPacket interrupt */
-> +	sh_eth_write(ndev, ECSIPR_MPDIP, ECSIPR);
-> +
-> +	/* Enable MagicPacket */
-> +	sh_eth_modify(ndev, ECMR, 0, ECMR_PMDE);
-> +
-> +	/* Increased clock usage so device won't be suspended */
-> +	clk_enable(mdp->clk);
-
-    Hum, intermixiggn runtime PM with clock API doesn't look good...
-
-> +
-> +	return enable_irq_wake(ndev->irq);
-> +}
-> +
-> +static int sh_eth_wol_restore(struct net_device *ndev)
-> +{
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +	int ret;
-> +
-> +	napi_enable(&mdp->napi);
-> +
-> +	/* Disable MagicPacket */
-> +	sh_eth_modify(ndev, ECMR, ECMR_PMDE, 0);
-> +
-> +	/* The device need to be reset to restore MagicPacket logic
-> +	 * for next wakeup. If we close and open the device it will
-> +	 * both be reset and all registers restored. This is what
-> +	 * happens during suspend and resume without WoL enabled.
-> +	 */
-> +	ret = sh_eth_close(ndev);
-> +	if (ret < 0)
-> +		return ret;
-> +	ret = sh_eth_open(ndev);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	/* Restore clock usage count */
-> +	clk_disable(mdp->clk);
-
-    Hm... and RPM will think the clock is still enabled?
-Why disable the clock here anyway if we're resuming?
-
-> +
-> +	return disable_irq_wake(ndev->irq);
-> +}
-> +
-[...]
-> @@ -3166,14 +3265,19 @@ static int sh_eth_suspend(struct device *dev)
->  static int sh_eth_resume(struct device *dev)
->  {
->  	struct net_device *ndev = dev_get_drvdata(dev);
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
->  	int ret = 0;
->
-> -	if (netif_running(ndev)) {
-> +	if (!netif_running(ndev))
-> +		return 0;
-> +
-> +	if (mdp->wol_enabled)
-> +		ret = sh_eth_wol_restore(ndev);
-> +	else
->  		ret = sh_eth_open(ndev);
-> -		if (ret < 0)
-> -			return ret;
-> +
-> +	if (!ret)
-
-    Please keep the original error return logic, so that you can return 0 at 
-the end...
-
->  		netif_device_attach(ndev);
-> -	}
->
->  	return ret;
->  }
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-> index d050f37..26c6620 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -493,6 +493,7 @@ struct sh_eth_cpu_data {
->  	unsigned shift_rd0:1;	/* shift Rx descriptor word 0 right by 16 */
->  	unsigned rmiimode:1;	/* EtherC has RMIIMODE register */
->  	unsigned rtrate:1;	/* EtherC has RTRATE register */
-> +	unsigned magic:1;	/* EtherC have PMDE in ECMR and MPDIP in ECSIPR */
-
-    OK, e.g. RZ/A1 doesn't have these bits...
-
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 48113c6..66c37fa 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4921,6 +4921,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	 */
+ 	for_each_port(adapter, i) {
+ 		pi = adap2pinfo(adapter, i);
++		adapter->port[i]->dev_port = pi->lport;
+ 		netif_set_real_num_tx_queues(adapter->port[i], pi->nqsets);
+ 		netif_set_real_num_rx_queues(adapter->port[i], pi->nqsets);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 20dec85..e813951 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -7851,7 +7851,6 @@ int t4_port_init(struct adapter *adap, int mbox, int pf, int vf)
+ 			return ret;
+ 
+ 		memcpy(adap->port[i]->dev_addr, addr, ETH_ALEN);
+-		adap->port[i]->dev_port = j;
+ 		j++;
+ 	}
+ 	return 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index fa43e06d..0d1a134 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2960,6 +2960,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 
+ 		netdev->netdev_ops = &cxgb4vf_netdev_ops;
+ 		netdev->ethtool_ops = &cxgb4vf_ethtool_ops;
++		netdev->dev_port = pi->port_id;
+ 
+ 		/*
+ 		 * Initialize the hardware/software state for the port.
+-- 
+2.1.0
