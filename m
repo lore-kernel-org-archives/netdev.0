@@ -1,15 +1,17 @@
 From: Mao Wenan <maowenan@huawei.com>
-Subject: [PATCH] net: add one ethtool option to set relax ordering mode
-Date: Thu, 8 Dec 2016 14:51:37 +0800
-Message-ID: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
+Subject: [PATCH] ethtool: add one ethtool option to set relax ordering mode
+Date: Thu, 8 Dec 2016 14:51:38 +0800
+Message-ID: <1481179898-10668-2-git-send-email-maowenan@huawei.com>
+References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>, <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:10013 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751243AbcLHG6b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 01:58:31 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:33977 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753113AbcLHG6c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 01:58:32 -0500
+In-Reply-To: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,122 +25,89 @@ ethtool -s enp1s0f0 relaxorder on
 
 Signed-off-by: Mao Wenan <maowenan@huawei.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 34 ++++++++++++++++++++++++
- include/linux/ethtool.h                          |  2 ++
- include/uapi/linux/ethtool.h                     |  6 +++++
- net/core/ethtool.c                               |  5 ++++
- 4 files changed, 47 insertions(+)
+ ethtool-copy.h |  6 ++++++
+ ethtool.c      | 24 +++++++++++++++++++++++-
+ 2 files changed, 29 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index f49f803..9650539 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -493,6 +493,39 @@ static void ixgbe_set_msglevel(struct net_device *netdev, u32 data)
- 	adapter->msg_enable = data;
- }
- 
-+static void ixgbe_set_relaxorder(struct net_device *netdev, u32 data)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 i = 0;
-+	pr_info("set relax ordering mode : %s\n",data?"on":"off");
-+	
-+	for (i = 0; i < hw->mac.max_tx_queues; i++) {
-+		u32 regval;
-+
-+		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
-+		if (data)
-+			regval |= IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+		else
-+			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
-+	}
-+
-+	for (i = 0; i < hw->mac.max_rx_queues; i++) {
-+		u32 regval;
-+		
-+		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+		if (data)
-+			regval |= (IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+					IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+		else
-+			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+					IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+	}
-+
-+}
-+
- static int ixgbe_get_regs_len(struct net_device *netdev)
- {
- #define IXGBE_REGS_LEN  1139
-@@ -3274,6 +3307,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_ts_info		= ixgbe_get_ts_info,
- 	.get_module_info	= ixgbe_get_module_info,
- 	.get_module_eeprom	= ixgbe_get_module_eeprom,
-+	.set_relaxorder         = ixgbe_set_relaxorder,
- };
- 
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 9ded8c6..0fae148 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -286,6 +286,7 @@ bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
-  *	fields should be ignored (use %__ETHTOOL_LINK_MODE_MASK_NBITS
-  *	instead of the latter), any change to them will be overwritten
-  *	by kernel. Returns a negative error code or zero.
-+ * @set_relaxorder: set relax ordering mode, on|off.
-  *
-  * All operations are optional (i.e. the function pointer may be set
-  * to %NULL) and callers must take this into account.  Callers must
-@@ -372,5 +373,6 @@ struct ethtool_ops {
- 				      struct ethtool_link_ksettings *);
- 	int	(*set_link_ksettings)(struct net_device *,
- 				      const struct ethtool_link_ksettings *);
-+	void    (*set_relaxorder)(struct net_device *, u32);
- };
- #endif /* _LINUX_ETHTOOL_H */
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 8e54723..86349b9 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1314,6 +1314,8 @@ struct ethtool_per_queue_op {
- #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings */
- #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 3d299e3..37d93be 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -1329,6 +1329,8 @@ struct ethtool_per_queue_op {
+ #define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
+ #define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
  
 +#define ETHTOOL_SRELAXORDER	0x00000050 /* Set relax ordering mode, on or off*/
 +
- 
  /* compatibility with older code */
  #define SPARC_ETH_GSET		ETHTOOL_GSET
-@@ -1494,6 +1496,10 @@ static inline int ethtool_validate_speed(__u32 speed)
- #define DUPLEX_FULL		0x01
- #define DUPLEX_UNKNOWN		0xff
+ #define SPARC_ETH_SSET		ETHTOOL_SSET
+@@ -1558,6 +1560,10 @@ static __inline__ int ethtool_validate_duplex(__u8 duplex)
+ #define WAKE_MAGIC		(1 << 5)
+ #define WAKE_MAGICSECURE	(1 << 6) /* only meaningful if WAKE_MAGIC */
  
 +/* Relax Ordering mode, on or off. */
-+#define RELAXORDER_OFF          0x00
-+#define RELAXORDER_ON           0x01
++#define RELAXORDER_OFF		0x00
++#define RELAXORDER_ON		0x01
 +
- static inline int ethtool_validate_duplex(__u8 duplex)
- {
- 	switch (duplex) {
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 047a175..b7629d1 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -2685,6 +2685,11 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_SLINKSETTINGS:
- 		rc = ethtool_set_link_ksettings(dev, useraddr);
- 		break;
-+	case ETHTOOL_SRELAXORDER:
-+		rc = ethtool_set_value_void(dev, useraddr,
-+					dev->ethtool_ops->set_relaxorder);
-+		 break;
-+
- 	default:
- 		rc = -EOPNOTSUPP;
+ /* L2-L4 network traffic flow types */
+ #define	TCP_V4_FLOW	0x01	/* hash or spec (tcp_ip4_spec) */
+ #define	UDP_V4_FLOW	0x02	/* hash or spec (udp_ip4_spec) */
+diff --git a/ethtool.c b/ethtool.c
+index 7af039e..acafd71 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2738,6 +2738,8 @@ static int do_sset(struct cmd_context *ctx)
+ 	int msglvl_changed = 0;
+ 	u32 msglvl_wanted = 0;
+ 	u32 msglvl_mask = 0;
++	int relaxorder_wanted = -1;
++	int relaxorder_changed = 0;
+ 	struct cmdline_info cmdline_msglvl[ARRAY_SIZE(flags_msglvl)];
+ 	int argc = ctx->argc;
+ 	char **argp = ctx->argp;
+@@ -2873,6 +2875,16 @@ static int do_sset(struct cmd_context *ctx)
+ 					ARRAY_SIZE(cmdline_msglvl));
+ 				break;
+ 			}
++		} else if (!strcmp(argp[i], "relaxorder")) {
++			relaxorder_changed = 1;
++			i += 1;
++			if (i >= argc)
++				exit_bad_args();
++			if (!strcmp(argp[i], "on"))
++				relaxorder_wanted = RELAXORDER_ON;
++			else if (!strcmp(argp[i], "off"))
++				relaxorder_wanted = RELAXORDER_OFF;
++			else	exit_bad_args();
+ 		} else {
+ 			exit_bad_args();
+ 		}
+@@ -3093,6 +3105,15 @@ static int do_sset(struct cmd_context *ctx)
+ 		}
  	}
+ 
++	if (relaxorder_changed) {
++		struct ethtool_value edata;
++
++		edata.cmd = ETHTOOL_SRELAXORDER;
++		edata.data = relaxorder_wanted;
++		err = send_ioctl(ctx, &edata);
++		if (err < 0)
++			perror("Cannot set relax ordering mode");
++	}
+ 	return 0;
+ }
+ 
+@@ -4690,7 +4711,8 @@ static const struct option {
+ 	  "		[ xcvr internal|external ]\n"
+ 	  "		[ wol p|u|m|b|a|g|s|d... ]\n"
+ 	  "		[ sopass %x:%x:%x:%x:%x:%x ]\n"
+-	  "		[ msglvl %d | msglvl type on|off ... ]\n" },
++	  "		[ msglvl %d | msglvl type on|off ... ]\n"
++	  "		[ relaxorder on|off ]\n" },
+ 	{ "-a|--show-pause", 1, do_gpause, "Show pause options" },
+ 	{ "-A|--pause", 1, do_spause, "Set pause options",
+ 	  "		[ autoneg on|off ]\n"
 -- 
 2.7.0
