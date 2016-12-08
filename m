@@ -1,51 +1,58 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Thu, 8 Dec 2016 16:36:56 -0500
-Message-ID: <1481233016.11849.1@smtp.office365.com>
-References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
-        <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next PATCH v5 5/6] virtio_net: add XDP_TX support
+Date: Thu, 8 Dec 2016 23:45:42 +0200
+Message-ID: <20161208234513-mutt-send-email-mst@kernel.org>
+References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+ <20161207201245.28121.95418.stgit@john-Precision-Tower-5810>
+ <20161208080647-mutt-send-email-mst@kernel.org>
+ <5849A3EE.7090603@gmail.com>
+ <20161208231708-mutt-send-email-mst@kernel.org>
+ <5849CFD4.60103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
+        tgraf@suug.ch, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38259 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752186AbcLHVhz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 16:37:55 -0500
-In-Reply-To: <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51006 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752879AbcLHVpr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 16:45:47 -0500
+Content-Disposition: inline
+In-Reply-To: <5849CFD4.60103@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 8, 2016 at 4:03 PM, Hannes Frederic Sowa 
-<hannes@stressinduktion.org> wrote:
-> Hello Tom,
+On Thu, Dec 08, 2016 at 01:25:40PM -0800, John Fastabend wrote:
+> On 16-12-08 01:18 PM, Michael S. Tsirkin wrote:
+> > On Thu, Dec 08, 2016 at 10:18:22AM -0800, John Fastabend wrote:
+> >>> I guess this helps because it just slows down the guest.
+> >>> I don't much like it ...
+> >>
+> >> I left it like this copying the pattern in balloon and input drivers. I
+> >> can change it back to the previous pattern where it is only called if
+> >> there is no errors. It has been running fine with the old pattern now
+> >> for an hour or so.
+> >>
+> >> .John
+> > 
+> > I'd prefer internal consistency. Could be a patch on top
+> > if this helps. I'm happy it isn't actually buggy.
+> > Let me know whether you want to post v6 or
+> > want me to ack this one.
+> > 
 > 
-> On Wed, Dec 7, 2016, at 00:06, Tom Herbert wrote:
->>  We are seeing a fair number of machines getting into softlockup in 
->> 4.6
->>  kernel. As near as I can tell this is happening on the spinlock in
->>  bind hash bucket. When inet_csk_get_port exits and does 
->> spinunlock_bh
->>  the TCP timer runs and we hit lockup in inet_put_port (presumably on
->>  same lock). It seems like the locked isn't properly be unlocked
->>  somewhere but I don't readily see it.
->> 
->>  Any ideas?
+> I think because DaveM has closed net-next ACK'ing this set would be
+> great to get it in Dave's tree. Then I can post a small "fix" so that it
+> is consistent between normal stack and xdp tx path after that.
 > 
-> Likewise we received reports that pretty much look the same on our
-> heavily patched kernel. Did you have a chance to investigate or
-> reproduce the problem?
-> 
-> I am wondering if you would be able to take a complete thread stack 
-> dump
-> if you can reproduce this to check if one of the user space processes 
-> is
-> looping inside finding a free port?
+> Thanks,
+> John
 
-We can reproduce the problem at will, still trying to run down the 
-problem.  I'll try and find one of the boxes that dumped a core and get 
-a bt of everybody.  Thanks,
+I can merge it through my tree too - I don't think there's
+any dependency on net-next, is there?
 
-Josef
+-- 
+MST
