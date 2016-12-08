@@ -1,49 +1,129 @@
-From: kushwaha.a@samsung.com
-Subject: [PATCH] net: socket: preferred __aligned(size) for control buffer
-Date: Thu, 08 Dec 2016 18:21:53 +0530
-Message-ID: <1481201513-20783-1-git-send-email-kushwaha.a@samsung.com>
-Cc: netdev@vger.kernel.org, akkushwaha9896@gmail.com
-To: davem@davemloft.net
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] sh_eth: add wake-on-lan support via magic packet
+Date: Thu, 8 Dec 2016 14:22:44 +0100
+Message-ID: <20161208132241.GA7150@verge.net.au>
+References: <20161207162843.4731-1-niklas.soderlund+renesas@ragnatech.se>
+ <CAMuHMdVK1DtJMajqD-eZ82QSP2ZRozwaR4zNc0ae1YT21Exq0w@mail.gmail.com>
+ <20161208071620.GG21834@bigcity.dyn.berto.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: Niklas =?utf-8?Q?S=C3=B6derlund?= <niklas.soderlund@ragnatech.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:56032 "EHLO
-        mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751064AbcLHNEU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 08:04:20 -0500
-Received: from epcpsbgm1new.samsung.com (epcpsbgm1 [203.254.230.26])
- by mailout4.samsung.com
- (Oracle Communications Messaging Server 7.0.5.31.0 64bit (built May  5 2014))
- with ESMTP id <0OHV02E5DAIHO4A0@mailout4.samsung.com> for
- netdev@vger.kernel.org; Thu, 08 Dec 2016 21:54:19 +0900 (KST)
+Received: from kirsty.vergenet.net ([202.4.237.240]:60801 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751487AbcLHNWw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 08:22:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20161208071620.GG21834@bigcity.dyn.berto.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kushwaha <kushwaha.a@samsung.com>
+On do, dec 08, 2016 at 08:16:20 +0100, Niklas Söderlund wrote:
+> Hi Geert,
+> 
+> Thanks for testing and your feedback.
+> 
+> On 2016-12-07 19:14:40 +0100, Geert Uytterhoeven wrote:
+> > Hi Niklas,
+> > 
+> > On Wed, Dec 7, 2016 at 5:28 PM, Niklas Söderlund
+> > <niklas.soderlund+renesas@ragnatech.se> wrote:
+> > > Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+> > 
+> > Thanks, works fine on r8a7791/koelsch!
+> > 
+> > Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> > 
+> > > --- a/drivers/net/ethernet/renesas/sh_eth.c
+> > > +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> > > @@ -624,7 +624,7 @@ static struct sh_eth_cpu_data r8a779x_data = {
+> > >
+> > >         .register_type  = SH_ETH_REG_FAST_RCAR,
+> > >
+> > > -       .ecsr_value     = ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
+> > > +       .ecsr_value     = ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD | ECSR_MPD,
+> > 
+> > Interestingly, the ECSR_MPD bit is already set for several SoCs.
+> 
+> Yes, I noticed that and my assumption was that it was set 'just in case' 
+> to clear any MagicPacket interrupts at probe time.
+> 
+> > 
+> > Hence adding ".magic = 1" to the entry for r8a7740 instantly gave me working
+> > WoL support on r8a7740/armadillo. Cool!
+> 
+> Cool, I will set ".magic = 1" for r8a7740 in v2.
+> 
+> > 
+> > > --- a/drivers/net/ethernet/renesas/sh_eth.h
+> > > +++ b/drivers/net/ethernet/renesas/sh_eth.h
+> > > @@ -493,6 +493,7 @@ struct sh_eth_cpu_data {
+> > >         unsigned shift_rd0:1;   /* shift Rx descriptor word 0 right by 16 */
+> > >         unsigned rmiimode:1;    /* EtherC has RMIIMODE register */
+> > >         unsigned rtrate:1;      /* EtherC has RTRATE register */
+> > > +       unsigned magic:1;       /* EtherC have PMDE in ECMR and MPDIP in ECSIPR */
+> > 
+> > Instead of adding a new flag, perhaps you can just check for the ECSR_MPD flag
+> > in ecsr_value?
+> 
+> I briefly considered this but decided against it since I do not have 
+> documentation for all versions of the device and no way to test it. You 
+> tested and confirmed functionality on r8a7740, which leaves:
+> 
+> - sh7734-gether
+> - sh7763-gether
+> - sh7757-gether
+> 
+> To figure out if they support MagicPacket in the same fashion as r8a7740 
+> and r8a779x. If anyone have access to documentation or hardware to 
+> confirm this I be more then happy to get rid of the magic flag in favor 
+> och checking for ECSR_MPD in ecsr_value.
 
-This patch cleanup checkpatch.pl warning
-WARNING: __aligned(size) is preferred over __attribute__((aligned(size)))
+Perhaps documentation can be found but if not I wonder if we can use some
+other mechanism to blacklist SoC which we are unsure about.
 
-Signed-off-by: Amit Kushwaha <kushwaha.a@samsung.com>
----
- net/socket.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+>From my POV it would be very nice if things just worked™ on SoCs where
+the feature has been verified.
 
-diff --git a/net/socket.c b/net/socket.c
-index e631894..5835383 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1,3 +1,4 @@
-+
- /*
-  * NET		An implementation of the SOCKET network access protocol.
-  *
-@@ -1918,7 +1919,7 @@ static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
- 	struct sockaddr_storage address;
- 	struct iovec iovstack[UIO_FASTIOV], *iov = iovstack;
- 	unsigned char ctl[sizeof(struct cmsghdr) + 20]
--	    __attribute__ ((aligned(sizeof(__kernel_size_t))));
-+				__aligned(sizeof(__kernel_size_t));
- 	/* 20 is size of ipv6_pktinfo */
- 	unsigned char *ctl_buf = ctl;
- 	int ctl_len;
--- 
-1.7.9.5
+> > > @@ -529,6 +530,9 @@ struct sh_eth_private {
+> > >         unsigned no_ether_link:1;
+> > >         unsigned ether_link_active_low:1;
+> > >         unsigned is_opened:1;
+> > > +
+> > > +       bool wol_enabled;
+> > 
+> > "unsigned wol_enabled:1", to merge with the bitfield above?
+> 
+> Thanks, looking it it now I don't know what I was thinking. I will 
+> changes it for v2.
+> 
+> > 
+> > > +       struct clk *clk;
+> > 
+> > It's a good practice to keep all pointers at the top of the struct, to avoid
+> > gaps due to alignment restrictions, especially on 64-bit (I know that's not
+> > the case here).
+> 
+> Thanks, you learn new things everyday. I will move it for v2.
+> 
+> > 
+> > Gr{oetje,eeting}s,
+> > 
+> >                         Geert
+> > 
+> > --
+> > Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+> > 
+> > In personal conversations with technical people, I call myself a hacker. But
+> > when I'm talking to journalists I just say "programmer" or something like that.
+> >                                 -- Linus Torvalds
+> 
+> -- 
+> Regards,
+> Niklas Söderlund
+> 
