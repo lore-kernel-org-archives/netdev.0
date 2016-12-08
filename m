@@ -1,46 +1,45 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: stmmac driver...
-Date: Thu, 8 Dec 2016 14:55:04 +0100
-Message-ID: <e8370557-b11a-0fe6-f87f-3af2e5990f27@st.com>
-References: <20161207.130654.1484281922991494182.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: handle no dst on skb in icmp6_send
+Date: Thu, 08 Dec 2016 15:04:17 +0100
+Message-ID: <1481205857.4073547.812616921.223287BE@webmail.messagingengine.com>
+References: <1480301573-21183-1-git-send-email-dsa@cumulusnetworks.com>
+ <20161128.161344.1778661062306703117.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <peppe.cavallaro@st.com>
+Cc: netdev@vger.kernel.org, andreyknvl@google.com
+To: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:43662 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751693AbcLHNzL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 08:55:11 -0500
-In-Reply-To: <20161207.130654.1484281922991494182.davem@davemloft.net>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:33361 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752078AbcLHOES (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 09:04:18 -0500
+In-Reply-To: <20161128.161344.1778661062306703117.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hello David,
 
-On 12/07/2016 07:06 PM, David Miller wrote:
->
-> Giuseppe and Alexandre,
->
-> There are a lot of patches and discussions happening around the stammc
-> driver lately and both of you are listed as the maintainers.
->
-> I really need prompt and conclusive reviews of these patch submissions
-> from you, and participation in all discussions about the driver.
->
-> Otherwise I have only three things I can do: 1) let the patches rot in
-> patchwork for days 2) trust that the patches are sane and fit your
-> desires and goals and just apply them or 3) reject them since they
-> aren't being reviewed properly.
+On Mon, Nov 28, 2016, at 22:13, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Sun, 27 Nov 2016 18:52:53 -0800
+> 
+> > Andrey reported the following while fuzzing the kernel with syzkaller:
+>  ...
+> > icmp6_send / icmpv6_send is invoked for both rx and tx paths. In both
+> > cases the dst->dev should be preferred for determining the L3 domain
+> > if the dst has been set on the skb. Fallback to the skb->dev if it has
+> > not. This covers the case reported here where icmp6_send is invoked on
+> > Rx before the route lookup.
+> > 
+> > Fixes: 5d41ce29e ("net: icmp6_send should use dst dev to determine L3 domain")
+> > Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> > Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> 
+> Applied, thanks David.
 
-Sorry for the delay. I reviewed Niklas series this morning. I'm testing
-"net: ethernet: stmmac: remove private tx queue lock".
+could you queue this patch up for stable. You can remotely kill machines
+with this bug.
 
-Maybe I forget some series. Do you have others in mind ?
-
-Regards
-Alex
->
-> Thanks in advance.
->
+Thanks,
+Hannes
