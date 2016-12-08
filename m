@@ -1,52 +1,41 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH] vhost-vsock: fix orphan connection reset
-Date: Thu, 8 Dec 2016 09:19:33 +0000
-Message-ID: <20161208091933.GA10780@stefanha-x1.localdomain>
-References: <1481103947-76771-1-git-send-email-bergwolf@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] drivers: net: xgene: initialize slots
+Date: Thu,  8 Dec 2016 11:17:54 +0000
+Message-ID: <20161208111754.9711-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="huq684BweRXVnRxX"
-Cc: Stefan Hajnoczi <stefanha@redhat.com>, netdev@vger.kernel.org,
-        stable@vger.kernel.org, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org
-To: Peng Tao <bergwolf@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1481103947-76771-1-git-send-email-bergwolf@gmail.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Iyappan Subramanian <isubramanian@apm.com>,
+        Keyur Chudgar <kchudgar@apm.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Colin Ian King <colin.king@canonical.com>
 
---huq684BweRXVnRxX
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+static analysis using cppcheck detected that slots was uninitialized.
+Fix this by initializing it to buf_pool->slots - 1
 
-On Wed, Dec 07, 2016 at 05:45:47PM +0800, Peng Tao wrote:
-> local_addr.svm_cid is host cid. We should check guest cid instead,
-> which is remote_addr.svm_cid.
->=20
-> Cc: Stefan Hajnoczi <stefanha@redhat.com>
-> Cc: stable@vger.kernel.org #4.8+
-> Signed-off-by: Peng Tao <bergwolf@gmail.com>
-> ---
->  drivers/vhost/vsock.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+Found using static analysis with CoverityScan, CID #1387620
 
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+Fixes: a9380b0f7be818 ("drivers: net: xgene: Add support for Jumbo frame")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
---huq684BweRXVnRxX
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJYSSWkAAoJEJykq7OBq3PI0rsH+wcuZhkfOgsQeZ/7sFHdqM4d
-jeBW9nE4zWbihMIfospEg+5dZbLVRLq+mZfls99gyhqezNFNwbNnIPzAjFG5IEbA
-E8a7ueMXV47VMafiusGiGFnUlHAjTFZOSthVY4S1V7fBZg6Fm6zQpLDZRKAk/0bN
-Oi7HAhmGFxPL83OG42MiJaWivxm+ce/t9UiCZDDx6hG9oyQ2F0Y5mq5EZosCWtfX
-FJcYANumA/guHZGzuerOTPPpcwLHO7LJMisw3ypMrOWLnDri2ReexfnVd49HXRBL
-FkBlXKk1YCjd5wvl6gom8k1LKWTV0BmWYJgowJrYN1EcXtEEWukk+ltKqV03MQo=
-=jmP8
------END PGP SIGNATURE-----
-
---huq684BweRXVnRxX--
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 6c7eea8..899163c 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -636,6 +636,7 @@ static void xgene_enet_free_pagepool(struct xgene_enet_desc_ring *buf_pool,
+ 
+ 	dev = ndev_to_dev(buf_pool->ndev);
+ 	head = buf_pool->head;
++	slots = buf_pool->slots - 1;
+ 
+ 	for (i = 0; i < 4; i++) {
+ 		frag_size = xgene_enet_get_data_len(le64_to_cpu(desc[i ^ 1]));
+-- 
+2.10.2
