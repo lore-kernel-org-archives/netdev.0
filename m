@@ -1,22 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] vhost-vsock: remove unused vq variable
-Date: Thu, 08 Dec 2016 11:30:41 -0500 (EST)
-Message-ID: <20161208.113041.1588221120775278537.davem@davemloft.net>
-References: <1481104340-77035-1-git-send-email-bergwolf@gmail.com>
+Subject: Re: [patch] drivers: net: xgene: uninitialized variable in
+ xgene_enet_free_pagepool()
+Date: Thu, 08 Dec 2016 11:30:53 -0500 (EST)
+Message-ID: <20161208.113053.539814359496613991.davem@davemloft.net>
+References: <20161207111424.GA5507@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stefanha@redhat.com, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: bergwolf@gmail.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1481104340-77035-1-git-send-email-bergwolf@gmail.com>
-Sender: kvm-owner@vger.kernel.org
+Cc: isubramanian@apm.com, kchudgar@apm.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161207111424.GA5507@elgon.mountain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peng Tao <bergwolf@gmail.com>
-Date: Wed,  7 Dec 2016 17:52:18 +0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 7 Dec 2016 14:14:24 +0300
 
-> Signed-off-by: Peng Tao <bergwolf@gmail.com>
+> We never set "slots" in this function.
+> 
+> Fixes: a9380b0f7be8 ("drivers: net: xgene: Add support for Jumbo frame")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
