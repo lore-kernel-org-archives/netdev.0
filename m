@@ -1,11 +1,10 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v5 3/6] virtio_net: Add XDP support
-Date: Thu, 8 Dec 2016 07:54:31 +0200
-Message-ID: <20161208075418-mutt-send-email-mst@kernel.org>
+Subject: Re: [net-next PATCH v5 4/6] virtio_net: add dedicated XDP transmit
+ queues
+Date: Thu, 8 Dec 2016 07:59:54 +0200
+Message-ID: <20161208075459-mutt-send-email-mst@kernel.org>
 References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161207201157.28121.39934.stgit@john-Precision-Tower-5810>
- <20161208064037-mutt-send-email-mst@kernel.org>
- <5848EC48.7080904@gmail.com>
+ <20161207201223.28121.87060.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
@@ -14,63 +13,99 @@ Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
         brouer@redhat.com
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35312 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38168 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750838AbcLHFyi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 00:54:38 -0500
+        id S1750800AbcLHGAg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 01:00:36 -0500
 Content-Disposition: inline
-In-Reply-To: <5848EC48.7080904@gmail.com>
+In-Reply-To: <20161207201223.28121.87060.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 07, 2016 at 09:14:48PM -0800, John Fastabend wrote:
-> On 16-12-07 08:48 PM, Michael S. Tsirkin wrote:
-> > On Wed, Dec 07, 2016 at 12:11:57PM -0800, John Fastabend wrote:
-> >> From: John Fastabend <john.fastabend@gmail.com>
-> >>
-> >> This adds XDP support to virtio_net. Some requirements must be
-> >> met for XDP to be enabled depending on the mode. First it will
-> >> only be supported with LRO disabled so that data is not pushed
-> >> across multiple buffers. Second the MTU must be less than a page
-> >> size to avoid having to handle XDP across multiple pages.
-> >>
-> >> If mergeable receive is enabled this patch only supports the case
-> >> where header and data are in the same buf which we can check when
-> >> a packet is received by looking at num_buf. If the num_buf is
-> >> greater than 1 and a XDP program is loaded the packet is dropped
-> >> and a warning is thrown. When any_header_sg is set this does not
-> >> happen and both header and data is put in a single buffer as expected
-> >> so we check this when XDP programs are loaded.  Subsequent patches
-> >> will process the packet in a degraded mode to ensure connectivity
-> >> and correctness is not lost even if backend pushes packets into
-> >> multiple buffers.
-> >>
-> >> If big packets mode is enabled and MTU/LRO conditions above are
-> >> met then XDP is allowed.
-> >>
-> >> This patch was tested with qemu with vhost=on and vhost=off where
-> >> mergeable and big_packet modes were forced via hard coding feature
-> >> negotiation. Multiple buffers per packet was forced via a small
-> >> test patch to vhost.c in the vhost=on qemu mode.
-> >>
-> >> Suggested-by: Shrijeet Mukherjee <shrijeet@gmail.com>
-> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> > 
-> > I'd like to note that I don't think disabling LRO is a good
-> > plan long-term. It's really important for virtio performance,
-> > so IMHO we need a fix for that.
-> > I'm guessing that a subset of XDP programs would be quite
-> > happy with just looking at headers, and that is there in the 1st buffer.
-> > So how about teaching XDP that there could be a truncated packet?
-> > 
-> > Then we won't have to disable LRO.
-> > 
+On Wed, Dec 07, 2016 at 12:12:23PM -0800, John Fastabend wrote:
+> XDP requires using isolated transmit queues to avoid interference
+> with normal networking stack (BQL, NETDEV_TX_BUSY, etc).
+> This patch
+> adds a XDP queue per cpu when a XDP program is loaded and does not
+> expose the queues to the OS via the normal API call to
+> netif_set_real_num_tx_queues(). This way the stack will never push
+> an skb to these queues.
 > 
-> Agreed long-term we can drop this requirement this type of improvement
-> would also allow working with jumbo frames on nics.
+> However virtio/vhost/qemu implementation only allows for creating
+> TX/RX queue pairs at this time so creating only TX queues was not
+> possible. And because the associated RX queues are being created I
+> went ahead and exposed these to the stack and let the backend use
+> them. This creates more RX queues visible to the network stack than
+> TX queues which is worth mentioning but does not cause any issues as
+> far as I can tell.
 > 
-> I don't think it should block this patch series though.
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  drivers/net/virtio_net.c |   30 ++++++++++++++++++++++++++++--
+>  1 file changed, 28 insertions(+), 2 deletions(-)
 > 
-> .John
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index a009299..28b1196 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -114,6 +114,9 @@ struct virtnet_info {
+>  	/* # of queue pairs currently used by the driver */
+>  	u16 curr_queue_pairs;
+>  
+> +	/* # of XDP queue pairs currently used by the driver */
+> +	u16 xdp_queue_pairs;
+> +
+>  	/* I like... big packets and I cannot lie! */
+>  	bool big_packets;
+>  
+> @@ -1547,7 +1550,8 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	struct bpf_prog *old_prog;
+> -	int i;
+> +	u16 xdp_qp = 0, curr_qp;
+> +	int i, err;
+>  
+>  	if ((dev->features & NETIF_F_LRO) && prog) {
+>  		netdev_warn(dev, "can't set XDP while LRO is on, disable LRO first\n");
+> @@ -1564,12 +1568,34 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  		return -EINVAL;
+>  	}
+>  
+> +	curr_qp = vi->curr_queue_pairs - vi->xdp_queue_pairs;
+> +	if (prog)
+> +		xdp_qp = nr_cpu_ids;
+> +
+> +	/* XDP requires extra queues for XDP_TX */
+> +	if (curr_qp + xdp_qp > vi->max_queue_pairs) {
+> +		netdev_warn(dev, "request %i queues but max is %i\n",
+> +			    curr_qp + xdp_qp, vi->max_queue_pairs);
+> +		return -ENOMEM;
+> +	}
 
-Right.
+Can't we disable XDP_TX somehow? Many people might only want RX drop,
+and extra queues are not always there.
+
+
+> +
+> +	err = virtnet_set_queues(vi, curr_qp + xdp_qp);
+> +	if (err) {
+> +		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+> +		return err;
+> +	}
+> +
+>  	if (prog) {
+>  		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
+> -		if (IS_ERR(prog))
+> +		if (IS_ERR(prog)) {
+> +			virtnet_set_queues(vi, curr_qp);
+>  			return PTR_ERR(prog);
+> +		}
+>  	}
+>  
+> +	vi->xdp_queue_pairs = xdp_qp;
+> +	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
+> +
+>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+>  		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
