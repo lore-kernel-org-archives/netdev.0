@@ -1,58 +1,51 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v2 net-next 4/4] udp: add batching to udp_rmem_release()
-Date: Thu, 8 Dec 2016 10:38:51 -0800
-Message-ID: <CANn89i+10fwMQ+oqs2AgVfE9CHnpZqecN_NxVqobyzD1riyMfg@mail.gmail.com>
-References: <1481218739-27089-1-git-send-email-edumazet@google.com>
- <1481218739-27089-5-git-send-email-edumazet@google.com> <1481221491.6120.11.camel@redhat.com>
- <CANn89iL8r9UD=sGn3WxVFZ+Z_QJYYM6aXxCFvafwvJ-bEtNhKQ@mail.gmail.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH] drivers: net: xgene: initialize slots
+Date: Thu, 8 Dec 2016 10:44:31 -0800
+Message-ID: <CAKh23Fk5c48O_ddCZ=OTimdiA1_-F-j5U1H8c+OrcQHnzOsJaQ@mail.gmail.com>
+References: <20161208111754.9711-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:34471 "EHLO
-        mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752057AbcLHSix (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:38:53 -0500
-Received: by mail-io0-f174.google.com with SMTP id p42so18572557ioo.1
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 10:38:52 -0800 (PST)
-In-Reply-To: <CANn89iL8r9UD=sGn3WxVFZ+Z_QJYYM6aXxCFvafwvJ-bEtNhKQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Keyur Chudgar <kchudgar@apm.com>, netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161208111754.9711-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 8, 2016 at 10:36 AM, Eric Dumazet <edumazet@google.com> wrote:
-> On Thu, Dec 8, 2016 at 10:24 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+On Thu, Dec 8, 2016 at 3:17 AM, Colin King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 >
->> Nice one! This sounds like a relevant improvement!
->>
->> I'm wondering if it may cause regressions with small value of
->> sk_rcvbuf ?!? e.g. with:
->>
->> netperf -t UDP_STREAM  -H 127.0.0.1 -- -s 1280 -S 1280 -m 1024 -M 1024
->>
+> static analysis using cppcheck detected that slots was uninitialized.
+> Fix this by initializing it to buf_pool->slots - 1
 >
-> Possibly, then simply we can refine the test to :
+> Found using static analysis with CoverityScan, CID #1387620
 >
-> size = up->forward_deficit;
-> if (size < (sk->sk_rcvbuf >> 2)  && !skb_queue_empty(sk->sk_receive_buf))
->      return;
+> Fixes: a9380b0f7be818 ("drivers: net: xgene: Add support for Jumbo frame")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> index 6c7eea8..899163c 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> @@ -636,6 +636,7 @@ static void xgene_enet_free_pagepool(struct xgene_enet_desc_ring *buf_pool,
+>
+>         dev = ndev_to_dev(buf_pool->ndev);
+>         head = buf_pool->head;
+> +       slots = buf_pool->slots - 1;
+>
+>         for (i = 0; i < 4; i++) {
+>                 frag_size = xgene_enet_get_data_len(le64_to_cpu(desc[i ^ 1]));
 
-BTW, I tried :
+Thanks, Colin.
 
-lpaa6:~# ./netperf -t UDP_STREAM  -H 127.0.0.1 -- -s 1280 -S 1280 -m
-1024 -M 1024
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-127.0.0.1 () port 0 AF_INET
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
+Dan Carpenter <dan.carpenter@oracle.com> posted the fix already and
+got accepted.
+http://marc.info/?l=linux-netdev&m=148110980224343&w=2
 
-  4608    1024   10.00     4499400      0    3685.88
-  2560           10.00     4498670           3685.28
-
-So it looks like it is working.
-
-However I have no doubt there might be a corner case for tiny
-SO_RCVBUF values or for some message sizes.
+> --
+> 2.10.2
+>
