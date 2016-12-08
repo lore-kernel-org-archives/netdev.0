@@ -1,84 +1,96 @@
 From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
-Date: Thu, 8 Dec 2016 22:54:09 +0100
-Message-ID: <20161208215409.GA12472@amd>
-References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
- <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
- <20161207231534.GB5889@electric-eye.fr.zoreil.com>
- <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
+Subject: Re: [PATCH net-next 2/2] net: ethernet: Initial driver for Synopsys
+ DWC XLGMAC
+Date: Thu, 8 Dec 2016 22:57:12 +0100
+Message-ID: <20161208215712.GB12472@amd>
+References: <cover.1481075763.git.jiedeng@synopsys.com>
+ <3fe82457c51f8437797eae27d03cdb0dcbef039b.1481075763.git.jiedeng@synopsys.com>
+ <20161207094815.GB5399@amd>
+ <bea5ea07-cbab-35fe-434c-1cfcb96225ef@synopsys.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="envbJBWh7q8WU6mo"
-Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
-        ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+        protocol="application/pgp-signature"; boundary="UHN/qo2QbUvPLonB"
+Cc: davem@davemloft.net, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, CARLOS.PALMINHA@synopsys.com,
+        lars.persson@axis.com, thomas.lendacky@amd.com,
+        peppe.cavallaro@st.com, Joao.Pinto@synopsys.com
+To: Jie Deng <Jie.Deng1@synopsys.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
+In-Reply-To: <bea5ea07-cbab-35fe-434c-1cfcb96225ef@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---envbJBWh7q8WU6mo
+--UHN/qo2QbUvPLonB
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu 2016-12-08 21:32:12, Lino Sanfilippo wrote:
-> Hi,
->=20
-> On 08.12.2016 00:15, Francois Romieu wrote:
-> > Lino Sanfilippo <LinoSanfilippo@gmx.de> :
-> >> The driver uses a private lock for synchronization between the xmit
-> >> function and the xmit completion handler, but since the NETIF_F_LLTX f=
-lag
-> >> is not set, the xmit function is also called with the xmit_lock held.
-> >>=20
-> >> On the other hand the xmit completion handler first takes the private =
-lock
-> >> and (in case that the tx queue has been stopped) the xmit_lock, leading
-> >> to a reverse locking order and the potential danger of a deadlock.
-> >=20
-> > netif_tx_stop_queue is used by:
-> > 1. xmit function before releasing lock and returning.
-> > 2. sxgbe_restart_tx_queue()
-> >    <- sxgbe_tx_interrupt
-> >    <- sxgbe_reset_all_tx_queues()
-> >       <- sxgbe_tx_timeout()
-> >=20
-> > Given xmit won't be called again until tx queue is enabled, it's not cl=
-ear
-> > how a deadlock could happen due to #1.
-> >=20
+On Thu 2016-12-08 13:58:47, Jie Deng wrote:
 >=20
 >=20
-> After spending more thoughts on this I tend to agree with you. Yes, we ha=
-ve the
-> different locking order for the xmit_lock and the private lock in two con=
-current
-> threads. And one of the first things one learns about locking is that thi=
-s is a
-> good way to create a deadlock sooner or later. But in our case the deadlo=
-ck=20
-> can only occur if the xmit function and the tx completion handler perceiv=
-e different
->  states for the tx queue, or to be more specific:=20
-> the completion handler sees the tx queue in state "stopped" while the xmi=
-t handler=20
-> sees it in state "running" at the same time. Only then both functions wou=
-ld try to
-> take both locks, which could lead to a deadlock.
->=20
-> OTOH Pavel said that he actually could produce a deadlock. Now I wonder i=
-f this is caused
-> by that locking scheme (in a way I have not figured out yet) or if it is =
-a different issue.
+> On 2016/12/7 17:48, Pavel Machek wrote:
+> > Hi!
+> >
+> >> This patch provides the initial driver for 25/40/50/100 GbE
+> >> devices using Synopsys DWC Enterprise Ethernet (XLGMAC)
+> >>
+> >> Signed-off-by: Jie Deng <jiedeng@synopsys.com>
+> > I trust this is different hardware from stmmac?
+> Yes, different hardware. Currently,  Synopsys has several Ethernet IP cor=
+es. But
+> drivers for these hardwares are scattered in different places. I really h=
+ope
+> that they can be centralized into driver/net/ethernet/synopsys for mainte=
+nance.
+> This makes things easy for others to find the corresponding drivers.
+>     - QoS
+>         drivers/net/ethernet/synopsys/dwc_eth_qos.c
+>         drivers/net/ethernet/stmicro/stmmac/         =20
+>     - XGMAC
+>         driver/net/ethernet/amd/xgbe/
+>     - XLGMAC
+>         No driver for this hardware in mainline at present.
 
-Pavel has some problems, but that's on different hardware.. and it is
-possible that it is deadlock (or something else) somewhere else.
+
+> >> diff --git a/MAINTAINERS b/MAINTAINERS
+> >> index 331f6af..738f818 100644
+> >> --- a/MAINTAINERS
+> >> +++ b/MAINTAINERS
+> >> @@ -10639,6 +10639,12 @@ S: Supported
+> >>  F: Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> >>  F: drivers/net/ethernet/synopsys/dwc_eth_qos.c
+> >> =20
+> >> +SYNOPSYS DESIGNWARE ENTERPRISE ETHERNET (XLGMAC) DRIVER
+> >> +M:	jiedeng <jiedeng@synopsys.com>
+> > Jie Deng here?
+> Oh, should be Jie Deng here. Thank you!
+> >
+> >> @@ -0,0 +1,228 @@
+> >> +/*
+> >> + * Synopsys DesignWare Ethernet Driver
+> > Your patch title names hardware differently...?
+> Yes, currently, it should be XLGMAC driver. I extracted the parts can be =
+shared
+> for different Synopsys IPs.
+>=20
+> The XLGMAC driver can be divided into three parts
+>=20
+> - The DWC ethernet core layer (DWC ECL):
+> Currently, it supports XLGMAC. But I think this part can be shared for di=
+fferent
+> Synopsys IPs.
+>=20
+> - The DWC MAC HW adapter layer (DWC MHAL):
+> This part was designed to include special support for a specific MAC IP.
+> Currently, XLGMAC, and I think we can add
+> something to support XGMAC and QoS in the future.
+>=20
+> - The glue adapter layer (GAL)
+
+Ok, thanks for description. Hopefully it can be merged in a way that
+is not too confusing...
 
 Best regards,
 									Pavel
@@ -87,16 +99,16 @@ Best regards,
 (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
 g.html
 
---envbJBWh7q8WU6mo
+--UHN/qo2QbUvPLonB
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAlhJ1oEACgkQMOfwapXb+vL3JgCfYQWbKWmosPOwX8Hf3iqnqeA3
-vnwAoMF0lsmE26ueDjzaXIa3Prncv8qH
-=NzZW
+iEYEARECAAYFAlhJ1zgACgkQMOfwapXb+vI2ggCfRcIFc+DddVZKoMlRiimmHTsy
+R4oAoIR35llQvE8/3GSZRgXrg/K8Mfup
+=z/sd
 -----END PGP SIGNATURE-----
 
---envbJBWh7q8WU6mo--
+--UHN/qo2QbUvPLonB--
