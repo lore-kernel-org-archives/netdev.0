@@ -1,81 +1,65 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [PATCH v3 1/6] net: stmmac: return error if no DMA configuration
- is found
-Date: Thu, 8 Dec 2016 11:44:35 +0100
-Message-ID: <d18098a5-a4a4-0c63-f64c-cdb7144dd67e@st.com>
-References: <1481120409-18103-1-git-send-email-niklass@axis.com>
- <1481120409-18103-2-git-send-email-niklass@axis.com>
+From: "Yang, Yi" <yi.y.yang@intel.com>
+Subject: Re: [PATCH net-next] openvswitch: fix VxLAN-gpe port can't be
+ created in ovs compat mode
+Date: Thu, 8 Dec 2016 18:57:51 +0800
+Message-ID: <20161208105750.GA14898@cran64.bj.intel.com>
+References: <1481185210-13056-1-git-send-email-yi.y.yang@intel.com>
+ <20161208095401.3e4054c9@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481120409-18103-2-git-send-email-niklass@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@ovn.org
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.43]:45272 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751862AbcLHLHf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 06:07:35 -0500
+Content-Disposition: inline
+In-Reply-To: <20161208095401.3e4054c9@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas,
+On Thu, Dec 08, 2016 at 09:54:00AM +0100, Jiri Benc wrote:
+> On Thu,  8 Dec 2016 16:20:10 +0800, Yi Yang wrote:
+> > In ovs compat mode, ovs won't use LWT in current kernel, this is to
+> > make sure ovs can work on the old kernels, Linux kernel v4.7 includes
+> > VxLAN-gpe support but many Linux distributions' kernels are odler than
+> > v4.7, this fix will ensure that ovs can create VxLAN-gpe port correctly
+> > on old kernels, it has been verified on Ubuntu 16.04 x86_64 with Linux
+> > kernel 4.4.0-53-generic.
+> 
+> NAK. We do have a way to configure this and that's rtnetlink. Open
+> vSwitch should use that to configure tunnels. Out of tree modules are
+> on their own. Upstream kernel does not accommodate out of tree modules.
+>
+Jiri, this has used rtnetlink to confgiure, te below is my test code in ovs.
+As Pravin mentioned, in compat mode, ovs won't use current in-kernel
+module which is vxlan in upstream kernel, but ovs has its own vport_vxlan
+module for this, it has different behaviour from LWT in upstream kernel.
+If you try this in the kernels below v4.7, you will clearly know this.
 
-On 12/07/2016 03:20 PM, Niklas Cassel wrote:
-> From: Niklas Cassel <niklas.cassel@axis.com>
->
-> All drivers except pci glue layer calls stmmac_probe_config_dt.
-> stmmac_probe_config_dt does a kzalloc dma_cfg.
->
-> pci glue layer does kzalloc dma_cfg explicitly, so all current
-> drivers does a kzalloc dma_cfg.
->
-> Return an error if no DMA configuration is found, that way
-> we can assume that the DMA configuration always exists.
->
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+ovs will port this patch into the below files in ovs soure code
+datapath/linux/compat/include/linux/openvswitch.h and datapath/vport-vxlan.c once it is accepted,this is ovs upstream process, if Linux kernel doesn't include this, ovs won't accept it.
 
-Acked-by: Alexandre Torgue <alexandre.torgue@stcom>
+So ovs out of tree modules need to adapt to upstream kernel, any
+kernel-related changes must be accepted by Linux kernel at first. Pravin
+is a dedicated person doing such work, your L3 patches merged into
+net-next will be ported into ovs out of tree modules by Pravin in the
+same way.
 
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 18 +++++++++---------
->  1 file changed, 9 insertions(+), 9 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 982c95213da4..14366800e5e6 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1578,16 +1578,12 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
->   */
->  static int stmmac_init_dma_engine(struct stmmac_priv *priv)
->  {
-> -	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, aal = 0;
-> -	int mixed_burst = 0;
->  	int atds = 0;
->  	int ret = 0;
->
-> -	if (priv->plat->dma_cfg) {
-> -		pbl = priv->plat->dma_cfg->pbl;
-> -		fixed_burst = priv->plat->dma_cfg->fixed_burst;
-> -		mixed_burst = priv->plat->dma_cfg->mixed_burst;
-> -		aal = priv->plat->dma_cfg->aal;
-> +	if (!priv->plat->dma_cfg) {
-> +		dev_err(priv->device, "DMA configuration not found\n");
-> +		return -EINVAL;
->  	}
->
->  	if (priv->extend_desc && (priv->mode == STMMAC_RING_MODE))
-> @@ -1599,8 +1595,12 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
->  		return ret;
->  	}
->
-> -	priv->hw->dma->init(priv->ioaddr, pbl, fixed_burst, mixed_burst,
-> -			    aal, priv->dma_tx_phy, priv->dma_rx_phy, atds);
-> +	priv->hw->dma->init(priv->ioaddr,
-> +			    priv->plat->dma_cfg->pbl,
-> +			    priv->plat->dma_cfg->fixed_burst,
-> +			    priv->plat->dma_cfg->mixed_burst,
-> +			    priv->plat->dma_cfg->aal,
-> +			    priv->dma_tx_phy, priv->dma_rx_phy, atds);
->
->  	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
->  		priv->rx_tail_addr = priv->dma_rx_phy +
->
+diff --git a/lib/dpif-netlink.c b/lib/dpif-netlink.c
+index 0d03334..7d8a0f4 100644
+--- a/lib/dpif-netlink.c
++++ b/lib/dpif-netlink.c
+@@ -1006,7 +1006,11 @@ netdev_vxlan_create(struct netdev *netdev)
+     nl_msg_put_string(&request, IFLA_IFNAME, name);
+     nl_msg_put_u32(&request, IFLA_MTU, UINT16_MAX);
+     linkinfo_off = nl_msg_start_nested(&request, IFLA_LINKINFO);
++#ifdef USE_UPSTREAM_TUNNEL
+         nl_msg_put_string(&request, IFLA_INFO_KIND, "vxlan");
++#else
++        nl_msg_put_string(&request, IFLA_INFO_KIND, "ovs_vxlan");
++#endif
+         infodata_off = nl_msg_start_nested(&request, IFLA_INFO_DATA);
+             nl_msg_put_u8(&request, IFLA_VXLAN_LEARNING, 0);
+             nl_msg_put_u8(&request, IFLA_VXLAN_COLLECT_METADATA, 1);
