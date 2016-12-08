@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: do not read sk_drops if application does
- not care
-Date: Thu, 08 Dec 2016 13:31:24 -0500 (EST)
-Message-ID: <20161208.133124.1404435790534805233.davem@davemloft.net>
-References: <1481133936.4930.51.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: rfs: add a jump label
+Date: Thu, 08 Dec 2016 10:31:13 -0800
+Message-ID: <1481221873.4930.123.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1481128150.4930.25.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161208.131900.434329215014851517.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, pabeni@redhat.com
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36202 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751388AbcLHSbZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:31:25 -0500
-In-Reply-To: <1481133936.4930.51.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34813 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752419AbcLHScR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:32:17 -0500
+Received: by mail-pg0-f65.google.com with SMTP id e9so27505793pgc.1
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 10:32:15 -0800 (PST)
+In-Reply-To: <20161208.131900.434329215014851517.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 07 Dec 2016 10:05:36 -0800
+On Thu, 2016-12-08 at 13:19 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 07 Dec 2016 08:29:10 -0800
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > RFS is not commonly used, so add a jump label to avoid some conditionals
+> > in fast path.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> Applied, but I wonder how effective this will really be in the long run.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> sk_drops can be an often written field, do not read it unless
-> application showed interest.
-> 
-> Note that sk_drops can be read via inet_diag, so applications
-> can avoid getting this info from every received packet.
-> 
-> In the future, 'reading' sk_drops might require folding per node or per
-> cpu fields, and thus become even more expensive than today.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+I guess this applies to about all jump labels.
 
-Applied.
+As soon as the attribute is per namespace, we no longer can use them.
+
+A conditional cost really depends on the expression complexity
+(including cache line misses)
+
+TCP stack might benefit from jump labels, like sysctl_tcp_low_latency
+which is often set to 1 on hosts mostly using epoll()/poll()/select()
+instead of blocking read()/recvmsg()
