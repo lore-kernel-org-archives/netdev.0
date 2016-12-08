@@ -1,108 +1,88 @@
 From: Peng Tao <bergwolf@gmail.com>
-Subject: [PATCH v3 1/4] vsock: track pkt owner vsock
-Date: Fri,  9 Dec 2016 01:12:33 +0800
-Message-ID: <1481217156-7160-2-git-send-email-bergwolf@gmail.com>
+Subject: [PATCH v3 3/4] vsock: add pkt cancel capability
+Date: Fri,  9 Dec 2016 01:12:35 +0800
+Message-ID: <1481217156-7160-4-git-send-email-bergwolf@gmail.com>
 References: <1481217156-7160-1-git-send-email-bergwolf@gmail.com>
+ <1481217156-7160-2-git-send-email-bergwolf@gmail.com>
+ <1481217156-7160-3-git-send-email-bergwolf@gmail.com>
 Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
         virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
         Jorgen Hansen <jhansen@vmware.com>
 To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:32796 "EHLO
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35686 "EHLO
         mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751665AbcLHRNU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 12:13:20 -0500
-In-Reply-To: <1481217156-7160-1-git-send-email-bergwolf@gmail.com>
+        with ESMTP id S932371AbcLHRN1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 12:13:27 -0500
+In-Reply-To: <1481217156-7160-3-git-send-email-bergwolf@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So that we can cancel a queued pkt later if necessary.
-
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
 Signed-off-by: Peng Tao <bergwolf@gmail.com>
 ---
- include/linux/virtio_vsock.h            | 2 ++
- net/vmw_vsock/virtio_transport_common.c | 7 +++++++
- 2 files changed, 9 insertions(+)
+ net/vmw_vsock/virtio_transport.c | 42 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
 
-diff --git a/include/linux/virtio_vsock.h b/include/linux/virtio_vsock.h
-index 9638bfe..193ad3a 100644
---- a/include/linux/virtio_vsock.h
-+++ b/include/linux/virtio_vsock.h
-@@ -48,6 +48,7 @@ struct virtio_vsock_pkt {
- 	struct virtio_vsock_hdr	hdr;
- 	struct work_struct work;
- 	struct list_head list;
-+	void *cancel_token; /* only used for cancellation */
- 	void *buf;
- 	u32 len;
- 	u32 off;
-@@ -56,6 +57,7 @@ struct virtio_vsock_pkt {
+diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
+index 936d7ee..95c1162 100644
+--- a/net/vmw_vsock/virtio_transport.c
++++ b/net/vmw_vsock/virtio_transport.c
+@@ -170,6 +170,47 @@ virtio_transport_send_pkt(struct virtio_vsock_pkt *pkt)
+ 	return len;
+ }
  
- struct virtio_vsock_pkt_info {
- 	u32 remote_cid, remote_port;
-+	struct vsock_sock *vsk;
- 	struct msghdr *msg;
- 	u32 pkt_len;
- 	u16 type;
-diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
-index a53b3a1..ef94eb8 100644
---- a/net/vmw_vsock/virtio_transport_common.c
-+++ b/net/vmw_vsock/virtio_transport_common.c
-@@ -57,6 +57,7 @@ virtio_transport_alloc_pkt(struct virtio_vsock_pkt_info *info,
- 	pkt->len		= len;
- 	pkt->hdr.len		= cpu_to_le32(len);
- 	pkt->reply		= info->reply;
-+	pkt->cancel_token	= info->vsk;
++static int
++virtio_transport_cancel_pkt(struct vsock_sock *vsk)
++{
++	struct virtio_vsock *vsock;
++	struct virtio_vsock_pkt *pkt, *n;
++	int cnt = 0;
++	LIST_HEAD(freeme);
++
++	vsock = virtio_vsock_get();
++	if (!vsock) {
++		return -ENODEV;
++	}
++
++	spin_lock_bh(&vsock->send_pkt_list_lock);
++	list_for_each_entry_safe(pkt, n, &vsock->send_pkt_list, list) {
++		if (pkt->cancel_token != (void *)vsk)
++			continue;
++		list_move(&pkt->list, &freeme);
++	}
++	spin_unlock_bh(&vsock->send_pkt_list_lock);
++
++	list_for_each_entry_safe(pkt, n, &freeme, list) {
++		if (pkt->reply)
++			cnt++;
++		list_del(&pkt->list);
++		virtio_transport_free_pkt(pkt);
++	}
++
++	if (cnt) {
++		struct virtqueue *rx_vq = vsock->vqs[VSOCK_VQ_RX];
++		int new_cnt;
++
++		new_cnt = atomic_sub_return(cnt, &vsock->queued_replies);
++		if (new_cnt + cnt >= virtqueue_get_vring_size(rx_vq) &&
++		    new_cnt < virtqueue_get_vring_size(rx_vq))
++			queue_work(virtio_vsock_workqueue, &vsock->rx_work);
++	}
++
++	return 0;
++}
++
+ static void virtio_vsock_rx_fill(struct virtio_vsock *vsock)
+ {
+ 	int buf_len = VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE;
+@@ -419,6 +460,7 @@ static struct virtio_transport virtio_transport = {
+ 		.release                  = virtio_transport_release,
+ 		.connect                  = virtio_transport_connect,
+ 		.shutdown                 = virtio_transport_shutdown,
++		.cancel_pkt               = virtio_transport_cancel_pkt,
  
- 	if (info->msg && len > 0) {
- 		pkt->buf = kmalloc(len, GFP_KERNEL);
-@@ -180,6 +181,7 @@ static int virtio_transport_send_credit_update(struct vsock_sock *vsk,
- 	struct virtio_vsock_pkt_info info = {
- 		.op = VIRTIO_VSOCK_OP_CREDIT_UPDATE,
- 		.type = type,
-+		.vsk = vsk,
- 	};
- 
- 	return virtio_transport_send_pkt_info(vsk, &info);
-@@ -519,6 +521,7 @@ int virtio_transport_connect(struct vsock_sock *vsk)
- 	struct virtio_vsock_pkt_info info = {
- 		.op = VIRTIO_VSOCK_OP_REQUEST,
- 		.type = VIRTIO_VSOCK_TYPE_STREAM,
-+		.vsk = vsk,
- 	};
- 
- 	return virtio_transport_send_pkt_info(vsk, &info);
-@@ -534,6 +537,7 @@ int virtio_transport_shutdown(struct vsock_sock *vsk, int mode)
- 			  VIRTIO_VSOCK_SHUTDOWN_RCV : 0) |
- 			 (mode & SEND_SHUTDOWN ?
- 			  VIRTIO_VSOCK_SHUTDOWN_SEND : 0),
-+		.vsk = vsk,
- 	};
- 
- 	return virtio_transport_send_pkt_info(vsk, &info);
-@@ -560,6 +564,7 @@ virtio_transport_stream_enqueue(struct vsock_sock *vsk,
- 		.type = VIRTIO_VSOCK_TYPE_STREAM,
- 		.msg = msg,
- 		.pkt_len = len,
-+		.vsk = vsk,
- 	};
- 
- 	return virtio_transport_send_pkt_info(vsk, &info);
-@@ -581,6 +586,7 @@ static int virtio_transport_reset(struct vsock_sock *vsk,
- 		.op = VIRTIO_VSOCK_OP_RST,
- 		.type = VIRTIO_VSOCK_TYPE_STREAM,
- 		.reply = !!pkt,
-+		.vsk = vsk,
- 	};
- 
- 	/* Send RST only if the original pkt is not a RST pkt */
-@@ -826,6 +832,7 @@ virtio_transport_send_response(struct vsock_sock *vsk,
- 		.remote_cid = le32_to_cpu(pkt->hdr.src_cid),
- 		.remote_port = le32_to_cpu(pkt->hdr.src_port),
- 		.reply = true,
-+		.vsk = vsk,
- 	};
- 
- 	return virtio_transport_send_pkt_info(vsk, &info);
+ 		.dgram_bind               = virtio_transport_dgram_bind,
+ 		.dgram_dequeue            = virtio_transport_dgram_dequeue,
 -- 
 2.7.4
