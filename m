@@ -1,39 +1,88 @@
-From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
-Subject: RE: [PATCH net-next 2/5] liquidio VF vxlan
-Date: Thu, 8 Dec 2016 22:42:11 +0000
-Message-ID: <DM3PR07MB21386696FCE7727BD9B3B48C81840@DM3PR07MB2138.namprd07.prod.outlook.com>
-References: <1481230848-2393-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <1481230848-2393-3-git-send-email-rvatsavayi@caviumnetworks.com>
- <CAJ3xEMgrV4kjMY_SVJtk9VR85K7oSsSZGNQCi4UShogCKOq=hQ@mail.gmail.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Thu, 8 Dec 2016 23:45:05 +0100
+Message-ID: <32369623-8375-e179-4edd-1abd23a378e5@gmx.de>
+References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161207231534.GB5889@electric-eye.fr.zoreil.com>
+ <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de> <20161208215409.GA12472@amd>
+ <9b55b51c-bbbf-7f80-fb67-9df88a288708@gmx.de> <20161208221830.GD12472@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0065.outbound.protection.outlook.com ([104.47.37.65]:46080
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752376AbcLHWmP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 17:42:15 -0500
-In-Reply-To: <CAJ3xEMgrV4kjMY_SVJtk9VR85K7oSsSZGNQCi4UShogCKOq=hQ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
+        ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161208221830.GD12472@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT3IgR2VybGl0eiBbbWFp
-bHRvOmdlcmxpdHoub3JAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgRGVjZW1iZXIgMDgs
-IDIwMTYgMTowOCBQTQ0KPiBUbzogVmF0c2F2YXlpLCBSYWdodQ0KPiBDYzogRGF2aWQgTWlsbGVy
-OyBMaW51eCBOZXRkZXYgTGlzdDsgVmF0c2F2YXlpLCBSYWdodTsgQ2hpY2tsZXMsIERlcmVrOyBC
-dXJsYSwNCj4gU2F0YW5hbmRhOyBNYW5sdW5hcywgRmVsaXgNCj4gU3ViamVjdDogUmU6IFtQQVRD
-SCBuZXQtbmV4dCAyLzVdIGxpcXVpZGlvIFZGIHZ4bGFuDQo+IA0KPiBPbiBUaHUsIERlYyA4LCAy
-MDE2IGF0IDExOjAwIFBNLCBSYWdodSBWYXRzYXZheWkNCj4gPHJ2YXRzYXZheWlAY2F2aXVtbmV0
-d29ya3MuY29tPiB3cm90ZToNCj4gDQo+ID4gQWRkcyBWRiB2eGxhbiBvZmZsb2FkIHN1cHBvcnQu
-DQo+IA0KPiBXaGF0J3MgdGhlIHVzZSBjYXNlIGZvciB0aGF0PyBhIFZNIHJ1bm5pbmcgYSBWVEVQ
-LCBpc24ndCB0aGF0IHBhcnQgbmVlZHMgdG8NCj4gcnVuIEAgdGhlIGhvc3Q/DQo+IA0KPiBPci4N
-Cg0KT3VyIEhXIGNhbiBzdXBwb3J0IG9mZmxvYWRzIGZvciBWRiB3aGljaCBpcyByZXF1aXJlZCBp
-ZiB3ZSBsb2FkIGl0IG9uIEh5cGVydmlzb3IuDQpUaGFua3MuDQo=
+On 08.12.2016 23:18, Pavel Machek wrote:
+> On Thu 2016-12-08 23:12:10, Lino Sanfilippo wrote:
+>> Hi,
+>> 
+>> On 08.12.2016 22:54, Pavel Machek wrote:
+>> > On Thu 2016-12-08 21:32:12, Lino Sanfilippo wrote:
+>> >> Hi,
+>> >> 
+>> >> On 08.12.2016 00:15, Francois Romieu wrote:
+>> >> > Lino Sanfilippo <LinoSanfilippo@gmx.de> :
+>> >> >> The driver uses a private lock for synchronization between the xmit
+>> >> >> function and the xmit completion handler, but since the NETIF_F_LLTX flag
+>> >> >> is not set, the xmit function is also called with the xmit_lock held.
+>> >> >> 
+>> >> >> On the other hand the xmit completion handler first takes the private lock
+>> >> >> and (in case that the tx queue has been stopped) the xmit_lock, leading
+>> >> >> to a reverse locking order and the potential danger of a deadlock.
+>> >> > 
+>> >> > netif_tx_stop_queue is used by:
+>> >> > 1. xmit function before releasing lock and returning.
+>> >> > 2. sxgbe_restart_tx_queue()
+>> >> >    <- sxgbe_tx_interrupt
+>> >> >    <- sxgbe_reset_all_tx_queues()
+>> >> >       <- sxgbe_tx_timeout()
+>> >> > 
+>> >> > Given xmit won't be called again until tx queue is enabled, it's not clear
+>> >> > how a deadlock could happen due to #1.
+>> >> > 
+>> >> 
+>> >> 
+>> >> After spending more thoughts on this I tend to agree with you. Yes, we have the
+>> >> different locking order for the xmit_lock and the private lock in two concurrent
+>> >> threads. And one of the first things one learns about locking is that this is a
+>> >> good way to create a deadlock sooner or later. But in our case the deadlock 
+>> >> can only occur if the xmit function and the tx completion handler perceive different
+>> >>  states for the tx queue, or to be more specific: 
+>> >> the completion handler sees the tx queue in state "stopped" while the xmit handler 
+>> >> sees it in state "running" at the same time. Only then both functions would try to
+>> >> take both locks, which could lead to a deadlock.
+>> >> 
+>> >> OTOH Pavel said that he actually could produce a deadlock. Now I wonder if this is caused
+>> >> by that locking scheme (in a way I have not figured out yet) or if it is a different issue.
+>> > 
+>> > Pavel has some problems, but that's on different hardware.. and it is
+>> > possible that it is deadlock (or something else) somewhere else.
+>> > 
+>> 
+>> Right, it is different hardware. But the locking situation in xmit function and tx completion handler
+>> is very similar in both drivers. So if a deadlock is not possible in sxgbe it should 
+>> also not be possible in stmmac (at least not due to the different locking order). 
+>> So maybe there is no real issue that we could fix with removing the private lock and we should
+>> keep it as it is.
+> 
+> Well.. the locking is pretty confused there. Having private lock that
+> mirrors lock from network layer is confusing and ugly... that should
+> be reason to fix it.
+> 									Pavel
+> 
+
+Ok. Then I will resend the patches for both drivers with a different (less dramatic) commit message
+in which the change is not longer described as a fix for deadlock but rather as a code 
+cleanup/improvement, ok?
+
+Regards,
+Lino
