@@ -1,114 +1,52 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH net-next 2/2] net: ethernet: Initial driver for Synopsys
- DWC XLGMAC
-Date: Thu, 8 Dec 2016 22:57:12 +0100
-Message-ID: <20161208215712.GB12472@amd>
-References: <cover.1481075763.git.jiedeng@synopsys.com>
- <3fe82457c51f8437797eae27d03cdb0dcbef039b.1481075763.git.jiedeng@synopsys.com>
- <20161207094815.GB5399@amd>
- <bea5ea07-cbab-35fe-434c-1cfcb96225ef@synopsys.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH net-next 1/3] net/mlx5e: use %pad format string for dma_addr_t
+Date: Thu,  8 Dec 2016 22:57:03 +0100
+Message-ID: <20161208215727.44841-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="UHN/qo2QbUvPLonB"
-Cc: davem@davemloft.net, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, CARLOS.PALMINHA@synopsys.com,
-        lars.persson@axis.com, thomas.lendacky@amd.com,
-        peppe.cavallaro@st.com, Joao.Pinto@synopsys.com
-To: Jie Deng <Jie.Deng1@synopsys.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Daniel Jurgens <danielj@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <bea5ea07-cbab-35fe-434c-1cfcb96225ef@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 32-bit ARM with 64-bit dma_addr_t I get this warning about an
+incorrect format string:
 
---UHN/qo2QbUvPLonB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In file included from /git/arm-soc/drivers/net/ethernet/mellanox/mlx5/core/alloc.c:42:0:
+drivers/net/ethernet/mellanox/mlx5/core/alloc.c: In function ‘mlx5_frag_buf_alloc_node’:
+drivers/net/ethernet/mellanox/mlx5/core/alloc.c:134:12: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
 
-On Thu 2016-12-08 13:58:47, Jie Deng wrote:
->=20
->=20
-> On 2016/12/7 17:48, Pavel Machek wrote:
-> > Hi!
-> >
-> >> This patch provides the initial driver for 25/40/50/100 GbE
-> >> devices using Synopsys DWC Enterprise Ethernet (XLGMAC)
-> >>
-> >> Signed-off-by: Jie Deng <jiedeng@synopsys.com>
-> > I trust this is different hardware from stmmac?
-> Yes, different hardware. Currently,  Synopsys has several Ethernet IP cor=
-es. But
-> drivers for these hardwares are scattered in different places. I really h=
-ope
-> that they can be centralized into driver/net/ethernet/synopsys for mainte=
-nance.
-> This makes things easy for others to find the corresponding drivers.
->     - QoS
->         drivers/net/ethernet/synopsys/dwc_eth_qos.c
->         drivers/net/ethernet/stmicro/stmmac/         =20
->     - XGMAC
->         driver/net/ethernet/amd/xgbe/
->     - XLGMAC
->         No driver for this hardware in mainline at present.
+We have the special %pad format for printing dma_addr_t, so use that
+to print the correct address and avoid the warning.
 
+Fixes: 1c1b522808a1 ("net/mlx5e: Implement Fragmented Work Queue (WQ)")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> >> diff --git a/MAINTAINERS b/MAINTAINERS
-> >> index 331f6af..738f818 100644
-> >> --- a/MAINTAINERS
-> >> +++ b/MAINTAINERS
-> >> @@ -10639,6 +10639,12 @@ S: Supported
-> >>  F: Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
-> >>  F: drivers/net/ethernet/synopsys/dwc_eth_qos.c
-> >> =20
-> >> +SYNOPSYS DESIGNWARE ENTERPRISE ETHERNET (XLGMAC) DRIVER
-> >> +M:	jiedeng <jiedeng@synopsys.com>
-> > Jie Deng here?
-> Oh, should be Jie Deng here. Thank you!
-> >
-> >> @@ -0,0 +1,228 @@
-> >> +/*
-> >> + * Synopsys DesignWare Ethernet Driver
-> > Your patch title names hardware differently...?
-> Yes, currently, it should be XLGMAC driver. I extracted the parts can be =
-shared
-> for different Synopsys IPs.
->=20
-> The XLGMAC driver can be divided into three parts
->=20
-> - The DWC ethernet core layer (DWC ECL):
-> Currently, it supports XLGMAC. But I think this part can be shared for di=
-fferent
-> Synopsys IPs.
->=20
-> - The DWC MAC HW adapter layer (DWC MHAL):
-> This part was designed to include special support for a specific MAC IP.
-> Currently, XLGMAC, and I think we can add
-> something to support XGMAC and QoS in the future.
->=20
-> - The glue adapter layer (GAL)
-
-Ok, thanks for description. Hopefully it can be merged in a way that
-is not too confusing...
-
-Best regards,
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---UHN/qo2QbUvPLonB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhJ1zgACgkQMOfwapXb+vI2ggCfRcIFc+DddVZKoMlRiimmHTsy
-R4oAoIR35llQvE8/3GSZRgXrg/K8Mfup
-=z/sd
------END PGP SIGNATURE-----
-
---UHN/qo2QbUvPLonB--
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+index 44791de5afe6..66bd213f35ce 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+@@ -130,8 +130,8 @@ int mlx5_frag_buf_alloc_node(struct mlx5_core_dev *dev, int size,
+ 		if (frag->map & ((1 << buf->page_shift) - 1)) {
+ 			dma_free_coherent(&dev->pdev->dev, frag_sz,
+ 					  buf->frags[i].buf, buf->frags[i].map);
+-			mlx5_core_warn(dev, "unexpected map alignment: 0x%p, page_shift=%d\n",
+-				       (void *)frag->map, buf->page_shift);
++			mlx5_core_warn(dev, "unexpected map alignment: %pad, page_shift=%d\n",
++				       &frag->map, buf->page_shift);
+ 			goto err_free_buf;
+ 		}
+ 		size -= frag_sz;
+-- 
+2.9.0
