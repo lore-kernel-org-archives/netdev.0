@@ -1,65 +1,78 @@
-From: "Yang, Yi" <yi.y.yang@intel.com>
-Subject: Re: [PATCH net-next] openvswitch: fix VxLAN-gpe port can't be
- created in ovs compat mode
-Date: Thu, 8 Dec 2016 18:57:51 +0800
-Message-ID: <20161208105750.GA14898@cran64.bj.intel.com>
-References: <1481185210-13056-1-git-send-email-yi.y.yang@intel.com>
- <20161208095401.3e4054c9@griffin>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] linux/types.h: enable endian checks for all sparse builds
+Date: Thu, 8 Dec 2016 12:13:25 +0100
+Message-ID: <20161208111325.GB29138@kroah.com>
+References: <1481164052-28036-1-git-send-email-mst@redhat.com>
+	<BLUPR02MB168374E98A6C86E43DF0BCFE81840@BLUPR02MB1683.namprd02.prod.outlook.com>
+	<20161208075152-mutt-send-email-mst@kernel.org>
+	<BLUPR02MB168304F8FBA50C916A6A4E6081840@BLUPR02MB1683.namprd02.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@ovn.org
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:45272 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751862AbcLHLHf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 06:07:35 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, David Airlie <airlied@linux.ie>,
+	"linux-remoteproc@vger.kernel.org" <linux-remoteproc@vger.kernel.org>,
+	"dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	Neil Armstrong <narmstrong@baylibre.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	"v9fs-developer@lists.sourceforge.net"
+	<v9fs-developer@lists.sourceforge.net>,
+	Asias He <asias@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	"linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>,
+	Jens Axboe <axboe@fb.com>, Michal Marek <
+To: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20161208095401.3e4054c9@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <BLUPR02MB168304F8FBA50C916A6A4E6081840@BLUPR02MB1683.namprd02.prod.outlook.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 08, 2016 at 09:54:00AM +0100, Jiri Benc wrote:
-> On Thu,  8 Dec 2016 16:20:10 +0800, Yi Yang wrote:
-> > In ovs compat mode, ovs won't use LWT in current kernel, this is to
-> > make sure ovs can work on the old kernels, Linux kernel v4.7 includes
-> > VxLAN-gpe support but many Linux distributions' kernels are odler than
-> > v4.7, this fix will ensure that ovs can create VxLAN-gpe port correctly
-> > on old kernels, it has been verified on Ubuntu 16.04 x86_64 with Linux
-> > kernel 4.4.0-53-generic.
+On Thu, Dec 08, 2016 at 06:38:11AM +0000, Bart Van Assche wrote:
+> On 12/07/16 21:54, Michael S. Tsirkin wrote:
+> > On Thu, Dec 08, 2016 at 05:21:47AM +0000, Bart Van Assche wrote:
+> >> Additionally, there are notable exceptions to the rule that most drivers
+> >> are endian-clean, e.g. drivers/scsi/qla2xxx. I would appreciate it if it
+> >> would remain possible to check such drivers with sparse without enabling
+> >> endianness checks. Have you considered to change #ifdef __CHECK_ENDIAN__
+> >> into e.g. #ifndef __DONT_CHECK_ENDIAN__?
+> >
+> > The right thing is probably just to fix these, isn't it?
+> > Until then, why not just ignore the warnings?
 > 
-> NAK. We do have a way to configure this and that's rtnetlink. Open
-> vSwitch should use that to configure tunnels. Out of tree modules are
-> on their own. Upstream kernel does not accommodate out of tree modules.
->
-Jiri, this has used rtnetlink to confgiure, te below is my test code in ovs.
-As Pravin mentioned, in compat mode, ovs won't use current in-kernel
-module which is vxlan in upstream kernel, but ovs has its own vport_vxlan
-module for this, it has different behaviour from LWT in upstream kernel.
-If you try this in the kernels below v4.7, you will clearly know this.
+> Neither option is realistic. With endian-checking enabled the qla2xxx 
+> driver triggers so many warnings that it becomes a real challenge to 
+> filter the non-endian warnings out manually:
+> 
+> $ for f in "" CF=-D__CHECK_ENDIAN__; do make M=drivers/scsi/qla2xxx C=2\
+>      $f | &grep -c ': warning:'; done
+> 4
+> 752
+> 
+> If you think it would be easy to fix the endian warnings triggered by 
+> the qla2xxx driver, you are welcome to try to fix these.
 
-ovs will port this patch into the below files in ovs soure code
-datapath/linux/compat/include/linux/openvswitch.h and datapath/vport-vxlan.c once it is accepted,this is ovs upstream process, if Linux kernel doesn't include this, ovs won't accept it.
+Please don't let one crappy, obviously broken, driver prevent this good
+change from happening which will help ensure that the rest of the kernel
+(i.e. 99% of it) can be easily tested and fixed for endian issues.
 
-So ovs out of tree modules need to adapt to upstream kernel, any
-kernel-related changes must be accepted by Linux kernel at first. Pravin
-is a dedicated person doing such work, your L3 patches merged into
-net-next will be ported into ovs out of tree modules by Pravin in the
-same way.
+Sounds like you should just fix the driver up if it has so many
+problems, and it annoys you so much that you have to filter out some
+warnings to see the others :)
 
-diff --git a/lib/dpif-netlink.c b/lib/dpif-netlink.c
-index 0d03334..7d8a0f4 100644
---- a/lib/dpif-netlink.c
-+++ b/lib/dpif-netlink.c
-@@ -1006,7 +1006,11 @@ netdev_vxlan_create(struct netdev *netdev)
-     nl_msg_put_string(&request, IFLA_IFNAME, name);
-     nl_msg_put_u32(&request, IFLA_MTU, UINT16_MAX);
-     linkinfo_off = nl_msg_start_nested(&request, IFLA_LINKINFO);
-+#ifdef USE_UPSTREAM_TUNNEL
-         nl_msg_put_string(&request, IFLA_INFO_KIND, "vxlan");
-+#else
-+        nl_msg_put_string(&request, IFLA_INFO_KIND, "ovs_vxlan");
-+#endif
-         infodata_off = nl_msg_start_nested(&request, IFLA_INFO_DATA);
-             nl_msg_put_u8(&request, IFLA_VXLAN_LEARNING, 0);
-             nl_msg_put_u8(&request, IFLA_VXLAN_COLLECT_METADATA, 1);
+thanks,
+
+greg k-h
