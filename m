@@ -1,70 +1,52 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v2 net-next 4/4] udp: add batching to udp_rmem_release()
-Date: Thu, 8 Dec 2016 10:52:58 -0800
-Message-ID: <CANn89iJv202k-3bq=+MP74uTiMib_T9dz-OscHk=B1A=YDWyMQ@mail.gmail.com>
-References: <1481218739-27089-1-git-send-email-edumazet@google.com>
- <1481218739-27089-5-git-send-email-edumazet@google.com> <1481221491.6120.11.camel@redhat.com>
- <CANn89iL8r9UD=sGn3WxVFZ+Z_QJYYM6aXxCFvafwvJ-bEtNhKQ@mail.gmail.com> <CANn89i+10fwMQ+oqs2AgVfE9CHnpZqecN_NxVqobyzD1riyMfg@mail.gmail.com>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 3/6] net: ethernet: ti: cpts: add support of cpts
+ HW_TS_PUSH
+Date: Thu, 8 Dec 2016 13:04:11 -0600
+Message-ID: <58eea45f-b8fe-6892-e784-b41638c62fd8@ti.com>
+References: <20161128230428.6872-1-grygorii.strashko@ti.com>
+ <20161128230428.6872-4-grygorii.strashko@ti.com>
+ <20161203232130.GA17944@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:33410 "EHLO
-        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751302AbcLHSxA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 13:53:00 -0500
-Received: by mail-io0-f170.google.com with SMTP id d9so16284832ioe.0
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 10:52:59 -0800 (PST)
-In-Reply-To: <CANn89i+10fwMQ+oqs2AgVfE9CHnpZqecN_NxVqobyzD1riyMfg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161203232130.GA17944@netboy>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 8, 2016 at 10:38 AM, Eric Dumazet <edumazet@google.com> wrote:
-> On Thu, Dec 8, 2016 at 10:36 AM, Eric Dumazet <edumazet@google.com> wrote:
->> On Thu, Dec 8, 2016 at 10:24 AM, Paolo Abeni <pabeni@redhat.com> wrote:
->>
->>> Nice one! This sounds like a relevant improvement!
->>>
->>> I'm wondering if it may cause regressions with small value of
->>> sk_rcvbuf ?!? e.g. with:
->>>
->>> netperf -t UDP_STREAM  -H 127.0.0.1 -- -s 1280 -S 1280 -m 1024 -M 1024
->>>
->>
->> Possibly, then simply we can refine the test to :
->>
->> size = up->forward_deficit;
->> if (size < (sk->sk_rcvbuf >> 2)  && !skb_queue_empty(sk->sk_receive_buf))
->>      return;
->
 
-I will also add this patch :
 
-This really makes sure our changes to sk_forward_alloc wont be slowed
-because producers see
-the change to sk_rmem_alloc too soon.
+On 12/03/2016 05:21 PM, Richard Cochran wrote:
+> On Mon, Nov 28, 2016 at 05:04:25PM -0600, Grygorii Strashko wrote:
+>> This also change overflow polling period when HW_TS_PUSH feature is
+>> enabled - overflow check work will be scheduled more often (every
+>> 200ms) for proper HW_TS_PUSH events reporting.
+> 
+> For proper reporting, you should make use of the interrupt.  The small
+> fifo (16 iirc) could very well overflow in 200 ms.  The interrupt
+> handler should read out the entire fifo at each interrupt.
+> 
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 8400d6954558..6bdcbe103390 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1191,13 +1191,14 @@ static void udp_rmem_release(struct sock *sk,
-int size, int partial)
-        }
-        up->forward_deficit = 0;
+huh. Seems this is not really good idea, because MISC Irq will be 
+triggered for *any* CPTS event and there is no way to enable it just for
+HW_TS_PUSH. So, this doesn't work will with current code for RX/TX timestamping
+(which uses polling mode). + runtime overhead in net RX/TX caused by 
+triggering more interrupts. 
 
--       atomic_sub(size, &sk->sk_rmem_alloc);
-        sk->sk_forward_alloc += size;
-        amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
-        sk->sk_forward_alloc -= amt;
+May be, overflow check/polling timeout can be made configurable (module parameter). 
 
-        if (amt)
-                __sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-+
-+       atomic_sub(size, &sk->sk_rmem_alloc);
- }
-
- /* Note: called with sk_receive_queue.lock held.
+-- 
+regards,
+-grygorii
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
