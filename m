@@ -1,66 +1,80 @@
-From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: fix VxLAN-gpe port
- can't be created in ovs compat mode
-Date: Thu, 8 Dec 2016 11:41:58 -0800
-Message-ID: <CAOrHB_CVr0PQGsNkhrrvT7L8cX1KZypV4UXakXm1uuCz7ZPYHw@mail.gmail.com>
-References: <1481185210-13056-1-git-send-email-yi.y.yang@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1481185210-13056-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v3 net-next 3/4] udp: add batching to udp_rmem_release()
+Date: Thu,  8 Dec 2016 11:41:56 -0800
+Message-ID: <1481226117-31288-4-git-send-email-edumazet@google.com>
+References: <1481226117-31288-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36361 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932455AbcLHTmJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 14:42:09 -0500
+Received: by mail-pf0-f181.google.com with SMTP id 189so85043484pfz.3
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 11:42:08 -0800 (PST)
+In-Reply-To: <1481226117-31288-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 8, 2016 at 12:20 AM, Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
-> In ovs compat mode, ovs won't use LWT in current kernel, this is to
-> make sure ovs can work on the old kernels, Linux kernel v4.7 includes
-> VxLAN-gpe support but many Linux distributions' kernels are odler than
-> v4.7, this fix will ensure that ovs can create VxLAN-gpe port correctly
-> on old kernels, it has been verified on Ubuntu 16.04 x86_64 with Linux
-> kernel 4.4.0-53-generic.
->
-> This does touch compat code, but it is necessary as Pravin commented.
->
-> Without this fix, ovs can't create VxLAN-gpe port, it is still a VxLAN
-> port.
->
-> vxlan_sys_4790 Link encap:Ethernet  HWaddr 72:23:60:c2:8b:8d
->           inet6 addr: fe80::7023:60ff:fec2:8b8d/64 Scope:Link
->           UP BROADCAST RUNNING MULTICAST  MTU:65485  Metric:1
->           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:0 errors:0 dropped:8 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000
->           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
->
-> But with this fix applied, a real L3 port is created
->
-> vxlan_sys_4790 Link encap:UNSPEC  HWaddr
-> 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
->           UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:65485  Metric:1
->           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000
->           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
->
-> Signed-off-by: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
->  include/uapi/linux/openvswitch.h |  1 +
->  net/openvswitch/vport-vxlan.c    | 15 +++++++++++++++
->  2 files changed, 16 insertions(+)
->
-There is no need for this patch in upstream kernel module. I am open
-to having such a patch in out of tree kernel if it simplifies feature
-compatibility code.
+If udp_recvmsg() constantly releases sk_rmem_alloc
+for every read packet, it gives opportunity for
+producers to immediately grab spinlocks and desperatly
+try adding another packet, causing false sharing.
+
+We can add a simple heuristic to give the signal
+by batches of ~25 % of the queue capacity.
+
+This patch considerably increases performance under
+flood by about 50 %, since the thread draining the queue
+is no longer slowed by false sharing.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/udp.h |  3 +++
+ net/ipv4/udp.c      | 12 ++++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index d1fd8cd39478b635ef5396b5ae1c63f8c965..c0f530809d1f3db7323e51a52224eb49d8f9 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -79,6 +79,9 @@ struct udp_sock {
+ 	int			(*gro_complete)(struct sock *sk,
+ 						struct sk_buff *skb,
+ 						int nhoff);
++
++	/* This field is dirtied by udp_recvmsg() */
++	int		forward_deficit;
+ };
+ 
+ static inline struct udp_sock *udp_sk(const struct sock *sk)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index c608334d99aa5620858d9cceec500b2be944..5a38faa12cde7fdcd5b6d86cdc0f4bc33de4 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1177,8 +1177,20 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+ /* fully reclaim rmem/fwd memory allocated for skb */
+ static void udp_rmem_release(struct sock *sk, int size, int partial)
+ {
++	struct udp_sock *up = udp_sk(sk);
+ 	int amt;
+ 
++	if (likely(partial)) {
++		up->forward_deficit += size;
++		size = up->forward_deficit;
++		if (size < (sk->sk_rcvbuf >> 2) &&
++		    !skb_queue_empty(&sk->sk_receive_queue))
++			return;
++	} else {
++		size += up->forward_deficit;
++	}
++	up->forward_deficit = 0;
++
+ 	atomic_sub(size, &sk->sk_rmem_alloc);
+ 	sk->sk_forward_alloc += size;
+ 	amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
+-- 
+2.8.0.rc3.226.g39d4020
