@@ -1,43 +1,51 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RESEND PATCH 1/3] bindings: net: stmmac: correct note about
- TSO
-Date: Thu, 08 Dec 2016 11:35:48 -0500 (EST)
-Message-ID: <20161208.113548.1569060543054922468.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND PATCH 3/3] net: stmmac: stmmac_platform: use correct
+ setup function for gmac4
+Date: Thu, 08 Dec 2016 11:36:02 -0500 (EST)
+Message-ID: <20161208.113602.193796703301981430.davem@davemloft.net>
 References: <1481114469-4788-1-git-send-email-niklass@axis.com>
+        <1481114469-4788-3-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org,
-        eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org, niklass-VrBV9hrLPhE@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: niklas.cassel-VrBV9hrLPhE@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1481114469-4788-1-git-send-email-niklass-VrBV9hrLPhE@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: niklas.cassel@axis.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34172 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753709AbcLHQgZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 11:36:25 -0500
+In-Reply-To: <1481114469-4788-3-git-send-email-niklass@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
-Date: Wed, 7 Dec 2016 13:41:06 +0100
+From: Niklas Cassel <niklas.cassel@axis.com>
+Date: Wed, 7 Dec 2016 13:41:08 +0100
 
-> From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+> From: Niklas Cassel <niklas.cassel@axis.com>
 > 
-> snps,tso was previously placed under AXI BUS Mode parameters,
-> suggesting that the property should be in the stmmac-axi-config node.
+> devicetree binding for stmmac states:
+> - compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
+> 	For backwards compatibility: "st,spear600-gmac" is also supported.
 > 
-> TSO (TCP Segmentation Offloading) has nothing to do with AXI BUS Mode
-> parameters, and the parser actually expects it to be in the root node,
-> not in the stmmac-axi-config.
+> Previously, when specifying "snps,dwmac-4.10a", "snps,dwmac" as your
+> compatible string, plat_stmmacenet_data would have both has_gmac and
+> has_gmac4 set.
 > 
-> Also added a note about snps,tso only being available on GMAC4 and newer.
+> This would lead to stmmac_hw_init calling dwmac1000_setup rather than
+> dwmac4_setup, resulting in a non-functional driver.
+> This happened since the check for has_gmac is done before the check for
+> has_gmac4. However, the order should not matter, so it does not make sense
+> to have both set.
 > 
-> Signed-off-by: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
-> Acked-by: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+> If something is valid for both, you should do as the stmmac_interrupt does:
+> if (priv->plat->has_gmac || priv->plat->has_gmac4) ...
+> 
+> The places where it was obvious that the author actually meant
+> if (has_gmac || has_gmac4) rather than if (has_gmac) has been updated.
+> 
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> Acked-by: Alexandre TORGUE <alexandre.torgue@st.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
