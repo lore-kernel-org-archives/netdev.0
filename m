@@ -1,72 +1,51 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: peak: fix bad memory access and free sequence
-Date: Thu,  8 Dec 2016 16:35:52 +0100
-Message-ID: <20161208153552.18122-2-mkl@pengutronix.de>
-References: <20161208153552.18122-1-mkl@pengutronix.de>
+Subject: pull-request: can 2016-12-08
+Date: Thu,  8 Dec 2016 16:35:51 +0100
+Message-ID: <20161208153552.18122-1-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de,
-        =?UTF-8?q?=EC=B6=94=EC=A7=80=ED=98=B8?= <jiho.chu@samsung.com>,
-        linux-stable <stable@vger.kernel.org>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
+        kernel@pengutronix.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:43891 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:47933 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932312AbcLHPf7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 10:35:59 -0500
-In-Reply-To: <20161208153552.18122-1-mkl@pengutronix.de>
+        by vger.kernel.org with ESMTP id S932115AbcLHPf4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 10:35:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: 추지호 <jiho.chu@samsung.com>
+Hello David,
 
-Fix for bad memory access while disconnecting. netdev is freed before
-private data free, and dev is accessed after freeing netdev.
+this is a pull request for one patch.
 
-This makes a slub problem, and it raise kernel oops with slub debugger
-config.
+Jiho Chu found and fixed a use-after-free error in the cleanup path in the peak
+pcan USB CAN driver.
 
-Signed-off-by: Jiho Chu <jiho.chu@samsung.com>
-Cc: linux-stable <stable@vger.kernel.org>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+regards,
+Marc
+
 ---
+
+The following changes since commit ec988ad78ed6d184a7f4ca6b8e962b0e8f1de461:
+
+  phy: Don't increment MDIO bus refcount unless it's a different owner (2016-12-07 13:27:14 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.9-20161208
+
+for you to fetch changes up to b67d0dd7d0dc9e456825447bbeb935d8ef43ea7c:
+
+  can: peak: fix bad memory access and free sequence (2016-12-08 15:59:52 +0100)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.9-20161208
+
+----------------------------------------------------------------
+추지호 (1):
+      can: peak: fix bad memory access and free sequence
+
  drivers/net/can/usb/peak_usb/pcan_usb_core.c | 6 ++++--
  1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-index f3141ca56bc3..0b0302af3bd2 100644
---- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
-@@ -870,23 +870,25 @@ static int peak_usb_create_dev(const struct peak_usb_adapter *peak_usb_adapter,
- static void peak_usb_disconnect(struct usb_interface *intf)
- {
- 	struct peak_usb_device *dev;
-+	struct peak_usb_device *dev_prev_siblings;
- 
- 	/* unregister as many netdev devices as siblings */
--	for (dev = usb_get_intfdata(intf); dev; dev = dev->prev_siblings) {
-+	for (dev = usb_get_intfdata(intf); dev; dev = dev_prev_siblings) {
- 		struct net_device *netdev = dev->netdev;
- 		char name[IFNAMSIZ];
- 
-+		dev_prev_siblings = dev->prev_siblings;
- 		dev->state &= ~PCAN_USB_STATE_CONNECTED;
- 		strncpy(name, netdev->name, IFNAMSIZ);
- 
- 		unregister_netdev(netdev);
--		free_candev(netdev);
- 
- 		kfree(dev->cmd_buf);
- 		dev->next_siblings = NULL;
- 		if (dev->adapter->dev_free)
- 			dev->adapter->dev_free(dev);
- 
-+		free_candev(netdev);
- 		dev_info(&intf->dev, "%s removed\n", name);
- 	}
- 
--- 
-2.10.2
