@@ -1,56 +1,77 @@
-From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: fix VxLAN-gpe port
- can't be created in ovs compat mode
-Date: Thu, 8 Dec 2016 20:01:50 +0800
-Message-ID: <20161208120150.GA16029@cran64.bj.intel.com>
-References: <1481185210-13056-1-git-send-email-yi.y.yang@intel.com>
-	<20161208095401.3e4054c9@griffin>
-	<20161208105750.GA14898@cran64.bj.intel.com>
-	<20161208123756.204af819@griffin>
+From: Shaohui Xie <Shaohui.Xie@nxp.com>
+Subject: [PATCH] net: gianfar: add ethtool eee support
+Date: Thu, 8 Dec 2016 19:27:06 +0800
+Message-ID: <1481196426-45576-1-git-send-email-Shaohui.Xie@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161208123756.204af819@griffin>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Shaohui Xie <Shaohui.Xie@nxp.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0073.outbound.protection.outlook.com ([104.47.34.73]:63778
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752672AbcLHMOD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 07:14:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 08, 2016 at 12:37:56PM +0100, Jiri Benc wrote:
-> On Thu, 8 Dec 2016 18:57:51 +0800, Yang, Yi wrote:
-> > So ovs out of tree modules need to adapt to upstream kernel, any
-> > kernel-related changes must be accepted by Linux kernel at first.
-> 
-> I'm perfectly aware of that and I'm saying that your patch is
-> unacceptable for upstream kernel. This is a long standing policy of the
-> kernel: there's no way you can get a patch into the kernel to
-> accommodate an out of tree kernel module. The policy is there for good
-> reasons and as paradoxical as it may sound, it benefits the projects
-> that employ out of tree modules in the long run.
-> 
-> If Open vSwitch wants to carry a non-upstream patch, it's its choice
-> and we can have that discussion but that's not something to discuss on
-> netdev@vger nor propose for net-next.
->
-Jiri, according to your statement, we have to switch Linux 4.7 or above
-if we want to use ovs VxLAN-gpe, Ubuntu 16.04 has had new kernel, but it
-just use Linux kernel 4.4, you know Linux distributuions nerver uses the
-latest stable Linux kernel because they have their own patches to
-maintain, that will be a nightmare if they take the latest stable
-kernel. You know RHEL also follows the same philosophy.
+Gianfar does not support EEE, but it can connect to a PHY which supports
+EEE and the PHY advertises EEE by default, and its link partner also
+advertises EEE, so the PHY enters low power mode when traffic rate is low,
+which causes packet loss if an application's traffic rate is low. This
+patch provides .get_eee and .set_eee so that to disable the EEE
+advertisement via ethtool if needed, other EEE features are not supported.
 
-Current ovs master can be built on Ubuntu 14.04 which have Linux kernel
-3.13, I think compatibility backward is very important, out of tree
-modules are very important to ovs. If ovs installation will depend on
-the latest kernel and force users to switch to new kernel, I believe it
-nerver will be so popular in the industies.
+Signed-off-by: Shaohui Xie <Shaohui.Xie@nxp.com>
+---
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 28 ++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index 56588f2..9375078 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -184,6 +184,32 @@ static void gfar_gdrvinfo(struct net_device *dev,
+ 	strlcpy(drvinfo->bus_info, "N/A", sizeof(drvinfo->bus_info));
+ }
+ 
++static int gfar_get_eee(struct net_device *dev, struct ethtool_eee *et_eee)
++{
++	struct phy_device *phydev = dev->phydev;
++
++	if (!phydev)
++		return -ENODEV;
++
++	return phy_ethtool_get_eee(phydev, et_eee);
++}
++
++static int gfar_set_eee(struct net_device *dev, struct ethtool_eee *et_eee)
++{
++	struct phy_device *phydev = dev->phydev;
++
++	if (!phydev)
++		return -ENODEV;
++
++	if (et_eee->eee_enabled ||
++	    et_eee->tx_lpi_enabled ||
++	    et_eee->tx_lpi_timer) {
++		return -EOPNOTSUPP;
++	}
++
++	return phy_ethtool_set_eee(phydev, et_eee);
++}
++
+ /* Return the length of the register structure */
+ static int gfar_reglen(struct net_device *dev)
+ {
+@@ -1548,6 +1574,8 @@ const struct ethtool_ops gfar_ethtool_ops = {
+ 	.get_strings = gfar_gstrings,
+ 	.get_sset_count = gfar_sset_count,
+ 	.get_ethtool_stats = gfar_fill_stats,
++	.get_eee = gfar_get_eee,
++	.set_eee = gfar_set_eee,
+ 	.get_msglevel = gfar_get_msglevel,
+ 	.set_msglevel = gfar_set_msglevel,
+ #ifdef CONFIG_PM
+-- 
+2.1.0.27.g96db324
