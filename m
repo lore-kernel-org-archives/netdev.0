@@ -1,19 +1,25 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: pull request: bluetooth-next 2016-12-08
-Date: Thu, 8 Dec 2016 09:48:09 +0200
-Message-ID: <20161208074809.GA4680@x1c.lan>
+Date: Thu, 8 Dec 2016 09:52:22 +0200
+Message-ID: <20161208075222.GA5772@x1c.lan>
+References: <20161208074809.GA4680@x1c.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36097 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750827AbcLHHsT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 02:48:19 -0500
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="SLDf9lqlvOQaIe6s"
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161208074809.GA4680-IWfI2fE34AE@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+
+--SLDf9lqlvOQaIe6s
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+(resending since I forgot to sign the first one)
 
 Hi Dave,
 
@@ -62,3 +68,25 @@ Stefan Schmidt (4):
  net/bluetooth/smp.c            | 85 ++++++++++++++++++++++++++++++++--------
  net/bluetooth/smp.h            |  1 +
  5 files changed, 149 insertions(+), 28 deletions(-)
+
+--SLDf9lqlvOQaIe6s
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJYSRE2AAoJECQj9vv5qNQSKnIP/12BMzGAbyDpE5NWSC35zB0Z
+p1Ujv+QwihyGD/G9l4gdyiy31NP5VSfAdd2xj9LOSLdQ7sYNf+/Pp+3FjZPb4e5c
+TdGaTsHpwHPrq86+R/coOb3RV+/+wzl+dfzi6X7ZDQ8NL7n/vIkeYRMYedvGjMZU
+mEq1PxeRVxaTc/fXmqwgNCWu6N+2AadnT9yQsjdES944c0NtIFuhjY1/KkbLlb/K
+fVl1jhcOwb/pqu18ACuHwd81IDLtJkYHCMrfLi2YA6td60Nmc4hs9+zb2gbrbz/m
+QPusygUS3Oie8Il7hr5zFQr0hL0xv/Wrn674b6h6/58Syb86oX2vEjMZ9abd3tgH
+cSr8gvWavJS/UBjW0Ocni/r7JtRPSgClK6patKNjXOUEXfHN/rLAOT12j2Plydkr
+pv6pC0IpLQ8QYVSY5i09Pa2Xikz9YXXJKojE/oPVDVMa92V0VI9QFv35II/spXjm
+mvZ1/5RKVSDm0fA1GmIe8ZOkGLv6Y9JWbT57Liis9+At8I/sNr+eUmO1r7EKPwzL
+oPDY3tnvEj+PgHhMS1IruXiNv3uI8JG8Gi7+E3+jjXWn3fwumPQqKMdG3xqHmI6v
+h/jSCjSxx435vAsV+b4fqnScviGcIbWXPWGrgBubVC6L5sfERcoIcOa92Y/SsoGL
+acgiuHi5THSr9YzzzY5h
+=emVE
+-----END PGP SIGNATURE-----
+
+--SLDf9lqlvOQaIe6s--
