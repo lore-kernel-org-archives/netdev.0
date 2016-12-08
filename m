@@ -1,146 +1,114 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v5 0/6] XDP for virtio_net
-Date: Thu, 8 Dec 2016 12:46:07 -0800
-Message-ID: <5849C68F.7080707@gmail.com>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161208.141702.1346950420275854265.davem@davemloft.net>
- <20161208193814.GA1954@ast-mbp.thefacebook.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/4] udp: receive path optimizations
+Date: Thu, 8 Dec 2016 21:48:19 +0100
+Message-ID: <20161208214819.30138d12@redhat.com>
+References: <1481218739-27089-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, mst@redhat.com, shm@cumulusnetworks.com,
-        tgraf@suug.ch, john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        brouer@redhat.com, "Michael S. Tsirkin" <mst@redhat.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        David Miller <davem@davemloft.net>
+Cc: brouer@redhat.com, "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35064 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752257AbcLHUq1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 15:46:27 -0500
-Received: by mail-pg0-f67.google.com with SMTP id p66so27839143pga.2
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 12:46:26 -0800 (PST)
-In-Reply-To: <20161208193814.GA1954@ast-mbp.thefacebook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53730 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752445AbcLHUsY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 15:48:24 -0500
+In-Reply-To: <1481218739-27089-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-12-08 11:38 AM, Alexei Starovoitov wrote:
-> On Thu, Dec 08, 2016 at 02:17:02PM -0500, David Miller wrote:
->> From: John Fastabend <john.fastabend@gmail.com>
->> Date: Wed, 07 Dec 2016 12:10:47 -0800
->>
->>> This implements virtio_net for the mergeable buffers and big_packet
->>> modes. I tested this with vhost_net running on qemu and did not see
->>> any issues. For testing num_buf > 1 I added a hack to vhost driver
->>> to only but 100 bytes per buffer.
->>  ...
->>
->> So where are we with this?
+On Thu,  8 Dec 2016 09:38:55 -0800
+Eric Dumazet <edumazet@google.com> wrote:
 
-There is one possible issue with a hang that Michael pointed out. I can
-either spin a v6 or if you pull this v5 series in I can post a bugfix
-for it. I am not seeing the issue in practice XDP virtio has been up
-and running on my box here for days without issue.
+> This patch series provides about 100 % performance increase under flood. 
 
-All the concerns below are really future XDP ideas and unrelated to
-this series or at least not required for this series to applied IMO.
+Could you please explain a bit more about what kind of testing you are
+doing that can show 100% performance improvement?
 
->>
->> I'm not too thrilled with the idea of making XDP_TX optional or
->> something like that.  If someone enables XDP, there is a tradeoff.
->>
->> I also have reservations about the idea to make jumbo frames work
->> without giving XDP access to the whole packet.  If it wants to push or
->> pop a header, it might need to know the whole packet length.  How will
->> you pass that to the XDP program?
->>
->> Some kinds of encapsulation require trailers, thus preclusing access
->> to the entire packet precludes those kinds of transformations.
-> 
-> +1
+I've tested this patchset and my tests show *huge* speeds ups, but
+reaping the performance benefit depend heavily on setup and enabling
+the right UDP socket settings, and most importantly where the
+performance bottleneck is: ksoftirqd(producer) or udp_sink(consumer).
 
-This was sort of speculative on my side it is certainly not dependent on
-the series here. I agree that we don't want to get into a state where
-program X runs here and not there and only runs after doing magic
-incantations, etc. I would only propose it if there is a clean way to
-implement this.
+Basic setup: Unload all netfilter, and enable ip_early_demux.
+ sysctl net/ipv4/ip_early_demux=1
 
-> 
->> This is why we want simple, linear, buffer access for XDP.
->>
->> Even the most seemingly minor exception turns into a huge complicated
->> mess.
-> 
-> +1
+Test generator pktgen UDP packets single flow, 50Gbit/s mlx5 NICs.
+ - Vary packet size between 64 and 1514.
 
-Yep.
 
-> 
-> and from the other thread:
->>> Can't we disable XDP_TX somehow? Many people might only want RX drop,
->>> and extra queues are not always there.
->>>
->>
->> Alexei, Daniel, any thoughts on this?
-> 
-> I don't like it.
-> 
+Packet-size: 64
+$ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7))
+                                ns/pkt  pps             cycles/pkt
+recvMmsg/32  	run: 0 10000000	537.70	1859756.90	2155
+recvmsg   	run: 0 10000000	510.84	1957541.83	2047
+read      	run: 0 10000000	583.40	1714077.14	2338
+recvfrom  	run: 0 10000000	600.09	1666411.49	2405
 
-OK alternatively we can make more queues available in virtio which might
-be the better solution.
+The ksoftirq thread "cost" more than udp_sink, which is idle, and UDP
+queue does not get full-enough. Thus, patchset does not have any
+effect.
 
->> I know we were trying to claim some base level of feature support for
->> all XDP drivers. I am sympathetic to this argument though for DDOS we
->> do not need XDP_TX support. And virtio can become queue constrained
->> in some cases.
-> 
-> especially for ddos case doing lro/gro is not helpful.
 
-Fair enough but disabling LRO to handle the case where you "might" get
-a DDOS will hurt normal good traffic.
+Try to increase pktgen packet size, as this increase the copy cost of
+udp_sink.  Thus, a queue can now form, and udp_sink CPU almost have no
+idle cycles.  The "read" and "readfrom" did experience some idle
+cycles.
 
-> I frankly don't see a use case where you'd want to steer a packet
-> all the way into VM just to drop them there?
+Packet-size: 1514
+$ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7))
+                                ns/pkt  pps             cycles/pkt
+recvMmsg/32  	run: 0 10000000	435.88	2294204.11	1747
+recvmsg   	run: 0 10000000	458.06	2183100.64	1835
+read      	run: 0 10000000	520.34	1921826.18	2085
+recvfrom  	run: 0 10000000	515.48	1939935.27	2066
 
-VM to VM traffic is my use case. And in that model we need XDP at the
-virtio or vhost layer in case of malicious/broke/untrusted VM. I have
-some vhost patches under development for when net-next opens up again.
 
-> Without XDP_TX it's too crippled. adjust_head() won't be possible,
+Next trick connected UDP:
 
-Just a nit but any reason not to support adjust_head and then XDP_PASS.
-I don't have a use case in mind but also see no reason to preclude it.
+Use connected UDP socket (combined with ip_early_demux), removes the
+FIB_lookup from the ksoftirq, and cause tipping point to be better.
 
-> packet mangling would have to be disabled and so on.
-> If xdp program doesn't see raw packet it can only parse the headers of
-> this jumbo meta-packet and drop it, but for virtio it's really too late.
-> ddos protection needs to be done at the earliest hw nic receive.
+Packet-size: 64
+$ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7)) --connect
+                                ns/pkt  pps             cycles/pkt
+recvMmsg/32  	run: 0 10000000	391.18	2556361.62	1567
+recvmsg   	run: 0 10000000	422.95	2364349.69	1695
+read      	run: 0 10000000	425.29	2351338.10	1704
+recvfrom  	run: 0 10000000	476.74	2097577.57	1910
 
-VM to VM traffic never touches hw nic.
+Change/increase packet size:
 
-> I think if driver claims xdp support it needs to support
-> drop/pass/tx and adjust_head. For metadata passing up into stack from xdp
-> we need adjust_head, for encap/decap we need it too. And lro is in the way
-> of such transformations.
-> We struggled a lot with cls_bpf due to all metadata inside skb that needs
-> to be kept correct. Feeding non-raw packets into xdp is a rat hole.
-> 
+Packet-size: 1514
+$ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7)) --connect
+                                ns/pkt  pps             cycles/pkt
+recvMmsg/32  	run: 0 10000000	457.56	2185481.94	1833
+recvmsg   	run: 0 10000000	479.42	2085837.49	1921
+read      	run: 0 10000000	398.05	2512233.13	1595
+recvfrom  	run: 0 10000000	391.07	2557096.95	1567
 
-In summary:
+A bit strange, changing the packet size, flipped what is the fastest
+syscall.
 
-I think its worth investigating getting LRO working but agree we can't
-sacrifice any of the existing features or complicate the code to do it.
-If the result of investigating is it can't be done then that is how it
-is.
+It is also interesting to see that ksoftirq limit is:
 
-Jumbo frames I care very little about in reality so should not have
-mentioned it.
+Result from "nstat" while using recvmsg, show that ksoftirq is
+handling 2.6 Mpps, and consumer/udp_sink is bottleneck with 2Mpps.
 
-Requiring XDP drivers to support all features is fine for me I can make
-the virtio queue scheme a bit more flexible. Michael might have some
-opinion on this though.
+[skylake ~]$ nstat > /dev/null && sleep 1  && nstat
+#kernel
+IpInReceives                    2667577            0.0
+IpInDelivers                    2667577            0.0
+UdpInDatagrams                  2083580            0.0
+UdpInErrors                     583995             0.0
+UdpRcvbufErrors                 583995             0.0
+IpExtInOctets                   4001340000         0.0
+IpExtInNoECTPkts                2667559            0.0
 
-This series shouldn't be blocked by any of the above.
-
-Thanks,
-.John
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
