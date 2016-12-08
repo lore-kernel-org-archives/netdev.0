@@ -1,38 +1,38 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net-next] udp: under rx pressure, try to condense skbs
-Date: Thu, 8 Dec 2016 07:36:47 -0800
-Message-ID: <de654cac-fa3c-a4e1-a24a-27187456b8d7@hpe.com>
-References: <1481131173.4930.36.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161208104620.5fc691b8@redhat.com>
- <1481211015.4930.100.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: [PATCH v3 1/6] net: stmmac: return error if no DMA configuration
+ is found
+Date: Thu, 8 Dec 2016 16:41:34 +0100
+Message-ID: <deaab0c2-b7c0-9848-8037-4f5a98eca1ab@st.com>
+References: <1481120409-18103-1-git-send-email-niklass@axis.com>
+ <1481120409-18103-2-git-send-email-niklass@axis.com>
+ <d18098a5-a4a4-0c63-f64c-cdb7144dd67e@st.com>
+ <20161208.101915.2006667298193036157.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3425.houston.hpe.com ([15.241.140.78]:10431 "EHLO
-        g4t3425.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753821AbcLHPgt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 10:36:49 -0500
-In-Reply-To: <1481211015.4930.100.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <niklas.cassel@axis.com>, <peppe.cavallaro@st.com>,
+        <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161208.101915.2006667298193036157.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/08/2016 07:30 AM, Eric Dumazet wrote:
-> On Thu, 2016-12-08 at 10:46 +0100, Jesper Dangaard Brouer wrote:
+Hi David,
+
+On 12/08/2016 04:19 PM, David Miller wrote:
+> From: Alexandre Torgue <alexandre.torgue@st.com>
+> Date: Thu, 8 Dec 2016 11:44:35 +0100
 >
->> Hmmm... I'm not thrilled to have such heuristics, that change memory
->> behavior when half of the queue size (sk->sk_rcvbuf) is reached.
+>> Acked-by: Alexandre Torgue <alexandre.torgue@stcom>
 >
-> Well, copybreak drivers do that unconditionally, even under no stress at
-> all, you really should complain then.
+> Typo in your email.
+>
+> I would suggest that you put this into an editor macro or
+> similar in order to avoid such typos in the future.  That's
+> what people do who review a lot of patches.
 
-Isn't that behaviour based (in part?) on the observation/belief that it 
-is fewer cycles to copy the small packet into a small buffer than to 
-send the larger buffer up the stack and have to allocate and map a 
-replacement?
+Sorry, I will pay attention next time.
 
-rick jones
+>
