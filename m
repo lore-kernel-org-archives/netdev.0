@@ -1,92 +1,112 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth-next 2016-12-08
-Date: Thu, 8 Dec 2016 09:52:22 +0200
-Message-ID: <20161208075222.GA5772@x1c.lan>
-References: <20161208074809.GA4680@x1c.lan>
+From: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next] openvswitch: fix VxLAN-gpe port can't be
+	created in ovs compat mode
+Date: Thu,  8 Dec 2016 16:20:10 +0800
+Message-ID: <1481185210-13056-1-git-send-email-yi.y.yang@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="SLDf9lqlvOQaIe6s"
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161208074809.GA4680-IWfI2fE34AE@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+In ovs compat mode, ovs won't use LWT in current kernel, this is to
+make sure ovs can work on the old kernels, Linux kernel v4.7 includes
+VxLAN-gpe support but many Linux distributions' kernels are odler than
+v4.7, this fix will ensure that ovs can create VxLAN-gpe port correctly
+on old kernels, it has been verified on Ubuntu 16.04 x86_64 with Linux
+kernel 4.4.0-53-generic.
 
---SLDf9lqlvOQaIe6s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This does touch compat code, but it is necessary as Pravin commented.
 
-(resending since I forgot to sign the first one)
+Without this fix, ovs can't create VxLAN-gpe port, it is still a VxLAN
+port.
 
-Hi Dave,
+vxlan_sys_4790 Link encap:Ethernet  HWaddr 72:23:60:c2:8b:8d
+          inet6 addr: fe80::7023:60ff:fec2:8b8d/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:65485  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:8 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
 
-I didn't miss your "net-next is closed" email, but it did come as a bit
-of a surprise, and due to time-zone differences I didn't have a chance
-to react to it until now. We would have had a couple of patches in
-bluetooth-next that we'd still have wanted to get to 4.10.
+But with this fix applied, a real L3 port is created
 
-Out of these the most critical one is the H7/CT2 patch for Bluetooth
-Security Manager Protocol, something that couldn't be published before
-the Bluetooth 5.0 specification went public (yesterday). If these really
-can't go to net-next we'll likely be sending at least this patch through
-bluetooth.git to net.git for rc1 inclusion.
+vxlan_sys_4790 Link encap:UNSPEC  HWaddr
+00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+          UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:65485  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
 
-Johan
-
+Signed-off-by: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
-The following changes since commit 5fccd64aa44829f87997e3342698ef98862adffd:
+ include/uapi/linux/openvswitch.h |  1 +
+ net/openvswitch/vport-vxlan.c    | 15 +++++++++++++++
+ 2 files changed, 16 insertions(+)
 
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next (2016-12-07 19:16:46 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
-
-for you to fetch changes up to a62da6f14db79bd7ea435ab095e998b31b3dbb22:
-
-  Bluetooth: SMP: Add support for H7 crypto function and CT2 auth flag (2016-12-08 07:50:24 +0100)
-
-----------------------------------------------------------------
-Geliang Tang (1):
-      Bluetooth: btmrvl: drop duplicate header slab.h
-
-Johan Hedberg (1):
-      Bluetooth: SMP: Add support for H7 crypto function and CT2 auth flag
-
-Stefan Schmidt (4):
-      ieee802154: atusb: sync header file from firmware for new features
-      ieee802154: atusb: store firmware version after retrieval for later use
-      ieee802154: atusb: try to read permanent extended address from device
-      ieee802154: atusb: implement .set_frame_retries ops callback
-
- drivers/bluetooth/btmrvl_drv.h |  1 -
- drivers/net/ieee802154/atusb.c | 79 +++++++++++++++++++++++++++++++++----
- drivers/net/ieee802154/atusb.h | 11 ++++--
- net/bluetooth/smp.c            | 85 ++++++++++++++++++++++++++++++++--------
- net/bluetooth/smp.h            |  1 +
- 5 files changed, 149 insertions(+), 28 deletions(-)
-
---SLDf9lqlvOQaIe6s
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBAgAGBQJYSRE2AAoJECQj9vv5qNQSKnIP/12BMzGAbyDpE5NWSC35zB0Z
-p1Ujv+QwihyGD/G9l4gdyiy31NP5VSfAdd2xj9LOSLdQ7sYNf+/Pp+3FjZPb4e5c
-TdGaTsHpwHPrq86+R/coOb3RV+/+wzl+dfzi6X7ZDQ8NL7n/vIkeYRMYedvGjMZU
-mEq1PxeRVxaTc/fXmqwgNCWu6N+2AadnT9yQsjdES944c0NtIFuhjY1/KkbLlb/K
-fVl1jhcOwb/pqu18ACuHwd81IDLtJkYHCMrfLi2YA6td60Nmc4hs9+zb2gbrbz/m
-QPusygUS3Oie8Il7hr5zFQr0hL0xv/Wrn674b6h6/58Syb86oX2vEjMZ9abd3tgH
-cSr8gvWavJS/UBjW0Ocni/r7JtRPSgClK6patKNjXOUEXfHN/rLAOT12j2Plydkr
-pv6pC0IpLQ8QYVSY5i09Pa2Xikz9YXXJKojE/oPVDVMa92V0VI9QFv35II/spXjm
-mvZ1/5RKVSDm0fA1GmIe8ZOkGLv6Y9JWbT57Liis9+At8I/sNr+eUmO1r7EKPwzL
-oPDY3tnvEj+PgHhMS1IruXiNv3uI8JG8Gi7+E3+jjXWn3fwumPQqKMdG3xqHmI6v
-h/jSCjSxx435vAsV+b4fqnScviGcIbWXPWGrgBubVC6L5sfERcoIcOa92Y/SsoGL
-acgiuHi5THSr9YzzzY5h
-=emVE
------END PGP SIGNATURE-----
-
---SLDf9lqlvOQaIe6s--
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 375d812..b0e27b3 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -265,6 +265,7 @@ enum ovs_vport_attr {
+ enum {
+ 	OVS_VXLAN_EXT_UNSPEC,
+ 	OVS_VXLAN_EXT_GBP,	/* Flag or __u32 */
++	OVS_VXLAN_EXT_GPE,	/* Flag or __u32 */
+ 	__OVS_VXLAN_EXT_MAX,
+ };
+ 
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index 7eb955e..42e46af 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -52,6 +52,18 @@ static int vxlan_get_options(const struct vport *vport, struct sk_buff *skb)
+ 			return -EMSGSIZE;
+ 
+ 		nla_nest_end(skb, exts);
++	} else if (vxlan->flags & VXLAN_F_GPE) {
++		struct nlattr *exts;
++
++		exts = nla_nest_start(skb, OVS_TUNNEL_ATTR_EXTENSION);
++		if (!exts)
++			return -EMSGSIZE;
++
++		if (vxlan->flags & VXLAN_F_GPE &&
++		    nla_put_flag(skb, OVS_VXLAN_EXT_GPE))
++			return -EMSGSIZE;
++
++		nla_nest_end(skb, exts);
+ 	}
+ 
+ 	return 0;
+@@ -59,6 +71,7 @@ static int vxlan_get_options(const struct vport *vport, struct sk_buff *skb)
+ 
+ static const struct nla_policy exts_policy[OVS_VXLAN_EXT_MAX + 1] = {
+ 	[OVS_VXLAN_EXT_GBP]	= { .type = NLA_FLAG, },
++	[OVS_VXLAN_EXT_GPE]	= { .type = NLA_FLAG, },
+ };
+ 
+ static int vxlan_configure_exts(struct vport *vport, struct nlattr *attr,
+@@ -76,6 +89,8 @@ static int vxlan_configure_exts(struct vport *vport, struct nlattr *attr,
+ 
+ 	if (exts[OVS_VXLAN_EXT_GBP])
+ 		conf->flags |= VXLAN_F_GBP;
++	else if (exts[OVS_VXLAN_EXT_GPE])
++		conf->flags |= VXLAN_F_GPE;
+ 
+ 	return 0;
+ }
+-- 
+1.9.3
