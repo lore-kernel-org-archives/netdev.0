@@ -1,68 +1,130 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Thu, 8 Dec 2016 01:30:34 +0100
-Message-ID: <095cac5b-b757-6f4a-e699-8eedf9ed7221@stressinduktion.org>
-References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: [net-next v2 02/19] i40e: simplify txd use count calculation
+Date: Thu, 8 Dec 2016 00:35:06 +0000
+Message-ID: <B1C1DF2ACD01FD4881736AA51731BAB2A54ADC@ORSMSX107.amr.corp.intel.com>
+References: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
+         <20161207221918.57932-3-jeffrey.t.kirsher@intel.com>
+ <1481156184.4930.77.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
- linux-mips@linux-mips.org
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
-List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "Williams, Mitch A" <mitch.a.williams@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>,
+        "guru.anbalagane@oracle.com" <guru.anbalagane@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga06.intel.com ([134.134.136.31]:46937 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932441AbcLHAfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 19:35:09 -0500
+In-Reply-To: <1481156184.4930.77.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jason,
-
-On 07.12.2016 19:35, Jason A. Donenfeld wrote:
-> I receive encrypted packets with a 13 byte header. I decrypt the
-> ciphertext in place, and then discard the header. I then pass the
-> plaintext to the rest of the networking stack. The plaintext is an IP
-> packet. Due to the 13 byte header that was discarded, the plaintext
-> possibly begins at an unaligned location (depending on whether
-> dev->needed_headroom was respected).
-> 
-> Does this matter? Is this bad? Will there be a necessary performance hit?
-
-Your custom protocol should be designed in a way you get an aligned ip
-header. Most protocols of the IETF follow this mantra and it is always
-possible to e.g. pad options so you end up on aligned boundaries for the
-next header.
-
-GRE-TEB for example needs skb_copy_bits to extract the header so it can
-access them in an aligned way.
-
-> In order to find out, I instrumented the MIPS unaligned access
-> exception handler to see where I was actually in trouble.
-> Surprisingly, the only part of the stack that seemed to be upset was
-> on calls to ip_hdr(skb)->version.
-> 
-> Two things disturb me about this. First, this seems too good to be
-> true. Does it seem reasonable to you that this is actually the only
-> place that would be problematic? Or was my testing methodology wrong
-> to arrive at such an optimistic conclusion?
-> 
-> Secondly, why should a call to ip_hdr(skb)->version cause an unaligned
-> access anyway? This struct member is simply the second half of a
-> single byte in a bit field. I'd expect for the compiler to generate a
-> single byte load, followed by a bitshift or a mask. Instead, the
-> compiler appears to generate a double byte load, hence the exception.
-> What's up with this? Stupid compiler that should be fixed? Some odd
-> optimization? What to do?
-
-I don't see an issue with that at all. Why do you think it could be a
-problem?
-
-Bye,
-Hannes
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIERlY2VtYmVyIDcs
+IDIwMTYgNDoxNiBQTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUIDxqZWZmcmV5LnQua2lyc2hl
+ckBpbnRlbC5jb20+DQo+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBXaWxsaWFtcywgTWl0Y2gg
+QSA8bWl0Y2guYS53aWxsaWFtc0BpbnRlbC5jb20+Ow0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+OyBuaG9ybWFuQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207DQo+IGpvZ3JlZW5lQHJl
+ZGhhdC5jb207IGd1cnUuYW5iYWxhZ2FuZUBvcmFjbGUuY29tOyBEdXljaywgQWxleGFuZGVyIEgN
+Cj4gPGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbT4NCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4
+dCB2MiAwMi8xOV0gaTQwZTogc2ltcGxpZnkgdHhkIHVzZSBjb3VudCBjYWxjdWxhdGlvbg0KPiAN
+Cj4gT24gV2VkLCAyMDE2LTEyLTA3IGF0IDE0OjE5IC0wODAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6
+DQo+ID4gRnJvbTogTWl0Y2ggV2lsbGlhbXMgPG1pdGNoLmEud2lsbGlhbXNAaW50ZWwuY29tPg0K
+PiA+DQo+ID4gVGhlIGk0MGVfdHhkX3VzZV9jb3VudCBmdW5jdGlvbiB3YXMgZmFzdCBidXQgY29u
+ZnVzaW5nLiBJbiB0aGUNCj4gPiBjb21tZW50cywgaXQgZXZlbiBhZG1pdHMgdGhhdCBpdCdzIHVn
+bHkuIFNvIHJlcGxhY2UgaXQgd2l0aCBhIG5ldw0KPiA+IGZ1bmN0aW9uIHRoYXQgaXMNCj4gPiAo
+dmVyeSkgc2xpZ2h0bHkgZmFzdGVyIGFuZCBoYXMgZXh0ZW5zaXZlIGNvbW1lbnRpbmcgdG8gaGVs
+cCB0aGUNCj4gPiB0aGlja2VyIGFtb25nIHVzIChpbmNsdWRpbmcgdGhlIGF1dGhvciwgd2hvIHdp
+bGwgZm9yZ2V0IGluIGEgd2VlaykNCj4gPiB1bmRlcnN0YW5kIGhvdyBpdCB3b3Jrcy4NCj4gPg0K
+PiA+IENoYW5nZS1JRDogSWZiNTMzZjEzNzg2YTBiZjM5Y2IyOWY3Nzk2OWE1YmUyYzgzZDlhODcN
+Cj4gPiBTaWduZWQtb2ZmLWJ5OiBNaXRjaCBXaWxsaWFtcyA8bWl0Y2guYS53aWxsaWFtc0BpbnRl
+bC5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5k
+dXlja0BpbnRlbC5jb20+DQo+ID4gVGVzdGVkLWJ5OiBBbmRyZXcgQm93ZXJzIDxhbmRyZXd4LmJv
+d2Vyc0BpbnRlbC5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5
+LnQua2lyc2hlckBpbnRlbC5jb20+DQo+ID4gLS0tDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0
+L2ludGVsL2k0MGUvaTQwZV90eHJ4LmggICB8IDQ1ICsrKysrKysrKysrKysrKysrLS0tLS0tLS0t
+DQo+IC0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZXZmL2k0MGVfdHhyeC5o
+IHwgNDUNCj4gPiArKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0NCj4gPiAgMiBmaWxlcyBjaGFu
+Z2VkLCA1NiBpbnNlcnRpb25zKCspLCAzNCBkZWxldGlvbnMoLSkNCj4gPg0KPiA+IGRpZmYgLS1n
+aXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdHhyeC5oDQo+ID4gYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdHhyeC5oDQo+ID4gaW5kZXggZGU4
+NTUwZi4uZTA2NTMyMSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
+bC9pNDBlL2k0MGVfdHhyeC5oDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+aTQwZS9pNDBlX3R4cnguaA0KPiA+IEBAIC0xNzMsMjYgKzE3MywzNyBAQCBzdGF0aWMgaW5saW5l
+IGJvb2wgaTQwZV90ZXN0X3N0YXRlcnIodW5pb24NCj4gPiBpNDBlX3J4X2Rlc2MgKnJ4X2Rlc2Ms
+ICAjZGVmaW5lIEk0MEVfTUFYX0RBVEFfUEVSX1RYRF9BTElHTkVEIFwNCj4gPiAgCShJNDBFX01B
+WF9EQVRBX1BFUl9UWEQgJiB+KEk0MEVfTUFYX1JFQURfUkVRX1NJWkUgLSAxKSkNCj4gPg0KPiA+
+IC0vKiBUaGlzIHVnbHkgYml0IG9mIG1hdGggaXMgZXF1aXZhbGVudCB0byBESVZfUk9VTkRVUChz
+aXplLCBYKSB3aGVyZQ0KPiA+IFggaXMNCj4gPiAtICogdGhlIHZhbHVlIEk0MEVfTUFYX0RBVEFf
+UEVSX1RYRF9BTElHTkVELiAgSXQgaXMgbmVlZGVkIGR1ZSB0byB0aGUNCj4gPiBmYWN0DQo+ID4g
+LSAqIHRoYXQgMTJLIGlzIG5vdCBhIHBvd2VyIG9mIDIgYW5kIGRpdmlzaW9uIGlzIGV4cGVuc2l2
+ZS4gIEl0IGlzDQo+ID4gdXNlZCB0bw0KPiA+IC0gKiBhcHByb3hpbWF0ZSB0aGUgbnVtYmVyIG9m
+IGRlc2NyaXB0b3JzIHVzZWQgcGVyIGxpbmVhciBidWZmZXIuDQo+ID4gTm90ZQ0KPiA+IC0gKiB0
+aGF0IHRoaXMgd2lsbCBvdmVyZXN0aW1hdGUgaW4gc29tZSBjYXNlcyBhcyBpdCBkb2Vzbid0IGFj
+Y291bnQNCj4gPiBmb3IgdGhlDQo+ID4gLSAqIGZhY3QgdGhhdCB3ZSB3aWxsIGFkZCB1cCB0byA0
+SyAtIDEgaW4gYWxpZ25pbmcgdGhlIDEySyBidWZmZXIsDQo+ID4gaG93ZXZlcg0KPiA+IC0gKiB0
+aGUgZXJyb3Igc2hvdWxkIG5vdCBpbXBhY3QgdGhpbmdzIG11Y2ggYXMgbGFyZ2UgYnVmZmVycyB1
+c3VhbGx5DQo+ID4gbWVhbg0KPiA+IC0gKiB3ZSB3aWxsIHVzZSBmZXdlciBkZXNjcmlwdG9ycyB0
+aGVuIHRoZXJlIGFyZSBmcmFncyBpbiBhbiBza2IuDQo+ID4gKy8qKg0KPiA+ICsgKiBpNDBlX3R4
+ZF91c2VfY291bnQgIC0gZXN0aW1hdGUgdGhlIG51bWJlciBvZiBkZXNjcmlwdG9ycyBuZWVkZWQN
+Cj4gPiArZm9yIFR4DQo+ID4gKyAqIEBzaXplOiB0cmFuc21pdCByZXF1ZXN0IHNpemUgaW4gYnl0
+ZXMNCj4gPiArICoNCj4gPiArICogRHVlIHRvIGhhcmR3YXJlIGFsaWdubWVudCByZXN0cmljdGlv
+bnMgKDRLIGFsaWdubWVudCksIHdlIG5lZWQgdG8NCj4gPiArICogYXNzdW1lIHRoYXQgd2UgY2Fu
+IGhhdmUgbm8gbW9yZSB0aGFuIDEySyBvZiBkYXRhIHBlciBkZXNjcmlwdG9yLA0KPiA+ICtldmVu
+DQo+ID4gKyAqIHRob3VnaCBlYWNoIGRlc2NyaXB0b3IgY2FuIHRha2UgdXAgdG8gMTZLIC0gMSBi
+eXRlcyBvZiBhbGlnbmVkIG1lbW9yeS4NCj4gPiArICogVGh1cywgd2UgbmVlZCB0byBkaXZpZGUg
+YnkgMTJLLiBCdXQgZGl2aXNpb24gaXMgc2xvdyEgSW5zdGVhZCwNCj4gPiArICogd2UgZGVjb21w
+b3NlIHRoZSBvcGVyYXRpb24gaW50byBzaGlmdHMgYW5kIG9uZSByZWxhdGl2ZWx5IGNoZWFwDQo+
+ID4gKyAqIG11bHRpcGx5IG9wZXJhdGlvbi4NCj4gPiArICoNCj4gPiArICogVG8gZGl2aWRlIGJ5
+IDEySywgd2UgZmlyc3QgZGl2aWRlIGJ5IDRLLCB0aGVuIGRpdmlkZSBieSAzOg0KPiA+ICsgKiAg
+ICAgVG8gZGl2aWRlIGJ5IDRLLCBzaGlmdCByaWdodCBieSAxMiBiaXRzDQo+ID4gKyAqICAgICBU
+byBkaXZpZGUgYnkgMywgbXVsdGlwbHkgYnkgODUsIHRoZW4gZGl2aWRlIGJ5IDI1Ng0KPiA+ICsg
+KiAgICAgKERpdmlkZSBieSAyNTYgaXMgZG9uZSBieSBzaGlmdGluZyByaWdodCBieSA4IGJpdHMp
+DQo+ID4gKyAqIEZpbmFsbHksIHdlIGFkZCBvbmUgdG8gcm91bmQgdXAuIEJlY2F1c2UgMjU2IGlz
+bid0IGFuIGV4YWN0DQo+ID4gK211bHRpcGxlIG9mDQo+ID4gKyAqIDMsIHdlJ2xsIHVuZGVyZXN0
+aW1hdGUgbmVhciBlYWNoIG11bHRpcGxlIG9mIDEySy4gVGhpcyBpcyBhY3R1YWxseQ0KPiA+ICtt
+b3JlDQo+ID4gKyAqIGFjY3VyYXRlIGFzIHdlIGhhdmUgNEsgLSAxIG9mIHdpZ2dsZSByb29tIHRo
+YXQgd2UgY2FuIGZpdCBpbnRvIHRoZQ0KPiA+ICtsYXN0DQo+ID4gKyAqIHNlZ21lbnQuICBGb3Ig
+b3VyIHB1cnBvc2VzIHRoaXMgaXMgYWNjdXJhdGUgb3V0IHRvIDFNIHdoaWNoIGlzDQo+ID4gK29y
+ZGVycyBvZg0KPiA+ICsgKiBtYWduaXR1ZGUgZ3JlYXRlciB0aGFuIG91ciBsYXJnZXN0IHBvc3Np
+YmxlIEdTTyBzaXplLg0KPiA+ICsgKg0KPiA+ICsgKiBUaGlzIHdvdWxkIHRoZW4gYmUgaW1wbGVt
+ZW50ZWQgYXM6DQo+ID4gKyAqICAgICByZXR1cm4gKCgoc2l6ZSA+PiAxMikgKiA4NSkgPj4gOCkg
+KyAxOw0KPiA+ICsgKg0KPiA+ICsgKiBTaW5jZSBtdWx0aXBsaWNhdGlvbiBhbmQgZGl2aXNpb24g
+YXJlIGNvbW11dGF0aXZlLCB3ZSBjYW4gcmVvcmRlcg0KPiA+ICsgKiBvcGVyYXRpb25zIGludG86
+DQo+ID4gKyAqICAgICByZXR1cm4gKChzaXplICogODUpID4+IDIwKSArIDE7DQo+ID4gICAqLw0K
+PiA+ICBzdGF0aWMgaW5saW5lIHVuc2lnbmVkIGludCBpNDBlX3R4ZF91c2VfY291bnQodW5zaWdu
+ZWQgaW50IHNpemUpICB7DQo+ID4gLQljb25zdCB1bnNpZ25lZCBpbnQgbWF4ID0gSTQwRV9NQVhf
+REFUQV9QRVJfVFhEX0FMSUdORUQ7DQo+ID4gLQljb25zdCB1bnNpZ25lZCBpbnQgcmVjaXByb2Nh
+bCA9ICgoMXVsbCA8PCAzMikgLSAxICsgKG1heCAvIDIpKSAvIG1heDsNCj4gPiAtCXVuc2lnbmVk
+IGludCBhZGp1c3QgPSB+KHUzMikwOw0KPiA+IC0NCj4gPiAtCS8qIGlmIHdlIHJvdW5kZWQgdXAg
+b24gdGhlIHJlY2lwcm9jYWwgcHVsbCBkb3duIHRoZSBhZGp1c3RtZW50ICovDQo+ID4gLQlpZiAo
+KG1heCAqIHJlY2lwcm9jYWwpID4gYWRqdXN0KQ0KPiA+IC0JCWFkanVzdCA9IH4odTMyKShyZWNp
+cHJvY2FsIC0gMSk7DQo+ID4gLQ0KPiA+IC0JcmV0dXJuICh1MzIpKCgoKHU2NClzaXplICogcmVj
+aXByb2NhbCkgKyBhZGp1c3QpID4+IDMyKTsNCj4gPiArCXJldHVybiAoKHNpemUgKiA4NSkgPj4g
+MjApICsgMTsNCj4gPiAgfQ0KPiANCj4gQnV0Li4uDQo+IA0KPiBJIHRob3VnaHQgZ2NjIGFscmVh
+ZHkgaW1wbGVtZW50ZWQgcmVjaXByb2NhbCBkaXZpZGVzID8NCj4gDQo+IA0KPiAkIGNhdCBkaXYu
+Yw0KPiB1bnNpZ25lZCBpbnQgZm9vKHVuc2lnbmVkIGludCBzaXplKQ0KPiB7DQo+IAlyZXR1cm4g
+c2l6ZSAvIDB4MzAwMDsNCj4gfQ0KPiAkIGdjYyAtTzIgLVMgZGl2LmMgJiYgY2F0IGRpdi5zDQo+
+IGZvbzoNCj4gLkxGQjA6DQo+IAkuY2ZpX3N0YXJ0cHJvYw0KPiAJbW92bAklZWRpLCAlZWF4DQo+
+IAltb3ZsCSQtMTQzMTY1NTc2NSwgJWVkeCAgLy8gMHhhYWFhYWFhYg0KPiAJbXVsbAklZWR4DQo+
+IAlzaHJsCSQxMywgJWVkeA0KPiAJbW92bAklZWR4LCAlZWF4DQo+IAlyZXQNCj4gDQoNCldlbGwg
+dGhlcmUgZW5kcyB1cCBiZWluZyBhIGZldyBhc3BlY3RzIHRvIGl0LiAgRmlyc3Qgd2UgZG9uJ3Qg
+bmVlZCB0aGUgcHJlY2lzaW9uIG9mIGEgZnVsbCA2NGIgaW52ZXJzZSBtdWx0aXBsaWNhdGlvbiwg
+dGhhdCBpcyB3aHkgd2UgY2FuIGdldCBhd2F5IHdpdGggbXVsdGlwbGUgYnkgODUgYW5kIHNoaWZ0
+LiAgVGhlIGFzc3VtcHRpb24gaXMgd2Ugc2hvdWxkIG5ldmVyIHNlZSBhIGJ1ZmZlciBsYXJnZXIg
+dGhhbiA2NEsgZm9yIGEgVFNPIGZyYW1lLiAgVGhhdCBiZWluZyB0aGUgY2FzZSB3ZSBjYW4gZG8g
+dGhlIHNhbWUgdGhpbmcgd2l0aG91dCBoYXZpbmcgdG8gdXNlIGEgNjRiIHZhbHVlIHdoaWNoIGlz
+bid0IGFuIG9wdGlvbiBvbiAzMmIgYXJjaGl0ZWN0dXJlcy4NCg0KU28gYmFzaWNhbGx5IHdoYXQg
+aXQgY29tZXMgZG93biB0byBpcyBkZWFsaW5nIHdpdGggdGhlICJvcHRpbWl6ZWQgZm9yIHNpemUi
+IGtlcm5lbCBvcHRpb24sIGFuZCAzMmIgYXJjaGl0ZWN0dXJlcyBub3QgYmVpbmcgYWJsZSB0byBk
+byB0aGlzLiAgQXJndWFibHkgYm90aCBhcmUgY29ybmVyIGNhc2VzIGJ1dCBiZXR0ZXIgdG8gZGVh
+bCB3aXRoIHRoZW0gdGhhbiB0YWtlIGEgcGVyZm9ybWFuY2UgaGl0IHdlIGRvbid0IGhhdmUgdG8u
+DQoNCi0gQWxleA0K
