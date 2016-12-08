@@ -1,57 +1,180 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [Intel-wired-lan] [RFC PATCH] i40e: enable PCIe relax ordering
- for SPARC
-Date: Thu, 8 Dec 2016 10:43:15 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB02382BD@AcuExch.aculab.com>
-References: <1480957627-16825-1-git-send-email-tushar.n.dave@oracle.com>
- <CAKgT0UcyRSub0NCi7oHX2Vf+N4vQxzwdWmcc+V+jOX_J=RYgfg@mail.gmail.com>
- <ec140d5d-3eec-5fc6-6417-11bacc55b807@oracle.com>
- <CAKgT0UfTP+BrvDBzUJAVr9-DRCKgM7T3aS=LgRic8UZz8x82eg@mail.gmail.com>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: [PATCH v3 6/6] net: smmac: allow configuring lower pbl values
+Date: Thu, 8 Dec 2016 11:42:56 +0100
+Message-ID: <4d43479f-8373-308b-8c7d-cfed5346dc53@st.com>
+References: <1481120409-18103-1-git-send-email-niklass@axis.com>
+ <1481120409-18103-7-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>
-To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
-        tndave <tushar.n.dave@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.192]:64111 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751772AbcLHKn2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 05:43:28 -0500
-In-Reply-To: <CAKgT0UfTP+BrvDBzUJAVr9-DRCKgM7T3aS=LgRic8UZz8x82eg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-doc@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Phil Reid <preid@electromag.com.au>,
+        Eric Engestrom <eric@engestrom.ch>,
+        Pavel Machek <pavel@ucw.cz>,
+        =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber@suse.de>,
+        Joachim Eastwood <manabian@gmail.com>,
+        Vincent Palatin <vpalatin@chromium.org>,
+        Gabriel Fernandez <gabriel.fernandez@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481120409-18103-7-git-send-email-niklass@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDA2IERlY2VtYmVyIDIwMTYgMTc6MTANCi4u
-Lg0KPiBJIHdhcyB0aGlua2luZyBhYm91dCBpdCBhbmQgSSByZWFsaXplZCB3ZSBjYW4gcHJvYmFi
-bHkgc2ltcGxpZnkgdGhpcw0KPiBldmVuIGZ1cnRoZXIuICBJbiB0aGUgY2FzZSBvZiBtb3N0IG90
-aGVyIGFyY2hpdGVjdHVyZXMgdGhlDQo+IERNQV9BVFRSX1dFQUtfT1JERVJJTkcgaGFzIG5vIGVm
-ZmVjdCBhbnl3YXkuICBTbyBmcm9tIHdoYXQgSSBjYW4gdGVsbA0KPiB0aGVyZSBpcyBwcm9iYWJs
-eSBubyByZWFzb24gbm90IHRvIGp1c3QgYWx3YXlzIHBhc3MgdGhhdCBhdHRyaWJ1dGUNCj4gd2l0
-aCB0aGUgRE1BIG1hcHBpbmdzLiAgRnJvbSB3aGF0IEkgY2FuIHRlbGwgdGhlIG9ubHkgb3RoZXIN
-Cj4gYXJjaGl0ZWN0dXJlIHRoYXQgdXNlcyB0aGlzIGlzIHRoZSBQb3dlclBDIENlbGwgYXJjaGl0
-ZWN0dXJlLg0KDQpBbmQgSSBzaG91bGQgaGF2ZSByZWFkIGFsbCB0aGUgdGhyZWFkIDotKA0KDQo+
-IEFsc28gSSB3YXMgd29uZGVyaW5nIGlmIHlvdSBhY3R1YWxseSBuZWVkZWQgdG8gZW5hYmxlIHRo
-aXMgYXR0cmlidXRlDQo+IGZvciBib3RoIFJ4IGFuZCBUeCBidWZmZXJzIG9yIGp1c3QgUnggYnVm
-ZmVycz8gIFRoZSBwYXRjaCB0aGF0IGVuYWJsZWQNCj4gRE1BX0FUVFJfV0VBS19PUkRFUklORyBm
-b3IgU3BhcmM2NCBzZWVtcyB0byBjYWxsIG91dCB3cml0ZXMsIGJ1dCBJDQo+IGRpZG4ndCBzZWUg
-YW55dGhpbmcgYWJvdXQgcmVhZHMuICBJJ20ganVzdCB3b25kZXJpbmcgaWYgY2hhbmdpbmcgdGhl
-DQo+IGNvZGUgZm9yIFR4IGhhcyBhbnkgZWZmZWN0PyAgSWYgbm90IHlvdSBjb3VsZCBwcm9iYWJs
-eSBkcm9wIHRob3NlDQo+IGNoYW5nZXMgYW5kIGp1c3QgZm9jdXMgb24gUnguDQoNCidXZWFrIG9y
-ZGVyaW5nJyBvbmx5IGFwcGxpZXMgdG8gUENJZSByZWFkIHRyYW5zZmVycywgc28gY2FuIG9ubHkg
-aGF2ZQ0KYW4gZWZmZWN0IG9uIGRlc2NyaXB0b3IgcmVhZHMgYW5kIHRyYW5zbWl0IGJ1ZmZlciBy
-ZWFkcy4NCg0KQmFzaWNhbGx5IFBDSWUgaXMgYSBjb21tcyBwcm90b2NvbCBhbmQgYW4gZW5kcG9p
-bnQgKG9yIHRoZSBob3N0KSBjYW4NCmhhdmUgbXVsdGlwbGUgb3V0c3RhbmRpbmcgcmVhZCByZXF1
-ZXN0cyAoZWFjaCBvZiB3aGljaCBtaWdodCBnZW5lcmF0ZQ0KbXVsdGlwbGUgcmVzcG9uc2UgbWVz
-c2FnZXMuDQpUaGUgcmVzcG9uc2VzIGZvciBlYWNoIHJlcXVlc3QgbXVzdCBhcnJpdmUgaW4gb3Jk
-ZXIsIGJ1dCByZXNwb25zZXMgZm9yDQpkaWZmZXJlbnQgcmVxdWVzdHMgY2FuIGJlIGludGVybGVh
-dmVkLg0KU2V0dGluZyAnbm90IHdlYWsgb3JkZXJpbmcnIGxldHMgdGhlIGhvc3QgaW50ZXJ3b3Jr
-IHdpdGggYnJva2VuIGVuZHBvaW50cy4NCihPciwgbGlrZSB3ZSBkaWQsIHlvdSBmaXggdGhlIGZw
-Z2EncyBQQ0llIGltcGxlbWVudGF0aW9uLikNCg0KSW4gdGhpcyBjYXNlIHlvdSBuZWVkIHRoZSBy
-ZWFkcyBvZiBib3RoIHRyYW5zbWl0IGFuZCByZWNlaXZlIHJpbmdzIHRvDQonb3ZlcnRha2UnIHJl
-YWRzIG9mIHRyYW5zbWl0IGRhdGEuDQoNCkknbSBub3QgYXQgYWxsIGNsZWFyIGhvdyB0aGlzICdm
-bGFnJyBjYW4gYmUgc2V0IG9uIGRtYV9tYXAoKS4NCkl0IGlzIGEgcHJvcGVydHkgb2YgdGhlIFBD
-SWUgc3Vic3lzdGVtLg0KDQoJRGF2aWQNCg0KDQo=
+Hi Niklas,
+
+On 12/07/2016 03:20 PM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
+>
+> The driver currently always sets the PBLx8/PBLx4 bit, which means that
+> the pbl values configured via the pbl/txpbl/rxpbl DT properties are
+> always multiplied by 8/4 in the hardware.
+>
+> In order to allow the DT to configure lower pbl values, while at the
+> same time not changing behavior of any existing device trees using the
+> pbl/txpbl/rxpbl settings, add a property to disable the multiplication
+> of the pbl by 8/4 in the hardware.
+>
+> Suggested-by: Rabin Vincent <rabinv@axis.com>
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+
+Thanks for this patch, you can add my Acked-by.
+
+Thanks for the whole series.
+
+Alex
+
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt      | 2 ++
+>  Documentation/networking/stmmac.txt                   | 5 ++++-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c   | 3 ++-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c      | 3 ++-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c      | 2 ++
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 +
+>  include/linux/stmmac.h                                | 1 +
+>  7 files changed, 14 insertions(+), 3 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index 8080038ff1b2..128da752fec9 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -39,6 +39,8 @@ Optional properties:
+>  			If set, DMA tx will use this value rather than snps,pbl.
+>  - snps,rxpbl		Rx Programmable Burst Length. Only for GMAC and newer.
+>  			If set, DMA rx will use this value rather than snps,pbl.
+> +- snps,no-pbl-x8	Don't multiply the pbl/txpbl/rxpbl values by 8.
+> +			For core rev < 3.50, don't multiply the values by 4.
+>  - snps,aal		Address-Aligned Beats
+>  - snps,fixed-burst	Program the DMA to use the fixed burst mode
+>  - snps,mixed-burst	Program the DMA to use the mixed burst mode
+> diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+> index 6add57374f70..2bb07078f535 100644
+> --- a/Documentation/networking/stmmac.txt
+> +++ b/Documentation/networking/stmmac.txt
+> @@ -152,8 +152,9 @@ Where:
+>   o dma_cfg: internal DMA parameters
+>     o pbl: the Programmable Burst Length is maximum number of beats to
+>         be transferred in one DMA transaction.
+> -       GMAC also enables the 4xPBL by default.
+> +       GMAC also enables the 4xPBL by default. (8xPBL for GMAC 3.50 and newer)
+>     o txpbl/rxpbl: GMAC and newer supports independent DMA pbl for tx/rx.
+> +   o pblx8: Enable 8xPBL (4xPBL for core rev < 3.50). Enabled by default.
+>     o fixed_burst/mixed_burst/aal
+>   o clk_csr: fixed CSR Clock range selection.
+>   o has_gmac: uses the GMAC core.
+> @@ -208,6 +209,7 @@ struct stmmac_dma_cfg {
+>  	int pbl;
+>  	int txpbl;
+>  	int rxpbl;
+> +	bool pblx8;
+>  	int fixed_burst;
+>  	int mixed_burst;
+>  	bool aal;
+> @@ -219,6 +221,7 @@ Where:
+>  	 If set, DMA tx will use this value rather than pbl.
+>   o rxpbl: Receive Programmable Burst Length. Only for GMAC and newer.
+>  	 If set, DMA rx will use this value rather than pbl.
+> + o pblx8: Enable 8xPBL (4xPBL for core rev < 3.50). Enabled by default.
+>   o fixed_burst: program the DMA to use the fixed burst mode
+>   o mixed_burst: program the DMA to use the mixed burst mode
+>   o aal: Address-Aligned Beats
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+> index 99b8040af592..612d3aaac9a4 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+> @@ -98,7 +98,8 @@ static void dwmac1000_dma_init(void __iomem *ioaddr,
+>  	 * Note: before stmmac core 3.50 this mode bit was 4xPBL, and
+>  	 * post 3.5 mode bit acts as 8*PBL.
+>  	 */
+> -	value |= DMA_BUS_MODE_MAXPBL;
+> +	if (dma_cfg->pblx8)
+> +		value |= DMA_BUS_MODE_MAXPBL;
+>  	value |= DMA_BUS_MODE_USP;
+>  	value &= ~(DMA_BUS_MODE_PBL_MASK | DMA_BUS_MODE_RPBL_MASK);
+>  	value |= (txpbl << DMA_BUS_MODE_PBL_SHIFT);
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> index 2c3b2098f350..8196ab5fc33c 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> @@ -84,7 +84,8 @@ static void dwmac4_dma_init_channel(void __iomem *ioaddr,
+>  	 * on each channel
+>  	 */
+>  	value = readl(ioaddr + DMA_CHAN_CONTROL(channel));
+> -	value = value | DMA_BUS_MODE_PBL;
+> +	if (dma_cfg->pblx8)
+> +		value = value | DMA_BUS_MODE_PBL;
+>  	writel(value, ioaddr + DMA_CHAN_CONTROL(channel));
+>
+>  	value = readl(ioaddr + DMA_CHAN_TX_CONTROL(channel));
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+> index 56c8a2342c14..a2831773431a 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+> @@ -81,6 +81,7 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
+>  	plat->mdio_bus_data->phy_mask = 0;
+>
+>  	plat->dma_cfg->pbl = 32;
+> +	plat->dma_cfg->pblx8 = true;
+>  	/* TODO: AXI */
+>
+>  	/* Set default value for multicast hash bins */
+> @@ -115,6 +116,7 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
+>  	plat->mdio_bus_data->phy_mask = 0;
+>
+>  	plat->dma_cfg->pbl = 16;
+> +	plat->dma_cfg->pblx8 = true;
+>  	plat->dma_cfg->fixed_burst = 1;
+>  	/* AXI (TODO) */
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 96afe0561c99..082cd48db6a7 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -317,6 +317,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>  		dma_cfg->pbl = DEFAULT_DMA_PBL;
+>  	of_property_read_u32(np, "snps,txpbl", &dma_cfg->txpbl);
+>  	of_property_read_u32(np, "snps,rxpbl", &dma_cfg->rxpbl);
+> +	dma_cfg->pblx8 = !of_property_read_bool(np, "snps,no-pbl-x8");
+>
+>  	dma_cfg->aal = of_property_read_bool(np, "snps,aal");
+>  	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index e6d7a5940819..266dab9ad782 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -90,6 +90,7 @@ struct stmmac_dma_cfg {
+>  	int pbl;
+>  	int txpbl;
+>  	int rxpbl;
+> +	bool pblx8;
+>  	int fixed_burst;
+>  	int mixed_burst;
+>  	bool aal;
+>
