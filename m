@@ -1,43 +1,66 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 2/2] net: ethernet: cpmac: Call SET_NETDEV_DEV()
-Date: Thu,  8 Dec 2016 11:41:25 -0800
-Message-ID: <20161208194125.13264-3-f.fainelli@gmail.com>
-References: <20161208194125.13264-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, madalin.bucur@nxp.com, johan@kernel.org,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35837 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752259AbcLHTl4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 14:41:56 -0500
-Received: by mail-pf0-f193.google.com with SMTP id i88so13334807pfk.2
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 11:41:56 -0800 (PST)
-In-Reply-To: <20161208194125.13264-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: fix VxLAN-gpe port
+ can't be created in ovs compat mode
+Date: Thu, 8 Dec 2016 11:41:58 -0800
+Message-ID: <CAOrHB_CVr0PQGsNkhrrvT7L8cX1KZypV4UXakXm1uuCz7ZPYHw@mail.gmail.com>
+References: <1481185210-13056-1-git-send-email-yi.y.yang@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1481185210-13056-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The TI CPMAC driver calls into PHYLIB which now checks for
-net_device->dev.parent, so make sure we do set it before calling into
-any MDIO/PHYLIB related function.
-
-Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a different owner")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/ti/cpmac.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
-index fa0cfda24fd9..28097be2ff28 100644
---- a/drivers/net/ethernet/ti/cpmac.c
-+++ b/drivers/net/ethernet/ti/cpmac.c
-@@ -1113,6 +1113,7 @@ static int cpmac_probe(struct platform_device *pdev)
- 	if (!dev)
- 		return -ENOMEM;
- 
-+	SET_NETDEV_DEV(dev, &pdev->dev);
- 	platform_set_drvdata(pdev, dev);
- 	priv = netdev_priv(dev);
- 
--- 
-2.9.3
+On Thu, Dec 8, 2016 at 12:20 AM, Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+> In ovs compat mode, ovs won't use LWT in current kernel, this is to
+> make sure ovs can work on the old kernels, Linux kernel v4.7 includes
+> VxLAN-gpe support but many Linux distributions' kernels are odler than
+> v4.7, this fix will ensure that ovs can create VxLAN-gpe port correctly
+> on old kernels, it has been verified on Ubuntu 16.04 x86_64 with Linux
+> kernel 4.4.0-53-generic.
+>
+> This does touch compat code, but it is necessary as Pravin commented.
+>
+> Without this fix, ovs can't create VxLAN-gpe port, it is still a VxLAN
+> port.
+>
+> vxlan_sys_4790 Link encap:Ethernet  HWaddr 72:23:60:c2:8b:8d
+>           inet6 addr: fe80::7023:60ff:fec2:8b8d/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:65485  Metric:1
+>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:0 errors:0 dropped:8 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+>
+> But with this fix applied, a real L3 port is created
+>
+> vxlan_sys_4790 Link encap:UNSPEC  HWaddr
+> 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+>           UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:65485  Metric:1
+>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+>
+> Signed-off-by: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
+>  include/uapi/linux/openvswitch.h |  1 +
+>  net/openvswitch/vport-vxlan.c    | 15 +++++++++++++++
+>  2 files changed, 16 insertions(+)
+>
+There is no need for this patch in upstream kernel module. I am open
+to having such a patch in out of tree kernel if it simplifies feature
+compatibility code.
