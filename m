@@ -1,59 +1,57 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] net: sock_rps_record_flow() is for connected
- sockets
-Date: Thu, 08 Dec 2016 18:49:58 +0100
-Message-ID: <1481219398.6120.1.camel@redhat.com>
-References: <1480905784.18162.509.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480944138.4694.37.camel@redhat.com>
-         <1480948133.18162.527.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480960639.18162.556.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481020451.6225.38.camel@redhat.com> <1481044098.7129.7.camel@redhat.com>
-         <1481046434.18162.599.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481049061.7129.18.camel@redhat.com>
-         <1481050715.18162.604.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481051786.7129.22.camel@redhat.com>
-         <1481052922.18162.605.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481081570.18162.626.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481093247.18162.637.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1481097428.5535.12.camel@redhat.com>
-         <1481120791.4930.4.camel@edumazet-glaptop3.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH 0/3] i40e: Support for XDP
+Date: Thu, 8 Dec 2016 09:52:41 -0800
+Message-ID: <58499DE9.3060908@gmail.com>
+References: <20161208170022.11555-1-bjorn.topel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Tom Herbert <tom@herbertland.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
+        magnus.karlsson@intel.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@gmail.com>,
+        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41452 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751932AbcLHRuC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 12:50:02 -0500
-In-Reply-To: <1481120791.4930.4.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34724 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752508AbcLHRw4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 12:52:56 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y68so22642539pfb.1
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 09:52:56 -0800 (PST)
+In-Reply-To: <20161208170022.11555-1-bjorn.topel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-12-07 at 06:26 -0800, Eric Dumazet wrote:
-> On Wed, 2016-12-07 at 08:57 +0100, Paolo Abeni wrote:
-> > On Tue, 2016-12-06 at 22:47 -0800, Eric Dumazet wrote:
-> > > On Tue, 2016-12-06 at 19:32 -0800, Eric Dumazet wrote:
-> > > > A follow up patch will provide a static_key (Jump Label) since most
-> > > > hosts do not even use RFS.
-> > > 
-> > > Speaking of static_key, it appears we now have GRO on UDP, and this
-> > > consumes a considerable amount of cpu cycles.
-> > > 
-> > > Turning off GRO allows me to get +20 % more packets on my single UDP
-> > > socket. (1.2 Mpps instead of 1.0 Mpps)
-> > 
-> > I see also an improvement for single flow tests disabling GRO, but on a
-> > smaller scale (~5% if I recall correctly).
+On 16-12-08 09:00 AM, Björn Töpel wrote:
+> From: Björn Töpel <bjorn.topel@intel.com>
 > 
-> Was it on a NUMA host ?
+> This series adds XDP support for i40e-based NICs.
+> 
+> The first patch adds XDP_RX support, the second XDP_TX support and the
+> last patch makes it possible to change an XDP program without
+> rebuilding the rings.
+> 
+> 
+> Björn
+> 
+> 
+> Björn Töpel (3):
+>   i40e: Initial support for XDP
+>   i40e: Add XDP_TX support
+>   i40e: Don't reset/rebuild rings on XDP program swap
+> 
+>  drivers/net/ethernet/intel/i40e/i40e.h         |  18 +
+>  drivers/net/ethernet/intel/i40e/i40e_ethtool.c |   3 +
+>  drivers/net/ethernet/intel/i40e/i40e_main.c    | 358 +++++++++++++++++---
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 445 +++++++++++++++++++++----
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.h    |   7 +
+>  5 files changed, 715 insertions(+), 116 deletions(-)
+> 
 
-I'm using a single socket host, with 12 cores/24 threads and 16 RX
-queues. 
-But my data is old. I'll re-run the test on top of current net-next.
+Hi Jeff,
 
-Paolo
+These are for the Intel driver net-next tree per our offlist email.
+
+Thanks!
+John
