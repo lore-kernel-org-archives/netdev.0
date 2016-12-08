@@ -1,67 +1,102 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v5 5/6] virtio_net: add XDP_TX support
-Date: Thu, 8 Dec 2016 13:51:38 -0800
-Message-ID: <5849D5EA.2040402@gmail.com>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161207201245.28121.95418.stgit@john-Precision-Tower-5810>
- <20161208080647-mutt-send-email-mst@kernel.org> <5849A3EE.7090603@gmail.com>
- <20161208231708-mutt-send-email-mst@kernel.org> <5849CFD4.60103@gmail.com>
- <20161208234513-mutt-send-email-mst@kernel.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Thu, 8 Dec 2016 22:54:09 +0100
+Message-ID: <20161208215409.GA12472@amd>
+References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161207231534.GB5889@electric-eye.fr.zoreil.com>
+ <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
-        tgraf@suug.ch, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33151 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752186AbcLHVvz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 16:51:55 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 3so27989950pgd.0
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 13:51:54 -0800 (PST)
-In-Reply-To: <20161208234513-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="envbJBWh7q8WU6mo"
+Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
+        ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-12-08 01:45 PM, Michael S. Tsirkin wrote:
-> On Thu, Dec 08, 2016 at 01:25:40PM -0800, John Fastabend wrote:
->> On 16-12-08 01:18 PM, Michael S. Tsirkin wrote:
->>> On Thu, Dec 08, 2016 at 10:18:22AM -0800, John Fastabend wrote:
->>>>> I guess this helps because it just slows down the guest.
->>>>> I don't much like it ...
->>>>
->>>> I left it like this copying the pattern in balloon and input drivers. I
->>>> can change it back to the previous pattern where it is only called if
->>>> there is no errors. It has been running fine with the old pattern now
->>>> for an hour or so.
->>>>
->>>> .John
->>>
->>> I'd prefer internal consistency. Could be a patch on top
->>> if this helps. I'm happy it isn't actually buggy.
->>> Let me know whether you want to post v6 or
->>> want me to ack this one.
->>>
->>
->> I think because DaveM has closed net-next ACK'ing this set would be
->> great to get it in Dave's tree. Then I can post a small "fix" so that it
->> is consistent between normal stack and xdp tx path after that.
->>
->> Thanks,
->> John
-> 
-> I can merge it through my tree too - I don't think there's
-> any dependency on net-next, is there?
-> 
 
-Its all changes to virtio_net except for patch 2 which is against
-filter.c/filter.h which I guess you could possibly get a merge conflict
-on. But it would be fairly trivial.
+--envbJBWh7q8WU6mo
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I don't have a preference on which tree it goes through whichever makes
-the most sense.
+On Thu 2016-12-08 21:32:12, Lino Sanfilippo wrote:
+> Hi,
+>=20
+> On 08.12.2016 00:15, Francois Romieu wrote:
+> > Lino Sanfilippo <LinoSanfilippo@gmx.de> :
+> >> The driver uses a private lock for synchronization between the xmit
+> >> function and the xmit completion handler, but since the NETIF_F_LLTX f=
+lag
+> >> is not set, the xmit function is also called with the xmit_lock held.
+> >>=20
+> >> On the other hand the xmit completion handler first takes the private =
+lock
+> >> and (in case that the tx queue has been stopped) the xmit_lock, leading
+> >> to a reverse locking order and the potential danger of a deadlock.
+> >=20
+> > netif_tx_stop_queue is used by:
+> > 1. xmit function before releasing lock and returning.
+> > 2. sxgbe_restart_tx_queue()
+> >    <- sxgbe_tx_interrupt
+> >    <- sxgbe_reset_all_tx_queues()
+> >       <- sxgbe_tx_timeout()
+> >=20
+> > Given xmit won't be called again until tx queue is enabled, it's not cl=
+ear
+> > how a deadlock could happen due to #1.
+> >=20
+>=20
+>=20
+> After spending more thoughts on this I tend to agree with you. Yes, we ha=
+ve the
+> different locking order for the xmit_lock and the private lock in two con=
+current
+> threads. And one of the first things one learns about locking is that thi=
+s is a
+> good way to create a deadlock sooner or later. But in our case the deadlo=
+ck=20
+> can only occur if the xmit function and the tx completion handler perceiv=
+e different
+>  states for the tx queue, or to be more specific:=20
+> the completion handler sees the tx queue in state "stopped" while the xmi=
+t handler=20
+> sees it in state "running" at the same time. Only then both functions wou=
+ld try to
+> take both locks, which could lead to a deadlock.
+>=20
+> OTOH Pavel said that he actually could produce a deadlock. Now I wonder i=
+f this is caused
+> by that locking scheme (in a way I have not figured out yet) or if it is =
+a different issue.
 
-.John
+Pavel has some problems, but that's on different hardware.. and it is
+possible that it is deadlock (or something else) somewhere else.
+
+Best regards,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--envbJBWh7q8WU6mo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlhJ1oEACgkQMOfwapXb+vL3JgCfYQWbKWmosPOwX8Hf3iqnqeA3
+vnwAoMF0lsmE26ueDjzaXIa3Prncv8qH
+=NzZW
+-----END PGP SIGNATURE-----
+
+--envbJBWh7q8WU6mo--
