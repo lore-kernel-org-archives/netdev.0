@@ -1,48 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] udp: under rx pressure, try to condense skbs
-Date: Thu, 08 Dec 2016 08:08:54 -0800
-Message-ID: <1481213334.4930.106.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1481131173.4930.36.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161208104620.5fc691b8@redhat.com>
-         <1481211015.4930.100.camel@edumazet-glaptop3.roam.corp.google.com>
-         <de654cac-fa3c-a4e1-a24a-27187456b8d7@hpe.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: deadlock on genl_mutex
+Date: Thu, 8 Dec 2016 17:16:07 +0100
+Message-ID: <CACT4Y+auHN0Rdu2Hepk6DNFmz1K2XSA6s18PC=KZiHdoMG845Q@mail.gmail.com>
+References: <CACT4Y+ZdSNVhF2MH0=t=kBUrgNSSnCSO5uwnnc5c0KNLG+VNFQ@mail.gmail.com>
+ <CANn89iJ1G4e655RnfcGK9RwmSSb2L=ZBSq9e2gpHVNmkUOYUxg@mail.gmail.com> <0227d7e83cc5ac0a192d1ba0fee61413@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
         David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>
-To: Rick Jones <rick.jones2@hpe.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34160 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751675AbcLHQJ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 11:09:56 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so27198391pgc.1
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 08:09:56 -0800 (PST)
-In-Reply-To: <de654cac-fa3c-a4e1-a24a-27187456b8d7@hpe.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Matti Vaittinen <matti.vaittinen@nokia.com>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Florian Westphal <fw@strlen.de>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Tom Herbert <tom@herbertland.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Richard Guy Briggs <rgb@redhat.com>,
+        netdev-owner@vger.kernel.org
+To: syzkaller <syzkaller@googlegroups.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0227d7e83cc5ac0a192d1ba0fee61413@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-12-08 at 07:36 -0800, Rick Jones wrote:
-> On 12/08/2016 07:30 AM, Eric Dumazet wrote:
-> > On Thu, 2016-12-08 at 10:46 +0100, Jesper Dangaard Brouer wrote:
-> >
-> >> Hmmm... I'm not thrilled to have such heuristics, that change memory
-> >> behavior when half of the queue size (sk->sk_rcvbuf) is reached.
-> >
-> > Well, copybreak drivers do that unconditionally, even under no stress at
-> > all, you really should complain then.
-> 
-> Isn't that behaviour based (in part?) on the observation/belief that it 
-> is fewer cycles to copy the small packet into a small buffer than to 
-> send the larger buffer up the stack and have to allocate and map a 
-> replacement?
+On Tue, Nov 29, 2016 at 6:59 AM,  <subashab@codeaurora.org> wrote:
+>>
+>> Issue was reported yesterday and is under investigation.
+>>
+>>
+>> http://marc.info/?l=linux-netdev&m=148014004331663&w=2
+>>
+>>
+>> Thanks !
+>
+>
+> Hi Dmitry
+>
+> Can you try the patch below with your reproducer? I haven't seen similar
+> crashes reported after this (or even with Eric's patch).
 
-If properly done yes ;)
-
-Some drivers do a copybreak, but throw away the original page frag and
-reallocates a fresh one anyway.
-
-Like if you have a PAGE_SIZE=65536, it is split in ~32 frags, and
-drivers might not bother trying to reuse 1 frag.
+I've synced to 318c8932ddec5c1c26a4af0f3c053784841c598e (Dec 7) and do
+_not_ see this report happening anymore.
+Thanks.
