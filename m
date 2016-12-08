@@ -1,27 +1,122 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/19][pull request] 40GbE Intel Wired LAN Driver
- Updates 2016-12-07
-Date: Wed, 07 Dec 2016 19:15:59 -0500 (EST)
-Message-ID: <20161207.191559.460872408666347468.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next v2 02/19] i40e: simplify txd use count calculation
+Date: Wed, 07 Dec 2016 16:16:24 -0800
+Message-ID: <1481156184.4930.77.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
+         <20161207221918.57932-3-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com
-To: jeffrey.t.kirsher@intel.com
+Cc: davem@davemloft.net, Mitch Williams <mitch.a.williams@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43116 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933387AbcLHAQq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 19:16:46 -0500
-In-Reply-To: <20161207221918.57932-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35587 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752968AbcLHAR1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 19:17:27 -0500
+Received: by mail-pf0-f196.google.com with SMTP id i88so11842935pfk.2
+        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 16:17:27 -0800 (PST)
+In-Reply-To: <20161207221918.57932-3-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed,  7 Dec 2016 14:18:59 -0800
+On Wed, 2016-12-07 at 14:19 -0800, Jeff Kirsher wrote:
+> From: Mitch Williams <mitch.a.williams@intel.com>
+> 
+> The i40e_txd_use_count function was fast but confusing. In the comments,
+> it even admits that it's ugly. So replace it with a new function that is
+> (very) slightly faster and has extensive commenting to help the thicker
+> among us (including the author, who will forget in a week) understand
+> how it works.
+> 
+> Change-ID: Ifb533f13786a0bf39cb29f77969a5be2c83d9a87
+> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.h   | 45 +++++++++++++++++----------
+>  drivers/net/ethernet/intel/i40evf/i40e_txrx.h | 45 +++++++++++++++++----------
+>  2 files changed, 56 insertions(+), 34 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+> index de8550f..e065321 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+> @@ -173,26 +173,37 @@ static inline bool i40e_test_staterr(union i40e_rx_desc *rx_desc,
+>  #define I40E_MAX_DATA_PER_TXD_ALIGNED \
+>  	(I40E_MAX_DATA_PER_TXD & ~(I40E_MAX_READ_REQ_SIZE - 1))
+>  
+> -/* This ugly bit of math is equivalent to DIV_ROUNDUP(size, X) where X is
+> - * the value I40E_MAX_DATA_PER_TXD_ALIGNED.  It is needed due to the fact
+> - * that 12K is not a power of 2 and division is expensive.  It is used to
+> - * approximate the number of descriptors used per linear buffer.  Note
+> - * that this will overestimate in some cases as it doesn't account for the
+> - * fact that we will add up to 4K - 1 in aligning the 12K buffer, however
+> - * the error should not impact things much as large buffers usually mean
+> - * we will use fewer descriptors then there are frags in an skb.
+> +/**
+> + * i40e_txd_use_count  - estimate the number of descriptors needed for Tx
+> + * @size: transmit request size in bytes
+> + *
+> + * Due to hardware alignment restrictions (4K alignment), we need to
+> + * assume that we can have no more than 12K of data per descriptor, even
+> + * though each descriptor can take up to 16K - 1 bytes of aligned memory.
+> + * Thus, we need to divide by 12K. But division is slow! Instead,
+> + * we decompose the operation into shifts and one relatively cheap
+> + * multiply operation.
+> + *
+> + * To divide by 12K, we first divide by 4K, then divide by 3:
+> + *     To divide by 4K, shift right by 12 bits
+> + *     To divide by 3, multiply by 85, then divide by 256
+> + *     (Divide by 256 is done by shifting right by 8 bits)
+> + * Finally, we add one to round up. Because 256 isn't an exact multiple of
+> + * 3, we'll underestimate near each multiple of 12K. This is actually more
+> + * accurate as we have 4K - 1 of wiggle room that we can fit into the last
+> + * segment.  For our purposes this is accurate out to 1M which is orders of
+> + * magnitude greater than our largest possible GSO size.
+> + *
+> + * This would then be implemented as:
+> + *     return (((size >> 12) * 85) >> 8) + 1;
+> + *
+> + * Since multiplication and division are commutative, we can reorder
+> + * operations into:
+> + *     return ((size * 85) >> 20) + 1;
+>   */
+>  static inline unsigned int i40e_txd_use_count(unsigned int size)
+>  {
+> -	const unsigned int max = I40E_MAX_DATA_PER_TXD_ALIGNED;
+> -	const unsigned int reciprocal = ((1ull << 32) - 1 + (max / 2)) / max;
+> -	unsigned int adjust = ~(u32)0;
+> -
+> -	/* if we rounded up on the reciprocal pull down the adjustment */
+> -	if ((max * reciprocal) > adjust)
+> -		adjust = ~(u32)(reciprocal - 1);
+> -
+> -	return (u32)((((u64)size * reciprocal) + adjust) >> 32);
+> +	return ((size * 85) >> 20) + 1;
+>  }
 
-> This series contains updates to i40e and i40evf only.
+But...
 
-Pulled, thanks Jeff.
+I thought gcc already implemented reciprocal divides ?
+
+
+$ cat div.c
+unsigned int foo(unsigned int size)
+{
+	return size / 0x3000;
+}
+$ gcc -O2 -S div.c && cat div.s
+foo:
+.LFB0:
+	.cfi_startproc
+	movl	%edi, %eax
+	movl	$-1431655765, %edx  // 0xaaaaaaab
+	mull	%edx
+	shrl	$13, %edx
+	movl	%edx, %eax
+	ret
