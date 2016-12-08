@@ -1,42 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH 2/3] net: stmmac: dwmac-generic: add missing
- compatible strings
-Date: Thu, 08 Dec 2016 11:35:55 -0500 (EST)
-Message-ID: <20161208.113555.708493896423285622.davem@davemloft.net>
-References: <1481114469-4788-1-git-send-email-niklass@axis.com>
-        <1481114469-4788-2-git-send-email-niklass@axis.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] phy: Don't increment MDIO bus refcount unless it's a
+ different owner
+Date: Thu, 8 Dec 2016 08:47:54 -0800
+Message-ID: <81ffa62a-b385-94ca-2396-f2137a320e8b@gmail.com>
+References: <20161207045443.26246-1-f.fainelli@gmail.com>
+ <20161208162740.GI31573@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, niklass@axis.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: niklas.cassel@axis.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481114469-4788-2-git-send-email-niklass@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, rmk+kernel@arm.linux.org.uk, andrew@lunn.ch
+To: Johan Hovold <johan@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33904 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752246AbcLHQr4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 11:47:56 -0500
+Received: by mail-pg0-f65.google.com with SMTP id e9so27279031pgc.1
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 08:47:56 -0800 (PST)
+In-Reply-To: <20161208162740.GI31573@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Wed, 7 Dec 2016 13:41:07 +0100
+On 12/08/2016 08:27 AM, Johan Hovold wrote:
+> On Tue, Dec 06, 2016 at 08:54:43PM -0800, Florian Fainelli wrote:
+>> Commit 3e3aaf649416 ("phy: fix mdiobus module safety") fixed the way we
+>> dealt with MDIO bus module reference count, but sort of introduced a
+>> regression in that, if an Ethernet driver registers its own MDIO bus
+>> driver, as is common, we will end up with the Ethernet driver's
+>> module->refnct set to 1, thus preventing this driver from any removal.
+>>
+>> Fix this by comparing the network device's device driver owner against
+>> the MDIO bus driver owner, and only if they are different, increment the
+>> MDIO bus module refcount.
+>>
+>> Fixes: 3e3aaf649416 ("phy: fix mdiobus module safety")
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>> Russell,
+>>
+>> I verified this against the ethoc driver primarily (on a TS7300 board)
+>> and bcmgenet.
+>>
+>> Thanks!
+>>
+>>  drivers/net/phy/phy_device.c | 16 +++++++++++++---
+>>  1 file changed, 13 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>> index 1a4bf8acad78..c4ceb082e970 100644
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+>> @@ -857,11 +857,17 @@ EXPORT_SYMBOL(phy_attached_print);
+>>  int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>>  		      u32 flags, phy_interface_t interface)
+>>  {
+>> +	struct module *ndev_owner = dev->dev.parent->driver->owner;
+> 
+> Is this really safe? A driver does not need to set a parent device, and
+> in that case you get a NULL-deref here (I tried using cpsw).
 
-> From: Niklas Cassel <niklas.cassel@axis.com>
-> 
-> devicetree binding for stmmac states:
-> - compatible: Should be "snps,dwmac-<ip_version>", "snps,dwmac"
-> 	For backwards compatibility: "st,spear600-gmac" is also supported.
-> 
-> Since dwmac-generic.c calls stmmac_probe_config_dt explicitly,
-> another alternative would have been to remove all compatible strings
-> other than "snps,dwmac" and "st,spear600-gmac" from dwmac-generic.c.
-> 
-> However, that would probably do more good than harm, since when trying
-> to figure out what hardware a certain driver supports, you usually look
-> at the compatible strings in the struct of_device_id, and not in some
-> function defined in a completely different file.
-> 
-> No functional change intended.
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Humm, cpsw does call SET_NETDEV_DEV() which should take care of that, is
+the call made too late? Do you have an example oops?
 
-Applied.
+I don't mind safeguarding this with a check against dev->dev.parent, but
+I would like to fix the drivers where relevant too, since
+SET_NETDEV_DEV() should really be called, otherwise a number of things
+just don't work
+
+> 
+>>  	struct mii_bus *bus = phydev->mdio.bus;
+>>  	struct device *d = &phydev->mdio.dev;
+>>  	int err;
+>>  
+>> -	if (!try_module_get(bus->owner)) {
+>> +	/* For Ethernet device drivers that register their own MDIO bus, we
+>> +	 * will have bus->owner match ndev_mod, so we do not want to increment
+> 
+> You also wanted s/ndev_mod/ndev_owner/ here.
+
+Meh, it's merged now, but thanks, I will fix this once we find out the
+proper solution for cpsw.
+-- 
+Florian
