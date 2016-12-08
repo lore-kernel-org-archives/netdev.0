@@ -1,38 +1,48 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: Re: [PATCH 1/1] ixgbe: fcoe: return value of skb_linearize should be handled
-Date: Thu, 8 Dec 2016 09:21:00 +0800
-Message-ID: <CAABZP2y9arBT2axpU8yP8r_YzoWD8KdUntRMjbNCJiBE7wFwXg@mail.gmail.com>
-References: <1481096614-25295-1-git-send-email-zhouzhouyi@gmail.com> <1481131804.2404.10.camel@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481131804.2404.10.camel@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH net 1/1] driver: ipvlan: Unlink the upper dev when ipvlan_link_new failed
+Date: Thu,  8 Dec 2016 09:21:00 +0800
+Message-ID: <1481160060-28730-1-git-send-email-fgao@ikuai8.com>
+Cc: Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, maheshb@google.com, edumazet@google.com,
+        netdev@vger.kernel.org, gfree.wind@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbg340.qq.com ([14.17.44.35]:33770 "EHLO smtpbg340.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932682AbcLHBVx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 7 Dec 2016 20:21:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks Jeff for your advice,
-Sorry for the  my innocence as a Linux kernel rookie.
+From: Gao Feng <fgao@ikuai8.com>
 
-Zhouyi
+When netdev_upper_dev_unlink failed in ipvlan_link_new, need to
+unlink the ipvlan dev with upper dev.
 
-On Thu, Dec 8, 2016 at 1:30 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> On Wed, 2016-12-07 at 15:43 +0800, Zhouyi Zhou wrote:
->> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
->> Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
->> Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
->> Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
->> ---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c | 6 +++++-
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 +--
->>  2 files changed, 6 insertions(+), 3 deletions(-)
->
-> Did Cong, Yuval and Eric give their Reviewed-by offline?  I see they made
-> comments and suggests, but never saw them actually give you their Reviewed-
-> by.  You cannot automatically add their Reviewed-by, Signed-off-by, etc
-> just because someone provides feedback on your patch.
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ drivers/net/ipvlan/ipvlan_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 0fef178..189adbc 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -546,13 +546,15 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 	}
+ 	err = ipvlan_set_port_mode(port, mode);
+ 	if (err) {
+-		goto unregister_netdev;
++		goto dev_unlink;
+ 	}
+ 
+ 	list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
+ 	netif_stacked_transfer_operstate(phy_dev, dev);
+ 	return 0;
+ 
++dev_unlink:
++	netdev_upper_dev_unlink(phy_dev, dev);
+ unregister_netdev:
+ 	unregister_netdevice(dev);
+ destroy_ipvlan_port:
+-- 
+1.9.1
