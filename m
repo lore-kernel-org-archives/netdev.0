@@ -1,138 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v5 5/6] virtio_net: add XDP_TX support
-Date: Thu, 8 Dec 2016 23:08:07 +0200
-Message-ID: <20161208230616-mutt-send-email-mst@kernel.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH v5 0/6] XDP for virtio_net
+Date: Thu, 8 Dec 2016 13:08:20 -0800
+Message-ID: <20161208210818.GA9799@ast-mbp.thefacebook.com>
 References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161207201245.28121.95418.stgit@john-Precision-Tower-5810>
- <20161208080647-mutt-send-email-mst@kernel.org>
- <5849A3EE.7090603@gmail.com>
+ <20161208.141702.1346950420275854265.davem@davemloft.net>
+ <20161208193814.GA1954@ast-mbp.thefacebook.com>
+ <5849C68F.7080707@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
-        tgraf@suug.ch, alexei.starovoitov@gmail.com,
+Cc: David Miller <davem@davemloft.net>, daniel@iogearbox.net,
+        mst@redhat.com, shm@cumulusnetworks.com, tgraf@suug.ch,
         john.r.fastabend@intel.com, netdev@vger.kernel.org,
         brouer@redhat.com
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52784 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751722AbcLHVIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 16:08:13 -0500
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36670 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932277AbcLHVI0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 16:08:26 -0500
+Received: by mail-pf0-f193.google.com with SMTP id c4so22799411pfb.3
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 13:08:26 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <5849A3EE.7090603@gmail.com>
+In-Reply-To: <5849C68F.7080707@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 08, 2016 at 10:18:22AM -0800, John Fastabend wrote:
-> On 16-12-07 10:11 PM, Michael S. Tsirkin wrote:
-> > On Wed, Dec 07, 2016 at 12:12:45PM -0800, John Fastabend wrote:
-> >> This adds support for the XDP_TX action to virtio_net. When an XDP
-> >> program is run and returns the XDP_TX action the virtio_net XDP
-> >> implementation will transmit the packet on a TX queue that aligns
-> >> with the current CPU that the XDP packet was processed on.
-> >>
-> >> Before sending the packet the header is zeroed.  Also XDP is expected
-> >> to handle checksum correctly so no checksum offload  support is
-> >> provided.
-> >>
-> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> >> ---
-> >>  drivers/net/virtio_net.c |   99 +++++++++++++++++++++++++++++++++++++++++++---
-> >>  1 file changed, 92 insertions(+), 7 deletions(-)
-> >>
-> >> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> >> index 28b1196..8e5b13c 100644
-> >> --- a/drivers/net/virtio_net.c
-> >> +++ b/drivers/net/virtio_net.c
-> >> @@ -330,12 +330,57 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
-> >>  	return skb;
-> >>  }
-> >>  
-> >> +static void virtnet_xdp_xmit(struct virtnet_info *vi,
-> >> +			     struct receive_queue *rq,
-> >> +			     struct send_queue *sq,
-> >> +			     struct xdp_buff *xdp)
-> >> +{
-> >> +	struct page *page = virt_to_head_page(xdp->data);
-> >> +	struct virtio_net_hdr_mrg_rxbuf *hdr;
-> >> +	unsigned int num_sg, len;
-> >> +	void *xdp_sent;
-> >> +	int err;
-> >> +
-> >> +	/* Free up any pending old buffers before queueing new ones. */
-> >> +	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-> >> +		struct page *sent_page = virt_to_head_page(xdp_sent);
-> >> +
-> >> +		if (vi->mergeable_rx_bufs)
-> >> +			put_page(sent_page);
-> >> +		else
-> >> +			give_pages(rq, sent_page);
-> >> +	}
-> > 
-> > Looks like this is the only place where you do virtqueue_get_buf.
-> > No interrupt handler?
-> > This means that if you fill up the queue, nothing will clean it
-> > and things will get stuck.
+On Thu, Dec 08, 2016 at 12:46:07PM -0800, John Fastabend wrote:
 > 
-> hmm OK so the callbacks should be implemented to do this and a pair
-> of virtqueue_enable_cb_prepare()/virtqueue_disable_cb() used to enable
-> and disable callbacks if packets are enqueued.
+> Fair enough but disabling LRO to handle the case where you "might" get
+> a DDOS will hurt normal good traffic.
 
-Oh I didn't realize XDP never stops processing packets,
-even if they are never freed.
-In that case you do not need callbacks.
+the xdp_pass path is not optimized right now. so even without VMs
+we need some work to do. lro or not-lro is imo secondary.
 
-> Also in the normal xmit path via start_xmit() will the same condition
-> happen? It looks like free_old_xmit_skbs for example is only called if
-> a packet is sent could we end up holding on to skbs in this case? I
-> don't see free_old_xmit_skbs being called from any callbacks?
+> > I frankly don't see a use case where you'd want to steer a packet
+> > all the way into VM just to drop them there?
+> 
+> VM to VM traffic is my use case. And in that model we need XDP at the
+> virtio or vhost layer in case of malicious/broke/untrusted VM. I have
+> some vhost patches under development for when net-next opens up again.
 
-Right - all it does is restart the queue. That's why we don't support
-BQL right now.
+excellent. looking forward to vhost patches.
 
-> > Can this be the issue you saw?
+> > Without XDP_TX it's too crippled. adjust_head() won't be possible,
 > 
-> nope see below I was mishandling the big_packets page cleanup path in
-> the error case.
-> 
-> > 
-> > 
-> >> +
-> >> +	/* Zero header and leave csum up to XDP layers */
-> >> +	hdr = xdp->data;
-> >> +	memset(hdr, 0, vi->hdr_len);
-> >> +
-> >> +	nu_sg = 1;
-> >> +	sg_init_one(sq->sg, xdp->data, xdp->data_end - xdp->data);
-> >> +	err = virtqueue_add_outbuf(sq->vq, sq->sg, num_sg,
-> >> +				   xdp->data, GFP_ATOMIC);
-> >> +	if (unlikely(err)) {
-> >> +		if (vi->mergeable_rx_bufs)
-> >> +			put_page(page);
-> >> +		else
-> >> +			give_pages(rq, page);
-> >> +	} else if (!vi->mergeable_rx_bufs) {
-> >> +		/* If not mergeable bufs must be big packets so cleanup pages */
-> >> +		give_pages(rq, (struct page *)page->private);
-> >> +		page->private = 0;
-> >> +	}
-> >> +
-> >> +	virtqueue_kick(sq->vq);
-> > 
-> > Is this unconditional kick a work-around for hang
-> > we could not figure out yet?
-> 
-> I tracked the original issue down to how I handled the big_packet page
-> cleanups.
-> 
-> > I guess this helps because it just slows down the guest.
-> > I don't much like it ...
-> 
-> I left it like this copying the pattern in balloon and input drivers. I
-> can change it back to the previous pattern where it is only called if
-> there is no errors. It has been running fine with the old pattern now
-> for an hour or so.
-> 
-> .John
+> Just a nit but any reason not to support adjust_head and then XDP_PASS.
+> I don't have a use case in mind but also see no reason to preclude it.
 
-OK makes sense.
+adjust_head and xdp_pass needs to be supported. No doubt.
+the use case is metadata passing between xdp and upper layers.
+
+> In summary:
+> 
+> I think its worth investigating getting LRO working but agree we can't
+> sacrifice any of the existing features or complicate the code to do it.
+> If the result of investigating is it can't be done then that is how it
+> is.
+
+agree
+
+> Requiring XDP drivers to support all features is fine for me I can make
+> the virtio queue scheme a bit more flexible. Michael might have some
+> opinion on this though.
+
+I say right now all the features are pretty much must have,
+but in the future we will become selective.
+Like zero-copy a page from dma into user space probably doesn't
+make sense to do for virtio.
+Multi-port TX from virtio into phys netdev doesn't make sense either.
+
+> This series shouldn't be blocked by any of the above.
+
+completely agree.
+since we abandoned e1000+xdp patches, the virtio+xdp is the only
+thing on the table that allows us to do convenient development
+and testing of xdp programs.
+We've talked about a repository of blessed xdp programs.
+They all would need to be routinely and automatically tested.
+So virtio+xdp is a must have feature to me.
