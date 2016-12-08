@@ -1,46 +1,163 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v5 0/6] XDP for virtio_net
-Date: Thu, 8 Dec 2016 23:16:47 +0200
-Message-ID: <20161208231211-mutt-send-email-mst@kernel.org>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161208.141702.1346950420275854265.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/4] udp: receive path optimizations
+Date: Thu, 8 Dec 2016 22:17:16 +0100
+Message-ID: <20161208221716.25a05a9b@redhat.com>
+References: <1481218739-27089-1-git-send-email-edumazet@google.com>
+        <20161208214819.30138d12@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john.fastabend@gmail.com, daniel@iogearbox.net,
-        shm@cumulusnetworks.com, tgraf@suug.ch,
-        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, brouer@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44274 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39072 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752652AbcLHVQy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 16:16:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20161208.141702.1346950420275854265.davem@davemloft.net>
+        id S1752510AbcLHVRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 16:17:20 -0500
+In-Reply-To: <20161208214819.30138d12@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 08, 2016 at 02:17:02PM -0500, David Miller wrote:
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Wed, 07 Dec 2016 12:10:47 -0800
-> 
-> > This implements virtio_net for the mergeable buffers and big_packet
-> > modes. I tested this with vhost_net running on qemu and did not see
-> > any issues. For testing num_buf > 1 I added a hack to vhost driver
-> > to only but 100 bytes per buffer.
->  ...
-> 
-> So where are we with this?
-> 
-> I'm not too thrilled with the idea of making XDP_TX optional or
-> something like that.  If someone enables XDP, there is a tradeoff.
+On Thu, 8 Dec 2016 21:48:19 +0100
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-The issue is inability of XDP TX to share xmit queues with net stack.
-I'm guessing virtio is not the only card that has a limited
-number of queues, is it? Is it really so hard to lock the queue
-and check it's running? Could be optional in case resources are there
-...
+> On Thu,  8 Dec 2016 09:38:55 -0800
+> Eric Dumazet <edumazet@google.com> wrote:
+> 
+> > This patch series provides about 100 % performance increase under flood.   
+> 
+> Could you please explain a bit more about what kind of testing you are
+> doing that can show 100% performance improvement?
+> 
+> I've tested this patchset and my tests show *huge* speeds ups, but
+> reaping the performance benefit depend heavily on setup and enabling
+> the right UDP socket settings, and most importantly where the
+> performance bottleneck is: ksoftirqd(producer) or udp_sink(consumer).
+> 
+> Basic setup: Unload all netfilter, and enable ip_early_demux.
+>  sysctl net/ipv4/ip_early_demux=1
+> 
+> Test generator pktgen UDP packets single flow, 50Gbit/s mlx5 NICs.
+>  - Vary packet size between 64 and 1514.
+
+Below, I've added the baseline tests.
+
+Baseline test on net-next at commit c9fba3ed3a4
+
+> Packet-size: 64
+> $ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7))
+>                                 ns/pkt  pps             cycles/pkt
+> recvMmsg/32  	run: 0 10000000	537.70	1859756.90	2155
+> recvmsg   	run: 0 10000000	510.84	1957541.83	2047
+> read      	run: 0 10000000	583.40	1714077.14	2338
+> recvfrom  	run: 0 10000000	600.09	1666411.49	2405
+
+Packet-size: 64 (baseline)
+$ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7))
+recvMmsg/32  	run: 0 10000000	499.75	2001016.09	2003
+recvmsg   	run: 0 10000000	455.84	2193740.92	1827
+read      	run: 0 10000000	566.99	1763703.49	2272
+recvfrom  	run: 0 10000000	581.02	1721098.87	2328
+
+ 
+> The ksoftirq thread "cost" more than udp_sink, which is idle, and UDP
+> queue does not get full-enough. Thus, patchset does not have any
+> effect.
+> 
+> 
+> Try to increase pktgen packet size, as this increase the copy cost of
+> udp_sink.  Thus, a queue can now form, and udp_sink CPU almost have no
+> idle cycles.  The "read" and "readfrom" did experience some idle
+> cycles.
+> 
+> Packet-size: 1514
+> $ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7))
+>                                 ns/pkt  pps             cycles/pkt
+> recvMmsg/32  	run: 0 10000000	435.88	2294204.11	1747
+> recvmsg   	run: 0 10000000	458.06	2183100.64	1835
+> read      	run: 0 10000000	520.34	1921826.18	2085
+> recvfrom  	run: 0 10000000	515.48	1939935.27	2066
+
+Packet-size: 1514 (baseline)
+$ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7))
+recvMmsg/32  	run: 0 10000000	453.88	2203231.81	1819
+recvmsg   	run: 0 10000000	488.31	2047869.13	1957
+read      	run: 0 10000000	480.99	2079058.69	1927
+recvfrom  	run: 0 10000000	522.64	1913349.26	2094
+
+
+> Next trick connected UDP:
+> 
+> Use connected UDP socket (combined with ip_early_demux), removes the
+> FIB_lookup from the ksoftirq, and cause tipping point to be better.
+> 
+> Packet-size: 64
+> $ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7)) --connect
+>                                 ns/pkt  pps             cycles/pkt
+> recvMmsg/32  	run: 0 10000000	391.18	2556361.62	1567
+> recvmsg   	run: 0 10000000	422.95	2364349.69	1695
+> read      	run: 0 10000000	425.29	2351338.10	1704
+> recvfrom  	run: 0 10000000	476.74	2097577.57	1910
+
+Packet-size: 64 (baseline)
+$ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7)) --connect
+recvMmsg/32  	run: 0 10000000	438.55	2280255.77	1757
+recvmsg   	run: 0 10000000	496.73	2013156.99	1990
+read      	run: 0 10000000	412.17	2426170.58	1652
+recvfrom  	run: 0 10000000	471.77	2119662.99	1890
+
+
+> Change/increase packet size:
+> 
+> Packet-size: 1514
+> $ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7)) --connect
+>                                 ns/pkt  pps             cycles/pkt
+> recvMmsg/32  	run: 0 10000000	457.56	2185481.94	1833
+> recvmsg   	run: 0 10000000	479.42	2085837.49	1921
+> read      	run: 0 10000000	398.05	2512233.13	1595
+> recvfrom  	run: 0 10000000	391.07	2557096.95	1567
+
+Packet-size: 1514 (baseline)
+$ sudo taskset -c 4 ./udp_sink --port 9 --count $((10**7)) --connect
+recvMmsg/32  	run: 0 10000000	491.11	2036205.63	1968
+recvmsg   	run: 0 10000000	514.37	1944138.31	2061
+read      	run: 0 10000000	444.02	2252147.84	1779
+recvfrom  	run: 0 10000000	426.58	2344247.20	1709
+
+
+> A bit strange, changing the packet size, flipped what is the fastest
+> syscall.
+> 
+> It is also interesting to see that ksoftirq limit is:
+> 
+> Result from "nstat" while using recvmsg, show that ksoftirq is
+> handling 2.6 Mpps, and consumer/udp_sink is bottleneck with 2Mpps.
+> 
+> [skylake ~]$ nstat > /dev/null && sleep 1  && nstat
+> #kernel
+> IpInReceives                    2667577            0.0
+> IpInDelivers                    2667577            0.0
+> UdpInDatagrams                  2083580            0.0
+> UdpInErrors                     583995             0.0
+> UdpRcvbufErrors                 583995             0.0
+> IpExtInOctets                   4001340000         0.0
+> IpExtInNoECTPkts                2667559            0.0
+
+(baseline 1514 bytes recvmsg)
+$ nstat > /dev/null && sleep 1  && nstat
+#kernel
+IpInReceives                    2702424            0.0
+IpInDelivers                    2702423            0.0
+UdpInDatagrams                  1950184            0.0
+UdpInErrors                     752239             0.0
+UdpRcvbufErrors                 752239             0.0
+IpExtInOctets                   4053642000         0.0
+IpExtInNoECTPkts                2702428            0.0
 
 -- 
-MST
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
