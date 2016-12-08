@@ -1,52 +1,110 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 08/10] vsock/virtio: mark an internal function static
-Date: Thu, 8 Dec 2016 16:25:55 +0200
-Message-ID: <20161208162458-mutt-send-email-mst@kernel.org>
-References: <1481038106-24899-1-git-send-email-mst@redhat.com>
-	<1481038106-24899-9-git-send-email-mst@redhat.com>
-	<487d3d4a-7a53-cb45-2cfd-5eb68d9b73f0@redhat.com>
+From: <Andrei.Pistirica@microchip.com>
+Subject: RE: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Thu, 8 Dec 2016 14:41:46 +0000
+Message-ID: <07C910AB6AC6C345A093D5A08F5AF568CB74AF28@CHN-SV-EXMX03.mchp-main.com>
+References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
+ <20161207193908.GA13062@netboy> <20161207210416.GA27622@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <487d3d4a-7a53-cb45-2cfd-5eb68d9b73f0@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
+        <nicolas.ferre@atmel.com>, <harinikatakamlinux@gmail.com>,
+        <harini.katakam@xilinx.com>, <punnaia@xilinx.com>,
+        <michals@xilinx.com>, <anirudh@xilinx.com>,
+        <boris.brezillon@free-electrons.com>,
+        <alexandre.belloni@free-electrons.com>, <tbultel@pixelsurmer.com>,
+        <rafalo@cadence.com>
+To: <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161207210416.GA27622@netboy>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBEZWMgMDcsIDIwMTYgYXQgMTI6MjE6MjJQTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE25bm0MTLmnIgwNuaXpSAyMzo0MSwgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gdmlydGlvX3RyYW5zcG9ydF9hbGxvY19wa3QgaXMgb25seSB1c2VkIGxvY2Fs
-bHksIG1ha2UgaXQgc3RhdGljLgo+ID4gCj4gPiBTaWduZWQtb2ZmLWJ5OiBNaWNoYWVsIFMuIFRz
-aXJraW4gPG1zdEByZWRoYXQuY29tPgo+ID4gLS0tCj4gPiAgIG5ldC92bXdfdnNvY2svdmlydGlv
-X3RyYW5zcG9ydF9jb21tb24uYyB8IDIgKy0KPiA+ICAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0
-aW9uKCspLCAxIGRlbGV0aW9uKC0pCj4gPiAKPiA+IGRpZmYgLS1naXQgYS9uZXQvdm13X3Zzb2Nr
-L3ZpcnRpb190cmFuc3BvcnRfY29tbW9uLmMgYi9uZXQvdm13X3Zzb2NrL3ZpcnRpb190cmFuc3Bv
-cnRfY29tbW9uLmMKPiA+IGluZGV4IGE1M2IzYTEuLjYxMjAzODQgMTAwNjQ0Cj4gPiAtLS0gYS9u
-ZXQvdm13X3Zzb2NrL3ZpcnRpb190cmFuc3BvcnRfY29tbW9uLmMKPiA+ICsrKyBiL25ldC92bXdf
-dnNvY2svdmlydGlvX3RyYW5zcG9ydF9jb21tb24uYwo+ID4gQEAgLTMyLDcgKzMyLDcgQEAgc3Rh
-dGljIGNvbnN0IHN0cnVjdCB2aXJ0aW9fdHJhbnNwb3J0ICp2aXJ0aW9fdHJhbnNwb3J0X2dldF9v
-cHModm9pZCkKPiA+ICAgCXJldHVybiBjb250YWluZXJfb2YodCwgc3RydWN0IHZpcnRpb190cmFu
-c3BvcnQsIHRyYW5zcG9ydCk7Cj4gPiAgIH0KPiA+IC1zdHJ1Y3QgdmlydGlvX3Zzb2NrX3BrdCAq
-Cj4gPiArc3RhdGljIHN0cnVjdCB2aXJ0aW9fdnNvY2tfcGt0ICoKPiA+ICAgdmlydGlvX3RyYW5z
-cG9ydF9hbGxvY19wa3Qoc3RydWN0IHZpcnRpb192c29ja19wa3RfaW5mbyAqaW5mbywKPiA+ICAg
-CQkJICAgc2l6ZV90IGxlbiwKPiA+ICAgCQkJICAgdTMyIHNyY19jaWQsCj4gCj4gR2l0IGdyZXAg
-c2hvd3MgaXQgd2FzIHVzZWQgYnkgdHJhY2luZy4KClRydWUgYnV0IHRyYWNlX3ZpcnRpb190cmFu
-c3BvcnRfYWxsb2NfcGt0IGlzIGFsc28gbG9jYWwgdG8KdmlydGlvX3RyYW5zcG9ydF9jb21tb24u
-YwoKLS0gCk1TVApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgt
-Zm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4v
-bGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+
+
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Wednesday, December 07, 2016 11:04 PM
+> To: Andrei Pistirica - M16132
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-arm-
+> kernel@lists.infradead.org; davem@davemloft.net;
+> nicolas.ferre@atmel.com; harinikatakamlinux@gmail.com;
+> harini.katakam@xilinx.com; punnaia@xilinx.com; michals@xilinx.com;
+> anirudh@xilinx.com; boris.brezillon@free-electrons.com;
+> alexandre.belloni@free-electrons.com; tbultel@pixelsurmer.com;
+> rafalo@cadence.com
+> Subject: Re: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in
+> Cadence GEM.
+> 
+> On Wed, Dec 07, 2016 at 08:39:09PM +0100, Richard Cochran wrote:
+> > > +static s32 gem_ptp_max_adj(unsigned int f_nom) {
+> > > +	u64 adj;
+> > > +
+> > > +	/* The 48 bits of seconds for the GEM overflows every:
+> > > +	 * 2^48/(365.25 * 24 * 60 *60) =~ 8 925 512 years (~= 9 mil years),
+> > > +	 * thus the maximum adjust frequency must not overflow CNS
+> register:
+> > > +	 *
+> > > +	 * addend  = 10^9/nominal_freq
+> > > +	 * adj_max = +/- addend*ppb_max/10^9
+> > > +	 * max_ppb = (2^8-1)*nominal_freq-10^9
+> > > +	 */
+> > > +	adj = f_nom;
+> > > +	adj *= 0xffff;
+> > > +	adj -= 1000000000ULL;
+> >
+> > What is this computation, and how does it relate to the comment?
+
+I considered the following simple equation: increment value at nominal frequency (which is 10^9/nominal frequency nsecs) + the maximum drift value (nsecs) <= maximum increment value at nominal frequency (which is 8bit:0xffff).
+If maximum drift is written as function of nominal frequency and maximum ppb, then the equation above yields that the maximum ppb is: (2^8 - 1) *nominal_frequency - 10^9. The equation is also simplified by the fact that the drift is written as ppm + 16bit_fractions and the increment value is written as nsec + 16bit_fractions.
+
+Rafal said that this value is hardcoded: 0x64E6, while Harini said: 250000000.
+
+I need to dig into this...
+
+> 
+> I am not sure what you meant, but it sounds like you are on the wrong track.
+> Let me explain...
+
+Thanks.
+
+> 
+> The max_adj has nothing at all to do with the width of the time register.
+> Rather, it should reflect the maximum possible change in the tuning word.
+> 
+> For example, with a nominal 8 ns period, the tuning word is 0x80000.
+> Looking at running the clock more slowly, the slowest possible word is
+> 0x00001, meaning a difference of 0x7FFFF.  This implies an adjustment of
+> 0x7FFFF/0x80000 or 999998092 ppb.  Running more quickly, we can already
+> have 0x100000, twice as fast, or just under 2 billion ppb.
+> 
+> You should consider the extreme cases to determine the most limited
+> (smallest) max_adj value:
+> 
+> Case 1 - high frequency
+> ~~~~~~~~~~~~~~~~~~~~~~~
+> 
+> With a nominal 1 ns period, we have the nominal tuning word 0x10000.
+> The smallest is 0x1 for a difference of 0xFFFF.  This corresponds to an
+> adjustment of 0xFFFF/0x10000 = .9999847412109375 or 999984741 ppb.
+> 
+> Case 2 - low frequency
+> ~~~~~~~~~~~~~~~~~~~~~~
+> 
+> With a nominal 255 ns period, the nominal word is 0xFF0000, the largest
+> 0xFFFFFF, and the difference is 0xFFFF.  This corresponds to and adjustment
+> of 0xFFFF/0xFF0000 = .0039215087890625 or 3921508 ppb.
+> 
+> Since 3921508 ppb is a huge adjustment, you can simply use that as a safe
+> maximum, ignoring the actual input clock.
+> 
+> Thanks,
+> Richard
+> 
+> 
+
+Regards,
+Andrei
