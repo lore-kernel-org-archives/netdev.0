@@ -1,214 +1,126 @@
-From: =?UTF-8?q?Micha=C5=82=20K=C4=99pie=C5=84?= <kernel@kempniu.pl>
-Subject: [PATCH v2 2/2] net: rfkill: Add rfkill-any LED trigger
-Date: Thu,  8 Dec 2016 08:30:52 +0100
-Message-ID: <20161208073052.12988-2-kernel@kempniu.pl>
-References: <20161208073052.12988-1-kernel@kempniu.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161208073052.12988-1-kernel@kempniu.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH] cxgb4/cxgb4vf: Remove deprecated module parameters
+Date: Thu,  8 Dec 2016 13:16:25 +0530
+Message-ID: <1481183185-14636-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, hariprasad@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:12989 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbcLHHqs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 02:46:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a new "global" (i.e. not per-rfkill device) LED trigger, rfkill-any,
-which may be useful on laptops with a single "radio LED" and multiple
-radio transmitters.  The trigger is meant to turn a LED on whenever
-there is at least one radio transmitter active and turn it off
-otherwise.
+Remove deprecated module parameters num_vf, dflt_msg_enable and
+force_init.
 
-Signed-off-by: Michał Kępień <kernel@kempniu.pl>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
-Changes from v1:
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 41 +---------------------
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |  9 +----
+ 2 files changed, 2 insertions(+), 48 deletions(-)
 
-  - take rfkill_global_mutex before calling rfkill_set_block() in
-    rfkill_resume(); the need for doing this was previously obviated by
-    908209c ("rfkill: don't impose global states on resume"), but given
-    that __rfkill_any_led_trigger_event() is called from
-    rfkill_set_block() unconditionally, each caller of the latter needs
-    to take care of locking rfkill_global_mutex,
-
-  - declare __rfkill_any_led_trigger_event() even when
-    CONFIG_RFKILL_LEDS=n to prevent implicit declaration errors,
-
-  - remove the #ifdef surrounding rfkill_any_led_trigger_{,un}register()
-    calls to prevent compilation warnings about functions and a label
-    being defined but not used,
-
-  - move the rfkill_any_led_trigger_register() call in rfkill_init()
-    before the rfkill_handler_init() call to avoid the need to call
-    rfkill_handler_exit() from rfkill_init() and thus prevent a section
-    mismatch.
-
- net/rfkill/core.c | 73 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 73 insertions(+)
-
-diff --git a/net/rfkill/core.c b/net/rfkill/core.c
-index f28e441..cd50b11 100644
---- a/net/rfkill/core.c
-+++ b/net/rfkill/core.c
-@@ -176,6 +176,47 @@ static void rfkill_led_trigger_unregister(struct rfkill *rfkill)
- {
- 	led_trigger_unregister(&rfkill->led_trigger);
- }
-+
-+static struct led_trigger rfkill_any_led_trigger;
-+
-+static void __rfkill_any_led_trigger_event(void)
-+{
-+	enum led_brightness brightness = LED_OFF;
-+	struct rfkill *rfkill;
-+
-+	list_for_each_entry(rfkill, &rfkill_list, node) {
-+		if (!(rfkill->state & RFKILL_BLOCK_ANY)) {
-+			brightness = LED_FULL;
-+			break;
-+		}
-+	}
-+
-+	led_trigger_event(&rfkill_any_led_trigger, brightness);
-+}
-+
-+static void rfkill_any_led_trigger_event(void)
-+{
-+	mutex_lock(&rfkill_global_mutex);
-+	__rfkill_any_led_trigger_event();
-+	mutex_unlock(&rfkill_global_mutex);
-+}
-+
-+static void rfkill_any_led_trigger_activate(struct led_classdev *led_cdev)
-+{
-+	rfkill_any_led_trigger_event();
-+}
-+
-+static int rfkill_any_led_trigger_register(void)
-+{
-+	rfkill_any_led_trigger.name = "rfkill-any";
-+	rfkill_any_led_trigger.activate = rfkill_any_led_trigger_activate;
-+	return led_trigger_register(&rfkill_any_led_trigger);
-+}
-+
-+static void rfkill_any_led_trigger_unregister(void)
-+{
-+	led_trigger_unregister(&rfkill_any_led_trigger);
-+}
- #else
- static void rfkill_led_trigger_event(struct rfkill *rfkill)
- {
-@@ -189,6 +230,23 @@ static inline int rfkill_led_trigger_register(struct rfkill *rfkill)
- static inline void rfkill_led_trigger_unregister(struct rfkill *rfkill)
- {
- }
-+
-+static void __rfkill_any_led_trigger_event(void)
-+{
-+}
-+
-+static void rfkill_any_led_trigger_event(void)
-+{
-+}
-+
-+static int rfkill_any_led_trigger_register(void)
-+{
-+	return 0;
-+}
-+
-+static void rfkill_any_led_trigger_unregister(void)
-+{
-+}
- #endif /* CONFIG_RFKILL_LEDS */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 449884f..48113c6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -134,24 +134,6 @@ MODULE_FIRMWARE(FW5_FNAME);
+ MODULE_FIRMWARE(FW6_FNAME);
  
- static void rfkill_fill_event(struct rfkill_event *ev, struct rfkill *rfkill,
-@@ -297,6 +355,7 @@ static void rfkill_set_block(struct rfkill *rfkill, bool blocked)
- 	spin_unlock_irqrestore(&rfkill->lock, flags);
+ /*
+- * Normally we're willing to become the firmware's Master PF but will be happy
+- * if another PF has already become the Master and initialized the adapter.
+- * Setting "force_init" will cause this driver to forcibly establish itself as
+- * the Master PF and initialize the adapter.
+- */
+-static uint force_init;
+-
+-module_param(force_init, uint, 0644);
+-MODULE_PARM_DESC(force_init, "Forcibly become Master PF and initialize adapter,"
+-		 "deprecated parameter");
+-
+-static int dflt_msg_enable = DFLT_MSG_ENABLE;
+-
+-module_param(dflt_msg_enable, int, 0644);
+-MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap, "
+-		 "deprecated parameter");
+-
+-/*
+  * The driver uses the best interrupt scheme available on a platform in the
+  * order MSI-X, MSI, legacy INTx interrupts.  This parameter determines which
+  * of these schemes the driver may consider as follows:
+@@ -179,16 +161,6 @@ MODULE_PARM_DESC(msi, "whether to use INTx (0), MSI (1) or MSI-X (2)");
+  */
+ static int rx_dma_offset = 2;
  
- 	rfkill_led_trigger_event(rfkill);
-+	__rfkill_any_led_trigger_event();
+-#ifdef CONFIG_PCI_IOV
+-/* Configure the number of PCI-E Virtual Function which are to be instantiated
+- * on SR-IOV Capable Physical Functions.
+- */
+-static unsigned int num_vf[NUM_OF_PF_WITH_SRIOV];
+-
+-module_param_array(num_vf, uint, NULL, 0644);
+-MODULE_PARM_DESC(num_vf, "number of VFs for each of PFs 0-3, deprecated parameter - please use the pci sysfs interface.");
+-#endif
+-
+ /* TX Queue select used to determine what algorithm to use for selecting TX
+  * queue. Select between the kernel provided function (select_queue=0) or user
+  * cxgb_select_queue function (select_queue=1)
+@@ -4729,7 +4701,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	adapter->name = pci_name(pdev);
+ 	adapter->mbox = func;
+ 	adapter->pf = func;
+-	adapter->msg_enable = dflt_msg_enable;
++	adapter->msg_enable = DFLT_MSG_ENABLE;
+ 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
  
- 	if (prev != curr)
- 		rfkill_event(rfkill);
-@@ -477,6 +536,7 @@ bool rfkill_set_hw_state(struct rfkill *rfkill, bool blocked)
- 	spin_unlock_irqrestore(&rfkill->lock, flags);
+ 	spin_lock_init(&adapter->stats_lock);
+@@ -4988,17 +4960,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	rfkill_led_trigger_event(rfkill);
-+	rfkill_any_led_trigger_event();
+ sriov:
+ #ifdef CONFIG_PCI_IOV
+-	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0) {
+-		dev_warn(&pdev->dev,
+-			 "Enabling SR-IOV VFs using the num_vf module "
+-			 "parameter is deprecated - please use the pci sysfs "
+-			 "interface instead.\n");
+-		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
+-			dev_info(&pdev->dev,
+-				 "instantiated %u virtual functions\n",
+-				 num_vf[func]);
+-	}
+-
+ 	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
+ 	if (!adapter) {
+ 		err = -ENOMEM;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 5d4da0e..fa43e06d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -70,13 +70,6 @@
+ 			 NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |\
+ 			 NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
  
- 	if (!rfkill->registered)
- 		return ret;
-@@ -523,6 +583,7 @@ bool rfkill_set_sw_state(struct rfkill *rfkill, bool blocked)
- 		schedule_work(&rfkill->uevent_work);
- 
- 	rfkill_led_trigger_event(rfkill);
-+	rfkill_any_led_trigger_event();
- 
- 	return blocked;
- }
-@@ -572,6 +633,7 @@ void rfkill_set_states(struct rfkill *rfkill, bool sw, bool hw)
- 			schedule_work(&rfkill->uevent_work);
- 
- 		rfkill_led_trigger_event(rfkill);
-+		rfkill_any_led_trigger_event();
- 	}
- }
- EXPORT_SYMBOL(rfkill_set_states);
-@@ -815,8 +877,10 @@ static int rfkill_resume(struct device *dev)
- 	rfkill->suspended = false;
- 
- 	if (!rfkill->persistent) {
-+		mutex_lock(&rfkill_global_mutex);
- 		cur = !!(rfkill->state & RFKILL_BLOCK_SW);
- 		rfkill_set_block(rfkill, cur);
-+		mutex_unlock(&rfkill_global_mutex);
- 	}
- 
- 	if (rfkill->ops->poll && !rfkill->polling_paused)
-@@ -988,6 +1052,7 @@ int __must_check rfkill_register(struct rfkill *rfkill)
- #endif
- 	}
- 
-+	__rfkill_any_led_trigger_event();
- 	rfkill_send_events(rfkill, RFKILL_OP_ADD);
- 
- 	mutex_unlock(&rfkill_global_mutex);
-@@ -1020,6 +1085,7 @@ void rfkill_unregister(struct rfkill *rfkill)
- 	mutex_lock(&rfkill_global_mutex);
- 	rfkill_send_events(rfkill, RFKILL_OP_DEL);
- 	list_del_init(&rfkill->node);
-+	__rfkill_any_led_trigger_event();
- 	mutex_unlock(&rfkill_global_mutex);
- 
- 	rfkill_led_trigger_unregister(rfkill);
-@@ -1272,6 +1338,10 @@ static int __init rfkill_init(void)
- 	if (error)
- 		goto error_misc;
- 
-+	error = rfkill_any_led_trigger_register();
-+	if (error)
-+		goto error_led_trigger;
-+
- #ifdef CONFIG_RFKILL_INPUT
- 	error = rfkill_handler_init();
- 	if (error)
-@@ -1281,6 +1351,8 @@ static int __init rfkill_init(void)
- 	return 0;
- 
- error_input:
-+	rfkill_any_led_trigger_unregister();
-+error_led_trigger:
- 	misc_deregister(&rfkill_miscdev);
- error_misc:
- 	class_unregister(&rfkill_class);
-@@ -1294,6 +1366,7 @@ static void __exit rfkill_exit(void)
- #ifdef CONFIG_RFKILL_INPUT
- 	rfkill_handler_exit();
- #endif
-+	rfkill_any_led_trigger_unregister();
- 	misc_deregister(&rfkill_miscdev);
- 	class_unregister(&rfkill_class);
- }
+-static int dflt_msg_enable = DFLT_MSG_ENABLE;
+-
+-module_param(dflt_msg_enable, int, 0644);
+-MODULE_PARM_DESC(dflt_msg_enable,
+-		 "default adapter ethtool message level bitmap, "
+-		 "deprecated parameter");
+-
+ /*
+  * The driver uses the best interrupt scheme available on a platform in the
+  * order MSI-X then MSI.  This parameter determines which of these schemes the
+@@ -2891,7 +2884,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 	 * Initialize adapter level features.
+ 	 */
+ 	adapter->name = pci_name(pdev);
+-	adapter->msg_enable = dflt_msg_enable;
++	adapter->msg_enable = DFLT_MSG_ENABLE;
+ 	err = adap_init0(adapter);
+ 	if (err)
+ 		goto err_unmap_bar;
 -- 
-2.10.2
+2.1.0
