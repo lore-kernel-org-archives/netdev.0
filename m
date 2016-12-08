@@ -1,41 +1,84 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] drivers: net: xgene: initialize slots
-Date: Thu,  8 Dec 2016 11:17:54 +0000
-Message-ID: <20161208111754.9711-1-colin.king@canonical.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH] linux/types.h: enable endian checks for all sparse builds
+Date: Thu, 8 Dec 2016 12:25:53 +0100
+Message-ID: <20161208122553.5fa5a09c.cornelia.huck@de.ibm.com>
+References: <1481164052-28036-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Iyappan Subramanian <isubramanian@apm.com>,
-        Keyur Chudgar <kchudgar@apm.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, Neil Armstrong <narmstrong@baylibre.com>,
+	David Airlie <airlied@linux.ie>, linux-remoteproc@vger.kernel.org,
+	dri-devel@lists.freedesktop.org, virtualization@lists.linux-foundation.org,
+	linux-s390@vger.kernel.org,
+	"James E.J.  Bottomley" <jejb@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, linux-scsi@vger.kernel.org,
+	Christoph Hellwig <hch@infradead.org>,
+	v9fs-developer@lists.sourceforge.net,
+	Asias He <asias@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	linux-kbuild@vger.kernel.org, Jens Axboe <axboe@fb.com>,
+	Michal Marek <mmarek@suse.com>, Stefan Hajnoczi <stefanha@redhat.com>,
+	Matt Mackall <mpm@selenic.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1481164052-28036-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Thu, 8 Dec 2016 04:29:39 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-static analysis using cppcheck detected that slots was uninitialized.
-Fix this by initializing it to buf_pool->slots - 1
+> By now, linux is mostly endian-clean. Enabling endian-ness
+> checks for everyone produces about 200 new sparse warnings for me -
+> less than 10% over the 2000 sparse warnings already there.
 
-Found using static analysis with CoverityScan, CID #1387620
+Out of curiousity: Where do most of those warnings show up?
 
-Fixes: a9380b0f7be818 ("drivers: net: xgene: Add support for Jumbo frame")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 1 +
- 1 file changed, 1 insertion(+)
+> 
+> Not a big deal, OTOH enabling this helps people notice
+> they are introducing new bugs.
+> 
+> So let's just drop __CHECK_ENDIAN__. Follow-up patches
+> can drop distinction between __bitwise and __bitwise__.
+> 
+> Cc: Linus Torvalds <torvalds@linux-foundation.org>
+> Suggested-by: Christoph Hellwig <hch@infradead.org>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> Linus, could you ack this for upstream? If yes I'll
+> merge through my tree as a replacement for enabling
+> this just for virtio.
+> 
+>  include/uapi/linux/types.h | 4 ----
+>  1 file changed, 4 deletions(-)
+> 
+> diff --git a/include/uapi/linux/types.h b/include/uapi/linux/types.h
+> index acf0979..41e5914 100644
+> --- a/include/uapi/linux/types.h
+> +++ b/include/uapi/linux/types.h
+> @@ -23,11 +23,7 @@
+>  #else
+>  #define __bitwise__
+>  #endif
+> -#ifdef __CHECK_ENDIAN__
+>  #define __bitwise __bitwise__
+> -#else
+> -#define __bitwise
+> -#endif
+> 
+>  typedef __u16 __bitwise __le16;
+>  typedef __u16 __bitwise __be16;
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 6c7eea8..899163c 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -636,6 +636,7 @@ static void xgene_enet_free_pagepool(struct xgene_enet_desc_ring *buf_pool,
- 
- 	dev = ndev_to_dev(buf_pool->ndev);
- 	head = buf_pool->head;
-+	slots = buf_pool->slots - 1;
- 
- 	for (i = 0; i < 4; i++) {
- 		frag_size = xgene_enet_get_data_len(le64_to_cpu(desc[i ^ 1]));
--- 
-2.10.2
+FWIW, I like this better than just enabling it for the virtio code.
