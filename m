@@ -1,77 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: phy: add extension of phy-mode for
- XLGMII
-Date: Thu, 8 Dec 2016 14:15:39 -0800
-Message-ID: <30c8257d-9ad9-71bf-a969-77dbe37bd800@gmail.com>
-References: <cover.1481075763.git.jiedeng@synopsys.com>
- <6d4a65c5488364cdaec72eb22e742aa7e94dfebb.1481075763.git.jiedeng@synopsys.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v5 0/6] XDP for virtio_net
+Date: Thu, 08 Dec 2016 17:16:02 -0500 (EST)
+Message-ID: <20161208.171602.544798927904408724.davem@davemloft.net>
+References: <20161208.141702.1346950420275854265.davem@davemloft.net>
+        <20161208193814.GA1954@ast-mbp.thefacebook.com>
+        <5849C68F.7080707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, CARLOS.PALMINHA@synopsys.com,
-        lars.persson@axis.com, thomas.lendacky@amd.com
-To: Jie Deng <Jie.Deng1@synopsys.com>, davem@davemloft.net,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6d4a65c5488364cdaec72eb22e742aa7e94dfebb.1481075763.git.jiedeng@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net, mst@redhat.com,
+        shm@cumulusnetworks.com, tgraf@suug.ch, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, brouer@redhat.com
+To: john.fastabend@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44100 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932427AbcLHWQF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 17:16:05 -0500
+In-Reply-To: <5849C68F.7080707@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2016 07:57 PM, Jie Deng wrote:
-> This patch adds phy-mode support for Synopsys XLGMAC
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Thu, 8 Dec 2016 12:46:07 -0800
 
-The functional changes look good, but I would like to see some
-description of what the XL part stands for here.
-
-While you are modifying this, do you also mind submitting a Device Tree
-specification change:
-
-https://www.devicetree.org/specifications/
-
-Thanks!
-
+> On 16-12-08 11:38 AM, Alexei Starovoitov wrote:
+>> On Thu, Dec 08, 2016 at 02:17:02PM -0500, David Miller wrote:
+>>> From: John Fastabend <john.fastabend@gmail.com>
+>>> Date: Wed, 07 Dec 2016 12:10:47 -0800
+>>>
+>>>> This implements virtio_net for the mergeable buffers and big_packet
+>>>> modes. I tested this with vhost_net running on qemu and did not see
+>>>> any issues. For testing num_buf > 1 I added a hack to vhost driver
+>>>> to only but 100 bytes per buffer.
+>>>  ...
+>>>
+>>> So where are we with this?
 > 
-> Signed-off-by: Jie Deng <jiedeng@synopsys.com>
-> ---
->  Documentation/devicetree/bindings/net/ethernet.txt | 1 +
->  include/linux/phy.h                                | 3 +++
->  2 files changed, 4 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
-> index 0515095..2378f00 100644
-> --- a/Documentation/devicetree/bindings/net/ethernet.txt
-> +++ b/Documentation/devicetree/bindings/net/ethernet.txt
-> @@ -28,6 +28,7 @@ The following properties are common to the Ethernet controllers:
->    * "rtbi"
->    * "smii"
->    * "xgmii"
-> +  * "xlgmii"
->    * "trgmii"
->  - phy-connection-type: the same as "phy-mode" property but described in ePAPR;
->  - phy-handle: phandle, specifies a reference to a node representing a PHY
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index feb8a98..b52f9f8 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -79,6 +79,7 @@
->  	PHY_INTERFACE_MODE_RTBI,
->  	PHY_INTERFACE_MODE_SMII,
->  	PHY_INTERFACE_MODE_XGMII,
-> +	PHY_INTERFACE_MODE_XLGMII,
->  	PHY_INTERFACE_MODE_MOCA,
->  	PHY_INTERFACE_MODE_QSGMII,
->  	PHY_INTERFACE_MODE_TRGMII,
-> @@ -136,6 +137,8 @@ static inline const char *phy_modes(phy_interface_t interface)
->  		return "smii";
->  	case PHY_INTERFACE_MODE_XGMII:
->  		return "xgmii";
-> +	case PHY_INTERFACE_MODE_XLGMII:
-> +		return "xlgmii";
->  	case PHY_INTERFACE_MODE_MOCA:
->  		return "moca";
->  	case PHY_INTERFACE_MODE_QSGMII:
-> 
+> There is one possible issue with a hang that Michael pointed out. I can
+> either spin a v6 or if you pull this v5 series in I can post a bugfix
+> for it. I am not seeing the issue in practice XDP virtio has been up
+> and running on my box here for days without issue.
 
-
--- 
-Florian
+If that's the case then please spin a v6 and I'll apply it.
