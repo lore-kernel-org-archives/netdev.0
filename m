@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 2/4] udp: add busylocks in RX path
-Date: Thu,  8 Dec 2016 09:38:57 -0800
-Message-ID: <1481218739-27089-3-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 3/4] udp: copy skb->truesize in the first cache line
+Date: Thu,  8 Dec 2016 09:38:58 -0800
+Message-ID: <1481218739-27089-4-git-send-email-edumazet@google.com>
 References: <1481218739-27089-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -9,127 +9,91 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34506 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751139AbcLHRjJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 12:39:09 -0500
-Received: by mail-pf0-f171.google.com with SMTP id c4so84636964pfb.1
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 09:39:08 -0800 (PST)
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:35115 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751139AbcLHRjL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 12:39:11 -0500
+Received: by mail-pg0-f41.google.com with SMTP id p66so176135023pga.2
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 09:39:10 -0800 (PST)
 In-Reply-To: <1481218739-27089-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Idea of busylocks is to let producers grab an extra spinlock
-to relieve pressure on the receive_queue spinlock shared by consumer.
+In UDP RX handler, we currently clear skb->dev before skb
+is added to receive queue, because device pointer is no longer
+available once we exit from RCU section.
 
-This behavior is requested only once socket receive queue is above
-half occupancy.
-
-Under flood, this means that only one producer can be in line
-trying to acquire the receive_queue spinlock.
-
-These busylock can be allocated on a per cpu manner, instead of a
-per socket one (that would consume a cache line per socket)
-
-This patch considerably improves UDP behavior under stress,
-depending on number of NIC RX queues and/or RPS spread.
+Since this first cache line is always hot, lets reuse this space
+to store skb->truesize and thus avoid a cache line miss at
+udp_recvmsg()/udp_skb_destructor time while receive queue
+spinlock is held.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/udp.c | 43 ++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 42 insertions(+), 1 deletion(-)
+ include/linux/skbuff.h |  9 ++++++++-
+ net/ipv4/udp.c         | 13 ++++++++++---
+ 2 files changed, 18 insertions(+), 4 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 0cd92b0f2af5..332e76756f54 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -645,8 +645,15 @@ struct sk_buff {
+ 		struct rb_node	rbnode; /* used in netem & tcp stack */
+ 	};
+ 	struct sock		*sk;
+-	struct net_device	*dev;
+ 
++	union {
++		struct net_device	*dev;
++		/* Some protocols might use this space to store information,
++		 * while device pointer would be NULL.
++		 * UDP receive path is one user.
++		 */
++		unsigned long		dev_scratch;
++	};
+ 	/*
+ 	 * This is the control buffer. It is free to use for every
+ 	 * layer. Please put your private variables there. If you
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 110414903f9e..77875712405f 100644
+index 77875712405f..880cd3d84abf 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -1195,10 +1195,36 @@ void udp_skb_destructor(struct sock *sk, struct sk_buff *skb)
+@@ -1188,10 +1188,14 @@ static void udp_rmem_release(struct sock *sk, int size, int partial)
+ 		__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
+ }
+ 
+-/* Note: called with sk_receive_queue.lock held */
++/* Note: called with sk_receive_queue.lock held.
++ * Instead of using skb->truesize here, find a copy of it in skb->dev_scratch
++ * This avoids a cache line miss while receive_queue lock is held.
++ * Look at __udp_enqueue_schedule_skb() to find where this copy is done.
++ */
+ void udp_skb_destructor(struct sock *sk, struct sk_buff *skb)
+ {
+-	udp_rmem_release(sk, skb->truesize, 1);
++	udp_rmem_release(sk, skb->dev_scratch, 1);
  }
  EXPORT_SYMBOL(udp_skb_destructor);
  
-+/* Idea of busylocks is to let producers grab an extra spinlock
-+ * to relieve pressure on the receive_queue spinlock shared by consumer.
-+ * Under flood, this means that only one producer can be in line
-+ * trying to acquire the receive_queue spinlock.
-+ * These busylock can be allocated on a per cpu manner, instead of a
-+ * per socket one (that would consume a cache line per socket)
-+ */
-+static int udp_busylocks_log __read_mostly;
-+static spinlock_t *udp_busylocks __read_mostly;
-+
-+static spinlock_t *busylock_acquire(void *ptr)
-+{
-+	spinlock_t *busy;
-+
-+	busy = udp_busylocks + hash_ptr(ptr, udp_busylocks_log);
-+	spin_lock(busy);
-+	return busy;
-+}
-+
-+static void busylock_release(spinlock_t *busy)
-+{
-+	if (busy)
-+		spin_unlock(busy);
-+}
-+
- int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	struct sk_buff_head *list = &sk->sk_receive_queue;
- 	int rmem, delta, amt, err = -ENOMEM;
-+	spinlock_t *busy = NULL;
- 	int size;
- 
- 	/* try to avoid the costly atomic add/sub pair when the receive
-@@ -1214,8 +1240,11 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
- 	 * - Less cache line misses at copyout() time
- 	 * - Less work at consume_skb() (less alien page frag freeing)
- 	 */
--	if (rmem > (sk->sk_rcvbuf >> 1))
-+	if (rmem > (sk->sk_rcvbuf >> 1)) {
- 		skb_condense(skb);
-+
-+		busy = busylock_acquire(sk);
-+	}
+@@ -1246,6 +1250,10 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
+ 		busy = busylock_acquire(sk);
+ 	}
  	size = skb->truesize;
++	/* Copy skb->truesize into skb->dev_scratch to avoid a cache line miss
++	 * in udp_skb_destructor()
++	 */
++	skb->dev_scratch = size;
  
  	/* we drop only if the receive buf is full and the receive
-@@ -1252,6 +1281,7 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
- 	if (!sock_flag(sk, SOCK_DEAD))
- 		sk->sk_data_ready(sk);
+ 	 * queue contains some other skb
+@@ -1272,7 +1280,6 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
+ 	/* no need to setup a destructor, we will explicitly release the
+ 	 * forward allocated memory on dequeue
+ 	 */
+-	skb->dev = NULL;
+ 	sock_skb_set_dropcount(sk, skb);
  
-+	busylock_release(busy);
- 	return 0;
- 
- uncharge_drop:
-@@ -1259,6 +1289,7 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
- 
- drop:
- 	atomic_inc(&sk->sk_drops);
-+	busylock_release(busy);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(__udp_enqueue_schedule_skb);
-@@ -2613,6 +2644,7 @@ EXPORT_SYMBOL(udp_flow_hashrnd);
- void __init udp_init(void)
- {
- 	unsigned long limit;
-+	unsigned int i;
- 
- 	udp_table_init(&udp_table, "UDP");
- 	limit = nr_free_buffer_pages() / 8;
-@@ -2623,4 +2655,13 @@ void __init udp_init(void)
- 
- 	sysctl_udp_rmem_min = SK_MEM_QUANTUM;
- 	sysctl_udp_wmem_min = SK_MEM_QUANTUM;
-+
-+	/* 16 spinlocks per cpu */
-+	udp_busylocks_log = ilog2(nr_cpu_ids) + 4;
-+	udp_busylocks = kmalloc(sizeof(spinlock_t) << udp_busylocks_log,
-+				GFP_KERNEL);
-+	if (!udp_busylocks)
-+		panic("UDP: failed to alloc udp_busylocks\n");
-+	for (i = 0; i < (1U << udp_busylocks_log); i++)
-+		spin_lock_init(udp_busylocks + i);
- }
+ 	__skb_queue_tail(list, skb);
 -- 
 2.8.0.rc3.226.g39d4020
