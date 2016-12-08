@@ -1,74 +1,64 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v5 3/6] virtio_net: Add XDP support
-Date: Wed, 7 Dec 2016 21:14:48 -0800
-Message-ID: <5848EC48.7080904@gmail.com>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161207201157.28121.39934.stgit@john-Precision-Tower-5810>
- <20161208064037-mutt-send-email-mst@kernel.org>
+From: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Subject: Re: [PATCH] linux/types.h: enable endian checks for all sparse builds
+Date: Thu, 8 Dec 2016 05:21:47 +0000
+Message-ID: <BLUPR02MB168374E98A6C86E43DF0BCFE81840@BLUPR02MB1683.namprd02.prod.outlook.com>
+References: <1481164052-28036-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
-        tgraf@suug.ch, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34572 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752831AbcLHFPH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 00:15:07 -0500
-Received: by mail-pg0-f65.google.com with SMTP id e9so25629756pgc.1
-        for <netdev@vger.kernel.org>; Wed, 07 Dec 2016 21:15:07 -0800 (PST)
-In-Reply-To: <20161208064037-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jason Wang <jasowang@redhat.com>,
+        "linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>,
+        Michal Marek <mmarek@suse.com>, Arnd Bergmann <arnd@arndb.de>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        "Matt Mackall" <mpm@selenic.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David Airlie" <airlied@linux.ie>,
+        Gerd Hoffmann <kraxel@redhat.com>,
+        Ohad Ben-Cohen <ohad@wizery.com>,
+        Christian Borntraeger <borntraeger@de.ibm.com>,
+        "Cornelia Huck" <cornelia.huck@de.ibm.com>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "Jens Axboe" <axboe@fb.com>,
+        Neil Armstrong <narmstrong@baylibre.com>,
+        "Stefan Hajnoczi" <stefanha@redhat.com>,
+        Asias He <asias@redhat.com>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vg
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Christoph Hellwig <hch@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-12-07 08:48 PM, Michael S. Tsirkin wrote:
-> On Wed, Dec 07, 2016 at 12:11:57PM -0800, John Fastabend wrote:
->> From: John Fastabend <john.fastabend@gmail.com>
->>
->> This adds XDP support to virtio_net. Some requirements must be
->> met for XDP to be enabled depending on the mode. First it will
->> only be supported with LRO disabled so that data is not pushed
->> across multiple buffers. Second the MTU must be less than a page
->> size to avoid having to handle XDP across multiple pages.
->>
->> If mergeable receive is enabled this patch only supports the case
->> where header and data are in the same buf which we can check when
->> a packet is received by looking at num_buf. If the num_buf is
->> greater than 1 and a XDP program is loaded the packet is dropped
->> and a warning is thrown. When any_header_sg is set this does not
->> happen and both header and data is put in a single buffer as expected
->> so we check this when XDP programs are loaded.  Subsequent patches
->> will process the packet in a degraded mode to ensure connectivity
->> and correctness is not lost even if backend pushes packets into
->> multiple buffers.
->>
->> If big packets mode is enabled and MTU/LRO conditions above are
->> met then XDP is allowed.
->>
->> This patch was tested with qemu with vhost=on and vhost=off where
->> mergeable and big_packet modes were forced via hard coding feature
->> negotiation. Multiple buffers per packet was forced via a small
->> test patch to vhost.c in the vhost=on qemu mode.
->>
->> Suggested-by: Shrijeet Mukherjee <shrijeet@gmail.com>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> 
-> I'd like to note that I don't think disabling LRO is a good
-> plan long-term. It's really important for virtio performance,
-> so IMHO we need a fix for that.
-> I'm guessing that a subset of XDP programs would be quite
-> happy with just looking at headers, and that is there in the 1st buffer.
-> So how about teaching XDP that there could be a truncated packet?
-> 
-> Then we won't have to disable LRO.
-> 
-
-Agreed long-term we can drop this requirement this type of improvement
-would also allow working with jumbo frames on nics.
-
-I don't think it should block this patch series though.
-
-.John
+On 12/07/16 18:29, Michael S. Tsirkin wrote:=0A=
+> By now, linux is mostly endian-clean. Enabling endian-ness=0A=
+> checks for everyone produces about 200 new sparse warnings for me -=0A=
+> less than 10% over the 2000 sparse warnings already there.=0A=
+>=0A=
+> Not a big deal, OTOH enabling this helps people notice=0A=
+> they are introducing new bugs.=0A=
+>=0A=
+> So let's just drop __CHECK_ENDIAN__. Follow-up patches=0A=
+> can drop distinction between __bitwise and __bitwise__.=0A=
+=0A=
+Hello Michael,=0A=
+=0A=
+This patch makes a whole bunch of ccflags-y +=3D -D__CHECK_ENDIAN__ =0A=
+statements obsolete. Have you considered to remove these statements?=0A=
+=0A=
+Additionally, there are notable exceptions to the rule that most drivers =
+=0A=
+are endian-clean, e.g. drivers/scsi/qla2xxx. I would appreciate it if it =
+=0A=
+would remain possible to check such drivers with sparse without enabling =
+=0A=
+endianness checks. Have you considered to change #ifdef __CHECK_ENDIAN__ =
+=0A=
+into e.g. #ifndef __DONT_CHECK_ENDIAN__?=0A=
+=0A=
+Thanks,=0A=
+=0A=
+Bart.=0A=
