@@ -1,7 +1,7 @@
 From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [PATCH v2 2/2] net: ethernet: stmmac: remove private tx queue lock
-Date: Fri,  9 Dec 2016 00:55:43 +0100
-Message-ID: <1481241343-18062-3-git-send-email-LinoSanfilippo@gmx.de>
+Subject: [PATCH v2 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Fri,  9 Dec 2016 00:55:42 +0100
+Message-ID: <1481241343-18062-2-git-send-email-LinoSanfilippo@gmx.de>
 References: <1481241343-18062-1-git-send-email-LinoSanfilippo@gmx.de>
 Cc: romieu@fr.zoreil.com, pavel@ucw.cz, davem@davemloft.net,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -26,122 +26,96 @@ xmit_lock for synchronization instead.
 
 Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  1 -
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 28 +++++------------------
- 2 files changed, 6 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h |  1 -
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   | 27 +++++------------------
+ 2 files changed, 6 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 4d2a759..7e69b11 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -64,7 +64,6 @@ struct stmmac_priv {
- 	dma_addr_t dma_tx_phy;
- 	int tx_coalesce;
- 	int hwts_tx_en;
--	spinlock_t tx_lock;
- 	bool tx_path_in_lpi_mode;
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
+index 5cb51b6..c61f260 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
+@@ -384,7 +384,6 @@ struct sxgbe_tx_queue {
+ 	dma_addr_t *tx_skbuff_dma;
+ 	struct sk_buff **tx_skbuff;
  	struct timer_list txtimer;
- 	bool tso;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index caf069a..db46ec4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1307,7 +1307,7 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 	unsigned int bytes_compl = 0, pkts_compl = 0;
- 	unsigned int entry = priv->dirty_tx;
+-	spinlock_t tx_lock;	/* lock for tx queues */
+ 	unsigned int cur_tx;
+ 	unsigned int dirty_tx;
+ 	u32 tx_count_frames;
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index ea44a24..22d3b0b 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -426,9 +426,6 @@ static int init_tx_ring(struct device *dev, u8 queue_no,
+ 	tx_ring->dirty_tx = 0;
+ 	tx_ring->cur_tx = 0;
  
--	spin_lock(&priv->tx_lock);
-+	netif_tx_lock(priv->dev);
+-	/* initialise TX queue lock */
+-	spin_lock_init(&tx_ring->tx_lock);
+-
+ 	return 0;
+ 
+ dmamem_err:
+@@ -743,7 +740,7 @@ static void sxgbe_tx_queue_clean(struct sxgbe_tx_queue *tqueue)
+ 
+ 	dev_txq = netdev_get_tx_queue(priv->dev, queue_no);
+ 
+-	spin_lock(&tqueue->tx_lock);
++	__netif_tx_lock(dev_txq, smp_processor_id());
  
  	priv->xstats.tx_clean++;
+ 	while (tqueue->dirty_tx != tqueue->cur_tx) {
+@@ -781,18 +778,13 @@ static void sxgbe_tx_queue_clean(struct sxgbe_tx_queue *tqueue)
  
-@@ -1378,22 +1378,17 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
- 
- 	if (unlikely(netif_queue_stopped(priv->dev) &&
--		     stmmac_tx_avail(priv) > STMMAC_TX_THRESH)) {
+ 	/* wake up queue */
+ 	if (unlikely(netif_tx_queue_stopped(dev_txq) &&
+-		     sxgbe_tx_avail(tqueue, tx_rsize) > SXGBE_TX_THRESH(priv))) {
 -		netif_tx_lock(priv->dev);
--		if (netif_queue_stopped(priv->dev) &&
--		    stmmac_tx_avail(priv) > STMMAC_TX_THRESH) {
+-		if (netif_tx_queue_stopped(dev_txq) &&
+-		    sxgbe_tx_avail(tqueue, tx_rsize) > SXGBE_TX_THRESH(priv)) {
 -			if (netif_msg_tx_done(priv))
 -				pr_debug("%s: restart transmit\n", __func__);
--			netif_wake_queue(priv->dev);
+-			netif_tx_wake_queue(dev_txq);
 -		}
 -		netif_tx_unlock(priv->dev);
-+	    stmmac_tx_avail(priv) > STMMAC_TX_THRESH)) {
++	    sxgbe_tx_avail(tqueue, tx_rsize) > SXGBE_TX_THRESH(priv))) {
 +		if (netif_msg_tx_done(priv))
 +			pr_debug("%s: restart transmit\n", __func__);
-+		netif_wake_queue(priv->dev);
++		netif_tx_wake_queue(dev_txq);
  	}
  
- 	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
- 		stmmac_enable_eee_mode(priv);
- 		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_T(eee_timer));
- 	}
--	spin_unlock(&priv->tx_lock);
-+	netif_tx_unlock(priv->dev);
+-	spin_unlock(&tqueue->tx_lock);
++	__netif_tx_unlock(dev_txq);
  }
  
- static inline void stmmac_enable_dma_irq(struct stmmac_priv *priv)
-@@ -1998,8 +1993,6 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	u8 proto_hdr_len;
- 	int i;
+ /**
+@@ -1304,9 +1296,6 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		      tqueue->hwts_tx_en)))
+ 		ctxt_desc_req = 1;
  
--	spin_lock(&priv->tx_lock);
+-	/* get the spinlock */
+-	spin_lock(&tqueue->tx_lock);
 -
- 	/* Compute header lengths */
- 	proto_hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 	if (priv->tx_path_in_lpi_mode)
+ 		sxgbe_disable_eee_mode(priv);
  
-@@ -2011,7 +2004,6 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 			/* This is a hard error, log it. */
- 			pr_err("%s: Tx Ring full when queue awake\n", __func__);
+@@ -1316,8 +1305,6 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			netdev_err(dev, "%s: Tx Ring is full when %d queue is awake\n",
+ 				   __func__, txq_index);
  		}
--		spin_unlock(&priv->tx_lock);
+-		/* release the spin lock in case of BUSY */
+-		spin_unlock(&tqueue->tx_lock);
  		return NETDEV_TX_BUSY;
  	}
  
-@@ -2146,11 +2138,9 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
- 	priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, priv->tx_tail_addr,
- 				       STMMAC_CHAN0);
+@@ -1436,8 +1423,6 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
  
--	spin_unlock(&priv->tx_lock);
- 	return NETDEV_TX_OK;
+ 	priv->hw->dma->enable_dma_transmission(priv->ioaddr, txq_index);
  
- dma_map_err:
--	spin_unlock(&priv->tx_lock);
- 	dev_err(priv->device, "Tx dma map failed\n");
- 	dev_kfree_skb(skb);
- 	priv->dev->stats.tx_dropped++;
-@@ -2182,10 +2172,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 			return stmmac_tso_xmit(skb, dev);
- 	}
- 
--	spin_lock(&priv->tx_lock);
+-	spin_unlock(&tqueue->tx_lock);
 -
- 	if (unlikely(stmmac_tx_avail(priv) < nfrags + 1)) {
--		spin_unlock(&priv->tx_lock);
- 		if (!netif_queue_stopped(dev)) {
- 			netif_stop_queue(dev);
- 			/* This is a hard error, log it. */
-@@ -2357,11 +2344,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, priv->tx_tail_addr,
- 					       STMMAC_CHAN0);
- 
--	spin_unlock(&priv->tx_lock);
  	return NETDEV_TX_OK;
+ }
  
- dma_map_err:
--	spin_unlock(&priv->tx_lock);
- 	dev_err(priv->device, "Tx dma map failed\n");
- 	dev_kfree_skb(skb);
- 	priv->dev->stats.tx_dropped++;
-@@ -3347,7 +3332,6 @@ int stmmac_dvr_probe(struct device *device,
- 	netif_napi_add(ndev, &priv->napi, stmmac_poll, 64);
- 
- 	spin_lock_init(&priv->lock);
--	spin_lock_init(&priv->tx_lock);
- 
- 	ret = register_netdev(ndev);
- 	if (ret) {
 -- 
 1.9.1
