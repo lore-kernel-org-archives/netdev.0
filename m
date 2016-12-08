@@ -1,77 +1,66 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] linux/types.h: enable endian checks for all sparse builds
-Date: Thu, 8 Dec 2016 04:29:39 +0200
-Message-ID: <1481164052-28036-1-git-send-email-mst@redhat.com>
+From: Brad Campbell <lists2009@fnarfbargle.com>
+Subject: Re: commit : ppp: add rtnetlink device creation support - breaks
+ netcf on my machine.
+Date: Thu, 8 Dec 2016 10:29:44 +0800
+Message-ID: <ad3f11b0-6814-4589-5b31-028d889237f0@fnarfbargle.com>
+References: <32208f70-4165-e79b-89ee-543eefaf40ef@fnarfbargle.com>
+ <20161205175320.mbtswpmdjumfgh7y@alphalink.fr>
+ <5d537b7e-97e9-709c-7b3e-61280cc264f8@fnarfbargle.com>
+ <20161206230853.ukyg75cyxugdwg4a@alphalink.fr>
+ <1481065966.11028.3.camel@redhat.com> <1481132622.4116.6.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, Neil Armstrong <narmstrong@baylibre.com>,
-	David Airlie <airlied@linux.ie>, linux-remoteproc@vger.kernel.org,
-	dri-devel@lists.freedesktop.org, virtualization@lists.linux-foundation.org,
-	linux-s390@vger.kernel.org,
-	"James E.J.  Bottomley" <jejb@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-scsi@vger.kernel.org, v9fs-developer@lists.sourceforge.net,
-	Asias He <asias@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	linux-kbuild@vger.kernel.org, Jens Axboe <axboe@fb.com>,
-	Michal Marek <mmarek@suse.com>, Stefan Hajnoczi <stefanha@redhat.com>,
-	Matt Mackall <mpm@selenic.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Christoph Hellwig <hch@infradead.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
+        David Miller <davem@davemloft.net>
+To: Thomas Haller <thaller@redhat.com>, Dan Williams <dcbw@redhat.com>,
+        Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns3.fnarfbargle.com ([43.245.164.105]:50560 "EHLO
+        ns3.fnarfbargle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932759AbcLHCaA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 7 Dec 2016 21:30:00 -0500
+In-Reply-To: <1481132622.4116.6.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-By now, linux is mostly endian-clean. Enabling endian-ness
-checks for everyone produces about 200 new sparse warnings for me -
-less than 10% over the 2000 sparse warnings already there.
+On 08/12/16 01:43, Thomas Haller wrote:
+> On Tue, 2016-12-06 at 17:12 -0600, Dan Williams wrote:
+>>
+>>> libnl1 rejects the IFLA_INFO_DATA attribute because it expects it
+>>> to
+>>> contain a sub-attribute. Since the payload size is zero it doesn't
+>>> match the policy and parsing fails.
+>>>
+>>> There's no problem with libnl3 because its policy accepts empty
+>>> payloads for NLA_NESTED attributes (see libnl3 commit 4be02ace4826
+>
+> Hi,
+>
+> libnl1 is unmaintained these days. I don't think it makes sense to
+> backport that patch. The last upstream release was 3+ years ago, with
+> no upstream development since then.
+>
+> IMHO netcf should drop libnl-1 support.
+>
 
-Not a big deal, OTOH enabling this helps people notice
-they are introducing new bugs.
+G'day Thomas,
 
-So let's just drop __CHECK_ENDIAN__. Follow-up patches
-can drop distinction between __bitwise and __bitwise__.
+I'm not sure anyone was suggesting fixing libnl1, it was more around a 
+discussion with regard to a change in the kernel breaking old userspace 
+and whether it needs to be fixed in the kernel.
 
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Suggested-by: Christoph Hellwig <hch@infradead.org>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+Personally, now I have a solution to *my* immediate problem (that being 
+any kernel 4.7 or later prevented libvirtd starting on my servers 
+because my netcf was compiled against libnl1) I can upgrade the relevant 
+userspace components to work around the issue.
 
-Linus, could you ack this for upstream? If yes I'll
-merge through my tree as a replacement for enabling
-this just for virtio.
+Also, now this issue is a number of months old and I appear to be the 
+only person reporting it, maybe it's not worth tackling. I would 
+absolutely say that netcf needs to drop libnl1 now though as it *is* 
+broken on newer kernels under the right circumstances.
 
- include/uapi/linux/types.h | 4 ----
- 1 file changed, 4 deletions(-)
+I appreciate the assistance in tracking it down anyway. Thanks guys.
 
-diff --git a/include/uapi/linux/types.h b/include/uapi/linux/types.h
-index acf0979..41e5914 100644
---- a/include/uapi/linux/types.h
-+++ b/include/uapi/linux/types.h
-@@ -23,11 +23,7 @@
- #else
- #define __bitwise__
- #endif
--#ifdef __CHECK_ENDIAN__
- #define __bitwise __bitwise__
--#else
--#define __bitwise
--#endif
- 
- typedef __u16 __bitwise __le16;
- typedef __u16 __bitwise __be16;
--- 
-MST
+Regards,
+Brad
