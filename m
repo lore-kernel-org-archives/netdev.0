@@ -1,53 +1,52 @@
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Subject: Re: 4.9.0-rc8: tg3 dead after resume
-Date: Thu, 8 Dec 2016 14:33:49 +0530
-Message-ID: <CAMet4B6t9neFPcGstZw6ebhFCBQzRsesStXZ8bjSaC5ggcuKxw@mail.gmail.com>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: [PATCH v3 4/6] net: stmmac: dwmac1000: fix define
+ DMA_BUS_MODE_RPBL_MASK
+Date: Thu, 8 Dec 2016 10:12:25 +0100
+Message-ID: <7fe29358-1c2b-d4b9-88fd-96135262e5d3@st.com>
+References: <1481120409-18103-1-git-send-email-niklass@axis.com>
+ <1481120409-18103-5-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Chan <michael.chan@broadcom.com>,
-        Netdev <netdev@vger.kernel.org>
-To: Billy Shuman <wshuman3@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:33504 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751675AbcLHJEY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 04:04:24 -0500
-Received: by mail-qk0-f182.google.com with SMTP id x190so443807004qkb.0
-        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 01:03:50 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481120409-18103-5-git-send-email-niklass@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 8, 2016 at 12:14 AM, Billy Shuman <wshuman3@gmail.com> wrote:
-> On Wed, Dec 7, 2016 at 12:37 PM, Michael Chan <michael.chan@broadcom.com> wrote:
->> On Wed, Dec 7, 2016 at 7:20 AM, Billy Shuman <wshuman3@gmail.com> wrote:
->>> After resume on 4.9.0-rc8 tg3 is dead.
->>>
->>> In logs I see:
->>> kernel: tg3 0000:44:00.0: phy probe failed, err -19
->>> kernel: tg3 0000:44:00.0: Problem fetching invariants of chip, aborting
->>
->> -19 is -ENODEV which means tg3 cannot read the PHY ID.
->>
->> If it's a true suspend/resume operation, the driver does not have to
->> go through probe during resume.  Please explain how you do
->> suspend/resume.
->>
->
-> Sorry my previous message was accidentally sent to early.
->
-> I used systemd (systemctl suspend) to suspend.
->
-We need more information to proceed further.
-Without suspend, Are you able to use the tg3 port?
-Which Broadcom card are you having in laptop?
-Please provide complete tg3 specific logs in dmesg.
+Hi Niklas
 
->> Did this work before?  There has been very few changes to tg3 recently.
->>
+On 12/07/2016 03:20 PM, Niklas Cassel wrote:
+> From: Niklas Cassel <niklas.cassel@axis.com>
 >
-> This is a new laptop for me, but the same behavior is seen on 4.4.36 and 4.8.12.
+> DMA_BUS_MODE_RPBL_MASK is really 6 bits,
+> just like DMA_BUS_MODE_PBL_MASK.
 >
->>>
->>> rmmod and modprobe does not fix the problem only a reboot resolves the issue.
->>>
->>> Billy
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/dwmac1000.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+> index ff3e5ab39bd0..52b9407a8a39 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+> @@ -225,7 +225,7 @@ enum rx_tx_priority_ratio {
+>
+>  #define DMA_BUS_MODE_FB		0x00010000	/* Fixed burst */
+>  #define DMA_BUS_MODE_MB		0x04000000	/* Mixed burst */
+> -#define DMA_BUS_MODE_RPBL_MASK	0x003e0000	/* Rx-Programmable Burst Len */
+> +#define DMA_BUS_MODE_RPBL_MASK	0x007e0000	/* Rx-Programmable Burst Len */
+
+Well spot. You can add my Acked-by.
+
+Regards
+Alex
+
+>  #define DMA_BUS_MODE_RPBL_SHIFT	17
+>  #define DMA_BUS_MODE_USP	0x00800000
+>  #define DMA_BUS_MODE_MAXPBL	0x01000000
+>
