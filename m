@@ -1,47 +1,78 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Synopsys Ethernet QoS
-Date: Fri, 9 Dec 2016 11:29:02 +0000
-Message-ID: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        <lars.persson@axis.com>, <rabin.vincent@axis.com>,
-        <netdev@vger.kernel.org>, <andy.shevchenko@gmail.com>,
-        <CARLOS.PALMINHA@synopsys.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.47.9]:33320 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751599AbcLIL3J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 06:29:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] uio-hv-generic: store physical addresses instead of virtual
+Date: Fri,  9 Dec 2016 12:44:40 +0100
+Message-ID: <20161209114456.3719619-1-arnd@arndb.de>
+Cc: netdev@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear David Miller,
+gcc warns about the newly added driver when phys_addr_t is wider than
+a pointer:
 
-These past 2 weeks we have been discussing the right way to go in terms of
-Synopsys QoS support in the kernel.
+drivers/uio/uio_hv_generic.c: In function 'hv_uio_mmap':
+drivers/uio/uio_hv_generic.c:71:17: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
+    virt_to_phys((void *)info->mem[mi].addr) >> PAGE_SHIFT,
+drivers/uio/uio_hv_generic.c: In function 'hv_uio_probe':
+drivers/uio/uio_hv_generic.c:140:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+   = (phys_addr_t)dev->channel->ringbuffer_pages;
+drivers/uio/uio_hv_generic.c:147:3: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+   (phys_addr_t)vmbus_connection.int_page;
+drivers/uio/uio_hv_generic.c:153:3: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+   (phys_addr_t)vmbus_connection.monitor_pages[1];
 
-The approach that raised more supporters was:
+I can't see why we store a virtual address in a phys_addr_t here,
+as the only user of that variable converts it into a physical
+address anyway, so this moves the conversion to where it logically
+fits according to the types.
 
-a) Test /stmicro/stmmac driver in a reference hardware prototyping platform (QoS
-IPK) [Status: In Progress | 90% finished]
+Fixes: 95096f2fbd10 ("uio-hv-generic: new userspace i/o driver for VMBus")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/uio/uio_hv_generic.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-b) Merge the necessary features from AXIS’ synopsys based qos driver to the
-/stmicro/stmmac
-[Status: In Queue]
-
-c) Rename /stmicro/stmmac driver to synopsys/ and re-factor the driver if necessary
-[Status: In Queue]
-
-d) Add QoS features incrementally to the new synopsys/ driver
-[Status: In Queue]
-
-This approach has the green light from AXIS and STMicro maintainers (Lars and
-Peppe).
-
-I would like to know if you support this plan.
-
-Best Regards,
-Joao
+diff --git a/drivers/uio/uio_hv_generic.c b/drivers/uio/uio_hv_generic.c
+index ad3ab5805ad8..50958f167305 100644
+--- a/drivers/uio/uio_hv_generic.c
++++ b/drivers/uio/uio_hv_generic.c
+@@ -68,7 +68,7 @@ hv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
+ 	mi = (int)vma->vm_pgoff;
+ 
+ 	return remap_pfn_range(vma, vma->vm_start,
+-			virt_to_phys((void *)info->mem[mi].addr) >> PAGE_SHIFT,
++			info->mem[mi].addr >> PAGE_SHIFT,
+ 			vma->vm_end - vma->vm_start, vma->vm_page_prot);
+ }
+ 
+@@ -137,20 +137,20 @@ hv_uio_probe(struct hv_device *dev,
+ 	/* mem resources */
+ 	pdata->info.mem[TXRX_RING_MAP].name = "txrx_rings";
+ 	pdata->info.mem[TXRX_RING_MAP].addr
+-		= (phys_addr_t)dev->channel->ringbuffer_pages;
++		= virt_to_phys(dev->channel->ringbuffer_pages);
+ 	pdata->info.mem[TXRX_RING_MAP].size
+ 		= dev->channel->ringbuffer_pagecount * PAGE_SIZE;
+ 	pdata->info.mem[TXRX_RING_MAP].memtype = UIO_MEM_LOGICAL;
+ 
+ 	pdata->info.mem[INT_PAGE_MAP].name = "int_page";
+ 	pdata->info.mem[INT_PAGE_MAP].addr =
+-		(phys_addr_t)vmbus_connection.int_page;
++		virt_to_phys(vmbus_connection.int_page);
+ 	pdata->info.mem[INT_PAGE_MAP].size = PAGE_SIZE;
+ 	pdata->info.mem[INT_PAGE_MAP].memtype = UIO_MEM_LOGICAL;
+ 
+ 	pdata->info.mem[MON_PAGE_MAP].name = "monitor_pages";
+ 	pdata->info.mem[MON_PAGE_MAP].addr =
+-		(phys_addr_t)vmbus_connection.monitor_pages[1];
++		virt_to_phys(vmbus_connection.monitor_pages[1]);
+ 	pdata->info.mem[MON_PAGE_MAP].size = PAGE_SIZE;
+ 	pdata->info.mem[MON_PAGE_MAP].memtype = UIO_MEM_LOGICAL;
+ 
+-- 
+2.9.0
