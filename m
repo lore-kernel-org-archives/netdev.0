@@ -1,214 +1,98 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Subject: [PATCH/RFC net-next] net: fec: allow "mini jumbo" frames
-Date: Fri,  9 Dec 2016 12:20:55 +0300
-Message-ID: <1481275255-7650-1-git-send-email-nikita.yoush@cogentembedded.com>
-Cc: Chris Healy <cphealy@gmail.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        linux-kernel@vger.kernel.org,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-To: Fugang Duan <fugang.duan@nxp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH net] phy: Don't increment MDIO bus refcount unless it's a
+ different owner
+Date: Fri, 9 Dec 2016 09:09:14 +0000
+Message-ID: <AM4PR04MB160469BF592328331647BB73EC870@AM4PR04MB1604.eurprd04.prod.outlook.com>
+References: <20161207045443.26246-1-f.fainelli@gmail.com>
+ <20161208162740.GI31573@localhost>
+ <81ffa62a-b385-94ca-2396-f2137a320e8b@gmail.com>
+ <20161208170127.GJ31573@localhost>
+ <6492ed34-69ae-84df-3fad-c8c4c0510af7@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
+        "andrew@lunn.ch" <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Johan Hovold <johan@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0049.outbound.protection.outlook.com ([104.47.2.49]:13216
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752851AbcLIJXY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Dec 2016 04:23:24 -0500
+In-Reply-To: <6492ed34-69ae-84df-3fad-c8c4c0510af7@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds support for MTU slightly larger than default, on modern
-FEC flavours.
-
-Currently FEC driver uses single hardware Rx buffer per frame. On most
-FEC flavours, size of single buffer is limited by 11-bit field, and
-has to be multiple of 64 (in the worst case). Thus maximum usable Rx
-buffer size is 1984 bytes.
-
-Of those:
-- 2 bytes are used for IP header alignment,
-- 14 bytes are used by ethhdr,
-- up to 8 bytes are needed for VLAN and/or DSA tags,
-- 4 bytes are needed for CRC.
-
-Thus maximum MTU possible within current RX architecture is 1956.
-
-This patch allows exactly that. For further increase, Rx architecture
-change is needed.
-
-Use of MTU=1956 gives about 1.5% throughput improvement between two Vybrid
-boards, compared to default MTU=1500.
-
-Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
----
- drivers/net/ethernet/freescale/fec.h      |  2 +
- drivers/net/ethernet/freescale/fec_main.c | 69 ++++++++++++++++++++-----------
- 2 files changed, 47 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 5ea740b4cf14..72c918bd10f3 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -557,6 +557,8 @@ struct fec_enet_private {
- 	unsigned int tx_align;
- 	unsigned int rx_align;
- 
-+	unsigned int max_fl;
-+
- 	/* hw interrupt coalesce */
- 	unsigned int rx_pkts_itr;
- 	unsigned int rx_time_itr;
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 38160c2bebcb..6a299a4d75ed 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -171,29 +171,20 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #endif
- #endif /* CONFIG_M5272 */
- 
--/* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
-- */
--#define PKT_MAXBUF_SIZE		1522
--#define PKT_MINBUF_SIZE		64
--#define PKT_MAXBLR_SIZE		1536
--
- /* FEC receive acceleration */
- #define FEC_RACC_IPDIS		(1 << 1)
- #define FEC_RACC_PRODIS		(1 << 2)
- #define FEC_RACC_SHIFT16	BIT(7)
- #define FEC_RACC_OPTIONS	(FEC_RACC_IPDIS | FEC_RACC_PRODIS)
- 
--/*
-- * The 5270/5271/5280/5282/532x RX control register also contains maximum frame
-- * size bits. Other FEC hardware does not, so we need to take that into
-- * account when setting it.
-+/* Difference between buffer size and MTU.
-+ * This accounts:
-+ * - possible 2 byte alignment,
-+ * - standard ethernet header,
-+ * - up to 8 bytes of VLAN or DSA tags,
-+ * - checksum
-  */
--#if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
--    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARM)
--#define	OPT_FRAME_SIZE	(PKT_MAXBUF_SIZE << 16)
--#else
--#define	OPT_FRAME_SIZE	0
--#endif
-+#define FEC_BUFFER_OVERHEAD	(2 + ETH_HLEN + 8 + ETH_FCS_LEN)
- 
- /* FEC MII MMFR bits definition */
- #define FEC_MMFR_ST		(1 << 30)
-@@ -847,7 +838,7 @@ static void fec_enet_enable_ring(struct net_device *ndev)
- 	for (i = 0; i < fep->num_rx_queues; i++) {
- 		rxq = fep->rx_queue[i];
- 		writel(rxq->bd.dma, fep->hwp + FEC_R_DES_START(i));
--		writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE(i));
-+		writel(fep->max_fl, fep->hwp + FEC_R_BUFF_SIZE(i));
- 
- 		/* enable DMA1/2 */
- 		if (i)
-@@ -895,8 +886,18 @@ fec_restart(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	u32 val;
- 	u32 temp_mac[2];
--	u32 rcntl = OPT_FRAME_SIZE | 0x04;
-+	u32 rcntl = 0x04;
- 	u32 ecntl = 0x2; /* ETHEREN */
-+/*
-+ * The 5270/5271/5280/5282/532x RX control register also contains maximum frame
-+ * size bits. Other FEC hardware does not, so we need to take that into
-+ * account when setting it.
-+ */
-+#if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
-+    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARM)
-+	rcntl |= (fep->max_fl << 16);
-+#endif
-+
- 
- 	/* Whack a reset.  We should wait for this.
- 	 * For i.MX6SX SOC, enet use AXI bus, we use disable MAC
-@@ -953,7 +954,7 @@ fec_restart(struct net_device *ndev)
- 		else
- 			val &= ~FEC_RACC_OPTIONS;
- 		writel(val, fep->hwp + FEC_RACC);
--		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
-+		writel(fep->max_fl, fep->hwp + FEC_FTRL);
- 	}
- #endif
- 
-@@ -1295,7 +1296,10 @@ fec_enet_new_rxbdp(struct net_device *ndev, struct bufdesc *bdp, struct sk_buff
- 	if (off)
- 		skb_reserve(skb, fep->rx_align + 1 - off);
- 
--	bdp->cbd_bufaddr = cpu_to_fec32(dma_map_single(&fep->pdev->dev, skb->data, FEC_ENET_RX_FRSIZE - fep->rx_align, DMA_FROM_DEVICE));
-+	bdp->cbd_bufaddr = cpu_to_fec32(dma_map_single(&fep->pdev->dev,
-+						       skb->data,
-+						       fep->max_fl,
-+						       DMA_FROM_DEVICE));
- 	if (dma_mapping_error(&fep->pdev->dev, fec32_to_cpu(bdp->cbd_bufaddr))) {
- 		if (net_ratelimit())
- 			netdev_err(ndev, "Rx DMA memory map failed\n");
-@@ -1320,7 +1324,7 @@ static bool fec_enet_copybreak(struct net_device *ndev, struct sk_buff **skb,
- 
- 	dma_sync_single_for_cpu(&fep->pdev->dev,
- 				fec32_to_cpu(bdp->cbd_bufaddr),
--				FEC_ENET_RX_FRSIZE - fep->rx_align,
-+				fep->max_fl,
- 				DMA_FROM_DEVICE);
- 	if (!swap)
- 		memcpy(new_skb->data, (*skb)->data, length);
-@@ -1422,7 +1426,7 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
- 			}
- 			dma_unmap_single(&fep->pdev->dev,
- 					 fec32_to_cpu(bdp->cbd_bufaddr),
--					 FEC_ENET_RX_FRSIZE - fep->rx_align,
-+					 fep->max_fl,
- 					 DMA_FROM_DEVICE);
- 		}
- 
-@@ -1487,7 +1491,7 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
- 		if (is_copybreak) {
- 			dma_sync_single_for_device(&fep->pdev->dev,
- 						   fec32_to_cpu(bdp->cbd_bufaddr),
--						   FEC_ENET_RX_FRSIZE - fep->rx_align,
-+						   fep->max_fl,
- 						   DMA_FROM_DEVICE);
- 		} else {
- 			rxq->rx_skbuff[index] = skb_new;
-@@ -2621,7 +2625,7 @@ static void fec_enet_free_buffers(struct net_device *ndev)
- 			if (skb) {
- 				dma_unmap_single(&fep->pdev->dev,
- 						 fec32_to_cpu(bdp->cbd_bufaddr),
--						 FEC_ENET_RX_FRSIZE - fep->rx_align,
-+						 fep->max_fl,
- 						 DMA_FROM_DEVICE);
- 				dev_kfree_skb(skb);
- 			}
-@@ -3182,6 +3186,23 @@ static int fec_enet_init(struct net_device *ndev)
- 		fep->rx_align = 0x3f;
- 	}
- 
-+	/* For ENET_MAC case, allow frames up to space available in Rx buffer
-+	 * - buffer size is FEC_ENET_RX_FRSIZE,
-+	 * - up to (fep->rx_aligned) might be eaten by alignment
-+	 * - since single buffer per frame is used, R_BUF_SIZE must be not
-+	 *   less than maximum frame size, and at the same time R_BUF_SIZE
-+	 *   has to be evenly dividable by 64 [on IMX7 FEC, older FECs have
-+	 *   looser constraints]
-+	 *
-+	 * For !ENET_MAC case, keep standard frame sizes because effect of
-+	 * larger frames on small FIFO is unclear.
-+	 */
-+	if (fep->quirks & FEC_QUIRK_ENET_MAC)
-+		fep->max_fl = (FEC_ENET_RX_FRSIZE - fep->rx_align) & ~63;
-+	else
-+		fep->max_fl = 1536;	/* >1522 and dividable by 16 */
-+	ndev->max_mtu = fep->max_fl - FEC_BUFFER_OVERHEAD;
-+
- 	ndev->hw_features = ndev->features;
- 
- 	fec_restart(ndev);
--- 
-2.1.4
+PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIE9uIEJlaGFsZiBPZiBGbG9yaWFu
+IEZhaW5lbGxpDQo+IFNlbnQ6IFRodXJzZGF5LCBEZWNlbWJlciAwOCwgMjAxNiA3OjU0IFBNDQo+
+IFRvOiBKb2hhbiBIb3ZvbGQgPGpvaGFuQGtlcm5lbC5vcmc+DQo+IE9uIDEyLzA4LzIwMTYgMDk6
+MDEgQU0sIEpvaGFuIEhvdm9sZCB3cm90ZToNCj4gPiBPbiBUaHUsIERlYyAwOCwgMjAxNiBhdCAw
+ODo0Nzo1NEFNIC0wODAwLCBGbG9yaWFuIEZhaW5lbGxpIHdyb3RlOg0KPiA+PiBPbiAxMi8wOC8y
+MDE2IDA4OjI3IEFNLCBKb2hhbiBIb3ZvbGQgd3JvdGU6DQo+ID4+PiBPbiBUdWUsIERlYyAwNiwg
+MjAxNiBhdCAwODo1NDo0M1BNIC0wODAwLCBGbG9yaWFuIEZhaW5lbGxpIHdyb3RlOg0KPiA+Pj4+
+IENvbW1pdCAzZTNhYWY2NDk0MTYgKCJwaHk6IGZpeCBtZGlvYnVzIG1vZHVsZSBzYWZldHkiKSBm
+aXhlZCB0aGUgd2F5DQo+IHdlDQo+ID4+Pj4gZGVhbHQgd2l0aCBNRElPIGJ1cyBtb2R1bGUgcmVm
+ZXJlbmNlIGNvdW50LCBidXQgc29ydCBvZiBpbnRyb2R1Y2VkIGENCj4gPj4+PiByZWdyZXNzaW9u
+IGluIHRoYXQsIGlmIGFuIEV0aGVybmV0IGRyaXZlciByZWdpc3RlcnMgaXRzIG93biBNRElPIGJ1
+cw0KPiA+Pj4+IGRyaXZlciwgYXMgaXMgY29tbW9uLCB3ZSB3aWxsIGVuZCB1cCB3aXRoIHRoZSBF
+dGhlcm5ldCBkcml2ZXIncw0KPiA+Pj4+IG1vZHVsZS0+cmVmbmN0IHNldCB0byAxLCB0aHVzIHBy
+ZXZlbnRpbmcgdGhpcyBkcml2ZXIgZnJvbSBhbnkNCj4gcmVtb3ZhbC4NCj4gPj4+Pg0KPiA+Pj4+
+IEZpeCB0aGlzIGJ5IGNvbXBhcmluZyB0aGUgbmV0d29yayBkZXZpY2UncyBkZXZpY2UgZHJpdmVy
+IG93bmVyDQo+IGFnYWluc3QNCj4gPj4+PiB0aGUgTURJTyBidXMgZHJpdmVyIG93bmVyLCBhbmQg
+b25seSBpZiB0aGV5IGFyZSBkaWZmZXJlbnQsIGluY3JlbWVudA0KPiB0aGUNCj4gPj4+PiBNRElP
+IGJ1cyBtb2R1bGUgcmVmY291bnQuDQo+ID4+Pj4NCj4gPj4+PiBGaXhlczogM2UzYWFmNjQ5NDE2
+ICgicGh5OiBmaXggbWRpb2J1cyBtb2R1bGUgc2FmZXR5IikNCj4gPj4+PiBTaWduZWQtb2ZmLWJ5
+OiBGbG9yaWFuIEZhaW5lbGxpIDxmLmZhaW5lbGxpQGdtYWlsLmNvbT4NCj4gPj4+PiAtLS0NCj4g
+Pj4+PiBSdXNzZWxsLA0KPiA+Pj4+DQo+ID4+Pj4gSSB2ZXJpZmllZCB0aGlzIGFnYWluc3QgdGhl
+IGV0aG9jIGRyaXZlciBwcmltYXJpbHkgKG9uIGEgVFM3MzAwDQo+IGJvYXJkKQ0KPiA+Pj4+IGFu
+ZCBiY21nZW5ldC4NCj4gPj4+Pg0KPiA+Pj4+IFRoYW5rcyENCj4gPj4+Pg0KPiA+Pj4+ICBkcml2
+ZXJzL25ldC9waHkvcGh5X2RldmljZS5jIHwgMTYgKysrKysrKysrKysrKy0tLQ0KPiA+Pj4+ICAx
+IGZpbGUgY2hhbmdlZCwgMTMgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkNCj4gPj4+Pg0K
+PiA+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jDQo+IGIvZHJp
+dmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYw0KPiA+Pj4+IGluZGV4IDFhNGJmOGFjYWQ3OC4uYzRj
+ZWIwODJlOTcwIDEwMDY0NA0KPiA+Pj4+IC0tLSBhL2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNl
+LmMNCj4gPj4+PiArKysgYi9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jDQo+ID4+Pj4gQEAg
+LTg1NywxMSArODU3LDE3IEBAIEVYUE9SVF9TWU1CT0wocGh5X2F0dGFjaGVkX3ByaW50KTsNCj4g
+Pj4+PiAgaW50IHBoeV9hdHRhY2hfZGlyZWN0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVj
+dCBwaHlfZGV2aWNlDQo+ICpwaHlkZXYsDQo+ID4+Pj4gIAkJICAgICAgdTMyIGZsYWdzLCBwaHlf
+aW50ZXJmYWNlX3QgaW50ZXJmYWNlKQ0KPiA+Pj4+ICB7DQo+ID4+Pj4gKwlzdHJ1Y3QgbW9kdWxl
+ICpuZGV2X293bmVyID0gZGV2LT5kZXYucGFyZW50LT5kcml2ZXItPm93bmVyOw0KPiA+Pj4NCj4g
+Pj4+IElzIHRoaXMgcmVhbGx5IHNhZmU/IEEgZHJpdmVyIGRvZXMgbm90IG5lZWQgdG8gc2V0IGEg
+cGFyZW50IGRldmljZSwNCj4gYW5kDQo+ID4+PiBpbiB0aGF0IGNhc2UgeW91IGdldCBhIE5VTEwt
+ZGVyZWYgaGVyZSAoSSB0cmllZCB1c2luZyBjcHN3KS4NCj4gPj4NCj4gPj4gSHVtbSwgY3BzdyBk
+b2VzIGNhbGwgU0VUX05FVERFVl9ERVYoKSB3aGljaCBzaG91bGQgdGFrZSBjYXJlIG9mIHRoYXQs
+DQo+IGlzDQo+ID4+IHRoZSBjYWxsIG1hZGUgdG9vIGxhdGU/IERvIHlvdSBoYXZlIGFuIGV4YW1w
+bGUgb29wcz8NCj4gPg0KPiA+IFNvcnJ5IGlmIEkgd2FzIGJlaW5nIHVuY2xlYXIsIGNwc3cgZG9l
+cyBzZXQgYSBwYXJlbnQgZGV2aWNlLCBidXQgdGhlcmUNCj4gPiBhcmUgbmV0d29yayBkcml2ZXIg
+dGhhdCBkbyBub3QuIFBlcmhhcHMgc3VjaCBkcml2ZXJzIHdpbGwgbmV2ZXIgaGl0IHRoaXMNCj4g
+PiBjb2RlIHBhdGgsIGJ1dCBJIGNhbid0IHNheSBmb3Igc3VyZSBhbmQgZXZlcnl0aGluZyBhcHBl
+YXIgdG8gd29yayBmb3INCj4gPiBjcHN3IGlmIHlvdSBjb21tZW50IG91dCB0aGF0IFNFVF9ORVRE
+RVZfREVWICh3ZWxsLCBhdCBsZWFzdCBiZWZvcmUgdGhpcw0KPiA+IHBhdGNoKS4NCj4gDQo+IFlv
+dSB3ZXJlIGNsZWFyLCBJIGRpZCBub3QgdW5kZXJzdGFuZCB0aGF0IHlvdSBleGVyY2lzZWQgdGhp
+cyB3aXRoIGNwc3cNCj4gdG8gc2VlIHdoZXRoZXIgdGhpcyB3YXMgc2FmZSBpbiBhbGwgY29uZGl0
+aW9ucy4NCj4gDQo+ID4NCj4gPj4gSSBkb24ndCBtaW5kIHNhZmVndWFyZGluZyB0aGlzIHdpdGgg
+YSBjaGVjayBhZ2FpbnN0IGRldi0+ZGV2LnBhcmVudCwNCj4gYnV0DQo+ID4+IEkgd291bGQgbGlr
+ZSB0byBmaXggdGhlIGRyaXZlcnMgd2hlcmUgcmVsZXZhbnQgdG9vLCBzaW5jZQ0KPiA+PiBTRVRf
+TkVUREVWX0RFVigpIHNob3VsZCByZWFsbHkgYmUgY2FsbGVkLCBvdGhlcndpc2UgYSBudW1iZXIg
+b2YgdGhpbmdzDQo+ID4+IGp1c3QgZG9uJ3Qgd29yaw0KPiA+DQo+ID4gSSBncmVwcGVkIGZvciBm
+b3IgcmVnaXN0ZXJfbmV0ZGV2IGFuZCB0aGluayBJIHNhdyBhIG51bWJlciBvZiBkcml2ZXJzDQo+
+ID4gd2hpY2ggZG8gbm90IGNhbGwgU0VUX05FVERFVl9ERVYuDQo+ID4NCj4gPiBBZ2FpbiwgcGVy
+aGFwcyB0aGV5IHdpbGwgbmV2ZXIgaGl0IHRoaXMgcGF0aCwgYnV0IHRob3VnaHQgSSBzaG91bGQg
+YXNrLg0KPiANCj4gWW91IGFyZSBhYnNvbHV0ZWx5IHJpZ2h0LCB0aGlzIGlzIGEgcG90ZW50aWFs
+IHByb2JsZW0sIHNvIGZhciBJIGZvdW5kDQo+IHR3byBsZWdpdGltYXRlIGRyaXZlcnMgdGhhdCBk
+byBub3QgY2FsbCBTRVRfTkVUREVWX0RFViAobGFudGlxX2V0b3AuYw0KPiBhbmQgY3BtYWMuYywg
+Ym90aCBmaXhlZCksIGFuZCBGcmVlc2NhbGUncyBGTUFOIGRyaXZlciwgd2hpY2ggSSBoYXZlIGEN
+Cj4gaGFyZCB0aW1lIHVuZGVyc3RhbmRpbmcgd2hhdCBpdCBkb2VzIHdpdGggbWFjX2Rldi0+bmV0
+X2Rldi4uLg0KPiANCj4gVGhhbmtzIQ0KPiAtLQ0KPiBGbG9yaWFuDQoNCkhpIEZsb3JpYW4sDQoN
+ClRoZSBGcmVlc2NhbGUgRFBBQSBFdGhlcm5ldCBkcml2ZXIgaXMgaW4gZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2RwYWE6DQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9k
+cGFhL2RwYWFfZXRoLmM6MjUwMToJU0VUX05FVERFVl9ERVYobmV0X2RldiwgZGV2KTsNCg0KYW5k
+IGl0IGlzIG1ha2luZyB1c2Ugb2YgdGhlIE1BQyBhbmQgcG9ydHMgZHJpdmVyIGluIHRoZSBGTWFu
+IGRyaXZlciAoYW5kIG9mIHRoZQ0KUUJNYW4gZHJpdmVycyBpbiBkcml2ZXJzL3NvYy9mc2wvcWJt
+YW4gYnV0IHRoYXQncyBvZmYgdG9waWMpLiBZb3UgbmVlZCB0byBsb29rDQphdCB0aGUgbmV0LW5l
+eHQgdHJlZSBmb3IgdGhpcywgdGhlIGRyaXZlcnMgd2VyZSBncmFkdWFsbHkgYWRkZWQuDQoNCk1h
+ZGFsaW4NCg==
