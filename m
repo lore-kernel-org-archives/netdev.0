@@ -1,114 +1,132 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v2 net-next 0/4] udp: receive path optimizations
-Date: Fri, 9 Dec 2016 17:05:09 +0100
-Message-ID: <20161209170509.25347c9b@redhat.com>
-References: <1481218739-27089-1-git-send-email-edumazet@google.com>
-        <20161208214819.30138d12@redhat.com>
-        <1481231595.4930.142.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Subject: Re: stmmac DT property snps,axi_all
+Date: Fri, 9 Dec 2016 17:06:08 +0100
+Message-ID: <6c79e89f-52a2-3ac9-c976-6aa006e5ac38@st.com>
+References: <51f8249e-bdb9-e3a7-5d82-7ac869316f0e@axis.com>
+ <120aca00-02a8-3d88-7aad-a21d239aafb2@st.com>
+ <dc145c32-cb67-4bcb-e8b7-059387d5a0ac@axis.com>
+ <e0362693-4ae9-b3d6-3955-c72df7a1b0c0@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>,
-        brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: <netdev@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36036 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932995AbcLIQFN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Dec 2016 11:05:13 -0500
-In-Reply-To: <1481231595.4930.142.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:22946 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933626AbcLIQGP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 11:06:15 -0500
+In-Reply-To: <e0362693-4ae9-b3d6-3955-c72df7a1b0c0@axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 08 Dec 2016 13:13:15 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Hi Niklas
 
-> On Thu, 2016-12-08 at 21:48 +0100, Jesper Dangaard Brouer wrote:
-> > On Thu,  8 Dec 2016 09:38:55 -0800
-> > Eric Dumazet <edumazet@google.com> wrote:
-> >   
-> > > This patch series provides about 100 % performance increase under flood.   
-> > 
-> > Could you please explain a bit more about what kind of testing you are
-> > doing that can show 100% performance improvement?
-> > 
-> > I've tested this patchset and my tests show *huge* speeds ups, but
-> > reaping the performance benefit depend heavily on setup and enabling
-> > the right UDP socket settings, and most importantly where the
-> > performance bottleneck is: ksoftirqd(producer) or udp_sink(consumer).  
-> 
-> Right.
-> 
-> So here at Google we do not try (yet) to downgrade our expensive
-> Multiqueue Nics into dumb NICS from last decade by using a single queue
-> on them. Maybe it will happen when we can process 10Mpps per core,
-> but we are not there yet  ;)
-> 
-> So my test is using a NIC, programmed with 8 queues, on a dual-socket
-> machine. (2 physical packages)
-> 
-> 4 queues are handled by 4 cpus on socket0 (NUMA node 0)
-> 4 queues are handled by 4 cpus on socket1 (NUMA node 1)
+On 12/09/2016 10:53 AM, Niklas Cassel wrote:
+> On 12/09/2016 10:20 AM, Niklas Cassel wrote:
+>> On 12/08/2016 02:36 PM, Alexandre Torgue wrote:
+>>> Hi Niklas,
+>>>
+>>> On 12/05/2016 05:18 PM, Niklas Cassel wrote:
+>>>> Hello Giuseppe
+>>>>
+>>>>
+>>>> I'm trying to figure out what snps,axi_all is supposed to represent.
+>>>>
+>>>> It appears that the value is saved, but never used in the code.
+>>>>
+>>>> Looking at the register specification, I'm guessing that it represents
+>>>> Address-Aligned Beats, but there is already the property snps,aal
+>>>> for that.
+>>> IMO, it is not useful. Indeed AXI_AAL is a read only bit (in AXI bus mode register) and reflects the aal bit in DMA bus register.
+>>> As you know we use "snps,aal" to set aal bit in DMA bus register.
+>>> So "snps,axi_all" entry seems useless. Let's see with Peppe.
+>> Ok, I see. GMAC and GMAC4 is different here.
+>>
+>> For GMAC4 AAL only exists in DMA_SYS_BUS_MODE.
+>> It's not reflected anywhere else.
+>>
+>> The code is correct in the driver.
+>>
+>> If snps,axi_all is just created for a read-only register,
+>> and it is currently never used in the code,
+>> while we have snps,aal, which is correct and works,
+>> I guess it should be ok to remove snps,axi_all.
+>>
+>> I can cook up a patch.
+>>
+>
+> Here we go :)
+>
+> I will send it as a real patch once net-next reopens.
 
-Interesting setup, it will be good to catch cache-line bouncing and
-false-sharing, which the streak of recent patches show ;-) (Hopefully
-such setup are avoided for production).
+Thanks ;). Just check with Peppe next week (as he added in the past this 
+property).
 
+Regards
+Alex
 
-> So I explicitly put my poor single thread UDP application in the worst
-> condition, having skbs produced on two NUMA nodes. 
-
-On which CPU do you place the single thread UDP application?
-
-E.g. do you allow it to run on a CPU that also process ksoftirq?
-My experience is that performance is approx half, if ksoftirq and
-UDP-thread share a CPU (after you fixed the softirq issue).
-
-
-> Then my load generator use trafgen, with spoofed UDP source addresses,
-> like a UDP flood would use. Or typical DNS traffic, malicious or not.
-
-I also like trafgen
- https://github.com/netoptimizer/network-testing/tree/master/trafgen
-
-> So I have 8 cpus all trying to queue packets in a single UDP socket.
-> 
-> Of course, a real high performance server would use 8 UDP sockets, and
-> SO_REUSEPORT with nice eBPF filter to spread the packets based on the
-> queue/cpu they arrived.
-
-Once the ksoftirq and UDP-threads are silo'ed like that, it should
-basically correspond to the benchmarks of my single queue test,
-multiplied by the number of CPUs/UDP-threads.
-
-I think it might be a good idea (for me) to implement such a
-UDP-multi-threaded sink example program (with SO_REUSEPORT and eBPF
-filter) to demonstrate and make sure the stack scales (and every
-time we/I improve single queue performance, the numbers should multiply
-with the scaling). Maybe you already have such an example program?
-
-
-> In the case you have one cpu that you need to share between ksoftirq and
-> all user threads, then your test results depend on process scheduler
-> decisions more than anything we can code in network land.
-
-Yes, also my experience, the scheduler have large influence.
- 
-> It is actually easy for user space to get more than 50% of the cycles,
-> and 'starve' ksoftirqd.
-
-FYI, Paolo recently added an option for parsing of pktgen payload in
-the udp_sink.c program, this way we can simulate the app doing something.
-
-I've started testing with 4 CPUs doing ksoftirq, multiple flows
-(pktgen_sample04_many_flows.sh) and then increasing adding udp_sink
---reuse-port programs, on other 4 CPUs, and it looks like it scales
-nicely :-)
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+>
+>
+> From defc01cb7c22611b89d9cf1fcae72544092bd62c Mon Sep 17 00:00:00 2001
+> From: Niklas Cassel <niklas.cassel@axis.com>
+> Date: Fri, 9 Dec 2016 10:27:00 +0100
+> Subject: [PATCH net-next] net: stmmac: remove unused duplicate property
+>  snps,axi_all
+>
+> For core revision 3.x Address-Aligned Beats is available in two registers.
+> The DT property snps,aal was created for AAL in the DMA bus register,
+> which is a read/write bit.
+> The DT property snps,axi_all was created for AXI_AAL in the AXI bus mode
+> register, which is a read only bit that reflects the value of AAL in the
+> DMA bus register.
+>
+> Since the value of snps,axi_all is never used in the driver,
+> and since the property was created for a bit that is read only,
+> it should be safe to remove the property.
+>
+> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt      | 1 -
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+>  include/linux/stmmac.h                                | 1 -
+>  3 files changed, 3 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index 128da752fec9..c3d2fd480a1b 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -65,7 +65,6 @@ Optional properties:
+>      - snps,wr_osr_lmt: max write outstanding req. limit
+>      - snps,rd_osr_lmt: max read outstanding req. limit
+>      - snps,kbbe: do not cross 1KiB boundary.
+> -    - snps,axi_all: align address
+>      - snps,blen: this is a vector of supported burst length.
+>      - snps,fb: fixed-burst
+>      - snps,mb: mixed-burst
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 082cd48db6a7..60ba8993c650 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -121,7 +121,6 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
+>      axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
+>      axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
+>      axi->axi_kbbe = of_property_read_bool(np, "snps,axi_kbbe");
+> -    axi->axi_axi_all = of_property_read_bool(np, "snps,axi_all");
+>      axi->axi_fb = of_property_read_bool(np, "snps,axi_fb");
+>      axi->axi_mb = of_property_read_bool(np, "snps,axi_mb");
+>      axi->axi_rb =  of_property_read_bool(np, "snps,axi_rb");
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index 266dab9ad782..889e0e9a3f1c 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -103,7 +103,6 @@ struct stmmac_axi {
+>      u32 axi_wr_osr_lmt;
+>      u32 axi_rd_osr_lmt;
+>      bool axi_kbbe;
+> -    bool axi_axi_all;
+>      u32 axi_blen[AXI_BLEN];
+>      bool axi_fb;
+>      bool axi_mb;
+>
