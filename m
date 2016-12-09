@@ -1,59 +1,55 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211-next 2016-12-09
-Date: Fri,  9 Dec 2016 13:00:13 +0100
-Message-ID: <20161209120014.20292-1-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ipv4: Should use consistent conditional judgement for ip
+ fragment in __ip_append_data and ip_finish_output
+Date: Fri, 9 Dec 2016 15:03:47 +0300
+Message-ID: <6b85952d-a16d-2920-ebde-c69cec7e1494@cogentembedded.com>
+References: <1481252918-3514-1-git-send-email-lizheng043@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: james.z.li@ericsson.com
+To: Zheng Li <lizheng043@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, davem@davemloft.net,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481252918-3514-1-git-send-email-lizheng043@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Hello!
 
-Closing net-next caught me by surprise, so I had to rebase a bit,
-but these three patches really should go in soon. I'm not sending
-them for 4.9 this late though.
+On 12/9/2016 6:08 AM, Zheng Li wrote:
 
-Please pull and let me know if there's any problem.
+> From: zheng li <james.z.li@ericsson.com>
+>
+> There is an inconsitent conditional judgement in __ip_append_data and
 
-Thanks,
-johannes
+    Inconsistent.
 
+> ip_finish_output functions, the variable length in __ip_append_data just
+> include the length of applicatoin's payload and udp header, don't include
 
+    Application.
 
-The following changes since commit f81a8a02bb3b3e882ba6aa580230c13b5be64849:
+> the length of ip header, but in ip_finish_output use
+> (skb->len > ip_skb_dst_mtu(skb)) as judgement, and skb->len include the
+> length of ip header.
+>
+> That cuase some particular applicatoin's udp payload whose length is
 
-  Merge branch 'mV88e6xxx-interrupt-fixes' (2016-11-20 21:16:14 -0500)
+    Causes, application.
 
-are available in the git repository at:
+> between (MTU - IP Header) and MTU were framented by ip_fragment even
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2016-12-09
+    Fragmented.
 
-for you to fetch changes up to e6f462df9acd2a3295e5d34eb29e2823220cf129:
+> though the rst->dev support UFO feature.
+>
+> Add the length of ip header to length in __ip_append_data to keep
+> consistent conditional judgement as ip_finish_output for ip fragment.
+>
+> Signed-off-by: Zheng Li <james.z.li@ericsson.com>
+[...]
 
-  cfg80211/mac80211: fix BSS leaks when abandoning assoc attempts (2016-12-09 12:57:49 +0100)
-
-----------------------------------------------------------------
-Three fixes:
- * fix a logic bug introduced by a previous cleanup
- * fix nl80211 attribute confusing (trying to use
-   a single attribute for two purposes)
- * fix a long-standing BSS leak that happens when an
-   association attempt is abandoned
-
-----------------------------------------------------------------
-Johannes Berg (2):
-      nl80211: fix logic inversion in start_nan()
-      cfg80211/mac80211: fix BSS leaks when abandoning assoc attempts
-
-Vamsi Krishna (1):
-      nl80211: Use different attrs for BSSID and random MAC addr in scan req
-
- include/net/cfg80211.h       | 11 +++++++++++
- include/uapi/linux/nl80211.h |  7 ++++++-
- net/mac80211/mlme.c          | 21 ++++++++++++---------
- net/wireless/core.h          |  1 +
- net/wireless/mlme.c          | 12 ++++++++++++
- net/wireless/nl80211.c       | 18 ++++++++++++++++--
- net/wireless/sme.c           | 14 ++++++++++++++
- 7 files changed, 72 insertions(+), 12 deletions(-)
+MBR, Sergei
