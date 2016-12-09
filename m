@@ -1,51 +1,46 @@
-From: Jacob Keller <jacob.e.keller@intel.com>
-Subject: [PATCH] i40e: don't truncate match_method assignment
-Date: Fri,  9 Dec 2016 13:39:21 -0800
-Message-ID: <20161209213921.26451-1-jacob.e.keller@intel.com>
-Cc: Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>,
-        netdev@vger.kernel.org, Jacob Keller <jacob.e.keller@intel.com>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        Bimmy Pujari <bimmy.pujari@intel.com>
-To: Intel Wired LAN <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:43815 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752030AbcLIVjY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Dec 2016 16:39:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: [PATCH] net: mlx5: Fix Kconfig help text
+Date: Fri,  9 Dec 2016 16:53:05 -0500
+Message-ID: <20161209215306.721-1-cov@codeaurora.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The .match_method field is a u8, so we shouldn't be casting to a u16,
-and because it is only one byte, we do not need to byte swap anything.
-Just assign the value directly. This avoids issues on Big Endian
-architectures which would have byte swapped and then incorrectly
-truncated the value.
+Since the following commit, Infiniband and Ethernet have not been
+mutually exclusive.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: Bimmy Pujari <bimmy.pujari@intel.com>
+Fixes: 4aa17b28 mlx5: Enable mutual support for IB and Ethernet
+
+Signed-off-by: Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 ---
-Not sure if this was already in Jeff's queue, but since it's an obvious
-fix for the issue found by Stephen, I thought I'd send it out now just
-to make sure. Thanks for catching this, and sorry we didn't find the fix
-earlier.
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig | 2 --
+ 1 file changed, 2 deletions(-)
 
- drivers/net/ethernet/intel/i40e/i40e_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 69a51a4119d6..6ccf18464339 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2257,8 +2257,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 			}
- 			add_list[num_add].queue_number = 0;
- 			/* set invalid match method for later detection */
--			add_list[num_add].match_method =
--				cpu_to_le16((u16)I40E_AQC_MM_ERR_NO_RES);
-+			add_list[num_add].match_method = I40E_AQC_MM_ERR_NO_RES;
- 			cmd_flags |= I40E_AQC_MACVLAN_ADD_PERFECT_MATCH;
- 			add_list[num_add].flags = cpu_to_le16(cmd_flags);
- 			num_add++;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index aae4688..521cfdb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -18,8 +18,6 @@ config MLX5_CORE_EN
+ 	default n
+ 	---help---
+ 	  Ethernet support in Mellanox Technologies ConnectX-4 NIC.
+-	  Ethernet and Infiniband support in ConnectX-4 are currently mutually
+-	  exclusive.
+ 
+ config MLX5_CORE_EN_DCB
+ 	bool "Data Center Bridging (DCB) Support"
 -- 
-2.11.0.rc2.152.g4d04e67
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc. Qualcomm Technologies, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation Collaborative Project.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
