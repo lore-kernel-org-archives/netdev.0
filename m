@@ -1,40 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net: deadlock on genl_mutex
-Date: Thu, 8 Dec 2016 16:13:50 -0800
-Message-ID: <CAM_iQpW-KNT4iZPwtHMzzBxvPVvvn6+9OfJMcUjBOXS_zJ_NEA@mail.gmail.com>
-References: <CACT4Y+ZdSNVhF2MH0=t=kBUrgNSSnCSO5uwnnc5c0KNLG+VNFQ@mail.gmail.com>
- <CANn89iJ1G4e655RnfcGK9RwmSSb2L=ZBSq9e2gpHVNmkUOYUxg@mail.gmail.com>
- <0227d7e83cc5ac0a192d1ba0fee61413@codeaurora.org> <CACT4Y+auHN0Rdu2Hepk6DNFmz1K2XSA6s18PC=KZiHdoMG845Q@mail.gmail.com>
- <CACT4Y+Zy82UAJ55VbPbVadUM92ZSx1VJCFPdhhcmj53uxZ5PXQ@mail.gmail.com> <CACT4Y+YaUL8F2L0h1VG3QZP=gSC4NJ=NOTG_dH5Awz=FOd1EVg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Soft lockup in inet_put_port on 4.6
+Date: Thu, 08 Dec 2016 16:30:32 -0800
+Message-ID: <1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
+         <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
+         <1481233016.11849.1@smtp.office365.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Matti Vaittinen <matti.vaittinen@nokia.com>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        Florian Westphal <fw@strlen.de>,
-        stephen hemminger <stephen@networkplumber.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
         Tom Herbert <tom@herbertland.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Richard Guy Briggs <rgb@redhat.com>,
-        netdev-owner@vger.kernel.org
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+YaUL8F2L0h1VG3QZP=gSC4NJ=NOTG_dH5Awz=FOd1EVg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Josef Bacik <jbacik@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36799 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753870AbcLIAbe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 19:31:34 -0500
+Received: by mail-pg0-f67.google.com with SMTP id x23so297647pgx.3
+        for <netdev@vger.kernel.org>; Thu, 08 Dec 2016 16:31:34 -0800 (PST)
+In-Reply-To: <1481233016.11849.1@smtp.office365.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 8, 2016 at 10:02 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> Chain exists of:
->  Possible unsafe locking scenario:
->
->        CPU0                    CPU1
->        ----                    ----
->   lock(nlk->cb_mutex);
->                                lock(&table[i].mutex);
->                                lock(nlk->cb_mutex);
->   lock(genl_mutex);
+On Thu, 2016-12-08 at 16:36 -0500, Josef Bacik wrote:
 
-Similar to the unix bindlock, this one looks false positive to me too.
+> We can reproduce the problem at will, still trying to run down the 
+> problem.  I'll try and find one of the boxes that dumped a core and get 
+> a bt of everybody.  Thanks,
+
+OK, sounds good.
+
+I had a look and :
+- could not spot a fix that came after 4.6. 
+- could not spot an obvious bug.
+
+Anything special in the program triggering the issue ?
+SO_REUSEPORT and/or special socket options ?
+
+Thanks.
