@@ -1,364 +1,115 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH 37/50] netfilter: nf_tables: atomic dump and reset for
- stateful objects
-Date: Thu, 8 Dec 2016 19:40:14 -0500
-Message-ID: <CAP=VYLp-ZBFjR1W9=V_vyPYAi1=Yub3ugq6D8hkoLigcPaaxFg@mail.gmail.com>
-References: <1481147576-5690-1-git-send-email-pablo@netfilter.org> <1481147576-5690-38-git-send-email-pablo@netfilter.org>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Re: [Intel-wired-lan] [RFC PATCH] i40e: enable PCIe relax ordering
+ for SPARC
+Date: Thu, 8 Dec 2016 16:45:35 -0800
+Message-ID: <fc3fc99a-ff53-d895-ec06-56f9cf8a0d13@oracle.com>
+References: <1480957627-16825-1-git-send-email-tushar.n.dave@oracle.com>
+ <CAKgT0UcyRSub0NCi7oHX2Vf+N4vQxzwdWmcc+V+jOX_J=RYgfg@mail.gmail.com>
+ <ec140d5d-3eec-5fc6-6417-11bacc55b807@oracle.com>
+ <CAKgT0UfTP+BrvDBzUJAVr9-DRCKgM7T3aS=LgRic8UZz8x82eg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB02382BD@AcuExch.aculab.com>
+ <CAKgT0Uf3aZBoziv7B0tFMovYe9JNWEYZAZhe9iof2XcuRJD+uw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netfilter-devel@vger.kernel.org,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f195.google.com ([209.85.217.195]:34072 "EHLO
-        mail-ua0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932124AbcLIAkq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 19:40:46 -0500
-In-Reply-To: <1481147576-5690-38-git-send-email-pablo@netfilter.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:25710 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932300AbcLIArD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 19:47:03 -0500
+In-Reply-To: <CAKgT0Uf3aZBoziv7B0tFMovYe9JNWEYZAZhe9iof2XcuRJD+uw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 7, 2016 at 4:52 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> This patch adds a new NFT_MSG_GETOBJ_RESET command perform an atomic
-> dump-and-reset of the stateful object. This also comes with add support
-> for atomic dump and reset for counter and quota objects.
-
-This triggered a new build failure in linux-next on parisc-32, which a
-hands-off bisect
-run lists as resulting from this:
-
-ERROR: "__cmpxchg_u64" [net/netfilter/nft_counter.ko] undefined!
-make[2]: *** [__modpost] Error 1
-make[1]: *** [modules] Error 2
-make: *** [sub-make] Error 2
-43da04a593d8b2626f1cf4b56efe9402f6b53652 is the first bad commit
-commit 43da04a593d8b2626f1cf4b56efe9402f6b53652
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Mon Nov 28 00:05:44 2016 +0100
-
-    netfilter: nf_tables: atomic dump and reset for stateful objects
-
-    This patch adds a new NFT_MSG_GETOBJ_RESET command perform an atomic
-    dump-and-reset of the stateful object. This also comes with add support
-    for atomic dump and reset for counter and quota objects.
-
-    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-
-:040000 040000 6cd4554f69247e5c837db52342f26888beda1623
-5908aca93c89e7922336546c3753bfcf2aceefba M      include
-:040000 040000 f25d5831eb30972436bd198c5bb237a0cb0b4856
-4ee5751c8de02bb5a8dcaadb2a2df7986d90f8e9 M      net
-bisect run success
-
-Guessing this is more an issue with parisc than it is with netfilter, but I
-figured I'd mention it anyway.
-
-Paul.
---
 
 
+On 12/08/2016 08:05 AM, Alexander Duyck wrote:
+> On Thu, Dec 8, 2016 at 2:43 AM, David Laight
+> <David.Laight@aculab.com> wrote:
+>> From: Alexander Duyck
+>>> Sent: 06 December 2016 17:10
+>> ...
+>>> I was thinking about it and I realized we can probably simplify
+>>> this even further.  In the case of most other architectures the
+>>> DMA_ATTR_WEAK_ORDERING has no effect anyway.  So from what I can
+>>> tell there is probably no reason not to just always pass that
+>>> attribute with the DMA mappings.  From what I can tell the only
+>>> other architecture that uses this is the PowerPC Cell
+>>> architecture.
+>>
+>> And I should have read all the thread :-(
+>>
+>>> Also I was wondering if you actually needed to enable this
+>>> attribute for both Rx and Tx buffers or just Rx buffers?  The
+>>> patch that enabled DMA_ATTR_WEAK_ORDERING for Sparc64 seems to
+>>> call out writes, but I didn't see anything about reads.  I'm just
+>>> wondering if changing the code for Tx has any effect?  If not you
+>>> could probably drop those changes and just focus on Rx.
+>>
+>> 'Weak ordering' only applies to PCIe read transfers, so can only
+>> have an effect on descriptor reads and transmit buffer reads.
+>>
+>> Basically PCIe is a comms protocol and an endpoint (or the host)
+>> can have multiple outstanding read requests (each of which might
+>> generate multiple response messages. The responses for each request
+>> must arrive in order, but responses for different requests can be
+>> interleaved. Setting 'not weak ordering' lets the host interwork
+>> with broken endpoints. (Or, like we did, you fix the fpga's PCIe
+>> implementation.)
+>
+> I get the basics of relaxed ordering.  The question is how does the
+> Sparc64 IOMMU translate DMA_ATTR_WEAK_ORDERING into relaxed ordering
+> messages, and at what level the ordering is relaxed.  Odds are the
+> wording in the description where this attribute was added to Sparc
+> is just awkward, but I was wanting to verify if this only applies to
+> writes, or also read completions.
+In Sparc64, passing DMA_ATTR_WEAK_ORDERING in dma map/unmap only affects 
+PCIe root complex (Hostbridge). Using DMA_ATTR_WEAK_ORDERING, requested 
+DMA transaction can be relaxed ordered within the PCIe root complex.
 
+In Sparc64, memory writes can be held at PCIe root complex not letting
+other memory writes to go through. By passing DMA_ATTR_WEAK_ORDERING in
+dma map/unmap allows memory writes to bypass other memory writes in PCIe
+root complex. (This applies to only PCIe root complex and does not 
+affect at any other level of PCIe hierarchy e.g. PCIe bridges et al. 
+Also the PCIe root complex when bypassing memory writes does follow PCIe 
+relax ordering rules as per PCIe specification.
+
+For reference [old but still relevant write-up]: PCI-Express Relaxed 
+Ordering and the Sun SPARC Enterprise M-class Servers
+https://blogs.oracle.com/olympus/entry/relaxed_ordering
 
 >
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->  include/net/netfilter/nf_tables.h        |  3 +-
->  include/uapi/linux/netfilter/nf_tables.h |  2 ++
->  net/netfilter/nf_tables_api.c            | 29 ++++++++++++-----
->  net/netfilter/nft_counter.c              | 56 +++++++++++++++++++++++++++-----
->  net/netfilter/nft_quota.c                | 18 ++++++----
->  5 files changed, 85 insertions(+), 23 deletions(-)
+>> In this case you need the reads of both transmit and receive rings
+>> to 'overtake' reads of transmit data.
 >
-> diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-> index 903cd618f50e..6f7d6a1dc09c 100644
-> --- a/include/net/netfilter/nf_tables.h
-> +++ b/include/net/netfilter/nf_tables.h
-> @@ -997,7 +997,8 @@ struct nft_object_type {
->                                                 struct nft_object *obj);
->         void                            (*destroy)(struct nft_object *obj);
->         int                             (*dump)(struct sk_buff *skb,
-> -                                               const struct nft_object *obj);
-> +                                               struct nft_object *obj,
-> +                                               bool reset);
->  };
+> Actually that isn't quite right.  With relaxed ordering completions
+> and writes can pass each other if I recall correctly, but reads will
+> always force all writes ahead of them to be completed before you can
+> begin generating the read completions.
+That is my understanding as well.
+
 >
->  int nft_register_obj(struct nft_object_type *obj_type);
-> diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-> index 3d47582caa80..399eac1eee91 100644
-> --- a/include/uapi/linux/netfilter/nf_tables.h
-> +++ b/include/uapi/linux/netfilter/nf_tables.h
-> @@ -89,6 +89,7 @@ enum nft_verdicts {
->   * @NFT_MSG_NEWOBJ: create a stateful object (enum nft_obj_attributes)
->   * @NFT_MSG_GETOBJ: get a stateful object (enum nft_obj_attributes)
->   * @NFT_MSG_DELOBJ: delete a stateful object (enum nft_obj_attributes)
-> + * @NFT_MSG_GETOBJ_RESET: get and reset a stateful object (enum nft_obj_attributes)
->   */
->  enum nf_tables_msg_types {
->         NFT_MSG_NEWTABLE,
-> @@ -112,6 +113,7 @@ enum nf_tables_msg_types {
->         NFT_MSG_NEWOBJ,
->         NFT_MSG_GETOBJ,
->         NFT_MSG_DELOBJ,
-> +       NFT_MSG_GETOBJ_RESET,
->         NFT_MSG_MAX,
->  };
+>> I'm not at all clear how this 'flag' can be set on dma_map(). It is
+>> a property of the PCIe subsystem.
+Because in Sparc64, passing DMA_ATTR_WEAK_ORDERING flag in DMA map/unmap 
+adds an entry in IOMMU/ATU table so that an access to requested DMA 
+address from PCIe root complex can be relaxed ordered.
 >
-> diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-> index 2ae717c5dcb8..bfc015af366a 100644
-> --- a/net/netfilter/nf_tables_api.c
-> +++ b/net/netfilter/nf_tables_api.c
-> @@ -3972,14 +3972,14 @@ static struct nft_object *nft_obj_init(const struct nft_object_type *type,
->  }
+> That was where my original question on this came in.  We can do a
+> blanket enable of relaxed ordering for Tx and Rx data buffers, but
+> if we only need it on Rx then there isn't any need for us to make
+> unnecessary changes.
+I ran some quick test and it is likely that we don't need
+DMA_ATTR_WEAK_ORDERING for any TX dma buffer (because in case of TX dma
+buffers, its all memory reads from device).
+
+-Tushar
 >
->  static int nft_object_dump(struct sk_buff *skb, unsigned int attr,
-> -                          const struct nft_object *obj)
-> +                          struct nft_object *obj, bool reset)
->  {
->         struct nlattr *nest;
->
->         nest = nla_nest_start(skb, attr);
->         if (!nest)
->                 goto nla_put_failure;
-> -       if (obj->type->dump(skb, obj) < 0)
-> +       if (obj->type->dump(skb, obj, reset) < 0)
->                 goto nla_put_failure;
->         nla_nest_end(skb, nest);
->         return 0;
-> @@ -4096,7 +4096,7 @@ static int nf_tables_newobj(struct net *net, struct sock *nlsk,
->  static int nf_tables_fill_obj_info(struct sk_buff *skb, struct net *net,
->                                    u32 portid, u32 seq, int event, u32 flags,
->                                    int family, const struct nft_table *table,
-> -                                  const struct nft_object *obj)
-> +                                  struct nft_object *obj, bool reset)
->  {
->         struct nfgenmsg *nfmsg;
->         struct nlmsghdr *nlh;
-> @@ -4115,7 +4115,7 @@ static int nf_tables_fill_obj_info(struct sk_buff *skb, struct net *net,
->             nla_put_string(skb, NFTA_OBJ_NAME, obj->name) ||
->             nla_put_be32(skb, NFTA_OBJ_TYPE, htonl(obj->type->type)) ||
->             nla_put_be32(skb, NFTA_OBJ_USE, htonl(obj->use)) ||
-> -           nft_object_dump(skb, NFTA_OBJ_DATA, obj))
-> +           nft_object_dump(skb, NFTA_OBJ_DATA, obj, reset))
->                 goto nla_put_failure;
->
->         nlmsg_end(skb, nlh);
-> @@ -4131,10 +4131,14 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
->         const struct nfgenmsg *nfmsg = nlmsg_data(cb->nlh);
->         const struct nft_af_info *afi;
->         const struct nft_table *table;
-> -       const struct nft_object *obj;
->         unsigned int idx = 0, s_idx = cb->args[0];
->         struct net *net = sock_net(skb->sk);
->         int family = nfmsg->nfgen_family;
-> +       struct nft_object *obj;
-> +       bool reset = false;
-> +
-> +       if (NFNL_MSG_TYPE(cb->nlh->nlmsg_type) == NFT_MSG_GETOBJ_RESET)
-> +               reset = true;
->
->         rcu_read_lock();
->         cb->seq = net->nft.base_seq;
-> @@ -4156,7 +4160,7 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
->                                                             cb->nlh->nlmsg_seq,
->                                                             NFT_MSG_NEWOBJ,
->                                                             NLM_F_MULTI | NLM_F_APPEND,
-> -                                                           afi->family, table, obj) < 0)
-> +                                                           afi->family, table, obj, reset) < 0)
->                                         goto done;
->
->                                 nl_dump_check_consistent(cb, nlmsg_hdr(skb));
-> @@ -4183,6 +4187,7 @@ static int nf_tables_getobj(struct net *net, struct sock *nlsk,
->         const struct nft_table *table;
->         struct nft_object *obj;
->         struct sk_buff *skb2;
-> +       bool reset = false;
->         u32 objtype;
->         int err;
->
-> @@ -4214,9 +4219,12 @@ static int nf_tables_getobj(struct net *net, struct sock *nlsk,
->         if (!skb2)
->                 return -ENOMEM;
->
-> +       if (NFNL_MSG_TYPE(nlh->nlmsg_type) == NFT_MSG_GETOBJ_RESET)
-> +               reset = true;
-> +
->         err = nf_tables_fill_obj_info(skb2, net, NETLINK_CB(skb).portid,
->                                       nlh->nlmsg_seq, NFT_MSG_NEWOBJ, 0,
-> -                                     family, table, obj);
-> +                                     family, table, obj, reset);
->         if (err < 0)
->                 goto err;
->
-> @@ -4291,7 +4299,7 @@ static int nf_tables_obj_notify(const struct nft_ctx *ctx,
->
->         err = nf_tables_fill_obj_info(skb, ctx->net, ctx->portid, ctx->seq,
->                                       event, 0, ctx->afi->family, ctx->table,
-> -                                     obj);
-> +                                     obj, false);
->         if (err < 0) {
->                 kfree_skb(skb);
->                 goto err;
-> @@ -4482,6 +4490,11 @@ static const struct nfnl_callback nf_tables_cb[NFT_MSG_MAX] = {
->                 .attr_count     = NFTA_OBJ_MAX,
->                 .policy         = nft_obj_policy,
->         },
-> +       [NFT_MSG_GETOBJ_RESET] = {
-> +               .call           = nf_tables_getobj,
-> +               .attr_count     = NFTA_OBJ_MAX,
-> +               .policy         = nft_obj_policy,
-> +       },
->  };
->
->  static void nft_chain_commit_update(struct nft_trans *trans)
-> diff --git a/net/netfilter/nft_counter.c b/net/netfilter/nft_counter.c
-> index 6f3dd429f865..f6a02c5071c2 100644
-> --- a/net/netfilter/nft_counter.c
-> +++ b/net/netfilter/nft_counter.c
-> @@ -100,10 +100,10 @@ static void nft_counter_obj_destroy(struct nft_object *obj)
->         nft_counter_do_destroy(priv);
->  }
->
-> -static void nft_counter_fetch(const struct nft_counter_percpu __percpu *counter,
-> +static void nft_counter_fetch(struct nft_counter_percpu __percpu *counter,
->                               struct nft_counter *total)
->  {
-> -       const struct nft_counter_percpu *cpu_stats;
-> +       struct nft_counter_percpu *cpu_stats;
->         u64 bytes, packets;
->         unsigned int seq;
->         int cpu;
-> @@ -122,12 +122,52 @@ static void nft_counter_fetch(const struct nft_counter_percpu __percpu *counter,
->         }
->  }
->
-> +static u64 __nft_counter_reset(u64 *counter)
-> +{
-> +       u64 ret, old;
-> +
-> +       do {
-> +               old = *counter;
-> +               ret = cmpxchg64(counter, old, 0);
-> +       } while (ret != old);
-> +
-> +       return ret;
-> +}
-> +
-> +static void nft_counter_reset(struct nft_counter_percpu __percpu *counter,
-> +                             struct nft_counter *total)
-> +{
-> +       struct nft_counter_percpu *cpu_stats;
-> +       u64 bytes, packets;
-> +       unsigned int seq;
-> +       int cpu;
-> +
-> +       memset(total, 0, sizeof(*total));
-> +       for_each_possible_cpu(cpu) {
-> +               bytes = packets = 0;
-> +
-> +               cpu_stats = per_cpu_ptr(counter, cpu);
-> +               do {
-> +                       seq     = u64_stats_fetch_begin_irq(&cpu_stats->syncp);
-> +                       packets += __nft_counter_reset(&cpu_stats->counter.packets);
-> +                       bytes   += __nft_counter_reset(&cpu_stats->counter.bytes);
-> +               } while (u64_stats_fetch_retry_irq(&cpu_stats->syncp, seq));
-> +
-> +               total->packets += packets;
-> +               total->bytes += bytes;
-> +       }
-> +}
-> +
->  static int nft_counter_do_dump(struct sk_buff *skb,
-> -                              const struct nft_counter_percpu_priv *priv)
-> +                              const struct nft_counter_percpu_priv *priv,
-> +                              bool reset)
->  {
->         struct nft_counter total;
->
-> -       nft_counter_fetch(priv->counter, &total);
-> +       if (reset)
-> +               nft_counter_reset(priv->counter, &total);
-> +       else
-> +               nft_counter_fetch(priv->counter, &total);
->
->         if (nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(total.bytes),
->                          NFTA_COUNTER_PAD) ||
-> @@ -141,11 +181,11 @@ static int nft_counter_do_dump(struct sk_buff *skb,
->  }
->
->  static int nft_counter_obj_dump(struct sk_buff *skb,
-> -                               const struct nft_object *obj)
-> +                               struct nft_object *obj, bool reset)
->  {
-> -       const struct nft_counter_percpu_priv *priv = nft_obj_data(obj);
-> +       struct nft_counter_percpu_priv *priv = nft_obj_data(obj);
->
-> -       return nft_counter_do_dump(skb, priv);
-> +       return nft_counter_do_dump(skb, priv, reset);
->  }
->
->  static const struct nla_policy nft_counter_policy[NFTA_COUNTER_MAX + 1] = {
-> @@ -178,7 +218,7 @@ static int nft_counter_dump(struct sk_buff *skb, const struct nft_expr *expr)
->  {
->         const struct nft_counter_percpu_priv *priv = nft_expr_priv(expr);
->
-> -       return nft_counter_do_dump(skb, priv);
-> +       return nft_counter_do_dump(skb, priv, false);
->  }
->
->  static int nft_counter_init(const struct nft_ctx *ctx,
-> diff --git a/net/netfilter/nft_quota.c b/net/netfilter/nft_quota.c
-> index 0d344209803a..5d25f57497cb 100644
-> --- a/net/netfilter/nft_quota.c
-> +++ b/net/netfilter/nft_quota.c
-> @@ -83,12 +83,17 @@ static int nft_quota_obj_init(const struct nlattr * const tb[],
->         return nft_quota_do_init(tb, priv);
->  }
->
-> -static int nft_quota_do_dump(struct sk_buff *skb, const struct nft_quota *priv)
-> +static int nft_quota_do_dump(struct sk_buff *skb, struct nft_quota *priv,
-> +                            bool reset)
->  {
->         u32 flags = priv->invert ? NFT_QUOTA_F_INV : 0;
->         u64 consumed;
->
-> -       consumed = atomic64_read(&priv->consumed);
-> +       if (reset)
-> +               consumed = atomic64_xchg(&priv->consumed, 0);
-> +       else
-> +               consumed = atomic64_read(&priv->consumed);
-> +
->         /* Since we inconditionally increment consumed quota for each packet
->          * that we see, don't go over the quota boundary in what we send to
->          * userspace.
-> @@ -108,11 +113,12 @@ static int nft_quota_do_dump(struct sk_buff *skb, const struct nft_quota *priv)
->         return -1;
->  }
->
-> -static int nft_quota_obj_dump(struct sk_buff *skb, const struct nft_object *obj)
-> +static int nft_quota_obj_dump(struct sk_buff *skb, struct nft_object *obj,
-> +                             bool reset)
->  {
->         struct nft_quota *priv = nft_obj_data(obj);
->
-> -       return nft_quota_do_dump(skb, priv);
-> +       return nft_quota_do_dump(skb, priv, reset);
->  }
->
->  static struct nft_object_type nft_quota_obj __read_mostly = {
-> @@ -146,9 +152,9 @@ static int nft_quota_init(const struct nft_ctx *ctx,
->
->  static int nft_quota_dump(struct sk_buff *skb, const struct nft_expr *expr)
->  {
-> -       const struct nft_quota *priv = nft_expr_priv(expr);
-> +       struct nft_quota *priv = nft_expr_priv(expr);
->
-> -       return nft_quota_do_dump(skb, priv);
-> +       return nft_quota_do_dump(skb, priv, false);
->  }
->
->  static struct nft_expr_type nft_quota_type;
-> --
-> 2.1.4
+> - Alex
 >
