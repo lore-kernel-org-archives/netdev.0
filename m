@@ -1,48 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] uio-hv-generic: store physical addresses instead of
- virtual
-Date: Fri, 9 Dec 2016 09:28:44 -0800
-Message-ID: <20161209092844.75b73e8d@xeon-e3>
-References: <20161209114456.3719619-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        netdev@vger.kernel.org, Haiyang Zhang <haiyangz@microsoft.com>,
-        linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Joe Stringer <joe@ovn.org>
+Subject: [PATCH perf/core] samples/bpf: Drop unnecessary build targets.
+Date: Fri,  9 Dec 2016 09:51:09 -0800
+Message-ID: <20161209175109.6779-1-joe@ovn.org>
+Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
+        acme@kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161209114456.3719619-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri,  9 Dec 2016 12:44:40 +0100
-Arnd Bergmann <arnd@arndb.de> wrote:
+Commit f72179ef11db ("samples/bpf: Switch over to libbpf") added these
+two makefile changes that were unnecessary for switching samples to use
+libbpf. The extra make is already handled by the build dependency, and
+libbpf target doesn't build because it lacks main(). Remove these.
 
-> gcc warns about the newly added driver when phys_addr_t is wider than
-> a pointer:
-> 
-> drivers/uio/uio_hv_generic.c: In function 'hv_uio_mmap':
-> drivers/uio/uio_hv_generic.c:71:17: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
->     virt_to_phys((void *)info->mem[mi].addr) >> PAGE_SHIFT,
-> drivers/uio/uio_hv_generic.c: In function 'hv_uio_probe':
-> drivers/uio/uio_hv_generic.c:140:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
->    = (phys_addr_t)dev->channel->ringbuffer_pages;
-> drivers/uio/uio_hv_generic.c:147:3: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
->    (phys_addr_t)vmbus_connection.int_page;
-> drivers/uio/uio_hv_generic.c:153:3: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
->    (phys_addr_t)vmbus_connection.monitor_pages[1];
-> 
-> I can't see why we store a virtual address in a phys_addr_t here,
-> as the only user of that variable converts it into a physical
-> address anyway, so this moves the conversion to where it logically
-> fits according to the types.
-> 
-> Fixes: 95096f2fbd10 ("uio-hv-generic: new userspace i/o driver for VMBus")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Reported-by: Wang Nan <wangnan0@huawei.com>
+Signed-off-by: Joe Stringer <joe@ovn.org>
+---
+ samples/bpf/Makefile   | 1 -
+ tools/lib/bpf/Makefile | 2 --
+ 2 files changed, 3 deletions(-)
 
-Thanks, the code was inherited from outside, and only tested on x86_64.
-Not sure which platform and GCC version generates the warning, was this just W=1?
-
-Acked-by: Stephen Hemminger <sthemmin@microsoft.com>
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 9ffa6a2c061d..60ffc8115b67 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -127,7 +127,6 @@ CLANG ?= clang
+ 
+ # Trick to allow make to be run from this directory
+ all:
+-	$(MAKE) -C ../../ tools/lib/bpf/
+ 	$(MAKE) -C ../../ $$PWD/
+ 
+ clean:
+diff --git a/tools/lib/bpf/Makefile b/tools/lib/bpf/Makefile
+index 616bd55f3be8..62d89d50fcbd 100644
+--- a/tools/lib/bpf/Makefile
++++ b/tools/lib/bpf/Makefile
+@@ -149,8 +149,6 @@ CMD_TARGETS = $(LIB_FILE)
+ 
+ TARGETS = $(CMD_TARGETS)
+ 
+-libbpf: all
+-
+ all: fixdep $(VERSION_FILES) all_cmd
+ 
+ all_cmd: $(CMD_TARGETS)
+-- 
+2.10.2
