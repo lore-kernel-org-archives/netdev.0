@@ -1,148 +1,56 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: Re: [PATCH 2/6] net: ethernet: ti: cpts: add support for ext rftclk
- selection
-Date: Thu, 8 Dec 2016 16:47:45 -0800
-Message-ID: <20161209004745.GJ5423@codeaurora.org>
-References: <20161128230428.6872-1-grygorii.strashko@ti.com>
- <20161128230428.6872-3-grygorii.strashko@ti.com>
- <20161130095632.GC28680@localhost.localdomain>
- <bf207ac4-0f9f-d4a7-14ac-704d93fb7764@ti.com>
- <11994fbc-3713-6ef7-8a44-8a2442106dfc@ti.com>
+From: Josef Bacik <jbacik@fb.com>
+Subject: Re: Soft lockup in inet_put_port on 4.6
+Date: Fri, 9 Dec 2016 01:01:02 +0000
+Message-ID: <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com>
+References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
+         <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
+         <1481233016.11849.1@smtp.office365.com>,<1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        Murali Karicheri <m-karicheri2@ti.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-        devicetree@vger.kernel.org, Wingman Kwok <w-kwok2@ti.com>,
-        linux-clk@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <11994fbc-3713-6ef7-8a44-8a2442106dfc@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 12/06, Grygorii Strashko wrote:
-> Subject: [PATCH] cpts refclk sel
-> 
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
->  arch/arm/boot/dts/keystone-k2e-netcp.dtsi | 10 +++++-
->  drivers/net/ethernet/ti/cpts.c            | 52 ++++++++++++++++++++++++++++++-
->  2 files changed, 60 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/arm/boot/dts/keystone-k2e-netcp.dtsi b/arch/arm/boot/dts/keystone-k2e-netcp.dtsi
-> index 919e655..b27aa22 100644
-> --- a/arch/arm/boot/dts/keystone-k2e-netcp.dtsi
-> +++ b/arch/arm/boot/dts/keystone-k2e-netcp.dtsi
-> @@ -138,7 +138,7 @@ netcp: netcp@24000000 {
->  	/* NetCP address range */
->  	ranges = <0 0x24000000 0x1000000>;
-> 
-> -	clocks = <&clkpa>, <&clkcpgmac>, <&chipclk12>;
-> +	clocks = <&clkpa>, <&clkcpgmac>, <&cpts_mux>;
->  	clock-names = "pa_clk", "ethss_clk", "cpts";
->  	dma-coherent;
-> 
-> @@ -162,6 +162,14 @@ netcp: netcp@24000000 {
->  			cpts-ext-ts-inputs = <6>;
->  			cpts-ts-comp-length;
-> 
-> +			cpts_mux: cpts_refclk_mux {
-> +				#clock-cells = <0>;
-> +				clocks = <&chipclk12>, <&chipclk13>;
-> +				cpts-mux-tbl = <0>, <1>;
-> +				assigned-clocks = <&cpts_mux>;
-> +				assigned-clock-parents = <&chipclk12>;
-
-Is there a binding update? Why the subnode? Why not have it as
-part of the netcp node? Does the cpts-mux-tbl property change?
-
-> +			};
-> +
->  			interfaces {
->  				gbe0: interface-0 {
->  					slave-port = <0>;
-> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-> index 938de22..ef94316 100644
-> --- a/drivers/net/ethernet/ti/cpts.c
-> +++ b/drivers/net/ethernet/ti/cpts.c
-> @@ -17,6 +17,7 @@
->   * along with this program; if not, write to the Free Software
->   * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
->   */
-> +#include <linux/clk-provider.h>
->  #include <linux/err.h>
->  #include <linux/if.h>
->  #include <linux/hrtimer.h>
-> @@ -672,6 +673,7 @@ int cpts_register(struct cpts *cpts)
->  	cpts->phc_index = ptp_clock_index(cpts->clock);
-> 
->  	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
-> +
-
-Maybe in another patch.
-
->  	return 0;
-> 
->  err_ptp:
-> @@ -741,6 +743,54 @@ static void cpts_calc_mult_shift(struct cpts *cpts)
->  		 freq, cpts->cc_mult, cpts->cc.shift, (ns - NSEC_PER_SEC));
->  }
-> 
-> +static int cpts_of_mux_clk_setup(struct cpts *cpts, struct device_node *node)
-> +{
-> +	unsigned int num_parents;
-> +	const char **parent_names;
-> +	struct device_node *refclk_np;
-> +	void __iomem *reg;
-> +	struct clk *clk;
-> +	u32 *mux_table;
-> +	int ret;
-> +
-> +	refclk_np = of_get_child_by_name(node, "cpts_refclk_mux");
-> +	if (!refclk_np)
-> +		return -EINVAL;
-> +
-> +	num_parents = of_clk_get_parent_count(refclk_np);
-> +	if (num_parents < 1) {
-> +		dev_err(cpts->dev, "mux-clock %s must have parents\n",
-> +			refclk_np->name);
-> +		return -EINVAL;
-> +	}
-> +	parent_names = devm_kzalloc(cpts->dev, (sizeof(char *) * num_parents),
-> +				    GFP_KERNEL);
-> +	if (!parent_names)
-> +		return -ENOMEM;
-> +
-> +	of_clk_parent_fill(refclk_np, parent_names, num_parents);
-> +
-> +	mux_table = devm_kzalloc(cpts->dev, sizeof(*mux_table) * (32 + 1),
-> +				 GFP_KERNEL);
-> +	if (!mux_table)
-> +		return -ENOMEM;
-> +
-> +	ret = of_property_read_variable_u32_array(refclk_np, "cpts-mux-tbl",
-> +						  mux_table, 1, 32);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	reg = &cpts->reg->rftclk_sel;
-> +
-> +	clk = clk_register_mux_table(cpts->dev, refclk_np->name,
-> +				     parent_names, num_parents,
-> +				     0, reg, 0, 0x1F, 0, mux_table, NULL);
-> +	if (IS_ERR(clk))
-> +		return PTR_ERR(clk);
-> +
-> +	return of_clk_add_provider(refclk_np, of_clk_src_simple_get, clk);
-
-Can you please use the clk_hw APIs instead?
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41410 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753547AbcLIBBK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 20:01:10 -0500
+In-Reply-To: <1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-a Linux Foundation Collaborative Project
+> On Dec 8, 2016, at 7:32 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>=20
+>> On Thu, 2016-12-08 at 16:36 -0500, Josef Bacik wrote:
+>>=20
+>> We can reproduce the problem at will, still trying to run down the=20
+>> problem.  I'll try and find one of the boxes that dumped a core and get=
+=20
+>> a bt of everybody.  Thanks,
+>=20
+> OK, sounds good.
+>=20
+> I had a look and :
+> - could not spot a fix that came after 4.6.=20
+> - could not spot an obvious bug.
+>=20
+> Anything special in the program triggering the issue ?
+> SO_REUSEPORT and/or special socket options ?
+>=20
+
+So they recently started using SO_REUSEPORT, that's what triggered it, if t=
+hey don't use it then everything is fine.
+
+I added some instrumentation for get_port to see if it was looping in there=
+ and none of my printk's triggered.  The softlockup messages are always on =
+the inet_bind_bucket lock, sometimes in the process context in get_port or =
+in the softirq context either through inet_put_port or inet_kill_twsk.  On =
+the box that I have a coredump for there's only one processor in the inet c=
+ode so I'm not sure what to make of that.  That was a box from last week so=
+ I'll look at a more recent core and see if it's different.  Thanks,
+
+Josef=
