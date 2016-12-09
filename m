@@ -1,7 +1,7 @@
 From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH V2  06/22] bnxt_re: Support for PD, ucontext and mmap verbs
-Date: Thu,  8 Dec 2016 22:48:00 -0800
-Message-ID: <1481266096-23331-7-git-send-email-selvin.xavier@broadcom.com>
+Subject: [PATCH V2  12/22] bnxt_re: Support memory registration verbs
+Date: Thu,  8 Dec 2016 22:48:06 -0800
+Message-ID: <1481266096-23331-13-git-send-email-selvin.xavier@broadcom.com>
 References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
 Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Eddie Wai <eddie.wai@broadcom.com>,
@@ -10,20 +10,17 @@ Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 To: dledford@redhat.com, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:45707 "EHLO
+Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:45727 "EHLO
         relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752758AbcLIGsa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 01:48:30 -0500
+        with ESMTP id S1753356AbcLIGsf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 01:48:35 -0500
 In-Reply-To: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch includes the uverbs_abi.h file to enable user verbs.
-Also adds support for the Protection Domain, User Context and mmap
-verbs.
-
-v2: Moved the bnxt_re_uverbs_abi.h file to include/uapi/rdma folder.
-    Also, Fixed one sparse warning.
+This patch implements the kernel and user memory region registration
+supported by the bnxt_re driver.
+This includes the user MR, FRMR, FMR and DMA MR support.
 
 Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
@@ -31,439 +28,878 @@ Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c   |  28 +++
- drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h   |   6 +
- drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h    |   4 +
- drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c | 217 ++++++++++++++++++++++++
- drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h |  23 +++
- drivers/infiniband/hw/bnxtre/bnxt_re_main.c     |   7 +
- include/uapi/rdma/bnxt_re_uverbs_abi.h          |  58 +++++++
- 7 files changed, 343 insertions(+)
- create mode 100644 include/uapi/rdma/bnxt_re_uverbs_abi.h
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c    | 324 ++++++++++++++++++++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h    |  41 +++
+ drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c | 375 ++++++++++++++++++++++++
+ drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h |  44 +++
+ drivers/infiniband/hw/bnxtre/bnxt_re_main.c     |  11 +
+ 5 files changed, 795 insertions(+)
 
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
-index 58db3a2..9ba1d20 100644
---- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
-@@ -529,6 +529,34 @@ static int bnxt_qplib_alloc_pkey_tbl(struct bnxt_qplib_res *res,
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
+index 3246e573..ce752d3 100644
+--- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
++++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
+@@ -510,3 +510,327 @@ int bnxt_qplib_destroy_ah(struct bnxt_qplib_res *res, struct bnxt_qplib_ah *ah)
+ 	}
  	return 0;
- };
- 
-+/* PDs */
-+int bnxt_qplib_alloc_pd(struct bnxt_qplib_pd_tbl *pdt, struct bnxt_qplib_pd *pd)
+ }
++
++/* MRW */
++int bnxt_qplib_free_mrw(struct bnxt_qplib_res *res, struct bnxt_qplib_mrw *mrw)
 +{
-+	u32 bit_num;
++	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
++	struct cmdq_deallocate_key req;
++	struct creq_deallocate_key_resp *resp;
++	u16 cmd_flags = 0;
 +
-+	bit_num = find_first_bit(pdt->tbl, pdt->max);
-+	if (bit_num == pdt->max)
-+		return -ENOMEM;
++	if (mrw->lkey == 0xFFFFFFFF) {
++		dev_info(&res->pdev->dev,
++			 "QPLIB: SP: Free a reserved lkey MRW");
++		return 0;
++	}
 +
-+	/* Found unused PD */
-+	clear_bit(bit_num, pdt->tbl);
-+	pd->id = bit_num;
-+	return 0;
-+}
++	RCFW_CMD_PREP(req, DEALLOCATE_KEY, cmd_flags);
 +
-+int bnxt_qplib_dealloc_pd(struct bnxt_qplib_res *res,
-+			  struct bnxt_qplib_pd_tbl *pdt,
-+			  struct bnxt_qplib_pd *pd)
-+{
-+	if (test_and_set_bit(pd->id, pdt->tbl)) {
-+		dev_warn(&res->pdev->dev, "Freeing an unused PD? pdn = %d",
-+			 pd->id);
++	req.mrw_flags = mrw->type;
++
++	if ((mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_MW_TYPE1)  ||
++	    (mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_MW_TYPE2A) ||
++	    (mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_MW_TYPE2B))
++		req.key = cpu_to_le32(mrw->rkey);
++	else
++		req.key = cpu_to_le32(mrw->lkey);
++
++	resp = (struct creq_deallocate_key_resp *)
++			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
++						     NULL, 0);
++	if (!resp) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: FREE_MR send failed");
 +		return -EINVAL;
 +	}
-+	pd->id = 0;
++	if (!bnxt_qplib_rcfw_wait_for_resp(rcfw, le16_to_cpu(req.cookie))) {
++		/* Cmd timed out */
++		dev_err(&res->pdev->dev, "QPLIB: SP: FREE_MR timed out");
++		return -ETIMEDOUT;
++	}
++	if (RCFW_RESP_STATUS(resp) ||
++	    RCFW_RESP_COOKIE(resp) != RCFW_CMDQ_COOKIE(req)) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: FREE_MR failed ");
++		dev_err(&res->pdev->dev,
++			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
++			RCFW_RESP_STATUS(resp), RCFW_CMDQ_COOKIE(req),
++			RCFW_RESP_COOKIE(resp));
++		return -EINVAL;
++	}
++	/* Free the qplib's MRW memory */
++	if (mrw->hwq.max_elements)
++		bnxt_qplib_free_hwq(res->pdev, &mrw->hwq);
++
 +	return 0;
 +}
 +
- static void bnxt_qplib_free_pd_tbl(struct bnxt_qplib_pd_tbl *pdt)
- {
- 	kfree(pdt->tbl);
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
-index 571feda..c9e376a 100644
---- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
-@@ -186,6 +186,7 @@ struct bnxt_qplib_res {
- 	struct bnxt_qplib_dpi_tbl	dpi_tbl;
- };
- 
-+struct bnxt_qplib_pd;
- struct bnxt_qplib_dev_attr;
- 
- void bnxt_qplib_free_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq);
-@@ -193,6 +194,11 @@ int bnxt_qplib_alloc_init_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq,
- 			      struct scatterlist *sl, int nmap, u32 *elements,
- 			      u32 elements_per_page, u32 aux, u32 pg_size,
- 			      enum bnxt_qplib_hwq_type hwq_type);
-+int bnxt_qplib_alloc_pd(struct bnxt_qplib_pd_tbl *pd_tbl,
-+			struct bnxt_qplib_pd *pd);
-+int bnxt_qplib_dealloc_pd(struct bnxt_qplib_res *res,
-+			  struct bnxt_qplib_pd_tbl *pd_tbl,
-+			  struct bnxt_qplib_pd *pd);
- int bnxt_qplib_alloc_dpi(struct bnxt_qplib_dpi_tbl *dpit,
- 			 struct bnxt_qplib_dpi     *dpi,
- 			 void                      *app);
++int bnxt_qplib_alloc_mrw(struct bnxt_qplib_res *res, struct bnxt_qplib_mrw *mrw)
++{
++	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
++	struct cmdq_allocate_mrw req;
++	struct creq_allocate_mrw_resp *resp;
++	u16 cmd_flags = 0;
++
++	RCFW_CMD_PREP(req, ALLOCATE_MRW, cmd_flags);
++
++	req.pd_id = cpu_to_le32(mrw->pd->id);
++	req.mrw_flags = mrw->type;
++	if ((mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_PMR &&
++	     mrw->flags & BNXT_QPLIB_FR_PMR) ||
++	    mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_MW_TYPE2A ||
++	    mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_MW_TYPE2B)
++		req.access = CMDQ_ALLOCATE_MRW_ACCESS_CONSUMER_OWNED_KEY;
++	req.mrw_handle = cpu_to_le64(mrw);
++
++	resp = (struct creq_allocate_mrw_resp *)
++			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
++						     NULL, 0);
++	if (!resp) {
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: ALLOC_MRW send failed");
++		return -EINVAL;
++	}
++	if (!bnxt_qplib_rcfw_wait_for_resp(rcfw, le16_to_cpu(req.cookie))) {
++		/* Cmd timed out */
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: ALLOC_MRW timed out");
++		return -ETIMEDOUT;
++	}
++	if (RCFW_RESP_STATUS(resp) ||
++	    RCFW_RESP_COOKIE(resp) != RCFW_CMDQ_COOKIE(req)) {
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: ALLOC_MRW failed ");
++		dev_err(&rcfw->pdev->dev,
++			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
++			RCFW_RESP_STATUS(resp), RCFW_CMDQ_COOKIE(req),
++			RCFW_RESP_COOKIE(resp));
++		return -EINVAL;
++	}
++	if ((mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_MW_TYPE1)  ||
++	    (mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_MW_TYPE2A) ||
++	    (mrw->type == CMDQ_ALLOCATE_MRW_MRW_FLAGS_MW_TYPE2B))
++		mrw->rkey = le32_to_cpu(resp->xid);
++	else
++		mrw->lkey = le32_to_cpu(resp->xid);
++	return 0;
++}
++
++int bnxt_qplib_dereg_mrw(struct bnxt_qplib_res *res, struct bnxt_qplib_mrw *mrw,
++			 bool block)
++{
++	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
++	struct cmdq_deregister_mr req;
++	struct creq_deregister_mr_resp *resp;
++	u16 cmd_flags = 0;
++	int rc;
++
++	RCFW_CMD_PREP(req, DEREGISTER_MR, cmd_flags);
++
++	req.lkey = cpu_to_le32(mrw->lkey);
++	resp = (struct creq_deregister_mr_resp *)
++			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
++						     NULL, block);
++	if (!resp) {
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: DEREG_MR send failed");
++		return -EINVAL;
++	}
++	if (block)
++		rc = bnxt_qplib_rcfw_block_for_resp(rcfw,
++						    le16_to_cpu(req.cookie));
++	else
++		rc = bnxt_qplib_rcfw_wait_for_resp(rcfw,
++						   le16_to_cpu(req.cookie));
++	if (!rc) {
++		/* Cmd timed out */
++		dev_err(&res->pdev->dev, "QPLIB: SP: DEREG_MR timed out");
++		return -ETIMEDOUT;
++	}
++	if (RCFW_RESP_STATUS(resp) ||
++	    RCFW_RESP_COOKIE(resp) != RCFW_CMDQ_COOKIE(req)) {
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: DEREG_MR failed ");
++		dev_err(&rcfw->pdev->dev,
++			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
++			RCFW_RESP_STATUS(resp), RCFW_CMDQ_COOKIE(req),
++			RCFW_RESP_COOKIE(resp));
++		return -EINVAL;
++	}
++
++	/* Free the qplib's MR memory */
++	if (mrw->hwq.max_elements) {
++		mrw->va = 0;
++		mrw->total_size = 0;
++		bnxt_qplib_free_hwq(res->pdev, &mrw->hwq);
++	}
++
++	return 0;
++}
++
++int bnxt_qplib_reg_mr(struct bnxt_qplib_res *res, struct bnxt_qplib_mrw *mr,
++		      u64 *pbl_tbl, int num_pbls, bool block)
++{
++	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
++	struct cmdq_register_mr req;
++	struct creq_register_mr_resp *resp;
++	u16 cmd_flags = 0, level;
++	int pg_ptrs, pages, i, rc;
++	dma_addr_t **pbl_ptr;
++	u32 pg_size;
++
++	if (num_pbls) {
++		pg_ptrs = roundup_pow_of_two(num_pbls);
++		pages = pg_ptrs >> MAX_PBL_LVL_1_PGS_SHIFT;
++		if (!pages)
++			pages++;
++
++		if (pages > MAX_PBL_LVL_1_PGS) {
++			dev_err(&res->pdev->dev, "QPLIB: SP: Reg MR pages ");
++			dev_err(&res->pdev->dev,
++				"requested (0x%x) exceeded max (0x%x)",
++				pages, MAX_PBL_LVL_1_PGS);
++			return -ENOMEM;
++		}
++		/* Free the hwq if it already exist, must be a rereg */
++		if (mr->hwq.max_elements)
++			bnxt_qplib_free_hwq(res->pdev, &mr->hwq);
++
++		mr->hwq.max_elements = pages;
++		rc = bnxt_qplib_alloc_init_hwq(res->pdev, &mr->hwq, NULL, 0,
++					       &mr->hwq.max_elements,
++					       PAGE_SIZE, 0, PAGE_SIZE,
++					       HWQ_TYPE_CTX);
++		if (rc) {
++			dev_err(&res->pdev->dev,
++				"SP: Reg MR memory allocation failed");
++			return -ENOMEM;
++		}
++		/* Write to the hwq */
++		pbl_ptr = (u64 **)mr->hwq.pbl_ptr;
++		for (i = 0; i < num_pbls; i++)
++			pbl_ptr[PTR_PG(i)][PTR_IDX(i)] =
++				(pbl_tbl[i] & PAGE_MASK) | PTU_PTE_VALID;
++	}
++
++	RCFW_CMD_PREP(req, REGISTER_MR, cmd_flags);
++
++	/* Configure the request */
++	if (mr->hwq.level == PBL_LVL_MAX) {
++		level = 0;
++		req.pbl = 0;
++		pg_size = PAGE_SIZE;
++	} else {
++		level = mr->hwq.level + 1;
++		req.pbl = cpu_to_le64(mr->hwq.pbl[PBL_LVL_0].pg_map_arr[0]);
++		pg_size = mr->hwq.pbl[PBL_LVL_0].pg_size;
++	}
++	req.log2_pg_size_lvl = (level << CMDQ_REGISTER_MR_LVL_SFT) |
++			       ((ilog2(pg_size) <<
++				 CMDQ_REGISTER_MR_LOG2_PG_SIZE_SFT) &
++				CMDQ_REGISTER_MR_LOG2_PG_SIZE_MASK);
++	req.access = (mr->flags & 0xFFFF);
++	req.va = cpu_to_le64(mr->va);
++	req.key = cpu_to_le32(mr->lkey);
++	req.mr_size = cpu_to_le64(mr->total_size);
++
++	resp = (struct creq_register_mr_resp *)
++			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
++						     NULL, block);
++	if (!resp) {
++		dev_err(&res->pdev->dev, "SP: REG_MR send failed");
++		rc = -EINVAL;
++		goto fail;
++	}
++	if (block)
++		rc = bnxt_qplib_rcfw_block_for_resp(rcfw,
++						    le16_to_cpu(req.cookie));
++	else
++		rc = bnxt_qplib_rcfw_wait_for_resp(rcfw,
++						   le16_to_cpu(req.cookie));
++	if (!rc) {
++		/* Cmd timed out */
++		dev_err(&res->pdev->dev, "SP: REG_MR timed out");
++		rc = -ETIMEDOUT;
++		goto fail;
++	}
++	if (RCFW_RESP_STATUS(resp) ||
++	    RCFW_RESP_COOKIE(resp) != RCFW_CMDQ_COOKIE(req)) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: REG_MR failed ");
++		dev_err(&res->pdev->dev,
++			"QPLIB: SP: with status 0x%x cmdq 0x%x resp 0x%x",
++			RCFW_RESP_STATUS(resp), RCFW_CMDQ_COOKIE(req),
++			RCFW_RESP_COOKIE(resp));
++		rc = -EINVAL;
++		goto fail;
++	}
++	return 0;
++
++fail:
++	if (mr->hwq.max_elements)
++		bnxt_qplib_free_hwq(res->pdev, &mr->hwq);
++	return rc;
++}
++
++int bnxt_qplib_alloc_fast_reg_page_list(struct bnxt_qplib_res *res,
++					struct bnxt_qplib_frpl *frpl,
++					int max_pg_ptrs)
++{
++	int pg_ptrs, pages, rc;
++
++	/* Re-calculate the max to fit the HWQ allocation model */
++	pg_ptrs = roundup_pow_of_two(max_pg_ptrs);
++	pages = pg_ptrs >> MAX_PBL_LVL_1_PGS_SHIFT;
++	if (!pages)
++		pages++;
++
++	if (pages > MAX_PBL_LVL_1_PGS)
++		return -ENOMEM;
++
++	frpl->hwq.max_elements = pages;
++	rc = bnxt_qplib_alloc_init_hwq(res->pdev, &frpl->hwq, NULL, 0,
++				       &frpl->hwq.max_elements, PAGE_SIZE, 0,
++				       PAGE_SIZE, HWQ_TYPE_CTX);
++	if (!rc)
++		frpl->max_pg_ptrs = pg_ptrs;
++
++	return rc;
++}
++
++int bnxt_qplib_free_fast_reg_page_list(struct bnxt_qplib_res *res,
++				       struct bnxt_qplib_frpl *frpl)
++{
++	bnxt_qplib_free_hwq(res->pdev, &frpl->hwq);
++	return 0;
++}
++
++int bnxt_qplib_map_tc2cos(struct bnxt_qplib_res *res, u16 *cids)
++{
++	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
++	struct cmdq_map_tc_to_cos req;
++	struct creq_map_tc_to_cos_resp *resp;
++	u16 cmd_flags = 0;
++	int tleft;
++
++	RCFW_CMD_PREP(req, MAP_TC_TO_COS, cmd_flags);
++	req.cos0 = cids[0];
++	req.cos1 = cids[1];
++
++	resp = bnxt_qplib_rcfw_send_message(rcfw, (void *)&req, NULL, 0);
++	if (!resp) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: MAP_TC2COS send failed");
++		return -EINVAL;
++	}
++
++	tleft = bnxt_qplib_rcfw_block_for_resp(rcfw, le16_to_cpu(req.cookie));
++	if (!tleft) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: MAP_TC2COS timed out");
++		return -ETIMEDOUT;
++	}
++
++	if (RCFW_RESP_STATUS(resp) ||
++	    RCFW_RESP_COOKIE(resp) != RCFW_CMDQ_COOKIE(req)) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: MAP_TC2COS failed ");
++		dev_err(&res->pdev->dev,
++			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
++			RCFW_RESP_STATUS(resp), RCFW_CMDQ_COOKIE(req),
++			RCFW_RESP_COOKIE(resp));
++		return -EINVAL;
++	}
++
++	return 0;
++}
 diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
-index 0b5adda..7de6600 100644
+index 26eac17..3358f6d 100644
 --- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
 +++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
-@@ -70,6 +70,10 @@ struct bnxt_qplib_dev_attr {
- 	u8				tqm_alloc_reqs[MAX_TQM_ALLOC_REQ];
+@@ -94,6 +94,34 @@ struct bnxt_qplib_ah {
+ 	u8				nw_type;
  };
  
-+struct bnxt_qplib_pd {
-+	u32				id;
++struct bnxt_qplib_mrw {
++	struct bnxt_qplib_pd		*pd;
++	int				type;
++	u32				flags;
++#define BNXT_QPLIB_FR_PMR		0x80000000
++	u32				lkey;
++	u32				rkey;
++#define BNXT_QPLIB_RSVD_LKEY		0xFFFFFFFF
++	u64				va;
++	u64				total_size;
++	u32				npages;
++	u64				mr_handle;
++	struct bnxt_qplib_hwq		hwq;
 +};
 +
- struct bnxt_qplib_gid {
- 	u8				data[16];
- };
++struct bnxt_qplib_frpl {
++	int				max_pg_ptrs;
++	struct bnxt_qplib_hwq		hwq;
++};
++
++#define BNXT_QPLIB_ACCESS_LOCAL_WRITE	BIT(0)
++#define BNXT_QPLIB_ACCESS_REMOTE_READ	BIT(1)
++#define BNXT_QPLIB_ACCESS_REMOTE_WRITE	BIT(2)
++#define BNXT_QPLIB_ACCESS_REMOTE_ATOMIC	BIT(3)
++#define BNXT_QPLIB_ACCESS_MW_BIND	BIT(4)
++#define BNXT_QPLIB_ACCESS_ZERO_BASED	BIT(5)
++#define BNXT_QPLIB_ACCESS_ON_DEMAND	BIT(6)
++
+ int bnxt_qplib_get_sgid(struct bnxt_qplib_res *res,
+ 			struct bnxt_qplib_sgid_tbl *sgid_tbl, int index,
+ 			struct bnxt_qplib_gid *gid);
+@@ -115,4 +143,17 @@ int bnxt_qplib_get_dev_attr(struct bnxt_qplib_rcfw *rcfw,
+ 			    struct bnxt_qplib_dev_attr *attr);
+ int bnxt_qplib_create_ah(struct bnxt_qplib_res *res, struct bnxt_qplib_ah *ah);
+ int bnxt_qplib_destroy_ah(struct bnxt_qplib_res *res, struct bnxt_qplib_ah *ah);
++int bnxt_qplib_alloc_mrw(struct bnxt_qplib_res *res,
++			 struct bnxt_qplib_mrw *mrw);
++int bnxt_qplib_dereg_mrw(struct bnxt_qplib_res *res, struct bnxt_qplib_mrw *mrw,
++			 bool block);
++int bnxt_qplib_reg_mr(struct bnxt_qplib_res *res, struct bnxt_qplib_mrw *mr,
++		      u64 *pbl_tbl, int num_pbls, bool block);
++int bnxt_qplib_free_mrw(struct bnxt_qplib_res *res, struct bnxt_qplib_mrw *mr);
++int bnxt_qplib_alloc_fast_reg_mr(struct bnxt_qplib_res *res,
++				 struct bnxt_qplib_mrw *mr, int max);
++int bnxt_qplib_alloc_fast_reg_page_list(struct bnxt_qplib_res *res,
++					struct bnxt_qplib_frpl *frpl, int max);
++int bnxt_qplib_free_fast_reg_page_list(struct bnxt_qplib_res *res,
++				       struct bnxt_qplib_frpl *frpl);
+ #endif /* __BNXT_QPLIB_SP_H__*/
 diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
-index c01fa40..71eb1f3 100644
+index 78824bc..5e41317 100644
 --- a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
 +++ b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
-@@ -35,3 +35,220 @@
-  *
-  * Description: IB Verbs interpreter
-  */
+@@ -649,6 +649,47 @@ int bnxt_re_query_ah(struct ib_ah *ib_ah, struct ib_ah_attr *ah_attr)
+ 	return 0;
+ }
+ 
++static int __from_ib_access_flags(int iflags)
++{
++	int qflags = 0;
 +
-+#include <linux/interrupt.h>
-+#include <linux/types.h>
-+#include <linux/pci.h>
-+#include <linux/netdevice.h>
++	if (iflags & IB_ACCESS_LOCAL_WRITE)
++		qflags |= BNXT_QPLIB_ACCESS_LOCAL_WRITE;
++	if (iflags & IB_ACCESS_REMOTE_READ)
++		qflags |= BNXT_QPLIB_ACCESS_REMOTE_READ;
++	if (iflags & IB_ACCESS_REMOTE_WRITE)
++		qflags |= BNXT_QPLIB_ACCESS_REMOTE_WRITE;
++	if (iflags & IB_ACCESS_REMOTE_ATOMIC)
++		qflags |= BNXT_QPLIB_ACCESS_REMOTE_ATOMIC;
++	if (iflags & IB_ACCESS_MW_BIND)
++		qflags |= BNXT_QPLIB_ACCESS_MW_BIND;
++	if (iflags & IB_ZERO_BASED)
++		qflags |= BNXT_QPLIB_ACCESS_ZERO_BASED;
++	if (iflags & IB_ACCESS_ON_DEMAND)
++		qflags |= BNXT_QPLIB_ACCESS_ON_DEMAND;
++	return qflags;
++};
 +
-+#include <rdma/ib_verbs.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/ib_umem.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_mad.h>
-+#include <rdma/ib_cache.h>
++static enum ib_access_flags __to_ib_access_flags(int qflags)
++{
++	enum ib_access_flags iflags = 0;
 +
-+#include "bnxt_ulp.h"
-+
-+#include "bnxt_re_hsi.h"
-+#include "bnxt_qplib_res.h"
-+#include "bnxt_qplib_sp.h"
-+#include "bnxt_qplib_fp.h"
-+#include "bnxt_qplib_rcfw.h"
-+
-+#include "bnxt_re.h"
-+#include "bnxt_re_ib_verbs.h"
-+#include <rdma/bnxt_re_uverbs_abi.h>
-+
-+/* Protection Domains */
-+int bnxt_re_dealloc_pd(struct ib_pd *ib_pd)
++	if (qflags & BNXT_QPLIB_ACCESS_LOCAL_WRITE)
++		iflags |= IB_ACCESS_LOCAL_WRITE;
++	if (qflags & BNXT_QPLIB_ACCESS_REMOTE_WRITE)
++		iflags |= IB_ACCESS_REMOTE_WRITE;
++	if (qflags & BNXT_QPLIB_ACCESS_REMOTE_READ)
++		iflags |= IB_ACCESS_REMOTE_READ;
++	if (qflags & BNXT_QPLIB_ACCESS_REMOTE_ATOMIC)
++		iflags |= IB_ACCESS_REMOTE_ATOMIC;
++	if (qflags & BNXT_QPLIB_ACCESS_MW_BIND)
++		iflags |= IB_ACCESS_MW_BIND;
++	if (qflags & BNXT_QPLIB_ACCESS_ZERO_BASED)
++		iflags |= IB_ZERO_BASED;
++	if (qflags & BNXT_QPLIB_ACCESS_ON_DEMAND)
++		iflags |= IB_ACCESS_ON_DEMAND;
++	return iflags;
++};
+ /* Completion Queues */
+ int bnxt_re_destroy_cq(struct ib_cq *ib_cq)
+ {
+@@ -793,6 +834,340 @@ int bnxt_re_req_notify_cq(struct ib_cq *ib_cq,
+ 	return 0;
+ }
+ 
++/* Memory Regions */
++struct ib_mr *bnxt_re_get_dma_mr(struct ib_pd *ib_pd, int mr_access_flags)
 +{
 +	struct bnxt_re_pd *pd = to_bnxt_re(ib_pd, struct bnxt_re_pd, ib_pd);
 +	struct bnxt_re_dev *rdev = pd->rdev;
++	struct bnxt_re_mr *mr;
++	u64 pbl = 0;
 +	int rc;
 +
-+	if (ib_pd->uobject && pd->dpi.dbr) {
-+		struct ib_ucontext *ib_uctx = ib_pd->uobject->context;
-+		struct bnxt_re_ucontext *ucntx;
-+
-+		/* Free DPI only if this is the first PD allocated by the
-+		 * application and mark the context dpi as NULL
-+		 */
-+		ucntx = to_bnxt_re(ib_uctx, struct bnxt_re_ucontext, ib_uctx);
-+
-+		rc = bnxt_qplib_dealloc_dpi(&rdev->qplib_res,
-+					    &rdev->qplib_res.dpi_tbl,
-+					    &pd->dpi);
-+		if (rc)
-+			dev_err(rdev_to_dev(rdev), "Failed to deallocate HW DPI");
-+			/* Don't fail, continue*/
-+		ucntx->dpi = NULL;
-+	}
-+
-+	rc = bnxt_qplib_dealloc_pd(&rdev->qplib_res,
-+				   &rdev->qplib_res.pd_tbl,
-+				   &pd->qplib_pd);
-+	if (rc) {
-+		dev_err(rdev_to_dev(rdev), "Failed to deallocate HW PD");
-+		return rc;
-+	}
-+
-+	kfree(pd);
-+	return 0;
-+}
-+
-+struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
-+			       struct ib_ucontext *ucontext,
-+			       struct ib_udata *udata)
-+{
-+	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-+	struct bnxt_re_ucontext *ucntx = to_bnxt_re(ucontext,
-+						    struct bnxt_re_ucontext,
-+						    ib_uctx);
-+	struct bnxt_re_pd *pd;
-+	int rc;
-+
-+	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
-+	if (!pd)
++	mr = kzalloc(sizeof(*mr), GFP_KERNEL);
++	if (!mr)
 +		return ERR_PTR(-ENOMEM);
 +
-+	pd->rdev = rdev;
-+	if (bnxt_qplib_alloc_pd(&rdev->qplib_res.pd_tbl, &pd->qplib_pd)) {
-+		dev_err(rdev_to_dev(rdev), "Failed to allocate HW PD");
-+		rc = -ENOMEM;
++	mr->rdev = rdev;
++	mr->qplib_mr.pd = &pd->qplib_pd;
++	mr->qplib_mr.flags = __from_ib_access_flags(mr_access_flags);
++	mr->qplib_mr.type = CMDQ_ALLOCATE_MRW_MRW_FLAGS_PMR;
++
++	/* Allocate and register 0 as the address */
++	rc = bnxt_qplib_alloc_mrw(&rdev->qplib_res, &mr->qplib_mr);
++	if (rc)
 +		goto fail;
-+	}
 +
-+	if (udata) {
-+		struct bnxt_re_pd_resp resp;
++	mr->qplib_mr.hwq.level = PBL_LVL_MAX;
++	mr->qplib_mr.total_size = -1; /* Infinte length */
++	rc = bnxt_qplib_reg_mr(&rdev->qplib_res, &mr->qplib_mr, &pbl, 0, false);
++	if (rc)
++		goto fail_mr;
 +
-+		if (!ucntx->dpi) {
-+			/* Allocate DPI in alloc_pd to avoid failing of
-+			 * ibv_devinfo and family of application when DPIs
-+			 * are depleted.
-+			 */
-+			if (bnxt_qplib_alloc_dpi(&rdev->qplib_res.dpi_tbl,
-+						 &pd->dpi, ucntx)) {
-+				rc = -ENOMEM;
-+				goto dbfail;
-+			}
-+			ucntx->dpi = &pd->dpi;
-+		}
++	mr->ib_mr.lkey = mr->qplib_mr.lkey;
++	if (mr_access_flags & (IB_ACCESS_REMOTE_WRITE | IB_ACCESS_REMOTE_READ |
++			       IB_ACCESS_REMOTE_ATOMIC))
++		mr->ib_mr.rkey = mr->ib_mr.lkey;
++	atomic_inc(&rdev->mr_count);
 +
-+		resp.pdid = pd->qplib_pd.id;
-+		/* Still allow mapping this DBR to the new user PD. */
-+		resp.dpi = ucntx->dpi->dpi;
-+		resp.dbr = (u64)ucntx->dpi->umdbr;
++	return &mr->ib_mr;
 +
-+		rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
-+		if (rc) {
-+			dev_err(rdev_to_dev(rdev),
-+				"Failed to copy user response\n");
-+			goto dbfail;
-+		}
-+	}
-+
-+	return &pd->ib_pd;
-+dbfail:
-+	(void)bnxt_qplib_dealloc_pd(&rdev->qplib_res, &rdev->qplib_res.pd_tbl,
-+				    &pd->qplib_pd);
++fail_mr:
++	bnxt_qplib_free_mrw(&rdev->qplib_res, &mr->qplib_mr);
 +fail:
-+	kfree(pd);
++	kfree(mr);
 +	return ERR_PTR(rc);
 +}
 +
-+struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
-+					   struct ib_udata *udata)
++int bnxt_re_dereg_mr(struct ib_mr *ib_mr)
 +{
-+	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-+	struct bnxt_re_uctx_resp resp;
-+	struct bnxt_re_ucontext *uctx;
-+	struct bnxt_qplib_dev_attr *dev_attr = &rdev->dev_attr;
++	struct bnxt_re_mr *mr = to_bnxt_re(ib_mr, struct bnxt_re_mr, ib_mr);
++	struct bnxt_re_dev *rdev = mr->rdev;
++	int rc = 0;
++
++	if (mr->npages && mr->pages) {
++		rc = bnxt_qplib_free_fast_reg_page_list(&rdev->qplib_res,
++							&mr->qplib_frpl);
++		kfree(mr->pages);
++		mr->npages = 0;
++		mr->pages = NULL;
++	}
++	rc = bnxt_qplib_free_mrw(&rdev->qplib_res, &mr->qplib_mr);
++
++	if (!IS_ERR(mr->ib_umem) && mr->ib_umem)
++		ib_umem_release(mr->ib_umem);
++
++	kfree(mr);
++	atomic_dec(&rdev->mr_count);
++	return rc;
++}
++
++static int bnxt_re_set_page(struct ib_mr *ib_mr, u64 addr)
++{
++	struct bnxt_re_mr *mr = to_bnxt_re(ib_mr, struct bnxt_re_mr, ib_mr);
++
++	if (unlikely(mr->npages == mr->qplib_frpl.max_pg_ptrs))
++		return -ENOMEM;
++
++	mr->pages[mr->npages++] = addr;
++	return 0;
++}
++
++int bnxt_re_map_mr_sg(struct ib_mr *ib_mr, struct scatterlist *sg, int sg_nents,
++		      unsigned int *sg_offset)
++{
++	struct bnxt_re_mr *mr = to_bnxt_re(ib_mr, struct bnxt_re_mr, ib_mr);
++
++	mr->npages = 0;
++	return ib_sg_to_pages(ib_mr, sg, sg_nents, sg_offset, bnxt_re_set_page);
++}
++
++struct ib_mr *bnxt_re_alloc_mr(struct ib_pd *ib_pd, enum ib_mr_type type,
++			       u32 max_num_sg)
++{
++	struct bnxt_re_pd *pd = to_bnxt_re(ib_pd, struct bnxt_re_pd, ib_pd);
++	struct bnxt_re_dev *rdev = pd->rdev;
++	struct bnxt_re_mr *mr = NULL;
 +	int rc;
 +
-+	dev_dbg(rdev_to_dev(rdev), "ABI version requested %d",
-+		ibdev->uverbs_abi_ver);
-+
-+	if (ibdev->uverbs_abi_ver != BNXT_RE_ABI_VERSION) {
-+		dev_dbg(rdev_to_dev(rdev), " is different from the device %d ",
-+			BNXT_RE_ABI_VERSION);
-+		return ERR_PTR(-EPERM);
++	if (type != IB_MR_TYPE_MEM_REG) {
++		dev_dbg(rdev_to_dev(rdev), "MR type 0x%x not supported", type);
++		return ERR_PTR(-EINVAL);
 +	}
++	if (max_num_sg > MAX_PBL_LVL_1_PGS)
++		return ERR_PTR(-EINVAL);
 +
-+	uctx = kzalloc(sizeof(*uctx), GFP_KERNEL);
-+	if (!uctx)
++	mr = kzalloc(sizeof(*mr), GFP_KERNEL);
++	if (!mr)
 +		return ERR_PTR(-ENOMEM);
 +
-+	uctx->rdev = rdev;
++	mr->rdev = rdev;
++	mr->qplib_mr.pd = &pd->qplib_pd;
++	mr->qplib_mr.flags = BNXT_QPLIB_FR_PMR;
++	mr->qplib_mr.type = CMDQ_ALLOCATE_MRW_MRW_FLAGS_PMR;
 +
-+	uctx->shpg = (void *)__get_free_page(GFP_KERNEL);
-+	if (!uctx->shpg) {
++	rc = bnxt_qplib_alloc_mrw(&rdev->qplib_res, &mr->qplib_mr);
++	if (rc)
++		goto fail;
++
++	mr->ib_mr.lkey = mr->qplib_mr.lkey;
++	mr->ib_mr.rkey = mr->ib_mr.lkey;
++
++	mr->pages = kcalloc(max_num_sg, sizeof(u64), GFP_KERNEL);
++	if (!mr->pages) {
 +		rc = -ENOMEM;
 +		goto fail;
 +	}
-+	spin_lock_init(&uctx->sh_lock);
-+
-+	resp.dev_id = rdev->en_dev->pdev->devfn; /*Temp, Use idr_alloc instead*/
-+	resp.max_qp = rdev->qplib_ctx.qpc_count;
-+	resp.pg_size = PAGE_SIZE;
-+	resp.cqe_sz = sizeof(struct cq_base);
-+	resp.max_cqd = dev_attr->max_cq_wqes;
-+
-+	rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
++	rc = bnxt_qplib_alloc_fast_reg_page_list(&rdev->qplib_res,
++						 &mr->qplib_frpl, max_num_sg);
 +	if (rc) {
-+		dev_err(rdev_to_dev(rdev), "Failed to copy user context");
++		dev_err(rdev_to_dev(rdev),
++			"Failed to allocate HW FR page list");
++		goto fail_mr;
++	}
++
++	atomic_inc(&rdev->mr_count);
++	return &mr->ib_mr;
++
++fail_mr:
++	bnxt_qplib_free_mrw(&rdev->qplib_res, &mr->qplib_mr);
++fail:
++	kfree(mr->pages);
++	kfree(mr);
++	return ERR_PTR(rc);
++}
++
++/* Fast Memory Regions */
++struct ib_fmr *bnxt_re_alloc_fmr(struct ib_pd *ib_pd, int mr_access_flags,
++				 struct ib_fmr_attr *fmr_attr)
++{
++	struct bnxt_re_pd *pd = to_bnxt_re(ib_pd, struct bnxt_re_pd, ib_pd);
++	struct bnxt_re_dev *rdev = pd->rdev;
++	struct bnxt_re_fmr *fmr;
++	int rc;
++
++	if (fmr_attr->max_pages > MAX_PBL_LVL_2_PGS ||
++	    fmr_attr->max_maps > rdev->dev_attr.max_map_per_fmr) {
++		dev_err(rdev_to_dev(rdev), "Allocate FMR exceeded Max limit");
++		return ERR_PTR(-ENOMEM);
++	}
++	fmr = kzalloc(sizeof(*fmr), GFP_KERNEL);
++	if (!fmr)
++		return ERR_PTR(-ENOMEM);
++
++	fmr->rdev = rdev;
++	fmr->qplib_fmr.pd = &pd->qplib_pd;
++	fmr->qplib_fmr.type = CMDQ_ALLOCATE_MRW_MRW_FLAGS_PMR;
++
++	rc = bnxt_qplib_alloc_mrw(&rdev->qplib_res, &fmr->qplib_fmr);
++	if (rc)
++		goto fail;
++
++	fmr->qplib_fmr.flags = __from_ib_access_flags(mr_access_flags);
++	fmr->ib_fmr.lkey = fmr->qplib_fmr.lkey;
++	fmr->ib_fmr.rkey = fmr->ib_fmr.lkey;
++
++	atomic_inc(&rdev->mr_count);
++	return &fmr->ib_fmr;
++fail:
++	kfree(fmr);
++	return ERR_PTR(rc);
++}
++
++int bnxt_re_map_phys_fmr(struct ib_fmr *ib_fmr, u64 *page_list, int list_len,
++			 u64 iova)
++{
++	struct bnxt_re_fmr *fmr = to_bnxt_re(ib_fmr, struct bnxt_re_fmr,
++					     ib_fmr);
++	struct bnxt_re_dev *rdev = fmr->rdev;
++	int rc;
++
++	fmr->qplib_fmr.va = iova;
++	fmr->qplib_fmr.total_size = list_len * PAGE_SIZE;
++
++	rc = bnxt_qplib_reg_mr(&rdev->qplib_res, &fmr->qplib_fmr, page_list,
++			       list_len, true);
++	if (rc)
++		dev_err(rdev_to_dev(rdev), "Failed to map FMR for lkey = 0x%x!",
++			fmr->ib_fmr.lkey);
++	return rc;
++}
++
++int bnxt_re_unmap_fmr(struct list_head *fmr_list)
++{
++	struct bnxt_re_dev *rdev;
++	struct bnxt_re_fmr *fmr;
++	struct ib_fmr *ib_fmr;
++	int rc = 0;
++
++	/* Validate each FMRs inside the fmr_list */
++	list_for_each_entry(ib_fmr, fmr_list, list) {
++		fmr = to_bnxt_re(ib_fmr, struct bnxt_re_fmr, ib_fmr);
++		rdev = fmr->rdev;
++
++		if (rdev) {
++			rc = bnxt_qplib_dereg_mrw(&rdev->qplib_res,
++						  &fmr->qplib_fmr, true);
++			if (rc)
++				break;
++		}
++	}
++	return rc;
++}
++
++int bnxt_re_dealloc_fmr(struct ib_fmr *ib_fmr)
++{
++	struct bnxt_re_fmr *fmr = to_bnxt_re(ib_fmr, struct bnxt_re_fmr,
++					     ib_fmr);
++	struct bnxt_re_dev *rdev = fmr->rdev;
++	int rc;
++
++	rc = bnxt_qplib_free_mrw(&rdev->qplib_res, &fmr->qplib_fmr);
++	if (rc)
++		dev_err(rdev_to_dev(rdev), "Failed to free FMR");
++
++	kfree(fmr);
++	atomic_dec(&rdev->mr_count);
++	return rc;
++}
++
++/* uverbs */
++struct ib_mr *bnxt_re_reg_user_mr(struct ib_pd *ib_pd, u64 start, u64 length,
++				  u64 virt_addr, int mr_access_flags,
++				  struct ib_udata *udata)
++{
++	struct bnxt_re_pd *pd = to_bnxt_re(ib_pd, struct bnxt_re_pd, ib_pd);
++	struct bnxt_re_dev *rdev = pd->rdev;
++	struct bnxt_re_mr *mr;
++	struct ib_umem *umem;
++	u64 *pbl_tbl, *pbl_tbl_orig;
++	int i, umem_pgs, pages, page_shift, rc;
++	struct scatterlist *sg;
++	int entry;
++
++	mr = kzalloc(sizeof(*mr), GFP_KERNEL);
++	if (!mr)
++		return ERR_PTR(-ENOMEM);
++
++	mr->rdev = rdev;
++	mr->qplib_mr.pd = &pd->qplib_pd;
++	mr->qplib_mr.flags = __from_ib_access_flags(mr_access_flags);
++	mr->qplib_mr.type = CMDQ_ALLOCATE_MRW_MRW_FLAGS_MR;
++
++	umem = ib_umem_get(ib_pd->uobject->context, start, length,
++			   mr_access_flags, 0);
++	if (IS_ERR(umem)) {
++		dev_err(rdev_to_dev(rdev), "Failed to get umem");
 +		rc = -EFAULT;
-+		goto cfail;
++		goto free_mr;
++	}
++	mr->ib_umem = umem;
++
++	rc = bnxt_qplib_alloc_mrw(&rdev->qplib_res, &mr->qplib_mr);
++	if (rc) {
++		dev_err(rdev_to_dev(rdev), "Failed to allocate MR");
++		goto release_umem;
++	}
++	/* The fixed portion of the rkey is the same as the lkey */
++	mr->ib_mr.rkey = mr->qplib_mr.rkey;
++
++	mr->qplib_mr.va = virt_addr;
++	umem_pgs = ib_umem_page_count(umem);
++	if (!umem_pgs) {
++		dev_err(rdev_to_dev(rdev), "umem is invalid!");
++		rc = -EINVAL;
++		goto free_mrw;
++	}
++	mr->qplib_mr.total_size = length;
++
++	pbl_tbl = kcalloc(umem_pgs, sizeof(u64 *), GFP_KERNEL);
++	if (!pbl_tbl) {
++		rc = -EINVAL;
++		goto free_mrw;
++	}
++	pbl_tbl_orig = pbl_tbl;
++
++	page_shift = ilog2(umem->page_size);
++	if (umem->hugetlb) {
++		dev_err(rdev_to_dev(rdev), "umem hugetlb not supported!");
++		rc = -EFAULT;
++		goto fail;
++	}
++	if (umem->page_size != PAGE_SIZE) {
++		dev_err(rdev_to_dev(rdev), "umem page size unsupported!");
++		rc = -EFAULT;
++		goto fail;
++	}
++	/* Map umem buf ptrs to the PBL */
++	for_each_sg(umem->sg_head.sgl, sg, umem->nmap, entry) {
++		pages = sg_dma_len(sg) >> page_shift;
++		for (i = 0; i < pages; i++, pbl_tbl++)
++			*pbl_tbl = sg_dma_address(sg) + (i << page_shift);
++	}
++	rc = bnxt_qplib_reg_mr(&rdev->qplib_res, &mr->qplib_mr, pbl_tbl_orig,
++			       umem_pgs, false);
++	if (rc) {
++		dev_err(rdev_to_dev(rdev), "Failed to register user MR");
++		goto fail;
 +	}
 +
-+	return &uctx->ib_uctx;
-+cfail:
-+	free_page((u64)uctx->shpg);
-+	uctx->shpg = NULL;
++	kfree(pbl_tbl_orig);
++
++	mr->ib_mr.lkey = mr->qplib_mr.lkey;
++	mr->ib_mr.rkey = mr->qplib_mr.lkey;
++	atomic_inc(&rdev->mr_count);
++
++	return &mr->ib_mr;
 +fail:
-+	kfree(uctx);
++	kfree(pbl_tbl_orig);
++free_mrw:
++	bnxt_qplib_free_mrw(&rdev->qplib_res, &mr->qplib_mr);
++release_umem:
++	ib_umem_release(umem);
++free_mr:
++	kfree(mr);
 +	return ERR_PTR(rc);
 +}
 +
-+int bnxt_re_dealloc_ucontext(struct ib_ucontext *ib_uctx)
-+{
-+	struct bnxt_re_ucontext *uctx = to_bnxt_re(ib_uctx,
-+						   struct bnxt_re_ucontext,
-+						   ib_uctx);
-+	if (uctx->shpg)
-+		free_page((u64)uctx->shpg);
-+	kfree(uctx);
-+	return 0;
-+}
-+
-+/* Helper function to mmap the virtual memory from user app */
-+int bnxt_re_mmap(struct ib_ucontext *ib_uctx, struct vm_area_struct *vma)
-+{
-+	struct bnxt_re_ucontext *uctx = to_bnxt_re(ib_uctx,
-+						   struct bnxt_re_ucontext,
-+						   ib_uctx);
-+	struct bnxt_re_dev *rdev = uctx->rdev;
-+	u64 pfn;
-+
-+	if (vma->vm_end - vma->vm_start != PAGE_SIZE)
-+		return -EINVAL;
-+
-+	if (vma->vm_pgoff) {
-+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-+		if (io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-+				       PAGE_SIZE, vma->vm_page_prot)) {
-+			dev_err(rdev_to_dev(rdev), "Failed to map DPI");
-+			return -EAGAIN;
-+		}
-+	} else {
-+		pfn = virt_to_phys(uctx->shpg) >> PAGE_SHIFT;
-+		if (remap_pfn_range(vma, vma->vm_start,
-+				    pfn, PAGE_SIZE, vma->vm_page_prot)) {
-+			dev_err(rdev_to_dev(rdev),
-+				"Failed to map shared page");
-+			return -EAGAIN;
-+		}
-+	}
-+
-+	return 0;
-+}
+ struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
+ 					   struct ib_udata *udata)
+ {
 diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
-index 9162774..a133d81 100644
+index 14c9e02..ba9a4c9 100644
 --- a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
 +++ b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
-@@ -39,4 +39,27 @@
- #ifndef __BNXT_RE_IB_VERBS_H__
- #define __BNXT_RE_IB_VERBS_H__
+@@ -70,6 +70,34 @@ struct bnxt_re_cq {
+ 	struct ib_umem		*umem;
+ };
  
-+struct bnxt_re_pd {
++struct bnxt_re_mr {
 +	struct bnxt_re_dev	*rdev;
-+	struct ib_pd		ib_pd;
-+	struct bnxt_qplib_pd	qplib_pd;
-+	struct bnxt_qplib_dpi	dpi;
++	struct ib_mr		ib_mr;
++	struct ib_umem		*ib_umem;
++	struct bnxt_qplib_mrw	qplib_mr;
++	u32			npages;
++	u64			*pages;
++	struct bnxt_qplib_frpl	qplib_frpl;
 +};
 +
-+struct bnxt_re_ucontext {
-+	struct bnxt_re_dev	*rdev;
-+	struct ib_ucontext	ib_uctx;
-+	struct bnxt_qplib_dpi	*dpi;
-+	void			*shpg;
-+	spinlock_t		sh_lock;	/* protect shpg */
++struct bnxt_re_frpl {
++	struct bnxt_re_dev		*rdev;
++	struct bnxt_qplib_frpl		qplib_frpl;
++	u64				*page_list;
 +};
 +
-+struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
-+			       struct ib_ucontext *context,
-+			       struct ib_udata *udata);
-+int bnxt_re_dealloc_pd(struct ib_pd *pd);
-+struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
-+					   struct ib_udata *udata);
-+int bnxt_re_dealloc_ucontext(struct ib_ucontext *context);
-+int bnxt_re_mmap(struct ib_ucontext *context, struct vm_area_struct *vma);
- #endif /* __BNXT_RE_IB_VERBS_H__ */
++struct bnxt_re_fmr {
++	struct bnxt_re_dev	*rdev;
++	struct ib_fmr		ib_fmr;
++	struct bnxt_qplib_mrw	qplib_fmr;
++};
++
++struct bnxt_re_mw {
++	struct bnxt_re_dev	*rdev;
++	struct ib_mw		ib_mw;
++	struct bnxt_qplib_mrw	qplib_mw;
++};
++
+ struct bnxt_re_ucontext {
+ 	struct bnxt_re_dev	*rdev;
+ 	struct ib_ucontext	ib_uctx;
+@@ -119,6 +147,22 @@ struct ib_cq *bnxt_re_create_cq(struct ib_device *ibdev,
+ 				struct ib_udata *udata);
+ int bnxt_re_destroy_cq(struct ib_cq *cq);
+ int bnxt_re_req_notify_cq(struct ib_cq *cq, enum ib_cq_notify_flags flags);
++struct ib_mr *bnxt_re_get_dma_mr(struct ib_pd *pd, int mr_access_flags);
++
++int bnxt_re_map_mr_sg(struct ib_mr *ib_mr, struct scatterlist *sg, int sg_nents,
++		      unsigned int *sg_offset);
++struct ib_mr *bnxt_re_alloc_mr(struct ib_pd *ib_pd, enum ib_mr_type mr_type,
++			       u32 max_num_sg);
++int bnxt_re_dereg_mr(struct ib_mr *mr);
++struct ib_fmr *bnxt_re_alloc_fmr(struct ib_pd *pd, int mr_access_flags,
++				 struct ib_fmr_attr *fmr_attr);
++int bnxt_re_map_phys_fmr(struct ib_fmr *fmr, u64 *page_list, int list_len,
++			 u64 iova);
++int bnxt_re_unmap_fmr(struct list_head *fmr_list);
++int bnxt_re_dealloc_fmr(struct ib_fmr *fmr);
++struct ib_mr *bnxt_re_reg_user_mr(struct ib_pd *pd, u64 start, u64 length,
++				  u64 virt_addr, int mr_access_flags,
++				  struct ib_udata *udata);
+ struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
+ 					   struct ib_udata *udata);
+ int bnxt_re_dealloc_ucontext(struct ib_ucontext *context);
 diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
-index 3d02488..3549d3a 100644
+index e998850..3d1504e 100644
 --- a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
 +++ b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
-@@ -59,6 +59,7 @@
- #include "bnxt_qplib_fp.h"
- #include "bnxt_qplib_rcfw.h"
- #include "bnxt_re.h"
-+#include "bnxt_re_ib_verbs.h"
- #include "bnxt.h"
- static char version[] =
- 		BNXT_RE_DESC " v" ROCE_DRV_MODULE_VERSION "\n";
-@@ -424,6 +425,12 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
- 
- 	ibdev->num_comp_vectors	= 1;
- 	ibdev->dma_device = &rdev->en_dev->pdev->dev;
-+	ibdev->alloc_pd			= bnxt_re_alloc_pd;
-+	ibdev->dealloc_pd		= bnxt_re_dealloc_pd;
-+	ibdev->alloc_ucontext		= bnxt_re_alloc_ucontext;
-+	ibdev->dealloc_ucontext		= bnxt_re_dealloc_ucontext;
-+	ibdev->mmap			= bnxt_re_mmap;
+@@ -448,6 +448,17 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
+ 	ibdev->create_cq		= bnxt_re_create_cq;
+ 	ibdev->destroy_cq		= bnxt_re_destroy_cq;
+ 	ibdev->req_notify_cq		= bnxt_re_req_notify_cq;
 +
- 	return ib_register_device(ibdev, NULL);
- }
- 
-diff --git a/include/uapi/rdma/bnxt_re_uverbs_abi.h b/include/uapi/rdma/bnxt_re_uverbs_abi.h
-new file mode 100644
-index 0000000..3815184
---- /dev/null
-+++ b/include/uapi/rdma/bnxt_re_uverbs_abi.h
-@@ -0,0 +1,58 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: Uverbs ABI header file
-+ */
++	ibdev->get_dma_mr		= bnxt_re_get_dma_mr;
++	ibdev->dereg_mr			= bnxt_re_dereg_mr;
++	ibdev->alloc_mr			= bnxt_re_alloc_mr;
++	ibdev->map_mr_sg		= bnxt_re_map_mr_sg;
++	ibdev->alloc_fmr		= bnxt_re_alloc_fmr;
++	ibdev->map_phys_fmr		= bnxt_re_map_phys_fmr;
++	ibdev->unmap_fmr		= bnxt_re_unmap_fmr;
++	ibdev->dealloc_fmr		= bnxt_re_dealloc_fmr;
 +
-+#ifndef __BNXT_RE_UVERBS_ABI_H__
-+#define __BNXT_RE_UVERBS_ABI_H__
-+
-+#define BNXT_RE_ABI_VERSION	1
-+
-+struct bnxt_re_uctx_resp {
-+	__u32 dev_id;
-+	__u32 max_qp;
-+	__u32 pg_size;
-+	__u32 cqe_sz;
-+	__u32 max_cqd;
-+} __packed;
-+
-+struct bnxt_re_pd_resp {
-+	__u32 pdid;
-+	__u32 dpi;
-+	__u64 dbr;
-+} __packed;
-+
-+#endif /* __BNXT_RE_UVERBS_ABI_H__*/
++	ibdev->reg_user_mr		= bnxt_re_reg_user_mr;
+ 	ibdev->alloc_ucontext		= bnxt_re_alloc_ucontext;
+ 	ibdev->dealloc_ucontext		= bnxt_re_dealloc_ucontext;
+ 	ibdev->mmap			= bnxt_re_mmap;
 -- 
 2.5.5
