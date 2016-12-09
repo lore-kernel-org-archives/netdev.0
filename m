@@ -1,56 +1,42 @@
-From: "S.H. Xie" <shaohui.xie@nxp.com>
-Subject: RE: [PATCH] net: gianfar: add ethtool eee support
-Date: Fri, 9 Dec 2016 02:55:07 +0000
-Message-ID: <DB5PR0401MB21830DB2C59ADB9187D9C2FAE8870@DB5PR0401MB2183.eurprd04.prod.outlook.com>
-References: <1481196426-45576-1-git-send-email-Shaohui.Xie@nxp.com>
- <20161208.181922.957507188752351548.davem@davemloft.net>
- <2b309f6b-dcfd-006c-11ea-4fa2f35d01a5@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH v3 net-next 2/3] openvswitch: Use is_skb_forwardable()
+ for length check.
+Date: Fri, 9 Dec 2016 09:49:02 +0100
+Message-ID: <20161209094902.09580191@griffin>
+References: <1480462253-114713-1-git-send-email-jarno@ovn.org>
+        <1480462253-114713-2-git-send-email-jarno@ovn.org>
+        <20161130145159.3cee7ba4@griffin>
+        <CAOrHB_BEQBbvDa2W0dJmmANsjZEiwx7GbTxo-7yirDB=5d9cqQ@mail.gmail.com>
+        <20161202102509.065df1e8@griffin>
+        <CAOrHB_BTRP69VDeA2_cSf_qKh05Wj=OinaqU3Uu=52Wus6xS8w@mail.gmail.com>
+        <20161208205040.GJ18719@wsfd-netdev-buildsys.lab.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Pravin Shelar <pshelar@ovn.org>, Jarno Rajahalme <jarno@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Garver <e@erig.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0055.outbound.protection.outlook.com ([104.47.2.55]:5120
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932480AbcLIH26 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Dec 2016 02:28:58 -0500
-In-Reply-To: <2b309f6b-dcfd-006c-11ea-4fa2f35d01a5@gmail.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:39752 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752819AbcLIItF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Dec 2016 03:49:05 -0500
+In-Reply-To: <20161208205040.GJ18719@wsfd-netdev-buildsys.lab.bos.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
-YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgRGVjZW1iZXIgMDks
-IDIwMTYgNzoyMiBBTQ0KPiBUbzogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pjsg
-Uy5ILiBYaWUgPHNoYW9odWkueGllQG54cC5jb20+DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldDogZ2lhbmZhcjogYWRkIGV0aHRvb2wgZWVl
-IHN1cHBvcnQNCj4gDQo+IE9uIDEyLzA4LzIwMTYgMDM6MTkgUE0sIERhdmlkIE1pbGxlciB3cm90
-ZToNCj4gPiBGcm9tOiBTaGFvaHVpIFhpZSA8U2hhb2h1aS5YaWVAbnhwLmNvbT4NCj4gPiBEYXRl
-OiBUaHUsIDggRGVjIDIwMTYgMTk6Mjc6MDYgKzA4MDANCj4gPg0KPiA+PiBHaWFuZmFyIGRvZXMg
-bm90IHN1cHBvcnQgRUVFLCBidXQgaXQgY2FuIGNvbm5lY3QgdG8gYSBQSFkgd2hpY2gNCj4gPj4g
-c3VwcG9ydHMgRUVFIGFuZCB0aGUgUEhZIGFkdmVydGlzZXMgRUVFIGJ5IGRlZmF1bHQsIGFuZCBp
-dHMgbGluaw0KPiA+PiBwYXJ0bmVyIGFsc28gYWR2ZXJ0aXNlcyBFRUUsIHNvIHRoZSBQSFkgZW50
-ZXJzIGxvdyBwb3dlciBtb2RlIHdoZW4NCj4gPj4gdHJhZmZpYyByYXRlIGlzIGxvdywgd2hpY2gg
-Y2F1c2VzIHBhY2tldCBsb3NzIGlmIGFuIGFwcGxpY2F0aW9uJ3MNCj4gPj4gdHJhZmZpYyByYXRl
-IGlzIGxvdy4gVGhpcyBwYXRjaCBwcm92aWRlcyAuZ2V0X2VlZSBhbmQgLnNldF9lZWUgc28NCj4g
-Pj4gdGhhdCB0byBkaXNhYmxlIHRoZSBFRUUgYWR2ZXJ0aXNlbWVudCB2aWEgZXRodG9vbCBpZiBu
-ZWVkZWQsIG90aGVyIEVFRSBmZWF0dXJlcw0KPiBhcmUgbm90IHN1cHBvcnRlZC4NCj4gPj4NCj4g
-Pj4gU2lnbmVkLW9mZi1ieTogU2hhb2h1aSBYaWUgPFNoYW9odWkuWGllQG54cC5jb20+DQo+ID4N
-Cj4gPiBUaGlzIGlzIG5vdCB0aGUgd2F5IHRvIGZpeCB0aGlzLg0KPiA+DQo+ID4gSWYgdGhlIEdp
-YW5mYXIgTUFDIGRvZXMgbm90IHN1cHBvcnQgRUVFIHByb3Blcmx5LCB0aGVuIHRoZSBnaWFuZmFy
-DQo+ID4gZHJpdmVyIHNob3VsZCBub3QgY3JlYXRlIGEgc2l0dWF0aW9uIHdoZXJlIHRoZSBQSFkg
-YWR2ZXJ0aXNlcyBFRUUgaW4NCj4gPiB0aGUgZmlyc3QgcGxhY2UuDQo+IA0KPiBBZ3JlZWQsIHlv
-dSBzaG91bGQgaGF2ZSBnaWFuZmFyIG1hc2sgb3V0IHRoZSBFRUUgYWR2ZXJ0aXNlbWVudCBmcm9t
-IHRoZSBQSFkgaXQNCj4gY29ubmVjdHMgdG8sIGluIG9yZGVyIHRvIG1ha2Ugc3VyZSB0aGF0IEVF
-RSBpcyBwcm9wZXJseSBkaXNhYmxlZC4NCj4gVGhpcyBzaG91bGQgYmUgbm8gZGlmZmVyZW50IGZy
-b20gZS5nOiBjb25uZWN0aW5nIGEgMTAvMTAwLzEwMDAgUEhZIHRvIGENCj4gMTAvMTAwIG9ubHkg
-Y29udHJvbGxlciBmb3IgaW5zdGFuY2UuDQpbUy5IXSBUaGUgRUVFIGFkdmVydGlzZW1lbnQgZG9l
-cyBub3QgYmVsb25nIHRvIFBIWSBkZXZpY2UsIGdpYW5mYXIgY2Fubm90IG1hc2sgb3V0IHRoZSBF
-RUUNCkFkdmVydGlzZW1lbnQgbGlrZSBhZHZlcnRpc2luZywgc2hvdWxkIHVzZSBwaHlfd3JpdGVf
-bW1kX2luZGlyZWN0KCkgdG8gZGlzYWJsZSBpdD8NCg0KQW5kIGJ5IGRpc2FibGluZyBFRUUgYWR2
-ZXJ0aXNlbWVudCBhbHdheXMsIHRoZSBQSFkgY2Fubm90IGVudGVyIGxvdyBwb3dlciBtb2RlIGV2
-ZW4gaWYgdGhlcmUgDQppcyBubyB0cmFmZmljLiBVc2luZyBldGh0b29sIGNvdWxkIHByb3ZpZGUg
-dXNlciBvcHRpb25zIHRvIGhhbmRsZSB0aGlzLg0KDQpUaGFua3MuDQpTaGFvaHVpDQoNCg0K
+On Thu, 8 Dec 2016 15:50:41 -0500, Eric Garver wrote:
+> Should we not also follow the "skbs are untagged" approach that the rest
+> of the kernel uses? I'm referring to patches 1 and 2 form Jiri's series
+> "openvswitch: make vlan handling consistent".
+> 
+> With those changes is_skb_forwardable() would behave as expected here.
+
+Yes, this would make the check easy and consistent (and was actually my
+original motivation for the mentioned patchset).
+
+Still, is_skb_forwardable would be off by 4 bytes. I wonder whether
+it's not off even for the bridge case. And dev_forward_skb seems to be
+fishy, too.
+
+ Jiri
