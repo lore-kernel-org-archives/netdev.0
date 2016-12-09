@@ -1,92 +1,123 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCHv3 perf/core 3/7] tools lib bpf: Add flags to
- bpf_create_map()
-Date: Fri, 9 Dec 2016 11:36:18 +0800
-Message-ID: <b2c274c5-5e2c-749f-648e-7664a1daa6c2@huawei.com>
-References: <20161209024620.31660-1-joe@ovn.org>
- <20161209024620.31660-4-joe@ovn.org>
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Subject: Re: [PATCH net-next 0/2] Initial driver for Synopsys DWC XLGMAC
+Date: Fri, 9 Dec 2016 12:47:36 +0800
+Message-ID: <0a46d57e-dd24-6397-5a0c-a8534aa94d20@synopsys.com>
+References: <cover.1481075763.git.jiedeng@synopsys.com>
+ <92a2dbaf-00be-bded-aa75-4c920db4a204@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <ast@fb.com>, <daniel@iogearbox.net>, <acme@kernel.org>,
-        <netdev@vger.kernel.org>
-To: Joe Stringer <joe@ovn.org>, <linux-kernel@vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <CARLOS.PALMINHA@synopsys.com>,
+        <lars.persson@axis.com>, <thomas.lendacky@amd.com>,
+        <peppe.cavallaro@st.com>, <Joao.Pinto@synopsys.com>
+To: Alexandre Torgue <alexandre.torgue@st.com>,
+        Jie Deng <Jie.Deng1@synopsys.com>, <davem@davemloft.net>,
+        <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161209024620.31660-4-joe@ovn.org>
+In-Reply-To: <92a2dbaf-00be-bded-aa75-4c920db4a204@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 2016/12/9 10:46, Joe Stringer wrote:
-> The map_flags argument to bpf_create_map() was previously not exposed.
-> By exposing it, users can access flags such as whether or not to
-> preallocate the map.
+On 2016/12/8 23:59, Alexandre Torgue wrote:
+> Hi
 >
-> Signed-off-by: Joe Stringer <joe@ovn.org>
-
-Please mention commit 6c90598174322b8888029e40dd84a4eb01f56afe in
-commit message:
-
-Commit 6c905981743 ("bpf: pre-allocate hash map elements") introduces
-map_flags to bpf_attr for BPF_MAP_CREATE command. Expose this new
-parameter in libbpf.
-
-Acked-by: Wang Nan <wangnan0@huawei.com>
-
-> ---
-> v3: Split from "tools lib bpf: Sync with samples/bpf/libbpf".
-> ---
->   tools/lib/bpf/bpf.c    | 3 ++-
->   tools/lib/bpf/bpf.h    | 2 +-
->   tools/lib/bpf/libbpf.c | 3 ++-
->   3 files changed, 5 insertions(+), 3 deletions(-)
+> On 12/07/2016 04:57 AM, Jie Deng wrote:
+>> This series provides the support for 25/40/50/100 GbE
+>> devices using Synopsys DWC Enterprise Ethernet (XLGMAC).
 >
-> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-> index 89e8e8e5b60e..d0afb26c2e0f 100644
-> --- a/tools/lib/bpf/bpf.c
-> +++ b/tools/lib/bpf/bpf.c
-> @@ -54,7 +54,7 @@ static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
->   }
->   
->   int bpf_create_map(enum bpf_map_type map_type, int key_size,
-> -		   int value_size, int max_entries)
-> +		   int value_size, int max_entries, __u32 map_flags)
->   {
->   	union bpf_attr attr;
->   
-> @@ -64,6 +64,7 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size,
->   	attr.key_size = key_size;
->   	attr.value_size = value_size;
->   	attr.max_entries = max_entries;
-> +	attr.map_flags = map_flags;
->   
->   	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
->   }
-> diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-> index 61130170a6ad..7fcdce16fd62 100644
-> --- a/tools/lib/bpf/bpf.h
-> +++ b/tools/lib/bpf/bpf.h
-> @@ -24,7 +24,7 @@
->   #include <linux/bpf.h>
->   
->   int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
-> -		   int max_entries);
-> +		   int max_entries, __u32 map_flags);
->   
->   /* Recommend log buffer size */
->   #define BPF_LOG_BUF_SIZE 65536
-> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-> index 2e974593f3e8..84e6b35da4bd 100644
-> --- a/tools/lib/bpf/libbpf.c
-> +++ b/tools/lib/bpf/libbpf.c
-> @@ -854,7 +854,8 @@ bpf_object__create_maps(struct bpf_object *obj)
->   		*pfd = bpf_create_map(def->type,
->   				      def->key_size,
->   				      def->value_size,
-> -				      def->max_entries);
-> +				      def->max_entries,
-> +				      0);
->   		if (*pfd < 0) {
->   			size_t j;
->   			int err = *pfd;
+> Can you explain which GMAC are you targeted ?
+>
+> A driver which support some Synopsys GMAC IP already exists. It support GMAC
+> 3.5, 3.7, 4.0, 4.10 versions. You can find it in:
+> drivers/net/ethernet/stmicro/stmmac/. When I look at all files your gonna to
+> create, it looks like to ones in stmmac driver so maybe you could easily add
+> your IP inside stmmac driver.
+>
+> Note that an other driver is existing for synopsys GMAC 4.0 IP. it is located
+> in drivers/net/ethernet/synopsys/dwc_eth_qos.c and coming from AXIS guys. A
+> task is ongoing to only have stmmac driver so it should be harmful to create a
+> new one.
+>
+> Regards
+> Alex
+>
+I didn't target any version of GMAC IP. GMAC IP (QoS IP) currently has two
+drivers in mainline
+drivers/net/ethernet/synopsys/dwc_eth_qos.c
+drivers/net/ethernet/stmicro/stmmac/
+
+XGMAC IP: drivers/net/ethernet/amd/xgbe
+
+XLGMAC IP: no driver in mainline at present
+
+For more info about Synopsys Ethernet IP, Please check:
+http://www.synopsys.com/IP/InterfaceIP/Ethernet/Pages/default.aspx
+
+I think it should be better to integrate above drivers into
+drivers/net/ethernet/synopsys/. This helps to reuse codes and makes maintenance
+easier. I prefer to choose AMD XGBE as a basis. This driver integrated Synopsys
+internal driver and had most features supported. What do you think about this ? 
+>
+>
+>
+>>
+>> The first patch adds support for Synopsys XLGMII.
+>> The second patch provides the initial driver for Synopsys XLGMAC
+>>
+>> The driver has three layers by refactoring AMD XGBE.
+>>
+>> dwc-eth-xxx.x
+>>   The DWC ethernet core layer (DWC ECL). This layer contains codes
+>> can be shared by different DWC series ethernet cores
+>>
+>> dwc-xxx.x (e.g. dwc-xlgmac.c)
+>>   The DWC MAC HW adapter layer (DWC MHAL). This layer contains
+>> special support for a specific MAC. e.g. currently, XLGMAC.
+>>
+>> xxx-xxx-pci.c xxx-xxx-plat.c (e.g. dwc-xlgmac-pci.c)
+>>   The glue adapter layer (GAL). Vendors who adopt Synopsys Etherent
+>> cores can develop a glue driver for their platform.
+>>
+>> Jie Deng (2):
+>>   net: phy: add extension of phy-mode for XLGMII
+>>   net: ethernet: Initial driver for Synopsys DWC XLGMAC
+>>
+>>  Documentation/devicetree/bindings/net/ethernet.txt |    1 +
+>>  MAINTAINERS                                        |    6 +
+>>  drivers/net/ethernet/synopsys/Kconfig              |    2 +
+>>  drivers/net/ethernet/synopsys/Makefile             |    1 +
+>>  drivers/net/ethernet/synopsys/dwc/Kconfig          |   37 +
+>>  drivers/net/ethernet/synopsys/dwc/Makefile         |    9 +
+>>  drivers/net/ethernet/synopsys/dwc/dwc-eth-dcb.c    |  228 ++
+>>  .../net/ethernet/synopsys/dwc/dwc-eth-debugfs.c    |  328 +++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-eth-desc.c   |  715 +++++
+>>  .../net/ethernet/synopsys/dwc/dwc-eth-ethtool.c    |  567 ++++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-eth-hw.c     | 3098 ++++++++++++++++++++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-eth-mdio.c   |  252 ++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-eth-net.c    | 2319 +++++++++++++++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-eth-ptp.c    |  216 ++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-eth-regacc.h | 1115 +++++++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-eth.h        |  738 +++++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-xlgmac-pci.c |  538 ++++
+>>  drivers/net/ethernet/synopsys/dwc/dwc-xlgmac.c     |  135 +
+>>  drivers/net/ethernet/synopsys/dwc/dwc-xlgmac.h     |   85 +
+>>  include/linux/phy.h                                |    3 +
+>>  20 files changed, 10393 insertions(+)
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/Kconfig
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/Makefile
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-dcb.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-debugfs.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-desc.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-ethtool.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-hw.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-mdio.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-net.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-ptp.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-regacc.h
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth.h
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-xlgmac-pci.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-xlgmac.c
+>>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-xlgmac.h
+>>
