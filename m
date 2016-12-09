@@ -1,7 +1,7 @@
 From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH V2  18/22] bnxt_re: Support for DCB
-Date: Thu,  8 Dec 2016 22:48:12 -0800
-Message-ID: <1481266096-23331-19-git-send-email-selvin.xavier@broadcom.com>
+Subject: [PATCH V2  19/22] bnxt_re: Support debugfs
+Date: Thu,  8 Dec 2016 22:48:13 -0800
+Message-ID: <1481266096-23331-20-git-send-email-selvin.xavier@broadcom.com>
 References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
 Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Eddie Wai <eddie.wai@broadcom.com>,
@@ -10,20 +10,15 @@ Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 To: dledford@redhat.com, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:45746 "EHLO
+Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:45711 "EHLO
         relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932262AbcLIGsi (ORCPT
+        with ESMTP id S932261AbcLIGsi (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 01:48:38 -0500
 In-Reply-To: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch queries the configured RoCE APP Priority on the host
-using the dcbnl API and programs the RoCE FW with the corresponding
-Traffic Class(es) for the priority.
-
-v2: Fixed some sparse warning and cleanup of function
-bnxt_re_query_hwrm_pri2cos
+This patch exports some of the FW debug counters
 
 Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
@@ -31,231 +26,278 @@ Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h |   3 +-
- drivers/infiniband/hw/bnxtre/bnxt_re.h       |   6 ++
- drivers/infiniband/hw/bnxtre/bnxt_re_main.c  | 140 +++++++++++++++++++++++++++
- 3 files changed, 148 insertions(+), 1 deletion(-)
+ drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.c | 159 +++++++++++++++++++++++++
+ drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.h |  48 ++++++++
+ drivers/infiniband/hw/bnxtre/bnxt_re_main.c    |   8 +-
+ 3 files changed, 213 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.c
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.h
 
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
-index 3358f6d..a72dfab 100644
---- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
-@@ -156,4 +156,5 @@ int bnxt_qplib_alloc_fast_reg_page_list(struct bnxt_qplib_res *res,
- 					struct bnxt_qplib_frpl *frpl, int max);
- int bnxt_qplib_free_fast_reg_page_list(struct bnxt_qplib_res *res,
- 				       struct bnxt_qplib_frpl *frpl);
--#endif /* __BNXT_QPLIB_SP_H__*/
-+int bnxt_qplib_map_tc2cos(struct bnxt_qplib_res *res, u16 *cids);
-+#endif
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re.h b/drivers/infiniband/hw/bnxtre/bnxt_re.h
-index 30f4b30..36b1d4f 100644
---- a/drivers/infiniband/hw/bnxtre/bnxt_re.h
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_re.h
-@@ -45,6 +45,9 @@
- #define BNXT_RE_REF_WAIT_COUNT		10
- #define BNXT_RE_DESC	"Broadcom NetXtreme-C/E RoCE Driver"
- 
-+#define BNXT_RE_ROCE_V1_ETH_TYPE	0x8915
-+#define BNXT_RE_ROCE_V2_PORT_NO		4791
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.c b/drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.c
+new file mode 100644
+index 0000000..b38c83a
+--- /dev/null
++++ b/drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.c
+@@ -0,0 +1,159 @@
++/*
++ * Broadcom NetXtreme-E RoCE driver.
++ *
++ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
++ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * BSD license below:
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
++ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
++ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * Description: DebugFS specifics
++ */
 +
- #define BNXT_RE_PAGE_SIZE_4K		BIT(12)
- #define BNXT_RE_PAGE_SIZE_8K		BIT(13)
- #define BNXT_RE_PAGE_SIZE_64K		BIT(16)
-@@ -95,6 +98,9 @@ struct bnxt_re_dev {
- 
- 	int				id;
- 
-+	struct delayed_work		worker;
-+	u8				cur_prio_map;
++#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/debugfs.h>
++#include <linux/seq_file.h>
++#include <linux/netdevice.h>
 +
- 	/* FP Notification Queue (CQ & SRQ) */
- 	struct tasklet_struct		nq_task;
- 
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
-index 260dec1..f3ce02c 100644
---- a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
-@@ -44,6 +44,7 @@
- #include <linux/rculist.h>
- #include <linux/spinlock.h>
- #include <linux/pci.h>
-+#include <net/dcbnl.h>
- #include <net/ipv6.h>
- #include <net/addrconf.h>
- 
-@@ -734,6 +735,50 @@ static void bnxt_re_dispatch_event(struct ib_device *ibdev, struct ib_qp *qp,
- 	ib_dispatch_event(&ib_event);
- }
- 
-+#define HWRM_QUEUE_PRI2COS_QCFG_INPUT_FLAGS_IVLAN      0x02
-+static int bnxt_re_query_hwrm_pri2cos(struct bnxt_re_dev *rdev, u8 dir,
-+				      u64 *cid_map)
++#include <rdma/ib_verbs.h>
++#include "bnxt_re_hsi.h"
++#include "bnxt_ulp.h"
++#include "bnxt_qplib_res.h"
++#include "bnxt_qplib_sp.h"
++#include "bnxt_qplib_fp.h"
++#include "bnxt_qplib_rcfw.h"
++
++#include "bnxt_re.h"
++#include "bnxt_re_debugfs.h"
++
++static struct dentry *bnxt_re_debugfs_root;
++static struct dentry *bnxt_re_debugfs_info;
++
++static ssize_t bnxt_re_debugfs_clear(struct file *fil, const char __user *u,
++				     size_t size, loff_t *off)
 +{
-+	struct hwrm_queue_pri2cos_qcfg_input req = {0};
-+	struct bnxt *bp = netdev_priv(rdev->netdev);
-+	struct hwrm_queue_pri2cos_qcfg_output resp;
-+	struct bnxt_en_dev *en_dev = rdev->en_dev;
-+	struct bnxt_fw_msg fw_msg;
-+	u32 flags = 0;
-+	u8 *qcfgmap, *tmp_map;
-+	int rc = 0, i;
-+
-+	if (!cid_map)
-+		return -EINVAL;
-+
-+	memset(&fw_msg, 0, sizeof(fw_msg));
-+	bnxt_re_init_hwrm_hdr(rdev, (void *)&req,
-+			      HWRM_QUEUE_PRI2COS_QCFG, -1, -1);
-+	flags |= (dir & 0x01);
-+	flags |= HWRM_QUEUE_PRI2COS_QCFG_INPUT_FLAGS_IVLAN;
-+	req.flags = cpu_to_le32(flags);
-+	req.port_id = bp->pf.port_id;
-+
-+	bnxt_re_fill_fw_msg(&fw_msg, (void *)&req, sizeof(req), (void *)&resp,
-+			    sizeof(resp), DFLT_HWRM_CMD_TIMEOUT);
-+	rc = en_dev->en_ops->bnxt_send_fw_msg(en_dev, BNXT_ROCE_ULP, &fw_msg);
-+	if (rc)
-+		return rc;
-+
-+	if (resp.queue_cfg_info) {
-+		dev_warn(rdev_to_dev(rdev),
-+			 "Asymmetric cos queue configuration detected");
-+		dev_warn(rdev_to_dev(rdev),
-+			 " on device, QoS may not be fully functional\n");
-+	}
-+	qcfgmap = &resp.pri0_cos_queue_id;
-+	tmp_map = (u8 *)cid_map;
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
-+		tmp_map[i] = qcfgmap[i];
-+
-+	return rc;
++	return size;
 +}
 +
- static bool bnxt_re_is_qp1_or_shadow_qp(struct bnxt_re_dev *rdev,
- 					struct bnxt_re_qp *qp)
- {
-@@ -774,6 +819,80 @@ static void bnxt_re_dev_stop(struct bnxt_re_dev *rdev, bool qp_wait)
- 	}
- }
- 
-+static u32 bnxt_re_get_priority_mask(struct bnxt_re_dev *rdev)
++static int bnxt_re_debugfs_show(struct seq_file *s, void *unused)
 +{
-+	u32 prio_map = 0, tmp_map = 0;
-+	struct net_device *netdev;
-+	struct dcb_app app;
++	struct bnxt_re_dev *rdev;
 +
-+	netdev = rdev->netdev;
++	seq_puts(s, "bnxt_re debug info:\n");
 +
-+	memset(&app, 0, sizeof(app));
-+	app.selector = IEEE_8021QAZ_APP_SEL_ETHERTYPE;
-+	app.protocol = BNXT_RE_ROCE_V1_ETH_TYPE;
-+	tmp_map = dcb_ieee_getapp_mask(netdev, &app);
-+	prio_map = tmp_map;
++	mutex_lock(&bnxt_re_dev_lock);
++	list_for_each_entry(rdev, &bnxt_re_dev_list, list) {
++		struct ctx_hw_stats *stats = rdev->qplib_ctx.stats.dma;
 +
-+	app.selector = IEEE_8021QAZ_APP_SEL_DGRAM;
-+	app.protocol = BNXT_RE_ROCE_V2_PORT_NO;
-+	tmp_map = dcb_ieee_getapp_mask(netdev, &app);
-+	prio_map |= tmp_map;
++		seq_printf(s, "=====[ IBDEV %s ]=============================\n",
++			   rdev->ibdev.name);
++		if (rdev->netdev)
++			seq_printf(s, "\tlink state: %s\n",
++				   test_bit(__LINK_STATE_START,
++					    &rdev->netdev->state) ?
++				   (test_bit(__LINK_STATE_NOCARRIER,
++					     &rdev->netdev->state) ?
++				    "DOWN" : "UP") : "DOWN");
++		seq_printf(s, "\tMax QP: 0x%x\n", rdev->dev_attr.max_qp);
++		seq_printf(s, "\tMax SRQ: 0x%x\n", rdev->dev_attr.max_srq);
++		seq_printf(s, "\tMax CQ: 0x%x\n", rdev->dev_attr.max_cq);
++		seq_printf(s, "\tMax MR: 0x%x\n", rdev->dev_attr.max_mr);
++		seq_printf(s, "\tMax MW: 0x%x\n", rdev->dev_attr.max_mw);
 +
-+	if (!prio_map)
-+		prio_map = -EFAULT;
-+	return prio_map;
-+}
-+
-+static void bnxt_re_parse_cid_map(u8 prio_map, u8 *cid_map, u16 *cosq)
-+{
-+	u16 prio;
-+	u8 id;
-+
-+	for (prio = 0, id = 0; prio < 8; prio++) {
-+		if (prio_map & (1 << prio)) {
-+			cosq[id] = cid_map[prio];
-+			id++;
-+			if (id == 2) /* Max 2 tcs supported */
-+				break;
-+		}
++		seq_printf(s, "\tActive QP: %d\n",
++			   atomic_read(&rdev->qp_count));
++		seq_printf(s, "\tActive SRQ: %d\n",
++			   atomic_read(&rdev->srq_count));
++		seq_printf(s, "\tActive CQ: %d\n",
++			   atomic_read(&rdev->cq_count));
++		seq_printf(s, "\tActive MR: %d\n",
++			   atomic_read(&rdev->mr_count));
++		seq_printf(s, "\tActive MW: %d\n",
++			   atomic_read(&rdev->mw_count));
++		seq_printf(s, "\tRx Pkts: %lld\n",
++			   stats ? stats->rx_ucast_pkts : 0);
++		seq_printf(s, "\tRx Bytes: %lld\n",
++			   stats ? stats->rx_ucast_bytes : 0);
++		seq_printf(s, "\tTx Pkts: %lld\n",
++			   stats ? stats->tx_ucast_pkts : 0);
++		seq_printf(s, "\tTx Bytes: %lld\n",
++			   stats ? stats->tx_ucast_bytes : 0);
++		seq_printf(s, "\tRecoverable Errors: %lld\n",
++			   stats ? stats->tx_bcast_pkts : 0);
++		seq_puts(s, "\n");
 +	}
-+}
-+
-+static int bnxt_re_setup_qos(struct bnxt_re_dev *rdev)
-+{
-+	u8 prio_map = 0;
-+	u64 cid_map;
-+	int rc;
-+
-+	/* Get priority for roce */
-+	rc = bnxt_re_get_priority_mask(rdev);
-+	if (rc < 0)
-+		return rc;
-+	prio_map = (u8)rc;
-+
-+	if (prio_map == rdev->cur_prio_map)
-+		return 0;
-+	rdev->cur_prio_map = prio_map;
-+	/* Get cosq id for this priority */
-+	rc = bnxt_re_query_hwrm_pri2cos(rdev, 0, &cid_map);
-+	if (rc) {
-+		dev_warn(rdev_to_dev(rdev), "no cos for p_mask %x\n", prio_map);
-+		return rc;
-+	}
-+	/* Parse CoS IDs for app priority */
-+	bnxt_re_parse_cid_map(prio_map, (u8 *)&cid_map, rdev->cosq);
-+
-+	/* Config BONO. */
-+	rc = bnxt_qplib_map_tc2cos(&rdev->qplib_res, rdev->cosq);
-+	if (rc) {
-+		dev_warn(rdev_to_dev(rdev), "no tc for cos{%x, %x}\n",
-+			 rdev->cosq[0], rdev->cosq[1]);
-+		return rc;
-+	}
-+
++	mutex_unlock(&bnxt_re_dev_lock);
 +	return 0;
 +}
 +
- static void bnxt_re_ib_unreg(struct bnxt_re_dev *rdev, bool lock_wait)
- {
- 	int i, rc;
-@@ -785,6 +904,9 @@ static void bnxt_re_ib_unreg(struct bnxt_re_dev *rdev, bool lock_wait)
- 		/* Cleanup ib dev */
- 		bnxt_re_unregister_ib(rdev);
- 	}
-+	if (test_and_clear_bit(BNXT_RE_FLAG_QOS_WORK_REG, &rdev->flags))
-+		cancel_delayed_work(&rdev->worker);
-+
- 	bnxt_re_cleanup_res(rdev);
- 	bnxt_re_free_res(rdev, lock_wait);
- 
-@@ -827,6 +949,16 @@ static void bnxt_re_set_resource_limits(struct bnxt_re_dev *rdev)
- 		rdev->dev_attr.tqm_alloc_reqs[i];
- }
- 
-+/* worker thread for polling periodic events. Now used for QoS programming*/
-+static void bnxt_re_worker(struct work_struct *work)
++static int bnxt_re_debugfs_open(struct inode *inode, struct file *file)
 +{
-+	struct bnxt_re_dev *rdev = container_of(work, struct bnxt_re_dev,
-+						worker.work);
-+
-+	bnxt_re_setup_qos(rdev);
-+	schedule_delayed_work(&rdev->worker, msecs_to_jiffies(30000));
++	return single_open(file, bnxt_re_debugfs_show, NULL);
 +}
 +
- static int bnxt_re_ib_reg(struct bnxt_re_dev *rdev)
- {
- 	int i, j, rc;
-@@ -911,6 +1043,14 @@ static int bnxt_re_ib_reg(struct bnxt_re_dev *rdev)
- 		goto fail;
- 	}
++static int bnxt_re_debugfs_release(struct inode *inode, struct file *file)
++{
++	return single_release(inode, file);
++}
++
++static const struct file_operations bnxt_re_dbg_ops = {
++	.owner		= THIS_MODULE,
++	.open		= bnxt_re_debugfs_open,
++	.read		= seq_read,
++	.write		= bnxt_re_debugfs_clear,
++	.llseek		= seq_lseek,
++	.release	= bnxt_re_debugfs_release,
++};
++
++void bnxt_re_debugfs_remove(void)
++{
++	debugfs_remove_recursive(bnxt_re_debugfs_root);
++	bnxt_re_debugfs_root = NULL;
++}
++
++void bnxt_re_debugfs_init(void)
++{
++	bnxt_re_debugfs_root = debugfs_create_dir(ROCE_DRV_MODULE_NAME, NULL);
++	if (IS_ERR_OR_NULL(bnxt_re_debugfs_root)) {
++		dev_dbg(NULL, "%s: Unable to create debugfs root directory ",
++			ROCE_DRV_MODULE_NAME);
++		dev_dbg(NULL, "with err 0x%lx", PTR_ERR(bnxt_re_debugfs_root));
++		return;
++	}
++	bnxt_re_debugfs_info = debugfs_create_file("info", 0400,
++						   bnxt_re_debugfs_root, NULL,
++						   &bnxt_re_dbg_ops);
++	if (IS_ERR_OR_NULL(bnxt_re_debugfs_info)) {
++		dev_dbg(NULL, "%s: Unable to create debugfs info node ",
++			ROCE_DRV_MODULE_NAME);
++		dev_dbg(NULL, "with err 0x%lx", PTR_ERR(bnxt_re_debugfs_info));
++		bnxt_re_debugfs_remove();
++	}
++}
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.h b/drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.h
+new file mode 100644
+index 0000000..06ba5cd
+--- /dev/null
++++ b/drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.h
+@@ -0,0 +1,48 @@
++/*
++ * Broadcom NetXtreme-E RoCE driver.
++ *
++ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
++ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * BSD license below:
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
++ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
++ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * Description: DebugFS header
++ */
++
++#ifndef __BNXT_RE_DEBUGFS__
++#define __BNXT_RE_DEBUGFS__
++
++extern struct list_head bnxt_re_dev_list;
++extern struct mutex bnxt_re_dev_lock;
++
++void bnxt_re_debugfs_init(void);
++void bnxt_re_debugfs_remove(void);
++
++#endif
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+index f3ce02c..3b3a063 100644
+--- a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
++++ b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+@@ -60,6 +60,7 @@
+ #include "bnxt_qplib_fp.h"
+ #include "bnxt_qplib_rcfw.h"
+ #include "bnxt_re.h"
++#include "bnxt_re_debugfs.h"
+ #include "bnxt_re_ib_verbs.h"
+ #include "bnxt.h"
+ static char version[] =
+@@ -72,8 +73,8 @@ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_VERSION(ROCE_DRV_MODULE_VERSION);
  
-+	rc = bnxt_re_setup_qos(rdev);
-+	if (rc)
-+		pr_info("RoCE priority not yet configured\n");
-+
-+	INIT_DELAYED_WORK(&rdev->worker, bnxt_re_worker);
-+	set_bit(BNXT_RE_FLAG_QOS_WORK_REG, &rdev->flags);
-+	schedule_delayed_work(&rdev->worker, msecs_to_jiffies(30000));
-+
- 	/* Register ib dev */
- 	rc = bnxt_re_register_ib(rdev);
- 	if (rc) {
+ /* globals */
+-static struct list_head bnxt_re_dev_list = LIST_HEAD_INIT(bnxt_re_dev_list);
+-static DEFINE_MUTEX(bnxt_re_dev_lock);
++struct list_head bnxt_re_dev_list = LIST_HEAD_INIT(bnxt_re_dev_list);
++DEFINE_MUTEX(bnxt_re_dev_lock);
+ static struct workqueue_struct *bnxt_re_wq;
+ 
+ /* for handling bnxt_en callbacks later */
+@@ -1264,6 +1265,7 @@ static int __init bnxt_re_mod_init(void)
+ 	if (!bnxt_re_wq)
+ 		return -ENOMEM;
+ 
++	bnxt_re_debugfs_init();
+ 	INIT_LIST_HEAD(&bnxt_re_dev_list);
+ 
+ 	rc = register_netdevice_notifier(&bnxt_re_netdev_notifier);
+@@ -1275,6 +1277,7 @@ static int __init bnxt_re_mod_init(void)
+ 	return 0;
+ 
+ err_netdev:
++	bnxt_re_debugfs_remove();
+ 	destroy_workqueue(bnxt_re_wq);
+ 
+ 	return rc;
+@@ -1282,6 +1285,7 @@ static int __init bnxt_re_mod_init(void)
+ static void __exit bnxt_re_mod_exit(void)
+ {
+ 	unregister_netdevice_notifier(&bnxt_re_netdev_notifier);
++	bnxt_re_debugfs_remove();
+ 	if (bnxt_re_wq)
+ 		destroy_workqueue(bnxt_re_wq);
+ }
 -- 
 2.5.5
