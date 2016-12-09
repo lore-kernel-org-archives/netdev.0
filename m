@@ -1,68 +1,125 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: fs, net: deadlock between bind/splice on af_unix
-Date: Thu, 8 Dec 2016 22:32:00 -0800
-Message-ID: <CAM_iQpXjeG5=wZyQP-yOKcB4WRfgGRjeQ+NDHyeSWwdU50Xh5g@mail.gmail.com>
-References: <CACT4Y+Z981V+QLHr=PnQy1Dvxrpp-nCDhQtf+5HuNAusH+Vqxw@mail.gmail.com>
- <CACT4Y+a-fTzW95ViVP3knhNTa=h6XFB0bMddcyQVeeV+LbXKHw@mail.gmail.com>
- <CAM_iQpXu+fyjmvrYRB9+VJCdSLS=7Jiet762hqWDANfsOM0XWw@mail.gmail.com> <20161209013208.GW1555@ZenIV.linux.org.uk>
+From: "Madhani, Himanshu" <Himanshu.Madhani@cavium.com>
+Subject: Re: [PATCH] linux/types.h: enable endian checks for all sparse builds
+Date: Fri, 9 Dec 2016 06:40:53 +0000
+Message-ID: <6199215E-2AA4-4705-9552-5D61FE03F866@cavium.com>
+References: <1481164052-28036-1-git-send-email-mst@redhat.com>
+ <BLUPR02MB168374E98A6C86E43DF0BCFE81840@BLUPR02MB1683.namprd02.prod.outlook.com>
+ <20161208075152-mutt-send-email-mst@kernel.org>
+ <BLUPR02MB168304F8FBA50C916A6A4E6081840@BLUPR02MB1683.namprd02.prod.outlook.com>
+ <20161208163658-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Al Viro <viro@zeniv.linux.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+        Neil Armstrong <narmstrong@baylibre.com>,
+        David Airlie <airlied@linux.ie>,
+        "linux-remoteproc@vger.kernel.org" <linux-remoteproc@vger.kernel.org>,
+        "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
+        "virtualization@lists.linux-foundation.org"
+        <virtualization@lists.linux-foundation.org>,
+        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+        Christoph Hellwig <hch@infradead.org>,
+        "v9fs-developer@lists.sourceforge.net"
+        <v9fs-developer@lists.sourceforge.net>,
+        Asias He <asias@redhat.com>, "Arnd Bergmann" <arnd@arndb.de>,
+        "linux-kbuild@vger.kernel.org" <lin
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Bart Van Assche <Bart.VanAssche@sandisk.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161209013208.GW1555@ZenIV.linux.org.uk>
+In-Reply-To: <20161208163658-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
+Content-ID: <CC052759A2A98246AAADC005BD2ECE5C@namprd07.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 8, 2016 at 5:32 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Thu, Dec 08, 2016 at 04:08:27PM -0800, Cong Wang wrote:
->> On Thu, Dec 8, 2016 at 8:30 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> > Chain exists of:
->> >  Possible unsafe locking scenario:
->> >
->> >        CPU0                    CPU1
->> >        ----                    ----
->> >   lock(sb_writers#5);
->> >                                lock(&u->bindlock);
->> >                                lock(sb_writers#5);
->> >   lock(&pipe->mutex/1);
->>
->> This looks false positive, probably just needs lockdep_set_class()
->> to set keys for pipe->mutex and unix->bindlock.
->
-> I'm afraid that it's not a false positive at all.
-
-Right, I was totally misled by the scenario output of lockdep, the stack
-traces actually are much more reasonable.
-
-The deadlock scenario is easy actually, comparing with the netlink one
-which has 4 locks involved, it is:
-
-unix_bind() path:
-u->bindlock ==> sb_writer
-
-do_splice() path:
-sb_writer ==> pipe->mutex ==> u->bindlock
-
- *** DEADLOCK ***
-
->
-> Why do we do autobind there, anyway, and why is it conditional on
-> SOCK_PASSCRED?  Note that e.g. for SOCK_STREAM we can bloody well get
-> to sending stuff without autobind ever done - just use socketpair()
-> to create that sucker and we won't be going through the connect()
-> at all.
-
-In the case Dmitry reported, unix_dgram_sendmsg() calls unix_autobind(),
-not SOCK_STREAM.
-
-I guess some lock, perhaps the u->bindlock could be dropped before
-acquiring the next one (sb_writer), but I need to double check.
+SGkgTWlrZS9CYXJ0LCANCg0KDQoNCg0KDQoNCg0KT24gMTIvOC8xNiwgODoxNyBBTSwgInZpcnR1
+YWxpemF0aW9uLWJvdW5jZXNAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcgb24gYmVoYWxmIG9m
+IE1pY2hhZWwgUy4gVHNpcmtpbiIgPHZpcnR1YWxpemF0aW9uLWJvdW5jZXNAbGlzdHMubGludXgt
+Zm91bmRhdGlvbi5vcmcgb24gYmVoYWxmIG9mIG1zdEByZWRoYXQuY29tPiB3cm90ZToNCg0KPk9u
+IFRodSwgRGVjIDA4LCAyMDE2IGF0IDA2OjM4OjExQU0gKzAwMDAsIEJhcnQgVmFuIEFzc2NoZSB3
+cm90ZToNCj4+IE9uIDEyLzA3LzE2IDIxOjU0LCBNaWNoYWVsIFMuIFRzaXJraW4gd3JvdGU6DQo+
+PiA+IE9uIFRodSwgRGVjIDA4LCAyMDE2IGF0IDA1OjIxOjQ3QU0gKzAwMDAsIEJhcnQgVmFuIEFz
+c2NoZSB3cm90ZToNCj4+ID4+IEFkZGl0aW9uYWxseSwgdGhlcmUgYXJlIG5vdGFibGUgZXhjZXB0
+aW9ucyB0byB0aGUgcnVsZSB0aGF0IG1vc3QgZHJpdmVycw0KPj4gPj4gYXJlIGVuZGlhbi1jbGVh
+biwgZS5nLiBkcml2ZXJzL3Njc2kvcWxhMnh4eC4gSSB3b3VsZCBhcHByZWNpYXRlIGl0IGlmIGl0
+DQo+PiA+PiB3b3VsZCByZW1haW4gcG9zc2libGUgdG8gY2hlY2sgc3VjaCBkcml2ZXJzIHdpdGgg
+c3BhcnNlIHdpdGhvdXQgZW5hYmxpbmcNCj4+ID4+IGVuZGlhbm5lc3MgY2hlY2tzLiBIYXZlIHlv
+dSBjb25zaWRlcmVkIHRvIGNoYW5nZSAjaWZkZWYgX19DSEVDS19FTkRJQU5fXw0KPj4gPj4gaW50
+byBlLmcuICNpZm5kZWYgX19ET05UX0NIRUNLX0VORElBTl9fPw0KPj4gPg0KPj4gPiBUaGUgcmln
+aHQgdGhpbmcgaXMgcHJvYmFibHkganVzdCB0byBmaXggdGhlc2UsIGlzbid0IGl0Pw0KPj4gPiBV
+bnRpbCB0aGVuLCB3aHkgbm90IGp1c3QgaWdub3JlIHRoZSB3YXJuaW5ncz8NCj4+IA0KPj4gTmVp
+dGhlciBvcHRpb24gaXMgcmVhbGlzdGljLiBXaXRoIGVuZGlhbi1jaGVja2luZyBlbmFibGVkIHRo
+ZSBxbGEyeHh4IA0KPj4gZHJpdmVyIHRyaWdnZXJzIHNvIG1hbnkgd2FybmluZ3MgdGhhdCBpdCBi
+ZWNvbWVzIGEgcmVhbCBjaGFsbGVuZ2UgdG8gDQo+PiBmaWx0ZXIgdGhlIG5vbi1lbmRpYW4gd2Fy
+bmluZ3Mgb3V0IG1hbnVhbGx5Og0KPj4gDQo+PiAkIGZvciBmIGluICIiIENGPS1EX19DSEVDS19F
+TkRJQU5fXzsgZG8gbWFrZSBNPWRyaXZlcnMvc2NzaS9xbGEyeHh4IEM9MlwNCj4+ICAgICAgJGYg
+fCAmZ3JlcCAtYyAnOiB3YXJuaW5nOic7IGRvbmUNCj4+IDQNCj4+IDc1Mg0KPg0KPllvdSBjYW4g
+YWx3YXlzIHJldmVydCB0aGlzIHBhdGNoIGluIHlvdXIgdHJlZSwgb3Igd2hhdGV2ZXIuICBJdCBk
+b2VzIG5vdA0KPmxvb2sgbGlrZSB0aGlzIHdpbGwgZ2V0IGZpeGVkIG90aGVyd2lzZS4NCj4NCj4+
+IElmIHlvdSB0aGluayBpdCB3b3VsZCBiZSBlYXN5IHRvIGZpeCB0aGUgZW5kaWFuIHdhcm5pbmdz
+IHRyaWdnZXJlZCBieSANCj4+IHRoZSBxbGEyeHh4IGRyaXZlciwgeW91IGFyZSB3ZWxjb21lIHRv
+IHRyeSB0byBmaXggdGhlc2UuDQo+PiANCj4+IEJhcnQuDQo+DQo+WWVhLCB0aGlzIGhhcmR3YXJl
+IHdhcyBkZXNpZ25lZCBieSBzb21lb25lIHdobyB0aG91Z2h0IG1peGluZw0KPkxFIGFuZCBCRSBh
+bGwgb3ZlciB0aGUgcGxhY2UgaXMgYSBnb29kIGlkZWEuDQo+QnV0IHdobyBzYWlkIGl0IHNob3Vs
+ZCBiZSBlYXN5Pw0KPg0KPk1heWJlIHRoaXMgY2hhbmdlIHdpbGwgYmUgZW5vdWdoIHRvIG1vdGl2
+YXRlIHRoZSBtYWludGFpbmVycy4NCj4NCj5IZXJlJ3MgYSBtaW5vciBidWdsZXQgZm9yIHlvdSBh
+cyBhIG1vdGl2YXRvcjoNCj4NCj4gICAgICAgICAgICAgICAgICAgICAgICBpZiAoY3RfcnNwLT5o
+ZWFkZXIucmVzcG9uc2UgIT0NCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgY3B1X3RvX2Jl
+MTYoQ1RfQUNDRVBUX1JFU1BPTlNFKSkgew0KPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgcWxfZGJnKHFsX2RiZ19kaXNjICsgcWxfZGJnX2J1ZmZlciwgdmhhLCAweDIwNzcsDQo+ICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIiVzIGZhaWxlZCByZWplY3RlZCByZXF1
+ZXN0IG9uIHBvcnRfaWQ6ICUwMnglMDJ4JTAyeCBDb21wZWx0aW9uIHN0YXR1cyAweCV4LCByZXNw
+b25zZSAweCV4XG4iLA0KPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJvdXRp
+bmUsIHZoYS0+ZF9pZC5iLmRvbWFpbiwNCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICB2aGEtPmRfaWQuYi5hcmVhLCB2aGEtPmRfaWQuYi5hbF9wYSwgY29tcF9zdGF0dXMsIGN0
+X3JzcC0+aGVhZGVyLnJlc3BvbnNlKTsNCj4NCj4NCj5yZXNwb25zZSBpcyBCRSBhbmQgaXNuJ3Qg
+cHJpbnRlZCBjb3JyZWN0bHkuDQo+DQo+YW5vdGhlcjoNCj4NCj4gICAgICAgIGVpdGVyLT5hLm1h
+eF9mcmFtZV9zaXplID0gY3B1X3RvX2JlMzIoZWl0ZXItPmEubWF4X2ZyYW1lX3NpemUpOw0KPiAg
+ICAgICAgc2l6ZSArPSA0ICsgNDsNCj4NCj4gICAgICAgIHFsX2RiZyhxbF9kYmdfZGlzYywgdmhh
+LCAweDIwYmMsDQo+ICAgICAgICAgICAgIk1heF9GcmFtZV9TaXplID0gJXguXG4iLCBlaXRlci0+
+YS5tYXhfZnJhbWVfc2l6ZSk7DQo+DQo+cHJpbnRlZCB0b28gbGF0ZSwgaXQncyBiZSBieSB0aGF0
+IHRpbWUuDQo+DQo+SGVyZSdzIGFub3RoZXIgc3VzcGljaW91cyBsaW5lDQo+DQo+ICAgICAgICBj
+dGlvMjQtPnUuc3RhdHVzMS5mbGFncyA9IChhdGlvLT51LmlzcDI0LmF0dHIgPDwgOSkgfA0KPiAg
+ICAgICAgICAgIGNwdV90b19sZTE2KENUSU83X0ZMQUdTX1NUQVRVU19NT0RFXzEgfA0KPiAgICAg
+ICAgICAgICAgICBDVElPN19GTEFHU19URVJNSU5BVEUpOw0KPg0KPnNoaWZ0aW5nIGF0dHIgYnkg
+OSBiaXRzIGdpdmVzIGRpZmZlcmVudCByZXN1bHRzIG9uIEJFIGFuZCBMRSwNCj5taXhpbmcgaXQg
+d2l0aCBsZTE2IGxvb2tzIHJhdGhlciBzdHJhbmdlLg0KPg0KPkFub3RoZXI6DQo+DQo+ICAgICAg
+ICAgICAgICAgIGhhLT5mbGFncy5kcG9ydF9lbmFibGVkID0NCj4gICAgICAgICAgICAgICAgICAg
+IChtaWRfaW5pdF9jYi0+aW5pdF9jYi5maXJtd2FyZV9vcHRpb25zXzEgJiBCSVRfNykgIT0gMDsN
+Cj4NCj5CSVRfNyBpcyBuYXRpdmUgZW5kaWFuLCBmaXJtd2FyZV9vcHRpb25zXzEgaXMgTEUgSSB0
+aGluay4NCj4NCj4NCj4NCj5Mb29rIGF0IHFsYTI3eHhfZmluZF92YWxpZF9pbWFnZSBhcyB3ZWxs
+Lg0KPg0KPiAgICAgICAgaWYgKHByaV9pbWFnZV9zdGF0dXMuc2lnbmF0dXJlICE9IFFMQTI3WFhf
+SU1HX1NUQVRVU19TSUdOKQ0KPg0KPnFsYTI3eHhfaW1hZ2Vfc3RhdHVzIHNlZW1zIHRvIGJlIGRh
+dGEgY29taW5nIGZyb20gZmxhc2gsIGJ1dCBpcw0KPnNvbWVob3cgbmF0aXZlLWVuZGlhbj8gTWF5
+YmUgLi4uDQo+DQo+DQo+ICAgICAgICBsdW4gPSBhLT51LmlzcDI0LmZjcF9jbW5kLmx1bjsNCj4N
+Cj5JIHRoaW5rIGx1biBoZXJlIGlzIGluIGhhcmR3YXJlIGZvcm1hdCAobGU/KSwgY29kZSB0cmVh
+dHMgaXQNCj5hcyBuYXRpdmUuDQo+DQo+DQo+Tm90IHRvIHNwZWFrIGFib3V0IGludGVyZmFjZSBh
+YnVzZSBhbGwgb3ZlciB0aGUgcGxhY2UuDQo+SG93IGFib3V0IHRoaXM6DQo+DQo+dWludDMyX3Qg
+Kg0KPnFsYTI0eHhfcmVhZF9mbGFzaF9kYXRhKHNjc2lfcWxhX2hvc3RfdCAqdmhhLCB1aW50MzJf
+dCAqZHdwdHIsIHVpbnQzMl90DQo+ZmFkZHIsDQo+ICAgIHVpbnQzMl90IGR3b3JkcykgICAgICAg
+ICAgICAgICAgICAgICANCj57DQo+ICAgICAgICB1aW50MzJfdCBpOyAgICAgICAgICAgICAgICAg
+ICAgIA0KPiAgICAgICAgc3RydWN0IHFsYV9od19kYXRhICpoYSA9IHZoYS0+aHc7DQo+ICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA0KPiAgICAgICAgLyogRHdvcmQgcmVh
+ZHMgdG8gZmxhc2guICovDQo+ICAgICAgICBmb3IgKGkgPSAwOyBpIDwgZHdvcmRzOyBpKyssIGZh
+ZGRyKyspDQo+ICAgICAgICAgICAgICAgIGR3cHRyW2ldID0gY3B1X3RvX2xlMzIocWxhMjR4eF9y
+ZWFkX2ZsYXNoX2R3b3JkKGhhLA0KPiAgICAgICAgICAgICAgICAgICAgZmxhc2hfZGF0YV9hZGRy
+KGhhLCBmYWRkcikpKTsNCj4NCj4gICAgICAgIHJldHVybiBkd3B0cjsgICAgICAgICAgICAgICAg
+ICAgDQo+fQ0KPg0KPk9LIHNvIHdlIGNvbnZlcnQgdG8gTEUgLi4uDQo+DQo+ICAgICAgICAgICAg
+ICAgIHFsYTI0eHhfcmVhZF9mbGFzaF9kYXRhKHZoYSwgZGNvZGUsIGZhZGRyLCA0KTsgDQo+ICAg
+IA0KPiAgICAgICAgICAgICAgICByaXNjX2FkZHIgPSBiZTMyX3RvX2NwdShkY29kZVsyXSk7DQo+
+ICAgICAgICAgICAgICAgICpzcmlzY19hZGRyID0gKnNyaXNjX2FkZHIgPT0gMCA/IHJpc2NfYWRk
+ciA6ICpzcmlzY19hZGRyOw0KPiAgICAgICAgICAgICAgICByaXNjX3NpemUgPSBiZTMyX3RvX2Nw
+dShkY29kZVszXSk7DQo+DQo+dGhlbiBoYXBwaWx5IGFzc3VtZSBpdCdzIEJFLg0KPg0KPkFuZCBh
+Z2FpbiwgY29taW5nIGZyb20gZmxhc2gsIGl0J3MgdW5saWtlbHkgdG8gYWN0dWFsbHkgYmUgaW4g
+dGhlIG5hdGl2ZQ0KPmVuZGlhbi1uZXNzIGFzIGNhbGxlcnMgc2VlbSB0byBhc3N1bWUuIEknbSBn
+dWVzc2luZyBpdCdzIGFsbCBCRS4NCj4NCj5JIHBva2VkIGF0IGl0IGEgYml0IGFuZCB3YXMgYWJs
+ZSB0byBjdXQgZG93biAjIG9mIHdhcm5pbmdzDQo+ZnJvbSAxNzAwIHRvIDE0MDAgaW4gYW4gaG91
+ci4gU29tZW9uZSBmYW1pbGlhciB3aXRoIHRoZSBjb2RlDQo+c2hvdWxkIGxvb2sgYXQgaXQuDQoN
+Cldl4oCZbGwgdGFrZSBhIGxvb2sgYW5kIHNlbmQgcGF0Y2hlcyB0byByZXNvbHZlIHRoZXNlIHdh
+cm5pbmdzLiANCg0KPg0KPi0tIA0KPk1TVA0KPl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fDQo+VmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0DQo+VmlydHVh
+bGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcNCj5odHRwczovL2xpc3RzLmxpbnV4
+Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg0K
