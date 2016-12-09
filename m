@@ -1,100 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 37/50] netfilter: nf_tables: atomic dump and reset for
- stateful objects
-Date: Fri, 09 Dec 2016 06:24:52 -0800
-Message-ID: <1481293492.4930.168.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
-         <1481147576-5690-38-git-send-email-pablo@netfilter.org>
-         <CAP=VYLp-ZBFjR1W9=V_vyPYAi1=Yub3ugq6D8hkoLigcPaaxFg@mail.gmail.com>
-         <20161209102432.GA986@salvia>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCHv3 perf/core 3/7] tools lib bpf: Add flags to
+ bpf_create_map()
+Date: Fri, 9 Dec 2016 11:27:12 -0300
+Message-ID: <20161209142712.GK8257@kernel.org>
+References: <20161209024620.31660-1-joe@ovn.org>
+ <20161209024620.31660-4-joe@ovn.org>
+ <b2c274c5-5e2c-749f-648e-7664a1daa6c2@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-        netfilter-devel@vger.kernel.org,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34719 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933380AbcLIOYy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 09:24:54 -0500
-In-Reply-To: <20161209102432.GA986@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Stringer <joe@ovn.org>, linux-kernel@vger.kernel.org,
+        ast@fb.com, daniel@iogearbox.net, netdev@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b2c274c5-5e2c-749f-648e-7664a1daa6c2@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-12-09 at 11:24 +0100, Pablo Neira Ayuso wrote:
-> Hi Paul,
+Em Fri, Dec 09, 2016 at 11:36:18AM +0800, Wangnan (F) escreveu:
+> 
+> 
+> On 2016/12/9 10:46, Joe Stringer wrote:
+> > The map_flags argument to bpf_create_map() was previously not exposed.
+> > By exposing it, users can access flags such as whether or not to
+> > preallocate the map.
+> > 
+> > Signed-off-by: Joe Stringer <joe@ovn.org>
+> 
+> Please mention commit 6c90598174322b8888029e40dd84a4eb01f56afe in
+> commit message:
+> 
+> Commit 6c905981743 ("bpf: pre-allocate hash map elements") introduces
+> map_flags to bpf_attr for BPF_MAP_CREATE command. Expose this new
+> parameter in libbpf.
 
-Hi Pablo
+will do it, thanks.
 
-Given that bytes/packets counters are modified without cmpxchg64()  :
-
-static inline void nft_counter_do_eval(struct nft_counter_percpu_priv *priv,
-                                       struct nft_regs *regs,
-                                       const struct nft_pktinfo *pkt)
-{
-        struct nft_counter_percpu *this_cpu;
-
-        local_bh_disable();
-        this_cpu = this_cpu_ptr(priv->counter);
-        u64_stats_update_begin(&this_cpu->syncp);
-        this_cpu->counter.bytes += pkt->skb->len;
-        this_cpu->counter.packets++;
-        u64_stats_update_end(&this_cpu->syncp);
-        local_bh_enable();
-}
-
-It means that the cmpxchg64() used to clear the stats is not good enough.
-
-It does not help to make sure stats are properly cleared.
-
-On 64 bit, the ->syncp is not there, so the nft_counter_reset() might
-not see that a bytes or packets counter was modified by another cpu.
-
-
-CPU 1                              CPU 2
-
-LOAD PTR->BYTES into REG_A         old = *counter;
-REG_A += skb->len;
-                                   cmpxchg64(counter, old, 0);
-PTR->BYTES = REG_A
-
-It looks that you want a seqcount, even on 64bit arches,
-so that CPU 2 can restart its loop, and more importantly you need
-to not accumulate the values you read, because they might be old/invalid.
-
-Another way would be to not use cmpxchg64() at all.
-Way to expensive in fast path !
-
-The percpu value would never be modified by an other cpu than the owner.
-
-You need a per cpu seqcount, no need to add a syncp per nft percpu counter.
-
-
-static DEFINE_PERCPU(seqcount_t, nft_pcpu_seq);
-
-static inline void nft_counter_do_eval(struct nft_counter_percpu_priv *priv,
-                                       struct nft_regs *regs,
-                                       const struct nft_pktinfo *pkt)
-{
-        struct nft_counter_percpu *this_cpu;
-	seqcount_t *myseq;
-
-        local_bh_disable();
-        this_cpu = this_cpu_ptr(priv->counter);
-	myseq = this_cpu_ptr(&nft_pcpu_seq);
-
-	write_seqcount_begin(myseq);
-
-        this_cpu->counter.bytes += pkt->skb->len;
-        this_cpu->counter.packets++;
-
-	write_seqcount_end(myseq);
-	
-        local_bh_enable();
-}
-
-Thanks !
+- Arnaldo
+ 
+> Acked-by: Wang Nan <wangnan0@huawei.com>
+> 
+> > ---
+> > v3: Split from "tools lib bpf: Sync with samples/bpf/libbpf".
+> > ---
+> >   tools/lib/bpf/bpf.c    | 3 ++-
+> >   tools/lib/bpf/bpf.h    | 2 +-
+> >   tools/lib/bpf/libbpf.c | 3 ++-
+> >   3 files changed, 5 insertions(+), 3 deletions(-)
+> > 
+> > diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+> > index 89e8e8e5b60e..d0afb26c2e0f 100644
+> > --- a/tools/lib/bpf/bpf.c
+> > +++ b/tools/lib/bpf/bpf.c
+> > @@ -54,7 +54,7 @@ static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
+> >   }
+> >   int bpf_create_map(enum bpf_map_type map_type, int key_size,
+> > -		   int value_size, int max_entries)
+> > +		   int value_size, int max_entries, __u32 map_flags)
+> >   {
+> >   	union bpf_attr attr;
+> > @@ -64,6 +64,7 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size,
+> >   	attr.key_size = key_size;
+> >   	attr.value_size = value_size;
+> >   	attr.max_entries = max_entries;
+> > +	attr.map_flags = map_flags;
+> >   	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+> >   }
+> > diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+> > index 61130170a6ad..7fcdce16fd62 100644
+> > --- a/tools/lib/bpf/bpf.h
+> > +++ b/tools/lib/bpf/bpf.h
+> > @@ -24,7 +24,7 @@
+> >   #include <linux/bpf.h>
+> >   int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+> > -		   int max_entries);
+> > +		   int max_entries, __u32 map_flags);
+> >   /* Recommend log buffer size */
+> >   #define BPF_LOG_BUF_SIZE 65536
+> > diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+> > index 2e974593f3e8..84e6b35da4bd 100644
+> > --- a/tools/lib/bpf/libbpf.c
+> > +++ b/tools/lib/bpf/libbpf.c
+> > @@ -854,7 +854,8 @@ bpf_object__create_maps(struct bpf_object *obj)
+> >   		*pfd = bpf_create_map(def->type,
+> >   				      def->key_size,
+> >   				      def->value_size,
+> > -				      def->max_entries);
+> > +				      def->max_entries,
+> > +				      0);
+> >   		if (*pfd < 0) {
+> >   			size_t j;
+> >   			int err = *pfd;
+> 
