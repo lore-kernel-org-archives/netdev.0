@@ -1,64 +1,65 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: [PATCH] net: smsc911x: back out silently on probe deferrals
-Date: Fri,  9 Dec 2016 14:18:00 +0100
-Message-ID: <1481289480-22096-1-git-send-email-linus.walleij@linaro.org>
-Cc: Guenter Roeck <linux@roeck-us.net>,
-        Jeremy Linton <jeremy.linton@arm.com>,
-        Kamlakant Patel <kamlakant.patel@broadcom.com>,
-        Pavel Fedin <p.fedin@samsung.com>,
-        Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:35102 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932595AbcLINSS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 08:18:18 -0500
-Received: by mail-wm0-f41.google.com with SMTP id a197so26673639wmd.0
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 05:18:17 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [RESEND][PATCH v4] cgroup: Use CAP_SYS_RESOURCE to allow a
+ process to migrate other tasks between cgroups
+Date: Fri, 9 Dec 2016 08:27:21 -0500
+Message-ID: <20161209132721.GA30394@mtj.duckdns.org>
+References: <CALCETrW_mPHneTvcAM6HyBLCJqcwKmcYEoC+kseyuyQZzj2a=A@mail.gmail.com>
+ <CALAqxLXk+A9=A0oXGEduphXOQdbMg-wuGxmLkEk9cPHyn44X5Q@mail.gmail.com>
+ <CALAqxLW-mq4Lnudtn5KMBPdzBTg5bhTXV9QmUC2vfabVru+fUA@mail.gmail.com>
+ <CALCETrWuKpmXQqoQmcy4Va8abdpfCnMBYHWSD0nK5pocj2nfXA@mail.gmail.com>
+ <20161206165519.GA17648@mtj.duckdns.org>
+ <CALCETrV3Yrq1hRcoGCTU_z-T-6hmq-gY-HytR2HGkvnRK-W1SQ@mail.gmail.com>
+ <20161206181221.GA2625@mtj.duckdns.org>
+ <CALCETrUmwPaWbN_U2XAsg6Z0UGBJ=Ou7BoD09-GZFdRVT5Y-EQ@mail.gmail.com>
+ <20161206182315.GB2625@mtj.duckdns.org>
+ <CALAqxLUkqSAEiHE038w+ZGUmhPgj2SpG7BLcPrrtU46VYcO=KA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Lutomirski <luto@amacapital.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        Daniel Mack <daniel@zonque.org>,
+        "David S. Miller" <davem@davemloft.net>, kafai@fb.com,
+        Florian Westphal <fw@strlen.de>,
+        Harald Hoyer <harald@redhat.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Sargun Dhillon <sargun@sargun.me>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        lkml <linux-kernel@vger.kernel.org>,
+        Li Zefan <lizefan@huawei.com>,
+        Jonathan Corbet <corbet@lwn.net>,
+        "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>,
+        Android Kernel Team <kernel-team@android.com>,
+        Rom Lemarchand <romlem@android.com>,
+        Colin Cross <ccross@android.com>,
+        Dmitry Shmidt
+To: John Stultz <john.stultz@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALAqxLUkqSAEiHE038w+ZGUmhPgj2SpG7BLcPrrtU46VYcO=KA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When trying to get a regulator we may get deferred and we see
-this noise:
+Hello, John.
 
-smsc911x 1b800000.ethernet-ebi2 (unnamed net_device) (uninitialized):
-   couldn't get regulators -517
+On Thu, Dec 08, 2016 at 09:39:38PM -0800, John Stultz wrote:
+> So just to clarify the discussion for my purposes and make sure I
+> understood, per-cgroup CAP rules was not desired, and instead we
+> should either utilize an existing cap (are there still objections to
+> CAP_SYS_RESOURCE? - this isn't clear to me) or create a new one (ie,
+> bring back the older CAP_CGROUP_MIGRATE patch).
 
-Then the driver continues anyway. Which means that the regulator
-may not be properly retrieved and reference counted, and may be
-switched off in case noone else is using it.
+Let's create a new one.  It looks to be a bit too different to share
+with an existing one.
 
-Fix this by returning silently on deferred probe and let the
-system work it out.
+> Tejun: Do you have a more finished version of your patch that I should
+> add my changes on top of?
 
-Cc: Jeremy Linton <jeremy.linton@arm.com>
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
----
- drivers/net/ethernet/smsc/smsc911x.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+Oh, just submit the patch on top of the current for-next.  I can queue
+mine on top of yours.  They are mostly orthogonal.
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 86b7c04e3738..c492e4ffd9e7 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -442,9 +442,16 @@ static int smsc911x_request_resources(struct platform_device *pdev)
- 	ret = regulator_bulk_get(&pdev->dev,
- 			ARRAY_SIZE(pdata->supplies),
- 			pdata->supplies);
--	if (ret)
-+	if (ret) {
-+		/*
-+		 * Retry on deferrals, else just report the error
-+		 * and try to continue.
-+		 */
-+		if (ret == -EPROBE_DEFER)
-+			return ret;
- 		netdev_err(ndev, "couldn't get regulators %d\n",
- 				ret);
-+	}
- 
- 	/* Request optional RESET GPIO */
- 	pdata->reset_gpiod = devm_gpiod_get_optional(&pdev->dev,
+Thanks.
+
 -- 
-2.7.4
+tejun
