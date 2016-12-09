@@ -1,65 +1,48 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 0/4] udp: receive path optimizations
-Date: Fri, 9 Dec 2016 09:13:12 -0800
-Message-ID: <CALx6S35HwvVBv=6=ZZMyOxe3gfXo-MR_VNL0syhn-pEWW1sxwA@mail.gmail.com>
-References: <1481218739-27089-1-git-send-email-edumazet@google.com>
- <20161208214819.30138d12@redhat.com> <1481231595.4930.142.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161209170509.25347c9b@redhat.com> <1481300787.4930.198.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S35roMkor_0maXk-SwdXeF4GxBfbxXLEXLGnn6mRRaut6g@mail.gmail.com> <1481302391.4930.201.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] uio-hv-generic: store physical addresses instead of
+ virtual
+Date: Fri, 9 Dec 2016 09:28:44 -0800
+Message-ID: <20161209092844.75b73e8d@xeon-e3>
+References: <20161209114456.3719619-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:36041 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753980AbcLIRNO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 12:13:14 -0500
-Received: by mail-qk0-f195.google.com with SMTP id h201so2991023qke.3
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 09:13:14 -0800 (PST)
-In-Reply-To: <1481302391.4930.201.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        netdev@vger.kernel.org, Haiyang Zhang <haiyangz@microsoft.com>,
+        linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161209114456.3719619-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 9, 2016 at 8:53 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2016-12-09 at 08:43 -0800, Tom Herbert wrote:
->>
->>
->
->
->> Are you thinking of allowing unconnected socket to have multiple input
->> queues? Sort of an automatic and transparent SO_REUSEPORT...
->
-> It all depends if the user application is using a single thread or
-> multiple threads to drain the queue.
->
-If they're using multiple threads hopefully there's no reason they
-can't use SO_REUSEPORT. Since we should always assume DDOS is
-possibility it seems like that should be a general recommendation: If
-you have multiple threads listening on a port use SO_REUSEPORT.
+On Fri,  9 Dec 2016 12:44:40 +0100
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-> Since we used to grab socket lock in udp_recvmsg(), I guess nobody uses
-> multiple threads to read packets from a single socket.
->
-That's the hope! So the problem at hand is multiple producer CPUs and
-one consumer CPU.
+> gcc warns about the newly added driver when phys_addr_t is wider than
+> a pointer:
+> 
+> drivers/uio/uio_hv_generic.c: In function 'hv_uio_mmap':
+> drivers/uio/uio_hv_generic.c:71:17: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
+>     virt_to_phys((void *)info->mem[mi].addr) >> PAGE_SHIFT,
+> drivers/uio/uio_hv_generic.c: In function 'hv_uio_probe':
+> drivers/uio/uio_hv_generic.c:140:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+>    = (phys_addr_t)dev->channel->ringbuffer_pages;
+> drivers/uio/uio_hv_generic.c:147:3: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+>    (phys_addr_t)vmbus_connection.int_page;
+> drivers/uio/uio_hv_generic.c:153:3: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+>    (phys_addr_t)vmbus_connection.monitor_pages[1];
+> 
+> I can't see why we store a virtual address in a phys_addr_t here,
+> as the only user of that variable converts it into a physical
+> address anyway, so this moves the conversion to where it logically
+> fits according to the types.
+> 
+> Fixes: 95096f2fbd10 ("uio-hv-generic: new userspace i/o driver for VMBus")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-> So heavy users must use SO_REUSEPORT already, not sure what we would
-> gain trying to go to a single socket, with the complexity of mem
-> charging.
->
-I think you're making a good point a the possibility that any
-unconnected UDP socket could be subject to an attack, so any use of
-unconnected UDP has the potential to become a "heavy user" (in fact
-we've seen bring down whole networks before in production). Therefore
-the single thread reader case is relevant to consider.
+Thanks, the code was inherited from outside, and only tested on x86_64.
+Not sure which platform and GCC version generates the warning, was this just W=1?
 
-Tom
-
->
->>
->
->
+Acked-by: Stephen Hemminger <sthemmin@microsoft.com>
