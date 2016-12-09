@@ -1,7 +1,7 @@
 From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH V2  01/22] bnxt_re: Add bnxt_re RoCE driver files
-Date: Thu,  8 Dec 2016 22:47:55 -0800
-Message-ID: <1481266096-23331-2-git-send-email-selvin.xavier@broadcom.com>
+Subject: [PATCH V2  06/22] bnxt_re: Support for PD, ucontext and mmap verbs
+Date: Thu,  8 Dec 2016 22:48:00 -0800
+Message-ID: <1481266096-23331-7-git-send-email-selvin.xavier@broadcom.com>
 References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
 Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Eddie Wai <eddie.wai@broadcom.com>,
@@ -10,18 +10,20 @@ Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 To: dledford@redhat.com, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:45694 "EHLO
+Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:45707 "EHLO
         relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752399AbcLIGs2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 01:48:28 -0500
+        with ESMTP id S1752758AbcLIGsa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 01:48:30 -0500
 In-Reply-To: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the required skeletal files for Broadcom NetXtreme RoCE
-driver. Also, added the load/unload routines for bnxt_re driver.
+This patch includes the uverbs_abi.h file to enable user verbs.
+Also adds support for the Protection Domain, User Context and mmap
+verbs.
 
-v2: Modified the license text to include Dual License
+v2: Moved the bnxt_re_uverbs_abi.h file to include/uapi/rdma folder.
+    Also, Fixed one sparse warning.
 
 Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
@@ -29,708 +31,439 @@ Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c    |  37 ++++++++
- drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.h    |  42 +++++++++
- drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c  |  37 ++++++++
- drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.h  |  42 +++++++++
- drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c   |  37 ++++++++
- drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h   |  42 +++++++++
- drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c    |  37 ++++++++
- drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h    |  43 +++++++++
- drivers/infiniband/hw/bnxtre/bnxt_re.h          |  46 ++++++++++
- drivers/infiniband/hw/bnxtre/bnxt_re_hsi.h      |  42 +++++++++
- drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c |  37 ++++++++
- drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h |  42 +++++++++
- drivers/infiniband/hw/bnxtre/bnxt_re_main.c     | 113 ++++++++++++++++++++++++
- 13 files changed, 597 insertions(+)
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.h
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.h
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re.h
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_hsi.h
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
- create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c   |  28 +++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h   |   6 +
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h    |   4 +
+ drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c | 217 ++++++++++++++++++++++++
+ drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h |  23 +++
+ drivers/infiniband/hw/bnxtre/bnxt_re_main.c     |   7 +
+ include/uapi/rdma/bnxt_re_uverbs_abi.h          |  58 +++++++
+ 7 files changed, 343 insertions(+)
+ create mode 100644 include/uapi/rdma/bnxt_re_uverbs_abi.h
 
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c b/drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c
-new file mode 100644
-index 0000000..36c4b81
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c
-@@ -0,0 +1,37 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: Fast Path Operators
-+ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.h
-new file mode 100644
-index 0000000..0983465
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: Fast Path Operators (header)
-+ */
-+
-+#ifndef __BNXT_QPLIB_FP_H__
-+#define __BNXT_QPLIB_FP_H__
-+
-+#endif /* __BNXT_QPLIB_FP_H__ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c b/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
-new file mode 100644
-index 0000000..4029935
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
-@@ -0,0 +1,37 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: RDMA Controller HW interface
-+ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.h
-new file mode 100644
-index 0000000..1f63956
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: RDMA Controller HW interface (header)
-+ */
-+
-+#ifndef __BNXT_QPLIB_RCFW_H__
-+#define __BNXT_QPLIB_RCFW_H__
-+
-+#endif /* __BNXT_QPLIB_RCFW_H__ */
 diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
-new file mode 100644
-index 0000000..178eebd
---- /dev/null
+index 58db3a2..9ba1d20 100644
+--- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
 +++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
-@@ -0,0 +1,37 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: QPLib resource manager
-+ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
-new file mode 100644
-index 0000000..5fc4107
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: QPLib resource manager (header)
-+ */
-+
-+#ifndef __BNXT_QPLIB_RES_H__
-+#define __BNXT_QPLIB_RES_H__
-+
-+#endif /* __BNXT_QPLIB_RES_H__ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
-new file mode 100644
-index 0000000..667c8e1
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
-@@ -0,0 +1,37 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: Slow Path Operators
-+ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
-new file mode 100644
-index 0000000..90901c1
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
-@@ -0,0 +1,43 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: Slow Path Operators (header)
-+ *
-+ */
-+
-+#ifndef __BNXT_QPLIB_SP_H__
-+#define __BNXT_QPLIB_SP_H__
-+
-+#endif /* __BNXT_QPLIB_SP_H__*/
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re.h b/drivers/infiniband/hw/bnxtre/bnxt_re.h
-new file mode 100644
-index 0000000..f9b8542
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_re.h
-@@ -0,0 +1,46 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: Slow Path Operators (header)
-+ *
-+ */
-+
-+#ifndef __BNXT_RE_H__
-+#define __BNXT_RE_H__
-+#define ROCE_DRV_MODULE_NAME		"bnxt_re"
-+#define ROCE_DRV_MODULE_VERSION		"1.0.0"
-+
-+#define BNXT_RE_DESC	"Broadcom NetXtreme-C/E RoCE Driver"
-+#endif
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_hsi.h b/drivers/infiniband/hw/bnxtre/bnxt_re_hsi.h
-new file mode 100644
-index 0000000..b7d35aa
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_re_hsi.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: RoCE HSI File - Autogenerated
-+ */
-+
-+#ifndef __BNXT_RE_HSI_H__
-+#define __BNXT_RE_HSI_H__
-+
-+#endif /* __BNXT_RE_HSI_H__ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
-new file mode 100644
-index 0000000..c01fa40
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
-@@ -0,0 +1,37 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: IB Verbs interpreter
-+ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
-new file mode 100644
-index 0000000..9162774
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: IB Verbs interpreter (header)
-+ */
-+
-+#ifndef __BNXT_RE_IB_VERBS_H__
-+#define __BNXT_RE_IB_VERBS_H__
-+
-+#endif /* __BNXT_RE_IB_VERBS_H__ */
-diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
-new file mode 100644
-index 0000000..ebe1c69
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
-@@ -0,0 +1,113 @@
-+/*
-+ * Broadcom NetXtreme-E RoCE driver.
-+ *
-+ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
-+ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
-+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * Description: Main component of the bnxt_re driver
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/mutex.h>
-+#include <linux/list.h>
-+#include <linux/rculist.h>
-+#include "bnxt_re.h"
-+static char version[] =
-+		BNXT_RE_DESC " v" ROCE_DRV_MODULE_VERSION "\n";
-+
-+
-+MODULE_AUTHOR("Eddie Wai <eddie.wai@broadcom.com>");
-+MODULE_DESCRIPTION(BNXT_RE_DESC " Driver");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_VERSION(ROCE_DRV_MODULE_VERSION);
-+
-+/* globals */
-+static struct list_head bnxt_re_dev_list = LIST_HEAD_INIT(bnxt_re_dev_list);
-+static DEFINE_MUTEX(bnxt_re_dev_lock);
-+static struct workqueue_struct *bnxt_re_wq;
-+/*
-+ * "Notifier chain callback can be invoked for the same chain from
-+ * different CPUs at the same time".
-+ *
-+ * For cases when the netdev is already present, our call to the
-+ * register_netdevice_notifier() will actually get the rtnl_lock()
-+ * before sending NETDEV_REGISTER and (if up) NETDEV_UP
-+ * events.
-+ *
-+ * But for cases when the netdev is not already present, the notifier
-+ * chain is subjected to be invoked from different CPUs simultaneously.
-+ *
-+ * This is protected by the netdev_mutex.
-+ */
-+static int bnxt_re_netdev_event(struct notifier_block *notifier,
-+				unsigned long event, void *ptr)
+@@ -529,6 +529,34 @@ static int bnxt_qplib_alloc_pkey_tbl(struct bnxt_qplib_res *res,
+ 	return 0;
+ };
+ 
++/* PDs */
++int bnxt_qplib_alloc_pd(struct bnxt_qplib_pd_tbl *pdt, struct bnxt_qplib_pd *pd)
 +{
-+	return NOTIFY_DONE;
-+}
-+static struct notifier_block bnxt_re_netdev_notifier = {
-+	.notifier_call = bnxt_re_netdev_event
-+};
-+static int __init bnxt_re_mod_init(void)
-+{
-+	int rc = 0;
++	u32 bit_num;
 +
-+	pr_info("%s: %s", ROCE_DRV_MODULE_NAME, version);
-+
-+	bnxt_re_wq = create_singlethread_workqueue("bnxt_re");
-+	if (!bnxt_re_wq)
++	bit_num = find_first_bit(pdt->tbl, pdt->max);
++	if (bit_num == pdt->max)
 +		return -ENOMEM;
 +
-+	INIT_LIST_HEAD(&bnxt_re_dev_list);
-+
-+	rc = register_netdevice_notifier(&bnxt_re_netdev_notifier);
-+	if (rc) {
-+		pr_err("%s: Cannot register to netdevice_notifier",
-+			ROCE_DRV_MODULE_NAME);
-+		goto err_netdev;
-+	}
++	/* Found unused PD */
++	clear_bit(bit_num, pdt->tbl);
++	pd->id = bit_num;
 +	return 0;
-+
-+err_netdev:
-+	destroy_workqueue(bnxt_re_wq);
-+
-+	return rc;
 +}
-+static void __exit bnxt_re_mod_exit(void)
++
++int bnxt_qplib_dealloc_pd(struct bnxt_qplib_res *res,
++			  struct bnxt_qplib_pd_tbl *pdt,
++			  struct bnxt_qplib_pd *pd)
 +{
-+	unregister_netdevice_notifier(&bnxt_re_netdev_notifier);
-+	if (bnxt_re_wq)
-+		destroy_workqueue(bnxt_re_wq);
++	if (test_and_set_bit(pd->id, pdt->tbl)) {
++		dev_warn(&res->pdev->dev, "Freeing an unused PD? pdn = %d",
++			 pd->id);
++		return -EINVAL;
++	}
++	pd->id = 0;
++	return 0;
 +}
 +
-+module_init(bnxt_re_mod_init);
-+module_exit(bnxt_re_mod_exit);
+ static void bnxt_qplib_free_pd_tbl(struct bnxt_qplib_pd_tbl *pdt)
+ {
+ 	kfree(pdt->tbl);
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
+index 571feda..c9e376a 100644
+--- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
++++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
+@@ -186,6 +186,7 @@ struct bnxt_qplib_res {
+ 	struct bnxt_qplib_dpi_tbl	dpi_tbl;
+ };
+ 
++struct bnxt_qplib_pd;
+ struct bnxt_qplib_dev_attr;
+ 
+ void bnxt_qplib_free_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq);
+@@ -193,6 +194,11 @@ int bnxt_qplib_alloc_init_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq,
+ 			      struct scatterlist *sl, int nmap, u32 *elements,
+ 			      u32 elements_per_page, u32 aux, u32 pg_size,
+ 			      enum bnxt_qplib_hwq_type hwq_type);
++int bnxt_qplib_alloc_pd(struct bnxt_qplib_pd_tbl *pd_tbl,
++			struct bnxt_qplib_pd *pd);
++int bnxt_qplib_dealloc_pd(struct bnxt_qplib_res *res,
++			  struct bnxt_qplib_pd_tbl *pd_tbl,
++			  struct bnxt_qplib_pd *pd);
+ int bnxt_qplib_alloc_dpi(struct bnxt_qplib_dpi_tbl *dpit,
+ 			 struct bnxt_qplib_dpi     *dpi,
+ 			 void                      *app);
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
+index 0b5adda..7de6600 100644
+--- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
++++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
+@@ -70,6 +70,10 @@ struct bnxt_qplib_dev_attr {
+ 	u8				tqm_alloc_reqs[MAX_TQM_ALLOC_REQ];
+ };
+ 
++struct bnxt_qplib_pd {
++	u32				id;
++};
++
+ struct bnxt_qplib_gid {
+ 	u8				data[16];
+ };
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
+index c01fa40..71eb1f3 100644
+--- a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
++++ b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
+@@ -35,3 +35,220 @@
+  *
+  * Description: IB Verbs interpreter
+  */
++
++#include <linux/interrupt.h>
++#include <linux/types.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++
++#include <rdma/ib_verbs.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_umem.h>
++#include <rdma/ib_addr.h>
++#include <rdma/ib_mad.h>
++#include <rdma/ib_cache.h>
++
++#include "bnxt_ulp.h"
++
++#include "bnxt_re_hsi.h"
++#include "bnxt_qplib_res.h"
++#include "bnxt_qplib_sp.h"
++#include "bnxt_qplib_fp.h"
++#include "bnxt_qplib_rcfw.h"
++
++#include "bnxt_re.h"
++#include "bnxt_re_ib_verbs.h"
++#include <rdma/bnxt_re_uverbs_abi.h>
++
++/* Protection Domains */
++int bnxt_re_dealloc_pd(struct ib_pd *ib_pd)
++{
++	struct bnxt_re_pd *pd = to_bnxt_re(ib_pd, struct bnxt_re_pd, ib_pd);
++	struct bnxt_re_dev *rdev = pd->rdev;
++	int rc;
++
++	if (ib_pd->uobject && pd->dpi.dbr) {
++		struct ib_ucontext *ib_uctx = ib_pd->uobject->context;
++		struct bnxt_re_ucontext *ucntx;
++
++		/* Free DPI only if this is the first PD allocated by the
++		 * application and mark the context dpi as NULL
++		 */
++		ucntx = to_bnxt_re(ib_uctx, struct bnxt_re_ucontext, ib_uctx);
++
++		rc = bnxt_qplib_dealloc_dpi(&rdev->qplib_res,
++					    &rdev->qplib_res.dpi_tbl,
++					    &pd->dpi);
++		if (rc)
++			dev_err(rdev_to_dev(rdev), "Failed to deallocate HW DPI");
++			/* Don't fail, continue*/
++		ucntx->dpi = NULL;
++	}
++
++	rc = bnxt_qplib_dealloc_pd(&rdev->qplib_res,
++				   &rdev->qplib_res.pd_tbl,
++				   &pd->qplib_pd);
++	if (rc) {
++		dev_err(rdev_to_dev(rdev), "Failed to deallocate HW PD");
++		return rc;
++	}
++
++	kfree(pd);
++	return 0;
++}
++
++struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
++			       struct ib_ucontext *ucontext,
++			       struct ib_udata *udata)
++{
++	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
++	struct bnxt_re_ucontext *ucntx = to_bnxt_re(ucontext,
++						    struct bnxt_re_ucontext,
++						    ib_uctx);
++	struct bnxt_re_pd *pd;
++	int rc;
++
++	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
++	if (!pd)
++		return ERR_PTR(-ENOMEM);
++
++	pd->rdev = rdev;
++	if (bnxt_qplib_alloc_pd(&rdev->qplib_res.pd_tbl, &pd->qplib_pd)) {
++		dev_err(rdev_to_dev(rdev), "Failed to allocate HW PD");
++		rc = -ENOMEM;
++		goto fail;
++	}
++
++	if (udata) {
++		struct bnxt_re_pd_resp resp;
++
++		if (!ucntx->dpi) {
++			/* Allocate DPI in alloc_pd to avoid failing of
++			 * ibv_devinfo and family of application when DPIs
++			 * are depleted.
++			 */
++			if (bnxt_qplib_alloc_dpi(&rdev->qplib_res.dpi_tbl,
++						 &pd->dpi, ucntx)) {
++				rc = -ENOMEM;
++				goto dbfail;
++			}
++			ucntx->dpi = &pd->dpi;
++		}
++
++		resp.pdid = pd->qplib_pd.id;
++		/* Still allow mapping this DBR to the new user PD. */
++		resp.dpi = ucntx->dpi->dpi;
++		resp.dbr = (u64)ucntx->dpi->umdbr;
++
++		rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
++		if (rc) {
++			dev_err(rdev_to_dev(rdev),
++				"Failed to copy user response\n");
++			goto dbfail;
++		}
++	}
++
++	return &pd->ib_pd;
++dbfail:
++	(void)bnxt_qplib_dealloc_pd(&rdev->qplib_res, &rdev->qplib_res.pd_tbl,
++				    &pd->qplib_pd);
++fail:
++	kfree(pd);
++	return ERR_PTR(rc);
++}
++
++struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
++					   struct ib_udata *udata)
++{
++	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
++	struct bnxt_re_uctx_resp resp;
++	struct bnxt_re_ucontext *uctx;
++	struct bnxt_qplib_dev_attr *dev_attr = &rdev->dev_attr;
++	int rc;
++
++	dev_dbg(rdev_to_dev(rdev), "ABI version requested %d",
++		ibdev->uverbs_abi_ver);
++
++	if (ibdev->uverbs_abi_ver != BNXT_RE_ABI_VERSION) {
++		dev_dbg(rdev_to_dev(rdev), " is different from the device %d ",
++			BNXT_RE_ABI_VERSION);
++		return ERR_PTR(-EPERM);
++	}
++
++	uctx = kzalloc(sizeof(*uctx), GFP_KERNEL);
++	if (!uctx)
++		return ERR_PTR(-ENOMEM);
++
++	uctx->rdev = rdev;
++
++	uctx->shpg = (void *)__get_free_page(GFP_KERNEL);
++	if (!uctx->shpg) {
++		rc = -ENOMEM;
++		goto fail;
++	}
++	spin_lock_init(&uctx->sh_lock);
++
++	resp.dev_id = rdev->en_dev->pdev->devfn; /*Temp, Use idr_alloc instead*/
++	resp.max_qp = rdev->qplib_ctx.qpc_count;
++	resp.pg_size = PAGE_SIZE;
++	resp.cqe_sz = sizeof(struct cq_base);
++	resp.max_cqd = dev_attr->max_cq_wqes;
++
++	rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
++	if (rc) {
++		dev_err(rdev_to_dev(rdev), "Failed to copy user context");
++		rc = -EFAULT;
++		goto cfail;
++	}
++
++	return &uctx->ib_uctx;
++cfail:
++	free_page((u64)uctx->shpg);
++	uctx->shpg = NULL;
++fail:
++	kfree(uctx);
++	return ERR_PTR(rc);
++}
++
++int bnxt_re_dealloc_ucontext(struct ib_ucontext *ib_uctx)
++{
++	struct bnxt_re_ucontext *uctx = to_bnxt_re(ib_uctx,
++						   struct bnxt_re_ucontext,
++						   ib_uctx);
++	if (uctx->shpg)
++		free_page((u64)uctx->shpg);
++	kfree(uctx);
++	return 0;
++}
++
++/* Helper function to mmap the virtual memory from user app */
++int bnxt_re_mmap(struct ib_ucontext *ib_uctx, struct vm_area_struct *vma)
++{
++	struct bnxt_re_ucontext *uctx = to_bnxt_re(ib_uctx,
++						   struct bnxt_re_ucontext,
++						   ib_uctx);
++	struct bnxt_re_dev *rdev = uctx->rdev;
++	u64 pfn;
++
++	if (vma->vm_end - vma->vm_start != PAGE_SIZE)
++		return -EINVAL;
++
++	if (vma->vm_pgoff) {
++		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
++		if (io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
++				       PAGE_SIZE, vma->vm_page_prot)) {
++			dev_err(rdev_to_dev(rdev), "Failed to map DPI");
++			return -EAGAIN;
++		}
++	} else {
++		pfn = virt_to_phys(uctx->shpg) >> PAGE_SHIFT;
++		if (remap_pfn_range(vma, vma->vm_start,
++				    pfn, PAGE_SIZE, vma->vm_page_prot)) {
++			dev_err(rdev_to_dev(rdev),
++				"Failed to map shared page");
++			return -EAGAIN;
++		}
++	}
++
++	return 0;
++}
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
+index 9162774..a133d81 100644
+--- a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
++++ b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
+@@ -39,4 +39,27 @@
+ #ifndef __BNXT_RE_IB_VERBS_H__
+ #define __BNXT_RE_IB_VERBS_H__
+ 
++struct bnxt_re_pd {
++	struct bnxt_re_dev	*rdev;
++	struct ib_pd		ib_pd;
++	struct bnxt_qplib_pd	qplib_pd;
++	struct bnxt_qplib_dpi	dpi;
++};
++
++struct bnxt_re_ucontext {
++	struct bnxt_re_dev	*rdev;
++	struct ib_ucontext	ib_uctx;
++	struct bnxt_qplib_dpi	*dpi;
++	void			*shpg;
++	spinlock_t		sh_lock;	/* protect shpg */
++};
++
++struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
++			       struct ib_ucontext *context,
++			       struct ib_udata *udata);
++int bnxt_re_dealloc_pd(struct ib_pd *pd);
++struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
++					   struct ib_udata *udata);
++int bnxt_re_dealloc_ucontext(struct ib_ucontext *context);
++int bnxt_re_mmap(struct ib_ucontext *context, struct vm_area_struct *vma);
+ #endif /* __BNXT_RE_IB_VERBS_H__ */
+diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+index 3d02488..3549d3a 100644
+--- a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
++++ b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+@@ -59,6 +59,7 @@
+ #include "bnxt_qplib_fp.h"
+ #include "bnxt_qplib_rcfw.h"
+ #include "bnxt_re.h"
++#include "bnxt_re_ib_verbs.h"
+ #include "bnxt.h"
+ static char version[] =
+ 		BNXT_RE_DESC " v" ROCE_DRV_MODULE_VERSION "\n";
+@@ -424,6 +425,12 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
+ 
+ 	ibdev->num_comp_vectors	= 1;
+ 	ibdev->dma_device = &rdev->en_dev->pdev->dev;
++	ibdev->alloc_pd			= bnxt_re_alloc_pd;
++	ibdev->dealloc_pd		= bnxt_re_dealloc_pd;
++	ibdev->alloc_ucontext		= bnxt_re_alloc_ucontext;
++	ibdev->dealloc_ucontext		= bnxt_re_dealloc_ucontext;
++	ibdev->mmap			= bnxt_re_mmap;
++
+ 	return ib_register_device(ibdev, NULL);
+ }
+ 
+diff --git a/include/uapi/rdma/bnxt_re_uverbs_abi.h b/include/uapi/rdma/bnxt_re_uverbs_abi.h
+new file mode 100644
+index 0000000..3815184
+--- /dev/null
++++ b/include/uapi/rdma/bnxt_re_uverbs_abi.h
+@@ -0,0 +1,58 @@
++/*
++ * Broadcom NetXtreme-E RoCE driver.
++ *
++ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
++ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * BSD license below:
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
++ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
++ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * Description: Uverbs ABI header file
++ */
++
++#ifndef __BNXT_RE_UVERBS_ABI_H__
++#define __BNXT_RE_UVERBS_ABI_H__
++
++#define BNXT_RE_ABI_VERSION	1
++
++struct bnxt_re_uctx_resp {
++	__u32 dev_id;
++	__u32 max_qp;
++	__u32 pg_size;
++	__u32 cqe_sz;
++	__u32 max_cqd;
++} __packed;
++
++struct bnxt_re_pd_resp {
++	__u32 pdid;
++	__u32 dpi;
++	__u64 dbr;
++} __packed;
++
++#endif /* __BNXT_RE_UVERBS_ABI_H__*/
 -- 
 2.5.5
