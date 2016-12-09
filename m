@@ -1,43 +1,70 @@
-From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: Re: [PATCH V2 00/22] Broadcom RoCE Driver (bnxt_re)
-Date: Fri, 9 Dec 2016 23:22:00 +0530
-Message-ID: <CA+sbYW1Kum=rU4CMq++=D-DjmepF_wrOA8kTH7ptQgwyP=QaRQ@mail.gmail.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com> <20161209.102602.181161966975624956.davem@davemloft.net>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCHv3 perf/core 5/7] samples/bpf: Switch over to libbpf
+Date: Fri, 9 Dec 2016 09:59:29 -0800
+Message-ID: <CAPWQB7HK=L==L3cOuSfpHQD7FcsgqeMqU7odKwYiGw_RNY=02g@mail.gmail.com>
+References: <20161209024620.31660-1-joe@ovn.org> <20161209024620.31660-6-joe@ovn.org>
+ <c256e266-14c0-d546-cf61-264035ed6282@huawei.com> <77ff1746-6271-0eac-a921-bb852c14a602@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:34027 "EHLO
-        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752165AbcLIRwC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 12:52:02 -0500
-Received: by mail-qk0-f172.google.com with SMTP id q130so24924535qke.1
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 09:52:02 -0800 (PST)
-In-Reply-To: <20161209.102602.181161966975624956.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, ast@fb.com,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: "Wangnan (F)" <wangnan0@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <77ff1746-6271-0eac-a921-bb852c14a602@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 9, 2016 at 8:56 PM, David Miller <davem@davemloft.net> wrote:
-> From: Selvin Xavier <selvin.xavier@broadcom.com>
-> Date: Thu,  8 Dec 2016 22:47:54 -0800
+On 8 December 2016 at 21:18, Wangnan (F) <wangnan0@huawei.com> wrote:
 >
->> This series introduces the RoCE driver for the Broadcom
->> NetXtreme-E 10/25/40/50 gigabit RoCE HCAs.
->> This driver is dependent on the bnxt_en NIC driver and is
->> based on the bnxt_re branch in Doug's repository. bnxt_en changes
->> required for this patch series is already available in this branch.
+>
+> On 2016/12/9 13:04, Wangnan (F) wrote:
 >>
->> I am preparing a git repository with these changes as per Jason's
->> comment and will share the details later today.
+>>
+>>
+>> On 2016/12/9 10:46, Joe Stringer wrote:
+>>
+>> [SNIP]
+>>
+>>>   diff --git a/tools/lib/bpf/Makefile b/tools/lib/bpf/Makefile
+>>> index 62d89d50fcbd..616bd55f3be8 100644
+>>> --- a/tools/lib/bpf/Makefile
+>>> +++ b/tools/lib/bpf/Makefile
+>>> @@ -149,6 +149,8 @@ CMD_TARGETS = $(LIB_FILE)
+>>>     TARGETS = $(CMD_TARGETS)
+>>>   +libbpf: all
+>>> +
+>>
+>>
+>> Why we need this? I tested this patch without it and it seems to work, and
+>> this line causes an extra error:
+>>  $ pwd
+>>  /home/wn/kernel/tools/lib/bpf
+>>  $ make libbpf
+>>  ...
+>>  gcc -g -Wall -DHAVE_LIBELF_MMAP_SUPPORT -DHAVE_ELF_GETPHDRNUM_SUPPORT
+>> -Wbad-function-cast -Wdeclaration-after-statement -Wformat-security
+>> -Wformat-y2k -Winit-self -Wmissing-declarations -Wmissing-prototypes
+>> -Wnested-externs -Wno-system-headers -Wold-style-definition -Wpacked
+>> -Wredundant-decls -Wshadow -Wstrict-aliasing=3 -Wstrict-prototypes
+>> -Wswitch-default -Wswitch-enum -Wundef -Wwrite-strings -Wformat -Werror
+>> -Wall -fPIC -I. -I/home/wn/kernel-hydrogen/tools/include
+>> -I/home/wn/kernel-hydrogen/tools/arch/x86/include/uapi
+>> -I/home/wn/kernel-hydrogen/tools/include/uapi    libbpf.c all   -o libbpf
+>>  gcc: error: all: No such file or directory
+>>  make: *** [libbpf] Error 1
+>>
+>> Thank you.
 >
-> If this is targetted at the net-next tree, it is too late as I've
-> closed the net-next tree two nights ago.
 >
+> It is not 'caused' by your patch. 'make libbpf' fails without
+> your change because it tries to build an executable from
+> libbpf.c, but main() is missing.
+>
+> I think libbpf should never be used as a make target. Your
+> new dependency looks strange.
 
-This patch series is targeting linux-rdma tree. netdev is copied since
-this series is dependent on  bnxt_en.
+Thanks for the feedback, I sent a patch to address this on top of perf/core:
 
-Thanks
-Selvin
+https://lkml.org/lkml/2016/12/9/518
