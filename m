@@ -1,55 +1,156 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v5 0/6] XDP for virtio_net
-Date: Fri, 9 Dec 2016 05:01:30 +0200
-Message-ID: <20161209045537-mutt-send-email-mst@kernel.org>
-References: <20161208.141702.1346950420275854265.davem@davemloft.net>
- <20161208193814.GA1954@ast-mbp.thefacebook.com>
- <5849C68F.7080707@gmail.com>
- <20161208.171602.544798927904408724.davem@davemloft.net>
+Subject: Re: [net-next PATCH v5 1/6] net: virtio dynamically disable/enable
+ LRO
+Date: Fri, 9 Dec 2016 05:05:05 +0200
+Message-ID: <20161209050228-mutt-send-email-mst@kernel.org>
+References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+ <20161207201111.28121.4879.stgit@john-Precision-Tower-5810>
+ <20161208231857-mutt-send-email-mst@kernel.org>
+ <5849F52A.7050105@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net, shm@cumulusnetworks.com, tgraf@suug.ch,
+Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
+        tgraf@suug.ch, alexei.starovoitov@gmail.com,
         john.r.fastabend@intel.com, netdev@vger.kernel.org,
         brouer@redhat.com
-To: David Miller <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43588 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52854 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752110AbcLIDBk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 22:01:40 -0500
+        id S1752117AbcLIDFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 22:05:09 -0500
 Content-Disposition: inline
-In-Reply-To: <20161208.171602.544798927904408724.davem@davemloft.net>
+In-Reply-To: <5849F52A.7050105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 08, 2016 at 05:16:02PM -0500, David Miller wrote:
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Thu, 8 Dec 2016 12:46:07 -0800
-> 
-> > On 16-12-08 11:38 AM, Alexei Starovoitov wrote:
-> >> On Thu, Dec 08, 2016 at 02:17:02PM -0500, David Miller wrote:
-> >>> From: John Fastabend <john.fastabend@gmail.com>
-> >>> Date: Wed, 07 Dec 2016 12:10:47 -0800
-> >>>
-> >>>> This implements virtio_net for the mergeable buffers and big_packet
-> >>>> modes. I tested this with vhost_net running on qemu and did not see
-> >>>> any issues. For testing num_buf > 1 I added a hack to vhost driver
-> >>>> to only but 100 bytes per buffer.
-> >>>  ...
-> >>>
-> >>> So where are we with this?
+On Thu, Dec 08, 2016 at 04:04:58PM -0800, John Fastabend wrote:
+> On 16-12-08 01:36 PM, Michael S. Tsirkin wrote:
+> > On Wed, Dec 07, 2016 at 12:11:11PM -0800, John Fastabend wrote:
+> >> This adds support for dynamically setting the LRO feature flag. The
+> >> message to control guest features in the backend uses the
+> >> CTRL_GUEST_OFFLOADS msg type.
+> >>
+> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> >> ---
+> >>  drivers/net/virtio_net.c |   40 +++++++++++++++++++++++++++++++++++++++-
+> >>  1 file changed, 39 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> >> index a21d93a..a5c47b1 100644
+> >> --- a/drivers/net/virtio_net.c
+> >> +++ b/drivers/net/virtio_net.c
+> >> @@ -1419,6 +1419,36 @@ static void virtnet_init_settings(struct net_device *dev)
+> >>  	.set_settings = virtnet_set_settings,
+> >>  };
+> >>  
+> >> +static int virtnet_set_features(struct net_device *netdev,
+> >> +				netdev_features_t features)
+> >> +{
+> >> +	struct virtnet_info *vi = netdev_priv(netdev);
+> >> +	struct virtio_device *vdev = vi->vdev;
+> >> +	struct scatterlist sg;
+> >> +	u64 offloads = 0;
+> >> +
+> >> +	if (features & NETIF_F_LRO)
+> >> +		offloads |= (1 << VIRTIO_NET_F_GUEST_TSO4) |
+> >> +			    (1 << VIRTIO_NET_F_GUEST_TSO6);
+> >> +
+> >> +	if (features & NETIF_F_RXCSUM)
+> >> +		offloads |= (1 << VIRTIO_NET_F_GUEST_CSUM);
+> >> +
+> >> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS)) {
+> >> +		sg_init_one(&sg, &offloads, sizeof(uint64_t));
+> >> +		if (!virtnet_send_command(vi,
+> >> +					  VIRTIO_NET_CTRL_GUEST_OFFLOADS,
+> >> +					  VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET,
+> >> +					  &sg)) {
 > > 
-> > There is one possible issue with a hang that Michael pointed out. I can
-> > either spin a v6 or if you pull this v5 series in I can post a bugfix
-> > for it. I am not seeing the issue in practice XDP virtio has been up
-> > and running on my box here for days without issue.
+> > Hmm I just realised that this will slow down setups that bridge
+> > virtio net interfaces since bridge calls this if provided.
+> > See below.
 > 
-> If that's the case then please spin a v6 and I'll apply it.
+> 
+> Really? What code is trying to turn off GRO via the GUEST_OFFLOADS LRO
+> command. My qemu/Linux setup has a set of tap/vhost devices attached to
+> a bridge and all of them have LRO enabled even with this patch series.
+> 
+> I must missing a setup handler somewhere?
 
-I think 1/6 should be reworked, disabling/enabling GUEST_TSO
-transparently without touching the LRO flag, and without adding
-NDO callback.
+Turning off LRO, not GRO.
 
--- 
-MST
+> > 
+> >> +			dev_warn(&netdev->dev,
+> >> +				 "Failed to set guest offloads by virtnet command.\n");
+> >> +			return -EINVAL;
+> >> +		}
+> >> +	}
+> > 
+> > Hmm if VIRTIO_NET_F_CTRL_GUEST_OFFLOADS is off, this fails
+> > silently. It might actually be a good idea to avoid
+> > breaking setups.
+> > 
+> >> +
+> >> +	return 0;
+> >> +}
+> >> +
+> >>  static const struct net_device_ops virtnet_netdev = {
+> >>  	.ndo_open            = virtnet_open,
+> >>  	.ndo_stop   	     = virtnet_close,
+> >> @@ -1435,6 +1465,7 @@ static void virtnet_init_settings(struct net_device *dev)
+> >>  #ifdef CONFIG_NET_RX_BUSY_POLL
+> >>  	.ndo_busy_poll		= virtnet_busy_poll,
+> >>  #endif
+> >> +	.ndo_set_features	= virtnet_set_features,
+> >>  };
+> >>  
+> >>  static void virtnet_config_changed_work(struct work_struct *work)
+> >> @@ -1815,6 +1846,12 @@ static int virtnet_probe(struct virtio_device *vdev)
+> >>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
+> >>  		dev->features |= NETIF_F_RXCSUM;
+> >>  
+> >> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) &&
+> >> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6)) {
+> >> +		dev->features |= NETIF_F_LRO;
+> >> +		dev->hw_features |= NETIF_F_LRO;
+> > 
+> > So the issue is I think that the virtio "LRO" isn't really
+> > LRO, it's typically just GRO forwarded to guests.
+> > So these are easily re-split along MTU boundaries,
+> > which makes it ok to forward these across bridges.
+> > 
+> > It's not nice that we don't document this in the spec,
+> > but it's the reality and people rely on this.
+> > 
+> > For now, how about doing a custom thing and just disable/enable
+> > it as XDP is attached/detached?
+> 
+> The annoying part about doing this is ethtool will say that it is fixed
+> yet it will be changed by seemingly unrelated operation.
+
+ATM ethtool does not tell you LRO is enabled, since
+again, this isn't exactly LRO. It's a safe variant that
+supports e.g. bridging.
+
+> I'm not sure I
+> like the idea to start automatically configuring the link via xdp_set.
+
+That's what I thought up off-hand. Let me think about better
+interfaces over the weekend.
+
+> > 
+> >> +	}
+> >> +
+> >>  	dev->vlan_features = dev->features;
+> >>  
+> >>  	/* MTU range: 68 - 65535 */
+> >> @@ -2057,7 +2094,8 @@ static int virtnet_restore(struct virtio_device *vdev)
+> >>  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, \
+> >>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ, \
+> >>  	VIRTIO_NET_F_CTRL_MAC_ADDR, \
+> >> -	VIRTIO_NET_F_MTU
+> >> +	VIRTIO_NET_F_MTU, \
+> >> +	VIRTIO_NET_F_CTRL_GUEST_OFFLOADS
+> >>  
+> >>  static unsigned int features[] = {
+> >>  	VIRTNET_FEATURES,
