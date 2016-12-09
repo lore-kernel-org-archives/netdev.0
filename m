@@ -1,47 +1,41 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence
- GEM.
-Date: Fri, 9 Dec 2016 09:57:52 +0100
-Message-ID: <20161209085752.GB16009@localhost.localdomain>
-References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
- <20161207193908.GA13062@netboy>
- <20161207210416.GA27622@netboy>
- <07C910AB6AC6C345A093D5A08F5AF568CB74AF28@CHN-SV-EXMX03.mchp-main.com>
- <CAFcVECJutEu2=POtAU=jX6E3-ZHsLXpOMMw+UJ0hcQgZ0n4ZVA@mail.gmail.com>
+From: "Webmaster" <info@web.net>
+Subject: Estimado usuario
+Date: Fri, 09 Dec 2016 00:55:07 -0800
+Message-ID: <20161209085512.DCF607434E@mx1.jusbaires.gov.ar>
+Reply-To: bnn.unit@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrei Pistirica <Andrei.Pistirica@microchip.com>,
-        netdev@vger.kernel.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Harini Katakam <harini.katakam@xilinx.com>,
-        Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        Anirudha Sarangi <anirudh@xilinx.com>,
-        Boris Brezillon <boris.brezillon@free-electrons.com>,
-        alexandre.belloni@free-electrons.com, tbultel@pixelsurmer.com,
-        Rafal Ozieblo <rafalo@cadence.com>
-To: Harini Katakam <harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAFcVECJutEu2=POtAU=jX6E3-ZHsLXpOMMw+UJ0hcQgZ0n4ZVA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.jusbaires.gov.ar ([190.221.22.171]:39326 "HELO
+        mx1.jusbaires.gov.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with SMTP id S932313AbcLIJBB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Dec 2016 04:01:01 -0500
+Received: from localhost (localhost [127.0.0.1])
+        by mx1.jusbaires.gov.ar (Postfix) with ESMTP id DCF607434E
+        for <netdev@vger.kernel.org>; Fri,  9 Dec 2016 05:55:12 -0300 (ART)
+Received: from mx1.jusbaires.gov.ar ([127.0.0.1])
+        by localhost (mx1.jusbaires.gov.ar [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id OqLj1RRxZ0DM for <netdev@vger.kernel.org>;
+        Fri,  9 Dec 2016 05:55:12 -0300 (ART)
+Received: from [192.168.43.234] (unknown [197.211.59.69])
+        (using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        (Authenticated sender: llanza@jusbaires.gov.ar)
+        by mx1.jusbaires.gov.ar (Postfix) with ESMTPSA id 5590F7434D
+        for <netdev@vger.kernel.org>; Fri,  9 Dec 2016 05:55:10 -0300 (ART)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 09, 2016 at 11:07:23AM +0530, Harini Katakam wrote:
-> I'm afraid I don't get why we are choosing the most limited max adj..
-> Sorry if I'm missing something - could you please help me understand?
+Estimado usuario
+Actualmente estamos corriendo nuestro servidor actualización de verificación, para mejorar la eficiencia y eliminar cuentas que ya no están activas. Por favor ingrese sus datos a continuación para verificar y actualizar su cuenta:
 
-This max_adj is only important when the local clock offset is large
-and user space chooses not to step the time value.  In that case, user
-space will want to run the clock as fast (or as slow) as possible in
-order to catch up with the remote clock.
+(1) Correo electrónico:
+(2) Nombre:
+(3) Contraseña:
+(4) Email alternativo:
 
-The driver must provide a max_adj that is always safe for user space
-to apply via the clock_adjtime() system call.
-
-HTH,
-Richard
+Gracias
+Administrador del sistema
