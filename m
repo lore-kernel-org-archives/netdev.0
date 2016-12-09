@@ -1,50 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: socket: preferred __aligned(size) for control buffer
-Date: Fri, 9 Dec 2016 14:14:23 +0300
-Message-ID: <68c6da4f-eaaa-c572-c31d-d01618894ba6@cogentembedded.com>
-References: <1481201513-20783-1-git-send-email-kushwaha.a@samsung.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Fri, 9 Dec 2016 12:21:42 +0100
+Message-ID: <20161209112142.GA22710@amd>
+References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161207231534.GB5889@electric-eye.fr.zoreil.com>
+ <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
+ <20161208231943.GA13102@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akkushwaha9896@gmail.com
-To: kushwaha.a@samsung.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:35366 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752641AbcLILO0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 06:14:26 -0500
-Received: by mail-wm0-f47.google.com with SMTP id a197so21858643wmd.0
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 03:14:26 -0800 (PST)
-In-Reply-To: <1481201513-20783-1-git-send-email-kushwaha.a@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="Qxx1br4bt0+wmkIi"
+Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>, bh74.an@samsung.com,
+        ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161208231943.GA13102@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
 
-On 12/8/2016 3:51 PM, kushwaha.a@samsung.com wrote:
+--Qxx1br4bt0+wmkIi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> From: Amit Kushwaha <kushwaha.a@samsung.com>
->
-> This patch cleanup checkpatch.pl warning
-> WARNING: __aligned(size) is preferred over __attribute__((aligned(size)))
->
-> Signed-off-by: Amit Kushwaha <kushwaha.a@samsung.com>
-> ---
->  net/socket.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/socket.c b/net/socket.c
-> index e631894..5835383 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1,3 +1,4 @@
-> +
+On Fri 2016-12-09 00:19:43, Francois Romieu wrote:
+> Lino Sanfilippo <LinoSanfilippo@gmx.de> :
+> [...]
+> > OTOH Pavel said that he actually could produce a deadlock. Now I wonder=
+ if
+> > this is caused by that locking scheme (in a way I have not figured out =
+yet)
+> > or if it is a different issue.
+>=20
+> stmmac_tx_err races with stmmac_xmit.
 
-    Why?
+Umm, yes, that looks real.
 
->  /*
->   * NET		An implementation of the SOCKET network access protocol.
->   *
-[...]
+And that means that removing tx_lock will not be completely trivial
+:-(. Lino, any ideas there?
 
-MBR, Sergei
+netif_tx_lock_irqsave() would help, but afaict that one does not
+exist.
+
+Plus, does someone know how to trigger the status =3D=3D tx_hard_error? I
+tried powering down the switch, but that did not do it.
+
+Thanks,								Pavel
+
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--Qxx1br4bt0+wmkIi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlhKk8YACgkQMOfwapXb+vLocACfTaap2OrkY4NgnOJcI5lw8TUN
+XQYAoI9f7Pme97uFmWAj1ZrKo4MBuui2
+=SKKt
+-----END PGP SIGNATURE-----
+
+--Qxx1br4bt0+wmkIi--
