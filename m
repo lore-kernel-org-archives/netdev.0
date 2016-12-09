@@ -1,36 +1,90 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCHv3 perf/core 0/7] Reuse libbpf from samples/bpf
-Date: Fri, 9 Dec 2016 12:09:07 -0300
-Message-ID: <20161209150907.GM8257@kernel.org>
-References: <20161209024620.31660-1-joe@ovn.org>
+From: Carlos Palminha <CARLOS.PALMINHA@synopsys.com>
+Subject: Re: [PATCH net-next 0/2] Initial driver for Synopsys DWC XLGMAC
+Date: Fri, 9 Dec 2016 15:15:42 +0000
+Message-ID: <584ACA9E.8010602@synopsys.com>
+References: <cover.1481075763.git.jiedeng@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net
-To: Joe Stringer <joe@ovn.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "lars.persson@axis.com" <lars.persson@axis.com>,
+        "thomas.lendacky@amd.com" <thomas.lendacky@amd.com>
+To: Jie Deng <Jie.Deng1@synopsys.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161209024620.31660-1-joe@ovn.org>
+In-Reply-To: <cover.1481075763.git.jiedeng@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Dec 08, 2016 at 06:46:13PM -0800, Joe Stringer escreveu:
-> (Was "libbpf: Synchronize implementations")
-> 
-> Update tools/lib/bpf to provide the remaining bpf wrapper pieces needed by the
-> samples/bpf/ code, then get rid of all of the duplicate BPF libraries in
-> samples/bpf/libbpf.[ch].
-> 
-> ---
-> v3: Add ack for first patch.
->     Split out second patch from v2 into separate changes for remaining diff.
->     Add patches to switch samples/bpf over to using tools/lib/.
-> v2: https://www.mail-archive.com/netdev@vger.kernel.org/msg135088.html
->     Don't shift non-bpf code into libbpf.
->     Drop the patch to synchronize ELF definitions with tc.
-> v1: https://www.mail-archive.com/netdev@vger.kernel.org/msg135088.html
->     First post.
+Hi Jie,
 
-Thanks, applied after addressing the -I$(objtree) issue raised by Wang,
+I don't think we have the need to create the "dwc" subdirectory under "synopsys".
+Its preferable to have them directly under drivers/net/ethernet/synopsys.
 
-- Arnaldo
+Regards,
+C.Palminha
+
+On 07-12-2016 03:57, Jie Deng wrote:
+> This series provides the support for 25/40/50/100 GbE
+> devices using Synopsys DWC Enterprise Ethernet (XLGMAC).
+> 
+> The first patch adds support for Synopsys XLGMII.
+> The second patch provides the initial driver for Synopsys XLGMAC
+> 
+> The driver has three layers by refactoring AMD XGBE.
+> 
+> dwc-eth-xxx.x
+>   The DWC ethernet core layer (DWC ECL). This layer contains codes
+> can be shared by different DWC series ethernet cores
+> 
+> dwc-xxx.x (e.g. dwc-xlgmac.c)
+>   The DWC MAC HW adapter layer (DWC MHAL). This layer contains
+> special support for a specific MAC. e.g. currently, XLGMAC.
+> 
+> xxx-xxx-pci.c xxx-xxx-plat.c (e.g. dwc-xlgmac-pci.c)
+>   The glue adapter layer (GAL). Vendors who adopt Synopsys Etherent
+> cores can develop a glue driver for their platform.
+> 
+> Jie Deng (2):
+>   net: phy: add extension of phy-mode for XLGMII
+>   net: ethernet: Initial driver for Synopsys DWC XLGMAC
+> 
+>  Documentation/devicetree/bindings/net/ethernet.txt |    1 +
+>  MAINTAINERS                                        |    6 +
+>  drivers/net/ethernet/synopsys/Kconfig              |    2 +
+>  drivers/net/ethernet/synopsys/Makefile             |    1 +
+>  drivers/net/ethernet/synopsys/dwc/Kconfig          |   37 +
+>  drivers/net/ethernet/synopsys/dwc/Makefile         |    9 +
+>  drivers/net/ethernet/synopsys/dwc/dwc-eth-dcb.c    |  228 ++
+>  .../net/ethernet/synopsys/dwc/dwc-eth-debugfs.c    |  328 +++
+>  drivers/net/ethernet/synopsys/dwc/dwc-eth-desc.c   |  715 +++++
+>  .../net/ethernet/synopsys/dwc/dwc-eth-ethtool.c    |  567 ++++
+>  drivers/net/ethernet/synopsys/dwc/dwc-eth-hw.c     | 3098 ++++++++++++++++++++
+>  drivers/net/ethernet/synopsys/dwc/dwc-eth-mdio.c   |  252 ++
+>  drivers/net/ethernet/synopsys/dwc/dwc-eth-net.c    | 2319 +++++++++++++++
+>  drivers/net/ethernet/synopsys/dwc/dwc-eth-ptp.c    |  216 ++
+>  drivers/net/ethernet/synopsys/dwc/dwc-eth-regacc.h | 1115 +++++++
+>  drivers/net/ethernet/synopsys/dwc/dwc-eth.h        |  738 +++++
+>  drivers/net/ethernet/synopsys/dwc/dwc-xlgmac-pci.c |  538 ++++
+>  drivers/net/ethernet/synopsys/dwc/dwc-xlgmac.c     |  135 +
+>  drivers/net/ethernet/synopsys/dwc/dwc-xlgmac.h     |   85 +
+>  include/linux/phy.h                                |    3 +
+>  20 files changed, 10393 insertions(+)
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/Kconfig
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/Makefile
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-dcb.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-debugfs.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-desc.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-ethtool.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-hw.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-mdio.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-net.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-ptp.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth-regacc.h
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-eth.h
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-xlgmac-pci.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-xlgmac.c
+>  create mode 100644 drivers/net/ethernet/synopsys/dwc/dwc-xlgmac.h
+> 
