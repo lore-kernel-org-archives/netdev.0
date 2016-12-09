@@ -1,35 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] uio-hv-generic: store physical addresses instead of virtual
-Date: Fri, 09 Dec 2016 21:38:16 +0100
-Message-ID: <3783097.3X8RYproPn@wuerfel>
-References: <20161209114456.3719619-1-arnd@arndb.de> <20161209092844.75b73e8d@xeon-e3>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next] bpf: Fix number of retries when
+ growing log buffer
+Date: Fri, 9 Dec 2016 12:42:49 -0800
+Message-ID: <20161209124249.0ffc0a25@xeon-e3>
+References: <fc3866340db64ff7400c14342578b9a104f02fe9.1481103964.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        netdev@vger.kernel.org, Haiyang Zhang <haiyangz@microsoft.com>,
-        linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161209092844.75b73e8d@xeon-e3>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        alexei.starovoitov@gmail.com
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:34858 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750756AbcLIUm5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 15:42:57 -0500
+Received: by mail-pg0-f53.google.com with SMTP id p66so11290774pga.2
+        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 12:42:57 -0800 (PST)
+In-Reply-To: <fc3866340db64ff7400c14342578b9a104f02fe9.1481103964.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, December 9, 2016 9:28:44 AM CET Stephen Hemminger wrote:
-> On Fri,  9 Dec 2016 12:44:40 +0100
-> Arnd Bergmann <arnd@arndb.de> wrote:
+On Wed,  7 Dec 2016 10:47:59 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> > Fixes: 95096f2fbd10 ("uio-hv-generic: new userspace i/o driver for VMBus")
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> The log buffer is automatically grown when the verifier output does not
+> fit into the default buffer size. The number of growing attempts was
+> not sufficient to reach the maximum buffer size so far.
 > 
-> Thanks, the code was inherited from outside, and only tested on x86_64.
-> Not sure which platform and GCC version generates the warning, was this just W=1?
+> Perform 9 iterations to reach max and let the 10th one fail.
 > 
-> Acked-by: Stephen Hemminger <sthemmin@microsoft.com>
+> j:0     i:65536         max:16777215
+> j:1     i:131072        max:16777215
+> j:2     i:262144        max:16777215
+> j:3     i:524288        max:16777215
+> j:4     i:1048576       max:16777215
+> j:5     i:2097152       max:16777215
+> j:6     i:4194304       max:16777215
+> j:7     i:8388608       max:16777215
+> j:8     i:16777216      max:16777215
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-This was a regular warning with a randconfig build on arm32, but
-it happens on any 32-bit architecture when CONFIG_PHYS_ADDR_T_64BIT
-is enabled.
-
-	Arnd
+Applied to net-next
