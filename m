@@ -1,118 +1,84 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH V2 21/22] bnxt_re: Add QP event handling
-Date: Fri, 9 Dec 2016 15:12:14 +0300
-Message-ID: <b0fb09ca-da72-9157-382b-09914d5cb99a@cogentembedded.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
- <1481266096-23331-22-git-send-email-selvin.xavier@broadcom.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Fri, 9 Dec 2016 07:12:32 -0500
+Message-ID: <20161209121232.GY22655@madcap2.tricolour.ca>
+References: <20161129164859.GD26673@madcap2.tricolour.ca>
+ <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+ <20161130045207.GE26673@madcap2.tricolour.ca>
+ <20161209060248.GT22655@madcap2.tricolour.ca>
+ <CACT4Y+beWN9jmdTREk3JdEBQ3GRALGDJhy7pYF=wu3HdnNWEog@mail.gmail.com>
+ <20161209114847.GX22655@madcap2.tricolour.ca>
+ <CACT4Y+ZsOXoQqVE4vhenb9fUJkwAbGL6wUZxGyaT2h7Cncbfog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1481266096-23331-22-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, linux-audit@redhat.com
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+ZsOXoQqVE4vhenb9fUJkwAbGL6wUZxGyaT2h7Cncbfog@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On 2016-12-09 12:53, Dmitry Vyukov wrote:
+> On Fri, Dec 9, 2016 at 12:48 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > On 2016-12-09 11:49, Dmitry Vyukov wrote:
+> >> On Fri, Dec 9, 2016 at 7:02 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> >> > On 2016-11-29 23:52, Richard Guy Briggs wrote:
+> >> > I tried a quick compile attempt on the test case (I assume it is a
+> >> > socket fuzzer) and get the following compile error:
+> >> > cc -g -O0 -Wall -D_GNU_SOURCE -o socket_fuzz socket_fuzz.c
+> >> > socket_fuzz.c:16:1: warning: "_GNU_SOURCE" redefined
+> >> > <command-line>: warning: this is the location of the previous definition
+> >> > socket_fuzz.c: In function ‘segv_handler’:
+> >> > socket_fuzz.c:89: warning: implicit declaration of function ‘__atomic_load_n’
+> >> > socket_fuzz.c:89: error: ‘__ATOMIC_RELAXED’ undeclared (first use in this function)
+> >> > socket_fuzz.c:89: error: (Each undeclared identifier is reported only once
+> >> > socket_fuzz.c:89: error: for each function it appears in.)
+> >> > socket_fuzz.c: In function ‘loop’:
+> >> > socket_fuzz.c:280: warning: unused variable ‘errno0’
+> >> > socket_fuzz.c: In function ‘test’:
+> >> > socket_fuzz.c:303: warning: implicit declaration of function ‘__atomic_fetch_add’
+> >> > socket_fuzz.c:303: error: ‘__ATOMIC_SEQ_CST’ undeclared (first use in this function)
+> >> > socket_fuzz.c:303: warning: implicit declaration of function ‘__atomic_fetch_sub’
+> >>
+> >> -std=gnu99 should help
+> >> ignore warnings
+> >
+> > I got a little further, left with "__ATOMIC_RELAXED undeclared", "__ATOMIC_SEQ_CST
+> > undeclared" under gcc 4.4.7-16.
+> >
+> > gcc 4.8.2-15 leaves me with "undefined reference to `clock_gettime'"
+> 
+> add -lrt
 
-On 12/9/2016 9:48 AM, Selvin Xavier wrote:
+Ok, that helped.  Thanks!
 
-> Implements callback handler for processing affiliated Async events of a QP.
-> This patch also implements the control path command completion handling.
->
-> Signed-off-by: Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> ---
->  drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c | 49 ++++++++++++++++++++++++++
->  1 file changed, 49 insertions(+)
->
-> diff --git a/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c b/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
-> index 5b71acd..3e6bb3f 100644
-> --- a/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
-> +++ b/drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
-> @@ -246,6 +246,46 @@ static int bnxt_qplib_process_func_event(struct bnxt_qplib_rcfw *rcfw,
->  	return 0;
->  }
->
-> +static int bnxt_qplib_process_qp_event(struct bnxt_qplib_rcfw *rcfw,
-> +				       struct creq_qp_event *qp_event)
-> +{
-> +	struct bnxt_qplib_crsq *crsq = &rcfw->crsq;
-> +	struct bnxt_qplib_hwq *cmdq = &rcfw->cmdq;
-> +	struct bnxt_qplib_crsqe *crsqe;
-> +	u16 cbit, cookie, blocked = 0;
-> +	unsigned long flags;
-> +	u32 sw_cons;
-> +
-> +	switch (qp_event->event) {
-> +	case CREQ_QP_EVENT_EVENT_QP_ERROR_NOTIFICATION:
-> +		break;
-> +	default:
-> +	{
-> +		/* Command Response */
-> +		spin_lock_irqsave(&cmdq->lock, flags);
-> +		sw_cons = HWQ_CMP(crsq->cons, crsq);
-> +		crsqe = &crsq->crsq[sw_cons];
-> +		crsq->cons++;
-> +		memcpy(&crsqe->qp_event, qp_event, sizeof(crsqe->qp_event));
-> +
-> +		cookie = le16_to_cpu(crsqe->qp_event.cookie);
-> +		blocked = cookie & RCFW_CMD_IS_BLOCKING;
-> +		cookie &= RCFW_MAX_COOKIE_VALUE;
-> +		cbit = cookie % RCFW_MAX_OUTSTANDING_CMD;
-> +		if (!test_and_clear_bit(cbit, rcfw->cmdq_bitmap))
-> +			dev_warn(&rcfw->pdev->dev,
-> +				 "QPLIB: CMD bit %d was not requested", cbit);
-> +
-> +		cmdq->cons += crsqe->req_size;
-> +		spin_unlock_irqrestore(&cmdq->lock, flags);
-> +		if (!blocked)
-> +			wake_up(&rcfw->waitq);
-> +		break;
-> +	}
-> +	}
+> > What compiler version do you recommend?
+> 
+> 6.x sounds reasonable
+> 4.4 branch is 7.5 years old, surprised that it does not disintegrate
+> into dust yet :)
 
-    Hum, strange indentation... Not seeing why you need {} in the *default* at 
-all...
+  These are under RHEL6...  so there are updates to them, but yeah, they are old.
 
-> +	return 0;
-> +}
-> +
->  /* SP - CREQ Completion handlers */
->  static void bnxt_qplib_service_creq(unsigned long data)
->  {
-> @@ -269,6 +309,15 @@ static void bnxt_qplib_service_creq(unsigned long data)
->  		type = creqe->type & CREQ_BASE_TYPE_MASK;
->  		switch (type) {
->  		case CREQ_BASE_TYPE_QP_EVENT:
-> +			if (!bnxt_qplib_process_qp_event
-> +			    (rcfw, (struct creq_qp_event *)creqe))
-> +				rcfw->creq_qp_event_processed++;
-> +			else {
+> >> >> - RGB
+> >> >
+> >> > - RGB
+> >
+> > - RGB
+> >
+> > --
+> > Richard Guy Briggs <rgb@redhat.com>
+> > Kernel Security Engineering, Base Operating Systems, Red Hat
+> > Remote, Ottawa, Canada
+> > Voice: +1.647.777.2635, Internal: (81) 32635
 
-    CodingStyle: there should be {} used in all branches if it's used on at 
-least branch of *if*.
-
-> +				dev_warn(&rcfw->pdev->dev, "QPLIB: crsqe with");
-> +				dev_warn(&rcfw->pdev->dev,
-> +					 "QPLIB: type = 0x%x not handled",
-> +					 type);
-> +			}
->  			break;
->  		case CREQ_BASE_TYPE_FUNC_EVENT:
->  			if (!bnxt_qplib_process_func_event
-
-MBR, Sergei
+- RGB
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Richard Guy Briggs <rgb@redhat.com>
+Kernel Security Engineering, Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635
