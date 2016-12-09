@@ -1,56 +1,121 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Fri, 9 Dec 2016 01:01:02 +0000
-Message-ID: <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com>
-References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
-         <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
-         <1481233016.11849.1@smtp.office365.com>,<1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Re: [Intel-wired-lan] [RFC PATCH] i40e: enable PCIe relax ordering
+ for SPARC
+Date: Thu, 8 Dec 2016 17:16:08 -0800
+Message-ID: <5b220dd9-113d-11de-bbd3-c144485c72d7@oracle.com>
+References: <1480957627-16825-1-git-send-email-tushar.n.dave@oracle.com>
+ <CAKgT0UcyRSub0NCi7oHX2Vf+N4vQxzwdWmcc+V+jOX_J=RYgfg@mail.gmail.com>
+ <ec140d5d-3eec-5fc6-6417-11bacc55b807@oracle.com>
+ <CAKgT0UfTP+BrvDBzUJAVr9-DRCKgM7T3aS=LgRic8UZz8x82eg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB02382BD@AcuExch.aculab.com>
+ <CAKgT0Uf3aZBoziv7B0tFMovYe9JNWEYZAZhe9iof2XcuRJD+uw@mail.gmail.com>
+ <fc3fc99a-ff53-d895-ec06-56f9cf8a0d13@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41410 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753547AbcLIBBK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 8 Dec 2016 20:01:10 -0500
-In-Reply-To: <1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>, sparclinux@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        David Laight <David.Laight@aculab.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <fc3fc99a-ff53-d895-ec06-56f9cf8a0d13@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> On Dec 8, 2016, at 7:32 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
->> On Thu, 2016-12-08 at 16:36 -0500, Josef Bacik wrote:
->>=20
->> We can reproduce the problem at will, still trying to run down the=20
->> problem.  I'll try and find one of the boxes that dumped a core and get=
-=20
->> a bt of everybody.  Thanks,
->=20
-> OK, sounds good.
->=20
-> I had a look and :
-> - could not spot a fix that came after 4.6.=20
-> - could not spot an obvious bug.
->=20
-> Anything special in the program triggering the issue ?
-> SO_REUSEPORT and/or special socket options ?
->=20
 
-So they recently started using SO_REUSEPORT, that's what triggered it, if t=
-hey don't use it then everything is fine.
+On 12/08/2016 04:45 PM, tndave wrote:
+>
+>
+> On 12/08/2016 08:05 AM, Alexander Duyck wrote:
+>> On Thu, Dec 8, 2016 at 2:43 AM, David Laight
+>> <David.Laight@aculab.com> wrote:
+>>> From: Alexander Duyck
+>>>> Sent: 06 December 2016 17:10
+>>> ...
+>>>> I was thinking about it and I realized we can probably simplify
+>>>> this even further.  In the case of most other architectures the
+>>>> DMA_ATTR_WEAK_ORDERING has no effect anyway.  So from what I can
+>>>> tell there is probably no reason not to just always pass that
+>>>> attribute with the DMA mappings.  From what I can tell the only
+>>>> other architecture that uses this is the PowerPC Cell
+>>>> architecture.
+>>>
+>>> And I should have read all the thread :-(
+>>>
+>>>> Also I was wondering if you actually needed to enable this
+>>>> attribute for both Rx and Tx buffers or just Rx buffers?  The
+>>>> patch that enabled DMA_ATTR_WEAK_ORDERING for Sparc64 seems to
+>>>> call out writes, but I didn't see anything about reads.  I'm just
+>>>> wondering if changing the code for Tx has any effect?  If not you
+>>>> could probably drop those changes and just focus on Rx.
+>>>
+>>> 'Weak ordering' only applies to PCIe read transfers, so can only
+>>> have an effect on descriptor reads and transmit buffer reads.
+>>>
+>>> Basically PCIe is a comms protocol and an endpoint (or the host)
+>>> can have multiple outstanding read requests (each of which might
+>>> generate multiple response messages. The responses for each request
+>>> must arrive in order, but responses for different requests can be
+>>> interleaved. Setting 'not weak ordering' lets the host interwork
+>>> with broken endpoints. (Or, like we did, you fix the fpga's PCIe
+>>> implementation.)
+>>
+>> I get the basics of relaxed ordering.  The question is how does the
+>> Sparc64 IOMMU translate DMA_ATTR_WEAK_ORDERING into relaxed ordering
+>> messages, and at what level the ordering is relaxed.  Odds are the
+>> wording in the description where this attribute was added to Sparc
+>> is just awkward, but I was wanting to verify if this only applies to
+>> writes, or also read completions.
+> In Sparc64, passing DMA_ATTR_WEAK_ORDERING in dma map/unmap only affects
+> PCIe root complex (Hostbridge). Using DMA_ATTR_WEAK_ORDERING, requested
+> DMA transaction can be relaxed ordered within the PCIe root complex.
+>
+> In Sparc64, memory writes can be held at PCIe root complex not letting
+> other memory writes to go through. By passing DMA_ATTR_WEAK_ORDERING in
+> dma map/unmap allows memory writes to bypass other memory writes in PCIe
+> root complex. (This applies to only PCIe root complex and does not
+> affect at any other level of PCIe hierarchy e.g. PCIe bridges et al.
+> Also the PCIe root complex when bypassing memory writes does follow PCIe
+> relax ordering rules as per PCIe specification.
+>
+> For reference [old but still relevant write-up]: PCI-Express Relaxed
+> Ordering and the Sun SPARC Enterprise M-class Servers
+> https://blogs.oracle.com/olympus/entry/relaxed_ordering
+>
+>>
+>>> In this case you need the reads of both transmit and receive rings
+>>> to 'overtake' reads of transmit data.
+>>
+>> Actually that isn't quite right.  With relaxed ordering completions
+>> and writes can pass each other if I recall correctly, but reads will
+>> always force all writes ahead of them to be completed before you can
+>> begin generating the read completions.
+> That is my understanding as well.
+>
+>>
+>>> I'm not at all clear how this 'flag' can be set on dma_map(). It is
+>>> a property of the PCIe subsystem.
+> Because in Sparc64, passing DMA_ATTR_WEAK_ORDERING flag in DMA map/unmap
+> adds an entry in IOMMU/ATU table so that an access to requested DMA
+> address from PCIe root complex can be relaxed ordered.
+>>
+>> That was where my original question on this came in.  We can do a
+>> blanket enable of relaxed ordering for Tx and Rx data buffers, but
+>> if we only need it on Rx then there isn't any need for us to make
+>> unnecessary changes.
+> I ran some quick test and it is likely that we don't need
+> DMA_ATTR_WEAK_ORDERING for any TX dma buffer (because in case of TX dma
+> buffers, its all memory reads from device).
+in above line , s/from/by
 
-I added some instrumentation for get_port to see if it was looping in there=
- and none of my printk's triggered.  The softlockup messages are always on =
-the inet_bind_bucket lock, sometimes in the process context in get_port or =
-in the softirq context either through inet_put_port or inet_kill_twsk.  On =
-the box that I have a coredump for there's only one processor in the inet c=
-ode so I'm not sure what to make of that.  That was a box from last week so=
- I'll look at a more recent core and see if it's different.  Thanks,
++ cc sparclinux@vger.kernel.org
 
-Josef=
+-Tushar
+>
+> -Tushar
+>>
+>> - Alex
+>>
+>
