@@ -1,87 +1,126 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH v3 0/4] vsock: cancel connect packets when failing to
- connect
-Date: Fri, 9 Dec 2016 10:18:42 +0000
-Message-ID: <20161209101842.GD18260@stefanha-x1.localdomain>
-References: <1481217156-7160-1-git-send-email-bergwolf@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 37/50] netfilter: nf_tables: atomic dump and reset for
+ stateful objects
+Date: Fri, 9 Dec 2016 11:24:32 +0100
+Message-ID: <20161209102432.GA986@salvia>
+References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
+ <1481147576-5690-38-git-send-email-pablo@netfilter.org>
+ <CAP=VYLp-ZBFjR1W9=V_vyPYAi1=Yub3ugq6D8hkoLigcPaaxFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="ZARJHfwaSJQLOEUz"
-Cc: Stefan Hajnoczi <stefanha@redhat.com>, netdev@vger.kernel.org,
-        Jorgen Hansen <jhansen@vmware.com>,
-        David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org
-To: Peng Tao <bergwolf@gmail.com>
+Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
+Cc: netfilter-devel@vger.kernel.org,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:35082 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932247AbcLIKSq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 05:18:46 -0500
+Received: from mail.us.es ([193.147.175.20]:46266 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933105AbcLIKYr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Dec 2016 05:24:47 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id D40D41395C2
+        for <netdev@vger.kernel.org>; Fri,  9 Dec 2016 11:24:44 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id C170C7E082
+        for <netdev@vger.kernel.org>; Fri,  9 Dec 2016 11:24:44 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 571127E07F
+        for <netdev@vger.kernel.org>; Fri,  9 Dec 2016 11:24:41 +0100 (CET)
 Content-Disposition: inline
-In-Reply-To: <1481217156-7160-1-git-send-email-bergwolf@gmail.com>
+In-Reply-To: <CAP=VYLp-ZBFjR1W9=V_vyPYAi1=Yub3ugq6D8hkoLigcPaaxFg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---ZARJHfwaSJQLOEUz
+--gKMricLos+KVdGMg
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, Dec 09, 2016 at 01:12:32AM +0800, Peng Tao wrote:
-> Currently, if a connect call fails on a signal or timeout (e.g., guest is=
- still
-> in the process of starting up), we'll just return to caller and leave the=
- connect
-> packet queued and they are sent even though the connection is considered =
-a failure,
-> which can confuse applications with unwanted false connect attempt.
->=20
-> The patchset enables vsock (both host and guest) to cancel queued packets=
- when
-> a connect attempt is considered to fail.
->=20
-> v3 changelog:
->   - define cancel_pkt callback in struct vsock_transport rather than stru=
-ct virtio_transport
->   - rename virtio_vsock_pkt->vsk to virtio_vsock_pkt->cancel_token
-> v2 changelog:
->   - fix queued_replies counting and resume tx/rx when necessary
->=20
->=20
-> Peng Tao (4):
->   vsock: track pkt owner vsock
->   vhost-vsock: add pkt cancel capability
->   vsock: add pkt cancel capability
->   vsock: cancel packets when failing to connect
->=20
->  drivers/vhost/vsock.c                   | 41 +++++++++++++++++++++++++++=
-+++++
->  include/linux/virtio_vsock.h            |  2 ++
->  include/net/af_vsock.h                  |  3 +++
->  net/vmw_vsock/af_vsock.c                | 14 +++++++++++
->  net/vmw_vsock/virtio_transport.c        | 42 +++++++++++++++++++++++++++=
-++++++
->  net/vmw_vsock/virtio_transport_common.c |  7 ++++++
->  6 files changed, 109 insertions(+)
+Hi Paul,
 
-I'm happy although I pointed out two unnecessary (void*) casts.
+On Thu, Dec 08, 2016 at 07:40:14PM -0500, Paul Gortmaker wrote:
+> On Wed, Dec 7, 2016 at 4:52 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > This patch adds a new NFT_MSG_GETOBJ_RESET command perform an atomic
+> > dump-and-reset of the stateful object. This also comes with add support
+> > for atomic dump and reset for counter and quota objects.
+> 
+> This triggered a new build failure in linux-next on parisc-32, which a
+> hands-off bisect
+> run lists as resulting from this:
+> 
+> ERROR: "__cmpxchg_u64" [net/netfilter/nft_counter.ko] undefined!
+> make[2]: *** [__modpost] Error 1
+> make[1]: *** [modules] Error 2
+> make: *** [sub-make] Error 2
+> 43da04a593d8b2626f1cf4b56efe9402f6b53652 is the first bad commit
+> commit 43da04a593d8b2626f1cf4b56efe9402f6b53652
+> Author: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date:   Mon Nov 28 00:05:44 2016 +0100
+> 
+>     netfilter: nf_tables: atomic dump and reset for stateful objects
+> 
+>     This patch adds a new NFT_MSG_GETOBJ_RESET command perform an atomic
+>     dump-and-reset of the stateful object. This also comes with add support
+>     for atomic dump and reset for counter and quota objects.
+> 
+>     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> 
+> :040000 040000 6cd4554f69247e5c837db52342f26888beda1623
+> 5908aca93c89e7922336546c3753bfcf2aceefba M      include
+> :040000 040000 f25d5831eb30972436bd198c5bb237a0cb0b4856
+> 4ee5751c8de02bb5a8dcaadb2a2df7986d90f8e9 M      net
+> bisect run success
+> 
+> Guessing this is more an issue with parisc than it is with netfilter, but I
+> figured I'd mention it anyway.
 
-Please wait for Jorgen to go happy on the af_vsock.c changes before
-applying.
+I'm planning to submit this patch to parisc, I'm attaching it to this
+email.
 
---ZARJHfwaSJQLOEUz
-Content-Type: application/pgp-signature; name="signature.asc"
+--gKMricLos+KVdGMg
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-parisc-export-symbol-__cmpxchg_u64.patch"
 
------BEGIN PGP SIGNATURE-----
+>From c9d320ac0be2a32a7b2bfad398be549865088ecf Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 8 Dec 2016 22:55:33 +0100
+Subject: [PATCH] parisc: export symbol __cmpxchg_u64()
 
-iQEcBAEBAgAGBQJYSoUCAAoJEJykq7OBq3PIQjEIAKYl8LmOU9lG6p9P9A2VMZzV
-WB82TJlV+XtLxgee1RvrmtxZe0fxYcoSUHcsl6V5XSbF2QKN60iGgWq9bMNCIZ2Z
-dmU5O96qOcINs86Scslb9sfWQegI0Vt9A5fs7w0LfMNTjxGJFoPLSFnZ5xLUy90e
-AKQs9oiRBbZQcvRvefTs3eSRqC8Y8REc7b9vXslAdeCP+3QAAoCt2K7oNGOnvxDa
-Wp/UC1JJuxcN2THuV13Mfp0kgcBNHiksbw/RIawVIVzfOsSxB+gSO2N4hizq8pP+
-iK4tNNNIVj10EjFhLcYg7/6At5MrkpvjsEwL8hL7XlTkfTrMe65LcXWSdfvHkFk=
-=IbrC
------END PGP SIGNATURE-----
+kbuild test robot reports:
 
---ZARJHfwaSJQLOEUz--
+>> ERROR: "__cmpxchg_u64" [net/netfilter/nft_counter.ko] undefined!
+
+Commit 43da04a593d8 ("netfilter: nf_tables: atomic dump and reset for
+stateful objects") introduces the first client of cmpxchg64() from
+modules.
+
+Patch 54b668009076 ("parisc: Add native high-resolution sched_clock()
+implementation") removed __cmpxchg_u64() dependency on CONFIG_64BIT.
+So, let's fix this problem by exporting this symbol unconditionally.
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ arch/parisc/kernel/parisc_ksyms.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/parisc/kernel/parisc_ksyms.c b/arch/parisc/kernel/parisc_ksyms.c
+index 3cad8aadc69e..cfa704548cf3 100644
+--- a/arch/parisc/kernel/parisc_ksyms.c
++++ b/arch/parisc/kernel/parisc_ksyms.c
+@@ -40,8 +40,8 @@ EXPORT_SYMBOL(__atomic_hash);
+ #endif
+ #ifdef CONFIG_64BIT
+ EXPORT_SYMBOL(__xchg64);
+-EXPORT_SYMBOL(__cmpxchg_u64);
+ #endif
++EXPORT_SYMBOL(__cmpxchg_u64);
+ 
+ #include <asm/uaccess.h>
+ EXPORT_SYMBOL(lclear_user);
+-- 
+2.1.4
+
+
+--gKMricLos+KVdGMg--
