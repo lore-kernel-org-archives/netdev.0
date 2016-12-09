@@ -1,52 +1,35 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net-next v2] dsa:mv88e6xxx: dispose irq mapping for
- chip->irq
-Date: Fri, 9 Dec 2016 19:00:29 +0100
-Message-ID: <20161209180029.GK9923@lunn.ch>
-References: <1481106907-30908-1-git-send-email-volodymyr.bendiuga@westermo.se>
- <20161207141144.GJ18817@lunn.ch>
- <4388a669-b425-97e0-346b-6b20f7f47f86@westermo.se>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] uio-hv-generic: store physical addresses instead of virtual
+Date: Fri, 09 Dec 2016 21:38:16 +0100
+Message-ID: <3783097.3X8RYproPn@wuerfel>
+References: <20161209114456.3719619-1-arnd@arndb.de> <20161209092844.75b73e8d@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, volodymyr.bendiuga-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Volodymyr Bendiuga <volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4388a669-b425-97e0-346b-6b20f7f47f86-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        netdev@vger.kernel.org, Haiyang Zhang <haiyangz@microsoft.com>,
+        linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161209092844.75b73e8d@xeon-e3>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 07, 2016 at 05:40:12PM +0100, Volodymyr Bendiuga wrote:
-> Yes, most of the users of of_irq_get() do not use irq_dispose_mapping().
-> 
-> But some of them do (some irq chips), and I believe the correct way
-> of doing this is to
-> 
-> dispose irq mapping, as the description for this function says that
-> it unmaps
-> 
-> the irq, which is mapped by of_irq_parse_and_map(). Not disposing
-> irq might not make
-> 
-> any affect on most drivers, but some, that get EPROBE_DEFER error do
-> need to dispose.
-> 
-> This is what I get when I run the code.
-> 
-> of_irq_put() could be implemented, and it would be a wrapper for
-> irq_dispose_mapping()
-> 
-> as I can see it. Should I do it this way?
+On Friday, December 9, 2016 9:28:44 AM CET Stephen Hemminger wrote:
+> On Fri,  9 Dec 2016 12:44:40 +0100
+> Arnd Bergmann <arnd@arndb.de> wrote:
 
-Hi Volodymyr
+> > Fixes: 95096f2fbd10 ("uio-hv-generic: new userspace i/o driver for VMBus")
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> Thanks, the code was inherited from outside, and only tested on x86_64.
+> Not sure which platform and GCC version generates the warning, was this just W=1?
+> 
+> Acked-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Yes, i think having of_irq_put() would be good. It gives some symmetry
-to the API.
+This was a regular warning with a randconfig build on arm32, but
+it happens on any 32-bit architecture when CONFIG_PHYS_ADDR_T_64BIT
+is enabled.
 
-   Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Arnd
