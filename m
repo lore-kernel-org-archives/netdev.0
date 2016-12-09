@@ -1,41 +1,69 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Sat, 10 Dec 2016 00:25:15 +0200
-Message-ID: <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
-References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
- <20161209.103327.1742213347114742435.davem@davemloft.net> <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
- <20161209.104152.1969880574279771010.davem@davemloft.net>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 1/4] net: hix5hd2_gmac: add generic compatible string
+Date: Fri, 9 Dec 2016 16:35:21 -0600
+Message-ID: <20161209223521.5dnj7l44e663sntl@rob-hp-laptop>
+References: <1480944481-118803-1-git-send-email-lidongpo@hisilicon.com>
+ <1480944481-118803-2-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        lars.persson@axis.com, rabin.vincent@axis.com,
-        netdev <netdev@vger.kernel.org>, CARLOS.PALMINHA@synopsys.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:34316 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753341AbcLIWZQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 17:25:16 -0500
-Received: by mail-oi0-f65.google.com with SMTP id m75so4095366oig.1
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 14:25:16 -0800 (PST)
-In-Reply-To: <20161209.104152.1969880574279771010.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mark.rutland@arm.com, mturquette@baylibre.com,
+        sboyd@codeaurora.org, linux@armlinux.org.uk,
+        zhangfei.gao@linaro.org, yisen.zhuang@huawei.com,
+        salil.mehta@huawei.com, davem@davemloft.net, arnd@arndb.de,
+        andrew@lunn.ch, xuejiancheng@hisilicon.com,
+        benjamin.chenhao@hisilicon.com, caizhiyong@hisilicon.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Dongpo Li <lidongpo@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1480944481-118803-2-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 9, 2016 at 5:41 PM, David Miller <davem@davemloft.net> wrote:
+On Mon, Dec 05, 2016 at 09:27:58PM +0800, Dongpo Li wrote:
+> The "hix5hd2" is SoC name, add the generic ethernet driver name.
+> The "hisi-gemac-v1" is the basic version and "hisi-gemac-v2" adds
+> the SG/TXCSUM/TSO/UFO features.
+> 
+> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+> ---
+>  .../devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt    |  9 +++++++--
+>  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c             | 15 +++++++++++----
+>  2 files changed, 18 insertions(+), 6 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+> index 75d398b..75920f0 100644
+> --- a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+> @@ -1,7 +1,12 @@
+>  Hisilicon hix5hd2 gmac controller
+>  
+>  Required properties:
+> -- compatible: should be "hisilicon,hix5hd2-gmac".
+> +- compatible: should contain one of the following SoC strings:
+> +	* "hisilicon,hix5hd2-gemac"
+> +	* "hisilicon,hi3798cv200-gemac"
+> +	and one of the following version string:
+> +	* "hisilicon,hisi-gemac-v1"
+> +	* "hisilicon,hisi-gemac-v2"
 
-> But one thing I am against is changing the driver name for existing
-> users.  If an existing chip is supported by the stmmac driver for
-> existing users, they should still continue to use the "stmmac" driver.
->
-> Therefore, if consolidation changes the driver module name for
-> existing users, then that is not a good plan at all.
+What combinations are valid? I assume both chips don't have both v1 and 
+v2. 2 SoCs and 2 versions so far, I don't think there is much point to 
+have the v1 and v2 compatible strings.
 
-You have at least one supporter here. Though I jumped in to the
-discussion very late, not sure if everyone have time to answer to
-that.
+>  - reg: specifies base physical address(s) and size of the device registers.
+>    The first region is the MAC register base and size.
+>    The second region is external interface control register.
+> @@ -20,7 +25,7 @@ Required properties:
+>  
+>  Example:
+>  	gmac0: ethernet@f9840000 {
+> -		compatible = "hisilicon,hix5hd2-gmac";
+> +		compatible = "hisilicon,hix5hd2-gemac", "hisilicon,hisi-gemac-v1";
 
--- 
-With Best Regards,
-Andy Shevchenko
+You can't just change compatible strings.
+
+>  		reg = <0xf9840000 0x1000>,<0xf984300c 0x4>;
+>  		interrupts = <0 71 4>;
+>  		#address-cells = <1>;
