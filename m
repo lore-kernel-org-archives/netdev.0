@@ -1,193 +1,55 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: [PATCHv3 perf/core 6/7] samples/bpf: Remove perf_event_open() declaration
-Date: Thu,  8 Dec 2016 18:46:19 -0800
-Message-ID: <20161209024620.31660-7-joe@ovn.org>
-References: <20161209024620.31660-1-joe@ovn.org>
-Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
-        acme@kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161209024620.31660-1-joe@ovn.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next PATCH v5 0/6] XDP for virtio_net
+Date: Fri, 9 Dec 2016 05:01:30 +0200
+Message-ID: <20161209045537-mutt-send-email-mst@kernel.org>
+References: <20161208.141702.1346950420275854265.davem@davemloft.net>
+ <20161208193814.GA1954@ast-mbp.thefacebook.com>
+ <5849C68F.7080707@gmail.com>
+ <20161208.171602.544798927904408724.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, shm@cumulusnetworks.com, tgraf@suug.ch,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43588 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752110AbcLIDBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 8 Dec 2016 22:01:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20161208.171602.544798927904408724.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This declaration was made in samples/bpf/libbpf.c for convenience, but
-there's already one in tools/perf/perf-sys.h. Reuse that one.
+On Thu, Dec 08, 2016 at 05:16:02PM -0500, David Miller wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Thu, 8 Dec 2016 12:46:07 -0800
+> 
+> > On 16-12-08 11:38 AM, Alexei Starovoitov wrote:
+> >> On Thu, Dec 08, 2016 at 02:17:02PM -0500, David Miller wrote:
+> >>> From: John Fastabend <john.fastabend@gmail.com>
+> >>> Date: Wed, 07 Dec 2016 12:10:47 -0800
+> >>>
+> >>>> This implements virtio_net for the mergeable buffers and big_packet
+> >>>> modes. I tested this with vhost_net running on qemu and did not see
+> >>>> any issues. For testing num_buf > 1 I added a hack to vhost driver
+> >>>> to only but 100 bytes per buffer.
+> >>>  ...
+> >>>
+> >>> So where are we with this?
+> > 
+> > There is one possible issue with a hang that Michael pointed out. I can
+> > either spin a v6 or if you pull this v5 series in I can post a bugfix
+> > for it. I am not seeing the issue in practice XDP virtio has been up
+> > and running on my box here for days without issue.
+> 
+> If that's the case then please spin a v6 and I'll apply it.
 
-Signed-off-by: Joe Stringer <joe@ovn.org>
----
-v3: First post.
----
- samples/bpf/Makefile            | 3 ++-
- samples/bpf/bpf_load.c          | 3 ++-
- samples/bpf/libbpf.c            | 7 -------
- samples/bpf/libbpf.h            | 3 ---
- samples/bpf/sampleip_user.c     | 3 ++-
- samples/bpf/trace_event_user.c  | 9 +++++----
- samples/bpf/trace_output_user.c | 3 ++-
- samples/bpf/tracex6_user.c      | 3 ++-
- 8 files changed, 15 insertions(+), 19 deletions(-)
+I think 1/6 should be reworked, disabling/enabling GUEST_TSO
+transparently without touching the LRO flag, and without adding
+NDO callback.
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index c8f7ed37b2de..0adc47e67e65 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -92,7 +92,8 @@ always += test_current_task_under_cgroup_kern.o
- always += trace_event_kern.o
- always += sampleip_kern.o
- 
--HOSTCFLAGS += -I$(objtree)/usr/include -I$(objtree)/tools/lib/
-+HOSTCFLAGS += -I$(objtree)/usr/include -I$(objtree)/tools/lib/ \
-+	      -I$(objtree)/tools/include -I$(objtree)/tools/perf
- 
- HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
- HOSTLOADLIBES_fds_example += -lelf
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index f8e3c58a0897..d683bd278171 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -19,6 +19,7 @@
- #include <ctype.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- #define DEBUGFS "/sys/kernel/debug/tracing/"
- 
-@@ -168,7 +169,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	id = atoi(buf);
- 	attr.config = id;
- 
--	efd = perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
-+	efd = sys_perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
- 	if (efd < 0) {
- 		printf("event %d fd %d err %s\n", id, efd, strerror(errno));
- 		return -1;
-diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-index d9af876b4a2c..bee473a494f1 100644
---- a/samples/bpf/libbpf.c
-+++ b/samples/bpf/libbpf.c
-@@ -34,10 +34,3 @@ int open_raw_sock(const char *name)
- 
- 	return sock;
- }
--
--int perf_event_open(struct perf_event_attr *attr, int pid, int cpu,
--		    int group_fd, unsigned long flags)
--{
--	return syscall(__NR_perf_event_open, attr, pid, cpu,
--		       group_fd, flags);
--}
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-index cc815624aacf..09aedc320009 100644
---- a/samples/bpf/libbpf.h
-+++ b/samples/bpf/libbpf.h
-@@ -188,7 +188,4 @@ struct bpf_insn;
- /* create RAW socket and bind to interface 'name' */
- int open_raw_sock(const char *name);
- 
--struct perf_event_attr;
--int perf_event_open(struct perf_event_attr *attr, int pid, int cpu,
--		    int group_fd, unsigned long flags);
- #endif
-diff --git a/samples/bpf/sampleip_user.c b/samples/bpf/sampleip_user.c
-index 09ab620b324c..476a11947180 100644
---- a/samples/bpf/sampleip_user.c
-+++ b/samples/bpf/sampleip_user.c
-@@ -21,6 +21,7 @@
- #include <sys/ioctl.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- #define DEFAULT_FREQ	99
- #define DEFAULT_SECS	5
-@@ -50,7 +51,7 @@ static int sampling_start(int *pmu_fd, int freq)
- 	};
- 
- 	for (i = 0; i < nr_cpus; i++) {
--		pmu_fd[i] = perf_event_open(&pe_sample_attr, -1 /* pid */, i,
-+		pmu_fd[i] = sys_perf_event_open(&pe_sample_attr, -1 /* pid */, i,
- 					    -1 /* group_fd */, 0 /* flags */);
- 		if (pmu_fd[i] < 0) {
- 			fprintf(stderr, "ERROR: Initializing perf sampling\n");
-diff --git a/samples/bpf/trace_event_user.c b/samples/bpf/trace_event_user.c
-index de8fd0266d78..ccb0cba8324a 100644
---- a/samples/bpf/trace_event_user.c
-+++ b/samples/bpf/trace_event_user.c
-@@ -20,6 +20,7 @@
- #include <sys/resource.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- #define SAMPLE_FREQ 50
- 
-@@ -126,9 +127,9 @@ static void test_perf_event_all_cpu(struct perf_event_attr *attr)
- 
- 	/* open perf_event on all cpus */
- 	for (i = 0; i < nr_cpus; i++) {
--		pmu_fd[i] = perf_event_open(attr, -1, i, -1, 0);
-+		pmu_fd[i] = sys_perf_event_open(attr, -1, i, -1, 0);
- 		if (pmu_fd[i] < 0) {
--			printf("perf_event_open failed\n");
-+			printf("sys_perf_event_open failed\n");
- 			goto all_cpu_err;
- 		}
- 		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
-@@ -147,9 +148,9 @@ static void test_perf_event_task(struct perf_event_attr *attr)
- 	int pmu_fd;
- 
- 	/* open task bound event */
--	pmu_fd = perf_event_open(attr, 0, -1, -1, 0);
-+	pmu_fd = sys_perf_event_open(attr, 0, -1, -1, 0);
- 	if (pmu_fd < 0) {
--		printf("perf_event_open failed\n");
-+		printf("sys_perf_event_open failed\n");
- 		return;
- 	}
- 	assert(ioctl(pmu_fd, PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
-diff --git a/samples/bpf/trace_output_user.c b/samples/bpf/trace_output_user.c
-index 9c38f7aa4515..64e692fd7d51 100644
---- a/samples/bpf/trace_output_user.c
-+++ b/samples/bpf/trace_output_user.c
-@@ -21,6 +21,7 @@
- #include <signal.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- static int pmu_fd;
- 
-@@ -160,7 +161,7 @@ static void test_bpf_perf_event(void)
- 	};
- 	int key = 0;
- 
--	pmu_fd = perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
-+	pmu_fd = sys_perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
- 
- 	assert(pmu_fd >= 0);
- 	assert(bpf_map_update_elem(map_fd[0], &key, &pmu_fd, BPF_ANY) == 0);
-diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
-index 7a3b4a4b19f3..1681cb7cd713 100644
---- a/samples/bpf/tracex6_user.c
-+++ b/samples/bpf/tracex6_user.c
-@@ -10,6 +10,7 @@
- #include <linux/bpf.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- #define SAMPLE_PERIOD  0x7fffffffffffffffULL
- 
-@@ -32,7 +33,7 @@ static void test_bpf_perf_event(void)
- 	};
- 
- 	for (i = 0; i < nr_cpus; i++) {
--		pmu_fd[i] = perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
-+		pmu_fd[i] = sys_perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
- 		if (pmu_fd[i] < 0) {
- 			printf("event syscall failed\n");
- 			goto exit;
 -- 
-2.10.2
+MST
