@@ -1,70 +1,52 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCHv3 perf/core 5/7] samples/bpf: Switch over to libbpf
-Date: Fri, 9 Dec 2016 09:59:29 -0800
-Message-ID: <CAPWQB7HK=L==L3cOuSfpHQD7FcsgqeMqU7odKwYiGw_RNY=02g@mail.gmail.com>
-References: <20161209024620.31660-1-joe@ovn.org> <20161209024620.31660-6-joe@ovn.org>
- <c256e266-14c0-d546-cf61-264035ed6282@huawei.com> <77ff1746-6271-0eac-a921-bb852c14a602@huawei.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH net-next v2] dsa:mv88e6xxx: dispose irq mapping for
+ chip->irq
+Date: Fri, 9 Dec 2016 19:00:29 +0100
+Message-ID: <20161209180029.GK9923@lunn.ch>
+References: <1481106907-30908-1-git-send-email-volodymyr.bendiuga@westermo.se>
+ <20161207141144.GJ18817@lunn.ch>
+ <4388a669-b425-97e0-346b-6b20f7f47f86@westermo.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>, ast@fb.com,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: "Wangnan (F)" <wangnan0@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <77ff1746-6271-0eac-a921-bb852c14a602@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, volodymyr.bendiuga-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Volodymyr Bendiuga <volodymyr.bendiuga-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4388a669-b425-97e0-346b-6b20f7f47f86-qeDNsGSBLoYwFerOooGFRg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 8 December 2016 at 21:18, Wangnan (F) <wangnan0@huawei.com> wrote:
->
->
-> On 2016/12/9 13:04, Wangnan (F) wrote:
->>
->>
->>
->> On 2016/12/9 10:46, Joe Stringer wrote:
->>
->> [SNIP]
->>
->>>   diff --git a/tools/lib/bpf/Makefile b/tools/lib/bpf/Makefile
->>> index 62d89d50fcbd..616bd55f3be8 100644
->>> --- a/tools/lib/bpf/Makefile
->>> +++ b/tools/lib/bpf/Makefile
->>> @@ -149,6 +149,8 @@ CMD_TARGETS = $(LIB_FILE)
->>>     TARGETS = $(CMD_TARGETS)
->>>   +libbpf: all
->>> +
->>
->>
->> Why we need this? I tested this patch without it and it seems to work, and
->> this line causes an extra error:
->>  $ pwd
->>  /home/wn/kernel/tools/lib/bpf
->>  $ make libbpf
->>  ...
->>  gcc -g -Wall -DHAVE_LIBELF_MMAP_SUPPORT -DHAVE_ELF_GETPHDRNUM_SUPPORT
->> -Wbad-function-cast -Wdeclaration-after-statement -Wformat-security
->> -Wformat-y2k -Winit-self -Wmissing-declarations -Wmissing-prototypes
->> -Wnested-externs -Wno-system-headers -Wold-style-definition -Wpacked
->> -Wredundant-decls -Wshadow -Wstrict-aliasing=3 -Wstrict-prototypes
->> -Wswitch-default -Wswitch-enum -Wundef -Wwrite-strings -Wformat -Werror
->> -Wall -fPIC -I. -I/home/wn/kernel-hydrogen/tools/include
->> -I/home/wn/kernel-hydrogen/tools/arch/x86/include/uapi
->> -I/home/wn/kernel-hydrogen/tools/include/uapi    libbpf.c all   -o libbpf
->>  gcc: error: all: No such file or directory
->>  make: *** [libbpf] Error 1
->>
->> Thank you.
->
->
-> It is not 'caused' by your patch. 'make libbpf' fails without
-> your change because it tries to build an executable from
-> libbpf.c, but main() is missing.
->
-> I think libbpf should never be used as a make target. Your
-> new dependency looks strange.
+On Wed, Dec 07, 2016 at 05:40:12PM +0100, Volodymyr Bendiuga wrote:
+> Yes, most of the users of of_irq_get() do not use irq_dispose_mapping().
+> 
+> But some of them do (some irq chips), and I believe the correct way
+> of doing this is to
+> 
+> dispose irq mapping, as the description for this function says that
+> it unmaps
+> 
+> the irq, which is mapped by of_irq_parse_and_map(). Not disposing
+> irq might not make
+> 
+> any affect on most drivers, but some, that get EPROBE_DEFER error do
+> need to dispose.
+> 
+> This is what I get when I run the code.
+> 
+> of_irq_put() could be implemented, and it would be a wrapper for
+> irq_dispose_mapping()
+> 
+> as I can see it. Should I do it this way?
 
-Thanks for the feedback, I sent a patch to address this on top of perf/core:
+Hi Volodymyr
 
-https://lkml.org/lkml/2016/12/9/518
+Yes, i think having of_irq_put() would be good. It gives some symmetry
+to the API.
+
+   Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
