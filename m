@@ -1,94 +1,95 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCHv3 perf/core 3/7] tools lib bpf: Add flags to
- bpf_create_map()
-Date: Fri, 9 Dec 2016 11:27:12 -0300
-Message-ID: <20161209142712.GK8257@kernel.org>
-References: <20161209024620.31660-1-joe@ovn.org>
- <20161209024620.31660-4-joe@ovn.org>
- <b2c274c5-5e2c-749f-648e-7664a1daa6c2@huawei.com>
+From: Billy Shuman <wshuman3@gmail.com>
+Subject: Re: 4.9.0-rc8: tg3 dead after resume
+Date: Fri, 9 Dec 2016 09:29:12 -0500
+Message-ID: <CAHQNsocRPWiVxpGBvzyXZ3tUnPCdM1d9JsyY2+phn28gqYrUTQ@mail.gmail.com>
+References: <CAMet4B6t9neFPcGstZw6ebhFCBQzRsesStXZ8bjSaC5ggcuKxw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Stringer <joe@ovn.org>, linux-kernel@vger.kernel.org,
-        ast@fb.com, daniel@iogearbox.net, netdev@vger.kernel.org
-To: "Wangnan (F)" <wangnan0@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <b2c274c5-5e2c-749f-648e-7664a1daa6c2@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Michael Chan <michael.chan@broadcom.com>,
+        Netdev <netdev@vger.kernel.org>
+To: Siva Reddy Kallam <siva.kallam@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:34966 "EHLO
+        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933687AbcLIO3y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 09:29:54 -0500
+Received: by mail-io0-f180.google.com with SMTP id h30so58803917iod.2
+        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 06:29:53 -0800 (PST)
+In-Reply-To: <CAMet4B6t9neFPcGstZw6ebhFCBQzRsesStXZ8bjSaC5ggcuKxw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Fri, Dec 09, 2016 at 11:36:18AM +0800, Wangnan (F) escreveu:
-> 
-> 
-> On 2016/12/9 10:46, Joe Stringer wrote:
-> > The map_flags argument to bpf_create_map() was previously not exposed.
-> > By exposing it, users can access flags such as whether or not to
-> > preallocate the map.
-> > 
-> > Signed-off-by: Joe Stringer <joe@ovn.org>
-> 
-> Please mention commit 6c90598174322b8888029e40dd84a4eb01f56afe in
-> commit message:
-> 
-> Commit 6c905981743 ("bpf: pre-allocate hash map elements") introduces
-> map_flags to bpf_attr for BPF_MAP_CREATE command. Expose this new
-> parameter in libbpf.
+On Thu, Dec 8, 2016 at 4:03 AM, Siva Reddy Kallam
+<siva.kallam@broadcom.com> wrote:
+> On Thu, Dec 8, 2016 at 12:14 AM, Billy Shuman <wshuman3@gmail.com> wrote:
+>> On Wed, Dec 7, 2016 at 12:37 PM, Michael Chan <michael.chan@broadcom.com> wrote:
+>>> On Wed, Dec 7, 2016 at 7:20 AM, Billy Shuman <wshuman3@gmail.com> wrote:
+>>>> After resume on 4.9.0-rc8 tg3 is dead.
+>>>>
+>>>> In logs I see:
+>>>> kernel: tg3 0000:44:00.0: phy probe failed, err -19
+>>>> kernel: tg3 0000:44:00.0: Problem fetching invariants of chip, aborting
+>>>
+>>> -19 is -ENODEV which means tg3 cannot read the PHY ID.
+>>>
+>>> If it's a true suspend/resume operation, the driver does not have to
+>>> go through probe during resume.  Please explain how you do
+>>> suspend/resume.
+>>>
+>>
+>> Sorry my previous message was accidentally sent to early.
+>>
+>> I used systemd (systemctl suspend) to suspend.
+>>
+> We need more information to proceed further.
+> Without suspend, Are you able to use the tg3 port?
 
-will do it, thanks.
+Yes the port works fine without suspend.
 
-- Arnaldo
- 
-> Acked-by: Wang Nan <wangnan0@huawei.com>
-> 
-> > ---
-> > v3: Split from "tools lib bpf: Sync with samples/bpf/libbpf".
-> > ---
-> >   tools/lib/bpf/bpf.c    | 3 ++-
-> >   tools/lib/bpf/bpf.h    | 2 +-
-> >   tools/lib/bpf/libbpf.c | 3 ++-
-> >   3 files changed, 5 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-> > index 89e8e8e5b60e..d0afb26c2e0f 100644
-> > --- a/tools/lib/bpf/bpf.c
-> > +++ b/tools/lib/bpf/bpf.c
-> > @@ -54,7 +54,7 @@ static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
-> >   }
-> >   int bpf_create_map(enum bpf_map_type map_type, int key_size,
-> > -		   int value_size, int max_entries)
-> > +		   int value_size, int max_entries, __u32 map_flags)
-> >   {
-> >   	union bpf_attr attr;
-> > @@ -64,6 +64,7 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size,
-> >   	attr.key_size = key_size;
-> >   	attr.value_size = value_size;
-> >   	attr.max_entries = max_entries;
-> > +	attr.map_flags = map_flags;
-> >   	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
-> >   }
-> > diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-> > index 61130170a6ad..7fcdce16fd62 100644
-> > --- a/tools/lib/bpf/bpf.h
-> > +++ b/tools/lib/bpf/bpf.h
-> > @@ -24,7 +24,7 @@
-> >   #include <linux/bpf.h>
-> >   int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
-> > -		   int max_entries);
-> > +		   int max_entries, __u32 map_flags);
-> >   /* Recommend log buffer size */
-> >   #define BPF_LOG_BUF_SIZE 65536
-> > diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-> > index 2e974593f3e8..84e6b35da4bd 100644
-> > --- a/tools/lib/bpf/libbpf.c
-> > +++ b/tools/lib/bpf/libbpf.c
-> > @@ -854,7 +854,8 @@ bpf_object__create_maps(struct bpf_object *obj)
-> >   		*pfd = bpf_create_map(def->type,
-> >   				      def->key_size,
-> >   				      def->value_size,
-> > -				      def->max_entries);
-> > +				      def->max_entries,
-> > +				      0);
-> >   		if (*pfd < 0) {
-> >   			size_t j;
-> >   			int err = *pfd;
-> 
+> Which Broadcom card are you having in laptop?
+
+The nic is a NetXtreme BCM57762 Gigabit Ethernet PCIe in a thunderbolt3 dock.
+
+> Please provide complete tg3 specific logs in dmesg.
+>
+
+[   32.084010] tg3.c:v3.137 (May 11, 2014)
+[   32.124695] tg3 0000:44:00.0 eth0: Tigon3 [partno(BCM957762) rev
+57766001] (PCI Express) MAC address 98:e7:f4:8b:13:19
+[   32.124698] tg3 0000:44:00.0 eth0: attached PHY is 57765
+(10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[1])
+[   32.124699] tg3 0000:44:00.0 eth0: RXcsums[1] LinkChgREG[0]
+MIirq[0] ASF[0] TSOcap[1]
+[   32.124700] tg3 0000:44:00.0 eth0: dma_rwctrl[00000001] dma_mask[64-bit]
+[   32.219764] tg3 0000:44:00.0 enp68s0: renamed from eth0
+[   36.219245] tg3 0000:44:00.0 enp68s0: Link is up at 1000 Mbps, full duplex
+[   36.219250] tg3 0000:44:00.0 enp68s0: Flow control is on for TX and on for RX
+[   36.219251] tg3 0000:44:00.0 enp68s0: EEE is disabled
+
+after resume
+[   92.292838] tg3 0000:44:00.0 enp68s0: No firmware running
+[   93.521744] tg3 0000:44:00.0: tg3_abort_hw timed out,
+TX_MODE_ENABLE will not clear MAC_TX_MODE=ffffffff
+[  106.704655] tg3 0000:44:00.0 enp68s0: Link is down
+[  108.370356] tg3 0000:44:00.0: tg3_abort_hw timed out,
+TX_MODE_ENABLE will not clear MAC_TX_MODE=ffffffff
+
+after rmmod, modprobe
+[  570.933636] tg3 0000:44:00.0: tg3_abort_hw timed out,
+TX_MODE_ENABLE will not clear MAC_TX_MODE=ffffffff
+[  604.847215] tg3.c:v3.137 (May 11, 2014)
+[  605.010075] tg3 0000:44:00.0: phy probe failed, err -19
+[  605.010077] tg3 0000:44:00.0: Problem fetching invariants of chip, aborting
+
+
+
+
+>>> Did this work before?  There has been very few changes to tg3 recently.
+>>>
+>>
+>> This is a new laptop for me, but the same behavior is seen on 4.4.36 and 4.8.12.
+>>
+>>>>
+>>>> rmmod and modprobe does not fix the problem only a reboot resolves the issue.
+>>>>
+>>>> Billy
