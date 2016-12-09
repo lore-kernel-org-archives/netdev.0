@@ -1,78 +1,62 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] uio-hv-generic: store physical addresses instead of virtual
-Date: Fri,  9 Dec 2016 12:44:40 +0100
-Message-ID: <20161209114456.3719619-1-arnd@arndb.de>
-Cc: netdev@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
-        "K. Y. Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Fri, 9 Dec 2016 06:48:47 -0500
+Message-ID: <20161209114847.GX22655@madcap2.tricolour.ca>
+References: <20161129164859.GD26673@madcap2.tricolour.ca>
+ <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+ <20161130045207.GE26673@madcap2.tricolour.ca>
+ <20161209060248.GT22655@madcap2.tricolour.ca>
+ <CACT4Y+beWN9jmdTREk3JdEBQ3GRALGDJhy7pYF=wu3HdnNWEog@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+beWN9jmdTREk3JdEBQ3GRALGDJhy7pYF=wu3HdnNWEog@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-gcc warns about the newly added driver when phys_addr_t is wider than
-a pointer:
+On 2016-12-09 11:49, Dmitry Vyukov wrote:
+> On Fri, Dec 9, 2016 at 7:02 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > On 2016-11-29 23:52, Richard Guy Briggs wrote:
+> > I tried a quick compile attempt on the test case (I assume it is a
+> > socket fuzzer) and get the following compile error:
+> > cc -g -O0 -Wall -D_GNU_SOURCE -o socket_fuzz socket_fuzz.c
+> > socket_fuzz.c:16:1: warning: "_GNU_SOURCE" redefined
+> > <command-line>: warning: this is the location of the previous definition
+> > socket_fuzz.c: In function ‘segv_handler’:
+> > socket_fuzz.c:89: warning: implicit declaration of function ‘__atomic_load_n’
+> > socket_fuzz.c:89: error: ‘__ATOMIC_RELAXED’ undeclared (first use in this function)
+> > socket_fuzz.c:89: error: (Each undeclared identifier is reported only once
+> > socket_fuzz.c:89: error: for each function it appears in.)
+> > socket_fuzz.c: In function ‘loop’:
+> > socket_fuzz.c:280: warning: unused variable ‘errno0’
+> > socket_fuzz.c: In function ‘test’:
+> > socket_fuzz.c:303: warning: implicit declaration of function ‘__atomic_fetch_add’
+> > socket_fuzz.c:303: error: ‘__ATOMIC_SEQ_CST’ undeclared (first use in this function)
+> > socket_fuzz.c:303: warning: implicit declaration of function ‘__atomic_fetch_sub’
+> 
+> -std=gnu99 should help
+> ignore warnings
 
-drivers/uio/uio_hv_generic.c: In function 'hv_uio_mmap':
-drivers/uio/uio_hv_generic.c:71:17: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
-    virt_to_phys((void *)info->mem[mi].addr) >> PAGE_SHIFT,
-drivers/uio/uio_hv_generic.c: In function 'hv_uio_probe':
-drivers/uio/uio_hv_generic.c:140:5: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
-   = (phys_addr_t)dev->channel->ringbuffer_pages;
-drivers/uio/uio_hv_generic.c:147:3: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
-   (phys_addr_t)vmbus_connection.int_page;
-drivers/uio/uio_hv_generic.c:153:3: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
-   (phys_addr_t)vmbus_connection.monitor_pages[1];
+I got a little further, left with "__ATOMIC_RELAXED undeclared", "__ATOMIC_SEQ_CST
+undeclared" under gcc 4.4.7-16.
 
-I can't see why we store a virtual address in a phys_addr_t here,
-as the only user of that variable converts it into a physical
-address anyway, so this moves the conversion to where it logically
-fits according to the types.
+gcc 4.8.2-15 leaves me with "undefined reference to `clock_gettime'"
 
-Fixes: 95096f2fbd10 ("uio-hv-generic: new userspace i/o driver for VMBus")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/uio/uio_hv_generic.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+What compiler version do you recommend?
 
-diff --git a/drivers/uio/uio_hv_generic.c b/drivers/uio/uio_hv_generic.c
-index ad3ab5805ad8..50958f167305 100644
---- a/drivers/uio/uio_hv_generic.c
-+++ b/drivers/uio/uio_hv_generic.c
-@@ -68,7 +68,7 @@ hv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
- 	mi = (int)vma->vm_pgoff;
- 
- 	return remap_pfn_range(vma, vma->vm_start,
--			virt_to_phys((void *)info->mem[mi].addr) >> PAGE_SHIFT,
-+			info->mem[mi].addr >> PAGE_SHIFT,
- 			vma->vm_end - vma->vm_start, vma->vm_page_prot);
- }
- 
-@@ -137,20 +137,20 @@ hv_uio_probe(struct hv_device *dev,
- 	/* mem resources */
- 	pdata->info.mem[TXRX_RING_MAP].name = "txrx_rings";
- 	pdata->info.mem[TXRX_RING_MAP].addr
--		= (phys_addr_t)dev->channel->ringbuffer_pages;
-+		= virt_to_phys(dev->channel->ringbuffer_pages);
- 	pdata->info.mem[TXRX_RING_MAP].size
- 		= dev->channel->ringbuffer_pagecount * PAGE_SIZE;
- 	pdata->info.mem[TXRX_RING_MAP].memtype = UIO_MEM_LOGICAL;
- 
- 	pdata->info.mem[INT_PAGE_MAP].name = "int_page";
- 	pdata->info.mem[INT_PAGE_MAP].addr =
--		(phys_addr_t)vmbus_connection.int_page;
-+		virt_to_phys(vmbus_connection.int_page);
- 	pdata->info.mem[INT_PAGE_MAP].size = PAGE_SIZE;
- 	pdata->info.mem[INT_PAGE_MAP].memtype = UIO_MEM_LOGICAL;
- 
- 	pdata->info.mem[MON_PAGE_MAP].name = "monitor_pages";
- 	pdata->info.mem[MON_PAGE_MAP].addr =
--		(phys_addr_t)vmbus_connection.monitor_pages[1];
-+		virt_to_phys(vmbus_connection.monitor_pages[1]);
- 	pdata->info.mem[MON_PAGE_MAP].size = PAGE_SIZE;
- 	pdata->info.mem[MON_PAGE_MAP].memtype = UIO_MEM_LOGICAL;
- 
--- 
-2.9.0
+> >> - RGB
+> >
+> > - RGB
+
+- RGB
+
+--
+Richard Guy Briggs <rgb@redhat.com>
+Kernel Security Engineering, Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635
