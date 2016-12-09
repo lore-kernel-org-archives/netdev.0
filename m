@@ -1,77 +1,59 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: netlink: GPF in sock_sndtimeo
-Date: Fri, 9 Dec 2016 12:53:21 +0100
-Message-ID: <CACT4Y+ZsOXoQqVE4vhenb9fUJkwAbGL6wUZxGyaT2h7Cncbfog@mail.gmail.com>
-References: <20161129164859.GD26673@madcap2.tricolour.ca> <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
- <20161130045207.GE26673@madcap2.tricolour.ca> <20161209060248.GT22655@madcap2.tricolour.ca>
- <CACT4Y+beWN9jmdTREk3JdEBQ3GRALGDJhy7pYF=wu3HdnNWEog@mail.gmail.com> <20161209114847.GX22655@madcap2.tricolour.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161209114847.GX22655@madcap2.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211-next 2016-12-09
+Date: Fri,  9 Dec 2016 13:00:13 +0100
+Message-ID: <20161209120014.20292-1-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 9, 2016 at 12:48 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> On 2016-12-09 11:49, Dmitry Vyukov wrote:
->> On Fri, Dec 9, 2016 at 7:02 AM, Richard Guy Briggs <rgb@redhat.com> wrot=
-e:
->> > On 2016-11-29 23:52, Richard Guy Briggs wrote:
->> > I tried a quick compile attempt on the test case (I assume it is a
->> > socket fuzzer) and get the following compile error:
->> > cc -g -O0 -Wall -D_GNU_SOURCE -o socket_fuzz socket_fuzz.c
->> > socket_fuzz.c:16:1: warning: "_GNU_SOURCE" redefined
->> > <command-line>: warning: this is the location of the previous definiti=
-on
->> > socket_fuzz.c: In function =E2=80=98segv_handler=E2=80=99:
->> > socket_fuzz.c:89: warning: implicit declaration of function =E2=80=98_=
-_atomic_load_n=E2=80=99
->> > socket_fuzz.c:89: error: =E2=80=98__ATOMIC_RELAXED=E2=80=99 undeclared=
- (first use in this function)
->> > socket_fuzz.c:89: error: (Each undeclared identifier is reported only =
-once
->> > socket_fuzz.c:89: error: for each function it appears in.)
->> > socket_fuzz.c: In function =E2=80=98loop=E2=80=99:
->> > socket_fuzz.c:280: warning: unused variable =E2=80=98errno0=E2=80=99
->> > socket_fuzz.c: In function =E2=80=98test=E2=80=99:
->> > socket_fuzz.c:303: warning: implicit declaration of function =E2=80=98=
-__atomic_fetch_add=E2=80=99
->> > socket_fuzz.c:303: error: =E2=80=98__ATOMIC_SEQ_CST=E2=80=99 undeclare=
-d (first use in this function)
->> > socket_fuzz.c:303: warning: implicit declaration of function =E2=80=98=
-__atomic_fetch_sub=E2=80=99
->>
->> -std=3Dgnu99 should help
->> ignore warnings
->
-> I got a little further, left with "__ATOMIC_RELAXED undeclared", "__ATOMI=
-C_SEQ_CST
-> undeclared" under gcc 4.4.7-16.
->
-> gcc 4.8.2-15 leaves me with "undefined reference to `clock_gettime'"
+Hi Dave,
 
-add -lrt
+Closing net-next caught me by surprise, so I had to rebase a bit,
+but these three patches really should go in soon. I'm not sending
+them for 4.9 this late though.
+
+Please pull and let me know if there's any problem.
+
+Thanks,
+johannes
 
 
-> What compiler version do you recommend?
 
-6.x sounds reasonable
-4.4 branch is 7.5 years old, surprised that it does not disintegrate
-into dust yet :)
+The following changes since commit f81a8a02bb3b3e882ba6aa580230c13b5be64849:
 
+  Merge branch 'mV88e6xxx-interrupt-fixes' (2016-11-20 21:16:14 -0500)
 
->> >> - RGB
->> >
->> > - RGB
->
-> - RGB
->
-> --
-> Richard Guy Briggs <rgb@redhat.com>
-> Kernel Security Engineering, Base Operating Systems, Red Hat
-> Remote, Ottawa, Canada
-> Voice: +1.647.777.2635, Internal: (81) 32635
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2016-12-09
+
+for you to fetch changes up to e6f462df9acd2a3295e5d34eb29e2823220cf129:
+
+  cfg80211/mac80211: fix BSS leaks when abandoning assoc attempts (2016-12-09 12:57:49 +0100)
+
+----------------------------------------------------------------
+Three fixes:
+ * fix a logic bug introduced by a previous cleanup
+ * fix nl80211 attribute confusing (trying to use
+   a single attribute for two purposes)
+ * fix a long-standing BSS leak that happens when an
+   association attempt is abandoned
+
+----------------------------------------------------------------
+Johannes Berg (2):
+      nl80211: fix logic inversion in start_nan()
+      cfg80211/mac80211: fix BSS leaks when abandoning assoc attempts
+
+Vamsi Krishna (1):
+      nl80211: Use different attrs for BSSID and random MAC addr in scan req
+
+ include/net/cfg80211.h       | 11 +++++++++++
+ include/uapi/linux/nl80211.h |  7 ++++++-
+ net/mac80211/mlme.c          | 21 ++++++++++++---------
+ net/wireless/core.h          |  1 +
+ net/wireless/mlme.c          | 12 ++++++++++++
+ net/wireless/nl80211.c       | 18 ++++++++++++++++--
+ net/wireless/sme.c           | 14 ++++++++++++++
+ 7 files changed, 72 insertions(+), 12 deletions(-)
