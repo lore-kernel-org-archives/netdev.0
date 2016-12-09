@@ -1,36 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 1/3] net/mlx5e: use %pad format string for
- dma_addr_t
-Date: Thu, 08 Dec 2016 21:31:04 -0500 (EST)
-Message-ID: <20161208.213104.76575961025040529.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/3] net: xgene: move xgene_cle_ptree_ewdn
+ data off stack
+Date: Thu, 08 Dec 2016 21:31:10 -0500 (EST)
+Message-ID: <20161208.213110.1398471429588400159.davem@davemloft.net>
 References: <20161208215727.44841-1-arnd@arndb.de>
+        <20161208215727.44841-2-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
-Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        danielj-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161208215727.44841-1-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: isubramanian@apm.com, kchudgar@apm.com, kdinh@apm.com,
+        qnguyen@apm.com, tinamdar@apm.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161208215727.44841-2-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 RnJvbTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCkRhdGU6IFRodSwgIDggRGVjIDIw
-MTYgMjI6NTc6MDMgKzAxMDANCg0KPiBPbiAzMi1iaXQgQVJNIHdpdGggNjQtYml0IGRtYV9hZGRy
-X3QgSSBnZXQgdGhpcyB3YXJuaW5nIGFib3V0IGFuDQo+IGluY29ycmVjdCBmb3JtYXQgc3RyaW5n
-Og0KPiANCj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIC9naXQvYXJtLXNvYy9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvYWxsb2MuYzo0MjowOg0KPiBkcml2ZXJzL25ldC9l
-dGhlcm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvYWxsb2MuYzogSW4gZnVuY3Rpb24goW1seDVfZnJh
-Z19idWZfYWxsb2Nfbm9kZaI6DQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDUv
-Y29yZS9hbGxvYy5jOjEzNDoxMjogZXJyb3I6IGNhc3QgdG8gcG9pbnRlciBmcm9tIGludGVnZXIg
-b2YgZGlmZmVyZW50IHNpemUgWy1XZXJyb3I9aW50LXRvLXBvaW50ZXItY2FzdF0NCj4gDQo+IFdl
-IGhhdmUgdGhlIHNwZWNpYWwgJXBhZCBmb3JtYXQgZm9yIHByaW50aW5nIGRtYV9hZGRyX3QsIHNv
-IHVzZSB0aGF0DQo+IHRvIHByaW50IHRoZSBjb3JyZWN0IGFkZHJlc3MgYW5kIGF2b2lkIHRoZSB3
-YXJuaW5nLg0KPiANCj4gRml4ZXM6IDFjMWI1MjI4MDhhMSAoIm5ldC9tbHg1ZTogSW1wbGVtZW50
-IEZyYWdtZW50ZWQgV29yayBRdWV1ZSAoV1EpIikNCj4gU2lnbmVkLW9mZi1ieTogQXJuZCBCZXJn
-bWFubiA8YXJuZEBhcm5kYi5kZT4NCg0KQXBwbGllZC4NCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MTYgMjI6NTc6MDQgKzAxMDANCg0KPiBUaGUgYXJyYXkgZm9yIGluaXRpYWxpemluZyB0aGUgY2xl
+IGlzIHNldCB1cCBvbiB0aGUgc3RhY2sgd2l0aA0KPiBhbG1vc3QgZW50aXJlbHkgY29uc3RhbnQg
+ZGF0YSBhbmQgdGhlbiBwYXNzZWQgdG8gYSBmdW5jdGlvbiB0aGF0DQo+IGNvbnZlcnRzIGl0IGlu
+dG8gSFcgc3BlY2lmaWMgYml0IHBhdHRlcm5zLiBXaXRoIHRoZSBsYXRlc3QNCj4gYWRkaXRpb24s
+IHRoZSBzaXplIG9mIHRoaXMgYXJyYXkgaGFzIGdyb3duIHRvIHRoZSBwb2ludCB0aGF0DQo+IHdl
+IGdldCBhIHdhcm5pbmcgYWJvdXQgcG90ZW50aWFsIHN0YWNrIG92ZXJmbG93IGluIGFsbG1vZGNv
+bmZpZw0KPiBidWlsZHM6DQo+IA0KPiB4Z2VuZV9lbmV0X2NsZS5jOiBJbiBmdW5jdGlvbiCheGdl
+bmVfZW5ldF9jbGVfaW5pdKI6DQo+IHhnZW5lX2VuZXRfY2xlLmM6ODM2OjE6IGVycm9yOiB0aGUg
+ZnJhbWUgc2l6ZSBvZiAxMDMyIGJ5dGVzIGlzIGxhcmdlciB0aGFuIDEwMjQgYnl0ZXMgWy1XZXJy
+b3I9ZnJhbWUtbGFyZ2VyLXRoYW49XQ0KPiANCj4gTG9va2luZyBhIGJpdCBkZWVwZXIgYXQgdGhl
+IHVzYWdlLCBJIG5vdGljZWQgdGhhdCB0aGUgb25seSBtb2RpZmljYXRpb24NCj4gb2YgdGhlIGRh
+dGEgaXMgaW4gZGVhZCBjb2RlLCBhcyB3ZSBkb24ndCBldmVuIHVzZSB0aGUgY2xlIG1vZHVsZQ0K
+PiBmb3IgcGh5X21vZGUgb3RoZXIgdGhhbiBQSFlfSU5URVJGQUNFX01PREVfWEdNSUkuIFRoaXMg
+bWVhbnMgd2UNCj4gY2FuIHNpbXBseSBtYXJrIHRoZSBzdHJ1Y3R1cmUgY29uc3RhbnQgYW5kIGFj
+Y2VzcyBpdCBkaXJlY3RseSByYXRoZXINCj4gdGhhbiBwYXNzaW5nIHRoZSBwb2ludGVyIGRvd24g
+dGhyb3VnaCBhbm90aGVyIHN0cnVjdHVyZSwgbWFraW5nDQo+IHRoZSBjb2RlIG1vcmUgZWZmaWNp
+ZW50IGF0IHRoZSBzYW1lIHRpbWUgYXMgYXZvaWRpbmcgdGhlDQo+IHdhcm5pbmcuDQo+IA0KPiBG
+aXhlczogYTgwOTcwMWZlZDE1ICgiZHJpdmVyczogbmV0OiB4Z2VuZTogZml4OiBSU1MgZm9yIG5v
+bi1UQ1AvVURQIikNCj4gU2lnbmVkLW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5k
+ZT4NCg0KQXBwbGllZC4NCg==
