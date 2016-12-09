@@ -1,156 +1,48 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v5 1/6] net: virtio dynamically disable/enable
- LRO
-Date: Fri, 9 Dec 2016 05:05:05 +0200
-Message-ID: <20161209050228-mutt-send-email-mst@kernel.org>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161207201111.28121.4879.stgit@john-Precision-Tower-5810>
- <20161208231857-mutt-send-email-mst@kernel.org>
- <5849F52A.7050105@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
-        tgraf@suug.ch, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52854 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752117AbcLIDFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 8 Dec 2016 22:05:09 -0500
-Content-Disposition: inline
-In-Reply-To: <5849F52A.7050105@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zheng Li <lizheng043@gmail.com>
+Subject: [PATCH] ipv4: Should use consistent conditional judgement for ip fragment in __ip_append_data and ip_finish_output
+Date: Fri,  9 Dec 2016 11:08:38 +0800
+Message-ID: <1481252918-3514-1-git-send-email-lizheng043@gmail.com>
+Cc: james.z.li@ericsson.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 08, 2016 at 04:04:58PM -0800, John Fastabend wrote:
-> On 16-12-08 01:36 PM, Michael S. Tsirkin wrote:
-> > On Wed, Dec 07, 2016 at 12:11:11PM -0800, John Fastabend wrote:
-> >> This adds support for dynamically setting the LRO feature flag. The
-> >> message to control guest features in the backend uses the
-> >> CTRL_GUEST_OFFLOADS msg type.
-> >>
-> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> >> ---
-> >>  drivers/net/virtio_net.c |   40 +++++++++++++++++++++++++++++++++++++++-
-> >>  1 file changed, 39 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> >> index a21d93a..a5c47b1 100644
-> >> --- a/drivers/net/virtio_net.c
-> >> +++ b/drivers/net/virtio_net.c
-> >> @@ -1419,6 +1419,36 @@ static void virtnet_init_settings(struct net_device *dev)
-> >>  	.set_settings = virtnet_set_settings,
-> >>  };
-> >>  
-> >> +static int virtnet_set_features(struct net_device *netdev,
-> >> +				netdev_features_t features)
-> >> +{
-> >> +	struct virtnet_info *vi = netdev_priv(netdev);
-> >> +	struct virtio_device *vdev = vi->vdev;
-> >> +	struct scatterlist sg;
-> >> +	u64 offloads = 0;
-> >> +
-> >> +	if (features & NETIF_F_LRO)
-> >> +		offloads |= (1 << VIRTIO_NET_F_GUEST_TSO4) |
-> >> +			    (1 << VIRTIO_NET_F_GUEST_TSO6);
-> >> +
-> >> +	if (features & NETIF_F_RXCSUM)
-> >> +		offloads |= (1 << VIRTIO_NET_F_GUEST_CSUM);
-> >> +
-> >> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS)) {
-> >> +		sg_init_one(&sg, &offloads, sizeof(uint64_t));
-> >> +		if (!virtnet_send_command(vi,
-> >> +					  VIRTIO_NET_CTRL_GUEST_OFFLOADS,
-> >> +					  VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET,
-> >> +					  &sg)) {
-> > 
-> > Hmm I just realised that this will slow down setups that bridge
-> > virtio net interfaces since bridge calls this if provided.
-> > See below.
-> 
-> 
-> Really? What code is trying to turn off GRO via the GUEST_OFFLOADS LRO
-> command. My qemu/Linux setup has a set of tap/vhost devices attached to
-> a bridge and all of them have LRO enabled even with this patch series.
-> 
-> I must missing a setup handler somewhere?
+From: zheng li <james.z.li@ericsson.com>
 
-Turning off LRO, not GRO.
+There is an inconsitent conditional judgement in __ip_append_data and
+ip_finish_output functions, the variable length in __ip_append_data just
+include the length of applicatoin's payload and udp header, don't include
+the length of ip header, but in ip_finish_output use
+(skb->len > ip_skb_dst_mtu(skb)) as judgement, and skb->len include the
+length of ip header.
 
-> > 
-> >> +			dev_warn(&netdev->dev,
-> >> +				 "Failed to set guest offloads by virtnet command.\n");
-> >> +			return -EINVAL;
-> >> +		}
-> >> +	}
-> > 
-> > Hmm if VIRTIO_NET_F_CTRL_GUEST_OFFLOADS is off, this fails
-> > silently. It might actually be a good idea to avoid
-> > breaking setups.
-> > 
-> >> +
-> >> +	return 0;
-> >> +}
-> >> +
-> >>  static const struct net_device_ops virtnet_netdev = {
-> >>  	.ndo_open            = virtnet_open,
-> >>  	.ndo_stop   	     = virtnet_close,
-> >> @@ -1435,6 +1465,7 @@ static void virtnet_init_settings(struct net_device *dev)
-> >>  #ifdef CONFIG_NET_RX_BUSY_POLL
-> >>  	.ndo_busy_poll		= virtnet_busy_poll,
-> >>  #endif
-> >> +	.ndo_set_features	= virtnet_set_features,
-> >>  };
-> >>  
-> >>  static void virtnet_config_changed_work(struct work_struct *work)
-> >> @@ -1815,6 +1846,12 @@ static int virtnet_probe(struct virtio_device *vdev)
-> >>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
-> >>  		dev->features |= NETIF_F_RXCSUM;
-> >>  
-> >> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) &&
-> >> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6)) {
-> >> +		dev->features |= NETIF_F_LRO;
-> >> +		dev->hw_features |= NETIF_F_LRO;
-> > 
-> > So the issue is I think that the virtio "LRO" isn't really
-> > LRO, it's typically just GRO forwarded to guests.
-> > So these are easily re-split along MTU boundaries,
-> > which makes it ok to forward these across bridges.
-> > 
-> > It's not nice that we don't document this in the spec,
-> > but it's the reality and people rely on this.
-> > 
-> > For now, how about doing a custom thing and just disable/enable
-> > it as XDP is attached/detached?
-> 
-> The annoying part about doing this is ethtool will say that it is fixed
-> yet it will be changed by seemingly unrelated operation.
+That cuase some particular applicatoin's udp payload whose length is
+between (MTU - IP Header) and MTU were framented by ip_fragment even
+though the rst->dev support UFO feature.
 
-ATM ethtool does not tell you LRO is enabled, since
-again, this isn't exactly LRO. It's a safe variant that
-supports e.g. bridging.
+Add the length of ip header to length in __ip_append_data to keep
+consistent conditional judgement as ip_finish_output for ip fragment.
 
-> I'm not sure I
-> like the idea to start automatically configuring the link via xdp_set.
+Signed-off-by: Zheng Li <james.z.li@ericsson.com>
+---
+ net/ipv4/ip_output.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-That's what I thought up off-hand. Let me think about better
-interfaces over the weekend.
-
-> > 
-> >> +	}
-> >> +
-> >>  	dev->vlan_features = dev->features;
-> >>  
-> >>  	/* MTU range: 68 - 65535 */
-> >> @@ -2057,7 +2094,8 @@ static int virtnet_restore(struct virtio_device *vdev)
-> >>  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, \
-> >>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ, \
-> >>  	VIRTIO_NET_F_CTRL_MAC_ADDR, \
-> >> -	VIRTIO_NET_F_MTU
-> >> +	VIRTIO_NET_F_MTU, \
-> >> +	VIRTIO_NET_F_CTRL_GUEST_OFFLOADS
-> >>  
-> >>  static unsigned int features[] = {
-> >>  	VIRTNET_FEATURES,
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 877bdb0..12a0149 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -936,7 +936,7 @@ static int __ip_append_data(struct sock *sk,
+ 		csummode = CHECKSUM_PARTIAL;
+ 
+ 	cork->length += length;
+-	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
++	if ((((length + fragheaderlen) > mtu) || (skb && skb_is_gso(skb))) &&
+ 	    (sk->sk_protocol == IPPROTO_UDP) &&
+ 	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
+ 	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
+-- 
+2.7.4
