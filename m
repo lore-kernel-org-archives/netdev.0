@@ -1,40 +1,47 @@
-From: Rayagond Kokatanur <rayagond.kokatanur@gmail.com>
-Subject: [PATCH] net:ethernet:samsung:initialize cur_rx_qnum
-Date: Fri,  9 Dec 2016 17:44:05 +0530
-Message-ID: <1481285645-6028-1-git-send-email-rayagond.kokatanur@gmail.com>
-Cc: netdev@vger.kernel.org,
-        Rayagond Kokatanur <rayagond.kokatanur@gmail.com>
-To: siva.kallam@samsung.com, bh74.an@samsung.com, ks.giri@samsung.com,
-        vipul.pandya@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33675 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932782AbcLIMOY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 07:14:24 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 3so2202311pgd.0
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 04:14:24 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Fri, 9 Dec 2016 08:05:39 -0500
+Message-ID: <80471630-f5fb-1352-9c4f-dffeb129206c@pobox.com>
+References: <ed0c9790-57be-8bca-cdd6-3a54ca24f0bd@pobox.com>
+ <20161125095350.GA20653@kroah.com>
+ <1816ec7e-2733-f4ba-5d30-29dbabd20aad@pobox.com>
+ <20161125.115827.2014848246966159357.davem@davemloft.net>
+ <0835B3720019904CB8F7AA43166CEEB201057793@RTITMBSV03.realtek.com.tw>
+ <0835B3720019904CB8F7AA43166CEEB20105C9EE@RTITMBSV03.realtek.com.tw>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        nic_swsd <nic_swsd@realtek.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB20105C9EE@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch initialize the cur_rx_qnum upon occurence of rx interrupt,
-without this initialization driver will not work with multiple rx queues configurations.
+On 16-12-08 10:23 PM, Hayes Wang wrote:
+> Mark Lord <mlord@pobox.com>
+> 
+> I find an issue about autosuspend, and it may result in the same
+> problem with you. I don't sure if this is helpful to you, because
+> it only occurs when enabling the autosuspend.
 
-NOTE: This patch is not tested on actual hw.
----
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c | 1 +
- 1 file changed, 1 insertion(+)
+Thanks.  I am using ASIX adapters now.
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index ea44a24..580a1a4 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -1681,6 +1681,7 @@ static irqreturn_t sxgbe_rx_interrupt(int irq, void *dev_id)
- 	struct sxgbe_rx_queue *rxq = (struct sxgbe_rx_queue *)dev_id;
- 	struct sxgbe_priv_data *priv = rxq->priv_ptr;
- 
-+	priv->cur_rx_qnum = rxq->queue_no;
- 	/* get the channel status */
- 	status = priv->hw->dma->rx_dma_int_status(priv->ioaddr, rxq->queue_no,
- 						  &priv->xstats);
+I did try the latest 4.9-rc8, and 4.8.12 kernels with the r8152 dongle yesterday,
+in hope that perhaps the many EHCI fixes from those kernels might help out.
+
+The dongle was unusable with those newer kernels.
+Most of the time it failed with "Get ether addr fail\n" at startup.
+
+On the occasions where it got past that point, it often failed
+the DHCP negotiation, but this looks more like a bug elsewhere in
+the kernel, possibly racing against initialization of the random
+number generators.  Adding a 2-second sleep the the r8151 probe
+function made this error mostly go away.
+
+Cheers
 -- 
-1.9.1
+Mark Lord
