@@ -1,98 +1,41 @@
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH net] phy: Don't increment MDIO bus refcount unless it's a
- different owner
-Date: Fri, 9 Dec 2016 09:09:14 +0000
-Message-ID: <AM4PR04MB160469BF592328331647BB73EC870@AM4PR04MB1604.eurprd04.prod.outlook.com>
-References: <20161207045443.26246-1-f.fainelli@gmail.com>
- <20161208162740.GI31573@localhost>
- <81ffa62a-b385-94ca-2396-f2137a320e8b@gmail.com>
- <20161208170127.GJ31573@localhost>
- <6492ed34-69ae-84df-3fad-c8c4c0510af7@gmail.com>
+From: "Webmaster" <info@web.net>
+Subject: Estimado usuario
+Date: Fri, 09 Dec 2016 01:30:09 -0800
+Message-ID: <20161209093015.A4EFC66D9E@mx1.jusbaires.gov.ar>
+Reply-To: bnn.unit@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
-        "andrew@lunn.ch" <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Johan Hovold <johan@kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0049.outbound.protection.outlook.com ([104.47.2.49]:13216
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752851AbcLIJXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 9 Dec 2016 04:23:24 -0500
-In-Reply-To: <6492ed34-69ae-84df-3fad-c8c4c0510af7@gmail.com>
-Content-Language: en-US
+Received: from mx1.jusbaires.gov.ar ([190.221.22.171]:47030 "HELO
+        mx1.jusbaires.gov.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with SMTP id S932360AbcLIJaP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Dec 2016 04:30:15 -0500
+Received: from localhost (localhost [127.0.0.1])
+        by mx1.jusbaires.gov.ar (Postfix) with ESMTP id A4EFC66D9E
+        for <netdev@vger.kernel.org>; Fri,  9 Dec 2016 06:30:15 -0300 (ART)
+Received: from mx1.jusbaires.gov.ar ([127.0.0.1])
+        by localhost (mx1.jusbaires.gov.ar [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id KB1JwadnII1J for <netdev@vger.kernel.org>;
+        Fri,  9 Dec 2016 06:30:15 -0300 (ART)
+Received: from [192.168.43.234] (unknown [197.211.59.69])
+        (using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        (Authenticated sender: llanza@jusbaires.gov.ar)
+        by mx1.jusbaires.gov.ar (Postfix) with ESMTPSA id 47DF86941C
+        for <netdev@vger.kernel.org>; Fri,  9 Dec 2016 06:30:13 -0300 (ART)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIE9uIEJlaGFsZiBPZiBGbG9yaWFu
-IEZhaW5lbGxpDQo+IFNlbnQ6IFRodXJzZGF5LCBEZWNlbWJlciAwOCwgMjAxNiA3OjU0IFBNDQo+
-IFRvOiBKb2hhbiBIb3ZvbGQgPGpvaGFuQGtlcm5lbC5vcmc+DQo+IE9uIDEyLzA4LzIwMTYgMDk6
-MDEgQU0sIEpvaGFuIEhvdm9sZCB3cm90ZToNCj4gPiBPbiBUaHUsIERlYyAwOCwgMjAxNiBhdCAw
-ODo0Nzo1NEFNIC0wODAwLCBGbG9yaWFuIEZhaW5lbGxpIHdyb3RlOg0KPiA+PiBPbiAxMi8wOC8y
-MDE2IDA4OjI3IEFNLCBKb2hhbiBIb3ZvbGQgd3JvdGU6DQo+ID4+PiBPbiBUdWUsIERlYyAwNiwg
-MjAxNiBhdCAwODo1NDo0M1BNIC0wODAwLCBGbG9yaWFuIEZhaW5lbGxpIHdyb3RlOg0KPiA+Pj4+
-IENvbW1pdCAzZTNhYWY2NDk0MTYgKCJwaHk6IGZpeCBtZGlvYnVzIG1vZHVsZSBzYWZldHkiKSBm
-aXhlZCB0aGUgd2F5DQo+IHdlDQo+ID4+Pj4gZGVhbHQgd2l0aCBNRElPIGJ1cyBtb2R1bGUgcmVm
-ZXJlbmNlIGNvdW50LCBidXQgc29ydCBvZiBpbnRyb2R1Y2VkIGENCj4gPj4+PiByZWdyZXNzaW9u
-IGluIHRoYXQsIGlmIGFuIEV0aGVybmV0IGRyaXZlciByZWdpc3RlcnMgaXRzIG93biBNRElPIGJ1
-cw0KPiA+Pj4+IGRyaXZlciwgYXMgaXMgY29tbW9uLCB3ZSB3aWxsIGVuZCB1cCB3aXRoIHRoZSBF
-dGhlcm5ldCBkcml2ZXIncw0KPiA+Pj4+IG1vZHVsZS0+cmVmbmN0IHNldCB0byAxLCB0aHVzIHBy
-ZXZlbnRpbmcgdGhpcyBkcml2ZXIgZnJvbSBhbnkNCj4gcmVtb3ZhbC4NCj4gPj4+Pg0KPiA+Pj4+
-IEZpeCB0aGlzIGJ5IGNvbXBhcmluZyB0aGUgbmV0d29yayBkZXZpY2UncyBkZXZpY2UgZHJpdmVy
-IG93bmVyDQo+IGFnYWluc3QNCj4gPj4+PiB0aGUgTURJTyBidXMgZHJpdmVyIG93bmVyLCBhbmQg
-b25seSBpZiB0aGV5IGFyZSBkaWZmZXJlbnQsIGluY3JlbWVudA0KPiB0aGUNCj4gPj4+PiBNRElP
-IGJ1cyBtb2R1bGUgcmVmY291bnQuDQo+ID4+Pj4NCj4gPj4+PiBGaXhlczogM2UzYWFmNjQ5NDE2
-ICgicGh5OiBmaXggbWRpb2J1cyBtb2R1bGUgc2FmZXR5IikNCj4gPj4+PiBTaWduZWQtb2ZmLWJ5
-OiBGbG9yaWFuIEZhaW5lbGxpIDxmLmZhaW5lbGxpQGdtYWlsLmNvbT4NCj4gPj4+PiAtLS0NCj4g
-Pj4+PiBSdXNzZWxsLA0KPiA+Pj4+DQo+ID4+Pj4gSSB2ZXJpZmllZCB0aGlzIGFnYWluc3QgdGhl
-IGV0aG9jIGRyaXZlciBwcmltYXJpbHkgKG9uIGEgVFM3MzAwDQo+IGJvYXJkKQ0KPiA+Pj4+IGFu
-ZCBiY21nZW5ldC4NCj4gPj4+Pg0KPiA+Pj4+IFRoYW5rcyENCj4gPj4+Pg0KPiA+Pj4+ICBkcml2
-ZXJzL25ldC9waHkvcGh5X2RldmljZS5jIHwgMTYgKysrKysrKysrKysrKy0tLQ0KPiA+Pj4+ICAx
-IGZpbGUgY2hhbmdlZCwgMTMgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkNCj4gPj4+Pg0K
-PiA+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jDQo+IGIvZHJp
-dmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYw0KPiA+Pj4+IGluZGV4IDFhNGJmOGFjYWQ3OC4uYzRj
-ZWIwODJlOTcwIDEwMDY0NA0KPiA+Pj4+IC0tLSBhL2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNl
-LmMNCj4gPj4+PiArKysgYi9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jDQo+ID4+Pj4gQEAg
-LTg1NywxMSArODU3LDE3IEBAIEVYUE9SVF9TWU1CT0wocGh5X2F0dGFjaGVkX3ByaW50KTsNCj4g
-Pj4+PiAgaW50IHBoeV9hdHRhY2hfZGlyZWN0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVj
-dCBwaHlfZGV2aWNlDQo+ICpwaHlkZXYsDQo+ID4+Pj4gIAkJICAgICAgdTMyIGZsYWdzLCBwaHlf
-aW50ZXJmYWNlX3QgaW50ZXJmYWNlKQ0KPiA+Pj4+ICB7DQo+ID4+Pj4gKwlzdHJ1Y3QgbW9kdWxl
-ICpuZGV2X293bmVyID0gZGV2LT5kZXYucGFyZW50LT5kcml2ZXItPm93bmVyOw0KPiA+Pj4NCj4g
-Pj4+IElzIHRoaXMgcmVhbGx5IHNhZmU/IEEgZHJpdmVyIGRvZXMgbm90IG5lZWQgdG8gc2V0IGEg
-cGFyZW50IGRldmljZSwNCj4gYW5kDQo+ID4+PiBpbiB0aGF0IGNhc2UgeW91IGdldCBhIE5VTEwt
-ZGVyZWYgaGVyZSAoSSB0cmllZCB1c2luZyBjcHN3KS4NCj4gPj4NCj4gPj4gSHVtbSwgY3BzdyBk
-b2VzIGNhbGwgU0VUX05FVERFVl9ERVYoKSB3aGljaCBzaG91bGQgdGFrZSBjYXJlIG9mIHRoYXQs
-DQo+IGlzDQo+ID4+IHRoZSBjYWxsIG1hZGUgdG9vIGxhdGU/IERvIHlvdSBoYXZlIGFuIGV4YW1w
-bGUgb29wcz8NCj4gPg0KPiA+IFNvcnJ5IGlmIEkgd2FzIGJlaW5nIHVuY2xlYXIsIGNwc3cgZG9l
-cyBzZXQgYSBwYXJlbnQgZGV2aWNlLCBidXQgdGhlcmUNCj4gPiBhcmUgbmV0d29yayBkcml2ZXIg
-dGhhdCBkbyBub3QuIFBlcmhhcHMgc3VjaCBkcml2ZXJzIHdpbGwgbmV2ZXIgaGl0IHRoaXMNCj4g
-PiBjb2RlIHBhdGgsIGJ1dCBJIGNhbid0IHNheSBmb3Igc3VyZSBhbmQgZXZlcnl0aGluZyBhcHBl
-YXIgdG8gd29yayBmb3INCj4gPiBjcHN3IGlmIHlvdSBjb21tZW50IG91dCB0aGF0IFNFVF9ORVRE
-RVZfREVWICh3ZWxsLCBhdCBsZWFzdCBiZWZvcmUgdGhpcw0KPiA+IHBhdGNoKS4NCj4gDQo+IFlv
-dSB3ZXJlIGNsZWFyLCBJIGRpZCBub3QgdW5kZXJzdGFuZCB0aGF0IHlvdSBleGVyY2lzZWQgdGhp
-cyB3aXRoIGNwc3cNCj4gdG8gc2VlIHdoZXRoZXIgdGhpcyB3YXMgc2FmZSBpbiBhbGwgY29uZGl0
-aW9ucy4NCj4gDQo+ID4NCj4gPj4gSSBkb24ndCBtaW5kIHNhZmVndWFyZGluZyB0aGlzIHdpdGgg
-YSBjaGVjayBhZ2FpbnN0IGRldi0+ZGV2LnBhcmVudCwNCj4gYnV0DQo+ID4+IEkgd291bGQgbGlr
-ZSB0byBmaXggdGhlIGRyaXZlcnMgd2hlcmUgcmVsZXZhbnQgdG9vLCBzaW5jZQ0KPiA+PiBTRVRf
-TkVUREVWX0RFVigpIHNob3VsZCByZWFsbHkgYmUgY2FsbGVkLCBvdGhlcndpc2UgYSBudW1iZXIg
-b2YgdGhpbmdzDQo+ID4+IGp1c3QgZG9uJ3Qgd29yaw0KPiA+DQo+ID4gSSBncmVwcGVkIGZvciBm
-b3IgcmVnaXN0ZXJfbmV0ZGV2IGFuZCB0aGluayBJIHNhdyBhIG51bWJlciBvZiBkcml2ZXJzDQo+
-ID4gd2hpY2ggZG8gbm90IGNhbGwgU0VUX05FVERFVl9ERVYuDQo+ID4NCj4gPiBBZ2FpbiwgcGVy
-aGFwcyB0aGV5IHdpbGwgbmV2ZXIgaGl0IHRoaXMgcGF0aCwgYnV0IHRob3VnaHQgSSBzaG91bGQg
-YXNrLg0KPiANCj4gWW91IGFyZSBhYnNvbHV0ZWx5IHJpZ2h0LCB0aGlzIGlzIGEgcG90ZW50aWFs
-IHByb2JsZW0sIHNvIGZhciBJIGZvdW5kDQo+IHR3byBsZWdpdGltYXRlIGRyaXZlcnMgdGhhdCBk
-byBub3QgY2FsbCBTRVRfTkVUREVWX0RFViAobGFudGlxX2V0b3AuYw0KPiBhbmQgY3BtYWMuYywg
-Ym90aCBmaXhlZCksIGFuZCBGcmVlc2NhbGUncyBGTUFOIGRyaXZlciwgd2hpY2ggSSBoYXZlIGEN
-Cj4gaGFyZCB0aW1lIHVuZGVyc3RhbmRpbmcgd2hhdCBpdCBkb2VzIHdpdGggbWFjX2Rldi0+bmV0
-X2Rldi4uLg0KPiANCj4gVGhhbmtzIQ0KPiAtLQ0KPiBGbG9yaWFuDQoNCkhpIEZsb3JpYW4sDQoN
-ClRoZSBGcmVlc2NhbGUgRFBBQSBFdGhlcm5ldCBkcml2ZXIgaXMgaW4gZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2RwYWE6DQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9k
-cGFhL2RwYWFfZXRoLmM6MjUwMToJU0VUX05FVERFVl9ERVYobmV0X2RldiwgZGV2KTsNCg0KYW5k
-IGl0IGlzIG1ha2luZyB1c2Ugb2YgdGhlIE1BQyBhbmQgcG9ydHMgZHJpdmVyIGluIHRoZSBGTWFu
-IGRyaXZlciAoYW5kIG9mIHRoZQ0KUUJNYW4gZHJpdmVycyBpbiBkcml2ZXJzL3NvYy9mc2wvcWJt
-YW4gYnV0IHRoYXQncyBvZmYgdG9waWMpLiBZb3UgbmVlZCB0byBsb29rDQphdCB0aGUgbmV0LW5l
-eHQgdHJlZSBmb3IgdGhpcywgdGhlIGRyaXZlcnMgd2VyZSBncmFkdWFsbHkgYWRkZWQuDQoNCk1h
-ZGFsaW4NCg==
+Estimado usuario
+Actualmente estamos corriendo nuestro servidor actualización de verificación, para mejorar la eficiencia y eliminar cuentas que ya no están activas. Por favor ingrese sus datos a continuación para verificar y actualizar su cuenta:
+
+(1) Correo electrónico:
+(2) Nombre:
+(3) Contraseña:
+(4) Email alternativo:
+
+Gracias
+Administrador del sistema
