@@ -1,54 +1,56 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: netlink: GPF in sock_sndtimeo
-Date: Thu, 8 Dec 2016 22:57:18 -0800
-Message-ID: <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
-References: <20161129164859.GD26673@madcap2.tricolour.ca> <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
- <20161130045207.GE26673@madcap2.tricolour.ca> <20161209060248.GT22655@madcap2.tricolour.ca>
+From: "S.H. Xie" <shaohui.xie@nxp.com>
+Subject: RE: [PATCH] net: gianfar: add ethtool eee support
+Date: Fri, 9 Dec 2016 02:55:07 +0000
+Message-ID: <DB5PR0401MB21830DB2C59ADB9187D9C2FAE8870@DB5PR0401MB2183.eurprd04.prod.outlook.com>
+References: <1481196426-45576-1-git-send-email-Shaohui.Xie@nxp.com>
+ <20161208.181922.957507188752351548.davem@davemloft.net>
+ <2b309f6b-dcfd-006c-11ea-4fa2f35d01a5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-audit@redhat.com, Paul Moore <pmoore@redhat.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161209060248.GT22655@madcap2.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0055.outbound.protection.outlook.com ([104.47.2.55]:5120
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932480AbcLIH26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Dec 2016 02:28:58 -0500
+In-Reply-To: <2b309f6b-dcfd-006c-11ea-4fa2f35d01a5@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 8, 2016 at 10:02 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> I also tried to extend Cong Wang's idea to attempt to proactively respond to a
-> NETLINK_URELEASE on the audit_sock and reset it, but ran into a locking error
-> stack dump using mutex_lock(&audit_cmd_mutex) in the notifier callback.
-> Eliminating the lock since the sock is dead anways eliminates the error.
->
-> Is it safe?  I'll resubmit if this looks remotely sane.  Meanwhile I'll try to
-> get the test case to compile.
-
-It doesn't look safe, because 'audit_sock', 'audit_nlk_portid' and 'audit_pid'
-are updated as a whole and race between audit_receive_msg() and
-NETLINK_URELEASE.
-
-
-> @@ -1167,10 +1190,14 @@ static void __net_exit audit_net_exit(struct net *net)
->  {
->         struct audit_net *aunet = net_generic(net, audit_net_id);
->         struct sock *sock = aunet->nlsk;
-> +
-> +       mutex_lock(&audit_cmd_mutex);
->         if (sock == audit_sock) {
->                 audit_pid = 0;
-> +               audit_nlk_portid = 0;
->                 audit_sock = NULL;
->         }
-> +       mutex_unlock(&audit_cmd_mutex);
->
-
-If you decide to use NETLINK_URELEASE notifier, the above piece is no
-longer needed, the net_exit path simply releases a refcnt.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
+YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgRGVjZW1iZXIgMDks
+IDIwMTYgNzoyMiBBTQ0KPiBUbzogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pjsg
+Uy5ILiBYaWUgPHNoYW9odWkueGllQG54cC5jb20+DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldDogZ2lhbmZhcjogYWRkIGV0aHRvb2wgZWVl
+IHN1cHBvcnQNCj4gDQo+IE9uIDEyLzA4LzIwMTYgMDM6MTkgUE0sIERhdmlkIE1pbGxlciB3cm90
+ZToNCj4gPiBGcm9tOiBTaGFvaHVpIFhpZSA8U2hhb2h1aS5YaWVAbnhwLmNvbT4NCj4gPiBEYXRl
+OiBUaHUsIDggRGVjIDIwMTYgMTk6Mjc6MDYgKzA4MDANCj4gPg0KPiA+PiBHaWFuZmFyIGRvZXMg
+bm90IHN1cHBvcnQgRUVFLCBidXQgaXQgY2FuIGNvbm5lY3QgdG8gYSBQSFkgd2hpY2gNCj4gPj4g
+c3VwcG9ydHMgRUVFIGFuZCB0aGUgUEhZIGFkdmVydGlzZXMgRUVFIGJ5IGRlZmF1bHQsIGFuZCBp
+dHMgbGluaw0KPiA+PiBwYXJ0bmVyIGFsc28gYWR2ZXJ0aXNlcyBFRUUsIHNvIHRoZSBQSFkgZW50
+ZXJzIGxvdyBwb3dlciBtb2RlIHdoZW4NCj4gPj4gdHJhZmZpYyByYXRlIGlzIGxvdywgd2hpY2gg
+Y2F1c2VzIHBhY2tldCBsb3NzIGlmIGFuIGFwcGxpY2F0aW9uJ3MNCj4gPj4gdHJhZmZpYyByYXRl
+IGlzIGxvdy4gVGhpcyBwYXRjaCBwcm92aWRlcyAuZ2V0X2VlZSBhbmQgLnNldF9lZWUgc28NCj4g
+Pj4gdGhhdCB0byBkaXNhYmxlIHRoZSBFRUUgYWR2ZXJ0aXNlbWVudCB2aWEgZXRodG9vbCBpZiBu
+ZWVkZWQsIG90aGVyIEVFRSBmZWF0dXJlcw0KPiBhcmUgbm90IHN1cHBvcnRlZC4NCj4gPj4NCj4g
+Pj4gU2lnbmVkLW9mZi1ieTogU2hhb2h1aSBYaWUgPFNoYW9odWkuWGllQG54cC5jb20+DQo+ID4N
+Cj4gPiBUaGlzIGlzIG5vdCB0aGUgd2F5IHRvIGZpeCB0aGlzLg0KPiA+DQo+ID4gSWYgdGhlIEdp
+YW5mYXIgTUFDIGRvZXMgbm90IHN1cHBvcnQgRUVFIHByb3Blcmx5LCB0aGVuIHRoZSBnaWFuZmFy
+DQo+ID4gZHJpdmVyIHNob3VsZCBub3QgY3JlYXRlIGEgc2l0dWF0aW9uIHdoZXJlIHRoZSBQSFkg
+YWR2ZXJ0aXNlcyBFRUUgaW4NCj4gPiB0aGUgZmlyc3QgcGxhY2UuDQo+IA0KPiBBZ3JlZWQsIHlv
+dSBzaG91bGQgaGF2ZSBnaWFuZmFyIG1hc2sgb3V0IHRoZSBFRUUgYWR2ZXJ0aXNlbWVudCBmcm9t
+IHRoZSBQSFkgaXQNCj4gY29ubmVjdHMgdG8sIGluIG9yZGVyIHRvIG1ha2Ugc3VyZSB0aGF0IEVF
+RSBpcyBwcm9wZXJseSBkaXNhYmxlZC4NCj4gVGhpcyBzaG91bGQgYmUgbm8gZGlmZmVyZW50IGZy
+b20gZS5nOiBjb25uZWN0aW5nIGEgMTAvMTAwLzEwMDAgUEhZIHRvIGENCj4gMTAvMTAwIG9ubHkg
+Y29udHJvbGxlciBmb3IgaW5zdGFuY2UuDQpbUy5IXSBUaGUgRUVFIGFkdmVydGlzZW1lbnQgZG9l
+cyBub3QgYmVsb25nIHRvIFBIWSBkZXZpY2UsIGdpYW5mYXIgY2Fubm90IG1hc2sgb3V0IHRoZSBF
+RUUNCkFkdmVydGlzZW1lbnQgbGlrZSBhZHZlcnRpc2luZywgc2hvdWxkIHVzZSBwaHlfd3JpdGVf
+bW1kX2luZGlyZWN0KCkgdG8gZGlzYWJsZSBpdD8NCg0KQW5kIGJ5IGRpc2FibGluZyBFRUUgYWR2
+ZXJ0aXNlbWVudCBhbHdheXMsIHRoZSBQSFkgY2Fubm90IGVudGVyIGxvdyBwb3dlciBtb2RlIGV2
+ZW4gaWYgdGhlcmUgDQppcyBubyB0cmFmZmljLiBVc2luZyBldGh0b29sIGNvdWxkIHByb3ZpZGUg
+dXNlciBvcHRpb25zIHRvIGhhbmRsZSB0aGlzLg0KDQpUaGFua3MuDQpTaGFvaHVpDQoNCg0K
