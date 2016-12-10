@@ -1,74 +1,29 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] e1000: use disable_hardirq() for e1000_netpoll()
-Date: Sat, 10 Dec 2016 14:22:42 -0800
-Message-ID: <1481408562-6529-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: sd@queasysnail.net, davej@codemonkey.org.uk,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        "Peter Zijlstra (Intel)" <peterz@infradead.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] netlink: use blocking notifier
+Date: Sat, 10 Dec 2016 17:26:34 -0500 (EST)
+Message-ID: <20161210.172634.2066711201770725980.davem@davemloft.net>
+References: <1481346661-25380-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34129 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752721AbcLJWWx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 17:22:53 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so6274516pgc.1
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 14:22:53 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:58426 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752034AbcLJW0i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 17:26:38 -0500
+In-Reply-To: <1481346661-25380-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 02cea3958664 ("genirq: Provide disable_hardirq()")
-Peter introduced disable_hardirq() for netpoll, but it is forgotten
-to use it for e1000.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri,  9 Dec 2016 21:10:59 -0800
 
-This patch changes disable_irq() to disable_hardirq() for e1000.
+> netlink_chain is called in ->release(), which is apparently
+> a process context, so we don't have to use an atomic notifier
+> here.
+> 
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Reported-by: Dave Jones <davej@codemonkey.org.uk>
-Suggested-by: Sabrina Dubroca <sd@queasysnail.net>
-Cc: Peter Zijlstra (Intel) <peterz@infradead.org>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c | 4 ++--
- drivers/net/ethernet/intel/e1000e/netdev.c    | 8 ++++----
- 2 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index f42129d..164c3bb 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -5257,8 +5257,8 @@ static void e1000_netpoll(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 
--	disable_irq(adapter->pdev->irq);
--	e1000_intr(adapter->pdev->irq, netdev);
-+	if (disable_hardirq(adapter->pdev->irq))
-+		e1000_intr(adapter->pdev->irq, netdev);
- 	enable_irq(adapter->pdev->irq);
- }
- #endif
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 7017281..9a0be77 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6762,13 +6762,13 @@ static void e1000_netpoll(struct net_device *netdev)
- 		e1000_intr_msix(adapter->pdev->irq, netdev);
- 		break;
- 	case E1000E_INT_MODE_MSI:
--		disable_irq(adapter->pdev->irq);
--		e1000_intr_msi(adapter->pdev->irq, netdev);
-+		if (disable_hardirq(adapter->pdev->irq))
-+			e1000_intr_msi(adapter->pdev->irq, netdev);
- 		enable_irq(adapter->pdev->irq);
- 		break;
- 	default:		/* E1000E_INT_MODE_LEGACY */
--		disable_irq(adapter->pdev->irq);
--		e1000_intr(adapter->pdev->irq, netdev);
-+		if (disable_hardirq(adapter->pdev->irq))
-+			e1000_intr(adapter->pdev->irq, netdev);
- 		enable_irq(adapter->pdev->irq);
- 		break;
- 	}
--- 
-2.5.5
+Applied.
