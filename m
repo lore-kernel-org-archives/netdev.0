@@ -1,218 +1,78 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [iproute2 net-next 3/8] Add libbpf.h header with BPF_ macros
-Date: Sat, 10 Dec 2016 12:32:09 -0800
-Message-ID: <1481401934-4026-4-git-send-email-dsa@cumulusnetworks.com>
-References: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:36677 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752228AbcLJUcX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 15:32:23 -0500
-Received: by mail-pg0-f48.google.com with SMTP id f188so20119070pgc.3
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 12:32:23 -0800 (PST)
-In-Reply-To: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Felix Fietkau <nbd@nbd.name>
+Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
+Date: Sat, 10 Dec 2016 21:36:32 +0100
+Message-ID: <07ae38aa-ffb5-f450-fbbb-001e91d4454d@nbd.name>
+References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+ <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
+ <20161207.135127.789629809982860453.davem@davemloft.net>
+ <CAHmME9oLgjDA2F0gkFzHU2Es8-XCxQHRABS18OKF0EnZgt1=LQ@mail.gmail.com>
+ <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name>
+ <yw1x37hvykzk.fsf@unicorn.mansr.com>
+ <7f8ba817-73ef-e1e1-4fdf-b9178e922008@nbd.name>
+ <yw1xy3znwmmr.fsf@unicorn.mansr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
+ LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <yw1xy3znwmmr.fsf@unicorn.mansr.com>
+List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-Based on version in kernel repo, samples/bpf/libbpf.h
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/libbpf.h | 184 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 184 insertions(+)
- create mode 100644 include/libbpf.h
-
-diff --git a/include/libbpf.h b/include/libbpf.h
-new file mode 100644
-index 000000000000..37951f509a10
---- /dev/null
-+++ b/include/libbpf.h
-@@ -0,0 +1,184 @@
-+/* eBPF mini library */
-+#ifndef __LIBBPF_H
-+#define __LIBBPF_H
-+
-+/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
-+
-+#define BPF_ALU64_REG(OP, DST, SRC)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
-+#define BPF_ALU32_REG(OP, DST, SRC)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
-+/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
-+
-+#define BPF_ALU64_IMM(OP, DST, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+#define BPF_ALU32_IMM(OP, DST, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+/* Short form of mov, dst_reg = src_reg */
-+
-+#define BPF_MOV64_REG(DST, SRC)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
-+#define BPF_MOV32_REG(DST, SRC)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
-+/* Short form of mov, dst_reg = imm32 */
-+
-+#define BPF_MOV64_IMM(DST, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+#define BPF_MOV32_IMM(DST, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+/* BPF_LD_IMM64 macro encodes single 'load 64-bit immediate' insn */
-+#define BPF_LD_IMM64(DST, IMM)					\
-+	BPF_LD_IMM64_RAW(DST, 0, IMM)
-+
-+#define BPF_LD_IMM64_RAW(DST, SRC, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_DW | BPF_IMM,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = 0,					\
-+		.imm   = (__u32) (IMM) }),			\
-+	((struct bpf_insn) {					\
-+		.code  = 0, /* zero is reserved opcode */	\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = ((__u64) (IMM)) >> 32 })
-+
-+#ifndef BPF_PSEUDO_MAP_FD
-+# define BPF_PSEUDO_MAP_FD	1
-+#endif
-+
-+/* pseudo BPF_LD_IMM64 insn used to refer to process-local map_fd */
-+#define BPF_LD_MAP_FD(DST, MAP_FD)				\
-+	BPF_LD_IMM64_RAW(DST, BPF_PSEUDO_MAP_FD, MAP_FD)
-+
-+
-+/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
-+
-+#define BPF_LD_ABS(SIZE, IMM)					\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = IMM })
-+
-+/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
-+
-+#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
-+
-+#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
-+
-+#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
-+
-+#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = 0 })
-+
-+/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
-+
-+#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
-+		.dst_reg = DST,					\
-+		.src_reg = 0,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Raw code statement block */
-+
-+#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
-+	((struct bpf_insn) {					\
-+		.code  = CODE,					\
-+		.dst_reg = DST,					\
-+		.src_reg = SRC,					\
-+		.off   = OFF,					\
-+		.imm   = IMM })
-+
-+/* Program exit */
-+
-+#define BPF_EXIT_INSN()						\
-+	((struct bpf_insn) {					\
-+		.code  = BPF_JMP | BPF_EXIT,			\
-+		.dst_reg = 0,					\
-+		.src_reg = 0,					\
-+		.off   = 0,					\
-+		.imm   = 0 })
-+
-+#endif
--- 
-2.1.4
+T24gMjAxNi0xMi0xMCAyMTozMiwgTcOlbnMgUnVsbGfDpXJkIHdyb3RlOgo+IEZlbGl4IEZpZXRr
+YXUgPG5iZEBuYmQubmFtZT4gd3JpdGVzOgo+IAo+PiBPbiAyMDE2LTEyLTEwIDE0OjI1LCBNw6Vu
+cyBSdWxsZ8OlcmQgd3JvdGU6Cj4+PiBGZWxpeCBGaWV0a2F1IDxuYmRAbmJkLm5hbWU+IHdyaXRl
+czoKPj4+IAo+Pj4+IE9uIDIwMTYtMTItMDcgMTk6NTQsIEphc29uIEEuIERvbmVuZmVsZCB3cm90
+ZToKPj4+Pj4gT24gV2VkLCBEZWMgNywgMjAxNiBhdCA3OjUxIFBNLCBEYXZpZCBNaWxsZXIgPGRh
+dmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOgo+Pj4+Pj4gSXQncyBzbyBtdWNoIGJldHRlciB0byBh
+bmFseXplIHByb3Blcmx5IHdoZXJlIHRoZSBtaXNhbGlnbm1lbnQgY29tZXMgZnJvbQo+Pj4+Pj4g
+YW5kIGFkZHJlc3MgaXQgYXQgdGhlIHNvdXJjZSwgYXMgd2UgaGF2ZSBmb3IgdmFyaW91cyBjYXNl
+cyB0aGF0IHRyaXAgdXAKPj4+Pj4+IFNwYXJjIHRvby4KPj4+Pj4gCj4+Pj4+IFRoYXQncyBzb3J0
+IG9mIG15IGF0dGl0dWRlIHRvbywgaGVuY2Ugc3RhcnRpbmcgdGhpcyB0aHJlYWQuIEFueQo+Pj4+
+PiBwb2ludGVycyB5b3UgaGF2ZSBhYm91dCB0aGlzIHdvdWxkIGJlIG1vc3Qgd2VsY29tZSwgc28g
+YXMgbm90IHRvCj4+Pj4+IHBlcnBldHVhdGUgd2hhdCBhbHJlYWR5IHNlZW1zIGxpa2UgYW4gaXNz
+dWUgaW4gb3RoZXIgcGFydHMgb2YgdGhlCj4+Pj4+IHN0YWNrLgo+Pj4+IEhpIEphc29uLAo+Pj4+
+Cj4+Pj4gSSdtIHRoZSBhdXRob3Igb2YgdGhhdCBoYWNraXNoIExFREUvT3BlbldydCBwYXRjaCB0
+aGF0IHdvcmtzIGFyb3VuZCB0aGUKPj4+PiBtaXNhbGlnbm1lbnQgaXNzdWVzLiBIZXJlJ3Mgc29t
+ZSBjb250ZXh0IHJlZ2FyZGluZyB0aGF0IHBhdGNoOgo+Pj4+Cj4+Pj4gSSBpbnRlbnRpb25hbGx5
+IHB1dCBpdCBpbiB0aGUgdGFyZ2V0IHNwZWNpZmljIHBhdGNoZXMgZm9yIG9ubHkgb25lIG9mCj4+
+Pj4gb3VyIE1JUFMgdGFyZ2V0cy4gVGhlcmUgYXJlIGEgZmV3IGFyNzF4eCBkZXZpY2VzIHdoZXJl
+IHRoZSBtaXNhbGlnbm1lbnQKPj4+PiBjYW5ub3QgYmUgZml4ZWQsIGJlY2F1c2UgdGhlIEV0aGVy
+bmV0IE1BQyBoYXMgYSA0LWJ5dGUgRE1BIGFsaWdubWVudAo+Pj4+IHJlcXVpcmVtZW50LCBhbmQg
+ZG9lcyBub3Qgc3VwcG9ydCBpbnNlcnRpbmcgMiBieXRlcyBvZiBwYWRkaW5nIHRvCj4+Pj4gY29y
+cmVjdCB0aGUgSVAgaGVhZGVyIG1pc2FsaWdubWVudC4KPj4+Pgo+Pj4+IFdpdGggdGhlc2UgbGlt
+aXRhdGlvbnMgdGhlIGNob2ljZSB3YXMgYmV0d2VlbiB0aGlzIHVnbHkgbmV0d29yayBzdGFjawo+
+Pj4+IHBhdGNoIG9yIGluc2VydGluZyBhIHZlcnkgZXhwZW5zaXZlIG1lbW1vdmUgaW4gdGhlIGRh
+dGEgcGF0aCAod2hpY2ggaXMKPj4+PiBiZXR0ZXIgdGhhbiB0YWtpbmcgdGhlIG1pcy1hbGlnbm1l
+bnQgdHJhcHMsIGJ1dCBzdGlsbCBodXJ0cyByb3V0aW5nCj4+Pj4gcGVyZm9ybWFuY2Ugc2lnbmlm
+aWNhbnRseSkuCj4+PiAKPj4+IEkgc29sdmVkIHRoaXMgcHJvYmxlbSBpbiBhbiBFdGhlcm5ldCBk
+cml2ZXIgYnkgY29weWluZyB0aGUgaW5pdGlhbCBwYXJ0Cj4+PiBvZiB0aGUgcGFja2V0IHRvIGFu
+IGFsaWduZWQgc2tiIGFuZCBhcHBlbmRpbmcgdGhlIHJlbWFpbmRlciB1c2luZwo+Pj4gc2tiX2Fk
+ZF9yeF9mcmFnKCkuICBUaGUga2VybmVsIG5ldHdvcmsgc3RhY2sgb25seSBjYXJlcyBhYm91dCB0
+aGUKPj4+IGhlYWRlcnMsIHNvIHRoZSBhbGlnbm1lbnQgb2YgdGhlIHBhY2tldCBwYXlsb2FkIGRv
+ZXNuJ3QgbWF0dGVyLgo+Pgo+PiBJIGNvbnNpZGVyZWQgdGhhdCBhcyB3ZWxsLCBidXQgaXQncyBi
+YWQgZm9yIHJvdXRpbmcgcGVyZm9ybWFuY2UgaWYgdGhlCj4+IGV0aGVybmV0IE1BQyBkb2VzIG5v
+dCBzdXBwb3J0IHNjYXR0ZXIvZ2F0aGVyIGZvciB4bWl0Lgo+PiBVbmZvcnR1bmF0ZWx5IHRoYXQg
+bGltaXRhdGlvbiBpcyBxdWl0ZSBjb21tb24gb24gZW1iZWRkZWQgaGFyZHdhcmUuCj4gCj4gWWVz
+LCBJIGNhbiBzZWUgdGhhdCBiZWluZyBhbiBpc3N1ZS4gIEhvd2V2ZXIsIGlmIHlvdSdyZSBkb2lu
+ZyB6ZXJvLWNvcHkKPiByb3V0aW5nLCB0aGUgaGVhZGVyIHBhcnQgb2YgdGhlIG9yaWdpbmFsIGJ1
+ZmZlciBzaG91bGQgc3RpbGwgYmUgdGhlcmUsCj4gdW51c2VkLCBzbyB5b3UgY291bGQgcHJlc3Vt
+YWJseSBjb3B5IHRoZSBoZWFkZXIgb2YgdGhlIG91dGdvaW5nIHBhY2tldAo+IHRoZXJlIGFuZCB0
+aGVuIGRvIGRtYSBhcyB1c3VhbC4gIE1heWJlIHRoZXJlJ3Mgc29tZXRoaW5nIGluIHRoZSBuZXR3
+b3JrCj4gc3RhY2sgdGhhdCBtYWtlcyB0aGlzIGltcG9zc2libGUgdGhvdWdoLgpUaGF0IHN0aWxs
+IHB1dHMgbW9yZSBwcmVzc3VyZSBvbiB0aGUgcmlkaWN1bG91c2x5IHNtYWxsIGRjYWNoZSBzaXpl
+cwp0aGF0IGFyZSB0eXBpY2FsIGZvciBlbWJlZGRlZCBNSVBTIHJvdXRlcnMuCgotIEZlbGl4Cgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpXaXJlR3VhcmQg
+bWFpbGluZyBsaXN0CldpcmVHdWFyZEBsaXN0cy56eDJjNC5jb20KaHR0cHM6Ly9saXN0cy56eDJj
+NC5jb20vbWFpbG1hbi9saXN0aW5mby93aXJlZ3VhcmQK
