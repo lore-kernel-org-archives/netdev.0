@@ -1,68 +1,57 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Sat, 10 Dec 2016 13:25:19 +0000
-Message-ID: <yw1x37hvykzk.fsf@unicorn.mansr.com>
-References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
- <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
- <20161207.135127.789629809982860453.davem@davemloft.net>
- <CAHmME9oLgjDA2F0gkFzHU2Es8-XCxQHRABS18OKF0EnZgt1=LQ@mail.gmail.com>
- <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 2/5] liquidio VF vxlan
+Date: Sat, 10 Dec 2016 15:46:13 +0200
+Message-ID: <CAJ3xEMiMF3rMc1Ai0cuowNX=AkcJWQkVTqGx2QsHLriYVRr_tA@mail.gmail.com>
+References: <1481230848-2393-1-git-send-email-rvatsavayi@caviumnetworks.com>
+ <1481230848-2393-3-git-send-email-rvatsavayi@caviumnetworks.com>
+ <CAJ3xEMgrV4kjMY_SVJtk9VR85K7oSsSZGNQCi4UShogCKOq=hQ@mail.gmail.com> <DM3PR07MB21386696FCE7727BD9B3B48C81840@DM3PR07MB2138.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: Felix Fietkau <nbd@nbd.name>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name> (Felix Fietkau's
- message of "Sat, 10 Dec 2016 13:25:07 +0100")
-List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "Chickles, Derek" <Derek.Chickles@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>,
+        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
+To: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:36065 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751075AbcLJNqP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 08:46:15 -0500
+Received: by mail-oi0-f66.google.com with SMTP id u15so5696443oie.3
+        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 05:46:14 -0800 (PST)
+In-Reply-To: <DM3PR07MB21386696FCE7727BD9B3B48C81840@DM3PR07MB2138.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Felix Fietkau <nbd@nbd.name> writes:
+On Fri, Dec 9, 2016 at 12:42 AM, Vatsavayi, Raghu
+<Raghu.Vatsavayi@cavium.com> wrote:
+>> From: Or Gerlitz [mailto:gerlitz.or@gmail.com]
+>> On Thu, Dec 8, 2016 at 11:00 PM, Raghu Vatsavayi
+>> <rvatsavayi@caviumnetworks.com> wrote:
 
-> On 2016-12-07 19:54, Jason A. Donenfeld wrote:
->> On Wed, Dec 7, 2016 at 7:51 PM, David Miller <davem@davemloft.net> wrote:
->>> It's so much better to analyze properly where the misalignment comes fr=
-om
->>> and address it at the source, as we have for various cases that trip up
->>> Sparc too.
->> =
+>>> Adds VF vxlan offload support.
 
->> That's sort of my attitude too, hence starting this thread. Any
->> pointers you have about this would be most welcome, so as not to
->> perpetuate what already seems like an issue in other parts of the
->> stack.
-> Hi Jason,
->
-> I'm the author of that hackish LEDE/OpenWrt patch that works around the
-> misalignment issues. Here's some context regarding that patch:
->
-> I intentionally put it in the target specific patches for only one of
-> our MIPS targets. There are a few ar71xx devices where the misalignment
-> cannot be fixed, because the Ethernet MAC has a 4-byte DMA alignment
-> requirement, and does not support inserting 2 bytes of padding to
-> correct the IP header misalignment.
->
-> With these limitations the choice was between this ugly network stack
-> patch or inserting a very expensive memmove in the data path (which is
-> better than taking the mis-alignment traps, but still hurts routing
-> performance significantly).
+>> What's the use case for that? a VM running a VTEP, isn't that part needs to
+>> run @ the host?
 
-I solved this problem in an Ethernet driver by copying the initial part
-of the packet to an aligned skb and appending the remainder using
-skb_add_rx_frag().  The kernel network stack only cares about the
-headers, so the alignment of the packet payload doesn't matter.
+> Our HW can support offloads for VF which is required if we load it on Hypervisor.
 
--- =
 
-M=E5ns Rullg=E5rd
++       nctrl.ncmd.u64 = 0;
++       nctrl.ncmd.s.cmd = command;
++       nctrl.ncmd.s.more = vxlan_cmd_bit;
++       nctrl.ncmd.s.param1 = vxlan_port;
++       nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
++       nctrl.wait_time = 100;
++       nctrl.netpndev = (u64)netdev;
++       nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
++
++       ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
+
+1. What happens if > 1 one VF runs this code, each with different
+port? who wins? is the result well defined?
+
+2. does octnet_send_nic_ctrl_pkt() goes to sleep? this is disallowed here
+
+Or.
