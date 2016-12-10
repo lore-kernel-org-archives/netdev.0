@@ -1,62 +1,81 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH/RFC net-next] net: fec: allow "mini jumbo" frames
-Date: Sat, 10 Dec 2016 11:55:11 -0500
-Message-ID: <87lgvn3es0.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1481275255-7650-1-git-send-email-nikita.yoush@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Chris Healy <cphealy@gmail.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        linux-kernel@vger.kernel.org,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Fugang Duan <fugang.duan@nxp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Troy Kisky <troy.kisky@boundarydevices.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Eric Nelson <eric@nelint.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481275255-7650-1-git-send-email-nikita.yoush@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [iproute2 net-next 0/8] Add support for vrf helper
+Date: Sat, 10 Dec 2016 09:47:41 -0800
+Message-ID: <1481392069-3138-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:36186 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751143AbcLJRr4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 12:47:56 -0500
+Received: by mail-pg0-f43.google.com with SMTP id f188so19284846pgc.3
+        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 09:47:56 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Nikita,
+This series adds support to iproute2 to run a command against a specific
+VRF. The user semnatics are similar to 'ip netns'.
 
-Nikita Yushchenko <nikita.yoush@cogentembedded.com> writes:
+The 'ip vrf' subcommand supports 3 usages:
 
-> This adds support for MTU slightly larger than default, on modern
-> FEC flavours.
->
-> Currently FEC driver uses single hardware Rx buffer per frame. On most
-> FEC flavours, size of single buffer is limited by 11-bit field, and
-> has to be multiple of 64 (in the worst case). Thus maximum usable Rx
-> buffer size is 1984 bytes.
->
-> Of those:
-> - 2 bytes are used for IP header alignment,
-> - 14 bytes are used by ethhdr,
-> - up to 8 bytes are needed for VLAN and/or DSA tags,
-> - 4 bytes are needed for CRC.
->
-> Thus maximum MTU possible within current RX architecture is 1956.
->
-> This patch allows exactly that. For further increase, Rx architecture
-> change is needed.
->
-> Use of MTU=1956 gives about 1.5% throughput improvement between two Vybrid
-> boards, compared to default MTU=1500.
->
-> Signed-off-by: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+1. Run a command against a given vrf:
+       ip vrf exec NAME CMD
 
-For what it's worth, I have tested your patch on my ZII Rev B boards
-(see vf610-zii-dev-rev-b.dts) which have a FEC as the master net device
-of their DSA trees. They still work as expected.
+   Uses the recently committed cgroup/sock BPF option. vrf directory
+   is added to cgroup2 mount. Individual vrfs are created under it. BPF
+   filter is attached to vrf/NAME cgroup2 to set sk_bound_dev_if to the
+   device index of the VRF. From there the current process (ip's pid) is
+   addded to the cgroups.proc file and the given command is exected. In
+   doing so all AF_INET/AF_INET6 (ipv4/ipv6) sockets are automatically
+   bound to the VRF domain.
 
-Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+   The association is inherited parent to child allowing the command to
+   be a shell from which other commands are run relative to the VRF.
 
-Thanks,
+2. Show the VRF a process is bound to:
+       ip vrf id
+   This command essentially looks at /proc/pid/cgroup for a "::/vrf/"
+   entry.
 
-        Vivien
+3. Show process ids bound to a VRF
+       ip vrf pids NAME
+   This command dumps the file MNT/vrf/NAME/cgroup.procs since that file
+   shows the process ids in the particular vrf cgroup.
+
+David Ahern (8):
+  lib bpf: Add support for BPF_PROG_ATTACH and BPF_PROG_DETACH
+  bpf: export bpf_prog_load
+  Add libbpf.h header with BPF_XXXX macros
+  move cmd_exec to lib utils
+  Add filesystem APIs to lib
+  change name_is_vrf to return index
+  libnetlink: Add variant of rtnl_talk that does not display RTNETLINK
+    answers error
+  Introduce ip vrf command
+
+ include/bpf_util.h   |   6 ++
+ include/libbpf.h     | 184 ++++++++++++++++++++++++++++++++
+ include/libnetlink.h |   3 +
+ include/utils.h      |   4 +
+ ip/Makefile          |   3 +-
+ ip/ip.c              |   4 +-
+ ip/ip_common.h       |   4 +-
+ ip/iplink_vrf.c      |  29 ++++--
+ ip/ipnetns.c         |  34 ------
+ ip/ipvrf.c           | 289 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/Makefile         |   2 +-
+ lib/bpf.c            |  71 ++++++++-----
+ lib/exec.c           |  41 ++++++++
+ lib/fs.c             | 143 +++++++++++++++++++++++++
+ lib/libnetlink.c     |  20 +++-
+ man/man8/ip-vrf.8    |  88 ++++++++++++++++
+ 16 files changed, 850 insertions(+), 75 deletions(-)
+ create mode 100644 include/libbpf.h
+ create mode 100644 ip/ipvrf.c
+ create mode 100644 lib/exec.c
+ create mode 100644 lib/fs.c
+ create mode 100644 man/man8/ip-vrf.8
+
+-- 
+2.1.4
