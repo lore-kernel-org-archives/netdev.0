@@ -1,84 +1,100 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [iproute2 v2 net-next 0/8] Add support for vrf helper
-Date: Sat, 10 Dec 2016 12:32:06 -0800
-Message-ID: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [iproute2 net-next 2/8] bpf: export bpf_prog_load
+Date: Sat, 10 Dec 2016 12:32:08 -0800
+Message-ID: <1481401934-4026-3-git-send-email-dsa@cumulusnetworks.com>
+References: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:36674 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751962AbcLJUcV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 15:32:21 -0500
-Received: by mail-pg0-f52.google.com with SMTP id f188so20118866pgc.3
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 12:32:20 -0800 (PST)
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:36676 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751962AbcLJUcW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 15:32:22 -0500
+Received: by mail-pg0-f50.google.com with SMTP id f188so20119009pgc.3
+        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 12:32:22 -0800 (PST)
+In-Reply-To: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series adds support to iproute2 to run a command against a specific
-VRF. The user semnatics are similar to 'ip netns'.
+Code move only; no functional change intended.
 
-The 'ip vrf' subcommand supports 3 usages:
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/bpf_util.h |  3 +++
+ lib/bpf.c          | 40 ++++++++++++++++++++--------------------
+ 2 files changed, 23 insertions(+), 20 deletions(-)
 
-1. Run a command against a given vrf:
-       ip vrf exec NAME CMD
-
-   Uses the recently committed cgroup/sock BPF option. vrf directory
-   is added to cgroup2 mount. Individual vrfs are created under it. BPF
-   filter is attached to vrf/NAME cgroup2 to set sk_bound_dev_if to the
-   device index of the VRF. From there the current process (ip's pid) is
-   addded to the cgroups.proc file and the given command is exected. In
-   doing so all AF_INET/AF_INET6 (ipv4/ipv6) sockets are automatically
-   bound to the VRF domain.
-
-   The association is inherited parent to child allowing the command to
-   be a shell from which other commands are run relative to the VRF.
-
-2. Show the VRF a process is bound to:
-       ip vrf id
-   This command essentially looks at /proc/pid/cgroup for a "::/vrf/"
-   entry.
-
-3. Show process ids bound to a VRF
-       ip vrf pids NAME
-   This command dumps the file MNT/vrf/NAME/cgroup.procs since that file
-   shows the process ids in the particular vrf cgroup.
-
-v2
-- updated suject of patch 3 to avoid spam filters on vger
-
-David Ahern (8):
-  lib bpf: Add support for BPF_PROG_ATTACH and BPF_PROG_DETACH
-  bpf: export bpf_prog_load
-  Add libbpf.h header with BPF_ macros
-  move cmd_exec to lib utils
-  Add filesystem APIs to lib
-  change name_is_vrf to return index
-  libnetlink: Add variant of rtnl_talk that does not display RTNETLINK
-    answers error
-  Introduce ip vrf command
-
- include/bpf_util.h   |   6 ++
- include/libbpf.h     | 184 ++++++++++++++++++++++++++++++++
- include/libnetlink.h |   3 +
- include/utils.h      |   4 +
- ip/Makefile          |   3 +-
- ip/ip.c              |   4 +-
- ip/ip_common.h       |   4 +-
- ip/iplink_vrf.c      |  29 ++++--
- ip/ipnetns.c         |  34 ------
- ip/ipvrf.c           | 289 +++++++++++++++++++++++++++++++++++++++++++++++++++
- lib/Makefile         |   2 +-
- lib/bpf.c            |  71 ++++++++-----
- lib/exec.c           |  41 ++++++++
- lib/fs.c             | 143 +++++++++++++++++++++++++
- lib/libnetlink.c     |  20 +++-
- man/man8/ip-vrf.8    |  88 ++++++++++++++++
- 16 files changed, 850 insertions(+), 75 deletions(-)
- create mode 100644 include/libbpf.h
- create mode 100644 ip/ipvrf.c
- create mode 100644 lib/exec.c
- create mode 100644 lib/fs.c
- create mode 100644 man/man8/ip-vrf.8
-
+diff --git a/include/bpf_util.h b/include/bpf_util.h
+index 49b96bbc208f..dcbdca6978d6 100644
+--- a/include/bpf_util.h
++++ b/include/bpf_util.h
+@@ -75,6 +75,9 @@ int bpf_trace_pipe(void);
+ 
+ void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len);
+ 
++int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
++		  size_t size_insns, const char *license, char *log,
++		  size_t size_log);
+ int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type);
+ int bpf_prog_detach(int target_fd, enum bpf_attach_type type);
+ 
+diff --git a/lib/bpf.c b/lib/bpf.c
+index 103fc1ef0593..b04c3a678b9c 100644
+--- a/lib/bpf.c
++++ b/lib/bpf.c
+@@ -871,6 +871,26 @@ int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
+ 	return bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
+ }
+ 
++int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
++		  size_t size_insns, const char *license, char *log,
++		  size_t size_log)
++{
++	union bpf_attr attr = {};
++
++	attr.prog_type = type;
++	attr.insns = bpf_ptr_to_u64(insns);
++	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
++	attr.license = bpf_ptr_to_u64(license);
++
++	if (size_log > 0) {
++		attr.log_buf = bpf_ptr_to_u64(log);
++		attr.log_size = size_log;
++		attr.log_level = 1;
++	}
++
++	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
++}
++
+ #ifdef HAVE_ELF
+ struct bpf_elf_prog {
+ 	enum bpf_prog_type	type;
+@@ -988,26 +1008,6 @@ static int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
+ 	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+ }
+ 
+-static int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
+-			 size_t size_insns, const char *license, char *log,
+-			 size_t size_log)
+-{
+-	union bpf_attr attr = {};
+-
+-	attr.prog_type = type;
+-	attr.insns = bpf_ptr_to_u64(insns);
+-	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
+-	attr.license = bpf_ptr_to_u64(license);
+-
+-	if (size_log > 0) {
+-		attr.log_buf = bpf_ptr_to_u64(log);
+-		attr.log_size = size_log;
+-		attr.log_level = 1;
+-	}
+-
+-	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+-}
+-
+ static int bpf_obj_pin(int fd, const char *pathname)
+ {
+ 	union bpf_attr attr = {};
 -- 
 2.1.4
