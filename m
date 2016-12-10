@@ -1,47 +1,49 @@
 From: Jie Deng <Jie.Deng1@synopsys.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Sat, 10 Dec 2016 10:13:57 +0800
-Message-ID: <8910993f-f5ca-259c-c42b-207781a4ad51@synopsys.com>
-References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
- <20161209.103327.1742213347114742435.davem@davemloft.net>
- <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
- <20161209.104152.1969880574279771010.davem@davemloft.net>
- <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
- <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: phy: add extension of phy-mode for
+ XLGMII
+Date: Sat, 10 Dec 2016 10:16:43 +0800
+Message-ID: <716efc64-826b-ea7a-b1d9-0d9c264cc926@synopsys.com>
+References: <cover.1481075763.git.jiedeng@synopsys.com>
+ <6d4a65c5488364cdaec72eb22e742aa7e94dfebb.1481075763.git.jiedeng@synopsys.com>
+ <30c8257d-9ad9-71bf-a969-77dbe37bd800@gmail.com>
+ <d42cbc77-1409-281a-161f-cf9c85443369@synopsys.com>
+ <20161209163905.GG9923@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        <lars.persson@axis.com>, <rabin.vincent@axis.com>,
-        netdev <netdev@vger.kernel.org>, <CARLOS.PALMINHA@synopsys.com>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:43314 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751953AbcLJCOE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 21:14:04 -0500
-In-Reply-To: <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <CARLOS.PALMINHA@synopsys.com>, <lars.persson@axis.com>,
+        <thomas.lendacky@amd.com>
+To: Andrew Lunn <andrew@lunn.ch>, Jie Deng <Jie.Deng1@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161209163905.GG9923@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 2016/12/10 8:16, Andy Shevchenko wrote:
-> On Sat, Dec 10, 2016 at 12:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+On 2016/12/10 0:39, Andrew Lunn wrote:
+> On Fri, Dec 09, 2016 at 01:19:07PM +0800, Jie Deng wrote:
+>>
+>> On 2016/12/9 6:15, Florian Fainelli wrote:
+>>> On 12/06/2016 07:57 PM, Jie Deng wrote:
+>>>> This patch adds phy-mode support for Synopsys XLGMAC
+>>> The functional changes look good, but I would like to see some
+>>> description of what the XL part stands for here.
+>>>
+>>> While you are modifying this, do you also mind submitting a Device Tree
+>>> specification change:
+>>>
+>>> https://www.devicetree.org/specifications/
+>>>
+>>> Thanks!
+>> Thank you for the information.
+>>
+>> Currenlty, the XLGMAC is a new IP from Synopsys.
+> I think Florian wants to know about the IEEE standard or what ever
+> which defines what the phy-mode XLGMAC is, in the same way there are
+> standards for RGMII, SGMII, etc.
 >
->> It's kind of sad that customers of that IP (stmmac, amd-xgbe, sxgbe)
->> did
->> actually pioneer the upstreaming effort, but it is good to see people
->> from Synopsys willing to fix that in the future.
-> Wait, you would like to tell that we have more than 2 drivers for the
-> same (okay, same vendor) IP?!
-> It's better to unify them earlier, than have n+ copies.
->
-> P.S. Though, I don't see how sxgbe got in the list. First glance on
-> the code doesn't show similarities.
-Glance on sxgbe_reg.h the register seems from Synopsys XGMAC IP... Probably,
-amd-xgbe and sxgbe targeted the same IP
+> 	  Andrew
+Understood! Thank you !
