@@ -1,47 +1,45 @@
-From: Brandon Philips <brandon.philips@coreos.com>
-Subject: fib_frontend: Add network specific broadcasts, when it takes a sense
-Date: Fri, 9 Dec 2016 16:07:52 -0800
-Message-ID: <20161210000752.GA18080@Brandons-MacBook-Pro.local>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: Synopsys Ethernet QoS
+Date: Sat, 10 Dec 2016 02:16:53 +0200
+Message-ID: <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
+References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
+ <20161209.103327.1742213347114742435.davem@davemloft.net> <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
+ <20161209.104152.1969880574279771010.davem@davemloft.net> <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
+ <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, Tom Denham <tom@tigera.io>,
-        Aaron Levy <aaron.levy@coreos.com>,
-        Brad Ison <bison@coreos.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        lars.persson@axis.com, rabin.vincent@axis.com,
+        netdev <netdev@vger.kernel.org>, CARLOS.PALMINHA@synopsys.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:36751 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751693AbcLJAH4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 19:07:56 -0500
-Received: by mail-pg0-f46.google.com with SMTP id f188so12709880pgc.3
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 16:07:56 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34534 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751726AbcLJAQy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 19:16:54 -0500
+Received: by mail-oi0-f65.google.com with SMTP id m75so4333983oig.1
+        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 16:16:54 -0800 (PST)
+In-Reply-To: <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello-
+On Sat, Dec 10, 2016 at 12:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
 
-A number of us are working on an OSS overlay network system called flannel.
-It is used in a variety of Linux container systems and one of the backends
-is VXLAN.
+> It's kind of sad that customers of that IP (stmmac, amd-xgbe, sxgbe)
 
-The issue we have: when creating the VXLAN interface and assigning it an
-address we see a broadcast route being added by the Kernel. For example if
-we have 10.4.0.0/16 a broadcast route to 10.4.0.0 is created. This route is
-unwanted because we assign 10.4.0.0 to one of our VXLAN interfaces.
+> did
+> actually pioneer the upstreaming effort, but it is good to see people
+> from Synopsys willing to fix that in the future.
 
-However, the Kernel interface bring-up comment reads: Add network specific
-broadcasts, when it takes a sense. The code is here:
-https://github.com/torvalds/linux/blob/master/net/ipv4/fib_frontend.c#L859-L872
+Wait, you would like to tell that we have more than 2 drivers for the
+same (okay, same vendor) IP?!
+It's better to unify them earlier, than have n+ copies.
 
-Can someone explain why creation of the broadcast route is non-optional?
-Would a patch to make it optional be acceptable? Is it safe for us to
-simply delete the route? We have a patch that simply deletes the broadcast
-route after interface creation but don't know why the Kernel code "makes
-sense".
+P.S. Though, I don't see how sxgbe got in the list. First glance on
+the code doesn't show similarities.
 
-You can read more information about the issue here:
-https://github.com/coreos/flannel/pull/569
-
-Thank You,
-
-Brandon
+-- 
+With Best Regards,
+Andy Shevchenko
