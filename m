@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/5] net: ethernet: ti: cpsw: combine budget and weight
- split and check
-Date: Sat, 10 Dec 2016 17:30:44 -0500 (EST)
-Message-ID: <20161210.173044.1580240100890445540.davem@davemloft.net>
+Subject: Re: [PATCH 4/5] net: ethernet: ti: cpsw: re-split res only when
+ speed is changed
+Date: Sat, 10 Dec 2016 17:30:52 -0500 (EST)
+Message-ID: <20161210.173052.703592337860587516.davem@davemloft.net>
 References: <1481372630-14914-1-git-send-email-ivan.khoronzhuk@linaro.org>
-        <1481372630-14914-4-git-send-email-ivan.khoronzhuk@linaro.org>
+        <1481372630-14914-5-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,21 +13,27 @@ Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
         linux-kernel@vger.kernel.org
 To: ivan.khoronzhuk@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58478 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58486 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752963AbcLJWap (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 17:30:45 -0500
-In-Reply-To: <1481372630-14914-4-git-send-email-ivan.khoronzhuk@linaro.org>
+        with ESMTP id S1753241AbcLJWa7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 17:30:59 -0500
+In-Reply-To: <1481372630-14914-5-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Date: Sat, 10 Dec 2016 14:23:48 +0200
+Date: Sat, 10 Dec 2016 14:23:49 +0200
 
-> Re-split weight along with budget. It simplify code a little
-> and update state after every rate change. Also it's necessarily
-> to move arguments checks to this combined function. Replace
-> maximum rate check for an interface on maximum possible rate.
+> Don't re-split res in the following cases:
+> - speed of phys is not changed
+> - speed of phys is changed and no rate limited channels
+> - speed of phys is changed and all channels are rate limited
+> - phy is unlinked while dev is open
+> - phy is linked back but speed is not changed
+> 
+> The maximum speed is sum of "linked" phys, thus res are split taken
+> in account two interfaces, both for dual emac mode and for
+> switch mode.
 > 
 > Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 
