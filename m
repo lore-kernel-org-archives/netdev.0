@@ -1,41 +1,47 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [iproute2 net-next 3/8] Add libbpf.h header with BPF_ macros
-Date: Sat, 10 Dec 2016 22:27:00 +0100
-Message-ID: <584C7324.8070709@iogearbox.net>
-References: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com> <1481401934-4026-4-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+From: =?utf-8?Q?Dan_L=C3=BCdtke?= <mail@danrl.com>
+Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
+Date: Sat, 10 Dec 2016 23:18:14 +0100
+Message-ID: <CE942916-BF45-44CC-A5F5-3838CF9C93BC@danrl.com>
+References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+ <095cac5b-b757-6f4a-e699-8eedf9ed7221@stressinduktion.org>
+ <87vauvhwdu.fsf@alice.fifthhorseman.net>
+Mime-Version: 1.0 (Mac OS X Mail 10.1 \(3251\))
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35064 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751360AbcLJV1B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 16:27:01 -0500
-In-Reply-To: <1481401934-4026-4-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
+ LKML <linux-kernel@vger.kernel.org>,
+ Hannes Frederic Sowa <hannes@stressinduktion.org>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <87vauvhwdu.fsf@alice.fifthhorseman.net>
+List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-On 12/10/2016 09:32 PM, David Ahern wrote:
-> Based on version in kernel repo, samples/bpf/libbpf.h
->
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->   include/libbpf.h | 184 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
->   1 file changed, 184 insertions(+)
->   create mode 100644 include/libbpf.h
->
-> diff --git a/include/libbpf.h b/include/libbpf.h
-> new file mode 100644
-> index 000000000000..37951f509a10
-> --- /dev/null
-> +++ b/include/libbpf.h
-> @@ -0,0 +1,184 @@
-> +/* eBPF mini library */
-> +#ifndef __LIBBPF_H
-> +#define __LIBBPF_H
 
-Creating include/libbpf.h is a bit confusing, since all the function
-declarations of the current bpf lib code are located in include/bpf_util.h.
-Please add all this there as well instead of creating a new file.
+> On 8 Dec 2016, at 05:34, Daniel Kahn Gillmor <dkg@fifthhorseman.net> wrote:
+> 
+> On Wed 2016-12-07 19:30:34 -0500, Hannes Frederic Sowa wrote:
+>> Your custom protocol should be designed in a way you get an aligned ip
+>> header. Most protocols of the IETF follow this mantra and it is always
+>> possible to e.g. pad options so you end up on aligned boundaries for the
+>> next header.
+> 
+> fwiw, i'm not convinced that "most protocols of the IETF follow this
+> mantra".  we've had multiple discussions in different protocol groups
+> about shaving or bloating by a few bytes here or there in different
+> protocols, and i don't think anyone has brought up memory alignment as
+> an argument in any of the discussions i've followed.
+> 
+
+If the trade-off is between 1 padding byte and 2 byte alignment versus 3 padding bytes and 4 byte alignment I would definitely opt for 3 padding bytes. I know how that waste feels like to a protocol designer, but I think it is worth it. Maybe the padding/reserved will be useful some day for an additional feature.
+
+I remember alignment being discussed and taken very seriously in 6man a couple of times. Often, though, protocol designers did align without much discussion. Implementing unaligned protocols is a pain I've experienced first hand.
