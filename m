@@ -1,57 +1,34 @@
 From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 2/5] liquidio VF vxlan
-Date: Sat, 10 Dec 2016 15:46:13 +0200
-Message-ID: <CAJ3xEMiMF3rMc1Ai0cuowNX=AkcJWQkVTqGx2QsHLriYVRr_tA@mail.gmail.com>
-References: <1481230848-2393-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <1481230848-2393-3-git-send-email-rvatsavayi@caviumnetworks.com>
- <CAJ3xEMgrV4kjMY_SVJtk9VR85K7oSsSZGNQCi4UShogCKOq=hQ@mail.gmail.com> <DM3PR07MB21386696FCE7727BD9B3B48C81840@DM3PR07MB2138.namprd07.prod.outlook.com>
+Subject: Re: [PATCH V2 18/22] bnxt_re: Support for DCB
+Date: Sat, 10 Dec 2016 15:50:25 +0200
+Message-ID: <CAJ3xEMjcKRZpBMEBwQMZO5OqbVzH2=Q3FOAyYUVAz+ouw1jTNQ@mail.gmail.com>
+References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com> <1481266096-23331-19-git-send-email-selvin.xavier@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Cc: Doug Ledford <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
         Linux Netdev List <netdev@vger.kernel.org>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
-To: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Selvin Xavier <selvin.xavier@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36065 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751075AbcLJNqP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 08:46:15 -0500
-Received: by mail-oi0-f66.google.com with SMTP id u15so5696443oie.3
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 05:46:14 -0800 (PST)
-In-Reply-To: <DM3PR07MB21386696FCE7727BD9B3B48C81840@DM3PR07MB2138.namprd07.prod.outlook.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:36593 "EHLO
+        mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752278AbcLJNu1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 08:50:27 -0500
+In-Reply-To: <1481266096-23331-19-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 9, 2016 at 12:42 AM, Vatsavayi, Raghu
-<Raghu.Vatsavayi@cavium.com> wrote:
->> From: Or Gerlitz [mailto:gerlitz.or@gmail.com]
->> On Thu, Dec 8, 2016 at 11:00 PM, Raghu Vatsavayi
->> <rvatsavayi@caviumnetworks.com> wrote:
+On Fri, Dec 9, 2016 at 8:48 AM, Selvin Xavier
+<selvin.xavier@broadcom.com> wrote:
+> This patch queries the configured RoCE APP Priority on the host
+> using the dcbnl API and programs the RoCE FW with the corresponding
+> Traffic Class(es) for the priority.
 
->>> Adds VF vxlan offload support.
+> +#define BNXT_RE_ROCE_V1_ETH_TYPE       0x8915
+> +#define BNXT_RE_ROCE_V2_PORT_NO                4791
 
->> What's the use case for that? a VM running a VTEP, isn't that part needs to
->> run @ the host?
-
-> Our HW can support offloads for VF which is required if we load it on Hypervisor.
-
-
-+       nctrl.ncmd.u64 = 0;
-+       nctrl.ncmd.s.cmd = command;
-+       nctrl.ncmd.s.more = vxlan_cmd_bit;
-+       nctrl.ncmd.s.param1 = vxlan_port;
-+       nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+       nctrl.wait_time = 100;
-+       nctrl.netpndev = (u64)netdev;
-+       nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
-+
-+       ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-
-1. What happens if > 1 one VF runs this code, each with different
-port? who wins? is the result well defined?
-
-2. does octnet_send_nic_ctrl_pkt() goes to sleep? this is disallowed here
-
-Or.
+I believe these two are defined already, try # git grep on each under include
