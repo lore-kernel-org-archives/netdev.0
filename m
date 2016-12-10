@@ -1,97 +1,34 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Fri, 9 Dec 2016 20:59:52 -0500
-Message-ID: <1481335192.3663.0@smtp.office365.com>
-References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
-        <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
-        <1481233016.11849.1@smtp.office365.com>
-        <1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
-        <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2 v3] net: qcom/emac: simplify support for different
+ SOCs
+Date: Fri, 09 Dec 2016 21:06:16 -0500 (EST)
+Message-ID: <20161209.210616.736366493501564578.davem@davemloft.net>
+References: <1481225061-30962-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alokc@codeaurora.org
+To: timur@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55744 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752266AbcLJCAJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 21:00:09 -0500
-In-Reply-To: <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38664 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751076AbcLJCGT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 21:06:19 -0500
+In-Reply-To: <1481225061-30962-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 8, 2016 at 8:01 PM, Josef Bacik <jbacik@fb.com> wrote:
+From: Timur Tabi <timur@codeaurora.org>
+Date: Thu,  8 Dec 2016 13:24:19 -0600
+
+> On SOCs that have the Qualcomm EMAC network controller, the internal
+> PHY block is always different.  Sometimes the differences are small, 
+> sometimes it might be a completely different IP.  Either way, using version
+> numbers to differentiate them and putting all of the init code in one
+> file does not scale.
 > 
->>  On Dec 8, 2016, at 7:32 PM, Eric Dumazet <eric.dumazet@gmail.com> 
->> wrote:
->> 
->>>  On Thu, 2016-12-08 at 16:36 -0500, Josef Bacik wrote:
->>> 
->>>  We can reproduce the problem at will, still trying to run down the
->>>  problem.  I'll try and find one of the boxes that dumped a core 
->>> and get
->>>  a bt of everybody.  Thanks,
->> 
->>  OK, sounds good.
->> 
->>  I had a look and :
->>  - could not spot a fix that came after 4.6.
->>  - could not spot an obvious bug.
->> 
->>  Anything special in the program triggering the issue ?
->>  SO_REUSEPORT and/or special socket options ?
->> 
-> 
-> So they recently started using SO_REUSEPORT, that's what triggered 
-> it, if they don't use it then everything is fine.
-> 
-> I added some instrumentation for get_port to see if it was looping in 
-> there and none of my printk's triggered.  The softlockup messages are 
-> always on the inet_bind_bucket lock, sometimes in the process context 
-> in get_port or in the softirq context either through inet_put_port or 
-> inet_kill_twsk.  On the box that I have a coredump for there's only 
-> one processor in the inet code so I'm not sure what to make of that.  
-> That was a box from last week so I'll look at a more recent core and 
-> see if it's different.  Thanks,
+> This patchset does two things:  The first breaks up the current code into
+> different files, and the second patch adds support for a third SOC, the
+> Qualcomm Technologies QDF2400 ARM Server SOC.
 
-Ok more investigation today, a few bullet points
-
-- With all the debugging turned on the boxes seem to recover after 
-about a minute.  I'd get the spam of the soft lockup messages all on 
-the inet_bind_bucket, and then the box would be fine.
-- I looked at a core I had from before I started investigating things 
-and there's only one process trying to get the inet_bind_bucket of all 
-the 48 cpus.
-- I noticed that there was over 100k twsk's in that original core.
-- I put a global counter of the twsk's (since most of the softlockup 
-messages have the twsk timers in the stack) and noticed with the 
-debugging kernel it started around 16k twsk's and once it recovered it 
-was down to less than a thousand.  There's a jump where it goes from 8k 
-to 2k and then there's only one more softlockup message and the box is 
-fine.
-- This happens when we restart the service with the config option to 
-start using SO_REUSEPORT.
-
-The application is our load balancing app, so obviously has lots of 
-connections opened at any given time.  What I'm wondering and will test 
-on Monday is if the SO_REUSEPORT change even matters, or if simply 
-restarting the service is what triggers the problem.  One thing I 
-forgot to mention is that it's also using TCP_FASTOPEN in both the 
-non-reuseport and reuseport variants.
-
-What I suspect is happening is the service stops, all of the sockets it 
-had open go into TIMEWAIT with relatively the same timer period, and 
-then suddenly all wake up at the same time which coupled with the 
-massive amount of traffic that we see per box anyway results in so much 
-contention and ksoftirqd usage that the box livelocks for a while.  
-With the lock debugging and stuff turned on we aren't able to service 
-as much traffic so it recovers relatively quickly, whereas a normal 
-production kernel never recovers.
-
-Please keep in mind that I"m a file system developer so my conclusions 
-may be completely insane, any guidance would be welcome.  I'll continue 
-hammering on this on Monday.  Thanks,
-
-Josef
+Series applied.
