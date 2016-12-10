@@ -1,45 +1,204 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Sat, 10 Dec 2016 02:16:53 +0200
-Message-ID: <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
-References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
- <20161209.103327.1742213347114742435.davem@davemloft.net> <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
- <20161209.104152.1969880574279771010.davem@davemloft.net> <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        lars.persson@axis.com, rabin.vincent@axis.com,
-        netdev <netdev@vger.kernel.org>, CARLOS.PALMINHA@synopsys.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net v2] ibmveth: set correct gso_size and gso_type
+Date: Fri,  9 Dec 2016 19:31:20 -0600
+Message-ID: <1481333480-10827-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+References: <1481236803-4807-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: brking@linux.vnet.ibm.com, pradeeps@linux.vnet.ibm.com,
+        marcelo.leitner@gmail.com, jmaxwell37@gmail.com, zdai@us.ibm.com,
+        eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:34534 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751726AbcLJAQy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 19:16:54 -0500
-Received: by mail-oi0-f65.google.com with SMTP id m75so4333983oig.1
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 16:16:54 -0800 (PST)
-In-Reply-To: <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:45433 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750873AbcLJBbc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 20:31:32 -0500
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uBA1Oq0q117425
+        for <netdev@vger.kernel.org>; Fri, 9 Dec 2016 20:31:32 -0500
+Received: from e36.co.us.ibm.com (e36.co.us.ibm.com [32.97.110.154])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 277ymjnxqp-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 20:31:31 -0500
+Received: from localhost
+        by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Fri, 9 Dec 2016 18:31:31 -0700
+In-Reply-To: <1481236803-4807-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 10, 2016 at 12:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+This patch is based on an earlier one submitted
+by Jon Maxwell with the following commit message:
 
-> It's kind of sad that customers of that IP (stmmac, amd-xgbe, sxgbe)
+"We recently encountered a bug where a few customers using ibmveth on the
+same LPAR hit an issue where a TCP session hung when large receive was
+enabled. Closer analysis revealed that the session was stuck because the
+one side was advertising a zero window repeatedly.
 
-> did
-> actually pioneer the upstreaming effort, but it is good to see people
-> from Synopsys willing to fix that in the future.
+We narrowed this down to the fact the ibmveth driver did not set gso_size
+which is translated by TCP into the MSS later up the stack. The MSS is
+used to calculate the TCP window size and as that was abnormally large,
+it was calculating a zero window, even although the sockets receive buffer
+was completely empty."
 
-Wait, you would like to tell that we have more than 2 drivers for the
-same (okay, same vendor) IP?!
-It's better to unify them earlier, than have n+ copies.
+We rely on the Virtual I/O Server partition in a pseries
+environment to provide the MSS through the TCP header checksum
+field. The stipulation is that users should not disable checksum
+offloading if rx packet aggregation is enabled through VIOS.
 
-P.S. Though, I don't see how sxgbe got in the list. First glance on
-the code doesn't show similarities.
+Some firmware offerings provide the MSS in the RX buffer.
+This is signalled by a bit in the RX queue descriptor.
 
+Reviewed-by: Brian King <brking@linux.vnet.ibm.com>
+Reviewed-by: Pradeep Satyanarayana <pradeeps@linux.vnet.ibm.com>
+Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Reviewed-by: Jonathan Maxwell <jmaxwell37@gmail.com>
+Reviewed-by: David Dai <zdai@us.ibm.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+v2: calculate gso_segs after Eric Dumazet's comments on the earlier patch
+    and make sure everyone is included on CC
+---
+ drivers/net/ethernet/ibm/ibmveth.c | 72 ++++++++++++++++++++++++++++++++++++--
+ drivers/net/ethernet/ibm/ibmveth.h |  1 +
+ 2 files changed, 71 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index ebe6071..f0c3ae7 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -58,7 +58,7 @@
+ 
+ static const char ibmveth_driver_name[] = "ibmveth";
+ static const char ibmveth_driver_string[] = "IBM Power Virtual Ethernet Driver";
+-#define ibmveth_driver_version "1.05"
++#define ibmveth_driver_version "1.06"
+ 
+ MODULE_AUTHOR("Santiago Leon <santil@linux.vnet.ibm.com>");
+ MODULE_DESCRIPTION("IBM Power Virtual Ethernet Driver");
+@@ -137,6 +137,11 @@ static inline int ibmveth_rxq_frame_offset(struct ibmveth_adapter *adapter)
+ 	return ibmveth_rxq_flags(adapter) & IBMVETH_RXQ_OFF_MASK;
+ }
+ 
++static inline int ibmveth_rxq_large_packet(struct ibmveth_adapter *adapter)
++{
++	return ibmveth_rxq_flags(adapter) & IBMVETH_RXQ_LRG_PKT;
++}
++
+ static inline int ibmveth_rxq_frame_length(struct ibmveth_adapter *adapter)
+ {
+ 	return be32_to_cpu(adapter->rx_queue.queue_addr[adapter->rx_queue.index].length);
+@@ -1174,6 +1179,52 @@ static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
+ 	goto retry_bounce;
+ }
+ 
++static void ibmveth_rx_mss_helper(struct sk_buff *skb, u16 mss, int lrg_pkt)
++{
++	struct tcphdr *tcph;
++	int offset = 0;
++	int hdr_len;
++
++	/* only TCP packets will be aggregated */
++	if (skb->protocol == htons(ETH_P_IP)) {
++		struct iphdr *iph = (struct iphdr *)skb->data;
++
++		if (iph->protocol == IPPROTO_TCP) {
++			offset = iph->ihl * 4;
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++		} else {
++			return;
++		}
++	} else if (skb->protocol == htons(ETH_P_IPV6)) {
++		struct ipv6hdr *iph6 = (struct ipv6hdr *)skb->data;
++
++		if (iph6->nexthdr == IPPROTO_TCP) {
++			offset = sizeof(struct ipv6hdr);
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++		} else {
++			return;
++		}
++	} else {
++		return;
++	}
++	/* if mss is not set through Large Packet bit/mss in rx buffer,
++	 * expect that the mss will be written to the tcp header checksum.
++	 */
++	tcph = (struct tcphdr *)(skb->data + offset);
++	hdr_len = offset + tcph->doff * 4;
++	if (lrg_pkt) {
++		skb_shinfo(skb)->gso_size = mss;
++		skb_shinfo(skb)->gso_segs =
++					DIV_ROUND_UP(skb->len - hdr_len, mss);
++	} else if (offset) {
++		skb_shinfo(skb)->gso_size = ntohs(tcph->check);
++		skb_shinfo(skb)->gso_segs =
++				DIV_ROUND_UP(skb->len - hdr_len,
++					     skb_shinfo(skb)->gso_size);
++		tcph->check = 0;
++	}
++}
++
+ static int ibmveth_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct ibmveth_adapter *adapter =
+@@ -1182,6 +1233,7 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
+ 	int frames_processed = 0;
+ 	unsigned long lpar_rc;
+ 	struct iphdr *iph;
++	u16 mss = 0;
+ 
+ restart_poll:
+ 	while (frames_processed < budget) {
+@@ -1199,9 +1251,21 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
+ 			int length = ibmveth_rxq_frame_length(adapter);
+ 			int offset = ibmveth_rxq_frame_offset(adapter);
+ 			int csum_good = ibmveth_rxq_csum_good(adapter);
++			int lrg_pkt = ibmveth_rxq_large_packet(adapter);
+ 
+ 			skb = ibmveth_rxq_get_buffer(adapter);
+ 
++			/* if the large packet bit is set in the rx queue
++			 * descriptor, the mss will be written by PHYP eight
++			 * bytes from the start of the rx buffer, which is
++			 * skb->data at this stage
++			 */
++			if (lrg_pkt) {
++				__be64 *rxmss = (__be64 *)(skb->data + 8);
++
++				mss = (u16)be64_to_cpu(*rxmss);
++			}
++
+ 			new_skb = NULL;
+ 			if (length < rx_copybreak)
+ 				new_skb = netdev_alloc_skb(netdev, length);
+@@ -1235,11 +1299,15 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
+ 					if (iph->check == 0xffff) {
+ 						iph->check = 0;
+ 						iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+-						adapter->rx_large_packets++;
+ 					}
+ 				}
+ 			}
+ 
++			if (length > netdev->mtu + ETH_HLEN) {
++				ibmveth_rx_mss_helper(skb, mss, lrg_pkt);
++				adapter->rx_large_packets++;
++			}
++
+ 			napi_gro_receive(napi, skb);	/* send it up */
+ 
+ 			netdev->stats.rx_packets++;
+diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
+index 4eade67..7acda04 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.h
++++ b/drivers/net/ethernet/ibm/ibmveth.h
+@@ -209,6 +209,7 @@ struct ibmveth_rx_q_entry {
+ #define IBMVETH_RXQ_TOGGLE		0x80000000
+ #define IBMVETH_RXQ_TOGGLE_SHIFT	31
+ #define IBMVETH_RXQ_VALID		0x40000000
++#define IBMVETH_RXQ_LRG_PKT		0x04000000
+ #define IBMVETH_RXQ_NO_CSUM		0x02000000
+ #define IBMVETH_RXQ_CSUM_GOOD		0x01000000
+ #define IBMVETH_RXQ_OFF_MASK		0x0000FFFF
 -- 
-With Best Regards,
-Andy Shevchenko
+1.8.3.1
