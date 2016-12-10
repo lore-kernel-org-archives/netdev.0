@@ -1,45 +1,68 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] ARM: add cmpxchg64 helper for ARMv7-M
-Date: Sat, 10 Dec 2016 13:32:34 +0100
-Message-ID: <20161210123234.GA5468@salvia>
-References: <20161210103646.1407256-1-arnd@arndb.de>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
+Date: Sat, 10 Dec 2016 13:25:19 +0000
+Message-ID: <yw1x37hvykzk.fsf@unicorn.mansr.com>
+References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+ <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
+ <20161207.135127.789629809982860453.davem@davemloft.net>
+ <CAHmME9oLgjDA2F0gkFzHU2Es8-XCxQHRABS18OKF0EnZgt1=LQ@mail.gmail.com>
+ <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King <linux@armlinux.org.uk>, netdev@vger.kernel.org,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161210103646.1407256-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
+ LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: Felix Fietkau <nbd@nbd.name>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name> (Felix Fietkau's
+ message of "Sat, 10 Dec 2016 13:25:07 +0100")
+List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
 List-Id: netdev.vger.kernel.org
 
-Hi Arnd,
+Felix Fietkau <nbd@nbd.name> writes:
 
-On Sat, Dec 10, 2016 at 11:36:34AM +0100, Arnd Bergmann wrote:
-> A change to the netfilter code in net-next introduced the first caller of
-> cmpxchg64 that can get built on ARMv7-M, leading to an error from the
-> assembler that points out the lack of 64-bit atomics on this architecture:
-> 
-> /tmp/ccMe7djj.s: Assembler messages:
-> /tmp/ccMe7djj.s:367: Error: selected processor does not support `ldrexd r0,r1,[lr]' in Thumb mode
-> /tmp/ccMe7djj.s:371: Error: selected processor does not support `strexd ip,r2,r3,[lr]' in Thumb mode
-> /tmp/ccMe7djj.s:389: Error: selected processor does not support `ldrexd r8,r9,[r7]' in Thumb mode
-> /tmp/ccMe7djj.s:393: Error: selected processor does not support `strexd lr,r0,r1,[r7]' in Thumb mode
-> scripts/Makefile.build:299: recipe for target 'net/netfilter/nft_counter.o' failed
-> 
-> This makes ARMv7-M use the same emulation from asm-generic/cmpxchg-local.h
-> that we use on architectures earlier than ARMv6K, to fix the build. The
-> 32-bit atomics are available on ARMv7-M and we keep using them there.
-> This ARM specific change is probably something we should do regardless
-> of the netfilter code.
-> 
-> However, looking at the new nft_counter_reset() function in nft_counter.c,
-> this looks incorrect to me not just on ARMv7-M but also on other
-> architectures, with at least the following possible race:
+> On 2016-12-07 19:54, Jason A. Donenfeld wrote:
+>> On Wed, Dec 7, 2016 at 7:51 PM, David Miller <davem@davemloft.net> wrote:
+>>> It's so much better to analyze properly where the misalignment comes fr=
+om
+>>> and address it at the source, as we have for various cases that trip up
+>>> Sparc too.
+>> =
 
-Right, Eric Dumazet already spotted this problem. I'm preparing a
-patch that doesn't require cmpxchg64(). Will keep you on Cc. Thanks.
+>> That's sort of my attitude too, hence starting this thread. Any
+>> pointers you have about this would be most welcome, so as not to
+>> perpetuate what already seems like an issue in other parts of the
+>> stack.
+> Hi Jason,
+>
+> I'm the author of that hackish LEDE/OpenWrt patch that works around the
+> misalignment issues. Here's some context regarding that patch:
+>
+> I intentionally put it in the target specific patches for only one of
+> our MIPS targets. There are a few ar71xx devices where the misalignment
+> cannot be fixed, because the Ethernet MAC has a 4-byte DMA alignment
+> requirement, and does not support inserting 2 bytes of padding to
+> correct the IP header misalignment.
+>
+> With these limitations the choice was between this ugly network stack
+> patch or inserting a very expensive memmove in the data path (which is
+> better than taking the mis-alignment traps, but still hurts routing
+> performance significantly).
+
+I solved this problem in an Ethernet driver by copying the initial part
+of the packet to an aligned skb and appending the remainder using
+skb_add_rx_frag().  The kernel network stack only cares about the
+headers, so the alignment of the packet payload doesn't matter.
+
+-- =
+
+M=E5ns Rullg=E5rd
