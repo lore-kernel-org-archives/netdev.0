@@ -1,129 +1,62 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net 1/3] net: bridge: add helper to offload ageing time
-Date: Sat, 10 Dec 2016 13:44:27 -0500
-Message-ID: <20161210184429.31600-2-vivien.didelot@savoirfairelinux.com>
-References: <20161210184429.31600-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        cphealy@gmail.com, bridge@lists.linux-foundation.org,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Felix Fietkau <nbd@nbd.name>
+Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
+Date: Sat, 10 Dec 2016 21:09:57 +0100
+Message-ID: <7f8ba817-73ef-e1e1-4fdf-b9178e922008@nbd.name>
+References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+ <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
+ <20161207.135127.789629809982860453.davem@davemloft.net>
+ <CAHmME9oLgjDA2F0gkFzHU2Es8-XCxQHRABS18OKF0EnZgt1=LQ@mail.gmail.com>
+ <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name>
+ <yw1x37hvykzk.fsf@unicorn.mansr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        WireGuard mailing list <wireguard@lists.zx2c4.com>,
+        LKML <linux-kernel@vger.kernel.org>, linux-mips@linux-mips.org
+To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161210184429.31600-1-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <yw1x37hvykzk.fsf@unicorn.mansr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME switchdev attr is actually set
-when initializing a bridge port, and when configuring the bridge ageing
-time from ioctl/netlink/sysfs.
+On 2016-12-10 14:25, Måns Rullgård wrote:
+> Felix Fietkau <nbd@nbd.name> writes:
+> 
+>> On 2016-12-07 19:54, Jason A. Donenfeld wrote:
+>>> On Wed, Dec 7, 2016 at 7:51 PM, David Miller <davem@davemloft.net> wrote:
+>>>> It's so much better to analyze properly where the misalignment comes from
+>>>> and address it at the source, as we have for various cases that trip up
+>>>> Sparc too.
+>>> 
+>>> That's sort of my attitude too, hence starting this thread. Any
+>>> pointers you have about this would be most welcome, so as not to
+>>> perpetuate what already seems like an issue in other parts of the
+>>> stack.
+>> Hi Jason,
+>>
+>> I'm the author of that hackish LEDE/OpenWrt patch that works around the
+>> misalignment issues. Here's some context regarding that patch:
+>>
+>> I intentionally put it in the target specific patches for only one of
+>> our MIPS targets. There are a few ar71xx devices where the misalignment
+>> cannot be fixed, because the Ethernet MAC has a 4-byte DMA alignment
+>> requirement, and does not support inserting 2 bytes of padding to
+>> correct the IP header misalignment.
+>>
+>> With these limitations the choice was between this ugly network stack
+>> patch or inserting a very expensive memmove in the data path (which is
+>> better than taking the mis-alignment traps, but still hurts routing
+>> performance significantly).
+> 
+> I solved this problem in an Ethernet driver by copying the initial part
+> of the packet to an aligned skb and appending the remainder using
+> skb_add_rx_frag().  The kernel network stack only cares about the
+> headers, so the alignment of the packet payload doesn't matter.
+I considered that as well, but it's bad for routing performance if the
+ethernet MAC does not support scatter/gather for xmit.
+Unfortunately that limitation is quite common on embedded hardware.
 
-Add a __set_ageing_time helper to offload the ageing time to physical
-switches, and add the SWITCHDEV_F_DEFER flag since it can be called
-under bridge lock.
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/bridge/br_private.h |  1 +
- net/bridge/br_stp.c     | 28 ++++++++++++++++++++--------
- net/bridge/br_stp_if.c  | 12 +++---------
- 3 files changed, 24 insertions(+), 17 deletions(-)
-
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 1b63177..3c294b4 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -992,6 +992,7 @@ void __br_set_forward_delay(struct net_bridge *br, unsigned long t);
- int br_set_forward_delay(struct net_bridge *br, unsigned long x);
- int br_set_hello_time(struct net_bridge *br, unsigned long x);
- int br_set_max_age(struct net_bridge *br, unsigned long x);
-+int __set_ageing_time(struct net_device *dev, unsigned long t);
- int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time);
- 
- 
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 9258b8e..6ebe2a0 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -562,6 +562,24 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
- 
- }
- 
-+/* called under bridge lock */
-+int __set_ageing_time(struct net_device *dev, unsigned long t)
-+{
-+	struct switchdev_attr attr = {
-+		.orig_dev = dev,
-+		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
-+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
-+		.u.ageing_time = jiffies_to_clock_t(t),
-+	};
-+	int err;
-+
-+	err = switchdev_port_attr_set(dev, &attr);
-+	if (err && err != -EOPNOTSUPP)
-+		return err;
-+
-+	return 0;
-+}
-+
- /* Set time interval that dynamic forwarding entries live
-  * For pure software bridge, allow values outside the 802.1
-  * standard specification for special cases:
-@@ -572,17 +590,11 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
-  */
- int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time)
- {
--	struct switchdev_attr attr = {
--		.orig_dev = br->dev,
--		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
--		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
--		.u.ageing_time = ageing_time,
--	};
- 	unsigned long t = clock_t_to_jiffies(ageing_time);
- 	int err;
- 
--	err = switchdev_port_attr_set(br->dev, &attr);
--	if (err && err != -EOPNOTSUPP)
-+	err = __set_ageing_time(br->dev, t);
-+	if (err)
- 		return err;
- 
- 	br->ageing_time = t;
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index d8ad73b..2efbba5 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -36,12 +36,6 @@ static inline port_id br_make_port_id(__u8 priority, __u16 port_no)
- /* called under bridge lock */
- void br_init_port(struct net_bridge_port *p)
- {
--	struct switchdev_attr attr = {
--		.orig_dev = p->dev,
--		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
--		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
--		.u.ageing_time = jiffies_to_clock_t(p->br->ageing_time),
--	};
- 	int err;
- 
- 	p->port_id = br_make_port_id(p->priority, p->port_no);
-@@ -50,9 +44,9 @@ void br_init_port(struct net_bridge_port *p)
- 	p->topology_change_ack = 0;
- 	p->config_pending = 0;
- 
--	err = switchdev_port_attr_set(p->dev, &attr);
--	if (err && err != -EOPNOTSUPP)
--		netdev_err(p->dev, "failed to set HW ageing time\n");
-+	err = __set_ageing_time(p->dev, p->br->ageing_time);
-+	if (err)
-+		netdev_err(p->dev, "failed to offload ageing time\n");
- }
- 
- /* NO locks held */
--- 
-2.10.2
+- Felix
