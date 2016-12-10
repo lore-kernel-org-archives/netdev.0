@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2 v3] net: qcom/emac: simplify support for different
- SOCs
-Date: Fri, 09 Dec 2016 21:06:16 -0500 (EST)
-Message-ID: <20161209.210616.736366493501564578.davem@davemloft.net>
-References: <1481225061-30962-1-git-send-email-timur@codeaurora.org>
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Subject: Re: Synopsys Ethernet QoS
+Date: Sat, 10 Dec 2016 10:13:57 +0800
+Message-ID: <8910993f-f5ca-259c-c42b-207781a4ad51@synopsys.com>
+References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
+ <20161209.103327.1742213347114742435.davem@davemloft.net>
+ <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
+ <20161209.104152.1969880574279771010.davem@davemloft.net>
+ <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
+ <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
+ <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alokc@codeaurora.org
-To: timur@codeaurora.org
+Cc: David Miller <davem@davemloft.net>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        <lars.persson@axis.com>, <rabin.vincent@axis.com>,
+        netdev <netdev@vger.kernel.org>, <CARLOS.PALMINHA@synopsys.com>
+To: Andy Shevchenko <andy.shevchenko@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38664 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751076AbcLJCGT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 21:06:19 -0500
-In-Reply-To: <1481225061-30962-1-git-send-email-timur@codeaurora.org>
+Received: from smtprelay.synopsys.com ([198.182.60.111]:43314 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751953AbcLJCOE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 21:14:04 -0500
+In-Reply-To: <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Thu,  8 Dec 2016 13:24:19 -0600
 
-> On SOCs that have the Qualcomm EMAC network controller, the internal
-> PHY block is always different.  Sometimes the differences are small, 
-> sometimes it might be a completely different IP.  Either way, using version
-> numbers to differentiate them and putting all of the init code in one
-> file does not scale.
-> 
-> This patchset does two things:  The first breaks up the current code into
-> different files, and the second patch adds support for a third SOC, the
-> Qualcomm Technologies QDF2400 ARM Server SOC.
 
-Series applied.
+On 2016/12/10 8:16, Andy Shevchenko wrote:
+> On Sat, Dec 10, 2016 at 12:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>
+>> It's kind of sad that customers of that IP (stmmac, amd-xgbe, sxgbe)
+>> did
+>> actually pioneer the upstreaming effort, but it is good to see people
+>> from Synopsys willing to fix that in the future.
+> Wait, you would like to tell that we have more than 2 drivers for the
+> same (okay, same vendor) IP?!
+> It's better to unify them earlier, than have n+ copies.
+>
+> P.S. Though, I don't see how sxgbe got in the list. First glance on
+> the code doesn't show similarities.
+Glance on sxgbe_reg.h the register seems from Synopsys XGMAC IP... Probably,
+amd-xgbe and sxgbe targeted the same IP
