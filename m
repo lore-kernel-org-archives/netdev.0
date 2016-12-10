@@ -1,37 +1,45 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH 2/5] net: ethernet: ti: cpsw: don't start queue twice
-Date: Sat, 10 Dec 2016 14:23:47 +0200
-Message-ID: <1481372630-14914-3-git-send-email-ivan.khoronzhuk@linaro.org>
-References: <1481372630-14914-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: mugunthanvnm@ti.com, grygorii.strashko@ti.com
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] ARM: add cmpxchg64 helper for ARMv7-M
+Date: Sat, 10 Dec 2016 13:32:34 +0100
+Message-ID: <20161210123234.GA5468@salvia>
+References: <20161210103646.1407256-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Russell King <linux@armlinux.org.uk>, netdev@vger.kernel.org,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481372630-14914-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Content-Disposition: inline
+In-Reply-To: <20161210103646.1407256-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-No need to start queues after cpsw is started as it will be done
-while cpsw_adjust_link(), after phy connection.
+Hi Arnd,
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
- drivers/net/ethernet/ti/cpsw.c | 2 --
- 1 file changed, 2 deletions(-)
+On Sat, Dec 10, 2016 at 11:36:34AM +0100, Arnd Bergmann wrote:
+> A change to the netfilter code in net-next introduced the first caller of
+> cmpxchg64 that can get built on ARMv7-M, leading to an error from the
+> assembler that points out the lack of 64-bit atomics on this architecture:
+> 
+> /tmp/ccMe7djj.s: Assembler messages:
+> /tmp/ccMe7djj.s:367: Error: selected processor does not support `ldrexd r0,r1,[lr]' in Thumb mode
+> /tmp/ccMe7djj.s:371: Error: selected processor does not support `strexd ip,r2,r3,[lr]' in Thumb mode
+> /tmp/ccMe7djj.s:389: Error: selected processor does not support `ldrexd r8,r9,[r7]' in Thumb mode
+> /tmp/ccMe7djj.s:393: Error: selected processor does not support `strexd lr,r0,r1,[r7]' in Thumb mode
+> scripts/Makefile.build:299: recipe for target 'net/netfilter/nft_counter.o' failed
+> 
+> This makes ARMv7-M use the same emulation from asm-generic/cmpxchg-local.h
+> that we use on architectures earlier than ARMv6K, to fix the build. The
+> 32-bit atomics are available on ARMv7-M and we keep using them there.
+> This ARM specific change is probably something we should do regardless
+> of the netfilter code.
+> 
+> However, looking at the new nft_counter_reset() function in nft_counter.c,
+> this looks incorrect to me not just on ARMv7-M but also on other
+> architectures, with at least the following possible race:
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c45f7d2..23213a3 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1506,8 +1506,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 	if (cpsw->data.dual_emac)
- 		cpsw->slaves[priv->emac_port].open_stat = true;
- 
--	netif_tx_start_all_queues(ndev);
--
- 	return 0;
- 
- err_cleanup:
--- 
-2.7.4
+Right, Eric Dumazet already spotted this problem. I'm preparing a
+patch that doesn't require cmpxchg64(). Will keep you on Cc. Thanks.
