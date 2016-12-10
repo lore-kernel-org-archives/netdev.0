@@ -1,47 +1,38 @@
-From: =?utf-8?Q?Dan_L=C3=BCdtke?= <mail@danrl.com>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Sat, 10 Dec 2016 23:18:14 +0100
-Message-ID: <CE942916-BF45-44CC-A5F5-3838CF9C93BC@danrl.com>
-References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
- <095cac5b-b757-6f4a-e699-8eedf9ed7221@stressinduktion.org>
- <87vauvhwdu.fsf@alice.fifthhorseman.net>
-Mime-Version: 1.0 (Mac OS X Mail 10.1 \(3251\))
-Content-Type: text/plain; charset="us-ascii"
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [iproute2 net-next 1/8] lib bpf: Add support for BPF_PROG_ATTACH
+ and BPF_PROG_DETACH
+Date: Sat, 10 Dec 2016 15:15:33 -0700
+Message-ID: <93dbc1b0-a76e-4375-0a52-6aa5b4a78c7e@cumulusnetworks.com>
+References: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com>
+ <1481401934-4026-2-git-send-email-dsa@cumulusnetworks.com>
+ <584C70C0.8040506@iogearbox.net> <584C71F0.3000203@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>,
- Hannes Frederic Sowa <hannes@stressinduktion.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <87vauvhwdu.fsf@alice.fifthhorseman.net>
-List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35650 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752300AbcLJWPj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 17:15:39 -0500
+Received: by mail-pf0-f170.google.com with SMTP id i88so7657067pfk.2
+        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 14:15:39 -0800 (PST)
+In-Reply-To: <584C71F0.3000203@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-> On 8 Dec 2016, at 05:34, Daniel Kahn Gillmor <dkg@fifthhorseman.net> wrote:
+On 12/10/16 2:21 PM, Daniel Borkmann wrote:
+>>
+>> Please name it bpf_prog_create() then, it would be consistent to
+>> bpf_map_create() and shorter as well.
 > 
-> On Wed 2016-12-07 19:30:34 -0500, Hannes Frederic Sowa wrote:
->> Your custom protocol should be designed in a way you get an aligned ip
->> header. Most protocols of the IETF follow this mantra and it is always
->> possible to e.g. pad options so you end up on aligned boundaries for the
->> next header.
+> Sorry, lack of coffee, scratch that.
 > 
-> fwiw, i'm not convinced that "most protocols of the IETF follow this
-> mantra".  we've had multiple discussions in different protocol groups
-> about shaving or bloating by a few bytes here or there in different
-> protocols, and i don't think anyone has brought up memory alignment as
-> an argument in any of the discussions i've followed.
-> 
+> Can't the current bpf_prog_attach() stay as is, and you name the above new
+> functions bpf_prog_attach_fd() and bpf_prog_detach_fd()? I think that would
+> be better.
 
-If the trade-off is between 1 padding byte and 2 byte alignment versus 3 padding bytes and 4 byte alignment I would definitely opt for 3 padding bytes. I know how that waste feels like to a protocol designer, but I think it is worth it. Maybe the padding/reserved will be useful some day for an additional feature.
+ok. no concerns about consistency with libbpf in the kernel repo?
 
-I remember alignment being discussed and taken very seriously in 6man a couple of times. Often, though, protocol designers did align without much discussion. Implementing unaligned protocols is a pain I've experienced first hand.
+Seems like making iproute2 and the kernel version the same will allow samples and code to move between them much easier.
