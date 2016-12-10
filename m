@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] net: ethernet: ti: cpsw: sync rates for channels
- in dual emac mode
-Date: Sat, 10 Dec 2016 17:30:58 -0500 (EST)
-Message-ID: <20161210.173058.1191365813786924768.davem@davemloft.net>
-References: <1481372630-14914-1-git-send-email-ivan.khoronzhuk@linaro.org>
-        <1481372630-14914-6-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH] net: nicvf: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Sat, 10 Dec 2016 17:32:06 -0500 (EST)
+Message-ID: <20161210.173206.646424069710654483.davem@davemloft.net>
+References: <1481378448-22278-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+Cc: sgoutham@cavium.com, rric@kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: ivan.khoronzhuk@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58500 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753338AbcLJWa7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 17:30:59 -0500
-In-Reply-To: <1481372630-14914-6-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: tremyfr@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481378448-22278-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Date: Sat, 10 Dec 2016 14:23:50 +0200
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Sat, 10 Dec 2016 15:00:48 +0100
 
-> The channels are common for both ndevs in dual emac mode. Hence, keep
-> in sync their rates.
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 > 
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
 Applied.
