@@ -1,100 +1,209 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [iproute2 net-next 2/8] bpf: export bpf_prog_load
-Date: Sat, 10 Dec 2016 09:47:43 -0800
-Message-ID: <1481392069-3138-3-git-send-email-dsa@cumulusnetworks.com>
+Subject: [iproute2 net-next 5/8] Add filesystem APIs to lib
+Date: Sat, 10 Dec 2016 09:47:46 -0800
+Message-ID: <1481392069-3138-6-git-send-email-dsa@cumulusnetworks.com>
 References: <1481392069-3138-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33133 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752727AbcLJRr6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 12:47:58 -0500
-Received: by mail-pg0-f46.google.com with SMTP id 3so19380486pgd.0
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 09:47:57 -0800 (PST)
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:33135 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753085AbcLJRsA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 12:48:00 -0500
+Received: by mail-pg0-f51.google.com with SMTP id 3so19380648pgd.0
+        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 09:48:00 -0800 (PST)
 In-Reply-To: <1481392069-3138-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Code move only; no functional change intended.
+Add make_path to recursively call mkdir as needed to create a given
+path with the given mode.
+
+Add find_cgroup2_mount to lookup path where cgroup2 is mounted. If it
+is not already mounted, cgroup2 is mounted under /var/run/cgroup2 for
+use by iproute2.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/bpf_util.h |  3 +++
- lib/bpf.c          | 40 ++++++++++++++++++++--------------------
- 2 files changed, 23 insertions(+), 20 deletions(-)
+ include/utils.h |   2 +
+ lib/Makefile    |   2 +-
+ lib/fs.c        | 143 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 146 insertions(+), 1 deletion(-)
+ create mode 100644 lib/fs.c
 
-diff --git a/include/bpf_util.h b/include/bpf_util.h
-index 49b96bbc208f..dcbdca6978d6 100644
---- a/include/bpf_util.h
-+++ b/include/bpf_util.h
-@@ -75,6 +75,9 @@ int bpf_trace_pipe(void);
+diff --git a/include/utils.h b/include/utils.h
+index ac4517a3bde1..dc1d6b9607dd 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -257,5 +257,7 @@ int get_guid(__u64 *guid, const char *arg);
+ int get_real_family(int rtm_type, int rtm_family);
  
- void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len);
+ int cmd_exec(const char *cmd, char **argv, bool do_fork);
++int make_path(const char *path, mode_t mode);
++char *find_cgroup2_mount(void);
  
-+int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
-+		  size_t size_insns, const char *license, char *log,
-+		  size_t size_log);
- int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type);
- int bpf_prog_detach(int target_fd, enum bpf_attach_type type);
+ #endif /* __UTILS_H__ */
+diff --git a/lib/Makefile b/lib/Makefile
+index 749073261c49..0c57662b4f8f 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -8,7 +8,7 @@ CFLAGS += -fPIC
  
-diff --git a/lib/bpf.c b/lib/bpf.c
-index 103fc1ef0593..b04c3a678b9c 100644
---- a/lib/bpf.c
-+++ b/lib/bpf.c
-@@ -871,6 +871,26 @@ int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
- 	return bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
- }
+ UTILOBJ = utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o \
+ 	inet_proto.o namespace.o json_writer.o \
+-	names.o color.o bpf.o exec.o
++	names.o color.o bpf.o exec.o fs.o
  
-+int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
-+		  size_t size_insns, const char *license, char *log,
-+		  size_t size_log)
+ NLOBJ=libgenl.o ll_map.o libnetlink.o
+ 
+diff --git a/lib/fs.c b/lib/fs.c
+new file mode 100644
+index 000000000000..39cc96dccca9
+--- /dev/null
++++ b/lib/fs.c
+@@ -0,0 +1,143 @@
++/*
++ * fs.c         filesystem APIs
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	David Ahern <dsa@cumulusnetworks.com>
++ *
++ */
++
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <sys/socket.h>
++#include <sys/mount.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <string.h>
++#include <errno.h>
++#include <limits.h>
++
++#include "utils.h"
++
++#define CGROUP2_FS_NAME "cgroup2"
++
++/* if not already mounted cgroup2 is mounted here for iproute2's use */
++#define MNT_CGRP2_PATH  "/var/run/cgroup2"
++
++/* return mount path of first occurrence of given fstype */
++static char *find_fs_mount(const char *fs_to_find)
 +{
-+	union bpf_attr attr = {};
++	char path[4096];
++	char fstype[128];    /* max length of any filesystem name */
++	char *mnt = NULL;
++	FILE *fp;
 +
-+	attr.prog_type = type;
-+	attr.insns = bpf_ptr_to_u64(insns);
-+	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
-+	attr.license = bpf_ptr_to_u64(license);
-+
-+	if (size_log > 0) {
-+		attr.log_buf = bpf_ptr_to_u64(log);
-+		attr.log_size = size_log;
-+		attr.log_level = 1;
++	fp = fopen("/proc/mounts", "r");
++	if (!fp) {
++		fprintf(stderr,
++			"Failed to open mounts file: %s\n", strerror(errno));
++		return NULL;
 +	}
 +
-+	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
++	while (fscanf(fp, "%*s %4096s %127s %*s %*d %*d\n",
++		      path, fstype) == 2) {
++		if (strcmp(fstype, fs_to_find) == 0) {
++			mnt = strdup(path);
++			break;
++		}
++	}
++
++	fclose(fp);
++
++	return mnt;
 +}
 +
- #ifdef HAVE_ELF
- struct bpf_elf_prog {
- 	enum bpf_prog_type	type;
-@@ -988,26 +1008,6 @@ static int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
- 	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
- }
- 
--static int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
--			 size_t size_insns, const char *license, char *log,
--			 size_t size_log)
--{
--	union bpf_attr attr = {};
--
--	attr.prog_type = type;
--	attr.insns = bpf_ptr_to_u64(insns);
--	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
--	attr.license = bpf_ptr_to_u64(license);
--
--	if (size_log > 0) {
--		attr.log_buf = bpf_ptr_to_u64(log);
--		attr.log_size = size_log;
--		attr.log_level = 1;
--	}
--
--	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
--}
--
- static int bpf_obj_pin(int fd, const char *pathname)
- {
- 	union bpf_attr attr = {};
++/* caller needs to free string returned */
++char *find_cgroup2_mount(void)
++{
++	char *mnt = find_fs_mount(CGROUP2_FS_NAME);
++
++	if (mnt)
++		return mnt;
++
++	mnt = strdup(MNT_CGRP2_PATH);
++	if (!mnt) {
++		fprintf(stderr, "Failed to allocate memory for cgroup2 path\n");
++		return NULL;
++
++	}
++
++	if (make_path(mnt, 0755)) {
++		fprintf(stderr, "Failed to setup vrf cgroup2 directory\n");
++		free(mnt);
++		return NULL;
++	}
++
++	if (mount("none", mnt, CGROUP2_FS_NAME, 0, NULL)) {
++		/* EBUSY means already mounted */
++		if (errno != EBUSY) {
++			fprintf(stderr,
++				"Failed to mount cgroup2. Are CGROUPS enabled in your kernel?\n");
++			free(mnt);
++			return NULL;
++		}
++	}
++	return mnt;
++}
++
++int make_path(const char *path, mode_t mode)
++{
++	char *dir, *delim;
++	struct stat sbuf;
++	int rc = -1;
++
++	delim = dir = strdup(path);
++	if (dir == NULL) {
++		fprintf(stderr, "strdup failed copying path");
++		return -1;
++	}
++
++	/* skip '/' -- it had better exist */
++	if (*delim == '/')
++		delim++;
++
++	while (1) {
++		delim = strchr(delim, '/');
++		if (delim)
++			*delim = '\0';
++
++		if (stat(dir, &sbuf) != 0) {
++			if (errno != ENOENT) {
++				fprintf(stderr,
++					"stat failed for %s: %s\n",
++					dir, strerror(errno));
++				goto out;
++			}
++
++			if (mkdir(dir, mode) != 0) {
++				fprintf(stderr,
++					"mkdir failed for %s: %s",
++					dir, strerror(errno));
++				goto out;
++			}
++		}
++
++		if (delim == NULL)
++			break;
++
++		*delim = '/';
++		delim++;
++		if (*delim == '\0')
++			break;
++	}
++	rc = 0;
++out:
++	free(dir);
++
++	return rc;
++}
 -- 
 2.1.4
