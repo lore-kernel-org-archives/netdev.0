@@ -1,108 +1,87 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [iproute2 net-next 1/8] lib bpf: Add support for BPF_PROG_ATTACH and BPF_PROG_DETACH
-Date: Sat, 10 Dec 2016 12:32:07 -0800
-Message-ID: <1481401934-4026-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:34720 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752087AbcLJUcV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 15:32:21 -0500
-Received: by mail-pg0-f51.google.com with SMTP id x23so20195368pgx.1
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 12:32:21 -0800 (PST)
-In-Reply-To: <1481401934-4026-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
+Date: Sat, 10 Dec 2016 20:32:44 +0000
+Message-ID: <yw1xy3znwmmr.fsf@unicorn.mansr.com>
+References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+ <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
+ <20161207.135127.789629809982860453.davem@davemloft.net>
+ <CAHmME9oLgjDA2F0gkFzHU2Es8-XCxQHRABS18OKF0EnZgt1=LQ@mail.gmail.com>
+ <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name>
+ <yw1x37hvykzk.fsf@unicorn.mansr.com>
+ <7f8ba817-73ef-e1e1-4fdf-b9178e922008@nbd.name>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
+ LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: Felix Fietkau <nbd@nbd.name>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <7f8ba817-73ef-e1e1-4fdf-b9178e922008@nbd.name> (Felix Fietkau's
+ message of "Sat, 10 Dec 2016 21:09:57 +0100")
+List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-For consistency with other bpf commands, the functions are named
-bpf_prog_attach and bpf_prog_detach. The existing bpf_prog_attach is
-renamed to bpf_prog_load_and_report since it calls bpf_prog_load and
-bpf_prog_report.
+Felix Fietkau <nbd@nbd.name> writes:
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/bpf_util.h |  3 +++
- lib/bpf.c          | 31 ++++++++++++++++++++++++++-----
- 2 files changed, 29 insertions(+), 5 deletions(-)
+> On 2016-12-10 14:25, M=E5ns Rullg=E5rd wrote:
+>> Felix Fietkau <nbd@nbd.name> writes:
+>> =
 
-diff --git a/include/bpf_util.h b/include/bpf_util.h
-index 05baeecda57f..49b96bbc208f 100644
---- a/include/bpf_util.h
-+++ b/include/bpf_util.h
-@@ -75,6 +75,9 @@ int bpf_trace_pipe(void);
- 
- void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len);
- 
-+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type);
-+int bpf_prog_detach(int target_fd, enum bpf_attach_type type);
-+
- #ifdef HAVE_ELF
- int bpf_send_map_fds(const char *path, const char *obj);
- int bpf_recv_map_fds(const char *path, int *fds, struct bpf_map_aux *aux,
-diff --git a/lib/bpf.c b/lib/bpf.c
-index 2a8cd51d4dae..103fc1ef0593 100644
---- a/lib/bpf.c
-+++ b/lib/bpf.c
-@@ -850,6 +850,27 @@ int bpf_graft_map(const char *map_path, uint32_t *key, int argc, char **argv)
- 	return ret;
- }
- 
-+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_bpf_fd = prog_fd,
-+		.attach_type = type,
-+	};
-+
-+	return bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
-+}
-+
-+int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_type = type,
-+	};
-+
-+	return bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
-+}
-+
- #ifdef HAVE_ELF
- struct bpf_elf_prog {
- 	enum bpf_prog_type	type;
-@@ -1262,9 +1283,9 @@ static void bpf_prog_report(int fd, const char *section,
- 	bpf_dump_error(ctx, "Verifier analysis:\n\n");
- }
- 
--static int bpf_prog_attach(const char *section,
--			   const struct bpf_elf_prog *prog,
--			   struct bpf_elf_ctx *ctx)
-+static int bpf_prog_load_and_report(const char *section,
-+				    const struct bpf_elf_prog *prog,
-+				    struct bpf_elf_ctx *ctx)
- {
- 	int tries = 0, fd;
- retry:
-@@ -1656,7 +1677,7 @@ static int bpf_fetch_prog(struct bpf_elf_ctx *ctx, const char *section,
- 		prog.size    = data.sec_data->d_size;
- 		prog.license = ctx->license;
- 
--		fd = bpf_prog_attach(section, &prog, ctx);
-+		fd = bpf_prog_load_and_report(section, &prog, ctx);
- 		if (fd < 0)
- 			return fd;
- 
-@@ -1755,7 +1776,7 @@ static int bpf_fetch_prog_relo(struct bpf_elf_ctx *ctx, const char *section,
- 		prog.size    = data_insn.sec_data->d_size;
- 		prog.license = ctx->license;
- 
--		fd = bpf_prog_attach(section, &prog, ctx);
-+		fd = bpf_prog_load_and_report(section, &prog, ctx);
- 		if (fd < 0) {
- 			*lderr = true;
- 			return fd;
--- 
-2.1.4
+>>> On 2016-12-07 19:54, Jason A. Donenfeld wrote:
+>>>> On Wed, Dec 7, 2016 at 7:51 PM, David Miller <davem@davemloft.net> wro=
+te:
+>>>>> It's so much better to analyze properly where the misalignment comes =
+from
+>>>>> and address it at the source, as we have for various cases that trip =
+up
+>>>>> Sparc too.
+>>>> =
+
+>>>> That's sort of my attitude too, hence starting this thread. Any
+>>>> pointers you have about this would be most welcome, so as not to
+>>>> perpetuate what already seems like an issue in other parts of the
+>>>> stack.
+>>> Hi Jason,
+>>>
+>>> I'm the author of that hackish LEDE/OpenWrt patch that works around the
+>>> misalignment issues. Here's some context regarding that patch:
+>>>
+>>> I intentionally put it in the target specific patches for only one of
+>>> our MIPS targets. There are a few ar71xx devices where the misalignment
+>>> cannot be fixed, because the Ethernet MAC has a 4-byte DMA alignment
+>>> requirement, and does not support inserting 2 bytes of padding to
+>>> correct the IP header misalignment.
+>>>
+>>> With these limitations the choice was between this ugly network stack
+>>> patch or inserting a very expensive memmove in the data path (which is
+>>> better than taking the mis-alignment traps, but still hurts routing
+>>> performance significantly).
+>> =
+
+>> I solved this problem in an Ethernet driver by copying the initial part
+>> of the packet to an aligned skb and appending the remainder using
+>> skb_add_rx_frag().  The kernel network stack only cares about the
+>> headers, so the alignment of the packet payload doesn't matter.
+>
+> I considered that as well, but it's bad for routing performance if the
+> ethernet MAC does not support scatter/gather for xmit.
+> Unfortunately that limitation is quite common on embedded hardware.
+
+Yes, I can see that being an issue.  However, if you're doing zero-copy
+routing, the header part of the original buffer should still be there,
+unused, so you could presumably copy the header of the outgoing packet
+there and then do dma as usual.  Maybe there's something in the network
+stack that makes this impossible though.
+
+-- =
+
+M=E5ns Rullg=E5rd
