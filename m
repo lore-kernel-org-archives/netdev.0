@@ -1,32 +1,59 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net: mlx5: Fix Kconfig help text
-Date: Fri, 09 Dec 2016 23:09:07 -0500 (EST)
-Message-ID: <20161209.230907.2090202510909638105.davem@davemloft.net>
-References: <20161209215306.721-1-cov@codeaurora.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Fri, 9 Dec 2016 20:13:44 -0800
+Message-ID: <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
+References: <20161129164859.GD26673@madcap2.tricolour.ca> <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+ <20161130045207.GE26673@madcap2.tricolour.ca> <20161209060248.GT22655@madcap2.tricolour.ca>
+ <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com> <20161209110155.GW22655@madcap2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161209215306.721-1-cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-audit@redhat.com, Paul Moore <pmoore@redhat.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161209110155.GW22655@madcap2.tricolour.ca>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Fri,  9 Dec 2016 16:53:05 -0500
+On Fri, Dec 9, 2016 at 3:01 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> On 2016-12-08 22:57, Cong Wang wrote:
+>> On Thu, Dec 8, 2016 at 10:02 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
+>> > I also tried to extend Cong Wang's idea to attempt to proactively respond to a
+>> > NETLINK_URELEASE on the audit_sock and reset it, but ran into a locking error
+>> > stack dump using mutex_lock(&audit_cmd_mutex) in the notifier callback.
+>> > Eliminating the lock since the sock is dead anways eliminates the error.
+>> >
+>> > Is it safe?  I'll resubmit if this looks remotely sane.  Meanwhile I'll try to
+>> > get the test case to compile.
+>>
+>> It doesn't look safe, because 'audit_sock', 'audit_nlk_portid' and 'audit_pid'
+>> are updated as a whole and race between audit_receive_msg() and
+>> NETLINK_URELEASE.
+>
+> This is what I expected and why I originally added the mutex lock in the
+> callback...  The dumps I got were bare with no wrapper identifying the
+> process context or specific error, so I'm at a bit of a loss how to
+> solve this (without thinking more about it) other than instinctively
+> removing the mutex.
 
-> Since the following commit, Infiniband and Ethernet have not been
-> mutually exclusive.
-> 
-> Fixes: 4aa17b28 mlx5: Enable mutual support for IB and Ethernet
-> 
-> Signed-off-by: Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Netlink notifier can safely be converted to blocking one, I will send
+a patch.
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But I seriously doubt you really need NETLINK_URELEASE here,
+it adds nothing but overhead, b/c the netlink notifier is called on
+every netlink socket in the system, but for net exit path, that is
+relatively a slow path.
+
+Also, kauditd_send_skb() needs audit_cmd_mutex too.
+
+I will send a formal patch.
+
+Thanks.
