@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: skb_condense() can also deal with empty
- skbs
-Date: Fri, 09 Dec 2016 23:07:26 -0500 (EST)
-Message-ID: <20161209.230726.1585713028238746506.davem@davemloft.net>
-References: <1481299325.4930.183.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH] i40e: don't truncate match_method assignment
+Date: Fri, 09 Dec 2016 23:07:40 -0500 (EST)
+Message-ID: <20161209.230740.2078488933726675303.davem@davemloft.net>
+References: <20161209213921.26451-1-jacob.e.keller@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+        netdev@vger.kernel.org, sfr@canb.auug.org.au,
+        bimmy.pujari@intel.com
+To: jacob.e.keller@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40094 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40100 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751981AbcLJEH1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 23:07:27 -0500
-In-Reply-To: <1481299325.4930.183.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1752223AbcLJEHm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 23:07:42 -0500
+In-Reply-To: <20161209213921.26451-1-jacob.e.keller@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 09 Dec 2016 08:02:05 -0800
+From: Jacob Keller <jacob.e.keller@intel.com>
+Date: Fri,  9 Dec 2016 13:39:21 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> The .match_method field is a u8, so we shouldn't be casting to a u16,
+> and because it is only one byte, we do not need to byte swap anything.
+> Just assign the value directly. This avoids issues on Big Endian
+> architectures which would have byte swapped and then incorrectly
+> truncated the value.
 > 
-> It seems attackers can also send UDP packets with no payload at all.
-> 
-> skb_condense() can still be a win in this case.
-> 
-> It will be possible to replace the custom code in tcp_add_backlog()
-> to get full benefit from skb_condense()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+> Cc: Bimmy Pujari <bimmy.pujari@intel.com>
+> ---
+> Not sure if this was already in Jeff's queue, but since it's an obvious
+> fix for the issue found by Stephen, I thought I'd send it out now just
+> to make sure. Thanks for catching this, and sorry we didn't find the fix
+> earlier.
 
-Applied.
+Jeff, what do you want me to do with this?
