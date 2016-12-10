@@ -1,37 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 37/50] netfilter: nf_tables: atomic dump and reset for
- stateful objects
-Date: Sat, 10 Dec 2016 13:21:52 +0100
-Message-ID: <20161210122152.GA4653@salvia>
-References: <1481147576-5690-1-git-send-email-pablo@netfilter.org>
- <1481147576-5690-38-git-send-email-pablo@netfilter.org>
- <CAP=VYLp-ZBFjR1W9=V_vyPYAi1=Yub3ugq6D8hkoLigcPaaxFg@mail.gmail.com>
- <20161209102432.GA986@salvia>
- <1481293492.4930.168.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481296926.4930.171.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-        netfilter-devel@vger.kernel.org,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1481296926.4930.171.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH 1/5] net: ethernet: ti: cpsw: use same macros to get active slave
+Date: Sat, 10 Dec 2016 14:23:46 +0200
+Message-ID: <1481372630-14914-2-git-send-email-ivan.khoronzhuk@linaro.org>
+References: <1481372630-14914-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: mugunthanvnm@ti.com, grygorii.strashko@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481372630-14914-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 09, 2016 at 07:22:06AM -0800, Eric Dumazet wrote:
-> On Fri, 2016-12-09 at 06:24 -0800, Eric Dumazet wrote:
-> 
-> > It looks that you want a seqcount, even on 64bit arches,
-> > so that CPU 2 can restart its loop, and more importantly you need
-> > to not accumulate the values you read, because they might be old/invalid.
-> 
-> Untested patch to give general idea. I can polish it a bit later today.
+Use the same, more convenient macros, to get active slave.
 
-I'm preparing a patch now, so you can review it.
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+---
+ drivers/net/ethernet/ti/cpsw.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Eric, thanks a lot for reviewing and proposing a working approach!
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index b62d958..c45f7d2 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1624,10 +1624,7 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
+ 	struct cpsw_common *cpsw = priv->cpsw;
+ 	u32 ctrl, mtype;
+ 
+-	if (cpsw->data.dual_emac)
+-		slave = &cpsw->slaves[priv->emac_port];
+-	else
+-		slave = &cpsw->slaves[cpsw->data.active_slave];
++	slave = &cpsw->slaves[cpsw_slave_index(cpsw, priv)];
+ 
+ 	ctrl = slave_read(slave, CPSW2_CONTROL);
+ 	switch (cpsw->version) {
+-- 
+2.7.4
