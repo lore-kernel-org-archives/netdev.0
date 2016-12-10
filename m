@@ -1,78 +1,35 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Sat, 10 Dec 2016 21:36:32 +0100
-Message-ID: <07ae38aa-ffb5-f450-fbbb-001e91d4454d@nbd.name>
-References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
- <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
- <20161207.135127.789629809982860453.davem@davemloft.net>
- <CAHmME9oLgjDA2F0gkFzHU2Es8-XCxQHRABS18OKF0EnZgt1=LQ@mail.gmail.com>
- <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name>
- <yw1x37hvykzk.fsf@unicorn.mansr.com>
- <7f8ba817-73ef-e1e1-4fdf-b9178e922008@nbd.name>
- <yw1xy3znwmmr.fsf@unicorn.mansr.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v3] ibmveth: set correct gso_size and gso_type
+Date: Sat, 10 Dec 2016 15:56:47 -0500 (EST)
+Message-ID: <20161210.155647.1988856288960520451.davem@davemloft.net>
+References: <1481333480-10827-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+        <1481395188-9137-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <yw1xy3znwmmr.fsf@unicorn.mansr.com>
-List-Unsubscribe: <https://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <https://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brking@linux.vnet.ibm.com,
+        marcelo.leitner@gmail.com, pradeeps@linux.vnet.ibm.com,
+        jmaxwell37@gmail.com, zdai@us.ibm.com, eric.dumazet@gmail.com
+To: tlfalcon@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57372 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752094AbcLJU4v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 15:56:51 -0500
+In-Reply-To: <1481395188-9137-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMjAxNi0xMi0xMCAyMTozMiwgTcOlbnMgUnVsbGfDpXJkIHdyb3RlOgo+IEZlbGl4IEZpZXRr
-YXUgPG5iZEBuYmQubmFtZT4gd3JpdGVzOgo+IAo+PiBPbiAyMDE2LTEyLTEwIDE0OjI1LCBNw6Vu
-cyBSdWxsZ8OlcmQgd3JvdGU6Cj4+PiBGZWxpeCBGaWV0a2F1IDxuYmRAbmJkLm5hbWU+IHdyaXRl
-czoKPj4+IAo+Pj4+IE9uIDIwMTYtMTItMDcgMTk6NTQsIEphc29uIEEuIERvbmVuZmVsZCB3cm90
-ZToKPj4+Pj4gT24gV2VkLCBEZWMgNywgMjAxNiBhdCA3OjUxIFBNLCBEYXZpZCBNaWxsZXIgPGRh
-dmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOgo+Pj4+Pj4gSXQncyBzbyBtdWNoIGJldHRlciB0byBh
-bmFseXplIHByb3Blcmx5IHdoZXJlIHRoZSBtaXNhbGlnbm1lbnQgY29tZXMgZnJvbQo+Pj4+Pj4g
-YW5kIGFkZHJlc3MgaXQgYXQgdGhlIHNvdXJjZSwgYXMgd2UgaGF2ZSBmb3IgdmFyaW91cyBjYXNl
-cyB0aGF0IHRyaXAgdXAKPj4+Pj4+IFNwYXJjIHRvby4KPj4+Pj4gCj4+Pj4+IFRoYXQncyBzb3J0
-IG9mIG15IGF0dGl0dWRlIHRvbywgaGVuY2Ugc3RhcnRpbmcgdGhpcyB0aHJlYWQuIEFueQo+Pj4+
-PiBwb2ludGVycyB5b3UgaGF2ZSBhYm91dCB0aGlzIHdvdWxkIGJlIG1vc3Qgd2VsY29tZSwgc28g
-YXMgbm90IHRvCj4+Pj4+IHBlcnBldHVhdGUgd2hhdCBhbHJlYWR5IHNlZW1zIGxpa2UgYW4gaXNz
-dWUgaW4gb3RoZXIgcGFydHMgb2YgdGhlCj4+Pj4+IHN0YWNrLgo+Pj4+IEhpIEphc29uLAo+Pj4+
-Cj4+Pj4gSSdtIHRoZSBhdXRob3Igb2YgdGhhdCBoYWNraXNoIExFREUvT3BlbldydCBwYXRjaCB0
-aGF0IHdvcmtzIGFyb3VuZCB0aGUKPj4+PiBtaXNhbGlnbm1lbnQgaXNzdWVzLiBIZXJlJ3Mgc29t
-ZSBjb250ZXh0IHJlZ2FyZGluZyB0aGF0IHBhdGNoOgo+Pj4+Cj4+Pj4gSSBpbnRlbnRpb25hbGx5
-IHB1dCBpdCBpbiB0aGUgdGFyZ2V0IHNwZWNpZmljIHBhdGNoZXMgZm9yIG9ubHkgb25lIG9mCj4+
-Pj4gb3VyIE1JUFMgdGFyZ2V0cy4gVGhlcmUgYXJlIGEgZmV3IGFyNzF4eCBkZXZpY2VzIHdoZXJl
-IHRoZSBtaXNhbGlnbm1lbnQKPj4+PiBjYW5ub3QgYmUgZml4ZWQsIGJlY2F1c2UgdGhlIEV0aGVy
-bmV0IE1BQyBoYXMgYSA0LWJ5dGUgRE1BIGFsaWdubWVudAo+Pj4+IHJlcXVpcmVtZW50LCBhbmQg
-ZG9lcyBub3Qgc3VwcG9ydCBpbnNlcnRpbmcgMiBieXRlcyBvZiBwYWRkaW5nIHRvCj4+Pj4gY29y
-cmVjdCB0aGUgSVAgaGVhZGVyIG1pc2FsaWdubWVudC4KPj4+Pgo+Pj4+IFdpdGggdGhlc2UgbGlt
-aXRhdGlvbnMgdGhlIGNob2ljZSB3YXMgYmV0d2VlbiB0aGlzIHVnbHkgbmV0d29yayBzdGFjawo+
-Pj4+IHBhdGNoIG9yIGluc2VydGluZyBhIHZlcnkgZXhwZW5zaXZlIG1lbW1vdmUgaW4gdGhlIGRh
-dGEgcGF0aCAod2hpY2ggaXMKPj4+PiBiZXR0ZXIgdGhhbiB0YWtpbmcgdGhlIG1pcy1hbGlnbm1l
-bnQgdHJhcHMsIGJ1dCBzdGlsbCBodXJ0cyByb3V0aW5nCj4+Pj4gcGVyZm9ybWFuY2Ugc2lnbmlm
-aWNhbnRseSkuCj4+PiAKPj4+IEkgc29sdmVkIHRoaXMgcHJvYmxlbSBpbiBhbiBFdGhlcm5ldCBk
-cml2ZXIgYnkgY29weWluZyB0aGUgaW5pdGlhbCBwYXJ0Cj4+PiBvZiB0aGUgcGFja2V0IHRvIGFu
-IGFsaWduZWQgc2tiIGFuZCBhcHBlbmRpbmcgdGhlIHJlbWFpbmRlciB1c2luZwo+Pj4gc2tiX2Fk
-ZF9yeF9mcmFnKCkuICBUaGUga2VybmVsIG5ldHdvcmsgc3RhY2sgb25seSBjYXJlcyBhYm91dCB0
-aGUKPj4+IGhlYWRlcnMsIHNvIHRoZSBhbGlnbm1lbnQgb2YgdGhlIHBhY2tldCBwYXlsb2FkIGRv
-ZXNuJ3QgbWF0dGVyLgo+Pgo+PiBJIGNvbnNpZGVyZWQgdGhhdCBhcyB3ZWxsLCBidXQgaXQncyBi
-YWQgZm9yIHJvdXRpbmcgcGVyZm9ybWFuY2UgaWYgdGhlCj4+IGV0aGVybmV0IE1BQyBkb2VzIG5v
-dCBzdXBwb3J0IHNjYXR0ZXIvZ2F0aGVyIGZvciB4bWl0Lgo+PiBVbmZvcnR1bmF0ZWx5IHRoYXQg
-bGltaXRhdGlvbiBpcyBxdWl0ZSBjb21tb24gb24gZW1iZWRkZWQgaGFyZHdhcmUuCj4gCj4gWWVz
-LCBJIGNhbiBzZWUgdGhhdCBiZWluZyBhbiBpc3N1ZS4gIEhvd2V2ZXIsIGlmIHlvdSdyZSBkb2lu
-ZyB6ZXJvLWNvcHkKPiByb3V0aW5nLCB0aGUgaGVhZGVyIHBhcnQgb2YgdGhlIG9yaWdpbmFsIGJ1
-ZmZlciBzaG91bGQgc3RpbGwgYmUgdGhlcmUsCj4gdW51c2VkLCBzbyB5b3UgY291bGQgcHJlc3Vt
-YWJseSBjb3B5IHRoZSBoZWFkZXIgb2YgdGhlIG91dGdvaW5nIHBhY2tldAo+IHRoZXJlIGFuZCB0
-aGVuIGRvIGRtYSBhcyB1c3VhbC4gIE1heWJlIHRoZXJlJ3Mgc29tZXRoaW5nIGluIHRoZSBuZXR3
-b3JrCj4gc3RhY2sgdGhhdCBtYWtlcyB0aGlzIGltcG9zc2libGUgdGhvdWdoLgpUaGF0IHN0aWxs
-IHB1dHMgbW9yZSBwcmVzc3VyZSBvbiB0aGUgcmlkaWN1bG91c2x5IHNtYWxsIGRjYWNoZSBzaXpl
-cwp0aGF0IGFyZSB0eXBpY2FsIGZvciBlbWJlZGRlZCBNSVBTIHJvdXRlcnMuCgotIEZlbGl4Cgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpXaXJlR3VhcmQg
-bWFpbGluZyBsaXN0CldpcmVHdWFyZEBsaXN0cy56eDJjNC5jb20KaHR0cHM6Ly9saXN0cy56eDJj
-NC5jb20vbWFpbG1hbi9saXN0aW5mby93aXJlZ3VhcmQK
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Sat, 10 Dec 2016 12:39:48 -0600
+
+> v3: include a check for non-zero mss when calculating gso_segs
+> 
+> v2: calculate gso_segs after Eric Dumazet's comments on the earlier patch
+>     and make sure everyone is included on CC
+
+I already applied v1 which made it all the way even to Linus's
+tree.  So you'll have to send me relative fixups if there are
+things to fix or change since v1.
+
+You must always generate patches against the current 'net' tree.
